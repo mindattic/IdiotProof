@@ -5,3 +5,5 @@
 /.vs
 /bin/Debug/net10.0
 /obj
+/IdiotProof.UnitTests/bin/Debug/net10.0
+/IdiotProof.UnitTests/obj
