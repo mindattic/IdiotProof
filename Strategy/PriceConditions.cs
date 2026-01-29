@@ -128,7 +128,7 @@ namespace IdiotProof.Models
 
         public CustomCondition(string name, Func<double, double, bool> evaluator)
         {
-            Name = name;
+            Name = name ?? throw new ArgumentNullException(nameof(name));
             _evaluator = evaluator ?? throw new ArgumentNullException(nameof(evaluator));
         }
 

@@ -7,6 +7,12 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
+  <!-- Exclude unit test files from main project compilation -->
+  <ItemGroup>
+    <Compile Remove="IdiotProof.UnitTests\**\*.cs" />
+    <None Remove="IdiotProof.UnitTests\**\*.cs" />
+  </ItemGroup>
+
   <ItemGroup>
     <Reference Include="CSharpAPI">
       <HintPath>Dependancies\CSharpAPI.dll</HintPath>
@@ -18,6 +24,11 @@
 
   <ItemGroup>
     <Folder Include="Dependancies\" />
+    <Folder Include="Enums\" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="IdiotProof.UnitTests\IdiotProof.UnitTests.csproj" />
   </ItemGroup>
 
   <ItemGroup>

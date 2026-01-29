@@ -1,10 +1,34 @@
 // ============================================================================
 // IB Wrapper - EWrapper implementation for IBKR API
 // ============================================================================
+//
+// ╔═══════════════════════════════════════════════════════════════════════════╗
+// ║  ⚠️  WARNING: DO NOT MODIFY THIS FILE  ⚠️                                  ║
+// ║                                                                           ║
+// ║  This class implements the EWrapper interface from the Interactive        ║
+// ║  Brokers TWS API DLL (IBApi). The interface is defined by IB and cannot   ║
+// ║  be changed.                                                              ║
+// ║                                                                           ║
+// ║  LOCKED:                                                                  ║
+// ║    • Method signatures (names, parameters, return types)                  ║
+// ║    • Class inheritance (must implement EWrapper)                          ║
+// ║    • Interface member implementations                                     ║
+// ║                                                                           ║
+// ║  SAFE TO MODIFY:                                                          ║
+// ║    • Method body implementations (logic inside methods)                   ║
+// ║    • Private fields and helper methods                                    ║
+// ║    • Custom events and properties (non-interface members)                 ║
+// ║    • XML documentation comments                                           ║
+// ║                                                                           ║
+// ║  Reference: https://interactivebrokers.github.io/tws-api/               ║
+// ╚═══════════════════════════════════════════════════════════════════════════╝
+//
+// FUNCTIONALITY:
 // - Captures last trade prints for VWAP calculation
 // - Captures nextValidId for order IDs
 // - Captures execution details for fills
 // - Routes market data to registered handlers per ticker
+//
 // ============================================================================
 
 using IBApi;
@@ -17,9 +41,39 @@ using IbContract = IBApi.Contract;
 namespace IdiotProof.Models 
 {
     /// <summary>
-    /// Minimal EWrapper implementation for the pullback bot.
+    /// EWrapper implementation for the IBKR TWS API.
     /// Handles market data, order IDs, and execution reports.
     /// </summary>
+    /// <remarks>
+    /// <para><b>⚠️ EXTERNAL DEPENDENCY - DO NOT MODIFY INTERFACE MEMBERS ⚠️</b></para>
+    /// <para>
+    /// This class implements <see cref="EWrapper"/> from the Interactive Brokers TWS API DLL.
+    /// All interface method signatures are defined by IB and cannot be changed.
+    /// </para>
+    /// 
+    /// <para><b>What is LOCKED (do not change):</b></para>
+    /// <list type="bullet">
+    ///   <item>Method signatures (names, parameters, return types)</item>
+    ///   <item>Class inheritance (<c>: EWrapper</c>)</item>
+    ///   <item>Interface member implementations</item>
+    /// </list>
+    /// 
+    /// <para><b>What is SAFE to modify:</b></para>
+    /// <list type="bullet">
+    ///   <item>Method body implementations (logic inside methods)</item>
+    ///   <item>Private fields and helper methods</item>
+    ///   <item>Custom events like <see cref="OnLastTrade"/> and <see cref="OnOrderFill"/></item>
+    ///   <item>XML documentation comments</item>
+    /// </list>
+    /// 
+    /// <para><b>Key Events:</b></para>
+    /// <list type="bullet">
+    ///   <item><see cref="OnLastTrade"/>: Fired when last trade data is received.</item>
+    ///   <item><see cref="OnOrderFill"/>: Fired when an order execution is reported.</item>
+    /// </list>
+    /// 
+    /// <para><b>Reference:</b> https://interactivebrokers.github.io/tws-api/</para>
+    /// </remarks>
     public sealed class IbWrapper : EWrapper
     {
         public EReaderSignal Signal { get; } = new EReaderMonitorSignal();

@@ -1,10 +1,29 @@
 // ============================================================================
 // Pullback Runner - Strategy State Machine
 // ============================================================================
+//
+// ╔═══════════════════════════════════════════════════════════════════════════╗
+// ║  IBKR API DEPENDENCY                                                      ║
+// ║                                                                           ║
+// ║  This class directly interfaces with the Interactive Brokers TWS API.     ║
+// ║  When modifying order submission code, ensure compatibility with IB API:  ║
+// ║                                                                           ║
+// ║  Order Properties Used:                                                   ║
+// ║    • order.Action      = "BUY" | "SELL"                                  ║
+// ║    • order.OrderType   = "MKT" | "LMT"                                   ║
+// ║    • order.TotalQuantity                                                  ║
+// ║    • order.LmtPrice    (for limit orders)                                ║
+// ║    • order.OutsideRth  = true | false                                    ║
+// ║    • order.Tif         = "GTC" | "DAY" | etc.                            ║
+// ║                                                                           ║
+// ║  Reference: https://interactivebrokers.github.io/tws-api/               ║
+// ╚═══════════════════════════════════════════════════════════════════════════╝
+//
 // Stage 1: Wait for price >= BreakoutLevel
 // Stage 2: Wait for price <= PullbackLevel  
 // Stage 3: Wait for price >= VWAP
 // Stage 4: Enter Long
+//
 // ============================================================================
 
 using IBApi;

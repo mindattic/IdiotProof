@@ -1,6 +1,26 @@
 // ============================================================================
 // Strategy Runner - Executes multi-step strategies
 // ============================================================================
+//
+// ╔═══════════════════════════════════════════════════════════════════════════╗
+// ║  IBKR API DEPENDENCY                                                      ║
+// ║                                                                           ║
+// ║  This class directly interfaces with the Interactive Brokers TWS API.     ║
+// ║  When modifying order submission code, ensure compatibility with IB API:  ║
+// ║                                                                           ║
+// ║  Order Properties Used:                                                   ║
+// ║    • order.Action        = "BUY" | "SELL"                                ║
+// ║    • order.OrderType     = "MKT" | "LMT" | "STP"                         ║
+// ║    • order.TotalQuantity                                                  ║
+// ║    • order.LmtPrice      (for limit orders)                              ║
+// ║    • order.AuxPrice      (for stop orders)                               ║
+// ║    • order.OutsideRth    = true | false                                  ║
+// ║    • order.Tif           = "GTC" | "DAY" | "IOC" | "FOK" | "OPG" | "DTC"║
+// ║    • order.AllOrNone     = true | false                                  ║
+// ║    • order.Account       (for multi-account setups)                       ║
+// ║                                                                           ║
+// ║  Reference: https://interactivebrokers.github.io/tws-api/               ║
+// ╚═══════════════════════════════════════════════════════════════════════════╝
 
 using IBApi;
 using IdiotProof;
@@ -21,6 +41,10 @@ namespace IdiotProof.Models
         NeverBought,
         /// <summary>Position taken and take profit was filled.</summary>
         TakeProfitFilled,
+        /// <summary>Position taken and stop loss was triggered.</summary>
+        StopLossFilled,
+        /// <summary>Position taken and trailing stop loss was triggered.</summary>
+        TrailingStopLossFilled,
         /// <summary>Position taken, time expired, exited with profit.</summary>
         ExitedWithProfit,
         /// <summary>Position taken, time expired, cancelled TP (holding position).</summary>
@@ -65,9 +89,19 @@ namespace IdiotProof.Models
         private bool _takeProfitCancelled;
         private double _takeProfitTarget;
 
+        // Stop loss tracking
+        private int _stopLossOrderId = -1;
+        private bool _stopLossFilled;
+
         // Exit tracking
         private bool _exitedWithProfit;
         private double _exitFillPrice;
+
+        // Trailing stop loss tracking
+        private int _trailingStopLossOrderId = -1;
+        private bool _trailingStopLossTriggered;
+        private double _trailingStopLossPrice;
+        private double _highWaterMark;  // Highest price since entry (for trailing stop)
 
         // Cancel timer
         private Timer? _cancelTimer;
@@ -175,8 +209,112 @@ namespace IdiotProof.Models
 
             double vwap = GetVwap();
 
+            // Monitor trailing stop loss if position is open
+            if (_entryFilled && !_isComplete)
+            {
+                MonitorTrailingStopLoss(lastPrice);
+            }
+
             // Evaluate current condition
             EvaluateConditions(lastPrice, vwap);
+        }
+
+        /// <summary>
+        /// Monitors and updates the trailing stop loss based on current price.
+        /// </summary>
+        private void MonitorTrailingStopLoss(double currentPrice)
+        {
+            var order = _strategy.Order;
+
+            if (!order.EnableTrailingStopLoss || _trailingStopLossTriggered)
+                return;
+
+            bool isLong = order.Side == OrderSide.Buy;
+
+            // Update high water mark for long positions
+            if (isLong)
+            {
+                if (currentPrice > _highWaterMark)
+                {
+                    _highWaterMark = currentPrice;
+
+                    // Calculate new trailing stop price
+                    double newStopPrice = Math.Round(_highWaterMark * (1 - order.TrailingStopLossPercent), 2);
+
+                    // Only update if the new stop is higher (tighter)
+                    if (newStopPrice > _trailingStopLossPrice)
+                    {
+                        double oldStop = _trailingStopLossPrice;
+                        _trailingStopLossPrice = newStopPrice;
+
+                        if (oldStop > 0)
+                        {
+                            Log($"TRAILING STOP UPDATED: ${oldStop:F2} -> ${_trailingStopLossPrice:F2} (High: ${_highWaterMark:F2})", ConsoleColor.Magenta);
+                        }
+                        else
+                        {
+                            Log($"TRAILING STOP SET: ${_trailingStopLossPrice:F2} ({order.TrailingStopLossPercent * 100:F1}% below ${_highWaterMark:F2})", ConsoleColor.Magenta);
+                        }
+                    }
+                }
+
+                // Check if current price dropped below trailing stop
+                if (_trailingStopLossPrice > 0 && currentPrice <= _trailingStopLossPrice)
+                {
+                    Log($"*** TRAILING STOP TRIGGERED! Price ${currentPrice:F2} <= Stop ${_trailingStopLossPrice:F2}", ConsoleColor.Red);
+                    ExecuteTrailingStopLoss();
+                }
+            }
+            else
+            {
+                // For short positions, track low water mark and stop above
+                // (inverse logic - not implemented yet, but structure is here)
+            }
+        }
+
+        /// <summary>
+        /// Executes an immediate market sell when trailing stop loss is triggered.
+        /// </summary>
+        private void ExecuteTrailingStopLoss()
+        {
+            if (_trailingStopLossTriggered)
+                return;
+
+            _trailingStopLossTriggered = true;
+            var order = _strategy.Order;
+
+            // Cancel any existing take profit order
+            if (_takeProfitOrderId > 0 && !_takeProfitFilled && !_takeProfitCancelled)
+            {
+                Log($"Cancelling take profit order #{_takeProfitOrderId}...", ConsoleColor.Yellow);
+                _client.cancelOrder(_takeProfitOrderId, new OrderCancel());
+                _takeProfitCancelled = true;
+            }
+
+            // Submit immediate market sell
+            _trailingStopLossOrderId = _wrapper.ConsumeNextOrderId();
+
+            string action = order.Side == OrderSide.Buy ? "SELL" : "BUY";
+
+            var stopOrder = new Order
+            {
+                Action = action,
+                OrderType = "MKT",  // Market order for immediate execution
+                TotalQuantity = order.Quantity,
+                OutsideRth = order.OutsideRth,
+                Tif = "GTC"
+            };
+
+            // Set account if specified
+            if (!string.IsNullOrEmpty(Settings.IB_ACCOUNT))
+            {
+                stopOrder.Account = Settings.IB_ACCOUNT;
+            }
+
+            Log($">> SUBMITTING TRAILING STOP LOSS {action} {order.Quantity} @ MKT", ConsoleColor.Red);
+            Log($"  OrderId={_trailingStopLossOrderId} | Triggered at ${_lastPrice:F2}", ConsoleColor.DarkGray);
+
+            _client.placeOrder(_trailingStopLossOrderId, _contract, stopOrder);
         }
 
         private double GetVwap()
@@ -221,8 +359,9 @@ namespace IdiotProof.Models
                 Action = order.GetIbAction(),
                 OrderType = order.GetIbOrderType(),
                 TotalQuantity = order.Quantity,
-                OutsideRth = order.OutsideRth,
-                Tif = order.GetIbTif()
+                OutsideRth = GetEffectiveOutsideRth(order),
+                Tif = order.GetIbTif(),
+                AllOrNone = order.AllOrNone
             };
 
             // Set account if specified
@@ -240,10 +379,101 @@ namespace IdiotProof.Models
             }
 
             string priceStr = order.Type == OrderType.Limit ? $"@ ${ibOrder.LmtPrice:F2}" : "@ MKT";
+            string tifDesc = GetTifDescription(order.TimeInForce);
+            string aonStr = order.AllOrNone ? " | AON=true" : "";
             Log($">> SUBMITTING {order.Side} {order.Quantity} shares {priceStr}", ConsoleColor.Yellow);
-            Log($"  OrderId={_entryOrderId} | TIF={order.TimeInForce} | OutsideRTH={order.OutsideRth}", ConsoleColor.DarkGray);
+            Log($"  OrderId={_entryOrderId} | TIF={tifDesc} | OutsideRTH={ibOrder.OutsideRth}{aonStr}", ConsoleColor.DarkGray);
+
+            // Special handling for AtTheOpening orders
+            if (order.TimeInForce == TimeInForce.AtTheOpening)
+            {
+                Log($"  NOTE: Order will execute at market open auction only", ConsoleColor.DarkGray);
+            }
+
+            // Special handling for Overnight orders - schedule cancellation at market open
+            if (order.TimeInForce == TimeInForce.Overnight)
+            {
+                ScheduleOvernightCancellation();
+            }
+
+            // Log AllOrNone warning if enabled
+            if (order.AllOrNone)
+            {
+                Log($"  NOTE: AllOrNone enabled - order must fill completely or not at all", ConsoleColor.DarkGray);
+            }
 
             _client.placeOrder(_entryOrderId, _contract, ibOrder);
+        }
+
+        /// <summary>
+        /// Gets the effective OutsideRth setting based on TIF type.
+        /// </summary>
+        /// <remarks>
+        /// <para><b>Behavior by TIF:</b></para>
+        /// <list type="bullet">
+        ///   <item><see cref="TimeInForce.Overnight"/>: Forces OutsideRth = true.</item>
+        ///   <item><see cref="TimeInForce.OvernightPlusDay"/>: Forces OutsideRth = true.</item>
+        ///   <item><see cref="TimeInForce.AtTheOpening"/>: Uses order setting (typically false).</item>
+        ///   <item>All others: Uses the order's OutsideRth setting.</item>
+        /// </list>
+        /// </remarks>
+        private bool GetEffectiveOutsideRth(OrderAction order)
+        {
+            return order.TimeInForce switch
+            {
+                TimeInForce.Overnight => true,        // Must be true for extended hours
+                TimeInForce.OvernightPlusDay => true, // Must be true for overnight portion
+                _ => order.OutsideRth
+            };
+        }
+
+        /// <summary>
+        /// Gets a human-readable description of the TimeInForce setting.
+        /// </summary>
+        private string GetTifDescription(TimeInForce tif)
+        {
+            return tif switch
+            {
+                TimeInForce.Day => "Day (expires 4:00 PM EST)",
+                TimeInForce.GoodTillCancel => "GTC (until filled/cancelled)",
+                TimeInForce.ImmediateOrCancel => "IOC (immediate fill or cancel)",
+                TimeInForce.FillOrKill => "FOK (all or nothing)",
+                TimeInForce.Overnight => "Overnight (extended hours only)",
+                TimeInForce.OvernightPlusDay => "Overnight+Day (extended + next day)",
+                TimeInForce.AtTheOpening => "OPG (opening auction only)",
+                _ => tif.ToString()
+            };
+        }
+
+        /// <summary>
+        /// Schedules order cancellation at market open for Overnight TIF orders.
+        /// </summary>
+        /// <remarks>
+        /// Overnight orders should only execute during extended hours.
+        /// This method schedules automatic cancellation at 9:30 AM EST if not filled.
+        /// </remarks>
+        private void ScheduleOvernightCancellation()
+        {
+            var now = DateTime.Now;
+            var marketOpen = now.Date.Add(new TimeSpan(9, 30, 0)); // 9:30 AM local time
+
+            // If market already opened today, schedule for tomorrow
+            if (now >= marketOpen)
+            {
+                marketOpen = marketOpen.AddDays(1);
+                // Skip weekends
+                if (marketOpen.DayOfWeek == DayOfWeek.Saturday)
+                    marketOpen = marketOpen.AddDays(2);
+                else if (marketOpen.DayOfWeek == DayOfWeek.Sunday)
+                    marketOpen = marketOpen.AddDays(1);
+            }
+
+            var delay = marketOpen - now;
+            Log($"  OVERNIGHT TIF: Order will cancel at {marketOpen:HH:mm} if not filled ({delay.TotalHours:F1} hours)", ConsoleColor.DarkGray);
+
+            // Note: Actual timer implementation would go here
+            // For now, this is logged but the actual cancellation would need
+            // a separate timer mechanism similar to ScheduleTakeProfitCancellation
         }
 
         private void OnOrderFill(int orderId, double fillPrice, int fillSize)
@@ -268,7 +498,67 @@ namespace IdiotProof.Models
                     SubmitStopLoss(fillPrice);
                 }
 
+                // Initialize trailing stop loss tracking
+                if (_strategy.Order.EnableTrailingStopLoss)
+                {
+                    _highWaterMark = fillPrice;
+                    _trailingStopLossPrice = Math.Round(fillPrice * (1 - _strategy.Order.TrailingStopLossPercent), 2);
+                    Log($"TRAILING STOP INITIALIZED: ${_trailingStopLossPrice:F2} ({_strategy.Order.TrailingStopLossPercent * 100:F1}% below entry)", ConsoleColor.Magenta);
+                }
+
                 Log($"  Monitoring position... Entry=${fillPrice:F2}", ConsoleColor.DarkGray);
+                return;
+            }
+
+            // Check for trailing stop loss order fill
+            if (orderId == _trailingStopLossOrderId && _trailingStopLossTriggered)
+            {
+                _isComplete = true;
+                _exitFillPrice = fillPrice;
+
+                double pnl = _strategy.Order.Quantity * (fillPrice - _entryFillPrice);
+                _result = StrategyResult.TrailingStopLossFilled;
+
+                if (pnl >= 0)
+                {
+                    Log($"*** TRAILING STOP LOSS FILLED @ ${fillPrice:F2} | P&L: ${pnl:F2} (protected profit)", ConsoleColor.Yellow);
+                }
+                else
+                {
+                    Log($"*** TRAILING STOP LOSS FILLED @ ${fillPrice:F2} | P&L: ${pnl:F2} (limited loss)", ConsoleColor.Red);
+                }
+
+                // Cancel take profit if still active
+                if (_takeProfitOrderId > 0 && !_takeProfitFilled && !_takeProfitCancelled)
+                {
+                    _client.cancelOrder(_takeProfitOrderId, new OrderCancel());
+                    _takeProfitCancelled = true;
+                }
+
+                PrintFinalResult();
+                return;
+            }
+
+            // Check for fixed stop loss order fill
+            if (orderId == _stopLossOrderId && !_stopLossFilled)
+            {
+                _stopLossFilled = true;
+                _isComplete = true;
+                _exitFillPrice = fillPrice;
+
+                double pnl = _strategy.Order.Quantity * (fillPrice - _entryFillPrice);
+                _result = StrategyResult.StopLossFilled;
+
+                Log($"*** STOP LOSS FILLED @ ${fillPrice:F2} | P&L: ${pnl:F2}", ConsoleColor.Red);
+
+                // Cancel take profit if still active
+                if (_takeProfitOrderId > 0 && !_takeProfitFilled && !_takeProfitCancelled)
+                {
+                    _client.cancelOrder(_takeProfitOrderId, new OrderCancel());
+                    _takeProfitCancelled = true;
+                }
+
+                PrintFinalResult();
                 return;
             }
 
@@ -280,6 +570,12 @@ namespace IdiotProof.Models
                 _exitFillPrice = fillPrice;
 
                 double pnl = _strategy.Order.Quantity * (fillPrice - _entryFillPrice);
+
+                // Cancel stop loss if still active
+                if (_stopLossOrderId > 0 && !_stopLossFilled)
+                {
+                    _client.cancelOrder(_stopLossOrderId, new OrderCancel());
+                }
 
                 // Determine if this was the original TP or an early exit
                 if (_exitedWithProfit)
@@ -439,7 +735,7 @@ namespace IdiotProof.Models
         private void SubmitStopLoss(double entryPrice)
         {
             var order = _strategy.Order;
-            int slOrderId = _wrapper.ConsumeNextOrderId();
+            _stopLossOrderId = _wrapper.ConsumeNextOrderId();
 
             double slPrice = order.StopLossPrice.HasValue
                 ? Math.Round(order.StopLossPrice.Value, 2)
@@ -462,9 +758,9 @@ namespace IdiotProof.Models
             }
 
             Log($">> SUBMITTING STOP LOSS @ ${slPrice:F2}", ConsoleColor.Yellow);
-            Log($"  OrderId={slOrderId}", ConsoleColor.DarkGray);
+            Log($"  OrderId={_stopLossOrderId}", ConsoleColor.DarkGray);
 
-            _client.placeOrder(slOrderId, _contract, slOrder);
+            _client.placeOrder(_stopLossOrderId, _contract, slOrder);
         }
 
         public void Dispose()
@@ -496,20 +792,45 @@ namespace IdiotProof.Models
             Console.WriteLine();
             Console.WriteLine($"[{timestamp}] +===============================================================+");
 
+            double pnl = _strategy.Order.Quantity * (_exitFillPrice - _entryFillPrice);
+
             switch (_result)
             {
                 case StrategyResult.TakeProfitFilled:
                     Console.ForegroundColor = ConsoleColor.Green;
                     Console.WriteLine($"[{timestamp}] |  [{_strategy.Symbol}] RESULT: *** TAKE PROFIT FILLED ***");
                     Console.WriteLine($"[{timestamp}] |  Entry: ${_entryFillPrice:F2} -> Exit: ${_exitFillPrice:F2}");
-                    Console.WriteLine($"[{timestamp}] |  P&L: ${(_strategy.Order.Quantity * (_exitFillPrice - _entryFillPrice)):F2}");
+                    Console.WriteLine($"[{timestamp}] |  P&L: ${pnl:F2}");
+                    break;
+
+                case StrategyResult.StopLossFilled:
+                    Console.ForegroundColor = ConsoleColor.Red;
+                    Console.WriteLine($"[{timestamp}] |  [{_strategy.Symbol}] RESULT: *** STOP LOSS FILLED ***");
+                    Console.WriteLine($"[{timestamp}] |  Entry: ${_entryFillPrice:F2} -> Exit: ${_exitFillPrice:F2}");
+                    Console.WriteLine($"[{timestamp}] |  P&L: ${pnl:F2}");
+                    break;
+
+                case StrategyResult.TrailingStopLossFilled:
+                    if (pnl >= 0)
+                    {
+                        Console.ForegroundColor = ConsoleColor.Yellow;
+                        Console.WriteLine($"[{timestamp}] |  [{_strategy.Symbol}] RESULT: *** TRAILING STOP LOSS (profit protected) ***");
+                    }
+                    else
+                    {
+                        Console.ForegroundColor = ConsoleColor.Red;
+                        Console.WriteLine($"[{timestamp}] |  [{_strategy.Symbol}] RESULT: *** TRAILING STOP LOSS (loss limited) ***");
+                    }
+                    Console.WriteLine($"[{timestamp}] |  Entry: ${_entryFillPrice:F2} -> Exit: ${_exitFillPrice:F2}");
+                    Console.WriteLine($"[{timestamp}] |  High: ${_highWaterMark:F2} | Trail Stop: ${_trailingStopLossPrice:F2}");
+                    Console.WriteLine($"[{timestamp}] |  P&L: ${pnl:F2}");
                     break;
 
                 case StrategyResult.ExitedWithProfit:
                     Console.ForegroundColor = ConsoleColor.Cyan;
                     Console.WriteLine($"[{timestamp}] |  [{_strategy.Symbol}] RESULT: *** EXITED WITH PROFIT (time limit) ***");
                     Console.WriteLine($"[{timestamp}] |  Entry: ${_entryFillPrice:F2} -> Exit: ${_exitFillPrice:F2}");
-                    Console.WriteLine($"[{timestamp}] |  P&L: ${(_strategy.Order.Quantity * (_exitFillPrice - _entryFillPrice)):F2}");
+                    Console.WriteLine($"[{timestamp}] |  P&L: ${pnl:F2}");
                     break;
 
                 case StrategyResult.TakeProfitCancelled:

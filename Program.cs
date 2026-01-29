@@ -30,17 +30,17 @@ namespace IdiotProof
             var strategies = new List<TradingStrategy>
             {
                 // ----- NAMM Strategy -----
-                Stock.Ticker("NAMM")
-                    .Breakout(7.10)          // Step 1: Price >= 7.10
-                    .Pullback(6.80)          // Step 2: Price <= 6.80
-                    .AboveVwap()             // Step 3: Price >= VWAP
-                    .Buy(
-                        quantity: 100,
-                        takeProfit: 9.00,    // Take profit at $9.00
-                        outsideRth: true,
-                        takeProfitOutsideRth: true,
-                        endTime: new TimeOnly(8, 20)  // Cancel or TP at 8:20 AM if not filled
-                    ),
+                Stock
+                    .Ticker("NAMM")
+                    .Start(Time.PreMarket.Start)                            // Start monitoring at 3:00 AM CST
+                    .Breakout(7.10)                                         // Step 1: Price >= 7.10
+                    .Pullback(6.80)                                         // Step 2: Price <= 6.80
+                    .AboveVwap()                                            // Step 3: Price >= VWAP
+                    .Buy(quantity: 100, Price.Current)                      // Step 4: Buy 100 @ Current Price
+                    .TakeProfit(9.00)                                       // Take profit >= 9.00
+                    .StopLoss(6.50)                                         // Stop loss <= 6.50
+                    .ClosePosition(Time.PreMarket.End.AddMinutes(-10))      // Close Position @ 6:50 AM CST
+                    .End(Time.PreMarket.End),                               // Stop monitoring @ 7:00 AM CST
 
                 //// ----- FEED Strategy -----
                 //Stock.Ticker("FEED")

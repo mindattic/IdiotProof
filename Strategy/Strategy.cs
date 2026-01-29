@@ -1,6 +1,22 @@
 // ============================================================================
 // Strategy - Container for multi-step trading strategy
 // ============================================================================
+//
+// BEST PRACTICES:
+// 1. Use the Stock fluent builder to create TradingStrategy instances.
+// 2. Always define at least one condition before the order action.
+// 3. Use StartTime/EndTime to limit when the strategy monitors the market.
+// 4. Ensure Order has both TakeProfit and StopLoss configured.
+// 5. Use ClosePositionTime for time-based exits (e.g., end of session).
+//
+// STRATEGY LIFECYCLE:
+// 1. Created via Stock.Ticker()...Build()
+// 2. Passed to StrategyRunner for execution
+// 3. Conditions evaluated sequentially
+// 4. Order executed when all conditions met
+// 5. Position managed until exit (TP/SL/Time)
+//
+// ============================================================================
 
 using System;
 using System.Collections.Generic;
@@ -10,7 +26,17 @@ namespace IdiotProof.Models
 {
     /// <summary>
     /// Represents a complete trading strategy with symbol, conditions, and order action.
+    /// This is an immutable container created by the <see cref="Stock"/> fluent builder.
     /// </summary>
+    /// <remarks>
+    /// <para><b>Best Practices:</b></para>
+    /// <list type="bullet">
+    ///   <item>Use <see cref="Stock"/> fluent builder instead of direct instantiation.</item>
+    ///   <item>Conditions are evaluated sequentially in the order defined.</item>
+    ///   <item>Configure risk management via <see cref="Order"/> properties.</item>
+    ///   <item>Use time bounds (<see cref="StartTime"/>/<see cref="EndTime"/>) for session control.</item>
+    /// </list>
+    /// </remarks>
     public sealed class TradingStrategy
     {
         /// <summary>Stock symbol to trade.</summary>
@@ -33,6 +59,15 @@ namespace IdiotProof.Models
 
         /// <summary>Whether this strategy is enabled.</summary>
         public bool Enabled { get; init; } = true;
+
+        /// <summary>Time to start monitoring the strategy (null = immediately).</summary>
+        public TimeOnly? StartTime { get; init; }
+
+        /// <summary>Time to stop monitoring the strategy (null = no end time).</summary>
+        public TimeOnly? EndTime { get; init; }
+
+        /// <summary>Time to close position if still open (null = no auto-close).</summary>
+        public TimeOnly? ClosePositionTime { get; init; }
 
         /// <summary>
         /// Writes the strategy progress to console with colors.
