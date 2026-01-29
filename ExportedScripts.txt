@@ -1,0 +1,2223 @@
+﻿== IdiotProof EXPORT ==
+VERSION: 1
+CREATED_UTC: 2026-01-29T05:34:02Z
+ROOT: D:/Projects/IdiotProof
+
+<<<MANIFEST JSON START>>>
+[
+    {
+        "path":  "Models/IbWrapper.cs",
+        "sha256":  "A0EA5F9E5B7226A0F6A910ECABCCE61763FB0F69D9D8FB54076CCC953D3E5A25",
+        "bytes":  15514,
+        "lines":  267,
+        "ext":  ".cs",
+        "type":  "script",
+        "guid":  null
+    },
+    {
+        "path":  "Models/SetupState.cs",
+        "sha256":  "8A1F977CE22887EC61687C89FD95B63B9862B9AEDAFE542478C0D40CF7B82B78",
+        "bytes":  933,
+        "lines":  22,
+        "ext":  ".cs",
+        "type":  "script",
+        "guid":  null
+    },
+    {
+        "path":  "Models/SymbolConfig.cs",
+        "sha256":  "FE687A1EBCFA2B389D684C4D1296A7DB5C42E069B622E52D79386BFE84CCCE27",
+        "bytes":  2426,
+        "lines":  41,
+        "ext":  ".cs",
+        "type":  "script",
+        "guid":  null
+    },
+    {
+        "path":  "Program.cs",
+        "sha256":  "BAE5239BCB7613F1729FD059CC1E76B648D7CE1EBAAA5F444FADB3942B684DCA",
+        "bytes":  9474,
+        "lines":  186,
+        "ext":  ".cs",
+        "type":  "script",
+        "guid":  null
+    },
+    {
+        "path":  "Settings.cs",
+        "sha256":  "556C83839AB6DDE5143BF842C48006EAD23E9BEBA463E43886D0EC9D65BB62B7",
+        "bytes":  1117,
+        "lines":  31,
+        "ext":  ".cs",
+        "type":  "script",
+        "guid":  null
+    },
+    {
+        "path":  "Strategy/IStrategyCondition.cs",
+        "sha256":  "34454C55844D1153B49CCAB441572E4DA48434357669408CAD6478D1C2866975",
+        "bytes":  911,
+        "lines":  23,
+        "ext":  ".cs",
+        "type":  "script",
+        "guid":  null
+    },
+    {
+        "path":  "Strategy/OrderAction.cs",
+        "sha256":  "B8AC5C850B6D18B47E6DFA06B04700BAC3A093EB46D0267F3C708D10C836B578",
+        "bytes":  4652,
+        "lines":  111,
+        "ext":  ".cs",
+        "type":  "script",
+        "guid":  null
+    },
+    {
+        "path":  "Strategy/PriceConditions.cs",
+        "sha256":  "ABEA93178EFEFB60A6A811576DF5AF15034F3641B2C18728FD0B52152017808A",
+        "bytes":  4079,
+        "lines":  119,
+        "ext":  ".cs",
+        "type":  "script",
+        "guid":  null
+    },
+    {
+        "path":  "Strategy/PullbackRunner.cs",
+        "sha256":  "C0A018A4ED8C98045324DE35E39E5BEFE20E37095B407BC447F7FB60553AFE82",
+        "bytes":  9066,
+        "lines":  213,
+        "ext":  ".cs",
+        "type":  "script",
+        "guid":  null
+    },
+    {
+        "path":  "Strategy/Stock.cs",
+        "sha256":  "F33375F71C6DED74AC33B35DB70D9A9477DE38A1B51D70DCBB47DCC95CF68746",
+        "bytes":  9064,
+        "lines":  230,
+        "ext":  ".cs",
+        "type":  "script",
+        "guid":  null
+    },
+    {
+        "path":  "Strategy/Strategy.cs",
+        "sha256":  "55C7FEE2E7410EDAE4A8266D495D5BA2DD28B4BAAC3A23C624453281235E8CE7",
+        "bytes":  7573,
+        "lines":  160,
+        "ext":  ".cs",
+        "type":  "script",
+        "guid":  null
+    },
+    {
+        "path":  "Strategy/StrategyRunner.cs",
+        "sha256":  "5396558205AB173CDD58E6FF1DD72F578688A62119E872CA59DCB7A2F6DC77EB",
+        "bytes":  13440,
+        "lines":  277,
+        "ext":  ".cs",
+        "type":  "script",
+        "guid":  null
+    }
+]
+<<<MANIFEST JSON END>>>
+
+<<<FILE START>>>
+PATH: Models/IbWrapper.cs
+TYPE: script
+EXT: .cs
+SHA256: A0EA5F9E5B7226A0F6A910ECABCCE61763FB0F69D9D8FB54076CCC953D3E5A25
+BYTES: 15514
+LINES: 303
+<<<CONTENT START>>>
+// ============================================================================
+// IB Wrapper - EWrapper implementation for IBKR API
+// ============================================================================
+// - Captures last trade prints for VWAP calculation
+// - Captures nextValidId for order IDs
+// - Captures execution details for fills
+// - Routes market data to registered handlers per ticker
+// ============================================================================
+
+using IBApi;
+using System;
+using System.Collections.Concurrent;
+using System.Collections.Generic;
+using System.Threading;
+using IbContract = IBApi.Contract;
+
+namespace IdiotProof.Models 
+{
+    /// <summary>
+    /// Minimal EWrapper implementation for the pullback bot.
+    /// Handles market data, order IDs, and execution reports.
+    /// </summary>
+    public sealed class IbWrapper : EWrapper
+    {
+        public EReaderSignal Signal { get; } = new EReaderMonitorSignal();
+
+        private EClientSocket? _client;
+
+        private readonly ManualResetEventSlim _nextValidIdEvent = new ManualResetEventSlim(false);
+        private readonly object _orderIdLock = new object();
+        private int _nextOrderId = -1;
+
+        // Market data caches for LAST and LAST_SIZE pairing
+        private readonly ConcurrentDictionary<int, double> _lastByTicker = new();
+        private readonly ConcurrentDictionary<int, int> _lastSizeByTicker = new();
+
+        // Per-ticker handlers for routing market data to specific runners
+        private readonly ConcurrentDictionary<int, Action<double, int>> _tickerHandlers = new();
+
+        /// <summary>
+        /// Event fired when any last trade is received (legacy, fires for all tickers).
+        /// </summary>
+        public event Action<double, int>? OnLastTrade;
+
+        /// <summary>
+        /// Event fired when any order fill is received.
+        /// Parameters: orderId, fillPrice, fillSize
+        /// </summary>
+        public event Action<int, double, int>? OnOrderFill;
+
+        public void AttachClient(EClientSocket client)
+        {
+            _client = client;
+        }
+
+        /// <summary>
+        /// Registers a handler for market data from a specific ticker ID.
+        /// </summary>
+        public void RegisterTickerHandler(int tickerId, Action<double, int> handler)
+        {
+            _tickerHandlers[tickerId] = handler;
+        }
+
+        /// <summary>
+        /// Unregisters the handler for a specific ticker ID.
+        /// </summary>
+        public void UnregisterTickerHandler(int tickerId)
+        {
+            _tickerHandlers.TryRemove(tickerId, out _);
+        }
+
+        public bool WaitForNextValidId(TimeSpan timeout)
+        {
+            return _nextValidIdEvent.Wait(timeout);
+        }
+
+        public int ConsumeNextOrderId()
+        {
+            lock (_orderIdLock)
+            {
+                if (_nextOrderId < 0)
+                    throw new InvalidOperationException("nextOrderId not initialized.");
+
+                int id = _nextOrderId;
+                _nextOrderId++;
+                return id;
+            }
+        }
+
+        // -------------------------
+        // Connection / Errors
+        // -------------------------
+        public void error(Exception e)
+        {
+            Console.WriteLine("IB ERROR (Exception): " + e);
+        }
+
+        public void error(string str)
+        {
+            Console.WriteLine("IB ERROR: " + str);
+        }
+
+        public void error(int id, int errorCode, string errorMsg)
+        {
+            // Codes 2100-2199 are informational status messages - suppress them
+            if (errorCode >= 2100 && errorCode <= 2199)
+            {
+                return;
+            }
+
+            Console.WriteLine($"IB ERROR: id={id} code={errorCode} msg={errorMsg}");
+        }
+
+        public void error(int id, long time, int errorCode, string errorMsg, string advancedOrderRejectJson)
+        {
+            // Codes 2100-2199 are informational status messages - suppress them
+            if (errorCode >= 2100 && errorCode <= 2199)
+            {
+                return;
+            }
+
+            Console.WriteLine($"IB ERROR: id={id} code={errorCode} msg={errorMsg}");
+        }
+
+        public void connectionClosed()
+        {
+            Console.WriteLine("IB connection closed.");
+        }
+
+        public void connectAck()
+        {
+            if (_client != null && _client.AsyncEConnect)
+            {
+                _client.startApi();
+            }
+        }
+
+        // -------------------------
+        // Order IDs
+        // -------------------------
+        public void nextValidId(int orderId)
+        {
+            lock (_orderIdLock)
+            {
+                _nextOrderId = orderId;
+            }
+
+            Console.WriteLine("Received nextValidId: " + orderId);
+            _nextValidIdEvent.Set();
+        }
+
+        // -------------------------
+        // Market data (Last / Last Size)
+        // -------------------------
+        public void tickPrice(int tickerId, int field, double price, TickAttrib attribs)
+        {
+            if (field == TickType.LAST)
+            {
+                _lastByTicker[tickerId] = price;
+
+                if (_lastSizeByTicker.TryGetValue(tickerId, out int size))
+                {
+                    // Fire ticker-specific handler if registered
+                    if (_tickerHandlers.TryGetValue(tickerId, out var handler))
+                    {
+                        handler(price, size);
+                    }
+
+                    // Fire global event (legacy)
+                    OnLastTrade?.Invoke(price, size);
+                }
+            }
+        }
+
+        public void tickSize(int tickerId, int field, decimal size)
+        {
+            if (field == TickType.LAST_SIZE)
+            {
+                _lastSizeByTicker[tickerId] = (int)size;
+
+                if (_lastByTicker.TryGetValue(tickerId, out double price))
+                {
+                    // Fire ticker-specific handler if registered
+                    if (_tickerHandlers.TryGetValue(tickerId, out var handler))
+                    {
+                        handler(price, (int)size);
+                    }
+
+                    // Fire global event (legacy)
+                    OnLastTrade?.Invoke(price, (int)size);
+                }
+            }
+        }
+
+        // -------------------------
+        // Fills
+        // -------------------------
+        public void execDetails(int reqId, IbContract contract, IBApi.Execution execution)
+        {
+            if (execution != null)
+            {
+                OnOrderFill?.Invoke(execution.OrderId, execution.Price, (int)execution.Shares);
+            }
+        }
+
+        public void execDetailsEnd(int reqId) { }
+
+        // -------------------------
+        // Unused EWrapper members (required by interface)
+        // -------------------------
+
+        public void tickGeneric(int tickerId, int field, double value) { }
+        public void tickString(int tickerId, int field, string value) { }
+        public void tickEFP(int tickerId, int tickType, double basisPoints, string formattedBasisPoints, double totalDividends, int holdDays, string futureLastTradeDate, double dividendImpact, double dividendsToLastTradeDate) { }
+        public void orderStatus(int orderId, string status, decimal filled, decimal remaining, double avgFillPrice, long permId, int parentId, double lastFillPrice, int clientId, string whyHeld, double mktCapPrice) { }
+        public void openOrder(int orderId, IbContract contract, IBApi.Order order, IBApi.OrderState orderState) { }
+        public void openOrderEnd() { }
+        public void updateAccountValue(string key, string value, string currency, string accountName) { }
+        public void updatePortfolio(IbContract contract, decimal position, double marketPrice, double marketValue, double averageCost, double unrealizedPNL, double realizedPNL, string accountName) { }
+        public void updateAccountTime(string timestamp) { }
+        public void accountDownloadEnd(string accountName) { }
+        public void contractDetails(int reqId, IBApi.ContractDetails contractDetails) { }
+        public void bondContractDetails(int reqId, IBApi.ContractDetails contractDetails) { }
+        public void contractDetailsEnd(int reqId) { }
+        public void managedAccounts(string accountsList) { }
+        public void receiveFA(int faDataType, string faXmlData) { }
+        public void historicalData(int reqId, Bar bar) { }
+        public void historicalDataEnd(int reqId, string start, string end) { }
+        public void scannerParameters(string xml) { }
+        public void scannerData(int reqId, int rank, IBApi.ContractDetails contractDetails, string distance, string benchmark, string projection, string legsStr) { }
+        public void scannerDataEnd(int reqId) { }
+        public void realtimeBar(int reqId, long time, double open, double high, double low, double close, decimal volume, decimal wap, int count) { }
+        public void currentTime(long time) { }
+        public void fundamentalData(int reqId, string data) { }
+        public void deltaNeutralValidation(int reqId, IBApi.DeltaNeutralContract deltaNeutralContract) { }
+        public void tickSnapshotEnd(int reqId) { }
+        public void marketDataType(int reqId, int marketDataType) { }
+        public void commissionAndFeesReport(IBApi.CommissionAndFeesReport report) { }
+        public void position(string account, IbContract contract, decimal pos, double avgCost) { }
+        public void positionEnd() { }
+        public void accountSummary(int reqId, string account, string tag, string value, string currency) { }
+        public void accountSummaryEnd(int reqId) { }
+        public void verifyMessageAPI(string apiData) { }
+        public void verifyCompleted(bool isSuccessful, string errorText) { }
+        public void verifyAndAuthMessageAPI(string apiData, string xyzChallenge) { }
+        public void verifyAndAuthCompleted(bool isSuccessful, string errorText) { }
+        public void displayGroupList(int reqId, string groups) { }
+        public void displayGroupUpdated(int reqId, string contractInfo) { }
+        public void positionMulti(int reqId, string account, string modelCode, IbContract contract, decimal pos, double avgCost) { }
+        public void positionMultiEnd(int reqId) { }
+        public void accountUpdateMulti(int reqId, string account, string modelCode, string key, string value, string currency) { }
+        public void accountUpdateMultiEnd(int reqId) { }
+        public void securityDefinitionOptionParameter(int reqId, string exchange, int underlyingConId, string tradingClass, string multiplier, HashSet<string> expirations, HashSet<double> strikes) { }
+        public void securityDefinitionOptionParameterEnd(int reqId) { }
+        public void softDollarTiers(int reqId, IBApi.SoftDollarTier[] tiers) { }
+        public void familyCodes(IBApi.FamilyCode[] familyCodes) { }
+        public void symbolSamples(int reqId, IBApi.ContractDescription[] contractDescriptions) { }
+        public void mktDepthExchanges(DepthMktDataDescription[] depthMktDataDescriptions) { }
+        public void tickNews(int tickerId, long timeStamp, string providerCode, string articleId, string headline, string extraData) { }
+        public void smartComponents(int reqId, Dictionary<int, KeyValuePair<string, char>> theMap) { }
+        public void tickReqParams(int tickerId, double minTick, string bboExchange, int snapshotPermissions) { }
+        public void newsProviders(IBApi.NewsProvider[] newsProviders) { }
+        public void newsArticle(int requestId, int articleType, string articleText) { }
+        public void historicalNews(int requestId, string time, string providerCode, string articleId, string headline) { }
+        public void historicalNewsEnd(int requestId, bool hasMore) { }
+        public void headTimestamp(int reqId, string headTimestamp) { }
+        public void histogramData(int reqId, HistogramEntry[] data) { }
+        public void historicalDataUpdate(int reqId, Bar bar) { }
+        public void rerouteMktDataReq(int reqId, int conid, string exchange) { }
+        public void rerouteMktDepthReq(int reqId, int conid, string exchange) { }
+        public void marketRule(int marketRuleId, IBApi.PriceIncrement[] priceIncrements) { }
+        public void pnl(int reqId, double dailyPnL, double unrealizedPnL, double realizedPnL) { }
+        public void pnlSingle(int reqId, decimal pos, double dailyPnL, double unrealizedPnL, double realizedPnL, double value) { }
+        public void historicalTicks(int reqId, IBApi.HistoricalTick[] ticks, bool done) { }
+        public void historicalTicksBidAsk(int reqId, IBApi.HistoricalTickBidAsk[] ticks, bool done) { }
+        public void historicalTicksLast(int reqId, IBApi.HistoricalTickLast[] ticks, bool done) { }
+        public void tickByTickAllLast(int reqId, int tickType, long time, double price, decimal size, IBApi.TickAttribLast tickAttribLast, string exchange, string specialConditions) { }
+        public void tickByTickBidAsk(int reqId, long time, double bidPrice, double askPrice, decimal bidSize, decimal askSize, IBApi.TickAttribBidAsk tickAttribBidAsk) { }
+        public void tickByTickMidPoint(int reqId, long time, double midPoint) { }
+        public void orderBound(long orderId, int apiClientId, int apiOrderId) { }
+        public void completedOrder(IbContract contract, IBApi.Order order, IBApi.OrderState orderState) { }
+        public void completedOrdersEnd() { }
+        public void replaceFAEnd(int reqId, string text) { }
+        public void wshMetaData(int reqId, string dataJson) { }
+        public void wshEventData(int reqId, string dataJson) { }
+        public void historicalSchedule(int reqId, string startDateTime, string endDateTime, string timeZone, IBApi.HistoricalSession[] sessions) { }
+        public void userInfo(int reqId, string whiteBrandingId) { }
+        public void currentTimeInMillis(long time) { }
+        public void updateMktDepth(int tickerId, int position, int operation, int side, double price, decimal size) { }
+        public void updateMktDepthL2(int tickerId, int position, string marketMaker, int operation, int side, double price, decimal size, bool isSmartDepth) { }
+        public void updateNewsBulletin(int msgId, int msgType, string message, string origExchange) { }
+        public void tickOptionComputation(int tickerId, int field, int tickAttrib, double impliedVol, double delta, double optPrice, double pvDividend, double gamma, double vega, double theta, double undPrice) { }
+
+        // Protobuf callbacks (required by EWrapper interface in API 10.37)
+        public void orderStatusProtoBuf(IBApi.protobuf.OrderStatus orderStatus) { }
+        public void openOrderProtoBuf(IBApi.protobuf.OpenOrder openOrder) { }
+        public void openOrdersEndProtoBuf(IBApi.protobuf.OpenOrdersEnd openOrdersEnd) { }
+        public void errorProtoBuf(IBApi.protobuf.ErrorMessage errorMessage) { }
+        public void execDetailsProtoBuf(IBApi.protobuf.ExecutionDetails executionDetails) { }
+        public void execDetailsEndProtoBuf(IBApi.protobuf.ExecutionDetailsEnd executionDetailsEnd) { }
+    }
+}
+
+<<<CONTENT END>>>
+<<<FILE END>>>
+
+<<<FILE START>>>
+PATH: Models/SetupState.cs
+TYPE: script
+EXT: .cs
+SHA256: 8A1F977CE22887EC61687C89FD95B63B9862B9AEDAFE542478C0D40CF7B82B78
+BYTES: 933
+LINES: 28
+<<<CONTENT START>>>
+// ============================================================================
+// Setup State - Strategy state machine states
+// ============================================================================
+
+namespace IdiotProof.Models
+{
+    /// <summary>
+    /// Represents the current state of the pullback strategy state machine.
+    /// </summary>
+    public enum SetupState
+    {
+        /// <summary>Stage 1: Waiting for price >= BreakoutLevel</summary>
+        WaitingForBreakout = 0,
+
+        /// <summary>Stage 2: Waiting for price <= PullbackLevel</summary>
+        WaitingForPullback = 1,
+
+        /// <summary>Stage 3: Waiting for price >= VWAP</summary>
+        WaitingForVwapReclaim = 2,
+
+        /// <summary>Entry order has been submitted, waiting for fill</summary>
+        OrderSubmitted = 3,
+
+        /// <summary>Strategy complete (filled or stopped)</summary>
+        Done = 4
+    }
+}
+
+<<<CONTENT END>>>
+<<<FILE END>>>
+
+<<<FILE START>>>
+PATH: Models/SymbolConfig.cs
+TYPE: script
+EXT: .cs
+SHA256: FE687A1EBCFA2B389D684C4D1296A7DB5C42E069B622E52D79386BFE84CCCE27
+BYTES: 2426
+LINES: 49
+<<<CONTENT START>>>
+// ============================================================================
+// Symbol Configuration - Per-symbol strategy settings
+// ============================================================================
+
+namespace IdiotProof.Models
+{
+    /// <summary>
+    /// Configuration for a single symbol's pullback strategy.
+    /// Create one instance per symbol you want to trade.
+    /// </summary>
+    public sealed class SymbolConfig
+    {
+        // ----- Symbol Settings -----
+        public required string Symbol { get; init; }
+        public string Exchange { get; init; } = "SMART";
+        public string Currency { get; init; } = "USD";
+        public string SecType { get; init; } = "STK";
+
+        // ----- Strategy Levels -----
+        public required double BreakoutLevel { get; init; }     // Stage 1: Price must reach this level
+        public required double PullbackLevel { get; init; }     // Stage 2: Price must pull back to this level
+        public double VwapBuffer { get; init; } = 0.01;         // Stage 3: Price must be >= VWAP + this buffer
+
+        // ----- Order Settings -----
+        public int Quantity { get; init; } = 1000;              // Number of shares to buy
+        public bool UseLimitEntry { get; init; } = true;        // true = LIMIT order, false = MARKET order
+        public double LimitOffset { get; init; } = 0.02;        // For LIMIT orders: buy at VWAP + this offset
+        public string TimeInForce { get; init; } = "GTC";       // GTC = Good Till Cancelled
+
+        // ----- Take Profit Settings -----
+        public bool EnableTakeProfit { get; init; } = true;     // Enable automatic take profit order
+        public double TakeProfitOffset { get; init; } = 0.30;   // Sell at entry price + this offset
+
+        // ----- RTH (Regular Trading Hours) Settings -----
+        public bool AllowOutsideRth { get; init; } = true;      // Allow orders outside regular trading hours
+
+        // ----- Job Control -----
+        public bool Enabled { get; init; } = true;              // Enable/disable this job
+
+        /// <summary>
+        /// Creates a display-friendly summary of this configuration.
+        /// </summary>
+        public override string ToString()
+        {
+            return $"{Symbol}: Breakout={BreakoutLevel:F2}, Pullback={PullbackLevel:F2}, Qty={Quantity}, TP={TakeProfitOffset:F2}";
+        }
+    }
+}
+
+<<<CONTENT END>>>
+<<<FILE END>>>
+
+<<<FILE START>>>
+PATH: Program.cs
+TYPE: script
+EXT: .cs
+SHA256: BAE5239BCB7613F1729FD059CC1E76B648D7CE1EBAAA5F444FADB3942B684DCA
+BYTES: 9474
+LINES: 215
+<<<CONTENT START>>>
+// ============================================================================
+// IBKR Multi-Stage Strategy Bot
+// ============================================================================
+//
+// Define your strategies using the fluent API:
+//
+//   Stock.Create("SYMBOL")
+//       .Breakout(level)      // Price >= level
+//       .Pullback(level)      // Price <= level
+//       .AboveVwap()          // Price >= VWAP
+//       .Buy(quantity, takeProfit: price)
+//
+// ============================================================================
+
+using IBApi;
+using IdiotProof.Models;
+using System;
+using System.Collections.Generic;
+using System.Threading;
+
+namespace IdiotProof
+{
+    internal sealed class Program
+    {
+        public static void Main(string[] args)
+        {
+            // ================================================================
+            // STRATEGIES - Define your multi-step strategies here
+            // ================================================================
+            var strategies = new List<TradingStrategy>
+            {
+                // ----- NAMM Strategy -----
+                Stock.Create("NAMM")
+                    .Breakout(7.10)          // Step 1: Price >= 7.10
+                    .Pullback(6.80)          // Step 2: Price <= 6.80
+                    .AboveVwap()             // Step 3: Price >= VWAP
+                    .Buy(
+                        quantity: 1000,
+                        takeProfit: 9.00,    // Take profit at $9.00
+                        outsideRth: true,
+                        takeProfitOutsideRth: true,
+                        cancelAt: new TimeOnly(8, 20)  // Cancel TP at 8:20 AM if not filled
+                    ),
+
+                //// ----- FEED Strategy -----
+                //Stock.Create("FEED")
+                //    .Breakout(5.50)          // Step 1: Price >= 5.50
+                //    .Pullback(5.20)          // Step 2: Price <= 5.20
+                //    .AboveVwap()             // Step 3: Price >= VWAP
+                //    .Buy(
+                //        quantity: 500,
+                //        takeProfit: 6.00,
+                //        outsideRth: true
+                //    ),
+
+                //// ----- AUST Strategy -----
+                //Stock.Create("AUST")
+                //    .Breakout(3.00)          // Step 1: Price >= 3.00
+                //    .Pullback(2.80)          // Step 2: Price <= 2.80
+                //    .AboveVwap()             // Step 3: Price >= VWAP
+                //    .Buy(
+                //        quantity: 2000,
+                //        takeProfitOffset: 0.25,  // Take profit at entry + $0.25
+                //        outsideRth: true
+                //    ),
+
+                //// ----- Example: Disabled strategy -----
+                //Stock.Create("EXAMPLE")
+                //    .Enabled(false)          // Disabled - won't run
+                //    .Breakout(10.00)
+                //    .Pullback(9.50)
+                //    .AboveVwap()
+                //    .Buy(quantity: 100),
+
+                // ----- Example: Custom condition -----
+                // Stock.Create("CUSTOM")
+                //     .Breakout(5.00)
+                //     .When("Price between 4.50-4.80", (price, vwap) => price >= 4.50 && price <= 4.80)
+                //     .AboveVwap(buffer: 0.02)  // Price >= VWAP + 0.02
+                //     .Buy(quantity: 500, takeProfit: 6.00),
+            };
+
+            // ================================================================
+            // STARTUP
+            // ================================================================
+            Console.WriteLine("â•”â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•—");
+            Console.WriteLine("â•‘                    IdiotProof Strategy Bot                    â•‘");
+            Console.WriteLine("â•šâ•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•");
+            Console.WriteLine();
+
+            // Filter to enabled strategies only
+            var enabledStrategies = strategies.FindAll(s => s.Enabled);
+
+            if (enabledStrategies.Count == 0)
+            {
+                Console.WriteLine("ERROR: No enabled strategies found.");
+                return;
+            }
+
+            // ================================================================
+            // IB CONNECTION
+            // ================================================================
+            var wrapper = new IbWrapper();
+            var client = new EClientSocket(wrapper, wrapper.Signal);
+
+            wrapper.AttachClient(client);
+
+            Console.WriteLine($"Connecting to IBKR at {Settings.IB_HOST}:{Settings.IB_PORT}...");
+            client.eConnect(Settings.IB_HOST, Settings.IB_PORT, Settings.IB_CLIENT_ID);
+
+            // EReader must be created and started AFTER eConnect
+            var reader = new EReader(client, wrapper.Signal);
+            reader.Start();
+
+            var readerThread = new Thread(() =>
+            {
+                while (client.IsConnected())
+                {
+                    wrapper.Signal.waitForSignal();
+                    reader.processMsgs();
+                }
+            })
+            {
+                IsBackground = true
+            };
+            readerThread.Start();
+
+            if (!wrapper.WaitForNextValidId(TimeSpan.FromSeconds(Settings.CONNECTION_TIMEOUT_SECONDS)))
+            {
+                Console.WriteLine("ERROR: Connection failed. Check TWS/Gateway.");
+                return;
+            }
+
+            Console.WriteLine("Connected successfully!");
+
+            if (Settings.IsPaperTrading)
+            {
+                Console.ForegroundColor = ConsoleColor.Yellow;
+                Console.WriteLine("Mode: PAPER TRADING");
+                Console.ResetColor();
+            }
+            else
+            {
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine("Mode: LIVE TRADING");
+                Console.ResetColor();
+            }
+            Console.WriteLine();
+
+            // ================================================================
+            // START STRATEGIES
+            // ================================================================
+            var runners = new List<StrategyRunner>();
+            var tickerIds = new List<int>();
+            int baseTickerId = 1001;
+
+            foreach (var strategy in enabledStrategies)
+            {
+                int tickerId = baseTickerId++;
+
+                var contract = new Contract
+                {
+                    Symbol = strategy.Symbol,
+                    SecType = strategy.SecType,
+                    Exchange = strategy.Exchange,
+                    Currency = strategy.Currency
+                };
+
+                var runner = new StrategyRunner(strategy, contract, wrapper, client);
+                runners.Add(runner);
+
+                // Route market data to this runner
+                wrapper.RegisterTickerHandler(tickerId, runner.OnLastTrade);
+
+                // Request market data
+                client.reqMktData(tickerId, contract, "", false, false, null);
+                tickerIds.Add(tickerId);
+            }
+
+            // Display strategies with initial progress (step 0 = waiting on first condition)
+            var strategyWord = enabledStrategies.Count == 1 ? "strategy" : "strategies";
+            Console.WriteLine($"Loaded {enabledStrategies.Count} {strategyWord}:");
+            foreach (var runner in runners)
+            {
+                Console.WriteLine();
+                runner.Strategy.WriteProgress(runner.CurrentStep, runner.EntryFilled, runner.TakeProfitFilled, runner.LastPrice, runner.EntryFillPrice, runner.TakeProfitTarget);
+            }
+            Console.WriteLine();
+            Console.WriteLine("â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•");
+            Console.WriteLine("All strategies running. Press ENTER to stop.");
+            Console.WriteLine("â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•");
+            Console.ReadLine();
+
+            // ================================================================
+            // CLEANUP
+            // ================================================================
+            Console.WriteLine("Shutting down...");
+
+            foreach (int tickerId in tickerIds)
+            {
+                client.cancelMktData(tickerId);
+                wrapper.UnregisterTickerHandler(tickerId);
+            }
+
+            foreach (var runner in runners)
+            {
+                runner.Dispose();
+            }
+
+            client.eDisconnect();
+            Console.WriteLine("Disconnected. Goodbye!");
+        }
+    }
+}
+
+<<<CONTENT END>>>
+<<<FILE END>>>
+
+<<<FILE START>>>
+PATH: Settings.cs
+TYPE: script
+EXT: .cs
+SHA256: 556C83839AB6DDE5143BF842C48006EAD23E9BEBA463E43886D0EC9D65BB62B7
+BYTES: 1117
+LINES: 35
+<<<CONTENT START>>>
+// ============================================================================
+// Global Configuration - IB Connection Settings
+// ============================================================================
+
+namespace IdiotProof
+{
+    /// <summary>
+    /// Global configuration for IB connection settings.
+    /// These settings apply to all jobs.
+    /// </summary>
+    public static class Settings
+    {
+        // ----- IB Connection Settings -----
+        public const string IB_HOST = "127.0.0.1";
+        
+        /// <summary>
+        /// Gateway paper: 4002, Gateway live: 4001
+        /// </summary>
+        public const int IB_PORT = 4002;
+        
+        public static bool IsPaperTrading => IB_PORT == 4002;
+
+        /// <summary>
+        /// Unique client ID for this connection.
+        /// Each running instance needs a unique ID.
+        /// </summary>
+        public const int IB_CLIENT_ID = 99;
+
+        /// <summary>
+        /// Timeout in seconds to wait for connection.
+        /// </summary>
+        public const int CONNECTION_TIMEOUT_SECONDS = 10;
+    }
+}
+
+<<<CONTENT END>>>
+<<<FILE END>>>
+
+<<<FILE START>>>
+PATH: Strategy/IStrategyCondition.cs
+TYPE: script
+EXT: .cs
+SHA256: 34454C55844D1153B49CCAB441572E4DA48434357669408CAD6478D1C2866975
+BYTES: 911
+LINES: 26
+<<<CONTENT START>>>
+// ============================================================================
+// Strategy Condition Interface
+// ============================================================================
+
+namespace IdiotProof.Models
+{
+    /// <summary>
+    /// Represents a condition that must be met before proceeding to the next step.
+    /// </summary>
+    public interface IStrategyCondition
+    {
+        /// <summary>
+        /// Gets the name/description of this condition.
+        /// </summary>
+        string Name { get; }
+
+        /// <summary>
+        /// Evaluates whether the condition is met.
+        /// </summary>
+        /// <param name="currentPrice">The current stock price.</param>
+        /// <param name="vwap">The current VWAP value.</param>
+        /// <returns>True if the condition is satisfied.</returns>
+        bool Evaluate(double currentPrice, double vwap);
+    }
+}
+
+<<<CONTENT END>>>
+<<<FILE END>>>
+
+<<<FILE START>>>
+PATH: Strategy/OrderAction.cs
+TYPE: script
+EXT: .cs
+SHA256: B8AC5C850B6D18B47E6DFA06B04700BAC3A093EB46D0267F3C708D10C836B578
+BYTES: 4652
+LINES: 134
+<<<CONTENT START>>>
+// ============================================================================
+// Order Action - Defines buy/sell orders for strategies
+// ============================================================================
+
+namespace IdiotProof.Models
+{
+    /// <summary>
+    /// Time in force options for orders.
+    /// </summary>
+    public enum TimeInForce
+    {
+        /// <summary>Day order - expires at end of trading day.</summary>
+        Day,
+        
+        /// <summary>Good Till Cancelled - remains active until filled or cancelled.</summary>
+        GoodTillCancel,
+        
+        /// <summary>Immediate or Cancel - fill immediately or cancel.</summary>
+        ImmediateOrCancel,
+        
+        /// <summary>Fill or Kill - fill entire order immediately or cancel.</summary>
+        FillOrKill
+    }
+
+    /// <summary>
+    /// Order side (buy or sell).
+    /// </summary>
+    public enum OrderSide
+    {
+        Buy,
+        Sell
+    }
+
+    /// <summary>
+    /// Order type.
+    /// </summary>
+    public enum OrderType
+    {
+        Market,
+        Limit
+    }
+
+    /// <summary>
+    /// Represents an order action to be executed when strategy conditions are met.
+    /// </summary>
+    public sealed class OrderAction
+    {
+        /// <summary>Buy or Sell.</summary>
+        public OrderSide Side { get; init; } = OrderSide.Buy;
+
+        /// <summary>Number of shares.</summary>
+        public int Quantity { get; init; } = 100;
+
+        /// <summary>Market or Limit order.</summary>
+        public OrderType Type { get; init; } = OrderType.Limit;
+
+        /// <summary>Limit price (for limit orders). If null, uses VWAP + LimitOffset.</summary>
+        public double? LimitPrice { get; init; }
+
+        /// <summary>Offset from VWAP for limit orders (when LimitPrice is null).</summary>
+        public double LimitOffset { get; init; } = 0.02;
+
+        /// <summary>Time in force for the order.</summary>
+        public TimeInForce TimeInForce { get; init; } = TimeInForce.GoodTillCancel;
+
+        /// <summary>Allow order outside regular trading hours.</summary>
+        public bool OutsideRth { get; init; } = true;
+
+        /// <summary>Enable automatic take profit order.</summary>
+        public bool EnableTakeProfit { get; init; } = true;
+
+        /// <summary>Take profit price. If null, uses entry + TakeProfitOffset.</summary>
+        public double? TakeProfitPrice { get; init; }
+
+        /// <summary>Take profit offset from entry price (when TakeProfitPrice is null).</summary>
+        public double TakeProfitOffset { get; init; } = 0.30;
+
+        /// <summary>Allow take profit order outside regular trading hours.</summary>
+        public bool TakeProfitOutsideRth { get; init; } = true;
+
+        /// <summary>Enable automatic stop loss order.</summary>
+        public bool EnableStopLoss { get; init; } = false;
+
+        /// <summary>Stop loss price. If null, uses entry - StopLossOffset.</summary>
+        public double? StopLossPrice { get; init; }
+
+        /// <summary>Stop loss offset from entry price (when StopLossPrice is null).</summary>
+        public double StopLossOffset { get; init; } = 0.20;
+
+        /// <summary>Time to cancel unfilled take profit order (null = no auto-cancel).</summary>
+        public TimeOnly? CancelTakeProfitAt { get; init; }
+
+        /// <summary>
+        /// Gets the IB time-in-force string.
+        /// </summary>
+        public string GetIbTif() => TimeInForce switch
+        {
+            TimeInForce.Day => "DAY",
+            TimeInForce.GoodTillCancel => "GTC",
+            TimeInForce.ImmediateOrCancel => "IOC",
+            TimeInForce.FillOrKill => "FOK",
+            _ => "GTC"
+        };
+
+        /// <summary>
+        /// Gets the IB order type string.
+        /// </summary>
+        public string GetIbOrderType() => Type switch
+        {
+            OrderType.Market => "MKT",
+            OrderType.Limit => "LMT",
+            _ => "LMT"
+        };
+
+        /// <summary>
+        /// Gets the IB action string.
+        /// </summary>
+        public string GetIbAction() => Side switch
+        {
+            OrderSide.Buy => "BUY",
+            OrderSide.Sell => "SELL",
+            _ => "BUY"
+        };
+
+        public override string ToString()
+        {
+            var tpStr = EnableTakeProfit 
+                ? (TakeProfitPrice.HasValue ? $"TP={TakeProfitPrice:F2}" : $"TP=+{TakeProfitOffset:F2}") 
+                : "TP=Off";
+            return $"{Side} {Quantity} shares, {Type}, TIF={TimeInForce}, {tpStr}";
+        }
+    }
+}
+
+<<<CONTENT END>>>
+<<<FILE END>>>
+
+<<<FILE START>>>
+PATH: Strategy/PriceConditions.cs
+TYPE: script
+EXT: .cs
+SHA256: ABEA93178EFEFB60A6A811576DF5AF15034F3641B2C18728FD0B52152017808A
+BYTES: 4079
+LINES: 141
+<<<CONTENT START>>>
+// ============================================================================
+// Price Conditions - Various price-based strategy conditions
+// ============================================================================
+
+namespace IdiotProof.Models
+{
+    /// <summary>
+    /// Condition: Price >= specified level (breakout above resistance).
+    /// </summary>
+    public sealed class BreakoutCondition : IStrategyCondition
+    {
+        public double Level { get; }
+        public string Name => $"Breakout >= {Level:F2}";
+
+        public BreakoutCondition(double level)
+        {
+            Level = level;
+        }
+
+        public bool Evaluate(double currentPrice, double vwap)
+        {
+            return currentPrice >= Level;
+        }
+    }
+
+    /// <summary>
+    /// Condition: Price &lt;= specified level (pullback to support).
+    /// </summary>
+    public sealed class PullbackCondition : IStrategyCondition
+    {
+        public double Level { get; }
+        public string Name => $"Pullback <= {Level:F2}";
+
+        public PullbackCondition(double level)
+        {
+            Level = level;
+        }
+
+        public bool Evaluate(double currentPrice, double vwap)
+        {
+            return currentPrice <= Level;
+        }
+    }
+
+    /// <summary>
+    /// Condition: Price >= VWAP (above volume-weighted average price).
+    /// </summary>
+    public sealed class AboveVwapCondition : IStrategyCondition
+    {
+        public double Buffer { get; }
+        public string Name => Buffer > 0 ? $"Price >= VWAP + {Buffer:F2}" : "Price >= VWAP";
+
+        public AboveVwapCondition(double buffer = 0)
+        {
+            Buffer = buffer;
+        }
+
+        public bool Evaluate(double currentPrice, double vwap)
+        {
+            return vwap > 0 && currentPrice >= (vwap + Buffer);
+        }
+    }
+
+    /// <summary>
+    /// Condition: Price &lt;= VWAP (below volume-weighted average price).
+    /// </summary>
+    public sealed class BelowVwapCondition : IStrategyCondition
+    {
+        public double Buffer { get; }
+        public string Name => Buffer > 0 ? $"Price <= VWAP - {Buffer:F2}" : "Price <= VWAP";
+
+        public BelowVwapCondition(double buffer = 0)
+        {
+            Buffer = buffer;
+        }
+
+        public bool Evaluate(double currentPrice, double vwap)
+        {
+            return vwap > 0 && currentPrice <= (vwap - Buffer);
+        }
+    }
+
+    /// <summary>
+    /// Condition: Price > specified level.
+    /// </summary>
+    public sealed class PriceAboveCondition : IStrategyCondition
+    {
+        public double Level { get; }
+        public string Name => $"Price > {Level:F2}";
+
+        public PriceAboveCondition(double level)
+        {
+            Level = level;
+        }
+
+        public bool Evaluate(double currentPrice, double vwap)
+        {
+            return currentPrice > Level;
+        }
+    }
+
+    /// <summary>
+    /// Condition: Price &lt; specified level.
+    /// </summary>
+    public sealed class PriceBelowCondition : IStrategyCondition
+    {
+        public double Level { get; }
+        public string Name => $"Price < {Level:F2}";
+
+        public PriceBelowCondition(double level)
+        {
+            Level = level;
+        }
+
+        public bool Evaluate(double currentPrice, double vwap)
+        {
+            return currentPrice < Level;
+        }
+    }
+
+    /// <summary>
+    /// Custom condition using a delegate.
+    /// </summary>
+    public sealed class CustomCondition : IStrategyCondition
+    {
+        private readonly Func<double, double, bool> _evaluator;
+        public string Name { get; }
+
+        public CustomCondition(string name, Func<double, double, bool> evaluator)
+        {
+            Name = name;
+            _evaluator = evaluator ?? throw new ArgumentNullException(nameof(evaluator));
+        }
+
+        public bool Evaluate(double currentPrice, double vwap)
+        {
+            return _evaluator(currentPrice, vwap);
+        }
+    }
+}
+
+<<<CONTENT END>>>
+<<<FILE END>>>
+
+<<<FILE START>>>
+PATH: Strategy/PullbackRunner.cs
+TYPE: script
+EXT: .cs
+SHA256: C0A018A4ED8C98045324DE35E39E5BEFE20E37095B407BC447F7FB60553AFE82
+BYTES: 9066
+LINES: 258
+<<<CONTENT START>>>
+// ============================================================================
+// Pullback Runner - Strategy State Machine
+// ============================================================================
+// Stage 1: Wait for price >= BreakoutLevel
+// Stage 2: Wait for price <= PullbackLevel  
+// Stage 3: Wait for price >= VWAP
+// Stage 4: Enter Long
+// ============================================================================
+
+using IBApi;
+using IdiotProof.Models;
+using System;
+using IbContract = IBApi.Contract;
+
+namespace IdiotProof.Strategy
+{
+    /// <summary>
+    /// Executes the pullback strategy for a single symbol.
+    /// Create one instance per symbol you want to trade.
+    /// </summary>
+    public sealed class PullbackRunner
+    {
+        private readonly SymbolConfig _config;
+        private readonly IbContract _contract;
+        private readonly IbWrapper _wrapper;
+        private readonly EClientSocket _client;
+
+        private SetupState _state;
+
+        // VWAP accumulators
+        private double _pvSum;
+        private double _vSum;
+        private double _lastPrice;
+        private int _lastSize;
+
+        // Track the highest/lowest prices (useful for debugging)
+        private double _sessionHigh;
+        private double _sessionLow = double.MaxValue;
+
+        // Order tracking
+        private int _entryOrderId;
+        private bool _entryFilled;
+        private double _entryFillPrice;
+
+        /// <summary>
+        /// Gets the current state of the strategy.
+        /// </summary>
+        public SetupState State => _state;
+
+        /// <summary>
+        /// Gets the symbol this runner is tracking.
+        /// </summary>
+        public string Symbol => _config.Symbol;
+
+        /// <summary>
+        /// Gets whether the strategy has completed (filled or done).
+        /// </summary>
+        public bool IsComplete => _state == SetupState.Done;
+
+        /// <summary>
+        /// Gets the current VWAP value.
+        /// </summary>
+        public double CurrentVwap => GetVwap();
+
+        /// <summary>
+        /// Gets the last traded price.
+        /// </summary>
+        public double LastPrice => _lastPrice;
+
+        public PullbackRunner(SymbolConfig config, IbContract contract, IbWrapper wrapper, EClientSocket client)
+        {
+            _config = config ?? throw new ArgumentNullException(nameof(config));
+            _contract = contract ?? throw new ArgumentNullException(nameof(contract));
+            _wrapper = wrapper ?? throw new ArgumentNullException(nameof(wrapper));
+            _client = client ?? throw new ArgumentNullException(nameof(client));
+
+            _state = SetupState.WaitingForBreakout;
+
+            // Listen for fills
+            _wrapper.OnOrderFill += OnOrderFill;
+        }
+
+        /// <summary>
+        /// Call this method when a new trade tick is received.
+        /// </summary>
+        public void OnLastTrade(double lastPrice, int lastSize)
+        {
+            // Update local last
+            _lastPrice = lastPrice;
+            _lastSize = lastSize;
+
+            // Ignore bogus data
+            if (lastPrice <= 0 || lastSize <= 0)
+                return;
+
+            // Update session high/low
+            if (lastPrice > _sessionHigh)
+                _sessionHigh = lastPrice;
+            if (lastPrice < _sessionLow)
+                _sessionLow = lastPrice;
+
+            // Update VWAP accumulators: VWAP = sum(price * size) / sum(size)
+            _pvSum += lastPrice * lastSize;
+            _vSum += lastSize;
+
+            double vwap = GetVwap();
+
+            // State machine
+            switch (_state)
+            {
+                case SetupState.WaitingForBreakout:
+                    HandleWaitingForBreakout(vwap);
+                    break;
+
+                case SetupState.WaitingForPullback:
+                    HandleWaitingForPullback(vwap);
+                    break;
+
+                case SetupState.WaitingForVwapReclaim:
+                    HandleWaitingForVwapReclaim(vwap);
+                    break;
+
+                case SetupState.OrderSubmitted:
+                case SetupState.Done:
+                    // Wait for fills or do nothing
+                    break;
+            }
+        }
+
+        private double GetVwap()
+        {
+            if (_vSum <= 0) return 0;
+            return _pvSum / _vSum;
+        }
+
+        /// <summary>
+        /// Stage 1: Wait for price to break out above BreakoutLevel
+        /// </summary>
+        private void HandleWaitingForBreakout(double vwap)
+        {
+            if (_lastPrice >= _config.BreakoutLevel)
+            {
+                Console.WriteLine($"[{_config.Symbol}] âœ“ STAGE 1 COMPLETE: Breakout detected!");
+                Console.WriteLine($"    Last={_lastPrice:F2} >= Breakout={_config.BreakoutLevel:F2} | VWAP={vwap:F2}");
+                _state = SetupState.WaitingForPullback;
+            }
+        }
+
+        /// <summary>
+        /// Stage 2: Wait for price to pull back to PullbackLevel
+        /// </summary>
+        private void HandleWaitingForPullback(double vwap)
+        {
+            if (_lastPrice <= _config.PullbackLevel)
+            {
+                Console.WriteLine($"[{_config.Symbol}] âœ“ STAGE 2 COMPLETE: Pullback detected!");
+                Console.WriteLine($"    Last={_lastPrice:F2} <= Pullback={_config.PullbackLevel:F2} | VWAP={vwap:F2}");
+                _state = SetupState.WaitingForVwapReclaim;
+            }
+        }
+
+        /// <summary>
+        /// Stage 3: Wait for price to reclaim VWAP (price >= VWAP + buffer)
+        /// </summary>
+        private void HandleWaitingForVwapReclaim(double vwap)
+        {
+            if (vwap <= 0)
+                return;
+
+            double vwapTrigger = vwap + _config.VwapBuffer;
+
+            if (_lastPrice >= vwapTrigger)
+            {
+                Console.WriteLine($"[{_config.Symbol}] âœ“ STAGE 3 COMPLETE: VWAP reclaimed!");
+                Console.WriteLine($"    Last={_lastPrice:F2} >= VWAP+Buffer={vwapTrigger:F2} | VWAP={vwap:F2}");
+                SubmitEntry(vwap);
+                _state = SetupState.OrderSubmitted;
+            }
+        }
+
+        private void SubmitEntry(double vwap)
+        {
+            _entryOrderId = _wrapper.ConsumeNextOrderId();
+
+            var entry = new Order
+            {
+                Action = "BUY",
+                OrderType = _config.UseLimitEntry ? "LMT" : "MKT",
+                TotalQuantity = _config.Quantity,
+                OutsideRth = _config.AllowOutsideRth,
+                Tif = _config.TimeInForce
+            };
+
+            if (_config.UseLimitEntry)
+            {
+                entry.LmtPrice = Math.Round(vwap + _config.LimitOffset, 2);
+                Console.WriteLine($"[{_config.Symbol}] â†’ Submitting LIMIT BUY {_config.Quantity} @ {entry.LmtPrice:F2}");
+            }
+            else
+            {
+                Console.WriteLine($"[{_config.Symbol}] â†’ Submitting MARKET BUY {_config.Quantity}");
+            }
+
+            Console.WriteLine($"    TIF={_config.TimeInForce} | OutsideRTH={_config.AllowOutsideRth} | OrderId={_entryOrderId}");
+
+            _client.placeOrder(_entryOrderId, _contract, entry);
+        }
+
+        private void OnOrderFill(int orderId, double fillPrice, int fillSize)
+        {
+            if (orderId != _entryOrderId)
+                return;
+
+            _entryFilled = true;
+            _entryFillPrice = fillPrice;
+
+            Console.WriteLine($"[{_config.Symbol}] â˜… ENTRY FILLED!");
+            Console.WriteLine($"    OrderId={orderId} | FillPrice={fillPrice:F2} | FillSize={fillSize}");
+
+            if (_config.EnableTakeProfit)
+            {
+                SubmitTakeProfit(fillPrice);
+            }
+
+            _state = SetupState.Done;
+        }
+
+        private void SubmitTakeProfit(double entryFillPrice)
+        {
+            int tpOrderId = _wrapper.ConsumeNextOrderId();
+            double tpPrice = Math.Round(entryFillPrice + _config.TakeProfitOffset, 2);
+
+            var tp = new Order
+            {
+                Action = "SELL",
+                OrderType = "LMT",
+                TotalQuantity = _config.Quantity,
+                LmtPrice = tpPrice,
+                OutsideRth = _config.AllowOutsideRth,
+                Tif = _config.TimeInForce
+            };
+
+            Console.WriteLine($"[{_config.Symbol}] â†’ Submitting TAKE PROFIT SELL {_config.Quantity} @ {tpPrice:F2}");
+            Console.WriteLine($"    TIF={_config.TimeInForce} | OutsideRTH={_config.AllowOutsideRth} | OrderId={tpOrderId}");
+
+            _client.placeOrder(tpOrderId, _contract, tp);
+        }
+
+        /// <summary>
+        /// Unsubscribes from events. Call when disposing.
+        /// </summary>
+        public void Dispose()
+        {
+            _wrapper.OnOrderFill -= OnOrderFill;
+        }
+    }
+}
+
+<<<CONTENT END>>>
+<<<FILE END>>>
+
+<<<FILE START>>>
+PATH: Strategy/Stock.cs
+TYPE: script
+EXT: .cs
+SHA256: F33375F71C6DED74AC33B35DB70D9A9477DE38A1B51D70DCBB47DCC95CF68746
+BYTES: 9064
+LINES: 253
+<<<CONTENT START>>>
+// ============================================================================
+// Stock - Fluent Builder for Creating Strategies
+// ============================================================================
+//
+// Usage:
+// var strategy = Stock.Create("NAMM")
+//     .Breakout(7.10)
+//     .Pullback(6.80)
+//     .AboveVwap()
+//     .Buy(1000, takeProfit: 9.00);
+//
+// ============================================================================
+
+using System;
+using System.Collections.Generic;
+
+namespace IdiotProof.Models
+{
+    /// <summary>
+    /// Fluent builder for creating trading strategies.
+    /// </summary>
+    public sealed class Stock
+    {
+        private readonly string _symbol;
+        private string _exchange = "SMART";
+        private string _currency = "USD";
+        private string _secType = "STK";
+        private readonly List<IStrategyCondition> _conditions = new();
+        private bool _enabled = true;
+
+        private Stock(string symbol)
+        {
+            _symbol = symbol ?? throw new ArgumentNullException(nameof(symbol));
+        }
+
+        /// <summary>
+        /// Creates a new strategy builder for the specified symbol.
+        /// </summary>
+        public static Stock Create(string symbol) => new(symbol);
+
+        /// <summary>
+        /// Sets the exchange (default: SMART).
+        /// </summary>
+        public Stock Exchange(string exchange)
+        {
+            _exchange = exchange;
+            return this;
+        }
+
+        /// <summary>
+        /// Sets the currency (default: USD).
+        /// </summary>
+        public Stock Currency(string currency)
+        {
+            _currency = currency;
+            return this;
+        }
+
+        /// <summary>
+        /// Enables or disables this strategy.
+        /// </summary>
+        public Stock Enabled(bool enabled)
+        {
+            _enabled = enabled;
+            return this;
+        }
+
+        // ====================================================================
+        // CONDITION METHODS
+        // ====================================================================
+
+        /// <summary>
+        /// Adds a breakout condition: Price >= level.
+        /// </summary>
+        public Stock Breakout(double level)
+        {
+            _conditions.Add(new BreakoutCondition(level));
+            return this;
+        }
+
+        /// <summary>
+        /// Adds a pullback condition: Price &lt;= level.
+        /// </summary>
+        public Stock Pullback(double level)
+        {
+            _conditions.Add(new PullbackCondition(level));
+            return this;
+        }
+
+        /// <summary>
+        /// Adds an above-VWAP condition: Price >= VWAP + buffer.
+        /// </summary>
+        public Stock AboveVwap(double buffer = 0)
+        {
+            _conditions.Add(new AboveVwapCondition(buffer));
+            return this;
+        }
+
+        /// <summary>
+        /// Adds a below-VWAP condition: Price &lt;= VWAP - buffer.
+        /// </summary>
+        public Stock BelowVwap(double buffer = 0)
+        {
+            _conditions.Add(new BelowVwapCondition(buffer));
+            return this;
+        }
+
+        /// <summary>
+        /// Adds a price-above condition: Price > level.
+        /// </summary>
+        public Stock PriceAbove(double level)
+        {
+            _conditions.Add(new PriceAboveCondition(level));
+            return this;
+        }
+
+        /// <summary>
+        /// Adds a price-below condition: Price &lt; level.
+        /// </summary>
+        public Stock PriceBelow(double level)
+        {
+            _conditions.Add(new PriceBelowCondition(level));
+            return this;
+        }
+
+        /// <summary>
+        /// Adds a custom condition.
+        /// </summary>
+        public Stock When(string name, Func<double, double, bool> condition)
+        {
+            _conditions.Add(new CustomCondition(name, condition));
+            return this;
+        }
+
+        /// <summary>
+        /// Adds any condition implementing IStrategyCondition.
+        /// </summary>
+        public Stock Condition(IStrategyCondition condition)
+        {
+            _conditions.Add(condition ?? throw new ArgumentNullException(nameof(condition)));
+            return this;
+        }
+
+        // ====================================================================
+        // ORDER METHODS (Terminal - builds the strategy)
+        // ====================================================================
+
+        /// <summary>
+        /// Creates a BUY order and builds the strategy.
+        /// </summary>
+        /// <param name="quantity">Number of shares to buy.</param>
+        /// <param name="takeProfit">Take profit price (absolute). If null, uses takeProfitOffset.</param>
+        /// <param name="takeProfitOffset">Take profit offset from entry (default: 0.30).</param>
+        /// <param name="limitPrice">Limit price. If null, uses VWAP + limitOffset.</param>
+        /// <param name="limitOffset">Limit offset from VWAP (default: 0.02).</param>
+        /// <param name="timeInForce">Time in force (default: GTC).</param>
+        /// <param name="outsideRth">Allow outside regular trading hours (default: true).</param>
+        /// <param name="takeProfitOutsideRth">Allow TP outside RTH (default: true).</param>
+        /// <param name="orderType">Order type (default: Limit).</param>
+        /// <param name="cancelAt">Time to cancel unfilled take profit (e.g., new TimeOnly(8, 20) for 8:20 AM).</param>
+        public TradingStrategy Buy(
+            int quantity = 1000,
+            double? takeProfit = null,
+            double takeProfitOffset = 0.30,
+            double? limitPrice = null,
+            double limitOffset = 0.02,
+            TimeInForce timeInForce = TimeInForce.GoodTillCancel,
+            bool outsideRth = true,
+            bool takeProfitOutsideRth = true,
+            OrderType orderType = OrderType.Limit,
+            TimeOnly? cancelAt = null)
+        {
+            return BuildStrategy(new OrderAction
+            {
+                Side = OrderSide.Buy,
+                Quantity = quantity,
+                Type = orderType,
+                LimitPrice = limitPrice,
+                LimitOffset = limitOffset,
+                TimeInForce = timeInForce,
+                OutsideRth = outsideRth,
+                EnableTakeProfit = takeProfit.HasValue || takeProfitOffset > 0,
+                TakeProfitPrice = takeProfit,
+                TakeProfitOffset = takeProfitOffset,
+                TakeProfitOutsideRth = takeProfitOutsideRth,
+                CancelTakeProfitAt = cancelAt
+            });
+        }
+
+        /// <summary>
+        /// Creates a SELL order and builds the strategy.
+        /// </summary>
+        public TradingStrategy Sell(
+            int quantity = 1000,
+            double? stopLoss = null,
+            double stopLossOffset = 0.20,
+            double? limitPrice = null,
+            double limitOffset = 0.02,
+            TimeInForce timeInForce = TimeInForce.GoodTillCancel,
+            bool outsideRth = true,
+            OrderType orderType = OrderType.Limit)
+        {
+            return BuildStrategy(new OrderAction
+            {
+                Side = OrderSide.Sell,
+                Quantity = quantity,
+                Type = orderType,
+                LimitPrice = limitPrice,
+                LimitOffset = limitOffset,
+                TimeInForce = timeInForce,
+                OutsideRth = outsideRth,
+                EnableTakeProfit = false,
+                EnableStopLoss = stopLoss.HasValue || stopLossOffset > 0,
+                StopLossPrice = stopLoss,
+                StopLossOffset = stopLossOffset
+            });
+        }
+
+        /// <summary>
+        /// Creates a market BUY order and builds the strategy.
+        /// </summary>
+        public TradingStrategy MarketBuy(
+            int quantity = 1000,
+            double? takeProfit = null,
+            double takeProfitOffset = 0.30,
+            TimeInForce timeInForce = TimeInForce.GoodTillCancel,
+            bool outsideRth = true)
+        {
+            return Buy(quantity, takeProfit, takeProfitOffset, 
+                orderType: OrderType.Market, 
+                timeInForce: timeInForce, 
+                outsideRth: outsideRth);
+        }
+
+        private TradingStrategy BuildStrategy(OrderAction order)
+        {
+            if (_conditions.Count == 0)
+                throw new InvalidOperationException("Strategy must have at least one condition.");
+
+            return new TradingStrategy
+            {
+                Symbol = _symbol,
+                Exchange = _exchange,
+                Currency = _currency,
+                SecType = _secType,
+                Conditions = _conditions.AsReadOnly(),
+                Order = order,
+                Enabled = _enabled
+            };
+        }
+    }
+}
+
+<<<CONTENT END>>>
+<<<FILE END>>>
+
+<<<FILE START>>>
+PATH: Strategy/Strategy.cs
+TYPE: script
+EXT: .cs
+SHA256: 55C7FEE2E7410EDAE4A8266D495D5BA2DD28B4BAAC3A23C624453281235E8CE7
+BYTES: 7573
+LINES: 183
+<<<CONTENT START>>>
+// ============================================================================
+// Strategy - Container for multi-step trading strategy
+// ============================================================================
+
+using System;
+using System.Collections.Generic;
+using System.Text;
+
+namespace IdiotProof.Models
+{
+    /// <summary>
+    /// Represents a complete trading strategy with symbol, conditions, and order action.
+    /// </summary>
+    public sealed class TradingStrategy
+    {
+        /// <summary>Stock symbol to trade.</summary>
+        public required string Symbol { get; init; }
+
+        /// <summary>Exchange (default: SMART).</summary>
+        public string Exchange { get; init; } = "SMART";
+
+        /// <summary>Currency (default: USD).</summary>
+        public string Currency { get; init; } = "USD";
+
+        /// <summary>Security type (default: STK).</summary>
+        public string SecType { get; init; } = "STK";
+
+        /// <summary>Ordered list of conditions that must be met sequentially.</summary>
+        public required IReadOnlyList<IStrategyCondition> Conditions { get; init; }
+
+        /// <summary>The order to execute when all conditions are met.</summary>
+        public required OrderAction Order { get; init; }
+
+        /// <summary>Whether this strategy is enabled.</summary>
+        public bool Enabled { get; init; } = true;
+
+        /// <summary>
+        /// Writes the strategy progress to console with colors.
+        /// </summary>
+        /// <param name="currentStep">Current step index (0-based).</param>
+        public void WriteProgress(int currentStep)
+        {
+            WriteProgress(currentStep, entryFilled: false, takeProfitFilled: false, currentPrice: 0, entryPrice: 0, takeProfitTarget: 0);
+        }
+
+        /// <summary>
+        /// Writes the strategy progress to console with colors, including monitoring step.
+        /// </summary>
+        /// <param name="currentStep">Current step index (0-based).</param>
+        /// <param name="entryFilled">Whether entry order was filled.</param>
+        /// <param name="takeProfitFilled">Whether take profit was filled.</param>
+        /// <param name="currentPrice">Current stock price.</param>
+        /// <param name="entryPrice">Entry fill price (for percent change calculation).</param>
+        /// <param name="takeProfitTarget">Take profit target price.</param>
+        public void WriteProgress(int currentStep, bool entryFilled, bool takeProfitFilled, double currentPrice, double entryPrice, double takeProfitTarget)
+        {
+            // Symbol line with price and percent change
+            Console.Write($"  {Symbol}");
+            if (currentPrice > 0)
+            {
+                Console.Write($"  |  ");
+                Console.ForegroundColor = ConsoleColor.White;
+                Console.Write($"${currentPrice:F2}");
+                Console.ResetColor();
+
+                if (entryFilled && entryPrice > 0)
+                {
+                    double change = currentPrice - entryPrice;
+                    double pctChange = (change / entryPrice) * 100;
+
+                    Console.Write("  ");
+                    if (change >= 0)
+                    {
+                        Console.ForegroundColor = ConsoleColor.Green;
+                        Console.Write($"+${change:F2} (+{pctChange:F2}%)");
+                    }
+                    else
+                    {
+                        Console.ForegroundColor = ConsoleColor.Red;
+                        Console.Write($"-${Math.Abs(change):F2} ({pctChange:F2}%)");
+                    }
+                    Console.ResetColor();
+                }
+            }
+            Console.WriteLine(":");
+
+            for (int i = 0; i < Conditions.Count; i++)
+            {
+                Console.Write("    ");
+
+                if (currentStep > i)
+                {
+                    // Completed - default color
+                    Console.WriteLine($"{i + 1}.) {Conditions[i].Name}");
+                }
+                else if (currentStep == i)
+                {
+                    // Current - green
+                    Console.ForegroundColor = ConsoleColor.Green;
+                    Console.WriteLine($"{i + 1}.) {Conditions[i].Name}");
+                    Console.ResetColor();
+                }
+                else
+                {
+                    // Pending - gray
+                    Console.ForegroundColor = ConsoleColor.DarkGray;
+                    Console.WriteLine($"{i + 1}.) {Conditions[i].Name}");
+                    Console.ResetColor();
+                }
+            }
+
+            // Format order details
+            var tpStr = Order.EnableTakeProfit 
+                ? (Order.TakeProfitPrice.HasValue ? $", TakeProfit={Order.TakeProfitPrice:F2}" : $", TakeProfit=+{Order.TakeProfitOffset:F2}") 
+                : "";
+
+            Console.Write("    ");
+            if (entryFilled || currentStep >= Conditions.Count)
+            {
+                // Order executed - default
+                Console.WriteLine($"{Conditions.Count + 1}.) {Order.Side}={Order.Quantity}{tpStr}, {Order.Type}, {Order.TimeInForce}");
+            }
+            else
+            {
+                // Order pending - gray
+                Console.ForegroundColor = ConsoleColor.DarkGray;
+                Console.WriteLine($"{Conditions.Count + 1}.) {Order.Side}={Order.Quantity}{tpStr}, {Order.Type}, {Order.TimeInForce}");
+                Console.ResetColor();
+            }
+
+            // Monitoring step - shows current price and take profit status
+            if (Order.EnableTakeProfit)
+            {
+                int monitoringStepNumber = Conditions.Count + 2;
+                Console.Write("    ");
+
+                if (takeProfitFilled)
+                {
+                    // Take profit filled - green
+                    Console.ForegroundColor = ConsoleColor.Green;
+                    Console.WriteLine($"{monitoringStepNumber}.) Take Profit FILLED @ {takeProfitTarget:F2}");
+                    Console.ResetColor();
+                }
+                else if (entryFilled)
+                {
+                    // Monitoring active - show current price in yellow/cyan
+                    Console.ForegroundColor = ConsoleColor.Cyan;
+                    Console.WriteLine($"{monitoringStepNumber}.) Watching: ${currentPrice:F2} -> Target: ${takeProfitTarget:F2}");
+                    Console.ResetColor();
+                }
+                else
+                {
+                    // Waiting for entry - gray
+                    Console.ForegroundColor = ConsoleColor.DarkGray;
+                    Console.WriteLine($"{monitoringStepNumber}.) Waiting for take profit...");
+                    Console.ResetColor();
+                }
+            }
+        }
+
+        /// <summary>
+        /// Gets a display-friendly summary of the strategy.
+        /// </summary>
+        public override string ToString()
+        {
+            var sb = new StringBuilder();
+            sb.AppendLine($"  {Symbol}:");
+
+            for (int i = 0; i < Conditions.Count; i++)
+            {
+                sb.AppendLine($"    {i + 1}.) {Conditions[i].Name}");
+            }
+
+            var tpStr = Order.EnableTakeProfit 
+                ? (Order.TakeProfitPrice.HasValue ? $", TakeProfit={Order.TakeProfitPrice:F2}" : $", TakeProfit=+{Order.TakeProfitOffset:F2}") 
+                : "";
+            sb.Append($"    {Conditions.Count + 1}.) {Order.Side}={Order.Quantity}{tpStr}, {Order.Type}, {Order.TimeInForce}");
+
+            return sb.ToString();
+        }
+    }
+}
+
+<<<CONTENT END>>>
+<<<FILE END>>>
+
+<<<FILE START>>>
+PATH: Strategy/StrategyRunner.cs
+TYPE: script
+EXT: .cs
+SHA256: 5396558205AB173CDD58E6FF1DD72F578688A62119E872CA59DCB7A2F6DC77EB
+BYTES: 13440
+LINES: 348
+<<<CONTENT START>>>
+// ============================================================================
+// Strategy Runner - Executes multi-step strategies
+// ============================================================================
+
+using IBApi;
+using System;
+using System.Threading;
+using IbContract = IBApi.Contract;
+
+namespace IdiotProof.Models
+{
+    /// <summary>
+    /// Executes a multi-step strategy for a single symbol.
+    /// Monitors price and VWAP, evaluates conditions in sequence,
+    /// and places orders when all conditions are met.
+    /// </summary>
+    public sealed class StrategyRunner : IDisposable
+    {
+        private readonly TradingStrategy _strategy;
+        private readonly IbContract _contract;
+        private readonly IbWrapper _wrapper;
+        private readonly EClientSocket _client;
+
+        private int _currentConditionIndex;
+        private bool _isComplete;
+        private bool _disposed;
+
+        // VWAP accumulators
+        private double _pvSum;
+        private double _vSum;
+        private double _lastPrice;
+
+        // Session tracking
+        private double _sessionHigh;
+        private double _sessionLow = double.MaxValue;
+
+        // Order tracking
+        private int _entryOrderId = -1;
+        private bool _entryFilled;
+        private double _entryFillPrice;
+
+        // Take profit tracking
+        private int _takeProfitOrderId = -1;
+        private bool _takeProfitFilled;
+        private bool _takeProfitCancelled;
+        private double _takeProfitTarget;
+
+        // Cancel timer
+        private Timer? _cancelTimer;
+
+        /// <summary>Gets the strategy being executed.</summary>
+        public TradingStrategy Strategy => _strategy;
+
+        /// <summary>Gets the symbol being traded.</summary>
+        public string Symbol => _strategy.Symbol;
+
+        /// <summary>Gets whether all conditions have been met and order executed.</summary>
+        public bool IsComplete => _isComplete;
+
+        /// <summary>Gets the current step index (0-based).</summary>
+        public int CurrentStep => _currentConditionIndex;
+
+        /// <summary>Gets the total number of conditions.</summary>
+        public int TotalSteps => _strategy.Conditions.Count;
+
+        /// <summary>Gets whether the entry order has been filled.</summary>
+        public bool EntryFilled => _entryFilled;
+
+        /// <summary>Gets the entry fill price.</summary>
+        public double EntryFillPrice => _entryFillPrice;
+
+        /// <summary>Gets whether the take profit order has been filled.</summary>
+        public bool TakeProfitFilled => _takeProfitFilled;
+
+        /// <summary>Gets the take profit target price.</summary>
+        public double TakeProfitTarget => _takeProfitTarget;
+
+        /// <summary>Gets the current VWAP value.</summary>
+        public double CurrentVwap => GetVwap();
+
+        /// <summary>Gets the last traded price.</summary>
+        public double LastPrice => _lastPrice;
+
+        /// <summary>Gets the current condition name.</summary>
+        public string CurrentConditionName => 
+            _currentConditionIndex < _strategy.Conditions.Count 
+                ? _strategy.Conditions[_currentConditionIndex].Name 
+                : "Complete";
+
+        public StrategyRunner(TradingStrategy strategy, IbContract contract, IbWrapper wrapper, EClientSocket client)
+        {
+            _strategy = strategy ?? throw new ArgumentNullException(nameof(strategy));
+            _contract = contract ?? throw new ArgumentNullException(nameof(contract));
+            _wrapper = wrapper ?? throw new ArgumentNullException(nameof(wrapper));
+            _client = client ?? throw new ArgumentNullException(nameof(client));
+
+            _currentConditionIndex = 0;
+
+            // Subscribe to fill events
+            _wrapper.OnOrderFill += OnOrderFill;
+        }
+
+        /// <summary>
+        /// Call this method when a new trade tick is received.
+        /// </summary>
+        public void OnLastTrade(double lastPrice, int lastSize)
+        {
+            if (_disposed)
+                return;
+
+            _lastPrice = lastPrice;
+
+            // Ignore invalid data
+            if (lastPrice <= 0 || lastSize <= 0)
+                return;
+
+            // Update session high/low
+            if (lastPrice > _sessionHigh)
+                _sessionHigh = lastPrice;
+            if (lastPrice < _sessionLow)
+                _sessionLow = lastPrice;
+
+            // Update VWAP: sum(price * size) / sum(size)
+            _pvSum += lastPrice * lastSize;
+            _vSum += lastSize;
+
+            double vwap = GetVwap();
+
+            // Evaluate current condition
+            EvaluateConditions(lastPrice, vwap);
+        }
+
+        private double GetVwap()
+        {
+            return _vSum > 0 ? _pvSum / _vSum : 0;
+        }
+
+        private void EvaluateConditions(double price, double vwap)
+        {
+            if (_currentConditionIndex >= _strategy.Conditions.Count)
+                return;
+
+            var condition = _strategy.Conditions[_currentConditionIndex];
+
+            if (condition.Evaluate(price, vwap))
+            {
+                _currentConditionIndex++;
+
+                // Check if all conditions are met
+                if (_currentConditionIndex >= _strategy.Conditions.Count)
+                {
+                    Console.WriteLine();
+                    Console.WriteLine($"[{_strategy.Symbol}] *** ALL CONDITIONS MET - Executing order...");
+                    Console.WriteLine($"    Price={price:F2} | VWAP={vwap:F2}");
+                    ExecuteOrder(vwap);
+                }
+                else
+                {
+                    // Print updated progress
+                    Console.WriteLine();
+                    _strategy.WriteProgress(_currentConditionIndex, _entryFilled, _takeProfitFilled, _lastPrice, _entryFillPrice, _takeProfitTarget);
+                    Console.WriteLine($"    VWAP={vwap:F2}");
+                }
+            }
+        }
+
+        private void ExecuteOrder(double vwap)
+        {
+            var order = _strategy.Order;
+            _entryOrderId = _wrapper.ConsumeNextOrderId();
+
+            var ibOrder = new Order
+            {
+                Action = order.GetIbAction(),
+                OrderType = order.GetIbOrderType(),
+                TotalQuantity = order.Quantity,
+                OutsideRth = order.OutsideRth,
+                Tif = order.GetIbTif()
+            };
+
+            // Set limit price
+            if (order.Type == OrderType.Limit)
+            {
+                ibOrder.LmtPrice = order.LimitPrice.HasValue 
+                    ? Math.Round(order.LimitPrice.Value, 2)
+                    : Math.Round(vwap + order.LimitOffset, 2);
+            }
+
+            string priceStr = order.Type == OrderType.Limit ? $"@ {ibOrder.LmtPrice:F2}" : "@ MKT";
+            Console.WriteLine($"[{_strategy.Symbol}] â†’ Submitting {order.Side} {order.Quantity} {priceStr}");
+            Console.WriteLine($"    TIF={order.TimeInForce} | OutsideRTH={order.OutsideRth} | OrderId={_entryOrderId}");
+
+            _client.placeOrder(_entryOrderId, _contract, ibOrder);
+        }
+
+        private void OnOrderFill(int orderId, double fillPrice, int fillSize)
+        {
+            // Check for entry order fill
+            if (orderId == _entryOrderId && !_entryFilled)
+            {
+                _entryFilled = true;
+                _entryFillPrice = fillPrice;
+
+                Console.WriteLine($"[{_strategy.Symbol}] ORDER FILLED!");
+                Console.WriteLine($"    OrderId={orderId} | FillPrice={fillPrice:F2} | FillSize={fillSize}");
+
+                // Handle take profit
+                if (_strategy.Order.Side == OrderSide.Buy && _strategy.Order.EnableTakeProfit)
+                {
+                    SubmitTakeProfit(fillPrice);
+                }
+
+                // Handle stop loss
+                if (_strategy.Order.EnableStopLoss)
+                {
+                    SubmitStopLoss(fillPrice);
+                }
+
+                // Show monitoring step progress
+                Console.WriteLine();
+                _strategy.WriteProgress(_currentConditionIndex, _entryFilled, _takeProfitFilled, _lastPrice, _entryFillPrice, _takeProfitTarget);
+                return;
+            }
+
+            // Check for take profit order fill
+            if (orderId == _takeProfitOrderId && !_takeProfitFilled)
+            {
+                _takeProfitFilled = true;
+                _isComplete = true;
+
+                Console.WriteLine();
+                Console.ForegroundColor = ConsoleColor.Green;
+                Console.WriteLine($"[{_strategy.Symbol}] *** TAKE PROFIT FILLED! ***");
+                Console.ResetColor();
+                Console.WriteLine($"    OrderId={orderId} | FillPrice={fillPrice:F2} | FillSize={fillSize}");
+                Console.WriteLine($"    Entry={_entryFillPrice:F2} -> Exit={fillPrice:F2} | P&L=${(_strategy.Order.Quantity * (fillPrice - _entryFillPrice)):F2}");
+
+                // Show final progress with green take profit step
+                Console.WriteLine();
+                _strategy.WriteProgress(_currentConditionIndex, _entryFilled, _takeProfitFilled, _lastPrice, _entryFillPrice, _takeProfitTarget);
+            }
+        }
+
+        private void SubmitTakeProfit(double entryPrice)
+        {
+            var order = _strategy.Order;
+            _takeProfitOrderId = _wrapper.ConsumeNextOrderId();
+
+            double tpPrice = order.TakeProfitPrice.HasValue
+                ? Math.Round(order.TakeProfitPrice.Value, 2)
+                : Math.Round(entryPrice + order.TakeProfitOffset, 2);
+
+            _takeProfitTarget = tpPrice;
+
+            var tpOrder = new Order
+            {
+                Action = "SELL",
+                OrderType = "LMT",
+                TotalQuantity = order.Quantity,
+                LmtPrice = tpPrice,
+                OutsideRth = order.TakeProfitOutsideRth,
+                Tif = order.GetIbTif()
+            };
+
+            Console.WriteLine($"[{_strategy.Symbol}] â†’ Submitting TAKE PROFIT SELL {order.Quantity} @ {tpPrice:F2}");
+            Console.WriteLine($"    OutsideRTH={order.TakeProfitOutsideRth} | OrderId={_takeProfitOrderId}");
+
+            _client.placeOrder(_takeProfitOrderId, _contract, tpOrder);
+
+            // Schedule cancellation if CancelTakeProfitAt is set
+            if (order.CancelTakeProfitAt.HasValue)
+            {
+                ScheduleTakeProfitCancellation(order.CancelTakeProfitAt.Value);
+            }
+        }
+
+        private void ScheduleTakeProfitCancellation(TimeOnly cancelTime)
+        {
+            var now = DateTime.Now;
+            var cancelDateTime = now.Date.Add(cancelTime.ToTimeSpan());
+
+            // If cancel time already passed today, don't schedule
+            if (cancelDateTime <= now)
+            {
+                Console.WriteLine($"[{_strategy.Symbol}] WARNING: Cancel time {cancelTime} already passed, no auto-cancel scheduled");
+                return;
+            }
+
+            var delay = cancelDateTime - now;
+            Console.WriteLine($"[{_strategy.Symbol}] TIMER: Take profit will auto-cancel at {cancelTime} ({delay.TotalMinutes:F0} min from now)");
+
+            _cancelTimer = new Timer(CancelTakeProfitCallback, null, delay, Timeout.InfiniteTimeSpan);
+        }
+
+        private void CancelTakeProfitCallback(object? state)
+        {
+            if (_disposed || _takeProfitFilled || _takeProfitCancelled || _takeProfitOrderId < 0)
+                return;
+
+            _takeProfitCancelled = true;
+
+            Console.WriteLine();
+            Console.ForegroundColor = ConsoleColor.Yellow;
+            Console.WriteLine($"[{_strategy.Symbol}] TIMER: CANCELLING TAKE PROFIT - Time limit reached");
+            Console.ResetColor();
+            Console.WriteLine($"    OrderId={_takeProfitOrderId} | Price was ${_lastPrice:F2}");
+
+            _client.cancelOrder(_takeProfitOrderId, new OrderCancel());
+        }
+
+        private void SubmitStopLoss(double entryPrice)
+        {
+            var order = _strategy.Order;
+            int slOrderId = _wrapper.ConsumeNextOrderId();
+            
+            double slPrice = order.StopLossPrice.HasValue
+                ? Math.Round(order.StopLossPrice.Value, 2)
+                : Math.Round(entryPrice - order.StopLossOffset, 2);
+
+            var slOrder = new Order
+            {
+                Action = order.Side == OrderSide.Buy ? "SELL" : "BUY",
+                OrderType = "STP",
+                TotalQuantity = order.Quantity,
+                AuxPrice = slPrice,
+                OutsideRth = order.OutsideRth,
+                Tif = order.GetIbTif()
+            };
+
+            Console.WriteLine($"[{_strategy.Symbol}] â†’ Submitting STOP LOSS @ {slPrice:F2}");
+            Console.WriteLine($"    OrderId={slOrderId}");
+
+            _client.placeOrder(slOrderId, _contract, slOrder);
+        }
+
+        public void Dispose()
+        {
+            if (_disposed) return;
+            _disposed = true;
+
+            _cancelTimer?.Dispose();
+            _cancelTimer = null;
+
+            _wrapper.OnOrderFill -= OnOrderFill;
+        }
+    }
+}
+
+<<<CONTENT END>>>
+<<<FILE END>>>
+
