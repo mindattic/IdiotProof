@@ -3,12 +3,32 @@
 // ============================================================================
 
 using IBApi;
+using IdiotProof;
 using System;
 using System.Threading;
 using IbContract = IBApi.Contract;
 
 namespace IdiotProof.Models
 {
+    /// <summary>
+    /// Possible outcomes for a strategy.
+    /// </summary>
+    public enum StrategyResult
+    {
+        /// <summary>Strategy is still running.</summary>
+        Running,
+        /// <summary>Conditions were never met - no position taken.</summary>
+        NeverBought,
+        /// <summary>Position taken and take profit was filled.</summary>
+        TakeProfitFilled,
+        /// <summary>Position taken, time expired, exited with profit.</summary>
+        ExitedWithProfit,
+        /// <summary>Position taken, time expired, cancelled TP (holding position).</summary>
+        TakeProfitCancelled,
+        /// <summary>Entry order was cancelled before fill.</summary>
+        EntryCancelled
+    }
+
     /// <summary>
     /// Executes a multi-step strategy for a single symbol.
     /// Monitors price and VWAP, evaluates conditions in sequence,
@@ -45,8 +65,15 @@ namespace IdiotProof.Models
         private bool _takeProfitCancelled;
         private double _takeProfitTarget;
 
+        // Exit tracking
+        private bool _exitedWithProfit;
+        private double _exitFillPrice;
+
         // Cancel timer
         private Timer? _cancelTimer;
+
+        // Result tracking
+        private StrategyResult _result = StrategyResult.Running;
 
         /// <summary>Gets the strategy being executed.</summary>
         public TradingStrategy Strategy => _strategy;
@@ -81,11 +108,31 @@ namespace IdiotProof.Models
         /// <summary>Gets the last traded price.</summary>
         public double LastPrice => _lastPrice;
 
+        /// <summary>Gets the final result of the strategy.</summary>
+        public StrategyResult Result => _result;
+
         /// <summary>Gets the current condition name.</summary>
         public string CurrentConditionName => 
             _currentConditionIndex < _strategy.Conditions.Count 
                 ? _strategy.Conditions[_currentConditionIndex].Name 
                 : "Complete";
+
+        /// <summary>
+        /// Logs a timestamped message to the console.
+        /// </summary>
+        private void Log(string message, ConsoleColor? color = null)
+        {
+            var timestamp = DateTime.Now.ToString("HH:mm:ss.fff");
+            if (color.HasValue)
+            {
+                Console.ForegroundColor = color.Value;
+            }
+            Console.WriteLine($"[{timestamp}] [{_strategy.Symbol}] {message}");
+            if (color.HasValue)
+            {
+                Console.ResetColor();
+            }
+        }
 
         public StrategyRunner(TradingStrategy strategy, IbContract contract, IbWrapper wrapper, EClientSocket client)
         {
@@ -98,6 +145,8 @@ namespace IdiotProof.Models
 
             // Subscribe to fill events
             _wrapper.OnOrderFill += OnOrderFill;
+
+            Log("Strategy initialized - waiting for market data...", ConsoleColor.DarkGray);
         }
 
         /// <summary>
@@ -149,17 +198,15 @@ namespace IdiotProof.Models
                 // Check if all conditions are met
                 if (_currentConditionIndex >= _strategy.Conditions.Count)
                 {
-                    Console.WriteLine();
-                    Console.WriteLine($"[{_strategy.Symbol}] *** ALL CONDITIONS MET - Executing order...");
-                    Console.WriteLine($"    Price={price:F2} | VWAP={vwap:F2}");
+                    Log($"[OK] STEP {_currentConditionIndex}/{_strategy.Conditions.Count}: {condition.Name} - TRIGGERED @ ${price:F2}", ConsoleColor.Green);
+                    Log($"*** ALL CONDITIONS MET - Executing order... (VWAP=${vwap:F2})", ConsoleColor.Cyan);
                     ExecuteOrder(vwap);
                 }
                 else
                 {
-                    // Print updated progress
-                    Console.WriteLine();
-                    _strategy.WriteProgress(_currentConditionIndex, _entryFilled, _takeProfitFilled, _lastPrice, _entryFillPrice, _takeProfitTarget);
-                    Console.WriteLine($"    VWAP={vwap:F2}");
+                    var nextCondition = _strategy.Conditions[_currentConditionIndex];
+                    Log($"[OK] STEP {_currentConditionIndex}/{_strategy.Conditions.Count}: {condition.Name} - TRIGGERED @ ${price:F2}", ConsoleColor.Green);
+                    Log($"  -> Next: {nextCondition.Name} (VWAP=${vwap:F2})", ConsoleColor.DarkGray);
                 }
             }
         }
@@ -178,6 +225,12 @@ namespace IdiotProof.Models
                 Tif = order.GetIbTif()
             };
 
+            // Set account if specified
+            if (!string.IsNullOrEmpty(Settings.IB_ACCOUNT))
+            {
+                ibOrder.Account = Settings.IB_ACCOUNT;
+            }
+
             // Set limit price
             if (order.Type == OrderType.Limit)
             {
@@ -186,9 +239,9 @@ namespace IdiotProof.Models
                     : Math.Round(vwap + order.LimitOffset, 2);
             }
 
-            string priceStr = order.Type == OrderType.Limit ? $"@ {ibOrder.LmtPrice:F2}" : "@ MKT";
-            Console.WriteLine($"[{_strategy.Symbol}] → Submitting {order.Side} {order.Quantity} {priceStr}");
-            Console.WriteLine($"    TIF={order.TimeInForce} | OutsideRTH={order.OutsideRth} | OrderId={_entryOrderId}");
+            string priceStr = order.Type == OrderType.Limit ? $"@ ${ibOrder.LmtPrice:F2}" : "@ MKT";
+            Log($">> SUBMITTING {order.Side} {order.Quantity} shares {priceStr}", ConsoleColor.Yellow);
+            Log($"  OrderId={_entryOrderId} | TIF={order.TimeInForce} | OutsideRTH={order.OutsideRth}", ConsoleColor.DarkGray);
 
             _client.placeOrder(_entryOrderId, _contract, ibOrder);
         }
@@ -201,8 +254,7 @@ namespace IdiotProof.Models
                 _entryFilled = true;
                 _entryFillPrice = fillPrice;
 
-                Console.WriteLine($"[{_strategy.Symbol}] ORDER FILLED!");
-                Console.WriteLine($"    OrderId={orderId} | FillPrice={fillPrice:F2} | FillSize={fillSize}");
+                Log($"[OK] ENTRY FILLED @ ${fillPrice:F2} ({fillSize} shares)", ConsoleColor.Green);
 
                 // Handle take profit
                 if (_strategy.Order.Side == OrderSide.Buy && _strategy.Order.EnableTakeProfit)
@@ -216,28 +268,33 @@ namespace IdiotProof.Models
                     SubmitStopLoss(fillPrice);
                 }
 
-                // Show monitoring step progress
-                Console.WriteLine();
-                _strategy.WriteProgress(_currentConditionIndex, _entryFilled, _takeProfitFilled, _lastPrice, _entryFillPrice, _takeProfitTarget);
+                Log($"  Monitoring position... Entry=${fillPrice:F2}", ConsoleColor.DarkGray);
                 return;
             }
 
-            // Check for take profit order fill
+            // Check for take profit order fill (or early exit fill)
             if (orderId == _takeProfitOrderId && !_takeProfitFilled)
             {
                 _takeProfitFilled = true;
                 _isComplete = true;
+                _exitFillPrice = fillPrice;
 
-                Console.WriteLine();
-                Console.ForegroundColor = ConsoleColor.Green;
-                Console.WriteLine($"[{_strategy.Symbol}] *** TAKE PROFIT FILLED! ***");
-                Console.ResetColor();
-                Console.WriteLine($"    OrderId={orderId} | FillPrice={fillPrice:F2} | FillSize={fillSize}");
-                Console.WriteLine($"    Entry={_entryFillPrice:F2} -> Exit={fillPrice:F2} | P&L=${(_strategy.Order.Quantity * (fillPrice - _entryFillPrice)):F2}");
+                double pnl = _strategy.Order.Quantity * (fillPrice - _entryFillPrice);
 
-                // Show final progress with green take profit step
-                Console.WriteLine();
-                _strategy.WriteProgress(_currentConditionIndex, _entryFilled, _takeProfitFilled, _lastPrice, _entryFillPrice, _takeProfitTarget);
+                // Determine if this was the original TP or an early exit
+                if (_exitedWithProfit)
+                {
+                    _result = StrategyResult.ExitedWithProfit;
+                    Log($"*** EXITED WITH PROFIT (time limit) @ ${fillPrice:F2} | P&L: ${pnl:F2}", ConsoleColor.Cyan);
+                }
+                else
+                {
+                    _result = StrategyResult.TakeProfitFilled;
+                    Log($"*** TAKE PROFIT FILLED @ ${fillPrice:F2} | P&L: ${pnl:F2}", ConsoleColor.Green);
+                }
+
+                // Show final result
+                PrintFinalResult();
             }
         }
 
@@ -262,15 +319,21 @@ namespace IdiotProof.Models
                 Tif = order.GetIbTif()
             };
 
-            Console.WriteLine($"[{_strategy.Symbol}] → Submitting TAKE PROFIT SELL {order.Quantity} @ {tpPrice:F2}");
-            Console.WriteLine($"    OutsideRTH={order.TakeProfitOutsideRth} | OrderId={_takeProfitOrderId}");
+            // Set account if specified
+            if (!string.IsNullOrEmpty(Settings.IB_ACCOUNT))
+            {
+                tpOrder.Account = Settings.IB_ACCOUNT;
+            }
+
+            Log($">> SUBMITTING TAKE PROFIT SELL {order.Quantity} @ ${tpPrice:F2}", ConsoleColor.Yellow);
+            Log($"  OrderId={_takeProfitOrderId} | OutsideRTH={order.TakeProfitOutsideRth}", ConsoleColor.DarkGray);
 
             _client.placeOrder(_takeProfitOrderId, _contract, tpOrder);
 
-            // Schedule cancellation if CancelTakeProfitAt is set
-            if (order.CancelTakeProfitAt.HasValue)
+            // Schedule cancellation if EndTime is set
+            if (order.EndTime.HasValue)
             {
-                ScheduleTakeProfitCancellation(order.CancelTakeProfitAt.Value);
+                ScheduleTakeProfitCancellation(order.EndTime.Value);
             }
         }
 
@@ -282,12 +345,12 @@ namespace IdiotProof.Models
             // If cancel time already passed today, don't schedule
             if (cancelDateTime <= now)
             {
-                Console.WriteLine($"[{_strategy.Symbol}] WARNING: Cancel time {cancelTime} already passed, no auto-cancel scheduled");
+                Log($"WARNING: End time {cancelTime} already passed, no auto-exit scheduled", ConsoleColor.Red);
                 return;
             }
 
             var delay = cancelDateTime - now;
-            Console.WriteLine($"[{_strategy.Symbol}] TIMER: Take profit will auto-cancel at {cancelTime} ({delay.TotalMinutes:F0} min from now)");
+            Log($"TIMER SET: Auto-exit at {cancelTime} ({delay.TotalMinutes:F0} min from now)", ConsoleColor.Magenta);
 
             _cancelTimer = new Timer(CancelTakeProfitCallback, null, delay, Timeout.InfiniteTimeSpan);
         }
@@ -299,20 +362,85 @@ namespace IdiotProof.Models
 
             _takeProfitCancelled = true;
 
-            Console.WriteLine();
-            Console.ForegroundColor = ConsoleColor.Yellow;
-            Console.WriteLine($"[{_strategy.Symbol}] TIMER: CANCELLING TAKE PROFIT - Time limit reached");
-            Console.ResetColor();
-            Console.WriteLine($"    OrderId={_takeProfitOrderId} | Price was ${_lastPrice:F2}");
+            // Check if position is profitable
+            bool isLong = _strategy.Order.Side == OrderSide.Buy;
+            bool isProfitable = isLong ? _lastPrice > _entryFillPrice : _lastPrice < _entryFillPrice;
 
-            _client.cancelOrder(_takeProfitOrderId, new OrderCancel());
+            if (_entryFilled && isProfitable)
+            {
+                double unrealizedPnl = _strategy.Order.Quantity * (_lastPrice - _entryFillPrice);
+
+                Log($"TIME LIMIT REACHED - Position is profitable!", ConsoleColor.Cyan);
+                Log($"  Entry=${_entryFillPrice:F2} | Current=${_lastPrice:F2} | Unrealized P&L=${unrealizedPnl:F2}", ConsoleColor.Cyan);
+                Log($"  Cancelling TP order #{_takeProfitOrderId} and selling at limit...", ConsoleColor.Yellow);
+
+                _client.cancelOrder(_takeProfitOrderId, new OrderCancel());
+
+                // Mark that we're exiting early with profit
+                _exitedWithProfit = true;
+
+                // Submit limit sell order slightly below current price for quick fill in premarket
+                SubmitLimitExit();
+            }
+            else
+            {
+                Log($"TIME LIMIT REACHED - Position NOT profitable", ConsoleColor.Yellow);
+                Log($"  Entry=${_entryFillPrice:F2} | Current=${_lastPrice:F2} | Cancelling TP order", ConsoleColor.Yellow);
+                Log($"  WARNING: STILL HOLDING {_strategy.Order.Quantity} SHARES - manage manually!", ConsoleColor.Red);
+
+                _client.cancelOrder(_takeProfitOrderId, new OrderCancel());
+
+                // Set result - still holding position
+                _result = StrategyResult.TakeProfitCancelled;
+                _isComplete = true;
+                PrintFinalResult();
+            }
+        }
+
+        private void SubmitLimitExit()
+        {
+            var order = _strategy.Order;
+            int exitOrderId = _wrapper.ConsumeNextOrderId();
+
+            string action = order.Side == OrderSide.Buy ? "SELL" : "BUY";
+
+            // Set limit price slightly below current price for sells (or above for buys) to ensure quick fill in premarket
+            double offset = 0.02;
+            double limitPrice = order.Side == OrderSide.Buy
+                ? Math.Round(_lastPrice - offset, 2)  // Selling long position: slightly below current
+                : Math.Round(_lastPrice + offset, 2); // Covering short position: slightly above current
+
+            var exitOrder = new Order
+            {
+                Action = action,
+                OrderType = "LMT",
+                LmtPrice = limitPrice,
+                TotalQuantity = order.Quantity,
+                OutsideRth = order.TakeProfitOutsideRth,
+                Tif = "GTC"
+            };
+
+            // Set account if specified
+            if (!string.IsNullOrEmpty(Settings.IB_ACCOUNT))
+            {
+                exitOrder.Account = Settings.IB_ACCOUNT;
+            }
+
+            Log($">> SUBMITTING LIMIT EXIT {action} {order.Quantity} @ ${limitPrice:F2}", ConsoleColor.Yellow);
+            Log($"  OrderId={exitOrderId} | OutsideRTH={order.TakeProfitOutsideRth}", ConsoleColor.DarkGray);
+
+            // Update take profit order ID to track the exit fill
+            _takeProfitOrderId = exitOrderId;
+            _takeProfitCancelled = false; // Reset so we can track the fill
+
+            _client.placeOrder(exitOrderId, _contract, exitOrder);
         }
 
         private void SubmitStopLoss(double entryPrice)
         {
             var order = _strategy.Order;
             int slOrderId = _wrapper.ConsumeNextOrderId();
-            
+
             double slPrice = order.StopLossPrice.HasValue
                 ? Math.Round(order.StopLossPrice.Value, 2)
                 : Math.Round(entryPrice - order.StopLossOffset, 2);
@@ -327,8 +455,14 @@ namespace IdiotProof.Models
                 Tif = order.GetIbTif()
             };
 
-            Console.WriteLine($"[{_strategy.Symbol}] → Submitting STOP LOSS @ {slPrice:F2}");
-            Console.WriteLine($"    OrderId={slOrderId}");
+            // Set account if specified
+            if (!string.IsNullOrEmpty(Settings.IB_ACCOUNT))
+            {
+                slOrder.Account = Settings.IB_ACCOUNT;
+            }
+
+            Log($">> SUBMITTING STOP LOSS @ ${slPrice:F2}", ConsoleColor.Yellow);
+            Log($"  OrderId={slOrderId}", ConsoleColor.DarkGray);
 
             _client.placeOrder(slOrderId, _contract, slOrder);
         }
@@ -342,6 +476,69 @@ namespace IdiotProof.Models
             _cancelTimer = null;
 
             _wrapper.OnOrderFill -= OnOrderFill;
+
+            // If strategy never completed, determine final result
+            if (_result == StrategyResult.Running)
+            {
+                if (!_entryFilled)
+                {
+                    _result = StrategyResult.NeverBought;
+                }
+                PrintFinalResult();
+            }
+
+            Log("Strategy disposed", ConsoleColor.DarkGray);
+        }
+
+        private void PrintFinalResult()
+        {
+            var timestamp = DateTime.Now.ToString("HH:mm:ss.fff");
+            Console.WriteLine();
+            Console.WriteLine($"[{timestamp}] +===============================================================+");
+
+            switch (_result)
+            {
+                case StrategyResult.TakeProfitFilled:
+                    Console.ForegroundColor = ConsoleColor.Green;
+                    Console.WriteLine($"[{timestamp}] |  [{_strategy.Symbol}] RESULT: *** TAKE PROFIT FILLED ***");
+                    Console.WriteLine($"[{timestamp}] |  Entry: ${_entryFillPrice:F2} -> Exit: ${_exitFillPrice:F2}");
+                    Console.WriteLine($"[{timestamp}] |  P&L: ${(_strategy.Order.Quantity * (_exitFillPrice - _entryFillPrice)):F2}");
+                    break;
+
+                case StrategyResult.ExitedWithProfit:
+                    Console.ForegroundColor = ConsoleColor.Cyan;
+                    Console.WriteLine($"[{timestamp}] |  [{_strategy.Symbol}] RESULT: *** EXITED WITH PROFIT (time limit) ***");
+                    Console.WriteLine($"[{timestamp}] |  Entry: ${_entryFillPrice:F2} -> Exit: ${_exitFillPrice:F2}");
+                    Console.WriteLine($"[{timestamp}] |  P&L: ${(_strategy.Order.Quantity * (_exitFillPrice - _entryFillPrice)):F2}");
+                    break;
+
+                case StrategyResult.TakeProfitCancelled:
+                    Console.ForegroundColor = ConsoleColor.Yellow;
+                    Console.WriteLine($"[{timestamp}] |  [{_strategy.Symbol}] RESULT: TAKE PROFIT CANCELLED (not profitable)");
+                    Console.WriteLine($"[{timestamp}] |  Entry: ${_entryFillPrice:F2} | Current: ${_lastPrice:F2}");
+                    Console.WriteLine($"[{timestamp}] |  WARNING: STILL HOLDING {_strategy.Order.Quantity} SHARES - MANAGE MANUALLY!");
+                    break;
+
+                case StrategyResult.NeverBought:
+                    Console.ForegroundColor = ConsoleColor.Gray;
+                    Console.WriteLine($"[{timestamp}] |  [{_strategy.Symbol}] RESULT: NEVER BOUGHT");
+                    Console.WriteLine($"[{timestamp}] |  Conditions not met - no position taken");
+                    break;
+
+                case StrategyResult.EntryCancelled:
+                    Console.ForegroundColor = ConsoleColor.Gray;
+                    Console.WriteLine($"[{timestamp}] |  [{_strategy.Symbol}] RESULT: ENTRY CANCELLED");
+                    Console.WriteLine($"[{timestamp}] |  Entry order was cancelled before fill");
+                    break;
+
+                default:
+                    Console.ForegroundColor = ConsoleColor.White;
+                    Console.WriteLine($"[{timestamp}] |  [{_strategy.Symbol}] RESULT: {_result}");
+                    break;
+            }
+
+            Console.ResetColor();
+            Console.WriteLine($"[{timestamp}] +===============================================================+");
         }
     }
 }

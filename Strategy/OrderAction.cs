@@ -88,7 +88,7 @@ namespace IdiotProof.Models
         public double StopLossOffset { get; init; } = 0.20;
 
         /// <summary>Time to cancel unfilled take profit order (null = no auto-cancel).</summary>
-        public TimeOnly? CancelTakeProfitAt { get; init; }
+        public TimeOnly? EndTime { get; init; }
 
         /// <summary>
         /// Gets the IB time-in-force string.

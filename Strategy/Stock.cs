@@ -157,7 +157,7 @@ namespace IdiotProof.Models
         /// <param name="outsideRth">Allow outside regular trading hours (default: true).</param>
         /// <param name="takeProfitOutsideRth">Allow TP outside RTH (default: true).</param>
         /// <param name="orderType">Order type (default: Limit).</param>
-        /// <param name="cancelAt">Time to cancel unfilled take profit (e.g., new TimeOnly(8, 20) for 8:20 AM).</param>
+        /// <param name="endTime">Time to cancel unfilled take profit (e.g., new TimeOnly(8, 20) for 8:20 AM).</param>
         public TradingStrategy Buy(
             int quantity = 1000,
             double? takeProfit = null,
@@ -168,7 +168,7 @@ namespace IdiotProof.Models
             bool outsideRth = true,
             bool takeProfitOutsideRth = true,
             OrderType orderType = OrderType.Limit,
-            TimeOnly? cancelAt = null)
+            TimeOnly? endTime = null)
         {
             return BuildStrategy(new OrderAction
             {
@@ -183,7 +183,7 @@ namespace IdiotProof.Models
                 TakeProfitPrice = takeProfit,
                 TakeProfitOffset = takeProfitOffset,
                 TakeProfitOutsideRth = takeProfitOutsideRth,
-                CancelTakeProfitAt = cancelAt
+                EndTime = endTime
             });
         }
 

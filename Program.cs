@@ -35,11 +35,11 @@ namespace IdiotProof
                     .Pullback(6.80)          // Step 2: Price <= 6.80
                     .AboveVwap()             // Step 3: Price >= VWAP
                     .Buy(
-                        quantity: 1000,
+                        quantity: 100,
                         takeProfit: 9.00,    // Take profit at $9.00
                         outsideRth: true,
                         takeProfitOutsideRth: true,
-                        cancelAt: new TimeOnly(8, 20)  // Cancel TP at 8:20 AM if not filled
+                        endTime: new TimeOnly(8, 20)  // Cancel or TP at 8:20 AM if not filled
                     ),
 
                 //// ----- FEED Strategy -----
@@ -186,10 +186,19 @@ namespace IdiotProof
                 runner.Strategy.WriteProgress(runner.CurrentStep, runner.EntryFilled, runner.TakeProfitFilled, runner.LastPrice, runner.EntryFillPrice, runner.TakeProfitTarget);
             }
             Console.WriteLine();
-            Console.WriteLine("════════════════════════════════════════════════════════════════");
-            Console.WriteLine("All strategies running. Press ENTER to stop.");
-            Console.WriteLine("════════════════════════════════════════════════════════════════");
-            Console.ReadLine();
+            Console.WriteLine("================================================================");
+            Console.WriteLine("All strategies running. Press CTRL+ALT+Q to stop.");
+            Console.WriteLine("================================================================");
+
+            // Wait for CTRL+ALT+Q to stop
+            while (true)
+            {
+                var key = Console.ReadKey(intercept: true);
+                if (key.Modifiers == (ConsoleModifiers.Control | ConsoleModifiers.Alt) && key.Key == ConsoleKey.Q)
+                {
+                    break;
+                }
+            }
 
             // ================================================================
             // CLEANUP
