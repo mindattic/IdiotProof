@@ -4,7 +4,7 @@
 //
 // Define your strategies using the fluent API:
 //
-//   Stock.Create("SYMBOL")
+//   Stock.Ticker("SYMBOL")
 //       .Breakout(level)      // Price >= level
 //       .Pullback(level)      // Price <= level
 //       .AboveVwap()          // Price >= VWAP
@@ -30,7 +30,7 @@ namespace IdiotProof
             var strategies = new List<TradingStrategy>
             {
                 // ----- NAMM Strategy -----
-                Stock.Create("NAMM")
+                Stock.Ticker("NAMM")
                     .Breakout(7.10)          // Step 1: Price >= 7.10
                     .Pullback(6.80)          // Step 2: Price <= 6.80
                     .AboveVwap()             // Step 3: Price >= VWAP
@@ -43,7 +43,7 @@ namespace IdiotProof
                     ),
 
                 //// ----- FEED Strategy -----
-                //Stock.Create("FEED")
+                //Stock.Ticker("FEED")
                 //    .Breakout(5.50)          // Step 1: Price >= 5.50
                 //    .Pullback(5.20)          // Step 2: Price <= 5.20
                 //    .AboveVwap()             // Step 3: Price >= VWAP
@@ -54,7 +54,7 @@ namespace IdiotProof
                 //    ),
 
                 //// ----- AUST Strategy -----
-                //Stock.Create("AUST")
+                //Stock.Ticker("AUST")
                 //    .Breakout(3.00)          // Step 1: Price >= 3.00
                 //    .Pullback(2.80)          // Step 2: Price <= 2.80
                 //    .AboveVwap()             // Step 3: Price >= VWAP
@@ -65,7 +65,7 @@ namespace IdiotProof
                 //    ),
 
                 //// ----- Example: Disabled strategy -----
-                //Stock.Create("EXAMPLE")
+                //Stock.Ticker("EXAMPLE")
                 //    .Enabled(false)          // Disabled - won't run
                 //    .Breakout(10.00)
                 //    .Pullback(9.50)
@@ -73,7 +73,7 @@ namespace IdiotProof
                 //    .Buy(quantity: 100),
 
                 // ----- Example: Custom condition -----
-                // Stock.Create("CUSTOM")
+                // Stock.Ticker("CUSTOM")
                 //     .Breakout(5.00)
                 //     .When("Price between 4.50-4.80", (price, vwap) => price >= 4.50 && price <= 4.80)
                 //     .AboveVwap(buffer: 0.02)  // Price >= VWAP + 0.02

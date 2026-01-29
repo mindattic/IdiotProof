@@ -36,7 +36,7 @@ namespace IdiotProof.Models
         /// <summary>
         /// Creates a new strategy builder for the specified symbol.
         /// </summary>
-        public static Stock Create(string symbol) => new(symbol);
+        public static Stock Ticker(string symbol) => new(symbol);
 
         /// <summary>
         /// Sets the exchange (default: SMART).
