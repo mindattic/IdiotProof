@@ -146,7 +146,7 @@ namespace IdiotProof
             Console.WriteLine("Fetching existing orders from IBKR...");
 
             // Request and wait for open orders
-            wrapper.RequestOpenOrdersAndWait(TimeSpan.FromSeconds(5));
+            wrapper.RequestOpenOrdersAndWait(TimeSpan.FromSeconds(Settings.ConnectionTimeoutSeconds));
 
             var orders = wrapper.OpenOrders;
 

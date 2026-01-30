@@ -375,6 +375,151 @@ namespace IdiotProof.Models
         }
 
         // ====================================================================
+        // INDICATOR CONDITION METHODS
+        // ====================================================================
+
+        /// <summary>
+        /// Adds an RSI condition: Checks if RSI is in overbought or oversold state.
+        /// </summary>
+        /// <param name="state">The RSI state to check for (Overbought >= 70, Oversold &lt;= 30).</param>
+        /// <param name="threshold">Custom threshold value (default: 70 for overbought, 30 for oversold).</param>
+        /// <returns>The builder for method chaining.</returns>
+        /// <remarks>
+        /// <para><b>RSI (Relative Strength Index):</b></para>
+        /// <list type="bullet">
+        ///   <item><b>Overbought (RSI >= 70):</b> May indicate selling pressure building</item>
+        ///   <item><b>Oversold (RSI &lt;= 30):</b> May indicate buying opportunity</item>
+        /// </list>
+        /// 
+        /// <para><b>Example:</b></para>
+        /// <code>
+        /// // Buy when RSI indicates oversold
+        /// Stock.Ticker("AAPL")
+        ///     .IsRsi(RsiState.Oversold)         // RSI &lt;= 30
+        ///     .Buy(100, Price.Current)
+        ///     .Build();
+        /// 
+        /// // Sell when RSI indicates overbought with custom threshold
+        /// Stock.Ticker("AAPL")
+        ///     .IsRsi(RsiState.Overbought, 80)   // RSI >= 80
+        ///     .Sell(100, Price.Current)
+        ///     .Build();
+        /// </code>
+        /// </remarks>
+        public Stock IsRsi(Enums.RsiState state, double? threshold = null)
+        {
+            _conditions.Add(new RsiCondition(state, threshold));
+            return this;
+        }
+
+        /// <summary>
+        /// Adds an ADX condition: Checks if ADX meets the comparison threshold.
+        /// </summary>
+        /// <param name="comparison">The comparison operator (Gte, Lte, Gt, Lt, Eq).</param>
+        /// <param name="threshold">The ADX threshold value (0-100).</param>
+        /// <returns>The builder for method chaining.</returns>
+        /// <remarks>
+        /// <para><b>ADX (Average Directional Index):</b></para>
+        /// <list type="bullet">
+        ///   <item><b>ADX &lt; 20:</b> Weak or no trend</item>
+        ///   <item><b>ADX 20-25:</b> Trend developing</item>
+        ///   <item><b>ADX 25-50:</b> Strong trend</item>
+        ///   <item><b>ADX > 50:</b> Very strong trend</item>
+        /// </list>
+        /// 
+        /// <para><b>Example:</b></para>
+        /// <code>
+        /// // Only buy when trend is strong
+        /// Stock.Ticker("AAPL")
+        ///     .IsAdx(Comparison.Gte, 25)       // ADX >= 25
+        ///     .IsDI(DiDirection.Positive)      // Bullish direction
+        ///     .Buy(100, Price.Current)
+        ///     .Build();
+        /// 
+        /// // Range-bound strategy
+        /// Stock.Ticker("AAPL")
+        ///     .IsAdx(Comparison.Lte, 20)       // ADX &lt;= 20 (no trend)
+        ///     .Breakout(150)
+        ///     .Buy(100, Price.Current)
+        ///     .Build();
+        /// </code>
+        /// </remarks>
+        public Stock IsAdx(Enums.Comparison comparison, double threshold)
+        {
+            _conditions.Add(new AdxCondition(comparison, threshold));
+            return this;
+        }
+
+        /// <summary>
+        /// Adds a MACD condition: Checks if MACD is in the specified state.
+        /// </summary>
+        /// <param name="state">The MACD state to check for.</param>
+        /// <returns>The builder for method chaining.</returns>
+        /// <remarks>
+        /// <para><b>MACD States:</b></para>
+        /// <list type="bullet">
+        ///   <item><b>Bullish:</b> MACD line > Signal line (momentum up)</item>
+        ///   <item><b>Bearish:</b> MACD line &lt; Signal line (momentum down)</item>
+        ///   <item><b>AboveZero:</b> MACD line > 0 (uptrend)</item>
+        ///   <item><b>BelowZero:</b> MACD line &lt; 0 (downtrend)</item>
+        ///   <item><b>HistogramRising:</b> Histogram increasing</item>
+        ///   <item><b>HistogramFalling:</b> Histogram decreasing</item>
+        /// </list>
+        /// 
+        /// <para><b>Example:</b></para>
+        /// <code>
+        /// // Buy on bullish MACD crossover in uptrend
+        /// Stock.Ticker("AAPL")
+        ///     .IsMacd(MacdState.Bullish)        // MACD > Signal
+        ///     .IsMacd(MacdState.AboveZero)      // Confirming uptrend
+        ///     .Buy(100, Price.Current)
+        ///     .Build();
+        /// </code>
+        /// </remarks>
+        public Stock IsMacd(Enums.MacdState state)
+        {
+            _conditions.Add(new MacdCondition(state));
+            return this;
+        }
+
+        /// <summary>
+        /// Adds a DI condition: Checks the directional indicator relationship.
+        /// </summary>
+        /// <param name="direction">The DI direction to check for (Positive or Negative).</param>
+        /// <param name="minDifference">Minimum difference between +DI and -DI (default: 0).</param>
+        /// <returns>The builder for method chaining.</returns>
+        /// <remarks>
+        /// <para><b>Directional Indicators:</b></para>
+        /// <list type="bullet">
+        ///   <item><b>Positive (+DI > -DI):</b> Bullish pressure dominates</item>
+        ///   <item><b>Negative (-DI > +DI):</b> Bearish pressure dominates</item>
+        /// </list>
+        /// 
+        /// <para><b>Best Practice:</b> Combine with ADX for confirmation.</para>
+        /// 
+        /// <para><b>Example:</b></para>
+        /// <code>
+        /// // Buy in strong bullish trend
+        /// Stock.Ticker("AAPL")
+        ///     .IsAdx(Comparison.Gte, 25)         // Strong trend
+        ///     .IsDI(DiDirection.Positive)        // Bullish direction
+        ///     .Buy(100, Price.Current)
+        ///     .Build();
+        /// 
+        /// // Require significant DI difference
+        /// Stock.Ticker("AAPL")
+        ///     .IsDI(DiDirection.Positive, 5)     // +DI > -DI by at least 5
+        ///     .Buy(100, Price.Current)
+        ///     .Build();
+        /// </code>
+        /// </remarks>
+        public Stock IsDI(Enums.DiDirection direction, double minDifference = 0)
+        {
+            _conditions.Add(new DiCondition(direction, minDifference));
+            return this;
+        }
+
+        // ====================================================================
         // ORDER METHODS - Returns StrategyBuilder for chaining
         // ====================================================================
 

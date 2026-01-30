@@ -354,6 +354,147 @@ Adds any custom condition implementing the `IStrategyCondition` interface.
 
 ---
 
+### Technical Indicator Conditions
+
+These conditions check technical indicators for entry/exit signals. They require indicator data to be provided externally.
+
+#### `.IsRsi(RsiState state, double? threshold = null)`
+Triggers when RSI (Relative Strength Index) is in the specified state.
+
+```csharp
+.IsRsi(RsiState.Oversold)           // RSI <= 30 (default)
+.IsRsi(RsiState.Overbought)         // RSI >= 70 (default)
+.IsRsi(RsiState.Overbought, 80)     // RSI >= 80 (custom threshold)
+```
+
+**Parameters:**
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `state` | `RsiState` | Required | `Overbought` or `Oversold` |
+| `threshold` | `double?` | 70/30 | Custom threshold value |
+
+**RSI Interpretation:**
+| State | Default Threshold | Trading Signal |
+|-------|-------------------|----------------|
+| Overbought | >= 70 | Potential selling pressure |
+| Oversold | <= 30 | Potential buying opportunity |
+
+**Implementation Status:** ✅ Fully Implemented
+
+---
+
+#### `.IsAdx(Comparison comparison, double threshold)`
+Triggers when ADX (Average Directional Index) meets the comparison threshold.
+
+```csharp
+.IsAdx(Comparison.Gte, 25)          // ADX >= 25 (strong trend)
+.IsAdx(Comparison.Lte, 20)          // ADX <= 20 (weak/no trend)
+.IsAdx(Comparison.Gt, 30)           // ADX > 30
+```
+
+**Parameters:**
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `comparison` | `Comparison` | `Gte`, `Lte`, `Gt`, `Lt`, or `Eq` |
+| `threshold` | `double` | ADX value (0-100) |
+
+**ADX Interpretation:**
+| ADX Range | Trend Strength | Trading Implication |
+|-----------|----------------|---------------------|
+| < 20 | Weak/No Trend | Range-bound trading |
+| 20-25 | Developing | Trend may be forming |
+| 25-50 | Strong | Follow the trend |
+| 50-75 | Very Strong | Strong momentum |
+| > 75 | Extreme | Watch for exhaustion |
+
+**Implementation Status:** ✅ Fully Implemented
+
+---
+
+#### `.IsMacd(MacdState state)`
+Triggers when MACD (Moving Average Convergence Divergence) is in the specified state.
+
+```csharp
+.IsMacd(MacdState.Bullish)          // MACD > Signal line
+.IsMacd(MacdState.Bearish)          // MACD < Signal line
+.IsMacd(MacdState.AboveZero)        // MACD line > 0
+.IsMacd(MacdState.BelowZero)        // MACD line < 0
+.IsMacd(MacdState.HistogramRising)  // Histogram increasing
+.IsMacd(MacdState.HistogramFalling) // Histogram decreasing
+```
+
+**Parameters:**
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `state` | `MacdState` | The MACD state to check |
+
+**MACD States:**
+| State | Condition | Trading Signal |
+|-------|-----------|----------------|
+| Bullish | MACD > Signal | Bullish momentum |
+| Bearish | MACD < Signal | Bearish momentum |
+| AboveZero | MACD > 0 | In uptrend |
+| BelowZero | MACD < 0 | In downtrend |
+| HistogramRising | Histogram increasing | Momentum building |
+| HistogramFalling | Histogram decreasing | Momentum fading |
+
+**Implementation Status:** ✅ Fully Implemented
+
+---
+
+#### `.IsDI(DiDirection direction, double minDifference = 0)`
+Triggers when Directional Indicators (+DI/-DI) show the specified relationship.
+
+```csharp
+.IsDI(DiDirection.Positive)         // +DI > -DI (bullish)
+.IsDI(DiDirection.Negative)         // -DI > +DI (bearish)
+.IsDI(DiDirection.Positive, 5)      // +DI > -DI by at least 5
+```
+
+**Parameters:**
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `direction` | `DiDirection` | Required | `Positive` or `Negative` |
+| `minDifference` | `double` | 0 | Minimum difference between +DI and -DI |
+
+**DI Interpretation:**
+| Direction | Condition | Trading Signal |
+|-----------|-----------|----------------|
+| Positive | +DI > -DI | Bullish pressure dominates |
+| Negative | -DI > +DI | Bearish pressure dominates |
+
+**Best Practice:** Combine DI with ADX for confirmation:
+```csharp
+Stock.Ticker("AAPL")
+    .IsAdx(Comparison.Gte, 25)       // Strong trend
+    .IsDI(DiDirection.Positive)      // Bullish direction
+    .Buy(100, Price.Current)
+    .Build();
+```
+
+**Implementation Status:** ✅ Fully Implemented
+
+---
+
+### Combining Indicators Example
+
+```csharp
+// Complete indicator-based strategy
+Stock.Ticker("AAPL")
+    .SessionDuration(TradingSession.RTH)
+    .IsRsi(RsiState.Oversold)            // RSI <= 30 (oversold)
+    .IsAdx(Comparison.Gte, 25)           // ADX >= 25 (strong trend)
+    .IsDI(DiDirection.Positive)          // Bullish direction
+    .IsMacd(MacdState.Bullish)           // MACD > Signal
+    .Breakout(150)                       // Price breaks $150
+    .Buy(100, Price.Current)
+    .TakeProfit(155)
+    .StopLoss(148)
+    .Build();
+```
+
+---
+
 ### Order Methods
 
 #### `.Buy(int quantity, Price priceType)`
