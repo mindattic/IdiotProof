@@ -392,7 +392,7 @@ namespace IdiotProof
         private static void DisplayStrategies(List<TradingStrategy> strategies, Dictionary<string, double> prices)
         {
             var strategyWord = strategies.Count == 1 ? "strategy" : "strategies";
-            Console.WriteLine($"Loaded {strategies.Count} {strategyWord} for review:");
+            Console.WriteLine($"Loading {strategies.Count} {strategyWord} for review...");
 
             foreach (var strategy in strategies)
             {
