@@ -88,6 +88,10 @@ namespace IdiotProof
             Console.WriteLine("╚═══════════════════════════════════════════════════════════════╝");
             Console.WriteLine();
 
+            // Display timezone configuration
+            DisplayTimezoneInfo();
+            Console.WriteLine();
+
             // Filter to enabled strategies only
             var enabledStrategies = strategies.FindAll(s => s.Enabled);
 
@@ -218,6 +222,52 @@ namespace IdiotProof
 
             client.eDisconnect();
             Console.WriteLine("Disconnected. Goodbye!");
+        }
+
+        /// <summary>
+        /// Displays the current timezone configuration and market hours.
+        /// </summary>
+        private static void DisplayTimezoneInfo()
+        {
+            var info = TimezoneHelper.GetTimezoneDisplayInfo(Settings.Timezone);
+            var currentTime = TimezoneHelper.GetCurrentTime(Settings.Timezone);
+            var currentEastern = TimezoneHelper.GetCurrentTime(MarketTimeZone.EST);
+
+            Console.WriteLine("╔═══════════════════════════════════════════════════════════════╗");
+            Console.WriteLine("║  TIMEZONE CONFIGURATION                                       ║");
+            Console.WriteLine("╠═══════════════════════════════════════════════════════════════╣");
+            Console.WriteLine($"║  Configured Timezone: {info.Abbreviation,-10} ({info.TimeZoneInfo.DisplayName})");
+            Console.WriteLine($"║  Current Time:        {currentTime:h:mm:ss tt} {info.Abbreviation} ({currentEastern:h:mm:ss tt} ET)");
+
+            if (info.IsDaylightSavingTime)
+            {
+                Console.WriteLine("║  DST Status:          Active (Daylight Saving Time)");
+            }
+            else
+            {
+                Console.WriteLine("║  DST Status:          Inactive (Standard Time)");
+            }
+
+            Console.WriteLine("╠═══════════════════════════════════════════════════════════════╣");
+            Console.WriteLine("║  MARKET HOURS (Local Time)                                    ║");
+            Console.WriteLine("╠═══════════════════════════════════════════════════════════════╣");
+            Console.WriteLine($"║  Pre-Market:    {Time.PreMarket.StartLocal:h:mm tt} - {Time.PreMarket.EndLocal:h:mm tt} {info.Abbreviation}  ({Time.PreMarket.Start:h:mm tt} - {Time.PreMarket.End:h:mm tt} ET)");
+            Console.WriteLine($"║  Market Open:   {Time.RTH.StartLocal:h:mm tt} {info.Abbreviation}                  ({Time.RTH.Start:h:mm tt} ET)");
+            Console.WriteLine($"║  Market Close:  {Time.RTH.EndLocal:h:mm tt} {info.Abbreviation}                  ({Time.RTH.End:h:mm tt} ET)");
+            Console.WriteLine($"║  After-Hours:   {Time.AfterHours.StartLocal:h:mm tt} - {Time.AfterHours.EndLocal:h:mm tt} {info.Abbreviation}  ({Time.AfterHours.Start:h:mm tt} - {Time.AfterHours.End:h:mm tt} ET)");
+            Console.WriteLine("╚═══════════════════════════════════════════════════════════════╝");
+
+            // Validation check - ensure market open correlates correctly
+            var marketOpenLocal = Time.RTH.StartLocal;
+            var expectedEasternOpen = new TimeOnly(9, 30);
+            var convertedBack = TimezoneHelper.ToEastern(marketOpenLocal, Settings.Timezone);
+
+            if (convertedBack != expectedEasternOpen)
+            {
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine($"WARNING: Timezone conversion mismatch! Expected {expectedEasternOpen:h:mm tt} ET, got {convertedBack:h:mm tt} ET");
+                Console.ResetColor();
+            }
         }
     }
 }

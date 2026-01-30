@@ -38,7 +38,7 @@ IdiotProof provides a clean, readable fluent API for defining complex trading st
 ```csharp
 var strategy = Stock
     .Ticker("AAPL")
-    .Start(Time.PreMarket.Start)              // Start monitoring at 3:00 AM CST
+    .Start(Time.PreMarket.Start)              // Start monitoring at 4:00 AM ET
     .Breakout(150.00)                         // Step 1: Price >= 150.00
     .Pullback(148.50)                         // Step 2: Price <= 148.50
     .AboveVwap()                              // Step 3: Price >= VWAP
@@ -46,8 +46,8 @@ var strategy = Stock
     .TakeProfit(155.00)                       // Exit at $155.00
     .StopLoss(147.00)                         // Stop loss at $147.00
     .TrailingStopLoss(Percent.Ten)            // 10% trailing stop
-    .ClosePosition(Time.PreMarket.End.AddMinutes(-10))  // Close at 6:50 AM
-    .End(Time.PreMarket.End);                 // Stop monitoring at 7:00 AM
+    .ClosePosition(Time.PreMarket.End.AddMinutes(-10))  // Close at 9:20 AM ET
+    .End(Time.PreMarket.End);                 // Stop monitoring at 9:30 AM ET
 ```
 
 ---
@@ -295,8 +295,8 @@ Enables trailing stop loss that follows price upward.
 Sets the time to begin monitoring the strategy.
 
 ```csharp
-.Start(Time.PreMarket.Start)           // Start at 3:00 AM CST
-.Start(new TimeOnly(4, 30))            // Start at 4:30 AM
+.Start(Time.PreMarket.Start)           // Start at 4:00 AM ET
+.Start(new TimeOnly(4, 30))            // Start at 4:30 AM ET
 ```
 
 **Implementation Status:** ⚠️ Property Stored (StrategyRunner monitoring not yet implemented)
@@ -307,7 +307,7 @@ Sets the time to begin monitoring the strategy.
 Sets the time to force-close the position if still open.
 
 ```csharp
-.ClosePosition(Time.PreMarket.End.AddMinutes(-10))    // Close at 6:50 AM
+.ClosePosition(Time.PreMarket.End.AddMinutes(-10))    // Close at 9:20 AM ET
 ```
 
 **Implementation Status:** ⚠️ Property Stored (StrategyRunner auto-close not yet implemented)
@@ -318,7 +318,7 @@ Sets the time to force-close the position if still open.
 Sets the time to stop monitoring the strategy. Also builds and returns the strategy.
 
 ```csharp
-.End(Time.PreMarket.End)    // Stop at 7:00 AM CST
+.End(Time.PreMarket.End)    // Stop at 9:30 AM ET
 ```
 
 **Returns:** `TradingStrategy` (terminal method)
@@ -376,20 +376,50 @@ Sets the order type for entry.
 
 ### `Time` - Trading Session Periods
 
-All times are in Central Standard Time (CST).
+All times are defined in **Eastern Time (ET)** - the standard for US equity markets. The default timezone setting is EST (Eastern Standard Time).
 
-| Property | Start | End | Description |
-|----------|-------|-----|-------------|
-| `Time.PreMarket` | 3:00 AM | 7:00 AM | Pre-market session |
-| `Time.RTH` | 8:30 AM | 3:00 PM | Regular trading hours |
-| `Time.AfterHours` | 3:00 PM | 6:00 PM | After-hours session |
-| `Time.Extended` | 3:00 AM | 6:00 PM | Full extended hours |
+| Property | Start (ET) | End (ET) | Description |
+|----------|------------|----------|-------------|
+| `Time.PreMarket` | 4:00 AM | 9:30 AM | Pre-market session |
+| `Time.RTH` | 9:30 AM | 4:00 PM | Regular trading hours |
+| `Time.AfterHours` | 4:00 PM | 8:00 PM | After-hours session |
+| `Time.Extended` | 4:00 AM | 8:00 PM | Full extended hours |
 
 **Usage:**
 ```csharp
-Time.PreMarket.Start              // 3:00 AM
-Time.PreMarket.End                // 7:00 AM
-Time.PreMarket.End.AddMinutes(-10) // 6:50 AM
+Time.PreMarket.Start              // 4:00 AM ET
+Time.PreMarket.End                // 9:30 AM ET
+Time.RTH.Start                    // 9:30 AM ET (market open)
+Time.RTH.End                      // 4:00 PM ET (market close)
+Time.PreMarket.End.AddMinutes(-10) // 9:20 AM ET
+```
+
+**Timezone Conversion:**
+```csharp
+// Convert Eastern to local timezone
+var localOpen = TimezoneHelper.ToLocal(Time.RTH.Start, MarketTimeZone.PST);  // 6:30 AM PT
+
+// Convert local to Eastern
+var easternTime = TimezoneHelper.ToEastern(new TimeOnly(6, 30), MarketTimeZone.PST);  // 9:30 AM ET
+```
+
+---
+
+### Timezone Configuration
+
+The default timezone is **EST (Eastern Standard Time)** - the standard for US equity markets and IBKR.
+
+| Timezone | IBKR API String | Market Open | Market Close |
+|----------|-----------------|-------------|--------------|
+| EST | US/Eastern | 9:30 AM | 4:00 PM |
+| CST | US/Central | 8:30 AM | 3:00 PM |
+| MST | US/Mountain | 7:30 AM | 2:00 PM |
+| PST | US/Pacific | 6:30 AM | 1:00 PM |
+
+**Configuration:**
+```csharp
+// In Settings.cs
+public const MarketTimeZone Timezone = MarketTimeZone.EST;  // Default
 ```
 
 ---
@@ -525,8 +555,10 @@ Stock
 | TimeInForce | ✅ | ✅ |
 | OutsideRTH | ✅ | ✅ |
 | OrderType | ✅ | ✅ |
+| AllOrNone | ✅ | ✅ |
 | Enabled/Disabled | ✅ | ✅ |
 | VWAP calculation | N/A | ✅ |
+| **Offline Backtesting** | ✅ | N/A |
 
 ### ⚠️ Partially Implemented (Builder only)
 
@@ -536,6 +568,125 @@ Stock
 | End time | ✅ | ❌ | Property stored, monitoring not enforced |
 | ClosePosition time | ✅ | ❌ | Property stored, auto-close not implemented |
 | Price type (Current/VWAP/Bid/Ask) | ✅ | ❌ | Property stored, order price logic not implemented |
+
+---
+
+## Backtesting
+
+The backtester allows you to test strategies against historical data **without** requiring an IB Gateway connection.
+
+### Quick Start
+
+```csharp
+using IdiotProof.UnitTests;
+
+// Define your strategy
+var strategy = Stock.Ticker("AAPL")
+    .Breakout(150)
+    .Buy(100, Price.Current)
+    .TakeProfit(160)
+    .StopLoss(145)
+    .Build();
+
+// Run backtest with generated data
+var bars = Backtester.GenerateTestScenario(
+    startPrice: 140,
+    breakoutPrice: 150,
+    pullbackPrice: 148,
+    finalPrice: 165);
+
+var result = Backtester.Run(strategy, bars);
+Console.WriteLine(result);  // Prints formatted results
+```
+
+### Backtest Output
+
+```
+╔═══════════════════════════════════════════════════════════════════╗
+║  BACKTEST RESULTS: AAPL                                           ║
+╠═══════════════════════════════════════════════════════════════════╣
+║  Period: 2024-01-15 04:00 to 2024-01-15 04:53                     ║
+║  Bars:   54                                                       ║
+╠═══════════════════════════════════════════════════════════════════╣
+║  TRADES                                                           ║
+║  Total:          3        (2W / 1L)                               ║
+║  Win Rate:       66.7%                                            ║
+║  Profit Factor:  2.50                                             ║
+╠═══════════════════════════════════════════════════════════════════╣
+║  PROFIT & LOSS                                                    ║
+║  Gross Profit:   $  2,500.00                                      ║
+║  Gross Loss:     $  1,000.00                                      ║
+║  Net P&L:        $  1,494.00                                      ║
+╠═══════════════════════════════════════════════════════════════════╣
+║  RISK METRICS                                                     ║
+║  Max Drawdown:   $    500.00 (0.5%)                               ║
+║  Final Equity:   $101,494.00                                      ║
+║  Return:         1.49%                                            ║
+╚═══════════════════════════════════════════════════════════════════╝
+```
+
+### Using IB Gateway for Historical Data
+
+To fetch real historical data from IB Gateway:
+
+```
+╔═══════════════════════════════════════════════════════════════════╗
+║  IB GATEWAY SETUP FOR HISTORICAL DATA                             ║
+╠═══════════════════════════════════════════════════════════════════╣
+║                                                                   ║
+║  1. Start IB Gateway (not TWS)                                    ║
+║     - Paper Trading: Port 4002                                    ║
+║     - Live Trading:  Port 4001                                    ║
+║                                                                   ║
+║  2. Enable API in Gateway:                                        ║
+║     Configure → Settings → API → Settings                         ║
+║     x Enable ActiveX and Socket Clients                           ║
+║     x Read-Only API (recommended for backtesting)                 ║
+║                                                                   ║
+║  3. Use reqHistoricalData() to fetch bars:                        ║
+║                                                                   ║
+║     client.reqHistoricalData(                                     ║
+║         reqId: 1,                                                 ║
+║         contract: contract,                                       ║
+║         endDateTime: "",           // Empty = now                 ║
+║         durationStr: "1 D",        // 1 day of data               ║
+║         barSizeSetting: "1 min",   // 1-minute bars               ║
+║         whatToShow: "TRADES",                                     ║
+║         useRTH: 0,                 // Include extended hours      ║
+║         formatDate: 1,                                            ║
+║         keepUpToDate: false,                                      ║
+║         chartOptions: null                                        ║
+║     );                                                            ║
+║                                                                   ║
+║  4. Handle data in IbWrapper:                                     ║
+║     - historicalData(int reqId, Bar bar)                          ║
+║     - historicalDataEnd(int reqId, string start, string end)      ║
+║                                                                   ║
+║  PACING RULES:                                                    ║
+║  • Max 60 requests per 10 minutes                                 ║
+║  • Wait 15+ seconds between identical requests                    ║
+║                                                                   ║
+╚═══════════════════════════════════════════════════════════════════╝
+```
+
+### Backtest Configuration
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `InitialCash` | `100,000` | Starting account balance |
+| `CommissionPerTrade` | `1.00` | Commission per trade (entry + exit) |
+| `SlippagePerShare` | `0.00` | Simulated slippage per share |
+| `VerboseLogging` | `true` | Print trade details during backtest |
+
+### Limitations
+
+The backtester is a **simplified simulation** with these limitations:
+
+- **No order book simulation** - fills occur at bar close price
+- **No slippage modeling** - limit orders fill exactly at limit price
+- **No partial fills** - orders fill completely or not at all
+- **No market impact** - large orders don't move price
+- **Single position** - only one position at a time per strategy
 
 ---
 

@@ -1172,7 +1172,7 @@ public class OrderPermutationTests
         }
 
         [Test]
-        [Description("Validates PreMarket time constants")]
+        [Description("Validates PreMarket time constants (Eastern Time)")]
         public void TimeWindow_PreMarketConstants_AreCorrect()
         {
             // Arrange & Act
@@ -1183,17 +1183,17 @@ public class OrderPermutationTests
                 .ClosePosition(Time.PreMarket.End.AddMinutes(-10))
                 .End(Time.PreMarket.End);
 
-            // Assert
+            // Assert - All times are in Eastern Time (ET)
             Assert.Multiple(() =>
             {
-                Assert.That(strategy.StartTime, Is.EqualTo(new TimeOnly(3, 0)));
-                Assert.That(strategy.EndTime, Is.EqualTo(new TimeOnly(7, 0)));
-                Assert.That(strategy.Order.ClosePositionTime, Is.EqualTo(new TimeOnly(6, 50)));
+                Assert.That(strategy.StartTime, Is.EqualTo(new TimeOnly(4, 0)));   // 4:00 AM ET
+                Assert.That(strategy.EndTime, Is.EqualTo(new TimeOnly(9, 30)));    // 9:30 AM ET
+                Assert.That(strategy.Order.ClosePositionTime, Is.EqualTo(new TimeOnly(9, 20))); // 9:20 AM ET
             });
         }
 
         [Test]
-        [Description("Validates RTH time constants")]
+        [Description("Validates RTH time constants (Eastern Time)")]
         public void TimeWindow_RTHConstants_AreCorrect()
         {
             // Arrange & Act
@@ -1203,16 +1203,16 @@ public class OrderPermutationTests
                 .Buy(100, Price.Current)
                 .End(Time.RTH.End);
 
-            // Assert
+            // Assert - All times are in Eastern Time (ET)
             Assert.Multiple(() =>
             {
-                Assert.That(strategy.StartTime, Is.EqualTo(new TimeOnly(8, 30)));
-                Assert.That(strategy.EndTime, Is.EqualTo(new TimeOnly(15, 0)));
+                Assert.That(strategy.StartTime, Is.EqualTo(new TimeOnly(9, 30)));  // 9:30 AM ET (Market Open)
+                Assert.That(strategy.EndTime, Is.EqualTo(new TimeOnly(16, 0)));    // 4:00 PM ET (Market Close)
             });
         }
 
         [Test]
-        [Description("Validates AfterHours time constants")]
+        [Description("Validates AfterHours time constants (Eastern Time)")]
         public void TimeWindow_AfterHoursConstants_AreCorrect()
         {
             // Arrange & Act
@@ -1222,11 +1222,11 @@ public class OrderPermutationTests
                 .Buy(100, Price.Current)
                 .End(Time.AfterHours.End);
 
-            // Assert
+            // Assert - All times are in Eastern Time (ET)
             Assert.Multiple(() =>
             {
-                Assert.That(strategy.StartTime, Is.EqualTo(new TimeOnly(15, 0)));
-                Assert.That(strategy.EndTime, Is.EqualTo(new TimeOnly(18, 0)));
+                Assert.That(strategy.StartTime, Is.EqualTo(new TimeOnly(16, 0)));  // 4:00 PM ET
+                Assert.That(strategy.EndTime, Is.EqualTo(new TimeOnly(20, 0)));    // 8:00 PM ET
             });
         }
     }
@@ -1636,9 +1636,9 @@ public class OrderPermutationTests
                 // Symbol configuration
                 Assert.That(strategy.Symbol, Is.EqualTo("AAPL"));
 
-                // Time configuration
-                Assert.That(strategy.StartTime, Is.EqualTo(new TimeOnly(3, 0)));
-                Assert.That(strategy.EndTime, Is.EqualTo(new TimeOnly(7, 0)));
+                // Time configuration (all times in Eastern Time)
+                Assert.That(strategy.StartTime, Is.EqualTo(new TimeOnly(4, 0)));   // 4:00 AM ET
+                Assert.That(strategy.EndTime, Is.EqualTo(new TimeOnly(9, 30)));    // 9:30 AM ET
 
                 // Conditions
                 Assert.That(strategy.Conditions, Has.Count.EqualTo(3));
@@ -1656,7 +1656,7 @@ public class OrderPermutationTests
                 Assert.That(strategy.Order.TakeProfitPrice, Is.EqualTo(155));
                 Assert.That(strategy.Order.EnableTrailingStopLoss, Is.True);
                 Assert.That(strategy.Order.TrailingStopLossPercent, Is.EqualTo(0.10));
-                Assert.That(strategy.Order.ClosePositionTime, Is.EqualTo(new TimeOnly(6, 50)));
+                Assert.That(strategy.Order.ClosePositionTime, Is.EqualTo(new TimeOnly(9, 20))); // 9:20 AM ET
             });
         }
     }

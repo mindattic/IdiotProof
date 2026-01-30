@@ -16,8 +16,14 @@
 // ║  Client ID: Must be unique per connection to the same TWS/Gateway.        ║
 // ║  Account:   Required if multiple accounts under one login.                ║
 // ║                                                                           ║
+// ║  Timezone:  Your local timezone for time display and input.               ║
+// ║             All market times are internally stored in Eastern Time.       ║
+// ║             Supported: EST, CST, MST, PST                                 ║
+// ║                                                                           ║
 // ║  Reference: https://interactivebrokers.github.io/tws-api/               ║
 // ╚═══════════════════════════════════════════════════════════════════════════╝
+
+using IdiotProof.Models;
 
 namespace IdiotProof
 {
@@ -66,6 +72,32 @@ namespace IdiotProof
         /// Secondary = U23270497
         /// </summary>
         public const string IB_ACCOUNT = "U22434144";
+
+        // ----- Timezone Settings -----
+
+        /// <summary>
+        /// Your local timezone for time display and user input.
+        /// </summary>
+        /// <remarks>
+        /// <para><b>Important:</b> All market times are internally stored in Eastern Time (ET).</para>
+        /// <para>This setting controls how times are displayed in the console and how user input times are interpreted.</para>
+        /// <para><b>Supported Timezones:</b></para>
+        /// <list type="bullet">
+        ///   <item><term>EST</term><description>Eastern Time - Market time (no conversion)</description></item>
+        ///   <item><term>CST</term><description>Central Time - 1 hour behind Eastern</description></item>
+        ///   <item><term>MST</term><description>Mountain Time - 2 hours behind Eastern</description></item>
+        ///   <item><term>PST</term><description>Pacific Time - 3 hours behind Eastern</description></item>
+        /// </list>
+        /// <para><b>Market Hours in Each Timezone:</b></para>
+        /// <code>
+        /// EST: Market Open 9:30 AM, Close 4:00 PM
+        /// CST: Market Open 8:30 AM, Close 3:00 PM
+        /// MST: Market Open 7:30 AM, Close 2:00 PM
+        /// PST: Market Open 6:30 AM, Close 1:00 PM
+        /// </code>
+        /// <para><b>Default:</b> EST (Eastern Standard Time) - New York / US equity market time.</para>
+        /// </remarks>
+        public const MarketTimeZone Timezone = MarketTimeZone.EST;
     }
 }
 

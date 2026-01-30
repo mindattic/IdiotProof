@@ -101,8 +101,8 @@ public class TimeTests
         // Act
         var result = period.ToString();
 
-        // Assert
-        Assert.That(result, Is.EqualTo("08:30 - 15:00 CST"));
+        // Assert - Now uses Eastern Time (ET)
+        Assert.That(result, Is.EqualTo("08:30 - 15:00 ET"));
     }
 
     #endregion
@@ -112,47 +112,52 @@ public class TimeTests
     [Test]
     public void Time_PreMarket_HasCorrectTimes()
     {
+        // Pre-market: 4:00 AM - 9:30 AM ET
         Assert.Multiple(() =>
         {
-            Assert.That(Time.PreMarket.Start, Is.EqualTo(new TimeOnly(3, 0)));
-            Assert.That(Time.PreMarket.End, Is.EqualTo(new TimeOnly(7, 0)));
+            Assert.That(Time.PreMarket.Start, Is.EqualTo(new TimeOnly(4, 0)));
+            Assert.That(Time.PreMarket.End, Is.EqualTo(new TimeOnly(9, 30)));
         });
     }
 
     [Test]
     public void Time_RTH_HasCorrectTimes()
     {
+        // RTH: 9:30 AM - 4:00 PM ET
         Assert.Multiple(() =>
         {
-            Assert.That(Time.RTH.Start, Is.EqualTo(new TimeOnly(8, 30)));
-            Assert.That(Time.RTH.End, Is.EqualTo(new TimeOnly(15, 0)));
+            Assert.That(Time.RTH.Start, Is.EqualTo(new TimeOnly(9, 30)));
+            Assert.That(Time.RTH.End, Is.EqualTo(new TimeOnly(16, 0)));
         });
     }
 
     [Test]
     public void Time_AfterHours_HasCorrectTimes()
     {
+        // After-Hours: 4:00 PM - 8:00 PM ET
         Assert.Multiple(() =>
         {
-            Assert.That(Time.AfterHours.Start, Is.EqualTo(new TimeOnly(15, 0)));
-            Assert.That(Time.AfterHours.End, Is.EqualTo(new TimeOnly(18, 0)));
+            Assert.That(Time.AfterHours.Start, Is.EqualTo(new TimeOnly(16, 0)));
+            Assert.That(Time.AfterHours.End, Is.EqualTo(new TimeOnly(20, 0)));
         });
     }
 
     [Test]
     public void Time_Extended_HasCorrectTimes()
     {
+        // Extended: 4:00 AM - 8:00 PM ET
         Assert.Multiple(() =>
         {
-            Assert.That(Time.Extended.Start, Is.EqualTo(new TimeOnly(3, 0)));
-            Assert.That(Time.Extended.End, Is.EqualTo(new TimeOnly(18, 0)));
+            Assert.That(Time.Extended.Start, Is.EqualTo(new TimeOnly(4, 0)));
+            Assert.That(Time.Extended.End, Is.EqualTo(new TimeOnly(20, 0)));
         });
     }
 
     [Test]
-    public void Time_PreMarket_Duration_Is4Hours()
+    public void Time_PreMarket_Duration_Is5Point5Hours()
     {
-        Assert.That(Time.PreMarket.Duration, Is.EqualTo(TimeSpan.FromHours(4)));
+        // Pre-market: 4:00 AM - 9:30 AM ET = 5.5 hours
+        Assert.That(Time.PreMarket.Duration, Is.EqualTo(TimeSpan.FromHours(5.5)));
     }
 
     [Test]
@@ -169,26 +174,26 @@ public class TimeTests
     public void TimeOnly_AddMinutes_WorksCorrectly()
     {
         // Arrange
-        var endTime = Time.PreMarket.End; // 7:00 AM
+        var endTime = Time.PreMarket.End; // 9:30 AM ET
 
         // Act
         var tenMinutesBefore = endTime.AddMinutes(-10);
 
         // Assert
-        Assert.That(tenMinutesBefore, Is.EqualTo(new TimeOnly(6, 50)));
+        Assert.That(tenMinutesBefore, Is.EqualTo(new TimeOnly(9, 20)));
     }
 
     [Test]
     public void TimeOnly_AddMinutes_CanAddHours()
     {
         // Arrange
-        var startTime = Time.PreMarket.Start; // 3:00 AM
+        var startTime = Time.PreMarket.Start; // 4:00 AM ET
 
         // Act
         var twoHoursLater = startTime.AddMinutes(120);
 
         // Assert
-        Assert.That(twoHoursLater, Is.EqualTo(new TimeOnly(5, 0)));
+        Assert.That(twoHoursLater, Is.EqualTo(new TimeOnly(6, 0)));
     }
 
     #endregion
