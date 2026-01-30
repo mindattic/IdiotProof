@@ -383,7 +383,7 @@ namespace IdiotProof.Models
         /// </summary>
         /// <param name="quantity">Number of shares to buy.</param>
         /// <param name="priceType">Price type for order execution (default: Current).</param>
-        /// <param name="orderType">Order type (Market or Limit, default: Market).</param>
+        /// <param name="orderType">Order type (Market or Limit, default: Limit).</param>
         public StrategyBuilder Buy(int quantity, Price priceType = Price.Current, OrderType orderType = OrderType.Limit)
         {
             return new StrategyBuilder(this, OrderSide.Buy, quantity, priceType, orderType);
@@ -394,7 +394,7 @@ namespace IdiotProof.Models
         /// </summary>
         /// <param name="quantity">Number of shares to sell.</param>
         /// <param name="priceType">Price type for order execution (default: Current).</param>
-        /// <param name="orderType">Order type (Market or Limit, default: Market).</param>
+        /// <param name="orderType">Order type (Market or Limit, default: Limit).</param>
         public StrategyBuilder Sell(int quantity, Price priceType = Price.Current, OrderType orderType = OrderType.Limit)
         {
             return new StrategyBuilder(this, OrderSide.Sell, quantity, priceType, orderType);
@@ -407,7 +407,7 @@ namespace IdiotProof.Models
         /// <param name="positionSide">The side of your current position: Buy = long position (will sell to close), 
         /// Sell = short position (will buy to close). Default: Buy (closes a long position).</param>
         /// <param name="priceType">Price type for order execution (default: Current).</param>
-        /// <param name="orderType">Order type (Market or Limit, default: Market).</param>
+        /// <param name="orderType">Order type (Market or Limit, default: Limit).</param>
         /// <returns>A <see cref="StrategyBuilder"/> for additional configuration.</returns>
         /// <remarks>
         /// <para><b>Behavior:</b></para>

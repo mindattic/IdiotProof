@@ -164,8 +164,8 @@ public class OrderPermutationTests
         }
 
         [Test]
-        [Description("Validates default order type is Market via fluent builder")]
-        public void DefaultOrderType_IsMarket()
+        [Description("Validates default order type is Limit via fluent builder")]
+        public void DefaultOrderType_IsLimit()
         {
             // Arrange & Act
             var strategy = Stock.Ticker("TEST")
@@ -173,8 +173,8 @@ public class OrderPermutationTests
                 .Buy(100, Price.Current)
                 .Build();
 
-            // Assert
-            Assert.That(strategy.Order.Type, Is.EqualTo(OrderType.Market));
+            // Assert - Limit is the safer default for trading strategies
+            Assert.That(strategy.Order.Type, Is.EqualTo(OrderType.Limit));
         }
     }
 

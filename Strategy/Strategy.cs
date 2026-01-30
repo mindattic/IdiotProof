@@ -215,17 +215,49 @@ namespace IdiotProof.Models
                 Console.WriteLine($"{i + 1}.) {Conditions[i].Name}");
             }
 
-            // Order step
+            // Order step - build components
             var tpStr = Order.EnableTakeProfit
                 ? (Order.AdxTakeProfit != null 
-                    ? $", TP=${Order.AdxTakeProfit.ConservativeTarget:F2}-${Order.AdxTakeProfit.AggressiveTarget:F2}"
+                    ? $", TakeProfit=${Order.AdxTakeProfit.ConservativeTarget:F2}-${Order.AdxTakeProfit.AggressiveTarget:F2}"
                     : Order.TakeProfitPrice.HasValue 
-                        ? $", TP=${Order.TakeProfitPrice:F2}" 
-                        : $", TP=+${Order.TakeProfitOffset:F2}")
+                        ? $", TakeProfit=${Order.TakeProfitPrice:F2}" 
+                        : $", TakeProfit=+${Order.TakeProfitOffset:F2}")
                 : "";
 
+            var slStr = Order.EnableTrailingStopLoss
+                ? $", TrailingStopLoss={Order.TrailingStopLossPercent * 100:F0}%"
+                : Order.EnableStopLoss
+                    ? (Order.StopLossPrice.HasValue 
+                        ? $", StopLoss=${Order.StopLossPrice:F2}" 
+                        : $", StopLoss=-${Order.StopLossOffset:F2}")
+                    : "";
+
+            // Calculate MaxLoss if StopLoss or TrailingStopLoss is enabled
+            var maxLossStr = "";
+            if (Order.EnableTrailingStopLoss || Order.EnableStopLoss)
+            {
+                var estimatedEntryPrice = entryPrice > 0 ? entryPrice : GetEntryConditionPrice();
+                if (estimatedEntryPrice.HasValue && estimatedEntryPrice.Value > 0)
+                {
+                    double maxLoss;
+                    if (Order.EnableTrailingStopLoss)
+                    {
+                        maxLoss = estimatedEntryPrice.Value * Order.TrailingStopLossPercent * Order.Quantity;
+                    }
+                    else if (Order.StopLossPrice.HasValue)
+                    {
+                        maxLoss = (estimatedEntryPrice.Value - Order.StopLossPrice.Value) * Order.Quantity;
+                    }
+                    else
+                    {
+                        maxLoss = Order.StopLossOffset * Order.Quantity;
+                    }
+                    maxLossStr = $", MaxLoss=${maxLoss:N0}";
+                }
+            }
+
             Console.Write("    ");
-            Console.WriteLine($"{Conditions.Count + 1}.) {Order.Side} {Order.Quantity} @ {Order.Type}{tpStr}");
+            Console.WriteLine($"{Conditions.Count + 1}.) {Order.Side} {Order.Quantity} @ {Order.Type}{tpStr}{slStr}{maxLossStr}");
 
             // Close position time if set
             if (Order.ClosePositionTime.HasValue)
@@ -275,11 +307,11 @@ namespace IdiotProof.Models
                     TradingSession.RTH => "RTH",
                     TradingSession.AfterHours => "AfterHours",
                     TradingSession.Extended => "Extended",
-                    TradingSession.PreMarketEndEarly => "PreMarket-10m",
-                    TradingSession.PreMarketStartLate => "PreMarket+10m",
-                    TradingSession.RTHEndEarly => "RTH-10m",
-                    TradingSession.RTHStartLate => "RTH+10m",
-                    TradingSession.AfterHoursEndEarly => "AfterHours-10m",
+                    TradingSession.PreMarketEndEarly => "PreMarketEndEarly",
+                    TradingSession.PreMarketStartLate => "PreMarketStartLate",
+                    TradingSession.RTHEndEarly => "RTHEndEarly",
+                    TradingSession.RTHStartLate => "RTHStartLate",
+                    TradingSession.AfterHoursEndEarly => "AfterHoursEndEarly",
                     _ => Session.Value.ToString()
                 };
             }

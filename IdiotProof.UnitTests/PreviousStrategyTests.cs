@@ -27,11 +27,91 @@ public class PreviousStrategyTests
     public void AllPreviousStrategies_RemainCompliant()
     {
         Console.WriteLine("================================================================");
-        Console.WriteLine("       Previous Strategies Compliance Test");
+        Console.WriteLine("              Previous Strategies Compliance Test               ");
         Console.WriteLine("================================================================");
         Console.WriteLine();
 
         var errors = new List<string>();
+
+        // ================================================================
+        // VIVS Strategy (Premarket)
+        // ================================================================
+        Console.WriteLine("Testing VIVS Strategy...");
+        try
+        {
+            TradingStrategy vivs = Stock
+                .Ticker("VIVS")
+                .SessionDuration(TradingSession.PreMarketEndEarly)
+                .PriceAbove(2.40)                                       // Step 1: Price > 2.40
+                .AboveVwap()                                            // Step 2: Price >= VWAP
+                .Buy(quantity: 500, Price.Current)                      // Step 3: Buy 500 @ Current Price
+                .TakeProfit(4.00, 4.80)                                 // Step 4: ADX-based TakeProfit: 4.00 (weak) to 4.80 (strong)
+                .TrailingStopLoss(Percent.TwentyFive)                   // 25% trailing stop loss
+                .ClosePosition(MarketTime.PreMarket.Ending, false);     // Step 5: Close Position @ 9:20 AM ET
+
+            Assert.That(vivs.Symbol, Is.EqualTo("VIVS"));
+            Assert.That(vivs.Enabled, Is.True);
+            Assert.That(vivs.Conditions, Has.Count.EqualTo(2));
+            Assert.That(vivs.Order.Side, Is.EqualTo(OrderSide.Buy));
+            Assert.That(vivs.Order.Quantity, Is.EqualTo(500));
+            Assert.That(vivs.Order.EnableTakeProfit, Is.True);
+            Assert.That(vivs.Order.AdxTakeProfit, Is.Not.Null);
+            Assert.That(vivs.Order.AdxTakeProfit!.ConservativeTarget, Is.EqualTo(4.00));
+            Assert.That(vivs.Order.AdxTakeProfit.AggressiveTarget, Is.EqualTo(4.80));
+            Assert.That(vivs.Order.EnableTrailingStopLoss, Is.True);
+            Assert.That(vivs.Order.TrailingStopLossPercent, Is.EqualTo(0.25));
+            Assert.That(vivs.Order.ClosePositionTime, Is.EqualTo(MarketTime.PreMarket.Ending));
+            Assert.That(vivs.Order.ClosePositionOnlyIfProfitable, Is.False);
+
+            Console.WriteLine("  [OK] VIVS: PriceAbove(2.40) -> AboveVwap -> Buy(500)");
+            Console.WriteLine($"       TakeProfit: ${vivs.Order.AdxTakeProfit.ConservativeTarget}-${vivs.Order.AdxTakeProfit.AggressiveTarget} | TrailingStopLoss: {vivs.Order.TrailingStopLossPercent * 100}%");
+        }
+        catch (Exception ex)
+        {
+            errors.Add($"VIVS: {ex.Message}");
+            Console.WriteLine($"  [FAIL] VIVS: {ex.Message}");
+        }
+        Console.WriteLine();
+
+        // ================================================================
+        // CATX Strategy (Premarket)
+        // ================================================================
+        Console.WriteLine("Testing CATX Strategy...");
+        try
+        {
+            TradingStrategy catx = Stock
+                .Ticker("CATX")
+                .SessionDuration(TradingSession.PreMarketEndEarly)
+                .PriceAbove(4.00)                                       // Step 1: Price > 4.00
+                .AboveVwap()                                            // Step 2: Price >= VWAP
+                .Buy(quantity: 500, Price.Current)                      // Step 3: Buy 500 @ Current Price
+                .TakeProfit(5.30, 6.16)                                 // Step 4: ADX-based TakeProfit: 5.30 (weak) to 6.16 (strong)
+                .TrailingStopLoss(Percent.TwentyFive)                   // 25% trailing stop loss
+                .ClosePosition(MarketTime.PreMarket.Ending, false);     // Step 5: Close Position @ 9:20 AM ET
+
+            Assert.That(catx.Symbol, Is.EqualTo("CATX"));
+            Assert.That(catx.Enabled, Is.True);
+            Assert.That(catx.Conditions, Has.Count.EqualTo(2));
+            Assert.That(catx.Order.Side, Is.EqualTo(OrderSide.Buy));
+            Assert.That(catx.Order.Quantity, Is.EqualTo(500));
+            Assert.That(catx.Order.EnableTakeProfit, Is.True);
+            Assert.That(catx.Order.AdxTakeProfit, Is.Not.Null);
+            Assert.That(catx.Order.AdxTakeProfit!.ConservativeTarget, Is.EqualTo(5.30));
+            Assert.That(catx.Order.AdxTakeProfit.AggressiveTarget, Is.EqualTo(6.16));
+            Assert.That(catx.Order.EnableTrailingStopLoss, Is.True);
+            Assert.That(catx.Order.TrailingStopLossPercent, Is.EqualTo(0.25));
+            Assert.That(catx.Order.ClosePositionTime, Is.EqualTo(MarketTime.PreMarket.Ending));
+            Assert.That(catx.Order.ClosePositionOnlyIfProfitable, Is.False);
+
+            Console.WriteLine("  [OK] CATX: PriceAbove(4.00) -> AboveVwap -> Buy(500)");
+            Console.WriteLine($"       TakeProfit: ${catx.Order.AdxTakeProfit.ConservativeTarget}-${catx.Order.AdxTakeProfit.AggressiveTarget} | TrailingStopLoss: {catx.Order.TrailingStopLossPercent * 100}%");
+        }
+        catch (Exception ex)
+        {
+            errors.Add($"CATX: {ex.Message}");
+            Console.WriteLine($"  [FAIL] CATX: {ex.Message}");
+        }
+        Console.WriteLine();
 
         // ================================================================
         // NAMM Strategy
@@ -39,7 +119,7 @@ public class PreviousStrategyTests
         Console.WriteLine("Testing NAMM Strategy...");
         try
         {
-            var namm = Stock
+            TradingStrategy namm = Stock
                 .Ticker("NAMM")
                 .Start(MarketTime.PreMarket.Start)
                 .Breakout(7.10)
@@ -81,15 +161,14 @@ public class PreviousStrategyTests
         Console.WriteLine("Testing FEED Strategy...");
         try
         {
-            var feed = Stock
+            TradingStrategy feed = Stock
                 .Ticker("FEED")
                 .Breakout(5.50)
                 .Pullback(5.20)
                 .AboveVwap()
                 .Buy(quantity: 500, Price.Current)
                 .TakeProfit(6.00)
-                .OutsideRTH(true)
-                .Build();
+                .OutsideRTH(true);
 
             Assert.That(feed.Symbol, Is.EqualTo("FEED"));
             Assert.That(feed.Enabled, Is.True);
@@ -119,15 +198,14 @@ public class PreviousStrategyTests
         Console.WriteLine("Testing AUST Strategy...");
         try
         {
-            var aust = Stock
+            TradingStrategy aust = Stock
                 .Ticker("AUST")
                 .Breakout(3.00)
                 .Pullback(2.80)
                 .AboveVwap()
                 .Buy(quantity: 2000, Price.Current)
                 .TakeProfit(3.25)
-                .OutsideRTH(true)
-                .Build();
+                .OutsideRTH(true);
 
             Assert.That(aust.Symbol, Is.EqualTo("AUST"));
             Assert.That(aust.Enabled, Is.True);
@@ -154,14 +232,13 @@ public class PreviousStrategyTests
         Console.WriteLine("Testing EXAMPLE (Disabled) Strategy...");
         try
         {
-            var example = Stock
+            TradingStrategy example = Stock
                 .Ticker("EXAMPLE")
                 .Enabled(false)
                 .Breakout(10.00)
                 .Pullback(9.50)
                 .AboveVwap()
-                .Buy(quantity: 100, Price.Current)
-                .Build();
+                .Buy(quantity: 100, Price.Current);
 
             Assert.That(example.Symbol, Is.EqualTo("EXAMPLE"));
             Assert.That(example.Enabled, Is.False, "EXAMPLE must be disabled");
@@ -183,14 +260,13 @@ public class PreviousStrategyTests
         Console.WriteLine("Testing CUSTOM Strategy (custom When condition)...");
         try
         {
-            var custom = Stock
+            TradingStrategy custom = Stock
                 .Ticker("CUSTOM")
                 .Breakout(5.00)
                 .When("Price between 4.50-4.80", (price, vwap) => price >= 4.50 && price <= 4.80)
                 .AboveVwap(buffer: 0.02)
                 .Buy(quantity: 500, Price.Current)
-                .TakeProfit(6.00)
-                .Build();
+                .TakeProfit(6.00);
 
             Assert.That(custom.Symbol, Is.EqualTo("CUSTOM"));
             Assert.That(custom.Enabled, Is.True);

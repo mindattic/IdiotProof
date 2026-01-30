@@ -261,7 +261,8 @@ namespace IdiotProof.Models
         }
 
         /// <summary>
-        /// Executes an immediate market sell when trailing stop loss is triggered.
+        /// Executes a sell order when trailing stop loss is triggered.
+        /// Uses market order during RTH for faster execution, limit order outside RTH for safer fills.
         /// </summary>
         private void ExecuteTrailingStopLoss()
         {
@@ -279,19 +280,42 @@ namespace IdiotProof.Models
                 _takeProfitCancelled = true;
             }
 
-            // Submit immediate market sell
+            // Submit stop loss order
             _trailingStopLossOrderId = _wrapper.ConsumeNextOrderId();
 
             string action = order.Side == OrderSide.Buy ? "SELL" : "BUY";
 
-            var stopOrder = new Order
+            // Determine if we're in Regular Trading Hours
+            var currentTimeET = TimezoneHelper.GetCurrentTime(MarketTimeZone.EST);
+            bool isRTH = MarketTime.RTH.Contains(currentTimeET);
+
+            Order stopOrder;
+
+            if (isRTH)
             {
-                Action = action,
-                OrderType = "MKT",  // Market order for immediate execution
-                TotalQuantity = order.Quantity,
-                OutsideRth = order.OutsideRth,
-                Tif = "GTC"
-            };
+                // Use market order during RTH for immediate execution (good liquidity)
+                stopOrder = new Order
+                {
+                    Action = action,
+                    OrderType = "MKT",
+                    TotalQuantity = order.Quantity,
+                    OutsideRth = false,
+                    Tif = "DAY"
+                };
+            }
+            else
+            {
+                // Use limit order outside RTH for safer execution (low liquidity)
+                stopOrder = new Order
+                {
+                    Action = action,
+                    OrderType = "LMT",
+                    LmtPrice = _trailingStopLossPrice,
+                    TotalQuantity = order.Quantity,
+                    OutsideRth = true,
+                    Tif = "GTC"
+                };
+            }
 
             // Set account if specified
             if (!string.IsNullOrEmpty(Settings.IB_ACCOUNT))
@@ -299,7 +323,9 @@ namespace IdiotProof.Models
                 stopOrder.Account = Settings.IB_ACCOUNT;
             }
 
-            Log($">> SUBMITTING TRAILING STOP LOSS {action} {order.Quantity} @ MKT", ConsoleColor.Red);
+            var sessionStr = isRTH ? "RTH" : "Extended";
+            var orderTypeStr = isRTH ? "MKT" : $"LMT @ ${_trailingStopLossPrice:F2}";
+            Log($">> SUBMITTING TRAILING STOP LOSS {action} {order.Quantity} @ {orderTypeStr} ({sessionStr})", ConsoleColor.Red);
             Log($"  OrderId={_trailingStopLossOrderId} | Triggered at ${_lastPrice:F2}", ConsoleColor.DarkGray);
 
             _client.placeOrder(_trailingStopLossOrderId, _contract, stopOrder);

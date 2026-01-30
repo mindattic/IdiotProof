@@ -193,8 +193,10 @@ namespace IdiotProof.Models
         /// Trailing stop loss percentage as decimal (e.g., 0.10 for 10%).
         /// </summary>
         /// <remarks>
-        /// <b>Best Practice:</b> Use 5-10% for moderate volatility stocks,
-        /// 10-20% for high volatility. See <see cref="Percent"/> for constants.
+        /// <para><b>Best Practice:</b> Use 5-10% for moderate volatility stocks,
+        /// 10-20% for high volatility. See <see cref="Percent"/> for constants.</para>
+        /// <para><b>Order Type:</b> Automatically uses market order during RTH (good liquidity)
+        /// and limit order outside RTH (pre-market/after-hours) for safer execution.</para>
         /// </remarks>
         public double TrailingStopLossPercent { get; init; } = 0.10;
 
