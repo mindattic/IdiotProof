@@ -38,7 +38,7 @@ namespace IdiotProof.Strategy
     /// Executes the pullback strategy for a single symbol.
     /// Create one instance per symbol you want to trade.
     /// </summary>
-    public sealed class PullbackRunner
+    public sealed class PullbackRunner : IDisposable
     {
         private readonly SymbolConfig _config;
         private readonly IbContract _contract;

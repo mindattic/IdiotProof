@@ -29,6 +29,8 @@ namespace IdiotProof.Enums
         ExitedHoldingPosition,
         /// <summary>Position taken, time expired, exited with loss.</summary>
         ExitedWithLoss,
+        /// <summary>Strategy window ended before conditions were met.</summary>
+        TimedOut,
         /// <summary>An error occurred during strategy execution.</summary>
         Error
     }

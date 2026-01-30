@@ -116,8 +116,8 @@ public class TimeTests
         // Pre-market: 4:00 AM - 9:30 AM ET
         Assert.Multiple(() =>
         {
-            Assert.That(Time.PreMarket.Start, Is.EqualTo(new TimeOnly(4, 0)));
-            Assert.That(Time.PreMarket.End, Is.EqualTo(new TimeOnly(9, 30)));
+            Assert.That(MarketTime.PreMarket.Start, Is.EqualTo(new TimeOnly(4, 0)));
+            Assert.That(MarketTime.PreMarket.End, Is.EqualTo(new TimeOnly(9, 30)));
         });
     }
 
@@ -127,8 +127,8 @@ public class TimeTests
         // RTH: 9:30 AM - 4:00 PM ET
         Assert.Multiple(() =>
         {
-            Assert.That(Time.RTH.Start, Is.EqualTo(new TimeOnly(9, 30)));
-            Assert.That(Time.RTH.End, Is.EqualTo(new TimeOnly(16, 0)));
+            Assert.That(MarketTime.RTH.Start, Is.EqualTo(new TimeOnly(9, 30)));
+            Assert.That(MarketTime.RTH.End, Is.EqualTo(new TimeOnly(16, 0)));
         });
     }
 
@@ -138,8 +138,8 @@ public class TimeTests
         // After-Hours: 4:00 PM - 8:00 PM ET
         Assert.Multiple(() =>
         {
-            Assert.That(Time.AfterHours.Start, Is.EqualTo(new TimeOnly(16, 0)));
-            Assert.That(Time.AfterHours.End, Is.EqualTo(new TimeOnly(20, 0)));
+            Assert.That(MarketTime.AfterHours.Start, Is.EqualTo(new TimeOnly(16, 0)));
+            Assert.That(MarketTime.AfterHours.End, Is.EqualTo(new TimeOnly(20, 0)));
         });
     }
 
@@ -149,8 +149,8 @@ public class TimeTests
         // Extended: 4:00 AM - 8:00 PM ET
         Assert.Multiple(() =>
         {
-            Assert.That(Time.Extended.Start, Is.EqualTo(new TimeOnly(4, 0)));
-            Assert.That(Time.Extended.End, Is.EqualTo(new TimeOnly(20, 0)));
+            Assert.That(MarketTime.Extended.Start, Is.EqualTo(new TimeOnly(4, 0)));
+            Assert.That(MarketTime.Extended.End, Is.EqualTo(new TimeOnly(20, 0)));
         });
     }
 
@@ -158,13 +158,13 @@ public class TimeTests
     public void Time_PreMarket_Duration_Is5Point5Hours()
     {
         // Pre-market: 4:00 AM - 9:30 AM ET = 5.5 hours
-        Assert.That(Time.PreMarket.Duration, Is.EqualTo(TimeSpan.FromHours(5.5)));
+        Assert.That(MarketTime.PreMarket.Duration, Is.EqualTo(TimeSpan.FromHours(5.5)));
     }
 
     [Test]
     public void Time_RTH_Duration_Is6Point5Hours()
     {
-        Assert.That(Time.RTH.Duration, Is.EqualTo(TimeSpan.FromHours(6.5)));
+        Assert.That(MarketTime.RTH.Duration, Is.EqualTo(TimeSpan.FromHours(6.5)));
     }
 
     #endregion
@@ -175,7 +175,7 @@ public class TimeTests
     public void TimeOnly_AddMinutes_WorksCorrectly()
     {
         // Arrange
-        var endTime = Time.PreMarket.End; // 9:30 AM ET
+        var endTime = MarketTime.PreMarket.End; // 9:30 AM ET
 
         // Act
         var tenMinutesBefore = endTime.AddMinutes(-10);
@@ -188,7 +188,7 @@ public class TimeTests
     public void TimeOnly_AddMinutes_CanAddHours()
     {
         // Arrange
-        var startTime = Time.PreMarket.Start; // 4:00 AM ET
+        var startTime = MarketTime.PreMarket.Start; // 4:00 AM ET
 
         // Act
         var twoHoursLater = startTime.AddMinutes(120);

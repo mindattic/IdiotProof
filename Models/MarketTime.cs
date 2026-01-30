@@ -61,7 +61,7 @@ namespace IdiotProof.Models
     /// Console.WriteLine(Time.RTH.ToString(Settings.Timezone));
     /// </code>
     /// </remarks>
-    public static class Time
+    public static class MarketTime
     {
         /// <summary>
         /// Pre-market trading session: 4:00 AM - 9:30 AM ET.

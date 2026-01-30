@@ -25,6 +25,7 @@
 using IBApi;
 using IdiotProof;
 using IdiotProof.Enums;
+using IdiotProof.Helpers;
 using System;
 using System.Threading;
 using IbContract = IBApi.Contract;
@@ -45,7 +46,10 @@ namespace IdiotProof.Models
 
         private int _currentConditionIndex;
         private bool _isComplete;
-        private bool _disposed;
+        private volatile bool _disposed;
+
+        // Lock for thread-safe timer callback handling
+        private readonly object _disposeLock = new object();
 
         // VWAP accumulators
         private double _pvSum;
@@ -86,6 +90,11 @@ namespace IdiotProof.Models
 
         // Result tracking
         private StrategyResult _result = StrategyResult.Running;
+
+        // Daily reset tracking
+        private DateOnly _lastCheckedDate;
+        private bool _waitingForWindowLogged;
+        private bool _windowEndedLogged;
 
         /// <summary>Gets the strategy being executed.</summary>
         public TradingStrategy Strategy => _strategy;
@@ -154,6 +163,7 @@ namespace IdiotProof.Models
             _client = client ?? throw new ArgumentNullException(nameof(client));
 
             _currentConditionIndex = 0;
+            _lastCheckedDate = DateOnly.FromDateTime(DateTime.Today);
 
             // Subscribe to fill events
             _wrapper.OnOrderFill += OnOrderFill;
@@ -295,6 +305,53 @@ namespace IdiotProof.Models
             _client.placeOrder(_trailingStopLossOrderId, _contract, stopOrder);
         }
 
+        /// <summary>
+        /// Resets the strategy state for a new trading day.
+        /// Called automatically at midnight to allow strategies to run again.
+        /// </summary>
+        private void ResetForNewDay(DateOnly newDate)
+        {
+            // Only reset if we haven't filled an entry order (don't reset mid-trade)
+            if (_entryFilled)
+            {
+                Log($"New day detected but position is open - not resetting", ConsoleColor.DarkYellow);
+                _lastCheckedDate = newDate;
+                return;
+            }
+
+            Log($"*** MIDNIGHT RESET - New trading day detected, resetting strategy ***", ConsoleColor.Cyan);
+
+            // Reset condition tracking
+            _currentConditionIndex = 0;
+            _isComplete = false;
+
+            // Reset VWAP accumulators for new session
+            _pvSum = 0;
+            _vSum = 0;
+
+            // Reset session tracking
+            _sessionHigh = 0;
+            _sessionLow = double.MaxValue;
+
+            // Reset logging flags
+            _waitingForWindowLogged = false;
+            _windowEndedLogged = false;
+
+            // Reset result
+            _result = StrategyResult.Running;
+
+            // Update the date
+            _lastCheckedDate = newDate;
+
+            // Log next window time
+            if (_strategy.StartTime.HasValue)
+            {
+                var info = TimezoneHelper.GetTimezoneDisplayInfo(Settings.Timezone);
+                var startLocal = TimezoneHelper.ToLocal(_strategy.StartTime.Value, Settings.Timezone);
+                Log($"Will start monitoring at {_strategy.StartTime.Value:h:mm tt} ET ({startLocal:h:mm tt} {info.Abbreviation})", ConsoleColor.DarkGray);
+            }
+        }
+
         private double GetVwap()
         {
             return _vSum > 0 ? _pvSum / _vSum : 0;
@@ -304,6 +361,45 @@ namespace IdiotProof.Models
         {
             if (_currentConditionIndex >= _strategy.Conditions.Count)
                 return;
+
+            // Check if we're within the time window (times are in Eastern)
+            var currentTimeET = TimezoneHelper.GetCurrentTime(MarketTimeZone.EST);
+            var todayDate = DateOnly.FromDateTime(DateTime.Today);
+
+            // Check for midnight reset - reset strategy state for a new trading day
+            if (todayDate > _lastCheckedDate)
+            {
+                ResetForNewDay(todayDate);
+            }
+
+            // If StartTime is set and we haven't reached it yet, don't evaluate
+            if (_strategy.StartTime.HasValue && currentTimeET < _strategy.StartTime.Value)
+            {
+                if (!_waitingForWindowLogged)
+                {
+                    _waitingForWindowLogged = true;
+                    var info = TimezoneHelper.GetTimezoneDisplayInfo(Settings.Timezone);
+                    var startLocal = TimezoneHelper.ToLocal(_strategy.StartTime.Value, Settings.Timezone);
+                    Log($"Not monitoring yet - will start at {_strategy.StartTime.Value:h:mm tt} ET ({startLocal:h:mm tt} {info.Abbreviation})", ConsoleColor.DarkYellow);
+                }
+                return;
+            }
+
+            // If EndTime is set and we've passed it, wait for tomorrow (don't mark as complete)
+            if (_strategy.EndTime.HasValue && currentTimeET > _strategy.EndTime.Value)
+            {
+                if (!_windowEndedLogged)
+                {
+                    _windowEndedLogged = true;
+                    var info = TimezoneHelper.GetTimezoneDisplayInfo(Settings.Timezone);
+                    var startLocal = _strategy.StartTime.HasValue 
+                        ? TimezoneHelper.ToLocal(_strategy.StartTime.Value, Settings.Timezone) 
+                        : new TimeOnly(4, 0);
+                    var startET = _strategy.StartTime ?? new TimeOnly(4, 0);
+                    Log($"Strategy window ended at {_strategy.EndTime.Value:h:mm tt} ET - will resume tomorrow at {startET:h:mm tt} ET ({startLocal:h:mm tt} {info.Abbreviation})", ConsoleColor.Yellow);
+                }
+                return;
+            }
 
             var condition = _strategy.Conditions[_currentConditionIndex];
 
@@ -631,10 +727,14 @@ namespace IdiotProof.Models
 
         private void CancelTakeProfitCallback(object? state)
         {
-            if (_disposed || _takeProfitFilled || _takeProfitCancelled || _takeProfitOrderId < 0)
-                return;
+            // Thread-safe check - lock to prevent race with Dispose
+            lock (_disposeLock)
+            {
+                if (_disposed || _takeProfitFilled || _takeProfitCancelled || _takeProfitOrderId < 0)
+                    return;
 
-            _takeProfitCancelled = true;
+                _takeProfitCancelled = true;
+            }
 
             // Check if position is profitable
             bool isLong = _strategy.Order.Side == OrderSide.Buy;
@@ -743,9 +843,13 @@ namespace IdiotProof.Models
 
         public void Dispose()
         {
-            if (_disposed) return;
-            _disposed = true;
+            lock (_disposeLock)
+            {
+                if (_disposed) return;
+                _disposed = true;
+            }
 
+            // Dispose timer first to prevent callbacks after disposal starts
             _cancelTimer?.Dispose();
             _cancelTimer = null;
 

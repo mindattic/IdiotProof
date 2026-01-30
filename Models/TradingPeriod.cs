@@ -29,7 +29,7 @@ namespace IdiotProof.Models
     /// <remarks>
     /// <para><b>Best Practices:</b></para>
     /// <list type="bullet">
-    ///   <item>Use the static <see cref="Time"/> class for predefined periods.</item>
+    ///   <item>Use the static <see cref="MarketTime"/> class for predefined periods.</item>
     ///   <item>All times are in Eastern Time (ET) - market standard.</item>
     ///   <item>Use <see cref="TimezoneHelper"/> to convert to local timezone.</item>
     ///   <item>Use <see cref="TimeOnly.AddMinutes"/> for custom offsets.</item>
@@ -56,6 +56,42 @@ namespace IdiotProof.Models
         /// End time converted to the configured local timezone (Settings.Timezone).
         /// </summary>
         public TimeOnly EndLocal => TimezoneHelper.ToLocal(End, Settings.Timezone);
+
+        /// <summary>
+        /// A safe buffer time after the period starts (10 minutes after Start).
+        /// Useful for waiting for initial volatility to settle.
+        /// </summary>
+        /// <remarks>
+        /// <para><b>Usage:</b></para>
+        /// <code>
+        /// .Start(Time.PreMarket.Starting)  // 4:10 AM ET (10 min after 4:00)
+        /// .Start(Time.RTH.Starting)        // 9:40 AM ET (10 min after 9:30)
+        /// </code>
+        /// </remarks>
+        public TimeOnly Starting => Start.AddMinutes(10);
+
+        /// <summary>
+        /// Starting time converted to the configured local timezone (Settings.Timezone).
+        /// </summary>
+        public TimeOnly StartingLocal => TimezoneHelper.ToLocal(Starting, Settings.Timezone);
+
+        /// <summary>
+        /// A safe buffer time before the period ends (10 minutes before End).
+        /// Useful for closing positions before the session ends.
+        /// </summary>
+        /// <remarks>
+        /// <para><b>Usage:</b></para>
+        /// <code>
+        /// .ClosePosition(Time.PreMarket.Ending)  // 9:20 AM ET (10 min before 9:30)
+        /// .ClosePosition(Time.RTH.Ending)        // 3:50 PM ET (10 min before 4:00)
+        /// </code>
+        /// </remarks>
+        public TimeOnly Ending => End.AddMinutes(-10);
+
+        /// <summary>
+        /// Ending time converted to the configured local timezone (Settings.Timezone).
+        /// </summary>
+        public TimeOnly EndingLocal => TimezoneHelper.ToLocal(Ending, Settings.Timezone);
 
         /// <summary>
         /// Initializes a new trading period with the specified start and end times.

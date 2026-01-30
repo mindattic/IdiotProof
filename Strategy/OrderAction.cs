@@ -137,6 +137,22 @@ namespace IdiotProof.Models
         /// <summary>Allow take profit order execution outside regular trading hours.</summary>
         public bool TakeProfitOutsideRth { get; init; } = true;
 
+        /// <summary>
+        /// ADX-based dynamic take profit configuration.
+        /// When set, take profit price adjusts based on ADX trend strength.
+        /// </summary>
+        /// <remarks>
+        /// <para><b>ADX Take Profit Rules:</b></para>
+        /// <list type="bullet">
+        ///   <item>ADX &lt; 15: Use conservative target (usually midpoint of range)</item>
+        ///   <item>ADX 15-25: Interpolate between conservative and aggressive targets</item>
+        ///   <item>ADX 25-35: Use aggressive target (range high)</item>
+        ///   <item>ADX &gt; 35: Use aggressive target, consider trailing stop for extension</item>
+        /// </list>
+        /// <para>When <see cref="AdxTakeProfitConfig.ExitOnAdxRollover"/> is true, exit when ADX peaks and falls.</para>
+        /// </remarks>
+        public AdxTakeProfitConfig? AdxTakeProfit { get; init; }
+
         /// <summary>Enable automatic fixed stop loss order after entry fills.</summary>
         /// <remarks>
         /// <b>Note:</b> Mutually exclusive with <see cref="EnableTrailingStopLoss"/>.
@@ -212,6 +228,21 @@ namespace IdiotProof.Models
         /// <b>Note:</b> Currently stored but not fully implemented in StrategyRunner.
         /// </remarks>
         public TimeOnly? ClosePositionTime { get; init; }
+
+        /// <summary>
+        /// When true, only close position at <see cref="ClosePositionTime"/> if the position is profitable
+        /// (current price >= entry price for long positions, current price &lt;= entry price for shorts).
+        /// </summary>
+        /// <remarks>
+        /// <para><b>Behavior:</b></para>
+        /// <list type="bullet">
+        ///   <item>When true (default): Position closes only if profitable at close time.</item>
+        ///   <item>When false: Position closes regardless of profit/loss at close time.</item>
+        /// </list>
+        /// <para><b>Use Case:</b> Avoid closing at a loss when time expires. Instead, let
+        /// the position continue and rely on stop loss or manual intervention.</para>
+        /// </remarks>
+        public bool ClosePositionOnlyIfProfitable { get; init; } = true;
 
         /// <summary>
         /// Gets the Interactive Brokers time-in-force string.

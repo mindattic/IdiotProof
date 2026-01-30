@@ -46,6 +46,9 @@ namespace IdiotProof.Models
         /// <summary>Exchange (default: SMART).</summary>
         public string Exchange { get; init; } = "SMART";
 
+        /// <summary>Primary exchange for routing (used with SMART routing for OTC stocks).</summary>
+        public string? PrimaryExchange { get; init; }
+
         /// <summary>Currency (default: USD).</summary>
         public string Currency { get; init; } = "USD";
 

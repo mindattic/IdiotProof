@@ -563,42 +563,42 @@ public class TimeWithTimezoneTests
     [Test]
     public void RTH_Start_IsMarketOpen_930AM_ET()
     {
-        Assert.That(Time.RTH.Start, Is.EqualTo(new TimeOnly(9, 30)),
+        Assert.That(MarketTime.RTH.Start, Is.EqualTo(new TimeOnly(9, 30)),
             "RTH.Start should be 9:30 AM ET (market open)");
     }
 
     [Test]
     public void RTH_End_IsMarketClose_400PM_ET()
     {
-        Assert.That(Time.RTH.End, Is.EqualTo(new TimeOnly(16, 0)),
+        Assert.That(MarketTime.RTH.End, Is.EqualTo(new TimeOnly(16, 0)),
             "RTH.End should be 4:00 PM ET (market close)");
     }
 
     [Test]
     public void PreMarket_Start_Is400AM_ET()
     {
-        Assert.That(Time.PreMarket.Start, Is.EqualTo(new TimeOnly(4, 0)),
+        Assert.That(MarketTime.PreMarket.Start, Is.EqualTo(new TimeOnly(4, 0)),
             "PreMarket.Start should be 4:00 AM ET");
     }
 
     [Test]
     public void PreMarket_End_Is930AM_ET()
     {
-        Assert.That(Time.PreMarket.End, Is.EqualTo(new TimeOnly(9, 30)),
+        Assert.That(MarketTime.PreMarket.End, Is.EqualTo(new TimeOnly(9, 30)),
             "PreMarket.End should be 9:30 AM ET (market open)");
     }
 
     [Test]
     public void AfterHours_Start_Is400PM_ET()
     {
-        Assert.That(Time.AfterHours.Start, Is.EqualTo(new TimeOnly(16, 0)),
+        Assert.That(MarketTime.AfterHours.Start, Is.EqualTo(new TimeOnly(16, 0)),
             "AfterHours.Start should be 4:00 PM ET (market close)");
     }
 
     [Test]
     public void AfterHours_End_Is800PM_ET()
     {
-        Assert.That(Time.AfterHours.End, Is.EqualTo(new TimeOnly(20, 0)),
+        Assert.That(MarketTime.AfterHours.End, Is.EqualTo(new TimeOnly(20, 0)),
             "AfterHours.End should be 8:00 PM ET");
     }
 
@@ -607,9 +607,9 @@ public class TimeWithTimezoneTests
     {
         Assert.Multiple(() =>
         {
-            Assert.That(Time.Extended.Start, Is.EqualTo(new TimeOnly(4, 0)),
+            Assert.That(MarketTime.Extended.Start, Is.EqualTo(new TimeOnly(4, 0)),
                 "Extended.Start should be 4:00 AM ET");
-            Assert.That(Time.Extended.End, Is.EqualTo(new TimeOnly(20, 0)),
+            Assert.That(MarketTime.Extended.End, Is.EqualTo(new TimeOnly(20, 0)),
                 "Extended.End should be 8:00 PM ET");
         });
     }
@@ -623,7 +623,7 @@ public class TimeWithTimezoneTests
     {
         // This test validates that the StartLocal property correctly uses Settings.Timezone
         // When Settings.Timezone is CST (default), RTH start should be 8:30 AM local
-        var localStart = TimezoneHelper.ToLocal(Time.RTH.Start, MarketTimeZone.CST);
+        var localStart = TimezoneHelper.ToLocal(MarketTime.RTH.Start, MarketTimeZone.CST);
 
         Assert.That(localStart, Is.EqualTo(new TimeOnly(8, 30)),
             "RTH.StartLocal in CST should be 8:30 AM");
@@ -632,7 +632,7 @@ public class TimeWithTimezoneTests
     [Test]
     public void RTH_EndLocal_ConvertsCorrectly_WhenCST()
     {
-        var localEnd = TimezoneHelper.ToLocal(Time.RTH.End, MarketTimeZone.CST);
+        var localEnd = TimezoneHelper.ToLocal(MarketTime.RTH.End, MarketTimeZone.CST);
 
         Assert.That(localEnd, Is.EqualTo(new TimeOnly(15, 0)),
             "RTH.EndLocal in CST should be 3:00 PM");
@@ -647,7 +647,7 @@ public class TimeWithTimezoneTests
     {
         // 10:00 AM CST = 11:00 AM ET (within RTH)
         var localTime = new TimeOnly(10, 0);
-        var result = Time.RTH.ContainsLocal(localTime, MarketTimeZone.CST);
+        var result = MarketTime.RTH.ContainsLocal(localTime, MarketTimeZone.CST);
 
         Assert.That(result, Is.True,
             "10:00 AM CST (11:00 AM ET) should be within RTH");
@@ -658,7 +658,7 @@ public class TimeWithTimezoneTests
     {
         // 7:00 AM CST = 8:00 AM ET (before RTH)
         var localTime = new TimeOnly(7, 0);
-        var result = Time.RTH.ContainsLocal(localTime, MarketTimeZone.CST);
+        var result = MarketTime.RTH.ContainsLocal(localTime, MarketTimeZone.CST);
 
         Assert.That(result, Is.False,
             "7:00 AM CST (8:00 AM ET) should be before RTH");
@@ -669,7 +669,7 @@ public class TimeWithTimezoneTests
     {
         // 4:00 PM CST = 5:00 PM ET (after RTH)
         var localTime = new TimeOnly(16, 0);
-        var result = Time.RTH.ContainsLocal(localTime, MarketTimeZone.CST);
+        var result = MarketTime.RTH.ContainsLocal(localTime, MarketTimeZone.CST);
 
         Assert.That(result, Is.False,
             "4:00 PM CST (5:00 PM ET) should be after RTH");
@@ -680,7 +680,7 @@ public class TimeWithTimezoneTests
     {
         // 8:30 AM CST = 9:30 AM ET (exactly at RTH start)
         var localTime = new TimeOnly(8, 30);
-        var result = Time.RTH.ContainsLocal(localTime, MarketTimeZone.CST);
+        var result = MarketTime.RTH.ContainsLocal(localTime, MarketTimeZone.CST);
 
         Assert.That(result, Is.True,
             "8:30 AM CST (9:30 AM ET) should be at RTH start (inclusive)");
@@ -691,7 +691,7 @@ public class TimeWithTimezoneTests
     {
         // 3:00 PM CST = 4:00 PM ET (exactly at RTH end)
         var localTime = new TimeOnly(15, 0);
-        var result = Time.RTH.ContainsLocal(localTime, MarketTimeZone.CST);
+        var result = MarketTime.RTH.ContainsLocal(localTime, MarketTimeZone.CST);
 
         Assert.That(result, Is.True,
             "3:00 PM CST (4:00 PM ET) should be at RTH end (inclusive)");
@@ -704,7 +704,7 @@ public class TimeWithTimezoneTests
     [Test]
     public void ToString_ReturnsEasternTime()
     {
-        var str = Time.RTH.ToString();
+        var str = MarketTime.RTH.ToString();
 
         Assert.That(str, Does.Contain("09:30"));
         Assert.That(str, Does.Contain("16:00"));
@@ -714,7 +714,7 @@ public class TimeWithTimezoneTests
     [Test]
     public void ToString_WithTimezone_ShowsBothTimes()
     {
-        var str = Time.RTH.ToString(MarketTimeZone.CST);
+        var str = MarketTime.RTH.ToString(MarketTimeZone.CST);
 
         Assert.That(str, Does.Contain("CST"));
         Assert.That(str, Does.Contain("ET"));
@@ -734,7 +734,7 @@ public class TimeWithTimezoneTests
 
         // This tests the static helper method on Time class
         // Note: This will use whatever Settings.Timezone is configured to
-        var localTime = Time.ToLocal(easternTime);
+        var localTime = MarketTime.ToLocal(easternTime);
 
         // Since Settings.Timezone defaults to EST, expect 9:30 AM (no conversion)
         Assert.That(localTime, Is.EqualTo(new TimeOnly(9, 30)),
@@ -746,7 +746,7 @@ public class TimeWithTimezoneTests
     {
         var localTime = new TimeOnly(9, 30);
 
-        var easternTime = Time.ToEastern(localTime);
+        var easternTime = MarketTime.ToEastern(localTime);
 
         Assert.That(easternTime, Is.EqualTo(new TimeOnly(9, 30)),
             "Time.ToEastern should convert using Settings.Timezone (EST - no conversion)");
@@ -782,7 +782,7 @@ public class TimeWithTimezoneTests
     [Test]
     public void CriticalValidation_RTH_Start_Shows_830AM_For_CST_Users()
     {
-        var rthStartEastern = Time.RTH.Start;  // 9:30 AM ET
+        var rthStartEastern = MarketTime.RTH.Start;  // 9:30 AM ET
         var rthStartLocal = TimezoneHelper.ToLocal(rthStartEastern, MarketTimeZone.CST);
 
         Assert.That(rthStartLocal, Is.EqualTo(new TimeOnly(8, 30)),
@@ -805,14 +805,14 @@ public class TimeWithTimezoneTests
 
         foreach (var (timezone, expectedLocal) in expectedLocalTimes)
         {
-            var actualLocal = TimezoneHelper.ToLocal(Time.RTH.Start, timezone);
+            var actualLocal = TimezoneHelper.ToLocal(MarketTime.RTH.Start, timezone);
 
             Assert.That(actualLocal, Is.EqualTo(expectedLocal),
                 $"Market open in {timezone} should be {expectedLocal:h:mm tt}");
 
             // Also verify the reverse conversion
             var backToEastern = TimezoneHelper.ToEastern(actualLocal, timezone);
-            Assert.That(backToEastern, Is.EqualTo(Time.RTH.Start),
+            Assert.That(backToEastern, Is.EqualTo(MarketTime.RTH.Start),
                 $"Converting {expectedLocal:h:mm tt} {timezone} back to Eastern should give 9:30 AM ET");
         }
     }
@@ -970,27 +970,27 @@ public class IbkrTimezoneTests
         Assert.Multiple(() =>
         {
             // Pre-market: 4:00 AM - 9:30 AM ET
-            Assert.That(Time.PreMarket.Start, Is.EqualTo(new TimeOnly(4, 0)),
+            Assert.That(MarketTime.PreMarket.Start, Is.EqualTo(new TimeOnly(4, 0)),
                 "Pre-market start should be 4:00 AM ET");
-            Assert.That(Time.PreMarket.End, Is.EqualTo(new TimeOnly(9, 30)),
+            Assert.That(MarketTime.PreMarket.End, Is.EqualTo(new TimeOnly(9, 30)),
                 "Pre-market end should be 9:30 AM ET");
 
             // Regular Trading Hours: 9:30 AM - 4:00 PM ET
-            Assert.That(Time.RTH.Start, Is.EqualTo(new TimeOnly(9, 30)),
+            Assert.That(MarketTime.RTH.Start, Is.EqualTo(new TimeOnly(9, 30)),
                 "RTH start (market open) should be 9:30 AM ET");
-            Assert.That(Time.RTH.End, Is.EqualTo(new TimeOnly(16, 0)),
+            Assert.That(MarketTime.RTH.End, Is.EqualTo(new TimeOnly(16, 0)),
                 "RTH end (market close) should be 4:00 PM ET");
 
             // After-Hours: 4:00 PM - 8:00 PM ET
-            Assert.That(Time.AfterHours.Start, Is.EqualTo(new TimeOnly(16, 0)),
+            Assert.That(MarketTime.AfterHours.Start, Is.EqualTo(new TimeOnly(16, 0)),
                 "After-hours start should be 4:00 PM ET");
-            Assert.That(Time.AfterHours.End, Is.EqualTo(new TimeOnly(20, 0)),
+            Assert.That(MarketTime.AfterHours.End, Is.EqualTo(new TimeOnly(20, 0)),
                 "After-hours end should be 8:00 PM ET");
 
             // Extended Hours: 4:00 AM - 8:00 PM ET
-            Assert.That(Time.Extended.Start, Is.EqualTo(new TimeOnly(4, 0)),
+            Assert.That(MarketTime.Extended.Start, Is.EqualTo(new TimeOnly(4, 0)),
                 "Extended hours start should be 4:00 AM ET");
-            Assert.That(Time.Extended.End, Is.EqualTo(new TimeOnly(20, 0)),
+            Assert.That(MarketTime.Extended.End, Is.EqualTo(new TimeOnly(20, 0)),
                 "Extended hours end should be 8:00 PM ET");
         });
     }

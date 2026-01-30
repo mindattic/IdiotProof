@@ -119,6 +119,267 @@ public class FluentApiBuilderTests
         Assert.That(strategy.StartTime, Is.EqualTo(startTime));
     }
 
+    [Test]
+    public void SessionDuration_SetsBothStartAndEndTime()
+    {
+        // Arrange
+        var startTime = new TimeOnly(4, 0);
+        var endTime = new TimeOnly(9, 30);
+
+        // Act
+        var strategy = Stock.Ticker("AAPL")
+            .SessionDuration(startTime, endTime)
+            .Breakout(150)
+            .Buy(100, Price.Current)
+            .Build();
+
+        // Assert
+        Assert.That(strategy.StartTime, Is.EqualTo(startTime));
+        Assert.That(strategy.EndTime, Is.EqualTo(endTime));
+    }
+
+    [Test]
+    public void SessionDuration_CanBeChainedWithOtherMethods()
+    {
+        // Arrange
+        var startTime = new TimeOnly(4, 0);
+        var endTime = new TimeOnly(9, 30);
+
+        // Act
+        var strategy = Stock.Ticker("AAPL")
+            .Exchange("NASDAQ")
+            .SessionDuration(startTime, endTime)
+            .Enabled(true)
+            .Breakout(150)
+            .Buy(100, Price.Current)
+            .TakeProfit(155)
+            .Build();
+
+        // Assert
+        Assert.That(strategy.Exchange, Is.EqualTo("NASDAQ"));
+        Assert.That(strategy.StartTime, Is.EqualTo(startTime));
+        Assert.That(strategy.EndTime, Is.EqualTo(endTime));
+        Assert.That(strategy.Enabled, Is.True);
+    }
+
+    [Test]
+    public void SessionDuration_WithPreMarketHours_SetsCorrectWindow()
+    {
+        // Arrange - Pre-market hours 4:00 AM to 9:30 AM
+        var preMarketStart = new TimeOnly(4, 0);
+        var preMarketEnd = new TimeOnly(9, 30);
+
+        // Act
+        var strategy = Stock.Ticker("AAPL")
+            .SessionDuration(preMarketStart, preMarketEnd)
+            .Breakout(150)
+            .Buy(100, Price.Current)
+            .Build();
+
+        // Assert
+        Assert.That(strategy.StartTime, Is.EqualTo(preMarketStart));
+        Assert.That(strategy.EndTime, Is.EqualTo(preMarketEnd));
+    }
+
+    [Test]
+    public void SessionDuration_WithRegularTradingHours_SetsCorrectWindow()
+    {
+        // Arrange - Regular trading hours 9:30 AM to 4:00 PM
+        var marketOpen = new TimeOnly(9, 30);
+        var marketClose = new TimeOnly(16, 0);
+
+        // Act
+        var strategy = Stock.Ticker("AAPL")
+            .SessionDuration(marketOpen, marketClose)
+            .Breakout(150)
+            .Buy(100, Price.Current)
+            .Build();
+
+        // Assert
+        Assert.That(strategy.StartTime, Is.EqualTo(marketOpen));
+        Assert.That(strategy.EndTime, Is.EqualTo(marketClose));
+    }
+
+    [Test]
+    public void SessionDuration_WhenOmitted_BothTimesAreNull()
+    {
+        // Arrange & Act - No SessionDuration called
+        var strategy = Stock.Ticker("AAPL")
+            .Breakout(150)
+            .Buy(100, Price.Current)
+            .Build();
+
+        // Assert
+        Assert.That(strategy.StartTime, Is.Null);
+        Assert.That(strategy.EndTime, Is.Null);
+    }
+
+    [Test]
+    public void SessionDuration_WithTradingSessionPreMarket_SetsCorrectWindow()
+    {
+        // Arrange & Act
+        var strategy = Stock.Ticker("AAPL")
+            .SessionDuration(TradingSession.PreMarket)
+            .Breakout(150)
+            .Buy(100, Price.Current)
+            .Build();
+
+        // Assert
+        Assert.That(strategy.StartTime, Is.EqualTo(new TimeOnly(4, 0)));
+        Assert.That(strategy.EndTime, Is.EqualTo(new TimeOnly(9, 30)));
+    }
+
+    [Test]
+    public void SessionDuration_WithTradingSessionRTH_SetsCorrectWindow()
+    {
+        // Arrange & Act
+        var strategy = Stock.Ticker("AAPL")
+            .SessionDuration(TradingSession.RTH)
+            .Breakout(150)
+            .Buy(100, Price.Current)
+            .Build();
+
+        // Assert
+        Assert.That(strategy.StartTime, Is.EqualTo(new TimeOnly(9, 30)));
+        Assert.That(strategy.EndTime, Is.EqualTo(new TimeOnly(16, 0)));
+    }
+
+    [Test]
+    public void SessionDuration_WithTradingSessionAfterHours_SetsCorrectWindow()
+    {
+        // Arrange & Act
+        var strategy = Stock.Ticker("AAPL")
+            .SessionDuration(TradingSession.AfterHours)
+            .Breakout(150)
+            .Buy(100, Price.Current)
+            .Build();
+
+        // Assert
+        Assert.That(strategy.StartTime, Is.EqualTo(new TimeOnly(16, 0)));
+        Assert.That(strategy.EndTime, Is.EqualTo(new TimeOnly(20, 0)));
+    }
+
+    [Test]
+    public void SessionDuration_WithTradingSessionExtended_SetsCorrectWindow()
+    {
+        // Arrange & Act
+        var strategy = Stock.Ticker("AAPL")
+            .SessionDuration(TradingSession.Extended)
+            .Breakout(150)
+            .Buy(100, Price.Current)
+            .Build();
+
+        // Assert
+        Assert.That(strategy.StartTime, Is.EqualTo(new TimeOnly(4, 0)));
+        Assert.That(strategy.EndTime, Is.EqualTo(new TimeOnly(20, 0)));
+    }
+
+    [Test]
+    public void SessionDuration_WithPreMarketEndEarly_SetsCorrectWindow()
+    {
+        // Arrange & Act - Should end at 9:20 AM (10 min before 9:30)
+        var strategy = Stock.Ticker("AAPL")
+            .SessionDuration(TradingSession.PreMarketEndEarly)
+            .Breakout(150)
+            .Buy(100, Price.Current)
+            .Build();
+
+        // Assert
+        Assert.That(strategy.StartTime, Is.EqualTo(new TimeOnly(4, 0)));
+        Assert.That(strategy.EndTime, Is.EqualTo(new TimeOnly(9, 20)));
+    }
+
+    [Test]
+    public void SessionDuration_WithPreMarketStartLate_SetsCorrectWindow()
+    {
+        // Arrange & Act - Should start at 4:10 AM (10 min after 4:00)
+        var strategy = Stock.Ticker("AAPL")
+            .SessionDuration(TradingSession.PreMarketStartLate)
+            .Breakout(150)
+            .Buy(100, Price.Current)
+            .Build();
+
+        // Assert
+        Assert.That(strategy.StartTime, Is.EqualTo(new TimeOnly(4, 10)));
+        Assert.That(strategy.EndTime, Is.EqualTo(new TimeOnly(9, 30)));
+    }
+
+    [Test]
+    public void SessionDuration_WithRTHEndEarly_SetsCorrectWindow()
+    {
+        // Arrange & Act - Should end at 3:50 PM (10 min before 4:00)
+        var strategy = Stock.Ticker("AAPL")
+            .SessionDuration(TradingSession.RTHEndEarly)
+            .Breakout(150)
+            .Buy(100, Price.Current)
+            .Build();
+
+        // Assert
+        Assert.That(strategy.StartTime, Is.EqualTo(new TimeOnly(9, 30)));
+        Assert.That(strategy.EndTime, Is.EqualTo(new TimeOnly(15, 50)));
+    }
+
+    [Test]
+    public void SessionDuration_WithRTHStartLate_SetsCorrectWindow()
+    {
+        // Arrange & Act - Should start at 9:40 AM (10 min after 9:30)
+        var strategy = Stock.Ticker("AAPL")
+            .SessionDuration(TradingSession.RTHStartLate)
+            .Breakout(150)
+            .Buy(100, Price.Current)
+            .Build();
+
+        // Assert
+        Assert.That(strategy.StartTime, Is.EqualTo(new TimeOnly(9, 40)));
+        Assert.That(strategy.EndTime, Is.EqualTo(new TimeOnly(16, 0)));
+    }
+
+    [Test]
+    public void SessionDuration_WithAfterHoursEndEarly_SetsCorrectWindow()
+    {
+        // Arrange & Act - Should end at 7:50 PM (10 min before 8:00)
+        var strategy = Stock.Ticker("AAPL")
+            .SessionDuration(TradingSession.AfterHoursEndEarly)
+            .Breakout(150)
+            .Buy(100, Price.Current)
+            .Build();
+
+        // Assert
+        Assert.That(strategy.StartTime, Is.EqualTo(new TimeOnly(16, 0)));
+        Assert.That(strategy.EndTime, Is.EqualTo(new TimeOnly(19, 50)));
+    }
+
+    [Test]
+    public void SessionDuration_WithAlways_ClearsTimeRestrictions()
+    {
+        // Arrange & Act - Should clear any time restrictions
+        var strategy = Stock.Ticker("AAPL")
+            .SessionDuration(TradingSession.Always)
+            .Breakout(150)
+            .Buy(100, Price.Current)
+            .Build();
+
+        // Assert
+        Assert.That(strategy.StartTime, Is.Null);
+        Assert.That(strategy.EndTime, Is.Null);
+    }
+
+    [Test]
+    public void SessionDuration_AlwaysCanOverridePreviousSession()
+    {
+        // Arrange & Act - Always should clear previous time restrictions
+        var strategy = Stock.Ticker("AAPL")
+            .SessionDuration(TradingSession.PreMarket)  // Set premarket first
+            .SessionDuration(TradingSession.Always)     // Then clear with Always
+            .Breakout(150)
+            .Buy(100, Price.Current)
+            .Build();
+
+        // Assert
+        Assert.That(strategy.StartTime, Is.Null);
+        Assert.That(strategy.EndTime, Is.Null);
+    }
+
     #endregion
 
     #region Condition Methods
@@ -357,6 +618,134 @@ public class FluentApiBuilderTests
     }
 
     [Test]
+    public void ClosePosition_DefaultOnlyIfProfitable_IsTrue()
+    {
+        // Arrange & Act
+        var strategy = Stock.Ticker("AAPL")
+            .Breakout(150)
+            .Buy(100, Price.Current)
+            .ClosePosition(MarketTime.PreMarket.Ending)
+            .Build();
+
+        // Assert
+        Assert.Multiple(() =>
+        {
+            Assert.That(strategy.Order.ClosePositionTime, Is.EqualTo(MarketTime.PreMarket.Ending));
+            Assert.That(strategy.Order.ClosePositionOnlyIfProfitable, Is.True);
+        });
+    }
+
+    [Test]
+    public void ClosePosition_OnlyIfProfitableTrue_SetsFlag()
+    {
+        // Arrange & Act
+        var strategy = Stock.Ticker("AAPL")
+            .Breakout(150)
+            .Buy(100, Price.Current)
+            .ClosePosition(MarketTime.PreMarket.Ending, onlyIfProfitable: true)
+            .Build();
+
+        // Assert
+        Assert.That(strategy.Order.ClosePositionOnlyIfProfitable, Is.True);
+    }
+
+    [Test]
+    public void ClosePosition_OnlyIfProfitableFalse_SetsFlag()
+    {
+        // Arrange & Act
+        var strategy = Stock.Ticker("AAPL")
+            .Breakout(150)
+            .Buy(100, Price.Current)
+            .ClosePosition(MarketTime.PreMarket.Ending, onlyIfProfitable: false)
+            .Build();
+
+        // Assert
+        Assert.That(strategy.Order.ClosePositionOnlyIfProfitable, Is.False);
+    }
+
+    [Test]
+    public void ClosePosition_WithAllOptions_ConfiguresCorrectly()
+    {
+        // Arrange
+        var closeTime = new TimeOnly(9, 20);
+
+        // Act
+        var strategy = Stock.Ticker("TEST")
+            .Start(MarketTime.PreMarket.Start)
+            .PriceAbove(5.00)
+            .AboveVwap()
+            .Buy(100, Price.Current)
+            .TakeProfit(6.00, 7.00)
+            .StopLoss(4.50)
+            .ClosePosition(closeTime, onlyIfProfitable: false)
+            .End(MarketTime.PreMarket.End);
+
+        // Assert
+        Assert.Multiple(() =>
+        {
+            Assert.That(strategy.Order.ClosePositionTime, Is.EqualTo(closeTime));
+            Assert.That(strategy.Order.ClosePositionOnlyIfProfitable, Is.False);
+            Assert.That(strategy.Order.EnableTakeProfit, Is.True);
+            Assert.That(strategy.Order.EnableStopLoss, Is.True);
+        });
+    }
+
+    [Test]
+    public void ClosePosition_UsingTimePreMarketEnding_SetsCorrectTime()
+    {
+        // Arrange & Act
+        var strategy = Stock.Ticker("AAPL")
+            .Breakout(150)
+            .Buy(100, Price.Current)
+            .ClosePosition(MarketTime.PreMarket.Ending)
+            .Build();
+
+        // Assert - Time.PreMarket.Ending should be 9:20 AM ET (10 min before 9:30)
+        Assert.That(strategy.Order.ClosePositionTime, Is.EqualTo(new TimeOnly(9, 20)));
+    }
+
+    [Test]
+    public void ClosePosition_PremarketStrategy_OnlyIfProfitableDefault()
+    {
+        // Arrange & Act - Typical premarket strategy
+        var strategy = Stock.Ticker("VIVS")
+            .Start(MarketTime.PreMarket.Start)
+            .PriceAbove(2.40)
+            .AboveVwap()
+            .Buy(100, Price.Current)
+            .TakeProfit(4.00, 4.80)
+            .ClosePosition(MarketTime.PreMarket.Ending)
+            .End(MarketTime.PreMarket.End);
+
+        // Assert - Default should only close if profitable
+        Assert.Multiple(() =>
+        {
+            Assert.That(strategy.Order.ClosePositionTime, Is.EqualTo(MarketTime.PreMarket.Ending));
+            Assert.That(strategy.Order.ClosePositionOnlyIfProfitable, Is.True);
+        });
+    }
+
+    [Test]
+    public void ClosePosition_ForceCloseAtLoss_OnlyIfProfitableFalse()
+    {
+        // Arrange & Act - Strategy that must close regardless of P&L
+        var strategy = Stock.Ticker("TEST")
+            .Start(MarketTime.PreMarket.Start)
+            .PriceAbove(10.00)
+            .Buy(100, Price.Current)
+            .TakeProfit(12.00)
+            .ClosePosition(MarketTime.PreMarket.Ending, onlyIfProfitable: false)
+            .End(MarketTime.PreMarket.End);
+
+        // Assert - Will close even at a loss
+        Assert.Multiple(() =>
+        {
+            Assert.That(strategy.Order.ClosePositionTime, Is.EqualTo(MarketTime.PreMarket.Ending));
+            Assert.That(strategy.Order.ClosePositionOnlyIfProfitable, Is.False);
+        });
+    }
+
+    [Test]
     public void TimeInForce_SetsTimeInForce()
     {
         // Arrange & Act
@@ -411,7 +800,7 @@ public class FluentApiBuilderTests
         // Arrange & Act
         var strategy = Stock
             .Ticker("NAMM")
-            .Start(Time.PreMarket.Start)
+            .Start(MarketTime.PreMarket.Start)
             .Breakout(7.10)
             .Pullback(6.80)
             .AboveVwap()
@@ -419,15 +808,15 @@ public class FluentApiBuilderTests
             .TakeProfit(9.00)
             .StopLoss(6.50)
             .TrailingStopLoss(Percent.Ten)
-            .ClosePosition(Time.PreMarket.End.AddMinutes(-10))
-            .End(Time.PreMarket.End);
+            .ClosePosition(MarketTime.PreMarket.End.AddMinutes(-10))
+            .End(MarketTime.PreMarket.End);
 
         // Assert
         Assert.Multiple(() =>
         {
             Assert.That(strategy.Symbol, Is.EqualTo("NAMM"));
-            Assert.That(strategy.StartTime, Is.EqualTo(Time.PreMarket.Start));
-            Assert.That(strategy.EndTime, Is.EqualTo(Time.PreMarket.End));
+            Assert.That(strategy.StartTime, Is.EqualTo(MarketTime.PreMarket.Start));
+            Assert.That(strategy.EndTime, Is.EqualTo(MarketTime.PreMarket.End));
             Assert.That(strategy.Conditions, Has.Count.EqualTo(3));
             Assert.That(strategy.Order.Quantity, Is.EqualTo(100));
             Assert.That(strategy.Order.EnableTakeProfit, Is.True);
@@ -737,12 +1126,12 @@ public class FluentApiBuilderTests
         public void Close_FullFluentChain_ConfiguresCorrectly()
         {
             var strategy = Stock.Ticker("AAPL")
-                .Start(Time.PreMarket.Start)
+                .Start(MarketTime.PreMarket.Start)
                 .PriceAbove(155)
                 .CloseLong(quantity: 100, Price.Current, OrderType.Market)
                 .TimeInForce(TIF.GTC)
                 .OutsideRTH(outsideRth: true, takeProfit: true)
-                .End(Time.PreMarket.End);
+                .End(MarketTime.PreMarket.End);
 
             Assert.Multiple(() =>
             {
@@ -752,8 +1141,8 @@ public class FluentApiBuilderTests
                 Assert.That(strategy.Order.Type, Is.EqualTo(OrderType.Market));
                 Assert.That(strategy.Order.TimeInForce, Is.EqualTo(TimeInForce.GoodTillCancel));
                 Assert.That(strategy.Order.OutsideRth, Is.True);
-                Assert.That(strategy.StartTime, Is.EqualTo(Time.PreMarket.Start));
-                Assert.That(strategy.EndTime, Is.EqualTo(Time.PreMarket.End));
+                Assert.That(strategy.StartTime, Is.EqualTo(MarketTime.PreMarket.Start));
+                Assert.That(strategy.EndTime, Is.EqualTo(MarketTime.PreMarket.End));
             });
         }
 

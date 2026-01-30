@@ -5,14 +5,14 @@
 // BEST PRACTICES:
 // 1. Always add at least one condition before calling Buy(), Sell(), or Close().
 // 2. Chain conditions in the order they should be evaluated (chronological).
-// 3. Use Start() and End() to define the active time window.
+// 3. Use SessionDuration() to define the active time window (easy to comment out for testing).
 // 4. Always set TakeProfit AND StopLoss for proper risk management.
 // 5. Validate that Start time is before End time.
 // 6. Use meaningful condition sequences (e.g., Breakout -> Pullback -> AboveVwap).
 //
 // FLUENT PATTERN:
 //   Stock.Ticker("SYMBOL")     // Start builder
-//       .Start(...)            // Optional: when to start monitoring
+//       .SessionDuration(...)   // Optional: when to monitor (comment out for immediate testing)
 //       .Breakout(...)         // Add conditions
 //       .Pullback(...)
 //       .AboveVwap()
@@ -21,10 +21,11 @@
 //       .Close(...)            // Returns StrategyBuilder (closes existing position)
 //       .TakeProfit(...)       // Exit configuration
 //       .StopLoss(...)
-//       .End(...)              // Terminal: returns TradingStrategy
+//       .Build()               // Terminal: returns TradingStrategy
 //
 // OPENING POSITIONS:
 // var buyStrategy = Stock.Ticker("AAPL")
+//     .SessionDuration(new TimeOnly(4, 0), new TimeOnly(9, 30))  // Comment out to test immediately
 //     .Breakout(150)
 //     .Buy(quantity: 100, Price.Current)
 //     .TakeProfit(155)
@@ -82,6 +83,7 @@ namespace IdiotProof.Models
     {
         private readonly string _symbol;
         private string _exchange = "SMART";
+        private string? _primaryExchange;
         private string _currency = "USD";
         private string _secType = "STK";
         private readonly List<IStrategyCondition> _conditions = new();
@@ -129,6 +131,47 @@ namespace IdiotProof.Models
         }
 
         /// <summary>
+        /// Sets the exchange for order routing using a predefined exchange type.
+        /// </summary>
+        /// <param name="exchange">Exchange type (default: SMART).</param>
+        /// <returns>The builder for method chaining.</returns>
+        /// <remarks>
+        /// <para><b>Best Practice:</b> Use <see cref="ContractExchange.Smart"/> for most stocks.</para>
+        /// <para>Use <see cref="ContractExchange.Pink"/> for OTC/microcap stocks under $1.</para>
+        /// <para><b>Note:</b> Pink uses SMART routing with PrimaryExchange="PINK" for IBKR compatibility.</para>
+        /// </remarks>
+        public Stock Exchange(ContractExchange exchange)
+        {
+            switch (exchange)
+            {
+                case ContractExchange.Pink:
+                    _exchange = "SMART";
+                    _primaryExchange = "PINK";
+                    break;
+                case ContractExchange.Smart:
+                default:
+                    _exchange = "SMART";
+                    _primaryExchange = null;
+                    break;
+            }
+            return this;
+        }
+
+        /// <summary>
+        /// Sets the primary exchange for order routing (used with SMART routing).
+        /// </summary>
+        /// <param name="primaryExchange">Primary exchange identifier (e.g., "NASDAQ", "NYSE", "PINK").</param>
+        /// <returns>The builder for method chaining.</returns>
+        /// <remarks>
+        /// <b>Use Case:</b> Required for OTC stocks when using SMART routing.
+        /// </remarks>
+        public Stock PrimaryExchange(string primaryExchange)
+        {
+            _primaryExchange = primaryExchange;
+            return this;
+        }
+
+        /// <summary>
         /// Sets the currency for the order.
         /// </summary>
         /// <param name="currency">Currency code (default: "USD").</param>
@@ -160,13 +203,95 @@ namespace IdiotProof.Models
         /// <param name="startTime">The time to begin monitoring.</param>
         /// <returns>The builder for method chaining.</returns>
         /// <remarks>
-        /// <para><b>Best Practice:</b> Use <see cref="Time"/> helper for common times:</para>
+        /// <para><b>Best Practice:</b> Use <see cref="MarketTime"/> helper for common times:</para>
         /// <code>.Start(Time.PreMarket.Start)</code>
         /// <para><b>Note:</b> Currently stored but not enforced by StrategyRunner.</para>
         /// </remarks>
         public Stock Start(TimeOnly startTime)
         {
             _startTime = startTime;
+            return this;
+        }
+
+        /// <summary>
+        /// Sets the time window for monitoring the strategy (CST).
+        /// </summary>
+        /// <param name="startTime">The time to begin monitoring.</param>
+        /// <param name="endTime">The time to stop monitoring.</param>
+        /// <returns>The builder for method chaining.</returns>
+        /// <remarks>
+        /// <para><b>Best Practice:</b> Use <see cref="MarketTime"/> helper for common times:</para>
+        /// <code>.SessionDuration(Time.PreMarket.Start, Time.PreMarket.End)</code>
+        /// <para><b>Tip:</b> Comment out this single line to test without time restrictions.</para>
+        /// </remarks>
+        /// <example>
+        /// <code>
+        /// Stock.Ticker("AAPL")
+        ///     .SessionDuration(new TimeOnly(4, 0), new TimeOnly(9, 30))  // Comment out to test immediately
+        ///     .Breakout(150)
+        ///     .Buy(100, Price.Current)
+        ///     .Build();
+        /// </code>
+        /// </example>
+        public Stock SessionDuration(TimeOnly startTime, TimeOnly endTime)
+        {
+            _startTime = startTime;
+            _endTime = endTime;
+            return this;
+        }
+
+        /// <summary>
+        /// Sets the time window for monitoring the strategy using a predefined trading session.
+        /// </summary>
+        /// <param name="session">The trading session to use.</param>
+        /// <returns>The builder for method chaining.</returns>
+        /// <remarks>
+        /// <para><b>Session Times (Eastern Time):</b></para>
+        /// <list type="bullet">
+        ///   <item><see cref="TradingSession.PreMarket"/>: 4:00 AM - 9:30 AM ET</item>
+        ///   <item><see cref="TradingSession.RTH"/>: 9:30 AM - 4:00 PM ET</item>
+        ///   <item><see cref="TradingSession.AfterHours"/>: 4:00 PM - 8:00 PM ET</item>
+        ///   <item><see cref="TradingSession.Extended"/>: 4:00 AM - 8:00 PM ET</item>
+        /// </list>
+        /// <para><b>Tip:</b> Comment out this single line to test without time restrictions.</para>
+        /// </remarks>
+        /// <example>
+        /// <code>
+        /// Stock.Ticker("AAPL")
+        ///     .SessionDuration(TradingSession.PreMarket)  // Comment out to test immediately
+        ///     .Breakout(150)
+        ///     .Buy(100, Price.Current)
+        ///     .Build();
+        /// </code>
+        /// </example>
+        public Stock SessionDuration(TradingSession session)
+        {
+            // Handle Always separately since it clears time restrictions
+            if (session == TradingSession.Always)
+            {
+                _startTime = null;
+                _endTime = null;
+                return this;
+            }
+
+            (_startTime, _endTime) = session switch
+            {
+                // Standard sessions (full duration)
+                TradingSession.PreMarket => (MarketTime.PreMarket.Start, MarketTime.PreMarket.End),
+                TradingSession.RTH => (MarketTime.RTH.Start, MarketTime.RTH.End),
+                TradingSession.AfterHours => (MarketTime.AfterHours.Start, MarketTime.AfterHours.End),
+                TradingSession.Extended => (MarketTime.Extended.Start, MarketTime.Extended.End),
+
+                // Buffered sessions (10-minute buffer)
+                TradingSession.PreMarketEndEarly => (MarketTime.PreMarket.Start, MarketTime.PreMarket.Ending),
+                TradingSession.PreMarketStartLate => (MarketTime.PreMarket.Starting, MarketTime.PreMarket.End),
+                TradingSession.RTHEndEarly => (MarketTime.RTH.Start, MarketTime.RTH.Ending),
+                TradingSession.RTHStartLate => (MarketTime.RTH.Starting, MarketTime.RTH.End),
+                TradingSession.AfterHoursEndEarly => (MarketTime.AfterHours.Start, MarketTime.AfterHours.Ending),
+
+                _ => throw new ArgumentOutOfRangeException(nameof(session), session, "Unknown trading session")
+            };
+
             return this;
         }
 
@@ -256,7 +381,7 @@ namespace IdiotProof.Models
         /// <param name="quantity">Number of shares to buy.</param>
         /// <param name="priceType">Price type for order execution (default: Current).</param>
         /// <param name="orderType">Order type (Market or Limit, default: Market).</param>
-        public StrategyBuilder Buy(int quantity, Price priceType = Price.Current, OrderType orderType = OrderType.Market)
+        public StrategyBuilder Buy(int quantity, Price priceType = Price.Current, OrderType orderType = OrderType.Limit)
         {
             return new StrategyBuilder(this, OrderSide.Buy, quantity, priceType, orderType);
         }
@@ -267,7 +392,7 @@ namespace IdiotProof.Models
         /// <param name="quantity">Number of shares to sell.</param>
         /// <param name="priceType">Price type for order execution (default: Current).</param>
         /// <param name="orderType">Order type (Market or Limit, default: Market).</param>
-        public StrategyBuilder Sell(int quantity, Price priceType = Price.Current, OrderType orderType = OrderType.Market)
+        public StrategyBuilder Sell(int quantity, Price priceType = Price.Current, OrderType orderType = OrderType.Limit)
         {
             return new StrategyBuilder(this, OrderSide.Sell, quantity, priceType, orderType);
         }
@@ -319,7 +444,7 @@ namespace IdiotProof.Models
         ///     .Build();
         /// </code>
         /// </remarks>
-        public StrategyBuilder Close(int quantity, OrderSide positionSide = OrderSide.Buy, Price priceType = Price.Current, OrderType orderType = OrderType.Market)
+        public StrategyBuilder Close(int quantity, OrderSide positionSide = OrderSide.Buy, Price priceType = Price.Current, OrderType orderType = OrderType.Limit)
         {
             // Close is the opposite action of your position
             // Long position (Buy) -> Sell to close
@@ -339,7 +464,7 @@ namespace IdiotProof.Models
         /// <para>Shorthand for <c>.Close(quantity, OrderSide.Buy)</c></para>
         /// <para><b>Action:</b> SELL (to close long position)</para>
         /// </remarks>
-        public StrategyBuilder CloseLong(int quantity, Price priceType = Price.Current, OrderType orderType = OrderType.Market)
+        public StrategyBuilder CloseLong(int quantity, Price priceType = Price.Current, OrderType orderType = OrderType.Limit)
         {
             return Close(quantity, OrderSide.Buy, priceType, orderType);
         }
@@ -355,7 +480,7 @@ namespace IdiotProof.Models
         /// <para>Shorthand for <c>.Close(quantity, OrderSide.Sell)</c></para>
         /// <para><b>Action:</b> BUY (to cover short position)</para>
         /// </remarks>
-        public StrategyBuilder CloseShort(int quantity, Price priceType = Price.Current, OrderType orderType = OrderType.Market)
+        public StrategyBuilder CloseShort(int quantity, Price priceType = Price.Current, OrderType orderType = OrderType.Limit)
         {
             return Close(quantity, OrderSide.Sell, priceType, orderType);
         }
@@ -450,6 +575,7 @@ namespace IdiotProof.Models
             {
                 Symbol = _symbol,
                 Exchange = _exchange,
+                PrimaryExchange = _primaryExchange,
                 Currency = _currency,
                 SecType = _secType,
                 Conditions = _conditions.AsReadOnly(),
@@ -462,6 +588,7 @@ namespace IdiotProof.Models
 
         internal string Symbol => _symbol;
         internal string ExchangeValue => _exchange;
+        internal string? PrimaryExchangeValue => _primaryExchange;
         internal string CurrencyValue => _currency;
         internal string SecTypeValue => _secType;
         internal IReadOnlyList<IStrategyCondition> Conditions => _conditions.AsReadOnly();
@@ -494,11 +621,13 @@ namespace IdiotProof.Models
         private bool _enableTrailingStopLoss;
         private double _trailingStopLossPercent;
         private TimeOnly? _closePositionTime;
+        private bool _closePositionOnlyIfProfitable = true;
         private Enums.TimeInForce _timeInForce = Enums.TimeInForce.GoodTillCancel;
         private bool _outsideRth = true;
         private bool _takeProfitOutsideRth = true;
-        private Enums.OrderType _orderType = Enums.OrderType.Market;
+        private Enums.OrderType _orderType = Enums.OrderType.Limit;
         private bool _allOrNone = false;
+        private AdxTakeProfitConfig? _adxTakeProfit;
 
         /// <summary>
         /// Gets whether this order is closing an existing position.
@@ -530,11 +659,76 @@ namespace IdiotProof.Models
         }
 
         /// <summary>
-        /// Sets the take profit price.
+        /// Sets a fixed take profit price.
         /// </summary>
+        /// <param name="price">The absolute take profit price.</param>
         public StrategyBuilder TakeProfit(double price)
         {
             _takeProfit = price;
+            _adxTakeProfit = null; // Clear any ADX config when using fixed price
+            return this;
+        }
+
+        /// <summary>
+        /// Sets a dynamic take profit range that adjusts based on ADX trend strength.
+        /// </summary>
+        /// <param name="lowTarget">Conservative target price (used when ADX is weak, typically the midpoint).</param>
+        /// <param name="highTarget">Aggressive target price (used when ADX is strong, typically range high).</param>
+        /// <returns>The builder for method chaining.</returns>
+        /// <remarks>
+        /// <para><b>ADX-Based Take Profit Rules:</b></para>
+        /// <list type="bullet">
+        ///   <item>ADX &lt; 15 (No Trend): Take profit at <paramref name="lowTarget"/></item>
+        ///   <item>ADX 15-25 (Developing): Interpolate between targets</item>
+        ///   <item>ADX 25-35 (Strong): Take profit at <paramref name="highTarget"/></item>
+        ///   <item>ADX &gt; 35 (Very Strong): Target <paramref name="highTarget"/> or beyond</item>
+        ///   <item>ADX Rolling Over: Exit early as momentum fades</item>
+        /// </list>
+        /// 
+        /// <para><b>Example:</b></para>
+        /// <code>
+        /// // Range 1.30-1.70, use midpoint (1.50) when weak, high (1.70) when strong
+        /// .TakeProfit(1.50, 1.70)
+        /// 
+        /// // With custom ADX thresholds
+        /// .TakeProfit(1.50, 1.70, weakThreshold: 20, strongThreshold: 40)
+        /// </code>
+        /// </remarks>
+        public StrategyBuilder TakeProfit(double lowTarget, double highTarget)
+        {
+            _adxTakeProfit = AdxTakeProfitConfig.FromRange(lowTarget, highTarget);
+            _takeProfit = lowTarget; // Use conservative as fallback if ADX unavailable
+            return this;
+        }
+
+        /// <summary>
+        /// Sets a dynamic take profit range with custom ADX thresholds.
+        /// </summary>
+        /// <param name="lowTarget">Conservative target price (used when ADX &lt; <paramref name="weakThreshold"/>).</param>
+        /// <param name="highTarget">Aggressive target price (used when ADX &gt; <paramref name="strongThreshold"/>).</param>
+        /// <param name="weakThreshold">ADX value below which trend is considered weak (default: 15).</param>
+        /// <param name="developingThreshold">ADX value for developing trend (default: 25).</param>
+        /// <param name="strongThreshold">ADX value above which trend is strong (default: 35).</param>
+        /// <param name="exitOnRollover">Exit when ADX peaks and begins falling (default: true).</param>
+        /// <returns>The builder for method chaining.</returns>
+        public StrategyBuilder TakeProfit(
+            double lowTarget,
+            double highTarget,
+            double weakThreshold = 15.0,
+            double developingThreshold = 25.0,
+            double strongThreshold = 35.0,
+            bool exitOnRollover = true)
+        {
+            _adxTakeProfit = new AdxTakeProfitConfig
+            {
+                ConservativeTarget = lowTarget,
+                AggressiveTarget = highTarget,
+                WeakTrendThreshold = weakThreshold,
+                DevelopingTrendThreshold = developingThreshold,
+                StrongTrendThreshold = strongThreshold,
+                ExitOnAdxRollover = exitOnRollover
+            };
+            _takeProfit = lowTarget; // Use conservative as fallback
             return this;
         }
 
@@ -562,9 +756,26 @@ namespace IdiotProof.Models
         /// <summary>
         /// Sets the time to close position if still open.
         /// </summary>
-        public StrategyBuilder ClosePosition(TimeOnly time)
+        /// <param name="time">The time to close the position.</param>
+        /// <param name="onlyIfProfitable">
+        /// When true (default), only closes if position is profitable (price >= entry for longs).
+        /// When false, closes regardless of profit/loss.
+        /// </param>
+        /// <returns>The builder for method chaining.</returns>
+        /// <remarks>
+        /// <para><b>Example:</b></para>
+        /// <code>
+        /// // Close at 9:20 AM ET only if profitable
+        /// .ClosePosition(Time.PreMarket.Ending)
+        /// 
+        /// // Close at 9:20 AM ET regardless of profit/loss
+        /// .ClosePosition(Time.PreMarket.Ending, onlyIfProfitable: false)
+        /// </code>
+        /// </remarks>
+        public StrategyBuilder ClosePosition(TimeOnly time, bool onlyIfProfitable = true)
         {
             _closePositionTime = time;
+            _closePositionOnlyIfProfitable = onlyIfProfitable;
             return this;
         }
 
@@ -657,14 +868,16 @@ namespace IdiotProof.Models
                 TimeInForce = _timeInForce,
                 OutsideRth = _outsideRth,
                 AllOrNone = _allOrNone,
-                EnableTakeProfit = _takeProfit.HasValue,
+                EnableTakeProfit = _takeProfit.HasValue || _adxTakeProfit != null,
                 TakeProfitPrice = _takeProfit,
                 TakeProfitOutsideRth = _takeProfitOutsideRth,
+                AdxTakeProfit = _adxTakeProfit,
                 EnableStopLoss = _stopLoss.HasValue,
                 StopLossPrice = _stopLoss,
                 EnableTrailingStopLoss = _enableTrailingStopLoss,
                 TrailingStopLossPercent = _trailingStopLossPercent,
-                ClosePositionTime = _closePositionTime
+                ClosePositionTime = _closePositionTime,
+                ClosePositionOnlyIfProfitable = _closePositionOnlyIfProfitable
             };
 
             return _stock.BuildStrategy(order);

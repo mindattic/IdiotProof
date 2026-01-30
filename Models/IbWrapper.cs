@@ -74,11 +74,12 @@ namespace IdiotProof.Models
     /// 
     /// <para><b>Reference:</b> https://interactivebrokers.github.io/tws-api/</para>
     /// </remarks>
-    public sealed class IbWrapper : EWrapper
+    public sealed class IbWrapper : EWrapper, IDisposable
     {
         public EReaderSignal Signal { get; } = new EReaderMonitorSignal();
 
         private EClientSocket? _client;
+        private bool _disposed;
 
         private readonly ManualResetEventSlim _nextValidIdEvent = new ManualResetEventSlim(false);
         private readonly object _orderIdLock = new object();
@@ -116,11 +117,14 @@ namespace IdiotProof.Models
         }
 
         /// <summary>
-        /// Unregisters the handler for a specific ticker ID.
+        /// Unregisters the handler for a specific ticker ID and clears cached data.
         /// </summary>
         public void UnregisterTickerHandler(int tickerId)
         {
             _tickerHandlers.TryRemove(tickerId, out _);
+            // Clear cached market data to prevent memory buildup
+            _lastByTicker.TryRemove(tickerId, out _);
+            _lastSizeByTicker.TryRemove(tickerId, out _);
         }
 
         public bool WaitForNextValidId(TimeSpan timeout)
@@ -352,5 +356,29 @@ namespace IdiotProof.Models
         public void errorProtoBuf(IBApi.protobuf.ErrorMessage errorMessage) { }
         public void execDetailsProtoBuf(IBApi.protobuf.ExecutionDetails executionDetails) { }
         public void execDetailsEndProtoBuf(IBApi.protobuf.ExecutionDetailsEnd executionDetailsEnd) { }
+
+        /// <summary>
+        /// Disposes resources used by the wrapper.
+        /// </summary>
+        public void Dispose()
+        {
+            if (_disposed)
+                return;
+            _disposed = true;
+
+            // Dispose the ManualResetEventSlim (releases native handle)
+            _nextValidIdEvent.Dispose();
+
+            // Clear all cached data
+            _tickerHandlers.Clear();
+            _lastByTicker.Clear();
+            _lastSizeByTicker.Clear();
+
+            // Clear event subscribers to prevent holding references
+            OnLastTrade = null;
+            OnOrderFill = null;
+
+            _client = null;
+        }
     }
 }

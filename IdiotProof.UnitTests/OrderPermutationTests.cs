@@ -484,7 +484,7 @@ public class OrderPermutationTests
         {
             // Arrange & Act - Continuous coverage from pre-market through regular session
             var strategy = Stock.Ticker("NVDA")
-                .Start(Time.PreMarket.Start)
+                .Start(MarketTime.PreMarket.Start)
                 .Breakout(300)
                 .Buy(25, Price.Current)
                 .TimeInForce(TIF.OvernightPlusDay)
@@ -1178,11 +1178,11 @@ public class OrderPermutationTests
         {
             // Arrange & Act
             var strategy = Stock.Ticker("TEST")
-                .Start(Time.PreMarket.Start)
+                .Start(MarketTime.PreMarket.Start)
                 .Breakout(100)
                 .Buy(100, Price.Current)
-                .ClosePosition(Time.PreMarket.End.AddMinutes(-10))
-                .End(Time.PreMarket.End);
+                .ClosePosition(MarketTime.PreMarket.End.AddMinutes(-10))
+                .End(MarketTime.PreMarket.End);
 
             // Assert - All times are in Eastern Time (ET)
             Assert.Multiple(() =>
@@ -1199,10 +1199,10 @@ public class OrderPermutationTests
         {
             // Arrange & Act
             var strategy = Stock.Ticker("TEST")
-                .Start(Time.RTH.Start)
+                .Start(MarketTime.RTH.Start)
                 .Breakout(100)
                 .Buy(100, Price.Current)
-                .End(Time.RTH.End);
+                .End(MarketTime.RTH.End);
 
             // Assert - All times are in Eastern Time (ET)
             Assert.Multiple(() =>
@@ -1218,10 +1218,10 @@ public class OrderPermutationTests
         {
             // Arrange & Act
             var strategy = Stock.Ticker("TEST")
-                .Start(Time.AfterHours.Start)
+                .Start(MarketTime.AfterHours.Start)
                 .Breakout(100)
                 .Buy(100, Price.Current)
-                .End(Time.AfterHours.End);
+                .End(MarketTime.AfterHours.End);
 
             // Assert - All times are in Eastern Time (ET)
             Assert.Multiple(() =>
@@ -1619,7 +1619,7 @@ public class OrderPermutationTests
         public void CompleteConfig_PreMarketStrategy_AllSet()
         {
             var strategy = Stock.Ticker("AAPL")
-                .Start(Time.PreMarket.Start)
+                .Start(MarketTime.PreMarket.Start)
                 .Breakout(150)
                 .Pullback(148)
                 .AboveVwap()
@@ -1629,8 +1629,8 @@ public class OrderPermutationTests
                 .OutsideRTH(outsideRth: true, takeProfit: true)
                 .TakeProfit(155)
                 .TrailingStopLoss(Percent.Ten)
-                .ClosePosition(Time.PreMarket.End.AddMinutes(-10))
-                .End(Time.PreMarket.End);
+                .ClosePosition(MarketTime.PreMarket.End.AddMinutes(-10))
+                .End(MarketTime.PreMarket.End);
 
             Assert.Multiple(() =>
             {
@@ -1811,7 +1811,7 @@ public class OrderPermutationTests
         {
             var strategy = Stock.Ticker("TEST")
                 .Enabled(false)
-                .Start(Time.PreMarket.Start)
+                .Start(MarketTime.PreMarket.Start)
                 .Exchange("NASDAQ")
                 .Breakout(100)
                 .Pullback(95)
@@ -1824,7 +1824,7 @@ public class OrderPermutationTests
                 Assert.That(strategy.Enabled, Is.False);
                 Assert.That(strategy.Symbol, Is.EqualTo("TEST"));
                 Assert.That(strategy.Exchange, Is.EqualTo("NASDAQ"));
-                Assert.That(strategy.StartTime, Is.EqualTo(Time.PreMarket.Start));
+                Assert.That(strategy.StartTime, Is.EqualTo(MarketTime.PreMarket.Start));
                 Assert.That(strategy.Conditions, Has.Count.EqualTo(2));
                 Assert.That(strategy.Order.Quantity, Is.EqualTo(200));
                 Assert.That(strategy.Order.PriceType, Is.EqualTo(Price.VWAP));

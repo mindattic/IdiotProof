@@ -6,6 +6,7 @@ A fluent API framework for building multi-stage trading strategies with Interact
 
 - [Overview](#overview)
 - [Quick Start](#quick-start)
+- [Running in Release Mode](#running-in-release-mode)
 - [Fluent API Reference](#fluent-api-reference)
   - [Strategy Builder Methods](#strategy-builder-methods)
   - [Condition Methods](#condition-methods)
@@ -38,7 +39,7 @@ IdiotProof provides a clean, readable fluent API for defining complex trading st
 ```csharp
 var strategy = Stock
     .Ticker("AAPL")
-    .Start(Time.PreMarket.Start)              // Start monitoring at 4:00 AM ET
+    .SessionDuration(TradingSession.PreMarketEndEarly)  // 4:00 AM - 9:20 AM ET
     .Breakout(150.00)                         // Step 1: Price >= 150.00
     .Pullback(148.50)                         // Step 2: Price <= 148.50
     .AboveVwap()                              // Step 3: Price >= VWAP
@@ -46,9 +47,76 @@ var strategy = Stock
     .TakeProfit(155.00)                       // Exit at $155.00
     .StopLoss(147.00)                         // Stop loss at $147.00
     .TrailingStopLoss(Percent.Ten)            // 10% trailing stop
-    .ClosePosition(Time.PreMarket.End.AddMinutes(-10))  // Close at 9:20 AM ET
-    .End(Time.PreMarket.End);                 // Stop monitoring at 9:30 AM ET
+    .ClosePosition(MarketTime.PreMarket.Ending)  // Close at 9:20 AM ET
+    .Build();
 ```
+
+---
+
+## Running in Release Mode
+
+For long-running processes like overnight trading bots, **always run in Release mode** for better performance and lower memory usage.
+
+### Why Release Mode?
+
+| Aspect | Debug | Release |
+|--------|-------|---------|
+| Memory Usage | Higher | **Lower** |
+| CPU Usage | Higher | **Lower** |
+| JIT Optimization | Disabled | **Enabled** |
+| Debug Symbols | Loaded | Not loaded |
+| GC Pressure | Higher | **Lower** |
+| Variable Preservation | For inspection | Optimized away |
+
+### Building in Release
+
+**Command Line:**
+```bash
+dotnet build -c Release
+dotnet run -c Release --no-build
+```
+
+**Visual Studio:**
+1. Change configuration dropdown from `Debug` to `Release`
+2. Build → Build Solution (Ctrl+Shift+B)
+3. Run without debugger: Debug → Start Without Debugging (Ctrl+F5)
+
+### Running Overnight
+
+For bots that run all night:
+
+```bash
+# Build once
+dotnet build -c Release
+
+# Run without debugger attached
+dotnet run -c Release --no-build
+```
+
+> **Important:** Running with `F5` (Start Debugging) keeps the debugger attached, which increases memory usage. Use `Ctrl+F5` (Start Without Debugging) for production runs.
+
+### Common Overnight Memory Leak Patterns
+
+Even in Release mode, watch out for:
+
+| Pattern | Issue | Fix |
+|---------|-------|-----|
+| Unbounded lists | Log buffers grow forever | Cap size or rotate |
+| Event handlers | Not unsubscribed | Implement `IDisposable` |
+| IB subscriptions | Market data accumulates | Cancel unused requests |
+| Console output | Large log buffers | Write to file, not console |
+
+### Monitoring Memory Usage
+
+```bash
+# Windows - check Working Set in Task Manager
+# Or use Performance Monitor (perfmon)
+
+# Linux/Mac
+top -p $(pgrep -f IdiotProof)
+```
+
+**Recommended:** If memory grows steadily over hours, you likely have a leak.
 
 ---
 
@@ -104,6 +172,76 @@ Enables or disables the strategy. Disabled strategies are skipped during executi
 
 ```csharp
 .Enabled(false)    // Strategy won't run
+```
+
+**Returns:** `Stock` builder (chainable)
+
+---
+
+#### `.Exchange(ContractExchange exchange)`
+Sets the exchange using a predefined exchange type.
+
+```csharp
+.Exchange(ContractExchange.Smart)    // Default: SMART routing
+.Exchange(ContractExchange.Pink)     // OTC/Pink Sheets
+```
+
+**Parameters:**
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `exchange` | `ContractExchange` | `Smart` | Predefined exchange type |
+
+**Returns:** `Stock` builder (chainable)
+
+---
+
+#### `.PrimaryExchange(string primaryExchange)`
+Sets the primary exchange for SMART routing (required for some OTC stocks).
+
+```csharp
+.PrimaryExchange("PINK")
+.PrimaryExchange("NASDAQ")
+```
+
+**Returns:** `Stock` builder (chainable)
+
+---
+
+#### `.SessionDuration(TradingSession session)`
+Sets the time window using a predefined trading session. **Recommended** - easy to comment out for testing.
+
+```csharp
+.SessionDuration(TradingSession.PreMarket)          // 4:00 AM - 9:30 AM ET
+.SessionDuration(TradingSession.PreMarketEndEarly)  // 4:00 AM - 9:20 AM ET (exit early)
+.SessionDuration(TradingSession.RTH)                // 9:30 AM - 4:00 PM ET
+.SessionDuration(TradingSession.Always)             // No time restrictions
+```
+
+**Available Sessions:**
+
+| Session | Start | End | Use Case |
+|---------|-------|-----|----------|
+| `Always` | - | - | No time restrictions |
+| `PreMarket` | 4:00 AM | 9:30 AM | Full pre-market |
+| `PreMarketEndEarly` | 4:00 AM | 9:20 AM | Exit before market open |
+| `PreMarketStartLate` | 4:10 AM | 9:30 AM | Skip initial volatility |
+| `RTH` | 9:30 AM | 4:00 PM | Regular trading hours |
+| `RTHEndEarly` | 9:30 AM | 3:50 PM | Exit before close |
+| `RTHStartLate` | 9:40 AM | 4:00 PM | Skip open volatility |
+| `AfterHours` | 4:00 PM | 8:00 PM | After-hours session |
+| `AfterHoursEndEarly` | 4:00 PM | 7:50 PM | Exit early |
+| `Extended` | 4:00 AM | 8:00 PM | All sessions |
+
+**Returns:** `Stock` builder (chainable)
+
+---
+
+#### `.SessionDuration(TimeOnly startTime, TimeOnly endTime)`
+Sets a custom time window for strategy monitoring.
+
+```csharp
+.SessionDuration(new TimeOnly(4, 0), new TimeOnly(9, 30))    // Custom window
+.SessionDuration(MarketTime.PreMarket.Start, MarketTime.PreMarket.Ending)  // Using MarketTime helpers
 ```
 
 **Returns:** `Stock` builder (chainable)
@@ -199,6 +337,17 @@ Adds a custom condition with a descriptive name.
 
 ---
 
+#### `.Condition(IStrategyCondition condition)`
+Adds any custom condition implementing the `IStrategyCondition` interface.
+
+```csharp
+.Condition(new MyCustomCondition())
+```
+
+**Implementation Status:** ✅ Fully Implemented
+
+---
+
 ### Order Methods
 
 #### `.Buy(int quantity, Price priceType)`
@@ -232,6 +381,57 @@ Creates a sell order. Returns `StrategyBuilder` for exit configuration.
 
 ---
 
+#### `.Close(int quantity, OrderSide positionSide, Price priceType, OrderType orderType)`
+Creates an order to close an existing position.
+
+```csharp
+// Close a long position (sells shares)
+.Close(quantity: 100, positionSide: OrderSide.Buy)
+
+// Close a short position (buys to cover)
+.Close(quantity: 50, positionSide: OrderSide.Sell)
+```
+
+**Parameters:**
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `quantity` | `int` | Required | Number of shares to close |
+| `positionSide` | `OrderSide` | `Buy` | Your current position side |
+| `priceType` | `Price` | `Current` | Price type for execution |
+| `orderType` | `OrderType` | `Limit` | Order type |
+
+**Behavior:**
+- Long position (`OrderSide.Buy`) → Creates SELL order
+- Short position (`OrderSide.Sell`) → Creates BUY order
+
+**Returns:** `StrategyBuilder` (for chaining)
+
+**Implementation Status:** ✅ Fully Implemented
+
+---
+
+#### `.CloseLong(int quantity, Price priceType, OrderType orderType)`
+Shorthand for closing a long position. Creates a SELL order.
+
+```csharp
+.CloseLong(quantity: 100)    // Sells 100 shares
+```
+
+**Implementation Status:** ✅ Fully Implemented
+
+---
+
+#### `.CloseShort(int quantity, Price priceType, OrderType orderType)`
+Shorthand for closing a short position. Creates a BUY order to cover.
+
+```csharp
+.CloseShort(quantity: 50)    // Buys 50 shares to cover
+```
+
+**Implementation Status:** ✅ Fully Implemented
+
+---
+
 ### Exit Strategy Methods
 
 These methods are called on `StrategyBuilder` after `.Buy()` or `.Sell()`.
@@ -247,6 +447,44 @@ Sets an absolute take profit price. Submits a limit sell order after entry fill.
 - Submits limit order immediately after entry fills
 - Cancels stop loss order if take profit fills first
 - Order type: Limit (LMT)
+
+**Implementation Status:** ✅ Fully Implemented
+
+---
+
+#### `.TakeProfit(double lowTarget, double highTarget)`
+Sets a dynamic take profit range that adjusts based on ADX trend strength.
+
+```csharp
+.TakeProfit(4.00, 4.80)    // Conservative $4.00, Aggressive $4.80
+```
+
+**ADX-Based Rules:**
+| ADX Value | Trend Strength | Take Profit Target |
+|-----------|----------------|-------------------|
+| < 15 | No Trend | Low target (conservative) |
+| 15-25 | Developing | Interpolated between targets |
+| 25-35 | Strong | High target (aggressive) |
+| > 35 | Very Strong | High target or beyond |
+| Rolling Over | Fading | Exit early |
+
+**Implementation Status:** ✅ Fully Implemented
+
+---
+
+#### `.TakeProfit(double lowTarget, double highTarget, thresholds...)`
+Sets ADX-based take profit with custom threshold values.
+
+```csharp
+.TakeProfit(
+    lowTarget: 4.00,
+    highTarget: 4.80,
+    weakThreshold: 15.0,        // Default: 15
+    developingThreshold: 25.0,  // Default: 25
+    strongThreshold: 35.0,      // Default: 35
+    exitOnRollover: true        // Default: true
+)
+```
 
 **Implementation Status:** ✅ Fully Implemented
 
@@ -366,7 +604,37 @@ Sets the order type for entry.
 .OrderType(OrderType.Limit)
 ```
 
-**Default:** `OrderType.Market` (for new API), `OrderType.Limit` (for legacy API)
+**Default:** `OrderType.Limit` (safer for GTC orders)
+
+**Implementation Status:** ✅ Fully Implemented
+
+---
+
+#### `.AllOrNone(bool allOrNone)`
+Requires the entire order to be filled at once or not at all.
+
+```csharp
+.AllOrNone()           // Must fill all shares or none
+.AllOrNone(true)       // Same as above
+.AllOrNone(false)      // Allow partial fills (default)
+```
+
+**Warning:** AllOrNone orders may take longer to fill or may not fill at all if the full quantity is not available at your price.
+
+**Default:** `false` (partial fills allowed)
+
+**Implementation Status:** ✅ Fully Implemented
+
+---
+
+#### `.Build()`
+Builds and returns the strategy with current configuration. Terminal method.
+
+```csharp
+.Build()    // Returns TradingStrategy
+```
+
+**Returns:** `TradingStrategy`
 
 **Implementation Status:** ✅ Fully Implemented
 
@@ -374,24 +642,60 @@ Sets the order type for entry.
 
 ## Helper Classes
 
-### `Time` - Trading Session Periods
+### `TradingSession` - Predefined Time Windows
+
+Use with `.SessionDuration()` for easy time window configuration.
+
+| Session | Start (ET) | End (ET) | Description |
+|---------|------------|----------|-------------|
+| `Always` | - | - | No time restrictions (24/7) |
+| `PreMarket` | 4:00 AM | 9:30 AM | Full pre-market |
+| `PreMarketEndEarly` | 4:00 AM | 9:20 AM | Exit 10 min before open |
+| `PreMarketStartLate` | 4:10 AM | 9:30 AM | Skip initial volatility |
+| `RTH` | 9:30 AM | 4:00 PM | Regular trading hours |
+| `RTHEndEarly` | 9:30 AM | 3:50 PM | Exit 10 min before close |
+| `RTHStartLate` | 9:40 AM | 4:00 PM | Skip open volatility |
+| `AfterHours` | 4:00 PM | 8:00 PM | After-hours session |
+| `AfterHoursEndEarly` | 4:00 PM | 7:50 PM | Exit 10 min early |
+| `Extended` | 4:00 AM | 8:00 PM | All sessions |
+
+**Usage:**
+```csharp
+.SessionDuration(TradingSession.PreMarketEndEarly)    // Most common for pre-market
+.SessionDuration(TradingSession.Always)               // No restrictions
+```
+
+---
+
+### `MarketTime` - Trading Session Periods
 
 All times are defined in **Eastern Time (ET)** - the standard for US equity markets. The default timezone setting is EST (Eastern Standard Time).
 
 | Property | Start (ET) | End (ET) | Description |
 |----------|------------|----------|-------------|
-| `Time.PreMarket` | 4:00 AM | 9:30 AM | Pre-market session |
-| `Time.RTH` | 9:30 AM | 4:00 PM | Regular trading hours |
-| `Time.AfterHours` | 4:00 PM | 8:00 PM | After-hours session |
-| `Time.Extended` | 4:00 AM | 8:00 PM | Full extended hours |
+| `MarketTime.PreMarket` | 4:00 AM | 9:30 AM | Pre-market session |
+| `MarketTime.RTH` | 9:30 AM | 4:00 PM | Regular trading hours |
+| `MarketTime.AfterHours` | 4:00 PM | 8:00 PM | After-hours session |
+| `MarketTime.Extended` | 4:00 AM | 8:00 PM | Full extended hours |
+
+**Properties:**
+| Property | Description |
+|----------|-------------|
+| `.Start` | Session start time |
+| `.End` | Session end time |
+| `.Starting` | 10 minutes after start (skip volatility) |
+| `.Ending` | 10 minutes before end (exit early) |
+| `.StartLocal` | Start time in local timezone |
+| `.EndLocal` | End time in local timezone |
 
 **Usage:**
 ```csharp
-Time.PreMarket.Start              // 4:00 AM ET
-Time.PreMarket.End                // 9:30 AM ET
-Time.RTH.Start                    // 9:30 AM ET (market open)
-Time.RTH.End                      // 4:00 PM ET (market close)
-Time.PreMarket.End.AddMinutes(-10) // 9:20 AM ET
+MarketTime.PreMarket.Start              // 4:00 AM ET
+MarketTime.PreMarket.End                // 9:30 AM ET
+MarketTime.PreMarket.Ending             // 9:20 AM ET (10 min before end)
+MarketTime.RTH.Start                    // 9:30 AM ET (market open)
+MarketTime.RTH.End                      // 4:00 PM ET (market close)
+MarketTime.PreMarket.End.AddMinutes(-10) // 9:20 AM ET (manual offset)
 ```
 
 **Timezone Conversion:**
@@ -479,13 +783,28 @@ Percent.Custom(12)    // Returns 0.12 (12%)
 ```csharp
 Stock
     .Ticker("NAMM")
+    .SessionDuration(TradingSession.PreMarketEndEarly)
     .Breakout(7.10)
     .Pullback(6.80)
     .AboveVwap()
     .Buy(quantity: 100, Price.Current)
     .TakeProfit(9.00)
     .StopLoss(6.50)
-    .End(Time.PreMarket.End);
+    .Build();
+```
+
+### ADX-Based Dynamic Take Profit
+
+```csharp
+Stock
+    .Ticker("VIVS")
+    .SessionDuration(TradingSession.PreMarketEndEarly)
+    .PriceAbove(2.40)
+    .AboveVwap()
+    .Buy(quantity: 208, Price.Current)
+    .TakeProfit(4.00, 4.80)                    // ADX-based: $4.00 (weak) to $4.80 (strong)
+    .ClosePosition(MarketTime.PreMarket.Ending)
+    .Build();
 ```
 
 ### Full-Featured Strategy
@@ -493,7 +812,7 @@ Stock
 ```csharp
 Stock
     .Ticker("AAPL")
-    .Start(Time.PreMarket.Start)
+    .SessionDuration(TradingSession.PreMarket)
     .Breakout(150.00)
     .Pullback(148.00)
     .AboveVwap(buffer: 0.02)
@@ -502,8 +821,34 @@ Stock
     .TrailingStopLoss(Percent.Five)
     .TimeInForce(TIF.GTC)
     .OutsideRTH(outsideRth: true, takeProfit: true)
-    .ClosePosition(Time.RTH.Start.AddMinutes(-10))
-    .End(Time.RTH.Start);
+    .ClosePosition(MarketTime.PreMarket.Ending)
+    .Build();
+```
+
+### OTC/Pink Sheet Strategy
+
+```csharp
+Stock
+    .Ticker("RPGL")
+    .Exchange(ContractExchange.Pink)           // Pink Sheets routing
+    .SessionDuration(TradingSession.PreMarketEndEarly)
+    .PriceAbove(0.88)
+    .AboveVwap()
+    .Buy(quantity: 568, Price.Current)
+    .TakeProfit(1.30, 1.70)
+    .Build();
+```
+
+### Closing a Position Strategy
+
+```csharp
+Stock
+    .Ticker("AAPL")
+    .PriceAbove(155)                           // When price hits target
+    .CloseLong(quantity: 100)                  // Sell to close long position
+    .TimeInForce(TIF.GTC)
+    .OutsideRTH(true)
+    .Build();
 ```
 
 ### Custom Condition Strategy
@@ -511,12 +856,14 @@ Stock
 ```csharp
 Stock
     .Ticker("CUSTOM")
+    .SessionDuration(TradingSession.Always)    // No time restrictions
     .Breakout(5.00)
     .When("Price in sweet spot", (price, vwap) => price >= 4.50 && price <= 4.80)
     .AboveVwap()
     .Buy(quantity: 500, Price.Current)
     .TakeProfit(6.00)
     .StopLoss(4.25)
+    .AllOrNone()                               // Must fill all 500 shares
     .Build();
 ```
 
@@ -549,7 +896,9 @@ Stock
 | Custom condition (When) | ✅ | ✅ |
 | Buy order | ✅ | ✅ |
 | Sell order | ✅ | ✅ |
-| Take profit | ✅ | ✅ |
+| Close/CloseLong/CloseShort | ✅ | ✅ |
+| Take profit (fixed) | ✅ | ✅ |
+| Take profit (ADX-based) | ✅ | ⚠️ |
 | Stop loss | ✅ | ✅ |
 | Trailing stop loss | ✅ | ✅ |
 | TimeInForce | ✅ | ✅ |
@@ -557,6 +906,9 @@ Stock
 | OrderType | ✅ | ✅ |
 | AllOrNone | ✅ | ✅ |
 | Enabled/Disabled | ✅ | ✅ |
+| SessionDuration | ✅ | ⚠️ |
+| TradingSession enum | ✅ | ⚠️ |
+| Exchange (SMART/Pink) | ✅ | ✅ |
 | VWAP calculation | N/A | ✅ |
 | **Offline Backtesting** | ✅ | N/A |
 
@@ -564,10 +916,12 @@ Stock
 
 | Feature | Builder | StrategyRunner | Notes |
 |---------|---------|----------------|-------|
+| SessionDuration | ✅ | ❌ | Property stored, time window enforcement not yet implemented |
 | Start time | ✅ | ❌ | Property stored, monitoring not enforced |
 | End time | ✅ | ❌ | Property stored, monitoring not enforced |
 | ClosePosition time | ✅ | ❌ | Property stored, auto-close not implemented |
 | Price type (Current/VWAP/Bid/Ask) | ✅ | ❌ | Property stored, order price logic not implemented |
+| ADX-based TakeProfit | ✅ | ❌ | Config stored, ADX calculation not implemented |
 
 ---
 

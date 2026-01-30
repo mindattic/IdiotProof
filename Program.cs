@@ -1,6 +1,6 @@
-// ============================================================================
+// ================================================================
 // IBKR Multi-Stage Strategy Bot
-// ============================================================================
+// ================================================================
 //
 // Define your strategies using the fluent API:
 //
@@ -10,15 +10,12 @@
 //       .AboveVwap()          // Price >= VWAP
 //       .Buy(quantity, takeProfit: price)
 //
-// ============================================================================
+// ================================================================
 
 using IBApi;
 using IdiotProof.Enums;
 using IdiotProof.Helpers;
 using IdiotProof.Models;
-using System;
-using System.Collections.Generic;
-using System.Threading;
 
 namespace IdiotProof
 {
@@ -31,95 +28,53 @@ namespace IdiotProof
             // ================================================================
             var strategies = new List<TradingStrategy>
             {
-                // ----- NAMM Strategy -----
-                Stock
-                    .Ticker("NAMM")
-                    .Start(Time.PreMarket.Start)                            // Start monitoring at 4:00 AM ET
-                    .Breakout(7.10)                                         // Step 1: Price >= 7.10
-                    .Pullback(6.80)                                         // Step 2: Price <= 6.80
-                    .AboveVwap()                                            // Step 3: Price >= VWAP
-                    .Buy(quantity: 100, Price.Current)                      // Step 4: Buy 100 @ Current Price
-                    .TakeProfit(9.00)                                       // Take profit >= 9.00
-                    .StopLoss(6.50)                                         // Stop loss <= 6.50
-                    .ClosePosition(Time.PreMarket.End.AddMinutes(-10))      // Close Position @ 9:20 AM ET
-                    .End(Time.PreMarket.End),                               // Stop monitoring @ 9:30 AM ET
-
-                // ----- VIVS Strategy (Premarket) -----
+ 
+                // ----- VIVS (Premarket): Buy 208x$2.40=$500, TakeProfit $4.00-$4.80, Exit $832-$998 -----
                 Stock
                     .Ticker("VIVS")
-                    .Start(Time.PreMarket.Start)                            // Start monitoring at 4:00 AM ET
+                    .SessionDuration(TradingSession.Always)
                     .PriceAbove(2.40)                                       // Step 1: Price > 2.40
                     .AboveVwap()                                            // Step 2: Price >= VWAP
-                    .Buy(quantity: 100, Price.Current)                      // Step 3: Buy 100 @ Current Price
-                    .TakeProfit(4.40)                                       // Take profit @ 4.40 (midpoint of 4.00-4.80)
-                    .ClosePosition(Time.PreMarket.End.AddMinutes(-10))      // Close Position @ 9:20 AM ET
-                    .End(Time.PreMarket.End),                               // Stop monitoring @ 9:30 AM ET
+                    .Buy(quantity: 1, Price.Current)                        // Step 3: Buy 208 @ Current Price
+                    .TakeProfit(4.00, 4.80)                                 // Step 4: ADX-based TakeProfit: 4.00 (weak) to 4.80 (strong)
+                    .ClosePosition(MarketTime.PreMarket.Ending),            // Step 5: Close Position @ 9:20 AM ET (if profitable)
 
-                // ----- CATX Strategy (Premarket) -----
+
+                // ----- CATX (Premarket): Buy 125x$4.00=$500, TakeProfit $5.30-$6.16, Exit $663-$770 -----
                 Stock
                     .Ticker("CATX")
-                    .Start(Time.PreMarket.Start)                            // Start monitoring at 4:00 AM ET
+                    .SessionDuration(TradingSession.Always)
                     .PriceAbove(4.00)                                       // Step 1: Price > 4.00
                     .AboveVwap()                                            // Step 2: Price >= VWAP
-                    .Buy(quantity: 100, Price.Current)                      // Step 3: Buy 100 @ Current Price
-                    .TakeProfit(5.73)                                       // Take profit @ 5.73 (midpoint of 5.30-6.16)
-                    .ClosePosition(Time.PreMarket.End.AddMinutes(-10))      // Close Position @ 9:20 AM ET
-                    .End(Time.PreMarket.End),                               // Stop monitoring @ 9:30 AM ET
+                    .Buy(quantity: 1, Price.Current)                        // Step 3: Buy 125 @ Current Price
+                    .TakeProfit(5.30, 6.16)                                 // Step 4: ADX-based TakeProfit: 5.30 (weak) to 6.16 (strong)
+                    .ClosePosition(MarketTime.PreMarket.Ending),            // Step 5: Close Position @ 9:20 AM ET (if profitable)
 
-                // ----- RPGL Strategy (Premarket) -----
+
+                // ----- RPGL (Premarket): Buy 568x$0.88=$500, TakeProfit $1.30-$1.70, Exit $738-$966 -----
                 Stock
                     .Ticker("RPGL")
-                    .Start(Time.PreMarket.Start)                            // Start monitoring at 4:00 AM ET
+                    .SessionDuration(TradingSession.Always)
+                    .Exchange(ContractExchange.Pink)                        // Pink Sheets
                     .PriceAbove(0.88)                                       // Step 1: Price > 0.88
-                    .Buy(quantity: 100, Price.Current)                      // Step 2: Buy 100 @ Current Price
-                    .TakeProfit(1.50)                                       // Take profit @ 1.50 (midpoint of 1.30-1.70)
-                    .ClosePosition(Time.PreMarket.End.AddMinutes(-10))      // Close Position @ 9:20 AM ET
-                    .End(Time.PreMarket.End),                               // Stop monitoring @ 9:30 AM ET
+                    .AboveVwap()                                            // Step 2: Price >= VWAP
+                    .Buy(quantity: 1, Price.Current)                        // Step 3: Buy 568 @ Current Price
+                    .TakeProfit(1.30, 1.70),                                // ADX-based TakeProfit: 1.30 (weak) to 1.70 (strong)
 
-                //// ----- FEED Strategy -----
-                //Stock.Ticker("FEED")
-                //    .Breakout(5.50)          // Step 1: Price >= 5.50
-                //    .Pullback(5.20)          // Step 2: Price <= 5.20
-                //    .AboveVwap()             // Step 3: Price >= VWAP
-                //    .Buy(
-                //        quantity: 500,
-                //        takeProfit: 6.00,
-                //        outsideRth: true
-                //    ),
-
-                //// ----- AUST Strategy -----
-                //Stock.Ticker("AUST")
-                //    .Breakout(3.00)          // Step 1: Price >= 3.00
-                //    .Pullback(2.80)          // Step 2: Price <= 2.80
-                //    .AboveVwap()             // Step 3: Price >= VWAP
-                //    .Buy(
-                //        quantity: 2000,
-                //        takeProfitOffset: 0.25,  // Take profit at entry + $0.25
-                //        outsideRth: true
-                //    ),
-
-                //// ----- Example: Disabled strategy -----
-                //Stock.Ticker("EXAMPLE")
-                //    .Enabled(false)          // Disabled - won't run
-                //    .Breakout(10.00)
-                //    .Pullback(9.50)
-                //    .AboveVwap()
-                //    .Buy(quantity: 100),
-
-                // ----- Example: Custom condition -----
-                // Stock.Ticker("CUSTOM")
-                //     .Breakout(5.00)
-                //     .When("Price between 4.50-4.80", (price, vwap) => price >= 4.50 && price <= 4.80)
-                //     .AboveVwap(buffer: 0.02)  // Price >= VWAP + 0.02
-                //     .Buy(quantity: 500, takeProfit: 6.00),
             };
+
+            if (!IsValid())
+            {
+                Console.WriteLine("ERROR: Strategy validation failed. Check configuration.");
+                return;
+            }
 
             // ================================================================
             // STARTUP
             // ================================================================
-            Console.WriteLine("╔═══════════════════════════════════════════════════════════════╗");
-            Console.WriteLine("║                    IdiotProof Strategy Bot                    ║");
-            Console.WriteLine("╚═══════════════════════════════════════════════════════════════╝");
+            Console.WriteLine("===============================================================");
+            Console.WriteLine("                    IdiotProof Strategy Bot                    ");
+            Console.WriteLine("===============================================================");
             Console.WriteLine();
 
             // Display timezone configuration
@@ -201,6 +156,7 @@ namespace IdiotProof
                     Symbol = strategy.Symbol,
                     SecType = strategy.SecType,
                     Exchange = strategy.Exchange,
+                    PrimaryExch = strategy.PrimaryExchange ?? "",
                     Currency = strategy.Currency
                 };
 
@@ -225,8 +181,9 @@ namespace IdiotProof
             }
             Console.WriteLine();
             Console.WriteLine("================================================================");
-            Console.WriteLine("All strategies running. Press CTRL+ALT+Q to stop.");
+            Console.WriteLine("       All strategies running. Press CTRL+ALT+Q to stop.        ");
             Console.WriteLine("================================================================");
+            Console.WriteLine();
 
             // Wait for CTRL+ALT+Q to stop
             while (true)
@@ -255,7 +212,17 @@ namespace IdiotProof
             }
 
             client.eDisconnect();
+
+            // Dispose wrapper to release ManualResetEventSlim and clear event handlers
+            wrapper.Dispose();
+
             Console.WriteLine("Disconnected. Goodbye!");
+        }
+
+        private static bool IsValid()
+        {
+            //TODO: Add exhausive error handling/logging here to verify strategies are valid before starting...
+            return true;
         }
 
         /// <summary>
@@ -267,32 +234,15 @@ namespace IdiotProof
             var currentTime = TimezoneHelper.GetCurrentTime(Settings.Timezone);
             var currentEastern = TimezoneHelper.GetCurrentTime(MarketTimeZone.EST);
 
-            Console.WriteLine("╔═══════════════════════════════════════════════════════════════╗");
-            Console.WriteLine("║  TIMEZONE CONFIGURATION                                       ║");
-            Console.WriteLine("╠═══════════════════════════════════════════════════════════════╣");
-            Console.WriteLine($"║  Configured Timezone: {info.Abbreviation,-10} ({info.TimeZoneInfo.DisplayName})");
-            Console.WriteLine($"║  Current Time:        {currentTime:h:mm:ss tt} {info.Abbreviation} ({currentEastern:h:mm:ss tt} ET)");
-
-            if (info.IsDaylightSavingTime)
-            {
-                Console.WriteLine("║  DST Status:          Active (Daylight Saving Time)");
-            }
-            else
-            {
-                Console.WriteLine("║  DST Status:          Inactive (Standard Time)");
-            }
-
-            Console.WriteLine("╠═══════════════════════════════════════════════════════════════╣");
-            Console.WriteLine("║  MARKET HOURS (Local Time)                                    ║");
-            Console.WriteLine("╠═══════════════════════════════════════════════════════════════╣");
-            Console.WriteLine($"║  Pre-Market:    {Time.PreMarket.StartLocal:h:mm tt} - {Time.PreMarket.EndLocal:h:mm tt} {info.Abbreviation}  ({Time.PreMarket.Start:h:mm tt} - {Time.PreMarket.End:h:mm tt} ET)");
-            Console.WriteLine($"║  Market Open:   {Time.RTH.StartLocal:h:mm tt} {info.Abbreviation}                  ({Time.RTH.Start:h:mm tt} ET)");
-            Console.WriteLine($"║  Market Close:  {Time.RTH.EndLocal:h:mm tt} {info.Abbreviation}                  ({Time.RTH.End:h:mm tt} ET)");
-            Console.WriteLine($"║  After-Hours:   {Time.AfterHours.StartLocal:h:mm tt} - {Time.AfterHours.EndLocal:h:mm tt} {info.Abbreviation}  ({Time.AfterHours.Start:h:mm tt} - {Time.AfterHours.End:h:mm tt} ET)");
-            Console.WriteLine("╚═══════════════════════════════════════════════════════════════╝");
+            Console.WriteLine($"Configured Timezone: {info.Abbreviation,-10} ({info.TimeZoneInfo.DisplayName})");
+            Console.WriteLine($"Current Time:        {currentTime:h:mm:ss tt} {info.Abbreviation} ({currentEastern:h:mm:ss tt} ET)");
+            Console.WriteLine($"Pre-Market:          {MarketTime.PreMarket.StartLocal:h:mm tt} - {MarketTime.PreMarket.EndLocal:h:mm tt} {info.Abbreviation}  ({MarketTime.PreMarket.Start:h:mm tt} - {MarketTime.PreMarket.End:h:mm tt} ET)");
+            Console.WriteLine($"Market Open:         {MarketTime.RTH.StartLocal:h:mm tt} {info.Abbreviation}                  ({MarketTime.RTH.Start:h:mm tt} ET)");
+            Console.WriteLine($"Market Close:        {MarketTime.RTH.EndLocal:h:mm tt} {info.Abbreviation}                  ({MarketTime.RTH.End:h:mm tt} ET)");
+            Console.WriteLine($"After-Hours:         {MarketTime.AfterHours.StartLocal:h:mm tt} - {MarketTime.AfterHours.EndLocal:h:mm tt} {info.Abbreviation}  ({MarketTime.AfterHours.Start:h:mm tt} - {MarketTime.AfterHours.End:h:mm tt} ET)");
 
             // Validation check - ensure market open correlates correctly
-            var marketOpenLocal = Time.RTH.StartLocal;
+            var marketOpenLocal = MarketTime.RTH.StartLocal;
             var expectedEasternOpen = new TimeOnly(9, 30);
             var convertedBack = TimezoneHelper.ToEastern(marketOpenLocal, Settings.Timezone);
 
