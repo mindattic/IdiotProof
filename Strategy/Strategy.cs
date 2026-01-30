@@ -70,6 +70,9 @@ namespace IdiotProof.Models
         /// <summary>Time to stop monitoring the strategy (null = no end time).</summary>
         public TimeOnly? EndTime { get; init; }
 
+        /// <summary>Trading session for display purposes (null = custom times or Always).</summary>
+        public TradingSession? Session { get; init; }
+
         /// <summary>Time to close position if still open (null = no auto-close).</summary>
         public TimeOnly? ClosePositionTime { get; init; }
 
@@ -93,11 +96,18 @@ namespace IdiotProof.Models
         /// <param name="takeProfitTarget">Take profit target price.</param>
         public void WriteProgress(int currentStep, bool entryFilled, bool takeProfitFilled, double currentPrice, double entryPrice, double takeProfitTarget)
         {
-            // Symbol line with price and percent change
+            // Symbol line with session, TIF, price and percent change
             Console.Write($"  {Symbol}");
+
+            // Show session and TIF info
+            var sessionStr = GetSessionDisplayString();
+            Console.ForegroundColor = ConsoleColor.DarkGray;
+            Console.Write($"  [{sessionStr}]");
+            Console.ResetColor();
+
+            Console.Write("  |  ");
             if (currentPrice > 0)
             {
-                Console.Write($"  |  ");
                 Console.ForegroundColor = ConsoleColor.White;
                 Console.Write($"${currentPrice:F2}");
                 Console.ResetColor();
@@ -121,7 +131,13 @@ namespace IdiotProof.Models
                     Console.ResetColor();
                 }
             }
-            Console.WriteLine(":");
+            else
+            {
+                Console.ForegroundColor = ConsoleColor.DarkGray;
+                Console.Write("Awaiting price...");
+                Console.ResetColor();
+            }
+            Console.WriteLine();
 
             for (int i = 0; i < Conditions.Count; i++)
             {
@@ -195,6 +211,47 @@ namespace IdiotProof.Models
                     Console.ResetColor();
                 }
             }
+        }
+
+        /// <summary>
+        /// Gets a display string for the session/time window.
+        /// </summary>
+        private string GetSessionDisplayString()
+        {
+            if (Session.HasValue)
+            {
+                return Session.Value switch
+                {
+                    TradingSession.Always => "Always",
+                    TradingSession.PreMarket => "PreMarket",
+                    TradingSession.RTH => "RTH",
+                    TradingSession.AfterHours => "AfterHours",
+                    TradingSession.Extended => "Extended",
+                    TradingSession.PreMarketEndEarly => "PreMarket-10m",
+                    TradingSession.PreMarketStartLate => "PreMarket+10m",
+                    TradingSession.RTHEndEarly => "RTH-10m",
+                    TradingSession.RTHStartLate => "RTH+10m",
+                    TradingSession.AfterHoursEndEarly => "AfterHours-10m",
+                    _ => Session.Value.ToString()
+                };
+            }
+
+            if (StartTime.HasValue && EndTime.HasValue)
+            {
+                return $"{StartTime.Value:h\\:mm}-{EndTime.Value:h\\:mm}";
+            }
+
+            if (StartTime.HasValue)
+            {
+                return $"From {StartTime.Value:h\\:mm}";
+            }
+
+            if (EndTime.HasValue)
+            {
+                return $"Until {EndTime.Value:h\\:mm}";
+            }
+
+            return "Always";
         }
 
         /// <summary>

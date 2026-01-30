@@ -90,6 +90,7 @@ namespace IdiotProof.Models
         private bool _enabled = true;
         private TimeOnly? _startTime;
         private TimeOnly? _endTime;
+        private TradingSession? _session;
 
         /// <summary>
         /// Private constructor - use <see cref="Ticker"/> to create instances.
@@ -266,6 +267,8 @@ namespace IdiotProof.Models
         /// </example>
         public Stock SessionDuration(TradingSession session)
         {
+            _session = session;
+
             // Handle Always separately since it clears time restrictions
             if (session == TradingSession.Always)
             {
@@ -582,7 +585,8 @@ namespace IdiotProof.Models
                 Order = order,
                 Enabled = _enabled,
                 StartTime = _startTime,
-                EndTime = _endTime
+                EndTime = _endTime,
+                Session = _session
             };
         }
 
@@ -595,6 +599,7 @@ namespace IdiotProof.Models
         internal bool EnabledValue => _enabled;
         internal TimeOnly? StartTimeValue => _startTime;
         internal TimeOnly? EndTimeValue { get => _endTime; set => _endTime = value; }
+        internal TradingSession? SessionValue => _session;
     }
 
     /// <summary>

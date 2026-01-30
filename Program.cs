@@ -52,14 +52,14 @@ namespace IdiotProof
 
 
                 // ----- RPGL (Premarket): Buy 568x$0.88=$500, TakeProfit $1.30-$1.70, Exit $738-$966 -----
-                Stock
-                    .Ticker("RPGL")
-                    .SessionDuration(TradingSession.Always)
-                    .Exchange(ContractExchange.Pink)                        // Pink Sheets
-                    .PriceAbove(0.88)                                       // Step 1: Price > 0.88
-                    .AboveVwap()                                            // Step 2: Price >= VWAP
-                    .Buy(quantity: 1, Price.Current)                        // Step 3: Buy 568 @ Current Price
-                    .TakeProfit(1.30, 1.70),                                // ADX-based TakeProfit: 1.30 (weak) to 1.70 (strong)
+                //Stock
+                //    .Ticker("RPGL")
+                //    .SessionDuration(TradingSession.Always)
+                //    .Exchange(ContractExchange.Pink)                        // Pink Sheets
+                //    .PriceAbove(0.88)                                       // Step 1: Price > 0.88
+                //    .AboveVwap()                                            // Step 2: Price >= VWAP
+                //    .Buy(quantity: 1, Price.Current)                        // Step 3: Buy 568 @ Current Price
+                //    .TakeProfit(1.30, 1.70),                                // ADX-based TakeProfit: 1.30 (weak) to 1.70 (strong)
 
             };
 
@@ -145,8 +145,72 @@ namespace IdiotProof
             // Display existing open orders from IBKR
             DisplayOpenOrders(wrapper);
 
-            // Display strategies for review
-            DisplayStrategies(enabledStrategies);
+            // ================================================================
+            // SUBSCRIBE TO MARKET DATA (before displaying strategies)
+            // ================================================================
+            var tickerIds = new List<int>();
+            var contracts = new Dictionary<string, Contract>();
+            var prices = new Dictionary<string, double>();
+            int baseTickerId = 1001;
+
+            Console.WriteLine("Fetching current prices...");
+
+            foreach (var strategy in enabledStrategies)
+            {
+                // Skip if we already subscribed to this symbol
+                if (contracts.ContainsKey(strategy.Symbol))
+                    continue;
+
+                int tickerId = baseTickerId++;
+
+                var contract = new Contract
+                {
+                    Symbol = strategy.Symbol,
+                    SecType = strategy.SecType,
+                    Exchange = strategy.Exchange,
+                    PrimaryExch = strategy.PrimaryExchange ?? "",
+                    Currency = strategy.Currency
+                };
+
+                contracts[strategy.Symbol] = contract;
+                prices[strategy.Symbol] = 0;
+
+                // Register handler to capture price
+                wrapper.RegisterTickerHandler(tickerId, (price, size) =>
+                {
+                    prices[strategy.Symbol] = price;
+                });
+
+                // Request market data
+                client.reqMktData(tickerId, contract, "", false, false, null);
+                tickerIds.Add(tickerId);
+            }
+
+            // Wait briefly for prices to arrive (up to 3 seconds)
+            var priceWaitStart = DateTime.UtcNow;
+            while ((DateTime.UtcNow - priceWaitStart).TotalSeconds < 3)
+            {
+                if (prices.Values.All(p => p > 0))
+                    break;
+                Thread.Sleep(100);
+            }
+
+            int pricesReceived = prices.Values.Count(p => p > 0);
+            if (pricesReceived == prices.Count)
+            {
+                Console.ForegroundColor = ConsoleColor.Green;
+                Console.WriteLine($"Received prices for all {pricesReceived} symbol(s).");
+                Console.ResetColor();
+            }
+            else
+            {
+                Console.ForegroundColor = ConsoleColor.Yellow;
+                Console.WriteLine($"Received prices for {pricesReceived}/{prices.Count} symbol(s). Some may still be loading...");
+                Console.ResetColor();
+            }
+
+            // Display strategies for review WITH current prices
+            DisplayStrategies(enabledStrategies, prices);
             Console.WriteLine();
 
             // Trading is paused until user explicitly activates
@@ -181,7 +245,7 @@ namespace IdiotProof
                     }
                     else if (key.Key == ConsoleKey.Q)
                     {
-                        Shutdown(client, wrapper);
+                        Shutdown(client, wrapper, tickerIds);
                         return;
                     }
                 }
@@ -191,31 +255,24 @@ namespace IdiotProof
             // START STRATEGIES
             // ================================================================
             var runners = new List<StrategyRunner>();
-            var tickerIds = new List<int>();
-            int baseTickerId = 1001;
 
             foreach (var strategy in enabledStrategies)
             {
-                int tickerId = baseTickerId++;
-
-                var contract = new Contract
-                {
-                    Symbol = strategy.Symbol,
-                    SecType = strategy.SecType,
-                    Exchange = strategy.Exchange,
-                    PrimaryExch = strategy.PrimaryExchange ?? "",
-                    Currency = strategy.Currency
-                };
-
+                var contract = contracts[strategy.Symbol];
                 var runner = new StrategyRunner(strategy, contract, wrapper, client);
                 runners.Add(runner);
 
-                // Route market data to this runner
-                wrapper.RegisterTickerHandler(tickerId, runner.OnLastTrade);
+                // Find the tickerId for this symbol and re-route to the runner
+                int tickerIndex = enabledStrategies
+                    .Where(s => !enabledStrategies.Take(enabledStrategies.IndexOf(s)).Any(prev => prev.Symbol == s.Symbol))
+                    .ToList()
+                    .FindIndex(s => s.Symbol == strategy.Symbol);
 
-                // Request market data
-                client.reqMktData(tickerId, contract, "", false, false, null);
-                tickerIds.Add(tickerId);
+                if (tickerIndex >= 0)
+                {
+                    int tickerId = 1001 + tickerIndex;
+                    wrapper.RegisterTickerHandler(tickerId, runner.OnLastTrade);
+                }
             }
 
             // Display strategies with initial progress (step 0 = waiting on first condition)
@@ -337,7 +394,7 @@ namespace IdiotProof
         /// <summary>
         /// Displays enabled strategies for review before trading starts.
         /// </summary>
-        private static void DisplayStrategies(List<TradingStrategy> strategies)
+        private static void DisplayStrategies(List<TradingStrategy> strategies, Dictionary<string, double> prices)
         {
             var strategyWord = strategies.Count == 1 ? "strategy" : "strategies";
             Console.WriteLine($"Loaded {strategies.Count} {strategyWord} for review:");
@@ -345,7 +402,9 @@ namespace IdiotProof
             foreach (var strategy in strategies)
             {
                 Console.WriteLine();
-                strategy.WriteProgress(currentStep: 0);
+                double currentPrice = prices.TryGetValue(strategy.Symbol, out var price) ? price : 0;
+                strategy.WriteProgress(currentStep: 0, entryFilled: false, takeProfitFilled: false, 
+                    currentPrice: currentPrice, entryPrice: 0, takeProfitTarget: 0);
             }
         }
 
