@@ -18,6 +18,7 @@
 // ║     - Paper: Port 4002                                                   ║
 // ║     - Live:  Port 4001                                                   ║
 // ║                                                                           ║
+// NOTE: Add using IdiotProof.Enums; at the top of this file for enum types
 // ║  2. Enable API connections in Gateway:                                    ║
 // ║     Configure → Settings → API → Settings                                ║
 // ║     ☑ Enable ActiveX and Socket Clients                                 ║
@@ -39,6 +40,7 @@
 // ║                                                                           ║
 // ╚═══════════════════════════════════════════════════════════════════════════╝
 
+using IdiotProof.Enums;
 using IdiotProof.Models;
 using System;
 using System.Collections.Generic;

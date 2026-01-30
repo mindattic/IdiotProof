@@ -2,6 +2,7 @@
 // FluentApiBuilderTests - Tests for Stock and StrategyBuilder fluent API
 // ============================================================================
 
+using IdiotProof.Enums;
 using IdiotProof.Models;
 using NUnit.Framework;
 
@@ -366,7 +367,7 @@ public class FluentApiBuilderTests
             .Build();
 
         // Assert
-        Assert.That(strategy.Order.TimeInForce, Is.EqualTo(Models.TimeInForce.Day));
+        Assert.That(strategy.Order.TimeInForce, Is.EqualTo(Enums.TimeInForce.Day));
     }
 
     [Test]
@@ -481,7 +482,7 @@ public class FluentApiBuilderTests
     public void Defaults_TimeInForceIsGtc()
     {
         var strategy = Stock.Ticker("AAPL").Breakout(150).Buy(100, Price.Current).Build();
-        Assert.That(strategy.Order.TimeInForce, Is.EqualTo(Models.TimeInForce.GoodTillCancel));
+        Assert.That(strategy.Order.TimeInForce, Is.EqualTo(Enums.TimeInForce.GoodTillCancel));
     }
 
     [Test]

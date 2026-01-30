@@ -24,35 +24,13 @@
 
 using IBApi;
 using IdiotProof;
+using IdiotProof.Enums;
 using System;
 using System.Threading;
 using IbContract = IBApi.Contract;
 
 namespace IdiotProof.Models
 {
-    /// <summary>
-    /// Possible outcomes for a strategy.
-    /// </summary>
-    public enum StrategyResult
-    {
-        /// <summary>Strategy is still running.</summary>
-        Running,
-        /// <summary>Conditions were never met - no position taken.</summary>
-        NeverBought,
-        /// <summary>Position taken and take profit was filled.</summary>
-        TakeProfitFilled,
-        /// <summary>Position taken and stop loss was triggered.</summary>
-        StopLossFilled,
-        /// <summary>Position taken and trailing stop loss was triggered.</summary>
-        TrailingStopLossFilled,
-        /// <summary>Position taken, time expired, exited with profit.</summary>
-        ExitedWithProfit,
-        /// <summary>Position taken, time expired, cancelled TP (holding position).</summary>
-        TakeProfitCancelled,
-        /// <summary>Entry order was cancelled before fill.</summary>
-        EntryCancelled
-    }
-
     /// <summary>
     /// Executes a multi-step strategy for a single symbol.
     /// Monitors price and VWAP, evaluates conditions in sequence,

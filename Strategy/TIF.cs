@@ -19,6 +19,8 @@
 //
 // ============================================================================
 
+using IdiotProof.Enums;
+
 namespace IdiotProof.Models
 {
     /// <summary>

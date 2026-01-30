@@ -1,20 +1,8 @@
 // ============================================================================
 // Price - Price Type Definitions for Orders
 // ============================================================================
-//
-// BEST PRACTICES:
-// 1. Use Price.Current for most strategies - executes at market price.
-// 2. Use Price.VWAP when you want to match the volume-weighted average.
-// 3. Price.Bid/Ask are useful for more precise limit order placement.
-// 4. Consider market conditions - VWAP may not be available in pre-market.
-//
-// USAGE:
-//   .Buy(quantity: 100, Price.Current)   // Market order at current price
-//   .Buy(quantity: 100, Price.VWAP)      // Limit order at VWAP
-//
-// ============================================================================
 
-namespace IdiotProof.Models
+namespace IdiotProof.Enums
 {
     /// <summary>
     /// Price type for order execution, determining how the order price is calculated.

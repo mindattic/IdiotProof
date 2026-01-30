@@ -2,6 +2,8 @@
 // Price Conditions - Various price-based strategy conditions
 // ============================================================================
 
+using System;
+
 namespace IdiotProof.Models
 {
     /// <summary>

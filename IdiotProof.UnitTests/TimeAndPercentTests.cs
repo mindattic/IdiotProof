@@ -2,6 +2,7 @@
 // TimeAndPercentTests - Tests for Time, Percent, TIF, and Price helper classes
 // ============================================================================
 
+using IdiotProof.Enums;
 using IdiotProof.Models;
 using NUnit.Framework;
 

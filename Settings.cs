@@ -23,6 +23,7 @@
 // ║  Reference: https://interactivebrokers.github.io/tws-api/               ║
 // ╚═══════════════════════════════════════════════════════════════════════════╝
 
+using IdiotProof.Enums;
 using IdiotProof.Models;
 
 namespace IdiotProof

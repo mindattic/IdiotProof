@@ -21,6 +21,7 @@
 using System;
 using System.Collections.Generic;
 using System.Text;
+using IdiotProof.Enums;
 
 namespace IdiotProof.Models
 {

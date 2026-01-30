@@ -18,6 +18,7 @@
 // COVERAGE MATRIX:
 // - 2 Order Sides × 2 Order Types × 4 TIF × 4 Price Types = 64 base combinations
 // - Each combination tested with various exit strategy configurations
+using IdiotProof.Enums;
 // - Edge cases for boundary values and validation
 //
 // ============================================================================
@@ -118,11 +119,11 @@ public class OrderPermutationTests
             var strategy = Stock.Ticker("TEST")
                 .Breakout(100)
                 .Buy(100, Price.Current)
-                .OrderType(Models.OrderType.Market)
+                .OrderType(OrderType.Market)
                 .Build();
 
             // Assert
-            Assert.That(strategy.Order.Type, Is.EqualTo(Models.OrderType.Market));
+            Assert.That(strategy.Order.Type, Is.EqualTo(OrderType.Market));
         }
 
         [Test]
@@ -133,11 +134,11 @@ public class OrderPermutationTests
             var strategy = Stock.Ticker("TEST")
                 .Breakout(100)
                 .Buy(100, Price.Current)
-                .OrderType(Models.OrderType.Limit)
+                .OrderType(OrderType.Limit)
                 .Build();
 
             // Assert
-            Assert.That(strategy.Order.Type, Is.EqualTo(Models.OrderType.Limit));
+            Assert.That(strategy.Order.Type, Is.EqualTo(OrderType.Limit));
         }
 
         [Test]
@@ -145,7 +146,7 @@ public class OrderPermutationTests
         public void Market_GetIbOrderType_ReturnsMKT()
         {
             // Arrange
-            var order = new OrderAction { Type = Models.OrderType.Market };
+            var order = new OrderAction { Type = OrderType.Market };
 
             // Act & Assert
             Assert.That(order.GetIbOrderType(), Is.EqualTo("MKT"));
@@ -156,7 +157,7 @@ public class OrderPermutationTests
         public void Limit_GetIbOrderType_ReturnsLMT()
         {
             // Arrange
-            var order = new OrderAction { Type = Models.OrderType.Limit };
+            var order = new OrderAction { Type = OrderType.Limit };
 
             // Act & Assert
             Assert.That(order.GetIbOrderType(), Is.EqualTo("LMT"));
@@ -173,7 +174,7 @@ public class OrderPermutationTests
                 .Build();
 
             // Assert
-            Assert.That(strategy.Order.Type, Is.EqualTo(Models.OrderType.Market));
+            Assert.That(strategy.Order.Type, Is.EqualTo(OrderType.Market));
         }
     }
 
@@ -201,7 +202,7 @@ public class OrderPermutationTests
                 .Build();
 
             // Assert
-            Assert.That(strategy.Order.TimeInForce, Is.EqualTo(Models.TimeInForce.Day));
+            Assert.That(strategy.Order.TimeInForce, Is.EqualTo(TimeInForce.Day));
         }
 
         [Test]
@@ -216,7 +217,7 @@ public class OrderPermutationTests
                 .Build();
 
             // Assert
-            Assert.That(strategy.Order.TimeInForce, Is.EqualTo(Models.TimeInForce.GoodTillCancel));
+            Assert.That(strategy.Order.TimeInForce, Is.EqualTo(TimeInForce.GoodTillCancel));
         }
 
         [Test]
@@ -231,7 +232,7 @@ public class OrderPermutationTests
                 .Build();
 
             // Assert
-            Assert.That(strategy.Order.TimeInForce, Is.EqualTo(Models.TimeInForce.ImmediateOrCancel));
+            Assert.That(strategy.Order.TimeInForce, Is.EqualTo(TimeInForce.ImmediateOrCancel));
         }
 
         [Test]
@@ -246,7 +247,7 @@ public class OrderPermutationTests
                 .Build();
 
             // Assert
-            Assert.That(strategy.Order.TimeInForce, Is.EqualTo(Models.TimeInForce.FillOrKill));
+            Assert.That(strategy.Order.TimeInForce, Is.EqualTo(TimeInForce.FillOrKill));
         }
 
         [Test]
@@ -260,7 +261,7 @@ public class OrderPermutationTests
                 .Build();
 
             // Assert
-            Assert.That(strategy.Order.TimeInForce, Is.EqualTo(Models.TimeInForce.GoodTillCancel));
+            Assert.That(strategy.Order.TimeInForce, Is.EqualTo(TimeInForce.GoodTillCancel));
         }
 
         #endregion
@@ -279,7 +280,7 @@ public class OrderPermutationTests
                 .Build();
 
             // Assert
-            Assert.That(strategy.Order.TimeInForce, Is.EqualTo(Models.TimeInForce.Overnight));
+            Assert.That(strategy.Order.TimeInForce, Is.EqualTo(TimeInForce.Overnight));
         }
 
         [Test]
@@ -294,7 +295,7 @@ public class OrderPermutationTests
                 .Build();
 
             // Assert
-            Assert.That(strategy.Order.TimeInForce, Is.EqualTo(Models.TimeInForce.OvernightPlusDay));
+            Assert.That(strategy.Order.TimeInForce, Is.EqualTo(TimeInForce.OvernightPlusDay));
         }
 
         [Test]
@@ -309,7 +310,7 @@ public class OrderPermutationTests
                 .Build();
 
             // Assert
-            Assert.That(strategy.Order.TimeInForce, Is.EqualTo(Models.TimeInForce.AtTheOpening));
+            Assert.That(strategy.Order.TimeInForce, Is.EqualTo(TimeInForce.AtTheOpening));
         }
 
         [Test]
@@ -324,7 +325,7 @@ public class OrderPermutationTests
                 .Build();
 
             // Assert
-            Assert.That(strategy.Order.TimeInForce, Is.EqualTo(Models.TimeInForce.Overnight));
+            Assert.That(strategy.Order.TimeInForce, Is.EqualTo(TimeInForce.Overnight));
         }
 
         [Test]
@@ -339,7 +340,7 @@ public class OrderPermutationTests
                 .Build();
 
             // Assert
-            Assert.That(strategy.Order.TimeInForce, Is.EqualTo(Models.TimeInForce.OvernightPlusDay));
+            Assert.That(strategy.Order.TimeInForce, Is.EqualTo(TimeInForce.OvernightPlusDay));
         }
 
         [Test]
@@ -354,7 +355,7 @@ public class OrderPermutationTests
                 .Build();
 
             // Assert
-            Assert.That(strategy.Order.TimeInForce, Is.EqualTo(Models.TimeInForce.AtTheOpening));
+            Assert.That(strategy.Order.TimeInForce, Is.EqualTo(TimeInForce.AtTheOpening));
         }
 
         #endregion
@@ -368,15 +369,15 @@ public class OrderPermutationTests
             Assert.Multiple(() =>
             {
                 // Original TIF values
-                Assert.That(new OrderAction { TimeInForce = Models.TimeInForce.Day }.GetIbTif(), Is.EqualTo("DAY"));
-                Assert.That(new OrderAction { TimeInForce = Models.TimeInForce.GoodTillCancel }.GetIbTif(), Is.EqualTo("GTC"));
-                Assert.That(new OrderAction { TimeInForce = Models.TimeInForce.ImmediateOrCancel }.GetIbTif(), Is.EqualTo("IOC"));
-                Assert.That(new OrderAction { TimeInForce = Models.TimeInForce.FillOrKill }.GetIbTif(), Is.EqualTo("FOK"));
+                Assert.That(new OrderAction { TimeInForce = TimeInForce.Day }.GetIbTif(), Is.EqualTo("DAY"));
+                Assert.That(new OrderAction { TimeInForce = TimeInForce.GoodTillCancel }.GetIbTif(), Is.EqualTo("GTC"));
+                Assert.That(new OrderAction { TimeInForce = TimeInForce.ImmediateOrCancel }.GetIbTif(), Is.EqualTo("IOC"));
+                Assert.That(new OrderAction { TimeInForce = TimeInForce.FillOrKill }.GetIbTif(), Is.EqualTo("FOK"));
 
                 // New extended TIF values
-                Assert.That(new OrderAction { TimeInForce = Models.TimeInForce.Overnight }.GetIbTif(), Is.EqualTo("GTC"));
-                Assert.That(new OrderAction { TimeInForce = Models.TimeInForce.OvernightPlusDay }.GetIbTif(), Is.EqualTo("DTC"));
-                Assert.That(new OrderAction { TimeInForce = Models.TimeInForce.AtTheOpening }.GetIbTif(), Is.EqualTo("OPG"));
+                Assert.That(new OrderAction { TimeInForce = TimeInForce.Overnight }.GetIbTif(), Is.EqualTo("GTC"));
+                Assert.That(new OrderAction { TimeInForce = TimeInForce.OvernightPlusDay }.GetIbTif(), Is.EqualTo("DTC"));
+                Assert.That(new OrderAction { TimeInForce = TimeInForce.AtTheOpening }.GetIbTif(), Is.EqualTo("OPG"));
             });
         }
 
@@ -384,7 +385,7 @@ public class OrderPermutationTests
         [Description("Validates Overnight TIF returns GTC for IB API (with time-based cancellation)")]
         public void Overnight_GetIbTif_ReturnsGTC()
         {
-            var order = new OrderAction { TimeInForce = Models.TimeInForce.Overnight };
+            var order = new OrderAction { TimeInForce = TimeInForce.Overnight };
             Assert.That(order.GetIbTif(), Is.EqualTo("GTC"));
         }
 
@@ -392,7 +393,7 @@ public class OrderPermutationTests
         [Description("Validates OvernightPlusDay TIF returns DTC for IB API")]
         public void OvernightPlusDay_GetIbTif_ReturnsDTC()
         {
-            var order = new OrderAction { TimeInForce = Models.TimeInForce.OvernightPlusDay };
+            var order = new OrderAction { TimeInForce = TimeInForce.OvernightPlusDay };
             Assert.That(order.GetIbTif(), Is.EqualTo("DTC"));
         }
 
@@ -400,7 +401,7 @@ public class OrderPermutationTests
         [Description("Validates AtTheOpening TIF returns OPG for IB API")]
         public void AtTheOpening_GetIbTif_ReturnsOPG()
         {
-            var order = new OrderAction { TimeInForce = Models.TimeInForce.AtTheOpening };
+            var order = new OrderAction { TimeInForce = TimeInForce.AtTheOpening };
             Assert.That(order.GetIbTif(), Is.EqualTo("OPG"));
         }
 
@@ -415,21 +416,21 @@ public class OrderPermutationTests
             Assert.Multiple(() =>
             {
                 // Primary values
-                Assert.That(TIF.Day, Is.EqualTo(Models.TimeInForce.Day));
-                Assert.That(TIF.GoodTillCancel, Is.EqualTo(Models.TimeInForce.GoodTillCancel));
-                Assert.That(TIF.ImmediateOrCancel, Is.EqualTo(Models.TimeInForce.ImmediateOrCancel));
-                Assert.That(TIF.FillOrKill, Is.EqualTo(Models.TimeInForce.FillOrKill));
-                Assert.That(TIF.Overnight, Is.EqualTo(Models.TimeInForce.Overnight));
-                Assert.That(TIF.OvernightPlusDay, Is.EqualTo(Models.TimeInForce.OvernightPlusDay));
-                Assert.That(TIF.AtTheOpening, Is.EqualTo(Models.TimeInForce.AtTheOpening));
+                Assert.That(TIF.Day, Is.EqualTo(TimeInForce.Day));
+                Assert.That(TIF.GoodTillCancel, Is.EqualTo(TimeInForce.GoodTillCancel));
+                Assert.That(TIF.ImmediateOrCancel, Is.EqualTo(TimeInForce.ImmediateOrCancel));
+                Assert.That(TIF.FillOrKill, Is.EqualTo(TimeInForce.FillOrKill));
+                Assert.That(TIF.Overnight, Is.EqualTo(TimeInForce.Overnight));
+                Assert.That(TIF.OvernightPlusDay, Is.EqualTo(TimeInForce.OvernightPlusDay));
+                Assert.That(TIF.AtTheOpening, Is.EqualTo(TimeInForce.AtTheOpening));
 
                 // Shorthand aliases
-                Assert.That(TIF.GTC, Is.EqualTo(Models.TimeInForce.GoodTillCancel));
-                Assert.That(TIF.IOC, Is.EqualTo(Models.TimeInForce.ImmediateOrCancel));
-                Assert.That(TIF.FOK, Is.EqualTo(Models.TimeInForce.FillOrKill));
-                Assert.That(TIF.OVN, Is.EqualTo(Models.TimeInForce.Overnight));
-                Assert.That(TIF.OVNDAY, Is.EqualTo(Models.TimeInForce.OvernightPlusDay));
-                Assert.That(TIF.OPG, Is.EqualTo(Models.TimeInForce.AtTheOpening));
+                Assert.That(TIF.GTC, Is.EqualTo(TimeInForce.GoodTillCancel));
+                Assert.That(TIF.IOC, Is.EqualTo(TimeInForce.ImmediateOrCancel));
+                Assert.That(TIF.FOK, Is.EqualTo(TimeInForce.FillOrKill));
+                Assert.That(TIF.OVN, Is.EqualTo(TimeInForce.Overnight));
+                Assert.That(TIF.OVNDAY, Is.EqualTo(TimeInForce.OvernightPlusDay));
+                Assert.That(TIF.OPG, Is.EqualTo(TimeInForce.AtTheOpening));
             });
         }
 
@@ -452,7 +453,7 @@ public class OrderPermutationTests
             // Assert
             Assert.Multiple(() =>
             {
-                Assert.That(strategy.Order.TimeInForce, Is.EqualTo(Models.TimeInForce.Overnight));
+                Assert.That(strategy.Order.TimeInForce, Is.EqualTo(TimeInForce.Overnight));
                 Assert.That(strategy.Order.OutsideRth, Is.True);
                 Assert.That(strategy.Order.GetIbTif(), Is.EqualTo("GTC")); // IB uses GTC with OutsideRth
             });
@@ -472,7 +473,7 @@ public class OrderPermutationTests
             // Assert
             Assert.Multiple(() =>
             {
-                Assert.That(strategy.Order.TimeInForce, Is.EqualTo(Models.TimeInForce.AtTheOpening));
+                Assert.That(strategy.Order.TimeInForce, Is.EqualTo(TimeInForce.AtTheOpening));
                 Assert.That(strategy.Order.GetIbTif(), Is.EqualTo("OPG"));
             });
         }
@@ -494,7 +495,7 @@ public class OrderPermutationTests
             // Assert
             Assert.Multiple(() =>
             {
-                Assert.That(strategy.Order.TimeInForce, Is.EqualTo(Models.TimeInForce.OvernightPlusDay));
+                Assert.That(strategy.Order.TimeInForce, Is.EqualTo(TimeInForce.OvernightPlusDay));
                 Assert.That(strategy.Order.OutsideRth, Is.True);
                 Assert.That(strategy.Order.GetIbTif(), Is.EqualTo("DTC"));
                 Assert.That(strategy.Order.EnableTakeProfit, Is.True);
@@ -1456,13 +1457,13 @@ public class OrderPermutationTests
             var strategy = Stock.Ticker("TEST")
                 .Breakout(100)
                 .Buy(100, Price.Current)
-                .OrderType(Models.OrderType.Market)
+                .OrderType(OrderType.Market)
                 .Build();
 
             Assert.Multiple(() =>
             {
                 Assert.That(strategy.Order.Side, Is.EqualTo(OrderSide.Buy));
-                Assert.That(strategy.Order.Type, Is.EqualTo(Models.OrderType.Market));
+                Assert.That(strategy.Order.Type, Is.EqualTo(OrderType.Market));
             });
         }
 
@@ -1473,13 +1474,13 @@ public class OrderPermutationTests
             var strategy = Stock.Ticker("TEST")
                 .Breakout(100)
                 .Buy(100, Price.Current)
-                .OrderType(Models.OrderType.Limit)
+                .OrderType(OrderType.Limit)
                 .Build();
 
             Assert.Multiple(() =>
             {
                 Assert.That(strategy.Order.Side, Is.EqualTo(OrderSide.Buy));
-                Assert.That(strategy.Order.Type, Is.EqualTo(Models.OrderType.Limit));
+                Assert.That(strategy.Order.Type, Is.EqualTo(OrderType.Limit));
             });
         }
 
@@ -1490,13 +1491,13 @@ public class OrderPermutationTests
             var strategy = Stock.Ticker("TEST")
                 .Breakout(100)
                 .Sell(100, Price.Current)
-                .OrderType(Models.OrderType.Market)
+                .OrderType(OrderType.Market)
                 .Build();
 
             Assert.Multiple(() =>
             {
                 Assert.That(strategy.Order.Side, Is.EqualTo(OrderSide.Sell));
-                Assert.That(strategy.Order.Type, Is.EqualTo(Models.OrderType.Market));
+                Assert.That(strategy.Order.Type, Is.EqualTo(OrderType.Market));
             });
         }
 
@@ -1507,13 +1508,13 @@ public class OrderPermutationTests
             var strategy = Stock.Ticker("TEST")
                 .Breakout(100)
                 .Sell(100, Price.Current)
-                .OrderType(Models.OrderType.Limit)
+                .OrderType(OrderType.Limit)
                 .Build();
 
             Assert.Multiple(() =>
             {
                 Assert.That(strategy.Order.Side, Is.EqualTo(OrderSide.Sell));
-                Assert.That(strategy.Order.Type, Is.EqualTo(Models.OrderType.Limit));
+                Assert.That(strategy.Order.Type, Is.EqualTo(OrderType.Limit));
             });
         }
 
@@ -1522,11 +1523,11 @@ public class OrderPermutationTests
         /// </summary>
         [Test]
         [Description("Validates Buy with all TIF options")]
-        [TestCase(Models.TimeInForce.Day)]
-        [TestCase(Models.TimeInForce.GoodTillCancel)]
-        [TestCase(Models.TimeInForce.ImmediateOrCancel)]
-        [TestCase(Models.TimeInForce.FillOrKill)]
-        public void Buy_WithAllTIF_ConfiguresCorrectly(Models.TimeInForce tif)
+        [TestCase(TimeInForce.Day)]
+        [TestCase(TimeInForce.GoodTillCancel)]
+        [TestCase(TimeInForce.ImmediateOrCancel)]
+        [TestCase(TimeInForce.FillOrKill)]
+        public void Buy_WithAllTIF_ConfiguresCorrectly(TimeInForce tif)
         {
             var strategy = Stock.Ticker("TEST")
                 .Breakout(100)
@@ -1543,11 +1544,11 @@ public class OrderPermutationTests
 
         [Test]
         [Description("Validates Sell with all TIF options")]
-        [TestCase(Models.TimeInForce.Day)]
-        [TestCase(Models.TimeInForce.GoodTillCancel)]
-        [TestCase(Models.TimeInForce.ImmediateOrCancel)]
-        [TestCase(Models.TimeInForce.FillOrKill)]
-        public void Sell_WithAllTIF_ConfiguresCorrectly(Models.TimeInForce tif)
+        [TestCase(TimeInForce.Day)]
+        [TestCase(TimeInForce.GoodTillCancel)]
+        [TestCase(TimeInForce.ImmediateOrCancel)]
+        [TestCase(TimeInForce.FillOrKill)]
+        public void Sell_WithAllTIF_ConfiguresCorrectly(TimeInForce tif)
         {
             var strategy = Stock.Ticker("TEST")
                 .Breakout(100)
@@ -1572,7 +1573,7 @@ public class OrderPermutationTests
             var strategy = Stock.Ticker("TEST")
                 .Breakout(100)
                 .Buy(100, Price.Current)
-                .OrderType(Models.OrderType.Market)
+                .OrderType(OrderType.Market)
                 .TimeInForce(TIF.GTC)
                 .TakeProfit(110)
                 .StopLoss(90)
@@ -1581,8 +1582,8 @@ public class OrderPermutationTests
             Assert.Multiple(() =>
             {
                 Assert.That(strategy.Order.Side, Is.EqualTo(OrderSide.Buy));
-                Assert.That(strategy.Order.Type, Is.EqualTo(Models.OrderType.Market));
-                Assert.That(strategy.Order.TimeInForce, Is.EqualTo(Models.TimeInForce.GoodTillCancel));
+                Assert.That(strategy.Order.Type, Is.EqualTo(OrderType.Market));
+                Assert.That(strategy.Order.TimeInForce, Is.EqualTo(TimeInForce.GoodTillCancel));
                 Assert.That(strategy.Order.PriceType, Is.EqualTo(Price.Current));
                 Assert.That(strategy.Order.EnableTakeProfit, Is.True);
                 Assert.That(strategy.Order.EnableStopLoss, Is.True);
@@ -1596,7 +1597,7 @@ public class OrderPermutationTests
             var strategy = Stock.Ticker("TEST")
                 .Breakout(100)
                 .Sell(100, Price.VWAP)
-                .OrderType(Models.OrderType.Limit)
+                .OrderType(OrderType.Limit)
                 .TimeInForce(TIF.Day)
                 .TakeProfit(90)
                 .StopLoss(110)
@@ -1605,8 +1606,8 @@ public class OrderPermutationTests
             Assert.Multiple(() =>
             {
                 Assert.That(strategy.Order.Side, Is.EqualTo(OrderSide.Sell));
-                Assert.That(strategy.Order.Type, Is.EqualTo(Models.OrderType.Limit));
-                Assert.That(strategy.Order.TimeInForce, Is.EqualTo(Models.TimeInForce.Day));
+                Assert.That(strategy.Order.Type, Is.EqualTo(OrderType.Limit));
+                Assert.That(strategy.Order.TimeInForce, Is.EqualTo(TimeInForce.Day));
                 Assert.That(strategy.Order.PriceType, Is.EqualTo(Price.VWAP));
                 Assert.That(strategy.Order.EnableTakeProfit, Is.True);
                 Assert.That(strategy.Order.EnableStopLoss, Is.True);
@@ -1623,7 +1624,7 @@ public class OrderPermutationTests
                 .Pullback(148)
                 .AboveVwap()
                 .Buy(100, Price.Current)
-                .OrderType(Models.OrderType.Market)
+                .OrderType(OrderType.Market)
                 .TimeInForce(TIF.GTC)
                 .OutsideRTH(outsideRth: true, takeProfit: true)
                 .TakeProfit(155)
@@ -1646,8 +1647,8 @@ public class OrderPermutationTests
                 // Order configuration
                 Assert.That(strategy.Order.Side, Is.EqualTo(OrderSide.Buy));
                 Assert.That(strategy.Order.Quantity, Is.EqualTo(100));
-                Assert.That(strategy.Order.Type, Is.EqualTo(Models.OrderType.Market));
-                Assert.That(strategy.Order.TimeInForce, Is.EqualTo(Models.TimeInForce.GoodTillCancel));
+                Assert.That(strategy.Order.Type, Is.EqualTo(OrderType.Market));
+                Assert.That(strategy.Order.TimeInForce, Is.EqualTo(TimeInForce.GoodTillCancel));
                 Assert.That(strategy.Order.OutsideRth, Is.True);
                 Assert.That(strategy.Order.TakeProfitOutsideRth, Is.True);
 
@@ -1850,8 +1851,8 @@ public class OrderPermutationTests
             {
                 Side = OrderSide.Buy,
                 Quantity = 100,
-                Type = Models.OrderType.Market,
-                TimeInForce = Models.TimeInForce.GoodTillCancel,
+                Type = OrderType.Market,
+                TimeInForce = TimeInForce.GoodTillCancel,
                 EnableTakeProfit = false
             };
 
@@ -1870,8 +1871,8 @@ public class OrderPermutationTests
             {
                 Side = OrderSide.Buy,
                 Quantity = 100,
-                Type = Models.OrderType.Market,
-                TimeInForce = Models.TimeInForce.GoodTillCancel,
+                Type = OrderType.Market,
+                TimeInForce = TimeInForce.GoodTillCancel,
                 EnableTakeProfit = true,
                 TakeProfitPrice = 110.50
             };
@@ -1889,8 +1890,8 @@ public class OrderPermutationTests
             {
                 Side = OrderSide.Buy,
                 Quantity = 100,
-                Type = Models.OrderType.Market,
-                TimeInForce = Models.TimeInForce.GoodTillCancel,
+                Type = OrderType.Market,
+                TimeInForce = TimeInForce.GoodTillCancel,
                 EnableTakeProfit = false,
                 EnableStopLoss = true,
                 StopLossPrice = 95.00
@@ -1909,8 +1910,8 @@ public class OrderPermutationTests
             {
                 Side = OrderSide.Buy,
                 Quantity = 100,
-                Type = Models.OrderType.Market,
-                TimeInForce = Models.TimeInForce.GoodTillCancel,
+                Type = OrderType.Market,
+                TimeInForce = TimeInForce.GoodTillCancel,
                 EnableTakeProfit = false,
                 EnableTrailingStopLoss = true,
                 TrailingStopLossPercent = 0.10
@@ -1988,14 +1989,14 @@ public class OrderPermutationTests
                 .Breakout(100)
                 .Buy(100, Price.Current)
                 .TimeInForce(TIF.IOC)
-                .OrderType(Models.OrderType.Limit)
+                .OrderType(OrderType.Limit)
                 .Build();
 
             // Order 2: OrderType -> TimeInForce
             var strategy2 = Stock.Ticker("TEST")
                 .Breakout(100)
                 .Buy(100, Price.Current)
-                .OrderType(Models.OrderType.Limit)
+                .OrderType(OrderType.Limit)
                 .TimeInForce(TIF.IOC)
                 .Build();
 
@@ -2026,7 +2027,7 @@ public class OrderPermutationTests
                 .Buy(100, Price.Current, OrderType.Market)
                 .Build();
 
-            Assert.That(strategy.Order.Type, Is.EqualTo(Models.OrderType.Market));
+            Assert.That(strategy.Order.Type, Is.EqualTo(OrderType.Market));
         }
 
         [Test]
@@ -2038,7 +2039,7 @@ public class OrderPermutationTests
                 .Buy(100, Price.Current, OrderType.Limit)
                 .Build();
 
-            Assert.That(strategy.Order.Type, Is.EqualTo(Models.OrderType.Limit));
+            Assert.That(strategy.Order.Type, Is.EqualTo(OrderType.Limit));
         }
 
         [Test]
@@ -2050,7 +2051,7 @@ public class OrderPermutationTests
                 .Sell(100, Price.Current, OrderType.Market)
                 .Build();
 
-            Assert.That(strategy.Order.Type, Is.EqualTo(Models.OrderType.Market));
+            Assert.That(strategy.Order.Type, Is.EqualTo(OrderType.Market));
         }
 
         [Test]
@@ -2062,7 +2063,7 @@ public class OrderPermutationTests
                 .Sell(100, Price.Current, OrderType.Limit)
                 .Build();
 
-            Assert.That(strategy.Order.Type, Is.EqualTo(Models.OrderType.Limit));
+            Assert.That(strategy.Order.Type, Is.EqualTo(OrderType.Limit));
         }
 
         [Test]
@@ -2072,19 +2073,19 @@ public class OrderPermutationTests
             var strategy = Stock.Ticker("TEST")
                 .Breakout(100)
                 .Buy(100, Price.Current, OrderType.Market)
-                .OrderType(Models.OrderType.Limit)
+                .OrderType(OrderType.Limit)
                 .Build();
 
-            Assert.That(strategy.Order.Type, Is.EqualTo(Models.OrderType.Limit));
+            Assert.That(strategy.Order.Type, Is.EqualTo(OrderType.Limit));
         }
 
         [Test]
         [Description("Validates all combinations of Side × OrderType parameter")]
-        [TestCase(true, OrderType.Market, Models.OrderType.Market)]
-        [TestCase(true, OrderType.Limit, Models.OrderType.Limit)]
-        [TestCase(false, OrderType.Market, Models.OrderType.Market)]
-        [TestCase(false, OrderType.Limit, Models.OrderType.Limit)]
-        public void SideAndOrderTypeParameter_AllCombinations_SetCorrectly(bool isBuy, OrderType inputType, Models.OrderType expectedType)
+        [TestCase(true, OrderType.Market, OrderType.Market)]
+        [TestCase(true, OrderType.Limit, OrderType.Limit)]
+        [TestCase(false, OrderType.Market, OrderType.Market)]
+        [TestCase(false, OrderType.Limit, OrderType.Limit)]
+        public void SideAndOrderTypeParameter_AllCombinations_SetCorrectly(bool isBuy, OrderType inputType, OrderType expectedType)
         {
             var builder = Stock.Ticker("TEST").Breakout(100);
             var strategy = isBuy
@@ -2186,7 +2187,7 @@ public class OrderPermutationTests
                 .ClosePosition(new TimeOnly(6, 50))
                 .TimeInForce(TIF.GTC)
                 .OutsideRTH(true, true)
-                .OrderType(Models.OrderType.Market);
+                .OrderType(OrderType.Market);
 
             // Verify it's still a StrategyBuilder that can Build
             var strategy = builder.Build();
@@ -2241,13 +2242,13 @@ public class OrderPermutationTests
     public class CartesianProductTests
     {
         private static readonly OrderSide[] AllOrderSides = [OrderSide.Buy, OrderSide.Sell];
-        private static readonly Models.OrderType[] AllOrderTypes = [Models.OrderType.Market, Models.OrderType.Limit];
-        private static readonly Models.TimeInForce[] AllTimeInForce = 
+        private static readonly OrderType[] AllOrderTypes = [OrderType.Market, OrderType.Limit];
+        private static readonly TimeInForce[] AllTimeInForce = 
         [
-            Models.TimeInForce.Day,
-            Models.TimeInForce.GoodTillCancel,
-            Models.TimeInForce.ImmediateOrCancel,
-            Models.TimeInForce.FillOrKill
+            TimeInForce.Day,
+            TimeInForce.GoodTillCancel,
+            TimeInForce.ImmediateOrCancel,
+            TimeInForce.FillOrKill
         ];
         private static readonly Price[] AllPriceTypes = [Price.Current, Price.VWAP, Price.Bid, Price.Ask];
 
@@ -2270,8 +2271,8 @@ public class OrderPermutationTests
                             {
                                 var stock = Stock.Ticker("TEST").Breakout(100);
                                 var builder = side == OrderSide.Buy
-                                    ? stock.Buy(100, price, orderType == Models.OrderType.Market ? OrderType.Market : OrderType.Limit)
-                                    : stock.Sell(100, price, orderType == Models.OrderType.Market ? OrderType.Market : OrderType.Limit);
+                                    ? stock.Buy(100, price, orderType == OrderType.Market ? OrderType.Market : OrderType.Limit)
+                                    : stock.Sell(100, price, orderType == OrderType.Market ? OrderType.Market : OrderType.Limit);
 
                                 var strategy = builder
                                     .TimeInForce(tif)
@@ -2523,7 +2524,7 @@ public class OrderPermutationTests
                 .TimeInForce(TIF.GTC)
                 .Build();
 
-            Assert.That(strategy.Order.TimeInForce, Is.EqualTo(Models.TimeInForce.GoodTillCancel));
+            Assert.That(strategy.Order.TimeInForce, Is.EqualTo(TimeInForce.GoodTillCancel));
         }
 
         [Test]
@@ -2533,11 +2534,11 @@ public class OrderPermutationTests
             var strategy = Stock.Ticker("TEST")
                 .Breakout(100)
                 .Buy(100, Price.Current)
-                .OrderType(Models.OrderType.Market)
-                .OrderType(Models.OrderType.Limit)
+                .OrderType(OrderType.Market)
+                .OrderType(OrderType.Limit)
                 .Build();
 
-            Assert.That(strategy.Order.Type, Is.EqualTo(Models.OrderType.Limit));
+            Assert.That(strategy.Order.Type, Is.EqualTo(OrderType.Limit));
         }
 
         [Test]

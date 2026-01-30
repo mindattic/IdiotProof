@@ -13,6 +13,8 @@
 // ============================================================================
 
 using IBApi;
+using IdiotProof.Enums;
+using IdiotProof.Helpers;
 using IdiotProof.Models;
 using System;
 using System.Collections.Generic;
@@ -32,15 +34,47 @@ namespace IdiotProof
                 // ----- NAMM Strategy -----
                 Stock
                     .Ticker("NAMM")
-                    .Start(Time.PreMarket.Start)                            // Start monitoring at 3:00 AM CST
+                    .Start(Time.PreMarket.Start)                            // Start monitoring at 4:00 AM ET
                     .Breakout(7.10)                                         // Step 1: Price >= 7.10
                     .Pullback(6.80)                                         // Step 2: Price <= 6.80
                     .AboveVwap()                                            // Step 3: Price >= VWAP
                     .Buy(quantity: 100, Price.Current)                      // Step 4: Buy 100 @ Current Price
                     .TakeProfit(9.00)                                       // Take profit >= 9.00
                     .StopLoss(6.50)                                         // Stop loss <= 6.50
-                    .ClosePosition(Time.PreMarket.End.AddMinutes(-10))      // Close Position @ 6:50 AM CST
-                    .End(Time.PreMarket.End),                               // Stop monitoring @ 7:00 AM CST
+                    .ClosePosition(Time.PreMarket.End.AddMinutes(-10))      // Close Position @ 9:20 AM ET
+                    .End(Time.PreMarket.End),                               // Stop monitoring @ 9:30 AM ET
+
+                // ----- VIVS Strategy (Premarket) -----
+                Stock
+                    .Ticker("VIVS")
+                    .Start(Time.PreMarket.Start)                            // Start monitoring at 4:00 AM ET
+                    .PriceAbove(2.40)                                       // Step 1: Price > 2.40
+                    .AboveVwap()                                            // Step 2: Price >= VWAP
+                    .Buy(quantity: 100, Price.Current)                      // Step 3: Buy 100 @ Current Price
+                    .TakeProfit(4.40)                                       // Take profit @ 4.40 (midpoint of 4.00-4.80)
+                    .ClosePosition(Time.PreMarket.End.AddMinutes(-10))      // Close Position @ 9:20 AM ET
+                    .End(Time.PreMarket.End),                               // Stop monitoring @ 9:30 AM ET
+
+                // ----- CATX Strategy (Premarket) -----
+                Stock
+                    .Ticker("CATX")
+                    .Start(Time.PreMarket.Start)                            // Start monitoring at 4:00 AM ET
+                    .PriceAbove(4.00)                                       // Step 1: Price > 4.00
+                    .AboveVwap()                                            // Step 2: Price >= VWAP
+                    .Buy(quantity: 100, Price.Current)                      // Step 3: Buy 100 @ Current Price
+                    .TakeProfit(5.73)                                       // Take profit @ 5.73 (midpoint of 5.30-6.16)
+                    .ClosePosition(Time.PreMarket.End.AddMinutes(-10))      // Close Position @ 9:20 AM ET
+                    .End(Time.PreMarket.End),                               // Stop monitoring @ 9:30 AM ET
+
+                // ----- RPGL Strategy (Premarket) -----
+                Stock
+                    .Ticker("RPGL")
+                    .Start(Time.PreMarket.Start)                            // Start monitoring at 4:00 AM ET
+                    .PriceAbove(0.88)                                       // Step 1: Price > 0.88
+                    .Buy(quantity: 100, Price.Current)                      // Step 2: Buy 100 @ Current Price
+                    .TakeProfit(1.50)                                       // Take profit @ 1.50 (midpoint of 1.30-1.70)
+                    .ClosePosition(Time.PreMarket.End.AddMinutes(-10))      // Close Position @ 9:20 AM ET
+                    .End(Time.PreMarket.End),                               // Stop monitoring @ 9:30 AM ET
 
                 //// ----- FEED Strategy -----
                 //Stock.Ticker("FEED")

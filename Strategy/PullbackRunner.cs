@@ -27,6 +27,7 @@
 // ============================================================================
 
 using IBApi;
+using IdiotProof.Enums;
 using IdiotProof.Models;
 using System;
 using IbContract = IBApi.Contract;

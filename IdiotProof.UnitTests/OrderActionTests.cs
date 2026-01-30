@@ -23,6 +23,7 @@
 //
 // ============================================================================
 
+using IdiotProof.Enums;
 using IdiotProof.Models;
 using NUnit.Framework;
 

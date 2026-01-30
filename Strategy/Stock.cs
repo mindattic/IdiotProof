@@ -51,6 +51,7 @@
 
 using System;
 using System.Collections.Generic;
+using IdiotProof.Enums;
 
 namespace IdiotProof.Models
 {
@@ -493,10 +494,10 @@ namespace IdiotProof.Models
         private bool _enableTrailingStopLoss;
         private double _trailingStopLossPercent;
         private TimeOnly? _closePositionTime;
-        private Models.TimeInForce _timeInForce = Models.TimeInForce.GoodTillCancel;
+        private Enums.TimeInForce _timeInForce = Enums.TimeInForce.GoodTillCancel;
         private bool _outsideRth = true;
         private bool _takeProfitOutsideRth = true;
-        private Models.OrderType _orderType = Models.OrderType.Market;
+        private Enums.OrderType _orderType = Enums.OrderType.Market;
         private bool _allOrNone = false;
 
         /// <summary>
@@ -518,7 +519,7 @@ namespace IdiotProof.Models
         /// </remarks>
         public bool IsOpeningPosition => !_isClosingPosition;
 
-        internal StrategyBuilder(Stock stock, OrderSide side, int quantity, Price priceType, Models.OrderType orderType = Models.OrderType.Market, bool isClosingPosition = false)
+        internal StrategyBuilder(Stock stock, OrderSide side, int quantity, Price priceType, Enums.OrderType orderType = Enums.OrderType.Market, bool isClosingPosition = false)
         {
             _stock = stock;
             _side = side;
@@ -570,7 +571,7 @@ namespace IdiotProof.Models
         /// <summary>
         /// Sets the time in force for the order.
         /// </summary>
-        public StrategyBuilder TimeInForce(Models.TimeInForce tif)
+        public StrategyBuilder TimeInForce(Enums.TimeInForce tif)
         {
             _timeInForce = tif;
             return this;
@@ -589,7 +590,7 @@ namespace IdiotProof.Models
         /// <summary>
         /// Sets the order type.
         /// </summary>
-        public StrategyBuilder OrderType(Models.OrderType type)
+        public StrategyBuilder OrderType(Enums.OrderType type)
         {
             _orderType = type;
             return this;

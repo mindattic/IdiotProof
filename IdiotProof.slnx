@@ -1,4 +1,11 @@
 <Solution>
+  <Folder Name="/Documentation/">
+    <File Path="Export.ps1" />
+    <File Path="ExportedScripts.txt" />
+    <File Path="README.md" />
+    <File Path="zzz_Backup.bat" />
+    <File Path="zzz_Export.bat" />
+  </Folder>
   <Project Path="IdiotProof.csproj" />
   <Project Path="IdiotProof.UnitTests/IdiotProof.UnitTests.csproj" />
 </Solution>

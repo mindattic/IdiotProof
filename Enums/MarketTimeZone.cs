@@ -1,5 +1,5 @@
 // ============================================================================
-// TimeZone - Trading Timezone Enum
+// MarketTimeZone - Trading Timezone Enum
 // ============================================================================
 //
 // BEST PRACTICES:
@@ -15,7 +15,7 @@
 //
 // ============================================================================
 
-namespace IdiotProof.Models
+namespace IdiotProof.Enums
 {
     /// <summary>
     /// Supported US timezone identifiers for trading strategy configuration.
@@ -28,7 +28,7 @@ namespace IdiotProof.Models
     ///   <item>Regular Trading Hours (RTH): 9:30 AM - 4:00 PM ET</item>
     ///   <item>After-Hours: 4:00 PM - 8:00 PM ET</item>
     /// </list>
-    /// <para>Use <see cref="TimezoneHelper"/> to convert between Eastern Time and your local timezone.</para>
+    /// <para>Use <see cref="Helpers.TimezoneHelper"/> to convert between Eastern Time and your local timezone.</para>
     /// <para><b>Default:</b> EST (Eastern Standard Time) is the default and recommended timezone setting.</para>
     /// </remarks>
     public enum MarketTimeZone

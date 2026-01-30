@@ -14,6 +14,8 @@
 // ============================================================================
 
 using IdiotProof;
+using IdiotProof.Enums;
+using IdiotProof.Helpers;
 using IdiotProof.Models;
 using NUnit.Framework;
 

@@ -2,6 +2,7 @@
 // ValidationTests - Tests for invalid combinations and edge cases
 // ============================================================================
 
+using IdiotProof.Enums;
 using IdiotProof.Models;
 using NUnit.Framework;
 
