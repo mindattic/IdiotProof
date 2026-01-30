@@ -85,6 +85,9 @@ namespace IdiotProof.Models
         private double _trailingStopLossPrice;
         private double _highWaterMark;  // Highest price since entry (for trailing stop)
 
+        // ATR calculator for volatility-based stops
+        private readonly Helpers.AtrCalculator? _atrCalculator;
+
         // Cancel timer
         private Timer? _cancelTimer;
 
@@ -167,6 +170,15 @@ namespace IdiotProof.Models
             _currentConditionIndex = 0;
             _lastCheckedDate = DateOnly.FromDateTime(DateTime.Today);
 
+            // Initialize ATR calculator if ATR-based stop loss is configured
+            if (strategy.Order.UseAtrStopLoss && strategy.Order.AtrStopLoss != null)
+            {
+                _atrCalculator = new Helpers.AtrCalculator(
+                    period: strategy.Order.AtrStopLoss.Period,
+                    ticksPerBar: 50 // Aggregate 50 ticks into one "bar" for ATR calculation
+                );
+            }
+
             // Subscribe to fill events
             _wrapper.OnOrderFill += OnOrderFill;
 
@@ -197,6 +209,9 @@ namespace IdiotProof.Models
             _pvSum += lastPrice * lastSize;
             _vSum += lastSize;
 
+            // Update ATR calculator if configured
+            _atrCalculator?.Update(lastPrice);
+
             double vwap = GetVwap();
 
             // Monitor trailing stop loss if position is open
@@ -211,6 +226,7 @@ namespace IdiotProof.Models
 
         /// <summary>
         /// Monitors and updates the trailing stop loss based on current price.
+        /// Supports both percentage-based and ATR-based trailing stops.
         /// </summary>
         private void MonitorTrailingStopLoss(double currentPrice)
         {
@@ -228,8 +244,31 @@ namespace IdiotProof.Models
                 {
                     _highWaterMark = currentPrice;
 
-                    // Calculate new trailing stop price
-                    double newStopPrice = Math.Round(_highWaterMark * (1 - order.TrailingStopLossPercent), 2);
+                    // Calculate new trailing stop price based on ATR or percentage
+                    double newStopPrice;
+                    string stopDescription;
+
+                    if (order.UseAtrStopLoss && _atrCalculator != null && _atrCalculator.IsReady)
+                    {
+                        // ATR-based trailing stop
+                        var atrConfig = order.AtrStopLoss!;
+                        newStopPrice = _atrCalculator.CalculateStopPrice(
+                            referencePrice: _highWaterMark,
+                            multiplier: atrConfig.Multiplier,
+                            isLong: true,
+                            minPercent: atrConfig.MinStopPercent,
+                            maxPercent: atrConfig.MaxStopPercent
+                        );
+                        double atrValue = _atrCalculator.CurrentAtr;
+                        double stopDistance = _highWaterMark - newStopPrice;
+                        stopDescription = $"{atrConfig.Multiplier:F1}× ATR (ATR=${atrValue:F2}, Distance=${stopDistance:F2})";
+                    }
+                    else
+                    {
+                        // Percentage-based trailing stop (fallback or explicit)
+                        newStopPrice = Math.Round(_highWaterMark * (1 - order.TrailingStopLossPercent), 2);
+                        stopDescription = $"{order.TrailingStopLossPercent * 100:F1}% below ${_highWaterMark:F2}";
+                    }
 
                     // Only update if the new stop is higher (tighter)
                     if (newStopPrice > _trailingStopLossPrice)
@@ -243,7 +282,7 @@ namespace IdiotProof.Models
                         }
                         else
                         {
-                            Log($"TRAILING STOP SET: ${_trailingStopLossPrice:F2} ({order.TrailingStopLossPercent * 100:F1}% below ${_highWaterMark:F2})", ConsoleColor.Magenta);
+                            Log($"TRAILING STOP SET: ${_trailingStopLossPrice:F2} ({stopDescription})", ConsoleColor.Magenta);
                         }
                     }
                 }
@@ -251,7 +290,7 @@ namespace IdiotProof.Models
                 // Check if current price dropped below trailing stop
                 if (_trailingStopLossPrice > 0 && currentPrice <= _trailingStopLossPrice)
                 {
-                    Log($"*** TRAILING STOP TRIGGERED! Price ${currentPrice:F2} <= Stop ${_trailingStopLossPrice:F2} (Contributed by Yun-Kyoung Oh)", ConsoleColor.Red);
+                    Log($"*** TRAILING STOP TRIGGERED! Price ${currentPrice:F2} <= Stop ${_trailingStopLossPrice:F2}", ConsoleColor.Red);
                     ExecuteTrailingStopLoss(); 
                 }
             }

@@ -29,6 +29,7 @@ IdiotProof provides a clean, readable fluent API for defining complex trading st
 - Automatic order execution with IBKR
 - Take profit and stop loss management
 - Trailing stop loss with high-water mark tracking
+- ATR-based volatility-adaptive stops
 - Time-based strategy windows
 - Pre-market, RTH, and after-hours support
 
@@ -45,10 +46,12 @@ var strategy = Stock
     .AboveVwap()                              // Step 3: Price >= VWAP
     .Buy(quantity: 100, Price.Current)        // Step 4: Buy 100 shares
     .TakeProfit(155.00)                       // Exit at $155.00
-    .StopLoss(147.00)                         // Stop loss at $147.00
-    .TrailingStopLoss(Percent.Ten)            // 10% trailing stop
+    .TrailingStopLoss(Atr.Balanced)           // 2× ATR trailing stop (adapts to volatility)
     .ClosePosition(MarketTime.PreMarket.Ending)  // Close at 9:20 AM ET
     .Build();
+
+// Or with percentage-based trailing stop:
+// .TrailingStopLoss(Percent.Ten)            // 10% trailing stop
 ```
 
 ---
@@ -507,7 +510,7 @@ Sets a fixed stop loss price. Submits a stop order after entry fill.
 ---
 
 #### `.TrailingStopLoss(double percent)`
-Enables trailing stop loss that follows price upward.
+Enables a percentage-based trailing stop loss that follows price upward.
 
 ```csharp
 .TrailingStopLoss(Percent.Ten)      // 10% trailing stop
@@ -522,6 +525,60 @@ Enables trailing stop loss that follows price upward.
 4. Stop only moves UP, never down
 5. Triggers immediate market sell when price <= trailing stop
 6. Cancels take profit order when triggered
+
+**Implementation Status:** ✅ Fully Implemented
+
+---
+
+#### `.TrailingStopLoss(AtrStopLossConfig config)`
+Enables an ATR-based trailing stop loss that adapts to market volatility.
+
+```csharp
+// Preset configurations
+.TrailingStopLoss(Atr.Tight)        // 1.5× ATR (more stops, smaller losses)
+.TrailingStopLoss(Atr.Balanced)     // 2.0× ATR (recommended for swing trading)
+.TrailingStopLoss(Atr.Loose)        // 3.0× ATR (trend following, fewer stops)
+.TrailingStopLoss(Atr.VeryLoose)    // 4.0× ATR (long-term positions)
+
+// Custom multiplier
+.TrailingStopLoss(Atr.Multiplier(2.5))  // 2.5× ATR
+
+// Custom with bounds
+.TrailingStopLoss(Atr.WithBounds(
+    multiplier: 2.0,
+    minStopPercent: 0.02,   // At least 2% away
+    maxStopPercent: 0.20    // At most 20% away
+))
+```
+
+**How ATR Trailing Stop Works:**
+1. ATR (Average True Range) is calculated from price volatility over 14 periods
+2. Stop distance = ATR × Multiplier (e.g., $1.20 ATR × 2.0 = $2.40)
+3. Stop trails upward as price makes new highs
+4. Triggers sell when price drops ATR distance below high water mark
+5. Automatically adapts to volatility - tighter in calm markets, wider in volatile ones
+
+**ATR Multiplier Guidelines:**
+
+| Multiplier | Preset | Use Case | Characteristics |
+|------------|--------|----------|-----------------|
+| 1.5× | `Atr.Tight` | Scalping, quick trades | More stops, smaller losses |
+| 2.0× | `Atr.Balanced` | Swing trading | Good risk/reward balance |
+| 3.0× | `Atr.Loose` | Trend following | Fewer stops, larger swings |
+| 4.0× | `Atr.VeryLoose` | Long-term positions | Maximum room to breathe |
+
+**Example with Real Numbers:**
+
+| ATR Value | Multiplier | Stop Distance | Entry $50, High $55 → Stop |
+|-----------|------------|---------------|----------------------------|
+| $1.20 | 1.5× | $1.80 | $53.20 |
+| $1.20 | 2.0× | $2.40 | $52.60 |
+| $1.20 | 3.0× | $3.60 | $51.40 |
+
+**Why Use ATR Instead of Percentages?**
+- **Adapts to volatility**: A volatile stock needs a wider stop; ATR calculates this automatically
+- **Scientifically grounded**: Based on actual price movement, not arbitrary percentages
+- **Reduces whipsaws**: Avoids being stopped out by normal market noise
 
 **Implementation Status:** ✅ Fully Implemented
 
@@ -667,6 +724,60 @@ Use with `.SessionDuration()` for easy time window configuration.
 
 ---
 
+### `Atr` - ATR-Based Stop Loss Factory
+
+Factory for creating volatility-adaptive stop loss configurations. ATR (Average True Range) measures market volatility and adapts stops automatically.
+
+**Preset Configurations:**
+
+| Property | Multiplier | Use Case |
+|----------|------------|----------|
+| `Atr.Tight` | 1.5× | Scalping, quick trades - more stops, smaller losses |
+| `Atr.Balanced` | 2.0× | Swing trading - recommended default |
+| `Atr.Loose` | 3.0× | Trend following - fewer stops, larger swings |
+| `Atr.VeryLoose` | 4.0× | Long-term positions - maximum room |
+
+**Custom Multipliers:**
+
+```csharp
+Atr.Multiplier(2.5)                    // 2.5× ATR
+Atr.Multiplier(2.0, period: 20)        // 2× ATR with 20-period calculation
+Atr.Multiplier(2.0, isTrailing: false) // Fixed stop (not trailing)
+```
+
+**With Min/Max Bounds:**
+
+```csharp
+Atr.WithBounds(
+    multiplier: 2.0,
+    minStopPercent: 0.02,   // At least 2% away (floor)
+    maxStopPercent: 0.20,   // At most 20% away (ceiling)
+    period: 14,
+    isTrailing: true
+)
+```
+
+**Example Calculations:**
+
+| ATR | Multiplier | Stop Distance | High Water Mark $50 → Stop |
+|-----|------------|---------------|----------------------------|
+| $1.00 | 2.0× | $2.00 | $48.00 |
+| $1.50 | 2.0× | $3.00 | $47.00 |
+| $2.00 | 2.0× | $4.00 | $46.00 |
+| $1.00 | 3.0× | $3.00 | $47.00 |
+
+**AtrStopLossConfig Properties:**
+
+| Property | Type | Default | Description |
+|----------|------|---------|-------------|
+| `Multiplier` | `double` | 2.0 | ATR multiplier for stop distance |
+| `Period` | `int` | 14 | Periods for ATR calculation |
+| `IsTrailing` | `bool` | `true` | Whether stop trails price upward |
+| `MinStopPercent` | `double` | 0.01 | Minimum stop distance (1%) |
+| `MaxStopPercent` | `double` | 0.25 | Maximum stop distance (25%) |
+
+---
+
 ### `MarketTime` - Trading Session Periods
 
 All times are defined in **Eastern Time (ET)** - the standard for US equity markets. The default timezone setting is EST (Eastern Standard Time).
@@ -807,6 +918,54 @@ Stock
     .Build();
 ```
 
+### ATR-Based Volatility-Adaptive Stop Loss
+
+```csharp
+Stock
+    .Ticker("AAPL")
+    .SessionDuration(TradingSession.PreMarketEndEarly)
+    .PriceAbove(150.00)
+    .AboveVwap()
+    .Buy(quantity: 100, Price.Current)
+    .TakeProfit(160.00, 175.00)
+    .TrailingStopLoss(Atr.Balanced)            // 2.0× ATR trailing stop
+    .ClosePosition(MarketTime.PreMarket.Ending, false)
+    .Build();
+```
+
+### ATR Stop with Custom Multiplier
+
+```csharp
+Stock
+    .Ticker("TSLA")
+    .SessionDuration(TradingSession.RTH)
+    .Breakout(250.00)
+    .Pullback(245.00)
+    .AboveVwap()
+    .Buy(quantity: 50, Price.Current)
+    .TakeProfit(270.00)
+    .TrailingStopLoss(Atr.Multiplier(2.5))     // Custom 2.5× ATR
+    .Build();
+```
+
+### ATR Stop with Min/Max Bounds
+
+```csharp
+Stock
+    .Ticker("NVDA")
+    .SessionDuration(TradingSession.PreMarket)
+    .PriceAbove(500.00)
+    .AboveVwap()
+    .Buy(quantity: 20, Price.Current)
+    .TakeProfit(550.00)
+    .TrailingStopLoss(Atr.WithBounds(
+        multiplier: 2.0,
+        minStopPercent: 0.02,    // At least 2% ($10 on $500)
+        maxStopPercent: 0.10     // At most 10% ($50 on $500)
+    ))
+    .Build();
+```
+
 ### Full-Featured Strategy
 
 ```csharp
@@ -900,7 +1059,8 @@ Stock
 | Take profit (fixed) | ✅ | ✅ |
 | Take profit (ADX-based) | ✅ | ⚠️ |
 | Stop loss | ✅ | ✅ |
-| Trailing stop loss | ✅ | ✅ |
+| Trailing stop loss (%) | ✅ | ✅ |
+| Trailing stop loss (ATR) | ✅ | ✅ |
 | TimeInForce | ✅ | ✅ |
 | OutsideRTH | ✅ | ✅ |
 | OrderType | ✅ | ✅ |
@@ -910,6 +1070,7 @@ Stock
 | TradingSession enum | ✅ | ⚠️ |
 | Exchange (SMART/Pink) | ✅ | ✅ |
 | VWAP calculation | N/A | ✅ |
+| ATR calculation | N/A | ✅ |
 | **Offline Backtesting** | ✅ | N/A |
 
 ### ⚠️ Partially Implemented (Builder only)

@@ -197,8 +197,35 @@ namespace IdiotProof.Models
         /// 10-20% for high volatility. See <see cref="Percent"/> for constants.</para>
         /// <para><b>Order Type:</b> Automatically uses market order during RTH (good liquidity)
         /// and limit order outside RTH (pre-market/after-hours) for safer execution.</para>
+        /// <para><b>Note:</b> If <see cref="AtrStopLoss"/> is configured, it takes precedence
+        /// over this percentage-based stop.</para>
         /// </remarks>
         public double TrailingStopLossPercent { get; init; } = 0.10;
+
+        /// <summary>
+        /// ATR-based stop loss configuration for volatility-adaptive risk management.
+        /// When set, stop distance is calculated as ATR × Multiplier.
+        /// </summary>
+        /// <remarks>
+        /// <para><b>ATR Stop Loss Benefits:</b></para>
+        /// <list type="bullet">
+        ///   <item>Adapts automatically to market volatility.</item>
+        ///   <item>Tighter stops in calm markets, wider in volatile ones.</item>
+        ///   <item>More scientifically grounded than arbitrary percentages.</item>
+        /// </list>
+        /// <para><b>Example:</b></para>
+        /// <code>
+        /// .TrailingStopLoss(Atr.Balanced)     // 2.0× ATR
+        /// .TrailingStopLoss(Atr.Multiplier(2.5))  // Custom 2.5× ATR
+        /// </code>
+        /// <para><b>Note:</b> Takes precedence over <see cref="TrailingStopLossPercent"/> if configured.</para>
+        /// </remarks>
+        public AtrStopLossConfig? AtrStopLoss { get; init; }
+
+        /// <summary>
+        /// Whether to use ATR-based stop loss instead of percentage-based.
+        /// </summary>
+        public bool UseAtrStopLoss => AtrStopLoss != null;
 
         /// <summary>
         /// Time to cancel unfilled orders and optionally exit position (CST).

@@ -625,6 +625,7 @@ namespace IdiotProof.Models
         private double? _stopLoss;
         private bool _enableTrailingStopLoss;
         private double _trailingStopLossPercent;
+        private AtrStopLossConfig? _atrStopLoss;
         private TimeOnly? _closePositionTime;
         private bool _closePositionOnlyIfProfitable = true;
         private Enums.TimeInForce _timeInForce = Enums.TimeInForce.GoodTillCancel;
@@ -755,6 +756,50 @@ namespace IdiotProof.Models
         {
             _enableTrailingStopLoss = true;
             _trailingStopLossPercent = percent;
+            _atrStopLoss = null; // Clear ATR when using percentage
+            return this;
+        }
+
+        /// <summary>
+        /// Enables an ATR-based trailing stop loss that adapts to market volatility.
+        /// Stop distance = ATR × Multiplier, providing tighter stops in calm markets
+        /// and wider stops in volatile conditions.
+        /// </summary>
+        /// <param name="config">ATR stop loss configuration (use Atr.Tight, Atr.Balanced, Atr.Loose, or Atr.Multiplier()).</param>
+        /// <returns>The builder for method chaining.</returns>
+        /// <remarks>
+        /// <para><b>ATR Multiplier Guidelines:</b></para>
+        /// <list type="bullet">
+        ///   <item>1.5× ATR (Tight) - More stops, smaller losses. Good for scalping.</item>
+        ///   <item>2.0× ATR (Balanced) - Standard swing trading. Good risk/reward.</item>
+        ///   <item>3.0× ATR (Loose) - Trend following. Fewer stops, larger swings.</item>
+        /// </list>
+        /// 
+        /// <para><b>Example:</b></para>
+        /// <code>
+        /// // Preset configurations
+        /// .TrailingStopLoss(Atr.Balanced)     // 2.0× ATR (recommended)
+        /// .TrailingStopLoss(Atr.Tight)        // 1.5× ATR (aggressive)
+        /// .TrailingStopLoss(Atr.Loose)        // 3.0× ATR (trend-following)
+        /// 
+        /// // Custom multiplier
+        /// .TrailingStopLoss(Atr.Multiplier(2.5))  // 2.5× ATR
+        /// </code>
+        /// 
+        /// <para><b>How it works:</b></para>
+        /// <list type="number">
+        ///   <item>ATR is calculated from price volatility over 14 periods.</item>
+        ///   <item>Stop distance = ATR × Multiplier (e.g., $1.20 ATR × 2.0 = $2.40).</item>
+        ///   <item>Stop trails upward as price makes new highs.</item>
+        ///   <item>Triggers sell when price drops ATR distance below high water mark.</item>
+        /// </list>
+        /// </remarks>
+        public StrategyBuilder TrailingStopLoss(AtrStopLossConfig config)
+        {
+            _enableTrailingStopLoss = true;
+            _atrStopLoss = config ?? throw new ArgumentNullException(nameof(config));
+            // Set a fallback percentage in case ATR isn't ready
+            _trailingStopLossPercent = Math.Min(config.MaxStopPercent, 0.15);
             return this;
         }
 
@@ -881,6 +926,7 @@ namespace IdiotProof.Models
                 StopLossPrice = _stopLoss,
                 EnableTrailingStopLoss = _enableTrailingStopLoss,
                 TrailingStopLossPercent = _trailingStopLossPercent,
+                AtrStopLoss = _atrStopLoss,
                 ClosePositionTime = _closePositionTime,
                 ClosePositionOnlyIfProfitable = _closePositionOnlyIfProfitable
             };

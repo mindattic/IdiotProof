@@ -321,6 +321,9 @@ namespace IdiotProof
             Console.WriteLine($"Running... (CTRL+ALT+C to cancel orders, CTRL+ALT+Q to quit)");
             Console.WriteLine();
 
+            // Start heartbeat timer to verify API connection and show current prices
+            using var heartbeatTimer = StartHeartbeat(wrapper, runners);
+
             // Wait for CTRL+ALT+Q to stop
             while (true)
             {
@@ -401,6 +404,83 @@ namespace IdiotProof
                     // Ignore
                 }
             }
+        }
+
+        /// <summary>
+        /// Starts a heartbeat timer that periodically pings the IBKR API to verify connection.
+        /// When ping succeeds, displays current prices for all active strategies.
+        /// </summary>
+        /// <param name="wrapper">The IB wrapper instance.</param>
+        /// <param name="runners">List of active strategy runners.</param>
+        /// <returns>A Timer that should be disposed when no longer needed.</returns>
+        private static Timer StartHeartbeat(IbWrapper wrapper, List<StrategyRunner> runners)
+        {
+            const int HeartbeatIntervalMinutes = 5;
+            var interval = TimeSpan.FromMinutes(HeartbeatIntervalMinutes);
+
+            void HeartbeatCallback(object? state)
+            {
+                try
+                {
+                    var pingResult = wrapper.Ping(TimeSpan.FromSeconds(10));
+
+                    var easternZone = TimeZoneInfo.FindSystemTimeZoneById("Eastern Standard Time");
+                    var easternTime = TimeZoneInfo.ConvertTime(DateTime.Now, easternZone);
+                    var timestamp = easternTime.ToString("hh:mm:ss tt");
+
+                    if (pingResult.Success)
+                    {
+                        Console.ForegroundColor = ConsoleColor.DarkCyan;
+                        Console.WriteLine();
+                        Console.WriteLine($"[{timestamp}] HEARTBEAT OK | Latency: {pingResult.LatencyMs}ms | Server: {pingResult.ServerTimeUtc:HH:mm:ss} UTC");
+
+                        // Print current prices for all active strategies
+                        var activeRunners = runners.Where(r => !r.IsComplete).ToList();
+                        if (activeRunners.Count > 0)
+                        {
+                            // Group by symbol to avoid duplicates
+                            var symbolPrices = activeRunners
+                                .GroupBy(r => r.Symbol)
+                                .Select(g => new { Symbol = g.Key, Price = g.First().LastPrice, Vwap = g.First().CurrentVwap })
+                                .ToList();
+
+                            var priceStr = string.Join(" | ", symbolPrices.Select(sp => 
+                                $"{sp.Symbol}: ${sp.Price:F2}" + (sp.Vwap > 0 ? $" (VWAP: ${sp.Vwap:F2})" : "")));
+
+                            Console.WriteLine($"[{timestamp}]   Active tickers: {priceStr}");
+                        }
+                        else
+                        {
+                            Console.WriteLine($"[{timestamp}]   No active strategies running");
+                        }
+
+                        Console.ResetColor();
+                    }
+                    else
+                    {
+                        Console.ForegroundColor = ConsoleColor.Red;
+                        Console.WriteLine();
+                        Console.WriteLine($"[{timestamp}] HEARTBEAT FAILED - API connection may be lost!");
+                        Console.WriteLine($"[{timestamp}]   Check TWS/Gateway connection and restart if necessary.");
+                        Console.ResetColor();
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.ForegroundColor = ConsoleColor.Red;
+                    Console.WriteLine($"[HEARTBEAT ERROR] {ex.Message}");
+                    Console.ResetColor();
+                }
+            }
+
+            // Start the timer - first tick after interval, then repeats at interval
+            var timer = new Timer(HeartbeatCallback, null, interval, interval);
+
+            Console.ForegroundColor = ConsoleColor.DarkGray;
+            Console.WriteLine($"Heartbeat enabled: pinging API every {HeartbeatIntervalMinutes} minutes");
+            Console.ResetColor();
+
+            return timer;
         }
 
         /// <summary>

@@ -35,7 +35,9 @@ using IBApi;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Threading;
+using System.Threading.Tasks;
 using IbContract = IBApi.Contract;
 
 namespace IdiotProof.Models 
@@ -74,6 +76,24 @@ namespace IdiotProof.Models
     /// 
     /// <para><b>Reference:</b> https://interactivebrokers.github.io/tws-api/</para>
     /// </remarks>
+    /// <summary>
+    /// Represents the result of a ping operation to the IBKR API.
+    /// </summary>
+    public readonly struct PingResult
+    {
+        /// <summary>Gets whether the ping was successful (received response within timeout).</summary>
+        public bool Success { get; init; }
+
+        /// <summary>Gets the server time returned by the API (Unix timestamp in seconds).</summary>
+        public long ServerTime { get; init; }
+
+        /// <summary>Gets the round-trip latency in milliseconds.</summary>
+        public long LatencyMs { get; init; }
+
+        /// <summary>Gets the server time as a DateTime (UTC).</summary>
+        public DateTime ServerTimeUtc => Success ? DateTimeOffset.FromUnixTimeSeconds(ServerTime).UtcDateTime : DateTime.MinValue;
+    }
+
     public sealed class IbWrapper : EWrapper, IDisposable
     {
         public EReaderSignal Signal { get; } = new EReaderMonitorSignal();
@@ -82,8 +102,12 @@ namespace IdiotProof.Models
         private bool _disposed;
 
         private readonly ManualResetEventSlim _nextValidIdEvent = new ManualResetEventSlim(false);
+        private readonly ManualResetEventSlim _pingResponseEvent = new ManualResetEventSlim(false);
         private readonly object _orderIdLock = new object();
+        private readonly object _pingLock = new object();
         private int _nextOrderId = -1;
+        private long _lastServerTime;
+        private long _pingStartTicks;
 
         // Market data caches for LAST and LAST_SIZE pairing
         private readonly ConcurrentDictionary<int, double> _lastByTicker = new();
@@ -127,6 +151,12 @@ namespace IdiotProof.Models
         /// Gets all currently tracked open orders.
         /// </summary>
         public IReadOnlyDictionary<int, (string Symbol, string Action, decimal Qty, string Type, double LmtPrice, string Status)> OpenOrders => _openOrders;
+
+        /// <summary>
+        /// Gets the last server time received from a ping (Unix timestamp in seconds).
+        /// Returns 0 if no ping has been performed yet.
+        /// </summary>
+        public long LastServerTime => Interlocked.Read(ref _lastServerTime);
 
         /// <summary>
         /// Requests all open orders from IBKR.
@@ -180,6 +210,64 @@ namespace IdiotProof.Models
         public void AttachClient(EClientSocket client)
         {
             _client = client;
+        }
+
+        /// <summary>
+        /// Sends a ping to the IBKR API server and waits for a response.
+        /// This verifies that the connection is still active and the API is responding.
+        /// </summary>
+        /// <param name="timeout">Maximum time to wait for a response. Default is 5 seconds.</param>
+        /// <returns>A <see cref="PingResult"/> indicating success/failure and latency.</returns>
+        /// <remarks>
+        /// Uses the IB API's reqCurrentTime() method which triggers the currentTime() callback.
+        /// The server responds with its current Unix timestamp.
+        /// </remarks>
+        public PingResult Ping(TimeSpan? timeout = null)
+        {
+            var effectiveTimeout = timeout ?? TimeSpan.FromSeconds(5);
+
+            lock (_pingLock)
+            {
+                if (_client == null || _disposed)
+                {
+                    return new PingResult { Success = false, ServerTime = 0, LatencyMs = 0 };
+                }
+
+                // Reset the event before sending request
+                _pingResponseEvent.Reset();
+                _pingStartTicks = Stopwatch.GetTimestamp();
+
+                // Request current time from server
+                _client.reqCurrentTime();
+
+                // Wait for response
+                bool received = _pingResponseEvent.Wait(effectiveTimeout);
+
+                if (received)
+                {
+                    long elapsedTicks = Stopwatch.GetTimestamp() - _pingStartTicks;
+                    long latencyMs = (elapsedTicks * 1000) / Stopwatch.Frequency;
+
+                    return new PingResult
+                    {
+                        Success = true,
+                        ServerTime = Interlocked.Read(ref _lastServerTime),
+                        LatencyMs = latencyMs
+                    };
+                }
+
+                return new PingResult { Success = false, ServerTime = 0, LatencyMs = 0 };
+            }
+        }
+
+        /// <summary>
+        /// Sends a ping to the IBKR API server asynchronously.
+        /// </summary>
+        /// <param name="timeout">Maximum time to wait for a response. Default is 5 seconds.</param>
+        /// <returns>A task that completes with the <see cref="PingResult"/>.</returns>
+        public Task<PingResult> PingAsync(TimeSpan? timeout = null)
+        {
+            return Task.Run(() => Ping(timeout));
         }
 
         /// <summary>
@@ -404,7 +492,12 @@ namespace IdiotProof.Models
         public void scannerData(int reqId, int rank, IBApi.ContractDetails contractDetails, string distance, string benchmark, string projection, string legsStr) { }
         public void scannerDataEnd(int reqId) { }
         public void realtimeBar(int reqId, long time, double open, double high, double low, double close, decimal volume, decimal wap, int count) { }
-        public void currentTime(long time) { }
+        public void currentTime(long time)
+        {
+            // Store the server time and signal any waiting ping request
+            Interlocked.Exchange(ref _lastServerTime, time);
+            _pingResponseEvent.Set();
+        }
         public void fundamentalData(int reqId, string data) { }
         public void deltaNeutralValidation(int reqId, IBApi.DeltaNeutralContract deltaNeutralContract) { }
         public void tickSnapshotEnd(int reqId) { }
@@ -482,8 +575,9 @@ namespace IdiotProof.Models
                 return;
             _disposed = true;
 
-            // Dispose the ManualResetEventSlim (releases native handle)
+            // Dispose the ManualResetEventSlim instances (releases native handles)
             _nextValidIdEvent.Dispose();
+            _pingResponseEvent.Dispose();
 
             // Clear all cached data
             _tickerHandlers.Clear();
