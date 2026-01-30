@@ -13,12 +13,12 @@
 //
 // ================================================================
 
-using System.Runtime.InteropServices;
-using System.Text;
 using IBApi;
 using IdiotProof.Enums;
 using IdiotProof.Helpers;
 using IdiotProof.Models;
+using System.Runtime.InteropServices;
+using System.Text;
 
 namespace IdiotProof
 {
@@ -44,7 +44,7 @@ namespace IdiotProof
         private static void Run()
         {
 
-            var qty = 500;
+            var qty = 200;
 
             // ================================================================
             // STRATEGIES - Define your multi-step strategies here
@@ -52,7 +52,7 @@ namespace IdiotProof
             var strategies = new List<TradingStrategy>
             {
 
-                // ----- VIVS (Momentum.) -----
+                // ----- VIVS (Contributed by Momentum.) -----
                 Stock
                     .Ticker("VIVS")
                     .SessionDuration(TradingSession.PreMarketEndEarly)
@@ -63,7 +63,7 @@ namespace IdiotProof
                     .TrailingStopLoss(Percent.TwentyFive)                   // 25% trailing stop loss
                     .ClosePosition(MarketTime.PreMarket.Ending, false),     // Step 5: Close Position @ 9:15 AM ET
 
-                // ----- CATX (Momentum.) -----
+                // ----- CATX (Contributed byMomentum.) -----
                 Stock
                     .Ticker("CATX")
                     .SessionDuration(TradingSession.PreMarketEndEarly)
@@ -74,30 +74,30 @@ namespace IdiotProof
                     .TrailingStopLoss(Percent.TwentyFive)                   // 25% trailing stop loss
                     .ClosePosition(MarketTime.PreMarket.Ending, false),     // Step 5: Close Position @ 9:15 AM ET
 
-                // ----- VIVS EMA Pullback Strategy -----
-                // Current: $4.29 | VWAP: $3.57 | EMA 9/12/55: $4.17/$4.13/$4.08
-                // Entry on pullback to EMA zone while holding above VWAP
+                // ----- VIVS (Contributed by Claude Opus 4.5) -----
+                // Entry on pullback to EMA support while holding above VWAP
+                // Wait for dip to $4.15, confirm still above VWAP, buy the bounce
                 Stock
                     .Ticker("VIVS")
                     .SessionDuration(TradingSession.PreMarketEndEarly)
                     .Pullback(4.15)                                         // Step 1: Pullback to EMA 12 zone ($4.13)
-                    .AboveVwap()                                            // Step 2: Still above VWAP ($3.57)
+                    .AboveVwap()                                            // Step 2: Still above VWAP
                     .Buy(quantity: qty, Price.Current)                      // Step 3: Buy @ Current Price
                     .TakeProfit(4.80, 5.30)                                 // Step 4: Target $4.80 to $5.30 on bounce
-                    .StopLoss(3.95)                                         // Stop below EMA 55 with buffer
+                    .TrailingStopLoss(Percent.TwentyFive)                   // 25% trailing stop loss
                     .ClosePosition(MarketTime.PreMarket.Ending, false),
 
-                // ----- CATX EMA Support Strategy -----
-                // Current: $4.34 | Support: EMA 200 at $4.32 | Consolidation range
-                // Entry on bounce from EMA support zone (risky - below VWAP)
+                // ----- (Contributed by Claude Opus 4.5) -----
+                // Entry on VWAP reclaim followed by pullback retest
+                // Wait for price to reclaim VWAP, then buy pullback to VWAP support
                 Stock
                     .Ticker("CATX")
                     .SessionDuration(TradingSession.PreMarketEndEarly)
-                    .Pullback(4.33)                                         // Step 1: Pullback to EMA 55/200 zone ($4.32-$4.33)
-                    .PriceAbove(4.30)                                       // Step 2: Hold above $4.30 support
+                    .AboveVwap()                                            // Step 1: Wait for VWAP reclaim (~$4.77)
+                    .Pullback(4.80)                                         // Step 2: Then look for pullback to VWAP
                     .Buy(quantity: qty, Price.Current)                      // Step 3: Buy @ Current Price
-                    .TakeProfit(4.50, 4.75)                                 // Step 4: Target $4.50 to near VWAP ($4.77)
-                    .StopLoss(4.25)                                         // Tight stop below EMA 200
+                    .TakeProfit(5.20, 5.50)                                 // Step 4: Target $5.20 to $5.50 on bounce
+                    .TrailingStopLoss(Percent.TwentyFive)                   // 25% trailing stop loss
                     .ClosePosition(MarketTime.PreMarket.Ending, false),
             };
 
@@ -445,7 +445,7 @@ namespace IdiotProof
             {
                 Console.WriteLine();
                 double currentPrice = prices.TryGetValue(strategy.Symbol, out var price) ? price : 0;
-                strategy.WriteProgress(currentStep: 0, entryFilled: false, takeProfitFilled: false, 
+                strategy.WriteProgress(currentStep: 0, entryFilled: false, takeProfitFilled: false,
                     currentPrice: currentPrice, entryPrice: 0, takeProfitTarget: 0);
             }
         }
