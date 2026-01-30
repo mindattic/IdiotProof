@@ -1402,4 +1402,357 @@ public class FluentApiBuilderTests
     }
 
     #endregion
+
+    #region Multiple Strategies Per Symbol Tests
+
+    /// <summary>
+    /// Tests verifying multiple strategies can be created for the same stock symbol.
+    /// This is a common use case where different entry conditions target the same ticker.
+    /// </summary>
+    [TestFixture]
+    public class MultipleStrategiesPerSymbolTests
+    {
+        [Test]
+        [Description("Multiple strategies for same symbol can be created independently")]
+        public void MultipleStrategies_SameSymbol_CreateIndependently()
+        {
+            // Arrange & Act - Create two different strategies for VIVS
+            var momentumStrategy = Stock.Ticker("VIVS")
+                .PriceAbove(2.40)
+                .AboveVwap()
+                .Buy(100, Price.Current)
+                .TakeProfit(4.00, 4.80)
+                .Build();
+
+            var pullbackStrategy = Stock.Ticker("VIVS")
+                .Pullback(4.15)
+                .AboveVwap()
+                .Buy(100, Price.Current)
+                .TakeProfit(4.80, 5.30)
+                .Build();
+
+            // Assert - Both strategies exist with same symbol but different conditions
+            Assert.Multiple(() =>
+            {
+                Assert.That(momentumStrategy.Symbol, Is.EqualTo("VIVS"));
+                Assert.That(pullbackStrategy.Symbol, Is.EqualTo("VIVS"));
+                Assert.That(momentumStrategy, Is.Not.SameAs(pullbackStrategy));
+                Assert.That(momentumStrategy.Conditions[0].Name, Does.Contain(">="));
+                Assert.That(pullbackStrategy.Conditions[0].Name, Does.Contain("<="));
+            });
+        }
+
+        [Test]
+        [Description("Multiple strategies for same symbol can have different entry conditions")]
+        public void MultipleStrategies_SameSymbol_DifferentEntryConditions()
+        {
+            // Arrange
+            var strategies = new List<TradingStrategy>
+            {
+                Stock.Ticker("CATX")
+                    .PriceAbove(4.00)
+                    .AboveVwap()
+                    .Buy(100, Price.Current)
+                    .Build(),
+
+                Stock.Ticker("CATX")
+                    .Pullback(4.33)
+                    .PriceAbove(4.30)
+                    .Buy(100, Price.Current)
+                    .Build()
+            };
+
+            // Act
+            var catxStrategies = strategies.FindAll(s => s.Symbol == "CATX");
+
+            // Assert
+            Assert.Multiple(() =>
+            {
+                Assert.That(catxStrategies, Has.Count.EqualTo(2));
+                Assert.That(catxStrategies[0].Conditions[0], Is.TypeOf<PriceAtOrAboveCondition>());
+                Assert.That(catxStrategies[1].Conditions[0], Is.TypeOf<PullbackCondition>());
+            });
+        }
+
+        [Test]
+        [Description("Multiple strategies for same symbol can have different take profit targets")]
+        public void MultipleStrategies_SameSymbol_DifferentTakeProfitTargets()
+        {
+            // Arrange & Act
+            var conservativeStrategy = Stock.Ticker("VIVS")
+                .PriceAbove(3.00)
+                .Buy(100, Price.Current)
+                .TakeProfit(3.50)
+                .Build();
+
+            var aggressiveStrategy = Stock.Ticker("VIVS")
+                .PriceAbove(3.00)
+                .Buy(100, Price.Current)
+                .TakeProfit(4.50, 5.50)
+                .Build();
+
+            // Assert
+            Assert.Multiple(() =>
+            {
+                Assert.That(conservativeStrategy.Symbol, Is.EqualTo(aggressiveStrategy.Symbol));
+                Assert.That(conservativeStrategy.Order.TakeProfitPrice, Is.EqualTo(3.50));
+                Assert.That(aggressiveStrategy.Order.AdxTakeProfit!.ConservativeTarget, Is.EqualTo(4.50));
+                Assert.That(aggressiveStrategy.Order.AdxTakeProfit!.AggressiveTarget, Is.EqualTo(5.50));
+            });
+        }
+
+        [Test]
+        [Description("Multiple strategies for same symbol can have different stop loss configurations")]
+        public void MultipleStrategies_SameSymbol_DifferentStopLossConfig()
+        {
+            // Arrange & Act
+            var fixedStopStrategy = Stock.Ticker("CATX")
+                .PriceAbove(4.80)
+                .Buy(100, Price.Current)
+                .StopLoss(4.25)
+                .Build();
+
+            var trailingStopStrategy = Stock.Ticker("CATX")
+                .PriceAbove(4.80)
+                .Buy(100, Price.Current)
+                .TrailingStopLoss(Percent.TwentyFive)
+                .Build();
+
+            // Assert
+            Assert.Multiple(() =>
+            {
+                Assert.That(fixedStopStrategy.Symbol, Is.EqualTo(trailingStopStrategy.Symbol));
+                Assert.That(fixedStopStrategy.Order.EnableStopLoss, Is.True);
+                Assert.That(fixedStopStrategy.Order.EnableTrailingStopLoss, Is.False);
+                Assert.That(trailingStopStrategy.Order.EnableStopLoss, Is.False);
+                Assert.That(trailingStopStrategy.Order.EnableTrailingStopLoss, Is.True);
+            });
+        }
+
+        [Test]
+        [Description("Multiple strategies for same symbol can have different session durations")]
+        public void MultipleStrategies_SameSymbol_DifferentSessionDurations()
+        {
+            // Arrange & Act
+            var preMarketStrategy = Stock.Ticker("VIVS")
+                .SessionDuration(TradingSession.PreMarket)
+                .PriceAbove(2.40)
+                .Buy(100, Price.Current)
+                .Build();
+
+            var rthStrategy = Stock.Ticker("VIVS")
+                .SessionDuration(TradingSession.RTH)
+                .PriceAbove(2.40)
+                .Buy(100, Price.Current)
+                .Build();
+
+            // Assert
+            Assert.Multiple(() =>
+            {
+                Assert.That(preMarketStrategy.Symbol, Is.EqualTo(rthStrategy.Symbol));
+                Assert.That(preMarketStrategy.Session, Is.EqualTo(TradingSession.PreMarket));
+                Assert.That(rthStrategy.Session, Is.EqualTo(TradingSession.RTH));
+            });
+        }
+
+        [Test]
+        [Description("Multiple strategies for same symbol can have different quantities")]
+        public void MultipleStrategies_SameSymbol_DifferentQuantities()
+        {
+            // Arrange & Act
+            var smallPositionStrategy = Stock.Ticker("CATX")
+                .PriceAbove(4.00)
+                .Buy(50, Price.Current)
+                .Build();
+
+            var largePositionStrategy = Stock.Ticker("CATX")
+                .PriceAbove(4.00)
+                .Buy(500, Price.Current)
+                .Build();
+
+            // Assert
+            Assert.Multiple(() =>
+            {
+                Assert.That(smallPositionStrategy.Symbol, Is.EqualTo(largePositionStrategy.Symbol));
+                Assert.That(smallPositionStrategy.Order.Quantity, Is.EqualTo(50));
+                Assert.That(largePositionStrategy.Order.Quantity, Is.EqualTo(500));
+            });
+        }
+
+        [Test]
+        [Description("Strategy list with multiple symbols and multiple strategies per symbol")]
+        public void MultipleStrategies_MixedSymbols_AllIndependent()
+        {
+            // Arrange - Real-world scenario from Program.cs
+            var strategies = new List<TradingStrategy>
+            {
+                // VIVS Momentum
+                Stock.Ticker("VIVS")
+                    .SessionDuration(TradingSession.PreMarketEndEarly)
+                    .PriceAbove(2.40)
+                    .AboveVwap()
+                    .Buy(100, Price.Current)
+                    .TakeProfit(4.00, 4.80)
+                    .TrailingStopLoss(Percent.TwentyFive)
+                    .ClosePosition(MarketTime.PreMarket.Ending, false),
+
+                // CATX Momentum
+                Stock.Ticker("CATX")
+                    .SessionDuration(TradingSession.PreMarketEndEarly)
+                    .PriceAbove(4.00)
+                    .AboveVwap()
+                    .Buy(100, Price.Current)
+                    .TakeProfit(5.30, 6.16)
+                    .TrailingStopLoss(Percent.TwentyFive)
+                    .ClosePosition(MarketTime.PreMarket.Ending, false),
+
+                // VIVS Pullback
+                Stock.Ticker("VIVS")
+                    .SessionDuration(TradingSession.PreMarketEndEarly)
+                    .Pullback(4.15)
+                    .AboveVwap()
+                    .Buy(100, Price.Current)
+                    .TakeProfit(4.80, 5.30)
+                    .StopLoss(3.95)
+                    .ClosePosition(MarketTime.PreMarket.Ending, false),
+
+                // CATX Support
+                Stock.Ticker("CATX")
+                    .SessionDuration(TradingSession.PreMarketEndEarly)
+                    .Pullback(4.33)
+                    .PriceAbove(4.30)
+                    .Buy(100, Price.Current)
+                    .TakeProfit(4.50, 4.75)
+                    .StopLoss(4.25)
+                    .ClosePosition(MarketTime.PreMarket.Ending, false),
+            };
+
+            // Act
+            var vivsStrategies = strategies.FindAll(s => s.Symbol == "VIVS");
+            var catxStrategies = strategies.FindAll(s => s.Symbol == "CATX");
+            var enabledStrategies = strategies.FindAll(s => s.Enabled);
+
+            // Assert
+            Assert.Multiple(() =>
+            {
+                Assert.That(strategies, Has.Count.EqualTo(4));
+                Assert.That(vivsStrategies, Has.Count.EqualTo(2));
+                Assert.That(catxStrategies, Has.Count.EqualTo(2));
+                Assert.That(enabledStrategies, Has.Count.EqualTo(4));
+
+                // Verify each strategy is unique
+                Assert.That(strategies.Distinct().Count(), Is.EqualTo(4));
+
+                // Verify VIVS strategies have different first conditions
+                Assert.That(vivsStrategies[0].Conditions[0], Is.TypeOf<PriceAtOrAboveCondition>());
+                Assert.That(vivsStrategies[1].Conditions[0], Is.TypeOf<PullbackCondition>());
+
+                // Verify CATX strategies have different first conditions
+                Assert.That(catxStrategies[0].Conditions[0], Is.TypeOf<PriceAtOrAboveCondition>());
+                Assert.That(catxStrategies[1].Conditions[0], Is.TypeOf<PullbackCondition>());
+            });
+        }
+
+        [Test]
+        [Description("Multiple strategies with same symbol don't share state")]
+        public void MultipleStrategies_SameSymbol_NoSharedState()
+        {
+            // Arrange & Act
+            var strategy1 = Stock.Ticker("VIVS")
+                .Enabled(true)
+                .PriceAbove(2.40)
+                .Buy(100, Price.Current)
+                .Build();
+
+            var strategy2 = Stock.Ticker("VIVS")
+                .Enabled(false)
+                .PriceAbove(3.00)
+                .Buy(200, Price.Current)
+                .Build();
+
+            // Assert - Changing strategy2 doesn't affect strategy1
+            Assert.Multiple(() =>
+            {
+                Assert.That(strategy1.Enabled, Is.True);
+                Assert.That(strategy2.Enabled, Is.False);
+                Assert.That(strategy1.Order.Quantity, Is.EqualTo(100));
+                Assert.That(strategy2.Order.Quantity, Is.EqualTo(200));
+            });
+        }
+
+        [Test]
+        [Description("Filter strategies by symbol correctly")]
+        public void MultipleStrategies_FilterBySymbol_ReturnsCorrectStrategies()
+        {
+            // Arrange
+            var strategies = new List<TradingStrategy>
+            {
+                Stock.Ticker("AAPL").PriceAbove(150).Buy(100, Price.Current).Build(),
+                Stock.Ticker("VIVS").PriceAbove(2.40).Buy(100, Price.Current).Build(),
+                Stock.Ticker("AAPL").Pullback(145).Buy(50, Price.Current).Build(),
+                Stock.Ticker("CATX").PriceAbove(4.00).Buy(100, Price.Current).Build(),
+                Stock.Ticker("VIVS").Pullback(4.15).Buy(100, Price.Current).Build(),
+            };
+
+            // Act
+            var aaplStrategies = strategies.Where(s => s.Symbol == "AAPL").ToList();
+            var vivsStrategies = strategies.Where(s => s.Symbol == "VIVS").ToList();
+            var catxStrategies = strategies.Where(s => s.Symbol == "CATX").ToList();
+            var uniqueSymbols = strategies.Select(s => s.Symbol).Distinct().ToList();
+
+            // Assert
+            Assert.Multiple(() =>
+            {
+                Assert.That(aaplStrategies, Has.Count.EqualTo(2));
+                Assert.That(vivsStrategies, Has.Count.EqualTo(2));
+                Assert.That(catxStrategies, Has.Count.EqualTo(1));
+                Assert.That(uniqueSymbols, Has.Count.EqualTo(3));
+                Assert.That(uniqueSymbols, Does.Contain("AAPL"));
+                Assert.That(uniqueSymbols, Does.Contain("VIVS"));
+                Assert.That(uniqueSymbols, Does.Contain("CATX"));
+            });
+        }
+
+        [Test]
+        [Description("Strategies with same symbol can be enabled/disabled independently")]
+        public void MultipleStrategies_SameSymbol_IndependentEnableDisable()
+        {
+            // Arrange
+            var strategies = new List<TradingStrategy>
+            {
+                Stock.Ticker("VIVS")
+                    .Enabled(true)
+                    .PriceAbove(2.40)
+                    .Buy(100, Price.Current)
+                    .Build(),
+
+                Stock.Ticker("VIVS")
+                    .Enabled(false)  // Disabled
+                    .Pullback(4.15)
+                    .Buy(100, Price.Current)
+                    .Build(),
+
+                Stock.Ticker("VIVS")
+                    .Enabled(true)
+                    .PriceAbove(5.00)
+                    .Buy(100, Price.Current)
+                    .Build(),
+            };
+
+            // Act
+            var enabledStrategies = strategies.FindAll(s => s.Enabled);
+            var disabledStrategies = strategies.FindAll(s => !s.Enabled);
+            var vivsEnabled = strategies.FindAll(s => s.Symbol == "VIVS" && s.Enabled);
+
+            // Assert
+            Assert.Multiple(() =>
+            {
+                Assert.That(enabledStrategies, Has.Count.EqualTo(2));
+                Assert.That(disabledStrategies, Has.Count.EqualTo(1));
+                Assert.That(vivsEnabled, Has.Count.EqualTo(2));
+            });
+        }
+    }
+
+    #endregion
 }

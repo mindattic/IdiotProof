@@ -278,9 +278,10 @@ namespace IdiotProof.Models
         {
             foreach (var condition in Conditions)
             {
-                // Check if the condition name contains a price (e.g., "Price > 2.40")
+                // Check if the condition name contains a price (e.g., "Price > 2.40", "Pullback <= 4.15")
                 var name = condition.Name;
-                if (name.Contains("Price >") || name.Contains("Price >=") || name.Contains("Breakout"))
+                if (name.Contains("Price >") || name.Contains("Price >=") || 
+                    name.Contains("Breakout") || name.Contains("Pullback"))
                 {
                     // Extract the number from the condition name
                     var parts = name.Split(' ');

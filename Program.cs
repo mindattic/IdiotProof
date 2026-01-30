@@ -1,5 +1,6 @@
 // ================================================================
-// IBKR Multi-Stage Strategy Bot
+// IdiotProof Multi-Stage Strategy Bot
+// Powered by IBKR API
 // ================================================================
 //
 // Define your strategies using the fluent API:
@@ -47,29 +48,53 @@ namespace IdiotProof
             var strategies = new List<TradingStrategy>
             {
 
-                // ----- VIVS (Premarket) -----
+                // ----- VIVS (Momentum.) -----
                 Stock
                     .Ticker("VIVS")
                     .SessionDuration(TradingSession.PreMarketEndEarly)
                     .PriceAbove(2.40)                                       // Step 1: Price >= 2.40
                     .AboveVwap()                                            // Step 2: Price >= VWAP
-                    .Buy(quantity: 500, Price.Current)                      // Step 3: Buy 500 @ Current Price
+                    .Buy(quantity: 100, Price.Current)                      // Step 3: Buy 100 @ Current Price
                     .TakeProfit(4.00, 4.80)                                 // Step 4: ADX-based TakeProfit: 4.00 (weak) to 4.80 (strong)
                     .TrailingStopLoss(Percent.TwentyFive)                   // 25% trailing stop loss
                     .ClosePosition(MarketTime.PreMarket.Ending, false),     // Step 5: Close Position @ 9:15 AM ET
 
-
-                // ----- CATX (Premarket) -----
+                // ----- CATX (Momentum.) -----
                 Stock
                     .Ticker("CATX")
                     .SessionDuration(TradingSession.PreMarketEndEarly)
                     .PriceAbove(4.00)                                       // Step 1: Price >= 4.00
                     .AboveVwap()                                            // Step 2: Price >= VWAP
-                    .Buy(quantity: 500, Price.Current)                      // Step 3: Buy 500 @ Current Price
+                    .Buy(quantity: 100, Price.Current)                      // Step 3: Buy 100 @ Current Price
                     .TakeProfit(5.30, 6.16)                                 // Step 4: ADX-based TakeProfit: 5.30 (weak) to 6.16 (strong)
                     .TrailingStopLoss(Percent.TwentyFive)                   // 25% trailing stop loss
                     .ClosePosition(MarketTime.PreMarket.Ending, false),     // Step 5: Close Position @ 9:15 AM ET
 
+                // ----- VIVS EMA Pullback Strategy -----
+                // Current: $4.29 | VWAP: $3.57 | EMA 9/12/55: $4.17/$4.13/$4.08
+                // Entry on pullback to EMA zone while holding above VWAP
+                Stock
+                    .Ticker("VIVS")
+                    .SessionDuration(TradingSession.PreMarketEndEarly)
+                    .Pullback(4.15)                                         // Step 1: Pullback to EMA 12 zone ($4.13)
+                    .AboveVwap()                                            // Step 2: Still above VWAP ($3.57)
+                    .Buy(quantity: 100, Price.Current)                      // Step 3: Buy 100 @ Current Price
+                    .TakeProfit(4.80, 5.30)                                 // Step 4: Target $4.80 to $5.30 on bounce
+                    .StopLoss(3.95)                                         // Stop below EMA 55 with buffer
+                    .ClosePosition(MarketTime.PreMarket.Ending, false),
+
+                // ----- CATX EMA Support Strategy -----
+                // Current: $4.34 | Support: EMA 200 at $4.32 | Consolidation range
+                // Entry on bounce from EMA support zone (risky - below VWAP)
+                Stock
+                    .Ticker("CATX")
+                    .SessionDuration(TradingSession.PreMarketEndEarly)
+                    .Pullback(4.33)                                         // Step 1: Pullback to EMA 55/200 zone ($4.32-$4.33)
+                    .PriceAbove(4.30)                                       // Step 2: Hold above $4.30 support
+                    .Buy(quantity: 100, Price.Current)                      // Step 3: Buy 100 @ Current Price
+                    .TakeProfit(4.50, 4.75)                                 // Step 4: Target $4.50 to near VWAP ($4.77)
+                    .StopLoss(4.25)                                         // Tight stop below EMA 200
+                    .ClosePosition(MarketTime.PreMarket.Ending, false),
             };
 
             if (!IsValid())
@@ -85,7 +110,7 @@ namespace IdiotProof
 
             Console.ForegroundColor = ConsoleColor.Yellow;
             Console.WriteLine("===============================================================");
-            Console.WriteLine("                    IdiotProof Strategy Bot                    ");
+            Console.WriteLine("              IdiotProof Multi-Stage Strategy Bot              ");
             Console.WriteLine("===============================================================");
             Console.WriteLine();
             Console.ResetColor();

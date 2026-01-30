@@ -139,11 +139,13 @@ namespace IdiotProof.Models
                 : "Complete";
 
         /// <summary>
-        /// Logs a timestamped message to the console.
+        /// Logs a timestamped message to the console using Eastern Time (New York).
         /// </summary>
         private void Log(string message, ConsoleColor? color = null)
         {
-            var timestamp = DateTime.Now.ToString("hh:mm:ss tt");
+            var easternZone = TimeZoneInfo.FindSystemTimeZoneById("Eastern Standard Time");
+            var easternTime = TimeZoneInfo.ConvertTime(DateTime.Now, easternZone);
+            var timestamp = easternTime.ToString("hh:mm:ss tt");
             if (color.HasValue)
             {
                 Console.ForegroundColor = color.Value;
