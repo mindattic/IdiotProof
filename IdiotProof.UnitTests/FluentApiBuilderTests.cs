@@ -700,8 +700,8 @@ public class FluentApiBuilderTests
             .ClosePosition(MarketTime.PreMarket.Ending)
             .Build();
 
-        // Assert - Time.PreMarket.Ending should be 9:20 AM ET (10 min before 9:30)
-        Assert.That(strategy.Order.ClosePositionTime, Is.EqualTo(new TimeOnly(9, 20)));
+        // Assert - Time.PreMarket.Ending should be 9:15 AM ET (15 min before 9:30)
+        Assert.That(strategy.Order.ClosePositionTime, Is.EqualTo(new TimeOnly(9, 15)));
     }
 
     [Test]
