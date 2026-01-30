@@ -29,38 +29,26 @@ namespace IdiotProof
             var strategies = new List<TradingStrategy>
             {
  
-                // ----- VIVS (Premarket): Buy 208x$2.40=$500, TakeProfit $4.00-$4.80, Exit $832-$998 -----
+                // ----- VIVS (Premarket) -----
                 Stock
                     .Ticker("VIVS")
-                    .SessionDuration(TradingSession.Active)
+                    .SessionDuration(TradingSession.PreMarketEndEarly)
                     .PriceAbove(2.40)                                       // Step 1: Price > 2.40
                     .AboveVwap()                                            // Step 2: Price >= VWAP
                     .Buy(quantity: 500, Price.Current)                      // Step 3: Buy 500 @ Current Price
                     .TakeProfit(4.00, 4.80)                                 // Step 4: ADX-based TakeProfit: 4.00 (weak) to 4.80 (strong)
-                    .ClosePosition(MarketTime.PreMarket.Ending),            // Step 5: Close Position @ 9:20 AM ET (if profitable)
+                    .ClosePosition(MarketTime.PreMarket.Ending, false),     // Step 5: Close Position @ 9:20 AM ET
 
 
                 // ----- CATX (Premarket): Buy 125x$4.00=$500, TakeProfit $5.30-$6.16, Exit $663-$770 -----
                 Stock
                     .Ticker("CATX")
-                    .SessionDuration(TradingSession.Active)
+                    .SessionDuration(TradingSession.PreMarketEndEarly)
                     .PriceAbove(4.00)                                       // Step 1: Price > 4.00
                     .AboveVwap()                                            // Step 2: Price >= VWAP
                     .Buy(quantity: 500, Price.Current)                      // Step 3: Buy 500 @ Current Price
                     .TakeProfit(5.30, 6.16)                                 // Step 4: ADX-based TakeProfit: 5.30 (weak) to 6.16 (strong)
-                    .ClosePosition(MarketTime.PreMarket.Ending),            // Step 5: Close Position @ 9:20 AM ET (if profitable)
-
-
-                // ----- RPGL (Premarket): Buy 568x$0.88=$500, TakeProfit $1.30-$1.70, Exit $738-$966 -----
-                //Stock
-                //    .Ticker("RPGL")
-                //    .SessionDuration(TradingSession.Active)
-                //    .Exchange(ContractExchange.Pink)                        // Pink Sheets
-                //    .PriceAbove(0.88)                                       // Step 1: Price > 0.88
-                //    .AboveVwap()                                            // Step 2: Price >= VWAP
-                //    .Buy(quantity: 500, Price.Current)                      // Step 3: Buy 500 @ Current Price
-                //    .TakeProfit(1.30, 1.70),                                // ADX-based TakeProfit: 1.30 (weak) to 1.70 (strong)
-
+                    .ClosePosition(MarketTime.PreMarket.Ending, false),     // Step 5: Close Position @ 9:20 AM ET 
             };
 
             if (!IsValid())
