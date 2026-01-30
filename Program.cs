@@ -22,9 +22,6 @@ namespace IdiotProof
 {
     internal sealed class Program
     {
-        // Console output capture for crash dumps
-        private static readonly StringBuilder _consoleLog = new();
-        private static readonly object _logLock = new();
 
         public static void Main(string[] args)
         {
@@ -542,6 +539,12 @@ namespace IdiotProof
             }
         }
 
+        // Console output capture for crash dumps
+        private static readonly StringBuilder _consoleLog = new();
+        private static readonly object _logLock = new();
+        private const int MaxConsoleLogSize = 15 * 1024 * 1024; // 15 MB max buffer
+        private const int TrimToSize = 10 * 1024 * 1024;        // Trim to 10 MB when exceeded
+
         /// <summary>
         /// Sets up crash handling and console output capture.
         /// </summary>
@@ -635,6 +638,7 @@ namespace IdiotProof
 
         /// <summary>
         /// TextWriter that captures output while passing through to original.
+        /// Automatically trims old content to prevent memory leaks during long runs.
         /// </summary>
         private sealed class CapturingTextWriter : TextWriter
         {
@@ -654,36 +658,63 @@ namespace IdiotProof
             public override void Write(char value)
             {
                 _original.Write(value);
-                lock (_lock)
-                {
-                    _capture.Append(value);
-                }
+                SafeAppend(value.ToString());
             }
 
             public override void Write(string? value)
             {
                 _original.Write(value);
-                lock (_lock)
-                {
-                    _capture.Append(value);
-                }
+                SafeAppend(value);
             }
 
             public override void WriteLine(string? value)
             {
                 _original.WriteLine(value);
-                lock (_lock)
-                {
-                    _capture.AppendLine(value);
-                }
+                SafeAppend(value + Environment.NewLine);
             }
 
             public override void WriteLine()
             {
                 _original.WriteLine();
-                lock (_lock)
+                SafeAppend(Environment.NewLine);
+            }
+
+            private void SafeAppend(string? value)
+            {
+                if (string.IsNullOrEmpty(value))
+                    return;
+
+                try
                 {
-                    _capture.AppendLine();
+                    lock (_lock)
+                    {
+                        _capture.Append(value);
+
+                        // Trim if exceeded max size (keep most recent content)
+                        if (_capture.Length > MaxConsoleLogSize)
+                        {
+                            int removeCount = _capture.Length - TrimToSize;
+
+                            // Find the next newline after removeCount to keep logs clean
+                            int newlineIndex = -1;
+                            for (int i = removeCount; i < _capture.Length && i < removeCount + 1000; i++)
+                            {
+                                if (_capture[i] == '\n')
+                                {
+                                    newlineIndex = i + 1;
+                                    break;
+                                }
+                            }
+
+                            removeCount = newlineIndex > 0 ? newlineIndex : removeCount;
+                            _capture.Remove(0, removeCount);
+                            _capture.Insert(0, $"[... {removeCount:N0} chars trimmed ...]{Environment.NewLine}");
+                        }
+                    }
+                }
+                catch
+                {
+                    // Fail gracefully - logging should never crash the app
                 }
             }
         }
