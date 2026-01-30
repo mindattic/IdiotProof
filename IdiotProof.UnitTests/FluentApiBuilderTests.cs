@@ -277,7 +277,7 @@ public class FluentApiBuilderTests
     [Test]
     public void SessionDuration_WithPreMarketEndEarly_SetsCorrectWindow()
     {
-        // Arrange & Act - Should end at 9:20 AM (10 min before 9:30)
+        // Arrange & Act - Should end at 9:15 AM (15 min before 9:30)
         var strategy = Stock.Ticker("AAPL")
             .SessionDuration(TradingSession.PreMarketEndEarly)
             .Breakout(150)
@@ -286,13 +286,13 @@ public class FluentApiBuilderTests
 
         // Assert
         Assert.That(strategy.StartTime, Is.EqualTo(new TimeOnly(4, 0)));
-        Assert.That(strategy.EndTime, Is.EqualTo(new TimeOnly(9, 20)));
+        Assert.That(strategy.EndTime, Is.EqualTo(new TimeOnly(9, 15)));
     }
 
     [Test]
     public void SessionDuration_WithPreMarketStartLate_SetsCorrectWindow()
     {
-        // Arrange & Act - Should start at 4:10 AM (10 min after 4:00)
+        // Arrange & Act - Should start at 4:15 AM (15 min after 4:00)
         var strategy = Stock.Ticker("AAPL")
             .SessionDuration(TradingSession.PreMarketStartLate)
             .Breakout(150)
@@ -300,14 +300,14 @@ public class FluentApiBuilderTests
             .Build();
 
         // Assert
-        Assert.That(strategy.StartTime, Is.EqualTo(new TimeOnly(4, 10)));
+        Assert.That(strategy.StartTime, Is.EqualTo(new TimeOnly(4, 15)));
         Assert.That(strategy.EndTime, Is.EqualTo(new TimeOnly(9, 30)));
     }
 
     [Test]
     public void SessionDuration_WithRTHEndEarly_SetsCorrectWindow()
     {
-        // Arrange & Act - Should end at 3:50 PM (10 min before 4:00)
+        // Arrange & Act - Should end at 3:45 PM (15 min before 4:00)
         var strategy = Stock.Ticker("AAPL")
             .SessionDuration(TradingSession.RTHEndEarly)
             .Breakout(150)
@@ -316,13 +316,13 @@ public class FluentApiBuilderTests
 
         // Assert
         Assert.That(strategy.StartTime, Is.EqualTo(new TimeOnly(9, 30)));
-        Assert.That(strategy.EndTime, Is.EqualTo(new TimeOnly(15, 50)));
+        Assert.That(strategy.EndTime, Is.EqualTo(new TimeOnly(15, 45)));
     }
 
     [Test]
     public void SessionDuration_WithRTHStartLate_SetsCorrectWindow()
     {
-        // Arrange & Act - Should start at 9:40 AM (10 min after 9:30)
+        // Arrange & Act - Should start at 9:45 AM (15 min after 9:30)
         var strategy = Stock.Ticker("AAPL")
             .SessionDuration(TradingSession.RTHStartLate)
             .Breakout(150)
@@ -330,14 +330,14 @@ public class FluentApiBuilderTests
             .Build();
 
         // Assert
-        Assert.That(strategy.StartTime, Is.EqualTo(new TimeOnly(9, 40)));
+        Assert.That(strategy.StartTime, Is.EqualTo(new TimeOnly(9, 45)));
         Assert.That(strategy.EndTime, Is.EqualTo(new TimeOnly(16, 0)));
     }
 
     [Test]
     public void SessionDuration_WithAfterHoursEndEarly_SetsCorrectWindow()
     {
-        // Arrange & Act - Should end at 7:50 PM (10 min before 8:00)
+        // Arrange & Act - Should end at 7:45 PM (15 min before 8:00)
         var strategy = Stock.Ticker("AAPL")
             .SessionDuration(TradingSession.AfterHoursEndEarly)
             .Breakout(150)
@@ -346,7 +346,7 @@ public class FluentApiBuilderTests
 
         // Assert
         Assert.That(strategy.StartTime, Is.EqualTo(new TimeOnly(16, 0)));
-        Assert.That(strategy.EndTime, Is.EqualTo(new TimeOnly(19, 50)));
+        Assert.That(strategy.EndTime, Is.EqualTo(new TimeOnly(19, 45)));
     }
 
     [Test]

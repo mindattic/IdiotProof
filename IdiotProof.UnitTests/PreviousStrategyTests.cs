@@ -42,12 +42,12 @@ public class PreviousStrategyTests
             TradingStrategy vivs = Stock
                 .Ticker("VIVS")
                 .SessionDuration(TradingSession.PreMarketEndEarly)
-                .PriceAbove(2.40)                                       // Step 1: Price > 2.40
+                .PriceAbove(2.40)                                       // Step 1: Price >= 2.40
                 .AboveVwap()                                            // Step 2: Price >= VWAP
                 .Buy(quantity: 500, Price.Current)                      // Step 3: Buy 500 @ Current Price
                 .TakeProfit(4.00, 4.80)                                 // Step 4: ADX-based TakeProfit: 4.00 (weak) to 4.80 (strong)
                 .TrailingStopLoss(Percent.TwentyFive)                   // 25% trailing stop loss
-                .ClosePosition(MarketTime.PreMarket.Ending, false);     // Step 5: Close Position @ 9:20 AM ET
+                .ClosePosition(MarketTime.PreMarket.Ending, false);     // Step 5: Close Position @ 9:15 AM ET
 
             Assert.That(vivs.Symbol, Is.EqualTo("VIVS"));
             Assert.That(vivs.Enabled, Is.True);
@@ -82,12 +82,12 @@ public class PreviousStrategyTests
             TradingStrategy catx = Stock
                 .Ticker("CATX")
                 .SessionDuration(TradingSession.PreMarketEndEarly)
-                .PriceAbove(4.00)                                       // Step 1: Price > 4.00
+                .PriceAbove(4.00)                                       // Step 1: Price >= 4.00
                 .AboveVwap()                                            // Step 2: Price >= VWAP
                 .Buy(quantity: 500, Price.Current)                      // Step 3: Buy 500 @ Current Price
                 .TakeProfit(5.30, 6.16)                                 // Step 4: ADX-based TakeProfit: 5.30 (weak) to 6.16 (strong)
                 .TrailingStopLoss(Percent.TwentyFive)                   // 25% trailing stop loss
-                .ClosePosition(MarketTime.PreMarket.Ending, false);     // Step 5: Close Position @ 9:20 AM ET
+                .ClosePosition(MarketTime.PreMarket.Ending, false);     // Step 5: Close Position @ 9:15 AM ET
 
             Assert.That(catx.Symbol, Is.EqualTo("CATX"));
             Assert.That(catx.Enabled, Is.True);
