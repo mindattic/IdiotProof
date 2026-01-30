@@ -197,9 +197,9 @@ namespace IdiotProof
                 tickerIds.Add(tickerId);
             }
 
-            // Wait briefly for prices to arrive (up to 3 seconds)
+            // Wait briefly for prices to arrive (up to 10 seconds)
             var priceWaitStart = DateTime.UtcNow;
-            while ((DateTime.UtcNow - priceWaitStart).TotalSeconds < 3)
+            while ((DateTime.UtcNow - priceWaitStart).TotalSeconds < Settings.CONNECTION_TIMEOUT_SECONDS)
             {
                 if (prices.Values.All(p => p > 0))
                     break;
