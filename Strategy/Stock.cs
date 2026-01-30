@@ -269,8 +269,8 @@ namespace IdiotProof.Models
         {
             _session = session;
 
-            // Handle Always separately since it clears time restrictions
-            if (session == TradingSession.Always)
+            // Handle Active separately since it clears time restrictions
+            if (session == TradingSession.Active)
             {
                 _startTime = null;
                 _endTime = null;

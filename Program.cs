@@ -32,10 +32,10 @@ namespace IdiotProof
                 // ----- VIVS (Premarket): Buy 208x$2.40=$500, TakeProfit $4.00-$4.80, Exit $832-$998 -----
                 Stock
                     .Ticker("VIVS")
-                    .SessionDuration(TradingSession.Always)
+                    .SessionDuration(TradingSession.Active)
                     .PriceAbove(2.40)                                       // Step 1: Price > 2.40
                     .AboveVwap()                                            // Step 2: Price >= VWAP
-                    .Buy(quantity: 1, Price.Current)                        // Step 3: Buy 208 @ Current Price
+                    .Buy(quantity: 500, Price.Current)                      // Step 3: Buy 500 @ Current Price
                     .TakeProfit(4.00, 4.80)                                 // Step 4: ADX-based TakeProfit: 4.00 (weak) to 4.80 (strong)
                     .ClosePosition(MarketTime.PreMarket.Ending),            // Step 5: Close Position @ 9:20 AM ET (if profitable)
 
@@ -43,10 +43,10 @@ namespace IdiotProof
                 // ----- CATX (Premarket): Buy 125x$4.00=$500, TakeProfit $5.30-$6.16, Exit $663-$770 -----
                 Stock
                     .Ticker("CATX")
-                    .SessionDuration(TradingSession.Always)
+                    .SessionDuration(TradingSession.Active)
                     .PriceAbove(4.00)                                       // Step 1: Price > 4.00
                     .AboveVwap()                                            // Step 2: Price >= VWAP
-                    .Buy(quantity: 1, Price.Current)                        // Step 3: Buy 125 @ Current Price
+                    .Buy(quantity: 500, Price.Current)                      // Step 3: Buy 500 @ Current Price
                     .TakeProfit(5.30, 6.16)                                 // Step 4: ADX-based TakeProfit: 5.30 (weak) to 6.16 (strong)
                     .ClosePosition(MarketTime.PreMarket.Ending),            // Step 5: Close Position @ 9:20 AM ET (if profitable)
 
@@ -54,11 +54,11 @@ namespace IdiotProof
                 // ----- RPGL (Premarket): Buy 568x$0.88=$500, TakeProfit $1.30-$1.70, Exit $738-$966 -----
                 //Stock
                 //    .Ticker("RPGL")
-                //    .SessionDuration(TradingSession.Always)
+                //    .SessionDuration(TradingSession.Active)
                 //    .Exchange(ContractExchange.Pink)                        // Pink Sheets
                 //    .PriceAbove(0.88)                                       // Step 1: Price > 0.88
                 //    .AboveVwap()                                            // Step 2: Price >= VWAP
-                //    .Buy(quantity: 1, Price.Current)                        // Step 3: Buy 568 @ Current Price
+                //    .Buy(quantity: 500, Price.Current)                      // Step 3: Buy 500 @ Current Price
                 //    .TakeProfit(1.30, 1.70),                                // ADX-based TakeProfit: 1.30 (weak) to 1.70 (strong)
 
             };
@@ -74,10 +74,12 @@ namespace IdiotProof
             // ================================================================
             ConfigureConsole(preferredRows: 100, preferredColumns: 80);
 
+            Console.ForegroundColor = ConsoleColor.Yellow;
             Console.WriteLine("===============================================================");
             Console.WriteLine("                    IdiotProof Strategy Bot                    ");
             Console.WriteLine("===============================================================");
             Console.WriteLine();
+            Console.ResetColor();
 
             // Display timezone configuration
             //DisplayTimezoneInfo();
@@ -199,13 +201,15 @@ namespace IdiotProof
             if (pricesReceived == prices.Count)
             {
                 Console.ForegroundColor = ConsoleColor.Green;
-                Console.WriteLine($"Received prices for all {pricesReceived} symbol(s).");
+                Console.WriteLine($"Received prices for {pricesReceived} symbol(s).");
+                Console.WriteLine();
                 Console.ResetColor();
             }
             else
             {
                 Console.ForegroundColor = ConsoleColor.Yellow;
                 Console.WriteLine($"Received prices for {pricesReceived}/{prices.Count} symbol(s). Some may still be loading...");
+                Console.WriteLine();
                 Console.ResetColor();
             }
 
@@ -469,9 +473,10 @@ namespace IdiotProof
 
             if (orders.Count == 0)
             {
-                Console.ForegroundColor = ConsoleColor.Cyan;
-                Console.WriteLine("No existing open orders found.");
+                Console.ForegroundColor = ConsoleColor.Green;
+                Console.WriteLine("No open orders.");
                 Console.WriteLine();
+                Console.ResetColor();
             }
             else
             {
@@ -489,12 +494,10 @@ namespace IdiotProof
 
                 Console.WriteLine("└─────────┴────────┴────────┴───────┴────────┴──────────┴──────────────┘");
                 Console.ResetColor();
-
                 Console.ForegroundColor = ConsoleColor.Yellow;
-                Console.WriteLine("!!! Consider canceling old orders to avoid duplicate fills !!!");
+                Console.WriteLine("Consider canceling old orders to avoid duplicate fills!");
                 Console.ResetColor();
             }
-            Console.WriteLine();
         }
 
         /// <summary>

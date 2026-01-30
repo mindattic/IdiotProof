@@ -10,7 +10,7 @@ namespace IdiotProof.Enums
     /// <remarks>
     /// <para><b>Standard Sessions (Eastern Time):</b></para>
     /// <list type="bullet">
-    ///   <item><see cref="Always"/>: No time restrictions (24/7)</item>
+    ///   <item><see cref="Active"/>: No time restrictions (24/7 monitoring)</item>
     ///   <item><see cref="PreMarket"/>: 4:00 AM - 9:30 AM ET</item>
     ///   <item><see cref="RTH"/>: 9:30 AM - 4:00 PM ET (Regular Trading Hours)</item>
     ///   <item><see cref="AfterHours"/>: 4:00 PM - 8:00 PM ET</item>
@@ -29,7 +29,7 @@ namespace IdiotProof.Enums
     /// <para><b>Example:</b></para>
     /// <code>
     /// Stock.Ticker("AAPL")
-    ///     .SessionDuration(TradingSession.Always)  // No time restrictions
+    ///     .SessionDuration(TradingSession.Active)  // No time restrictions
     ///     .Breakout(150)
     ///     .Buy(100, Price.Current)
     ///     .Build();
@@ -42,10 +42,10 @@ namespace IdiotProof.Enums
         // ================================================================
 
         /// <summary>
-        /// No time restrictions - strategy is always active.
+        /// No time restrictions - strategy is always active and monitoring.
         /// Equivalent to not calling SessionDuration() at all.
         /// </summary>
-        Always,
+        Active,
 
         // ================================================================
         // STANDARD SESSIONS (Full duration)

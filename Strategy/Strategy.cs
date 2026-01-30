@@ -86,7 +86,8 @@ namespace IdiotProof.Models
         }
 
         /// <summary>
-        /// Writes the strategy progress to console with colors, including monitoring step.
+        /// Writes the strategy as a single-line summary with colors.
+        /// Format: SYMBOL | Session | Price: $X.XX | Qty: X | BuyIn: $X.XX | TakeProfit: $X.XX-$Y.YY
         /// </summary>
         /// <param name="currentStep">Current step index (0-based).</param>
         /// <param name="entryFilled">Whether entry order was filled.</param>
@@ -96,121 +97,168 @@ namespace IdiotProof.Models
         /// <param name="takeProfitTarget">Take profit target price.</param>
         public void WriteProgress(int currentStep, bool entryFilled, bool takeProfitFilled, double currentPrice, double entryPrice, double takeProfitTarget)
         {
-            // Symbol line with session, TIF, price and percent change
-            Console.Write($"  {Symbol}");
-
-            // Show session and TIF info
-            var sessionStr = GetSessionDisplayString();
-            Console.ForegroundColor = ConsoleColor.DarkGray;
-            Console.Write($"  [{sessionStr}]");
+            // Symbol
+            Console.ForegroundColor = ConsoleColor.White;
+            Console.Write($"    {Symbol}");
             Console.ResetColor();
 
-            Console.Write("  |  ");
+            Console.Write(" | ");
+
+            // Duration
+            var sessionStr = GetSessionDisplayString();
+            Console.Write("Duration: ");
+            Console.ForegroundColor = ConsoleColor.Cyan;
+            Console.Write(sessionStr);
+            Console.ResetColor();
+
+            Console.Write(" | ");
+
+            // Price
+            Console.Write("Price: ");
             if (currentPrice > 0)
             {
-                Console.ForegroundColor = ConsoleColor.White;
+                Console.ForegroundColor = ConsoleColor.Yellow;
                 Console.Write($"${currentPrice:F2}");
                 Console.ResetColor();
-
-                if (entryFilled && entryPrice > 0)
-                {
-                    double change = currentPrice - entryPrice;
-                    double pctChange = (change / entryPrice) * 100;
-
-                    Console.Write("  ");
-                    if (change >= 0)
-                    {
-                        Console.ForegroundColor = ConsoleColor.Green;
-                        Console.Write($"+${change:F2} (+{pctChange:F2}%)");
-                    }
-                    else
-                    {
-                        Console.ForegroundColor = ConsoleColor.Red;
-                        Console.Write($"-${Math.Abs(change):F2} ({pctChange:F2}%)");
-                    }
-                    Console.ResetColor();
-                }
             }
             else
             {
                 Console.ForegroundColor = ConsoleColor.DarkGray;
-                Console.Write("Awaiting price...");
+                Console.Write("...");
                 Console.ResetColor();
             }
+
+            Console.Write(" | ");
+
+            // Quantity
+            Console.Write("Qty: ");
+            Console.ForegroundColor = ConsoleColor.White;
+            Console.Write($"{Order.Quantity}");
+            Console.ResetColor();
+
+            Console.Write(" | ");
+
+            // BuyIn (total cost)
+            var entryConditionPrice = GetEntryConditionPrice();
+            Console.Write("BuyIn: ");
+            if (entryConditionPrice.HasValue)
+            {
+                double totalCost = entryConditionPrice.Value * Order.Quantity;
+                Console.ForegroundColor = ConsoleColor.Yellow;
+                Console.Write($"${totalCost:N0}");
+                Console.ResetColor();
+            }
+            else
+            {
+                Console.ForegroundColor = ConsoleColor.DarkGray;
+                Console.Write("N/A");
+                Console.ResetColor();
+            }
+
+            Console.Write(" | ");
+
+            // TakeProfit (total exit value)
+            Console.Write("TakeProfit: ");
+            if (Order.EnableTakeProfit)
+            {
+                Console.ForegroundColor = ConsoleColor.Green;
+                if (Order.AdxTakeProfit != null)
+                {
+                    double lowExit = Order.AdxTakeProfit.ConservativeTarget * Order.Quantity;
+                    double highExit = Order.AdxTakeProfit.AggressiveTarget * Order.Quantity;
+                    Console.Write($"${lowExit:N0}-${highExit:N0}");
+                }
+                else if (Order.TakeProfitPrice.HasValue)
+                {
+                    double exitValue = Order.TakeProfitPrice.Value * Order.Quantity;
+                    Console.Write($"${exitValue:N0}");
+                }
+                else
+                {
+                    Console.Write($"+${Order.TakeProfitOffset:F2}");
+                }
+                Console.ResetColor();
+            }
+            else
+            {
+                Console.ForegroundColor = ConsoleColor.DarkGray;
+                Console.Write("None");
+                Console.ResetColor();
+            }
+
+            // P/L if filled
+            if (entryFilled && entryPrice > 0 && currentPrice > 0)
+            {
+                double change = currentPrice - entryPrice;
+                double pctChange = (change / entryPrice) * 100;
+
+                Console.Write(" | ");
+                if (change >= 0)
+                {
+                    Console.ForegroundColor = ConsoleColor.Green;
+                    Console.Write($"+${change:F2} (+{pctChange:F1}%)");
+                }
+                else
+                {
+                    Console.ForegroundColor = ConsoleColor.Red;
+                    Console.Write($"-${Math.Abs(change):F2} ({pctChange:F1}%)");
+                }
+                Console.ResetColor();
+            }
+
             Console.WriteLine();
 
+            // Display all strategy steps/conditions
             for (int i = 0; i < Conditions.Count; i++)
             {
                 Console.Write("    ");
-
-                if (currentStep > i)
-                {
-                    // Completed - default color
-                    Console.WriteLine($"{i + 1}.) {Conditions[i].Name}");
-                }
-                else if (currentStep == i)
-                {
-                    // Current - green
-                    Console.ForegroundColor = ConsoleColor.Green;
-                    Console.WriteLine($"{i + 1}.) {Conditions[i].Name}");
-                    Console.ResetColor();
-                }
-                else
-                {
-                    // Pending - gray
-                    Console.ForegroundColor = ConsoleColor.DarkGray;
-                    Console.WriteLine($"{i + 1}.) {Conditions[i].Name}");
-                    Console.ResetColor();
-                }
+                Console.WriteLine($"{i + 1}.) {Conditions[i].Name}");
             }
 
-            // Format order details
-            var tpStr = Order.EnableTakeProfit 
-                ? (Order.TakeProfitPrice.HasValue ? $", TakeProfit={Order.TakeProfitPrice:F2}" : $", TakeProfit=+{Order.TakeProfitOffset:F2}") 
+            // Order step
+            var tpStr = Order.EnableTakeProfit
+                ? (Order.AdxTakeProfit != null 
+                    ? $", TP=${Order.AdxTakeProfit.ConservativeTarget:F2}-${Order.AdxTakeProfit.AggressiveTarget:F2}"
+                    : Order.TakeProfitPrice.HasValue 
+                        ? $", TP=${Order.TakeProfitPrice:F2}" 
+                        : $", TP=+${Order.TakeProfitOffset:F2}")
                 : "";
 
             Console.Write("    ");
-            if (entryFilled || currentStep >= Conditions.Count)
-            {
-                // Order executed - default
-                Console.WriteLine($"{Conditions.Count + 1}.) {Order.Side}={Order.Quantity}{tpStr}, {Order.Type}, {Order.TimeInForce}");
-            }
-            else
-            {
-                // Order pending - gray
-                Console.ForegroundColor = ConsoleColor.DarkGray;
-                Console.WriteLine($"{Conditions.Count + 1}.) {Order.Side}={Order.Quantity}{tpStr}, {Order.Type}, {Order.TimeInForce}");
-                Console.ResetColor();
-            }
+            Console.WriteLine($"{Conditions.Count + 1}.) {Order.Side} {Order.Quantity} @ {Order.Type}{tpStr}");
 
-            // Monitoring step - shows current price and take profit status
-            if (Order.EnableTakeProfit)
+            // Close position time if set
+            if (Order.ClosePositionTime.HasValue)
             {
-                int monitoringStepNumber = Conditions.Count + 2;
                 Console.Write("    ");
+                var closeStr = Order.ClosePositionOnlyIfProfitable ? " (if profitable)" : "";
+                Console.WriteLine($"{Conditions.Count + 2}.) Close @ {Order.ClosePositionTime.Value:h:mm tt} ET{closeStr}");
+            }
+        }
 
-                if (takeProfitFilled)
+        /// <summary>
+        /// Gets the entry condition price from the first price-based condition.
+        /// </summary>
+        private double? GetEntryConditionPrice()
+        {
+            foreach (var condition in Conditions)
+            {
+                // Check if the condition name contains a price (e.g., "Price > 2.40")
+                var name = condition.Name;
+                if (name.Contains("Price >") || name.Contains("Price >=") || name.Contains("Breakout"))
                 {
-                    // Take profit filled - green
-                    Console.ForegroundColor = ConsoleColor.Green;
-                    Console.WriteLine($"{monitoringStepNumber}.) Take Profit FILLED @ {takeProfitTarget:F2}");
-                    Console.ResetColor();
-                }
-                else if (entryFilled)
-                {
-                    // Monitoring active - show current price in yellow/cyan
-                    Console.ForegroundColor = ConsoleColor.Cyan;
-                    Console.WriteLine($"{monitoringStepNumber}.) Watching: ${currentPrice:F2} -> Target: ${takeProfitTarget:F2}");
-                    Console.ResetColor();
-                }
-                else
-                {
-                    // Waiting for entry - gray
-                    Console.ForegroundColor = ConsoleColor.DarkGray;
-                    Console.WriteLine($"{monitoringStepNumber}.) Waiting for take profit...");
-                    Console.ResetColor();
+                    // Extract the number from the condition name
+                    var parts = name.Split(' ');
+                    foreach (var part in parts)
+                    {
+                        if (double.TryParse(part, out var price))
+                        {
+                            return price;
+                        }
+                    }
                 }
             }
+            return null;
         }
 
         /// <summary>
@@ -222,7 +270,7 @@ namespace IdiotProof.Models
             {
                 return Session.Value switch
                 {
-                    TradingSession.Always => "Always",
+                    TradingSession.Active => "Active",
                     TradingSession.PreMarket => "PreMarket",
                     TradingSession.RTH => "RTH",
                     TradingSession.AfterHours => "AfterHours",
@@ -251,7 +299,7 @@ namespace IdiotProof.Models
                 return $"Until {EndTime.Value:h\\:mm}";
             }
 
-            return "Always";
+            return "Active";
         }
 
         /// <summary>

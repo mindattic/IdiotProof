@@ -214,14 +214,14 @@ Sets the time window using a predefined trading session. **Recommended** - easy 
 .SessionDuration(TradingSession.PreMarket)          // 4:00 AM - 9:30 AM ET
 .SessionDuration(TradingSession.PreMarketEndEarly)  // 4:00 AM - 9:20 AM ET (exit early)
 .SessionDuration(TradingSession.RTH)                // 9:30 AM - 4:00 PM ET
-.SessionDuration(TradingSession.Always)             // No time restrictions
+.SessionDuration(TradingSession.Active)             // No time restrictions
 ```
 
 **Available Sessions:**
 
 | Session | Start | End | Use Case |
 |---------|-------|-----|----------|
-| `Always` | - | - | No time restrictions |
+| `Active` | - | - | No time restrictions (24/7 monitoring) |
 | `PreMarket` | 4:00 AM | 9:30 AM | Full pre-market |
 | `PreMarketEndEarly` | 4:00 AM | 9:20 AM | Exit before market open |
 | `PreMarketStartLate` | 4:10 AM | 9:30 AM | Skip initial volatility |
@@ -648,7 +648,7 @@ Use with `.SessionDuration()` for easy time window configuration.
 
 | Session | Start (ET) | End (ET) | Description |
 |---------|------------|----------|-------------|
-| `Always` | - | - | No time restrictions (24/7) |
+| `Active` | - | - | No time restrictions (24/7 monitoring) |
 | `PreMarket` | 4:00 AM | 9:30 AM | Full pre-market |
 | `PreMarketEndEarly` | 4:00 AM | 9:20 AM | Exit 10 min before open |
 | `PreMarketStartLate` | 4:10 AM | 9:30 AM | Skip initial volatility |
@@ -662,7 +662,7 @@ Use with `.SessionDuration()` for easy time window configuration.
 **Usage:**
 ```csharp
 .SessionDuration(TradingSession.PreMarketEndEarly)    // Most common for pre-market
-.SessionDuration(TradingSession.Always)               // No restrictions
+.SessionDuration(TradingSession.Active)               // No restrictions
 ```
 
 ---

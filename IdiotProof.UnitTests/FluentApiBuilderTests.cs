@@ -350,11 +350,11 @@ public class FluentApiBuilderTests
     }
 
     [Test]
-    public void SessionDuration_WithAlways_ClearsTimeRestrictions()
+    public void SessionDuration_WithActive_ClearsTimeRestrictions()
     {
         // Arrange & Act - Should clear any time restrictions
         var strategy = Stock.Ticker("AAPL")
-            .SessionDuration(TradingSession.Always)
+            .SessionDuration(TradingSession.Active)
             .Breakout(150)
             .Buy(100, Price.Current)
             .Build();
@@ -365,12 +365,12 @@ public class FluentApiBuilderTests
     }
 
     [Test]
-    public void SessionDuration_AlwaysCanOverridePreviousSession()
+    public void SessionDuration_ActiveCanOverridePreviousSession()
     {
-        // Arrange & Act - Always should clear previous time restrictions
+        // Arrange & Act - Active should clear previous time restrictions
         var strategy = Stock.Ticker("AAPL")
             .SessionDuration(TradingSession.PreMarket)  // Set premarket first
-            .SessionDuration(TradingSession.Always)     // Then clear with Always
+            .SessionDuration(TradingSession.Active)     // Then clear with Active
             .Breakout(150)
             .Buy(100, Price.Current)
             .Build();
