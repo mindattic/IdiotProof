@@ -5,7 +5,7 @@
 // BEST PRACTICES:
 // 1. All times are defined in Eastern Time (ET) - the standard for US equity markets.
 // 2. Use TimezoneHelper to convert to/from your local timezone.
-// 3. Use TimeOnly.AddMinutes() for offsets (e.g., End.AddMinutes(-10)).
+// 3. Use TimeOnly.AddMinutes() for offsets (e.g., End.AddMinutes(-15)).
 // 4. These are market session definitions - actual trading hours may vary
 //    by broker, security type, and market conditions.
 // 5. The TimezoneHelper automatically handles daylight saving time.
@@ -58,17 +58,17 @@ namespace IdiotProof.Models
         public TimeOnly EndLocal => TimezoneHelper.ToLocal(End, Settings.Timezone);
 
         /// <summary>
-        /// A safe buffer time after the period starts (10 minutes after Start).
+        /// A safe buffer time after the period starts (15 minutes after Start).
         /// Useful for waiting for initial volatility to settle.
         /// </summary>
         /// <remarks>
         /// <para><b>Usage:</b></para>
         /// <code>
-        /// .Start(Time.PreMarket.Starting)  // 4:10 AM ET (10 min after 4:00)
-        /// .Start(Time.RTH.Starting)        // 9:40 AM ET (10 min after 9:30)
+        /// .Start(Time.PreMarket.Starting)  // 4:15 AM ET (15 min after 4:00)
+        /// .Start(Time.RTH.Starting)        // 9:45 AM ET (15 min after 9:30)
         /// </code>
         /// </remarks>
-        public TimeOnly Starting => Start.AddMinutes(10);
+        public TimeOnly Starting => Start.AddMinutes(15);
 
         /// <summary>
         /// Starting time converted to the configured local timezone (Settings.Timezone).
@@ -76,17 +76,17 @@ namespace IdiotProof.Models
         public TimeOnly StartingLocal => TimezoneHelper.ToLocal(Starting, Settings.Timezone);
 
         /// <summary>
-        /// A safe buffer time before the period ends (10 minutes before End).
+        /// A safe buffer time before the period ends (15 minutes before End).
         /// Useful for closing positions before the session ends.
         /// </summary>
         /// <remarks>
         /// <para><b>Usage:</b></para>
         /// <code>
-        /// .ClosePosition(Time.PreMarket.Ending)  // 9:20 AM ET (10 min before 9:30)
-        /// .ClosePosition(Time.RTH.Ending)        // 3:50 PM ET (10 min before 4:00)
+        /// .ClosePosition(Time.PreMarket.Ending)  // 9:15 AM ET (15 min before 9:30)
+        /// .ClosePosition(Time.RTH.Ending)        // 3:45 PM ET (15 min before 4:00)
         /// </code>
         /// </remarks>
-        public TimeOnly Ending => End.AddMinutes(-10);
+        public TimeOnly Ending => End.AddMinutes(-15);
 
         /// <summary>
         /// Ending time converted to the configured local timezone (Settings.Timezone).
