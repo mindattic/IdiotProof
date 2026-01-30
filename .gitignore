@@ -7,3 +7,5 @@
 /obj
 /IdiotProof.UnitTests/bin/Debug/net10.0
 /IdiotProof.UnitTests/obj
+/bin/Release/net10.0
+/IdiotProof.UnitTests/bin/Release/net10.0
