@@ -13,6 +13,7 @@
 //
 // ================================================================
 
+using System.Runtime.InteropServices;
 using System.Text;
 using IBApi;
 using IdiotProof.Enums;
@@ -42,6 +43,9 @@ namespace IdiotProof
 
         private static void Run()
         {
+
+            var qty = 500;
+
             // ================================================================
             // STRATEGIES - Define your multi-step strategies here
             // ================================================================
@@ -54,7 +58,7 @@ namespace IdiotProof
                     .SessionDuration(TradingSession.PreMarketEndEarly)
                     .PriceAbove(2.40)                                       // Step 1: Price >= 2.40
                     .AboveVwap()                                            // Step 2: Price >= VWAP
-                    .Buy(quantity: 100, Price.Current)                      // Step 3: Buy 100 @ Current Price
+                    .Buy(quantity: qty, Price.Current)                      // Step 3: Buy @ Current Price
                     .TakeProfit(4.00, 4.80)                                 // Step 4: ADX-based TakeProfit: 4.00 (weak) to 4.80 (strong)
                     .TrailingStopLoss(Percent.TwentyFive)                   // 25% trailing stop loss
                     .ClosePosition(MarketTime.PreMarket.Ending, false),     // Step 5: Close Position @ 9:15 AM ET
@@ -65,7 +69,7 @@ namespace IdiotProof
                     .SessionDuration(TradingSession.PreMarketEndEarly)
                     .PriceAbove(4.00)                                       // Step 1: Price >= 4.00
                     .AboveVwap()                                            // Step 2: Price >= VWAP
-                    .Buy(quantity: 100, Price.Current)                      // Step 3: Buy 100 @ Current Price
+                    .Buy(quantity: qty, Price.Current)                      // Step 3: Buy @ Current Price
                     .TakeProfit(5.30, 6.16)                                 // Step 4: ADX-based TakeProfit: 5.30 (weak) to 6.16 (strong)
                     .TrailingStopLoss(Percent.TwentyFive)                   // 25% trailing stop loss
                     .ClosePosition(MarketTime.PreMarket.Ending, false),     // Step 5: Close Position @ 9:15 AM ET
@@ -78,7 +82,7 @@ namespace IdiotProof
                     .SessionDuration(TradingSession.PreMarketEndEarly)
                     .Pullback(4.15)                                         // Step 1: Pullback to EMA 12 zone ($4.13)
                     .AboveVwap()                                            // Step 2: Still above VWAP ($3.57)
-                    .Buy(quantity: 100, Price.Current)                      // Step 3: Buy 100 @ Current Price
+                    .Buy(quantity: qty, Price.Current)                      // Step 3: Buy @ Current Price
                     .TakeProfit(4.80, 5.30)                                 // Step 4: Target $4.80 to $5.30 on bounce
                     .StopLoss(3.95)                                         // Stop below EMA 55 with buffer
                     .ClosePosition(MarketTime.PreMarket.Ending, false),
@@ -91,7 +95,7 @@ namespace IdiotProof
                     .SessionDuration(TradingSession.PreMarketEndEarly)
                     .Pullback(4.33)                                         // Step 1: Pullback to EMA 55/200 zone ($4.32-$4.33)
                     .PriceAbove(4.30)                                       // Step 2: Hold above $4.30 support
-                    .Buy(quantity: 100, Price.Current)                      // Step 3: Buy 100 @ Current Price
+                    .Buy(quantity: qty, Price.Current)                      // Step 3: Buy @ Current Price
                     .TakeProfit(4.50, 4.75)                                 // Step 4: Target $4.50 to near VWAP ($4.77)
                     .StopLoss(4.25)                                         // Tight stop below EMA 200
                     .ClosePosition(MarketTime.PreMarket.Ending, false),
@@ -564,14 +568,28 @@ namespace IdiotProof
             }
         }
 
-        // Console output capture for crash dumps
+        // P/Invoke for console close handler (Windows only)
+        [DllImport("Kernel32")]
+        private static extern bool SetConsoleCtrlHandler(ConsoleCtrlHandler handler, bool add);
+        private delegate bool ConsoleCtrlHandler(int ctrlType);
+        private static ConsoleCtrlHandler? _consoleCtrlHandler;
+
+        // Control signal types
+        private const int CTRL_C_EVENT = 0;
+        private const int CTRL_BREAK_EVENT = 1;
+        private const int CTRL_CLOSE_EVENT = 2;
+        private const int CTRL_LOGOFF_EVENT = 5;
+        private const int CTRL_SHUTDOWN_EVENT = 6;
+
+        // Console output capture for crash dumps and session logs
         private static readonly StringBuilder _consoleLog = new();
         private static readonly object _logLock = new();
         private const int MaxConsoleLogSize = 15 * 1024 * 1024; // 15 MB max buffer
         private const int TrimToSize = 10 * 1024 * 1024;        // Trim to 10 MB when exceeded
+        private const string LogsFolder = "logs";
 
         /// <summary>
-        /// Sets up crash handling and console output capture.
+        /// Sets up crash handling, console close handling, and console output capture.
         /// </summary>
         private static void SetupCrashHandler()
         {
@@ -592,17 +610,109 @@ namespace IdiotProof
                 WriteCrashDump(e.Exception, "UnobservedTaskException");
                 e.SetObserved();
             };
+
+            // Handle process exit (normal termination)
+            AppDomain.CurrentDomain.ProcessExit += (sender, e) =>
+            {
+                WriteSessionLog("ProcessExit");
+            };
+
+            // Handle console close button (X), Ctrl+C, logoff, shutdown (Windows only)
+            if (OperatingSystem.IsWindows())
+            {
+                _consoleCtrlHandler = new ConsoleCtrlHandler(OnConsoleCtrlEvent);
+                SetConsoleCtrlHandler(_consoleCtrlHandler, true);
+            }
+
+            // Handle Ctrl+C via .NET (cross-platform)
+            Console.CancelKeyPress += (sender, e) =>
+            {
+                WriteSessionLog("Ctrl+C");
+                // Don't cancel - let the app terminate
+            };
         }
 
         /// <summary>
-        /// Writes crash dump to a timestamped file.
+        /// Handles Windows console control events (close button, Ctrl+C, logoff, shutdown).
+        /// </summary>
+        private static bool OnConsoleCtrlEvent(int ctrlType)
+        {
+            var source = ctrlType switch
+            {
+                CTRL_C_EVENT => "Ctrl+C",
+                CTRL_BREAK_EVENT => "Ctrl+Break",
+                CTRL_CLOSE_EVENT => "Console Close (X button)",
+                CTRL_LOGOFF_EVENT => "User Logoff",
+                CTRL_SHUTDOWN_EVENT => "System Shutdown",
+                _ => $"Unknown ({ctrlType})"
+            };
+
+            WriteSessionLog(source);
+
+            // Return false to allow the default handler to terminate the process
+            // We have ~5 seconds to complete before Windows forcefully terminates
+            return false;
+        }
+
+        /// <summary>
+        /// Ensures the logs folder exists and returns the full path.
+        /// </summary>
+        private static string EnsureLogsFolder()
+        {
+            var logsPath = Path.Combine(AppContext.BaseDirectory, LogsFolder);
+            Directory.CreateDirectory(logsPath);
+            return logsPath;
+        }
+
+        /// <summary>
+        /// Writes session log to a timestamped file in the logs folder.
+        /// </summary>
+        private static void WriteSessionLog(string exitReason)
+        {
+            try
+            {
+                var logsPath = EnsureLogsFolder();
+                var timestamp = DateTime.Now.ToString("yyyy-MM-dd_HH-mm-ss");
+                var filename = Path.Combine(logsPath, $"session_{timestamp}.txt");
+
+                var sb = new StringBuilder();
+                sb.AppendLine("═══════════════════════════════════════════════════════════════════");
+                sb.AppendLine("                    IDIOTPROOF SESSION LOG");
+                sb.AppendLine("═══════════════════════════════════════════════════════════════════");
+                sb.AppendLine($"Session End: {DateTime.Now:yyyy-MM-dd hh:mm:ss tt}");
+                sb.AppendLine($"Exit Reason: {exitReason}");
+                sb.AppendLine();
+                sb.AppendLine("═══════════════════════════════════════════════════════════════════");
+                sb.AppendLine("                         CONSOLE OUTPUT");
+                sb.AppendLine("═══════════════════════════════════════════════════════════════════");
+
+                lock (_logLock)
+                {
+                    sb.Append(_consoleLog);
+                }
+
+                File.WriteAllText(filename, sb.ToString());
+
+                // Write to stderr (bypasses captured stdout)
+                Console.Error.WriteLine();
+                Console.Error.WriteLine($"Session log saved to: {filename}");
+            }
+            catch
+            {
+                // Fail gracefully - logging should never crash the app
+            }
+        }
+
+        /// <summary>
+        /// Writes crash dump to a timestamped file in the logs folder.
         /// </summary>
         private static void WriteCrashDump(Exception? exception, string source)
         {
             try
             {
+                var logsPath = EnsureLogsFolder();
                 var timestamp = DateTime.Now.ToString("yyyy-MM-dd_HH-mm-ss");
-                var filename = $"crash_{timestamp}.txt";
+                var filename = Path.Combine(logsPath, $"crash_{timestamp}.txt");
 
                 var sb = new StringBuilder();
                 sb.AppendLine("═══════════════════════════════════════════════════════════════════");
@@ -653,7 +763,7 @@ namespace IdiotProof
 
                 // Also write to original console
                 Console.Error.WriteLine();
-                Console.Error.WriteLine($"*** CRASH DUMP SAVED TO: {Path.GetFullPath(filename)} ***");
+                Console.Error.WriteLine($"*** CRASH DUMP SAVED TO: {filename} ***");
             }
             catch
             {
