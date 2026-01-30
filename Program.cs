@@ -72,14 +72,16 @@ namespace IdiotProof
             // ================================================================
             // STARTUP
             // ================================================================
+            ConfigureConsole(preferredRows: 100, preferredColumns: 80);
+
             Console.WriteLine("===============================================================");
             Console.WriteLine("                    IdiotProof Strategy Bot                    ");
             Console.WriteLine("===============================================================");
             Console.WriteLine();
 
             // Display timezone configuration
-            DisplayTimezoneInfo();
-            Console.WriteLine();
+            //DisplayTimezoneInfo();
+            //Console.WriteLine();
 
             // Filter to enabled strategies only
             var enabledStrategies = strategies.FindAll(s => s.Enabled);
@@ -150,11 +152,14 @@ namespace IdiotProof
             // Trading is paused until user explicitly activates
             bool isActive = false;
 
+            Console.ForegroundColor = ConsoleColor.Yellow;
             Console.WriteLine("================================================================");
-            Console.WriteLine("  PAUSED - Review strategies above before starting.             ");
-            Console.WriteLine("  Press CTRL+ALT+ENTER to activate trading.                     ");
-            Console.WriteLine("  Press CTRL+ALT+Q to quit.                                     ");
+            Console.WriteLine("  PAUSED - Review strategies above before starting.            ");
+            Console.WriteLine("  Press CTRL+ALT+ENTER to activate trading.                    ");
+            Console.WriteLine("  Press CTRL+ALT+C to cancel all open orders.                  ");
+            Console.WriteLine("  Press CTRL+ALT+Q to quit.                                    ");
             Console.WriteLine("================================================================");
+            Console.ResetColor();
             Console.WriteLine();
 
             // Wait for CTRL+ALT+ENTER to activate trading
@@ -169,6 +174,10 @@ namespace IdiotProof
                         Console.ForegroundColor = ConsoleColor.Green;
                         Console.WriteLine(">>> TRADING ACTIVATED <<<");
                         Console.ResetColor();
+                    }
+                    else if (key.Key == ConsoleKey.C)
+                    {
+                        CancelAllOpenOrders(wrapper);
                     }
                     else if (key.Key == ConsoleKey.Q)
                     {
@@ -210,16 +219,23 @@ namespace IdiotProof
             }
 
             // Display strategies with initial progress (step 0 = waiting on first condition)
-            Console.WriteLine($"Running...");
+            Console.WriteLine($"Running... (CTRL+ALT+C to cancel orders, CTRL+ALT+Q to quit)");
             Console.WriteLine();
 
             // Wait for CTRL+ALT+Q to stop
             while (true)
             {
                 var key = Console.ReadKey(intercept: true);
-                if (key.Modifiers == (ConsoleModifiers.Control | ConsoleModifiers.Alt) && key.Key == ConsoleKey.Q)
+                if (key.Modifiers == (ConsoleModifiers.Control | ConsoleModifiers.Alt))
                 {
-                    break;
+                    if (key.Key == ConsoleKey.C)
+                    {
+                        CancelAllOpenOrders(wrapper);
+                    }
+                    else if (key.Key == ConsoleKey.Q)
+                    {
+                        break;
+                    }
                 }
             }
 
@@ -233,6 +249,59 @@ namespace IdiotProof
         {
             //TODO: Add exhausive error handling/logging here to verify strategies are valid before starting...
             return true;
+        }
+
+        /// <summary>
+        /// Configures the console window size and buffer.
+        /// Note: Only works in legacy Command Prompt (conhost.exe), not Windows Terminal.
+        /// </summary>
+        /// <param name="preferredRows">Desired window height in rows.</param>
+        /// <param name="preferredColumns">Desired window width in columns.</param>
+        private static void ConfigureConsole(int preferredRows, int preferredColumns)
+        {
+            try
+            {
+                // Only works on Windows
+                if (!OperatingSystem.IsWindows())
+                    return;
+
+                // Set console title
+                Console.Title = "IdiotProof Strategy Bot";
+
+                // Get the largest possible window size for the current display
+                int maxWidth = Console.LargestWindowWidth;
+                int maxHeight = Console.LargestWindowHeight;
+
+                // Clamp to screen limits (leave some margin)
+                int width = Math.Min(preferredColumns, maxWidth - 2);
+                int height = Math.Min(preferredRows, maxHeight - 2);
+
+                // Ensure minimum size
+                width = Math.Max(width, 80);
+                height = Math.Max(height, 25);
+
+                // First shrink window to minimum to allow buffer resize
+                Console.SetWindowSize(1, 1);
+
+                // Set buffer size (must be >= window size)
+                Console.BufferWidth = width;
+                Console.BufferHeight = 9999; // Large buffer for scrollback
+
+                // Now set window size
+                Console.SetWindowSize(width, height);
+            }
+            catch
+            {
+                // Windows Terminal doesn't support SetWindowSize - that's OK
+                try
+                {
+                    Console.Title = "IdiotProof Strategy Bot";
+                }
+                catch
+                {
+                    // Ignore
+                }
+            }
         }
 
         /// <summary>
@@ -278,6 +347,52 @@ namespace IdiotProof
                 Console.WriteLine();
                 strategy.WriteProgress(currentStep: 0);
             }
+        }
+
+        /// <summary>
+        /// Cancels all open orders in IBKR.
+        /// </summary>
+        private static void CancelAllOpenOrders(IbWrapper wrapper)
+        {
+            // Get current order count before cancelling
+            wrapper.RequestOpenOrdersAndWait(TimeSpan.FromSeconds(3));
+            int orderCount = wrapper.OpenOrders.Count;
+
+            if (orderCount == 0)
+            {
+                Console.ForegroundColor = ConsoleColor.Cyan;
+                Console.WriteLine("No open orders to cancel.");
+                Console.ResetColor();
+                Console.WriteLine();
+                return;
+            }
+
+            Console.ForegroundColor = ConsoleColor.Yellow;
+            Console.WriteLine($"Cancelling {orderCount} open order(s)...");
+            Console.ResetColor();
+
+            wrapper.CancelAllOrders();
+
+            // Wait a moment for cancellations to process, then refresh
+            Thread.Sleep(500);
+            wrapper.RequestOpenOrdersAndWait(TimeSpan.FromSeconds(3));
+
+            int remainingCount = wrapper.OpenOrders.Count;
+            int cancelledCount = orderCount - remainingCount;
+
+            if (remainingCount == 0)
+            {
+                Console.ForegroundColor = ConsoleColor.Green;
+                Console.WriteLine($"Successfully cancelled {cancelledCount} order(s).");
+                Console.ResetColor();
+            }
+            else
+            {
+                Console.ForegroundColor = ConsoleColor.Yellow;
+                Console.WriteLine($"Cancelled {cancelledCount} order(s). {remainingCount} order(s) still pending.");
+                Console.ResetColor();
+            }
+            Console.WriteLine();
         }
 
         /// <summary>

@@ -149,6 +149,8 @@ namespace IdiotProof.Models
 
             try
             {
+                // Clear existing orders before refreshing - they will be re-added by openOrder callbacks
+                _openOrders.Clear();
                 _client?.reqAllOpenOrders();
                 completedEvent.Wait(timeout);
             }
@@ -156,6 +158,23 @@ namespace IdiotProof.Models
             {
                 OnOpenOrdersEnd -= OnComplete;
             }
+        }
+
+        /// <summary>
+        /// Cancels an order by its order ID.
+        /// </summary>
+        /// <param name="orderId">The order ID to cancel.</param>
+        public void CancelOrder(int orderId)
+        {
+            _client?.cancelOrder(orderId, new OrderCancel());
+        }
+
+        /// <summary>
+        /// Cancels all open orders.
+        /// </summary>
+        public void CancelAllOrders()
+        {
+            _client?.reqGlobalCancel(new OrderCancel());
         }
 
         public void AttachClient(EClientSocket client)
@@ -221,6 +240,12 @@ namespace IdiotProof.Models
                 return;
             }
 
+            // Code 202 = Order Canceled - remove from tracking (this is a confirmation, not an error)
+            if (errorCode == 202 && id >= 0)
+            {
+                _openOrders.TryRemove(id, out _);
+            }
+
             Console.WriteLine($"IB ERROR: id={id} code={errorCode} msg={errorMsg}");
         }
 
@@ -230,6 +255,12 @@ namespace IdiotProof.Models
             if (errorCode >= 2100 && errorCode <= 2199)
             {
                 return;
+            }
+
+            // Code 202 = Order Canceled - remove from tracking (this is a confirmation, not an error)
+            if (errorCode == 202 && id >= 0)
+            {
+                _openOrders.TryRemove(id, out _);
             }
 
             Console.WriteLine($"IB ERROR: id={id} code={errorCode} msg={errorMsg}");
