@@ -216,24 +216,27 @@ namespace IdiotProof.Models
             }
 
             // Order step - build components
-            var tpStr = Order.EnableTakeProfit
-                ? (Order.AdxTakeProfit != null 
-                    ? $", TakeProfit=${Order.AdxTakeProfit.ConservativeTarget:F2}-${Order.AdxTakeProfit.AggressiveTarget:F2}"
-                    : Order.TakeProfitPrice.HasValue 
-                        ? $", TakeProfit=${Order.TakeProfitPrice:F2}" 
-                        : $", TakeProfit=+${Order.TakeProfitOffset:F2}")
-                : "";
+            var tpStr = "";
+            if (Order.EnableTakeProfit)
+            {
+                if (Order.AdxTakeProfit != null)
+                    tpStr = $", TakeProfit=${Order.AdxTakeProfit.ConservativeTarget:F2}-${Order.AdxTakeProfit.AggressiveTarget:F2}";
+                else if (Order.TakeProfitPrice.HasValue)
+                    tpStr = $", TakeProfit=${Order.TakeProfitPrice:F2}";
+                else
+                    tpStr = $", TakeProfit=+${Order.TakeProfitOffset:F2}";
+            }
 
-            var slStr = Order.EnableTrailingStopLoss
-                ? $", TrailingStopLoss={Order.TrailingStopLossPercent * 100:F0}%"
-                : Order.EnableStopLoss
-                    ? (Order.StopLossPrice.HasValue 
-                        ? $", StopLoss=${Order.StopLossPrice:F2}" 
-                        : $", StopLoss=-${Order.StopLossOffset:F2}")
-                    : "";
+            var slStr = "";
+            if (Order.EnableTrailingStopLoss)
+                slStr = $", TrailingStopLoss={Order.TrailingStopLossPercent * 100:F0}%";
+            else if (Order.EnableStopLoss)
+                slStr = Order.StopLossPrice.HasValue
+                    ? $", StopLoss=${Order.StopLossPrice:F2}"
+                    : $", StopLoss=-${Order.StopLossOffset:F2}";
 
-            // Calculate MaxLoss if StopLoss or TrailingStopLoss is enabled
-            var maxLossStr = "";
+            // Calculate PotentialLoss if StopLoss or TrailingStopLoss is enabled
+            var potentialLoss = "";
             if (Order.EnableTrailingStopLoss || Order.EnableStopLoss)
             {
                 var estimatedEntryPrice = entryPrice > 0 ? entryPrice : GetEntryConditionPrice();
@@ -252,12 +255,12 @@ namespace IdiotProof.Models
                     {
                         maxLoss = Order.StopLossOffset * Order.Quantity;
                     }
-                    maxLossStr = $", MaxLoss=${maxLoss:N0}";
+                    potentialLoss = $", PotentialLoss=${maxLoss:N0}";
                 }
             }
 
             Console.Write("    ");
-            Console.WriteLine($"{Conditions.Count + 1}.) {Order.Side} {Order.Quantity} @ {Order.Type}{tpStr}{slStr}{maxLossStr}");
+            Console.WriteLine($"{Conditions.Count + 1}.) {Order.Side} {Order.Quantity} @ {Order.Type}{tpStr}{slStr}{potentialLoss}");
 
             // Close position time if set
             if (Order.ClosePositionTime.HasValue)
