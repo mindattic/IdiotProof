@@ -12,6 +12,7 @@
 //
 // ================================================================
 
+using System.Text;
 using IBApi;
 using IdiotProof.Enums;
 using IdiotProof.Helpers;
@@ -21,7 +22,27 @@ namespace IdiotProof
 {
     internal sealed class Program
     {
+        // Console output capture for crash dumps
+        private static readonly StringBuilder _consoleLog = new();
+        private static readonly object _logLock = new();
+
         public static void Main(string[] args)
+        {
+            // Setup crash handler and console capture
+            SetupCrashHandler();
+
+            try
+            {
+                Run();
+            }
+            catch (Exception ex)
+            {
+                WriteCrashDump(ex, "Main Thread Exception");
+                throw; // Re-throw to let the OS know the app crashed
+            }
+        }
+
+        private static void Run()
         {
             // ================================================================
             // STRATEGIES - Define your multi-step strategies here
@@ -213,10 +234,10 @@ namespace IdiotProof
 
             Console.ForegroundColor = ConsoleColor.Yellow;
             Console.WriteLine("================================================================");
-            Console.WriteLine("  PAUSED - Review strategies above before starting.            ");
-            Console.WriteLine("  Press CTRL+ALT+ENTER to activate trading.                    ");
-            Console.WriteLine("  Press CTRL+ALT+C to cancel all open orders.                  ");
-            Console.WriteLine("  Press CTRL+ALT+Q to quit.                                    ");
+            Console.WriteLine("  Review strategies above before starting.                      ");
+            Console.WriteLine("  Press CTRL+ALT+ENTER to activate trading.                     ");
+            Console.WriteLine("  Press CTRL+ALT+C to cancel all open orders.                   ");
+            Console.WriteLine("  Press CTRL+ALT+Q to quit.                                     ");
             Console.WriteLine("================================================================");
             Console.ResetColor();
             Console.WriteLine();
@@ -518,6 +539,152 @@ namespace IdiotProof
                 Console.ForegroundColor = ConsoleColor.Red;
                 Console.WriteLine($"WARNING: Timezone conversion mismatch! Expected {expectedEasternOpen:h:mm tt} ET, got {convertedBack:h:mm tt} ET");
                 Console.ResetColor();
+            }
+        }
+
+        /// <summary>
+        /// Sets up crash handling and console output capture.
+        /// </summary>
+        private static void SetupCrashHandler()
+        {
+            // Redirect console output to capture it
+            var originalOut = Console.Out;
+            var capturingWriter = new CapturingTextWriter(originalOut, _consoleLog, _logLock);
+            Console.SetOut(capturingWriter);
+
+            // Handle unhandled exceptions
+            AppDomain.CurrentDomain.UnhandledException += (sender, e) =>
+            {
+                WriteCrashDump(e.ExceptionObject as Exception, "UnhandledException");
+            };
+
+            // Handle task exceptions
+            TaskScheduler.UnobservedTaskException += (sender, e) =>
+            {
+                WriteCrashDump(e.Exception, "UnobservedTaskException");
+                e.SetObserved();
+            };
+        }
+
+        /// <summary>
+        /// Writes crash dump to a timestamped file.
+        /// </summary>
+        private static void WriteCrashDump(Exception? exception, string source)
+        {
+            try
+            {
+                var timestamp = DateTime.Now.ToString("yyyy-MM-dd_HH-mm-ss");
+                var filename = $"crash_{timestamp}.txt";
+
+                var sb = new StringBuilder();
+                sb.AppendLine("═══════════════════════════════════════════════════════════════════");
+                sb.AppendLine("                    IDIOTPROOF CRASH DUMP");
+                sb.AppendLine("═══════════════════════════════════════════════════════════════════");
+                sb.AppendLine($"Timestamp: {DateTime.Now:yyyy-MM-dd hh:mm:ss tt}");
+                sb.AppendLine($"Source: {source}");
+                sb.AppendLine();
+
+                if (exception != null)
+                {
+                    sb.AppendLine("═══════════════════════════════════════════════════════════════════");
+                    sb.AppendLine("                         EXCEPTION DETAILS");
+                    sb.AppendLine("═══════════════════════════════════════════════════════════════════");
+                    sb.AppendLine($"Type: {exception.GetType().FullName}");
+                    sb.AppendLine($"Message: {exception.Message}");
+                    sb.AppendLine();
+                    sb.AppendLine("Stack Trace:");
+                    sb.AppendLine(exception.StackTrace);
+
+                    // Include inner exceptions
+                    var inner = exception.InnerException;
+                    int depth = 1;
+                    while (inner != null)
+                    {
+                        sb.AppendLine();
+                        sb.AppendLine($"─── Inner Exception {depth} ───");
+                        sb.AppendLine($"Type: {inner.GetType().FullName}");
+                        sb.AppendLine($"Message: {inner.Message}");
+                        sb.AppendLine("Stack Trace:");
+                        sb.AppendLine(inner.StackTrace);
+                        inner = inner.InnerException;
+                        depth++;
+                    }
+                }
+
+                sb.AppendLine();
+                sb.AppendLine("═══════════════════════════════════════════════════════════════════");
+                sb.AppendLine("                         CONSOLE OUTPUT");
+                sb.AppendLine("═══════════════════════════════════════════════════════════════════");
+
+                lock (_logLock)
+                {
+                    sb.Append(_consoleLog);
+                }
+
+                File.WriteAllText(filename, sb.ToString());
+
+                // Also write to original console
+                Console.Error.WriteLine();
+                Console.Error.WriteLine($"*** CRASH DUMP SAVED TO: {Path.GetFullPath(filename)} ***");
+            }
+            catch
+            {
+                // Last resort - don't throw from crash handler
+            }
+        }
+
+        /// <summary>
+        /// TextWriter that captures output while passing through to original.
+        /// </summary>
+        private sealed class CapturingTextWriter : TextWriter
+        {
+            private readonly TextWriter _original;
+            private readonly StringBuilder _capture;
+            private readonly object _lock;
+
+            public CapturingTextWriter(TextWriter original, StringBuilder capture, object lockObj)
+            {
+                _original = original;
+                _capture = capture;
+                _lock = lockObj;
+            }
+
+            public override Encoding Encoding => _original.Encoding;
+
+            public override void Write(char value)
+            {
+                _original.Write(value);
+                lock (_lock)
+                {
+                    _capture.Append(value);
+                }
+            }
+
+            public override void Write(string? value)
+            {
+                _original.Write(value);
+                lock (_lock)
+                {
+                    _capture.Append(value);
+                }
+            }
+
+            public override void WriteLine(string? value)
+            {
+                _original.WriteLine(value);
+                lock (_lock)
+                {
+                    _capture.AppendLine(value);
+                }
+            }
+
+            public override void WriteLine()
+            {
+                _original.WriteLine();
+                lock (_lock)
+                {
+                    _capture.AppendLine();
+                }
             }
         }
     }

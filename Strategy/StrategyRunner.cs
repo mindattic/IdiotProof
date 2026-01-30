@@ -143,7 +143,7 @@ namespace IdiotProof.Models
         /// </summary>
         private void Log(string message, ConsoleColor? color = null)
         {
-            var timestamp = DateTime.Now.ToString("HH:mm:ss.fff");
+            var timestamp = DateTime.Now.ToString("hh:mm:ss tt");
             if (color.HasValue)
             {
                 Console.ForegroundColor = color.Value;
