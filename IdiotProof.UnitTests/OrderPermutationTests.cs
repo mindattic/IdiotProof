@@ -1314,7 +1314,7 @@ public class OrderPermutationTests
 
             // Assert
             Assert.That(strategy.Conditions, Has.Count.EqualTo(1));
-            Assert.That(strategy.Conditions[0], Is.InstanceOf<PriceAboveCondition>());
+            Assert.That(strategy.Conditions[0], Is.InstanceOf<PriceAtOrAboveCondition>());
         }
 
         [Test]
@@ -1411,7 +1411,7 @@ public class OrderPermutationTests
                 Assert.That(strategy.Conditions[0], Is.InstanceOf<BreakoutCondition>());
                 Assert.That(strategy.Conditions[1], Is.InstanceOf<PullbackCondition>());
                 Assert.That(strategy.Conditions[2], Is.InstanceOf<AboveVwapCondition>());
-                Assert.That(strategy.Conditions[3], Is.InstanceOf<PriceAboveCondition>());
+                Assert.That(strategy.Conditions[3], Is.InstanceOf<PriceAtOrAboveCondition>());
                 Assert.That(strategy.Conditions[4], Is.InstanceOf<CustomCondition>());
             });
         }
@@ -2225,7 +2225,7 @@ public class OrderPermutationTests
                 Assert.That(strategy.Conditions[0], Is.InstanceOf<BreakoutCondition>());
                 Assert.That(strategy.Conditions[1], Is.InstanceOf<PullbackCondition>());
                 Assert.That(strategy.Conditions[2], Is.InstanceOf<AboveVwapCondition>());
-                Assert.That(strategy.Conditions[3], Is.InstanceOf<PriceAboveCondition>());
+                Assert.That(strategy.Conditions[3], Is.InstanceOf<PriceAtOrAboveCondition>());
             });
         }
     }

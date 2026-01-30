@@ -453,7 +453,7 @@ public class FluentApiBuilderTests
     }
 
     [Test]
-    public void PriceAbove_AddsPriceAboveCondition()
+    public void PriceAbove_AddsPriceAtOrAboveCondition()
     {
         // Arrange & Act
         var strategy = Stock.Ticker("AAPL")

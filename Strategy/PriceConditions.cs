@@ -83,21 +83,21 @@ namespace IdiotProof.Models
     }
 
     /// <summary>
-    /// Condition: Price > specified level.
+    /// Condition: Price >= specified level.
     /// </summary>
-    public sealed class PriceAboveCondition : IStrategyCondition
+    public sealed class PriceAtOrAboveCondition : IStrategyCondition
     {
         public double Level { get; }
-        public string Name => $"Price > {Level:F2}";
+        public string Name => $"Price >= {Level:F2}";
 
-        public PriceAboveCondition(double level)
+        public PriceAtOrAboveCondition(double level)
         {
             Level = level;
         }
 
         public bool Evaluate(double currentPrice, double vwap)
         {
-            return currentPrice > Level;
+            return currentPrice >= Level;
         }
     }
 

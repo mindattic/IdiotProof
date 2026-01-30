@@ -223,13 +223,13 @@ public class StrategyConditionTests
 
     #endregion
 
-    #region PriceAbove Condition Tests
+    #region PriceAtOrAbove Condition Tests
 
     [Test]
-    public void PriceAboveCondition_StrictlyAbove_ReturnsTrue()
+    public void PriceAtOrAboveCondition_AboveLevel_ReturnsTrue()
     {
         // Arrange
-        var condition = new PriceAboveCondition(100);
+        var condition = new PriceAtOrAboveCondition(100);
 
         // Act
         var result = condition.Evaluate(currentPrice: 100.01, vwap: 95);
@@ -239,16 +239,16 @@ public class StrategyConditionTests
     }
 
     [Test]
-    public void PriceAboveCondition_AtLevel_ReturnsFalse()
+    public void PriceAtOrAboveCondition_AtLevel_ReturnsTrue()
     {
-        // Arrange - strictly greater than, not >=
-        var condition = new PriceAboveCondition(100);
+        // Arrange - greater than or equal
+        var condition = new PriceAtOrAboveCondition(100);
 
         // Act
         var result = condition.Evaluate(currentPrice: 100, vwap: 95);
 
         // Assert
-        Assert.That(result, Is.False);
+        Assert.That(result, Is.True);
     }
 
     #endregion

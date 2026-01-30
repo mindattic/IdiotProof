@@ -339,11 +339,11 @@ namespace IdiotProof.Models
         }
 
         /// <summary>
-        /// Adds a price-above condition: Price > level.
+        /// Adds a price-at-or-above condition: Price >= level.
         /// </summary>
         public Stock PriceAbove(double level)
         {
-            _conditions.Add(new PriceAboveCondition(level));
+            _conditions.Add(new PriceAtOrAboveCondition(level));
             return this;
         }
 

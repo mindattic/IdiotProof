@@ -264,16 +264,16 @@ public class ValidationTests
     }
 
     [Test]
-    public void PriceAboveCondition_AtExactLevel_ReturnsFalse()
+    public void PriceAtOrAboveCondition_AtExactLevel_ReturnsTrue()
     {
-        // Arrange - PriceAbove is strictly greater than
-        var condition = new PriceAboveCondition(100);
+        // Arrange - PriceAtOrAbove is greater than or equal
+        var condition = new PriceAtOrAboveCondition(100);
 
         // Act
         var result = condition.Evaluate(100, 95);
 
         // Assert
-        Assert.That(result, Is.False);  // Must be > not >=
+        Assert.That(result, Is.True);  // >= includes exact level
     }
 
     [Test]
