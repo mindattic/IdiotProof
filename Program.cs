@@ -16,9 +16,8 @@
 using IBApi;
 using IdiotProof.Enums;
 using IdiotProof.Helpers;
+using IdiotProof.Logging;
 using IdiotProof.Models;
-using System.Runtime.InteropServices;
-using System.Text;
 
 namespace IdiotProof
 {
@@ -28,7 +27,7 @@ namespace IdiotProof
         public static void Main(string[] args)
         {
             // Setup crash handler and console capture
-            SetupCrashHandler();
+            CrashHandler.Setup();
 
             try
             {
@@ -36,7 +35,7 @@ namespace IdiotProof
             }
             catch (Exception ex)
             {
-                WriteCrashDump(ex, "Main Thread Exception");
+                CrashHandler.WriteCrashDump(ex, "Main Thread Exception");
                 throw; // Re-throw to let the OS know the app crashed
             }
         }
@@ -44,7 +43,7 @@ namespace IdiotProof
         private static void Run()
         {
 
-            var qty = 200;
+            var qty = 1;
 
             // ================================================================
             // STRATEGIES - Define your multi-step strategies here
@@ -63,7 +62,7 @@ namespace IdiotProof
                     .TrailingStopLoss(Percent.TwentyFive)                   // 25% trailing stop loss
                     .ClosePosition(MarketTime.PreMarket.Ending, false),     // Step 5: Close Position @ 9:15 AM ET
 
-                // ----- CATX (Contributed byMomentum.) -----
+                // ----- CATX (Contributed by Momentum.) -----
                 Stock
                     .Ticker("CATX")
                     .SessionDuration(TradingSession.PreMarketEndEarly)
@@ -110,18 +109,8 @@ namespace IdiotProof
             // ================================================================
             // STARTUP
             // ================================================================
-            ConfigureConsole(preferredRows: 100, preferredColumns: 80);
-
-            Console.ForegroundColor = ConsoleColor.Yellow;
-            Console.WriteLine("===============================================================");
-            Console.WriteLine("              IdiotProof Multi-Stage Strategy Bot              ");
-            Console.WriteLine("===============================================================");
-            Console.WriteLine();
-            Console.ResetColor();
-
-            // Display timezone configuration
-            //DisplayTimezoneInfo();
-            //Console.WriteLine();
+            Gui.ConfigureConsole();
+            Gui.DisplayBanner();
 
             // Filter to enabled strategies only
             var enabledStrategies = strategies.FindAll(s => s.Enabled);
@@ -140,8 +129,8 @@ namespace IdiotProof
 
             wrapper.AttachClient(client);
 
-            Console.WriteLine($"Connecting to IBKR at {Settings.IB_HOST}:{Settings.IB_PORT}...");
-            client.eConnect(Settings.IB_HOST, Settings.IB_PORT, Settings.IB_CLIENT_ID);
+            Console.WriteLine($"Connecting to IBKR at {Settings.Host}:{Settings.Port}...");
+            client.eConnect(Settings.Host, Settings.Port, Settings.ClientId);
 
             // EReader must be created and started AFTER eConnect
             var reader = new EReader(client, wrapper.Signal);
@@ -160,7 +149,7 @@ namespace IdiotProof
             };
             readerThread.Start();
 
-            if (!wrapper.WaitForNextValidId(TimeSpan.FromSeconds(Settings.CONNECTION_TIMEOUT_SECONDS)))
+            if (!wrapper.WaitForNextValidId(TimeSpan.FromSeconds(Settings.ConnectionTimeoutSeconds)))
             {
                 Console.WriteLine("ERROR: Connection failed. Check TWS/Gateway.");
                 Shutdown(client, wrapper);
@@ -168,22 +157,10 @@ namespace IdiotProof
             }
 
             Console.WriteLine("Connected successfully!");
-
-            if (Settings.IsPaperTrading)
-            {
-                Console.ForegroundColor = ConsoleColor.Yellow;
-                Console.WriteLine("Mode: PAPER TRADING");
-                Console.ResetColor();
-            }
-            else
-            {
-                Console.ForegroundColor = ConsoleColor.Red;
-                Console.WriteLine("Mode: LIVE TRADING");
-                Console.ResetColor();
-            }
+            Gui.DisplayTradingMode();
 
             // Display existing open orders from IBKR
-            DisplayOpenOrders(wrapper);
+            Gui.DisplayOpenOrders(wrapper);
 
             // ================================================================
             // SUBSCRIBE TO MARKET DATA (before displaying strategies)
@@ -228,7 +205,7 @@ namespace IdiotProof
 
             // Wait briefly for prices to arrive (up to 10 seconds)
             var priceWaitStart = DateTime.UtcNow;
-            while ((DateTime.UtcNow - priceWaitStart).TotalSeconds < Settings.CONNECTION_TIMEOUT_SECONDS)
+            while ((DateTime.UtcNow - priceWaitStart).TotalSeconds < Settings.ConnectionTimeoutSeconds)
             {
                 if (prices.Values.All(p => p > 0))
                     break;
@@ -236,37 +213,16 @@ namespace IdiotProof
             }
 
             int pricesReceived = prices.Values.Count(p => p > 0);
-            if (pricesReceived == prices.Count)
-            {
-                Console.ForegroundColor = ConsoleColor.Green;
-                Console.WriteLine($"Received prices for {pricesReceived} symbol(s).");
-                Console.WriteLine();
-                Console.ResetColor();
-            }
-            else
-            {
-                Console.ForegroundColor = ConsoleColor.Yellow;
-                Console.WriteLine($"Received prices for {pricesReceived}/{prices.Count} symbol(s). Some may still be loading...");
-                Console.WriteLine();
-                Console.ResetColor();
-            }
+            Gui.DisplayPriceStatus(pricesReceived, prices.Count);
 
             // Display strategies for review WITH current prices
-            DisplayStrategies(enabledStrategies, prices);
+            Gui.DisplayStrategies(enabledStrategies, prices);
             Console.WriteLine();
 
             // Trading is paused until user explicitly activates
             bool isActive = false;
 
-            Console.ForegroundColor = ConsoleColor.Yellow;
-            Console.WriteLine("================================================================");
-            Console.WriteLine("  Review strategies above before starting.                      ");
-            Console.WriteLine("  Press CTRL+ALT+ENTER to activate trading.                     ");
-            Console.WriteLine("  Press CTRL+ALT+C to cancel all open orders.                   ");
-            Console.WriteLine("  Press CTRL+ALT+Q to quit.                                     ");
-            Console.WriteLine("================================================================");
-            Console.ResetColor();
-            Console.WriteLine();
+            Gui.DisplayActivationPrompt();
 
             // Wait for CTRL+ALT+ENTER to activate trading
             while (!isActive)
@@ -277,9 +233,7 @@ namespace IdiotProof
                     if (key.Key == ConsoleKey.Enter)
                     {
                         isActive = true;
-                        Console.ForegroundColor = ConsoleColor.Green;
-                        Console.WriteLine(">>> TRADING ACTIVATED <<<");
-                        Console.ResetColor();
+                        Gui.DisplayTradingActivated();
                     }
                     else if (key.Key == ConsoleKey.C)
                     {
@@ -316,6 +270,35 @@ namespace IdiotProof
                     wrapper.RegisterTickerHandler(tickerId, runner.OnLastTrade);
                 }
             }
+
+            // ================================================================
+            // SETUP RECONNECTION HANDLERS
+            // ================================================================
+            // These handlers respond to IBKR connectivity events:
+            // - Error 1100: Connection lost - display warning, strategies pause
+            // - Error 1101: Connection restored but data lost - resubscribe to market data
+            // - Error 1102: Connection restored with data maintained - resume immediately
+            //
+            // Strategy state (positions, trailing stops, condition progress) is preserved
+            // during disconnects. Only market data subscriptions need to be restored.
+            // ================================================================
+
+            wrapper.OnConnectionLost += () =>
+            {
+                Gui.DisplayConnectionLost();
+            };
+
+            wrapper.OnConnectionRestored += (dataLost) =>
+            {
+                Gui.DisplayConnectionRestored(dataLost);
+
+                if (dataLost)
+                {
+                    // Resubscribe to market data when data was lost during disconnect
+                    // Error 1101 indicates subscriptions were invalidated
+                    ResubscribeMarketData(client, contracts, tickerIds);
+                }
+            };
 
             // Display strategies with initial progress (step 0 = waiting on first condition)
             Console.WriteLine($"Running... (CTRL+ALT+C to cancel orders, CTRL+ALT+Q to quit)");
@@ -408,15 +391,14 @@ namespace IdiotProof
 
         /// <summary>
         /// Starts a heartbeat timer that periodically pings the IBKR API to verify connection.
-        /// When ping succeeds, displays current prices for all active strategies.
+        /// When ping succeeds, displays open orders from IBKR.
         /// </summary>
         /// <param name="wrapper">The IB wrapper instance.</param>
         /// <param name="runners">List of active strategy runners.</param>
         /// <returns>A Timer that should be disposed when no longer needed.</returns>
         private static Timer StartHeartbeat(IbWrapper wrapper, List<StrategyRunner> runners)
         {
-            const int HeartbeatIntervalMinutes = 5;
-            var interval = TimeSpan.FromMinutes(HeartbeatIntervalMinutes);
+            var interval = Settings.Heartbeat;
 
             void HeartbeatCallback(object? state)
             {
@@ -430,55 +412,26 @@ namespace IdiotProof
 
                     if (pingResult.Success)
                     {
-                        Console.ForegroundColor = ConsoleColor.DarkCyan;
-                        Console.WriteLine();
-                        Console.WriteLine($"[{timestamp}] HEARTBEAT OK | Latency: {pingResult.LatencyMs}ms | Server: {pingResult.ServerTimeUtc:HH:mm:ss} UTC");
+                        Gui.DisplayHeartbeatSuccess(timestamp, pingResult.LatencyMs, pingResult.ServerTimeUtc);
 
-                        // Print current prices for all active strategies
-                        var activeRunners = runners.Where(r => !r.IsComplete).ToList();
-                        if (activeRunners.Count > 0)
-                        {
-                            // Group by symbol to avoid duplicates
-                            var symbolPrices = activeRunners
-                                .GroupBy(r => r.Symbol)
-                                .Select(g => new { Symbol = g.Key, Price = g.First().LastPrice, Vwap = g.First().CurrentVwap })
-                                .ToList();
-
-                            var priceStr = string.Join(" | ", symbolPrices.Select(sp => 
-                                $"{sp.Symbol}: ${sp.Price:F2}" + (sp.Vwap > 0 ? $" (VWAP: ${sp.Vwap:F2})" : "")));
-
-                            Console.WriteLine($"[{timestamp}]   Active tickers: {priceStr}");
-                        }
-                        else
-                        {
-                            Console.WriteLine($"[{timestamp}]   No active strategies running");
-                        }
-
-                        Console.ResetColor();
+                        // Display open orders from IBKR
+                        Gui.DisplayOpenOrders(wrapper);
                     }
                     else
                     {
-                        Console.ForegroundColor = ConsoleColor.Red;
-                        Console.WriteLine();
-                        Console.WriteLine($"[{timestamp}] HEARTBEAT FAILED - API connection may be lost!");
-                        Console.WriteLine($"[{timestamp}]   Check TWS/Gateway connection and restart if necessary.");
-                        Console.ResetColor();
+                        Gui.DisplayHeartbeatFailed(timestamp);
                     }
                 }
                 catch (Exception ex)
                 {
-                    Console.ForegroundColor = ConsoleColor.Red;
-                    Console.WriteLine($"[HEARTBEAT ERROR] {ex.Message}");
-                    Console.ResetColor();
+                    Gui.DisplayHeartbeatError(ex.Message);
                 }
             }
 
             // Start the timer - first tick after interval, then repeats at interval
             var timer = new Timer(HeartbeatCallback, null, interval, interval);
 
-            Console.ForegroundColor = ConsoleColor.DarkGray;
-            Console.WriteLine($"Heartbeat enabled: pinging API every {HeartbeatIntervalMinutes} minutes");
-            Console.ResetColor();
+            Gui.DisplayHeartbeatEnabled(interval.TotalMinutes);
 
             return timer;
         }
@@ -514,20 +467,67 @@ namespace IdiotProof
         }
 
         /// <summary>
-        /// Displays enabled strategies for review before trading starts.
+        /// Resubscribes to market data for all contracts after connection is restored.
         /// </summary>
-        private static void DisplayStrategies(List<TradingStrategy> strategies, Dictionary<string, double> prices)
+        /// <remarks>
+        /// <para>
+        /// This method is called when IBKR connectivity is restored with data loss (error code 1101).
+        /// When the API reports error 1101, all market data subscriptions are invalidated and must
+        /// be re-established to resume receiving price updates.
+        /// </para>
+        /// 
+        /// <para><b>IBKR Error Codes:</b></para>
+        /// <list type="bullet">
+        ///   <item><term>1100</term><description>Connectivity lost - no action needed here</description></item>
+        ///   <item><term>1101</term><description>Connectivity restored, data lost - THIS triggers resubscription</description></item>
+        ///   <item><term>1102</term><description>Connectivity restored, data maintained - no resubscription needed</description></item>
+        /// </list>
+        /// 
+        /// <para><b>Process:</b></para>
+        /// <list type="number">
+        ///   <item>Cancel any stale market data subscriptions (may already be gone)</item>
+        ///   <item>Wait 100ms between cancel and resubscribe to avoid rate limiting</item>
+        ///   <item>Re-request market data using the same ticker IDs</item>
+        /// </list>
+        /// 
+        /// <para><b>Important:</b> The ticker handler registrations (set up in <c>Run()</c>) are preserved
+        /// during disconnects, so the <see cref="StrategyRunner"/> instances will automatically receive
+        /// data once the resubscription completes.</para>
+        /// </remarks>
+        /// <param name="client">The EClientSocket instance used to communicate with IBKR.</param>
+        /// <param name="contracts">Dictionary mapping symbol names to their Contract definitions.</param>
+        /// <param name="tickerIds">List of ticker IDs corresponding to each contract subscription.</param>
+        /// <seealso cref="IbWrapper.OnConnectionRestored"/>
+        private static void ResubscribeMarketData(EClientSocket client, Dictionary<string, Contract> contracts, List<int> tickerIds)
         {
-            var strategyWord = strategies.Count == 1 ? "strategy" : "strategies";
-            Console.WriteLine($"Loading {strategies.Count} {strategyWord} for review...");
+            Gui.DisplayResubscribingMarketData(contracts.Count);
 
-            foreach (var strategy in strategies)
+            int tickerIndex = 0;
+            foreach (var kvp in contracts)
             {
-                Console.WriteLine();
-                double currentPrice = prices.TryGetValue(strategy.Symbol, out var price) ? price : 0;
-                strategy.WriteProgress(currentStep: 0, entryFilled: false, takeProfitFilled: false,
-                    currentPrice: currentPrice, entryPrice: 0, takeProfitTarget: 0);
+                if (tickerIndex < tickerIds.Count)
+                {
+                    int tickerId = tickerIds[tickerIndex];
+                    // Cancel existing subscription first (in case it's stale)
+                    try
+                    {
+                        client.cancelMktData(tickerId);
+                    }
+                    catch
+                    {
+                        // Ignore errors when cancelling - subscription may already be gone
+                    }
+
+                    // Small delay between cancel and resubscribe
+                    Thread.Sleep(100);
+
+                    // Resubscribe
+                    client.reqMktData(tickerId, kvp.Value, "", false, false, null);
+                    tickerIndex++;
+                }
             }
+
+            Gui.DisplayResubscriptionComplete();
         }
 
         /// <summary>
@@ -541,17 +541,11 @@ namespace IdiotProof
 
             if (orderCount == 0)
             {
-                Console.ForegroundColor = ConsoleColor.Cyan;
-                Console.WriteLine("No open orders to cancel.");
-                Console.ResetColor();
-                Console.WriteLine();
+                Gui.DisplayCancelOrdersResult(0, 0, 0);
                 return;
             }
 
-            Console.ForegroundColor = ConsoleColor.Yellow;
-            Console.WriteLine($"Cancelling {orderCount} open order(s)...");
-            Console.ResetColor();
-
+            Gui.DisplayCancellingOrders(orderCount);
             wrapper.CancelAllOrders();
 
             // Wait a moment for cancellations to process, then refresh
@@ -561,377 +555,7 @@ namespace IdiotProof
             int remainingCount = wrapper.OpenOrders.Count;
             int cancelledCount = orderCount - remainingCount;
 
-            if (remainingCount == 0)
-            {
-                Console.ForegroundColor = ConsoleColor.Green;
-                Console.WriteLine($"Successfully cancelled {cancelledCount} order(s).");
-                Console.ResetColor();
-            }
-            else
-            {
-                Console.ForegroundColor = ConsoleColor.Yellow;
-                Console.WriteLine($"Cancelled {cancelledCount} order(s). {remainingCount} order(s) still pending.");
-                Console.ResetColor();
-            }
-            Console.WriteLine();
-        }
-
-        /// <summary>
-        /// Displays all open orders currently in IBKR.
-        /// </summary>
-        private static void DisplayOpenOrders(IbWrapper wrapper)
-        {
-            Console.WriteLine();
-            Console.WriteLine("Fetching existing orders from IBKR...");
-
-            // Request and wait for open orders
-            wrapper.RequestOpenOrdersAndWait(TimeSpan.FromSeconds(5));
-
-            var orders = wrapper.OpenOrders;
-
-            if (orders.Count == 0)
-            {
-                Console.ForegroundColor = ConsoleColor.Green;
-                Console.WriteLine("No open orders.");
-                Console.WriteLine();
-                Console.ResetColor();
-            }
-            else
-            {
-                Console.ForegroundColor = ConsoleColor.Cyan;
-                Console.WriteLine($"Found {orders.Count} existing order(s):");
-                Console.WriteLine("┌─────────┬────────┬────────┬───────┬────────┬──────────┬──────────────┐");
-                Console.WriteLine("│ OrderId │ Symbol │ Action │  Qty  │  Type  │   Price  │    Status    │");
-                Console.WriteLine("├─────────┼────────┼────────┼───────┼────────┼──────────┼──────────────┤");
-
-                foreach (var (orderId, order) in orders)
-                {
-                    var priceStr = order.LmtPrice > 0 ? $"${order.LmtPrice:F2}" : "MKT";
-                    Console.WriteLine($"│ {orderId,7} │ {order.Symbol,-6} │ {order.Action,-6} │ {order.Qty,5} │ {order.Type,-6} │ {priceStr,8} │ {order.Status,-12} │");
-                }
-
-                Console.WriteLine("└─────────┴────────┴────────┴───────┴────────┴──────────┴──────────────┘");
-                Console.ResetColor();
-                Console.ForegroundColor = ConsoleColor.Yellow;
-                Console.WriteLine("Consider canceling old orders to avoid duplicate fills!");
-                Console.ResetColor();
-            }
-        }
-
-        /// <summary>
-        /// Displays the current timezone configuration and market hours.
-        /// </summary>
-        private static void DisplayTimezoneInfo()
-        {
-            var info = TimezoneHelper.GetTimezoneDisplayInfo(Settings.Timezone);
-            var currentTime = TimezoneHelper.GetCurrentTime(Settings.Timezone);
-            var currentEastern = TimezoneHelper.GetCurrentTime(MarketTimeZone.EST);
-            var tz = info.Abbreviation;
-
-            Console.WriteLine($"{"Timezone:",-14} {tz} ({info.TimeZoneInfo.DisplayName})");
-            Console.WriteLine($"{"Current Time:",-14} {currentTime:h:mm:ss tt} {tz,-4} ({currentEastern:h:mm:ss tt} ET)");
-            Console.WriteLine($"{"Pre-Market:",-14} {MarketTime.PreMarket.StartLocal:h:mm tt} - {MarketTime.PreMarket.EndLocal:h:mm tt} {tz,-4} ({MarketTime.PreMarket.Start:h:mm tt} - {MarketTime.PreMarket.End:h:mm tt} ET)");
-            Console.WriteLine($"{"Market Open:",-14} {MarketTime.RTH.StartLocal:h:mm tt} {tz,-16} ({MarketTime.RTH.Start:h:mm tt} ET)");
-            Console.WriteLine($"{"Market Close:",-14} {MarketTime.RTH.EndLocal:h:mm tt} {tz,-16} ({MarketTime.RTH.End:h:mm tt} ET)");
-            Console.WriteLine($"{"After-Hours:",-14} {MarketTime.AfterHours.StartLocal:h:mm tt} - {MarketTime.AfterHours.EndLocal:h:mm tt} {tz,-4} ({MarketTime.AfterHours.Start:h:mm tt} - {MarketTime.AfterHours.End:h:mm tt} ET)");
-
-            // Validation check - ensure market open correlates correctly
-            var marketOpenLocal = MarketTime.RTH.StartLocal;
-            var expectedEasternOpen = new TimeOnly(9, 30);
-            var convertedBack = TimezoneHelper.ToEastern(marketOpenLocal, Settings.Timezone);
-
-            if (convertedBack != expectedEasternOpen)
-            {
-                Console.ForegroundColor = ConsoleColor.Red;
-                Console.WriteLine($"WARNING: Timezone conversion mismatch! Expected {expectedEasternOpen:h:mm tt} ET, got {convertedBack:h:mm tt} ET");
-                Console.ResetColor();
-            }
-        }
-
-        // P/Invoke for console close handler (Windows only)
-        [DllImport("Kernel32")]
-        private static extern bool SetConsoleCtrlHandler(ConsoleCtrlHandler handler, bool add);
-        private delegate bool ConsoleCtrlHandler(int ctrlType);
-        private static ConsoleCtrlHandler? _consoleCtrlHandler;
-
-        // Control signal types
-        private const int CTRL_C_EVENT = 0;
-        private const int CTRL_BREAK_EVENT = 1;
-        private const int CTRL_CLOSE_EVENT = 2;
-        private const int CTRL_LOGOFF_EVENT = 5;
-        private const int CTRL_SHUTDOWN_EVENT = 6;
-
-        // Console output capture for crash dumps and session logs
-        private static readonly StringBuilder _consoleLog = new();
-        private static readonly object _logLock = new();
-        private const int MaxConsoleLogSize = 15 * 1024 * 1024; // 15 MB max buffer
-        private const int TrimToSize = 10 * 1024 * 1024;        // Trim to 10 MB when exceeded
-        private const string LogsFolder = "logs";
-
-        /// <summary>
-        /// Sets up crash handling, console close handling, and console output capture.
-        /// </summary>
-        private static void SetupCrashHandler()
-        {
-            // Redirect console output to capture it
-            var originalOut = Console.Out;
-            var capturingWriter = new CapturingTextWriter(originalOut, _consoleLog, _logLock);
-            Console.SetOut(capturingWriter);
-
-            // Handle unhandled exceptions
-            AppDomain.CurrentDomain.UnhandledException += (sender, e) =>
-            {
-                WriteCrashDump(e.ExceptionObject as Exception, "UnhandledException");
-            };
-
-            // Handle task exceptions
-            TaskScheduler.UnobservedTaskException += (sender, e) =>
-            {
-                WriteCrashDump(e.Exception, "UnobservedTaskException");
-                e.SetObserved();
-            };
-
-            // Handle process exit (normal termination)
-            AppDomain.CurrentDomain.ProcessExit += (sender, e) =>
-            {
-                WriteSessionLog("ProcessExit");
-            };
-
-            // Handle console close button (X), Ctrl+C, logoff, shutdown (Windows only)
-            if (OperatingSystem.IsWindows())
-            {
-                _consoleCtrlHandler = new ConsoleCtrlHandler(OnConsoleCtrlEvent);
-                SetConsoleCtrlHandler(_consoleCtrlHandler, true);
-            }
-
-            // Handle Ctrl+C via .NET (cross-platform)
-            Console.CancelKeyPress += (sender, e) =>
-            {
-                WriteSessionLog("Ctrl+C");
-                // Don't cancel - let the app terminate
-            };
-        }
-
-        /// <summary>
-        /// Handles Windows console control events (close button, Ctrl+C, logoff, shutdown).
-        /// </summary>
-        private static bool OnConsoleCtrlEvent(int ctrlType)
-        {
-            var source = ctrlType switch
-            {
-                CTRL_C_EVENT => "Ctrl+C",
-                CTRL_BREAK_EVENT => "Ctrl+Break",
-                CTRL_CLOSE_EVENT => "Console Close (X button)",
-                CTRL_LOGOFF_EVENT => "User Logoff",
-                CTRL_SHUTDOWN_EVENT => "System Shutdown",
-                _ => $"Unknown ({ctrlType})"
-            };
-
-            WriteSessionLog(source);
-
-            // Return false to allow the default handler to terminate the process
-            // We have ~5 seconds to complete before Windows forcefully terminates
-            return false;
-        }
-
-        /// <summary>
-        /// Ensures the logs folder exists and returns the full path.
-        /// </summary>
-        private static string EnsureLogsFolder()
-        {
-            var logsPath = Path.Combine(AppContext.BaseDirectory, LogsFolder);
-            Directory.CreateDirectory(logsPath);
-            return logsPath;
-        }
-
-        /// <summary>
-        /// Writes session log to a timestamped file in the logs folder.
-        /// </summary>
-        private static void WriteSessionLog(string exitReason)
-        {
-            try
-            {
-                var logsPath = EnsureLogsFolder();
-                var timestamp = DateTime.Now.ToString("yyyy-MM-dd_HH-mm-ss");
-                var filename = Path.Combine(logsPath, $"session_{timestamp}.txt");
-
-                var sb = new StringBuilder();
-                sb.AppendLine("═══════════════════════════════════════════════════════════════════");
-                sb.AppendLine("                    IDIOTPROOF SESSION LOG");
-                sb.AppendLine("═══════════════════════════════════════════════════════════════════");
-                sb.AppendLine($"Session End: {DateTime.Now:yyyy-MM-dd hh:mm:ss tt}");
-                sb.AppendLine($"Exit Reason: {exitReason}");
-                sb.AppendLine();
-                sb.AppendLine("═══════════════════════════════════════════════════════════════════");
-                sb.AppendLine("                         CONSOLE OUTPUT");
-                sb.AppendLine("═══════════════════════════════════════════════════════════════════");
-
-                lock (_logLock)
-                {
-                    sb.Append(_consoleLog);
-                }
-
-                File.WriteAllText(filename, sb.ToString());
-
-                // Write to stderr (bypasses captured stdout)
-                Console.Error.WriteLine();
-                Console.Error.WriteLine($"Session log saved to: {filename}");
-            }
-            catch
-            {
-                // Fail gracefully - logging should never crash the app
-            }
-        }
-
-        /// <summary>
-        /// Writes crash dump to a timestamped file in the logs folder.
-        /// </summary>
-        private static void WriteCrashDump(Exception? exception, string source)
-        {
-            try
-            {
-                var logsPath = EnsureLogsFolder();
-                var timestamp = DateTime.Now.ToString("yyyy-MM-dd_HH-mm-ss");
-                var filename = Path.Combine(logsPath, $"crash_{timestamp}.txt");
-
-                var sb = new StringBuilder();
-                sb.AppendLine("═══════════════════════════════════════════════════════════════════");
-                sb.AppendLine("                    IDIOTPROOF CRASH DUMP");
-                sb.AppendLine("═══════════════════════════════════════════════════════════════════");
-                sb.AppendLine($"Timestamp: {DateTime.Now:yyyy-MM-dd hh:mm:ss tt}");
-                sb.AppendLine($"Source: {source}");
-                sb.AppendLine();
-
-                if (exception != null)
-                {
-                    sb.AppendLine("═══════════════════════════════════════════════════════════════════");
-                    sb.AppendLine("                         EXCEPTION DETAILS");
-                    sb.AppendLine("═══════════════════════════════════════════════════════════════════");
-                    sb.AppendLine($"Type: {exception.GetType().FullName}");
-                    sb.AppendLine($"Message: {exception.Message}");
-                    sb.AppendLine();
-                    sb.AppendLine("Stack Trace:");
-                    sb.AppendLine(exception.StackTrace);
-
-                    // Include inner exceptions
-                    var inner = exception.InnerException;
-                    int depth = 1;
-                    while (inner != null)
-                    {
-                        sb.AppendLine();
-                        sb.AppendLine($"─── Inner Exception {depth} ───");
-                        sb.AppendLine($"Type: {inner.GetType().FullName}");
-                        sb.AppendLine($"Message: {inner.Message}");
-                        sb.AppendLine("Stack Trace:");
-                        sb.AppendLine(inner.StackTrace);
-                        inner = inner.InnerException;
-                        depth++;
-                    }
-                }
-
-                sb.AppendLine();
-                sb.AppendLine("═══════════════════════════════════════════════════════════════════");
-                sb.AppendLine("                         CONSOLE OUTPUT");
-                sb.AppendLine("═══════════════════════════════════════════════════════════════════");
-
-                lock (_logLock)
-                {
-                    sb.Append(_consoleLog);
-                }
-
-                File.WriteAllText(filename, sb.ToString());
-
-                // Also write to original console
-                Console.Error.WriteLine();
-                Console.Error.WriteLine($"*** CRASH DUMP SAVED TO: {filename} ***");
-            }
-            catch
-            {
-                // Last resort - don't throw from crash handler
-            }
-        }
-
-        /// <summary>
-        /// TextWriter that captures output while passing through to original.
-        /// Automatically trims old content to prevent memory leaks during long runs.
-        /// </summary>
-        private sealed class CapturingTextWriter : TextWriter
-        {
-            private readonly TextWriter _original;
-            private readonly StringBuilder _capture;
-            private readonly object _lock;
-
-            public CapturingTextWriter(TextWriter original, StringBuilder capture, object lockObj)
-            {
-                _original = original;
-                _capture = capture;
-                _lock = lockObj;
-            }
-
-            public override Encoding Encoding => _original.Encoding;
-
-            public override void Write(char value)
-            {
-                _original.Write(value);
-                SafeAppend(value.ToString());
-            }
-
-            public override void Write(string? value)
-            {
-                _original.Write(value);
-                SafeAppend(value);
-            }
-
-            public override void WriteLine(string? value)
-            {
-                _original.WriteLine(value);
-                SafeAppend(value + Environment.NewLine);
-            }
-
-            public override void WriteLine()
-            {
-                _original.WriteLine();
-                SafeAppend(Environment.NewLine);
-            }
-
-            private void SafeAppend(string? value)
-            {
-                if (string.IsNullOrEmpty(value))
-                    return;
-
-                try
-                {
-                    lock (_lock)
-                    {
-                        _capture.Append(value);
-
-                        // Trim if exceeded max size (keep most recent content)
-                        if (_capture.Length > MaxConsoleLogSize)
-                        {
-                            int removeCount = _capture.Length - TrimToSize;
-
-                            // Find the next newline after removeCount to keep logs clean
-                            int newlineIndex = -1;
-                            for (int i = removeCount; i < _capture.Length && i < removeCount + 1000; i++)
-                            {
-                                if (_capture[i] == '\n')
-                                {
-                                    newlineIndex = i + 1;
-                                    break;
-                                }
-                            }
-
-                            removeCount = newlineIndex > 0 ? newlineIndex : removeCount;
-                            _capture.Remove(0, removeCount);
-                            _capture.Insert(0, $"[... {removeCount:N0} chars trimmed ...]{Environment.NewLine}");
-                        }
-                    }
-                }
-                catch
-                {
-                    // Fail gracefully - logging should never crash the app
-                }
-            }
+            Gui.DisplayCancelOrdersResult(orderCount, cancelledCount, remainingCount);
         }
     }
 }

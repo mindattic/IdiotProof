@@ -100,6 +100,7 @@ namespace IdiotProof.Models
 
         private EClientSocket? _client;
         private bool _disposed;
+        private volatile bool _isConnected;
 
         private readonly ManualResetEventSlim _nextValidIdEvent = new ManualResetEventSlim(false);
         private readonly ManualResetEventSlim _pingResponseEvent = new ManualResetEventSlim(false);
@@ -143,6 +144,25 @@ namespace IdiotProof.Models
         /// Event fired when all open orders have been received.
         /// </summary>
         public event Action? OnOpenOrdersEnd;
+
+        /// <summary>
+        /// Event fired when connectivity to IBKR is lost.
+        /// Error code 1100: Connectivity lost.
+        /// </summary>
+        public event Action? OnConnectionLost;
+
+        /// <summary>
+        /// Event fired when connectivity to IBKR is restored.
+        /// Error code 1101: Connectivity restored, data lost - resubscription required.
+        /// Error code 1102: Connectivity restored, data maintained.
+        /// Parameter: bool dataLost - true if market data subscriptions were lost and need resubscription.
+        /// </summary>
+        public event Action<bool>? OnConnectionRestored;
+
+        /// <summary>
+        /// Gets whether the connection to IBKR is currently active.
+        /// </summary>
+        public bool IsConnected => _isConnected;
 
         // Track open orders
         private readonly ConcurrentDictionary<int, (string Symbol, string Action, decimal Qty, string Type, double LmtPrice, string Status)> _openOrders = new();
@@ -328,6 +348,28 @@ namespace IdiotProof.Models
                 return;
             }
 
+            // Handle connectivity status codes
+            switch (errorCode)
+            {
+                case 1100: // Connectivity lost
+                    _isConnected = false;
+                    Console.WriteLine($"IB ERROR: id={id} code={errorCode} msg={errorMsg}");
+                    OnConnectionLost?.Invoke();
+                    return;
+
+                case 1101: // Connectivity restored - data lost, need to resubscribe
+                    _isConnected = true;
+                    Console.WriteLine($"IB INFO: id={id} code={errorCode} msg={errorMsg}");
+                    OnConnectionRestored?.Invoke(true); // dataLost = true
+                    return;
+
+                case 1102: // Connectivity restored - data maintained
+                    _isConnected = true;
+                    Console.WriteLine($"IB INFO: id={id} code={errorCode} msg={errorMsg}");
+                    OnConnectionRestored?.Invoke(false); // dataLost = false
+                    return;
+            }
+
             // Code 202 = Order Canceled - remove from tracking (this is a confirmation, not an error)
             if (errorCode == 202 && id >= 0)
             {
@@ -345,6 +387,28 @@ namespace IdiotProof.Models
                 return;
             }
 
+            // Handle connectivity status codes
+            switch (errorCode)
+            {
+                case 1100: // Connectivity lost
+                    _isConnected = false;
+                    Console.WriteLine($"IB ERROR: id={id} code={errorCode} msg={errorMsg}");
+                    OnConnectionLost?.Invoke();
+                    return;
+
+                case 1101: // Connectivity restored - data lost, need to resubscribe
+                    _isConnected = true;
+                    Console.WriteLine($"IB INFO: id={id} code={errorCode} msg={errorMsg}");
+                    OnConnectionRestored?.Invoke(true); // dataLost = true
+                    return;
+
+                case 1102: // Connectivity restored - data maintained
+                    _isConnected = true;
+                    Console.WriteLine($"IB INFO: id={id} code={errorCode} msg={errorMsg}");
+                    OnConnectionRestored?.Invoke(false); // dataLost = false
+                    return;
+            }
+
             // Code 202 = Order Canceled - remove from tracking (this is a confirmation, not an error)
             if (errorCode == 202 && id >= 0)
             {
@@ -356,6 +420,7 @@ namespace IdiotProof.Models
 
         public void connectionClosed()
         {
+            _isConnected = false;
             Console.WriteLine("IB connection closed.");
         }
 
@@ -377,6 +442,7 @@ namespace IdiotProof.Models
                 _nextOrderId = orderId;
             }
 
+            _isConnected = true;
             Console.WriteLine("Received nextValidId: " + orderId);
             _nextValidIdEvent.Set();
         }
@@ -587,6 +653,8 @@ namespace IdiotProof.Models
             // Clear event subscribers to prevent holding references
             OnLastTrade = null;
             OnOrderFill = null;
+            OnConnectionLost = null;
+            OnConnectionRestored = null;
 
             _client = null;
         }

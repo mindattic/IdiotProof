@@ -17,6 +17,9 @@ A fluent API framework for building multi-stage trading strategies with Interact
 - [Helper Classes](#helper-classes)
 - [Examples](#examples)
 - [Implementation Status](#implementation-status)
+- [Connection Resilience](#connection-resilience)
+- [IB Gateway Configuration for Resilience](#ib-gateway-configuration-for-resilience)
+- [Validation Rules](#validation-rules)
 
 ---
 
@@ -1202,6 +1205,154 @@ The backtester is a **simplified simulation** with these limitations:
 - **No partial fills** - orders fill completely or not at all
 - **No market impact** - large orders don't move price
 - **Single position** - only one position at a time per strategy
+
+---
+
+## Connection Resilience
+
+IdiotProof includes automatic handling for IBKR connection interruptions. The bot will continue running through brief disconnects without losing your position state.
+
+### How It Works
+
+The IB API reports connectivity status through error codes:
+
+| Error Code | Meaning | Bot Behavior |
+|------------|---------|--------------|
+| **1100** | Connectivity lost | Displays warning, pauses trading, waits for reconnection |
+| **1101** | Connectivity restored (data lost) | Resubscribes to market data automatically |
+| **1102** | Connectivity restored (data maintained) | Resumes normal operation immediately |
+
+### Automatic Recovery
+
+When connectivity is restored:
+
+1. **Data Maintained (1102):** The bot continues immediately - all market data subscriptions are still active.
+
+2. **Data Lost (1101):** The bot automatically:
+   - Cancels stale market data subscriptions
+   - Resubscribes to all symbols
+   - Resumes monitoring once data flows again
+
+### What Is Preserved During Disconnects
+
+| Component | Preserved? | Notes |
+|-----------|------------|-------|
+| Strategy state | ✅ Yes | Condition progress, step tracking |
+| Open positions | ✅ Yes | IBKR maintains these server-side |
+| Pending orders | ✅ Yes | IBKR maintains these server-side |
+| Trailing stop levels | ✅ Yes | High-water marks are preserved |
+| Market data subscriptions | ⚠️ Maybe | Depends on error code (1101 vs 1102) |
+
+### Monitoring Connection Status
+
+The bot displays connection events in the console:
+
+```
+[08:00:04 AM] *** CONNECTION LOST - Waiting for reconnection... ***
+IB ERROR: id=-1 code=1100 msg=Connectivity between IBKR and Trader Workstation has been lost.
+
+[08:01:15 AM] *** CONNECTION RESTORED ***
+[08:01:15 AM] Data maintained - continuing normal operation.
+```
+
+Or with data loss:
+
+```
+[08:01:15 AM] *** CONNECTION RESTORED ***
+[08:01:15 AM] Data was lost during disconnect - resubscribing to market data...
+[08:01:15 AM] Resubscribing to market data for 2 symbol(s)...
+[08:01:16 AM] Market data resubscription complete. Resuming trading.
+```
+
+---
+
+## IB Gateway Configuration for Resilience
+
+To minimize disconnects during overnight trading, configure IB Gateway with these recommended settings.
+
+### Required Settings
+
+**Configure → Settings → API → Settings:**
+
+| Setting | Recommended | Description |
+|---------|-------------|-------------|
+| Enable ActiveX and Socket Clients | ✅ Checked | Required for API connections |
+| Socket port | 4001 (live) / 4002 (paper) | Must match `Settings.Port` |
+| Allow connections from localhost only | ✅ Checked | Security best practice |
+| Read-Only API | ❌ Unchecked | Needed for order submission |
+
+### Stability Settings
+
+**Configure → Settings → Lock and Exit:**
+
+| Setting | Recommended | Description |
+|---------|-------------|-------------|
+| Auto restart | ✅ Enable | Gateway restarts after crashes |
+| Auto logon | ✅ Enable | Reconnects after restarts |
+| Store settings on server | ✅ Enable | Preserves settings across reinstalls |
+
+**Configure → Settings → General → Trading Mode:**
+
+| Setting | Recommended | Description |
+|---------|-------------|-------------|
+| Paper or Live | As needed | Must match your intention |
+| API Settings preserved | ✅ Yes | Survives restarts |
+
+### Connection Timeout Prevention
+
+IB Gateway may disconnect idle connections. To prevent this:
+
+1. **Heartbeat Pings:** IdiotProof sends periodic `reqCurrentTime()` calls to keep the connection alive.
+
+2. **Configure heartbeat interval** in `Settings.cs`:
+   ```csharp
+   public static readonly TimeSpan Heartbeat = TimeSpan.FromMinutes(15);
+   ```
+
+3. **Gateway auto-logoff:** Ensure auto-logoff is disabled or set to a time after market close.
+
+### Network Resilience
+
+For overnight stability:
+
+| Recommendation | Why |
+|----------------|-----|
+| Wired connection | More stable than WiFi |
+| Static IP for trading PC | Prevents DHCP issues |
+| UPS battery backup | Survives brief power outages |
+| Disable sleep/hibernate | Keeps connection alive |
+
+### IBKR Server Farms
+
+The error messages mention server "farms" - these are IBKR's regional data centers:
+
+| Farm | Purpose |
+|------|---------|
+| `usfarm` | US trading, market data |
+| `ushmds` | US historical market data |
+| `secdefil` | Security definitions |
+| `cashfarm` | Cash/Forex data |
+
+A partial disconnect (e.g., `ushmds` down but `usfarm` connected) may not affect real-time trading but will prevent historical data requests.
+
+### Common Disconnect Causes
+
+| Cause | Solution |
+|-------|----------|
+| Gateway timeout | Enable heartbeat in IdiotProof |
+| Network glitch | Bot auto-reconnects |
+| IBKR server maintenance | Usually brief, bot waits |
+| Gateway auto-logoff | Disable or set late time |
+| API rate limiting | Reduce request frequency |
+
+### Testing Reconnection
+
+To test the reconnection logic without real risk:
+
+1. Connect to paper trading (port 4002)
+2. Start the bot with strategies
+3. Briefly disconnect network cable
+4. Reconnect and verify bot resumes
 
 ---
 

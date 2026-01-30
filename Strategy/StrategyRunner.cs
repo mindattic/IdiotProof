@@ -367,9 +367,9 @@ namespace IdiotProof.Models
             }
 
             // Set account if specified
-            if (!string.IsNullOrEmpty(Settings.IB_ACCOUNT))
+            if (!string.IsNullOrEmpty(Settings.AccountNumber))
             {
-                stopOrder.Account = Settings.IB_ACCOUNT;
+                stopOrder.Account = Settings.AccountNumber;
             }
 
             var sessionStr = isRTH ? "RTH" : "Extended";
@@ -580,9 +580,9 @@ namespace IdiotProof.Models
             };
 
             // Set account if specified
-            if (!string.IsNullOrEmpty(Settings.IB_ACCOUNT))
+            if (!string.IsNullOrEmpty(Settings.AccountNumber))
             {
-                ibOrder.Account = Settings.IB_ACCOUNT;
+                ibOrder.Account = Settings.AccountNumber;
             }
 
             // Set limit price
@@ -831,9 +831,9 @@ namespace IdiotProof.Models
             };
 
             // Set account if specified
-            if (!string.IsNullOrEmpty(Settings.IB_ACCOUNT))
+            if (!string.IsNullOrEmpty(Settings.AccountNumber))
             {
-                tpOrder.Account = Settings.IB_ACCOUNT;
+                tpOrder.Account = Settings.AccountNumber;
             }
 
             Log($">> SUBMITTING TAKE PROFIT SELL {order.Quantity} @ ${tpPrice:F2}", ConsoleColor.Yellow);
@@ -936,9 +936,9 @@ namespace IdiotProof.Models
             };
 
             // Set account if specified
-            if (!string.IsNullOrEmpty(Settings.IB_ACCOUNT))
+            if (!string.IsNullOrEmpty(Settings.AccountNumber))
             {
-                exitOrder.Account = Settings.IB_ACCOUNT;
+                exitOrder.Account = Settings.AccountNumber;
             }
 
             Log($">> SUBMITTING LIMIT EXIT {action} {order.Quantity} @ ${limitPrice:F2}", ConsoleColor.Yellow);
@@ -971,9 +971,9 @@ namespace IdiotProof.Models
             };
 
             // Set account if specified
-            if (!string.IsNullOrEmpty(Settings.IB_ACCOUNT))
+            if (!string.IsNullOrEmpty(Settings.AccountNumber))
             {
-                slOrder.Account = Settings.IB_ACCOUNT;
+                slOrder.Account = Settings.AccountNumber;
             }
 
             Log($">> SUBMITTING STOP LOSS @ ${slPrice:F2}", ConsoleColor.Yellow);

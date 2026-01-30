@@ -45,25 +45,25 @@ namespace IdiotProof
     public static class Settings
     {
         // ----- IB Connection Settings -----
-        public const string IB_HOST = "127.0.0.1";
+        public const string Host = "127.0.0.1";
 
         /// <summary>
         /// Gateway paper: 4002, Gateway live: 4001
         /// </summary>
-        public const int IB_PORT = 4001;
+        public const int Port = 4001;
 
-        public static bool IsPaperTrading => IB_PORT == 4002;
+        public static bool IsPaperTrading => Port == 4002;
 
         /// <summary>
         /// Unique client ID for this connection.
         /// Each running instance needs a unique ID.
         /// </summary>
-        public const int IB_CLIENT_ID = 99;
+        public const int ClientId = 99;
 
         /// <summary>
         /// Timeout in seconds to wait for connection.
         /// </summary>
-        public const int CONNECTION_TIMEOUT_SECONDS = 10;
+        public const int ConnectionTimeoutSeconds = 10;
 
         /// <summary>
         /// Your IBKR account ID (e.g., "U1234567" or "DU1234567" for paper).
@@ -72,7 +72,7 @@ namespace IdiotProof
         /// Main = U22434144; 
         /// Secondary = U23270497
         /// </summary>
-        public const string IB_ACCOUNT = "U22434144";
+        public const string AccountNumber = "U22434144";
 
         // ----- Timezone Settings -----
 
@@ -99,6 +99,13 @@ namespace IdiotProof
         /// <para><b>Default:</b> EST (Eastern Standard Time) - New York / US equity market time.</para>
         /// </remarks>
         public const MarketTimeZone Timezone = MarketTimeZone.EST;
+
+        // ----- Heartbeat Settings -----
+
+        /// <summary>
+        /// Interval between heartbeat checks to verify IB connection is alive.
+        /// </summary>
+        public static readonly TimeSpan Heartbeat = TimeSpan.FromMinutes(15);
     }
 }
 
