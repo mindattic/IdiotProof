@@ -251,8 +251,8 @@ namespace IdiotProof.Models
                 // Check if current price dropped below trailing stop
                 if (_trailingStopLossPrice > 0 && currentPrice <= _trailingStopLossPrice)
                 {
-                    Log($"*** TRAILING STOP TRIGGERED! Price ${currentPrice:F2} <= Stop ${_trailingStopLossPrice:F2}", ConsoleColor.Red);
-                    ExecuteTrailingStopLoss();
+                    Log($"*** TRAILING STOP TRIGGERED! Price ${currentPrice:F2} <= Stop ${_trailingStopLossPrice:F2} (Contributed by Yun-Kyoung Oh)", ConsoleColor.Red);
+                    ExecuteTrailingStopLoss(); 
                 }
             }
             else
@@ -308,11 +308,19 @@ namespace IdiotProof.Models
             else
             {
                 // Use limit order outside RTH for safer execution (low liquidity)
+                // Set limit price slightly below current price to ensure fill
+                // (price may have already dropped below stop level by the time order is submitted)
+                bool isLong = order.Side == OrderSide.Buy;
+                double offset = 0.02; // 2 cents buffer for slippage
+                double limitPrice = isLong
+                    ? Math.Round(Math.Min(_lastPrice, _trailingStopLossPrice) - offset, 2)  // Selling: slightly below current/stop
+                    : Math.Round(Math.Max(_lastPrice, _trailingStopLossPrice) + offset, 2); // Covering short: slightly above
+
                 stopOrder = new Order
                 {
                     Action = action,
                     OrderType = "LMT",
-                    LmtPrice = _trailingStopLossPrice,
+                    LmtPrice = limitPrice,
                     TotalQuantity = order.Quantity,
                     OutsideRth = true,
                     Tif = "GTC"
@@ -326,9 +334,9 @@ namespace IdiotProof.Models
             }
 
             var sessionStr = isRTH ? "RTH" : "Extended";
-            var orderTypeStr = isRTH ? "MKT" : $"LMT @ ${_trailingStopLossPrice:F2}";
+            var orderTypeStr = isRTH ? "MKT" : $"LMT @ ${stopOrder.LmtPrice:F2}";
             Log($">> SUBMITTING TRAILING STOP LOSS {action} {order.Quantity} @ {orderTypeStr} ({sessionStr})", ConsoleColor.Red);
-            Log($"  OrderId={_trailingStopLossOrderId} | Triggered at ${_lastPrice:F2}", ConsoleColor.DarkGray);
+            Log($"  OrderId={_trailingStopLossOrderId} | Triggered at ${_lastPrice:F2} | Stop Level: ${_trailingStopLossPrice:F2}", ConsoleColor.DarkGray);
 
             _client.placeOrder(_trailingStopLossOrderId, _contract, stopOrder);
         }
@@ -385,6 +393,65 @@ namespace IdiotProof.Models
             return _vSum > 0 ? _pvSum / _vSum : 0;
         }
 
+        /// <summary>
+        /// Validates that the current price is not already above the take profit target.
+        /// This prevents buying when we've "missed the boat" - the price has already run up
+        /// past where we would have taken profits.
+        /// </summary>
+        /// <param name="currentPrice">The current market price.</param>
+        /// <returns>True if safe to proceed with buy, false if price is too high.</returns>
+        private bool ValidatePriceNotAboveTakeProfit(double currentPrice)
+        {
+            var order = _strategy.Order;
+
+            // Only validate for BUY orders with take profit enabled
+            if (order.Side != OrderSide.Buy || !order.EnableTakeProfit)
+                return true;
+
+            double? takeProfitThreshold = null;
+
+            // Check ADX-based take profit (use conservative/weak target as threshold)
+            if (order.AdxTakeProfit != null)
+            {
+                takeProfitThreshold = order.AdxTakeProfit.ConservativeTarget;
+            }
+            // Check fixed take profit price
+            else if (order.TakeProfitPrice.HasValue)
+            {
+                takeProfitThreshold = order.TakeProfitPrice.Value;
+            }
+
+            // If we have a threshold and current price is at or above it, reject the trade
+            if (takeProfitThreshold.HasValue && currentPrice >= takeProfitThreshold.Value)
+            {
+                Log($"*** MISSED THE BOAT! Price ${currentPrice:F2} >= Take Profit ${takeProfitThreshold.Value:F2}", ConsoleColor.Red);
+                Log($"  Skipping entry - no profit potential at current price", ConsoleColor.Red);
+                Log($"  Strategy will reset tomorrow and try again", ConsoleColor.Yellow);
+
+                // Mark strategy as complete for today (will reset tomorrow)
+                _isComplete = true;
+                _result = StrategyResult.MissedTheBoat;
+
+                PrintFinalResult();
+                return false;
+            }
+
+            // Additional check: warn if price is close to take profit (within 5%)
+            if (takeProfitThreshold.HasValue)
+            {
+                double potentialProfit = takeProfitThreshold.Value - currentPrice;
+                double percentToTarget = (potentialProfit / currentPrice) * 100;
+
+                if (percentToTarget < 5.0 && percentToTarget > 0)
+                {
+                    Log($"WARNING: Only {percentToTarget:F1}% potential profit to take profit target", ConsoleColor.Yellow);
+                    Log($"  Current: ${currentPrice:F2} | Target: ${takeProfitThreshold.Value:F2} | Upside: ${potentialProfit:F2}", ConsoleColor.Yellow);
+                }
+            }
+
+            return true;
+        }
+
         private void EvaluateConditions(double price, double vwap)
         {
             if (_currentConditionIndex >= _strategy.Conditions.Count)
@@ -439,6 +506,13 @@ namespace IdiotProof.Models
                 if (_currentConditionIndex >= _strategy.Conditions.Count)
                 {
                     Log($"[OK] STEP {_currentConditionIndex}/{_strategy.Conditions.Count}: {condition.Name} - TRIGGERED @ ${price:F2}", ConsoleColor.Green);
+
+                    // Safety check: Don't buy if price is already above take profit target ("missed the boat")
+                    if (!ValidatePriceNotAboveTakeProfit(price))
+                    {
+                        return;
+                    }
+
                     Log($"*** ALL CONDITIONS MET - Executing order... (VWAP=${vwap:F2})", ConsoleColor.Cyan);
                     ExecuteOrder(vwap);
                 }
@@ -954,6 +1028,12 @@ namespace IdiotProof.Models
                     Console.ForegroundColor = ConsoleColor.Gray;
                     Console.WriteLine($"[{timestamp}] |  [{_strategy.Symbol}] RESULT: NEVER BOUGHT");
                     Console.WriteLine($"[{timestamp}] |  Conditions not met - no position taken");
+                    break;
+
+                case StrategyResult.MissedTheBoat:
+                    Console.ForegroundColor = ConsoleColor.DarkYellow;
+                    Console.WriteLine($"[{timestamp}] |  [{_strategy.Symbol}] RESULT: MISSED THE BOAT");
+                    Console.WriteLine($"[{timestamp}] |  Price already at/above take profit target when conditions met. No position taken");
                     break;
 
                 case StrategyResult.EntryCancelled:

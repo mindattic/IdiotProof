@@ -13,6 +13,8 @@ namespace IdiotProof.Enums
         Running,
         /// <summary>Conditions were never met - no position taken.</summary>
         NeverBought,
+        /// <summary>Price already above take profit target - opportunity missed.</summary>
+        MissedTheBoat,
         /// <summary>Position taken and take profit was filled.</summary>
         TakeProfitFilled,
         /// <summary>Position taken and stop loss was triggered.</summary>
