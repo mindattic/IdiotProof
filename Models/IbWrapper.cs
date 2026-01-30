@@ -103,6 +103,61 @@ namespace IdiotProof.Models
         /// </summary>
         public event Action<int, double, int>? OnOrderFill;
 
+        /// <summary>
+        /// Event fired when order status changes.
+        /// Parameters: orderId, status, filled, remaining
+        /// </summary>
+        public event Action<int, string, decimal, decimal>? OnOrderStatus;
+
+        /// <summary>
+        /// Event fired when an open order is received.
+        /// Parameters: orderId, symbol, action, quantity, orderType, limitPrice, status
+        /// </summary>
+        public event Action<int, string, string, decimal, string, double, string>? OnOpenOrder;
+
+        /// <summary>
+        /// Event fired when all open orders have been received.
+        /// </summary>
+        public event Action? OnOpenOrdersEnd;
+
+        // Track open orders
+        private readonly ConcurrentDictionary<int, (string Symbol, string Action, decimal Qty, string Type, double LmtPrice, string Status)> _openOrders = new();
+
+        /// <summary>
+        /// Gets all currently tracked open orders.
+        /// </summary>
+        public IReadOnlyDictionary<int, (string Symbol, string Action, decimal Qty, string Type, double LmtPrice, string Status)> OpenOrders => _openOrders;
+
+        /// <summary>
+        /// Requests all open orders from IBKR.
+        /// Results come back via OnOpenOrder and OnOpenOrdersEnd events.
+        /// </summary>
+        public void RequestOpenOrders()
+        {
+            _client?.reqAllOpenOrders();
+        }
+
+        /// <summary>
+        /// Requests open orders and waits for them to be received.
+        /// </summary>
+        public void RequestOpenOrdersAndWait(TimeSpan timeout)
+        {
+            var completedEvent = new ManualResetEventSlim(false);
+
+            void OnComplete() => completedEvent.Set();
+            OnOpenOrdersEnd += OnComplete;
+
+            try
+            {
+                _client?.reqAllOpenOrders();
+                completedEvent.Wait(timeout);
+            }
+            finally
+            {
+                OnOpenOrdersEnd -= OnComplete;
+            }
+        }
+
         public void AttachClient(EClientSocket client)
         {
             _client = client;
@@ -270,9 +325,39 @@ namespace IdiotProof.Models
         public void tickGeneric(int tickerId, int field, double value) { }
         public void tickString(int tickerId, int field, string value) { }
         public void tickEFP(int tickerId, int tickType, double basisPoints, string formattedBasisPoints, double totalDividends, int holdDays, string futureLastTradeDate, double dividendImpact, double dividendsToLastTradeDate) { }
-        public void orderStatus(int orderId, string status, decimal filled, decimal remaining, double avgFillPrice, long permId, int parentId, double lastFillPrice, int clientId, string whyHeld, double mktCapPrice) { }
-        public void openOrder(int orderId, IbContract contract, IBApi.Order order, IBApi.OrderState orderState) { }
-        public void openOrderEnd() { }
+
+        public void orderStatus(int orderId, string status, decimal filled, decimal remaining, double avgFillPrice, long permId, int parentId, double lastFillPrice, int clientId, string whyHeld, double mktCapPrice) 
+        {
+            // Update order status in our tracking dictionary
+            if (_openOrders.TryGetValue(orderId, out var order))
+            {
+                _openOrders[orderId] = (order.Symbol, order.Action, order.Qty, order.Type, order.LmtPrice, status);
+            }
+
+            // Fire event for status change
+            OnOrderStatus?.Invoke(orderId, status, filled, remaining);
+        }
+
+        public void openOrder(int orderId, IbContract contract, IBApi.Order order, IBApi.OrderState orderState) 
+        {
+            // Track the open order
+            _openOrders[orderId] = (
+                contract.Symbol,
+                order.Action,
+                order.TotalQuantity,
+                order.OrderType,
+                order.LmtPrice,
+                orderState.Status
+            );
+
+            // Fire event
+            OnOpenOrder?.Invoke(orderId, contract.Symbol, order.Action, order.TotalQuantity, order.OrderType, order.LmtPrice, orderState.Status);
+        }
+
+        public void openOrderEnd() 
+        {
+            OnOpenOrdersEnd?.Invoke();
+        }
         public void updateAccountValue(string key, string value, string currency, string accountName) { }
         public void updatePortfolio(IbContract contract, decimal position, double marketPrice, double marketValue, double averageCost, double unrealizedPNL, double realizedPNL, string accountName) { }
         public void updateAccountTime(string timestamp) { }

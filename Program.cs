@@ -138,6 +138,9 @@ namespace IdiotProof
                 Console.WriteLine("Mode: LIVE TRADING");
                 Console.ResetColor();
             }
+
+            // Display existing open orders from IBKR
+            DisplayOpenOrders(wrapper);
             Console.WriteLine();
 
             // ================================================================
@@ -223,6 +226,47 @@ namespace IdiotProof
         {
             //TODO: Add exhausive error handling/logging here to verify strategies are valid before starting...
             return true;
+        }
+
+        /// <summary>
+        /// Displays all open orders currently in IBKR.
+        /// </summary>
+        private static void DisplayOpenOrders(IbWrapper wrapper)
+        {
+            Console.WriteLine();
+            Console.WriteLine("Fetching existing orders from IBKR...");
+
+            // Request and wait for open orders
+            wrapper.RequestOpenOrdersAndWait(TimeSpan.FromSeconds(5));
+
+            var orders = wrapper.OpenOrders;
+
+            if (orders.Count == 0)
+            {
+                Console.WriteLine("No existing open orders found.");
+            }
+            else
+            {
+                Console.ForegroundColor = ConsoleColor.Cyan;
+                Console.WriteLine($"Found {orders.Count} existing order(s):");
+                Console.WriteLine("┌─────────┬────────┬────────┬───────┬────────┬──────────┬──────────────┐");
+                Console.WriteLine("│ OrderId │ Symbol │ Action │  Qty  │  Type  │   Price  │    Status    │");
+                Console.WriteLine("├─────────┼────────┼────────┼───────┼────────┼──────────┼──────────────┤");
+
+                foreach (var (orderId, order) in orders)
+                {
+                    var priceStr = order.LmtPrice > 0 ? $"${order.LmtPrice:F2}" : "MKT";
+                    Console.WriteLine($"│ {orderId,7} │ {order.Symbol,-6} │ {order.Action,-6} │ {order.Qty,5} │ {order.Type,-6} │ {priceStr,8} │ {order.Status,-12} │");
+                }
+
+                Console.WriteLine("└─────────┴────────┴────────┴───────┴────────┴──────────┴──────────────┘");
+                Console.ResetColor();
+
+                Console.ForegroundColor = ConsoleColor.Yellow;
+                Console.WriteLine("!!! Consider canceling old orders to avoid duplicate fills !!!");
+                Console.ResetColor();
+            }
+            Console.WriteLine();
         }
 
         /// <summary>
