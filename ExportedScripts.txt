@@ -1,6 +1,6 @@
 ﻿== IdiotProof EXPORT ==
 VERSION: 1
-CREATED_UTC: 2026-01-30T05:12:20Z
+CREATED_UTC: 2026-01-30T08:03:16Z
 ROOT: D:/Projects/IdiotProof
 
 <<<MANIFEST JSON START>>>
@@ -79,9 +79,9 @@ ROOT: D:/Projects/IdiotProof
     },
     {
         "path":  "Enums/StrategyResult.cs",
-        "sha256":  "5AFAFC9628AD4351803F6D1B61066F59128C3DAAE1C786570A5D97E8C5DCBC74",
-        "bytes":  1626,
-        "lines":  36,
+        "sha256":  "D57E909F397AB270DE48BE70BF42FF986F26E66180CB85A97974B76975D0DC65",
+        "bytes":  1743,
+        "lines":  38,
         "ext":  ".cs",
         "type":  "script",
         "guid":  null
@@ -142,9 +142,18 @@ ROOT: D:/Projects/IdiotProof
     },
     {
         "path":  "IdiotProof.UnitTests/FluentApiBuilderTests.cs",
-        "sha256":  "3A88AC4A3677C2CAA67711AF7A8591467D6FE35A5599A1BC02ACA13815532208",
-        "bytes":  45099,
-        "lines":  1192,
+        "sha256":  "F3678A95826B91EB3502F7792777E03E7249DAC2E5C79975F134882A9EE1485A",
+        "bytes":  59752,
+        "lines":  1504,
+        "ext":  ".cs",
+        "type":  "script",
+        "guid":  null
+    },
+    {
+        "path":  "IdiotProof.UnitTests/MissedTheBoatTests.cs",
+        "sha256":  "64D42615F3766DA58D78DA31103B420441AE48D2E18FAAAB34B53B51815856F1",
+        "bytes":  17442,
+        "lines":  443,
         "ext":  ".cs",
         "type":  "script",
         "guid":  null
@@ -304,9 +313,9 @@ ROOT: D:/Projects/IdiotProof
     },
     {
         "path":  "Program.cs",
-        "sha256":  "4372EFF04792B030EC156AAC03B673977DD4B00EB7C689E8AC74A9912F6F36AE",
-        "bytes":  31846,
-        "lines":  620,
+        "sha256":  "92E28F5ECE41C3F98C1A361CE4940E64C6BDBF3F82827E5008B9F4CECBD1F77A",
+        "bytes":  38977,
+        "lines":  739,
         "ext":  ".cs",
         "type":  "script",
         "guid":  null
@@ -376,18 +385,18 @@ ROOT: D:/Projects/IdiotProof
     },
     {
         "path":  "Strategy/Strategy.cs",
-        "sha256":  "499223779175C42224105A9E43BCC7CC369310CCA3B75F6561D51557DCE5CA41",
-        "bytes":  14506,
-        "lines":  317,
+        "sha256":  "980579B224475A5FD57DC639FE5F861A9D76B4D27ED469F6DFB0D50B2A115FA9",
+        "bytes":  14576,
+        "lines":  318,
         "ext":  ".cs",
         "type":  "script",
         "guid":  null
     },
     {
         "path":  "Strategy/StrategyRunner.cs",
-        "sha256":  "FF4BAD2F5A8E4C69F8F538CDD029D204C28D4974DE76139ECAC257783CDDAD9F",
-        "bytes":  41642,
-        "lines":  808,
+        "sha256":  "8C20FD81FB15F0C89AFE87E83E3486BF63AE8CC4D47E210878915FC8B73BF338",
+        "bytes":  45914,
+        "lines":  876,
         "ext":  ".cs",
         "type":  "script",
         "guid":  null
@@ -815,9 +824,9 @@ namespace IdiotProof.Enums
 PATH: Enums/StrategyResult.cs
 TYPE: script
 EXT: .cs
-SHA256: 5AFAFC9628AD4351803F6D1B61066F59128C3DAAE1C786570A5D97E8C5DCBC74
-BYTES: 1626
-LINES: 38
+SHA256: D57E909F397AB270DE48BE70BF42FF986F26E66180CB85A97974B76975D0DC65
+BYTES: 1743
+LINES: 40
 <<<CONTENT START>>>
 // ============================================================================
 // StrategyResult - Possible Outcomes for a Strategy
@@ -834,6 +843,8 @@ namespace IdiotProof.Enums
         Running,
         /// <summary>Conditions were never met - no position taken.</summary>
         NeverBought,
+        /// <summary>Price already above take profit target - opportunity missed.</summary>
+        MissedTheBoat,
         /// <summary>Position taken and take profit was filled.</summary>
         TakeProfitFilled,
         /// <summary>Position taken and stop loss was triggered.</summary>
@@ -3363,9 +3374,9 @@ public class BacktestScenarioTests
 PATH: IdiotProof.UnitTests/FluentApiBuilderTests.cs
 TYPE: script
 EXT: .cs
-SHA256: 3A88AC4A3677C2CAA67711AF7A8591467D6FE35A5599A1BC02ACA13815532208
-BYTES: 45099
-LINES: 1406
+SHA256: F3678A95826B91EB3502F7792777E03E7249DAC2E5C79975F134882A9EE1485A
+BYTES: 59752
+LINES: 1759
 <<<CONTENT START>>>
 // ============================================================================
 // FluentApiBuilderTests - Tests for Stock and StrategyBuilder fluent API
@@ -4069,8 +4080,8 @@ public class FluentApiBuilderTests
             .ClosePosition(MarketTime.PreMarket.Ending)
             .Build();
 
-        // Assert - Time.PreMarket.Ending should be 9:20 AM ET (10 min before 9:30)
-        Assert.That(strategy.Order.ClosePositionTime, Is.EqualTo(new TimeOnly(9, 20)));
+        // Assert - Time.PreMarket.Ending should be 9:15 AM ET (15 min before 9:30)
+        Assert.That(strategy.Order.ClosePositionTime, Is.EqualTo(new TimeOnly(9, 15)));
     }
 
     [Test]
@@ -4768,6 +4779,921 @@ public class FluentApiBuilderTests
             var order = new OrderAction { AllOrNone = true };
             Assert.That(order.AllOrNone, Is.True);
         }
+    }
+
+    #endregion
+
+    #region Multiple Strategies Per Symbol Tests
+
+    /// <summary>
+    /// Tests verifying multiple strategies can be created for the same stock symbol.
+    /// This is a common use case where different entry conditions target the same ticker.
+    /// </summary>
+    [TestFixture]
+    public class MultipleStrategiesPerSymbolTests
+    {
+        [Test]
+        [Description("Multiple strategies for same symbol can be created independently")]
+        public void MultipleStrategies_SameSymbol_CreateIndependently()
+        {
+            // Arrange & Act - Create two different strategies for VIVS
+            var momentumStrategy = Stock.Ticker("VIVS")
+                .PriceAbove(2.40)
+                .AboveVwap()
+                .Buy(100, Price.Current)
+                .TakeProfit(4.00, 4.80)
+                .Build();
+
+            var pullbackStrategy = Stock.Ticker("VIVS")
+                .Pullback(4.15)
+                .AboveVwap()
+                .Buy(100, Price.Current)
+                .TakeProfit(4.80, 5.30)
+                .Build();
+
+            // Assert - Both strategies exist with same symbol but different conditions
+            Assert.Multiple(() =>
+            {
+                Assert.That(momentumStrategy.Symbol, Is.EqualTo("VIVS"));
+                Assert.That(pullbackStrategy.Symbol, Is.EqualTo("VIVS"));
+                Assert.That(momentumStrategy, Is.Not.SameAs(pullbackStrategy));
+                Assert.That(momentumStrategy.Conditions[0].Name, Does.Contain(">="));
+                Assert.That(pullbackStrategy.Conditions[0].Name, Does.Contain("<="));
+            });
+        }
+
+        [Test]
+        [Description("Multiple strategies for same symbol can have different entry conditions")]
+        public void MultipleStrategies_SameSymbol_DifferentEntryConditions()
+        {
+            // Arrange
+            var strategies = new List<TradingStrategy>
+            {
+                Stock.Ticker("CATX")
+                    .PriceAbove(4.00)
+                    .AboveVwap()
+                    .Buy(100, Price.Current)
+                    .Build(),
+
+                Stock.Ticker("CATX")
+                    .Pullback(4.33)
+                    .PriceAbove(4.30)
+                    .Buy(100, Price.Current)
+                    .Build()
+            };
+
+            // Act
+            var catxStrategies = strategies.FindAll(s => s.Symbol == "CATX");
+
+            // Assert
+            Assert.Multiple(() =>
+            {
+                Assert.That(catxStrategies, Has.Count.EqualTo(2));
+                Assert.That(catxStrategies[0].Conditions[0], Is.TypeOf<PriceAtOrAboveCondition>());
+                Assert.That(catxStrategies[1].Conditions[0], Is.TypeOf<PullbackCondition>());
+            });
+        }
+
+        [Test]
+        [Description("Multiple strategies for same symbol can have different take profit targets")]
+        public void MultipleStrategies_SameSymbol_DifferentTakeProfitTargets()
+        {
+            // Arrange & Act
+            var conservativeStrategy = Stock.Ticker("VIVS")
+                .PriceAbove(3.00)
+                .Buy(100, Price.Current)
+                .TakeProfit(3.50)
+                .Build();
+
+            var aggressiveStrategy = Stock.Ticker("VIVS")
+                .PriceAbove(3.00)
+                .Buy(100, Price.Current)
+                .TakeProfit(4.50, 5.50)
+                .Build();
+
+            // Assert
+            Assert.Multiple(() =>
+            {
+                Assert.That(conservativeStrategy.Symbol, Is.EqualTo(aggressiveStrategy.Symbol));
+                Assert.That(conservativeStrategy.Order.TakeProfitPrice, Is.EqualTo(3.50));
+                Assert.That(aggressiveStrategy.Order.AdxTakeProfit!.ConservativeTarget, Is.EqualTo(4.50));
+                Assert.That(aggressiveStrategy.Order.AdxTakeProfit!.AggressiveTarget, Is.EqualTo(5.50));
+            });
+        }
+
+        [Test]
+        [Description("Multiple strategies for same symbol can have different stop loss configurations")]
+        public void MultipleStrategies_SameSymbol_DifferentStopLossConfig()
+        {
+            // Arrange & Act
+            var fixedStopStrategy = Stock.Ticker("CATX")
+                .PriceAbove(4.80)
+                .Buy(100, Price.Current)
+                .StopLoss(4.25)
+                .Build();
+
+            var trailingStopStrategy = Stock.Ticker("CATX")
+                .PriceAbove(4.80)
+                .Buy(100, Price.Current)
+                .TrailingStopLoss(Percent.TwentyFive)
+                .Build();
+
+            // Assert
+            Assert.Multiple(() =>
+            {
+                Assert.That(fixedStopStrategy.Symbol, Is.EqualTo(trailingStopStrategy.Symbol));
+                Assert.That(fixedStopStrategy.Order.EnableStopLoss, Is.True);
+                Assert.That(fixedStopStrategy.Order.EnableTrailingStopLoss, Is.False);
+                Assert.That(trailingStopStrategy.Order.EnableStopLoss, Is.False);
+                Assert.That(trailingStopStrategy.Order.EnableTrailingStopLoss, Is.True);
+            });
+        }
+
+        [Test]
+        [Description("Multiple strategies for same symbol can have different session durations")]
+        public void MultipleStrategies_SameSymbol_DifferentSessionDurations()
+        {
+            // Arrange & Act
+            var preMarketStrategy = Stock.Ticker("VIVS")
+                .SessionDuration(TradingSession.PreMarket)
+                .PriceAbove(2.40)
+                .Buy(100, Price.Current)
+                .Build();
+
+            var rthStrategy = Stock.Ticker("VIVS")
+                .SessionDuration(TradingSession.RTH)
+                .PriceAbove(2.40)
+                .Buy(100, Price.Current)
+                .Build();
+
+            // Assert
+            Assert.Multiple(() =>
+            {
+                Assert.That(preMarketStrategy.Symbol, Is.EqualTo(rthStrategy.Symbol));
+                Assert.That(preMarketStrategy.Session, Is.EqualTo(TradingSession.PreMarket));
+                Assert.That(rthStrategy.Session, Is.EqualTo(TradingSession.RTH));
+            });
+        }
+
+        [Test]
+        [Description("Multiple strategies for same symbol can have different quantities")]
+        public void MultipleStrategies_SameSymbol_DifferentQuantities()
+        {
+            // Arrange & Act
+            var smallPositionStrategy = Stock.Ticker("CATX")
+                .PriceAbove(4.00)
+                .Buy(50, Price.Current)
+                .Build();
+
+            var largePositionStrategy = Stock.Ticker("CATX")
+                .PriceAbove(4.00)
+                .Buy(500, Price.Current)
+                .Build();
+
+            // Assert
+            Assert.Multiple(() =>
+            {
+                Assert.That(smallPositionStrategy.Symbol, Is.EqualTo(largePositionStrategy.Symbol));
+                Assert.That(smallPositionStrategy.Order.Quantity, Is.EqualTo(50));
+                Assert.That(largePositionStrategy.Order.Quantity, Is.EqualTo(500));
+            });
+        }
+
+        [Test]
+        [Description("Strategy list with multiple symbols and multiple strategies per symbol")]
+        public void MultipleStrategies_MixedSymbols_AllIndependent()
+        {
+            // Arrange - Real-world scenario from Program.cs
+            var strategies = new List<TradingStrategy>
+            {
+                // VIVS Momentum
+                Stock.Ticker("VIVS")
+                    .SessionDuration(TradingSession.PreMarketEndEarly)
+                    .PriceAbove(2.40)
+                    .AboveVwap()
+                    .Buy(100, Price.Current)
+                    .TakeProfit(4.00, 4.80)
+                    .TrailingStopLoss(Percent.TwentyFive)
+                    .ClosePosition(MarketTime.PreMarket.Ending, false),
+
+                // CATX Momentum
+                Stock.Ticker("CATX")
+                    .SessionDuration(TradingSession.PreMarketEndEarly)
+                    .PriceAbove(4.00)
+                    .AboveVwap()
+                    .Buy(100, Price.Current)
+                    .TakeProfit(5.30, 6.16)
+                    .TrailingStopLoss(Percent.TwentyFive)
+                    .ClosePosition(MarketTime.PreMarket.Ending, false),
+
+                // VIVS Pullback
+                Stock.Ticker("VIVS")
+                    .SessionDuration(TradingSession.PreMarketEndEarly)
+                    .Pullback(4.15)
+                    .AboveVwap()
+                    .Buy(100, Price.Current)
+                    .TakeProfit(4.80, 5.30)
+                    .StopLoss(3.95)
+                    .ClosePosition(MarketTime.PreMarket.Ending, false),
+
+                // CATX Support
+                Stock.Ticker("CATX")
+                    .SessionDuration(TradingSession.PreMarketEndEarly)
+                    .Pullback(4.33)
+                    .PriceAbove(4.30)
+                    .Buy(100, Price.Current)
+                    .TakeProfit(4.50, 4.75)
+                    .StopLoss(4.25)
+                    .ClosePosition(MarketTime.PreMarket.Ending, false),
+            };
+
+            // Act
+            var vivsStrategies = strategies.FindAll(s => s.Symbol == "VIVS");
+            var catxStrategies = strategies.FindAll(s => s.Symbol == "CATX");
+            var enabledStrategies = strategies.FindAll(s => s.Enabled);
+
+            // Assert
+            Assert.Multiple(() =>
+            {
+                Assert.That(strategies, Has.Count.EqualTo(4));
+                Assert.That(vivsStrategies, Has.Count.EqualTo(2));
+                Assert.That(catxStrategies, Has.Count.EqualTo(2));
+                Assert.That(enabledStrategies, Has.Count.EqualTo(4));
+
+                // Verify each strategy is unique
+                Assert.That(strategies.Distinct().Count(), Is.EqualTo(4));
+
+                // Verify VIVS strategies have different first conditions
+                Assert.That(vivsStrategies[0].Conditions[0], Is.TypeOf<PriceAtOrAboveCondition>());
+                Assert.That(vivsStrategies[1].Conditions[0], Is.TypeOf<PullbackCondition>());
+
+                // Verify CATX strategies have different first conditions
+                Assert.That(catxStrategies[0].Conditions[0], Is.TypeOf<PriceAtOrAboveCondition>());
+                Assert.That(catxStrategies[1].Conditions[0], Is.TypeOf<PullbackCondition>());
+            });
+        }
+
+        [Test]
+        [Description("Multiple strategies with same symbol don't share state")]
+        public void MultipleStrategies_SameSymbol_NoSharedState()
+        {
+            // Arrange & Act
+            var strategy1 = Stock.Ticker("VIVS")
+                .Enabled(true)
+                .PriceAbove(2.40)
+                .Buy(100, Price.Current)
+                .Build();
+
+            var strategy2 = Stock.Ticker("VIVS")
+                .Enabled(false)
+                .PriceAbove(3.00)
+                .Buy(200, Price.Current)
+                .Build();
+
+            // Assert - Changing strategy2 doesn't affect strategy1
+            Assert.Multiple(() =>
+            {
+                Assert.That(strategy1.Enabled, Is.True);
+                Assert.That(strategy2.Enabled, Is.False);
+                Assert.That(strategy1.Order.Quantity, Is.EqualTo(100));
+                Assert.That(strategy2.Order.Quantity, Is.EqualTo(200));
+            });
+        }
+
+        [Test]
+        [Description("Filter strategies by symbol correctly")]
+        public void MultipleStrategies_FilterBySymbol_ReturnsCorrectStrategies()
+        {
+            // Arrange
+            var strategies = new List<TradingStrategy>
+            {
+                Stock.Ticker("AAPL").PriceAbove(150).Buy(100, Price.Current).Build(),
+                Stock.Ticker("VIVS").PriceAbove(2.40).Buy(100, Price.Current).Build(),
+                Stock.Ticker("AAPL").Pullback(145).Buy(50, Price.Current).Build(),
+                Stock.Ticker("CATX").PriceAbove(4.00).Buy(100, Price.Current).Build(),
+                Stock.Ticker("VIVS").Pullback(4.15).Buy(100, Price.Current).Build(),
+            };
+
+            // Act
+            var aaplStrategies = strategies.Where(s => s.Symbol == "AAPL").ToList();
+            var vivsStrategies = strategies.Where(s => s.Symbol == "VIVS").ToList();
+            var catxStrategies = strategies.Where(s => s.Symbol == "CATX").ToList();
+            var uniqueSymbols = strategies.Select(s => s.Symbol).Distinct().ToList();
+
+            // Assert
+            Assert.Multiple(() =>
+            {
+                Assert.That(aaplStrategies, Has.Count.EqualTo(2));
+                Assert.That(vivsStrategies, Has.Count.EqualTo(2));
+                Assert.That(catxStrategies, Has.Count.EqualTo(1));
+                Assert.That(uniqueSymbols, Has.Count.EqualTo(3));
+                Assert.That(uniqueSymbols, Does.Contain("AAPL"));
+                Assert.That(uniqueSymbols, Does.Contain("VIVS"));
+                Assert.That(uniqueSymbols, Does.Contain("CATX"));
+            });
+        }
+
+        [Test]
+        [Description("Strategies with same symbol can be enabled/disabled independently")]
+        public void MultipleStrategies_SameSymbol_IndependentEnableDisable()
+        {
+            // Arrange
+            var strategies = new List<TradingStrategy>
+            {
+                Stock.Ticker("VIVS")
+                    .Enabled(true)
+                    .PriceAbove(2.40)
+                    .Buy(100, Price.Current)
+                    .Build(),
+
+                Stock.Ticker("VIVS")
+                    .Enabled(false)  // Disabled
+                    .Pullback(4.15)
+                    .Buy(100, Price.Current)
+                    .Build(),
+
+                Stock.Ticker("VIVS")
+                    .Enabled(true)
+                    .PriceAbove(5.00)
+                    .Buy(100, Price.Current)
+                    .Build(),
+            };
+
+            // Act
+            var enabledStrategies = strategies.FindAll(s => s.Enabled);
+            var disabledStrategies = strategies.FindAll(s => !s.Enabled);
+            var vivsEnabled = strategies.FindAll(s => s.Symbol == "VIVS" && s.Enabled);
+
+            // Assert
+            Assert.Multiple(() =>
+            {
+                Assert.That(enabledStrategies, Has.Count.EqualTo(2));
+                Assert.That(disabledStrategies, Has.Count.EqualTo(1));
+                Assert.That(vivsEnabled, Has.Count.EqualTo(2));
+            });
+        }
+    }
+
+    #endregion
+}
+
+<<<CONTENT END>>>
+<<<FILE END>>>
+
+<<<FILE START>>>
+PATH: IdiotProof.UnitTests/MissedTheBoatTests.cs
+TYPE: script
+EXT: .cs
+SHA256: 64D42615F3766DA58D78DA31103B420441AE48D2E18FAAAB34B53B51815856F1
+BYTES: 17442
+LINES: 551
+<<<CONTENT START>>>
+// ============================================================================
+// MissedTheBoatTests - Tests for price validation against take profit targets
+// ============================================================================
+//
+// These tests verify that strategies correctly reject entries when the current
+// price is already at or above the take profit target ("missed the boat").
+//
+
+using IdiotProof.Enums;
+using IdiotProof.Models;
+using NUnit.Framework;
+
+namespace IdiotProof.UnitTests;
+
+/// <summary>
+/// Tests for the "Missed the Boat" validation logic.
+/// Ensures strategies don't enter positions when price is already above take profit targets.
+/// </summary>
+[TestFixture]
+public class MissedTheBoatTests
+{
+    #region Strategy Configuration Tests
+
+    [Test]
+    [Description("Strategy with ADX take profit should have conservative target accessible")]
+    public void Strategy_WithAdxTakeProfit_HasConservativeTarget()
+    {
+        // Arrange & Act
+        var strategy = Stock.Ticker("VIVS")
+            .PriceAbove(2.40)
+            .Buy(100, Price.Current)
+            .TakeProfit(4.00, 4.80)  // Conservative: 4.00, Aggressive: 4.80
+            .Build();
+
+        // Assert
+        Assert.Multiple(() =>
+        {
+            Assert.That(strategy.Order.EnableTakeProfit, Is.True);
+            Assert.That(strategy.Order.AdxTakeProfit, Is.Not.Null);
+            Assert.That(strategy.Order.AdxTakeProfit!.ConservativeTarget, Is.EqualTo(4.00));
+            Assert.That(strategy.Order.AdxTakeProfit!.AggressiveTarget, Is.EqualTo(4.80));
+        });
+    }
+
+    [Test]
+    [Description("Strategy with fixed take profit should have price accessible")]
+    public void Strategy_WithFixedTakeProfit_HasTakeProfitPrice()
+    {
+        // Arrange & Act
+        var strategy = Stock.Ticker("AAPL")
+            .PriceAbove(150)
+            .Buy(100, Price.Current)
+            .TakeProfit(160)  // Fixed target
+            .Build();
+
+        // Assert
+        Assert.Multiple(() =>
+        {
+            Assert.That(strategy.Order.EnableTakeProfit, Is.True);
+            Assert.That(strategy.Order.TakeProfitPrice, Is.EqualTo(160));
+            Assert.That(strategy.Order.AdxTakeProfit, Is.Null);
+        });
+    }
+
+    [Test]
+    [Description("Strategy without take profit should not trigger missed the boat")]
+    public void Strategy_WithoutTakeProfit_NoMissedBoatValidation()
+    {
+        // Arrange & Act
+        var strategy = Stock.Ticker("AAPL")
+            .PriceAbove(150)
+            .Buy(100, Price.Current)
+            .Build();  // No take profit
+
+        // Assert
+        Assert.Multiple(() =>
+        {
+            Assert.That(strategy.Order.EnableTakeProfit, Is.False);
+            Assert.That(strategy.Order.TakeProfitPrice, Is.Null);
+            Assert.That(strategy.Order.AdxTakeProfit, Is.Null);
+        });
+    }
+
+    #endregion
+
+    #region Price vs Take Profit Comparison Tests
+
+    [Test]
+    [Description("Price below ADX conservative target should allow entry")]
+    public void PriceBelowConservativeTarget_ShouldAllowEntry()
+    {
+        // Arrange
+        var strategy = Stock.Ticker("VIVS")
+            .PriceAbove(2.40)
+            .Buy(100, Price.Current)
+            .TakeProfit(4.00, 4.80)  // Conservative: 4.00
+            .Build();
+
+        double currentPrice = 3.50;  // Below 4.00
+
+        // Act
+        bool shouldReject = ShouldRejectDueToMissedBoat(strategy, currentPrice);
+
+        // Assert
+        Assert.That(shouldReject, Is.False, "Price below conservative target should allow entry");
+    }
+
+    [Test]
+    [Description("Price equal to ADX conservative target should reject entry")]
+    public void PriceEqualToConservativeTarget_ShouldRejectEntry()
+    {
+        // Arrange
+        var strategy = Stock.Ticker("VIVS")
+            .PriceAbove(2.40)
+            .Buy(100, Price.Current)
+            .TakeProfit(4.00, 4.80)  // Conservative: 4.00
+            .Build();
+
+        double currentPrice = 4.00;  // Equal to conservative target
+
+        // Act
+        bool shouldReject = ShouldRejectDueToMissedBoat(strategy, currentPrice);
+
+        // Assert
+        Assert.That(shouldReject, Is.True, "Price equal to conservative target should reject entry");
+    }
+
+    [Test]
+    [Description("Price above ADX conservative target should reject entry")]
+    public void PriceAboveConservativeTarget_ShouldRejectEntry()
+    {
+        // Arrange
+        var strategy = Stock.Ticker("VIVS")
+            .PriceAbove(2.40)
+            .Buy(100, Price.Current)
+            .TakeProfit(4.00, 4.80)  // Conservative: 4.00
+            .Build();
+
+        double currentPrice = 4.25;  // Above conservative target
+
+        // Act
+        bool shouldReject = ShouldRejectDueToMissedBoat(strategy, currentPrice);
+
+        // Assert
+        Assert.That(shouldReject, Is.True, "Price above conservative target should reject entry");
+    }
+
+    [Test]
+    [Description("Price between conservative and aggressive targets should reject entry")]
+    public void PriceBetweenTargets_ShouldRejectEntry()
+    {
+        // Arrange
+        var strategy = Stock.Ticker("VIVS")
+            .PriceAbove(2.40)
+            .Buy(100, Price.Current)
+            .TakeProfit(4.00, 4.80)
+            .Build();
+
+        double currentPrice = 4.50;  // Between 4.00 and 4.80
+
+        // Act
+        bool shouldReject = ShouldRejectDueToMissedBoat(strategy, currentPrice);
+
+        // Assert
+        Assert.That(shouldReject, Is.True, "Price between targets should still reject (uses conservative)");
+    }
+
+    [Test]
+    [Description("Price above aggressive target should reject entry")]
+    public void PriceAboveAggressiveTarget_ShouldRejectEntry()
+    {
+        // Arrange
+        var strategy = Stock.Ticker("VIVS")
+            .PriceAbove(2.40)
+            .Buy(100, Price.Current)
+            .TakeProfit(4.00, 4.80)
+            .Build();
+
+        double currentPrice = 5.00;  // Above aggressive target
+
+        // Act
+        bool shouldReject = ShouldRejectDueToMissedBoat(strategy, currentPrice);
+
+        // Assert
+        Assert.That(shouldReject, Is.True, "Price above aggressive target should reject entry");
+    }
+
+    #endregion
+
+    #region Fixed Take Profit Tests
+
+    [Test]
+    [Description("Price below fixed take profit should allow entry")]
+    public void PriceBelowFixedTakeProfit_ShouldAllowEntry()
+    {
+        // Arrange
+        var strategy = Stock.Ticker("AAPL")
+            .PriceAbove(150)
+            .Buy(100, Price.Current)
+            .TakeProfit(160)
+            .Build();
+
+        double currentPrice = 155;
+
+        // Act
+        bool shouldReject = ShouldRejectDueToMissedBoat(strategy, currentPrice);
+
+        // Assert
+        Assert.That(shouldReject, Is.False);
+    }
+
+    [Test]
+    [Description("Price equal to fixed take profit should reject entry")]
+    public void PriceEqualToFixedTakeProfit_ShouldRejectEntry()
+    {
+        // Arrange
+        var strategy = Stock.Ticker("AAPL")
+            .PriceAbove(150)
+            .Buy(100, Price.Current)
+            .TakeProfit(160)
+            .Build();
+
+        double currentPrice = 160;
+
+        // Act
+        bool shouldReject = ShouldRejectDueToMissedBoat(strategy, currentPrice);
+
+        // Assert
+        Assert.That(shouldReject, Is.True);
+    }
+
+    [Test]
+    [Description("Price above fixed take profit should reject entry")]
+    public void PriceAboveFixedTakeProfit_ShouldRejectEntry()
+    {
+        // Arrange
+        var strategy = Stock.Ticker("AAPL")
+            .PriceAbove(150)
+            .Buy(100, Price.Current)
+            .TakeProfit(160)
+            .Build();
+
+        double currentPrice = 165;
+
+        // Act
+        bool shouldReject = ShouldRejectDueToMissedBoat(strategy, currentPrice);
+
+        // Assert
+        Assert.That(shouldReject, Is.True);
+    }
+
+    #endregion
+
+    #region Sell Order Tests (Should Not Apply)
+
+    [Test]
+    [Description("Sell orders should not trigger missed the boat validation")]
+    public void SellOrder_ShouldNotTriggerMissedBoatValidation()
+    {
+        // Arrange
+        var strategy = Stock.Ticker("AAPL")
+            .PriceAbove(160)
+            .Sell(100, Price.Current)
+            .Build();
+
+        double currentPrice = 170;  // Above entry condition
+
+        // Act - Sell orders don't use take profit in the same way
+        bool shouldReject = ShouldRejectDueToMissedBoat(strategy, currentPrice);
+
+        // Assert - Sell orders should never be rejected by this logic
+        Assert.That(shouldReject, Is.False);
+    }
+
+    #endregion
+
+    #region Edge Cases
+
+    [Test]
+    [Description("Price just below conservative target should allow entry")]
+    public void PriceJustBelowTarget_ShouldAllowEntry()
+    {
+        // Arrange
+        var strategy = Stock.Ticker("VIVS")
+            .PriceAbove(2.40)
+            .Buy(100, Price.Current)
+            .TakeProfit(4.00, 4.80)
+            .Build();
+
+        double currentPrice = 3.99;  // Just below 4.00
+
+        // Act
+        bool shouldReject = ShouldRejectDueToMissedBoat(strategy, currentPrice);
+
+        // Assert
+        Assert.That(shouldReject, Is.False);
+    }
+
+    [Test]
+    [Description("Price just above conservative target should reject entry")]
+    public void PriceJustAboveTarget_ShouldRejectEntry()
+    {
+        // Arrange
+        var strategy = Stock.Ticker("VIVS")
+            .PriceAbove(2.40)
+            .Buy(100, Price.Current)
+            .TakeProfit(4.00, 4.80)
+            .Build();
+
+        double currentPrice = 4.01;  // Just above 4.00
+
+        // Act
+        bool shouldReject = ShouldRejectDueToMissedBoat(strategy, currentPrice);
+
+        // Assert
+        Assert.That(shouldReject, Is.True);
+    }
+
+    [Test]
+    [Description("Strategy with no take profit should never reject")]
+    public void NoTakeProfit_ShouldNeverReject()
+    {
+        // Arrange
+        var strategy = Stock.Ticker("AAPL")
+            .PriceAbove(150)
+            .Buy(100, Price.Current)
+            .StopLoss(145)  // Only stop loss, no take profit
+            .Build();
+
+        double currentPrice = 200;  // Very high price
+
+        // Act
+        bool shouldReject = ShouldRejectDueToMissedBoat(strategy, currentPrice);
+
+        // Assert
+        Assert.That(shouldReject, Is.False, "No take profit means no price ceiling");
+    }
+
+    #endregion
+
+    #region Potential Profit Calculation Tests
+
+    [Test]
+    [Description("Calculate potential profit percentage correctly")]
+    public void PotentialProfit_CalculatesCorrectly()
+    {
+        // Arrange
+        double currentPrice = 3.80;
+        double takeProfitTarget = 4.00;
+
+        // Act
+        double potentialProfit = takeProfitTarget - currentPrice;
+        double percentToTarget = (potentialProfit / currentPrice) * 100;
+
+        // Assert
+        Assert.Multiple(() =>
+        {
+            Assert.That(potentialProfit, Is.EqualTo(0.20).Within(0.001));
+            Assert.That(percentToTarget, Is.EqualTo(5.26).Within(0.01));
+        });
+    }
+
+    [Test]
+    [Description("Low profit potential should be less than 5%")]
+    public void LowProfitPotential_IsLessThanFivePercent()
+    {
+        // Arrange
+        double currentPrice = 3.90;
+        double takeProfitTarget = 4.00;
+
+        // Act
+        double potentialProfit = takeProfitTarget - currentPrice;
+        double percentToTarget = (potentialProfit / currentPrice) * 100;
+
+        // Assert
+        Assert.That(percentToTarget, Is.LessThan(5.0), "Should trigger low profit warning");
+    }
+
+    [Test]
+    [Description("Good profit potential should be 5% or more")]
+    public void GoodProfitPotential_IsFivePercentOrMore()
+    {
+        // Arrange
+        double currentPrice = 3.50;
+        double takeProfitTarget = 4.00;
+
+        // Act
+        double potentialProfit = takeProfitTarget - currentPrice;
+        double percentToTarget = (potentialProfit / currentPrice) * 100;
+
+        // Assert
+        Assert.That(percentToTarget, Is.GreaterThanOrEqualTo(5.0), "Should not trigger low profit warning");
+    }
+
+    #endregion
+
+    #region Real-World Scenario Tests
+
+    [Test]
+    [Description("VIVS scenario: Entry at $3.50 with TP at $4.00-$4.80 should allow")]
+    public void VIVSScenario_ValidEntry_ShouldAllow()
+    {
+        // Arrange - Real strategy from Program.cs
+        var strategy = Stock.Ticker("VIVS")
+            .SessionDuration(TradingSession.PreMarketEndEarly)
+            .PriceAbove(2.40)
+            .AboveVwap()
+            .Buy(100, Price.Current)
+            .TakeProfit(4.00, 4.80)
+            .TrailingStopLoss(Percent.TwentyFive)
+            .Build();
+
+        double currentPrice = 3.50;
+
+        // Act
+        bool shouldReject = ShouldRejectDueToMissedBoat(strategy, currentPrice);
+
+        // Assert
+        Assert.That(shouldReject, Is.False, "Price $3.50 is below conservative target $4.00");
+    }
+
+    [Test]
+    [Description("VIVS scenario: Entry at $4.25 with TP at $4.00-$4.80 should reject")]
+    public void VIVSScenario_MissedBoat_ShouldReject()
+    {
+        // Arrange
+        var strategy = Stock.Ticker("VIVS")
+            .SessionDuration(TradingSession.PreMarketEndEarly)
+            .PriceAbove(2.40)
+            .AboveVwap()
+            .Buy(100, Price.Current)
+            .TakeProfit(4.00, 4.80)
+            .TrailingStopLoss(Percent.TwentyFive)
+            .Build();
+
+        double currentPrice = 4.25;
+
+        // Act
+        bool shouldReject = ShouldRejectDueToMissedBoat(strategy, currentPrice);
+
+        // Assert
+        Assert.That(shouldReject, Is.True, "Price $4.25 is above conservative target $4.00");
+    }
+
+    [Test]
+    [Description("CATX scenario: Entry at $4.34 with TP at $4.50-$4.75 should allow")]
+    public void CATXScenario_ValidEntry_ShouldAllow()
+    {
+        // Arrange - CATX EMA Support Strategy
+        var strategy = Stock.Ticker("CATX")
+            .SessionDuration(TradingSession.PreMarketEndEarly)
+            .Pullback(4.33)
+            .PriceAbove(4.30)
+            .Buy(100, Price.Current)
+            .TakeProfit(4.50, 4.75)
+            .StopLoss(4.25)
+            .Build();
+
+        double currentPrice = 4.34;
+
+        // Act
+        bool shouldReject = ShouldRejectDueToMissedBoat(strategy, currentPrice);
+
+        // Assert
+        Assert.That(shouldReject, Is.False, "Price $4.34 is below conservative target $4.50");
+    }
+
+    [Test]
+    [Description("CATX scenario: Entry at $4.60 with TP at $4.50-$4.75 should reject")]
+    public void CATXScenario_MissedBoat_ShouldReject()
+    {
+        // Arrange
+        var strategy = Stock.Ticker("CATX")
+            .SessionDuration(TradingSession.PreMarketEndEarly)
+            .Pullback(4.33)
+            .PriceAbove(4.30)
+            .Buy(100, Price.Current)
+            .TakeProfit(4.50, 4.75)
+            .StopLoss(4.25)
+            .Build();
+
+        double currentPrice = 4.60;
+
+        // Act
+        bool shouldReject = ShouldRejectDueToMissedBoat(strategy, currentPrice);
+
+        // Assert
+        Assert.That(shouldReject, Is.True, "Price $4.60 is above conservative target $4.50");
+    }
+
+    #endregion
+
+    #region StrategyResult Enum Tests
+
+    [Test]
+    [Description("MissedTheBoat result exists in StrategyResult enum")]
+    public void StrategyResult_MissedTheBoat_Exists()
+    {
+        // Assert
+        Assert.That(Enum.IsDefined(typeof(StrategyResult), StrategyResult.MissedTheBoat), Is.True);
+    }
+
+    [Test]
+    [Description("MissedTheBoat is different from NeverBought")]
+    public void StrategyResult_MissedTheBoat_DifferentFromNeverBought()
+    {
+        // Assert
+        Assert.That(StrategyResult.MissedTheBoat, Is.Not.EqualTo(StrategyResult.NeverBought));
+    }
+
+    #endregion
+
+    #region Helper Methods
+
+    /// <summary>
+    /// Simulates the "missed the boat" validation logic from StrategyRunner.
+    /// This mirrors the ValidatePriceNotAboveTakeProfit method.
+    /// </summary>
+    private static bool ShouldRejectDueToMissedBoat(TradingStrategy strategy, double currentPrice)
+    {
+        var order = strategy.Order;
+
+        // Only validate for BUY orders with take profit enabled
+        if (order.Side != OrderSide.Buy || !order.EnableTakeProfit)
+            return false;
+
+        double? takeProfitThreshold = null;
+
+        // Check ADX-based take profit (use conservative/weak target as threshold)
+        if (order.AdxTakeProfit != null)
+        {
+            takeProfitThreshold = order.AdxTakeProfit.ConservativeTarget;
+        }
+        // Check fixed take profit price
+        else if (order.TakeProfitPrice.HasValue)
+        {
+            takeProfitThreshold = order.TakeProfitPrice.Value;
+        }
+
+        // If we have a threshold and current price is at or above it, reject the trade
+        if (takeProfitThreshold.HasValue && currentPrice >= takeProfitThreshold.Value)
+        {
+            return true;
+        }
+
+        return false;
     }
 
     #endregion
@@ -14144,12 +15070,13 @@ namespace IdiotProof.Models
 PATH: Program.cs
 TYPE: script
 EXT: .cs
-SHA256: 4372EFF04792B030EC156AAC03B673977DD4B00EB7C689E8AC74A9912F6F36AE
-BYTES: 31846
-LINES: 723
+SHA256: 92E28F5ECE41C3F98C1A361CE4940E64C6BDBF3F82827E5008B9F4CECBD1F77A
+BYTES: 38977
+LINES: 858
 <<<CONTENT START>>>
 // ================================================================
-// IBKR Multi-Stage Strategy Bot
+// IdiotProof Multi-Stage Strategy Bot
+// Powered by IBKR API
 // ================================================================
 //
 // Define your strategies using the fluent API:
@@ -14162,6 +15089,7 @@ LINES: 723
 //
 // ================================================================
 
+using System.Runtime.InteropServices;
 using System.Text;
 using IBApi;
 using IdiotProof.Enums;
@@ -14191,35 +15119,62 @@ namespace IdiotProof
 
         private static void Run()
         {
+
+            var qty = 500;
+
             // ================================================================
             // STRATEGIES - Define your multi-step strategies here
             // ================================================================
             var strategies = new List<TradingStrategy>
             {
 
-                // ----- VIVS (Premarket) -----
+                // ----- VIVS (Momentum.) -----
                 Stock
                     .Ticker("VIVS")
                     .SessionDuration(TradingSession.PreMarketEndEarly)
                     .PriceAbove(2.40)                                       // Step 1: Price >= 2.40
                     .AboveVwap()                                            // Step 2: Price >= VWAP
-                    .Buy(quantity: 500, Price.Current)                      // Step 3: Buy 500 @ Current Price
+                    .Buy(quantity: qty, Price.Current)                      // Step 3: Buy @ Current Price
                     .TakeProfit(4.00, 4.80)                                 // Step 4: ADX-based TakeProfit: 4.00 (weak) to 4.80 (strong)
                     .TrailingStopLoss(Percent.TwentyFive)                   // 25% trailing stop loss
                     .ClosePosition(MarketTime.PreMarket.Ending, false),     // Step 5: Close Position @ 9:15 AM ET
 
-
-                // ----- CATX (Premarket) -----
+                // ----- CATX (Momentum.) -----
                 Stock
                     .Ticker("CATX")
                     .SessionDuration(TradingSession.PreMarketEndEarly)
                     .PriceAbove(4.00)                                       // Step 1: Price >= 4.00
                     .AboveVwap()                                            // Step 2: Price >= VWAP
-                    .Buy(quantity: 500, Price.Current)                      // Step 3: Buy 500 @ Current Price
+                    .Buy(quantity: qty, Price.Current)                      // Step 3: Buy @ Current Price
                     .TakeProfit(5.30, 6.16)                                 // Step 4: ADX-based TakeProfit: 5.30 (weak) to 6.16 (strong)
                     .TrailingStopLoss(Percent.TwentyFive)                   // 25% trailing stop loss
                     .ClosePosition(MarketTime.PreMarket.Ending, false),     // Step 5: Close Position @ 9:15 AM ET
 
+                // ----- VIVS EMA Pullback Strategy -----
+                // Current: $4.29 | VWAP: $3.57 | EMA 9/12/55: $4.17/$4.13/$4.08
+                // Entry on pullback to EMA zone while holding above VWAP
+                Stock
+                    .Ticker("VIVS")
+                    .SessionDuration(TradingSession.PreMarketEndEarly)
+                    .Pullback(4.15)                                         // Step 1: Pullback to EMA 12 zone ($4.13)
+                    .AboveVwap()                                            // Step 2: Still above VWAP ($3.57)
+                    .Buy(quantity: qty, Price.Current)                      // Step 3: Buy @ Current Price
+                    .TakeProfit(4.80, 5.30)                                 // Step 4: Target $4.80 to $5.30 on bounce
+                    .StopLoss(3.95)                                         // Stop below EMA 55 with buffer
+                    .ClosePosition(MarketTime.PreMarket.Ending, false),
+
+                // ----- CATX EMA Support Strategy -----
+                // Current: $4.34 | Support: EMA 200 at $4.32 | Consolidation range
+                // Entry on bounce from EMA support zone (risky - below VWAP)
+                Stock
+                    .Ticker("CATX")
+                    .SessionDuration(TradingSession.PreMarketEndEarly)
+                    .Pullback(4.33)                                         // Step 1: Pullback to EMA 55/200 zone ($4.32-$4.33)
+                    .PriceAbove(4.30)                                       // Step 2: Hold above $4.30 support
+                    .Buy(quantity: qty, Price.Current)                      // Step 3: Buy @ Current Price
+                    .TakeProfit(4.50, 4.75)                                 // Step 4: Target $4.50 to near VWAP ($4.77)
+                    .StopLoss(4.25)                                         // Tight stop below EMA 200
+                    .ClosePosition(MarketTime.PreMarket.Ending, false),
             };
 
             if (!IsValid())
@@ -14235,7 +15190,7 @@ namespace IdiotProof
 
             Console.ForegroundColor = ConsoleColor.Yellow;
             Console.WriteLine("===============================================================");
-            Console.WriteLine("                    IdiotProof Strategy Bot                    ");
+            Console.WriteLine("              IdiotProof Multi-Stage Strategy Bot              ");
             Console.WriteLine("===============================================================");
             Console.WriteLine();
             Console.ResetColor();
@@ -14689,14 +15644,28 @@ namespace IdiotProof
             }
         }
 
-        // Console output capture for crash dumps
+        // P/Invoke for console close handler (Windows only)
+        [DllImport("Kernel32")]
+        private static extern bool SetConsoleCtrlHandler(ConsoleCtrlHandler handler, bool add);
+        private delegate bool ConsoleCtrlHandler(int ctrlType);
+        private static ConsoleCtrlHandler? _consoleCtrlHandler;
+
+        // Control signal types
+        private const int CTRL_C_EVENT = 0;
+        private const int CTRL_BREAK_EVENT = 1;
+        private const int CTRL_CLOSE_EVENT = 2;
+        private const int CTRL_LOGOFF_EVENT = 5;
+        private const int CTRL_SHUTDOWN_EVENT = 6;
+
+        // Console output capture for crash dumps and session logs
         private static readonly StringBuilder _consoleLog = new();
         private static readonly object _logLock = new();
         private const int MaxConsoleLogSize = 15 * 1024 * 1024; // 15 MB max buffer
         private const int TrimToSize = 10 * 1024 * 1024;        // Trim to 10 MB when exceeded
+        private const string LogsFolder = "logs";
 
         /// <summary>
-        /// Sets up crash handling and console output capture.
+        /// Sets up crash handling, console close handling, and console output capture.
         /// </summary>
         private static void SetupCrashHandler()
         {
@@ -14717,17 +15686,109 @@ namespace IdiotProof
                 WriteCrashDump(e.Exception, "UnobservedTaskException");
                 e.SetObserved();
             };
+
+            // Handle process exit (normal termination)
+            AppDomain.CurrentDomain.ProcessExit += (sender, e) =>
+            {
+                WriteSessionLog("ProcessExit");
+            };
+
+            // Handle console close button (X), Ctrl+C, logoff, shutdown (Windows only)
+            if (OperatingSystem.IsWindows())
+            {
+                _consoleCtrlHandler = new ConsoleCtrlHandler(OnConsoleCtrlEvent);
+                SetConsoleCtrlHandler(_consoleCtrlHandler, true);
+            }
+
+            // Handle Ctrl+C via .NET (cross-platform)
+            Console.CancelKeyPress += (sender, e) =>
+            {
+                WriteSessionLog("Ctrl+C");
+                // Don't cancel - let the app terminate
+            };
         }
 
         /// <summary>
-        /// Writes crash dump to a timestamped file.
+        /// Handles Windows console control events (close button, Ctrl+C, logoff, shutdown).
+        /// </summary>
+        private static bool OnConsoleCtrlEvent(int ctrlType)
+        {
+            var source = ctrlType switch
+            {
+                CTRL_C_EVENT => "Ctrl+C",
+                CTRL_BREAK_EVENT => "Ctrl+Break",
+                CTRL_CLOSE_EVENT => "Console Close (X button)",
+                CTRL_LOGOFF_EVENT => "User Logoff",
+                CTRL_SHUTDOWN_EVENT => "System Shutdown",
+                _ => $"Unknown ({ctrlType})"
+            };
+
+            WriteSessionLog(source);
+
+            // Return false to allow the default handler to terminate the process
+            // We have ~5 seconds to complete before Windows forcefully terminates
+            return false;
+        }
+
+        /// <summary>
+        /// Ensures the logs folder exists and returns the full path.
+        /// </summary>
+        private static string EnsureLogsFolder()
+        {
+            var logsPath = Path.Combine(AppContext.BaseDirectory, LogsFolder);
+            Directory.CreateDirectory(logsPath);
+            return logsPath;
+        }
+
+        /// <summary>
+        /// Writes session log to a timestamped file in the logs folder.
+        /// </summary>
+        private static void WriteSessionLog(string exitReason)
+        {
+            try
+            {
+                var logsPath = EnsureLogsFolder();
+                var timestamp = DateTime.Now.ToString("yyyy-MM-dd_HH-mm-ss");
+                var filename = Path.Combine(logsPath, $"session_{timestamp}.txt");
+
+                var sb = new StringBuilder();
+                sb.AppendLine("â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•");
+                sb.AppendLine("                    IDIOTPROOF SESSION LOG");
+                sb.AppendLine("â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•");
+                sb.AppendLine($"Session End: {DateTime.Now:yyyy-MM-dd hh:mm:ss tt}");
+                sb.AppendLine($"Exit Reason: {exitReason}");
+                sb.AppendLine();
+                sb.AppendLine("â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•");
+                sb.AppendLine("                         CONSOLE OUTPUT");
+                sb.AppendLine("â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•");
+
+                lock (_logLock)
+                {
+                    sb.Append(_consoleLog);
+                }
+
+                File.WriteAllText(filename, sb.ToString());
+
+                // Write to stderr (bypasses captured stdout)
+                Console.Error.WriteLine();
+                Console.Error.WriteLine($"Session log saved to: {filename}");
+            }
+            catch
+            {
+                // Fail gracefully - logging should never crash the app
+            }
+        }
+
+        /// <summary>
+        /// Writes crash dump to a timestamped file in the logs folder.
         /// </summary>
         private static void WriteCrashDump(Exception? exception, string source)
         {
             try
             {
+                var logsPath = EnsureLogsFolder();
                 var timestamp = DateTime.Now.ToString("yyyy-MM-dd_HH-mm-ss");
-                var filename = $"crash_{timestamp}.txt";
+                var filename = Path.Combine(logsPath, $"crash_{timestamp}.txt");
 
                 var sb = new StringBuilder();
                 sb.AppendLine("â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•");
@@ -14778,7 +15839,7 @@ namespace IdiotProof
 
                 // Also write to original console
                 Console.Error.WriteLine();
-                Console.Error.WriteLine($"*** CRASH DUMP SAVED TO: {Path.GetFullPath(filename)} ***");
+                Console.Error.WriteLine($"*** CRASH DUMP SAVED TO: {filename} ***");
             }
             catch
             {
@@ -16843,9 +17904,9 @@ namespace IdiotProof.Models
 PATH: Strategy/Strategy.cs
 TYPE: script
 EXT: .cs
-SHA256: 499223779175C42224105A9E43BCC7CC369310CCA3B75F6561D51557DCE5CA41
-BYTES: 14506
-LINES: 362
+SHA256: 980579B224475A5FD57DC639FE5F861A9D76B4D27ED469F6DFB0D50B2A115FA9
+BYTES: 14576
+LINES: 363
 <<<CONTENT START>>>
 // ============================================================================
 // Strategy - Container for multi-step trading strategy
@@ -17127,9 +18188,10 @@ namespace IdiotProof.Models
         {
             foreach (var condition in Conditions)
             {
-                // Check if the condition name contains a price (e.g., "Price > 2.40")
+                // Check if the condition name contains a price (e.g., "Price > 2.40", "Pullback <= 4.15")
                 var name = condition.Name;
-                if (name.Contains("Price >") || name.Contains("Price >=") || name.Contains("Breakout"))
+                if (name.Contains("Price >") || name.Contains("Price >=") || 
+                    name.Contains("Breakout") || name.Contains("Pullback"))
                 {
                     // Extract the number from the condition name
                     var parts = name.Split(' ');
@@ -17216,9 +18278,9 @@ namespace IdiotProof.Models
 PATH: Strategy/StrategyRunner.cs
 TYPE: script
 EXT: .cs
-SHA256: FF4BAD2F5A8E4C69F8F538CDD029D204C28D4974DE76139ECAC257783CDDAD9F
-BYTES: 41642
-LINES: 974
+SHA256: 8C20FD81FB15F0C89AFE87E83E3486BF63AE8CC4D47E210878915FC8B73BF338
+BYTES: 45914
+LINES: 1056
 <<<CONTENT START>>>
 // ============================================================================
 // Strategy Runner - Executes multi-step strategies
@@ -17361,11 +18423,13 @@ namespace IdiotProof.Models
                 : "Complete";
 
         /// <summary>
-        /// Logs a timestamped message to the console.
+        /// Logs a timestamped message to the console using Eastern Time (New York).
         /// </summary>
         private void Log(string message, ConsoleColor? color = null)
         {
-            var timestamp = DateTime.Now.ToString("hh:mm:ss tt");
+            var easternZone = TimeZoneInfo.FindSystemTimeZoneById("Eastern Standard Time");
+            var easternTime = TimeZoneInfo.ConvertTime(DateTime.Now, easternZone);
+            var timestamp = easternTime.ToString("hh:mm:ss tt");
             if (color.HasValue)
             {
                 Console.ForegroundColor = color.Value;
@@ -17471,8 +18535,8 @@ namespace IdiotProof.Models
                 // Check if current price dropped below trailing stop
                 if (_trailingStopLossPrice > 0 && currentPrice <= _trailingStopLossPrice)
                 {
-                    Log($"*** TRAILING STOP TRIGGERED! Price ${currentPrice:F2} <= Stop ${_trailingStopLossPrice:F2}", ConsoleColor.Red);
-                    ExecuteTrailingStopLoss();
+                    Log($"*** TRAILING STOP TRIGGERED! Price ${currentPrice:F2} <= Stop ${_trailingStopLossPrice:F2} (Contributed by Yun-Kyoung Oh)", ConsoleColor.Red);
+                    ExecuteTrailingStopLoss(); 
                 }
             }
             else
@@ -17528,11 +18592,19 @@ namespace IdiotProof.Models
             else
             {
                 // Use limit order outside RTH for safer execution (low liquidity)
+                // Set limit price slightly below current price to ensure fill
+                // (price may have already dropped below stop level by the time order is submitted)
+                bool isLong = order.Side == OrderSide.Buy;
+                double offset = 0.02; // 2 cents buffer for slippage
+                double limitPrice = isLong
+                    ? Math.Round(Math.Min(_lastPrice, _trailingStopLossPrice) - offset, 2)  // Selling: slightly below current/stop
+                    : Math.Round(Math.Max(_lastPrice, _trailingStopLossPrice) + offset, 2); // Covering short: slightly above
+
                 stopOrder = new Order
                 {
                     Action = action,
                     OrderType = "LMT",
-                    LmtPrice = _trailingStopLossPrice,
+                    LmtPrice = limitPrice,
                     TotalQuantity = order.Quantity,
                     OutsideRth = true,
                     Tif = "GTC"
@@ -17546,9 +18618,9 @@ namespace IdiotProof.Models
             }
 
             var sessionStr = isRTH ? "RTH" : "Extended";
-            var orderTypeStr = isRTH ? "MKT" : $"LMT @ ${_trailingStopLossPrice:F2}";
+            var orderTypeStr = isRTH ? "MKT" : $"LMT @ ${stopOrder.LmtPrice:F2}";
             Log($">> SUBMITTING TRAILING STOP LOSS {action} {order.Quantity} @ {orderTypeStr} ({sessionStr})", ConsoleColor.Red);
-            Log($"  OrderId={_trailingStopLossOrderId} | Triggered at ${_lastPrice:F2}", ConsoleColor.DarkGray);
+            Log($"  OrderId={_trailingStopLossOrderId} | Triggered at ${_lastPrice:F2} | Stop Level: ${_trailingStopLossPrice:F2}", ConsoleColor.DarkGray);
 
             _client.placeOrder(_trailingStopLossOrderId, _contract, stopOrder);
         }
@@ -17605,6 +18677,65 @@ namespace IdiotProof.Models
             return _vSum > 0 ? _pvSum / _vSum : 0;
         }
 
+        /// <summary>
+        /// Validates that the current price is not already above the take profit target.
+        /// This prevents buying when we've "missed the boat" - the price has already run up
+        /// past where we would have taken profits.
+        /// </summary>
+        /// <param name="currentPrice">The current market price.</param>
+        /// <returns>True if safe to proceed with buy, false if price is too high.</returns>
+        private bool ValidatePriceNotAboveTakeProfit(double currentPrice)
+        {
+            var order = _strategy.Order;
+
+            // Only validate for BUY orders with take profit enabled
+            if (order.Side != OrderSide.Buy || !order.EnableTakeProfit)
+                return true;
+
+            double? takeProfitThreshold = null;
+
+            // Check ADX-based take profit (use conservative/weak target as threshold)
+            if (order.AdxTakeProfit != null)
+            {
+                takeProfitThreshold = order.AdxTakeProfit.ConservativeTarget;
+            }
+            // Check fixed take profit price
+            else if (order.TakeProfitPrice.HasValue)
+            {
+                takeProfitThreshold = order.TakeProfitPrice.Value;
+            }
+
+            // If we have a threshold and current price is at or above it, reject the trade
+            if (takeProfitThreshold.HasValue && currentPrice >= takeProfitThreshold.Value)
+            {
+                Log($"*** MISSED THE BOAT! Price ${currentPrice:F2} >= Take Profit ${takeProfitThreshold.Value:F2}", ConsoleColor.Red);
+                Log($"  Skipping entry - no profit potential at current price", ConsoleColor.Red);
+                Log($"  Strategy will reset tomorrow and try again", ConsoleColor.Yellow);
+
+                // Mark strategy as complete for today (will reset tomorrow)
+                _isComplete = true;
+                _result = StrategyResult.MissedTheBoat;
+
+                PrintFinalResult();
+                return false;
+            }
+
+            // Additional check: warn if price is close to take profit (within 5%)
+            if (takeProfitThreshold.HasValue)
+            {
+                double potentialProfit = takeProfitThreshold.Value - currentPrice;
+                double percentToTarget = (potentialProfit / currentPrice) * 100;
+
+                if (percentToTarget < 5.0 && percentToTarget > 0)
+                {
+                    Log($"WARNING: Only {percentToTarget:F1}% potential profit to take profit target", ConsoleColor.Yellow);
+                    Log($"  Current: ${currentPrice:F2} | Target: ${takeProfitThreshold.Value:F2} | Upside: ${potentialProfit:F2}", ConsoleColor.Yellow);
+                }
+            }
+
+            return true;
+        }
+
         private void EvaluateConditions(double price, double vwap)
         {
             if (_currentConditionIndex >= _strategy.Conditions.Count)
@@ -17659,6 +18790,13 @@ namespace IdiotProof.Models
                 if (_currentConditionIndex >= _strategy.Conditions.Count)
                 {
                     Log($"[OK] STEP {_currentConditionIndex}/{_strategy.Conditions.Count}: {condition.Name} - TRIGGERED @ ${price:F2}", ConsoleColor.Green);
+
+                    // Safety check: Don't buy if price is already above take profit target ("missed the boat")
+                    if (!ValidatePriceNotAboveTakeProfit(price))
+                    {
+                        return;
+                    }
+
                     Log($"*** ALL CONDITIONS MET - Executing order... (VWAP=${vwap:F2})", ConsoleColor.Cyan);
                     ExecuteOrder(vwap);
                 }
@@ -18174,6 +19312,12 @@ namespace IdiotProof.Models
                     Console.ForegroundColor = ConsoleColor.Gray;
                     Console.WriteLine($"[{timestamp}] |  [{_strategy.Symbol}] RESULT: NEVER BOUGHT");
                     Console.WriteLine($"[{timestamp}] |  Conditions not met - no position taken");
+                    break;
+
+                case StrategyResult.MissedTheBoat:
+                    Console.ForegroundColor = ConsoleColor.DarkYellow;
+                    Console.WriteLine($"[{timestamp}] |  [{_strategy.Symbol}] RESULT: MISSED THE BOAT");
+                    Console.WriteLine($"[{timestamp}] |  Price already at/above take profit target when conditions met. No position taken");
                     break;
 
                 case StrategyResult.EntryCancelled:
