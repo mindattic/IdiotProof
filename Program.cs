@@ -121,6 +121,7 @@ namespace IdiotProof
             if (!wrapper.WaitForNextValidId(TimeSpan.FromSeconds(Settings.CONNECTION_TIMEOUT_SECONDS)))
             {
                 Console.WriteLine("ERROR: Connection failed. Check TWS/Gateway.");
+                Shutdown(client, wrapper);
                 return;
             }
 
@@ -141,7 +142,41 @@ namespace IdiotProof
 
             // Display existing open orders from IBKR
             DisplayOpenOrders(wrapper);
+
+            // Display strategies for review
+            DisplayStrategies(enabledStrategies);
             Console.WriteLine();
+
+            // Trading is paused until user explicitly activates
+            bool isActive = false;
+
+            Console.WriteLine("================================================================");
+            Console.WriteLine("  PAUSED - Review strategies above before starting.             ");
+            Console.WriteLine("  Press CTRL+ALT+ENTER to activate trading.                     ");
+            Console.WriteLine("  Press CTRL+ALT+Q to quit.                                     ");
+            Console.WriteLine("================================================================");
+            Console.WriteLine();
+
+            // Wait for CTRL+ALT+ENTER to activate trading
+            while (!isActive)
+            {
+                var key = Console.ReadKey(intercept: true);
+                if (key.Modifiers == (ConsoleModifiers.Control | ConsoleModifiers.Alt))
+                {
+                    if (key.Key == ConsoleKey.Enter)
+                    {
+                        isActive = true;
+                        Console.ForegroundColor = ConsoleColor.Green;
+                        Console.WriteLine(">>> TRADING ACTIVATED <<<");
+                        Console.ResetColor();
+                    }
+                    else if (key.Key == ConsoleKey.Q)
+                    {
+                        Shutdown(client, wrapper);
+                        return;
+                    }
+                }
+            }
 
             // ================================================================
             // START STRATEGIES
@@ -175,17 +210,7 @@ namespace IdiotProof
             }
 
             // Display strategies with initial progress (step 0 = waiting on first condition)
-            var strategyWord = enabledStrategies.Count == 1 ? "strategy" : "strategies";
-            Console.WriteLine($"Loaded {enabledStrategies.Count} {strategyWord}:");
-            foreach (var runner in runners)
-            {
-                Console.WriteLine();
-                runner.Strategy.WriteProgress(runner.CurrentStep, runner.EntryFilled, runner.TakeProfitFilled, runner.LastPrice, runner.EntryFillPrice, runner.TakeProfitTarget);
-            }
-            Console.WriteLine();
-            Console.WriteLine("================================================================");
-            Console.WriteLine("       All strategies running. Press CTRL+ALT+Q to stop.        ");
-            Console.WriteLine("================================================================");
+            Console.WriteLine($"Running...");
             Console.WriteLine();
 
             // Wait for CTRL+ALT+Q to stop
@@ -201,31 +226,58 @@ namespace IdiotProof
             // ================================================================
             // CLEANUP
             // ================================================================
-            Console.WriteLine("Shutting down...");
-
-            foreach (int tickerId in tickerIds)
-            {
-                client.cancelMktData(tickerId);
-                wrapper.UnregisterTickerHandler(tickerId);
-            }
-
-            foreach (var runner in runners)
-            {
-                runner.Dispose();
-            }
-
-            client.eDisconnect();
-
-            // Dispose wrapper to release ManualResetEventSlim and clear event handlers
-            wrapper.Dispose();
-
-            Console.WriteLine("Disconnected. Goodbye!");
+            Shutdown(client, wrapper, tickerIds, runners);
         }
 
         private static bool IsValid()
         {
             //TODO: Add exhausive error handling/logging here to verify strategies are valid before starting...
             return true;
+        }
+
+        /// <summary>
+        /// Performs graceful shutdown of all resources.
+        /// </summary>
+        private static void Shutdown(EClientSocket client, IbWrapper wrapper, List<int>? tickerIds = null, List<StrategyRunner>? runners = null)
+        {
+            Console.WriteLine("Shutting down...");
+
+            if (tickerIds != null)
+            {
+                foreach (int tickerId in tickerIds)
+                {
+                    client.cancelMktData(tickerId);
+                    wrapper.UnregisterTickerHandler(tickerId);
+                }
+            }
+
+            if (runners != null)
+            {
+                foreach (var runner in runners)
+                {
+                    runner.Dispose();
+                }
+            }
+
+            client.eDisconnect();
+            wrapper.Dispose();
+
+            Console.WriteLine("Disconnected. Goodbye!");
+        }
+
+        /// <summary>
+        /// Displays enabled strategies for review before trading starts.
+        /// </summary>
+        private static void DisplayStrategies(List<TradingStrategy> strategies)
+        {
+            var strategyWord = strategies.Count == 1 ? "strategy" : "strategies";
+            Console.WriteLine($"Loaded {strategies.Count} {strategyWord} for review:");
+
+            foreach (var strategy in strategies)
+            {
+                Console.WriteLine();
+                strategy.WriteProgress(currentStep: 0);
+            }
         }
 
         /// <summary>
@@ -243,7 +295,9 @@ namespace IdiotProof
 
             if (orders.Count == 0)
             {
+                Console.ForegroundColor = ConsoleColor.Cyan;
                 Console.WriteLine("No existing open orders found.");
+                Console.WriteLine();
             }
             else
             {
@@ -277,13 +331,14 @@ namespace IdiotProof
             var info = TimezoneHelper.GetTimezoneDisplayInfo(Settings.Timezone);
             var currentTime = TimezoneHelper.GetCurrentTime(Settings.Timezone);
             var currentEastern = TimezoneHelper.GetCurrentTime(MarketTimeZone.EST);
+            var tz = info.Abbreviation;
 
-            Console.WriteLine($"Configured Timezone: {info.Abbreviation,-10} ({info.TimeZoneInfo.DisplayName})");
-            Console.WriteLine($"Current Time:        {currentTime:h:mm:ss tt} {info.Abbreviation} ({currentEastern:h:mm:ss tt} ET)");
-            Console.WriteLine($"Pre-Market:          {MarketTime.PreMarket.StartLocal:h:mm tt} - {MarketTime.PreMarket.EndLocal:h:mm tt} {info.Abbreviation}  ({MarketTime.PreMarket.Start:h:mm tt} - {MarketTime.PreMarket.End:h:mm tt} ET)");
-            Console.WriteLine($"Market Open:         {MarketTime.RTH.StartLocal:h:mm tt} {info.Abbreviation}                  ({MarketTime.RTH.Start:h:mm tt} ET)");
-            Console.WriteLine($"Market Close:        {MarketTime.RTH.EndLocal:h:mm tt} {info.Abbreviation}                  ({MarketTime.RTH.End:h:mm tt} ET)");
-            Console.WriteLine($"After-Hours:         {MarketTime.AfterHours.StartLocal:h:mm tt} - {MarketTime.AfterHours.EndLocal:h:mm tt} {info.Abbreviation}  ({MarketTime.AfterHours.Start:h:mm tt} - {MarketTime.AfterHours.End:h:mm tt} ET)");
+            Console.WriteLine($"{"Timezone:",-14} {tz} ({info.TimeZoneInfo.DisplayName})");
+            Console.WriteLine($"{"Current Time:",-14} {currentTime:h:mm:ss tt} {tz,-4} ({currentEastern:h:mm:ss tt} ET)");
+            Console.WriteLine($"{"Pre-Market:",-14} {MarketTime.PreMarket.StartLocal:h:mm tt} - {MarketTime.PreMarket.EndLocal:h:mm tt} {tz,-4} ({MarketTime.PreMarket.Start:h:mm tt} - {MarketTime.PreMarket.End:h:mm tt} ET)");
+            Console.WriteLine($"{"Market Open:",-14} {MarketTime.RTH.StartLocal:h:mm tt} {tz,-16} ({MarketTime.RTH.Start:h:mm tt} ET)");
+            Console.WriteLine($"{"Market Close:",-14} {MarketTime.RTH.EndLocal:h:mm tt} {tz,-16} ({MarketTime.RTH.End:h:mm tt} ET)");
+            Console.WriteLine($"{"After-Hours:",-14} {MarketTime.AfterHours.StartLocal:h:mm tt} - {MarketTime.AfterHours.EndLocal:h:mm tt} {tz,-4} ({MarketTime.AfterHours.Start:h:mm tt} - {MarketTime.AfterHours.End:h:mm tt} ET)");
 
             // Validation check - ensure market open correlates correctly
             var marketOpenLocal = MarketTime.RTH.StartLocal;
