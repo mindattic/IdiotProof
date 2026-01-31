@@ -199,7 +199,8 @@ namespace IdiotProof.Backend.Models
                 return null;
 
             // Start building the strategy
-            var builder = Stock.Ticker(definition.Symbol);
+            var builder = Stock.Ticker(definition.Symbol)
+                .Enabled(definition.Enabled);
 
             // Track if we've added an order (Buy/Sell/Close)
             StrategyBuilder? orderBuilder = null;
