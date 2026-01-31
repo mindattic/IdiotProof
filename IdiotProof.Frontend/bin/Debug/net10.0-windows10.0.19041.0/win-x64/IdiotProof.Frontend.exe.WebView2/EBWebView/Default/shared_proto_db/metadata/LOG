@@ -1,2 +1,3 @@
-2026/01/30-20:02:13.230 cb54 Creating DB D:\Projects\IdiotProof\IdiotProof.Frontend\bin\Debug\net10.0-windows10.0.19041.0\win-x64\IdiotProof.Frontend.exe.WebView2\EBWebView\Default\shared_proto_db\metadata since it was missing.
-2026/01/30-20:02:13.237 cb54 Reusing MANIFEST D:\Projects\IdiotProof\IdiotProof.Frontend\bin\Debug\net10.0-windows10.0.19041.0\win-x64\IdiotProof.Frontend.exe.WebView2\EBWebView\Default\shared_proto_db\metadata/MANIFEST-000001
+2026/01/30-20:06:15.080 7e84 Reusing MANIFEST D:\Projects\IdiotProof\IdiotProof.Frontend\bin\Debug\net10.0-windows10.0.19041.0\win-x64\IdiotProof.Frontend.exe.WebView2\EBWebView\Default\shared_proto_db\metadata/MANIFEST-000001
+2026/01/30-20:06:15.081 7e84 Recovering log #3
+2026/01/30-20:06:15.081 7e84 Reusing old log D:\Projects\IdiotProof\IdiotProof.Frontend\bin\Debug\net10.0-windows10.0.19041.0\win-x64\IdiotProof.Frontend.exe.WebView2\EBWebView\Default\shared_proto_db\metadata/000003.log 
