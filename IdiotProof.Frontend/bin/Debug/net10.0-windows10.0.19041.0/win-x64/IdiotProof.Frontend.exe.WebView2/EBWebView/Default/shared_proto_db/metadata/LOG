@@ -1,9 +1,0 @@
-<<<<<<< HEAD
-2026/01/30-22:53:44.999 e1b4 Reusing MANIFEST D:\Projects\IdiotProof\IdiotProof.Frontend\bin\Debug\net10.0-windows10.0.19041.0\win-x64\IdiotProof.Frontend.exe.WebView2\EBWebView\Default\shared_proto_db\metadata/MANIFEST-000001
-2026/01/30-22:53:44.999 e1b4 Recovering log #3
-2026/01/30-22:53:44.999 e1b4 Reusing old log D:\Projects\IdiotProof\IdiotProof.Frontend\bin\Debug\net10.0-windows10.0.19041.0\win-x64\IdiotProof.Frontend.exe.WebView2\EBWebView\Default\shared_proto_db\metadata/000003.log 
-=======
-2026/01/30-21:33:33.277 9cb8 Reusing MANIFEST D:\Projects\IdiotProof\IdiotProof.Frontend\bin\Debug\net10.0-windows10.0.19041.0\win-x64\IdiotProof.Frontend.exe.WebView2\EBWebView\Default\shared_proto_db\metadata/MANIFEST-000001
-2026/01/30-21:33:33.277 9cb8 Recovering log #3
-2026/01/30-21:33:33.277 9cb8 Reusing old log D:\Projects\IdiotProof\IdiotProof.Frontend\bin\Debug\net10.0-windows10.0.19041.0\win-x64\IdiotProof.Frontend.exe.WebView2\EBWebView\Default\shared_proto_db\metadata/000003.log 
->>>>>>> 065463dc8f09d801821523b852fc4026330ba847
