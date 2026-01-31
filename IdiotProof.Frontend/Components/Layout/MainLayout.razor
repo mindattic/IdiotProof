@@ -65,6 +65,8 @@ else
     private bool _connectionFailed;
     private string _statusMessage = "Establishing connection...";
     private bool _hasStartedConnection;
+    private CancellationTokenSource _cts = new();
+    private bool _disposed;
 
     protected override void OnInitialized()
     {
@@ -82,6 +84,8 @@ else
 
     private async Task ConnectAsync()
     {
+        if (_disposed) return;
+
         _connectionFailed = false;
         _statusMessage = "Connecting to backend...";
         await InvokeAsync(StateHasChanged);
@@ -91,6 +95,9 @@ else
         try
         {
             var connected = await BackendService.ConnectAsync();
+
+            if (_disposed) return;
+
             System.Diagnostics.Debug.WriteLine($"[MainLayout] ConnectAsync returned: {connected}");
 
             if (connected)
@@ -104,14 +111,24 @@ else
                 _statusMessage = "Connection failed. Is the backend running?";
             }
         }
+        catch (OperationCanceledException)
+        {
+            // Component was disposed during connection attempt
+            return;
+        }
         catch (Exception ex)
         {
+            if (_disposed) return;
+
             System.Diagnostics.Debug.WriteLine($"[MainLayout] ConnectAsync exception: {ex.Message}");
             _connectionFailed = true;
             _statusMessage = $"Error: {ex.Message}";
         }
 
-        await InvokeAsync(StateHasChanged);
+        if (!_disposed)
+        {
+            await InvokeAsync(StateHasChanged);
+        }
     }
 
     private async Task RetryConnection()
@@ -119,19 +136,28 @@ else
         await ConnectAsync();
     }
 
-    private void OnConnectionStatusChanged(object? sender, bool connected)
+    private async void OnConnectionStatusChanged(object? sender, bool connected)
     {
+        if (_disposed) return;
+
         _isConnected = connected;
         if (!connected)
         {
             _connectionFailed = true;
             _statusMessage = "Connection lost. Click to reconnect.";
         }
-        InvokeAsync(StateHasChanged);
+
+        await InvokeAsync(StateHasChanged);
     }
 
     public void Dispose()
     {
+        if (_disposed) return;
+        _disposed = true;
+
         BackendService.ConnectionStatusChanged -= OnConnectionStatusChanged;
+
+        _cts.Cancel();
+        _cts.Dispose();
     }
 }

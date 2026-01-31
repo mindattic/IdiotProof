@@ -57,6 +57,7 @@
     private bool WrapLines = false;
     private ElementReference ConsoleElement;
     private bool _shouldScroll = false;
+    private bool _disposed;
 
     protected override void OnInitialized()
     {
@@ -84,8 +85,10 @@
         }
     }
 
-    private void OnConsoleOutput(object? sender, ConsoleOutputMessage output)
+    private async void OnConsoleOutput(object? sender, ConsoleOutputMessage output)
     {
+        if (_disposed) return;
+
         // Split output into lines and add
         var lines = output.Text.Split('\n', StringSplitOptions.RemoveEmptyEntries);
         foreach (var line in lines)
@@ -102,7 +105,7 @@
         }
 
         _shouldScroll = AutoScroll;
-        InvokeAsync(StateHasChanged);
+        await InvokeAsync(StateHasChanged);
     }
 
     private void ClearConsole()
@@ -163,6 +166,7 @@
 
     public void Dispose()
     {
+        _disposed = true;
         BackendService.ConsoleOutputReceived -= OnConsoleOutput;
     }
 }

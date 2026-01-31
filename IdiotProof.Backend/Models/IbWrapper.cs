@@ -192,7 +192,7 @@ namespace IdiotProof.Backend.Models
         /// </summary>
         public void RequestOpenOrdersAndWait(TimeSpan timeout)
         {
-            var completedEvent = new ManualResetEventSlim(false);
+            using var completedEvent = new ManualResetEventSlim(false);
 
             void OnComplete() => completedEvent.Set();
             OnOpenOrdersEnd += OnComplete;
@@ -649,10 +649,14 @@ namespace IdiotProof.Backend.Models
             _tickerHandlers.Clear();
             _lastByTicker.Clear();
             _lastSizeByTicker.Clear();
+            _openOrders.Clear();
 
             // Clear event subscribers to prevent holding references
             OnLastTrade = null;
             OnOrderFill = null;
+            OnOrderStatus = null;
+            OnOpenOrder = null;
+            OnOpenOrdersEnd = null;
             OnConnectionLost = null;
             OnConnectionRestored = null;
 

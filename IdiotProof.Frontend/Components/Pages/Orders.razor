@@ -204,6 +204,7 @@
     private PositionInfo? ClosingPosition;
 
     private System.Timers.Timer? _refreshTimer;
+    private bool _disposed;
 
     // Filter to show only IdiotProof orders or all orders
     private List<OrderInfo> DisplayedOrdersList => ShowIdiotProofOnly 
@@ -239,7 +240,7 @@
 
     private async Task RefreshData()
     {
-        if (IsLoading)
+        if (IsLoading || _disposed)
             return;
 
         IsLoading = true;
@@ -260,21 +261,29 @@
         finally
         {
             IsLoading = false;
-            await InvokeAsync(StateHasChanged);
+            if (!_disposed)
+            {
+                await InvokeAsync(StateHasChanged);
+            }
         }
     }
 
     private void StartAutoRefresh()
     {
         _refreshTimer = new System.Timers.Timer(5000); // 5 seconds
-        _refreshTimer.Elapsed += async (s, e) =>
-        {
-            if (AutoRefresh && BackendService.IsConnected)
-            {
-                await RefreshData();
-            }
-        };
+        _refreshTimer.AutoReset = true;
+        _refreshTimer.Elapsed += OnRefreshTimerElapsed;
         _refreshTimer.Start();
+    }
+
+    private async void OnRefreshTimerElapsed(object? sender, System.Timers.ElapsedEventArgs e)
+    {
+        if (_disposed) return;
+
+        if (AutoRefresh && BackendService.IsConnected)
+        {
+            await RefreshData();
+        }
     }
 
     private void OnAutoRefreshChanged()
@@ -285,8 +294,10 @@
         }
     }
 
-    private void OnOrderUpdated(object? sender, OrderInfo order)
+    private async void OnOrderUpdated(object? sender, OrderInfo order)
     {
+        if (_disposed) return;
+
         // Update or add the order
         var existing = OrdersList.FirstOrDefault(o => o.OrderId == order.OrderId);
         if (existing != null)
@@ -299,13 +310,15 @@
             OrdersList.Insert(0, order);
         }
 
-        InvokeAsync(StateHasChanged);
+        await InvokeAsync(StateHasChanged);
     }
 
-    private void OnConnectionChanged(object? sender, bool connected)
+    private async void OnConnectionChanged(object? sender, bool connected)
     {
+        if (_disposed) return;
+
         StatusMessage = connected ? "Connected" : "Disconnected";
-        InvokeAsync(StateHasChanged);
+        await InvokeAsync(StateHasChanged);
     }
 
     private void CancelOrder(OrderInfo order)
@@ -366,7 +379,16 @@
 
     public void Dispose()
     {
-        _refreshTimer?.Dispose();
+        _disposed = true;
+
+        if (_refreshTimer != null)
+        {
+            _refreshTimer.Stop();
+            _refreshTimer.Elapsed -= OnRefreshTimerElapsed;
+            _refreshTimer.Dispose();
+            _refreshTimer = null;
+        }
+
         BackendService.OrderUpdated -= OnOrderUpdated;
         BackendService.ConnectionStatusChanged -= OnConnectionChanged;
     }

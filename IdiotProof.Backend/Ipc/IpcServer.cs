@@ -402,6 +402,22 @@ namespace IdiotProof.Backend.Ipc
 
             _acceptTask?.Wait(1000);
             _cts.Dispose();
+
+            // Clear handler references to prevent memory leaks
+            GetStatusHandler = null;
+            GetOrdersHandler = null;
+            GetIdiotProofOrdersHandler = null;
+            GetPositionsHandler = null;
+            CancelOrderHandler = null;
+            CancelAllOrdersHandler = null;
+            ClosePositionHandler = null;
+            ReloadStrategiesHandler = null;
+            ActivateStrategyHandler = null;
+            DeactivateStrategyHandler = null;
+            ActivateTradingHandler = null;
+            DeactivateTradingHandler = null;
+            ValidateStrategyHandler = null;
+            GetTradesHandler = null;
         }
 
         /// <summary>

@@ -111,12 +111,20 @@ namespace IdiotProof.Frontend.Services
             _reader?.Dispose();
             _writer?.Dispose();
             _pipe?.Dispose();
+            _listenerCts?.Dispose();
 
             _reader = null;
             _writer = null;
             _pipe = null;
             _listenerCts = null;
             _listenerTask = null;
+
+            // Clear pending requests to prevent memory buildup
+            foreach (var tcs in _pendingRequests.Values)
+            {
+                tcs.TrySetCanceled();
+            }
+            _pendingRequests.Clear();
 
             ConnectionStatusChanged?.Invoke(this, false);
         }
@@ -720,6 +728,13 @@ namespace IdiotProof.Frontend.Services
 
             _disposed = true;
             DisconnectAsync().Wait(1000);
+
+            // Clear event handlers to prevent memory leaks
+            ConnectionStatusChanged = null;
+            ConsoleOutputReceived = null;
+            OrderUpdated = null;
+            TradeUpdated = null;
+
             GC.SuppressFinalize(this);
         }
     }
