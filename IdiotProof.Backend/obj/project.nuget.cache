@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "dgSpecHash": "VWvSqjAJtho=",
+  "success": true,
+  "projectFilePath": "D:\\Projects\\IdiotProof\\IdiotProof.Backend\\IdiotProof.Backend.csproj",
+  "expectedPackageFiles": [
+    "C:\\Users\\ryand\\.nuget\\packages\\google.protobuf\\3.30.0\\google.protobuf.3.30.0.nupkg.sha512"
+  ],
+  "logs": []
+}

@@ -1,0 +1,197 @@
+@page "/settings"
+@using IdiotProof.Frontend.Services
+@inject IBackendService BackendService
+@inject IStrategyService StrategyService
+
+<div class="settings-page">
+    <h1 class="page-title mb-4">SETTINGS</h1>
+
+    <!-- IBKR Connection -->
+    <div class="settings-section">
+        <div class="settings-section-title">IBKR Connection</div>
+        
+        <div class="settings-row">
+            <label class="settings-label">Host:</label>
+            <input type="text" @bind="IbkrHost" />
+        </div>
+        
+        <div class="settings-row">
+            <label class="settings-label">Port:</label>
+            <input type="number" @bind="IbkrPort" />
+        </div>
+        
+        <div class="settings-row">
+            <label class="settings-label">Client ID:</label>
+            <input type="number" @bind="IbkrClientId" />
+        </div>
+        
+        <div class="settings-row">
+            <label class="settings-label">Paper Trading:</label>
+            <input type="checkbox" @bind="IsPaperTrading" />
+        </div>
+
+        <div class="settings-hint">
+            Port 7497 = TWS Paper, 7496 = TWS Live, 4002 = Gateway Paper, 4001 = Gateway Live
+        </div>
+
+        <div class="settings-actions">
+            <button class="btn btn-secondary" @onclick="TestConnection">Test Connection</button>
+            <button class="btn btn-primary" @onclick="SaveSettings">Save</button>
+            <button class="btn btn-secondary" @onclick="ResetSettings">Reset</button>
+        </div>
+    </div>
+
+    <!-- Backend Status -->
+    <div class="settings-section">
+        <div class="settings-section-title">Backend Status</div>
+        
+        <div class="settings-row">
+            <label class="settings-label">Running:</label>
+            <div class="flex items-center gap-2">
+                <span class="status-dot @(BackendStatus?.IsRunning == true ? "success" : "danger")"></span>
+                <span>@(BackendStatus?.IsRunning == true ? "Yes" : "No")</span>
+            </div>
+        </div>
+        
+        <div class="settings-row">
+            <label class="settings-label">IBKR Connected:</label>
+            <div class="flex items-center gap-2">
+                <span class="status-dot @(BackendStatus?.IsConnectedToIbkr == true ? "success" : "danger")"></span>
+                <span>@(BackendStatus?.IsConnectedToIbkr == true ? "Yes" : "No")</span>
+            </div>
+        </div>
+        
+        <div class="settings-row">
+            <label class="settings-label">Active Strategies:</label>
+            <span>@(BackendStatus?.ActiveStrategies ?? 0)</span>
+        </div>
+        
+        <div class="settings-row">
+            <label class="settings-label">Last Heartbeat:</label>
+            <span>@(BackendStatus?.LastHeartbeat?.ToString("g") ?? "N/A")</span>
+        </div>
+    </div>
+
+    <!-- Data Folders -->
+    <div class="settings-section">
+        <div class="settings-section-title">Data Folders</div>
+        
+        <div class="mb-2">
+            <label class="settings-label">Strategies Folder:</label>
+            <div class="text-muted" style="font-size: 12px; margin-top: 4px;">@StrategiesFolder</div>
+        </div>
+
+        <div class="settings-actions">
+            <button class="btn btn-secondary" @onclick="OpenStrategiesFolder">Open Strategies Folder</button>
+            <button class="btn btn-secondary" @onclick="OpenAppDataFolder">Open App Data</button>
+        </div>
+    </div>
+
+    <!-- About -->
+    <div class="settings-section">
+        <div class="settings-section-title">About</div>
+        <div>IdiotProof Strategy Builder</div>
+        <div class="text-muted">Version 1.0.0</div>
+        <div class="text-muted mt-2">A WYSIWYG interface for building IBKR trading strategies</div>
+    </div>
+
+    <div class="text-muted" style="text-align: center; margin-top: 24px;">@StatusMessage</div>
+</div>
+
+@code {
+    private string IbkrHost = "127.0.0.1";
+    private int IbkrPort = 7497;
+    private int IbkrClientId = 1;
+    private bool IsPaperTrading = true;
+    private string StrategiesFolder = "";
+    private string StatusMessage = "Ready";
+    private BackendStatus? BackendStatus;
+
+    protected override async Task OnInitializedAsync()
+    {
+        LoadSettings();
+        StrategiesFolder = StrategyService.StrategiesFolder;
+        await RefreshBackendStatus();
+    }
+
+    private void LoadSettings()
+    {
+        IbkrHost = Preferences.Get("IbkrHost", "127.0.0.1");
+        IbkrPort = Preferences.Get("IbkrPort", 7497);
+        IbkrClientId = Preferences.Get("IbkrClientId", 1);
+        IsPaperTrading = Preferences.Get("IsPaperTrading", true);
+    }
+
+    private void SaveSettings()
+    {
+        Preferences.Set("IbkrHost", IbkrHost);
+        Preferences.Set("IbkrPort", IbkrPort);
+        Preferences.Set("IbkrClientId", IbkrClientId);
+        Preferences.Set("IsPaperTrading", IsPaperTrading);
+        StatusMessage = "Settings saved";
+    }
+
+    private void ResetSettings()
+    {
+        IbkrHost = "127.0.0.1";
+        IbkrPort = 7497;
+        IbkrClientId = 1;
+        IsPaperTrading = true;
+        SaveSettings();
+        StatusMessage = "Settings reset to defaults";
+    }
+
+    private async Task TestConnection()
+    {
+        StatusMessage = "Testing connection...";
+        var connected = await BackendService.ConnectAsync();
+        
+        if (connected)
+        {
+            BackendStatus = await BackendService.GetStatusAsync();
+            StatusMessage = BackendStatus.IsConnectedToIbkr 
+                ? "✓ Connected to IBKR!" 
+                : "Backend running, not connected to IBKR";
+        }
+        else
+        {
+            StatusMessage = "✗ Could not connect to backend";
+        }
+    }
+
+    private async Task RefreshBackendStatus()
+    {
+        try
+        {
+            BackendStatus = await BackendService.GetStatusAsync();
+        }
+        catch { }
+    }
+
+    private async Task OpenStrategiesFolder()
+    {
+        try
+        {
+            await Launcher.OpenAsync(new Uri($"file://{StrategiesFolder}"));
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"Error: {ex.Message}";
+        }
+    }
+
+    private async Task OpenAppDataFolder()
+    {
+        try
+        {
+            var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+            var folder = Path.Combine(appData, "IdiotProof");
+            Directory.CreateDirectory(folder);
+            await Launcher.OpenAsync(new Uri($"file://{folder}"));
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"Error: {ex.Message}";
+        }
+    }
+}

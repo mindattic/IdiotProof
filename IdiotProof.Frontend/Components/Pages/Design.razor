@@ -1,0 +1,608 @@
+@page "/"
+@using IdiotProof.Frontend.Services
+@using IdiotProof.Shared.Enums
+@using IdiotProof.Shared.Models
+@using System.Web
+@inject IStrategyService StrategyService
+@inject NavigationManager Navigation
+
+<div class="design-page">
+    <!-- Header -->
+    <div class="design-header">
+        <div class="design-header-left">
+            <input type="text" @bind="CurrentStrategy.Name" placeholder="Strategy Name" class="strategy-name-input" />
+            <input type="date" @bind="SelectedDate" @bind:after="LoadStrategies" />
+        </div>
+        <div class="design-header-right">
+            <button class="btn btn-secondary" @onclick="NewStrategy">New</button>
+            <button class="btn btn-secondary" @onclick="ValidateStrategy">Validate</button>
+            <button class="btn btn-primary" @onclick="SaveStrategy">Save</button>
+        </div>
+    </div>
+
+    <!-- Left: Segment Toolbar -->
+    <div class="segment-toolbar">
+        <div class="toolbar-header">SEGMENTS</div>
+
+        <!-- Search/Filter Input -->
+        <div class="toolbar-search">
+            <input type="text" 
+                   @bind="SearchFilter" 
+                   @bind:event="oninput"
+                   placeholder="🔍 Search segments..." 
+                   class="search-input" />
+            @if (!string.IsNullOrEmpty(SearchFilter))
+            {
+                <button class="search-clear" @onclick="() => SearchFilter = string.Empty">✕</button>
+            }
+        </div>
+
+        <div class="toolbar-hint">Drag to canvas or click to add</div>
+
+        @foreach (var category in FilteredSegmentTemplates)
+        {
+            <div class="segment-category">
+                <div class="category-header" style="background-color: @SegmentFactory.GetCategoryColor(category.Key)">
+                    @SegmentFactory.GetCategoryDisplayName(category.Key)
+                </div>
+                @foreach (var segment in category.Value)
+                {
+                    <div class="segment-item @(IsSegmentHighlighted(segment) ? "highlighted" : "")"
+                         draggable="true"
+                         @ondragstart="() => OnDragStart(segment)"
+                         @ondragend="OnDragEnd"
+                         @onclick="() => AddSegmentToCanvas(segment)">
+                        <div class="segment-name">@segment.DisplayName</div>
+                        <div class="segment-desc">@segment.Description</div>
+                    </div>
+                }
+            </div>
+        }
+
+        @if (!FilteredSegmentTemplates.Any())
+        {
+            <div class="no-results">No segments match "@SearchFilter"</div>
+        }
+    </div>
+
+    <!-- Center: Canvas -->
+    <div class="canvas-container">
+        <div class="canvas-header">
+            <span class="canvas-title">STRATEGY CANVAS</span>
+            @if (!string.IsNullOrEmpty(CurrentStrategy.Symbol))
+            {
+                <span class="canvas-symbol">Symbol: @CurrentStrategy.Symbol</span>
+            }
+        </div>
+
+        <div class="canvas @(IsDragOver ? "drag-over" : "")"
+             @ondragover="OnDragOver"
+             @ondragover:preventDefault
+             @ondragleave="OnDragLeave"
+             @ondrop="OnDrop"
+             @ondrop:preventDefault>
+            
+            @if (CanvasSegments.Count == 0)
+            {
+                <div class="canvas-empty">
+                    Drag segments here or click from the left panel to build your strategy
+                </div>
+            }
+            else
+            {
+                @for (int i = 0; i < CanvasSegments.Count; i++)
+                {
+                    var segment = CanvasSegments[i];
+                    var index = i;
+                    <div class="canvas-segment @(SelectedSegment?.Id == segment.Id ? "selected" : "") @(DragOverIndex == index ? "drag-over" : "")"
+                         draggable="true"
+                         @onclick="() => SelectSegment(segment)"
+                         @ondragstart="() => OnCanvasDragStart(index)"
+                         @ondragover="() => OnCanvasDragOver(index)"
+                         @ondragover:preventDefault
+                         @ondrop="() => OnCanvasDrop(index)"
+                         @ondrop:preventDefault>
+                        <div class="segment-order" style="background-color: @segment.Color">@i</div>
+                        <div class="segment-info">
+                            <div class="segment-info-name">@segment.DisplayName</div>
+                            <div class="segment-info-code">@segment.ToFluentCode()</div>
+                        </div>
+                        <div class="segment-actions">
+                            <button class="segment-action-btn" @onclick:stopPropagation="true" @onclick="() => MoveUp(index)" disabled="@(index == 0)">▲</button>
+                            <button class="segment-action-btn" @onclick:stopPropagation="true" @onclick="() => MoveDown(index)" disabled="@(index == CanvasSegments.Count - 1)">▼</button>
+                            <button class="segment-action-btn danger" @onclick:stopPropagation="true" @onclick="() => RemoveSegment(index)">✕</button>
+                        </div>
+                    </div>
+                }
+            }
+        </div>
+
+        <!-- Code Preview -->
+        <div class="code-preview">
+            <div class="code-preview-header">
+                <span class="code-preview-title">GENERATED CODE</span>
+                <button class="btn btn-secondary btn-sm" @onclick="CopyCode">📋 Copy</button>
+            </div>
+            <div class="code-preview-content">@GeneratedCode</div>
+        </div>
+    </div>
+
+    <!-- Right: Parameter Editor -->
+    <div class="parameter-panel">
+        <div class="panel-section">
+            <div class="panel-title">PARAMETERS</div>
+            
+            @if (SelectedSegment == null)
+            {
+                <div class="panel-hint">Select a segment to edit its parameters</div>
+            }
+            else
+            {
+                <div class="selected-segment-header" style="background-color: @SelectedSegment.Color">
+                    <div class="selected-segment-name">@SelectedSegment.DisplayName</div>
+                </div>
+                <div class="selected-segment-desc">@SelectedSegment.Description</div>
+
+                @foreach (var param in SelectedSegment.Parameters)
+                {
+                    <div class="parameter-item">
+                        <div class="parameter-label">@param.Label @(param.IsRequired ? "*" : "")</div>
+                        @if (!string.IsNullOrEmpty(param.HelpText))
+                        {
+                            <div class="parameter-help">@param.HelpText</div>
+                        }
+
+                        @switch (param.Type)
+                        {
+                            case ParameterType.String:
+                                <input type="text" 
+                                       value="@param.Value?.ToString()" 
+                                       placeholder="@param.Placeholder"
+                                       @onchange="e => UpdateParameter(param, e.Value)" />
+                                break;
+
+                            case ParameterType.Integer:
+                                <input type="number" 
+                                       value="@param.Value?.ToString()" 
+                                       min="@param.MinValue" 
+                                       max="@param.MaxValue"
+                                       step="1"
+                                       @onchange="e => UpdateParameter(param, int.TryParse(e.Value?.ToString(), out var i) ? i : 0)" />
+                                break;
+
+                            case ParameterType.Double:
+                            case ParameterType.Price:
+                                <input type="number" 
+                                       value="@param.Value?.ToString()" 
+                                       min="@param.MinValue" 
+                                       max="@param.MaxValue"
+                                       step="@(param.Step ?? 0.01)"
+                                       @onchange="e => UpdateParameter(param, double.TryParse(e.Value?.ToString(), out var d) ? d : 0)" />
+                                break;
+
+                            case ParameterType.Boolean:
+                                <input type="checkbox" 
+                                       checked="@(param.Value is bool b && b)"
+                                       @onchange="e => UpdateParameter(param, e.Value)" />
+                                break;
+
+                            case ParameterType.Enum:
+                                <select value="@param.Value?.ToString()" @onchange="e => UpdateParameter(param, e.Value)">
+                                    <option value="">Select...</option>
+                                    @if (param.Options != null)
+                                    {
+                                        @foreach (var option in param.Options)
+                                        {
+                                            <option value="@option">@option</option>
+                                        }
+                                    }
+                                </select>
+                                break;
+
+                            case ParameterType.Percentage:
+                                <div class="input-with-unit">
+                                    <input type="range" 
+                                           value="@param.Value?.ToString()" 
+                                           min="@(param.MinValue ?? 0.01)" 
+                                           max="@(param.MaxValue ?? 0.50)"
+                                           step="0.01"
+                                           @onchange="e => UpdateParameter(param, double.TryParse(e.Value?.ToString(), out var d) ? d : 0)" />
+                                    <span class="input-unit">@(((param.Value as double?) ?? 0) * 100)%</span>
+                                </div>
+                                break;
+
+                            case ParameterType.Time:
+                                <input type="time" 
+                                       value="@FormatTimeValue(param.Value)"
+                                       @onchange="e => UpdateParameter(param, ParseTimeValue(e.Value?.ToString()))" />
+                                break;
+                        }
+                    </div>
+                }
+
+                <button class="btn btn-danger mt-4" style="width: 100%;" @onclick="RemoveSelectedSegment">
+                    Remove Segment
+                </button>
+            }
+        </div>
+
+        <!-- Today's Strategies -->
+        <div class="panel-section">
+            <div class="panel-title">TODAY'S STRATEGIES</div>
+            @foreach (var strategy in DayStrategies)
+            {
+                <div class="strategy-list-item" @onclick="() => EditStrategy(strategy)">
+                    <div class="strategy-list-info">
+                        <div class="strategy-list-name">@strategy.Name</div>
+                        <div class="strategy-list-symbol">@strategy.Symbol</div>
+                    </div>
+                    <div class="strategy-status @(strategy.Enabled ? "enabled" : "disabled")"></div>
+                </div>
+            }
+        </div>
+    </div>
+
+    <!-- Status Bar -->
+    <div class="status-bar">
+        <span class="status-message">@StatusMessage</span>
+        <span class="status-indicator">
+            Segments: @CanvasSegments.Count
+        </span>
+        @if (HasUnsavedChanges)
+        {
+            <span class="status-indicator">
+                <span class="status-dot warning"></span>
+                Unsaved changes
+            </span>
+        }
+    </div>
+</div>
+
+@code {
+    private Dictionary<SegmentCategory, List<StrategySegment>> SegmentTemplates = new();
+    private List<StrategySegment> CanvasSegments = new();
+    private List<StrategyDefinition> DayStrategies = new();
+    private StrategyDefinition CurrentStrategy = new() { Name = "New Strategy", Symbol = "" };
+    private StrategySegment? SelectedSegment;
+    private DateTime SelectedDate = DateTime.Today;
+    private string StatusMessage = "Ready";
+    private bool HasUnsavedChanges = false;
+    private string GeneratedCode = "";
+    private string _searchFilter = "";
+
+    // Search filter with filtered segments
+    private string SearchFilter
+    {
+        get => _searchFilter;
+        set
+        {
+            _searchFilter = value;
+            StateHasChanged();
+        }
+    }
+
+    // Filtered segments based on search
+    private Dictionary<SegmentCategory, List<StrategySegment>> FilteredSegmentTemplates
+    {
+        get
+        {
+            if (string.IsNullOrWhiteSpace(SearchFilter))
+                return SegmentTemplates;
+
+            var filter = SearchFilter.ToLowerInvariant();
+            var result = new Dictionary<SegmentCategory, List<StrategySegment>>();
+
+            foreach (var category in SegmentTemplates)
+            {
+                var filtered = category.Value
+                    .Where(s => s.DisplayName.Contains(filter, StringComparison.OrdinalIgnoreCase) ||
+                               (s.Description?.Contains(filter, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                               s.Type.ToString().Contains(filter, StringComparison.OrdinalIgnoreCase))
+                    .ToList();
+
+                if (filtered.Count > 0)
+                    result[category.Key] = filtered;
+            }
+
+            return result;
+        }
+    }
+
+    private bool IsSegmentHighlighted(StrategySegment segment)
+    {
+        if (string.IsNullOrWhiteSpace(SearchFilter))
+            return false;
+        return segment.DisplayName.Contains(SearchFilter, StringComparison.OrdinalIgnoreCase);
+    }
+
+    // Drag & Drop State
+    private StrategySegment? DraggedTemplateSegment;
+    private int? DraggedCanvasIndex;
+    private bool IsDragOver = false;
+    private int? DragOverIndex;
+
+    protected override async Task OnInitializedAsync()
+    {
+        SegmentTemplates = SegmentFactory.GetAllTemplates();
+        await LoadStrategies();
+
+        // Check for edit parameter in URL
+        var uri = new Uri(Navigation.Uri);
+        var query = HttpUtility.ParseQueryString(uri.Query);
+        var editId = query["edit"];
+        if (!string.IsNullOrEmpty(editId) && Guid.TryParse(editId, out var strategyId))
+        {
+            var strategyToEdit = DayStrategies.FirstOrDefault(s => s.Id == strategyId);
+            if (strategyToEdit != null)
+            {
+                EditStrategy(strategyToEdit);
+            }
+        }
+    }
+
+    private void EditStrategy(StrategyDefinition strategy)
+    {
+        CurrentStrategy = strategy;
+        CanvasSegments = strategy.Segments.ToList();
+        SelectedSegment = null;
+        HasUnsavedChanges = false;
+        UpdateGeneratedCode();
+        StatusMessage = $"Editing: {strategy.Name}";
+    }
+
+    private async Task LoadStrategies()
+    {
+        try
+        {
+            var collection = await StrategyService.GetCollectionAsync(DateOnly.FromDateTime(SelectedDate));
+            DayStrategies = collection.Strategies;
+            StatusMessage = $"Loaded {DayStrategies.Count} strategies for {SelectedDate:MMM dd, yyyy}";
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"Error: {ex.Message}";
+        }
+    }
+
+    private void NewStrategy()
+    {
+        CurrentStrategy = new StrategyDefinition { Name = "New Strategy", Symbol = "" };
+        CanvasSegments.Clear();
+        SelectedSegment = null;
+        HasUnsavedChanges = false;
+        GeneratedCode = "";
+        StatusMessage = "New strategy created";
+    }
+
+    private async Task SaveStrategy()
+    {
+        try
+        {
+            CurrentStrategy.Segments = CanvasSegments.ToList();
+            CurrentStrategy.ModifiedAt = DateTime.UtcNow;
+
+            var collection = await StrategyService.GetCollectionAsync(DateOnly.FromDateTime(SelectedDate));
+            var existingIndex = collection.Strategies.FindIndex(s => s.Id == CurrentStrategy.Id);
+            
+            if (existingIndex >= 0)
+                collection.Strategies[existingIndex] = CurrentStrategy;
+            else
+                collection.Strategies.Add(CurrentStrategy);
+
+            await StrategyService.SaveCollectionAsync(collection);
+            await LoadStrategies();
+            
+            HasUnsavedChanges = false;
+            StatusMessage = $"Saved: {CurrentStrategy.Name}";
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"Error saving: {ex.Message}";
+        }
+    }
+
+    private void ValidateStrategy()
+    {
+        CurrentStrategy.Segments = CanvasSegments.ToList();
+        var result = CurrentStrategy.Validate();
+        StatusMessage = result.IsValid 
+            ? "✓ Strategy is valid!" 
+            : $"✗ Errors: {string.Join(", ", result.Errors)}";
+    }
+
+    private async Task CopyCode()
+    {
+        if (!string.IsNullOrEmpty(GeneratedCode))
+        {
+            await Clipboard.SetTextAsync(GeneratedCode);
+            StatusMessage = "Code copied to clipboard!";
+        }
+    }
+
+    // Drag from Toolbar
+    private void OnDragStart(StrategySegment template)
+    {
+        DraggedTemplateSegment = template;
+        DraggedCanvasIndex = null;
+    }
+
+    private void OnDragEnd()
+    {
+        DraggedTemplateSegment = null;
+        DraggedCanvasIndex = null;
+        IsDragOver = false;
+        DragOverIndex = null;
+    }
+
+    private void OnDragOver()
+    {
+        IsDragOver = true;
+    }
+
+    private void OnDragLeave()
+    {
+        IsDragOver = false;
+    }
+
+    private void OnDrop()
+    {
+        if (DraggedTemplateSegment != null)
+        {
+            AddSegmentToCanvas(DraggedTemplateSegment);
+        }
+        OnDragEnd();
+    }
+
+    // Drag within Canvas (reorder)
+    private void OnCanvasDragStart(int index)
+    {
+        DraggedCanvasIndex = index;
+        DraggedTemplateSegment = null;
+    }
+
+    private void OnCanvasDragOver(int index)
+    {
+        DragOverIndex = index;
+    }
+
+    private void OnCanvasDrop(int targetIndex)
+    {
+        if (DraggedTemplateSegment != null)
+        {
+            // Dropping from toolbar at specific position
+            var segment = DraggedTemplateSegment.Clone();
+            segment.Order = targetIndex;
+            CanvasSegments.Insert(targetIndex, segment);
+            UpdateSegmentOrders();
+            SelectedSegment = segment;
+            UpdateSymbolFromSegment(segment);
+            HasUnsavedChanges = true;
+            UpdateGeneratedCode();
+        }
+        else if (DraggedCanvasIndex.HasValue && DraggedCanvasIndex.Value != targetIndex)
+        {
+            // Reordering within canvas
+            var segment = CanvasSegments[DraggedCanvasIndex.Value];
+            CanvasSegments.RemoveAt(DraggedCanvasIndex.Value);
+            CanvasSegments.Insert(targetIndex > DraggedCanvasIndex.Value ? targetIndex - 1 : targetIndex, segment);
+            UpdateSegmentOrders();
+            HasUnsavedChanges = true;
+            UpdateGeneratedCode();
+        }
+        OnDragEnd();
+    }
+
+    private void AddSegmentToCanvas(StrategySegment template)
+    {
+        var segment = template.Clone();
+        segment.Order = CanvasSegments.Count;
+        CanvasSegments.Add(segment);
+        SelectedSegment = segment;
+        UpdateSymbolFromSegment(segment);
+        HasUnsavedChanges = true;
+        UpdateGeneratedCode();
+        StatusMessage = $"Added: {segment.DisplayName}";
+    }
+
+    private void SelectSegment(StrategySegment segment)
+    {
+        SelectedSegment = segment;
+    }
+
+    private void RemoveSegment(int index)
+    {
+        if (SelectedSegment?.Id == CanvasSegments[index].Id)
+            SelectedSegment = null;
+        
+        CanvasSegments.RemoveAt(index);
+        UpdateSegmentOrders();
+        HasUnsavedChanges = true;
+        UpdateGeneratedCode();
+        StatusMessage = "Segment removed";
+    }
+
+    private void RemoveSelectedSegment()
+    {
+        if (SelectedSegment != null)
+        {
+            var index = CanvasSegments.FindIndex(s => s.Id == SelectedSegment.Id);
+            if (index >= 0)
+                RemoveSegment(index);
+        }
+    }
+
+    private void MoveUp(int index)
+    {
+        if (index > 0)
+        {
+            (CanvasSegments[index], CanvasSegments[index - 1]) = (CanvasSegments[index - 1], CanvasSegments[index]);
+            UpdateSegmentOrders();
+            HasUnsavedChanges = true;
+            UpdateGeneratedCode();
+        }
+    }
+
+    private void MoveDown(int index)
+    {
+        if (index < CanvasSegments.Count - 1)
+        {
+            (CanvasSegments[index], CanvasSegments[index + 1]) = (CanvasSegments[index + 1], CanvasSegments[index]);
+            UpdateSegmentOrders();
+            HasUnsavedChanges = true;
+            UpdateGeneratedCode();
+        }
+    }
+
+    private void UpdateParameter(SegmentParameter param, object? value)
+    {
+        param.Value = value;
+        UpdateSymbolFromSegment(SelectedSegment);
+        HasUnsavedChanges = true;
+        UpdateGeneratedCode();
+    }
+
+    private void UpdateSegmentOrders()
+    {
+        for (int i = 0; i < CanvasSegments.Count; i++)
+            CanvasSegments[i].Order = i;
+    }
+
+    private void UpdateSymbolFromSegment(StrategySegment? segment)
+    {
+        if (segment?.Type == SegmentType.Ticker)
+        {
+            var symbolParam = segment.Parameters.FirstOrDefault(p => p.Name == "symbol");
+            if (symbolParam?.Value is string symbol && !string.IsNullOrEmpty(symbol))
+                CurrentStrategy.Symbol = symbol;
+        }
+    }
+
+    private void UpdateGeneratedCode()
+    {
+        if (CanvasSegments.Count == 0)
+        {
+            GeneratedCode = "";
+            return;
+        }
+
+        CurrentStrategy.Segments = CanvasSegments.ToList();
+        GeneratedCode = CurrentStrategy.ToFluentCode();
+    }
+
+    // Time formatting helpers
+    private static string FormatTimeValue(object? value)
+    {
+        if (value is TimeOnly time)
+            return time.ToString("HH:mm");
+        if (value is string str && TimeOnly.TryParse(str, out var parsed))
+            return parsed.ToString("HH:mm");
+        return "09:20";
+    }
+
+    private static TimeOnly ParseTimeValue(string? value)
+    {
+        if (TimeOnly.TryParse(value, out var time))
+            return time;
+        return new TimeOnly(9, 20);
+    }
+}

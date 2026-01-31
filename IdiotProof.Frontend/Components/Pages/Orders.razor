@@ -1,0 +1,370 @@
+@page "/orders"
+@using IdiotProof.Frontend.Services
+@using IdiotProof.Shared.Models
+@inject IBackendService BackendService
+@implements IDisposable
+
+<div class="orders-page">
+    <div class="page-header">
+        <h1 class="page-title">ORDERS</h1>
+        <div class="page-header-actions">
+            <button class="btn btn-secondary" @onclick="RefreshData" disabled="@IsLoading">
+                @(IsLoading ? "Loading..." : "Refresh")
+            </button>
+            <label class="toggle-label">
+                <input type="checkbox" @bind="AutoRefresh" @bind:after="OnAutoRefreshChanged" />
+                Auto-refresh
+            </label>
+        </div>
+    </div>
+
+    <!-- Connection Status Banner -->
+    @if (!BackendService.IsConnected)
+    {
+        <div class="alert alert-warning">
+            <span>⚠️ Not connected to backend.</span>
+            <button class="btn btn-sm btn-primary ml-2" @onclick="ConnectToBackend">Connect</button>
+        </div>
+    }
+
+    <!-- Positions Section -->
+    @if (Positions.Count > 0)
+    {
+        <div class="section-header">
+            <h2>Open Positions</h2>
+        </div>
+        <div class="table-container">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Symbol</th>
+                        <th class="text-right">Qty</th>
+                        <th class="text-right">Avg Cost</th>
+                        <th class="text-right">Mkt Price</th>
+                        <th class="text-right">Mkt Value</th>
+                        <th class="text-right">Unrealized P&amp;L</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var pos in Positions)
+                    {
+                        var pnlClass = (pos.UnrealizedPnL ?? 0) >= 0 ? "text-success" : "text-danger";
+                        <tr>
+                            <td class="font-bold">@pos.Symbol</td>
+                            <td class="text-right">@pos.Quantity</td>
+                            <td class="text-right">@pos.AvgCost.ToString("C2")</td>
+                            <td class="text-right">@(pos.MarketPrice?.ToString("C2") ?? "-")</td>
+                            <td class="text-right">@(pos.MarketValue?.ToString("C2") ?? "-")</td>
+                            <td class="text-right @pnlClass">@(pos.UnrealizedPnL?.ToString("C2") ?? "-")</td>
+                            <td>
+                                <button class="btn btn-danger btn-sm" @onclick="() => ClosePosition(pos)" disabled="@IsClosingPosition">
+                                    Close
+                                </button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+
+    <!-- Orders Section -->
+    <div class="section-header">
+        <h2>Orders</h2>
+        <div class="order-filter-tabs">
+            <button class="filter-tab @(OrderFilter == "all" ? "active" : "")" @onclick='() => OrderFilter = "all"'>All (@OrdersList.Count)</button>
+            <button class="filter-tab @(OrderFilter == "open" ? "active" : "")" @onclick='() => OrderFilter = "open"'>Open (@OpenOrderCount)</button>
+            <button class="filter-tab @(OrderFilter == "filled" ? "active" : "")" @onclick='() => OrderFilter = "filled"'>Filled (@FilledOrderCount)</button>
+        </div>
+    </div>
+
+    @if (FilteredOrders.Count == 0)
+    {
+        <div class="empty-state">
+            <div class="empty-state-title">No orders</div>
+            <div class="empty-state-text">
+                @if (!BackendService.IsConnected)
+                {
+                    <span>Connect to the backend to see orders</span>
+                }
+                else
+                {
+                    <span>No orders match the current filter</span>
+                }
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="table-container">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Symbol</th>
+                        <th>Action</th>
+                        <th>Type</th>
+                        <th class="text-right">Qty</th>
+                        <th class="text-right">Filled</th>
+                        <th class="text-right">Limit</th>
+                        <th class="text-right">Avg Fill</th>
+                        <th>Status</th>
+                        <th>Strategy</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var order in FilteredOrders)
+                    {
+                        var statusClass = GetStatusClass(order.Status);
+                        <tr class="@(order.IsParentOrder ? "" : "child-order")">
+                            <td class="font-mono">@order.OrderId</td>
+                            <td class="font-bold">@order.Symbol</td>
+                            <td class="@(order.Action == "BUY" ? "text-success" : "text-danger")">@order.Action</td>
+                            <td>@order.OrderType</td>
+                            <td class="text-right">@order.Quantity</td>
+                            <td class="text-right">@order.Filled</td>
+                            <td class="text-right">@(order.LimitPrice?.ToString("C2") ?? "-")</td>
+                            <td class="text-right">@(order.AvgFillPrice?.ToString("C2") ?? "-")</td>
+                            <td><span class="status-badge @statusClass">@order.StatusText</span></td>
+                            <td class="text-muted">@(order.StrategyName ?? "-")</td>
+                            <td>
+                                @if (CanCancelOrder(order.Status))
+                                {
+                                    <button class="btn btn-danger btn-sm" @onclick="() => CancelOrder(order)" disabled="@IsCancellingOrder">
+                                        Cancel
+                                    </button>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+
+    <!-- Status Bar -->
+    <div class="status-bar">
+        <span class="status-message">@StatusMessage</span>
+        <div class="flex-1"></div>
+        <span class="status-indicator">
+            <span class="status-dot @(BackendService.IsConnected ? "success" : "danger")"></span>
+            Backend
+        </span>
+        <span class="status-indicator">Last updated: @LastUpdated.ToString("HH:mm:ss")</span>
+    </div>
+</div>
+
+<!-- Cancel Confirmation Modal -->
+@if (CancellingOrder != null)
+{
+    <div class="modal-overlay" @onclick="() => CancellingOrder = null">
+        <div class="modal-dialog" @onclick:stopPropagation="true">
+            <div class="modal-title">Cancel Order?</div>
+            <div class="modal-content">
+                Cancel order <strong>#@CancellingOrder.OrderId</strong> for @CancellingOrder.Symbol?
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" @onclick="() => CancellingOrder = null">No</button>
+                <button class="btn btn-danger" @onclick="ConfirmCancelOrder">Yes, Cancel</button>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- Close Position Confirmation Modal -->
+@if (ClosingPosition != null)
+{
+    <div class="modal-overlay" @onclick="() => ClosingPosition = null">
+        <div class="modal-dialog" @onclick:stopPropagation="true">
+            <div class="modal-title">Close Position?</div>
+            <div class="modal-content">
+                Close entire position in <strong>@ClosingPosition.Symbol</strong> (@ClosingPosition.Quantity shares)?
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" @onclick="() => ClosingPosition = null">No</button>
+                <button class="btn btn-danger" @onclick="ConfirmClosePosition">Yes, Close</button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<OrderInfo> OrdersList = [];
+    private List<PositionInfo> Positions = [];
+    private string OrderFilter = "all";
+    private string StatusMessage = "Ready";
+    private DateTime LastUpdated = DateTime.Now;
+    private bool IsLoading = false;
+    private bool AutoRefresh = true;
+    private bool IsCancellingOrder = false;
+    private bool IsClosingPosition = false;
+
+    private OrderInfo? CancellingOrder;
+    private PositionInfo? ClosingPosition;
+
+    private System.Timers.Timer? _refreshTimer;
+
+    private List<OrderInfo> FilteredOrders => OrderFilter switch
+    {
+        "open" => OrdersList.Where(o => CanCancelOrder(o.Status)).ToList(),
+        "filled" => OrdersList.Where(o => o.Status == OrderStatus.Filled).ToList(),
+        _ => OrdersList
+    };
+
+    private int OpenOrderCount => OrdersList.Count(o => CanCancelOrder(o.Status));
+    private int FilledOrderCount => OrdersList.Count(o => o.Status == OrderStatus.Filled);
+
+    protected override async Task OnInitializedAsync()
+    {
+        BackendService.OrderUpdated += OnOrderUpdated;
+        BackendService.ConnectionStatusChanged += OnConnectionChanged;
+
+        await ConnectToBackend();
+        await RefreshData();
+        StartAutoRefresh();
+    }
+
+    private async Task ConnectToBackend()
+    {
+        StatusMessage = "Connecting to backend...";
+        var connected = await BackendService.ConnectAsync();
+        StatusMessage = connected ? "Connected" : "Connection failed";
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task RefreshData()
+    {
+        if (IsLoading)
+            return;
+
+        IsLoading = true;
+        StatusMessage = "Refreshing...";
+        await InvokeAsync(StateHasChanged);
+
+        try
+        {
+            OrdersList = await BackendService.GetOrdersAsync();
+            Positions = await BackendService.GetPositionsAsync();
+            LastUpdated = DateTime.Now;
+            StatusMessage = $"Loaded {OrdersList.Count} orders, {Positions.Count} positions";
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"Error: {ex.Message}";
+        }
+        finally
+        {
+            IsLoading = false;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private void StartAutoRefresh()
+    {
+        _refreshTimer = new System.Timers.Timer(5000); // 5 seconds
+        _refreshTimer.Elapsed += async (s, e) =>
+        {
+            if (AutoRefresh && BackendService.IsConnected)
+            {
+                await RefreshData();
+            }
+        };
+        _refreshTimer.Start();
+    }
+
+    private void OnAutoRefreshChanged()
+    {
+        if (_refreshTimer != null)
+        {
+            _refreshTimer.Enabled = AutoRefresh;
+        }
+    }
+
+    private void OnOrderUpdated(object? sender, OrderInfo order)
+    {
+        // Update or add the order
+        var existing = OrdersList.FirstOrDefault(o => o.OrderId == order.OrderId);
+        if (existing != null)
+        {
+            var index = OrdersList.IndexOf(existing);
+            OrdersList[index] = order;
+        }
+        else
+        {
+            OrdersList.Insert(0, order);
+        }
+
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void OnConnectionChanged(object? sender, bool connected)
+    {
+        StatusMessage = connected ? "Connected" : "Disconnected";
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void CancelOrder(OrderInfo order)
+    {
+        CancellingOrder = order;
+    }
+
+    private async Task ConfirmCancelOrder()
+    {
+        if (CancellingOrder == null)
+            return;
+
+        IsCancellingOrder = true;
+        var orderId = CancellingOrder.OrderId;
+        CancellingOrder = null;
+
+        var result = await BackendService.CancelOrderAsync(orderId);
+        StatusMessage = result.Success ? $"Order #{orderId} cancelled" : $"Error: {result.ErrorMessage}";
+        
+        IsCancellingOrder = false;
+        await RefreshData();
+    }
+
+    private void ClosePosition(PositionInfo position)
+    {
+        ClosingPosition = position;
+    }
+
+    private async Task ConfirmClosePosition()
+    {
+        if (ClosingPosition == null)
+            return;
+
+        IsClosingPosition = true;
+        var symbol = ClosingPosition.Symbol;
+        ClosingPosition = null;
+
+        var result = await BackendService.ClosePositionAsync(symbol);
+        StatusMessage = result.Success ? $"Position in {symbol} closed" : $"Error: {result.ErrorMessage}";
+        
+        IsClosingPosition = false;
+        await RefreshData();
+    }
+
+    private bool CanCancelOrder(OrderStatus status)
+    {
+        return status is OrderStatus.Submitted or OrderStatus.PreSubmitted or OrderStatus.PendingSubmit;
+    }
+
+    private string GetStatusClass(OrderStatus status) => status switch
+    {
+        OrderStatus.Filled => "status-success",
+        OrderStatus.Submitted or OrderStatus.PreSubmitted => "status-pending",
+        OrderStatus.Cancelled or OrderStatus.ApiCancelled => "status-cancelled",
+        OrderStatus.Error => "status-error",
+        _ => ""
+    };
+
+    public void Dispose()
+    {
+        _refreshTimer?.Dispose();
+        BackendService.OrderUpdated -= OnOrderUpdated;
+        BackendService.ConnectionStatusChanged -= OnConnectionChanged;
+    }
+}

@@ -5,7 +5,9 @@ A fluent API framework for building multi-stage trading strategies with Interact
 ## Table of Contents
 
 - [Overview](#overview)
+- [Project Structure](#project-structure)
 - [Quick Start](#quick-start)
+- [MAUI Frontend (Strategy Builder)](#maui-frontend-strategy-builder)
 - [Running in Release Mode](#running-in-release-mode)
 - [Fluent API Reference](#fluent-api-reference)
   - [Strategy Builder Methods](#strategy-builder-methods)
@@ -35,6 +37,47 @@ IdiotProof provides a clean, readable fluent API for defining complex trading st
 - ATR-based volatility-adaptive stops
 - Time-based strategy windows
 - Pre-market, RTH, and after-hours support
+- **WYSIWYG Strategy Builder UI** (MAUI Frontend)
+
+---
+
+## Project Structure
+
+```
+IdiotProof/
+├── IdiotProof.csproj              # Main backend service (console app)
+├── IdiotProof.Frontend/           # MAUI Blazor Hybrid Strategy Builder UI
+│   ├── Components/
+│   │   ├── Layout/                # MainLayout with tab navigation
+│   │   └── Pages/                 # Design.razor, Strategies.razor, Settings.razor
+│   ├── Services/
+│   │   ├── IStrategyService.cs    # Strategy persistence interface
+│   │   ├── StrategyService.cs     # Individual JSON file management
+│   │   ├── IBackendService.cs     # Backend communication interface
+│   │   └── BackendService.cs      # Backend IPC (placeholder)
+│   ├── wwwroot/
+│   │   ├── css/app.css            # Dark theme styling
+│   │   └── index.html             # Blazor WebView host
+│   └── MainPage.xaml              # MAUI page hosting BlazorWebView
+├── IdiotProof.Shared/             # Shared models between frontend and backend
+│   ├── Models/
+│   │   ├── StrategyDefinition.cs  # Complete strategy container
+│   │   ├── StrategySegment.cs     # Single segment in a strategy chain
+│   │   ├── SegmentParameter.cs    # Parameter definition for a segment
+│   │   └── SegmentFactory.cs      # Creates segment templates
+│   ├── Enums/
+│   │   ├── SegmentType.cs         # Segment types (Breakout, Buy, etc.)
+│   │   └── StrategyEnums.cs       # Shared enums (Price, TradingSession, etc.)
+│   └── Services/
+│       └── StrategyJsonParser.cs  # JSON parsing utilities
+├── Helpers/
+│   └── StrategyLoader.cs          # Loads JSON → TradingStrategy for backend
+├── Strategy/
+│   ├── Stock.cs                   # Fluent builder entry point
+│   ├── Strategy.cs                # TradingStrategy container
+│   └── ...                        # Conditions, OrderAction, etc.
+└── IdiotProof.UnitTests/          # Unit tests
+```
 
 ---
 
@@ -56,6 +99,89 @@ var strategy = Stock
 // Or with percentage-based trailing stop:
 // .TrailingStopLoss(Percent.Ten)            // 10% trailing stop
 ```
+
+---
+
+## MAUI Frontend (Strategy Builder)
+
+The MAUI Frontend provides a WYSIWYG interface for building trading strategies without writing code.
+
+### Features
+
+- **Drag-and-Drop Segments**: Build strategies by dragging segments like "AboveVwap", "Buy", "TakeProfit" onto a canvas
+- **Dynamic Parameter Editing**: Each segment has configurable parameters (enums become dropdowns, booleans become checkboxes, etc.)
+- **Live Code Preview**: See the generated fluent API code in real-time
+- **Date-Based Collections**: Strategies are saved per-date as JSON files
+- **Validation**: Automatic validation ensures strategies are well-formed
+
+### Running the Frontend
+
+```bash
+cd IdiotProof.Frontend
+dotnet build
+dotnet run
+```
+
+### How It Works
+
+1. **Design Tab**: Create strategies by dragging segments from the toolbar onto the canvas
+   - Search/filter segments using the toolbar search box
+   - Click or drag segments to add them
+   - Reorder by dragging within the canvas or using ▲/▼ buttons
+   - Edit parameters in the right panel
+
+2. **Strategies Tab**: View, manage, and activate strategies
+   - Toggle strategies enabled/disabled
+   - Rename, clone, or delete strategies
+   - Edit a strategy in the Designer (double-click or Edit button)
+   - Start the backend with enabled strategies
+
+3. **Settings Tab**: Configure IBKR connection settings
+
+### JSON Strategy Files
+
+Each strategy is saved as an **individual JSON file** in date-based folders:
+```
+%AppData%\IdiotProof\Strategies\
+├── 2025-01-15/
+│   ├── VIVS_Breakout_Strategy.json
+│   ├── CATX_VWAP_Scalp.json
+│   └── ...
+├── 2025-01-16/
+│   └── ...
+```
+
+**Benefits of individual files:**
+- Easy to manually edit or review
+- Duplicate filenames get a-z suffix automatically
+- Windows-compliant naming (invalid characters replaced)
+- Git-friendly (can track individual strategy changes)
+
+### Loading JSON Strategies in Backend
+
+```csharp
+// In Program.cs, load strategies from JSON instead of hardcoding:
+var strategies = StrategyLoader.LoadFromJson();
+
+// Or hybrid approach:
+var strategies = new List<TradingStrategy>();
+strategies.AddRange(StrategyLoader.LoadFromJson());  // From UI
+strategies.Add(Stock.Ticker("AAPL")...);             // Hardcoded
+```
+
+### Segment Categories
+
+| Category | Segments |
+|----------|----------|
+| 📍 Start | Ticker |
+| ⏰ Session | SessionDuration |
+| 💰 Price Conditions | Breakout, Pullback, PriceAbove, PriceBelow |
+| 📊 VWAP Conditions | AboveVwap, BelowVwap |
+| 📈 Indicators | IsRsi, IsMacd, IsAdx, IsDI |
+| 🛒 Orders | Buy, Sell, Close |
+| 🛡️ Risk Management | TakeProfit, TakeProfitRange, StopLoss, TrailingStopLoss |
+| 📤 Position Management | ClosePosition |
+| ⚙️ Order Config | TimeInForce, OutsideRTH, AllOrNone |
 
 ---
 

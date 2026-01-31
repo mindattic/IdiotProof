@@ -1,0 +1,30 @@
+@inherits LayoutComponentBase
+
+<div class="app-container">
+    <nav class="tab-bar">
+        <NavLink class="tab-item" href="" Match="NavLinkMatch.All">
+            <span class="tab-icon">🎨</span>
+            <span class="tab-label">Design</span>
+        </NavLink>
+        <NavLink class="tab-item" href="strategies">
+            <span class="tab-icon">📋</span>
+            <span class="tab-label">Strategies</span>
+        </NavLink>
+        <NavLink class="tab-item" href="orders">
+            <span class="tab-icon">📊</span>
+            <span class="tab-label">Orders</span>
+        </NavLink>
+        <NavLink class="tab-item" href="progress">
+            <span class="tab-icon">📝</span>
+            <span class="tab-label">Progress</span>
+        </NavLink>
+        <NavLink class="tab-item" href="settings">
+            <span class="tab-icon">⚙️</span>
+            <span class="tab-label">Settings</span>
+        </NavLink>
+    </nav>
+
+    <main class="main-content">
+        @Body
+    </main>
+</div>

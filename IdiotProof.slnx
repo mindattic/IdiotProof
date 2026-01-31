@@ -1,4 +1,6 @@
 <Solution>
-  <Project Path="IdiotProof.csproj" />
-  <Project Path="IdiotProof.UnitTests/IdiotProof.UnitTests.csproj" />
+  <Project Path="IdiotProof.Backend.UnitTests/IdiotProof.Backend.UnitTests.csproj" />
+  <Project Path="IdiotProof.Backend/IdiotProof.Backend.csproj" />
+  <Project Path="IdiotProof.Frontend/IdiotProof.Frontend.csproj" />
+  <Project Path="IdiotProof.Shared/IdiotProof.Shared.csproj" />
 </Solution>
