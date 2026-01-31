@@ -112,4 +112,26 @@ namespace IdiotProof.Shared.Enums
         Smart,
         Pink
     }
+
+    /// <summary>
+    /// RSI condition types for fluent API.
+    /// </summary>
+    public enum RsiCondition
+    {
+        Above,
+        Below,
+        Overbought,
+        Oversold
+    }
+
+    /// <summary>
+    /// ADX condition types for fluent API.
+    /// </summary>
+    public enum AdxCondition
+    {
+        Above,
+        Below,
+        Strong,
+        Weak
+    }
 }

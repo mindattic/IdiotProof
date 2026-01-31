@@ -265,7 +265,7 @@ public class AdxTakeProfitTests
     {
         // Arrange & Act
         var strategy = Stock.Ticker("TEST")
-            .PriceAbove(100)
+            .IsPriceAbove(100)
             .Buy(100, Price.Current)
             .TakeProfit(150)
             .Build();
@@ -284,7 +284,7 @@ public class AdxTakeProfitTests
     {
         // Arrange & Act
         var strategy = Stock.Ticker("TEST")
-            .PriceAbove(100)
+            .IsPriceAbove(100)
             .Buy(100, Price.Current)
             .TakeProfit(130, 170)
             .Build();
@@ -305,7 +305,7 @@ public class AdxTakeProfitTests
     {
         // Arrange & Act
         var strategy = Stock.Ticker("TEST")
-            .PriceAbove(100)
+            .IsPriceAbove(100)
             .Buy(100, Price.Current)
             .TakeProfit(
                 lowTarget: 130,
@@ -334,7 +334,7 @@ public class AdxTakeProfitTests
     {
         // Arrange & Act - Set range first, then override with fixed price
         var strategy = Stock.Ticker("TEST")
-            .PriceAbove(100)
+            .IsPriceAbove(100)
             .Buy(100, Price.Current)
             .TakeProfit(130, 170)  // Range
             .TakeProfit(150)       // Fixed - should clear ADX config
@@ -354,7 +354,7 @@ public class AdxTakeProfitTests
     {
         // Arrange & Act - Set fixed first, then override with range
         var strategy = Stock.Ticker("TEST")
-            .PriceAbove(100)
+            .IsPriceAbove(100)
             .Buy(100, Price.Current)
             .TakeProfit(150)       // Fixed
             .TakeProfit(130, 170)  // Range - should set ADX config
@@ -381,8 +381,8 @@ public class AdxTakeProfitTests
         // Arrange & Act - VIVS: Range 4.00-4.80
         var strategy = Stock.Ticker("VIVS")
             .Start(MarketTime.PreMarket.Start)
-            .PriceAbove(2.40)
-            .AboveVwap()
+            .IsPriceAbove(2.40)
+            .IsAboveVwap()
             .Buy(100, Price.Current)
             .TakeProfit(4.00, 4.80)
             .Build();
@@ -407,8 +407,8 @@ public class AdxTakeProfitTests
         // Arrange & Act - RPGL: Range 1.30-1.70
         var strategy = Stock.Ticker("RPGL")
             .Start(MarketTime.PreMarket.Start)
-            .PriceAbove(0.88)
-            .AboveVwap()
+            .IsPriceAbove(0.88)
+            .IsAboveVwap()
             .Buy(100, Price.Current)
             .TakeProfit(1.30, 1.70)
             .Build();
@@ -431,8 +431,8 @@ public class AdxTakeProfitTests
         // Arrange & Act - Full premarket strategy with all options
         var strategy = Stock.Ticker("TEST")
             .Start(MarketTime.PreMarket.Start)
-            .PriceAbove(5.00)
-            .AboveVwap()
+            .IsPriceAbove(5.00)
+            .IsAboveVwap()
             .Buy(200, Price.Current)
             .TakeProfit(6.00, 7.50, weakThreshold: 12, developingThreshold: 22, strongThreshold: 32)
             .StopLoss(4.50)

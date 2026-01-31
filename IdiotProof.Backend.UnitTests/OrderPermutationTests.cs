@@ -1278,7 +1278,7 @@ public class OrderPermutationTests
         {
             // Arrange & Act
             var strategy = Stock.Ticker("TEST")
-                .AboveVwap()
+                .IsAboveVwap()
                 .Buy(100, Price.Current)
                 .Build();
 
@@ -1293,7 +1293,7 @@ public class OrderPermutationTests
         {
             // Arrange & Act
             var strategy = Stock.Ticker("TEST")
-                .BelowVwap()
+                .IsBelowVwap()
                 .Buy(100, Price.Current)
                 .Build();
 
@@ -1308,7 +1308,7 @@ public class OrderPermutationTests
         {
             // Arrange & Act
             var strategy = Stock.Ticker("TEST")
-                .PriceAbove(100)
+                .IsPriceAbove(100)
                 .Buy(100, Price.Current)
                 .Build();
 
@@ -1323,7 +1323,7 @@ public class OrderPermutationTests
         {
             // Arrange & Act
             var strategy = Stock.Ticker("TEST")
-                .PriceBelow(100)
+                .IsPriceBelow(100)
                 .Buy(100, Price.Current)
                 .Build();
 
@@ -1376,7 +1376,7 @@ public class OrderPermutationTests
             var strategy = Stock.Ticker("TEST")
                 .Breakout(110)
                 .Pullback(100)
-                .AboveVwap()
+                .IsAboveVwap()
                 .Buy(100, Price.Current)
                 .Build();
 
@@ -1398,8 +1398,8 @@ public class OrderPermutationTests
             var strategy = Stock.Ticker("TEST")
                 .Breakout(120)
                 .Pullback(110)
-                .AboveVwap(0.05)
-                .PriceAbove(105)
+                .IsAboveVwap(0.05)
+                .IsPriceAbove(105)
                 .When("Custom", (p, v) => true)
                 .Buy(100, Price.Current)
                 .Build();
@@ -1622,7 +1622,7 @@ public class OrderPermutationTests
                 .Start(MarketTime.PreMarket.Start)
                 .Breakout(150)
                 .Pullback(148)
-                .AboveVwap()
+                .IsAboveVwap()
                 .Buy(100, Price.Current)
                 .OrderType(OrderType.Market)
                 .TimeInForce(TIF.GTC)
@@ -2163,10 +2163,10 @@ public class OrderPermutationTests
                 .Start(new TimeOnly(3, 0))
                 .Breakout(100)
                 .Pullback(95)
-                .AboveVwap()
-                .BelowVwap()
-                .PriceAbove(90)
-                .PriceBelow(110)
+                .IsAboveVwap()
+                .IsBelowVwap()
+                .IsPriceAbove(90)
+                .IsPriceBelow(110)
                 .When("Custom", (p, v) => true);
 
             // Verify it's still a Stock instance that can call Buy/Sell
@@ -2214,8 +2214,8 @@ public class OrderPermutationTests
             var strategy = Stock.Ticker("TEST")
                 .Breakout(100)
                 .Pullback(95)
-                .AboveVwap()
-                .PriceAbove(90)
+                .IsAboveVwap()
+                .IsPriceAbove(90)
                 .Buy(100, Price.Current)
                 .Build();
 
@@ -2389,12 +2389,12 @@ public class OrderPermutationTests
             {
                 s => s.Breakout(100),
                 s => s.Pullback(95),
-                s => s.AboveVwap(),
-                s => s.AboveVwap(0.5),
-                s => s.BelowVwap(),
-                s => s.BelowVwap(0.5),
-                s => s.PriceAbove(100),
-                s => s.PriceBelow(100),
+                s => s.IsAboveVwap(),
+                s => s.IsAboveVwap(0.5),
+                s => s.IsBelowVwap(),
+                s => s.IsBelowVwap(0.5),
+                s => s.IsPriceAbove(100),
+                s => s.IsPriceBelow(100),
                 s => s.When("Custom", (p, v) => true),
             };
 
@@ -2416,10 +2416,10 @@ public class OrderPermutationTests
             {
                 ("Breakout", s => s.Breakout(100)),
                 ("Pullback", s => s.Pullback(95)),
-                ("AboveVwap", s => s.AboveVwap()),
-                ("BelowVwap", s => s.BelowVwap()),
-                ("PriceAbove", s => s.PriceAbove(100)),
-                ("PriceBelow", s => s.PriceBelow(100)),
+                ("AboveVwap", s => s.IsAboveVwap()),
+                ("BelowVwap", s => s.IsBelowVwap()),
+                ("PriceAbove", s => s.IsPriceAbove(100)),
+                ("PriceBelow", s => s.IsPriceBelow(100)),
             };
 
             foreach (var first in conditionAdders)

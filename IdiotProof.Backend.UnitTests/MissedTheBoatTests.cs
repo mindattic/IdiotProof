@@ -27,7 +27,7 @@ public class MissedTheBoatTests
     {
         // Arrange & Act
         var strategy = Stock.Ticker("VIVS")
-            .PriceAbove(2.40)
+            .IsPriceAbove(2.40)
             .Buy(100, Price.Current)
             .TakeProfit(4.00, 4.80)  // Conservative: 4.00, Aggressive: 4.80
             .Build();
@@ -48,7 +48,7 @@ public class MissedTheBoatTests
     {
         // Arrange & Act
         var strategy = Stock.Ticker("AAPL")
-            .PriceAbove(150)
+            .IsPriceAbove(150)
             .Buy(100, Price.Current)
             .TakeProfit(160)  // Fixed target
             .Build();
@@ -68,7 +68,7 @@ public class MissedTheBoatTests
     {
         // Arrange & Act
         var strategy = Stock.Ticker("AAPL")
-            .PriceAbove(150)
+            .IsPriceAbove(150)
             .Buy(100, Price.Current)
             .Build();  // No take profit
 
@@ -91,7 +91,7 @@ public class MissedTheBoatTests
     {
         // Arrange
         var strategy = Stock.Ticker("VIVS")
-            .PriceAbove(2.40)
+            .IsPriceAbove(2.40)
             .Buy(100, Price.Current)
             .TakeProfit(4.00, 4.80)  // Conservative: 4.00
             .Build();
@@ -111,7 +111,7 @@ public class MissedTheBoatTests
     {
         // Arrange
         var strategy = Stock.Ticker("VIVS")
-            .PriceAbove(2.40)
+            .IsPriceAbove(2.40)
             .Buy(100, Price.Current)
             .TakeProfit(4.00, 4.80)  // Conservative: 4.00
             .Build();
@@ -131,7 +131,7 @@ public class MissedTheBoatTests
     {
         // Arrange
         var strategy = Stock.Ticker("VIVS")
-            .PriceAbove(2.40)
+            .IsPriceAbove(2.40)
             .Buy(100, Price.Current)
             .TakeProfit(4.00, 4.80)  // Conservative: 4.00
             .Build();
@@ -151,7 +151,7 @@ public class MissedTheBoatTests
     {
         // Arrange
         var strategy = Stock.Ticker("VIVS")
-            .PriceAbove(2.40)
+            .IsPriceAbove(2.40)
             .Buy(100, Price.Current)
             .TakeProfit(4.00, 4.80)
             .Build();
@@ -171,7 +171,7 @@ public class MissedTheBoatTests
     {
         // Arrange
         var strategy = Stock.Ticker("VIVS")
-            .PriceAbove(2.40)
+            .IsPriceAbove(2.40)
             .Buy(100, Price.Current)
             .TakeProfit(4.00, 4.80)
             .Build();
@@ -195,7 +195,7 @@ public class MissedTheBoatTests
     {
         // Arrange
         var strategy = Stock.Ticker("AAPL")
-            .PriceAbove(150)
+            .IsPriceAbove(150)
             .Buy(100, Price.Current)
             .TakeProfit(160)
             .Build();
@@ -215,7 +215,7 @@ public class MissedTheBoatTests
     {
         // Arrange
         var strategy = Stock.Ticker("AAPL")
-            .PriceAbove(150)
+            .IsPriceAbove(150)
             .Buy(100, Price.Current)
             .TakeProfit(160)
             .Build();
@@ -235,7 +235,7 @@ public class MissedTheBoatTests
     {
         // Arrange
         var strategy = Stock.Ticker("AAPL")
-            .PriceAbove(150)
+            .IsPriceAbove(150)
             .Buy(100, Price.Current)
             .TakeProfit(160)
             .Build();
@@ -259,7 +259,7 @@ public class MissedTheBoatTests
     {
         // Arrange
         var strategy = Stock.Ticker("AAPL")
-            .PriceAbove(160)
+            .IsPriceAbove(160)
             .Sell(100, Price.Current)
             .Build();
 
@@ -282,7 +282,7 @@ public class MissedTheBoatTests
     {
         // Arrange
         var strategy = Stock.Ticker("VIVS")
-            .PriceAbove(2.40)
+            .IsPriceAbove(2.40)
             .Buy(100, Price.Current)
             .TakeProfit(4.00, 4.80)
             .Build();
@@ -302,7 +302,7 @@ public class MissedTheBoatTests
     {
         // Arrange
         var strategy = Stock.Ticker("VIVS")
-            .PriceAbove(2.40)
+            .IsPriceAbove(2.40)
             .Buy(100, Price.Current)
             .TakeProfit(4.00, 4.80)
             .Build();
@@ -322,7 +322,7 @@ public class MissedTheBoatTests
     {
         // Arrange
         var strategy = Stock.Ticker("AAPL")
-            .PriceAbove(150)
+            .IsPriceAbove(150)
             .Buy(100, Price.Current)
             .StopLoss(145)  // Only stop loss, no take profit
             .Build();
@@ -403,8 +403,8 @@ public class MissedTheBoatTests
         // Arrange - Real strategy from Program.cs
         var strategy = Stock.Ticker("VIVS")
             .SessionDuration(TradingSession.PreMarketEndEarly)
-            .PriceAbove(2.40)
-            .AboveVwap()
+            .IsPriceAbove(2.40)
+            .IsAboveVwap()
             .Buy(100, Price.Current)
             .TakeProfit(4.00, 4.80)
             .TrailingStopLoss(Percent.TwentyFive)
@@ -426,8 +426,8 @@ public class MissedTheBoatTests
         // Arrange
         var strategy = Stock.Ticker("VIVS")
             .SessionDuration(TradingSession.PreMarketEndEarly)
-            .PriceAbove(2.40)
-            .AboveVwap()
+            .IsPriceAbove(2.40)
+            .IsAboveVwap()
             .Buy(100, Price.Current)
             .TakeProfit(4.00, 4.80)
             .TrailingStopLoss(Percent.TwentyFive)
@@ -450,7 +450,7 @@ public class MissedTheBoatTests
         var strategy = Stock.Ticker("CATX")
             .SessionDuration(TradingSession.PreMarketEndEarly)
             .Pullback(4.33)
-            .PriceAbove(4.30)
+            .IsPriceAbove(4.30)
             .Buy(100, Price.Current)
             .TakeProfit(4.50, 4.75)
             .StopLoss(4.25)
@@ -473,7 +473,7 @@ public class MissedTheBoatTests
         var strategy = Stock.Ticker("CATX")
             .SessionDuration(TradingSession.PreMarketEndEarly)
             .Pullback(4.33)
-            .PriceAbove(4.30)
+            .IsPriceAbove(4.30)
             .Buy(100, Price.Current)
             .TakeProfit(4.50, 4.75)
             .StopLoss(4.25)

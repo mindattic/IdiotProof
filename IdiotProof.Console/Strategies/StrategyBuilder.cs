@@ -3,6 +3,7 @@
 // ============================================================================
 
 using IdiotProof.Shared.Enums;
+using IdiotProof.Shared.Helpers;
 using IdiotProof.Shared.Models;
 
 namespace IdiotProof.Console.Strategies;
@@ -18,90 +19,6 @@ public static class Stock
     public static StrategyBuilder Ticker(string symbol)
     {
         return new StrategyBuilder(symbol);
-    }
-}
-
-/// <summary>
-/// Common percentage values for trailing stop losses.
-/// </summary>
-public static class Percent
-{
-    public const double Five = 0.05;
-    public const double Ten = 0.10;
-    public const double Fifteen = 0.15;
-    public const double Twenty = 0.20;
-    public const double TwentyFive = 0.25;
-    public const double Thirty = 0.30;
-}
-
-/// <summary>
-/// Price type for order execution.
-/// </summary>
-public enum PriceType
-{
-    Current,
-    VWAP,
-    Bid,
-    Ask
-}
-
-/// <summary>
-/// RSI condition types.
-/// </summary>
-public enum RsiCondition
-{
-    Above,
-    Below,
-    Overbought,
-    Oversold
-}
-
-/// <summary>
-/// ADX condition types.
-/// </summary>
-public enum AdxCondition
-{
-    Above,
-    Below,
-    Strong,
-    Weak
-}
-
-/// <summary>
-/// Time in force types.
-/// </summary>
-public enum TimeInForceType
-{
-    Day,
-    GoodTillCancel,
-    ImmediateOrCancel,
-    FillOrKill
-}
-
-/// <summary>
-/// Common market times for position management.
-/// </summary>
-public static class MarketTime
-{
-    public static class PreMarket
-    {
-        public static TimeOnly Start => new(4, 0);
-        public static TimeOnly Ending => new(9, 15);
-        public static TimeOnly End => new(9, 30);
-    }
-
-    public static class RTH
-    {
-        public static TimeOnly Start => new(9, 30);
-        public static TimeOnly Ending => new(15, 45);
-        public static TimeOnly End => new(16, 0);
-    }
-
-    public static class AfterHours
-    {
-        public static TimeOnly Start => new(16, 0);
-        public static TimeOnly Ending => new(19, 45);
-        public static TimeOnly End => new(20, 0);
     }
 }
 
@@ -259,7 +176,7 @@ public class StrategyBuilder
     /// <summary>
     /// Adds a price above condition (price >= level).
     /// </summary>
-    public StrategyBuilder PriceAbove(double level)
+    public StrategyBuilder IsPriceAbove(double level)
     {
         AddSegment(SegmentType.PriceAbove, SegmentCategory.PriceCondition, "Price Above",
             [new SegmentParameter
@@ -276,7 +193,7 @@ public class StrategyBuilder
     /// <summary>
     /// Adds a price below condition (price <= level).
     /// </summary>
-    public StrategyBuilder PriceBelow(double level)
+    public StrategyBuilder IsPriceBelow(double level)
     {
         AddSegment(SegmentType.PriceBelow, SegmentCategory.PriceCondition, "Price Below",
             [new SegmentParameter
@@ -293,7 +210,7 @@ public class StrategyBuilder
     /// <summary>
     /// Adds an above VWAP condition.
     /// </summary>
-    public StrategyBuilder AboveVwap()
+    public StrategyBuilder IsAboveVwap()
     {
         AddSegment(SegmentType.AboveVwap, SegmentCategory.VwapCondition, "Above VWAP", []);
         return this;
@@ -302,7 +219,7 @@ public class StrategyBuilder
     /// <summary>
     /// Adds a below VWAP condition.
     /// </summary>
-    public StrategyBuilder BelowVwap()
+    public StrategyBuilder IsBelowVwap()
     {
         AddSegment(SegmentType.BelowVwap, SegmentCategory.VwapCondition, "Below VWAP", []);
         return this;
@@ -381,9 +298,74 @@ public class StrategyBuilder
     }
 
     /// <summary>
+    /// Adds an EMA above condition (price >= EMA).
+    /// </summary>
+    public StrategyBuilder IsEmaAbove(int period)
+    {
+        AddSegment(SegmentType.IsEmaAbove, SegmentCategory.IndicatorCondition, $"Above EMA {period}",
+            [
+                new SegmentParameter
+                {
+                    Name = "Period",
+                    Label = "Period",
+                    Type = ParameterType.Integer,
+                    Value = period,
+                    IsRequired = true
+                }
+            ]);
+        return this;
+    }
+
+    /// <summary>
+    /// Adds an EMA below condition (price <= EMA).
+    /// </summary>
+    public StrategyBuilder IsEmaBelow(int period)
+    {
+        AddSegment(SegmentType.IsEmaBelow, SegmentCategory.IndicatorCondition, $"Below EMA {period}",
+            [
+                new SegmentParameter
+                {
+                    Name = "Period",
+                    Label = "Period",
+                    Type = ParameterType.Integer,
+                    Value = period,
+                    IsRequired = true
+                }
+            ]);
+        return this;
+    }
+
+    /// <summary>
+    /// Adds an EMA between condition (price is between two EMAs).
+    /// </summary>
+    public StrategyBuilder IsEmaBetween(int lowerPeriod, int upperPeriod)
+    {
+        AddSegment(SegmentType.IsEmaBetween, SegmentCategory.IndicatorCondition, $"Between EMA {lowerPeriod} and EMA {upperPeriod}",
+            [
+                new SegmentParameter
+                {
+                    Name = "LowerPeriod",
+                    Label = "Lower Period",
+                    Type = ParameterType.Integer,
+                    Value = lowerPeriod,
+                    IsRequired = true
+                },
+                new SegmentParameter
+                {
+                    Name = "UpperPeriod",
+                    Label = "Upper Period",
+                    Type = ParameterType.Integer,
+                    Value = upperPeriod,
+                    IsRequired = true
+                }
+            ]);
+        return this;
+    }
+
+    /// <summary>
     /// Adds a buy order.
     /// </summary>
-    public StrategyBuilder Buy(int quantity, PriceType priceType = PriceType.Current, double? limitPrice = null)
+    public StrategyBuilder Buy(int quantity, Price priceType = Price.Current, double? limitPrice = null)
     {
         var parameters = new List<SegmentParameter>
         {
@@ -400,7 +382,7 @@ public class StrategyBuilder
                 Name = "PriceType",
                 Label = "Price Type",
                 Type = ParameterType.Enum,
-                EnumTypeName = nameof(PriceType),
+                EnumTypeName = nameof(Price),
                 Value = priceType.ToString(),
                 IsRequired = true
             }
@@ -425,7 +407,7 @@ public class StrategyBuilder
     /// <summary>
     /// Adds a sell order.
     /// </summary>
-    public StrategyBuilder Sell(int quantity, PriceType priceType = PriceType.Current, double? limitPrice = null)
+    public StrategyBuilder Sell(int quantity, Price priceType = Price.Current, double? limitPrice = null)
     {
         var parameters = new List<SegmentParameter>
         {
@@ -442,7 +424,7 @@ public class StrategyBuilder
                 Name = "PriceType",
                 Label = "Price Type",
                 Type = ParameterType.Enum,
-                EnumTypeName = nameof(PriceType),
+                EnumTypeName = nameof(Price),
                 Value = priceType.ToString(),
                 IsRequired = true
             }
@@ -599,7 +581,7 @@ public class StrategyBuilder
     /// <summary>
     /// Sets the time in force for orders.
     /// </summary>
-    public StrategyBuilder TimeInForce(TimeInForceType tif)
+    public StrategyBuilder TimeInForce(Shared.Enums.TimeInForce tif)
     {
         AddSegment(SegmentType.TimeInForce, SegmentCategory.OrderConfig, "Time In Force",
             [new SegmentParameter
@@ -607,7 +589,7 @@ public class StrategyBuilder
                 Name = "Type",
                 Label = "Type",
                 Type = ParameterType.Enum,
-                EnumTypeName = nameof(TimeInForceType),
+                EnumTypeName = "TimeInForce",
                 Value = tif.ToString(),
                 IsRequired = true
             }]);

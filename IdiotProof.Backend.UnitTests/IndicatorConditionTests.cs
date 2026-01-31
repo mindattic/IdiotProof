@@ -791,7 +791,7 @@ public class IndicatorConditionTests
             .IsAdx(Comparison.Gte, 25)
             .Pullback(148)
             .IsMacd(MacdState.AboveZero)
-            .AboveVwap()
+            .IsAboveVwap()
             .Buy(100, Price.Current)
             .Build();
 

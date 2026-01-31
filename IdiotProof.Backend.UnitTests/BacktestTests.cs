@@ -162,7 +162,7 @@ public class BacktestTests
         var strategy = Stock.Ticker("NAMM")
             .Breakout(7.10)
             .Pullback(6.80)
-            .AboveVwap()
+            .IsAboveVwap()
             .Buy(1000, Price.Current)
             .TakeProfit(9.00)
             .StopLoss(6.50)
@@ -440,7 +440,7 @@ public class BacktestTests
     {
         // Arrange - Strategy to close a long position when price drops
         var strategy = Stock.Ticker("AAPL")
-            .PriceBelow(95)  // Close when price drops below 95
+            .IsPriceBelow(95)  // Close when price drops below 95
             .CloseLong(100)  // Sell 100 shares
             .Build();
 
@@ -516,7 +516,7 @@ public class BacktestScenarioTests
         var strategy = Stock.Ticker("NVDA")
             .Breakout(500)
             .Pullback(495)
-            .AboveVwap()
+            .IsAboveVwap()
             .Buy(50, Price.Current)
             .TakeProfit(520)
             .StopLoss(490)
@@ -546,7 +546,7 @@ public class BacktestScenarioTests
     {
         // Arrange - Buy when price drops below VWAP, sell when it returns
         var strategy = Stock.Ticker("SPY")
-            .BelowVwap(-0.50)  // Price at least $0.50 below VWAP
+            .IsBelowVwap(-0.50)  // Price at least $0.50 below VWAP
             .Buy(100, Price.Current)
             .TakeProfit(2.00)  // $2 profit target
             .StopLoss(1.00)    // $1 stop

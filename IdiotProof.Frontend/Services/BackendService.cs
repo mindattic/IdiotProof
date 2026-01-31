@@ -98,6 +98,35 @@ namespace IdiotProof.Frontend.Services
             }
         }
 
+        public async Task<bool> PingAsync()
+        {
+            if (!_isConnected)
+            {
+                System.Diagnostics.Debug.WriteLine("[BackendService] PingAsync: Not connected");
+                return false;
+            }
+
+            try
+            {
+                System.Diagnostics.Debug.WriteLine("[BackendService] Sending ping...");
+                var response = await SendRequestAsync(new BackendMessage { Type = BackendMessageType.Ping });
+
+                if (response?.Type == BackendMessageType.Pong)
+                {
+                    System.Diagnostics.Debug.WriteLine("[BackendService] Pong received - communication validated");
+                    return true;
+                }
+
+                System.Diagnostics.Debug.WriteLine("[BackendService] Ping failed - no pong response");
+                return false;
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[BackendService] PingAsync failed: {ex.Message}");
+                return false;
+            }
+        }
+
         public async Task DisconnectAsync()
         {
             _isConnected = false;

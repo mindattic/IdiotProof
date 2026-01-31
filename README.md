@@ -90,7 +90,7 @@ var strategy = Stock
     .SessionDuration(TradingSession.PreMarketEndEarly)  // 4:00 AM - 9:20 AM ET
     .Breakout(150.00)                         // Step 1: Price >= 150.00
     .Pullback(148.50)                         // Step 2: Price <= 148.50
-    .AboveVwap()                              // Step 3: Price >= VWAP
+    .IsAboveVwap()                              // Step 3: Price >= VWAP
     .Buy(quantity: 100, Price.Current)        // Step 4: Buy 100 shares
     .TakeProfit(155.00)                       // Exit at $155.00
     .TrailingStopLoss(Atr.Balanced)           // 2× ATR trailing stop (adapts to volatility)
@@ -407,46 +407,46 @@ Triggers when price falls to or below the specified level.
 
 ---
 
-#### `.AboveVwap(double buffer = 0)`
+#### `.IsAboveVwap(double buffer = 0)`
 Triggers when price is at or above VWAP plus optional buffer.
 
 ```csharp
-.AboveVwap()           // Price >= VWAP
-.AboveVwap(0.02)       // Price >= VWAP + $0.02
+.IsAboveVwap()           // Price >= VWAP
+.IsAboveVwap(0.02)       // Price >= VWAP + $0.02
 ```
 
 **Implementation Status:** ✅ Fully Implemented
 
 ---
 
-#### `.BelowVwap(double buffer = 0)`
+#### `.IsBelowVwap(double buffer = 0)`
 Triggers when price is at or below VWAP minus optional buffer.
 
 ```csharp
-.BelowVwap()           // Price <= VWAP
-.BelowVwap(0.05)       // Price <= VWAP - $0.05
+.IsBelowVwap()           // Price <= VWAP
+.IsBelowVwap(0.05)       // Price <= VWAP - $0.05
 ```
 
 **Implementation Status:** ✅ Fully Implemented
 
 ---
 
-#### `.PriceAbove(double level)`
+#### `.IsPriceAbove(double level)`
 Triggers when price is strictly above the level (not equal).
 
 ```csharp
-.PriceAbove(10.00)     // Price > $10.00
+.IsPriceAbove(10.00)     // Price > $10.00
 ```
 
 **Implementation Status:** ✅ Fully Implemented
 
 ---
 
-#### `.PriceBelow(double level)`
+#### `.IsPriceBelow(double level)`
 Triggers when price is strictly below the level (not equal).
 
 ```csharp
-.PriceBelow(9.50)      // Price < $9.50
+.IsPriceBelow(9.50)      // Price < $9.50
 ```
 
 **Implementation Status:** ✅ Fully Implemented
@@ -992,8 +992,8 @@ Properties that apply to the strategy before the order:
 
 | Method | Parameter | Default |
 |--------|-----------|---------|
-| `.AboveVwap(buffer)` | buffer | `0` |
-| `.BelowVwap(buffer)` | buffer | `0` |
+| `.IsAboveVwap(buffer)` | buffer | `0` |
+| `.IsBelowVwap(buffer)` | buffer | `0` |
 | `.IsRsi(state, threshold)` | threshold | `null` (70 for overbought, 30 for oversold) |
 | `.IsAdx(comparison, threshold)` | threshold | `25` |
 | `.IsDI(direction, minDifference)` | minDifference | `0` |
@@ -1287,7 +1287,7 @@ Stock
     .SessionDuration(TradingSession.PreMarketEndEarly)
     .Breakout(7.10)
     .Pullback(6.80)
-    .AboveVwap()
+    .IsAboveVwap()
     .Buy(quantity: 100, Price.Current)
     .TakeProfit(9.00)
     .StopLoss(6.50)
@@ -1300,8 +1300,8 @@ Stock
 Stock
     .Ticker("VIVS")
     .SessionDuration(TradingSession.PreMarketEndEarly)
-    .PriceAbove(2.40)
-    .AboveVwap()
+    .IsPriceAbove(2.40)
+    .IsAboveVwap()
     .Buy(quantity: 208, Price.Current)
     .TakeProfit(4.00, 4.80)                    // ADX-based: $4.00 (weak) to $4.80 (strong)
     .ClosePosition(MarketTime.PreMarket.Ending)
@@ -1314,8 +1314,8 @@ Stock
 Stock
     .Ticker("AAPL")
     .SessionDuration(TradingSession.PreMarketEndEarly)
-    .PriceAbove(150.00)
-    .AboveVwap()
+    .IsPriceAbove(150.00)
+    .IsAboveVwap()
     .Buy(quantity: 100, Price.Current)
     .TakeProfit(160.00, 175.00)
     .TrailingStopLoss(Atr.Balanced)            // 2.0× ATR trailing stop
@@ -1331,7 +1331,7 @@ Stock
     .SessionDuration(TradingSession.RTH)
     .Breakout(250.00)
     .Pullback(245.00)
-    .AboveVwap()
+    .IsAboveVwap()
     .Buy(quantity: 50, Price.Current)
     .TakeProfit(270.00)
     .TrailingStopLoss(Atr.Multiplier(2.5))     // Custom 2.5× ATR
@@ -1344,8 +1344,8 @@ Stock
 Stock
     .Ticker("NVDA")
     .SessionDuration(TradingSession.PreMarket)
-    .PriceAbove(500.00)
-    .AboveVwap()
+    .IsPriceAbove(500.00)
+    .IsAboveVwap()
     .Buy(quantity: 20, Price.Current)
     .TakeProfit(550.00)
     .TrailingStopLoss(Atr.WithBounds(
@@ -1364,7 +1364,7 @@ Stock
     .SessionDuration(TradingSession.PreMarket)
     .Breakout(150.00)
     .Pullback(148.00)
-    .AboveVwap(buffer: 0.02)
+    .IsAboveVwap(buffer: 0.02)
     .Buy(quantity: 200, Price.Current)
     .TakeProfit(155.00)
     .TrailingStopLoss(Percent.Five)
@@ -1381,8 +1381,8 @@ Stock
     .Ticker("RPGL")
     .Exchange(ContractExchange.Pink)           // Pink Sheets routing
     .SessionDuration(TradingSession.PreMarketEndEarly)
-    .PriceAbove(0.88)
-    .AboveVwap()
+    .IsPriceAbove(0.88)
+    .IsAboveVwap()
     .Buy(quantity: 568, Price.Current)
     .TakeProfit(1.30, 1.70)
     .Build();
@@ -1393,7 +1393,7 @@ Stock
 ```csharp
 Stock
     .Ticker("AAPL")
-    .PriceAbove(155)                           // When price hits target
+    .IsPriceAbove(155)                           // When price hits target
     .CloseLong(quantity: 100)                  // Sell to close long position
     .TimeInForce(TIF.GTC)
     .OutsideRTH(true)
@@ -1408,7 +1408,7 @@ Stock
     .SessionDuration(TradingSession.Always)    // No time restrictions
     .Breakout(5.00)
     .When("Price in sweet spot", (price, vwap) => price >= 4.50 && price <= 4.80)
-    .AboveVwap()
+    .IsAboveVwap()
     .Buy(quantity: 500, Price.Current)
     .TakeProfit(6.00)
     .StopLoss(4.25)

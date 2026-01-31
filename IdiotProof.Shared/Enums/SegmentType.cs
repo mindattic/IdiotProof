@@ -65,6 +65,9 @@ namespace IdiotProof.Shared.Enums
         IsMacd,
         IsAdx,
         IsDI,
+        IsEmaAbove,
+        IsEmaBelow,
+        IsEmaBetween,
 
         // Orders
         Buy,

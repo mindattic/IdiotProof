@@ -143,7 +143,7 @@ public class TrailingStopLossTests
     {
         var strategy = Stock
             .Ticker("TEST")
-            .PriceAbove(10.00)
+            .IsPriceAbove(10.00)
             .Buy(quantity: 100, Price.Current)
             .TrailingStopLoss(Percent.TwentyFive)
             .Build();
@@ -158,7 +158,7 @@ public class TrailingStopLossTests
     {
         var strategy = Stock
             .Ticker("TEST")
-            .PriceAbove(10.00)
+            .IsPriceAbove(10.00)
             .Buy(quantity: 100, Price.Current)
             .Build();
 
@@ -176,7 +176,7 @@ public class TrailingStopLossTests
     {
         var strategy = Stock
             .Ticker("TEST")
-            .PriceAbove(10.00)
+            .IsPriceAbove(10.00)
             .Buy(quantity: 100, Price.Current)
             .TrailingStopLoss(percent)
             .Build();
@@ -273,7 +273,7 @@ public class TrailingStopLossTests
     {
         var strategy = Stock
             .Ticker("TEST")
-            .PriceAbove(10.00)
+            .IsPriceAbove(10.00)
             .Buy(quantity: 100, Price.Current)
             .TakeProfit(15.00)
             .TrailingStopLoss(Percent.TwentyFive)
@@ -291,8 +291,8 @@ public class TrailingStopLossTests
     {
         var strategy = Stock
             .Ticker("TEST")
-            .PriceAbove(2.40)
-            .AboveVwap()
+            .IsPriceAbove(2.40)
+            .IsAboveVwap()
             .Buy(quantity: 500, Price.Current)
             .TakeProfit(4.00, 4.80)
             .TrailingStopLoss(Percent.TwentyFive)
@@ -312,8 +312,8 @@ public class TrailingStopLossTests
         var strategy = Stock
             .Ticker("VIVS")
             .SessionDuration(TradingSession.PreMarketEndEarly)
-            .PriceAbove(2.40)
-            .AboveVwap()
+            .IsPriceAbove(2.40)
+            .IsAboveVwap()
             .Buy(quantity: 500, Price.Current)
             .TakeProfit(4.00, 4.80)
             .TrailingStopLoss(Percent.TwentyFive)

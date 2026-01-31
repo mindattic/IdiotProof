@@ -84,7 +84,7 @@
 //       .SessionDuration(...)   // Optional: when to monitor (comment out for immediate testing)
 //       .Breakout(...)         // Add conditions
 //       .Pullback(...)
-//       .AboveVwap()
+//       .IsAboveVwap()
 //       .Buy(...)              // Returns StrategyBuilder (opens position)
 //       .Sell(...)             // Returns StrategyBuilder (opens short or exits)
 //       .Close(...)            // Returns StrategyBuilder (closes existing position)
@@ -103,7 +103,7 @@
 //
 // CLOSING POSITIONS:
 // var closeStrategy = Stock.Ticker("AAPL")
-//     .PriceAbove(155)                    // Exit when price hits target
+//     .IsPriceAbove(155)                   // Exit when price hits target
 //     .Close(quantity: 100)               // Sell to close long position
 //     .TimeInForce(TIF.GTC)               // TIF is NOT automatic
 //     .OutsideRTH(true)                   // OutsideRth is NOT automatic
@@ -417,7 +417,7 @@ namespace IdiotProof.Backend.Models
         /// </summary>
         /// <param name="buffer">Buffer above VWAP.</param>
         /// <param name="notes">Optional notes for documentation.</param>
-        public Stock AboveVwap(double buffer = 0, string? notes = null)
+        public Stock IsAboveVwap(double buffer = 0, string? notes = null)
         {
             _conditions.Add(new AboveVwapCondition(buffer));
             return this;
@@ -428,7 +428,7 @@ namespace IdiotProof.Backend.Models
         /// </summary>
         /// <param name="buffer">Buffer below VWAP.</param>
         /// <param name="notes">Optional notes for documentation.</param>
-        public Stock BelowVwap(double buffer = 0, string? notes = null)
+        public Stock IsBelowVwap(double buffer = 0, string? notes = null)
         {
             _conditions.Add(new BelowVwapCondition(buffer));
             return this;
@@ -439,7 +439,7 @@ namespace IdiotProof.Backend.Models
         /// </summary>
         /// <param name="level">The price level.</param>
         /// <param name="notes">Optional notes for documentation.</param>
-        public Stock PriceAbove(double level, string? notes = null)
+        public Stock IsPriceAbove(double level, string? notes = null)
         {
             _conditions.Add(new PriceAtOrAboveCondition(level));
             return this;
@@ -450,7 +450,7 @@ namespace IdiotProof.Backend.Models
         /// </summary>
         /// <param name="level">The price level.</param>
         /// <param name="notes">Optional notes for documentation.</param>
-        public Stock PriceBelow(double level, string? notes = null)
+        public Stock IsPriceBelow(double level, string? notes = null)
         {
             _conditions.Add(new PriceBelowCondition(level));
             return this;
@@ -676,7 +676,7 @@ namespace IdiotProof.Backend.Models
         /// <para><b>Example - Close long position:</b></para>
         /// <code>
         /// Stock.Ticker("AAPL")
-        ///     .PriceAbove(150)
+        ///     .IsPriceAbove(150)
         ///     .Close(quantity: 100, positionSide: OrderSide.Buy)  // Sells 100 shares
         ///     .TimeInForce(TIF.GTC)
         ///     .OutsideRTH(true)
@@ -686,7 +686,7 @@ namespace IdiotProof.Backend.Models
         /// <para><b>Example - Close short position:</b></para>
         /// <code>
         /// Stock.Ticker("TSLA")
-        ///     .PriceBelow(200)
+        ///     .IsPriceBelow(200)
         ///     .Close(quantity: 50, positionSide: OrderSide.Sell)  // Buys 50 shares to cover
         ///     .TimeInForce(TIF.Day)
         ///     .Build();

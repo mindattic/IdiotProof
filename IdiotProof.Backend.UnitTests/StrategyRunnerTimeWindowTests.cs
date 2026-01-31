@@ -24,7 +24,7 @@ public class StrategyRunnerTimeWindowTests
     private static TradingStrategy CreateTestStrategy(TimeOnly? startTime, TimeOnly? endTime)
     {
         var builder = Stock.Ticker("TEST")
-            .PriceAbove(10.00);
+            .IsPriceAbove(10.00);
 
         if (startTime.HasValue)
             builder = builder.Start(startTime.Value);
@@ -382,7 +382,7 @@ public class StrategyRunnerTimeWindowTests
         // Arrange - using MarketTime helper like in Program.cs
         var strategy = Stock.Ticker("TEST")
             .Start(MarketTime.PreMarket.Start)  // 4:00 AM ET
-            .PriceAbove(10.00)
+            .IsPriceAbove(10.00)
             .Buy(100, Price.Current)
             .End(MarketTime.PreMarket.End);     // 9:30 AM ET
 
@@ -400,7 +400,7 @@ public class StrategyRunnerTimeWindowTests
         // Arrange
         var strategy = Stock.Ticker("TEST")
             .Start(MarketTime.RTH.Start)  // 9:30 AM ET
-            .PriceAbove(10.00)
+            .IsPriceAbove(10.00)
             .Buy(100, Price.Current)
             .End(MarketTime.RTH.End);     // 4:00 PM ET
 

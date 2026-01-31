@@ -239,16 +239,16 @@ namespace IdiotProof.Backend.Models
             return segment.Type switch
             {
                 "Ticker" => builder, // Already applied via Stock.Ticker()
-                
+
                 "SessionDuration" => ApplySessionDuration(builder, segment),
-                
+
                 "Breakout" => builder.Breakout(GetDouble(segment, "level")),
                 "Pullback" => builder.Pullback(GetDouble(segment, "level")),
-                "PriceAbove" => builder.PriceAbove(GetDouble(segment, "level")),
-                "PriceBelow" => builder.PriceBelow(GetDouble(segment, "level")),
-                
-                "AboveVwap" => builder.AboveVwap(GetDouble(segment, "buffer", 0)),
-                "BelowVwap" => builder.BelowVwap(GetDouble(segment, "buffer", 0)),
+                "PriceAbove" => builder.IsPriceAbove(GetDouble(segment, "level")),
+                "PriceBelow" => builder.IsPriceBelow(GetDouble(segment, "level")),
+
+                "AboveVwap" => builder.IsAboveVwap(GetDouble(segment, "buffer", 0)),
+                "BelowVwap" => builder.IsBelowVwap(GetDouble(segment, "buffer", 0)),
                 
                 "IsRsi" => builder.IsRsi(
                     GetEnum<RsiState>(segment, "state"),

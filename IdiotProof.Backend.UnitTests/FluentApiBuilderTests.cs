@@ -417,7 +417,7 @@ public class FluentApiBuilderTests
     {
         // Arrange & Act
         var strategy = Stock.Ticker("AAPL")
-            .AboveVwap()
+            .IsAboveVwap()
             .Buy(100, Price.Current)
             .Build();
 
@@ -431,7 +431,7 @@ public class FluentApiBuilderTests
     {
         // Arrange & Act
         var strategy = Stock.Ticker("AAPL")
-            .AboveVwap(0.05)
+            .IsAboveVwap(0.05)
             .Buy(100, Price.Current)
             .Build();
 
@@ -444,7 +444,7 @@ public class FluentApiBuilderTests
     {
         // Arrange & Act
         var strategy = Stock.Ticker("AAPL")
-            .BelowVwap()
+            .IsBelowVwap()
             .Buy(100, Price.Current)
             .Build();
 
@@ -457,7 +457,7 @@ public class FluentApiBuilderTests
     {
         // Arrange & Act
         var strategy = Stock.Ticker("AAPL")
-            .PriceAbove(100)
+            .IsPriceAbove(100)
             .Buy(100, Price.Current)
             .Build();
 
@@ -470,7 +470,7 @@ public class FluentApiBuilderTests
     {
         // Arrange & Act
         var strategy = Stock.Ticker("AAPL")
-            .PriceBelow(200)
+            .IsPriceBelow(200)
             .Buy(100, Price.Current)
             .Build();
 
@@ -499,7 +499,7 @@ public class FluentApiBuilderTests
         var strategy = Stock.Ticker("AAPL")
             .Breakout(150)
             .Pullback(148)
-            .AboveVwap()
+            .IsAboveVwap()
             .Buy(100, Price.Current)
             .Build();
 
@@ -672,8 +672,8 @@ public class FluentApiBuilderTests
         // Act
         var strategy = Stock.Ticker("TEST")
             .Start(MarketTime.PreMarket.Start)
-            .PriceAbove(5.00)
-            .AboveVwap()
+            .IsPriceAbove(5.00)
+            .IsAboveVwap()
             .Buy(100, Price.Current)
             .TakeProfit(6.00, 7.00)
             .StopLoss(4.50)
@@ -710,8 +710,8 @@ public class FluentApiBuilderTests
         // Arrange & Act - Typical premarket strategy
         var strategy = Stock.Ticker("VIVS")
             .Start(MarketTime.PreMarket.Start)
-            .PriceAbove(2.40)
-            .AboveVwap()
+            .IsPriceAbove(2.40)
+            .IsAboveVwap()
             .Buy(100, Price.Current)
             .TakeProfit(4.00, 4.80)
             .ClosePosition(MarketTime.PreMarket.Ending)
@@ -731,7 +731,7 @@ public class FluentApiBuilderTests
         // Arrange & Act - Strategy that must close regardless of P&L
         var strategy = Stock.Ticker("TEST")
             .Start(MarketTime.PreMarket.Start)
-            .PriceAbove(10.00)
+            .IsPriceAbove(10.00)
             .Buy(100, Price.Current)
             .TakeProfit(12.00)
             .ClosePosition(MarketTime.PreMarket.Ending, onlyIfProfitable: false)
@@ -803,7 +803,7 @@ public class FluentApiBuilderTests
             .Start(MarketTime.PreMarket.Start)
             .Breakout(7.10)
             .Pullback(6.80)
-            .AboveVwap()
+            .IsAboveVwap()
             .Buy(quantity: 100, Price.Current)
             .TakeProfit(9.00)
             .StopLoss(6.50)
@@ -899,7 +899,7 @@ public class FluentApiBuilderTests
         {
             // Arrange & Act - Default positionSide is Buy (long position), so Close creates SELL
             var strategy = Stock.Ticker("AAPL")
-                .PriceAbove(150)
+                .IsPriceAbove(150)
                 .Close(quantity: 100)
                 .Build();
 
@@ -914,7 +914,7 @@ public class FluentApiBuilderTests
         {
             // Arrange & Act
             var strategy = Stock.Ticker("AAPL")
-                .PriceAbove(155)
+                .IsPriceAbove(155)
                 .Close(quantity: 100, positionSide: OrderSide.Buy)
                 .Build();
 
@@ -928,7 +928,7 @@ public class FluentApiBuilderTests
         {
             // Arrange & Act
             var strategy = Stock.Ticker("TSLA")
-                .PriceBelow(200)
+                .IsPriceBelow(200)
                 .Close(quantity: 50, positionSide: OrderSide.Sell)
                 .Build();
 
@@ -941,7 +941,7 @@ public class FluentApiBuilderTests
         public void Close_WithQuantity_SetsQuantity()
         {
             var strategy = Stock.Ticker("AAPL")
-                .PriceAbove(150)
+                .IsPriceAbove(150)
                 .Close(quantity: 250)
                 .Build();
 
@@ -953,7 +953,7 @@ public class FluentApiBuilderTests
         public void Close_WithPriceType_SetsPriceType()
         {
             var strategy = Stock.Ticker("AAPL")
-                .PriceAbove(150)
+                .IsPriceAbove(150)
                 .Close(quantity: 100, priceType: Price.VWAP)
                 .Build();
 
@@ -965,7 +965,7 @@ public class FluentApiBuilderTests
         public void Close_WithMarketOrderType_SetsMarket()
         {
             var strategy = Stock.Ticker("AAPL")
-                .PriceAbove(150)
+                .IsPriceAbove(150)
                 .Close(quantity: 100, orderType: OrderType.Market)
                 .Build();
 
@@ -977,7 +977,7 @@ public class FluentApiBuilderTests
         public void Close_WithLimitOrderType_SetsLimit()
         {
             var strategy = Stock.Ticker("AAPL")
-                .PriceAbove(150)
+                .IsPriceAbove(150)
                 .Close(quantity: 100, orderType: OrderType.Limit)
                 .Build();
 
@@ -993,7 +993,7 @@ public class FluentApiBuilderTests
         public void CloseLong_CreatesSellOrder()
         {
             var strategy = Stock.Ticker("AAPL")
-                .PriceAbove(160)
+                .IsPriceAbove(160)
                 .CloseLong(quantity: 100)
                 .Build();
 
@@ -1005,12 +1005,12 @@ public class FluentApiBuilderTests
         public void CloseLong_EquivalentToCloseWithBuy()
         {
             var closeLongStrategy = Stock.Ticker("AAPL")
-                .PriceAbove(160)
+                .IsPriceAbove(160)
                 .CloseLong(quantity: 100, Price.Current, OrderType.Market)
                 .Build();
 
             var closeStrategy = Stock.Ticker("AAPL")
-                .PriceAbove(160)
+                .IsPriceAbove(160)
                 .Close(quantity: 100, positionSide: OrderSide.Buy, Price.Current, OrderType.Market)
                 .Build();
 
@@ -1031,7 +1031,7 @@ public class FluentApiBuilderTests
         public void CloseShort_CreatesBuyOrder()
         {
             var strategy = Stock.Ticker("TSLA")
-                .PriceBelow(180)
+                .IsPriceBelow(180)
                 .CloseShort(quantity: 50)
                 .Build();
 
@@ -1043,12 +1043,12 @@ public class FluentApiBuilderTests
         public void CloseShort_EquivalentToCloseWithSell()
         {
             var closeShortStrategy = Stock.Ticker("TSLA")
-                .PriceBelow(180)
+                .IsPriceBelow(180)
                 .CloseShort(quantity: 50, Price.Bid, OrderType.Limit)
                 .Build();
 
             var closeStrategy = Stock.Ticker("TSLA")
-                .PriceBelow(180)
+                .IsPriceBelow(180)
                 .Close(quantity: 50, positionSide: OrderSide.Sell, Price.Bid, OrderType.Limit)
                 .Build();
 
@@ -1070,7 +1070,7 @@ public class FluentApiBuilderTests
         public void Close_DoesNotAutoSetTIF_UsesDefault()
         {
             var strategy = Stock.Ticker("AAPL")
-                .PriceAbove(150)
+                .IsPriceAbove(150)
                 .Close(quantity: 100)
                 .Build();
 
@@ -1083,7 +1083,7 @@ public class FluentApiBuilderTests
         public void Close_WithExplicitTIF_SetsTIF()
         {
             var strategy = Stock.Ticker("AAPL")
-                .PriceAbove(150)
+                .IsPriceAbove(150)
                 .Close(quantity: 100)
                 .TimeInForce(TIF.Day)
                 .Build();
@@ -1096,7 +1096,7 @@ public class FluentApiBuilderTests
         public void Close_DoesNotAutoSetOutsideRth_UsesDefault()
         {
             var strategy = Stock.Ticker("AAPL")
-                .PriceAbove(150)
+                .IsPriceAbove(150)
                 .Close(quantity: 100)
                 .Build();
 
@@ -1109,7 +1109,7 @@ public class FluentApiBuilderTests
         public void Close_WithExplicitOutsideRth_SetsOutsideRth()
         {
             var strategy = Stock.Ticker("AAPL")
-                .PriceAbove(150)
+                .IsPriceAbove(150)
                 .Close(quantity: 100)
                 .OutsideRTH(outsideRth: false, takeProfit: false)
                 .Build();
@@ -1127,7 +1127,7 @@ public class FluentApiBuilderTests
         {
             var strategy = Stock.Ticker("AAPL")
                 .Start(MarketTime.PreMarket.Start)
-                .PriceAbove(155)
+                .IsPriceAbove(155)
                 .CloseLong(quantity: 100, Price.Current, OrderType.Market)
                 .TimeInForce(TIF.GTC)
                 .OutsideRTH(outsideRth: true, takeProfit: true)
@@ -1152,7 +1152,7 @@ public class FluentApiBuilderTests
         {
             // Scenario: Close long position during after-hours if price hits target
             var strategy = Stock.Ticker("NVDA")
-                .PriceAbove(500)
+                .IsPriceAbove(500)
                 .CloseLong(quantity: 25)
                 .TimeInForce(TIF.Overnight)
                 .OutsideRTH(outsideRth: true, takeProfit: true)
@@ -1172,7 +1172,7 @@ public class FluentApiBuilderTests
         {
             // Scenario: Close position at market open auction
             var strategy = Stock.Ticker("SPY")
-                .PriceAbove(450)
+                .IsPriceAbove(450)
                 .CloseLong(quantity: 500)
                 .TimeInForce(TIF.AtTheOpening)
                 .Build();
@@ -1193,7 +1193,7 @@ public class FluentApiBuilderTests
         public void Close_LongPosition_GetIbAction_ReturnsSELL()
         {
             var strategy = Stock.Ticker("AAPL")
-                .PriceAbove(150)
+                .IsPriceAbove(150)
                 .Close(quantity: 100, positionSide: OrderSide.Buy)
                 .Build();
 
@@ -1205,7 +1205,7 @@ public class FluentApiBuilderTests
         public void Close_ShortPosition_GetIbAction_ReturnsBUY()
         {
             var strategy = Stock.Ticker("TSLA")
-                .PriceBelow(200)
+                .IsPriceBelow(200)
                 .Close(quantity: 50, positionSide: OrderSide.Sell)
                 .Build();
 
@@ -1217,7 +1217,7 @@ public class FluentApiBuilderTests
         public void Close_MarketOrder_GetIbOrderType_ReturnsMKT()
         {
             var strategy = Stock.Ticker("AAPL")
-                .PriceAbove(150)
+                .IsPriceAbove(150)
                 .Close(quantity: 100, orderType: OrderType.Market)
                 .Build();
 
@@ -1229,7 +1229,7 @@ public class FluentApiBuilderTests
         public void Close_LimitOrder_GetIbOrderType_ReturnsLMT()
         {
             var strategy = Stock.Ticker("AAPL")
-                .PriceAbove(150)
+                .IsPriceAbove(150)
                 .Close(quantity: 100, orderType: OrderType.Limit)
                 .Build();
 
@@ -1241,7 +1241,7 @@ public class FluentApiBuilderTests
         public void Close_WithGTC_GetIbTif_ReturnsGTC()
         {
             var strategy = Stock.Ticker("AAPL")
-                .PriceAbove(150)
+                .IsPriceAbove(150)
                 .Close(quantity: 100)
                 .TimeInForce(TIF.GTC)
                 .Build();
@@ -1318,7 +1318,7 @@ public class FluentApiBuilderTests
         public void AllOrNone_WithSell_SetsCorrectly()
         {
             var strategy = Stock.Ticker("AAPL")
-                .PriceAbove(150)
+                .IsPriceAbove(150)
                 .Sell(100, Price.Current)
                 .AllOrNone()
                 .Build();
@@ -1335,7 +1335,7 @@ public class FluentApiBuilderTests
         public void AllOrNone_WithClose_SetsCorrectly()
         {
             var strategy = Stock.Ticker("AAPL")
-                .PriceAbove(155)
+                .IsPriceAbove(155)
                 .CloseLong(100)
                 .AllOrNone()
                 .Build();
@@ -1418,15 +1418,15 @@ public class FluentApiBuilderTests
         {
             // Arrange & Act - Create two different strategies for VIVS
             var momentumStrategy = Stock.Ticker("VIVS")
-                .PriceAbove(2.40)
-                .AboveVwap()
+                .IsPriceAbove(2.40)
+                .IsAboveVwap()
                 .Buy(100, Price.Current)
                 .TakeProfit(4.00, 4.80)
                 .Build();
 
             var pullbackStrategy = Stock.Ticker("VIVS")
                 .Pullback(4.15)
-                .AboveVwap()
+                .IsAboveVwap()
                 .Buy(100, Price.Current)
                 .TakeProfit(4.80, 5.30)
                 .Build();
@@ -1450,14 +1450,14 @@ public class FluentApiBuilderTests
             var strategies = new List<TradingStrategy>
             {
                 Stock.Ticker("CATX")
-                    .PriceAbove(4.00)
-                    .AboveVwap()
+                    .IsPriceAbove(4.00)
+                    .IsAboveVwap()
                     .Buy(100, Price.Current)
                     .Build(),
 
                 Stock.Ticker("CATX")
                     .Pullback(4.33)
-                    .PriceAbove(4.30)
+                    .IsPriceAbove(4.30)
                     .Buy(100, Price.Current)
                     .Build()
             };
@@ -1480,13 +1480,13 @@ public class FluentApiBuilderTests
         {
             // Arrange & Act
             var conservativeStrategy = Stock.Ticker("VIVS")
-                .PriceAbove(3.00)
+                .IsPriceAbove(3.00)
                 .Buy(100, Price.Current)
                 .TakeProfit(3.50)
                 .Build();
 
             var aggressiveStrategy = Stock.Ticker("VIVS")
-                .PriceAbove(3.00)
+                .IsPriceAbove(3.00)
                 .Buy(100, Price.Current)
                 .TakeProfit(4.50, 5.50)
                 .Build();
@@ -1507,13 +1507,13 @@ public class FluentApiBuilderTests
         {
             // Arrange & Act
             var fixedStopStrategy = Stock.Ticker("CATX")
-                .PriceAbove(4.80)
+                .IsPriceAbove(4.80)
                 .Buy(100, Price.Current)
                 .StopLoss(4.25)
                 .Build();
 
             var trailingStopStrategy = Stock.Ticker("CATX")
-                .PriceAbove(4.80)
+                .IsPriceAbove(4.80)
                 .Buy(100, Price.Current)
                 .TrailingStopLoss(Percent.TwentyFive)
                 .Build();
@@ -1536,13 +1536,13 @@ public class FluentApiBuilderTests
             // Arrange & Act
             var preMarketStrategy = Stock.Ticker("VIVS")
                 .SessionDuration(TradingSession.PreMarket)
-                .PriceAbove(2.40)
+                .IsPriceAbove(2.40)
                 .Buy(100, Price.Current)
                 .Build();
 
             var rthStrategy = Stock.Ticker("VIVS")
                 .SessionDuration(TradingSession.RTH)
-                .PriceAbove(2.40)
+                .IsPriceAbove(2.40)
                 .Buy(100, Price.Current)
                 .Build();
 
@@ -1561,12 +1561,12 @@ public class FluentApiBuilderTests
         {
             // Arrange & Act
             var smallPositionStrategy = Stock.Ticker("CATX")
-                .PriceAbove(4.00)
+                .IsPriceAbove(4.00)
                 .Buy(50, Price.Current)
                 .Build();
 
             var largePositionStrategy = Stock.Ticker("CATX")
-                .PriceAbove(4.00)
+                .IsPriceAbove(4.00)
                 .Buy(500, Price.Current)
                 .Build();
 
@@ -1589,8 +1589,8 @@ public class FluentApiBuilderTests
                 // VIVS Momentum
                 Stock.Ticker("VIVS")
                     .SessionDuration(TradingSession.PreMarketEndEarly)
-                    .PriceAbove(2.40)
-                    .AboveVwap()
+                    .IsPriceAbove(2.40)
+                    .IsAboveVwap()
                     .Buy(100, Price.Current)
                     .TakeProfit(4.00, 4.80)
                     .TrailingStopLoss(Percent.TwentyFive)
@@ -1599,8 +1599,8 @@ public class FluentApiBuilderTests
                 // CATX Momentum
                 Stock.Ticker("CATX")
                     .SessionDuration(TradingSession.PreMarketEndEarly)
-                    .PriceAbove(4.00)
-                    .AboveVwap()
+                    .IsPriceAbove(4.00)
+                    .IsAboveVwap()
                     .Buy(100, Price.Current)
                     .TakeProfit(5.30, 6.16)
                     .TrailingStopLoss(Percent.TwentyFive)
@@ -1610,7 +1610,7 @@ public class FluentApiBuilderTests
                 Stock.Ticker("VIVS")
                     .SessionDuration(TradingSession.PreMarketEndEarly)
                     .Pullback(4.15)
-                    .AboveVwap()
+                    .IsAboveVwap()
                     .Buy(100, Price.Current)
                     .TakeProfit(4.80, 5.30)
                     .StopLoss(3.95)
@@ -1620,7 +1620,7 @@ public class FluentApiBuilderTests
                 Stock.Ticker("CATX")
                     .SessionDuration(TradingSession.PreMarketEndEarly)
                     .Pullback(4.33)
-                    .PriceAbove(4.30)
+                    .IsPriceAbove(4.30)
                     .Buy(100, Price.Current)
                     .TakeProfit(4.50, 4.75)
                     .StopLoss(4.25)
@@ -1660,13 +1660,13 @@ public class FluentApiBuilderTests
             // Arrange & Act
             var strategy1 = Stock.Ticker("VIVS")
                 .Enabled(true)
-                .PriceAbove(2.40)
+                .IsPriceAbove(2.40)
                 .Buy(100, Price.Current)
                 .Build();
 
             var strategy2 = Stock.Ticker("VIVS")
                 .Enabled(false)
-                .PriceAbove(3.00)
+                .IsPriceAbove(3.00)
                 .Buy(200, Price.Current)
                 .Build();
 
@@ -1687,10 +1687,10 @@ public class FluentApiBuilderTests
             // Arrange
             var strategies = new List<TradingStrategy>
             {
-                Stock.Ticker("AAPL").PriceAbove(150).Buy(100, Price.Current).Build(),
-                Stock.Ticker("VIVS").PriceAbove(2.40).Buy(100, Price.Current).Build(),
+                Stock.Ticker("AAPL").IsPriceAbove(150).Buy(100, Price.Current).Build(),
+                Stock.Ticker("VIVS").IsPriceAbove(2.40).Buy(100, Price.Current).Build(),
                 Stock.Ticker("AAPL").Pullback(145).Buy(50, Price.Current).Build(),
-                Stock.Ticker("CATX").PriceAbove(4.00).Buy(100, Price.Current).Build(),
+                Stock.Ticker("CATX").IsPriceAbove(4.00).Buy(100, Price.Current).Build(),
                 Stock.Ticker("VIVS").Pullback(4.15).Buy(100, Price.Current).Build(),
             };
 
@@ -1722,7 +1722,7 @@ public class FluentApiBuilderTests
             {
                 Stock.Ticker("VIVS")
                     .Enabled(true)
-                    .PriceAbove(2.40)
+                    .IsPriceAbove(2.40)
                     .Buy(100, Price.Current)
                     .Build(),
 
@@ -1734,7 +1734,7 @@ public class FluentApiBuilderTests
 
                 Stock.Ticker("VIVS")
                     .Enabled(true)
-                    .PriceAbove(5.00)
+                    .IsPriceAbove(5.00)
                     .Buy(100, Price.Current)
                     .Build(),
             };
