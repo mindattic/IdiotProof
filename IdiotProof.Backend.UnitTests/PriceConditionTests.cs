@@ -456,6 +456,26 @@ public class PriceConditionTests
     }
 
     [Test]
+    public void BelowVwapCondition_Buffer_StoredCorrectly()
+    {
+        // Arrange & Act
+        var condition = new BelowVwapCondition(buffer: 1.50);
+
+        // Assert
+        Assert.That(condition.Buffer, Is.EqualTo(1.50));
+    }
+
+    [Test]
+    public void BelowVwapCondition_DefaultBuffer_IsZero()
+    {
+        // Arrange & Act
+        var condition = new BelowVwapCondition();
+
+        // Assert
+        Assert.That(condition.Buffer, Is.EqualTo(0));
+    }
+
+    [Test]
     public void BelowVwapCondition_Name_NoBuffer_FormattedCorrectly()
     {
         // Arrange & Act
@@ -529,6 +549,16 @@ public class PriceConditionTests
     }
 
     [Test]
+    public void PriceAtOrAboveCondition_Level_StoredCorrectly()
+    {
+        // Arrange & Act
+        var condition = new PriceAtOrAboveCondition(125.75);
+
+        // Assert
+        Assert.That(condition.Level, Is.EqualTo(125.75));
+    }
+
+    [Test]
     public void PriceAtOrAboveCondition_IgnoresVwap()
     {
         // Arrange
@@ -597,6 +627,16 @@ public class PriceConditionTests
 
         // Assert
         Assert.That(condition.Name, Is.EqualTo("Price < 75.50"));
+    }
+
+    [Test]
+    public void PriceBelowCondition_Level_StoredCorrectly()
+    {
+        // Arrange & Act
+        var condition = new PriceBelowCondition(75.50);
+
+        // Assert
+        Assert.That(condition.Level, Is.EqualTo(75.50));
     }
 
     [Test]
@@ -842,6 +882,75 @@ public class PriceConditionTests
             Assert.That(atOrAbove.Evaluate(99.00, 0), Is.False);
             Assert.That(below.Evaluate(99.00, 0), Is.True);
         });
+    }
+
+    #endregion
+
+    #region Special Floating-Point Value Tests
+
+    [Test]
+    public void BreakoutCondition_NaNPrice_ReturnsFalse()
+    {
+        // Arrange
+        var condition = new BreakoutCondition(100.00);
+
+        // Act - NaN comparisons always return false
+        var result = condition.Evaluate(currentPrice: double.NaN, vwap: 100.00);
+
+        // Assert
+        Assert.That(result, Is.False);
+    }
+
+    [Test]
+    public void PullbackCondition_NaNPrice_ReturnsFalse()
+    {
+        // Arrange
+        var condition = new PullbackCondition(100.00);
+
+        // Act
+        var result = condition.Evaluate(currentPrice: double.NaN, vwap: 100.00);
+
+        // Assert
+        Assert.That(result, Is.False);
+    }
+
+    [Test]
+    public void AboveVwapCondition_NaNVwap_ReturnsFalse()
+    {
+        // Arrange
+        var condition = new AboveVwapCondition();
+
+        // Act - NaN > 0 is false, so condition should fail
+        var result = condition.Evaluate(currentPrice: 100.00, vwap: double.NaN);
+
+        // Assert
+        Assert.That(result, Is.False);
+    }
+
+    [Test]
+    public void BreakoutCondition_InfinityPrice_ReturnsTrue()
+    {
+        // Arrange
+        var condition = new BreakoutCondition(100.00);
+
+        // Act - Positive infinity is greater than any finite number
+        var result = condition.Evaluate(currentPrice: double.PositiveInfinity, vwap: 100.00);
+
+        // Assert
+        Assert.That(result, Is.True);
+    }
+
+    [Test]
+    public void PriceBelowCondition_NegativeInfinityPrice_ReturnsTrue()
+    {
+        // Arrange
+        var condition = new PriceBelowCondition(100.00);
+
+        // Act - Negative infinity is less than any finite number
+        var result = condition.Evaluate(currentPrice: double.NegativeInfinity, vwap: 100.00);
+
+        // Assert
+        Assert.That(result, Is.True);
     }
 
     #endregion
