@@ -39,32 +39,61 @@ namespace IdiotProof.Frontend.Services
 
         public async Task<bool> ConnectAsync()
         {
+            System.Diagnostics.Debug.WriteLine("[BackendService] ConnectAsync called");
+
             if (_isConnected)
+            {
+                System.Diagnostics.Debug.WriteLine("[BackendService] Already connected");
                 return true;
+            }
 
             try
             {
+                System.Diagnostics.Debug.WriteLine("[BackendService] Creating pipe...");
                 _pipe = new NamedPipeClientStream(".", PipeName, PipeDirection.InOut, PipeOptions.Asynchronous);
 
+                System.Diagnostics.Debug.WriteLine($"[BackendService] Connecting with {ConnectionTimeoutMs}ms timeout...");
                 using var cts = new CancellationTokenSource(ConnectionTimeoutMs);
-                await _pipe.ConnectAsync(cts.Token);
+                await _pipe.ConnectAsync(cts.Token).ConfigureAwait(false);
 
-                _reader = new StreamReader(_pipe, Encoding.UTF8, leaveOpen: true);
-                _writer = new StreamWriter(_pipe, Encoding.UTF8, leaveOpen: true) { AutoFlush = true };
+                System.Diagnostics.Debug.WriteLine("[BackendService] Pipe connected!");
+
+                // Use UTF8 without BOM to avoid any initial write
+                var utf8NoBom = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false);
+
+                System.Diagnostics.Debug.WriteLine("[BackendService] Creating StreamReader...");
+                _reader = new StreamReader(_pipe, utf8NoBom, detectEncodingFromByteOrderMarks: false, bufferSize: 4096, leaveOpen: true);
+                System.Diagnostics.Debug.WriteLine("[BackendService] StreamReader created");
+
+                System.Diagnostics.Debug.WriteLine("[BackendService] Creating StreamWriter...");
+                _writer = new StreamWriter(_pipe, utf8NoBom, bufferSize: 4096, leaveOpen: true);
+                System.Diagnostics.Debug.WriteLine("[BackendService] StreamWriter created, setting AutoFlush...");
+                _writer.AutoFlush = true;
+                System.Diagnostics.Debug.WriteLine("[BackendService] AutoFlush set");
 
                 _isConnected = true;
-                ConnectionStatusChanged?.Invoke(this, true);
+                System.Diagnostics.Debug.WriteLine("[BackendService] _isConnected = true");
 
-                // Start listening for push messages
                 _listenerCts = new CancellationTokenSource();
                 _listenerTask = ListenForMessagesAsync(_listenerCts.Token);
+                System.Diagnostics.Debug.WriteLine("[BackendService] Listener started");
 
+                // Fire event on thread pool to avoid potential UI deadlock
+                _ = Task.Run(() => ConnectionStatusChanged?.Invoke(this, true));
+
+                System.Diagnostics.Debug.WriteLine("[BackendService] ConnectAsync returning true");
                 return true;
+            }
+            catch (OperationCanceledException)
+            {
+                System.Diagnostics.Debug.WriteLine("[BackendService] Connection timed out");
+                await DisconnectAsync().ConfigureAwait(false);
+                return false;
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"[BackendService] Connect failed: {ex.Message}");
-                await DisconnectAsync();
+                System.Diagnostics.Debug.WriteLine($"[BackendService] Connect failed: {ex.GetType().Name}: {ex.Message}");
+                await DisconnectAsync().ConfigureAwait(false);
                 return false;
             }
         }
@@ -99,20 +128,16 @@ namespace IdiotProof.Frontend.Services
 
         public async Task<BackendStatus> GetStatusAsync()
         {
+            // Don't auto-connect - return disconnected status immediately to avoid deadlocks
             if (!_isConnected)
             {
-                // Try to connect first
-                var connected = await ConnectAsync();
-                if (!connected)
+                return new BackendStatus
                 {
-                    return new BackendStatus
-                    {
-                        IsRunning = false,
-                        IsConnectedToIbkr = false,
-                        ActiveStrategies = 0,
-                        ErrorMessage = "Backend not connected"
-                    };
-                }
+                    IsRunning = false,
+                    IsConnectedToIbkr = false,
+                    ActiveStrategies = 0,
+                    ErrorMessage = "Backend not connected"
+                };
             }
 
             try

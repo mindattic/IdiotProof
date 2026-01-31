@@ -1,34 +1,147 @@
 @inherits LayoutComponentBase
+@using IdiotProof.Frontend.Services
+@inject IBackendService BackendService
+@implements IDisposable
 
-<div class="app-container">
-    <nav class="tab-bar">
-        <NavLink class="tab-item" href="" Match="NavLinkMatch.All">
-            <span class="tab-icon">🎨</span>
-            <span class="tab-label">Design</span>
-        </NavLink>
-        <NavLink class="tab-item" href="strategies">
-            <span class="tab-icon">📋</span>
-            <span class="tab-label">Strategies</span>
-        </NavLink>
-        <NavLink class="tab-item" href="orders">
-            <span class="tab-icon">📊</span>
-            <span class="tab-label">Orders</span>
-        </NavLink>
-        <NavLink class="tab-item" href="progress">
-            <span class="tab-icon">📝</span>
-            <span class="tab-label">Progress</span>
-        </NavLink>
-        <NavLink class="tab-item" href="settings">
-            <span class="tab-icon">⚙️</span>
-            <span class="tab-label">Settings</span>
-        </NavLink>
-        <NavLink class="tab-item" href="help">
-            <span class="tab-icon">❓</span>
-            <span class="tab-label">Help</span>
-        </NavLink>
-    </nav>
+@if (!_isConnected)
+{
+    <div class="connection-gate">
+        <div class="connection-gate-content">
+            <div class="connection-gate-icon">🔌</div>
+            <div class="connection-gate-title">Connecting to Backend...</div>
+            <div class="connection-gate-status">@_statusMessage</div>
+            @if (_connectionFailed)
+            {
+                <button class="btn btn-primary mt-4" @onclick="RetryConnection">Retry Connection</button>
+            }
+            else
+            {
+                <div class="connection-gate-spinner"></div>
+            }
+        </div>
+    </div>
+}
+else
+{
+    <div class="app-container">
+        <nav class="tab-bar">
+            <NavLink class="tab-item" href="" Match="NavLinkMatch.All">
+                <span class="tab-icon">🎨</span>
+                <span class="tab-label">Design</span>
+            </NavLink>
+            <NavLink class="tab-item" href="strategies">
+                <span class="tab-icon">📋</span>
+                <span class="tab-label">Strategies</span>
+            </NavLink>
+            <NavLink class="tab-item" href="orders">
+                <span class="tab-icon">📊</span>
+                <span class="tab-label">Orders</span>
+            </NavLink>
+            <NavLink class="tab-item" href="progress">
+                <span class="tab-icon">📝</span>
+                <span class="tab-label">Progress</span>
+            </NavLink>
+            <NavLink class="tab-item" href="settings">
+                <span class="tab-icon">⚙️</span>
+                <span class="tab-label">Settings</span>
+            </NavLink>
+            <NavLink class="tab-item" href="help">
+                <span class="tab-icon">❓</span>
+                <span class="tab-label">Help</span>
+            </NavLink>
+        </nav>
 
-    <main class="main-content">
-        @Body
-    </main>
-</div>
+        <main class="main-content">
+            @Body
+        </main>
+    </div>
+}
+
+@code {
+    private bool _isConnected;
+    private bool _connectionFailed;
+    private string _statusMessage = "Establishing connection...";
+    private bool _hasStartedConnection;
+
+    protected override void OnInitialized()
+    {
+        BackendService.ConnectionStatusChanged += OnConnectionStatusChanged;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && !_hasStartedConnection)
+        {
+            _hasStartedConnection = true;
+            await ConnectAsync();
+        }
+    }
+
+    private async Task ConnectAsync()
+    {
+        _connectionFailed = false;
+        _statusMessage = "Connecting to backend...";
+        await InvokeAsync(StateHasChanged);
+
+        System.Diagnostics.Debug.WriteLine("[MainLayout] Starting ConnectAsync...");
+
+        try
+        {
+            var connected = await BackendService.ConnectAsync();
+            System.Diagnostics.Debug.WriteLine($"[MainLayout] ConnectAsync returned: {connected}");
+
+            if (connected)
+            {
+                _isConnected = true;
+                _statusMessage = "Connected";
+            }
+            else
+            {
+                _connectionFailed = true;
+                _statusMessage = "Connection failed. Is the backend running?";
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[MainLayout] ConnectAsync exception: {ex.Message}");
+            _connectionFailed = true;
+            _statusMessage = $"Error: {ex.Message}";
+        }
+
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task RetryConnection()
+    {
+        await ConnectAsync();
+    }
+
+    private void OnConnectionStatusChanged(object? sender, bool connected)
+    {
+        _isConnected = connected;
+        if (!connected)
+        {
+            _connectionFailed = true;
+            _statusMessage = "Connection lost. Click to reconnect.";
+        }
+        InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        BackendService.ConnectionStatusChanged -= OnConnectionStatusChanged;
+    }
+}
+        if (!connected)
+        {
+            _connectionFailed = true;
+            _statusMessage = "Connection lost. Click to reconnect.";
+        }
+        InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        BackendService.ConnectionStatusChanged -= OnConnectionStatusChanged;
+    }
+}

@@ -242,7 +242,6 @@
         BackendService.OrderUpdated += OnOrderUpdated;
         BackendService.ConnectionStatusChanged += OnConnectionChanged;
 
-        await ConnectToBackend();
         await RefreshData();
         StartAutoRefresh();
     }

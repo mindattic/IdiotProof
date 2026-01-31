@@ -75,12 +75,10 @@
     private ElementReference ConsoleElement;
     private bool _shouldScroll = false;
 
-    protected override async Task OnInitializedAsync()
+    protected override void OnInitialized()
     {
         BackendService.ConsoleOutputReceived += OnConsoleOutput;
         BackendService.ConnectionStatusChanged += OnConnectionChanged;
-
-        await ConnectToBackend();
         LoadExistingBuffer();
     }
 

@@ -14,7 +14,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("IdiotProof.Shared")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+47c3c729f3ab1df2ddf9d03fbaead0fc2ebff52c")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+129c5eb915278ddc3463d731121fbfc08a137277")]
 [assembly: System.Reflection.AssemblyProductAttribute("IdiotProof.Shared")]
 [assembly: System.Reflection.AssemblyTitleAttribute("IdiotProof.Shared")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

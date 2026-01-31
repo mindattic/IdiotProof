@@ -12,12 +12,12 @@
       <RelatedAsset></RelatedAsset>
       <AssetTraitName></AssetTraitName>
       <AssetTraitValue></AssetTraitValue>
-      <Fingerprint>ksa38w1m5w</Fingerprint>
-      <Integrity>nI4+sFj+tqOT1oX4vEfQqkg+t9uJYC6bS74WC70gBVk=</Integrity>
+      <Fingerprint>9um8toxnpn</Fingerprint>
+      <Integrity>X23VBFbGK4y1ikL/1MsnQb1LsEn/NUMGBAD8BJzMKZA=</Integrity>
       <CopyToOutputDirectory>Never</CopyToOutputDirectory>
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
-      <FileLength>28630</FileLength>
-      <LastWriteTime>Sat, 31 Jan 2026 02:48:55 GMT</LastWriteTime>
+      <FileLength>29801</FileLength>
+      <LastWriteTime>Sat, 31 Jan 2026 04:46:20 GMT</LastWriteTime>
       <OriginalItemSpec>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\staticwebassets\css\app.css'))</OriginalItemSpec>
     </StaticWebAsset>
     <StaticWebAsset Include="$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\staticwebassets\css\markdown.css'))">
@@ -37,7 +37,7 @@
       <CopyToOutputDirectory>Never</CopyToOutputDirectory>
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
       <FileLength>6366</FileLength>
-      <LastWriteTime>Sat, 31 Jan 2026 03:10:08 GMT</LastWriteTime>
+      <LastWriteTime>Sat, 31 Jan 2026 04:40:47 GMT</LastWriteTime>
       <OriginalItemSpec>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\staticwebassets\css\markdown.css'))</OriginalItemSpec>
     </StaticWebAsset>
     <StaticWebAsset Include="$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\staticwebassets\css\themes.css'))">
@@ -57,7 +57,7 @@
       <CopyToOutputDirectory>Never</CopyToOutputDirectory>
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
       <FileLength>8280</FileLength>
-      <LastWriteTime>Sat, 31 Jan 2026 02:43:44 GMT</LastWriteTime>
+      <LastWriteTime>Sat, 31 Jan 2026 04:40:47 GMT</LastWriteTime>
       <OriginalItemSpec>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\staticwebassets\css\themes.css'))</OriginalItemSpec>
     </StaticWebAsset>
     <StaticWebAsset Include="$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\staticwebassets\index.html'))">
@@ -77,7 +77,7 @@
       <CopyToOutputDirectory>Never</CopyToOutputDirectory>
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
       <FileLength>2083</FileLength>
-      <LastWriteTime>Sat, 31 Jan 2026 03:10:22 GMT</LastWriteTime>
+      <LastWriteTime>Sat, 31 Jan 2026 04:40:47 GMT</LastWriteTime>
       <OriginalItemSpec>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\staticwebassets\index.html'))</OriginalItemSpec>
     </StaticWebAsset>
     <StaticWebAsset Include="$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\staticwebassets\_framework\blazor.modules.json'))">
