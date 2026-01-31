@@ -50,7 +50,7 @@ namespace IdiotProof.Backend
         /// <summary>
         /// Gateway paper: 4002, Gateway live: 4001
         /// </summary>
-        public const int Port = 4002;  // ⚠️ PAPER TRADING - Change to 4001 for live
+        public const int Port = 4001;
 
         public static bool IsPaperTrading => Port == 4002;
 
@@ -67,7 +67,7 @@ namespace IdiotProof.Backend
 
         /// <summary>
         /// Your IBKR account ID (e.g., "U1234567" or "DU1234567" for paper).
-        /// Required if you have multiple accounts under one login.
+        /// Required if multiple accounts under one login.
         /// Leave empty to use the default/primary account.
         /// Main = U22434144; 
         /// Secondary = U23270497
@@ -105,7 +105,20 @@ namespace IdiotProof.Backend
         /// <summary>
         /// Interval between heartbeat checks to verify IB connection is alive.
         /// </summary>
-        public static readonly TimeSpan Heartbeat = TimeSpan.FromMinutes(15);
+        public static readonly TimeSpan Heartbeat = TimeSpan.FromMinutes(5);
+
+        // ----- Backend Mode Settings -----
+
+        /// <summary>
+        /// When true, suppresses most console output. Only shows minimal heartbeat (*Blip*).
+        /// </summary>
+        public static bool SilentMode { get; set; } = false;
+
+        /// <summary>
+        /// When true, the backend will auto-start trading when strategies are loaded.
+        /// When false, waits for explicit activation from frontend.
+        /// </summary>
+        public static bool AutoStart { get; set; } = false;
     }
 }
 

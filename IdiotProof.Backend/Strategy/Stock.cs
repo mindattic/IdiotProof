@@ -91,6 +91,7 @@ namespace IdiotProof.Backend.Models
         private TimeOnly? _startTime;
         private TimeOnly? _endTime;
         private TradingSession? _session;
+        private string? _notes;
 
         /// <summary>
         /// Private constructor - use <see cref="Ticker"/> to create instances.
@@ -106,26 +107,39 @@ namespace IdiotProof.Backend.Models
         /// Creates a new strategy builder for the specified stock symbol.
         /// </summary>
         /// <param name="symbol">The stock ticker symbol (e.g., "AAPL", "NAMM").</param>
+        /// <param name="notes">Optional notes for documentation.</param>
         /// <returns>A new <see cref="Stock"/> builder instance.</returns>
         /// <exception cref="ArgumentNullException">Thrown if symbol is null.</exception>
         /// <remarks>
         /// <b>Best Practice:</b> Use uppercase ticker symbols to match exchange conventions.
         /// </remarks>
         /// <example>
-        /// <code>Stock.Ticker("AAPL")</code>
+        /// <code>Stock.Ticker("AAPL", notes: "Apple breakout strategy")</code>
         /// </example>
-        public static Stock Ticker(string symbol) => new(symbol);
+        public static Stock Ticker(string symbol, string? notes = null) => new(symbol) { _notes = notes };
+
+        /// <summary>
+        /// Adds notes to the strategy for documentation purposes.
+        /// </summary>
+        /// <param name="notes">Notes describing the strategy or providing reminders.</param>
+        /// <returns>The builder for method chaining.</returns>
+        public Stock WithNotes(string? notes)
+        {
+            _notes = notes;
+            return this;
+        }
 
         /// <summary>
         /// Sets the exchange for order routing.
         /// </summary>
         /// <param name="exchange">Exchange identifier (default: "SMART").</param>
+        /// <param name="notes">Optional notes for documentation.</param>
         /// <returns>The builder for method chaining.</returns>
         /// <remarks>
         /// <b>Best Practice:</b> Use "SMART" for automatic routing. Specify exchange
         /// (e.g., "NASDAQ", "NYSE") only when you need specific routing.
         /// </remarks>
-        public Stock Exchange(string exchange)
+        public Stock Exchange(string exchange, string? notes = null)
         {
             _exchange = exchange;
             return this;
@@ -135,13 +149,14 @@ namespace IdiotProof.Backend.Models
         /// Sets the exchange for order routing using a predefined exchange type.
         /// </summary>
         /// <param name="exchange">Exchange type (default: SMART).</param>
+        /// <param name="notes">Optional notes for documentation.</param>
         /// <returns>The builder for method chaining.</returns>
         /// <remarks>
         /// <para><b>Best Practice:</b> Use <see cref="ContractExchange.Smart"/> for most stocks.</para>
         /// <para>Use <see cref="ContractExchange.Pink"/> for OTC/microcap stocks under $1.</para>
         /// <para><b>Note:</b> Pink uses SMART routing with PrimaryExchange="PINK" for IBKR compatibility.</para>
         /// </remarks>
-        public Stock Exchange(ContractExchange exchange)
+        public Stock Exchange(ContractExchange exchange, string? notes = null)
         {
             switch (exchange)
             {
@@ -162,11 +177,12 @@ namespace IdiotProof.Backend.Models
         /// Sets the primary exchange for order routing (used with SMART routing).
         /// </summary>
         /// <param name="primaryExchange">Primary exchange identifier (e.g., "NASDAQ", "NYSE", "PINK").</param>
+        /// <param name="notes">Optional notes for documentation.</param>
         /// <returns>The builder for method chaining.</returns>
         /// <remarks>
         /// <b>Use Case:</b> Required for OTC stocks when using SMART routing.
         /// </remarks>
-        public Stock PrimaryExchange(string primaryExchange)
+        public Stock PrimaryExchange(string primaryExchange, string? notes = null)
         {
             _primaryExchange = primaryExchange;
             return this;
@@ -176,8 +192,9 @@ namespace IdiotProof.Backend.Models
         /// Sets the currency for the order.
         /// </summary>
         /// <param name="currency">Currency code (default: "USD").</param>
+        /// <param name="notes">Optional notes for documentation.</param>
         /// <returns>The builder for method chaining.</returns>
-        public Stock Currency(string currency)
+        public Stock Currency(string currency, string? notes = null)
         {
             _currency = currency;
             return this;
@@ -187,16 +204,18 @@ namespace IdiotProof.Backend.Models
         /// Enables or disables this strategy.
         /// </summary>
         /// <param name="enabled">True to enable, false to disable.</param>
+        /// <param name="notes">Optional notes for documentation.</param>
         /// <returns>The builder for method chaining.</returns>
         /// <remarks>
         /// <b>Use Case:</b> Temporarily disable a strategy without removing it from code.
         /// Disabled strategies are skipped during execution.
         /// </remarks>
-        public Stock Enabled(bool enabled)
+        public Stock Enabled(bool enabled, string? notes = null)
         {
             _enabled = enabled;
             return this;
         }
+
 
         /// <summary>
         /// Sets the time to start monitoring the strategy (CST).
@@ -305,7 +324,9 @@ namespace IdiotProof.Backend.Models
         /// <summary>
         /// Adds a breakout condition: Price >= level.
         /// </summary>
-        public Stock Breakout(double level)
+        /// <param name="level">The breakout price level.</param>
+        /// <param name="notes">Optional notes for documentation.</param>
+        public Stock Breakout(double level, string? notes = null)
         {
             _conditions.Add(new BreakoutCondition(level));
             return this;
@@ -314,7 +335,9 @@ namespace IdiotProof.Backend.Models
         /// <summary>
         /// Adds a pullback condition: Price &lt;= level.
         /// </summary>
-        public Stock Pullback(double level)
+        /// <param name="level">The pullback price level.</param>
+        /// <param name="notes">Optional notes for documentation.</param>
+        public Stock Pullback(double level, string? notes = null)
         {
             _conditions.Add(new PullbackCondition(level));
             return this;
@@ -323,7 +346,9 @@ namespace IdiotProof.Backend.Models
         /// <summary>
         /// Adds an above-VWAP condition: Price >= VWAP + buffer.
         /// </summary>
-        public Stock AboveVwap(double buffer = 0)
+        /// <param name="buffer">Buffer above VWAP.</param>
+        /// <param name="notes">Optional notes for documentation.</param>
+        public Stock AboveVwap(double buffer = 0, string? notes = null)
         {
             _conditions.Add(new AboveVwapCondition(buffer));
             return this;
@@ -332,7 +357,9 @@ namespace IdiotProof.Backend.Models
         /// <summary>
         /// Adds a below-VWAP condition: Price &lt;= VWAP - buffer.
         /// </summary>
-        public Stock BelowVwap(double buffer = 0)
+        /// <param name="buffer">Buffer below VWAP.</param>
+        /// <param name="notes">Optional notes for documentation.</param>
+        public Stock BelowVwap(double buffer = 0, string? notes = null)
         {
             _conditions.Add(new BelowVwapCondition(buffer));
             return this;
@@ -341,7 +368,9 @@ namespace IdiotProof.Backend.Models
         /// <summary>
         /// Adds a price-at-or-above condition: Price >= level.
         /// </summary>
-        public Stock PriceAbove(double level)
+        /// <param name="level">The price level.</param>
+        /// <param name="notes">Optional notes for documentation.</param>
+        public Stock PriceAbove(double level, string? notes = null)
         {
             _conditions.Add(new PriceAtOrAboveCondition(level));
             return this;
@@ -350,7 +379,9 @@ namespace IdiotProof.Backend.Models
         /// <summary>
         /// Adds a price-below condition: Price &lt; level.
         /// </summary>
-        public Stock PriceBelow(double level)
+        /// <param name="level">The price level.</param>
+        /// <param name="notes">Optional notes for documentation.</param>
+        public Stock PriceBelow(double level, string? notes = null)
         {
             _conditions.Add(new PriceBelowCondition(level));
             return this;
@@ -731,7 +762,8 @@ namespace IdiotProof.Backend.Models
                 Enabled = _enabled,
                 StartTime = _startTime,
                 EndTime = _endTime,
-                Session = _session
+                Session = _session,
+                Notes = _notes
             };
         }
 
@@ -745,6 +777,7 @@ namespace IdiotProof.Backend.Models
         internal TimeOnly? StartTimeValue => _startTime;
         internal TimeOnly? EndTimeValue { get => _endTime; set => _endTime = value; }
         internal TradingSession? SessionValue => _session;
+        internal string? NotesValue => _notes;
     }
 
     /// <summary>

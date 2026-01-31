@@ -13,6 +13,14 @@
       "PackagePath": "staticwebassets\\css\\app.css"
     },
     {
+      "Id": "D:\\Projects\\IdiotProof\\IdiotProof.Frontend\\wwwroot\\css\\markdown.css",
+      "PackagePath": "staticwebassets\\css\\markdown.css"
+    },
+    {
+      "Id": "D:\\Projects\\IdiotProof\\IdiotProof.Frontend\\wwwroot\\css\\themes.css",
+      "PackagePath": "staticwebassets\\css\\themes.css"
+    },
+    {
       "Id": "D:\\Projects\\IdiotProof\\IdiotProof.Frontend\\wwwroot\\index.html",
       "PackagePath": "staticwebassets\\index.html"
     },

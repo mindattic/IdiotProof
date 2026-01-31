@@ -10,6 +10,7 @@
       "IdiotProof.Frontend/1.0": {
         "dependencies": {
           "IdiotProof.Shared": "1.0.0",
+          "Markdig": "0.40.0",
           "Microsoft.AspNetCore.Components.WebView.Maui": "10.0.1",
           "Microsoft.Maui.Controls.Compatibility": "10.0.1",
           "Microsoft.Web.WebView2.Core.Projection": "1.0.3179.45",
@@ -28,6 +29,14 @@
           "WinRT.Runtime.dll": {
             "assemblyVersion": "2.2.0.0",
             "fileVersion": "2.2.0.48161"
+          }
+        }
+      },
+      "Markdig/0.40.0": {
+        "runtime": {
+          "lib/net9.0/Markdig.dll": {
+            "assemblyVersion": "0.40.0.0",
+            "fileVersion": "0.40.0.0"
           }
         }
       },
@@ -755,6 +764,13 @@
       "type": "runtimepack",
       "serviceable": false,
       "sha512": ""
+    },
+    "Markdig/0.40.0": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-4ve14zs+gt1irldTQE3y5FLAHuzmhW7T99lAAvVipe/q2LWT/nUCO0iICb9TXGvMX6n7Z1OZroFXkdSy91rO8w==",
+      "path": "markdig/0.40.0",
+      "hashPath": "markdig.0.40.0.nupkg.sha512"
     },
     "Microsoft.AspNetCore.Authorization/10.0.0": {
       "type": "package",

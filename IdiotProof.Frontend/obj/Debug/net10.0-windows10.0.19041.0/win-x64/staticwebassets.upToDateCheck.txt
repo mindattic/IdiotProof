@@ -1,4 +1,6 @@
 C:\Users\ryand\.nuget\packages\microsoft.aspnetcore.components.webview\10.0.0\build\..\staticwebassets\blazor.modules.json
 C:\Users\ryand\.nuget\packages\microsoft.aspnetcore.components.webview\10.0.0\build\..\staticwebassets\blazor.webview.js
 wwwroot\css\app.css
+wwwroot\css\markdown.css
+wwwroot\css\themes.css
 wwwroot\index.html

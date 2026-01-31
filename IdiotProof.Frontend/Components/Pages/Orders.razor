@@ -73,7 +73,10 @@
     <div class="section-header">
         <h2>Orders</h2>
         <div class="order-filter-tabs">
-            <button class="filter-tab @(OrderFilter == "all" ? "active" : "")" @onclick='() => OrderFilter = "all"'>All (@OrdersList.Count)</button>
+            <button class="filter-tab @(ShowIdiotProofOnly ? "active" : "")" @onclick="ToggleIdiotProofOnly" title="Show only orders created by IdiotProof">
+                @(ShowIdiotProofOnly ? "🤖 IdiotProof Only" : "🌐 All Orders")
+            </button>
+            <button class="filter-tab @(OrderFilter == "all" ? "active" : "")" @onclick='() => OrderFilter = "all"'>All (@DisplayedOrdersList.Count)</button>
             <button class="filter-tab @(OrderFilter == "open" ? "active" : "")" @onclick='() => OrderFilter = "open"'>Open (@OpenOrderCount)</button>
             <button class="filter-tab @(OrderFilter == "filled" ? "active" : "")" @onclick='() => OrderFilter = "filled"'>Filled (@FilledOrderCount)</button>
         </div>
@@ -87,6 +90,10 @@
                 @if (!BackendService.IsConnected)
                 {
                     <span>Connect to the backend to see orders</span>
+                }
+                else if (ShowIdiotProofOnly)
+                {
+                    <span>No IdiotProof orders found. Orders from other sources are hidden.</span>
                 }
                 else
                 {
@@ -200,21 +207,35 @@
     private bool AutoRefresh = true;
     private bool IsCancellingOrder = false;
     private bool IsClosingPosition = false;
+    private bool ShowIdiotProofOnly = true; // Default to showing only IdiotProof orders
 
     private OrderInfo? CancellingOrder;
     private PositionInfo? ClosingPosition;
 
     private System.Timers.Timer? _refreshTimer;
 
+    // Filter to show only IdiotProof orders or all orders
+    private List<OrderInfo> DisplayedOrdersList => ShowIdiotProofOnly 
+        ? OrdersList.Where(o => o.IsIdiotProofOrder).ToList() 
+        : OrdersList;
+
     private List<OrderInfo> FilteredOrders => OrderFilter switch
     {
-        "open" => OrdersList.Where(o => CanCancelOrder(o.Status)).ToList(),
-        "filled" => OrdersList.Where(o => o.Status == OrderStatus.Filled).ToList(),
-        _ => OrdersList
+        "open" => DisplayedOrdersList.Where(o => CanCancelOrder(o.Status)).ToList(),
+        "filled" => DisplayedOrdersList.Where(o => o.Status == OrderStatus.Filled).ToList(),
+        _ => DisplayedOrdersList
     };
 
-    private int OpenOrderCount => OrdersList.Count(o => CanCancelOrder(o.Status));
-    private int FilledOrderCount => OrdersList.Count(o => o.Status == OrderStatus.Filled);
+    private int OpenOrderCount => DisplayedOrdersList.Count(o => CanCancelOrder(o.Status));
+    private int FilledOrderCount => DisplayedOrdersList.Count(o => o.Status == OrderStatus.Filled);
+
+    private void ToggleIdiotProofOnly()
+    {
+        ShowIdiotProofOnly = !ShowIdiotProofOnly;
+        StatusMessage = ShowIdiotProofOnly 
+            ? "Showing IdiotProof orders only" 
+            : "Showing all orders";
+    }
 
     protected override async Task OnInitializedAsync()
     {

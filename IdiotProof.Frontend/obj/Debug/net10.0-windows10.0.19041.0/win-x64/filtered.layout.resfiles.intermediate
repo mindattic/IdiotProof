@@ -1,6 +1,5 @@
 wwwroot\_framework\blazor.modules.json
 wwwroot\_framework\blazor.webview.js
-.gitkeep
 appicon.ico
 appiconLargeTile.scale-100.png
 appiconLargeTile.scale-125.png
@@ -53,4 +52,6 @@ splashSplashScreen.scale-150.png
 splashSplashScreen.scale-200.png
 splashSplashScreen.scale-400.png
 wwwroot\css\app.css
+wwwroot\css\markdown.css
+wwwroot\css\themes.css
 wwwroot\index.html

@@ -71,11 +71,14 @@ Backend (IB API Orders)
 - `Comparison`
 - `DiDirection`
 
+**Key Difference:** `Backend.Enums` versions have richer documentation including IBKR API mappings (e.g., `OrderSide.Buy` → "BUY"), while `Shared.Enums` versions are minimal.
+
 **Impact:** Ambiguous type references, casting issues, potential runtime bugs
 
 **Recommendation:**
 ```csharp
-// Option 1: Use Shared enums everywhere (preferred)
+// Option 1: Consolidate to Shared with Backend's documentation (preferred)
+// Move rich XML docs from Backend.Enums to Shared.Enums
 // Delete Backend.Enums duplicates, reference Shared from Backend
 
 // Option 2: Add explicit namespace aliases in problem files
@@ -102,17 +105,34 @@ using SharedEnums = IdiotProof.Shared.Enums;
 
 ---
 
-## 3. Missing Unit Tests (Now Added)
+## 3. Unit Test Coverage
 
-### 3.1 New Test Files Created
-| File | Coverage |
-|------|----------|
+### 3.1 Test Files in Project
+| File | Coverage Area |
+|------|---------------|
 | `StrategyValidatorTests.cs` | Server validation logic |
 | `StrategyLoaderTests.cs` | JSON→TradingStrategy conversion |
 | `AtrCalculatorTests.cs` | ATR calculation and stop prices |
 | `SegmentFactoryTests.cs` | Segment template creation |
 | `StrategyJsonParserTests.cs` | JSON serialization/deserialization |
-| `StrategyManagerTests.cs` | Lifecycle management (documented) |
+| `StrategyManagerTests.cs` | Lifecycle management |
+| `StrategyConditionTests.cs` | Condition evaluation |
+| `StrategyRunnerTimeWindowTests.cs` | Time window handling |
+| `IndicatorConditionTests.cs` | Technical indicator conditions |
+| `FluentApiBuilderTests.cs` | Stock builder fluent API |
+| `OrderActionTests.cs` | Order action handling |
+| `OrderPermutationTests.cs` | Order permutation testing |
+| `AdxTakeProfitTests.cs` | ADX-based take profit |
+| `AtrStopLossTests.cs` | ATR-based stop loss |
+| `TrailingStopLossTests.cs` | Trailing stop loss logic |
+| `ValidationTests.cs` | Input validation |
+| `ConnectionResilienceTests.cs` | Connection recovery |
+| `TimezoneTests.cs` | Timezone handling |
+| `TimeAndPercentTests.cs` | Time and percent utilities |
+| `MissedTheBoatTests.cs` | Missed opportunity detection |
+| `PreviousStrategyTests.cs` | Previous strategy handling |
+| `BacktestTests.cs` | Backtesting framework |
+| `Backtester.cs` | Backtesting utilities |
 
 ### 3.2 Test Coverage Gaps Remaining
 
@@ -133,18 +153,21 @@ using SharedEnums = IdiotProof.Shared.Enums;
 - Header comments with IBKR API mapping notes
 
 ### 4.2 Missing Documentation ⚠️
-- `IpcServer` - Limited docs on message protocol
+- `IpcServer` - Has basic XML docs on public methods, but no message protocol documentation for the named pipe communication
 - `StrategyManager` - No sequence diagram for lifecycle
-- Error codes - No documentation on `StrategyResult` meanings
 
-### 4.3 Nomenclature Issues
+### 4.2.1 Well-Documented Items ✅
+- `StrategyResult` enum - All 12 values documented with clear descriptions (e.g., `MissedTheBoat` = "Price already above take profit target - opportunity missed")
+- `IpcServer` public API - All public methods have XML summaries
 
-| Current | Suggested | Reason |
-|---------|-----------|--------|
-| `_pvSum` | `_priceVolumeSum` | Clarity |
-| `_vSum` | `_volumeSum` | Clarity |
-| `TIF` class | `TimeInForceHelper` | Avoid abbreviation |
-| `Gt/Gte/Lt/Lte` | `GreaterThan/GreaterThanOrEqual/...` | Self-documenting |
+### 4.3 Nomenclature Review
+
+| Item | Status | Notes |
+|------|--------|-------|
+| `_pvSum`/`_vSum` | ⚠️ Consider | Short names with "// VWAP accumulators" comment; `_priceVolumeSum`/`_volumeSum` would be more self-documenting |
+| `TIF` class | ✅ Acceptable | Well-documented static helper class with clear header comment explaining its purpose as a shorthand alias |
+| `Gt/Gte/Lt/Lte` | ✅ Acceptable | Industry-standard abbreviations; each value has XML documentation explaining the operator (e.g., "Greater than or equal to (>=)") |
+| `Comparison` enum | ✅ Good | Both `Backend.Enums` and `Shared.Enums` versions have XML documentation |
 
 ---
 

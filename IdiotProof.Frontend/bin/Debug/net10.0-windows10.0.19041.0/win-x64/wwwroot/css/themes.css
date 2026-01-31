@@ -1,0 +1,291 @@
+/* ============================================================================
+   IdiotProof Strategy Builder - Theme Definitions
+   ============================================================================ */
+
+/* ============================================================================
+   DARK THEME (Default)
+   ============================================================================ */
+:root, [data-theme="dark"] {
+    /* Primary Colors */
+    --primary: #512BD4;
+    --primary-dark: #3F1FA8;
+    --primary-light: #7B5CD9;
+    --secondary: #DFD8F7;
+
+    /* Semantic Colors */
+    --success: #4CAF50;
+    --warning: #FFC107;
+    --danger: #F44336;
+    --info: #2196F3;
+
+    /* Segment Category Colors */
+    --segment-start: #4CAF50;
+    --segment-session: #9C27B0;
+    --segment-price-condition: #2196F3;
+    --segment-vwap-condition: #00BCD4;
+    --segment-indicator-condition: #FF9800;
+    --segment-order: #F44336;
+    --segment-risk-management: #FFC107;
+    --segment-position-management: #795548;
+    --segment-order-config: #607D8B;
+
+    /* Background Colors */
+    --bg-page: #1E1E1E;
+    --bg-card: #2D2D2D;
+    --bg-canvas: #252525;
+    --bg-toolbar: #333333;
+    --bg-input: #3D3D3D;
+
+    /* Text Colors */
+    --text-primary: #FFFFFF;
+    --text-secondary: #B0B0B0;
+    --text-muted: #707070;
+
+    /* Border Colors */
+    --border-color: #404040;
+    --border-highlight: #606060;
+
+    /* Drag & Drop */
+    --drag-overlay: rgba(81, 43, 212, 0.25);
+    --drop-target: rgba(81, 43, 212, 0.5);
+}
+
+/* ============================================================================
+   LIGHT THEME
+   ============================================================================ */
+[data-theme="light"] {
+    /* Primary Colors */
+    --primary: #512BD4;
+    --primary-dark: #3F1FA8;
+    --primary-light: #7B5CD9;
+    --secondary: #E8E0F7;
+
+    /* Semantic Colors */
+    --success: #2E7D32;
+    --warning: #F57C00;
+    --danger: #C62828;
+    --info: #1565C0;
+
+    /* Segment Category Colors */
+    --segment-start: #2E7D32;
+    --segment-session: #7B1FA2;
+    --segment-price-condition: #1565C0;
+    --segment-vwap-condition: #00838F;
+    --segment-indicator-condition: #E65100;
+    --segment-order: #C62828;
+    --segment-risk-management: #F57C00;
+    --segment-position-management: #5D4037;
+    --segment-order-config: #455A64;
+
+    /* Background Colors */
+    --bg-page: #F5F5F5;
+    --bg-card: #FFFFFF;
+    --bg-canvas: #FAFAFA;
+    --bg-toolbar: #EEEEEE;
+    --bg-input: #FFFFFF;
+
+    /* Text Colors */
+    --text-primary: #212121;
+    --text-secondary: #616161;
+    --text-muted: #9E9E9E;
+
+    /* Border Colors */
+    --border-color: #E0E0E0;
+    --border-highlight: #BDBDBD;
+
+    /* Drag & Drop */
+    --drag-overlay: rgba(81, 43, 212, 0.15);
+    --drop-target: rgba(81, 43, 212, 0.3);
+}
+
+/* ============================================================================
+   SPRING THEME
+   ============================================================================ */
+[data-theme="spring"] {
+    /* Primary Colors */
+    --primary: #66BB6A;
+    --primary-dark: #43A047;
+    --primary-light: #81C784;
+    --secondary: #E8F5E9;
+
+    /* Semantic Colors */
+    --success: #4CAF50;
+    --warning: #FFCA28;
+    --danger: #EF5350;
+    --info: #29B6F6;
+
+    /* Segment Category Colors */
+    --segment-start: #66BB6A;
+    --segment-session: #AB47BC;
+    --segment-price-condition: #42A5F5;
+    --segment-vwap-condition: #26C6DA;
+    --segment-indicator-condition: #FFA726;
+    --segment-order: #EF5350;
+    --segment-risk-management: #FFCA28;
+    --segment-position-management: #8D6E63;
+    --segment-order-config: #78909C;
+
+    /* Background Colors */
+    --bg-page: #E8F5E9;
+    --bg-card: #FFFFFF;
+    --bg-canvas: #F1F8E9;
+    --bg-toolbar: #C8E6C9;
+    --bg-input: #FFFFFF;
+
+    /* Text Colors */
+    --text-primary: #1B5E20;
+    --text-secondary: #4CAF50;
+    --text-muted: #81C784;
+
+    /* Border Colors */
+    --border-color: #A5D6A7;
+    --border-highlight: #66BB6A;
+
+    /* Drag & Drop */
+    --drag-overlay: rgba(102, 187, 106, 0.2);
+    --drop-target: rgba(102, 187, 106, 0.4);
+}
+
+/* ============================================================================
+   SUMMER THEME
+   ============================================================================ */
+[data-theme="summer"] {
+    /* Primary Colors */
+    --primary: #FF7043;
+    --primary-dark: #E64A19;
+    --primary-light: #FF8A65;
+    --secondary: #FFF3E0;
+
+    /* Semantic Colors */
+    --success: #66BB6A;
+    --warning: #FFEE58;
+    --danger: #EF5350;
+    --info: #4FC3F7;
+
+    /* Segment Category Colors */
+    --segment-start: #66BB6A;
+    --segment-session: #BA68C8;
+    --segment-price-condition: #4FC3F7;
+    --segment-vwap-condition: #4DD0E1;
+    --segment-indicator-condition: #FFB74D;
+    --segment-order: #EF5350;
+    --segment-risk-management: #FFEE58;
+    --segment-position-management: #A1887F;
+    --segment-order-config: #90A4AE;
+
+    /* Background Colors */
+    --bg-page: #FFF8E1;
+    --bg-card: #FFFFFF;
+    --bg-canvas: #FFF3E0;
+    --bg-toolbar: #FFE0B2;
+    --bg-input: #FFFFFF;
+
+    /* Text Colors */
+    --text-primary: #BF360C;
+    --text-secondary: #E65100;
+    --text-muted: #FF8A65;
+
+    /* Border Colors */
+    --border-color: #FFCC80;
+    --border-highlight: #FF9800;
+
+    /* Drag & Drop */
+    --drag-overlay: rgba(255, 112, 67, 0.2);
+    --drop-target: rgba(255, 112, 67, 0.4);
+}
+
+/* ============================================================================
+   AUTUMN THEME
+   ============================================================================ */
+[data-theme="autumn"] {
+    /* Primary Colors */
+    --primary: #8D6E63;
+    --primary-dark: #6D4C41;
+    --primary-light: #A1887F;
+    --secondary: #EFEBE9;
+
+    /* Semantic Colors */
+    --success: #7CB342;
+    --warning: #FFB300;
+    --danger: #E53935;
+    --info: #039BE5;
+
+    /* Segment Category Colors */
+    --segment-start: #7CB342;
+    --segment-session: #9C27B0;
+    --segment-price-condition: #039BE5;
+    --segment-vwap-condition: #00ACC1;
+    --segment-indicator-condition: #FB8C00;
+    --segment-order: #E53935;
+    --segment-risk-management: #FFB300;
+    --segment-position-management: #795548;
+    --segment-order-config: #607D8B;
+
+    /* Background Colors */
+    --bg-page: #3E2723;
+    --bg-card: #4E342E;
+    --bg-canvas: #3E2723;
+    --bg-toolbar: #5D4037;
+    --bg-input: #6D4C41;
+
+    /* Text Colors */
+    --text-primary: #EFEBE9;
+    --text-secondary: #BCAAA4;
+    --text-muted: #8D6E63;
+
+    /* Border Colors */
+    --border-color: #6D4C41;
+    --border-highlight: #8D6E63;
+
+    /* Drag & Drop */
+    --drag-overlay: rgba(141, 110, 99, 0.3);
+    --drop-target: rgba(141, 110, 99, 0.5);
+}
+
+/* ============================================================================
+   WINTER THEME
+   ============================================================================ */
+[data-theme="winter"] {
+    /* Primary Colors */
+    --primary: #5C6BC0;
+    --primary-dark: #3F51B5;
+    --primary-light: #7986CB;
+    --secondary: #E8EAF6;
+
+    /* Semantic Colors */
+    --success: #26A69A;
+    --warning: #FFCA28;
+    --danger: #EF5350;
+    --info: #29B6F6;
+
+    /* Segment Category Colors */
+    --segment-start: #26A69A;
+    --segment-session: #7E57C2;
+    --segment-price-condition: #42A5F5;
+    --segment-vwap-condition: #26C6DA;
+    --segment-indicator-condition: #FFA726;
+    --segment-order: #EF5350;
+    --segment-risk-management: #FFCA28;
+    --segment-position-management: #78909C;
+    --segment-order-config: #607D8B;
+
+    /* Background Colors */
+    --bg-page: #1A237E;
+    --bg-card: #283593;
+    --bg-canvas: #1A237E;
+    --bg-toolbar: #303F9F;
+    --bg-input: #3949AB;
+
+    /* Text Colors */
+    --text-primary: #E8EAF6;
+    --text-secondary: #9FA8DA;
+    --text-muted: #7986CB;
+
+    /* Border Colors */
+    --border-color: #3F51B5;
+    --border-highlight: #5C6BC0;
+
+    /* Drag & Drop */
+    --drag-overlay: rgba(92, 107, 192, 0.3);
+    --drop-target: rgba(92, 107, 192, 0.5);
+}

@@ -14,7 +14,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("IdiotProof.Frontend")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0+92d082199154f74f885919a39f145e69ae050d5e")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0+47c3c729f3ab1df2ddf9d03fbaead0fc2ebff52c")]
 [assembly: System.Reflection.AssemblyProductAttribute("IdiotProof.Frontend")]
 [assembly: System.Reflection.AssemblyTitleAttribute("IdiotProof.Frontend")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

@@ -1,0 +1,305 @@
+
+/* ============================================================================
+   Help Page - Markdown Rendering (GitHub Style)
+   ============================================================================ */
+
+.help-page {
+    padding: 20px;
+    max-width: 100%;
+    overflow-x: hidden;
+}
+
+.help-page .page-header {
+    margin-bottom: 20px;
+    padding-bottom: 15px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.help-page .page-title {
+    font-size: 24px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    color: var(--text-primary);
+    margin: 0;
+}
+
+.markdown-container {
+    background-color: var(--bg-card);
+    border-radius: 8px;
+    padding: 32px 40px;
+    color: var(--text-primary);
+    line-height: 1.6;
+    font-size: 14px;
+    overflow-x: auto;
+}
+
+/* Headings */
+.markdown-container h1 {
+    font-size: 2em;
+    font-weight: 600;
+    padding-bottom: 0.3em;
+    border-bottom: 1px solid var(--border-color);
+    margin-top: 24px;
+    margin-bottom: 16px;
+    color: var(--text-primary);
+}
+
+.markdown-container h1:first-child {
+    margin-top: 0;
+}
+
+.markdown-container h2 {
+    font-size: 1.5em;
+    font-weight: 600;
+    padding-bottom: 0.3em;
+    border-bottom: 1px solid var(--border-color);
+    margin-top: 24px;
+    margin-bottom: 16px;
+    color: var(--text-primary);
+}
+
+.markdown-container h3 {
+    font-size: 1.25em;
+    font-weight: 600;
+    margin-top: 24px;
+    margin-bottom: 16px;
+    color: var(--text-primary);
+}
+
+.markdown-container h4 {
+    font-size: 1em;
+    font-weight: 600;
+    margin-top: 24px;
+    margin-bottom: 16px;
+    color: var(--text-primary);
+}
+
+.markdown-container h5,
+.markdown-container h6 {
+    font-size: 0.875em;
+    font-weight: 600;
+    margin-top: 24px;
+    margin-bottom: 16px;
+    color: var(--text-secondary);
+}
+
+/* Paragraphs */
+.markdown-container p {
+    margin-top: 0;
+    margin-bottom: 16px;
+}
+
+/* Links */
+.markdown-container a {
+    color: #58a6ff;
+    text-decoration: none;
+}
+
+.markdown-container a:hover {
+    text-decoration: underline;
+}
+
+/* Lists */
+.markdown-container ul,
+.markdown-container ol {
+    margin-top: 0;
+    margin-bottom: 16px;
+    padding-left: 2em;
+}
+
+.markdown-container li {
+    margin-bottom: 4px;
+}
+
+.markdown-container li + li {
+    margin-top: 4px;
+}
+
+/* Inline code */
+.markdown-container code {
+    font-family: 'Cascadia Code', 'Fira Code', 'Consolas', 'Monaco', monospace;
+    font-size: 85%;
+    padding: 0.2em 0.4em;
+    background-color: rgba(110, 118, 129, 0.4);
+    border-radius: 6px;
+    color: #e6e6e6;
+}
+
+/* Code blocks */
+.markdown-container pre {
+    font-family: 'Cascadia Code', 'Fira Code', 'Consolas', 'Monaco', monospace;
+    font-size: 13px;
+    line-height: 1.45;
+    padding: 16px;
+    overflow: auto;
+    background-color: #161b22;
+    border-radius: 6px;
+    margin-top: 0;
+    margin-bottom: 16px;
+    border: 1px solid var(--border-color);
+}
+
+.markdown-container pre code {
+    font-size: 100%;
+    padding: 0;
+    background-color: transparent;
+    border-radius: 0;
+    color: #c9d1d9;
+}
+
+/* Blockquotes */
+.markdown-container blockquote {
+    margin: 0 0 16px 0;
+    padding: 0 1em;
+    color: var(--text-secondary);
+    border-left: 4px solid var(--border-color);
+}
+
+.markdown-container blockquote > :first-child {
+    margin-top: 0;
+}
+
+.markdown-container blockquote > :last-child {
+    margin-bottom: 0;
+}
+
+/* Horizontal rules */
+.markdown-container hr {
+    height: 0.25em;
+    padding: 0;
+    margin: 24px 0;
+    background-color: var(--border-color);
+    border: 0;
+}
+
+/* Tables */
+.markdown-container table {
+    border-spacing: 0;
+    border-collapse: collapse;
+    margin-top: 0;
+    margin-bottom: 16px;
+    width: 100%;
+    overflow: auto;
+}
+
+.markdown-container table th {
+    font-weight: 600;
+    padding: 6px 13px;
+    border: 1px solid var(--border-color);
+    background-color: var(--bg-toolbar);
+}
+
+.markdown-container table td {
+    padding: 6px 13px;
+    border: 1px solid var(--border-color);
+}
+
+.markdown-container table tr {
+    background-color: var(--bg-card);
+    border-top: 1px solid var(--border-color);
+}
+
+.markdown-container table tr:nth-child(2n) {
+    background-color: var(--bg-canvas);
+}
+
+/* Images */
+.markdown-container img {
+    max-width: 100%;
+    height: auto;
+    border-radius: 6px;
+}
+
+/* Task lists */
+.markdown-container input[type="checkbox"] {
+    margin-right: 8px;
+    vertical-align: middle;
+}
+
+/* Strong and emphasis */
+.markdown-container strong {
+    font-weight: 600;
+}
+
+.markdown-container em {
+    font-style: italic;
+}
+
+/* Definition lists */
+.markdown-container dl {
+    margin-top: 0;
+    margin-bottom: 16px;
+    padding: 0;
+}
+
+.markdown-container dt {
+    font-size: 1em;
+    font-style: italic;
+    font-weight: 600;
+    padding: 0;
+    margin-top: 16px;
+}
+
+.markdown-container dd {
+    padding: 0 16px;
+    margin-left: 0;
+    margin-bottom: 16px;
+}
+
+/* Syntax highlighting (GitHub dark theme) */
+.markdown-container .hljs-comment,
+.markdown-container .hljs-quote {
+    color: #8b949e;
+    font-style: italic;
+}
+
+.markdown-container .hljs-keyword,
+.markdown-container .hljs-selector-tag,
+.markdown-container .hljs-type {
+    color: #ff7b72;
+}
+
+.markdown-container .hljs-string,
+.markdown-container .hljs-addition {
+    color: #a5d6ff;
+}
+
+.markdown-container .hljs-number,
+.markdown-container .hljs-literal,
+.markdown-container .hljs-variable {
+    color: #79c0ff;
+}
+
+.markdown-container .hljs-title,
+.markdown-container .hljs-section,
+.markdown-container .hljs-attribute {
+    color: #d2a8ff;
+}
+
+.markdown-container .hljs-name,
+.markdown-container .hljs-tag {
+    color: #7ee787;
+}
+
+.markdown-container .hljs-deletion {
+    color: #ffa198;
+    background-color: rgba(248, 81, 73, 0.1);
+}
+
+.markdown-container .hljs-built_in,
+.markdown-container .hljs-class .hljs-title {
+    color: #ffa657;
+}
+
+.markdown-container .error {
+    background-color: rgba(248, 81, 73, 0.2);
+    border: 1px solid #f85149;
+    border-radius: 6px;
+    padding: 16px;
+    color: #ffa198;
+}
+
+/* Table of contents styling */
+.markdown-container ul li a[href^="#"] {
+    color: #58a6ff;
+}

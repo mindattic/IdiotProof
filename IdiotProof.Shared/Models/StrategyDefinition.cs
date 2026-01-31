@@ -42,6 +42,11 @@ namespace IdiotProof.Shared.Models
         public List<StrategySegment> Segments { get; set; } = [];
 
         /// <summary>
+        /// User-provided notes for the overall strategy.
+        /// </summary>
+        public string? Notes { get; set; }
+
+        /// <summary>
         /// Contributor/author of the strategy.
         /// </summary>
         public string? Author { get; set; }
@@ -83,56 +88,12 @@ namespace IdiotProof.Shared.Models
 
         /// <summary>
         /// Validates the strategy is complete and well-formed.
+        /// Uses the comprehensive validation from Shared.Validation.
         /// </summary>
-        public ValidationResult Validate()
+        public Validation.ValidationResult Validate()
         {
-            var errors = new List<string>();
-
-            if (string.IsNullOrWhiteSpace(Symbol))
-                errors.Add("Symbol is required");
-
-            if (Segments.Count == 0)
-                errors.Add("Strategy must have at least one segment");
-
-            // Must have a Ticker segment
-            if (!Segments.Any(s => s.Type == Enums.SegmentType.Ticker))
-                errors.Add("Strategy must start with a Ticker segment");
-
-            // Must have at least one condition before an order
-            var orderIndex = Segments.FindIndex(s => s.Category == Enums.SegmentCategory.Order);
-            if (orderIndex >= 0)
-            {
-                var conditionsBefore = Segments
-                    .Take(orderIndex)
-                    .Count(s => s.Category == Enums.SegmentCategory.PriceCondition ||
-                               s.Category == Enums.SegmentCategory.VwapCondition ||
-                               s.Category == Enums.SegmentCategory.IndicatorCondition);
-                
-                if (conditionsBefore == 0)
-                    errors.Add("Strategy must have at least one condition before the order");
-            }
-
-            // Check all segments are valid
-            foreach (var segment in Segments.Where(s => !s.IsValid))
-            {
-                errors.Add($"Segment '{segment.DisplayName}' has missing required parameters");
-            }
-
-            return new ValidationResult
-            {
-                IsValid = errors.Count == 0,
-                Errors = errors
-            };
+            return Validation.StrategyValidator.ValidateStrategy(this);
         }
-    }
-
-    /// <summary>
-    /// Result of strategy validation.
-    /// </summary>
-    public class ValidationResult
-    {
-        public bool IsValid { get; set; }
-        public List<string> Errors { get; set; } = [];
     }
 
     /// <summary>

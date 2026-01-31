@@ -12,13 +12,53 @@
       <RelatedAsset></RelatedAsset>
       <AssetTraitName></AssetTraitName>
       <AssetTraitValue></AssetTraitValue>
-      <Fingerprint>qb1cxk0yvz</Fingerprint>
-      <Integrity>tqJK5s+ASqJtzd3/DWrV8tAi+CxtLKFR73AEp0wpOXo=</Integrity>
+      <Fingerprint>ksa38w1m5w</Fingerprint>
+      <Integrity>nI4+sFj+tqOT1oX4vEfQqkg+t9uJYC6bS74WC70gBVk=</Integrity>
       <CopyToOutputDirectory>Never</CopyToOutputDirectory>
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
-      <FileLength>27746</FileLength>
-      <LastWriteTime>Fri, 30 Jan 2026 22:20:53 GMT</LastWriteTime>
+      <FileLength>28630</FileLength>
+      <LastWriteTime>Sat, 31 Jan 2026 02:48:55 GMT</LastWriteTime>
       <OriginalItemSpec>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\staticwebassets\css\app.css'))</OriginalItemSpec>
+    </StaticWebAsset>
+    <StaticWebAsset Include="$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\staticwebassets\css\markdown.css'))">
+      <SourceType>Package</SourceType>
+      <SourceId>IdiotProof.Frontend</SourceId>
+      <ContentRoot>$(MSBuildThisFileDirectory)..\staticwebassets\</ContentRoot>
+      <BasePath>/</BasePath>
+      <RelativePath>css/markdown.css</RelativePath>
+      <AssetKind>All</AssetKind>
+      <AssetMode>All</AssetMode>
+      <AssetRole>Primary</AssetRole>
+      <RelatedAsset></RelatedAsset>
+      <AssetTraitName></AssetTraitName>
+      <AssetTraitValue></AssetTraitValue>
+      <Fingerprint>qirdi32vp5</Fingerprint>
+      <Integrity>kupL4KO8SBkP0OsMhKYwnMYDYod1jXsCtVQc8eO89xw=</Integrity>
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+      <FileLength>6366</FileLength>
+      <LastWriteTime>Sat, 31 Jan 2026 03:10:08 GMT</LastWriteTime>
+      <OriginalItemSpec>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\staticwebassets\css\markdown.css'))</OriginalItemSpec>
+    </StaticWebAsset>
+    <StaticWebAsset Include="$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\staticwebassets\css\themes.css'))">
+      <SourceType>Package</SourceType>
+      <SourceId>IdiotProof.Frontend</SourceId>
+      <ContentRoot>$(MSBuildThisFileDirectory)..\staticwebassets\</ContentRoot>
+      <BasePath>/</BasePath>
+      <RelativePath>css/themes.css</RelativePath>
+      <AssetKind>All</AssetKind>
+      <AssetMode>All</AssetMode>
+      <AssetRole>Primary</AssetRole>
+      <RelatedAsset></RelatedAsset>
+      <AssetTraitName></AssetTraitName>
+      <AssetTraitValue></AssetTraitValue>
+      <Fingerprint>zkd8b2ch81</Fingerprint>
+      <Integrity>wymYMW+uI+UkHrJ+ql1KZJZRW47XfJjHYudD5WyDn7c=</Integrity>
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+      <FileLength>8280</FileLength>
+      <LastWriteTime>Sat, 31 Jan 2026 02:43:44 GMT</LastWriteTime>
+      <OriginalItemSpec>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\staticwebassets\css\themes.css'))</OriginalItemSpec>
     </StaticWebAsset>
     <StaticWebAsset Include="$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\staticwebassets\index.html'))">
       <SourceType>Package</SourceType>
@@ -32,12 +72,12 @@
       <RelatedAsset></RelatedAsset>
       <AssetTraitName></AssetTraitName>
       <AssetTraitValue></AssetTraitValue>
-      <Fingerprint>sae5dtwmk5</Fingerprint>
-      <Integrity>XOdWfFtXkfXAKDXg2lGEM5Zkx35lhgGzFkp/hmMuxaw=</Integrity>
+      <Fingerprint>507apxuk7c</Fingerprint>
+      <Integrity>9f4+WLigB/4C7nk4H0uTNmDBJpbFzBGUEI+JvlYOrkA=</Integrity>
       <CopyToOutputDirectory>Never</CopyToOutputDirectory>
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
-      <FileLength>848</FileLength>
-      <LastWriteTime>Fri, 30 Jan 2026 22:21:08 GMT</LastWriteTime>
+      <FileLength>2083</FileLength>
+      <LastWriteTime>Sat, 31 Jan 2026 03:10:22 GMT</LastWriteTime>
       <OriginalItemSpec>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\staticwebassets\index.html'))</OriginalItemSpec>
     </StaticWebAsset>
     <StaticWebAsset Include="$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\staticwebassets\_framework\blazor.modules.json'))">

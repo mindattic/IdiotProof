@@ -5,7 +5,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>IdiotProof Strategy Builder</title>
     <base href="/" />
+    <link rel="stylesheet" href="css/themes.css" />
     <link rel="stylesheet" href="css/app.css" />
+    <link rel="stylesheet" href="css/markdown.css" />
+    <!-- Highlight.js for syntax highlighting -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/csharp.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/json.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/bash.min.js"></script>
 </head>
 <body>
     <div id="app">Loading...</div>
@@ -23,6 +31,19 @@
             if (element) {
                 element.scrollTop = element.scrollHeight;
             }
+        };
+
+        // Apply saved theme on load
+        (function() {
+            var theme = localStorage.getItem('Theme') || 'dark';
+            document.documentElement.setAttribute('data-theme', theme);
+        })();
+
+        // Initialize syntax highlighting for markdown code blocks
+        window.initializeSyntaxHighlighting = function() {
+            document.querySelectorAll('.markdown-container pre code').forEach((block) => {
+                hljs.highlightElement(block);
+            });
         };
     </script>
 </body>

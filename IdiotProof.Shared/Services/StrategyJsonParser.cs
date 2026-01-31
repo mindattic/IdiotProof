@@ -13,6 +13,7 @@
 
 using IdiotProof.Shared.Models;
 using IdiotProof.Shared.Enums;
+using IdiotProof.Shared.Validation;
 using System.Text.Json;
 
 namespace IdiotProof.Shared.Services

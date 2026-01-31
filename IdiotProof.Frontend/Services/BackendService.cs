@@ -127,6 +127,8 @@ namespace IdiotProof.Frontend.Services
                         {
                             IsRunning = payload.IsRunning,
                             IsConnectedToIbkr = payload.IsConnectedToIbkr,
+                            IsTradingActive = payload.IsTradingActive,
+                            IsPaperTrading = payload.IsPaperTrading,
                             ActiveStrategies = payload.ActiveStrategies,
                             LastHeartbeat = payload.LastHeartbeat,
                             ErrorMessage = payload.ErrorMessage,
@@ -335,6 +337,99 @@ namespace IdiotProof.Frontend.Services
             return OperationResult.Fail("No response from backend");
         }
 
+        public async Task<OperationResult> CancelAllOrdersAsync()
+        {
+            if (!_isConnected)
+                return OperationResult.Fail("Not connected to backend");
+
+            try
+            {
+                var request = new BackendMessage { Type = BackendMessageType.CancelAllOrders };
+                var response = await SendRequestAsync(request);
+                if (response?.Payload != null)
+                {
+                    var payload = JsonSerializer.Deserialize<OperationResultPayload>(response.Payload);
+                    if (payload != null)
+                    {
+                        return new OperationResult
+                        {
+                            Success = payload.Success,
+                            Message = payload.Message,
+                            ErrorMessage = payload.ErrorMessage
+                        };
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                return OperationResult.Fail(ex.Message);
+            }
+
+            return OperationResult.Fail("No response from backend");
+        }
+
+        public async Task<OperationResult> ActivateTradingAsync()
+        {
+            if (!_isConnected)
+                return OperationResult.Fail("Not connected to backend");
+
+            try
+            {
+                var request = new BackendMessage { Type = BackendMessageType.ActivateTrading };
+                var response = await SendRequestAsync(request);
+                if (response?.Payload != null)
+                {
+                    var payload = JsonSerializer.Deserialize<OperationResultPayload>(response.Payload);
+                    if (payload != null)
+                    {
+                        return new OperationResult
+                        {
+                            Success = payload.Success,
+                            Message = payload.Message,
+                            ErrorMessage = payload.ErrorMessage
+                        };
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                return OperationResult.Fail(ex.Message);
+            }
+
+            return OperationResult.Fail("No response from backend");
+        }
+
+        public async Task<OperationResult> DeactivateTradingAsync()
+        {
+            if (!_isConnected)
+                return OperationResult.Fail("Not connected to backend");
+
+            try
+            {
+                var request = new BackendMessage { Type = BackendMessageType.DeactivateTrading };
+                var response = await SendRequestAsync(request);
+                if (response?.Payload != null)
+                {
+                    var payload = JsonSerializer.Deserialize<OperationResultPayload>(response.Payload);
+                    if (payload != null)
+                    {
+                        return new OperationResult
+                        {
+                            Success = payload.Success,
+                            Message = payload.Message,
+                            ErrorMessage = payload.ErrorMessage
+                        };
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                return OperationResult.Fail(ex.Message);
+            }
+
+            return OperationResult.Fail("No response from backend");
+        }
+
         public string GetConsoleBuffer()
         {
             lock (_consoleLock)
@@ -342,6 +437,102 @@ namespace IdiotProof.Frontend.Services
                 return _consoleBuffer.ToString();
             }
         }
+
+        public async Task<List<OrderInfo>> GetIdiotProofOrdersAsync()
+        {
+            if (!_isConnected)
+                return [];
+
+            try
+            {
+                var response = await SendRequestAsync(new BackendMessage { Type = BackendMessageType.GetIdiotProofOrders });
+                if (response?.Payload != null)
+                {
+                    var payload = JsonSerializer.Deserialize<OrdersResponsePayload>(response.Payload);
+                    return payload?.Orders ?? [];
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[BackendService] GetIdiotProofOrders failed: {ex.Message}");
+            }
+
+            return [];
+        }
+
+        public async Task<List<IdiotProofTrade>> GetTradesAsync()
+        {
+            if (!_isConnected)
+                return [];
+
+            try
+            {
+                var response = await SendRequestAsync(new BackendMessage { Type = BackendMessageType.GetTrades });
+                if (response?.Payload != null)
+                {
+                    var payload = JsonSerializer.Deserialize<TradesResponsePayload>(response.Payload);
+                    return payload?.Trades ?? [];
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[BackendService] GetTrades failed: {ex.Message}");
+            }
+
+            return [];
+        }
+
+        public async Task<BackendValidationResult> ValidateStrategyAsync(StrategyDefinition strategy)
+        {
+            if (!_isConnected)
+            {
+                return new BackendValidationResult
+                {
+                    IsValid = false,
+                    Errors = [new ValidationErrorInfo { Code = "NOT_CONNECTED", Message = "Not connected to backend" }]
+                };
+            }
+
+            try
+            {
+                var request = new BackendMessage
+                {
+                    Type = BackendMessageType.ValidateStrategy,
+                    Payload = JsonSerializer.Serialize(new ValidateStrategyRequest { Strategy = strategy })
+                };
+
+                var response = await SendRequestAsync(request);
+                if (response?.Payload != null)
+                {
+                    var payload = JsonSerializer.Deserialize<ValidationResponsePayload>(response.Payload);
+                    if (payload != null)
+                    {
+                        return new BackendValidationResult
+                        {
+                            IsValid = payload.IsValid,
+                            Errors = payload.Errors,
+                            Warnings = payload.Warnings
+                        };
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                return new BackendValidationResult
+                {
+                    IsValid = false,
+                    Errors = [new ValidationErrorInfo { Code = "VALIDATION_ERROR", Message = ex.Message }]
+                };
+            }
+
+            return new BackendValidationResult
+            {
+                IsValid = false,
+                Errors = [new ValidationErrorInfo { Code = "NO_RESPONSE", Message = "No response from backend" }]
+            };
+        }
+
+        public event EventHandler<IdiotProofTrade>? TradeUpdated;
 
         private async Task SendMessageAsync(BackendMessage message)
         {
@@ -470,12 +661,25 @@ namespace IdiotProof.Frontend.Services
                     }
                     break;
 
+                case BackendMessageType.TradeUpdate:
+                    if (message.Payload != null)
+                    {
+                        var trade = JsonSerializer.Deserialize<IdiotProofTrade>(message.Payload);
+                        if (trade != null)
+                        {
+                            TradeUpdated?.Invoke(this, trade);
+                        }
+                    }
+                    break;
+
                 // Handle response messages
                 case BackendMessageType.Pong:
                 case BackendMessageType.StatusResponse:
                 case BackendMessageType.OrdersResponse:
                 case BackendMessageType.PositionsResponse:
                 case BackendMessageType.OperationResult:
+                case BackendMessageType.ValidationResponse:
+                case BackendMessageType.TradesResponse:
                     if (_pendingRequests.TryGetValue(message.MessageId, out var tcs))
                     {
                         tcs.TrySetResult(message);

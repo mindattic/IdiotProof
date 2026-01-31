@@ -15,12 +15,18 @@ namespace IdiotProof.Shared.Models
         Ping,
         GetStatus,
         GetOrders,
+        GetIdiotProofOrders, // Get only IdiotProof-created orders
         GetPositions,
         CancelOrder,
+        CancelAllOrders,
         ClosePosition,
         ReloadStrategies,
         ActivateStrategy,
         DeactivateStrategy,
+        ActivateTrading,
+        DeactivateTrading,
+        ValidateStrategy, // Request strategy validation from backend
+        GetTrades, // Get IdiotProof trade tracking data
 
         // Responses (Backend -> Frontend)
         Pong,
@@ -28,13 +34,16 @@ namespace IdiotProof.Shared.Models
         OrdersResponse,
         PositionsResponse,
         OperationResult,
+        ValidationResponse, // Validation result from backend
+        TradesResponse, // Trade tracking response
 
         // Push notifications (Backend -> Frontend)
         ConsoleOutput,
         OrderUpdate,
         PositionUpdate,
         ConnectionStatusChanged,
-        StrategyStatusChanged
+        StrategyStatusChanged,
+        TradeUpdate // IdiotProof trade status changed
     }
 
     /// <summary>
@@ -91,6 +100,8 @@ namespace IdiotProof.Shared.Models
     {
         public bool IsRunning { get; set; }
         public bool IsConnectedToIbkr { get; set; }
+        public bool IsTradingActive { get; set; }
+        public bool IsPaperTrading { get; set; }
         public int ActiveStrategies { get; set; }
         public DateTime? LastHeartbeat { get; set; }
         public string? ErrorMessage { get; set; }
@@ -145,5 +156,51 @@ namespace IdiotProof.Shared.Models
         public bool Success { get; set; }
         public string? Message { get; set; }
         public string? ErrorMessage { get; set; }
+    }
+
+    /// <summary>
+    /// Request to validate a strategy.
+    /// </summary>
+    public class ValidateStrategyRequest
+    {
+        public StrategyDefinition? Strategy { get; set; }
+    }
+
+    /// <summary>
+    /// Response to validation request.
+    /// </summary>
+    public class ValidationResponsePayload
+    {
+        public bool IsValid { get; set; }
+        public List<ValidationErrorInfo> Errors { get; set; } = [];
+        public List<ValidationWarningInfo> Warnings { get; set; } = [];
+    }
+
+    /// <summary>
+    /// Validation error info for IPC.
+    /// </summary>
+    public class ValidationErrorInfo
+    {
+        public string Code { get; set; } = string.Empty;
+        public string Message { get; set; } = string.Empty;
+        public string? FieldName { get; set; }
+    }
+
+    /// <summary>
+    /// Validation warning info for IPC.
+    /// </summary>
+    public class ValidationWarningInfo
+    {
+        public string Code { get; set; } = string.Empty;
+        public string Message { get; set; } = string.Empty;
+        public string? FieldName { get; set; }
+    }
+
+    /// <summary>
+    /// Response to trades request.
+    /// </summary>
+    public class TradesResponsePayload
+    {
+        public List<IdiotProofTrade> Trades { get; set; } = [];
     }
 }

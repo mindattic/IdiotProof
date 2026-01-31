@@ -27,12 +27,18 @@ namespace IdiotProof.Backend.Ipc
         // Callbacks for handling requests
         public Func<Task<StatusResponsePayload>>? GetStatusHandler { get; set; }
         public Func<Task<List<OrderInfo>>>? GetOrdersHandler { get; set; }
+        public Func<Task<List<OrderInfo>>>? GetIdiotProofOrdersHandler { get; set; }
         public Func<Task<List<PositionInfo>>>? GetPositionsHandler { get; set; }
         public Func<int, Task<OperationResultPayload>>? CancelOrderHandler { get; set; }
+        public Func<Task<OperationResultPayload>>? CancelAllOrdersHandler { get; set; }
         public Func<string, Task<OperationResultPayload>>? ClosePositionHandler { get; set; }
         public Func<Task>? ReloadStrategiesHandler { get; set; }
         public Func<Guid, Task<OperationResultPayload>>? ActivateStrategyHandler { get; set; }
         public Func<Guid, Task<OperationResultPayload>>? DeactivateStrategyHandler { get; set; }
+        public Func<Task<OperationResultPayload>>? ActivateTradingHandler { get; set; }
+        public Func<Task<OperationResultPayload>>? DeactivateTradingHandler { get; set; }
+        public Func<StrategyDefinition, Task<ValidationResponsePayload>>? ValidateStrategyHandler { get; set; }
+        public Func<Task<List<IdiotProofTrade>>>? GetTradesHandler { get; set; }
 
         /// <summary>
         /// Starts the IPC server.
@@ -71,6 +77,20 @@ namespace IdiotProof.Backend.Ipc
             {
                 Type = BackendMessageType.OrderUpdate,
                 Payload = JsonSerializer.Serialize(order)
+            };
+
+            BroadcastMessage(message);
+        }
+
+        /// <summary>
+        /// Broadcasts a trade update to all connected clients.
+        /// </summary>
+        public void BroadcastTradeUpdate(IdiotProofTrade trade)
+        {
+            var message = new BackendMessage
+            {
+                Type = BackendMessageType.TradeUpdate,
+                Payload = JsonSerializer.Serialize(trade)
             };
 
             BroadcastMessage(message);
@@ -170,6 +190,17 @@ namespace IdiotProof.Backend.Ipc
                             Payload = JsonSerializer.Serialize(new OrdersResponsePayload { Orders = orders })
                         };
 
+                    case BackendMessageType.GetIdiotProofOrders:
+                        var idiotProofOrders = GetIdiotProofOrdersHandler != null
+                            ? await GetIdiotProofOrdersHandler()
+                            : [];
+                        return new BackendMessage
+                        {
+                            Type = BackendMessageType.OrdersResponse,
+                            MessageId = request.MessageId,
+                            Payload = JsonSerializer.Serialize(new OrdersResponsePayload { Orders = idiotProofOrders })
+                        };
+
                     case BackendMessageType.GetPositions:
                         var positions = GetPositionsHandler != null
                             ? await GetPositionsHandler()
@@ -260,6 +291,82 @@ namespace IdiotProof.Backend.Ipc
                             }
                         }
                         break;
+
+                    case BackendMessageType.CancelAllOrders:
+                        if (CancelAllOrdersHandler != null)
+                        {
+                            var result = await CancelAllOrdersHandler();
+                            return new BackendMessage
+                            {
+                                Type = BackendMessageType.OperationResult,
+                                MessageId = request.MessageId,
+                                Payload = JsonSerializer.Serialize(result)
+                            };
+                        }
+                        break;
+
+                    case BackendMessageType.ActivateTrading:
+                        if (ActivateTradingHandler != null)
+                        {
+                            var result = await ActivateTradingHandler();
+                            return new BackendMessage
+                            {
+                                Type = BackendMessageType.OperationResult,
+                                MessageId = request.MessageId,
+                                Payload = JsonSerializer.Serialize(result)
+                            };
+                        }
+                        break;
+
+                    case BackendMessageType.DeactivateTrading:
+                        if (DeactivateTradingHandler != null)
+                        {
+                            var result = await DeactivateTradingHandler();
+                            return new BackendMessage
+                            {
+                                Type = BackendMessageType.OperationResult,
+                                MessageId = request.MessageId,
+                                Payload = JsonSerializer.Serialize(result)
+                            };
+                        }
+                        break;
+
+                    case BackendMessageType.ValidateStrategy:
+                        if (request.Payload != null && ValidateStrategyHandler != null)
+                        {
+                            var validateReq = JsonSerializer.Deserialize<ValidateStrategyRequest>(request.Payload);
+                            if (validateReq?.Strategy != null)
+                            {
+                                var validationResult = await ValidateStrategyHandler(validateReq.Strategy);
+                                return new BackendMessage
+                                {
+                                    Type = BackendMessageType.ValidationResponse,
+                                    MessageId = request.MessageId,
+                                    Payload = JsonSerializer.Serialize(validationResult)
+                                };
+                            }
+                        }
+                        return new BackendMessage
+                        {
+                            Type = BackendMessageType.ValidationResponse,
+                            MessageId = request.MessageId,
+                            Payload = JsonSerializer.Serialize(new ValidationResponsePayload 
+                            { 
+                                IsValid = false, 
+                                Errors = [new ValidationErrorInfo { Code = "NO_STRATEGY", Message = "No strategy provided" }]
+                            })
+                        };
+
+                    case BackendMessageType.GetTrades:
+                        var trades = GetTradesHandler != null
+                            ? await GetTradesHandler()
+                            : [];
+                        return new BackendMessage
+                        {
+                            Type = BackendMessageType.TradesResponse,
+                            MessageId = request.MessageId,
+                            Payload = JsonSerializer.Serialize(new TradesResponsePayload { Trades = trades })
+                        };
                 }
             }
             catch (Exception ex)

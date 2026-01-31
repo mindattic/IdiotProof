@@ -67,6 +67,11 @@ namespace IdiotProof.Frontend.Services
         Task<OperationResult> CancelOrderAsync(int orderId);
 
         /// <summary>
+        /// Cancels all open orders.
+        /// </summary>
+        Task<OperationResult> CancelAllOrdersAsync();
+
+        /// <summary>
         /// Closes a position by symbol (sells all shares).
         /// </summary>
         Task<OperationResult> ClosePositionAsync(string symbol);
@@ -85,6 +90,36 @@ namespace IdiotProof.Frontend.Services
         /// Deactivates a strategy by ID.
         /// </summary>
         Task<OperationResult> DeactivateStrategyAsync(Guid strategyId);
+
+        /// <summary>
+        /// Activates trading globally (starts all enabled strategies).
+        /// </summary>
+        Task<OperationResult> ActivateTradingAsync();
+
+        /// <summary>
+        /// Deactivates trading globally (stops all running strategies).
+        /// </summary>
+        Task<OperationResult> DeactivateTradingAsync();
+
+        /// <summary>
+        /// Gets only IdiotProof-created orders (filtered from all orders).
+        /// </summary>
+        Task<List<OrderInfo>> GetIdiotProofOrdersAsync();
+
+        /// <summary>
+        /// Gets all IdiotProof trades for tracking.
+        /// </summary>
+        Task<List<IdiotProofTrade>> GetTradesAsync();
+
+        /// <summary>
+        /// Validates a strategy on the backend.
+        /// </summary>
+        Task<BackendValidationResult> ValidateStrategyAsync(StrategyDefinition strategy);
+
+        /// <summary>
+        /// Event raised when a trade status changes.
+        /// </summary>
+        event EventHandler<IdiotProofTrade>? TradeUpdated;
     }
 
     /// <summary>
@@ -94,10 +129,22 @@ namespace IdiotProof.Frontend.Services
     {
         public bool IsRunning { get; set; }
         public bool IsConnectedToIbkr { get; set; }
+        public bool IsTradingActive { get; set; }
+        public bool IsPaperTrading { get; set; }
         public int ActiveStrategies { get; set; }
         public DateTime? LastHeartbeat { get; set; }
         public string? ErrorMessage { get; set; }
         public List<string> ActiveStrategyNames { get; set; } = [];
+    }
+
+    /// <summary>
+    /// Result from backend validation.
+    /// </summary>
+    public class BackendValidationResult
+    {
+        public bool IsValid { get; set; }
+        public List<ValidationErrorInfo> Errors { get; set; } = [];
+        public List<ValidationWarningInfo> Warnings { get; set; } = [];
     }
 
     /// <summary>

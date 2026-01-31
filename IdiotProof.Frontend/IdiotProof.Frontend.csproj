@@ -59,4 +59,8 @@
     <ProjectReference Include="..\IdiotProof.Shared\IdiotProof.Shared.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <PackageReference Include="Markdig" Version="0.40.0" />
+  </ItemGroup>
+
 </Project>

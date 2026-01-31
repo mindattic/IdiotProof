@@ -1361,3 +1361,38 @@ input[type="date"] {
 input[type="date"]::-webkit-calendar-picker-indicator {
     filter: invert(1);
 }
+
+/* ============================================================================
+   Loading State
+   ============================================================================ */
+
+.loading-disabled {
+    pointer-events: none;
+    opacity: 0.6;
+    filter: grayscale(30%);
+}
+
+/* ============================================================================
+   Notes Textarea
+   ============================================================================ */
+
+textarea {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    background-color: var(--bg-input);
+    color: var(--text-primary);
+    font-size: 12px;
+    font-family: inherit;
+    resize: vertical;
+}
+
+textarea:focus {
+    outline: none;
+    border-color: var(--primary);
+}
+
+textarea::placeholder {
+    color: var(--text-muted);
+}

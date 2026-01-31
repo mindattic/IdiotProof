@@ -1,32 +1,44 @@
 // ================================================================
-// IdiotProof Multi-Stage Strategy Bot
-// Powered by IBKR API
-// ================================================================
-//
-// Define your strategies using the fluent API:
-//
-//   Stock.Ticker("SYMBOL")
-//       .Breakout(level)      // Price >= level
-//       .Pullback(level)      // Price <= level
-//       .AboveVwap()          // Price >= VWAP
-//       .Buy(quantity, takeProfit: price)
-//
+// IdiotProof Backend Service
+// Handles IBKR API communication, controlled by frontend via IPC
 // ================================================================
 
 using IBApi;
-using IdiotProof.Backend.Enums;
 using IdiotProof.Backend.Helpers;
+using IdiotProof.Backend.Ipc;
 using IdiotProof.Backend.Logging;
 using IdiotProof.Backend.Models;
+using IdiotProof.Shared.Models;
+using IdiotProof.Shared.Services;
+using IdiotProof.Shared.Validation;
 
 namespace IdiotProof.Backend
 {
     internal sealed class Program
     {
+        // Core components
+        private static IbWrapper? _wrapper;
+        private static EClientSocket? _client;
+        private static IpcServer? _ipcServer;
+        private static Timer? _heartbeatTimer;
+        private static readonly CancellationTokenSource _shutdownCts = new();
+        private static TradeTrackingService? _tradeTrackingService;
+
+        // State
+        private static readonly List<StrategyRunner> _runners = [];
+        private static readonly List<int> _tickerIds = [];
+        private static readonly Dictionary<string, Contract> _contracts = [];
+        private static readonly Dictionary<string, double> _prices = [];
+        private static List<TradingStrategy> _strategies = [];
+        private static bool _isConnected;
+        private static bool _isActive;
 
         public static void Main(string[] args)
         {
-            // Setup crash handler and console capture
+            // Parse command line args
+            ParseArgs(args);
+
+            // Setup crash handler
             CrashHandler.Setup();
 
             try
@@ -36,112 +48,108 @@ namespace IdiotProof.Backend
             catch (Exception ex)
             {
                 CrashHandler.WriteCrashDump(ex, "Main Thread Exception");
-                throw; // Re-throw to let the OS know the app crashed
+                throw;
+            }
+        }
+
+        private static void ParseArgs(string[] args)
+        {
+            foreach (var arg in args)
+            {
+                if (arg.Equals("--silent", StringComparison.OrdinalIgnoreCase) ||
+                    arg.Equals("-s", StringComparison.OrdinalIgnoreCase))
+                {
+                    Settings.SilentMode = true;
+                }
+                else if (arg.Equals("--autostart", StringComparison.OrdinalIgnoreCase) ||
+                         arg.Equals("-a", StringComparison.OrdinalIgnoreCase))
+                {
+                    Settings.AutoStart = true;
+                }
             }
         }
 
         private static void Run()
         {
+            Log("IdiotProof Backend starting...");
+            Log($"Mode: {(Settings.IsPaperTrading ? "PAPER" : "LIVE")} | Port: {Settings.Port}");
 
-            var qty = 1;
+            // Initialize trade tracking service
+            _tradeTrackingService = new TradeTrackingService();
+            Log("Trade tracking service initialized");
 
-            // ================================================================
-            // STRATEGIES - Define your multi-step strategies here
-            // ================================================================
-            var strategies = new List<TradingStrategy>
+            // Start IPC server for frontend communication
+            StartIpcServer();
+
+            // Connect to IBKR
+            if (!ConnectToIbkr())
             {
-
-                // ----- VIVS (Contributed by Momentum.) -----
-                Stock
-                    .Ticker("VIVS")
-                    .SessionDuration(TradingSession.PreMarketEndEarly)
-                    .PriceAbove(2.40)                                       // Step 1: Price >= 2.40
-                    .AboveVwap()                                            // Step 2: Price >= VWAP
-                    .Buy(quantity: qty, Price.Current)                      // Step 3: Buy @ Current Price
-                    .TakeProfit(4.00, 4.80)                                 // Step 4: ADX-based TakeProfit: 4.00 (weak) to 4.80 (strong)
-                    .TrailingStopLoss(Percent.TwentyFive)                   // 25% trailing stop loss
-                    .ClosePosition(MarketTime.PreMarket.Ending, false),     // Step 5: Close Position @ 9:15 AM ET
-
-                // ----- CATX (Contributed by Momentum.) -----
-                Stock
-                    .Ticker("CATX")
-                    .SessionDuration(TradingSession.PreMarketEndEarly)
-                    .PriceAbove(4.00)                                       // Step 1: Price >= 4.00
-                    .AboveVwap()                                            // Step 2: Price >= VWAP
-                    .Buy(quantity: qty, Price.Current)                      // Step 3: Buy @ Current Price
-                    .TakeProfit(5.30, 6.16)                                 // Step 4: ADX-based TakeProfit: 5.30 (weak) to 6.16 (strong)
-                    .TrailingStopLoss(Percent.TwentyFive)                   // 25% trailing stop loss
-                    .ClosePosition(MarketTime.PreMarket.Ending, false),     // Step 5: Close Position @ 9:15 AM ET
-
-                // ----- VIVS (Contributed by Claude Opus 4.5) -----
-                // Entry on pullback to EMA support while holding above VWAP
-                // Wait for dip to $4.15, confirm still above VWAP, buy the bounce
-                Stock
-                    .Ticker("VIVS")
-                    .SessionDuration(TradingSession.PreMarketEndEarly)
-                    .Pullback(4.15)                                         // Step 1: Pullback to EMA 12 zone ($4.13)
-                    .AboveVwap()                                            // Step 2: Still above VWAP
-                    .Buy(quantity: qty, Price.Current)                      // Step 3: Buy @ Current Price
-                    .TakeProfit(4.80, 5.30)                                 // Step 4: Target $4.80 to $5.30 on bounce
-                    .TrailingStopLoss(Percent.TwentyFive)                   // 25% trailing stop loss
-                    .ClosePosition(MarketTime.PreMarket.Ending, false),
-
-                // ----- (Contributed by Claude Opus 4.5) -----
-                // Entry on VWAP reclaim followed by pullback retest
-                // Wait for price to reclaim VWAP, then buy pullback to VWAP support
-                Stock
-                    .Ticker("CATX")
-                    .SessionDuration(TradingSession.PreMarketEndEarly)
-                    .AboveVwap()                                            // Step 1: Wait for VWAP reclaim (~$4.77)
-                    .Pullback(4.80)                                         // Step 2: Then look for pullback to VWAP
-                    .Buy(quantity: qty, Price.Current)                      // Step 3: Buy @ Current Price
-                    .TakeProfit(5.20, 5.50)                                 // Step 4: Target $5.20 to $5.50 on bounce
-                    .TrailingStopLoss(Percent.TwentyFive)                   // 25% trailing stop loss
-                    .ClosePosition(MarketTime.PreMarket.Ending, false),
-            };
-
-            // ================================================================
-            // STARTUP
-            // ================================================================
-            Gui.ConfigureConsole();
-            Gui.DisplayBanner();
-
-            // Validate strategies
-            if (!ValidateStrategies(strategies))
-            {
-                Console.WriteLine("ERROR: Strategy validation failed. Check configuration above.");
-                return;
+                Log("ERROR: Failed to connect to IBKR. Backend will wait for retry...");
             }
 
-            // Filter to enabled strategies only
-            var enabledStrategies = strategies.FindAll(s => s.Enabled);
+            // Load strategies from disk
+            LoadStrategies();
 
-            if (enabledStrategies.Count == 0)
+            // Start heartbeat
+            StartHeartbeat();
+
+            // If auto-start is enabled and we have strategies, activate trading
+            if (Settings.AutoStart && _strategies.Count > 0 && _isConnected)
             {
-                Console.WriteLine("ERROR: No enabled strategies found.");
-                return;
+                ActivateTrading();
             }
 
-            // ================================================================
-            // IB CONNECTION
-            // ================================================================
-            var wrapper = new IbWrapper();
-            var client = new EClientSocket(wrapper, wrapper.Signal);
+            Log("Backend ready. Waiting for commands from frontend...");
 
-            wrapper.AttachClient(client);
+            // Wait for shutdown signal
+            _shutdownCts.Token.WaitHandle.WaitOne();
 
-            Console.WriteLine($"Connecting to IBKR at {Settings.Host}:{Settings.Port}...");
-            client.eConnect(Settings.Host, Settings.Port, Settings.ClientId);
+            // Cleanup
+            Shutdown();
+        }
 
-            // EReader must be created and started AFTER eConnect
-            var reader = new EReader(client, wrapper.Signal);
+        private static void StartIpcServer()
+        {
+            _ipcServer = new IpcServer();
+
+            // Wire up IPC handlers
+            _ipcServer.GetStatusHandler = GetStatusAsync;
+            _ipcServer.GetOrdersHandler = GetOrdersAsync;
+            _ipcServer.GetIdiotProofOrdersHandler = GetIdiotProofOrdersAsync;
+            _ipcServer.GetPositionsHandler = GetPositionsAsync;
+            _ipcServer.CancelOrderHandler = CancelOrderAsync;
+            _ipcServer.CancelAllOrdersHandler = CancelAllOrdersAsync;
+            _ipcServer.ClosePositionHandler = ClosePositionAsync;
+            _ipcServer.ReloadStrategiesHandler = ReloadStrategiesAsync;
+            _ipcServer.ActivateStrategyHandler = ActivateStrategyAsync;
+            _ipcServer.DeactivateStrategyHandler = DeactivateStrategyAsync;
+            _ipcServer.ActivateTradingHandler = ActivateTradingAsync;
+            _ipcServer.DeactivateTradingHandler = DeactivateTradingAsync;
+            _ipcServer.ValidateStrategyHandler = ValidateStrategyAsync;
+            _ipcServer.GetTradesHandler = GetTradesAsync;
+
+            _ipcServer.Start();
+        }
+
+        private static bool ConnectToIbkr()
+        {
+            Log($"Connecting to IBKR at {Settings.Host}:{Settings.Port}...");
+
+            _wrapper = new IbWrapper();
+            _client = new EClientSocket(_wrapper, _wrapper.Signal);
+            _wrapper.AttachClient(_client);
+
+            _client.eConnect(Settings.Host, Settings.Port, Settings.ClientId);
+
+            // Start reader thread
+            var reader = new EReader(_client, _wrapper.Signal);
             reader.Start();
 
             var readerThread = new Thread(() =>
             {
-                while (client.IsConnected())
+                while (_client.IsConnected())
                 {
-                    wrapper.Signal.waitForSignal();
+                    _wrapper.Signal.waitForSignal();
                     reader.processMsgs();
                 }
             })
@@ -150,33 +158,90 @@ namespace IdiotProof.Backend
             };
             readerThread.Start();
 
-            if (!wrapper.WaitForNextValidId(TimeSpan.FromSeconds(Settings.ConnectionTimeoutSeconds)))
+            // Wait for connection
+            if (!_wrapper.WaitForNextValidId(TimeSpan.FromSeconds(Settings.ConnectionTimeoutSeconds)))
             {
-                Console.WriteLine("ERROR: Connection failed. Check TWS/Gateway.");
-                Shutdown(client, wrapper);
+                _isConnected = false;
+                return false;
+            }
+
+            _isConnected = true;
+            Log("Connected to IBKR successfully!");
+            Log($"Trading Mode: {(Settings.IsPaperTrading ? "PAPER" : "LIVE")}");
+
+            // Setup reconnection handlers
+            _wrapper.OnConnectionLost += () =>
+            {
+                _isConnected = false;
+                Log("*** CONNECTION LOST ***");
+            };
+
+            _wrapper.OnConnectionRestored += (dataLost) =>
+            {
+                _isConnected = true;
+                Log("*** CONNECTION RESTORED ***");
+                if (dataLost)
+                {
+                    Log("Resubscribing to market data...");
+                    ResubscribeMarketData();
+                }
+            };
+
+            return true;
+        }
+
+        private static void LoadStrategies()
+        {
+            Log("Loading strategies from disk...");
+
+            var today = DateOnly.FromDateTime(DateTime.Now);
+            _strategies = StrategyLoader.LoadFromJson(today);
+
+            var enabledCount = _strategies.Count(s => s.Enabled);
+            Log($"Loaded {_strategies.Count} strategies ({enabledCount} enabled)");
+
+            // Validate using backend's StrategyValidator
+            if (_strategies.Count > 0)
+            {
+                var result = IdiotProof.Backend.Models.StrategyValidator.ValidateAll(_strategies);
+                if (!result.IsValid)
+                {
+                    foreach (var error in result.Errors)
+                        Log($"ERROR: {error}");
+                }
+                foreach (var warning in result.Warnings)
+                    Log($"WARN: {warning}");
+            }
+        }
+
+        private static void ActivateTrading()
+        {
+            if (_isActive)
+            {
+                Log("Trading already active.");
                 return;
             }
 
-            Console.WriteLine("Connected successfully!");
-            Gui.DisplayTradingMode();
+            if (!_isConnected || _client == null || _wrapper == null)
+            {
+                Log("Cannot activate: Not connected to IBKR.");
+                return;
+            }
 
-            // Display existing open orders from IBKR
-            Gui.DisplayOpenOrders(wrapper);
+            var enabledStrategies = _strategies.FindAll(s => s.Enabled);
+            if (enabledStrategies.Count == 0)
+            {
+                Log("No enabled strategies to run.");
+                return;
+            }
 
-            // ================================================================
-            // SUBSCRIBE TO MARKET DATA (before displaying strategies)
-            // ================================================================
-            var tickerIds = new List<int>();
-            var contracts = new Dictionary<string, Contract>();
-            var prices = new Dictionary<string, double>();
+            Log($"Activating trading with {enabledStrategies.Count} strategies...");
+
+            // Subscribe to market data
             int baseTickerId = 1001;
-
-            Console.WriteLine("Fetching current prices...");
-
             foreach (var strategy in enabledStrategies)
             {
-                // Skip if we already subscribed to this symbol
-                if (contracts.ContainsKey(strategy.Symbol))
+                if (_contracts.ContainsKey(strategy.Symbol))
                     continue;
 
                 int tickerId = baseTickerId++;
@@ -190,76 +255,35 @@ namespace IdiotProof.Backend
                     Currency = strategy.Currency
                 };
 
-                contracts[strategy.Symbol] = contract;
-                prices[strategy.Symbol] = 0;
+                _contracts[strategy.Symbol] = contract;
+                _prices[strategy.Symbol] = 0;
 
-                // Register handler to capture price
-                wrapper.RegisterTickerHandler(tickerId, (price, size) =>
+                _wrapper.RegisterTickerHandler(tickerId, (price, size) =>
                 {
-                    prices[strategy.Symbol] = price;
+                    _prices[strategy.Symbol] = price;
                 });
 
-                // Request market data
-                client.reqMktData(tickerId, contract, "", false, false, null);
-                tickerIds.Add(tickerId);
+                _client.reqMktData(tickerId, contract, "", false, false, null);
+                _tickerIds.Add(tickerId);
             }
 
-            // Wait briefly for prices to arrive (up to 10 seconds)
+            // Wait for prices
             var priceWaitStart = DateTime.UtcNow;
-            while ((DateTime.UtcNow - priceWaitStart).TotalSeconds < Settings.ConnectionTimeoutSeconds)
+            while ((DateTime.UtcNow - priceWaitStart).TotalSeconds < 5)
             {
-                if (prices.Values.All(p => p > 0))
+                if (_prices.Values.All(p => p > 0))
                     break;
                 Thread.Sleep(100);
             }
 
-            int pricesReceived = prices.Values.Count(p => p > 0);
-            Gui.DisplayPriceStatus(pricesReceived, prices.Count);
-
-            // Display strategies for review WITH current prices
-            Gui.DisplayStrategies(enabledStrategies, prices);
-            Console.WriteLine();
-
-            // Trading is paused until user explicitly activates
-            bool isActive = false;
-
-            Gui.DisplayActivationPrompt();
-
-            // Wait for CTRL+ALT+ENTER to activate trading
-            while (!isActive)
-            {
-                var key = Console.ReadKey(intercept: true);
-                if (key.Modifiers == (ConsoleModifiers.Control | ConsoleModifiers.Alt))
-                {
-                    if (key.Key == ConsoleKey.Enter)
-                    {
-                        isActive = true;
-                        Gui.DisplayTradingActivated();
-                    }
-                    else if (key.Key == ConsoleKey.C)
-                    {
-                        CancelAllOpenOrders(wrapper);
-                    }
-                    else if (key.Key == ConsoleKey.Q)
-                    {
-                        Shutdown(client, wrapper, tickerIds);
-                        return;
-                    }
-                }
-            }
-
-            // ================================================================
-            // START STRATEGIES
-            // ================================================================
-            var runners = new List<StrategyRunner>();
-
+            // Create runners
             foreach (var strategy in enabledStrategies)
             {
-                var contract = contracts[strategy.Symbol];
-                var runner = new StrategyRunner(strategy, contract, wrapper, client);
-                runners.Add(runner);
+                var contract = _contracts[strategy.Symbol];
+                var runner = new StrategyRunner(strategy, contract, _wrapper, _client);
+                _runners.Add(runner);
 
-                // Find the tickerId for this symbol and re-route to the runner
+                // Wire up ticker handler
                 int tickerIndex = enabledStrategies
                     .Where(s => !enabledStrategies.Take(enabledStrategies.IndexOf(s)).Any(prev => prev.Symbol == s.Symbol))
                     .ToList()
@@ -268,309 +292,367 @@ namespace IdiotProof.Backend
                 if (tickerIndex >= 0)
                 {
                     int tickerId = 1001 + tickerIndex;
-                    wrapper.RegisterTickerHandler(tickerId, runner.OnLastTrade);
+                    _wrapper.RegisterTickerHandler(tickerId, runner.OnLastTrade);
                 }
             }
 
-            // ================================================================
-            // SETUP RECONNECTION HANDLERS
-            // ================================================================
-            // These handlers respond to IBKR connectivity events:
-            // - Error 1100: Connection lost - display warning, strategies pause
-            // - Error 1101: Connection restored but data lost - resubscribe to market data
-            // - Error 1102: Connection restored with data maintained - resume immediately
-            //
-            // Strategy state (positions, trailing stops, condition progress) is preserved
-            // during disconnects. Only market data subscriptions need to be restored.
-            // ================================================================
-
-            wrapper.OnConnectionLost += () =>
-            {
-                Gui.DisplayConnectionLost();
-            };
-
-            wrapper.OnConnectionRestored += (dataLost) =>
-            {
-                Gui.DisplayConnectionRestored(dataLost);
-
-                if (dataLost)
-                {
-                    // Resubscribe to market data when data was lost during disconnect
-                    // Error 1101 indicates subscriptions were invalidated
-                    ResubscribeMarketData(client, contracts, tickerIds);
-                }
-            };
-
-            // Display strategies with initial progress (step 0 = waiting on first condition)
-            Console.WriteLine($"Running... (CTRL+ALT+C to cancel orders, CTRL+ALT+Q to quit)");
-            Console.WriteLine();
-
-            // Start heartbeat timer to verify API connection and show current prices
-            using var heartbeatTimer = StartHeartbeat(wrapper, runners);
-
-            // Wait for CTRL+ALT+Q to stop
-            while (true)
-            {
-                var key = Console.ReadKey(intercept: true);
-                if (key.Modifiers == (ConsoleModifiers.Control | ConsoleModifiers.Alt))
-                {
-                    if (key.Key == ConsoleKey.C)
-                    {
-                        CancelAllOpenOrders(wrapper);
-                    }
-                    else if (key.Key == ConsoleKey.Q)
-                    {
-                        break;
-                    }
-                }
-            }
-
-            // ================================================================
-            // CLEANUP
-            // ================================================================
-            Shutdown(client, wrapper, tickerIds, runners);
+            _isActive = true;
+            Log(">>> TRADING ACTIVATED <<<");
         }
 
-        /// <summary>
-        /// Validates all strategies and prints results to console.
-        /// </summary>
-        /// <param name="strategies">The strategies to validate.</param>
-        /// <returns>True if all strategies are valid, false otherwise.</returns>
-        private static bool ValidateStrategies(List<TradingStrategy> strategies)
+        private static void DeactivateTrading()
         {
-            Console.WriteLine("Validating strategies...");
-            var result = StrategyValidator.ValidateAll(strategies);
-            result.PrintResults();
-            Console.WriteLine();
-            return result.IsValid;
-        }
+            if (!_isActive)
+                return;
 
-        private static bool IsValid()
-        {
-            // Legacy method - validation now done via ValidateStrategies()
-            return true;
-        }
+            Log("Deactivating trading...");
 
-        /// <summary>
-        /// Configures the console window size and buffer.
-        /// Note: Only works in legacy Command Prompt (conhost.exe), not Windows Terminal.
-        /// </summary>
-        /// <param name="preferredRows">Desired window height in rows.</param>
-        /// <param name="preferredColumns">Desired window width in columns.</param>
-        private static void ConfigureConsole(int preferredRows, int preferredColumns)
-        {
-            try
+            // Dispose runners
+            foreach (var runner in _runners)
+                runner.Dispose();
+            _runners.Clear();
+
+            // Cancel market data
+            if (_client != null && _wrapper != null)
             {
-                // Only works on Windows
-                if (!OperatingSystem.IsWindows())
-                    return;
-
-                // Set console title
-                Console.Title = "IdiotProof Strategy Bot";
-
-                // Get the largest possible window size for the current display
-                int maxWidth = Console.LargestWindowWidth;
-                int maxHeight = Console.LargestWindowHeight;
-
-                // Clamp to screen limits (leave some margin)
-                int width = Math.Min(preferredColumns, maxWidth - 2);
-                int height = Math.Min(preferredRows, maxHeight - 2);
-
-                // Ensure minimum size
-                width = Math.Max(width, 80);
-                height = Math.Max(height, 25);
-
-                // First shrink window to minimum to allow buffer resize
-                Console.SetWindowSize(1, 1);
-
-                // Set buffer size (must be >= window size)
-                Console.BufferWidth = width;
-                Console.BufferHeight = 9999; // Large buffer for scrollback
-
-                // Now set window size
-                Console.SetWindowSize(width, height);
-            }
-            catch
-            {
-                // Windows Terminal doesn't support SetWindowSize - that's OK
-                try
+                foreach (var tickerId in _tickerIds)
                 {
-                    Console.Title = "IdiotProof Strategy Bot";
-                }
-                catch
-                {
-                    // Ignore
+                    _client.cancelMktData(tickerId);
+                    _wrapper.UnregisterTickerHandler(tickerId);
                 }
             }
+            _tickerIds.Clear();
+            _contracts.Clear();
+            _prices.Clear();
+
+            _isActive = false;
+            Log("Trading deactivated.");
         }
 
-        /// <summary>
-        /// Starts a heartbeat timer that periodically pings the IBKR API to verify connection.
-        /// When ping succeeds, displays open orders from IBKR.
-        /// </summary>
-        /// <param name="wrapper">The IB wrapper instance.</param>
-        /// <param name="runners">List of active strategy runners.</param>
-        /// <returns>A Timer that should be disposed when no longer needed.</returns>
-        private static Timer StartHeartbeat(IbWrapper wrapper, List<StrategyRunner> runners)
+        private static void StartHeartbeat()
         {
-            var interval = Settings.Heartbeat;
+            _heartbeatTimer = new Timer(HeartbeatCallback, null, Settings.Heartbeat, Settings.Heartbeat);
 
-            void HeartbeatCallback(object? state)
-            {
-                try
-                {
-                    var pingResult = wrapper.Ping(TimeSpan.FromSeconds(10));
-
-                    var easternZone = TimeZoneInfo.FindSystemTimeZoneById("Eastern Standard Time");
-                    var easternTime = TimeZoneInfo.ConvertTime(DateTime.Now, easternZone);
-                    var timestamp = easternTime.ToString("hh:mm:ss tt");
-
-                    if (pingResult.Success)
-                    {
-                        Gui.DisplayHeartbeatSuccess(timestamp, pingResult.LatencyMs, pingResult.ServerTimeUtc);
-
-                        // Display open orders from IBKR
-                        Gui.DisplayOpenOrders(wrapper);
-                    }
-                    else
-                    {
-                        Gui.DisplayHeartbeatFailed(timestamp);
-                    }
-                }
-                catch (Exception ex)
-                {
-                    Gui.DisplayHeartbeatError(ex.Message);
-                }
-            }
-
-            // Start the timer - first tick after interval, then repeats at interval
-            var timer = new Timer(HeartbeatCallback, null, interval, interval);
-
-            Gui.DisplayHeartbeatEnabled(interval.TotalMinutes);
-
-            return timer;
+            if (!Settings.SilentMode)
+                Log($"Heartbeat enabled: every {Settings.Heartbeat.TotalMinutes} minutes");
         }
 
-        /// <summary>
-        /// Performs graceful shutdown of all resources.
-        /// </summary>
-        private static void Shutdown(EClientSocket client, IbWrapper wrapper, List<int>? tickerIds = null, List<StrategyRunner>? runners = null)
+        private static void HeartbeatCallback(object? state)
         {
-            Console.WriteLine("Shutting down...");
-
-            if (tickerIds != null)
+            if (_wrapper == null || !_isConnected)
             {
-                foreach (int tickerId in tickerIds)
-                {
-                    client.cancelMktData(tickerId);
-                    wrapper.UnregisterTickerHandler(tickerId);
-                }
-            }
-
-            if (runners != null)
-            {
-                foreach (var runner in runners)
-                {
-                    runner.Dispose();
-                }
-            }
-
-            client.eDisconnect();
-            wrapper.Dispose();
-
-            Console.WriteLine("Disconnected. Goodbye!");
-        }
-
-        /// <summary>
-        /// Resubscribes to market data for all contracts after connection is restored.
-        /// </summary>
-        /// <remarks>
-        /// <para>
-        /// This method is called when IBKR connectivity is restored with data loss (error code 1101).
-        /// When the API reports error 1101, all market data subscriptions are invalidated and must
-        /// be re-established to resume receiving price updates.
-        /// </para>
-        /// 
-        /// <para><b>IBKR Error Codes:</b></para>
-        /// <list type="bullet">
-        ///   <item><term>1100</term><description>Connectivity lost - no action needed here</description></item>
-        ///   <item><term>1101</term><description>Connectivity restored, data lost - THIS triggers resubscription</description></item>
-        ///   <item><term>1102</term><description>Connectivity restored, data maintained - no resubscription needed</description></item>
-        /// </list>
-        /// 
-        /// <para><b>Process:</b></para>
-        /// <list type="number">
-        ///   <item>Cancel any stale market data subscriptions (may already be gone)</item>
-        ///   <item>Wait 100ms between cancel and resubscribe to avoid rate limiting</item>
-        ///   <item>Re-request market data using the same ticker IDs</item>
-        /// </list>
-        /// 
-        /// <para><b>Important:</b> The ticker handler registrations (set up in <c>Run()</c>) are preserved
-        /// during disconnects, so the <see cref="StrategyRunner"/> instances will automatically receive
-        /// data once the resubscription completes.</para>
-        /// </remarks>
-        /// <param name="client">The EClientSocket instance used to communicate with IBKR.</param>
-        /// <param name="contracts">Dictionary mapping symbol names to their Contract definitions.</param>
-        /// <param name="tickerIds">List of ticker IDs corresponding to each contract subscription.</param>
-        /// <seealso cref="IbWrapper.OnConnectionRestored"/>
-        private static void ResubscribeMarketData(EClientSocket client, Dictionary<string, Contract> contracts, List<int> tickerIds)
-        {
-            Gui.DisplayResubscribingMarketData(contracts.Count);
-
-            int tickerIndex = 0;
-            foreach (var kvp in contracts)
-            {
-                if (tickerIndex < tickerIds.Count)
-                {
-                    int tickerId = tickerIds[tickerIndex];
-                    // Cancel existing subscription first (in case it's stale)
-                    try
-                    {
-                        client.cancelMktData(tickerId);
-                    }
-                    catch
-                    {
-                        // Ignore errors when cancelling - subscription may already be gone
-                    }
-
-                    // Small delay between cancel and resubscribe
-                    Thread.Sleep(100);
-
-                    // Resubscribe
-                    client.reqMktData(tickerId, kvp.Value, "", false, false, null);
-                    tickerIndex++;
-                }
-            }
-
-            Gui.DisplayResubscriptionComplete();
-        }
-
-        /// <summary>
-        /// Cancels all open orders in IBKR.
-        /// </summary>
-        private static void CancelAllOpenOrders(IbWrapper wrapper)
-        {
-            // Get current order count before cancelling
-            wrapper.RequestOpenOrdersAndWait(TimeSpan.FromSeconds(3));
-            int orderCount = wrapper.OpenOrders.Count;
-
-            if (orderCount == 0)
-            {
-                Gui.DisplayCancelOrdersResult(0, 0, 0);
+                if (!Settings.SilentMode)
+                    Log("*Blip* (disconnected)");
                 return;
             }
 
-            Gui.DisplayCancellingOrders(orderCount);
-            wrapper.CancelAllOrders();
+            try
+            {
+                var pingResult = _wrapper.Ping(TimeSpan.FromSeconds(10));
 
-            // Wait a moment for cancellations to process, then refresh
-            Thread.Sleep(500);
-            wrapper.RequestOpenOrdersAndWait(TimeSpan.FromSeconds(3));
+                if (Settings.SilentMode)
+                {
+                    // Minimal output in silent mode
+                    Console.WriteLine("*Blip*");
+                }
+                else
+                {
+                    var timestamp = GetEasternTimeStamp();
+                    if (pingResult.Success)
+                    {
+                        Log($"[{timestamp}] HEARTBEAT OK | Latency: {pingResult.LatencyMs}ms | Active: {_runners.Count} strategies");
+                    }
+                    else
+                    {
+                        Log($"[{timestamp}] HEARTBEAT FAILED - Connection may be lost!");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                if (!Settings.SilentMode)
+                    Log($"HEARTBEAT ERROR: {ex.Message}");
+            }
+        }
 
-            int remainingCount = wrapper.OpenOrders.Count;
-            int cancelledCount = orderCount - remainingCount;
+        private static void ResubscribeMarketData()
+        {
+            if (_client == null) return;
 
-            Gui.DisplayCancelOrdersResult(orderCount, cancelledCount, remainingCount);
+            int tickerIndex = 0;
+            foreach (var kvp in _contracts)
+            {
+                if (tickerIndex < _tickerIds.Count)
+                {
+                    int tickerId = _tickerIds[tickerIndex];
+                    try { _client.cancelMktData(tickerId); } catch { }
+                    Thread.Sleep(100);
+                    _client.reqMktData(tickerId, kvp.Value, "", false, false, null);
+                    tickerIndex++;
+                }
+            }
+            Log("Market data resubscribed.");
+        }
+
+        private static void Shutdown()
+        {
+            Log("Shutting down...");
+
+            _heartbeatTimer?.Dispose();
+            DeactivateTrading();
+
+            _client?.eDisconnect();
+            _wrapper?.Dispose();
+            _ipcServer?.Dispose();
+
+            Log("Goodbye!");
+        }
+
+        // ----- IPC Handlers -----
+
+        private static Task<StatusResponsePayload> GetStatusAsync()
+        {
+            return Task.FromResult(new StatusResponsePayload
+            {
+                IsRunning = true,
+                IsConnectedToIbkr = _isConnected,
+                IsTradingActive = _isActive,
+                ActiveStrategies = _runners.Count,
+                LastHeartbeat = DateTime.Now,
+                IsPaperTrading = Settings.IsPaperTrading
+            });
+        }
+
+        private static Task<List<OrderInfo>> GetOrdersAsync()
+        {
+            if (_wrapper == null)
+                return Task.FromResult(new List<OrderInfo>());
+
+            _wrapper.RequestOpenOrdersAndWait(TimeSpan.FromSeconds(3));
+
+            var tradeTracker = _tradeTrackingService;
+            var orders = _wrapper.OpenOrders.Select(kvp => 
+            {
+                var tradeId = tradeTracker?.GetTradeByOrderIdAsync(kvp.Key).Result?.TradeId;
+                return new OrderInfo
+                {
+                    OrderId = kvp.Key,
+                    Symbol = kvp.Value.Symbol,
+                    Action = kvp.Value.Action,
+                    Quantity = (int)kvp.Value.Qty,
+                    OrderType = kvp.Value.Type,
+                    LimitPrice = kvp.Value.LmtPrice,
+                    StatusText = kvp.Value.Status,
+                    IdiotProofTradeId = tradeId
+                };
+            }).ToList();
+
+            return Task.FromResult(orders);
+        }
+
+        private static Task<List<PositionInfo>> GetPositionsAsync()
+        {
+            // TODO: Implement position tracking
+            return Task.FromResult(new List<PositionInfo>());
+        }
+
+        private static Task<OperationResultPayload> CancelOrderAsync(int orderId)
+        {
+            if (_client == null)
+                return Task.FromResult(new OperationResultPayload { Success = false, ErrorMessage = "Not connected" });
+
+            try
+            {
+                _client.cancelOrder(orderId, new IBApi.OrderCancel());
+                Log($"Cancel requested for order {orderId}");
+                return Task.FromResult(new OperationResultPayload { Success = true, Message = $"Cancel requested for order {orderId}" });
+            }
+            catch (Exception ex)
+            {
+                return Task.FromResult(new OperationResultPayload { Success = false, ErrorMessage = ex.Message });
+            }
+        }
+
+        private static Task<OperationResultPayload> ClosePositionAsync(string symbol)
+        {
+            // TODO: Implement position closing
+            Log($"Close position requested for {symbol}");
+            return Task.FromResult(new OperationResultPayload { Success = true, Message = "Close requested" });
+        }
+
+        private static Task ReloadStrategiesAsync()
+        {
+            var wasActive = _isActive;
+            if (wasActive)
+                DeactivateTrading();
+
+            LoadStrategies();
+
+            if (wasActive && _strategies.Count > 0)
+                ActivateTrading();
+
+            return Task.CompletedTask;
+        }
+
+        private static Task<OperationResultPayload> ActivateStrategyAsync(Guid strategyId)
+        {
+            // TODO: Strategy activation requires reloading from disk with Enabled=true
+            // For now, just acknowledge the request
+            Log($"Activate strategy requested: {strategyId}");
+            return Task.FromResult(new OperationResultPayload { Success = true, Message = "Strategy activation requested" });
+        }
+
+        private static Task<OperationResultPayload> DeactivateStrategyAsync(Guid strategyId)
+        {
+            // TODO: Strategy deactivation requires stopping the runner
+            // For now, just acknowledge the request
+            Log($"Deactivate strategy requested: {strategyId}");
+            return Task.FromResult(new OperationResultPayload { Success = true, Message = "Strategy deactivation requested" });
+        }
+
+        private static Task<OperationResultPayload> CancelAllOrdersAsync()
+        {
+            if (_wrapper == null || _client == null)
+                return Task.FromResult(new OperationResultPayload { Success = false, ErrorMessage = "Not connected" });
+
+            try
+            {
+                _wrapper.RequestOpenOrdersAndWait(TimeSpan.FromSeconds(3));
+                int orderCount = _wrapper.OpenOrders.Count;
+
+                if (orderCount == 0)
+                {
+                    Log("No open orders to cancel");
+                    return Task.FromResult(new OperationResultPayload { Success = true, Message = "No open orders to cancel" });
+                }
+
+                _wrapper.CancelAllOrders();
+                Log($"Cancel requested for {orderCount} orders");
+                return Task.FromResult(new OperationResultPayload { Success = true, Message = $"Cancel requested for {orderCount} orders" });
+            }
+            catch (Exception ex)
+            {
+                return Task.FromResult(new OperationResultPayload { Success = false, ErrorMessage = ex.Message });
+            }
+        }
+
+        private static Task<OperationResultPayload> ActivateTradingAsync()
+        {
+            try
+            {
+                ActivateTrading();
+                return Task.FromResult(new OperationResultPayload { Success = true, Message = "Trading activated" });
+            }
+            catch (Exception ex)
+            {
+                return Task.FromResult(new OperationResultPayload { Success = false, ErrorMessage = ex.Message });
+            }
+        }
+
+        private static Task<OperationResultPayload> DeactivateTradingAsync()
+        {
+            try
+            {
+                DeactivateTrading();
+                return Task.FromResult(new OperationResultPayload { Success = true, Message = "Trading deactivated" });
+            }
+            catch (Exception ex)
+            {
+                return Task.FromResult(new OperationResultPayload { Success = false, ErrorMessage = ex.Message });
+            }
+        }
+
+        private static Task<List<OrderInfo>> GetIdiotProofOrdersAsync()
+        {
+            if (_wrapper == null)
+                return Task.FromResult(new List<OrderInfo>());
+
+            _wrapper.RequestOpenOrdersAndWait(TimeSpan.FromSeconds(3));
+
+            // Get the trade tracking service to filter IdiotProof orders
+            var tradeTracker = _tradeTrackingService;
+            var idiotProofOrderIds = tradeTracker?.GetAllIdiotProofOrderIds() ?? [];
+
+            var orders = _wrapper.OpenOrders
+                .Where(kvp => idiotProofOrderIds.Contains(kvp.Key))
+                .Select(kvp =>
+                {
+                    var tradeId = tradeTracker?.GetTradeByOrderIdAsync(kvp.Key).Result?.TradeId;
+                    return new OrderInfo
+                    {
+                        OrderId = kvp.Key,
+                        Symbol = kvp.Value.Symbol,
+                        Action = kvp.Value.Action,
+                        Quantity = (int)kvp.Value.Qty,
+                        OrderType = kvp.Value.Type,
+                        LimitPrice = kvp.Value.LmtPrice,
+                        StatusText = kvp.Value.Status,
+                        IdiotProofTradeId = tradeId
+                    };
+                }).ToList();
+
+            return Task.FromResult(orders);
+        }
+
+        private static Task<ValidationResponsePayload> ValidateStrategyAsync(StrategyDefinition strategy)
+        {
+            try
+            {
+                // Use extension methods from ValidationExtensions
+                var result = strategy.ValidateForExecution();
+
+                return Task.FromResult(new ValidationResponsePayload
+                {
+                    IsValid = result.IsValid,
+                    Errors = result.Errors.Select(e => new ValidationErrorInfo
+                    {
+                        Code = e.Code,
+                        Message = e.Message,
+                        FieldName = e.FieldName
+                    }).ToList(),
+                    Warnings = result.Warnings.Select(w => new ValidationWarningInfo
+                    {
+                        Code = w.Code,
+                        Message = w.Message,
+                        FieldName = w.FieldName
+                    }).ToList()
+                });
+            }
+            catch (Exception ex)
+            {
+                return Task.FromResult(new ValidationResponsePayload
+                {
+                    IsValid = false,
+                    Errors = [new ValidationErrorInfo { Code = "VALIDATION_ERROR", Message = ex.Message }]
+                });
+            }
+        }
+
+        private static Task<List<IdiotProofTrade>> GetTradesAsync()
+        {
+            if (_tradeTrackingService == null)
+                return Task.FromResult(new List<IdiotProofTrade>());
+
+            return _tradeTrackingService.GetAllTradesAsync();
+        }
+
+        // ----- Helpers -----
+
+        private static void Log(string message)
+        {
+            var timestamp = GetEasternTimeStamp();
+            var formatted = $"[{timestamp}] {message}";
+            Console.WriteLine(formatted);
+
+            // Also broadcast to frontend
+            _ipcServer?.BroadcastConsoleOutput(formatted);
+        }
+
+        private static string GetEasternTimeStamp()
+        {
+            var easternZone = TimeZoneInfo.FindSystemTimeZoneById("Eastern Standard Time");
+            var easternTime = TimeZoneInfo.ConvertTime(DateTime.Now, easternZone);
+            return easternTime.ToString("HH:mm:ss");
         }
     }
 }

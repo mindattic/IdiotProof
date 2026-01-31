@@ -1,12 +1,18 @@
 @page "/"
 @using IdiotProof.Frontend.Services
+@using IdiotProof.Frontend.Components.Shared
 @using IdiotProof.Shared.Enums
 @using IdiotProof.Shared.Models
+@using IdiotProof.Shared.Validation
 @using System.Web
+@using System.Text.Json
 @inject IStrategyService StrategyService
 @inject NavigationManager Navigation
+@inject IJSRuntime JS
 
-<div class="design-page">
+<LoadingSpinner IsVisible="@IsLoading" Message="@LoadingMessage" FullScreen="true" />
+
+<div class="design-page @(IsLoading ? "loading-disabled" : "")">
     <!-- Header -->
     <div class="design-header">
         <div class="design-header-left">
@@ -15,6 +21,8 @@
         </div>
         <div class="design-header-right">
             <button class="btn btn-secondary" @onclick="NewStrategy">New</button>
+            <button class="btn btn-secondary" @onclick="ImportStrategy" title="Import strategy from JSON">Import</button>
+            <button class="btn btn-secondary" @onclick="ExportStrategy" title="Export strategy to JSON">Export</button>
             <button class="btn btn-secondary" @onclick="ValidateStrategy">Validate</button>
             <button class="btn btn-primary" @onclick="SaveStrategy">Save</button>
         </div>
@@ -27,7 +35,7 @@
         <!-- Search/Filter Input -->
         <div class="toolbar-search">
             <input type="text" 
-                   @bind="SearchFilter" 
+                   @bind="SearchFilter"
                    @bind:event="oninput"
                    placeholder="🔍 Search segments..." 
                    class="search-input" />
@@ -220,6 +228,18 @@
                     </div>
                 }
 
+                @if (ShowNotes)
+                {
+                    <div class="parameter-item">
+                        <div class="parameter-label">Notes</div>
+                        <div class="parameter-help">Add notes, reminders, or documentation for this step</div>
+                        <textarea rows="3"
+                                  placeholder="Add notes about this segment..."
+                                  @bind="SelectedSegment.Notes"
+                                  @bind:after="OnNotesChanged" />
+                    </div>
+                }
+
                 <button class="btn btn-danger mt-4" style="width: 100%;" @onclick="RemoveSelectedSegment">
                     Remove Segment
                 </button>
@@ -269,6 +289,9 @@
     private bool HasUnsavedChanges = false;
     private string GeneratedCode = "";
     private string _searchFilter = "";
+    private bool IsLoading = false;
+    private string LoadingMessage = "Loading...";
+    private bool ShowNotes = true;
 
     // Search filter with filtered segments
     private string SearchFilter
@@ -321,9 +344,17 @@
     private bool IsDragOver = false;
     private int? DragOverIndex;
 
+    private static readonly JsonSerializerOptions JsonOptions = new()
+    {
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+        WriteIndented = true,
+        Converters = { new System.Text.Json.Serialization.JsonStringEnumConverter() }
+    };
+
     protected override async Task OnInitializedAsync()
     {
         SegmentTemplates = SegmentFactory.GetAllTemplates();
+        ShowNotes = Preferences.Get("ShowNotes", true);
         await LoadStrategies();
 
         // Check for edit parameter in URL
@@ -352,6 +383,10 @@
 
     private async Task LoadStrategies()
     {
+        IsLoading = true;
+        LoadingMessage = "Loading strategies...";
+        StateHasChanged();
+
         try
         {
             var collection = await StrategyService.GetCollectionAsync(DateOnly.FromDateTime(SelectedDate));
@@ -361,6 +396,11 @@
         catch (Exception ex)
         {
             StatusMessage = $"Error: {ex.Message}";
+        }
+        finally
+        {
+            IsLoading = false;
+            StateHasChanged();
         }
     }
 
@@ -376,14 +416,37 @@
 
     private async Task SaveStrategy()
     {
+        IsLoading = true;
+        LoadingMessage = "Validating strategy...";
+        StateHasChanged();
+
         try
         {
             CurrentStrategy.Segments = CanvasSegments.ToList();
             CurrentStrategy.ModifiedAt = DateTime.UtcNow;
 
+            // Frontend validation first using extension methods
+            var frontendValidation = CurrentStrategy.ValidateForSave();
+
+            if (!frontendValidation.IsValid)
+            {
+                StatusMessage = $"✗ Validation failed: {frontendValidation.GetErrorSummary()}";
+                return;
+            }
+
+            // Show warnings if any
+            if (frontendValidation.Warnings.Count > 0)
+            {
+                var warningMessages = string.Join("; ", frontendValidation.Warnings.Select(w => w.Message));
+                Console.WriteLine($"[Validation] Warnings: {warningMessages}");
+            }
+
+            LoadingMessage = "Saving strategy...";
+            StateHasChanged();
+
             var collection = await StrategyService.GetCollectionAsync(DateOnly.FromDateTime(SelectedDate));
             var existingIndex = collection.Strategies.FindIndex(s => s.Id == CurrentStrategy.Id);
-            
+
             if (existingIndex >= 0)
                 collection.Strategies[existingIndex] = CurrentStrategy;
             else
@@ -391,23 +454,48 @@
 
             await StrategyService.SaveCollectionAsync(collection);
             await LoadStrategies();
-            
+
             HasUnsavedChanges = false;
-            StatusMessage = $"Saved: {CurrentStrategy.Name}";
+            var warningCount = frontendValidation.Warnings.Count;
+            StatusMessage = warningCount > 0 
+                ? $"✓ Saved: {CurrentStrategy.Name} (with {warningCount} warning(s))"
+                : $"✓ Saved: {CurrentStrategy.Name}";
         }
         catch (Exception ex)
         {
-            StatusMessage = $"Error saving: {ex.Message}";
+            StatusMessage = $"✗ Error saving: {ex.Message}";
+        }
+        finally
+        {
+            IsLoading = false;
+            StateHasChanged();
         }
     }
 
     private void ValidateStrategy()
     {
         CurrentStrategy.Segments = CanvasSegments.ToList();
-        var result = CurrentStrategy.Validate();
-        StatusMessage = result.IsValid 
-            ? "✓ Strategy is valid!" 
-            : $"✗ Errors: {string.Join(", ", result.Errors)}";
+
+        // Use comprehensive validation with extension methods
+        var result = CurrentStrategy.ValidateForSave();
+
+        if (result.IsValid)
+        {
+            var warningCount = result.Warnings.Count;
+            if (warningCount > 0)
+            {
+                var warnings = string.Join("; ", result.Warnings.Select(w => w.Message));
+                StatusMessage = $"✓ Strategy is valid! ⚠️ {warningCount} warning(s): {warnings}";
+            }
+            else
+            {
+                StatusMessage = "✓ Strategy is valid and ready to use!";
+            }
+        }
+        else
+        {
+            StatusMessage = $"✗ Validation errors: {result.GetErrorSummary()}";
+        }
     }
 
     private async Task CopyCode()
@@ -417,6 +505,69 @@
             await Clipboard.SetTextAsync(GeneratedCode);
             StatusMessage = "Code copied to clipboard!";
         }
+    }
+
+    private async Task ExportStrategy()
+    {
+        if (CanvasSegments.Count == 0)
+        {
+            StatusMessage = "No strategy to export";
+            return;
+        }
+
+        CurrentStrategy.Segments = CanvasSegments.ToList();
+        var json = JsonSerializer.Serialize(CurrentStrategy, JsonOptions);
+
+        // Copy to clipboard for easy sharing
+        await Clipboard.SetTextAsync(json);
+        StatusMessage = "Strategy JSON copied to clipboard! Share with others or save to a file.";
+    }
+
+    private async Task ImportStrategy()
+    {
+        try
+        {
+            var clipboardText = await Clipboard.GetTextAsync();
+            if (string.IsNullOrWhiteSpace(clipboardText))
+            {
+                StatusMessage = "No JSON found in clipboard. Copy a strategy JSON first.";
+                return;
+            }
+
+            // Validate JSON before importing
+            var validation = JsonValidator.ValidateStrategyImportJson(clipboardText);
+            if (!validation.IsValid)
+            {
+                StatusMessage = $"Invalid strategy JSON: {validation.GetErrorSummary()}";
+                return;
+            }
+
+            var imported = JsonSerializer.Deserialize<StrategyDefinition>(clipboardText, JsonOptions);
+            if (imported != null)
+            {
+                // Generate new ID to avoid conflicts
+                imported.Id = Guid.NewGuid();
+                imported.Name = $"{imported.Name} (Imported)";
+                imported.CreatedAt = DateTime.UtcNow;
+                imported.ModifiedAt = DateTime.UtcNow;
+
+                CurrentStrategy = imported;
+                CanvasSegments = imported.Segments.ToList();
+                HasUnsavedChanges = true;
+                UpdateGeneratedCode();
+                StatusMessage = $"Imported: {imported.Name}";
+            }
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"Error importing: {ex.Message}";
+        }
+    }
+
+    private void OnNotesChanged()
+    {
+        HasUnsavedChanges = true;
+        UpdateGeneratedCode();
     }
 
     // Drag from Toolbar

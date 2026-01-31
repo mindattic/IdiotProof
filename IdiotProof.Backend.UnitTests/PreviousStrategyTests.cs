@@ -33,6 +33,75 @@ public class PreviousStrategyTests
 
         var errors = new List<string>();
 
+
+
+
+
+        //// ================================================================
+        //// STRATEGIES - Define your multi-step strategies here
+        //// ================================================================
+        //var strategies = new List<TradingStrategy>
+        //{
+
+        //    // ----- VIVS (Contributed by Momentum.) -----
+        //    Stock
+        //        .Ticker("VIVS")
+        //        .SessionDuration(TradingSession.PreMarketEndEarly)
+        //        .PriceAbove(2.40)                                       // Step 1: Price >= 2.40
+        //        .AboveVwap()                                            // Step 2: Price >= VWAP
+        //        .Buy(quantity: qty, Price.Current)                      // Step 3: Buy @ Current Price
+        //        .TakeProfit(4.00, 4.80)                                 // Step 4: ADX-based TakeProfit: 4.00 (weak) to 4.80 (strong)
+        //        .TrailingStopLoss(Percent.TwentyFive)                   // 25% trailing stop loss
+        //        .ClosePosition(MarketTime.PreMarket.Ending, false),     // Step 5: Close Position @ 9:15 AM ET
+
+        //    // ----- CATX (Contributed by Momentum.) -----
+        //    Stock
+        //        .Ticker("CATX")
+        //        .SessionDuration(TradingSession.PreMarketEndEarly)
+        //        .PriceAbove(4.00)                                       // Step 1: Price >= 4.00
+        //        .AboveVwap()                                            // Step 2: Price >= VWAP
+        //        .Buy(quantity: qty, Price.Current)                      // Step 3: Buy @ Current Price
+        //        .TakeProfit(5.30, 6.16)                                 // Step 4: ADX-based TakeProfit: 5.30 (weak) to 6.16 (strong)
+        //        .TrailingStopLoss(Percent.TwentyFive)                   // 25% trailing stop loss
+        //        .ClosePosition(MarketTime.PreMarket.Ending, false),     // Step 5: Close Position @ 9:15 AM ET
+
+        //    // ----- VIVS (Contributed by Claude Opus 4.5) -----
+        //    // Entry on pullback to EMA support while holding above VWAP
+        //    // Wait for dip to $4.15, confirm still above VWAP, buy the bounce
+        //    Stock
+        //        .Ticker("VIVS")
+        //        .SessionDuration(TradingSession.PreMarketEndEarly)
+        //        .Pullback(4.15)                                         // Step 1: Pullback to EMA 12 zone ($4.13)
+        //        .AboveVwap()                                            // Step 2: Still above VWAP
+        //        .Buy(quantity: qty, Price.Current)                      // Step 3: Buy @ Current Price
+        //        .TakeProfit(4.80, 5.30)                                 // Step 4: Target $4.80 to $5.30 on bounce
+        //        .TrailingStopLoss(Percent.TwentyFive)                   // 25% trailing stop loss
+        //        .ClosePosition(MarketTime.PreMarket.Ending, false),
+
+        //    // ----- (Contributed by Claude Opus 4.5) -----
+        //    // Entry on VWAP reclaim followed by pullback retest
+        //    // Wait for price to reclaim VWAP, then buy pullback to VWAP support
+        //    Stock
+        //        .Ticker("CATX")
+        //        .SessionDuration(TradingSession.PreMarketEndEarly)
+        //        .AboveVwap()                                            // Step 1: Wait for VWAP reclaim (~$4.77)
+        //        .Pullback(4.80)                                         // Step 2: Then look for pullback to VWAP
+        //        .Buy(quantity: qty, Price.Current)                      // Step 3: Buy @ Current Price
+        //        .TakeProfit(5.20, 5.50)                                 // Step 4: Target $5.20 to $5.50 on bounce
+        //        .TrailingStopLoss(Percent.TwentyFive)                   // 25% trailing stop loss
+        //        .ClosePosition(MarketTime.PreMarket.Ending, false),
+        //};
+
+
+
+
+
+
+
+
+
+
+
         // ================================================================
         // VIVS Strategy (Premarket)
         // ================================================================

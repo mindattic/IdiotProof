@@ -1,0 +1,128 @@
+@* ============================================================================
+   LoadingSpinner - SVG-based loading spinner component
+   ============================================================================ *@
+
+<div class="loading-spinner-container @(IsVisible ? "visible" : "hidden") @(FullScreen ? "fullscreen" : "")">
+    @if (FullScreen)
+    {
+        <div class="loading-overlay"></div>
+    }
+    <div class="loading-content">
+        <svg class="spinner" viewBox="0 0 50 50" width="@Size" height="@Size">
+            <circle class="path" cx="25" cy="25" r="20" fill="none" stroke-width="4"></circle>
+        </svg>
+        @if (!string.IsNullOrEmpty(Message))
+        {
+            <div class="loading-message">@Message</div>
+        }
+    </div>
+</div>
+
+@code {
+    /// <summary>
+    /// Whether the spinner is visible.
+    /// </summary>
+    [Parameter]
+    public bool IsVisible { get; set; } = true;
+
+    /// <summary>
+    /// Message to display below the spinner.
+    /// </summary>
+    [Parameter]
+    public string? Message { get; set; }
+
+    /// <summary>
+    /// Size of the spinner in pixels.
+    /// </summary>
+    [Parameter]
+    public int Size { get; set; } = 50;
+
+    /// <summary>
+    /// Whether to display as fullscreen overlay.
+    /// </summary>
+    [Parameter]
+    public bool FullScreen { get; set; } = false;
+}
+
+<style>
+    .loading-spinner-container {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        transition: opacity 0.2s ease;
+    }
+
+    .loading-spinner-container.hidden {
+        opacity: 0;
+        pointer-events: none;
+    }
+
+    .loading-spinner-container.visible {
+        opacity: 1;
+    }
+
+    .loading-spinner-container.fullscreen {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 9999;
+    }
+
+    .loading-overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: rgba(0, 0, 0, 0.5);
+        backdrop-filter: blur(2px);
+    }
+
+    .loading-content {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 16px;
+        z-index: 1;
+    }
+
+    .spinner {
+        animation: rotate 2s linear infinite;
+    }
+
+    .spinner .path {
+        stroke: var(--primary, #512BD4);
+        stroke-linecap: round;
+        animation: dash 1.5s ease-in-out infinite;
+    }
+
+    .loading-message {
+        color: var(--text-primary, #fff);
+        font-size: 14px;
+        text-align: center;
+    }
+
+    @@keyframes rotate {
+        100% {
+            transform: rotate(360deg);
+        }
+    }
+
+    @@keyframes dash {
+        0% {
+            stroke-dasharray: 1, 150;
+            stroke-dashoffset: 0;
+        }
+        50% {
+            stroke-dasharray: 90, 150;
+            stroke-dashoffset: -35;
+        }
+        100% {
+            stroke-dasharray: 90, 150;
+            stroke-dashoffset: -124;
+        }
+    }
+</style>

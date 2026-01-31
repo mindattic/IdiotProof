@@ -76,6 +76,9 @@ namespace IdiotProof.Backend.Models
         /// <summary>Time to close position if still open (null = no auto-close).</summary>
         public TimeOnly? ClosePositionTime { get; init; }
 
+        /// <summary>User-provided notes for this strategy (for documentation/reminders).</summary>
+        public string? Notes { get; init; }
+
         /// <summary>
         /// Writes the strategy progress to console with colors.
         /// </summary>

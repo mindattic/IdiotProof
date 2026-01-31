@@ -58,6 +58,11 @@ namespace IdiotProof.Shared.Models
         public string? Color { get; set; }
 
         /// <summary>
+        /// User-provided notes for this segment (for documentation/reminders).
+        /// </summary>
+        public string? Notes { get; set; }
+
+        /// <summary>
         /// Whether this segment is valid (all required parameters filled).
         /// </summary>
         [JsonIgnore]

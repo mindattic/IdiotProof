@@ -23,7 +23,6 @@ D:\Projects\IdiotProof\IdiotProof.Frontend\obj\Debug\net10.0-windows10.0.19041.0
 D:\Projects\IdiotProof\IdiotProof.Frontend\obj\Debug\net10.0-windows10.0.19041.0\win-x64\mauiimage.inputs
 D:\Projects\IdiotProof\IdiotProof.Frontend\obj\Debug\net10.0-windows10.0.19041.0\win-x64\mauifont.inputs
 D:\Projects\IdiotProof\IdiotProof.Frontend\obj\Debug\net10.0-windows10.0.19041.0\win-x64\mauisplash.inputs
-D:\Projects\IdiotProof\IdiotProof.Frontend\obj\Debug\net10.0-windows10.0.19041.0\win-x64\staticwebassets.upToDateCheck.txt
 D:\Projects\IdiotProof\IdiotProof.Frontend\obj\Debug\net10.0-windows10.0.19041.0\win-x64\resizetizer\sp\splashSplashScreen.scale-100.png
 D:\Projects\IdiotProof\IdiotProof.Frontend\obj\Debug\net10.0-windows10.0.19041.0\win-x64\resizetizer\sp\splashSplashScreen.scale-125.png
 D:\Projects\IdiotProof\IdiotProof.Frontend\obj\Debug\net10.0-windows10.0.19041.0\win-x64\resizetizer\sp\splashSplashScreen.scale-150.png
@@ -31,7 +30,6 @@ D:\Projects\IdiotProof\IdiotProof.Frontend\obj\Debug\net10.0-windows10.0.19041.0
 D:\Projects\IdiotProof\IdiotProof.Frontend\obj\Debug\net10.0-windows10.0.19041.0\win-x64\resizetizer\sp\splashSplashScreen.scale-400.png
 D:\Projects\IdiotProof\IdiotProof.Frontend\obj\Debug\net10.0-windows10.0.19041.0\win-x64\mauisplash.stamp
 D:\Projects\IdiotProof\IdiotProof.Frontend\obj\Debug\net10.0-windows10.0.19041.0\win-x64\mauifont.stamp
-D:\Projects\IdiotProof\IdiotProof.Frontend\obj\Debug\net10.0-windows10.0.19041.0\win-x64\resizetizer\f\.gitkeep
 D:\Projects\IdiotProof\IdiotProof.Frontend\obj\Debug\net10.0-windows10.0.19041.0\win-x64\resizetizer\r\appiconLargeTile.scale-400.png
 D:\Projects\IdiotProof\IdiotProof.Frontend\obj\Debug\net10.0-windows10.0.19041.0\win-x64\resizetizer\r\appiconLargeTile.scale-200.png
 D:\Projects\IdiotProof\IdiotProof.Frontend\obj\Debug\net10.0-windows10.0.19041.0\win-x64\resizetizer\r\appiconLargeTile.scale-150.png
@@ -95,7 +93,6 @@ D:\Projects\IdiotProof\IdiotProof.Frontend\bin\Debug\net10.0-windows10.0.19041.0
 D:\Projects\IdiotProof\IdiotProof.Frontend\bin\Debug\net10.0-windows10.0.19041.0\win-x64\splashSplashScreen.scale-150.png
 D:\Projects\IdiotProof\IdiotProof.Frontend\bin\Debug\net10.0-windows10.0.19041.0\win-x64\splashSplashScreen.scale-200.png
 D:\Projects\IdiotProof\IdiotProof.Frontend\bin\Debug\net10.0-windows10.0.19041.0\win-x64\splashSplashScreen.scale-400.png
-D:\Projects\IdiotProof\IdiotProof.Frontend\bin\Debug\net10.0-windows10.0.19041.0\win-x64\.gitkeep
 D:\Projects\IdiotProof\IdiotProof.Frontend\bin\Debug\net10.0-windows10.0.19041.0\win-x64\appicon.ico
 D:\Projects\IdiotProof\IdiotProof.Frontend\bin\Debug\net10.0-windows10.0.19041.0\win-x64\appiconLargeTile.scale-100.png
 D:\Projects\IdiotProof\IdiotProof.Frontend\bin\Debug\net10.0-windows10.0.19041.0\win-x64\appiconLargeTile.scale-125.png
@@ -550,3 +547,7 @@ D:\Projects\IdiotProof\IdiotProof.Frontend\obj\Debug\net10.0-windows10.0.19041.0
 D:\Projects\IdiotProof\IdiotProof.Frontend\obj\Debug\net10.0-windows10.0.19041.0\win-x64\qualifiers.txt
 D:\Projects\IdiotProof\IdiotProof.Frontend\obj\Debug\net10.0-windows10.0.19041.0\win-x64\qualifiers.txt.intermediate
 D:\Projects\IdiotProof\IdiotProof.Frontend\obj\Debug\net10.0-windows10.0.19041.0\win-x64\MultipleQualifiersPerDimensionFound.txt
+D:\Projects\IdiotProof\IdiotProof.Frontend\bin\Debug\net10.0-windows10.0.19041.0\win-x64\wwwroot\css\themes.css
+D:\Projects\IdiotProof\IdiotProof.Frontend\bin\Debug\net10.0-windows10.0.19041.0\win-x64\wwwroot\css\markdown.css
+D:\Projects\IdiotProof\IdiotProof.Frontend\bin\Debug\net10.0-windows10.0.19041.0\win-x64\Markdig.dll
+D:\Projects\IdiotProof\IdiotProof.Frontend\obj\Debug\net10.0-windows10.0.19041.0\win-x64\staticwebassets.upToDateCheck.txt

@@ -109,6 +109,17 @@ namespace IdiotProof.Shared.Models
         /// Parent order ID for bracket orders.
         /// </summary>
         public int? ParentOrderId { get; set; }
+
+        /// <summary>
+        /// IdiotProof trade ID if this order was created by IdiotProof.
+        /// Used to filter orders to show only IdiotProof trades.
+        /// </summary>
+        public Guid? IdiotProofTradeId { get; set; }
+
+        /// <summary>
+        /// Whether this order was created by IdiotProof.
+        /// </summary>
+        public bool IsIdiotProofOrder => IdiotProofTradeId.HasValue;
     }
 
     /// <summary>
