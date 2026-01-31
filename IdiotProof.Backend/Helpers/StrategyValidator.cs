@@ -88,7 +88,6 @@ namespace IdiotProof.Backend.Models
             if (string.IsNullOrWhiteSpace(strategy.Symbol))
             {
                 result.AddError($"{prefix} Symbol is required");
-                return;
             }
 
             // Condition validation

@@ -1,3 +1,9 @@
+<<<<<<< HEAD
 2026/01/30-22:52:29.869 238 Reusing MANIFEST D:\Projects\IdiotProof\IdiotProof.Frontend\bin\Debug\net10.0-windows10.0.19041.0\win-x64\IdiotProof.Frontend.exe.WebView2\EBWebView\Default\Session Storage/MANIFEST-000001
 2026/01/30-22:52:29.870 238 Recovering log #3
 2026/01/30-22:52:29.871 238 Reusing old log D:\Projects\IdiotProof\IdiotProof.Frontend\bin\Debug\net10.0-windows10.0.19041.0\win-x64\IdiotProof.Frontend.exe.WebView2\EBWebView\Default\Session Storage/000003.log 
+=======
+2026/01/30-21:31:00.384 ec0 Reusing MANIFEST D:\Projects\IdiotProof\IdiotProof.Frontend\bin\Debug\net10.0-windows10.0.19041.0\win-x64\IdiotProof.Frontend.exe.WebView2\EBWebView\Default\Session Storage/MANIFEST-000001
+2026/01/30-21:31:00.385 ec0 Recovering log #3
+2026/01/30-21:31:00.387 ec0 Reusing old log D:\Projects\IdiotProof\IdiotProof.Frontend\bin\Debug\net10.0-windows10.0.19041.0\win-x64\IdiotProof.Frontend.exe.WebView2\EBWebView\Default\Session Storage/000003.log 
+>>>>>>> 065463dc8f09d801821523b852fc4026330ba847

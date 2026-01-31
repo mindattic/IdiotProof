@@ -16,6 +16,7 @@ A fluent API framework for building multi-stage trading strategies with Interact
   - [Exit Strategy Methods](#exit-strategy-methods)
   - [Timing Methods](#timing-methods)
   - [Configuration Methods](#configuration-methods)
+- [Default Values Reference](#default-values-reference)
 - [Helper Classes](#helper-classes)
 - [Examples](#examples)
 - [Implementation Status](#implementation-status)
@@ -964,6 +965,125 @@ Builds and returns the strategy with current configuration. Terminal method.
 **Returns:** `TradingStrategy`
 
 **Implementation Status:** ✅ Fully Implemented
+
+---
+
+## Default Values Reference
+
+When building strategies with the fluent API, the following default values are used if a method is not explicitly called.
+
+### Stock Builder Defaults
+
+Properties that apply to the strategy before the order:
+
+| Property | Default Value | Method to Override |
+|----------|---------------|-------------------|
+| Exchange | `"SMART"` | `.Exchange()` |
+| PrimaryExchange | `null` | `.PrimaryExchange()` |
+| Currency | `"USD"` | `.Currency()` |
+| SecType | `"STK"` | N/A |
+| Enabled | `true` | `.Enabled()` |
+| StartTime | `null` (no restriction) | `.Start()`, `.SessionDuration()` |
+| EndTime | `null` (no restriction) | `.End()`, `.SessionDuration()` |
+| Session | `null` (no restriction) | `.SessionDuration()` |
+| Notes | `null` | `.WithNotes()` |
+
+### Condition Method Defaults
+
+| Method | Parameter | Default |
+|--------|-----------|---------|
+| `.AboveVwap(buffer)` | buffer | `0` |
+| `.BelowVwap(buffer)` | buffer | `0` |
+| `.IsRsi(state, threshold)` | threshold | `null` (70 for overbought, 30 for oversold) |
+| `.IsAdx(comparison, threshold)` | threshold | `25` |
+| `.IsDI(direction, minDifference)` | minDifference | `0` |
+
+### Order Method Defaults
+
+Parameters for `.Buy()`, `.Sell()`, `.Close()`:
+
+| Parameter | Default Value |
+|-----------|---------------|
+| `priceType` | `Price.Current` |
+| `orderType` | `OrderType.Limit` |
+| `positionSide` (Close only) | `OrderSide.Buy` (closes long position) |
+
+### Strategy Builder Defaults
+
+Properties available after `.Buy()`, `.Sell()`, or `.Close()`:
+
+| Property | Default Value | Method to Override |
+|----------|---------------|-------------------|
+| TakeProfit | `null` (disabled) | `.TakeProfit()` |
+| StopLoss | `null` (disabled) | `.StopLoss()` |
+| TrailingStopLoss | disabled | `.TrailingStopLoss()` |
+| TrailingStopPercent | `0` | `.TrailingStopLoss(percent)` |
+| AtrStopLoss | `null` | `.TrailingStopLoss(Atr.*)` |
+| ClosePositionTime | `null` (no auto-close) | `.ClosePosition()` |
+| CloseOnlyIfProfitable | `true` | `.ClosePosition(time, false)` |
+| TimeInForce | `GoodTillCancel` | `.TimeInForce()` |
+| OutsideRth | `true` | `.OutsideRTH()` |
+| TakeProfitOutsideRth | `true` | `.OutsideRTH(_, false)` |
+| AllOrNone | `false` | `.AllOrNone()` |
+| AdxTakeProfit | `null` | `.TakeProfit(low, high)` |
+
+### ADX Take Profit Defaults
+
+When using `.TakeProfit(lowTarget, highTarget)`:
+
+| Property | Default Value | Description |
+|----------|---------------|-------------|
+| WeakTrendThreshold | `15.0` | ADX below this = weak/no trend |
+| DevelopingThreshold | `25.0` | ADX at this level = trend developing |
+| StrongTrendThreshold | `35.0` | ADX above this = strong trend |
+| ExitOnAdxRollover | `true` | Exit when ADX peaks and falls |
+
+### ATR Stop Loss Defaults
+
+When using `Atr.Multiplier()` or `Atr.WithBounds()`:
+
+| Property | Default Value | Description |
+|----------|---------------|-------------|
+| Period | `14` | Periods for ATR calculation |
+| IsTrailing | `true` | Stop trails price upward |
+| MinStopPercent | `0.01` (1%) | Minimum stop distance |
+| MaxStopPercent | `0.25` (25%) | Maximum stop distance |
+
+### Quick Reference Card
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│  FLUENT API DEFAULTS - QUICK REFERENCE                              │
+├─────────────────────────────────────────────────────────────────────┤
+│  Stock Builder:                                                     │
+│    Exchange = "SMART"    Currency = "USD"    Enabled = true         │
+│    StartTime = null      EndTime = null      Session = null         │
+├─────────────────────────────────────────────────────────────────────┤
+│  Order Methods (Buy/Sell/Close):                                    │
+│    priceType = Price.Current                                        │
+│    orderType = OrderType.Limit                                      │
+│    positionSide = OrderSide.Buy (Close only)                        │
+├─────────────────────────────────────────────────────────────────────┤
+│  Strategy Builder (after Buy/Sell/Close):                           │
+│    TimeInForce = GTC     OutsideRth = true    AllOrNone = false     │
+│    TakeProfit = null     StopLoss = null      TrailingStop = off    │
+│    ClosePositionTime = null                   CloseOnlyIfProfit=true│
+├─────────────────────────────────────────────────────────────────────┤
+│  Condition Defaults:                                                │
+│    AboveVwap/BelowVwap buffer = 0                                   │
+│    IsRsi threshold = null (70/30)                                   │
+│    IsAdx threshold = 25                                             │
+│    IsDI minDifference = 0                                           │
+├─────────────────────────────────────────────────────────────────────┤
+│  ADX TakeProfit Defaults:                                           │
+│    WeakThreshold = 15    DevelopingThreshold = 25                   │
+│    StrongThreshold = 35  ExitOnRollover = true                      │
+├─────────────────────────────────────────────────────────────────────┤
+│  ATR StopLoss Defaults:                                             │
+│    Period = 14           IsTrailing = true                          │
+│    MinStopPercent = 1%   MaxStopPercent = 25%                       │
+└─────────────────────────────────────────────────────────────────────┘
+```
 
 ---
 

@@ -10,6 +10,75 @@
 // 5. Validate that Start time is before End time.
 // 6. Use meaningful condition sequences (e.g., Breakout -> Pullback -> AboveVwap).
 //
+// ============================================================================
+// DEFAULT VALUES REFERENCE
+// ============================================================================
+//
+// STOCK BUILDER DEFAULTS (if method not called):
+// ┌─────────────────────┬─────────────────────────────────────────────────────┐
+// │ Property            │ Default Value                                       │
+// ├─────────────────────┼─────────────────────────────────────────────────────┤
+// │ Exchange            │ "SMART"                                             │
+// │ PrimaryExchange     │ null                                                │
+// │ Currency            │ "USD"                                               │
+// │ SecType             │ "STK"                                               │
+// │ Enabled             │ true                                                │
+// │ StartTime           │ null (no start restriction)                         │
+// │ EndTime             │ null (no end restriction)                           │
+// │ Session             │ null (no session restriction)                       │
+// │ Notes               │ null                                                │
+// └─────────────────────┴─────────────────────────────────────────────────────┘
+//
+// CONDITION METHOD DEFAULTS:
+// ┌─────────────────────┬─────────────────────────────────────────────────────┐
+// │ Method              │ Default Parameters                                  │
+// ├─────────────────────┼─────────────────────────────────────────────────────┤
+// │ AboveVwap(buffer)   │ buffer = 0                                          │
+// │ BelowVwap(buffer)   │ buffer = 0                                          │
+// │ IsRsi(state, thresh)│ threshold = null (70 overbought, 30 oversold)       │
+// │ IsAdx(comp, thresh) │ threshold = 25                                      │
+// │ IsDI(dir, minDiff)  │ minDifference = 0                                   │
+// └─────────────────────┴─────────────────────────────────────────────────────┘
+//
+// ORDER METHOD DEFAULTS (Buy/Sell/Close):
+// ┌─────────────────────┬─────────────────────────────────────────────────────┐
+// │ Parameter           │ Default Value                                       │
+// ├─────────────────────┼─────────────────────────────────────────────────────┤
+// │ priceType           │ Price.Current                                       │
+// │ orderType           │ OrderType.Limit                                     │
+// │ positionSide (Close)│ OrderSide.Buy (closes long position)                │
+// └─────────────────────┴─────────────────────────────────────────────────────┘
+//
+// STRATEGY BUILDER DEFAULTS (after Buy/Sell/Close):
+// ┌─────────────────────┬─────────────────────────────────────────────────────┐
+// │ Property            │ Default Value                                       │
+// ├─────────────────────┼─────────────────────────────────────────────────────┤
+// │ TakeProfit          │ null (disabled)                                     │
+// │ StopLoss            │ null (disabled)                                     │
+// │ TrailingStopLoss    │ disabled                                            │
+// │ TrailingStopPercent │ 0                                                   │
+// │ AtrStopLoss         │ null                                                │
+// │ ClosePositionTime   │ null (no auto-close)                                │
+// │ CloseOnlyIfProfit   │ true                                                │
+// │ TimeInForce         │ TimeInForce.GoodTillCancel                          │
+// │ OutsideRth          │ true                                                │
+// │ TakeProfitOutsideRth│ true                                                │
+// │ AllOrNone           │ false                                               │
+// │ AdxTakeProfit       │ null                                                │
+// └─────────────────────┴─────────────────────────────────────────────────────┘
+//
+// ADX TAKE PROFIT DEFAULTS (when using TakeProfit(low, high)):
+// ┌─────────────────────┬─────────────────────────────────────────────────────┐
+// │ Property            │ Default Value                                       │
+// ├─────────────────────┼─────────────────────────────────────────────────────┤
+// │ WeakTrendThreshold  │ 15.0                                                │
+// │ DevelopingThreshold │ 25.0                                                │
+// │ StrongTrendThreshold│ 35.0                                                │
+// │ ExitOnAdxRollover   │ true                                                │
+// └─────────────────────┴─────────────────────────────────────────────────────┘
+//
+// ============================================================================
+//
 // FLUENT PATTERN:
 //   Stock.Ticker("SYMBOL")     // Start builder
 //       .SessionDuration(...)   // Optional: when to monitor (comment out for immediate testing)
