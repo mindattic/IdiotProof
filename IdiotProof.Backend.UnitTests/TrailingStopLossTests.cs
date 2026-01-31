@@ -311,7 +311,7 @@ public class TrailingStopLossTests
     {
         var strategy = Stock
             .Ticker("VIVS")
-            .SessionDuration(TradingSession.PreMarketEndEarly)
+            .TimeFrame(TradingSession.PreMarketEndEarly)
             .IsPriceAbove(2.40)
             .IsAboveVwap()
             .Buy(quantity: 500, Price.Current)

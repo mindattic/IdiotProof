@@ -24,13 +24,13 @@ namespace IdiotProof.Shared.Models
                 [
                     CreateBreakout(),
                     CreatePullback(),
-                    CreatePriceAbove(),
-                    CreatePriceBelow()
+                    CreateIsPriceAbove(),
+                    CreateIsPriceBelow()
                 ],
                 [SegmentCategory.VwapCondition] =
                 [
-                    CreateAboveVwap(),
-                    CreateBelowVwap()
+                    CreateIsAboveVwap(),
+                    CreateIsBelowVwap()
                 ],
                 [SegmentCategory.IndicatorCondition] =
                 [
@@ -203,9 +203,9 @@ namespace IdiotProof.Shared.Models
             ]
         };
 
-        public static StrategySegment CreatePriceAbove() => new()
+        public static StrategySegment CreateIsPriceAbove() => new()
         {
-            Type = SegmentType.PriceAbove,
+            Type = SegmentType.IsPriceAbove,
             Category = SegmentCategory.PriceCondition,
             DisplayName = "Price Above",
             Description = "Price >= level",
@@ -226,9 +226,9 @@ namespace IdiotProof.Shared.Models
             ]
         };
 
-        public static StrategySegment CreatePriceBelow() => new()
+        public static StrategySegment CreateIsPriceBelow() => new()
         {
-            Type = SegmentType.PriceBelow,
+            Type = SegmentType.IsPriceBelow,
             Category = SegmentCategory.PriceCondition,
             DisplayName = "Price Below",
             Description = "Price < level",
@@ -253,9 +253,9 @@ namespace IdiotProof.Shared.Models
         // VWAP CONDITION SEGMENTS
         // ====================================================================
 
-        public static StrategySegment CreateAboveVwap() => new()
+        public static StrategySegment CreateIsAboveVwap() => new()
         {
-            Type = SegmentType.AboveVwap,
+            Type = SegmentType.IsAboveVwap,
             Category = SegmentCategory.VwapCondition,
             DisplayName = "Above VWAP",
             Description = "Price >= VWAP + buffer",
@@ -277,9 +277,9 @@ namespace IdiotProof.Shared.Models
             ]
         };
 
-        public static StrategySegment CreateBelowVwap() => new()
+        public static StrategySegment CreateIsBelowVwap() => new()
         {
-            Type = SegmentType.BelowVwap,
+            Type = SegmentType.IsBelowVwap,
             Category = SegmentCategory.VwapCondition,
             DisplayName = "Below VWAP",
             Description = "Price <= VWAP - buffer",

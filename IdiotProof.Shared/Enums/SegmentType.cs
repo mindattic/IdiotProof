@@ -53,12 +53,12 @@ namespace IdiotProof.Shared.Enums
         // Price Conditions
         Breakout,
         Pullback,
-        PriceAbove,
-        PriceBelow,
+        IsPriceAbove,
+        IsPriceBelow,
 
         // VWAP Conditions
-        AboveVwap,
-        BelowVwap,
+        IsAboveVwap,
+        IsBelowVwap,
 
         // Indicator Conditions
         IsRsi,

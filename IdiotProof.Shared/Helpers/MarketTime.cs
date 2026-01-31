@@ -22,7 +22,9 @@ public static class MarketTime
         
         /// <summary>Common exit time before market open: 9:15 AM ET</summary>
         public static TimeOnly Ending => new(9, 15);
-        
+
+        public static TimeOnly RightBeforeBell => new(9, 29);
+
         /// <summary>Pre-market end / RTH start: 9:30 AM ET</summary>
         public static TimeOnly End => new(9, 30);
     }

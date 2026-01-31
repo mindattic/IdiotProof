@@ -600,7 +600,7 @@ public class AtrStopLossTests
     public void FluentApi_CompleteStrategy_WithAtrStop()
     {
         var strategy = Stock.Ticker("AAPL")
-            .SessionDuration(TradingSession.PreMarketEndEarly)
+            .TimeFrame(TradingSession.PreMarketEndEarly)
             .IsPriceAbove(150.00)
             .IsAboveVwap()
             .Buy(quantity: 100, Price.Current)

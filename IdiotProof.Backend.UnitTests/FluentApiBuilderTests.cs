@@ -103,14 +103,15 @@ public class FluentApiBuilderTests
     }
 
     [Test]
-    public void Start_SetsStartTimeOnStrategy()
+    public void TimeFrame_WithStartAndEndTime_SetsStartTime()
     {
         // Arrange
         var startTime = new TimeOnly(3, 0);
+        var endTime = new TimeOnly(9, 30);
 
         // Act
         var strategy = Stock.Ticker("AAPL")
-            .Start(startTime)
+            .TimeFrame(startTime, endTime)
             .Breakout(150)
             .Buy(100, Price.Current)
             .Build();
@@ -120,7 +121,7 @@ public class FluentApiBuilderTests
     }
 
     [Test]
-    public void SessionDuration_SetsBothStartAndEndTime()
+    public void TimeFrame_SetsBothStartAndEndTime()
     {
         // Arrange
         var startTime = new TimeOnly(4, 0);
@@ -128,7 +129,7 @@ public class FluentApiBuilderTests
 
         // Act
         var strategy = Stock.Ticker("AAPL")
-            .SessionDuration(startTime, endTime)
+            .TimeFrame(startTime, endTime)
             .Breakout(150)
             .Buy(100, Price.Current)
             .Build();
@@ -139,7 +140,7 @@ public class FluentApiBuilderTests
     }
 
     [Test]
-    public void SessionDuration_CanBeChainedWithOtherMethods()
+    public void TimeFrame_CanBeChainedWithOtherMethods()
     {
         // Arrange
         var startTime = new TimeOnly(4, 0);
@@ -148,7 +149,7 @@ public class FluentApiBuilderTests
         // Act
         var strategy = Stock.Ticker("AAPL")
             .Exchange("NASDAQ")
-            .SessionDuration(startTime, endTime)
+            .TimeFrame(startTime, endTime)
             .Enabled(true)
             .Breakout(150)
             .Buy(100, Price.Current)
@@ -163,7 +164,7 @@ public class FluentApiBuilderTests
     }
 
     [Test]
-    public void SessionDuration_WithPreMarketHours_SetsCorrectWindow()
+    public void TimeFrame_WithPreMarketHours_SetsCorrectWindow()
     {
         // Arrange - Pre-market hours 4:00 AM to 9:30 AM
         var preMarketStart = new TimeOnly(4, 0);
@@ -171,7 +172,7 @@ public class FluentApiBuilderTests
 
         // Act
         var strategy = Stock.Ticker("AAPL")
-            .SessionDuration(preMarketStart, preMarketEnd)
+            .TimeFrame(preMarketStart, preMarketEnd)
             .Breakout(150)
             .Buy(100, Price.Current)
             .Build();
@@ -182,7 +183,7 @@ public class FluentApiBuilderTests
     }
 
     [Test]
-    public void SessionDuration_WithRegularTradingHours_SetsCorrectWindow()
+    public void TimeFrame_WithRegularTradingHours_SetsCorrectWindow()
     {
         // Arrange - Regular trading hours 9:30 AM to 4:00 PM
         var marketOpen = new TimeOnly(9, 30);
@@ -190,7 +191,7 @@ public class FluentApiBuilderTests
 
         // Act
         var strategy = Stock.Ticker("AAPL")
-            .SessionDuration(marketOpen, marketClose)
+            .TimeFrame(marketOpen, marketClose)
             .Breakout(150)
             .Buy(100, Price.Current)
             .Build();
@@ -219,7 +220,7 @@ public class FluentApiBuilderTests
     {
         // Arrange & Act
         var strategy = Stock.Ticker("AAPL")
-            .SessionDuration(TradingSession.PreMarket)
+            .TimeFrame(TradingSession.PreMarket)
             .Breakout(150)
             .Buy(100, Price.Current)
             .Build();
@@ -234,7 +235,7 @@ public class FluentApiBuilderTests
     {
         // Arrange & Act
         var strategy = Stock.Ticker("AAPL")
-            .SessionDuration(TradingSession.RTH)
+            .TimeFrame(TradingSession.RTH)
             .Breakout(150)
             .Buy(100, Price.Current)
             .Build();
@@ -249,7 +250,7 @@ public class FluentApiBuilderTests
     {
         // Arrange & Act
         var strategy = Stock.Ticker("AAPL")
-            .SessionDuration(TradingSession.AfterHours)
+            .TimeFrame(TradingSession.AfterHours)
             .Breakout(150)
             .Buy(100, Price.Current)
             .Build();
@@ -264,7 +265,7 @@ public class FluentApiBuilderTests
     {
         // Arrange & Act
         var strategy = Stock.Ticker("AAPL")
-            .SessionDuration(TradingSession.Extended)
+            .TimeFrame(TradingSession.Extended)
             .Breakout(150)
             .Buy(100, Price.Current)
             .Build();
@@ -279,7 +280,7 @@ public class FluentApiBuilderTests
     {
         // Arrange & Act - Should end at 9:15 AM (15 min before 9:30)
         var strategy = Stock.Ticker("AAPL")
-            .SessionDuration(TradingSession.PreMarketEndEarly)
+            .TimeFrame(TradingSession.PreMarketEndEarly)
             .Breakout(150)
             .Buy(100, Price.Current)
             .Build();
@@ -294,7 +295,7 @@ public class FluentApiBuilderTests
     {
         // Arrange & Act - Should start at 4:15 AM (15 min after 4:00)
         var strategy = Stock.Ticker("AAPL")
-            .SessionDuration(TradingSession.PreMarketStartLate)
+            .TimeFrame(TradingSession.PreMarketStartLate)
             .Breakout(150)
             .Buy(100, Price.Current)
             .Build();
@@ -309,7 +310,7 @@ public class FluentApiBuilderTests
     {
         // Arrange & Act - Should end at 3:45 PM (15 min before 4:00)
         var strategy = Stock.Ticker("AAPL")
-            .SessionDuration(TradingSession.RTHEndEarly)
+            .TimeFrame(TradingSession.RTHEndEarly)
             .Breakout(150)
             .Buy(100, Price.Current)
             .Build();
@@ -324,7 +325,7 @@ public class FluentApiBuilderTests
     {
         // Arrange & Act - Should start at 9:45 AM (15 min after 9:30)
         var strategy = Stock.Ticker("AAPL")
-            .SessionDuration(TradingSession.RTHStartLate)
+            .TimeFrame(TradingSession.RTHStartLate)
             .Breakout(150)
             .Buy(100, Price.Current)
             .Build();
@@ -339,7 +340,7 @@ public class FluentApiBuilderTests
     {
         // Arrange & Act - Should end at 7:45 PM (15 min before 8:00)
         var strategy = Stock.Ticker("AAPL")
-            .SessionDuration(TradingSession.AfterHoursEndEarly)
+            .TimeFrame(TradingSession.AfterHoursEndEarly)
             .Breakout(150)
             .Buy(100, Price.Current)
             .Build();
@@ -354,7 +355,7 @@ public class FluentApiBuilderTests
     {
         // Arrange & Act - Should clear any time restrictions
         var strategy = Stock.Ticker("AAPL")
-            .SessionDuration(TradingSession.Active)
+            .TimeFrame(TradingSession.Active)
             .Breakout(150)
             .Buy(100, Price.Current)
             .Build();
@@ -369,8 +370,8 @@ public class FluentApiBuilderTests
     {
         // Arrange & Act - Active should clear previous time restrictions
         var strategy = Stock.Ticker("AAPL")
-            .SessionDuration(TradingSession.PreMarket)  // Set premarket first
-            .SessionDuration(TradingSession.Active)     // Then clear with Active
+            .TimeFrame(TradingSession.PreMarket)  // Set premarket first
+            .TimeFrame(TradingSession.Active)     // Then clear with Active
             .Breakout(150)
             .Buy(100, Price.Current)
             .Build();
@@ -671,14 +672,14 @@ public class FluentApiBuilderTests
 
         // Act
         var strategy = Stock.Ticker("TEST")
-            .Start(MarketTime.PreMarket.Start)
+            .TimeFrame(TradingSession.PreMarket)
             .IsPriceAbove(5.00)
             .IsAboveVwap()
             .Buy(100, Price.Current)
             .TakeProfit(6.00, 7.00)
             .StopLoss(4.50)
             .ClosePosition(closeTime, onlyIfProfitable: false)
-            .End(MarketTime.PreMarket.End);
+            .Build();
 
         // Assert
         Assert.Multiple(() =>
@@ -709,13 +710,13 @@ public class FluentApiBuilderTests
     {
         // Arrange & Act - Typical premarket strategy
         var strategy = Stock.Ticker("VIVS")
-            .Start(MarketTime.PreMarket.Start)
+            .TimeFrame(TradingSession.PreMarket)
             .IsPriceAbove(2.40)
             .IsAboveVwap()
             .Buy(100, Price.Current)
             .TakeProfit(4.00, 4.80)
             .ClosePosition(MarketTime.PreMarket.Ending)
-            .End(MarketTime.PreMarket.End);
+            .Build();
 
         // Assert - Default should only close if profitable
         Assert.Multiple(() =>
@@ -730,12 +731,12 @@ public class FluentApiBuilderTests
     {
         // Arrange & Act - Strategy that must close regardless of P&L
         var strategy = Stock.Ticker("TEST")
-            .Start(MarketTime.PreMarket.Start)
+            .TimeFrame(TradingSession.PreMarket)
             .IsPriceAbove(10.00)
             .Buy(100, Price.Current)
             .TakeProfit(12.00)
             .ClosePosition(MarketTime.PreMarket.Ending, onlyIfProfitable: false)
-            .End(MarketTime.PreMarket.End);
+            .Build();
 
         // Assert - Will close even at a loss
         Assert.Multiple(() =>
@@ -775,18 +776,21 @@ public class FluentApiBuilderTests
     }
 
     [Test]
-    public void End_SetsEndTimeAndBuildsStrategy()
+    public void SessionDuration_CustomTimes_SetsBothStartAndEnd()
     {
         // Arrange
+        var startTime = new TimeOnly(4, 0);
         var endTime = new TimeOnly(7, 0);
 
         // Act
         var strategy = Stock.Ticker("AAPL")
+            .TimeFrame(startTime, endTime)
             .Breakout(150)
             .Buy(100, Price.Current)
-            .End(endTime);
+            .Build();
 
         // Assert
+        Assert.That(strategy.StartTime, Is.EqualTo(startTime));
         Assert.That(strategy.EndTime, Is.EqualTo(endTime));
     }
 
@@ -800,7 +804,7 @@ public class FluentApiBuilderTests
         // Arrange & Act
         var strategy = Stock
             .Ticker("NAMM")
-            .Start(MarketTime.PreMarket.Start)
+            .TimeFrame(TradingSession.PreMarket)
             .Breakout(7.10)
             .Pullback(6.80)
             .IsAboveVwap()
@@ -809,7 +813,7 @@ public class FluentApiBuilderTests
             .StopLoss(6.50)
             .TrailingStopLoss(Percent.Ten)
             .ClosePosition(MarketTime.PreMarket.End.AddMinutes(-10))
-            .End(MarketTime.PreMarket.End);
+            .Build();
 
         // Assert
         Assert.Multiple(() =>
@@ -1126,12 +1130,12 @@ public class FluentApiBuilderTests
         public void Close_FullFluentChain_ConfiguresCorrectly()
         {
             var strategy = Stock.Ticker("AAPL")
-                .Start(MarketTime.PreMarket.Start)
+                .TimeFrame(TradingSession.PreMarket)
                 .IsPriceAbove(155)
                 .CloseLong(quantity: 100, Price.Current, OrderType.Market)
                 .TimeInForce(TIF.GTC)
                 .OutsideRTH(outsideRth: true, takeProfit: true)
-                .End(MarketTime.PreMarket.End);
+                .Build();
 
             Assert.Multiple(() =>
             {
@@ -1535,13 +1539,13 @@ public class FluentApiBuilderTests
         {
             // Arrange & Act
             var preMarketStrategy = Stock.Ticker("VIVS")
-                .SessionDuration(TradingSession.PreMarket)
+                .TimeFrame(TradingSession.PreMarket)
                 .IsPriceAbove(2.40)
                 .Buy(100, Price.Current)
                 .Build();
 
             var rthStrategy = Stock.Ticker("VIVS")
-                .SessionDuration(TradingSession.RTH)
+                .TimeFrame(TradingSession.RTH)
                 .IsPriceAbove(2.40)
                 .Buy(100, Price.Current)
                 .Build();
@@ -1588,7 +1592,7 @@ public class FluentApiBuilderTests
             {
                 // VIVS Momentum
                 Stock.Ticker("VIVS")
-                    .SessionDuration(TradingSession.PreMarketEndEarly)
+                    .TimeFrame(TradingSession.PreMarketEndEarly)
                     .IsPriceAbove(2.40)
                     .IsAboveVwap()
                     .Buy(100, Price.Current)
@@ -1598,7 +1602,7 @@ public class FluentApiBuilderTests
 
                 // CATX Momentum
                 Stock.Ticker("CATX")
-                    .SessionDuration(TradingSession.PreMarketEndEarly)
+                    .TimeFrame(TradingSession.PreMarketEndEarly)
                     .IsPriceAbove(4.00)
                     .IsAboveVwap()
                     .Buy(100, Price.Current)
@@ -1608,7 +1612,7 @@ public class FluentApiBuilderTests
 
                 // VIVS Pullback
                 Stock.Ticker("VIVS")
-                    .SessionDuration(TradingSession.PreMarketEndEarly)
+                    .TimeFrame(TradingSession.PreMarketEndEarly)
                     .Pullback(4.15)
                     .IsAboveVwap()
                     .Buy(100, Price.Current)
@@ -1618,7 +1622,7 @@ public class FluentApiBuilderTests
 
                 // CATX Support
                 Stock.Ticker("CATX")
-                    .SessionDuration(TradingSession.PreMarketEndEarly)
+                    .TimeFrame(TradingSession.PreMarketEndEarly)
                     .Pullback(4.33)
                     .IsPriceAbove(4.30)
                     .Buy(100, Price.Current)

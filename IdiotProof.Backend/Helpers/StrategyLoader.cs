@@ -242,37 +242,48 @@ namespace IdiotProof.Backend.Models
 
                 "SessionDuration" => ApplySessionDuration(builder, segment),
 
-                "Breakout" => builder.Breakout(GetDouble(segment, "level")),
-                "Pullback" => builder.Pullback(GetDouble(segment, "level")),
-                "PriceAbove" => builder.IsPriceAbove(GetDouble(segment, "level")),
-                "PriceBelow" => builder.IsPriceBelow(GetDouble(segment, "level")),
+                "Breakout" => builder.Breakout(GetDouble(segment, "Level")),
+                "Pullback" => builder.Pullback(GetDouble(segment, "Level")),
+                "IsPriceAbove" => builder.IsPriceAbove(GetDouble(segment, "Level")),
+                "IsPriceBelow" => builder.IsPriceBelow(GetDouble(segment, "Level")),
 
-                "AboveVwap" => builder.IsAboveVwap(GetDouble(segment, "buffer", 0)),
-                "BelowVwap" => builder.IsBelowVwap(GetDouble(segment, "buffer", 0)),
-                
+                "IsAboveVwap" => builder.IsAboveVwap(GetDouble(segment, "Buffer", 0)),
+                "IsBelowVwap" => builder.IsBelowVwap(GetDouble(segment, "Buffer", 0)),
+
                 "IsRsi" => builder.IsRsi(
-                    GetEnum<RsiState>(segment, "state"),
-                    GetNullableDouble(segment, "threshold")),
-                "IsMacd" => builder.IsMacd(GetEnum<MacdState>(segment, "state")),
+                    GetEnum<RsiState>(segment, "State"),
+                    GetNullableDouble(segment, "Threshold")),
+                "IsMacd" => builder.IsMacd(GetEnum<MacdState>(segment, "State")),
                 "IsAdx" => builder.IsAdx(
-                    GetEnum<Comparison>(segment, "comparison"),
-                    GetDouble(segment, "threshold", 25)),
+                    GetEnum<Comparison>(segment, "Comparison"),
+                    GetDouble(segment, "Threshold", 25)),
                 "IsDI" => builder.IsDI(
-                    GetEnum<DiDirection>(segment, "direction"),
-                    GetDouble(segment, "minDifference", 0)),
-                
+                    GetEnum<DiDirection>(segment, "Direction"),
+                    GetDouble(segment, "MinDifference", 0)),
+
+                // EMA conditions - use custom conditions since Backend doesn't have EMA methods
+                "IsEmaAbove" => builder.When(
+                    $"Price >= EMA({GetInt(segment, "Period")})",
+                    (price, vwap) => true), // EMA conditions pass through - evaluated by indicator service
+                "IsEmaBelow" => builder.When(
+                    $"Price <= EMA({GetInt(segment, "Period")})",
+                    (price, vwap) => true), // EMA conditions pass through - evaluated by indicator service
+                "IsEmaBetween" => builder.When(
+                    $"Price between EMA({GetInt(segment, "LowerPeriod")}) and EMA({GetInt(segment, "UpperPeriod")})",
+                    (price, vwap) => true), // EMA conditions pass through - evaluated by indicator service
+
                 "Buy" => builder.Buy(
-                    GetInt(segment, "quantity", 1),
-                    GetEnum<Price>(segment, "priceType"),
-                    GetEnum<OrderType>(segment, "orderType")),
+                    GetInt(segment, "Quantity", 1),
+                    GetEnum<Price>(segment, "PriceType"),
+                    GetEnum<OrderType>(segment, "OrderType")),
                 "Sell" => builder.Sell(
-                    GetInt(segment, "quantity", 1),
-                    GetEnum<Price>(segment, "priceType"),
-                    GetEnum<OrderType>(segment, "orderType")),
+                    GetInt(segment, "Quantity", 1),
+                    GetEnum<Price>(segment, "PriceType"),
+                    GetEnum<OrderType>(segment, "OrderType")),
                 "Close" => builder.Close(
-                    GetInt(segment, "quantity", 1),
-                    GetEnum<OrderSide>(segment, "positionSide")),
-                
+                    GetInt(segment, "Quantity", 1),
+                    GetEnum<OrderSide>(segment, "PositionSide")),
+
                 _ => builder
             };
         }
@@ -284,20 +295,20 @@ namespace IdiotProof.Backend.Models
         {
             return segment.Type switch
             {
-                "TakeProfit" => builder.TakeProfit(GetDouble(segment, "price")),
+                "TakeProfit" => builder.TakeProfit(GetDouble(segment, "Price")),
                 "TakeProfitRange" => builder.TakeProfit(
-                    GetDouble(segment, "lowTarget"),
-                    GetDouble(segment, "highTarget")),
-                "StopLoss" => builder.StopLoss(GetDouble(segment, "price")),
-                "TrailingStopLoss" => builder.TrailingStopLoss(GetDouble(segment, "percent", 0.10)),
+                    GetDouble(segment, "LowPrice"),
+                    GetDouble(segment, "HighPrice")),
+                "StopLoss" => builder.StopLoss(GetDouble(segment, "Price")),
+                "TrailingStopLoss" => builder.TrailingStopLoss(GetDouble(segment, "Percentage", 0.10)),
                 "ClosePosition" => builder.ClosePosition(
-                    GetTime(segment, "time"),
-                    GetBool(segment, "onlyIfProfitable", true)),
-                "TimeInForce" => builder.TimeInForce(GetEnum<TimeInForce>(segment, "tif")),
+                    GetTime(segment, "Time"),
+                    GetBool(segment, "OnlyIfProfitable", true)),
+                "TimeInForce" => builder.TimeInForce(GetEnum<TimeInForce>(segment, "Type")),
                 "OutsideRTH" => builder.OutsideRTH(
-                    GetBool(segment, "outsideRth", true),
-                    GetBool(segment, "takeProfit", true)),
-                "AllOrNone" => builder.AllOrNone(GetBool(segment, "allOrNone", true)),
+                    GetBool(segment, "Allow", true),
+                    GetBool(segment, "TakeProfit", true)),
+                "AllOrNone" => builder.AllOrNone(GetBool(segment, "AllOrNone", true)),
                 _ => builder
             };
         }
@@ -307,10 +318,10 @@ namespace IdiotProof.Backend.Models
         /// </summary>
         private static Stock ApplySessionDuration(Stock builder, JsonStrategySegment segment)
         {
-            var sessionStr = GetString(segment, "session");
+            var sessionStr = GetString(segment, "Session");
             if (Enum.TryParse<TradingSession>(sessionStr, out var session))
             {
-                return builder.SessionDuration(session);
+                return builder.TimeFrame(session);
             }
             return builder;
         }

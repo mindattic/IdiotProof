@@ -288,6 +288,16 @@ namespace IdiotProof.Backend.Models
     /// <list type="bullet">
     ///   <item><b>+DI > -DI (Positive):</b> Bullish pressure dominates, upward trend</item>
     ///   <item><b>-DI > +DI (Negative):</b> Bearish pressure dominates, downward trend</item>
+    ///   <item><b>Equal values:</b> No direction dominates, condition returns false</item>
+    /// </list>
+    /// 
+    /// <para><b>MinDifference Parameter:</b></para>
+    /// <para>When MinDifference is specified, the dominant DI must exceed the other by at least that amount.</para>
+    /// <para>For example, with MinDifference=5 and DiDirection.Positive:</para>
+    /// <list type="bullet">
+    ///   <item>+DI=30, -DI=25: Returns true (difference of 5 meets threshold)</item>
+    ///   <item>+DI=29, -DI=25: Returns false (difference of 4 below threshold)</item>
+    ///   <item>+DI=25, -DI=25: Returns false (no dominance, equal values)</item>
     /// </list>
     /// 
     /// <para><b>Common Strategy:</b></para>
@@ -295,7 +305,14 @@ namespace IdiotProof.Backend.Models
     /// <code>
     /// Stock.Ticker("AAPL")
     ///     .IsAdx(Comparison.Gte, 25)        // Strong trend
-    ///     .IsDI(DiDirection.Positive)       // Bullish direction
+    ///     .IsDI(DiDirection.Positive)       // Bullish direction (+DI > -DI)
+    ///     .Buy(100, Price.Current)
+    ///     .Build();
+    /// 
+    /// // With minimum difference requirement:
+    /// Stock.Ticker("AAPL")
+    ///     .IsAdx(Comparison.Gte, 25)        // Strong trend
+    ///     .IsDI(DiDirection.Positive, 5)    // +DI must exceed -DI by at least 5
     ///     .Buy(100, Price.Current)
     ///     .Build();
     /// </code>
@@ -309,6 +326,7 @@ namespace IdiotProof.Backend.Models
 
         /// <summary>
         /// Gets the minimum difference required between +DI and -DI.
+        /// The dominant DI must exceed the other by at least this amount.
         /// </summary>
         public double MinDifference { get; }
 
@@ -326,7 +344,12 @@ namespace IdiotProof.Backend.Models
         /// Creates a new DI condition.
         /// </summary>
         /// <param name="direction">The DI direction to check for.</param>
-        /// <param name="minDifference">Minimum difference between +DI and -DI (default: 0).</param>
+        /// <param name="minDifference">
+        /// Minimum difference between +DI and -DI (default: 0).
+        /// The dominant DI must be strictly greater than the other,
+        /// and the difference must be at least this value.
+        /// Negative values are clamped to 0.
+        /// </param>
         public DiCondition(DiDirection direction, double minDifference = 0)
         {
             Direction = direction;
@@ -345,13 +368,16 @@ namespace IdiotProof.Backend.Models
         /// </summary>
         /// <param name="plusDI">The +DI (positive directional indicator) value.</param>
         /// <param name="minusDI">The -DI (negative directional indicator) value.</param>
-        /// <returns>True if the condition is met.</returns>
+        /// <returns>
+        /// True if the specified direction dominates (strictly greater) and the difference
+        /// meets the MinDifference threshold. Returns false when values are equal.
+        /// </returns>
         public bool EvaluateDI(double plusDI, double minusDI)
         {
             return Direction switch
             {
-                DiDirection.Positive => (plusDI - minusDI) >= MinDifference,
-                DiDirection.Negative => (minusDI - plusDI) >= MinDifference,
+                DiDirection.Positive => plusDI > minusDI && (plusDI - minusDI) >= MinDifference,
+                DiDirection.Negative => minusDI > plusDI && (minusDI - plusDI) >= MinDifference,
                 _ => false
             };
         }

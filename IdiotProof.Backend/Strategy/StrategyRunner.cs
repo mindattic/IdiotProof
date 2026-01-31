@@ -91,6 +91,11 @@ namespace IdiotProof.Backend.Models
         // Cancel timer
         private Timer? _cancelTimer;
 
+        // Close position timer (time-based exit)
+        private Timer? _closePositionTimer;
+        private bool _closePositionTriggered;
+        private int _closePositionOrderId = -1;
+
         // Result tracking
         private StrategyResult _result = StrategyResult.Running;
 
@@ -721,6 +726,12 @@ namespace IdiotProof.Backend.Models
                     Log($"TRAILING STOP INITIALIZED: ${_trailingStopLossPrice:F2} ({_strategy.Order.TrailingStopLossPercent * 100:F1}% below entry)", ConsoleColor.Magenta);
                 }
 
+                // Schedule close position if configured
+                if (_strategy.Order.ClosePositionTime.HasValue)
+                {
+                    ScheduleClosePosition(_strategy.Order.ClosePositionTime.Value, _strategy.Order.ClosePositionOnlyIfProfitable);
+                }
+
                 Log($"  Monitoring position... Entry=${fillPrice:F2}", ConsoleColor.DarkGray);
                 return;
             }
@@ -982,6 +993,140 @@ namespace IdiotProof.Backend.Models
             _client.placeOrder(_stopLossOrderId, _contract, slOrder);
         }
 
+        /// <summary>
+        /// Schedules automatic position close at specified time.
+        /// </summary>
+        private void ScheduleClosePosition(TimeOnly closeTime, bool onlyIfProfitable)
+        {
+            var currentTimeET = TimezoneHelper.GetCurrentTime(MarketTimeZone.EST);
+            var now = DateTime.Now;
+
+            // Calculate time until close (assumes same day)
+            var closeDateTime = now.Date.Add(closeTime.ToTimeSpan());
+
+            // If close time already passed today, don't schedule
+            if (closeDateTime <= now)
+            {
+                Log($"WARNING: ClosePosition time {closeTime:h:mm tt} ET already passed, no auto-close scheduled", ConsoleColor.Red);
+                return;
+            }
+
+            var delay = closeDateTime - now;
+            var profitClause = onlyIfProfitable ? " (only if profitable)" : " (regardless of P&L)";
+            Log($"CLOSE POSITION SCHEDULED: {closeTime:h:mm tt} ET{profitClause} ({delay.TotalMinutes:F0} min from now)", ConsoleColor.Magenta);
+
+            _closePositionTimer = new Timer(ClosePositionCallback, onlyIfProfitable, delay, Timeout.InfiniteTimeSpan);
+        }
+
+        /// <summary>
+        /// Callback triggered at ClosePositionTime to close the position.
+        /// </summary>
+        private void ClosePositionCallback(object? state)
+        {
+            bool onlyIfProfitable = state is bool b && b;
+
+            // Thread-safe check
+            lock (_disposeLock)
+            {
+                if (_disposed || _isComplete || !_entryFilled || _closePositionTriggered)
+                    return;
+
+                _closePositionTriggered = true;
+            }
+
+            // Check if position is profitable
+            bool isLong = _strategy.Order.Side == OrderSide.Buy;
+            bool isProfitable = isLong ? _lastPrice > _entryFillPrice : _lastPrice < _entryFillPrice;
+            double unrealizedPnl = _strategy.Order.Quantity * (_lastPrice - _entryFillPrice);
+            if (!isLong) unrealizedPnl = -unrealizedPnl;
+
+            Log($"*** CLOSE POSITION TIME REACHED ***", ConsoleColor.Cyan);
+            Log($"  Entry=${_entryFillPrice:F2} | Current=${_lastPrice:F2} | Unrealized P&L=${unrealizedPnl:F2}", ConsoleColor.Cyan);
+
+            if (onlyIfProfitable && !isProfitable)
+            {
+                Log($"  Position is NOT profitable - keeping position open", ConsoleColor.Yellow);
+                Log($"  WARNING: STILL HOLDING {_strategy.Order.Quantity} SHARES - will rely on stop loss or manual exit", ConsoleColor.Red);
+                return;
+            }
+
+            // Cancel any open take profit order
+            if (_takeProfitOrderId > 0 && !_takeProfitFilled && !_takeProfitCancelled)
+            {
+                Log($"  Cancelling take profit order #{_takeProfitOrderId}...", ConsoleColor.Yellow);
+                _client.cancelOrder(_takeProfitOrderId, new OrderCancel());
+                _takeProfitCancelled = true;
+            }
+
+            // Submit close position order
+            SubmitClosePositionOrder(isProfitable);
+        }
+
+        /// <summary>
+        /// Submits an order to close the position at current price.
+        /// </summary>
+        private void SubmitClosePositionOrder(bool isProfitable)
+        {
+            var order = _strategy.Order;
+            _closePositionOrderId = _wrapper.ConsumeNextOrderId();
+
+            string action = order.Side == OrderSide.Buy ? "SELL" : "BUY";
+
+            // Check if we're in Regular Trading Hours
+            var currentTimeET = TimezoneHelper.GetCurrentTime(MarketTimeZone.EST);
+            bool isRTH = MarketTime.RTH.Contains(currentTimeET);
+
+            Order closeOrder;
+
+            if (isRTH)
+            {
+                // Use market order during RTH for immediate execution
+                closeOrder = new Order
+                {
+                    Action = action,
+                    OrderType = "MKT",
+                    TotalQuantity = order.Quantity,
+                    OutsideRth = false,
+                    Tif = "DAY"
+                };
+                Log($">> SUBMITTING CLOSE POSITION {action} {order.Quantity} @ MKT (RTH)", ConsoleColor.Yellow);
+            }
+            else
+            {
+                // Use limit order outside RTH for safer execution
+                double offset = 0.02;
+                double limitPrice = order.Side == OrderSide.Buy
+                    ? Math.Round(_lastPrice - offset, 2)  // Selling long: slightly below current
+                    : Math.Round(_lastPrice + offset, 2); // Covering short: slightly above current
+
+                closeOrder = new Order
+                {
+                    Action = action,
+                    OrderType = "LMT",
+                    LmtPrice = limitPrice,
+                    TotalQuantity = order.Quantity,
+                    OutsideRth = true,
+                    Tif = "GTC"
+                };
+                Log($">> SUBMITTING CLOSE POSITION {action} {order.Quantity} @ ${limitPrice:F2} LMT (Outside RTH)", ConsoleColor.Yellow);
+            }
+
+            // Set account if specified
+            if (!string.IsNullOrEmpty(Settings.AccountNumber))
+            {
+                closeOrder.Account = Settings.AccountNumber;
+            }
+
+            Log($"  OrderId={_closePositionOrderId}", ConsoleColor.DarkGray);
+
+            // Track fill using the take profit order slot (it's already cancelled)
+            _takeProfitOrderId = _closePositionOrderId;
+            _takeProfitCancelled = false;
+            _exitedWithProfit = isProfitable;
+
+            _client.placeOrder(_closePositionOrderId, _contract, closeOrder);
+        }
+
         public void Dispose()
         {
             lock (_disposeLock)
@@ -990,9 +1135,12 @@ namespace IdiotProof.Backend.Models
                 _disposed = true;
             }
 
-            // Dispose timer first to prevent callbacks after disposal starts
+            // Dispose timers first to prevent callbacks after disposal starts
             _cancelTimer?.Dispose();
             _cancelTimer = null;
+
+            _closePositionTimer?.Dispose();
+            _closePositionTimer = null;
 
             _wrapper.OnOrderFill -= OnOrderFill;
 

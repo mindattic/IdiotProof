@@ -76,8 +76,8 @@ public class SegmentFactoryTests
         {
             Assert.That(priceConditions.Any(s => s.Type == SegmentType.Breakout), Is.True);
             Assert.That(priceConditions.Any(s => s.Type == SegmentType.Pullback), Is.True);
-            Assert.That(priceConditions.Any(s => s.Type == SegmentType.PriceAbove), Is.True);
-            Assert.That(priceConditions.Any(s => s.Type == SegmentType.PriceBelow), Is.True);
+            Assert.That(priceConditions.Any(s => s.Type == SegmentType.IsPriceAbove), Is.True);
+            Assert.That(priceConditions.Any(s => s.Type == SegmentType.IsPriceBelow), Is.True);
         });
     }
 

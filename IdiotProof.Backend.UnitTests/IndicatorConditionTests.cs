@@ -555,16 +555,16 @@ public class IndicatorConditionTests
     }
 
     [Test]
-    public void DiCondition_Positive_EqualValues_ReturnsTrue()
+    public void DiCondition_Positive_EqualValues_ReturnsFalse()
     {
-        // Arrange - With 0 minDifference, equal values should return true
+        // Arrange - With 0 minDifference, equal values should return false (no direction dominates)
         var condition = new DiCondition(DiDirection.Positive);
 
         // Act - +DI = 25, -DI = 25
         var result = condition.EvaluateDI(plusDI: 25, minusDI: 25);
 
-        // Assert - Difference is 0, which >= 0 (minDifference)
-        Assert.That(result, Is.True);
+        // Assert - When equal, +DI is NOT greater than -DI, so no bullish dominance
+        Assert.That(result, Is.False);
     }
 
     [Test]
@@ -1065,16 +1065,16 @@ public class IndicatorConditionTests
     #region Additional DI Edge Case Tests
 
     [Test]
-    public void DiCondition_Negative_EqualValues_ReturnsTrue()
+    public void DiCondition_Negative_EqualValues_ReturnsFalse()
     {
-        // Arrange - With 0 minDifference, equal values should return true
+        // Arrange - With 0 minDifference, equal values should return false (no direction dominates)
         var condition = new DiCondition(DiDirection.Negative);
 
         // Act - +DI = 25, -DI = 25
         var result = condition.EvaluateDI(plusDI: 25, minusDI: 25);
 
-        // Assert - Difference is 0, which >= 0 (minDifference)
-        Assert.That(result, Is.True);
+        // Assert - When equal, -DI is NOT greater than +DI, so no bearish dominance
+        Assert.That(result, Is.False);
     }
 
     [Test]
@@ -1148,8 +1148,8 @@ public class IndicatorConditionTests
         // Act - Both zero
         var result = condition.EvaluateDI(plusDI: 0, minusDI: 0);
 
-        // Assert - Difference is 0, which >= 0 (minDifference)
-        Assert.That(result, Is.True);
+        // Assert - When equal (both zero), +DI is NOT greater than -DI, so no bullish dominance
+        Assert.That(result, Is.False);
     }
 
     #endregion

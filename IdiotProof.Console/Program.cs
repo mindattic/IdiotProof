@@ -62,67 +62,42 @@ internal sealed class Program
         // ================================================================
         // SAMPLE STRATEGIES - Define your multi-step strategies here
         // ================================================================
-        var qty = 1;
 
         var strategies = new List<StrategyDefinition>
         {
-            // ----- VIVS (Contributed by Momentum.) -----
+            // ============================================================
+            // STRATEGY STEPS:
+            // 1. Stock: PLTR stock
+            // 2. Session: Pre-market (end early to avoid thin liquidity at open)
+            // 3. Wait for breakout above $148.75 (above chop zone)
+            // 4. Confirm price is above VWAP (buyers controlling tape)
+            // 5. Confirm price is above 9 EMA (short-term bullish)
+            // 6. Confirm price is above 200 EMA (trend context - reclaim required)
+            // 7. Execute BUY order at current price
+            // 8. Set take profit at $153.50 (~1.5R realistic for premarket)
+            // 9. Set stop loss at $145.50 (structure-based, below VWAP/consolidation)
+            // 10. Enable 5% trailing stop (tighter for short-term momentum play)
+            // 11. Auto-close position right before market open if profitable
+            //
+            // RISK/REWARD CALCULATION:
+            // Entry: ~$148.75 | Target: $153.50 (+$4.75) | Stop: $145.50 (-$3.25)
+            // R:R ratio = 1.46:1 (acceptable for high-probability setup)
+            // ============================================================
             Stock
-                .Ticker("VIVS")
-                .Name("VIVS Breakout Strategy")
-                .Author("Momentum.")
+                .Ticker("PLTR")
+                .Name("Palantir Premarket Momentum")
+                .Author("Ryan DeBraal")
+                .Description("Breakout play with VWAP + EMA confirmation. Entry: ~$148.75 | Target: $153.50 (+$4.75) | Stop: $145.50 (-$3.25) | R:R: 1.46:1")
                 .SessionDuration(TradingSession.PreMarketEndEarly)
-                .IsPriceAbove(2.40)                                       // Step 1: Price >= 2.40
-                .IsAboveVwap()                                            // Step 2: Price >= VWAP
-                .IsEmaAbove(9)
-                .Buy(quantity: qty, Price.Current)                  // Step 3: Buy @ Current Price
-                .TakeProfit(4.00, 4.80)                                 // Step 4: ADX-based TakeProfit: 4.00 (weak) to 4.80 (strong)
-                .TrailingStopLoss(Percent.TwentyFive)                   // 25% trailing stop loss
-                .ClosePosition(MarketTime.PreMarket.Ending, false)      // Step 5: Close Position @ 9:15 AM ET
-                .Build(),
-
-            // ----- CATX (Contributed by Momentum.) -----
-            Stock
-                .Ticker("CATX")
-                .Name("CATX Breakout Strategy")
-                .Author("Momentum.")
-                .SessionDuration(TradingSession.PreMarketEndEarly)
-                .IsPriceAbove(4.00)                                       // Step 1: Price >= 4.00
-                .IsAboveVwap()                                            // Step 2: Price >= VWAP
-                .Buy(quantity: qty, Price.Current)                  // Step 3: Buy @ Current Price
-                .TakeProfit(5.30, 6.16)                                 // Step 4: ADX-based TakeProfit: 5.30 (weak) to 6.16 (strong)
-                .TrailingStopLoss(Percent.TwentyFive)                   // 25% trailing stop loss
-                .ClosePosition(MarketTime.PreMarket.Ending, false)      // Step 5: Close Position @ 9:15 AM ET
-                .Build(),
-
-            // ----- VIVS EMA Pullback (Contributed by Claude Opus 4.5) -----
-            Stock
-                .Ticker("VIVS")
-                .Name("VIVS EMA Pullback Entry")
-                .Author("Claude Opus 4.5")
-                .Description("Entry on pullback to EMA support while holding above VWAP")
-                .SessionDuration(TradingSession.PreMarketEndEarly)
-                .Pullback(4.15)                                         // Step 1: Pullback to EMA 12 zone ($4.13)
-                .IsAboveVwap()                                            // Step 2: Still above VWAP
-                .Buy(quantity: qty, Price.Current)                  // Step 3: Buy @ Current Price
-                .TakeProfit(4.80, 5.30)                                 // Step 4: Target $4.80 to $5.30 on bounce
-                .TrailingStopLoss(Percent.TwentyFive)                   // 25% trailing stop loss
-                .ClosePosition(MarketTime.PreMarket.Ending, false)
-                .Build(),
-
-            // ----- CATX VWAP Reclaim (Contributed by Claude Opus 4.5) -----
-            Stock
-                .Ticker("CATX")
-                .Name("CATX VWAP Reclaim Entry")
-                .Author("Claude Opus 4.5")
-                .Description("Entry on VWAP reclaim followed by pullback retest")
-                .SessionDuration(TradingSession.PreMarketEndEarly)
-                .IsAboveVwap()                                            // Step 1: Wait for VWAP reclaim (~$4.77)
-                .Pullback(4.80)                                         // Step 2: Then look for pullback to VWAP
-                .Buy(quantity: qty, Price.Current)                  // Step 3: Buy @ Current Price
-                .TakeProfit(5.20, 5.50)                                 // Step 4: Target $5.20 to $5.50 on bounce
-                .TrailingStopLoss(Percent.TwentyFive)                   // 25% trailing stop loss
-                .ClosePosition(MarketTime.PreMarket.Ending, false)
+                .IsPriceAbove(148.75)                               // Breakout trigger
+                .IsAboveVwap()                                      // Buyers in control
+                .IsEmaAbove(9)                                      // Short-term bullish momentum
+                .IsEmaAbove(200)                                    // Trend context - above 200 EMA
+                .Buy(quantity: 10, Price.Current)                  
+                .TakeProfit(153.50)                                 // Realistic premarket target (~1.5R)
+                .StopLoss(145.50)                                   // Structure-based: below VWAP/consolidation
+                .TrailingStopLoss(Percent.Five)                     // Tight 5% trail for momentum scalp
+                .ClosePosition(MarketTime.PreMarket.RightBeforeBell, onlyIfProfitable: true)  
                 .Build(),
         };
 

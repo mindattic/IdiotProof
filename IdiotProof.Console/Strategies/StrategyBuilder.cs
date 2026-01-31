@@ -178,7 +178,7 @@ public class StrategyBuilder
     /// </summary>
     public StrategyBuilder IsPriceAbove(double level)
     {
-        AddSegment(SegmentType.PriceAbove, SegmentCategory.PriceCondition, "Price Above",
+        AddSegment(SegmentType.IsPriceAbove, SegmentCategory.PriceCondition, "Price Above",
             [new SegmentParameter
             {
                 Name = "Level",
@@ -195,7 +195,7 @@ public class StrategyBuilder
     /// </summary>
     public StrategyBuilder IsPriceBelow(double level)
     {
-        AddSegment(SegmentType.PriceBelow, SegmentCategory.PriceCondition, "Price Below",
+        AddSegment(SegmentType.IsPriceBelow, SegmentCategory.PriceCondition, "Price Below",
             [new SegmentParameter
             {
                 Name = "Level",
@@ -212,7 +212,7 @@ public class StrategyBuilder
     /// </summary>
     public StrategyBuilder IsAboveVwap()
     {
-        AddSegment(SegmentType.AboveVwap, SegmentCategory.VwapCondition, "Above VWAP", []);
+        AddSegment(SegmentType.IsAboveVwap, SegmentCategory.VwapCondition, "Above VWAP", []);
         return this;
     }
 
@@ -221,7 +221,7 @@ public class StrategyBuilder
     /// </summary>
     public StrategyBuilder IsBelowVwap()
     {
-        AddSegment(SegmentType.BelowVwap, SegmentCategory.VwapCondition, "Below VWAP", []);
+        AddSegment(SegmentType.IsBelowVwap, SegmentCategory.VwapCondition, "Below VWAP", []);
         return this;
     }
 
@@ -554,7 +554,9 @@ public class StrategyBuilder
     /// <summary>
     /// Adds a close position at a specific time.
     /// </summary>
-    public StrategyBuilder ClosePosition(TimeOnly time, bool allowAfterHours = false)
+    /// <param name="time">The time to close the position.</param>
+    /// <param name="onlyIfProfitable">When true (default), only closes if position is profitable.</param>
+    public StrategyBuilder ClosePosition(TimeOnly time, bool onlyIfProfitable = true)
     {
         AddSegment(SegmentType.ClosePosition, SegmentCategory.PositionManagement, "Close Position",
             [
@@ -568,10 +570,10 @@ public class StrategyBuilder
                 },
                 new SegmentParameter
                 {
-                    Name = "AllowAfterHours",
-                    Label = "Allow After Hours",
+                    Name = "OnlyIfProfitable",
+                    Label = "Only If Profitable",
                     Type = ParameterType.Boolean,
-                    Value = allowAfterHours,
+                    Value = onlyIfProfitable,
                     IsRequired = false
                 }
             ]);

@@ -5,7 +5,7 @@
 // BEST PRACTICES:
 // 1. Always add at least one condition before calling Buy(), Sell(), or Close().
 // 2. Chain conditions in the order they should be evaluated (chronological).
-// 3. Use SessionDuration() to define the active time window (easy to comment out for testing).
+// 3. Use TimeFrame() to define the active time window (easy to comment out for testing).
 // 4. Always set TakeProfit AND StopLoss for proper risk management.
 // 5. Validate that Start time is before End time.
 // 6. Use meaningful condition sequences (e.g., Breakout -> Pullback -> AboveVwap).
@@ -81,7 +81,7 @@
 //
 // FLUENT PATTERN:
 //   Stock.Ticker("SYMBOL")     // Start builder
-//       .SessionDuration(...)   // Optional: when to monitor (comment out for immediate testing)
+//       .TimeFrame(...)          // Optional: when to monitor (comment out for immediate testing)
 //       .Breakout(...)         // Add conditions
 //       .Pullback(...)
 //       .IsAboveVwap()
@@ -94,7 +94,7 @@
 //
 // OPENING POSITIONS:
 // var buyStrategy = Stock.Ticker("AAPL")
-//     .SessionDuration(new TimeOnly(4, 0), new TimeOnly(9, 30))  // Comment out to test immediately
+//     .TimeFrame(new TimeOnly(4, 0), new TimeOnly(9, 30))  // Comment out to test immediately
 //     .Breakout(150)
 //     .Buy(quantity: 100, Price.Current)
 //     .TakeProfit(155)
@@ -134,18 +134,19 @@ namespace IdiotProof.Backend.Models
     /// <list type="bullet">
     ///   <item>Always add at least one condition before calling <see cref="Buy"/> or <see cref="Sell"/>.</item>
     ///   <item>Chain conditions in chronological order of expected occurrence.</item>
-    ///   <item>Use <see cref="Start"/> and <see cref="StrategyBuilder.End"/> to bound the strategy window.</item>
+    ///   <item>Use <see cref="TimeFrame(TradingSession)"/> to define the active time window.</item>
     ///   <item>Always configure both take profit and stop loss for risk management.</item>
     /// </list>
     /// 
     /// <para><b>Builder Flow:</b></para>
     /// <code>
     /// Stock.Ticker("AAPL")    // Initialize
+    ///     .TimeFrame(TradingSession.PreMarket)  // Time window
     ///     .Breakout(150)      // Conditions (Stock returns Stock)
     ///     .Pullback(148)
     ///     .Buy(100)           // Order (Stock returns StrategyBuilder)
     ///     .TakeProfit(155)    // Exit config (StrategyBuilder returns StrategyBuilder)
-    ///     .End(...)           // Terminal (StrategyBuilder returns TradingStrategy)
+    ///     .Build()            // Terminal (StrategyBuilder returns TradingStrategy)
     /// </code>
     /// </remarks>
     public sealed class Stock
@@ -285,47 +286,56 @@ namespace IdiotProof.Backend.Models
             return this;
         }
 
-
         /// <summary>
-        /// Sets the time to start monitoring the strategy (CST).
-        /// </summary>
-        /// <param name="startTime">The time to begin monitoring.</param>
-        /// <returns>The builder for method chaining.</returns>
-        /// <remarks>
-        /// <para><b>Best Practice:</b> Use <see cref="MarketTime"/> helper for common times:</para>
-        /// <code>.Start(Time.PreMarket.Start)</code>
-        /// <para><b>Note:</b> Currently stored but not enforced by StrategyRunner.</para>
-        /// </remarks>
-        public Stock Start(TimeOnly startTime)
-        {
-            _startTime = startTime;
-            return this;
-        }
-
-        /// <summary>
-        /// Sets the time window for monitoring the strategy (CST).
+        /// Sets the time window for monitoring the strategy (Eastern Time).
         /// </summary>
         /// <param name="startTime">The time to begin monitoring.</param>
         /// <param name="endTime">The time to stop monitoring.</param>
         /// <returns>The builder for method chaining.</returns>
         /// <remarks>
         /// <para><b>Best Practice:</b> Use <see cref="MarketTime"/> helper for common times:</para>
-        /// <code>.SessionDuration(Time.PreMarket.Start, Time.PreMarket.End)</code>
+        /// <code>.TimeFrame(MarketTime.PreMarket.Start, MarketTime.PreMarket.End)</code>
         /// <para><b>Tip:</b> Comment out this single line to test without time restrictions.</para>
         /// </remarks>
         /// <example>
         /// <code>
         /// Stock.Ticker("AAPL")
-        ///     .SessionDuration(new TimeOnly(4, 0), new TimeOnly(9, 30))  // Comment out to test immediately
+        ///     .TimeFrame(new TimeOnly(4, 0), new TimeOnly(9, 30))  // Comment out to test immediately
         ///     .Breakout(150)
         ///     .Buy(100, Price.Current)
         ///     .Build();
         /// </code>
         /// </example>
-        public Stock SessionDuration(TimeOnly startTime, TimeOnly endTime)
+        public Stock TimeFrame(TimeOnly startTime, TimeOnly endTime)
         {
             _startTime = startTime;
             _endTime = endTime;
+            return this;
+        }
+
+        /// <summary>
+        /// Sets the start time for monitoring the strategy (Eastern Time).
+        /// </summary>
+        /// <param name="startTime">The time to begin monitoring.</param>
+        /// <returns>The builder for method chaining.</returns>
+        /// <remarks>
+        /// <para><b>Best Practice:</b> Use with <see cref="StrategyBuilder.End"/> for a complete time window,
+        /// or use <see cref="TimeFrame"/> to set both in one call.</para>
+        /// <para><b>Tip:</b> Use <see cref="MarketTime"/> helper for common times:</para>
+        /// <code>.Start(MarketTime.PreMarket.Start)</code>
+        /// </remarks>
+        /// <example>
+        /// <code>
+        /// Stock.Ticker("AAPL")
+        ///     .Start(MarketTime.PreMarket.Start)  // 4:00 AM ET
+        ///     .Breakout(150)
+        ///     .Buy(100, Price.Current)
+        ///     .End(MarketTime.PreMarket.End);     // 9:30 AM ET
+        /// </code>
+        /// </example>
+        public Stock Start(TimeOnly startTime)
+        {
+            _startTime = startTime;
             return this;
         }
 
@@ -347,13 +357,13 @@ namespace IdiotProof.Backend.Models
         /// <example>
         /// <code>
         /// Stock.Ticker("AAPL")
-        ///     .SessionDuration(TradingSession.PreMarket)  // Comment out to test immediately
+        ///     .TimeFrame(TradingSession.PreMarket)  // Comment out to test immediately
         ///     .Breakout(150)
         ///     .Buy(100, Price.Current)
         ///     .Build();
         /// </code>
         /// </example>
-        public Stock SessionDuration(TradingSession session)
+        public Stock TimeFrame(TradingSession session)
         {
             _session = session;
 
@@ -586,29 +596,42 @@ namespace IdiotProof.Backend.Models
         /// Adds a DI condition: Checks the directional indicator relationship.
         /// </summary>
         /// <param name="direction">The DI direction to check for (Positive or Negative).</param>
-        /// <param name="minDifference">Minimum difference between +DI and -DI (default: 0).</param>
+        /// <param name="minDifference">
+        /// Minimum difference between +DI and -DI (default: 0).
+        /// The dominant DI must be strictly greater than the other,
+        /// and the difference must be at least this value.
+        /// </param>
         /// <returns>The builder for method chaining.</returns>
         /// <remarks>
         /// <para><b>Directional Indicators:</b></para>
         /// <list type="bullet">
         ///   <item><b>Positive (+DI > -DI):</b> Bullish pressure dominates</item>
         ///   <item><b>Negative (-DI > +DI):</b> Bearish pressure dominates</item>
+        ///   <item><b>Equal values:</b> No direction dominates, condition returns false</item>
         /// </list>
         /// 
-        /// <para><b>Best Practice:</b> Combine with ADX for confirmation.</para>
+        /// <para><b>MinDifference Behavior:</b></para>
+        /// <para>When MinDifference is specified, the dominant DI must exceed the other by at least that amount:</para>
+        /// <list type="bullet">
+        ///   <item>+DI=30, -DI=25 with MinDifference=5: Returns true (5 >= 5)</item>
+        ///   <item>+DI=29, -DI=25 with MinDifference=5: Returns false (4 &lt; 5)</item>
+        ///   <item>+DI=25, -DI=25 with any MinDifference: Returns false (equal values)</item>
+        /// </list>
+        /// 
+        /// <para><b>Best Practice:</b> Combine with ADX for trend strength confirmation.</para>
         /// 
         /// <para><b>Example:</b></para>
         /// <code>
         /// // Buy in strong bullish trend
         /// Stock.Ticker("AAPL")
         ///     .IsAdx(Comparison.Gte, 25)         // Strong trend
-        ///     .IsDI(DiDirection.Positive)        // Bullish direction
+        ///     .IsDI(DiDirection.Positive)        // Bullish direction (+DI > -DI)
         ///     .Buy(100, Price.Current)
         ///     .Build();
         /// 
-        /// // Require significant DI difference
+        /// // Require significant DI difference for stronger signal
         /// Stock.Ticker("AAPL")
-        ///     .IsDI(DiDirection.Positive, 5)     // +DI > -DI by at least 5
+        ///     .IsDI(DiDirection.Positive, 5)     // +DI must exceed -DI by at least 5
         ///     .Buy(100, Price.Current)
         ///     .Build();
         /// </code>
@@ -1143,15 +1166,6 @@ namespace IdiotProof.Backend.Models
         }
 
         /// <summary>
-        /// Sets the time to stop monitoring the strategy and builds it.
-        /// </summary>
-        public TradingStrategy End(TimeOnly endTime)
-        {
-            _stock.EndTimeValue = endTime;
-            return Build();
-        }
-
-        /// <summary>
         /// Builds the strategy with current configuration.
         /// </summary>
         public TradingStrategy Build()
@@ -1179,6 +1193,28 @@ namespace IdiotProof.Backend.Models
             };
 
             return _stock.BuildStrategy(order);
+        }
+
+        /// <summary>
+        /// Sets the end time for monitoring the strategy and builds it (Eastern Time).
+        /// </summary>
+        /// <param name="endTime">The time to stop monitoring.</param>
+        /// <returns>The completed <see cref="TradingStrategy"/>.</returns>
+        /// <remarks>
+        /// <para><b>Best Practice:</b> Use with <see cref="Stock.Start"/> for a complete time window:</para>
+        /// <code>
+        /// Stock.Ticker("AAPL")
+        ///     .Start(MarketTime.PreMarket.Start)  // 4:00 AM ET
+        ///     .Breakout(150)
+        ///     .Buy(100, Price.Current)
+        ///     .End(MarketTime.PreMarket.End);     // 9:30 AM ET
+        /// </code>
+        /// <para><b>Tip:</b> Use <see cref="MarketTime"/> helper for common times.</para>
+        /// </remarks>
+        public TradingStrategy End(TimeOnly endTime)
+        {
+            _stock.EndTimeValue = endTime;
+            return Build();
         }
 
         /// <summary>

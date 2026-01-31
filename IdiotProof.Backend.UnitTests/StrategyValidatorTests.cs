@@ -60,13 +60,13 @@ public class StrategyValidatorTests
         var strategies = new[]
         {
             Stock.Ticker("AAPL")
-                .SessionDuration(new TimeOnly(9, 30), new TimeOnly(10, 30))
+                .TimeFrame(new TimeOnly(9, 30), new TimeOnly(10, 30))
                 .Breakout(150)
                 .Buy(100, Price.Current)
                 .TakeProfit(155)
                 .Build(),
             Stock.Ticker("MSFT")
-                .SessionDuration(new TimeOnly(11, 0), new TimeOnly(12, 0))
+                .TimeFrame(new TimeOnly(11, 0), new TimeOnly(12, 0))
                 .Breakout(350)
                 .Buy(50, Price.Current)
                 .TakeProfit(360)
@@ -87,13 +87,13 @@ public class StrategyValidatorTests
         var strategies = new[]
         {
             Stock.Ticker("AAPL")
-                .SessionDuration(new TimeOnly(9, 0), new TimeOnly(10, 0))
+                .TimeFrame(new TimeOnly(9, 0), new TimeOnly(10, 0))
                 .Breakout(150)
                 .Buy(100, Price.Current)
                 .TakeProfit(155)
                 .Build(),
             Stock.Ticker("AAPL")
-                .SessionDuration(new TimeOnly(9, 30), new TimeOnly(10, 30))  // Overlaps with first
+                .TimeFrame(new TimeOnly(9, 30), new TimeOnly(10, 30))  // Overlaps with first
                 .Breakout(155)
                 .Buy(50, Price.Current)
                 .TakeProfit(160)
@@ -144,13 +144,13 @@ public class StrategyValidatorTests
         var strategies = new[]
         {
             Stock.Ticker("AAPL")
-                .SessionDuration(new TimeOnly(9, 0), new TimeOnly(10, 0))
+                .TimeFrame(new TimeOnly(9, 0), new TimeOnly(10, 0))
                 .Breakout(150)
                 .Buy(100, Price.Current)
                 .TakeProfit(155)
                 .Build(),
             Stock.Ticker("AAPL")
-                .SessionDuration(new TimeOnly(11, 0), new TimeOnly(12, 0))  // No overlap
+                .TimeFrame(new TimeOnly(11, 0), new TimeOnly(12, 0))  // No overlap
                 .Breakout(155)
                 .Buy(50, Price.Current)
                 .TakeProfit(160)
@@ -171,14 +171,14 @@ public class StrategyValidatorTests
         var strategies = new[]
         {
             Stock.Ticker("AAPL")
-                .SessionDuration(new TimeOnly(9, 0), new TimeOnly(10, 0))
+                .TimeFrame(new TimeOnly(9, 0), new TimeOnly(10, 0))
                 .Breakout(150)
                 .Buy(100, Price.Current)
                 .TakeProfit(155)
                 .Build(),
             Stock.Ticker("AAPL")
                 .Enabled(false)  // Disabled
-                .SessionDuration(new TimeOnly(9, 30), new TimeOnly(10, 30))
+                .TimeFrame(new TimeOnly(9, 30), new TimeOnly(10, 30))
                 .Breakout(155)
                 .Buy(50, Price.Current)
                 .TakeProfit(160)
@@ -875,7 +875,7 @@ public class StrategyValidatorTests
     {
         // Arrange
         var strategy = Stock.Ticker("AAPL")
-            .SessionDuration(new TimeOnly(9, 30), new TimeOnly(16, 0))
+            .TimeFrame(new TimeOnly(9, 30), new TimeOnly(16, 0))
             .Breakout(150)
             .Buy(100, Price.Current)
             .TakeProfit(155)

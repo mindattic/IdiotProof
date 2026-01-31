@@ -245,16 +245,18 @@ namespace IdiotProof.Backend.Models
         /// <summary>
         /// Time to start monitoring the strategy (null = immediately).
         /// </summary>
-        /// <remarks>
-        /// <b>Note:</b> Currently stored but not fully implemented in StrategyRunner.
-        /// </remarks>
         public TimeOnly? StartTime { get; init; }
 
         /// <summary>
         /// Time to force-close position if still open (null = no auto-close).
         /// </summary>
         /// <remarks>
-        /// <b>Note:</b> Currently stored but not fully implemented in StrategyRunner.
+        /// <para><b>Behavior:</b> At the specified time, the StrategyRunner will:</para>
+        /// <list type="number">
+        ///   <item>Check if position is profitable (if <see cref="ClosePositionOnlyIfProfitable"/> is true).</item>
+        ///   <item>Cancel any open take profit orders.</item>
+        ///   <item>Submit a close order (market during RTH, limit outside RTH).</item>
+        /// </list>
         /// </remarks>
         public TimeOnly? ClosePositionTime { get; init; }
 

@@ -402,7 +402,7 @@ public class MissedTheBoatTests
     {
         // Arrange - Real strategy from Program.cs
         var strategy = Stock.Ticker("VIVS")
-            .SessionDuration(TradingSession.PreMarketEndEarly)
+            .TimeFrame(TradingSession.PreMarketEndEarly)
             .IsPriceAbove(2.40)
             .IsAboveVwap()
             .Buy(100, Price.Current)
@@ -425,7 +425,7 @@ public class MissedTheBoatTests
     {
         // Arrange
         var strategy = Stock.Ticker("VIVS")
-            .SessionDuration(TradingSession.PreMarketEndEarly)
+            .TimeFrame(TradingSession.PreMarketEndEarly)
             .IsPriceAbove(2.40)
             .IsAboveVwap()
             .Buy(100, Price.Current)
@@ -448,7 +448,7 @@ public class MissedTheBoatTests
     {
         // Arrange - CATX EMA Support Strategy
         var strategy = Stock.Ticker("CATX")
-            .SessionDuration(TradingSession.PreMarketEndEarly)
+            .TimeFrame(TradingSession.PreMarketEndEarly)
             .Pullback(4.33)
             .IsPriceAbove(4.30)
             .Buy(100, Price.Current)
@@ -471,7 +471,7 @@ public class MissedTheBoatTests
     {
         // Arrange
         var strategy = Stock.Ticker("CATX")
-            .SessionDuration(TradingSession.PreMarketEndEarly)
+            .TimeFrame(TradingSession.PreMarketEndEarly)
             .Pullback(4.33)
             .IsPriceAbove(4.30)
             .Buy(100, Price.Current)

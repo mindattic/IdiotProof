@@ -310,6 +310,50 @@ public static class ConsoleUI
 
                 System.Console.WriteLine();
 
+                // Display calculated stats
+                var stats = strategy.GetStats();
+                if (stats.Quantity > 0 || stats.Price > 0)
+                {
+                    System.Console.ForegroundColor = ConsoleColor.Yellow;
+                    System.Console.Write("      ");
+
+                    var statParts = new List<string>();
+
+                    if (stats.Quantity > 0)
+                        statParts.Add($"Qty: {stats.Quantity}");
+
+                    if (stats.Price > 0)
+                        statParts.Add($"Price: ${stats.Price:F2}");
+
+                    if (stats.BuyIn > 0)
+                        statParts.Add($"BuyIn: ${stats.BuyIn:F2}");
+
+                    if (stats.TakeProfit > 0)
+                        statParts.Add($"TP: ${stats.TakeProfit:F2}");
+
+                    if (stats.TrailingStopLossPercent > 0)
+                        statParts.Add($"TSL: {stats.TrailingStopLossPercent * 100:F0}%");
+
+                    if (stats.PotentialLoss > 0)
+                    {
+                        System.Console.Write(string.Join(", ", statParts));
+                        System.Console.ForegroundColor = ConsoleColor.Red;
+                        System.Console.Write($", Loss: -${stats.PotentialLoss:F2}");
+                    }
+                    else
+                    {
+                        System.Console.Write(string.Join(", ", statParts));
+                    }
+
+                    if (stats.PotentialGain > 0)
+                    {
+                        System.Console.ForegroundColor = ConsoleColor.Green;
+                        System.Console.Write($", Gain: +${stats.PotentialGain:F2}");
+                    }
+
+                    System.Console.WriteLine();
+                }
+
                 // Display fluent code
                 System.Console.ForegroundColor = ConsoleColor.DarkGray;
                 var code = strategy.ToFluentCode();
