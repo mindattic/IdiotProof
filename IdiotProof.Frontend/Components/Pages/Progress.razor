@@ -23,15 +23,6 @@
         </div>
     </div>
 
-    <!-- Connection Status Banner -->
-    @if (!BackendService.IsConnected)
-    {
-        <div class="alert alert-warning">
-            <span>⚠️ Not connected to backend.</span>
-            <button class="btn btn-sm btn-primary ml-2" @onclick="ConnectToBackend">Connect</button>
-        </div>
-    }
-
     <!-- Console Output Area -->
     <div class="console-container @(WrapLines ? "wrap-lines" : "")">
         <div class="console-content" @ref="ConsoleElement">
@@ -55,21 +46,13 @@
         </div>
     </div>
 
-    <!-- Status Bar -->
-    <div class="status-bar">
-        <span class="status-indicator">
-            <span class="status-dot @(BackendService.IsConnected ? "success" : "danger")"></span>
-            Backend
-        </span>
-        <span class="status-indicator">Lines: @ConsoleLines.Count</span>
-        <div class="flex-1"></div>
-        <span class="status-message">@StatusMessage</span>
+    <div class="progress-footer">
+        <span>Lines: @ConsoleLines.Count</span>
     </div>
 </div>
 
 @code {
     private List<string> ConsoleLines = [];
-    private string StatusMessage = "Ready";
     private bool AutoScroll = true;
     private bool WrapLines = false;
     private ElementReference ConsoleElement;
@@ -78,7 +61,6 @@
     protected override void OnInitialized()
     {
         BackendService.ConsoleOutputReceived += OnConsoleOutput;
-        BackendService.ConnectionStatusChanged += OnConnectionChanged;
         LoadExistingBuffer();
     }
 
@@ -89,16 +71,6 @@
             _shouldScroll = false;
             await ScrollToBottom();
         }
-    }
-
-    private async Task ConnectToBackend()
-    {
-        StatusMessage = "Connecting to backend...";
-        StateHasChanged();
-        
-        var connected = await BackendService.ConnectAsync();
-        StatusMessage = connected ? "Connected" : "Connection failed - backend may not be running";
-        StateHasChanged();
     }
 
     private void LoadExistingBuffer()
@@ -133,16 +105,9 @@
         InvokeAsync(StateHasChanged);
     }
 
-    private void OnConnectionChanged(object? sender, bool connected)
-    {
-        StatusMessage = connected ? "Connected" : "Disconnected";
-        InvokeAsync(StateHasChanged);
-    }
-
     private void ClearConsole()
     {
         ConsoleLines.Clear();
-        StatusMessage = "Console cleared";
     }
 
     private async Task CopyToClipboard()
@@ -151,11 +116,10 @@
         try
         {
             await Clipboard.SetTextAsync(text);
-            StatusMessage = "Copied to clipboard";
         }
         catch
         {
-            StatusMessage = "Failed to copy";
+            // Clipboard copy failed silently
         }
     }
 
@@ -200,6 +164,5 @@
     public void Dispose()
     {
         BackendService.ConsoleOutputReceived -= OnConsoleOutput;
-        BackendService.ConnectionStatusChanged -= OnConnectionChanged;
     }
 }

@@ -18,15 +18,6 @@
         </div>
     </div>
 
-    <!-- Connection Status Banner -->
-    @if (!BackendService.IsConnected)
-    {
-        <div class="alert alert-warning">
-            <span>⚠️ Not connected to backend.</span>
-            <button class="btn btn-sm btn-primary ml-2" @onclick="ConnectToBackend">Connect</button>
-        </div>
-    }
-
     <!-- Positions Section -->
     @if (Positions.Count > 0)
     {
@@ -244,14 +235,6 @@
 
         await RefreshData();
         StartAutoRefresh();
-    }
-
-    private async Task ConnectToBackend()
-    {
-        StatusMessage = "Connecting to backend...";
-        var connected = await BackendService.ConnectAsync();
-        StatusMessage = connected ? "Connected" : "Connection failed";
-        await InvokeAsync(StateHasChanged);
     }
 
     private async Task RefreshData()

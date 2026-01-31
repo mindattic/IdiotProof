@@ -115,20 +115,6 @@
             </div>
         </div>
     }
-
-    <div class="status-bar">
-        <span class="status-message">@StatusMessage</span>
-        <div class="flex-1"></div>
-        <span class="status-indicator">
-            <span class="status-dot @(BackendStatus?.IsRunning == true ? "success" : "danger")"></span>
-            Backend
-        </span>
-        <span class="status-indicator">
-            <span class="status-dot @(BackendStatus?.IsConnectedToIbkr == true ? "success" : "danger")"></span>
-            IBKR
-        </span>
-        <span class="status-indicator">Active: @(BackendStatus?.ActiveStrategies ?? 0)</span>
-    </div>
 </div>
 
 @code {
