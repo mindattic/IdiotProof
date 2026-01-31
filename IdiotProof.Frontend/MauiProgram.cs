@@ -1,5 +1,4 @@
 using IdiotProof.Frontend.Services;
-using Microsoft.Extensions.Logging;
 
 namespace IdiotProof.Frontend
 {
