@@ -343,14 +343,10 @@ public static class ConsoleUI
                     System.Console.WriteLine();
                 }
 
-                // Display fluent code
+                // Display IdiotScript
                 System.Console.ForegroundColor = ConsoleColor.DarkGray;
-                var code = strategy.ToFluentCode();
-                var lines = code.Split('\n');
-                foreach (var line in lines)
-                {
-                    System.Console.WriteLine($"      {line}");
-                }
+                var script = IdiotProof.Shared.Scripting.IdiotScriptSerializer.Serialize(strategy);
+                System.Console.WriteLine($"      {script}");
 
                 System.Console.WriteLine();
             }

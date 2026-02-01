@@ -27,11 +27,9 @@
 using IdiotProof.Console.Management;
 using IdiotProof.Console.Scripting;
 using IdiotProof.Console.Services;
-using IdiotProof.Console.Strategies;
 using IdiotProof.Console.UI;
-using IdiotProof.Shared.Enums;
-using IdiotProof.Shared.Helpers;
 using IdiotProof.Shared.Models;
+using IdiotProof.Shared.Scripting;
 
 namespace IdiotProof.Console;
 
@@ -68,6 +66,31 @@ internal sealed class Program
         // NOTE: This app previously seeded a hardcoded sample PLTR strategy here.
         // That made it look like strategies were being loaded from disk when they weren't.
         // Strategies should come from the backend / strategy files instead.
+
+
+
+
+
+
+
+
+
+        // ================================================================
+        // LOAD STRATEGIES FROM DISK
+        // ================================================================
+        try
+        {
+            var folder = IdiotScriptFileManager.GetDefaultFolder();
+            IdiotScriptFileManager.EnsureFolderExists(folder);
+
+            var loaded = await IdiotScriptFileManager.LoadStrategiesFromFolderAsync(folder);
+            _localStrategies.Clear();
+            _localStrategies.AddRange(loaded.OrderBy(s => s.Name));
+        }
+        catch
+        {
+            // Best-effort: start even if strategy load fails.
+        }
 
         // ================================================================
         // STARTUP

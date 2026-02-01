@@ -15,6 +15,7 @@ using IdiotProof.Console.Scripting;
 using IdiotProof.Console.Services;
 using IdiotProof.Console.UI;
 using IdiotProof.Shared.Models;
+using IdiotProof.Shared.Scripting;
 
 namespace IdiotProof.Console.Management;
 
@@ -39,6 +40,7 @@ public class StrategyConsoleManager
     /// </summary>
     public async Task RunAsync()
     {
+        await LoadStrategiesFromDiskAsync();
         DisplayHeader();
 
         while (_isRunning)
@@ -46,6 +48,25 @@ public class StrategyConsoleManager
             DisplayMenu();
             var choice = await ReadKeyAsync();
             await HandleMenuChoiceAsync(choice);
+        }
+
+    }
+
+    private async Task LoadStrategiesFromDiskAsync()
+    {
+        try
+        {
+            var folder = IdiotScriptFileManager.GetDefaultFolder();
+            IdiotScriptFileManager.EnsureFolderExists(folder);
+
+            var loaded = await IdiotScriptFileManager.LoadStrategiesFromFolderAsync(folder);
+
+            _strategies.Clear();
+            _strategies.AddRange(loaded.OrderBy(s => s.Name));
+        }
+        catch
+        {
+            // Best-effort: if loading fails, allow app to continue with in-memory strategies.
         }
     }
 
@@ -296,10 +317,33 @@ public class StrategyConsoleManager
         {
             _strategies.Add(strategy!);
 
+            string? savedPath = null;
+            try
+            {
+                IdiotScriptFileManager.EnsureAllFoldersExist("Console");
+
+                var folder = IdiotScriptFileManager.GetDefaultFolder();
+                var fileName = IdiotScriptFileManager.GetSafeFileName(strategy!.Name, strategy.Symbol);
+                savedPath = Path.Combine(folder, fileName);
+
+                await IdiotScriptFileManager.SaveToFileAsync(strategy!, savedPath);
+            }
+            catch
+            {
+                // Best-effort persistence; still allow strategy to exist in-memory.
+            }
+
             System.Console.WriteLine();
             System.Console.ForegroundColor = ConsoleColor.Green;
             System.Console.WriteLine($"✓ Strategy '{strategy!.Name}' created successfully!");
             System.Console.ResetColor();
+
+            if (!string.IsNullOrWhiteSpace(savedPath))
+            {
+                System.Console.ForegroundColor = ConsoleColor.DarkGray;
+                System.Console.WriteLine($"Saved: {savedPath}");
+                System.Console.ResetColor();
+            }
 
             System.Console.WriteLine();
             System.Console.ForegroundColor = ConsoleColor.DarkGray;

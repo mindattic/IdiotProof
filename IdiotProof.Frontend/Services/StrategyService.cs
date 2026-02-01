@@ -25,6 +25,7 @@
 // ============================================================================
 
 using IdiotProof.Shared.Models;
+using IdiotProof.Shared.Settings;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 
@@ -46,10 +47,8 @@ namespace IdiotProof.Frontend.Services
 
         public StrategyService()
         {
-            // Store strategies in AppData folder
-            var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
-            _strategiesFolder = Path.Combine(appData, "IdiotProof", "Strategies");
-
+            // Store strategies in shared MyDocuments folder
+            _strategiesFolder = SettingsManager.GetStrategiesFolder();
             Directory.CreateDirectory(_strategiesFolder);
 
             _jsonOptions = new JsonSerializerOptions

@@ -311,7 +311,7 @@ public static class IdiotScriptFileManager
     /// <summary>
     /// Gets a safe file name for a strategy.
     /// </summary>
-    private static string GetSafeFileName(string? name, string symbol)
+    public static string GetSafeFileName(string? name, string symbol)
     {
         // Start with symbol
         var baseName = symbol;

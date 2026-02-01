@@ -3,6 +3,7 @@
 @using IdiotProof.Frontend.Components.Shared
 @using IdiotProof.Shared.Enums
 @using IdiotProof.Shared.Models
+@using IdiotProof.Shared.Scripting
 @using IdiotProof.Shared.Validation
 @using System.Web
 @using System.Text.Json
@@ -17,7 +18,6 @@
     <div class="design-header">
         <div class="design-header-left">
             <input type="text" @bind="CurrentStrategy.Name" placeholder="Strategy Name" class="strategy-name-input" />
-            <input type="date" @bind="SelectedDate" @bind:after="LoadStrategies" />
         </div>
         <div class="design-header-right">
             <button class="btn btn-secondary" @onclick="NewStrategy">New</button>
@@ -246,9 +246,9 @@
             }
         </div>
 
-        <!-- Today's Strategies -->
+        <!-- Strategies -->
         <div class="panel-section">
-            <div class="panel-title">TODAY'S STRATEGIES</div>
+            <div class="panel-title">STRATEGIES</div>
             @foreach (var strategy in DayStrategies)
             {
                 <div class="strategy-list-item" @onclick="() => EditStrategy(strategy)">
@@ -284,7 +284,6 @@
     private List<StrategyDefinition> DayStrategies = new();
     private StrategyDefinition CurrentStrategy = new() { Name = "New Strategy", Symbol = "" };
     private StrategySegment? SelectedSegment;
-    private DateTime SelectedDate = DateTime.Today;
     private string StatusMessage = "Ready";
     private bool HasUnsavedChanges = false;
     private string GeneratedCode = "";
@@ -389,9 +388,12 @@
 
         try
         {
-            var collection = await StrategyService.GetCollectionAsync(DateOnly.FromDateTime(SelectedDate));
-            DayStrategies = collection.Strategies;
-            StatusMessage = $"Loaded {DayStrategies.Count} strategies for {SelectedDate:MMM dd, yyyy}";
+            var folder = IdiotScriptFileManager.GetDefaultFolder();
+            IdiotScriptFileManager.EnsureFolderExists(folder);
+
+            DayStrategies = await IdiotScriptFileManager.LoadStrategiesFromFolderAsync(folder);
+            DayStrategies = DayStrategies.OrderBy(s => s.Name).ToList();
+            StatusMessage = $"Loaded {DayStrategies.Count} strategies";
         }
         catch (Exception ex)
         {
@@ -444,15 +446,11 @@
             LoadingMessage = "Saving strategy...";
             StateHasChanged();
 
-            var collection = await StrategyService.GetCollectionAsync(DateOnly.FromDateTime(SelectedDate));
-            var existingIndex = collection.Strategies.FindIndex(s => s.Id == CurrentStrategy.Id);
+            var folder = IdiotScriptFileManager.GetDefaultFolder();
+            IdiotScriptFileManager.EnsureFolderExists(folder);
+            var filePath = Path.Combine(folder, IdiotScriptFileManager.GetSafeFileName(CurrentStrategy.Name, CurrentStrategy.Symbol));
 
-            if (existingIndex >= 0)
-                collection.Strategies[existingIndex] = CurrentStrategy;
-            else
-                collection.Strategies.Add(CurrentStrategy);
-
-            await StrategyService.SaveCollectionAsync(collection);
+            await IdiotScriptFileManager.SaveToFileAsync(CurrentStrategy, filePath);
             await LoadStrategies();
 
             HasUnsavedChanges = false;
@@ -756,4 +754,5 @@
             return time;
         return new TimeOnly(9, 20);
     }
+
 }

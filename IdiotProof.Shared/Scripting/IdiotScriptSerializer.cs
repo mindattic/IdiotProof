@@ -171,42 +171,74 @@ public static class IdiotScriptSerializer
     public static string FormatScript(string script)
     {
         var sb = new StringBuilder();
-        var parts = script.Split('.', StringSplitOptions.RemoveEmptyEntries);
 
-        foreach (var part in parts)
+        foreach (var part in SplitByDelimiter(script))
         {
             var trimmed = part.Trim();
-            if (string.IsNullOrEmpty(trimmed)) continue;
+            if (string.IsNullOrEmpty(trimmed))
+                continue;
 
-            // Group related commands
-            if (trimmed.StartsWith("TICKER", StringComparison.OrdinalIgnoreCase) ||
-                trimmed.StartsWith("NAME", StringComparison.OrdinalIgnoreCase) ||
-                trimmed.StartsWith("DESC", StringComparison.OrdinalIgnoreCase))
-            {
-                sb.AppendLine($"{trimmed}.");
-            }
-            else if (trimmed.StartsWith("SESSION", StringComparison.OrdinalIgnoreCase) ||
-                     trimmed.StartsWith("QTY", StringComparison.OrdinalIgnoreCase))
-            {
-                sb.AppendLine($"{trimmed}.");
-            }
-            else if (trimmed.StartsWith("TP", StringComparison.OrdinalIgnoreCase) ||
-                     trimmed.StartsWith("SL", StringComparison.OrdinalIgnoreCase) ||
-                     trimmed.StartsWith("TSL", StringComparison.OrdinalIgnoreCase))
-            {
-                sb.AppendLine($"{trimmed}.");
-            }
-            else if (trimmed.StartsWith("CLOSE", StringComparison.OrdinalIgnoreCase))
-            {
-                sb.AppendLine($"{trimmed}.");
-            }
-            else
-            {
-                sb.AppendLine($"{trimmed}.");
-            }
+            sb.AppendLine($"{trimmed}.");
         }
 
         return sb.ToString().TrimEnd();
+    }
+
+    private static List<string> SplitByDelimiter(string script)
+    {
+        var commands = new List<string>();
+        var current = new StringBuilder();
+        int parenDepth = 0;
+
+        for (int i = 0; i < script.Length; i++)
+        {
+            var ch = script[i];
+
+            if (ch == '(') parenDepth++;
+            if (ch == ')') parenDepth = Math.Max(0, parenDepth - 1);
+
+            if (ch == '.' && parenDepth == 0)
+            {
+                // Preserve IS. constants
+                if (IsConstantPrefix(script, i))
+                {
+                    current.Append(ch);
+                    continue;
+                }
+
+                // Preserve decimal numbers
+                if (IsDecimalPoint(script, i))
+                {
+                    current.Append(ch);
+                    continue;
+                }
+
+                commands.Add(current.ToString());
+                current.Clear();
+                continue;
+            }
+
+            current.Append(ch);
+        }
+
+        if (current.Length > 0)
+            commands.Add(current.ToString());
+
+        return commands;
+    }
+
+    private static bool IsConstantPrefix(string script, int dotIndex)
+    {
+        if (dotIndex < 2) return false;
+        return script[dotIndex - 2] is 'I' or 'i' &&
+               script[dotIndex - 1] is 'S' or 's';
+    }
+
+    private static bool IsDecimalPoint(string script, int dotIndex)
+    {
+        var prev = dotIndex > 0 ? script[dotIndex - 1] : '\0';
+        var next = dotIndex + 1 < script.Length ? script[dotIndex + 1] : '\0';
+        return char.IsDigit(prev) && char.IsDigit(next);
     }
 
     // ========================================================================
