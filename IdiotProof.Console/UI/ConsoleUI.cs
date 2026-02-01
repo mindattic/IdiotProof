@@ -62,20 +62,9 @@ public static class ConsoleUI
             System.Console.WriteLine(" IdiotProof Multi-Stage Strategy Builder");
             System.Console.WriteLine(" Console Client - Powered by IBKR API");
             System.Console.WriteLine("================================================================");
-            System.Console.ResetColor();
-            System.Console.WriteLine();
-            System.Console.ForegroundColor = ConsoleColor.DarkGray;
-            System.Console.WriteLine(" Define your strategies using the fluent API:");
-            System.Console.WriteLine();
-            System.Console.WriteLine("   Stock.Ticker(\"SYMBOL\")");
-            System.Console.WriteLine("       .Breakout(level)      // Price >= level");
-            System.Console.WriteLine("       .Pullback(level)      // Price <= level");
-            System.Console.WriteLine("       .AboveVwap()          // Price >= VWAP");
-            System.Console.WriteLine("       .Buy(quantity, takeProfit: price)");
             System.Console.WriteLine();
             System.Console.ResetColor();
-            System.Console.WriteLine("================================================================");
-            System.Console.WriteLine();
+        
         }
     }
 

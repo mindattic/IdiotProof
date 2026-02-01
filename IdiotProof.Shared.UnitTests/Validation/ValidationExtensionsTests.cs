@@ -211,7 +211,7 @@ public class ValidationExtensionsTests
     {
         string? script = null;
 
-        var result = script.SanitizeIdiotScript();
+        var result = (script ?? string.Empty).SanitizeIdiotScript();
 
         Assert.That(result, Is.Empty);
     }
@@ -239,6 +239,11 @@ public class ValidationExtensionsTests
         breakout.Parameters.First(p => p.Name.Equals("Level", StringComparison.OrdinalIgnoreCase)).Value = 150.0;
 
         var buy = SegmentFactory.CreateBuy();
+
+        // Ensure required order parameters are set (validation requires all required params populated)
+        buy.Parameters.First(p => p.Name.Equals("Quantity", StringComparison.OrdinalIgnoreCase)).Value = 10;
+        buy.Parameters.First(p => p.Name.Equals("PriceType", StringComparison.OrdinalIgnoreCase)).Value = "Current";
+        buy.Parameters.First(p => p.Name.Equals("OrderType", StringComparison.OrdinalIgnoreCase)).Value = "Limit";
 
         return new StrategyDefinition
         {
