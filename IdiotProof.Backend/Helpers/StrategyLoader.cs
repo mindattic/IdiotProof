@@ -1,20 +1,28 @@
 // ============================================================================
-// StrategyLoader - Loads strategies from JSON files for the backend service
+// StrategyLoader - Loads strategies from IdiotScript or JSON files
 // ============================================================================
 //
-// This class bridges the MAUI frontend's JSON strategy files with the
+// This class bridges the MAUI frontend's strategy files with the
 // backend's fluent API TradingStrategy objects.
 //
-// Strategies are stored as individual JSON files in date-based folders:
+// Strategies are now stored as .IDIOT files (IdiotScript format) with
+// fallback support for legacy .JSON files:
 //   Strategies/
 //     2025-01-15/
-//       VIVS_Breakout.json
-//       CATX_VWAP_Scalp.json
+//       VIVS_Breakout.idiot
+//       CATX_VWAP_Scalp.idiot
+//       LEGACY_OldStrategy.json (fallback support)
 //     2025-01-16/
 //       ...
 //
+// IDIOTSCRIPT FORMAT:
+// Each .idiot file contains a strategy in IdiotScript format:
+//   SYM(VIVS); QTY(100); SESSION(~.PREMARKET);
+//   BREAKOUT(2.50) > PULLBACK(2.40) > VWAP+;
+//   TP(2.80); TSL(~.MODERATE); CLOSE(~.BELL)
+//
 // USAGE IN Program.cs:
-//   // Load strategies from JSON files instead of hardcoding them:
+//   // Load strategies from IdiotScript files:
 //   var strategies = StrategyLoader.LoadFromJson();
 //   
 //   // Or use a hybrid approach:
@@ -26,6 +34,7 @@
 
 using IdiotProof.Backend.Enums;
 using IdiotProof.Backend.Strategy;
+using IdiotProof.Shared.Scripting;
 using System.Text.Json;
 
 namespace IdiotProof.Backend.Models
@@ -129,7 +138,8 @@ namespace IdiotProof.Backend.Models
         }
 
         /// <summary>
-        /// Loads all enabled strategies from today's JSON file and converts them to TradingStrategy objects.
+        /// Loads all enabled strategies from today's folder and converts them to TradingStrategy objects.
+        /// Supports both IdiotScript (.idiot) and legacy JSON (.json) files.
         /// </summary>
         /// <returns>List of TradingStrategy objects ready for execution.</returns>
         public static List<TradingStrategy> LoadFromJson()
@@ -139,7 +149,8 @@ namespace IdiotProof.Backend.Models
 
         /// <summary>
         /// Loads all enabled strategies from the specified date's folder.
-        /// Each strategy is stored as an individual JSON file.
+        /// Supports both IdiotScript (.idiot) and legacy JSON (.json) files.
+        /// IdiotScript files are preferred and loaded first.
         /// </summary>
         /// <param name="date">The date to load strategies for.</param>
         /// <returns>List of TradingStrategy objects ready for execution.</returns>
@@ -154,11 +165,53 @@ namespace IdiotProof.Backend.Models
             }
 
             var strategies = new List<TradingStrategy>();
-            var files = Directory.GetFiles(dateFolder, "*.json");
 
-            Console.WriteLine($"Found {files.Length} strategy files in {dateFolder}");
+            // Load IdiotScript files first (preferred format)
+            var idiotFiles = Directory.GetFiles(dateFolder, "*.idiot");
+            Console.WriteLine($"Found {idiotFiles.Length} IdiotScript files in {dateFolder}");
 
-            foreach (var file in files)
+            foreach (var file in idiotFiles)
+            {
+                try
+                {
+                    var script = File.ReadAllText(file);
+
+                    if (!IdiotScriptParser.TryParse(script, out var definition, out var error))
+                    {
+                        Console.WriteLine($"Error parsing IdiotScript {Path.GetFileName(file)}: {error}");
+                        continue;
+                    }
+
+                    if (definition == null)
+                        continue;
+
+                    if (!definition.Enabled)
+                    {
+                        Console.WriteLine($"Skipping disabled strategy: {definition.Name}");
+                        continue;
+                    }
+
+                    var strategy = ConvertDefinition(definition);
+                    if (strategy != null)
+                    {
+                        strategies.Add(strategy);
+                        Console.WriteLine($"Loaded IdiotScript: {definition.Name} ({definition.Symbol})");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Error loading IdiotScript from {Path.GetFileName(file)}: {ex.Message}");
+                }
+            }
+
+            // Load legacy JSON files (fallback)
+            var jsonFiles = Directory.GetFiles(dateFolder, "*.json");
+            if (jsonFiles.Length > 0)
+            {
+                Console.WriteLine($"Found {jsonFiles.Length} legacy JSON files in {dateFolder}");
+            }
+
+            foreach (var file in jsonFiles)
             {
                 try
                 {
@@ -178,7 +231,7 @@ namespace IdiotProof.Backend.Models
                     if (strategy != null)
                     {
                         strategies.Add(strategy);
-                        Console.WriteLine($"Loaded strategy: {definition.Name} ({definition.Symbol})");
+                        Console.WriteLine($"Loaded JSON strategy: {definition.Name} ({definition.Symbol})");
                     }
                 }
                 catch (Exception ex)
@@ -419,6 +472,48 @@ namespace IdiotProof.Backend.Models
             if (TimeOnly.TryParse(value, out var time))
                 return time;
             return new TimeOnly(9, 20); // Default to 9:20 AM ET
+        }
+
+        // ========================================================================
+        // IDIOTSCRIPT SAVE/EXPORT METHODS
+        // ========================================================================
+
+        /// <summary>
+        /// Saves a StrategyDefinition as an IdiotScript file.
+        /// </summary>
+        public static async Task<string> SaveAsIdiotScriptAsync(
+            IdiotProof.Shared.Models.StrategyDefinition strategy,
+            DateOnly date,
+            string? baseFolder = null)
+        {
+            return await IdiotScriptFileManager.SaveStrategyAsync(strategy, date, baseFolder);
+        }
+
+        /// <summary>
+        /// Saves multiple strategies as IdiotScript files.
+        /// </summary>
+        public static async Task SaveAllAsIdiotScriptAsync(
+            IEnumerable<IdiotProof.Shared.Models.StrategyDefinition> strategies,
+            DateOnly date,
+            string? baseFolder = null)
+        {
+            await IdiotScriptFileManager.SaveStrategiesAsync(strategies, date, baseFolder);
+        }
+
+        /// <summary>
+        /// Exports a strategy to IdiotScript text.
+        /// </summary>
+        public static string ExportToIdiotScript(IdiotProof.Shared.Models.StrategyDefinition strategy)
+        {
+            return IdiotScriptFileManager.ExportToScript(strategy);
+        }
+
+        /// <summary>
+        /// Imports a strategy from IdiotScript text.
+        /// </summary>
+        public static IdiotProof.Shared.Models.StrategyDefinition? ImportFromIdiotScript(string script)
+        {
+            return IdiotScriptFileManager.ImportFromScript(script);
         }
     }
 }

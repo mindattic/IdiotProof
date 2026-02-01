@@ -2,13 +2,24 @@
 // StrategyService - Implementation of strategy persistence
 // ============================================================================
 //
-// Strategies are saved as INDIVIDUAL JSON files in a date-based folder structure:
+// Strategies are saved as INDIVIDUAL files in a date-based folder structure.
+// Supports both IdiotScript (.idiot) and legacy JSON (.json) formats.
+//
+// PREFERRED FORMAT: IdiotScript (.idiot)
 //   Strategies/
 //     2025-01-15/
-//       VIVS_Breakout_Strategy.json
-//       CATX_VWAP_Scalp.json
+//       VIVS_Breakout.idiot
+//       CATX_VWAP_Scalp.idiot
 //     2025-01-16/
 //       ...
+//
+// LEGACY FORMAT: JSON (.json) - still supported for backwards compatibility
+//
+// IDIOTSCRIPT FORMAT:
+// Each .idiot file is a plain text file containing IdiotScript:
+//   SYM(VIVS); QTY(100); SESSION(~.PREMARKET);
+//   BREAKOUT(2.50) > PULLBACK(2.40) > VWAP+;
+//   TP(2.80); TSL(~.MODERATE); CLOSE(~.BELL)
 //
 // File naming uses Windows-compliant names with duplicate handling (a-z suffix).
 // ============================================================================
@@ -225,8 +236,9 @@ namespace IdiotProof.Frontend.Services
                 var dirName = Path.GetFileName(dir);
                 if (DateOnly.TryParse(dirName, out var date))
                 {
-                    // Only include dates that have strategy files
-                    if (Directory.GetFiles(dir, "*.json").Length > 0)
+                    // Include dates that have strategy files (.idiot or .json)
+                    if (Directory.GetFiles(dir, "*.idiot").Length > 0 ||
+                        Directory.GetFiles(dir, "*.json").Length > 0)
                     {
                         dates.Add(date);
                     }
@@ -239,6 +251,38 @@ namespace IdiotProof.Frontend.Services
         public string ExportToCode(StrategyDefinition strategy)
         {
             return strategy.ToFluentCode();
+        }
+
+        /// <summary>
+        /// Exports a strategy to IdiotScript format.
+        /// </summary>
+        public string ExportToIdiotScript(StrategyDefinition strategy)
+        {
+            return Shared.Scripting.IdiotScriptSerializer.Serialize(strategy);
+        }
+
+        /// <summary>
+        /// Exports a strategy to formatted IdiotScript.
+        /// </summary>
+        public string ExportToFormattedIdiotScript(StrategyDefinition strategy)
+        {
+            return Shared.Scripting.IdiotScriptSerializer.SerializeFormatted(strategy);
+        }
+
+        /// <summary>
+        /// Imports a strategy from IdiotScript.
+        /// </summary>
+        public StrategyDefinition? ImportFromIdiotScript(string script)
+        {
+            return Shared.Scripting.IdiotScriptFileManager.ImportFromScript(script);
+        }
+
+        /// <summary>
+        /// Imports a strategy from IdiotScript with error details.
+        /// </summary>
+        public (StrategyDefinition? Strategy, string? Error) ImportFromIdiotScriptWithError(string script)
+        {
+            return Shared.Scripting.IdiotScriptFileManager.ImportFromScriptWithError(script);
         }
 
         private string GetDateFolder(DateOnly date)

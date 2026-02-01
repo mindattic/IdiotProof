@@ -8,7 +8,7 @@ namespace IdiotProof.Frontend.Services
 {
     /// <summary>
     /// Service for loading, saving, and managing strategies.
-    /// Strategies are saved as individual JSON files in date-based folders.
+    /// Supports both IdiotScript (.idiot) and JSON (.json) formats.
     /// </summary>
     public interface IStrategyService
     {
@@ -23,7 +23,7 @@ namespace IdiotProof.Frontend.Services
         Task SaveCollectionAsync(StrategyCollection collection);
 
         /// <summary>
-        /// Saves an individual strategy to its own JSON file.
+        /// Saves an individual strategy to its own file.
         /// </summary>
         Task<string> SaveStrategyAsync(StrategyDefinition strategy, DateOnly date);
 
@@ -51,6 +51,26 @@ namespace IdiotProof.Frontend.Services
         /// Exports a strategy to fluent API code.
         /// </summary>
         string ExportToCode(StrategyDefinition strategy);
+
+        /// <summary>
+        /// Exports a strategy to IdiotScript format.
+        /// </summary>
+        string ExportToIdiotScript(StrategyDefinition strategy);
+
+        /// <summary>
+        /// Exports a strategy to formatted IdiotScript.
+        /// </summary>
+        string ExportToFormattedIdiotScript(StrategyDefinition strategy);
+
+        /// <summary>
+        /// Imports a strategy from IdiotScript.
+        /// </summary>
+        StrategyDefinition? ImportFromIdiotScript(string script);
+
+        /// <summary>
+        /// Imports a strategy from IdiotScript with error details.
+        /// </summary>
+        (StrategyDefinition? Strategy, string? Error) ImportFromIdiotScriptWithError(string script);
 
         /// <summary>
         /// Gets the path where strategies are stored.

@@ -382,14 +382,36 @@ public static class ConsoleUI
             System.Console.WriteLine("=== Keyboard Shortcuts ===");
             System.Console.ResetColor();
 
-            System.Console.WriteLine("  CTRL+ALT+ENTER  - Activate/Deactivate trading");
-            System.Console.WriteLine("  CTRL+ALT+C      - Cancel all open orders");
-            System.Console.WriteLine("  CTRL+ALT+R      - Reload strategies from backend");
-            System.Console.WriteLine("  CTRL+ALT+S      - Show status");
-            System.Console.WriteLine("  CTRL+ALT+O      - Show open orders");
-            System.Console.WriteLine("  CTRL+ALT+P      - Show positions");
-            System.Console.WriteLine("  CTRL+ALT+H      - Show this help");
-            System.Console.WriteLine("  CTRL+ALT+Q      - Quit");
+            System.Console.ForegroundColor = ConsoleColor.White;
+            System.Console.WriteLine("  Strategy Management:");
+            System.Console.ResetColor();
+            System.Console.WriteLine("    M               - Open Strategy Manager (view/create/toggle/cancel)");
+            System.Console.WriteLine("    N               - Quick create strategy (script mode)");
+            System.Console.WriteLine();
+
+            System.Console.ForegroundColor = ConsoleColor.White;
+            System.Console.WriteLine("  Trading Controls:");
+            System.Console.ResetColor();
+            System.Console.WriteLine("    CTRL+ALT+ENTER  - Activate/Deactivate trading");
+            System.Console.WriteLine("    C               - Cancel all open orders");
+            System.Console.WriteLine("    R               - Reload strategies from backend");
+            System.Console.WriteLine();
+
+            System.Console.ForegroundColor = ConsoleColor.White;
+            System.Console.WriteLine("  Information:");
+            System.Console.ResetColor();
+            System.Console.WriteLine("    S               - Show status");
+            System.Console.WriteLine("    O               - Show open orders");
+            System.Console.WriteLine("    P               - Show positions");
+            System.Console.WriteLine("    H               - Show this help");
+            System.Console.WriteLine("    ESC             - Go back / Exit submenu");
+            System.Console.WriteLine();
+
+            System.Console.ForegroundColor = ConsoleColor.DarkGray;
+            System.Console.WriteLine("  Script Syntax Example:");
+            System.Console.ForegroundColor = ConsoleColor.Yellow;
+            System.Console.WriteLine("    SYM(PLTR); QTY(10); TP($158); TSL(15%); CLOSE(9:29, Y); BREAKOUT(148) > PULLBACK(145) > ABOVE_VWAP > EMA_BETWEEN(9, 21)");
+            System.Console.ResetColor();
             System.Console.WriteLine();
         }
     }
@@ -405,7 +427,7 @@ public static class ConsoleUI
             System.Console.WriteLine();
             System.Console.WriteLine("╔═══════════════════════════════════════════════════════════════╗");
             System.Console.WriteLine("║  Trading is PAUSED - Press CTRL+ALT+ENTER to activate        ║");
-            System.Console.WriteLine("║  Press CTRL+ALT+H for help                                    ║");
+            System.Console.WriteLine("║  Press H for help                                            ║");
             System.Console.WriteLine("╚═══════════════════════════════════════════════════════════════╝");
             System.Console.ResetColor();
             System.Console.WriteLine();

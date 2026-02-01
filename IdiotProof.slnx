@@ -1,7 +1,9 @@
 <Solution>
   <Project Path="IdiotProof.Backend.UnitTests/IdiotProof.Backend.UnitTests.csproj" />
   <Project Path="IdiotProof.Backend/IdiotProof.Backend.csproj" />
+  <Project Path="IdiotProof.Console.UnitTests/IdiotProof.Console.UnitTests.csproj" />
   <Project Path="IdiotProof.Console/IdiotProof.Console.csproj" Id="2dfe83c2-487b-4910-a9f0-b01b0891e11d" />
   <Project Path="IdiotProof.Frontend/IdiotProof.Frontend.csproj" />
+  <Project Path="IdiotProof.Shared.UnitTests/IdiotProof.Shared.UnitTests.csproj" Id="b04ea3f7-3ae1-4367-b95f-7706a4f40a9c" />
   <Project Path="IdiotProof.Shared/IdiotProof.Shared.csproj" />
 </Solution>

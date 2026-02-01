@@ -24,6 +24,8 @@
 //
 // ================================================================
 
+using IdiotProof.Console.Management;
+using IdiotProof.Console.Scripting;
 using IdiotProof.Console.Services;
 using IdiotProof.Console.Strategies;
 using IdiotProof.Console.UI;
@@ -197,20 +199,24 @@ internal sealed class Program
         // ================================================================
         // MAIN INPUT LOOP
         // ================================================================
-        ConsoleUI.Info("Running... (CTRL+ALT+H for help, CTRL+ALT+Q to quit)");
+        ConsoleUI.Info("Running... (H for help)");
 
         while (true)
         {
             var key = System.Console.ReadKey(intercept: true);
 
-            if (key.Modifiers == (ConsoleModifiers.Control | ConsoleModifiers.Alt))
+            // CTRL+ALT+ENTER for trading activation (requires modifier for safety)
+            if (key.Modifiers == (ConsoleModifiers.Control | ConsoleModifiers.Alt) && key.Key == ConsoleKey.Enter)
+            {
+                await ToggleTradingAsync();
+                continue;
+            }
+
+            // Simple key shortcuts (no modifiers required)
+            if (key.Modifiers == 0)
             {
                 switch (key.Key)
                 {
-                    case ConsoleKey.Enter:
-                        await ToggleTradingAsync();
-                        break;
-
                     case ConsoleKey.C:
                         await CancelAllOrdersAsync();
                         break;
@@ -231,13 +237,22 @@ internal sealed class Program
                         await ShowPositionsAsync();
                         break;
 
+                    case ConsoleKey.M:
+                        await OpenStrategyManagerAsync();
+                        break;
+
+                    case ConsoleKey.N:
+                        await QuickCreateStrategyAsync();
+                        break;
+
                     case ConsoleKey.H:
                         ConsoleUI.DisplayHelp();
                         break;
 
-                    case ConsoleKey.Q:
-                        await ShutdownAsync();
-                        return;
+                    // ESC does nothing at main level - user can close window with X
+                    case ConsoleKey.Escape:
+                        // Ignored at main menu level
+                        break;
                 }
             }
         }
@@ -253,6 +268,20 @@ internal sealed class Program
 
         if (_isTradingActive)
         {
+            // Confirm deactivation
+            System.Console.ForegroundColor = ConsoleColor.Yellow;
+            System.Console.Write("Deactivate trading? (y/n): ");
+            System.Console.ResetColor();
+
+            var confirm = System.Console.ReadKey(intercept: true).Key;
+            System.Console.WriteLine();
+
+            if (confirm != ConsoleKey.Y)
+            {
+                ConsoleUI.Info("Cancelled.");
+                return;
+            }
+
             var result = await _client.DeactivateTradingAsync();
             if (result?.Success == true)
             {
@@ -266,6 +295,20 @@ internal sealed class Program
         }
         else
         {
+            // Confirm activation
+            System.Console.ForegroundColor = ConsoleColor.Red;
+            System.Console.Write("ACTIVATE TRADING? This will execute real orders! (y/n): ");
+            System.Console.ResetColor();
+
+            var confirm = System.Console.ReadKey(intercept: true).Key;
+            System.Console.WriteLine();
+
+            if (confirm != ConsoleKey.Y)
+            {
+                ConsoleUI.Info("Cancelled.");
+                return;
+            }
+
             var result = await _client.ActivateTradingAsync();
             if (result?.Success == true)
             {
@@ -284,6 +327,20 @@ internal sealed class Program
         if (_client == null || !_client.IsConnected)
         {
             ConsoleUI.Error("Not connected to backend");
+            return;
+        }
+
+        // Confirm cancellation
+        System.Console.ForegroundColor = ConsoleColor.Yellow;
+        System.Console.Write("Cancel ALL open orders? (y/n): ");
+        System.Console.ResetColor();
+
+        var confirm = System.Console.ReadKey(intercept: true).Key;
+        System.Console.WriteLine();
+
+        if (confirm != ConsoleKey.Y)
+        {
+            ConsoleUI.Info("Cancelled.");
             return;
         }
 
@@ -339,6 +396,66 @@ internal sealed class Program
 
         var positions = await _client.GetPositionsAsync();
         ConsoleUI.DisplayPositions(positions);
+    }
+
+    private static async Task OpenStrategyManagerAsync()
+    {
+        ConsoleUI.Info("Opening Strategy Manager...");
+
+        var manager = new StrategyConsoleManager(_client, _localStrategies);
+        await manager.RunAsync();
+
+        // Sync strategies back
+        _localStrategies.Clear();
+        _localStrategies.AddRange(manager.Strategies);
+
+        // Redraw main UI
+        ConsoleUI.ConfigureConsole();
+        ConsoleUI.DisplayBanner();
+        ConsoleUI.DisplayStrategies(_localStrategies);
+        ConsoleUI.DisplayHelp();
+        ConsoleUI.Info("Running... (CTRL+ALT+H for help, CTRL+ALT+Q to quit)");
+    }
+
+    private static async Task QuickCreateStrategyAsync()
+    {
+        System.Console.WriteLine();
+        System.Console.ForegroundColor = ConsoleColor.Cyan;
+        System.Console.WriteLine("┌─────────────────────────────────────────────────────────────────┐");
+        System.Console.WriteLine("│                    QUICK CREATE STRATEGY                       │");
+        System.Console.WriteLine("└─────────────────────────────────────────────────────────────────┘");
+        System.Console.ResetColor();
+        System.Console.WriteLine();
+        System.Console.ForegroundColor = ConsoleColor.DarkGray;
+        System.Console.WriteLine("Enter script (Example: SYM(PLTR); QTY(10); OPEN(148.75); TP($158); TSL(15%); VWAP)");
+        System.Console.ResetColor();
+        System.Console.Write("\nScript: ");
+        System.Console.ForegroundColor = ConsoleColor.Yellow;
+
+        var script = System.Console.ReadLine() ?? "";
+        System.Console.ResetColor();
+
+        if (string.IsNullOrWhiteSpace(script))
+        {
+            ConsoleUI.Warning("Cancelled - no script entered.");
+            return;
+        }
+
+        if (StrategyScriptParser.TryParse(script, out var strategy, out var error))
+        {
+            _localStrategies.Add(strategy!);
+            ConsoleUI.Success($"Strategy '{strategy!.Name}' created!");
+            ConsoleUI.DisplayStrategies(_localStrategies);
+        }
+        else
+        {
+            ConsoleUI.Error($"Parse error: {error}");
+            System.Console.ForegroundColor = ConsoleColor.DarkGray;
+            System.Console.WriteLine("Press CTRL+ALT+M to open Strategy Manager for help.");
+            System.Console.ResetColor();
+        }
+
+        await Task.CompletedTask;
     }
 
     private static async Task ShutdownAsync()

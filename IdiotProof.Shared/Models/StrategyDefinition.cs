@@ -87,6 +87,22 @@ namespace IdiotProof.Shared.Models
         }
 
         /// <summary>
+        /// Generates the IdiotScript representation of this strategy.
+        /// </summary>
+        public string ToIdiotScript()
+        {
+            return Scripting.IdiotScriptSerializer.Serialize(this);
+        }
+
+        /// <summary>
+        /// Generates a formatted IdiotScript representation of this strategy.
+        /// </summary>
+        public string ToFormattedIdiotScript()
+        {
+            return Scripting.IdiotScriptSerializer.SerializeFormatted(this);
+        }
+
+        /// <summary>
         /// Validates the strategy is complete and well-formed.
         /// Uses the comprehensive validation from Shared.Validation.
         /// </summary>
