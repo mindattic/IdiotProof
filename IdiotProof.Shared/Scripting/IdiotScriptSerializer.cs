@@ -35,9 +35,9 @@ public static class IdiotScriptSerializer
         // Symbol (required, goes first)
         parts.Add($"Ticker({strategy.Symbol})");
 
-        // Name (if not default)
-        if (!string.IsNullOrEmpty(strategy.Name) && 
-            !strategy.Name.EndsWith("Strategy", StringComparison.OrdinalIgnoreCase))
+        // Name
+        // Always include if present (tests expect explicit Name serialization)
+        if (!string.IsNullOrEmpty(strategy.Name))
         {
             parts.Add($"Name(\"{strategy.Name}\")");
         }
@@ -232,6 +232,8 @@ public static class IdiotScriptSerializer
                 SegmentType.IsEmaBetween => BuildEmaBetween(segment),
                 SegmentType.IsRsi => BuildRsi(segment),
                 SegmentType.IsAdx => BuildAdx(segment),
+                SegmentType.IsMomentum => BuildMomentum(segment),
+                SegmentType.IsRoc => BuildRoc(segment),
                 _ => null
             };
 
@@ -301,6 +303,26 @@ public static class IdiotScriptSerializer
     {
         var value = GetParameterValue<double>(segment, "Value", 0);
         return value > 0 ? $"AdxAbove({value:F0})" : null;
+    }
+
+    private static string? BuildMomentum(StrategySegment segment)
+    {
+        var condition = GetParameterValue<string>(segment, "Condition", "");
+        var threshold = GetParameterValue<double>(segment, "Threshold", 0);
+
+        return condition.Equals("Above", StringComparison.OrdinalIgnoreCase)
+            ? $"MomentumAbove({threshold:F1})"
+            : $"MomentumBelow({threshold:F1})";
+    }
+
+    private static string? BuildRoc(StrategySegment segment)
+    {
+        var condition = GetParameterValue<string>(segment, "Condition", "");
+        var threshold = GetParameterValue<double>(segment, "Threshold", 0);
+
+        return condition.Equals("Above", StringComparison.OrdinalIgnoreCase)
+            ? $"RocAbove({threshold:F1})"
+            : $"RocBelow({threshold:F1})";
     }
 
     private static string FormatPrice(double price)

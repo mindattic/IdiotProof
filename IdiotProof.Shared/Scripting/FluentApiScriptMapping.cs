@@ -295,6 +295,33 @@ public static class FluentApiScriptMapping
             "-DI above threshold condition"),
 
         // ====================================================================
+        // MOMENTUM CONDITIONS
+        // ====================================================================
+        new(".IsMomentumAbove(threshold)",
+            ["MOMENTUMABOVE", "ISMOMENTUMABOVE"],
+            ["threshold: double (momentum value)"],
+            "IndicatorCondition",
+            "Momentum indicator above threshold (upward momentum)"),
+
+        new(".IsMomentumBelow(threshold)",
+            ["MOMENTUMBELOW", "ISMOMENTUMBELOW"],
+            ["threshold: double (momentum value)"],
+            "IndicatorCondition",
+            "Momentum indicator below threshold (downward momentum)"),
+
+        new(".IsRocAbove(threshold)",
+            ["ROCABOVE", "ISROCABOVE"],
+            ["threshold: double (rate of change %)"],
+            "IndicatorCondition",
+            "Rate of Change above threshold (positive momentum)"),
+
+        new(".IsRocBelow(threshold)",
+            ["ROCBELOW", "ISROCBELOW"],
+            ["threshold: double (rate of change %)"],
+            "IndicatorCondition",
+            "Rate of Change below threshold (negative momentum)"),
+
+        // ====================================================================
         // ORDER CONFIGURATION
         // ====================================================================
         new(".TimeInForce(tif)",

@@ -166,7 +166,7 @@ public class ScriptParserValidationTests
     [TestCase("SYM(AAPL).QTY()")]
     public void Parse_InvalidQuantity_ThrowsException(string script)
     {
-        Assert.Throws<Exception>(() => 
+        Assert.Throws<StrategyScriptException>(() => 
             StrategyScriptParser.Parse(script));
     }
 
@@ -174,7 +174,7 @@ public class ScriptParserValidationTests
     [TestCase("SYM(AAPL).TP()")]
     public void Parse_InvalidTakeProfit_ThrowsException(string script)
     {
-        Assert.Throws<Exception>(() => 
+        Assert.Throws<StrategyScriptException>(() => 
             StrategyScriptParser.Parse(script));
     }
 

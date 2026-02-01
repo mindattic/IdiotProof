@@ -232,15 +232,20 @@ public class ValidationExtensionsTests
 
     private static StrategyDefinition CreateValidStrategy()
     {
+        var ticker = SegmentFactory.CreateTicker();
+        ticker.Parameters.First(p => p.Name.Equals("Symbol", StringComparison.OrdinalIgnoreCase)).Value = "AAPL";
+
+        var breakout = SegmentFactory.CreateBreakout();
+        breakout.Parameters.First(p => p.Name.Equals("Level", StringComparison.OrdinalIgnoreCase)).Value = 150.0;
+
+        var buy = SegmentFactory.CreateBuy();
+
         return new StrategyDefinition
         {
             Name = "Test Strategy",
             Symbol = "AAPL",
             Enabled = true,
-            Segments =
-            [
-                SegmentFactory.CreateBreakout()
-            ]
+            Segments = [ticker, breakout, buy]
         };
     }
 

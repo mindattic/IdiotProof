@@ -35,6 +35,7 @@
 using IdiotProof.Backend.Enums;
 using IdiotProof.Backend.Strategy;
 using IdiotProof.Shared.Scripting;
+using IdiotProof.Shared.Settings;
 using System.Text.Json;
 
 namespace IdiotProof.Backend.Models
@@ -124,8 +125,7 @@ namespace IdiotProof.Backend.Models
         /// </summary>
         public static string GetDefaultFolder()
         {
-            var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
-            return Path.Combine(appData, "IdiotProof", "Strategies");
+            return SettingsManager.GetStrategiesFolder();
         }
 
         /// <summary>

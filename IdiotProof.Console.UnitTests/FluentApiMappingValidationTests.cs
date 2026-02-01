@@ -59,7 +59,7 @@ public class FluentApiMappingValidationTests
         var validCategories = new HashSet<string>
         {
             "Start", "Identity", "Session", "Order", "PriceCondition",
-            "VwapCondition", "IndicatorCondition", "RiskManagement", "PositionManagement"
+            "VwapCondition", "IndicatorCondition", "RiskManagement", "PositionManagement", "OrderConfig"
         };
 
         // Assert

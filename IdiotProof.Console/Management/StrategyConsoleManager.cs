@@ -545,10 +545,13 @@ public class StrategyConsoleManager
                         cursorPos--;
                         // Rewrite the line
                         var left = System.Console.CursorLeft;
-                        System.Console.Write("\b \b");
-                        var remaining = buffer.ToString()[cursorPos..];
-                        System.Console.Write(remaining + " ");
-                        System.Console.CursorLeft = left - 1;
+                        if (left > 0)
+                        {
+                            System.Console.Write("\b \b");
+                            var remaining = buffer.ToString()[cursorPos..];
+                            System.Console.Write(remaining + " ");
+                            System.Console.CursorLeft = Math.Max(0, left - 1);
+                        }
                     }
                     break;
 
@@ -564,7 +567,7 @@ public class StrategyConsoleManager
                     break;
 
                 case ConsoleKey.LeftArrow:
-                    if (cursorPos > 0)
+                    if (cursorPos > 0 && System.Console.CursorLeft > 0)
                     {
                         cursorPos--;
                         System.Console.CursorLeft--;
@@ -580,7 +583,8 @@ public class StrategyConsoleManager
                     break;
 
                 case ConsoleKey.Home:
-                    System.Console.CursorLeft -= cursorPos;
+                    var homeOffset = Math.Min(cursorPos, System.Console.CursorLeft);
+                    System.Console.CursorLeft -= homeOffset;
                     cursorPos = 0;
                     break;
 
@@ -760,6 +764,14 @@ public class StrategyConsoleManager
             ("RsiOversold(30)", "RSI oversold condition"),
             ("RsiOverbought(70)", "RSI overbought condition"),
             ("AdxAbove(25)", "ADX above threshold (strong trend)")
+        });
+
+        WriteHelpSection("MOMENTUM CONDITIONS", new[]
+        {
+            ("MomentumAbove(0)", "Momentum > threshold (upward)"),
+            ("MomentumBelow(0)", "Momentum < threshold (downward)"),
+            ("RocAbove(2)", "Rate of Change > 2% (rising)"),
+            ("RocBelow(-2)", "Rate of Change < -2% (falling)")
         });
 
         WriteHelpSection("SESSION CONSTANTS (IS.)", new[]

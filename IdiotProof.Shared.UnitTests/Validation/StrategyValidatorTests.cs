@@ -76,7 +76,8 @@ public class StrategyValidatorTests
 
         var result = StrategyValidator.ValidateStrategy(strategy);
 
-        Assert.That(result.IsValid, Is.True);
+        Assert.That(result.IsValid, Is.True,
+            $"Errors: {string.Join(", ", result.Errors.Select(e => $"{e.Code}: {e.Message}"))}");
     }
 
     [Test]
@@ -140,12 +141,28 @@ public class StrategyValidatorTests
         var strategy = CreateValidStrategy();
         strategy.Segments.Clear();
 
-        for (int i = 0; i < StrategyValidator.MaxSegments; i++)
+        // Add Ticker first (required)
+        var ticker = SegmentFactory.CreateTicker();
+        ticker.Order = 0;
+        ticker.Parameters.First(p => p.Name == "symbol").Value = "AAPL";
+        strategy.Segments.Add(ticker);
+
+        // Add conditions to fill up to MaxSegments - 2 (leave room for order)
+        for (int i = 1; i < StrategyValidator.MaxSegments - 1; i++)
         {
             var segment = SegmentFactory.CreateBreakout();
             segment.Order = i;
+            segment.Parameters.First(p => p.Name == "level").Value = 150.0;
             strategy.Segments.Add(segment);
         }
+
+        // Add Order last (required)
+        var buy = SegmentFactory.CreateBuy();
+        buy.Order = StrategyValidator.MaxSegments - 1;
+        buy.Parameters.First(p => p.Name == "quantity").Value = 1;
+        buy.Parameters.First(p => p.Name == "priceType").Value = Price.Current;
+        buy.Parameters.First(p => p.Name == "orderType").Value = OrderType.Limit;
+        strategy.Segments.Add(buy);
 
         var result = StrategyValidator.ValidateStrategy(strategy);
 
@@ -183,20 +200,25 @@ public class StrategyValidatorTests
     [Test]
     public void ValidateSegmentSequence_ValidSequence_ReturnsValid()
     {
-        var sessionSegment = SegmentFactory.CreateSessionDuration();
-        sessionSegment.Order = 0;
+        var tickerSegment = SegmentFactory.CreateTicker();
+        tickerSegment.Order = 0;
+        tickerSegment.Parameters.First(p => p.Name == "symbol").Value = "AAPL";
 
         var breakoutSegment = SegmentFactory.CreateBreakout();
         breakoutSegment.Order = 1;
+        breakoutSegment.Parameters.First(p => p.Name == "level").Value = 150.0;
 
-        var tpSegment = SegmentFactory.CreateTakeProfit();
-        tpSegment.Order = 2;
+        var buySegment = SegmentFactory.CreateBuy();
+        buySegment.Order = 2;
+        buySegment.Parameters.First(p => p.Name == "quantity").Value = 1;
+        buySegment.Parameters.First(p => p.Name == "priceType").Value = Price.Current;
+        buySegment.Parameters.First(p => p.Name == "orderType").Value = OrderType.Limit;
 
         var segments = new List<StrategySegment>
         {
-            sessionSegment,
+            tickerSegment,
             breakoutSegment,
-            tpSegment
+            buySegment
         };
 
         var result = StrategyValidator.ValidateSegmentSequence(segments);
@@ -210,17 +232,23 @@ public class StrategyValidatorTests
 
     private static StrategyDefinition CreateValidStrategy()
     {
+        var ticker = SegmentFactory.CreateTicker();
+        ticker.Parameters.First(p => p.Name == "symbol").Value = "AAPL";
+
+        var breakout = SegmentFactory.CreateBreakout();
+        breakout.Parameters.First(p => p.Name == "level").Value = 150.0;
+
+        var buy = SegmentFactory.CreateBuy();
+        buy.Parameters.First(p => p.Name == "quantity").Value = 1;
+        buy.Parameters.First(p => p.Name == "priceType").Value = Price.Current;
+        buy.Parameters.First(p => p.Name == "orderType").Value = OrderType.Limit;
+
         return new StrategyDefinition
         {
             Name = "Test Strategy",
             Symbol = "AAPL",
             Enabled = true,
-            Segments =
-            [
-                SegmentFactory.CreateTicker(),
-                SegmentFactory.CreateBreakout(),
-                SegmentFactory.CreateBuy()
-            ]
+            Segments = [ticker, breakout, buy]
         };
     }
 

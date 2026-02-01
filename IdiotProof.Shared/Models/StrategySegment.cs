@@ -66,7 +66,18 @@ namespace IdiotProof.Shared.Models
         /// Whether this segment is valid (all required parameters filled).
         /// </summary>
         [JsonIgnore]
-        public bool IsValid => Parameters.Where(p => p.IsRequired).All(p => p.Value != null);
+        public bool IsValid => Parameters.Where(p => p.IsRequired).All(p => !IsMissingValue(p.Value));
+
+        private static bool IsMissingValue(object? value)
+        {
+            if (value == null)
+                return true;
+
+            if (value is string s)
+                return string.IsNullOrWhiteSpace(s);
+
+            return false;
+        }
 
         /// <summary>
         /// Gets the fluent API method call string for this segment.

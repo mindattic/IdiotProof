@@ -190,7 +190,7 @@ namespace IdiotProof.Shared.Validation
             // Validate each parameter based on segment type
             foreach (var param in segment.Parameters ?? [])
             {
-                if (param.IsRequired && param.Value == null)
+                if (param.IsRequired && IsMissingRequiredValue(param.Value))
                 {
                     errors.Add(new ValidationError(
                         ValidationCodes.MissingRequiredField,
@@ -204,6 +204,17 @@ namespace IdiotProof.Shared.Validation
             }
 
             return new ValidationResult { Errors = errors };
+        }
+
+        private static bool IsMissingRequiredValue(object? value)
+        {
+            if (value == null)
+                return true;
+
+            if (value is string s)
+                return string.IsNullOrWhiteSpace(s);
+
+            return false;
         }
 
         /// <summary>

@@ -68,6 +68,8 @@ namespace IdiotProof.Shared.Enums
         IsEmaAbove,
         IsEmaBelow,
         IsEmaBetween,
+        IsMomentum,
+        IsRoc,
 
         // Orders
         Buy,

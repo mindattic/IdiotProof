@@ -41,6 +41,10 @@
 // - MacdBearish or IsMacdBearish  - MACD bearish crossover
 // - DiPositive or IsDiPositive    - +DI above threshold
 // - DiNegative or IsDiNegative    - -DI above threshold
+// - MomentumAbove(0) or IsMomentumAbove(0) - Momentum above threshold (upward momentum)
+// - MomentumBelow(0) or IsMomentumBelow(0) - Momentum below threshold (downward momentum)
+// - RocAbove(2) or IsRocAbove(2)  - Rate of Change above threshold (positive momentum)
+// - RocBelow(-2) or IsRocBelow(-2)- Rate of Change below threshold (negative momentum)
 // - BREAKOUT() or BREAKOUT(150)   - Breakout condition
 // - PULLBACK() or PULLBACK(148)   - Pullback condition
 // - SESSION(IS.PREMARKET)         - Set trading session
@@ -55,7 +59,7 @@
 // - OrderType(LIMIT)              - Set order type
 //
 // EXAMPLE:
-// Ticker(NVDA).Session(IS.PREMARKET).ClosePosition(IS.PREMARKET.BELL).Qty(1).Entry(200).TakeProfit(201).StopLoss(190).TrailingStopLoss(10).Breakout().Pullback().AboveVwap.EmaBetween(9, 21).EmaAbove(200)
+// Ticker(NVDA).Session(IS.PREMARKET).ClosePosition(IS.PREMARKET.BELL).Qty(1).Entry(200).TakeProfit(201).StopLoss(190).TrailingStopLoss(10).Breakout().Pullback().AboveVwap.EmaBetween(9, 21).EmaAbove(200).MomentumAbove(0)
 //
 // ============================================================================
 
@@ -148,6 +152,19 @@ public static partial class IdiotScriptParser
 
     [GeneratedRegex(@"^(?:IS)?DINEGATIVE(?:\((\d+(?:\.\d+)?)\))?$", RegexOptions.IgnoreCase)]
     private static partial Regex DiNegativePattern();
+
+    // Momentum patterns
+    [GeneratedRegex(@"^(?:IS)?MOMENTUMABOVE\((-?\d+(?:\.\d+)?)\)$", RegexOptions.IgnoreCase)]
+    private static partial Regex MomentumAbovePattern();
+
+    [GeneratedRegex(@"^(?:IS)?MOMENTUMBELOW\((-?\d+(?:\.\d+)?)\)$", RegexOptions.IgnoreCase)]
+    private static partial Regex MomentumBelowPattern();
+
+    [GeneratedRegex(@"^(?:IS)?ROCABOVE\((-?\d+(?:\.\d+)?)\)$", RegexOptions.IgnoreCase)]
+    private static partial Regex RocAbovePattern();
+
+    [GeneratedRegex(@"^(?:IS)?ROCBELOW\((-?\d+(?:\.\d+)?)\)$", RegexOptions.IgnoreCase)]
+    private static partial Regex RocBelowPattern();
 
     [GeneratedRegex(@"^BREAKOUT(?:\((\$?[\d.]*)\))?$", RegexOptions.IgnoreCase)]
     private static partial Regex BreakoutPattern();
@@ -752,6 +769,38 @@ public static partial class IdiotScriptParser
                     threshold = t;
             }
             return new OrderedCondition(ConditionType.DiNegative, threshold ?? 25); // Default threshold is 25
+        }
+
+        // Momentum Above or IsMomentumAbove
+        var momentumAboveMatch = MomentumAbovePattern().Match(condition);
+        if (momentumAboveMatch.Success)
+        {
+            if (double.TryParse(momentumAboveMatch.Groups[1].Value, out var value))
+                return new OrderedCondition(ConditionType.MomentumAbove, value);
+        }
+
+        // Momentum Below or IsMomentumBelow
+        var momentumBelowMatch = MomentumBelowPattern().Match(condition);
+        if (momentumBelowMatch.Success)
+        {
+            if (double.TryParse(momentumBelowMatch.Groups[1].Value, out var value))
+                return new OrderedCondition(ConditionType.MomentumBelow, value);
+        }
+
+        // ROC Above or IsRocAbove
+        var rocAboveMatch = RocAbovePattern().Match(condition);
+        if (rocAboveMatch.Success)
+        {
+            if (double.TryParse(rocAboveMatch.Groups[1].Value, out var value))
+                return new OrderedCondition(ConditionType.RocAbove, value);
+        }
+
+        // ROC Below or IsRocBelow
+        var rocBelowMatch = RocBelowPattern().Match(condition);
+        if (rocBelowMatch.Success)
+        {
+            if (double.TryParse(rocBelowMatch.Groups[1].Value, out var value))
+                return new OrderedCondition(ConditionType.RocBelow, value);
         }
 
         return null;
@@ -1731,6 +1780,110 @@ public static partial class IdiotScriptParser
                     }
                 ]
             },
+            ConditionType.MomentumAbove when condition.Value.HasValue => new StrategySegment
+            {
+                Type = SegmentType.IsMomentum,
+                Category = SegmentCategory.IndicatorCondition,
+                DisplayName = "Momentum Above",
+                Order = order++,
+                Parameters =
+                [
+                    new SegmentParameter
+                    {
+                        Name = "Condition",
+                        Label = "Condition",
+                        Type = ParameterType.String,
+                        Value = "Above",
+                        IsRequired = true
+                    },
+                    new SegmentParameter
+                    {
+                        Name = "Threshold",
+                        Label = "Threshold",
+                        Type = ParameterType.Double,
+                        Value = condition.Value.Value,
+                        IsRequired = true
+                    }
+                ]
+            },
+            ConditionType.MomentumBelow when condition.Value.HasValue => new StrategySegment
+            {
+                Type = SegmentType.IsMomentum,
+                Category = SegmentCategory.IndicatorCondition,
+                DisplayName = "Momentum Below",
+                Order = order++,
+                Parameters =
+                [
+                    new SegmentParameter
+                    {
+                        Name = "Condition",
+                        Label = "Condition",
+                        Type = ParameterType.String,
+                        Value = "Below",
+                        IsRequired = true
+                    },
+                    new SegmentParameter
+                    {
+                        Name = "Threshold",
+                        Label = "Threshold",
+                        Type = ParameterType.Double,
+                        Value = condition.Value.Value,
+                        IsRequired = true
+                    }
+                ]
+            },
+            ConditionType.RocAbove when condition.Value.HasValue => new StrategySegment
+            {
+                Type = SegmentType.IsRoc,
+                Category = SegmentCategory.IndicatorCondition,
+                DisplayName = "ROC Above",
+                Order = order++,
+                Parameters =
+                [
+                    new SegmentParameter
+                    {
+                        Name = "Condition",
+                        Label = "Condition",
+                        Type = ParameterType.String,
+                        Value = "Above",
+                        IsRequired = true
+                    },
+                    new SegmentParameter
+                    {
+                        Name = "Threshold",
+                        Label = "Threshold",
+                        Type = ParameterType.Double,
+                        Value = condition.Value.Value,
+                        IsRequired = true
+                    }
+                ]
+            },
+            ConditionType.RocBelow when condition.Value.HasValue => new StrategySegment
+            {
+                Type = SegmentType.IsRoc,
+                Category = SegmentCategory.IndicatorCondition,
+                DisplayName = "ROC Below",
+                Order = order++,
+                Parameters =
+                [
+                    new SegmentParameter
+                    {
+                        Name = "Condition",
+                        Label = "Condition",
+                        Type = ParameterType.String,
+                        Value = "Below",
+                        IsRequired = true
+                    },
+                    new SegmentParameter
+                    {
+                        Name = "Threshold",
+                        Label = "Threshold",
+                        Type = ParameterType.Double,
+                        Value = condition.Value.Value,
+                        IsRequired = true
+                    }
+                ]
+            },
             _ => null
         };
     }
@@ -1756,7 +1909,11 @@ public static partial class IdiotScriptParser
         MacdBullish,
         MacdBearish,
         DiPositive,
-        DiNegative
+        DiNegative,
+        MomentumAbove,
+        MomentumBelow,
+        RocAbove,
+        RocBelow
     }
 
     private sealed class OrderedCondition(

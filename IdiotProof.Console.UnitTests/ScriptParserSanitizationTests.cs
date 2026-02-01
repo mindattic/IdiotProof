@@ -117,11 +117,11 @@ public class ScriptParserSanitizationTests
     }
 
     [Test]
-    public void Sanitize_WhitespaceInsideParens_NotHandled()
+    public void Sanitize_WhitespaceInsideParens_Handled()
     {
-        // Whitespace inside parentheses is NOT currently handled - this documents expected behavior
-        Assert.Throws<StrategyScriptException>(() => 
-            StrategyScriptParser.Parse("SYM( AAPL )"));
+        // Whitespace inside parentheses IS now handled by the sanitizer
+        var result = StrategyScriptParser.Parse("SYM( AAPL )");
+        Assert.That(result.Symbol, Is.EqualTo("AAPL"));
     }
 
     #endregion

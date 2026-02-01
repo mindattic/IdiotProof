@@ -147,4 +147,125 @@ public class ScriptParserIndicatorTests
     }
 
     #endregion
+
+    #region Momentum Tests
+
+    [TestCase("SYM(AAPL).MomentumAbove(0)", 0)]
+    [TestCase("SYM(AAPL).MomentumAbove(5)", 5)]
+    [TestCase("SYM(AAPL).MomentumAbove(10.5)", 10.5)]
+    [TestCase("SYM(AAPL).momentumabove(0)", 0)]
+    [TestCase("SYM(AAPL).MOMENTUMABOVE(5)", 5)]
+    [TestCase("SYM(AAPL).IsMomentumAbove(0)", 0)]
+    public void Parse_MomentumAbove_AllSyntax(string script, double expectedThreshold)
+    {
+        var result = StrategyScriptParser.Parse(script);
+        var momentumSegment = result.Segments.FirstOrDefault(s => s.Type == SegmentType.IsMomentum);
+        Assert.That(momentumSegment, Is.Not.Null);
+
+        var conditionParam = momentumSegment!.Parameters.FirstOrDefault(p => p.Name == "Condition");
+        var thresholdParam = momentumSegment.Parameters.FirstOrDefault(p => p.Name == "Threshold");
+
+        Assert.That(conditionParam, Is.Not.Null);
+        Assert.That(thresholdParam, Is.Not.Null);
+        Assert.That(conditionParam!.Value, Is.EqualTo("Above"));
+        Assert.That(Convert.ToDouble(thresholdParam!.Value), Is.EqualTo(expectedThreshold));
+    }
+
+    [TestCase("SYM(AAPL).MomentumBelow(0)", 0)]
+    [TestCase("SYM(AAPL).MomentumBelow(-5)", -5)]
+    [TestCase("SYM(AAPL).momentumbelow(0)", 0)]
+    [TestCase("SYM(AAPL).MOMENTUMBELOW(-5)", -5)]
+    [TestCase("SYM(AAPL).IsMomentumBelow(0)", 0)]
+    public void Parse_MomentumBelow_AllSyntax(string script, double expectedThreshold)
+    {
+        var result = StrategyScriptParser.Parse(script);
+        var momentumSegment = result.Segments.FirstOrDefault(s => s.Type == SegmentType.IsMomentum);
+        Assert.That(momentumSegment, Is.Not.Null);
+
+        var conditionParam = momentumSegment!.Parameters.FirstOrDefault(p => p.Name == "Condition");
+        var thresholdParam = momentumSegment.Parameters.FirstOrDefault(p => p.Name == "Threshold");
+
+        Assert.That(conditionParam, Is.Not.Null);
+        Assert.That(thresholdParam, Is.Not.Null);
+        Assert.That(conditionParam!.Value, Is.EqualTo("Below"));
+        Assert.That(Convert.ToDouble(thresholdParam!.Value), Is.EqualTo(expectedThreshold));
+    }
+
+    #endregion
+
+    #region Rate of Change (ROC) Tests
+
+    [TestCase("SYM(AAPL).RocAbove(2)", 2)]
+    [TestCase("SYM(AAPL).RocAbove(5.5)", 5.5)]
+    [TestCase("SYM(AAPL).rocabove(2)", 2)]
+    [TestCase("SYM(AAPL).ROCABOVE(3)", 3)]
+    [TestCase("SYM(AAPL).IsRocAbove(2)", 2)]
+    public void Parse_RocAbove_AllSyntax(string script, double expectedThreshold)
+    {
+        var result = StrategyScriptParser.Parse(script);
+        var rocSegment = result.Segments.FirstOrDefault(s => s.Type == SegmentType.IsRoc);
+        Assert.That(rocSegment, Is.Not.Null);
+
+        var conditionParam = rocSegment!.Parameters.FirstOrDefault(p => p.Name == "Condition");
+        var thresholdParam = rocSegment.Parameters.FirstOrDefault(p => p.Name == "Threshold");
+
+        Assert.That(conditionParam, Is.Not.Null);
+        Assert.That(thresholdParam, Is.Not.Null);
+        Assert.That(conditionParam!.Value, Is.EqualTo("Above"));
+        Assert.That(Convert.ToDouble(thresholdParam!.Value), Is.EqualTo(expectedThreshold));
+    }
+
+    [TestCase("SYM(AAPL).RocBelow(-2)", -2)]
+    [TestCase("SYM(AAPL).RocBelow(-5.5)", -5.5)]
+    [TestCase("SYM(AAPL).rocbelow(-2)", -2)]
+    [TestCase("SYM(AAPL).ROCBELOW(-3)", -3)]
+    [TestCase("SYM(AAPL).IsRocBelow(-2)", -2)]
+    public void Parse_RocBelow_AllSyntax(string script, double expectedThreshold)
+    {
+        var result = StrategyScriptParser.Parse(script);
+        var rocSegment = result.Segments.FirstOrDefault(s => s.Type == SegmentType.IsRoc);
+        Assert.That(rocSegment, Is.Not.Null);
+
+        var conditionParam = rocSegment!.Parameters.FirstOrDefault(p => p.Name == "Condition");
+        var thresholdParam = rocSegment.Parameters.FirstOrDefault(p => p.Name == "Threshold");
+
+        Assert.That(conditionParam, Is.Not.Null);
+        Assert.That(thresholdParam, Is.Not.Null);
+        Assert.That(conditionParam!.Value, Is.EqualTo("Below"));
+        Assert.That(Convert.ToDouble(thresholdParam!.Value), Is.EqualTo(expectedThreshold));
+    }
+
+    #endregion
+
+    #region Momentum Combined with Other Indicators
+
+    [Test]
+    public void Parse_MomentumWithVwapAndEma_Combined()
+    {
+        var result = StrategyScriptParser.Parse("SYM(AAPL).AboveVwap.EmaAbove(9).MomentumAbove(0).RocAbove(2)");
+
+        var vwapSegment = result.Segments.FirstOrDefault(s => s.Type == SegmentType.IsAboveVwap);
+        var emaSegment = result.Segments.FirstOrDefault(s => s.Type == SegmentType.IsEmaAbove);
+        var momentumSegment = result.Segments.FirstOrDefault(s => s.Type == SegmentType.IsMomentum);
+        var rocSegment = result.Segments.FirstOrDefault(s => s.Type == SegmentType.IsRoc);
+
+        Assert.That(vwapSegment, Is.Not.Null);
+        Assert.That(emaSegment, Is.Not.Null);
+        Assert.That(momentumSegment, Is.Not.Null);
+        Assert.That(rocSegment, Is.Not.Null);
+    }
+
+    [Test]
+    public void Parse_FullStrategyWithMomentum()
+    {
+        var script = "Ticker(PLTR).Session(IS.PREMARKET).Qty(10).Entry(25).TakeProfit(28).TrailingStopLoss(IS.MODERATE).AboveVwap.EmaAbove(9).MomentumAbove(0)";
+        var result = StrategyScriptParser.Parse(script);
+
+        Assert.That(result.Symbol, Is.EqualTo("PLTR"));
+        Assert.That(result.Segments.Any(s => s.Type == SegmentType.IsAboveVwap), Is.True);
+        Assert.That(result.Segments.Any(s => s.Type == SegmentType.IsEmaAbove), Is.True);
+        Assert.That(result.Segments.Any(s => s.Type == SegmentType.IsMomentum), Is.True);
+    }
+
+    #endregion
 }
