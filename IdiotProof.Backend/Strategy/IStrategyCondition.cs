@@ -2,7 +2,7 @@
 // Strategy Condition Interface
 // ============================================================================
 
-namespace IdiotProof.Backend.Models
+namespace IdiotProof.Backend.Strategy
 {
     /// <summary>
     /// Represents a condition that must be met before proceeding to the next step.

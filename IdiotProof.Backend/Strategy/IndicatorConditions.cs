@@ -26,7 +26,7 @@
 using System;
 using IdiotProof.Backend.Enums;
 
-namespace IdiotProof.Backend.Models
+namespace IdiotProof.Backend.Strategy
 {
     /// <summary>
     /// Condition: RSI is in the specified state (Overbought or Oversold).

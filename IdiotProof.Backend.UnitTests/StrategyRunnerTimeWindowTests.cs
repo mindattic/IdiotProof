@@ -5,6 +5,7 @@
 using IdiotProof.Backend.Enums;
 using IdiotProof.Backend.Helpers;
 using IdiotProof.Backend.Models;
+using IdiotProof.Backend.Strategy;
 using NUnit.Framework;
 
 namespace IdiotProof.Backend.UnitTests;

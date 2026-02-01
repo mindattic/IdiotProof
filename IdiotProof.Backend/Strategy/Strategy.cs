@@ -22,8 +22,9 @@ using System;
 using System.Collections.Generic;
 using System.Text;
 using IdiotProof.Backend.Enums;
+using IdiotProof.Backend.Models;
 
-namespace IdiotProof.Backend.Models
+namespace IdiotProof.Backend.Strategy
 {
     /// <summary>
     /// Represents a complete trading strategy with symbol, conditions, and order action.

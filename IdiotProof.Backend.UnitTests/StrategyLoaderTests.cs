@@ -3,6 +3,7 @@
 // ============================================================================
 
 using IdiotProof.Backend.Models;
+using IdiotProof.Backend.Strategy;
 using IdiotProof.Shared.Models;
 using NUnit.Framework;
 

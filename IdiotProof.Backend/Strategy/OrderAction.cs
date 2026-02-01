@@ -33,8 +33,9 @@
 
 using System;
 using IdiotProof.Backend.Enums;
+using IdiotProof.Backend.Models;
 
-namespace IdiotProof.Backend.Models
+namespace IdiotProof.Backend.Strategy
 {
     /// <remarks>
     /// <para><b>Best Practices:</b></para>

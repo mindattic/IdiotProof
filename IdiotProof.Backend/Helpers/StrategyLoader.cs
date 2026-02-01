@@ -25,6 +25,7 @@
 // ============================================================================
 
 using IdiotProof.Backend.Enums;
+using IdiotProof.Backend.Strategy;
 using System.Text.Json;
 
 namespace IdiotProof.Backend.Models

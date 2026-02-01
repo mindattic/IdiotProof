@@ -8,6 +8,7 @@ using IdiotProof.Backend.Helpers;
 using IdiotProof.Backend.Ipc;
 using IdiotProof.Backend.Logging;
 using IdiotProof.Backend.Models;
+using IdiotProof.Backend.Strategy;
 using IdiotProof.Shared.Models;
 using IdiotProof.Shared.Services;
 using IdiotProof.Shared.Validation;

@@ -26,6 +26,7 @@ using IBApi;
 using IdiotProof.Backend;
 using IdiotProof.Backend.Enums;
 using IdiotProof.Backend.Helpers;
+using IdiotProof.Backend.Strategy;
 using System;
 using System.Threading;
 using IbContract = IBApi.Contract;

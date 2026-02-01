@@ -14,6 +14,7 @@
 // ============================================================================
 
 using IdiotProof.Backend.Enums;
+using IdiotProof.Backend.Strategy;
 
 namespace IdiotProof.Backend.Models
 {

@@ -1,4 +1,5 @@
 ﻿using IdiotProof.Backend.Models;
+using IdiotProof.Backend.Strategy;
 using System;
 using System.Collections.Generic;
 

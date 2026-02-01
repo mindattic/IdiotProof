@@ -122,8 +122,9 @@
 using System;
 using System.Collections.Generic;
 using IdiotProof.Backend.Enums;
+using IdiotProof.Backend.Models;
 
-namespace IdiotProof.Backend.Models
+namespace IdiotProof.Backend.Strategy
 {
     /// <summary>
     /// Fluent builder for creating multi-step trading strategies.

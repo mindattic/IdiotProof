@@ -3,11 +3,13 @@
 // ============================================================================
 
 using System;
+using static IdiotProof.Backend.Strategy.PriceConditionValidation;
 
-namespace IdiotProof.Backend.Models
+namespace IdiotProof.Backend.Strategy
 {
     /// <summary>
     /// Condition: Price >= specified level (breakout above resistance).
+    /// Semantically identical to <see cref="PriceAtOrAboveCondition"/> but named for resistance breakout context.
     /// </summary>
     public sealed class BreakoutCondition : IStrategyCondition
     {
@@ -16,6 +18,7 @@ namespace IdiotProof.Backend.Models
 
         public BreakoutCondition(double level)
         {
+            ThrowIfInvalidPrice(level, nameof(level));
             Level = level;
         }
 
@@ -35,6 +38,7 @@ namespace IdiotProof.Backend.Models
 
         public PullbackCondition(double level)
         {
+            ThrowIfInvalidPrice(level, nameof(level));
             Level = level;
         }
 
@@ -54,6 +58,7 @@ namespace IdiotProof.Backend.Models
 
         public AboveVwapCondition(double buffer = 0)
         {
+            ThrowIfInvalidPrice(buffer, nameof(buffer));
             Buffer = buffer;
         }
 
@@ -73,6 +78,7 @@ namespace IdiotProof.Backend.Models
 
         public BelowVwapCondition(double buffer = 0)
         {
+            ThrowIfInvalidPrice(buffer, nameof(buffer));
             Buffer = buffer;
         }
 
@@ -92,6 +98,7 @@ namespace IdiotProof.Backend.Models
 
         public PriceAtOrAboveCondition(double level)
         {
+            ThrowIfInvalidPrice(level, nameof(level));
             Level = level;
         }
 
@@ -111,6 +118,7 @@ namespace IdiotProof.Backend.Models
 
         public PriceBelowCondition(double level)
         {
+            ThrowIfInvalidPrice(level, nameof(level));
             Level = level;
         }
 
@@ -137,6 +145,18 @@ namespace IdiotProof.Backend.Models
         public bool Evaluate(double currentPrice, double vwap)
         {
             return _evaluator(currentPrice, vwap);
+        }
+    }
+
+    /// <summary>
+    /// Shared validation helper for price condition parameters.
+    /// </summary>
+    internal static class PriceConditionValidation
+    {
+        public static void ThrowIfInvalidPrice(double value, string paramName)
+        {
+            if (double.IsNaN(value) || double.IsInfinity(value))
+                throw new ArgumentException("Value must be a finite number.", paramName);
         }
     }
 }
