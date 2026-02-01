@@ -137,11 +137,36 @@ public static partial class IdiotScriptParser
     [GeneratedRegex(@"^(?:IS)?ADXABOVE\((\d+)\)$", RegexOptions.IgnoreCase)]
     private static partial Regex AdxPattern();
 
+    [GeneratedRegex(@"^(?:IS)?MACDBULLISH$", RegexOptions.IgnoreCase)]
+    private static partial Regex MacdBullishPattern();
+
+    [GeneratedRegex(@"^(?:IS)?MACDBEARISH$", RegexOptions.IgnoreCase)]
+    private static partial Regex MacdBearishPattern();
+
+    [GeneratedRegex(@"^(?:IS)?DIPOSITIVE(?:\((\d+(?:\.\d+)?)\))?$", RegexOptions.IgnoreCase)]
+    private static partial Regex DiPositivePattern();
+
+    [GeneratedRegex(@"^(?:IS)?DINEGATIVE(?:\((\d+(?:\.\d+)?)\))?$", RegexOptions.IgnoreCase)]
+    private static partial Regex DiNegativePattern();
+
     [GeneratedRegex(@"^BREAKOUT(?:\((\$?[\d.]*)\))?$", RegexOptions.IgnoreCase)]
     private static partial Regex BreakoutPattern();
 
     [GeneratedRegex(@"^PULLBACK(?:\((\$?[\d.]*)\))?$", RegexOptions.IgnoreCase)]
     private static partial Regex PullbackPattern();
+
+    // Order config patterns
+    [GeneratedRegex(@"^TIMEINFORCE\(([A-Za-z]+)\)$", RegexOptions.IgnoreCase)]
+    private static partial Regex TimeInForcePattern();
+
+    [GeneratedRegex(@"^OUTSIDERTH\(([A-Za-z0-9_.]+)\)$", RegexOptions.IgnoreCase)]
+    private static partial Regex OutsideRthPattern();
+
+    [GeneratedRegex(@"^ALLORNONE\(([A-Za-z0-9_.]+)\)$", RegexOptions.IgnoreCase)]
+    private static partial Regex AllOrNonePattern();
+
+    [GeneratedRegex(@"^ORDERTYPE\(([A-Za-z]+)\)$", RegexOptions.IgnoreCase)]
+    private static partial Regex OrderTypePattern();
 
     // Sanitization patterns
     [GeneratedRegex(@":\s*\(")]
@@ -547,6 +572,10 @@ public static partial class IdiotScriptParser
         // Order direction
         if (TryParseDirection(upperCommand, context)) return;
 
+        // Close long/short
+        if (TryParseCloseLong(upperCommand, context)) return;
+        if (TryParseCloseShort(upperCommand, context)) return;
+
         // Name
         if (TryParseName(command, context)) return;
 
@@ -555,6 +584,12 @@ public static partial class IdiotScriptParser
 
         // Enabled
         if (TryParseEnabled(command, context)) return;
+
+        // Order config
+        if (TryParseTimeInForce(command, context)) return;
+        if (TryParseOutsideRth(command, context)) return;
+        if (TryParseAllOrNone(command, context)) return;
+        if (TryParseOrderType(command, context)) return;
 
         // Condition keywords (add to ordered conditions)
         if (TryParseCondition(command, upperCommand, context)) return;
@@ -683,6 +718,40 @@ public static partial class IdiotScriptParser
             var priceStr = priceBelowMatch.Groups[1].Value.Replace("$", "");
             if (double.TryParse(priceStr, out var price))
                 return new OrderedCondition(ConditionType.PriceBelow, price);
+        }
+
+        // MACD Bullish or IsMacdBullish
+        if (MacdBullishPattern().IsMatch(condition))
+            return new OrderedCondition(ConditionType.MacdBullish);
+
+        // MACD Bearish or IsMacdBearish
+        if (MacdBearishPattern().IsMatch(condition))
+            return new OrderedCondition(ConditionType.MacdBearish);
+
+        // DI Positive or IsDiPositive (optional threshold)
+        var diPositiveMatch = DiPositivePattern().Match(condition);
+        if (diPositiveMatch.Success)
+        {
+            double? threshold = null;
+            if (diPositiveMatch.Groups[1].Success && !string.IsNullOrEmpty(diPositiveMatch.Groups[1].Value))
+            {
+                if (double.TryParse(diPositiveMatch.Groups[1].Value, out var t))
+                    threshold = t;
+            }
+            return new OrderedCondition(ConditionType.DiPositive, threshold ?? 25); // Default threshold is 25
+        }
+
+        // DI Negative or IsDiNegative (optional threshold)
+        var diNegativeMatch = DiNegativePattern().Match(condition);
+        if (diNegativeMatch.Success)
+        {
+            double? threshold = null;
+            if (diNegativeMatch.Groups[1].Success && !string.IsNullOrEmpty(diNegativeMatch.Groups[1].Value))
+            {
+                if (double.TryParse(diNegativeMatch.Groups[1].Value, out var t))
+                    threshold = t;
+            }
+            return new OrderedCondition(ConditionType.DiNegative, threshold ?? 25); // Default threshold is 25
         }
 
         return null;
@@ -923,6 +992,110 @@ public static partial class IdiotScriptParser
         throw new IdiotScriptException($"Invalid boolean value: {value}. Valid values: Y, YES, TRUE, N, NO, FALSE, IS.TRUE, IS.FALSE");
     }
 
+    private static bool TryParseCloseLong(string upper, ParseContext context)
+    {
+        if (upper == "CLOSELONG")
+        {
+            context.CloseOrderType = CloseOrderType.CloseLong;
+            return true;
+        }
+        return false;
+    }
+
+    private static bool TryParseCloseShort(string upper, ParseContext context)
+    {
+        if (upper == "CLOSESHORT")
+        {
+            context.CloseOrderType = CloseOrderType.CloseShort;
+            return true;
+        }
+        return false;
+    }
+
+    private static bool TryParseTimeInForce(string command, ParseContext context)
+    {
+        var match = TimeInForcePattern().Match(command);
+        if (!match.Success) return false;
+
+        var value = match.Groups[1].Value;
+
+        // Try direct enum parse
+        if (Enum.TryParse<TimeInForce>(value, ignoreCase: true, out var tif))
+        {
+            context.TimeInForce = tif;
+            return true;
+        }
+
+        // Common aliases
+        context.TimeInForce = value.ToUpperInvariant() switch
+        {
+            "DAY" => TimeInForce.Day,
+            "GTC" => TimeInForce.GoodTillCancel,
+            "IOC" => TimeInForce.ImmediateOrCancel,
+            "FOK" => TimeInForce.FillOrKill,
+            _ => throw new IdiotScriptException($"Unknown time in force: {value}. Valid values: DAY, GTC, IOC, FOK")
+        };
+
+        return true;
+    }
+
+    private static bool TryParseOutsideRth(string command, ParseContext context)
+    {
+        var match = OutsideRthPattern().Match(command);
+        if (!match.Success) return false;
+
+        var value = match.Groups[1].Value;
+        var resolved = IdiotScriptConstants.ResolveBoolean(value);
+        if (resolved.HasValue)
+        {
+            context.OutsideRth = resolved.Value;
+            return true;
+        }
+
+        throw new IdiotScriptException($"Invalid boolean value for OutsideRTH: {value}");
+    }
+
+    private static bool TryParseAllOrNone(string command, ParseContext context)
+    {
+        var match = AllOrNonePattern().Match(command);
+        if (!match.Success) return false;
+
+        var value = match.Groups[1].Value;
+        var resolved = IdiotScriptConstants.ResolveBoolean(value);
+        if (resolved.HasValue)
+        {
+            context.AllOrNone = resolved.Value;
+            return true;
+        }
+
+        throw new IdiotScriptException($"Invalid boolean value for AllOrNone: {value}");
+    }
+
+    private static bool TryParseOrderType(string command, ParseContext context)
+    {
+        var match = OrderTypePattern().Match(command);
+        if (!match.Success) return false;
+
+        var value = match.Groups[1].Value;
+
+        // Try direct enum parse
+        if (Enum.TryParse<OrderType>(value, ignoreCase: true, out var orderType))
+        {
+            context.OrderType = orderType;
+            return true;
+        }
+
+        // Common aliases
+        context.OrderType = value.ToUpperInvariant() switch
+        {
+            "MKT" => OrderType.Market,
+            "LMT" => OrderType.Limit,
+            _ => throw new IdiotScriptException($"Unknown order type: {value}. Valid values: MARKET, LIMIT, MKT, LMT")
+        };
+
+        return true;
+    }
+
     // ========================================================================
     // STRATEGY BUILDING
     // ========================================================================
@@ -1009,7 +1182,21 @@ public static partial class IdiotScriptParser
             });
         }
 
-        // Add order segment
+        // Add order segment (Buy, Sell, CloseLong, or CloseShort)
+        var orderSegmentType = context.CloseOrderType switch
+        {
+            CloseOrderType.CloseLong => SegmentType.CloseLong,
+            CloseOrderType.CloseShort => SegmentType.CloseShort,
+            _ => context.IsBuy ? SegmentType.Buy : SegmentType.Sell
+        };
+
+        var orderDisplayName = context.CloseOrderType switch
+        {
+            CloseOrderType.CloseLong => "Close Long",
+            CloseOrderType.CloseShort => "Close Short",
+            _ => context.IsBuy ? "Buy" : "Sell"
+        };
+
         var orderParams = new List<SegmentParameter>
         {
             new()
@@ -1045,9 +1232,9 @@ public static partial class IdiotScriptParser
 
         strategy.Segments.Add(new StrategySegment
         {
-            Type = context.IsBuy ? SegmentType.Buy : SegmentType.Sell,
+            Type = orderSegmentType,
             Category = SegmentCategory.Order,
-            DisplayName = context.IsBuy ? "Buy" : "Sell",
+            DisplayName = orderDisplayName,
             Order = segmentOrder++,
             Parameters = orderParams
         });
@@ -1140,6 +1327,85 @@ public static partial class IdiotScriptParser
                         IsRequired = false
                     }
                 ]
+            });
+        }
+
+        // Add order config segments
+        if (context.TimeInForce.HasValue)
+        {
+            strategy.Segments.Add(new StrategySegment
+            {
+                Type = SegmentType.TimeInForce,
+                Category = SegmentCategory.OrderConfig,
+                DisplayName = "Time In Force",
+                Order = segmentOrder++,
+                Parameters = [new SegmentParameter
+                {
+                    Name = "Value",
+                    Label = "Time In Force",
+                    Type = ParameterType.Enum,
+                    EnumTypeName = nameof(TimeInForce),
+                    Value = context.TimeInForce.Value.ToString(),
+                    IsRequired = true
+                }]
+            });
+        }
+
+        if (context.OutsideRth.HasValue)
+        {
+            strategy.Segments.Add(new StrategySegment
+            {
+                Type = SegmentType.OutsideRTH,
+                Category = SegmentCategory.OrderConfig,
+                DisplayName = "Outside RTH",
+                Order = segmentOrder++,
+                Parameters = [new SegmentParameter
+                {
+                    Name = "Value",
+                    Label = "Allow Outside RTH",
+                    Type = ParameterType.Boolean,
+                    Value = context.OutsideRth.Value,
+                    IsRequired = true
+                }]
+            });
+        }
+
+        if (context.AllOrNone.HasValue)
+        {
+            strategy.Segments.Add(new StrategySegment
+            {
+                Type = SegmentType.AllOrNone,
+                Category = SegmentCategory.OrderConfig,
+                DisplayName = "All Or None",
+                Order = segmentOrder++,
+                Parameters = [new SegmentParameter
+                {
+                    Name = "Value",
+                    Label = "All Or None",
+                    Type = ParameterType.Boolean,
+                    Value = context.AllOrNone.Value,
+                    IsRequired = true
+                }]
+            });
+        }
+
+        if (context.OrderType.HasValue)
+        {
+            strategy.Segments.Add(new StrategySegment
+            {
+                Type = SegmentType.OrderType,
+                Category = SegmentCategory.OrderConfig,
+                DisplayName = "Order Type",
+                Order = segmentOrder++,
+                Parameters = [new SegmentParameter
+                {
+                    Name = "Value",
+                    Label = "Order Type",
+                    Type = ParameterType.Enum,
+                    EnumTypeName = nameof(OrderType),
+                    Value = context.OrderType.Value.ToString(),
+                    IsRequired = true
+                }]
             });
         }
 
@@ -1379,6 +1645,92 @@ public static partial class IdiotScriptParser
                     }
                 ]
             },
+            ConditionType.MacdBullish => new StrategySegment
+            {
+                Type = SegmentType.IsMacd,
+                Category = SegmentCategory.IndicatorCondition,
+                DisplayName = "MACD Bullish",
+                Order = order++,
+                Parameters = [new SegmentParameter
+                {
+                    Name = "State",
+                    Label = "State",
+                    Type = ParameterType.Enum,
+                    EnumTypeName = nameof(MacdState),
+                    Value = MacdState.Bullish.ToString(),
+                    IsRequired = true
+                }]
+            },
+            ConditionType.MacdBearish => new StrategySegment
+            {
+                Type = SegmentType.IsMacd,
+                Category = SegmentCategory.IndicatorCondition,
+                DisplayName = "MACD Bearish",
+                Order = order++,
+                Parameters = [new SegmentParameter
+                {
+                    Name = "State",
+                    Label = "State",
+                    Type = ParameterType.Enum,
+                    EnumTypeName = nameof(MacdState),
+                    Value = MacdState.Bearish.ToString(),
+                    IsRequired = true
+                }]
+            },
+            ConditionType.DiPositive when condition.Value.HasValue => new StrategySegment
+            {
+                Type = SegmentType.IsDI,
+                Category = SegmentCategory.IndicatorCondition,
+                DisplayName = "+DI Positive",
+                Order = order++,
+                Parameters =
+                [
+                    new SegmentParameter
+                    {
+                        Name = "Direction",
+                        Label = "Direction",
+                        Type = ParameterType.Enum,
+                        EnumTypeName = nameof(DiDirection),
+                        Value = DiDirection.Positive.ToString(),
+                        IsRequired = true
+                    },
+                    new SegmentParameter
+                    {
+                        Name = "Threshold",
+                        Label = "Threshold",
+                        Type = ParameterType.Double,
+                        Value = condition.Value.Value,
+                        IsRequired = true
+                    }
+                ]
+            },
+            ConditionType.DiNegative when condition.Value.HasValue => new StrategySegment
+            {
+                Type = SegmentType.IsDI,
+                Category = SegmentCategory.IndicatorCondition,
+                DisplayName = "-DI Negative",
+                Order = order++,
+                Parameters =
+                [
+                    new SegmentParameter
+                    {
+                        Name = "Direction",
+                        Label = "Direction",
+                        Type = ParameterType.Enum,
+                        EnumTypeName = nameof(DiDirection),
+                        Value = DiDirection.Negative.ToString(),
+                        IsRequired = true
+                    },
+                    new SegmentParameter
+                    {
+                        Name = "Threshold",
+                        Label = "Threshold",
+                        Type = ParameterType.Double,
+                        Value = condition.Value.Value,
+                        IsRequired = true
+                    }
+                ]
+            },
             _ => null
         };
     }
@@ -1400,7 +1752,11 @@ public static partial class IdiotScriptParser
         EmaBetween,
         RsiOversold,
         RsiOverbought,
-        AdxAbove
+        AdxAbove,
+        MacdBullish,
+        MacdBearish,
+        DiPositive,
+        DiNegative
     }
 
     private sealed class OrderedCondition(
@@ -1413,6 +1769,13 @@ public static partial class IdiotScriptParser
         public double? Value { get; } = value;
         public int? Period { get; } = period;
         public int? Period2 { get; } = period2;
+    }
+
+    private enum CloseOrderType
+    {
+        None,
+        CloseLong,
+        CloseShort
     }
 
     private sealed class ParseContext
@@ -1431,6 +1794,11 @@ public static partial class IdiotScriptParser
         public TimeOnly? ClosePositionTime { get; set; }
         public bool CloseOnlyIfProfitable { get; set; } = true;
         public bool IsBuy { get; set; } = true;
+        public CloseOrderType CloseOrderType { get; set; } = CloseOrderType.None;
+        public TimeInForce? TimeInForce { get; set; }
+        public bool? OutsideRth { get; set; }
+        public bool? AllOrNone { get; set; }
+        public OrderType? OrderType { get; set; }
     }
 }
 
