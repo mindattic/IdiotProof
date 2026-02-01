@@ -245,13 +245,13 @@ public static class IdiotScriptSerializer
     private static string? BuildBreakout(StrategySegment segment)
     {
         var level = GetParameterValue<double>(segment, "Level", 0);
-        return level > 0 ? $"Breakout({FormatPrice(level)})" : null;
+        return level > 0 ? $"Breakout({FormatPrice(level)})" : "Breakout";
     }
 
     private static string? BuildPullback(StrategySegment segment)
     {
         var level = GetParameterValue<double>(segment, "Level", 0);
-        return level > 0 ? $"Pullback({FormatPrice(level)})" : null;
+        return level > 0 ? $"Pullback({FormatPrice(level)})" : "Pullback";
     }
 
     private static string? BuildPriceAbove(StrategySegment segment)

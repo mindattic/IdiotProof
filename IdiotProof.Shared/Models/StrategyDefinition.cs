@@ -171,50 +171,50 @@ namespace IdiotProof.Shared.Models
             }
 
             // Get TrailingStopLoss segment
-                var trailingStopSegment = Segments.FirstOrDefault(s => s.Type == Enums.SegmentType.TrailingStopLoss);
-                if (trailingStopSegment != null)
-                {
-                    var percentParam = trailingStopSegment.Parameters.FirstOrDefault(p => 
-                        p.Name.Equals("Percent", StringComparison.OrdinalIgnoreCase) ||
-                        p.Name.Equals("Percentage", StringComparison.OrdinalIgnoreCase));
+            var trailingStopSegment = Segments.FirstOrDefault(s => s.Type == Enums.SegmentType.TrailingStopLoss);
+            if (trailingStopSegment != null)
+            {
+                var percentParam = trailingStopSegment.Parameters.FirstOrDefault(p => 
+                    p.Name.Equals("Percent", StringComparison.OrdinalIgnoreCase) ||
+                    p.Name.Equals("Percentage", StringComparison.OrdinalIgnoreCase));
 
-                    if (percentParam?.Value != null)
-                        stats.TrailingStopLossPercent = Convert.ToDouble(percentParam.Value);
-                }
+                if (percentParam?.Value != null)
+                    stats.TrailingStopLossPercent = Convert.ToDouble(percentParam.Value);
+            }
 
-                // Get hard StopLoss segment
-                var stopLossSegment = Segments.FirstOrDefault(s => s.Type == Enums.SegmentType.StopLoss);
-                if (stopLossSegment != null)
-                {
-                    var levelParam = stopLossSegment.Parameters.FirstOrDefault(p =>
-                        p.Name.Equals("Level", StringComparison.OrdinalIgnoreCase) ||
-                        p.Name.Equals("Price", StringComparison.OrdinalIgnoreCase));
+            // Get hard StopLoss segment
+            var stopLossSegment = Segments.FirstOrDefault(s => s.Type == Enums.SegmentType.StopLoss);
+            if (stopLossSegment != null)
+            {
+                var levelParam = stopLossSegment.Parameters.FirstOrDefault(p =>
+                    p.Name.Equals("Level", StringComparison.OrdinalIgnoreCase) ||
+                    p.Name.Equals("Price", StringComparison.OrdinalIgnoreCase));
 
-                    if (levelParam?.Value != null)
-                        stats.StopLoss = Convert.ToDouble(levelParam.Value);
-                }
+                if (levelParam?.Value != null)
+                    stats.StopLoss = Convert.ToDouble(levelParam.Value);
+            }
 
-                // Calculate derived values
-                stats.BuyIn = stats.Quantity * stats.Price;
+            // Calculate derived values
+            stats.BuyIn = stats.Quantity * stats.Price;
 
-                // Calculate potential loss - use hard stop loss if set, otherwise use trailing stop loss
-                if (stats.Price > 0 && stats.StopLoss > 0)
-                {
-                    // Hard stop loss takes precedence as it's a fixed price level
-                    stats.PotentialLoss = stats.Quantity * (stats.Price - stats.StopLoss);
-                }
-                else if (stats.Price > 0 && stats.TrailingStopLossPercent > 0)
-                {
-                    var stopPrice = stats.Price * (1 - stats.TrailingStopLossPercent);
-                    stats.PotentialLoss = stats.Quantity * (stats.Price - stopPrice);
-                }
+            // Calculate potential loss - use hard stop loss if set, otherwise use trailing stop loss
+            if (stats.Price > 0 && stats.StopLoss > 0)
+            {
+                // Hard stop loss takes precedence as it's a fixed price level
+                stats.PotentialLoss = stats.Quantity * (stats.Price - stats.StopLoss);
+            }
+            else if (stats.Price > 0 && stats.TrailingStopLossPercent > 0)
+            {
+                var stopPrice = stats.Price * (1 - stats.TrailingStopLossPercent);
+                stats.PotentialLoss = stats.Quantity * (stats.Price - stopPrice);
+            }
 
-                if (stats.Price > 0 && stats.TakeProfit > 0)
-                {
-                    stats.PotentialGain = stats.Quantity * (stats.TakeProfit - stats.Price);
-                }
+            if (stats.Price > 0 && stats.TakeProfit > 0)
+            {
+                stats.PotentialGain = stats.Quantity * (stats.TakeProfit - stats.Price);
+            }
 
-                return stats;
+            return stats;
         }
     }
 

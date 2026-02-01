@@ -217,7 +217,9 @@ public class StrategyValidatorTests
             Enabled = true,
             Segments =
             [
-                SegmentFactory.CreateBreakout()
+                SegmentFactory.CreateTicker(),
+                SegmentFactory.CreateBreakout(),
+                SegmentFactory.CreateBuy()
             ]
         };
     }

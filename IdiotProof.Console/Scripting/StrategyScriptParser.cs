@@ -18,6 +18,8 @@
 // - Ticker(AAPL) or Sym(AAPL) or Symbol(AAPL) - Set the stock symbol (required)
 // - Qty(100)                       - Set quantity to buy/sell
 // - Entry(148.75) or Price(148.75) - Entry price condition
+// - IsPriceAbove(150)              - Price above level condition
+// - IsPriceBelow(140)              - Price below level condition
 // - TakeProfit(158) or TP($158)    - Take profit target
 // - StopLoss(145) or SL($145)      - Stop loss price
 // - TrailingStopLoss(15) or TSL(IS.MODERATE) - Trailing stop loss percentage
@@ -29,10 +31,20 @@
 // - RsiOversold(30)                - RSI oversold condition
 // - RsiOverbought(70)              - RSI overbought condition
 // - AdxAbove(25)                   - ADX above threshold
+// - MacdBullish or IsMacdBullish   - MACD bullish crossover
+// - MacdBearish or IsMacdBearish   - MACD bearish crossover
+// - DiPositive or IsDiPositive     - +DI above threshold
+// - DiNegative or IsDiNegative     - -DI above threshold
 // - Session(IS.PREMARKET)          - Set trading session
 // - ClosePosition(IS.BELL)         - Close position time
 // - Buy or Sell                    - Order direction (default: Buy)
+// - CloseLong                      - Close a long position
+// - CloseShort                     - Close a short position  
 // - Name("My Strategy")            - Strategy name
+// - TimeInForce(DAY)               - Order time-in-force
+// - OutsideRTH(true)               - Allow extended hours execution
+// - AllOrNone(true)                - Require full fill or cancel
+// - OrderType(LIMIT)               - Set order type
 //
 // EXAMPLE:
 // Ticker(NVDA).Session(IS.PREMARKET).ClosePosition(IS.PREMARKET.BELL).Qty(1).Entry(200).TakeProfit(201).StopLoss(190).TrailingStopLoss(10).Breakout().Pullback().AboveVwap.EmaBetween(9, 21).EmaAbove(200)

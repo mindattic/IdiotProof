@@ -407,12 +407,6 @@ public static class ConsoleUI
             System.Console.WriteLine("    ESC             - Go back / Exit submenu");
             System.Console.WriteLine();
 
-            System.Console.ForegroundColor = ConsoleColor.DarkGray;
-            System.Console.WriteLine("  Script Syntax Example:");
-            System.Console.ForegroundColor = ConsoleColor.Yellow;
-            System.Console.WriteLine("    SYM(PLTR); QTY(10); TP($158); TSL(15%); CLOSE(9:29, Y); BREAKOUT(148) > PULLBACK(145) > ABOVE_VWAP > EMA_BETWEEN(9, 21)");
-            System.Console.ResetColor();
-            System.Console.WriteLine();
         }
     }
 

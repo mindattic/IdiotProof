@@ -15,6 +15,31 @@
 // - Truthy: Y, YES, yes, true, TRUE, 1, IS.TRUE
 // - Falsy: N, NO, no, false, FALSE, 0, IS.FALSE
 //
+// SESSION CONSTANTS:
+// - IS.PREMARKET: Pre-market session (4:00 AM - 9:30 AM ET)
+// - IS.RTH: Regular Trading Hours (9:30 AM - 4:00 PM ET)
+// - IS.AFTERHOURS: After-hours session (4:00 PM - 8:00 PM ET)
+// - IS.EXTENDED: Extended hours (4:00 AM - 8:00 PM ET)
+// - IS.ACTIVE: Always active, no time restrictions
+// - IS.PREMARKET_END_EARLY: Pre-market ending early (4:00 AM - 9:20 AM ET)
+// - IS.PREMARKET_START_LATE: Pre-market starting late (4:10 AM - 9:30 AM ET)
+//
+// TIME CONSTANTS:
+// - IS.BELL: Right before market open (9:20 AM ET)
+// - IS.PREMARKET.BELL: Same as IS.BELL
+// - IS.OPEN: Market open (9:30 AM ET)
+// - IS.CLOSE: Market close (4:00 PM ET)
+// - IS.EOD: End of day (same as IS.CLOSE)
+// - IS.PM_START: Pre-market start (4:00 AM ET)
+// - IS.AH_END: After-hours end (8:00 PM ET)
+//
+// TRAILING STOP LOSS CONSTANTS:
+// - IS.TIGHT: 5% trailing stop
+// - IS.MODERATE: 10% trailing stop
+// - IS.STANDARD: 15% trailing stop
+// - IS.LOOSE: 20% trailing stop
+// - IS.WIDE: 25% trailing stop
+//
 // USAGE EXAMPLES:
 //   SESSION(IS.PREMARKET)           // Trading session constant
 //   CLOSE(IS.BELL)                  // Time constant (9:20 AM ET)

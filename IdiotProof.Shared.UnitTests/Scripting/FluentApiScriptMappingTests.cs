@@ -54,7 +54,8 @@ public class FluentApiScriptMappingTests
         var validCategories = new HashSet<string>
         {
             "Start", "Identity", "Session", "Order", "PriceCondition",
-            "VwapCondition", "IndicatorCondition", "RiskManagement", "PositionManagement"
+            "VwapCondition", "IndicatorCondition", "RiskManagement", "PositionManagement",
+            "OrderConfig"
         };
 
         foreach (var mapping in FluentApiScriptMapping.AllMappings)

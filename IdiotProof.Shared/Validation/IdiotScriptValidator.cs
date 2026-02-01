@@ -83,7 +83,7 @@ public static partial class IdiotScriptValidator
 
         // Session/Time commands
         "SESSION", "TIMEFRAME", "START", "END",
-        "CLOSEPOSITION", "CLOSE",
+        "CLOSEPOSITION", "CLOSE", "CLOSELONG", "CLOSESHORT",
 
         // Quantity/Entry commands
         "QTY", "QUANTITY", "ENTRY", "PRICE",
@@ -95,16 +95,38 @@ public static partial class IdiotScriptValidator
         // Order Direction
         "BUY", "SELL",
 
-        // Condition commands
+        // Price Condition commands
         "BREAKOUT", "PULLBACK",
+        "ISPRICEABOVE", "ISPRICEBELOW", "PRICEBELOW",
+
+        // VWAP Condition commands
         "ABOVEVWAP", "BELOWVWAP", "VWAP",
         "ISABOVEVWAP", "ISBELOWVWAP",
+
+        // EMA Condition commands
         "EMAABOVE", "EMABELOW", "EMABETWEEN",
         "ISEMAABOVE", "ISEMABELOW", "ISEMABETWEEN",
+
+        // RSI Condition commands
         "RSIOVERSOLD", "RSIOVERBOUGHT",
         "ISRSIOVERSOLD", "ISRSIOVERBOUGHT",
+
+        // ADX Condition commands
         "ADXABOVE", "ISADXABOVE",
-        "ISPRICEABOVE", "ISPRICEBELOW",
+
+        // MACD Condition commands
+        "MACDBULLISH", "MACDBEARISH",
+        "ISMACDBULLISH", "ISMACDBEARISH",
+
+        // DI (Directional Index) Condition commands
+        "DIPOSITIVE", "DINEGATIVE",
+        "ISDIPOSITIVE", "ISDINEGATIVE",
+
+        // Order Configuration commands
+        "TIMEINFORCE", "TIF",
+        "OUTSIDERTH", "EXTENDEDHOURS",
+        "ALLORNONE", "AON",
+        "ORDERTYPE",
 
         // Boolean keywords
         "TRUE", "FALSE", "YES", "NO", "Y", "N"

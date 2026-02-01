@@ -13,8 +13,9 @@
 //
 // COMMAND CATEGORIES:
 // 1. ORDER PART - Defines what to buy/sell (QTY, BUY/SELL, TP, SL, TSL, ENTRY)
-// 2. STEPS PART - Defines entry conditions (BREAKOUT, PULLBACK, VWAP, EMA, RSI, ADX)
+// 2. STEPS PART - Defines entry conditions (BREAKOUT, PULLBACK, VWAP, EMA, RSI, ADX, MACD, DI)
 // 3. SESSION PART - Defines timing (SESSION, CLOSEPOSITION)
+// 4. ORDER CONFIG - Order settings (TIMEINFORCE, OUTSIDERTH, ALLORNONE, ORDERTYPE)
 //
 // AVAILABLE COMMANDS:
 // - TICKER(AAPL) or SYM(AAPL) or SYMBOL(AAPL) - Set the stock symbol (required)
@@ -23,6 +24,8 @@
 // - DESC("Description")           - Strategy description
 // - QTY(100)                      - Set quantity to buy/sell
 // - ENTRY(148.75) or PRICE(148.75)- Entry price condition
+// - IsPriceAbove(150)             - Price above level condition
+// - IsPriceBelow(140)             - Price below level condition
 // - TP(158) or TakeProfit($158)   - Take profit target
 // - SL(145) or StopLoss($145)     - Stop loss price
 // - TSL(15) or TrailingStopLoss(IS.MODERATE) - Trailing stop loss percentage
@@ -34,12 +37,22 @@
 // - RsiOversold(30) or IsRsiOversold(30) - RSI oversold condition
 // - RsiOverbought(70) or IsRsiOverbought(70) - RSI overbought condition
 // - AdxAbove(25) or IsAdxAbove(25)- ADX above threshold
+// - MacdBullish or IsMacdBullish  - MACD bullish crossover
+// - MacdBearish or IsMacdBearish  - MACD bearish crossover
+// - DiPositive or IsDiPositive    - +DI above threshold
+// - DiNegative or IsDiNegative    - -DI above threshold
 // - BREAKOUT() or BREAKOUT(150)   - Breakout condition
 // - PULLBACK() or PULLBACK(148)   - Pullback condition
 // - SESSION(IS.PREMARKET)         - Set trading session
 // - ClosePosition(IS.BELL)        - Close position time
 // - BUY or SELL                   - Order direction (default: BUY)
+// - CloseLong                     - Close a long position
+// - CloseShort                    - Close a short position
 // - ENABLED(true/false)           - Enable/disable strategy
+// - TimeInForce(DAY)              - Order time-in-force
+// - OutsideRTH(true)              - Allow extended hours execution
+// - AllOrNone(true)               - Require full fill or cancel
+// - OrderType(LIMIT)              - Set order type
 //
 // EXAMPLE:
 // Ticker(NVDA).Session(IS.PREMARKET).ClosePosition(IS.PREMARKET.BELL).Qty(1).Entry(200).TakeProfit(201).StopLoss(190).TrailingStopLoss(10).Breakout().Pullback().AboveVwap.EmaBetween(9, 21).EmaAbove(200)
@@ -72,11 +85,14 @@ public static partial class IdiotScriptParser
     [GeneratedRegex(@"^STRATEGY$", RegexOptions.IgnoreCase)]
     private static partial Regex StrategyPrefixPattern();
 
-    [GeneratedRegex(@"^QTY\((\d+)\)$", RegexOptions.IgnoreCase)]
+    [GeneratedRegex(@"^(?:QTY|QUANTITY)\((\d+)\)$", RegexOptions.IgnoreCase)]
     private static partial Regex QuantityPattern();
 
-    [GeneratedRegex(@"^(?:ENTRY|PRICE)\((\$?[\d.]+)\)$", RegexOptions.IgnoreCase)]
+    [GeneratedRegex(@"^(?:ENTRY|PRICE|ISPRICEABOVE)\((\$?[\d.]+)\)$", RegexOptions.IgnoreCase)]
     private static partial Regex EntryPattern();
+
+    [GeneratedRegex(@"^(?:ISPRICEBELOW|PRICEBELOW)\((\$?[\d.]+)\)$", RegexOptions.IgnoreCase)]
+    private static partial Regex PriceBelowPattern();
 
     [GeneratedRegex(@"^(?:TP|TAKEPROFIT)\((\$?[\d.]+)\)$", RegexOptions.IgnoreCase)]
     private static partial Regex TakeProfitPattern();
@@ -148,6 +164,13 @@ public static partial class IdiotScriptParser
 
     [GeneratedRegex(@"%+")]
     private static partial Regex DoublePercentPattern();
+
+    // Whitespace inside parentheses patterns
+    [GeneratedRegex(@"\(\s+")]
+    private static partial Regex WhitespaceAfterOpenParenPattern();
+
+    [GeneratedRegex(@"\s+\)")]
+    private static partial Regex WhitespaceBeforeCloseParenPattern();
 
     // ========================================================================
     // PUBLIC API
@@ -355,6 +378,10 @@ public static partial class IdiotScriptParser
         script = DoubleCommaPattern().Replace(script, ",");
         script = DoubleDollarPattern().Replace(script, "$");
         script = DoublePercentPattern().Replace(script, "%");
+
+        // Remove whitespace inside parentheses (e.g., TICKER( AAPL ) -> TICKER(AAPL))
+        script = WhitespaceAfterOpenParenPattern().Replace(script, "(");
+        script = WhitespaceBeforeCloseParenPattern().Replace(script, ")");
 
         // Remove extra whitespace
         script = ExtraWhitespacePattern().Replace(script, " ");
@@ -640,13 +667,22 @@ public static partial class IdiotScriptParser
                 return new OrderedCondition(ConditionType.AdxAbove, value);
         }
 
-        // Entry/Price condition
+        // Entry/Price/IsPriceAbove condition
         var entryMatch = EntryPattern().Match(condition);
         if (entryMatch.Success)
         {
             var priceStr = entryMatch.Groups[1].Value.Replace("$", "");
             if (double.TryParse(priceStr, out var price))
                 return new OrderedCondition(ConditionType.PriceAbove, price);
+        }
+
+        // IsPriceBelow/PriceBelow condition
+        var priceBelowMatch = PriceBelowPattern().Match(condition);
+        if (priceBelowMatch.Success)
+        {
+            var priceStr = priceBelowMatch.Groups[1].Value.Replace("$", "");
+            if (double.TryParse(priceStr, out var price))
+                return new OrderedCondition(ConditionType.PriceBelow, price);
         }
 
         return null;
