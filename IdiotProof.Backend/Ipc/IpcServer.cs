@@ -192,6 +192,11 @@ namespace IdiotProof.Backend.Ipc
                 {
                     break;
                 }
+                catch (Exception ex)
+                {
+                    // Log but don't crash the ping loop
+                    Console.WriteLine($"[IPC] Ping error: {ex.Message}");
+                }
             }
         }
 
@@ -513,8 +518,9 @@ namespace IdiotProof.Backend.Ipc
             {
                 _id = id;
                 _pipe = pipe;
-                _reader = new StreamReader(pipe, Encoding.UTF8, leaveOpen: true);
-                _writer = new StreamWriter(pipe, Encoding.UTF8, leaveOpen: true) { AutoFlush = true };
+                var utf8NoBom = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false);
+                _reader = new StreamReader(pipe, utf8NoBom, detectEncodingFromByteOrderMarks: false, bufferSize: 4096, leaveOpen: true);
+                _writer = new StreamWriter(pipe, utf8NoBom, bufferSize: 4096, leaveOpen: true) { AutoFlush = true };
                 _messageHandler = messageHandler;
                 _onDisconnect = onDisconnect;
             }
@@ -531,6 +537,8 @@ namespace IdiotProof.Backend.Ipc
                     try
                     {
                         _writer.WriteLine(json);
+                        _writer.Flush();
+                        _pipe.Flush();
                     }
                     catch
                     {
