@@ -206,6 +206,70 @@ public class IdiotScriptSerializerTests
 
     #endregion
 
+    #region Repeat Serialization
+
+    [Test]
+    public void Serialize_RepeatEnabled_IncludesRepeat()
+    {
+        var strategy = CreateMinimalStrategy("ABC");
+        strategy.RepeatEnabled = true;
+
+        var result = IdiotScriptSerializer.Serialize(strategy);
+
+        Assert.That(result, Does.Contain("Repeat()"));
+    }
+
+    [Test]
+    public void Serialize_RepeatDisabled_DoesNotIncludeRepeat()
+    {
+        var strategy = CreateMinimalStrategy("ABC");
+        strategy.RepeatEnabled = false;
+
+        var result = IdiotScriptSerializer.Serialize(strategy);
+
+        Assert.That(result, Does.Not.Contain("Repeat"));
+    }
+
+    [Test]
+    public void RoundTrip_WithRepeat_PreservesRepeatEnabled()
+    {
+        var original = "Ticker(ABC).ENTRY(5.00).TP(6.00).ABOVEVWAP.Repeat()";
+        var strategy = IdiotScriptParser.Parse(original);
+        var serialized = IdiotScriptSerializer.Serialize(strategy);
+        var reparsed = IdiotScriptParser.Parse(serialized);
+
+        Assert.That(reparsed.RepeatEnabled, Is.True);
+        Assert.That(reparsed.Segments, Has.Some.Matches<StrategySegment>(s => s.Type == SegmentType.Repeat));
+    }
+
+    [Test]
+    public void RoundTrip_WithoutRepeat_RepeatEnabledIsFalse()
+    {
+        var original = "Ticker(ABC).ENTRY(5.00).TP(6.00).ABOVEVWAP";
+        var strategy = IdiotScriptParser.Parse(original);
+        var serialized = IdiotScriptSerializer.Serialize(strategy);
+        var reparsed = IdiotScriptParser.Parse(serialized);
+
+        Assert.That(reparsed.RepeatEnabled, Is.False);
+    }
+
+    [Test]
+    public void Serialize_RepeatAtEnd_FollowsOtherCommands()
+    {
+        var strategy = CreateMinimalStrategy("ABC");
+        strategy.RepeatEnabled = true;
+        strategy.Segments.Add(SegmentFactory.CreateTakeProfit());
+
+        var result = IdiotScriptSerializer.Serialize(strategy);
+
+        // Repeat should come after TakeProfit
+        var tpIndex = result.IndexOf("TakeProfit");
+        var repeatIndex = result.IndexOf("Repeat");
+        Assert.That(repeatIndex, Is.GreaterThan(tpIndex), "Repeat should appear after TakeProfit");
+    }
+
+    #endregion
+
     #region Helper Methods
 
     private static StrategyDefinition CreateMinimalStrategy(string symbol)

@@ -439,6 +439,57 @@ namespace IdiotProof.Backend.Models
         }
 
         /// <summary>
+        /// Resets the strategy state for repeating after a trade completes.
+        /// Called when RepeatEnabled is true after take profit, stop loss, or trailing stop fills.
+        /// </summary>
+        private void ResetForRepeat()
+        {
+            Log($"*** REPEAT ENABLED - Resetting strategy to wait for conditions again ***", ConsoleColor.Magenta);
+
+            // Reset condition tracking
+            _currentConditionIndex = 0;
+            _isComplete = false;
+
+            // Reset order tracking
+            _entryOrderId = -1;
+            _entryFilled = false;
+            _entryFillPrice = 0;
+
+            // Reset take profit tracking
+            _takeProfitOrderId = -1;
+            _takeProfitFilled = false;
+            _takeProfitCancelled = false;
+            _takeProfitTarget = 0;
+
+            // Reset stop loss tracking
+            _stopLossOrderId = -1;
+            _stopLossFilled = false;
+
+            // Reset exit tracking
+            _exitedWithProfit = false;
+            _exitFillPrice = 0;
+
+            // Reset trailing stop loss tracking
+            _trailingStopLossOrderId = -1;
+            _trailingStopLossTriggered = false;
+            _trailingStopLossPrice = 0;
+            _highWaterMark = 0;
+
+            // Reset close position tracking
+            _closePositionTriggered = false;
+            _closePositionOrderId = -1;
+
+            // Reset result
+            _result = StrategyResult.Running;
+
+            // DON'T reset VWAP - we want continuous tracking within the session
+            // DON'T reset session high/low - these continue throughout the day
+            // DON'T reset logging flags - we're still in the same time window
+
+            Log($"Waiting for conditions to be met again...", ConsoleColor.DarkGray);
+        }
+
+        /// <summary>
         /// Validates that the current price is not already above the take profit target.
         /// This prevents buying when we've "missed the boat" - the price has already run up
         /// past where we would have taken profits.
@@ -1238,6 +1289,29 @@ namespace IdiotProof.Backend.Models
 
             Console.ResetColor();
             Console.WriteLine($"[{timestamp}] +===============================================================+");
+
+            // Check if strategy should repeat after completion
+            if (_strategy.RepeatEnabled && ShouldRepeat())
+            {
+                ResetForRepeat();
+            }
+        }
+
+        /// <summary>
+        /// Determines if the strategy should reset and repeat after the current trade completes.
+        /// </summary>
+        private bool ShouldRepeat()
+        {
+            // Only repeat after successful exits (TP, SL, TSL, or ExitedWithProfit)
+            // Don't repeat if we never bought, missed the boat, or entry was cancelled
+            return _result switch
+            {
+                StrategyResult.TakeProfitFilled => true,
+                StrategyResult.StopLossFilled => true,
+                StrategyResult.TrailingStopLossFilled => true,
+                StrategyResult.ExitedWithProfit => true,
+                _ => false
+            };
         }
     }
 }

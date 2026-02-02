@@ -49,18 +49,24 @@
 // - PULLBACK() or PULLBACK(148)   - Pullback condition
 // - SESSION(IS.PREMARKET)         - Set trading session
 // - ClosePosition(IS.BELL)        - Close position time
-// - LongPosition or BUY           - Open a long position (default)
-// - ShortPosition or SELL         - Open a short position
+// - LongPosition or IsLongPosition or BUY - Open a long position (default)
+// - ShortPosition or IsShortPosition or SELL - Open a short position
 // - CloseLong                     - Close a long position
 // - CloseShort                    - Close a short position
-// - ENABLED(true/false)           - Enable/disable strategy
+// - Enabled or IsEnabled or Enabled(Y) or IsEnabled(IS.True) - Enable strategy (default: true)
+// - Enabled(N) or IsEnabled(IS.False) - Disable strategy
 // - TimeInForce(DAY)              - Order time-in-force
 // - OutsideRTH(true)              - Allow extended hours execution
 // - AllOrNone(true)               - Require full fill or cancel
 // - OrderType(LIMIT)              - Set order type
+// - Repeat or IsRepeat or Repeat(Y) or IsRepeat(IS.True) - Strategy repeats after completion
+// - Repeat(N) or IsRepeat(IS.False) - Strategy fires once (default)
 //
 // EXAMPLE:
 // Ticker(NVDA).Session(IS.PREMARKET).ClosePosition(IS.PREMARKET.BELL).Qty(1).Entry(200).TakeProfit(201).StopLoss(190).TrailingStopLoss(10).Breakout().Pullback().AboveVwap.EmaBetween(9, 21).EmaAbove(200).MomentumAbove(0)
+//
+// REPEATING STRATEGY EXAMPLE:
+// Ticker(ABC).Entry(5.00).TakeProfit(6.00).IsAboveVwap().IsDiPositive().IsRepeat()
 //
 // ============================================================================
 
@@ -120,7 +126,8 @@ public static partial class IdiotScriptParser
     [GeneratedRegex(@"^DESC\([""'](.+)[""']\)$", RegexOptions.IgnoreCase)]
     private static partial Regex DescriptionPattern();
 
-    [GeneratedRegex(@"^ENABLED\(([A-Za-z0-9_.]+)\)$", RegexOptions.IgnoreCase)]
+    // Enabled patterns - supports: Enabled, IsEnabled, Enabled(), IsEnabled(), Enabled(Y), IsEnabled(IS.True), etc.
+    [GeneratedRegex(@"^(?:IS)?ENABLED(?:\(([A-Za-z0-9_.]*)\))?$", RegexOptions.IgnoreCase)]
     private static partial Regex EnabledPattern();
 
     // Condition patterns - Updated for new PascalCase syntax (no underscores)
@@ -185,6 +192,10 @@ public static partial class IdiotScriptParser
 
     [GeneratedRegex(@"^ORDERTYPE\(([A-Za-z]+)\)$", RegexOptions.IgnoreCase)]
     private static partial Regex OrderTypePattern();
+
+    // Execution behavior patterns - supports: Repeat, IsRepeat, Repeat(), IsRepeat(), Repeat(Y), IsRepeat(IS.True), etc.
+    [GeneratedRegex(@"^(?:IS)?REPEAT(?:\(([A-Za-z0-9_.]*)\))?$", RegexOptions.IgnoreCase)]
+    private static partial Regex RepeatPattern();
 
     // Sanitization patterns
     [GeneratedRegex(@":\s*\(")]
@@ -499,13 +510,13 @@ public static partial class IdiotScriptParser
 
     /// <summary>
     /// Converts a word to PascalCase, removing underscores.
-    /// Handles special command name mappings for legacy compatibility.
+    /// 
     /// </summary>
     private static string ToPascalCase(string word)
     {
         if (string.IsNullOrEmpty(word)) return word;
 
-        // Legacy command name mappings (old format -> new PascalCase format)
+        // Command name mappings
         var upperWord = word.ToUpperInvariant();
         var mapped = upperWord switch
         {
@@ -518,7 +529,7 @@ public static partial class IdiotScriptParser
             "RSI_OVERSOLD" => "RsiOversold",
             "RSI_OVERBOUGHT" => "RsiOverbought",
             "ADX_ABOVE" => "AdxAbove",
-            // OPEN -> Entry mapping (legacy support)
+            // OPEN -> Entry mapping
             "OPEN" => "Entry",
             // CLOSE -> ClosePosition mapping
             "CLOSE" => "ClosePosition",
@@ -608,6 +619,9 @@ public static partial class IdiotScriptParser
         if (TryParseOutsideRth(command, context)) return;
         if (TryParseAllOrNone(command, context)) return;
         if (TryParseOrderType(command, context)) return;
+
+        // Execution behavior
+        if (TryParseRepeat(command, context)) return;
 
         // Condition keywords (add to ordered conditions)
         if (TryParseCondition(command, upperCommand, context)) return;
@@ -995,14 +1009,14 @@ public static partial class IdiotScriptParser
 
     private static bool TryParseDirection(string upper, ParseContext context)
     {
-        // LongPosition (or legacy BUY)
-        if (upper is "LONGPOSITION" or "BUY" or "IS.BUY")
+        // LongPosition, IsLongPosition, or BUY
+        if (upper is "LONGPOSITION" or "ISLONGPOSITION" or "BUY" or "IS.BUY")
         {
             context.IsBuy = true;
             return true;
         }
-        // ShortPosition (or legacy SELL)
-        if (upper is "SHORTPOSITION" or "SELL" or "IS.SELL")
+        // ShortPosition, IsShortPosition, or SELL
+        if (upper is "SHORTPOSITION" or "ISSHORTPOSITION" or "SELL" or "IS.SELL")
         {
             context.IsBuy = false;
             return true;
@@ -1034,6 +1048,13 @@ public static partial class IdiotScriptParser
         if (!match.Success) return false;
 
         var value = match.Groups[1].Value;
+
+        // If no value provided (e.g., "Enabled", "IsEnabled", "Enabled()", "IsEnabled()"), default to true
+        if (string.IsNullOrEmpty(value))
+        {
+            context.Enabled = true;
+            return true;
+        }
 
         // Use the centralized boolean resolver
         var resolved = IdiotScriptConstants.ResolveBoolean(value);
@@ -1150,6 +1171,31 @@ public static partial class IdiotScriptParser
         return true;
     }
 
+    private static bool TryParseRepeat(string command, ParseContext context)
+    {
+        var match = RepeatPattern().Match(command);
+        if (!match.Success) return false;
+
+        var value = match.Groups[1].Value;
+
+        // If no value provided (e.g., "Repeat", "IsRepeat", "Repeat()", "IsRepeat()"), default to true
+        if (string.IsNullOrEmpty(value))
+        {
+            context.RepeatEnabled = true;
+            return true;
+        }
+
+        // Use the centralized boolean resolver
+        var resolved = IdiotScriptConstants.ResolveBoolean(value);
+        if (resolved.HasValue)
+        {
+            context.RepeatEnabled = resolved.Value;
+            return true;
+        }
+
+        throw new IdiotScriptException($"Invalid boolean value for Repeat: {value}. Valid values: Y, YES, TRUE, N, NO, FALSE, IS.TRUE, IS.FALSE");
+    }
+
     // ========================================================================
     // STRATEGY BUILDING
     // ========================================================================
@@ -1165,6 +1211,7 @@ public static partial class IdiotScriptParser
             Symbol = context.Symbol,
             Description = context.Description,
             Enabled = context.Enabled,
+            RepeatEnabled = context.RepeatEnabled,
             Segments = []
         };
 
@@ -1460,6 +1507,19 @@ public static partial class IdiotScriptParser
                 IsRequired = true
             }]
         });
+
+        // Add repeat segment if enabled
+        if (context.RepeatEnabled)
+        {
+            strategy.Segments.Add(new StrategySegment
+            {
+                Type = SegmentType.Repeat,
+                Category = SegmentCategory.Execution,
+                DisplayName = "Repeat",
+                Order = segmentOrder++,
+                Parameters = []
+            });
+        }
 
         return strategy;
     }
@@ -1959,6 +2019,7 @@ public static partial class IdiotScriptParser
         public bool? OutsideRth { get; set; }
         public bool? AllOrNone { get; set; }
         public OrderType OrderType { get; set; } = Enums.OrderType.Limit; // Default to LIMIT for safe premarket/after-hours execution
+        public bool RepeatEnabled { get; set; } = false;
     }
 }
 

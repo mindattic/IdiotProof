@@ -357,6 +357,23 @@ public class IdiotScriptParserTests
         Assert.That(result.Enabled, Is.EqualTo(expected));
     }
 
+    [TestCase("TICKER(AAPL).Enabled", true)]
+    [TestCase("TICKER(AAPL).IsEnabled", true)]
+    [TestCase("TICKER(AAPL).ENABLED()", true)]
+    [TestCase("TICKER(AAPL).ISENABLED()", true)]
+    [TestCase("TICKER(AAPL).IsEnabled(Y)", true)]
+    [TestCase("TICKER(AAPL).IsEnabled(YES)", true)]
+    [TestCase("TICKER(AAPL).IsEnabled(IS.True)", true)]
+    [TestCase("TICKER(AAPL).IsEnabled(N)", false)]
+    [TestCase("TICKER(AAPL).IsEnabled(NO)", false)]
+    [TestCase("TICKER(AAPL).IsEnabled(IS.False)", false)]
+    public void Parse_EnabledVariations_SetsEnabled(string script, bool expected)
+    {
+        var result = IdiotScriptParser.Parse(script);
+
+        Assert.That(result.Enabled, Is.EqualTo(expected));
+    }
+
     #endregion
 
     #region Name and Description
@@ -490,6 +507,85 @@ public class IdiotScriptParserTests
             IdiotScriptParser.Parse("TICKER(AAPL).UNKNOWN_COMMAND(123)"));
 
         Assert.That(ex!.Message, Does.Contain("Unknown").IgnoreCase);
+    }
+
+    #endregion
+
+    #region Repeat Parsing
+
+    [Test]
+    public void Parse_Repeat_SetsRepeatEnabled()
+    {
+        var script = "TICKER(ABC).ENTRY(5.00).TP(6.00).ABOVEVWAP.Repeat()";
+
+        var result = IdiotScriptParser.Parse(script);
+
+        Assert.That(result.RepeatEnabled, Is.True);
+        Assert.That(result.Segments, Has.Some.Matches<IdiotProof.Shared.Models.StrategySegment>(s => s.Type == SegmentType.Repeat));
+    }
+
+    [Test]
+    public void Parse_RepeatWithoutParentheses_SetsRepeatEnabled()
+    {
+        var script = "TICKER(ABC).ENTRY(5.00).TP(6.00).ABOVEVWAP.Repeat";
+
+        var result = IdiotScriptParser.Parse(script);
+
+        Assert.That(result.RepeatEnabled, Is.True);
+    }
+
+    [Test]
+    public void Parse_RepeatCaseInsensitive_SetsRepeatEnabled()
+    {
+        var script = "TICKER(ABC).ENTRY(5.00).TP(6.00).REPEAT()";
+
+        var result = IdiotScriptParser.Parse(script);
+
+        Assert.That(result.RepeatEnabled, Is.True);
+    }
+
+    [Test]
+    public void Parse_NoRepeat_RepeatEnabledIsFalse()
+    {
+        var script = "TICKER(ABC).ENTRY(5.00).TP(6.00).ABOVEVWAP";
+
+        var result = IdiotScriptParser.Parse(script);
+
+        Assert.That(result.RepeatEnabled, Is.False);
+        Assert.That(result.Segments, Has.None.Matches<IdiotProof.Shared.Models.StrategySegment>(s => s.Type == SegmentType.Repeat));
+    }
+
+    [Test]
+    public void Parse_RepeatInFullStrategy_ParsesCorrectly()
+    {
+        var script = "TICKER(ABC).SESSION(IS.PREMARKET).ENTRY(5.00).TP(6.00).IsAboveVwap.DiPositive.Repeat()";
+
+        var result = IdiotScriptParser.Parse(script);
+
+        Assert.That(result.Symbol, Is.EqualTo("ABC"));
+        Assert.That(result.RepeatEnabled, Is.True);
+        Assert.That(result.Segments, Has.Some.Matches<IdiotProof.Shared.Models.StrategySegment>(s => s.Type == SegmentType.IsAboveVwap));
+        Assert.That(result.Segments, Has.Some.Matches<IdiotProof.Shared.Models.StrategySegment>(s => s.Type == SegmentType.IsDI));
+        Assert.That(result.Segments, Has.Some.Matches<IdiotProof.Shared.Models.StrategySegment>(s => s.Type == SegmentType.Repeat));
+    }
+
+    [TestCase("TICKER(ABC).Repeat", true)]
+    [TestCase("TICKER(ABC).IsRepeat", true)]
+    [TestCase("TICKER(ABC).REPEAT()", true)]
+    [TestCase("TICKER(ABC).ISREPEAT()", true)]
+    [TestCase("TICKER(ABC).IsRepeat(Y)", true)]
+    [TestCase("TICKER(ABC).IsRepeat(YES)", true)]
+    [TestCase("TICKER(ABC).IsRepeat(IS.True)", true)]
+    [TestCase("TICKER(ABC).Repeat(true)", true)]
+    [TestCase("TICKER(ABC).IsRepeat(N)", false)]
+    [TestCase("TICKER(ABC).IsRepeat(NO)", false)]
+    [TestCase("TICKER(ABC).IsRepeat(IS.False)", false)]
+    [TestCase("TICKER(ABC).Repeat(false)", false)]
+    public void Parse_RepeatVariations_SetsRepeatEnabled(string script, bool expected)
+    {
+        var result = IdiotScriptParser.Parse(script);
+
+        Assert.That(result.RepeatEnabled, Is.EqualTo(expected));
     }
 
     #endregion

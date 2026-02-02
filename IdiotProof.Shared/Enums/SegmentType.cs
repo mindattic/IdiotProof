@@ -34,7 +34,10 @@ namespace IdiotProof.Shared.Enums
         PositionManagement,
 
         /// <summary>Order configuration (TimeInForce, OutsideRTH, AllOrNone)</summary>
-        OrderConfig
+        OrderConfig,
+
+        /// <summary>Execution behavior (Repeat)</summary>
+        Execution
     }
 
     /// <summary>
@@ -92,6 +95,9 @@ namespace IdiotProof.Shared.Enums
         TimeInForce,
         OutsideRTH,
         AllOrNone,
-        OrderType
+        OrderType,
+
+        // Execution Behavior
+        Repeat
     }
 }

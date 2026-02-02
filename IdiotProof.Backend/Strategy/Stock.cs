@@ -163,6 +163,7 @@ namespace IdiotProof.Backend.Strategy
         private TimeOnly? _endTime;
         private TradingSession? _session;
         private string? _notes;
+        private bool _repeatEnabled = false;
 
         /// <summary>
         /// Private constructor - use <see cref="Ticker"/> to create instances.
@@ -284,6 +285,38 @@ namespace IdiotProof.Backend.Strategy
         public Stock Enabled(bool enabled, string? notes = null)
         {
             _enabled = enabled;
+            return this;
+        }
+
+        /// <summary>
+        /// Enables repeating for this strategy.
+        /// When enabled, the strategy resets after completion and can fire again when conditions are met.
+        /// </summary>
+        /// <param name="repeat">True to repeat (default), false to fire once.</param>
+        /// <returns>The builder for method chaining.</returns>
+        /// <remarks>
+        /// <para><b>Behavior:</b></para>
+        /// <list type="bullet">
+        ///   <item>When true: After take profit or stop loss fills, the strategy resets and waits for conditions again.</item>
+        ///   <item>When false (default): The strategy fires once and stops.</item>
+        /// </list>
+        /// 
+        /// <para><b>Example - Repeating scalp strategy:</b></para>
+        /// <code>
+        /// Stock.Ticker("ABC")
+        ///     .TimeFrame(TradingSession.RTH)
+        ///     .IsPriceAbove(5.00)
+        ///     .IsAboveVwap()
+        ///     .Buy(100, Price.Current)
+        ///     .TakeProfit(6.00)
+        ///     .StopLoss(4.50)
+        ///     .Repeat()  // Will buy again at $5, sell at $6, repeat
+        ///     .Build();
+        /// </code>
+        /// </remarks>
+        public Stock Repeat(bool repeat = true)
+        {
+            _repeatEnabled = repeat;
             return this;
         }
 
@@ -856,7 +889,8 @@ namespace IdiotProof.Backend.Strategy
                 StartTime = _startTime,
                 EndTime = _endTime,
                 Session = _session,
-                Notes = _notes
+                Notes = _notes,
+                RepeatEnabled = _repeatEnabled
             };
         }
 
@@ -871,6 +905,7 @@ namespace IdiotProof.Backend.Strategy
         internal TimeOnly? EndTimeValue { get => _endTime; set => _endTime = value; }
         internal TradingSession? SessionValue => _session;
         internal string? NotesValue => _notes;
+        internal bool RepeatEnabledValue { get => _repeatEnabled; set => _repeatEnabled = value; }
     }
 
     /// <summary>
@@ -1163,6 +1198,38 @@ namespace IdiotProof.Backend.Strategy
         public StrategyBuilder AllOrNone(bool allOrNone = true)
         {
             _allOrNone = allOrNone;
+            return this;
+        }
+
+        /// <summary>
+        /// Enables repeating for this strategy.
+        /// When enabled, the strategy resets after completion and can fire again when conditions are met.
+        /// </summary>
+        /// <param name="repeat">True to repeat (default), false to fire once.</param>
+        /// <returns>The builder for method chaining.</returns>
+        /// <remarks>
+        /// <para><b>Behavior:</b></para>
+        /// <list type="bullet">
+        ///   <item>When true: After take profit or stop loss fills, the strategy resets and waits for conditions again.</item>
+        ///   <item>When false (default): The strategy fires once and stops.</item>
+        /// </list>
+        /// 
+        /// <para><b>Example - Repeating scalp strategy:</b></para>
+        /// <code>
+        /// Stock.Ticker("ABC")
+        ///     .TimeFrame(TradingSession.RTH)
+        ///     .IsPriceAbove(5.00)
+        ///     .IsAboveVwap()
+        ///     .Buy(100, Price.Current)
+        ///     .TakeProfit(6.00)
+        ///     .StopLoss(4.50)
+        ///     .Repeat()  // Will buy again at $5, sell at $6, repeat
+        ///     .Build();
+        /// </code>
+        /// </remarks>
+        public StrategyBuilder Repeat(bool repeat = true)
+        {
+            _stock.RepeatEnabledValue = repeat;
             return this;
         }
 

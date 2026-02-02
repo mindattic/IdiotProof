@@ -253,4 +253,351 @@ public class StrategyValidatorTests
     }
 
     #endregion
+
+    #region Short Position Price Validation
+
+    [Test]
+    public void ValidateShortPositionPrices_ValidPrices_ReturnsValid()
+    {
+        // Short: sell at $100, buy back at $90 (take profit), stop at $110
+        var result = StrategyValidator.ValidateShortPositionPrices(
+            entryPrice: 100.0,
+            takeProfitPrice: 90.0,
+            stopLossPrice: 110.0);
+
+        Assert.That(result.IsValid, Is.True,
+            $"Errors: {string.Join(", ", result.Errors.Select(e => $"{e.Code}: {e.Message}"))}");
+    }
+
+    [Test]
+    public void ValidateShortPositionPrices_EntryBelowTakeProfit_ReturnsError()
+    {
+        // Invalid: Entry $90 is below take profit $100
+        var result = StrategyValidator.ValidateShortPositionPrices(
+            entryPrice: 90.0,
+            takeProfitPrice: 100.0,
+            stopLossPrice: 110.0);
+
+        Assert.That(result.IsValid, Is.False);
+        Assert.That(result.Errors, Has.Some.Matches<ValidationError>(
+            e => e.Code == ValidationCodes.ShortEntryBelowTakeProfit));
+    }
+
+    [Test]
+    public void ValidateShortPositionPrices_EntryEqualToTakeProfit_ReturnsError()
+    {
+        // Invalid: Entry equals take profit (no profit possible)
+        var result = StrategyValidator.ValidateShortPositionPrices(
+            entryPrice: 100.0,
+            takeProfitPrice: 100.0,
+            stopLossPrice: 110.0);
+
+        Assert.That(result.IsValid, Is.False);
+        Assert.That(result.Errors, Has.Some.Matches<ValidationError>(
+            e => e.Code == ValidationCodes.ShortEntryBelowTakeProfit));
+    }
+
+    [Test]
+    public void ValidateShortPositionPrices_StopLossBelowEntry_ReturnsError()
+    {
+        // Invalid: Stop loss $90 is below entry $100 (would trigger immediately on price drop)
+        var result = StrategyValidator.ValidateShortPositionPrices(
+            entryPrice: 100.0,
+            takeProfitPrice: 80.0,
+            stopLossPrice: 90.0);
+
+        Assert.That(result.IsValid, Is.False);
+        Assert.That(result.Errors, Has.Some.Matches<ValidationError>(
+            e => e.Code == ValidationCodes.ShortStopLossBelowEntry));
+    }
+
+    [Test]
+    public void ValidateShortPositionPrices_StopLossEqualToEntry_ReturnsError()
+    {
+        // Invalid: Stop loss equals entry
+        var result = StrategyValidator.ValidateShortPositionPrices(
+            entryPrice: 100.0,
+            takeProfitPrice: 80.0,
+            stopLossPrice: 100.0);
+
+        Assert.That(result.IsValid, Is.False);
+        Assert.That(result.Errors, Has.Some.Matches<ValidationError>(
+            e => e.Code == ValidationCodes.ShortStopLossBelowEntry));
+    }
+
+    [Test]
+    public void ValidateShortPositionPrices_TakeProfitAboveStopLoss_ReturnsError()
+    {
+        // Invalid: Take profit $115 is above stop loss $110
+        var result = StrategyValidator.ValidateShortPositionPrices(
+            entryPrice: 120.0,
+            takeProfitPrice: 115.0,
+            stopLossPrice: 110.0);
+
+        Assert.That(result.IsValid, Is.False);
+        Assert.That(result.Errors, Has.Some.Matches<ValidationError>(
+            e => e.Code == ValidationCodes.ShortTakeProfitAboveStopLoss));
+    }
+
+    [Test]
+    public void ValidateShortPositionPrices_TakeProfitEqualToStopLoss_ReturnsError()
+    {
+        // Invalid: Take profit equals stop loss
+        var result = StrategyValidator.ValidateShortPositionPrices(
+            entryPrice: 120.0,
+            takeProfitPrice: 110.0,
+            stopLossPrice: 110.0);
+
+        Assert.That(result.IsValid, Is.False);
+        Assert.That(result.Errors, Has.Some.Matches<ValidationError>(
+            e => e.Code == ValidationCodes.ShortTakeProfitAboveStopLoss));
+    }
+
+    [Test]
+    public void ValidateShortPositionPrices_NullEntryPrice_SkipsEntryValidation()
+    {
+        // Valid: No entry price, only take profit and stop loss
+        var result = StrategyValidator.ValidateShortPositionPrices(
+            entryPrice: null,
+            takeProfitPrice: 90.0,
+            stopLossPrice: 110.0);
+
+        Assert.That(result.IsValid, Is.True);
+    }
+
+    [Test]
+    public void ValidateShortPositionPrices_OnlyTakeProfitProvided_ReturnsValid()
+    {
+        var result = StrategyValidator.ValidateShortPositionPrices(
+            entryPrice: 100.0,
+            takeProfitPrice: 90.0,
+            stopLossPrice: null);
+
+        Assert.That(result.IsValid, Is.True);
+    }
+
+    [Test]
+    public void ValidateShortPositionPrices_OnlyStopLossProvided_ReturnsValid()
+    {
+        var result = StrategyValidator.ValidateShortPositionPrices(
+            entryPrice: 100.0,
+            takeProfitPrice: null,
+            stopLossPrice: 110.0);
+
+        Assert.That(result.IsValid, Is.True);
+    }
+
+    [Test]
+    public void ValidateShortPositionPrices_MultipleErrors_ReturnsAll()
+    {
+        // Invalid: Entry below take profit AND stop loss below entry
+        var result = StrategyValidator.ValidateShortPositionPrices(
+            entryPrice: 90.0,
+            takeProfitPrice: 100.0,
+            stopLossPrice: 80.0);
+
+        Assert.That(result.IsValid, Is.False);
+        Assert.That(result.Errors.Count, Is.GreaterThanOrEqualTo(2));
+    }
+
+    #endregion
+
+    #region Long Position Price Validation
+
+    [Test]
+    public void ValidateLongPositionPrices_ValidPrices_ReturnsValid()
+    {
+        // Long: buy at $100, sell at $110 (take profit), stop at $90
+        var result = StrategyValidator.ValidateLongPositionPrices(
+            entryPrice: 100.0,
+            takeProfitPrice: 110.0,
+            stopLossPrice: 90.0);
+
+        Assert.That(result.IsValid, Is.True);
+    }
+
+    [Test]
+    public void ValidateLongPositionPrices_TakeProfitBelowEntry_ReturnsError()
+    {
+        // Invalid: Take profit $90 is below entry $100
+        var result = StrategyValidator.ValidateLongPositionPrices(
+            entryPrice: 100.0,
+            takeProfitPrice: 90.0,
+            stopLossPrice: 80.0);
+
+        Assert.That(result.IsValid, Is.False);
+        Assert.That(result.Errors, Has.Some.Matches<ValidationError>(
+            e => e.Code == ValidationCodes.TakeProfitBelowEntry));
+    }
+
+    [Test]
+    public void ValidateLongPositionPrices_StopLossAboveEntry_ReturnsError()
+    {
+        // Invalid: Stop loss $110 is above entry $100
+        var result = StrategyValidator.ValidateLongPositionPrices(
+            entryPrice: 100.0,
+            takeProfitPrice: 120.0,
+            stopLossPrice: 110.0);
+
+        Assert.That(result.IsValid, Is.False);
+        Assert.That(result.Errors, Has.Some.Matches<ValidationError>(
+            e => e.Code == ValidationCodes.StopLossAboveEntry));
+    }
+
+    #endregion
+
+    #region ValidateOrderPrices (Unified)
+
+    [Test]
+    public void ValidateOrderPrices_ShortPosition_UsesShortValidation()
+    {
+        // Invalid short: entry below take profit
+        var result = StrategyValidator.ValidateOrderPrices(
+            isShortPosition: true,
+            entryPrice: 90.0,
+            takeProfitPrice: 100.0,
+            stopLossPrice: 110.0);
+
+        Assert.That(result.IsValid, Is.False);
+        Assert.That(result.Errors, Has.Some.Matches<ValidationError>(
+            e => e.Code == ValidationCodes.ShortEntryBelowTakeProfit));
+    }
+
+    [Test]
+    public void ValidateOrderPrices_LongPosition_UsesLongValidation()
+    {
+        // Invalid long: take profit below entry
+        var result = StrategyValidator.ValidateOrderPrices(
+            isShortPosition: false,
+            entryPrice: 100.0,
+            takeProfitPrice: 90.0,
+            stopLossPrice: 80.0);
+
+        Assert.That(result.IsValid, Is.False);
+        Assert.That(result.Errors, Has.Some.Matches<ValidationError>(
+            e => e.Code == ValidationCodes.TakeProfitBelowEntry));
+    }
+
+    #endregion
+
+    #region Repeat Validation
+
+    [Test]
+    public void ValidateSegmentSequence_RepeatWithTakeProfit_ReturnsValidNoWarnings()
+    {
+        var ticker = SegmentFactory.CreateTicker();
+        ticker.Order = 0;
+        ticker.Parameters.First(p => p.Name == "symbol").Value = "ABC";
+
+        var breakout = SegmentFactory.CreateBreakout();
+        breakout.Order = 1;
+        breakout.Parameters.First(p => p.Name == "level").Value = 5.0;
+
+        var buy = SegmentFactory.CreateBuy();
+        buy.Order = 2;
+        buy.Parameters.First(p => p.Name == "quantity").Value = 100;
+        buy.Parameters.First(p => p.Name == "priceType").Value = Price.Current;
+        buy.Parameters.First(p => p.Name == "orderType").Value = OrderType.Limit;
+
+        var takeProfit = new StrategySegment
+        {
+            Type = SegmentType.TakeProfit,
+            Category = SegmentCategory.RiskManagement,
+            DisplayName = "Take Profit",
+            Order = 3,
+            Parameters = [new SegmentParameter
+            {
+                Name = "Price",
+                Label = "Price",
+                Type = ParameterType.Price,
+                Value = 6.0,
+                IsRequired = true
+            }]
+        };
+
+        var repeat = new StrategySegment
+        {
+            Type = SegmentType.Repeat,
+            Category = SegmentCategory.Execution,
+            DisplayName = "Repeat",
+            Order = 4,
+            Parameters = []
+        };
+
+        var segments = new List<StrategySegment> { ticker, breakout, buy, takeProfit, repeat };
+        var result = StrategyValidator.ValidateSegmentSequence(segments);
+
+        Assert.That(result.IsValid, Is.True);
+        Assert.That(result.Warnings, Has.None.Matches<ValidationWarning>(w => w.Code == "REPEAT_WITHOUT_TAKEPROFIT"));
+    }
+
+    [Test]
+    public void ValidateSegmentSequence_RepeatWithoutTakeProfit_ReturnsWarning()
+    {
+        var ticker = SegmentFactory.CreateTicker();
+        ticker.Order = 0;
+        ticker.Parameters.First(p => p.Name == "symbol").Value = "ABC";
+
+        var breakout = SegmentFactory.CreateBreakout();
+        breakout.Order = 1;
+        breakout.Parameters.First(p => p.Name == "level").Value = 5.0;
+
+        var buy = SegmentFactory.CreateBuy();
+        buy.Order = 2;
+        buy.Parameters.First(p => p.Name == "quantity").Value = 100;
+        buy.Parameters.First(p => p.Name == "priceType").Value = Price.Current;
+        buy.Parameters.First(p => p.Name == "orderType").Value = OrderType.Limit;
+
+        var repeat = new StrategySegment
+        {
+            Type = SegmentType.Repeat,
+            Category = SegmentCategory.Execution,
+            DisplayName = "Repeat",
+            Order = 3,
+            Parameters = []
+        };
+
+        var segments = new List<StrategySegment> { ticker, breakout, buy, repeat };
+        var result = StrategyValidator.ValidateSegmentSequence(segments);
+
+        Assert.That(result.IsValid, Is.True); // Warnings don't fail validation
+        Assert.That(result.Warnings, Has.Some.Matches<ValidationWarning>(w => w.Code == "REPEAT_WITHOUT_TAKEPROFIT"));
+    }
+
+    [Test]
+    public void ValidateStrategy_RepeatEnabledWithTakeProfit_NoRepeatWarning()
+    {
+        var strategy = CreateValidStrategy();
+        strategy.RepeatEnabled = true;
+        strategy.Segments.Add(new StrategySegment
+        {
+            Type = SegmentType.TakeProfit,
+            Category = SegmentCategory.RiskManagement,
+            DisplayName = "Take Profit",
+            Order = 10,
+            Parameters = [new SegmentParameter
+            {
+                Name = "Price",
+                Label = "Price",
+                Type = ParameterType.Price,
+                Value = 160.0,
+                IsRequired = true
+            }]
+        });
+        strategy.Segments.Add(new StrategySegment
+        {
+            Type = SegmentType.Repeat,
+            Category = SegmentCategory.Execution,
+            DisplayName = "Repeat",
+            Order = 11,
+            Parameters = []
+        });
+
+        var result = StrategyValidator.ValidateStrategy(strategy);
+
+        Assert.That(result.IsValid, Is.True);
+        Assert.That(result.Warnings, Has.None.Matches<ValidationWarning>(w => w.Code == "REPEAT_WITHOUT_TAKEPROFIT"));
+    }
+
+    #endregion
 }

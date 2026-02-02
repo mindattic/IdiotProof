@@ -1760,4 +1760,99 @@ public class FluentApiBuilderTests
     }
 
     #endregion
+
+    #region Repeat Tests
+
+    [Test]
+    [Description("Repeat() on Stock builder sets RepeatEnabled to true")]
+    public void Repeat_OnStockBuilder_SetsRepeatEnabled()
+    {
+        // Arrange & Act
+        var strategy = Stock.Ticker("ABC")
+            .IsPriceAbove(5.00)
+            .Repeat()
+            .Buy(100, Price.Current)
+            .TakeProfit(6.00)
+            .Build();
+
+        // Assert
+        Assert.That(strategy.RepeatEnabled, Is.True);
+    }
+
+    [Test]
+    [Description("Repeat() on StrategyBuilder sets RepeatEnabled to true")]
+    public void Repeat_OnStrategyBuilder_SetsRepeatEnabled()
+    {
+        // Arrange & Act
+        var strategy = Stock.Ticker("ABC")
+            .IsPriceAbove(5.00)
+            .Buy(100, Price.Current)
+            .TakeProfit(6.00)
+            .Repeat()
+            .Build();
+
+        // Assert
+        Assert.That(strategy.RepeatEnabled, Is.True);
+    }
+
+    [Test]
+    [Description("Without Repeat(), RepeatEnabled defaults to false")]
+    public void NoRepeat_RepeatEnabledDefaultsFalse()
+    {
+        // Arrange & Act
+        var strategy = Stock.Ticker("ABC")
+            .IsPriceAbove(5.00)
+            .Buy(100, Price.Current)
+            .TakeProfit(6.00)
+            .Build();
+
+        // Assert
+        Assert.That(strategy.RepeatEnabled, Is.False);
+    }
+
+    [Test]
+    [Description("Repeat(false) sets RepeatEnabled to false")]
+    public void Repeat_False_SetsRepeatEnabledFalse()
+    {
+        // Arrange & Act
+        var strategy = Stock.Ticker("ABC")
+            .IsPriceAbove(5.00)
+            .Repeat(false)
+            .Buy(100, Price.Current)
+            .TakeProfit(6.00)
+            .Build();
+
+        // Assert
+        Assert.That(strategy.RepeatEnabled, Is.False);
+    }
+
+    [Test]
+    [Description("Full repeating strategy example with all components")]
+    public void Repeat_FullScalpStrategy_WorksCorrectly()
+    {
+        // Arrange & Act - Example from the user's request
+        var strategy = Stock.Ticker("ABC")
+            .TimeFrame(TradingSession.RTH)
+            .IsPriceAbove(5.00)
+            .IsAboveVwap()
+            .Buy(100, Price.Current)
+            .TakeProfit(6.00)
+            .StopLoss(4.50)
+            .Repeat()
+            .Build();
+
+        // Assert
+        Assert.Multiple(() =>
+        {
+            Assert.That(strategy.Symbol, Is.EqualTo("ABC"));
+            Assert.That(strategy.RepeatEnabled, Is.True);
+            Assert.That(strategy.Order.EnableTakeProfit, Is.True);
+            Assert.That(strategy.Order.TakeProfitPrice, Is.EqualTo(6.00));
+            Assert.That(strategy.Order.EnableStopLoss, Is.True);
+            Assert.That(strategy.Order.StopLossPrice, Is.EqualTo(4.50));
+            Assert.That(strategy.Conditions, Has.Count.EqualTo(2)); // IsPriceAbove + IsAboveVwap
+        });
+    }
+
+    #endregion
 }

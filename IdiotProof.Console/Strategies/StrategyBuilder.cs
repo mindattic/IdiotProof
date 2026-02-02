@@ -628,6 +628,42 @@ public class StrategyBuilder
     }
 
     /// <summary>
+    /// Enables repeating for this strategy.
+    /// When enabled, the strategy resets after completion and can fire again when conditions are met.
+    /// </summary>
+    /// <param name="repeat">True to repeat (default), false to fire once.</param>
+    /// <returns>The builder for method chaining.</returns>
+    /// <remarks>
+    /// <para><b>Behavior:</b></para>
+    /// <list type="bullet">
+    ///   <item>When true: After take profit or stop loss fills, the strategy resets and waits for conditions again.</item>
+    ///   <item>When false (default): The strategy fires once and stops.</item>
+    /// </list>
+    /// 
+    /// <para><b>Example - Repeating scalp strategy:</b></para>
+    /// <code>
+    /// Stock.Ticker("ABC")
+    ///     .SessionDuration(TradingSession.RTH)
+    ///     .IsPriceAbove(5.00)
+    ///     .IsAboveVwap()
+    ///     .Buy(100, Price.Current)
+    ///     .TakeProfit(6.00)
+    ///     .StopLoss(4.50)
+    ///     .Repeat()  // Will buy again at $5, sell at $6, repeat
+    ///     .Build();
+    /// </code>
+    /// </remarks>
+    public StrategyBuilder Repeat(bool repeat = true)
+    {
+        _strategy.RepeatEnabled = repeat;
+        if (repeat)
+        {
+            AddSegment(SegmentType.Repeat, SegmentCategory.Execution, "Repeat", []);
+        }
+        return this;
+    }
+
+    /// <summary>
     /// Builds and returns the strategy definition.
     /// </summary>
     public StrategyDefinition Build()

@@ -37,6 +37,13 @@ namespace IdiotProof.Shared.Models
         public bool Enabled { get; set; } = true;
 
         /// <summary>
+        /// Whether this strategy repeats after completion.
+        /// When true, the strategy resets and can fire again when conditions are met.
+        /// When false (default), the strategy fires once and stops.
+        /// </summary>
+        public bool RepeatEnabled { get; set; } = false;
+
+        /// <summary>
         /// The ordered list of segments that make up this strategy.
         /// </summary>
         public List<StrategySegment> Segments { get; set; } = [];

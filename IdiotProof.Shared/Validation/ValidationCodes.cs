@@ -73,6 +73,16 @@ namespace IdiotProof.Shared.Validation
         public const string ExceedsMaxPosition = "EXCEEDS_MAX_POSITION";
         public const string ExceedsMaxRisk = "EXCEEDS_MAX_RISK";
 
+        // Short Position Validation
+        /// <summary>Short position entry must be higher than take profit.</summary>
+        public const string ShortEntryBelowTakeProfit = "SHORT_ENTRY_BELOW_TAKE_PROFIT";
+
+        /// <summary>Short position stop loss must be above entry.</summary>
+        public const string ShortStopLossBelowEntry = "SHORT_STOP_LOSS_BELOW_ENTRY";
+
+        /// <summary>Short position take profit must be below stop loss.</summary>
+        public const string ShortTakeProfitAboveStopLoss = "SHORT_TAKE_PROFIT_ABOVE_STOP_LOSS";
+
         // ====================================================================
         // JSON Validation
         // ====================================================================

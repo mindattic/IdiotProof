@@ -153,6 +153,12 @@ public static class IdiotScriptSerializer
             }
         }
 
+        // Repeat (execution behavior)
+        if (strategy.RepeatEnabled)
+        {
+            parts.Add("Repeat()");
+        }
+
         return string.Join(".", parts);
     }
 

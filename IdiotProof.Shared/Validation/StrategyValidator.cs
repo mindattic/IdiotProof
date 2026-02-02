@@ -101,6 +101,8 @@ namespace IdiotProof.Shared.Validation
             bool hasCondition = false;
             bool hasOrder = false;
             bool hasTicker = false;
+            bool hasRepeat = false;
+            bool hasTakeProfit = false;
             int orderIndex = -1;
 
             for (int i = 0; i < segments.Count; i++)
@@ -131,13 +133,22 @@ namespace IdiotProof.Shared.Validation
                         hasOrder = true;
                         orderIndex = i;
                         break;
+
+                    case "REPEAT":
+                        hasRepeat = true;
+                        break;
+
+                    case "TAKEPROFIT":
+                    case "TAKEPROFITRANGE":
+                        hasTakeProfit = true;
+                        break;
                 }
 
                 // Check for conditions
                 if (category == "PRICECONDITION" || category == "VWAPCONDITION" || category == "INDICATORCONDITION")
                 {
                     hasCondition = true;
-                    
+
                     // Conditions after order are unusual
                     if (hasOrder && orderIndex >= 0 && i > orderIndex)
                     {
@@ -175,6 +186,15 @@ namespace IdiotProof.Shared.Validation
                     ValidationCodes.MissingOrder,
                     "Strategy must have an order (Buy, Sell, or Close)",
                     "Segments"));
+            }
+
+            // Warn if Repeat is used without TakeProfit (strategy won't know when to reset)
+            if (hasRepeat && !hasTakeProfit)
+            {
+                warnings.Add(new ValidationWarning(
+                    "REPEAT_WITHOUT_TAKEPROFIT",
+                    "Repeat is enabled but no TakeProfit is set - strategy may not know when to reset",
+                    "Repeat"));
             }
 
             return new ValidationResult { Errors = errors, Warnings = warnings };
@@ -307,6 +327,179 @@ namespace IdiotProof.Shared.Validation
             }
 
             return ValidationResult.Success();
+        }
+
+        // ====================================================================
+        // ORDER PRICE VALIDATION
+        // ====================================================================
+
+        /// <summary>
+        /// Validates that order prices are logically consistent for the position direction.
+        /// For LONG positions: Entry &lt; TakeProfit, Entry &gt; StopLoss
+        /// For SHORT positions: Entry &gt; TakeProfit, Entry &lt; StopLoss
+        /// </summary>
+        public static ValidationResult ValidateOrderPrices(
+            bool isShortPosition,
+            double? entryPrice,
+            double? takeProfitPrice,
+            double? stopLossPrice)
+        {
+            var errors = new List<ValidationError>();
+
+            if (isShortPosition)
+            {
+                errors.AddRange(ValidateShortPositionPrices(entryPrice, takeProfitPrice, stopLossPrice).Errors);
+            }
+            else
+            {
+                errors.AddRange(ValidateLongPositionPrices(entryPrice, takeProfitPrice, stopLossPrice).Errors);
+            }
+
+            return new ValidationResult { Errors = errors };
+        }
+
+        /// <summary>
+        /// Validates price relationships for a SHORT position.
+        /// Short selling: You sell high (entry), buy back low (take profit).
+        /// Entry must be HIGHER than take profit.
+        /// Stop loss must be ABOVE entry (to limit losses when price rises).
+        /// </summary>
+        public static ValidationResult ValidateShortPositionPrices(
+            double? entryPrice,
+            double? takeProfitPrice,
+            double? stopLossPrice)
+        {
+            var errors = new List<ValidationError>();
+
+            // Entry must be higher than take profit (sell high, buy low)
+            if (entryPrice.HasValue && takeProfitPrice.HasValue)
+            {
+                if (entryPrice.Value <= takeProfitPrice.Value)
+                {
+                    errors.Add(new ValidationError(
+                        ValidationCodes.ShortEntryBelowTakeProfit,
+                        $"Short position entry ({entryPrice:F2}) must be higher than take profit ({takeProfitPrice:F2}). You sell high, buy back low.",
+                        "EntryPrice"));
+                }
+            }
+
+            // Stop loss must be above entry (limit losses when price rises)
+            if (entryPrice.HasValue && stopLossPrice.HasValue)
+            {
+                if (stopLossPrice.Value <= entryPrice.Value)
+                {
+                    errors.Add(new ValidationError(
+                        ValidationCodes.ShortStopLossBelowEntry,
+                        $"Short position stop loss ({stopLossPrice:F2}) must be above entry ({entryPrice:F2}). Stop loss protects against rising prices.",
+                        "StopLossPrice"));
+                }
+            }
+
+            // Take profit must be below stop loss
+            if (takeProfitPrice.HasValue && stopLossPrice.HasValue)
+            {
+                if (takeProfitPrice.Value >= stopLossPrice.Value)
+                {
+                    errors.Add(new ValidationError(
+                        ValidationCodes.ShortTakeProfitAboveStopLoss,
+                        $"Short position take profit ({takeProfitPrice:F2}) must be below stop loss ({stopLossPrice:F2}).",
+                        "TakeProfitPrice"));
+                }
+            }
+
+            return new ValidationResult { Errors = errors };
+        }
+
+        /// <summary>
+        /// Validates price relationships for a LONG position.
+        /// Long buying: You buy low (entry), sell high (take profit).
+        /// Entry must be LOWER than take profit.
+        /// Stop loss must be BELOW entry (to limit losses when price falls).
+        /// </summary>
+        public static ValidationResult ValidateLongPositionPrices(
+            double? entryPrice,
+            double? takeProfitPrice,
+            double? stopLossPrice)
+        {
+            var errors = new List<ValidationError>();
+
+            // Entry must be lower than take profit (buy low, sell high)
+            if (entryPrice.HasValue && takeProfitPrice.HasValue)
+            {
+                if (entryPrice.Value >= takeProfitPrice.Value)
+                {
+                    errors.Add(new ValidationError(
+                        ValidationCodes.TakeProfitBelowEntry,
+                        $"Long position take profit ({takeProfitPrice:F2}) must be higher than entry ({entryPrice:F2}). You buy low, sell high.",
+                        "TakeProfitPrice"));
+                }
+            }
+
+            // Stop loss must be below entry (limit losses when price falls)
+            if (entryPrice.HasValue && stopLossPrice.HasValue)
+            {
+                if (stopLossPrice.Value >= entryPrice.Value)
+                {
+                    errors.Add(new ValidationError(
+                        ValidationCodes.StopLossAboveEntry,
+                        $"Long position stop loss ({stopLossPrice:F2}) must be below entry ({entryPrice:F2}). Stop loss protects against falling prices.",
+                        "StopLossPrice"));
+                }
+            }
+
+            return new ValidationResult { Errors = errors };
+        }
+
+        /// <summary>
+        /// Extracts order prices from strategy segments and validates them.
+        /// </summary>
+        public static ValidationResult ValidateStrategyOrderPrices(StrategyDefinition strategy)
+        {
+            var errors = new List<ValidationError>();
+
+            // Determine if this is a short position
+            var isShortPosition = strategy.Segments.Any(s =>
+                s.Type.ToString().Equals("SELL", StringComparison.OrdinalIgnoreCase) ||
+                s.Type.ToString().Equals("SHORTPOSITION", StringComparison.OrdinalIgnoreCase));
+
+            // Extract entry price from conditions or order
+            double? entryPrice = ExtractPriceFromSegments(strategy.Segments, "ENTRY", "PRICE", "LIMITPRICE", "ISPRICEABOVE", "ISPRICEBELOW");
+
+            // Extract take profit
+            double? takeProfitPrice = ExtractPriceFromSegments(strategy.Segments, "TAKEPROFIT");
+
+            // Extract stop loss
+            double? stopLossPrice = ExtractPriceFromSegments(strategy.Segments, "STOPLOSS");
+
+            // Validate based on position type
+            errors.AddRange(ValidateOrderPrices(isShortPosition, entryPrice, takeProfitPrice, stopLossPrice).Errors);
+
+            return new ValidationResult { Errors = errors };
+        }
+
+        /// <summary>
+        /// Extracts price value from segments matching given type names.
+        /// </summary>
+        private static double? ExtractPriceFromSegments(IEnumerable<StrategySegment> segments, params string[] typeNames)
+        {
+            foreach (var segment in segments)
+            {
+                var segmentType = segment.Type.ToString().ToUpperInvariant();
+                if (typeNames.Any(t => segmentType.Contains(t.ToUpperInvariant())))
+                {
+                    var priceParam = segment.Parameters?.FirstOrDefault(p =>
+                        p.Name.Equals("Price", StringComparison.OrdinalIgnoreCase) ||
+                        p.Name.Equals("Level", StringComparison.OrdinalIgnoreCase) ||
+                        p.Name.Equals("LimitPrice", StringComparison.OrdinalIgnoreCase));
+
+                    if (priceParam?.Value is double d)
+                        return d;
+
+                    if (priceParam?.Value != null && double.TryParse(priceParam.Value.ToString(), out var parsed))
+                        return parsed;
+                }
+            }
+            return null;
         }
     }
 }

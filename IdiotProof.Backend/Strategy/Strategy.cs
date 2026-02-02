@@ -81,6 +81,13 @@ namespace IdiotProof.Backend.Strategy
         public string? Notes { get; init; }
 
         /// <summary>
+        /// Whether this strategy repeats after completion.
+        /// When true, the strategy resets and can fire again when conditions are met.
+        /// When false (default), the strategy fires once and stops.
+        /// </summary>
+        public bool RepeatEnabled { get; init; } = false;
+
+        /// <summary>
         /// Writes the strategy progress to console with colors.
         /// </summary>
         /// <param name="currentStep">Current step index (0-based).</param>

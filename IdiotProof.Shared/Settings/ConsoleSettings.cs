@@ -60,12 +60,6 @@ public class ConsoleDisplaySettings
 public class ParserSettings
 {
     /// <summary>
-    /// Whether to allow legacy syntax.
-    /// </summary>
-    [JsonPropertyName("allowLegacySyntax")]
-    public bool AllowLegacySyntax { get; set; } = true;
-
-    /// <summary>
     /// Whether symbol names are case-sensitive.
     /// </summary>
     [JsonPropertyName("caseSensitiveSymbols")]
