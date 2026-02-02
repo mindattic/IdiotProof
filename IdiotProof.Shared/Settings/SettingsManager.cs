@@ -25,12 +25,6 @@ public static class SettingsManager
     private const string SettingsFolder = "Settings";
     private const string StrategiesFolder = "Strategies";
 
-    private static readonly JsonSerializerOptions JsonOptions = new()
-    {
-        WriteIndented = true,
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
-    };
 
     // ========================================================================
     // PATH HELPERS
