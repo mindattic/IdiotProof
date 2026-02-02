@@ -37,11 +37,9 @@ namespace IdiotProof.Frontend.Services
         Task<bool> ConnectAsync();
 
         /// <summary>
-        /// Sends a ping to the backend and waits for a pong response.
-        /// Used to validate communication between frontend and backend.
+        /// Event raised when a heartbeat is received from backend.
         /// </summary>
-        /// <returns>True if ping succeeded, false otherwise.</returns>
-        Task<bool> PingAsync();
+        event EventHandler<HeartbeatMessage>? HeartbeatReceived;
 
         /// <summary>
         /// Disconnects from the backend service.

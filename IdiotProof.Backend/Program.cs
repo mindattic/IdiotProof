@@ -345,12 +345,29 @@ namespace IdiotProof.Backend
             {
                 if (!Settings.SilentMode)
                     Log("*Blip* (disconnected)");
+
+                // Broadcast disconnected heartbeat to frontend
+                _ipcServer?.BroadcastHeartbeat(new HeartbeatMessage
+                {
+                    IsConnectedToIbkr = false,
+                    PingSuccess = false,
+                    ActiveStrategies = _runners.Count
+                });
                 return;
             }
 
             try
             {
                 var pingResult = _wrapper.Ping(TimeSpan.FromSeconds(10));
+
+                // Broadcast heartbeat to frontend
+                _ipcServer?.BroadcastHeartbeat(new HeartbeatMessage
+                {
+                    IsConnectedToIbkr = _isConnected,
+                    PingSuccess = pingResult.Success,
+                    LatencyMs = pingResult.Success ? pingResult.LatencyMs : null,
+                    ActiveStrategies = _runners.Count
+                });
 
                 if (Settings.SilentMode)
                 {

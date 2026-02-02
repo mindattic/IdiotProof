@@ -12,7 +12,7 @@ namespace IdiotProof.Shared.Models
     public enum BackendMessageType
     {
         // Requests (Frontend -> Backend)
-        Ping,
+        QueryStatus, // Reserved for future use
         GetStatus,
         GetOrders,
         GetIdiotProofOrders, // Get only IdiotProof-created orders
@@ -30,7 +30,6 @@ namespace IdiotProof.Shared.Models
         GetTrades, // Get IdiotProof trade tracking data
 
         // Responses (Backend -> Frontend)
-        Pong,
         StatusResponse,
         OrdersResponse,
         PositionsResponse,
@@ -44,7 +43,8 @@ namespace IdiotProof.Shared.Models
         PositionUpdate,
         ConnectionStatusChanged,
         StrategyStatusChanged,
-        TradeUpdate // IdiotProof trade status changed
+        TradeUpdate, // IdiotProof trade status changed
+        Heartbeat // Backend heartbeat notification
     }
 
     /// <summary>
@@ -92,6 +92,37 @@ namespace IdiotProof.Shared.Models
         /// Output level (Info, Warning, Error).
         /// </summary>
         public string Level { get; set; } = "Info";
+    }
+
+    /// <summary>
+    /// Heartbeat message pushed to frontend.
+    /// </summary>
+    public class HeartbeatMessage
+    {
+        /// <summary>
+        /// Timestamp of the heartbeat.
+        /// </summary>
+        public DateTime Timestamp { get; set; } = DateTime.UtcNow;
+
+        /// <summary>
+        /// Whether the backend is connected to IBKR.
+        /// </summary>
+        public bool IsConnectedToIbkr { get; set; }
+
+        /// <summary>
+        /// Whether the heartbeat ping was successful.
+        /// </summary>
+        public bool PingSuccess { get; set; }
+
+        /// <summary>
+        /// Latency in milliseconds (if ping was successful).
+        /// </summary>
+        public long? LatencyMs { get; set; }
+
+        /// <summary>
+        /// Number of active strategy runners.
+        /// </summary>
+        public int ActiveStrategies { get; set; }
     }
 
     /// <summary>

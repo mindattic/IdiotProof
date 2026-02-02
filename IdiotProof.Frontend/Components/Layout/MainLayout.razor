@@ -102,18 +102,18 @@ else
 
             if (connected)
             {
-                // Validate communication with a heartbeat ping
+                // Validate communication by fetching status
                 _statusMessage = "Validating connection...";
                 await InvokeAsync(StateHasChanged);
 
-                System.Diagnostics.Debug.WriteLine("[MainLayout] Sending heartbeat ping...");
-                var pingSuccess = await BackendService.PingAsync();
+                System.Diagnostics.Debug.WriteLine("[MainLayout] Fetching backend status...");
+                var status = await BackendService.GetStatusAsync();
 
                 if (_disposed) return;
 
-                System.Diagnostics.Debug.WriteLine($"[MainLayout] PingAsync returned: {pingSuccess}");
+                System.Diagnostics.Debug.WriteLine($"[MainLayout] GetStatusAsync returned: IsRunning={status.IsRunning}");
 
-                if (pingSuccess)
+                if (status.IsRunning)
                 {
                     _isConnected = true;
                     _statusMessage = "Connected";
@@ -121,7 +121,7 @@ else
                 else
                 {
                     _connectionFailed = true;
-                    _statusMessage = "Connection established but communication failed. Is the backend responding?";
+                    _statusMessage = status.ErrorMessage ?? "Connection established but communication failed. Is the backend responding?";
                 }
             }
             else

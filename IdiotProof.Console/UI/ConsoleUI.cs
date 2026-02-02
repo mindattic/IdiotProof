@@ -320,6 +320,9 @@ public static class ConsoleUI
                     if (stats.TakeProfit > 0)
                         statParts.Add($"TP: ${stats.TakeProfit:F2}");
 
+                    if (stats.StopLoss > 0)
+                        statParts.Add($"SL: ${stats.StopLoss:F2}");
+
                     if (stats.TrailingStopLossPercent > 0)
                         statParts.Add($"TSL: {stats.TrailingStopLossPercent * 100:F0}%");
 

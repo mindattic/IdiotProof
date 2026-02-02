@@ -36,6 +36,7 @@ namespace IdiotProof.Frontend.Services
         public event EventHandler<bool>? ConnectionStatusChanged;
         public event EventHandler<ConsoleOutputMessage>? ConsoleOutputReceived;
         public event EventHandler<OrderInfo>? OrderUpdated;
+        public event EventHandler<HeartbeatMessage>? HeartbeatReceived;
 
         public async Task<bool> ConnectAsync()
         {
@@ -94,35 +95,6 @@ namespace IdiotProof.Frontend.Services
             {
                 System.Diagnostics.Debug.WriteLine($"[BackendService] Connect failed: {ex.GetType().Name}: {ex.Message}");
                 await DisconnectAsync().ConfigureAwait(false);
-                return false;
-            }
-        }
-
-        public async Task<bool> PingAsync()
-        {
-            if (!_isConnected)
-            {
-                System.Diagnostics.Debug.WriteLine("[BackendService] PingAsync: Not connected");
-                return false;
-            }
-
-            try
-            {
-                System.Diagnostics.Debug.WriteLine("[BackendService] Sending ping...");
-                var response = await SendRequestAsync(new BackendMessage { Type = BackendMessageType.Ping });
-
-                if (response?.Type == BackendMessageType.Pong)
-                {
-                    System.Diagnostics.Debug.WriteLine("[BackendService] Pong received - communication validated");
-                    return true;
-                }
-
-                System.Diagnostics.Debug.WriteLine("[BackendService] Ping failed - no pong response");
-                return false;
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine($"[BackendService] PingAsync failed: {ex.Message}");
                 return false;
             }
         }
@@ -734,8 +706,18 @@ namespace IdiotProof.Frontend.Services
                     }
                     break;
 
+                case BackendMessageType.Heartbeat:
+                    if (message.Payload != null)
+                    {
+                        var heartbeat = JsonSerializer.Deserialize<HeartbeatMessage>(message.Payload);
+                        if (heartbeat != null)
+                        {
+                            HeartbeatReceived?.Invoke(this, heartbeat);
+                        }
+                    }
+                    break;
+
                 // Handle response messages
-                case BackendMessageType.Pong:
                 case BackendMessageType.StatusResponse:
                 case BackendMessageType.OrdersResponse:
                 case BackendMessageType.PositionsResponse:
@@ -763,6 +745,7 @@ namespace IdiotProof.Frontend.Services
             ConsoleOutputReceived = null;
             OrderUpdated = null;
             TradeUpdated = null;
+            HeartbeatReceived = null;
 
             GC.SuppressFinalize(this);
         }

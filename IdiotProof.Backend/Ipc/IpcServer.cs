@@ -97,6 +97,20 @@ namespace IdiotProof.Backend.Ipc
             BroadcastMessage(message);
         }
 
+        /// <summary>
+        /// Broadcasts a heartbeat to all connected clients.
+        /// </summary>
+        public void BroadcastHeartbeat(HeartbeatMessage heartbeat)
+        {
+            var message = new BackendMessage
+            {
+                Type = BackendMessageType.Heartbeat,
+                Payload = JsonSerializer.Serialize(heartbeat)
+            };
+
+            BroadcastMessage(message);
+        }
+
         private void BroadcastMessage(BackendMessage message)
         {
             var json = JsonSerializer.Serialize(message);
@@ -162,13 +176,6 @@ namespace IdiotProof.Backend.Ipc
             {
                 switch (request.Type)
                 {
-                    case BackendMessageType.Ping:
-                        return new BackendMessage
-                        {
-                            Type = BackendMessageType.Pong,
-                            MessageId = request.MessageId
-                        };
-
                     case BackendMessageType.GetStatus:
                         var status = GetStatusHandler != null
                             ? await GetStatusHandler()
