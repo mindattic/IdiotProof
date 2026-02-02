@@ -6,6 +6,7 @@ using System.Collections.Concurrent;
 using System.IO.Pipes;
 using System.Text;
 using System.Text.Json;
+using IdiotProof.Backend.Logging;
 using IdiotProof.Shared.Models;
 
 namespace IdiotProof.Backend.Ipc
@@ -114,6 +115,14 @@ namespace IdiotProof.Backend.Ipc
         private void BroadcastMessage(BackendMessage message)
         {
             var json = JsonSerializer.Serialize(message);
+            var clientCount = _clients.Count;
+
+            // Log broadcasts (skip console output to avoid noise, but log heartbeats periodically)
+            if (message.Type != BackendMessageType.ConsoleOutput)
+            {
+                IpcLogger.LogBroadcast(message.Type.ToString(), clientCount);
+            }
+
             foreach (var client in _clients.Values)
             {
                 try
@@ -147,6 +156,7 @@ namespace IdiotProof.Backend.Ipc
                     _clients[clientId] = client;
                     client.Start();
 
+                    IpcLogger.LogConnection(clientId, connected: true);
                     Console.WriteLine($"[IPC] Client connected: {clientId}");
                 }
                 catch (OperationCanceledException)
@@ -166,12 +176,19 @@ namespace IdiotProof.Backend.Ipc
             if (_clients.TryRemove(clientId, out var client))
             {
                 client.Dispose();
+                IpcLogger.LogConnection(clientId, connected: false);
                 Console.WriteLine($"[IPC] Client disconnected: {clientId}");
             }
         }
 
         private async Task<BackendMessage?> HandleMessageAsync(BackendMessage request)
         {
+            // Log incoming request (skip Heartbeat acknowledgements to reduce noise)
+            if (request.Type != BackendMessageType.Heartbeat)
+            {
+                IpcLogger.LogRequest(Guid.Empty, request.Type.ToString(), request.Payload);
+            }
+
             try
             {
                 switch (request.Type)

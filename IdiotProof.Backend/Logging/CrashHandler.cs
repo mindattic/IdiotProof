@@ -29,7 +29,6 @@ namespace IdiotProof.Backend.Logging
         private static readonly object _logLock = new();
         private const int MaxConsoleLogSize = 15 * 1024 * 1024; // 15 MB max buffer
         private const int TrimToSize = 10 * 1024 * 1024;        // Trim to 10 MB when exceeded
-        private const string LogsFolder = "logs";
 
         /// <summary>
         /// Sets up crash handling, console close handling, and console output capture.
@@ -99,12 +98,11 @@ namespace IdiotProof.Backend.Logging
 
         /// <summary>
         /// Ensures the logs folder exists and returns the full path.
+        /// Returns: MyDocuments\IdiotProof\Logs\
         /// </summary>
         private static string EnsureLogsFolder()
         {
-            var logsPath = Path.Combine(AppContext.BaseDirectory, LogsFolder);
-            Directory.CreateDirectory(logsPath);
-            return logsPath;
+            return LogPaths.GetLogsFolder();
         }
 
         /// <summary>

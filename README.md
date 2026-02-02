@@ -9,6 +9,7 @@ A fluent API framework for building multi-stage trading strategies with Interact
 - [Quick Start](#quick-start)
 - [MAUI Frontend (Strategy Builder)](#maui-frontend-strategy-builder)
 - [Running in Release Mode](#running-in-release-mode)
+  - [IPC Communication Logging](#ipc-communication-logging)
 - [Fluent API Reference](#fluent-api-reference)
   - [Strategy Builder Methods](#strategy-builder-methods)
   - [Condition Methods](#condition-methods)
@@ -250,6 +251,59 @@ top -p $(pgrep -f IdiotProof)
 ```
 
 **Recommended:** If memory grows steadily over hours, you likely have a leak.
+
+### IPC Communication Logging
+
+The backend includes a dedicated IPC logger (`IpcLogger`) that tracks all communication between the Console and Backend applications. This is useful for debugging overnight runs and verifying that methods are firing correctly.
+
+**Log Location:**
+```
+MyDocuments/IdiotProof/Logs/
+├── ipc_YYYY-MM-DD.log    # IPC communication log (daily)
+├── session_*.txt         # Session logs (on exit)
+└── crash_*.txt           # Crash dumps (if any)
+```
+
+> **Note:** Logs are stored in the same `MyDocuments\IdiotProof\` folder as Settings and Strategies for easy access.
+
+**What Gets Logged:**
+| Event | Description |
+|-------|-------------|
+| `[CONNECTION]` | Client connect/disconnect events |
+| `[REQUEST]` | Incoming IPC requests (GetStatus, GetOrders, etc.) |
+| `[BROADCAST]` | Messages sent to all clients (OrderUpdate, TradeUpdate) |
+| `[HEARTBEAT]` | Periodic heartbeat broadcasts |
+| `[ERROR]` | Any IPC communication errors |
+
+**Example Log Output:**
+```
+2025-01-15 22:30:15.123 [CONNECTION] Client=abc123 Status=CONNECTED
+2025-01-15 22:30:15.456 [REQUEST] Client=000000 Type=GetStatus
+2025-01-15 22:30:16.789 [BROADCAST] Type=OrderUpdate Clients=1
+2025-01-15 03:45:12.111 [CONNECTION] Client=abc123 Status=DISCONNECTED
+```
+
+**Monitor Script:**
+
+Use the included PowerShell script to analyze overnight activity:
+
+```powershell
+# Show summary of today's IPC activity
+.\IdiotProof.Backend\monitor-ipc.ps1 -Summary
+
+# Show last 100 log entries
+.\IdiotProof.Backend\monitor-ipc.ps1 -Lines 100
+
+# Watch logs in real-time
+.\IdiotProof.Backend\monitor-ipc.ps1 -Watch
+```
+
+**Disabling IPC Logging:**
+
+If you want to disable IPC logging (e.g., for production), set:
+```csharp
+IpcLogger.Enabled = false;
+```
 
 ---
 
