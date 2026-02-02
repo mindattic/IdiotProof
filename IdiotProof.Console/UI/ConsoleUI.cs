@@ -280,11 +280,9 @@ public static class ConsoleUI
             foreach (var strategy in strategies)
             {
                 var enabledColor = strategy.Enabled ? ConsoleColor.Green : ConsoleColor.DarkGray;
-                var enabledText = strategy.Enabled ? "ON " : "OFF";
+                var enabledText = strategy.Enabled ? "ON" : "OFF";
 
-                System.Console.ForegroundColor = enabledColor;
-                System.Console.Write($"  [{enabledText}] ");
-
+                // First line: Symbol - Name
                 System.Console.ForegroundColor = ConsoleColor.White;
                 System.Console.Write($"{strategy.Symbol} ");
 
@@ -299,12 +297,17 @@ public static class ConsoleUI
 
                 System.Console.WriteLine();
 
+                // Second line: Enabled status
+                System.Console.ForegroundColor = ConsoleColor.Gray;
+                System.Console.Write("Enabled: ");
+                System.Console.ForegroundColor = enabledColor;
+                System.Console.WriteLine($"[{enabledText}]");
+
                 // Display calculated stats
                 var stats = strategy.GetStats();
                 if (stats.Quantity > 0 || stats.Price > 0)
                 {
                     System.Console.ForegroundColor = ConsoleColor.Yellow;
-                    System.Console.Write("      ");
 
                     var statParts = new List<string>();
 
@@ -314,20 +317,20 @@ public static class ConsoleUI
                     if (stats.Price > 0)
                         statParts.Add($"Price: ${stats.Price:F2}");
 
-                    if (stats.BuyIn > 0)
-                        statParts.Add($"BuyIn: ${stats.BuyIn:F2}");
-
                     if (stats.TakeProfit > 0)
                         statParts.Add($"TP: ${stats.TakeProfit:F2}");
 
                     if (stats.TrailingStopLossPercent > 0)
                         statParts.Add($"TSL: {stats.TrailingStopLossPercent * 100:F0}%");
 
+                    if (stats.BuyIn > 0)
+                        statParts.Add($"BuyIn: ${stats.BuyIn:F2}");
+
                     if (stats.PotentialLoss > 0)
                     {
                         System.Console.Write(string.Join(", ", statParts));
                         System.Console.ForegroundColor = ConsoleColor.Red;
-                        System.Console.Write($", Loss: -${stats.PotentialLoss:F2}");
+                        System.Console.Write($", PotentialLoss: -${stats.PotentialLoss:F2}");
                     }
                     else
                     {
@@ -337,22 +340,51 @@ public static class ConsoleUI
                     if (stats.PotentialGain > 0)
                     {
                         System.Console.ForegroundColor = ConsoleColor.Green;
-                        System.Console.Write($", Gain: +${stats.PotentialGain:F2}");
+                        System.Console.Write($", PotentialGain: +${stats.PotentialGain:F2}");
                     }
 
                     System.Console.WriteLine();
                 }
 
                 // Display IdiotScript
-                System.Console.ForegroundColor = ConsoleColor.DarkGray;
-                var script = IdiotProof.Shared.Scripting.IdiotScriptSerializer.Serialize(strategy);
-                System.Console.WriteLine($"      {script}");
-
+                DisplayFormattedIdiotScript(strategy);
                 System.Console.WriteLine();
             }
 
             System.Console.ResetColor();
         }
+    }
+
+    /// <summary>
+    /// Displays IdiotScript with each chained condition on a new line.
+    /// </summary>
+    public static void DisplayFormattedIdiotScript(StrategyDefinition strategy)
+    {
+        var script = IdiotProof.Shared.Scripting.IdiotScriptSerializer.Serialize(strategy);
+        System.Console.ForegroundColor = ConsoleColor.DarkGray;
+
+        for (int i = 0; i < script.Length; i++)
+        {
+            var ch = script[i];
+            if (ch == '.')
+            {
+                // Don't add newline for "IS." inside parameters
+                bool isISPrefix = i >= 2 && script[i - 2] == 'I' && script[i - 1] == 'S';
+
+                // Don't add newline for decimal numbers (e.g., 148.75)
+                bool isDecimal = i > 0 && i < script.Length - 1 &&
+                                 char.IsDigit(script[i - 1]) && char.IsDigit(script[i + 1]);
+
+                if (!isISPrefix && !isDecimal)
+                {
+                    System.Console.WriteLine();
+                }
+            }
+            System.Console.Write(ch);
+        }
+
+        System.Console.WriteLine();
+        System.Console.ResetColor();
     }
 
     /// <summary>

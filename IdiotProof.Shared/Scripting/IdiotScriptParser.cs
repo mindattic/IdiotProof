@@ -49,7 +49,8 @@
 // - PULLBACK() or PULLBACK(148)   - Pullback condition
 // - SESSION(IS.PREMARKET)         - Set trading session
 // - ClosePosition(IS.BELL)        - Close position time
-// - BUY or SELL                   - Order direction (default: BUY)
+// - LongPosition or BUY           - Open a long position (default)
+// - ShortPosition or SELL         - Open a short position
 // - CloseLong                     - Close a long position
 // - CloseShort                    - Close a short position
 // - ENABLED(true/false)           - Enable/disable strategy
@@ -110,7 +111,7 @@ public static partial class IdiotScriptParser
     [GeneratedRegex(@"^SESSION\(([^)]+)\)$", RegexOptions.IgnoreCase)]
     private static partial Regex SessionPattern();
 
-    [GeneratedRegex(@"^CLOSEPOSITION\(([^,)]+)(?:,\s*(\w+))?\)$", RegexOptions.IgnoreCase)]
+    [GeneratedRegex(@"^CLOSEPOSITION\(([^,)]+)(?:,\s*([\w.]+))?\)$", RegexOptions.IgnoreCase)]
     private static partial Regex ClosePattern();
 
     [GeneratedRegex(@"^NAME\([""'](.+)[""']\)$", RegexOptions.IgnoreCase)]
@@ -141,10 +142,10 @@ public static partial class IdiotScriptParser
     [GeneratedRegex(@"^(?:IS)?ADXABOVE\((\d+)\)$", RegexOptions.IgnoreCase)]
     private static partial Regex AdxPattern();
 
-    [GeneratedRegex(@"^(?:IS)?MACDBULLISH$", RegexOptions.IgnoreCase)]
+    [GeneratedRegex(@"^(?:IS)?MACDBULLISH(?:\(\))?$", RegexOptions.IgnoreCase)]
     private static partial Regex MacdBullishPattern();
 
-    [GeneratedRegex(@"^(?:IS)?MACDBEARISH$", RegexOptions.IgnoreCase)]
+    [GeneratedRegex(@"^(?:IS)?MACDBEARISH(?:\(\))?$", RegexOptions.IgnoreCase)]
     private static partial Regex MacdBearishPattern();
 
     [GeneratedRegex(@"^(?:IS)?DIPOSITIVE(?:\((\d+(?:\.\d+)?)\))?$", RegexOptions.IgnoreCase)]
@@ -662,12 +663,14 @@ public static partial class IdiotScriptParser
             return new OrderedCondition(ConditionType.Pullback, price);
         }
 
-        // ABOVEVWAP, VWAP, ISABOVEVWAP (case insensitive due to PascalCase conversion)
-        if (upper == "ABOVEVWAP" || upper == "VWAP" || upper == "ISABOVEVWAP")
+        // ABOVEVWAP, VWAP, ISABOVEVWAP, ABOVEVWAP(), ISABOVEVWAP() (case insensitive due to PascalCase conversion)
+        if (upper == "ABOVEVWAP" || upper == "VWAP" || upper == "ISABOVEVWAP" ||
+            upper == "ABOVEVWAP()" || upper == "ISABOVEVWAP()")
             return new OrderedCondition(ConditionType.AboveVwap);
 
-        // BELOWVWAP, ISBELOWVWAP
-        if (upper == "BELOWVWAP" || upper == "ISBELOWVWAP")
+        // BELOWVWAP, ISBELOWVWAP, BELOWVWAP(), ISBELOWVWAP()
+        if (upper == "BELOWVWAP" || upper == "ISBELOWVWAP" ||
+            upper == "BELOWVWAP()" || upper == "ISBELOWVWAP()")
             return new OrderedCondition(ConditionType.BelowVwap);
 
         // EmaBetween(lower, upper) or IsEmaBetween(lower, upper)
@@ -992,12 +995,14 @@ public static partial class IdiotScriptParser
 
     private static bool TryParseDirection(string upper, ParseContext context)
     {
-        if (upper == "BUY" || upper == "IS.BUY")
+        // LongPosition (or legacy BUY)
+        if (upper is "LONGPOSITION" or "BUY" or "IS.BUY")
         {
             context.IsBuy = true;
             return true;
         }
-        if (upper == "SELL" || upper == "IS.SELL")
+        // ShortPosition (or legacy SELL)
+        if (upper is "SHORTPOSITION" or "SELL" or "IS.SELL")
         {
             context.IsBuy = false;
             return true;
@@ -1231,7 +1236,7 @@ public static partial class IdiotScriptParser
             });
         }
 
-        // Add order segment (Buy, Sell, CloseLong, or CloseShort)
+        // Add order segment (LongPosition, ShortPosition, CloseLong, or CloseShort)
         var orderSegmentType = context.CloseOrderType switch
         {
             CloseOrderType.CloseLong => SegmentType.CloseLong,
@@ -1243,7 +1248,7 @@ public static partial class IdiotScriptParser
         {
             CloseOrderType.CloseLong => "Close Long",
             CloseOrderType.CloseShort => "Close Short",
-            _ => context.IsBuy ? "Buy" : "Sell"
+            _ => context.IsBuy ? "Long Position" : "Short Position"
         };
 
         var orderParams = new List<SegmentParameter>
@@ -1438,25 +1443,23 @@ public static partial class IdiotScriptParser
             });
         }
 
-        if (context.OrderType.HasValue)
+        // Always add order type segment (defaults to LIMIT for safe premarket/after-hours execution)
+        strategy.Segments.Add(new StrategySegment
         {
-            strategy.Segments.Add(new StrategySegment
+            Type = SegmentType.OrderType,
+            Category = SegmentCategory.OrderConfig,
+            DisplayName = "Order Type",
+            Order = segmentOrder++,
+            Parameters = [new SegmentParameter
             {
-                Type = SegmentType.OrderType,
-                Category = SegmentCategory.OrderConfig,
-                DisplayName = "Order Type",
-                Order = segmentOrder++,
-                Parameters = [new SegmentParameter
-                {
-                    Name = "Value",
-                    Label = "Order Type",
-                    Type = ParameterType.Enum,
-                    EnumTypeName = nameof(OrderType),
-                    Value = context.OrderType.Value.ToString(),
-                    IsRequired = true
-                }]
-            });
-        }
+                Name = "Value",
+                Label = "Order Type",
+                Type = ParameterType.Enum,
+                EnumTypeName = nameof(OrderType),
+                Value = context.OrderType.ToString(),
+                IsRequired = true
+            }]
+        });
 
         return strategy;
     }
@@ -1955,7 +1958,7 @@ public static partial class IdiotScriptParser
         public TimeInForce? TimeInForce { get; set; }
         public bool? OutsideRth { get; set; }
         public bool? AllOrNone { get; set; }
-        public OrderType? OrderType { get; set; }
+        public OrderType OrderType { get; set; } = Enums.OrderType.Limit; // Default to LIMIT for safe premarket/after-hours execution
     }
 }
 

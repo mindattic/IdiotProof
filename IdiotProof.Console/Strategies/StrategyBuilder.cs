@@ -363,9 +363,9 @@ public class StrategyBuilder
     }
 
     /// <summary>
-    /// Adds a buy order.
+    /// Opens a long position (buy order).
     /// </summary>
-    public StrategyBuilder Buy(int quantity, Price priceType = Price.Current, double? limitPrice = null)
+    public StrategyBuilder LongPosition(int quantity, Price priceType = Price.Current, double? limitPrice = null)
     {
         var parameters = new List<SegmentParameter>
         {
@@ -400,14 +400,20 @@ public class StrategyBuilder
             });
         }
 
-        AddSegment(SegmentType.Buy, SegmentCategory.Order, "Buy", parameters);
+        AddSegment(SegmentType.Buy, SegmentCategory.Order, "Long Position", parameters);
         return this;
     }
 
     /// <summary>
-    /// Adds a sell order.
+    /// Opens a long position (buy order). Alias for LongPosition.
     /// </summary>
-    public StrategyBuilder Sell(int quantity, Price priceType = Price.Current, double? limitPrice = null)
+    public StrategyBuilder Buy(int quantity, Price priceType = Price.Current, double? limitPrice = null)
+        => LongPosition(quantity, priceType, limitPrice);
+
+    /// <summary>
+    /// Opens a short position (sell order).
+    /// </summary>
+    public StrategyBuilder ShortPosition(int quantity, Price priceType = Price.Current, double? limitPrice = null)
     {
         var parameters = new List<SegmentParameter>
         {
@@ -442,9 +448,15 @@ public class StrategyBuilder
             });
         }
 
-        AddSegment(SegmentType.Sell, SegmentCategory.Order, "Sell", parameters);
+        AddSegment(SegmentType.Sell, SegmentCategory.Order, "Short Position", parameters);
         return this;
     }
+
+    /// <summary>
+    /// Opens a short position (sell order). Alias for ShortPosition.
+    /// </summary>
+    public StrategyBuilder Sell(int quantity, Price priceType = Price.Current, double? limitPrice = null)
+        => ShortPosition(quantity, priceType, limitPrice);
 
     /// <summary>
     /// Adds a take profit with a single price target.
