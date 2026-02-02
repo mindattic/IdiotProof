@@ -472,8 +472,6 @@ public sealed class BackendClient : IDisposable
                 break;
 
             case BackendMessageType.Ping:
-                System.Console.WriteLine("[IPC] Ping received from backend");
-                System.Console.Out.Flush();
                 PingReceived?.Invoke(this, EventArgs.Empty);
                 break;
         }

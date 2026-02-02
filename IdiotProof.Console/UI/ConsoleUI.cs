@@ -524,6 +524,7 @@ public static class ConsoleUI
             System.Console.ForegroundColor = ConsoleColor.Gray;
             System.Console.WriteLine(message);
             System.Console.ResetColor();
+            System.Console.Out.Flush();
         }
     }
 
@@ -537,6 +538,7 @@ public static class ConsoleUI
             System.Console.ForegroundColor = ConsoleColor.Green;
             System.Console.WriteLine($"✓ {message}");
             System.Console.ResetColor();
+            System.Console.Out.Flush();
         }
     }
 
@@ -550,6 +552,7 @@ public static class ConsoleUI
             System.Console.ForegroundColor = ConsoleColor.Yellow;
             System.Console.WriteLine($"⚠ {message}");
             System.Console.ResetColor();
+            System.Console.Out.Flush();
         }
     }
 
@@ -563,6 +566,7 @@ public static class ConsoleUI
             System.Console.ForegroundColor = ConsoleColor.Red;
             System.Console.WriteLine($"✗ {message}");
             System.Console.ResetColor();
+            System.Console.Out.Flush();
         }
     }
 
@@ -585,6 +589,7 @@ public static class ConsoleUI
             System.Console.Write($"[BACKEND] ");
             System.Console.ResetColor();
             System.Console.WriteLine(output.Text.TrimEnd());
+            System.Console.Out.Flush(); // Force immediate display
         }
     }
 
