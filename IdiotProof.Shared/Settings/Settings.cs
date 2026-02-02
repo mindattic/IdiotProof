@@ -124,7 +124,7 @@ namespace IdiotProof.Shared.Settings
         /// <summary>
         /// Interval in seconds between IPC ping messages to verify connection is alive.
         /// </summary>
-        public const int IpcPingIntervalSeconds = 5;
+        public const int IpcPingIntervalSeconds = 20 * 60;
     }
 }
 
