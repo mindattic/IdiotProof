@@ -44,6 +44,7 @@ namespace IdiotProof.Shared.Models
         ConnectionStatusChanged,
         StrategyStatusChanged,
         TradeUpdate, // IdiotProof trade status changed
+        Ping, // Heartbeat to verify connection is alive
     }
 
     /// <summary>

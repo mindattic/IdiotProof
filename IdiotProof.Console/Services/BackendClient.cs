@@ -35,6 +35,7 @@ public sealed class BackendClient : IDisposable
     public event EventHandler<ConsoleOutputMessage>? ConsoleOutputReceived;
     public event EventHandler<OrderInfo>? OrderUpdated;
     public event EventHandler<IdiotProofTrade>? TradeUpdated;
+    public event EventHandler? PingReceived;
 
     public async Task<bool> ConnectAsync()
     {
@@ -470,6 +471,11 @@ public sealed class BackendClient : IDisposable
                 }
                 break;
 
+            case BackendMessageType.Ping:
+                System.Console.WriteLine("[IPC] Ping received from backend");
+                System.Console.Out.Flush();
+                PingReceived?.Invoke(this, EventArgs.Empty);
+                break;
         }
     }
 

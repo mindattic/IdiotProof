@@ -118,6 +118,13 @@ namespace IdiotProof.Shared.Settings
         /// When false, waits for explicit activation from frontend.
         /// </summary>
         public static bool AutoStart { get; set; } = false;
+
+        // ----- IPC Settings -----
+
+        /// <summary>
+        /// Interval in seconds between IPC ping messages to verify connection is alive.
+        /// </summary>
+        public const int IpcPingIntervalSeconds = 5;
     }
 }
 

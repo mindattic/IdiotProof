@@ -8,6 +8,7 @@ using System.Text;
 using System.Text.Json;
 using IdiotProof.Backend.Logging;
 using IdiotProof.Shared.Models;
+using IdiotProof.Shared.Settings;
 
 namespace IdiotProof.Backend.Ipc
 {
@@ -23,6 +24,7 @@ namespace IdiotProof.Backend.Ipc
         private readonly CancellationTokenSource _cts = new();
         private readonly ConcurrentDictionary<Guid, ClientConnection> _clients = new();
         private Task? _acceptTask;
+        private Task? _pingTask;
         private bool _disposed;
 
         // Callbacks for handling requests
@@ -48,6 +50,7 @@ namespace IdiotProof.Backend.Ipc
         public void Start()
         {
             _acceptTask = AcceptClientsAsync(_cts.Token);
+            _pingTask = PingClientsAsync(_cts.Token);
             Console.WriteLine("[IPC] Server started on pipe: " + PipeName);
         }
 
@@ -165,6 +168,45 @@ namespace IdiotProof.Backend.Ipc
                 IpcLogger.LogConnection(clientId, connected: false);
                 Console.WriteLine($"[IPC] Client disconnected: {clientId}");
             }
+        }
+
+        /// <summary>
+        /// Periodically sends ping messages to all connected clients.
+        /// </summary>
+        private async Task PingClientsAsync(CancellationToken ct)
+        {
+            var interval = TimeSpan.FromSeconds(Settings.IpcPingIntervalSeconds);
+
+            while (!ct.IsCancellationRequested)
+            {
+                try
+                {
+                    await Task.Delay(interval, ct);
+
+                    if (_clients.Count > 0)
+                    {
+                        BroadcastPing();
+                    }
+                }
+                catch (OperationCanceledException)
+                {
+                    break;
+                }
+            }
+        }
+
+        /// <summary>
+        /// Broadcasts a ping message to all connected clients.
+        /// </summary>
+        public void BroadcastPing()
+        {
+            var message = new BackendMessage
+            {
+                Type = BackendMessageType.Ping
+            };
+
+            Console.WriteLine($"[IPC] Ping sent to {_clients.Count} client(s)");
+            BroadcastMessage(message);
         }
 
         private async Task<BackendMessage?> HandleMessageAsync(BackendMessage request)
@@ -428,6 +470,7 @@ namespace IdiotProof.Backend.Ipc
             _clients.Clear();
 
             _acceptTask?.Wait(1000);
+            _pingTask?.Wait(1000);
             _cts.Dispose();
 
             // Clear handler references to prevent memory leaks
