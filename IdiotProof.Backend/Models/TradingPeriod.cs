@@ -17,8 +17,9 @@
 // ============================================================================
 
 using System;
-using IdiotProof.Backend.Enums;
 using IdiotProof.Backend.Helpers;
+using IdiotProof.Shared.Enums;
+using IdiotProof.Shared.Settings;
 
 namespace IdiotProof.Backend.Models
 {

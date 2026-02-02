@@ -23,10 +23,9 @@
 // ║  Reference: https://interactivebrokers.github.io/tws-api/               ║
 // ╚═══════════════════════════════════════════════════════════════════════════╝
 
-using IdiotProof.Backend.Enums;
-using IdiotProof.Backend.Models;
+using IdiotProof.Shared.Enums;
 
-namespace IdiotProof.Backend
+namespace IdiotProof.Shared.Settings
 {
     /// <summary>
     /// Global configuration for IB connection settings.

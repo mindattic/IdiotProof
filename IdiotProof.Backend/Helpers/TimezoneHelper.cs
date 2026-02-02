@@ -44,8 +44,8 @@
 // ============================================================================
 
 using System;
-using IdiotProof.Backend.Enums;
 using IdiotProof.Backend.Models;
+using IdiotProof.Shared.Enums;
 
 namespace IdiotProof.Backend.Helpers
 {

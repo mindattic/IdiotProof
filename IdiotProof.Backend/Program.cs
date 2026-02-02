@@ -11,6 +11,7 @@ using IdiotProof.Backend.Models;
 using IdiotProof.Backend.Strategy;
 using IdiotProof.Shared.Models;
 using IdiotProof.Shared.Services;
+using IdiotProof.Shared.Settings;
 using IdiotProof.Shared.Validation;
 
 namespace IdiotProof.Backend

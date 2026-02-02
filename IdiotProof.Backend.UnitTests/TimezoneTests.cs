@@ -14,9 +14,10 @@
 // ============================================================================
 
 using IdiotProof.Backend;
-using IdiotProof.Backend.Enums;
 using IdiotProof.Backend.Helpers;
 using IdiotProof.Backend.Models;
+using IdiotProof.Shared.Settings;
+using MarketTimeZone = IdiotProof.Shared.Enums.MarketTimeZone;
 using NUnit.Framework;
 
 namespace IdiotProof.Backend.UnitTests;
