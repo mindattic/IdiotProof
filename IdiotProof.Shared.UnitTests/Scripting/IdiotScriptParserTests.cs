@@ -475,7 +475,7 @@ public class IdiotScriptParserTests
     [Test]
     public void Parse_FullStrategy_ParsesAllComponents()
     {
-        var script = "TICKER(NVDA).SESSION(IS.PREMARKET).QTY(1).ENTRY(200).TP(210).SL(190).TSL(IS.MODERATE).BREAKOUT().PULLBACK().ABOVEVWAP.EMAABOVE(9).CLOSEPOSITION(IS.BELL)";
+        var script = "TICKER(NVDA).SESSION(IS.PREMARKET).QTY(1).ENTRY(200).TP(210).SL(190).TSL(IS.MODERATE).BREAKOUT().PULLBACK().ISABOVEVWAP().EMAABOVE(9).CLOSEPOSITION(IS.BELL)";
 
         var result = IdiotScriptParser.Parse(script);
 
@@ -516,7 +516,7 @@ public class IdiotScriptParserTests
     [Test]
     public void Parse_Repeat_SetsRepeatEnabled()
     {
-        var script = "TICKER(ABC).ENTRY(5.00).TP(6.00).ABOVEVWAP.Repeat()";
+        var script = "TICKER(ABC).ENTRY(5.00).TP(6.00).ABOVEVWAP().Repeat()";
 
         var result = IdiotScriptParser.Parse(script);
 
@@ -527,7 +527,7 @@ public class IdiotScriptParserTests
     [Test]
     public void Parse_RepeatWithoutParentheses_SetsRepeatEnabled()
     {
-        var script = "TICKER(ABC).ENTRY(5.00).TP(6.00).ABOVEVWAP.Repeat";
+        var script = "TICKER(ABC).ENTRY(5.00).TP(6.00).ABOVEVWAP().Repeat";
 
         var result = IdiotScriptParser.Parse(script);
 

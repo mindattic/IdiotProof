@@ -153,6 +153,8 @@ namespace IdiotProof.Backend.Strategy
     public sealed class Stock
     {
         private readonly string _symbol;
+        private Guid _id = Guid.NewGuid();
+        private string _name = string.Empty;
         private string _exchange = "SMART";
         private string? _primaryExchange;
         private string _currency = "USD";
@@ -189,6 +191,28 @@ namespace IdiotProof.Backend.Strategy
         /// <code>Stock.Ticker("AAPL", notes: "Apple breakout strategy")</code>
         /// </example>
         public static Stock Ticker(string symbol, string? notes = null) => new(symbol) { _notes = notes };
+
+        /// <summary>
+        /// Sets the unique identifier for this strategy (for tracking/updates).
+        /// </summary>
+        /// <param name="id">The strategy ID (should match StrategyDefinition.Id).</param>
+        /// <returns>The builder for method chaining.</returns>
+        public Stock WithId(Guid id)
+        {
+            _id = id;
+            return this;
+        }
+
+        /// <summary>
+        /// Sets the user-friendly name for this strategy.
+        /// </summary>
+        /// <param name="name">The strategy name.</param>
+        /// <returns>The builder for method chaining.</returns>
+        public Stock WithName(string name)
+        {
+            _name = name;
+            return this;
+        }
 
         /// <summary>
         /// Adds notes to the strategy for documentation purposes.
@@ -677,6 +701,40 @@ namespace IdiotProof.Backend.Strategy
         }
 
         // ====================================================================
+        // SHORTHAND INDICATOR METHODS
+        // ====================================================================
+
+        /// <summary>
+        /// Adds a MACD bullish condition: MACD line > Signal line (momentum up).
+        /// Shorthand for <c>.IsMacd(MacdState.Bullish)</c>.
+        /// </summary>
+        /// <returns>The builder for method chaining.</returns>
+        public Stock IsMacdBullish() => IsMacd(Enums.MacdState.Bullish);
+
+        /// <summary>
+        /// Adds a MACD bearish condition: MACD line &lt; Signal line (momentum down).
+        /// Shorthand for <c>.IsMacd(MacdState.Bearish)</c>.
+        /// </summary>
+        /// <returns>The builder for method chaining.</returns>
+        public Stock IsMacdBearish() => IsMacd(Enums.MacdState.Bearish);
+
+        /// <summary>
+        /// Adds a +DI positive condition: +DI > -DI (bullish pressure dominates).
+        /// Shorthand for <c>.IsDI(DiDirection.Positive)</c>.
+        /// </summary>
+        /// <param name="minDifference">Minimum difference between +DI and -DI (default: 0).</param>
+        /// <returns>The builder for method chaining.</returns>
+        public Stock IsDiPositive(double minDifference = 0) => IsDI(Enums.DiDirection.Positive, minDifference);
+
+        /// <summary>
+        /// Adds a -DI negative condition: -DI > +DI (bearish pressure dominates).
+        /// Shorthand for <c>.IsDI(DiDirection.Negative)</c>.
+        /// </summary>
+        /// <param name="minDifference">Minimum difference between -DI and +DI (default: 0).</param>
+        /// <returns>The builder for method chaining.</returns>
+        public Stock IsDiNegative(double minDifference = 0) => IsDI(Enums.DiDirection.Negative, minDifference);
+
+        // ====================================================================
         // ORDER METHODS - Returns StrategyBuilder for chaining
         // ====================================================================
 
@@ -878,6 +936,8 @@ namespace IdiotProof.Backend.Strategy
 
             return new TradingStrategy
             {
+                Id = _id,
+                Name = _name,
                 Symbol = _symbol,
                 Exchange = _exchange,
                 PrimaryExchange = _primaryExchange,
@@ -895,6 +955,8 @@ namespace IdiotProof.Backend.Strategy
         }
 
         internal string Symbol => _symbol;
+        internal Guid IdValue => _id;
+        internal string NameValue => _name;
         internal string ExchangeValue => _exchange;
         internal string? PrimaryExchangeValue => _primaryExchange;
         internal string CurrencyValue => _currency;

@@ -242,7 +242,7 @@ public class ScriptParserIndicatorTests
     [Test]
     public void Parse_MomentumWithVwapAndEma_Combined()
     {
-        var result = StrategyScriptParser.Parse("SYM(AAPL).AboveVwap.EmaAbove(9).MomentumAbove(0).RocAbove(2)");
+        var result = StrategyScriptParser.Parse("SYM(AAPL).IsAboveVwap().EmaAbove(9).MomentumAbove(0).RocAbove(2)");
 
         var vwapSegment = result.Segments.FirstOrDefault(s => s.Type == SegmentType.IsAboveVwap);
         var emaSegment = result.Segments.FirstOrDefault(s => s.Type == SegmentType.IsEmaAbove);
@@ -258,7 +258,7 @@ public class ScriptParserIndicatorTests
     [Test]
     public void Parse_FullStrategyWithMomentum()
     {
-        var script = "Ticker(PLTR).Session(IS.PREMARKET).Qty(10).Entry(25).TakeProfit(28).TrailingStopLoss(IS.MODERATE).AboveVwap.EmaAbove(9).MomentumAbove(0)";
+        var script = "Ticker(PLTR).Session(IS.PREMARKET).Qty(10).Entry(25).TakeProfit(28).TrailingStopLoss(IS.MODERATE).IsAboveVwap().EmaAbove(9).MomentumAbove(0)";
         var result = StrategyScriptParser.Parse(script);
 
         Assert.That(result.Symbol, Is.EqualTo("PLTR"));

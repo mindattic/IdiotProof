@@ -119,7 +119,7 @@ public class OrderOfOperationsTests
     public void Parse_ConditionsBeforeOrder_Succeeds()
     {
         // Arrange
-        var script = "TICKER(AAPL).BREAKOUT(150).ABOVEVWAP.BUY.QTY(100)";
+        var script = "TICKER(AAPL).BREAKOUT(150).ISABOVEVWAP().BUY.QTY(100)";
 
         // Act
         var result = StrategyScriptParser.Parse(script);
@@ -183,7 +183,7 @@ public class OrderOfOperationsTests
     public void Parse_CompleteStrategyFlow_AllSegmentsPresent()
     {
         // Arrange - Complete strategy with all sections
-        var script = "TICKER(NVDA).SESSION(IS.PREMARKET).BREAKOUT(150).ABOVEVWAP.BUY.QTY(10).TP(160).SL(145).TSL(IS.MODERATE).CLOSEPOSITION(IS.BELL)";
+        var script = "TICKER(NVDA).SESSION(IS.PREMARKET).BREAKOUT(150).ABOVEVWAP().BUY.QTY(10).TP(160).SL(145).TSL(IS.MODERATE).CLOSEPOSITION(IS.BELL)";
 
         // Act
         var result = StrategyScriptParser.Parse(script);
@@ -200,7 +200,7 @@ public class OrderOfOperationsTests
     }
 
     [TestCase("TICKER(AAPL).SESSION(IS.RTH).BREAKOUT.BUY.TP(160)")]
-    [TestCase("TICKER(AAPL).PULLBACK.ABOVEVWAP.SELL.SL(140)")]
+    [TestCase("TICKER(AAPL).PULLBACK.ABOVEVWAP().SELL.SL(140)")]
     [TestCase("TICKER(AAPL).EMAABOVE(9).EMABELOW(200).BUY.TSL(IS.TIGHT)")]
     public void Parse_VariousCompleteStrategies_AllSucceed(string script)
     {
@@ -453,8 +453,8 @@ public class RoundTripPreservationTests
     #region Segment Count Preservation
 
     [TestCase("TICKER(AAPL).BREAKOUT", 1)]
-    [TestCase("TICKER(AAPL).BREAKOUT.ABOVEVWAP", 2)]
-    [TestCase("TICKER(AAPL).BREAKOUT.ABOVEVWAP.TP(160)", 3)]
+    [TestCase("TICKER(AAPL).BREAKOUT.ABOVEVWAP()", 2)]
+    [TestCase("TICKER(AAPL).BREAKOUT.ABOVEVWAP().TP(160)", 3)]
     public void RoundTrip_PreservesSegmentCount(string script, int minExpectedSegments)
     {
         // Act

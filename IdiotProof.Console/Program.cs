@@ -141,6 +141,21 @@ internal sealed class Program
             _isTradingActive = status.IsTradingActive;
         }
 
+        // Send strategies to backend
+        if (_localStrategies.Count > 0)
+        {
+            ConsoleUI.Info($"Sending {_localStrategies.Count} strategies to backend...");
+            var result = await _client.SetStrategiesAsync(_localStrategies);
+            if (result?.Success == true)
+            {
+                ConsoleUI.Success(result.Message ?? "Strategies sent to backend");
+            }
+            else
+            {
+                ConsoleUI.Warning(result?.ErrorMessage ?? "Failed to send strategies to backend");
+            }
+        }
+
         // Display open orders
         var orders = await _client.GetOrdersAsync();
         ConsoleUI.DisplayOpenOrders(orders);
@@ -344,9 +359,35 @@ internal sealed class Program
             return;
         }
 
-        ConsoleUI.Info("Reloading strategies from backend...");
-        await _client.ReloadStrategiesAsync();
-        ConsoleUI.Success("Strategies reloaded");
+        ConsoleUI.Info("Reloading strategies from disk...");
+
+        try
+        {
+            var folder = IdiotScriptFileManager.GetDefaultFolder();
+            var loaded = await IdiotScriptFileManager.LoadStrategiesFromFolderAsync(folder);
+            _localStrategies.Clear();
+            _localStrategies.AddRange(loaded.OrderBy(s => s.Name));
+
+            ConsoleUI.Info($"Loaded {_localStrategies.Count} strategies from disk");
+
+            // Send to backend
+            var result = await _client.SetStrategiesAsync(_localStrategies);
+            if (result?.Success == true)
+            {
+                ConsoleUI.Success(result.Message ?? "Strategies sent to backend");
+            }
+            else
+            {
+                ConsoleUI.Warning(result?.ErrorMessage ?? "Failed to send strategies to backend");
+            }
+
+            // Display updated strategies
+            ConsoleUI.DisplayStrategies(_localStrategies);
+        }
+        catch (Exception ex)
+        {
+            ConsoleUI.Error($"Failed to reload strategies: {ex.Message}");
+        }
     }
 
     private static async Task ShowStatusAsync()
@@ -396,6 +437,16 @@ internal sealed class Program
         _localStrategies.Clear();
         _localStrategies.AddRange(manager.Strategies);
 
+        // Sync with backend in case changes were made
+        if (_client?.IsConnected == true && _localStrategies.Count > 0)
+        {
+            var result = await _client.SetStrategiesAsync(_localStrategies);
+            if (result?.Success == true)
+            {
+                ConsoleUI.Success(result.Message ?? "Strategies synced with backend");
+            }
+        }
+
         // Redraw main UI
         ConsoleUI.ConfigureConsole();
         ConsoleUI.DisplayBanner();
@@ -431,7 +482,34 @@ internal sealed class Program
         if (StrategyScriptParser.TryParse(script, out var strategy, out var error))
         {
             _localStrategies.Add(strategy!);
+
+            // Save to disk
+            try
+            {
+                var folder = IdiotScriptFileManager.GetDefaultFolder();
+                IdiotScriptFileManager.EnsureFolderExists(folder);
+                var fileName = IdiotScriptFileManager.GetSafeFileName(strategy!.Name, strategy.Symbol);
+                var savedPath = Path.Combine(folder, fileName);
+                await IdiotScriptFileManager.SaveToFileAsync(strategy, savedPath);
+                ConsoleUI.Info($"Saved: {savedPath}");
+            }
+            catch
+            {
+                // Best-effort persistence
+            }
+
             ConsoleUI.Success($"Strategy '{strategy!.Name}' created!");
+
+            // Sync with backend
+            if (_client?.IsConnected == true)
+            {
+                var result = await _client.SetStrategiesAsync(_localStrategies);
+                if (result?.Success == true)
+                {
+                    ConsoleUI.Success(result.Message ?? "Strategies synced with backend");
+                }
+            }
+
             ConsoleUI.DisplayStrategies(_localStrategies);
         }
         else

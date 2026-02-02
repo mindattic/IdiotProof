@@ -43,6 +43,9 @@ public static class IdiotScriptFileManager
     /// <summary>File search pattern for .idiot files.</summary>
     public const string SearchPattern = "*.idiot";
 
+    /// <summary>Supported file extensions for loading strategies.</summary>
+    public static readonly string[] SupportedExtensions = [".idiot", ".txt"];
+
     // ========================================================================
     // FOLDER MANAGEMENT
     // ========================================================================
@@ -195,7 +198,11 @@ public static class IdiotScriptFileManager
         if (!Directory.Exists(folder))
             return strategies;
 
-        var files = Directory.GetFiles(folder, SearchPattern);
+        // Load files from all supported extensions
+        var files = SupportedExtensions
+            .SelectMany(ext => Directory.GetFiles(folder, $"*{ext}"))
+            .Distinct()
+            .ToList();
 
         foreach (var file in files)
         {

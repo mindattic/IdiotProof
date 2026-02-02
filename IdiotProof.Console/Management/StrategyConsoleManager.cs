@@ -291,7 +291,7 @@ public class StrategyConsoleManager
         System.Console.ForegroundColor = ConsoleColor.DarkGray;
         System.Console.WriteLine("Enter your strategy using IdiotScript syntax. Example:");
         System.Console.ForegroundColor = ConsoleColor.White;
-        System.Console.WriteLine("  Ticker(PLTR).Session(IS.PREMARKET).Qty(10).Entry(148.75).TakeProfit(158).TrailingStopLoss(15).AboveVwap.EmaBetween(9, 21)");
+        System.Console.WriteLine("  Ticker(PLTR).Session(IS.PREMARKET).Qty(10).Entry(148.75).TakeProfit(158).TrailingStopLoss(15).IsAboveVwap().EmaBetween(9, 21)");
         System.Console.ResetColor();
         System.Console.WriteLine();
         System.Console.ForegroundColor = ConsoleColor.DarkGray;
@@ -343,6 +343,18 @@ public class StrategyConsoleManager
                 System.Console.ForegroundColor = ConsoleColor.DarkGray;
                 System.Console.WriteLine($"Saved: {savedPath}");
                 System.Console.ResetColor();
+            }
+
+            // Send updated strategies to backend
+            if (_client?.IsConnected == true)
+            {
+                var result = await _client.SetStrategiesAsync(_strategies);
+                if (result?.Success == true)
+                {
+                    System.Console.ForegroundColor = ConsoleColor.Green;
+                    System.Console.WriteLine($"✓ {result.Message ?? "Strategies synced with backend"}");
+                    System.Console.ResetColor();
+                }
             }
 
             System.Console.WriteLine();
@@ -426,6 +438,19 @@ public class StrategyConsoleManager
         var strategy = _strategies[index - 1];
         strategy.Enabled = !strategy.Enabled;
 
+        // Save the updated strategy to disk
+        try
+        {
+            var folder = IdiotScriptFileManager.GetDefaultFolder();
+            var fileName = IdiotScriptFileManager.GetSafeFileName(strategy.Name, strategy.Symbol);
+            var savedPath = Path.Combine(folder, fileName);
+            await IdiotScriptFileManager.SaveToFileAsync(strategy, savedPath);
+        }
+        catch
+        {
+            // Best-effort persistence
+        }
+
         System.Console.WriteLine();
         if (strategy.Enabled)
         {
@@ -438,6 +463,18 @@ public class StrategyConsoleManager
             System.Console.WriteLine($"○ Strategy '{strategy.Name}' is now DISABLED");
         }
         System.Console.ResetColor();
+
+        // Sync with backend
+        if (_client?.IsConnected == true)
+        {
+            var result = await _client.SetStrategiesAsync(_strategies);
+            if (result?.Success == true)
+            {
+                System.Console.ForegroundColor = ConsoleColor.DarkGray;
+                System.Console.WriteLine($"Synced with backend");
+                System.Console.ResetColor();
+            }
+        }
 
         System.Console.WriteLine();
         System.Console.WriteLine("Press any key to return to menu...");
@@ -533,10 +570,35 @@ public class StrategyConsoleManager
             var originalIndex = _strategies.IndexOf(strategy);
             _strategies[originalIndex] = newStrategy!;
 
+            // Save to disk
+            try
+            {
+                var folder = IdiotScriptFileManager.GetDefaultFolder();
+                var fileName = IdiotScriptFileManager.GetSafeFileName(newStrategy!.Name, newStrategy.Symbol);
+                var savedPath = Path.Combine(folder, fileName);
+                await IdiotScriptFileManager.SaveToFileAsync(newStrategy, savedPath);
+            }
+            catch
+            {
+                // Best-effort persistence
+            }
+
             System.Console.WriteLine();
             System.Console.ForegroundColor = ConsoleColor.Green;
             System.Console.WriteLine($"✓ Strategy updated: '{newStrategy!.Name}'");
             System.Console.ResetColor();
+
+            // Sync with backend
+            if (_client?.IsConnected == true)
+            {
+                var result = await _client.SetStrategiesAsync(_strategies);
+                if (result?.Success == true)
+                {
+                    System.Console.ForegroundColor = ConsoleColor.DarkGray;
+                    System.Console.WriteLine($"Synced with backend");
+                    System.Console.ResetColor();
+                }
+            }
 
             // Show the updated strategy
             System.Console.WriteLine();
@@ -841,7 +903,7 @@ public class StrategyConsoleManager
         System.Console.ResetColor();
         System.Console.ForegroundColor = ConsoleColor.Cyan;
         System.Console.WriteLine("  Simple:  Ticker(PLTR).Session(IS.PREMARKET).Qty(10).TakeProfit($28).TrailingStopLoss(IS.MODERATE).ClosePosition(IS.BELL)");
-        System.Console.WriteLine("  Chained: Ticker(PLTR).Qty(10).Breakout(25.50).Pullback(25.00).AboveVwap.EmaBetween(9, 21)");
+        System.Console.WriteLine("  Chained: Ticker(PLTR).Qty(10).Breakout(25.50).Pullback(25.00).IsAboveVwap().EmaBetween(9, 21)");
         System.Console.ResetColor();
 
         System.Console.WriteLine();

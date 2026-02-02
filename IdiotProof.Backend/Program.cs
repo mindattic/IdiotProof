@@ -122,6 +122,7 @@ namespace IdiotProof.Backend
             _ipcServer.CancelAllOrdersHandler = CancelAllOrdersAsync;
             _ipcServer.ClosePositionHandler = ClosePositionAsync;
             _ipcServer.ReloadStrategiesHandler = ReloadStrategiesAsync;
+            _ipcServer.SetStrategiesHandler = SetStrategiesAsync;
             _ipcServer.ActivateStrategyHandler = ActivateStrategyAsync;
             _ipcServer.DeactivateStrategyHandler = DeactivateStrategyAsync;
             _ipcServer.ActivateTradingHandler = ActivateTradingAsync;
@@ -493,6 +494,133 @@ namespace IdiotProof.Backend
                 ActivateTrading();
 
             return Task.CompletedTask;
+        }
+
+        private static Task<OperationResultPayload> SetStrategiesAsync(List<StrategyDefinition> definitions)
+        {
+            try
+            {
+                var wasActive = _isActive;
+                if (wasActive)
+                    DeactivateTrading();
+
+                // Build a lookup of existing strategies by ID for smart merging
+                var existingById = _strategies.ToDictionary(s => s.Id);
+                var newStrategies = new List<TradingStrategy>();
+                var keptCount = 0;
+                var updatedCount = 0;
+                var addedCount = 0;
+
+                foreach (var def in definitions.Where(d => d.Enabled))
+                {
+                    // Check if we already have this strategy
+                    if (existingById.TryGetValue(def.Id, out var existing))
+                    {
+                        // Compare if the definition has changed
+                        // For now, compare by serializing to IdiotScript (canonical form)
+                        var existingScript = GetStrategyFingerprint(existing);
+                        var newScript = GetDefinitionFingerprint(def);
+
+                        if (existingScript == newScript)
+                        {
+                            // Strategy unchanged - keep existing instance with its state
+                            newStrategies.Add(existing);
+                            keptCount++;
+                            Log($"Kept unchanged: {def.Name} ({def.Symbol})");
+                        }
+                        else
+                        {
+                            // Strategy changed - create new instance
+                            var strategy = StrategyLoader.ConvertDefinition(def);
+                            if (strategy != null)
+                            {
+                                newStrategies.Add(strategy);
+                                updatedCount++;
+                                Log($"Updated strategy: {def.Name} ({def.Symbol})");
+                            }
+                        }
+                    }
+                    else
+                    {
+                        // New strategy - create instance
+                        var strategy = StrategyLoader.ConvertDefinition(def);
+                        if (strategy != null)
+                        {
+                            newStrategies.Add(strategy);
+                            addedCount++;
+                            Log($"Added new strategy: {def.Name} ({def.Symbol})");
+                        }
+                    }
+                }
+
+                // Calculate removed count
+                var removedCount = _strategies.Count - keptCount;
+
+                // Replace strategy list
+                _strategies.Clear();
+                _strategies.AddRange(newStrategies);
+
+                var message = $"Strategies: {keptCount} kept, {updatedCount} updated, {addedCount} added, {removedCount} removed";
+                Log(message);
+
+                if (wasActive && _strategies.Count > 0)
+                    ActivateTrading();
+
+                return Task.FromResult(new OperationResultPayload 
+                { 
+                    Success = true, 
+                    Message = message 
+                });
+            }
+            catch (Exception ex)
+            {
+                Log($"Error setting strategies: {ex.Message}");
+                return Task.FromResult(new OperationResultPayload 
+                { 
+                    Success = false, 
+                    ErrorMessage = ex.Message 
+                });
+            }
+        }
+
+        /// <summary>
+        /// Gets a fingerprint for a TradingStrategy to detect changes.
+        /// Uses key properties that define the strategy behavior.
+        /// </summary>
+        private static string GetStrategyFingerprint(TradingStrategy strategy)
+        {
+            // Create a fingerprint based on key strategy properties
+            var parts = new List<string>
+            {
+                strategy.Symbol,
+                strategy.Order.Quantity.ToString(),
+                strategy.Order.Side.ToString(),
+                strategy.Order.TakeProfitPrice?.ToString() ?? "",
+                strategy.Order.StopLossPrice?.ToString() ?? "",
+                strategy.Order.TrailingStopLossPercent.ToString(),
+                strategy.StartTime?.ToString() ?? "",
+                strategy.EndTime?.ToString() ?? "",
+                strategy.ClosePositionTime?.ToString() ?? "",
+                strategy.RepeatEnabled.ToString(),
+                strategy.Conditions.Count.ToString()
+            };
+
+            // Add condition fingerprints
+            foreach (var condition in strategy.Conditions)
+            {
+                parts.Add(condition.Name);
+            }
+
+            return string.Join("|", parts);
+        }
+
+        /// <summary>
+        /// Gets a fingerprint for a StrategyDefinition to detect changes.
+        /// </summary>
+        private static string GetDefinitionFingerprint(StrategyDefinition def)
+        {
+            // Serialize to IdiotScript for canonical comparison
+            return IdiotProof.Shared.Scripting.IdiotScriptSerializer.Serialize(def);
         }
 
         private static Task<OperationResultPayload> ActivateStrategyAsync(Guid strategyId)

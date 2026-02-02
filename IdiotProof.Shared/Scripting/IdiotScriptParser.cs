@@ -6,6 +6,7 @@
 // Commands use period (.) as the universal delimiter. Commands are case-insensitive.
 // Constants use IS. prefix (e.g., IS.PREMARKET, IS.BELL, IS.MODERATE).
 // Scripts are auto-converted to PascalCase before validation.
+// All commands should include parentheses (e.g., AboveVwap() not AboveVwap).
 //
 // SCRIPT STRUCTURE:
 // A script starts with a symbol declaration and chains commands with periods:
@@ -29,44 +30,42 @@
 // - TP(158) or TakeProfit($158)   - Take profit target
 // - SL(145) or StopLoss($145)     - Stop loss price
 // - TSL(15) or TrailingStopLoss(IS.MODERATE) - Trailing stop loss percentage
-// - AboveVwap or IsAboveVwap      - Above VWAP condition
-// - BelowVwap or IsBelowVwap      - Below VWAP condition
+// - AboveVwap() or IsAboveVwap()  - Above VWAP condition
+// - BelowVwap() or IsBelowVwap()  - Below VWAP condition
 // - EmaAbove(9) or IsEmaAbove(9)  - Price above EMA condition
 // - EmaBelow(9) or IsEmaBelow(9)  - Price below EMA condition
 // - EmaBetween(9, 21) or IsEmaBetween(9, 21) - Price between two EMAs
 // - RsiOversold(30) or IsRsiOversold(30) - RSI oversold condition
 // - RsiOverbought(70) or IsRsiOverbought(70) - RSI overbought condition
 // - AdxAbove(25) or IsAdxAbove(25)- ADX above threshold
-// - MacdBullish or IsMacdBullish  - MACD bullish crossover
-// - MacdBearish or IsMacdBearish  - MACD bearish crossover
-// - DiPositive or IsDiPositive    - +DI above threshold
-// - DiNegative or IsDiNegative    - -DI above threshold
+// - MacdBullish() or IsMacdBullish()  - MACD bullish crossover
+// - MacdBearish() or IsMacdBearish()  - MACD bearish crossover
+// - DiPositive() or IsDiPositive()    - +DI above threshold
+// - DiNegative() or IsDiNegative()    - -DI above threshold
 // - MomentumAbove(0) or IsMomentumAbove(0) - Momentum above threshold (upward momentum)
 // - MomentumBelow(0) or IsMomentumBelow(0) - Momentum below threshold (downward momentum)
 // - RocAbove(2) or IsRocAbove(2)  - Rate of Change above threshold (positive momentum)
 // - RocBelow(-2) or IsRocBelow(-2)- Rate of Change below threshold (negative momentum)
-// - BREAKOUT() or BREAKOUT(150)   - Breakout condition
-// - PULLBACK() or PULLBACK(148)   - Pullback condition
+// - Breakout() or Breakout(150)   - Breakout condition
+// - Pullback() or Pullback(148)   - Pullback condition
 // - SESSION(IS.PREMARKET)         - Set trading session
 // - ClosePosition(IS.BELL)        - Close position time
-// - LongPosition or IsLongPosition or BUY - Open a long position (default)
-// - ShortPosition or IsShortPosition or SELL - Open a short position
-// - CloseLong                     - Close a long position
-// - CloseShort                    - Close a short position
-// - Enabled or IsEnabled or Enabled(Y) or IsEnabled(IS.True) - Enable strategy (default: true)
+// - Buy() or Sell()               - Order direction (Buy is default)
+// - CloseLong() or CloseShort()   - Close a position
+// - Enabled() or IsEnabled() or Enabled(Y) or IsEnabled(IS.True) - Enable strategy (default: true)
 // - Enabled(N) or IsEnabled(IS.False) - Disable strategy
 // - TimeInForce(DAY)              - Order time-in-force
 // - OutsideRTH(true)              - Allow extended hours execution
 // - AllOrNone(true)               - Require full fill or cancel
 // - OrderType(LIMIT)              - Set order type
-// - Repeat or IsRepeat or Repeat(Y) or IsRepeat(IS.True) - Strategy repeats after completion
+// - Repeat() or IsRepeat() or Repeat(Y) or IsRepeat(IS.True) - Strategy repeats after completion
 // - Repeat(N) or IsRepeat(IS.False) - Strategy fires once (default)
 //
 // EXAMPLE:
-// Ticker(NVDA).Session(IS.PREMARKET).ClosePosition(IS.PREMARKET.BELL).Qty(1).Entry(200).TakeProfit(201).StopLoss(190).TrailingStopLoss(10).Breakout().Pullback().AboveVwap.EmaBetween(9, 21).EmaAbove(200).MomentumAbove(0)
+// Ticker(NVDA).Session(IS.PREMARKET).ClosePosition(IS.BELL).Qty(1).Entry(200).TakeProfit(201).StopLoss(190).TrailingStopLoss(10).Breakout().Pullback().AboveVwap().EmaBetween(9, 21).EmaAbove(200).MomentumAbove(0)
 //
 // REPEATING STRATEGY EXAMPLE:
-// Ticker(ABC).Entry(5.00).TakeProfit(6.00).IsAboveVwap().IsDiPositive().IsRepeat()
+// Ticker(ABC).Entry(5.00).TakeProfit(6.00).AboveVwap().DiPositive().Repeat()
 //
 // ============================================================================
 
@@ -155,10 +154,10 @@ public static partial class IdiotScriptParser
     [GeneratedRegex(@"^(?:IS)?MACDBEARISH(?:\(\))?$", RegexOptions.IgnoreCase)]
     private static partial Regex MacdBearishPattern();
 
-    [GeneratedRegex(@"^(?:IS)?DIPOSITIVE(?:\((\d+(?:\.\d+)?)\))?$", RegexOptions.IgnoreCase)]
+    [GeneratedRegex(@"^(?:IS)?DIPOSITIVE(?:\((\d+(?:\.\d+)?)?\))?$", RegexOptions.IgnoreCase)]
     private static partial Regex DiPositivePattern();
 
-    [GeneratedRegex(@"^(?:IS)?DINEGATIVE(?:\((\d+(?:\.\d+)?)\))?$", RegexOptions.IgnoreCase)]
+    [GeneratedRegex(@"^(?:IS)?DINEGATIVE(?:\((\d+(?:\.\d+)?)?\))?$", RegexOptions.IgnoreCase)]
     private static partial Regex DiNegativePattern();
 
     // Momentum patterns

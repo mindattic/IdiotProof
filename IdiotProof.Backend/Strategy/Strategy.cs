@@ -41,6 +41,12 @@ namespace IdiotProof.Backend.Strategy
     /// </remarks>
     public sealed class TradingStrategy
     {
+        /// <summary>Unique identifier for this strategy (matches StrategyDefinition.Id).</summary>
+        public Guid Id { get; init; } = Guid.NewGuid();
+
+        /// <summary>User-friendly name for the strategy.</summary>
+        public string Name { get; init; } = string.Empty;
+
         /// <summary>Stock symbol to trade.</summary>
         public required string Symbol { get; init; }
 

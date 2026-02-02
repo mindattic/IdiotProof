@@ -437,8 +437,8 @@ public static class ConsoleUI
             System.Console.ForegroundColor = ConsoleColor.Yellow;
             System.Console.WriteLine();
             System.Console.WriteLine("╔═══════════════════════════════════════════════════════════════╗");
-            System.Console.WriteLine("║  Trading is PAUSED - Press CTRL+ALT+ENTER to activate        ║");
-            System.Console.WriteLine("║  Press H for help                                            ║");
+            System.Console.WriteLine("║  Trading is PAUSED - Press CTRL+ALT+ENTER to activate         ║");
+            System.Console.WriteLine("║  Press H for help                                             ║");
             System.Console.WriteLine("╚═══════════════════════════════════════════════════════════════╝");
             System.Console.ResetColor();
             System.Console.WriteLine();

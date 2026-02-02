@@ -21,6 +21,7 @@ namespace IdiotProof.Shared.Models
         CancelAllOrders,
         ClosePosition,
         ReloadStrategies,
+        SetStrategies, // Send strategies from frontend to backend
         ActivateStrategy,
         DeactivateStrategy,
         ActivateTrading,
@@ -202,5 +203,13 @@ namespace IdiotProof.Shared.Models
     public class TradesResponsePayload
     {
         public List<IdiotProofTrade> Trades { get; set; } = [];
+    }
+
+    /// <summary>
+    /// Request to set strategies on the backend.
+    /// </summary>
+    public class SetStrategiesRequest
+    {
+        public List<StrategyDefinition> Strategies { get; set; } = [];
     }
 }

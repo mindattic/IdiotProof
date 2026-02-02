@@ -233,7 +233,7 @@ public class IdiotScriptSerializerTests
     [Test]
     public void RoundTrip_WithRepeat_PreservesRepeatEnabled()
     {
-        var original = "Ticker(ABC).ENTRY(5.00).TP(6.00).ABOVEVWAP.Repeat()";
+        var original = "Ticker(ABC).ENTRY(5.00).TP(6.00).ABOVEVWAP().Repeat()";
         var strategy = IdiotScriptParser.Parse(original);
         var serialized = IdiotScriptSerializer.Serialize(strategy);
         var reparsed = IdiotScriptParser.Parse(serialized);

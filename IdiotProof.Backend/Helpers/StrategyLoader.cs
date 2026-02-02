@@ -254,6 +254,8 @@ namespace IdiotProof.Backend.Models
 
             // Start building the strategy
             var builder = Stock.Ticker(definition.Symbol)
+                .WithId(definition.Id)
+                .WithName(definition.Name)
                 .Enabled(definition.Enabled);
 
             // Track if we've added an order (Buy/Sell/Close)

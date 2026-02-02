@@ -47,7 +47,7 @@
 // - OrderType(LIMIT)               - Set order type
 //
 // EXAMPLE:
-// Ticker(NVDA).Session(IS.PREMARKET).ClosePosition(IS.PREMARKET.BELL).Qty(1).Entry(200).TakeProfit(201).StopLoss(190).TrailingStopLoss(10).Breakout().Pullback().AboveVwap.EmaBetween(9, 21).EmaAbove(200)
+// Ticker(NVDA).Session(IS.PREMARKET).ClosePosition(IS.PREMARKET.BELL).Qty(1).Entry(200).TakeProfit(201).StopLoss(190).TrailingStopLoss(10).Breakout().Pullback().IsAboveVwap().EmaBetween(9, 21).EmaAbove(200)
 //
 // ============================================================================
 

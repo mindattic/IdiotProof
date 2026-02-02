@@ -346,7 +346,7 @@ public class IdiotScriptValidatorTests
     [Test]
     public void Validate_ScriptWithAllConditions_ReturnsValid()
     {
-        var script = "TICKER(NVDA).SESSION(IS.PREMARKET).QTY(1).ENTRY(200).TP(210).SL(190).TSL(IS.MODERATE).BREAKOUT().PULLBACK().ABOVEVWAP.EMAABOVE(9).CLOSEPOSITION(IS.BELL)";
+        var script = "TICKER(NVDA).SESSION(IS.PREMARKET).QTY(1).ENTRY(200).TP(210).SL(190).TSL(IS.MODERATE).BREAKOUT().PULLBACK().ABOVEVWAP().EMAABOVE(9).CLOSEPOSITION(IS.BELL)";
 
         var result = IdiotScriptValidator.Validate(script);
 

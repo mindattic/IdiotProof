@@ -308,6 +308,29 @@ public sealed class BackendClient : IDisposable
         await SendMessageAsync(new BackendMessage { Type = BackendMessageType.ReloadStrategies });
     }
 
+    public async Task<OperationResultPayload?> SetStrategiesAsync(List<StrategyDefinition> strategies)
+    {
+        if (!_isConnected) return null;
+
+        try
+        {
+            var request = new BackendMessage
+            {
+                Type = BackendMessageType.SetStrategies,
+                Payload = JsonSerializer.Serialize(new SetStrategiesRequest { Strategies = strategies })
+            };
+
+            var response = await SendRequestAsync(request);
+            if (response?.Payload != null)
+            {
+                return JsonSerializer.Deserialize<OperationResultPayload>(response.Payload);
+            }
+        }
+        catch { }
+
+        return null;
+    }
+
     public async Task<List<IdiotProofTrade>> GetTradesAsync()
     {
         if (!_isConnected) return [];

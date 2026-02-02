@@ -33,6 +33,7 @@ namespace IdiotProof.Backend.Ipc
         public Func<Task<OperationResultPayload>>? CancelAllOrdersHandler { get; set; }
         public Func<string, Task<OperationResultPayload>>? ClosePositionHandler { get; set; }
         public Func<Task>? ReloadStrategiesHandler { get; set; }
+        public Func<List<StrategyDefinition>, Task<OperationResultPayload>>? SetStrategiesHandler { get; set; }
         public Func<Guid, Task<OperationResultPayload>>? ActivateStrategyHandler { get; set; }
         public Func<Guid, Task<OperationResultPayload>>? DeactivateStrategyHandler { get; set; }
         public Func<Task<OperationResultPayload>>? ActivateTradingHandler { get; set; }
@@ -256,6 +257,28 @@ namespace IdiotProof.Backend.Ipc
                             Type = BackendMessageType.OperationResult,
                             MessageId = request.MessageId,
                             Payload = JsonSerializer.Serialize(new OperationResultPayload { Success = true, Message = "Strategies reloaded" })
+                        };
+
+                    case BackendMessageType.SetStrategies:
+                        if (request.Payload != null && SetStrategiesHandler != null)
+                        {
+                            var setReq = JsonSerializer.Deserialize<SetStrategiesRequest>(request.Payload);
+                            if (setReq != null)
+                            {
+                                var result = await SetStrategiesHandler(setReq.Strategies);
+                                return new BackendMessage
+                                {
+                                    Type = BackendMessageType.OperationResult,
+                                    MessageId = request.MessageId,
+                                    Payload = JsonSerializer.Serialize(result)
+                                };
+                            }
+                        }
+                        return new BackendMessage
+                        {
+                            Type = BackendMessageType.OperationResult,
+                            MessageId = request.MessageId,
+                            Payload = JsonSerializer.Serialize(new OperationResultPayload { Success = false, ErrorMessage = "No strategies provided" })
                         };
 
                     case BackendMessageType.ActivateStrategy:
