@@ -138,37 +138,25 @@ namespace IdiotProof.Backend.Models
         }
 
         /// <summary>
-        /// Loads all enabled strategies from today's folder and converts them to TradingStrategy objects.
+        /// Loads all enabled strategies from the main Strategies folder and converts them to TradingStrategy objects.
         /// Supports both IdiotScript (.idiot) and legacy JSON (.json) files.
         /// </summary>
         /// <returns>List of TradingStrategy objects ready for execution.</returns>
         public static List<TradingStrategy> LoadFromJson()
         {
-            return LoadFromJson(DateOnly.FromDateTime(DateTime.Today));
-        }
+            var strategiesFolder = GetDefaultFolder();
 
-        /// <summary>
-        /// Loads all enabled strategies from the specified date's folder.
-        /// Supports both IdiotScript (.idiot) and legacy JSON (.json) files.
-        /// IdiotScript files are preferred and loaded first.
-        /// </summary>
-        /// <param name="date">The date to load strategies for.</param>
-        /// <returns>List of TradingStrategy objects ready for execution.</returns>
-        public static List<TradingStrategy> LoadFromJson(DateOnly date)
-        {
-            var dateFolder = GetDateFolder(date);
-
-            if (!Directory.Exists(dateFolder))
+            if (!Directory.Exists(strategiesFolder))
             {
-                Console.WriteLine($"No strategy folder found for {date:yyyy-MM-dd}");
+                Console.WriteLine($"No strategy folder found at {strategiesFolder}");
                 return [];
             }
 
             var strategies = new List<TradingStrategy>();
 
             // Load IdiotScript files first (preferred format)
-            var idiotFiles = Directory.GetFiles(dateFolder, "*.idiot");
-            Console.WriteLine($"Found {idiotFiles.Length} IdiotScript files in {dateFolder}");
+            var idiotFiles = Directory.GetFiles(strategiesFolder, "*.idiot");
+            Console.WriteLine($"Found {idiotFiles.Length} IdiotScript files in {strategiesFolder}");
 
             foreach (var file in idiotFiles)
             {
@@ -205,10 +193,10 @@ namespace IdiotProof.Backend.Models
             }
 
             // Load legacy JSON files (fallback)
-            var jsonFiles = Directory.GetFiles(dateFolder, "*.json");
+            var jsonFiles = Directory.GetFiles(strategiesFolder, "*.json");
             if (jsonFiles.Length > 0)
             {
-                Console.WriteLine($"Found {jsonFiles.Length} legacy JSON files in {dateFolder}");
+                Console.WriteLine($"Found {jsonFiles.Length} legacy JSON files in {strategiesFolder}");
             }
 
             foreach (var file in jsonFiles)
@@ -240,7 +228,7 @@ namespace IdiotProof.Backend.Models
                 }
             }
 
-            Console.WriteLine($"Loaded {strategies.Count} enabled strategies from {dateFolder}");
+            Console.WriteLine($"Loaded {strategies.Count} enabled strategies from {strategiesFolder}");
             return strategies;
         }
 

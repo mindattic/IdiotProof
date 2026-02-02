@@ -193,8 +193,7 @@ namespace IdiotProof.Backend
         {
             Log("Loading strategies from disk...");
 
-            var today = DateOnly.FromDateTime(DateTime.Now);
-            _strategies = StrategyLoader.LoadFromJson(today);
+            _strategies = StrategyLoader.LoadFromJson();
 
             var enabledCount = _strategies.Count(s => s.Enabled);
             Log($"Loaded {_strategies.Count} strategies ({enabledCount} enabled)");

@@ -117,7 +117,7 @@ namespace IdiotProof.Shared.Settings
         /// When true, the backend will auto-start trading when strategies are loaded.
         /// When false, waits for explicit activation from frontend.
         /// </summary>
-        public static bool AutoStart { get; set; } = false;
+        public static bool AutoStart { get; set; } = true;
 
         // ----- IPC Settings -----
 
