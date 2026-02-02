@@ -177,28 +177,6 @@ internal sealed class Program
         }
 
         // ================================================================
-        // HEARTBEAT TIMER
-        // ================================================================
-        using var heartbeatTimer = new Timer(async _ =>
-        {
-            if (_client?.IsConnected != true) return;
-
-            try
-            {
-                var easternZone = TimeZoneInfo.FindSystemTimeZoneById("Eastern Standard Time");
-                var easternTime = TimeZoneInfo.ConvertTime(DateTime.Now, easternZone);
-                var timestamp = easternTime.ToString("hh:mm:ss tt");
-
-                var heartbeatStatus = await _client.GetStatusAsync();
-                ConsoleUI.DisplayHeartbeat(timestamp, heartbeatStatus);
-            }
-            catch
-            {
-                // Ignore heartbeat errors
-            }
-        }, null, TimeSpan.FromMinutes(5), TimeSpan.FromMinutes(5));
-
-        // ================================================================
         // MAIN INPUT LOOP
         // ================================================================
         ConsoleUI.Info("Running... (H for help)");

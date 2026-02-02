@@ -22,7 +22,6 @@ namespace IdiotProof.Backend
         private static IbWrapper? _wrapper;
         private static EClientSocket? _client;
         private static IpcServer? _ipcServer;
-        private static Timer? _heartbeatTimer;
         private static readonly CancellationTokenSource _shutdownCts = new();
         private static TradeTrackingService? _tradeTrackingService;
 
@@ -91,9 +90,6 @@ namespace IdiotProof.Backend
 
             // Load strategies from disk
             LoadStrategies();
-
-            // Start heartbeat
-            StartHeartbeat();
 
             // If auto-start is enabled and we have strategies, activate trading
             if (Settings.AutoStart && _strategies.Count > 0 && _isConnected)
@@ -332,69 +328,9 @@ namespace IdiotProof.Backend
             Log("Trading deactivated.");
         }
 
-        private static void StartHeartbeat()
-        {
-            _heartbeatTimer = new Timer(HeartbeatCallback, null, Settings.Heartbeat, Settings.Heartbeat);
+       
 
-            if (!Settings.SilentMode)
-                Log($"Heartbeat enabled: every {Settings.Heartbeat.TotalMinutes} minutes");
-        }
-
-        private static void HeartbeatCallback(object? state)
-        {
-            if (_wrapper == null || !_isConnected)
-            {
-                if (!Settings.SilentMode)
-                    Log("*Blip* (disconnected)");
-
-                // Broadcast disconnected heartbeat to frontend
-                _ipcServer?.BroadcastHeartbeat(new HeartbeatMessage
-                {
-                    IsConnectedToIbkr = false,
-                    PingSuccess = false,
-                    ActiveStrategies = _runners.Count
-                });
-                return;
-            }
-
-            try
-            {
-                var pingResult = _wrapper.Ping(TimeSpan.FromSeconds(10));
-
-                // Broadcast heartbeat to frontend
-                _ipcServer?.BroadcastHeartbeat(new HeartbeatMessage
-                {
-                    IsConnectedToIbkr = _isConnected,
-                    PingSuccess = pingResult.Success,
-                    LatencyMs = pingResult.Success ? pingResult.LatencyMs : null,
-                    ActiveStrategies = _runners.Count
-                });
-
-                if (Settings.SilentMode)
-                {
-                    // Minimal output in silent mode
-                    Console.WriteLine("*Blip*");
-                }
-                else
-                {
-                    var timestamp = GetEasternTimeStamp();
-                    if (pingResult.Success)
-                    {
-                        Log($"[{timestamp}] HEARTBEAT OK | Latency: {pingResult.LatencyMs}ms | Active: {_runners.Count} strategies");
-                    }
-                    else
-                    {
-                        Log($"[{timestamp}] HEARTBEAT FAILED - Connection may be lost!");
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                if (!Settings.SilentMode)
-                    Log($"HEARTBEAT ERROR: {ex.Message}");
-            }
-        }
-
+  
         private static void ResubscribeMarketData()
         {
             if (_client == null) return;
@@ -418,7 +354,6 @@ namespace IdiotProof.Backend
         {
             Log("Shutting down...");
 
-            _heartbeatTimer?.Dispose();
             DeactivateTrading();
 
             _client?.eDisconnect();
@@ -438,7 +373,6 @@ namespace IdiotProof.Backend
                 IsConnectedToIbkr = _isConnected,
                 IsTradingActive = _isActive,
                 ActiveStrategies = _runners.Count,
-                LastHeartbeat = DateTime.Now,
                 IsPaperTrading = Settings.IsPaperTrading
             });
         }

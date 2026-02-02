@@ -64,7 +64,6 @@ elseif ($Summary) {
     $disconnections = ($content | Select-String -Pattern "\[CONNECTION\].*DISCONNECTED" | Measure-Object).Count
     $requests = ($content | Select-String -Pattern "\[REQUEST\]" | Measure-Object).Count
     $broadcasts = ($content | Select-String -Pattern "\[BROADCAST\]" | Measure-Object).Count
-    $heartbeats = ($content | Select-String -Pattern "\[HEARTBEAT\]" | Measure-Object).Count
     $errors = ($content | Select-String -Pattern "\[ERROR\]" | Measure-Object).Count
     
     Write-Host "Summary for $Today" -ForegroundColor Green
@@ -74,7 +73,6 @@ elseif ($Summary) {
     Write-Host "Client disconnections: $disconnections"
     Write-Host "Requests received:    $requests"
     Write-Host "Broadcasts sent:      $broadcasts"
-    Write-Host "Heartbeats:           $heartbeats"
     Write-Host "Errors:               $errors" -ForegroundColor $(if ($errors -gt 0) { "Red" } else { "Green" })
     Write-Host ""
     

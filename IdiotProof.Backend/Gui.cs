@@ -181,48 +181,7 @@ namespace IdiotProof.Backend
             }
         }
 
-        /// <summary>
-        /// Displays heartbeat success message with latency info.
-        /// </summary>
-        public static void DisplayHeartbeatSuccess(string timestamp, long latencyMs, DateTime serverTimeUtc)
-        {
-            Console.ForegroundColor = ConsoleColor.DarkCyan;
-            Console.WriteLine();
-            Console.WriteLine($"[{timestamp}] HEARTBEAT OK | Latency: {latencyMs}ms | Server: {serverTimeUtc:HH:mm:ss} UTC");
-            Console.ResetColor();
-        }
-
-        /// <summary>
-        /// Displays heartbeat failure message.
-        /// </summary>
-        public static void DisplayHeartbeatFailed(string timestamp)
-        {
-            Console.ForegroundColor = ConsoleColor.Red;
-            Console.WriteLine();
-            Console.WriteLine($"[{timestamp}] HEARTBEAT FAILED - API connection may be lost!");
-            Console.WriteLine($"[{timestamp}]   Check TWS/Gateway connection and restart if necessary.");
-            Console.ResetColor();
-        }
-
-        /// <summary>
-        /// Displays heartbeat error message.
-        /// </summary>
-        public static void DisplayHeartbeatError(string message)
-        {
-            Console.ForegroundColor = ConsoleColor.Red;
-            Console.WriteLine($"[HEARTBEAT ERROR] {message}");
-            Console.ResetColor();
-        }
-
-        /// <summary>
-        /// Displays heartbeat enabled status message.
-        /// </summary>
-        public static void DisplayHeartbeatEnabled(double intervalMinutes)
-        {
-            Console.ForegroundColor = ConsoleColor.DarkGray;
-            Console.WriteLine($"Heartbeat enabled: pinging API every {intervalMinutes} minutes");
-            Console.ResetColor();
-        }
+      
 
         /// <summary>
         /// Displays price received status.

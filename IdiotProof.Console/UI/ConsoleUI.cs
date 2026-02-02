@@ -588,34 +588,5 @@ public static class ConsoleUI
         }
     }
 
-    /// <summary>
-    /// Displays heartbeat status.
-    /// </summary>
-    public static void DisplayHeartbeat(string timestamp, StatusResponsePayload? status)
-    {
-        lock (_consoleLock)
-        {
-            System.Console.ForegroundColor = ConsoleColor.DarkGray;
-            System.Console.Write($"[{timestamp}] Heartbeat: ");
 
-            if (status == null)
-            {
-                System.Console.ForegroundColor = ConsoleColor.Red;
-                System.Console.WriteLine("No response");
-            }
-            else
-            {
-                System.Console.ForegroundColor = ConsoleColor.Green;
-                System.Console.Write("OK");
-
-                System.Console.ForegroundColor = ConsoleColor.DarkGray;
-                System.Console.Write($" | IBKR: {(status.IsConnectedToIbkr ? "Connected" : "Disconnected")}");
-                System.Console.Write($" | Trading: {(status.IsTradingActive ? "Active" : "Paused")}");
-                System.Console.Write($" | Strategies: {status.ActiveStrategies}");
-                System.Console.WriteLine();
-            }
-
-            System.Console.ResetColor();
-        }
-    }
 }

@@ -44,7 +44,6 @@ namespace IdiotProof.Shared.Models
         ConnectionStatusChanged,
         StrategyStatusChanged,
         TradeUpdate, // IdiotProof trade status changed
-        Heartbeat // Backend heartbeat notification
     }
 
     /// <summary>
@@ -95,37 +94,6 @@ namespace IdiotProof.Shared.Models
     }
 
     /// <summary>
-    /// Heartbeat message pushed to frontend.
-    /// </summary>
-    public class HeartbeatMessage
-    {
-        /// <summary>
-        /// Timestamp of the heartbeat.
-        /// </summary>
-        public DateTime Timestamp { get; set; } = DateTime.UtcNow;
-
-        /// <summary>
-        /// Whether the backend is connected to IBKR.
-        /// </summary>
-        public bool IsConnectedToIbkr { get; set; }
-
-        /// <summary>
-        /// Whether the heartbeat ping was successful.
-        /// </summary>
-        public bool PingSuccess { get; set; }
-
-        /// <summary>
-        /// Latency in milliseconds (if ping was successful).
-        /// </summary>
-        public long? LatencyMs { get; set; }
-
-        /// <summary>
-        /// Number of active strategy runners.
-        /// </summary>
-        public int ActiveStrategies { get; set; }
-    }
-
-    /// <summary>
     /// Response to status request.
     /// </summary>
     public class StatusResponsePayload
@@ -135,7 +103,6 @@ namespace IdiotProof.Shared.Models
         public bool IsTradingActive { get; set; }
         public bool IsPaperTrading { get; set; }
         public int ActiveStrategies { get; set; }
-        public DateTime? LastHeartbeat { get; set; }
         public string? ErrorMessage { get; set; }
         public List<string> ActiveStrategyNames { get; set; } = [];
     }

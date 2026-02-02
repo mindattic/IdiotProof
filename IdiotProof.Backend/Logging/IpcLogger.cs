@@ -63,14 +63,6 @@ public static class IpcLogger
     }
 
     /// <summary>
-    /// Logs a heartbeat sent to clients.
-    /// </summary>
-    public static void LogHeartbeat(int clientCount)
-    {
-        Log($"[HEARTBEAT] Clients={clientCount}");
-    }
-
-    /// <summary>
     /// Logs an error during IPC communication.
     /// </summary>
     public static void LogError(string context, Exception ex)

@@ -35,7 +35,6 @@ public sealed class BackendClient : IDisposable
     public event EventHandler<ConsoleOutputMessage>? ConsoleOutputReceived;
     public event EventHandler<OrderInfo>? OrderUpdated;
     public event EventHandler<IdiotProofTrade>? TradeUpdated;
-    public event EventHandler<HeartbeatMessage>? HeartbeatReceived;
 
     public async Task<bool> ConnectAsync()
     {
@@ -471,16 +470,6 @@ public sealed class BackendClient : IDisposable
                 }
                 break;
 
-            case BackendMessageType.Heartbeat:
-                if (message.Payload != null)
-                {
-                    var heartbeat = JsonSerializer.Deserialize<HeartbeatMessage>(message.Payload);
-                    if (heartbeat != null)
-                    {
-                        HeartbeatReceived?.Invoke(this, heartbeat);
-                    }
-                }
-                break;
         }
     }
 

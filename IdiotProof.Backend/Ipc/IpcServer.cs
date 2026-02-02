@@ -98,20 +98,6 @@ namespace IdiotProof.Backend.Ipc
             BroadcastMessage(message);
         }
 
-        /// <summary>
-        /// Broadcasts a heartbeat to all connected clients.
-        /// </summary>
-        public void BroadcastHeartbeat(HeartbeatMessage heartbeat)
-        {
-            var message = new BackendMessage
-            {
-                Type = BackendMessageType.Heartbeat,
-                Payload = JsonSerializer.Serialize(heartbeat)
-            };
-
-            BroadcastMessage(message);
-        }
-
         private void BroadcastMessage(BackendMessage message)
         {
             var json = JsonSerializer.Serialize(message);
@@ -183,12 +169,6 @@ namespace IdiotProof.Backend.Ipc
 
         private async Task<BackendMessage?> HandleMessageAsync(BackendMessage request)
         {
-            // Log incoming request (skip Heartbeat acknowledgements to reduce noise)
-            if (request.Type != BackendMessageType.Heartbeat)
-            {
-                IpcLogger.LogRequest(Guid.Empty, request.Type.ToString(), request.Payload);
-            }
-
             try
             {
                 switch (request.Type)
