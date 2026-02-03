@@ -628,10 +628,19 @@ namespace IdiotProof.Backend.Models
             var order = _strategy.Order;
             _entryOrderId = _wrapper.ConsumeNextOrderId();
 
+            // Determine if we're in regular trading hours
+            var currentTimeET = TimezoneHelper.GetCurrentTime(MarketTimeZone.EST);
+            bool isRTH = currentTimeET >= new TimeOnly(9, 30) && currentTimeET < new TimeOnly(16, 0);
+
+            // IBKR requires LIMIT orders outside RTH (premarket/after-hours)
+            // Force LIMIT if user specified MARKET but we're outside RTH
+            bool forceLimitOrder = !isRTH && order.Type == OrderType.Market;
+            string effectiveOrderType = forceLimitOrder ? "LMT" : order.GetIbOrderType();
+
             var ibOrder = new Order
             {
                 Action = order.GetIbAction(),
-                OrderType = order.GetIbOrderType(),
+                OrderType = effectiveOrderType,
                 TotalQuantity = order.Quantity,
                 OutsideRth = GetEffectiveOutsideRth(order),
                 Tif = order.GetIbTif(),
@@ -644,18 +653,34 @@ namespace IdiotProof.Backend.Models
                 ibOrder.Account = Settings.AccountNumber;
             }
 
-            // Set limit price
-            if (order.Type == OrderType.Limit)
+            // Set limit price if LIMIT order (either explicit or forced due to extended hours)
+            if (order.Type == OrderType.Limit || forceLimitOrder)
             {
-                ibOrder.LmtPrice = order.LimitPrice.HasValue 
-                    ? Math.Round(order.LimitPrice.Value, 2)
-                    : Math.Round(vwap + order.LimitOffset, 2);
+                if (order.LimitPrice.HasValue)
+                {
+                    ibOrder.LmtPrice = Math.Round(order.LimitPrice.Value, 2);
+                }
+                else
+                {
+                    // Use current price + offset for forced limit orders, or VWAP + offset for explicit limit
+                    double basePrice = forceLimitOrder ? _lastPrice : vwap;
+                    double offset = order.Side == OrderSide.Buy ? order.LimitOffset : -order.LimitOffset;
+                    ibOrder.LmtPrice = Math.Round(basePrice + offset, 2);
+                }
             }
 
-            string priceStr = order.Type == OrderType.Limit ? $"@ ${ibOrder.LmtPrice:F2}" : "@ MKT";
+            // Build logging strings
+            string priceStr = (order.Type == OrderType.Limit || forceLimitOrder) ? $"@ ${ibOrder.LmtPrice:F2}" : "@ MKT";
             string tifDesc = GetTifDescription(order.TimeInForce);
             string aonStr = order.AllOrNone ? " | AON=true" : "";
-            Log($">> SUBMITTING {order.Side} {order.Quantity} shares {priceStr}", ConsoleColor.Yellow);
+            string sessionStr = isRTH ? "RTH" : "Extended Hours";
+
+            if (forceLimitOrder)
+            {
+                Log($"NOTE: Forcing LIMIT order (MARKET orders not allowed in {sessionStr})", ConsoleColor.DarkYellow);
+            }
+
+            Log($">> SUBMITTING {order.Side} {order.Quantity} shares {priceStr} ({sessionStr})", ConsoleColor.Yellow);
             Log($"  OrderId={_entryOrderId} | TIF={tifDesc} | OutsideRTH={ibOrder.OutsideRth}{aonStr}", ConsoleColor.DarkGray);
 
             // Special handling for AtTheOpening orders
