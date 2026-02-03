@@ -3,4 +3,4 @@
 # Price holding above VWAP $25.42 - bullish confirmation
 # Breakout above $26.15 targets $27.00+
 
-Ticker(GME).Name("GME HOD Breakout").Session(IS.PREMARKET).Qty(150).Entry(26.00).Breakout(26.15).Pullback().AboveVwap().TakeProfit(27.00).TrailingStopLoss(IS.MODERATE).ClosePosition(IS.BELL)
+Ticker(GME).Name("GME HOD Breakout").Session(IS.PREMARKET).Qty(150).Entry(26.00).Breakout(26.15).Pullback().AboveVwap().TakeProfit(27.00).TrailingStopLoss(5%).ClosePosition(IS.BELL)

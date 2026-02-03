@@ -2,4 +2,4 @@
 # Strategy: Break $2.90 to reclaim higher high after descending channel breakout
 # Pullback to VWAP for entry, targets HOD $3.60 then $5.00
 
-Ticker(FUSE).Name("FUSE Day 2 Momentum").Session(IS.PREMARKET).Qty(500).Entry(2.90).Breakout(2.90).Pullback().AboveVwap().TakeProfit(3.60).TrailingStopLoss(IS.MODERATE).ClosePosition(IS.BELL)
+Ticker(FUSE).Name("FUSE Day 2 Momentum").Session(IS.PREMARKET).Qty(500).Entry(2.90).Breakout(2.90).Pullback().AboveVwap().TakeProfit(3.60).TrailingStopLoss(5%).ClosePosition(IS.BELL)

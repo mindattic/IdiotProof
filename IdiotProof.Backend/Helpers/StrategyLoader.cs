@@ -2,32 +2,39 @@
 // StrategyLoader - Loads strategies from IdiotScript or JSON files
 // ============================================================================
 //
-// This class bridges the MAUI frontend's strategy files with the
-// backend's fluent API TradingStrategy objects.
+// This class converts strategy definitions into executable TradingStrategy
+// objects. The backend reads strategies retrieved from the frontend, which
+// loads them from .idiot files.
 //
-// Strategies are now stored as .IDIOT files (IdiotScript format) with
+// DATA FLOW: .idiot files → Frontend → Backend
+//
+// Strategies are stored as .IDIOT files (IdiotScript format) with
 // fallback support for legacy .JSON files:
 //   Strategies/
-//     2025-01-15/
-//       VIVS_Breakout.idiot
-//       CATX_VWAP_Scalp.idiot
-//       LEGACY_OldStrategy.json (fallback support)
-//     2025-01-16/
-//       ...
+//     GME.idiot
+//     SMCI.idiot
+//     LEGACY_OldStrategy.json (fallback support)
 //
-// IDIOTSCRIPT FORMAT:
-// Each .idiot file contains a strategy in IdiotScript format:
-//   SYM(VIVS); QTY(100); SESSION(~.PREMARKET);
-//   BREAKOUT(2.50) > PULLBACK(2.40) > VWAP+;
-//   TP(2.80); TSL(~.MODERATE); CLOSE(~.BELL)
+// IDIOTSCRIPT FORMAT (fluent chained syntax):
+// Each .idiot file contains a strategy with commands evaluated sequentially:
+//
+//   Ticker(GME).Name("GME HOD Breakout").Session(IS.PREMARKET).Qty(150)
+//     .Entry(26.00).Breakout(26.15).Pullback().AboveVwap()
+//     .TakeProfit(27.00).TrailingStopLoss(5%).ClosePosition(IS.BELL)
+//
+// EXECUTION ORDER:
+//   [CONFIG] → [ENTRY CONDITIONS] → ✅ BUY → [EXIT CONDITIONS]
+//
+//   CONFIG:           Ticker, Name, Session, Qty
+//   ENTRY CONDITIONS: Entry, Breakout, Pullback, AboveVwap (sequential!)
+//   EXIT CONDITIONS:  TakeProfit, TrailingStopLoss, ClosePosition
 //
 // USAGE IN Program.cs:
-//   // Load strategies from IdiotScript files:
 //   var strategies = StrategyLoader.LoadFromJson();
 //   
 //   // Or use a hybrid approach:
 //   var strategies = new List<TradingStrategy>();
-//   strategies.AddRange(StrategyLoader.LoadFromJson()); // From UI
+//   strategies.AddRange(StrategyLoader.LoadFromJson()); // From .idiot files
 //   strategies.Add(Stock.Ticker("AAPL")...);            // Hardcoded
 //
 // ============================================================================

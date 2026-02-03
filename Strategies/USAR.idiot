@@ -1,0 +1,6 @@
+# USAR - USA Rare Earth VWAP Reclaim Play
+# Strategy: Bounced from LOD $21.50, now at EMA 20 support ~$22.78
+# Below VWAP $23.47 - needs to reclaim for continuation
+# Breakout above VWAP targets $24.80 resistance
+
+Ticker(USAR).Name("USAR VWAP Reclaim").Session(IS.PREMARKET).Qty(150).Entry(22.85).Breakout(23.50).Pullback().AboveVwap().TakeProfit(24.80).TrailingStopLoss(5%).ClosePosition(IS.BELL)
