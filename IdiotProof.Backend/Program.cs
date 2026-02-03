@@ -8,6 +8,7 @@ using IdiotProof.Backend.Helpers;
 using IdiotProof.Backend.Ipc;
 using IdiotProof.Backend.Logging;
 using IdiotProof.Backend.Models;
+using IdiotProof.Backend.Services;
 using IdiotProof.Backend.Strategy;
 using IdiotProof.Shared.Models;
 using IdiotProof.Shared.Services;
@@ -24,6 +25,10 @@ namespace IdiotProof.Backend
         private static IpcServer? _ipcServer;
         private static readonly CancellationTokenSource _shutdownCts = new();
         private static TradeTrackingService? _tradeTrackingService;
+
+        // Historical data components
+        private static HistoricalDataStore? _historicalDataStore;
+        private static HistoricalDataService? _historicalDataService;
 
         // State
         private static readonly List<StrategyRunner> _runners = [];
@@ -168,6 +173,11 @@ namespace IdiotProof.Backend
             Log("Connected to IBKR successfully!");
             Log($"Trading Mode: {(Settings.IsPaperTrading ? "PAPER" : "LIVE")}");
 
+            // Initialize historical data components
+            _historicalDataStore = new HistoricalDataStore();
+            _historicalDataService = new HistoricalDataService(_client, _wrapper, _historicalDataStore);
+            Log("Historical data service initialized");
+
             // Setup reconnection handlers
             _wrapper.OnConnectionLost += () =>
             {
@@ -235,6 +245,38 @@ namespace IdiotProof.Backend
 
             Log($"Activating trading with {enabledStrategies.Count} strategies...");
 
+            // NOTE: Historical data fetching is disabled for now due to IBKR pacing limits
+            // (max 60 requests per 10 minutes). The infrastructure is in place for future use.
+            // To enable, uncomment the block below:
+            //
+            // // Fetch historical data for warm-up (255 bars = EMA200 + 55 buffer)
+            // var uniqueSymbols = enabledStrategies.Select(s => s.Symbol).Distinct().ToList();
+            // if (_historicalDataService != null)
+            // {
+            //     Log($"Fetching historical data for {uniqueSymbols.Count} symbols...");
+            //     try
+            //     {
+            //         var results = _historicalDataService.FetchMultipleAsync(
+            //             uniqueSymbols,
+            //             barCount: 255,
+            //             maxConcurrency: 3
+            //         ).GetAwaiter().GetResult();
+            //
+            //         foreach (var kvp in results)
+            //         {
+            //             if (kvp.Value > 0)
+            //                 Log($"  [{kvp.Key}] Loaded {kvp.Value} historical bars");
+            //             else
+            //                 Log($"  [{kvp.Key}] WARNING: Failed to load historical data");
+            //         }
+            //     }
+            //     catch (Exception ex)
+            //     {
+            //         Log($"WARNING: Historical data fetch failed: {ex.Message}");
+            //         Log("Continuing without historical data warm-up...");
+            //     }
+            // }
+
             // Subscribe to market data
             int baseTickerId = 1001;
             foreach (var strategy in enabledStrategies)
@@ -279,6 +321,14 @@ namespace IdiotProof.Backend
             {
                 var contract = _contracts[strategy.Symbol];
                 var runner = new StrategyRunner(strategy, contract, _wrapper, _client);
+
+                // Warm up indicators from historical data if available
+                if (_historicalDataStore != null && _historicalDataStore.HasData(strategy.Symbol))
+                {
+                    var historicalBars = _historicalDataStore.GetBars(strategy.Symbol);
+                    runner.WarmUpFromHistoricalData(historicalBars);
+                }
+
                 _runners.Add(runner);
 
                 // Wire up ticker handler
@@ -355,6 +405,7 @@ namespace IdiotProof.Backend
 
             DeactivateTrading();
 
+            _historicalDataService?.Dispose();
             _client?.eDisconnect();
             _wrapper?.Dispose();
             _ipcServer?.Dispose();

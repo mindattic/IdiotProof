@@ -160,6 +160,18 @@ namespace IdiotProof.Backend.Models
         public event Action<bool>? OnConnectionRestored;
 
         /// <summary>
+        /// Event fired when historical data bars are received.
+        /// Parameters: reqId, bar
+        /// </summary>
+        public event Action<int, Bar>? OnHistoricalData;
+
+        /// <summary>
+        /// Event fired when historical data request completes.
+        /// Parameters: reqId, startDateStr, endDateStr
+        /// </summary>
+        public event Action<int, string, string>? OnHistoricalDataEnd;
+
+        /// <summary>
         /// Gets whether the connection to IBKR is currently active.
         /// </summary>
         public bool IsConnected => _isConnected;
@@ -552,8 +564,14 @@ namespace IdiotProof.Backend.Models
         public void contractDetailsEnd(int reqId) { }
         public void managedAccounts(string accountsList) { }
         public void receiveFA(int faDataType, string faXmlData) { }
-        public void historicalData(int reqId, Bar bar) { }
-        public void historicalDataEnd(int reqId, string start, string end) { }
+        public void historicalData(int reqId, Bar bar)
+        {
+            OnHistoricalData?.Invoke(reqId, bar);
+        }
+        public void historicalDataEnd(int reqId, string start, string end)
+        {
+            OnHistoricalDataEnd?.Invoke(reqId, start, end);
+        }
         public void scannerParameters(string xml) { }
         public void scannerData(int reqId, int rank, IBApi.ContractDetails contractDetails, string distance, string benchmark, string projection, string legsStr) { }
         public void scannerDataEnd(int reqId) { }
@@ -659,6 +677,8 @@ namespace IdiotProof.Backend.Models
             OnOpenOrdersEnd = null;
             OnConnectionLost = null;
             OnConnectionRestored = null;
+            OnHistoricalData = null;
+            OnHistoricalDataEnd = null;
 
             _client = null;
         }

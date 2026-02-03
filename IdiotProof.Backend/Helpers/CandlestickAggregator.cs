@@ -278,5 +278,49 @@ namespace IdiotProof.Backend.Helpers
         {
             CompleteCurrentCandle();
         }
+
+        /// <summary>
+        /// Seeds the aggregator with historical candlesticks for indicator warm-up.
+        /// This does NOT fire OnCandleComplete events - use for pre-loading only.
+        /// </summary>
+        /// <param name="historicalCandles">Historical candlesticks in chronological order.</param>
+        /// <param name="fireEvents">Whether to fire OnCandleComplete events (default: false).</param>
+        /// <remarks>
+        /// <para><b>Usage:</b></para>
+        /// <para>Call this method before live trading starts to warm up indicators:</para>
+        /// <code>
+        /// // Fetch historical bars from IBKR
+        /// var historicalBars = await historicalDataService.FetchHistoricalDataAsync("AAPL", 255);
+        /// 
+        /// // Convert to candlesticks and seed the aggregator
+        /// var candles = historicalBars.Select(bar => new Candlestick { ... });
+        /// aggregator.SeedWithHistoricalData(candles);
+        /// </code>
+        /// </remarks>
+        public void SeedWithHistoricalData(IEnumerable<Candlestick> historicalCandles, bool fireEvents = false)
+        {
+            foreach (var candle in historicalCandles)
+            {
+                // Add directly to the queue
+                _completedCandles.Enqueue(candle);
+
+                // Maintain max size
+                while (_completedCandles.Count > _maxCandles)
+                {
+                    _completedCandles.Dequeue();
+                }
+
+                // Optionally fire events (for indicator warm-up)
+                if (fireEvents)
+                {
+                    OnCandleComplete?.Invoke(candle);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Gets the number of bars needed to warm up for a specific EMA period.
+        /// </summary>
+        public static int GetWarmUpBarsNeeded(int emaPeriod) => emaPeriod + 10; // Buffer for accuracy
     }
 }

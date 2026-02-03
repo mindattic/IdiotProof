@@ -270,6 +270,118 @@ namespace IdiotProof.Backend.Models
         }
 
         /// <summary>
+        /// Warms up all indicators using historical data.
+        /// Call this after construction but before live trading starts.
+        /// </summary>
+        /// <param name="historicalBars">Historical bars in chronological order (oldest first).</param>
+        /// <remarks>
+        /// <para><b>Data Separation:</b></para>
+        /// <para>Historical data is kept separate from live data:</para>
+        /// <list type="bullet">
+        ///   <item>Historical bars are used ONLY for indicator warm-up</item>
+        ///   <item>They are NOT stored in the candlestick aggregator's active queue</item>
+        ///   <item>Live candlesticks are aggregated separately from tick data</item>
+        /// </list>
+        /// <para>This separation enables future backtesting between any startDate and endDate.</para>
+        /// </remarks>
+        public void WarmUpFromHistoricalData(IReadOnlyList<HistoricalBar> historicalBars)
+        {
+            if (historicalBars.Count == 0)
+            {
+                Log("No historical data available for warm-up", ConsoleColor.DarkYellow);
+                return;
+            }
+
+            Log($"Warming up indicators with {historicalBars.Count} historical bars...", ConsoleColor.Cyan);
+
+            // Convert HistoricalBars to Candlesticks
+            var candles = historicalBars.Select(bar => new Helpers.Candlestick
+            {
+                Timestamp = bar.Time,
+                Open = bar.Open,
+                High = bar.High,
+                Low = bar.Low,
+                Close = bar.Close,
+                Volume = bar.Volume,
+                TickCount = bar.TradeCount ?? 1,
+                IsComplete = true
+            }).ToList();
+
+            // Seed the candlestick aggregator (with events to update indicators)
+            _candlestickAggregator.SeedWithHistoricalData(candles, fireEvents: true);
+
+            // Log warm-up results
+            int candleCount = _candlestickAggregator.CompletedCandleCount;
+            Log($"  Loaded {candleCount} candles into aggregator", ConsoleColor.DarkGray);
+
+            // Check indicator readiness
+            int maxEmaPeriod = _emaCalculators.Count > 0 ? _emaCalculators.Keys.Max() : 0;
+            if (maxEmaPeriod > 0)
+            {
+                bool emaReady = candleCount >= maxEmaPeriod;
+                if (emaReady)
+                {
+                    _warmupLoggedEma = true;
+                    var emaValues = string.Join(", ", _emaCalculators
+                        .OrderBy(kvp => kvp.Key)
+                        .Select(kvp => $"EMA({kvp.Key})=${kvp.Value.CurrentValue:F2}"));
+                    Log($"  [OK] EMA warm-up complete: {emaValues}", ConsoleColor.Green);
+                }
+                else
+                {
+                    Log($"  [--] EMA needs {maxEmaPeriod} bars, only have {candleCount}", ConsoleColor.Yellow);
+                }
+            }
+
+            if (_adxCalculator != null)
+            {
+                if (_adxCalculator.IsReady)
+                {
+                    _warmupLoggedAdx = true;
+                    Log($"  [OK] ADX warm-up complete: ADX={_adxCalculator.CurrentAdx:F1}, +DI={_adxCalculator.PlusDI:F1}, -DI={_adxCalculator.MinusDI:F1}", ConsoleColor.Green);
+                }
+                else
+                {
+                    Log($"  [--] ADX needs 28 bars, only have {candleCount}", ConsoleColor.Yellow);
+                }
+            }
+
+            if (_rsiCalculator != null)
+            {
+                if (_rsiCalculator.IsReady)
+                {
+                    _warmupLoggedRsi = true;
+                    Log($"  [OK] RSI warm-up complete: RSI={_rsiCalculator.CurrentValue:F1}", ConsoleColor.Green);
+                }
+                else
+                {
+                    Log($"  [--] RSI needs 15 bars, only have {candleCount}", ConsoleColor.Yellow);
+                }
+            }
+
+            if (_macdCalculator != null)
+            {
+                if (_macdCalculator.IsReady)
+                {
+                    _warmupLoggedMacd = true;
+                    Log($"  [OK] MACD warm-up complete: MACD={_macdCalculator.MacdLine:F2}, Signal={_macdCalculator.SignalLine:F2}", ConsoleColor.Green);
+                }
+                else
+                {
+                    Log($"  [--] MACD needs 35 bars, only have {candleCount}", ConsoleColor.Yellow);
+                }
+            }
+
+            // Update last price from most recent bar
+            if (candles.Count > 0)
+            {
+                _lastPrice = candles[^1].Close;
+            }
+
+            Log($"Historical warm-up complete. Ready for live data.", ConsoleColor.Cyan);
+        }
+
+        /// <summary>
         /// Called when a new candlestick completes.
         /// Updates all candle-based indicators.
         /// </summary>
