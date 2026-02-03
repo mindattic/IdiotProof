@@ -589,4 +589,144 @@ public class IdiotScriptParserTests
     }
 
     #endregion
+
+    #region Comments and Whitespace
+
+    [Test]
+    public void Parse_CommentLine_IgnoresComment()
+    {
+        var script = """
+            # This is a comment
+            TICKER(AAPL).QTY(10)
+            """;
+
+        var result = IdiotScriptParser.Parse(script);
+
+        Assert.That(result.Symbol, Is.EqualTo("AAPL"));
+        var stats = result.GetStats();
+        Assert.That(stats.Quantity, Is.EqualTo(10));
+    }
+
+    [Test]
+    public void Parse_MultipleCommentLines_IgnoresAllComments()
+    {
+        var script = """
+            # INLF - Day 2 Short Squeeze Setup
+            # Strategy: Break above $0.82 with volume, pullback to VWAP
+            # Targets: $1.25, $2.07
+
+            Ticker(INLF).Qty(1000).Entry(0.82).TP(1.25)
+            """;
+
+        var result = IdiotScriptParser.Parse(script);
+
+        Assert.That(result.Symbol, Is.EqualTo("INLF"));
+        var stats = result.GetStats();
+        Assert.That(stats.Quantity, Is.EqualTo(1000));
+        Assert.That(stats.Price, Is.EqualTo(0.82).Within(0.01));
+        Assert.That(stats.TakeProfit, Is.EqualTo(1.25).Within(0.01));
+    }
+
+    [Test]
+    public void Parse_InlineComment_StripsComment()
+    {
+        var script = "TICKER(AAPL).QTY(10) # buy 10 shares";
+
+        var result = IdiotScriptParser.Parse(script);
+
+        Assert.That(result.Symbol, Is.EqualTo("AAPL"));
+        var stats = result.GetStats();
+        Assert.That(stats.Quantity, Is.EqualTo(10));
+    }
+
+    [Test]
+    public void Parse_EmptyLines_IgnoresEmptyLines()
+    {
+        var script = """
+
+            TICKER(AAPL)
+
+            .QTY(10)
+
+            """;
+
+        var result = IdiotScriptParser.Parse(script);
+
+        Assert.That(result.Symbol, Is.EqualTo("AAPL"));
+        var stats = result.GetStats();
+        Assert.That(stats.Quantity, Is.EqualTo(10));
+    }
+
+    [Test]
+    public void Parse_MultilineScript_JoinsLines()
+    {
+        var script = """
+            Ticker(NVDA)
+            .Session(IS.PREMARKET)
+            .Qty(100)
+            .Entry(200)
+            .TP(210)
+            """;
+
+        var result = IdiotScriptParser.Parse(script);
+
+        Assert.That(result.Symbol, Is.EqualTo("NVDA"));
+        var stats = result.GetStats();
+        Assert.That(stats.Quantity, Is.EqualTo(100));
+        Assert.That(stats.Price, Is.EqualTo(200.0).Within(0.01));
+        Assert.That(stats.TakeProfit, Is.EqualTo(210.0).Within(0.01));
+    }
+
+    [Test]
+    public void Parse_MixedCommentsAndCode_ParsesCorrectly()
+    {
+        var script = """
+            # FUSE Strategy
+            Ticker(FUSE)
+            .Name("FUSE Day 2") # strategy name
+            .Session(IS.PREMARKET)
+            # Entry conditions
+            .Entry(2.90)
+            .Breakout(2.90)
+            .AboveVwap()
+            # Exit conditions
+            .TP(3.60)
+            .TSL(IS.MODERATE)
+            """;
+
+        var result = IdiotScriptParser.Parse(script);
+
+        Assert.That(result.Symbol, Is.EqualTo("FUSE"));
+        Assert.That(result.Name, Is.EqualTo("FUSE Day 2"));
+        var stats = result.GetStats();
+        Assert.That(stats.Price, Is.EqualTo(2.90).Within(0.01));
+        Assert.That(stats.TakeProfit, Is.EqualTo(3.60).Within(0.01));
+        Assert.That(stats.TrailingStopLossPercent, Is.EqualTo(0.10).Within(0.01));
+    }
+
+    [Test]
+    public void Parse_HashInsideQuotes_PreservesHash()
+    {
+        var script = """
+            Ticker(AAPL).Name("Strategy #1")
+            """;
+
+        var result = IdiotScriptParser.Parse(script);
+
+        Assert.That(result.Symbol, Is.EqualTo("AAPL"));
+        Assert.That(result.Name, Is.EqualTo("Strategy #1"));
+    }
+
+    [Test]
+    public void Parse_OnlyComments_ThrowsException()
+    {
+        var script = """
+            # This is a comment
+            # Another comment
+            """;
+
+        Assert.Throws<IdiotScriptException>(() => IdiotScriptParser.Parse(script));
+    }
+
+    #endregion
 }

@@ -5,7 +5,7 @@
 // Handles reading and writing strategy files in IdiotScript format.
 // Files use the .IDIOT extension and are stored as plain text.
 //
-// FOLDER STRUCTURE (in MyDocuments\IdiotProof):
+// FOLDER STRUCTURE (in solution root directory):
 // Strategies/
 //   nvda.idiot
 //   nvda-b.idiot

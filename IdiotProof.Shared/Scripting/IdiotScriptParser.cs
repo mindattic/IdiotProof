@@ -8,6 +8,11 @@
 // Scripts are auto-converted to PascalCase before validation.
 // All commands should include parentheses (e.g., AboveVwap() not AboveVwap).
 //
+// COMMENTS:
+// Lines starting with # are treated as comments and ignored.
+// Inline comments are supported: Ticker(AAPL).Qty(100) # this is a comment
+// Empty lines are ignored. Newlines are treated as line continuations.
+//
 // SCRIPT STRUCTURE:
 // A script starts with a symbol declaration and chains commands with periods:
 // - Valid starts: TICKER(AAPL), SYM(AAPL), SYMBOL(AAPL), STOCK.TICKER(AAPL), STOCK.SYMBOL(AAPL), STRATEGY.
@@ -419,9 +424,13 @@ public static partial class IdiotScriptParser
     /// <summary>
     /// Sanitizes the input script to handle common typos and formatting issues.
     /// Also converts commands to PascalCase for consistent output.
+    /// Strips comments (lines starting with #) and empty lines.
     /// </summary>
     private static string Sanitize(string script)
     {
+        // Strip comments and empty lines, normalize newlines
+        script = StripCommentsAndEmptyLines(script);
+
         // Remove colons before parentheses (e.g., TP:(201) -> TP(201))
         script = ColonBeforeParenPattern().Replace(script, "(");
 
@@ -444,6 +453,77 @@ public static partial class IdiotScriptParser
 
         return script.Trim();
     }
+
+    /// <summary>
+    /// Strips comments (lines starting with #), empty lines, and normalizes newlines.
+    /// Also strips inline comments (text after # on a line with code).
+    /// </summary>
+    private static string StripCommentsAndEmptyLines(string script)
+    {
+        // Split by any newline character (handles \r\n, \n, \r)
+        var lines = script.Split(["\r\n", "\n", "\r"], StringSplitOptions.None);
+
+        var cleanedLines = new List<string>();
+
+        foreach (var line in lines)
+        {
+            var trimmedLine = line.Trim();
+
+            // Skip empty lines
+            if (string.IsNullOrWhiteSpace(trimmedLine))
+                continue;
+
+            // Skip full-line comments (lines starting with #)
+            if (trimmedLine.StartsWith('#'))
+                continue;
+
+            // Handle inline comments - strip everything after # (but not inside quotes)
+            var cleanedLine = StripInlineComment(trimmedLine);
+
+            if (!string.IsNullOrWhiteSpace(cleanedLine))
+                cleanedLines.Add(cleanedLine);
+        }
+
+        // Join remaining lines with a single space (treating newlines as continuations)
+        return string.Join(" ", cleanedLines);
+    }
+
+    /// <summary>
+    /// Strips inline comments (text after #) while preserving # inside quoted strings.
+    /// </summary>
+    private static string StripInlineComment(string line)
+    {
+        bool inQuotes = false;
+        char quoteChar = '\0';
+
+        for (int i = 0; i < line.Length; i++)
+        {
+            char c = line[i];
+
+            // Track quote state
+            if ((c == '"' || c == '\'') && (i == 0 || line[i - 1] != '\\'))
+            {
+                if (!inQuotes)
+                {
+                    inQuotes = true;
+                    quoteChar = c;
+                }
+                else if (c == quoteChar)
+                {
+                    inQuotes = false;
+                }
+            }
+
+            // Found comment marker outside quotes
+            if (c == '#' && !inQuotes)
+            {
+                return line[..i].Trim();
+            }
+        }
+
+        return line;
+    }
+
 
     /// <summary>
     /// Converts script commands to PascalCase format while preserving
