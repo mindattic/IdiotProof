@@ -1,0 +1,6 @@
+# WULF - TeraWulf Pullback Entry (Bitcoin Mining)
+# Strategy: Extended above VWAP, rejected at $15.10 resistance
+# Wait for pullback to EMA 200 support at $14.80 before entry
+# If it breaks $15.10, chase with breakout confirmation
+
+Ticker(WULF).Name("WULF Pullback to Support").Session(IS.PREMARKET).Qty(200).Entry(14.85).Pullback().Breakout(15.10).AboveVwap().TakeProfit(15.50).TrailingStopLoss(IS.TIGHT).ClosePosition(IS.BELL)
