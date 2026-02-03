@@ -1,0 +1,1 @@
+Ticker(UUUU).Name("UUUU Cautious Long").Session(IS.AFTERHOURS).Qty(50).Entry(24.98).IsAboveVwap().TakeProfit(25.50).StopLoss(24.30).TSL(5%).ClosePosition(IS.BELL, Y)

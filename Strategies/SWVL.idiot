@@ -1,6 +1,0 @@
-# SWVL - EMA Support Bounce / Breakout Play
-# Strategy: Consolidating at EMA support ~$2.13, resistance at $2.19-2.20
-# Looking for breakout above resistance to reclaim previous highs
-# Low ADX indicates consolidation - wait for momentum to develop
-
-Ticker(SWVL).Name("SWVL EMA Bounce Breakout").Session(IS.RTH).Qty(500).Entry(2.20).Breakout(2.20).Pullback().AboveVwap().TakeProfit(2.45).TrailingStopLoss(5%).ClosePosition(IS.BELL, IS.PROFITABLE)

@@ -1,6 +1,0 @@
-# RAY - Raytech Holding Limited LOD Bounce Recovery
-# Strategy: Sold off from HOD $4.65 to LOD ~$3.90, attempting bounce
-# Looking for EMA reclaim at $4.17-4.21, then VWAP at $4.40
-# Below VWAP - reversal play, use tight risk management
-
-Ticker(RAY).Name("RAY LOD Bounce Recovery").Session(IS.RTH).Qty(400).Entry(4.10).Breakout(4.20).Pullback().TakeProfit(4.40).TrailingStopLoss(5%).ClosePosition(IS.BELL, IS.PROFITABLE)

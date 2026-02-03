@@ -1,0 +1,1 @@
+Ticker(NET).Name("NET EMA9 Break").Session(IS.AFTERHOURS).Qty(10).Breakout(169.50).IsAboveVwap().IsEmaAbove(9).TakeProfit(172.00).TrailingStopLoss(5%).ClosePosition(IS.BELL)

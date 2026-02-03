@@ -1,6 +1,0 @@
-# INLF - Day 2 Short Squeeze Setup
-# Author: Momentum
-# Strategy: Break above $0.82 with volume, pullback to VWAP, confirm higher low
-# Targets: $1.25, $2.07 (previous high)
-
-Ticker(INLF).Name("INLF Day 2 Squeeze").Session(IS.PREMARKET).Qty(5000).Entry(0.82).Breakout(0.82).Pullback().AboveVwap().TakeProfit(1.25).TrailingStopLoss(5%).ClosePosition(IS.BELL, IS.PROFITABLE)

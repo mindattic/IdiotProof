@@ -1,7 +1,0 @@
-# WATT - Energous Corporation VWAP Bounce Play
-# Author: Claude Opus 4.5
-# Strategy: Pulled back from HOD $9.65 to VWAP/EMA support zone
-# Looking for bounce from VWAP ~$9.09 and EMA reclaim ~$9.15
-# Target: Reclaim HOD resistance at $9.60
-
-Ticker(WATT).Name("WATT VWAP Bounce Reclaim").Session(IS.RTH).Qty(300).Entry(9.20).Breakout(9.26).Pullback().AboveVwap().TakeProfit(9.60).TrailingStopLoss(5%).ClosePosition(IS.BELL, IS.PROFITABLE)

@@ -1,6 +1,0 @@
-# SMCI - Super Micro Computer Pullback Play (AI/Tech)
-# Strategy: V-recovery from LOD $28.85 to HOD $31.20, now pulled back
-# Healthy consolidation at EMA 21/200 + VWAP confluence ~$30.09-30.18
-# Breakout above $30.25 resistance targets HOD reclaim
-
-Ticker(SMCI).Name("SMCI VWAP Pullback").Session(IS.PREMARKET).Qty(100).Entry(30.15).Breakout(30.25).Pullback().AboveVwap().TakeProfit(31.00).TrailingStopLoss(5%).ClosePosition(IS.BELL, IS.PROFITABLE)

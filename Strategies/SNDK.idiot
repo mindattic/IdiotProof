@@ -1,0 +1,1 @@
+Ticker(SNDK).Name("SNDK Dip Buy").Session(IS.AFTERHOURS).Qty(2).Entry(687.20).IsAboveVwap().IsEmaAbove(200).TakeProfit(694.00).StopLoss(683.00).ClosePosition(IS.BELL)
