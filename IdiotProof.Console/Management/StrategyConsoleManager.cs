@@ -3,11 +3,18 @@
 // ============================================================================
 //
 // FEATURES:
-// - View all strategies with status
+// - View all strategies with status and portfolio summary
 // - Toggle strategies on/off
 // - Create/Edit strategies using IdiotScript
-// - Cancel/delete strategies
+// - Delete strategies
 // - Interactive menu system
+// - Portfolio risk analysis (buy-in, potential loss/gain, risk/reward ratio)
+//
+// ASCII-ONLY OUTPUT:
+// - Uses only ASCII characters for console compatibility
+// - Status indicators: * (enabled), o (disabled)
+// - Messages: [OK] (success), [ERR] (error), [--] (disabled)
+// - Box drawing: +, -, |, =
 //
 // ============================================================================
 
@@ -75,9 +82,9 @@ public class StrategyConsoleManager
         System.Console.Clear();
         System.Console.ForegroundColor = ConsoleColor.Cyan;
         System.Console.WriteLine();
-        System.Console.WriteLine("╔══════════════════════════════════════════════════════════════════════╗");
-        System.Console.WriteLine("║           IdiotProof Strategy Manager - Console Edition              ║");
-        System.Console.WriteLine("╚══════════════════════════════════════════════════════════════════════╝");
+        System.Console.WriteLine("+----------------------------------------------------------------------+");
+        System.Console.WriteLine("|           IdiotProof Strategy Manager - Console Edition              |");
+        System.Console.WriteLine("+----------------------------------------------------------------------+");
         System.Console.ResetColor();
         System.Console.WriteLine();
     }
@@ -86,9 +93,9 @@ public class StrategyConsoleManager
     {
         System.Console.WriteLine();
         System.Console.ForegroundColor = ConsoleColor.White;
-        System.Console.WriteLine("┌─────────────────────────────────────────┐");
-        System.Console.WriteLine("│              MAIN MENU                  │");
-        System.Console.WriteLine("├─────────────────────────────────────────┤");
+        System.Console.WriteLine("+-----------------------------------------+");
+        System.Console.WriteLine("|              MAIN MENU                  |");
+        System.Console.WriteLine("+-----------------------------------------+");
         System.Console.ResetColor();
 
         WriteMenuItem("1", "View Strategies", ConsoleColor.Green);
@@ -100,7 +107,7 @@ public class StrategyConsoleManager
         WriteMenuItem("ESC", "Go Back", ConsoleColor.Gray);
 
         System.Console.ForegroundColor = ConsoleColor.White;
-        System.Console.WriteLine("└─────────────────────────────────────────┘");
+        System.Console.WriteLine("+-----------------------------------------+");
         System.Console.ResetColor();
 
         System.Console.Write("\nSelect option: ");
@@ -108,12 +115,12 @@ public class StrategyConsoleManager
 
     private static void WriteMenuItem(string key, string description, ConsoleColor keyColor)
     {
-        System.Console.Write("│  ");
+        System.Console.Write("|  ");
         System.Console.ForegroundColor = keyColor;
         System.Console.Write($"[{key}]");
         System.Console.ResetColor();
         System.Console.Write($" {description}");
-        System.Console.WriteLine(new string(' ', 35 - description.Length - key.Length) + "│");
+        System.Console.WriteLine(new string(' ', 35 - description.Length - key.Length) + "|");
     }
 
     private static async Task<ConsoleKey> ReadKeyAsync()
@@ -172,9 +179,9 @@ public class StrategyConsoleManager
         DisplayHeader();
 
         System.Console.ForegroundColor = ConsoleColor.White;
-        System.Console.WriteLine("═══════════════════════════════════════════════════════════════════════");
+        System.Console.WriteLine("=======================================================================");
         System.Console.WriteLine("                           STRATEGIES                                  ");
-        System.Console.WriteLine("═══════════════════════════════════════════════════════════════════════");
+        System.Console.WriteLine("=======================================================================");
         System.Console.ResetColor();
 
         if (_strategies.Count == 0)
@@ -186,10 +193,66 @@ public class StrategyConsoleManager
         else
         {
             System.Console.WriteLine();
+
+            // Track cumulative totals
+            double totalBuyIn = 0;
+            double totalPotentialLoss = 0;
+            double totalPotentialGain = 0;
+            int enabledCount = 0;
+
             for (int i = 0; i < _strategies.Count; i++)
             {
                 DisplayStrategyRow(i + 1, _strategies[i]);
+
+                // Accumulate stats for enabled strategies only
+                if (_strategies[i].Enabled)
+                {
+                    var stats = _strategies[i].GetStats();
+                    totalBuyIn += stats.BuyIn;
+                    totalPotentialLoss += stats.PotentialLoss;
+                    totalPotentialGain += stats.PotentialGain;
+                    enabledCount++;
+                }
             }
+
+            // Display cumulative summary
+            System.Console.WriteLine();
+            System.Console.ForegroundColor = ConsoleColor.White;
+            System.Console.WriteLine("-----------------------------------------------------------------------");
+            System.Console.WriteLine("                         PORTFOLIO SUMMARY                             ");
+            System.Console.WriteLine("-----------------------------------------------------------------------");
+
+            System.Console.ForegroundColor = ConsoleColor.Gray;
+            System.Console.Write("  Active Strategies: ");
+            System.Console.ForegroundColor = ConsoleColor.White;
+            System.Console.WriteLine($"{enabledCount} of {_strategies.Count}");
+
+            System.Console.ForegroundColor = ConsoleColor.Gray;
+            System.Console.Write("  Total Buy-In:      ");
+            System.Console.ForegroundColor = ConsoleColor.Yellow;
+            System.Console.WriteLine($"${totalBuyIn:N2}");
+
+            System.Console.ForegroundColor = ConsoleColor.Gray;
+            System.Console.Write("  Potential Loss:    ");
+            System.Console.ForegroundColor = ConsoleColor.Red;
+            System.Console.WriteLine($"-${totalPotentialLoss:N2}");
+
+            System.Console.ForegroundColor = ConsoleColor.Gray;
+            System.Console.Write("  Potential Gain:    ");
+            System.Console.ForegroundColor = ConsoleColor.Green;
+            System.Console.WriteLine($"+${totalPotentialGain:N2}");
+
+            // Risk/Reward ratio
+            if (totalPotentialLoss > 0)
+            {
+                var riskReward = totalPotentialGain / totalPotentialLoss;
+                System.Console.ForegroundColor = ConsoleColor.Gray;
+                System.Console.Write("  Risk/Reward:       ");
+                System.Console.ForegroundColor = riskReward >= 2 ? ConsoleColor.Green : riskReward >= 1 ? ConsoleColor.Yellow : ConsoleColor.Red;
+                System.Console.WriteLine($"1:{riskReward:F2}");
+            }
+
+            System.Console.ResetColor();
             System.Console.WriteLine();
         }
 
@@ -211,12 +274,12 @@ public class StrategyConsoleManager
         if (strategy.Enabled)
         {
             System.Console.ForegroundColor = ConsoleColor.Green;
-            System.Console.Write("● ");
+            System.Console.Write("* ");
         }
         else
         {
             System.Console.ForegroundColor = ConsoleColor.DarkGray;
-            System.Console.Write("○ ");
+            System.Console.Write("o ");
         }
 
         // Symbol
@@ -282,9 +345,9 @@ public class StrategyConsoleManager
         DisplayHeader();
 
         System.Console.ForegroundColor = ConsoleColor.Yellow;
-        System.Console.WriteLine("═══════════════════════════════════════════════════════════════════════");
+        System.Console.WriteLine("=======================================================================");
         System.Console.WriteLine("                    CREATE STRATEGY (IDIOTSCRIPT)                      ");
-        System.Console.WriteLine("═══════════════════════════════════════════════════════════════════════");
+        System.Console.WriteLine("=======================================================================");
         System.Console.ResetColor();
         System.Console.WriteLine();
 
@@ -335,7 +398,7 @@ public class StrategyConsoleManager
 
             System.Console.WriteLine();
             System.Console.ForegroundColor = ConsoleColor.Green;
-            System.Console.WriteLine($"✓ Strategy '{strategy!.Name}' created successfully!");
+            System.Console.WriteLine($"[OK] Strategy '{strategy!.Name}' created successfully!");
             System.Console.ResetColor();
 
             if (!string.IsNullOrWhiteSpace(savedPath))
@@ -352,7 +415,7 @@ public class StrategyConsoleManager
                 if (result?.Success == true)
                 {
                     System.Console.ForegroundColor = ConsoleColor.Green;
-                    System.Console.WriteLine($"✓ {result.Message ?? "Strategies synced with backend"}");
+                    System.Console.WriteLine($"[OK] {result.Message ?? "Strategies synced with backend"}");
                     System.Console.ResetColor();
                 }
             }
@@ -375,7 +438,7 @@ public class StrategyConsoleManager
         {
             System.Console.WriteLine();
             System.Console.ForegroundColor = ConsoleColor.Red;
-            System.Console.WriteLine($"✗ Parse error: {error}");
+            System.Console.WriteLine($"[ERR] Parse error: {error}");
             System.Console.ResetColor();
             System.Console.WriteLine();
             System.Console.ForegroundColor = ConsoleColor.DarkGray;
@@ -407,9 +470,9 @@ public class StrategyConsoleManager
         DisplayHeader();
 
         System.Console.ForegroundColor = ConsoleColor.Cyan;
-        System.Console.WriteLine("═══════════════════════════════════════════════════════════════════════");
+        System.Console.WriteLine("=======================================================================");
         System.Console.WriteLine("                         TOGGLE STRATEGY                               ");
-        System.Console.WriteLine("═══════════════════════════════════════════════════════════════════════");
+        System.Console.WriteLine("=======================================================================");
         System.Console.ResetColor();
         System.Console.WriteLine();
 
@@ -455,12 +518,12 @@ public class StrategyConsoleManager
         if (strategy.Enabled)
         {
             System.Console.ForegroundColor = ConsoleColor.Green;
-            System.Console.WriteLine($"✓ Strategy '{strategy.Name}' is now ENABLED");
+            System.Console.WriteLine($"[OK] Strategy '{strategy.Name}' is now ENABLED");
         }
         else
         {
             System.Console.ForegroundColor = ConsoleColor.Yellow;
-            System.Console.WriteLine($"○ Strategy '{strategy.Name}' is now DISABLED");
+            System.Console.WriteLine($"[--] Strategy '{strategy.Name}' is now DISABLED");
         }
         System.Console.ResetColor();
 
@@ -500,9 +563,9 @@ public class StrategyConsoleManager
         DisplayHeader();
 
         System.Console.ForegroundColor = ConsoleColor.Cyan;
-        System.Console.WriteLine("═══════════════════════════════════════════════════════════════════════");
+        System.Console.WriteLine("=======================================================================");
         System.Console.WriteLine("                          EDIT STRATEGY                                ");
-        System.Console.WriteLine("═══════════════════════════════════════════════════════════════════════");
+        System.Console.WriteLine("=======================================================================");
         System.Console.ResetColor();
         System.Console.WriteLine();
 
@@ -585,7 +648,7 @@ public class StrategyConsoleManager
 
             System.Console.WriteLine();
             System.Console.ForegroundColor = ConsoleColor.Green;
-            System.Console.WriteLine($"✓ Strategy updated: '{newStrategy!.Name}'");
+            System.Console.WriteLine($"[OK] Strategy updated: '{newStrategy!.Name}'");
             System.Console.ResetColor();
 
             // Sync with backend
@@ -608,7 +671,7 @@ public class StrategyConsoleManager
         {
             System.Console.WriteLine();
             System.Console.ForegroundColor = ConsoleColor.Red;
-            System.Console.WriteLine($"✗ Parse error: {error}");
+            System.Console.WriteLine($"[ERR] Parse error: {error}");
             System.Console.WriteLine("Strategy was NOT updated.");
             System.Console.ResetColor();
         }
@@ -749,9 +812,9 @@ public class StrategyConsoleManager
         DisplayHeader();
 
         System.Console.ForegroundColor = ConsoleColor.Red;
-        System.Console.WriteLine("═══════════════════════════════════════════════════════════════════════");
+        System.Console.WriteLine("=======================================================================");
         System.Console.WriteLine("                         DELETE STRATEGY                               ");
-        System.Console.WriteLine("═══════════════════════════════════════════════════════════════════════");
+        System.Console.WriteLine("=======================================================================");
         System.Console.ResetColor();
         System.Console.WriteLine();
 
@@ -792,7 +855,7 @@ public class StrategyConsoleManager
             _strategies.RemoveAt(index - 1);
 
             System.Console.ForegroundColor = ConsoleColor.Green;
-            System.Console.WriteLine($"✓ Strategy '{strategy.Name}' has been deleted.");
+            System.Console.WriteLine($"[OK] Strategy '{strategy.Name}' has been deleted.");
             System.Console.ResetColor();
         }
         else
@@ -817,9 +880,9 @@ public class StrategyConsoleManager
         DisplayHeader();
 
         System.Console.ForegroundColor = ConsoleColor.DarkGray;
-        System.Console.WriteLine("═══════════════════════════════════════════════════════════════════════");
+        System.Console.WriteLine("=======================================================================");
         System.Console.WriteLine("                    IDIOTSCRIPT SYNTAX HELP                            ");
-        System.Console.WriteLine("═══════════════════════════════════════════════════════════════════════");
+        System.Console.WriteLine("=======================================================================");
         System.Console.ResetColor();
         System.Console.WriteLine();
 
@@ -891,10 +954,13 @@ public class StrategyConsoleManager
 
         WriteHelpSection("TIME CONSTANTS (IS.) FOR CLOSEPOSITION", new[]
         {
-            ("ClosePosition(IS.BELL)", "Close at 9:20 AM (before market open)"),
+            ("ClosePosition(IS.BELL)", "Session-aware: 1 min before session ends"),
+            ("ClosePosition(IS.BELL, Y)", "Close only if profitable"),
+            ("ClosePosition(IS.BELL, IS.PROFITABLE)", "Same as above (semantic alias)"),
+            ("ClosePosition(IS.PREMARKET.BELL)", "Explicit: 9:29 AM (premarket end)"),
+            ("ClosePosition(IS.RTH.BELL)", "Explicit: 3:59 PM (RTH end)"),
             ("ClosePosition(IS.OPEN)", "Close at market open (9:30 AM)"),
-            ("ClosePosition(IS.CLOSE)", "Close at market close (4:00 PM)"),
-            ("ClosePosition(9:20, Y)", "Close at time, only if profitable")
+            ("ClosePosition(IS.CLOSE)", "Close at market close (4:00 PM)")
         });
 
         System.Console.WriteLine();

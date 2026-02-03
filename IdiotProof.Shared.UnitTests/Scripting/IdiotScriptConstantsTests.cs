@@ -58,6 +58,8 @@ public class IdiotScriptConstantsTests
     {
         Assert.That(IdiotScriptConstants.BELL, Is.EqualTo("IS.BELL"));
         Assert.That(IdiotScriptConstants.PREMARKET_BELL, Is.EqualTo("IS.PREMARKET.BELL"));
+        Assert.That(IdiotScriptConstants.RTH_BELL, Is.EqualTo("IS.RTH.BELL"));
+        Assert.That(IdiotScriptConstants.AFTERHOURS_BELL, Is.EqualTo("IS.AFTERHOURS.BELL"));
         Assert.That(IdiotScriptConstants.OPEN, Is.EqualTo("IS.OPEN"));
         Assert.That(IdiotScriptConstants.CLOSE_TIME, Is.EqualTo("IS.CLOSE"));
         Assert.That(IdiotScriptConstants.EOD, Is.EqualTo("IS.EOD"));
@@ -121,6 +123,21 @@ public class IdiotScriptConstantsTests
         Assert.That(IdiotScriptConstants.FALSE, Is.EqualTo("IS.FALSE"));
     }
 
+    [Test]
+    public void PROFITABLE_Constant_HasCorrectValue()
+    {
+        Assert.That(IdiotScriptConstants.PROFITABLE, Is.EqualTo("IS.PROFITABLE"));
+    }
+
+    [Test]
+    public void PROFITABLE_Constant_ResolvesToTrue()
+    {
+        var result = IdiotScriptConstants.ResolveBoolean("IS.PROFITABLE");
+
+        Assert.That(result.HasValue, Is.True);
+        Assert.That(result!.Value, Is.True);
+    }
+
     #endregion
 
     #region ResolveConstant - Sessions
@@ -143,8 +160,10 @@ public class IdiotScriptConstantsTests
 
     #region ResolveConstant - Times
 
-    [TestCase("IS.BELL", "9:20")]
-    [TestCase("IS.PREMARKET.BELL", "9:20")]
+    [TestCase("IS.BELL", "15:59")]           // Default to RTH bell
+    [TestCase("IS.PREMARKET.BELL", "9:29")]  // 1 min before 9:30 open
+    [TestCase("IS.RTH.BELL", "15:59")]       // 1 min before 4:00 close
+    [TestCase("IS.AFTERHOURS.BELL", "19:59")] // 1 min before 8:00 AH end
     [TestCase("IS.OPEN", "9:30")]
     [TestCase("IS.CLOSE", "16:00")]
     [TestCase("IS.EOD", "16:00")]
@@ -155,6 +174,47 @@ public class IdiotScriptConstantsTests
         var result = IdiotScriptConstants.ResolveConstant(input);
 
         Assert.That(result, Is.EqualTo(expected));
+    }
+
+    #endregion
+
+    #region ResolveBellTime - Session Aware
+
+    [TestCase("IS.BELL", null, 15, 59)]           // Default to RTH
+    [TestCase("IS.BELL", "PreMarket", 9, 29)]     // Premarket: 1 min before 9:30
+    [TestCase("IS.BELL", "RTH", 15, 59)]          // RTH: 1 min before 16:00
+    [TestCase("IS.BELL", "AfterHours", 19, 59)]   // AH: 1 min before 20:00
+    [TestCase("IS.BELL", "Extended", 19, 59)]     // Extended: 1 min before 20:00
+    [TestCase("IS.BELL", "Active", 15, 59)]       // Active: default to RTH
+    [TestCase("IS.PREMARKET.BELL", null, 9, 29)]  // Explicit premarket bell
+    [TestCase("IS.RTH.BELL", null, 15, 59)]       // Explicit RTH bell
+    [TestCase("IS.AFTERHOURS.BELL", null, 19, 59)] // Explicit AH bell
+    public void ResolveBellTime_ReturnsCorrectTimeForSession(string input, string? session, int expectedHour, int expectedMinute)
+    {
+        var result = IdiotScriptConstants.ResolveBellTime(input, session);
+
+        Assert.That(result.Hour, Is.EqualTo(expectedHour));
+        Assert.That(result.Minute, Is.EqualTo(expectedMinute));
+    }
+
+    [Test]
+    public void IsBellConstant_ReturnsTrueForBellConstants()
+    {
+        Assert.That(IdiotScriptConstants.IsBellConstant("IS.BELL"), Is.True);
+        Assert.That(IdiotScriptConstants.IsBellConstant("IS.PREMARKET.BELL"), Is.True);
+        Assert.That(IdiotScriptConstants.IsBellConstant("IS.RTH.BELL"), Is.True);
+        Assert.That(IdiotScriptConstants.IsBellConstant("IS.AFTERHOURS.BELL"), Is.True);
+        Assert.That(IdiotScriptConstants.IsBellConstant("is.bell"), Is.True);  // Case insensitive
+    }
+
+    [Test]
+    public void IsBellConstant_ReturnsFalseForNonBellConstants()
+    {
+        Assert.That(IdiotScriptConstants.IsBellConstant("IS.OPEN"), Is.False);
+        Assert.That(IdiotScriptConstants.IsBellConstant("IS.CLOSE"), Is.False);
+        Assert.That(IdiotScriptConstants.IsBellConstant("IS.PREMARKET"), Is.False);
+        Assert.That(IdiotScriptConstants.IsBellConstant(null), Is.False);
+        Assert.That(IdiotScriptConstants.IsBellConstant(""), Is.False);
     }
 
     #endregion
@@ -208,8 +268,9 @@ public class IdiotScriptConstantsTests
     [TestCase("is.premarket", "PreMarket")]
     [TestCase("Is.PreMarket", "PreMarket")]
     [TestCase("IS.PREMARKET", "PreMarket")]
-    [TestCase("is.bell", "9:20")]
-    [TestCase("Is.Bell", "9:20")]
+    [TestCase("is.bell", "15:59")]
+    [TestCase("Is.Bell", "15:59")]
+    [TestCase("is.premarket.bell", "9:29")]
     [TestCase("is.true", "true")]
     [TestCase("IS.TRUE", "true")]
     public void ResolveConstant_IsCaseInsensitive(string input, string expected)

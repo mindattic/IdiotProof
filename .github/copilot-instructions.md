@@ -7,3 +7,41 @@
 
 ## IdiotScript Execution Flow
 - When reviewing IdiotScript, use the three-column execution flow visualization format showing [CONFIG] → [ENTRY CONDITIONS] → ✅ BUY → [EXIT CONDITIONS] with boxes around each section. This helps visualize the sequential state machine evaluation order.
+
+## IdiotScript Command Categories
+Commands are evaluated in this order:
+
+1. **CONFIG** (order doesn't matter within group):
+   - `Ticker()`, `Name()`, `Session()`, `Qty()`
+
+2. **ENTRY CONDITIONS** (order matters - sequential state machine):
+   - `Entry()`, `Breakout()`, `Pullback()`, `AboveVwap()`, `BelowVwap()`, `IsEmaAbove()`, etc.
+
+3. **EXIT CONDITIONS** (after position is opened):
+   - `TakeProfit()`, `TrailingStopLoss()`, `StopLoss()`, `ClosePosition()`
+
+## IS.BELL Session-Aware Behavior
+`IS.BELL` resolves to 1 minute before the current session ends:
+- **Premarket**: 9:29 AM (1 min before 9:30 open)
+- **RTH**: 3:59 PM (1 min before 4:00 close)
+- **AfterHours**: 7:59 PM (1 min before 8:00 AH end)
+- **Default**: 3:59 PM (RTH bell if no session specified)
+
+Explicit bell constants are also available:
+- `IS.PREMARKET.BELL` → 9:29 AM
+- `IS.RTH.BELL` → 3:59 PM
+- `IS.AFTERHOURS.BELL` → 7:59 PM
+
+## ClosePosition with Profitable Flag
+Use `IS.PROFITABLE` or `YES`/`Y` as second parameter to close only if profitable:
+```
+ClosePosition(IS.BELL, IS.PROFITABLE)
+ClosePosition(IS.BELL, YES)
+ClosePosition(IS.BELL, Y)
+```
+
+## ASCII-Only Console Output
+The console UI uses ASCII-only characters (no Unicode). Use:
+- `*` for enabled, `o` for disabled
+- `[OK]` for success, `[ERR]` for errors
+- `+`, `-`, `|`, `=` for box drawing
