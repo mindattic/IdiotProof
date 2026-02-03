@@ -1052,6 +1052,16 @@ public static partial class IdiotScriptParser
         var profitOnly = match.Groups.Count > 2 && !string.IsNullOrEmpty(match.Groups[2].Value) &&
             (IdiotScriptConstants.ResolveBoolean(match.Groups[2].Value.Trim()) ?? false);
 
+        // Check if it's a bell constant (requires session context)
+        if (IdiotScriptConstants.IsBellConstant(timeArg))
+        {
+            // Resolve bell time based on session context
+            var bellTime = IdiotScriptConstants.ResolveBellTime(timeArg, context.Session?.ToString());
+            context.ClosePositionTime = bellTime;
+            context.CloseOnlyIfProfitable = profitOnly;
+            return true;
+        }
+
         // Check if it's a constant (IS. prefix)
         if (IdiotScriptConstants.IsConstant(timeArg))
         {

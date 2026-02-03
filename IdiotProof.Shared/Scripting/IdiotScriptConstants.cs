@@ -25,8 +25,12 @@
 // - IS.PREMARKET_START_LATE: Pre-market starting late (4:10 AM - 9:30 AM ET)
 //
 // TIME CONSTANTS:
-// - IS.BELL: Right before market open (9:20 AM ET)
-// - IS.PREMARKET.BELL: Same as IS.BELL
+// - IS.BELL: Last minute before session end (session-aware):
+//     * Premarket: 9:29 AM (1 min before open)
+//     * RTH: 3:59 PM (1 min before close)
+//     * AfterHours: 7:59 PM (1 min before AH end)
+//     * Extended: 7:59 PM (1 min before extended end)
+//     * Default fallback: 3:59 PM
 // - IS.OPEN: Market open (9:30 AM ET)
 // - IS.CLOSE: Market close (4:00 PM ET)
 // - IS.EOD: End of day (same as IS.CLOSE)
@@ -42,7 +46,7 @@
 //
 // USAGE EXAMPLES:
 //   SESSION(IS.PREMARKET)           // Trading session constant
-//   CLOSE(IS.BELL)                  // Time constant (9:20 AM ET)
+//   CLOSE(IS.BELL)                  // Last minute before session end (session-aware)
 //   TSL(IS.MODERATE)                // 10% trailing stop
 //   ENABLED(IS.TRUE)                // Boolean constant
 //   ENABLED(Y)                      // Short boolean form
@@ -90,11 +94,17 @@ public static class IdiotScriptConstants
     // TIME CONSTANTS (Eastern Time)
     // ========================================================================
 
-    /// <summary>Right before market open bell: 9:20 AM ET</summary>
+    /// <summary>Last minute before session end (session-aware). Use ResolveBellTime() with session context.</summary>
     public const string BELL = "IS.BELL";
 
-    /// <summary>Pre-market bell (alias for BELL): 9:20 AM ET</summary>
+    /// <summary>Pre-market bell: 9:29 AM ET (1 minute before market open)</summary>
     public const string PREMARKET_BELL = "IS.PREMARKET.BELL";
+
+    /// <summary>RTH bell: 3:59 PM ET (1 minute before market close)</summary>
+    public const string RTH_BELL = "IS.RTH.BELL";
+
+    /// <summary>After-hours bell: 7:59 PM ET (1 minute before AH end)</summary>
+    public const string AFTERHOURS_BELL = "IS.AFTERHOURS.BELL";
 
     /// <summary>Market open: 9:30 AM ET</summary>
     public const string OPEN = "IS.OPEN";
@@ -172,6 +182,9 @@ public static class IdiotScriptConstants
     /// <summary>Boolean false constant. Valid inputs: N, NO, no, false, FALSE, 0</summary>
     public const string FALSE = "IS.FALSE";
 
+    /// <summary>Boolean true constant for ClosePosition - closes only if position is profitable</summary>
+    public const string PROFITABLE = "IS.PROFITABLE";
+
     // ========================================================================
     // RESOLVER METHODS
     // ========================================================================
@@ -195,8 +208,11 @@ public static class IdiotScriptConstants
             "IS.PREMARKET_END_EARLY" => "PreMarketEndEarly",
             "IS.PREMARKET_START_LATE" => "PreMarketStartLate",
 
-            // Times
-            "IS.BELL" or "IS.PREMARKET.BELL" => "9:20",
+            // Times - Bell times are session-specific (use ResolveBellTime for IS.BELL with context)
+            "IS.BELL" => "15:59",  // Default to RTH bell, use ResolveBellTime() for session-aware resolution
+            "IS.PREMARKET.BELL" => "9:29",
+            "IS.RTH.BELL" => "15:59",
+            "IS.AFTERHOURS.BELL" => "19:59",
             "IS.OPEN" => "9:30",
             "IS.CLOSE" => "16:00",
             "IS.EOD" => "16:00",
@@ -221,6 +237,7 @@ public static class IdiotScriptConstants
             // Boolean constants
             "IS.TRUE" => "true",
             "IS.FALSE" => "false",
+            "IS.PROFITABLE" => "true",
 
             _ => null
         };
@@ -239,6 +256,51 @@ public static class IdiotScriptConstants
             return time;
 
         return null;
+    }
+
+    /// <summary>
+    /// Resolves IS.BELL to the last minute before the session ends.
+    /// </summary>
+    /// <param name="input">The time constant (IS.BELL or session-specific bell)</param>
+    /// <param name="session">The trading session context (e.g., "PreMarket", "RTH", "AfterHours")</param>
+    /// <returns>The bell time for the specified session, or default RTH bell if no session specified</returns>
+    public static TimeOnly ResolveBellTime(string input, string? session = null)
+    {
+        var upper = input.ToUpperInvariant();
+
+        // Handle explicit session bells
+        if (upper == "IS.PREMARKET.BELL") return new TimeOnly(9, 29);
+        if (upper == "IS.RTH.BELL") return new TimeOnly(15, 59);
+        if (upper == "IS.AFTERHOURS.BELL") return new TimeOnly(19, 59);
+
+        // For IS.BELL, resolve based on session context
+        if (upper == "IS.BELL" && !string.IsNullOrEmpty(session))
+        {
+            return session.ToUpperInvariant() switch
+            {
+                "PREMARKET" => new TimeOnly(9, 29),    // 1 min before 9:30 open
+                "RTH" => new TimeOnly(15, 59),          // 1 min before 4:00 close
+                "AFTERHOURS" => new TimeOnly(19, 59),   // 1 min before 8:00 AH end
+                "EXTENDED" => new TimeOnly(19, 59),     // 1 min before extended end
+                "PREMARKETENDEARLY" => new TimeOnly(9, 19),  // 1 min before 9:20 early end
+                "PREMARKETSTARTLATE" => new TimeOnly(9, 29), // Still ends at open
+                "ACTIVE" => new TimeOnly(15, 59),       // Default to RTH close
+                _ => new TimeOnly(15, 59)               // Default fallback
+            };
+        }
+
+        // Default to RTH bell
+        return new TimeOnly(15, 59);
+    }
+
+    /// <summary>
+    /// Checks if a time constant is a bell constant that requires session context.
+    /// </summary>
+    public static bool IsBellConstant(string? input)
+    {
+        if (string.IsNullOrEmpty(input)) return false;
+        var upper = input.ToUpperInvariant();
+        return upper is "IS.BELL" or "IS.PREMARKET.BELL" or "IS.RTH.BELL" or "IS.AFTERHOURS.BELL";
     }
 
     /// <summary>

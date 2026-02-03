@@ -3,4 +3,4 @@
 # Need to reclaim VWAP $13.68, then target EMAs and HOD
 # Support at $12.50 if fails
 
-Ticker(WULF).Name("WULF VWAP Reclaim 🚀").Session(IS.PREMARKET).Qty(200).Entry(13.30).Breakout(13.70).Pullback().AboveVwap().TakeProfit(14.50).TrailingStopLoss(5%).ClosePosition(IS.BELL)
+Ticker(WULF).Name("WULF VWAP Reclaim").Session(IS.PREMARKET).Qty(200).Entry(13.30).Breakout(13.70).Pullback().AboveVwap().TakeProfit(14.50).TrailingStopLoss(5%).ClosePosition(IS.BELL, IS.PROFITABLE)

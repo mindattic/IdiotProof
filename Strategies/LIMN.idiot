@@ -2,4 +2,4 @@
 # Strategy: Low-float compliance pump, break over $1.00 flat top resistance
 # Wait for confirmation on pullback retest, targets $1.50 and $2.00
 
-Ticker(LIMN).Name("LIMN Flat Top Breakout").Session(IS.PREMARKET).Qty(1000).Entry(1.00).Breakout(1.00).Pullback().AboveVwap().TakeProfit(1.50).TrailingStopLoss(IS.MODERATE).ClosePosition(IS.BELL)
+Ticker(LIMN).Name("LIMN Flat Top Breakout").Session(IS.PREMARKET).Qty(1000).Entry(1.00).Breakout(1.00).Pullback().AboveVwap().TakeProfit(1.50).TrailingStopLoss(5%).ClosePosition(IS.BELL, IS.PROFITABLE)
