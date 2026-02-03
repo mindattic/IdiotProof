@@ -64,6 +64,12 @@ namespace IdiotProof.Backend.Strategy
         /// </summary>
         public double Threshold { get; }
 
+        /// <summary>
+        /// Gets or sets the callback to retrieve the current RSI value.
+        /// This is set by the StrategyRunner when it initializes the RSI calculator.
+        /// </summary>
+        public Func<double>? GetRsiValue { get; set; }
+
         /// <inheritdoc/>
         public string Name => State switch
         {
@@ -84,17 +90,19 @@ namespace IdiotProof.Backend.Strategy
         }
 
         /// <inheritdoc/>
-        /// <remarks>
-        /// <para><b>Note:</b> This method always returns true as RSI evaluation requires
-        /// indicator data not available in the standard Evaluate signature. The actual
-        /// RSI check is performed by the StrategyRunner using indicator data.</para>
-        /// </remarks>
         public bool Evaluate(double currentPrice, double vwap)
         {
-            // RSI conditions cannot be evaluated with just price/vwap
-            // Return true to allow the condition chain to continue
-            // Actual RSI evaluation happens in StrategyRunner with indicator data
-            return true;
+            // If no RSI callback is set, return false (condition not met)
+            if (GetRsiValue == null)
+                return false;
+
+            double rsiValue = GetRsiValue();
+
+            // RSI not ready yet (not enough data)
+            if (rsiValue <= 0)
+                return false;
+
+            return EvaluateRsi(rsiValue);
         }
 
         /// <summary>
@@ -112,6 +120,7 @@ namespace IdiotProof.Backend.Strategy
             };
         }
     }
+
 
     /// <summary>
     /// Condition: ADX (Average Directional Index) comparison against a threshold.
@@ -145,6 +154,12 @@ namespace IdiotProof.Backend.Strategy
         /// </summary>
         public double Threshold { get; }
 
+        /// <summary>
+        /// Gets or sets the callback to retrieve the current ADX value.
+        /// This is set by the StrategyRunner when it initializes the ADX calculator.
+        /// </summary>
+        public Func<double>? GetAdxValue { get; set; }
+
         /// <inheritdoc/>
         public string Name => Comparison switch
         {
@@ -174,8 +189,17 @@ namespace IdiotProof.Backend.Strategy
         /// <inheritdoc/>
         public bool Evaluate(double currentPrice, double vwap)
         {
-            // ADX conditions cannot be evaluated with just price/vwap
-            return true;
+            // If no ADX callback is set, return false (condition not met)
+            if (GetAdxValue == null)
+                return false;
+
+            double adxValue = GetAdxValue();
+
+            // ADX not ready yet (not enough data)
+            if (adxValue <= 0)
+                return false;
+
+            return EvaluateAdx(adxValue);
         }
 
         /// <summary>
@@ -226,6 +250,12 @@ namespace IdiotProof.Backend.Strategy
         /// </summary>
         public MacdState State { get; }
 
+        /// <summary>
+        /// Gets or sets the callback to retrieve MACD values.
+        /// Returns tuple of (MacdLine, SignalLine, Histogram, PreviousHistogram).
+        /// </summary>
+        public Func<(double MacdLine, double SignalLine, double Histogram, double PreviousHistogram)>? GetMacdValues { get; set; }
+
         /// <inheritdoc/>
         public string Name => State switch
         {
@@ -250,8 +280,13 @@ namespace IdiotProof.Backend.Strategy
         /// <inheritdoc/>
         public bool Evaluate(double currentPrice, double vwap)
         {
-            // MACD conditions cannot be evaluated with just price/vwap
-            return true;
+            // If no MACD callback is set, return false (condition not met)
+            if (GetMacdValues == null)
+                return false;
+
+            var (macdLine, signalLine, histogram, previousHistogram) = GetMacdValues();
+
+            return EvaluateMacd(macdLine, signalLine, histogram, previousHistogram);
         }
 
         /// <summary>
@@ -330,6 +365,12 @@ namespace IdiotProof.Backend.Strategy
         /// </summary>
         public double MinDifference { get; }
 
+        /// <summary>
+        /// Gets or sets the callback to retrieve +DI and -DI values.
+        /// Returns tuple of (PlusDI, MinusDI).
+        /// </summary>
+        public Func<(double PlusDI, double MinusDI)>? GetDiValues { get; set; }
+
         /// <inheritdoc/>
         public string Name => Direction switch
         {
@@ -359,8 +400,17 @@ namespace IdiotProof.Backend.Strategy
         /// <inheritdoc/>
         public bool Evaluate(double currentPrice, double vwap)
         {
-            // DI conditions cannot be evaluated with just price/vwap
-            return true;
+            // If no DI callback is set, return false (condition not met)
+            if (GetDiValues == null)
+                return false;
+
+            var (plusDI, minusDI) = GetDiValues();
+
+            // DI not ready yet (values are 0)
+            if (plusDI <= 0 && minusDI <= 0)
+                return false;
+
+            return EvaluateDI(plusDI, minusDI);
         }
 
         /// <summary>
@@ -380,6 +430,180 @@ namespace IdiotProof.Backend.Strategy
                 DiDirection.Negative => minusDI > plusDI && (minusDI - plusDI) >= MinDifference,
                 _ => false
             };
+        }
+    }
+
+    /// <summary>
+    /// Condition: Price is above or equal to the specified EMA (Exponential Moving Average).
+    /// </summary>
+    /// <remarks>
+    /// <para><b>EMA (Exponential Moving Average):</b></para>
+    /// <para>A moving average that gives more weight to recent prices, making it more responsive.</para>
+    /// 
+    /// <para><b>Common Periods:</b></para>
+    /// <list type="bullet">
+    ///   <item><b>9 EMA:</b> Short-term trend, very responsive</item>
+    ///   <item><b>21 EMA:</b> Medium-term trend</item>
+    ///   <item><b>50 EMA:</b> Intermediate trend</item>
+    ///   <item><b>200 EMA:</b> Long-term trend, major support/resistance</item>
+    /// </list>
+    /// 
+    /// <para><b>Trading Signals:</b></para>
+    /// <list type="bullet">
+    ///   <item>Price above EMA: Bullish bias</item>
+    ///   <item>Price below EMA: Bearish bias</item>
+    ///   <item>Price at EMA: Potential support/resistance</item>
+    /// </list>
+    /// </remarks>
+    public sealed class EmaAboveCondition : IStrategyCondition
+    {
+        /// <summary>
+        /// Gets the EMA period for this condition.
+        /// </summary>
+        public int Period { get; }
+
+        /// <summary>
+        /// Gets or sets the callback to retrieve the current EMA value.
+        /// This is set by the StrategyRunner when it initializes EMA calculators.
+        /// </summary>
+        public Func<double>? GetEmaValue { get; set; }
+
+        /// <inheritdoc/>
+        public string Name => $"Price >= EMA({Period})";
+
+        /// <summary>
+        /// Creates a new EMA above condition.
+        /// </summary>
+        /// <param name="period">The EMA period (e.g., 9, 21, 200).</param>
+        public EmaAboveCondition(int period)
+        {
+            if (period < 1)
+                throw new ArgumentOutOfRangeException(nameof(period), "Period must be at least 1.");
+            Period = period;
+        }
+
+        /// <inheritdoc/>
+        public bool Evaluate(double currentPrice, double vwap)
+        {
+            // If no EMA callback is set, return false (condition not met)
+            // This ensures we don't accidentally trigger on uninitialized conditions
+            if (GetEmaValue == null)
+                return false;
+
+            double emaValue = GetEmaValue();
+
+            // EMA not ready yet (not enough data)
+            if (emaValue <= 0)
+                return false;
+
+            return currentPrice >= emaValue;
+        }
+    }
+
+    /// <summary>
+    /// Condition: Price is below or equal to the specified EMA (Exponential Moving Average).
+    /// </summary>
+    public sealed class EmaBelowCondition : IStrategyCondition
+    {
+        /// <summary>
+        /// Gets the EMA period for this condition.
+        /// </summary>
+        public int Period { get; }
+
+        /// <summary>
+        /// Gets or sets the callback to retrieve the current EMA value.
+        /// This is set by the StrategyRunner when it initializes EMA calculators.
+        /// </summary>
+        public Func<double>? GetEmaValue { get; set; }
+
+        /// <inheritdoc/>
+        public string Name => $"Price <= EMA({Period})";
+
+        /// <summary>
+        /// Creates a new EMA below condition.
+        /// </summary>
+        /// <param name="period">The EMA period (e.g., 9, 21, 200).</param>
+        public EmaBelowCondition(int period)
+        {
+            if (period < 1)
+                throw new ArgumentOutOfRangeException(nameof(period), "Period must be at least 1.");
+            Period = period;
+        }
+
+        /// <inheritdoc/>
+        public bool Evaluate(double currentPrice, double vwap)
+        {
+            if (GetEmaValue == null)
+                return false;
+
+            double emaValue = GetEmaValue();
+
+            if (emaValue <= 0)
+                return false;
+
+            return currentPrice <= emaValue;
+        }
+    }
+
+    /// <summary>
+    /// Condition: Price is between two EMAs.
+    /// </summary>
+    public sealed class EmaBetweenCondition : IStrategyCondition
+    {
+        /// <summary>
+        /// Gets the lower EMA period.
+        /// </summary>
+        public int LowerPeriod { get; }
+
+        /// <summary>
+        /// Gets the upper EMA period.
+        /// </summary>
+        public int UpperPeriod { get; }
+
+        /// <summary>
+        /// Gets or sets the callback to retrieve the lower EMA value.
+        /// </summary>
+        public Func<double>? GetLowerEmaValue { get; set; }
+
+        /// <summary>
+        /// Gets or sets the callback to retrieve the upper EMA value.
+        /// </summary>
+        public Func<double>? GetUpperEmaValue { get; set; }
+
+        /// <inheritdoc/>
+        public string Name => $"Price between EMA({LowerPeriod}) and EMA({UpperPeriod})";
+
+        /// <summary>
+        /// Creates a new EMA between condition.
+        /// </summary>
+        public EmaBetweenCondition(int lowerPeriod, int upperPeriod)
+        {
+            if (lowerPeriod < 1)
+                throw new ArgumentOutOfRangeException(nameof(lowerPeriod), "Period must be at least 1.");
+            if (upperPeriod < 1)
+                throw new ArgumentOutOfRangeException(nameof(upperPeriod), "Period must be at least 1.");
+
+            LowerPeriod = lowerPeriod;
+            UpperPeriod = upperPeriod;
+        }
+
+        /// <inheritdoc/>
+        public bool Evaluate(double currentPrice, double vwap)
+        {
+            if (GetLowerEmaValue == null || GetUpperEmaValue == null)
+                return false;
+
+            double lowerEma = GetLowerEmaValue();
+            double upperEma = GetUpperEmaValue();
+
+            if (lowerEma <= 0 || upperEma <= 0)
+                return false;
+
+            // Price should be above the lower EMA and below the upper EMA
+            double minEma = Math.Min(lowerEma, upperEma);
+            double maxEma = Math.Max(lowerEma, upperEma);
+
+            return currentPrice >= minEma && currentPrice <= maxEma;
         }
     }
 }

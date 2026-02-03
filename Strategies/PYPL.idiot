@@ -1,1 +1,1 @@
-Ticker(PYPL).Name("PYPL AH Bell Exit").Session(IS.AFTERHOURS).Qty(100).Entry(43).TP(50).TSL(5%).IsAboveVwap().IsEmaAbove(200).IsEmaAbove(21).ClosePosition(IS.BELL, IS.PROFITABLE)
+Ticker(PYPL).Name("PYPL AH Bell Exit").Session(IS.AFTERHOURS).Qty(100).Entry(43).TP(50).TSL(5%).IsAboveVwap().IsEmaAbove(200).IsEmaAbove(9).ClosePosition(IS.BELL, IS.PROFITABLE)

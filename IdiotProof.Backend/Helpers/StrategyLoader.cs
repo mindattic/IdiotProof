@@ -312,16 +312,13 @@ namespace IdiotProof.Backend.Models
                     GetEnum<DiDirection>(segment, "Direction"),
                     GetDouble(segment, "MinDifference", 0)),
 
-                // EMA conditions - use custom conditions since Backend doesn't have EMA methods
-                "IsEmaAbove" => builder.When(
-                    $"Price >= EMA({GetInt(segment, "Period")})",
-                    (price, vwap) => true), // EMA conditions pass through - evaluated by indicator service
-                "IsEmaBelow" => builder.When(
-                    $"Price <= EMA({GetInt(segment, "Period")})",
-                    (price, vwap) => true), // EMA conditions pass through - evaluated by indicator service
-                "IsEmaBetween" => builder.When(
-                    $"Price between EMA({GetInt(segment, "LowerPeriod")}) and EMA({GetInt(segment, "UpperPeriod")})",
-                    (price, vwap) => true), // EMA conditions pass through - evaluated by indicator service
+                // EMA conditions - use actual EMA condition classes with callback hooks
+                "IsEmaAbove" => builder.WithCondition(
+                    new Strategy.EmaAboveCondition(GetInt(segment, "Period"))),
+                "IsEmaBelow" => builder.WithCondition(
+                    new Strategy.EmaBelowCondition(GetInt(segment, "Period"))),
+                "IsEmaBetween" => builder.WithCondition(
+                    new Strategy.EmaBetweenCondition(GetInt(segment, "LowerPeriod"), GetInt(segment, "UpperPeriod"))),
 
                 "Buy" => builder.Buy(
                     GetInt(segment, "Quantity", 1),

@@ -542,6 +542,15 @@ namespace IdiotProof.Backend.Strategy
             return this;
         }
 
+        /// <summary>
+        /// Adds any condition implementing IStrategyCondition.
+        /// Alias for <see cref="Condition"/> for fluent naming.
+        /// </summary>
+        public Stock WithCondition(IStrategyCondition condition)
+        {
+            return Condition(condition);
+        }
+
         // ====================================================================
         // INDICATOR CONDITION METHODS
         // ====================================================================

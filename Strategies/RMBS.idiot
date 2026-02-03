@@ -1,1 +1,0 @@
-Ticker(RMBS).Name("RMBS 100 Breakout").Session(IS.AFTERHOURS).Qty(10).Breakout(99.00).IsAboveVwap().AdxAbove(25).TakeProfit(103.00).TrailingStopLoss(IS.MODERATE).ClosePosition(IS.BELL, Y)

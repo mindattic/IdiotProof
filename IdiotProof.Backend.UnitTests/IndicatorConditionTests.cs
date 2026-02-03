@@ -148,17 +148,44 @@ public class IndicatorConditionTests
     }
 
     [Test]
-    public void RsiCondition_EvaluatePriceVwap_AlwaysReturnsTrue()
+    public void RsiCondition_EvaluatePriceVwap_WithoutCallback_ReturnsFalse()
     {
-        // RSI cannot be evaluated with just price/vwap, so it should return true
-        // to allow the condition chain to continue
+        // RSI condition without callback should return false (not ready)
         var condition = new RsiCondition(RsiState.Overbought);
+
+        // Act - no callback set
+        var result = condition.Evaluate(currentPrice: 100, vwap: 95);
+
+        // Assert - should return false when no callback is set
+        Assert.That(result, Is.False);
+    }
+
+    [Test]
+    public void RsiCondition_EvaluatePriceVwap_WithCallback_UsesCallbackValue()
+    {
+        // RSI condition with callback should use the callback value
+        var condition = new RsiCondition(RsiState.Overbought);
+        condition.GetRsiValue = () => 75; // Overbought (>= 70)
 
         // Act
         var result = condition.Evaluate(currentPrice: 100, vwap: 95);
 
         // Assert
         Assert.That(result, Is.True);
+    }
+
+    [Test]
+    public void RsiCondition_EvaluatePriceVwap_WithCallback_BelowThreshold_ReturnsFalse()
+    {
+        // RSI condition with callback but value below threshold
+        var condition = new RsiCondition(RsiState.Overbought);
+        condition.GetRsiValue = () => 65; // Not overbought
+
+        // Act
+        var result = condition.Evaluate(currentPrice: 100, vwap: 95);
+
+        // Assert
+        Assert.That(result, Is.False);
     }
 
     #endregion
@@ -315,16 +342,44 @@ public class IndicatorConditionTests
     }
 
     [Test]
-    public void AdxCondition_EvaluatePriceVwap_AlwaysReturnsTrue()
+    public void AdxCondition_EvaluatePriceVwap_WithoutCallback_ReturnsFalse()
     {
-        // ADX cannot be evaluated with just price/vwap
+        // ADX condition without callback should return false (not ready)
         var condition = new AdxCondition(Comparison.Gte, 25);
+
+        // Act - no callback set
+        var result = condition.Evaluate(currentPrice: 100, vwap: 95);
+
+        // Assert
+        Assert.That(result, Is.False);
+    }
+
+    [Test]
+    public void AdxCondition_EvaluatePriceVwap_WithCallback_UsesCallbackValue()
+    {
+        // ADX condition with callback should use the callback value
+        var condition = new AdxCondition(Comparison.Gte, 25);
+        condition.GetAdxValue = () => 30; // Strong trend
 
         // Act
         var result = condition.Evaluate(currentPrice: 100, vwap: 95);
 
         // Assert
         Assert.That(result, Is.True);
+    }
+
+    [Test]
+    public void AdxCondition_EvaluatePriceVwap_WithCallback_BelowThreshold_ReturnsFalse()
+    {
+        // ADX condition with callback but value below threshold
+        var condition = new AdxCondition(Comparison.Gte, 25);
+        condition.GetAdxValue = () => 20; // Weak trend
+
+        // Act
+        var result = condition.Evaluate(currentPrice: 100, vwap: 95);
+
+        // Assert
+        Assert.That(result, Is.False);
     }
 
     #endregion
@@ -513,16 +568,44 @@ public class IndicatorConditionTests
     }
 
     [Test]
-    public void MacdCondition_EvaluatePriceVwap_AlwaysReturnsTrue()
+    public void MacdCondition_EvaluatePriceVwap_WithoutCallback_ReturnsFalse()
     {
-        // MACD cannot be evaluated with just price/vwap
+        // MACD condition without callback should return false (not ready)
         var condition = new MacdCondition(MacdState.Bullish);
+
+        // Act - no callback set
+        var result = condition.Evaluate(currentPrice: 100, vwap: 95);
+
+        // Assert
+        Assert.That(result, Is.False);
+    }
+
+    [Test]
+    public void MacdCondition_EvaluatePriceVwap_WithCallback_UsesCallbackValue()
+    {
+        // MACD condition with callback should use the callback value
+        var condition = new MacdCondition(MacdState.Bullish);
+        condition.GetMacdValues = () => (MacdLine: 2.5, SignalLine: 1.5, Histogram: 1.0, PreviousHistogram: 0.5);
 
         // Act
         var result = condition.Evaluate(currentPrice: 100, vwap: 95);
 
         // Assert
         Assert.That(result, Is.True);
+    }
+
+    [Test]
+    public void MacdCondition_EvaluatePriceVwap_WithCallback_Bearish_ReturnsFalse()
+    {
+        // MACD condition for bullish but values are bearish
+        var condition = new MacdCondition(MacdState.Bullish);
+        condition.GetMacdValues = () => (MacdLine: 1.0, SignalLine: 2.0, Histogram: -1.0, PreviousHistogram: 0.0);
+
+        // Act
+        var result = condition.Evaluate(currentPrice: 100, vwap: 95);
+
+        // Assert
+        Assert.That(result, Is.False);
     }
 
     #endregion
@@ -653,16 +736,58 @@ public class IndicatorConditionTests
     }
 
     [Test]
-    public void DiCondition_EvaluatePriceVwap_AlwaysReturnsTrue()
+    public void DiCondition_EvaluatePriceVwap_WithoutCallback_ReturnsFalse()
     {
-        // DI cannot be evaluated with just price/vwap
+        // DI condition without callback should return false (not ready)
         var condition = new DiCondition(DiDirection.Positive);
+
+        // Act - no callback set
+        var result = condition.Evaluate(currentPrice: 100, vwap: 95);
+
+        // Assert
+        Assert.That(result, Is.False);
+    }
+
+    [Test]
+    public void DiCondition_EvaluatePriceVwap_WithCallback_UsesCallbackValue()
+    {
+        // DI condition with callback should use the callback value
+        var condition = new DiCondition(DiDirection.Positive);
+        condition.GetDiValues = () => (PlusDI: 30, MinusDI: 20);
 
         // Act
         var result = condition.Evaluate(currentPrice: 100, vwap: 95);
 
         // Assert
         Assert.That(result, Is.True);
+    }
+
+    [Test]
+    public void DiCondition_EvaluatePriceVwap_WithCallback_Negative_ReturnsFalse()
+    {
+        // DI condition for positive but values are negative
+        var condition = new DiCondition(DiDirection.Positive);
+        condition.GetDiValues = () => (PlusDI: 20, MinusDI: 30);
+
+        // Act
+        var result = condition.Evaluate(currentPrice: 100, vwap: 95);
+
+        // Assert
+        Assert.That(result, Is.False);
+    }
+
+    [Test]
+    public void DiCondition_EvaluatePriceVwap_WithCallback_ZeroValues_ReturnsFalse()
+    {
+        // DI condition with zero values (not warmed up) should return false
+        var condition = new DiCondition(DiDirection.Positive);
+        condition.GetDiValues = () => (PlusDI: 0, MinusDI: 0);
+
+        // Act
+        var result = condition.Evaluate(currentPrice: 100, vwap: 95);
+
+        // Assert
+        Assert.That(result, Is.False);
     }
 
     #endregion

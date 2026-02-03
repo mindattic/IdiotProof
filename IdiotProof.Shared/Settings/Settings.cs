@@ -119,6 +119,22 @@ namespace IdiotProof.Shared.Settings
         /// </summary>
         public static bool AutoStart { get; set; } = true;
 
+        // ----- Indicator Settings -----
+
+        /// <summary>
+        /// Maximum number of candlesticks to retain for indicator calculations.
+        /// Higher values allow for longer-period indicators (e.g., EMA200) but use more memory.
+        /// </summary>
+        /// <remarks>
+        /// <para><b>Recommended Values:</b></para>
+        /// <list type="bullet">
+        ///   <item><term>255</term><description>Supports up to EMA(200) with buffer (default)</description></item>
+        ///   <item><term>50</term><description>Minimal - only supports short EMAs (9, 21)</description></item>
+        ///   <item><term>500</term><description>Extended - for longer backtesting needs</description></item>
+        /// </list>
+        /// </remarks>
+        public const int MaxCandlesticks = 255;
+
         // ----- IPC Settings -----
 
         /// <summary>

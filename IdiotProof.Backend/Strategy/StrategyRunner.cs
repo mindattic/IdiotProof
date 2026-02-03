@@ -91,6 +91,27 @@ namespace IdiotProof.Backend.Models
         // ATR calculator for volatility-based stops
         private readonly Helpers.AtrCalculator? _atrCalculator;
 
+        // Candlestick aggregator for candle-based indicators
+        private readonly Helpers.CandlestickAggregator _candlestickAggregator;
+
+        // EMA calculators for indicator conditions
+        private readonly Dictionary<int, Helpers.EmaCalculator> _emaCalculators = new();
+
+        // ADX calculator for trend strength and DI conditions
+        private Helpers.AdxCalculator? _adxCalculator;
+
+        // RSI calculator for overbought/oversold conditions
+        private Helpers.RsiCalculator? _rsiCalculator;
+
+        // MACD calculator for momentum conditions
+        private Helpers.MacdCalculator? _macdCalculator;
+
+        // Warm-up logging
+        private bool _warmupLoggedEma;
+        private bool _warmupLoggedAdx;
+        private bool _warmupLoggedRsi;
+        private bool _warmupLoggedMacd;
+
         // Cancel timer
         private Timer? _cancelTimer;
 
@@ -101,6 +122,7 @@ namespace IdiotProof.Backend.Models
 
         // Result tracking
         private StrategyResult _result = StrategyResult.Running;
+
 
         // Daily reset tracking
         private DateOnly _lastCheckedDate;
@@ -178,6 +200,12 @@ namespace IdiotProof.Backend.Models
             _currentConditionIndex = 0;
             _lastCheckedDate = DateOnly.FromDateTime(DateTime.Today);
 
+            // Initialize candlestick aggregator (1-minute candles, trimmed to MaxCandlesticks setting)
+            _candlestickAggregator = new Helpers.CandlestickAggregator(
+                candleSizeMinutes: 1, 
+                maxCandles: Settings.MaxCandlesticks);
+            _candlestickAggregator.OnCandleComplete += OnCandleComplete;
+
             // Initialize ATR calculator if ATR-based stop loss is configured
             if (strategy.Order.UseAtrStopLoss && strategy.Order.AtrStopLoss != null)
             {
@@ -187,10 +215,239 @@ namespace IdiotProof.Backend.Models
                 );
             }
 
+            // Initialize EMA and ADX calculators for any indicator conditions in the strategy
+            InitializeIndicatorCalculators();
+
             // Subscribe to fill events
             _wrapper.OnOrderFill += OnOrderFill;
 
             Log("Strategy initialized - waiting for market data...", ConsoleColor.DarkGray);
+            LogWarmupRequirements();
+        }
+
+        /// <summary>
+        /// Logs the warm-up requirements for this strategy's indicators.
+        /// </summary>
+        private void LogWarmupRequirements()
+        {
+            int maxEmaPeriod = _emaCalculators.Count > 0 ? _emaCalculators.Keys.Max() : 0;
+            bool hasAdx = _adxCalculator != null;
+            bool hasRsi = _rsiCalculator != null;
+            bool hasMacd = _macdCalculator != null;
+
+            if (maxEmaPeriod == 0 && !hasAdx && !hasRsi && !hasMacd)
+                return;
+
+            // Calculate required bars (MACD needs 35, ADX needs 28, RSI needs 15)
+            int requiredBars = maxEmaPeriod;
+            if (hasAdx) requiredBars = Math.Max(requiredBars, 28);
+            if (hasRsi) requiredBars = Math.Max(requiredBars, 15);
+            if (hasMacd) requiredBars = Math.Max(requiredBars, 35);
+
+            int requiredMinutes = requiredBars; // 1-minute bars
+
+            Log($"", ConsoleColor.DarkYellow);
+            Log($"+----------------------------------------------------------+", ConsoleColor.DarkYellow);
+            Log($"|  INDICATOR WARM-UP REQUIRED                              |", ConsoleColor.DarkYellow);
+            Log($"+----------------------------------------------------------+", ConsoleColor.DarkYellow);
+            Log($"|  This strategy uses indicators that need historical data |", ConsoleColor.DarkYellow);
+            Log($"|  to calculate properly.                                  |", ConsoleColor.DarkYellow);
+            Log($"|                                                          |", ConsoleColor.DarkYellow);
+
+            if (maxEmaPeriod > 0)
+                Log($"|  EMA({maxEmaPeriod}): Needs {maxEmaPeriod} candles                              |".PadRight(60) + "|", ConsoleColor.DarkYellow);
+            if (hasAdx)
+                Log($"|  ADX(14): Needs 28 candles                               |", ConsoleColor.DarkYellow);
+            if (hasRsi)
+                Log($"|  RSI(14): Needs 15 candles                               |", ConsoleColor.DarkYellow);
+            if (hasMacd)
+                Log($"|  MACD(12,26,9): Needs 35 candles                         |", ConsoleColor.DarkYellow);
+
+            Log($"|                                                          |", ConsoleColor.DarkYellow);
+            Log($"|  RECOMMENDATION: Start backend {requiredMinutes}+ minutes early       |", ConsoleColor.DarkYellow);
+            Log($"+----------------------------------------------------------+", ConsoleColor.DarkYellow);
+            Log($"", ConsoleColor.DarkYellow);
+        }
+
+        /// <summary>
+        /// Called when a new candlestick completes.
+        /// Updates all candle-based indicators.
+        /// </summary>
+        private void OnCandleComplete(Helpers.Candlestick candle)
+        {
+            // Log candle completion periodically for warm-up visibility
+            int candleCount = _candlestickAggregator.CompletedCandleCount;
+
+            // Update EMA calculators with candle close price
+            foreach (var emaCalc in _emaCalculators.Values)
+            {
+                emaCalc.Update(candle.Close);
+            }
+
+            // Update ADX calculator with candle data
+            _adxCalculator?.Update(candle.Close);
+
+            // Update RSI calculator with candle close price
+            _rsiCalculator?.Update(candle.Close);
+
+            // Update MACD calculator with candle close price
+            _macdCalculator?.Update(candle.Close);
+
+            // Log warm-up progress
+            if (!_warmupLoggedEma && _emaCalculators.Count > 0)
+            {
+                int maxPeriod = _emaCalculators.Keys.Max();
+                if (candleCount >= maxPeriod)
+                {
+                    _warmupLoggedEma = true;
+                    Log($"[OK] EMA warm-up complete ({candleCount} candles collected)", ConsoleColor.Green);
+                }
+                else if (candleCount % 5 == 0) // Log every 5 candles during warm-up
+                {
+                    Log($"Warming up EMA: {candleCount}/{maxPeriod} candles...", ConsoleColor.DarkGray);
+                }
+            }
+
+            if (!_warmupLoggedAdx && _adxCalculator != null)
+            {
+                if (_adxCalculator.IsReady)
+                {
+                    _warmupLoggedAdx = true;
+                    Log($"[OK] ADX warm-up complete (ADX={_adxCalculator.CurrentAdx:F1})", ConsoleColor.Green);
+                }
+                else if (candleCount % 5 == 0 && candleCount <= 28)
+                {
+                    Log($"Warming up ADX: {candleCount}/28 candles...", ConsoleColor.DarkGray);
+                }
+            }
+
+            // RSI warm-up logging
+            if (!_warmupLoggedRsi && _rsiCalculator != null)
+            {
+                if (_rsiCalculator.IsReady)
+                {
+                    _warmupLoggedRsi = true;
+                    Log($"[OK] RSI warm-up complete (RSI={_rsiCalculator.CurrentValue:F1})", ConsoleColor.Green);
+                }
+                else if (candleCount % 5 == 0 && candleCount <= 15)
+                {
+                    Log($"Warming up RSI: {candleCount}/15 candles...", ConsoleColor.DarkGray);
+                }
+            }
+
+            // MACD warm-up logging
+            if (!_warmupLoggedMacd && _macdCalculator != null)
+            {
+                if (_macdCalculator.IsReady)
+                {
+                    _warmupLoggedMacd = true;
+                    Log($"[OK] MACD warm-up complete (MACD={_macdCalculator.MacdLine:F2}, Signal={_macdCalculator.SignalLine:F2})", ConsoleColor.Green);
+                }
+                else if (candleCount % 5 == 0 && candleCount <= 35)
+                {
+                    Log($"Warming up MACD: {candleCount}/35 candles...", ConsoleColor.DarkGray);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Initializes all indicator calculators for the strategy conditions
+        /// and wires up the callback functions.
+        /// </summary>
+        private void InitializeIndicatorCalculators()
+        {
+            foreach (var condition in _strategy.Conditions)
+            {
+                switch (condition)
+                {
+                    case EmaAboveCondition emaAbove:
+                        var emaAboveCalc = GetOrCreateEmaCalculator(emaAbove.Period);
+                        emaAbove.GetEmaValue = () => emaAboveCalc.CurrentValue;
+                        Log($"Initialized EMA({emaAbove.Period}) calculator for 'Above EMA' condition", ConsoleColor.DarkGray);
+                        break;
+
+                    case EmaBelowCondition emaBelow:
+                        var emaBelowCalc = GetOrCreateEmaCalculator(emaBelow.Period);
+                        emaBelow.GetEmaValue = () => emaBelowCalc.CurrentValue;
+                        Log($"Initialized EMA({emaBelow.Period}) calculator for 'Below EMA' condition", ConsoleColor.DarkGray);
+                        break;
+
+                    case EmaBetweenCondition emaBetween:
+                        var lowerCalc = GetOrCreateEmaCalculator(emaBetween.LowerPeriod);
+                        var upperCalc = GetOrCreateEmaCalculator(emaBetween.UpperPeriod);
+                        emaBetween.GetLowerEmaValue = () => lowerCalc.CurrentValue;
+                        emaBetween.GetUpperEmaValue = () => upperCalc.CurrentValue;
+                        Log($"Initialized EMA({emaBetween.LowerPeriod}) and EMA({emaBetween.UpperPeriod}) calculators for 'Between EMA' condition", ConsoleColor.DarkGray);
+                        break;
+
+                    case AdxCondition adxCondition:
+                        // Create ADX calculator if not already initialized
+                        _adxCalculator ??= new Helpers.AdxCalculator(period: 14, ticksPerBar: 50);
+                        adxCondition.GetAdxValue = () => _adxCalculator.CurrentAdx;
+                        Log($"Initialized ADX(14) calculator for 'ADX {adxCondition.Comparison} {adxCondition.Threshold}' condition", ConsoleColor.DarkGray);
+                        break;
+
+                    case RsiCondition rsiCondition:
+                        // Create RSI calculator if not already initialized
+                        _rsiCalculator ??= new Helpers.RsiCalculator(period: 14);
+                        rsiCondition.GetRsiValue = () => _rsiCalculator.CurrentValue;
+                        Log($"Initialized RSI(14) calculator for '{rsiCondition.Name}' condition", ConsoleColor.DarkGray);
+                        break;
+
+                    case MacdCondition macdCondition:
+                        // Create MACD calculator if not already initialized
+                        _macdCalculator ??= new Helpers.MacdCalculator(12, 26, 9);
+                        macdCondition.GetMacdValues = () => (
+                            _macdCalculator.MacdLine,
+                            _macdCalculator.SignalLine,
+                            _macdCalculator.Histogram,
+                            _macdCalculator.PreviousHistogram
+                        );
+                        Log($"Initialized MACD(12,26,9) calculator for '{macdCondition.Name}' condition", ConsoleColor.DarkGray);
+                        break;
+
+                    case DiCondition diCondition:
+                        // DI uses the ADX calculator (which calculates +DI/-DI)
+                        _adxCalculator ??= new Helpers.AdxCalculator(period: 14, ticksPerBar: 50);
+                        diCondition.GetDiValues = () => (_adxCalculator.PlusDI, _adxCalculator.MinusDI);
+                        Log($"Initialized DI calculator for '{diCondition.Name}' condition", ConsoleColor.DarkGray);
+                        break;
+                }
+            }
+
+            if (_emaCalculators.Count > 0)
+            {
+                var periods = string.Join(", ", _emaCalculators.Keys.OrderBy(k => k));
+                Log($"EMA tracking enabled for periods: {periods}", ConsoleColor.DarkCyan);
+            }
+
+            if (_adxCalculator != null)
+            {
+                Log($"ADX/DI tracking enabled (14-period)", ConsoleColor.DarkCyan);
+            }
+
+            if (_rsiCalculator != null)
+            {
+                Log($"RSI tracking enabled (14-period)", ConsoleColor.DarkCyan);
+            }
+
+            if (_macdCalculator != null)
+            {
+                Log($"MACD tracking enabled (12,26,9)", ConsoleColor.DarkCyan);
+            }
+        }
+
+        /// <summary>
+        /// Gets an existing EMA calculator for the period, or creates a new one.
+        /// </summary>
+        private Helpers.EmaCalculator GetOrCreateEmaCalculator(int period)
+        {
+            if (!_emaCalculators.TryGetValue(period, out var calculator))
+            {
+                calculator = new Helpers.EmaCalculator(period);
+                _emaCalculators[period] = calculator;
+            }
+            return calculator;
         }
 
         /// <summary>
@@ -219,6 +476,10 @@ namespace IdiotProof.Backend.Models
 
             // Update ATR calculator if configured
             _atrCalculator?.Update(lastPrice);
+
+            // Update candlestick aggregator - this will trigger OnCandleComplete when a candle closes
+            // OnCandleComplete updates EMA and ADX calculators with the candle close price
+            _candlestickAggregator.Update(lastPrice, lastSize);
 
             double vwap = GetVwap();
 
@@ -600,10 +861,13 @@ namespace IdiotProof.Backend.Models
             {
                 _currentConditionIndex++;
 
+                // Build additional context info for EMA conditions
+                string emaInfo = GetEmaContextInfo(condition);
+
                 // Check if all conditions are met
                 if (_currentConditionIndex >= _strategy.Conditions.Count)
                 {
-                    Log($"[OK] STEP {_currentConditionIndex}/{_strategy.Conditions.Count}: {condition.Name} - TRIGGERED @ ${price:F2}", ConsoleColor.Green);
+                    Log($"[OK] STEP {_currentConditionIndex}/{_strategy.Conditions.Count}: {condition.Name} - TRIGGERED @ ${price:F2}{emaInfo}", ConsoleColor.Green);
 
                     // Safety check: Don't buy if price is already above take profit target ("missed the boat")
                     if (!ValidatePriceNotAboveTakeProfit(price))
@@ -617,10 +881,35 @@ namespace IdiotProof.Backend.Models
                 else
                 {
                     var nextCondition = _strategy.Conditions[_currentConditionIndex];
-                    Log($"[OK] STEP {_currentConditionIndex}/{_strategy.Conditions.Count}: {condition.Name} - TRIGGERED @ ${price:F2}", ConsoleColor.Green);
+                    Log($"[OK] STEP {_currentConditionIndex}/{_strategy.Conditions.Count}: {condition.Name} - TRIGGERED @ ${price:F2}{emaInfo}", ConsoleColor.Green);
                     Log($"  -> Next: {nextCondition.Name} (VWAP=${vwap:F2})", ConsoleColor.DarkGray);
                 }
             }
+        }
+
+        /// <summary>
+        /// Gets additional context info for indicator conditions (the actual indicator values).
+        /// </summary>
+        private string GetEmaContextInfo(IStrategyCondition condition)
+        {
+            return condition switch
+            {
+                EmaAboveCondition ema when ema.GetEmaValue != null => 
+                    $" (EMA({ema.Period})=${ema.GetEmaValue():F2})",
+                EmaBelowCondition ema when ema.GetEmaValue != null => 
+                    $" (EMA({ema.Period})=${ema.GetEmaValue():F2})",
+                EmaBetweenCondition ema when ema.GetLowerEmaValue != null && ema.GetUpperEmaValue != null => 
+                    $" (EMA({ema.LowerPeriod})=${ema.GetLowerEmaValue():F2}, EMA({ema.UpperPeriod})=${ema.GetUpperEmaValue():F2})",
+                AdxCondition adx when adx.GetAdxValue != null && _adxCalculator != null =>
+                    $" (ADX={adx.GetAdxValue():F1}, +DI={_adxCalculator.PlusDI:F1}, -DI={_adxCalculator.MinusDI:F1})",
+                RsiCondition rsi when rsi.GetRsiValue != null =>
+                    $" (RSI={rsi.GetRsiValue():F1})",
+                MacdCondition macd when macd.GetMacdValues != null =>
+                    $" (MACD={_macdCalculator?.MacdLine:F2}, Signal={_macdCalculator?.SignalLine:F2})",
+                DiCondition di when di.GetDiValues != null && _adxCalculator != null =>
+                    $" (+DI={_adxCalculator.PlusDI:F1}, -DI={_adxCalculator.MinusDI:F1})",
+                _ => ""
+            };
         }
 
         private void ExecuteOrder(double vwap)
