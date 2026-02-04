@@ -14,6 +14,7 @@
 // ============================================================================
 
 using IdiotProof.Backend.Enums;
+using IdiotProof.Backend.Logging;
 using IdiotProof.Backend.Strategy;
 using IdiotProof.Shared.Helpers;
 
@@ -24,6 +25,20 @@ namespace IdiotProof.Backend.Models
     /// </summary>
     public static class StrategyValidator
     {
+        /// <summary>
+        /// Shared session logger instance (set from Program.cs).
+        /// </summary>
+        public static SessionLogger? SessionLogger { get; set; }
+
+        /// <summary>
+        /// Logs a message to both console and session log file.
+        /// </summary>
+        private static void Log(string message)
+        {
+            Console.WriteLine($"{TimeStamp.NowBracketed} {message}");
+            SessionLogger?.LogEvent("VALIDATOR", message);
+        }
+
         /// <summary>
         /// Validates a list of strategies and returns validation results.
         /// </summary>
@@ -265,6 +280,7 @@ namespace IdiotProof.Backend.Models
             {
                 Console.ForegroundColor = ConsoleColor.Green;
                 Console.WriteLine($"{TimeStamp.NowBracketed} All strategies validated successfully");
+                StrategyValidator.SessionLogger?.LogEvent("VALIDATOR", "All strategies validated successfully");
                 Console.ResetColor();
                 return;
             }
@@ -273,9 +289,11 @@ namespace IdiotProof.Backend.Models
             {
                 Console.ForegroundColor = ConsoleColor.Red;
                 Console.WriteLine($"{TimeStamp.NowBracketed} Validation failed with {_errors.Count} error(s):");
+                StrategyValidator.SessionLogger?.LogEvent("VALIDATOR", $"Validation failed with {_errors.Count} error(s)");
                 foreach (var error in _errors)
                 {
                     Console.WriteLine($"{TimeStamp.NowBracketed}   ERROR: {error}");
+                    StrategyValidator.SessionLogger?.LogEvent("VALIDATOR", $"ERROR: {error}");
                 }
                 Console.ResetColor();
             }
@@ -284,9 +302,11 @@ namespace IdiotProof.Backend.Models
             {
                 Console.ForegroundColor = ConsoleColor.Yellow;
                 Console.WriteLine($"{TimeStamp.NowBracketed} {_warnings.Count} warning(s):");
+                StrategyValidator.SessionLogger?.LogEvent("VALIDATOR", $"{_warnings.Count} warning(s)");
                 foreach (var warning in _warnings)
                 {
                     Console.WriteLine($"{TimeStamp.NowBracketed}   WARN: {warning}");
+                    StrategyValidator.SessionLogger?.LogEvent("VALIDATOR", $"WARN: {warning}");
                 }
                 Console.ResetColor();
             }

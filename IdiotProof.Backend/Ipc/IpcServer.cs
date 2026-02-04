@@ -22,11 +22,25 @@ namespace IdiotProof.Backend.Ipc
         private const string PipeName = "IdiotProofIPC";
         private const int MaxConnections = 5;
 
+        /// <summary>
+        /// Shared session logger instance (set from Program.cs).
+        /// </summary>
+        public static SessionLogger? SessionLogger { get; set; }
+
         private readonly CancellationTokenSource _cts = new();
         private readonly ConcurrentDictionary<Guid, ClientConnection> _clients = new();
         private Task? _acceptTask;
         private Task? _pingTask;
         private bool _disposed;
+
+        /// <summary>
+        /// Logs a message to both console and session log file.
+        /// </summary>
+        private static void Log(string message)
+        {
+            Console.WriteLine($"{TimeStamp.NowBracketed} [IPC] {message}");
+            SessionLogger?.LogEvent("IPC", message);
+        }
 
         // Callbacks for handling requests
         public Func<Task<StatusResponsePayload>>? GetStatusHandler { get; set; }
@@ -52,7 +66,7 @@ namespace IdiotProof.Backend.Ipc
         {
             _acceptTask = AcceptClientsAsync(_cts.Token);
             _pingTask = PingClientsAsync(_cts.Token);
-            Console.WriteLine($"{TimeStamp.NowBracketed} [IPC] Server started on pipe: " + PipeName);
+            Log($"Server started on pipe: {PipeName}");
         }
 
         /// <summary>
@@ -147,7 +161,7 @@ namespace IdiotProof.Backend.Ipc
                     client.Start();
 
                     IpcLogger.LogConnection(clientId, connected: true);
-                    Console.WriteLine($"{TimeStamp.NowBracketed} [IPC] Client connected: {clientId}");
+                    Log($"Client connected: {clientId}");
                 }
                 catch (OperationCanceledException)
                 {
@@ -155,7 +169,7 @@ namespace IdiotProof.Backend.Ipc
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine($"{TimeStamp.NowBracketed} [IPC] Accept error: {ex.Message}");
+                    Log($"Accept error: {ex.Message}");
                     await Task.Delay(1000, ct);
                 }
             }
@@ -167,7 +181,7 @@ namespace IdiotProof.Backend.Ipc
             {
                 client.Dispose();
                 IpcLogger.LogConnection(clientId, connected: false);
-                Console.WriteLine($"{TimeStamp.NowBracketed} [IPC] Client disconnected: {clientId}");
+                Log($"Client disconnected: {clientId}");
             }
         }
 
@@ -196,7 +210,7 @@ namespace IdiotProof.Backend.Ipc
                 catch (Exception ex)
                 {
                     // Log but don't crash the ping loop
-                    Console.WriteLine($"{TimeStamp.NowBracketed} [IPC] Ping error: {ex.Message}");
+                    Log($"Ping error: {ex.Message}");
                 }
             }
         }
@@ -211,7 +225,7 @@ namespace IdiotProof.Backend.Ipc
                 Type = BackendMessageType.Ping
             };
 
-            Console.WriteLine($"{TimeStamp.NowBracketed} [IPC] Ping sent to {_clients.Count} client(s)");
+            Log($"Ping sent to {_clients.Count} client(s)");
             BroadcastMessage(message);
         }
 

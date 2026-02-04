@@ -32,6 +32,7 @@
 // ============================================================================
 
 using IBApi;
+using IdiotProof.Backend.Logging;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -97,6 +98,11 @@ namespace IdiotProof.Backend.Models
 
     public sealed class IbWrapper : EWrapper, IDisposable
     {
+        /// <summary>
+        /// Shared session logger instance (set from Program.cs).
+        /// </summary>
+        public static SessionLogger? SessionLogger { get; set; }
+
         public EReaderSignal Signal { get; } = new EReaderMonitorSignal();
 
         private EClientSocket? _client;
@@ -246,6 +252,15 @@ namespace IdiotProof.Backend.Models
         }
 
         /// <summary>
+        /// Logs a message to both console and session log file.
+        /// </summary>
+        private static void Log(string category, string message)
+        {
+            Console.WriteLine($"{TimeStamp.NowBracketed} {message}");
+            SessionLogger?.LogEvent(category, message);
+        }
+
+        /// <summary>
         /// Sends a ping to the IBKR API server and waits for a response.
         /// This verifies that the connection is still active and the API is responding.
         /// </summary>
@@ -345,12 +360,12 @@ namespace IdiotProof.Backend.Models
         // -------------------------
         public void error(Exception e)
         {
-            Console.WriteLine($"{TimeStamp.NowBracketed} IB ERROR (Exception): " + e);
+            Log("IB_ERROR", $"IB ERROR (Exception): {e}");
         }
 
         public void error(string str)
         {
-            Console.WriteLine($"{TimeStamp.NowBracketed} IB ERROR: " + str);
+            Log("IB_ERROR", $"IB ERROR: {str}");
         }
 
         public void error(int id, int errorCode, string errorMsg)
@@ -366,19 +381,19 @@ namespace IdiotProof.Backend.Models
             {
                 case 1100: // Connectivity lost
                     _isConnected = false;
-                    Console.WriteLine($"{TimeStamp.NowBracketed} IB ERROR: id={id} code={errorCode} msg={errorMsg}");
+                    Log("IB_ERROR", $"IB ERROR: id={id} code={errorCode} msg={errorMsg}");
                     OnConnectionLost?.Invoke();
                     return;
 
                 case 1101: // Connectivity restored - data lost, need to resubscribe
                     _isConnected = true;
-                    Console.WriteLine($"{TimeStamp.NowBracketed} IB INFO: id={id} code={errorCode} msg={errorMsg}");
+                    Log("IB_INFO", $"IB INFO: id={id} code={errorCode} msg={errorMsg}");
                     OnConnectionRestored?.Invoke(true); // dataLost = true
                     return;
 
                 case 1102: // Connectivity restored - data maintained
                     _isConnected = true;
-                    Console.WriteLine($"{TimeStamp.NowBracketed} IB INFO: id={id} code={errorCode} msg={errorMsg}");
+                    Log("IB_INFO", $"IB INFO: id={id} code={errorCode} msg={errorMsg}");
                     OnConnectionRestored?.Invoke(false); // dataLost = false
                     return;
             }
@@ -389,7 +404,7 @@ namespace IdiotProof.Backend.Models
                 _openOrders.TryRemove(id, out _);
             }
 
-            Console.WriteLine($"{TimeStamp.NowBracketed} IB ERROR: id={id} code={errorCode} msg={errorMsg}");
+            Log("IB_ERROR", $"IB ERROR: id={id} code={errorCode} msg={errorMsg}");
         }
 
         public void error(int id, long time, int errorCode, string errorMsg, string advancedOrderRejectJson)
@@ -405,19 +420,19 @@ namespace IdiotProof.Backend.Models
             {
                 case 1100: // Connectivity lost
                     _isConnected = false;
-                    Console.WriteLine($"{TimeStamp.NowBracketed} IB ERROR: id={id} code={errorCode} msg={errorMsg}");
+                    Log("IB_ERROR", $"IB ERROR: id={id} code={errorCode} msg={errorMsg}");
                     OnConnectionLost?.Invoke();
                     return;
 
                 case 1101: // Connectivity restored - data lost, need to resubscribe
                     _isConnected = true;
-                    Console.WriteLine($"{TimeStamp.NowBracketed} IB INFO: id={id} code={errorCode} msg={errorMsg}");
+                    Log("IB_INFO", $"IB INFO: id={id} code={errorCode} msg={errorMsg}");
                     OnConnectionRestored?.Invoke(true); // dataLost = true
                     return;
 
                 case 1102: // Connectivity restored - data maintained
                     _isConnected = true;
-                    Console.WriteLine($"{TimeStamp.NowBracketed} IB INFO: id={id} code={errorCode} msg={errorMsg}");
+                    Log("IB_INFO", $"IB INFO: id={id} code={errorCode} msg={errorMsg}");
                     OnConnectionRestored?.Invoke(false); // dataLost = false
                     return;
             }
@@ -428,13 +443,13 @@ namespace IdiotProof.Backend.Models
                 _openOrders.TryRemove(id, out _);
             }
 
-            Console.WriteLine($"{TimeStamp.NowBracketed} IB ERROR: id={id} code={errorCode} msg={errorMsg}");
+            Log("IB_ERROR", $"IB ERROR: id={id} code={errorCode} msg={errorMsg}");
         }
 
         public void connectionClosed()
         {
             _isConnected = false;
-            Console.WriteLine($"{TimeStamp.NowBracketed} IB connection closed.");
+            Log("IB_INFO", "IB connection closed.");
         }
 
         public void connectAck()
@@ -456,7 +471,7 @@ namespace IdiotProof.Backend.Models
             }
 
             _isConnected = true;
-            Console.WriteLine($"{TimeStamp.NowBracketed} Received nextValidId: " + orderId);
+            Log("IB_INFO", $"Received nextValidId: {orderId}");
             _nextValidIdEvent.Set();
         }
 

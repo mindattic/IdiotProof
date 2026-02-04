@@ -11,10 +11,10 @@
 //   - Maintains rolling session summary
 //
 // LOG FILES:
-//   MyDocuments\IdiotProof\Logs\
-//   ├── session_state.log      (current state, overwritten every 20 min)
-//   ├── session_YYYY-MM-DD_HHmm_final.log  (final logs)
-//   └── session_YYYY-MM-DD_HHmm_crash.log  (crash logs)
+//   <ProjectRoot>\Logs\
+//   +-- session_state.log      (current state, overwritten every 20 min)
+//   +-- session_YYYY-MM-DD_HHmm_final.log  (final logs)
+//   +-- session_YYYY-MM-DD_HHmm_crash.log  (crash logs)
 //
 // ============================================================================
 

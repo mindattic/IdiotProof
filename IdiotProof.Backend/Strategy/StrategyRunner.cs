@@ -191,9 +191,9 @@ namespace IdiotProof.Backend.Models
                 : "Complete";
 
         /// <summary>
-        /// Logs a timestamped message to the console using Eastern Time (New York).
+        /// Logs a timestamped message to both console and session log file.
         /// </summary>
-        private void Log(string message, ConsoleColor? color = null)
+        private void Log(string message, ConsoleColor? color = null, string category = "STRATEGY")
         {
             if (color.HasValue)
             {
@@ -204,6 +204,7 @@ namespace IdiotProof.Backend.Models
             {
                 Console.ResetColor();
             }
+            SessionLogger?.LogEvent(category, $"[{_strategy.Symbol}] {message}");
         }
 
         public StrategyRunner(TradingStrategy strategy, IbContract contract, IbWrapper wrapper, EClientSocket client)
@@ -1951,74 +1952,110 @@ namespace IdiotProof.Backend.Models
             Console.WriteLine($"[{timestamp}] +===============================================================+");
 
             double pnl = _strategy.Order.Quantity * (_exitFillPrice - _entryFillPrice);
+            string resultMsg;
+            string detailsMsg;
 
             switch (_result)
             {
                 case StrategyResult.TakeProfitFilled:
                     Console.ForegroundColor = ConsoleColor.Green;
-                    Console.WriteLine($"[{timestamp}] |  [{_strategy.Symbol}] RESULT: *** TAKE PROFIT FILLED ***");
+                    resultMsg = $"[{_strategy.Symbol}] RESULT: *** TAKE PROFIT FILLED ***";
+                    detailsMsg = $"Entry: ${_entryFillPrice:F2} -> Exit: ${_exitFillPrice:F2} | P&L: ${pnl:F2}";
+                    Console.WriteLine($"[{timestamp}] |  {resultMsg}");
                     Console.WriteLine($"[{timestamp}] |  Entry: ${_entryFillPrice:F2} -> Exit: ${_exitFillPrice:F2}");
                     Console.WriteLine($"[{timestamp}] |  P&L: ${pnl:F2}");
+                    SessionLogger?.LogEvent("RESULT", resultMsg);
+                    SessionLogger?.LogEvent("RESULT", detailsMsg);
                     break;
 
                 case StrategyResult.StopLossFilled:
                     Console.ForegroundColor = ConsoleColor.Red;
-                    Console.WriteLine($"[{timestamp}] |  [{_strategy.Symbol}] RESULT: *** STOP LOSS FILLED ***");
+                    resultMsg = $"[{_strategy.Symbol}] RESULT: *** STOP LOSS FILLED ***";
+                    detailsMsg = $"Entry: ${_entryFillPrice:F2} -> Exit: ${_exitFillPrice:F2} | P&L: ${pnl:F2}";
+                    Console.WriteLine($"[{timestamp}] |  {resultMsg}");
                     Console.WriteLine($"[{timestamp}] |  Entry: ${_entryFillPrice:F2} -> Exit: ${_exitFillPrice:F2}");
                     Console.WriteLine($"[{timestamp}] |  P&L: ${pnl:F2}");
+                    SessionLogger?.LogEvent("RESULT", resultMsg);
+                    SessionLogger?.LogEvent("RESULT", detailsMsg);
                     break;
 
                 case StrategyResult.TrailingStopLossFilled:
                     if (pnl >= 0)
                     {
                         Console.ForegroundColor = ConsoleColor.Yellow;
-                        Console.WriteLine($"[{timestamp}] |  [{_strategy.Symbol}] RESULT: *** TRAILING STOP LOSS (profit protected) ***");
+                        resultMsg = $"[{_strategy.Symbol}] RESULT: *** TRAILING STOP LOSS (profit protected) ***";
                     }
                     else
                     {
                         Console.ForegroundColor = ConsoleColor.Red;
-                        Console.WriteLine($"[{timestamp}] |  [{_strategy.Symbol}] RESULT: *** TRAILING STOP LOSS (loss limited) ***");
+                        resultMsg = $"[{_strategy.Symbol}] RESULT: *** TRAILING STOP LOSS (loss limited) ***";
                     }
+                    detailsMsg = $"Entry: ${_entryFillPrice:F2} -> Exit: ${_exitFillPrice:F2} | High: ${_highWaterMark:F2} | P&L: ${pnl:F2}";
+                    Console.WriteLine($"[{timestamp}] |  {resultMsg}");
                     Console.WriteLine($"[{timestamp}] |  Entry: ${_entryFillPrice:F2} -> Exit: ${_exitFillPrice:F2}");
                     Console.WriteLine($"[{timestamp}] |  High: ${_highWaterMark:F2} | Trail Stop: ${_trailingStopLossPrice:F2}");
                     Console.WriteLine($"[{timestamp}] |  P&L: ${pnl:F2}");
+                    SessionLogger?.LogEvent("RESULT", resultMsg);
+                    SessionLogger?.LogEvent("RESULT", detailsMsg);
                     break;
 
                 case StrategyResult.ExitedWithProfit:
                     Console.ForegroundColor = ConsoleColor.Cyan;
-                    Console.WriteLine($"[{timestamp}] |  [{_strategy.Symbol}] RESULT: *** EXITED WITH PROFIT (time limit) ***");
+                    resultMsg = $"[{_strategy.Symbol}] RESULT: *** EXITED WITH PROFIT (time limit) ***";
+                    detailsMsg = $"Entry: ${_entryFillPrice:F2} -> Exit: ${_exitFillPrice:F2} | P&L: ${pnl:F2}";
+                    Console.WriteLine($"[{timestamp}] |  {resultMsg}");
                     Console.WriteLine($"[{timestamp}] |  Entry: ${_entryFillPrice:F2} -> Exit: ${_exitFillPrice:F2}");
                     Console.WriteLine($"[{timestamp}] |  P&L: ${pnl:F2}");
+                    SessionLogger?.LogEvent("RESULT", resultMsg);
+                    SessionLogger?.LogEvent("RESULT", detailsMsg);
                     break;
 
                 case StrategyResult.TakeProfitCancelled:
                     Console.ForegroundColor = ConsoleColor.Yellow;
-                    Console.WriteLine($"[{timestamp}] |  [{_strategy.Symbol}] RESULT: TAKE PROFIT CANCELLED (not profitable)");
+                    resultMsg = $"[{_strategy.Symbol}] RESULT: TAKE PROFIT CANCELLED (not profitable)";
+                    detailsMsg = $"Entry: ${_entryFillPrice:F2} | Current: ${_lastPrice:F2} | WARNING: STILL HOLDING {_strategy.Order.Quantity} SHARES";
+                    Console.WriteLine($"[{timestamp}] |  {resultMsg}");
                     Console.WriteLine($"[{timestamp}] |  Entry: ${_entryFillPrice:F2} | Current: ${_lastPrice:F2}");
                     Console.WriteLine($"[{timestamp}] |  WARNING: STILL HOLDING {_strategy.Order.Quantity} SHARES - MANAGE MANUALLY!");
+                    SessionLogger?.LogEvent("RESULT", resultMsg);
+                    SessionLogger?.LogEvent("RESULT", detailsMsg);
                     break;
 
                 case StrategyResult.NeverBought:
                     Console.ForegroundColor = ConsoleColor.Gray;
-                    Console.WriteLine($"[{timestamp}] |  [{_strategy.Symbol}] RESULT: NEVER BOUGHT");
-                    Console.WriteLine($"[{timestamp}] |  Conditions not met - no position taken");
+                    resultMsg = $"[{_strategy.Symbol}] RESULT: NEVER BOUGHT";
+                    detailsMsg = "Conditions not met - no position taken";
+                    Console.WriteLine($"[{timestamp}] |  {resultMsg}");
+                    Console.WriteLine($"[{timestamp}] |  {detailsMsg}");
+                    SessionLogger?.LogEvent("RESULT", resultMsg);
+                    SessionLogger?.LogEvent("RESULT", detailsMsg);
                     break;
 
                 case StrategyResult.MissedTheBoat:
                     Console.ForegroundColor = ConsoleColor.DarkYellow;
-                    Console.WriteLine($"[{timestamp}] |  [{_strategy.Symbol}] RESULT: MISSED THE BOAT");
-                    Console.WriteLine($"[{timestamp}] |  Price already at/above take profit target when conditions met. No position taken");
+                    resultMsg = $"[{_strategy.Symbol}] RESULT: MISSED THE BOAT";
+                    detailsMsg = "Price already at/above take profit target when conditions met. No position taken";
+                    Console.WriteLine($"[{timestamp}] |  {resultMsg}");
+                    Console.WriteLine($"[{timestamp}] |  {detailsMsg}");
+                    SessionLogger?.LogEvent("RESULT", resultMsg);
+                    SessionLogger?.LogEvent("RESULT", detailsMsg);
                     break;
 
                 case StrategyResult.EntryCancelled:
                     Console.ForegroundColor = ConsoleColor.Gray;
-                    Console.WriteLine($"[{timestamp}] |  [{_strategy.Symbol}] RESULT: ENTRY CANCELLED");
-                    Console.WriteLine($"[{timestamp}] |  Entry order was cancelled before fill");
+                    resultMsg = $"[{_strategy.Symbol}] RESULT: ENTRY CANCELLED";
+                    detailsMsg = "Entry order was cancelled before fill";
+                    Console.WriteLine($"[{timestamp}] |  {resultMsg}");
+                    Console.WriteLine($"[{timestamp}] |  {detailsMsg}");
+                    SessionLogger?.LogEvent("RESULT", resultMsg);
+                    SessionLogger?.LogEvent("RESULT", detailsMsg);
                     break;
 
                 default:
                     Console.ForegroundColor = ConsoleColor.White;
-                    Console.WriteLine($"[{timestamp}] |  [{_strategy.Symbol}] RESULT: {_result}");
+                    resultMsg = $"[{_strategy.Symbol}] RESULT: {_result}";
+                    Console.WriteLine($"[{timestamp}] |  {resultMsg}");
+                    SessionLogger?.LogEvent("RESULT", resultMsg);
                     break;
             }
 

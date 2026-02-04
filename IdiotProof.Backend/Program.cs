@@ -88,8 +88,13 @@ namespace IdiotProof.Backend
             _sessionLogger = new SessionLogger();
             _sessionLogger.LogEvent("STARTUP", $"Mode: {(Settings.IsPaperTrading ? "PAPER" : "LIVE")} | Port: {Settings.Port}");
 
-            // Share session logger with strategy runners
+            // Share session logger with all backend classes
             StrategyRunner.SessionLogger = _sessionLogger;
+            IbWrapper.SessionLogger = _sessionLogger;
+            StrategyManager.SessionLogger = _sessionLogger;
+            StrategyLoader.SessionLogger = _sessionLogger;
+            IdiotProof.Backend.Models.StrategyValidator.SessionLogger = _sessionLogger;
+            IpcServer.SessionLogger = _sessionLogger;
 
             // Initialize trade tracking service
             _tradeTrackingService = new TradeTrackingService();

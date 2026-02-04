@@ -40,6 +40,7 @@
 // ============================================================================
 
 using IdiotProof.Backend.Enums;
+using IdiotProof.Backend.Logging;
 using IdiotProof.Backend.Strategy;
 using IdiotProof.Shared.Helpers;
 using IdiotProof.Shared.Scripting;
@@ -84,11 +85,25 @@ namespace IdiotProof.Backend.Models
     /// </summary>
     public static class StrategyLoader
     {
+        /// <summary>
+        /// Shared session logger instance (set from Program.cs).
+        /// </summary>
+        public static SessionLogger? SessionLogger { get; set; }
+
         private static readonly JsonSerializerOptions JsonOptions = new()
         {
             PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
             Converters = { new System.Text.Json.Serialization.JsonStringEnumConverter() }
         };
+
+        /// <summary>
+        /// Logs a message to both console and session log file.
+        /// </summary>
+        private static void Log(string message)
+        {
+            Console.WriteLine($"{TimeStamp.NowBracketed} {message}");
+            SessionLogger?.LogEvent("LOADER", message);
+        }
 
         /// <summary>
         /// Converts a StrategyDefinition (from Shared project) to a TradingStrategy.
@@ -156,7 +171,7 @@ namespace IdiotProof.Backend.Models
 
             if (!Directory.Exists(strategiesFolder))
             {
-                Console.WriteLine($"{TimeStamp.NowBracketed} No strategy folder found at {strategiesFolder}");
+                Log($"No strategy folder found at {strategiesFolder}");
                 return [];
             }
 
@@ -164,7 +179,7 @@ namespace IdiotProof.Backend.Models
 
             // Load IdiotScript files first (preferred format)
             var idiotFiles = Directory.GetFiles(strategiesFolder, "*.idiot");
-            Console.WriteLine($"{TimeStamp.NowBracketed} Found {idiotFiles.Length} IdiotScript files in {strategiesFolder}");
+            Log($"Found {idiotFiles.Length} IdiotScript files in {strategiesFolder}");
 
             foreach (var file in idiotFiles)
             {
@@ -174,7 +189,7 @@ namespace IdiotProof.Backend.Models
 
                     if (!IdiotScriptParser.TryParse(script, out var definition, out var error))
                     {
-                        Console.WriteLine($"{TimeStamp.NowBracketed} Error parsing IdiotScript {Path.GetFileName(file)}: {error}");
+                        Log($"Error parsing IdiotScript {Path.GetFileName(file)}: {error}");
                         continue;
                     }
 
@@ -183,7 +198,7 @@ namespace IdiotProof.Backend.Models
 
                     if (!definition.Enabled)
                     {
-                        Console.WriteLine($"{TimeStamp.NowBracketed} Skipping disabled strategy: {definition.Name}");
+                        Log($"Skipping disabled strategy: {definition.Name}");
                         continue;
                     }
 
@@ -191,12 +206,12 @@ namespace IdiotProof.Backend.Models
                     if (strategy != null)
                     {
                         strategies.Add(strategy);
-                        Console.WriteLine($"{TimeStamp.NowBracketed} Loaded IdiotScript: {definition.Name} ({definition.Symbol})");
+                        Log($"Loaded IdiotScript: {definition.Name} ({definition.Symbol})");
                     }
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine($"{TimeStamp.NowBracketed} Error loading IdiotScript from {Path.GetFileName(file)}: {ex.Message}");
+                    Log($"Error loading IdiotScript from {Path.GetFileName(file)}: {ex.Message}");
                 }
             }
 
@@ -204,7 +219,7 @@ namespace IdiotProof.Backend.Models
             var jsonFiles = Directory.GetFiles(strategiesFolder, "*.json");
             if (jsonFiles.Length > 0)
             {
-                Console.WriteLine($"{TimeStamp.NowBracketed} Found {jsonFiles.Length} legacy JSON files in {strategiesFolder}");
+                Log($"Found {jsonFiles.Length} legacy JSON files in {strategiesFolder}");
             }
 
             foreach (var file in jsonFiles)
@@ -219,7 +234,7 @@ namespace IdiotProof.Backend.Models
 
                     if (!definition.Enabled)
                     {
-                        Console.WriteLine($"{TimeStamp.NowBracketed} Skipping disabled strategy: {definition.Name}");
+                        Log($"Skipping disabled strategy: {definition.Name}");
                         continue;
                     }
 
@@ -227,16 +242,16 @@ namespace IdiotProof.Backend.Models
                     if (strategy != null)
                     {
                         strategies.Add(strategy);
-                        Console.WriteLine($"{TimeStamp.NowBracketed} Loaded JSON strategy: {definition.Name} ({definition.Symbol})");
+                        Log($"Loaded JSON strategy: {definition.Name} ({definition.Symbol})");
                     }
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine($"{TimeStamp.NowBracketed} Error loading strategy from {Path.GetFileName(file)}: {ex.Message}");
+                    Log($"Error loading strategy from {Path.GetFileName(file)}: {ex.Message}");
                 }
             }
 
-            Console.WriteLine($"{TimeStamp.NowBracketed} Loaded {strategies.Count} enabled strategies from {strategiesFolder}");
+            Log($"Loaded {strategies.Count} enabled strategies from {strategiesFolder}");
             return strategies;
         }
 

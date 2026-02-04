@@ -28,6 +28,7 @@
 
 using IBApi;
 using IdiotProof.Backend.Enums;
+using IdiotProof.Backend.Logging;
 using IdiotProof.Backend.Models;
 using IdiotProof.Shared.Helpers;
 using System;
@@ -45,6 +46,7 @@ namespace IdiotProof.Backend.Strategy
         private readonly IbContract _contract;
         private readonly IbWrapper _wrapper;
         private readonly EClientSocket _client;
+        private readonly SessionLogger? _logger;
 
         private SetupState _state;
 
@@ -88,17 +90,27 @@ namespace IdiotProof.Backend.Strategy
         /// </summary>
         public double LastPrice => _lastPrice;
 
-        public PullbackRunner(SymbolConfig config, IbContract contract, IbWrapper wrapper, EClientSocket client)
+        public PullbackRunner(SymbolConfig config, IbContract contract, IbWrapper wrapper, EClientSocket client, SessionLogger? logger = null)
         {
             _config = config ?? throw new ArgumentNullException(nameof(config));
             _contract = contract ?? throw new ArgumentNullException(nameof(contract));
             _wrapper = wrapper ?? throw new ArgumentNullException(nameof(wrapper));
             _client = client ?? throw new ArgumentNullException(nameof(client));
+            _logger = logger;
 
             _state = SetupState.WaitingForBreakout;
 
             // Listen for fills
             _wrapper.OnOrderFill += OnOrderFill;
+        }
+
+        /// <summary>
+        /// Logs a message to both console and session log file.
+        /// </summary>
+        private void Log(string category, string message)
+        {
+            Console.WriteLine($"{TimeStamp.NowBracketed} {message}");
+            _logger?.LogEvent(category, message);
         }
 
         /// <summary>
@@ -161,8 +173,8 @@ namespace IdiotProof.Backend.Strategy
         {
             if (_lastPrice >= _config.BreakoutLevel)
             {
-                Console.WriteLine($"{TimeStamp.NowBracketed} [{_config.Symbol}] STAGE 1 COMPLETE: Breakout detected!");
-                Console.WriteLine($"{TimeStamp.NowBracketed}     Last={_lastPrice:F2} >= Breakout={_config.BreakoutLevel:F2} | VWAP={vwap:F2}");
+                Log("PULLBACK", $"[{_config.Symbol}] STAGE 1 COMPLETE: Breakout detected!");
+                Log("PULLBACK", $"    Last={_lastPrice:F2} >= Breakout={_config.BreakoutLevel:F2} | VWAP={vwap:F2}");
                 _state = SetupState.WaitingForPullback;
             }
         }
@@ -174,8 +186,8 @@ namespace IdiotProof.Backend.Strategy
         {
             if (_lastPrice <= _config.PullbackLevel)
             {
-                Console.WriteLine($"{TimeStamp.NowBracketed} [{_config.Symbol}] STAGE 2 COMPLETE: Pullback detected!");
-                Console.WriteLine($"{TimeStamp.NowBracketed}     Last={_lastPrice:F2} <= Pullback={_config.PullbackLevel:F2} | VWAP={vwap:F2}");
+                Log("PULLBACK", $"[{_config.Symbol}] STAGE 2 COMPLETE: Pullback detected!");
+                Log("PULLBACK", $"    Last={_lastPrice:F2} <= Pullback={_config.PullbackLevel:F2} | VWAP={vwap:F2}");
                 _state = SetupState.WaitingForVwapReclaim;
             }
         }
@@ -192,8 +204,8 @@ namespace IdiotProof.Backend.Strategy
 
             if (_lastPrice >= vwapTrigger)
             {
-                Console.WriteLine($"{TimeStamp.NowBracketed} [{_config.Symbol}] STAGE 3 COMPLETE: VWAP reclaimed!");
-                Console.WriteLine($"{TimeStamp.NowBracketed}     Last={_lastPrice:F2} >= VWAP+Buffer={vwapTrigger:F2} | VWAP={vwap:F2}");
+                Log("PULLBACK", $"[{_config.Symbol}] STAGE 3 COMPLETE: VWAP reclaimed!");
+                Log("PULLBACK", $"    Last={_lastPrice:F2} >= VWAP+Buffer={vwapTrigger:F2} | VWAP={vwap:F2}");
                 SubmitEntry(vwap);
                 _state = SetupState.OrderSubmitted;
             }
@@ -215,14 +227,14 @@ namespace IdiotProof.Backend.Strategy
             if (_config.UseLimitEntry)
             {
                 entry.LmtPrice = Math.Round(vwap + _config.LimitOffset, 2);
-                Console.WriteLine($"{TimeStamp.NowBracketed} [{_config.Symbol}] Submitting LIMIT BUY {_config.Quantity} @ {entry.LmtPrice:F2}");
+                Log("ORDER", $"[{_config.Symbol}] Submitting LIMIT BUY {_config.Quantity} @ {entry.LmtPrice:F2}");
             }
             else
             {
-                Console.WriteLine($"{TimeStamp.NowBracketed} [{_config.Symbol}] Submitting MARKET BUY {_config.Quantity}");
+                Log("ORDER", $"[{_config.Symbol}] Submitting MARKET BUY {_config.Quantity}");
             }
 
-            Console.WriteLine($"{TimeStamp.NowBracketed}     TIF={_config.TimeInForce} | OutsideRTH={_config.AllowOutsideRth} | OrderId={_entryOrderId}");
+            Log("ORDER", $"    TIF={_config.TimeInForce} | OutsideRTH={_config.AllowOutsideRth} | OrderId={_entryOrderId}");
 
             _client.placeOrder(_entryOrderId, _contract, entry);
         }
@@ -235,8 +247,8 @@ namespace IdiotProof.Backend.Strategy
             _entryFilled = true;
             _entryFillPrice = fillPrice;
 
-            Console.WriteLine($"{TimeStamp.NowBracketed} [{_config.Symbol}] ENTRY FILLED!");
-            Console.WriteLine($"{TimeStamp.NowBracketed}     OrderId={orderId} | FillPrice={fillPrice:F2} | FillSize={fillSize}");
+            Log("FILL", $"[{_config.Symbol}] ENTRY FILLED!");
+            Log("FILL", $"    OrderId={orderId} | FillPrice={fillPrice:F2} | FillSize={fillSize}");
 
             if (_config.EnableTakeProfit)
             {
@@ -261,8 +273,8 @@ namespace IdiotProof.Backend.Strategy
                 Tif = _config.TimeInForce
             };
 
-            Console.WriteLine($"{TimeStamp.NowBracketed} [{_config.Symbol}] Submitting TAKE PROFIT SELL {_config.Quantity} @ {tpPrice:F2}");
-            Console.WriteLine($"{TimeStamp.NowBracketed}     TIF={_config.TimeInForce} | OutsideRTH={_config.AllowOutsideRth} | OrderId={tpOrderId}");
+            Log("ORDER", $"[{_config.Symbol}] Submitting TAKE PROFIT SELL {_config.Quantity} @ {tpPrice:F2}");
+            Log("ORDER", $"    TIF={_config.TimeInForce} | OutsideRTH={_config.AllowOutsideRth} | OrderId={tpOrderId}");
 
             _client.placeOrder(tpOrderId, _contract, tp);
         }

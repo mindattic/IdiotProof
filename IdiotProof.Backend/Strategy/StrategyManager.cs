@@ -18,6 +18,7 @@
 
 using IBApi;
 using IdiotProof.Backend.Helpers;
+using IdiotProof.Backend.Logging;
 using IdiotProof.Backend.Strategy;
 using IdiotProof.Shared.Helpers;
 using IdiotProof.Shared.Models;
@@ -47,16 +48,30 @@ namespace IdiotProof.Backend.Models
     /// </remarks>
     public sealed class StrategyManager : IAsyncDisposable, IDisposable
     {
+        /// <summary>
+        /// Shared session logger instance (set from Program.cs).
+        /// </summary>
+        public static SessionLogger? SessionLogger { get; set; }
+
         private readonly IbWrapper _wrapper;
         private readonly EClientSocket _client;
         private readonly ConcurrentDictionary<Guid, StrategyRunnerInfo> _runners = new();
         private readonly ConcurrentDictionary<string, Contract> _contracts = new();
         private readonly SemaphoreSlim _loadLock = new(1, 1);
         private readonly object _stateLock = new();
-        
+
         private volatile bool _disposed;
         private volatile bool _isRunning;
         private int _nextTickerId = 2000; // Start high to avoid conflicts with other subscriptions
+
+        /// <summary>
+        /// Logs a message to both console and session log file.
+        /// </summary>
+        private static void Log(string message)
+        {
+            Console.WriteLine($"{TimeStamp.NowBracketed} [StrategyManager] {message}");
+            SessionLogger?.LogEvent("MANAGER", message);
+        }
 
         /// <summary>
         /// Gets whether the manager is currently running strategies.
@@ -137,7 +152,7 @@ namespace IdiotProof.Backend.Models
                     }
                 }
 
-                Console.WriteLine($"{TimeStamp.NowBracketed} [StrategyManager] Loaded {loaded} strategies from {date:yyyy-MM-dd}");
+                Log($"Loaded {loaded} strategies from {date:yyyy-MM-dd}");
                 return loaded;
             }
             finally
@@ -168,7 +183,7 @@ namespace IdiotProof.Backend.Models
                     }
                     catch (Exception ex)
                     {
-                        Console.WriteLine($"{TimeStamp.NowBracketed} [StrategyManager] Failed to load strategy for {strategy.Symbol}: {ex.Message}");
+                        Log($"Failed to load strategy for {strategy.Symbol}: {ex.Message}");
                     }
                 }
 
@@ -225,7 +240,7 @@ namespace IdiotProof.Backend.Models
                 await Task.Run(() => _client.reqMktData(tickerId, contract, "", false, false, null));
             }
 
-            Console.WriteLine($"{TimeStamp.NowBracketed} [StrategyManager] Added strategy: {strategy.Symbol} (ID: {strategyId})");
+            Log($"Added strategy: {strategy.Symbol} (ID: {strategyId})");
         }
 
         /// <summary>
@@ -240,7 +255,7 @@ namespace IdiotProof.Backend.Models
             if (_runners.TryRemove(id, out var info))
             {
                 await CleanupRunnerAsync(info);
-                Console.WriteLine($"{TimeStamp.NowBracketed} [StrategyManager] Removed strategy: {info.Runner.Symbol} (ID: {id})");
+                Log($"Removed strategy: {info.Runner.Symbol} (ID: {id})");
                 return true;
             }
 
@@ -261,7 +276,7 @@ namespace IdiotProof.Backend.Models
                 _isRunning = true;
             }
 
-            Console.WriteLine($"{TimeStamp.NowBracketed} [StrategyManager] Starting all strategies...");
+            Log("Starting all strategies...");
 
             // Subscribe to market data for all strategies
             await Task.Run(() =>
@@ -273,7 +288,7 @@ namespace IdiotProof.Backend.Models
                 }
             });
 
-            Console.WriteLine($"{TimeStamp.NowBracketed} [StrategyManager] Started {_runners.Count} strategies");
+            Log($"Started {_runners.Count} strategies");
         }
 
         /// <summary>
@@ -288,7 +303,7 @@ namespace IdiotProof.Backend.Models
                 _isRunning = false;
             }
 
-            Console.WriteLine($"{TimeStamp.NowBracketed} [StrategyManager] Stopping all strategies...");
+            Log("Stopping all strategies...");
 
             // Cancel market data subscriptions
             await Task.Run(() =>
@@ -307,7 +322,7 @@ namespace IdiotProof.Backend.Models
                 }
             });
 
-            Console.WriteLine($"{TimeStamp.NowBracketed} [StrategyManager] All strategies stopped");
+            Log("All strategies stopped");
         }
 
         /// <summary>
@@ -329,7 +344,7 @@ namespace IdiotProof.Backend.Models
             {
                 ThrowIfDisposed();
 
-                Console.WriteLine($"{TimeStamp.NowBracketed} [StrategyManager] Reloading strategies...");
+                Log("Reloading strategies...");
 
                 // Stop current strategies
                 bool wasRunning = _isRunning;
@@ -352,7 +367,7 @@ namespace IdiotProof.Backend.Models
                 if (wasRunning)
                     await StartAllAsync();
 
-                Console.WriteLine($"{TimeStamp.NowBracketed} [StrategyManager] Reload complete");
+                Log("Reload complete");
             }
             finally
             {
@@ -498,7 +513,7 @@ namespace IdiotProof.Backend.Models
 
             _loadLock.Dispose();
 
-            Console.WriteLine($"{TimeStamp.NowBracketed} [StrategyManager] Disposed");
+            Log("Disposed");
         }
 
         /// <summary>
