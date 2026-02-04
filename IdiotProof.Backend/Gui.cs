@@ -26,7 +26,7 @@ namespace IdiotProof.Backend
                     return;
 
                 // Set console title
-                Console.Title = "IdiotProof";
+                Console.Title = "IdiotProof Backend";
 
                 // Get the largest possible window size for the current display
                 int maxWidth = Console.LargestWindowWidth;
@@ -55,7 +55,7 @@ namespace IdiotProof.Backend
                 // Windows Terminal doesn't support SetWindowSize - that's OK
                 try
                 {
-                    Console.Title = "IdiotProof Strategy Bot";
+                    Console.Title = "IdiotProof Backend";
                 }
                 catch
                 {

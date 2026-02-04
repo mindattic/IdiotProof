@@ -23,7 +23,7 @@ public static class ConsoleUI
             if (!OperatingSystem.IsWindows())
                 return;
 
-            System.Console.Title = "IdiotProof Strategy Builder";
+            System.Console.Title = "IdiotProof Console";
 
             int maxWidth = System.Console.LargestWindowWidth;
             int maxHeight = System.Console.LargestWindowHeight;
@@ -43,7 +43,7 @@ public static class ConsoleUI
         {
             try
             {
-                System.Console.Title = "IdiotProof Strategy Builder";
+                System.Console.Title = "IdiotProof Console";
             }
             catch { }
         }

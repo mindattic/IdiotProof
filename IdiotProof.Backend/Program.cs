@@ -71,11 +71,6 @@ namespace IdiotProof.Backend
                 {
                     Settings.SilentMode = true;
                 }
-                else if (arg.Equals("--autostart", StringComparison.OrdinalIgnoreCase) ||
-                         arg.Equals("-a", StringComparison.OrdinalIgnoreCase))
-                {
-                    Settings.AutoStart = true;
-                }
             }
         }
 
@@ -113,8 +108,8 @@ namespace IdiotProof.Backend
             // Load strategies from disk
             LoadStrategies();
 
-            // If auto-start is enabled and we have strategies, activate trading
-            if (Settings.AutoStart && _strategies.Count > 0 && _isConnected)
+            // Auto-start trading when strategies are loaded and IBKR is connected
+            if (_strategies.Count > 0 && _isConnected)
             {
                 ActivateTrading();
             }
@@ -211,6 +206,13 @@ namespace IdiotProof.Backend
                     Log("Resubscribing to market data...");
                     ResubscribeMarketData();
                 }
+
+                // Auto-activate trading if we have strategies and aren't already active
+                if (!_isActive && _strategies.Count > 0)
+                {
+                    Log("IBKR connected - auto-activating trading...");
+                    ActivateTrading();
+                }
             };
 
             return true;
@@ -274,37 +276,46 @@ namespace IdiotProof.Backend
 
             Log($"Activating trading with {enabledStrategies.Count} strategies...");
 
-            // NOTE: Historical data fetching is disabled for now due to IBKR pacing limits
-            // (max 60 requests per 10 minutes). The infrastructure is in place for future use.
-            // To enable, uncomment the block below:
-            //
-            // // Fetch historical data for warm-up (255 bars = EMA200 + 55 buffer)
-            // var uniqueSymbols = enabledStrategies.Select(s => s.Symbol).Distinct().ToList();
-            // if (_historicalDataService != null)
-            // {
-            //     Log($"Fetching historical data for {uniqueSymbols.Count} symbols...");
-            //     try
-            //     {
-            //         var results = _historicalDataService.FetchMultipleAsync(
-            //             uniqueSymbols,
-            //             barCount: 255,
-            //             maxConcurrency: 3
-            //         ).GetAwaiter().GetResult();
-            //
-            //         foreach (var kvp in results)
-            //         {
-            //             if (kvp.Value > 0)
-            //                 Log($"  [{kvp.Key}] Loaded {kvp.Value} historical bars");
-            //             else
-            //                 Log($"  [{kvp.Key}] WARNING: Failed to load historical data");
-            //         }
-            //     }
-            //     catch (Exception ex)
-            //     {
-            //         Log($"WARNING: Historical data fetch failed: {ex.Message}");
-            //         Log("Continuing without historical data warm-up...");
-            //     }
-            // }
+            // Fetch historical data for indicator warm-up (60 bars = 1 hour of 1-minute candles)
+            // The HistoricalDataStore avoids duplicate fetches by storing per-symbol
+            var uniqueSymbols = enabledStrategies.Select(s => s.Symbol).Distinct().ToList();
+            if (_historicalDataService != null && _historicalDataStore != null)
+            {
+                // Filter to only symbols that don't already have data
+                var symbolsToFetch = uniqueSymbols
+                    .Where(s => !_historicalDataStore.HasData(s))
+                    .ToList();
+
+                if (symbolsToFetch.Count > 0)
+                {
+                    Log($"Fetching historical data for {symbolsToFetch.Count} symbols (1 hour of 1-min bars)...");
+                    try
+                    {
+                        var results = _historicalDataService.FetchMultipleAsync(
+                            symbolsToFetch,
+                            barCount: 60, // 1 hour of 1-minute bars
+                            maxConcurrency: 3
+                        ).GetAwaiter().GetResult();
+
+                        foreach (var kvp in results)
+                        {
+                            if (kvp.Value > 0)
+                                Log($"  [{kvp.Key}] Loaded {kvp.Value} historical bars");
+                            else
+                                Log($"  [{kvp.Key}] WARNING: Failed to load historical data");
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Log($"WARNING: Historical data fetch failed: {ex.Message}");
+                        Log("Continuing without historical data warm-up...");
+                    }
+                }
+                else
+                {
+                    Log($"Historical data already loaded for all {uniqueSymbols.Count} symbols");
+                }
+            }
 
             // Subscribe to market data
             int baseTickerId = 1001;
@@ -383,7 +394,7 @@ namespace IdiotProof.Backend
 
         private static void StartPriceCheckTimer()
         {
-            if (Settings.TickerPriceCheckInterval <= 0)
+            if (Settings.TickerPriceCheckIntervalSeconds <= 0)
                 return;
 
             // Initialize previous prices with current prices
@@ -392,9 +403,9 @@ namespace IdiotProof.Backend
                 _previousPrices[kvp.Key] = kvp.Value;
             }
 
-            var intervalMs = Settings.TickerPriceCheckInterval * 60 * 1000;
+            var intervalMs = Settings.TickerPriceCheckIntervalSeconds * 1000;
             _priceCheckTimer = new Timer(OnPriceCheckTimer, null, intervalMs, intervalMs);
-            Log($"Price check enabled: every {Settings.TickerPriceCheckInterval} minute(s)");
+            Log($"Price check enabled: every {Settings.TickerPriceCheckIntervalSeconds} second(s)");
         }
 
         private static void StopPriceCheckTimer()
@@ -519,12 +530,16 @@ namespace IdiotProof.Backend
 
         private static Task<StatusResponsePayload> GetStatusAsync()
         {
+            // Show loaded strategies count (from _strategies), not just active runners
+            // When trading is active, show runner count; otherwise show loaded strategy count
+            var strategyCount = _isActive ? _runners.Count : _strategies.Count(s => s.Enabled);
+
             return Task.FromResult(new StatusResponsePayload
             {
                 IsRunning = true,
                 IsConnectedToIbkr = _isConnected,
                 IsTradingActive = _isActive,
-                ActiveStrategies = _runners.Count,
+                ActiveStrategies = strategyCount,
                 IsPaperTrading = Settings.IsPaperTrading
             });
         }

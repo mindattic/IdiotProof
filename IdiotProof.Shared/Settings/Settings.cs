@@ -113,12 +113,6 @@ namespace IdiotProof.Shared.Settings
         /// </summary>
         public static bool SilentMode { get; set; } = false;
 
-        /// <summary>
-        /// When true, the backend will auto-start trading when strategies are loaded.
-        /// When false, waits for explicit activation from frontend.
-        /// </summary>
-        public static bool AutoStart { get; set; } = true;
-
         // ----- Indicator Settings -----
 
         /// <summary>
@@ -140,15 +134,15 @@ namespace IdiotProof.Shared.Settings
         /// <summary>
         /// Interval in seconds between IPC ping messages to verify connection is alive.
         /// </summary>
-        public const int IpcPingIntervalSeconds = 20 * 60;
+        public const int IpcPingIntervalSeconds = 60 * 20;
 
         // ----- Price Check Settings -----
 
         /// <summary>
-        /// Interval in minutes between ticker price check reports.
+        /// Interval in seconds between ticker price check reports.
         /// Set to 0 to disable price reporting.
         /// </summary>
-        public const int TickerPriceCheckInterval = 10;
+        public const int TickerPriceCheckIntervalSeconds = 60 * 10;
     }
 }
 
