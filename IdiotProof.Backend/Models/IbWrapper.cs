@@ -186,10 +186,30 @@ namespace IdiotProof.Backend.Models
         // Track open orders
         private readonly ConcurrentDictionary<int, (string Symbol, string Action, decimal Qty, string Type, double LmtPrice, string Status)> _openOrders = new();
 
+        // Track positions
+        private readonly ConcurrentDictionary<string, (decimal Quantity, double AvgCost)> _positions = new();
+        private readonly ManualResetEventSlim _positionsEndEvent = new ManualResetEventSlim(false);
+
         /// <summary>
         /// Gets all currently tracked open orders.
         /// </summary>
         public IReadOnlyDictionary<int, (string Symbol, string Action, decimal Qty, string Type, double LmtPrice, string Status)> OpenOrders => _openOrders;
+
+        /// <summary>
+        /// Gets all currently tracked positions.
+        /// </summary>
+        public IReadOnlyDictionary<string, (decimal Quantity, double AvgCost)> Positions => _positions;
+
+        /// <summary>
+        /// Event fired when a position update is received.
+        /// Parameters: symbol, quantity, avgCost
+        /// </summary>
+        public event Action<string, decimal, double>? OnPosition;
+
+        /// <summary>
+        /// Event fired when all positions have been received.
+        /// </summary>
+        public event Action? OnPositionsEnd;
 
         /// <summary>
         /// Gets the last server time received from a ping (Unix timestamp in seconds).
@@ -227,6 +247,35 @@ namespace IdiotProof.Backend.Models
             {
                 OnOpenOrdersEnd -= OnComplete;
             }
+        }
+
+        /// <summary>
+        /// Requests all positions from IBKR.
+        /// Results come back via position() and positionEnd() callbacks.
+        /// </summary>
+        public void RequestPositions()
+        {
+            _client?.reqPositions();
+        }
+
+        /// <summary>
+        /// Requests positions and waits for them to be received.
+        /// </summary>
+        /// <param name="timeout">Timeout for the request.</param>
+        public void RequestPositionsAndWait(TimeSpan timeout)
+        {
+            _positionsEndEvent.Reset();
+            _positions.Clear();
+            _client?.reqPositions();
+            _positionsEndEvent.Wait(timeout);
+        }
+
+        /// <summary>
+        /// Cancels any active position subscription.
+        /// </summary>
+        public void CancelPositions()
+        {
+            _client?.cancelPositions();
         }
 
         /// <summary>
@@ -632,8 +681,24 @@ namespace IdiotProof.Backend.Models
         public void tickSnapshotEnd(int reqId) { }
         public void marketDataType(int reqId, int marketDataType) { }
         public void commissionAndFeesReport(IBApi.CommissionAndFeesReport report) { }
-        public void position(string account, IbContract contract, decimal pos, double avgCost) { }
-        public void positionEnd() { }
+        public void position(string account, IbContract contract, decimal pos, double avgCost)
+        {
+            var symbol = contract.Symbol;
+            if (pos != 0)
+            {
+                _positions[symbol] = (pos, avgCost);
+            }
+            else
+            {
+                _positions.TryRemove(symbol, out _);
+            }
+            OnPosition?.Invoke(symbol, pos, avgCost);
+        }
+        public void positionEnd()
+        {
+            _positionsEndEvent.Set();
+            OnPositionsEnd?.Invoke();
+        }
         public void accountSummary(int reqId, string account, string tag, string value, string currency) { }
         public void accountSummaryEnd(int reqId) { }
         public void verifyMessageAPI(string apiData) { }

@@ -41,6 +41,7 @@
 
 using IdiotProof.Backend.Enums;
 using IdiotProof.Backend.Logging;
+using IdiotProof.Backend.Models;
 using IdiotProof.Backend.Strategy;
 using IdiotProof.Shared.Helpers;
 using IdiotProof.Shared.Scripting;
@@ -102,6 +103,18 @@ namespace IdiotProof.Backend.Models
         private static void Log(string message)
         {
             Console.WriteLine($"{TimeStamp.NowBracketed} {message}");
+            SessionLogger?.LogEvent("LOADER", message);
+        }
+
+        /// <summary>
+        /// Logs a message with color to both console and session log file.
+        /// </summary>
+        private static void Log(string message, ConsoleColor color)
+        {
+            var originalColor = Console.ForegroundColor;
+            Console.ForegroundColor = color;
+            Console.WriteLine($"{TimeStamp.NowBracketed} {message}");
+            Console.ForegroundColor = originalColor;
             SessionLogger?.LogEvent("LOADER", message);
         }
 
@@ -307,16 +320,22 @@ namespace IdiotProof.Backend.Models
             {
                 "Ticker" => builder, // Already applied via Stock.Ticker()
 
+                // Session configuration
                 "SessionDuration" => ApplySessionDuration(builder, segment),
+                "Start" => builder.Start(GetTime(segment, "Time")),
+                "End" => builder, // End is handled as post-order segment (terminal)
 
+                // Price conditions
                 "Breakout" => builder.Breakout(GetDouble(segment, "Level")),
                 "Pullback" => builder.Pullback(GetDouble(segment, "Level")),
                 "IsPriceAbove" => builder.IsPriceAbove(GetDouble(segment, "Level")),
                 "IsPriceBelow" => builder.IsPriceBelow(GetDouble(segment, "Level")),
 
+                // VWAP conditions
                 "IsAboveVwap" => builder.IsAboveVwap(GetDouble(segment, "Buffer", 0)),
                 "IsBelowVwap" => builder.IsBelowVwap(GetDouble(segment, "Buffer", 0)),
 
+                // Indicator conditions
                 "IsRsi" => builder.IsRsi(
                     GetEnum<RsiState>(segment, "State"),
                     GetNullableDouble(segment, "Threshold")),
@@ -335,7 +354,36 @@ namespace IdiotProof.Backend.Models
                     new Strategy.EmaBelowCondition(GetInt(segment, "Period"))),
                 "IsEmaBetween" => builder.WithCondition(
                     new Strategy.EmaBetweenCondition(GetInt(segment, "LowerPeriod"), GetInt(segment, "UpperPeriod"))),
+                "IsEmaTurningUp" => builder.WithCondition(
+                    new Strategy.EmaTurningUpCondition(GetInt(segment, "Period"))),
 
+                // Momentum conditions
+                "IsMomentumAbove" => builder.WithCondition(
+                    new Strategy.MomentumAboveCondition(GetDouble(segment, "Threshold", 0))),
+                "IsMomentumBelow" => builder.WithCondition(
+                    new Strategy.MomentumBelowCondition(GetDouble(segment, "Threshold", 0))),
+
+                // Rate of Change conditions
+                "IsRocAbove" => builder.WithCondition(
+                    new Strategy.RocAboveCondition(GetDouble(segment, "Threshold", 0))),
+                "IsRocBelow" => builder.WithCondition(
+                    new Strategy.RocBelowCondition(GetDouble(segment, "Threshold", 0))),
+
+                // Pattern conditions
+                "IsHigherLows" => builder.WithCondition(
+                    new Strategy.HigherLowsCondition(GetInt(segment, "LookbackBars", 3))),
+
+                // Volume conditions
+                "IsVolumeAbove" => builder.WithCondition(
+                    new Strategy.VolumeAboveCondition(GetDouble(segment, "Multiplier", 1.5))),
+
+                // VWAP pattern conditions
+                "IsCloseAboveVwap" => builder.WithCondition(
+                    new Strategy.CloseAboveVwapCondition()),
+                "IsVwapRejection" => builder.WithCondition(
+                    new Strategy.VwapRejectionCondition()),
+
+                // Order actions
                 "Buy" => builder.Buy(
                     GetInt(segment, "Quantity", 1),
                     GetEnum<Price>(segment, "PriceType"),
@@ -347,8 +395,14 @@ namespace IdiotProof.Backend.Models
                 "Close" => builder.Close(
                     GetInt(segment, "Quantity", 1),
                     GetEnum<OrderSide>(segment, "PositionSide")),
+                "CloseLong" => builder.Close(
+                    GetInt(segment, "Quantity", 1),
+                    OrderSide.Sell),  // Close long = sell
+                "CloseShort" => builder.Close(
+                    GetInt(segment, "Quantity", 1),
+                    OrderSide.Buy),   // Close short = buy to cover
 
-                _ => builder
+                _ => LogUnknownSegmentAndReturn(builder, segment.Type, "pre-order")
             };
         }
 
@@ -359,22 +413,48 @@ namespace IdiotProof.Backend.Models
         {
             return segment.Type switch
             {
+                // Risk management
                 "TakeProfit" => builder.TakeProfit(GetDouble(segment, "Price")),
                 "TakeProfitRange" => builder.TakeProfit(
                     GetDouble(segment, "LowPrice"),
                     GetDouble(segment, "HighPrice")),
                 "StopLoss" => builder.StopLoss(GetDouble(segment, "Price")),
                 "TrailingStopLoss" => builder.TrailingStopLoss(GetDouble(segment, "Percentage", 0.10)),
+                "TrailingStopLossAtr" => builder.TrailingStopLoss(new AtrStopLossConfig
+                {
+                    Multiplier = GetDouble(segment, "Multiplier", 2.0),
+                    Period = GetInt(segment, "Period", 14)
+                }),
+                "AdaptiveOrder" => builder.AdaptiveOrder(GetString(segment, "Mode", "Balanced")),
+
+                // Position management
                 "ClosePosition" => builder.ClosePosition(
                     GetTime(segment, "Time"),
                     GetBool(segment, "OnlyIfProfitable", true)),
+
+                // Order configuration
                 "TimeInForce" => builder.TimeInForce(GetEnum<TimeInForce>(segment, "Type")),
                 "OutsideRTH" => builder.OutsideRTH(
                     GetBool(segment, "Allow", true),
                     GetBool(segment, "TakeProfit", true)),
                 "AllOrNone" => builder.AllOrNone(GetBool(segment, "AllOrNone", true)),
-                _ => builder
+                "OrderType" => builder, // Order type is handled in Buy/Sell segments
+
+                // Execution behavior
+                "Repeat" => builder.Repeat(GetBool(segment, "Enabled", true)),
+
+                _ => LogUnknownSegmentAndReturn(builder, segment.Type, "post-order")
             };
+        }
+
+        /// <summary>
+        /// Logs a warning for unknown segment types and returns the builder unchanged.
+        /// This prevents silent failures where conditions are dropped without notice.
+        /// </summary>
+        private static T LogUnknownSegmentAndReturn<T>(T builder, string segmentType, string context)
+        {
+            Log($"WARN: Unknown {context} segment type '{segmentType}' - condition DROPPED!", ConsoleColor.Yellow);
+            return builder;
         }
 
         /// <summary>

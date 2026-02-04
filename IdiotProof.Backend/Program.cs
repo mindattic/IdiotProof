@@ -573,8 +573,35 @@ namespace IdiotProof.Backend
 
         private static Task<List<PositionInfo>> GetPositionsAsync()
         {
-            // TODO: Implement position tracking
-            return Task.FromResult(new List<PositionInfo>());
+            if (_wrapper == null)
+                return Task.FromResult(new List<PositionInfo>());
+
+            try
+            {
+                // Request positions and wait for response
+                _wrapper.RequestPositionsAndWait(TimeSpan.FromSeconds(3));
+
+                // Convert to PositionInfo list
+                var positions = _wrapper.Positions.Select(kvp => new PositionInfo
+                {
+                    Symbol = kvp.Key,
+                    Quantity = kvp.Value.Quantity,
+                    AvgCost = kvp.Value.AvgCost,
+                    // Market price/value will be filled if we have the price cached
+                    MarketPrice = _prices.TryGetValue(kvp.Key, out var price) ? price : null,
+                    MarketValue = _prices.TryGetValue(kvp.Key, out var p) ? (double)kvp.Value.Quantity * p : null,
+                    UnrealizedPnL = _prices.TryGetValue(kvp.Key, out var mktPrice) 
+                        ? ((double)kvp.Value.Quantity * mktPrice) - ((double)kvp.Value.Quantity * kvp.Value.AvgCost) 
+                        : null
+                }).ToList();
+
+                return Task.FromResult(positions);
+            }
+            catch (Exception ex)
+            {
+                Log($"Error getting positions: {ex.Message}");
+                return Task.FromResult(new List<PositionInfo>());
+            }
         }
 
         private static Task<OperationResultPayload> CancelOrderAsync(int orderId)
@@ -596,9 +623,56 @@ namespace IdiotProof.Backend
 
         private static Task<OperationResultPayload> ClosePositionAsync(string symbol)
         {
-            // TODO: Implement position closing
-            Log($"Close position requested for {symbol}");
-            return Task.FromResult(new OperationResultPayload { Success = true, Message = "Close requested" });
+            if (_wrapper == null || _client == null)
+                return Task.FromResult(new OperationResultPayload { Success = false, ErrorMessage = "Not connected" });
+
+            try
+            {
+                // Refresh positions to get current state
+                _wrapper.RequestPositionsAndWait(TimeSpan.FromSeconds(3));
+
+                if (!_wrapper.Positions.TryGetValue(symbol, out var position))
+                {
+                    return Task.FromResult(new OperationResultPayload { Success = false, ErrorMessage = $"No position found for {symbol}" });
+                }
+
+                if (position.Quantity == 0)
+                {
+                    return Task.FromResult(new OperationResultPayload { Success = true, Message = $"No position to close for {symbol}" });
+                }
+
+                // Create contract
+                var contract = new Contract
+                {
+                    Symbol = symbol,
+                    SecType = "STK",
+                    Currency = "USD",
+                    Exchange = "SMART"
+                };
+
+                // Create order to close position (opposite side)
+                var order = new Order
+                {
+                    Action = position.Quantity > 0 ? "SELL" : "BUY", // Sell to close long, buy to close short
+                    OrderType = "MKT",
+                    TotalQuantity = Math.Abs(position.Quantity),
+                    Tif = "GTC",
+                    OutsideRth = true
+                };
+
+                // Get next order ID
+                var orderId = _wrapper.ConsumeNextOrderId();
+
+                Log($"Closing position: {order.Action} {order.TotalQuantity} {symbol} @ MKT (OrderId: {orderId})");
+                _client.placeOrder(orderId, contract, order);
+
+                return Task.FromResult(new OperationResultPayload { Success = true, Message = $"Close order placed for {symbol}: {order.Action} {order.TotalQuantity} shares" });
+            }
+            catch (Exception ex)
+            {
+                Log($"Error closing position for {symbol}: {ex.Message}");
+                return Task.FromResult(new OperationResultPayload { Success = false, ErrorMessage = ex.Message });
+            }
         }
 
         private static Task ReloadStrategiesAsync()
@@ -744,18 +818,154 @@ namespace IdiotProof.Backend
 
         private static Task<OperationResultPayload> ActivateStrategyAsync(Guid strategyId)
         {
-            // TODO: Strategy activation requires reloading from disk with Enabled=true
-            // For now, just acknowledge the request
-            Log($"Activate strategy requested: {strategyId}");
-            return Task.FromResult(new OperationResultPayload { Success = true, Message = "Strategy activation requested" });
+            try
+            {
+                // Find the strategy
+                var strategy = _strategies.FirstOrDefault(s => s.Id == strategyId);
+                if (strategy == null)
+                {
+                    return Task.FromResult(new OperationResultPayload { Success = false, ErrorMessage = $"Strategy {strategyId} not found" });
+                }
+
+                // Check if already has a runner (already active)
+                var existingRunner = _runners.FirstOrDefault(r => r.Strategy.Id == strategyId);
+                if (existingRunner != null)
+                {
+                    return Task.FromResult(new OperationResultPayload { Success = true, Message = $"Strategy '{strategy.Name}' is already active" });
+                }
+
+                // Need to be connected and trading to add a new runner
+                if (!_isConnected || _wrapper == null || _client == null)
+                {
+                    return Task.FromResult(new OperationResultPayload { Success = false, ErrorMessage = "Not connected to IBKR" });
+                }
+
+                if (!_isActive)
+                {
+                    return Task.FromResult(new OperationResultPayload { Success = false, ErrorMessage = "Trading is not active. Start trading first." });
+                }
+
+                // Create contract if not already subscribed
+                if (!_contracts.ContainsKey(strategy.Symbol))
+                {
+                    var contract = new Contract
+                    {
+                        Symbol = strategy.Symbol,
+                        SecType = strategy.SecType,
+                        Currency = strategy.Currency,
+                        Exchange = strategy.Exchange
+                    };
+                    if (!string.IsNullOrEmpty(strategy.PrimaryExchange))
+                        contract.PrimaryExch = strategy.PrimaryExchange;
+
+                    _contracts[strategy.Symbol] = contract;
+
+                    // Subscribe to market data
+                    int tickerId = 1001 + _tickerIds.Count;
+                    _tickerIds.Add(tickerId);
+                    _prices[strategy.Symbol] = 0;
+                    _client.reqMktData(tickerId, contract, "", false, false, null);
+                }
+
+                // Create and add runner
+                var newContract = _contracts[strategy.Symbol];
+                var runner = new StrategyRunner(strategy, newContract, _wrapper, _client);
+
+                // Warm up from historical data if available
+                if (_historicalDataStore != null && _historicalDataStore.HasData(strategy.Symbol))
+                {
+                    var historicalBars = _historicalDataStore.GetBars(strategy.Symbol);
+                    runner.WarmUpFromHistoricalData(historicalBars);
+                }
+
+                _runners.Add(runner);
+
+                // Register ticker handler
+                int existingTickerIndex = _strategies
+                    .Where(s => s.Symbol != strategy.Symbol)
+                    .Select(s => s.Symbol)
+                    .Distinct()
+                    .ToList()
+                    .Count;
+
+                // Find the ticker ID for this symbol
+                var symbolIndex = _contracts.Keys.ToList().IndexOf(strategy.Symbol);
+                if (symbolIndex >= 0 && symbolIndex < _tickerIds.Count)
+                {
+                    _wrapper.RegisterTickerHandler(_tickerIds[symbolIndex], runner.OnLastTrade);
+                }
+
+                Log($"Strategy '{strategy.Name}' activated");
+                _sessionLogger?.LogEvent("STRATEGY", $"Strategy activated: {strategy.Name}");
+
+                return Task.FromResult(new OperationResultPayload { Success = true, Message = $"Strategy '{strategy.Name}' activated" });
+            }
+            catch (Exception ex)
+            {
+                Log($"Error activating strategy: {ex.Message}");
+                return Task.FromResult(new OperationResultPayload { Success = false, ErrorMessage = ex.Message });
+            }
         }
 
         private static Task<OperationResultPayload> DeactivateStrategyAsync(Guid strategyId)
         {
-            // TODO: Strategy deactivation requires stopping the runner
-            // For now, just acknowledge the request
-            Log($"Deactivate strategy requested: {strategyId}");
-            return Task.FromResult(new OperationResultPayload { Success = true, Message = "Strategy deactivation requested" });
+            try
+            {
+                // Find the runner for this strategy
+                var runner = _runners.FirstOrDefault(r => r.Strategy.Id == strategyId);
+                if (runner == null)
+                {
+                    // Check if strategy exists at all
+                    var strategy = _strategies.FirstOrDefault(s => s.Id == strategyId);
+                    if (strategy == null)
+                    {
+                        return Task.FromResult(new OperationResultPayload { Success = false, ErrorMessage = $"Strategy {strategyId} not found" });
+                    }
+                    return Task.FromResult(new OperationResultPayload { Success = true, Message = $"Strategy '{strategy.Name}' is not currently active" });
+                }
+
+                var strategyName = runner.Strategy.Name;
+                var symbol = runner.Strategy.Symbol;
+
+                // Unregister ticker handler
+                if (_wrapper != null)
+                {
+                    var symbolIndex = _contracts.Keys.ToList().IndexOf(symbol);
+                    if (symbolIndex >= 0 && symbolIndex < _tickerIds.Count)
+                    {
+                        _wrapper.UnregisterTickerHandler(_tickerIds[symbolIndex]);
+                    }
+                }
+
+                // Dispose and remove the runner
+                runner.Dispose();
+                _runners.Remove(runner);
+
+                // Check if any other strategies use this symbol
+                var otherStrategiesUsingSym = _runners.Any(r => r.Strategy.Symbol == symbol);
+                if (!otherStrategiesUsingSym && _wrapper != null && _client != null)
+                {
+                    // Optionally cancel market data for this symbol
+                    var symbolIndex = _contracts.Keys.ToList().IndexOf(symbol);
+                    if (symbolIndex >= 0 && symbolIndex < _tickerIds.Count)
+                    {
+                        _client.cancelMktData(_tickerIds[symbolIndex]);
+                        _tickerIds.RemoveAt(symbolIndex);
+                    }
+                    _contracts.Remove(symbol);
+                    _prices.Remove(symbol);
+                }
+
+                Log($"Strategy '{strategyName}' deactivated");
+                _sessionLogger?.LogEvent("STRATEGY", $"Strategy deactivated: {strategyName}");
+
+                return Task.FromResult(new OperationResultPayload { Success = true, Message = $"Strategy '{strategyName}' deactivated" });
+            }
+            catch (Exception ex)
+            {
+                Log($"Error deactivating strategy: {ex.Message}");
+                return Task.FromResult(new OperationResultPayload { Success = false, ErrorMessage = ex.Message });
+            }
         }
 
         private static Task<OperationResultPayload> CancelAllOrdersAsync()

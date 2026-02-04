@@ -1414,6 +1414,7 @@ namespace IdiotProof.Backend.Strategy
         private bool _enableTrailingStopLoss;
         private double _trailingStopLossPercent;
         private AtrStopLossConfig? _atrStopLoss;
+        private AdaptiveOrderConfig? _adaptiveOrder;
         private TimeOnly? _closePositionTime;
         private bool _closePositionOnlyIfProfitable = true;
         private Enums.TimeInForce _timeInForce = Enums.TimeInForce.GoodTillCancel;
@@ -1592,6 +1593,55 @@ namespace IdiotProof.Backend.Strategy
         }
 
         /// <summary>
+        /// Enables adaptive order management that dynamically adjusts TP/SL based on market conditions.
+        /// </summary>
+        /// <param name="mode">The adaptive mode: "Conservative", "Balanced" (default), or "Aggressive".</param>
+        /// <returns>The builder for method chaining.</returns>
+        /// <remarks>
+        /// <para><b>Adaptive Order Management:</b></para>
+        /// <list type="bullet">
+        ///   <item>Monitors VWAP, EMAs, RSI, MACD, ADX, and volume in real-time.</item>
+        ///   <item>Calculates a market score (-100 to +100) indicating trend strength.</item>
+        ///   <item>Extends take profit in strong bullish conditions.</item>
+        ///   <item>Tightens take profit in weak conditions to secure gains.</item>
+        ///   <item>Adjusts stop loss based on volatility and momentum.</item>
+        ///   <item>Triggers emergency exit on severely bearish conditions.</item>
+        /// </list>
+        /// <para><b>Requires:</b> TakeProfit and/or StopLoss must be set.</para>
+        /// <para><b>Example:</b></para>
+        /// <code>
+        /// .TakeProfit(160)
+        /// .StopLoss(145)
+        /// .AdaptiveOrder()                    // Use balanced mode (default)
+        /// .AdaptiveOrder("Aggressive")        // Maximize profit potential
+        /// .AdaptiveOrder("Conservative")      // Protect gains quickly
+        /// </code>
+        /// </remarks>
+        public StrategyBuilder AdaptiveOrder(string mode = "Balanced")
+        {
+            var adaptiveMode = mode.ToUpperInvariant() switch
+            {
+                "CONSERVATIVE" => AdaptiveMode.Conservative,
+                "AGGRESSIVE" => AdaptiveMode.Aggressive,
+                _ => AdaptiveMode.Balanced
+            };
+
+            _adaptiveOrder = new AdaptiveOrderConfig { Mode = adaptiveMode };
+            return this;
+        }
+
+        /// <summary>
+        /// Enables adaptive order management with a specific configuration.
+        /// </summary>
+        /// <param name="config">The adaptive order configuration.</param>
+        /// <returns>The builder for method chaining.</returns>
+        public StrategyBuilder AdaptiveOrder(AdaptiveOrderConfig config)
+        {
+            _adaptiveOrder = config ?? throw new ArgumentNullException(nameof(config));
+            return this;
+        }
+
+        /// <summary>
         /// Sets the time to close position if still open.
         /// </summary>
         /// <param name="time">The time to close the position.</param>
@@ -1738,6 +1788,7 @@ namespace IdiotProof.Backend.Strategy
                 EnableTrailingStopLoss = _enableTrailingStopLoss,
                 TrailingStopLossPercent = _trailingStopLossPercent,
                 AtrStopLoss = _atrStopLoss,
+                AdaptiveOrder = _adaptiveOrder,
                 ClosePositionTime = _closePositionTime,
                 ClosePositionOnlyIfProfitable = _closePositionOnlyIfProfitable
             };
