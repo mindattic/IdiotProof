@@ -29,6 +29,7 @@
 using IBApi;
 using IdiotProof.Backend.Enums;
 using IdiotProof.Backend.Models;
+using IdiotProof.Shared.Helpers;
 using System;
 using IbContract = IBApi.Contract;
 
@@ -160,8 +161,8 @@ namespace IdiotProof.Backend.Strategy
         {
             if (_lastPrice >= _config.BreakoutLevel)
             {
-                Console.WriteLine($"[{_config.Symbol}] ✓ STAGE 1 COMPLETE: Breakout detected!");
-                Console.WriteLine($"    Last={_lastPrice:F2} >= Breakout={_config.BreakoutLevel:F2} | VWAP={vwap:F2}");
+                Console.WriteLine($"{TimeStamp.NowBracketed} [{_config.Symbol}] STAGE 1 COMPLETE: Breakout detected!");
+                Console.WriteLine($"{TimeStamp.NowBracketed}     Last={_lastPrice:F2} >= Breakout={_config.BreakoutLevel:F2} | VWAP={vwap:F2}");
                 _state = SetupState.WaitingForPullback;
             }
         }
@@ -173,8 +174,8 @@ namespace IdiotProof.Backend.Strategy
         {
             if (_lastPrice <= _config.PullbackLevel)
             {
-                Console.WriteLine($"[{_config.Symbol}] ✓ STAGE 2 COMPLETE: Pullback detected!");
-                Console.WriteLine($"    Last={_lastPrice:F2} <= Pullback={_config.PullbackLevel:F2} | VWAP={vwap:F2}");
+                Console.WriteLine($"{TimeStamp.NowBracketed} [{_config.Symbol}] STAGE 2 COMPLETE: Pullback detected!");
+                Console.WriteLine($"{TimeStamp.NowBracketed}     Last={_lastPrice:F2} <= Pullback={_config.PullbackLevel:F2} | VWAP={vwap:F2}");
                 _state = SetupState.WaitingForVwapReclaim;
             }
         }
@@ -191,8 +192,8 @@ namespace IdiotProof.Backend.Strategy
 
             if (_lastPrice >= vwapTrigger)
             {
-                Console.WriteLine($"[{_config.Symbol}] ✓ STAGE 3 COMPLETE: VWAP reclaimed!");
-                Console.WriteLine($"    Last={_lastPrice:F2} >= VWAP+Buffer={vwapTrigger:F2} | VWAP={vwap:F2}");
+                Console.WriteLine($"{TimeStamp.NowBracketed} [{_config.Symbol}] STAGE 3 COMPLETE: VWAP reclaimed!");
+                Console.WriteLine($"{TimeStamp.NowBracketed}     Last={_lastPrice:F2} >= VWAP+Buffer={vwapTrigger:F2} | VWAP={vwap:F2}");
                 SubmitEntry(vwap);
                 _state = SetupState.OrderSubmitted;
             }
@@ -214,14 +215,14 @@ namespace IdiotProof.Backend.Strategy
             if (_config.UseLimitEntry)
             {
                 entry.LmtPrice = Math.Round(vwap + _config.LimitOffset, 2);
-                Console.WriteLine($"[{_config.Symbol}] → Submitting LIMIT BUY {_config.Quantity} @ {entry.LmtPrice:F2}");
+                Console.WriteLine($"{TimeStamp.NowBracketed} [{_config.Symbol}] Submitting LIMIT BUY {_config.Quantity} @ {entry.LmtPrice:F2}");
             }
             else
             {
-                Console.WriteLine($"[{_config.Symbol}] → Submitting MARKET BUY {_config.Quantity}");
+                Console.WriteLine($"{TimeStamp.NowBracketed} [{_config.Symbol}] Submitting MARKET BUY {_config.Quantity}");
             }
 
-            Console.WriteLine($"    TIF={_config.TimeInForce} | OutsideRTH={_config.AllowOutsideRth} | OrderId={_entryOrderId}");
+            Console.WriteLine($"{TimeStamp.NowBracketed}     TIF={_config.TimeInForce} | OutsideRTH={_config.AllowOutsideRth} | OrderId={_entryOrderId}");
 
             _client.placeOrder(_entryOrderId, _contract, entry);
         }
@@ -234,8 +235,8 @@ namespace IdiotProof.Backend.Strategy
             _entryFilled = true;
             _entryFillPrice = fillPrice;
 
-            Console.WriteLine($"[{_config.Symbol}] ★ ENTRY FILLED!");
-            Console.WriteLine($"    OrderId={orderId} | FillPrice={fillPrice:F2} | FillSize={fillSize}");
+            Console.WriteLine($"{TimeStamp.NowBracketed} [{_config.Symbol}] ENTRY FILLED!");
+            Console.WriteLine($"{TimeStamp.NowBracketed}     OrderId={orderId} | FillPrice={fillPrice:F2} | FillSize={fillSize}");
 
             if (_config.EnableTakeProfit)
             {
@@ -260,8 +261,8 @@ namespace IdiotProof.Backend.Strategy
                 Tif = _config.TimeInForce
             };
 
-            Console.WriteLine($"[{_config.Symbol}] → Submitting TAKE PROFIT SELL {_config.Quantity} @ {tpPrice:F2}");
-            Console.WriteLine($"    TIF={_config.TimeInForce} | OutsideRTH={_config.AllowOutsideRth} | OrderId={tpOrderId}");
+            Console.WriteLine($"{TimeStamp.NowBracketed} [{_config.Symbol}] Submitting TAKE PROFIT SELL {_config.Quantity} @ {tpPrice:F2}");
+            Console.WriteLine($"{TimeStamp.NowBracketed}     TIF={_config.TimeInForce} | OutsideRTH={_config.AllowOutsideRth} | OrderId={tpOrderId}");
 
             _client.placeOrder(tpOrderId, _contract, tp);
         }

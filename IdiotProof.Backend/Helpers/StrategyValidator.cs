@@ -15,6 +15,7 @@
 
 using IdiotProof.Backend.Enums;
 using IdiotProof.Backend.Strategy;
+using IdiotProof.Shared.Helpers;
 
 namespace IdiotProof.Backend.Models
 {
@@ -263,7 +264,7 @@ namespace IdiotProof.Backend.Models
             if (IsValid && _warnings.Count == 0)
             {
                 Console.ForegroundColor = ConsoleColor.Green;
-                Console.WriteLine("✓ All strategies validated successfully");
+                Console.WriteLine($"{TimeStamp.NowBracketed} All strategies validated successfully");
                 Console.ResetColor();
                 return;
             }
@@ -271,10 +272,10 @@ namespace IdiotProof.Backend.Models
             if (_errors.Count > 0)
             {
                 Console.ForegroundColor = ConsoleColor.Red;
-                Console.WriteLine($"✗ Validation failed with {_errors.Count} error(s):");
+                Console.WriteLine($"{TimeStamp.NowBracketed} Validation failed with {_errors.Count} error(s):");
                 foreach (var error in _errors)
                 {
-                    Console.WriteLine($"  ERROR: {error}");
+                    Console.WriteLine($"{TimeStamp.NowBracketed}   ERROR: {error}");
                 }
                 Console.ResetColor();
             }
@@ -282,10 +283,10 @@ namespace IdiotProof.Backend.Models
             if (_warnings.Count > 0)
             {
                 Console.ForegroundColor = ConsoleColor.Yellow;
-                Console.WriteLine($"⚠ {_warnings.Count} warning(s):");
+                Console.WriteLine($"{TimeStamp.NowBracketed} {_warnings.Count} warning(s):");
                 foreach (var warning in _warnings)
                 {
-                    Console.WriteLine($"  WARN: {warning}");
+                    Console.WriteLine($"{TimeStamp.NowBracketed}   WARN: {warning}");
                 }
                 Console.ResetColor();
             }

@@ -41,6 +41,7 @@
 
 using IdiotProof.Backend.Enums;
 using IdiotProof.Backend.Strategy;
+using IdiotProof.Shared.Helpers;
 using IdiotProof.Shared.Scripting;
 using IdiotProof.Shared.Settings;
 using System.Text.Json;
@@ -155,7 +156,7 @@ namespace IdiotProof.Backend.Models
 
             if (!Directory.Exists(strategiesFolder))
             {
-                Console.WriteLine($"No strategy folder found at {strategiesFolder}");
+                Console.WriteLine($"{TimeStamp.NowBracketed} No strategy folder found at {strategiesFolder}");
                 return [];
             }
 
@@ -163,7 +164,7 @@ namespace IdiotProof.Backend.Models
 
             // Load IdiotScript files first (preferred format)
             var idiotFiles = Directory.GetFiles(strategiesFolder, "*.idiot");
-            Console.WriteLine($"Found {idiotFiles.Length} IdiotScript files in {strategiesFolder}");
+            Console.WriteLine($"{TimeStamp.NowBracketed} Found {idiotFiles.Length} IdiotScript files in {strategiesFolder}");
 
             foreach (var file in idiotFiles)
             {
@@ -173,7 +174,7 @@ namespace IdiotProof.Backend.Models
 
                     if (!IdiotScriptParser.TryParse(script, out var definition, out var error))
                     {
-                        Console.WriteLine($"Error parsing IdiotScript {Path.GetFileName(file)}: {error}");
+                        Console.WriteLine($"{TimeStamp.NowBracketed} Error parsing IdiotScript {Path.GetFileName(file)}: {error}");
                         continue;
                     }
 
@@ -182,7 +183,7 @@ namespace IdiotProof.Backend.Models
 
                     if (!definition.Enabled)
                     {
-                        Console.WriteLine($"Skipping disabled strategy: {definition.Name}");
+                        Console.WriteLine($"{TimeStamp.NowBracketed} Skipping disabled strategy: {definition.Name}");
                         continue;
                     }
 
@@ -190,12 +191,12 @@ namespace IdiotProof.Backend.Models
                     if (strategy != null)
                     {
                         strategies.Add(strategy);
-                        Console.WriteLine($"Loaded IdiotScript: {definition.Name} ({definition.Symbol})");
+                        Console.WriteLine($"{TimeStamp.NowBracketed} Loaded IdiotScript: {definition.Name} ({definition.Symbol})");
                     }
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine($"Error loading IdiotScript from {Path.GetFileName(file)}: {ex.Message}");
+                    Console.WriteLine($"{TimeStamp.NowBracketed} Error loading IdiotScript from {Path.GetFileName(file)}: {ex.Message}");
                 }
             }
 
@@ -203,7 +204,7 @@ namespace IdiotProof.Backend.Models
             var jsonFiles = Directory.GetFiles(strategiesFolder, "*.json");
             if (jsonFiles.Length > 0)
             {
-                Console.WriteLine($"Found {jsonFiles.Length} legacy JSON files in {strategiesFolder}");
+                Console.WriteLine($"{TimeStamp.NowBracketed} Found {jsonFiles.Length} legacy JSON files in {strategiesFolder}");
             }
 
             foreach (var file in jsonFiles)
@@ -218,7 +219,7 @@ namespace IdiotProof.Backend.Models
 
                     if (!definition.Enabled)
                     {
-                        Console.WriteLine($"Skipping disabled strategy: {definition.Name}");
+                        Console.WriteLine($"{TimeStamp.NowBracketed} Skipping disabled strategy: {definition.Name}");
                         continue;
                     }
 
@@ -226,16 +227,16 @@ namespace IdiotProof.Backend.Models
                     if (strategy != null)
                     {
                         strategies.Add(strategy);
-                        Console.WriteLine($"Loaded JSON strategy: {definition.Name} ({definition.Symbol})");
+                        Console.WriteLine($"{TimeStamp.NowBracketed} Loaded JSON strategy: {definition.Name} ({definition.Symbol})");
                     }
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine($"Error loading strategy from {Path.GetFileName(file)}: {ex.Message}");
+                    Console.WriteLine($"{TimeStamp.NowBracketed} Error loading strategy from {Path.GetFileName(file)}: {ex.Message}");
                 }
             }
 
-            Console.WriteLine($"Loaded {strategies.Count} enabled strategies from {strategiesFolder}");
+            Console.WriteLine($"{TimeStamp.NowBracketed} Loaded {strategies.Count} enabled strategies from {strategiesFolder}");
             return strategies;
         }
 

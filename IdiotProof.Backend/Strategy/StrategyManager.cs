@@ -19,6 +19,7 @@
 using IBApi;
 using IdiotProof.Backend.Helpers;
 using IdiotProof.Backend.Strategy;
+using IdiotProof.Shared.Helpers;
 using IdiotProof.Shared.Models;
 using IdiotProof.Shared.Services;
 using System.Collections.Concurrent;
@@ -136,7 +137,7 @@ namespace IdiotProof.Backend.Models
                     }
                 }
 
-                Console.WriteLine($"[StrategyManager] Loaded {loaded} strategies from {date:yyyy-MM-dd}");
+                Console.WriteLine($"{TimeStamp.NowBracketed} [StrategyManager] Loaded {loaded} strategies from {date:yyyy-MM-dd}");
                 return loaded;
             }
             finally
@@ -167,7 +168,7 @@ namespace IdiotProof.Backend.Models
                     }
                     catch (Exception ex)
                     {
-                        Console.WriteLine($"[StrategyManager] Failed to load strategy for {strategy.Symbol}: {ex.Message}");
+                        Console.WriteLine($"{TimeStamp.NowBracketed} [StrategyManager] Failed to load strategy for {strategy.Symbol}: {ex.Message}");
                     }
                 }
 
@@ -224,7 +225,7 @@ namespace IdiotProof.Backend.Models
                 await Task.Run(() => _client.reqMktData(tickerId, contract, "", false, false, null));
             }
 
-            Console.WriteLine($"[StrategyManager] Added strategy: {strategy.Symbol} (ID: {strategyId})");
+            Console.WriteLine($"{TimeStamp.NowBracketed} [StrategyManager] Added strategy: {strategy.Symbol} (ID: {strategyId})");
         }
 
         /// <summary>
@@ -239,7 +240,7 @@ namespace IdiotProof.Backend.Models
             if (_runners.TryRemove(id, out var info))
             {
                 await CleanupRunnerAsync(info);
-                Console.WriteLine($"[StrategyManager] Removed strategy: {info.Runner.Symbol} (ID: {id})");
+                Console.WriteLine($"{TimeStamp.NowBracketed} [StrategyManager] Removed strategy: {info.Runner.Symbol} (ID: {id})");
                 return true;
             }
 
@@ -260,7 +261,7 @@ namespace IdiotProof.Backend.Models
                 _isRunning = true;
             }
 
-            Console.WriteLine("[StrategyManager] Starting all strategies...");
+            Console.WriteLine($"{TimeStamp.NowBracketed} [StrategyManager] Starting all strategies...");
 
             // Subscribe to market data for all strategies
             await Task.Run(() =>
@@ -272,7 +273,7 @@ namespace IdiotProof.Backend.Models
                 }
             });
 
-            Console.WriteLine($"[StrategyManager] Started {_runners.Count} strategies");
+            Console.WriteLine($"{TimeStamp.NowBracketed} [StrategyManager] Started {_runners.Count} strategies");
         }
 
         /// <summary>
@@ -287,7 +288,7 @@ namespace IdiotProof.Backend.Models
                 _isRunning = false;
             }
 
-            Console.WriteLine("[StrategyManager] Stopping all strategies...");
+            Console.WriteLine($"{TimeStamp.NowBracketed} [StrategyManager] Stopping all strategies...");
 
             // Cancel market data subscriptions
             await Task.Run(() =>
@@ -306,7 +307,7 @@ namespace IdiotProof.Backend.Models
                 }
             });
 
-            Console.WriteLine("[StrategyManager] All strategies stopped");
+            Console.WriteLine($"{TimeStamp.NowBracketed} [StrategyManager] All strategies stopped");
         }
 
         /// <summary>
@@ -328,7 +329,7 @@ namespace IdiotProof.Backend.Models
             {
                 ThrowIfDisposed();
 
-                Console.WriteLine("[StrategyManager] Reloading strategies...");
+                Console.WriteLine($"{TimeStamp.NowBracketed} [StrategyManager] Reloading strategies...");
 
                 // Stop current strategies
                 bool wasRunning = _isRunning;
@@ -351,7 +352,7 @@ namespace IdiotProof.Backend.Models
                 if (wasRunning)
                     await StartAllAsync();
 
-                Console.WriteLine("[StrategyManager] Reload complete");
+                Console.WriteLine($"{TimeStamp.NowBracketed} [StrategyManager] Reload complete");
             }
             finally
             {
@@ -497,7 +498,7 @@ namespace IdiotProof.Backend.Models
 
             _loadLock.Dispose();
 
-            Console.WriteLine("[StrategyManager] Disposed");
+            Console.WriteLine($"{TimeStamp.NowBracketed} [StrategyManager] Disposed");
         }
 
         /// <summary>

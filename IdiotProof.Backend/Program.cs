@@ -10,6 +10,7 @@ using IdiotProof.Backend.Logging;
 using IdiotProof.Backend.Models;
 using IdiotProof.Backend.Services;
 using IdiotProof.Backend.Strategy;
+using IdiotProof.Shared.Helpers;
 using IdiotProof.Shared.Models;
 using IdiotProof.Shared.Services;
 using IdiotProof.Shared.Settings;
@@ -866,19 +867,11 @@ namespace IdiotProof.Backend
 
         private static void Log(string message)
         {
-            var timestamp = GetEasternTimeStamp();
-            var formatted = $"[{timestamp}] {message}";
+            var formatted = $"{TimeStamp.NowBracketed} {message}";
             Console.WriteLine(formatted);
 
             // Also broadcast to frontend
             _ipcServer?.BroadcastConsoleOutput(formatted);
-        }
-
-        private static string GetEasternTimeStamp()
-        {
-            var easternZone = TimeZoneInfo.FindSystemTimeZoneById("Eastern Standard Time");
-            var easternTime = TimeZoneInfo.ConvertTime(DateTime.Now, easternZone);
-            return easternTime.ToString("HH:mm:ss");
         }
     }
 }

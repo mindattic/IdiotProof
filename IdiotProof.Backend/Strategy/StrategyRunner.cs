@@ -27,6 +27,7 @@ using IdiotProof.Backend.Enums;
 using IdiotProof.Backend.Helpers;
 using IdiotProof.Backend.Logging;
 using IdiotProof.Backend.Strategy;
+using IdiotProof.Shared.Helpers;
 using IdiotProof.Shared.Settings;
 using IbContract = IBApi.Contract;
 using MarketTimeZone = IdiotProof.Shared.Enums.MarketTimeZone;
@@ -194,14 +195,11 @@ namespace IdiotProof.Backend.Models
         /// </summary>
         private void Log(string message, ConsoleColor? color = null)
         {
-            var easternZone = TimeZoneInfo.FindSystemTimeZoneById("Eastern Standard Time");
-            var easternTime = TimeZoneInfo.ConvertTime(DateTime.Now, easternZone);
-            var timestamp = easternTime.ToString("hh:mm:ss tt");
             if (color.HasValue)
             {
                 Console.ForegroundColor = color.Value;
             }
-            Console.WriteLine($"[{timestamp}] [{_strategy.Symbol}] {message}");
+            Console.WriteLine($"{TimeStamp.NowBracketed} [{_strategy.Symbol}] {message}");
             if (color.HasValue)
             {
                 Console.ResetColor();

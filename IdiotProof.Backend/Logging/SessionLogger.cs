@@ -19,6 +19,7 @@
 // ============================================================================
 
 using System.Text;
+using IdiotProof.Shared.Helpers;
 
 namespace IdiotProof.Backend.Logging;
 
@@ -207,7 +208,7 @@ public sealed class SessionLogger : IDisposable
         catch (Exception ex)
         {
             // Don't let logging errors crash the app
-            Console.WriteLine($"[SessionLogger] Error writing periodic log: {ex.Message}");
+            Console.WriteLine($"{TimeStamp.NowBracketed} [SessionLogger] Error writing periodic log: {ex.Message}");
         }
     }
 
@@ -267,7 +268,7 @@ public sealed class SessionLogger : IDisposable
                     }
                     foreach (var fill in entry.Fills)
                     {
-                        var pnlStr = fill.PnL.HasValue ? $" P&L=${fill.PnL:F2}" : "";
+                        var pnlStr = fill.PnL.HasValue ? $" P&L=${fill.PnL.Value:F2}" : "";
                         var fillLine = $"    {fill.Timestamp:HH:mm:ss} FILL  {fill.Action,-5} {fill.Quantity,5} @ ${fill.Price:F2}{pnlStr}";
                         sb.AppendLine($"║{fillLine,-71} ║");
                     }
