@@ -322,6 +322,39 @@ public static class FluentApiScriptMapping
             "Rate of Change below threshold (negative momentum)"),
 
         // ====================================================================
+        // CONTINUATION/PATTERN CONDITIONS
+        // ====================================================================
+        new(".IsHigherLows()",
+            ["HIGHERLOWS", "ISHIGHERLOWS"],
+            [],
+            "IndicatorCondition",
+            "Detects higher lows forming (ascending support pattern)"),
+
+        new(".IsEmaTurningUp(period)",
+            ["EMATURNINGUP", "ISEMATURNINGUP"],
+            ["period: int (EMA period, e.g., 9)"],
+            "IndicatorCondition",
+            "EMA slope turning positive or flattening"),
+
+        new(".IsVolumeAbove(multiplier)",
+            ["VOLUMEABOVE", "ISVOLUMEABOVE"],
+            ["multiplier: double (e.g., 1.5 = 150% of average)"],
+            "IndicatorCondition",
+            "Volume above N× average (volume spike confirmation)"),
+
+        new(".IsCloseAboveVwap()",
+            ["CLOSEABOVEVWAP", "ISCLOSEABOVEVWAP"],
+            [],
+            "VwapCondition",
+            "Candle closed above VWAP (stronger than just price above)"),
+
+        new(".IsVwapRejection()",
+            ["VWAPREJECTION", "ISVWAPREJECTION", "VWAPREJECTED", "ISVWAPREJECTED"],
+            [],
+            "VwapCondition",
+            "Failed VWAP reclaim (wick above, close below) - bearish signal"),
+
+        // ====================================================================
         // ORDER CONFIGURATION
         // ====================================================================
         new(".TimeInForce(tif)",

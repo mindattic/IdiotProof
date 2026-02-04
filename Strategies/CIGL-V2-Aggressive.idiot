@@ -1,0 +1,24 @@
+# CIGL Variant 2 - Aggressive Momentum
+# Quick entry on momentum confirmation
+# Higher risk, more trades
+
+Ticker(CIGL)
+.Name("CIGL-V2-Aggressive")
+.Session(IS.PREMARKET)
+.Qty(100)
+
+# Entry Conditions:
+# 1. Break over $5.30 (lower entry)
+# 2. Positive momentum
+# 3. Above VWAP
+# 4. ROC showing 2%+ gain
+.Entry(5.30)
+.MomentumAbove(0)
+.AboveVwap()
+.RocAbove(2)
+
+# Exit - Wider target, trailing stop
+.TakeProfit(8.00)
+.StopLoss(4.80)
+.TSL(10)
+.ClosePosition(IS.BELL, IS.PROFITABLE)

@@ -196,6 +196,34 @@ namespace IdiotProof.Backend.Helpers
         }
 
         /// <summary>
+        /// Gets the low prices of the N most recent candlesticks (most recent first).
+        /// Used for Higher Lows pattern detection.
+        /// </summary>
+        /// <param name="count">Number of low prices to retrieve.</param>
+        /// <returns>Array of low prices, most recent first.</returns>
+        public double[] GetRecentLows(int count)
+        {
+            return _completedCandles.TakeLast(Math.Min(count, _completedCandles.Count))
+                .Select(c => c.Low)
+                .Reverse()  // Most recent first for pattern detection
+                .ToArray();
+        }
+
+        /// <summary>
+        /// Gets the high prices of the N most recent candlesticks (most recent first).
+        /// Used for Lower Highs pattern detection.
+        /// </summary>
+        /// <param name="count">Number of high prices to retrieve.</param>
+        /// <returns>Array of high prices, most recent first.</returns>
+        public double[] GetRecentHighs(int count)
+        {
+            return _completedCandles.TakeLast(Math.Min(count, _completedCandles.Count))
+                .Select(c => c.High)
+                .Reverse()  // Most recent first for pattern detection
+                .ToArray();
+        }
+
+        /// <summary>
         /// Resets the aggregator for a new trading session.
         /// </summary>
         public void Reset()

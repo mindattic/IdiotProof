@@ -710,6 +710,417 @@ namespace IdiotProof.Backend.Strategy
         }
 
         // ====================================================================
+        // EMA CONDITION METHODS
+        // ====================================================================
+
+        /// <summary>
+        /// Adds a price-above-EMA condition: Price >= EMA(period).
+        /// </summary>
+        /// <param name="period">The EMA period (e.g., 9, 21, 50, 200).</param>
+        /// <returns>The builder for method chaining.</returns>
+        /// <remarks>
+        /// <para><b>EMA (Exponential Moving Average):</b></para>
+        /// <para>Gives more weight to recent prices, making it more responsive than SMA.</para>
+        /// 
+        /// <para><b>Common Periods:</b></para>
+        /// <list type="bullet">
+        ///   <item><b>9 EMA:</b> Short-term trend, very responsive</item>
+        ///   <item><b>21 EMA:</b> Medium-term trend</item>
+        ///   <item><b>50 EMA:</b> Intermediate trend</item>
+        ///   <item><b>200 EMA:</b> Long-term trend, major support/resistance</item>
+        /// </list>
+        /// 
+        /// <para><b>ASCII Visualization:</b></para>
+        /// <code>
+        ///     Price above EMA = Bullish
+        ///     +--------------------------------------------+
+        ///     |     /\          ___/                       |
+        ///     |    /  \   ___/     \____    Price above    |
+        ///     |   /    \_/     EMA       \___  = bullish   |
+        ///     |  /  ___________________________            |
+        ///     | /_/                                        |
+        ///     +--------------------------------------------+
+        /// </code>
+        /// 
+        /// <para><b>Example:</b></para>
+        /// <code>
+        /// Stock.Ticker("AAPL")
+        ///     .IsEmaAbove(9)              // Price above short-term trend
+        ///     .IsEmaAbove(21)             // Price above medium-term trend
+        ///     .Buy(100, Price.Current)
+        ///     .Build();
+        /// </code>
+        /// </remarks>
+        public Stock IsEmaAbove(int period)
+        {
+            _conditions.Add(new EmaAboveCondition(period));
+            return this;
+        }
+
+        /// <summary>
+        /// Adds a price-below-EMA condition: Price &lt;= EMA(period).
+        /// </summary>
+        /// <param name="period">The EMA period (e.g., 9, 21, 50, 200).</param>
+        /// <returns>The builder for method chaining.</returns>
+        /// <remarks>
+        /// <para><b>Use Cases:</b></para>
+        /// <list type="bullet">
+        ///   <item>Identify bearish conditions (price below moving average)</item>
+        ///   <item>Short selling setups</item>
+        ///   <item>Exit signals for long positions</item>
+        /// </list>
+        /// 
+        /// <para><b>ASCII Visualization:</b></para>
+        /// <code>
+        ///     Price below EMA = Bearish
+        ///     +--------------------------------------------+
+        ///     |  ___________________________  EMA          |
+        ///     | /                           \____          |
+        ///     |/   ____                          \         |
+        ///     |   /    \    Price below EMA      \___      |
+        ///     |  /      \_____/    = bearish          \    |
+        ///     +--------------------------------------------+
+        /// </code>
+        /// 
+        /// <para><b>Example:</b></para>
+        /// <code>
+        /// Stock.Ticker("AAPL")
+        ///     .IsEmaBelow(200)             // Price below long-term trend
+        ///     .Sell(100, Price.Current)
+        ///     .Build();
+        /// </code>
+        /// </remarks>
+        public Stock IsEmaBelow(int period)
+        {
+            _conditions.Add(new EmaBelowCondition(period));
+            return this;
+        }
+
+        /// <summary>
+        /// Adds a price-between-EMAs condition: Price is between EMA(lowerPeriod) and EMA(upperPeriod).
+        /// </summary>
+        /// <param name="lowerPeriod">The lower EMA period (e.g., 9).</param>
+        /// <param name="upperPeriod">The upper EMA period (e.g., 21).</param>
+        /// <returns>The builder for method chaining.</returns>
+        /// <remarks>
+        /// <para><b>Pullback Zone Strategy:</b></para>
+        /// <para>When price pulls back into the zone between two EMAs, it often provides
+        /// an opportunity to enter in the direction of the trend.</para>
+        /// 
+        /// <para><b>ASCII Visualization:</b></para>
+        /// <code>
+        ///     EmaBetween(9, 21) = Pullback Zone
+        ///     +--------------------------------------------+
+        ///     |  EMA(21) _______________________________   |
+        ///     |         /           ↑                  \   |
+        ///     |  ______/    * * PULLBACK ZONE * *       \__|
+        ///     | /          ↓                               |
+        ///     |/  EMA(9) _______________________________   |
+        ///     +--------------------------------------------+
+        ///           Price in zone = potential entry
+        /// </code>
+        /// 
+        /// <para><b>Example - Pullback entry:</b></para>
+        /// <code>
+        /// Stock.Ticker("AAPL")
+        ///     .IsEmaBetween(9, 21)         // In pullback zone
+        ///     .IsDiPositive()              // Still bullish
+        ///     .Buy(100, Price.Current)
+        ///     .Build();
+        /// </code>
+        /// </remarks>
+        public Stock IsEmaBetween(int lowerPeriod, int upperPeriod)
+        {
+            _conditions.Add(new EmaBetweenCondition(lowerPeriod, upperPeriod));
+            return this;
+        }
+
+        /// <summary>
+        /// Adds a momentum above condition: Momentum >= threshold.
+        /// </summary>
+        /// <param name="threshold">The momentum threshold value (typically 0 for positive momentum).</param>
+        /// <returns>The builder for method chaining.</returns>
+        /// <remarks>
+        /// <para><b>Momentum Indicator:</b></para>
+        /// <para>Measures the rate of price change by comparing current price to a previous price.</para>
+        /// <para>Formula: Momentum = Current Price - Price N periods ago</para>
+        /// 
+        /// <para><b>Interpretation:</b></para>
+        /// <list type="bullet">
+        ///   <item><b>Momentum > 0:</b> Price is higher than N periods ago (bullish)</item>
+        ///   <item><b>Momentum &lt; 0:</b> Price is lower than N periods ago (bearish)</item>
+        ///   <item><b>Rising Momentum:</b> Trend is accelerating</item>
+        /// </list>
+        /// 
+        /// <para><b>Example:</b></para>
+        /// <code>
+        /// // Buy when momentum is positive (price rising)
+        /// Stock.Ticker("AAPL")
+        ///     .IsMomentumAbove(0)               // Positive momentum
+        ///     .IsAboveVwap()                    // Above VWAP
+        ///     .Buy(100, Price.Current)
+        ///     .Build();
+        /// </code>
+        /// </remarks>
+        public Stock IsMomentumAbove(double threshold)
+        {
+            _conditions.Add(new MomentumAboveCondition(threshold));
+            return this;
+        }
+
+        /// <summary>
+        /// Adds a momentum below condition: Momentum &lt;= threshold.
+        /// </summary>
+        /// <param name="threshold">The momentum threshold value (typically 0 for negative momentum).</param>
+        /// <returns>The builder for method chaining.</returns>
+        /// <remarks>
+        /// <para><b>Momentum Indicator (Bearish):</b></para>
+        /// <para>Used to detect downward price momentum or weakening bullish momentum.</para>
+        /// 
+        /// <para><b>Example:</b></para>
+        /// <code>
+        /// // Short when momentum is negative (price falling)
+        /// Stock.Ticker("AAPL")
+        ///     .IsMomentumBelow(0)               // Negative momentum
+        ///     .IsBelowVwap()                    // Below VWAP
+        ///     .Sell(100, Price.Current)
+        ///     .Build();
+        /// </code>
+        /// </remarks>
+        public Stock IsMomentumBelow(double threshold)
+        {
+            _conditions.Add(new MomentumBelowCondition(threshold));
+            return this;
+        }
+
+        /// <summary>
+        /// Adds a higher lows condition: Recent candle lows are forming an ascending pattern.
+        /// </summary>
+        /// <param name="lookbackBars">Number of bars to analyze for the pattern (default: 3).</param>
+        /// <returns>The builder for method chaining.</returns>
+        /// <remarks>
+        /// <para><b>Higher Lows Pattern:</b></para>
+        /// <para>Detects when recent candlestick lows are each higher than the previous,</para>
+        /// <para>indicating building support and potential bullish momentum.</para>
+        /// 
+        /// <para><b>ASCII Visualization:</b></para>
+        /// <code>
+        ///                          /\
+        ///              /\         /  \
+        ///    /\       /  \       /    \
+        ///   /  \     /    \     /      \
+        ///  /    \___/  ↑   \___/        \
+        ///        Higher    Higher
+        ///          Low       Low
+        /// </code>
+        /// 
+        /// <para><b>Example:</b></para>
+        /// <code>
+        /// // Buy when higher lows forming with VWAP support
+        /// Stock.Ticker("AAPL")
+        ///     .IsHigherLows()             // Ascending support pattern
+        ///     .IsAboveVwap()              // Above VWAP
+        ///     .Buy(100, Price.Current)
+        ///     .Build();
+        /// </code>
+        /// </remarks>
+        public Stock IsHigherLows(int lookbackBars = 3)
+        {
+            _conditions.Add(new HigherLowsCondition(lookbackBars));
+            return this;
+        }
+
+        /// <summary>
+        /// Adds an EMA turning up condition: EMA slope is flat or positive.
+        /// </summary>
+        /// <param name="period">The EMA period (e.g., 9, 21).</param>
+        /// <returns>The builder for method chaining.</returns>
+        /// <remarks>
+        /// <para><b>EMA Turning Up:</b></para>
+        /// <para>Detects when the EMA slope is transitioning from negative to flat/positive.</para>
+        /// <para>This often signals early trend reversal or continuation momentum.</para>
+        /// 
+        /// <para><b>Warm-up:</b> N+1 candles for EMA(N)</para>
+        /// 
+        /// <para><b>Example:</b></para>
+        /// <code>
+        /// Stock.Ticker("AAPL")
+        ///     .IsEmaTurningUp(9)          // Short-term EMA flattening/rising
+        ///     .IsAboveVwap()              // Above VWAP
+        ///     .Buy(100, Price.Current)
+        ///     .Build();
+        /// </code>
+        /// </remarks>
+        public Stock IsEmaTurningUp(int period)
+        {
+            _conditions.Add(new EmaTurningUpCondition(period));
+            return this;
+        }
+
+        /// <summary>
+        /// Adds a volume above condition: Current volume >= multiplier × average volume.
+        /// </summary>
+        /// <param name="multiplier">The volume multiplier (e.g., 1.5 = 150% of average).</param>
+        /// <returns>The builder for method chaining.</returns>
+        /// <remarks>
+        /// <para><b>Volume Spike Detection:</b></para>
+        /// <para>Detects unusual volume activity which often confirms breakouts.</para>
+        /// 
+        /// <para><b>Common Multipliers:</b></para>
+        /// <list type="bullet">
+        ///   <item><b>1.5:</b> Moderate spike (50% above average)</item>
+        ///   <item><b>2.0:</b> Strong spike (100% above average)</item>
+        ///   <item><b>3.0:</b> Exceptional spike (200% above average)</item>
+        /// </list>
+        /// 
+        /// <para><b>Warm-up:</b> 20 candles for volume averaging</para>
+        /// 
+        /// <para><b>Example:</b></para>
+        /// <code>
+        /// Stock.Ticker("AAPL")
+        ///     .IsVolumeAbove(1.5)         // Volume spike confirmation
+        ///     .Breakout(150.00)           // Price breakout
+        ///     .Buy(100, Price.Current)
+        ///     .Build();
+        /// </code>
+        /// </remarks>
+        public Stock IsVolumeAbove(double multiplier)
+        {
+            _conditions.Add(new VolumeAboveCondition(multiplier));
+            return this;
+        }
+
+        /// <summary>
+        /// Adds a close above VWAP condition: Last candle closed above VWAP.
+        /// </summary>
+        /// <returns>The builder for method chaining.</returns>
+        /// <remarks>
+        /// <para><b>Close Above VWAP:</b></para>
+        /// <para>Stronger signal than just price above VWAP - the candle CLOSED above.</para>
+        /// <para>Indicates sustained strength, not just a wick above VWAP.</para>
+        /// 
+        /// <para><b>ASCII Visualization:</b></para>
+        /// <code>
+        ///         +---+
+        ///         |   | ← Close ABOVE VWAP = Strong
+        ///  VWAP ══|═══|══════════════════════════════
+        ///         |   |
+        ///         +---+
+        /// </code>
+        /// 
+        /// <para><b>No warm-up required</b> (uses last completed candle)</para>
+        /// 
+        /// <para><b>Example:</b></para>
+        /// <code>
+        /// Stock.Ticker("AAPL")
+        ///     .IsCloseAboveVwap()         // Strong VWAP reclaim
+        ///     .IsHigherLows()             // Building support
+        ///     .Buy(100, Price.Current)
+        ///     .Build();
+        /// </code>
+        /// </remarks>
+        public Stock IsCloseAboveVwap()
+        {
+            _conditions.Add(new CloseAboveVwapCondition());
+            return this;
+        }
+
+        /// <summary>
+        /// Adds a VWAP rejection condition: Wick above VWAP but close below.
+        /// </summary>
+        /// <returns>The builder for method chaining.</returns>
+        /// <remarks>
+        /// <para><b>VWAP Rejection (Bearish Signal):</b></para>
+        /// <para>Price attempted to break above VWAP but failed to hold.</para>
+        /// <para>Indicates selling pressure at VWAP resistance.</para>
+        /// 
+        /// <para><b>ASCII Visualization:</b></para>
+        /// <code>
+        ///       │ ← Wick above VWAP
+        /// VWAP ═╪═══════════════════════════
+        ///     ┌─┴─┐
+        ///     │   │ ← Close below = REJECTED
+        ///     └───┘
+        /// </code>
+        /// 
+        /// <para><b>No warm-up required</b> (uses last completed candle)</para>
+        /// 
+        /// <para><b>Example:</b></para>
+        /// <code>
+        /// Stock.Ticker("AAPL")
+        ///     .IsVwapRejection()          // Failed VWAP reclaim
+        ///     .IsMomentumBelow(0)         // Negative momentum
+        ///     .Sell(100, Price.Current)   // Short entry
+        ///     .Build();
+        /// </code>
+        /// </remarks>
+        public Stock IsVwapRejection()
+        {
+            _conditions.Add(new VwapRejectionCondition());
+            return this;
+        }
+
+        /// <summary>
+        /// Adds a Rate of Change (ROC) above condition: ROC >= threshold.
+        /// </summary>
+        /// <param name="threshold">The ROC threshold (percentage).</param>
+        /// <returns>The builder for method chaining.</returns>
+        /// <remarks>
+        /// <para><b>Rate of Change (ROC):</b></para>
+        /// <para>Measures percentage price change over N periods.</para>
+        /// <para>Formula: ROC = ((Current - Previous) / Previous) × 100</para>
+        /// 
+        /// <para><b>Interpretation:</b></para>
+        /// <list type="bullet">
+        ///   <item><b>ROC > 2%:</b> Strong bullish momentum</item>
+        ///   <item><b>ROC > 0%:</b> Price increasing (bullish)</item>
+        ///   <item><b>ROC &lt; 0%:</b> Price decreasing (bearish)</item>
+        /// </list>
+        /// 
+        /// <para><b>Warm-up:</b> 11 candles for ROC(10)</para>
+        /// 
+        /// <para><b>Example:</b></para>
+        /// <code>
+        /// Stock.Ticker("AAPL")
+        ///     .IsRocAbove(2)              // Strong upward momentum (2%+)
+        ///     .IsAboveVwap()
+        ///     .Buy(100, Price.Current)
+        ///     .Build();
+        /// </code>
+        /// </remarks>
+        public Stock IsRocAbove(double threshold)
+        {
+            _conditions.Add(new RocAboveCondition(threshold));
+            return this;
+        }
+
+        /// <summary>
+        /// Adds a Rate of Change (ROC) below condition: ROC &lt;= threshold.
+        /// </summary>
+        /// <param name="threshold">The ROC threshold (percentage).</param>
+        /// <returns>The builder for method chaining.</returns>
+        /// <remarks>
+        /// <para><b>ROC Below (Bearish):</b></para>
+        /// <para>Detects negative or weakening momentum.</para>
+        /// 
+        /// <para><b>Warm-up:</b> 11 candles for ROC(10)</para>
+        /// 
+        /// <para><b>Example:</b></para>
+        /// <code>
+        /// Stock.Ticker("AAPL")
+        ///     .IsRocBelow(-2)             // Strong downward momentum (-2%+)
+        ///     .IsBelowVwap()
+        ///     .Sell(100, Price.Current)   // Short entry
+        ///     .Build();
+        /// </code>
+        /// </remarks>
+        public Stock IsRocBelow(double threshold)
+        {
+            _conditions.Add(new RocBelowCondition(threshold));
+            return this;
+        }
+
+        // ====================================================================
         // SHORTHAND INDICATOR METHODS
         // ====================================================================
 

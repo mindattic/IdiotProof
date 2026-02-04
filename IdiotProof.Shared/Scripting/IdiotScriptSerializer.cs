@@ -164,6 +164,7 @@ public static class IdiotScriptSerializer
 
     /// <summary>
     /// Converts a StrategyDefinition to a formatted multi-line IdiotScript string.
+    /// Each command starts on a new line with the period prefix (except the first command).
     /// </summary>
     public static string SerializeFormatted(StrategyDefinition strategy)
     {
@@ -173,21 +174,33 @@ public static class IdiotScriptSerializer
 
     /// <summary>
     /// Formats an IdiotScript string with line breaks for readability.
+    /// Each command starts on a new line with the period prefix (except the first command).
     /// </summary>
     public static string FormatScript(string script)
     {
         var sb = new StringBuilder();
+        var parts = SplitByDelimiter(script);
+        bool isFirst = true;
 
-        foreach (var part in SplitByDelimiter(script))
+        foreach (var part in parts)
         {
             var trimmed = part.Trim();
             if (string.IsNullOrEmpty(trimmed))
                 continue;
 
-            sb.AppendLine($"{trimmed}.");
+            if (isFirst)
+            {
+                sb.Append(trimmed);
+                isFirst = false;
+            }
+            else
+            {
+                sb.AppendLine();
+                sb.Append($".{trimmed}");
+            }
         }
 
-        return sb.ToString().TrimEnd();
+        return sb.ToString();
     }
 
     private static List<string> SplitByDelimiter(string script)
@@ -268,12 +281,17 @@ public static class IdiotScriptSerializer
                 SegmentType.IsEmaAbove => BuildEmaAbove(segment),
                 SegmentType.IsEmaBelow => BuildEmaBelow(segment),
                 SegmentType.IsEmaBetween => BuildEmaBetween(segment),
+                SegmentType.IsEmaTurningUp => BuildEmaTurningUp(segment),
                 SegmentType.IsRsi => BuildRsi(segment),
                 SegmentType.IsAdx => BuildAdx(segment),
                 SegmentType.IsMacd => BuildMacd(segment),
                 SegmentType.IsDI => BuildDi(segment),
                 SegmentType.IsMomentum => BuildMomentum(segment),
                 SegmentType.IsRoc => BuildRoc(segment),
+                SegmentType.IsHigherLows => "HigherLows()",
+                SegmentType.IsVolumeAbove => BuildVolumeAbove(segment),
+                SegmentType.IsCloseAboveVwap => "CloseAboveVwap()",
+                SegmentType.IsVwapRejection => "VwapRejection()",
                 _ => null
             };
 
@@ -381,6 +399,18 @@ public static class IdiotScriptSerializer
         return condition.Equals("Above", StringComparison.OrdinalIgnoreCase)
             ? $"RocAbove({threshold:F1})"
             : $"RocBelow({threshold:F1})";
+    }
+
+    private static string? BuildEmaTurningUp(StrategySegment segment)
+    {
+        var period = GetParameterValue<int>(segment, "Period", 0);
+        return period > 0 ? $"EmaTurningUp({period})" : null;
+    }
+
+    private static string? BuildVolumeAbove(StrategySegment segment)
+    {
+        var multiplier = GetParameterValue<double>(segment, "Multiplier", 0);
+        return multiplier > 0 ? $"VolumeAbove({multiplier:F1})" : null;
     }
 
     private static string FormatPrice(double price)

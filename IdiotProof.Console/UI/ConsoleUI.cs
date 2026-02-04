@@ -59,8 +59,8 @@ public static class ConsoleUI
             System.Console.ForegroundColor = ConsoleColor.Cyan;
             System.Console.WriteLine();
             System.Console.WriteLine("================================================================");
-            System.Console.WriteLine(" IdiotProof Multi-Stage Strategy Builder");
-            System.Console.WriteLine(" Console Client - Powered by IBKR API");
+            System.Console.WriteLine("===          IdiotProof Multi-Stage Strategy Builder         ===");
+            System.Console.WriteLine("===           Console Client - Powered by IBKR API           ===");
             System.Console.WriteLine("================================================================");
             System.Console.WriteLine();
             System.Console.ResetColor();
@@ -267,6 +267,7 @@ public static class ConsoleUI
             System.Console.WriteLine();
             System.Console.ForegroundColor = ConsoleColor.White;
             System.Console.WriteLine("=== Defined Strategies ===");
+            System.Console.WriteLine();
             System.Console.ResetColor();
 
             if (strategies.Count == 0)
@@ -349,45 +350,17 @@ public static class ConsoleUI
                     System.Console.WriteLine();
                 }
 
-                // Display IdiotScript
-                DisplayFormattedIdiotScript(strategy);
+                // Display IdiotScript (original content including comments)
+                System.Console.ForegroundColor = ConsoleColor.DarkGray;
+                System.Console.WriteLine(strategy.ToIdiotScript());
+                //System.Console.WriteLine();
+                //System.Console.WriteLine(strategy.ToAsciiChart());
                 System.Console.WriteLine();
+                System.Console.ResetColor();
             }
 
             System.Console.ResetColor();
         }
-    }
-
-    /// <summary>
-    /// Displays IdiotScript with each chained condition on a new line.
-    /// </summary>
-    public static void DisplayFormattedIdiotScript(StrategyDefinition strategy)
-    {
-        var script = IdiotProof.Shared.Scripting.IdiotScriptSerializer.Serialize(strategy);
-        System.Console.ForegroundColor = ConsoleColor.DarkGray;
-
-        for (int i = 0; i < script.Length; i++)
-        {
-            var ch = script[i];
-            if (ch == '.')
-            {
-                // Don't add newline for "IS." inside parameters
-                bool isISPrefix = i >= 2 && script[i - 2] == 'I' && script[i - 1] == 'S';
-
-                // Don't add newline for decimal numbers (e.g., 148.75)
-                bool isDecimal = i > 0 && i < script.Length - 1 &&
-                                 char.IsDigit(script[i - 1]) && char.IsDigit(script[i + 1]);
-
-                if (!isISPrefix && !isDecimal)
-                {
-                    System.Console.WriteLine();
-                }
-            }
-            System.Console.Write(ch);
-        }
-
-        System.Console.WriteLine();
-        System.Console.ResetColor();
     }
 
     /// <summary>
@@ -399,18 +372,24 @@ public static class ConsoleUI
         {
             System.Console.WriteLine();
             System.Console.ForegroundColor = ConsoleColor.Cyan;
-            System.Console.WriteLine("=== Keyboard Shortcuts ===");
+            System.Console.WriteLine("===========================");
+            System.Console.WriteLine("===        Help         ===");
+            System.Console.WriteLine("===========================");
             System.Console.ResetColor();
 
             System.Console.ForegroundColor = ConsoleColor.White;
-            System.Console.WriteLine("  Strategy Management:");
+            System.Console.WriteLine("---------------------------");
+            System.Console.WriteLine("--- Strategy Management ---");
+            System.Console.WriteLine("---------------------------");
             System.Console.ResetColor();
             System.Console.WriteLine("    M               - Open Strategy Manager (view/create/toggle/cancel)");
             System.Console.WriteLine("    N               - Quick create strategy (script mode)");
             System.Console.WriteLine();
 
             System.Console.ForegroundColor = ConsoleColor.White;
-            System.Console.WriteLine("  Trading Controls:");
+            System.Console.WriteLine("---------------------------");
+            System.Console.WriteLine("---  Trading Controls   ---");
+            System.Console.WriteLine("---------------------------");
             System.Console.ResetColor();
             System.Console.WriteLine("    CTRL+ALT+ENTER  - Activate/Deactivate trading");
             System.Console.WriteLine("    C               - Cancel all open orders");
@@ -418,7 +397,9 @@ public static class ConsoleUI
             System.Console.WriteLine();
 
             System.Console.ForegroundColor = ConsoleColor.White;
-            System.Console.WriteLine("  Information:");
+            System.Console.WriteLine("---------------------------");
+            System.Console.WriteLine("---     Information     ---");
+            System.Console.WriteLine("---------------------------");
             System.Console.ResetColor();
             System.Console.WriteLine("    S               - Show status");
             System.Console.WriteLine("    O               - Show open orders");

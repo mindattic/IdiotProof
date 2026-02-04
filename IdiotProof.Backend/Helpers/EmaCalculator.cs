@@ -39,6 +39,7 @@ namespace IdiotProof.Backend.Helpers
         private readonly int _period;
         private readonly double _multiplier;
         private double _currentEma;
+        private double _previousEma;
         private double _priceSum;
         private int _priceCount;
         private bool _isInitialized;
@@ -52,6 +53,12 @@ namespace IdiotProof.Backend.Helpers
         /// Gets the current EMA value.
         /// </summary>
         public double CurrentValue => _currentEma;
+
+        /// <summary>
+        /// Gets the previous EMA value (1 bar ago).
+        /// Used for slope/direction detection.
+        /// </summary>
+        public double PreviousValue => _previousEma;
 
         /// <summary>
         /// Gets whether the EMA calculator has enough data to provide a reliable value.
@@ -99,6 +106,7 @@ namespace IdiotProof.Backend.Helpers
             }
 
             // Apply EMA formula: EMA = (Price - Previous EMA) × Multiplier + Previous EMA
+            _previousEma = _currentEma;
             _currentEma = (price - _currentEma) * _multiplier + _currentEma;
             return _currentEma;
         }
@@ -109,6 +117,7 @@ namespace IdiotProof.Backend.Helpers
         public void Reset()
         {
             _currentEma = 0;
+            _previousEma = 0;
             _priceSum = 0;
             _priceCount = 0;
             _isInitialized = false;

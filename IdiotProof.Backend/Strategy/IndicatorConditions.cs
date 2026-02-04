@@ -606,4 +606,461 @@ namespace IdiotProof.Backend.Strategy
             return currentPrice >= minEma && currentPrice <= maxEma;
         }
     }
+
+    /// <summary>
+    /// Condition: EMA is turning up (slope is positive).
+    /// Detects when a shorter-term moving average is flattening or starting to rise.
+    /// </summary>
+    public sealed class EmaTurningUpCondition : IStrategyCondition
+    {
+        /// <summary>
+        /// Gets the EMA period for this condition.
+        /// </summary>
+        public int Period { get; }
+
+        /// <summary>
+        /// Gets or sets the callback to retrieve the current EMA value.
+        /// </summary>
+        public Func<double>? GetCurrentEmaValue { get; set; }
+
+        /// <summary>
+        /// Gets or sets the callback to retrieve the previous EMA value (1 bar ago).
+        /// </summary>
+        public Func<double>? GetPreviousEmaValue { get; set; }
+
+        /// <inheritdoc/>
+        public string Name => $"EMA({Period}) Turning Up";
+
+        /// <summary>
+        /// Creates a new EMA turning up condition.
+        /// </summary>
+        public EmaTurningUpCondition(int period)
+        {
+            if (period < 1)
+                throw new ArgumentOutOfRangeException(nameof(period), "Period must be at least 1.");
+            Period = period;
+        }
+
+        /// <inheritdoc/>
+        public bool Evaluate(double currentPrice, double vwap)
+        {
+            if (GetCurrentEmaValue == null || GetPreviousEmaValue == null)
+                return false;
+
+            double currentEma = GetCurrentEmaValue();
+            double previousEma = GetPreviousEmaValue();
+
+            if (currentEma <= 0 || previousEma <= 0)
+                return false;
+
+            // EMA is turning up when current value >= previous value (slope >= 0)
+            return currentEma >= previousEma;
+        }
+    }
+
+    /// <summary>
+    /// Condition: Higher lows are forming (ascending support pattern).
+    /// Looks at recent price action to detect a bullish pattern.
+    /// </summary>
+    public sealed class HigherLowsCondition : IStrategyCondition
+    {
+        /// <summary>
+        /// Number of bars to analyze for the pattern.
+        /// </summary>
+        public int LookbackBars { get; }
+
+        /// <summary>
+        /// Gets or sets the callback to retrieve recent low values.
+        /// Returns an array of low prices, most recent first.
+        /// </summary>
+        public Func<double[]>? GetRecentLows { get; set; }
+
+        /// <inheritdoc/>
+        public string Name => "Higher Lows Forming";
+
+        /// <summary>
+        /// Creates a new higher lows condition.
+        /// </summary>
+        public HigherLowsCondition(int lookbackBars = 3)
+        {
+            if (lookbackBars < 2)
+                throw new ArgumentOutOfRangeException(nameof(lookbackBars), "Lookback must be at least 2.");
+            LookbackBars = lookbackBars;
+        }
+
+        /// <inheritdoc/>
+        public bool Evaluate(double currentPrice, double vwap)
+        {
+            if (GetRecentLows == null)
+                return false;
+
+            var lows = GetRecentLows();
+            if (lows == null || lows.Length < 2)
+                return false;
+
+            // Check if each low is higher than the previous (ascending pattern)
+            for (int i = 0; i < lows.Length - 1; i++)
+            {
+                if (lows[i] <= lows[i + 1])
+                    return false;
+            }
+
+            return true;
+        }
+    }
+
+    /// <summary>
+    /// Condition: Volume is above a specified multiple of the average volume.
+    /// Detects volume spikes which often confirm breakouts.
+    /// </summary>
+    public sealed class VolumeAboveCondition : IStrategyCondition
+    {
+        /// <summary>
+        /// The volume multiplier threshold.
+        /// </summary>
+        public double Multiplier { get; }
+
+        /// <summary>
+        /// Gets or sets the callback to retrieve the current volume.
+        /// </summary>
+        public Func<long>? GetCurrentVolume { get; set; }
+
+        /// <summary>
+        /// Gets or sets the callback to retrieve the average volume.
+        /// </summary>
+        public Func<double>? GetAverageVolume { get; set; }
+
+        /// <inheritdoc/>
+        public string Name => $"Volume >= {Multiplier:F1}x Average";
+
+        /// <summary>
+        /// Creates a new volume above condition.
+        /// </summary>
+        public VolumeAboveCondition(double multiplier)
+        {
+            if (multiplier <= 0)
+                throw new ArgumentOutOfRangeException(nameof(multiplier), "Multiplier must be positive.");
+            Multiplier = multiplier;
+        }
+
+        /// <inheritdoc/>
+        public bool Evaluate(double currentPrice, double vwap)
+        {
+            if (GetCurrentVolume == null || GetAverageVolume == null)
+                return false;
+
+            long currentVolume = GetCurrentVolume();
+            double averageVolume = GetAverageVolume();
+
+            if (currentVolume <= 0 || averageVolume <= 0)
+                return false;
+
+            return currentVolume >= averageVolume * Multiplier;
+        }
+    }
+
+    /// <summary>
+    /// Condition: The candle closed above VWAP (not just current price).
+    /// Stronger signal than just price above VWAP.
+    /// </summary>
+    public sealed class CloseAboveVwapCondition : IStrategyCondition
+    {
+        /// <summary>
+        /// Gets or sets the callback to retrieve the last candle close price.
+        /// </summary>
+        public Func<double>? GetLastClose { get; set; }
+
+        /// <inheritdoc/>
+        public string Name => "Close Above VWAP";
+
+        /// <inheritdoc/>
+        public bool Evaluate(double currentPrice, double vwap)
+        {
+            if (GetLastClose == null)
+                return false;
+
+            double lastClose = GetLastClose();
+
+            if (lastClose <= 0 || vwap <= 0)
+                return false;
+
+            return lastClose > vwap;
+        }
+    }
+
+    /// <summary>
+    /// Condition: VWAP rejection detected (wick above VWAP but close below).
+    /// Indicates a failed VWAP reclaim - bearish signal.
+    /// </summary>
+    public sealed class VwapRejectionCondition : IStrategyCondition
+    {
+        /// <summary>
+        /// Gets or sets the callback to retrieve the last candle high.
+        /// </summary>
+        public Func<double>? GetLastHigh { get; set; }
+
+        /// <summary>
+        /// Gets or sets the callback to retrieve the last candle close.
+        /// </summary>
+        public Func<double>? GetLastClose { get; set; }
+
+        /// <inheritdoc/>
+        public string Name => "VWAP Rejection";
+
+        /// <inheritdoc/>
+        public bool Evaluate(double currentPrice, double vwap)
+        {
+            if (GetLastHigh == null || GetLastClose == null)
+                return false;
+
+            double lastHigh = GetLastHigh();
+            double lastClose = GetLastClose();
+
+            if (lastHigh <= 0 || lastClose <= 0 || vwap <= 0)
+                return false;
+
+            // VWAP rejection: high went above VWAP but close is below VWAP
+            return lastHigh > vwap && lastClose < vwap;
+        }
+    }
+
+    // ========================================================================
+    // MOMENTUM CONDITIONS
+    // ========================================================================
+
+    /// <summary>
+    /// Condition: Momentum is above the specified threshold.
+    /// </summary>
+    /// <remarks>
+    /// <para><b>Momentum Indicator:</b></para>
+    /// <para>Measures the rate of price change by comparing current price to a previous price.</para>
+    /// <para>Formula: Momentum = Current Price - Price N periods ago</para>
+    /// 
+    /// <para><b>Interpretation:</b></para>
+    /// <list type="bullet">
+    ///   <item><b>Positive Momentum (> 0):</b> Price is higher than N periods ago (uptrend)</item>
+    ///   <item><b>Negative Momentum (&lt; 0):</b> Price is lower than N periods ago (downtrend)</item>
+    ///   <item><b>Increasing Momentum:</b> Trend is accelerating</item>
+    ///   <item><b>Decreasing Momentum:</b> Trend is weakening</item>
+    /// </list>
+    /// 
+    /// <para><b>ASCII Visualization:</b></para>
+    /// <code>
+    ///     Momentum Above 0 (Bullish)
+    ///     ┌────────────────────────────────────────┐
+    ///     │     /\                    /\           │
+    ///     │    /  \                  /  \    Price │
+    ///     │   /    \                /    \         │
+    ///     │──/──────\──────────────/──────\────────│ Zero Line
+    ///     │          \            /        \       │
+    ///     │           \          /          \      │
+    ///     │            \________/                  │
+    ///     └────────────────────────────────────────┘
+    ///           ↑ Momentum > 0     ↑ Momentum > 0
+    /// </code>
+    /// </remarks>
+    public sealed class MomentumAboveCondition : IStrategyCondition
+    {
+        /// <summary>
+        /// Gets the momentum threshold.
+        /// </summary>
+        public double Threshold { get; }
+
+        /// <summary>
+        /// Gets or sets the callback to retrieve the current momentum value.
+        /// </summary>
+        public Func<double>? GetMomentumValue { get; set; }
+
+        /// <inheritdoc/>
+        public string Name => $"Momentum >= {Threshold:F2}";
+
+        /// <summary>
+        /// Creates a new momentum above condition.
+        /// </summary>
+        public MomentumAboveCondition(double threshold)
+        {
+            Threshold = threshold;
+        }
+
+        /// <inheritdoc/>
+        public bool Evaluate(double currentPrice, double vwap)
+        {
+            if (GetMomentumValue == null)
+                return false;
+
+            double momentum = GetMomentumValue();
+            return momentum >= Threshold;
+        }
+    }
+
+    /// <summary>
+    /// Condition: Momentum is below the specified threshold.
+    /// </summary>
+    /// <remarks>
+    /// <para><b>Momentum Indicator (Bearish):</b></para>
+    /// <para>Used to detect downward price momentum or weakening bullish momentum.</para>
+    /// 
+    /// <para><b>ASCII Visualization:</b></para>
+    /// <code>
+    ///     Momentum Below 0 (Bearish)
+    ///     ┌────────────────────────────────────────┐
+    ///     │            /\                          │
+    ///     │           /  \                         │
+    ///     │──────────/────\────────────────────────│ Zero Line
+    ///     │         /      \                       │
+    ///     │    ____/        \____       Momentum   │
+    ///     │   /                  \      Below 0    │
+    ///     │  /                    \                │
+    ///     └────────────────────────────────────────┘
+    ///              ↑ Bearish Momentum
+    /// </code>
+    /// </remarks>
+    public sealed class MomentumBelowCondition : IStrategyCondition
+    {
+        /// <summary>
+        /// Gets the momentum threshold.
+        /// </summary>
+        public double Threshold { get; }
+
+        /// <summary>
+        /// Gets or sets the callback to retrieve the current momentum value.
+        /// </summary>
+        public Func<double>? GetMomentumValue { get; set; }
+
+        /// <inheritdoc/>
+        public string Name => $"Momentum <= {Threshold:F2}";
+
+        /// <summary>
+        /// Creates a new momentum below condition.
+        /// </summary>
+        public MomentumBelowCondition(double threshold)
+        {
+            Threshold = threshold;
+        }
+
+        /// <inheritdoc/>
+        public bool Evaluate(double currentPrice, double vwap)
+        {
+            if (GetMomentumValue == null)
+                return false;
+
+            double momentum = GetMomentumValue();
+            return momentum <= Threshold;
+        }
+    }
+
+    /// <summary>
+    /// Condition: Rate of Change (ROC) is above the specified threshold.
+    /// </summary>
+    /// <remarks>
+    /// <para><b>Rate of Change (ROC):</b></para>
+    /// <para>Measures the percentage change in price over N periods.</para>
+    /// <para>Formula: ROC = ((Current Price - Price N periods ago) / Price N periods ago) × 100</para>
+    /// 
+    /// <para><b>Interpretation:</b></para>
+    /// <list type="bullet">
+    ///   <item><b>ROC > 0:</b> Price has increased over the period</item>
+    ///   <item><b>ROC &lt; 0:</b> Price has decreased over the period</item>
+    ///   <item><b>Rising ROC:</b> Momentum is increasing</item>
+    ///   <item><b>Falling ROC:</b> Momentum is decreasing</item>
+    /// </list>
+    /// 
+    /// <para><b>ASCII Visualization:</b></para>
+    /// <code>
+    ///     ROC Above 2% (Strong Bullish Momentum)
+    ///     ┌────────────────────────────────────────┐
+    ///     │  +5% ──────────────── Strong bullish   │
+    ///     │  +2% ═════════════════════════════════ │ ← Threshold
+    ///     │   0% ──────────────────────────────────│ Zero Line
+    ///     │  -2% ═════════════════════════════════ │
+    ///     │  -5% ──────────────── Strong bearish   │
+    ///     └────────────────────────────────────────┘
+    /// </code>
+    /// </remarks>
+    public sealed class RocAboveCondition : IStrategyCondition
+    {
+        /// <summary>
+        /// Gets the ROC threshold (percentage).
+        /// </summary>
+        public double Threshold { get; }
+
+        /// <summary>
+        /// Gets or sets the callback to retrieve the current ROC value.
+        /// </summary>
+        public Func<double>? GetRocValue { get; set; }
+
+        /// <inheritdoc/>
+        public string Name => $"ROC >= {Threshold:F1}%";
+
+        /// <summary>
+        /// Creates a new ROC above condition.
+        /// </summary>
+        public RocAboveCondition(double threshold)
+        {
+            Threshold = threshold;
+        }
+
+        /// <inheritdoc/>
+        public bool Evaluate(double currentPrice, double vwap)
+        {
+            if (GetRocValue == null)
+                return false;
+
+            double roc = GetRocValue();
+            return roc >= Threshold;
+        }
+    }
+
+    /// <summary>
+    /// Condition: Rate of Change (ROC) is below the specified threshold.
+    /// </summary>
+    /// <remarks>
+    /// <para><b>ROC Below Threshold (Bearish):</b></para>
+    /// <para>Detects negative or weakening momentum.</para>
+    /// 
+    /// <para><b>ASCII Visualization:</b></para>
+    /// <code>
+    ///     ROC Below -2% (Strong Bearish Momentum)
+    ///     ┌────────────────────────────────────────┐
+    ///     │  +5% ──────────────────────────────────│
+    ///     │   0% ──────────────────────────────────│ Zero Line
+    ///     │  -2% ═════════════════════════════════ │ ← Threshold
+    ///     │  -5% ──────────────────────────────────│
+    ///     │       ↓ ROC must be below this line    │
+    ///     └────────────────────────────────────────┘
+    /// </code>
+    /// </remarks>
+    public sealed class RocBelowCondition : IStrategyCondition
+    {
+        /// <summary>
+        /// Gets the ROC threshold (percentage).
+        /// </summary>
+        public double Threshold { get; }
+
+        /// <summary>
+        /// Gets or sets the callback to retrieve the current ROC value.
+        /// </summary>
+        public Func<double>? GetRocValue { get; set; }
+
+        /// <inheritdoc/>
+        public string Name => $"ROC <= {Threshold:F1}%";
+
+        /// <summary>
+        /// Creates a new ROC below condition.
+        /// </summary>
+        public RocBelowCondition(double threshold)
+        {
+            Threshold = threshold;
+        }
+
+        /// <inheritdoc/>
+        public bool Evaluate(double currentPrice, double vwap)
+        {
+            if (GetRocValue == null)
+                return false;
+
+            double roc = GetRocValue();
+            return roc <= Threshold;
+        }
+    }
 }

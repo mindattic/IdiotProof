@@ -26,7 +26,7 @@ namespace IdiotProof.Backend
                     return;
 
                 // Set console title
-                Console.Title = "IdiotProof Strategy Bot";
+                Console.Title = "IdiotProof";
 
                 // Get the largest possible window size for the current display
                 int maxWidth = Console.LargestWindowWidth;

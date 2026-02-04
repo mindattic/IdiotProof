@@ -1381,4 +1381,1322 @@ public class IndicatorConditionTests
     }
 
     #endregion
+
+    // ========================================================================
+    // MOMENTUM CONDITION TESTS
+    // ========================================================================
+    //
+    // Momentum Indicator Visualization:
+    //
+    //     Momentum = Current Price - Price N periods ago
+    //     ┌────────────────────────────────────────────────┐
+    //     │     /\                        /\               │
+    //     │    /  \                      /  \     Price    │
+    //     │   /    \                    /    \             │
+    //     │──/──────\──────────────────/──────\────────────│ Zero
+    //     │          \                /        \           │
+    //     │           \              /          \          │
+    //     │            \____________/                      │
+    //     └────────────────────────────────────────────────┘
+    //           ↑ Momentum > 0        ↑ Momentum > 0
+    //              (Bullish)             (Bullish)
+    //
+    // ========================================================================
+
+    #region Momentum Condition Tests
+
+    [Test]
+    public void MomentumAboveCondition_AboveThreshold_ReturnsTrue()
+    {
+        // Arrange
+        var condition = new MomentumAboveCondition(0);
+        condition.GetMomentumValue = () => 2.5;
+
+        // Act
+        var result = condition.Evaluate(currentPrice: 150, vwap: 148);
+
+        // Assert
+        Assert.That(result, Is.True);
+    }
+
+    [Test]
+    public void MomentumAboveCondition_BelowThreshold_ReturnsFalse()
+    {
+        // Arrange
+        var condition = new MomentumAboveCondition(0);
+        condition.GetMomentumValue = () => -1.5;
+
+        // Act
+        var result = condition.Evaluate(currentPrice: 150, vwap: 148);
+
+        // Assert
+        Assert.That(result, Is.False);
+    }
+
+    [Test]
+    public void MomentumAboveCondition_AtThreshold_ReturnsTrue()
+    {
+        // Arrange
+        var condition = new MomentumAboveCondition(0);
+        condition.GetMomentumValue = () => 0;
+
+        // Act
+        var result = condition.Evaluate(currentPrice: 150, vwap: 148);
+
+        // Assert - >= threshold
+        Assert.That(result, Is.True);
+    }
+
+    [Test]
+    public void MomentumAboveCondition_WithoutCallback_ReturnsFalse()
+    {
+        // Arrange
+        var condition = new MomentumAboveCondition(0);
+        // No callback set
+
+        // Act
+        var result = condition.Evaluate(currentPrice: 150, vwap: 148);
+
+        // Assert
+        Assert.That(result, Is.False);
+    }
+
+    [Test]
+    public void MomentumAboveCondition_Name_ContainsThreshold()
+    {
+        // Arrange
+        var condition = new MomentumAboveCondition(2.5);
+
+        // Assert
+        Assert.That(condition.Name, Does.Contain("2.50"));
+    }
+
+    [Test]
+    public void MomentumBelowCondition_BelowThreshold_ReturnsTrue()
+    {
+        // Arrange
+        var condition = new MomentumBelowCondition(0);
+        condition.GetMomentumValue = () => -2.5;
+
+        // Act
+        var result = condition.Evaluate(currentPrice: 150, vwap: 148);
+
+        // Assert
+        Assert.That(result, Is.True);
+    }
+
+    [Test]
+    public void MomentumBelowCondition_AboveThreshold_ReturnsFalse()
+    {
+        // Arrange
+        var condition = new MomentumBelowCondition(0);
+        condition.GetMomentumValue = () => 1.5;
+
+        // Act
+        var result = condition.Evaluate(currentPrice: 150, vwap: 148);
+
+        // Assert
+        Assert.That(result, Is.False);
+    }
+
+    [Test]
+    public void MomentumBelowCondition_AtThreshold_ReturnsTrue()
+    {
+        // Arrange
+        var condition = new MomentumBelowCondition(0);
+        condition.GetMomentumValue = () => 0;
+
+        // Act
+        var result = condition.Evaluate(currentPrice: 150, vwap: 148);
+
+        // Assert - <= threshold
+        Assert.That(result, Is.True);
+    }
+
+    [Test]
+    public void MomentumBelowCondition_WithoutCallback_ReturnsFalse()
+    {
+        // Arrange
+        var condition = new MomentumBelowCondition(0);
+
+        // Act
+        var result = condition.Evaluate(currentPrice: 150, vwap: 148);
+
+        // Assert
+        Assert.That(result, Is.False);
+    }
+
+    #endregion
+
+    // ========================================================================
+    // ROC (RATE OF CHANGE) CONDITION TESTS
+    // ========================================================================
+    //
+    // ROC = ((Current Price - Price N periods ago) / Price N periods ago) × 100
+    //
+    //     ┌────────────────────────────────────────────────┐
+    //     │  +5% ────────────────────── Strong bullish     │
+    //     │  +2% ══════════════════════════════════════════│ ← Threshold
+    //     │   0% ──────────────────────────────────────────│ Zero
+    //     │  -2% ══════════════════════════════════════════│ ← Threshold
+    //     │  -5% ────────────────────── Strong bearish     │
+    //     └────────────────────────────────────────────────┘
+    //
+    // ========================================================================
+
+    #region ROC Condition Tests
+
+    [Test]
+    public void RocAboveCondition_AboveThreshold_ReturnsTrue()
+    {
+        // Arrange
+        var condition = new RocAboveCondition(2.0);
+        condition.GetRocValue = () => 3.5;
+
+        // Act
+        var result = condition.Evaluate(currentPrice: 150, vwap: 148);
+
+        // Assert
+        Assert.That(result, Is.True);
+    }
+
+    [Test]
+    public void RocAboveCondition_BelowThreshold_ReturnsFalse()
+    {
+        // Arrange
+        var condition = new RocAboveCondition(2.0);
+        condition.GetRocValue = () => 1.5;
+
+        // Act
+        var result = condition.Evaluate(currentPrice: 150, vwap: 148);
+
+        // Assert
+        Assert.That(result, Is.False);
+    }
+
+    [Test]
+    public void RocAboveCondition_AtThreshold_ReturnsTrue()
+    {
+        // Arrange
+        var condition = new RocAboveCondition(2.0);
+        condition.GetRocValue = () => 2.0;
+
+        // Act
+        var result = condition.Evaluate(currentPrice: 150, vwap: 148);
+
+        // Assert
+        Assert.That(result, Is.True);
+    }
+
+    [Test]
+    public void RocAboveCondition_WithoutCallback_ReturnsFalse()
+    {
+        // Arrange
+        var condition = new RocAboveCondition(2.0);
+
+        // Act
+        var result = condition.Evaluate(currentPrice: 150, vwap: 148);
+
+        // Assert
+        Assert.That(result, Is.False);
+    }
+
+    [Test]
+    public void RocAboveCondition_Name_ContainsThresholdPercent()
+    {
+        // Arrange
+        var condition = new RocAboveCondition(2.5);
+
+        // Assert
+        Assert.That(condition.Name, Does.Contain("2.5%"));
+    }
+
+    [Test]
+    public void RocBelowCondition_BelowThreshold_ReturnsTrue()
+    {
+        // Arrange
+        var condition = new RocBelowCondition(-2.0);
+        condition.GetRocValue = () => -3.5;
+
+        // Act
+        var result = condition.Evaluate(currentPrice: 150, vwap: 148);
+
+        // Assert
+        Assert.That(result, Is.True);
+    }
+
+    [Test]
+    public void RocBelowCondition_AboveThreshold_ReturnsFalse()
+    {
+        // Arrange
+        var condition = new RocBelowCondition(-2.0);
+        condition.GetRocValue = () => -1.5;
+
+        // Act
+        var result = condition.Evaluate(currentPrice: 150, vwap: 148);
+
+        // Assert
+        Assert.That(result, Is.False);
+    }
+
+    [Test]
+    public void RocBelowCondition_AtThreshold_ReturnsTrue()
+    {
+        // Arrange
+        var condition = new RocBelowCondition(-2.0);
+        condition.GetRocValue = () => -2.0;
+
+        // Act
+        var result = condition.Evaluate(currentPrice: 150, vwap: 148);
+
+        // Assert
+        Assert.That(result, Is.True);
+    }
+
+    #endregion
+
+    // ========================================================================
+    // CONTINUATION PATTERN CONDITION TESTS
+    // ========================================================================
+    //
+    // Higher Lows Pattern (Bullish):
+    //     ┌────────────────────────────────────────────────┐
+    //     │                                    /\          │
+    //     │                        /\         /  \         │
+    //     │            /\         /  \       /    \        │
+    //     │           /  \       /    \     /      \       │
+    //     │          /    \     /      \   /        \      │
+    //     │         /      \___/   ↑    \_/          \     │
+    //     │        /        ↑    Higher              \    │
+    //     │       /       Higher  Low                 \   │
+    //     │      /         Low                         \  │
+    //     └────────────────────────────────────────────────┘
+    //              Low 1 < Low 2 < Low 3 = Bullish
+    //
+    // EMA Turning Up:
+    //     ┌────────────────────────────────────────────────┐
+    //     │                                     ___/       │
+    //     │                                 ___/           │
+    //     │                             ___/ ← Turning up  │
+    //     │   \_____                ___/                   │
+    //     │         \______________/                       │
+    //     │              ↑ Flattening                      │
+    //     └────────────────────────────────────────────────┘
+    //
+    // ========================================================================
+
+    #region Higher Lows Condition Tests
+
+    [Test]
+    public void HigherLowsCondition_AscendingLows_ReturnsTrue()
+    {
+        // Arrange
+        var condition = new HigherLowsCondition(3);
+        // Lows: most recent first - 150, 148, 145 (each higher than previous)
+        condition.GetRecentLows = () => [150.0, 148.0, 145.0];
+
+        // Act
+        var result = condition.Evaluate(currentPrice: 155, vwap: 150);
+
+        // Assert
+        Assert.That(result, Is.True);
+    }
+
+    [Test]
+    public void HigherLowsCondition_DescendingLows_ReturnsFalse()
+    {
+        // Arrange
+        var condition = new HigherLowsCondition(3);
+        // Lows: most recent first - 145, 148, 150 (lower lows = bearish)
+        condition.GetRecentLows = () => [145.0, 148.0, 150.0];
+
+        // Act
+        var result = condition.Evaluate(currentPrice: 155, vwap: 150);
+
+        // Assert
+        Assert.That(result, Is.False);
+    }
+
+    [Test]
+    public void HigherLowsCondition_EqualLows_ReturnsFalse()
+    {
+        // Arrange
+        var condition = new HigherLowsCondition(3);
+        // Equal lows = no clear pattern
+        condition.GetRecentLows = () => [150.0, 150.0, 150.0];
+
+        // Act
+        var result = condition.Evaluate(currentPrice: 155, vwap: 150);
+
+        // Assert
+        Assert.That(result, Is.False);
+    }
+
+    [Test]
+    public void HigherLowsCondition_WithoutCallback_ReturnsFalse()
+    {
+        // Arrange
+        var condition = new HigherLowsCondition(3);
+
+        // Act
+        var result = condition.Evaluate(currentPrice: 155, vwap: 150);
+
+        // Assert
+        Assert.That(result, Is.False);
+    }
+
+    [Test]
+    public void HigherLowsCondition_InsufficientData_ReturnsFalse()
+    {
+        // Arrange
+        var condition = new HigherLowsCondition(3);
+        condition.GetRecentLows = () => [150.0]; // Only 1 value
+
+        // Act
+        var result = condition.Evaluate(currentPrice: 155, vwap: 150);
+
+        // Assert
+        Assert.That(result, Is.False);
+    }
+
+    [Test]
+    public void HigherLowsCondition_Name_IsDescriptive()
+    {
+        // Arrange
+        var condition = new HigherLowsCondition(3);
+
+        // Assert
+        Assert.That(condition.Name, Does.Contain("Higher Lows"));
+    }
+
+    [Test]
+    public void HigherLowsCondition_MinimumLookback_ThrowsForLessThan2()
+    {
+        // Act & Assert
+        Assert.Throws<ArgumentOutOfRangeException>(() => new HigherLowsCondition(1));
+    }
+
+    #endregion
+
+    #region EMA Turning Up Condition Tests
+
+    [Test]
+    public void EmaTurningUpCondition_PositiveSlope_ReturnsTrue()
+    {
+        // Arrange
+        var condition = new EmaTurningUpCondition(9);
+        condition.GetCurrentEmaValue = () => 150.0;
+        condition.GetPreviousEmaValue = () => 149.0; // Current > Previous = turning up
+
+        // Act
+        var result = condition.Evaluate(currentPrice: 155, vwap: 150);
+
+        // Assert
+        Assert.That(result, Is.True);
+    }
+
+    [Test]
+    public void EmaTurningUpCondition_NegativeSlope_ReturnsFalse()
+    {
+        // Arrange
+        var condition = new EmaTurningUpCondition(9);
+        condition.GetCurrentEmaValue = () => 148.0;
+        condition.GetPreviousEmaValue = () => 150.0; // Current < Previous = turning down
+
+        // Act
+        var result = condition.Evaluate(currentPrice: 155, vwap: 150);
+
+        // Assert
+        Assert.That(result, Is.False);
+    }
+
+    [Test]
+    public void EmaTurningUpCondition_FlatSlope_ReturnsTrue()
+    {
+        // Arrange - flat is considered "not falling"
+        var condition = new EmaTurningUpCondition(9);
+        condition.GetCurrentEmaValue = () => 150.0;
+        condition.GetPreviousEmaValue = () => 150.0; // Equal = flat (acceptable)
+
+        // Act
+        var result = condition.Evaluate(currentPrice: 155, vwap: 150);
+
+        // Assert
+        Assert.That(result, Is.True);
+    }
+
+    [Test]
+    public void EmaTurningUpCondition_WithoutCallbacks_ReturnsFalse()
+    {
+        // Arrange
+        var condition = new EmaTurningUpCondition(9);
+
+        // Act
+        var result = condition.Evaluate(currentPrice: 155, vwap: 150);
+
+        // Assert
+        Assert.That(result, Is.False);
+    }
+
+    [Test]
+    public void EmaTurningUpCondition_ZeroEmaValues_ReturnsFalse()
+    {
+        // Arrange
+        var condition = new EmaTurningUpCondition(9);
+        condition.GetCurrentEmaValue = () => 0;
+        condition.GetPreviousEmaValue = () => 0;
+
+        // Act
+        var result = condition.Evaluate(currentPrice: 155, vwap: 150);
+
+        // Assert
+        Assert.That(result, Is.False);
+    }
+
+    [Test]
+    public void EmaTurningUpCondition_Name_ContainsPeriod()
+    {
+        // Arrange
+        var condition = new EmaTurningUpCondition(21);
+
+        // Assert
+        Assert.That(condition.Name, Does.Contain("21"));
+        Assert.That(condition.Name, Does.Contain("Turning Up"));
+    }
+
+    [Test]
+    public void EmaTurningUpCondition_Period_MustBePositive()
+    {
+        // Act & Assert
+        Assert.Throws<ArgumentOutOfRangeException>(() => new EmaTurningUpCondition(0));
+    }
+
+    #endregion
+
+    // ========================================================================
+    // VOLUME CONDITION TESTS
+    // ========================================================================
+    //
+    // Volume Spike Visualization:
+    //     ┌────────────────────────────────────────────────┐
+    //     │                    ████                        │
+    //     │                    ████                        │
+    //     │  Average ─────────────────────────────────────│
+    //     │    ████      ████  ████      ████             │
+    //     │    ████  ██  ████  ████  ██  ████             │
+    //     │    ████  ██  ████  ████  ██  ████             │
+    //     └────────────────────────────────────────────────┘
+    //                    ↑ Volume spike (1.5x+ average)
+    //
+    // ========================================================================
+
+    #region Volume Above Condition Tests
+
+    [Test]
+    public void VolumeAboveCondition_AboveMultiplier_ReturnsTrue()
+    {
+        // Arrange
+        var condition = new VolumeAboveCondition(1.5);
+        condition.GetCurrentVolume = () => 1_500_000;
+        condition.GetAverageVolume = () => 1_000_000;
+
+        // Act
+        var result = condition.Evaluate(currentPrice: 150, vwap: 148);
+
+        // Assert
+        Assert.That(result, Is.True);
+    }
+
+    [Test]
+    public void VolumeAboveCondition_BelowMultiplier_ReturnsFalse()
+    {
+        // Arrange
+        var condition = new VolumeAboveCondition(1.5);
+        condition.GetCurrentVolume = () => 1_200_000;
+        condition.GetAverageVolume = () => 1_000_000;
+
+        // Act
+        var result = condition.Evaluate(currentPrice: 150, vwap: 148);
+
+        // Assert
+        Assert.That(result, Is.False);
+    }
+
+    [Test]
+    public void VolumeAboveCondition_AtMultiplier_ReturnsTrue()
+    {
+        // Arrange
+        var condition = new VolumeAboveCondition(1.5);
+        condition.GetCurrentVolume = () => 1_500_000;
+        condition.GetAverageVolume = () => 1_000_000;
+
+        // Act
+        var result = condition.Evaluate(currentPrice: 150, vwap: 148);
+
+        // Assert
+        Assert.That(result, Is.True);
+    }
+
+    [Test]
+    public void VolumeAboveCondition_WithoutCallbacks_ReturnsFalse()
+    {
+        // Arrange
+        var condition = new VolumeAboveCondition(1.5);
+
+        // Act
+        var result = condition.Evaluate(currentPrice: 150, vwap: 148);
+
+        // Assert
+        Assert.That(result, Is.False);
+    }
+
+    [Test]
+    public void VolumeAboveCondition_ZeroVolume_ReturnsFalse()
+    {
+        // Arrange
+        var condition = new VolumeAboveCondition(1.5);
+        condition.GetCurrentVolume = () => 0;
+        condition.GetAverageVolume = () => 1_000_000;
+
+        // Act
+        var result = condition.Evaluate(currentPrice: 150, vwap: 148);
+
+        // Assert
+        Assert.That(result, Is.False);
+    }
+
+    [Test]
+    public void VolumeAboveCondition_ZeroAverage_ReturnsFalse()
+    {
+        // Arrange
+        var condition = new VolumeAboveCondition(1.5);
+        condition.GetCurrentVolume = () => 1_500_000;
+        condition.GetAverageVolume = () => 0;
+
+        // Act
+        var result = condition.Evaluate(currentPrice: 150, vwap: 148);
+
+        // Assert
+        Assert.That(result, Is.False);
+    }
+
+    [Test]
+    public void VolumeAboveCondition_Name_ContainsMultiplier()
+    {
+        // Arrange
+        var condition = new VolumeAboveCondition(2.0);
+
+        // Assert
+        Assert.That(condition.Name, Does.Contain("2.0x"));
+    }
+
+    [Test]
+    public void VolumeAboveCondition_Multiplier_MustBePositive()
+    {
+        // Act & Assert
+        Assert.Throws<ArgumentOutOfRangeException>(() => new VolumeAboveCondition(0));
+        Assert.Throws<ArgumentOutOfRangeException>(() => new VolumeAboveCondition(-1));
+    }
+
+    #endregion
+
+    // ========================================================================
+    // VWAP PATTERN CONDITION TESTS
+    // ========================================================================
+    //
+    // Close Above VWAP (Strong Bullish):
+    //     ┌────────────────────────────────────────────────┐
+    //     │         ┌───┐                                  │
+    //     │         │   │ ← Close above VWAP              │
+    //     │  VWAP ══│═══│══════════════════════════════════│
+    //     │         │   │                                  │
+    //     │         └───┘                                  │
+    //     └────────────────────────────────────────────────┘
+    //
+    // VWAP Rejection (Bearish):
+    //     ┌────────────────────────────────────────────────┐
+    //     │           │ ← Wick above VWAP                 │
+    //     │  VWAP ════╪═══════════════════════════════════│
+    //     │         ┌─┴─┐                                  │
+    //     │         │   │ ← Close below VWAP (rejected)   │
+    //     │         └───┘                                  │
+    //     └────────────────────────────────────────────────┘
+    //
+    // ========================================================================
+
+    #region Close Above VWAP Condition Tests
+
+    [Test]
+    public void CloseAboveVwapCondition_CloseAboveVwap_ReturnsTrue()
+    {
+        // Arrange
+        var condition = new CloseAboveVwapCondition();
+        condition.GetLastClose = () => 152.0;
+
+        // Act - VWAP = 150
+        var result = condition.Evaluate(currentPrice: 151, vwap: 150);
+
+        // Assert
+        Assert.That(result, Is.True);
+    }
+
+    [Test]
+    public void CloseAboveVwapCondition_CloseBelowVwap_ReturnsFalse()
+    {
+        // Arrange
+        var condition = new CloseAboveVwapCondition();
+        condition.GetLastClose = () => 148.0;
+
+        // Act - VWAP = 150
+        var result = condition.Evaluate(currentPrice: 151, vwap: 150);
+
+        // Assert
+        Assert.That(result, Is.False);
+    }
+
+    [Test]
+    public void CloseAboveVwapCondition_CloseAtVwap_ReturnsFalse()
+    {
+        // Arrange - must be strictly above
+        var condition = new CloseAboveVwapCondition();
+        condition.GetLastClose = () => 150.0;
+
+        // Act - VWAP = 150
+        var result = condition.Evaluate(currentPrice: 151, vwap: 150);
+
+        // Assert
+        Assert.That(result, Is.False);
+    }
+
+    [Test]
+    public void CloseAboveVwapCondition_WithoutCallback_ReturnsFalse()
+    {
+        // Arrange
+        var condition = new CloseAboveVwapCondition();
+
+        // Act
+        var result = condition.Evaluate(currentPrice: 151, vwap: 150);
+
+        // Assert
+        Assert.That(result, Is.False);
+    }
+
+    [Test]
+    public void CloseAboveVwapCondition_ZeroClose_ReturnsFalse()
+    {
+        // Arrange
+        var condition = new CloseAboveVwapCondition();
+        condition.GetLastClose = () => 0;
+
+        // Act
+        var result = condition.Evaluate(currentPrice: 151, vwap: 150);
+
+        // Assert
+        Assert.That(result, Is.False);
+    }
+
+    [Test]
+    public void CloseAboveVwapCondition_ZeroVwap_ReturnsFalse()
+    {
+        // Arrange
+        var condition = new CloseAboveVwapCondition();
+        condition.GetLastClose = () => 152.0;
+
+        // Act
+        var result = condition.Evaluate(currentPrice: 151, vwap: 0);
+
+        // Assert
+        Assert.That(result, Is.False);
+    }
+
+    [Test]
+    public void CloseAboveVwapCondition_Name_IsDescriptive()
+    {
+        // Arrange
+        var condition = new CloseAboveVwapCondition();
+
+        // Assert
+        Assert.That(condition.Name, Is.EqualTo("Close Above VWAP"));
+    }
+
+    #endregion
+
+    #region VWAP Rejection Condition Tests
+
+    [Test]
+    public void VwapRejectionCondition_WickAboveCloseBelowVwap_ReturnsTrue()
+    {
+        // Arrange - Classic rejection pattern
+        var condition = new VwapRejectionCondition();
+        condition.GetLastHigh = () => 152.0; // High went above VWAP
+        condition.GetLastClose = () => 148.0; // But closed below VWAP
+
+        // Act - VWAP = 150
+        var result = condition.Evaluate(currentPrice: 149, vwap: 150);
+
+        // Assert
+        Assert.That(result, Is.True);
+    }
+
+    [Test]
+    public void VwapRejectionCondition_HighAndCloseBothAboveVwap_ReturnsFalse()
+    {
+        // Arrange - Not a rejection, closed above
+        var condition = new VwapRejectionCondition();
+        condition.GetLastHigh = () => 155.0;
+        condition.GetLastClose = () => 152.0; // Closed above VWAP
+
+        // Act - VWAP = 150
+        var result = condition.Evaluate(currentPrice: 151, vwap: 150);
+
+        // Assert
+        Assert.That(result, Is.False);
+    }
+
+    [Test]
+    public void VwapRejectionCondition_HighAndCloseBothBelowVwap_ReturnsFalse()
+    {
+        // Arrange - Never even touched VWAP
+        var condition = new VwapRejectionCondition();
+        condition.GetLastHigh = () => 148.0; // Never reached VWAP
+        condition.GetLastClose = () => 145.0;
+
+        // Act - VWAP = 150
+        var result = condition.Evaluate(currentPrice: 146, vwap: 150);
+
+        // Assert
+        Assert.That(result, Is.False);
+    }
+
+    [Test]
+    public void VwapRejectionCondition_HighAtVwapCloseBelowVwap_ReturnsFalse()
+    {
+        // Arrange - High must be strictly ABOVE VWAP
+        var condition = new VwapRejectionCondition();
+        condition.GetLastHigh = () => 150.0; // At VWAP, not above
+        condition.GetLastClose = () => 148.0;
+
+        // Act - VWAP = 150
+        var result = condition.Evaluate(currentPrice: 149, vwap: 150);
+
+        // Assert
+        Assert.That(result, Is.False);
+    }
+
+    [Test]
+    public void VwapRejectionCondition_WithoutCallbacks_ReturnsFalse()
+    {
+        // Arrange
+        var condition = new VwapRejectionCondition();
+
+        // Act
+        var result = condition.Evaluate(currentPrice: 149, vwap: 150);
+
+        // Assert
+        Assert.That(result, Is.False);
+    }
+
+    [Test]
+    public void VwapRejectionCondition_ZeroValues_ReturnsFalse()
+    {
+        // Arrange
+        var condition = new VwapRejectionCondition();
+        condition.GetLastHigh = () => 0;
+        condition.GetLastClose = () => 0;
+
+        // Act
+        var result = condition.Evaluate(currentPrice: 149, vwap: 150);
+
+        // Assert
+        Assert.That(result, Is.False);
+    }
+
+    [Test]
+    public void VwapRejectionCondition_ZeroVwap_ReturnsFalse()
+    {
+        // Arrange
+        var condition = new VwapRejectionCondition();
+        condition.GetLastHigh = () => 152.0;
+        condition.GetLastClose = () => 148.0;
+
+        // Act
+        var result = condition.Evaluate(currentPrice: 149, vwap: 0);
+
+        // Assert
+        Assert.That(result, Is.False);
+    }
+
+    [Test]
+    public void VwapRejectionCondition_Name_IsDescriptive()
+    {
+        // Arrange
+        var condition = new VwapRejectionCondition();
+
+        // Assert
+        Assert.That(condition.Name, Is.EqualTo("VWAP Rejection"));
+    }
+
+    #endregion
+
+    // ========================================================================
+    // EMA CONDITION TESTS
+    // ========================================================================
+    //
+    // EMA (Exponential Moving Average) Visualization:
+    //
+    //     Price vs EMA(9) - Short-term trend
+    //     +--------------------------------------------+
+    //     |     /\                                     |
+    //     |    /  \        ___/                        |
+    //     |   /    \______/    <- Price above EMA     |
+    //     |  /     EMA(9) ___                         |
+    //     | /  ___________/   \____                   |
+    //     |/__/                    \___  <- Below EMA |
+    //     +--------------------------------------------+
+    //
+    //     Price Between EMA(9) and EMA(21):
+    //     +--------------------------------------------+
+    //     |  EMA(21) ______________________________    |
+    //     |         /                              \   |
+    //     |  ______/  * * * Price between * * *    \__|
+    //     | /     EMA(9) ____________________________ |
+    //     |/___________________________________________|
+    //     +--------------------------------------------+
+    //
+    // ========================================================================
+
+    #region EMA Above Condition Tests
+
+    [Test]
+    public void EmaAboveCondition_PriceAboveEma_ReturnsTrue()
+    {
+        // Arrange
+        var condition = new EmaAboveCondition(9);
+        condition.GetEmaValue = () => 148.0;
+
+        // Act - Price 150, EMA 148
+        var result = condition.Evaluate(currentPrice: 150, vwap: 145);
+
+        // Assert
+        Assert.That(result, Is.True);
+    }
+
+    [Test]
+    public void EmaAboveCondition_PriceBelowEma_ReturnsFalse()
+    {
+        // Arrange
+        var condition = new EmaAboveCondition(9);
+        condition.GetEmaValue = () => 152.0;
+
+        // Act - Price 150, EMA 152
+        var result = condition.Evaluate(currentPrice: 150, vwap: 145);
+
+        // Assert
+        Assert.That(result, Is.False);
+    }
+
+    [Test]
+    public void EmaAboveCondition_PriceAtEma_ReturnsTrue()
+    {
+        // Arrange - >= comparison
+        var condition = new EmaAboveCondition(9);
+        condition.GetEmaValue = () => 150.0;
+
+        // Act - Price equals EMA
+        var result = condition.Evaluate(currentPrice: 150, vwap: 145);
+
+        // Assert
+        Assert.That(result, Is.True);
+    }
+
+    [Test]
+    public void EmaAboveCondition_WithoutCallback_ReturnsFalse()
+    {
+        // Arrange
+        var condition = new EmaAboveCondition(9);
+
+        // Act
+        var result = condition.Evaluate(currentPrice: 150, vwap: 145);
+
+        // Assert
+        Assert.That(result, Is.False);
+    }
+
+    [Test]
+    public void EmaAboveCondition_ZeroEmaValue_ReturnsFalse()
+    {
+        // Arrange
+        var condition = new EmaAboveCondition(9);
+        condition.GetEmaValue = () => 0;
+
+        // Act
+        var result = condition.Evaluate(currentPrice: 150, vwap: 145);
+
+        // Assert
+        Assert.That(result, Is.False);
+    }
+
+    [Test]
+    public void EmaAboveCondition_Name_ContainsPeriod()
+    {
+        // Arrange
+        var condition = new EmaAboveCondition(21);
+
+        // Assert
+        Assert.That(condition.Name, Does.Contain("21"));
+        Assert.That(condition.Name, Does.Contain("EMA"));
+    }
+
+    [Test]
+    public void EmaAboveCondition_Period_MustBePositive()
+    {
+        // Act & Assert
+        Assert.Throws<ArgumentOutOfRangeException>(() => new EmaAboveCondition(0));
+        Assert.Throws<ArgumentOutOfRangeException>(() => new EmaAboveCondition(-1));
+    }
+
+    [Test]
+    public void EmaAboveCondition_Period_IsStored()
+    {
+        // Arrange
+        var condition = new EmaAboveCondition(200);
+
+        // Assert
+        Assert.That(condition.Period, Is.EqualTo(200));
+    }
+
+    #endregion
+
+    #region EMA Below Condition Tests
+
+    [Test]
+    public void EmaBelowCondition_PriceBelowEma_ReturnsTrue()
+    {
+        // Arrange
+        var condition = new EmaBelowCondition(9);
+        condition.GetEmaValue = () => 152.0;
+
+        // Act - Price 150, EMA 152
+        var result = condition.Evaluate(currentPrice: 150, vwap: 145);
+
+        // Assert
+        Assert.That(result, Is.True);
+    }
+
+    [Test]
+    public void EmaBelowCondition_PriceAboveEma_ReturnsFalse()
+    {
+        // Arrange
+        var condition = new EmaBelowCondition(9);
+        condition.GetEmaValue = () => 148.0;
+
+        // Act - Price 150, EMA 148
+        var result = condition.Evaluate(currentPrice: 150, vwap: 145);
+
+        // Assert
+        Assert.That(result, Is.False);
+    }
+
+    [Test]
+    public void EmaBelowCondition_PriceAtEma_ReturnsTrue()
+    {
+        // Arrange - <= comparison
+        var condition = new EmaBelowCondition(9);
+        condition.GetEmaValue = () => 150.0;
+
+        // Act - Price equals EMA
+        var result = condition.Evaluate(currentPrice: 150, vwap: 145);
+
+        // Assert
+        Assert.That(result, Is.True);
+    }
+
+    [Test]
+    public void EmaBelowCondition_WithoutCallback_ReturnsFalse()
+    {
+        // Arrange
+        var condition = new EmaBelowCondition(9);
+
+        // Act
+        var result = condition.Evaluate(currentPrice: 150, vwap: 145);
+
+        // Assert
+        Assert.That(result, Is.False);
+    }
+
+    [Test]
+    public void EmaBelowCondition_ZeroEmaValue_ReturnsFalse()
+    {
+        // Arrange
+        var condition = new EmaBelowCondition(9);
+        condition.GetEmaValue = () => 0;
+
+        // Act
+        var result = condition.Evaluate(currentPrice: 150, vwap: 145);
+
+        // Assert
+        Assert.That(result, Is.False);
+    }
+
+    [Test]
+    public void EmaBelowCondition_Name_ContainsPeriod()
+    {
+        // Arrange
+        var condition = new EmaBelowCondition(50);
+
+        // Assert
+        Assert.That(condition.Name, Does.Contain("50"));
+        Assert.That(condition.Name, Does.Contain("EMA"));
+    }
+
+    [Test]
+    public void EmaBelowCondition_Period_MustBePositive()
+    {
+        // Act & Assert
+        Assert.Throws<ArgumentOutOfRangeException>(() => new EmaBelowCondition(0));
+    }
+
+    #endregion
+
+    #region EMA Between Condition Tests
+
+    [Test]
+    public void EmaBetweenCondition_PriceBetweenEmas_ReturnsTrue()
+    {
+        // Arrange
+        var condition = new EmaBetweenCondition(9, 21);
+        condition.GetLowerEmaValue = () => 148.0; // EMA(9)
+        condition.GetUpperEmaValue = () => 152.0; // EMA(21)
+
+        // Act - Price 150 is between 148 and 152
+        var result = condition.Evaluate(currentPrice: 150, vwap: 145);
+
+        // Assert
+        Assert.That(result, Is.True);
+    }
+
+    [Test]
+    public void EmaBetweenCondition_PriceAboveBothEmas_ReturnsFalse()
+    {
+        // Arrange
+        var condition = new EmaBetweenCondition(9, 21);
+        condition.GetLowerEmaValue = () => 145.0;
+        condition.GetUpperEmaValue = () => 148.0;
+
+        // Act - Price 150 is above both
+        var result = condition.Evaluate(currentPrice: 150, vwap: 145);
+
+        // Assert
+        Assert.That(result, Is.False);
+    }
+
+    [Test]
+    public void EmaBetweenCondition_PriceBelowBothEmas_ReturnsFalse()
+    {
+        // Arrange
+        var condition = new EmaBetweenCondition(9, 21);
+        condition.GetLowerEmaValue = () => 152.0;
+        condition.GetUpperEmaValue = () => 155.0;
+
+        // Act - Price 150 is below both
+        var result = condition.Evaluate(currentPrice: 150, vwap: 145);
+
+        // Assert
+        Assert.That(result, Is.False);
+    }
+
+    [Test]
+    public void EmaBetweenCondition_PriceAtLowerEma_ReturnsTrue()
+    {
+        // Arrange - >= minEma comparison
+        var condition = new EmaBetweenCondition(9, 21);
+        condition.GetLowerEmaValue = () => 150.0;
+        condition.GetUpperEmaValue = () => 155.0;
+
+        // Act - Price equals lower EMA
+        var result = condition.Evaluate(currentPrice: 150, vwap: 145);
+
+        // Assert
+        Assert.That(result, Is.True);
+    }
+
+    [Test]
+    public void EmaBetweenCondition_PriceAtUpperEma_ReturnsTrue()
+    {
+        // Arrange - <= maxEma comparison
+        var condition = new EmaBetweenCondition(9, 21);
+        condition.GetLowerEmaValue = () => 145.0;
+        condition.GetUpperEmaValue = () => 150.0;
+
+        // Act - Price equals upper EMA
+        var result = condition.Evaluate(currentPrice: 150, vwap: 145);
+
+        // Assert
+        Assert.That(result, Is.True);
+    }
+
+    [Test]
+    public void EmaBetweenCondition_ReversedEmas_StillWorks()
+    {
+        // Arrange - EMAs can cross, so the condition handles it
+        var condition = new EmaBetweenCondition(9, 21);
+        condition.GetLowerEmaValue = () => 155.0; // "Lower period" EMA is actually higher
+        condition.GetUpperEmaValue = () => 145.0; // "Upper period" EMA is actually lower
+
+        // Act - Price 150 should still be between 145 and 155
+        var result = condition.Evaluate(currentPrice: 150, vwap: 145);
+
+        // Assert
+        Assert.That(result, Is.True);
+    }
+
+    [Test]
+    public void EmaBetweenCondition_WithoutCallbacks_ReturnsFalse()
+    {
+        // Arrange
+        var condition = new EmaBetweenCondition(9, 21);
+
+        // Act
+        var result = condition.Evaluate(currentPrice: 150, vwap: 145);
+
+        // Assert
+        Assert.That(result, Is.False);
+    }
+
+    [Test]
+    public void EmaBetweenCondition_ZeroLowerEma_ReturnsFalse()
+    {
+        // Arrange
+        var condition = new EmaBetweenCondition(9, 21);
+        condition.GetLowerEmaValue = () => 0;
+        condition.GetUpperEmaValue = () => 155.0;
+
+        // Act
+        var result = condition.Evaluate(currentPrice: 150, vwap: 145);
+
+        // Assert
+        Assert.That(result, Is.False);
+    }
+
+    [Test]
+    public void EmaBetweenCondition_ZeroUpperEma_ReturnsFalse()
+    {
+        // Arrange
+        var condition = new EmaBetweenCondition(9, 21);
+        condition.GetLowerEmaValue = () => 145.0;
+        condition.GetUpperEmaValue = () => 0;
+
+        // Act
+        var result = condition.Evaluate(currentPrice: 150, vwap: 145);
+
+        // Assert
+        Assert.That(result, Is.False);
+    }
+
+    [Test]
+    public void EmaBetweenCondition_Name_ContainsBothPeriods()
+    {
+        // Arrange
+        var condition = new EmaBetweenCondition(9, 21);
+
+        // Assert
+        Assert.That(condition.Name, Does.Contain("9"));
+        Assert.That(condition.Name, Does.Contain("21"));
+    }
+
+    [Test]
+    public void EmaBetweenCondition_Periods_MustBePositive()
+    {
+        // Act & Assert
+        Assert.Throws<ArgumentOutOfRangeException>(() => new EmaBetweenCondition(0, 21));
+        Assert.Throws<ArgumentOutOfRangeException>(() => new EmaBetweenCondition(9, 0));
+    }
+
+    [Test]
+    public void EmaBetweenCondition_Periods_AreStored()
+    {
+        // Arrange
+        var condition = new EmaBetweenCondition(9, 200);
+
+        // Assert
+        Assert.That(condition.LowerPeriod, Is.EqualTo(9));
+        Assert.That(condition.UpperPeriod, Is.EqualTo(200));
+    }
+
+    #endregion
+
+    #region Fluent API EMA Integration Tests
+
+    [Test]
+    public void FluentApi_IsEmaAbove_CreatesConditionInStrategy()
+    {
+        // Arrange & Act
+        var strategy = Stock.Ticker("AAPL")
+            .IsEmaAbove(9)
+            .Breakout(150)
+            .Buy(100, Price.Current)
+            .Build();
+
+        // Assert
+        Assert.That(strategy.Conditions, Has.Count.EqualTo(2));
+        Assert.That(strategy.Conditions[0], Is.TypeOf<EmaAboveCondition>());
+        var emaCondition = strategy.Conditions[0] as EmaAboveCondition;
+        Assert.That(emaCondition!.Period, Is.EqualTo(9));
+    }
+
+    [Test]
+    public void FluentApi_IsEmaBelow_CreatesConditionInStrategy()
+    {
+        // Arrange & Act
+        var strategy = Stock.Ticker("AAPL")
+            .IsEmaBelow(200)
+            .Breakout(150)
+            .Buy(100, Price.Current)
+            .Build();
+
+        // Assert
+        Assert.That(strategy.Conditions, Has.Count.EqualTo(2));
+        Assert.That(strategy.Conditions[0], Is.TypeOf<EmaBelowCondition>());
+        var emaCondition = strategy.Conditions[0] as EmaBelowCondition;
+        Assert.That(emaCondition!.Period, Is.EqualTo(200));
+    }
+
+    [Test]
+    public void FluentApi_IsEmaBetween_CreatesConditionInStrategy()
+    {
+        // Arrange & Act
+        var strategy = Stock.Ticker("AAPL")
+            .IsEmaBetween(9, 21)
+            .Breakout(150)
+            .Buy(100, Price.Current)
+            .Build();
+
+        // Assert
+        Assert.That(strategy.Conditions, Has.Count.EqualTo(2));
+        Assert.That(strategy.Conditions[0], Is.TypeOf<EmaBetweenCondition>());
+        var emaCondition = strategy.Conditions[0] as EmaBetweenCondition;
+        Assert.That(emaCondition!.LowerPeriod, Is.EqualTo(9));
+        Assert.That(emaCondition.UpperPeriod, Is.EqualTo(21));
+    }
+
+    [Test]
+    public void FluentApi_MultipleEmas_CanBeChained()
+    {
+        // Arrange & Act
+        var strategy = Stock.Ticker("AAPL")
+            .IsEmaAbove(9)
+            .IsEmaAbove(21)
+            .IsEmaBelow(200)
+            .Breakout(150)
+            .Buy(100, Price.Current)
+            .Build();
+
+        // Assert
+        Assert.That(strategy.Conditions, Has.Count.EqualTo(4));
+        Assert.That(strategy.Conditions[0], Is.TypeOf<EmaAboveCondition>());
+        Assert.That(strategy.Conditions[1], Is.TypeOf<EmaAboveCondition>());
+        Assert.That(strategy.Conditions[2], Is.TypeOf<EmaBelowCondition>());
+    }
+
+    #endregion
 }

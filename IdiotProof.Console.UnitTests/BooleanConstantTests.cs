@@ -198,11 +198,9 @@ public class BooleanConstantTests
     [Test]
     public void TruthyValues_ContainsExpectedValues()
     {
-        // Assert
+        // Assert - TruthyValues contains uppercase constants
         Assert.That(IdiotScriptConstants.TruthyValues, Does.Contain("Y"));
         Assert.That(IdiotScriptConstants.TruthyValues, Does.Contain("YES"));
-        Assert.That(IdiotScriptConstants.TruthyValues, Does.Contain("yes"));
-        Assert.That(IdiotScriptConstants.TruthyValues, Does.Contain("true"));
         Assert.That(IdiotScriptConstants.TruthyValues, Does.Contain("TRUE"));
         Assert.That(IdiotScriptConstants.TruthyValues, Does.Contain("1"));
         Assert.That(IdiotScriptConstants.TruthyValues, Does.Contain("IS.TRUE"));
@@ -211,11 +209,9 @@ public class BooleanConstantTests
     [Test]
     public void FalsyValues_ContainsExpectedValues()
     {
-        // Assert
+        // Assert - FalsyValues contains uppercase constants
         Assert.That(IdiotScriptConstants.FalsyValues, Does.Contain("N"));
         Assert.That(IdiotScriptConstants.FalsyValues, Does.Contain("NO"));
-        Assert.That(IdiotScriptConstants.FalsyValues, Does.Contain("no"));
-        Assert.That(IdiotScriptConstants.FalsyValues, Does.Contain("false"));
         Assert.That(IdiotScriptConstants.FalsyValues, Does.Contain("FALSE"));
         Assert.That(IdiotScriptConstants.FalsyValues, Does.Contain("0"));
         Assert.That(IdiotScriptConstants.FalsyValues, Does.Contain("IS.FALSE"));

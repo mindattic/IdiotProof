@@ -74,6 +74,13 @@ namespace IdiotProof.Shared.Models
         public List<string> Tags { get; set; } = [];
 
         /// <summary>
+        /// The original IdiotScript text (without comments).
+        /// Preserved from parsing to avoid re-serialization changes.
+        /// </summary>
+        [JsonIgnore]
+        public string? OriginalScript { get; set; }
+
+        /// <summary>
         /// Generates the fluent API code for this strategy.
         /// </summary>
         public string ToFluentCode()
@@ -95,18 +102,27 @@ namespace IdiotProof.Shared.Models
 
         /// <summary>
         /// Generates the IdiotScript representation of this strategy.
+        /// Returns the original script if available, otherwise re-serializes.
         /// </summary>
         public string ToIdiotScript()
         {
-            return Scripting.IdiotScriptSerializer.Serialize(this);
+            return OriginalScript ?? Scripting.IdiotScriptSerializer.Serialize(this);
         }
 
         /// <summary>
-        /// Generates a formatted IdiotScript representation of this strategy.
+        /// Generates an ASCII chart visualization of this strategy.
         /// </summary>
-        public string ToFormattedIdiotScript()
+        public string ToAsciiChart()
         {
-            return Scripting.IdiotScriptSerializer.SerializeFormatted(this);
+            return Scripting.IdiotScriptChartGenerator.GenerateChart(this);
+        }
+
+        /// <summary>
+        /// Generates ASCII chart as comment lines (prefixed with #).
+        /// </summary>
+        public string ToAsciiChartComments()
+        {
+            return Scripting.IdiotScriptChartGenerator.GenerateChartComments(this);
         }
 
         /// <summary>

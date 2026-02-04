@@ -99,18 +99,11 @@ public static class StrategyScriptParser
 
     /// <summary>
     /// Converts a StrategyDefinition to an IdiotScript string.
+    /// Returns the original script if available, otherwise re-serializes.
     /// </summary>
     public static string ToScript(StrategyDefinition strategy)
     {
-        return IdiotScriptSerializer.Serialize(strategy);
-    }
-
-    /// <summary>
-    /// Converts a StrategyDefinition to a formatted IdiotScript string.
-    /// </summary>
-    public static string ToFormattedScript(StrategyDefinition strategy)
-    {
-        return IdiotScriptSerializer.SerializeFormatted(strategy);
+        return strategy.ToIdiotScript();
     }
 }
 

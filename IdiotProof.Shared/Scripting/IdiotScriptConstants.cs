@@ -12,8 +12,8 @@
 // - TSL Constant: Trailing stop loss percentages (IS.TIGHT, IS.MODERATE, etc.)
 //
 // BOOLEAN VALUES:
-// - Truthy: Y, YES, yes, true, TRUE, 1, IS.TRUE
-// - Falsy: N, NO, no, false, FALSE, 0, IS.FALSE
+// - Truthy: Y, YES, TRUE, T, 1, IS.TRUE, IS.Y, IS.YES, IS.T
+// - Falsy: N, NO, FALSE, F, 0, IS.FALSE, IS.N, IS.NO, IS.F
 //
 // SESSION CONSTANTS:
 // - IS.PREMARKET: Pre-market session (4:00 AM - 9:30 AM ET)
@@ -185,6 +185,9 @@ public static class IdiotScriptConstants
     /// <summary>Boolean true constant for ClosePosition - closes only if position is profitable</summary>
     public const string PROFITABLE = "IS.PROFITABLE";
 
+    /// <summary>Boolean false constant for ClosePosition - closes regardless of profit/loss</summary>
+    public const string NOTPROFITABLE = "IS.NOTPROFITABLE";
+
     // ========================================================================
     // RESOLVER METHODS
     // ========================================================================
@@ -234,10 +237,19 @@ public static class IdiotScriptConstants
             "IS.ADX_STRONG" => "25",
             "IS.ADX_WEAK" => "20",
 
-            // Boolean constants
+            // Boolean constants - Truthy
             "IS.TRUE" => "true",
-            "IS.FALSE" => "false",
+            "IS.Y" => "true",
+            "IS.YES" => "true",
+            "IS.T" => "true",
             "IS.PROFITABLE" => "true",
+
+            // Boolean constants - Falsy
+            "IS.FALSE" => "false",
+            "IS.N" => "false",
+            "IS.NO" => "false",
+            "IS.F" => "false",
+            "IS.NOTPROFITABLE" => "false",
 
             _ => null
         };
@@ -326,7 +338,8 @@ public static class IdiotScriptConstants
 
     /// <summary>
     /// Resolves a constant to a boolean value.
-    /// Accepts: IS.TRUE, IS.FALSE, Y, YES, yes, true, TRUE, 1, N, NO, no, false, FALSE, 0
+    /// Accepts: IS.TRUE, IS.FALSE, IS.Y, IS.YES, IS.N, IS.NO, IS.T, IS.F,
+    ///          Y, YES, TRUE, T, 1, N, NO, FALSE, F, 0
     /// </summary>
     /// <param name="input">The input string to resolve.</param>
     /// <returns>True, False, or null if the value cannot be resolved.</returns>
@@ -348,39 +361,37 @@ public static class IdiotScriptConstants
         var upper = input.Trim().ToUpperInvariant();
         return upper switch
         {
-            "Y" or "YES" or "TRUE" or "1" => true,
-            "N" or "NO" or "FALSE" or "0" => false,
+            "Y" or "YES" or "TRUE" or "T" or "1" => true,
+            "N" or "NO" or "FALSE" or "F" or "0" => false,
             _ => null
         };
     }
 
     /// <summary>
     /// Checks if a string represents a valid boolean value.
-    /// Valid: Y, YES, yes, true, TRUE, 1, N, NO, no, false, FALSE, 0, IS.TRUE, IS.FALSE
+    /// Valid: Y, YES, TRUE, T, 1, N, NO, FALSE, F, 0, IS.TRUE, IS.FALSE, IS.Y, IS.YES, IS.N, IS.NO, IS.T, IS.F
     /// </summary>
     public static bool IsValidBoolean(string? input) => ResolveBoolean(input).HasValue;
 
     /// <summary>
     /// Array of valid truthy values for boolean parsing.
-    /// Valid inputs: Y, YES, yes, true, TRUE, 1, IS.TRUE
+    /// Valid inputs: Y, YES, TRUE, T, 1, IS.TRUE, IS.Y, IS.YES, IS.T
     /// </summary>
-    public static readonly string[] TruthyValues = ["Y", "YES", "yes", "true", "TRUE", "1", "IS.TRUE"];
+    public static readonly string[] TruthyValues = ["Y", "YES", "TRUE", "T", "1", "IS.TRUE", "IS.Y", "IS.YES", "IS.T"];
 
     /// <summary>
     /// Array of valid falsy values for boolean parsing.
-    /// Valid inputs: N, NO, no, false, FALSE, 0, IS.FALSE
+    /// Valid inputs: N, NO, FALSE, F, 0, IS.FALSE, IS.N, IS.NO, IS.F, IS.NOTPROFITABLE
     /// </summary>
-    public static readonly string[] FalsyValues = ["N", "NO", "no", "false", "FALSE", "0", "IS.FALSE"];
+    public static readonly string[] FalsyValues = ["N", "NO", "FALSE", "F", "0", "IS.FALSE", "IS.N", "IS.NO", "IS.F", "IS.NOTPROFITABLE"];
 
     /// <summary>
     /// All valid boolean input strings (case-insensitive comparison recommended).
     /// </summary>
     public static readonly HashSet<string> AllBooleanValues = new(StringComparer.OrdinalIgnoreCase)
     {
-        // Truthy values
-        "Y", "YES", "TRUE", "1", "IS.TRUE",
-        // Falsy values
-        "N", "NO", "FALSE", "0", "IS.FALSE"
+        "Y", "YES", "TRUE", "T", "1", "IS.TRUE", "IS.Y", "IS.YES", "IS.T", "IS.PROFITABLE",
+        "N", "NO", "FALSE", "F", "0", "IS.FALSE", "IS.N", "IS.NO", "IS.F", "IS.NOTPROFITABLE"
     };
 
     /// <summary>

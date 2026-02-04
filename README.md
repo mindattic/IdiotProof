@@ -258,13 +258,15 @@ The backend includes a dedicated IPC logger (`IpcLogger`) that tracks all commun
 
 **Log Location:**
 ```
-MyDocuments/IdiotProof/Logs/
-├── ipc_YYYY-MM-DD.log    # IPC communication log (daily)
-├── session_*.txt         # Session logs (on exit)
-└── crash_*.txt           # Crash dumps (if any)
+<ProjectRoot>/Logs/
+├── ipc_YYYY-MM-DD.log         # IPC communication log (daily)
+├── session_state.log          # Current session state (overwritten every 20 min)
+├── session_*_final.log        # Final session logs (on normal exit)
+├── session_*_crash.log        # Crash logs (on unhandled exception)
+└── crash_*.txt                # Crash dumps (if any)
 ```
 
-> **Note:** Logs are stored in the same `MyDocuments\IdiotProof\` folder as Settings and Strategies for easy access.
+> **Note:** Logs are stored in the project root `Logs/` folder for easy access during development.
 
 **What Gets Logged:**
 | Event | Description |
@@ -438,6 +440,655 @@ Sets a custom time window for strategy monitoring.
 ### Condition Methods
 
 Conditions are evaluated sequentially. Each must be satisfied before moving to the next.
+
+---
+
+## Complete Indicator Reference
+
+This section provides a comprehensive reference for all available indicators with their Fluent API methods, IdiotScript equivalents, ASCII visualizations, and warm-up requirements.
+
+### Indicator Warm-Up Requirements
+
+Technical indicators require historical price bars to calculate properly. The backend uses 1-minute OHLC bars.
+
+```
+╔══════════════════════════════════════════════════════════════════════╗
+║  INDICATOR WARM-UP REQUIREMENTS                                      ║
+╠══════════════════════════════════════════════════════════════════════╣
+║  Indicator         │ Bars Needed │ Start Early By │ Period          ║
+║  ──────────────────┼─────────────┼────────────────┼────────────────  ║
+║  EMA(9)            │ 9 bars      │ 10 minutes     │ Configurable    ║
+║  EMA(21)           │ 21 bars     │ 25 minutes     │ Configurable    ║
+║  EMA(200)          │ 200 bars    │ 3+ hours       │ Configurable    ║
+║  ADX(14)           │ 28 bars     │ 30 minutes     │ Fixed (14)      ║
+║  RSI(14)           │ 15 bars     │ 20 minutes     │ Fixed (14)      ║
+║  MACD(12,26,9)     │ 35 bars     │ 40 minutes     │ Fixed           ║
+║  DI (+DI/-DI)      │ 28 bars     │ 30 minutes     │ Uses ADX        ║
+║  Momentum(10)      │ 11 bars     │ 15 minutes     │ Fixed (10)      ║
+║  ROC(10)           │ 11 bars     │ 15 minutes     │ Fixed (10)      ║
+║  HigherLows(3)     │ 3+ bars     │ 5 minutes      │ Configurable    ║
+║  EmaTurningUp(N)   │ N+1 bars    │ N+5 minutes    │ Configurable    ║
+║  VolumeAbove       │ 20 bars     │ 25 minutes     │ Fixed (20)      ║
+║  CloseAboveVwap    │ 1 bar       │ 2 minutes      │ N/A             ║
+║  VwapRejection     │ 1 bar       │ 2 minutes      │ N/A             ║
+╚══════════════════════════════════════════════════════════════════════╝
+```
+
+**Recommended Start Times:**
+- For premarket strategies (4:00 AM session): Start backend at **3:30 AM**
+- For RTH strategies (9:30 AM session): Start backend at **9:00 AM**
+- For after-hours strategies (4:00 PM session): Start backend at **3:30 PM**
+
+---
+
+### Price Conditions
+
+#### Breakout / Entry
+
+| Fluent API | IdiotScript | Description |
+|------------|-------------|-------------|
+| `.Breakout(level)` | `Breakout(150.00)` | Price >= level |
+| `.IsPriceAbove(level)` | `Entry(150.00)` | Price >= level |
+
+```
+    Breakout/Entry Condition
+    ╔════════════════════════════════════════════════════════════╗
+    ║                                                            ║
+    ║   $150.00 ═════════════════════════════════════════════    ║ ← Breakout Level
+    ║          /                                                 ║
+    ║         /   ← Price rises to $150 = TRIGGERED             ║
+    ║        /                                                   ║
+    ║   ____/                                                    ║
+    ║                                                            ║
+    ╚════════════════════════════════════════════════════════════╝
+```
+
+**Implementation Status:** ✅ Fully Implemented
+
+---
+
+#### Pullback
+
+| Fluent API | IdiotScript | Description |
+|------------|-------------|-------------|
+| `.Pullback(level)` | `Pullback(148.00)` | Price <= level |
+| `.IsPriceBelow(level)` | `PriceBelow(148.00)` | Price < level |
+
+```
+    Pullback Condition
+    ╔════════════════════════════════════════════════════════════╗
+    ║                                                            ║
+    ║        /\                                                  ║
+    ║       /  \                                                 ║
+    ║      /    \                                                ║
+    ║     /      \___                                            ║
+    ║   $148.00 ═════════════════════════════════════════════    ║ ← Pullback Level
+    ║              ↑ Price drops to $148 = TRIGGERED            ║
+    ║                                                            ║
+    ╚════════════════════════════════════════════════════════════╝
+```
+
+**Implementation Status:** ✅ Fully Implemented
+
+---
+
+### VWAP Conditions
+
+#### AboveVwap / BelowVwap
+
+| Fluent API | IdiotScript | Description |
+|------------|-------------|-------------|
+| `.IsAboveVwap()` | `AboveVwap()` | Price >= VWAP |
+| `.IsAboveVwap(0.02)` | `AboveVwap(0.02)` | Price >= VWAP + $0.02 buffer |
+| `.IsBelowVwap()` | `BelowVwap()` | Price <= VWAP |
+| `.IsBelowVwap(0.05)` | `BelowVwap(0.05)` | Price <= VWAP - $0.05 buffer |
+
+```
+    VWAP Conditions
+    ╔════════════════════════════════════════════════════════════╗
+    ║                                                            ║
+    ║   Price ───────────────────────────────                    ║
+    ║                       ↑ AboveVwap() = TRUE                 ║
+    ║   VWAP  ═══════════════════════════════════════════════    ║
+    ║                       ↓ BelowVwap() = TRUE                 ║
+    ║   Price ───────────────────────────────                    ║
+    ║                                                            ║
+    ╚════════════════════════════════════════════════════════════╝
+```
+
+**Implementation Status:** ✅ Fully Implemented | **Warm-up:** None (real-time VWAP)
+
+---
+
+#### CloseAboveVwap (Strong VWAP Signal)
+
+| Fluent API | IdiotScript | Description |
+|------------|-------------|-------------|
+| `.IsCloseAboveVwap()` | `CloseAboveVwap()` | Last candle CLOSED above VWAP |
+
+```
+    CloseAboveVwap vs AboveVwap
+    ╔════════════════════════════════════════════════════════════╗
+    ║                                                            ║
+    ║          ┌───┐                                             ║
+    ║          │   │ ← Close ABOVE VWAP = Strong signal         ║
+    ║   VWAP ══│═══│══════════════════════════════════════════   ║
+    ║          │   │                                             ║
+    ║          └───┘                                             ║
+    ║                                                            ║
+    ║          ┌───┐                                             ║
+    ║          │   │                                             ║
+    ║   VWAP ══│═══│══════════════════════════════════════════   ║
+    ║          │   │ ← Close below, wick above (weak signal)    ║
+    ║          └───┘                                             ║
+    ║                                                            ║
+    ╚════════════════════════════════════════════════════════════╝
+```
+
+**Implementation Status:** ✅ Fully Implemented | **Warm-up:** 1 candle
+
+---
+
+#### VwapRejection (Bearish Signal)
+
+| Fluent API | IdiotScript | Description |
+|------------|-------------|-------------|
+| `.IsVwapRejection()` | `VwapRejection()` | Wick above VWAP, close below |
+| | `VwapRejected()` | Alias |
+
+```
+    VWAP Rejection Pattern (Bearish)
+    ╔════════════════════════════════════════════════════════════╗
+    ║                                                            ║
+    ║          │ ← Wick above VWAP (buyers tried)               ║
+    ║   VWAP ══╪══════════════════════════════════════════════   ║
+    ║        ┌─┴─┐                                               ║
+    ║        │   │ ← Close below = REJECTED (sellers won)       ║
+    ║        └───┘                                               ║
+    ║                                                            ║
+    ║   Signal: Failed VWAP reclaim = Bearish                   ║
+    ║                                                            ║
+    ╚════════════════════════════════════════════════════════════╝
+```
+
+**Implementation Status:** ✅ Fully Implemented | **Warm-up:** 1 candle
+
+---
+
+### EMA Conditions
+
+#### EmaAbove / EmaBelow
+
+| Fluent API | IdiotScript | Description |
+|------------|-------------|-------------|
+| `.IsEmaAbove(9)` | `EmaAbove(9)` | Price >= EMA(9) |
+| `.IsEmaAbove(21)` | `EmaAbove(21)` | Price >= EMA(21) |
+| `.IsEmaBelow(200)` | `EmaBelow(200)` | Price <= EMA(200) |
+
+```
+    EMA Conditions
+    ╔════════════════════════════════════════════════════════════╗
+    ║                                                            ║
+    ║   Price Above EMA = Bullish                                ║
+    ║        ______/                                             ║
+    ║       /   ↑ EmaAbove(9) = TRUE                            ║
+    ║   EMA(9) ═══════════════════════════════════════════════   ║
+    ║                                                            ║
+    ║   Bullish Stack (Price > EMA9 > EMA21 > EMA200):          ║
+    ║                                                            ║
+    ║   Price  ─────────────────────────────                     ║
+    ║   EMA(9)  ════════════════════════════                     ║
+    ║   EMA(21) ════════════════════════════                     ║
+    ║   EMA(200) ════════════════════════════                    ║
+    ║                                                            ║
+    ╚════════════════════════════════════════════════════════════╝
+```
+
+**Implementation Status:** ✅ Fully Implemented | **Warm-up:** N candles for EMA(N)
+
+---
+
+#### EmaBetween (Pullback Zone)
+
+| Fluent API | IdiotScript | Description |
+|------------|-------------|-------------|
+| `.IsEmaBetween(9, 21)` | `EmaBetween(9, 21)` | Price between EMA(9) and EMA(21) |
+
+```
+    EmaBetween - Pullback Zone Strategy
+    ╔════════════════════════════════════════════════════════════╗
+    ║                                                            ║
+    ║   EMA(21) ═══════════════════════════════════════════════  ║ ← Upper boundary
+    ║            ↑                                               ║
+    ║        * * * PULLBACK ZONE * * *                          ║
+    ║            ↓  (potential entry)                           ║
+    ║   EMA(9)  ═══════════════════════════════════════════════  ║ ← Lower boundary
+    ║                                                            ║
+    ║   Example:                                                 ║
+    ║        /\                                                  ║
+    ║       /  \___    ← Price pulls back into zone             ║
+    ║   ──────────────────────────────                          ║
+    ║   ──────────────────────────────                          ║
+    ║              ↑ EmaBetween(9,21) = TRUE                    ║
+    ║                                                            ║
+    ╚════════════════════════════════════════════════════════════╝
+```
+
+**Implementation Status:** ✅ Fully Implemented | **Warm-up:** Max(period1, period2) candles
+
+---
+
+#### EmaTurningUp (Slope Detection)
+
+| Fluent API | IdiotScript | Description |
+|------------|-------------|-------------|
+| `.IsEmaTurningUp(9)` | `EmaTurningUp(9)` | EMA(9) slope is flat or positive |
+
+```
+    EMA Turning Up Pattern
+    ╔════════════════════════════════════════════════════════════╗
+    ║                                                            ║
+    ║                                        ___/                ║
+    ║                                    ___/                    ║
+    ║                                ___/ ← Turning Up!          ║
+    ║   \_____                   __/                             ║
+    ║         \________________/                                 ║
+    ║              ↑ Flattening before turn                      ║
+    ║                                                            ║
+    ║   EmaTurningUp(9) detects when:                           ║
+    ║   Current EMA >= Previous EMA (slope >= 0)                ║
+    ║                                                            ║
+    ╚════════════════════════════════════════════════════════════╝
+```
+
+**Implementation Status:** ✅ Fully Implemented | **Warm-up:** N+1 candles for EMA(N)
+
+---
+
+### Momentum Indicators
+
+#### MomentumAbove / MomentumBelow
+
+| Fluent API | IdiotScript | Description |
+|------------|-------------|-------------|
+| `.IsMomentumAbove(0)` | `MomentumAbove(0)` | Momentum >= 0 (positive) |
+| `.IsMomentumBelow(0)` | `MomentumBelow(0)` | Momentum <= 0 (negative) |
+
+```
+    Momentum Indicator
+    ╔════════════════════════════════════════════════════════════╗
+    ║   Formula: Momentum = Current Price - Price N periods ago  ║
+    ╠════════════════════════════════════════════════════════════╣
+    ║                                                            ║
+    ║        /\                    /\                            ║
+    ║       /  \                  /  \     Price                 ║
+    ║      /    \                /    \                          ║
+    ║   ──/──────\──────────────/──────\────────── Zero Line    ║
+    ║             \            /        \                        ║
+    ║              \__________/                                  ║
+    ║        ↑                                                   ║
+    ║   MomentumAbove(0) = TRUE    MomentumBelow(0) = TRUE      ║
+    ║                                                            ║
+    ╚════════════════════════════════════════════════════════════╝
+```
+
+**Implementation Status:** ✅ Fully Implemented | **Warm-up:** 11 candles
+
+---
+
+#### RocAbove / RocBelow (Rate of Change)
+
+| Fluent API | IdiotScript | Description |
+|------------|-------------|-------------|
+| `.IsRocAbove(2)` | `RocAbove(2)` | ROC >= 2% (strong bullish) |
+| `.IsRocBelow(-2)` | `RocBelow(-2)` | ROC <= -2% (strong bearish) |
+
+```
+    Rate of Change (ROC)
+    ╔════════════════════════════════════════════════════════════╗
+    ║   Formula: ROC = ((Current - Previous) / Previous) × 100   ║
+    ╠════════════════════════════════════════════════════════════╣
+    ║                                                            ║
+    ║   +5% ───────────────────────────────── Strong Bullish    ║
+    ║   +2% ═══════════════════════════════════ Threshold       ║
+    ║    0% ───────────────────────────────── Zero Line         ║
+    ║   -2% ═══════════════════════════════════ Threshold       ║
+    ║   -5% ───────────────────────────────── Strong Bearish    ║
+    ║                                                            ║
+    ║   RocAbove(2) = Price up 2%+ from 10 bars ago             ║
+    ║   RocBelow(-2) = Price down 2%+ from 10 bars ago          ║
+    ║                                                            ║
+    ╚════════════════════════════════════════════════════════════╝
+```
+
+**Implementation Status:** ✅ Fully Implemented | **Warm-up:** 11 candles
+
+---
+
+### RSI (Relative Strength Index)
+
+| Fluent API | IdiotScript | Description |
+|------------|-------------|-------------|
+| `.IsRsi(RsiState.Oversold)` | `RsiOversold()` | RSI <= 30 |
+| `.IsRsi(RsiState.Oversold, 25)` | `RsiOversold(25)` | RSI <= 25 |
+| `.IsRsi(RsiState.Overbought)` | `RsiOverbought()` | RSI >= 70 |
+| `.IsRsi(RsiState.Overbought, 80)` | `RsiOverbought(80)` | RSI >= 80 |
+
+```
+    RSI Scale (0-100)
+    ╔════════════════════════════════════════════════════════════╗
+    ║                                                            ║
+    ║   100 ─────────────────────────────────────────── Top     ║
+    ║    70 ══════════════ OVERBOUGHT ═══════════════════════   ║ ← RsiOverbought(70)
+    ║    50 ─────────────── Neutral ────────────────────────    ║
+    ║    30 ══════════════ OVERSOLD ═════════════════════════   ║ ← RsiOversold(30)
+    ║     0 ─────────────────────────────────────────── Bot     ║
+    ║                                                            ║
+    ║   RSI Oversold Bounce Strategy:                           ║
+    ║        70 ════════════════════════════════════════════    ║
+    ║           ____                          ____              ║
+    ║          /    \                        /    \             ║
+    ║         /      \                      /      \  RSI       ║
+    ║        /        \                    /        \           ║
+    ║       /          \                  /          \          ║
+    ║        30 ════════════════════════════════════════════    ║
+    ║                  ↑ Buy signal (RSI <= 30)                 ║
+    ║                                                            ║
+    ╚════════════════════════════════════════════════════════════╝
+```
+
+**Implementation Status:** ✅ Fully Implemented | **Warm-up:** 15 candles
+
+---
+
+### ADX (Average Directional Index)
+
+| Fluent API | IdiotScript | Description |
+|------------|-------------|-------------|
+| `.IsAdx(Comparison.Gte, 25)` | `AdxAbove(25)` | ADX >= 25 (strong trend) |
+
+```
+    ADX Trend Strength
+    ╔════════════════════════════════════════════════════════════╗
+    ║                                                            ║
+    ║   75+ ────────── Extremely Strong (rare) ────────────     ║
+    ║   50+ ────────── Very Strong Trend ──────────────────     ║
+    ║   25+ ═══════════════ STRONG ═══════════════════════════  ║ ← AdxAbove(25)
+    ║   20  ────────── Trend Developing ───────────────────     ║
+    ║   <20 ────────── Weak/No Trend (ranging) ────────────     ║
+    ║                                                            ║
+    ║   ADX measures TREND STRENGTH (not direction)             ║
+    ║   Use with DI for direction:                              ║
+    ║     - AdxAbove(25) + DiPositive() = Strong bullish trend  ║
+    ║     - AdxAbove(25) + DiNegative() = Strong bearish trend  ║
+    ║                                                            ║
+    ╚════════════════════════════════════════════════════════════╝
+```
+
+**Implementation Status:** ✅ Fully Implemented | **Warm-up:** 28 candles
+
+---
+
+### DI (Directional Index)
+
+| Fluent API | IdiotScript | Description |
+|------------|-------------|-------------|
+| `.IsDI(DiDirection.Positive)` | `DiPositive()` | +DI > -DI (bullish) |
+| `.IsDiPositive()` | `DiPositive()` | Shorthand for above |
+| `.IsDI(DiDirection.Positive, 5)` | `DiPositive(5)` | +DI > -DI by at least 5 |
+| `.IsDI(DiDirection.Negative)` | `DiNegative()` | -DI > +DI (bearish) |
+| `.IsDiNegative()` | `DiNegative()` | Shorthand for above |
+
+```
+    Directional Index (+DI / -DI)
+    ╔════════════════════════════════════════════════════════════╗
+    ║                                                            ║
+    ║   +DI (Bullish Pressure)                                   ║
+    ║         /    \         ___/                                ║
+    ║        /      \    ___/    \                               ║
+    ║       /        \__/         \                              ║
+    ║      /  ___                  \____                         ║
+    ║   __/__/   \_____                 \                        ║
+    ║                  -DI (Bearish Pressure)                    ║
+    ║         ↑                                                  ║
+    ║   +DI > -DI = DiPositive() = Bullish                      ║
+    ║                                                            ║
+    ║   Best Practice: Combine with ADX                         ║
+    ║   .IsAdx(Comparison.Gte, 25)  // Strong trend             ║
+    ║   .IsDiPositive()             // Bullish direction        ║
+    ║                                                            ║
+    ╚════════════════════════════════════════════════════════════╝
+```
+
+**Implementation Status:** ✅ Fully Implemented | **Warm-up:** 28 candles (uses ADX)
+
+---
+
+### MACD (Moving Average Convergence Divergence)
+
+| Fluent API | IdiotScript | Description |
+|------------|-------------|-------------|
+| `.IsMacd(MacdState.Bullish)` | `MacdBullish()` | MACD > Signal line |
+| `.IsMacdBullish()` | `MacdBullish()` | Shorthand for above |
+| `.IsMacd(MacdState.Bearish)` | `MacdBearish()` | MACD < Signal line |
+| `.IsMacdBearish()` | `MacdBearish()` | Shorthand for above |
+| `.IsMacd(MacdState.AboveZero)` | - | MACD line > 0 |
+| `.IsMacd(MacdState.BelowZero)` | - | MACD line < 0 |
+
+```
+    MACD Components
+    ╔════════════════════════════════════════════════════════════╗
+    ║   MACD Line = EMA(12) - EMA(26)                            ║
+    ║   Signal Line = EMA(9) of MACD                             ║
+    ║   Histogram = MACD - Signal                                ║
+    ╠════════════════════════════════════════════════════════════╣
+    ║                                                            ║
+    ║   MACD Bullish Signal:                                     ║
+    ║         MACD ___                                           ║
+    ║             /   \         ___/                             ║
+    ║   Signal __/     \    ___/                                 ║
+    ║                   \__/                                     ║
+    ║           ↑ MACD > Signal = Bullish (MacdBullish())       ║
+    ║                                                            ║
+    ║   MACD Histogram:                                          ║
+    ║              ████                                          ║
+    ║          ████████                                          ║
+    ║      ████████████         ████                             ║
+    ║   ─────────────────────────────────────────── Zero        ║
+    ║                       ████████                             ║
+    ║                   ████████████                             ║
+    ║       ↑ Rising        ↑ Falling                           ║
+    ║                                                            ║
+    ╚════════════════════════════════════════════════════════════╝
+```
+
+**Implementation Status:** ✅ Fully Implemented | **Warm-up:** 35 candles
+
+---
+
+### Pattern Detection
+
+#### HigherLows
+
+| Fluent API | IdiotScript | Description |
+|------------|-------------|-------------|
+| `.IsHigherLows()` | `HigherLows()` | Default 3-bar lookback |
+| `.IsHigherLows(5)` | `HigherLows(5)` | 5-bar lookback |
+
+```
+    Higher Lows Pattern (Bullish)
+    ╔════════════════════════════════════════════════════════════╗
+    ║                                                            ║
+    ║                              /\                            ║
+    ║                  /\         /  \                           ║
+    ║        /\       /  \       /    \                          ║
+    ║       /  \     /    \     /      \                         ║
+    ║      /    \___/  ↑   \___/        \                        ║
+    ║             Higher    Higher                               ║
+    ║               Low       Low                                ║
+    ║                                                            ║
+    ║   HigherLows() detects:                                   ║
+    ║     Low[0] > Low[1] > Low[2]                              ║
+    ║   (most recent low is highest)                            ║
+    ║                                                            ║
+    ║   Signal: Building support, bullish momentum              ║
+    ║                                                            ║
+    ╚════════════════════════════════════════════════════════════╝
+```
+
+**Implementation Status:** ✅ Fully Implemented | **Warm-up:** 3+ candles (configurable)
+
+---
+
+#### VolumeAbove
+
+| Fluent API | IdiotScript | Description |
+|------------|-------------|-------------|
+| `.IsVolumeAbove(1.5)` | `VolumeAbove(1.5)` | Volume >= 1.5x average |
+| `.IsVolumeAbove(2.0)` | `VolumeAbove(2.0)` | Volume >= 2x average |
+
+```
+    Volume Spike Detection
+    ╔════════════════════════════════════════════════════════════╗
+    ║                                                            ║
+    ║                  ████                                      ║
+    ║                  ████  ← Volume spike (1.5x+)             ║
+    ║   Average ──────────────────────────────────────────────   ║
+    ║     ████      ████████      ████                           ║
+    ║     ████  ██  ████████  ██  ████                           ║
+    ║                                                            ║
+    ║   Common Multipliers:                                      ║
+    ║     1.5x = Moderate spike (50% above average)             ║
+    ║     2.0x = Strong spike (100% above average)              ║
+    ║     3.0x = Exceptional spike (200% above average)         ║
+    ║                                                            ║
+    ║   Use: Confirm breakouts with volume                      ║
+    ║   .Breakout(150).IsVolumeAbove(1.5).Buy(...)             ║
+    ║                                                            ║
+    ╚════════════════════════════════════════════════════════════╝
+```
+
+**Implementation Status:** ✅ Fully Implemented | **Warm-up:** 20 candles
+
+---
+
+### Complete IdiotScript Command Reference
+
+```
+╔════════════════════════════════════════════════════════════════════════╗
+║  IDIOTSCRIPT COMMAND REFERENCE                                          ║
+╠════════════════════════════════════════════════════════════════════════╣
+║                                                                         ║
+║  CONFIGURATION:                                                         ║
+║    Ticker(AAPL)              - Set stock symbol                        ║
+║    Name("Strategy Name")     - Set strategy name                       ║
+║    Session(IS.PREMARKET)     - Set trading session                     ║
+║    Qty(100)                  - Set quantity (shared with Buy)          ║
+║    Enabled(YES)              - Enable/disable strategy                 ║
+║                                                                         ║
+║  PRICE CONDITIONS:                                                      ║
+║    Entry(150.00)             - Price >= level                          ║
+║    Breakout(150.00)          - Price >= level (alias)                  ║
+║    Pullback(148.00)          - Price <= level                          ║
+║    PriceBelow(148.00)        - Price < level                           ║
+║                                                                         ║
+║  VWAP CONDITIONS:                                                       ║
+║    AboveVwap()               - Price >= VWAP                           ║
+║    BelowVwap()               - Price <= VWAP                           ║
+║    CloseAboveVwap()          - Candle closed above VWAP                ║
+║    VwapRejection()           - Wick above, close below VWAP            ║
+║                                                                         ║
+║  EMA CONDITIONS:                                                        ║
+║    EmaAbove(9)               - Price >= EMA(9)                         ║
+║    EmaBelow(200)             - Price <= EMA(200)                       ║
+║    EmaBetween(9, 21)         - Price between EMA(9) and EMA(21)        ║
+║    EmaTurningUp(9)           - EMA(9) slope >= 0                       ║
+║                                                                         ║
+║  MOMENTUM CONDITIONS:                                                   ║
+║    MomentumAbove(0)          - Momentum >= threshold                   ║
+║    MomentumBelow(0)          - Momentum <= threshold                   ║
+║    RocAbove(2)               - Rate of Change >= 2%                    ║
+║    RocBelow(-2)              - Rate of Change <= -2%                   ║
+║                                                                         ║
+║  RSI CONDITIONS:                                                        ║
+║    RsiOversold()             - RSI <= 30                               ║
+║    RsiOversold(25)           - RSI <= 25                               ║
+║    RsiOverbought()           - RSI >= 70                               ║
+║    RsiOverbought(80)         - RSI >= 80                               ║
+║                                                                         ║
+║  TREND CONDITIONS:                                                      ║
+║    AdxAbove(25)              - ADX >= 25 (strong trend)                ║
+║    DiPositive()              - +DI > -DI (bullish)                     ║
+║    DiNegative()              - -DI > +DI (bearish)                     ║
+║    MacdBullish()             - MACD > Signal line                      ║
+║    MacdBearish()             - MACD < Signal line                      ║
+║                                                                         ║
+║  PATTERN CONDITIONS:                                                    ║
+║    HigherLows()              - Higher lows forming                     ║
+║    HigherLows(5)             - Higher lows with 5-bar lookback         ║
+║    VolumeAbove(1.5)          - Volume >= 1.5x average                  ║
+║                                                                         ║
+║  EXIT CONDITIONS:                                                       ║
+║    TakeProfit(155.00)        - Take profit at price                    ║
+║    StopLoss(145.00)          - Stop loss at price                      ║
+║    TrailingStopLoss(IS.TIGHT) - Trailing stop (5%)                    ║
+║    ClosePosition(IS.BELL)    - Close at session end                    ║
+║                                                                         ║
+║  ORDER CONFIG:                                                          ║
+║    TimeInForce(GTC)          - Order time in force                     ║
+║    OutsideRTH(YES)           - Allow extended hours                    ║
+║    AllOrNone(YES)            - Require full fill                       ║
+║    Repeat(YES)               - Repeat strategy after exit              ║
+║                                                                         ║
+╚════════════════════════════════════════════════════════════════════════╝
+```
+
+---
+
+### Strategy Example with All Components
+
+```idiotscript
+# Complete Strategy Example
+Ticker(AAPL)
+.Name("Trend Continuation")
+.Session(IS.PREMARKET)
+.Qty(100)
+
+# Entry Conditions (evaluated sequentially):
+.Entry(150.00)           # 1. Price breaks $150
+.HigherLows()            # 2. Higher lows forming
+.AboveVwap()             # 3. Above VWAP
+.EmaAbove(9)             # 4. Above short-term EMA
+.DiPositive()            # 5. Bullish direction
+.MomentumAbove(0)        # 6. Positive momentum
+
+# Exit Conditions:
+.TakeProfit(160.00)
+.StopLoss(145.00)
+.TrailingStopLoss(IS.MODERATE)
+.ClosePosition(IS.BELL, IS.PROFITABLE)
+```
+
+**Equivalent Fluent API:**
+```csharp
+Stock.Ticker("AAPL")
+    .WithName("Trend Continuation")
+    .TimeFrame(TradingSession.PreMarket)
+    .IsPriceAbove(150.00)
+    .IsHigherLows()
+    .IsAboveVwap()
+    .IsEmaAbove(9)
+    .IsDiPositive()
+    .IsMomentumAbove(0)
+    .Buy(100, Price.Current)
+    .TakeProfit(160.00)
+    .StopLoss(145.00)
+    .TrailingStopLoss(Percent.Ten)
+    .ClosePosition(MarketTime.PreMarket.Ending, onlyIfProfitable: true)
+    .Build();
+```
+
+---
 
 #### `.Breakout(double level)`
 Triggers when price rises to or above the specified level.
@@ -1488,45 +2139,84 @@ Stock
 
 ### ✅ Fully Implemented
 
-| Feature | Builder | StrategyRunner |
-|---------|---------|----------------|
-| Breakout condition | ✅ | ✅ |
-| Pullback condition | ✅ | ✅ |
-| AboveVwap condition | ✅ | ✅ |
-| BelowVwap condition | ✅ | ✅ |
-| PriceAbove condition | ✅ | ✅ |
-| PriceBelow condition | ✅ | ✅ |
-| Custom condition (When) | ✅ | ✅ |
-| Buy order | ✅ | ✅ |
-| Sell order | ✅ | ✅ |
-| Close/CloseLong/CloseShort | ✅ | ✅ |
-| Take profit (fixed) | ✅ | ✅ |
-| Take profit (ADX-based) | ✅ | ⚠️ |
-| Stop loss | ✅ | ✅ |
-| Trailing stop loss (%) | ✅ | ✅ |
-| Trailing stop loss (ATR) | ✅ | ✅ |
-| TimeInForce | ✅ | ✅ |
-| OutsideRTH | ✅ | ✅ |
-| OrderType | ✅ | ✅ |
-| AllOrNone | ✅ | ✅ |
-| Enabled/Disabled | ✅ | ✅ |
-| SessionDuration | ✅ | ⚠️ |
-| TradingSession enum | ✅ | ⚠️ |
-| Exchange (SMART/Pink) | ✅ | ✅ |
-| VWAP calculation | N/A | ✅ |
-| ATR calculation | N/A | ✅ |
-| **Offline Backtesting** | ✅ | N/A |
+| Feature | Builder | StrategyRunner | IdiotScript |
+|---------|---------|----------------|-------------|
+| **Price Conditions** |
+| Breakout condition | ✅ | ✅ | `Breakout()`, `Entry()` |
+| Pullback condition | ✅ | ✅ | `Pullback()` |
+| PriceAbove condition | ✅ | ✅ | `Entry()`, `PriceAbove()` |
+| PriceBelow condition | ✅ | ✅ | `PriceBelow()` |
+| Custom condition (When) | ✅ | ✅ | N/A |
+| **VWAP Conditions** |
+| AboveVwap condition | ✅ | ✅ | `AboveVwap()` |
+| BelowVwap condition | ✅ | ✅ | `BelowVwap()` |
+| CloseAboveVwap condition | ✅ | ✅ | `CloseAboveVwap()` |
+| VwapRejection condition | ✅ | ✅ | `VwapRejection()` |
+| **EMA Conditions** |
+| EmaAbove condition | ✅ | ✅ | `EmaAbove()` |
+| EmaBelow condition | ✅ | ✅ | `EmaBelow()` |
+| EmaBetween condition | ✅ | ✅ | `EmaBetween()` |
+| EmaTurningUp condition | ✅ | ✅ | `EmaTurningUp()` |
+| **Momentum Conditions** |
+| MomentumAbove condition | ✅ | ✅ | `MomentumAbove()` |
+| MomentumBelow condition | ✅ | ✅ | `MomentumBelow()` |
+| RocAbove condition | ✅ | ✅ | `RocAbove()` |
+| RocBelow condition | ✅ | ✅ | `RocBelow()` |
+| **Trend Indicators** |
+| RSI condition | ✅ | ✅ | `RsiOversold()`, `RsiOverbought()` |
+| ADX condition | ✅ | ✅ | `AdxAbove()` |
+| DI condition | ✅ | ✅ | `DiPositive()`, `DiNegative()` |
+| MACD condition | ✅ | ✅ | `MacdBullish()`, `MacdBearish()` |
+| **Pattern Conditions** |
+| HigherLows condition | ✅ | ✅ | `HigherLows()` |
+| VolumeAbove condition | ✅ | ✅ | `VolumeAbove()` |
+| **Orders** |
+| Buy order | ✅ | ✅ | `Buy()`, `Qty()` |
+| Sell order | ✅ | ✅ | `Sell()` |
+| Close/CloseLong/CloseShort | ✅ | ✅ | `Close()` |
+| **Exit Strategies** |
+| Take profit (fixed) | ✅ | ✅ | `TakeProfit()` |
+| Take profit (ADX-based) | ✅ | ⚠️ | `TakeProfit(low, high)` |
+| Stop loss | ✅ | ✅ | `StopLoss()` |
+| Trailing stop loss (%) | ✅ | ✅ | `TrailingStopLoss()` |
+| Trailing stop loss (ATR) | ✅ | ✅ | `TrailingStopLoss(IS.ATR)` |
+| ClosePosition time | ✅ | ✅ | `ClosePosition()` |
+| **Order Configuration** |
+| TimeInForce | ✅ | ✅ | `TimeInForce()` |
+| OutsideRTH | ✅ | ✅ | `OutsideRTH()` |
+| OrderType | ✅ | ✅ | `OrderType()` |
+| AllOrNone | ✅ | ✅ | `AllOrNone()` |
+| Repeat | ✅ | ✅ | `Repeat()` |
+| Enabled/Disabled | ✅ | ✅ | `Enabled()` |
+| **Infrastructure** |
+| SessionDuration | ✅ | ✅ | `Session()` |
+| TradingSession enum | ✅ | ✅ | `IS.PREMARKET`, etc. |
+| Exchange (SMART/Pink) | ✅ | ✅ | N/A |
+| VWAP calculation | N/A | ✅ | N/A |
+| ATR calculation | N/A | ✅ | N/A |
+| Historical warm-up | N/A | ✅ | N/A |
+| **Offline Backtesting** | ✅ | N/A | N/A |
 
-### ⚠️ Partially Implemented (Builder only)
+### Indicator Calculator Status
+
+| Calculator | File | Warm-up Bars | Status |
+|------------|------|--------------|--------|
+| EmaCalculator | `EmaCalculator.cs` | N bars | ✅ |
+| AdxCalculator | `AdxCalculator.cs` | 28 bars | ✅ |
+| RsiCalculator | `RsiCalculator.cs` | 15 bars | ✅ |
+| MacdCalculator | `MacdCalculator.cs` | 35 bars | ✅ |
+| MomentumCalculator | `MomentumCalculator.cs` | 11 bars | ✅ |
+| RocCalculator | `RocCalculator.cs` | 11 bars | ✅ |
+| VolumeCalculator | `VolumeCalculator.cs` | 20 bars | ✅ |
+| AtrCalculator | `AtrCalculator.cs` | 14 bars | ✅ |
+| CandlestickAggregator | `CandlestickAggregator.cs` | 1 bar | ✅ |
+
+### ⚠️ Partially Implemented
 
 | Feature | Builder | StrategyRunner | Notes |
 |---------|---------|----------------|-------|
-| SessionDuration | ✅ | ❌ | Property stored, time window enforcement not yet implemented |
-| Start time | ✅ | ❌ | Property stored, monitoring not enforced |
-| End time | ✅ | ❌ | Property stored, monitoring not enforced |
-| ClosePosition time | ✅ | ❌ | Property stored, auto-close not implemented |
 | Price type (Current/VWAP/Bid/Ask) | ✅ | ❌ | Property stored, order price logic not implemented |
-| ADX-based TakeProfit | ✅ | ❌ | Config stored, ADX calculation not implemented |
+| ADX-based TakeProfit | ✅ | ❌ | Config stored, dynamic target not implemented |
 
 ---
 

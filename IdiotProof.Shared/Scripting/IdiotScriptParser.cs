@@ -9,8 +9,9 @@
 // All commands should include parentheses (e.g., AboveVwap() not AboveVwap).
 //
 // COMMENTS:
-// Lines starting with # are treated as comments and ignored.
+// Lines starting with # or // are treated as comments and ignored.
 // Inline comments are supported: Ticker(AAPL).Qty(100) # this is a comment
+// C-style inline comments also work: Ticker(AAPL).Qty(100) // this is a comment
 // Empty lines are ignored. Newlines are treated as line continuations.
 //
 // SCRIPT STRUCTURE:
@@ -40,6 +41,7 @@
 // - EmaAbove(9) or IsEmaAbove(9)  - Price above EMA condition
 // - EmaBelow(9) or IsEmaBelow(9)  - Price below EMA condition
 // - EmaBetween(9, 21) or IsEmaBetween(9, 21) - Price between two EMAs
+// - EmaTurningUp(9) or IsEmaTurningUp(9) - EMA slope turning positive
 // - RsiOversold(30) or IsRsiOversold(30) - RSI oversold condition
 // - RsiOverbought(70) or IsRsiOverbought(70) - RSI overbought condition
 // - AdxAbove(25) or IsAdxAbove(25)- ADX above threshold
@@ -51,6 +53,10 @@
 // - MomentumBelow(0) or IsMomentumBelow(0) - Momentum below threshold (downward momentum)
 // - RocAbove(2) or IsRocAbove(2)  - Rate of Change above threshold (positive momentum)
 // - RocBelow(-2) or IsRocBelow(-2)- Rate of Change below threshold (negative momentum)
+// - HigherLows() or IsHigherLows()    - Higher lows forming (ascending support)
+// - VolumeAbove(1.5) or IsVolumeAbove(1.5) - Volume above N× average
+// - CloseAboveVwap() or IsCloseAboveVwap() - Candle close above VWAP
+// - VwapRejection() or IsVwapRejection()   - Failed VWAP reclaim (wick above, close below)
 // - Breakout() or Breakout(150)   - Breakout condition
 // - Pullback() or Pullback(148)   - Pullback condition
 // - SESSION(IS.PREMARKET)         - Set trading session
@@ -178,6 +184,23 @@ public static partial class IdiotScriptParser
     [GeneratedRegex(@"^(?:IS)?ROCBELOW\((-?\d+(?:\.\d+)?)\)$", RegexOptions.IgnoreCase)]
     private static partial Regex RocBelowPattern();
 
+    // New continuation/pattern conditions
+    [GeneratedRegex(@"^(?:IS)?HIGHERLOWS(?:\(\))?$", RegexOptions.IgnoreCase)]
+    private static partial Regex HigherLowsPattern();
+
+    [GeneratedRegex(@"^(?:IS)?EMATURNINGUP\((\d+)\)$", RegexOptions.IgnoreCase)]
+    private static partial Regex EmaTurningUpPattern();
+
+    [GeneratedRegex(@"^(?:IS)?VOLUMEABOVE\((\d+(?:\.\d+)?)\)$", RegexOptions.IgnoreCase)]
+    private static partial Regex VolumeAbovePattern();
+
+    [GeneratedRegex(@"^(?:IS)?CLOSEABOVEVWAP(?:\(\))?$", RegexOptions.IgnoreCase)]
+    private static partial Regex CloseAboveVwapPattern();
+
+    // VwapRejection supports both VwapRejection and VwapRejected
+    [GeneratedRegex(@"^(?:IS)?(?:VWAPREJECTION|VWAPREJECTED)(?:\(\))?$", RegexOptions.IgnoreCase)]
+    private static partial Regex VwapRejectionPattern();
+
     [GeneratedRegex(@"^BREAKOUT(?:\((\$?[\d.]*)\))?$", RegexOptions.IgnoreCase)]
     private static partial Regex BreakoutPattern();
 
@@ -247,8 +270,11 @@ public static partial class IdiotScriptParser
         if (string.IsNullOrWhiteSpace(script))
             throw new IdiotScriptException("Script cannot be empty.");
 
-        // Sanitize input
-        script = Sanitize(script);
+        // Preserve original script (including comments) for display
+        var originalScript = PreserveOriginalScript(script);
+
+        // Sanitize input for parsing
+        var sanitizedScript = Sanitize(script);
 
         var context = new ParseContext
         {
@@ -256,14 +282,16 @@ public static partial class IdiotScriptParser
         };
 
         // Split by periods, but preserve IS. constants and method parameters
-        var commands = SplitByDelimiter(script);
+        var commands = SplitByDelimiter(sanitizedScript);
 
         foreach (var command in commands)
         {
             ParseCommand(command, context);
         }
 
-        return BuildStrategy(context);
+        var strategy = BuildStrategy(context);
+        strategy.OriginalScript = originalScript;
+        return strategy;
     }
 
     /// <summary>
@@ -428,7 +456,7 @@ public static partial class IdiotScriptParser
     /// </summary>
     private static string Sanitize(string script)
     {
-        // Strip comments and empty lines, normalize newlines
+        // Strip comments and empty lines, normalize newlines to single line
         script = StripCommentsAndEmptyLines(script);
 
         // Remove colons before parentheses (e.g., TP:(201) -> TP(201))
@@ -445,6 +473,9 @@ public static partial class IdiotScriptParser
         script = WhitespaceAfterOpenParenPattern().Replace(script, "(");
         script = WhitespaceBeforeCloseParenPattern().Replace(script, ")");
 
+        // Remove spaces around commas inside parentheses (e.g., EmaBetween(9, 21) -> EmaBetween(9,21))
+        //script = RemoveSpacesAroundCommas(script);
+
         // Remove extra whitespace
         script = ExtraWhitespacePattern().Replace(script, " ");
 
@@ -455,8 +486,69 @@ public static partial class IdiotScriptParser
     }
 
     /// <summary>
-    /// Strips comments (lines starting with #), empty lines, and normalizes newlines.
-    /// Also strips inline comments (text after # on a line with code).
+    /// Removes spaces around commas within parentheses.
+    /// E.g., "EmaBetween(9, 21)" becomes "EmaBetween(9,21)"
+    /// </summary>
+    private static string RemoveSpacesAroundCommas(string script)
+    {
+        var result = new System.Text.StringBuilder(script.Length);
+        int parenDepth = 0;
+
+        for (int i = 0; i < script.Length; i++)
+        {
+            char c = script[i];
+
+            if (c == '(')
+            {
+                parenDepth++;
+                result.Append(c);
+            }
+            else if (c == ')')
+            {
+                parenDepth = Math.Max(0, parenDepth - 1);
+                result.Append(c);
+            }
+            else if (parenDepth > 0 && c == ' ')
+            {
+                // Skip spaces inside parentheses
+                continue;
+            }
+            else
+            {
+                result.Append(c);
+            }
+        }
+
+        return result.ToString();
+    }
+
+    /// <summary>
+    /// Preserves the original script with comments for display purposes.
+    /// Only trims trailing whitespace from each line and normalizes line endings.
+    /// </summary>
+    private static string PreserveOriginalScript(string script)
+    {
+        var lines = script.Split(["\r\n", "\n", "\r"], StringSplitOptions.None);
+        var preservedLines = new List<string>();
+
+        foreach (var line in lines)
+        {
+            // Preserve line but trim trailing whitespace only
+            preservedLines.Add(line.TrimEnd());
+        }
+
+        // Remove leading and trailing empty lines but preserve internal structure
+        while (preservedLines.Count > 0 && string.IsNullOrWhiteSpace(preservedLines[0]))
+            preservedLines.RemoveAt(0);
+        while (preservedLines.Count > 0 && string.IsNullOrWhiteSpace(preservedLines[^1]))
+            preservedLines.RemoveAt(preservedLines.Count - 1);
+
+        return string.Join("\n", preservedLines);
+    }
+
+    /// <summary>
+    /// Strips comments (lines starting with # or //), empty lines, and normalizes newlines.
+    /// Also strips inline comments (text after # or // on a line with code).
     /// </summary>
     private static string StripCommentsAndEmptyLines(string script)
     {
@@ -473,11 +565,11 @@ public static partial class IdiotScriptParser
             if (string.IsNullOrWhiteSpace(trimmedLine))
                 continue;
 
-            // Skip full-line comments (lines starting with #)
-            if (trimmedLine.StartsWith('#'))
+            // Skip full-line comments (lines starting with # or //)
+            if (trimmedLine.StartsWith('#') || trimmedLine.StartsWith("//"))
                 continue;
 
-            // Handle inline comments - strip everything after # (but not inside quotes)
+            // Handle inline comments - strip everything after # or // (but not inside quotes)
             var cleanedLine = StripInlineComment(trimmedLine);
 
             if (!string.IsNullOrWhiteSpace(cleanedLine))
@@ -485,11 +577,20 @@ public static partial class IdiotScriptParser
         }
 
         // Join remaining lines with a single space (treating newlines as continuations)
-        return string.Join(" ", cleanedLines);
+        var joined = string.Join(" ", cleanedLines);
+
+        // Remove spaces around periods to support multi-line scripts like:
+        // Ticker(CIGL)
+        // .Name("Strategy")
+        // becomes: Ticker(CIGL).Name("Strategy")
+        joined = joined.Replace(" .", ".");
+        joined = joined.Replace(". ", ".");
+
+        return joined;
     }
 
     /// <summary>
-    /// Strips inline comments (text after #) while preserving # inside quoted strings.
+    /// Strips inline comments (text after # or //) while preserving them inside quoted strings.
     /// </summary>
     private static string StripInlineComment(string line)
     {
@@ -514,8 +615,14 @@ public static partial class IdiotScriptParser
                 }
             }
 
-            // Found comment marker outside quotes
+            // Found # comment marker outside quotes
             if (c == '#' && !inQuotes)
+            {
+                return line[..i].Trim();
+            }
+
+            // Found // comment marker outside quotes
+            if (c == '/' && i + 1 < line.Length && line[i + 1] == '/' && !inQuotes)
             {
                 return line[..i].Trim();
             }
@@ -898,6 +1005,34 @@ public static partial class IdiotScriptParser
             if (double.TryParse(rocBelowMatch.Groups[1].Value, out var value))
                 return new OrderedCondition(ConditionType.RocBelow, value);
         }
+
+        // HigherLows or IsHigherLows - detects ascending support pattern
+        if (HigherLowsPattern().IsMatch(condition))
+            return new OrderedCondition(ConditionType.HigherLows);
+
+        // EmaTurningUp(period) or IsEmaTurningUp(period) - EMA slope turning positive
+        var emaTurningUpMatch = EmaTurningUpPattern().Match(condition);
+        if (emaTurningUpMatch.Success)
+        {
+            if (int.TryParse(emaTurningUpMatch.Groups[1].Value, out var period))
+                return new OrderedCondition(ConditionType.EmaTurningUp, period: period);
+        }
+
+        // VolumeAbove(multiplier) or IsVolumeAbove(multiplier) - volume above N× average
+        var volumeAboveMatch = VolumeAbovePattern().Match(condition);
+        if (volumeAboveMatch.Success)
+        {
+            if (double.TryParse(volumeAboveMatch.Groups[1].Value, out var multiplier))
+                return new OrderedCondition(ConditionType.VolumeAbove, multiplier);
+        }
+
+        // CloseAboveVwap or IsCloseAboveVwap - candle close above VWAP
+        if (CloseAboveVwapPattern().IsMatch(condition))
+            return new OrderedCondition(ConditionType.CloseAboveVwap);
+
+        // VwapRejection or IsVwapRejection - failed VWAP reclaim (wick above, close below)
+        if (VwapRejectionPattern().IsMatch(condition))
+            return new OrderedCondition(ConditionType.VwapRejection);
 
         return null;
     }
@@ -2036,6 +2171,66 @@ public static partial class IdiotScriptParser
                     }
                 ]
             },
+            ConditionType.HigherLows => new StrategySegment
+            {
+                Type = SegmentType.IsHigherLows,
+                Category = SegmentCategory.IndicatorCondition,
+                DisplayName = "Higher Lows",
+                Order = order++,
+                Parameters = []
+            },
+            ConditionType.EmaTurningUp when condition.Period.HasValue => new StrategySegment
+            {
+                Type = SegmentType.IsEmaTurningUp,
+                Category = SegmentCategory.IndicatorCondition,
+                DisplayName = "EMA Turning Up",
+                Order = order++,
+                Parameters =
+                [
+                    new SegmentParameter
+                    {
+                        Name = "Period",
+                        Label = "Period",
+                        Type = ParameterType.Integer,
+                        Value = condition.Period.Value,
+                        IsRequired = true
+                    }
+                ]
+            },
+            ConditionType.VolumeAbove when condition.Value.HasValue => new StrategySegment
+            {
+                Type = SegmentType.IsVolumeAbove,
+                Category = SegmentCategory.IndicatorCondition,
+                DisplayName = "Volume Above",
+                Order = order++,
+                Parameters =
+                [
+                    new SegmentParameter
+                    {
+                        Name = "Multiplier",
+                        Label = "Multiplier",
+                        Type = ParameterType.Double,
+                        Value = condition.Value.Value,
+                        IsRequired = true
+                    }
+                ]
+            },
+            ConditionType.CloseAboveVwap => new StrategySegment
+            {
+                Type = SegmentType.IsCloseAboveVwap,
+                Category = SegmentCategory.VwapCondition,
+                DisplayName = "Close Above VWAP",
+                Order = order++,
+                Parameters = []
+            },
+            ConditionType.VwapRejection => new StrategySegment
+            {
+                Type = SegmentType.IsVwapRejection,
+                Category = SegmentCategory.VwapCondition,
+                DisplayName = "VWAP Rejection",
+                Order = order++,
+                Parameters = []
+            },
             _ => null
         };
     }
@@ -2055,6 +2250,7 @@ public static partial class IdiotScriptParser
         EmaAbove,
         EmaBelow,
         EmaBetween,
+        EmaTurningUp,
         RsiOversold,
         RsiOverbought,
         AdxAbove,
@@ -2065,7 +2261,11 @@ public static partial class IdiotScriptParser
         MomentumAbove,
         MomentumBelow,
         RocAbove,
-        RocBelow
+        RocBelow,
+        HigherLows,
+        VolumeAbove,
+        CloseAboveVwap,
+        VwapRejection
     }
 
     private sealed class OrderedCondition(

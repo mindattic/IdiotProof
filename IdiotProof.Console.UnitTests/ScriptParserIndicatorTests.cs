@@ -268,4 +268,151 @@ public class ScriptParserIndicatorTests
     }
 
     #endregion
+
+    // ========================================================================
+    // CONTINUATION PATTERN TESTS
+    // ========================================================================
+    //
+    // These indicators help detect bullish/bearish continuation patterns
+    //
+    // ========================================================================
+
+    #region Higher Lows Tests
+
+    [TestCase("SYM(AAPL).HigherLows()")]
+    [TestCase("SYM(AAPL).HigherLows")]
+    [TestCase("SYM(AAPL).IsHigherLows()")]
+    [TestCase("SYM(AAPL).IsHigherLows")]
+    [TestCase("SYM(AAPL).higherlows()")]
+    [TestCase("SYM(AAPL).HIGHERLOWS()")]
+    public void Parse_HigherLows_AllSyntax(string script)
+    {
+        var result = StrategyScriptParser.Parse(script);
+        var segment = result.Segments.FirstOrDefault(s => s.Type == SegmentType.IsHigherLows);
+        Assert.That(segment, Is.Not.Null);
+    }
+
+    #endregion
+
+    #region EMA Turning Up Tests
+
+    [TestCase("SYM(AAPL).EmaTurningUp(9)", 9)]
+    [TestCase("SYM(AAPL).EmaTurningUp(21)", 21)]
+    [TestCase("SYM(AAPL).IsEmaTurningUp(9)", 9)]
+    [TestCase("SYM(AAPL).EMATURNINGUP(9)", 9)]
+    [TestCase("SYM(AAPL).ematurningup(50)", 50)]
+    public void Parse_EmaTurningUp_AllSyntax(string script, int expectedPeriod)
+    {
+        var result = StrategyScriptParser.Parse(script);
+        var segment = result.Segments.FirstOrDefault(s => s.Type == SegmentType.IsEmaTurningUp);
+        Assert.That(segment, Is.Not.Null);
+
+        var periodParam = segment!.Parameters.FirstOrDefault(p => p.Name == "Period");
+        Assert.That(periodParam, Is.Not.Null);
+        Assert.That(Convert.ToInt32(periodParam!.Value), Is.EqualTo(expectedPeriod));
+    }
+
+    #endregion
+
+    #region Volume Above Tests
+
+    [TestCase("SYM(AAPL).VolumeAbove(1.5)", 1.5)]
+    [TestCase("SYM(AAPL).VolumeAbove(2)", 2)]
+    [TestCase("SYM(AAPL).IsVolumeAbove(1.5)", 1.5)]
+    [TestCase("SYM(AAPL).VOLUMEABOVE(3)", 3)]
+    [TestCase("SYM(AAPL).volumeabove(2.5)", 2.5)]
+    public void Parse_VolumeAbove_AllSyntax(string script, double expectedMultiplier)
+    {
+        var result = StrategyScriptParser.Parse(script);
+        var segment = result.Segments.FirstOrDefault(s => s.Type == SegmentType.IsVolumeAbove);
+        Assert.That(segment, Is.Not.Null);
+
+        var multiplierParam = segment!.Parameters.FirstOrDefault(p => p.Name == "Multiplier");
+        Assert.That(multiplierParam, Is.Not.Null);
+        Assert.That(Convert.ToDouble(multiplierParam!.Value), Is.EqualTo(expectedMultiplier));
+    }
+
+    #endregion
+
+    #region Close Above VWAP Tests
+
+    [TestCase("SYM(AAPL).CloseAboveVwap()")]
+    [TestCase("SYM(AAPL).CloseAboveVwap")]
+    [TestCase("SYM(AAPL).IsCloseAboveVwap()")]
+    [TestCase("SYM(AAPL).IsCloseAboveVwap")]
+    [TestCase("SYM(AAPL).closeabovevwap()")]
+    [TestCase("SYM(AAPL).CLOSEABOVEVWAP()")]
+    public void Parse_CloseAboveVwap_AllSyntax(string script)
+    {
+        var result = StrategyScriptParser.Parse(script);
+        var segment = result.Segments.FirstOrDefault(s => s.Type == SegmentType.IsCloseAboveVwap);
+        Assert.That(segment, Is.Not.Null);
+    }
+
+    #endregion
+
+    #region VWAP Rejection Tests
+
+    [TestCase("SYM(AAPL).VwapRejection()")]
+    [TestCase("SYM(AAPL).VwapRejection")]
+    [TestCase("SYM(AAPL).IsVwapRejection()")]
+    [TestCase("SYM(AAPL).IsVwapRejection")]
+    [TestCase("SYM(AAPL).vwaprejection()")]
+    [TestCase("SYM(AAPL).VWAPREJECTION()")]
+    // Alias: VwapRejected
+    [TestCase("SYM(AAPL).VwapRejected()")]
+    [TestCase("SYM(AAPL).VwapRejected")]
+    [TestCase("SYM(AAPL).IsVwapRejected()")]
+    [TestCase("SYM(AAPL).IsVwapRejected")]
+    public void Parse_VwapRejection_AllSyntax(string script)
+    {
+        var result = StrategyScriptParser.Parse(script);
+        var segment = result.Segments.FirstOrDefault(s => s.Type == SegmentType.IsVwapRejection);
+        Assert.That(segment, Is.Not.Null);
+    }
+
+    #endregion
+
+    #region Combined Continuation Pattern Tests
+
+    [Test]
+    public void Parse_FullContinuationStrategy()
+    {
+        // A full bullish continuation setup
+        var script = @"
+            Ticker(NVDA)
+            .Session(IS.PREMARKET)
+            .AboveVwap()
+            .CloseAboveVwap()
+            .EmaTurningUp(9)
+            .HigherLows()
+            .VolumeAbove(1.5)
+            .MomentumAbove(0)
+            .Entry(150)
+            .TakeProfit(160)
+        ";
+        var result = StrategyScriptParser.Parse(script);
+
+        Assert.That(result.Symbol, Is.EqualTo("NVDA"));
+        Assert.That(result.Segments.Any(s => s.Type == SegmentType.IsAboveVwap), Is.True);
+        Assert.That(result.Segments.Any(s => s.Type == SegmentType.IsCloseAboveVwap), Is.True);
+        Assert.That(result.Segments.Any(s => s.Type == SegmentType.IsEmaTurningUp), Is.True);
+        Assert.That(result.Segments.Any(s => s.Type == SegmentType.IsHigherLows), Is.True);
+        Assert.That(result.Segments.Any(s => s.Type == SegmentType.IsVolumeAbove), Is.True);
+        Assert.That(result.Segments.Any(s => s.Type == SegmentType.IsMomentum), Is.True);
+    }
+
+    [Test]
+    public void Parse_BearishRejectionStrategy()
+    {
+        // A bearish VWAP rejection setup
+        var script = "Ticker(SPY).VwapRejected().EmaBelow(9)";
+        var result = StrategyScriptParser.Parse(script);
+
+        Assert.That(result.Symbol, Is.EqualTo("SPY"));
+        Assert.That(result.Segments.Any(s => s.Type == SegmentType.IsVwapRejection), Is.True);
+        Assert.That(result.Segments.Any(s => s.Type == SegmentType.IsEmaBelow), Is.True);
+    }
+
+    #endregion
 }

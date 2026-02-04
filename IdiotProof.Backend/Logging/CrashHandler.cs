@@ -98,7 +98,7 @@ namespace IdiotProof.Backend.Logging
 
         /// <summary>
         /// Ensures the logs folder exists and returns the full path.
-        /// Returns: MyDocuments\IdiotProof\Logs\
+        /// Returns: <ProjectRoot>\Logs\
         /// </summary>
         private static string EnsureLogsFolder()
         {

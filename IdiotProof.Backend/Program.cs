@@ -25,6 +25,7 @@ namespace IdiotProof.Backend
         private static IpcServer? _ipcServer;
         private static readonly CancellationTokenSource _shutdownCts = new();
         private static TradeTrackingService? _tradeTrackingService;
+        private static SessionLogger? _sessionLogger;
 
         // Historical data components
         private static HistoricalDataStore? _historicalDataStore;
@@ -79,6 +80,13 @@ namespace IdiotProof.Backend
         {
             Log("IdiotProof Backend starting...");
             Log($"Mode: {(Settings.IsPaperTrading ? "PAPER" : "LIVE")} | Port: {Settings.Port}");
+
+            // Initialize session logger (logs every 20 min, on crash, and on close)
+            _sessionLogger = new SessionLogger();
+            _sessionLogger.LogEvent("STARTUP", $"Mode: {(Settings.IsPaperTrading ? "PAPER" : "LIVE")} | Port: {Settings.Port}");
+
+            // Share session logger with strategy runners
+            StrategyRunner.SessionLogger = _sessionLogger;
 
             // Initialize trade tracking service
             _tradeTrackingService = new TradeTrackingService();
@@ -208,6 +216,12 @@ namespace IdiotProof.Backend
             var enabledCount = _strategies.Count(s => s.Enabled);
             Log($"Loaded {_strategies.Count} strategies ({enabledCount} enabled)");
 
+            // Register strategies with session logger
+            foreach (var strategy in _strategies)
+            {
+                _sessionLogger?.RegisterStrategy(strategy.Symbol, strategy.Name ?? strategy.Symbol, strategy.Enabled);
+            }
+
             // Validate using backend's StrategyValidator
             if (_strategies.Count > 0)
             {
@@ -215,10 +229,16 @@ namespace IdiotProof.Backend
                 if (!result.IsValid)
                 {
                     foreach (var error in result.Errors)
+                    {
                         Log($"ERROR: {error}");
+                        _sessionLogger?.LogEvent("VALIDATION", $"ERROR: {error}");
+                    }
                 }
                 foreach (var warning in result.Warnings)
+                {
                     Log($"WARN: {warning}");
+                    _sessionLogger?.LogEvent("VALIDATION", $"WARN: {warning}");
+                }
             }
         }
 
@@ -346,6 +366,7 @@ namespace IdiotProof.Backend
 
             _isActive = true;
             Log(">>> TRADING ACTIVATED <<<");
+            _sessionLogger?.LogEvent("TRADING", "Trading activated");
         }
 
         private static void DeactivateTrading()
@@ -375,6 +396,7 @@ namespace IdiotProof.Backend
 
             _isActive = false;
             Log("Trading deactivated.");
+            _sessionLogger?.LogEvent("TRADING", "Trading deactivated");
         }
 
        
@@ -403,12 +425,16 @@ namespace IdiotProof.Backend
         {
             Log("Shutting down...");
 
+            // Write final session log
+            _sessionLogger?.WriteFinalLog("Shutdown");
+
             DeactivateTrading();
 
             _historicalDataService?.Dispose();
             _client?.eDisconnect();
             _wrapper?.Dispose();
             _ipcServer?.Dispose();
+            _sessionLogger?.Dispose();
 
             Log("Goodbye!");
         }
