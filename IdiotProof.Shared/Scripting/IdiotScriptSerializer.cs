@@ -288,7 +288,7 @@ public static class IdiotScriptSerializer
                 SegmentType.IsDI => BuildDi(segment),
                 SegmentType.IsMomentum => BuildMomentum(segment),
                 SegmentType.IsRoc => BuildRoc(segment),
-                SegmentType.IsHigherLows => "HigherLows()",
+                SegmentType.IsHigherLows => BuildHigherLows(segment),
                 SegmentType.IsVolumeAbove => BuildVolumeAbove(segment),
                 SegmentType.IsCloseAboveVwap => "CloseAboveVwap()",
                 SegmentType.IsVwapRejection => "VwapRejection()",
@@ -411,6 +411,13 @@ public static class IdiotScriptSerializer
     {
         var multiplier = GetParameterValue<double>(segment, "Multiplier", 0);
         return multiplier > 0 ? $"VolumeAbove({multiplier:F1})" : null;
+    }
+
+    private static string? BuildHigherLows(StrategySegment segment)
+    {
+        var lookbackBars = GetParameterValue<int>(segment, "LookbackBars", 3);
+        // Only include parameter if it's not the default (3)
+        return lookbackBars != 3 ? $"HigherLows({lookbackBars})" : "HigherLows()";
     }
 
     private static string FormatPrice(double price)

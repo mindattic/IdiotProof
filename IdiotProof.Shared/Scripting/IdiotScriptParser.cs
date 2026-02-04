@@ -53,7 +53,7 @@
 // - MomentumBelow(0) or IsMomentumBelow(0) - Momentum below threshold (downward momentum)
 // - RocAbove(2) or IsRocAbove(2)  - Rate of Change above threshold (positive momentum)
 // - RocBelow(-2) or IsRocBelow(-2)- Rate of Change below threshold (negative momentum)
-// - HigherLows() or IsHigherLows()    - Higher lows forming (ascending support)
+// - HigherLows() or IsHigherLows() or HigherLows(5) - Higher lows forming (ascending support)
 // - VolumeAbove(1.5) or IsVolumeAbove(1.5) - Volume above N× average
 // - CloseAboveVwap() or IsCloseAboveVwap() - Candle close above VWAP
 // - VwapRejection() or IsVwapRejection()   - Failed VWAP reclaim (wick above, close below)
@@ -185,7 +185,7 @@ public static partial class IdiotScriptParser
     private static partial Regex RocBelowPattern();
 
     // New continuation/pattern conditions
-    [GeneratedRegex(@"^(?:IS)?HIGHERLOWS(?:\(\))?$", RegexOptions.IgnoreCase)]
+    [GeneratedRegex(@"^(?:IS)?HIGHERLOWS(?:\((\d*)\))?$", RegexOptions.IgnoreCase)]
     private static partial Regex HigherLowsPattern();
 
     [GeneratedRegex(@"^(?:IS)?EMATURNINGUP\((\d+)\)$", RegexOptions.IgnoreCase)]
@@ -1007,8 +1007,17 @@ public static partial class IdiotScriptParser
         }
 
         // HigherLows or IsHigherLows - detects ascending support pattern
-        if (HigherLowsPattern().IsMatch(condition))
-            return new OrderedCondition(ConditionType.HigherLows);
+        var higherLowsMatch = HigherLowsPattern().Match(condition);
+        if (higherLowsMatch.Success)
+        {
+            int lookbackBars = 3; // Default
+            if (higherLowsMatch.Groups[1].Success && !string.IsNullOrEmpty(higherLowsMatch.Groups[1].Value))
+            {
+                if (int.TryParse(higherLowsMatch.Groups[1].Value, out var lb))
+                    lookbackBars = lb;
+            }
+            return new OrderedCondition(ConditionType.HigherLows, period: lookbackBars);
+        }
 
         // EmaTurningUp(period) or IsEmaTurningUp(period) - EMA slope turning positive
         var emaTurningUpMatch = EmaTurningUpPattern().Match(condition);
@@ -2177,7 +2186,16 @@ public static partial class IdiotScriptParser
                 Category = SegmentCategory.IndicatorCondition,
                 DisplayName = "Higher Lows",
                 Order = order++,
-                Parameters = []
+                Parameters = condition.Period.HasValue
+                    ? [new SegmentParameter
+                    {
+                        Name = "LookbackBars",
+                        Label = "Lookback Bars",
+                        Type = ParameterType.Integer,
+                        Value = condition.Period.Value,
+                        IsRequired = false
+                    }]
+                    : []
             },
             ConditionType.EmaTurningUp when condition.Period.HasValue => new StrategySegment
             {
