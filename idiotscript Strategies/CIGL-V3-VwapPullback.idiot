@@ -1,0 +1,25 @@
+# CIGL Variant 3 - VWAP Pullback
+# Waits for pullback to VWAP for better entry
+# Middle ground between conservative and aggressive
+
+Ticker(CIGL)
+.Name("CIGL-V3-VwapPullback")
+.Session(IS.PREMARKET)
+.Qty(100)
+
+# Entry Conditions:
+# 1. First must break $4.50 (confirmation)
+# 2. Then pullback to retest VWAP area
+# 3. Close above VWAP (strong reclaim)
+# 4. Higher lows forming (buyers stepping in)
+.Entry(4.50)
+.Pullback(4.20)
+.CloseAboveVwap()
+.HigherLows()
+.DiPositive()
+
+# Exit - Good R:R ratio
+.TakeProfit(5.75)
+.StopLoss(3.90)
+.TSL(10)
+.ClosePosition(IS.BELL, IS.PROFITABLE)

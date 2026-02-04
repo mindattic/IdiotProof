@@ -1,0 +1,26 @@
+# LIMN Variant 1 - Conservative Entry
+# Requires strong trend confirmation
+# Lower risk, potentially fewer trades
+
+Ticker(LIMN)
+.Name("LIMN-V1-Conservative")
+.Session(IS.PREMARKET)
+.Qty(500)
+
+# Entry Conditions:
+# 1. Entry above $1.25 (higher confirmation level)
+# 2. Strong trend (ADX >= 25)
+# 3. Bullish direction (+DI > -DI)
+# 4. Above VWAP
+# 5. Above EMA(9)
+.Entry(1.25)
+.AdxAbove(25)
+.DiPositive()
+.AboveVwap()
+.EmaAbove(9)
+
+# Exit - Tighter stop, conservative target
+.TakeProfit(1.75)
+.StopLoss(1.00)
+.TSL(10)
+.ClosePosition(IS.BELL, IS.PROFITABLE)

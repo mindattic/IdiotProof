@@ -95,6 +95,7 @@ namespace IdiotProof.Backend
             StrategyLoader.SessionLogger = _sessionLogger;
             IdiotProof.Backend.Models.StrategyValidator.SessionLogger = _sessionLogger;
             IpcServer.SessionLogger = _sessionLogger;
+            IpcLogger.SessionLogger = _sessionLogger;
 
             // Initialize trade tracking service
             _tradeTrackingService = new TradeTrackingService();
