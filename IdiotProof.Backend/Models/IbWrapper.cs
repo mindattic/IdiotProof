@@ -78,9 +78,14 @@ namespace IdiotProof.Backend.Models
     /// 
     /// <para><b>Reference:</b> https://interactivebrokers.github.io/tws-api/</para>
     /// </remarks>
+
     /// <summary>
     /// Represents the result of a ping operation to the IBKR API.
     /// </summary>
+    /// <remarks>
+    /// This struct is returned by <see cref="IbWrapper.Ping"/> and <see cref="IbWrapper.PingAsync"/>.
+    /// It contains the success status, server timestamp, and round-trip latency.
+    /// </remarks>
     public readonly struct PingResult
     {
         /// <summary>Gets whether the ping was successful (received response within timeout).</summary>
@@ -103,6 +108,13 @@ namespace IdiotProof.Backend.Models
         /// </summary>
         public static SessionLogger? SessionLogger { get; set; }
 
+        /// <summary>
+        /// Signal used by the EReader to notify when messages are available.
+        /// </summary>
+        /// <remarks>
+        /// This is passed to <see cref="EClientSocket"/> constructor and used by <see cref="EReader"/>
+        /// to signal when data is ready to be processed.
+        /// </remarks>
         public EReaderSignal Signal { get; } = new EReaderMonitorSignal();
 
         private EClientSocket? _client;
@@ -324,6 +336,14 @@ namespace IdiotProof.Backend.Models
             _client.placeOrder(orderId, contract, order);
         }
 
+        /// <summary>
+        /// Attaches the EClientSocket instance to this wrapper.
+        /// </summary>
+        /// <param name="client">The client socket to attach.</param>
+        /// <remarks>
+        /// This must be called after creating the <see cref="EClientSocket"/> but before connecting.
+        /// The client socket uses this wrapper to receive callbacks from the API.
+        /// </remarks>
         public void AttachClient(EClientSocket client)
         {
             _client = client;
@@ -399,6 +419,12 @@ namespace IdiotProof.Backend.Models
         /// <summary>
         /// Registers a handler for market data from a specific ticker ID.
         /// </summary>
+        /// <param name="tickerId">The ticker ID (request ID) to register the handler for.</param>
+        /// <param name="handler">Callback invoked with (price, size) when market data arrives.</param>
+        /// <remarks>
+        /// This allows individual strategy runners to receive market data for their specific ticker
+        /// without processing data for all tickers. The handler is called from the EReader thread.
+        /// </remarks>
         public void RegisterTickerHandler(int tickerId, Action<double, int> handler)
         {
             _tickerHandlers[tickerId] = handler;
@@ -407,6 +433,10 @@ namespace IdiotProof.Backend.Models
         /// <summary>
         /// Unregisters the handler for a specific ticker ID and clears cached data.
         /// </summary>
+        /// <param name="tickerId">The ticker ID to unregister.</param>
+        /// <remarks>
+        /// Call this when stopping a strategy to prevent memory buildup from cached market data.
+        /// </remarks>
         public void UnregisterTickerHandler(int tickerId)
         {
             _tickerHandlers.TryRemove(tickerId, out _);
@@ -415,11 +445,29 @@ namespace IdiotProof.Backend.Models
             _lastSizeByTicker.TryRemove(tickerId, out _);
         }
 
+        /// <summary>
+        /// Waits for the next valid order ID to be received from IBKR.
+        /// </summary>
+        /// <param name="timeout">Maximum time to wait for the order ID.</param>
+        /// <returns><c>true</c> if the order ID was received within the timeout; otherwise, <c>false</c>.</returns>
+        /// <remarks>
+        /// The API sends the next valid order ID via <see cref="nextValidId"/> callback after connecting.
+        /// This method blocks until that callback is received or the timeout expires.
+        /// </remarks>
         public bool WaitForNextValidId(TimeSpan timeout)
         {
             return _nextValidIdEvent.Wait(timeout);
         }
 
+        /// <summary>
+        /// Consumes and returns the next available order ID, incrementing the internal counter.
+        /// </summary>
+        /// <returns>The next available order ID.</returns>
+        /// <exception cref="InvalidOperationException">Thrown if order IDs have not been initialized yet.</exception>
+        /// <remarks>
+        /// This method is thread-safe. Each call returns a unique order ID.
+        /// Call <see cref="WaitForNextValidId"/> first to ensure order IDs are initialized.
+        /// </remarks>
         public int ConsumeNextOrderId()
         {
             lock (_orderIdLock)
@@ -763,21 +811,32 @@ namespace IdiotProof.Backend.Models
         /// <summary>
         /// Disposes resources used by the wrapper.
         /// </summary>
+        /// <remarks>
+        /// Releases all managed resources including:
+        /// <list type="bullet">
+        ///   <item><see cref="ManualResetEventSlim"/> instances used for synchronization</item>
+        ///   <item>Market data caches and ticker handlers</item>
+        ///   <item>Order and position tracking dictionaries</item>
+        ///   <item>Event subscriber references</item>
+        /// </list>
+        /// </remarks>
         public void Dispose()
         {
             if (_disposed)
                 return;
             _disposed = true;
 
-            // Dispose the ManualResetEventSlim instances (releases native handles)
+            // Dispose all ManualResetEventSlim instances (releases native handles)
             _nextValidIdEvent.Dispose();
             _pingResponseEvent.Dispose();
+            _positionsEndEvent.Dispose();
 
             // Clear all cached data
             _tickerHandlers.Clear();
             _lastByTicker.Clear();
             _lastSizeByTicker.Clear();
             _openOrders.Clear();
+            _positions.Clear();
 
             // Clear event subscribers to prevent holding references
             OnLastTrade = null;
@@ -789,6 +848,8 @@ namespace IdiotProof.Backend.Models
             OnConnectionRestored = null;
             OnHistoricalData = null;
             OnHistoricalDataEnd = null;
+            OnPosition = null;
+            OnPositionsEnd = null;
 
             _client = null;
         }
