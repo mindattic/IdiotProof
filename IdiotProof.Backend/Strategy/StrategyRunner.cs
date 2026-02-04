@@ -23,16 +23,13 @@
 // ╚═══════════════════════════════════════════════════════════════════════════╝
 
 using IBApi;
-using IdiotProof.Backend;
 using IdiotProof.Backend.Enums;
 using IdiotProof.Backend.Helpers;
 using IdiotProof.Backend.Logging;
 using IdiotProof.Backend.Strategy;
 using IdiotProof.Shared.Settings;
-using MarketTimeZone = IdiotProof.Shared.Enums.MarketTimeZone;
-using System;
-using System.Threading;
 using IbContract = IBApi.Contract;
+using MarketTimeZone = IdiotProof.Shared.Enums.MarketTimeZone;
 
 namespace IdiotProof.Backend.Models
 {
@@ -133,6 +130,9 @@ namespace IdiotProof.Backend.Models
         // Cancel timer
         private Timer? _cancelTimer;
 
+        // Overnight cancellation timer (for Overnight TIF orders)
+        private Timer? _overnightCancelTimer;
+
         // Close position timer (time-based exit)
         private Timer? _closePositionTimer;
         private bool _closePositionTriggered;
@@ -184,9 +184,9 @@ namespace IdiotProof.Backend.Models
         public StrategyResult Result => _result;
 
         /// <summary>Gets the current condition name.</summary>
-        public string CurrentConditionName => 
-            _currentConditionIndex < _strategy.Conditions.Count 
-                ? _strategy.Conditions[_currentConditionIndex].Name 
+        public string CurrentConditionName =>
+            _currentConditionIndex < _strategy.Conditions.Count
+                ? _strategy.Conditions[_currentConditionIndex].Name
                 : "Complete";
 
         /// <summary>
@@ -220,7 +220,7 @@ namespace IdiotProof.Backend.Models
 
             // Initialize candlestick aggregator (1-minute candles, trimmed to MaxCandlesticks setting)
             _candlestickAggregator = new Helpers.CandlestickAggregator(
-                candleSizeMinutes: 1, 
+                candleSizeMinutes: 1,
                 maxCandles: Settings.MaxCandlesticks);
             _candlestickAggregator.OnCandleComplete += OnCandleComplete;
 
@@ -345,6 +345,45 @@ namespace IdiotProof.Backend.Models
                 }
             }
 
+            if (_momentumCalculator != null)
+            {
+                if (_momentumCalculator.IsReady)
+                {
+                    _warmupLoggedMomentum = true;
+                    Log($"  [OK] Momentum warm-up complete: Momentum={_momentumCalculator.CurrentValue:F2}", ConsoleColor.Green);
+                }
+                else
+                {
+                    Log($"  [--] Momentum needs 11 bars, only have {candleCount}", ConsoleColor.Yellow);
+                }
+            }
+
+            if (_rocCalculator != null)
+            {
+                if (_rocCalculator.IsReady)
+                {
+                    _warmupLoggedRoc = true;
+                    Log($"  [OK] ROC warm-up complete: ROC={_rocCalculator.CurrentValue:F2}%", ConsoleColor.Green);
+                }
+                else
+                {
+                    Log($"  [--] ROC needs 11 bars, only have {candleCount}", ConsoleColor.Yellow);
+                }
+            }
+
+            if (_volumeCalculator != null)
+            {
+                if (_volumeCalculator.IsReady)
+                {
+                    _warmupLoggedVolume = true;
+                    Log($"  [OK] Volume warm-up complete: Avg={_volumeCalculator.AverageVolume:N0}", ConsoleColor.Green);
+                }
+                else
+                {
+                    Log($"  [--] Volume needs 20 bars, only have {candleCount}", ConsoleColor.Yellow);
+                }
+            }
+
             // Update last price from most recent bar
             if (candles.Count > 0)
             {
@@ -382,10 +421,10 @@ namespace IdiotProof.Backend.Models
                     }
                 }
 
-                // Update ADX calculator with candle data
+                // Update ADX calculator with candle OHLC data (ADX needs High/Low/Close for True Range)
                 try
                 {
-                    _adxCalculator?.Update(candle.Close);
+                    _adxCalculator?.UpdateFromCandle(candle.High, candle.Low, candle.Close);
                 }
                 catch (Exception ex)
                 {
@@ -412,146 +451,146 @@ namespace IdiotProof.Backend.Models
                     Log($"WARNING: MACD calculator update failed: {ex.Message}", ConsoleColor.Yellow);
                 }
 
-            // Update Momentum calculator with candle close price
-            try
-            {
-                _momentumCalculator?.Update(candle.Close);
-            }
-            catch (Exception ex)
-            {
-                Log($"WARNING: Momentum calculator update failed: {ex.Message}", ConsoleColor.Yellow);
-            }
-
-            // Update ROC calculator with candle close price
-            try
-            {
-                _rocCalculator?.Update(candle.Close);
-            }
-            catch (Exception ex)
-            {
-                Log($"WARNING: ROC calculator update failed: {ex.Message}", ConsoleColor.Yellow);
-            }
-
-            // Update Volume calculator with candle volume
-            try
-            {
-                _volumeCalculator?.Update(candle.Volume);
-            }
-            catch (Exception ex)
-            {
-                Log($"WARNING: Volume calculator update failed: {ex.Message}", ConsoleColor.Yellow);
-            }
-
-            // Log warm-up progress
-            if (!_warmupLoggedEma && _emaCalculators.Count > 0)
-            {
-                int maxPeriod = _emaCalculators.Keys.Max();
-                if (candleCount >= maxPeriod)
+                // Update Momentum calculator with candle close price
+                try
                 {
-                    _warmupLoggedEma = true;
-                    Log($"[OK] EMA warm-up complete ({candleCount} candles collected)", ConsoleColor.Green);
-                }
-                else if (candleCount % 5 == 0) // Log every 5 candles during warm-up
-                {
-                    Log($"Warming up EMA: {candleCount}/{maxPeriod} candles...", ConsoleColor.DarkGray);
-                }
-            }
-
-            if (!_warmupLoggedAdx && _adxCalculator != null)
-            {
-                if (_adxCalculator.IsReady)
-                {
-                    _warmupLoggedAdx = true;
-                    Log($"[OK] ADX warm-up complete (ADX={_adxCalculator.CurrentAdx:F1})", ConsoleColor.Green);
-                }
-                else if (candleCount % 5 == 0 && candleCount <= 28)
-                {
-                    Log($"Warming up ADX: {candleCount}/28 candles...", ConsoleColor.DarkGray);
-                }
-            }
-
-            // RSI warm-up logging
-            if (!_warmupLoggedRsi && _rsiCalculator != null)
-            {
-                if (_rsiCalculator.IsReady)
-                {
-                    _warmupLoggedRsi = true;
-                    Log($"[OK] RSI warm-up complete (RSI={_rsiCalculator.CurrentValue:F1})", ConsoleColor.Green);
-                }
-                else if (candleCount % 5 == 0 && candleCount <= 15)
-                {
-                    Log($"Warming up RSI: {candleCount}/15 candles...", ConsoleColor.DarkGray);
-                }
-            }
-
-            // MACD warm-up logging
-            if (!_warmupLoggedMacd && _macdCalculator != null)
-            {
-                if (_macdCalculator.IsReady)
-                {
-                    _warmupLoggedMacd = true;
-                    Log($"[OK] MACD warm-up complete (MACD={_macdCalculator.MacdLine:F2}, Signal={_macdCalculator.SignalLine:F2})", ConsoleColor.Green);
-                }
-                else if (candleCount % 5 == 0 && candleCount <= 35)
-                {
-                    Log($"Warming up MACD: {candleCount}/35 candles...", ConsoleColor.DarkGray);
-                }
-            }
-
-            // Momentum warm-up logging
-            if (!_warmupLoggedMomentum && _momentumCalculator != null)
-            {
-                if (_momentumCalculator.IsReady)
-                {
-                    _warmupLoggedMomentum = true;
-                    Log($"[OK] Momentum warm-up complete (Momentum={_momentumCalculator.CurrentValue:F2})", ConsoleColor.Green);
-                }
-                else if (candleCount % 5 == 0 && candleCount <= 11)
-                {
-                    Log($"Warming up Momentum: {candleCount}/11 candles...", ConsoleColor.DarkGray);
-                }
-            }
-
-            // ROC warm-up logging
-            if (!_warmupLoggedRoc && _rocCalculator != null)
-            {
-                if (_rocCalculator.IsReady)
-                {
-                    _warmupLoggedRoc = true;
-                    Log($"[OK] ROC warm-up complete (ROC={_rocCalculator.CurrentValue:F2}%)", ConsoleColor.Green);
-                }
-                else if (candleCount % 5 == 0 && candleCount <= 11)
-                {
-                    Log($"Warming up ROC: {candleCount}/11 candles...", ConsoleColor.DarkGray);
-                }
-            }
-
-                    // Volume warm-up logging
-                    if (!_warmupLoggedVolume && _volumeCalculator != null)
-                    {
-                        if (_volumeCalculator.IsReady)
-                        {
-                            _warmupLoggedVolume = true;
-                            Log($"[OK] Volume warm-up complete (Avg={_volumeCalculator.AverageVolume:N0})", ConsoleColor.Green);
-                        }
-                        else if (candleCount % 5 == 0 && candleCount <= 20)
-                        {
-                            Log($"Warming up Volume: {candleCount}/20 candles...", ConsoleColor.DarkGray);
-                        }
-                    }
+                    _momentumCalculator?.Update(candle.Close);
                 }
                 catch (Exception ex)
                 {
-                    // Log error but don't crash - graceful degradation
-                    Log($"ERROR in OnCandleComplete: {ex.Message}", ConsoleColor.Red);
+                    Log($"WARNING: Momentum calculator update failed: {ex.Message}", ConsoleColor.Yellow);
+                }
+
+                // Update ROC calculator with candle close price
+                try
+                {
+                    _rocCalculator?.Update(candle.Close);
+                }
+                catch (Exception ex)
+                {
+                    Log($"WARNING: ROC calculator update failed: {ex.Message}", ConsoleColor.Yellow);
+                }
+
+                // Update Volume calculator with candle volume
+                try
+                {
+                    _volumeCalculator?.Update(candle.Volume);
+                }
+                catch (Exception ex)
+                {
+                    Log($"WARNING: Volume calculator update failed: {ex.Message}", ConsoleColor.Yellow);
+                }
+
+                // Log warm-up progress
+                if (!_warmupLoggedEma && _emaCalculators.Count > 0)
+                {
+                    int maxPeriod = _emaCalculators.Keys.Max();
+                    if (candleCount >= maxPeriod)
+                    {
+                        _warmupLoggedEma = true;
+                        Log($"[OK] EMA warm-up complete ({candleCount} candles collected)", ConsoleColor.Green);
+                    }
+                    else if (candleCount % 5 == 0) // Log every 5 candles during warm-up
+                    {
+                        Log($"Warming up EMA: {candleCount}/{maxPeriod} candles...", ConsoleColor.DarkGray);
+                    }
+                }
+
+                if (!_warmupLoggedAdx && _adxCalculator != null)
+                {
+                    if (_adxCalculator.IsReady)
+                    {
+                        _warmupLoggedAdx = true;
+                        Log($"[OK] ADX warm-up complete (ADX={_adxCalculator.CurrentAdx:F1})", ConsoleColor.Green);
+                    }
+                    else if (candleCount % 5 == 0 && candleCount <= 28)
+                    {
+                        Log($"Warming up ADX: {candleCount}/28 candles...", ConsoleColor.DarkGray);
+                    }
+                }
+
+                // RSI warm-up logging
+                if (!_warmupLoggedRsi && _rsiCalculator != null)
+                {
+                    if (_rsiCalculator.IsReady)
+                    {
+                        _warmupLoggedRsi = true;
+                        Log($"[OK] RSI warm-up complete (RSI={_rsiCalculator.CurrentValue:F1})", ConsoleColor.Green);
+                    }
+                    else if (candleCount % 5 == 0 && candleCount <= 15)
+                    {
+                        Log($"Warming up RSI: {candleCount}/15 candles...", ConsoleColor.DarkGray);
+                    }
+                }
+
+                // MACD warm-up logging
+                if (!_warmupLoggedMacd && _macdCalculator != null)
+                {
+                    if (_macdCalculator.IsReady)
+                    {
+                        _warmupLoggedMacd = true;
+                        Log($"[OK] MACD warm-up complete (MACD={_macdCalculator.MacdLine:F2}, Signal={_macdCalculator.SignalLine:F2})", ConsoleColor.Green);
+                    }
+                    else if (candleCount % 5 == 0 && candleCount <= 35)
+                    {
+                        Log($"Warming up MACD: {candleCount}/35 candles...", ConsoleColor.DarkGray);
+                    }
+                }
+
+                // Momentum warm-up logging
+                if (!_warmupLoggedMomentum && _momentumCalculator != null)
+                {
+                    if (_momentumCalculator.IsReady)
+                    {
+                        _warmupLoggedMomentum = true;
+                        Log($"[OK] Momentum warm-up complete (Momentum={_momentumCalculator.CurrentValue:F2})", ConsoleColor.Green);
+                    }
+                    else if (candleCount % 5 == 0 && candleCount <= 11)
+                    {
+                        Log($"Warming up Momentum: {candleCount}/11 candles...", ConsoleColor.DarkGray);
+                    }
+                }
+
+                // ROC warm-up logging
+                if (!_warmupLoggedRoc && _rocCalculator != null)
+                {
+                    if (_rocCalculator.IsReady)
+                    {
+                        _warmupLoggedRoc = true;
+                        Log($"[OK] ROC warm-up complete (ROC={_rocCalculator.CurrentValue:F2}%)", ConsoleColor.Green);
+                    }
+                    else if (candleCount % 5 == 0 && candleCount <= 11)
+                    {
+                        Log($"Warming up ROC: {candleCount}/11 candles...", ConsoleColor.DarkGray);
+                    }
+                }
+
+                // Volume warm-up logging
+                if (!_warmupLoggedVolume && _volumeCalculator != null)
+                {
+                    if (_volumeCalculator.IsReady)
+                    {
+                        _warmupLoggedVolume = true;
+                        Log($"[OK] Volume warm-up complete (Avg={_volumeCalculator.AverageVolume:N0})", ConsoleColor.Green);
+                    }
+                    else if (candleCount % 5 == 0 && candleCount <= 20)
+                    {
+                        Log($"Warming up Volume: {candleCount}/20 candles...", ConsoleColor.DarkGray);
+                    }
                 }
             }
+            catch (Exception ex)
+            {
+                // Log error but don't crash - graceful degradation
+                Log($"ERROR in OnCandleComplete: {ex.Message}", ConsoleColor.Red);
+            }
+        }
 
-            /// <summary>
-            /// Initializes all indicator calculators for the strategy conditions
-            /// and wires up the callback functions.
-            /// </summary>
-            private void InitializeIndicatorCalculators()
+        /// <summary>
+        /// Initializes all indicator calculators for the strategy conditions
+        /// and wires up the callback functions.
+        /// </summary>
+        private void InitializeIndicatorCalculators()
         {
             foreach (var condition in _strategy.Conditions)
             {
@@ -834,7 +873,7 @@ namespace IdiotProof.Backend.Models
                 if (_trailingStopLossPrice > 0 && currentPrice <= _trailingStopLossPrice)
                 {
                     Log($"*** TRAILING STOP TRIGGERED! Price ${currentPrice:F2} <= Stop ${_trailingStopLossPrice:F2}", ConsoleColor.Red);
-                    ExecuteTrailingStopLoss(); 
+                    ExecuteTrailingStopLoss();
                 }
             }
             else
@@ -983,6 +1022,17 @@ namespace IdiotProof.Backend.Models
         {
             Log($"*** REPEAT ENABLED - Resetting strategy to wait for conditions again ***", ConsoleColor.Magenta);
 
+            // IMPORTANT: Dispose pending timers to prevent old callbacks from firing during new trade
+            // Bug fix: Old timers could fire and prematurely close Trade 2's position
+            _cancelTimer?.Dispose();
+            _cancelTimer = null;
+
+            _overnightCancelTimer?.Dispose();
+            _overnightCancelTimer = null;
+
+            _closePositionTimer?.Dispose();
+            _closePositionTimer = null;
+
             // Reset condition tracking
             _currentConditionIndex = 0;
             _isComplete = false;
@@ -1120,8 +1170,8 @@ namespace IdiotProof.Backend.Models
                 {
                     _windowEndedLogged = true;
                     var info = TimezoneHelper.GetTimezoneDisplayInfo(Settings.Timezone);
-                    var startLocal = _strategy.StartTime.HasValue 
-                        ? TimezoneHelper.ToLocal(_strategy.StartTime.Value, Settings.Timezone) 
+                    var startLocal = _strategy.StartTime.HasValue
+                        ? TimezoneHelper.ToLocal(_strategy.StartTime.Value, Settings.Timezone)
                         : new TimeOnly(4, 0);
                     var startET = _strategy.StartTime ?? new TimeOnly(4, 0);
                     Log($"Strategy window ended at {_strategy.EndTime.Value:h:mm tt} ET - will resume tomorrow at {startET:h:mm tt} ET ({startLocal:h:mm tt} {info.Abbreviation})", ConsoleColor.Yellow);
@@ -1168,11 +1218,11 @@ namespace IdiotProof.Backend.Models
         {
             return condition switch
             {
-                EmaAboveCondition ema when ema.GetEmaValue != null => 
+                EmaAboveCondition ema when ema.GetEmaValue != null =>
                     $" (EMA({ema.Period})=${ema.GetEmaValue():F2})",
-                EmaBelowCondition ema when ema.GetEmaValue != null => 
+                EmaBelowCondition ema when ema.GetEmaValue != null =>
                     $" (EMA({ema.Period})=${ema.GetEmaValue():F2})",
-                EmaBetweenCondition ema when ema.GetLowerEmaValue != null && ema.GetUpperEmaValue != null => 
+                EmaBetweenCondition ema when ema.GetLowerEmaValue != null && ema.GetUpperEmaValue != null =>
                     $" (EMA({ema.LowerPeriod})=${ema.GetLowerEmaValue():F2}, EMA({ema.UpperPeriod})=${ema.GetUpperEmaValue():F2})",
                 AdxCondition adx when adx.GetAdxValue != null && _adxCalculator != null =>
                     $" (ADX={adx.GetAdxValue():F1}, +DI={_adxCalculator.PlusDI:F1}, -DI={_adxCalculator.MinusDI:F1})",
@@ -1367,9 +1417,28 @@ namespace IdiotProof.Backend.Models
             var delay = marketOpen - now;
             Log($"  OVERNIGHT TIF: Order will cancel at {marketOpen:HH:mm} if not filled ({delay.TotalHours:F1} hours)", ConsoleColor.DarkGray);
 
-            // Note: Actual timer implementation would go here
-            // For now, this is logged but the actual cancellation would need
-            // a separate timer mechanism similar to ScheduleTakeProfitCancellation
+            // Schedule the timer to cancel the entry order at market open
+            _overnightCancelTimer = new Timer(OvernightCancelCallback, null, delay, Timeout.InfiniteTimeSpan);
+        }
+
+        /// <summary>
+        /// Callback triggered at market open to cancel unfilled overnight orders.
+        /// </summary>
+        private void OvernightCancelCallback(object? state)
+        {
+            // Thread-safe check
+            lock (_disposeLock)
+            {
+                if (_disposed || _entryFilled || _entryOrderId < 0)
+                    return;
+            }
+
+            Log($"OVERNIGHT ORDER EXPIRED: Cancelling unfilled entry order #{_entryOrderId} at market open", ConsoleColor.Yellow);
+            _client.cancelOrder(_entryOrderId, new OrderCancel());
+
+            _isComplete = true;
+            _result = StrategyResult.EntryCancelled;
+            PrintFinalResult();
         }
 
         private void OnOrderFill(int orderId, double fillPrice, int fillSize)
@@ -1400,8 +1469,30 @@ namespace IdiotProof.Backend.Models
                 if (_strategy.Order.EnableTrailingStopLoss)
                 {
                     _highWaterMark = fillPrice;
-                    _trailingStopLossPrice = Math.Round(fillPrice * (1 - _strategy.Order.TrailingStopLossPercent), 2);
-                    Log($"TRAILING STOP INITIALIZED: ${_trailingStopLossPrice:F2} ({_strategy.Order.TrailingStopLossPercent * 100:F1}% below entry)", ConsoleColor.Magenta);
+
+                    // Calculate initial trailing stop - use ATR if configured, otherwise percentage
+                    string stopDescription;
+                    if (_strategy.Order.UseAtrStopLoss && _atrCalculator != null && _atrCalculator.IsReady)
+                    {
+                        var atrConfig = _strategy.Order.AtrStopLoss!;
+                        _trailingStopLossPrice = _atrCalculator.CalculateStopPrice(
+                            referencePrice: fillPrice,
+                            multiplier: atrConfig.Multiplier,
+                            isLong: _strategy.Order.Side == OrderSide.Buy,
+                            minPercent: atrConfig.MinStopPercent,
+                            maxPercent: atrConfig.MaxStopPercent
+                        );
+                        double atrValue = _atrCalculator.CurrentAtr;
+                        double stopDistance = fillPrice - _trailingStopLossPrice;
+                        stopDescription = $"{atrConfig.Multiplier:F1}x ATR (ATR=${atrValue:F2}, Distance=${stopDistance:F2})";
+                    }
+                    else
+                    {
+                        _trailingStopLossPrice = Math.Round(fillPrice * (1 - _strategy.Order.TrailingStopLossPercent), 2);
+                        stopDescription = $"{_strategy.Order.TrailingStopLossPercent * 100:F1}% below entry";
+                    }
+
+                    Log($"TRAILING STOP INITIALIZED: ${_trailingStopLossPrice:F2} ({stopDescription})", ConsoleColor.Magenta);
                 }
 
                 // Schedule close position if configured
@@ -1825,6 +1916,9 @@ namespace IdiotProof.Backend.Models
             _cancelTimer?.Dispose();
             _cancelTimer = null;
 
+            _overnightCancelTimer?.Dispose();
+            _overnightCancelTimer = null;
+
             _closePositionTimer?.Dispose();
             _closePositionTimer = null;
 
@@ -1832,15 +1926,12 @@ namespace IdiotProof.Backend.Models
             _wrapper.OnOrderFill -= OnOrderFill;
             _candlestickAggregator.OnCandleComplete -= OnCandleComplete;
 
-            // Clear calculators to release memory
-            // Note: Calculators are simple value types/queues, no IDisposable needed
+            // Note: Do NOT null out calculator fields here!
+            // The lambda callbacks (e.g., volumeAbove.GetCurrentVolume = () => _volumeCalculator.CurrentVolume)
+            // capture 'this' and access fields at evaluation time. If we null these fields,
+            // any in-flight condition evaluation during a race window would throw NullReferenceException.
+            // The GC will handle cleanup when the StrategyRunner instance is no longer referenced.
             _emaCalculators.Clear();
-            _adxCalculator = null;
-            _rsiCalculator = null;
-            _macdCalculator = null;
-            _momentumCalculator = null;
-            _rocCalculator = null;
-            _volumeCalculator = null;
 
             // If strategy never completed, determine final result
             if (_result == StrategyResult.Running)

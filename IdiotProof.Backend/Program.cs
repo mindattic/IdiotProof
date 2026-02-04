@@ -36,9 +36,11 @@ namespace IdiotProof.Backend
         private static readonly List<int> _tickerIds = [];
         private static readonly Dictionary<string, Contract> _contracts = [];
         private static readonly Dictionary<string, double> _prices = [];
+        private static readonly Dictionary<string, double> _previousPrices = [];
         private static List<TradingStrategy> _strategies = [];
         private static bool _isConnected;
         private static bool _isActive;
+        private static Timer? _priceCheckTimer;
 
         public static void Main(string[] args)
         {
@@ -367,6 +369,70 @@ namespace IdiotProof.Backend
             _isActive = true;
             Log(">>> TRADING ACTIVATED <<<");
             _sessionLogger?.LogEvent("TRADING", "Trading activated");
+
+            // Start periodic price check timer
+            StartPriceCheckTimer();
+        }
+
+        private static void StartPriceCheckTimer()
+        {
+            if (Settings.TickerPriceCheckInterval <= 0)
+                return;
+
+            // Initialize previous prices with current prices
+            foreach (var kvp in _prices)
+            {
+                _previousPrices[kvp.Key] = kvp.Value;
+            }
+
+            var intervalMs = Settings.TickerPriceCheckInterval * 60 * 1000;
+            _priceCheckTimer = new Timer(OnPriceCheckTimer, null, intervalMs, intervalMs);
+            Log($"Price check enabled: every {Settings.TickerPriceCheckInterval} minute(s)");
+        }
+
+        private static void StopPriceCheckTimer()
+        {
+            _priceCheckTimer?.Dispose();
+            _priceCheckTimer = null;
+            _previousPrices.Clear();
+        }
+
+        private static void OnPriceCheckTimer(object? state)
+        {
+            if (!_isActive || _prices.Count == 0)
+                return;
+
+            var priceReports = new List<string>();
+
+            foreach (var kvp in _prices.OrderBy(p => p.Key))
+            {
+                var symbol = kvp.Key;
+                var currentPrice = kvp.Value;
+
+                if (currentPrice <= 0)
+                    continue;
+
+                var previousPrice = _previousPrices.TryGetValue(symbol, out var prev) ? prev : currentPrice;
+                var percentChange = previousPrice > 0 ? ((currentPrice - previousPrice) / previousPrice) * 100 : 0;
+
+                string changeIndicator;
+                if (percentChange > 0.001)
+                    changeIndicator = $"+{percentChange:F2}%";
+                else if (percentChange < -0.001)
+                    changeIndicator = $"{percentChange:F2}%";
+                else
+                    changeIndicator = "0.00%";
+
+                priceReports.Add($"{symbol}: {currentPrice:F2} ({changeIndicator})");
+
+                // Update previous price for next interval
+                _previousPrices[symbol] = currentPrice;
+            }
+
+            if (priceReports.Count > 0)
+            {
+                Log(string.Join(" | ", priceReports));
+            }
         }
 
         private static void DeactivateTrading()
@@ -393,6 +459,9 @@ namespace IdiotProof.Backend
             _tickerIds.Clear();
             _contracts.Clear();
             _prices.Clear();
+
+            // Stop price check timer
+            StopPriceCheckTimer();
 
             _isActive = false;
             Log("Trading deactivated.");

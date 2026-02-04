@@ -249,6 +249,48 @@ namespace IdiotProof.Backend.Helpers
         }
 
         /// <summary>
+        /// Updates the ADX with a completed candlestick (OHLC data).
+        /// Use this method when feeding data from a CandlestickAggregator.
+        /// </summary>
+        /// <param name="high">The candle high price.</param>
+        /// <param name="low">The candle low price.</param>
+        /// <param name="close">The candle close price.</param>
+        /// <returns>The updated ADX value, or 0 if not enough data yet.</returns>
+        /// <remarks>
+        /// This method bypasses tick aggregation and directly processes candle data.
+        /// Useful when the upstream data source already provides candlesticks.
+        /// </remarks>
+        public double UpdateFromCandle(double high, double low, double close)
+        {
+            if (high <= 0 || low <= 0 || close <= 0)
+                return _currentAdx;
+
+            // Initialize on first candle
+            if (!_isInitialized)
+            {
+                _previousHigh = high;
+                _previousLow = low;
+                _previousClose = close;
+                _isInitialized = true;
+                return 0;
+            }
+
+            // Set current bar values from the candle
+            _currentHigh = high;
+            _currentLow = low;
+
+            // Complete the bar immediately (each candle = one bar)
+            CompleteBar(close);
+
+            // Store for next candle
+            _previousHigh = high;
+            _previousLow = low;
+            _previousClose = close;
+
+            return _currentAdx;
+        }
+
+        /// <summary>
         /// Resets the ADX calculator for a new trading session.
         /// </summary>
         public void Reset()

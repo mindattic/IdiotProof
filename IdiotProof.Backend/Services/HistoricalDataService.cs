@@ -253,17 +253,31 @@ namespace IdiotProof.Backend.Services
             if (!_pendingRequests.TryGetValue(reqId, out var request))
                 return;
 
-            // Parse the bar time
+            // Parse the bar time - IBKR returns various formats:
+            // - "yyyyMMdd" (daily bars)
+            // - "yyyyMMdd  HH:mm:ss" (intraday bars, note double space)
+            // - "yyyyMMdd HH:mm:ss US/Eastern" (intraday with timezone)
             DateTime barTime;
-            if (bar.Time.Contains(' '))
+            string timeStr = bar.Time;
+
+            // Strip timezone suffix if present (e.g., " US/Eastern", " America/New_York")
+            int tzIndex = timeStr.LastIndexOf(" US/", StringComparison.Ordinal);
+            if (tzIndex == -1)
+                tzIndex = timeStr.LastIndexOf(" America/", StringComparison.Ordinal);
+            if (tzIndex > 0)
+                timeStr = timeStr[..tzIndex];
+
+            if (timeStr.Contains(' '))
             {
-                // Format: "yyyyMMdd HH:mm:ss"
-                barTime = DateTime.ParseExact(bar.Time, "yyyyMMdd  HH:mm:ss", null);
+                // Format: "yyyyMMdd  HH:mm:ss" or "yyyyMMdd HH:mm:ss"
+                // Handle both single and double space between date and time
+                timeStr = timeStr.Replace("  ", " ");
+                barTime = DateTime.ParseExact(timeStr, "yyyyMMdd HH:mm:ss", null);
             }
             else
             {
                 // Format: "yyyyMMdd" (daily bars)
-                barTime = DateTime.ParseExact(bar.Time, "yyyyMMdd", null);
+                barTime = DateTime.ParseExact(timeStr, "yyyyMMdd", null);
             }
 
             var historicalBar = new HistoricalBar
