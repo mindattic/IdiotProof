@@ -18,6 +18,11 @@ A fluent API framework for building multi-stage trading strategies with Interact
   - [Timing Methods](#timing-methods)
   - [Configuration Methods](#configuration-methods)
 - [Default Values Reference](#default-values-reference)
+- [AdaptiveOrder - Smart Dynamic Order Management](#adaptiveorder---smart-dynamic-order-management)
+  - [How It Works](#how-it-works)
+  - [Adaptive Behavior](#adaptive-behavior)
+  - [Mode Configuration](#mode-configuration)
+  - [Adaptive TP Feedback Loop](#adaptive-tp-feedback-loop)
 - [Helper Classes](#helper-classes)
 - [Examples](#examples)
 - [Implementation Status](#implementation-status)
@@ -1670,6 +1675,215 @@ Builds and returns the strategy with current configuration. Terminal method.
 **Returns:** `TradingStrategy`
 
 **Implementation Status:** ✅ Fully Implemented
+
+---
+
+## AdaptiveOrder - Smart Dynamic Order Management
+
+AdaptiveOrder monitors market conditions in real-time and dynamically adjusts take profit and stop loss levels to maximize profit while managing risk.
+
+### How It Works
+
+```
+╔═══════════════════════════════════════════════════════════════════════════╗
+║  MARKET ANALYSIS                                                          ║
+║                                                                           ║
+║  The system continuously evaluates multiple indicators:                   ║
+║                                                                           ║
+║  1. VWAP Position (15%): Bullish above, bearish below                    ║
+║  2. EMA Stack (20%): Short-term vs long-term trend alignment             ║
+║  3. RSI (15%): Overbought/oversold for reversal risk                     ║
+║  4. MACD (20%): Momentum direction and strength                          ║
+║  5. ADX (20%): Trend strength (strong trends get wider targets)          ║
+║  6. Volume (10%): Confirmation of price moves                            ║
+║                                                                           ║
+║  These are combined into a Market Score (-100 to +100)                   ║
+║  Positive = bullish, Negative = bearish                                  ║
+╚═══════════════════════════════════════════════════════════════════════════╝
+```
+
+### Adaptive Behavior
+
+```
+╔═══════════════════════════════════════════════════════════════════════════╗
+║  SCENARIO               │  TAKE PROFIT         │  STOP LOSS              ║
+║─────────────────────────┼──────────────────────┼─────────────────────────║
+║  Strong bullish (70+)   │  Extend +50%         │  Tighten (protect gain) ║
+║  Moderate bull (30-70)  │  Keep original       │  Keep original          ║
+║  Neutral (-30 to 30)    │  Reduce 25%          │  Widen (allow bounce)   ║
+║  Moderate bear (-70-30) │  Reduce 50%          │  Keep original          ║
+║  Strong bearish (<-70)  │  EXIT IMMEDIATELY    │  N/A - Emergency exit   ║
+╚═══════════════════════════════════════════════════════════════════════════╝
+```
+
+### Usage
+
+```csharp
+// Fluent API
+Stock.Ticker("AAPL")
+    .Entry(150)
+    .TakeProfit(160)
+    .StopLoss(145)
+    .AboveVwap()
+    .AdaptiveOrder(AdaptiveMode.Aggressive)
+    .Build();
+```
+
+```idiotscript
+// IdiotScript
+Ticker(AAPL)
+.Entry(150)
+.TakeProfit(160)
+.StopLoss(145)
+.AboveVwap()
+.AdaptiveOrder(IS.AGGRESSIVE)
+```
+
+### Mode Configuration
+
+```
+╔═══════════════════════════════════════════════════════════════════════════════════╗
+║  Setting                  │  CONSERVATIVE  │  BALANCED  │  AGGRESSIVE             ║
+╠═══════════════════════════╪════════════════╪════════════╪═════════════════════════╣
+║  MaxTakeProfitExtension   │     25%        │    50%     │     75%                 ║
+║  MaxTakeProfitReduction   │     60%        │    50%     │     30%                 ║
+║  MaxStopLossTighten       │     30%        │    50%     │     60%                 ║
+║  MaxStopLossWiden         │     40%        │    25%     │     15%                 ║
+║  EmergencyExitThreshold   │     -60        │    -70     │     -80                 ║
+║  MinScoreChangeForAdjust  │     10         │    15      │     20                  ║
+╚═══════════════════════════════════════════════════════════════════════════════════╝
+```
+
+**Conservative**: Protects gains quickly, allows wider stops to avoid noise, exits sooner on bearish signals.
+**Balanced**: Standard risk/reward, moderate adjustments in both directions.
+**Aggressive**: Lets winners run longer, tighter stops to protect capital, stays in longer during drawdowns.
+
+### Adaptive TP Feedback Loop
+
+The system extends TP when momentum is strong, then contracts it when momentum fades, allowing the price to eventually meet the target:
+
+```
+╔═══════════════════════════════════════════════════════════════════════════════╗
+║  MOMENTUM STRONG (Price approaching TP fast)                                  ║
+║  ├── MACD: Bullish with strong histogram → +70 to +100 score                 ║
+║  ├── ADX: High (40+) with +DI > -DI → +80 to +100 score                      ║
+║  ├── RSI: Not yet overbought (50-65) → +0 to +37 score                       ║
+║  └── Result: Total Score 70-100 → TP EXTENDS (multiplier 1.0 to 1.75)        ║
+╠═══════════════════════════════════════════════════════════════════════════════╣
+║  MOMENTUM FADING (Price slowing near extended TP)                             ║
+║  ├── MACD: Histogram shrinking → score drops                                 ║
+║  ├── ADX: Still high but momentum slowing                                    ║
+║  ├── RSI: Becoming overbought (70+) → NEGATIVE contribution (-10 to -100)    ║
+║  └── Result: Total Score drops to 30-69 → TP RETURNS TO ORIGINAL             ║
+╠═══════════════════════════════════════════════════════════════════════════════╣
+║  MOMENTUM EXHAUSTED                                                           ║
+║  ├── MACD: Bearish crossover imminent                                        ║
+║  ├── RSI: Overbought (75+) → strong negative                                 ║
+║  └── Result: Score drops to 0-29 → TP REDUCES (multiplier 0.85-0.925)        ║
+║      → Price finally meets the lowered TP target → PROFIT TAKEN              ║
+╚═══════════════════════════════════════════════════════════════════════════════╝
+```
+
+### Timeline Example: Dynamic TP Adjustment
+
+```
+Entry: $150  |  Original TP: $160  |  Profit Range: $10
+Mode: AGGRESSIVE (75% max extension)
+
+Timeline:
+─────────────────────────────────────────────────────────────────────────────
+T=0   Price $151, Score +85 (strong momentum)
+      → TP Multiplier = 1.375 → TP extended to $163.75
+
+T=5   Price $158, Score +90 (very strong, approaching original TP)
+      → TP Multiplier = 1.50 → TP extended to $165.00
+      → Price would have hit $160 but TP is now $165!
+
+T=10  Price $162, Score +75 (RSI overbought, MACD histogram shrinking)
+      → TP Multiplier = 1.125 → TP reduced to $161.25
+
+T=15  Price $161, Score +50 (momentum fading)
+      → TP Multiplier = 1.0 → TP back to $160.00
+
+T=20  Price $160, Score +45
+      → TP still at $160.00 → *** TAKE PROFIT FILLED ***
+─────────────────────────────────────────────────────────────────────────────
+Result: Captured $10 profit. System extended TP during strong momentum,
+        then contracted it when momentum faded, allowing fill at optimal time.
+```
+
+### TP Extension Visualization
+
+```
+Price
+  ↑
+$165 ─ ─ ─ ─ ─ ─ ─ ─ Extended TP (score 90+)
+      │            ╱
+$163 ─│─ ─ ─ ─ ─ ╱─ ─ TP following momentum
+      │        ╱
+$161 ─│─ ─ ─ ╱─ ─ ─ ─ TP reducing as RSI overbought
+      │    ╱    ↘
+$160 ─│─ ╱─ ─ ─ ─ █ ← FILLED HERE (TP came down to meet price)
+      │╱        ↗
+$158 ─│─ ─ ─ ─ ─ Price path
+      │      ╱
+$155 ─│─ ─ ╱
+      │  ╱
+$150 ─█╱─ ─ ─ ─ ─ Entry
+      │
+      └──────────────────────────────────→ Time
+         T=0  T=5  T=10  T=15  T=20
+```
+
+### RSI Overbought Detection (Key Mechanism)
+
+The RSI component is crucial for detecting when momentum is exhausted:
+
+```
+RSI and Score Contribution:
++────────────────────────────────────────────────────────────────+
+│  RSI Value  │  Score Contribution  │  Effect on TP            │
+├─────────────┼──────────────────────┼──────────────────────────┤
+│  30 or less │  +100 (oversold)     │  Extend (bullish bounce) │
+│  40         │  +25                 │  Slight extend           │
+│  50         │  0 (neutral)         │  No change               │
+│  60         │  +25                 │  Slight extend           │
+│  70         │  0 (threshold)       │  No change               │
+│  75         │  -17                 │  Start reducing TP       │
+│  80         │  -33                 │  Reduce TP               │
+│  85         │  -50                 │  Significant reduction   │
+│  90+        │  -67 to -100         │  Maximum reduction       │
++────────────────────────────────────────────────────────────────+
+
+As price rapidly approaches TP:
+  → RSI rises toward 70+ (overbought)
+  → RSI score contribution becomes NEGATIVE
+  → Total score drops
+  → TP multiplier reduces
+  → TP target comes down to meet the price
+```
+
+### Concrete Example: CIGL Adaptive Trade
+
+```
+Entry: $4.15  |  Original TP: $4.80  |  Original SL: $3.90
+Profit Range: $0.65  |  Loss Range: $0.25
+Mode: AGGRESSIVE
+
+Market Score: +85 (Strong Bullish)
+├── VWAP Score:   +80  (price 4% above VWAP)
+├── EMA Score:    +100 (price above all EMAs)
+├── RSI Score:    -30  (RSI at 75, overbought caution)
+├── MACD Score:   +90  (bullish with strong histogram)
+├── ADX Score:    +100 (ADX 63 with +DI > -DI)
+└── Volume Score: +60  (1.6x average volume)
+
+TP Multiplier = 1.0 + (0.75 × (85-70)/30) = 1.375
+SL Multiplier = 1.0 + (0.60 × (85-70)/30) = 1.30
+
+Adjusted TP: $4.15 + ($0.65 × 1.375) = $5.04  (+21% from entry)
+Adjusted SL: $4.15 - ($0.25 / 1.30) = $3.96   (tighter protection)
+```
 
 ---
 

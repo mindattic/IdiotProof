@@ -246,6 +246,35 @@ namespace IdiotProof.Backend.Models
             _client?.reqGlobalCancel(new OrderCancel());
         }
 
+        /// <summary>
+        /// Modifies an existing order by resubmitting with the same order ID.
+        /// </summary>
+        /// <param name="orderId">The existing order ID to modify.</param>
+        /// <param name="contract">The contract for the order.</param>
+        /// <param name="order">The modified order with updated parameters.</param>
+        /// <remarks>
+        /// <para><b>IB API Behavior:</b></para>
+        /// <para>The IB API treats a placeOrder call with an existing orderId as a modification.</para>
+        /// <para>You can modify: price (LmtPrice, AuxPrice), quantity, order type, TIF, etc.</para>
+        /// <para><b>Common Use Cases:</b></para>
+        /// <list type="bullet">
+        ///   <item>Adjust take profit price: Update <c>order.LmtPrice</c></item>
+        ///   <item>Adjust stop loss price: Update <c>order.AuxPrice</c> (for STP orders)</item>
+        ///   <item>Change quantity: Update <c>order.TotalQuantity</c></item>
+        /// </list>
+        /// </remarks>
+        public void ModifyOrder(int orderId, IbContract contract, Order order)
+        {
+            if (_client == null)
+            {
+                Log("ORDER", "Cannot modify order - client not connected");
+                return;
+            }
+
+            Log("ORDER", $"Modifying order #{orderId}: {order.Action} {order.TotalQuantity} {order.OrderType} @ {(order.OrderType == "LMT" ? $"${order.LmtPrice:F2}" : order.OrderType == "STP" ? $"${order.AuxPrice:F2}" : "MKT")}");
+            _client.placeOrder(orderId, contract, order);
+        }
+
         public void AttachClient(EClientSocket client)
         {
             _client = client;

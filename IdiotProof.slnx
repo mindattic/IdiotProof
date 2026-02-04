@@ -1,19 +1,4 @@
 <Solution>
-  <Folder Name="/Config/" />
-  <Folder Name="/Config/Logs/" />
-  <Folder Name="/Config/Settings/" />
-  <Folder Name="/Config/Strategies/">
-    <File Path="Strategies/CIGL-V1-Conservative.idiot" />
-    <File Path="Strategies/CIGL-V2-Aggressive.idiot" />
-    <File Path="Strategies/CIGL-V3-VwapPullback.idiot" />
-    <File Path="Strategies/CIGL-V4-EmaConfluence.idiot" />
-    <File Path="Strategies/CIGL.idiot" />
-    <File Path="Strategies/LIMN-V1-Conservative.idiot" />
-    <File Path="Strategies/LIMN-V2-Aggressive.idiot" />
-    <File Path="Strategies/LIMN-V3-HigherLows.idiot" />
-    <File Path="Strategies/LIMN-V4-MacdMomentum.idiot" />
-    <File Path="Strategies/LIMN.idiot" />
-  </Folder>
   <Project Path="IdiotProof.Backend.UnitTests/IdiotProof.Backend.UnitTests.csproj" />
   <Project Path="IdiotProof.Backend/IdiotProof.Backend.csproj" />
   <Project Path="IdiotProof.Console.UnitTests/IdiotProof.Console.UnitTests.csproj" />

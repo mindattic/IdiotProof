@@ -92,6 +92,7 @@ namespace IdiotProof.Shared.Enums
         StopLoss,
         TrailingStopLoss,
         TrailingStopLossAtr,
+        AdaptiveOrder,
 
         // Position Management
         ClosePosition,

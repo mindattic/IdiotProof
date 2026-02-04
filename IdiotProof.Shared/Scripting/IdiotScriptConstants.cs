@@ -141,6 +141,19 @@ public static class IdiotScriptConstants
     public const string TSL_WIDE = "IS.WIDE";
 
     // ========================================================================
+    // ADAPTIVE ORDER MODES
+    // ========================================================================
+
+    /// <summary>Conservative adaptive mode: protect gains, quick to take profits</summary>
+    public const string ADAPTIVE_CONSERVATIVE = "IS.CONSERVATIVE";
+
+    /// <summary>Balanced adaptive mode: equal priority to profit and protection</summary>
+    public const string ADAPTIVE_BALANCED = "IS.BALANCED";
+
+    /// <summary>Aggressive adaptive mode: maximize profit potential in strong trends</summary>
+    public const string ADAPTIVE_AGGRESSIVE = "IS.AGGRESSIVE";
+
+    // ========================================================================
     // ORDER DIRECTION
     // ========================================================================
 
@@ -228,6 +241,14 @@ public static class IdiotScriptConstants
             "IS.STANDARD" => "0.15",
             "IS.LOOSE" => "0.20",
             "IS.WIDE" => "0.25",
+
+            // Adaptive order modes
+            "IS.CONSERVATIVE" => "Conservative",
+            "IS.BALANCED" => "Balanced",
+            "IS.AGGRESSIVE" => "Aggressive",
+            "IS.SAFE" => "Conservative",      // Alias
+            "IS.NORMAL" => "Balanced",        // Alias
+            "IS.RISKY" => "Aggressive",       // Alias
 
             // RSI
             "IS.RSI_OVERSOLD" => "30",

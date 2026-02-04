@@ -136,6 +136,15 @@ public static class IdiotScriptSerializer
             }
         }
 
+        // Adaptive order
+        var adaptiveSegment = orderedSegments.FirstOrDefault(s => s.Type == SegmentType.AdaptiveOrder);
+        if (adaptiveSegment != null)
+        {
+            var mode = GetParameterValue<string>(adaptiveSegment, "Mode", "Balanced");
+            var modeConstant = GetAdaptiveOrderConstant(mode);
+            parts.Add($"AdaptiveOrder({modeConstant})");
+        }
+
         // Close position
         var closeSegment = orderedSegments.FirstOrDefault(s => s.Type == SegmentType.ClosePosition);
         if (closeSegment != null)
@@ -450,6 +459,17 @@ public static class IdiotScriptSerializer
             0.20 => "IS.LOOSE",
             0.25 => "IS.WIDE",
             _ => $"{percent * 100:F0}"
+        };
+    }
+
+    private static string GetAdaptiveOrderConstant(string mode)
+    {
+        return mode.ToUpperInvariant() switch
+        {
+            "CONSERVATIVE" => "IS.CONSERVATIVE",
+            "BALANCED" => "IS.BALANCED",
+            "AGGRESSIVE" => "IS.AGGRESSIVE",
+            _ => mode
         };
     }
 

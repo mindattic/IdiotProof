@@ -34,6 +34,8 @@ namespace IdiotProof.Backend.Enums
         /// <summary>Strategy window ended before conditions were met.</summary>
         TimedOut,
         /// <summary>An error occurred during strategy execution.</summary>
-        Error
+        Error,
+        /// <summary>Adaptive order triggered emergency exit due to severely bearish conditions.</summary>
+        EmergencyExit
     }
 }

@@ -229,6 +229,32 @@ namespace IdiotProof.Backend.Strategy
         public bool UseAtrStopLoss => AtrStopLoss != null;
 
         /// <summary>
+        /// Adaptive order configuration for dynamic TP/SL adjustment based on market conditions.
+        /// When set, the system monitors indicators and adjusts orders in real-time.
+        /// </summary>
+        /// <remarks>
+        /// <para><b>Adaptive Order Benefits:</b></para>
+        /// <list type="bullet">
+        ///   <item>Extends take profit in strong trends for larger gains.</item>
+        ///   <item>Tightens take profit in weak conditions to secure profits.</item>
+        ///   <item>Adjusts stop loss based on volatility and momentum.</item>
+        ///   <item>Emergency exit on severely bearish conditions.</item>
+        /// </list>
+        /// <para><b>Example:</b></para>
+        /// <code>
+        /// .AdaptiveOrder()                    // Use balanced mode
+        /// .AdaptiveOrder(Adaptive.Aggressive) // Maximize profit potential
+        /// </code>
+        /// <para><b>Note:</b> Requires TakeProfit and/or StopLoss to be set.</para>
+        /// </remarks>
+        public AdaptiveOrderConfig? AdaptiveOrder { get; init; }
+
+        /// <summary>
+        /// Whether adaptive order management is enabled.
+        /// </summary>
+        public bool UseAdaptiveOrder => AdaptiveOrder != null;
+
+        /// <summary>
         /// Time to cancel unfilled orders and optionally exit position (CST).
         /// </summary>
         /// <remarks>

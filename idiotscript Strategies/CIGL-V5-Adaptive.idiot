@@ -1,0 +1,50 @@
+# ============================================================================
+# CIGL-V5-Adaptive - Smart Dynamic Order Management Strategy
+# ============================================================================
+#
+# CHART ANALYSIS (Feb 4):
+# - Current: $4.35 | VWAP: $4.12 | EMA(9): $3.69 | EMA(21): $3.13
+# - ADX: 63.55 (VERY strong trend) | RSI: 81.52 (overbought)
+# - Recent spike to $5.00, now consolidating above VWAP
+#
+# STRATEGY:
+# Wait for price above VWAP with strong trend momentum, then let
+# AdaptiveOrder dynamically manage TP/SL based on real-time conditions.
+#
+# ╔═══════════════════════════════════════════════════════════════════════════╗
+# ║  ADAPTIVE ORDER BEHAVIOR                                                  ║
+# ║                                                                           ║
+# ║  In AGGRESSIVE mode:                                                      ║
+# ║  • Strong bullish: Extends TP up to 75% for larger gains                 ║
+# ║  • Tightens SL quickly to protect gains                                  ║
+# ║  • Emergency exit only at severe bearish (-80 score)                     ║
+# ║                                                                           ║
+# ║  Monitors: VWAP, EMAs, RSI, MACD, ADX, Volume                            ║
+# ╚═══════════════════════════════════════════════════════════════════════════╝
+#
+# RISK: High volatility stock - use small position size
+# ============================================================================
+
+Ticker(CIGL)
+.Name("CIGL Adaptive Aggressive")
+.Session(IS.PREMARKET)
+.Qty(100)
+
+# Entry at pullback to VWAP area
+.Entry(4.15)
+
+# Initial targets (AdaptiveOrder will adjust these dynamically)
+.TakeProfit(4.80)     # ~15% profit target
+.StopLoss(3.90)       # ~6% stop loss
+
+# Entry conditions - strong trend confirmation
+.AboveVwap()          # Price holding above VWAP
+.EmaAbove(9)          # Above short-term EMA
+.DiPositive()         # Bullish directional movement
+.AdxAbove(25)         # Strong trend (current ADX is 63!)
+
+# Smart order management - will extend TP in strong conditions
+.AdaptiveOrder(IS.AGGRESSIVE)
+
+# Exit at bell if position still open
+.ClosePosition(IS.BELL, IS.PROFITABLE)

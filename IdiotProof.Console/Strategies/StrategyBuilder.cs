@@ -593,6 +593,41 @@ public class StrategyBuilder
     }
 
     /// <summary>
+    /// Enables adaptive order management that dynamically adjusts TP/SL based on market conditions.
+    /// </summary>
+    /// <remarks>
+    /// <para><b>Behavior:</b></para>
+    /// <list type="bullet">
+    ///   <item>Monitors VWAP, EMAs, RSI, MACD, ADX, and volume in real-time.</item>
+    ///   <item>Calculates a market score (-100 to +100) indicating trend strength.</item>
+    ///   <item>Extends take profit in strong bullish conditions.</item>
+    ///   <item>Tightens take profit in weak conditions to secure gains.</item>
+    ///   <item>Adjusts stop loss based on volatility and momentum.</item>
+    ///   <item>Triggers emergency exit on severely bearish conditions.</item>
+    /// </list>
+    /// <para><b>Requires:</b> TakeProfit and/or StopLoss must be set.</para>
+    /// </remarks>
+    public StrategyBuilder AdaptiveOrder(string mode = "Balanced")
+    {
+        AddSegment(SegmentType.AdaptiveOrder, SegmentCategory.RiskManagement, "Adaptive Order",
+            [new SegmentParameter
+            {
+                Name = "Mode",
+                Label = "Mode",
+                Type = ParameterType.String,
+                Value = mode,
+                IsRequired = true
+            }]);
+        return this;
+    }
+
+    /// <summary>
+    /// Alias for <see cref="AdaptiveOrder"/>.
+    /// Enables adaptive order management that dynamically adjusts TP/SL based on market conditions.
+    /// </summary>
+    public StrategyBuilder IsAdaptiveOrder(string mode = "Balanced") => AdaptiveOrder(mode);
+
+    /// <summary>
     /// Sets the time in force for orders.
     /// </summary>
     public StrategyBuilder TimeInForce(Shared.Enums.TimeInForce tif)

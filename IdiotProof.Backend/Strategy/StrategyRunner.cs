@@ -139,6 +139,14 @@ namespace IdiotProof.Backend.Models
         private bool _closePositionTriggered;
         private int _closePositionOrderId = -1;
 
+        // Adaptive order tracking
+        private DateTime _lastAdaptiveAdjustmentTime = DateTime.MinValue;
+        private int _lastAdaptiveScore;
+        private double _originalTakeProfitPrice;
+        private double _originalStopLossPrice;
+        private double _currentAdaptiveTakeProfitPrice;
+        private double _currentAdaptiveStopLossPrice;
+
         // Result tracking
         private StrategyResult _result = StrategyResult.Running;
 
@@ -799,6 +807,7 @@ namespace IdiotProof.Backend.Models
             if (_entryFilled && !_isComplete)
             {
                 MonitorTrailingStopLoss(lastPrice);
+                MonitorAdaptiveOrder(lastPrice, vwap);
             }
 
             // Evaluate current condition
@@ -962,6 +971,382 @@ namespace IdiotProof.Backend.Models
         }
 
         /// <summary>
+        /// Monitors and adjusts take profit and stop loss orders based on market conditions.
+        /// Uses multiple indicators to calculate a market score and adjusts orders accordingly.
+        /// </summary>
+        private void MonitorAdaptiveOrder(double currentPrice, double vwap)
+        {
+            var order = _strategy.Order;
+
+            // Only monitor if adaptive order is enabled and we have an open position
+            if (!order.UseAdaptiveOrder || !_entryFilled || _isComplete)
+                return;
+
+            var config = order.AdaptiveOrder!;
+
+            // Rate limiting - don't adjust too frequently
+            var now = DateTime.UtcNow;
+            var timeSinceLastAdjustment = (now - _lastAdaptiveAdjustmentTime).TotalSeconds;
+            if (timeSinceLastAdjustment < config.MinSecondsBetweenAdjustments)
+                return;
+
+            // Calculate market score
+            var score = CalculateMarketScore(currentPrice, vwap, order.Side == OrderSide.Buy);
+
+            // Check for emergency exit
+            if (score.ShouldEmergencyExit)
+            {
+                Log($"*** ADAPTIVE EMERGENCY EXIT! Score: {score.TotalScore} ({score.Condition})", ConsoleColor.Red);
+                ExecuteEmergencyExit();
+                return;
+            }
+
+            // Only adjust if score changed significantly
+            int scoreDelta = Math.Abs(score.TotalScore - _lastAdaptiveScore);
+            if (scoreDelta < config.MinScoreChangeForAdjustment)
+                return;
+
+            // Calculate new prices based on score
+            bool adjustmentMade = false;
+
+            // Adjust take profit
+            if (_takeProfitOrderId > 0 && !_takeProfitFilled && !_takeProfitCancelled && _originalTakeProfitPrice > 0)
+            {
+                double profitRange = _originalTakeProfitPrice - _entryFillPrice;
+                double adjustment = profitRange * (score.TakeProfitMultiplier - 1.0);
+                double newTakeProfitPrice = Math.Round(_originalTakeProfitPrice + adjustment, 2);
+
+                // Ensure TP doesn't go below entry (no negative profit target)
+                newTakeProfitPrice = Math.Max(newTakeProfitPrice, _entryFillPrice + 0.01);
+
+                if (Math.Abs(newTakeProfitPrice - _currentAdaptiveTakeProfitPrice) > 0.01)
+                {
+                    Log($"ADAPTIVE: Adjusting TP ${_currentAdaptiveTakeProfitPrice:F2} -> ${newTakeProfitPrice:F2} (Score: {score.TotalScore}, ×{score.TakeProfitMultiplier:F2})", ConsoleColor.Cyan);
+                    ModifyTakeProfitOrder(newTakeProfitPrice);
+                    _currentAdaptiveTakeProfitPrice = newTakeProfitPrice;
+                    adjustmentMade = true;
+                }
+            }
+
+            // Adjust stop loss (if using fixed SL, not trailing)
+            if (_stopLossOrderId > 0 && !_stopLossFilled && _originalStopLossPrice > 0 && !order.EnableTrailingStopLoss)
+            {
+                double lossRange = _entryFillPrice - _originalStopLossPrice;
+                double adjustment = lossRange * (score.StopLossMultiplier - 1.0);
+                double newStopLossPrice = Math.Round(_originalStopLossPrice - adjustment, 2);
+
+                // Ensure SL doesn't go above entry (no profit stop)
+                newStopLossPrice = Math.Min(newStopLossPrice, _entryFillPrice - 0.01);
+
+                if (Math.Abs(newStopLossPrice - _currentAdaptiveStopLossPrice) > 0.01)
+                {
+                    Log($"ADAPTIVE: Adjusting SL ${_currentAdaptiveStopLossPrice:F2} -> ${newStopLossPrice:F2} (Score: {score.TotalScore}, ×{score.StopLossMultiplier:F2})", ConsoleColor.Yellow);
+                    ModifyStopLossOrder(newStopLossPrice);
+                    _currentAdaptiveStopLossPrice = newStopLossPrice;
+                    adjustmentMade = true;
+                }
+            }
+
+            if (adjustmentMade)
+            {
+                _lastAdaptiveAdjustmentTime = now;
+                _lastAdaptiveScore = score.TotalScore;
+                Log($"  Market Analysis: {score}", ConsoleColor.DarkGray);
+            }
+        }
+
+        /// <summary>
+        /// Calculates a market score (-100 to +100) based on multiple indicators.
+        /// Positive = bullish, Negative = bearish.
+        /// </summary>
+        private MarketScore CalculateMarketScore(double price, double vwap, bool isLong)
+        {
+            var order = _strategy.Order;
+            var config = order.AdaptiveOrder!;
+
+            int vwapScore = 0, emaScore = 0, rsiScore = 0, macdScore = 0, adxScore = 0, volumeScore = 0;
+
+            // VWAP Position (15% weight) - Range: -100 to +100
+            if (vwap > 0)
+            {
+                double vwapDiff = (price - vwap) / vwap * 100; // Percentage above/below VWAP
+                vwapScore = (int)Math.Clamp(vwapDiff * 20, -100, 100); // Scale: 5% above VWAP = +100
+            }
+
+            // EMA Stack Alignment (20% weight)
+            if (_emaCalculators.Count > 0)
+            {
+                int bullishCount = 0, bearishCount = 0;
+                var sortedEmas = _emaCalculators.OrderBy(kvp => kvp.Key).ToList();
+
+                foreach (var kvp in sortedEmas)
+                {
+                    if (kvp.Value.IsReady)
+                    {
+                        if (price > kvp.Value.CurrentValue) bullishCount++;
+                        else bearishCount++;
+                    }
+                }
+
+                // Check EMA alignment (price > EMA9 > EMA21 = very bullish)
+                int total = bullishCount + bearishCount;
+                if (total > 0)
+                {
+                    emaScore = (int)((bullishCount - bearishCount) / (double)total * 100);
+                }
+            }
+
+            // RSI (15% weight) - Overbought/oversold affects score
+            if (_rsiCalculator?.IsReady == true)
+            {
+                double rsi = _rsiCalculator.CurrentValue;
+                // RSI 50 = neutral (0), RSI 70+ = overbought (-50 to -100), RSI 30- = oversold (+50 to +100)
+                if (rsi > 70)
+                    rsiScore = (int)(-(rsi - 70) * 3.33); // 70->0, 100->-100
+                else if (rsi < 30)
+                    rsiScore = (int)((30 - rsi) * 3.33); // 30->0, 0->+100
+                else
+                    rsiScore = (int)((rsi - 50) * 2.5); // 30->-50, 70->+50
+            }
+
+            // MACD (20% weight)
+            if (_macdCalculator?.IsReady == true)
+            {
+                bool bullish = _macdCalculator.IsBullish;
+                double histogram = _macdCalculator.Histogram;
+                // Scale histogram to score (-100 to +100)
+                macdScore = bullish ? 50 : -50;
+                macdScore += (int)Math.Clamp(histogram * 500, -50, 50); // Histogram strength adds ±50
+            }
+
+            // ADX Trend Strength (20% weight)
+            if (_adxCalculator?.IsReady == true)
+            {
+                double adx = _adxCalculator.CurrentAdx;
+                bool diPositive = _adxCalculator.PlusDI > _adxCalculator.MinusDI;
+
+                // ADX determines magnitude, DI determines direction
+                int magnitude = (int)Math.Min(adx * 2, 100); // ADX 50+ = max magnitude
+                adxScore = diPositive ? magnitude : -magnitude;
+            }
+
+            // Volume (10% weight)
+            if (_volumeCalculator?.IsReady == true)
+            {
+                double volumeRatio = _volumeCalculator.VolumeRatio;
+                // High volume confirms moves: >1.5x = +50, >2x = +100
+                if (volumeRatio > 1.0)
+                {
+                    int volumeMagnitude = (int)Math.Min((volumeRatio - 1.0) * 100, 100);
+                    // Volume confirms the current direction
+                    volumeScore = price > vwap ? volumeMagnitude : -volumeMagnitude;
+                }
+            }
+
+            // Calculate weighted total score
+            double totalScore =
+                vwapScore * config.WeightVwap +
+                emaScore * config.WeightEma +
+                rsiScore * config.WeightRsi +
+                macdScore * config.WeightMacd +
+                adxScore * config.WeightAdx +
+                volumeScore * config.WeightVolume;
+
+            int finalScore = (int)Math.Clamp(totalScore, -100, 100);
+
+            // For short positions, invert the score
+            if (!isLong)
+                finalScore = -finalScore;
+
+            // Calculate adjustment multipliers based on score and mode
+            double tpMultiplier = CalculateTakeProfitMultiplier(finalScore, config);
+            double slMultiplier = CalculateStopLossMultiplier(finalScore, config);
+
+            bool shouldExit = isLong
+                ? finalScore <= config.EmergencyExitThreshold
+                : finalScore >= -config.EmergencyExitThreshold;
+
+            return new MarketScore
+            {
+                TotalScore = finalScore,
+                VwapScore = vwapScore,
+                EmaScore = emaScore,
+                RsiScore = rsiScore,
+                MacdScore = macdScore,
+                AdxScore = adxScore,
+                VolumeScore = volumeScore,
+                TakeProfitMultiplier = tpMultiplier,
+                StopLossMultiplier = slMultiplier,
+                ShouldEmergencyExit = shouldExit
+            };
+        }
+
+        /// <summary>
+        /// Calculates the take profit multiplier based on market score.
+        /// </summary>
+        private static double CalculateTakeProfitMultiplier(int score, AdaptiveOrderConfig config)
+        {
+            // Score ranges: -100 to +100
+            // Strong bullish (70+): Extend TP
+            // Moderate bullish (30-70): Keep original
+            // Neutral (-30 to 30): Slightly reduce
+            // Moderate bearish (-70 to -30): Reduce significantly
+            // Strong bearish (<-70): Maximum reduction
+
+            if (score >= 70)
+            {
+                // Extend: 1.0 to 1.0 + MaxExtension
+                double extensionFactor = (score - 70) / 30.0; // 0 at 70, 1 at 100
+                return 1.0 + (config.MaxTakeProfitExtension * extensionFactor);
+            }
+            else if (score >= 30)
+            {
+                // Keep original
+                return 1.0;
+            }
+            else if (score >= -30)
+            {
+                // Slight reduction: 1.0 to 0.85
+                double reductionFactor = (30 - score) / 60.0; // 0 at 30, 1 at -30
+                return 1.0 - (0.15 * reductionFactor);
+            }
+            else if (score >= -70)
+            {
+                // Moderate reduction: 0.85 to 1.0 - MaxReduction/2
+                double reductionFactor = (-30 - score) / 40.0; // 0 at -30, 1 at -70
+                return 0.85 - ((config.MaxTakeProfitReduction / 2 - 0.15) * reductionFactor);
+            }
+            else
+            {
+                // Maximum reduction
+                return 1.0 - config.MaxTakeProfitReduction;
+            }
+        }
+
+        /// <summary>
+        /// Calculates the stop loss multiplier based on market score.
+        /// </summary>
+        private static double CalculateStopLossMultiplier(int score, AdaptiveOrderConfig config)
+        {
+            // Strong bullish: Tighten SL to protect gains
+            // Neutral: Widen slightly to avoid noise
+            // Bearish: Keep tight to limit losses
+
+            if (score >= 70)
+            {
+                // Tighten: Multiplier > 1 means stop gets closer
+                double tightenFactor = (score - 70) / 30.0;
+                return 1.0 + (config.MaxStopLossTighten * tightenFactor);
+            }
+            else if (score >= 0)
+            {
+                // Slight tighten to neutral
+                return 1.0;
+            }
+            else if (score >= -50)
+            {
+                // Widen slightly: Multiplier < 1 means stop gets further
+                double widenFactor = -score / 50.0;
+                return 1.0 - (config.MaxStopLossWiden * widenFactor * 0.5);
+            }
+            else
+            {
+                // Keep relatively tight in bearish conditions
+                return 1.0 - (config.MaxStopLossWiden * 0.5);
+            }
+        }
+
+        /// <summary>
+        /// Modifies an existing take profit order with a new price.
+        /// </summary>
+        private void ModifyTakeProfitOrder(double newPrice)
+        {
+            if (_takeProfitOrderId <= 0) return;
+
+            var tpOrder = new Order
+            {
+                Action = _strategy.Order.Side == OrderSide.Buy ? "SELL" : "BUY",
+                OrderType = "LMT",
+                LmtPrice = newPrice,
+                TotalQuantity = _strategy.Order.Quantity,
+                OutsideRth = _strategy.Order.TakeProfitOutsideRth,
+                Tif = "GTC"
+            };
+
+            if (!string.IsNullOrEmpty(Settings.AccountNumber))
+                tpOrder.Account = Settings.AccountNumber;
+
+            _wrapper.ModifyOrder(_takeProfitOrderId, _contract, tpOrder);
+        }
+
+        /// <summary>
+        /// Modifies an existing stop loss order with a new price.
+        /// </summary>
+        private void ModifyStopLossOrder(double newPrice)
+        {
+            if (_stopLossOrderId <= 0) return;
+
+            var slOrder = new Order
+            {
+                Action = _strategy.Order.Side == OrderSide.Buy ? "SELL" : "BUY",
+                OrderType = "STP",
+                AuxPrice = newPrice,
+                TotalQuantity = _strategy.Order.Quantity,
+                OutsideRth = true,
+                Tif = "GTC"
+            };
+
+            if (!string.IsNullOrEmpty(Settings.AccountNumber))
+                slOrder.Account = Settings.AccountNumber;
+
+            _wrapper.ModifyOrder(_stopLossOrderId, _contract, slOrder);
+        }
+
+        /// <summary>
+        /// Executes an emergency exit when market conditions are severely against the position.
+        /// </summary>
+        private void ExecuteEmergencyExit()
+        {
+            if (_isComplete) return;
+
+            // Cancel existing orders
+            if (_takeProfitOrderId > 0 && !_takeProfitFilled && !_takeProfitCancelled)
+            {
+                Log($"Cancelling take profit order #{_takeProfitOrderId} for emergency exit...", ConsoleColor.Yellow);
+                _client.cancelOrder(_takeProfitOrderId, new OrderCancel());
+                _takeProfitCancelled = true;
+            }
+
+            if (_stopLossOrderId > 0 && !_stopLossFilled)
+            {
+                Log($"Cancelling stop loss order #{_stopLossOrderId} for emergency exit...", ConsoleColor.Yellow);
+                _client.cancelOrder(_stopLossOrderId, new OrderCancel());
+            }
+
+            // Submit market exit order
+            int exitOrderId = _wrapper.ConsumeNextOrderId();
+            string action = _strategy.Order.Side == OrderSide.Buy ? "SELL" : "BUY";
+
+            var exitOrder = new Order
+            {
+                Action = action,
+                OrderType = "MKT",
+                TotalQuantity = _strategy.Order.Quantity,
+                OutsideRth = true,
+                Tif = "GTC"
+            };
+
+            if (!string.IsNullOrEmpty(Settings.AccountNumber))
+                exitOrder.Account = Settings.AccountNumber;
+
+            Log($">> EMERGENCY EXIT: {action} {_strategy.Order.Quantity} @ MKT", ConsoleColor.Red);
+            _client.placeOrder(exitOrderId, _contract, exitOrder);
+
+            _isComplete = true;
+            _result = StrategyResult.EmergencyExit;
+        }
+
+        /// <summary>
         /// Resets the strategy state for a new trading day.
         /// Called automatically at midnight to allow strategies to run again.
         /// </summary>
@@ -1060,6 +1445,14 @@ namespace IdiotProof.Backend.Models
             _trailingStopLossTriggered = false;
             _trailingStopLossPrice = 0;
             _highWaterMark = 0;
+
+            // Reset adaptive order tracking
+            _lastAdaptiveAdjustmentTime = DateTime.MinValue;
+            _lastAdaptiveScore = 0;
+            _originalTakeProfitPrice = 0;
+            _originalStopLossPrice = 0;
+            _currentAdaptiveTakeProfitPrice = 0;
+            _currentAdaptiveStopLossPrice = 0;
 
             // Reset close position tracking
             _closePositionTriggered = false;
@@ -1462,6 +1855,27 @@ namespace IdiotProof.Backend.Models
                 if (_strategy.Order.EnableStopLoss)
                 {
                     SubmitStopLoss(fillPrice);
+                }
+
+                // Initialize adaptive order tracking if enabled
+                if (_strategy.Order.UseAdaptiveOrder)
+                {
+                    // Store original prices for adaptive adjustments
+                    _originalTakeProfitPrice = _takeProfitTarget;
+                    _currentAdaptiveTakeProfitPrice = _takeProfitTarget;
+
+                    if (_strategy.Order.StopLossPrice.HasValue)
+                    {
+                        _originalStopLossPrice = _strategy.Order.StopLossPrice.Value;
+                        _currentAdaptiveStopLossPrice = _strategy.Order.StopLossPrice.Value;
+                    }
+                    else if (_strategy.Order.StopLossOffset > 0)
+                    {
+                        _originalStopLossPrice = fillPrice - _strategy.Order.StopLossOffset;
+                        _currentAdaptiveStopLossPrice = _originalStopLossPrice;
+                    }
+
+                    Log($"ADAPTIVE ORDER ENABLED: TP=${_originalTakeProfitPrice:F2}, SL=${_originalStopLossPrice:F2} ({_strategy.Order.AdaptiveOrder!.Mode})", ConsoleColor.Cyan);
                 }
 
                 // Initialize trailing stop loss tracking
