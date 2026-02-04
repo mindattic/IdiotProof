@@ -148,7 +148,7 @@ namespace IdiotProof.Shared.Settings
         /// Interval in minutes between ticker price check reports.
         /// Set to 0 to disable price reporting.
         /// </summary>
-        public const int TickerPriceCheckInterval = 1;
+        public const int TickerPriceCheckInterval = 10;
     }
 }
 
