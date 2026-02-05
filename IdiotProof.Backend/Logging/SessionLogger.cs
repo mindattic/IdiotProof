@@ -224,8 +224,8 @@ public sealed class SessionLogger : IDisposable
             sb.AppendLine("╔════════════════════════════════════════════════════════════════════════╗");
             sb.AppendLine($"║  SESSION LOG: {_sessionId,-56} ║");
             sb.AppendLine($"║  Reason: {reason,-61} ║");
-            sb.AppendLine($"║  Timestamp: {DateTime.Now:yyyy-MM-dd HH:mm:ss,-55} ║");
-            sb.AppendLine($"║  Runtime: {runtime:hh\\:mm\\:ss,-60} ║");
+            sb.AppendLine($"║  Timestamp: {DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"),-55} ║");
+            sb.AppendLine($"║  Runtime: {runtime.ToString(@"hh\:mm\:ss"),-60} ║");
             sb.AppendLine("╠════════════════════════════════════════════════════════════════════════╣");
 
             // Strategy Summary

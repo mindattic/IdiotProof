@@ -52,13 +52,6 @@ public class IdiotScriptFileManagerTests
         Assert.That(result, Is.Not.Null.And.Not.Empty);
     }
 
-    [Test]
-    public void GetSettingsFolder_ReturnsPathWithProjectName()
-    {
-        var result = IdiotScriptFileManager.GetSettingsFolder("TestProject");
-
-        Assert.That(result, Does.Contain("TestProject"));
-    }
 
     [Test]
     public void GetDateFolder_ReturnsPathWithDate()

@@ -220,4 +220,41 @@ public static class _
         public const string Yes = "yes";
         public const string No = "no";
     }
+
+    /// <summary>
+    /// Folder name constants.
+    /// </summary>
+    public static class Folder
+    {
+        public const string Scripts = "IdiotProof.Scripts";
+        public const string Logs = "IdiotProof.Logs";
+        public const string Settings = "Settings";
+        public const string Backend = "Backend";
+        public const string Console = "Console";
+        public const string Frontend = "Frontend";
+    }
+
+    /// <summary>
+    /// Project name constants.
+    /// </summary>
+    public static class Project
+    {
+        public const string Backend = "IdiotProof.Backend";
+        public const string Console = "IdiotProof.Console";
+        public const string Frontend = "IdiotProof.Frontend";
+        public const string Shared = "IdiotProof.Shared";
+        public const string Scripts = "IdiotProof.Scripts";
+        public const string Logs = "IdiotProof.Logs";
+    }
+
+    /// <summary>
+    /// File extension constants.
+    /// </summary>
+    public static class Extension
+    {
+        public const string Idiot = ".idiot";
+        public const string Json = ".json";
+        public const string Log = ".log";
+        public const string Txt = ".txt";
+    }
 }

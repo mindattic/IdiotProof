@@ -7,6 +7,8 @@ A fluent API framework for building multi-stage trading strategies with Interact
 - [Overview](#overview)
 - [Project Structure](#project-structure)
 - [Quick Start](#quick-start)
+- [Single-Responsibility Pattern](#single-responsibility-pattern)
+- [API and DSL Parity](#api-and-dsl-parity)
 - [MAUI Frontend (Strategy Builder)](#maui-frontend-strategy-builder)
 - [Running in Release Mode](#running-in-release-mode)
   - [IPC Communication Logging](#ipc-communication-logging)
@@ -45,6 +47,79 @@ IdiotProof provides a clean, readable fluent API for defining complex trading st
 - Time-based strategy windows
 - Pre-market, RTH, and after-hours support
 - **WYSIWYG Strategy Builder UI** (MAUI Frontend)
+- **Single-Responsibility Pattern** - Each method does one thing
+- **API/DSL Parity** - Fluent API and IdiotScript commands are equivalent
+
+---
+
+## Single-Responsibility Pattern
+
+IdiotProof follows a **single-responsibility pattern** where each fluent API method and DSL command does exactly one thing:
+
+- Methods have **at most ONE parameter**
+- If no parameter is specified, use the built-in default value
+- Methods that previously had 2+ params are split into separate single-responsibility methods
+
+### Example - Single Responsibility Chain:
+```csharp
+Stock.Ticker("AAPL")
+    .Entry(150)              // Condition: Price >= 150
+    .Long()                  // Sets direction only
+    .Quantity(100)           // Sets quantity separately
+    .PriceType(Price.VWAP)   // Sets price type separately
+    .OutsideRTH()            // Enables outside RTH for entry
+    .TakeProfitOutsideRTH()  // Enables outside RTH for take profit
+    .TakeProfit(160)
+    .Build();
+```
+
+---
+
+## API and DSL Parity
+
+The Fluent API and IdiotScript DSL are designed to be equivalent. Every IdiotScript command maps directly to a Fluent API method.
+
+### Entry vs Order Clarification
+
+**Important distinction:**
+- **`Entry(price)`** = A **CONDITION** that triggers when price reaches a level (alias for `IsPriceAbove()`)
+- **`Order(IS.LONG)`** or **`Order(IS.SHORT)`** = An **ACTION** that executes an order when all conditions are met
+- **`Order()`** with no parameter defaults to `IS.LONG` (long position)
+
+These are NOT the same! Entry is a trigger condition, Order is the order execution.
+
+### Order Direction Syntax
+
+| Fluent API | IdiotScript | Description |
+|------------|-------------|-------------|
+| `.Order(OrderDirection.Long)` | `Order(IS.LONG)` | Opens a LONG position |
+| `.Order(OrderDirection.Short)` | `Order(IS.SHORT)` | Opens a SHORT position |
+| `.Long()` | `Long()` | Alias for Order(IS.LONG) |
+| `.Short()` | `Short()` | Alias for Order(IS.SHORT) |
+| `.CloseLong()` | `CloseLong()` | Create SELL order to close a long position |
+| `.CloseShort()` | `CloseShort()` | Create BUY order to cover a short position |
+
+### Legacy Syntax (Deprecated but still works)
+```csharp
+.Buy(100, Price.Current)     // Deprecated, use .Long().Quantity(100)
+.Sell(100, Price.Current)    // Deprecated, use .Short().Quantity(100)
+```
+
+### IdiotScript Parentheses Convention
+
+IdiotScript commands should **always include parentheses**, even for flag-style commands without parameters:
+
+```idiotscript
+// Correct (with parentheses)
+IsAboveVwap()
+Breakout()
+Long()
+
+// Deprecated (without parentheses) - still works for backwards compatibility
+IsAboveVwap
+Breakout
+Long
+```
 
 ---
 
@@ -91,20 +166,37 @@ IdiotProof/
 ## Quick Start
 
 ```csharp
+// Modern Single-Responsibility Syntax
 var strategy = Stock
     .Ticker("AAPL")
     .SessionDuration(TradingSession.PreMarketEndEarly)  // 4:00 AM - 9:20 AM ET
     .Breakout(150.00)                         // Step 1: Price >= 150.00
     .Pullback(148.50)                         // Step 2: Price <= 148.50
-    .IsAboveVwap()                              // Step 3: Price >= VWAP
-    .Buy(quantity: 100, Price.Current)        // Step 4: Buy 100 shares
+    .IsAboveVwap()                            // Step 3: Price >= VWAP
+    .Long()                                   // Step 4: Open LONG position
+    .Quantity(100)                            // Set quantity
     .TakeProfit(155.00)                       // Exit at $155.00
-    .TrailingStopLoss(Atr.Balanced)           // 2× ATR trailing stop (adapts to volatility)
-    .ClosePosition(MarketTime.PreMarket.Ending)  // Close at 9:20 AM ET
+    .TrailingStopLoss(Atr.Balanced)           // 2× ATR trailing stop
+    .ExitStrategy(IS.BELL)                    // Close at session end
+    .IsProfitable()                           // Only if profitable
     .Build();
 
 // Or with percentage-based trailing stop:
 // .TrailingStopLoss(Percent.Ten)            // 10% trailing stop
+```
+
+**IdiotScript Equivalent:**
+```idiotscript
+Ticker(AAPL)
+.Session(IS.PREMARKET.END_EARLY)
+.Breakout(150.00)
+.Pullback(148.50)
+.IsAboveVwap()
+.Long()
+.Qty(100)
+.TakeProfit(155.00)
+.TrailingStopLoss(IS.ATR.BALANCED)
+.ExitStrategy(IS.BELL).IsProfitable()
 ```
 
 ---
@@ -182,13 +274,15 @@ strategies.Add(Stock.Ticker("AAPL")...);             // Hardcoded
 |----------|----------|
 | 📍 Start | Ticker |
 | ⏰ Session | SessionDuration |
-| 💰 Price Conditions | Breakout, Pullback, PriceAbove, PriceBelow |
-| 📊 VWAP Conditions | AboveVwap, BelowVwap |
-| 📈 Indicators | IsRsi, IsMacd, IsAdx, IsDI |
-| 🛒 Orders | Buy, Sell, Close |
-| 🛡️ Risk Management | TakeProfit, TakeProfitRange, StopLoss, TrailingStopLoss |
-| 📤 Position Management | ClosePosition |
-| ⚙️ Order Config | TimeInForce, OutsideRTH, AllOrNone |
+| 💰 Price Conditions | Breakout, Pullback, IsPriceAbove, IsPriceBelow, IsGapUp, IsGapDown |
+| 📊 VWAP Conditions | IsAboveVwap, IsBelowVwap, IsCloseAboveVwap, IsVwapRejection |
+| 📈 Indicators | IsRsi, IsMacd, IsAdx, IsDI, IsEmaAbove, IsEmaBelow, IsEmaBetween, IsEmaTurningUp |
+| 📉 Momentum | IsMomentumAbove, IsMomentumBelow, IsRocAbove, IsRocBelow |
+| 📊 Patterns | IsHigherLows, IsVolumeAbove |
+| 🛒 Orders | Long, Short, CloseLong, CloseShort |
+| 🛡️ Risk Management | TakeProfit, TakeProfitRange, StopLoss, TrailingStopLoss, AdaptiveOrder |
+| 📤 Position Management | ExitStrategy, IsProfitable |
+| ⚙️ Order Config | TimeInForce, OutsideRTH, TakeProfitOutsideRTH, AllOrNone, PriceType, OrderType |
 
 ---
 
@@ -493,7 +587,8 @@ Technical indicators require historical price bars to calculate properly. The ba
 | Fluent API | IdiotScript | Description |
 |------------|-------------|-------------|
 | `.Breakout(level)` | `Breakout(150.00)` | Price >= level |
-| `.IsPriceAbove(level)` | `Entry(150.00)` | Price >= level |
+| `.Entry(level)` | `Entry(150.00)` | Price >= level (alias) |
+| `.IsPriceAbove(level)` | `IsPriceAbove(150.00)` | Price >= level (alias) |
 
 ```
     Breakout/Entry Condition
@@ -517,7 +612,7 @@ Technical indicators require historical price bars to calculate properly. The ba
 | Fluent API | IdiotScript | Description |
 |------------|-------------|-------------|
 | `.Pullback(level)` | `Pullback(148.00)` | Price <= level |
-| `.IsPriceBelow(level)` | `PriceBelow(148.00)` | Price < level |
+| `.IsPriceBelow(level)` | `IsPriceBelow(148.00)` | Price < level |
 
 ```
     Pullback Condition
@@ -543,10 +638,10 @@ Technical indicators require historical price bars to calculate properly. The ba
 
 | Fluent API | IdiotScript | Description |
 |------------|-------------|-------------|
-| `.IsAboveVwap()` | `AboveVwap()` | Price >= VWAP |
-| `.IsAboveVwap(0.02)` | `AboveVwap(0.02)` | Price >= VWAP + $0.02 buffer |
-| `.IsBelowVwap()` | `BelowVwap()` | Price <= VWAP |
-| `.IsBelowVwap(0.05)` | `BelowVwap(0.05)` | Price <= VWAP - $0.05 buffer |
+| `.IsAboveVwap()` | `IsAboveVwap()` | Price >= VWAP |
+| `.IsAboveVwap(0.02)` | `IsAboveVwap(0.02)` | Price >= VWAP + $0.02 buffer |
+| `.IsBelowVwap()` | `IsBelowVwap()` | Price <= VWAP |
+| `.IsBelowVwap(0.05)` | `IsBelowVwap(0.05)` | Price <= VWAP - $0.05 buffer |
 
 ```
     VWAP Conditions
@@ -569,7 +664,7 @@ Technical indicators require historical price bars to calculate properly. The ba
 
 | Fluent API | IdiotScript | Description |
 |------------|-------------|-------------|
-| `.IsCloseAboveVwap()` | `CloseAboveVwap()` | Last candle CLOSED above VWAP |
+| `.IsCloseAboveVwap()` | `IsCloseAboveVwap()` | Last candle CLOSED above VWAP |
 
 ```
     CloseAboveVwap vs AboveVwap
@@ -598,8 +693,8 @@ Technical indicators require historical price bars to calculate properly. The ba
 
 | Fluent API | IdiotScript | Description |
 |------------|-------------|-------------|
-| `.IsVwapRejection()` | `VwapRejection()` | Wick above VWAP, close below |
-| | `VwapRejected()` | Alias |
+| `.IsVwapRejection()` | `IsVwapRejection()` | Wick above VWAP, close below |
+| | `IsVwapRejected()` | Alias |
 
 ```
     VWAP Rejection Pattern (Bearish)
@@ -626,9 +721,9 @@ Technical indicators require historical price bars to calculate properly. The ba
 
 | Fluent API | IdiotScript | Description |
 |------------|-------------|-------------|
-| `.IsEmaAbove(9)` | `EmaAbove(9)` | Price >= EMA(9) |
-| `.IsEmaAbove(21)` | `EmaAbove(21)` | Price >= EMA(21) |
-| `.IsEmaBelow(200)` | `EmaBelow(200)` | Price <= EMA(200) |
+| `.IsEmaAbove(9)` | `IsEmaAbove(9)` | Price >= EMA(9) |
+| `.IsEmaAbove(21)` | `IsEmaAbove(21)` | Price >= EMA(21) |
+| `.IsEmaBelow(200)` | `IsEmaBelow(200)` | Price <= EMA(200) |
 
 ```
     EMA Conditions
@@ -657,7 +752,7 @@ Technical indicators require historical price bars to calculate properly. The ba
 
 | Fluent API | IdiotScript | Description |
 |------------|-------------|-------------|
-| `.IsEmaBetween(9, 21)` | `EmaBetween(9, 21)` | Price between EMA(9) and EMA(21) |
+| `.IsEmaBetween(9, 21)` | `IsEmaBetween(9, 21)` | Price between EMA(9) and EMA(21) |
 
 ```
     EmaBetween - Pullback Zone Strategy
@@ -687,7 +782,7 @@ Technical indicators require historical price bars to calculate properly. The ba
 
 | Fluent API | IdiotScript | Description |
 |------------|-------------|-------------|
-| `.IsEmaTurningUp(9)` | `EmaTurningUp(9)` | EMA(9) slope is flat or positive |
+| `.IsEmaTurningUp(9)` | `IsEmaTurningUp(9)` | EMA(9) slope is flat or positive |
 
 ```
     EMA Turning Up Pattern
@@ -716,8 +811,8 @@ Technical indicators require historical price bars to calculate properly. The ba
 
 | Fluent API | IdiotScript | Description |
 |------------|-------------|-------------|
-| `.IsMomentumAbove(0)` | `MomentumAbove(0)` | Momentum >= 0 (positive) |
-| `.IsMomentumBelow(0)` | `MomentumBelow(0)` | Momentum <= 0 (negative) |
+| `.IsMomentumAbove(0)` | `IsMomentumAbove(0)` | Momentum >= 0 (positive) |
+| `.IsMomentumBelow(0)` | `IsMomentumBelow(0)` | Momentum <= 0 (negative) |
 
 ```
     Momentum Indicator
@@ -745,8 +840,8 @@ Technical indicators require historical price bars to calculate properly. The ba
 
 | Fluent API | IdiotScript | Description |
 |------------|-------------|-------------|
-| `.IsRocAbove(2)` | `RocAbove(2)` | ROC >= 2% (strong bullish) |
-| `.IsRocBelow(-2)` | `RocBelow(-2)` | ROC <= -2% (strong bearish) |
+| `.IsRocAbove(2)` | `IsRocAbove(2)` | ROC >= 2% (strong bullish) |
+| `.IsRocBelow(-2)` | `IsRocBelow(-2)` | ROC <= -2% (strong bearish) |
 
 ```
     Rate of Change (ROC)
@@ -774,10 +869,10 @@ Technical indicators require historical price bars to calculate properly. The ba
 
 | Fluent API | IdiotScript | Description |
 |------------|-------------|-------------|
-| `.IsRsi(RsiState.Oversold)` | `RsiOversold()` | RSI <= 30 |
-| `.IsRsi(RsiState.Oversold, 25)` | `RsiOversold(25)` | RSI <= 25 |
-| `.IsRsi(RsiState.Overbought)` | `RsiOverbought()` | RSI >= 70 |
-| `.IsRsi(RsiState.Overbought, 80)` | `RsiOverbought(80)` | RSI >= 80 |
+| `.IsRsi(RsiState.Oversold)` | `IsRsiOversold()` | RSI <= 30 |
+| `.IsRsi(RsiState.Oversold, 25)` | `IsRsiOversold(25)` | RSI <= 25 |
+| `.IsRsi(RsiState.Overbought)` | `IsRsiOverbought()` | RSI >= 70 |
+| `.IsRsi(RsiState.Overbought, 80)` | `IsRsiOverbought(80)` | RSI >= 80 |
 
 ```
     RSI Scale (0-100)
@@ -810,7 +905,7 @@ Technical indicators require historical price bars to calculate properly. The ba
 
 | Fluent API | IdiotScript | Description |
 |------------|-------------|-------------|
-| `.IsAdx(Comparison.Gte, 25)` | `AdxAbove(25)` | ADX >= 25 (strong trend) |
+| `.IsAdx(Comparison.Gte, 25)` | `IsAdxAbove(25)` | ADX >= 25 (strong trend) |
 
 ```
     ADX Trend Strength
@@ -838,11 +933,11 @@ Technical indicators require historical price bars to calculate properly. The ba
 
 | Fluent API | IdiotScript | Description |
 |------------|-------------|-------------|
-| `.IsDI(DiDirection.Positive)` | `DiPositive()` | +DI > -DI (bullish) |
-| `.IsDiPositive()` | `DiPositive()` | Shorthand for above |
-| `.IsDI(DiDirection.Positive, 5)` | `DiPositive(5)` | +DI > -DI by at least 5 |
-| `.IsDI(DiDirection.Negative)` | `DiNegative()` | -DI > +DI (bearish) |
-| `.IsDiNegative()` | `DiNegative()` | Shorthand for above |
+| `.IsDI(DiDirection.Positive)` | `IsDiPositive()` | +DI > -DI (bullish) |
+| `.IsDiPositive()` | `IsDiPositive()` | Shorthand for above |
+| `.IsDI(DiDirection.Positive, 5)` | `IsDiPositive(5)` | +DI > -DI by at least 5 |
+| `.IsDI(DiDirection.Negative)` | `IsDiNegative()` | -DI > +DI (bearish) |
+| `.IsDiNegative()` | `IsDiNegative()` | Shorthand for above |
 
 ```
     Directional Index (+DI / -DI)
@@ -873,12 +968,12 @@ Technical indicators require historical price bars to calculate properly. The ba
 
 | Fluent API | IdiotScript | Description |
 |------------|-------------|-------------|
-| `.IsMacd(MacdState.Bullish)` | `MacdBullish()` | MACD > Signal line |
-| `.IsMacdBullish()` | `MacdBullish()` | Shorthand for above |
-| `.IsMacd(MacdState.Bearish)` | `MacdBearish()` | MACD < Signal line |
-| `.IsMacdBearish()` | `MacdBearish()` | Shorthand for above |
-| `.IsMacd(MacdState.AboveZero)` | - | MACD line > 0 |
-| `.IsMacd(MacdState.BelowZero)` | - | MACD line < 0 |
+| `.IsMacd(MacdState.Bullish)` | `IsMacdBullish()` | MACD > Signal line |
+| `.IsMacdBullish()` | `IsMacdBullish()` | Shorthand for above |
+| `.IsMacd(MacdState.Bearish)` | `IsMacdBearish()` | MACD < Signal line |
+| `.IsMacdBearish()` | `IsMacdBearish()` | Shorthand for above |
+| `.IsMacd(MacdState.AboveZero)` | `IsMacdAboveZero()` | MACD line > 0 |
+| `.IsMacd(MacdState.BelowZero)` | `IsMacdBelowZero()` | MACD line < 0 |
 
 ```
     MACD Components
@@ -917,8 +1012,8 @@ Technical indicators require historical price bars to calculate properly. The ba
 
 | Fluent API | IdiotScript | Description |
 |------------|-------------|-------------|
-| `.IsHigherLows()` | `HigherLows()` | Default 3-bar lookback |
-| `.IsHigherLows(5)` | `HigherLows(5)` | 5-bar lookback |
+| `.IsHigherLows()` | `IsHigherLows()` | Default 3-bar lookback |
+| `.IsHigherLows(5)` | `IsHigherLows(5)` | 5-bar lookback |
 
 ```
     Higher Lows Pattern (Bullish)
@@ -949,8 +1044,8 @@ Technical indicators require historical price bars to calculate properly. The ba
 
 | Fluent API | IdiotScript | Description |
 |------------|-------------|-------------|
-| `.IsVolumeAbove(1.5)` | `VolumeAbove(1.5)` | Volume >= 1.5x average |
-| `.IsVolumeAbove(2.0)` | `VolumeAbove(2.0)` | Volume >= 2x average |
+| `.IsVolumeAbove(1.5)` | `IsVolumeAbove(1.5)` | Volume >= 1.5x average |
+| `.IsVolumeAbove(2.0)` | `IsVolumeAbove(2.0)` | Volume >= 2x average |
 
 ```
     Volume Spike Detection
@@ -968,7 +1063,7 @@ Technical indicators require historical price bars to calculate properly. The ba
     ║     3.0x = Exceptional spike (200% above average)         ║
     ║                                                            ║
     ║   Use: Confirm breakouts with volume                      ║
-    ║   .Breakout(150).IsVolumeAbove(1.5).Buy(...)             ║
+    ║   .Breakout(150).IsVolumeAbove(1.5).Long()...            ║
     ║                                                            ║
     ╚════════════════════════════════════════════════════════════╝
 ```
@@ -981,66 +1076,99 @@ Technical indicators require historical price bars to calculate properly. The ba
 
 ```
 ╔════════════════════════════════════════════════════════════════════════╗
-║  IDIOTSCRIPT COMMAND REFERENCE                                          ║
+║  IDIOTSCRIPT COMMAND REFERENCE (Single-Responsibility Pattern)         ║
 ╠════════════════════════════════════════════════════════════════════════╣
 ║                                                                         ║
-║  CONFIGURATION:                                                         ║
+║  CONFIGURATION (order doesn't matter within group):                     ║
 ║    Ticker(AAPL)              - Set stock symbol                        ║
 ║    Name("Strategy Name")     - Set strategy name                       ║
 ║    Session(IS.PREMARKET)     - Set trading session                     ║
-║    Qty(100)                  - Set quantity (shared with Buy)          ║
+║    Qty(100)                  - Set order quantity                      ║
 ║    Enabled(YES)              - Enable/disable strategy                 ║
 ║                                                                         ║
-║  PRICE CONDITIONS:                                                      ║
-║    Entry(150.00)             - Price >= level                          ║
-║    Breakout(150.00)          - Price >= level (alias)                  ║
+║  ENTRY CONDITIONS (order matters - sequential state machine):           ║
+║    Entry(150.00)             - Price >= level (CONDITION)              ║
+║    Breakout(150.00)          - Price >= level (alias for Entry)        ║
 ║    Pullback(148.00)          - Price <= level                          ║
-║    PriceBelow(148.00)        - Price < level                           ║
+║    IsPriceAbove(150.00)      - Price > level                           ║
+║    IsPriceBelow(148.00)      - Price < level                           ║
 ║                                                                         ║
 ║  VWAP CONDITIONS:                                                       ║
-║    AboveVwap()               - Price >= VWAP                           ║
-║    BelowVwap()               - Price <= VWAP                           ║
-║    CloseAboveVwap()          - Candle closed above VWAP                ║
-║    VwapRejection()           - Wick above, close below VWAP            ║
+║    IsAboveVwap()             - Price >= VWAP                           ║
+║    IsBelowVwap()             - Price <= VWAP                           ║
+║    IsCloseAboveVwap()        - Candle closed above VWAP (strong)       ║
+║    IsVwapRejection()         - Wick above, close below VWAP            ║
 ║                                                                         ║
 ║  EMA CONDITIONS:                                                        ║
-║    EmaAbove(9)               - Price >= EMA(9)                         ║
-║    EmaBelow(200)             - Price <= EMA(200)                       ║
-║    EmaBetween(9, 21)         - Price between EMA(9) and EMA(21)        ║
-║    EmaTurningUp(9)           - EMA(9) slope >= 0                       ║
+║    IsEmaAbove(9)             - Price >= EMA(9)                         ║
+║    IsEmaBelow(200)           - Price <= EMA(200)                       ║
+║    IsEmaBetween(9, 21)       - Price between EMA(9) and EMA(21)        ║
+║    IsEmaTurningUp(9)         - EMA(9) slope >= 0                       ║
 ║                                                                         ║
 ║  MOMENTUM CONDITIONS:                                                   ║
-║    MomentumAbove(0)          - Momentum >= threshold                   ║
-║    MomentumBelow(0)          - Momentum <= threshold                   ║
-║    RocAbove(2)               - Rate of Change >= 2%                    ║
-║    RocBelow(-2)              - Rate of Change <= -2%                   ║
+║    IsMomentumAbove(0)        - Momentum >= threshold                   ║
+║    IsMomentumBelow(0)        - Momentum <= threshold                   ║
+║    IsRocAbove(2)             - Rate of Change >= 2%                    ║
+║    IsRocBelow(-2)            - Rate of Change <= -2%                   ║
 ║                                                                         ║
 ║  RSI CONDITIONS:                                                        ║
-║    RsiOversold()             - RSI <= 30                               ║
-║    RsiOversold(25)           - RSI <= 25                               ║
-║    RsiOverbought()           - RSI >= 70                               ║
-║    RsiOverbought(80)         - RSI >= 80                               ║
+║    IsRsiOversold()           - RSI <= 30 (default)                     ║
+║    IsRsiOversold(25)         - RSI <= 25                               ║
+║    IsRsiOverbought()         - RSI >= 70 (default)                     ║
+║    IsRsiOverbought(80)       - RSI >= 80                               ║
 ║                                                                         ║
 ║  TREND CONDITIONS:                                                      ║
-║    AdxAbove(25)              - ADX >= 25 (strong trend)                ║
-║    DiPositive()              - +DI > -DI (bullish)                     ║
-║    DiNegative()              - -DI > +DI (bearish)                     ║
-║    MacdBullish()             - MACD > Signal line                      ║
-║    MacdBearish()             - MACD < Signal line                      ║
+║    IsAdxAbove(25)            - ADX >= 25 (strong trend)                ║
+║    IsDiPositive()            - +DI > -DI (bullish)                     ║
+║    IsDiNegative()            - -DI > +DI (bearish)                     ║
+║    IsMacdBullish()           - MACD > Signal line                      ║
+║    IsMacdBearish()           - MACD < Signal line                      ║
 ║                                                                         ║
 ║  PATTERN CONDITIONS:                                                    ║
-║    HigherLows()              - Higher lows forming                     ║
-║    HigherLows(5)             - Higher lows with 5-bar lookback         ║
-║    VolumeAbove(1.5)          - Volume >= 1.5x average                  ║
+║    IsHigherLows()            - Higher lows forming (default 3 bars)    ║
+║    IsHigherLows(5)           - Higher lows with 5-bar lookback         ║
+║    IsVolumeAbove(1.5)        - Volume >= 1.5x average                  ║
 ║                                                                         ║
-║  EXIT CONDITIONS:                                                       ║
+║  GAP CONDITIONS:                                                        ║
+║    IsGapUp(5)                - Price gapped up 5%+ from prev close     ║
+║    IsGapDown(3)              - Price gapped down 3%+ from prev close   ║
+║                                                                         ║
+║  ORDER ACTIONS (after conditions are met):                              ║
+║    Order(IS.LONG)            - Opens a LONG position (explicit)        ║
+║    Order(IS.SHORT)           - Opens a SHORT position                  ║
+║    Order()                   - Opens a LONG position (default)         ║
+║    Long()                    - Alias for Order(IS.LONG)                ║
+║    Short()                   - Alias for Order(IS.SHORT)               ║
+║    CloseLong()               - Close LONG position                     ║
+║    CloseShort()              - Close SHORT position                    ║
+║                                                                         ║
+║  ORDER CONFIGURATION (chained after Order):                             ║
+║    .Quantity(100)            - Sets order quantity                     ║
+║    .Qty(100)                 - Alias for Quantity                      ║
+║    .PriceType(IS.VWAP)       - Sets price type for execution           ║
+║    .OrderType(IS.MARKET)     - Sets market vs limit order              ║
+║    .OutsideRTH()             - Allow entry outside RTH (default: true) ║
+║    .TakeProfitOutsideRTH()   - Allow TP outside RTH (default: true)    ║
+║                                                                         ║
+║  EXIT CONDITIONS (after position is opened):                            ║
 ║    TakeProfit(155.00)        - Take profit at price                    ║
+║    TP(155.00)                - Alias for TakeProfit                    ║
 ║    StopLoss(145.00)          - Stop loss at price                      ║
-║    TrailingStopLoss(IS.TIGHT) - Trailing stop (5%)                    ║
-║    ClosePosition(IS.BELL)    - Close at session end                    ║
+║    SL(145.00)                - Alias for StopLoss                      ║
+║    TrailingStopLoss(IS.TIGHT) - Trailing stop (5%)                     ║
+║    TSL(5)                    - Trailing stop with 5% distance          ║
+║    ExitStrategy(IS.BELL)     - Close at session end                    ║
+║    .IsProfitable()           - Only exit if profitable (chained)       ║
+║                                                                         ║
+║  SMART ORDER MANAGEMENT:                                                ║
+║    AdaptiveOrder()           - Enable smart dynamic TP/SL (balanced)   ║
+║    AdaptiveOrder(IS.CONSERVATIVE) - Protect gains quickly              ║
+║    AdaptiveOrder(IS.BALANCED)     - Equal priority profit/protection   ║
+║    AdaptiveOrder(IS.AGGRESSIVE)   - Maximize profit in strong trends   ║
+║    IsAdaptiveOrder()         - Alias for AdaptiveOrder()               ║
 ║                                                                         ║
 ║  ORDER CONFIG:                                                          ║
-║    TimeInForce(GTC)          - Order time in force                     ║
+║    TimeInForce(IS.GTC)       - Order time in force                     ║
 ║    OutsideRTH(YES)           - Allow extended hours                    ║
 ║    AllOrNone(YES)            - Require full fill                       ║
 ║    Repeat(YES)               - Repeat strategy after exit              ║
@@ -1052,45 +1180,72 @@ Technical indicators require historical price bars to calculate properly. The ba
 
 ### Strategy Example with All Components
 
+**IdiotScript:**
 ```idiotscript
-# Complete Strategy Example
+# Complete Strategy Example with Single-Responsibility Pattern
 Ticker(AAPL)
 .Name("Trend Continuation")
 .Session(IS.PREMARKET)
-.Qty(100)
 
 # Entry Conditions (evaluated sequentially):
 .Entry(150.00)           # 1. Price breaks $150
-.HigherLows()            # 2. Higher lows forming
-.AboveVwap()             # 3. Above VWAP
-.EmaAbove(9)             # 4. Above short-term EMA
-.DiPositive()            # 5. Bullish direction
-.MomentumAbove(0)        # 6. Positive momentum
+.IsHigherLows()          # 2. Higher lows forming
+.IsAboveVwap()           # 3. Above VWAP
+.IsEmaAbove(9)           # 4. Above short-term EMA
+.IsDiPositive()          # 5. Bullish direction
+.IsMomentumAbove(0)      # 6. Positive momentum
+
+# Order Action:
+.Long()                  # Open LONG position
+.Qty(100)                # 100 shares
 
 # Exit Conditions:
 .TakeProfit(160.00)
 .StopLoss(145.00)
 .TrailingStopLoss(IS.MODERATE)
-.ClosePosition(IS.BELL, IS.PROFITABLE)
+.ExitStrategy(IS.BELL).IsProfitable()
 ```
 
 **Equivalent Fluent API:**
 ```csharp
 Stock.Ticker("AAPL")
     .WithName("Trend Continuation")
-    .TimeFrame(TradingSession.PreMarket)
+    .SessionDuration(TradingSession.PreMarket)
     .IsPriceAbove(150.00)
     .IsHigherLows()
     .IsAboveVwap()
     .IsEmaAbove(9)
     .IsDiPositive()
     .IsMomentumAbove(0)
-    .Buy(100, Price.Current)
+    .Long()
+    .Quantity(100)
     .TakeProfit(160.00)
     .StopLoss(145.00)
     .TrailingStopLoss(Percent.Ten)
-    .ClosePosition(MarketTime.PreMarket.Ending, onlyIfProfitable: true)
+    .ExitStrategy(IS.BELL)
+    .IsProfitable()
     .Build();
+```
+
+**Execution Flow Visualization:**
+```
+╔═══════════════════════════════════════════════════════════════════════════════╗
+║  [CONFIG]           →   [ENTRY CONDITIONS]          →   ✅ ORDER              ║
+║  ┌────────────────┐     ┌──────────────────────┐        ┌────────────────┐    ║
+║  │ Ticker(AAPL)   │     │ Entry(150.00)        │        │ Long()         │    ║
+║  │ Session(PRE)   │  →  │ IsHigherLows()       │  →     │ Qty(100)       │    ║
+║  │ Name(...)      │     │ IsAboveVwap()        │        └────────────────┘    ║
+║  └────────────────┘     │ IsEmaAbove(9)        │              │               ║
+║                         │ IsDiPositive()       │              ↓               ║
+║                         │ IsMomentumAbove(0)   │     [EXIT CONDITIONS]        ║
+║                         └──────────────────────┘     ┌────────────────────┐   ║
+║                                                      │ TakeProfit(160)    │   ║
+║                                                      │ StopLoss(145)      │   ║
+║                                                      │ TrailingStopLoss() │   ║
+║                                                      │ ExitStrategy(BELL) │   ║
+║                                                      │ .IsProfitable()    │   ║
+║                                                      └────────────────────┘   ║
+╚═══════════════════════════════════════════════════════════════════════════════╝
 ```
 
 ---
@@ -1316,109 +1471,196 @@ Stock.Ticker("AAPL")
 ### Combining Indicators Example
 
 ```csharp
-// Complete indicator-based strategy
+// Complete indicator-based strategy with modern syntax
 Stock.Ticker("AAPL")
     .SessionDuration(TradingSession.RTH)
     .IsRsi(RsiState.Oversold)            // RSI <= 30 (oversold)
     .IsAdx(Comparison.Gte, 25)           // ADX >= 25 (strong trend)
-    .IsDI(DiDirection.Positive)          // Bullish direction
-    .IsMacd(MacdState.Bullish)           // MACD > Signal
+    .IsDiPositive()                      // Bullish direction
+    .IsMacdBullish()                     // MACD > Signal
     .Breakout(150)                       // Price breaks $150
-    .Buy(100, Price.Current)
+    .Long()                              // Open LONG position
+    .Quantity(100)
     .TakeProfit(155)
     .StopLoss(148)
     .Build();
+```
+
+**IdiotScript Equivalent:**
+```idiotscript
+Ticker(AAPL)
+.Session(IS.RTH)
+.IsRsiOversold()
+.IsAdxAbove(25)
+.IsDiPositive()
+.IsMacdBullish()
+.Breakout(150)
+.Long()
+.Qty(100)
+.TakeProfit(155)
+.StopLoss(148)
 ```
 
 ---
 
 ### Order Methods
 
-#### `.Buy(int quantity, Price priceType)`
-Creates a buy order with the new fluent API. Returns `StrategyBuilder` for exit configuration.
+Orders follow the single-responsibility pattern. Set direction first, then chain configuration methods.
+
+#### `.Order(OrderDirection direction)`
+Creates an order with the specified direction. Returns `StrategyBuilder` for additional configuration.
 
 ```csharp
-.Buy(quantity: 100, Price.Current)    // Buy 100 shares at current price
-.Buy(quantity: 500, Price.VWAP)       // Buy 500 shares at VWAP
+.Order(OrderDirection.Long)    // Open a LONG position
+.Order(OrderDirection.Short)   // Open a SHORT position
 ```
 
-**Parameters:**
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `quantity` | `int` | Required | Number of shares |
-| `priceType` | `Price` | `Price.Current` | Price type (Current, VWAP, Bid, Ask) |
+**IdiotScript:** `Order(IS.LONG)` or `Order(IS.SHORT)`
 
-**Returns:** `StrategyBuilder` (for chaining exit strategies)
-
-**Implementation Status:** ✅ Fully Implemented
+**Returns:** `StrategyBuilder` (for chaining exit strategies and configuration)
 
 ---
 
-#### `.Sell(int quantity, Price priceType)`
-Creates a sell order. Returns `StrategyBuilder` for exit configuration.
+#### `.Long()`
+Creates a LONG order (buy to open). Shorthand for `.Order(OrderDirection.Long)`.
 
 ```csharp
+.Long()    // Open a LONG position
+```
+
+**IdiotScript:** `Long()`
+
+---
+
+#### `.Short()`
+Creates a SHORT order (sell to open). Shorthand for `.Order(OrderDirection.Short)`.
+
+```csharp
+.Short()    // Open a SHORT position
+```
+
+**IdiotScript:** `Short()`
+
+---
+
+#### `.Quantity(int quantity)`
+Sets the order quantity. Chain after `.Long()` or `.Short()`.
+
+```csharp
+.Long().Quantity(100)    // LONG 100 shares
+```
+
+**IdiotScript:** `Qty(100)` or `Quantity(100)`
+
+---
+
+#### `.PriceType(Price priceType)`
+Sets the price type for order execution.
+
+```csharp
+.Long().Quantity(100).PriceType(Price.VWAP)    // Execute at VWAP
+```
+
+| Price Type | Description |
+|------------|-------------|
+| `Price.Current` | Current market price (default) |
+| `Price.VWAP` | Volume-weighted average price |
+| `Price.Bid` | Bid price |
+| `Price.Ask` | Ask price |
+
+**IdiotScript:** `PriceType(IS.VWAP)`
+
+---
+
+#### `.OrderType(OrderType type)`
+Sets the order type for entry.
+
+```csharp
+.Long().OrderType(OrderType.Market)    // Market order
+.Long().OrderType(OrderType.Limit)     // Limit order (default)
+```
+
+**IdiotScript:** `OrderType(IS.MARKET)` or `OrderType(IS.LIMIT)`
+
+---
+
+#### `.OutsideRTH()`
+Allows entry orders to execute outside regular trading hours. Enabled by default.
+
+```csharp
+.Long().OutsideRTH()    // Allow entry outside RTH (default: true)
+```
+
+**IdiotScript:** `OutsideRTH()`
+
+---
+
+#### `.TakeProfitOutsideRTH()`
+Allows take profit orders to execute outside regular trading hours. Enabled by default.
+
+```csharp
+.Long().TakeProfitOutsideRTH()    // Allow TP outside RTH (default: true)
+```
+
+**IdiotScript:** `TakeProfitOutsideRTH()`
+
+---
+
+#### `.CloseLong()`
+Creates a SELL order to close an existing long position.
+
+```csharp
+.CloseLong()    // Sell to close long position
+```
+
+**IdiotScript:** `CloseLong()`
+
+---
+
+#### `.CloseShort()`
+Creates a BUY order to cover an existing short position.
+
+```csharp
+.CloseShort()    // Buy to cover short position
+```
+
+**IdiotScript:** `CloseShort()`
+
+---
+
+### Legacy Order Methods (Deprecated)
+
+These methods still work but are deprecated in favor of the single-responsibility pattern.
+
+#### `.Buy(int quantity, Price priceType)` *(Deprecated)*
+Creates a buy order with the old API. Use `.Long().Quantity(n)` instead.
+
+```csharp
+// Deprecated
+.Buy(quantity: 100, Price.Current)
+
+// Modern equivalent
+.Long().Quantity(100).PriceType(Price.Current)
+```
+
+---
+
+#### `.Sell(int quantity, Price priceType)` *(Deprecated)*
+Creates a sell order with the old API. Use `.Short().Quantity(n)` instead.
+
+```csharp
+// Deprecated
 .Sell(quantity: 100, Price.Current)
+
+// Modern equivalent
+.Short().Quantity(100).PriceType(Price.Current)
 ```
-
-**Implementation Status:** ✅ Fully Implemented
-
----
-
-#### `.Close(int quantity, OrderSide positionSide, Price priceType, OrderType orderType)`
-Creates an order to close an existing position.
-
-```csharp
-// Close a long position (sells shares)
-.Close(quantity: 100, positionSide: OrderSide.Buy)
-
-// Close a short position (buys to cover)
-.Close(quantity: 50, positionSide: OrderSide.Sell)
-```
-
-**Parameters:**
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `quantity` | `int` | Required | Number of shares to close |
-| `positionSide` | `OrderSide` | `Buy` | Your current position side |
-| `priceType` | `Price` | `Current` | Price type for execution |
-| `orderType` | `OrderType` | `Limit` | Order type |
-
-**Behavior:**
-- Long position (`OrderSide.Buy`) → Creates SELL order
-- Short position (`OrderSide.Sell`) → Creates BUY order
-
-**Returns:** `StrategyBuilder` (for chaining)
-
-**Implementation Status:** ✅ Fully Implemented
-
----
-
-#### `.CloseLong(int quantity, Price priceType, OrderType orderType)`
-Shorthand for closing a long position. Creates a SELL order.
-
-```csharp
-.CloseLong(quantity: 100)    // Sells 100 shares
-```
-
-**Implementation Status:** ✅ Fully Implemented
-
----
-
-#### `.CloseShort(int quantity, Price priceType, OrderType orderType)`
-Shorthand for closing a short position. Creates a BUY order to cover.
-
-```csharp
-.CloseShort(quantity: 50)    // Buys 50 shares to cover
-```
-
-**Implementation Status:** ✅ Fully Implemented
 
 ---
 
 ### Exit Strategy Methods
 
-These methods are called on `StrategyBuilder` after `.Buy()` or `.Sell()`.
+These methods are called on `StrategyBuilder` after `.Long()`, `.Short()`, or their legacy equivalents.
 
 #### `.TakeProfit(double price)`
 Sets an absolute take profit price. Submits a limit sell order after entry fill.
@@ -1427,12 +1669,12 @@ Sets an absolute take profit price. Submits a limit sell order after entry fill.
 .TakeProfit(9.00)    // Sell when price reaches $9.00
 ```
 
+**IdiotScript:** `TakeProfit(9.00)` or `TP(9.00)`
+
 **Behavior:**
 - Submits limit order immediately after entry fills
 - Cancels stop loss order if take profit fills first
 - Order type: Limit (LMT)
-
-**Implementation Status:** ✅ Fully Implemented
 
 ---
 
@@ -1443,6 +1685,8 @@ Sets a dynamic take profit range that adjusts based on ADX trend strength.
 .TakeProfit(4.00, 4.80)    // Conservative $4.00, Aggressive $4.80
 ```
 
+**IdiotScript:** `TakeProfit(4.00, 4.80)` or `TakeProfitRange(4.00, 4.80)`
+
 **ADX-Based Rules:**
 | ADX Value | Trend Strength | Take Profit Target |
 |-----------|----------------|-------------------|
@@ -1451,26 +1695,6 @@ Sets a dynamic take profit range that adjusts based on ADX trend strength.
 | 25-35 | Strong | High target (aggressive) |
 | > 35 | Very Strong | High target or beyond |
 | Rolling Over | Fading | Exit early |
-
-**Implementation Status:** ✅ Fully Implemented
-
----
-
-#### `.TakeProfit(double lowTarget, double highTarget, thresholds...)`
-Sets ADX-based take profit with custom threshold values.
-
-```csharp
-.TakeProfit(
-    lowTarget: 4.00,
-    highTarget: 4.80,
-    weakThreshold: 15.0,        // Default: 15
-    developingThreshold: 25.0,  // Default: 25
-    strongThreshold: 35.0,      // Default: 35
-    exitOnRollover: true        // Default: true
-)
-```
-
-**Implementation Status:** ✅ Fully Implemented
 
 ---
 
@@ -1481,12 +1705,12 @@ Sets a fixed stop loss price. Submits a stop order after entry fill.
 .StopLoss(6.50)    // Sell if price drops to $6.50
 ```
 
+**IdiotScript:** `StopLoss(6.50)` or `SL(6.50)`
+
 **Behavior:**
 - Submits stop order immediately after entry fills
 - Cancels take profit order if stop loss fills first
 - Order type: Stop (STP)
-
-**Implementation Status:** ✅ Fully Implemented
 
 ---
 
@@ -1498,6 +1722,8 @@ Enables a percentage-based trailing stop loss that follows price upward.
 .TrailingStopLoss(Percent.Five)     // 5% trailing stop
 .TrailingStopLoss(0.08)             // 8% trailing stop
 ```
+
+**IdiotScript:** `TrailingStopLoss(IS.TEN_PERCENT)` or `TSL(10)`
 
 **Behavior:**
 1. Initializes at entry price × (1 - percent)
@@ -1575,18 +1801,50 @@ Sets the time to begin monitoring the strategy.
 .Start(new TimeOnly(4, 30))            // Start at 4:30 AM ET
 ```
 
-**Implementation Status:** ⚠️ Property Stored (StrategyRunner monitoring not yet implemented)
+---
+
+#### `.ExitStrategy(TimeOnly time)` / `.ExitStrategy(IS exitTime)`
+Sets the time to force-close the position if still open. Use with `.IsProfitable()` to only exit if in profit.
+
+```csharp
+.ExitStrategy(IS.BELL)                 // Exit at session bell
+.ExitStrategy(new TimeOnly(15, 30))    // Exit at 3:30 PM
+```
+
+**IdiotScript:** `ExitStrategy(IS.BELL)` or `ExitStrategy(15:30)`
+
+**IS.BELL Session-Aware Behavior:**
+`IS.BELL` resolves to 1 minute before the current session ends:
+- **Premarket**: 9:29 AM (1 min before 9:30 open)
+- **RTH**: 3:59 PM (1 min before 4:00 close)
+- **AfterHours**: 7:59 PM (1 min before 8:00 AH end)
+- **Default**: 3:59 PM (RTH bell if no session specified)
+
+Explicit bell constants are also available:
+- `IS.PREMARKET.BELL` → 9:29 AM
+- `IS.RTH.BELL` → 3:59 PM
+- `IS.AFTERHOURS.BELL` → 7:59 PM
 
 ---
 
-#### `.ClosePosition(TimeOnly time)`
-Sets the time to force-close the position if still open.
+#### `.IsProfitable()`
+Chain after `.ExitStrategy()` to only exit if the position is profitable.
+
+```csharp
+.ExitStrategy(IS.BELL).IsProfitable()    // Exit at bell only if profitable
+.ExitStrategy(new TimeOnly(15, 30)).IsProfitable()  // Exit at 3:30 PM only if profitable
+```
+
+**IdiotScript:** `ExitStrategy(IS.BELL).IsProfitable()` or `IsProfitable()`
+
+---
+
+#### `.ClosePosition(TimeOnly time)` *(Legacy)*
+Sets the time to force-close the position if still open. Use `.ExitStrategy()` for new code.
 
 ```csharp
 .ClosePosition(Time.PreMarket.End.AddMinutes(-10))    // Close at 9:20 AM ET
 ```
-
-**Implementation Status:** ⚠️ Property Stored (StrategyRunner auto-close not yet implemented)
 
 ---
 
@@ -1598,8 +1856,6 @@ Sets the time to stop monitoring the strategy. Also builds and returns the strat
 ```
 
 **Returns:** `TradingStrategy` (terminal method)
-
-**Implementation Status:** ⚠️ Property Stored (StrategyRunner monitoring not yet implemented)
 
 ---
 
@@ -1719,12 +1975,14 @@ AdaptiveOrder monitors market conditions in real-time and dynamically adjusts ta
 ### Usage
 
 ```csharp
-// Fluent API
+// Fluent API (Single-Responsibility Pattern)
 Stock.Ticker("AAPL")
     .Entry(150)
+    .IsAboveVwap()
+    .Long()
+    .Quantity(100)
     .TakeProfit(160)
     .StopLoss(145)
-    .AboveVwap()
     .AdaptiveOrder(AdaptiveMode.Aggressive)
     .Build();
 ```
@@ -1733,9 +1991,11 @@ Stock.Ticker("AAPL")
 // IdiotScript
 Ticker(AAPL)
 .Entry(150)
+.IsAboveVwap()
+.Long()
+.Qty(100)
 .TakeProfit(160)
 .StopLoss(145)
-.AboveVwap()
 .AdaptiveOrder(IS.AGGRESSIVE)
 ```
 
@@ -1978,21 +2238,25 @@ When using `Atr.Multiplier()` or `Atr.WithBounds()`:
 │    Exchange = "SMART"    Currency = "USD"    Enabled = true         │
 │    StartTime = null      EndTime = null      Session = null         │
 ├─────────────────────────────────────────────────────────────────────┤
-│  Order Methods (Buy/Sell/Close):                                    │
-│    priceType = Price.Current                                        │
-│    orderType = OrderType.Limit                                      │
-│    positionSide = OrderSide.Buy (Close only)                        │
+│  Order Methods (Long/Short with chained config):                    │
+│    Quantity = required (must be set)                                │
+│    PriceType = Price.Current                                        │
+│    OrderType = OrderType.Limit                                      │
+│    OutsideRTH = true                                                │
+│    TakeProfitOutsideRTH = true                                      │
 ├─────────────────────────────────────────────────────────────────────┤
-│  Strategy Builder (after Buy/Sell/Close):                           │
-│    TimeInForce = GTC     OutsideRth = true    AllOrNone = false     │
+│  Strategy Builder (after Long/Short):                               │
+│    TimeInForce = GTC     AllOrNone = false                          │
 │    TakeProfit = null     StopLoss = null      TrailingStop = off    │
-│    ClosePositionTime = null                   CloseOnlyIfProfit=true│
+│    ExitStrategy = null   IsProfitable = false                       │
+│    AdaptiveOrder = null (disabled)                                  │
 ├─────────────────────────────────────────────────────────────────────┤
 │  Condition Defaults:                                                │
-│    AboveVwap/BelowVwap buffer = 0                                   │
+│    IsAboveVwap/IsBelowVwap buffer = 0                               │
 │    IsRsi threshold = null (70/30)                                   │
 │    IsAdx threshold = 25                                             │
 │    IsDI minDifference = 0                                           │
+│    IsHigherLows lookbackBars = 3                                    │
 ├─────────────────────────────────────────────────────────────────────┤
 │  ADX TakeProfit Defaults:                                           │
 │    WeakThreshold = 15    DevelopingThreshold = 25                   │
@@ -2001,6 +2265,10 @@ When using `Atr.Multiplier()` or `Atr.WithBounds()`:
 │  ATR StopLoss Defaults:                                             │
 │    Period = 14           IsTrailing = true                          │
 │    MinStopPercent = 1%   MaxStopPercent = 25%                       │
+├─────────────────────────────────────────────────────────────────────┤
+│  AdaptiveOrder Mode Defaults:                                       │
+│    Mode = Balanced       MaxTPExtension = 50%                       │
+│    MaxTPReduction = 50%  EmergencyExitThreshold = -70               │
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -2207,10 +2475,24 @@ Stock
     .Breakout(7.10)
     .Pullback(6.80)
     .IsAboveVwap()
-    .Buy(quantity: 100, Price.Current)
+    .Long()
+    .Quantity(100)
     .TakeProfit(9.00)
     .StopLoss(6.50)
     .Build();
+```
+
+**IdiotScript:**
+```idiotscript
+Ticker(NAMM)
+.Session(IS.PREMARKET.END_EARLY)
+.Breakout(7.10)
+.Pullback(6.80)
+.IsAboveVwap()
+.Long()
+.Qty(100)
+.TakeProfit(9.00)
+.StopLoss(6.50)
 ```
 
 ### ADX-Based Dynamic Take Profit
@@ -2221,9 +2503,10 @@ Stock
     .SessionDuration(TradingSession.PreMarketEndEarly)
     .IsPriceAbove(2.40)
     .IsAboveVwap()
-    .Buy(quantity: 208, Price.Current)
-    .TakeProfit(4.00, 4.80)                    // ADX-based: $4.00 (weak) to $4.80 (strong)
-    .ClosePosition(MarketTime.PreMarket.Ending)
+    .Long()
+    .Quantity(208)
+    .TakeProfit(4.00, 4.80)    // ADX-based: $4.00 (weak) to $4.80 (strong)
+    .ExitStrategy(IS.BELL)
     .Build();
 ```
 
@@ -2235,11 +2518,41 @@ Stock
     .SessionDuration(TradingSession.PreMarketEndEarly)
     .IsPriceAbove(150.00)
     .IsAboveVwap()
-    .Buy(quantity: 100, Price.Current)
+    .Long()
+    .Quantity(100)
     .TakeProfit(160.00, 175.00)
-    .TrailingStopLoss(Atr.Balanced)            // 2.0× ATR trailing stop
-    .ClosePosition(MarketTime.PreMarket.Ending, false)
+    .TrailingStopLoss(Atr.Balanced)    // 2.0× ATR trailing stop
+    .ExitStrategy(IS.BELL)
     .Build();
+```
+
+### Short Position Strategy
+
+```csharp
+Stock
+    .Ticker("TSLA")
+    .SessionDuration(TradingSession.RTH)
+    .IsVwapRejection()           // Bearish signal
+    .IsMacdBearish()
+    .IsDiNegative()
+    .Short()                     // Open SHORT position
+    .Quantity(50)
+    .TakeProfit(240.00)          // Target below entry
+    .StopLoss(260.00)            // Stop above entry
+    .Build();
+```
+
+**IdiotScript:**
+```idiotscript
+Ticker(TSLA)
+.Session(IS.RTH)
+.IsVwapRejection()
+.IsMacdBearish()
+.IsDiNegative()
+.Short()
+.Qty(50)
+.TakeProfit(240.00)
+.StopLoss(260.00)
 ```
 
 ### ATR Stop with Custom Multiplier
@@ -2251,9 +2564,10 @@ Stock
     .Breakout(250.00)
     .Pullback(245.00)
     .IsAboveVwap()
-    .Buy(quantity: 50, Price.Current)
+    .Long()
+    .Quantity(50)
     .TakeProfit(270.00)
-    .TrailingStopLoss(Atr.Multiplier(2.5))     // Custom 2.5× ATR
+    .TrailingStopLoss(Atr.Multiplier(2.5))    // Custom 2.5× ATR
     .Build();
 ```
 
@@ -2265,7 +2579,8 @@ Stock
     .SessionDuration(TradingSession.PreMarket)
     .IsPriceAbove(500.00)
     .IsAboveVwap()
-    .Buy(quantity: 20, Price.Current)
+    .Long()
+    .Quantity(20)
     .TakeProfit(550.00)
     .TrailingStopLoss(Atr.WithBounds(
         multiplier: 2.0,
@@ -2275,7 +2590,7 @@ Stock
     .Build();
 ```
 
-### Full-Featured Strategy
+### Full-Featured Strategy with AdaptiveOrder
 
 ```csharp
 Stock
@@ -2283,14 +2598,42 @@ Stock
     .SessionDuration(TradingSession.PreMarket)
     .Breakout(150.00)
     .Pullback(148.00)
-    .IsAboveVwap(buffer: 0.02)
-    .Buy(quantity: 200, Price.Current)
+    .IsAboveVwap()
+    .IsEmaAbove(9)
+    .IsDiPositive()
+    .Long()
+    .Quantity(200)
+    .PriceType(Price.VWAP)
     .TakeProfit(155.00)
     .TrailingStopLoss(Percent.Five)
+    .AdaptiveOrder(AdaptiveMode.Aggressive)   // Smart TP/SL adjustment
     .TimeInForce(TIF.GTC)
-    .OutsideRTH(outsideRth: true, takeProfit: true)
-    .ClosePosition(MarketTime.PreMarket.Ending)
+    .OutsideRTH()
+    .TakeProfitOutsideRTH()
+    .ExitStrategy(IS.BELL)
+    .IsProfitable()
     .Build();
+```
+
+**IdiotScript:**
+```idiotscript
+Ticker(AAPL)
+.Session(IS.PREMARKET)
+.Breakout(150.00)
+.Pullback(148.00)
+.IsAboveVwap()
+.IsEmaAbove(9)
+.IsDiPositive()
+.Long()
+.Qty(200)
+.PriceType(IS.VWAP)
+.TakeProfit(155.00)
+.TrailingStopLoss(IS.FIVE_PERCENT)
+.AdaptiveOrder(IS.AGGRESSIVE)
+.TimeInForce(IS.GTC)
+.OutsideRTH()
+.TakeProfitOutsideRTH()
+.ExitStrategy(IS.BELL).IsProfitable()
 ```
 
 ### OTC/Pink Sheet Strategy
@@ -2298,11 +2641,12 @@ Stock
 ```csharp
 Stock
     .Ticker("RPGL")
-    .Exchange(ContractExchange.Pink)           // Pink Sheets routing
+    .Exchange(ContractExchange.Pink)    // Pink Sheets routing
     .SessionDuration(TradingSession.PreMarketEndEarly)
     .IsPriceAbove(0.88)
     .IsAboveVwap()
-    .Buy(quantity: 568, Price.Current)
+    .Long()
+    .Quantity(568)
     .TakeProfit(1.30, 1.70)
     .Build();
 ```
@@ -2312,10 +2656,10 @@ Stock
 ```csharp
 Stock
     .Ticker("AAPL")
-    .IsPriceAbove(155)                           // When price hits target
-    .CloseLong(quantity: 100)                  // Sell to close long position
+    .IsPriceAbove(155)                    // When price hits target
+    .CloseLong()                          // Sell to close long position
     .TimeInForce(TIF.GTC)
-    .OutsideRTH(true)
+    .OutsideRTH()
     .Build();
 ```
 
@@ -2328,10 +2672,11 @@ Stock
     .Breakout(5.00)
     .When("Price in sweet spot", (price, vwap) => price >= 4.50 && price <= 4.80)
     .IsAboveVwap()
-    .Buy(quantity: 500, Price.Current)
+    .Long()
+    .Quantity(500)
     .TakeProfit(6.00)
     .StopLoss(4.25)
-    .AllOrNone()                               // Must fill all 500 shares
+    .AllOrNone()                    // Must fill all 500 shares
     .Build();
 ```
 
@@ -2340,9 +2685,10 @@ Stock
 ```csharp
 Stock
     .Ticker("DISABLED")
-    .Enabled(false)           // Won't execute
+    .Enabled(false)              // Won't execute
     .Breakout(10.00)
-    .Buy(quantity: 100, Price.Current)
+    .Long()
+    .Quantity(100)
     .TakeProfit(12.00)
     .Build();
 ```
@@ -2358,47 +2704,56 @@ Stock
 | **Price Conditions** |
 | Breakout condition | ✅ | ✅ | `Breakout()`, `Entry()` |
 | Pullback condition | ✅ | ✅ | `Pullback()` |
-| PriceAbove condition | ✅ | ✅ | `Entry()`, `PriceAbove()` |
-| PriceBelow condition | ✅ | ✅ | `PriceBelow()` |
+| PriceAbove condition | ✅ | ✅ | `Entry()`, `IsPriceAbove()` |
+| PriceBelow condition | ✅ | ✅ | `IsPriceBelow()` |
 | Custom condition (When) | ✅ | ✅ | N/A |
 | **VWAP Conditions** |
-| AboveVwap condition | ✅ | ✅ | `AboveVwap()` |
-| BelowVwap condition | ✅ | ✅ | `BelowVwap()` |
-| CloseAboveVwap condition | ✅ | ✅ | `CloseAboveVwap()` |
-| VwapRejection condition | ✅ | ✅ | `VwapRejection()` |
+| AboveVwap condition | ✅ | ✅ | `IsAboveVwap()` |
+| BelowVwap condition | ✅ | ✅ | `IsBelowVwap()` |
+| CloseAboveVwap condition | ✅ | ✅ | `IsCloseAboveVwap()` |
+| VwapRejection condition | ✅ | ✅ | `IsVwapRejection()` |
 | **EMA Conditions** |
-| EmaAbove condition | ✅ | ✅ | `EmaAbove()` |
-| EmaBelow condition | ✅ | ✅ | `EmaBelow()` |
-| EmaBetween condition | ✅ | ✅ | `EmaBetween()` |
-| EmaTurningUp condition | ✅ | ✅ | `EmaTurningUp()` |
+| EmaAbove condition | ✅ | ✅ | `IsEmaAbove()` |
+| EmaBelow condition | ✅ | ✅ | `IsEmaBelow()` |
+| EmaBetween condition | ✅ | ✅ | `IsEmaBetween()` |
+| EmaTurningUp condition | ✅ | ✅ | `IsEmaTurningUp()` |
 | **Momentum Conditions** |
-| MomentumAbove condition | ✅ | ✅ | `MomentumAbove()` |
-| MomentumBelow condition | ✅ | ✅ | `MomentumBelow()` |
-| RocAbove condition | ✅ | ✅ | `RocAbove()` |
-| RocBelow condition | ✅ | ✅ | `RocBelow()` |
+| MomentumAbove condition | ✅ | ✅ | `IsMomentumAbove()` |
+| MomentumBelow condition | ✅ | ✅ | `IsMomentumBelow()` |
+| RocAbove condition | ✅ | ✅ | `IsRocAbove()` |
+| RocBelow condition | ✅ | ✅ | `IsRocBelow()` |
 | **Trend Indicators** |
-| RSI condition | ✅ | ✅ | `RsiOversold()`, `RsiOverbought()` |
-| ADX condition | ✅ | ✅ | `AdxAbove()` |
-| DI condition | ✅ | ✅ | `DiPositive()`, `DiNegative()` |
-| MACD condition | ✅ | ✅ | `MacdBullish()`, `MacdBearish()` |
+| RSI condition | ✅ | ✅ | `IsRsiOversold()`, `IsRsiOverbought()` |
+| ADX condition | ✅ | ✅ | `IsAdxAbove()` |
+| DI condition | ✅ | ✅ | `IsDiPositive()`, `IsDiNegative()` |
+| MACD condition | ✅ | ✅ | `IsMacdBullish()`, `IsMacdBearish()` |
 | **Pattern Conditions** |
-| HigherLows condition | ✅ | ✅ | `HigherLows()` |
-| VolumeAbove condition | ✅ | ✅ | `VolumeAbove()` |
+| HigherLows condition | ✅ | ✅ | `IsHigherLows()` |
+| VolumeAbove condition | ✅ | ✅ | `IsVolumeAbove()` |
+| **Gap Conditions** |
+| GapUp condition | ✅ | ✅ | `IsGapUp()` |
+| GapDown condition | ✅ | ✅ | `IsGapDown()` |
 | **Orders** |
-| Buy order | ✅ | ✅ | `Buy()`, `Qty()` |
-| Sell order | ✅ | ✅ | `Sell()` |
-| Close/CloseLong/CloseShort | ✅ | ✅ | `Close()` |
+| Long order | ✅ | ✅ | `Long()`, `Order(IS.LONG)` |
+| Short order | ✅ | ✅ | `Short()`, `Order(IS.SHORT)` |
+| Close/CloseLong/CloseShort | ✅ | ✅ | `CloseLong()`, `CloseShort()` |
+| Quantity | ✅ | ✅ | `Qty()`, `Quantity()` |
 | **Exit Strategies** |
-| Take profit (fixed) | ✅ | ✅ | `TakeProfit()` |
-| Take profit (ADX-based) | ✅ | ⚠️ | `TakeProfit(low, high)` |
-| Stop loss | ✅ | ✅ | `StopLoss()` |
-| Trailing stop loss (%) | ✅ | ✅ | `TrailingStopLoss()` |
+| Take profit (fixed) | ✅ | ✅ | `TakeProfit()`, `TP()` |
+| Take profit (ADX-based) | ✅ | ⚠️ | `TakeProfitRange()` |
+| Stop loss | ✅ | ✅ | `StopLoss()`, `SL()` |
+| Trailing stop loss (%) | ✅ | ✅ | `TrailingStopLoss()`, `TSL()` |
 | Trailing stop loss (ATR) | ✅ | ✅ | `TrailingStopLoss(IS.ATR)` |
-| ClosePosition time | ✅ | ✅ | `ClosePosition()` |
+| ExitStrategy time | ✅ | ✅ | `ExitStrategy(IS.BELL)` |
+| IsProfitable | ✅ | ✅ | `.IsProfitable()` |
+| **Smart Order Management** |
+| AdaptiveOrder | ✅ | ✅ | `AdaptiveOrder()`, `IsAdaptiveOrder()` |
 | **Order Configuration** |
 | TimeInForce | ✅ | ✅ | `TimeInForce()` |
 | OutsideRTH | ✅ | ✅ | `OutsideRTH()` |
+| TakeProfitOutsideRTH | ✅ | ✅ | `TakeProfitOutsideRTH()` |
 | OrderType | ✅ | ✅ | `OrderType()` |
+| PriceType | ✅ | ✅ | `PriceType()` |
 | AllOrNone | ✅ | ✅ | `AllOrNone()` |
 | Repeat | ✅ | ✅ | `Repeat()` |
 | Enabled/Disabled | ✅ | ✅ | `Enabled()` |
@@ -2443,10 +2798,11 @@ The backtester allows you to test strategies against historical data **without**
 ```csharp
 using IdiotProof.UnitTests;
 
-// Define your strategy
+// Define your strategy with modern syntax
 var strategy = Stock.Ticker("AAPL")
     .Breakout(150)
-    .Buy(100, Price.Current)
+    .Long()
+    .Quantity(100)
     .TakeProfit(160)
     .StopLoss(145)
     .Build();

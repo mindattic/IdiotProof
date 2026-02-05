@@ -380,7 +380,12 @@ namespace IdiotProof.Backend
                 if (tickerIndex >= 0)
                 {
                     int tickerId = 1001 + tickerIndex;
-                    _wrapper.RegisterTickerHandler(tickerId, runner.OnLastTrade);
+                    var symbol = strategy.Symbol;
+                    _wrapper.RegisterTickerHandler(tickerId, (price, size) =>
+                    {
+                        _prices[symbol] = price; // Update price for periodic price check
+                        runner.OnLastTrade(price, size); // Forward to strategy runner
+                    });
                 }
             }
 

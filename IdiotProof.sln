@@ -13,6 +13,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "IdiotProof.Backend.UnitTest
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "IdiotProof.Console.UnitTests", "IdiotProof.Console.UnitTests\IdiotProof.Console.UnitTests.csproj", "{550FBCFA-F4E6-4EC2-8835-2742E437D904}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "IdiotProof.Logs", "IdiotProof.Logs\IdiotProof.Logs.csproj", "{823EDD00-9A15-470F-B2CC-C07BDAD7EF07}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -83,6 +85,18 @@ Global
 		{550FBCFA-F4E6-4EC2-8835-2742E437D904}.Release|x64.Build.0 = Release|Any CPU
 		{550FBCFA-F4E6-4EC2-8835-2742E437D904}.Release|x86.ActiveCfg = Release|Any CPU
 		{550FBCFA-F4E6-4EC2-8835-2742E437D904}.Release|x86.Build.0 = Release|Any CPU
+		{823EDD00-9A15-470F-B2CC-C07BDAD7EF07}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{823EDD00-9A15-470F-B2CC-C07BDAD7EF07}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{823EDD00-9A15-470F-B2CC-C07BDAD7EF07}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{823EDD00-9A15-470F-B2CC-C07BDAD7EF07}.Debug|x64.Build.0 = Debug|Any CPU
+		{823EDD00-9A15-470F-B2CC-C07BDAD7EF07}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{823EDD00-9A15-470F-B2CC-C07BDAD7EF07}.Debug|x86.Build.0 = Debug|Any CPU
+		{823EDD00-9A15-470F-B2CC-C07BDAD7EF07}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{823EDD00-9A15-470F-B2CC-C07BDAD7EF07}.Release|Any CPU.Build.0 = Release|Any CPU
+		{823EDD00-9A15-470F-B2CC-C07BDAD7EF07}.Release|x64.ActiveCfg = Release|Any CPU
+		{823EDD00-9A15-470F-B2CC-C07BDAD7EF07}.Release|x64.Build.0 = Release|Any CPU
+		{823EDD00-9A15-470F-B2CC-C07BDAD7EF07}.Release|x86.ActiveCfg = Release|Any CPU
+		{823EDD00-9A15-470F-B2CC-C07BDAD7EF07}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

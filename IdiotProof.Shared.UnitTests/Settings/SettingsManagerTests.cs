@@ -57,55 +57,11 @@ public class SettingsManagerTests
         var baseFolder = SettingsManager.GetBaseFolder();
 
         Assert.That(result, Does.StartWith(baseFolder));
-        Assert.That(result, Does.Contain("Strategies"));
-    }
-
-    [Test]
-    public void GetProjectSettingsFolder_ReturnsPathWithProjectName()
-    {
-        var result = SettingsManager.GetProjectSettingsFolder("Console");
-
-        Assert.That(result, Does.Contain("Settings"));
-        Assert.That(result, Does.Contain("Console"));
-    }
-
-    [Test]
-    public void GetSettingsFilePath_ReturnsJsonPath()
-    {
-        var result = SettingsManager.GetSettingsFilePath("Backend");
-
-        Assert.That(result, Does.EndWith("settings.json"));
-        Assert.That(result, Does.Contain("Backend"));
+        Assert.That(result, Does.Contain("IdiotProof.Scripts"));
     }
 
     #endregion
 
-    #region Path Consistency
-
-    [Test]
-    public void Paths_AreConsistent()
-    {
-        var baseFolder = SettingsManager.GetBaseFolder();
-        var strategiesFolder = SettingsManager.GetStrategiesFolder();
-
-        // Strategies folder should be under base folder
-        Assert.That(strategiesFolder, Does.StartWith(baseFolder));
-    }
-
-    [Test]
-    public void ProjectSettingsFolders_AreSiblings()
-    {
-        var consoleSettings = SettingsManager.GetProjectSettingsFolder("Console");
-        var backendSettings = SettingsManager.GetProjectSettingsFolder("Backend");
-
-        // Both should be under the same parent
-        var consoleParent = Path.GetDirectoryName(consoleSettings);
-        var backendParent = Path.GetDirectoryName(backendSettings);
-
-        Assert.That(consoleParent, Is.EqualTo(backendParent));
-    }
-
-    #endregion
 }
 
 

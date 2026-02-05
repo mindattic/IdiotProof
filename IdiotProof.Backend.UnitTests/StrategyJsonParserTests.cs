@@ -36,22 +36,22 @@ public class StrategyJsonParserTests
 
     #region GetDefaultFolder Tests
 
-    [Test]
-    public void GetDefaultFolder_ReturnsValidPath()
-    {
-        // Act
-        var folder = StrategyJsonParser.GetDefaultFolder();
-
-        // Assert
-        Assert.Multiple(() =>
+        [Test]
+        public void GetDefaultFolder_ReturnsValidPath()
         {
-            Assert.That(folder, Is.Not.Null.And.Not.Empty);
-            Assert.That(folder, Does.Contain("IdiotProof"));
-            Assert.That(folder, Does.Contain("Strategies"));
-        });
-    }
+            // Act
+            var folder = StrategyJsonParser.GetDefaultFolder();
 
-    #endregion
+            // Assert
+            Assert.Multiple(() =>
+            {
+                Assert.That(folder, Is.Not.Null.And.Not.Empty);
+                Assert.That(folder, Does.Contain("IdiotProof"));
+                Assert.That(folder, Does.Contain("IdiotProof.Scripts"));
+            });
+        }
+
+        #endregion
 
     #region GetDateFolder Tests
 

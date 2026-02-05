@@ -7,13 +7,17 @@
 //   {SolutionRoot}\Settings\{ProjectName}\settings.json
 //
 // Strategies are stored under:
-//   {SolutionRoot}\Strategies\
+//   {SolutionRoot}\IdiotProof.Scripts\
+//
+// Logs are stored under:
+//   {SolutionRoot}\IdiotProof.Logs\
 //
 // The solution root is detected by walking up from the executing assembly
 // location until a .sln file is found, or falls back to the current directory.
 //
 // ============================================================================
 
+using IdiotProof.Shared.Constants;
 using System.Reflection;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -26,8 +30,6 @@ namespace IdiotProof.Shared.Settings;
 public static class SettingsManager
 {
     private const string SettingsFileName = "settings.json";
-    private const string SettingsFolder = "Settings";
-    private const string StrategiesFolder = "Strategies";
 
     // Cached base folder path
     private static string? _cachedBaseFolder;
@@ -101,7 +103,23 @@ public static class SettingsManager
     /// </summary>
     public static string GetStrategiesFolder()
     {
-        return Path.Combine(GetBaseFolder(), StrategiesFolder);
+        return Path.Combine(GetBaseFolder(), _.Folder.Scripts);
+    }
+
+    /// <summary>
+    /// Gets the shared logs folder path.
+    /// </summary>
+    public static string GetLogsFolder()
+    {
+        return Path.Combine(GetBaseFolder(), _.Folder.Logs);
+    }
+
+    /// <summary>
+    /// Gets the logs folder for a specific project.
+    /// </summary>
+    public static string GetProjectLogsFolder(string projectName)
+    {
+        return Path.Combine(GetLogsFolder(), projectName);
     }
 
     /// <summary>
@@ -109,7 +127,7 @@ public static class SettingsManager
     /// </summary>
     public static string GetProjectSettingsFolder(string projectName)
     {
-        return Path.Combine(GetBaseFolder(), SettingsFolder, projectName);
+        return Path.Combine(GetBaseFolder(), _.Folder.Settings, projectName);
     }
 
     /// <summary>
@@ -135,17 +153,26 @@ public static class SettingsManager
         if (!Directory.Exists(strategiesFolder))
             Directory.CreateDirectory(strategiesFolder);
 
+        // Create logs folder
+        var logsFolder = GetLogsFolder();
+        if (!Directory.Exists(logsFolder))
+            Directory.CreateDirectory(logsFolder);
+
         // Create settings base folder
-        var settingsBaseFolder = Path.Combine(GetBaseFolder(), SettingsFolder);
+        var settingsBaseFolder = Path.Combine(GetBaseFolder(), _.Folder.Settings);
         if (!Directory.Exists(settingsBaseFolder))
             Directory.CreateDirectory(settingsBaseFolder);
 
-        // Create project-specific settings folder if project name provided
+        // Create project-specific folders if project name provided
         if (!string.IsNullOrEmpty(projectName))
         {
             var projectSettingsFolder = GetProjectSettingsFolder(projectName);
             if (!Directory.Exists(projectSettingsFolder))
                 Directory.CreateDirectory(projectSettingsFolder);
+
+            var projectLogsFolder = GetProjectLogsFolder(projectName);
+            if (!Directory.Exists(projectLogsFolder))
+                Directory.CreateDirectory(projectLogsFolder);
         }
     }
 }

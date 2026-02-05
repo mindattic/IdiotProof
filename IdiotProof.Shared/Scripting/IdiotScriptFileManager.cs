@@ -6,13 +6,11 @@
 // Files use the .IDIOT extension and are stored as plain text.
 //
 // FOLDER STRUCTURE (in solution root directory):
-// Strategies/
-//   nvda.idiot
-//   nvda-b.idiot
-//   my-best-strategy-yet.idiot
-//   2025-01-15/
-//     AAPL_Breakout.idiot
-//     PLTR_VWAP_Scalp.idiot
+// IdiotProof.Scripts/           <- Central location for all .idiot files
+//   AAPL-Breakout.idiot
+//   PLTR-VWAP-Scalp.idiot
+//   DHX-V1-Breakout.idiot
+//   VVPR-V1-Breakout.idiot
 // Settings/
 //   Backend/settings.json
 //   Console/settings.json
@@ -59,11 +57,6 @@ public static class IdiotScriptFileManager
     /// Gets the default strategies folder path.
     /// </summary>
     public static string GetDefaultFolder() => SettingsManager.GetStrategiesFolder();
-
-    /// <summary>
-    /// Gets the settings folder path for a specific project.
-    /// </summary>
-    public static string GetSettingsFolder(string projectName) => SettingsManager.GetProjectSettingsFolder(projectName);
 
     /// <summary>
     /// Gets the date-based folder path for a specific date.

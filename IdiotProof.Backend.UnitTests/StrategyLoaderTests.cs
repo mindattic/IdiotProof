@@ -764,7 +764,7 @@ public class StrategyLoaderTests
         {
             Assert.That(folder, Is.Not.Null.And.Not.Empty);
             Assert.That(folder, Does.Contain("IdiotProof"));
-            Assert.That(folder, Does.Contain("Strategies"));
+            Assert.That(folder, Does.Contain("IdiotProof.Scripts"));
         });
     }
 
