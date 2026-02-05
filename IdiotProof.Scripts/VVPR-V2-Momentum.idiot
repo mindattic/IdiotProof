@@ -29,7 +29,7 @@
 Ticker(VVPR)
 .Name("VVPR Momentum Confirmation")
 .Session(IS.EXTENDED)
-.Qty(36)
+.Qty(32)
 
 # Breakout over VWAP resistance
 .Breakout(1.95)
@@ -48,6 +48,7 @@ Ticker(VVPR)
 # Extended target for momentum plays
 .TakeProfit(2.20)
 .StopLoss(1.68)
+.TrailingStopLoss(5)
 
 # Exit at bell if still open
 .ExitStrategy(IS.BELL).IsProfitable()

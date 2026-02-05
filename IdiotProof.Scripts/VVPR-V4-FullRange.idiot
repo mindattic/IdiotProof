@@ -29,7 +29,7 @@
 Ticker(VVPR)
 .Name("VVPR Full Range Adaptive")
 .Session(IS.EXTENDED)
-.Qty(36)
+.Qty(32)
 
 # Breakout over VWAP - key resistance
 .Breakout(1.95)
@@ -47,6 +47,7 @@ Ticker(VVPR)
 # Full range target to recent highs - AdaptiveOrder manages dynamically
 .TakeProfit(2.30)
 .StopLoss(1.55)
+.TrailingStopLoss(5)
 
 # Smart order management
 .AdaptiveOrder(IS.AGGRESSIVE)

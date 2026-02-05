@@ -1,16 +1,51 @@
-# SMCI-V1-Breakout
-# Strategy: Breakout above recent resistance with momentum confirmation
-# Risk: Moderate | Target: Breakout continuation
+# ============================================================================
+# SMCI-V1-Breakout - Resistance Breakout Strategy
+# ============================================================================
+#
+# CHART ANALYSIS (Live Data):
+# - Current: ~$33.50 | VWAP: ~$33.40 | EMA(21): ~$33.35
+# - ADX: ~25+ (MODERATE trend developing)
+# - Status: Testing resistance at $33.60
+# - Range: $33.00 - $34.00 | Recent catalyst: AI/datacenter demand
+#
+# STRATEGY:
+# Breakout above $33.60 resistance with momentum confirmation.
+# Strong ADX and positive DI indicate buyers in control.
+#
+# ╔═══════════════════════════════════════════════════════════════════════════╗
+# ║  EXECUTION FLOW                                                           ║
+# ║                                                                           ║
+# ║  [CONFIG]         [ENTRY CONDITIONS]           [EXIT]                     ║
+# ║  ┌──────────┐     ┌───────────────────┐     ┌────────────────┐           ║
+# ║  │Ticker    │     │Entry($33.60)      │     │TakeProfit($34.25)│         ║
+# ║  │Session   │ --> │IsAboveVwap()      │ --> │StopLoss($33.20)  │         ║
+# ║  │Qty       │     │IsEmaAbove(21)     │     │                  │         ║
+# ║  └──────────┘     │IsAdxAbove(25)     │     └────────────────┘           ║
+# ║                   │IsDiPositive()     │                                   ║
+# ║                   └───────────────────┘                                   ║
+# ╚═══════════════════════════════════════════════════════════════════════════╝
+#
+# RISK: Moderate - Trend confirmed, breakout continuation play
+# ============================================================================
 
 Ticker(SMCI)
-.Name(SMCI Breakout)
+.Name("SMCI Breakout")
 .Session(IS.RTH)
-.Quantity(50)
+.Quantity(1)
+
+# Entry on breakout above resistance
 .Entry(33.60)
-.TakeProfit(34.25)
-.StopLoss(33.20)
+
+# Trend and momentum confirmation
 .IsAboveVwap()
 .IsEmaAbove(21)
 .IsAdxAbove(25)
 .IsDiPositive()
+
+# Order execution
 .Order(IS.LONG)
+
+# Risk management
+.TakeProfit(34.25)
+.StopLoss(33.20)
+.TrailingStopLoss(2)

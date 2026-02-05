@@ -30,7 +30,7 @@
 Ticker(DHX)
 .Name("DHX Balanced Adaptive")
 .Session(IS.EXTENDED)
-.Qty(31)
+.Qty(27)
 
 # Breakout over VWAP
 .Breakout(2.19)
@@ -50,6 +50,7 @@ Ticker(DHX)
 # Balanced targets - mid-range to HOD
 .TakeProfit(2.45)
 .StopLoss(2.02)
+.TrailingStopLoss(5)
 
 # Balanced adaptive management
 .AdaptiveOrder(IS.BALANCED)

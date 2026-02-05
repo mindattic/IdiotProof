@@ -1,19 +1,54 @@
-# RUN-V4-TrendWait
-# Strategy: Wait for ADX to confirm trend before entry
-# Risk: Moderate | Target: Trend continuation once confirmed
+# ============================================================================
+# RUN-V4-TrendWait - Trend Confirmation Strategy
+# ============================================================================
+#
+# CHART ANALYSIS (Live Data):
+# - Current: ~$20.70 | VWAP: ~$20.55 | EMA(9): ~$20.65 | EMA(21): ~$20.60
+# - ADX: 7.34 (VERY WEAK - no trend yet)
+# - Status: Waiting for trend to develop
+# - Target: Entry once ADX > 20 confirms trend
+#
+# STRATEGY:
+# Wait for ADX to confirm trend before entry. Multiple indicator
+# confirmation with adaptive order management for dynamic exits.
+#
+# ╔═══════════════════════════════════════════════════════════════════════════╗
+# ║  TREND DEVELOPMENT                                                        ║
+# ║                                                                           ║
+# ║  ADX Scale:                                                               ║
+# ║  |  40+ ════════════════════════ Strong Trend                            ║
+# ║  |  25  ════════════════════════ Moderate Trend                          ║
+# ║  |  20  ═══════ ENTRY THRESHOLD ═══════                                  ║
+# ║  |  7.34 <- Current (NO TREND)                                           ║
+# ║  |   0  ════════════════════════                                         ║
+# ║                                                                           ║
+# ║  Wait for ADX > 20 + MACD bullish + DI positive                          ║
+# ╚═══════════════════════════════════════════════════════════════════════════╝
+#
+# RISK: Moderate - Waiting for confirmation reduces false signals
+# ============================================================================
 
 Ticker(RUN)
-.Name(RUN Trend Wait)
+.Name("RUN Trend Wait")
 .Session(IS.RTH)
-.Quantity(75)
+.Quantity(2)
+
+# Entry once trend confirmed
 .Entry(20.90)
-.TakeProfit(21.40)
-.StopLoss(20.45)
+
+# Trend confirmation requirements
 .IsAboveVwap()
 .IsEmaAbove(9)
 .IsEmaAbove(21)
 .IsAdxAbove(20)
 .IsDiPositive()
 .IsMacdBullish()
+
+# Order execution with adaptive management
 .Order(IS.LONG)
 .AdaptiveOrder(IS.BALANCED)
+
+# Risk management
+.TakeProfit(21.40)
+.StopLoss(20.45)
+.TrailingStopLoss(2)

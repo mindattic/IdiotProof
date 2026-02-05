@@ -29,7 +29,7 @@
 Ticker(DHX)
 .Name("DHX Trend Confirmed")
 .Session(IS.EXTENDED)
-.Qty(31)
+.Qty(27)
 
 # Breakout over VWAP
 .Breakout(2.19)

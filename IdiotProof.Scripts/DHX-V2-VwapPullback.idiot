@@ -30,7 +30,7 @@
 Ticker(DHX)
 .Name("DHX VWAP Bounce")
 .Session(IS.EXTENDED)
-.Qty(31)
+.Qty(27)
 
 # Breakout over VWAP at $2.19
 .Breakout(2.19)
@@ -48,6 +48,7 @@ Ticker(DHX)
 # Conservative target
 .TakeProfit(2.40)
 .StopLoss(2.05)
+.TrailingStopLoss(5)
 
 # Exit at bell
 .ExitStrategy(IS.BELL).IsProfitable()

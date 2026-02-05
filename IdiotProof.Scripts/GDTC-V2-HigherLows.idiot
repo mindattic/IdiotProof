@@ -31,7 +31,7 @@
 Ticker(GDTC)
 .Name("GDTC Higher Lows")
 .Session(IS.EXTENDED)
-.Qty(57)
+.Qty(51)
 
 # Breakout over consolidation resistance
 .Breakout(1.25)

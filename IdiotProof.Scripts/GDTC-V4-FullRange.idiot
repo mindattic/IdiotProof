@@ -28,7 +28,7 @@
 Ticker(GDTC)
 .Name("GDTC Full Range Adaptive")
 .Session(IS.EXTENDED)
-.Qty(57)
+.Qty(50)
 
 # Breakout over consolidation
 .Breakout(1.25)
@@ -46,6 +46,7 @@ Ticker(GDTC)
 # Full range target - AdaptiveOrder will manage
 .TakeProfit(1.50)
 .StopLoss(1.02)
+.TrailingStopLoss(5)
 
 # Smart order management for maximum gains
 .AdaptiveOrder(IS.AGGRESSIVE)

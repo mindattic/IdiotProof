@@ -29,7 +29,7 @@
 Ticker(GDTC)
 .Name("GDTC Momentum Stack")
 .Session(IS.EXTENDED)
-.Qty(57)
+.Qty(51)
 
 # Breakout over range resistance
 .Breakout(1.25)
@@ -48,6 +48,7 @@ Ticker(GDTC)
 # Extended target for momentum plays
 .TakeProfit(1.50)
 .StopLoss(1.05)
+.TrailingStopLoss(5)
 
 # Exit at bell if still open
 .ExitStrategy(IS.BELL).IsProfitable()

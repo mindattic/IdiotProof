@@ -30,7 +30,7 @@
 Ticker(VVPR)
 .Name("VVPR VWAP Reclaim Breakout")
 .Session(IS.EXTENDED)
-.Qty(36)
+.Qty(32)
 
 # Breakout over VWAP resistance at $1.95
 .Breakout(1.95)
@@ -47,6 +47,7 @@ Ticker(VVPR)
 # Risk management - target recent high
 .TakeProfit(2.10)
 .StopLoss(1.65)
+.TrailingStopLoss(5)
 
 # Exit at bell if still open
 .ExitStrategy(IS.BELL).IsProfitable()

@@ -30,7 +30,7 @@
 Ticker(DHX)
 .Name("DHX VWAP Reclaim Breakout")
 .Session(IS.EXTENDED)
-.Qty(31)
+.Qty(27)
 
 # Break over VWAP resistance at $2.19
 .Breakout(2.19)
@@ -47,6 +47,7 @@ Ticker(DHX)
 # Target previous highs
 .TakeProfit(2.45)
 .StopLoss(2.00)
+.TrailingStopLoss(5)
 
 # Exit at bell - don't hold earnings overnight
 .ExitStrategy(IS.BELL).IsProfitable()

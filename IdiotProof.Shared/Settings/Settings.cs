@@ -113,6 +113,14 @@ namespace IdiotProof.Shared.Settings
         /// </summary>
         public static bool SilentMode { get; set; } = false;
 
+        // ----- Console Display Settings -----
+
+        /// <summary>
+        /// When true, displays the full IdiotScript code for each strategy in the console.
+        /// When false, only shows the compact summary (Symbol, Name, Enabled, Qty, TP, SL, etc.).
+        /// </summary>
+        public static bool ShowIdiotScriptInConsole { get; set; } = false;
+
         // ----- Indicator Settings -----
 
         /// <summary>
@@ -142,7 +150,7 @@ namespace IdiotProof.Shared.Settings
         /// Interval in seconds between ticker price check reports.
         /// Set to 0 to disable price reporting.
         /// </summary>
-        public const int TickerPriceCheckIntervalSeconds = 60 * 10;
+        public const int TickerPriceCheckIntervalSeconds = 5; //60 * 10;
     }
 }
 

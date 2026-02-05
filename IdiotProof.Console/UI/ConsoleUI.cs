@@ -3,6 +3,7 @@
 // ============================================================================
 
 using IdiotProof.Shared.Models;
+using IdiotProof.Shared.Settings;
 
 namespace IdiotProof.Console.UI;
 
@@ -347,14 +348,70 @@ public static class ConsoleUI
                         System.Console.Write($", PotentialGain: +${stats.PotentialGain:F2}");
                     }
 
+                    // Display R:R ratio for individual strategy
+                    if (stats.PotentialLoss > 0 && stats.PotentialGain > 0)
+                    {
+                        var riskReward = stats.PotentialGain / stats.PotentialLoss;
+                        System.Console.ForegroundColor = riskReward >= 1.0 ? ConsoleColor.Green : ConsoleColor.Yellow;
+                        System.Console.Write($", R:R = {riskReward:F2}");
+                    }
+
                     System.Console.WriteLine();
                 }
 
-                // Display IdiotScript (original content including comments)
-                System.Console.ForegroundColor = ConsoleColor.DarkGray;
-                System.Console.WriteLine(strategy.ToIdiotScript());
-                //System.Console.WriteLine();
-                //System.Console.WriteLine(strategy.ToAsciiChart());
+                // Display IdiotScript (original content including comments) if enabled
+                if (Settings.ShowIdiotScriptInConsole)
+                {
+                    System.Console.ForegroundColor = ConsoleColor.DarkGray;
+                    System.Console.WriteLine(strategy.ToIdiotScript());
+                }
+
+                System.Console.WriteLine();
+                System.Console.ResetColor();
+            }
+
+            // Calculate and display totals for enabled strategies
+            var enabledStrategies = strategies.Where(s => s.Enabled).ToList();
+            if (enabledStrategies.Count > 0)
+            {
+                double totalBuyIn = 0;
+                double totalPotentialLoss = 0;
+                double totalPotentialGain = 0;
+
+                foreach (var strategy in enabledStrategies)
+                {
+                    var stats = strategy.GetStats();
+                    totalBuyIn += stats.BuyIn;
+                    totalPotentialLoss += stats.PotentialLoss;
+                    totalPotentialGain += stats.PotentialGain;
+                }
+
+                System.Console.ForegroundColor = ConsoleColor.Cyan;
+                System.Console.WriteLine("=== Portfolio Summary (Enabled Strategies) ===");
+                System.Console.ResetColor();
+
+                System.Console.ForegroundColor = ConsoleColor.Yellow;
+                System.Console.Write($"Total BuyIn: ${totalBuyIn:N2}");
+
+                if (totalPotentialLoss > 0)
+                {
+                    System.Console.ForegroundColor = ConsoleColor.Red;
+                    System.Console.Write($", PotentialLoss: -${totalPotentialLoss:N2}");
+                }
+
+                if (totalPotentialGain > 0)
+                {
+                    System.Console.ForegroundColor = ConsoleColor.Green;
+                    System.Console.Write($", PotentialGain: +${totalPotentialGain:N2}");
+                }
+
+                if (totalPotentialLoss > 0 && totalPotentialGain > 0)
+                {
+                    var riskReward = totalPotentialGain / totalPotentialLoss;
+                    System.Console.ForegroundColor = riskReward >= 1.0 ? ConsoleColor.Green : ConsoleColor.Yellow;
+                    System.Console.Write($", R:R = {riskReward:F2}");
+                }
+
                 System.Console.WriteLine();
                 System.Console.ResetColor();
             }

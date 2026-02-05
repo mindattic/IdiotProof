@@ -1,18 +1,56 @@
-# RUN-V5-Conservative
-# Strategy: Tight risk management for low-ADX environment
-# Risk: Very Low | Target: Small gains with high probability
+# ============================================================================
+# RUN-V5-Conservative - Conservative High-Probability Strategy
+# ============================================================================
+#
+# CHART ANALYSIS (Live Data):
+# - Current: ~$20.70 | VWAP: ~$20.55 | EMA(21): ~$20.60
+# - ADX: 7.34 (VERY WEAK - ranging market)
+# - Status: Tight risk management for low-ADX environment
+# - Target: Small gains with high probability
+#
+# STRATEGY:
+# Multiple confirmations with conservative adaptive order management.
+# Tight stop loss, modest target, exit at bell if profitable.
+#
+# ╔═══════════════════════════════════════════════════════════════════════════╗
+# ║  CONSERVATIVE APPROACH                                                    ║
+# ║                                                                           ║
+# ║  Risk/Reward Analysis:                                                    ║
+# ║  Entry:  $20.80                                                          ║
+# ║  Target: $21.00  (+$0.20 = +0.96%)                                       ║
+# ║  Stop:   $20.55  (-$0.25 = -1.20%)                                       ║
+# ║  R:R     0.8:1 (conservative, high probability)                          ║
+# ║                                                                           ║
+# ║  Multiple confirmations required:                                         ║
+# ║  [x] Close above VWAP  [x] EMA(21) support                               ║
+# ║  [x] Higher lows       [x] Positive momentum                             ║
+# ╚═══════════════════════════════════════════════════════════════════════════╝
+#
+# RISK: Very Low - Small position, tight management
+# ============================================================================
 
 Ticker(RUN)
-.Name(RUN Conservative)
+.Name("RUN Conservative")
 .Session(IS.RTH)
-.Quantity(50)
+.Quantity(2)
+
+# Entry with multiple confirmations
 .Entry(20.80)
-.TakeProfit(21.00)
-.StopLoss(20.55)
+
+# High-probability confirmations
 .IsCloseAboveVwap()
 .IsEmaAbove(21)
 .IsHigherLows()
 .IsMomentumAbove(0)
+
+# Order execution with conservative adaptive management
 .Order(IS.LONG)
 .AdaptiveOrder(IS.CONSERVATIVE)
+
+# Tight risk management
+.TakeProfit(21.00)
+.StopLoss(20.55)
+.TrailingStopLoss(1.5)
+
+# Exit at bell if still open
 .ExitStrategy(IS.BELL).IsProfitable()

@@ -31,7 +31,7 @@
 Ticker(GDTC)
 .Name("GDTC Range Breakout")
 .Session(IS.EXTENDED)
-.Qty(57)
+.Qty(50)
 
 # Breakout over $1.25 consolidation resistance
 .Breakout(1.25)
@@ -49,6 +49,7 @@ Ticker(GDTC)
 # Target previous high area
 .TakeProfit(1.40)
 .StopLoss(1.08)
+.TrailingStopLoss(5)
 
 # Exit at bell if still open
 .ExitStrategy(IS.BELL).IsProfitable()

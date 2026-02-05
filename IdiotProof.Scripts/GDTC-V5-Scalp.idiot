@@ -28,7 +28,7 @@
 Ticker(GDTC)
 .Name("GDTC Quick Scalp")
 .Session(IS.EXTENDED)
-.Qty(57)
+.Qty(51)
 
 # Entry at VWAP zone
 .Entry(1.17)
@@ -43,6 +43,7 @@ Ticker(GDTC)
 # Quick scalp target - top of range
 .TakeProfit(1.28)
 .StopLoss(1.12)
+.TrailingStopLoss(3)
 
 # Conservative adaptive for quick exits
 .AdaptiveOrder(IS.CONSERVATIVE)

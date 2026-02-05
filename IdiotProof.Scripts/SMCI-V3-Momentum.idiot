@@ -1,14 +1,44 @@
-# SMCI-V3-Momentum
-# Strategy: Strong trend continuation with momentum indicators
-# Risk: Moderate-High | Target: Trend riding
+# ============================================================================
+# SMCI-V3-Momentum - Aggressive Momentum Strategy
+# ============================================================================
+#
+# CHART ANALYSIS (Live Data):
+# - Current: ~$33.50 | VWAP: ~$33.40 | EMA(9): ~$33.45 | EMA(21): ~$33.35
+# - ADX: ~25+ (MODERATE-STRONG trend)
+# - Status: Strong momentum with multiple confirmations
+# - Catalyst: AI infrastructure demand driving sector
+#
+# STRATEGY:
+# Aggressive trend riding with full indicator stack. Multiple momentum
+# confirmations with adaptive order management for maximum gain capture.
+#
+# ╔═══════════════════════════════════════════════════════════════════════════╗
+# ║  MOMENTUM STACK                                                           ║
+# ║                                                                           ║
+# ║  Indicator Confirmations:                                                 ║
+# ║  [x] Price > VWAP         - Bullish intraday                             ║
+# ║  [x] Price > EMA(9)       - Short-term bullish                           ║
+# ║  [x] Price > EMA(21)      - Medium-term bullish                          ║
+# ║  [x] ADX > 25             - Strong trend                                 ║
+# ║  [x] +DI > -DI            - Bullish direction                            ║
+# ║  [x] MACD Bullish         - Momentum confirmation                        ║
+# ║  [x] ROC > 1%             - Rate of change positive                      ║
+# ║                                                                           ║
+# ║  AdaptiveOrder(AGGRESSIVE) - Let winners run                             ║
+# ╚═══════════════════════════════════════════════════════════════════════════╝
+#
+# RISK: Moderate-High - Aggressive positioning, wider stops
+# ============================================================================
 
 Ticker(SMCI)
-.Name(SMCI Momentum)
+.Name("SMCI Momentum")
 .Session(IS.RTH)
-.Quantity(50)
+.Quantity(1)
+
+# Entry on momentum confirmation
 .Entry(33.55)
-.TakeProfit(34.50)
-.StopLoss(33.00)
+
+# Full momentum indicator stack
 .IsAboveVwap()
 .IsEmaAbove(9)
 .IsEmaAbove(21)
@@ -16,5 +46,12 @@ Ticker(SMCI)
 .IsDiPositive()
 .IsMacdBullish()
 .IsRocAbove(1)
+
+# Order execution with aggressive adaptive management
 .Order(IS.LONG)
 .AdaptiveOrder(IS.AGGRESSIVE)
+
+# Risk management - wider targets for trend riding
+.TakeProfit(34.50)
+.StopLoss(33.00)
+.TrailingStopLoss(3)

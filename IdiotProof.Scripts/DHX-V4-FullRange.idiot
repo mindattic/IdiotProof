@@ -28,7 +28,7 @@
 Ticker(DHX)
 .Name("DHX Full Range Adaptive")
 .Session(IS.EXTENDED)
-.Qty(31)
+.Qty(27)
 
 # Breakout over VWAP
 .Breakout(2.19)
@@ -49,6 +49,7 @@ Ticker(DHX)
 # Full range target above HOD - AdaptiveOrder will manage
 .TakeProfit(2.55)
 .StopLoss(1.98)
+.TrailingStopLoss(5)
 
 # Aggressive adaptive for maximum gains
 .AdaptiveOrder(IS.AGGRESSIVE)

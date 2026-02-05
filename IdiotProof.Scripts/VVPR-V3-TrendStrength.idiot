@@ -31,7 +31,7 @@
 Ticker(VVPR)
 .Name("VVPR Trend Strength")
 .Session(IS.EXTENDED)
-.Qty(36)
+.Qty(33)
 
 # Breakout over VWAP
 .Breakout(1.95)
@@ -48,6 +48,7 @@ Ticker(VVPR)
 # Mid-range target
 .TakeProfit(2.15)
 .StopLoss(1.62)
+.TrailingStopLoss(5)
 
 # Trailing stop for trend following
 .TrailingStopLoss(4)

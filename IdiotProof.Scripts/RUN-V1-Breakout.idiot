@@ -1,16 +1,51 @@
-# RUN-V1-Breakout
-# Strategy: Breakout above $21 resistance with volume confirmation
-# Risk: Moderate | Note: ADX low (7.34), wait for trend development
+# ============================================================================
+# RUN-V1-Breakout - Resistance Breakout Strategy
+# ============================================================================
+#
+# CHART ANALYSIS (Live Data):
+# - Current: ~$20.70 | VWAP: ~$20.55 | EMA(21): ~$20.60
+# - ADX: 7.34 (VERY WEAK - no trend)
+# - Status: Consolidating near $21 resistance
+# - Range: $20.40 - $21.00 | Recent high: $21.05
+#
+# STRATEGY:
+# Wait for breakout above $21 resistance with volume confirmation.
+# Low ADX means waiting for momentum to develop before entry.
+#
+# ╔═══════════════════════════════════════════════════════════════════════════╗
+# ║  EXECUTION FLOW                                                           ║
+# ║                                                                           ║
+# ║  [CONFIG]         [ENTRY CONDITIONS]           [EXIT]                     ║
+# ║  ┌──────────┐     ┌───────────────────┐     ┌────────────────┐           ║
+# ║  │Ticker    │     │Entry($21.05)      │     │TakeProfit($21.50)│         ║
+# ║  │Session   │ --> │IsAboveVwap()      │ --> │StopLoss($20.60)  │         ║
+# ║  │Qty       │     │IsEmaAbove(21)     │     │                  │         ║
+# ║  └──────────┘     │IsVolumeAbove(1.5) │     └────────────────┘           ║
+# ║                   │IsMomentumAbove(0) │                                   ║
+# ║                   └───────────────────┘                                   ║
+# ╚═══════════════════════════════════════════════════════════════════════════╝
+#
+# RISK: ADX very weak at 7.34 - wait for trend development
+# ============================================================================
 
 Ticker(RUN)
-.Name(RUN Breakout)
+.Name("RUN Breakout")
 .Session(IS.RTH)
-.Quantity(100)
+.Quantity(2)
+
+# Entry on breakout above $21 resistance
 .Entry(21.05)
-.TakeProfit(21.50)
-.StopLoss(20.60)
+
+# Confirmation requirements
 .IsAboveVwap()
 .IsEmaAbove(21)
 .IsVolumeAbove(1.5)
 .IsMomentumAbove(0)
+
+# Order execution
 .Order(IS.LONG)
+
+# Risk management
+.TakeProfit(21.50)
+.StopLoss(20.60)
+.TrailingStopLoss(2)

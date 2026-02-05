@@ -29,7 +29,7 @@
 Ticker(VVPR)
 .Name("VVPR Conservative VWAP")
 .Session(IS.EXTENDED)
-.Qty(36)
+.Qty(31)
 
 # Need VWAP reclaim at $1.95
 .Breakout(1.95)
@@ -46,6 +46,7 @@ Ticker(VVPR)
 # Conservative target - just above VWAP
 .TakeProfit(2.05)
 .StopLoss(1.78)
+.TrailingStopLoss(3)
 
 # Conservative adaptive management
 .AdaptiveOrder(IS.CONSERVATIVE)
