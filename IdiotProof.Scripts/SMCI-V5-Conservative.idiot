@@ -1,0 +1,21 @@
+# SMCI-V5-Conservative
+# Strategy: Multiple confirmations with adaptive risk management
+# Risk: Low | Target: High-probability setups only
+
+Ticker(SMCI)
+.Name(SMCI Conservative)
+.Session(IS.RTH)
+.Quantity(40)
+.Entry(33.50)
+.TakeProfit(34.00)
+.StopLoss(33.15)
+.IsCloseAboveVwap()
+.IsEmaAbove(9)
+.IsEmaAbove(21)
+.IsAdxAbove(25)
+.IsDiPositive()
+.IsMacdBullish()
+.IsHigherLows()
+.Order(IS.LONG)
+.AdaptiveOrder(IS.CONSERVATIVE)
+.ExitStrategy(IS.BELL).IsProfitable()

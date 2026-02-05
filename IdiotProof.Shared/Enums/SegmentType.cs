@@ -77,6 +77,7 @@ namespace IdiotProof.Shared.Enums
             IsMomentum,
             IsRoc,
             IsHigherLows,
+            IsLowerHighs,
             IsVolumeAbove,
             IsCloseAboveVwap,
             IsVwapRejection,

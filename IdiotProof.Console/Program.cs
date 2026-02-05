@@ -141,27 +141,49 @@ internal sealed class Program
             ConsoleUI.DisplayTradingMode(status.IsPaperTrading);
         }
 
-        // Send strategies to backend
+        // Display local strategies (before sending)
+        ConsoleUI.DisplayStrategies(_localStrategies);
+
+        // ================================================================
+        // PAUSED STATE - Wait for user to activate
+        // ================================================================
+        ConsoleUI.Info("");
+        ConsoleUI.Warning("+----------------------------------------------------------+");
+        ConsoleUI.Warning("|  PAUSED - Strategies loaded but NOT active               |");
+        ConsoleUI.Warning("|  Press ENTER to activate and send strategies to backend  |");
+        ConsoleUI.Warning("|  Press Ctrl+C to exit without activating                 |");
+        ConsoleUI.Warning("+----------------------------------------------------------+");
+        ConsoleUI.Info("");
+
+        // Wait for user to press Enter
+        System.Console.ReadLine();
+
+        // ================================================================
+        // ACTIVATE - Send strategies to backend
+        // ================================================================
         if (_localStrategies.Count > 0)
         {
-            ConsoleUI.Info($"Sending {_localStrategies.Count} strategies to backend...");
+            ConsoleUI.Info($"Activating {_localStrategies.Count} strategies...");
             var result = await _client.SetStrategiesAsync(_localStrategies);
             if (result?.Success == true)
             {
-                ConsoleUI.Success(result.Message ?? "Strategies sent to backend");
+                ConsoleUI.Success(result.Message ?? "Strategies activated and sent to backend");
             }
             else
             {
                 ConsoleUI.Warning(result?.ErrorMessage ?? "Failed to send strategies to backend");
             }
         }
-
-        // Display local strategies
-        ConsoleUI.DisplayStrategies(_localStrategies);
+        else
+        {
+            ConsoleUI.Warning("No strategies to activate");
+        }
 
         // ================================================================
-        // WAIT INDEFINITELY - No input, just receive backend messages
+        // RUNNING - Listen for backend messages
         // ================================================================
+        ConsoleUI.Info("");
+        ConsoleUI.Success("*** ACTIVE - Strategies are now running ***");
         ConsoleUI.Info("Running... (Ctrl+C to exit)");
         ConsoleUI.Info("Listening for backend messages...");
 

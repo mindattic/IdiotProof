@@ -10,7 +10,6 @@
     <AssemblyName>IdiotProof.Scripts</AssemblyName>
     <TargetFrameworkVersion>v4.7.2</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
-    
     <Deterministic>true</Deterministic>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
@@ -44,6 +43,16 @@
     <None Include="GDTC-V3-Momentum.idiot" />
     <None Include="GDTC-V4-FullRange.idiot" />
     <None Include="GDTC-V5-Scalp.idiot" />
+    <None Include="RUN-V1-Breakout.idiot" />
+    <None Include="RUN-V2-VwapBounce.idiot" />
+    <None Include="RUN-V3-RangePlay.idiot" />
+    <None Include="RUN-V4-TrendWait.idiot" />
+    <None Include="RUN-V5-Conservative.idiot" />
+    <None Include="SMCI-V1-Breakout.idiot" />
+    <None Include="SMCI-V2-VwapBounce.idiot" />
+    <None Include="SMCI-V3-Momentum.idiot" />
+    <None Include="SMCI-V4-Pullback.idiot" />
+    <None Include="SMCI-V5-Conservative.idiot" />
     <None Include="VVPR-V1-Breakout.idiot" />
     <None Include="VVPR-V2-Momentum.idiot" />
     <None Include="VVPR-V3-TrendStrength.idiot" />

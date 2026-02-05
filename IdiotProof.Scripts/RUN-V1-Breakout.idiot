@@ -1,0 +1,16 @@
+# RUN-V1-Breakout
+# Strategy: Breakout above $21 resistance with volume confirmation
+# Risk: Moderate | Note: ADX low (7.34), wait for trend development
+
+Ticker(RUN)
+.Name(RUN Breakout)
+.Session(IS.RTH)
+.Quantity(100)
+.Entry(21.05)
+.TakeProfit(21.50)
+.StopLoss(20.60)
+.IsAboveVwap()
+.IsEmaAbove(21)
+.IsVolumeAbove(1.5)
+.IsMomentumAbove(0)
+.Order(IS.LONG)

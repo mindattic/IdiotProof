@@ -133,8 +133,15 @@ namespace IdiotProof.Backend.Models
         private readonly ConcurrentDictionary<int, double> _lastByTicker = new();
         private readonly ConcurrentDictionary<int, int> _lastSizeByTicker = new();
 
+        // Market data caches for BID and ASK prices
+        private readonly ConcurrentDictionary<int, double> _bidByTicker = new();
+        private readonly ConcurrentDictionary<int, double> _askByTicker = new();
+
         // Per-ticker handlers for routing market data to specific runners
         private readonly ConcurrentDictionary<int, Action<double, int>> _tickerHandlers = new();
+
+        // Per-ticker handlers for bid/ask updates
+        private readonly ConcurrentDictionary<int, Action<double, double>> _bidAskHandlers = new();
 
         /// <summary>
         /// Event fired when any last trade is received (legacy, fires for all tickers).
@@ -431,6 +438,28 @@ namespace IdiotProof.Backend.Models
         }
 
         /// <summary>
+        /// Registers a handler for bid/ask price updates on a specific ticker.
+        /// </summary>
+        /// <param name="tickerId">The ticker ID returned from reqMktData.</param>
+        /// <param name="handler">Callback invoked with (bidPrice, askPrice) when bid or ask updates.</param>
+        public void RegisterBidAskHandler(int tickerId, Action<double, double> handler)
+        {
+            _bidAskHandlers[tickerId] = handler;
+        }
+
+        /// <summary>
+        /// Gets the last known bid and ask prices for a ticker.
+        /// </summary>
+        /// <param name="tickerId">The ticker ID.</param>
+        /// <returns>Tuple of (bid, ask). Returns (0, 0) if not available.</returns>
+        public (double Bid, double Ask) GetBidAsk(int tickerId)
+        {
+            double bid = _bidByTicker.TryGetValue(tickerId, out var b) ? b : 0;
+            double ask = _askByTicker.TryGetValue(tickerId, out var a) ? a : 0;
+            return (bid, ask);
+        }
+
+        /// <summary>
         /// Unregisters the handler for a specific ticker ID and clears cached data.
         /// </summary>
         /// <param name="tickerId">The ticker ID to unregister.</param>
@@ -440,9 +469,12 @@ namespace IdiotProof.Backend.Models
         public void UnregisterTickerHandler(int tickerId)
         {
             _tickerHandlers.TryRemove(tickerId, out _);
+            _bidAskHandlers.TryRemove(tickerId, out _);
             // Clear cached market data to prevent memory buildup
             _lastByTicker.TryRemove(tickerId, out _);
             _lastSizeByTicker.TryRemove(tickerId, out _);
+            _bidByTicker.TryRemove(tickerId, out _);
+            _askByTicker.TryRemove(tickerId, out _);
         }
 
         /// <summary>
@@ -602,7 +634,7 @@ namespace IdiotProof.Backend.Models
         }
 
         // -------------------------
-        // Market data (Last / Last Size)
+        // Market data (Last / Last Size / Bid / Ask)
         // -------------------------
         public void tickPrice(int tickerId, int field, double price, TickAttrib attribs)
         {
@@ -620,6 +652,29 @@ namespace IdiotProof.Backend.Models
 
                     // Fire global event (legacy)
                     OnLastTrade?.Invoke(price, size);
+                }
+            }
+            else if (field == TickType.BID)
+            {
+                _bidByTicker[tickerId] = price;
+                FireBidAskHandler(tickerId);
+            }
+            else if (field == TickType.ASK)
+            {
+                _askByTicker[tickerId] = price;
+                FireBidAskHandler(tickerId);
+            }
+        }
+
+        private void FireBidAskHandler(int tickerId)
+        {
+            if (_bidByTicker.TryGetValue(tickerId, out double bid) &&
+                _askByTicker.TryGetValue(tickerId, out double ask) &&
+                bid > 0 && ask > 0)
+            {
+                if (_bidAskHandlers.TryGetValue(tickerId, out var handler))
+                {
+                    handler(bid, ask);
                 }
             }
         }

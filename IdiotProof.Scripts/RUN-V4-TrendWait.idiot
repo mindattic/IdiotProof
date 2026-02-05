@@ -1,0 +1,19 @@
+# RUN-V4-TrendWait
+# Strategy: Wait for ADX to confirm trend before entry
+# Risk: Moderate | Target: Trend continuation once confirmed
+
+Ticker(RUN)
+.Name(RUN Trend Wait)
+.Session(IS.RTH)
+.Quantity(75)
+.Entry(20.90)
+.TakeProfit(21.40)
+.StopLoss(20.45)
+.IsAboveVwap()
+.IsEmaAbove(9)
+.IsEmaAbove(21)
+.IsAdxAbove(20)
+.IsDiPositive()
+.IsMacdBullish()
+.Order(IS.LONG)
+.AdaptiveOrder(IS.BALANCED)

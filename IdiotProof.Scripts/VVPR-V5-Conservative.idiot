@@ -42,7 +42,6 @@ Ticker(VVPR)
 
 # Order execution
 .Long()
-.Quantity(36)
 
 # Conservative target - just above VWAP
 .TakeProfit(2.05)

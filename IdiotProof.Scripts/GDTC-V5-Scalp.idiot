@@ -39,7 +39,6 @@ Ticker(GDTC)
 
 # Order execution
 .Long()
-.Quantity(57)
 
 # Quick scalp target - top of range
 .TakeProfit(1.28)

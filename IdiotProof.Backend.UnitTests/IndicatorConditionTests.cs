@@ -1778,6 +1778,114 @@ public class IndicatorConditionTests
 
     #endregion
 
+    #region Lower Highs Condition Tests
+
+    [Test]
+    public void LowerHighsCondition_DescendingHighs_ReturnsTrue()
+    {
+        // Arrange
+        var condition = new LowerHighsCondition(3);
+        // Highs: most recent first - 145, 148, 150 (lower highs = bearish pattern)
+        condition.GetRecentHighs = () => [145.0, 148.0, 150.0];
+
+        // Act
+        var result = condition.Evaluate(currentPrice: 143, vwap: 146);
+
+        // Assert
+        Assert.That(result, Is.True);
+    }
+
+    [Test]
+    public void LowerHighsCondition_AscendingHighs_ReturnsFalse()
+    {
+        // Arrange
+        var condition = new LowerHighsCondition(3);
+        // Highs: most recent first - 150, 148, 145 (higher highs = bullish, not bearish)
+        condition.GetRecentHighs = () => [150.0, 148.0, 145.0];
+
+        // Act
+        var result = condition.Evaluate(currentPrice: 152, vwap: 148);
+
+        // Assert
+        Assert.That(result, Is.False);
+    }
+
+    [Test]
+    public void LowerHighsCondition_EqualHighs_ReturnsFalse()
+    {
+        // Arrange
+        var condition = new LowerHighsCondition(3);
+        // Equal highs = no clear pattern
+        condition.GetRecentHighs = () => [150.0, 150.0, 150.0];
+
+        // Act
+        var result = condition.Evaluate(currentPrice: 148, vwap: 150);
+
+        // Assert
+        Assert.That(result, Is.False);
+    }
+
+    [Test]
+    public void LowerHighsCondition_WithoutCallback_ReturnsFalse()
+    {
+        // Arrange
+        var condition = new LowerHighsCondition(3);
+
+        // Act
+        var result = condition.Evaluate(currentPrice: 148, vwap: 150);
+
+        // Assert
+        Assert.That(result, Is.False);
+    }
+
+    [Test]
+    public void LowerHighsCondition_InsufficientData_ReturnsFalse()
+    {
+        // Arrange
+        var condition = new LowerHighsCondition(3);
+        condition.GetRecentHighs = () => [150.0]; // Only 1 value
+
+        // Act
+        var result = condition.Evaluate(currentPrice: 148, vwap: 150);
+
+        // Assert
+        Assert.That(result, Is.False);
+    }
+
+    [Test]
+    public void LowerHighsCondition_Name_IsDescriptive()
+    {
+        // Arrange
+        var condition = new LowerHighsCondition(3);
+
+        // Assert
+        Assert.That(condition.Name, Does.Contain("Lower Highs"));
+    }
+
+    [Test]
+    public void LowerHighsCondition_MinimumLookback_ThrowsForLessThan2()
+    {
+        // Act & Assert
+        Assert.Throws<ArgumentOutOfRangeException>(() => new LowerHighsCondition(1));
+    }
+
+    [Test]
+    public void LowerHighsCondition_FourBarsDescending_ReturnsTrue()
+    {
+        // Arrange
+        var condition = new LowerHighsCondition(4);
+        // Highs: 142, 145, 148, 150 (descending pattern with 4 points)
+        condition.GetRecentHighs = () => [142.0, 145.0, 148.0, 150.0];
+
+        // Act
+        var result = condition.Evaluate(currentPrice: 140, vwap: 145);
+
+        // Assert
+        Assert.That(result, Is.True);
+    }
+
+    #endregion
+
     #region EMA Turning Up Condition Tests
 
     [Test]

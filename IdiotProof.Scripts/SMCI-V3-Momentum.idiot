@@ -1,0 +1,20 @@
+# SMCI-V3-Momentum
+# Strategy: Strong trend continuation with momentum indicators
+# Risk: Moderate-High | Target: Trend riding
+
+Ticker(SMCI)
+.Name(SMCI Momentum)
+.Session(IS.RTH)
+.Quantity(50)
+.Entry(33.55)
+.TakeProfit(34.50)
+.StopLoss(33.00)
+.IsAboveVwap()
+.IsEmaAbove(9)
+.IsEmaAbove(21)
+.IsAdxAbove(25)
+.IsDiPositive()
+.IsMacdBullish()
+.IsRocAbove(1)
+.Order(IS.LONG)
+.AdaptiveOrder(IS.AGGRESSIVE)

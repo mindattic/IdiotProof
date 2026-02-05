@@ -44,7 +44,6 @@ Ticker(GDTC)
 
 # Order execution
 .Long()
-.Quantity(57)
 
 # Extended target for momentum plays
 .TakeProfit(1.50)

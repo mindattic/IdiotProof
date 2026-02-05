@@ -1,0 +1,16 @@
+# SMCI-V1-Breakout
+# Strategy: Breakout above recent resistance with momentum confirmation
+# Risk: Moderate | Target: Breakout continuation
+
+Ticker(SMCI)
+.Name(SMCI Breakout)
+.Session(IS.RTH)
+.Quantity(50)
+.Entry(33.60)
+.TakeProfit(34.25)
+.StopLoss(33.20)
+.IsAboveVwap()
+.IsEmaAbove(21)
+.IsAdxAbove(25)
+.IsDiPositive()
+.Order(IS.LONG)

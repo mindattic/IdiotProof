@@ -47,7 +47,7 @@ public class StrategyJsonParserTests
             {
                 Assert.That(folder, Is.Not.Null.And.Not.Empty);
                 Assert.That(folder, Does.Contain("IdiotProof"));
-                Assert.That(folder, Does.Contain("IdiotProof.Scripts"));
+                Assert.That(folder, Does.Contain("Strategies"));
             });
         }
 

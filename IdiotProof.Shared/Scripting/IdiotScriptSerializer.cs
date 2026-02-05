@@ -6,7 +6,13 @@
 // This enables round-trip conversion: IdiotScript → Strategy → IdiotScript
 //
 // OUTPUT FORMAT (PascalCase with Is-prefix and parentheses):
-// Ticker(AAPL).Session(IS.PREMARKET).Qty(100).Breakout(150).Pullback(148).IsAboveVwap().TakeProfit(155).TrailingStopLoss(15).ExitStrategy(IS.BELL).IsProfitable()
+// Ticker(AAPL).Session(IS.PREMARKET).Quantity(100).Breakout(150).Pullback(148).IsAboveVwap().TakeProfit(155).TrailingStopLoss(15).ExitStrategy(IS.BELL).IsProfitable()
+//
+// CANONICAL vs ALIAS: The serializer always outputs canonical forms:
+//   Quantity() not Qty()
+//   TakeProfit() not TP()
+//   StopLoss() not SL()
+//   TrailingStopLoss() not TSL()
 //
 // ============================================================================
 
@@ -69,14 +75,14 @@ public static class IdiotScriptSerializer
             }
         }
 
-        // Quantity (get from Order segment)
+        // Quantity (get from Order segment) - Use canonical "Quantity" not alias "Qty"
         var orderSegment = orderedSegments.FirstOrDefault(s => s.Type == SegmentType.Order);
         if (orderSegment != null)
         {
             var qty = GetParameterValue<int>(orderSegment, "Quantity", 1);
             if (qty > 1)
             {
-                parts.Add($"Qty({qty})");
+                parts.Add($"Quantity({qty})");
             }
         }
 

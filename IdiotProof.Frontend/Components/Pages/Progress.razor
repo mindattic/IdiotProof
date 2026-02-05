@@ -89,23 +89,30 @@
     {
         if (_disposed) return;
 
-        // Split output into lines and add
-        var lines = output.Text.Split('\n', StringSplitOptions.RemoveEmptyEntries);
-        foreach (var line in lines)
+        try
         {
-            ConsoleLines.Add(line);
-        }
+            // Split output into lines and add
+            var lines = output.Text.Split('\n', StringSplitOptions.RemoveEmptyEntries);
+            foreach (var line in lines)
+            {
+                ConsoleLines.Add(line);
+            }
 
-        // Trim if too many lines
-        const int maxLines = 5000;
-        if (ConsoleLines.Count > maxLines)
+            // Trim if too many lines
+            const int maxLines = 5000;
+            if (ConsoleLines.Count > maxLines)
+            {
+                ConsoleLines = ConsoleLines.Skip(ConsoleLines.Count - maxLines + 500).ToList();
+                ConsoleLines.Insert(0, "[... earlier output trimmed ...]");
+            }
+
+            _shouldScroll = AutoScroll;
+            await InvokeAsync(StateHasChanged);
+        }
+        catch (ObjectDisposedException)
         {
-            ConsoleLines = ConsoleLines.Skip(ConsoleLines.Count - maxLines + 500).ToList();
-            ConsoleLines.Insert(0, "[... earlier output trimmed ...]");
+            // Component disposed during async operation - ignore
         }
-
-        _shouldScroll = AutoScroll;
-        await InvokeAsync(StateHasChanged);
     }
 
     private void ClearConsole()

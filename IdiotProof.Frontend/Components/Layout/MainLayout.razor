@@ -159,14 +159,21 @@ else
     {
         if (_disposed) return;
 
-        _isConnected = connected;
-        if (!connected)
+        try
         {
-            _connectionFailed = true;
-            _statusMessage = "Connection lost. Click to reconnect.";
-        }
+            _isConnected = connected;
+            if (!connected)
+            {
+                _connectionFailed = true;
+                _statusMessage = "Connection lost. Click to reconnect.";
+            }
 
-        await InvokeAsync(StateHasChanged);
+            await InvokeAsync(StateHasChanged);
+        }
+        catch (ObjectDisposedException)
+        {
+            // Component disposed during async operation - ignore
+        }
     }
 
     public void Dispose()

@@ -43,7 +43,6 @@ Ticker(VVPR)
 
 # Order execution
 .Long()
-.Quantity(36)
 
 # Full range target to recent highs - AdaptiveOrder manages dynamically
 .TakeProfit(2.30)

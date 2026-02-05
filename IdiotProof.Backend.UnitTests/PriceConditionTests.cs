@@ -1354,7 +1354,7 @@ public class PriceConditionTests
     [Test]
     public void FluentApi_IsGapUp_CreatesGapUpCondition()
     {
-        // Arrange & Act - IsGapUp is an alias for GapUp
+        // Arrange & Act - IsGapUp is the canonical form (GapUp is an alias)
         var strategy = Stock.Ticker("NVDA")
             .IsGapUp(5)
             .Long().Quantity(100)
@@ -1383,7 +1383,7 @@ public class PriceConditionTests
     [Test]
     public void FluentApi_IsGapDown_CreatesGapDownCondition()
     {
-        // Arrange & Act - IsGapDown is an alias for GapDown
+        // Arrange & Act - IsGapDown is the canonical form (GapDown is an alias)
         var strategy = Stock.Ticker("AAPL")
             .IsGapDown(3)
             .Long().Quantity(100)

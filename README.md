@@ -121,6 +121,23 @@ Breakout
 Long
 ```
 
+### Canonical vs Alias Commands
+
+IdiotScript supports both **canonical** (full) and **alias** (shorthand) forms. The parser accepts both, but the serializer always outputs the **canonical** form.
+
+| Canonical (Preferred) | Alias (Shorthand) | Description |
+|-----------------------|-------------------|-------------|
+| `Quantity(100)` | `Qty(100)` | Order quantity |
+| `TakeProfit(155)` | `TP(155)` | Take profit price |
+| `StopLoss(145)` | `SL(145)` | Stop loss price |
+| `TrailingStopLoss(10)` | `TSL(10)` | Trailing stop loss % |
+| `IsAboveVwap()` | `AboveVwap()` | VWAP condition |
+| `IsBelowVwap()` | `BelowVwap()` | VWAP condition |
+| `IsEmaAbove(9)` | `EmaAbove(9)` | EMA condition |
+| `ExitStrategy(IS.BELL)` | `ClosePosition(IS.BELL)` | Exit timing |
+
+**Best Practice:** Use canonical forms in new scripts for clarity. Aliases are supported for backwards compatibility and quick typing.
+
 ---
 
 ## Project Structure
@@ -1072,6 +1089,208 @@ Technical indicators require historical price bars to calculate properly. The ba
 
 ---
 
+### Gap Conditions
+
+#### IsGapUp / GapUp (canonical / alias)
+
+| Fluent API | IdiotScript | Description |
+|------------|-------------|-------------|
+| `.IsGapUp(5)` | `IsGapUp(5)` | Price gapped up >= 5% from previous close (canonical) |
+| `.GapUp(5)` | `GapUp(5)` | Alias for IsGapUp(5) |
+| `.IsGapUp(10)` | `IsGapUp(10%)` | Price gapped up >= 10% (% sign optional) |
+
+```
+    Gap Up Detection
+    ╔════════════════════════════════════════════════════════════╗
+    ║                                                            ║
+    ║               Gap Up ┌────┐                                ║
+    ║               (5%+)  │    │  Current Price                 ║
+    ║                      └────┘                                ║
+    ║                         ↑                                  ║
+    ║       ──────────────────────────────── Gap                 ║
+    ║                         ↓                                  ║
+    ║       ┌────┐                                               ║
+    ║       │    │  Previous Close                               ║
+    ║       └────┘                                               ║
+    ║                                                            ║
+    ║   Formula: ((Current - PrevClose) / PrevClose) * 100      ║
+    ║                                                            ║
+    ║   Use Case: Gap-and-Go strategies, morning momentum       ║
+    ║                                                            ║
+    ╚════════════════════════════════════════════════════════════╝
+```
+
+**Example Strategy:**
+```idiotscript
+Ticker(NVDA)
+.Session(IS.PREMARKET)
+.IsGapUp(5)                  // Gapped up 5%+ from previous close
+.IsAboveVwap()               // Holding above VWAP
+.IsDiPositive()              // Bullish directional movement
+.Order(IS.LONG)
+.TakeProfit(+2%)             // 2% profit target
+.StopLoss(-1%)               // 1% stop loss
+.Build()
+```
+
+**Implementation Status:** ✅ Fully Implemented | **Warm-up:** Previous session close required (auto-fetched from historical data)
+
+---
+
+#### IsGapDown / GapDown (canonical / alias)
+
+| Fluent API | IdiotScript | Description |
+|------------|-------------|-------------|
+| `.IsGapDown(3)` | `IsGapDown(3)` | Price gapped down >= 3% from previous close (canonical) |
+| `.GapDown(3)` | `GapDown(3)` | Alias for IsGapDown(3) |
+| `.IsGapDown(5)` | `IsGapDown(5%)` | Price gapped down >= 5% (% sign optional) |
+
+```
+    Gap Down Detection
+    ╔════════════════════════════════════════════════════════════╗
+    ║                                                            ║
+    ║       ┌────┐                                               ║
+    ║       │    │  Previous Close                               ║
+    ║       └────┘                                               ║
+    ║                         ↑                                  ║
+    ║       ──────────────────────────────── Gap                 ║
+    ║                         ↓                                  ║
+    ║               Gap Down ┌────┐                              ║
+    ║               (3%+)    │    │  Current Price               ║
+    ║                        └────┘                              ║
+    ║                                                            ║
+    ║   Formula: ((PrevClose - Current) / PrevClose) * 100      ║
+    ║                                                            ║
+    ║   Use Case: Gap-fill reversals, panic selling bounces     ║
+    ║                                                            ║
+    ╚════════════════════════════════════════════════════════════╝
+```
+
+**Example Strategy (Short on Gap Down):**
+```idiotscript
+Ticker(NVDA)
+.Session(IS.RTH)
+.IsGapDown(5)                // Gapped down 5%+ from previous close
+.IsBelowVwap()               // Holding below VWAP
+.IsDiNegative()              // Bearish directional movement
+.Order(IS.SHORT)
+.TakeProfit(-3%)             // 3% profit on short
+.StopLoss(+2%)               // 2% stop loss on short
+.Build()
+```
+
+**Example Strategy (Long on Gap Down Bounce):**
+```idiotscript
+Ticker(AAPL)
+.Session(IS.RTH)
+.IsGapDown(3)                // Gapped down 3%+ (oversold)
+.IsAboveVwap()               // Reclaiming VWAP (strength returning)
+.IsRsiOversold(30)           // RSI confirms oversold bounce
+.Order(IS.LONG)
+.TakeProfit(+2%)
+.Build()
+```
+
+**Implementation Status:** ✅ Fully Implemented | **Warm-up:** Previous session close required (auto-fetched from historical data)
+
+---
+
+### Execution Behavior
+
+#### Repeat / IsRepeat (canonical / alias)
+
+| Fluent API | IdiotScript | Description |
+|------------|-------------|-------------|
+| `.Repeat()` | `Repeat()` | Repeat strategy after trade completes (default: enabled) |
+| `.Repeat(true)` | `Repeat(YES)` | Explicitly enable repeat mode |
+| `.Repeat(false)` | `Repeat(NO)` | Disable repeat mode (one-shot) |
+| `.IsRepeat()` | `IsRepeat()` | Alias for Repeat() |
+
+```
+    Repeat Strategy Flow
+    ╔════════════════════════════════════════════════════════════════════╗
+    ║                                                                    ║
+    ║   ┌──────────────────────────────────────────────────────────────┐ ║
+    ║   │                                                              │ ║
+    ║   ▼                                                              │ ║
+    ║  [WAIT FOR CONDITIONS]                                           │ ║
+    ║        │                                                         │ ║
+    ║        ▼ (all conditions met)                                    │ ║
+    ║  [PLACE ENTRY ORDER]                                             │ ║
+    ║        │                                                         │ ║
+    ║        ▼ (entry filled)                                          │ ║
+    ║  [MONITOR POSITION]                                              │ ║
+    ║        │                                                         │ ║
+    ║        ├── TakeProfit hit ────┐                                  │ ║
+    ║        ├── StopLoss hit ──────┤                                  │ ║
+    ║        ├── TrailingStop hit ──┤                                  │ ║
+    ║        └── ExitStrategy hit ──┤                                  │ ║
+    ║                               ▼                                  │ ║
+    ║                    ┌──────────────────┐                          │ ║
+    ║                    │  RepeatEnabled?  │                          │ ║
+    ║                    └──────────────────┘                          │ ║
+    ║                       │           │                              │ ║
+    ║                    YES│           │NO                            │ ║
+    ║                       ▼           ▼                              │ ║
+    ║                  [RESET]     [COMPLETE]                          │ ║
+    ║                      │                                           │ ║
+    ║                      └───────────────────────────────────────────┘ ║
+    ║                                                                    ║
+    ║   Reset clears: Order IDs, fill prices, condition index           ║
+    ║   Reset keeps:  VWAP tracking, session high/low, indicators       ║
+    ║                                                                    ║
+    ╚════════════════════════════════════════════════════════════════════╝
+```
+
+**Repeat Triggers (will reset and wait for conditions again):**
+- TakeProfit filled
+- StopLoss filled  
+- TrailingStopLoss filled
+- ExitStrategy triggered (if profitable when IsProfitable chained)
+
+**No Repeat (strategy completes):**
+- Entry order cancelled
+- Missed the boat (price moved away)
+- Session ended before entry
+
+**Example - Repeating Day Trading Strategy:**
+```idiotscript
+Ticker(NVDA)
+.Session(IS.RTH)
+.Entry(150.00)
+.IsAboveVwap()
+.IsDiPositive()
+.Order(IS.LONG)
+.Quantity(10)
+.TakeProfit(152.00)          // +$2 profit target
+.StopLoss(149.00)            // -$1 stop loss
+.Repeat()                    // After TP/SL, wait for conditions again
+.Build()
+```
+
+This strategy will:
+1. Wait for price to hit $150 + above VWAP + DI positive
+2. Enter 10 shares long
+3. Exit at $152 (profit) or $149 (stop)
+4. **Reset** and go back to step 1, looking for the next opportunity
+
+**Example - One-Shot Earnings Play:**
+```idiotscript
+Ticker(AAPL)
+.Session(IS.PREMARKET)
+.IsGapUp(5)                  // Gap up 5%+ on earnings
+.IsAboveVwap()
+.Order(IS.LONG)
+.TakeProfit(+3%)
+.StopLoss(-2%)
+.Repeat(NO)                  // One trade only
+.Build()
+```
+
+**Implementation Status:** ✅ Fully Implemented | **Warm-up:** None required
+
+---
+
 ### Complete IdiotScript Command Reference
 
 ```
@@ -1083,7 +1302,8 @@ Technical indicators require historical price bars to calculate properly. The ba
 ║    Ticker(AAPL)              - Set stock symbol                        ║
 ║    Name("Strategy Name")     - Set strategy name                       ║
 ║    Session(IS.PREMARKET)     - Set trading session                     ║
-║    Qty(100)                  - Set order quantity                      ║
+║    Qty(100)                  - Set order quantity (can also chain      ║
+║                                after Long()/Short())                   ║
 ║    Enabled(YES)              - Enable/disable strategy                 ║
 ║                                                                         ║
 ║  ENTRY CONDITIONS (order matters - sequential state machine):           ║
@@ -1143,7 +1363,7 @@ Technical indicators require historical price bars to calculate properly. The ba
 ║    CloseShort()              - Close SHORT position                    ║
 ║                                                                         ║
 ║  ORDER CONFIGURATION (chained after Order):                             ║
-║    .Quantity(100)            - Sets order quantity                     ║
+║    .Quantity(100)            - Sets order quantity (canonical)         ║
 ║    .Qty(100)                 - Alias for Quantity                      ║
 ║    .PriceType(IS.VWAP)       - Sets price type for execution           ║
 ║    .OrderType(IS.MARKET)     - Sets market vs limit order              ║
@@ -1151,13 +1371,13 @@ Technical indicators require historical price bars to calculate properly. The ba
 ║    .TakeProfitOutsideRTH()   - Allow TP outside RTH (default: true)    ║
 ║                                                                         ║
 ║  EXIT CONDITIONS (after position is opened):                            ║
-║    TakeProfit(155.00)        - Take profit at price                    ║
+║    TakeProfit(155.00)        - Take profit at price (canonical)        ║
 ║    TP(155.00)                - Alias for TakeProfit                    ║
-║    StopLoss(145.00)          - Stop loss at price                      ║
+║    StopLoss(145.00)          - Stop loss at price (canonical)          ║
 ║    SL(145.00)                - Alias for StopLoss                      ║
-║    TrailingStopLoss(IS.TIGHT) - Trailing stop (5%)                     ║
-║    TSL(5)                    - Trailing stop with 5% distance          ║
-║    ExitStrategy(IS.BELL)     - Close at session end                    ║
+║    TrailingStopLoss(IS.TIGHT) - Trailing stop (canonical)              ║
+║    TSL(5)                    - Alias for TrailingStopLoss              ║
+║    ExitStrategy(IS.BELL)     - Close at session end (canonical)        ║
 ║    .IsProfitable()           - Only exit if profitable (chained)       ║
 ║                                                                         ║
 ║  SMART ORDER MANAGEMENT:                                                ║
@@ -1544,13 +1764,47 @@ Creates a SHORT order (sell to open). Shorthand for `.Order(OrderDirection.Short
 ---
 
 #### `.Quantity(int quantity)`
-Sets the order quantity. Chain after `.Long()` or `.Short()`.
+Sets the order quantity. Can be placed in two locations:
 
+**Option 1: Config section** (before conditions) - Recommended for readability:
 ```csharp
-.Long().Quantity(100)    // LONG 100 shares
+Stock.Ticker("AAPL")
+    .Qty(100)                // Set quantity early
+    .Breakout(150)
+    .Long()                  // No need to repeat quantity
+    .TakeProfit(160)
+    .Build();
 ```
 
-**IdiotScript:** `Qty(100)` or `Quantity(100)`
+**Option 2: After order direction** (chained after `.Long()` or `.Short()`):
+```csharp
+Stock.Ticker("AAPL")
+    .Breakout(150)
+    .Long().Quantity(100)    // Set quantity after direction
+    .TakeProfit(160)
+    .Build();
+```
+
+**IdiotScript Examples:**
+```idiotscript
+# Option 1: Config section (recommended)
+Ticker(AAPL)
+.Qty(100)
+.Breakout(150)
+.Long()
+.TakeProfit(160)
+
+# Option 2: After order
+Ticker(AAPL)
+.Breakout(150)
+.Long()
+.Qty(100)
+.TakeProfit(160)
+```
+
+**Note:** If quantity is specified in both locations, the config-level value is used.
+
+**Aliases:** `Qty(100)` or `Quantity(100)`
 
 ---
 
@@ -2418,12 +2672,92 @@ public const MarketTimeZone Timezone = MarketTimeZone.EST;  // Default
 
 ### `Price` - Order Price Types
 
-| Value | Description |
-|-------|-------------|
-| `Price.Current` | Execute at current market price |
-| `Price.VWAP` | Execute at VWAP price |
-| `Price.Bid` | Execute at bid price |
-| `Price.Ask` | Execute at ask price |
+The `PriceType` setting determines what price is used when executing an order. This is set using `.PriceType()` after `.Long()` or `.Short()`.
+
+| Fluent API | IdiotScript | Description |
+|------------|-------------|-------------|
+| `Price.Current` | `PriceType(IS.CURRENT)` | Execute at current market price **(default)** |
+| `Price.VWAP` | `PriceType(IS.VWAP)` | Execute at Volume-Weighted Average Price |
+| `Price.Bid` | `PriceType(IS.BID)` | Execute at bid price (highest buyer price) |
+| `Price.Ask` | `PriceType(IS.ASK)` | Execute at ask price (lowest seller price) |
+
+**Detailed Reference:**
+
+```
++------------------------------------------------------------------------+
+¦  PRICE TYPE REFERENCE                                                  ¦
++------------------------------------------------------------------------¦
+¦                                                                        ¦
+¦  CURRENT (Default)                                                     ¦
+¦  ─────────────────                                                     ¦
+¦  Best for:  Fast execution when you need to enter/exit immediately    ¦
+¦  Risk:      May experience slippage in fast-moving or illiquid mkts   ¦
+¦  Use case:  Breakout entries, stop loss exits, time-sensitive trades  ¦
+¦                                                                        ¦
+¦  VWAP                                                                  ¦
+¦  ────                                                                  ¦
+¦  Best for:  Getting a fair average price over the session             ¦
+¦  Risk:      May not fill if price moves away from VWAP                ¦
+¦  Note:      VWAP resets at market open each day                       ¦
+¦  Warning:   Unreliable in pre-market/after-hours (low volume)         ¦
+¦  Use case:  Mean-reversion strategies, institutional-style entries    ¦
+¦                                                                        ¦
+¦  BID                                                                   ¦
+¦  ───                                                                   ¦
+¦  Best for:  Selling with limit order at current bid                   ¦
+¦  Risk:      May not fill if bid drops before execution                ¦
+¦  Use case:  Exiting long positions at best available buyer price      ¦
+¦                                                                        ¦
+¦  ASK                                                                   ¦
+¦  ───                                                                   ¦
+¦  Best for:  Buying with limit order at current ask                    ¦
+¦  Risk:      May not fill if ask rises before execution                ¦
+¦  Use case:  Entering long positions at best available seller price    ¦
+¦                                                                        ¦
++------------------------------------------------------------------------+
+```
+
+**Usage Examples:**
+
+```csharp
+// Fluent API - Execute at current market price (default)
+.Long()
+.Quantity(100)
+// PriceType defaults to Price.Current
+
+// Fluent API - Execute at VWAP
+.Long()
+.Quantity(100)
+.PriceType(Price.VWAP)
+
+// Fluent API - Execute at Ask (for buying)
+.Long()
+.Quantity(100)
+.PriceType(Price.Ask)
+```
+
+```idiotscript
+# IdiotScript - Execute at VWAP
+.Long()
+.Qty(100)
+.PriceType(IS.VWAP)
+
+# IdiotScript - Execute at current price (explicit)
+.Long()
+.Qty(100)
+.PriceType(IS.CURRENT)
+```
+
+**Best Practices:**
+
+| Scenario | Recommended PriceType | Reason |
+|----------|----------------------|--------|
+| Breakout entry | `Current` | Speed matters; get in before momentum fades |
+| Pre-market/After-hours | `Current` | VWAP unreliable with low volume |
+| Mean reversion | `VWAP` | Fair price entry for counter-trend trades |
+| Limit order selling | `Bid` | Sell at what buyers are willing to pay |
+| Limit order buying | `Ask` | Buy at what sellers are offering |
+| Stop loss exit | `Current` | Exit immediately regardless of price |
 
 ---
 
@@ -2695,6 +3029,413 @@ Stock
 
 ---
 
+## Command Implementation Details
+
+This section provides detailed implementation breakdowns for each IdiotScript command, showing which components are required and where they are located.
+
+### Implementation Checklist
+
+For a command to be **fully implemented**, it must have ALL of these components:
+
+| Component | Description | Required For |
+|-----------|-------------|--------------|
+| **Condition class** | The actual condition logic (e.g., `PullbackCondition`) | All conditions |
+| **Stock method** | Fluent API method (e.g., `Stock.Pullback()`) | All conditions |
+| **Parser pattern** | Regex or matching logic in `IdiotScriptParser.cs` | IdiotScript support |
+| **Calculator class** | For indicator-based conditions (EMA, RSI, etc.) | Indicator conditions |
+| **StrategyRunner wire-up** | Callback assignment in `InitializeIndicatorCalculators()` | Indicator conditions |
+| **ValidCommands entry** | Listed in `IdiotScriptValidator.ValidCommands` | Validation |
+| **Segment conversion** | Converts parsed condition to `StrategySegment` | Frontend support |
+
+### Exceptions to the Checklist
+
+- **VWAP conditions** (`IsAboveVwap`, `IsBelowVwap`, etc.) don't need calculators - VWAP is passed directly to `Evaluate(price, vwap)`
+- **Price conditions** (`Entry`, `Breakout`, `Pullback`, `IsPriceAbove`) don't need calculators - they use the price parameter directly
+
+---
+
+### Pullback() Implementation
+
+**Status:** ✅ Fully Implemented
+
+| Component | Status | Location |
+|-----------|--------|----------|
+| Condition class | ✅ | `PriceConditions.cs` - `PullbackCondition` |
+| Stock.Pullback() method | ✅ | `Stock.cs` |
+| Parser regex | ✅ | `IdiotScriptParser.cs` - `PULLBACK(?:\((\$?[\d.]*)\))?` |
+| Segment conversion | ✅ | `IdiotScriptParser.cs` - `SegmentType.Pullback` |
+| State machine runner | ✅ | `PullbackRunner.cs` |
+| Validator | ✅ | `ValidCommands` includes `"PULLBACK"` |
+
+**Evaluation:** `currentPrice <= Level`
+
+**State Machine (PullbackRunner):**
+1. **WaitingForBreakout** - Wait for price >= BreakoutLevel
+2. **WaitingForPullback** - Wait for price <= PullbackLevel  
+3. **WaitingForVwapReclaim** - Wait for price >= VWAP + buffer
+4. **OrderSubmitted/Done** - Entry filled
+
+---
+
+### IsAboveVwap() Implementation
+
+**Status:** ✅ Fully Implemented
+
+| Component | Status | Location |
+|-----------|--------|----------|
+| Condition class | ✅ | `PriceConditions.cs` - `AboveVwapCondition` |
+| Stock.IsAboveVwap() method | ✅ | `Stock.cs` |
+| Parser matching | ✅ | `IdiotScriptParser.cs` - handles `ABOVEVWAP`, `VWAP`, `ISABOVEVWAP` |
+| Validator | ✅ | `ValidCommands` includes `"ABOVEVWAP"`, `"ISABOVEVWAP"` |
+
+**Evaluation:** `vwap > 0 && currentPrice >= (vwap + Buffer)`
+
+**Note:** VWAP-based condition - doesn't need a calculator or warm-up period. VWAP is passed directly to `Evaluate(price, vwap)` by the `StrategyRunner`.
+
+---
+
+### IsCloseAboveVwap() Implementation
+
+**Status:** ✅ Fully Implemented
+
+| Component | Status | Location |
+|-----------|--------|----------|
+| Condition class | ✅ | `IndicatorConditions.cs` - `CloseAboveVwapCondition` |
+| Stock.IsCloseAboveVwap() method | ✅ | `Stock.cs` |
+| Parser regex | ✅ | `IdiotScriptParser.cs` - `^(?:IS)?CLOSEABOVEVWAP(?:\(\))?$` |
+| StrategyRunner wire-up | ✅ | `StrategyRunner.cs` - `GetLastClose` callback to `CandlestickAggregator` |
+| Validator | ✅ | `ValidCommands` includes `"CLOSEABOVEVWAP"`, `"ISCLOSEABOVEVWAP"` |
+
+**Evaluation:** `lastClose > vwap` (uses completed candle close, not current price)
+
+**Difference from IsAboveVwap():**
+- `IsAboveVwap()` - Current tick price >= VWAP (can trigger on wicks)
+- `IsCloseAboveVwap()` - Last **completed candle close** > VWAP (stronger confirmation)
+
+**Supported Syntax:**
+```idiotscript
+.IsCloseAboveVwap()    # Candle closed above VWAP
+.CloseAboveVwap()      # Alias
+```
+
+**Use Case:** More reliable VWAP reclaim signal - confirms institutional buying, not just a fake wick breakout.
+
+---
+
+### Long() Implementation
+
+**Status:** ✅ Fully Implemented
+
+| Component | Status | Location |
+|-----------|--------|----------|
+| Fluent API method | ✅ | `Stock.cs` - `Long() => Order(OrderDirection.Long)` |
+| Order() method | ✅ | `Stock.cs` - creates `StrategyBuilder` |
+| Parser matching | ✅ | `IdiotScriptParser.cs` - handles `LONG`, `LONG()`, `IS.LONG` |
+| Validator | ✅ | `ValidCommands` includes `"LONG"` |
+
+**Equivalent Forms:**
+```idiotscript
+.Long()
+.Order(IS.LONG)
+.Order()           # defaults to LONG
+```
+
+---
+
+### TakeProfit() Implementation
+
+**Status:** ✅ Fully Implemented
+
+| Component | Status | Location |
+|-----------|--------|----------|
+| Fluent API method | ✅ | `Stock.cs` - `TakeProfit(double price)` |
+| Parser regex | ✅ | `IdiotScriptParser.cs` - `^(?:TP\|TAKEPROFIT)\((\$?[\d.]+)\)$` |
+| Parser method | ✅ | `IdiotScriptParser.cs` - `TryParseTakeProfit()` |
+| StrategyRunner tracking | ✅ | `StrategyRunner.cs` - `_takeProfitOrderId`, `_takeProfitFilled` |
+| Order submission | ✅ | `StrategyRunner` submits TP limit orders after entry fills |
+| AdaptiveOrder integration | ✅ | Dynamic TP adjustment with `_currentAdaptiveTakeProfitPrice` |
+| Validator | ✅ | `ValidCommands` includes `"TP"`, `"TAKEPROFIT"` |
+
+**Supported Syntax:**
+```idiotscript
+.TakeProfit(160)      # Fixed price
+.TP(160)              # Alias
+.TP($160)             # With dollar sign
+```
+
+---
+
+### StopLoss() Implementation
+
+**Status:** ✅ Fully Implemented
+
+| Component | Status | Location |
+|-----------|--------|----------|
+| Fluent API method | ✅ | `Stock.cs` - `StopLoss(double price)` |
+| Parser regex | ✅ | `IdiotScriptParser.cs` - `^(?:SL\|STOPLOSS)\((\$?[\d.]+)\)$` |
+| Parser method | ✅ | `IdiotScriptParser.cs` - `TryParseStopLoss()` |
+| StrategyRunner tracking | ✅ | `StrategyRunner.cs` - `_stopLossOrderId`, `_stopLossFilled` |
+| Order submission | ✅ | `StrategyRunner` submits SL stop orders after entry fills |
+| AdaptiveOrder integration | ✅ | Dynamic SL adjustment with `_currentAdaptiveStopLossPrice` |
+| Validator | ✅ | `ValidCommands` includes `"SL"`, `"STOPLOSS"` |
+
+**Supported Syntax:**
+```idiotscript
+.StopLoss(145)        # Fixed price
+.SL(145)              # Alias
+.SL($145)             # With dollar sign
+```
+
+**Related Commands:**
+- `TrailingStopLoss(percent)` - Percentage-based trailing stop (e.g., `.TSL(5)` for 5%)
+- `TrailingStopLoss(IS.ATR)` - ATR-based trailing stop with volatility adjustment
+
+---
+
+### IsProfitable() Implementation
+
+**Status:** ✅ Fully Implemented
+
+| Component | Status | Location |
+|-----------|--------|----------|
+| Fluent API method | ✅ | `Stock.cs` - `IsProfitable()` |
+| Parser regex | ✅ | `IdiotScriptParser.cs` - `^(?:IS)?PROFITABLE(?:\(\))?$` |
+| Parser method | ✅ | `IdiotScriptParser.cs` - `TryParseIsProfitable()` |
+| OrderAction property | ✅ | `OrderAction.cs` - `ClosePositionOnlyIfProfitable` |
+| StrategyRunner logic | ✅ | `StrategyRunner.cs` - checks `isProfitable` before closing |
+| Validator | ✅ | `ValidCommands` includes `"PROFITABLE"`, `"ISPROFITABLE"` |
+
+**Usage:** Chain with `ExitStrategy()` to only exit if the position is profitable at the specified time.
+
+**Supported Syntax:**
+```idiotscript
+.ExitStrategy(IS.BELL).IsProfitable()    # Exit at bell only if profitable
+.ExitStrategy(15:30).IsProfitable()       # Exit at 3:30 PM only if profitable
+```
+
+**How it works:**
+1. At the scheduled exit time, checks if `currentPrice > entryPrice` (for longs)
+2. If profitable → closes position
+3. If not profitable → holds position (logs "Position NOT profitable")
+
+---
+
+### Qty() / Quantity() Implementation
+
+**Status:** ✅ Fully Implemented
+
+| Component | Status | Location |
+|-----------|--------|----------|
+| Fluent API method | ✅ | `Stock.cs` - `Quantity(int)` and `Qty(int)` alias |
+| Parser regex | ✅ | `IdiotScriptParser.cs` - `^(?:QTY\|QUANTITY)\((\d+)\)$` |
+| Validator | ✅ | `ValidCommands` includes `"QTY"`, `"QUANTITY"` |
+
+**Note:** Both `Qty()` and `Quantity()` are aliases that do the same thing. Use whichever you prefer.
+
+---
+
+### IsEmaAbove() Implementation
+
+**Status:** ✅ Fully Implemented
+
+| Component | Status | Location |
+|-----------|--------|----------|
+| Condition class | ✅ | `IndicatorConditions.cs` - `EmaAboveCondition` |
+| Stock.IsEmaAbove() method | ✅ | `Stock.cs` |
+| Parser regex | ✅ | `IdiotScriptParser.cs` - `^(?:IS)?EMAABOVE\((\d+)\)$` |
+| Calculator class | ✅ | `EmaCalculator.cs` |
+| StrategyRunner wire-up | ✅ | `GetOrCreateEmaCalculator()` - `GetEmaValue` callback |
+| Validator | ✅ | `ValidCommands` includes `"EMAABOVE"`, `"ISEMAABOVE"` |
+
+**Evaluation:** `currentPrice >= emaValue`
+
+**Supported Syntax:**
+```idiotscript
+.IsEmaAbove(9)         # Price above EMA(9)
+.IsEmaAbove(21)        # Price above EMA(21)
+.IsEmaAbove(200)       # Price above EMA(200)
+.EmaAbove(9)           # Alias
+```
+
+**Warm-up Required:** EMA(N) needs N bars to calculate properly. See [Indicator Warm-Up Requirements](#indicator-warm-up-requirements).
+
+**Related EMA Conditions:**
+- `IsEmaBelow(period)` - Price below EMA
+- `IsEmaBetween(short, long)` - Price between two EMAs (pullback zone)
+- `IsEmaTurningUp(period)` - EMA slope turning positive
+
+---
+
+### IsMacdBullish() Implementation
+
+**Status:** ✅ Fully Implemented
+
+| Component | Status | Location |
+|-----------|--------|----------|
+| Condition class | ✅ | `IndicatorConditions.cs` - `MacdCondition` |
+| Stock.IsMacdBullish() method | ✅ | `Stock.cs` - alias for `IsMacd(MacdState.Bullish)` |
+| Parser regex | ✅ | `IdiotScriptParser.cs` - `^(?:IS)?MACDBULLISH(?:\(\))?$` |
+| Calculator class | ✅ | `MacdCalculator.cs` |
+| StrategyRunner wire-up | ✅ | `GetMacdValues` callback returns `(MacdLine, SignalLine, Histogram, PreviousHistogram)` |
+| Validator | ✅ | `ValidCommands` includes `"MACDBULLISH"`, `"ISMACDBULLISH"` |
+
+**Evaluation:** `macdLine > signalLine`
+
+**Supported Syntax:**
+```idiotscript
+.IsMacdBullish()       # MACD line above Signal line
+.MacdBullish()         # Alias
+```
+
+**Warm-up Required:** MACD(12,26,9) needs 35 bars to calculate properly.
+
+**Related MACD Conditions:**
+- `IsMacdBearish()` - MACD line below Signal line
+- `IsMacd(MacdState.AboveZero)` - MACD line above zero (uptrend)
+- `IsMacd(MacdState.HistogramRising)` - Histogram increasing
+
+---
+
+### IsMomentumAbove() Implementation
+
+**Status:** ✅ Fully Implemented
+
+| Component | Status | Location |
+|-----------|--------|----------|
+| Condition class | ✅ | `IndicatorConditions.cs` - `MomentumAboveCondition` |
+| Stock.IsMomentumAbove() method | ✅ | `Stock.cs` |
+| Parser regex | ✅ | `IdiotScriptParser.cs` - `^(?:IS)?MOMENTUMABOVE\((-?\d+(?:\.\d+)?)\)$` |
+| Calculator class | ✅ | `MomentumCalculator.cs` |
+| StrategyRunner wire-up | ✅ | `GetMomentumValue` callback to `MomentumCalculator.CurrentValue` |
+| Validator | ✅ | `ValidCommands` includes `"MOMENTUMABOVE"`, `"ISMOMENTUMABOVE"` |
+
+**Evaluation:** `momentum >= threshold`
+
+**Supported Syntax:**
+```idiotscript
+.IsMomentumAbove(0)    # Positive momentum (most common)
+.IsMomentumAbove(5)    # Strong positive momentum
+.MomentumAbove(0)      # Alias
+```
+
+**Warm-up Required:** Momentum(10) needs 11 bars to calculate properly.
+
+**Related Momentum Conditions:**
+- `IsMomentumBelow(threshold)` - Momentum below threshold (bearish)
+
+---
+
+### AdaptiveOrder() Implementation
+
+**Status:** ✅ Fully Implemented
+
+| Component | Status | Location |
+|-----------|--------|----------|
+| Config class | ✅ | `AdaptiveOrderConfig.cs` |
+| Stock.AdaptiveOrder() method | ✅ | `Stock.cs` - accepts mode string or `AdaptiveOrderConfig` |
+| Parser regex | ✅ | `IdiotScriptParser.cs` - `^(?:IS)?ADAPTIVEORDER(?:\(([A-Za-z0-9_.]*)\))?$` |
+| Parser method | ✅ | `IdiotScriptParser.cs` - `TryParseAdaptiveOrder()` |
+| StrategyRunner logic | ✅ | `MonitorAdaptiveOrder()` - calculates market score, adjusts TP/SL |
+| Score calculation | ✅ | `CalculateMarketScore()` - uses VWAP, EMA, RSI, MACD, ADX, Volume |
+| TP/SL multipliers | ✅ | `CalculateTakeProfitMultiplier()`, `CalculateStopLossMultiplier()` |
+| Validator | ✅ | `ValidCommands` includes `"ADAPTIVEORDER"`, `"ISADAPTIVEORDER"` |
+
+**Supported Syntax:**
+```idiotscript
+.AdaptiveOrder()                   # Balanced mode (default)
+.AdaptiveOrder(IS.BALANCED)        # Balanced mode (explicit)
+.AdaptiveOrder(IS.CONSERVATIVE)    # Protect gains, quick to take profits
+.AdaptiveOrder(IS.AGGRESSIVE)      # Maximize profit potential in strong trends
+.IsAdaptiveOrder()                 # Alias for AdaptiveOrder()
+```
+
+**How it works:**
+1. Monitors market conditions in real-time after entry
+2. Calculates a Market Score (-100 to +100) using multiple indicators
+3. Dynamically adjusts TakeProfit and StopLoss based on score
+4. Emergency exits if score drops below threshold (mode-dependent)
+
+**Mode Settings:**
+| Setting | Conservative | Balanced | Aggressive |
+|---------|--------------|----------|------------|
+| MaxTakeProfitExtension | 25% | 50% | 75% |
+| MaxTakeProfitReduction | 60% | 50% | 30% |
+| MaxStopLossTighten | 30% | 50% | 60% |
+| MaxStopLossWiden | 40% | 25% | 15% |
+| EmergencyExitThreshold | -60 | -70 | -80 |
+
+**Note:** AdaptiveOrder requires `TakeProfit()` and/or `StopLoss()` to be set. It modifies these values dynamically but needs starting points.
+
+See [AdaptiveOrder - Smart Dynamic Order Management](#adaptiveorder---smart-dynamic-order-management) for detailed documentation.
+
+---
+
+### IsHigherLows()
+
+✅ **Fully Implemented**
+
+| Component | Location | Details |
+|-----------|----------|---------|
+| Condition Class | `IndicatorConditions.cs` | `HigherLowsCondition` |
+| Stock Method | `Stock.cs` | `IsHigherLows(int lookbackBars = 3)` |
+| Parser Regex | `IdiotScriptParser.cs` | `^(?:IS)?HIGHERLOWS(?:\((\d*)\))?$` |
+| Calculator | Not needed | Uses `CandlestickAggregator.GetRecentLows()` |
+| StrategyRunner Wire-up | `StrategyRunner.cs` | `GetRecentLows` callback |
+| Validator | `IdiotScriptValidator.cs` | `"HIGHERLOWS"`, `"ISHIGHERLOWS"` |
+| Segment Conversion | `SegmentFactory.cs` | Returns `ConditionType.IndicatorBased` |
+
+**Usage:**
+```idiotscript
+.IsHigherLows()       # Default: 3 consecutive higher lows
+.IsHigherLows(4)      # Custom: 4 consecutive higher lows
+```
+
+**Evaluation Logic:**
+```
+Checks if recent candle lows form ascending pattern (bullish):
+Low[N] > Low[N-1] > Low[N-2] > ...
+
+Example (lookbackBars=3):
+Candle 1: Low = $150
+Candle 2: Low = $151 (higher)
+Candle 3: Low = $152 (higher) → ✓ IsHigherLows() = TRUE
+```
+
+**Visual:**
+```
+                         /\
+             /\         /  \
+   /\       /  \       /    \
+  /  \     /    \     /      \
+ /    \___/  ↑   \___/        \
+       Higher    Higher
+         Low       Low
+```
+
+---
+
+### Indicator Condition Implementation Pattern
+
+All indicator conditions follow the same pattern. Here's `IsMomentumAbove()` as an example:
+
+| Component | Status | Location |
+|-----------|--------|----------|
+| Condition class | ✅ | `IndicatorConditions.cs` - `MomentumAboveCondition` |
+| Stock method | ✅ | `Stock.cs` - `IsMomentumAbove(double threshold)` |
+| Calculator class | ✅ | `MomentumCalculator.cs` |
+| StrategyRunner wire-up | ✅ | `InitializeIndicatorCalculators()` - `GetMomentumValue` callback |
+| Parser matching | ✅ | `IdiotScriptParser.cs` |
+| Validator | ✅ | `ValidCommands` includes `"MOMENTUMABOVE"`, `"ISMOMENTUMABOVE"` |
+
+**Required Callback Wire-up in StrategyRunner:**
+```csharp
+case MomentumAboveCondition momentumAbove:
+    momentumAbove.GetMomentumValue = () => _momentumCalculator?.Value ?? 0;
+    break;
+```
+
+---
+
 ## Implementation Status
 
 ### ✅ Fully Implemented
@@ -2740,7 +3481,7 @@ Stock
 | Quantity | ✅ | ✅ | `Qty()`, `Quantity()` |
 | **Exit Strategies** |
 | Take profit (fixed) | ✅ | ✅ | `TakeProfit()`, `TP()` |
-| Take profit (ADX-based) | ✅ | ⚠️ | `TakeProfitRange()` |
+| Take profit (ADX-based) | ✅ | ✅ | `TakeProfitRange()` |
 | Stop loss | ✅ | ✅ | `StopLoss()`, `SL()` |
 | Trailing stop loss (%) | ✅ | ✅ | `TrailingStopLoss()`, `TSL()` |
 | Trailing stop loss (ATR) | ✅ | ✅ | `TrailingStopLoss(IS.ATR)` |
@@ -2779,13 +3520,6 @@ Stock
 | VolumeCalculator | `VolumeCalculator.cs` | 20 bars | ✅ |
 | AtrCalculator | `AtrCalculator.cs` | 14 bars | ✅ |
 | CandlestickAggregator | `CandlestickAggregator.cs` | 1 bar | ✅ |
-
-### ⚠️ Partially Implemented
-
-| Feature | Builder | StrategyRunner | Notes |
-|---------|---------|----------------|-------|
-| Price type (Current/VWAP/Bid/Ask) | ✅ | ❌ | Property stored, order price logic not implemented |
-| ADX-based TakeProfit | ✅ | ❌ | Config stored, dynamic target not implemented |
 
 ---
 

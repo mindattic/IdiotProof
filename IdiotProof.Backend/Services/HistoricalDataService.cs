@@ -220,7 +220,7 @@ namespace IdiotProof.Backend.Services
             CancellationToken cancellationToken = default)
         {
             var results = new ConcurrentDictionary<string, int>();
-            var semaphore = new SemaphoreSlim(maxConcurrency);
+            using var semaphore = new SemaphoreSlim(maxConcurrency);
 
             var tasks = symbols.Select(async symbol =>
             {

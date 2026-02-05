@@ -93,6 +93,79 @@ public class ScriptParserBreakoutPullbackTests
     }
 
     #endregion
+
+    #region Higher Lows and Lower Highs Pattern Tests
+
+    [TestCase("SYM(AAPL).HIGHERLOWS()")]
+    [TestCase("SYM(AAPL).higherlows()")]
+    [TestCase("SYM(AAPL).HigherLows()")]
+    [TestCase("SYM(AAPL).IsHigherLows()")]
+    [TestCase("SYM(AAPL).ISHIGHERLOWS()")]
+    public void Parse_HigherLows_CaseInsensitive(string script)
+    {
+        var result = StrategyScriptParser.Parse(script);
+        var segment = result.Segments.FirstOrDefault(s => s.Type == SegmentType.IsHigherLows);
+        Assert.That(segment, Is.Not.Null);
+    }
+
+    [TestCase("SYM(AAPL).HIGHERLOWS(3)", 3)]
+    [TestCase("SYM(AAPL).HIGHERLOWS(5)", 5)]
+    [TestCase("SYM(AAPL).IsHigherLows(4)", 4)]
+    public void Parse_HigherLows_WithLookbackBars(string script, int expectedLookback)
+    {
+        var result = StrategyScriptParser.Parse(script);
+        var segment = result.Segments.FirstOrDefault(s => s.Type == SegmentType.IsHigherLows);
+        Assert.That(segment, Is.Not.Null);
+
+        var lookbackParam = segment!.Parameters.FirstOrDefault(p => p.Name == "LookbackBars");
+        if (lookbackParam != null)
+        {
+            Assert.That(Convert.ToInt32(lookbackParam.Value), Is.EqualTo(expectedLookback));
+        }
+    }
+
+    [TestCase("SYM(AAPL).LOWERHIGHS()")]
+    [TestCase("SYM(AAPL).lowerhighs()")]
+    [TestCase("SYM(AAPL).LowerHighs()")]
+    [TestCase("SYM(AAPL).IsLowerHighs()")]
+    [TestCase("SYM(AAPL).ISLOWERHIGHS()")]
+    public void Parse_LowerHighs_CaseInsensitive(string script)
+    {
+        var result = StrategyScriptParser.Parse(script);
+        var segment = result.Segments.FirstOrDefault(s => s.Type == SegmentType.IsLowerHighs);
+        Assert.That(segment, Is.Not.Null);
+    }
+
+    [TestCase("SYM(AAPL).LOWERHIGHS(3)", 3)]
+    [TestCase("SYM(AAPL).LOWERHIGHS(5)", 5)]
+    [TestCase("SYM(AAPL).IsLowerHighs(4)", 4)]
+    public void Parse_LowerHighs_WithLookbackBars(string script, int expectedLookback)
+    {
+        var result = StrategyScriptParser.Parse(script);
+        var segment = result.Segments.FirstOrDefault(s => s.Type == SegmentType.IsLowerHighs);
+        Assert.That(segment, Is.Not.Null);
+
+        var lookbackParam = segment!.Parameters.FirstOrDefault(p => p.Name == "LookbackBars");
+        if (lookbackParam != null)
+        {
+            Assert.That(Convert.ToInt32(lookbackParam.Value), Is.EqualTo(expectedLookback));
+        }
+    }
+
+    [Test]
+    public void Parse_HigherLowsAndLowerHighs_BothRecognized()
+    {
+        // Unusual but valid - testing both patterns in one script
+        var result = StrategyScriptParser.Parse("SYM(AAPL).HigherLows().LowerHighs()");
+
+        var higherLowsSegment = result.Segments.FirstOrDefault(s => s.Type == SegmentType.IsHigherLows);
+        var lowerHighsSegment = result.Segments.FirstOrDefault(s => s.Type == SegmentType.IsLowerHighs);
+
+        Assert.That(higherLowsSegment, Is.Not.Null);
+        Assert.That(lowerHighsSegment, Is.Not.Null);
+    }
+
+    #endregion
 }
 
 

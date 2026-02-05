@@ -43,7 +43,6 @@ Ticker(DHX)
 
 # Order execution
 .Long()
-.Quantity(31)
 
 # Target previous highs
 .TakeProfit(2.45)

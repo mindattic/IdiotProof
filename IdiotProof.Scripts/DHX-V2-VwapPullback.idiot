@@ -44,7 +44,6 @@ Ticker(DHX)
 
 # Order execution
 .Long()
-.Quantity(31)
 
 # Conservative target
 .TakeProfit(2.40)

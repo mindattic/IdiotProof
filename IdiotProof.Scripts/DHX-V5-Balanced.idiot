@@ -46,7 +46,6 @@ Ticker(DHX)
 
 # Order execution
 .Long()
-.Quantity(31)
 
 # Balanced targets - mid-range to HOD
 .TakeProfit(2.45)

@@ -838,7 +838,7 @@ public class IdiotScriptParserTests
     [Test]
     public void Parse_IsGapUp_CreatesGapUpCondition()
     {
-        // IsGapUp is an alias for GapUp
+        // IsGapUp is the canonical form (GapUp is an alias)
         var script = "Ticker(NVDA).IsGapUp(5)";
         var result = IdiotScriptParser.Parse(script);
 
@@ -874,7 +874,7 @@ public class IdiotScriptParserTests
     [Test]
     public void Parse_IsGapDown_CreatesGapDownCondition()
     {
-        // IsGapDown is an alias for GapDown
+        // IsGapDown is the canonical form (GapDown is an alias)
         var script = "Ticker(AAPL).IsGapDown(3)";
         var result = IdiotScriptParser.Parse(script);
 

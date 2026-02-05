@@ -710,6 +710,57 @@ namespace IdiotProof.Backend.Strategy
     }
 
     /// <summary>
+    /// Condition: Lower highs are forming (descending resistance pattern).
+    /// Looks at recent price action to detect a bearish pattern.
+    /// </summary>
+    public sealed class LowerHighsCondition : IStrategyCondition
+    {
+        /// <summary>
+        /// Number of bars to analyze for the pattern.
+        /// </summary>
+        public int LookbackBars { get; }
+
+        /// <summary>
+        /// Gets or sets the callback to retrieve recent high values.
+        /// Returns an array of high prices, most recent first.
+        /// </summary>
+        public Func<double[]>? GetRecentHighs { get; set; }
+
+        /// <inheritdoc/>
+        public string Name => "Lower Highs Forming";
+
+        /// <summary>
+        /// Creates a new lower highs condition.
+        /// </summary>
+        public LowerHighsCondition(int lookbackBars = 3)
+        {
+            if (lookbackBars < 2)
+                throw new ArgumentOutOfRangeException(nameof(lookbackBars), "Lookback must be at least 2.");
+            LookbackBars = lookbackBars;
+        }
+
+        /// <inheritdoc/>
+        public bool Evaluate(double currentPrice, double vwap)
+        {
+            if (GetRecentHighs == null)
+                return false;
+
+            var highs = GetRecentHighs();
+            if (highs == null || highs.Length < 2)
+                return false;
+
+            // Check if each high is lower than the previous (descending pattern)
+            for (int i = 0; i < highs.Length - 1; i++)
+            {
+                if (highs[i] >= highs[i + 1])
+                    return false;
+            }
+
+            return true;
+        }
+    }
+
+    /// <summary>
     /// Condition: Volume is above a specified multiple of the average volume.
     /// Detects volume spikes which often confirm breakouts.
     /// </summary>

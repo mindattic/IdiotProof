@@ -1,0 +1,15 @@
+# RUN-V3-RangePlay
+# Strategy: Trade the range - ADX 7.34 confirms ranging market
+# Risk: Low | Target: Quick scalp within consolidation
+
+Ticker(RUN)
+.Name(RUN Range Play)
+.Session(IS.RTH)
+.Quantity(150)
+.Entry(20.55)
+.TakeProfit(20.95)
+.StopLoss(20.35)
+.IsAboveVwap()
+.IsEmaBetween(9, 21)
+.Order(IS.LONG)
+.ExitStrategy(IS.BELL).IsProfitable()

@@ -44,7 +44,6 @@ Ticker(VVPR)
 
 # Order execution
 .Long()
-.Quantity(36)
 
 # Mid-range target
 .TakeProfit(2.15)

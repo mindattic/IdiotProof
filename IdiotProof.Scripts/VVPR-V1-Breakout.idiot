@@ -43,7 +43,6 @@ Ticker(VVPR)
 
 # Order execution
 .Long()
-.Quantity(36)
 
 # Risk management - target recent high
 .TakeProfit(2.10)

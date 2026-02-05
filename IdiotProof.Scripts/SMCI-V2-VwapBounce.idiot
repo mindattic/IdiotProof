@@ -1,0 +1,16 @@
+# SMCI-V2-VwapBounce
+# Strategy: Entry on VWAP reclaim after pullback
+# Risk: Low-Moderate | Target: Mean reversion bounce
+
+Ticker(SMCI)
+.Name(SMCI VWAP Bounce)
+.Session(IS.RTH)
+.Quantity(75)
+.Entry(33.45)
+.TakeProfit(33.90)
+.StopLoss(33.10)
+.IsCloseAboveVwap()
+.IsEmaAbove(9)
+.IsHigherLows()
+.IsMomentumAbove(0)
+.Order(IS.LONG)

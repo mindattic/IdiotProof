@@ -45,7 +45,6 @@ Ticker(GDTC)
 
 # Order execution
 .Long()
-.Quantity(57)
 
 # Target previous high area
 .TakeProfit(1.40)

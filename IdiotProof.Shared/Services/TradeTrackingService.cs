@@ -12,13 +12,14 @@ namespace IdiotProof.Shared.Services
     /// Service for tracking IdiotProof trades.
     /// Persists trade data to allow filtering orders to only show IdiotProof trades.
     /// </summary>
-    public class TradeTrackingService : ITradeTrackingService
+    public class TradeTrackingService : ITradeTrackingService, IDisposable
     {
         private readonly string _tradesFilePath;
         private readonly ConcurrentDictionary<Guid, IdiotProofTrade> _trades = new();
         private readonly ConcurrentDictionary<int, Guid> _orderIdToTradeId = new();
         private readonly SemaphoreSlim _saveLock = new(1, 1);
         private readonly JsonSerializerOptions _jsonOptions;
+        private bool _disposed;
 
         /// <summary>
         /// Initializes the trade tracking service.
@@ -307,6 +308,18 @@ namespace IdiotProof.Shared.Services
             {
                 _saveLock.Release();
             }
+        }
+
+        /// <summary>
+        /// Disposes the trade tracking service, releasing managed resources.
+        /// </summary>
+        public void Dispose()
+        {
+            if (_disposed)
+                return;
+            _disposed = true;
+
+            _saveLock.Dispose();
         }
     }
 }

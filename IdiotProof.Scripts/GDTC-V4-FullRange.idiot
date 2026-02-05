@@ -42,7 +42,6 @@ Ticker(GDTC)
 
 # Order execution
 .Long()
-.Quantity(57)
 
 # Full range target - AdaptiveOrder will manage
 .TakeProfit(1.50)

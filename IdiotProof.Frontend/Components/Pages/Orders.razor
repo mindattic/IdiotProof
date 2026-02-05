@@ -280,9 +280,16 @@
     {
         if (_disposed) return;
 
-        if (AutoRefresh && BackendService.IsConnected)
+        try
         {
-            await RefreshData();
+            if (AutoRefresh && BackendService.IsConnected)
+            {
+                await RefreshData();
+            }
+        }
+        catch (ObjectDisposedException)
+        {
+            // Component disposed during async operation - ignore
         }
     }
 
@@ -298,27 +305,41 @@
     {
         if (_disposed) return;
 
-        // Update or add the order
-        var existing = OrdersList.FirstOrDefault(o => o.OrderId == order.OrderId);
-        if (existing != null)
+        try
         {
-            var index = OrdersList.IndexOf(existing);
-            OrdersList[index] = order;
-        }
-        else
-        {
-            OrdersList.Insert(0, order);
-        }
+            // Update or add the order
+            var existing = OrdersList.FirstOrDefault(o => o.OrderId == order.OrderId);
+            if (existing != null)
+            {
+                var index = OrdersList.IndexOf(existing);
+                OrdersList[index] = order;
+            }
+            else
+            {
+                OrdersList.Insert(0, order);
+            }
 
-        await InvokeAsync(StateHasChanged);
+            await InvokeAsync(StateHasChanged);
+        }
+        catch (ObjectDisposedException)
+        {
+            // Component disposed during async operation - ignore
+        }
     }
 
     private async void OnConnectionChanged(object? sender, bool connected)
     {
         if (_disposed) return;
 
-        StatusMessage = connected ? "Connected" : "Disconnected";
-        await InvokeAsync(StateHasChanged);
+        try
+        {
+            StatusMessage = connected ? "Connected" : "Disconnected";
+            await InvokeAsync(StateHasChanged);
+        }
+        catch (ObjectDisposedException)
+        {
+            // Component disposed during async operation - ignore
+        }
     }
 
     private void CancelOrder(OrderInfo order)

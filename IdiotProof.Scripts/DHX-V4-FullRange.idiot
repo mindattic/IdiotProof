@@ -45,7 +45,6 @@ Ticker(DHX)
 
 # Order execution
 .Long()
-.Quantity(31)
 
 # Full range target above HOD - AdaptiveOrder will manage
 .TakeProfit(2.55)

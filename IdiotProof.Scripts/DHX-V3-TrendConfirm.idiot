@@ -46,7 +46,6 @@ Ticker(DHX)
 
 # Order execution
 .Long()
-.Quantity(31)
 
 # Target HOD area
 .TakeProfit(2.55)

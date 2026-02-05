@@ -1,0 +1,18 @@
+# RUN-V5-Conservative
+# Strategy: Tight risk management for low-ADX environment
+# Risk: Very Low | Target: Small gains with high probability
+
+Ticker(RUN)
+.Name(RUN Conservative)
+.Session(IS.RTH)
+.Quantity(50)
+.Entry(20.80)
+.TakeProfit(21.00)
+.StopLoss(20.55)
+.IsCloseAboveVwap()
+.IsEmaAbove(21)
+.IsHigherLows()
+.IsMomentumAbove(0)
+.Order(IS.LONG)
+.AdaptiveOrder(IS.CONSERVATIVE)
+.ExitStrategy(IS.BELL).IsProfitable()

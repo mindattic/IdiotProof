@@ -1,0 +1,16 @@
+# SMCI-V4-Pullback
+# Strategy: Buy the dip on EMA pullback in uptrend
+# Risk: Moderate | Target: Pullback entry for swing
+
+Ticker(SMCI)
+.Name(SMCI Pullback)
+.Session(IS.RTH)
+.Quantity(60)
+.Pullback(33.30)
+.TakeProfit(34.00)
+.StopLoss(32.90)
+.IsEmaBetween(9, 21)
+.IsAdxAbove(20)
+.IsDiPositive()
+.IsVolumeAbove(1.2)
+.Order(IS.LONG)

@@ -4,6 +4,13 @@
 - User intends IdiotScript chained conditions to be evaluated sequentially (state machine over time), not as a single simultaneous AND condition.
 - In IdiotProof, the backend doesn't load strategies directly; it reads strategies retrieved from the frontend, which gets them from .idiot files. The data flow is: .idiot files → Frontend → Backend.
 - IdiotScript commands should always include parentheses, even for flag-style commands without parameters (e.g., `IsAboveVwap()` not `IsAboveVwap`, `Breakout()` not `Breakout`). The parser accepts both forms for backwards compatibility, but the serializer outputs with parentheses.
+- **Canonical vs Alias**: Use canonical (full) command names, not aliases. The parser accepts both, but the serializer outputs canonical forms:
+  - `Quantity()` not `Qty()` (canonical)
+  - `TakeProfit()` not `TP()` (canonical)
+  - `StopLoss()` not `SL()` (canonical)
+  - `TrailingStopLoss()` not `TSL()` (canonical)
+  - `IsAboveVwap()` not `AboveVwap()` (canonical)
+  - `ExitStrategy()` not `ClosePosition()` (canonical)
 
 ## Indicator Warm-Up Requirements
 Technical indicators (EMA, ADX, RSI, etc.) require historical price bars to calculate properly. The backend uses 1-minute OHLC bars. **Start the backend early** to collect bars before trading.
@@ -39,7 +46,7 @@ During warm-up, indicator conditions will NOT trigger (preventing false entries)
 Commands are evaluated in this order:
 
 1. **CONFIG** (order doesn't matter within group):
-   - `Ticker()`, `Name()`, `Session()`, `Qty()`
+   - `Ticker()`, `Name()`, `Session()`, `Quantity()`
 
 2. **ENTRY CONDITIONS** (order matters - sequential state machine):
    - `Entry()`, `Breakout()`, `Pullback()`, `IsGapUp()`, `IsGapDown()`, `IsAboveVwap()`, `IsBelowVwap()`, `IsEmaAbove()`, etc.

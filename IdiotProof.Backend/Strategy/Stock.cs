@@ -931,6 +931,43 @@ namespace IdiotProof.Backend.Strategy
         }
 
         /// <summary>
+        /// Adds a lower highs condition: Each recent high is lower than the previous.
+        /// </summary>
+        /// <param name="lookbackBars">Number of bars to analyze (default 3).</param>
+        /// <returns>The builder for method chaining.</returns>
+        /// <remarks>
+        /// <para><b>Lower Highs Pattern (Bearish):</b></para>
+        /// <para>Detects when recent candlestick highs are each lower than the previous,</para>
+        /// <para>indicating descending resistance and potential bearish momentum.</para>
+        /// 
+        /// <para><b>ASCII Visualization:</b></para>
+        /// <code>
+        ///  \        Lower    Lower
+        ///   \        High     High
+        ///    \___/\   ↓   /\___/
+        ///          \     /      \
+        ///           \   /        \
+        ///            \/           \
+        ///                          \/
+        /// </code>
+        /// 
+        /// <para><b>Example:</b></para>
+        /// <code>
+        /// // Short when lower highs forming with VWAP rejection
+        /// Stock.Ticker("AAPL")
+        ///     .IsLowerHighs()             // Descending resistance pattern
+        ///     .IsBelowVwap()              // Below VWAP
+        ///     .Short(100, Price.Current)
+        ///     .Build();
+        /// </code>
+        /// </remarks>
+        public Stock IsLowerHighs(int lookbackBars = 3)
+        {
+            _conditions.Add(new LowerHighsCondition(lookbackBars));
+            return this;
+        }
+
+        /// <summary>
         /// Adds an EMA turning up condition: EMA slope is flat or positive.
         /// </summary>
         /// <param name="period">The EMA period (e.g., 9, 21).</param>
@@ -1417,6 +1454,11 @@ namespace IdiotProof.Backend.Strategy
             _quantity = quantity;
             return this;
         }
+
+        /// <summary>
+        /// Sets the order quantity (alias for Quantity).
+        /// </summary>
+        public StrategyBuilder Qty(int quantity) => Quantity(quantity);
 
         /// <summary>
         /// Sets the price type for order execution.

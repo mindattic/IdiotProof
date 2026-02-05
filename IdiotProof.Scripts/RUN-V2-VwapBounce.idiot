@@ -1,0 +1,15 @@
+# RUN-V2-VwapBounce
+# Strategy: Buy on VWAP test and bounce
+# Risk: Low-Moderate | Target: Mean reversion to EMA
+
+Ticker(RUN)
+.Name(RUN VWAP Bounce)
+.Session(IS.RTH)
+.Quantity(100)
+.Pullback(20.50)
+.TakeProfit(20.95)
+.StopLoss(20.25)
+.IsCloseAboveVwap()
+.IsHigherLows()
+.IsEmaAbove(9)
+.Order(IS.LONG)

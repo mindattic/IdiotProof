@@ -63,6 +63,10 @@ namespace IdiotProof.Backend.Models
         private double _vSum;
         private double _lastPrice;
 
+        // Bid/Ask tracking for PriceType support
+        private double _lastBid;
+        private double _lastAsk;
+
         // Session tracking
         private double _sessionHigh;
         private double _sessionLow = double.MaxValue;
@@ -103,6 +107,10 @@ namespace IdiotProof.Backend.Models
 
         // ADX calculator for trend strength and DI conditions
         private Helpers.AdxCalculator? _adxCalculator;
+
+        // ADX rollover detection for dynamic TakeProfit
+        private double _adxPeakValue;
+        private bool _adxRolledOver;
 
         // RSI calculator for overbought/oversold conditions
         private Helpers.RsiCalculator? _rsiCalculator;
@@ -714,6 +722,11 @@ namespace IdiotProof.Backend.Models
                             Log($"Initialized HigherLows({higherLows.LookbackBars}) pattern detector", ConsoleColor.DarkGray);
                             break;
 
+                        case LowerHighsCondition lowerHighs:
+                            lowerHighs.GetRecentHighs = () => _candlestickAggregator.GetRecentHighs(lowerHighs.LookbackBars);
+                            Log($"Initialized LowerHighs({lowerHighs.LookbackBars}) pattern detector", ConsoleColor.DarkGray);
+                            break;
+
                         case EmaTurningUpCondition emaTurningUp:
                             var turningUpCalc = GetOrCreateEmaCalculator(emaTurningUp.Period);
                             emaTurningUp.GetCurrentEmaValue = () => turningUpCalc.CurrentValue;
@@ -820,6 +833,20 @@ namespace IdiotProof.Backend.Models
         }
 
         /// <summary>
+        /// Call this method when bid/ask prices are updated.
+        /// </summary>
+        public void OnBidAskUpdate(double bid, double ask)
+        {
+            if (_disposed)
+                return;
+
+            if (bid > 0)
+                _lastBid = bid;
+            if (ask > 0)
+                _lastAsk = ask;
+        }
+
+        /// <summary>
         /// Call this method when a new trade tick is received.
         /// </summary>
         public void OnLastTrade(double lastPrice, int lastSize)
@@ -857,6 +884,7 @@ namespace IdiotProof.Backend.Models
             {
                 MonitorTrailingStopLoss(lastPrice);
                 MonitorAdaptiveOrder(lastPrice, vwap);
+                MonitorAdxRollover(lastPrice);
             }
 
             // Evaluate current condition
@@ -1101,6 +1129,65 @@ namespace IdiotProof.Backend.Models
                 _lastAdaptiveAdjustmentTime = now;
                 _lastAdaptiveScore = score.TotalScore;
                 Log($"  Market Analysis: {score}", ConsoleColor.DarkGray);
+            }
+        }
+
+        /// <summary>
+        /// Monitors ADX for rollover (peak detection) to trigger early exit on fading momentum.
+        /// Used with ADX-based TakeProfit when ExitOnAdxRollover is enabled.
+        /// </summary>
+        private void MonitorAdxRollover(double currentPrice)
+        {
+            var order = _strategy.Order;
+
+            // Only monitor if ADX-based TP is configured with rollover exit enabled
+            if (order.AdxTakeProfit == null || !order.AdxTakeProfit.ExitOnAdxRollover)
+                return;
+
+            // Need ADX calculator and position must be open
+            if (_adxCalculator == null || !_adxCalculator.IsReady || !_entryFilled || _isComplete)
+                return;
+
+            // Skip if already triggered rollover exit
+            if (_adxRolledOver)
+                return;
+
+            double currentAdx = _adxCalculator.CurrentAdx;
+            double rolloverThreshold = order.AdxTakeProfit.AdxRolloverThreshold;
+
+            // Track ADX peak
+            if (currentAdx > _adxPeakValue)
+            {
+                _adxPeakValue = currentAdx;
+            }
+
+            // Check for rollover: ADX dropped from peak by threshold amount
+            double dropFromPeak = _adxPeakValue - currentAdx;
+            if (dropFromPeak >= rolloverThreshold && _adxPeakValue >= order.AdxTakeProfit.DevelopingTrendThreshold)
+            {
+                _adxRolledOver = true;
+
+                // Only exit if profitable
+                double currentPnL = currentPrice - _entryFillPrice;
+                if (currentPnL > 0)
+                {
+                    Log($"*** ADX ROLLOVER EXIT! ADX dropped {dropFromPeak:F1} from peak {_adxPeakValue:F1} to {currentAdx:F1} ***", ConsoleColor.Magenta);
+                    Log($"  Momentum fading - exiting with profit ${currentPnL:F2}/share", ConsoleColor.Magenta);
+
+                    // Update take profit target to current price for immediate exit
+                    if (_takeProfitOrderId > 0 && !_takeProfitFilled && !_takeProfitCancelled)
+                    {
+                        // Adjust TP to slightly below current price for quick fill
+                        double exitPrice = Math.Round(currentPrice - 0.01, 2);
+                        Log($"  Adjusting TP ${_takeProfitTarget:F2} -> ${exitPrice:F2} for quick exit", ConsoleColor.Yellow);
+                        ModifyTakeProfitOrder(exitPrice);
+                        _takeProfitTarget = exitPrice;
+                    }
+                }
+                else
+                {
+                    Log($"ADX ROLLOVER detected (ADX {_adxPeakValue:F1} -> {currentAdx:F1}), but position not profitable. Holding.", ConsoleColor.DarkYellow);
+                }
             }
         }
 
@@ -1448,6 +1535,24 @@ namespace IdiotProof.Backend.Models
         }
 
         /// <summary>
+        /// Gets the appropriate price based on the PriceType setting.
+        /// </summary>
+        /// <param name="priceType">The price type to use.</param>
+        /// <param name="vwap">The current VWAP value.</param>
+        /// <returns>The price to use for order execution.</returns>
+        private double GetPriceForType(Price priceType, double vwap)
+        {
+            return priceType switch
+            {
+                Price.Current => _lastPrice,
+                Price.VWAP => vwap > 0 ? vwap : _lastPrice,
+                Price.Bid => _lastBid > 0 ? _lastBid : _lastPrice,
+                Price.Ask => _lastAsk > 0 ? _lastAsk : _lastPrice,
+                _ => _lastPrice
+            };
+        }
+
+        /// <summary>
         /// Resets the strategy state for repeating after a trade completes.
         /// Called when RepeatEnabled is true after take profit, stop loss, or trailing stop fills.
         /// </summary>
@@ -1679,6 +1784,8 @@ namespace IdiotProof.Backend.Models
                     $" (Momentum={mom.GetMomentumValue():F2})",
                 HigherLowsCondition hl when hl.GetRecentLows != null =>
                     FormatHigherLowsInfo(hl),
+                LowerHighsCondition lh when lh.GetRecentHighs != null =>
+                    FormatLowerHighsInfo(lh),
                 EmaTurningUpCondition emaUp when emaUp.GetCurrentEmaValue != null && emaUp.GetPreviousEmaValue != null =>
                     $" (EMA({emaUp.Period})=${emaUp.GetCurrentEmaValue():F2}, Prev=${emaUp.GetPreviousEmaValue():F2})",
                 VolumeAboveCondition vol when vol.GetCurrentVolume != null && vol.GetAverageVolume != null =>
@@ -1691,6 +1798,10 @@ namespace IdiotProof.Backend.Models
                     $" (ROC={roc.GetRocValue():F2}%)",
                 RocBelowCondition roc when roc.GetRocValue != null =>
                     $" (ROC={roc.GetRocValue():F2}%)",
+                GapUpCondition gapUp when gapUp.IsPreviousCloseSet =>
+                    $" (PrevClose=${gapUp.PreviousClose:F2}, Gap={((_lastPrice - gapUp.PreviousClose) / gapUp.PreviousClose * 100):F2}%)",
+                GapDownCondition gapDown when gapDown.IsPreviousCloseSet =>
+                    $" (PrevClose=${gapDown.PreviousClose:F2}, Gap={((gapDown.PreviousClose - _lastPrice) / gapDown.PreviousClose * 100):F2}%)",
                 _ => ""
             };
         }
@@ -1706,6 +1817,19 @@ namespace IdiotProof.Backend.Models
 
             var lowsStr = string.Join(" > ", lows.Select(l => $"${l:F2}"));
             return $" (Lows: {lowsStr})";
+        }
+
+        /// <summary>
+        /// Formats the Lower Highs pattern info for logging.
+        /// </summary>
+        private string FormatLowerHighsInfo(LowerHighsCondition lh)
+        {
+            var highs = lh.GetRecentHighs?.Invoke();
+            if (highs == null || highs.Length < 2)
+                return " (LowerHighs: waiting for data)";
+
+            var highsStr = string.Join(" < ", highs.Select(h => $"${h:F2}"));
+            return $" (Highs: {highsStr})";
         }
 
         private void ExecuteOrder(double vwap)
@@ -1747,10 +1871,11 @@ namespace IdiotProof.Backend.Models
                 }
                 else
                 {
-                    // Use current price + offset for forced limit orders, or VWAP + offset for explicit limit
-                    double basePrice = forceLimitOrder ? _lastPrice : vwap;
+                    // Use PriceType to determine base price for limit orders
+                    double basePrice = GetPriceForType(order.PriceType, vwap);
                     double offset = order.Side == OrderSide.Buy ? order.LimitOffset : -order.LimitOffset;
                     ibOrder.LmtPrice = Math.Round(basePrice + offset, 2);
+                    Log($"Using PriceType.{order.PriceType}: base=${basePrice:F2}, offset=${offset:F2}", ConsoleColor.DarkGray);
                 }
             }
 
@@ -2064,9 +2189,30 @@ namespace IdiotProof.Backend.Models
             var order = _strategy.Order;
             _takeProfitOrderId = _wrapper.ConsumeNextOrderId();
 
-            double tpPrice = order.TakeProfitPrice.HasValue
-                ? Math.Round(order.TakeProfitPrice.Value, 2)
-                : Math.Round(entryPrice + order.TakeProfitOffset, 2);
+            double tpPrice;
+
+            // Check for ADX-based dynamic take profit
+            if (order.AdxTakeProfit != null && _adxCalculator != null && _adxCalculator.IsReady)
+            {
+                double currentAdx = _adxCalculator.CurrentAdx;
+                tpPrice = Math.Round(order.AdxTakeProfit.GetTargetForAdx(currentAdx), 2);
+                string trendStr = order.AdxTakeProfit.GetTrendStrength(currentAdx);
+                Log($"ADX-BASED TP: ADX={currentAdx:F1} ({trendStr})", ConsoleColor.Cyan);
+                Log($"  Conservative=${order.AdxTakeProfit.ConservativeTarget:F2}, Aggressive=${order.AdxTakeProfit.AggressiveTarget:F2}", ConsoleColor.DarkGray);
+                Log($"  Selected target: ${tpPrice:F2}", ConsoleColor.Cyan);
+
+                // Track ADX peak for rollover detection
+                _adxPeakValue = currentAdx;
+                _adxRolledOver = false;
+            }
+            else if (order.TakeProfitPrice.HasValue)
+            {
+                tpPrice = Math.Round(order.TakeProfitPrice.Value, 2);
+            }
+            else
+            {
+                tpPrice = Math.Round(entryPrice + order.TakeProfitOffset, 2);
+            }
 
             _takeProfitTarget = tpPrice;
 

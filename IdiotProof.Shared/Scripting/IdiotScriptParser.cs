@@ -63,7 +63,7 @@
 // - RocAbove(2) or IsRocAbove(2)  - Rate of Change above threshold (positive momentum)
 // - RocBelow(-2) or IsRocBelow(-2)- Rate of Change below threshold (negative momentum)
 // - HigherLows() or IsHigherLows() or HigherLows(5) - Higher lows forming (ascending support)
-// - VolumeAbove(1.5) or IsVolumeAbove(1.5) - Volume above N× average
+// - VolumeAbove(1.5) or IsVolumeAbove(1.5) - Volume above Nï¿½ average
 // - CloseAboveVwap() or IsCloseAboveVwap() - Candle close above VWAP
 // - VwapRejection() or IsVwapRejection()   - Failed VWAP reclaim (wick above, close below)
 // - Breakout() or Breakout(150)   - Breakout condition
@@ -213,6 +213,9 @@ public static partial class IdiotScriptParser
     // New continuation/pattern conditions
     [GeneratedRegex(@"^(?:IS)?HIGHERLOWS(?:\((\d*)\))?$", RegexOptions.IgnoreCase)]
     private static partial Regex HigherLowsPattern();
+
+    [GeneratedRegex(@"^(?:IS)?LOWERHIGHS(?:\((\d*)\))?$", RegexOptions.IgnoreCase)]
+    private static partial Regex LowerHighsPattern();
 
     [GeneratedRegex(@"^(?:IS)?EMATURNINGUP\((\d+)\)$", RegexOptions.IgnoreCase)]
     private static partial Regex EmaTurningUpPattern();
@@ -1068,6 +1071,19 @@ public static partial class IdiotScriptParser
             return new OrderedCondition(ConditionType.HigherLows, period: lookbackBars);
         }
 
+        // LowerHighs or IsLowerHighs - detects descending resistance pattern (bearish)
+        var lowerHighsMatch = LowerHighsPattern().Match(condition);
+        if (lowerHighsMatch.Success)
+        {
+            int lookbackBars = 3; // Default
+            if (lowerHighsMatch.Groups[1].Success && !string.IsNullOrEmpty(lowerHighsMatch.Groups[1].Value))
+            {
+                if (int.TryParse(lowerHighsMatch.Groups[1].Value, out var lb))
+                    lookbackBars = lb;
+            }
+            return new OrderedCondition(ConditionType.LowerHighs, period: lookbackBars);
+        }
+
         // EmaTurningUp(period) or IsEmaTurningUp(period) - EMA slope turning positive
         var emaTurningUpMatch = EmaTurningUpPattern().Match(condition);
         if (emaTurningUpMatch.Success)
@@ -1076,7 +1092,7 @@ public static partial class IdiotScriptParser
                 return new OrderedCondition(ConditionType.EmaTurningUp, period: period);
         }
 
-        // VolumeAbove(multiplier) or IsVolumeAbove(multiplier) - volume above N× average
+        // VolumeAbove(multiplier) or IsVolumeAbove(multiplier) - volume above Nï¿½ average
         var volumeAboveMatch = VolumeAbovePattern().Match(condition);
         if (volumeAboveMatch.Success)
         {
@@ -1442,7 +1458,7 @@ public static partial class IdiotScriptParser
 
     private static bool TryParseCloseLong(string upper, ParseContext context)
     {
-        if (upper == "CLOSELONG")
+        if (upper is "CLOSELONG" or "CLOSELONG()")
         {
             context.CloseOrderType = CloseOrderType.CloseLong;
             return true;
@@ -1452,7 +1468,7 @@ public static partial class IdiotScriptParser
 
     private static bool TryParseCloseShort(string upper, ParseContext context)
     {
-        if (upper == "CLOSESHORT")
+        if (upper is "CLOSESHORT" or "CLOSESHORT()")
         {
             context.CloseOrderType = CloseOrderType.CloseShort;
             return true;
@@ -1549,6 +1565,7 @@ public static partial class IdiotScriptParser
         var match = RepeatPattern().Match(command);
         if (!match.Success) return false;
 
+        context.RepeatSpecified = true; // Mark that Repeat was explicitly specified
         var value = match.Groups[1].Value;
 
         // If no value provided (e.g., "Repeat", "IsRepeat", "Repeat()", "IsRepeat()"), default to true
@@ -1915,8 +1932,8 @@ public static partial class IdiotScriptParser
             }]
         });
 
-        // Add repeat segment if enabled
-        if (context.RepeatEnabled)
+        // Add repeat segment if explicitly specified
+        if (context.RepeatSpecified)
         {
             strategy.Segments.Add(new StrategySegment
             {
@@ -1924,7 +1941,14 @@ public static partial class IdiotScriptParser
                 Category = SegmentCategory.Execution,
                 DisplayName = "Repeat",
                 Order = segmentOrder++,
-                Parameters = []
+                Parameters = [new SegmentParameter
+                {
+                    Name = "Value",
+                    Label = "Repeat",
+                    Type = ParameterType.Boolean,
+                    Value = context.RepeatEnabled,
+                    IsRequired = true
+                }]
             });
         }
 
@@ -2371,6 +2395,23 @@ public static partial class IdiotScriptParser
                     }]
                     : []
             },
+            ConditionType.LowerHighs => new StrategySegment
+            {
+                Type = SegmentType.IsLowerHighs,
+                Category = SegmentCategory.IndicatorCondition,
+                DisplayName = "Lower Highs",
+                Order = order++,
+                Parameters = condition.Period.HasValue
+                    ? [new SegmentParameter
+                    {
+                        Name = "LookbackBars",
+                        Label = "Lookback Bars",
+                        Type = ParameterType.Integer,
+                        Value = condition.Period.Value,
+                        IsRequired = false
+                    }]
+                    : []
+            },
             ConditionType.EmaTurningUp when condition.Period.HasValue => new StrategySegment
             {
                 Type = SegmentType.IsEmaTurningUp,
@@ -2491,6 +2532,7 @@ public static partial class IdiotScriptParser
         RocAbove,
         RocBelow,
         HigherLows,
+        LowerHighs,
         VolumeAbove,
         CloseAboveVwap,
         VwapRejection,
@@ -2540,6 +2582,7 @@ public static partial class IdiotScriptParser
         public bool? AllOrNone { get; set; }
         public OrderType OrderType { get; set; } = Enums.OrderType.Limit; // Default to LIMIT for safe premarket/after-hours execution
         public bool RepeatEnabled { get; set; } = false;
+        public bool RepeatSpecified { get; set; } = false; // Track if Repeat was explicitly specified
     }
 }
 

@@ -386,6 +386,12 @@ namespace IdiotProof.Backend
                         _prices[symbol] = price; // Update price for periodic price check
                         runner.OnLastTrade(price, size); // Forward to strategy runner
                     });
+
+                    // Register bid/ask handler for PriceType support
+                    _wrapper.RegisterBidAskHandler(tickerId, (bid, ask) =>
+                    {
+                        runner.OnBidAskUpdate(bid, ask);
+                    });
                 }
             }
 
@@ -527,6 +533,8 @@ namespace IdiotProof.Backend
             _wrapper?.Dispose();
             _ipcServer?.Dispose();
             _sessionLogger?.Dispose();
+            _tradeTrackingService?.Dispose();
+            _shutdownCts.Dispose();
 
             Log("Goodbye!");
         }
@@ -897,7 +905,11 @@ namespace IdiotProof.Backend
                 var symbolIndex = _contracts.Keys.ToList().IndexOf(strategy.Symbol);
                 if (symbolIndex >= 0 && symbolIndex < _tickerIds.Count)
                 {
-                    _wrapper.RegisterTickerHandler(_tickerIds[symbolIndex], runner.OnLastTrade);
+                    int tickerId = _tickerIds[symbolIndex];
+                    _wrapper.RegisterTickerHandler(tickerId, runner.OnLastTrade);
+
+                    // Register bid/ask handler for PriceType support
+                    _wrapper.RegisterBidAskHandler(tickerId, runner.OnBidAskUpdate);
                 }
 
                 Log($"Strategy '{strategy.Name}' activated");
