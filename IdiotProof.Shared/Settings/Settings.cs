@@ -142,7 +142,7 @@ namespace IdiotProof.Shared.Settings
         /// <summary>
         /// Interval in seconds between IPC ping messages to verify connection is alive.
         /// </summary>
-        public const int IpcPingIntervalSeconds = 60 * 20;
+        public const int IpcPingIntervalSeconds = 60 * 5;
 
         // ----- Price Check Settings -----
 
@@ -150,7 +150,7 @@ namespace IdiotProof.Shared.Settings
         /// Interval in seconds between ticker price check reports.
         /// Set to 0 to disable price reporting.
         /// </summary>
-        public const int TickerPriceCheckIntervalSeconds = 5; //60 * 10;
+        public const int TickerPriceCheckIntervalSeconds = 60 * 5;
     }
 }
 
