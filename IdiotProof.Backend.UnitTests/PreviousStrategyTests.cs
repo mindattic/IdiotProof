@@ -45,10 +45,10 @@ public class PreviousStrategyTests
                 .TimeFrame(TradingSession.PreMarketEndEarly)
                 .IsPriceAbove(2.40)                                         // Step 1: Price >= 2.40
                 .IsAboveVwap()                                              // Step 2: Price >= VWAP
-                .Buy(quantity: qty, Price.Current)                          // Step 3: Buy @ Current Price
-                .TakeProfit(4.00, 4.80)                                     // Step 4: ADX-based TakeProfit: 4.00 (weak) to 4.80 (strong)
+                .Long().Quantity(qty)                                        // Step 3: Buy @ Current Price
+                .AdxTakeProfit(AdxTakeProfitConfig.FromRange(4.00, 4.80))                                     // Step 4: ADX-based TakeProfit: 4.00 (weak) to 4.80 (strong)
                 .TrailingStopLoss(Percent.TwentyFive)                       // 25% trailing stop loss
-                .ClosePosition(MarketTime.PreMarket.Ending, false)          // Step 5: Close Position @ 9:15 AM ET
+                .ExitStrategy(MarketTime.PreMarket.Ending)          // Step 5: Close Position @ 9:15 AM ET
                 .Build(),
 
             Stock
@@ -56,10 +56,10 @@ public class PreviousStrategyTests
                 .TimeFrame(TradingSession.PreMarketEndEarly)
                 .IsPriceAbove(4.00)                                         // Step 1: Price >= 4.00
                 .IsAboveVwap()                                              // Step 2: Price >= VWAP
-                .Buy(quantity: qty, Price.Current)                          // Step 3: Buy @ Current Price
-                .TakeProfit(5.30, 6.16)                                     // Step 4: ADX-based TakeProfit: 5.30 (weak) to 6.16 (strong)
+                .Long().Quantity(qty)                                        // Step 3: Buy @ Current Price
+                .AdxTakeProfit(AdxTakeProfitConfig.FromRange(5.30, 6.16))                                     // Step 4: ADX-based TakeProfit: 5.30 (weak) to 6.16 (strong)
                 .TrailingStopLoss(Percent.TwentyFive)                       // 25% trailing stop loss
-                .ClosePosition(MarketTime.PreMarket.Ending, false)          // Step 5: Close Position @ 9:15 AM ET
+                .ExitStrategy(MarketTime.PreMarket.Ending)          // Step 5: Close Position @ 9:15 AM ET
                 .Build(),
 
             Stock
@@ -67,10 +67,10 @@ public class PreviousStrategyTests
                 .TimeFrame(TradingSession.PreMarketEndEarly)
                 .Pullback(4.15)                                             // Step 1: Pullback to EMA 12 zone ($4.13)
                 .IsAboveVwap()                                              // Step 2: Still above VWAP
-                .Buy(quantity: qty, Price.Current)                          // Step 3: Buy @ Current Price
-                .TakeProfit(4.80, 5.30)                                     // Step 4: Target $4.80 to $5.30 on bounce
+                .Long().Quantity(qty)                                        // Step 3: Buy @ Current Price
+                .AdxTakeProfit(AdxTakeProfitConfig.FromRange(4.80, 5.30))                                     // Step 4: Target $4.80 to $5.30 on bounce
                 .TrailingStopLoss(Percent.TwentyFive)                       // 25% trailing stop loss
-                .ClosePosition(MarketTime.PreMarket.Ending, false)
+                .ExitStrategy(MarketTime.PreMarket.Ending)
                 .Build(),
 
             Stock
@@ -79,10 +79,10 @@ public class PreviousStrategyTests
                 .IsAboveVwap()                                              // Step 1: Wait for VWAP reclaim (~$4.77)
                 .Pullback(4.80)                                             // Step 2: Pullback to VWAP zone
                 .IsAboveVwap()                                              // Step 3: Confirm VWAP support held (bounce)
-                .Buy(quantity: qty, Price.Current)                          // Step 4: Buy the confirmed bounce
-                .TakeProfit(5.20, 5.50)                                     // Step 5: Target $5.20 to $5.50 on bounce
+                .Long().Quantity(qty)                                        // Step 4: Buy the confirmed bounce
+                .AdxTakeProfit(AdxTakeProfitConfig.FromRange(5.20, 5.50))                                     // Step 5: Target $5.20 to $5.50 on bounce
                 .TrailingStopLoss(Percent.TwentyFive)                       // 25% trailing stop loss
-                .ClosePosition(MarketTime.PreMarket.Ending, false)
+                .ExitStrategy(MarketTime.PreMarket.Ending)
                 .Build(),
 
             Stock
@@ -90,10 +90,10 @@ public class PreviousStrategyTests
                 .TimeFrame(TradingSession.PreMarketEndEarly)
                 .IsPriceAbove(2.40)                                         // Step 1: Price >= 2.40
                 .IsAboveVwap()                                              // Step 2: Price >= VWAP
-                .Buy(quantity: 500, Price.Current)                          // Step 3: Buy 500 @ Current Price
-                .TakeProfit(4.00, 4.80)                                     // Step 4: ADX-based TakeProfit: 4.00 (weak) to 4.80 (strong)
+                .Long().Quantity(500)                          // Step 3: Buy 500 @ Current Price
+                .AdxTakeProfit(AdxTakeProfitConfig.FromRange(4.00, 4.80))                                     // Step 4: ADX-based TakeProfit: 4.00 (weak) to 4.80 (strong)
                 .TrailingStopLoss(Percent.TwentyFive)                       // 25% trailing stop loss
-                .ClosePosition(MarketTime.PreMarket.Ending, false)          // Step 5: Close Position @ 9:15 AM ET
+                .ExitStrategy(MarketTime.PreMarket.Ending)          // Step 5: Close Position @ 9:15 AM ET
                 .Build(),
 
             Stock
@@ -101,10 +101,10 @@ public class PreviousStrategyTests
                 .TimeFrame(TradingSession.PreMarketEndEarly)
                 .IsPriceAbove(4.00)                                         // Step 1: Price >= 4.00
                 .IsAboveVwap()                                              // Step 2: Price >= VWAP
-                .Buy(quantity: 500, Price.Current)                          // Step 3: Buy 500 @ Current Price
-                .TakeProfit(5.30, 6.16)                                     // Step 4: ADX-based TakeProfit: 5.30 (weak) to 6.16 (strong)
+                .Long().Quantity(500)                          // Step 3: Buy 500 @ Current Price
+                .AdxTakeProfit(AdxTakeProfitConfig.FromRange(5.30, 6.16))                                     // Step 4: ADX-based TakeProfit: 5.30 (weak) to 6.16 (strong)
                 .TrailingStopLoss(Percent.TwentyFive)                       // 25% trailing stop loss
-                .ClosePosition(MarketTime.PreMarket.Ending, false)          // Step 5: Close Position @ 9:15 AM ET
+                .ExitStrategy(MarketTime.PreMarket.Ending)          // Step 5: Close Position @ 9:15 AM ET
                 .Build(),
 
 
@@ -124,10 +124,10 @@ public class PreviousStrategyTests
                 .Breakout(7.10)                                          
                 .Pullback(6.80)                                          
                 .IsAboveVwap()                                           
-                .Buy(quantity: 100, Price.Current)                       
+                .Long().Quantity(100)                       
                 .TakeProfit(9.00)                                        
                 .TrailingStopLoss(Percent.TwentyFive)                    
-                .ClosePosition(MarketTime.PreMarket.Ending)              
+                .ExitStrategy(MarketTime.PreMarket.Ending)              
                 .Build(),
 
         };
@@ -170,3 +170,5 @@ public class PreviousStrategyTests
         }
     }
 }
+
+

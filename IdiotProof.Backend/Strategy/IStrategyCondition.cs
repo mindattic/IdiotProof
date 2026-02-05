@@ -23,3 +23,5 @@ namespace IdiotProof.Backend.Strategy
         bool Evaluate(double currentPrice, double vwap);
     }
 }
+
+

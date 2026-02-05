@@ -25,7 +25,7 @@ public class ValidationTests
         Assert.Throws<InvalidOperationException>(() =>
         {
             Stock.Ticker("AAPL")
-                .Buy(100, Price.Current)
+                .Long().Quantity(100)
                 .Build();
         });
     }
@@ -37,7 +37,7 @@ public class ValidationTests
         Assert.Throws<InvalidOperationException>(() =>
         {
             Stock.Ticker("AAPL")
-                .Sell(100, Price.Current)
+                .Short().Quantity(100)
                 .Build();
         });
     }
@@ -137,7 +137,7 @@ public class ValidationTests
         // IBKR will reject it, but validation is broker-side
         var strategy = Stock.Ticker("AAPL")
             .Breakout(150)
-            .Buy(0, Price.Current)
+            .Long().Quantity(0)
             .Build();
 
         Assert.That(strategy.Order.Quantity, Is.EqualTo(0));
@@ -149,7 +149,7 @@ public class ValidationTests
         // Note: Negative quantity is allowed by builder - broker validates
         var strategy = Stock.Ticker("AAPL")
             .Breakout(150)
-            .Buy(-100, Price.Current)
+            .Long().Quantity(-100).PriceType(Price.Current)
             .Build();
 
         Assert.That(strategy.Order.Quantity, Is.EqualTo(-100));
@@ -316,7 +316,7 @@ public class ValidationTests
         // Arrange & Act
         var strategy = Stock.Ticker("AAPL")
             .Breakout(150)
-            .Buy(100, Price.Current)
+            .Long().Quantity(100)
             .TakeProfit(160)
             .StopLoss(145)
             .Build();
@@ -337,7 +337,7 @@ public class ValidationTests
         // Arrange & Act
         var strategy = Stock.Ticker("AAPL")
             .Breakout(150)
-            .Buy(100, Price.Current)
+            .Long().Quantity(100)
             .TakeProfit(160)
             .TrailingStopLoss(Percent.Ten)
             .Build();
@@ -356,7 +356,7 @@ public class ValidationTests
         // Note: Both can be enabled - runner should handle precedence
         var strategy = Stock.Ticker("AAPL")
             .Breakout(150)
-            .Buy(100, Price.Current)
+            .Long().Quantity(100)
             .StopLoss(145)
             .TrailingStopLoss(Percent.Ten)
             .Build();
@@ -390,3 +390,5 @@ public class ValidationTests
 
     #endregion
 }
+
+

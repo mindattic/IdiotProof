@@ -450,3 +450,5 @@ public class TrailingStopLossCalculationTests
         Assert.That(actualStop, Is.EqualTo(expectedStop).Within(0.01));
     }
 }
+
+

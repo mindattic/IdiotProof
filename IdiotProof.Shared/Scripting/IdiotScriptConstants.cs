@@ -157,10 +157,16 @@ public static class IdiotScriptConstants
     // ORDER DIRECTION
     // ========================================================================
 
-    /// <summary>Buy order</summary>
+    /// <summary>Long position (buy to open)</summary>
+    public const string LONG = "IS.LONG";
+
+    /// <summary>Short position (sell to open)</summary>
+    public const string SHORT = "IS.SHORT";
+
+    /// <summary>Buy order (alias for IS.LONG for backwards compatibility)</summary>
     public const string BUY = "IS.BUY";
 
-    /// <summary>Sell order</summary>
+    /// <summary>Sell order (alias for IS.SHORT for backwards compatibility)</summary>
     public const string SELL = "IS.SELL";
 
     /// <summary>Close long position</summary>
@@ -249,6 +255,12 @@ public static class IdiotScriptConstants
             "IS.SAFE" => "Conservative",      // Alias
             "IS.NORMAL" => "Balanced",        // Alias
             "IS.RISKY" => "Aggressive",       // Alias
+
+            // Order direction
+            "IS.LONG" => "Long",
+            "IS.SHORT" => "Short",
+            "IS.BUY" => "Long",               // Alias for backwards compatibility
+            "IS.SELL" => "Short",             // Alias for backwards compatibility
 
             // RSI
             "IS.RSI_OVERSOLD" => "30",
@@ -433,3 +445,5 @@ public static class IdiotScriptConstants
         return resolved.HasValue ? ToIdiotScriptBoolean(resolved.Value) : null;
     }
 }
+
+

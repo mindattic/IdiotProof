@@ -2,6 +2,7 @@
 // SegmentFactoryTests - Tests for strategy segment template creation
 // ============================================================================
 
+using IdiotProof.Shared.Constants;
 using IdiotProof.Shared.Enums;
 using IdiotProof.Shared.Models;
 using NUnit.Framework;
@@ -58,8 +59,7 @@ public class SegmentFactoryTests
         // Assert
         Assert.Multiple(() =>
         {
-            Assert.That(orderSegments.Any(s => s.Type == SegmentType.Buy), Is.True);
-            Assert.That(orderSegments.Any(s => s.Type == SegmentType.Sell), Is.True);
+            Assert.That(orderSegments.Any(s => s.Type == SegmentType.Order), Is.True);
             Assert.That(orderSegments.Any(s => s.Type == SegmentType.Close), Is.True);
         });
     }
@@ -161,21 +161,22 @@ public class SegmentFactoryTests
         var ticker = templates[SegmentCategory.Start].First(s => s.Type == SegmentType.Ticker);
 
         // Assert
-        Assert.That(ticker.Parameters.Any(p => p.Name == "symbol"), Is.True);
+        Assert.That(ticker.Parameters.Any(p => p.Name == _.Param.Symbol), Is.True);
     }
 
     [Test]
-    public void BuySegment_HasRequiredParameters()
+    public void OrderSegment_HasRequiredParameters()
     {
         // Act
         var templates = SegmentFactory.GetAllTemplates();
-        var buy = templates[SegmentCategory.Order].First(s => s.Type == SegmentType.Buy);
+        var order = templates[SegmentCategory.Order].First(s => s.Type == SegmentType.Order);
 
         // Assert
         Assert.Multiple(() =>
         {
-            Assert.That(buy.Parameters.Any(p => p.Name == "quantity"), Is.True);
-            Assert.That(buy.Parameters.Any(p => p.Name == "priceType"), Is.True);
+            Assert.That(order.Parameters.Any(p => p.Name == _.Param.Direction), Is.True);
+            Assert.That(order.Parameters.Any(p => p.Name == _.Param.Quantity), Is.True);
+            Assert.That(order.Parameters.Any(p => p.Name == _.Param.PriceType), Is.True);
         });
     }
 
@@ -187,7 +188,7 @@ public class SegmentFactoryTests
         var breakout = templates[SegmentCategory.PriceCondition].First(s => s.Type == SegmentType.Breakout);
 
         // Assert
-        var levelParam = breakout.Parameters.FirstOrDefault(p => p.Name == "level");
+        var levelParam = breakout.Parameters.FirstOrDefault(p => p.Name == _.Param.Level);
         Assert.Multiple(() =>
         {
             Assert.That(levelParam, Is.Not.Null);
@@ -203,7 +204,7 @@ public class SegmentFactoryTests
         var takeProfit = templates[SegmentCategory.RiskManagement].First(s => s.Type == SegmentType.TakeProfit);
 
         // Assert
-        Assert.That(takeProfit.Parameters.Any(p => p.Name == "price" && p.Type == ParameterType.Price), Is.True);
+        Assert.That(takeProfit.Parameters.Any(p => p.Name == _.Param.Price && p.Type == ParameterType.Price), Is.True);
     }
 
     [Test]
@@ -226,7 +227,7 @@ public class SegmentFactoryTests
     {
         // Arrange
         var templates = SegmentFactory.GetAllTemplates();
-        var original = templates[SegmentCategory.Order].First(s => s.Type == SegmentType.Buy);
+        var original = templates[SegmentCategory.Order].First(s => s.Type == SegmentType.Order);
         var originalId = original.Id;
 
         // Act
@@ -241,7 +242,7 @@ public class SegmentFactoryTests
     {
         // Arrange
         var templates = SegmentFactory.GetAllTemplates();
-        var original = templates[SegmentCategory.Order].First(s => s.Type == SegmentType.Buy);
+        var original = templates[SegmentCategory.Order].First(s => s.Type == SegmentType.Order);
 
         // Act
         var clone = original.Clone();
@@ -257,3 +258,5 @@ public class SegmentFactoryTests
 
     #endregion
 }
+
+

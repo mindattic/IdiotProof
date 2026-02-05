@@ -155,7 +155,7 @@ public class IdiotScriptSanitizationTests
         var result = IdiotScriptParser.Parse("TICKER(AAPL).CLOSEPOSITION(IS.BELL)");
 
         var closeSegment = result.Segments.FirstOrDefault(s =>
-            s.Type == IdiotProof.Shared.Enums.SegmentType.ClosePosition);
+            s.Type == IdiotProof.Shared.Enums.SegmentType.ExitStrategy);
         Assert.That(closeSegment, Is.Not.Null);
     }
 
@@ -178,3 +178,5 @@ public class IdiotScriptSanitizationTests
 
     #endregion
 }
+
+

@@ -5,8 +5,8 @@
 // Converts StrategyDefinition objects back to IdiotScript text format.
 // This enables round-trip conversion: IdiotScript → Strategy → IdiotScript
 //
-// OUTPUT FORMAT (PascalCase with parentheses):
-// Ticker(AAPL).Session(IS.PREMARKET).Qty(100).Breakout(150).Pullback(148).AboveVwap().TakeProfit(155).TrailingStopLoss(15).ClosePosition(IS.BELL)
+// OUTPUT FORMAT (PascalCase with Is-prefix and parentheses):
+// Ticker(AAPL).Session(IS.PREMARKET).Qty(100).Breakout(150).Pullback(148).IsAboveVwap().TakeProfit(155).TrailingStopLoss(15).ExitStrategy(IS.BELL).IsProfitable()
 //
 // ============================================================================
 
@@ -69,8 +69,8 @@ public static class IdiotScriptSerializer
             }
         }
 
-        // Quantity (get from Buy/Sell segment)
-        var orderSegment = orderedSegments.FirstOrDefault(s => s.Type is SegmentType.Buy or SegmentType.Sell);
+        // Quantity (get from Order segment)
+        var orderSegment = orderedSegments.FirstOrDefault(s => s.Type == SegmentType.Order);
         if (orderSegment != null)
         {
             var qty = GetParameterValue<int>(orderSegment, "Quantity", 1);
@@ -91,10 +91,17 @@ public static class IdiotScriptSerializer
         var conditions = BuildConditions(orderedSegments);
         parts.AddRange(conditions);
 
-        // Order direction (only if SELL)
-        if (orderSegment?.Type == SegmentType.Sell)
+        // Order direction (only if SHORT - LONG is default)
+        if (orderSegment != null)
         {
-            parts.Add("Sell()");
+            if (orderSegment.Type == SegmentType.Order)
+            {
+                var direction = GetParameterValue<string>(orderSegment, "Direction", "Long");
+                if (direction.Equals("Short", StringComparison.OrdinalIgnoreCase))
+                {
+                    parts.Add("Order(IS.SHORT)");
+                }
+            }
         }
 
         // Take profit
@@ -145,21 +152,24 @@ public static class IdiotScriptSerializer
             parts.Add($"AdaptiveOrder({modeConstant})");
         }
 
-        // Close position
-        var closeSegment = orderedSegments.FirstOrDefault(s => s.Type == SegmentType.ClosePosition);
+        // Exit strategy (position management)
+        var closeSegment = orderedSegments.FirstOrDefault(s => s.Type == SegmentType.ExitStrategy);
         if (closeSegment != null)
         {
             var time = GetParameterValue<TimeOnly?>(closeSegment, "Time", null);
-            var onlyIfProfitable = GetParameterValue<bool>(closeSegment, "OnlyIfProfitable", true);
 
             if (time.HasValue)
             {
                 var timeConstant = GetTimeConstant(time.Value);
-                if (onlyIfProfitable)
-                    parts.Add($"ClosePosition({timeConstant}, Y)");
-                else
-                    parts.Add($"ClosePosition({timeConstant})");
+                parts.Add($"ExitStrategy({timeConstant})");
             }
+        }
+
+        // IsProfitable (only if ExitStrategy exists and IsProfitable segment is present)
+        var profitableSegment = orderedSegments.FirstOrDefault(s => s.Type == SegmentType.IsProfitable);
+        if (profitableSegment != null)
+        {
+            parts.Add("IsProfitable()");
         }
 
         // Repeat (execution behavior)
@@ -285,8 +295,10 @@ public static class IdiotScriptSerializer
                 SegmentType.Pullback => BuildPullback(segment),
                 SegmentType.IsPriceAbove => BuildPriceAbove(segment),
                 SegmentType.IsPriceBelow => BuildPriceBelow(segment),
-                SegmentType.IsAboveVwap => "AboveVwap()",
-                SegmentType.IsBelowVwap => "BelowVwap()",
+                SegmentType.GapUp => BuildGapUp(segment),
+                SegmentType.GapDown => BuildGapDown(segment),
+                SegmentType.IsAboveVwap => "IsAboveVwap()",
+                SegmentType.IsBelowVwap => "IsBelowVwap()",
                 SegmentType.IsEmaAbove => BuildEmaAbove(segment),
                 SegmentType.IsEmaBelow => BuildEmaBelow(segment),
                 SegmentType.IsEmaBetween => BuildEmaBetween(segment),
@@ -299,8 +311,8 @@ public static class IdiotScriptSerializer
                 SegmentType.IsRoc => BuildRoc(segment),
                 SegmentType.IsHigherLows => BuildHigherLows(segment),
                 SegmentType.IsVolumeAbove => BuildVolumeAbove(segment),
-                SegmentType.IsCloseAboveVwap => "CloseAboveVwap()",
-                SegmentType.IsVwapRejection => "VwapRejection()",
+                SegmentType.IsCloseAboveVwap => "IsCloseAboveVwap()",
+                SegmentType.IsVwapRejection => "IsVwapRejection()",
                 _ => null
             };
 
@@ -332,26 +344,38 @@ public static class IdiotScriptSerializer
     private static string? BuildPriceBelow(StrategySegment segment)
     {
         var level = GetParameterValue<double>(segment, "Level", 0);
-        return level > 0 ? $"PriceBelow({FormatPrice(level)})" : null;
+        return level > 0 ? $"IsPriceBelow({FormatPrice(level)})" : null;
+    }
+
+    private static string? BuildGapUp(StrategySegment segment)
+    {
+        var percentage = GetParameterValue<double>(segment, "Percentage", 0);
+        return percentage > 0 ? $"IsGapUp({percentage:F1})" : null;
+    }
+
+    private static string? BuildGapDown(StrategySegment segment)
+    {
+        var percentage = GetParameterValue<double>(segment, "Percentage", 0);
+        return percentage > 0 ? $"IsGapDown({percentage:F1})" : null;
     }
 
     private static string? BuildEmaAbove(StrategySegment segment)
     {
         var period = GetParameterValue<int>(segment, "Period", 0);
-        return period > 0 ? $"EmaAbove({period})" : null;
+        return period > 0 ? $"IsEmaAbove({period})" : null;
     }
 
     private static string? BuildEmaBelow(StrategySegment segment)
     {
         var period = GetParameterValue<int>(segment, "Period", 0);
-        return period > 0 ? $"EmaBelow({period})" : null;
+        return period > 0 ? $"IsEmaBelow({period})" : null;
     }
 
     private static string? BuildEmaBetween(StrategySegment segment)
     {
         var lower = GetParameterValue<int>(segment, "LowerPeriod", 0);
         var upper = GetParameterValue<int>(segment, "UpperPeriod", 0);
-        return lower > 0 && upper > 0 ? $"EmaBetween({lower}, {upper})" : null;
+        return lower > 0 && upper > 0 ? $"IsEmaBetween({lower}, {upper})" : null;
     }
 
     private static string? BuildRsi(StrategySegment segment)
@@ -362,22 +386,22 @@ public static class IdiotScriptSerializer
         if (value <= 0) return null;
 
         return condition.Equals("Above", StringComparison.OrdinalIgnoreCase)
-            ? $"RsiOverbought({value:F0})"
-            : $"RsiOversold({value:F0})";
+            ? $"IsRsiOverbought({value:F0})"
+            : $"IsRsiOversold({value:F0})";
     }
 
     private static string? BuildAdx(StrategySegment segment)
     {
         var value = GetParameterValue<double>(segment, "Value", 0);
-        return value > 0 ? $"AdxAbove({value:F0})" : null;
+        return value > 0 ? $"IsAdxAbove({value:F0})" : null;
     }
 
     private static string? BuildMacd(StrategySegment segment)
     {
         var state = GetParameterValue<string>(segment, "State", "");
         return state.Equals("Bullish", StringComparison.OrdinalIgnoreCase)
-            ? "MacdBullish()"
-            : "MacdBearish()";
+            ? "IsMacdBullish()"
+            : "IsMacdBearish()";
     }
 
     private static string? BuildDi(StrategySegment segment)
@@ -386,8 +410,8 @@ public static class IdiotScriptSerializer
         var threshold = GetParameterValue<double>(segment, "Threshold", 25);
 
         return direction.Equals("Positive", StringComparison.OrdinalIgnoreCase)
-            ? $"DiPositive({threshold:F0})"
-            : $"DiNegative({threshold:F0})";
+            ? $"IsDiPositive({threshold:F0})"
+            : $"IsDiNegative({threshold:F0})";
     }
 
     private static string? BuildMomentum(StrategySegment segment)
@@ -396,8 +420,8 @@ public static class IdiotScriptSerializer
         var threshold = GetParameterValue<double>(segment, "Threshold", 0);
 
         return condition.Equals("Above", StringComparison.OrdinalIgnoreCase)
-            ? $"MomentumAbove({threshold:F1})"
-            : $"MomentumBelow({threshold:F1})";
+            ? $"IsMomentumAbove({threshold:F1})"
+            : $"IsMomentumBelow({threshold:F1})";
     }
 
     private static string? BuildRoc(StrategySegment segment)
@@ -406,27 +430,27 @@ public static class IdiotScriptSerializer
         var threshold = GetParameterValue<double>(segment, "Threshold", 0);
 
         return condition.Equals("Above", StringComparison.OrdinalIgnoreCase)
-            ? $"RocAbove({threshold:F1})"
-            : $"RocBelow({threshold:F1})";
+            ? $"IsRocAbove({threshold:F1})"
+            : $"IsRocBelow({threshold:F1})";
     }
 
     private static string? BuildEmaTurningUp(StrategySegment segment)
     {
         var period = GetParameterValue<int>(segment, "Period", 0);
-        return period > 0 ? $"EmaTurningUp({period})" : null;
+        return period > 0 ? $"IsEmaTurningUp({period})" : null;
     }
 
     private static string? BuildVolumeAbove(StrategySegment segment)
     {
         var multiplier = GetParameterValue<double>(segment, "Multiplier", 0);
-        return multiplier > 0 ? $"VolumeAbove({multiplier:F1})" : null;
+        return multiplier > 0 ? $"IsVolumeAbove({multiplier:F1})" : null;
     }
 
     private static string? BuildHigherLows(StrategySegment segment)
     {
         var lookbackBars = GetParameterValue<int>(segment, "LookbackBars", 3);
         // Only include parameter if it's not the default (3)
-        return lookbackBars != 3 ? $"HigherLows({lookbackBars})" : "HigherLows()";
+        return lookbackBars != 3 ? $"IsHigherLows({lookbackBars})" : "IsHigherLows()";
     }
 
     private static string FormatPrice(double price)
@@ -515,3 +539,5 @@ public static class IdiotScriptSerializer
         }
     }
 }
+
+

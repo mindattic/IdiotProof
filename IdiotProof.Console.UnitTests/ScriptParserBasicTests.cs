@@ -105,20 +105,40 @@ public class ScriptParserBasicTests
 
     #region Direction Tests
 
-    [TestCase("SYM(AAPL).BUY")]
-    [TestCase("SYM(AAPL).buy")]
-    [TestCase("SYM(AAPL).Buy")]
-    public void Parse_BuyDirection_CaseInsensitive(string script)
+    [TestCase("SYM(AAPL).ORDER()")]
+    [TestCase("SYM(AAPL).ORDER(IS.LONG)")]
+    [TestCase("SYM(AAPL).ORDER(LONG)")]
+    [TestCase("SYM(AAPL).order()")]
+    [TestCase("SYM(AAPL).Order(is.long)")]
+    public void Parse_OrderLongDirection_CaseInsensitive(string script)
     {
         var result = StrategyScriptParser.Parse(script);
-        // Default is buy, verify it parses without error
         Assert.That(result, Is.Not.Null);
     }
 
-    [TestCase("SYM(AAPL).SELL")]
-    [TestCase("SYM(AAPL).sell")]
-    [TestCase("SYM(AAPL).Sell")]
-    public void Parse_SellDirection_CaseInsensitive(string script)
+    [TestCase("SYM(AAPL).ORDER(IS.SHORT)")]
+    [TestCase("SYM(AAPL).ORDER(SHORT)")]
+    [TestCase("SYM(AAPL).order(is.short)")]
+    [TestCase("SYM(AAPL).Order(Short)")]
+    public void Parse_OrderShortDirection_CaseInsensitive(string script)
+    {
+        var result = StrategyScriptParser.Parse(script);
+        Assert.That(result, Is.Not.Null);
+    }
+
+    [TestCase("SYM(AAPL).LONG")]
+    [TestCase("SYM(AAPL).long")]
+    [TestCase("SYM(AAPL).Long")]
+    public void Parse_LongDirection_CaseInsensitive(string script)
+    {
+        var result = StrategyScriptParser.Parse(script);
+        Assert.That(result, Is.Not.Null);
+    }
+
+    [TestCase("SYM(AAPL).SHORT")]
+    [TestCase("SYM(AAPL).short")]
+    [TestCase("SYM(AAPL).Short")]
+    public void Parse_ShortDirection_CaseInsensitive(string script)
     {
         var result = StrategyScriptParser.Parse(script);
         Assert.That(result, Is.Not.Null);
@@ -138,3 +158,5 @@ public class ScriptParserBasicTests
 
     #endregion
 }
+
+

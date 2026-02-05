@@ -2,6 +2,7 @@
 // SegmentFactory - Creates segment templates with proper parameters
 // ============================================================================
 
+using IdiotProof.Shared.Constants;
 using IdiotProof.Shared.Enums;
 
 namespace IdiotProof.Shared.Models
@@ -41,8 +42,7 @@ namespace IdiotProof.Shared.Models
                 ],
                 [SegmentCategory.Order] =
                 [
-                    CreateBuy(),
-                    CreateSell(),
+                    CreateOrder(),
                     CreateClose()
                 ],
                 [SegmentCategory.RiskManagement] =
@@ -54,7 +54,7 @@ namespace IdiotProof.Shared.Models
                 ],
                 [SegmentCategory.PositionManagement] =
                 [
-                    CreateClosePosition()
+                    CreateClose()
                 ],
                 [SegmentCategory.OrderConfig] =
                 [
@@ -115,7 +115,7 @@ namespace IdiotProof.Shared.Models
             [
                 new SegmentParameter
                 {
-                    Name = "symbol",
+                    Name = _.Param.Symbol,
                     Label = "Symbol",
                     Type = ParameterType.String,
                     IsRequired = true,
@@ -141,7 +141,7 @@ namespace IdiotProof.Shared.Models
             [
                 new SegmentParameter
                 {
-                    Name = "session",
+                    Name = _.Param.Session,
                     Label = "Trading Session",
                     Type = ParameterType.Enum,
                     IsRequired = true,
@@ -169,7 +169,7 @@ namespace IdiotProof.Shared.Models
             [
                 new SegmentParameter
                 {
-                    Name = "level",
+                    Name = _.Param.Level,
                     Label = "Breakout Level",
                     Type = ParameterType.Price,
                     IsRequired = true,
@@ -192,7 +192,7 @@ namespace IdiotProof.Shared.Models
             [
                 new SegmentParameter
                 {
-                    Name = "level",
+                    Name = _.Param.Level,
                     Label = "Pullback Level",
                     Type = ParameterType.Price,
                     IsRequired = true,
@@ -245,6 +245,56 @@ namespace IdiotProof.Shared.Models
                     MinValue = 0.01,
                     Step = 0.01,
                     HelpText = "Price must be below this level"
+                }
+            ]
+        };
+
+        public static StrategySegment CreateGapUp() => new()
+        {
+            Type = SegmentType.GapUp,
+            Category = SegmentCategory.PriceCondition,
+            DisplayName = "Gap Up",
+            Description = "Price gapped up X% from previous close",
+            Icon = "north_east",
+            Color = GetCategoryColor(SegmentCategory.PriceCondition),
+            Parameters =
+            [
+                new SegmentParameter
+                {
+                    Name = "percentage",
+                    Label = "Gap %",
+                    Type = ParameterType.Double,
+                    IsRequired = true,
+                    MinValue = 0.1,
+                    MaxValue = 100,
+                    Step = 0.5,
+                    DefaultValue = 5.0,
+                    HelpText = "Minimum gap percentage from previous close (e.g., 5 = 5%)"
+                }
+            ]
+        };
+
+        public static StrategySegment CreateGapDown() => new()
+        {
+            Type = SegmentType.GapDown,
+            Category = SegmentCategory.PriceCondition,
+            DisplayName = "Gap Down",
+            Description = "Price gapped down X% from previous close",
+            Icon = "south_east",
+            Color = GetCategoryColor(SegmentCategory.PriceCondition),
+            Parameters =
+            [
+                new SegmentParameter
+                {
+                    Name = "percentage",
+                    Label = "Gap %",
+                    Type = ParameterType.Double,
+                    IsRequired = true,
+                    MinValue = 0.1,
+                    MaxValue = 100,
+                    Step = 0.5,
+                    DefaultValue = 5.0,
+                    HelpText = "Minimum gap percentage from previous close (e.g., 5 = 5%)"
                 }
             ]
         };
@@ -436,29 +486,40 @@ namespace IdiotProof.Shared.Models
         // ORDER SEGMENTS
         // ====================================================================
 
-        public static StrategySegment CreateBuy() => new()
+        public static StrategySegment CreateOrder() => new()
         {
-            Type = SegmentType.Buy,
+            Type = SegmentType.Order,
             Category = SegmentCategory.Order,
-            DisplayName = "Buy",
-            Description = "Place a buy order",
+            DisplayName = "Order",
+            Description = "Place an order with specified direction",
             Icon = "shopping_cart",
             Color = GetCategoryColor(SegmentCategory.Order),
             Parameters =
             [
                 new SegmentParameter
                 {
-                    Name = "quantity",
+                    Name = _.Param.Direction,
+                    Label = "Direction",
+                    Type = ParameterType.Enum,
+                    IsRequired = true,
+                    EnumTypeName = "OrderDirection",
+                    Options = [_.Direction.Long, _.Direction.Short],
+                    DefaultValue = _.Direction.Long,
+                    HelpText = "Order direction: Long (buy to open) or Short (sell to open)"
+                },
+                new SegmentParameter
+                {
+                    Name = _.Param.Quantity,
                     Label = "Quantity",
                     Type = ParameterType.Integer,
                     IsRequired = true,
                     MinValue = 1,
                     DefaultValue = 1,
-                    HelpText = "Number of shares to buy"
+                    HelpText = "Number of shares to trade"
                 },
                 new SegmentParameter
                 {
-                    Name = "priceType",
+                    Name = _.Param.PriceType,
                     Label = "Price Type",
                     Type = ParameterType.Enum,
                     IsRequired = true,
@@ -469,7 +530,7 @@ namespace IdiotProof.Shared.Models
                 },
                 new SegmentParameter
                 {
-                    Name = "orderType",
+                    Name = _.Param.OrderType,
                     Label = "Order Type",
                     Type = ParameterType.Enum,
                     IsRequired = true,
@@ -481,50 +542,35 @@ namespace IdiotProof.Shared.Models
             ]
         };
 
-        public static StrategySegment CreateSell() => new()
+        /// <summary>
+        /// Creates a Long order segment.
+        /// Convenience method that creates an Order segment with Direction preset to "Long".
+        /// </summary>
+        public static StrategySegment CreateLong()
         {
-            Type = SegmentType.Sell,
-            Category = SegmentCategory.Order,
-            DisplayName = "Sell",
-            Description = "Place a sell order",
-            Icon = "sell",
-            Color = GetCategoryColor(SegmentCategory.Order),
-            Parameters =
-            [
-                new SegmentParameter
-                {
-                    Name = "quantity",
-                    Label = "Quantity",
-                    Type = ParameterType.Integer,
-                    IsRequired = true,
-                    MinValue = 1,
-                    DefaultValue = 1,
-                    HelpText = "Number of shares to sell"
-                },
-                new SegmentParameter
-                {
-                    Name = "priceType",
-                    Label = "Price Type",
-                    Type = ParameterType.Enum,
-                    IsRequired = true,
-                    EnumTypeName = "Price",
-                    Options = Enum.GetNames<Price>().ToList(),
-                    DefaultValue = Price.Current,
-                    HelpText = "How to determine the order price"
-                },
-                new SegmentParameter
-                {
-                    Name = "orderType",
-                    Label = "Order Type",
-                    Type = ParameterType.Enum,
-                    IsRequired = true,
-                    EnumTypeName = "OrderType",
-                    Options = Enum.GetNames<OrderType>().ToList(),
-                    DefaultValue = OrderType.Limit,
-                    HelpText = "Market or Limit order"
-                }
-            ]
-        };
+            var segment = CreateOrder();
+            segment.DisplayName = "Long";
+            segment.Description = "Long order (buy to open)";
+            // Set Direction to Long
+            var dirParam = segment.Parameters.FirstOrDefault(p => p.Name.Equals(_.Param.Direction, StringComparison.OrdinalIgnoreCase));
+            if (dirParam != null) dirParam.Value = _.Direction.Long;
+            return segment;
+        }
+
+        /// <summary>
+        /// Creates a Short order segment.
+        /// Convenience method that creates an Order segment with Direction preset to "Short".
+        /// </summary>
+        public static StrategySegment CreateShort()
+        {
+            var segment = CreateOrder();
+            segment.DisplayName = "Short";
+            segment.Description = "Short order (sell to open)";
+            // Set Direction to Short
+            var dirParam = segment.Parameters.FirstOrDefault(p => p.Name.Equals(_.Param.Direction, StringComparison.OrdinalIgnoreCase));
+            if (dirParam != null) dirParam.Value = _.Direction.Short;
+            return segment;
+        }
 
         public static StrategySegment CreateClose() => new()
         {
@@ -538,7 +584,7 @@ namespace IdiotProof.Shared.Models
             [
                 new SegmentParameter
                 {
-                    Name = "quantity",
+                    Name = _.Param.Quantity,
                     Label = "Quantity",
                     Type = ParameterType.Integer,
                     IsRequired = true,
@@ -548,7 +594,7 @@ namespace IdiotProof.Shared.Models
                 },
                 new SegmentParameter
                 {
-                    Name = "positionSide",
+                    Name = _.Param.PositionSide,
                     Label = "Position Side",
                     Type = ParameterType.Enum,
                     IsRequired = true,
@@ -576,7 +622,7 @@ namespace IdiotProof.Shared.Models
             [
                 new SegmentParameter
                 {
-                    Name = "price",
+                    Name = _.Param.Price,
                     Label = "Take Profit Price",
                     Type = ParameterType.Price,
                     IsRequired = true,
@@ -672,12 +718,12 @@ namespace IdiotProof.Shared.Models
         // POSITION MANAGEMENT SEGMENTS
         // ====================================================================
 
-        public static StrategySegment CreateClosePosition() => new()
+        public static StrategySegment CreateExitStrategy() => new()
         {
-            Type = SegmentType.ClosePosition,
+            Type = SegmentType.ExitStrategy,
             Category = SegmentCategory.PositionManagement,
-            DisplayName = "Close at Time",
-            Description = "Close position at specified time",
+            DisplayName = "Exit Strategy",
+            Description = "Exit position at specified time",
             Icon = "timer",
             Color = GetCategoryColor(SegmentCategory.PositionManagement),
             Parameters =
@@ -685,21 +731,23 @@ namespace IdiotProof.Shared.Models
                 new SegmentParameter
                 {
                     Name = "time",
-                    Label = "Close Time",
+                    Label = "Exit Time",
                     Type = ParameterType.Time,
                     IsRequired = true,
-                    HelpText = "Time to close position (Eastern Time)"
-                },
-                new SegmentParameter
-                {
-                    Name = "onlyIfProfitable",
-                    Label = "Only If Profitable",
-                    Type = ParameterType.Boolean,
-                    IsRequired = false,
-                    DefaultValue = true,
-                    HelpText = "Only close if position is profitable"
+                    HelpText = "Time to exit position (Eastern Time)"
                 }
             ]
+        };
+
+        public static StrategySegment CreateIsProfitable() => new()
+        {
+            Type = SegmentType.IsProfitable,
+            Category = SegmentCategory.PositionManagement,
+            DisplayName = "Only If Profitable",
+            Description = "Only execute previous exit strategy if profitable",
+            Icon = "trending_up",
+            Color = GetCategoryColor(SegmentCategory.PositionManagement),
+            Parameters = []
         };
 
         // ====================================================================
@@ -784,3 +832,5 @@ namespace IdiotProof.Shared.Models
         };
     }
 }
+
+

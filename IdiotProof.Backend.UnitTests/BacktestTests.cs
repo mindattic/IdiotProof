@@ -38,7 +38,7 @@ public class BacktestTests
         // Arrange
         var strategy = Stock.Ticker("AAPL")
             .Breakout(150)
-            .Buy(100, Price.Current)
+            .Long().Quantity(100)
             .TakeProfit(155)
             .Build();
 
@@ -63,7 +63,7 @@ public class BacktestTests
         // Arrange - breakout at 150, but price never reaches it
         var strategy = Stock.Ticker("AAPL")
             .Breakout(150)
-            .Buy(100, Price.Current)
+            .Long().Quantity(100)
             .TakeProfit(155)
             .Build();
 
@@ -94,7 +94,7 @@ public class BacktestTests
         // Arrange
         var strategy = Stock.Ticker("AAPL")
             .Breakout(150)
-            .Buy(100, Price.Current)
+            .Long().Quantity(100)
             .TakeProfit(155)
             .Build();
 
@@ -126,7 +126,7 @@ public class BacktestTests
         // Arrange
         var strategy = Stock.Ticker("AAPL")
             .Breakout(150)
-            .Buy(100, Price.Current)
+            .Long().Quantity(100)
             .TakeProfit(160)
             .StopLoss(145)
             .Build();
@@ -164,7 +164,7 @@ public class BacktestTests
             .Breakout(7.10)
             .Pullback(6.80)
             .IsAboveVwap()
-            .Buy(1000, Price.Current)
+            .Long().Quantity(1000)
             .TakeProfit(9.00)
             .StopLoss(6.50)
             .Build();
@@ -199,7 +199,7 @@ public class BacktestTests
         var strategy = Stock.Ticker("TEST")
             .Breakout(100)
             .Pullback(95)
-            .Buy(100, Price.Current)
+            .Long().Quantity(100)
             .TakeProfit(110)
             .Build();
 
@@ -230,7 +230,7 @@ public class BacktestTests
         // Arrange - 10% trailing stop
         var strategy = Stock.Ticker("AAPL")
             .Breakout(100)
-            .Buy(100, Price.Current)
+            .Long().Quantity(100)
             .TrailingStopLoss(Percent.Ten)
             .Build();
 
@@ -263,7 +263,7 @@ public class BacktestTests
         // Arrange - TP at 130, but trailing stop catches profit at 108
         var strategy = Stock.Ticker("AAPL")
             .Breakout(100)
-            .Buy(100, Price.Current)
+            .Long().Quantity(100)
             .TakeProfit(130)
             .TrailingStopLoss(Percent.Ten)
             .Build();
@@ -297,7 +297,7 @@ public class BacktestTests
         // Arrange - Create scenario with known win/loss ratio
         var strategy = Stock.Ticker("TEST")
             .Breakout(100)
-            .Buy(100, Price.Current)
+            .Long().Quantity(100)
             .TakeProfit(105)
             .StopLoss(95)
             .Build();
@@ -337,7 +337,7 @@ public class BacktestTests
         // Arrange - 2 wins of $500 each, 1 loss of $500
         var strategy = Stock.Ticker("TEST")
             .Breakout(100)
-            .Buy(100, Price.Current)
+            .Long().Quantity(100)
             .TakeProfit(105)
             .StopLoss(95)
             .Build();
@@ -367,7 +367,7 @@ public class BacktestTests
         // Arrange
         var strategy = Stock.Ticker("TEST")
             .Breakout(100)
-            .Buy(100, Price.Current)
+            .Long().Quantity(100)
             .TakeProfit(110)
             .StopLoss(90)
             .Build();
@@ -403,7 +403,7 @@ public class BacktestTests
         // Arrange
         var strategy = Stock.Ticker("AAPL")
             .Breakout(100)
-            .Buy(100, Price.Current)
+            .Long().Quantity(100)
             .TakeProfit(105)
             .Build();
 
@@ -442,7 +442,7 @@ public class BacktestTests
         // Arrange - Strategy to close a long position when price drops
         var strategy = Stock.Ticker("AAPL")
             .IsPriceBelow(95)  // Close when price drops below 95
-            .CloseLong(100)  // Sell 100 shares
+            .CloseLong().Quantity(100)  // Sell 100 shares
             .Build();
 
         double[] prices = [100, 98, 96, 94, 92];
@@ -474,7 +474,7 @@ public class BacktestTests
         // Arrange
         var strategy = Stock.Ticker("AAPL")
             .Breakout(100)
-            .Buy(100, Price.Current)
+            .Long().Quantity(100)
             .TakeProfit(110)
             .Build();
 
@@ -518,7 +518,7 @@ public class BacktestScenarioTests
             .Breakout(500)
             .Pullback(495)
             .IsAboveVwap()
-            .Buy(50, Price.Current)
+            .Long().Quantity(50)
             .TakeProfit(520)
             .StopLoss(490)
             .TrailingStopLoss(Percent.Five)
@@ -548,7 +548,7 @@ public class BacktestScenarioTests
         // Arrange - Buy when price drops below VWAP, sell when it returns
         var strategy = Stock.Ticker("SPY")
             .IsBelowVwap(-0.50)  // Price at least $0.50 below VWAP
-            .Buy(100, Price.Current)
+            .Long().Quantity(100)
             .TakeProfit(2.00)  // $2 profit target
             .StopLoss(1.00)    // $1 stop
             .Build();
@@ -571,3 +571,5 @@ public class BacktestScenarioTests
         Console.WriteLine(result);
     }
 }
+
+

@@ -417,3 +417,5 @@ public class MacdCalculatorTests
 
     #endregion
 }
+
+

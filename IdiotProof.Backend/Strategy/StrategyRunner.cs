@@ -395,9 +395,48 @@ namespace IdiotProof.Backend.Models
             if (candles.Count > 0)
             {
                 _lastPrice = candles[^1].Close;
+
+                // Set previous close for gap conditions
+                // Use the close of the day before the last bar (or just use the first bar's open if we only have intraday data)
+                SetPreviousCloseForGapConditions(candles);
             }
 
             Log($"Historical warm-up complete. Ready for live data.", ConsoleColor.Cyan);
+        }
+
+        /// <summary>
+        /// Sets the previous session close price for all GapUp/GapDown conditions.
+        /// </summary>
+        /// <param name="candles">Historical candles to extract previous close from.</param>
+        private void SetPreviousCloseForGapConditions(List<Helpers.Candlestick> candles)
+        {
+            if (candles.Count == 0)
+                return;
+
+            // Use the close of the first candle as "previous close" (start of historical window)
+            // In a real scenario, we'd want the close from the previous trading day
+            // For now, use the first candle's open as a proxy for previous session close
+            double previousClose = candles[0].Open;
+
+            // If we have enough bars, use the close from the start of the historical window
+            if (candles.Count > 1)
+            {
+                previousClose = candles[0].Close;
+            }
+
+            foreach (var condition in _strategy.Conditions)
+            {
+                if (condition is GapUpCondition gapUp)
+                {
+                    gapUp.SetPreviousClose(previousClose);
+                    Log($"Set previous close ${previousClose:F2} for GapUp condition ({gapUp.Percentage:F1}%)", ConsoleColor.DarkGray);
+                }
+                else if (condition is GapDownCondition gapDown)
+                {
+                    gapDown.SetPreviousClose(previousClose);
+                    Log($"Set previous close ${previousClose:F2} for GapDown condition ({gapDown.Percentage:F1}%)", ConsoleColor.DarkGray);
+                }
+            }
         }
 
         /// <summary>
@@ -710,6 +749,16 @@ namespace IdiotProof.Backend.Models
                             _rocCalculator ??= new Helpers.RocCalculator(period: 10);
                             rocBelow.GetRocValue = () => _rocCalculator.CurrentValue;
                             Log($"Initialized ROC(10) calculator for '{rocBelow.Name}' condition", ConsoleColor.DarkGray);
+                            break;
+
+                        case GapUpCondition gapUp:
+                            // GapUp condition requires previous close - will be set during historical warm-up
+                            Log($"Registered GapUp condition (requires {gapUp.Percentage:F1}% gap). Previous close will be set from historical data.", ConsoleColor.DarkGray);
+                            break;
+
+                        case GapDownCondition gapDown:
+                            // GapDown condition requires previous close - will be set during historical warm-up
+                            Log($"Registered GapDown condition (requires {gapDown.Percentage:F1}% gap). Previous close will be set from historical data.", ConsoleColor.DarkGray);
                             break;
                     }
                 }
@@ -2501,3 +2550,5 @@ namespace IdiotProof.Backend.Models
         }
     }
 }
+
+

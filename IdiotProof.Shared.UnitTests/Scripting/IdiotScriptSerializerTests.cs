@@ -285,3 +285,5 @@ public class IdiotScriptSerializerTests
 
     #endregion
 }
+
+

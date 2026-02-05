@@ -21,7 +21,7 @@ public class ScriptParserIntegrationTests
     public void Parse_SimpleBreakoutStrategy()
     {
         var result = StrategyScriptParser.Parse(
-            "SYM(PLTR).QTY(10).OPEN(148.75).TP($158).TSL(15%).ABOVE_VWAP");
+            "SYM(PLTR).QTY(10).OPEN(148.75).TP($158).TSL(15%).IsAboveVwap()");
 
         Assert.That(result.Symbol, Is.EqualTo("PLTR"));
         var stats = result.GetStats();
@@ -40,7 +40,7 @@ public class ScriptParserIntegrationTests
         var result = StrategyScriptParser.Parse(
             "SYM(PLTR).NAME(\"Palantir Premarket Momentum\").QTY(10)." +
             "SESSION(PreMarketEndEarly).TP($153.50).SL($145.50).TSL(5%)." +
-            "CLOSE(9:29, Y).BREAKOUT(148).PULLBACK(145).ABOVE_VWAP.BETWEEN_EMA(9, 21)");
+            "ExitStrategy(9:29).IsProfitable().BREAKOUT(148).PULLBACK(145).IsAboveVwap().IsEmaBetween(9, 21)");
 
         Assert.That(result.Symbol, Is.EqualTo("PLTR"));
         Assert.That(result.Name, Is.EqualTo("Palantir Premarket Momentum"));
@@ -56,7 +56,7 @@ public class ScriptParserIntegrationTests
         Assert.That(sessionSegment, Is.Not.Null);
 
         // Verify close
-        var closeSegment = result.Segments.FirstOrDefault(s => s.Type == SegmentType.ClosePosition);
+        var closeSegment = result.Segments.FirstOrDefault(s => s.Type == SegmentType.ExitStrategy);
         Assert.That(closeSegment, Is.Not.Null);
 
         // Verify condition chain
@@ -77,7 +77,7 @@ public class ScriptParserIntegrationTests
         var result = StrategyScriptParser.Parse(
             "SYM(NVDA).NAME(\"NVDA Swing\").QTY(5)." +
             "OPEN(500).TP($550).SL($480)." +
-            "ABOVE_VWAP.ABOVE_EMA(21).ABOVE_EMA(50).RSI_OVERSOLD(40)");
+            "IsAboveVwap().IsEmaAbove(21).IsEmaAbove(50).IsRsiOversold(40)");
 
         Assert.That(result.Symbol, Is.EqualTo("NVDA"));
         Assert.That(result.Name, Is.EqualTo("NVDA Swing"));
@@ -94,8 +94,8 @@ public class ScriptParserIntegrationTests
     {
         var result = StrategyScriptParser.Parse(
             "SYM(SPY).QTY(100).TP($0.50).TSL(2%)." +
-            "SESSION(RTH).CLOSE(Ending, Y)." +
-            "BREAKOUT().ABOVE_VWAP.ADX_ABOVE(25)");
+            "SESSION(RTH).ExitStrategy(IS.BELL).IsProfitable()." +
+            "BREAKOUT().IsAboveVwap().IsAdxAbove(25)");
 
         Assert.That(result.Symbol, Is.EqualTo("SPY"));
 
@@ -115,8 +115,8 @@ public class ScriptParserIntegrationTests
         // New format: SYM > NAME > QTY > SESSION > OPEN > TP > SL > TSL > CLOSE > CONDITIONS
         var result = StrategyScriptParser.Parse(
             "SYM(AAPL).NAME(\"Apple Trade\").QTY(10).SESSION(RTH)." +
-            "TP($180).SL($170).TSL(5%).CLOSE(Ending, Y)." +
-            "BREAKOUT(175).ABOVE_VWAP.ABOVE_EMA(9)");
+            "TP($180).SL($170).TSL(5%).ExitStrategy(IS.BELL).IsProfitable()." +
+            "BREAKOUT(175).IsAboveVwap().IsEmaAbove(9)");
 
         Assert.That(result.Symbol, Is.EqualTo("AAPL"));
         Assert.That(result.Name, Is.EqualTo("Apple Trade"));
@@ -259,3 +259,5 @@ public class ScriptParserIntegrationTests
 
     #endregion
 }
+
+

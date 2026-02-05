@@ -280,3 +280,5 @@ public static class IdiotScriptChartGenerator
         Extended
     }
 }
+
+

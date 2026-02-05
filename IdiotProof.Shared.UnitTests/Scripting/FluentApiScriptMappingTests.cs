@@ -3,7 +3,7 @@
 // ============================================================================
 //
 // NOMENCLATURE:
-// - Fluent API: The C# builder pattern API (Stock.Ticker().Breakout().Buy())
+// - Fluent API: The C# builder pattern API (Stock.Ticker().Breakout().Long())
 // - IdiotScript: The text-based DSL (Ticker(AAPL).Breakout(150).Buy)
 // - Mapping: The bidirectional relationship between Fluent API and IdiotScript
 // - Round-trip: Converting from one format to the other and back
@@ -55,7 +55,7 @@ public class FluentApiScriptMappingTests
         {
             "Start", "Identity", "Session", "Order", "PriceCondition",
             "VwapCondition", "IndicatorCondition", "RiskManagement", "PositionManagement",
-            "OrderConfig"
+            "OrderConfig", "ExecutionBehavior"
         };
 
         foreach (var mapping in FluentApiScriptMapping.AllMappings)
@@ -278,3 +278,5 @@ public class FluentApiScriptMappingTests
 
     #endregion
 }
+
+

@@ -566,3 +566,5 @@ namespace IdiotProof.Backend.Models
         public required string ErrorMessage { get; init; }
     }
 }
+
+

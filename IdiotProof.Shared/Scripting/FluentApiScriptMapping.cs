@@ -3,8 +3,8 @@
 // ============================================================================
 //
 // NOMENCLATURE:
-// - Fluent API: The C# builder pattern API (Stock.Ticker().Breakout().Buy())
-// - IdiotScript: The text-based DSL (Ticker(AAPL).Breakout(150).Buy)
+// - Fluent API: The C# builder pattern API (Stock.Ticker().Breakout().Long())
+// - IdiotScript: The text-based DSL (Ticker(AAPL).Breakout(150).Order())
 // - Strategy: The intermediate StrategyDefinition object
 // - Segment: A single strategy component (Breakout, AboveVwap, etc.)
 //
@@ -17,7 +17,7 @@
 // - Start: Symbol/ticker commands
 // - Identity: Name, description, enabled
 // - Session: Trading session and time configuration
-// - Order: Buy/Sell/Close operations with quantity
+// - Order: Long/Short/Close operations with quantity
 // - PriceCondition: Price-based entry conditions
 // - VwapCondition: VWAP-based conditions
 // - IndicatorCondition: RSI, EMA, MACD, ADX, DI conditions
@@ -82,7 +82,7 @@ public static class FluentApiScriptMapping
             "Sets the strategy description"),
 
         new(".Enabled(enabled)",
-            ["ENABLED"],
+            ["ENABLED", "ISENABLED"],
             ["enabled: boolean (Y, YES, TRUE, N, NO, FALSE, IS.TRUE, IS.FALSE)"],
             "Identity",
             "Enables or disables the strategy"),
@@ -111,17 +111,23 @@ public static class FluentApiScriptMapping
         // ====================================================================
         // QUANTITY/ENTRY COMMANDS
         // ====================================================================
-        new(".Buy(quantity, priceType)",
-            ["BUY", "QTY", "QUANTITY"],
-            ["quantity: int (positive)", "priceType: Price enum (optional)"],
+        new(".Order(direction, quantity, priceType)",
+            ["ORDER"],
+            ["direction: IS.LONG, IS.SHORT (default: LONG)", "quantity: int (positive)", "priceType: Price enum (optional)"],
             "Order",
-            "Creates a buy order with specified quantity"),
+            "Creates an order with specified direction and quantity"),
 
-        new(".Sell(quantity, priceType)",
-            ["SELL", "QTY"],
+        new(".Long(quantity, priceType)",
+            ["ORDER", "LONG", "QTY", "QUANTITY"],
             ["quantity: int (positive)", "priceType: Price enum (optional)"],
             "Order",
-            "Creates a sell order with specified quantity"),
+            "Creates a long (buy) order with specified quantity"),
+
+        new(".Short(quantity, priceType)",
+            ["ORDER", "SHORT", "QTY"],
+            ["quantity: int (positive)", "priceType: Price enum (optional)"],
+            "Order",
+            "Creates a short (sell) order with specified quantity"),
 
         new(".Close(quantity)",
             ["CLOSE"],
@@ -167,6 +173,18 @@ public static class FluentApiScriptMapping
             ["level: double (price)"],
             "PriceCondition",
             "Price below level condition"),
+
+        new(".GapUp(percentage)",
+            ["GAPUP", "ISGAPUP"],
+            ["percentage: double (gap % from previous close)"],
+            "PriceCondition",
+            "Price gapped up by percentage from previous close"),
+
+        new(".GapDown(percentage)",
+            ["GAPDOWN", "ISGAPDOWN"],
+            ["percentage: double (gap % from previous close)"],
+            "PriceCondition",
+            "Price gapped down by percentage from previous close"),
 
         // ====================================================================
         // VWAP CONDITIONS
@@ -263,6 +281,30 @@ public static class FluentApiScriptMapping
             ["time: TimeOnly or IS.BELL, IS.OPEN, IS.CLOSE, IS.EOD", "onlyIfProfitable: boolean (optional)"],
             "PositionManagement",
             "Auto-close position at specified time"),
+
+        new(".ExitStrategy(time)",
+            ["EXITSTRATEGY"],
+            ["time: TimeOnly or IS.BELL"],
+            "PositionManagement",
+            "Sets exit strategy timing"),
+
+        new(".IsProfitable()",
+            ["PROFITABLE", "ISPROFITABLE"],
+            [],
+            "PositionManagement",
+            "Only exit if position is profitable"),
+
+        new(".Repeat(enabled)",
+            ["REPEAT", "ISREPEAT"],
+            ["enabled: boolean (default true)"],
+            "ExecutionBehavior",
+            "Allow strategy to repeat after exit"),
+
+        new(".AdaptiveOrder(mode)",
+            ["ADAPTIVEORDER", "ISADAPTIVEORDER"],
+            ["mode: IS.CONSERVATIVE, IS.BALANCED, IS.AGGRESSIVE"],
+            "RiskManagement",
+            "Enables smart dynamic TP/SL adjustment based on market conditions"),
 
         // ====================================================================
         // MACD CONDITIONS
@@ -449,8 +491,9 @@ public static class FluentApiScriptMapping
             SegmentType.IsMacd => "Macd",
             SegmentType.IsAdx => "AdxAbove",
             SegmentType.IsDI => "Di",
-            SegmentType.Buy => "Buy",
-            SegmentType.Sell => "Sell",
+            SegmentType.Order => "Order",
+            SegmentType.Long => "Long",
+            SegmentType.Short => "Short",
             SegmentType.Close => "Close",
             SegmentType.CloseLong => "CloseLong",
             SegmentType.CloseShort => "CloseShort",
@@ -459,7 +502,8 @@ public static class FluentApiScriptMapping
             SegmentType.StopLoss => "StopLoss",
             SegmentType.TrailingStopLoss => "TrailingStopLoss",
             SegmentType.TrailingStopLossAtr => "TrailingStopLossAtr",
-            SegmentType.ClosePosition => "ClosePosition",
+            SegmentType.ExitStrategy => "ExitStrategy",
+            SegmentType.IsProfitable => "IsProfitable",
             SegmentType.TimeInForce => "TimeInForce",
             SegmentType.OutsideRTH => "OutsideRTH",
             SegmentType.AllOrNone => "AllOrNone",
@@ -493,15 +537,16 @@ public static class FluentApiScriptMapping
             "MACDBULLISH" or "ISMACDBULLISH" or "MACDBEARISH" or "ISMACDBEARISH" => SegmentType.IsMacd,
             "ADXABOVE" or "ISADXABOVE" => SegmentType.IsAdx,
             "DIPOSITIVE" or "ISDIPOSITIVE" or "DINEGATIVE" or "ISDINEGATIVE" => SegmentType.IsDI,
-            "BUY" => SegmentType.Buy,
-            "SELL" => SegmentType.Sell,
+            "ORDER" or "LONG" => SegmentType.Order,
+            "SHORT" => SegmentType.Order,
             "CLOSE" => SegmentType.Close,
             "CLOSELONG" => SegmentType.CloseLong,
             "CLOSESHORT" => SegmentType.CloseShort,
             "TP" or "TAKEPROFIT" => SegmentType.TakeProfit,
             "SL" or "STOPLOSS" => SegmentType.StopLoss,
             "TSL" or "TRAILINGSTOPLOSS" => SegmentType.TrailingStopLoss,
-            "CLOSEPOSITION" => SegmentType.ClosePosition,
+            "EXITSTRATEGY" or "CLOSEPOSITION" => SegmentType.ExitStrategy,
+            "ISPROFITABLE" or "PROFITABLE" => SegmentType.IsProfitable,
             "TIMEINFORCE" or "TIF" => SegmentType.TimeInForce,
             "OUTSIDERTH" or "EXTENDEDHOURS" => SegmentType.OutsideRTH,
             "ALLORNONE" or "AON" => SegmentType.AllOrNone,
@@ -510,3 +555,5 @@ public static class FluentApiScriptMapping
         };
     }
 }
+
+

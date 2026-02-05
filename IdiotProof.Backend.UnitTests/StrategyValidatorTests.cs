@@ -42,7 +42,7 @@ public class StrategyValidatorTests
         // Arrange
         var strategy = Stock.Ticker("AAPL")
             .Breakout(150)
-            .Buy(100, Price.Current)
+            .Long().Quantity(100)
             .TakeProfit(155)
             .StopLoss(148)
             .Build();
@@ -63,13 +63,13 @@ public class StrategyValidatorTests
             Stock.Ticker("AAPL")
                 .TimeFrame(new TimeOnly(9, 30), new TimeOnly(10, 30))
                 .Breakout(150)
-                .Buy(100, Price.Current)
+                .Long().Quantity(100)
                 .TakeProfit(155)
                 .Build(),
             Stock.Ticker("MSFT")
                 .TimeFrame(new TimeOnly(11, 0), new TimeOnly(12, 0))
                 .Breakout(350)
-                .Buy(50, Price.Current)
+                .Long().Quantity(50)
                 .TakeProfit(360)
                 .Build()
         };
@@ -90,13 +90,13 @@ public class StrategyValidatorTests
             Stock.Ticker("AAPL")
                 .TimeFrame(new TimeOnly(9, 0), new TimeOnly(10, 0))
                 .Breakout(150)
-                .Buy(100, Price.Current)
+                .Long().Quantity(100)
                 .TakeProfit(155)
                 .Build(),
             Stock.Ticker("AAPL")
                 .TimeFrame(new TimeOnly(9, 30), new TimeOnly(10, 30))  // Overlaps with first
                 .Breakout(155)
-                .Buy(50, Price.Current)
+                .Long().Quantity(50)
                 .TakeProfit(160)
                 .Build()
         };
@@ -121,12 +121,12 @@ public class StrategyValidatorTests
         {
             Stock.Ticker("AAPL")
                 .Breakout(150)
-                .Buy(100, Price.Current)
+                .Long().Quantity(100)
                 .TakeProfit(155)
                 .Build(),
             Stock.Ticker("AAPL")
                 .Breakout(155)
-                .Buy(50, Price.Current)
+                .Long().Quantity(50)
                 .TakeProfit(160)
                 .Build()
         };
@@ -147,13 +147,13 @@ public class StrategyValidatorTests
             Stock.Ticker("AAPL")
                 .TimeFrame(new TimeOnly(9, 0), new TimeOnly(10, 0))
                 .Breakout(150)
-                .Buy(100, Price.Current)
+                .Long().Quantity(100)
                 .TakeProfit(155)
                 .Build(),
             Stock.Ticker("AAPL")
                 .TimeFrame(new TimeOnly(11, 0), new TimeOnly(12, 0))  // No overlap
                 .Breakout(155)
-                .Buy(50, Price.Current)
+                .Long().Quantity(50)
                 .TakeProfit(160)
                 .Build()
         };
@@ -174,14 +174,14 @@ public class StrategyValidatorTests
             Stock.Ticker("AAPL")
                 .TimeFrame(new TimeOnly(9, 0), new TimeOnly(10, 0))
                 .Breakout(150)
-                .Buy(100, Price.Current)
+                .Long().Quantity(100)
                 .TakeProfit(155)
                 .Build(),
             Stock.Ticker("AAPL")
                 .Enabled(false)  // Disabled
                 .TimeFrame(new TimeOnly(9, 30), new TimeOnly(10, 30))
                 .Breakout(155)
-                .Buy(50, Price.Current)
+                .Long().Quantity(50)
                 .TakeProfit(160)
                 .Build()
         };
@@ -335,7 +335,7 @@ public class StrategyValidatorTests
         // Arrange
         var strategy = Stock.Ticker("AAPL")
             .Breakout(150)
-            .Buy(-100, Price.Current)
+            .Long().Quantity(-100)
             .TakeProfit(155)
             .Build();
 
@@ -356,7 +356,7 @@ public class StrategyValidatorTests
         // Arrange
         var strategy = Stock.Ticker("AAPL")
             .Breakout(150)
-            .Buy(0, Price.Current)
+            .Long().Quantity(0)
             .TakeProfit(155)
             .Build();
 
@@ -700,7 +700,7 @@ public class StrategyValidatorTests
         // Arrange
         var strategy = Stock.Ticker("AAPL")
             .Breakout(150)
-            .Buy(100, Price.Current)
+            .Long().Quantity(100)
             .TrailingStopLoss(Atr.Balanced)
             .Build();
 
@@ -878,7 +878,7 @@ public class StrategyValidatorTests
         var strategy = Stock.Ticker("AAPL")
             .TimeFrame(new TimeOnly(9, 30), new TimeOnly(16, 0))
             .Breakout(150)
-            .Buy(100, Price.Current)
+            .Long().Quantity(100)
             .TakeProfit(155)
             .Build();
 
@@ -895,7 +895,7 @@ public class StrategyValidatorTests
         // Arrange - No time restrictions
         var strategy = Stock.Ticker("AAPL")
             .Breakout(150)
-            .Buy(100, Price.Current)
+            .Long().Quantity(100)
             .TakeProfit(155)
             .Build();
 
@@ -944,7 +944,7 @@ public class StrategyValidatorTests
         // Arrange
         var strategy = Stock.Ticker("AAPL")
             .Breakout(150)
-            .Buy(100, Price.Current)
+            .Long().Quantity(100)
             .TakeProfit(155)
             .Build();
 
@@ -961,7 +961,7 @@ public class StrategyValidatorTests
         // Arrange
         var strategy = Stock.Ticker("AAPL")
             .Breakout(150)
-            .Buy(100, Price.Current)
+            .Long().Quantity(100)
             .StopLoss(145)
             .Build();
 
@@ -978,7 +978,7 @@ public class StrategyValidatorTests
         // Arrange
         var strategy = Stock.Ticker("AAPL")
             .Breakout(150)
-            .Buy(100, Price.Current)
+            .Long().Quantity(100)
             .TrailingStopLoss(Percent.Ten)
             .Build();
 
@@ -995,7 +995,7 @@ public class StrategyValidatorTests
         // Arrange
         var strategy = Stock.Ticker("AAPL")
             .Breakout(150)
-            .Buy(500, Price.Current)
+            .Long().Quantity(500)
             .AllOrNone(true)
             .TakeProfit(155)
             .Build();
@@ -1017,7 +1017,7 @@ public class StrategyValidatorTests
         // Arrange
         var strategy = Stock.Ticker("AAPL")
             .Breakout(150)
-            .Buy(50, Price.Current)
+            .Long().Quantity(50)
             .AllOrNone(true)
             .TakeProfit(155)
             .Build();
@@ -1087,7 +1087,7 @@ public class StrategyValidatorTests
         // Arrange
         var result = StrategyValidator.Validate(Stock.Ticker("AAPL")
             .Breakout(150)
-            .Buy(100, Price.Current)
+            .Long().Quantity(100)
             .TakeProfit(155)
             .Build());
 
@@ -1097,3 +1097,5 @@ public class StrategyValidatorTests
 
     #endregion
 }
+
+

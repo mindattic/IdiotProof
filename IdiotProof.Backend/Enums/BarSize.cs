@@ -37,3 +37,5 @@ namespace IdiotProof.Backend.Enums
         Days1
     }
 }
+
+

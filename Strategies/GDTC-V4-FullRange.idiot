@@ -1,0 +1,55 @@
+# ============================================================================
+# GDTC-V4-FullRange - Full Range with Adaptive
+# ============================================================================
+#
+# CHART ANALYSIS (Live Data):
+# - Current: $1.19 | VWAP: $1.16 | EMA(21): $1.19
+# - ADX: 18.6 (WEAK) | Range: $1.10 - $1.25
+# - Status: Consolidating above VWAP
+# - Recent high: $1.35
+#
+# STRATEGY:
+# Aggressive play for full range to previous highs. Uses AdaptiveOrder
+# to manage dynamically. Need breakout over $1.25 resistance.
+#
+# ╔═══════════════════════════════════════════════════════════════════════════╗
+# ║  PROFIT POTENTIAL                                                         ║
+# ║                                                                           ║
+# ║  Entry: $1.18  |  Target: $1.50  |  Stop: $1.02                          ║
+# ║                                                                           ║
+# ║  Potential Gain: $0.32 (27% from entry)                                  ║
+# ║  Risk: $0.16 (13.5% from entry)                                          ║
+# ║  R:R Ratio: 2:1 (ACCEPTABLE)                                             ║
+# ╚═══════════════════════════════════════════════════════════════════════════╝
+#
+# RISK: ADX weak - trend may not develop
+# ============================================================================
+
+Ticker(GDTC)
+.Name("GDTC Full Range Adaptive")
+.Session(IS.EXTENDED)
+.Qty(57)
+
+# Breakout over consolidation
+.Breakout(1.25)
+.Pullback(1.18)
+
+# Strong confirmation required
+.IsAboveVwap()
+.IsEmaAbove(21)
+.IsDiPositive()
+.IsMomentumAbove(0)
+
+# Order execution
+.Long()
+.Quantity(57)
+
+# Full range target - AdaptiveOrder will manage
+.TakeProfit(1.50)
+.StopLoss(1.02)
+
+# Smart order management for maximum gains
+.AdaptiveOrder(IS.AGGRESSIVE)
+
+# Exit at bell if still open
+.ExitStrategy(IS.BELL).IsProfitable()

@@ -345,3 +345,5 @@ public class ConnectionResilienceTests
         Assert.DoesNotThrow(() => _wrapper.error(-1, 1102, "Connectivity restored."));
     }
 }
+
+

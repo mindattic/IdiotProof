@@ -84,3 +84,5 @@ public static class IpcLogger
         return text.Length <= maxLength ? text : text[..maxLength] + "...";
     }
 }
+
+

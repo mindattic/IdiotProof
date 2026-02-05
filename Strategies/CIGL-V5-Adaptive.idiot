@@ -27,7 +27,7 @@
 
 Ticker(CIGL)
 .Name("CIGL Adaptive Aggressive")
-.Session(IS.PREMARKET)
+.Session(IS.EXTENDED)
 .Qty(100)
 
 # Entry at pullback to VWAP area

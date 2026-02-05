@@ -141,12 +141,12 @@ namespace IdiotProof.Shared.Models
         {
             var stats = new StrategyStats();
 
-            // Get Buy segment
-            var buySegment = Segments.FirstOrDefault(s => s.Type == Enums.SegmentType.Buy);
-            if (buySegment != null)
+            // Get Order segment (unified type)
+            var orderSegment = Segments.FirstOrDefault(s => s.Type == Enums.SegmentType.Order);
+            if (orderSegment != null)
             {
-                var qtyParam = buySegment.Parameters.FirstOrDefault(p => p.Name.Equals("Quantity", StringComparison.OrdinalIgnoreCase));
-                var limitPriceParam = buySegment.Parameters.FirstOrDefault(p => p.Name.Equals("LimitPrice", StringComparison.OrdinalIgnoreCase));
+                var qtyParam = orderSegment.Parameters.FirstOrDefault(p => p.Name.Equals("Quantity", StringComparison.OrdinalIgnoreCase));
+                var limitPriceParam = orderSegment.Parameters.FirstOrDefault(p => p.Name.Equals("LimitPrice", StringComparison.OrdinalIgnoreCase));
 
                 if (qtyParam?.Value != null)
                     stats.Quantity = Convert.ToInt32(qtyParam.Value);
@@ -282,3 +282,5 @@ namespace IdiotProof.Shared.Models
         public DateTime LastModified { get; set; } = DateTime.UtcNow;
     }
 }
+
+

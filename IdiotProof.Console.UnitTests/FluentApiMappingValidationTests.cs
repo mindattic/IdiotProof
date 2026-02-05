@@ -3,7 +3,7 @@
 // ============================================================================
 //
 // NOMENCLATURE:
-// - Fluent API: The C# builder pattern API (Stock.Ticker().Breakout().Buy())
+// - Fluent API: The C# builder pattern API (Stock.Ticker().Breakout().Long())
 // - IdiotScript: The text-based DSL (Ticker(AAPL).Breakout(150).Buy)
 // - Mapping: The bidirectional relationship between Fluent API and IdiotScript
 // - Round-trip: Converting from one format to the other and back
@@ -59,7 +59,8 @@ public class FluentApiMappingValidationTests
         var validCategories = new HashSet<string>
         {
             "Start", "Identity", "Session", "Order", "PriceCondition",
-            "VwapCondition", "IndicatorCondition", "RiskManagement", "PositionManagement", "OrderConfig"
+            "VwapCondition", "IndicatorCondition", "RiskManagement", "PositionManagement", "OrderConfig",
+            "ExecutionBehavior"
         };
 
         // Assert
@@ -181,8 +182,8 @@ public class FluentApiMappingValidationTests
     [TestCase("TICKER")]
     [TestCase("SYM")]
     [TestCase("SYMBOL")]
-    [TestCase("BUY")]
-    [TestCase("SELL")]
+    [TestCase("LONG")]
+    [TestCase("SHORT")]
     [TestCase("TP")]
     [TestCase("SL")]
     [TestCase("TSL")]
@@ -199,8 +200,8 @@ public class FluentApiMappingValidationTests
     }
 
     [TestCase("Stock.Ticker")]
-    [TestCase(".Buy")]
-    [TestCase(".Sell")]
+    [TestCase(".Long")]
+    [TestCase(".Short")]
     [TestCase(".TakeProfit")]
     [TestCase(".StopLoss")]
     [TestCase(".TrailingStopLoss")]
@@ -218,3 +219,5 @@ public class FluentApiMappingValidationTests
 
     #endregion
 }
+
+

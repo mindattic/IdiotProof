@@ -147,8 +147,9 @@ public class SecurityValidationTests
         Assert.That(IdiotScriptValidator.ValidCommands, Does.Contain("TICKER"));
         Assert.That(IdiotScriptValidator.ValidCommands, Does.Contain("SYM"));
         Assert.That(IdiotScriptValidator.ValidCommands, Does.Contain("SYMBOL"));
-        Assert.That(IdiotScriptValidator.ValidCommands, Does.Contain("BUY"));
-        Assert.That(IdiotScriptValidator.ValidCommands, Does.Contain("SELL"));
+        Assert.That(IdiotScriptValidator.ValidCommands, Does.Contain("ORDER"));
+        Assert.That(IdiotScriptValidator.ValidCommands, Does.Contain("LONG"));
+        Assert.That(IdiotScriptValidator.ValidCommands, Does.Contain("SHORT"));
         Assert.That(IdiotScriptValidator.ValidCommands, Does.Contain("QTY"));
         Assert.That(IdiotScriptValidator.ValidCommands, Does.Contain("TP"));
         Assert.That(IdiotScriptValidator.ValidCommands, Does.Contain("SL"));
@@ -244,7 +245,7 @@ public class SecurityValidationTests
     public void Sanitize_RemovesXssContent()
     {
         // Arrange
-        var malicious = "TICKER(AAPL)<script>alert('xss')</script>.BUY";
+        var malicious = "TICKER(AAPL)<script>alert('xss')</script>.Order()";
 
         // Act
         var sanitized = IdiotScriptValidator.Sanitize(malicious);
@@ -257,7 +258,7 @@ public class SecurityValidationTests
     public void Sanitize_RemovesSqlInjectionContent()
     {
         // Arrange
-        var malicious = "TICKER(AAPL); DROP TABLE users; --.BUY";
+        var malicious = "TICKER(AAPL); DROP TABLE users; --.Order()";
 
         // Act
         var sanitized = IdiotScriptValidator.Sanitize(malicious);
@@ -271,7 +272,7 @@ public class SecurityValidationTests
     public void Sanitize_NormalizesWhitespace()
     {
         // Arrange
-        var messy = "TICKER(AAPL)    .    BUY    .    TP(160)";
+        var messy = "TICKER(AAPL)    .    Order()    .    TP(160)";
 
         // Act
         var sanitized = IdiotScriptValidator.Sanitize(messy);
@@ -405,7 +406,7 @@ public class SecurityValidationTests
     public void Validate_ValidScript_Succeeds()
     {
         // Arrange
-        var script = "TICKER(AAPL).SESSION(IS.PREMARKET).BREAKOUT(150).BUY.TP(160).SL(145)";
+        var script = "TICKER(AAPL).SESSION(IS.PREMARKET).BREAKOUT(150).Order().TP(160).SL(145)";
 
         // Act
         var result = IdiotScriptValidator.Validate(script);
@@ -432,7 +433,7 @@ public class SecurityValidationTests
     public void Validate_MaliciousScript_ReturnsSecurityError()
     {
         // Arrange
-        var script = "TICKER(AAPL)<script>alert('xss')</script>.BUY";
+        var script = "TICKER(AAPL)<script>alert('xss')</script>.Order()";
 
         // Act
         var result = IdiotScriptValidator.Validate(script);
@@ -444,3 +445,5 @@ public class SecurityValidationTests
 
     #endregion
 }
+
+

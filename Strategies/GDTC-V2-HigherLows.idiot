@@ -1,0 +1,59 @@
+# ============================================================================
+# GDTC-V2-HigherLows - Higher Lows Confirmation Strategy
+# ============================================================================
+#
+# CHART ANALYSIS (Live Data):
+# - Current: $1.19 | VWAP: $1.16 | EMA(21): $1.19
+# - ADX: 18.6 (WEAK trend)
+# - Status: Consolidating above VWAP - building base
+# - Range: $1.10 - $1.25 | Recent high: $1.35
+#
+# STRATEGY:
+# Focus on higher lows pattern to confirm buyers accumulating. Need to
+# see progressive higher lows before breakout over $1.25 resistance.
+#
+# ╔═══════════════════════════════════════════════════════════════════════════╗
+# ║  HIGHER LOWS IN CONSOLIDATION                                             ║
+# ║                                                                           ║
+# ║  $1.25 resistance ----------------------------------------              ║
+# ║                     /\                                                   ║
+# ║              /\    /  \   <- Current $1.19                              ║
+# ║       /\    /  \__/    \                                                 ║
+# ║  $1.16 VWAP ============================================                 ║
+# ║      /  \__/  ↑         ↑                                               ║
+# ║           Higher      Higher                                             ║
+# ║             Low         Low                                              ║
+# ╚═══════════════════════════════════════════════════════════════════════════╝
+#
+# RISK: Weak ADX - no confirmed trend yet
+# ============================================================================
+
+Ticker(GDTC)
+.Name("GDTC Higher Lows")
+.Session(IS.EXTENDED)
+.Qty(57)
+
+# Breakout over consolidation resistance
+.Breakout(1.25)
+
+# Pullback to VWAP area
+.Pullback(1.17)
+
+# Higher lows pattern - key confirmation
+.IsHigherLows()
+.IsAboveVwap()
+.IsEmaAbove(21)
+
+# Order execution
+.Long()
+.Quantity(57)
+
+# Target previous high
+.TakeProfit(1.45)
+.StopLoss(1.06)
+
+# Trailing stop to ride the trend
+.TrailingStopLoss(5)
+
+# Exit at bell if still open
+.ExitStrategy(IS.BELL).IsProfitable()

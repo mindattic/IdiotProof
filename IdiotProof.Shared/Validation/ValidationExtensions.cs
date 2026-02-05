@@ -74,12 +74,12 @@ namespace IdiotProof.Shared.Validation
             var errors = new List<ValidationError>();
             var warnings = new List<ValidationWarning>();
 
-            // Verify all parameters have values
+            // Verify all parameters have values (or defaults)
             foreach (var segment in strategy.Segments)
             {
                 foreach (var param in segment.Parameters.Where(p => p.IsRequired))
                 {
-                    if (param.Value == null)
+                    if (param.Value == null && param.DefaultValue == null)
                     {
                         errors.Add(new ValidationError(
                             ValidationCodes.MissingRequiredField,
@@ -205,3 +205,5 @@ namespace IdiotProof.Shared.Validation
         }
     }
 }
+
+

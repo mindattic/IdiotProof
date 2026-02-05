@@ -333,3 +333,5 @@ public class AtrCalculatorTests
 
     #endregion
 }
+
+

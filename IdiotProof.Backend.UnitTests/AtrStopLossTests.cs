@@ -392,7 +392,7 @@ public class AtrStopLossTests
     {
         var strategy = Stock.Ticker("TEST")
             .IsPriceAbove(10.00)
-            .Buy(quantity: 100, Price.Current)
+            .Long().Quantity(100)
             .TrailingStopLoss(Atr.Tight)
             .Build();
 
@@ -407,7 +407,7 @@ public class AtrStopLossTests
     {
         var strategy = Stock.Ticker("TEST")
             .IsPriceAbove(10.00)
-            .Buy(quantity: 100, Price.Current)
+            .Long().Quantity(100)
             .TrailingStopLoss(Atr.Balanced)
             .Build();
 
@@ -422,7 +422,7 @@ public class AtrStopLossTests
     {
         var strategy = Stock.Ticker("TEST")
             .IsPriceAbove(10.00)
-            .Buy(quantity: 100, Price.Current)
+            .Long().Quantity(100)
             .TrailingStopLoss(Atr.Loose)
             .Build();
 
@@ -437,7 +437,7 @@ public class AtrStopLossTests
     {
         var strategy = Stock.Ticker("TEST")
             .IsPriceAbove(10.00)
-            .Buy(quantity: 100, Price.Current)
+            .Long().Quantity(100)
             .TrailingStopLoss(Atr.VeryLoose)
             .Build();
 
@@ -452,7 +452,7 @@ public class AtrStopLossTests
     {
         var strategy = Stock.Ticker("TEST")
             .IsPriceAbove(10.00)
-            .Buy(quantity: 100, Price.Current)
+            .Long().Quantity(100)
             .TrailingStopLoss(Atr.Multiplier(2.5))
             .Build();
 
@@ -467,7 +467,7 @@ public class AtrStopLossTests
     {
         var strategy = Stock.Ticker("TEST")
             .IsPriceAbove(10.00)
-            .Buy(quantity: 100, Price.Current)
+            .Long().Quantity(100)
             .TrailingStopLoss(Atr.WithBounds(2.0, 0.02, 0.15))
             .Build();
 
@@ -485,7 +485,7 @@ public class AtrStopLossTests
         // Start with ATR, then switch to percent
         var strategy = Stock.Ticker("TEST")
             .IsPriceAbove(10.00)
-            .Buy(quantity: 100, Price.Current)
+            .Long().Quantity(100)
             .TrailingStopLoss(Atr.Balanced)
             .TrailingStopLoss(Percent.Ten) // Override with percent
             .Build();
@@ -501,7 +501,7 @@ public class AtrStopLossTests
     {
         var strategy = Stock.Ticker("TEST")
             .IsPriceAbove(10.00)
-            .Buy(quantity: 100, Price.Current)
+            .Long().Quantity(100)
             .TrailingStopLoss(Atr.Balanced)
             .Build();
 
@@ -604,10 +604,10 @@ public class AtrStopLossTests
             .TimeFrame(TradingSession.PreMarketEndEarly)
             .IsPriceAbove(150.00)
             .IsAboveVwap()
-            .Buy(quantity: 100, Price.Current)
-            .TakeProfit(160.00, 175.00)
+            .Long().Quantity(100)
+            .AdxTakeProfit(AdxTakeProfitConfig.FromRange(160.00, 175.00))
             .TrailingStopLoss(Atr.Balanced)
-            .ClosePosition(MarketTime.PreMarket.Ending, false)
+            .ExitStrategy(MarketTime.PreMarket.Ending)
             .Build();
 
         Assert.That(strategy.Symbol, Is.EqualTo("AAPL"));
@@ -624,7 +624,7 @@ public class AtrStopLossTests
         // Last one wins
         var strategy = Stock.Ticker("TEST")
             .IsPriceAbove(10.00)
-            .Buy(quantity: 100, Price.Current)
+            .Long().Quantity(100)
             .TrailingStopLoss(Percent.Five)
             .TrailingStopLoss(Atr.Tight)
             .TrailingStopLoss(Atr.Loose)
@@ -668,3 +668,5 @@ public class AtrStopLossTests
         return calc;
     }
 }
+
+

@@ -19,7 +19,7 @@ public class FluentApiToIdiotScriptTests
 
     /// <summary>
     /// Fluent API:
-    ///   Stock.Ticker("AAPL").Breakout(150).Buy(100).TakeProfit(155).StopLoss(148).Build()
+    ///   Stock.Ticker("AAPL").Breakout(150).Long(100).TakeProfit(155).StopLoss(148).Build()
     /// </summary>
     [Test]
     [Description("Basic buy strategy with breakout, TP, and SL")]
@@ -48,7 +48,7 @@ public class FluentApiToIdiotScriptTests
 
     /// <summary>
     /// Fluent API:
-    ///   Stock.Ticker("AAPL").TimeFrame(TradingSession.PreMarket).Breakout(150).Buy(100).TakeProfit(155).Build()
+    ///   Stock.Ticker("AAPL").TimeFrame(TradingSession.PreMarket).Breakout(150).Long(100).TakeProfit(155).Build()
     /// </summary>
     [Test]
     [Description("PreMarket session strategy")]
@@ -69,7 +69,7 @@ public class FluentApiToIdiotScriptTests
 
     /// <summary>
     /// Fluent API:
-    ///   Stock.Ticker("NVDA").Breakout(200).IsAboveVwap().Buy(50).TakeProfit(210).Build()
+    ///   Stock.Ticker("NVDA").Breakout(200).IsAboveVwap().Long(50).TakeProfit(210).Build()
     /// </summary>
     [Test]
     [Description("Strategy with VWAP condition")]
@@ -95,7 +95,7 @@ public class FluentApiToIdiotScriptTests
     /// <summary>
     /// Fluent API:
     ///   Stock.Ticker("ABC").TimeFrame(TradingSession.RTH).IsPriceAbove(5.00).IsAboveVwap()
-    ///       .Buy(100).TakeProfit(6.00).StopLoss(4.50).Repeat().Build()
+    ///       .Long(100).TakeProfit(6.00).StopLoss(4.50).Repeat().Build()
     /// </summary>
     [Test]
     [Description("Repeating scalp strategy - full example")]
@@ -127,7 +127,7 @@ public class FluentApiToIdiotScriptTests
 
     /// <summary>
     /// Fluent API:
-    ///   Stock.Ticker("ABC").IsPriceAbove(5.00).Repeat(false).Buy(100).TakeProfit(6.00).Build()
+    ///   Stock.Ticker("ABC").IsPriceAbove(5.00).Repeat(false).Long(100).TakeProfit(6.00).Build()
     /// </summary>
     [Test]
     [Description("Non-repeating strategy with explicit false")]
@@ -150,7 +150,7 @@ public class FluentApiToIdiotScriptTests
 
     /// <summary>
     /// Fluent API:
-    ///   Stock.Ticker("TSLA").Breakout(250).Buy(25).TakeProfit(260).TrailingStopLoss(0.10).Build()
+    ///   Stock.Ticker("TSLA").Breakout(250).Long(25).TakeProfit(260).TrailingStopLoss(0.10).Build()
     /// </summary>
     [Test]
     [Description("Strategy with trailing stop loss")]
@@ -171,20 +171,36 @@ public class FluentApiToIdiotScriptTests
 
     /// <summary>
     /// Fluent API:
-    ///   Stock.Ticker("GOOG").Breakout(140).Buy(10).TakeProfit(145).ClosePosition(time).Build()
+    ///   Stock.Ticker("GOOG").Breakout(140).Long(10).TakeProfit(145).ExitStrategy(time).Build()
     /// </summary>
     [Test]
-    [Description("Strategy with close position time")]
-    public void ClosePositionTime_FluentToIdiotScript_Equivalent()
+    [Description("Strategy with exit strategy time")]
+    public void ExitStrategyTime_FluentToIdiotScript_Equivalent()
     {
-        var script = "Ticker(GOOG).Breakout(140).Qty(10).TakeProfit(145).ClosePosition(IS.BELL)";
+        var script = "Ticker(GOOG).Breakout(140).Qty(10).TakeProfit(145).ExitStrategy(IS.BELL)";
 
         var strategy = IdiotScriptParser.Parse(script);
 
         Assert.Multiple(() =>
         {
             Assert.That(strategy.Symbol, Is.EqualTo("GOOG"));
-            Assert.That(strategy.Segments, Has.Some.Matches<StrategySegment>(s => s.Type == SegmentType.ClosePosition));
+            Assert.That(strategy.Segments, Has.Some.Matches<StrategySegment>(s => s.Type == SegmentType.ExitStrategy));
+        });
+    }
+
+    [Test]
+    [Description("Strategy with exit strategy and IsProfitable")]
+    public void ExitStrategyWithIsProfitable_FluentToIdiotScript_Equivalent()
+    {
+        var script = "Ticker(GOOG).Breakout(140).TakeProfit(145).ExitStrategy(IS.BELL).IsProfitable()";
+
+        var strategy = IdiotScriptParser.Parse(script);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(strategy.Symbol, Is.EqualTo("GOOG"));
+            Assert.That(strategy.Segments, Has.Some.Matches<StrategySegment>(s => s.Type == SegmentType.ExitStrategy));
+            Assert.That(strategy.Segments, Has.Some.Matches<StrategySegment>(s => s.Type == SegmentType.IsProfitable));
         });
     }
 
@@ -195,7 +211,7 @@ public class FluentApiToIdiotScriptTests
         /// <summary>
         /// Fluent API:
         ///   Stock.Ticker("NVDA").TimeFrame(TradingSession.PreMarket).Breakout(200).Pullback(198)
-        ///       .IsAboveVwap().Buy(1).TakeProfit(210).StopLoss(195).TrailingStopLoss(0.15)
+        ///       .IsAboveVwap().Long(1).TakeProfit(210).StopLoss(195).TrailingStopLoss(0.15)
         ///       .ClosePosition(time).Repeat().Build()
         /// </summary>
         [Test]
@@ -217,7 +233,7 @@ public class FluentApiToIdiotScriptTests
                 Assert.That(strategy.Segments, Has.Some.Matches<StrategySegment>(s => s.Type == SegmentType.TakeProfit));
                 Assert.That(strategy.Segments, Has.Some.Matches<StrategySegment>(s => s.Type == SegmentType.StopLoss));
                 Assert.That(strategy.Segments, Has.Some.Matches<StrategySegment>(s => s.Type == SegmentType.TrailingStopLoss));
-                Assert.That(strategy.Segments, Has.Some.Matches<StrategySegment>(s => s.Type == SegmentType.ClosePosition));
+                Assert.That(strategy.Segments, Has.Some.Matches<StrategySegment>(s => s.Type == SegmentType.ExitStrategy));
                 Assert.That(strategy.Segments, Has.Some.Matches<StrategySegment>(s => s.Type == SegmentType.Repeat));
             });
         }
@@ -228,7 +244,7 @@ public class FluentApiToIdiotScriptTests
 
         /// <summary>
         /// Fluent API:
-    ///   Stock.Ticker("META").Enabled(false).Breakout(300).Buy(10).TakeProfit(310).Build()
+    ///   Stock.Ticker("META").Enabled(false).Breakout(300).Long(10).TakeProfit(310).Build()
     /// </summary>
     [Test]
     [Description("Disabled strategy")]
@@ -247,7 +263,7 @@ public class FluentApiToIdiotScriptTests
 
     /// <summary>
     /// Fluent API:
-    ///   Stock.Ticker("META").Enabled(true).Breakout(300).Buy(10).TakeProfit(310).Build()
+    ///   Stock.Ticker("META").Enabled(true).Breakout(300).Long(10).TakeProfit(310).Build()
     /// </summary>
     [Test]
     [Description("Enabled strategy with explicit flag")]
@@ -270,13 +286,13 @@ public class FluentApiToIdiotScriptTests
 
     /// <summary>
     /// Fluent API:
-    ///   Stock.Ticker("SPY").IsPriceBelow(450).Sell(50).StopLoss(455).Build()
+    ///   Stock.Ticker("SPY").IsPriceBelow(450).Short(50).StopLoss(455).Build()
     /// </summary>
     [Test]
     [Description("Short position strategy")]
     public void ShortPosition_FluentToIdiotScript_Equivalent()
     {
-        var script = "Ticker(SPY).IsPriceBelow(450).Sell.Qty(50).StopLoss(455)";
+        var script = "Ticker(SPY).IsPriceBelow(450).Order(IS.SHORT).Qty(50).StopLoss(455)";
 
         var strategy = IdiotScriptParser.Parse(script);
 
@@ -284,8 +300,12 @@ public class FluentApiToIdiotScriptTests
         {
             Assert.That(strategy.Symbol, Is.EqualTo("SPY"));
             Assert.That(strategy.Segments, Has.Some.Matches<StrategySegment>(s => s.Type == SegmentType.IsPriceBelow));
-            Assert.That(strategy.Segments, Has.Some.Matches<StrategySegment>(s => s.Type == SegmentType.Sell));
+            Assert.That(strategy.Segments, Has.Some.Matches<StrategySegment>(s => s.Type == SegmentType.Order));
             Assert.That(strategy.Segments, Has.Some.Matches<StrategySegment>(s => s.Type == SegmentType.StopLoss));
+            // Verify it's a SHORT order
+            var orderSegment = strategy.Segments.First(s => s.Type == SegmentType.Order);
+            var directionParam = orderSegment.Parameters.FirstOrDefault(p => p.Name == "Direction");
+            Assert.That(directionParam?.Value?.ToString(), Is.EqualTo("Short"));
         });
     }
 
@@ -410,8 +430,8 @@ public class FluentApiToIdiotScriptTests
 // | .IsMacd(MacdState.Bearish)          | .MacdBearish()                      |
 // | .IsDI(DiDirection.Positive)         | .DiPositive()                       |
 // | .IsDI(DiDirection.Negative)         | .DiNegative()                       |
-// | .Buy(100)                           | .Qty(100) (default is Buy)          |
-// | .Sell(100)                          | .Sell().Qty(100)                    |
+// | .Long(100)                           | .Qty(100) (default is Buy)          |
+// | .Short(100)                          | .Short().Qty(100)                    |
 // | .TakeProfit(155)                    | .TakeProfit(155) or .TP(155)        |
 // | .StopLoss(148)                      | .StopLoss(148) or .SL(148)          |
 // | .TrailingStopLoss(0.10)             | .TrailingStopLoss(IS.MODERATE)      |
@@ -421,3 +441,5 @@ public class FluentApiToIdiotScriptTests
 // | .Repeat(false)                      | .Repeat(N) or .Repeat(false)        |
 // | .Build()                            | (implicit, script is complete)      |
 // =========================================================================
+
+

@@ -80,3 +80,5 @@ namespace IdiotProof.Shared.Services
         Task CleanupOldTradesAsync(int daysToKeep = 30);
     }
 }
+
+

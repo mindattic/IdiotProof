@@ -31,7 +31,7 @@ namespace IdiotProof.Backend.Enums
     /// Stock.Ticker("AAPL")
     ///     .SessionDuration(TradingSession.Active)  // No time restrictions
     ///     .Breakout(150)
-    ///     .Buy(100, Price.Current)
+    ///     .Long(100, Price.Current)
     ///     .Build();
     /// </code>
     /// </remarks>
@@ -110,3 +110,5 @@ namespace IdiotProof.Backend.Enums
         AfterHoursEndEarly
     }
 }
+
+

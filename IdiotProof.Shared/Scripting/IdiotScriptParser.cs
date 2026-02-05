@@ -19,10 +19,17 @@
 // - Valid starts: TICKER(AAPL), SYM(AAPL), SYMBOL(AAPL), STOCK.TICKER(AAPL), STOCK.SYMBOL(AAPL), STRATEGY.
 //
 // COMMAND CATEGORIES:
-// 1. ORDER PART - Defines what to buy/sell (QTY, BUY/SELL, TP, SL, TSL, ENTRY)
-// 2. STEPS PART - Defines entry conditions (BREAKOUT, PULLBACK, VWAP, EMA, RSI, ADX, MACD, DI)
+// 1. ORDER PART - Defines what to trade (QTY, ORDER, TP, SL, TSL, ENTRY)
+// 2. STEPS PART - Defines entry conditions (BREAKOUT, PULLBACK, VWAP, EMA, RSI, ADX, MACD, DI, GAPUP, GAPDOWN)
 // 3. SESSION PART - Defines timing (SESSION, CLOSEPOSITION)
 // 4. ORDER CONFIG - Order settings (TIMEINFORCE, OUTSIDERTH, ALLORNONE, ORDERTYPE)
+//
+// COMMAND CLARIFICATION:
+// - ENTRY(price) = A CONDITION that triggers when price reaches a level (alias for IsPriceAbove)
+// - ORDER() = An ACTION that executes an order when all conditions are met (default: LONG)
+// - ORDER(IS.LONG) = Opens a long position
+// - ORDER(IS.SHORT) = Opens a short position
+// - These are NOT the same! Entry is a trigger condition, Order is the order execution.
 //
 // AVAILABLE COMMANDS:
 // - TICKER(AAPL) or SYM(AAPL) or SYMBOL(AAPL) - Set the stock symbol (required)
@@ -30,9 +37,11 @@
 // - NAME("My Strategy")           - Strategy name
 // - DESC("Description")           - Strategy description
 // - QTY(100)                      - Set quantity to buy/sell
-// - ENTRY(148.75) or PRICE(148.75)- Entry price condition
+// - ENTRY(148.75) or PRICE(148.75)- Entry price CONDITION (triggers when price >= level)
 // - IsPriceAbove(150)             - Price above level condition
 // - IsPriceBelow(140)             - Price below level condition
+// - GapUp(5) or GapUp(5%)         - Price gapped up X% from previous close
+// - GapDown(3) or GapDown(3%)     - Price gapped down X% from previous close
 // - TP(158) or TakeProfit($158)   - Take profit target
 // - SL(145) or StopLoss($145)     - Stop loss price
 // - TSL(15) or TrailingStopLoss(IS.MODERATE) - Trailing stop loss percentage
@@ -60,8 +69,10 @@
 // - Breakout() or Breakout(150)   - Breakout condition
 // - Pullback() or Pullback(148)   - Pullback condition
 // - SESSION(IS.PREMARKET)         - Set trading session
-// - ClosePosition(IS.BELL)        - Close position time
-// - Buy() or Sell()               - Order direction (Buy is default)
+// - ExitStrategy(IS.BELL)         - Exit position at time (single-responsibility)
+// - IsProfitable()                - Only exit if position is profitable
+// - Order() or Order(IS.LONG) or Order(IS.SHORT) - Order direction (LONG is default)
+// - Long() or Short()             - Explicit order direction aliases
 // - CloseLong() or CloseShort()   - Close a position
 // - Enabled() or IsEnabled() or Enabled(Y) or IsEnabled(IS.True) - Enable strategy (default: true)
 // - Enabled(N) or IsEnabled(IS.False) - Disable strategy
@@ -77,6 +88,9 @@
 //
 // EXAMPLE:
 // Ticker(NVDA).Session(IS.PREMARKET).ClosePosition(IS.BELL).Qty(1).Entry(200).TakeProfit(201).StopLoss(190).TrailingStopLoss(10).Breakout().Pullback().AboveVwap().EmaBetween(9, 21).EmaAbove(200).MomentumAbove(0)
+//
+// GAP AND GO EXAMPLE:
+// Ticker(NVDA).Session(IS.PREMARKET).GapUp(5).AboveVwap().DiPositive().Order().AdaptiveOrder(IS.AGGRESSIVE)
 //
 // REPEATING STRATEGY EXAMPLE:
 // Ticker(ABC).Entry(5.00).TakeProfit(6.00).AboveVwap().DiPositive().Repeat()
@@ -133,8 +147,14 @@ public static partial class IdiotScriptParser
     [GeneratedRegex(@"^SESSION\(([^)]+)\)$", RegexOptions.IgnoreCase)]
     private static partial Regex SessionPattern();
 
-    [GeneratedRegex(@"^CLOSEPOSITION\(([^,)]+)(?:,\s*([\w.]+))?\)$", RegexOptions.IgnoreCase)]
-    private static partial Regex ClosePattern();
+    // ExitStrategy pattern - supports: ExitStrategy(IS.BELL), ExitStrategy(15:30)
+    // Also supports legacy ClosePosition for backwards compatibility
+    [GeneratedRegex(@"^(?:EXITSTRATEGY|CLOSEPOSITION)\(([^)]+)\)$", RegexOptions.IgnoreCase)]
+    private static partial Regex ExitStrategyPattern();
+
+    // IsProfitable pattern - supports: IsProfitable, IsProfitable(), Profitable, Profitable()
+    [GeneratedRegex(@"^(?:IS)?PROFITABLE(?:\(\))?$", RegexOptions.IgnoreCase)]
+    private static partial Regex IsProfitablePattern();
 
     [GeneratedRegex(@"^NAME\([""'](.+)[""']\)$", RegexOptions.IgnoreCase)]
     private static partial Regex NamePattern();
@@ -213,6 +233,13 @@ public static partial class IdiotScriptParser
     [GeneratedRegex(@"^PULLBACK(?:\((\$?[\d.]*)\))?$", RegexOptions.IgnoreCase)]
     private static partial Regex PullbackPattern();
 
+    // Gap patterns - supports: GapUp(5), GapUp(5%), IsGapUp(5), etc.
+    [GeneratedRegex(@"^(?:IS)?GAPUP\((\d+(?:\.\d+)?)\%?\)$", RegexOptions.IgnoreCase)]
+    private static partial Regex GapUpPattern();
+
+    [GeneratedRegex(@"^(?:IS)?GAPDOWN\((\d+(?:\.\d+)?)\%?\)$", RegexOptions.IgnoreCase)]
+    private static partial Regex GapDownPattern();
+
     // Adaptive order pattern - supports: AdaptiveOrder, IsAdaptiveOrder, AdaptiveOrder(), AdaptiveOrder(IS.AGGRESSIVE), etc.
     [GeneratedRegex(@"^(?:IS)?ADAPTIVEORDER(?:\(([A-Za-z0-9_.]*)\))?$", RegexOptions.IgnoreCase)]
     private static partial Regex AdaptiveOrderPattern();
@@ -230,6 +257,10 @@ public static partial class IdiotScriptParser
     [GeneratedRegex(@"^ORDERTYPE\(([A-Za-z]+)\)$", RegexOptions.IgnoreCase)]
     private static partial Regex OrderTypePattern();
 
+    // Order direction pattern - supports: Order(), Order(IS.LONG), Order(IS.SHORT), Order(LONG), Order(SHORT)
+    [GeneratedRegex(@"^ORDER(?:\(([A-Za-z0-9_.]*)\))?$", RegexOptions.IgnoreCase)]
+    private static partial Regex OrderDirectionPattern();
+
     // Execution behavior patterns - supports: Repeat, IsRepeat, Repeat(), IsRepeat(), Repeat(Y), IsRepeat(IS.True), etc.
     [GeneratedRegex(@"^(?:IS)?REPEAT(?:\(([A-Za-z0-9_.]*)\))?$", RegexOptions.IgnoreCase)]
     private static partial Regex RepeatPattern();
@@ -240,6 +271,7 @@ public static partial class IdiotScriptParser
 
     [GeneratedRegex(@"\s+")]
     private static partial Regex ExtraWhitespacePattern();
+
 
     [GeneratedRegex(@"\(+")]
     private static partial Regex DoubleOpenParenPattern();
@@ -727,8 +759,9 @@ public static partial class IdiotScriptParser
             "ADX_ABOVE" => "AdxAbove",
             // OPEN -> Entry mapping
             "OPEN" => "Entry",
-            // CLOSE -> ClosePosition mapping
-            "CLOSE" => "ClosePosition",
+            // CLOSE -> ExitStrategy mapping (legacy support)
+            "CLOSE" => "ExitStrategy",
+            "CLOSEPOSITION" => "ExitStrategy", // Legacy support
             _ => null
         };
 
@@ -794,8 +827,11 @@ public static partial class IdiotScriptParser
         // Session
         if (TryParseSession(command, context)) return;
 
-        // Close position
-        if (TryParseClose(command, context)) return;
+        // Exit strategy (replaces ClosePosition)
+        if (TryParseExitStrategy(command, context)) return;
+
+        // IsProfitable (modifies exit strategy)
+        if (TryParseIsProfitable(command, context)) return;
 
         // Order direction
         if (TryParseDirection(upperCommand, context)) return;
@@ -1056,6 +1092,22 @@ public static partial class IdiotScriptParser
         if (VwapRejectionPattern().IsMatch(condition))
             return new OrderedCondition(ConditionType.VwapRejection);
 
+        // GapUp(percentage) or IsGapUp(percentage) - price gapped up from previous close
+        var gapUpMatch = GapUpPattern().Match(condition);
+        if (gapUpMatch.Success)
+        {
+            if (double.TryParse(gapUpMatch.Groups[1].Value, out var percentage))
+                return new OrderedCondition(ConditionType.GapUp, percentage);
+        }
+
+        // GapDown(percentage) or IsGapDown(percentage) - price gapped down from previous close
+        var gapDownMatch = GapDownPattern().Match(condition);
+        if (gapDownMatch.Success)
+        {
+            if (double.TryParse(gapDownMatch.Groups[1].Value, out var percentage))
+                return new OrderedCondition(ConditionType.GapDown, percentage);
+        }
+
         return null;
     }
 
@@ -1243,16 +1295,12 @@ public static partial class IdiotScriptParser
         return true;
     }
 
-    private static bool TryParseClose(string command, ParseContext context)
+    private static bool TryParseExitStrategy(string command, ParseContext context)
     {
-        var match = ClosePattern().Match(command);
+        var match = ExitStrategyPattern().Match(command);
         if (!match.Success) return false;
 
         var timeArg = match.Groups[1].Value.Trim();
-
-        // Parse the optional profitable-only flag using centralized boolean resolver
-        var profitOnly = match.Groups.Count > 2 && !string.IsNullOrEmpty(match.Groups[2].Value) &&
-            (IdiotScriptConstants.ResolveBoolean(match.Groups[2].Value.Trim()) ?? false);
 
         // Check if it's a bell constant (requires session context)
         if (IdiotScriptConstants.IsBellConstant(timeArg))
@@ -1260,7 +1308,6 @@ public static partial class IdiotScriptParser
             // Resolve bell time based on session context
             var bellTime = IdiotScriptConstants.ResolveBellTime(timeArg, context.Session?.ToString());
             context.ClosePositionTime = bellTime;
-            context.CloseOnlyIfProfitable = profitOnly;
             return true;
         }
 
@@ -1271,7 +1318,6 @@ public static partial class IdiotScriptParser
             if (resolved.HasValue)
             {
                 context.ClosePositionTime = resolved.Value;
-                context.CloseOnlyIfProfitable = profitOnly;
                 return true;
             }
             throw new IdiotScriptException($"Unknown time constant: {timeArg}");
@@ -1281,7 +1327,6 @@ public static partial class IdiotScriptParser
         if (TimeOnly.TryParse(timeArg, out var time))
         {
             context.ClosePositionTime = time;
-            context.CloseOnlyIfProfitable = profitOnly;
             return true;
         }
 
@@ -1291,23 +1336,60 @@ public static partial class IdiotScriptParser
             "ENDING" or "END" or "BELL" => MarketTime.PreMarket.RightBeforeBell,
             "OPEN" => MarketTime.RTH.Start,
             "CLOSE" or "EOD" => MarketTime.RTH.End,
-            _ => throw new IdiotScriptException($"Unknown close time: {timeArg}")
+            _ => throw new IdiotScriptException($"Unknown exit strategy time: {timeArg}")
         };
-        context.CloseOnlyIfProfitable = profitOnly;
 
+        return true;
+    }
+
+    private static bool TryParseIsProfitable(string command, ParseContext context)
+    {
+        var match = IsProfitablePattern().Match(command);
+        if (!match.Success) return false;
+
+        context.CloseOnlyIfProfitable = true;
         return true;
     }
 
     private static bool TryParseDirection(string upper, ParseContext context)
     {
-        // LongPosition, IsLongPosition, or BUY
-        if (upper is "LONGPOSITION" or "ISLONGPOSITION" or "BUY" or "IS.BUY")
+        // New Order() syntax - Order(IS.LONG), Order(IS.SHORT), Order(LONG), Order(SHORT), Order()
+        var orderMatch = OrderDirectionPattern().Match(upper);
+        if (orderMatch.Success)
+        {
+            var value = orderMatch.Groups[1].Value.Trim();
+
+            // If no value provided (e.g., "Order", "Order()"), default to LONG
+            if (string.IsNullOrEmpty(value))
+            {
+                context.IsBuy = true;
+                return true;
+            }
+
+            // Check if it's a constant (IS. prefix)
+            if (IdiotScriptConstants.IsConstant(value))
+            {
+                var resolved = IdiotScriptConstants.ResolveConstant(value);
+                if (resolved != null)
+                {
+                    context.IsBuy = resolved.Equals("Long", StringComparison.OrdinalIgnoreCase);
+                    return true;
+                }
+            }
+
+            // Direct value: LONG or SHORT
+            context.IsBuy = value.Equals("LONG", StringComparison.OrdinalIgnoreCase);
+            return true;
+        }
+
+        // LongPosition, IsLongPosition, Long, Long()
+        if (upper is "LONGPOSITION" or "ISLONGPOSITION" or "LONG" or "LONG()" or "IS.LONG")
         {
             context.IsBuy = true;
             return true;
         }
-        // ShortPosition, IsShortPosition, or SELL
-        if (upper is "SHORTPOSITION" or "ISSHORTPOSITION" or "SELL" or "IS.SELL")
+        // ShortPosition, IsShortPosition, Short, Short()
+        if (upper is "SHORTPOSITION" or "ISSHORTPOSITION" or "SHORT" or "SHORT()" or "IS.SHORT")
         {
             context.IsBuy = false;
             return true;
@@ -1574,14 +1656,15 @@ public static partial class IdiotScriptParser
             });
         }
 
-        // Add order segment (LongPosition, ShortPosition, CloseLong, or CloseShort)
+        // Add order segment using unified Order type with Direction parameter
         var orderSegmentType = context.CloseOrderType switch
         {
             CloseOrderType.CloseLong => SegmentType.CloseLong,
             CloseOrderType.CloseShort => SegmentType.CloseShort,
-            _ => context.IsBuy ? SegmentType.Buy : SegmentType.Sell
+            _ => SegmentType.Order  // Use unified Order type instead of Buy/Sell
         };
 
+        var orderDirection = context.IsBuy ? "Long" : "Short";
         var orderDisplayName = context.CloseOrderType switch
         {
             CloseOrderType.CloseLong => "Close Long",
@@ -1591,6 +1674,14 @@ public static partial class IdiotScriptParser
 
         var orderParams = new List<SegmentParameter>
         {
+            new()
+            {
+                Name = "Direction",
+                Label = "Direction",
+                Type = ParameterType.String,
+                Value = orderDirection,
+                IsRequired = true
+            },
             new()
             {
                 Name = "Quantity",
@@ -1711,14 +1802,14 @@ public static partial class IdiotScriptParser
             });
         }
 
-        // Add close position (LAST ONE WINS - overrides session end time)
+        // Add exit strategy (LAST ONE WINS - overrides session end time)
         if (context.ClosePositionTime.HasValue)
         {
             strategy.Segments.Add(new StrategySegment
             {
-                Type = SegmentType.ClosePosition,
+                Type = SegmentType.ExitStrategy,
                 Category = SegmentCategory.PositionManagement,
-                DisplayName = "Close Position",
+                DisplayName = "Exit Strategy",
                 Order = segmentOrder++,
                 Parameters =
                 [
@@ -1729,17 +1820,22 @@ public static partial class IdiotScriptParser
                         Type = ParameterType.Time,
                         Value = context.ClosePositionTime.Value,
                         IsRequired = true
-                    },
-                    new SegmentParameter
-                    {
-                        Name = "OnlyIfProfitable",
-                        Label = "Only If Profitable",
-                        Type = ParameterType.Boolean,
-                        Value = context.CloseOnlyIfProfitable,
-                        IsRequired = false
                     }
                 ]
             });
+
+            // Add IsProfitable as separate segment if specified
+            if (context.CloseOnlyIfProfitable)
+            {
+                strategy.Segments.Add(new StrategySegment
+                {
+                    Type = SegmentType.IsProfitable,
+                    Category = SegmentCategory.PositionManagement,
+                    DisplayName = "Only If Profitable",
+                    Order = segmentOrder++,
+                    Parameters = []
+                });
+            }
         }
 
         // Add order config segments
@@ -2327,6 +2423,42 @@ public static partial class IdiotScriptParser
                 Order = order++,
                 Parameters = []
             },
+            ConditionType.GapUp when condition.Value.HasValue => new StrategySegment
+            {
+                Type = SegmentType.GapUp,
+                Category = SegmentCategory.PriceCondition,
+                DisplayName = $"Gap Up {condition.Value.Value}%",
+                Order = order++,
+                Parameters =
+                [
+                    new SegmentParameter
+                    {
+                        Name = "Percentage",
+                        Label = "Gap %",
+                        Type = ParameterType.Double,
+                        Value = condition.Value.Value,
+                        IsRequired = true
+                    }
+                ]
+            },
+            ConditionType.GapDown when condition.Value.HasValue => new StrategySegment
+            {
+                Type = SegmentType.GapDown,
+                Category = SegmentCategory.PriceCondition,
+                DisplayName = $"Gap Down {condition.Value.Value}%",
+                Order = order++,
+                Parameters =
+                [
+                    new SegmentParameter
+                    {
+                        Name = "Percentage",
+                        Label = "Gap %",
+                        Type = ParameterType.Double,
+                        Value = condition.Value.Value,
+                        IsRequired = true
+                    }
+                ]
+            },
             _ => null
         };
     }
@@ -2361,7 +2493,9 @@ public static partial class IdiotScriptParser
         HigherLows,
         VolumeAbove,
         CloseAboveVwap,
-        VwapRejection
+        VwapRejection,
+        GapUp,
+        GapDown
     }
 
     private sealed class OrderedCondition(
@@ -2417,3 +2551,5 @@ public class IdiotScriptException : Exception
     public IdiotScriptException(string message) : base(message) { }
     public IdiotScriptException(string message, Exception inner) : base(message, inner) { }
 }
+
+

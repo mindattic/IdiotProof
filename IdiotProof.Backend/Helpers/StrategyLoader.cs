@@ -1,5 +1,5 @@
 // ============================================================================
-// StrategyLoader - Loads strategies from IdiotScript or JSON files
+// StrategyLoader - Loads strategies from IdiotScript files
 // ============================================================================
 //
 // This class converts strategy definitions into executable TradingStrategy
@@ -8,12 +8,10 @@
 //
 // DATA FLOW: .idiot files → Frontend → Backend
 //
-// Strategies are stored as .IDIOT files (IdiotScript format) with
-// fallback support for legacy .JSON files:
+// Strategies are stored as .IDIOT files (IdiotScript format):
 //   Strategies/
 //     GME.idiot
 //     SMCI.idiot
-//     LEGACY_OldStrategy.json (fallback support)
 //
 // IDIOTSCRIPT FORMAT (fluent chained syntax):
 // Each .idiot file contains a strategy with commands evaluated sequentially:
@@ -30,11 +28,11 @@
 //   EXIT CONDITIONS:  TakeProfit, TrailingStopLoss, ClosePosition
 //
 // USAGE IN Program.cs:
-//   var strategies = StrategyLoader.LoadFromJson();
+//   var strategies = StrategyLoader.LoadFromFile();
 //   
 //   // Or use a hybrid approach:
 //   var strategies = new List<TradingStrategy>();
-//   strategies.AddRange(StrategyLoader.LoadFromJson()); // From .idiot files
+//   strategies.AddRange(StrategyLoader.LoadFromFile()); // From .idiot files
 //   strategies.Add(Stock.Ticker("AAPL")...);            // Hardcoded
 //
 // ============================================================================
@@ -43,7 +41,9 @@ using IdiotProof.Backend.Enums;
 using IdiotProof.Backend.Logging;
 using IdiotProof.Backend.Models;
 using IdiotProof.Backend.Strategy;
+using IdiotProof.Shared.Constants;
 using IdiotProof.Shared.Helpers;
+using IdiotProof.Shared.Models;
 using IdiotProof.Shared.Scripting;
 using IdiotProof.Shared.Settings;
 using System.Text.Json;
@@ -51,38 +51,7 @@ using System.Text.Json;
 namespace IdiotProof.Backend.Models
 {
     /// <summary>
-    /// JSON model for loading individual strategy files from the MAUI frontend.
-    /// </summary>
-    public class JsonStrategyDefinition
-    {
-        public Guid Id { get; set; }
-        public required string Name { get; set; }
-        public string? Description { get; set; }
-        public required string Symbol { get; set; }
-        public bool Enabled { get; set; } = true;
-        public List<JsonStrategySegment> Segments { get; set; } = [];
-        public string? Author { get; set; }
-    }
-
-    public class JsonStrategySegment
-    {
-        public Guid Id { get; set; }
-        public required string Type { get; set; }
-        public required string Category { get; set; }
-        public required string DisplayName { get; set; }
-        public List<JsonSegmentParameter> Parameters { get; set; } = [];
-        public int Order { get; set; }
-    }
-
-    public class JsonSegmentParameter
-    {
-        public required string Name { get; set; }
-        public required string Type { get; set; }
-        public object? Value { get; set; }
-    }
-
-    /// <summary>
-    /// Loads strategy definitions from JSON files and converts them to TradingStrategy objects.
+    /// Loads strategy definitions from IdiotScript files and converts them to TradingStrategy objects.
     /// </summary>
     public static class StrategyLoader
     {
@@ -90,12 +59,6 @@ namespace IdiotProof.Backend.Models
         /// Shared session logger instance (set from Program.cs).
         /// </summary>
         public static SessionLogger? SessionLogger { get; set; }
-
-        private static readonly JsonSerializerOptions JsonOptions = new()
-        {
-            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-            Converters = { new System.Text.Json.Serialization.JsonStringEnumConverter() }
-        };
 
         /// <summary>
         /// Logs a message to both console and session log file.
@@ -123,37 +86,12 @@ namespace IdiotProof.Backend.Models
         /// </summary>
         /// <param name="definition">The strategy definition to convert.</param>
         /// <returns>The converted TradingStrategy, or null if conversion fails.</returns>
-        public static TradingStrategy? ConvertDefinition(IdiotProof.Shared.Models.StrategyDefinition definition)
+        public static TradingStrategy? ConvertDefinition(StrategyDefinition definition)
         {
             if (definition == null || string.IsNullOrEmpty(definition.Symbol) || definition.Segments.Count == 0)
                 return null;
 
-            // Convert Shared.StrategySegment to local JsonStrategySegment
-            var jsonDef = new JsonStrategyDefinition
-            {
-                Id = definition.Id,
-                Name = definition.Name,
-                Description = definition.Description,
-                Symbol = definition.Symbol,
-                Enabled = definition.Enabled,
-                Author = definition.Author,
-                Segments = definition.Segments.Select(s => new JsonStrategySegment
-                {
-                    Id = s.Id,
-                    Type = s.Type.ToString(),
-                    Category = s.Category.ToString(),
-                    DisplayName = s.DisplayName,
-                    Order = s.Order,
-                    Parameters = s.Parameters.Select(p => new JsonSegmentParameter
-                    {
-                        Name = p.Name,
-                        Type = p.Type.ToString(),
-                        Value = p.Value
-                    }).ToList()
-                }).ToList()
-            };
-
-            return ConvertToTradingStrategy(jsonDef);
+            return ConvertToTradingStrategy(definition);
         }
 
         /// <summary>
@@ -175,10 +113,9 @@ namespace IdiotProof.Backend.Models
 
         /// <summary>
         /// Loads all enabled strategies from the main Strategies folder and converts them to TradingStrategy objects.
-        /// Supports both IdiotScript (.idiot) and legacy JSON (.json) files.
         /// </summary>
         /// <returns>List of TradingStrategy objects ready for execution.</returns>
-        public static List<TradingStrategy> LoadFromJson()
+        public static List<TradingStrategy> LoadFromFile()
         {
             var strategiesFolder = GetDefaultFolder();
 
@@ -190,7 +127,6 @@ namespace IdiotProof.Backend.Models
 
             var strategies = new List<TradingStrategy>();
 
-            // Load IdiotScript files first (preferred format)
             var idiotFiles = Directory.GetFiles(strategiesFolder, "*.idiot");
             Log($"Found {idiotFiles.Length} IdiotScript files in {strategiesFolder}");
 
@@ -228,50 +164,14 @@ namespace IdiotProof.Backend.Models
                 }
             }
 
-            // Load legacy JSON files (fallback)
-            var jsonFiles = Directory.GetFiles(strategiesFolder, "*.json");
-            if (jsonFiles.Length > 0)
-            {
-                Log($"Found {jsonFiles.Length} legacy JSON files in {strategiesFolder}");
-            }
-
-            foreach (var file in jsonFiles)
-            {
-                try
-                {
-                    var json = File.ReadAllText(file);
-                    var definition = JsonSerializer.Deserialize<JsonStrategyDefinition>(json, JsonOptions);
-
-                    if (definition == null)
-                        continue;
-
-                    if (!definition.Enabled)
-                    {
-                        Log($"Skipping disabled strategy: {definition.Name}");
-                        continue;
-                    }
-
-                    var strategy = ConvertToTradingStrategy(definition);
-                    if (strategy != null)
-                    {
-                        strategies.Add(strategy);
-                        Log($"Loaded JSON strategy: {definition.Name} ({definition.Symbol})");
-                    }
-                }
-                catch (Exception ex)
-                {
-                    Log($"Error loading strategy from {Path.GetFileName(file)}: {ex.Message}");
-                }
-            }
-
             Log($"Loaded {strategies.Count} enabled strategies from {strategiesFolder}");
             return strategies;
         }
 
         /// <summary>
-        /// Converts a JsonStrategyDefinition into a fluent API TradingStrategy.
+        /// Converts a StrategyDefinition into a fluent API TradingStrategy.
         /// </summary>
-        private static TradingStrategy? ConvertToTradingStrategy(JsonStrategyDefinition definition)
+        private static TradingStrategy? ConvertToTradingStrategy(StrategyDefinition definition)
         {
             if (string.IsNullOrEmpty(definition.Symbol) || definition.Segments.Count == 0)
                 return null;
@@ -282,7 +182,7 @@ namespace IdiotProof.Backend.Models
                 .WithName(definition.Name)
                 .Enabled(definition.Enabled);
 
-            // Track if we've added an order (Buy/Sell/Close)
+            // Track if we've added an order (Long/Short/Close)
             StrategyBuilder? orderBuilder = null;
 
             foreach (var segment in definition.Segments.OrderBy(s => s.Order))
@@ -314,14 +214,16 @@ namespace IdiotProof.Backend.Models
         /// <summary>
         /// Applies a segment to the Stock builder (pre-order segments).
         /// </summary>
-        private static object ApplySegment(Stock builder, JsonStrategySegment segment)
+        private static object ApplySegment(Stock builder, StrategySegment segment)
         {
-            return segment.Type switch
+            var segmentType = segment.Type.ToString();
+
+            return segmentType switch
             {
                 "Ticker" => builder, // Already applied via Stock.Ticker()
 
-                // Session configuration
-                "SessionDuration" => ApplySessionDuration(builder, segment),
+                // Session configuration - all handled via TimeFrame
+                "SessionDuration" or "TimeFrame" or "Session" => ApplySessionDuration(builder, segment),
                 "Start" => builder.Start(GetTime(segment, "Time")),
                 "End" => builder, // End is handled as post-order segment (terminal)
 
@@ -330,22 +232,18 @@ namespace IdiotProof.Backend.Models
                 "Pullback" => builder.Pullback(GetDouble(segment, "Level")),
                 "IsPriceAbove" => builder.IsPriceAbove(GetDouble(segment, "Level")),
                 "IsPriceBelow" => builder.IsPriceBelow(GetDouble(segment, "Level")),
+                "GapUp" => builder.GapUp(GetDouble(segment, "Percentage", 5)),
+                "GapDown" => builder.GapDown(GetDouble(segment, "Percentage", 5)),
 
                 // VWAP conditions
                 "IsAboveVwap" => builder.IsAboveVwap(GetDouble(segment, "Buffer", 0)),
                 "IsBelowVwap" => builder.IsBelowVwap(GetDouble(segment, "Buffer", 0)),
 
-                // Indicator conditions
-                "IsRsi" => builder.IsRsi(
-                    GetEnum<RsiState>(segment, "State"),
-                    GetNullableDouble(segment, "Threshold")),
+                // Indicator conditions - handle parameter name variations from parser
+                "IsRsi" => ApplyRsiCondition(builder, segment),
                 "IsMacd" => builder.IsMacd(GetEnum<MacdState>(segment, "State")),
-                "IsAdx" => builder.IsAdx(
-                    GetEnum<Comparison>(segment, "Comparison"),
-                    GetDouble(segment, "Threshold", 25)),
-                "IsDI" => builder.IsDI(
-                    GetEnum<DiDirection>(segment, "Direction"),
-                    GetDouble(segment, "MinDifference", 0)),
+                "IsAdx" => ApplyAdxCondition(builder, segment),
+                "IsDI" => ApplyDiCondition(builder, segment),
 
                 // EMA conditions - use actual EMA condition classes with callback hooks
                 "IsEmaAbove" => builder.WithCondition(
@@ -357,17 +255,13 @@ namespace IdiotProof.Backend.Models
                 "IsEmaTurningUp" => builder.WithCondition(
                     new Strategy.EmaTurningUpCondition(GetInt(segment, "Period"))),
 
-                // Momentum conditions
-                "IsMomentumAbove" => builder.WithCondition(
-                    new Strategy.MomentumAboveCondition(GetDouble(segment, "Threshold", 0))),
-                "IsMomentumBelow" => builder.WithCondition(
-                    new Strategy.MomentumBelowCondition(GetDouble(segment, "Threshold", 0))),
+                // Momentum conditions - unified IsMomentum with Condition parameter (Above/Below)
+                // Parser always produces SegmentType.IsMomentum, ApplyMomentumCondition routes to correct class
+                "IsMomentum" => ApplyMomentumCondition(builder, segment),
 
-                // Rate of Change conditions
-                "IsRocAbove" => builder.WithCondition(
-                    new Strategy.RocAboveCondition(GetDouble(segment, "Threshold", 0))),
-                "IsRocBelow" => builder.WithCondition(
-                    new Strategy.RocBelowCondition(GetDouble(segment, "Threshold", 0))),
+                // Rate of Change conditions - unified IsRoc with Condition parameter (Above/Below)
+                // Parser always produces SegmentType.IsRoc, ApplyRocCondition routes to correct class
+                "IsRoc" => ApplyRocCondition(builder, segment),
 
                 // Pattern conditions
                 "IsHigherLows" => builder.WithCondition(
@@ -383,41 +277,43 @@ namespace IdiotProof.Backend.Models
                 "IsVwapRejection" => builder.WithCondition(
                     new Strategy.VwapRejectionCondition()),
 
-                // Order actions
-                "Buy" => builder.Buy(
-                    GetInt(segment, "Quantity", 1),
-                    GetEnum<Price>(segment, "PriceType"),
-                    GetEnum<OrderType>(segment, "OrderType")),
-                "Sell" => builder.Sell(
-                    GetInt(segment, "Quantity", 1),
-                    GetEnum<Price>(segment, "PriceType"),
-                    GetEnum<OrderType>(segment, "OrderType")),
-                "Close" => builder.Close(
-                    GetInt(segment, "Quantity", 1),
-                    GetEnum<OrderSide>(segment, "PositionSide")),
-                "CloseLong" => builder.Close(
-                    GetInt(segment, "Quantity", 1),
-                    OrderSide.Sell),  // Close long = sell
-                "CloseShort" => builder.Close(
-                    GetInt(segment, "Quantity", 1),
-                    OrderSide.Buy),   // Close short = buy to cover
+                // Order actions - using single-responsibility methods
+                // Order segment with direction parameter
+                "Order" => ApplyOrderSegment(builder, segment),
+                "Long" => builder.Long()
+                    .Quantity(GetInt(segment, "Quantity", 1))
+                    .PriceType(GetEnum<Price>(segment, "PriceType"))
+                    .OrderType(GetEnum<OrderType>(segment, "OrderType")),
+                "Short" => builder.Short()
+                    .Quantity(GetInt(segment, "Quantity", 1))
+                    .PriceType(GetEnum<Price>(segment, "PriceType"))
+                    .OrderType(GetEnum<OrderType>(segment, "OrderType")),
+                "Close" or "CloseLong" => builder.CloseLong()
+                    .Quantity(GetInt(segment, "Quantity", 1))
+                    .PriceType(GetEnum<Price>(segment, "PriceType"))
+                    .OrderType(GetEnum<OrderType>(segment, "OrderType")),
+                "CloseShort" => builder.CloseShort()
+                    .Quantity(GetInt(segment, "Quantity", 1))
+                    .PriceType(GetEnum<Price>(segment, "PriceType"))
+                    .OrderType(GetEnum<OrderType>(segment, "OrderType")),
 
-                _ => LogUnknownSegmentAndReturn(builder, segment.Type, "pre-order")
+                _ => LogUnknownSegmentAndReturn(builder, segmentType, "pre-order")
             };
         }
 
         /// <summary>
         /// Applies a segment to the StrategyBuilder (post-order segments).
         /// </summary>
-        private static StrategyBuilder ApplyPostOrderSegment(StrategyBuilder builder, JsonStrategySegment segment)
+        private static StrategyBuilder ApplyPostOrderSegment(StrategyBuilder builder, StrategySegment segment)
         {
-            return segment.Type switch
+            var segmentType = segment.Type.ToString();
+
+            return segmentType switch
             {
                 // Risk management
                 "TakeProfit" => builder.TakeProfit(GetDouble(segment, "Price")),
-                "TakeProfitRange" => builder.TakeProfit(
-                    GetDouble(segment, "LowPrice"),
-                    GetDouble(segment, "HighPrice")),
+                "TakeProfitRange" => builder.AdxTakeProfit(
+                    AdxTakeProfitConfig.FromRange(GetDouble(segment, "LowPrice"), GetDouble(segment, "HighPrice"))),
                 "StopLoss" => builder.StopLoss(GetDouble(segment, "Price")),
                 "TrailingStopLoss" => builder.TrailingStopLoss(GetDouble(segment, "Percentage", 0.10)),
                 "TrailingStopLossAtr" => builder.TrailingStopLoss(new AtrStopLossConfig
@@ -427,23 +323,22 @@ namespace IdiotProof.Backend.Models
                 }),
                 "AdaptiveOrder" => builder.AdaptiveOrder(GetString(segment, "Mode", "Balanced")),
 
-                // Position management
-                "ClosePosition" => builder.ClosePosition(
-                    GetTime(segment, "Time"),
-                    GetBool(segment, "OnlyIfProfitable", true)),
+                // Position management - single responsibility pattern
+                "ExitStrategy" => builder.ExitStrategy(GetTime(segment, "Time")),
+                "IsProfitable" => builder.IsProfitable(),
 
                 // Order configuration
                 "TimeInForce" => builder.TimeInForce(GetEnum<TimeInForce>(segment, "Type")),
-                "OutsideRTH" => builder.OutsideRTH(
-                    GetBool(segment, "Allow", true),
-                    GetBool(segment, "TakeProfit", true)),
+                "OutsideRTH" => builder
+                    .OutsideRTH(GetBool(segment, "Allow", true))
+                    .TakeProfitOutsideRTH(GetBool(segment, "TakeProfit", true)),
                 "AllOrNone" => builder.AllOrNone(GetBool(segment, "AllOrNone", true)),
                 "OrderType" => builder, // Order type is handled in Buy/Sell segments
 
                 // Execution behavior
                 "Repeat" => builder.Repeat(GetBool(segment, "Enabled", true)),
 
-                _ => LogUnknownSegmentAndReturn(builder, segment.Type, "post-order")
+                _ => LogUnknownSegmentAndReturn(builder, segmentType, "post-order")
             };
         }
 
@@ -460,7 +355,7 @@ namespace IdiotProof.Backend.Models
         /// <summary>
         /// Applies SessionDuration segment.
         /// </summary>
-        private static Stock ApplySessionDuration(Stock builder, JsonStrategySegment segment)
+        private static Stock ApplySessionDuration(Stock builder, StrategySegment segment)
         {
             var sessionStr = GetString(segment, "Session");
             if (Enum.TryParse<TradingSession>(sessionStr, out var session))
@@ -470,22 +365,151 @@ namespace IdiotProof.Backend.Models
             return builder;
         }
 
-        // Helper methods to extract parameter values from JSON
-        private static string GetString(JsonStrategySegment segment, string name, string defaultValue = "")
+        /// <summary>
+        /// Applies Order segment with direction parameter.
+        /// </summary>
+        private static StrategyBuilder ApplyOrderSegment(Stock builder, StrategySegment segment)
         {
-            var param = segment.Parameters.FirstOrDefault(p => p.Name == name);
+            var direction = GetString(segment, "Direction", "Long");
+            var quantity = GetInt(segment, "Quantity", 1);
+            var priceType = GetEnum<Price>(segment, "PriceType");
+            var orderType = GetEnum<OrderType>(segment, "OrderType");
+
+            // Check if direction indicates Short
+            if (direction.Equals("Short", StringComparison.OrdinalIgnoreCase) ||
+                direction.Equals("IS.SHORT", StringComparison.OrdinalIgnoreCase))
+            {
+                return builder.Short()
+                    .Quantity(quantity)
+                    .PriceType(priceType)
+                    .OrderType(orderType);
+            }
+
+            // Default to Long
+            return builder.Long()
+                .Quantity(quantity)
+                .PriceType(priceType)
+                .OrderType(orderType);
+        }
+
+        /// <summary>
+        /// Applies IsMomentum segment by reading the Condition parameter (Above/Below).
+        /// </summary>
+        private static Stock ApplyMomentumCondition(Stock builder, StrategySegment segment)
+        {
+            var condition = GetString(segment, "Condition", "Above");
+            var threshold = GetDouble(segment, "Threshold", 0);
+
+            if (condition.Equals("Below", StringComparison.OrdinalIgnoreCase))
+            {
+                return builder.WithCondition(new Strategy.MomentumBelowCondition(threshold));
+            }
+
+            return builder.WithCondition(new Strategy.MomentumAboveCondition(threshold));
+        }
+
+        /// <summary>
+        /// Applies IsRoc segment by reading the Condition parameter (Above/Below).
+        /// </summary>
+        private static Stock ApplyRocCondition(Stock builder, StrategySegment segment)
+        {
+            var condition = GetString(segment, "Condition", "Above");
+            var threshold = GetDouble(segment, "Threshold", 0);
+
+            if (condition.Equals("Below", StringComparison.OrdinalIgnoreCase))
+            {
+                return builder.WithCondition(new Strategy.RocBelowCondition(threshold));
+            }
+
+            return builder.WithCondition(new Strategy.RocAboveCondition(threshold));
+        }
+
+        /// <summary>
+        /// Applies IsRsi segment by reading parameters with fallback for different naming conventions.
+        /// </summary>
+        private static Stock ApplyRsiCondition(Stock builder, StrategySegment segment)
+        {
+            var conditionStr = GetString(segment, "Condition");
+            var stateStr = GetString(segment, "State");
+            var threshold = GetDouble(segment, "Value", GetDouble(segment, "Threshold", 0));
+
+            RsiState state;
+            if (!string.IsNullOrEmpty(conditionStr))
+            {
+                state = conditionStr.Equals("Below", StringComparison.OrdinalIgnoreCase)
+                    ? RsiState.Oversold
+                    : RsiState.Overbought;
+            }
+            else if (!string.IsNullOrEmpty(stateStr) && Enum.TryParse<RsiState>(stateStr, out var parsedState))
+            {
+                state = parsedState;
+            }
+            else
+            {
+                state = RsiState.Oversold;
+            }
+
+            return builder.IsRsi(state, threshold > 0 ? threshold : null);
+        }
+
+        /// <summary>
+        /// Applies IsAdx segment by reading parameters with fallback for different naming conventions.
+        /// </summary>
+        private static Stock ApplyAdxCondition(Stock builder, StrategySegment segment)
+        {
+            var conditionStr = GetString(segment, "Condition");
+            var comparisonStr = GetString(segment, "Comparison");
+            var threshold = GetDouble(segment, "Value", GetDouble(segment, "Threshold", 25));
+
+            Comparison comparison;
+            if (!string.IsNullOrEmpty(conditionStr))
+            {
+                comparison = conditionStr.Equals("Below", StringComparison.OrdinalIgnoreCase)
+                    ? Comparison.Lte
+                    : Comparison.Gte;
+            }
+            else if (!string.IsNullOrEmpty(comparisonStr) && Enum.TryParse<Comparison>(comparisonStr, out var parsedComparison))
+            {
+                comparison = parsedComparison;
+            }
+            else
+            {
+                comparison = Comparison.Gte;
+            }
+
+            return builder.IsAdx(comparison, threshold);
+        }
+
+        /// <summary>
+        /// Applies IsDI segment by reading parameters with fallback for different naming conventions.
+        /// </summary>
+        private static Stock ApplyDiCondition(Stock builder, StrategySegment segment)
+        {
+            var direction = GetEnum<DiDirection>(segment, "Direction");
+            var minDifference = GetDouble(segment, "Threshold", GetDouble(segment, "MinDifference", 0));
+
+            return builder.IsDI(direction, minDifference);
+        }
+
+        // ========================================================================
+        // HELPER METHODS - Extract parameter values from StrategySegment
+        // ========================================================================
+
+        private static string GetString(StrategySegment segment, string name, string defaultValue = "")
+        {
+            var param = segment.Parameters.FirstOrDefault(p => p.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
             if (param?.Value == null)
                 return defaultValue;
 
             if (param.Value is JsonElement jsonElement)
                 return jsonElement.GetString() ?? defaultValue;
-            
+
             return param.Value.ToString() ?? defaultValue;
         }
 
-        private static double GetDouble(JsonStrategySegment segment, string name, double defaultValue = 0)
+        private static double GetDouble(StrategySegment segment, string name, double defaultValue = 0)
         {
-            var param = segment.Parameters.FirstOrDefault(p => p.Name == name);
+            var param = segment.Parameters.FirstOrDefault(p => p.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
             if (param?.Value == null)
                 return defaultValue;
 
@@ -502,15 +526,9 @@ namespace IdiotProof.Backend.Models
             return defaultValue;
         }
 
-        private static double? GetNullableDouble(JsonStrategySegment segment, string name)
+        private static int GetInt(StrategySegment segment, string name, int defaultValue = 0)
         {
-            var value = GetDouble(segment, name, 0);
-            return value == 0 ? null : value;
-        }
-
-        private static int GetInt(JsonStrategySegment segment, string name, int defaultValue = 0)
-        {
-            var param = segment.Parameters.FirstOrDefault(p => p.Name == name);
+            var param = segment.Parameters.FirstOrDefault(p => p.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
             if (param?.Value == null)
                 return defaultValue;
 
@@ -527,9 +545,9 @@ namespace IdiotProof.Backend.Models
             return defaultValue;
         }
 
-        private static bool GetBool(JsonStrategySegment segment, string name, bool defaultValue = false)
+        private static bool GetBool(StrategySegment segment, string name, bool defaultValue = false)
         {
-            var param = segment.Parameters.FirstOrDefault(p => p.Name == name);
+            var param = segment.Parameters.FirstOrDefault(p => p.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
             if (param?.Value == null)
                 return defaultValue;
 
@@ -548,7 +566,7 @@ namespace IdiotProof.Backend.Models
             return defaultValue;
         }
 
-        private static T GetEnum<T>(JsonStrategySegment segment, string name) where T : struct, Enum
+        private static T GetEnum<T>(StrategySegment segment, string name) where T : struct, Enum
         {
             var strValue = GetString(segment, name);
             if (Enum.TryParse<T>(strValue, out var result))
@@ -556,7 +574,7 @@ namespace IdiotProof.Backend.Models
             return default;
         }
 
-        private static TimeOnly GetTime(JsonStrategySegment segment, string name)
+        private static TimeOnly GetTime(StrategySegment segment, string name)
         {
             var value = GetString(segment, name);
             if (TimeOnly.TryParse(value, out var time))
@@ -572,7 +590,7 @@ namespace IdiotProof.Backend.Models
         /// Saves a StrategyDefinition as an IdiotScript file.
         /// </summary>
         public static async Task<string> SaveAsIdiotScriptAsync(
-            IdiotProof.Shared.Models.StrategyDefinition strategy,
+            StrategyDefinition strategy,
             DateOnly date,
             string? baseFolder = null)
         {
@@ -583,7 +601,7 @@ namespace IdiotProof.Backend.Models
         /// Saves multiple strategies as IdiotScript files.
         /// </summary>
         public static async Task SaveAllAsIdiotScriptAsync(
-            IEnumerable<IdiotProof.Shared.Models.StrategyDefinition> strategies,
+            IEnumerable<StrategyDefinition> strategies,
             DateOnly date,
             string? baseFolder = null)
         {
@@ -593,7 +611,7 @@ namespace IdiotProof.Backend.Models
         /// <summary>
         /// Exports a strategy to IdiotScript text.
         /// </summary>
-        public static string ExportToIdiotScript(IdiotProof.Shared.Models.StrategyDefinition strategy)
+        public static string ExportToIdiotScript(StrategyDefinition strategy)
         {
             return IdiotScriptFileManager.ExportToScript(strategy);
         }
@@ -601,9 +619,11 @@ namespace IdiotProof.Backend.Models
         /// <summary>
         /// Imports a strategy from IdiotScript text.
         /// </summary>
-        public static IdiotProof.Shared.Models.StrategyDefinition? ImportFromIdiotScript(string script)
+        public static StrategyDefinition? ImportFromIdiotScript(string script)
         {
             return IdiotScriptFileManager.ImportFromScript(script);
         }
     }
 }
+
+

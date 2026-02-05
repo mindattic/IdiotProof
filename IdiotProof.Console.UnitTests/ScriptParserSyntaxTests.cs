@@ -85,7 +85,7 @@ public class ScriptParserSyntaxTests
     public void Parse_ISConstants_CloseTime(string script)
     {
         var result = StrategyScriptParser.Parse(script);
-        var closeSegment = result.Segments.FirstOrDefault(s => s.Type == SegmentType.ClosePosition);
+        var closeSegment = result.Segments.FirstOrDefault(s => s.Type == SegmentType.ExitStrategy);
         Assert.That(closeSegment, Is.Not.Null);
     }
 
@@ -244,7 +244,7 @@ public class ScriptParserSyntaxTests
         Assert.That(sessionSegment, Is.Not.Null);
         
         // Verify close
-        var closeSegment = result.Segments.FirstOrDefault(s => s.Type == SegmentType.ClosePosition);
+        var closeSegment = result.Segments.FirstOrDefault(s => s.Type == SegmentType.ExitStrategy);
         Assert.That(closeSegment, Is.Not.Null);
         
         // Verify conditions
@@ -282,3 +282,5 @@ public class ScriptParserSyntaxTests
 
     #endregion
 }
+
+

@@ -136,3 +136,5 @@ namespace IdiotProof.Shared.Validation
         public const string ServiceUnavailable = "SERVICE_UNAVAILABLE";
     }
 }
+
+

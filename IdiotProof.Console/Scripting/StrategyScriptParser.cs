@@ -115,3 +115,5 @@ public class StrategyScriptException : Exception
     public StrategyScriptException(string message) : base(message) { }
     public StrategyScriptException(string message, Exception inner) : base(message, inner) { }
 }
+
+

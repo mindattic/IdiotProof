@@ -212,3 +212,5 @@ namespace IdiotProof.Shared.Models
         public List<StrategyDefinition> Strategies { get; set; } = [];
     }
 }
+
+

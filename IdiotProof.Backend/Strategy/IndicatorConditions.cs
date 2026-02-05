@@ -18,7 +18,7 @@
 //       .IsAdx(Comparison.Gte, 25)          // ADX >= 25 (strong trend)
 //       .IsMacd(MacdState.Bullish)          // MACD > Signal line
 //       .IsDI(DiDirection.Positive)         // +DI > -DI
-//       .Buy(100, Price.Current)
+//       .Long(100, Price.Current)
 //       .Build();
 //
 // ============================================================================
@@ -341,14 +341,14 @@ namespace IdiotProof.Backend.Strategy
     /// Stock.Ticker("AAPL")
     ///     .IsAdx(Comparison.Gte, 25)        // Strong trend
     ///     .IsDI(DiDirection.Positive)       // Bullish direction (+DI > -DI)
-    ///     .Buy(100, Price.Current)
+    ///     .Long(100, Price.Current)
     ///     .Build();
     /// 
     /// // With minimum difference requirement:
     /// Stock.Ticker("AAPL")
     ///     .IsAdx(Comparison.Gte, 25)        // Strong trend
     ///     .IsDI(DiDirection.Positive, 5)    // +DI must exceed -DI by at least 5
-    ///     .Buy(100, Price.Current)
+    ///     .Long(100, Price.Current)
     ///     .Build();
     /// </code>
     /// </remarks>
@@ -1064,3 +1064,5 @@ namespace IdiotProof.Backend.Strategy
         }
     }
 }
+
+

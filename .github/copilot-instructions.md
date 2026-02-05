@@ -3,11 +3,10 @@
 ## Project Guidelines
 - User intends IdiotScript chained conditions to be evaluated sequentially (state machine over time), not as a single simultaneous AND condition.
 - In IdiotProof, the backend doesn't load strategies directly; it reads strategies retrieved from the frontend, which gets them from .idiot files. The data flow is: .idiot files → Frontend → Backend.
-- IdiotScript commands should always include parentheses, even for flag-style commands without parameters (e.g., `AboveVwap()` not `AboveVwap`, `Breakout()` not `Breakout`). The parser accepts both forms for backwards compatibility, but the serializer outputs with parentheses.
+- IdiotScript commands should always include parentheses, even for flag-style commands without parameters (e.g., `IsAboveVwap()` not `IsAboveVwap`, `Breakout()` not `Breakout`). The parser accepts both forms for backwards compatibility, but the serializer outputs with parentheses.
 
 ## Indicator Warm-Up Requirements
-Technical indicators (EMA, ADX, RSI, etc.) require historical price bars to calculate properly.
-The backend uses 1-minute OHLC bars. **Start the backend early** to collect bars before trading.
+Technical indicators (EMA, ADX, RSI, etc.) require historical price bars to calculate properly. The backend uses 1-minute OHLC bars. **Start the backend early** to collect bars before trading.
 
 | Indicator         | Bars Needed | Start Early By |
 |-------------------|-------------|----------------|
@@ -20,11 +19,11 @@ The backend uses 1-minute OHLC bars. **Start the backend early** to collect bars
 | DI (+DI/-DI)      | 28 bars     | 30 minutes     |
 | Momentum(10)      | 11 bars     | 15 minutes     |
 | ROC(10)           | 11 bars     | 15 minutes     |
-| HigherLows(3)     | 3+ bars     | 5 minutes      |
-| EmaTurningUp(N)   | N+1 bars    | N+5 minutes    |
-| VolumeAbove       | 20 bars     | 25 minutes     |
-| CloseAboveVwap    | 1 bar       | 2 minutes      |
-| VwapRejection     | 1 bar       | 2 minutes      |
+| IsHigherLows(3)   | 3+ bars     | 5 minutes      |
+| IsEmaTurningUp(N) | N+1 bars    | N+5 minutes    |
+| IsVolumeAbove     | 20 bars     | 25 minutes     |
+| IsCloseAboveVwap  | 1 bar       | 2 minutes      |
+| IsVwapRejection   | 1 bar       | 2 minutes      |
 
 **Recommended Start Times:**
 - For premarket strategies (4:00 AM session): Start backend at **3:30 AM**
@@ -34,7 +33,7 @@ The backend uses 1-minute OHLC bars. **Start the backend early** to collect bars
 During warm-up, indicator conditions will NOT trigger (preventing false entries).
 
 ## IdiotScript Execution Flow
-- When reviewing IdiotScript, use the three-column execution flow visualization format showing [CONFIG] → [ENTRY CONDITIONS] → ✅ BUY → [EXIT CONDITIONS] with boxes around each section. This helps visualize the sequential state machine evaluation order.
+- When reviewing IdiotScript, use the three-column execution flow visualization format showing [CONFIG] → [ENTRY CONDITIONS] → ✅ ORDER → [EXIT CONDITIONS] with boxes around each section. This helps visualize the sequential state machine evaluation order.
 
 ## IdiotScript Command Categories
 Commands are evaluated in this order:
@@ -43,57 +42,118 @@ Commands are evaluated in this order:
    - `Ticker()`, `Name()`, `Session()`, `Qty()`
 
 2. **ENTRY CONDITIONS** (order matters - sequential state machine):
-   - `Entry()`, `Breakout()`, `Pullback()`, `AboveVwap()`, `BelowVwap()`, `IsEmaAbove()`, etc.
+   - `Entry()`, `Breakout()`, `Pullback()`, `IsGapUp()`, `IsGapDown()`, `IsAboveVwap()`, `IsBelowVwap()`, `IsEmaAbove()`, etc.
 
 3. **EXIT CONDITIONS** (after position is opened):
-   - `TakeProfit()`, `TrailingStopLoss()`, `StopLoss()`, `ClosePosition()`
+   - `TakeProfit()`, `TrailingStopLoss()`, `StopLoss()`, `ExitStrategy()`, `IsProfitable()`
+
+## Entry vs Order Clarification
+- **`Entry(price)`** = A **CONDITION** that triggers when price reaches a level (alias for `IsPriceAbove()`)
+- **`Order(IS.LONG)`** or **`Order(IS.SHORT)`** = An **ACTION** that executes an order when all conditions are met
+- **`Order()`** with no parameter defaults to `IS.LONG` (long position)
+- These are NOT the same! Entry is a trigger condition, Order is the order execution.
+
+### Single-Responsibility Pattern
+Each fluent API method and DSL command should "do just one thing":
+- Methods have at most ONE parameter
+- If no parameter is specified, use the built-in default value
+- Methods that previously had 2+ params are split into separate single-responsibility methods
+
+### Order Direction Syntax
+```
+Order()               - Opens a LONG position (default)
+Order(IS.LONG)        - Opens a LONG position (explicit)
+Order(IS.SHORT)       - Opens a SHORT position
+Long()                - Alias for Order(IS.LONG)
+Short()               - Alias for Order(IS.SHORT)
+```
+
+### Order Configuration (Chained Methods)
+```
+.Quantity(100)        - Sets order quantity
+.PriceType(Price.Current)  - Sets price type for execution
+.OrderType(OrderType.Market)  - Sets market vs limit order
+.OutsideRTH()         - Allow entry order outside RTH (default: true)
+.TakeProfitOutsideRTH()  - Allow TP order outside RTH (default: true)
+```
+
+### Position Closing
+```
+CloseLong()           - Create SELL order to close a long position
+CloseShort()          - Create BUY order to cover a short position
+```
+
+**Example - Single Responsibility Chain:**
+```csharp
+Stock.Ticker("AAPL")
+    .Entry(150)
+    .Long()                // Sets direction only
+    .Quantity(100)         // Sets quantity separately
+    .PriceType(Price.VWAP) // Sets price type separately
+    .OutsideRTH()          // Enables outside RTH for entry
+    .TakeProfitOutsideRTH()  // Enables outside RTH for take profit
+    .TakeProfit(160)
+    .Build();
+```
+
+**Legacy Syntax (Deprecated but still works):**
+```
+Buy()                 - Deprecated, use Order(IS.LONG)
+Sell()                - Deprecated, use Order(IS.SHORT)
+```
 
 ## All Available IdiotScript Indicators
 
 ### Price/VWAP Conditions
 ```
-AboveVwap()           - Price above VWAP
-BelowVwap()           - Price below VWAP
-CloseAboveVwap()      - Candle CLOSED above VWAP (stronger signal)
-VwapRejection()       - Wick above VWAP, close below (bearish rejection)
-VwapRejected()        - Alias for VwapRejection()
+IsAboveVwap()         - Price above VWAP
+IsBelowVwap()         - Price below VWAP
+IsCloseAboveVwap()    - Candle CLOSED above VWAP (stronger signal)
+IsVwapRejection()     - Wick above VWAP, close below (bearish rejection)
+IsVwapRejected()      - Alias for IsVwapRejection()
+```
+
+### Gap Conditions
+```
+IsGapUp(pct)          - Price gapped up X% from previous close (e.g., IsGapUp(5) = 5%+)
+IsGapDown(pct)        - Price gapped down X% from previous close (e.g., IsGapDown(3) = 3%+)
 ```
 
 ### EMA Conditions
 ```
-EmaAbove(period)      - Price above EMA (e.g., EmaAbove(9))
-EmaBelow(period)      - Price below EMA
-EmaBetween(p1, p2)    - Price between two EMAs (e.g., EmaBetween(9, 21))
-EmaTurningUp(period)  - EMA slope turning positive/flat
+IsEmaAbove(period)    - Price above EMA (e.g., IsEmaAbove(9))
+IsEmaBelow(period)    - Price below EMA
+IsEmaBetween(p1, p2)  - Price between two EMAs (e.g., IsEmaBetween(9, 21))
+IsEmaTurningUp(period)- EMA slope turning positive/flat
 ```
 
 ### Momentum Conditions
 ```
-MomentumAbove(val)    - Momentum >= threshold (e.g., MomentumAbove(0))
-MomentumBelow(val)    - Momentum <= threshold
-RocAbove(pct)         - Rate of Change >= % (e.g., RocAbove(2))
-RocBelow(pct)         - Rate of Change <= %
+IsMomentumAbove(val)  - Momentum >= threshold (e.g., IsMomentumAbove(0))
+IsMomentumBelow(val)  - Momentum <= threshold
+IsRocAbove(pct)       - Rate of Change >= % (e.g., IsRocAbove(2))
+IsRocBelow(pct)       - Rate of Change <= %
 ```
 
 ### Trend/Strength Conditions
 ```
-AdxAbove(val)         - ADX >= threshold (trend strength)
-DiPositive()          - +DI > -DI (bullish directional movement)
-DiNegative()          - -DI > +DI (bearish directional movement)
-MacdBullish()         - MACD > Signal line
-MacdBearish()         - MACD < Signal line
+IsAdxAbove(val)       - ADX >= threshold (trend strength)
+IsDiPositive()        - +DI > -DI (bullish directional movement)
+IsDiNegative()        - -DI > +DI (bearish directional movement)
+IsMacdBullish()       - MACD > Signal line
+IsMacdBearish()       - MACD < Signal line
 ```
 
 ### RSI Conditions
 ```
-RsiOversold(val)      - RSI <= threshold (e.g., RsiOversold(30))
-RsiOverbought(val)    - RSI >= threshold (e.g., RsiOverbought(70))
+IsRsiOversold(val)    - RSI <= threshold (e.g., IsRsiOversold(30))
+IsRsiOverbought(val)  - RSI >= threshold (e.g., IsRsiOverbought(70))
 ```
 
 ### Pattern Conditions
 ```
-HigherLows()          - Higher lows forming (bullish)
-VolumeAbove(mult)     - Volume >= multiplier × average (e.g., VolumeAbove(1.5))
+IsHigherLows()        - Higher lows forming (bullish)
+IsVolumeAbove(mult)   - Volume >= multiplier × average (e.g., IsVolumeAbove(1.5))
 ```
 
 ### Smart Order Management
@@ -139,17 +199,15 @@ AdaptiveOrder monitors market conditions in real-time and dynamically adjusts ta
 ║  Moderate bear (-70-30) │  Reduce 50%          │  Keep original          ║
 ║  Strong bearish (<-70)  │  EXIT IMMEDIATELY    │  N/A - Emergency exit   ║
 ╚═══════════════════════════════════════════════════════════════════════════╝
-```
-
 ### Example Strategy with AdaptiveOrder
 ```idiotscript
 Ticker(AAPL)
 .Entry(150)
 .TakeProfit(160)         # Original TP target
 .StopLoss(145)           # Original SL level
-.AboveVwap()
-.EmaAbove(9)
-.DiPositive()
+.IsAboveVwap()
+.IsEmaAbove(9)
+.IsDiPositive()
 .AdaptiveOrder(IS.AGGRESSIVE)  # System will dynamically adjust TP/SL
 ```
 
@@ -185,7 +243,6 @@ Score Range        │ Multiplier Formula                          │ Example (
 Note: Multiplier > 1.0 = tighter stop (closer to entry), Multiplier < 1.0 = wider stop (further from entry)
 
 ### Mode Configuration Settings
-
 ```
 ╔═══════════════════════════════════════════════════════════════════════════════════╗
 ║  Setting                  │  CONSERVATIVE  │  BALANCED  │  AGGRESSIVE             ║
@@ -197,10 +254,8 @@ Note: Multiplier > 1.0 = tighter stop (closer to entry), Multiplier < 1.0 = wide
 ║  EmergencyExitThreshold   │     -60        │    -70     │     -80                 ║
 ║  MinScoreChangeForAdjust  │     10         │    15      │     20                  ║
 ╚═══════════════════════════════════════════════════════════════════════════════════╝
-```
-
-**Conservative**: Protects gains quickly, allows wider stops to avoid noise, exits sooner on bearish signals.
-**Balanced**: Standard risk/reward, moderate adjustments in both directions.
+**Conservative**: Protects gains quickly, allows wider stops to avoid noise, exits sooner on bearish signals.  
+**Balanced**: Standard risk/reward, moderate adjustments in both directions.  
 **Aggressive**: Lets winners run longer, tighter stops to protect capital, stays in longer during drawdowns.
 
 ### Indicator Weight Configuration (Default)
@@ -239,8 +294,7 @@ Adjusted SL: $4.15 - ($0.25 / 1.30) = $3.96   (tighter protection)
 
 ### Adaptive TP Feedback Loop (Smart Trailing Take Profit)
 
-The system extends TP when momentum is strong, then contracts it when momentum fades,
-allowing the price to eventually meet the target:
+The system extends TP when momentum is strong, then contracts it when momentum fades, allowing the price to eventually meet the target:
 
 ```
 ╔═══════════════════════════════════════════════════════════════════════════════╗
@@ -395,14 +449,14 @@ Average ────────────────────────
 Explicit bell constants are also available:
 - `IS.PREMARKET.BELL` → 9:29 AM
 - `IS.RTH.BELL` → 3:59 PM
-- `IS.AFTERHOURS.BELL` → 7:59 PM
+- `IS.AFTERHOURS.BLL` → 7:59 PM
 
-## ClosePosition with Profitable Flag
-Use `IS.PROFITABLE` or `YES`/`Y` as second parameter to close only if profitable:
+## ExitStrategy and IsProfitable (Single-Responsibility Pattern)
+Use `ExitStrategy()` for exit timing and chain `.IsProfitable()` to only exit if profitable:
 ```
-ClosePosition(IS.BELL, IS.PROFITABLE)
-ClosePosition(IS.BELL, YES)
-ClosePosition(IS.BELL, Y)
+ExitStrategy(IS.BELL)                    # Exit at session bell
+ExitStrategy(IS.BELL).IsProfitable()     # Exit at bell only if profitable
+ExitStrategy(15:30).IsProfitable()       # Exit at 3:30 PM only if profitable
 ```
 
 ## ASCII-Only Console Output
@@ -418,9 +472,9 @@ The console UI uses ASCII-only characters (no Unicode). Use:
 RSI Scale (0-100):
 +--------------------------------------------+
 |  100 -------------------------------- Top  |
-|   70 =============== OVERBOUGHT ========== | <- RsiOverbought(70)
+|   70 =============== OVERBOUGHT ========== | <- IsRsiOverbought(70)
 |   50 -------------- Neutral -------------- |
-|   30 =============== OVERSOLD ============ | <- RsiOversold(30)
+|   30 =============== OVERSOLD ============ | <- IsRsiOversold(30)
 |    0 -------------------------------- Bot  |
 +--------------------------------------------+
 
@@ -441,7 +495,7 @@ ADX Trend Strength:
 +--------------------------------------------+
 |  75+ ---- Extremely Strong (rare) -------- |
 |  50+ ---- Very Strong Trend -------------- |
-|  25+ =============== STRONG ============== | <- AdxAbove(25)
+|  25+ =============== STRONG ============== | <- IsAdxAbove(25)
 |  20  ---- Trend Developing --------------- |
 |  <20 ---- Weak/No Trend (ranging) -------- |
 +--------------------------------------------+
@@ -454,7 +508,7 @@ ADX with DI Crossover:
     /  ___                  \____
 ___/__/   \_____                 \
               -DI
-   ↑ +DI > -DI = Bullish (DiPositive)
+   ↑ +DI > -DI = Bullish (IsDiPositive)
 ```
 
 ### MACD (Moving Average Convergence Divergence)
@@ -496,7 +550,7 @@ Price vs Multiple EMAs:
 +--------------------------------------------+
      ↑ Price > EMA(9) > EMA(21) = Bullish Stack
 
-EmaBetween(9, 21) - Pullback Zone:
+IsEmaBetween(9, 21) - Pullback Zone:
 +--------------------------------------------+
 |  EMA(21) ═══════════════════════════════   |
 |          ↑ Upper boundary                  |
@@ -522,18 +576,18 @@ EMA Turning Up Pattern:
 ROC % Scale:
 +--------------------------------------------+
 |  +5% ----- Strong Bullish Momentum ------- |
-|  +2% =============== THRESHOLD =========== | <- RocAbove(2)
+|  +2% =============== THRESHOLD =========== | <- IsRocAbove(2)
 |   0% ------------ Neutral ---------------- |
-|  -2% =============== THRESHOLD =========== | <- RocBelow(-2)
+|  -2% =============== THRESHOLD =========== | <- IsRocBelow(-2)
 |  -5% ----- Strong Bearish Momentum ------- |
 +--------------------------------------------+
 
 ROC = ((Price - Price_N_bars_ago) / Price_N_bars_ago) × 100
 ```
 
-### CloseAboveVwap (Strong VWAP Signal)
+### IsCloseAboveVwap (Strong VWAP Signal)
 ```
-CloseAboveVwap vs AboveVwap:
+IsCloseAboveVwap vs IsAboveVwap:
 +--------------------------------------------+
 |         +---+                              |
 |         |   | <- Close ABOVE = Strong      |
@@ -555,21 +609,21 @@ Bullish Continuation Setup:
 +--------------------------------------------+
 |  ENTRY CONDITIONS (Sequential):            |
 |                                            |
-|  1. AboveVwap()    [✓] Price > VWAP       |
-|  2. EmaAbove(9)    [✓] Price > EMA(9)     |
-|  3. DiPositive()   [✓] +DI > -DI          |
-|  4. MomentumAbove(0) [✓] Momentum > 0     |
+|  1. IsAboveVwap()    [✓] Price > VWAP       |
+|  2. IsEmaAbove(9)    [✓] Price > EMA(9)     |
+|  3. IsDiPositive()   [✓] +DI > -DI          |
+|  4. IsMomentumAbove(0) [✓] Momentum > 0     |
 |                                            |
 |  All conditions met → Execute BUY order   |
 +--------------------------------------------+
 
 Strategy Flow:
   [CONFIG]          [ENTRY]           [EXIT]
-  +--------+    +-----------+    +------------+
-  |Ticker  |    |AboveVwap  |    |TakeProfit  |
-  |Session | -> |EmaAbove   | -> |StopLoss    |
-  |Qty     |    |DiPositive |    |ClosePos    |
-  +--------+    +-----------+    +------------+
+  +--------+    +-------------+    +------------+
+  |Ticker  |    |IsAboveVwap  |    |TakeProfit  |
+  |Session | -> |IsEmaAbove   | -> |StopLoss    |
+  |Qty     |    |IsDiPositive |    |ClosePos    |
+  +--------+    +-------------+    +------------+
        ↓             ↓                 ↓
     Setup         Wait for          Manage
     params        signals           position
@@ -580,27 +634,27 @@ Strategy Flow:
 ### Trend Following
 ```idiotscript
 Ticker(AAPL)
-.AdxAbove(25)        # Strong trend exists
-.DiPositive()        # Bullish direction
-.EmaAbove(9)         # Short-term bullish
-.EmaAbove(21)        # Medium-term bullish
-.MomentumAbove(0)    # Positive momentum
+.IsAdxAbove(25)      # Strong trend exists
+.IsDiPositive()      # Bullish direction
+.IsEmaAbove(9)       # Short-term bullish
+.IsEmaAbove(21)      # Medium-term bullish
+.IsMomentumAbove(0)  # Positive momentum
 ```
 
 ### Mean Reversion
 ```idiotscript
 Ticker(AAPL)
-.RsiOversold(30)     # Oversold condition
-.EmaBetween(9, 21)   # In pullback zone
-.VolumeAbove(1.5)    # Volume confirmation
+.IsRsiOversold(30)   # Oversold condition
+.IsEmaBetween(9, 21) # In pullback zone
+.IsVolumeAbove(1.5)  # Volume confirmation
 ```
 
 ### VWAP Bounce
 ```idiotscript
 Ticker(AAPL)
-.CloseAboveVwap()    # Strong VWAP reclaim
-.EmaAbove(9)         # Short-term bullish
-.HigherLows()        # Building support
+.IsCloseAboveVwap()  # Strong VWAP reclaim
+.IsEmaAbove(9)       # Short-term bullish
+.IsHigherLows()      # Building support
 ```
 
 ## Indicator Implementation Requirements
@@ -612,5 +666,8 @@ An IdiotScript indicator condition is "fully implemented" when it has ALL of the
 5. **Context info display** in `GetEmaContextInfo()` method (shows indicator values when triggered)
 
 ### Exceptions
-- **VWAP-based conditions** (AboveVwap, BelowVwap, etc.) don't need calculators - VWAP is passed directly to `Evaluate(price, vwap)`
-- **Price-based conditions** (PriceAbove, PriceBelow, Entry, Breakout) don't need calculators - they use the price parameter
+- **VWAP-based conditions** (IsAboveVwap, IsBelowVwap, etc.) don't need calculators - VWAP is passed directly to `Evaluate(price, vwap)`
+- **Price-based conditions** (IsPriceAbove, IsPriceBelow, Entry, Breakout) don't need calculators - they use the price parameter
+
+## Note
+Ignore the IdiotProof.Frontend project for now - it has build errors related to HeartbeatMessage that will be addressed later.

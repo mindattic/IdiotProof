@@ -1,0 +1,59 @@
+# ============================================================================
+# DHX-V3-TrendConfirm - Full Trend Confirmation Stack
+# ============================================================================
+#
+# CHART ANALYSIS (Live Data):
+# - Current: $2.15 | VWAP: $2.19 | EMA(9): $2.15 | EMA(21): $2.14
+# - ADX: 31.5 (MODERATE trend - above 25 threshold!)
+# - Status: Price at EMA support, just below VWAP
+# - HOD: $2.50 | Catalyst: 30% AH earnings + $10M buyback
+#
+# STRATEGY:
+# ADX at 31.5 confirms trend exists. Wait for VWAP reclaim with
+# full trend confirmation stack for high-probability entry.
+#
+# ╔═══════════════════════════════════════════════════════════════════════════╗
+# ║  TREND CONFIRMATION CHECKLIST                                             ║
+# ║                                                                           ║
+# ║  Current Status:                                                         ║
+# ║  ✓ ADX: 31.5 (above 25 threshold) - CONFIRMED                            ║
+# ║  ✓ Price > EMA(9) @ $2.15 - AT LEVEL                                     ║
+# ║  ✓ Price > EMA(21) @ $2.14 - CONFIRMED                                   ║
+# ║  ? Price > VWAP @ $2.19 - PENDING (needs reclaim)                        ║
+# ║  ? +DI > -DI - PENDING                                                   ║
+# ╚═══════════════════════════════════════════════════════════════════════════╝
+#
+# RISK: Need VWAP reclaim + DI confirmation
+# ============================================================================
+
+Ticker(DHX)
+.Name("DHX Trend Confirmed")
+.Session(IS.EXTENDED)
+.Qty(31)
+
+# Breakout over VWAP
+.Breakout(2.19)
+
+# Pullback entry to EMA zone
+.Pullback(2.15)
+
+# Full trend confirmation stack
+.IsAboveVwap()
+.IsEmaAbove(9)
+.IsEmaAbove(21)
+.IsAdxAbove(30)
+.IsDiPositive()
+
+# Order execution
+.Long()
+.Quantity(31)
+
+# Target HOD area
+.TakeProfit(2.55)
+.StopLoss(2.02)
+
+# Trailing stop for trend riding
+.TrailingStopLoss(4)
+
+# Exit at bell
+.ExitStrategy(IS.BELL).IsProfitable()

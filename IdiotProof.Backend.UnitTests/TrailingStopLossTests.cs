@@ -145,7 +145,7 @@ public class TrailingStopLossTests
         var strategy = Stock
             .Ticker("TEST")
             .IsPriceAbove(10.00)
-            .Buy(quantity: 100, Price.Current)
+            .Long().Quantity(100)
             .TrailingStopLoss(Percent.TwentyFive)
             .Build();
 
@@ -160,7 +160,7 @@ public class TrailingStopLossTests
         var strategy = Stock
             .Ticker("TEST")
             .IsPriceAbove(10.00)
-            .Buy(quantity: 100, Price.Current)
+            .Long().Quantity(100)
             .Build();
 
         Assert.That(strategy.Order.EnableTrailingStopLoss, Is.False);
@@ -178,7 +178,7 @@ public class TrailingStopLossTests
         var strategy = Stock
             .Ticker("TEST")
             .IsPriceAbove(10.00)
-            .Buy(quantity: 100, Price.Current)
+            .Long().Quantity(100)
             .TrailingStopLoss(percent)
             .Build();
 
@@ -275,7 +275,7 @@ public class TrailingStopLossTests
         var strategy = Stock
             .Ticker("TEST")
             .IsPriceAbove(10.00)
-            .Buy(quantity: 100, Price.Current)
+            .Long().Quantity(100)
             .TakeProfit(15.00)
             .TrailingStopLoss(Percent.TwentyFive)
             .Build();
@@ -294,8 +294,8 @@ public class TrailingStopLossTests
             .Ticker("TEST")
             .IsPriceAbove(2.40)
             .IsAboveVwap()
-            .Buy(quantity: 500, Price.Current)
-            .TakeProfit(4.00, 4.80)
+            .Long().Quantity(500)
+            .AdxTakeProfit(AdxTakeProfitConfig.FromRange(4.00, 4.80))
             .TrailingStopLoss(Percent.TwentyFive)
             .Build();
 
@@ -315,10 +315,10 @@ public class TrailingStopLossTests
             .TimeFrame(TradingSession.PreMarketEndEarly)
             .IsPriceAbove(2.40)
             .IsAboveVwap()
-            .Buy(quantity: 500, Price.Current)
-            .TakeProfit(4.00, 4.80)
+            .Long().Quantity(500)
+            .AdxTakeProfit(AdxTakeProfitConfig.FromRange(4.00, 4.80))
             .TrailingStopLoss(Percent.TwentyFive)
-            .ClosePosition(MarketTime.PreMarket.Ending, false)
+            .ExitStrategy(MarketTime.PreMarket.Ending)
             .Build();
 
         Assert.Multiple(() =>
@@ -382,3 +382,5 @@ public class TrailingStopLossTests
 
     #endregion
 }
+
+

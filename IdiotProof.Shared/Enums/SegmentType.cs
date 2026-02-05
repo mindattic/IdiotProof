@@ -58,6 +58,8 @@ namespace IdiotProof.Shared.Enums
         Pullback,
         IsPriceAbove,
         IsPriceBelow,
+        GapUp,
+        GapDown,
 
         // VWAP Conditions
         IsAboveVwap,
@@ -80,8 +82,9 @@ namespace IdiotProof.Shared.Enums
             IsVwapRejection,
 
         // Orders
-        Buy,
-        Sell,
+        Order,      // Unified order type with direction parameter (IS.LONG or IS.SHORT)
+        Long,       // Alias for Order with IS.LONG direction
+        Short,      // Alias for Order with IS.SHORT direction
         Close,
         CloseLong,
         CloseShort,
@@ -95,7 +98,8 @@ namespace IdiotProof.Shared.Enums
         AdaptiveOrder,
 
         // Position Management
-        ClosePosition,
+        ExitStrategy,
+        IsProfitable,
 
         // Order Config
         TimeInForce,
@@ -107,3 +111,5 @@ namespace IdiotProof.Shared.Enums
         Repeat
     }
 }
+
+

@@ -43,7 +43,7 @@ public class OrderOfOperationsTests
     public void Parse_SymbolFirst_Succeeds()
     {
         // Arrange - Symbol is first
-        var script = "TICKER(AAPL).QTY(100).BUY";
+        var script = "TICKER(AAPL).QTY(100).Order()";
 
         // Act
         var result = StrategyScriptParser.Parse(script);
@@ -53,7 +53,7 @@ public class OrderOfOperationsTests
     }
 
     [TestCase("TICKER(AAPL).SESSION(IS.PREMARKET).QTY(100)")]
-    [TestCase("SYM(NVDA).BREAKOUT(150).BUY")]
+    [TestCase("SYM(NVDA).BREAKOUT(150).Order()")]
     [TestCase("SYMBOL(TSLA).TP(200).SL(180)")]
     [TestCase("STOCK.TICKER(AMD).TSL(IS.MODERATE)")]
     public void Parse_VariousSymbolSyntax_AllSucceed(string script)
@@ -70,7 +70,7 @@ public class OrderOfOperationsTests
     public void Parse_NoSymbol_ThrowsException()
     {
         // Arrange - No symbol
-        var script = "QTY(100).BUY.TP(160)";
+        var script = "QTY(100).Order().TP(160)";
 
         // Act & Assert
         Assert.Throws<StrategyScriptException>(() => StrategyScriptParser.Parse(script));
@@ -84,7 +84,7 @@ public class OrderOfOperationsTests
     public void Parse_SessionBeforeConditions_Succeeds()
     {
         // Arrange
-        var script = "TICKER(AAPL).SESSION(IS.PREMARKET).BREAKOUT(150).BUY";
+        var script = "TICKER(AAPL).SESSION(IS.PREMARKET).BREAKOUT(150).Order()";
 
         // Act
         var result = StrategyScriptParser.Parse(script);
@@ -92,7 +92,7 @@ public class OrderOfOperationsTests
         // Assert
         var sessionSegment = result.Segments.FirstOrDefault(s => s.Type == SegmentType.SessionDuration);
         var breakoutSegment = result.Segments.FirstOrDefault(s => s.Type == SegmentType.Breakout);
-        
+
         Assert.That(sessionSegment, Is.Not.Null);
         Assert.That(breakoutSegment, Is.Not.Null);
     }
@@ -101,7 +101,7 @@ public class OrderOfOperationsTests
     public void Parse_SessionAfterConditions_StillWorks()
     {
         // Parser is flexible with order - validates structure, not strict ordering
-        var script = "TICKER(AAPL).BREAKOUT(150).SESSION(IS.PREMARKET).BUY";
+        var script = "TICKER(AAPL).BREAKOUT(150).SESSION(IS.PREMARKET).Order()";
 
         // Act
         var result = StrategyScriptParser.Parse(script);
@@ -119,7 +119,7 @@ public class OrderOfOperationsTests
     public void Parse_ConditionsBeforeOrder_Succeeds()
     {
         // Arrange
-        var script = "TICKER(AAPL).BREAKOUT(150).ISABOVEVWAP().BUY.QTY(100)";
+        var script = "TICKER(AAPL).BREAKOUT(150).ISABOVEVWAP().Order().QTY(100)";
 
         // Act
         var result = StrategyScriptParser.Parse(script);
@@ -129,10 +129,10 @@ public class OrderOfOperationsTests
         Assert.That(result.Segments, Has.Some.Matches<StrategySegment>(s => s.Type == SegmentType.IsAboveVwap));
     }
 
-    [TestCase("TICKER(AAPL).BREAKOUT.BUY")]
-    [TestCase("TICKER(AAPL).PULLBACK.SELL")]
-    [TestCase("TICKER(AAPL).ABOVEVWAP.BUY")]
-    [TestCase("TICKER(AAPL).BELOWVWAP.SELL")]
+    [TestCase("TICKER(AAPL).BREAKOUT.Order()")]
+    [TestCase("TICKER(AAPL).PULLBACK.Short()")]
+    [TestCase("TICKER(AAPL).ABOVEVWAP.Long()")]
+    [TestCase("TICKER(AAPL).BELOWVWAP.Short()")]
     public void Parse_ConditionThenOrder_Succeeds(string script)
     {
         // Act
@@ -150,7 +150,7 @@ public class OrderOfOperationsTests
     public void Parse_RiskManagementAfterOrder_Succeeds()
     {
         // Arrange
-        var script = "TICKER(AAPL).BREAKOUT(150).BUY.QTY(100).TP(160).SL(145).TSL(10)";
+        var script = "TICKER(AAPL).BREAKOUT(150).Order().QTY(100).TP(160).SL(145).TSL(10)";
 
         // Act
         var result = StrategyScriptParser.Parse(script);
@@ -165,7 +165,7 @@ public class OrderOfOperationsTests
     public void Parse_RiskManagementWithISConstants_Succeeds()
     {
         // Arrange
-        var script = "TICKER(AAPL).BREAKOUT.BUY.TSL(IS.MODERATE)";
+        var script = "TICKER(AAPL).BREAKOUT.Order().TSL(IS.MODERATE)";
 
         // Act
         var result = StrategyScriptParser.Parse(script);
@@ -183,7 +183,7 @@ public class OrderOfOperationsTests
     public void Parse_CompleteStrategyFlow_AllSegmentsPresent()
     {
         // Arrange - Complete strategy with all sections
-        var script = "TICKER(NVDA).SESSION(IS.PREMARKET).BREAKOUT(150).ABOVEVWAP().BUY.QTY(10).TP(160).SL(145).TSL(IS.MODERATE).CLOSEPOSITION(IS.BELL)";
+        var script = "TICKER(NVDA).SESSION(IS.PREMARKET).BREAKOUT(150).ABOVEVWAP().Order().QTY(10).TP(160).SL(145).TSL(IS.MODERATE).ExitStrategy(IS.BELL)";
 
         // Act
         var result = StrategyScriptParser.Parse(script);
@@ -196,12 +196,12 @@ public class OrderOfOperationsTests
         Assert.That(result.Segments, Has.Some.Matches<StrategySegment>(s => s.Type == SegmentType.TakeProfit));
         Assert.That(result.Segments, Has.Some.Matches<StrategySegment>(s => s.Type == SegmentType.StopLoss));
         Assert.That(result.Segments, Has.Some.Matches<StrategySegment>(s => s.Type == SegmentType.TrailingStopLoss));
-        Assert.That(result.Segments, Has.Some.Matches<StrategySegment>(s => s.Type == SegmentType.ClosePosition));
+        Assert.That(result.Segments, Has.Some.Matches<StrategySegment>(s => s.Type == SegmentType.ExitStrategy));
     }
 
-    [TestCase("TICKER(AAPL).SESSION(IS.RTH).BREAKOUT.BUY.TP(160)")]
-    [TestCase("TICKER(AAPL).PULLBACK.ABOVEVWAP().SELL.SL(140)")]
-    [TestCase("TICKER(AAPL).EMAABOVE(9).EMABELOW(200).BUY.TSL(IS.TIGHT)")]
+    [TestCase("TICKER(AAPL).SESSION(IS.RTH).BREAKOUT.Order().TP(160)")]
+    [TestCase("TICKER(AAPL).PULLBACK.ABOVEVWAP().Short().SL(140)")]
+    [TestCase("TICKER(AAPL).EMAABOVE(9).EMABELOW(200).Order().TSL(IS.TIGHT)")]
     public void Parse_VariousCompleteStrategies_AllSucceed(string script)
     {
         // Act
@@ -301,7 +301,7 @@ public class SeparationOfResponsibilityTests
         {
             Assert.That(
                 mapping.IdiotScriptCommands.Any(cmd =>
-                    cmd is "BUY" or "SELL" or "QTY" or "CLOSE" or "CLOSELONG" or "CLOSESHORT"), Is.True,
+                    cmd is "ORDER" or "LONG" or "SHORT" or "QTY" or "CLOSE" or "CLOSELONG" or "CLOSESHORT"), Is.True,
                 $"Expected order command, got: {string.Join(", ", mapping.IdiotScriptCommands)}");
         }
     }
@@ -318,7 +318,8 @@ public class SeparationOfResponsibilityTests
         {
             Assert.That(
                 mapping.IdiotScriptCommands.Any(cmd =>
-                    cmd is "TP" or "TAKEPROFIT" or "SL" or "STOPLOSS" or "TSL" or "TRAILINGSTOPLOSS"), Is.True,
+                    cmd is "TP" or "TAKEPROFIT" or "SL" or "STOPLOSS" or "TSL" or "TRAILINGSTOPLOSS" 
+                        or "ADAPTIVEORDER" or "ISADAPTIVEORDER"), Is.True,
                 $"Expected risk command, got: {string.Join(", ", mapping.IdiotScriptCommands)}");
         }
     }
@@ -383,8 +384,8 @@ public class SeparationOfResponsibilityTests
     [TestCase("BELOWVWAP", SegmentType.IsBelowVwap)]
     [TestCase("EMAABOVE", SegmentType.IsEmaAbove)]
     [TestCase("EMABELOW", SegmentType.IsEmaBelow)]
-    [TestCase("BUY", SegmentType.Buy)]
-    [TestCase("SELL", SegmentType.Sell)]
+    [TestCase("ORDER", SegmentType.Order)]
+    [TestCase("LONG", SegmentType.Order)]
     [TestCase("TP", SegmentType.TakeProfit)]
     [TestCase("SL", SegmentType.StopLoss)]
     [TestCase("TSL", SegmentType.TrailingStopLoss)]
@@ -404,8 +405,7 @@ public class SeparationOfResponsibilityTests
     [TestCase(SegmentType.Pullback)]
     [TestCase(SegmentType.IsAboveVwap)]
     [TestCase(SegmentType.IsBelowVwap)]
-    [TestCase(SegmentType.Buy)]
-    [TestCase(SegmentType.Sell)]
+    [TestCase(SegmentType.Order)]
     [TestCase(SegmentType.TakeProfit)]
     [TestCase(SegmentType.StopLoss)]
     [TestCase(SegmentType.TrailingStopLoss)]
@@ -437,7 +437,7 @@ public class RoundTripPreservationTests
     public void RoundTrip_PreservesSymbol(string symbol)
     {
         // Arrange
-        var script = $"TICKER({symbol}).BREAKOUT.BUY";
+        var script = $"TICKER({symbol}).BREAKOUT.Order()";
 
         // Act
         var parsed = StrategyScriptParser.Parse(script);
@@ -475,7 +475,7 @@ public class RoundTripPreservationTests
     public void RoundTrip_PreservesTakeProfitValue()
     {
         // Arrange
-        var script = "TICKER(AAPL).BREAKOUT.BUY.TP(165.50)";
+        var script = "TICKER(AAPL).BREAKOUT.Order().TP(165.50)";
 
         // Act
         var parsed = StrategyScriptParser.Parse(script);
@@ -491,7 +491,7 @@ public class RoundTripPreservationTests
     public void RoundTrip_PreservesStopLossValue()
     {
         // Arrange
-        var script = "TICKER(AAPL).BREAKOUT.BUY.SL(145.00)";
+        var script = "TICKER(AAPL).BREAKOUT.Order().SL(145.00)";
 
         // Act
         var parsed = StrategyScriptParser.Parse(script);
@@ -511,7 +511,7 @@ public class RoundTripPreservationTests
     public void ValidateRoundTrip_ValidScript_Succeeds()
     {
         // Arrange
-        var script = "TICKER(AAPL).SESSION(IS.PREMARKET).BREAKOUT(150).BUY.TP(160)";
+        var script = "TICKER(AAPL).SESSION(IS.PREMARKET).BREAKOUT(150).Order().TP(160)";
 
         // Act
         var result = IdiotScriptValidator.ValidateRoundTrip(script);
@@ -523,3 +523,5 @@ public class RoundTripPreservationTests
 
     #endregion
 }
+
+

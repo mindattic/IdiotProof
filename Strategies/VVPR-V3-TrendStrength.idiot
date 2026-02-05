@@ -1,0 +1,57 @@
+# ============================================================================
+# VVPR-V3-TrendStrength - ADX Trend Strength Entry
+# ============================================================================
+#
+# CHART ANALYSIS (Live Data):
+# - Current: $1.70 | VWAP: $1.95 | EMA(9): $1.74 | EMA(21): $1.75
+# - ADX: 22.01 (DEVELOPING - below 25 threshold)
+# - Status: ADX needs to climb above 25 for strong trend
+# - LOD: ~$1.50 | Recent high: $2.10
+# - Catalyst: 20% stake in KWeather for $4.3M
+#
+# STRATEGY:
+# Wait for ADX to confirm trend strength (>22 lowered threshold due to
+# current ADX at 22.01). Needs +DI > -DI for bullish direction.
+#
+# ╔═══════════════════════════════════════════════════════════════════════════╗
+# ║  ADX TREND CONFIRMATION                                                   ║
+# ║                                                                           ║
+# ║  ADX Trend Strength:                                                     ║
+# ║  +--------------------------------------------+                          ║
+# ║  |  50+ ---- Very Strong Trend -------------- |                          ║
+# ║  |  25+ =============== STRONG ============== |                          ║
+# ║  |  22  ---- Current ADX Level -------------- | <- VVPR is here         ║
+# ║  |  <20 ---- Weak/No Trend (ranging) -------- |                          ║
+# ║  +--------------------------------------------+                          ║
+# ╚═══════════════════════════════════════════════════════════════════════════╝
+#
+# RISK: ADX at 22 - trend developing but not confirmed strong
+# ============================================================================
+
+Ticker(VVPR)
+.Name("VVPR Trend Strength")
+.Session(IS.EXTENDED)
+.Qty(36)
+
+# Breakout over VWAP
+.Breakout(1.95)
+.Pullback(1.80)
+
+# Trend strength confirmation - lowered to 22 for current conditions
+.IsAboveVwap()
+.IsAdxAbove(22)
+.IsDiPositive()
+
+# Order execution
+.Long()
+.Quantity(36)
+
+# Mid-range target
+.TakeProfit(2.15)
+.StopLoss(1.62)
+
+# Trailing stop for trend following
+.TrailingStopLoss(4)
+
+# Exit at bell if still open
+.ExitStrategy(IS.BELL).IsProfitable()

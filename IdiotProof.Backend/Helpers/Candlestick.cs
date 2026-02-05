@@ -130,3 +130,5 @@ namespace IdiotProof.Backend.Helpers
             $"[{Timestamp:HH:mm}] O:{Open:F2} H:{High:F2} L:{Low:F2} C:{Close:F2} V:{Volume}";
     }
 }
+
+

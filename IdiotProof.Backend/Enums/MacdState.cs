@@ -56,3 +56,5 @@ namespace IdiotProof.Backend.Enums
         HistogramFalling
     }
 }
+
+

@@ -1,0 +1,53 @@
+# ============================================================================
+# VVPR-V1-Breakout - VWAP Reclaim Breakout
+# ============================================================================
+#
+# CHART ANALYSIS (Live Data):
+# - Current: $1.70 | VWAP: $1.95 | EMA(9): $1.74 | EMA(21): $1.75
+# - ADX: 22.01 (developing trend)
+# - Status: BELOW VWAP - needs reclaim for bullish setup
+# - LOD: ~$1.50 | Recent high: $2.10
+# - Catalyst: 20% stake in KWeather for $4.3M
+#
+# STRATEGY:
+# Wait for price to reclaim VWAP at $1.95, then breakout over $2.00
+# resistance. Entry on pullback to VWAP with confirmation.
+#
+# ╔═══════════════════════════════════════════════════════════════════════════╗
+# ║  EXECUTION FLOW                                                           ║
+# ║                                                                           ║
+# ║  [CONFIG]         [ENTRY CONDITIONS]           [EXIT]                     ║
+# ║  ┌──────────┐     ┌───────────────────┐     ┌────────────────┐           ║
+# ║  │Ticker    │     │Breakout($1.95)    │     │TakeProfit($2.10)│          ║
+# ║  │Session   │ --> │Pullback($1.85)    │ --> │StopLoss($1.65)  │          ║
+# ║  │Qty       │     │IsAboveVwap()      │     │                 │          ║
+# ║  └──────────┘     └───────────────────┘     └────────────────┘           ║
+# ╚═══════════════════════════════════════════════════════════════════════════╝
+#
+# RISK: Currently below VWAP - wait for reclaim before entry
+# ============================================================================
+
+Ticker(VVPR)
+.Name("VVPR VWAP Reclaim Breakout")
+.Session(IS.EXTENDED)
+.Qty(36)
+
+# Breakout over VWAP resistance at $1.95
+.Breakout(1.95)
+
+# Pullback entry zone - must hold above EMA zone
+.Pullback(1.85)
+
+# VWAP confirmation required
+.IsAboveVwap()
+
+# Order execution
+.Long()
+.Quantity(36)
+
+# Risk management - target recent high
+.TakeProfit(2.10)
+.StopLoss(1.65)
+
+# Exit at bell if still open
+.ExitStrategy(IS.BELL).IsProfitable()

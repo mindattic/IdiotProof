@@ -17,7 +17,7 @@
 //       .IsEmaAbove(period)           // Price >= EMA
 //       .IsEmaBelow(period)           // Price <= EMA
 //       .IsEmaBetween(lower, upper)   // Price between two EMAs
-//       .Buy(quantity)
+//       .Long(quantity)
 //       .TakeProfit(low, high)
 //       .TrailingStopLoss(Percent.TwentyFive)
 //       .ClosePosition(MarketTime.PreMarket.Ending, false)
@@ -169,3 +169,5 @@ internal sealed class Program
         await Task.Delay(Timeout.Infinite, CancellationToken.None);
     }
 }
+
+

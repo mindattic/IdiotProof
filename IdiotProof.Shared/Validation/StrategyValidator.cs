@@ -125,8 +125,9 @@ namespace IdiotProof.Shared.Validation
                         }
                         break;
 
-                    case "BUY":
-                    case "SELL":
+                    case "ORDER":
+                    case "LONG":
+                    case "SHORT":
                     case "CLOSE":
                     case "CLOSELONG":
                     case "CLOSESHORT":
@@ -503,3 +504,5 @@ namespace IdiotProof.Shared.Validation
         }
     }
 }
+
+

@@ -193,18 +193,31 @@ public class IdiotScriptParserTests
 
     #endregion
 
-    #region Close Position Parsing
+    #region Exit Strategy Parsing
 
-    [TestCase("TICKER(AAPL).CLOSEPOSITION(IS.BELL)")]
-    [TestCase("TICKER(AAPL).CLOSEPOSITION(IS.PREMARKET.BELL)")]
-    [TestCase("TICKER(AAPL).CLOSEPOSITION(IS.OPEN)")]
-    [TestCase("TICKER(AAPL).CLOSEPOSITION(IS.CLOSE)")]
-    public void Parse_ClosePositionCommands_CreatesCloseSegment(string script)
+    [TestCase("TICKER(AAPL).EXITSTRATEGY(IS.BELL)")]
+    [TestCase("TICKER(AAPL).EXITSTRATEGY(IS.PREMARKET.BELL)")]
+    [TestCase("TICKER(AAPL).EXITSTRATEGY(IS.OPEN)")]
+    [TestCase("TICKER(AAPL).EXITSTRATEGY(IS.CLOSE)")]
+    [TestCase("TICKER(AAPL).CLOSEPOSITION(IS.BELL)")] // Legacy support
+    public void Parse_ExitStrategyCommands_CreatesExitSegment(string script)
     {
         var result = IdiotScriptParser.Parse(script);
 
-        var closeSegment = result.Segments.FirstOrDefault(s => s.Type == SegmentType.ClosePosition);
+        var closeSegment = result.Segments.FirstOrDefault(s => s.Type == SegmentType.ExitStrategy);
         Assert.That(closeSegment, Is.Not.Null);
+    }
+
+    [Test]
+    public void Parse_ExitStrategyWithIsProfitable_SetsBothValues()
+    {
+        var script = "TICKER(AAPL).EXITSTRATEGY(IS.BELL).ISPROFITABLE()";
+        var result = IdiotScriptParser.Parse(script);
+
+        var exitSegment = result.Segments.FirstOrDefault(s => s.Type == SegmentType.ExitStrategy);
+        var profitableSegment = result.Segments.FirstOrDefault(s => s.Type == SegmentType.IsProfitable);
+        Assert.That(exitSegment, Is.Not.Null);
+        Assert.That(profitableSegment, Is.Not.Null);
     }
 
     #endregion
@@ -321,21 +334,86 @@ public class IdiotScriptParserTests
     #region Order Direction
 
     [Test]
-    public void Parse_Buy_CreatesBuySegment()
+    public void Parse_Order_CreatesOrderSegment()
     {
-        var result = IdiotScriptParser.Parse("TICKER(AAPL).QTY(10).BUY");
+        var result = IdiotScriptParser.Parse("TICKER(AAPL).QTY(10).ORDER()");
 
-        var segment = result.Segments.FirstOrDefault(s => s.Type == SegmentType.Buy);
+        var segment = result.Segments.FirstOrDefault(s => s.Type == SegmentType.Order);
         Assert.That(segment, Is.Not.Null);
+        // Default direction is LONG
+        var directionParam = segment!.Parameters.FirstOrDefault(p => p.Name == "Direction");
+        Assert.That(directionParam?.Value?.ToString(), Is.EqualTo("Long"));
     }
 
     [Test]
-    public void Parse_Sell_CreatesSellSegment()
+    public void Parse_OrderLong_CreatesLongOrderSegment()
     {
-        var result = IdiotScriptParser.Parse("TICKER(AAPL).QTY(10).SELL");
+        var result = IdiotScriptParser.Parse("TICKER(AAPL).QTY(10).ORDER(IS.LONG)");
 
-        var segment = result.Segments.FirstOrDefault(s => s.Type == SegmentType.Sell);
+        var segment = result.Segments.FirstOrDefault(s => s.Type == SegmentType.Order);
         Assert.That(segment, Is.Not.Null);
+        var directionParam = segment!.Parameters.FirstOrDefault(p => p.Name == "Direction");
+        Assert.That(directionParam?.Value?.ToString(), Is.EqualTo("Long"));
+    }
+
+    [Test]
+    public void Parse_OrderShort_CreatesShortOrderSegment()
+    {
+        var result = IdiotScriptParser.Parse("TICKER(AAPL).QTY(10).ORDER(IS.SHORT)");
+
+        var segment = result.Segments.FirstOrDefault(s => s.Type == SegmentType.Order);
+        Assert.That(segment, Is.Not.Null);
+        var directionParam = segment!.Parameters.FirstOrDefault(p => p.Name == "Direction");
+        Assert.That(directionParam?.Value?.ToString(), Is.EqualTo("Short"));
+    }
+
+    [TestCase("TICKER(AAPL).QTY(10).ORDER()", "Long")]
+    [TestCase("TICKER(AAPL).QTY(10).ORDER(IS.LONG)", "Long")]
+    [TestCase("TICKER(AAPL).QTY(10).ORDER(LONG)", "Long")]
+    [TestCase("TICKER(AAPL).QTY(10).ORDER(IS.SHORT)", "Short")]
+    [TestCase("TICKER(AAPL).QTY(10).ORDER(SHORT)", "Short")]
+    public void Parse_OrderVariations_SetsCorrectDirection(string script, string expectedDirection)
+    {
+        var result = IdiotScriptParser.Parse(script);
+
+        var segment = result.Segments.FirstOrDefault(s => s.Type == SegmentType.Order);
+        Assert.That(segment, Is.Not.Null);
+        var directionParam = segment!.Parameters.FirstOrDefault(p => p.Name == "Direction");
+        Assert.That(directionParam?.Value?.ToString(), Is.EqualTo(expectedDirection));
+    }
+
+    [Test]
+    public void Parse_Long_CreatesLongOrderSegment()
+    {
+        var result = IdiotScriptParser.Parse("TICKER(AAPL).QTY(10).LONG");
+
+        var segment = result.Segments.FirstOrDefault(s => s.Type == SegmentType.Order);
+        Assert.That(segment, Is.Not.Null);
+        var directionParam = segment!.Parameters.FirstOrDefault(p => p.Name == "Direction");
+        Assert.That(directionParam?.Value?.ToString(), Is.EqualTo("Long"));
+    }
+
+    [Test]
+    public void Parse_Short_CreatesShortOrderSegment()
+    {
+        var result = IdiotScriptParser.Parse("TICKER(AAPL).QTY(10).SHORT");
+
+        var segment = result.Segments.FirstOrDefault(s => s.Type == SegmentType.Order);
+        Assert.That(segment, Is.Not.Null);
+        var directionParam = segment!.Parameters.FirstOrDefault(p => p.Name == "Direction");
+        Assert.That(directionParam?.Value?.ToString(), Is.EqualTo("Short"));
+    }
+
+    [Test]
+    public void Parse_DefaultOrder_IsLong()
+    {
+        // When no order direction is specified, default is LONG
+        var result = IdiotScriptParser.Parse("TICKER(AAPL).QTY(10)");
+
+        var segment = result.Segments.FirstOrDefault(s => s.Type == SegmentType.Order);
+        Assert.That(segment, Is.Not.Null);
+        var directionParam = segment!.Parameters.FirstOrDefault(p => p.Name == "Direction");
+        Assert.That(directionParam?.Value?.ToString(), Is.EqualTo("Long"));
     }
 
     #endregion
@@ -493,7 +571,7 @@ public class IdiotScriptParserTests
         Assert.That(result.Segments, Has.Some.Matches<IdiotProof.Shared.Models.StrategySegment>(s => s.Type == SegmentType.Pullback));
         Assert.That(result.Segments, Has.Some.Matches<IdiotProof.Shared.Models.StrategySegment>(s => s.Type == SegmentType.IsAboveVwap));
         Assert.That(result.Segments, Has.Some.Matches<IdiotProof.Shared.Models.StrategySegment>(s => s.Type == SegmentType.IsEmaAbove));
-        Assert.That(result.Segments, Has.Some.Matches<IdiotProof.Shared.Models.StrategySegment>(s => s.Type == SegmentType.ClosePosition));
+        Assert.That(result.Segments, Has.Some.Matches<IdiotProof.Shared.Models.StrategySegment>(s => s.Type == SegmentType.ExitStrategy));
     }
 
     #endregion
@@ -729,4 +807,111 @@ public class IdiotScriptParserTests
     }
 
     #endregion
+
+    #region GapUp/GapDown Parsing
+
+    [Test]
+    public void Parse_GapUp_CreatesGapUpCondition()
+    {
+        var script = "Ticker(NVDA).GapUp(5)";
+        var result = IdiotScriptParser.Parse(script);
+
+        Assert.That(result.Symbol, Is.EqualTo("NVDA"));
+        Assert.That(result.Segments, Has.Some.Matches<Models.StrategySegment>(s =>
+            s.Type == SegmentType.GapUp &&
+            s.Parameters.Any(p => p.Name == "Percentage" && Convert.ToDouble(p.Value) == 5)));
+    }
+
+    [Test]
+    public void Parse_GapUpWithPercent_CreatesGapUpCondition()
+    {
+        // Should support both "5" and "5%" syntax
+        var script = "Ticker(NVDA).GapUp(5%)";
+        var result = IdiotScriptParser.Parse(script);
+
+        Assert.That(result.Symbol, Is.EqualTo("NVDA"));
+        Assert.That(result.Segments, Has.Some.Matches<Models.StrategySegment>(s =>
+            s.Type == SegmentType.GapUp &&
+            s.Parameters.Any(p => p.Name == "Percentage" && Convert.ToDouble(p.Value) == 5)));
+    }
+
+    [Test]
+    public void Parse_IsGapUp_CreatesGapUpCondition()
+    {
+        // IsGapUp is an alias for GapUp
+        var script = "Ticker(NVDA).IsGapUp(5)";
+        var result = IdiotScriptParser.Parse(script);
+
+        Assert.That(result.Symbol, Is.EqualTo("NVDA"));
+        Assert.That(result.Segments, Has.Some.Matches<Models.StrategySegment>(s =>
+            s.Type == SegmentType.GapUp));
+    }
+
+    [Test]
+    public void Parse_GapDown_CreatesGapDownCondition()
+    {
+        var script = "Ticker(AAPL).GapDown(3)";
+        var result = IdiotScriptParser.Parse(script);
+
+        Assert.That(result.Symbol, Is.EqualTo("AAPL"));
+        Assert.That(result.Segments, Has.Some.Matches<Models.StrategySegment>(s =>
+            s.Type == SegmentType.GapDown &&
+            s.Parameters.Any(p => p.Name == "Percentage" && Convert.ToDouble(p.Value) == 3)));
+    }
+
+    [Test]
+    public void Parse_GapDownWithPercent_CreatesGapDownCondition()
+    {
+        var script = "Ticker(AAPL).GapDown(3%)";
+        var result = IdiotScriptParser.Parse(script);
+
+        Assert.That(result.Symbol, Is.EqualTo("AAPL"));
+        Assert.That(result.Segments, Has.Some.Matches<Models.StrategySegment>(s =>
+            s.Type == SegmentType.GapDown &&
+            s.Parameters.Any(p => p.Name == "Percentage" && Convert.ToDouble(p.Value) == 3)));
+    }
+
+    [Test]
+    public void Parse_IsGapDown_CreatesGapDownCondition()
+    {
+        // IsGapDown is an alias for GapDown
+        var script = "Ticker(AAPL).IsGapDown(3)";
+        var result = IdiotScriptParser.Parse(script);
+
+        Assert.That(result.Symbol, Is.EqualTo("AAPL"));
+        Assert.That(result.Segments, Has.Some.Matches<Models.StrategySegment>(s =>
+            s.Type == SegmentType.GapDown));
+    }
+
+    [Test]
+    public void Parse_GapAndGoStrategy_ParsesCorrectly()
+    {
+        // Complete "Gap and Go" strategy
+        var script = "Ticker(NVDA).Session(IS.PREMARKET).GapUp(5).AboveVwap().DiPositive().AdaptiveOrder(IS.AGGRESSIVE)";
+        var result = IdiotScriptParser.Parse(script);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.Symbol, Is.EqualTo("NVDA"));
+            Assert.That(result.Segments, Has.Some.Matches<Models.StrategySegment>(s => s.Type == SegmentType.GapUp));
+            Assert.That(result.Segments, Has.Some.Matches<Models.StrategySegment>(s => s.Type == SegmentType.IsAboveVwap));
+            Assert.That(result.Segments, Has.Some.Matches<Models.StrategySegment>(s => s.Type == SegmentType.IsDI));
+            Assert.That(result.Segments, Has.Some.Matches<Models.StrategySegment>(s => s.Type == SegmentType.AdaptiveOrder));
+        });
+    }
+
+    [Test]
+    public void Parse_GapUpDecimalPercent_ParsesCorrectly()
+    {
+        var script = "Ticker(NVDA).GapUp(2.5)";
+        var result = IdiotScriptParser.Parse(script);
+
+        Assert.That(result.Segments, Has.Some.Matches<Models.StrategySegment>(s =>
+            s.Type == SegmentType.GapUp &&
+            s.Parameters.Any(p => p.Name == "Percentage" && Convert.ToDouble(p.Value) == 2.5)));
+    }
+
+    #endregion
 }
+
+

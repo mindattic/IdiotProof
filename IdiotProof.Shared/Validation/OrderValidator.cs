@@ -281,3 +281,5 @@ namespace IdiotProof.Shared.Validation
         public bool RequireTakeProfit { get; set; } = false;
     }
 }
+
+

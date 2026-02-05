@@ -352,3 +352,5 @@ namespace IdiotProof.Backend.Helpers
         public static int GetWarmUpBarsNeeded(int emaPeriod) => emaPeriod + 10; // Buffer for accuracy
     }
 }
+
+

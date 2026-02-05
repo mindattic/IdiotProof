@@ -238,7 +238,7 @@ public class ValidationExtensionsTests
         var breakout = SegmentFactory.CreateBreakout();
         breakout.Parameters.First(p => p.Name.Equals("Level", StringComparison.OrdinalIgnoreCase)).Value = 150.0;
 
-        var buy = SegmentFactory.CreateBuy();
+        var buy = SegmentFactory.CreateLong();
 
         // Ensure required order parameters are set (validation requires all required params populated)
         buy.Parameters.First(p => p.Name.Equals("Quantity", StringComparison.OrdinalIgnoreCase)).Value = 10;
@@ -256,3 +256,5 @@ public class ValidationExtensionsTests
 
     #endregion
 }
+
+

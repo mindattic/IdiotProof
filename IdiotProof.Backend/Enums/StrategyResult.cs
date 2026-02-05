@@ -39,3 +39,5 @@ namespace IdiotProof.Backend.Enums
         EmergencyExit
     }
 }
+
+

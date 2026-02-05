@@ -68,3 +68,5 @@ public static class Percent
         return value / 100.0;
     }
 }
+
+

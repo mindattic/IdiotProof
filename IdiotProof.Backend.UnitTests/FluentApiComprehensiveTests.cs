@@ -38,7 +38,7 @@ public class FluentApiComprehensiveTests
             var strategy = Stock.Ticker("AAPL")
                 .WithNotes("Test strategy notes")
                 .Breakout(150)
-                .Buy(100, Price.Current)
+                .Long().Quantity(100)
                 .Build();
 
             Assert.That(strategy.Notes, Is.EqualTo("Test strategy notes"));
@@ -50,7 +50,7 @@ public class FluentApiComprehensiveTests
             var strategy = Stock.Ticker("AAPL")
                 .WithNotes(null)
                 .Breakout(150)
-                .Buy(100, Price.Current)
+                .Long().Quantity(100)
                 .Build();
 
             Assert.That(strategy.Notes, Is.Null);
@@ -61,7 +61,7 @@ public class FluentApiComprehensiveTests
         {
             var strategy = Stock.Ticker("AAPL", notes: "Inline notes")
                 .Breakout(150)
-                .Buy(100, Price.Current)
+                .Long().Quantity(100)
                 .Build();
 
             Assert.That(strategy.Notes, Is.EqualTo("Inline notes"));
@@ -77,7 +77,7 @@ public class FluentApiComprehensiveTests
             var strategy = Stock.Ticker("AAPL")
                 .Exchange("NASDAQ")
                 .Breakout(150)
-                .Buy(100, Price.Current)
+                .Long().Quantity(100)
                 .Build();
 
             Assert.That(strategy.Exchange, Is.EqualTo("NASDAQ"));
@@ -89,7 +89,7 @@ public class FluentApiComprehensiveTests
             var strategy = Stock.Ticker("IBM")
                 .Exchange("NYSE")
                 .Breakout(150)
-                .Buy(100, Price.Current)
+                .Long().Quantity(100)
                 .Build();
 
             Assert.That(strategy.Exchange, Is.EqualTo("NYSE"));
@@ -101,7 +101,7 @@ public class FluentApiComprehensiveTests
             var strategy = Stock.Ticker("AAPL")
                 .Exchange(ContractExchange.Smart)
                 .Breakout(150)
-                .Buy(100, Price.Current)
+                .Long().Quantity(100)
                 .Build();
 
             Assert.Multiple(() =>
@@ -117,7 +117,7 @@ public class FluentApiComprehensiveTests
             var strategy = Stock.Ticker("OTCSTOCK")
                 .Exchange(ContractExchange.Pink)
                 .Breakout(0.50)
-                .Buy(1000, Price.Current)
+                .Long().Quantity(1000)
                 .Build();
 
             Assert.Multiple(() =>
@@ -133,7 +133,7 @@ public class FluentApiComprehensiveTests
             var strategy = Stock.Ticker("AAPL")
                 .PrimaryExchange("NASDAQ")
                 .Breakout(150)
-                .Buy(100, Price.Current)
+                .Long().Quantity(100)
                 .Build();
 
             Assert.That(strategy.PrimaryExchange, Is.EqualTo("NASDAQ"));
@@ -144,7 +144,7 @@ public class FluentApiComprehensiveTests
         {
             var strategy = Stock.Ticker("AAPL")
                 .Breakout(150)
-                .Buy(100, Price.Current)
+                .Long().Quantity(100)
                 .Build();
 
             Assert.That(strategy.Exchange, Is.EqualTo("SMART"));
@@ -160,7 +160,7 @@ public class FluentApiComprehensiveTests
             var strategy = Stock.Ticker("SAP")
                 .Currency("EUR")
                 .Breakout(150)
-                .Buy(100, Price.Current)
+                .Long().Quantity(100)
                 .Build();
 
             Assert.That(strategy.Currency, Is.EqualTo("EUR"));
@@ -172,7 +172,7 @@ public class FluentApiComprehensiveTests
             var strategy = Stock.Ticker("HSBA")
                 .Currency("GBP")
                 .Breakout(6.50)
-                .Buy(100, Price.Current)
+                .Long().Quantity(100)
                 .Build();
 
             Assert.That(strategy.Currency, Is.EqualTo("GBP"));
@@ -183,7 +183,7 @@ public class FluentApiComprehensiveTests
         {
             var strategy = Stock.Ticker("AAPL")
                 .Breakout(150)
-                .Buy(100, Price.Current)
+                .Long().Quantity(100)
                 .Build();
 
             Assert.That(strategy.Currency, Is.EqualTo("USD"));
@@ -201,7 +201,7 @@ public class FluentApiComprehensiveTests
             var strategy = Stock.Ticker("AAPL")
                 .Enabled(enabled)
                 .Breakout(150)
-                .Buy(100, Price.Current)
+                .Long().Quantity(100)
                 .Build();
 
             Assert.That(strategy.Enabled, Is.EqualTo(enabled));
@@ -215,7 +215,7 @@ public class FluentApiComprehensiveTests
                 .Enabled(false)
                 .Enabled(true)
                 .Breakout(150)
-                .Buy(100, Price.Current)
+                .Long().Quantity(100)
                 .Build();
 
             Assert.That(strategy.Enabled, Is.True);
@@ -234,7 +234,7 @@ public class FluentApiComprehensiveTests
             var strategy = Stock.Ticker("AAPL")
                 .TimeFrame(start, end)
                 .Breakout(150)
-                .Buy(100, Price.Current)
+                .Long().Quantity(100)
                 .Build();
 
             Assert.Multiple(() =>
@@ -253,7 +253,7 @@ public class FluentApiComprehensiveTests
             var strategy = Stock.Ticker("AAPL")
                 .TimeFrame(start, end)
                 .Breakout(150)
-                .Buy(100, Price.Current)
+                .Long().Quantity(100)
                 .Build();
 
             Assert.Multiple(() =>
@@ -278,7 +278,7 @@ public class FluentApiComprehensiveTests
             var strategy = Stock.Ticker("AAPL")
                 .TimeFrame(session)
                 .Breakout(150)
-                .Buy(100, Price.Current)
+                .Long().Quantity(100)
                 .Build();
 
             Assert.Multiple(() =>
@@ -301,7 +301,7 @@ public class FluentApiComprehensiveTests
             var strategy = Stock.Ticker("AAPL")
                 .TimeFrame(session)
                 .Breakout(150)
-                .Buy(100, Price.Current)
+                .Long().Quantity(100)
                 .Build();
 
             Assert.Multiple(() =>
@@ -318,7 +318,7 @@ public class FluentApiComprehensiveTests
                 .TimeFrame(TradingSession.PreMarket)
                 .TimeFrame(TradingSession.Active)
                 .Breakout(150)
-                .Buy(100, Price.Current)
+                .Long().Quantity(100)
                 .Build();
 
             Assert.Multiple(() =>
@@ -336,7 +336,7 @@ public class FluentApiComprehensiveTests
                 var strategy = Stock.Ticker("AAPL")
                     .TimeFrame(session)
                     .Breakout(150)
-                    .Buy(100, Price.Current)
+                    .Long().Quantity(100)
                     .Build();
 
                 Assert.That(strategy.Session, Is.EqualTo(session));
@@ -358,7 +358,7 @@ public class FluentApiComprehensiveTests
                 .Enabled(true)
                 .TimeFrame(TradingSession.PreMarket)
                 .Breakout(100)
-                .Buy(50, Price.Current)
+                .Long().Quantity(50)
                 .Build();
 
             Assert.Multiple(() =>
@@ -395,7 +395,7 @@ public class FluentApiComprehensiveTests
         {
             var strategy = Stock.Ticker("TEST")
                 .Breakout(level)
-                .Buy(100, Price.Current)
+                .Long().Quantity(100)
                 .Build();
 
             Assert.That(strategy.Conditions, Has.Count.EqualTo(1));
@@ -429,7 +429,7 @@ public class FluentApiComprehensiveTests
         {
             var strategy = Stock.Ticker("TEST")
                 .Pullback(level)
-                .Buy(100, Price.Current)
+                .Long().Quantity(100)
                 .Build();
 
             Assert.That(strategy.Conditions, Has.Count.EqualTo(1));
@@ -459,7 +459,7 @@ public class FluentApiComprehensiveTests
         {
             var strategy = Stock.Ticker("TEST")
                 .IsAboveVwap()
-                .Buy(100, Price.Current)
+                .Long().Quantity(100)
                 .Build();
 
             var condition = (AboveVwapCondition)strategy.Conditions[0];
@@ -475,7 +475,7 @@ public class FluentApiComprehensiveTests
         {
             var strategy = Stock.Ticker("TEST")
                 .IsAboveVwap(buffer)
-                .Buy(100, Price.Current)
+                .Long().Quantity(100)
                 .Build();
 
             var condition = (AboveVwapCondition)strategy.Conditions[0];
@@ -508,7 +508,7 @@ public class FluentApiComprehensiveTests
         {
             var strategy = Stock.Ticker("TEST")
                 .IsBelowVwap()
-                .Buy(100, Price.Current)
+                .Long().Quantity(100)
                 .Build();
 
             var condition = (BelowVwapCondition)strategy.Conditions[0];
@@ -523,7 +523,7 @@ public class FluentApiComprehensiveTests
         {
             var strategy = Stock.Ticker("TEST")
                 .IsBelowVwap(buffer)
-                .Buy(100, Price.Current)
+                .Long().Quantity(100)
                 .Build();
 
             var condition = (BelowVwapCondition)strategy.Conditions[0];
@@ -559,7 +559,7 @@ public class FluentApiComprehensiveTests
         {
             var strategy = Stock.Ticker("TEST")
                 .IsPriceAbove(level)
-                .Buy(100, Price.Current)
+                .Long().Quantity(100)
                 .Build();
 
             var condition = (PriceAtOrAboveCondition)strategy.Conditions[0];
@@ -591,7 +591,7 @@ public class FluentApiComprehensiveTests
         {
             var strategy = Stock.Ticker("TEST")
                 .IsPriceBelow(level)
-                .Buy(100, Price.Current)
+                .Long().Quantity(100)
                 .Build();
 
             var condition = (PriceBelowCondition)strategy.Conditions[0];
@@ -621,7 +621,7 @@ public class FluentApiComprehensiveTests
         {
             var strategy = Stock.Ticker("TEST")
                 .When("Price above twice VWAP", (price, vwap) => price > vwap * 2)
-                .Buy(100, Price.Current)
+                .Long().Quantity(100)
                 .Build();
 
             var condition = (CustomCondition)strategy.Conditions[0];
@@ -639,7 +639,7 @@ public class FluentApiComprehensiveTests
             var customCondition = new BreakoutCondition(150);
             var strategy = Stock.Ticker("TEST")
                 .Condition(customCondition)
-                .Buy(100, Price.Current)
+                .Long().Quantity(100)
                 .Build();
 
             Assert.That(strategy.Conditions[0], Is.SameAs(customCondition));
@@ -652,7 +652,7 @@ public class FluentApiComprehensiveTests
             {
                 Stock.Ticker("TEST")
                     .Condition(null!)
-                    .Buy(100, Price.Current)
+                    .Long().Quantity(100)
                     .Build();
             });
         }
@@ -671,7 +671,7 @@ public class FluentApiComprehensiveTests
                 .IsBelowVwap(0.10)
                 .IsPriceAbove(145)
                 .IsPriceBelow(160)
-                .Buy(100, Price.Current)
+                .Long().Quantity(100)
                 .Build();
 
             Assert.Multiple(() =>
@@ -693,7 +693,7 @@ public class FluentApiComprehensiveTests
                 .Breakout(100)
                 .Breakout(110)
                 .Breakout(120)
-                .Buy(100, Price.Current)
+                .Long().Quantity(100)
                 .Build();
 
             Assert.That(strategy.Conditions, Has.Count.EqualTo(3));
@@ -721,7 +721,7 @@ public class FluentApiComprehensiveTests
         {
             var strategy = Stock.Ticker("TEST")
                 .IsRsi(state, threshold)
-                .Buy(100, Price.Current)
+                .Long().Quantity(100)
                 .Build();
 
             var condition = (RsiCondition)strategy.Conditions[0];
@@ -787,7 +787,7 @@ public class FluentApiComprehensiveTests
         {
             var strategy = Stock.Ticker("TEST")
                 .IsAdx(comparison, threshold)
-                .Buy(100, Price.Current)
+                .Long().Quantity(100)
                 .Build();
 
             var condition = (AdxCondition)strategy.Conditions[0];
@@ -886,7 +886,7 @@ public class FluentApiComprehensiveTests
         {
             var strategy = Stock.Ticker("TEST")
                 .IsMacd(state)
-                .Buy(100, Price.Current)
+                .Long().Quantity(100)
                 .Build();
 
             var condition = (MacdCondition)strategy.Conditions[0];
@@ -980,7 +980,7 @@ public class FluentApiComprehensiveTests
         {
             var strategy = Stock.Ticker("TEST")
                 .IsDI(direction, minDiff)
-                .Buy(100, Price.Current)
+                .Long().Quantity(100)
                 .Build();
 
             var condition = (DiCondition)strategy.Conditions[0];
@@ -1048,7 +1048,7 @@ public class FluentApiComprehensiveTests
                 .IsAdx(Comparison.Gte, 25)
                 .IsMacd(MacdState.Bullish)
                 .IsDI(DiDirection.Positive)
-                .Buy(100, Price.Current)
+                .Long().Quantity(100)
                 .Build();
 
             Assert.Multiple(() =>
@@ -1082,7 +1082,7 @@ public class FluentApiComprehensiveTests
         {
             var strategy = Stock.Ticker("TEST")
                 .Breakout(100)
-                .Buy(quantity, Price.Current)
+                .Long().Quantity(quantity)
                 .Build();
 
             Assert.Multiple(() =>
@@ -1101,7 +1101,7 @@ public class FluentApiComprehensiveTests
         {
             var strategy = Stock.Ticker("TEST")
                 .Breakout(100)
-                .Buy(100, priceType)
+                .Long().Quantity(100).PriceType(priceType)
                 .Build();
 
             Assert.That(strategy.Order.PriceType, Is.EqualTo(priceType));
@@ -1114,7 +1114,7 @@ public class FluentApiComprehensiveTests
         {
             var strategy = Stock.Ticker("TEST")
                 .Breakout(100)
-                .Buy(100, Price.Current, orderType)
+                .Long().Quantity(100).OrderType(orderType)
                 .Build();
 
             Assert.That(strategy.Order.Type, Is.EqualTo(orderType));
@@ -1129,7 +1129,7 @@ public class FluentApiComprehensiveTests
                 {
                     var strategy = Stock.Ticker("TEST")
                         .Breakout(100)
-                        .Buy(100, priceType, orderType)
+                        .Long().Quantity(100).PriceType(priceType).OrderType(orderType)
                         .Build();
 
                     Assert.Multiple(() =>
@@ -1154,7 +1154,7 @@ public class FluentApiComprehensiveTests
         {
             var strategy = Stock.Ticker("TEST")
                 .Breakout(100)
-                .Sell(quantity, Price.Current)
+                .Short().Quantity(quantity)
                 .Build();
 
             Assert.Multiple(() =>
@@ -1173,7 +1173,7 @@ public class FluentApiComprehensiveTests
                 {
                     var strategy = Stock.Ticker("TEST")
                         .Breakout(100)
-                        .Sell(100, priceType, orderType)
+                        .Short().Quantity(100).PriceType(priceType).OrderType(orderType)
                         .Build();
 
                     Assert.Multiple(() =>
@@ -1191,61 +1191,56 @@ public class FluentApiComprehensiveTests
         #region Close Order Tests
 
         [Test]
-        public void Close_DefaultPositionSide_CreatesSellToCloseLong()
+        public void CloseLong_CreatesSellToCloseLong()
         {
             var strategy = Stock.Ticker("TEST")
                 .IsPriceAbove(100)
-                .Close(100)
+                .CloseLong().Quantity(100)
                 .Build();
 
             Assert.That(strategy.Order.Side, Is.EqualTo(OrderSide.Sell));
         }
 
         [Test]
-        public void Close_PositionSideBuy_CreatesSellOrder()
+        public void CloseLong_WithQuantity_CreatesSellOrder()
         {
             var strategy = Stock.Ticker("TEST")
                 .IsPriceAbove(100)
-                .Close(100, OrderSide.Buy)
+                .CloseLong().Quantity(100)
                 .Build();
 
             Assert.That(strategy.Order.Side, Is.EqualTo(OrderSide.Sell));
         }
 
         [Test]
-        public void Close_PositionSideSell_CreatesBuyToCoverOrder()
+        public void CloseShort_CreatesBuyToCoverOrder()
         {
             var strategy = Stock.Ticker("TEST")
                 .IsPriceBelow(100)
-                .Close(100, OrderSide.Sell)
+                .CloseShort().Quantity(100)
                 .Build();
 
             Assert.That(strategy.Order.Side, Is.EqualTo(OrderSide.Buy));
         }
 
         [Test]
-        public void Close_AllParameterCombinations()
+        public void CloseLong_AllParameterCombinations()
         {
-            foreach (OrderSide positionSide in Enum.GetValues<OrderSide>())
+            foreach (Price priceType in Enum.GetValues<Price>())
             {
-                foreach (Price priceType in Enum.GetValues<Price>())
+                foreach (OrderType orderType in Enum.GetValues<OrderType>())
                 {
-                    foreach (OrderType orderType in Enum.GetValues<OrderType>())
+                    var strategy = Stock.Ticker("TEST")
+                        .IsPriceAbove(100)
+                        .CloseLong().Quantity(100).PriceType(priceType).OrderType(orderType)
+                        .Build();
+
+                    Assert.Multiple(() =>
                     {
-                        var strategy = Stock.Ticker("TEST")
-                            .IsPriceAbove(100)
-                            .Close(100, positionSide, priceType, orderType)
-                            .Build();
-
-                        var expectedSide = positionSide == OrderSide.Buy ? OrderSide.Sell : OrderSide.Buy;
-
-                        Assert.Multiple(() =>
-                        {
-                            Assert.That(strategy.Order.Side, Is.EqualTo(expectedSide));
-                            Assert.That(strategy.Order.PriceType, Is.EqualTo(priceType));
-                            Assert.That(strategy.Order.Type, Is.EqualTo(orderType));
-                        });
-                    }
+                        Assert.That(strategy.Order.Side, Is.EqualTo(OrderSide.Sell));
+                        Assert.That(strategy.Order.PriceType, Is.EqualTo(priceType));
+                        Assert.That(strategy.Order.Type, Is.EqualTo(orderType));
+                    });
                 }
             }
         }
@@ -1259,14 +1254,14 @@ public class FluentApiComprehensiveTests
         {
             var strategy = Stock.Ticker("TEST")
                 .IsPriceAbove(100)
-                .CloseLong(100)
+                .CloseLong().Quantity(100)
                 .Build();
 
             Assert.That(strategy.Order.Side, Is.EqualTo(OrderSide.Sell));
         }
 
         [Test]
-        public void CloseLong_AllParameterCombinations()
+        public void CloseLong_AllParameterCombinations_Chained()
         {
             foreach (Price priceType in Enum.GetValues<Price>())
             {
@@ -1274,7 +1269,7 @@ public class FluentApiComprehensiveTests
                 {
                     var strategy = Stock.Ticker("TEST")
                         .IsPriceAbove(100)
-                        .CloseLong(100, priceType, orderType)
+                        .CloseLong().Quantity(100).PriceType(priceType).OrderType(orderType)
                         .Build();
 
                     Assert.Multiple(() =>
@@ -1296,14 +1291,14 @@ public class FluentApiComprehensiveTests
         {
             var strategy = Stock.Ticker("TEST")
                 .IsPriceBelow(100)
-                .CloseShort(100)
+                .CloseShort().Quantity(100)
                 .Build();
 
             Assert.That(strategy.Order.Side, Is.EqualTo(OrderSide.Buy));
         }
 
         [Test]
-        public void CloseShort_AllParameterCombinations()
+        public void CloseShort_AllParameterCombinations_Chained()
         {
             foreach (Price priceType in Enum.GetValues<Price>())
             {
@@ -1311,7 +1306,7 @@ public class FluentApiComprehensiveTests
                 {
                     var strategy = Stock.Ticker("TEST")
                         .IsPriceBelow(100)
-                        .CloseShort(100, priceType, orderType)
+                        .CloseShort().Quantity(100).PriceType(priceType).OrderType(orderType)
                         .Build();
 
                     Assert.Multiple(() =>
@@ -1333,7 +1328,7 @@ public class FluentApiComprehensiveTests
         {
             var builder = Stock.Ticker("TEST")
                 .Breakout(100)
-                .Buy(100, Price.Current);
+                .Long().Quantity(100);
 
             Assert.Multiple(() =>
             {
@@ -1347,7 +1342,7 @@ public class FluentApiComprehensiveTests
         {
             var builder = Stock.Ticker("TEST")
                 .Breakout(100)
-                .Sell(100, Price.Current);
+                .Short().Quantity(100);
 
             Assert.Multiple(() =>
             {
@@ -1357,11 +1352,11 @@ public class FluentApiComprehensiveTests
         }
 
         [Test]
-        public void Close_IsClosingPosition_True()
+        public void CloseLong_IsClosingPosition_Test()
         {
             var builder = Stock.Ticker("TEST")
                 .IsPriceAbove(100)
-                .Close(100);
+                .CloseLong().Quantity(100);
 
             Assert.Multiple(() =>
             {
@@ -1375,7 +1370,7 @@ public class FluentApiComprehensiveTests
         {
             var builder = Stock.Ticker("TEST")
                 .IsPriceAbove(100)
-                .CloseLong(100);
+                .CloseLong().Quantity(100);
 
             Assert.That(builder.IsClosingPosition, Is.True);
         }
@@ -1385,7 +1380,7 @@ public class FluentApiComprehensiveTests
         {
             var builder = Stock.Ticker("TEST")
                 .IsPriceBelow(100)
-                .CloseShort(100);
+                .CloseShort().Quantity(100);
 
             Assert.That(builder.IsClosingPosition, Is.True);
         }
@@ -1410,7 +1405,7 @@ public class FluentApiComprehensiveTests
         {
             var strategy = Stock.Ticker("TEST")
                 .Breakout(100)
-                .Buy(100, Price.Current)
+                .Long().Quantity(100)
                 .TakeProfit(price)
                 .Build();
 
@@ -1427,8 +1422,8 @@ public class FluentApiComprehensiveTests
         {
             var strategy = Stock.Ticker("TEST")
                 .Breakout(100)
-                .Buy(100, Price.Current)
-                .TakeProfit(105, 115)
+                .Long().Quantity(100)
+                .AdxTakeProfit(AdxTakeProfitConfig.FromRange(105, 115))
                 .Build();
 
             Assert.Multiple(() =>
@@ -1446,12 +1441,16 @@ public class FluentApiComprehensiveTests
         {
             var strategy = Stock.Ticker("TEST")
                 .Breakout(100)
-                .Buy(100, Price.Current)
-                .TakeProfit(105, 115, 
-                    weakThreshold: 10, 
-                    developingThreshold: 20, 
-                    strongThreshold: 30, 
-                    exitOnRollover: false)
+                .Long().Quantity(100)
+                .AdxTakeProfit(new AdxTakeProfitConfig
+                {
+                    ConservativeTarget = 105,
+                    AggressiveTarget = 115,
+                    WeakTrendThreshold = 10,
+                    DevelopingTrendThreshold = 20,
+                    StrongTrendThreshold = 30,
+                    ExitOnAdxRollover = false
+                })
                 .Build();
 
             var adxConfig = strategy.Order.AdxTakeProfit!;
@@ -1469,8 +1468,8 @@ public class FluentApiComprehensiveTests
         {
             var strategy = Stock.Ticker("TEST")
                 .Breakout(100)
-                .Buy(100, Price.Current)
-                .TakeProfit(105, 115) // Set ADX first
+                .Long().Quantity(100)
+                .AdxTakeProfit(AdxTakeProfitConfig.FromRange(105, 115)) // Set ADX first
                 .TakeProfit(110)      // Then fixed - should clear ADX
                 .Build();
 
@@ -1493,7 +1492,7 @@ public class FluentApiComprehensiveTests
         {
             var strategy = Stock.Ticker("TEST")
                 .Breakout(100)
-                .Buy(100, Price.Current)
+                .Long().Quantity(100)
                 .StopLoss(price)
                 .Build();
 
@@ -1518,7 +1517,7 @@ public class FluentApiComprehensiveTests
         {
             var strategy = Stock.Ticker("TEST")
                 .Breakout(100)
-                .Buy(100, Price.Current)
+                .Long().Quantity(100)
                 .TrailingStopLoss(percent)
                 .Build();
 
@@ -1539,7 +1538,7 @@ public class FluentApiComprehensiveTests
         {
             var strategy = Stock.Ticker("TEST")
                 .Breakout(100)
-                .Buy(100, Price.Current)
+                .Long().Quantity(100)
                 .TrailingStopLoss(Atr.Tight)
                 .Build();
 
@@ -1556,7 +1555,7 @@ public class FluentApiComprehensiveTests
         {
             var strategy = Stock.Ticker("TEST")
                 .Breakout(100)
-                .Buy(100, Price.Current)
+                .Long().Quantity(100)
                 .TrailingStopLoss(Atr.Balanced)
                 .Build();
 
@@ -1568,7 +1567,7 @@ public class FluentApiComprehensiveTests
         {
             var strategy = Stock.Ticker("TEST")
                 .Breakout(100)
-                .Buy(100, Price.Current)
+                .Long().Quantity(100)
                 .TrailingStopLoss(Atr.Loose)
                 .Build();
 
@@ -1580,7 +1579,7 @@ public class FluentApiComprehensiveTests
         {
             var strategy = Stock.Ticker("TEST")
                 .Breakout(100)
-                .Buy(100, Price.Current)
+                .Long().Quantity(100)
                 .TrailingStopLoss(Atr.VeryLoose)
                 .Build();
 
@@ -1592,7 +1591,7 @@ public class FluentApiComprehensiveTests
         {
             var strategy = Stock.Ticker("TEST")
                 .Breakout(100)
-                .Buy(100, Price.Current)
+                .Long().Quantity(100)
                 .TrailingStopLoss(Atr.Multiplier(2.5))
                 .Build();
 
@@ -1606,7 +1605,7 @@ public class FluentApiComprehensiveTests
             {
                 Stock.Ticker("TEST")
                     .Breakout(100)
-                    .Buy(100, Price.Current)
+                    .Long().Quantity(100)
                     .TrailingStopLoss((AtrStopLossConfig)null!)
                     .Build();
             });
@@ -1617,7 +1616,7 @@ public class FluentApiComprehensiveTests
         {
             var strategy = Stock.Ticker("TEST")
                 .Breakout(100)
-                .Buy(100, Price.Current)
+                .Long().Quantity(100)
                 .TrailingStopLoss(Atr.Balanced) // Set ATR first
                 .TrailingStopLoss(0.10)          // Then percentage - should clear ATR
                 .Build();
@@ -1634,39 +1633,49 @@ public class FluentApiComprehensiveTests
         #region ClosePosition Tests
 
         [Test]
-        public void ClosePosition_SetsTimeCorrectly()
+        public void ExitStrategy_SetsTimeCorrectly()
         {
             var closeTime = new TimeOnly(9, 20);
             var strategy = Stock.Ticker("TEST")
                 .Breakout(100)
-                .Buy(100, Price.Current)
-                .ClosePosition(closeTime)
+                .Long().Quantity(100)
+                .ExitStrategy(closeTime)
                 .Build();
 
             Assert.That(strategy.Order.ClosePositionTime, Is.EqualTo(closeTime));
         }
 
         [Test]
-        [TestCase(true)]
-        [TestCase(false)]
-        public void ClosePosition_OnlyIfProfitable_SetsCorrectly(bool onlyIfProfitable)
+        public void ExitStrategy_WithIsProfitable_SetsCorrectly()
         {
             var strategy = Stock.Ticker("TEST")
                 .Breakout(100)
-                .Buy(100, Price.Current)
-                .ClosePosition(new TimeOnly(9, 20), onlyIfProfitable)
+                .Long().Quantity(100)
+                .ExitStrategy(new TimeOnly(9, 20)).IsProfitable()
                 .Build();
 
-            Assert.That(strategy.Order.ClosePositionOnlyIfProfitable, Is.EqualTo(onlyIfProfitable));
+            Assert.That(strategy.Order.ClosePositionOnlyIfProfitable, Is.True);
         }
 
         [Test]
-        public void ClosePosition_UsingMarketTimeHelpers()
+        public void ExitStrategy_WithoutIsProfitable_DefaultsFalse()
         {
             var strategy = Stock.Ticker("TEST")
                 .Breakout(100)
-                .Buy(100, Price.Current)
-                .ClosePosition(MarketTime.PreMarket.Ending)
+                .Long().Quantity(100)
+                .ExitStrategy(new TimeOnly(9, 20))
+                .Build();
+
+            Assert.That(strategy.Order.ClosePositionOnlyIfProfitable, Is.False);
+        }
+
+        [Test]
+        public void ExitStrategy_UsingMarketTimeHelpers()
+        {
+            var strategy = Stock.Ticker("TEST")
+                .Breakout(100)
+                .Long().Quantity(100)
+                .ExitStrategy(MarketTime.PreMarket.Ending)
                 .Build();
 
             Assert.That(strategy.Order.ClosePositionTime, Is.EqualTo(MarketTime.PreMarket.Ending));
@@ -1688,7 +1697,7 @@ public class FluentApiComprehensiveTests
         {
             var strategy = Stock.Ticker("TEST")
                 .Breakout(100)
-                .Buy(100, Price.Current)
+                .Long().Quantity(100)
                 .TimeInForce(tif)
                 .Build();
 
@@ -1700,7 +1709,7 @@ public class FluentApiComprehensiveTests
         {
             var strategy = Stock.Ticker("TEST")
                 .Breakout(100)
-                .Buy(100, Price.Current)
+                .Long().Quantity(100)
                 .TimeInForce(TIF.Day)
                 .Build();
 
@@ -1720,8 +1729,8 @@ public class FluentApiComprehensiveTests
         {
             var strategy = Stock.Ticker("TEST")
                 .Breakout(100)
-                .Buy(100, Price.Current)
-                .OutsideRTH(outsideRth, takeProfit)
+                .Long().Quantity(100)
+                .OutsideRTH(outsideRth).TakeProfitOutsideRTH(takeProfit)
                 .Build();
 
             Assert.Multiple(() =>
@@ -1736,7 +1745,7 @@ public class FluentApiComprehensiveTests
         {
             var strategy = Stock.Ticker("TEST")
                 .Breakout(100)
-                .Buy(100, Price.Current)
+                .Long().Quantity(100)
                 .OutsideRTH()
                 .Build();
 
@@ -1758,7 +1767,7 @@ public class FluentApiComprehensiveTests
         {
             var strategy = Stock.Ticker("TEST")
                 .Breakout(100)
-                .Buy(100, Price.Current)
+                .Long().Quantity(100)
                 .OrderType(orderType)
                 .Build();
 
@@ -1774,7 +1783,7 @@ public class FluentApiComprehensiveTests
         {
             var strategy = Stock.Ticker("TEST")
                 .Breakout(100)
-                .Buy(100, Price.Current)
+                .Long().Quantity(100)
                 .Build();
 
             Assert.That(strategy.Order.AllOrNone, Is.False);
@@ -1787,7 +1796,7 @@ public class FluentApiComprehensiveTests
         {
             var strategy = Stock.Ticker("TEST")
                 .Breakout(100)
-                .Buy(100, Price.Current)
+                .Long().Quantity(100)
                 .AllOrNone(allOrNone)
                 .Build();
 
@@ -1799,7 +1808,7 @@ public class FluentApiComprehensiveTests
         {
             var strategy = Stock.Ticker("TEST")
                 .Breakout(100)
-                .Buy(100, Price.Current)
+                .Long().Quantity(100)
                 .AllOrNone()
                 .Build();
 
@@ -1822,7 +1831,7 @@ public class FluentApiComprehensiveTests
             Assert.Throws<InvalidOperationException>(() =>
             {
                 Stock.Ticker("TEST")
-                    .Buy(100, Price.Current)
+                    .Long().Quantity(100)
                     .Build();
             });
         }
@@ -1840,7 +1849,7 @@ public class FluentApiComprehensiveTests
             {
                 Stock.Ticker("TEST")
                     .When(null!, (p, v) => true)
-                    .Buy(100, Price.Current)
+                    .Long().Quantity(100)
                     .Build();
             });
         }
@@ -1852,7 +1861,7 @@ public class FluentApiComprehensiveTests
             {
                 Stock.Ticker("TEST")
                     .When("Test", null!)
-                    .Buy(100, Price.Current)
+                    .Long().Quantity(100)
                     .Build();
             });
         }
@@ -1888,7 +1897,7 @@ public class FluentApiComprehensiveTests
         {
             var strategy = Stock.Ticker("TEST")
                 .Breakout(100)
-                .Buy(100, Price.Current)
+                .Long().Quantity(100)
                 .Build();
 
             Assert.Multiple(() =>
@@ -1910,7 +1919,7 @@ public class FluentApiComprehensiveTests
         {
             var strategy = Stock.Ticker("TEST")
                 .Breakout(100)
-                .Buy(100, Price.Current)
+                .Long().Quantity(100)
                 .Build();
 
             Assert.Multiple(() =>
@@ -1928,7 +1937,8 @@ public class FluentApiComprehensiveTests
                 Assert.That(strategy.Order.TrailingStopLossPercent, Is.EqualTo(0));
                 Assert.That(strategy.Order.AtrStopLoss, Is.Null);
                 Assert.That(strategy.Order.ClosePositionTime, Is.Null);
-                Assert.That(strategy.Order.ClosePositionOnlyIfProfitable, Is.True);
+                // Default is false - use .ExitStrategy().IsProfitable() to enable
+                Assert.That(strategy.Order.ClosePositionOnlyIfProfitable, Is.False);
             });
         }
 
@@ -1937,7 +1947,7 @@ public class FluentApiComprehensiveTests
         {
             var strategy = Stock.Ticker("TEST")
                 .Breakout(100)
-                .Buy(100, Price.Current)
+                .Long().Quantity(100)
                 .Build();
 
             Assert.That(strategy.Order.Type, Is.EqualTo(OrderType.Limit));
@@ -1949,7 +1959,7 @@ public class FluentApiComprehensiveTests
             // Using explicit Price.Current since Buy(quantity) is ambiguous with legacy overload
             var strategy = Stock.Ticker("TEST")
                 .Breakout(100)
-                .Buy(100, Price.Current)
+                .Long().Quantity(100)
                 .Build();
 
             Assert.That(strategy.Order.PriceType, Is.EqualTo(Price.Current));
@@ -1973,13 +1983,13 @@ public class FluentApiComprehensiveTests
                 .TimeFrame(TradingSession.PreMarketEndEarly)
                 .IsPriceAbove(2.40)
                 .IsAboveVwap()
-                .Buy(100, Price.Current, OrderType.Limit)
-                .TakeProfit(4.00, 4.80)
+                .Long().Quantity(100).PriceType(Price.Current).OrderType(OrderType.Limit)
+                .AdxTakeProfit(AdxTakeProfitConfig.FromRange(4.00, 4.80))
                 .StopLoss(2.00)
                 .TrailingStopLoss(Percent.TwentyFive)
-                .ClosePosition(MarketTime.PreMarket.Ending, onlyIfProfitable: false)
+                .ExitStrategy(MarketTime.PreMarket.Ending)
                 .TimeInForce(TIF.GTC)
-                .OutsideRTH(true, true)
+                .OutsideRTH(true).TakeProfitOutsideRTH(true)
                 .AllOrNone(false)
                 .Build();
 
@@ -2030,7 +2040,7 @@ public class FluentApiComprehensiveTests
                 .IsMacd(MacdState.Bullish)
                 .IsMacd(MacdState.AboveZero)
                 .IsAboveVwap()
-                .Buy(100, Price.VWAP, OrderType.Limit)
+                .Long().Quantity(100).PriceType(Price.VWAP).OrderType(OrderType.Limit)
                 .TakeProfit(170)
                 .TrailingStopLoss(Atr.Balanced)
                 .TimeInForce(TIF.Day)
@@ -2057,7 +2067,7 @@ public class FluentApiComprehensiveTests
                 .IsBelowVwap(0.50)
                 .IsRsi(RsiState.Overbought, 75)
                 .IsDI(DiDirection.Negative)
-                .Sell(50, Price.Bid, OrderType.Limit)
+                .Short().Quantity(50).PriceType(Price.Bid).OrderType(OrderType.Limit)
                 .TakeProfit(180)
                 .StopLoss(210)
                 .TimeInForce(TIF.Day)
@@ -2078,9 +2088,9 @@ public class FluentApiComprehensiveTests
             var strategy = Stock.Ticker("NVDA")
                 .TimeFrame(TradingSession.AfterHours)
                 .IsPriceAbove(500)
-                .CloseLong(25, Price.Current, OrderType.Market)
+                .CloseLong().Quantity(25).PriceType(Price.Current).OrderType(OrderType.Market)
                 .TimeInForce(TIF.Overnight)
-                .OutsideRTH(true, true)
+                .OutsideRTH(true).TakeProfitOutsideRTH(true)
                 .Build();
 
             Assert.Multiple(() =>
@@ -2099,8 +2109,8 @@ public class FluentApiComprehensiveTests
                 .TimeFrame(TradingSession.PreMarket)
                 .IsPriceAbove(0.50)
                 .IsAboveVwap()
-                .Buy(10000, Price.Ask, OrderType.Limit)
-                .TakeProfit(0.75, 1.00)
+                .Long().Quantity(10000).PriceType(Price.Ask).OrderType(OrderType.Limit)
+                .AdxTakeProfit(AdxTakeProfitConfig.FromRange(0.75, 1.00))
                 .StopLoss(0.40)
                 .AllOrNone()
                 .Build();
@@ -2123,10 +2133,10 @@ public class FluentApiComprehensiveTests
                 .IsAboveVwap(0.05)
                 .IsPriceAbove(4.80)
                 .When("Volume spike", (p, v) => true) // Placeholder
-                .Buy(200, Price.Current)
-                .TakeProfit(6.00, 7.00)
+                .Long().Quantity(200)
+                .AdxTakeProfit(AdxTakeProfitConfig.FromRange(6.00, 7.00))
                 .TrailingStopLoss(Percent.Fifteen)
-                .ClosePosition(MarketTime.PreMarket.Ending)
+                .ExitStrategy(MarketTime.PreMarket.Ending)
                 .Build();
 
             Assert.That(strategy.Conditions, Has.Count.EqualTo(5));
@@ -2145,7 +2155,7 @@ public class FluentApiComprehensiveTests
         {
             TradingStrategy strategy = Stock.Ticker("TEST")
                 .Breakout(100)
-                .Buy(100, Price.Current)
+                .Long().Quantity(100)
                 .TakeProfit(110);
 
             Assert.That(strategy, Is.Not.Null);
@@ -2157,8 +2167,8 @@ public class FluentApiComprehensiveTests
         {
             var strategies = new List<TradingStrategy>
             {
-                Stock.Ticker("AAPL").Breakout(150).Buy(100, Price.Current).TakeProfit(160),
-                Stock.Ticker("TSLA").Breakout(200).Buy(50, Price.Current).TakeProfit(220)
+                Stock.Ticker("AAPL").Breakout(150).Long().Quantity(100).TakeProfit(160),
+                Stock.Ticker("TSLA").Breakout(200).Long().Quantity(50).TakeProfit(220)
             };
 
             Assert.That(strategies, Has.Count.EqualTo(2));
@@ -2318,3 +2328,5 @@ public class FluentApiComprehensiveTests
 
     #endregion
 }
+
+

@@ -318,3 +318,5 @@ namespace IdiotProof.Backend.Models
             $"Score: {TotalScore} ({Condition}) | TP×{TakeProfitMultiplier:F2} | SL×{StopLossMultiplier:F2}";
     }
 }
+
+

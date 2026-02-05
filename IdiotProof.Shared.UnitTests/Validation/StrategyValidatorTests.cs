@@ -144,7 +144,7 @@ public class StrategyValidatorTests
         // Add Ticker first (required)
         var ticker = SegmentFactory.CreateTicker();
         ticker.Order = 0;
-        ticker.Parameters.First(p => p.Name == "symbol").Value = "AAPL";
+        ticker.Parameters.First(p => p.Name.Equals("symbol", StringComparison.OrdinalIgnoreCase)).Value = "AAPL";
         strategy.Segments.Add(ticker);
 
         // Add conditions to fill up to MaxSegments - 2 (leave room for order)
@@ -152,16 +152,16 @@ public class StrategyValidatorTests
         {
             var segment = SegmentFactory.CreateBreakout();
             segment.Order = i;
-            segment.Parameters.First(p => p.Name == "level").Value = 150.0;
+            segment.Parameters.First(p => p.Name.Equals("level", StringComparison.OrdinalIgnoreCase)).Value = 150.0;
             strategy.Segments.Add(segment);
         }
 
         // Add Order last (required)
-        var buy = SegmentFactory.CreateBuy();
+        var buy = SegmentFactory.CreateLong();
         buy.Order = StrategyValidator.MaxSegments - 1;
-        buy.Parameters.First(p => p.Name == "quantity").Value = 1;
-        buy.Parameters.First(p => p.Name == "priceType").Value = Price.Current;
-        buy.Parameters.First(p => p.Name == "orderType").Value = OrderType.Limit;
+        buy.Parameters.First(p => p.Name.Equals("Quantity", StringComparison.OrdinalIgnoreCase)).Value = 1;
+        buy.Parameters.First(p => p.Name.Equals("PriceType", StringComparison.OrdinalIgnoreCase)).Value = Price.Current;
+        buy.Parameters.First(p => p.Name.Equals("OrderType", StringComparison.OrdinalIgnoreCase)).Value = OrderType.Limit;
         strategy.Segments.Add(buy);
 
         var result = StrategyValidator.ValidateStrategy(strategy);
@@ -202,17 +202,17 @@ public class StrategyValidatorTests
     {
         var tickerSegment = SegmentFactory.CreateTicker();
         tickerSegment.Order = 0;
-        tickerSegment.Parameters.First(p => p.Name == "symbol").Value = "AAPL";
+        tickerSegment.Parameters.First(p => p.Name.Equals("symbol", StringComparison.OrdinalIgnoreCase)).Value = "AAPL";
 
         var breakoutSegment = SegmentFactory.CreateBreakout();
         breakoutSegment.Order = 1;
-        breakoutSegment.Parameters.First(p => p.Name == "level").Value = 150.0;
+        breakoutSegment.Parameters.First(p => p.Name.Equals("level", StringComparison.OrdinalIgnoreCase)).Value = 150.0;
 
-        var buySegment = SegmentFactory.CreateBuy();
+        var buySegment = SegmentFactory.CreateLong();
         buySegment.Order = 2;
-        buySegment.Parameters.First(p => p.Name == "quantity").Value = 1;
-        buySegment.Parameters.First(p => p.Name == "priceType").Value = Price.Current;
-        buySegment.Parameters.First(p => p.Name == "orderType").Value = OrderType.Limit;
+        buySegment.Parameters.First(p => p.Name.Equals("Quantity", StringComparison.OrdinalIgnoreCase)).Value = 1;
+        buySegment.Parameters.First(p => p.Name.Equals("PriceType", StringComparison.OrdinalIgnoreCase)).Value = Price.Current;
+        buySegment.Parameters.First(p => p.Name.Equals("OrderType", StringComparison.OrdinalIgnoreCase)).Value = OrderType.Limit;
 
         var segments = new List<StrategySegment>
         {
@@ -233,15 +233,15 @@ public class StrategyValidatorTests
     private static StrategyDefinition CreateValidStrategy()
     {
         var ticker = SegmentFactory.CreateTicker();
-        ticker.Parameters.First(p => p.Name == "symbol").Value = "AAPL";
+        ticker.Parameters.First(p => p.Name.Equals("symbol", StringComparison.OrdinalIgnoreCase)).Value = "AAPL";
 
         var breakout = SegmentFactory.CreateBreakout();
-        breakout.Parameters.First(p => p.Name == "level").Value = 150.0;
+        breakout.Parameters.First(p => p.Name.Equals("level", StringComparison.OrdinalIgnoreCase)).Value = 150.0;
 
-        var buy = SegmentFactory.CreateBuy();
-        buy.Parameters.First(p => p.Name == "quantity").Value = 1;
-        buy.Parameters.First(p => p.Name == "priceType").Value = Price.Current;
-        buy.Parameters.First(p => p.Name == "orderType").Value = OrderType.Limit;
+        var buy = SegmentFactory.CreateLong();
+        buy.Parameters.First(p => p.Name.Equals("Quantity", StringComparison.OrdinalIgnoreCase)).Value = 1;
+        buy.Parameters.First(p => p.Name.Equals("priceType", StringComparison.OrdinalIgnoreCase)).Value = Price.Current;
+        buy.Parameters.First(p => p.Name.Equals("orderType", StringComparison.OrdinalIgnoreCase)).Value = OrderType.Limit;
 
         return new StrategyDefinition
         {
@@ -487,17 +487,17 @@ public class StrategyValidatorTests
     {
         var ticker = SegmentFactory.CreateTicker();
         ticker.Order = 0;
-        ticker.Parameters.First(p => p.Name == "symbol").Value = "ABC";
+        ticker.Parameters.First(p => p.Name.Equals("symbol", StringComparison.OrdinalIgnoreCase)).Value = "ABC";
 
         var breakout = SegmentFactory.CreateBreakout();
         breakout.Order = 1;
-        breakout.Parameters.First(p => p.Name == "level").Value = 5.0;
+        breakout.Parameters.First(p => p.Name.Equals("level", StringComparison.OrdinalIgnoreCase)).Value = 5.0;
 
-        var buy = SegmentFactory.CreateBuy();
+        var buy = SegmentFactory.CreateLong();
         buy.Order = 2;
-        buy.Parameters.First(p => p.Name == "quantity").Value = 100;
-        buy.Parameters.First(p => p.Name == "priceType").Value = Price.Current;
-        buy.Parameters.First(p => p.Name == "orderType").Value = OrderType.Limit;
+        buy.Parameters.First(p => p.Name.Equals("Quantity", StringComparison.OrdinalIgnoreCase)).Value = 100;
+        buy.Parameters.First(p => p.Name.Equals("PriceType", StringComparison.OrdinalIgnoreCase)).Value = Price.Current;
+        buy.Parameters.First(p => p.Name.Equals("OrderType", StringComparison.OrdinalIgnoreCase)).Value = OrderType.Limit;
 
         var takeProfit = new StrategySegment
         {
@@ -536,17 +536,17 @@ public class StrategyValidatorTests
     {
         var ticker = SegmentFactory.CreateTicker();
         ticker.Order = 0;
-        ticker.Parameters.First(p => p.Name == "symbol").Value = "ABC";
+        ticker.Parameters.First(p => p.Name.Equals("symbol", StringComparison.OrdinalIgnoreCase)).Value = "ABC";
 
         var breakout = SegmentFactory.CreateBreakout();
         breakout.Order = 1;
-        breakout.Parameters.First(p => p.Name == "level").Value = 5.0;
+        breakout.Parameters.First(p => p.Name.Equals("level", StringComparison.OrdinalIgnoreCase)).Value = 5.0;
 
-        var buy = SegmentFactory.CreateBuy();
+        var buy = SegmentFactory.CreateLong();
         buy.Order = 2;
-        buy.Parameters.First(p => p.Name == "quantity").Value = 100;
-        buy.Parameters.First(p => p.Name == "priceType").Value = Price.Current;
-        buy.Parameters.First(p => p.Name == "orderType").Value = OrderType.Limit;
+        buy.Parameters.First(p => p.Name.Equals("Quantity", StringComparison.OrdinalIgnoreCase)).Value = 100;
+        buy.Parameters.First(p => p.Name.Equals("PriceType", StringComparison.OrdinalIgnoreCase)).Value = Price.Current;
+        buy.Parameters.First(p => p.Name.Equals("OrderType", StringComparison.OrdinalIgnoreCase)).Value = OrderType.Limit;
 
         var repeat = new StrategySegment
         {
@@ -601,3 +601,5 @@ public class StrategyValidatorTests
 
     #endregion
 }
+
+

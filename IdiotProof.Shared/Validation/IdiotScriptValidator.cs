@@ -4,7 +4,7 @@
 //
 // NOMENCLATURE:
 // - IdiotScript: The text-based DSL (Ticker(AAPL).Breakout(150).Buy)
-// - Fluent API: The C# builder pattern API (Stock.Ticker().Breakout().Buy())
+// - Fluent API: The C# builder pattern API (Stock.Ticker().Breakout().Long())
 // - Validation: Checking script correctness and security
 // - Sanitization: Removing potentially dangerous content
 // - XSS: Cross-Site Scripting (JavaScript injection attacks)
@@ -79,33 +79,39 @@ public static partial class IdiotScriptValidator
     {
         // Symbol/Identity commands
         "TICKER", "SYM", "SYMBOL", "STOCK", "STRATEGY",
-        "NAME", "DESC", "DESCRIPTION", "ENABLED",
+        "NAME", "DESC", "DESCRIPTION", "ENABLED", "ISENABLED",
 
         // Session/Time commands
         "SESSION", "TIMEFRAME", "START", "END",
-        "CLOSEPOSITION", "CLOSE", "CLOSELONG", "CLOSESHORT",
+        "EXITSTRATEGY", "CLOSEPOSITION", "CLOSE", "CLOSELONG", "CLOSESHORT",
 
         // Quantity/Entry commands
         "QTY", "QUANTITY", "ENTRY", "PRICE",
 
+        // Order Direction commands
+        "ORDER", "LONG", "SHORT",
+
         // Risk Management commands
         "TP", "TAKEPROFIT", "SL", "STOPLOSS",
         "TSL", "TRAILINGSTOPLOSS",
-
-        // Order Direction
-        "BUY", "SELL",
+        "ADAPTIVEORDER", "ISADAPTIVEORDER",
 
         // Price Condition commands
         "BREAKOUT", "PULLBACK",
         "ISPRICEABOVE", "ISPRICEBELOW", "PRICEBELOW",
 
+        // Gap Condition commands
+        "GAPUP", "GAPDOWN", "ISGAPUP", "ISGAPDOWN",
+
         // VWAP Condition commands
         "ABOVEVWAP", "BELOWVWAP", "VWAP",
         "ISABOVEVWAP", "ISBELOWVWAP",
+        "CLOSEABOVEVWAP", "ISCLOSEABOVEVWAP",
+        "VWAPREJECTION", "VWAPREJECTED", "ISVWAPREJECTION", "ISVWAPREJECTED",
 
         // EMA Condition commands
-        "EMAABOVE", "EMABELOW", "EMABETWEEN",
-        "ISEMAABOVE", "ISEMABELOW", "ISEMABETWEEN",
+        "EMAABOVE", "EMABELOW", "EMABETWEEN", "EMATURNINGUP",
+        "ISEMAABOVE", "ISEMABELOW", "ISEMABETWEEN", "ISEMATURNINGUP",
 
         // RSI Condition commands
         "RSIOVERSOLD", "RSIOVERBOUGHT",
@@ -122,11 +128,27 @@ public static partial class IdiotScriptValidator
         "DIPOSITIVE", "DINEGATIVE",
         "ISDIPOSITIVE", "ISDINEGATIVE",
 
+        // Momentum Condition commands
+        "MOMENTUMABOVE", "MOMENTUMBELOW",
+        "ISMOMENTUMABOVE", "ISMOMENTUMBELOW",
+
+        // ROC Condition commands
+        "ROCABOVE", "ROCBELOW",
+        "ISROCABOVE", "ISROCBELOW",
+
+        // Pattern Condition commands
+        "HIGHERLOWS", "ISHIGHERLOWS",
+        "VOLUMEABOVE", "ISVOLUMEABOVE",
+
         // Order Configuration commands
         "TIMEINFORCE", "TIF",
         "OUTSIDERTH", "EXTENDEDHOURS",
         "ALLORNONE", "AON",
         "ORDERTYPE",
+
+        // Execution Behavior commands
+        "REPEAT", "ISREPEAT",
+        "PROFITABLE", "ISPROFITABLE",
 
         // Boolean keywords
         "TRUE", "FALSE", "YES", "NO", "Y", "N"
@@ -142,14 +164,18 @@ public static partial class IdiotScriptValidator
         "IS.PREMARKET_END_EARLY", "IS.PREMARKET_START_LATE",
 
         // Times
-        "IS.BELL", "IS.PREMARKET.BELL", "IS.OPEN", "IS.CLOSE", "IS.EOD",
+        "IS.BELL", "IS.PREMARKET.BELL", "IS.RTH.BELL", "IS.AFTERHOURS.BELL",
+        "IS.OPEN", "IS.CLOSE", "IS.EOD",
         "IS.PM_START", "IS.AH_END",
 
         // Trailing Stop percentages
         "IS.TIGHT", "IS.MODERATE", "IS.STANDARD", "IS.LOOSE", "IS.WIDE",
 
         // Order direction
-        "IS.BUY", "IS.SELL", "IS.CLOSE_LONG", "IS.CLOSE_SHORT",
+        "IS.LONG", "IS.SHORT", "IS.CLOSE_LONG", "IS.CLOSE_SHORT",
+
+        // Adaptive Order modes
+        "IS.CONSERVATIVE", "IS.BALANCED", "IS.AGGRESSIVE",
 
         // Indicator thresholds
         "IS.RSI_OVERSOLD", "IS.RSI_OVERBOUGHT", "IS.ADX_STRONG", "IS.ADX_WEAK",
@@ -778,3 +804,5 @@ public static partial class IdiotScriptValidator
         return commands;
     }
 }
+
+

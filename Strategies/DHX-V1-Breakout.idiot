@@ -1,0 +1,53 @@
+# ============================================================================
+# DHX-V1-Breakout - VWAP Reclaim Breakout
+# ============================================================================
+#
+# CHART ANALYSIS (Live Data):
+# - Current: $2.15 | VWAP: $2.19 | EMA(9): $2.15 | EMA(21): $2.14
+# - ADX: 31.5 (MODERATE trend strength)
+# - Status: Just BELOW VWAP - needs reclaim
+# - HOD: $2.50 | Recent pullback from highs
+# - Catalyst: 30% AH explosion on earnings + $10M share buyback
+#
+# STRATEGY:
+# Price consolidated after spike to $2.50. Wait for VWAP reclaim at $2.19,
+# then entry on pullback with confirmation. Target previous highs.
+#
+# ╔═══════════════════════════════════════════════════════════════════════════╗
+# ║  EXECUTION FLOW                                                           ║
+# ║                                                                           ║
+# ║  [CONFIG]         [ENTRY CONDITIONS]           [EXIT]                     ║
+# ║  ┌──────────┐     ┌───────────────────┐     ┌────────────────┐           ║
+# ║  │Ticker    │     │Breakout($2.19)    │     │TakeProfit($2.45)│          ║
+# ║  │Session   │ --> │IsAboveVwap()      │ --> │StopLoss($2.00)  │          ║
+# ║  │Qty       │     │Pullback($2.16)    │     │                 │          ║
+# ║  └──────────┘     └───────────────────┘     └────────────────┘           ║
+# ╚═══════════════════════════════════════════════════════════════════════════╝
+#
+# RISK: Just below VWAP - wait for reclaim before entry
+# ============================================================================
+
+Ticker(DHX)
+.Name("DHX VWAP Reclaim Breakout")
+.Session(IS.EXTENDED)
+.Qty(31)
+
+# Break over VWAP resistance at $2.19
+.Breakout(2.19)
+
+# Pullback entry above EMA zone
+.Pullback(2.16)
+
+# VWAP confirmation
+.IsAboveVwap()
+
+# Order execution
+.Long()
+.Quantity(31)
+
+# Target previous highs
+.TakeProfit(2.45)
+.StopLoss(2.00)
+
+# Exit at bell - don't hold earnings overnight
+.ExitStrategy(IS.BELL).IsProfitable()

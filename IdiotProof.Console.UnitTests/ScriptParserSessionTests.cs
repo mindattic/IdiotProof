@@ -69,7 +69,7 @@ public class ScriptParserSessionTests
     public void Parse_CloseEnding_CaseInsensitive(string script)
     {
         var result = StrategyScriptParser.Parse(script);
-        var closeSegment = result.Segments.FirstOrDefault(s => s.Type == SegmentType.ClosePosition);
+        var closeSegment = result.Segments.FirstOrDefault(s => s.Type == SegmentType.ExitStrategy);
         Assert.That(closeSegment, Is.Not.Null);
     }
 
@@ -80,30 +80,30 @@ public class ScriptParserSessionTests
     public void Parse_CloseTime_Values(string script)
     {
         var result = StrategyScriptParser.Parse(script);
-        var closeSegment = result.Segments.FirstOrDefault(s => s.Type == SegmentType.ClosePosition);
+        var closeSegment = result.Segments.FirstOrDefault(s => s.Type == SegmentType.ExitStrategy);
         Assert.That(closeSegment, Is.Not.Null);
     }
 
-    [TestCase("SYM(AAPL).CLOSE(Ending, Y)")]
-    [TestCase("SYM(AAPL).CLOSE(Ending, y)")]
-    [TestCase("SYM(AAPL).CLOSE(Ending,Y)")]
-    [TestCase("SYM(AAPL).close(ending, y)")]
+    [TestCase("SYM(AAPL).ExitStrategy(IS.BELL).IsProfitable()")]
+    [TestCase("SYM(AAPL).EXITSTRATEGY(IS.BELL).ISPROFITABLE()")]
+    [TestCase("SYM(AAPL).exitstrategy(is.bell).isprofitable()")]
+    [TestCase("SYM(AAPL).ExitStrategy(IS.BELL).Profitable()")]
     public void Parse_CloseOnlyIfProfitable_CaseInsensitive(string script)
     {
         var result = StrategyScriptParser.Parse(script);
-        var closeSegment = result.Segments.FirstOrDefault(s => s.Type == SegmentType.ClosePosition);
+        var closeSegment = result.Segments.FirstOrDefault(s => s.Type == SegmentType.ExitStrategy);
         Assert.That(closeSegment, Is.Not.Null);
 
-        var profitParam = closeSegment!.Parameters.FirstOrDefault(p => p.Name == "OnlyIfProfitable");
-        Assert.That(profitParam, Is.Not.Null);
-        Assert.That((bool)profitParam!.Value!, Is.True);
+        // Check for IsProfitable segment (single-responsibility pattern)
+        var profitableSegment = result.Segments.FirstOrDefault(s => s.Type == SegmentType.IsProfitable);
+        Assert.That(profitableSegment, Is.Not.Null);
     }
 
-    [TestCase("SYM(AAPL).CLOSE(9:29, Y)")]
+    [TestCase("SYM(AAPL).ExitStrategy(9:29).IsProfitable()")]
     public void Parse_CloseTimeWithProfitable(string script)
     {
         var result = StrategyScriptParser.Parse(script);
-        var closeSegment = result.Segments.FirstOrDefault(s => s.Type == SegmentType.ClosePosition);
+        var closeSegment = result.Segments.FirstOrDefault(s => s.Type == SegmentType.ExitStrategy);
         Assert.That(closeSegment, Is.Not.Null);
     }
 
@@ -115,10 +115,10 @@ public class ScriptParserSessionTests
     public void Parse_SessionAndClose_Combined()
     {
         var result = StrategyScriptParser.Parse(
-            "SYM(PLTR).SESSION(PreMarketEndEarly).CLOSE(9:29, Y)");
+            "SYM(PLTR).SESSION(PreMarketEndEarly).ExitStrategy(9:29).IsProfitable()");
 
         var sessionSegment = result.Segments.FirstOrDefault(s => s.Type == SegmentType.SessionDuration);
-        var closeSegment = result.Segments.FirstOrDefault(s => s.Type == SegmentType.ClosePosition);
+        var closeSegment = result.Segments.FirstOrDefault(s => s.Type == SegmentType.ExitStrategy);
 
         Assert.That(sessionSegment, Is.Not.Null);
         Assert.That(closeSegment, Is.Not.Null);
@@ -126,3 +126,5 @@ public class ScriptParserSessionTests
 
     #endregion
 }
+
+

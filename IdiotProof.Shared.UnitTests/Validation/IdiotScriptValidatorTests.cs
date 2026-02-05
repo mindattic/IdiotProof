@@ -206,8 +206,10 @@ public class IdiotScriptValidatorTests
         Assert.That(IdiotScriptValidator.ValidCommands, Does.Contain("TICKER"));
         Assert.That(IdiotScriptValidator.ValidCommands, Does.Contain("SYM"));
         Assert.That(IdiotScriptValidator.ValidCommands, Does.Contain("SYMBOL"));
-        Assert.That(IdiotScriptValidator.ValidCommands, Does.Contain("BUY"));
-        Assert.That(IdiotScriptValidator.ValidCommands, Does.Contain("SELL"));
+        // Note: BUY and SELL are NOT valid commands - use Order(IS.LONG), Order(IS.SHORT), Long(), or Short()
+        Assert.That(IdiotScriptValidator.ValidCommands, Does.Contain("ORDER"));
+        Assert.That(IdiotScriptValidator.ValidCommands, Does.Contain("LONG"));
+        Assert.That(IdiotScriptValidator.ValidCommands, Does.Contain("SHORT"));
         Assert.That(IdiotScriptValidator.ValidCommands, Does.Contain("QTY"));
         Assert.That(IdiotScriptValidator.ValidCommands, Does.Contain("TP"));
         Assert.That(IdiotScriptValidator.ValidCommands, Does.Contain("SL"));
@@ -355,3 +357,5 @@ public class IdiotScriptValidatorTests
 
     #endregion
 }
+
+

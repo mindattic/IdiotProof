@@ -163,3 +163,5 @@ namespace IdiotProof.Shared.Models
         public double? RealizedPnL { get; set; }
     }
 }
+
+

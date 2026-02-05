@@ -59,3 +59,5 @@ public static class MarketTime
         public static TimeOnly End => new(20, 0);
     }
 }
+
+

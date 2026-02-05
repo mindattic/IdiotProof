@@ -356,3 +356,5 @@ public class RsiCalculatorTests
 
     #endregion
 }
+
+

@@ -400,14 +400,14 @@ public class StrategyBuilder
             });
         }
 
-        AddSegment(SegmentType.Buy, SegmentCategory.Order, "Long Position", parameters);
+        AddSegment(SegmentType.Order, SegmentCategory.Order, "Long Position", parameters);
         return this;
     }
 
     /// <summary>
     /// Opens a long position (buy order). Alias for LongPosition.
     /// </summary>
-    public StrategyBuilder Buy(int quantity, Price priceType = Price.Current, double? limitPrice = null)
+    public StrategyBuilder Long(int quantity, Price priceType = Price.Current, double? limitPrice = null)
         => LongPosition(quantity, priceType, limitPrice);
 
     /// <summary>
@@ -448,14 +448,14 @@ public class StrategyBuilder
             });
         }
 
-        AddSegment(SegmentType.Sell, SegmentCategory.Order, "Short Position", parameters);
+        AddSegment(SegmentType.Order, SegmentCategory.Order, "Short Position", parameters);
         return this;
     }
 
     /// <summary>
     /// Opens a short position (sell order). Alias for ShortPosition.
     /// </summary>
-    public StrategyBuilder Sell(int quantity, Price priceType = Price.Current, double? limitPrice = null)
+    public StrategyBuilder Short(int quantity, Price priceType = Price.Current, double? limitPrice = null)
         => ShortPosition(quantity, priceType, limitPrice);
 
     /// <summary>
@@ -564,13 +564,13 @@ public class StrategyBuilder
     }
 
     /// <summary>
-    /// Adds a close position at a specific time.
+    /// Adds an exit strategy at a specific time.
+    /// Chain with .IsProfitable() to only exit if the position is profitable.
     /// </summary>
     /// <param name="time">The time to close the position.</param>
-    /// <param name="onlyIfProfitable">When true (default), only closes if position is profitable.</param>
-    public StrategyBuilder ClosePosition(TimeOnly time, bool onlyIfProfitable = true)
+    public StrategyBuilder ExitStrategy(TimeOnly time)
     {
-        AddSegment(SegmentType.ClosePosition, SegmentCategory.PositionManagement, "Close Position",
+        AddSegment(SegmentType.ExitStrategy, SegmentCategory.PositionManagement, "Exit Strategy",
             [
                 new SegmentParameter
                 {
@@ -579,16 +579,17 @@ public class StrategyBuilder
                     Type = ParameterType.Time,
                     Value = time,
                     IsRequired = true
-                },
-                new SegmentParameter
-                {
-                    Name = "OnlyIfProfitable",
-                    Label = "Only If Profitable",
-                    Type = ParameterType.Boolean,
-                    Value = onlyIfProfitable,
-                    IsRequired = false
                 }
             ]);
+        return this;
+    }
+
+    /// <summary>
+    /// Only execute the previous exit strategy if the position is profitable.
+    /// </summary>
+    public StrategyBuilder IsProfitable()
+    {
+        AddSegment(SegmentType.IsProfitable, SegmentCategory.PositionManagement, "Only If Profitable", []);
         return this;
     }
 
@@ -681,7 +682,7 @@ public class StrategyBuilder
     ///     .SessionDuration(TradingSession.RTH)
     ///     .IsPriceAbove(5.00)
     ///     .IsAboveVwap()
-    ///     .Buy(100, Price.Current)
+    ///     .Long(100, Price.Current)
     ///     .TakeProfit(6.00)
     ///     .StopLoss(4.50)
     ///     .Repeat()  // Will buy again at $5, sell at $6, repeat
@@ -724,3 +725,5 @@ public class StrategyBuilder
         });
     }
 }
+
+

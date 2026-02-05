@@ -1,0 +1,55 @@
+# ============================================================================
+# VVPR-V5-Conservative - Conservative VWAP Reclaim
+# ============================================================================
+#
+# CHART ANALYSIS (Live Data):
+# - Current: $1.70 | VWAP: $1.95 | EMA(9): $1.74 | EMA(21): $1.75
+# - ADX: 22.01 | LOD: ~$1.50 | Recent high: $2.10
+# - Status: Well below VWAP - needs strong reclaim
+# - Catalyst: 20% stake in KWeather for $4.3M
+#
+# STRATEGY:
+# Conservative approach - wait for candle to CLOSE above VWAP (not just
+# wick). This confirms institutional buying, not just a fake breakout.
+#
+# ╔═══════════════════════════════════════════════════════════════════════════╗
+# ║  IsCloseAboveVwap vs IsAboveVwap:                                        ║
+# ║  +--------------------------------------------+                          ║
+# ║  |         +---+                              |                          ║
+# ║  |         |   | <- Close ABOVE = Strong     |                          ║
+# ║  |  VWAP ══|═══|══════════════════════════════| VWAP @ $1.95            ║
+# ║  |         |   |                              |                          ║
+# ║  |    Current price $1.70 - well below       |                          ║
+# ║  +--------------------------------------------+                          ║
+# ╚═══════════════════════════════════════════════════════════════════════════╝
+#
+# RISK: Most conservative - highest probability but smallest target
+# ============================================================================
+
+Ticker(VVPR)
+.Name("VVPR Conservative VWAP")
+.Session(IS.EXTENDED)
+.Qty(36)
+
+# Need VWAP reclaim at $1.95
+.Breakout(1.95)
+.Pullback(1.88)
+
+# Strong VWAP confirmation - candle must CLOSE above
+.IsCloseAboveVwap()
+.IsEmaAbove(9)
+.IsHigherLows()
+
+# Order execution
+.Long()
+.Quantity(36)
+
+# Conservative target - just above VWAP
+.TakeProfit(2.05)
+.StopLoss(1.78)
+
+# Conservative adaptive management
+.AdaptiveOrder(IS.CONSERVATIVE)
+
+# Exit at bell if still open
+.ExitStrategy(IS.BELL).IsProfitable()

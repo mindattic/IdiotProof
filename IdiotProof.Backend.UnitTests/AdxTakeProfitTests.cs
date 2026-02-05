@@ -267,7 +267,7 @@ public class AdxTakeProfitTests
         // Arrange & Act
         var strategy = Stock.Ticker("TEST")
             .IsPriceAbove(100)
-            .Buy(100, Price.Current)
+            .Long().Quantity(100)
             .TakeProfit(150)
             .Build();
 
@@ -286,8 +286,8 @@ public class AdxTakeProfitTests
         // Arrange & Act
         var strategy = Stock.Ticker("TEST")
             .IsPriceAbove(100)
-            .Buy(100, Price.Current)
-            .TakeProfit(130, 170)
+            .Long().Quantity(100)
+            .AdxTakeProfit(AdxTakeProfitConfig.FromRange(130, 170))
             .Build();
 
         // Assert
@@ -307,14 +307,16 @@ public class AdxTakeProfitTests
         // Arrange & Act
         var strategy = Stock.Ticker("TEST")
             .IsPriceAbove(100)
-            .Buy(100, Price.Current)
-            .TakeProfit(
-                lowTarget: 130,
-                highTarget: 170,
-                weakThreshold: 20,
-                developingThreshold: 30,
-                strongThreshold: 40,
-                exitOnRollover: false)
+            .Long().Quantity(100)
+            .AdxTakeProfit(new AdxTakeProfitConfig
+            {
+                ConservativeTarget = 130,
+                AggressiveTarget = 170,
+                WeakTrendThreshold = 20,
+                DevelopingTrendThreshold = 30,
+                StrongTrendThreshold = 40,
+                ExitOnAdxRollover = false
+            })
             .Build();
 
         // Assert
@@ -336,8 +338,8 @@ public class AdxTakeProfitTests
         // Arrange & Act - Set range first, then override with fixed price
         var strategy = Stock.Ticker("TEST")
             .IsPriceAbove(100)
-            .Buy(100, Price.Current)
-            .TakeProfit(130, 170)  // Range
+            .Long().Quantity(100)
+            .AdxTakeProfit(AdxTakeProfitConfig.FromRange(130, 170))  // Range
             .TakeProfit(150)       // Fixed - should clear ADX config
             .Build();
 
@@ -356,9 +358,9 @@ public class AdxTakeProfitTests
         // Arrange & Act - Set fixed first, then override with range
         var strategy = Stock.Ticker("TEST")
             .IsPriceAbove(100)
-            .Buy(100, Price.Current)
+            .Long().Quantity(100)
             .TakeProfit(150)       // Fixed
-            .TakeProfit(130, 170)  // Range - should set ADX config
+            .AdxTakeProfit(AdxTakeProfitConfig.FromRange(130, 170))  // Range - should set ADX config
             .Build();
 
         // Assert
@@ -384,8 +386,8 @@ public class AdxTakeProfitTests
             .TimeFrame(TradingSession.PreMarket)
             .IsPriceAbove(2.40)
             .IsAboveVwap()
-            .Buy(100, Price.Current)
-            .TakeProfit(4.00, 4.80)
+            .Long().Quantity(100)
+            .AdxTakeProfit(AdxTakeProfitConfig.FromRange(4.00, 4.80))
             .Build();
 
         // Assert
@@ -410,8 +412,8 @@ public class AdxTakeProfitTests
             .TimeFrame(TradingSession.PreMarket)
             .IsPriceAbove(0.88)
             .IsAboveVwap()
-            .Buy(100, Price.Current)
-            .TakeProfit(1.30, 1.70)
+            .Long().Quantity(100)
+            .AdxTakeProfit(AdxTakeProfitConfig.FromRange(1.30, 1.70))
             .Build();
 
         // Assert
@@ -434,10 +436,17 @@ public class AdxTakeProfitTests
             .TimeFrame(TradingSession.PreMarket)
             .IsPriceAbove(5.00)
             .IsAboveVwap()
-            .Buy(200, Price.Current)
-            .TakeProfit(6.00, 7.50, weakThreshold: 12, developingThreshold: 22, strongThreshold: 32)
+            .Long().Quantity(200)
+            .AdxTakeProfit(new AdxTakeProfitConfig
+            {
+                ConservativeTarget = 6.00,
+                AggressiveTarget = 7.50,
+                WeakTrendThreshold = 12,
+                DevelopingTrendThreshold = 22,
+                StrongTrendThreshold = 32
+            })
             .StopLoss(4.50)
-            .ClosePosition(MarketTime.PreMarket.Ending)
+            .ExitStrategy(MarketTime.PreMarket.Ending)
             .Build();
 
         // Assert
@@ -523,3 +532,5 @@ public class AdxTakeProfitTests
 
     #endregion
 }
+
+

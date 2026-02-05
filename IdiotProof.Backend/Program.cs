@@ -222,7 +222,7 @@ namespace IdiotProof.Backend
         {
             Log("Loading strategies from disk...");
 
-            _strategies = StrategyLoader.LoadFromJson();
+            _strategies = StrategyLoader.LoadFromFile();
 
             var enabledCount = _strategies.Count(s => s.Enabled);
             Log($"Loaded {_strategies.Count} strategies ({enabledCount} enabled)");
@@ -1106,3 +1106,5 @@ namespace IdiotProof.Backend
         }
     }
 }
+
+

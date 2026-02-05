@@ -52,7 +52,7 @@ public class OrderPermutationTests
             // Arrange & Act
             var strategy = Stock.Ticker("TEST")
                 .Breakout(100)
-                .Buy(100, Price.Current)
+                .Long().Quantity(100)
                 .Build();
 
             // Assert
@@ -66,7 +66,7 @@ public class OrderPermutationTests
             // Arrange & Act
             var strategy = Stock.Ticker("TEST")
                 .Breakout(100)
-                .Sell(100, Price.Current)
+                .Short().Quantity(100)
                 .Build();
 
             // Assert
@@ -80,7 +80,7 @@ public class OrderPermutationTests
             // Arrange
             var strategy = Stock.Ticker("TEST")
                 .Breakout(100)
-                .Buy(100, Price.Current)
+                .Long().Quantity(100)
                 .Build();
 
             // Act & Assert
@@ -94,7 +94,7 @@ public class OrderPermutationTests
             // Arrange
             var strategy = Stock.Ticker("TEST")
                 .Breakout(100)
-                .Sell(100, Price.Current)
+                .Short().Quantity(100)
                 .Build();
 
             // Act & Assert
@@ -119,7 +119,7 @@ public class OrderPermutationTests
             // Arrange & Act
             var strategy = Stock.Ticker("TEST")
                 .Breakout(100)
-                .Buy(100, Price.Current)
+                .Long().Quantity(100)
                 .OrderType(OrderType.Market)
                 .Build();
 
@@ -134,7 +134,7 @@ public class OrderPermutationTests
             // Arrange & Act
             var strategy = Stock.Ticker("TEST")
                 .Breakout(100)
-                .Buy(100, Price.Current)
+                .Long().Quantity(100)
                 .OrderType(OrderType.Limit)
                 .Build();
 
@@ -171,7 +171,7 @@ public class OrderPermutationTests
             // Arrange & Act
             var strategy = Stock.Ticker("TEST")
                 .Breakout(100)
-                .Buy(100, Price.Current)
+                .Long().Quantity(100)
                 .Build();
 
             // Assert - Limit is the safer default for trading strategies
@@ -198,7 +198,7 @@ public class OrderPermutationTests
             // Arrange & Act
             var strategy = Stock.Ticker("TEST")
                 .Breakout(100)
-                .Buy(100, Price.Current)
+                .Long().Quantity(100)
                 .TimeInForce(TIF.Day)
                 .Build();
 
@@ -213,7 +213,7 @@ public class OrderPermutationTests
             // Arrange & Act
             var strategy = Stock.Ticker("TEST")
                 .Breakout(100)
-                .Buy(100, Price.Current)
+                .Long().Quantity(100)
                 .TimeInForce(TIF.GTC)
                 .Build();
 
@@ -228,7 +228,7 @@ public class OrderPermutationTests
             // Arrange & Act
             var strategy = Stock.Ticker("TEST")
                 .Breakout(100)
-                .Buy(100, Price.Current)
+                .Long().Quantity(100)
                 .TimeInForce(TIF.IOC)
                 .Build();
 
@@ -243,7 +243,7 @@ public class OrderPermutationTests
             // Arrange & Act
             var strategy = Stock.Ticker("TEST")
                 .Breakout(100)
-                .Buy(100, Price.Current)
+                .Long().Quantity(100)
                 .TimeInForce(TIF.FOK)
                 .Build();
 
@@ -258,7 +258,7 @@ public class OrderPermutationTests
             // Arrange & Act
             var strategy = Stock.Ticker("TEST")
                 .Breakout(100)
-                .Buy(100, Price.Current)
+                .Long().Quantity(100)
                 .Build();
 
             // Assert
@@ -276,7 +276,7 @@ public class OrderPermutationTests
             // Arrange & Act
             var strategy = Stock.Ticker("TEST")
                 .Breakout(100)
-                .Buy(100, Price.Current)
+                .Long().Quantity(100)
                 .TimeInForce(TIF.Overnight)
                 .Build();
 
@@ -291,7 +291,7 @@ public class OrderPermutationTests
             // Arrange & Act
             var strategy = Stock.Ticker("TEST")
                 .Breakout(100)
-                .Buy(100, Price.Current)
+                .Long().Quantity(100)
                 .TimeInForce(TIF.OvernightPlusDay)
                 .Build();
 
@@ -306,7 +306,7 @@ public class OrderPermutationTests
             // Arrange & Act
             var strategy = Stock.Ticker("TEST")
                 .Breakout(100)
-                .Buy(100, Price.Current)
+                .Long().Quantity(100)
                 .TimeInForce(TIF.AtTheOpening)
                 .Build();
 
@@ -321,7 +321,7 @@ public class OrderPermutationTests
             // Arrange & Act
             var strategy = Stock.Ticker("TEST")
                 .Breakout(100)
-                .Buy(100, Price.Current)
+                .Long().Quantity(100)
                 .TimeInForce(TIF.OVN)
                 .Build();
 
@@ -336,7 +336,7 @@ public class OrderPermutationTests
             // Arrange & Act
             var strategy = Stock.Ticker("TEST")
                 .Breakout(100)
-                .Buy(100, Price.Current)
+                .Long().Quantity(100)
                 .TimeInForce(TIF.OVNDAY)
                 .Build();
 
@@ -351,7 +351,7 @@ public class OrderPermutationTests
             // Arrange & Act
             var strategy = Stock.Ticker("TEST")
                 .Breakout(100)
-                .Buy(100, Price.Current)
+                .Long().Quantity(100)
                 .TimeInForce(TIF.OPG)
                 .Build();
 
@@ -446,9 +446,9 @@ public class OrderPermutationTests
             // Arrange & Act - Typical earnings play overnight order
             var strategy = Stock.Ticker("AAPL")
                 .Breakout(150)
-                .Buy(100, Price.Current)
+                .Long().Quantity(100)
                 .TimeInForce(TIF.Overnight)
-                .OutsideRTH(outsideRth: true, takeProfit: true)
+                .OutsideRTH(true).TakeProfitOutsideRTH(true)
                 .Build();
 
             // Assert
@@ -467,7 +467,7 @@ public class OrderPermutationTests
             // Arrange & Act - Gap play at market open
             var strategy = Stock.Ticker("TSLA")
                 .Breakout(200)
-                .Buy(50, Price.Current)
+                .Long().Quantity(50)
                 .TimeInForce(TIF.AtTheOpening)
                 .Build();
 
@@ -487,9 +487,9 @@ public class OrderPermutationTests
             var strategy = Stock.Ticker("NVDA")
                 .Start(MarketTime.PreMarket.Start)
                 .Breakout(300)
-                .Buy(25, Price.Current)
+                .Long().Quantity(25)
                 .TimeInForce(TIF.OvernightPlusDay)
-                .OutsideRTH(outsideRth: true, takeProfit: true)
+                .OutsideRTH(true).TakeProfitOutsideRTH(true)
                 .TakeProfit(310)
                 .Build();
 
@@ -523,7 +523,7 @@ public class OrderPermutationTests
             // Arrange & Act
             var strategy = Stock.Ticker("TEST")
                 .Breakout(100)
-                .Buy(100, Price.Current)
+                .Long().Quantity(100)
                 .Build();
 
             // Assert
@@ -537,7 +537,7 @@ public class OrderPermutationTests
             // Arrange & Act
             var strategy = Stock.Ticker("TEST")
                 .Breakout(100)
-                .Buy(100, Price.VWAP)
+                .Long().Quantity(100).PriceType(Price.VWAP)
                 .Build();
 
             // Assert
@@ -551,7 +551,7 @@ public class OrderPermutationTests
             // Arrange & Act
             var strategy = Stock.Ticker("TEST")
                 .Breakout(100)
-                .Buy(100, Price.Bid)
+                .Long().Quantity(100).PriceType(Price.Bid)
                 .Build();
 
             // Assert
@@ -565,7 +565,7 @@ public class OrderPermutationTests
             // Arrange & Act
             var strategy = Stock.Ticker("TEST")
                 .Breakout(100)
-                .Buy(100, Price.Ask)
+                .Long().Quantity(100).PriceType(Price.Ask)
                 .Build();
 
             // Assert
@@ -583,7 +583,7 @@ public class OrderPermutationTests
             // Arrange & Act
             var strategy = Stock.Ticker("TEST")
                 .Breakout(100)
-                .Buy(100, priceType)
+                .Long().Quantity(100).PriceType(priceType)
                 .Build();
 
             // Assert
@@ -601,7 +601,7 @@ public class OrderPermutationTests
             // Arrange & Act
             var strategy = Stock.Ticker("TEST")
                 .Breakout(100)
-                .Sell(100, priceType)
+                .Short().Quantity(100).PriceType(priceType)
                 .Build();
 
             // Assert
@@ -628,7 +628,7 @@ public class OrderPermutationTests
             // Arrange & Act
             var strategy = Stock.Ticker("TEST")
                 .Breakout(100)
-                .Buy(100, Price.Current)
+                .Long().Quantity(100)
                 .TakeProfit(110)
                 .Build();
 
@@ -649,7 +649,7 @@ public class OrderPermutationTests
             // Arrange & Act
             var strategy = Stock.Ticker("TEST")
                 .Breakout(100)
-                .Buy(100, Price.Current)
+                .Long().Quantity(100)
                 .StopLoss(90)
                 .Build();
 
@@ -670,7 +670,7 @@ public class OrderPermutationTests
             // Arrange & Act
             var strategy = Stock.Ticker("TEST")
                 .Breakout(100)
-                .Buy(100, Price.Current)
+                .Long().Quantity(100)
                 .TrailingStopLoss(Percent.Ten)
                 .Build();
 
@@ -695,7 +695,7 @@ public class OrderPermutationTests
             // Arrange & Act
             var strategy = Stock.Ticker("TEST")
                 .Breakout(100)
-                .Buy(100, Price.Current)
+                .Long().Quantity(100)
                 .TakeProfit(110)
                 .StopLoss(90)
                 .Build();
@@ -718,7 +718,7 @@ public class OrderPermutationTests
             // Arrange & Act
             var strategy = Stock.Ticker("TEST")
                 .Breakout(100)
-                .Buy(100, Price.Current)
+                .Long().Quantity(100)
                 .TakeProfit(110)
                 .TrailingStopLoss(Percent.Ten)
                 .Build();
@@ -740,7 +740,7 @@ public class OrderPermutationTests
             // Arrange & Act
             var strategy = Stock.Ticker("TEST")
                 .Breakout(100)
-                .Buy(100, Price.Current)
+                .Long().Quantity(100)
                 .StopLoss(90)
                 .TrailingStopLoss(Percent.Ten)
                 .Build();
@@ -766,7 +766,7 @@ public class OrderPermutationTests
             // Arrange & Act
             var strategy = Stock.Ticker("TEST")
                 .Breakout(100)
-                .Buy(100, Price.Current)
+                .Long().Quantity(100)
                 .TakeProfit(110)
                 .StopLoss(90)
                 .TrailingStopLoss(Percent.Five)
@@ -795,7 +795,7 @@ public class OrderPermutationTests
             // Arrange & Act
             var strategy = Stock.Ticker("TEST")
                 .Breakout(100)
-                .Buy(100, Price.Current)
+                .Long().Quantity(100)
                 .Build();
 
             // Assert
@@ -825,7 +825,7 @@ public class OrderPermutationTests
             // Arrange & Act
             var strategy = Stock.Ticker("TEST")
                 .Breakout(100)
-                .Buy(100, Price.Current)
+                .Long().Quantity(100)
                 .TrailingStopLoss(percent)
                 .Build();
 
@@ -839,13 +839,13 @@ public class OrderPermutationTests
         {
             Assert.Multiple(() =>
             {
-                var s1 = Stock.Ticker("T").Breakout(100).Buy(100, Price.Current).TrailingStopLoss(Percent.One).Build();
-                var s5 = Stock.Ticker("T").Breakout(100).Buy(100, Price.Current).TrailingStopLoss(Percent.Five).Build();
-                var s10 = Stock.Ticker("T").Breakout(100).Buy(100, Price.Current).TrailingStopLoss(Percent.Ten).Build();
-                var s15 = Stock.Ticker("T").Breakout(100).Buy(100, Price.Current).TrailingStopLoss(Percent.Fifteen).Build();
-                var s20 = Stock.Ticker("T").Breakout(100).Buy(100, Price.Current).TrailingStopLoss(Percent.Twenty).Build();
-                var s25 = Stock.Ticker("T").Breakout(100).Buy(100, Price.Current).TrailingStopLoss(Percent.TwentyFive).Build();
-                var s50 = Stock.Ticker("T").Breakout(100).Buy(100, Price.Current).TrailingStopLoss(Percent.Fifty).Build();
+                var s1 = Stock.Ticker("T").Breakout(100).Long().Quantity(100).TrailingStopLoss(Percent.One).Build();
+                var s5 = Stock.Ticker("T").Breakout(100).Long().Quantity(100).TrailingStopLoss(Percent.Five).Build();
+                var s10 = Stock.Ticker("T").Breakout(100).Long().Quantity(100).TrailingStopLoss(Percent.Ten).Build();
+                var s15 = Stock.Ticker("T").Breakout(100).Long().Quantity(100).TrailingStopLoss(Percent.Fifteen).Build();
+                var s20 = Stock.Ticker("T").Breakout(100).Long().Quantity(100).TrailingStopLoss(Percent.Twenty).Build();
+                var s25 = Stock.Ticker("T").Breakout(100).Long().Quantity(100).TrailingStopLoss(Percent.TwentyFive).Build();
+                var s50 = Stock.Ticker("T").Breakout(100).Long().Quantity(100).TrailingStopLoss(Percent.Fifty).Build();
 
                 Assert.That(s1.Order.TrailingStopLossPercent, Is.EqualTo(0.01));
                 Assert.That(s5.Order.TrailingStopLossPercent, Is.EqualTo(0.05));
@@ -880,7 +880,7 @@ public class OrderPermutationTests
             // Arrange & Act
             var strategy = Stock.Ticker("TEST")
                 .Breakout(100)
-                .Buy(quantity, Price.Current)
+                .Long().Quantity(quantity)
                 .Build();
 
             // Assert
@@ -897,7 +897,7 @@ public class OrderPermutationTests
             // Arrange & Act
             var strategy = Stock.Ticker("TEST")
                 .Breakout(100)
-                .Buy(quantity, Price.Current)
+                .Long().Quantity(quantity)
                 .Build();
 
             // Assert
@@ -914,7 +914,7 @@ public class OrderPermutationTests
             // Arrange & Act
             var strategy = Stock.Ticker("TEST")
                 .Breakout(100)
-                .Buy(quantity, Price.Current)
+                .Long().Quantity(quantity)
                 .Build();
 
             // Assert
@@ -928,7 +928,7 @@ public class OrderPermutationTests
             // Note: Zero quantity is technically allowed by builder; IBKR will reject
             var strategy = Stock.Ticker("TEST")
                 .Breakout(100)
-                .Buy(0, Price.Current)
+                .Long().Quantity(0)
                 .Build();
 
             Assert.That(strategy.Order.Quantity, Is.EqualTo(0));
@@ -941,7 +941,7 @@ public class OrderPermutationTests
             // Note: Negative quantity is allowed by builder; broker validates
             var strategy = Stock.Ticker("TEST")
                 .Breakout(100)
-                .Buy(-100, Price.Current)
+                .Long().Quantity(-100)
                 .Build();
 
             Assert.That(strategy.Order.Quantity, Is.EqualTo(-100));
@@ -965,8 +965,8 @@ public class OrderPermutationTests
             // Arrange & Act
             var strategy = Stock.Ticker("TEST")
                 .Breakout(100)
-                .Buy(100, Price.Current)
-                .OutsideRTH(outsideRth: true, takeProfit: true)
+                .Long().Quantity(100)
+                .OutsideRTH(true).TakeProfitOutsideRTH(true)
                 .Build();
 
             // Assert
@@ -984,8 +984,8 @@ public class OrderPermutationTests
             // Arrange & Act
             var strategy = Stock.Ticker("TEST")
                 .Breakout(100)
-                .Buy(100, Price.Current)
-                .OutsideRTH(outsideRth: false, takeProfit: false)
+                .Long().Quantity(100)
+                .OutsideRTH(false).TakeProfitOutsideRTH(false)
                 .Build();
 
             // Assert
@@ -1003,8 +1003,8 @@ public class OrderPermutationTests
             // Arrange & Act
             var strategy = Stock.Ticker("TEST")
                 .Breakout(100)
-                .Buy(100, Price.Current)
-                .OutsideRTH(outsideRth: true, takeProfit: false)
+                .Long().Quantity(100)
+                .OutsideRTH(true).TakeProfitOutsideRTH(false)
                 .Build();
 
             // Assert
@@ -1022,8 +1022,8 @@ public class OrderPermutationTests
             // Arrange & Act
             var strategy = Stock.Ticker("TEST")
                 .Breakout(100)
-                .Buy(100, Price.Current)
-                .OutsideRTH(outsideRth: false, takeProfit: true)
+                .Long().Quantity(100)
+                .OutsideRTH(false).TakeProfitOutsideRTH(true)
                 .Build();
 
             // Assert
@@ -1041,7 +1041,7 @@ public class OrderPermutationTests
             // Arrange & Act
             var strategy = Stock.Ticker("TEST")
                 .Breakout(100)
-                .Buy(100, Price.Current)
+                .Long().Quantity(100)
                 .Build();
 
             // Assert
@@ -1074,7 +1074,7 @@ public class OrderPermutationTests
             var strategy = Stock.Ticker("TEST")
                 .Start(startTime)
                 .Breakout(100)
-                .Buy(100, Price.Current)
+                .Long().Quantity(100)
                 .Build();
 
             // Assert
@@ -1095,7 +1095,7 @@ public class OrderPermutationTests
             // Act
             var strategy = Stock.Ticker("TEST")
                 .Breakout(100)
-                .Buy(100, Price.Current)
+                .Long().Quantity(100)
                 .End(endTime);
 
             // Assert
@@ -1118,7 +1118,7 @@ public class OrderPermutationTests
             var strategy = Stock.Ticker("TEST")
                 .Start(startTime)
                 .Breakout(100)
-                .Buy(100, Price.Current)
+                .Long().Quantity(100)
                 .End(endTime);
 
             // Assert
@@ -1130,8 +1130,8 @@ public class OrderPermutationTests
         }
 
         [Test]
-        [Description("Validates ClosePosition time configuration")]
-        public void TimeWindow_ClosePositionTime_SetsCorrectly()
+        [Description("Validates ExitStrategy time configuration")]
+        public void TimeWindow_ExitStrategyTime_SetsCorrectly()
         {
             // Arrange
             var closeTime = new TimeOnly(6, 50);
@@ -1139,8 +1139,8 @@ public class OrderPermutationTests
             // Act
             var strategy = Stock.Ticker("TEST")
                 .Breakout(100)
-                .Buy(100, Price.Current)
-                .ClosePosition(closeTime)
+                .Long().Quantity(100)
+                .ExitStrategy(closeTime)
                 .Build();
 
             // Assert
@@ -1160,8 +1160,8 @@ public class OrderPermutationTests
             var strategy = Stock.Ticker("TEST")
                 .Start(startTime)
                 .Breakout(100)
-                .Buy(100, Price.Current)
-                .ClosePosition(closeTime)
+                .Long().Quantity(100)
+                .ExitStrategy(closeTime)
                 .End(endTime);
 
             // Assert
@@ -1181,8 +1181,8 @@ public class OrderPermutationTests
             var strategy = Stock.Ticker("TEST")
                 .Start(MarketTime.PreMarket.Start)
                 .Breakout(100)
-                .Buy(100, Price.Current)
-                .ClosePosition(MarketTime.PreMarket.End.AddMinutes(-10))
+                .Long().Quantity(100)
+                .ExitStrategy(MarketTime.PreMarket.End.AddMinutes(-10))
                 .End(MarketTime.PreMarket.End);
 
             // Assert - All times are in Eastern Time (ET)
@@ -1202,7 +1202,7 @@ public class OrderPermutationTests
             var strategy = Stock.Ticker("TEST")
                 .Start(MarketTime.RTH.Start)
                 .Breakout(100)
-                .Buy(100, Price.Current)
+                .Long().Quantity(100)
                 .End(MarketTime.RTH.End);
 
             // Assert - All times are in Eastern Time (ET)
@@ -1221,7 +1221,7 @@ public class OrderPermutationTests
             var strategy = Stock.Ticker("TEST")
                 .Start(MarketTime.AfterHours.Start)
                 .Breakout(100)
-                .Buy(100, Price.Current)
+                .Long().Quantity(100)
                 .End(MarketTime.AfterHours.End);
 
             // Assert - All times are in Eastern Time (ET)
@@ -1250,7 +1250,7 @@ public class OrderPermutationTests
             // Arrange & Act
             var strategy = Stock.Ticker("TEST")
                 .Breakout(100)
-                .Buy(100, Price.Current)
+                .Long().Quantity(100)
                 .Build();
 
             // Assert
@@ -1265,7 +1265,7 @@ public class OrderPermutationTests
             // Arrange & Act
             var strategy = Stock.Ticker("TEST")
                 .Pullback(100)
-                .Buy(100, Price.Current)
+                .Long().Quantity(100)
                 .Build();
 
             // Assert
@@ -1280,7 +1280,7 @@ public class OrderPermutationTests
             // Arrange & Act
             var strategy = Stock.Ticker("TEST")
                 .IsAboveVwap()
-                .Buy(100, Price.Current)
+                .Long().Quantity(100)
                 .Build();
 
             // Assert
@@ -1295,7 +1295,7 @@ public class OrderPermutationTests
             // Arrange & Act
             var strategy = Stock.Ticker("TEST")
                 .IsBelowVwap()
-                .Buy(100, Price.Current)
+                .Long().Quantity(100)
                 .Build();
 
             // Assert
@@ -1310,7 +1310,7 @@ public class OrderPermutationTests
             // Arrange & Act
             var strategy = Stock.Ticker("TEST")
                 .IsPriceAbove(100)
-                .Buy(100, Price.Current)
+                .Long().Quantity(100)
                 .Build();
 
             // Assert
@@ -1325,7 +1325,7 @@ public class OrderPermutationTests
             // Arrange & Act
             var strategy = Stock.Ticker("TEST")
                 .IsPriceBelow(100)
-                .Buy(100, Price.Current)
+                .Long().Quantity(100)
                 .Build();
 
             // Assert
@@ -1340,7 +1340,7 @@ public class OrderPermutationTests
             // Arrange & Act
             var strategy = Stock.Ticker("TEST")
                 .When("Custom test", (p, v) => p > 100)
-                .Buy(100, Price.Current)
+                .Long().Quantity(100)
                 .Build();
 
             // Assert
@@ -1357,7 +1357,7 @@ public class OrderPermutationTests
             var strategy = Stock.Ticker("TEST")
                 .Breakout(110)
                 .Pullback(100)
-                .Buy(100, Price.Current)
+                .Long().Quantity(100)
                 .Build();
 
             // Assert
@@ -1378,7 +1378,7 @@ public class OrderPermutationTests
                 .Breakout(110)
                 .Pullback(100)
                 .IsAboveVwap()
-                .Buy(100, Price.Current)
+                .Long().Quantity(100)
                 .Build();
 
             // Assert
@@ -1402,7 +1402,7 @@ public class OrderPermutationTests
                 .IsAboveVwap(0.05)
                 .IsPriceAbove(105)
                 .When("Custom", (p, v) => true)
-                .Buy(100, Price.Current)
+                .Long().Quantity(100)
                 .Build();
 
             // Assert
@@ -1426,7 +1426,7 @@ public class OrderPermutationTests
                 .Breakout(100)
                 .Breakout(110)
                 .Breakout(120)
-                .Buy(100, Price.Current)
+                .Long().Quantity(100)
                 .Build();
 
             // Assert
@@ -1457,7 +1457,7 @@ public class OrderPermutationTests
         {
             var strategy = Stock.Ticker("TEST")
                 .Breakout(100)
-                .Buy(100, Price.Current)
+                .Long().Quantity(100)
                 .OrderType(OrderType.Market)
                 .Build();
 
@@ -1474,7 +1474,7 @@ public class OrderPermutationTests
         {
             var strategy = Stock.Ticker("TEST")
                 .Breakout(100)
-                .Buy(100, Price.Current)
+                .Long().Quantity(100)
                 .OrderType(OrderType.Limit)
                 .Build();
 
@@ -1491,7 +1491,7 @@ public class OrderPermutationTests
         {
             var strategy = Stock.Ticker("TEST")
                 .Breakout(100)
-                .Sell(100, Price.Current)
+                .Short().Quantity(100)
                 .OrderType(OrderType.Market)
                 .Build();
 
@@ -1508,7 +1508,7 @@ public class OrderPermutationTests
         {
             var strategy = Stock.Ticker("TEST")
                 .Breakout(100)
-                .Sell(100, Price.Current)
+                .Short().Quantity(100)
                 .OrderType(OrderType.Limit)
                 .Build();
 
@@ -1532,7 +1532,7 @@ public class OrderPermutationTests
         {
             var strategy = Stock.Ticker("TEST")
                 .Breakout(100)
-                .Buy(100, Price.Current)
+                .Long().Quantity(100)
                 .TimeInForce(tif)
                 .Build();
 
@@ -1553,7 +1553,7 @@ public class OrderPermutationTests
         {
             var strategy = Stock.Ticker("TEST")
                 .Breakout(100)
-                .Sell(100, Price.Current)
+                .Short().Quantity(100)
                 .TimeInForce(tif)
                 .Build();
 
@@ -1573,7 +1573,7 @@ public class OrderPermutationTests
         {
             var strategy = Stock.Ticker("TEST")
                 .Breakout(100)
-                .Buy(100, Price.Current)
+                .Long().Quantity(100)
                 .OrderType(OrderType.Market)
                 .TimeInForce(TIF.GTC)
                 .TakeProfit(110)
@@ -1597,7 +1597,7 @@ public class OrderPermutationTests
         {
             var strategy = Stock.Ticker("TEST")
                 .Breakout(100)
-                .Sell(100, Price.VWAP)
+                .Short().Quantity(100).PriceType(Price.VWAP)
                 .OrderType(OrderType.Limit)
                 .TimeInForce(TIF.Day)
                 .TakeProfit(90)
@@ -1624,13 +1624,13 @@ public class OrderPermutationTests
                 .Breakout(150)
                 .Pullback(148)
                 .IsAboveVwap()
-                .Buy(100, Price.Current)
+                .Long().Quantity(100)
                 .OrderType(OrderType.Market)
                 .TimeInForce(TIF.GTC)
-                .OutsideRTH(outsideRth: true, takeProfit: true)
+                .OutsideRTH(true).TakeProfitOutsideRTH(true)
                 .TakeProfit(155)
                 .TrailingStopLoss(Percent.Ten)
-                .ClosePosition(MarketTime.PreMarket.End.AddMinutes(-10))
+                .ExitStrategy(MarketTime.PreMarket.End.AddMinutes(-10))
                 .End(MarketTime.PreMarket.End);
 
             Assert.Multiple(() =>
@@ -1683,7 +1683,7 @@ public class OrderPermutationTests
         {
             var strategy = Stock.Ticker(symbol)
                 .Breakout(100)
-                .Buy(100, Price.Current)
+                .Long().Quantity(100)
                 .Build();
 
             Assert.That(strategy.Symbol, Is.EqualTo(symbol));
@@ -1695,7 +1695,7 @@ public class OrderPermutationTests
         {
             var strategy = Stock.Ticker("TEST")
                 .Breakout(100)
-                .Buy(100, Price.Current)
+                .Long().Quantity(100)
                 .Build();
 
             Assert.That(strategy.Exchange, Is.EqualTo("SMART"));
@@ -1711,7 +1711,7 @@ public class OrderPermutationTests
             var strategy = Stock.Ticker("TEST")
                 .Exchange(exchange)
                 .Breakout(100)
-                .Buy(100, Price.Current)
+                .Long().Quantity(100)
                 .Build();
 
             Assert.That(strategy.Exchange, Is.EqualTo(exchange));
@@ -1723,7 +1723,7 @@ public class OrderPermutationTests
         {
             var strategy = Stock.Ticker("TEST")
                 .Breakout(100)
-                .Buy(100, Price.Current)
+                .Long().Quantity(100)
                 .Build();
 
             Assert.That(strategy.Currency, Is.EqualTo("USD"));
@@ -1739,7 +1739,7 @@ public class OrderPermutationTests
             var strategy = Stock.Ticker("TEST")
                 .Currency(currency)
                 .Breakout(100)
-                .Buy(100, Price.Current)
+                .Long().Quantity(100)
                 .Build();
 
             Assert.That(strategy.Currency, Is.EqualTo(currency));
@@ -1751,7 +1751,7 @@ public class OrderPermutationTests
         {
             var strategy = Stock.Ticker("TEST")
                 .Breakout(100)
-                .Buy(100, Price.Current)
+                .Long().Quantity(100)
                 .Build();
 
             Assert.That(strategy.SecType, Is.EqualTo("STK"));
@@ -1774,7 +1774,7 @@ public class OrderPermutationTests
         {
             var strategy = Stock.Ticker("TEST")
                 .Breakout(100)
-                .Buy(100, Price.Current)
+                .Long().Quantity(100)
                 .Build();
 
             Assert.That(strategy.Enabled, Is.True);
@@ -1787,7 +1787,7 @@ public class OrderPermutationTests
             var strategy = Stock.Ticker("TEST")
                 .Enabled(false)
                 .Breakout(100)
-                .Buy(100, Price.Current)
+                .Long().Quantity(100)
                 .Build();
 
             Assert.That(strategy.Enabled, Is.False);
@@ -1800,7 +1800,7 @@ public class OrderPermutationTests
             var strategy = Stock.Ticker("TEST")
                 .Enabled(true)
                 .Breakout(100)
-                .Buy(100, Price.Current)
+                .Long().Quantity(100)
                 .Build();
 
             Assert.That(strategy.Enabled, Is.True);
@@ -1816,7 +1816,7 @@ public class OrderPermutationTests
                 .Exchange("NASDAQ")
                 .Breakout(100)
                 .Pullback(95)
-                .Buy(200, Price.VWAP)
+                .Long().Quantity(200).PriceType(Price.VWAP)
                 .TakeProfit(110)
                 .Build();
 
@@ -1941,7 +1941,7 @@ public class OrderPermutationTests
             // Order 1: TakeProfit -> StopLoss -> TrailingStopLoss
             var strategy1 = Stock.Ticker("TEST")
                 .Breakout(100)
-                .Buy(100, Price.Current)
+                .Long().Quantity(100)
                 .TakeProfit(110)
                 .StopLoss(90)
                 .TrailingStopLoss(Percent.Ten)
@@ -1950,7 +1950,7 @@ public class OrderPermutationTests
             // Order 2: TrailingStopLoss -> TakeProfit -> StopLoss
             var strategy2 = Stock.Ticker("TEST")
                 .Breakout(100)
-                .Buy(100, Price.Current)
+                .Long().Quantity(100)
                 .TrailingStopLoss(Percent.Ten)
                 .TakeProfit(110)
                 .StopLoss(90)
@@ -1959,7 +1959,7 @@ public class OrderPermutationTests
             // Order 3: StopLoss -> TrailingStopLoss -> TakeProfit
             var strategy3 = Stock.Ticker("TEST")
                 .Breakout(100)
-                .Buy(100, Price.Current)
+                .Long().Quantity(100)
                 .StopLoss(90)
                 .TrailingStopLoss(Percent.Ten)
                 .TakeProfit(110)
@@ -1988,7 +1988,7 @@ public class OrderPermutationTests
             // Order 1: TimeInForce -> OrderType
             var strategy1 = Stock.Ticker("TEST")
                 .Breakout(100)
-                .Buy(100, Price.Current)
+                .Long().Quantity(100)
                 .TimeInForce(TIF.IOC)
                 .OrderType(OrderType.Limit)
                 .Build();
@@ -1996,7 +1996,7 @@ public class OrderPermutationTests
             // Order 2: OrderType -> TimeInForce
             var strategy2 = Stock.Ticker("TEST")
                 .Breakout(100)
-                .Buy(100, Price.Current)
+                .Long().Quantity(100)
                 .OrderType(OrderType.Limit)
                 .TimeInForce(TIF.IOC)
                 .Build();
@@ -2025,7 +2025,7 @@ public class OrderPermutationTests
         {
             var strategy = Stock.Ticker("TEST")
                 .Breakout(100)
-                .Buy(100, Price.Current, OrderType.Market)
+                .Long().Quantity(100).OrderType(OrderType.Market)
                 .Build();
 
             Assert.That(strategy.Order.Type, Is.EqualTo(OrderType.Market));
@@ -2037,7 +2037,7 @@ public class OrderPermutationTests
         {
             var strategy = Stock.Ticker("TEST")
                 .Breakout(100)
-                .Buy(100, Price.Current, OrderType.Limit)
+                .Long().Quantity(100).OrderType(OrderType.Limit)
                 .Build();
 
             Assert.That(strategy.Order.Type, Is.EqualTo(OrderType.Limit));
@@ -2049,7 +2049,7 @@ public class OrderPermutationTests
         {
             var strategy = Stock.Ticker("TEST")
                 .Breakout(100)
-                .Sell(100, Price.Current, OrderType.Market)
+                .Short().Quantity(100).OrderType(OrderType.Market)
                 .Build();
 
             Assert.That(strategy.Order.Type, Is.EqualTo(OrderType.Market));
@@ -2061,7 +2061,7 @@ public class OrderPermutationTests
         {
             var strategy = Stock.Ticker("TEST")
                 .Breakout(100)
-                .Sell(100, Price.Current, OrderType.Limit)
+                .Short().Quantity(100).OrderType(OrderType.Limit)
                 .Build();
 
             Assert.That(strategy.Order.Type, Is.EqualTo(OrderType.Limit));
@@ -2073,7 +2073,7 @@ public class OrderPermutationTests
         {
             var strategy = Stock.Ticker("TEST")
                 .Breakout(100)
-                .Buy(100, Price.Current, OrderType.Market)
+                .Long().Quantity(100).OrderType(OrderType.Market)
                 .OrderType(OrderType.Limit)
                 .Build();
 
@@ -2090,8 +2090,8 @@ public class OrderPermutationTests
         {
             var builder = Stock.Ticker("TEST").Breakout(100);
             var strategy = isBuy
-                ? builder.Buy(100, Price.Current, inputType).Build()
-                : builder.Sell(100, Price.Current, inputType).Build();
+                ? builder.Long().Quantity(100).OrderType(inputType).Build()
+                : builder.Short().Quantity(100).OrderType(inputType).Build();
 
             Assert.Multiple(() =>
             {
@@ -2122,7 +2122,7 @@ public class OrderPermutationTests
             Assert.Throws<InvalidOperationException>(() =>
             {
                 Stock.Ticker("TEST")
-                    .Buy(100, Price.Current)
+                    .Long().Quantity(100)
                     .Build();
             });
         }
@@ -2134,7 +2134,7 @@ public class OrderPermutationTests
             Assert.Throws<InvalidOperationException>(() =>
             {
                 Stock.Ticker("TEST")
-                    .Sell(100, Price.Current)
+                    .Short().Quantity(100)
                     .Build();
             });
         }
@@ -2146,7 +2146,7 @@ public class OrderPermutationTests
             Assert.Throws<InvalidOperationException>(() =>
             {
                 Stock.Ticker("TEST")
-                    .Buy(100, Price.Current)
+                    .Long().Quantity(100)
                     .End(new TimeOnly(7, 0));
             });
         }
@@ -2171,7 +2171,7 @@ public class OrderPermutationTests
                 .When("Custom", (p, v) => true);
 
             // Verify it's still a Stock instance that can call Buy/Sell
-            var strategy = stock.Buy(100, Price.Current).Build();
+            var strategy = stock.Long().Quantity(100).Build();
             Assert.That(strategy, Is.Not.Null);
         }
 
@@ -2181,13 +2181,13 @@ public class OrderPermutationTests
         {
             var builder = Stock.Ticker("TEST")
                 .Breakout(100)
-                .Buy(100, Price.Current)
+                .Long().Quantity(100)
                 .TakeProfit(110)
                 .StopLoss(90)
                 .TrailingStopLoss(Percent.Ten)
-                .ClosePosition(new TimeOnly(6, 50))
+                .ExitStrategy(new TimeOnly(6, 50))
                 .TimeInForce(TIF.GTC)
-                .OutsideRTH(true, true)
+                .OutsideRTH(true)
                 .OrderType(OrderType.Market);
 
             // Verify it's still a StrategyBuilder that can Build
@@ -2201,7 +2201,7 @@ public class OrderPermutationTests
         {
             TradingStrategy strategy = Stock.Ticker("TEST")
                 .Breakout(100)
-                .Buy(100, Price.Current)
+                .Long().Quantity(100)
                 .TakeProfit(110);
 
             Assert.That(strategy, Is.Not.Null);
@@ -2217,7 +2217,7 @@ public class OrderPermutationTests
                 .Pullback(95)
                 .IsAboveVwap()
                 .IsPriceAbove(90)
-                .Buy(100, Price.Current)
+                .Long().Quantity(100)
                 .Build();
 
             Assert.Multiple(() =>
@@ -2272,8 +2272,8 @@ public class OrderPermutationTests
                             {
                                 var stock = Stock.Ticker("TEST").Breakout(100);
                                 var builder = side == OrderSide.Buy
-                                    ? stock.Buy(100, price, orderType == OrderType.Market ? OrderType.Market : OrderType.Limit)
-                                    : stock.Sell(100, price, orderType == OrderType.Market ? OrderType.Market : OrderType.Limit);
+                                    ? stock.Long().Quantity(100).PriceType(price).OrderType(orderType)
+                                    : stock.Short().Quantity(100).PriceType(price).OrderType(orderType);
 
                                 var strategy = builder
                                     .TimeInForce(tif)
@@ -2326,7 +2326,7 @@ public class OrderPermutationTests
             {
                 var builder = Stock.Ticker("TEST")
                     .Breakout(100)
-                    .Buy(100, Price.Current);
+                    .Long().Quantity(100);
 
                 if (tp) builder = builder.TakeProfit(110);
                 if (sl) builder = builder.StopLoss(90);
@@ -2359,8 +2359,8 @@ public class OrderPermutationTests
             {
                 var strategy = Stock.Ticker("TEST")
                     .Breakout(100)
-                    .Buy(100, Price.Current)
-                    .OutsideRTH(entry, tp)
+                    .Long().Quantity(100)
+                    .OutsideRTH(entry).TakeProfitOutsideRTH(tp)
                     .Build();
 
                 Assert.Multiple(() =>
@@ -2403,7 +2403,7 @@ public class OrderPermutationTests
             {
                 var stock = Stock.Ticker("TEST");
                 addCondition(stock);
-                var strategy = stock.Buy(100, Price.Current).Build();
+                var strategy = stock.Long().Quantity(100).Build();
 
                 Assert.That(strategy.Conditions, Has.Count.EqualTo(1));
             }
@@ -2430,7 +2430,7 @@ public class OrderPermutationTests
                     var stock = Stock.Ticker("TEST");
                     first.Add(stock);
                     second.Add(stock);
-                    var strategy = stock.Buy(100, Price.Current).Build();
+                    var strategy = stock.Long().Quantity(100).Build();
 
                     Assert.That(strategy.Conditions, Has.Count.EqualTo(2),
                         $"Failed for {first.Name} -> {second.Name}");
@@ -2445,7 +2445,7 @@ public class OrderPermutationTests
             var customCondition = new BreakoutCondition(100);
             var strategy = Stock.Ticker("TEST")
                 .Condition(customCondition)
-                .Buy(100, Price.Current)
+                .Long().Quantity(100)
                 .Build();
 
             Assert.That(strategy.Conditions[0], Is.SameAs(customCondition));
@@ -2478,7 +2478,7 @@ public class OrderPermutationTests
         {
             var strategy = Stock.Ticker("TEST")
                 .Breakout(100)
-                .Buy(100, Price.Current)
+                .Long().Quantity(100)
                 .TakeProfit(110)
                 .TakeProfit(120)
                 .Build();
@@ -2492,7 +2492,7 @@ public class OrderPermutationTests
         {
             var strategy = Stock.Ticker("TEST")
                 .Breakout(100)
-                .Buy(100, Price.Current)
+                .Long().Quantity(100)
                 .StopLoss(90)
                 .StopLoss(85)
                 .Build();
@@ -2506,7 +2506,7 @@ public class OrderPermutationTests
         {
             var strategy = Stock.Ticker("TEST")
                 .Breakout(100)
-                .Buy(100, Price.Current)
+                .Long().Quantity(100)
                 .TrailingStopLoss(Percent.Ten)
                 .TrailingStopLoss(Percent.Twenty)
                 .Build();
@@ -2520,7 +2520,7 @@ public class OrderPermutationTests
         {
             var strategy = Stock.Ticker("TEST")
                 .Breakout(100)
-                .Buy(100, Price.Current)
+                .Long().Quantity(100)
                 .TimeInForce(TIF.Day)
                 .TimeInForce(TIF.GTC)
                 .Build();
@@ -2534,7 +2534,7 @@ public class OrderPermutationTests
         {
             var strategy = Stock.Ticker("TEST")
                 .Breakout(100)
-                .Buy(100, Price.Current)
+                .Long().Quantity(100)
                 .OrderType(OrderType.Market)
                 .OrderType(OrderType.Limit)
                 .Build();
@@ -2548,9 +2548,9 @@ public class OrderPermutationTests
         {
             var strategy = Stock.Ticker("TEST")
                 .Breakout(100)
-                .Buy(100, Price.Current)
-                .OutsideRTH(false, false)
-                .OutsideRTH(true, true)
+                .Long().Quantity(100)
+                .OutsideRTH(false).TakeProfitOutsideRTH(false)
+                .OutsideRTH(true).TakeProfitOutsideRTH(true)
                 .Build();
 
             Assert.Multiple(() =>
@@ -2561,14 +2561,14 @@ public class OrderPermutationTests
         }
 
         [Test]
-        [Description("Validates ClosePosition can be overwritten")]
-        public void ClosePosition_CalledTwice_UsesLastValue()
+        [Description("Validates ExitStrategy can be overwritten")]
+        public void ExitStrategy_CalledTwice_UsesLastValue()
         {
             var strategy = Stock.Ticker("TEST")
                 .Breakout(100)
-                .Buy(100, Price.Current)
-                .ClosePosition(new TimeOnly(6, 0))
-                .ClosePosition(new TimeOnly(6, 50))
+                .Long().Quantity(100)
+                .ExitStrategy(new TimeOnly(6, 0))
+                .ExitStrategy(new TimeOnly(6, 50))
                 .Build();
 
             Assert.That(strategy.Order.ClosePositionTime, Is.EqualTo(new TimeOnly(6, 50)));
@@ -2582,7 +2582,7 @@ public class OrderPermutationTests
                 .Exchange("NASDAQ")
                 .Exchange("NYSE")
                 .Breakout(100)
-                .Buy(100, Price.Current)
+                .Long().Quantity(100)
                 .Build();
 
             Assert.That(strategy.Exchange, Is.EqualTo("NYSE"));
@@ -2596,7 +2596,7 @@ public class OrderPermutationTests
                 .Currency("EUR")
                 .Currency("GBP")
                 .Breakout(100)
-                .Buy(100, Price.Current)
+                .Long().Quantity(100)
                 .Build();
 
             Assert.That(strategy.Currency, Is.EqualTo("GBP"));
@@ -2610,7 +2610,7 @@ public class OrderPermutationTests
                 .Enabled(false)
                 .Enabled(true)
                 .Breakout(100)
-                .Buy(100, Price.Current)
+                .Long().Quantity(100)
                 .Build();
 
             Assert.That(strategy.Enabled, Is.True);
@@ -2624,7 +2624,7 @@ public class OrderPermutationTests
                 .Start(new TimeOnly(3, 0))
                 .Start(new TimeOnly(4, 0))
                 .Breakout(100)
-                .Buy(100, Price.Current)
+                .Long().Quantity(100)
                 .Build();
 
             Assert.That(strategy.StartTime, Is.EqualTo(new TimeOnly(4, 0)));
@@ -2647,7 +2647,7 @@ public class OrderPermutationTests
         {
             var strategy = Stock.Ticker("X")
                 .Breakout(1)
-                .Buy(1, Price.Current)
+                .Long().Quantity(1)
                 .Build();
 
             Assert.Multiple(() =>
@@ -2668,7 +2668,7 @@ public class OrderPermutationTests
                 stock.Breakout(100 + i);
             }
 
-            var strategy = stock.Buy(100, Price.Current).Build();
+            var strategy = stock.Long().Quantity(100).Build();
 
             Assert.That(strategy.Conditions, Has.Count.EqualTo(100));
         }
@@ -2679,7 +2679,7 @@ public class OrderPermutationTests
         {
             var strategy = Stock.Ticker("BRK.A")
                 .Breakout(500000)
-                .Buy(1, Price.Current)
+                .Long().Quantity(1)
                 .TakeProfit(550000)
                 .StopLoss(450000)
                 .Build();
@@ -2697,7 +2697,7 @@ public class OrderPermutationTests
         {
             var strategy = Stock.Ticker("PENNY")
                 .Breakout(0.01)
-                .Buy(10000, Price.Current)
+                .Long().Quantity(10000)
                 .TakeProfit(0.02)
                 .StopLoss(0.005)
                 .Build();
@@ -2715,7 +2715,7 @@ public class OrderPermutationTests
         {
             var strategy = Stock.Ticker("TEST")
                 .Breakout(100.123456)
-                .Buy(100, Price.Current)
+                .Long().Quantity(100)
                 .TakeProfit(110.987654)
                 .StopLoss(90.111111)
                 .TrailingStopLoss(0.0999)
@@ -2735,7 +2735,7 @@ public class OrderPermutationTests
         {
             var strategy = Stock.Ticker("")
                 .Breakout(100)
-                .Buy(100, Price.Current)
+                .Long().Quantity(100)
                 .Build();
 
             Assert.That(strategy.Symbol, Is.EqualTo(""));
@@ -2747,7 +2747,7 @@ public class OrderPermutationTests
         {
             var strategy = Stock.Ticker("   ")
                 .Breakout(100)
-                .Buy(100, Price.Current)
+                .Long().Quantity(100)
                 .Build();
 
             Assert.That(strategy.Symbol, Is.EqualTo("   "));
@@ -2759,7 +2759,7 @@ public class OrderPermutationTests
         {
             var strategy = Stock.Ticker("BRK.B")
                 .Breakout(100)
-                .Buy(100, Price.Current)
+                .Long().Quantity(100)
                 .Build();
 
             Assert.That(strategy.Symbol, Is.EqualTo("BRK.B"));
@@ -2772,8 +2772,8 @@ public class OrderPermutationTests
             var strategy = Stock.Ticker("TEST")
                 .Start(new TimeOnly(0, 0))
                 .Breakout(100)
-                .Buy(100, Price.Current)
-                .ClosePosition(new TimeOnly(0, 0))
+                .Long().Quantity(100)
+                .ExitStrategy(new TimeOnly(0, 0))
                 .End(new TimeOnly(23, 59, 59));
 
             Assert.Multiple(() =>
@@ -2801,7 +2801,7 @@ public class OrderPermutationTests
         {
             var strategy = Stock.Ticker("TEST")
                 .Breakout(100)
-                .Buy(100, Price.Current)
+                .Long().Quantity(100)
                 .Build();
 
             Assert.That(strategy.Conditions, Is.InstanceOf<IReadOnlyList<IStrategyCondition>>());
@@ -2813,8 +2813,8 @@ public class OrderPermutationTests
         {
             var stock = Stock.Ticker("TEST").Breakout(100);
 
-            var strategy1 = stock.Buy(100, Price.Current).TakeProfit(110).Build();
-            var strategy2 = stock.Buy(200, Price.VWAP).TakeProfit(120).Build();
+            var strategy1 = stock.Long().Quantity(100).TakeProfit(110).Build();
+            var strategy2 = stock.Long().Quantity(200).PriceType(Price.VWAP).TakeProfit(120).Build();
 
             Assert.Multiple(() =>
             {
@@ -2829,3 +2829,5 @@ public class OrderPermutationTests
 
     #endregion
 }
+
+

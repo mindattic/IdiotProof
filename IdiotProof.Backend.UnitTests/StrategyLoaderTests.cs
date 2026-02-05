@@ -978,15 +978,16 @@ public class StrategyLoaderTests
         };
     }
 
-    private static StrategySegment CreateBuySegment(int quantity, string priceType = "Current", string orderType = "Market")
+    private static StrategySegment CreateOrderSegment(int quantity, string direction = "Long", string priceType = "Current", string orderType = "Market")
     {
         return new StrategySegment
         {
-            Type = Shared.Enums.SegmentType.Buy,
+            Type = Shared.Enums.SegmentType.Order,
             Category = Shared.Enums.SegmentCategory.Order,
-            DisplayName = "Buy",
+            DisplayName = "Order",
             Parameters = new List<SegmentParameter>
             {
+                CreateParam("Direction", ParameterType.Enum, direction, "OrderDirection"),
                 CreateParam("Quantity", ParameterType.Integer, quantity),
                 CreateParam("PriceType", ParameterType.Enum, priceType, "Price"),
                 CreateParam("OrderType", ParameterType.Enum, orderType, "OrderType")
@@ -994,20 +995,14 @@ public class StrategyLoaderTests
         };
     }
 
+    private static StrategySegment CreateBuySegment(int quantity, string priceType = "Current", string orderType = "Market")
+    {
+        return CreateOrderSegment(quantity, "Long", priceType, orderType);
+    }
+
     private static StrategySegment CreateSellSegment(int quantity, string priceType = "Current", string orderType = "Market")
     {
-        return new StrategySegment
-        {
-            Type = Shared.Enums.SegmentType.Sell,
-            Category = Shared.Enums.SegmentCategory.Order,
-            DisplayName = "Sell",
-            Parameters = new List<SegmentParameter>
-            {
-                CreateParam("Quantity", ParameterType.Integer, quantity),
-                CreateParam("PriceType", ParameterType.Enum, priceType, "Price"),
-                CreateParam("OrderType", ParameterType.Enum, orderType, "OrderType")
-            }
-        };
+        return CreateOrderSegment(quantity, "Short", priceType, orderType);
     }
 
     private static StrategySegment CreateCloseSegment(int quantity, string positionSide)
@@ -1097,3 +1092,5 @@ public class StrategyLoaderTests
 
     #endregion
 }
+
+

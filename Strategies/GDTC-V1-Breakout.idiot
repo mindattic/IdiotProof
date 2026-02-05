@@ -1,0 +1,55 @@
+# ============================================================================
+# GDTC-V1-Breakout - Range Consolidation Play
+# ============================================================================
+#
+# CHART ANALYSIS (Live Data):
+# - Current: $1.19 | VWAP: $1.16 | EMA(21): $1.19
+# - ADX: 18.6 (WEAK - no strong trend)
+# - Status: Slightly ABOVE VWAP - consolidating
+# - Range: $1.10 - $1.25 consolidation zone
+# - Recent high: $1.35 | LOD: ~$0.78
+#
+# STRATEGY:
+# Price holding above VWAP in consolidation. Wait for breakout over
+# $1.25 resistance, then entry on pullback to VWAP zone.
+#
+# ╔═══════════════════════════════════════════════════════════════════════════╗
+# ║  EXECUTION FLOW                                                           ║
+# ║                                                                           ║
+# ║  [CONFIG]         [ENTRY CONDITIONS]           [EXIT]                     ║
+# ║  ┌──────────┐     ┌───────────────────┐     ┌────────────────┐           ║
+# ║  │Ticker    │     │Breakout($1.25)    │     │TakeProfit($1.40)│          ║
+# ║  │Session   │ --> │Pullback($1.18)    │ --> │StopLoss($1.08)  │          ║
+# ║  │Qty       │     │IsAboveVwap()      │     │                 │          ║
+# ║  └──────────┘     │IsHigherLows()     │     └────────────────┘           ║
+# ║                   └───────────────────┘                                   ║
+# ╚═══════════════════════════════════════════════════════════════════════════╝
+#
+# RISK: ADX weak at 18.6 - no strong trend yet, range-bound
+# ============================================================================
+
+Ticker(GDTC)
+.Name("GDTC Range Breakout")
+.Session(IS.EXTENDED)
+.Qty(57)
+
+# Breakout over $1.25 consolidation resistance
+.Breakout(1.25)
+
+# Pullback to VWAP zone at $1.16-1.18
+.Pullback(1.18)
+
+# Confirmation requirements
+.IsAboveVwap()
+.IsHigherLows()
+
+# Order execution
+.Long()
+.Quantity(57)
+
+# Target previous high area
+.TakeProfit(1.40)
+.StopLoss(1.08)
+
+# Exit at bell if still open
+.ExitStrategy(IS.BELL).IsProfitable()

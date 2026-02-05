@@ -80,23 +80,23 @@
 // ============================================================================
 //
 // FLUENT PATTERN:
-//   Stock.Ticker("SYMBOL")     // Start builder
-//       .TimeFrame(...)          // Optional: when to monitor (comment out for immediate testing)
-//       .Breakout(...)         // Add conditions
+//   Stock.Ticker("SYMBOL")        // Start builder
+//       .TimeFrame(...)           // Optional: when to monitor (comment out for immediate testing)
+//       .Breakout(...)            // Add conditions
 //       .Pullback(...)
 //       .IsAboveVwap()
-//       .Buy(...)              // Returns StrategyBuilder (opens position)
-//       .Sell(...)             // Returns StrategyBuilder (opens short or exits)
-//       .Close(...)            // Returns StrategyBuilder (closes existing position)
-//       .TakeProfit(...)       // Exit configuration
+//       .Long(...)                // Returns StrategyBuilder (opens long position)
+//       .Short(...)               // Returns StrategyBuilder (opens short position)
+//       .Close(...)               // Returns StrategyBuilder (closes existing position)
+//       .TakeProfit(...)          // Exit configuration
 //       .StopLoss(...)
-//       .Build()               // Terminal: returns TradingStrategy
+//       .Build()                  // Terminal: returns TradingStrategy
 //
 // OPENING POSITIONS:
-// var buyStrategy = Stock.Ticker("AAPL")
+// var longStrategy = Stock.Ticker("AAPL")
 //     .TimeFrame(new TimeOnly(4, 0), new TimeOnly(9, 30))  // Comment out to test immediately
 //     .Breakout(150)
-//     .Buy(quantity: 100, Price.Current)
+//     .Long(quantity: 100, Price.Current)
 //     .TakeProfit(155)
 //     .StopLoss(148)
 //     .Build();
@@ -104,9 +104,9 @@
 // CLOSING POSITIONS:
 // var closeStrategy = Stock.Ticker("AAPL")
 //     .IsPriceAbove(155)                   // Exit when price hits target
-//     .Close(quantity: 100)               // Sell to close long position
-//     .TimeInForce(TIF.GTC)               // TIF is NOT automatic
-//     .OutsideRTH(true)                   // OutsideRth is NOT automatic
+//     .Close(quantity: 100)                // Sell to close long position
+//     .TimeInForce(TIF.GTC)                // TIF is NOT automatic
+//     .OutsideRTH(true)                    // OutsideRth is NOT automatic
 //     .Build();
 //
 // IBKR API NOTE:
@@ -133,7 +133,7 @@ namespace IdiotProof.Backend.Strategy
     /// <remarks>
     /// <para><b>Best Practices:</b></para>
     /// <list type="bullet">
-    ///   <item>Always add at least one condition before calling <see cref="Buy"/> or <see cref="Sell"/>.</item>
+    ///   <item>Always add at least one condition before calling <see cref="Long"/> or <see cref="Short"/>.</item>
     ///   <item>Chain conditions in chronological order of expected occurrence.</item>
     ///   <item>Use <see cref="TimeFrame(TradingSession)"/> to define the active time window.</item>
     ///   <item>Always configure both take profit and stop loss for risk management.</item>
@@ -145,7 +145,7 @@ namespace IdiotProof.Backend.Strategy
     ///     .TimeFrame(TradingSession.PreMarket)  // Time window
     ///     .Breakout(150)      // Conditions (Stock returns Stock)
     ///     .Pullback(148)
-    ///     .Buy(100)           // Order (Stock returns StrategyBuilder)
+    ///     .Long(100)          // Order (Stock returns StrategyBuilder)
     ///     .TakeProfit(155)    // Exit config (StrategyBuilder returns StrategyBuilder)
     ///     .Build()            // Terminal (StrategyBuilder returns TradingStrategy)
     /// </code>
@@ -331,7 +331,7 @@ namespace IdiotProof.Backend.Strategy
         ///     .TimeFrame(TradingSession.RTH)
         ///     .IsPriceAbove(5.00)
         ///     .IsAboveVwap()
-        ///     .Buy(100, Price.Current)
+        ///     .Long(100, Price.Current)
         ///     .TakeProfit(6.00)
         ///     .StopLoss(4.50)
         ///     .Repeat()  // Will buy again at $5, sell at $6, repeat
@@ -360,7 +360,7 @@ namespace IdiotProof.Backend.Strategy
         /// Stock.Ticker("AAPL")
         ///     .TimeFrame(new TimeOnly(4, 0), new TimeOnly(9, 30))  // Comment out to test immediately
         ///     .Breakout(150)
-        ///     .Buy(100, Price.Current)
+        ///     .Long(100, Price.Current)
         ///     .Build();
         /// </code>
         /// </example>
@@ -387,7 +387,7 @@ namespace IdiotProof.Backend.Strategy
         /// Stock.Ticker("AAPL")
         ///     .Start(MarketTime.PreMarket.Start)  // 4:00 AM ET
         ///     .Breakout(150)
-        ///     .Buy(100, Price.Current)
+        ///     .Long(100, Price.Current)
         ///     .End(MarketTime.PreMarket.End);     // 9:30 AM ET
         /// </code>
         /// </example>
@@ -417,7 +417,7 @@ namespace IdiotProof.Backend.Strategy
         /// Stock.Ticker("AAPL")
         ///     .TimeFrame(TradingSession.PreMarket)  // Comment out to test immediately
         ///     .Breakout(150)
-        ///     .Buy(100, Price.Current)
+        ///     .Long(100, Price.Current)
         ///     .Build();
         /// </code>
         /// </example>
@@ -573,13 +573,13 @@ namespace IdiotProof.Backend.Strategy
         /// // Buy when RSI indicates oversold
         /// Stock.Ticker("AAPL")
         ///     .IsRsi(RsiState.Oversold)         // RSI &lt;= 30
-        ///     .Buy(100, Price.Current)
+        ///     .Long(100, Price.Current)
         ///     .Build();
         /// 
         /// // Sell when RSI indicates overbought with custom threshold
         /// Stock.Ticker("AAPL")
         ///     .IsRsi(RsiState.Overbought, 80)   // RSI >= 80
-        ///     .Sell(100, Price.Current)
+        ///     .Short(100, Price.Current)
         ///     .Build();
         /// </code>
         /// </remarks>
@@ -610,14 +610,14 @@ namespace IdiotProof.Backend.Strategy
         /// Stock.Ticker("AAPL")
         ///     .IsAdx(Comparison.Gte, 25)       // ADX >= 25
         ///     .IsDI(DiDirection.Positive)      // Bullish direction
-        ///     .Buy(100, Price.Current)
+        ///     .Long(100, Price.Current)
         ///     .Build();
         /// 
         /// // Range-bound strategy
         /// Stock.Ticker("AAPL")
         ///     .IsAdx(Comparison.Lte, 20)       // ADX &lt;= 20 (no trend)
         ///     .Breakout(150)
-        ///     .Buy(100, Price.Current)
+        ///     .Long(100, Price.Current)
         ///     .Build();
         /// </code>
         /// </remarks>
@@ -649,7 +649,7 @@ namespace IdiotProof.Backend.Strategy
         /// Stock.Ticker("AAPL")
         ///     .IsMacd(MacdState.Bullish)        // MACD > Signal
         ///     .IsMacd(MacdState.AboveZero)      // Confirming uptrend
-        ///     .Buy(100, Price.Current)
+        ///     .Long(100, Price.Current)
         ///     .Build();
         /// </code>
         /// </remarks>
@@ -693,13 +693,13 @@ namespace IdiotProof.Backend.Strategy
         /// Stock.Ticker("AAPL")
         ///     .IsAdx(Comparison.Gte, 25)         // Strong trend
         ///     .IsDI(DiDirection.Positive)        // Bullish direction (+DI > -DI)
-        ///     .Buy(100, Price.Current)
+        ///     .Long(100, Price.Current)
         ///     .Build();
         /// 
         /// // Require significant DI difference for stronger signal
         /// Stock.Ticker("AAPL")
         ///     .IsDI(DiDirection.Positive, 5)     // +DI must exceed -DI by at least 5
-        ///     .Buy(100, Price.Current)
+        ///     .Long(100, Price.Current)
         ///     .Build();
         /// </code>
         /// </remarks>
@@ -747,7 +747,7 @@ namespace IdiotProof.Backend.Strategy
         /// Stock.Ticker("AAPL")
         ///     .IsEmaAbove(9)              // Price above short-term trend
         ///     .IsEmaAbove(21)             // Price above medium-term trend
-        ///     .Buy(100, Price.Current)
+        ///     .Long(100, Price.Current)
         ///     .Build();
         /// </code>
         /// </remarks>
@@ -786,7 +786,7 @@ namespace IdiotProof.Backend.Strategy
         /// <code>
         /// Stock.Ticker("AAPL")
         ///     .IsEmaBelow(200)             // Price below long-term trend
-        ///     .Sell(100, Price.Current)
+        ///     .Short(100, Price.Current)
         ///     .Build();
         /// </code>
         /// </remarks>
@@ -825,7 +825,7 @@ namespace IdiotProof.Backend.Strategy
         /// Stock.Ticker("AAPL")
         ///     .IsEmaBetween(9, 21)         // In pullback zone
         ///     .IsDiPositive()              // Still bullish
-        ///     .Buy(100, Price.Current)
+        ///     .Long(100, Price.Current)
         ///     .Build();
         /// </code>
         /// </remarks>
@@ -858,7 +858,7 @@ namespace IdiotProof.Backend.Strategy
         /// Stock.Ticker("AAPL")
         ///     .IsMomentumAbove(0)               // Positive momentum
         ///     .IsAboveVwap()                    // Above VWAP
-        ///     .Buy(100, Price.Current)
+        ///     .Long(100, Price.Current)
         ///     .Build();
         /// </code>
         /// </remarks>
@@ -883,7 +883,7 @@ namespace IdiotProof.Backend.Strategy
         /// Stock.Ticker("AAPL")
         ///     .IsMomentumBelow(0)               // Negative momentum
         ///     .IsBelowVwap()                    // Below VWAP
-        ///     .Sell(100, Price.Current)
+        ///     .Short(100, Price.Current)
         ///     .Build();
         /// </code>
         /// </remarks>
@@ -920,7 +920,7 @@ namespace IdiotProof.Backend.Strategy
         /// Stock.Ticker("AAPL")
         ///     .IsHigherLows()             // Ascending support pattern
         ///     .IsAboveVwap()              // Above VWAP
-        ///     .Buy(100, Price.Current)
+        ///     .Long(100, Price.Current)
         ///     .Build();
         /// </code>
         /// </remarks>
@@ -947,7 +947,7 @@ namespace IdiotProof.Backend.Strategy
         /// Stock.Ticker("AAPL")
         ///     .IsEmaTurningUp(9)          // Short-term EMA flattening/rising
         ///     .IsAboveVwap()              // Above VWAP
-        ///     .Buy(100, Price.Current)
+        ///     .Long(100, Price.Current)
         ///     .Build();
         /// </code>
         /// </remarks>
@@ -980,7 +980,7 @@ namespace IdiotProof.Backend.Strategy
         /// Stock.Ticker("AAPL")
         ///     .IsVolumeAbove(1.5)         // Volume spike confirmation
         ///     .Breakout(150.00)           // Price breakout
-        ///     .Buy(100, Price.Current)
+        ///     .Long(100, Price.Current)
         ///     .Build();
         /// </code>
         /// </remarks>
@@ -1015,7 +1015,7 @@ namespace IdiotProof.Backend.Strategy
         /// Stock.Ticker("AAPL")
         ///     .IsCloseAboveVwap()         // Strong VWAP reclaim
         ///     .IsHigherLows()             // Building support
-        ///     .Buy(100, Price.Current)
+        ///     .Long(100, Price.Current)
         ///     .Build();
         /// </code>
         /// </remarks>
@@ -1050,7 +1050,7 @@ namespace IdiotProof.Backend.Strategy
         /// Stock.Ticker("AAPL")
         ///     .IsVwapRejection()          // Failed VWAP reclaim
         ///     .IsMomentumBelow(0)         // Negative momentum
-        ///     .Sell(100, Price.Current)   // Short entry
+        ///     .Short(100, Price.Current)   // Short entry
         ///     .Build();
         /// </code>
         /// </remarks>
@@ -1084,7 +1084,7 @@ namespace IdiotProof.Backend.Strategy
         /// Stock.Ticker("AAPL")
         ///     .IsRocAbove(2)              // Strong upward momentum (2%+)
         ///     .IsAboveVwap()
-        ///     .Buy(100, Price.Current)
+        ///     .Long(100, Price.Current)
         ///     .Build();
         /// </code>
         /// </remarks>
@@ -1110,7 +1110,7 @@ namespace IdiotProof.Backend.Strategy
         /// Stock.Ticker("AAPL")
         ///     .IsRocBelow(-2)             // Strong downward momentum (-2%+)
         ///     .IsBelowVwap()
-        ///     .Sell(100, Price.Current)   // Short entry
+        ///     .Short(100, Price.Current)   // Short entry
         ///     .Build();
         /// </code>
         /// </remarks>
@@ -1119,6 +1119,115 @@ namespace IdiotProof.Backend.Strategy
             _conditions.Add(new RocBelowCondition(threshold));
             return this;
         }
+
+        // ====================================================================
+        // GAP CONDITION METHODS
+        // ====================================================================
+
+        /// <summary>
+        /// Adds a gap up condition: Price has gapped up by the specified percentage from previous close.
+        /// </summary>
+        /// <param name="percentage">The minimum gap percentage (e.g., 5 for 5%).</param>
+        /// <returns>The builder for method chaining.</returns>
+        /// <remarks>
+        /// <para><b>Gap Up Detection:</b></para>
+        /// <para>A gap up occurs when the current price is significantly higher than the previous
+        /// session's close. This often indicates strong buying pressure or positive news.</para>
+        /// 
+        /// <para><b>Requirements:</b></para>
+        /// <list type="bullet">
+        ///   <item>The StrategyRunner fetches previous close from IBKR historical data</item>
+        ///   <item>Best used at market open or during premarket</item>
+        /// </list>
+        /// 
+        /// <para><b>ASCII Visualization:</b></para>
+        /// <code>
+        ///                   ┌────┐
+        ///                   │    │  Current Price (gapped up)
+        ///           Gap Up  │    │
+        ///           (5%+)   └────┘
+        ///                     ↑
+        ///     ─────────────────────────── Gap
+        ///                     ↓
+        ///     ┌────┐
+        ///     │    │  Previous Close
+        ///     └────┘
+        /// </code>
+        /// 
+        /// <para><b>Example - Gap and Go strategy:</b></para>
+        /// <code>
+        /// Stock.Ticker("NVDA")
+        ///     .TimeFrame(TradingSession.PreMarket)
+        ///     .GapUp(5)                    // Gapped up 5%+ from previous close
+        ///     .IsAboveVwap()               // Holding above VWAP
+        ///     .IsDiPositive()              // Bullish momentum
+        ///     .Long(100, Price.Current)
+        ///     .AdaptiveOrder(AdaptiveOrderMode.Aggressive)
+        ///     .Build();
+        /// </code>
+        /// </remarks>
+        public Stock GapUp(double percentage)
+        {
+            _conditions.Add(new GapUpCondition(percentage));
+            return this;
+        }
+
+        /// <summary>
+        /// Adds a gap down condition: Price has gapped down by the specified percentage from previous close.
+        /// </summary>
+        /// <param name="percentage">The minimum gap percentage (e.g., 5 for 5%).</param>
+        /// <returns>The builder for method chaining.</returns>
+        /// <remarks>
+        /// <para><b>Gap Down Detection:</b></para>
+        /// <para>A gap down occurs when the current price is significantly lower than the previous
+        /// session's close. This often indicates selling pressure or negative news.</para>
+        /// 
+        /// <para><b>ASCII Visualization:</b></para>
+        /// <code>
+        ///     ┌────┐
+        ///     │    │  Previous Close
+        ///     └────┘
+        ///                     ↑
+        ///     ─────────────────────────── Gap
+        ///                     ↓
+        ///           Gap Down  ┌────┐
+        ///           (5%+)     │    │  Current Price (gapped down)
+        ///                     └────┘
+        /// </code>
+        /// 
+        /// <para><b>Example - Gap down reversal strategy:</b></para>
+        /// <code>
+        /// Stock.Ticker("AAPL")
+        ///     .TimeFrame(TradingSession.RTH)
+        ///     .GapDown(3)                  // Gapped down 3%+ from previous close
+        ///     .IsRsi(RsiState.Oversold)    // RSI oversold (potential reversal)
+        ///     .Long(100, Price.Current)     // Buy the dip
+        ///     .TakeProfit(155)
+        ///     .StopLoss(145)
+        ///     .Build();
+        /// </code>
+        /// </remarks>
+        public Stock GapDown(double percentage)
+        {
+            _conditions.Add(new GapDownCondition(percentage));
+            return this;
+        }
+
+        /// <summary>
+        /// Adds a gap up condition: Price has gapped up by the specified percentage from previous close.
+        /// Alias for <see cref="GapUp"/>.
+        /// </summary>
+        /// <param name="percentage">The minimum gap percentage (e.g., 5 for 5%).</param>
+        /// <returns>The builder for method chaining.</returns>
+        public Stock IsGapUp(double percentage) => GapUp(percentage);
+
+        /// <summary>
+        /// Adds a gap down condition: Price has gapped down by the specified percentage from previous close.
+        /// Alias for <see cref="GapDown"/>.
+        /// </summary>
+        /// <param name="percentage">The minimum gap percentage (e.g., 5 for 5%).</param>
+        /// <returns>The builder for method chaining.</returns>
+        public Stock IsGapDown(double percentage) => GapDown(percentage);
 
         // ====================================================================
         // SHORTHAND INDICATOR METHODS
@@ -1159,194 +1268,50 @@ namespace IdiotProof.Backend.Strategy
         // ====================================================================
 
         /// <summary>
-        /// Creates a BUY order and returns a builder for additional configuration.
+        /// Creates an order with the specified direction.
         /// </summary>
-        /// <param name="quantity">Number of shares to buy.</param>
-        /// <param name="priceType">Price type for order execution (default: Current).</param>
-        /// <param name="orderType">Order type (Market or Limit, default: Limit).</param>
-        public StrategyBuilder Buy(int quantity, Price priceType = Price.Current, OrderType orderType = OrderType.Limit)
-        {
-            return new StrategyBuilder(this, OrderSide.Buy, quantity, priceType, orderType);
-        }
-
-        /// <summary>
-        /// Creates a SELL order and returns a builder for additional configuration.
-        /// </summary>
-        /// <param name="quantity">Number of shares to sell.</param>
-        /// <param name="priceType">Price type for order execution (default: Current).</param>
-        /// <param name="orderType">Order type (Market or Limit, default: Limit).</param>
-        public StrategyBuilder Sell(int quantity, Price priceType = Price.Current, OrderType orderType = OrderType.Limit)
-        {
-            return new StrategyBuilder(this, OrderSide.Sell, quantity, priceType, orderType);
-        }
-
-        /// <summary>
-        /// Creates a CLOSE order to exit an existing position.
-        /// </summary>
-        /// <param name="quantity">Number of shares to close (your full position size).</param>
-        /// <param name="positionSide">The side of your current position: Buy = long position (will sell to close), 
-        /// Sell = short position (will buy to close). Default: Buy (closes a long position).</param>
-        /// <param name="priceType">Price type for order execution (default: Current).</param>
-        /// <param name="orderType">Order type (Market or Limit, default: Limit).</param>
+        /// <param name="direction">Order direction: Long (buy to open) or Short (sell to open).</param>
         /// <returns>A <see cref="StrategyBuilder"/> for additional configuration.</returns>
-        /// <remarks>
-        /// <para><b>Behavior:</b></para>
-        /// <list type="bullet">
-        ///   <item>For long positions (<paramref name="positionSide"/> = Buy): Creates a SELL order.</item>
-        ///   <item>For short positions (<paramref name="positionSide"/> = Sell): Creates a BUY order.</item>
-        ///   <item>Quantity defaults to your full position size - you must specify it.</item>
-        ///   <item>Does NOT automatically set OutsideRth or TimeInForce - configure separately.</item>
-        /// </list>
-        /// 
-        /// <para><b>IBKR API Translation:</b></para>
-        /// <code>
-        /// order.action = "SELL"        // For closing long positions
-        /// order.totalQuantity = 25     // Your position size
-        /// order.orderType = "LMT"      // Or "MKT" for market orders
-        /// order.lmtPrice = 39.35       // For limit orders
-        /// order.tif = "GTC"            // Set via .TimeInForce(TIF.GTC)
-        /// order.outsideRth = True      // Set via .OutsideRTH(true)
-        /// </code>
-        /// 
-        /// <para><b>Example - Close long position:</b></para>
+        /// <example>
         /// <code>
         /// Stock.Ticker("AAPL")
-        ///     .IsPriceAbove(150)
-        ///     .Close(quantity: 100, positionSide: OrderSide.Buy)  // Sells 100 shares
-        ///     .TimeInForce(TIF.GTC)
-        ///     .OutsideRTH(true)
+        ///     .Entry(150)
+        ///     .Order(OrderDirection.Long)
+        ///     .Quantity(100)
+        ///     .TakeProfit(155)
         ///     .Build();
         /// </code>
-        /// 
-        /// <para><b>Example - Close short position:</b></para>
-        /// <code>
-        /// Stock.Ticker("TSLA")
-        ///     .IsPriceBelow(200)
-        ///     .Close(quantity: 50, positionSide: OrderSide.Sell)  // Buys 50 shares to cover
-        ///     .TimeInForce(TIF.Day)
-        ///     .Build();
-        /// </code>
-        /// </remarks>
-        public StrategyBuilder Close(int quantity, OrderSide positionSide = OrderSide.Buy, Price priceType = Price.Current, OrderType orderType = OrderType.Limit)
+        /// </example>
+        public StrategyBuilder Order(OrderDirection direction)
         {
-            // Close is the opposite action of your position
-            // Long position (Buy) -> Sell to close
-            // Short position (Sell) -> Buy to close
-            var closeAction = positionSide == OrderSide.Buy ? OrderSide.Sell : OrderSide.Buy;
-            return new StrategyBuilder(this, closeAction, quantity, priceType, orderType, isClosingPosition: true);
+            var side = direction == OrderDirection.Long ? OrderSide.Buy : OrderSide.Sell;
+            return new StrategyBuilder(this, side);
         }
 
         /// <summary>
-        /// Creates a CLOSE order to exit a LONG position (sells shares).
+        /// Creates a LONG order (buy to open).
         /// </summary>
-        /// <param name="quantity">Number of shares to sell (your full position size).</param>
-        /// <param name="priceType">Price type for order execution (default: Current).</param>
-        /// <param name="orderType">Order type (Market or Limit, default: Market).</param>
-        /// <returns>A <see cref="StrategyBuilder"/> for additional configuration.</returns>
-        /// <remarks>
-        /// <para>Shorthand for <c>.Close(quantity, OrderSide.Buy)</c></para>
-        /// <para><b>Action:</b> SELL (to close long position)</para>
-        /// </remarks>
-        public StrategyBuilder CloseLong(int quantity, Price priceType = Price.Current, OrderType orderType = OrderType.Limit)
+        public StrategyBuilder Long() => Order(OrderDirection.Long);
+
+        /// <summary>
+        /// Creates a SHORT order (sell to open).
+        /// </summary>
+        public StrategyBuilder Short() => Order(OrderDirection.Short);
+
+        /// <summary>
+        /// Creates a CLOSE order to exit a long position.
+        /// </summary>
+        public StrategyBuilder CloseLong()
         {
-            return Close(quantity, OrderSide.Buy, priceType, orderType);
+            return new StrategyBuilder(this, OrderSide.Sell, isClosingPosition: true);
         }
 
         /// <summary>
-        /// Creates a CLOSE order to exit a SHORT position (buys shares to cover).
+        /// Creates a CLOSE order to exit a short position.
         /// </summary>
-        /// <param name="quantity">Number of shares to buy back (your full position size).</param>
-        /// <param name="priceType">Price type for order execution (default: Current).</param>
-        /// <param name="orderType">Order type (Market or Limit, default: Market).</param>
-        /// <returns>A <see cref="StrategyBuilder"/> for additional configuration.</returns>
-        /// <remarks>
-        /// <para>Shorthand for <c>.Close(quantity, OrderSide.Sell)</c></para>
-        /// <para><b>Action:</b> BUY (to cover short position)</para>
-        /// </remarks>
-        public StrategyBuilder CloseShort(int quantity, Price priceType = Price.Current, OrderType orderType = OrderType.Limit)
+        public StrategyBuilder CloseShort()
         {
-            return Close(quantity, OrderSide.Sell, priceType, orderType);
-        }
-
-        // ====================================================================
-        // LEGACY ORDER METHODS (Terminal - builds the strategy directly)
-        // ====================================================================
-
-        /// <summary>
-        /// Creates a BUY order and builds the strategy (legacy method).
-        /// </summary>
-        public TradingStrategy Buy(
-            int quantity = 1000,
-            double? takeProfit = null,
-            double takeProfitOffset = 0.30,
-            double? limitPrice = null,
-            double limitOffset = 0.02,
-            TimeInForce timeInForce = TimeInForce.GoodTillCancel,
-            bool outsideRth = true,
-            bool takeProfitOutsideRth = true,
-            OrderType orderType = OrderType.Limit,
-            TimeOnly? endTime = null)
-        {
-            return BuildStrategy(new OrderAction
-            {
-                Side = OrderSide.Buy,
-                Quantity = quantity,
-                Type = orderType,
-                LimitPrice = limitPrice,
-                LimitOffset = limitOffset,
-                TimeInForce = timeInForce,
-                OutsideRth = outsideRth,
-                EnableTakeProfit = takeProfit.HasValue || takeProfitOffset > 0,
-                TakeProfitPrice = takeProfit,
-                TakeProfitOffset = takeProfitOffset,
-                TakeProfitOutsideRth = takeProfitOutsideRth,
-                EndTime = endTime
-            });
-        }
-
-        /// <summary>
-        /// Creates a SELL order and builds the strategy (legacy method).
-        /// </summary>
-        public TradingStrategy Sell(
-            int quantity = 1000,
-            double? stopLoss = null,
-            double stopLossOffset = 0.20,
-            double? limitPrice = null,
-            double limitOffset = 0.02,
-            TimeInForce timeInForce = TimeInForce.GoodTillCancel,
-            bool outsideRth = true,
-            OrderType orderType = OrderType.Limit)
-        {
-            return BuildStrategy(new OrderAction
-            {
-                Side = OrderSide.Sell,
-                Quantity = quantity,
-                Type = orderType,
-                LimitPrice = limitPrice,
-                LimitOffset = limitOffset,
-                TimeInForce = timeInForce,
-                OutsideRth = outsideRth,
-                EnableTakeProfit = false,
-                EnableStopLoss = stopLoss.HasValue || stopLossOffset > 0,
-                StopLossPrice = stopLoss,
-                StopLossOffset = stopLossOffset
-            });
-        }
-
-        /// <summary>
-        /// Creates a market BUY order and builds the strategy.
-        /// </summary>
-        public TradingStrategy MarketBuy(
-            int quantity = 1000,
-            double? takeProfit = null,
-            double takeProfitOffset = 0.30,
-            TimeInForce timeInForce = TimeInForce.GoodTillCancel,
-            bool outsideRth = true)
-        {
-            return Buy(quantity, takeProfit, takeProfitOffset, 
-                orderType: OrderType.Market, 
-                timeInForce: timeInForce, 
-                outsideRth: outsideRth);
+            return new StrategyBuilder(this, OrderSide.Buy, isClosingPosition: true);
         }
 
         internal TradingStrategy BuildStrategy(OrderAction order)
@@ -1391,23 +1356,26 @@ namespace IdiotProof.Backend.Strategy
     }
 
     /// <summary>
-    /// Builder for configuring strategy order details after Buy/Sell/Close.
+    /// Builder for configuring strategy order details.
+    /// Each method does one thing for clean fluent chaining.
     /// </summary>
-    /// <remarks>
-    /// <para><b>Order Intent:</b></para>
-    /// <list type="bullet">
-    ///   <item><see cref="IsOpeningPosition"/>: True for Buy/Sell orders that open new positions.</item>
-    ///   <item><see cref="IsClosingPosition"/>: True for Close orders that exit existing positions.</item>
-    /// </list>
-    /// <para>This distinction is informational - the IBKR API receives the same order structure
-    /// regardless of intent. The difference is in how you configure TIF, OutsideRth, etc.</para>
-    /// </remarks>
+    /// <example>
+    /// <code>
+    /// Stock.Ticker("AAPL")
+    ///     .Entry(150)
+    ///     .Order(OrderDirection.Long)
+    ///     .Quantity(100)
+    ///     .TakeProfit(155)
+    ///     .StopLoss(145)
+    ///     .Build();
+    /// </code>
+    /// </example>
     public sealed class StrategyBuilder
     {
         private readonly Stock _stock;
-        private readonly OrderSide _side;
-        private readonly int _quantity;
-        private readonly Price _priceType;
+        private OrderSide _side;
+        private int _quantity = 1;
+        private Price _priceType = Price.Current;
         private readonly bool _isClosingPosition;
         private double? _takeProfit;
         private double? _stopLoss;
@@ -1416,7 +1384,7 @@ namespace IdiotProof.Backend.Strategy
         private AtrStopLossConfig? _atrStopLoss;
         private AdaptiveOrderConfig? _adaptiveOrder;
         private TimeOnly? _closePositionTime;
-        private bool _closePositionOnlyIfProfitable = true;
+        private bool _closePositionOnlyIfProfitable = false; // Default false - use .IsProfitable() to enable
         private Enums.TimeInForce _timeInForce = Enums.TimeInForce.GoodTillCancel;
         private bool _outsideRth = true;
         private bool _takeProfitOutsideRth = true;
@@ -1427,103 +1395,54 @@ namespace IdiotProof.Backend.Strategy
         /// <summary>
         /// Gets whether this order is closing an existing position.
         /// </summary>
-        /// <remarks>
-        /// When true, the order was created via <see cref="Stock.Close"/>, <see cref="Stock.CloseLong"/>,
-        /// or <see cref="Stock.CloseShort"/>. This is informational only - the IBKR API receives
-        /// the same BUY/SELL action regardless.
-        /// </remarks>
         public bool IsClosingPosition => _isClosingPosition;
 
         /// <summary>
         /// Gets whether this order is opening a new position.
         /// </summary>
-        /// <remarks>
-        /// When true, the order was created via <see cref="Stock.Buy"/> or <see cref="Stock.Sell"/>.
-        /// This is informational only.
-        /// </remarks>
         public bool IsOpeningPosition => !_isClosingPosition;
 
-        internal StrategyBuilder(Stock stock, OrderSide side, int quantity, Price priceType, Enums.OrderType orderType = Enums.OrderType.Market, bool isClosingPosition = false)
+        internal StrategyBuilder(Stock stock, OrderSide side, bool isClosingPosition = false)
         {
             _stock = stock;
             _side = side;
-            _quantity = quantity;
-            _priceType = priceType;
-            _orderType = orderType;
             _isClosingPosition = isClosingPosition;
+        }
+
+        /// <summary>
+        /// Sets the order quantity.
+        /// </summary>
+        public StrategyBuilder Quantity(int quantity)
+        {
+            _quantity = quantity;
+            return this;
+        }
+
+        /// <summary>
+        /// Sets the price type for order execution.
+        /// </summary>
+        public StrategyBuilder PriceType(Price priceType)
+        {
+            _priceType = priceType;
+            return this;
+        }
+
+        /// <summary>
+        /// Sets the order type (Market or Limit).
+        /// </summary>
+        public StrategyBuilder OrderType(Enums.OrderType type)
+        {
+            _orderType = type;
+            return this;
         }
 
         /// <summary>
         /// Sets a fixed take profit price.
         /// </summary>
-        /// <param name="price">The absolute take profit price.</param>
         public StrategyBuilder TakeProfit(double price)
         {
             _takeProfit = price;
-            _adxTakeProfit = null; // Clear any ADX config when using fixed price
-            return this;
-        }
-
-        /// <summary>
-        /// Sets a dynamic take profit range that adjusts based on ADX trend strength.
-        /// </summary>
-        /// <param name="lowTarget">Conservative target price (used when ADX is weak, typically the midpoint).</param>
-        /// <param name="highTarget">Aggressive target price (used when ADX is strong, typically range high).</param>
-        /// <returns>The builder for method chaining.</returns>
-        /// <remarks>
-        /// <para><b>ADX-Based Take Profit Rules:</b></para>
-        /// <list type="bullet">
-        ///   <item>ADX &lt; 15 (No Trend): Take profit at <paramref name="lowTarget"/></item>
-        ///   <item>ADX 15-25 (Developing): Interpolate between targets</item>
-        ///   <item>ADX 25-35 (Strong): Take profit at <paramref name="highTarget"/></item>
-        ///   <item>ADX &gt; 35 (Very Strong): Target <paramref name="highTarget"/> or beyond</item>
-        ///   <item>ADX Rolling Over: Exit early as momentum fades</item>
-        /// </list>
-        /// 
-        /// <para><b>Example:</b></para>
-        /// <code>
-        /// // Range 1.30-1.70, use midpoint (1.50) when weak, high (1.70) when strong
-        /// .TakeProfit(1.50, 1.70)
-        /// 
-        /// // With custom ADX thresholds
-        /// .TakeProfit(1.50, 1.70, weakThreshold: 20, strongThreshold: 40)
-        /// </code>
-        /// </remarks>
-        public StrategyBuilder TakeProfit(double lowTarget, double highTarget)
-        {
-            _adxTakeProfit = AdxTakeProfitConfig.FromRange(lowTarget, highTarget);
-            _takeProfit = lowTarget; // Use conservative as fallback if ADX unavailable
-            return this;
-        }
-
-        /// <summary>
-        /// Sets a dynamic take profit range with custom ADX thresholds.
-        /// </summary>
-        /// <param name="lowTarget">Conservative target price (used when ADX &lt; <paramref name="weakThreshold"/>).</param>
-        /// <param name="highTarget">Aggressive target price (used when ADX &gt; <paramref name="strongThreshold"/>).</param>
-        /// <param name="weakThreshold">ADX value below which trend is considered weak (default: 15).</param>
-        /// <param name="developingThreshold">ADX value for developing trend (default: 25).</param>
-        /// <param name="strongThreshold">ADX value above which trend is strong (default: 35).</param>
-        /// <param name="exitOnRollover">Exit when ADX peaks and begins falling (default: true).</param>
-        /// <returns>The builder for method chaining.</returns>
-        public StrategyBuilder TakeProfit(
-            double lowTarget,
-            double highTarget,
-            double weakThreshold = 15.0,
-            double developingThreshold = 25.0,
-            double strongThreshold = 35.0,
-            bool exitOnRollover = true)
-        {
-            _adxTakeProfit = new AdxTakeProfitConfig
-            {
-                ConservativeTarget = lowTarget,
-                AggressiveTarget = highTarget,
-                WeakTrendThreshold = weakThreshold,
-                DevelopingTrendThreshold = developingThreshold,
-                StrongTrendThreshold = strongThreshold,
-                ExitOnAdxRollover = exitOnRollover
-            };
-            _takeProfit = lowTarget; // Use conservative as fallback
+            _adxTakeProfit = null;
             return this;
         }
 
@@ -1533,6 +1452,16 @@ namespace IdiotProof.Backend.Strategy
         public StrategyBuilder StopLoss(double price)
         {
             _stopLoss = price;
+            return this;
+        }
+
+        /// <summary>
+        /// Sets the ADX-based take profit configuration.
+        /// </summary>
+        public StrategyBuilder AdxTakeProfit(AdxTakeProfitConfig config)
+        {
+            _adxTakeProfit = config ?? throw new ArgumentNullException(nameof(config));
+            _takeProfit = config.ConservativeTarget;
             return this;
         }
 
@@ -1642,28 +1571,21 @@ namespace IdiotProof.Backend.Strategy
         }
 
         /// <summary>
-        /// Sets the time to close position if still open.
+        /// Sets the time to exit the position if still open.
+        /// Chain with .IsProfitable() to only exit if the position is profitable.
         /// </summary>
-        /// <param name="time">The time to close the position.</param>
-        /// <param name="onlyIfProfitable">
-        /// When true (default), only closes if position is profitable (price >= entry for longs).
-        /// When false, closes regardless of profit/loss.
-        /// </param>
-        /// <returns>The builder for method chaining.</returns>
-        /// <remarks>
-        /// <para><b>Example:</b></para>
-        /// <code>
-        /// // Close at 9:20 AM ET only if profitable
-        /// .ClosePosition(Time.PreMarket.Ending)
-        /// 
-        /// // Close at 9:20 AM ET regardless of profit/loss
-        /// .ClosePosition(Time.PreMarket.Ending, onlyIfProfitable: false)
-        /// </code>
-        /// </remarks>
-        public StrategyBuilder ClosePosition(TimeOnly time, bool onlyIfProfitable = true)
+        public StrategyBuilder ExitStrategy(TimeOnly time)
         {
             _closePositionTime = time;
-            _closePositionOnlyIfProfitable = onlyIfProfitable;
+            return this;
+        }
+
+        /// <summary>
+        /// Only execute the previous exit strategy if the position is profitable.
+        /// </summary>
+        public StrategyBuilder IsProfitable()
+        {
+            _closePositionOnlyIfProfitable = true;
             return this;
         }
 
@@ -1677,21 +1599,20 @@ namespace IdiotProof.Backend.Strategy
         }
 
         /// <summary>
-        /// Sets whether to allow trading outside regular trading hours.
+        /// Allows trading outside regular trading hours.
         /// </summary>
-        public StrategyBuilder OutsideRTH(bool outsideRth = true, bool takeProfit = true)
+        public StrategyBuilder OutsideRTH(bool outsideRth = true)
         {
             _outsideRth = outsideRth;
-            _takeProfitOutsideRth = takeProfit;
             return this;
         }
 
         /// <summary>
-        /// Sets the order type.
+        /// Allows take profit outside regular trading hours.
         /// </summary>
-        public StrategyBuilder OrderType(Enums.OrderType type)
+        public StrategyBuilder TakeProfitOutsideRTH(bool outsideRth = true)
         {
-            _orderType = type;
+            _takeProfitOutsideRth = outsideRth;
             return this;
         }
 
@@ -1722,7 +1643,7 @@ namespace IdiotProof.Backend.Strategy
         /// <code>
         /// Stock.Ticker("AAPL")
         ///     .Breakout(150)
-        ///     .Buy(100, Price.Current)
+        ///     .Long(100, Price.Current)
         ///     .AllOrNone()           // Must fill all 100 shares or none
         ///     .Build();
         /// </code>
@@ -1752,7 +1673,7 @@ namespace IdiotProof.Backend.Strategy
         ///     .TimeFrame(TradingSession.RTH)
         ///     .IsPriceAbove(5.00)
         ///     .IsAboveVwap()
-        ///     .Buy(100, Price.Current)
+        ///     .Long(100, Price.Current)
         ///     .TakeProfit(6.00)
         ///     .StopLoss(4.50)
         ///     .Repeat()  // Will buy again at $5, sell at $6, repeat
@@ -1807,7 +1728,7 @@ namespace IdiotProof.Backend.Strategy
         /// Stock.Ticker("AAPL")
         ///     .Start(MarketTime.PreMarket.Start)  // 4:00 AM ET
         ///     .Breakout(150)
-        ///     .Buy(100, Price.Current)
+        ///     .Long(100, Price.Current)
         ///     .End(MarketTime.PreMarket.End);     // 9:30 AM ET
         /// </code>
         /// <para><b>Tip:</b> Use <see cref="MarketTime"/> helper for common times.</para>
@@ -1824,3 +1745,7 @@ namespace IdiotProof.Backend.Strategy
         public static implicit operator TradingStrategy(StrategyBuilder builder) => builder.Build();
     }
 }
+
+
+
+

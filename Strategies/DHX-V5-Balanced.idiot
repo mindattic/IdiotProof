@@ -1,0 +1,59 @@
+# ============================================================================
+# DHX-V5-Balanced - Balanced Risk/Reward Approach
+# ============================================================================
+#
+# CHART ANALYSIS (Live Data):
+# - Current: $2.15 | VWAP: $2.19 | EMA(9): $2.15 | EMA(21): $2.14
+# - ADX: 31.5 (moderate trend)
+# - Status: At EMA support, just below VWAP
+# - HOD: $2.50 | Catalyst: 30% AH earnings + $10M buyback
+#
+# STRATEGY:
+# Balanced approach - wait for VWAP reclaim then use BALANCED
+# AdaptiveOrder for equal emphasis on gains and protection.
+#
+# ╔═══════════════════════════════════════════════════════════════════════════╗
+# ║  BALANCED MODE SETTINGS                                                   ║
+# ║                                                                           ║
+# ║  MaxTakeProfitExtension:   50%                                           ║
+# ║  MaxTakeProfitReduction:   50%                                           ║
+# ║  MaxStopLossTighten:       50%                                           ║
+# ║  MaxStopLossWiden:         25%                                           ║
+# ║  EmergencyExitThreshold:   -70                                           ║
+# ║                                                                           ║
+# ║  Equal emphasis on gains and protection                                  ║
+# ╚═══════════════════════════════════════════════════════════════════════════╝
+#
+# RISK: Balanced - good for uncertain conditions
+# ============================================================================
+
+Ticker(DHX)
+.Name("DHX Balanced Adaptive")
+.Session(IS.EXTENDED)
+.Qty(31)
+
+# Breakout over VWAP
+.Breakout(2.19)
+
+# Pullback to EMA support
+.Pullback(2.16)
+
+# Core confirmation stack
+.IsAboveVwap()
+.IsEmaAbove(9)
+.IsHigherLows()
+.IsMomentumAbove(0)
+
+# Order execution
+.Long()
+.Quantity(31)
+
+# Balanced targets - mid-range to HOD
+.TakeProfit(2.45)
+.StopLoss(2.02)
+
+# Balanced adaptive management
+.AdaptiveOrder(IS.BALANCED)
+
+# Exit at bell
+.ExitStrategy(IS.BELL).IsProfitable()

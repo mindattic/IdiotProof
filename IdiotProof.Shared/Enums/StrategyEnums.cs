@@ -135,3 +135,5 @@ namespace IdiotProof.Shared.Enums
         Weak
     }
 }
+
+

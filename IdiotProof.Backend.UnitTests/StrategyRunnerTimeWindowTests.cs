@@ -30,7 +30,7 @@ public class StrategyRunnerTimeWindowTests
         if (startTime.HasValue)
             builder = builder.Start(startTime.Value);
 
-        var strategyBuilder = builder.Buy(100, Price.Current);
+        var strategyBuilder = builder.Long().Quantity(100);
 
         if (endTime.HasValue)
             return strategyBuilder.End(endTime.Value);
@@ -384,7 +384,7 @@ public class StrategyRunnerTimeWindowTests
         var strategy = Stock.Ticker("TEST")
             .Start(MarketTime.PreMarket.Start)  // 4:00 AM ET
             .IsPriceAbove(10.00)
-            .Buy(100, Price.Current)
+            .Long().Quantity(100)
             .End(MarketTime.PreMarket.End);     // 9:30 AM ET
 
         // Assert
@@ -402,7 +402,7 @@ public class StrategyRunnerTimeWindowTests
         var strategy = Stock.Ticker("TEST")
             .Start(MarketTime.RTH.Start)  // 9:30 AM ET
             .IsPriceAbove(10.00)
-            .Buy(100, Price.Current)
+            .Long().Quantity(100)
             .End(MarketTime.RTH.End);     // 4:00 PM ET
 
         // Assert
@@ -464,3 +464,5 @@ public class StrategyRunnerTimeWindowTests
 
     #endregion
 }
+
+

@@ -964,7 +964,7 @@ public class PriceConditionTests
         // Arrange & Act
         var strategy = Stock.Ticker("AAPL")
             .Breakout(150.00)
-            .Buy(100, Price.Current)
+            .Long().Quantity(100)
             .Build();
 
         // Assert
@@ -979,7 +979,7 @@ public class PriceConditionTests
         // Arrange & Act
         var strategy = Stock.Ticker("AAPL")
             .Pullback(140.00)
-            .Buy(100, Price.Current)
+            .Long().Quantity(100)
             .Build();
 
         // Assert
@@ -994,7 +994,7 @@ public class PriceConditionTests
         // Arrange & Act
         var strategy = Stock.Ticker("AAPL")
             .IsAboveVwap()
-            .Buy(100, Price.Current)
+            .Long().Quantity(100)
             .Build();
 
         // Assert
@@ -1008,7 +1008,7 @@ public class PriceConditionTests
         // Arrange & Act
         var strategy = Stock.Ticker("AAPL")
             .IsAboveVwap(1.50)
-            .Buy(100, Price.Current)
+            .Long().Quantity(100)
             .Build();
 
         // Assert
@@ -1022,7 +1022,7 @@ public class PriceConditionTests
         // Arrange & Act
         var strategy = Stock.Ticker("AAPL")
             .IsBelowVwap()
-            .Sell(100, Price.Current)
+            .Short().Quantity(100)
             .Build();
 
         // Assert
@@ -1036,7 +1036,7 @@ public class PriceConditionTests
         // Arrange & Act
         var strategy = Stock.Ticker("AAPL")
             .IsPriceAbove(150.00)
-            .Buy(100, Price.Current)
+            .Long().Quantity(100)
             .Build();
 
         // Assert
@@ -1050,7 +1050,7 @@ public class PriceConditionTests
         // Arrange & Act
         var strategy = Stock.Ticker("AAPL")
             .IsPriceBelow(140.00)
-            .Buy(100, Price.Current)
+            .Long().Quantity(100)
             .Build();
 
         // Assert
@@ -1064,7 +1064,7 @@ public class PriceConditionTests
         // Arrange & Act
         var strategy = Stock.Ticker("AAPL")
             .When("Custom Test", (price, vwap) => price > vwap)
-            .Buy(100, Price.Current)
+            .Long().Quantity(100)
             .Build();
 
         // Assert
@@ -1081,7 +1081,7 @@ public class PriceConditionTests
             .Breakout(150.00)
             .IsAboveVwap()
             .IsPriceAbove(145.00)
-            .Buy(100, Price.Current)
+            .Long().Quantity(100)
             .Build();
 
         // Assert
@@ -1095,4 +1095,327 @@ public class PriceConditionTests
     }
 
     #endregion
+
+    #region GapUpCondition Tests
+
+    [Test]
+    public void GapUpCondition_PriceGappedUp5Percent_ReturnsTrue()
+    {
+        // Arrange - Previous close at 100, current price at 106 (6% gap)
+        var condition = new GapUpCondition(5);
+        condition.SetPreviousClose(100.00);
+
+        // Act
+        var result = condition.Evaluate(currentPrice: 106.00, vwap: 100.00);
+
+        // Assert
+        Assert.That(result, Is.True);
+    }
+
+    [Test]
+    public void GapUpCondition_PriceGappedUpExactly5Percent_ReturnsTrue()
+    {
+        // Arrange - Previous close at 100, current price at 105 (exactly 5% gap)
+        var condition = new GapUpCondition(5);
+        condition.SetPreviousClose(100.00);
+
+        // Act
+        var result = condition.Evaluate(currentPrice: 105.00, vwap: 100.00);
+
+        // Assert
+        Assert.That(result, Is.True);
+    }
+
+    [Test]
+    public void GapUpCondition_PriceGappedUpLessThan5Percent_ReturnsFalse()
+    {
+        // Arrange - Previous close at 100, current price at 104 (4% gap)
+        var condition = new GapUpCondition(5);
+        condition.SetPreviousClose(100.00);
+
+        // Act
+        var result = condition.Evaluate(currentPrice: 104.00, vwap: 100.00);
+
+        // Assert
+        Assert.That(result, Is.False);
+    }
+
+    [Test]
+    public void GapUpCondition_PriceGappedDown_ReturnsFalse()
+    {
+        // Arrange - Previous close at 100, current price at 95 (gapped down)
+        var condition = new GapUpCondition(5);
+        condition.SetPreviousClose(100.00);
+
+        // Act
+        var result = condition.Evaluate(currentPrice: 95.00, vwap: 100.00);
+
+        // Assert
+        Assert.That(result, Is.False);
+    }
+
+    [Test]
+    public void GapUpCondition_NoPreviousCloseSet_ReturnsFalse()
+    {
+        // Arrange - Previous close not set
+        var condition = new GapUpCondition(5);
+
+        // Act
+        var result = condition.Evaluate(currentPrice: 110.00, vwap: 100.00);
+
+        // Assert
+        Assert.That(result, Is.False);
+    }
+
+    [Test]
+    public void GapUpCondition_Percentage_StoredCorrectly()
+    {
+        // Arrange & Act
+        var condition = new GapUpCondition(7.5);
+
+        // Assert
+        Assert.That(condition.Percentage, Is.EqualTo(7.5));
+    }
+
+    [Test]
+    public void GapUpCondition_Name_FormattedCorrectly()
+    {
+        // Arrange & Act
+        var condition = new GapUpCondition(5);
+
+        // Assert
+        Assert.That(condition.Name, Is.EqualTo("Gap Up >= 5.0%"));
+    }
+
+    [Test]
+    public void GapUpCondition_IsPreviousCloseSet_CorrectlyReportsState()
+    {
+        // Arrange
+        var condition = new GapUpCondition(5);
+
+        // Assert - before setting
+        Assert.That(condition.IsPreviousCloseSet, Is.False);
+
+        // Act - set previous close
+        condition.SetPreviousClose(100.00);
+
+        // Assert - after setting
+        Assert.That(condition.IsPreviousCloseSet, Is.True);
+    }
+
+    [Test]
+    public void GapUpCondition_InvalidPercentage_ThrowsException()
+    {
+        // Assert - negative percentage
+        Assert.Throws<ArgumentOutOfRangeException>(() => new GapUpCondition(-5));
+
+        // Assert - percentage > 100
+        Assert.Throws<ArgumentOutOfRangeException>(() => new GapUpCondition(150));
+    }
+
+    [Test]
+    public void GapUpCondition_SmallGapPercentage_WorksCorrectly()
+    {
+        // Arrange - 0.5% gap threshold
+        var condition = new GapUpCondition(0.5);
+        condition.SetPreviousClose(100.00);
+
+        // Act
+        var resultPass = condition.Evaluate(currentPrice: 100.50, vwap: 0);
+        var resultFail = condition.Evaluate(currentPrice: 100.40, vwap: 0);
+
+        // Assert
+        Assert.That(resultPass, Is.True);
+        Assert.That(resultFail, Is.False);
+    }
+
+    #endregion
+
+    #region GapDownCondition Tests
+
+    [Test]
+    public void GapDownCondition_PriceGappedDown5Percent_ReturnsTrue()
+    {
+        // Arrange - Previous close at 100, current price at 94 (6% gap down)
+        var condition = new GapDownCondition(5);
+        condition.SetPreviousClose(100.00);
+
+        // Act
+        var result = condition.Evaluate(currentPrice: 94.00, vwap: 100.00);
+
+        // Assert
+        Assert.That(result, Is.True);
+    }
+
+    [Test]
+    public void GapDownCondition_PriceGappedDownExactly5Percent_ReturnsTrue()
+    {
+        // Arrange - Previous close at 100, current price at 95 (exactly 5% gap down)
+        var condition = new GapDownCondition(5);
+        condition.SetPreviousClose(100.00);
+
+        // Act
+        var result = condition.Evaluate(currentPrice: 95.00, vwap: 100.00);
+
+        // Assert
+        Assert.That(result, Is.True);
+    }
+
+    [Test]
+    public void GapDownCondition_PriceGappedDownLessThan5Percent_ReturnsFalse()
+    {
+        // Arrange - Previous close at 100, current price at 96 (4% gap down)
+        var condition = new GapDownCondition(5);
+        condition.SetPreviousClose(100.00);
+
+        // Act
+        var result = condition.Evaluate(currentPrice: 96.00, vwap: 100.00);
+
+        // Assert
+        Assert.That(result, Is.False);
+    }
+
+    [Test]
+    public void GapDownCondition_PriceGappedUp_ReturnsFalse()
+    {
+        // Arrange - Previous close at 100, current price at 105 (gapped up)
+        var condition = new GapDownCondition(5);
+        condition.SetPreviousClose(100.00);
+
+        // Act
+        var result = condition.Evaluate(currentPrice: 105.00, vwap: 100.00);
+
+        // Assert
+        Assert.That(result, Is.False);
+    }
+
+    [Test]
+    public void GapDownCondition_NoPreviousCloseSet_ReturnsFalse()
+    {
+        // Arrange - Previous close not set
+        var condition = new GapDownCondition(5);
+
+        // Act
+        var result = condition.Evaluate(currentPrice: 90.00, vwap: 100.00);
+
+        // Assert
+        Assert.That(result, Is.False);
+    }
+
+    [Test]
+    public void GapDownCondition_Percentage_StoredCorrectly()
+    {
+        // Arrange & Act
+        var condition = new GapDownCondition(3.5);
+
+        // Assert
+        Assert.That(condition.Percentage, Is.EqualTo(3.5));
+    }
+
+    [Test]
+    public void GapDownCondition_Name_FormattedCorrectly()
+    {
+        // Arrange & Act
+        var condition = new GapDownCondition(5);
+
+        // Assert
+        Assert.That(condition.Name, Is.EqualTo("Gap Down >= 5.0%"));
+    }
+
+    [Test]
+    public void GapDownCondition_InvalidPercentage_ThrowsException()
+    {
+        // Assert - negative percentage
+        Assert.Throws<ArgumentOutOfRangeException>(() => new GapDownCondition(-5));
+
+        // Assert - percentage > 100
+        Assert.Throws<ArgumentOutOfRangeException>(() => new GapDownCondition(150));
+    }
+
+    #endregion
+
+    #region GapUp/GapDown Fluent API Tests
+
+    [Test]
+    public void FluentApi_GapUp_CreatesGapUpCondition()
+    {
+        // Arrange & Act
+        var strategy = Stock.Ticker("NVDA")
+            .GapUp(5)
+            .Long().Quantity(100)
+            .Build();
+
+        // Assert
+        Assert.That(strategy.Conditions, Has.Count.EqualTo(1));
+        Assert.That(strategy.Conditions[0], Is.TypeOf<GapUpCondition>());
+        Assert.That(((GapUpCondition)strategy.Conditions[0]).Percentage, Is.EqualTo(5));
+    }
+
+    [Test]
+    public void FluentApi_IsGapUp_CreatesGapUpCondition()
+    {
+        // Arrange & Act - IsGapUp is an alias for GapUp
+        var strategy = Stock.Ticker("NVDA")
+            .IsGapUp(5)
+            .Long().Quantity(100)
+            .Build();
+
+        // Assert
+        Assert.That(strategy.Conditions, Has.Count.EqualTo(1));
+        Assert.That(strategy.Conditions[0], Is.TypeOf<GapUpCondition>());
+    }
+
+    [Test]
+    public void FluentApi_GapDown_CreatesGapDownCondition()
+    {
+        // Arrange & Act
+        var strategy = Stock.Ticker("AAPL")
+            .GapDown(3)
+            .Long().Quantity(100)
+            .Build();
+
+        // Assert
+        Assert.That(strategy.Conditions, Has.Count.EqualTo(1));
+        Assert.That(strategy.Conditions[0], Is.TypeOf<GapDownCondition>());
+        Assert.That(((GapDownCondition)strategy.Conditions[0]).Percentage, Is.EqualTo(3));
+    }
+
+    [Test]
+    public void FluentApi_IsGapDown_CreatesGapDownCondition()
+    {
+        // Arrange & Act - IsGapDown is an alias for GapDown
+        var strategy = Stock.Ticker("AAPL")
+            .IsGapDown(3)
+            .Long().Quantity(100)
+            .Build();
+
+        // Assert
+        Assert.That(strategy.Conditions, Has.Count.EqualTo(1));
+        Assert.That(strategy.Conditions[0], Is.TypeOf<GapDownCondition>());
+    }
+
+    [Test]
+    public void FluentApi_GapUp_CombinesWithOtherConditions()
+    {
+        // Arrange & Act - Gap and Go strategy
+        var strategy = Stock.Ticker("NVDA")
+            .GapUp(5)
+            .IsAboveVwap()
+            .IsDiPositive()
+            .Long().Quantity(100)
+            .Build();
+
+        // Assert
+        Assert.Multiple(() =>
+        {
+            Assert.That(strategy.Conditions, Has.Count.EqualTo(3));
+            Assert.That(strategy.Conditions[0], Is.TypeOf<GapUpCondition>());
+            Assert.That(strategy.Conditions[1], Is.TypeOf<AboveVwapCondition>());
+            Assert.That(strategy.Conditions[2], Is.TypeOf<DiCondition>());
+        });
+    }
+
+    #endregion
 }
+
+

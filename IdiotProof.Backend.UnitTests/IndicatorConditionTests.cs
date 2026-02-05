@@ -801,7 +801,7 @@ public class IndicatorConditionTests
         var strategy = Stock.Ticker("AAPL")
             .IsRsi(RsiState.Oversold)
             .Breakout(150)
-            .Buy(100, Price.Current)
+            .Long().Quantity(100)
             .Build();
 
         // Assert
@@ -816,7 +816,7 @@ public class IndicatorConditionTests
         var strategy = Stock.Ticker("AAPL")
             .IsRsi(RsiState.Overbought, 80)
             .Breakout(150)
-            .Buy(100, Price.Current)
+            .Long().Quantity(100)
             .Build();
 
         // Assert
@@ -832,7 +832,7 @@ public class IndicatorConditionTests
         var strategy = Stock.Ticker("AAPL")
             .IsAdx(Comparison.Gte, 25)
             .Breakout(150)
-            .Buy(100, Price.Current)
+            .Long().Quantity(100)
             .Build();
 
         // Assert
@@ -847,7 +847,7 @@ public class IndicatorConditionTests
         var strategy = Stock.Ticker("AAPL")
             .IsMacd(MacdState.Bullish)
             .Breakout(150)
-            .Buy(100, Price.Current)
+            .Long().Quantity(100)
             .Build();
 
         // Assert
@@ -862,7 +862,7 @@ public class IndicatorConditionTests
         var strategy = Stock.Ticker("AAPL")
             .IsDI(DiDirection.Positive)
             .Breakout(150)
-            .Buy(100, Price.Current)
+            .Long().Quantity(100)
             .Build();
 
         // Assert
@@ -877,7 +877,7 @@ public class IndicatorConditionTests
         var strategy = Stock.Ticker("AAPL")
             .IsDI(DiDirection.Positive, 5)
             .Breakout(150)
-            .Buy(100, Price.Current)
+            .Long().Quantity(100)
             .Build();
 
         // Assert
@@ -896,7 +896,7 @@ public class IndicatorConditionTests
             .IsMacd(MacdState.Bullish)
             .IsRsi(RsiState.Oversold)
             .Breakout(150)
-            .Buy(100, Price.Current)
+            .Long().Quantity(100)
             .Build();
 
         // Assert
@@ -918,7 +918,7 @@ public class IndicatorConditionTests
             .Pullback(148)
             .IsMacd(MacdState.AboveZero)
             .IsAboveVwap()
-            .Buy(100, Price.Current)
+            .Long().Quantity(100)
             .Build();
 
         // Assert
@@ -1289,7 +1289,7 @@ public class IndicatorConditionTests
         var strategy = Stock.Ticker("AAPL")
             .IsAdx(Comparison.Lt, 15)
             .Breakout(150)
-            .Buy(100, Price.Current)
+            .Long().Quantity(100)
             .Build();
 
         // Assert
@@ -1306,7 +1306,7 @@ public class IndicatorConditionTests
         var strategy = Stock.Ticker("AAPL")
             .IsMacd(MacdState.HistogramFalling)
             .Breakout(150)
-            .Buy(100, Price.Current)
+            .Long().Quantity(100)
             .Build();
 
         // Assert
@@ -1322,7 +1322,7 @@ public class IndicatorConditionTests
         var strategy = Stock.Ticker("AAPL")
             .IsRsi(RsiState.Overbought)
             .Breakout(150)
-            .Buy(100, Price.Current)
+            .Long().Quantity(100)
             .Build();
 
         // Assert
@@ -1338,7 +1338,7 @@ public class IndicatorConditionTests
         var strategy = Stock.Ticker("AAPL")
             .IsDI(DiDirection.Negative, 10)
             .Breakout(150)
-            .Buy(100, Price.Current)
+            .Long().Quantity(100)
             .Build();
 
         // Assert
@@ -1358,7 +1358,7 @@ public class IndicatorConditionTests
             .IsMacd(MacdState.Bearish)
             .IsDI(DiDirection.Negative)
             .Breakout(150)
-            .Sell(100, Price.Current)
+            .Short().Quantity(100)
             .Build();
 
         // Assert
@@ -1372,7 +1372,7 @@ public class IndicatorConditionTests
         // Arrange & Act - Strategy with only indicator conditions (no price conditions)
         var strategy = Stock.Ticker("AAPL")
             .IsRsi(RsiState.Oversold)
-            .Buy(100, Price.Current)
+            .Long().Quantity(100)
             .Build();
 
         // Assert
@@ -2634,7 +2634,7 @@ public class IndicatorConditionTests
         var strategy = Stock.Ticker("AAPL")
             .IsEmaAbove(9)
             .Breakout(150)
-            .Buy(100, Price.Current)
+            .Long().Quantity(100)
             .Build();
 
         // Assert
@@ -2651,7 +2651,7 @@ public class IndicatorConditionTests
         var strategy = Stock.Ticker("AAPL")
             .IsEmaBelow(200)
             .Breakout(150)
-            .Buy(100, Price.Current)
+            .Long().Quantity(100)
             .Build();
 
         // Assert
@@ -2668,7 +2668,7 @@ public class IndicatorConditionTests
         var strategy = Stock.Ticker("AAPL")
             .IsEmaBetween(9, 21)
             .Breakout(150)
-            .Buy(100, Price.Current)
+            .Long().Quantity(100)
             .Build();
 
         // Assert
@@ -2688,7 +2688,7 @@ public class IndicatorConditionTests
             .IsEmaAbove(21)
             .IsEmaBelow(200)
             .Breakout(150)
-            .Buy(100, Price.Current)
+            .Long().Quantity(100)
             .Build();
 
         // Assert
@@ -2700,3 +2700,5 @@ public class IndicatorConditionTests
 
     #endregion
 }
+
+

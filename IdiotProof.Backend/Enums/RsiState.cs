@@ -27,3 +27,5 @@ namespace IdiotProof.Backend.Enums
         Oversold
     }
 }
+
+

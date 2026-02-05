@@ -1,0 +1,58 @@
+# ============================================================================
+# DHX-V4-FullRange - Full Range to HOD with Adaptive
+# ============================================================================
+#
+# CHART ANALYSIS (Live Data):
+# - Current: $2.15 | VWAP: $2.19 | EMA(9): $2.15 | EMA(21): $2.14
+# - ADX: 31.5 (moderate trend) | HOD: $2.50
+# - Status: Consolidating at EMA support after pullback
+# - Catalyst: 30% AH explosion on earnings + $10M share buyback
+#
+# STRATEGY:
+# Aggressive play targeting full range back to HOD at $2.50. Uses
+# AdaptiveOrder to extend TP in strong momentum.
+#
+# ╔═══════════════════════════════════════════════════════════════════════════╗
+# ║  PROFIT POTENTIAL                                                         ║
+# ║                                                                           ║
+# ║  Entry: $2.16  |  Target: $2.55 (above HOD)  |  Stop: $1.98              ║
+# ║                                                                           ║
+# ║  Potential Gain: $0.39 (18% from entry)                                  ║
+# ║  Risk: $0.18 (8.3% from entry)                                           ║
+# ║  R:R Ratio: 2.2:1 (ACCEPTABLE)                                           ║
+# ╚═══════════════════════════════════════════════════════════════════════════╝
+#
+# RISK: Aggressive - needs strong momentum
+# ============================================================================
+
+Ticker(DHX)
+.Name("DHX Full Range Adaptive")
+.Session(IS.EXTENDED)
+.Qty(31)
+
+# Breakout over VWAP
+.Breakout(2.19)
+
+# Pullback entry to EMA
+.Pullback(2.16)
+
+# Strong confirmation for aggressive target
+.IsAboveVwap()
+.IsEmaAbove(9)
+.IsDiPositive()
+.IsMacdBullish()
+.IsMomentumAbove(0)
+
+# Order execution
+.Long()
+.Quantity(31)
+
+# Full range target above HOD - AdaptiveOrder will manage
+.TakeProfit(2.55)
+.StopLoss(1.98)
+
+# Aggressive adaptive for maximum gains
+.AdaptiveOrder(IS.AGGRESSIVE)
+
+# Exit at bell - don't hold earnings
+.ExitStrategy(IS.BELL).IsProfitable()
