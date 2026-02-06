@@ -1,0 +1,143 @@
+# ============================================================================
+# CETX - Acquisition News VWAP Reclaim Strategy
+# ============================================================================
+#
+# STRATEGY TYPE: News Catalyst / VWAP Reclaim
+# RISK LEVEL:    Medium (news-driven momentum)
+# TIMEFRAME:     Intraday (RTH session)
+# CATALYST:      $5.5M acquisition of Richland Industries
+#
+# ============================================================================
+# CURRENT MARKET DATA (as of last update)
+# ============================================================================
+#
+#   Price:    $1.73
+#   VWAP:     $1.66
+#   EMA 21:   $1.74
+#   ADX:      13.88 (developing trend)
+#   +DI/-DI:  Bullish (+DI > -DI)
+#
+# ============================================================================
+# PRICE CHART WITH KEY LEVELS
+# ============================================================================
+#
+#   $2.60 ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ Extended Target (T3)
+#       │
+#   $2.00 ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ Target 2
+#       │
+#   $1.84 ████████████████████████████████████ TAKE PROFIT (T1) / Resistance
+#   $1.83 ════════════════════════════════════ Recent High
+#       │              ╱\
+#   $1.76 ─ ─ ─ ─ ─ ─╱─ \─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─
+#   $1.74 ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ EMA 21
+#   $1.73 ─ ─ ─ ─ ─ █ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ CURRENT PRICE
+#       │          │
+#   $1.70 ▓▓▓▓▓▓▓▓▓│▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓ ENTRY TRIGGER
+#   $1.68 ─ ─ ─ ─ ─│─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ PULLBACK LEVEL
+#   $1.66 ═══════════════════════════════════ VWAP
+#       │        _/
+#   $1.60 ████████████████████████████████████ STOP LOSS
+#       │      _/
+#   $1.50 ───_/─────────────────────────────── HOD marker area
+#       │  _/
+#   $1.40 _/
+#       │
+#       └─────────────────────────────────────→ Time
+#
+# ============================================================================
+# EXECUTION FLOW
+# ============================================================================
+#
+# ╔═══════════════════════════════════════════════════════════════════════════╗
+# ║  [CONFIG]           →   [ENTRY CONDITIONS]          →   ✅ ORDER          ║
+# ║  ┌────────────────┐     ┌──────────────────────┐        ┌──────────────┐  ║
+# ║  │ Ticker(CETX)   │     │ Entry(1.70)          │        │ Long         │  ║
+# ║  │ Session(RTH)   │  →  │ Pullback(1.68)       │  →     │ Qty(200)     │  ║
+# ║  │ Qty(200)       │     │ IsAboveVwap()        │        └──────────────┘  ║
+# ║  └────────────────┘     │ IsHigherLows()       │              │           ║
+# ║                         │ IsCloseAboveVwap()   │              ↓           ║
+# ║                         │ IsEmaAbove(21)       │     [EXIT CONDITIONS]    ║
+# ║                         └──────────────────────┘     ┌────────────────┐   ║
+# ║                                                      │ TP($1.84)      │   ║
+# ║                                                      │ SL($1.60)      │   ║
+# ║                                                      │ TSL(10%)       │   ║
+# ║                                                      │ Exit(BELL)+Prof│   ║
+# ║                                                      └────────────────┘   ║
+# ╚═══════════════════════════════════════════════════════════════════════════╝
+#
+# ============================================================================
+# INDICATOR ANALYSIS
+# ============================================================================
+#
+# ADX TREND STRENGTH (Currently 13.88):
+# +--------------------------------------------+
+# |  75+ ---- Extremely Strong (rare) -------- |
+# |  50+ ---- Very Strong Trend -------------- |
+# |  25+ =============== THRESHOLD =========== |
+# |  20  ---- Trend Developing --------------- |
+# |  14  ----▶ CURRENT ◀───────────────────── |  ← WEAK (watch for strength)
+# |  <20 ---- Weak/No Trend (ranging) -------- |
+# +--------------------------------------------+
+#
+# VWAP RECLAIM PATTERN:
+#        Price
+#          │        ___/\___
+#          │    ___/        \
+#          │___/             \___
+#   VWAP ══════════════════════════════════
+#          │  ↑                  ↑
+#          │  VWAP Reclaim       Confirmation
+#          │  (close above)      (hold above)
+#          └───────────────────────────────→
+#
+# EMA 21 SUPPORT:
+#        Price
+#          │     /\    /\
+#          │    /  \  /  \
+#   EMA ═══│═══/════\/════\═══════════════
+#          │  / ↑         ↑
+#          │ /  Bounce    Bounce
+#          │/   off EMA   off EMA
+#          └───────────────────────────────→
+#
+# ============================================================================
+# RISK/REWARD CALCULATION
+# ============================================================================
+#
+#   Entry:     $1.70
+#   Target:    $1.84  (+$0.14 = +8.2%)
+#   Stop:      $1.60  (-$0.10 = -5.9%)
+#   R:R Ratio: 1.4:1
+#
+#   Position:  200 shares
+#   Max Gain:  $28.00  (200 × $0.14)
+#   Max Loss:  $20.00  (200 × $0.10)
+#
+# ============================================================================
+# TRADE NOTES
+# ============================================================================
+#
+# - NEWS CATALYST: $5.5M acquisition of Richland Industries
+# - Currently above VWAP - bullish positioning
+# - ADX at 14 is weak - trend still developing
+# - Wait for ADX to rise above 20 for trend confirmation
+# - EMA 21 at $1.74 providing dynamic support
+# - If price closes above EMA 21, add to conviction
+# - Key resistance at $1.84 (previous high area)
+#
+# ============================================================================
+
+Ticker(CETX)
+.Name("CETX VWAP Reclaim")
+.Session(IS.RTH)
+.Quantity(200)
+.Entry(1.70)
+.Pullback(1.68)
+.IsAboveVwap()
+.IsHigherLows()
+.IsCloseAboveVwap()
+.IsEmaAbove(21)
+.TakeProfit(1.84)
+.StopLoss(1.60)
+.TrailingStopLoss(10)
+.ExitStrategy(IS.BELL).IsProfitable()
