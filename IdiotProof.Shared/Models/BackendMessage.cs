@@ -28,6 +28,7 @@ namespace IdiotProof.Shared.Models
         DeactivateTrading,
         ValidateStrategy, // Request strategy validation from backend
         GetTrades, // Get IdiotProof trade tracking data
+        RunBacktest, // Run autonomous learning backtest for a symbol
 
         // Responses (Backend -> Frontend)
         StatusResponse,
@@ -36,6 +37,7 @@ namespace IdiotProof.Shared.Models
         OperationResult,
         ValidationResponse, // Validation result from backend
         TradesResponse, // Trade tracking response
+        BacktestResponse, // Backtest result
 
         // Push notifications (Backend -> Frontend)
         ConsoleOutput,
@@ -210,6 +212,91 @@ namespace IdiotProof.Shared.Models
     public class SetStrategiesRequest
     {
         public List<StrategyDefinition> Strategies { get; set; } = [];
+    }
+
+    /// <summary>
+    /// Request to run autonomous learning backtest.
+    /// </summary>
+    public class RunBacktestRequest
+    {
+        /// <summary>
+        /// Symbol to backtest.
+        /// </summary>
+        public string Symbol { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Number of days of historical data to use.
+        /// </summary>
+        public int Days { get; set; } = 30;
+
+        /// <summary>
+        /// Trading mode: Conservative, Balanced, or Aggressive.
+        /// </summary>
+        public string Mode { get; set; } = "Balanced";
+
+        /// <summary>
+        /// Position size for simulated trades.
+        /// </summary>
+        public int Quantity { get; set; } = 100;
+
+        /// <summary>
+        /// Whether to save the learned profile to disk.
+        /// </summary>
+        public bool SaveProfile { get; set; } = true;
+    }
+
+    /// <summary>
+    /// Response from backtest run.
+    /// </summary>
+    public class BacktestResponsePayload
+    {
+        public bool Success { get; set; }
+        public string? ErrorMessage { get; set; }
+
+        /// <summary>
+        /// Symbol that was backtested.
+        /// </summary>
+        public string Symbol { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Total number of trades simulated.
+        /// </summary>
+        public int TotalTrades { get; set; }
+
+        /// <summary>
+        /// Number of winning trades.
+        /// </summary>
+        public int WinningTrades { get; set; }
+
+        /// <summary>
+        /// Win rate as percentage.
+        /// </summary>
+        public double WinRate { get; set; }
+
+        /// <summary>
+        /// Total profit/loss in dollars.
+        /// </summary>
+        public double TotalPnL { get; set; }
+
+        /// <summary>
+        /// Average profit per trade.
+        /// </summary>
+        public double AvgPnL { get; set; }
+
+        /// <summary>
+        /// Number of bars processed.
+        /// </summary>
+        public int BarsProcessed { get; set; }
+
+        /// <summary>
+        /// Whether the profile was saved to disk.
+        /// </summary>
+        public bool ProfileSaved { get; set; }
+
+        /// <summary>
+        /// Profile learning confidence (0-100).
+        /// </summary>
+        public double Confidence { get; set; }
     }
 }
 

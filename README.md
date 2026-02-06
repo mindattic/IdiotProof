@@ -25,6 +25,12 @@ A fluent API framework for building multi-stage trading strategies with Interact
   - [Adaptive Behavior](#adaptive-behavior)
   - [Mode Configuration](#mode-configuration)
   - [Adaptive TP Feedback Loop](#adaptive-tp-feedback-loop)
+- [AutonomousTrading - AI-Driven Entry/Exit](#autonomoustrading---ai-driven-entryexit-decisions)
+  - [Quick Start](#quick-start)
+  - [How AutonomousTrading Works](#how-autonomoustrading-works)
+  - [Mode Configuration](#mode-configuration-1)
+  - [AutonomousTrading vs AdaptiveOrder](#autonomoustrading-vs-adaptiveorder)
+  - [Real-World Example: UBER](#real-world-example-uber-chart-analysis)
 - [Helper Classes](#helper-classes)
 - [Examples](#examples)
 - [Implementation Status](#implementation-status)
@@ -2398,6 +2404,434 @@ SL Multiplier = 1.0 + (0.60 × (85-70)/30) = 1.30
 Adjusted TP: $4.15 + ($0.65 × 1.375) = $5.04  (+21% from entry)
 Adjusted SL: $4.15 - ($0.25 / 1.30) = $3.96   (tighter protection)
 ```
+
+---
+
+## AutonomousTrading - AI-Driven Entry/Exit Decisions
+
+AutonomousTrading enables fully automated trading where the system monitors all indicators and independently decides when to buy, sell, short, or close positions based on market score analysis.
+
+### Quick Start
+
+```idiotscript
+Ticker(AAPL)
+.AutonomousTrading(IS.BALANCED)
+```
+
+That's it! The system will:
+1. Monitor VWAP, EMA, RSI, MACD, ADX, and Volume continuously
+2. Calculate a market score (-100 to +100)
+3. Enter LONG when score >= threshold, SHORT when score <= negative threshold
+4. Exit when momentum reverses
+5. Optionally flip direction (exit long → enter short)
+
+### AutonomousTrading Syntax
+
+| Command | Description |
+|---------|-------------|
+| `AutonomousTrading()` | Enable autonomous trading (balanced mode) |
+| `AutonomousTrading(IS.CONSERVATIVE)` | Fewer trades, higher thresholds (80/-80) |
+| `AutonomousTrading(IS.BALANCED)` | Standard thresholds (70/-70) |
+| `AutonomousTrading(IS.AGGRESSIVE)` | More trades, lower thresholds (60/-60) |
+| `IsAutonomousTrading()` | Alias for AutonomousTrading() |
+
+### Fluent API
+
+```csharp
+// Balanced mode (default)
+Stock.Ticker("AAPL")
+    .AutonomousTrading(AutonomousMode.Balanced)
+    .Build();
+
+// Aggressive mode
+Stock.Ticker("UBER")
+    .AutonomousTrading(AutonomousMode.Aggressive)
+    .Quantity(100)
+    .Build();
+```
+
+### How AutonomousTrading Works
+
+```
++===========================================================================+
+|  AUTONOMOUS TRADING FLOW                                                  |
++===========================================================================+
+|                                                                           |
+|  +---------------------------------------------------------------------+  |
+|  |  MARKET SCORE CALCULATION (every tick)                              |  |
+|  |                                                                     |  |
+|  |  VWAP Position   ------- 15% weight ------+                        |  |
+|  |  EMA Stack       ------- 20% weight ------+                        |  |
+|  |  RSI Level       ------- 15% weight ------+--> SCORE (-100 to +100)|  |
+|  |  MACD Signal     ------- 20% weight ------+                        |  |
+|  |  ADX Strength    ------- 20% weight ------+                        |  |
+|  |  Volume Ratio    ------- 10% weight ------+                        |  |
+|  +---------------------------------------------------------------------+  |
+|                              |                                            |
+|                              v                                            |
+|  +---------------------------------------------------------------------+  |
+|  |  ENTRY DECISION                                                     |  |
+|  |                                                                     |  |
+|  |  Score >= +70 (balanced) ------------------------> ENTER LONG       |  |
+|  |  Score <= -70 (balanced) ------------------------> ENTER SHORT      |  |
+|  |  Score between -70 and +70 ----------------------> NO ACTION        |  |
+|  +---------------------------------------------------------------------+  |
+|                              |                                            |
+|                              v                                            |
+|  +---------------------------------------------------------------------+  |
+|  |  EXIT DECISION (when position is open)                              |  |
+|  |                                                                     |  |
+|  |  LONG position + Score < +40 --------------------> EXIT LONG        |  |
+|  |  SHORT position + Score > -40 -------------------> EXIT SHORT       |  |
+|  |                                                                     |  |
+|  |  With AllowDirectionFlip:                                          |  |
+|  |  Exit LONG + Score <= -70 -----------------------> FLIP TO SHORT    |  |
+|  |  Exit SHORT + Score >= +70 ----------------------> FLIP TO LONG     |  |
+|  +---------------------------------------------------------------------+  |
++===========================================================================+
+```
+
+### Mode Configuration
+
+| Setting | CONSERVATIVE | BALANCED | AGGRESSIVE |
+|---------|--------------|----------|------------|
+| LongEntryThreshold | 80 | 70 | 60 |
+| ShortEntryThreshold | -80 | -70 | -60 |
+| LongExitThreshold | 60 | 40 | 20 |
+| ShortExitThreshold | -60 | -40 | -20 |
+| TakeProfitAtrMultiplier | 1.5 | 2.0 | 2.5 |
+| StopLossAtrMultiplier | 1.0 | 1.5 | 2.0 |
+| MinSecondsBetweenTrades | 60 | 30 | 15 |
+| AllowShort | false | true | true |
+| AllowDirectionFlip | false | true | true |
+
+### Indicator Score Calculation
+
+```
++===========================================================================+
+|  INDICATOR SCORING DETAILS                                                |
++===========================================================================+
+|                                                                           |
+|  VWAP POSITION (15% weight)                                              |
+|  +--------------------------------------------------------------------+  |
+|  |  Price 5% above VWAP --------------------------> +100 score        |  |
+|  |  Price at VWAP --------------------------------> 0 score           |  |
+|  |  Price 5% below VWAP --------------------------> -100 score        |  |
+|  +--------------------------------------------------------------------+  |
+|                                                                           |
+|  EMA STACK (20% weight)                                                  |
+|  +--------------------------------------------------------------------+  |
+|  |  Price above ALL EMAs -------------------------> +100 score        |  |
+|  |  Price above SOME EMAs ------------------------> proportional      |  |
+|  |  Price below ALL EMAs -------------------------> -100 score        |  |
+|  +--------------------------------------------------------------------+  |
+|                                                                           |
+|  RSI (15% weight)                                                        |
+|  +--------------------------------------------------------------------+  |
+|  |  RSI <= 30 (oversold) -------------------------> +100 score        |  |
+|  |  RSI 30-50 ------------------------------------> -50 to 0          |  |
+|  |  RSI 50-70 ------------------------------------> 0 to +50          |  |
+|  |  RSI >= 70 (overbought) -----------------------> -100 score        |  |
+|  +--------------------------------------------------------------------+  |
+|                                                                           |
+|  MACD (20% weight)                                                       |
+|  +--------------------------------------------------------------------+  |
+|  |  MACD > Signal (bullish) ----------------------> +50 base          |  |
+|  |  MACD < Signal (bearish) ----------------------> -50 base          |  |
+|  |  Histogram strength ----------------------------> +/- 50 bonus     |  |
+|  +--------------------------------------------------------------------+  |
+|                                                                           |
+|  ADX (20% weight)                                                        |
+|  +--------------------------------------------------------------------+  |
+|  |  +DI > -DI + ADX value ------------------------> +magnitude        |  |
+|  |  -DI > +DI + ADX value ------------------------> -magnitude        |  |
+|  |  ADX 50 = max magnitude (100)                                      |  |
+|  +--------------------------------------------------------------------+  |
+|                                                                           |
+|  VOLUME (10% weight)                                                     |
+|  +--------------------------------------------------------------------+  |
+|  |  Volume > avg + Price > VWAP ------------------> +magnitude        |  |
+|  |  Volume > avg + Price < VWAP ------------------> -magnitude        |  |
+|  |  Volume ratio confirms current direction                           |  |
+|  +--------------------------------------------------------------------+  |
+|                                                                           |
++===========================================================================+
+```
+
+### AutonomousTrading vs AdaptiveOrder
+
+| Feature | AutonomousTrading | AdaptiveOrder |
+|---------|-------------------|---------------|
+| Entry Decision | AUTOMATIC (AI decides) | MANUAL (you set Entry) |
+| Exit Decision | AUTOMATIC (AI decides) | SEMI-AUTO (adjusts TP/SL) |
+| TP/SL Calculation | ATR-based automatic | Modifies your TP/SL |
+| Direction | Can flip long<->short | Single direction only |
+| Conditions Required | NONE (just Ticker) | You define conditions |
+| Best For | Fully hands-off | Enhance manual strategy |
+
+**Use AutonomousTrading when:** You want the AI to handle everything
+**Use AdaptiveOrder when:** You have specific entry conditions but want smart exits
+
+### Real-World Example: UBER Chart Analysis
+
+```
++===========================================================================+
+|  UBER AUTONOMOUS TRADING SIMULATION                                       |
+|  Date: Feb 5, 2026 | LOD: $73.50 | HOD: $78.30 | Close: $74.28           |
++===========================================================================+
+
+PRICE CHART (1-minute bars):
+     $79 |
+         |                    HOD
+     $78 |                   *****
+         |                  *     **
+     $77 |                 *        **
+         |                *           ***
+     $76 |               *               **
+  VWAP-->|==============*==================***===================
+     $75 |             *                      ***
+         |            *                          **
+     $74 |           *                             ****  END
+         |          *                                 **
+     $73 |   LOD ***
+         |________|_________|_________|_________|_________|______
+              9:00      10:00     12:00     14:00     16:00
+
+TRADING ACTIONS:
+
+1. LOD DETECTION (~9:30 AM, $74.00)
+   +----------------------------------------------------------------+
+   | Score: +71 (crossing above +70 threshold)                      |
+   | Indicators: RSI oversold bounce, +DI crossing above -DI        |
+   | MACD bullish cross, EMA 9 reclaimed                            |
+   +----------------------------------------------------------------+
+   >>> ENTER LONG @ $74.50 | TP: $78.50 | SL: $73.00
+
+2. HOD EXIT (~12:30 PM, $78.00)
+   +----------------------------------------------------------------+
+   | Score: +40 (dropped below +40 exit threshold)                  |
+   | Indicators: RSI 78 overbought, MACD histogram shrinking        |
+   | Momentum exhaustion detected                                   |
+   +----------------------------------------------------------------+
+   >>> EXIT LONG @ $78.00 | P&L: +$3.50/share (+4.7%)
+
+3. DIRECTION FLIP (~1:00 PM, $76.50)
+   +----------------------------------------------------------------+
+   | Score: -72 (crossed below -70 threshold)                       |
+   | Indicators: -DI > +DI, MACD bearish cross, below VWAP          |
+   | AllowDirectionFlip: true                                       |
+   +----------------------------------------------------------------+
+   >>> ENTER SHORT @ $76.50 | TP: $73.50 | SL: $78.50
+
+4. CLOSE EXIT (~3:30 PM, $74.50)
+   +----------------------------------------------------------------+
+   | Score: -28 (rose above -40 exit threshold)                     |
+   | Indicators: RSI 35 approaching oversold, EMA support           |
+   | Momentum slowing at support                                    |
+   +----------------------------------------------------------------+
+   >>> EXIT SHORT @ $74.50 | P&L: +$2.00/share (+2.6%)
+
+TOTAL RESULT:
++==================================================================+
+|  Trade 1: LONG  $74.50 -> $78.00  |  +$3.50/share  (+4.7%)       |
+|  Trade 2: SHORT $76.50 -> $74.50  |  +$2.00/share  (+2.6%)       |
+|  -----------------------------------------------------------------
+|  TOTAL GAIN:                      |  +$5.50/share  (+7.3%)       |
+|  On 100 shares:                   |  +$550 profit                |
++==================================================================+
+```
+
+### Key Signals That Drove Decisions
+
+```
++===========================================================================+
+|  SIGNAL BREAKDOWN                                                         |
++===========================================================================+
+
+   LOD REVERSAL                         HOD EXHAUSTION
+   +-----------------+                  +-----------------+
+   | RSI: 28->45     |                  | RSI: 55->78     |
+   | (oversold       |                  | (overbought     |
+   |  bounce)        |                  |  warning)       |
+   |                 |                  |                 |
+   | +DI crosses     |                  | MACD histogram  |
+   | above -DI       |                  | shrinking       |
+   | (bullish)       |                  | (momentum loss) |
+   |                 |                  |                 |
+   | MACD bullish    |                  | Volume declining|
+   | cross           |                  | on push higher  |
+   +--------+--------+                  +--------+--------+
+            |                                     |
+            v                                     v
+     SCORE: +71                            SCORE: +40
+     ENTRY LONG                            EXIT LONG
+
+
+   REVERSAL TO SHORT                    EXHAUSTION AT SUPPORT
+   +-----------------+                  +-----------------+
+   | -DI crosses     |                  | RSI: 35         |
+   | above +DI       |                  | (approaching    |
+   | (bearish)       |                  |  oversold)      |
+   |                 |                  |                 |
+   | MACD bearish    |                  | Price at EMA 21 |
+   | cross           |                  | support level   |
+   |                 |                  |                 |
+   | Price below     |                  | Momentum slowing|
+   | VWAP            |                  | at key level    |
+   +--------+--------+                  +--------+--------+
+            |                                     |
+            v                                     v
+     SCORE: -72                            SCORE: -28
+     ENTRY SHORT                           EXIT SHORT
+```
+
+### Indicator Timeline Walkthrough
+
+```
++===========================================================================+
+|  PHASE 1: AT THE LOD (~$73.50)                                           |
++===========================================================================+
+|  Indicator       |  Reading           |  Score Contribution              |
+|-----------------+--------------------|----------------------------------|
+|  VWAP Position   |  Price << VWAP     |  -80 (15%) = -12 pts             |
+|  EMA Stack       |  Below all EMAs    |  -100 (20%) = -20 pts            |
+|  RSI             |  ~28 (oversold!)   |  +100 (15%) = +15 pts            |
+|  MACD            |  Bearish cross     |  -60 (20%) = -12 pts             |
+|  ADX             |  ~25, -DI > +DI    |  -50 (20%) = -10 pts             |
+|  Volume          |  High selling      |  -40 (10%) = -4 pts              |
+|-----------------+--------------------|----------------------------------|
+|  TOTAL SCORE     |                    |  -43 (no action yet)             |
++===========================================================================+
+|  Note: RSI oversold is hinting at reversal approaching                   |
++===========================================================================+
+
++===========================================================================+
+|  PHASE 2: REVERSAL CONFIRMED (~$74.50)                                   |
++===========================================================================+
+|  Indicator       |  Change                  |  New Score                  |
+|-----------------|--------------------------|------------------------------|
+|  VWAP Position   |  Still below but rising  |  -40 = -6 pts               |
+|  EMA Stack       |  Crossing above EMA 9    |  +33 = +7 pts               |
+|  RSI             |  32 -> 50 (recovering)   |  +60 = +9 pts               |
+|  MACD            |  BULLISH CROSS!          |  +80 = +16 pts              |
+|  ADX             |  +DI crossing above -DI! |  +80 = +16 pts              |
+|  Volume          |  Buying volume spike     |  +80 = +8 pts               |
+|-----------------|--------------------------|------------------------------|
+|  TOTAL SCORE     |  BREAKTHROUGH!           |  +71 (ENTRY LONG!)          |
++===========================================================================+
+
++===========================================================================+
+|  PHASE 3: APPROACHING HOD (~$78.00)                                      |
++===========================================================================+
+|  Indicator       |  Reading             |  Score Contribution            |
+|-----------------|---------------------|----------------------------------|
+|  VWAP Position   |  +4% above VWAP      |  +80 = +12 pts                 |
+|  EMA Stack       |  Extended above all  |  +100 = +20 pts                |
+|  RSI             |  78 (OVERBOUGHT!)    |  -27 = -4 pts                  |
+|  MACD            |  Histogram declining |  +20 = +4 pts                  |
+|  ADX             |  ADX 45, +DI weak    |  +30 = +6 pts                  |
+|  Volume          |  Declining on push   |  +20 = +2 pts                  |
+|-----------------|---------------------|----------------------------------|
+|  TOTAL SCORE     |  EXHAUSTION          |  +40 (EXIT LONG!)              |
++===========================================================================+
+```
+
+---
+
+### AutonomousTrading Learning System
+
+AutonomousTrading builds a **TickerProfile** for each symbol over time, learning what works specifically for that stock.
+
+#### What It Learns
+
+| Category | Details |
+|----------|---------|
+| **Entry Thresholds** | Optimal score level with best win rate for this ticker |
+| **Exit Thresholds** | When to exit for maximum profit |
+| **Time-of-Day Patterns** | Best hours/minutes to trade (15-min buckets) |
+| **Indicator Correlations** | Which signals work best (RSI oversold, MACD cross, etc.) |
+| **Win Rate by Score** | Bucketed by entry score level |
+| **Streak Awareness** | More conservative after loss streaks |
+
+#### How It Adapts
+
+```
++===========================================================================+
+|  LEARNING PROGRESSION                                                     |
++===========================================================================+
+|                                                                           |
+|  TRADES      CONFIDENCE    ADAPTATION                                     |
+|  ------      ----------    ----------                                     |
+|  0-9         0-18%         Use default thresholds only                   |
+|  10-19       20-38%        Start blending learned thresholds             |
+|  20-49       40-98%        Avoid poor time windows, adjust thresholds    |
+|  50+         100%          Full confidence in learned patterns           |
+|                                                                           |
+|  Blending Formula:                                                       |
+|  threshold = default * (1 - confidence) + learned * confidence           |
+|                                                                           |
++===========================================================================+
+```
+
+#### TickerProfile Structure
+
+```csharp
+public class TickerProfile
+{
+    // Overall Statistics
+    public int TotalTrades { get; set; }
+    public int TotalWins { get; set; }
+    public double WinRate => TotalWins / TotalTrades * 100;
+    public double NetProfit { get; set; }
+    public int Confidence => Math.Min(100, TotalTrades * 2);
+
+    // Learned Optimal Values
+    public int OptimalLongEntryThreshold { get; set; }  // e.g., 72 instead of 70
+    public int OptimalShortEntryThreshold { get; set; } // e.g., -68 instead of -70
+
+    // Time Windows
+    public Dictionary<string, TimeWindowStats> TimeWindowStats { get; set; }
+
+    // Indicator Correlations
+    public List<IndicatorCorrelation> IndicatorCorrelations { get; set; }
+    // e.g., "RSI Oversold" -> 82% win rate for AAPL
+}
+```
+
+#### Persistence
+
+Profiles are automatically saved to:
+```
+%APPDATA%\IdiotProof\TickerProfiles\SYMBOL.json
+```
+
+Example profile file:
+```json
+{
+  "symbol": "AAPL",
+  "totalTrades": 47,
+  "totalWins": 31,
+  "winRate": 65.9,
+  "netProfit": 1247.50,
+  "optimalLongEntryThreshold": 72,
+  "optimalShortEntryThreshold": -68,
+  "timeWindowStats": {
+    "09:30": { "winRate": 71.4, "totalTrades": 7 },
+    "10:00": { "winRate": 58.3, "totalTrades": 12 },
+    "14:00": { "winRate": 38.5, "totalTrades": 13 }
+  }
+}
+```
+
+#### Profile Adjustments
+
+| Metric | Effect |
+|--------|--------|
+| Historical win rate > 60% | Slightly more aggressive entries |
+| Loss streak >= 3 | Temporarily more conservative |
+| Win rate at threshold 80 > 70 | Use 80 for this ticker |
+| Time window win rate < 40% | Skip entries in that window |
+| RSI oversold entries win 82% | Weight RSI higher for this ticker |
 
 ---
 

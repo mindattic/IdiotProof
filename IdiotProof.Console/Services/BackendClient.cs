@@ -350,6 +350,54 @@ public sealed class BackendClient : IDisposable
         return [];
     }
 
+    /// <summary>
+    /// Runs an autonomous learning backtest for a symbol.
+    /// </summary>
+    /// <param name="symbol">Symbol to backtest.</param>
+    /// <param name="days">Number of days of historical data (default 30).</param>
+    /// <param name="mode">Trading mode: Conservative, Balanced, or Aggressive.</param>
+    /// <param name="quantity">Position size for simulated trades.</param>
+    /// <param name="saveProfile">Whether to save the learned profile.</param>
+    /// <returns>Backtest response with results.</returns>
+    public async Task<BacktestResponsePayload?> RunBacktestAsync(
+        string symbol,
+        int days = 30,
+        string mode = "Balanced",
+        int quantity = 100,
+        bool saveProfile = true)
+    {
+        if (!_isConnected) return null;
+
+        try
+        {
+            var request = new RunBacktestRequest
+            {
+                Symbol = symbol.ToUpperInvariant(),
+                Days = days,
+                Mode = mode,
+                Quantity = quantity,
+                SaveProfile = saveProfile
+            };
+
+            // Use longer timeout for backtest (may take a while to fetch data)
+            var response = await SendRequestAsync(
+                new BackendMessage
+                {
+                    Type = BackendMessageType.RunBacktest,
+                    Payload = JsonSerializer.Serialize(request)
+                },
+                timeoutMs: 120000); // 2 minute timeout
+
+            if (response?.Payload != null)
+            {
+                return JsonSerializer.Deserialize<BacktestResponsePayload>(response.Payload);
+            }
+        }
+        catch { }
+
+        return null;
+    }
+
     private async Task SendMessageAsync(BackendMessage message)
     {
         if (_writer == null || !_isConnected)

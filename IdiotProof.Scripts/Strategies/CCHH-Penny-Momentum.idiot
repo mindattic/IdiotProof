@@ -1,0 +1,4 @@
+Ticker(CCHH)
+.Name("CCHH Autonomous")
+.Session(IS.EXTENDED)
+.AutonomousTrading()

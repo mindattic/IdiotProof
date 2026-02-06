@@ -109,7 +109,8 @@ namespace IdiotProof.Shared.Enums
         OrderType,
 
         // Execution Behavior
-        Repeat
+        Repeat,
+        AutonomousTrading
     }
 }
 

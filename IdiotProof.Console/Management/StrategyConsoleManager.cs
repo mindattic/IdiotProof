@@ -103,6 +103,7 @@ public class StrategyConsoleManager
         WriteMenuItem("3", "Edit Strategy", ConsoleColor.Cyan);
         WriteMenuItem("4", "Toggle Strategy", ConsoleColor.DarkCyan);
         WriteMenuItem("5", "Delete Strategy", ConsoleColor.Red);
+        WriteMenuItem("6", "Backtest (Learn)", ConsoleColor.Magenta);
         WriteMenuItem("H", "Help (Script Syntax)", ConsoleColor.DarkGray);
         WriteMenuItem("ESC", "Go Back", ConsoleColor.Gray);
 
@@ -152,6 +153,10 @@ public class StrategyConsoleManager
 
             case ConsoleKey.D5 or ConsoleKey.NumPad5:
                 await DeleteStrategyAsync();
+                break;
+
+            case ConsoleKey.D6 or ConsoleKey.NumPad6:
+                await RunBacktestAsync();
                 break;
 
             case ConsoleKey.H:
@@ -862,6 +867,164 @@ public class StrategyConsoleManager
         {
             System.Console.ForegroundColor = ConsoleColor.DarkGray;
             System.Console.WriteLine("Cancelled.");
+            System.Console.ResetColor();
+        }
+
+        System.Console.WriteLine();
+        System.Console.WriteLine("Press any key to return to menu...");
+        System.Console.ReadKey(true);
+    }
+
+    #endregion
+
+    #region Backtest (Learn)
+
+    private async Task RunBacktestAsync()
+    {
+        System.Console.Clear();
+        DisplayHeader();
+
+        System.Console.ForegroundColor = ConsoleColor.Magenta;
+        System.Console.WriteLine("=======================================================================");
+        System.Console.WriteLine("                    AUTONOMOUS LEARNING BACKTEST                       ");
+        System.Console.WriteLine("=======================================================================");
+        System.Console.ResetColor();
+        System.Console.WriteLine();
+
+        // Check backend connection
+        if (_client == null || !_client.IsConnected)
+        {
+            System.Console.ForegroundColor = ConsoleColor.Red;
+            System.Console.WriteLine("[ERR] Backend not connected. Start the backend first.");
+            System.Console.ResetColor();
+            System.Console.WriteLine("\nPress any key to continue...");
+            System.Console.ReadKey(true);
+            return;
+        }
+
+        System.Console.ForegroundColor = ConsoleColor.White;
+        System.Console.WriteLine("This will fetch historical data from IBKR and run autonomous trading");
+        System.Console.WriteLine("simulation to build a learning profile for a symbol.");
+        System.Console.WriteLine();
+        System.Console.WriteLine("The learned profile will be used to improve trading decisions.");
+        System.Console.ResetColor();
+        System.Console.WriteLine();
+
+        // Get symbol
+        System.Console.Write("Enter symbol to backtest (e.g., UUUU, AAPL): ");
+        var symbol = System.Console.ReadLine()?.Trim().ToUpperInvariant();
+        if (string.IsNullOrWhiteSpace(symbol))
+        {
+            System.Console.ForegroundColor = ConsoleColor.Red;
+            System.Console.WriteLine("Invalid symbol.");
+            System.Console.ResetColor();
+            await Task.Delay(1500);
+            return;
+        }
+
+        // Get days
+        System.Console.Write("Number of days to backtest [30]: ");
+        var daysInput = System.Console.ReadLine()?.Trim();
+        int days = 30;
+        if (!string.IsNullOrEmpty(daysInput) && int.TryParse(daysInput, out var parsedDays) && parsedDays > 0)
+        {
+            days = Math.Min(parsedDays, 365); // Max 1 year
+        }
+
+        // Get mode
+        System.Console.WriteLine();
+        System.Console.WriteLine("Trading Mode:");
+        System.Console.WriteLine("  1. Conservative (fewer trades, higher thresholds)");
+        System.Console.WriteLine("  2. Balanced (standard)");
+        System.Console.WriteLine("  3. Aggressive (more trades, lower thresholds)");
+        System.Console.Write("Select mode [2]: ");
+        var modeInput = System.Console.ReadLine()?.Trim();
+        string mode = modeInput switch
+        {
+            "1" => "Conservative",
+            "3" => "Aggressive",
+            _ => "Balanced"
+        };
+
+        // Get quantity
+        System.Console.Write("Simulated position size [100]: ");
+        var qtyInput = System.Console.ReadLine()?.Trim();
+        int quantity = 100;
+        if (!string.IsNullOrEmpty(qtyInput) && int.TryParse(qtyInput, out var parsedQty) && parsedQty > 0)
+        {
+            quantity = parsedQty;
+        }
+
+        System.Console.WriteLine();
+        System.Console.ForegroundColor = ConsoleColor.Yellow;
+        System.Console.WriteLine($"Running backtest for {symbol}...");
+        System.Console.WriteLine($"  Days: {days}");
+        System.Console.WriteLine($"  Mode: {mode}");
+        System.Console.WriteLine($"  Quantity: {quantity}");
+        System.Console.WriteLine();
+        System.Console.WriteLine("Fetching historical data from IBKR (this may take a moment)...");
+        System.Console.ResetColor();
+
+        try
+        {
+            var result = await _client.RunBacktestAsync(symbol, days, mode, quantity, saveProfile: true);
+
+            System.Console.WriteLine();
+
+            if (result == null)
+            {
+                System.Console.ForegroundColor = ConsoleColor.Red;
+                System.Console.WriteLine("[ERR] Backtest failed - no response from backend.");
+                System.Console.ResetColor();
+            }
+            else if (!result.Success)
+            {
+                System.Console.ForegroundColor = ConsoleColor.Red;
+                System.Console.WriteLine($"[ERR] Backtest failed: {result.ErrorMessage}");
+                System.Console.ResetColor();
+            }
+            else
+            {
+                System.Console.ForegroundColor = ConsoleColor.Green;
+                System.Console.WriteLine("=======================================================================");
+                System.Console.WriteLine("                       BACKTEST RESULTS                                ");
+                System.Console.WriteLine("=======================================================================");
+                System.Console.ResetColor();
+                System.Console.WriteLine();
+
+                System.Console.WriteLine($"  Symbol:         {result.Symbol}");
+                System.Console.WriteLine($"  Bars Processed: {result.BarsProcessed:N0}");
+                System.Console.WriteLine($"  Total Trades:   {result.TotalTrades}");
+                System.Console.WriteLine($"  Winning Trades: {result.WinningTrades}");
+
+                var winRateColor = result.WinRate >= 50 ? ConsoleColor.Green : ConsoleColor.Red;
+                System.Console.ForegroundColor = winRateColor;
+                System.Console.WriteLine($"  Win Rate:       {result.WinRate:F1}%");
+                System.Console.ResetColor();
+
+                var pnlColor = result.TotalPnL >= 0 ? ConsoleColor.Green : ConsoleColor.Red;
+                System.Console.ForegroundColor = pnlColor;
+                System.Console.WriteLine($"  Total P&L:      ${result.TotalPnL:F2}");
+                System.Console.WriteLine($"  Avg P&L/Trade:  ${result.AvgPnL:F2}");
+                System.Console.ResetColor();
+
+                System.Console.WriteLine($"  Confidence:     {result.Confidence:F0}%");
+                System.Console.WriteLine($"  Profile Saved:  {(result.ProfileSaved ? "Yes" : "No")}");
+
+                if (result.ProfileSaved)
+                {
+                    System.Console.WriteLine();
+                    System.Console.ForegroundColor = ConsoleColor.Cyan;
+                    System.Console.WriteLine($"  The learning profile for {result.Symbol} has been saved.");
+                    System.Console.WriteLine("  Future autonomous trades will use this learned data.");
+                    System.Console.ResetColor();
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Console.ForegroundColor = ConsoleColor.Red;
+            System.Console.WriteLine($"[ERR] Backtest error: {ex.Message}");
             System.Console.ResetColor();
         }
 

@@ -912,6 +912,75 @@ public class IdiotScriptParserTests
     }
 
     #endregion
+
+    #region Autonomous Trading
+
+    [Test]
+    public void Parse_AutonomousTrading_DefaultMode_ParsesCorrectly()
+    {
+        var script = "Ticker(AAPL).AutonomousTrading()";
+        var result = IdiotScriptParser.Parse(script);
+
+        Assert.That(result.Symbol, Is.EqualTo("AAPL"));
+        Assert.That(result.Segments, Has.Some.Matches<Models.StrategySegment>(s =>
+            s.Type == SegmentType.AutonomousTrading &&
+            s.Parameters.Any(p => p.Name == "Mode" && p.Value?.ToString() == "Balanced")));
+    }
+
+    [Test]
+    public void Parse_AutonomousTradingWithMode_ParsesCorrectly()
+    {
+        var script = "Ticker(NVDA).AutonomousTrading(IS.AGGRESSIVE)";
+        var result = IdiotScriptParser.Parse(script);
+
+        Assert.That(result.Segments, Has.Some.Matches<Models.StrategySegment>(s =>
+            s.Type == SegmentType.AutonomousTrading &&
+            s.Parameters.Any(p => p.Name == "Mode" && p.Value?.ToString() == "Aggressive")));
+    }
+
+    [Test]
+    public void Parse_IsAutonomousTrading_AliasParsesCorrectly()
+    {
+        var script = "Ticker(TSLA).IsAutonomousTrading(IS.CONSERVATIVE)";
+        var result = IdiotScriptParser.Parse(script);
+
+        Assert.That(result.Segments, Has.Some.Matches<Models.StrategySegment>(s =>
+            s.Type == SegmentType.AutonomousTrading &&
+            s.Parameters.Any(p => p.Name == "Mode" && p.Value?.ToString() == "Conservative")));
+    }
+
+    [Test]
+    public void Parse_AutonomousTradingMinimalScript_OnlyTickerNeeded()
+    {
+        // This is the core use case: just a ticker with autonomous trading
+        var script = "Ticker(AAPL).AutonomousTrading()";
+        var result = IdiotScriptParser.Parse(script);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.Symbol, Is.EqualTo("AAPL"));
+            Assert.That(result.Segments, Has.Some.Matches<Models.StrategySegment>(s =>
+                s.Type == SegmentType.AutonomousTrading));
+        });
+    }
+
+    [Test]
+    public void Parse_AutonomousTradingWithSession_ParsesCorrectly()
+    {
+        var script = "Ticker(NVDA).Session(IS.PREMARKET).AutonomousTrading(IS.BALANCED)";
+        var result = IdiotScriptParser.Parse(script);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.Symbol, Is.EqualTo("NVDA"));
+            Assert.That(result.Segments, Has.Some.Matches<Models.StrategySegment>(s =>
+                s.Type == SegmentType.SessionDuration));
+            Assert.That(result.Segments, Has.Some.Matches<Models.StrategySegment>(s =>
+                s.Type == SegmentType.AutonomousTrading));
+        });
+    }
+
+    #endregion
 }
 
 

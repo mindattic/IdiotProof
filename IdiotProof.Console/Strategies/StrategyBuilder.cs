@@ -629,6 +629,49 @@ public class StrategyBuilder
     public StrategyBuilder IsAdaptiveOrder(string mode = "Balanced") => AdaptiveOrder(mode);
 
     /// <summary>
+    /// Enables autonomous trading mode where the AI independently decides entry and exit points.
+    /// When enabled, no explicit entry conditions are needed - the system monitors all indicators
+    /// and trades based on market score analysis.
+    /// </summary>
+    /// <remarks>
+    /// <para><b>Behavior:</b></para>
+    /// <list type="bullet">
+    ///   <item>Monitors VWAP, EMAs, RSI, MACD, ADX, Volume in real-time.</item>
+    ///   <item>Enters LONG when market score >= 70 (strong bullish).</item>
+    ///   <item>Enters SHORT when market score <= -70 (strong bearish).</item>
+    ///   <item>Auto-calculates TP/SL based on ATR or percentage.</item>
+    ///   <item>Exits when score reverses past exit threshold.</item>
+    ///   <item>Can flip direction on trend reversal.</item>
+    /// </list>
+    /// <para><b>Modes:</b></para>
+    /// <list type="bullet">
+    ///   <item>Conservative: Fewer trades, score >= 80 required.</item>
+    ///   <item>Balanced: Standard thresholds, score >= 70 required.</item>
+    ///   <item>Aggressive: More trades, score >= 60 required.</item>
+    /// </list>
+    /// </remarks>
+    /// <param name="mode">Trading mode: "Conservative", "Balanced", or "Aggressive".</param>
+    public StrategyBuilder AutonomousTrading(string mode = "Balanced")
+    {
+        AddSegment(SegmentType.AutonomousTrading, SegmentCategory.Execution, "Autonomous Trading",
+            [new SegmentParameter
+            {
+                Name = "Mode",
+                Label = "Mode",
+                Type = ParameterType.String,
+                Value = mode,
+                IsRequired = true
+            }]);
+        return this;
+    }
+
+    /// <summary>
+    /// Alias for <see cref="AutonomousTrading"/>.
+    /// Enables AI-driven autonomous trading mode.
+    /// </summary>
+    public StrategyBuilder IsAutonomousTrading(string mode = "Balanced") => AutonomousTrading(mode);
+
+    /// <summary>
     /// Sets the time in force for orders.
     /// </summary>
     public StrategyBuilder TimeInForce(Shared.Enums.TimeInForce tif)

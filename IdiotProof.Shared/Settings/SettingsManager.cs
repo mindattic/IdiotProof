@@ -100,10 +100,20 @@ public static class SettingsManager
 
     /// <summary>
     /// Gets the shared strategies folder path.
+    /// Strategies are stored in: {SolutionRoot}\IdiotProof.Scripts\Strategies\
     /// </summary>
     public static string GetStrategiesFolder()
     {
-        return Path.Combine(GetBaseFolder(), _.Folder.Scripts);
+        return Path.Combine(GetBaseFolder(), _.Folder.Scripts, _.Folder.Strategies);
+    }
+
+    /// <summary>
+    /// Gets the shared profiles folder path for learning system data.
+    /// Profiles are stored in: {SolutionRoot}\IdiotProof.Scripts\Profiles\
+    /// </summary>
+    public static string GetProfilesFolder()
+    {
+        return Path.Combine(GetBaseFolder(), _.Folder.Scripts, _.Folder.Profiles);
     }
 
     /// <summary>
@@ -148,10 +158,15 @@ public static class SettingsManager
     /// </summary>
     public static void EnsureFoldersExist(string? projectName = null)
     {
-        // Create strategies folder
+        // Create strategies folder (IdiotProof.Scripts\Strategies)
         var strategiesFolder = GetStrategiesFolder();
         if (!Directory.Exists(strategiesFolder))
             Directory.CreateDirectory(strategiesFolder);
+
+        // Create profiles folder (IdiotProof.Scripts\Profiles)
+        var profilesFolder = GetProfilesFolder();
+        if (!Directory.Exists(profilesFolder))
+            Directory.CreateDirectory(profilesFolder);
 
         // Create logs folder
         var logsFolder = GetLogsFolder();

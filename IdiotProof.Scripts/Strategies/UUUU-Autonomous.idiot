@@ -1,0 +1,75 @@
+# ============================================================================
+# UUUU - Autonomous Trading Strategy
+# ============================================================================
+#
+# STRATEGY TYPE: AI-Driven Autonomous Trading
+# RISK LEVEL:    Medium (balanced mode)
+# TIMEFRAME:     Extended Hours (Premarket + RTH + After Hours)
+#
+# ============================================================================
+# AUTONOMOUS TRADING - HOW IT WORKS
+# ============================================================================
+#
+# The system monitors all indicators and independently decides when to:
+# - Enter LONG when market score >= +70
+# - Enter SHORT when market score <= -70
+# - Exit when momentum reverses
+# - Flip direction if conditions warrant
+#
+# ╔═══════════════════════════════════════════════════════════════════════════╗
+# ║  MARKET SCORE CALCULATION (every tick)                                    ║
+# ║                                                                           ║
+# ║  VWAP Position   ─────── 15% weight ──────┐                               ║
+# ║  EMA Stack       ─────── 20% weight ──────┤                               ║
+# ║  RSI Level       ─────── 15% weight ──────┼──► SCORE (-100 to +100)       ║
+# ║  MACD Signal     ─────── 20% weight ──────┤                               ║
+# ║  ADX Strength    ─────── 20% weight ──────┤                               ║
+# ║  Volume Ratio    ─────── 10% weight ──────┘                               ║
+# ╚═══════════════════════════════════════════════════════════════════════════╝
+#
+# ============================================================================
+# ENTRY/EXIT THRESHOLDS (Balanced Mode)
+# ============================================================================
+#
+#   Score >= +70  ──────────────────────────────► ENTER LONG
+#   Score <= -70  ──────────────────────────────► ENTER SHORT
+#   Long + Score < +40  ────────────────────────► EXIT LONG
+#   Short + Score > -40 ────────────────────────► EXIT SHORT
+#
+# ============================================================================
+# SCORE VISUALIZATION
+# ============================================================================
+#
+#   +100 ████████████████████████████████ Strong Bullish
+#    +70 ════════════════════════════════ LONG ENTRY THRESHOLD
+#    +40 -------------------------------- Long Exit Threshold
+#      0 ================================ Neutral
+#    -40 -------------------------------- Short Exit Threshold
+#    -70 ════════════════════════════════ SHORT ENTRY THRESHOLD
+#   -100 ████████████████████████████████ Strong Bearish
+#
+# ============================================================================
+# ABOUT UUUU (Energy Fuels Inc)
+# ============================================================================
+#
+# - Uranium mining and processing company
+# - High volatility, trades on nuclear energy sentiment
+# - Extended hours activity common on news catalysts
+# - Correlates with uranium spot prices and energy policy
+#
+# ============================================================================
+# TRADE NOTES
+# ============================================================================
+#
+# - Autonomous mode handles all entry/exit decisions
+# - System uses ATR-based dynamic TP/SL
+# - Learning enabled: trades update ticker profile
+# - Extended session captures premarket gaps and AH moves
+# - Position flipping enabled for momentum reversals
+#
+# ============================================================================
+
+Ticker(UUUU)
+.Name("UUUU Autonomous")
+.Session(IS.EXTENDED)
+.AutonomousTrading()

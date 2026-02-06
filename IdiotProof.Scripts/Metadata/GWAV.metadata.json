@@ -1,0 +1,38 @@
+{
+  "Symbol": "GWAV",
+  "CreatedAt": "2026-02-06T04:32:25.0708656Z",
+  "UpdatedAt": "2026-02-06T04:37:51.6128914Z",
+  "DaysAnalyzed": 1,
+  "BarsAnalyzed": 60,
+  "DailyExtremes": {
+    "AvgHodMinutesFromOpen": 591,
+    "AvgLodMinutesFromOpen": 615,
+    "HodInFirst30MinPercent": 0,
+    "LodInFirst30MinPercent": 0,
+    "HodInLast30MinPercent": 100,
+    "LodInLast30MinPercent": 100,
+    "AvgHodPercentFromOpen": 2.6119402985074567,
+    "AvgLodPercentFromOpen": -1.8656716417910546,
+    "AvgDailyRangePercent": 4.4776119402985115
+  },
+  "GapBehavior": {
+    "AvgGapUpPercent": 0,
+    "AvgGapDownPercent": 0,
+    "GapUpFillRate": 0,
+    "GapDownFillRate": 0,
+    "GapUpContinuationRate": 0,
+    "GapDownContinuationRate": 0,
+    "AvgGapFillTimeMinutes": 0
+  },
+  "VwapBehavior": {
+    "AvgPercentAboveVwap": 11.666666666666666,
+    "AvgVwapCrossesPerDay": 6,
+    "VwapRejectionContinuationRate": 0,
+    "VwapReclaimHoldRate": 0
+  },
+  "SupportLevels": [],
+  "ResistanceLevels": [],
+  "HourlyPerformance": [],
+  "AvoidHours": [],
+  "BestHours": []
+}

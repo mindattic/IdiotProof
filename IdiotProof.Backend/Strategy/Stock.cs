@@ -1420,6 +1420,7 @@ namespace IdiotProof.Backend.Strategy
         private double _trailingStopLossPercent;
         private AtrStopLossConfig? _atrStopLoss;
         private AdaptiveOrderConfig? _adaptiveOrder;
+        private AutonomousTradingConfig? _autonomousTrading;
         private TimeOnly? _closePositionTime;
         private bool _closePositionOnlyIfProfitable = false; // Default false - use .IsProfitable() to enable
         private Enums.TimeInForce _timeInForce = Enums.TimeInForce.GoodTillCancel;
@@ -1613,6 +1614,57 @@ namespace IdiotProof.Backend.Strategy
         }
 
         /// <summary>
+        /// Enables fully autonomous AI-driven trading that monitors all indicators
+        /// and independently decides when to enter and exit positions.
+        /// </summary>
+        /// <param name="mode">The trading aggressiveness mode (Conservative, Balanced, Aggressive).</param>
+        /// <returns>The builder for method chaining.</returns>
+        /// <remarks>
+        /// <para><b>Modes:</b></para>
+        /// <list type="bullet">
+        /// <item><description><b>Conservative:</b> Higher thresholds (80/-80), fewer trades, safer</description></item>
+        /// <item><description><b>Balanced:</b> Standard thresholds (70/-70)</description></item>
+        /// <item><description><b>Aggressive:</b> Lower thresholds (60/-60), more trades</description></item>
+        /// </list>
+        /// <para><b>Example:</b></para>
+        /// <code>
+        /// Stock.Ticker("AAPL")
+        ///     .Long()
+        ///     .AutonomousTrading()                // Use balanced mode (default)
+        ///     .AutonomousTrading("Aggressive")   // More active trading
+        ///     .Build();
+        /// </code>
+        /// </remarks>
+        public StrategyBuilder AutonomousTrading(string mode = "Balanced")
+        {
+            var autonomousMode = mode.ToUpperInvariant() switch
+            {
+                "CONSERVATIVE" => Autonomous.Conservative,
+                "AGGRESSIVE" => Autonomous.Aggressive,
+                _ => Autonomous.Balanced
+            };
+
+            _autonomousTrading = autonomousMode;
+            return this;
+        }
+
+        /// <summary>
+        /// Enables autonomous trading with a specific configuration.
+        /// </summary>
+        /// <param name="config">The autonomous trading configuration.</param>
+        /// <returns>The builder for method chaining.</returns>
+        public StrategyBuilder AutonomousTrading(AutonomousTradingConfig config)
+        {
+            _autonomousTrading = config ?? throw new ArgumentNullException(nameof(config));
+            return this;
+        }
+
+        /// <summary>
+        /// Alias for <see cref="AutonomousTrading"/>.
+        /// </summary>
+        public StrategyBuilder IsAutonomousTrading(string mode = "Balanced") => AutonomousTrading(mode);
+
+        /// <summary>
         /// Sets the time to exit the position if still open.
         /// Chain with .IsProfitable() to only exit if the position is profitable.
         /// </summary>
@@ -1752,6 +1804,7 @@ namespace IdiotProof.Backend.Strategy
                 TrailingStopLossPercent = _trailingStopLossPercent,
                 AtrStopLoss = _atrStopLoss,
                 AdaptiveOrder = _adaptiveOrder,
+                AutonomousTrading = _autonomousTrading,
                 ClosePositionTime = _closePositionTime,
                 ClosePositionOnlyIfProfitable = _closePositionOnlyIfProfitable
             };

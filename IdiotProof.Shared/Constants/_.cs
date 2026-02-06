@@ -227,6 +227,8 @@ public static class _
     public static class Folder
     {
         public const string Scripts = "IdiotProof.Scripts";
+        public const string Strategies = "Strategies";
+        public const string Profiles = "Profiles";
         public const string Logs = "IdiotProof.Logs";
         public const string Settings = "Settings";
         public const string Backend = "Backend";

@@ -322,6 +322,7 @@ namespace IdiotProof.Backend.Models
                     Period = GetInt(segment, "Period", 14)
                 }),
                 "AdaptiveOrder" => builder.AdaptiveOrder(GetString(segment, "Mode", "Balanced")),
+                "AutonomousTrading" => builder.AutonomousTrading(GetString(segment, "Mode", "Balanced")),
 
                 // Position management - single responsibility pattern
                 "ExitStrategy" => builder.ExitStrategy(GetTime(segment, "Time")),

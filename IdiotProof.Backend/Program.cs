@@ -31,6 +31,8 @@ namespace IdiotProof.Backend
         // Historical data components
         private static HistoricalDataStore? _historicalDataStore;
         private static HistoricalDataService? _historicalDataService;
+        private static BacktestService? _backtestService;
+        private static TickerMetadataService? _metadataService;
 
         // State
         private static readonly List<StrategyRunner> _runners = [];
@@ -143,6 +145,7 @@ namespace IdiotProof.Backend
             _ipcServer.DeactivateTradingHandler = DeactivateTradingAsync;
             _ipcServer.ValidateStrategyHandler = ValidateStrategyAsync;
             _ipcServer.GetTradesHandler = GetTradesAsync;
+            _ipcServer.RunBacktestHandler = RunBacktestAsync;
 
             _ipcServer.Start();
         }
@@ -188,7 +191,10 @@ namespace IdiotProof.Backend
             // Initialize historical data components
             _historicalDataStore = new HistoricalDataStore();
             _historicalDataService = new HistoricalDataService(_client, _wrapper, _historicalDataStore);
+            _backtestService = new BacktestService(_historicalDataService);
+            _metadataService = new TickerMetadataService();
             Log("Historical data service initialized");
+            Log($"Metadata directory: {_metadataService.MetadataDirectory}");
 
             // Setup reconnection handlers
             _wrapper.OnConnectionLost += () =>
@@ -276,7 +282,7 @@ namespace IdiotProof.Backend
 
             Log($"Activating trading with {enabledStrategies.Count} strategies...");
 
-            // Fetch historical data for indicator warm-up (60 bars = 1 hour of 1-minute candles)
+            // Fetch historical data for indicator warm-up (200 bars)
             // The HistoricalDataStore avoids duplicate fetches by storing per-symbol
             var uniqueSymbols = enabledStrategies.Select(s => s.Symbol).Distinct().ToList();
             if (_historicalDataService != null && _historicalDataStore != null)
@@ -293,7 +299,7 @@ namespace IdiotProof.Backend
                     {
                         var results = _historicalDataService.FetchMultipleAsync(
                             symbolsToFetch,
-                            barCount: 60, // 1 hour of 1-minute bars
+                            barCount: 200,
                             maxConcurrency: 3
                         ).GetAwaiter().GetResult();
 
@@ -314,6 +320,31 @@ namespace IdiotProof.Backend
                 else
                 {
                     Log($"Historical data already loaded for all {uniqueSymbols.Count} symbols");
+                }
+            }
+
+            // Build metadata for each symbol from historical data
+            // This gives strategies insights about how the stock typically behaves
+            if (_metadataService != null && _historicalDataStore != null)
+            {
+                Log("Building ticker metadata from historical data...");
+                foreach (var symbol in uniqueSymbols)
+                {
+                    if (_historicalDataStore.HasData(symbol))
+                    {
+                        var bars = _historicalDataStore.GetBars(symbol);
+                        if (bars.Count > 0)
+                        {
+                            try
+                            {
+                                _metadataService.BuildFromHistoricalBars(symbol, bars);
+                            }
+                            catch (Exception ex)
+                            {
+                                Log($"  [{symbol}] Metadata build failed: {ex.Message}");
+                            }
+                        }
+                    }
                 }
             }
 
@@ -361,6 +392,12 @@ namespace IdiotProof.Backend
             {
                 var contract = _contracts[strategy.Symbol];
                 var runner = new StrategyRunner(strategy, contract, _wrapper, _client);
+
+                // Attach metadata for informed trading decisions
+                if (_metadataService != null)
+                {
+                    runner.TickerMetadata = _metadataService.Load(strategy.Symbol);
+                }
 
                 // Warm up indicators from historical data if available
                 if (_historicalDataStore != null && _historicalDataStore.HasData(strategy.Symbol))
@@ -884,6 +921,12 @@ namespace IdiotProof.Backend
                 var newContract = _contracts[strategy.Symbol];
                 var runner = new StrategyRunner(strategy, newContract, _wrapper, _client);
 
+                // Attach metadata for informed trading decisions
+                if (_metadataService != null)
+                {
+                    runner.TickerMetadata = _metadataService.Load(strategy.Symbol);
+                }
+
                 // Warm up from historical data if available
                 if (_historicalDataStore != null && _historicalDataStore.HasData(strategy.Symbol))
                 {
@@ -1109,6 +1152,22 @@ namespace IdiotProof.Backend
                 return Task.FromResult(new List<IdiotProofTrade>());
 
             return _tradeTrackingService.GetAllTradesAsync();
+        }
+
+        private static async Task<BacktestResponsePayload> RunBacktestAsync(RunBacktestRequest request)
+        {
+            if (_backtestService == null || _historicalDataService == null)
+            {
+                return new BacktestResponsePayload
+                {
+                    Success = false,
+                    Symbol = request.Symbol,
+                    ErrorMessage = "Backtest service not initialized. Ensure IBKR connection is established."
+                };
+            }
+
+            Log($"Running backtest for {request.Symbol}...");
+            return await _backtestService.RunBacktestAsync(request);
         }
 
         // ----- Helpers -----

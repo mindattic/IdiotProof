@@ -129,7 +129,7 @@
 
 Ticker(CETX)
 .Name("CETX VWAP Reclaim")
-.Session(IS.RTH)
+.Session(IS.EXTENDED)
 .Quantity(200)
 .Entry(1.70)
 .Pullback(1.68)

@@ -149,6 +149,7 @@ public static partial class IdiotScriptValidator
         // Execution Behavior commands
         "REPEAT", "ISREPEAT",
         "PROFITABLE", "ISPROFITABLE",
+        "AUTONOMOUSTRADING", "ISAUTONOMOUSTRADING",
 
         // Boolean keywords
         "TRUE", "FALSE", "YES", "NO", "Y", "N"

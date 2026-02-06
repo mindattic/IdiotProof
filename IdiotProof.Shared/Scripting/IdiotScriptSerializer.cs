@@ -158,6 +158,15 @@ public static class IdiotScriptSerializer
             parts.Add($"AdaptiveOrder({modeConstant})");
         }
 
+        // Autonomous trading
+        var autonomousSegment = orderedSegments.FirstOrDefault(s => s.Type == SegmentType.AutonomousTrading);
+        if (autonomousSegment != null)
+        {
+            var mode = GetParameterValue<string>(autonomousSegment, "Mode", "Balanced");
+            var modeConstant = GetAdaptiveOrderConstant(mode); // Uses same mode constants
+            parts.Add($"AutonomousTrading({modeConstant})");
+        }
+
         // Exit strategy (position management)
         var closeSegment = orderedSegments.FirstOrDefault(s => s.Type == SegmentType.ExitStrategy);
         if (closeSegment != null)

@@ -247,6 +247,10 @@ public static partial class IdiotScriptParser
     [GeneratedRegex(@"^(?:IS)?ADAPTIVEORDER(?:\(([A-Za-z0-9_.]*)\))?$", RegexOptions.IgnoreCase)]
     private static partial Regex AdaptiveOrderPattern();
 
+    // Autonomous trading pattern - supports: AutonomousTrading, IsAutonomousTrading, AutonomousTrading(), AutonomousTrading(IS.AGGRESSIVE), etc.
+    [GeneratedRegex(@"^(?:IS)?AUTONOMOUSTRADING(?:\(([A-Za-z0-9_.]*)\))?$", RegexOptions.IgnoreCase)]
+    private static partial Regex AutonomousTradingPattern();
+
     // Order config patterns
     [GeneratedRegex(@"^TIMEINFORCE\(([A-Za-z]+)\)$", RegexOptions.IgnoreCase)]
     private static partial Regex TimeInForcePattern();
@@ -827,6 +831,9 @@ public static partial class IdiotScriptParser
         // Adaptive Order
         if (TryParseAdaptiveOrder(command, context)) return;
 
+        // Autonomous Trading
+        if (TryParseAutonomousTrading(command, context)) return;
+
         // Session
         if (TryParseSession(command, context)) return;
 
@@ -1261,6 +1268,51 @@ public static partial class IdiotScriptParser
 
         // Direct mode name
         context.AdaptiveOrderMode = value.ToUpperInvariant() switch
+        {
+            "CONSERVATIVE" or "SAFE" => "Conservative",
+            "BALANCED" or "MODERATE" or "NORMAL" => "Balanced",
+            "AGGRESSIVE" or "RISKY" => "Aggressive",
+            _ => value // Allow custom mode names
+        };
+
+        return true;
+    }
+
+    private static bool TryParseAutonomousTrading(string command, ParseContext context)
+    {
+        var match = AutonomousTradingPattern().Match(command);
+        if (!match.Success) return false;
+
+        var value = match.Groups[1].Value.Trim();
+
+        // If no value provided (e.g., "AutonomousTrading", "IsAutonomousTrading", "AutonomousTrading()"), default to Balanced
+        if (string.IsNullOrEmpty(value))
+        {
+            context.AutonomousTradingMode = "Balanced";
+            return true;
+        }
+
+        // Check if it's a constant (IS. prefix)
+        if (IdiotScriptConstants.IsConstant(value))
+        {
+            var resolved = IdiotScriptConstants.ResolveConstant(value);
+            if (!string.IsNullOrEmpty(resolved))
+            {
+                // Normalize mode name
+                context.AutonomousTradingMode = resolved.ToUpperInvariant() switch
+                {
+                    "CONSERVATIVE" or "SAFE" => "Conservative",
+                    "BALANCED" or "MODERATE" or "NORMAL" => "Balanced",
+                    "AGGRESSIVE" or "RISKY" => "Aggressive",
+                    _ => resolved // Pass through for custom modes
+                };
+                return true;
+            }
+            throw new IdiotScriptException($"Unknown autonomous trading constant: {value}");
+        }
+
+        // Direct mode name
+        context.AutonomousTradingMode = value.ToUpperInvariant() switch
         {
             "CONSERVATIVE" or "SAFE" => "Conservative",
             "BALANCED" or "MODERATE" or "NORMAL" => "Balanced",
@@ -1814,6 +1866,26 @@ public static partial class IdiotScriptParser
                     Label = "Mode",
                     Type = ParameterType.String,
                     Value = context.AdaptiveOrderMode,
+                    IsRequired = true
+                }]
+            });
+        }
+
+        // Add autonomous trading
+        if (!string.IsNullOrEmpty(context.AutonomousTradingMode))
+        {
+            strategy.Segments.Add(new StrategySegment
+            {
+                Type = SegmentType.AutonomousTrading,
+                Category = SegmentCategory.Execution,
+                DisplayName = "Autonomous Trading",
+                Order = segmentOrder++,
+                Parameters = [new SegmentParameter
+                {
+                    Name = "Mode",
+                    Label = "Mode",
+                    Type = ParameterType.String,
+                    Value = context.AutonomousTradingMode,
                     IsRequired = true
                 }]
             });
@@ -2571,6 +2643,7 @@ public static partial class IdiotScriptParser
         public double? StopLossPrice { get; set; }
         public double? TrailingStopLossPercent { get; set; }
         public string? AdaptiveOrderMode { get; set; }
+        public string? AutonomousTradingMode { get; set; }
         public List<OrderedCondition> OrderedConditions { get; } = [];
         public TradingSession? Session { get; set; }
         public TimeOnly? ClosePositionTime { get; set; }

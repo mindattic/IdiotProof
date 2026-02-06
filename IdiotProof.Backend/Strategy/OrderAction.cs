@@ -255,6 +255,33 @@ namespace IdiotProof.Backend.Strategy
         public bool UseAdaptiveOrder => AdaptiveOrder != null;
 
         /// <summary>
+        /// Autonomous trading configuration for AI-driven entry and exit decisions.
+        /// When set, the system independently decides when to enter and exit positions
+        /// based on real-time indicator analysis without requiring explicit conditions.
+        /// </summary>
+        /// <remarks>
+        /// <para><b>Autonomous Trading Benefits:</b></para>
+        /// <list type="bullet">
+        ///   <item>No manual entry conditions needed - AI decides when to trade.</item>
+        ///   <item>Enters LONG when market score is strongly bullish (>= 70).</item>
+        ///   <item>Enters SHORT when market score is strongly bearish (<= -70).</item>
+        ///   <item>Auto-calculates TP/SL based on ATR or percentage.</item>
+        ///   <item>Can flip direction on trend reversal.</item>
+        /// </list>
+        /// <para><b>Example:</b></para>
+        /// <code>
+        /// .AutonomousTrading()                    // Use balanced mode
+        /// .AutonomousTrading(Autonomous.Aggressive) // More trades, tighter thresholds
+        /// </code>
+        /// </remarks>
+        public AutonomousTradingConfig? AutonomousTrading { get; init; }
+
+        /// <summary>
+        /// Whether autonomous trading mode is enabled.
+        /// </summary>
+        public bool UseAutonomousTrading => AutonomousTrading != null;
+
+        /// <summary>
         /// Time to cancel unfilled orders and optionally exit position (CST).
         /// </summary>
         /// <remarks>

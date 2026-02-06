@@ -58,6 +58,7 @@ namespace IdiotProof.Backend.Ipc
         public Func<Task<OperationResultPayload>>? DeactivateTradingHandler { get; set; }
         public Func<StrategyDefinition, Task<ValidationResponsePayload>>? ValidateStrategyHandler { get; set; }
         public Func<Task<List<IdiotProofTrade>>>? GetTradesHandler { get; set; }
+        public Func<RunBacktestRequest, Task<BacktestResponsePayload>>? RunBacktestHandler { get; set; }
 
         /// <summary>
         /// Starts the IPC server.
@@ -455,6 +456,32 @@ namespace IdiotProof.Backend.Ipc
                             Type = BackendMessageType.TradesResponse,
                             MessageId = request.MessageId,
                             Payload = JsonSerializer.Serialize(new TradesResponsePayload { Trades = trades })
+                        };
+
+                    case BackendMessageType.RunBacktest:
+                        if (request.Payload != null && RunBacktestHandler != null)
+                        {
+                            var backtestReq = JsonSerializer.Deserialize<RunBacktestRequest>(request.Payload);
+                            if (backtestReq != null)
+                            {
+                                var result = await RunBacktestHandler(backtestReq);
+                                return new BackendMessage
+                                {
+                                    Type = BackendMessageType.BacktestResponse,
+                                    MessageId = request.MessageId,
+                                    Payload = JsonSerializer.Serialize(result)
+                                };
+                            }
+                        }
+                        return new BackendMessage
+                        {
+                            Type = BackendMessageType.BacktestResponse,
+                            MessageId = request.MessageId,
+                            Payload = JsonSerializer.Serialize(new BacktestResponsePayload
+                            {
+                                Success = false,
+                                ErrorMessage = "Backtest handler not configured or invalid request"
+                            })
                         };
                 }
             }

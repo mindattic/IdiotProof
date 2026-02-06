@@ -41,6 +41,7 @@
 // ╚═══════════════════════════════════════════════════════════════════════════╝
 
 using IdiotProof.Backend.Enums;
+using IdiotProof.Backend.Helpers;
 using IdiotProof.Backend.Models;
 using IdiotProof.Backend.Strategy;
 using System;
@@ -289,6 +290,103 @@ namespace IdiotProof.Backend.UnitTests
             }
 
             return CalculateResults(strategy.Symbol, bars, trades, config);
+        }
+
+        /// <summary>
+        /// Runs autonomous trading simulation against historical data and populates a TickerProfile
+        /// with the trade history for learning. This pre-trains the profile so live trading
+        /// can use the learned patterns immediately.
+        /// </summary>
+        /// <param name="symbol">The symbol to simulate.</param>
+        /// <param name="bars">Historical price bars.</param>
+        /// <param name="quantity">Trade quantity (default 100).</param>
+        /// <param name="mode">Autonomous trading mode (default Balanced).</param>
+        /// <param name="verboseLogging">Log trade details (default false).</param>
+        /// <returns>The populated TickerProfile with trade history.</returns>
+        public static TickerProfile RunAutonomousLearning(
+            string symbol,
+            IReadOnlyList<HistoricalBar> bars,
+            int quantity = 100,
+            AdaptiveMode mode = AdaptiveMode.Balanced,
+            bool verboseLogging = false)
+        {
+            if (bars.Count < 50)
+            {
+                Console.WriteLine($"[WARN] Need at least 50 bars for autonomous learning, got {bars.Count}");
+                return new TickerProfile { Symbol = symbol };
+            }
+
+            var config = mode switch
+            {
+                AdaptiveMode.Conservative => Autonomous.Conservative,
+                AdaptiveMode.Aggressive => Autonomous.Aggressive,
+                _ => Autonomous.Balanced
+            };
+            var simulator = new AutonomousLearningSimulator(symbol, config, quantity);
+
+            if (verboseLogging)
+            {
+                Console.WriteLine($"[LEARN] Running autonomous learning for {symbol} with {bars.Count} bars...");
+            }
+
+            // Process each bar
+            foreach (var bar in bars)
+            {
+                var trades = simulator.ProcessBar(bar);
+                
+                if (verboseLogging)
+                {
+                    foreach (var trade in trades)
+                    {
+                        var icon = trade.IsWin ? "[OK]" : "[--]";
+                        Console.WriteLine($"  {icon} {trade.EntryTime:MM/dd HH:mm} -> {trade.ExitTime:HH:mm} | " +
+                            $"${trade.EntryPrice:F2} -> ${trade.ExitPrice:F2} | " +
+                            $"P&L: ${trade.ProfitLoss:F2} ({trade.ProfitLossPercent:F2}%)");
+                    }
+                }
+            }
+
+            // Close any open position
+            if (simulator.HasOpenPosition)
+            {
+                var finalTrade = simulator.ClosePosition(bars[^1].Close, bars[^1].Time);
+                if (verboseLogging && finalTrade != null)
+                {
+                    Console.WriteLine($"  [END] Closed at end of data: ${finalTrade.ProfitLoss:F2}");
+                }
+            }
+
+            var profile = simulator.GetProfile();
+
+            if (verboseLogging)
+            {
+                Console.WriteLine($"[LEARN] Complete: {profile.GetSummary()}");
+            }
+
+            return profile;
+        }
+
+        /// <summary>
+        /// Runs autonomous trading simulation and saves the learned profile to disk.
+        /// </summary>
+        public static TickerProfile RunAndSaveAutonomousLearning(
+            string symbol,
+            IReadOnlyList<HistoricalBar> bars,
+            int quantity = 100,
+            AdaptiveMode mode = AdaptiveMode.Balanced,
+            bool verboseLogging = false)
+        {
+            var profile = RunAutonomousLearning(symbol, bars, quantity, mode, verboseLogging);
+            
+            // Save to the shared profile manager
+            StrategyRunner.ProfileManager.SaveProfile(profile);
+            
+            if (verboseLogging)
+            {
+                Console.WriteLine($"[LEARN] Profile saved to disk for {symbol}");
+            }
+
+            return profile;
         }
 
         /// <summary>
@@ -647,6 +745,261 @@ namespace IdiotProof.Backend.UnitTests
             _conditionIndex = 0;
             _pvSum = 0;
             _vSum = 0;
+        }
+    }
+
+    /// <summary>
+    /// Simulates autonomous trading with indicator-based entry/exit and learning.
+    /// </summary>
+    internal sealed class AutonomousLearningSimulator
+    {
+        private readonly string _symbol;
+        private readonly AutonomousTradingConfig _config;
+        private readonly int _quantity;
+        private readonly TickerProfile _profile;
+
+        // Position tracking
+        private bool _inPosition;
+        private bool _isLong;
+        private double _entryPrice;
+        private DateTime _entryTime;
+        private int _entryScore;
+        private int _entryVwapScore, _entryEmaScore, _entryRsiScore, _entryMacdScore, _entryAdxScore, _entryVolumeScore;
+
+        // VWAP tracking
+        private double _pvSum;
+        private double _vSum;
+
+        // Indicator calculators
+        private readonly EmaCalculator _ema9 = new(9);
+        private readonly EmaCalculator _ema21 = new(21);
+        private readonly EmaCalculator _ema50 = new(50);
+        private readonly AdxCalculator _adx = new(14, 50);
+        private readonly RsiCalculator _rsi = new(14);
+        private readonly MacdCalculator _macd = new(12, 26, 9);
+        private readonly VolumeCalculator _volume = new(20);
+
+        // Warm-up tracking
+        private int _barCount;
+        private bool _indicatorsReady;
+
+        public bool HasOpenPosition => _inPosition;
+
+        public AutonomousLearningSimulator(string symbol, AutonomousTradingConfig config, int quantity)
+        {
+            _symbol = symbol;
+            _config = config;
+            _quantity = quantity;
+            _profile = new TickerProfile { Symbol = symbol };
+        }
+
+        public List<TradeRecord> ProcessBar(HistoricalBar bar)
+        {
+            var completedTrades = new List<TradeRecord>();
+            _barCount++;
+
+            // Update VWAP
+            if (bar.Close > 0 && bar.Volume > 0)
+            {
+                _pvSum += bar.Close * bar.Volume;
+                _vSum += bar.Volume;
+            }
+            double vwap = _vSum > 0 ? _pvSum / _vSum : bar.Close;
+
+            // Update indicators
+            _ema9.Update(bar.Close);
+            _ema21.Update(bar.Close);
+            _ema50.Update(bar.Close);
+            _adx.UpdateFromCandle(bar.High, bar.Low, bar.Close);
+            _rsi.Update(bar.Close);
+            _macd.Update(bar.Close);
+            _volume.Update(bar.Volume);
+
+            // Check warm-up
+            if (!_indicatorsReady)
+            {
+                if (_ema50.IsReady && _adx.IsReady && _rsi.IsReady && _macd.IsReady)
+                {
+                    _indicatorsReady = true;
+                }
+                else
+                {
+                    return completedTrades;
+                }
+            }
+
+            // Calculate market score
+            var (score, vwapS, emaS, rsiS, macdS, adxS, volS) = CalculateScore(bar.Close, vwap);
+
+            if (!_inPosition)
+            {
+                // Check for entry
+                if (score >= _config.LongEntryThreshold)
+                {
+                    EnterPosition(bar.Close, bar.Time, true, score, vwapS, emaS, rsiS, macdS, adxS, volS);
+                }
+                else if (_config.AllowShort && score <= _config.ShortEntryThreshold)
+                {
+                    EnterPosition(bar.Close, bar.Time, false, score, vwapS, emaS, rsiS, macdS, adxS, volS);
+                }
+            }
+            else
+            {
+                // Check for exit
+                bool shouldExit = false;
+                if (_isLong && score < _config.LongExitThreshold)
+                {
+                    shouldExit = true;
+                }
+                else if (!_isLong && score > _config.ShortExitThreshold)
+                {
+                    shouldExit = true;
+                }
+
+                if (shouldExit)
+                {
+                    var trade = CreateTradeRecord(bar.Close, bar.Time, score);
+                    completedTrades.Add(trade);
+                    _profile.RecordTrade(trade);
+                    ResetPosition();
+                }
+            }
+
+            return completedTrades;
+        }
+
+        public TradeRecord? ClosePosition(double price, DateTime time)
+        {
+            if (!_inPosition) return null;
+
+            var (score, _, _, _, _, _, _) = CalculateScore(price, _pvSum / Math.Max(_vSum, 1));
+            var trade = CreateTradeRecord(price, time, score);
+            _profile.RecordTrade(trade);
+            ResetPosition();
+            return trade;
+        }
+
+        public TickerProfile GetProfile() => _profile;
+
+        private (int total, int vwap, int ema, int rsi, int macd, int adx, int vol) CalculateScore(double price, double vwap)
+        {
+            int vwapScore = 0, emaScore = 0, rsiScore = 0, macdScore = 0, adxScore = 0, volumeScore = 0;
+
+            // VWAP Position (15% weight)
+            if (vwap > 0)
+            {
+                double vwapDiff = (price - vwap) / vwap * 100;
+                vwapScore = (int)Math.Clamp(vwapDiff * 20, -100, 100);
+            }
+
+            // EMA Stack Alignment (20% weight)
+            int bullish = 0, bearish = 0;
+            if (_ema9.IsReady && price > _ema9.CurrentValue) bullish++; else bearish++;
+            if (_ema21.IsReady && price > _ema21.CurrentValue) bullish++; else bearish++;
+            if (_ema50.IsReady && price > _ema50.CurrentValue) bullish++; else bearish++;
+            int total = bullish + bearish;
+            if (total > 0)
+            {
+                emaScore = (int)((bullish - bearish) / (double)total * 100);
+            }
+
+            // RSI (15% weight)
+            if (_rsi.IsReady)
+            {
+                double rsi = _rsi.CurrentValue;
+                if (rsi >= 70)
+                    rsiScore = (int)((70 - rsi) * 3.33);
+                else if (rsi <= 30)
+                    rsiScore = (int)((30 - rsi) * 3.33);
+                else
+                    rsiScore = (int)((rsi - 50) * 2.5);
+            }
+
+            // MACD (20% weight)
+            if (_macd.IsReady)
+            {
+                macdScore = _macd.IsBullish ? 50 : -50;
+                macdScore += (int)Math.Clamp(_macd.Histogram * 500, -50, 50);
+            }
+
+            // ADX Trend Strength (20% weight)
+            if (_adx.IsReady)
+            {
+                double adx = _adx.CurrentAdx;
+                bool diPositive = _adx.PlusDI > _adx.MinusDI;
+                int magnitude = (int)Math.Min(adx * 2, 100);
+                adxScore = diPositive ? magnitude : -magnitude;
+            }
+
+            // Volume (10% weight)
+            if (_volume.IsReady)
+            {
+                double volumeRatio = _volume.VolumeRatio;
+                if (volumeRatio > 1.0)
+                {
+                    int volumeMagnitude = (int)Math.Min((volumeRatio - 1.0) * 100, 100);
+                    volumeScore = price > vwap ? volumeMagnitude : -volumeMagnitude;
+                }
+            }
+
+            // Calculate weighted total
+            double totalScore =
+                vwapScore * 0.15 +
+                emaScore * 0.20 +
+                rsiScore * 0.15 +
+                macdScore * 0.20 +
+                adxScore * 0.20 +
+                volumeScore * 0.10;
+
+            return ((int)Math.Clamp(totalScore, -100, 100), vwapScore, emaScore, rsiScore, macdScore, adxScore, volumeScore);
+        }
+
+        private void EnterPosition(double price, DateTime time, bool isLong, int score, int vwap, int ema, int rsi, int macd, int adx, int vol)
+        {
+            _inPosition = true;
+            _isLong = isLong;
+            _entryPrice = price;
+            _entryTime = time;
+            _entryScore = score;
+            _entryVwapScore = vwap;
+            _entryEmaScore = ema;
+            _entryRsiScore = rsi;
+            _entryMacdScore = macd;
+            _entryAdxScore = adx;
+            _entryVolumeScore = vol;
+        }
+
+        private TradeRecord CreateTradeRecord(double exitPrice, DateTime exitTime, int exitScore)
+        {
+            return new TradeRecord
+            {
+                EntryTime = _entryTime,
+                EntryPrice = _entryPrice,
+                ExitTime = exitTime,
+                ExitPrice = exitPrice,
+                WasLong = _isLong,
+                Quantity = _quantity,
+                EntryScore = _entryScore,
+                ExitScore = exitScore,
+                EntryVwapScore = _entryVwapScore,
+                EntryEmaScore = _entryEmaScore,
+                EntryRsiScore = _entryRsiScore,
+                EntryMacdScore = _entryMacdScore,
+                EntryAdxScore = _entryAdxScore,
+                EntryVolumeScore = _entryVolumeScore,
+                EntryRsi = _rsi.CurrentValue,
+                EntryAdx = _adx.CurrentAdx,
+                ExitRsi = _rsi.CurrentValue,
+                ExitAdx = _adx.CurrentAdx
+            };
+        }
+
+        private void ResetPosition()
+        {
+            _inPosition = false;
+            _isLong = false;
+            _entryPrice = 0;
+            _entryScore = 0;
         }
     }
 }

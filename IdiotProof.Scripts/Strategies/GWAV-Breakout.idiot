@@ -154,7 +154,7 @@
 
 Ticker(GWAV)
 .Name("GWAV VWAP Reclaim")
-.Session(IS.RTH)
+.Session(IS.EXTENDED)
 .Quantity(100)
 .Breakout(5.50)
 .Pullback(5.42)

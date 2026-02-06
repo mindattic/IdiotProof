@@ -294,6 +294,10 @@ namespace IdiotProof.Backend.Models
         public int MacdScore { get; init; }
         public int AdxScore { get; init; }
         public int VolumeScore { get; init; }
+        public int BollingerScore { get; init; }
+
+        /// <summary>Time-of-day weight multiplier applied to score (0.4-1.2).</summary>
+        public double TimeWeight { get; init; } = 1.0;
 
         /// <summary>Recommended take profit multiplier (1.0 = no change).</summary>
         public double TakeProfitMultiplier { get; init; }
@@ -314,8 +318,296 @@ namespace IdiotProof.Backend.Models
             _ => "Strong Bearish"
         };
 
+        /// <summary>Human-readable time quality.</summary>
+        public string TimeQuality => TimeWeight switch
+        {
+            >= 1.15 => "Prime",
+            >= 1.0 => "Good",
+            >= 0.7 => "Fair",
+            _ => "Poor"
+        };
+
         public override string ToString() =>
-            $"Score: {TotalScore} ({Condition}) | TP×{TakeProfitMultiplier:F2} | SL×{StopLossMultiplier:F2}";
+            $"Score: {TotalScore} ({Condition}) | Time: {TimeQuality} (×{TimeWeight:F2}) | TP×{TakeProfitMultiplier:F2} | SL×{StopLossMultiplier:F2}";
+    }
+
+    // ========================================================================
+    // AUTONOMOUS TRADING - AI-driven entry and exit decisions
+    // ========================================================================
+    //
+    // OVERVIEW:
+    // AutonomousTrading enables the system to independently decide when to
+    // enter and exit positions based on real-time indicator analysis.
+    // When enabled, the system monitors all indicators and:
+    //   - Enters LONG when market score >= EntryThreshold (default: 70)
+    //   - Enters SHORT when market score <= -EntryThreshold (default: -70)
+    //   - Exits when score reverses past ExitThreshold
+    //   - Auto-calculates TP/SL based on ATR or percentage
+    //
+    // USAGE:
+    //   Ticker(AAPL).AutonomousTrading()                    // Default balanced mode
+    //   Ticker(AAPL).AutonomousTrading(IS.AGGRESSIVE)       // More trades, tighter thresholds
+    //   Ticker(AAPL).AutonomousTrading(IS.CONSERVATIVE)     // Fewer trades, wider thresholds
+    //
+    // IDIOTSCRIPT:
+    //   Ticker(NVDA).AutonomousTrading()   # AI monitors and trades NVDA independently
+    //
+    // ========================================================================
+
+    /// <summary>
+    /// Trading aggressiveness mode for autonomous trading.
+    /// </summary>
+    public enum AutonomousMode
+    {
+        /// <summary>
+        /// Conservative: Fewer trades, higher confidence thresholds.
+        /// Only enters on very strong signals (score >= 80 or <= -80).
+        /// Wider TP targets, wider SL for fewer stop-outs.
+        /// </summary>
+        Conservative,
+
+        /// <summary>
+        /// Balanced: Standard thresholds and risk management.
+        /// Enters on strong signals (score >= 70 or <= -70).
+        /// </summary>
+        Balanced,
+
+        /// <summary>
+        /// Aggressive: More trades, lower confidence thresholds.
+        /// Enters on moderate signals (score >= 60 or <= -60).
+        /// Tighter TP targets, tighter SL for quick profits.
+        /// </summary>
+        Aggressive
+    }
+
+    /// <summary>
+    /// Configuration for autonomous trading mode where the system
+    /// independently decides entry and exit points based on indicator analysis.
+    /// </summary>
+    /// <remarks>
+    /// <para><b>How Autonomous Trading Works:</b></para>
+    /// <list type="number">
+    ///   <item>System monitors all indicators (VWAP, EMA, RSI, MACD, ADX, Volume).</item>
+    ///   <item>Calculates a Market Score (-100 to +100) from weighted indicators.</item>
+    ///   <item>Enters LONG when score >= EntryThreshold (bullish).</item>
+    ///   <item>Enters SHORT when score <= -EntryThreshold (bearish).</item>
+    ///   <item>Auto-sets TP/SL based on ATR multiplier or percentage.</item>
+    ///   <item>Exits when score reverses past ExitThreshold.</item>
+    ///   <item>Can flip direction (exit long, enter short) on reversal.</item>
+    /// </list>
+    /// 
+    /// <para><b>Indicator Weights (same as AdaptiveOrder):</b></para>
+    /// <list type="table">
+    ///   <item><term>VWAP</term><description>15% - Price position relative to VWAP</description></item>
+    ///   <item><term>EMA Stack</term><description>20% - Short/medium/long EMA alignment</description></item>
+    ///   <item><term>RSI</term><description>15% - Overbought/oversold momentum</description></item>
+    ///   <item><term>MACD</term><description>20% - Trend momentum and direction</description></item>
+    ///   <item><term>ADX</term><description>20% - Trend strength</description></item>
+    ///   <item><term>Volume</term><description>10% - Move confirmation</description></item>
+    /// </list>
+    /// </remarks>
+    public sealed class AutonomousTradingConfig
+    {
+        /// <summary>The trading mode (Conservative, Balanced, Aggressive).</summary>
+        public AutonomousMode Mode { get; init; } = AutonomousMode.Balanced;
+
+        // ========================================================================
+        // ENTRY THRESHOLDS
+        // ========================================================================
+
+        /// <summary>
+        /// Minimum market score to enter a LONG position (0 to 100).
+        /// Score must be >= this value to go long.
+        /// </summary>
+        /// <remarks>
+        /// Conservative: 80, Balanced: 70, Aggressive: 60
+        /// </remarks>
+        public int LongEntryThreshold { get; init; } = 70;
+
+        /// <summary>
+        /// Maximum market score to enter a SHORT position (-100 to 0).
+        /// Score must be <= this value to go short.
+        /// </summary>
+        /// <remarks>
+        /// Conservative: -80, Balanced: -70, Aggressive: -60
+        /// </remarks>
+        public int ShortEntryThreshold { get; init; } = -70;
+
+        // ========================================================================
+        // EXIT THRESHOLDS
+        // ========================================================================
+
+        /// <summary>
+        /// Score threshold to exit a LONG position (0 to 100).
+        /// If score drops below this while long, consider exiting.
+        /// </summary>
+        /// <remarks>
+        /// Exit long if score falls below 30 (lost bullish momentum).
+        /// </remarks>
+        public int LongExitThreshold { get; init; } = 30;
+
+        /// <summary>
+        /// Score threshold to exit a SHORT position (-100 to 0).
+        /// If score rises above this while short, consider exiting.
+        /// </summary>
+        /// <remarks>
+        /// Exit short if score rises above -30 (lost bearish momentum).
+        /// </remarks>
+        public int ShortExitThreshold { get; init; } = -30;
+
+        // ========================================================================
+        // POSITION SIZING AND RISK
+        // ========================================================================
+
+        /// <summary>
+        /// Default quantity if not specified in strategy.
+        /// </summary>
+        public int DefaultQuantity { get; init; } = 100;
+
+        /// <summary>
+        /// ATR multiplier for take profit calculation.
+        /// TP = Entry ± (ATR × TakeProfitAtrMultiplier)
+        /// </summary>
+        /// <remarks>
+        /// Conservative: 3.0, Balanced: 2.5, Aggressive: 2.0
+        /// </remarks>
+        public double TakeProfitAtrMultiplier { get; init; } = 2.5;
+
+        /// <summary>
+        /// ATR multiplier for stop loss calculation.
+        /// SL = Entry ∓ (ATR × StopLossAtrMultiplier)
+        /// </summary>
+        /// <remarks>
+        /// Conservative: 2.0, Balanced: 1.5, Aggressive: 1.0
+        /// </remarks>
+        public double StopLossAtrMultiplier { get; init; } = 1.5;
+
+        /// <summary>
+        /// Fallback take profit percentage if ATR is not available.
+        /// </summary>
+        public double TakeProfitPercent { get; init; } = 0.02; // 2%
+
+        /// <summary>
+        /// Fallback stop loss percentage if ATR is not available.
+        /// </summary>
+        public double StopLossPercent { get; init; } = 0.01; // 1%
+
+        // ========================================================================
+        // BEHAVIOR OPTIONS
+        // ========================================================================
+
+        /// <summary>
+        /// Whether to automatically flip direction on reversal.
+        /// If true: Exit long and enter short when score becomes bearish.
+        /// If false: Just exit without entering opposite direction.
+        /// </summary>
+        public bool AllowDirectionFlip { get; init; } = true;
+
+        /// <summary>
+        /// Whether to allow shorting.
+        /// If false, only long positions are taken.
+        /// </summary>
+        public bool AllowShort { get; init; } = true;
+
+        /// <summary>
+        /// Minimum seconds between position changes to avoid over-trading.
+        /// </summary>
+        public int MinSecondsBetweenTrades { get; init; } = 60;
+
+        /// <summary>
+        /// Minimum score change required before considering a new trade.
+        /// Prevents whipsawing on small score fluctuations.
+        /// </summary>
+        public int MinScoreChangeForTrade { get; init; } = 15;
+
+        /// <summary>
+        /// Gets a human-readable description of this configuration.
+        /// </summary>
+        public string Description => $"Autonomous ({Mode}): Long>={LongEntryThreshold}, Short<={ShortEntryThreshold}, " +
+                                    $"TP×{TakeProfitAtrMultiplier:F1}ATR, SL×{StopLossAtrMultiplier:F1}ATR";
+    }
+
+    /// <summary>
+    /// Provides preset configurations for autonomous trading.
+    /// </summary>
+    public static class Autonomous
+    {
+        /// <summary>
+        /// Conservative: Fewer trades, higher confidence required.
+        /// </summary>
+        public static AutonomousTradingConfig Conservative => new()
+        {
+            Mode = AutonomousMode.Conservative,
+            LongEntryThreshold = 80,
+            ShortEntryThreshold = -80,
+            LongExitThreshold = 40,
+            ShortExitThreshold = -40,
+            TakeProfitAtrMultiplier = 3.0,
+            StopLossAtrMultiplier = 2.0,
+            TakeProfitPercent = 0.03,
+            StopLossPercent = 0.015,
+            MinSecondsBetweenTrades = 120,
+            MinScoreChangeForTrade = 20
+        };
+
+        /// <summary>
+        /// Balanced: Standard risk/reward balance.
+        /// </summary>
+        public static AutonomousTradingConfig Balanced => new()
+        {
+            Mode = AutonomousMode.Balanced,
+            LongEntryThreshold = 70,
+            ShortEntryThreshold = -70,
+            LongExitThreshold = 30,
+            ShortExitThreshold = -30,
+            TakeProfitAtrMultiplier = 2.5,
+            StopLossAtrMultiplier = 1.5,
+            TakeProfitPercent = 0.02,
+            StopLossPercent = 0.01,
+            MinSecondsBetweenTrades = 60,
+            MinScoreChangeForTrade = 15
+        };
+
+        /// <summary>
+        /// Aggressive: More trades, lower confidence thresholds.
+        /// </summary>
+        public static AutonomousTradingConfig Aggressive => new()
+        {
+            Mode = AutonomousMode.Aggressive,
+            LongEntryThreshold = 60,
+            ShortEntryThreshold = -60,
+            LongExitThreshold = 20,
+            ShortExitThreshold = -20,
+            TakeProfitAtrMultiplier = 2.0,
+            StopLossAtrMultiplier = 1.0,
+            TakeProfitPercent = 0.015,
+            StopLossPercent = 0.0075,
+            MinSecondsBetweenTrades = 30,
+            MinScoreChangeForTrade = 10
+        };
+
+        /// <summary>
+        /// Creates a custom autonomous trading configuration.
+        /// </summary>
+        public static AutonomousTradingConfig Custom(
+            int longEntry = 70,
+            int shortEntry = -70,
+            double tpAtr = 2.5,
+            double slAtr = 1.5,
+            bool allowFlip = true,
+            bool allowShort = true)
+        {
+            return new AutonomousTradingConfig
+            {
+                Mode = AutonomousMode.Balanced,
+                LongEntryThreshold = longEntry,
+                ShortEntryThreshold = shortEntry,
+                TakeProfitAtrMultiplier = tpAtr,
+                StopLossAtrMultiplier = slAtr,
+                AllowDirectionFlip = allowFlip,
+                AllowShort = allowShort
+            };
+        }
     }
 }
 
