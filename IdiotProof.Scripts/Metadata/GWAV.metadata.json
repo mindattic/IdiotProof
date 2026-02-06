@@ -1,7 +1,7 @@
 {
   "Symbol": "GWAV",
   "CreatedAt": "2026-02-06T04:32:25.0708656Z",
-  "UpdatedAt": "2026-02-06T04:55:17.9600153Z",
+  "UpdatedAt": "2026-02-06T05:08:26.0039858Z",
   "DaysAnalyzed": 1,
   "BarsAnalyzed": 200,
   "DailyExtremes": {
@@ -41,12 +41,19 @@
     {
       "Price": 5.248,
       "Touches": 5,
-      "Bounces": 11,
-      "Breaks": -6,
+      "Bounces": 13,
+      "Breaks": -8,
       "IsSupport": true
     }
   ],
   "ResistanceLevels": [
+    {
+      "Price": 5.349999999999999,
+      "Touches": 3,
+      "Bounces": 10,
+      "Breaks": -7,
+      "IsSupport": false
+    },
     {
       "Price": 5.3,
       "Touches": 2,
@@ -55,17 +62,10 @@
       "IsSupport": false
     },
     {
-      "Price": 5.403333333333333,
-      "Touches": 3,
-      "Bounces": 8,
-      "Breaks": -5,
-      "IsSupport": false
-    },
-    {
-      "Price": 5.37,
+      "Price": 5.3925,
       "Touches": 8,
-      "Bounces": 12,
-      "Breaks": -4,
+      "Bounces": 13,
+      "Breaks": -5,
       "IsSupport": false
     }
   ],

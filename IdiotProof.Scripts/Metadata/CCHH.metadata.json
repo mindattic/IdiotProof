@@ -1,0 +1,96 @@
+{
+  "Symbol": "CCHH",
+  "CreatedAt": "2026-02-06T05:08:25.993318Z",
+  "UpdatedAt": "2026-02-06T05:08:25.9935551Z",
+  "DaysAnalyzed": 1,
+  "BarsAnalyzed": 200,
+  "DailyExtremes": {
+    "AvgHodMinutesFromOpen": 604,
+    "AvgLodMinutesFromOpen": 442,
+    "HodInFirst30MinPercent": 0,
+    "LodInFirst30MinPercent": 0,
+    "HodInLast30MinPercent": 100,
+    "LodInLast30MinPercent": 100,
+    "AvgHodPercentFromOpen": 87.59379689844923,
+    "AvgLodPercentFromOpen": -1.1005502751375726,
+    "AvgDailyRangePercent": 88.6943471735868
+  },
+  "GapBehavior": {
+    "AvgGapUpPercent": 0,
+    "AvgGapDownPercent": 0,
+    "GapUpFillRate": 0,
+    "GapDownFillRate": 0,
+    "GapUpContinuationRate": 0,
+    "GapDownContinuationRate": 0,
+    "AvgGapFillTimeMinutes": 0
+  },
+  "VwapBehavior": {
+    "AvgPercentAboveVwap": 83,
+    "AvgVwapCrossesPerDay": 19,
+    "VwapRejectionContinuationRate": 0,
+    "VwapReclaimHoldRate": 0
+  },
+  "SupportLevels": [
+    {
+      "Price": 0.53825,
+      "Touches": 2,
+      "Bounces": 4,
+      "Breaks": -2,
+      "IsSupport": true
+    },
+    {
+      "Price": 0.5912999999999999,
+      "Touches": 2,
+      "Bounces": 3,
+      "Breaks": -1,
+      "IsSupport": true
+    },
+    {
+      "Price": 0.5609333333333334,
+      "Touches": 3,
+      "Bounces": 4,
+      "Breaks": -1,
+      "IsSupport": true
+    },
+    {
+      "Price": 0.5231333333333333,
+      "Touches": 3,
+      "Bounces": 3,
+      "Breaks": 0,
+      "IsSupport": true
+    },
+    {
+      "Price": 0.51,
+      "Touches": 2,
+      "Bounces": 1,
+      "Breaks": 1,
+      "IsSupport": true
+    }
+  ],
+  "ResistanceLevels": [
+    {
+      "Price": 0.5496666666666666,
+      "Touches": 3,
+      "Bounces": 6,
+      "Breaks": -3,
+      "IsSupport": false
+    },
+    {
+      "Price": 0.683,
+      "Touches": 2,
+      "Bounces": 3,
+      "Breaks": -1,
+      "IsSupport": false
+    },
+    {
+      "Price": 0.73885,
+      "Touches": 2,
+      "Bounces": 3,
+      "Breaks": -1,
+      "IsSupport": false
+    }
+  ],
+  "HourlyPerformance": [],
+  "AvoidHours": [],
+  "BestHours": []
+}

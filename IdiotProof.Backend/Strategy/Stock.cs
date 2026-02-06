@@ -1353,8 +1353,9 @@ namespace IdiotProof.Backend.Strategy
 
         internal TradingStrategy BuildStrategy(OrderAction order)
         {
-            if (_conditions.Count == 0)
-                throw new InvalidOperationException("Strategy must have at least one condition.");
+            // AutonomousTrading handles its own entry conditions - no manual conditions needed
+            if (_conditions.Count == 0 && !order.UseAutonomousTrading)
+                throw new InvalidOperationException("Strategy must have at least one condition (or use AutonomousTrading).");
 
             return new TradingStrategy
             {

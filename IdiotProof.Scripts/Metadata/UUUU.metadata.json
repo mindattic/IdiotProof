@@ -1,0 +1,75 @@
+{
+  "Symbol": "UUUU",
+  "CreatedAt": "2026-02-06T05:08:26.0121638Z",
+  "UpdatedAt": "2026-02-06T05:08:26.0123468Z",
+  "DaysAnalyzed": 1,
+  "BarsAnalyzed": 200,
+  "DailyExtremes": {
+    "AvgHodMinutesFromOpen": 430,
+    "AvgLodMinutesFromOpen": 455,
+    "HodInFirst30MinPercent": 0,
+    "LodInFirst30MinPercent": 0,
+    "HodInLast30MinPercent": 100,
+    "LodInLast30MinPercent": 100,
+    "AvgHodPercentFromOpen": 0.15616866215511496,
+    "AvgLodPercentFromOpen": -3.6439354502863055,
+    "AvgDailyRangePercent": 3.80010411244142
+  },
+  "GapBehavior": {
+    "AvgGapUpPercent": 0,
+    "AvgGapDownPercent": 0,
+    "GapUpFillRate": 0,
+    "GapDownFillRate": 0,
+    "GapUpContinuationRate": 0,
+    "GapDownContinuationRate": 0,
+    "AvgGapFillTimeMinutes": 0
+  },
+  "VwapBehavior": {
+    "AvgPercentAboveVwap": 23.5,
+    "AvgVwapCrossesPerDay": 19,
+    "VwapRejectionContinuationRate": 0,
+    "VwapReclaimHoldRate": 0
+  },
+  "SupportLevels": [
+    {
+      "Price": 18.7082,
+      "Touches": 4,
+      "Bounces": 22,
+      "Breaks": -18,
+      "IsSupport": true
+    },
+    {
+      "Price": 18.855150000000002,
+      "Touches": 2,
+      "Bounces": 5,
+      "Breaks": -3,
+      "IsSupport": true
+    },
+    {
+      "Price": 18.557245454545452,
+      "Touches": 11,
+      "Bounces": 24,
+      "Breaks": -13,
+      "IsSupport": true
+    }
+  ],
+  "ResistanceLevels": [
+    {
+      "Price": 18.8438,
+      "Touches": 5,
+      "Bounces": 17,
+      "Breaks": -12,
+      "IsSupport": false
+    },
+    {
+      "Price": 18.705299999999998,
+      "Touches": 10,
+      "Bounces": 22,
+      "Breaks": -12,
+      "IsSupport": false
+    }
+  ],
+  "HourlyPerformance": [],
+  "AvoidHours": [],
+  "BestHours": []
+}

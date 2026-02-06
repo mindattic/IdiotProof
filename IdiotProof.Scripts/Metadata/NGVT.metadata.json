@@ -1,0 +1,38 @@
+{
+  "Symbol": "NGVT",
+  "CreatedAt": "2026-02-06T05:08:26.0092719Z",
+  "UpdatedAt": "2026-02-06T05:08:26.0093897Z",
+  "DaysAnalyzed": 1,
+  "BarsAnalyzed": 200,
+  "DailyExtremes": {
+    "AvgHodMinutesFromOpen": 430,
+    "AvgLodMinutesFromOpen": 430,
+    "HodInFirst30MinPercent": 0,
+    "LodInFirst30MinPercent": 0,
+    "HodInLast30MinPercent": 100,
+    "LodInLast30MinPercent": 100,
+    "AvgHodPercentFromOpen": 0,
+    "AvgLodPercentFromOpen": 0,
+    "AvgDailyRangePercent": 0
+  },
+  "GapBehavior": {
+    "AvgGapUpPercent": 0,
+    "AvgGapDownPercent": 0,
+    "GapUpFillRate": 0,
+    "GapDownFillRate": 0,
+    "GapUpContinuationRate": 0,
+    "GapDownContinuationRate": 0,
+    "AvgGapFillTimeMinutes": 0
+  },
+  "VwapBehavior": {
+    "AvgPercentAboveVwap": 0,
+    "AvgVwapCrossesPerDay": 0,
+    "VwapRejectionContinuationRate": 0,
+    "VwapReclaimHoldRate": 0
+  },
+  "SupportLevels": [],
+  "ResistanceLevels": [],
+  "HourlyPerformance": [],
+  "AvoidHours": [],
+  "BestHours": []
+}

@@ -107,10 +107,11 @@ namespace IdiotProof.Backend.Models
                 result.AddError($"{prefix} Symbol is required");
             }
 
-            // Condition validation
-            if (strategy.Conditions == null || strategy.Conditions.Count == 0)
+            // Condition validation - AutonomousTrading handles its own entry/exit decisions
+            if ((strategy.Conditions == null || strategy.Conditions.Count == 0) && 
+                !strategy.Order.UseAutonomousTrading)
             {
-                result.AddError($"{prefix} At least one condition is required before the order");
+                result.AddError($"{prefix} At least one condition is required before the order (or use AutonomousTrading)");
             }
 
             // Order validation
