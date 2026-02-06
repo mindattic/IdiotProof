@@ -323,8 +323,6 @@ The system extends TP when momentum is strong, then contracts it when momentum f
 ║  └── Result: Score drops to 0-29 → TP REDUCES (multiplier 0.85-0.925)        ║
 ║      → Price finally meets the lowered TP target → PROFIT TAKEN              ║
 ╚═══════════════════════════════════════════════════════════════════════════════╝
-```
-
 ### Timeline Example: Dynamic TP Adjustment
 
 ```
@@ -1009,3 +1007,6 @@ An IdiotScript indicator condition is "fully implemented" when it has ALL of the
 
 ## Note
 Ignore the IdiotProof.Frontend project for now - it has build errors related to HeartbeatMessage that will be addressed later.
+
+## Repeat Command
+- Use the `Repeat()` command to restart the strategy after it has been completed through Take Profit, Stop Loss, or Trailing Stop Loss. This allows the strategy to re-enter when conditions are met again after an exit.

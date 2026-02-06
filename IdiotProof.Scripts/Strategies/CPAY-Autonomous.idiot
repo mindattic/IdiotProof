@@ -1,0 +1,16 @@
+# ============================================================================
+# CPAY - Autonomous Trading Strategy
+# ============================================================================
+#
+# STRATEGY TYPE: AI-Driven Autonomous Trading
+# RISK LEVEL:    Balanced
+# TIMEFRAME:     Extended Hours
+#
+# ============================================================================
+
+Ticker(CPAY)
+.Name("CPAY Autonomous")
+.Session(IS.EXTENDED)
+.Quantity(100)
+.AutonomousTrading(IS.BALANCED)
+.ExitStrategy(IS.BELL).IsProfitable().Repeat()

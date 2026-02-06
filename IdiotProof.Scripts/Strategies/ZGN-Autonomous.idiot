@@ -1,0 +1,16 @@
+# ============================================================================
+# ZGN - Autonomous Trading Strategy
+# ============================================================================
+#
+# STRATEGY TYPE: AI-Driven Autonomous Trading
+# RISK LEVEL:    Balanced
+# TIMEFRAME:     Extended Hours
+#
+# ============================================================================
+
+Ticker(ZGN)
+.Name("ZGN Autonomous")
+.Session(IS.EXTENDED)
+.Quantity(10)
+.AutonomousTrading(IS.BALANCED)
+.ExitStrategy(IS.BELL).IsProfitable().Repeat()
