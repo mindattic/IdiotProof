@@ -103,6 +103,8 @@ namespace IdiotProof.Shared.Validation
             bool hasTicker = false;
             bool hasRepeat = false;
             bool hasTakeProfit = false;
+            bool hasAutonomousTrading = false;
+            bool hasAdaptiveOrder = false;
             int orderIndex = -1;
 
             for (int i = 0; i < segments.Count; i++)
@@ -143,6 +145,16 @@ namespace IdiotProof.Shared.Validation
                     case "TAKEPROFITRANGE":
                         hasTakeProfit = true;
                         break;
+
+                    case "AUTONOMOUSTRADING":
+                    case "ISAUTONOMOUSTRADING":
+                        hasAutonomousTrading = true;
+                        break;
+
+                    case "ADAPTIVEORDER":
+                    case "ISADAPTIVEORDER":
+                        hasAdaptiveOrder = true;
+                        break;
                 }
 
                 // Check for conditions
@@ -173,24 +185,27 @@ namespace IdiotProof.Shared.Validation
                     "Segments"));
             }
 
-            if (!hasCondition)
+            // AutonomousTrading handles its own conditions internally - no manual conditions needed
+            // AdaptiveOrder also handles exit conditions internally
+            if (!hasCondition && !hasAutonomousTrading)
             {
                 errors.Add(new ValidationError(
                     ValidationCodes.MissingCondition,
-                    "Strategy must have at least one condition before the order",
+                    "Strategy must have at least one condition before the order (or use AutonomousTrading)",
                     "Segments"));
             }
 
-            if (!hasOrder)
+            // AutonomousTrading handles its own orders - no explicit order needed
+            if (!hasOrder && !hasAutonomousTrading)
             {
                 errors.Add(new ValidationError(
                     ValidationCodes.MissingOrder,
-                    "Strategy must have an order (Buy, Sell, or Close)",
+                    "Strategy must have an order (Buy, Sell, or Close) or use AutonomousTrading",
                     "Segments"));
             }
 
             // Warn if Repeat is used without TakeProfit (strategy won't know when to reset)
-            if (hasRepeat && !hasTakeProfit)
+            if (hasRepeat && !hasTakeProfit && !hasAutonomousTrading)
             {
                 warnings.Add(new ValidationWarning(
                     "REPEAT_WITHOUT_TAKEPROFIT",

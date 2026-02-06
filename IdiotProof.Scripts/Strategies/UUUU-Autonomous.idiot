@@ -72,6 +72,6 @@
 Ticker(UUUU)
 .Name("UUUU Autonomous")
 .Session(IS.EXTENDED)
-.Quantity(100)
+.Quantity(50)
 .AutonomousTrading(IS.AGGRESSIVE)
 .ExitStrategy(IS.BELL).IsProfitable()

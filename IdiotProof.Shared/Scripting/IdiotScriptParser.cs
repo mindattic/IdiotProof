@@ -138,6 +138,10 @@ public static partial class IdiotScriptParser
     [GeneratedRegex(@"^(?:TP|TAKEPROFIT)\((\$?[\d.]+)\)$", RegexOptions.IgnoreCase)]
     private static partial Regex TakeProfitPattern();
 
+    // TakeProfitRange - supports: TakeProfit(5.70, 5.90), TakeProfitRange(5.70, 5.90), TP(5.70, 5.90)
+    [GeneratedRegex(@"^(?:TP|TAKEPROFIT|TAKEPROFITRANGE)\((\$?[\d.]+)\s*,\s*(\$?[\d.]+)\)$", RegexOptions.IgnoreCase)]
+    private static partial Regex TakeProfitRangePattern();
+
     [GeneratedRegex(@"^(?:SL|STOPLOSS)\((\$?[\d.]+)\)$", RegexOptions.IgnoreCase)]
     private static partial Regex StopLossPattern();
 
@@ -1174,6 +1178,23 @@ public static partial class IdiotScriptParser
 
     private static bool TryParseTakeProfit(string command, ParseContext context)
     {
+        // First check for two-parameter TakeProfitRange: TakeProfit(5.70, 5.90)
+        var rangeMatch = TakeProfitRangePattern().Match(command);
+        if (rangeMatch.Success)
+        {
+            var lowStr = rangeMatch.Groups[1].Value.Replace("$", "");
+            var highStr = rangeMatch.Groups[2].Value.Replace("$", "");
+            if (double.TryParse(lowStr, out var lowTarget) && double.TryParse(highStr, out var highTarget))
+            {
+                context.TakeProfitLowTarget = lowTarget;
+                context.TakeProfitHighTarget = highTarget;
+                context.TakeProfitPrice = lowTarget; // Use low as default
+                return true;
+            }
+            throw new IdiotScriptException($"Invalid take profit range: {rangeMatch.Groups[1].Value}, {rangeMatch.Groups[2].Value}");
+        }
+
+        // Single-parameter TakeProfit: TakeProfit(5.90)
         var match = TakeProfitPattern().Match(command);
         if (!match.Success) return false;
 
@@ -1791,9 +1812,40 @@ public static partial class IdiotScriptParser
             Parameters = orderParams
         });
 
-        // Add take profit
-        if (context.TakeProfitPrice.HasValue)
+        // Add take profit (single or range)
+        if (context.TakeProfitLowTarget.HasValue && context.TakeProfitHighTarget.HasValue)
         {
+            // ADX-based TakeProfitRange with low and high targets
+            strategy.Segments.Add(new StrategySegment
+            {
+                Type = SegmentType.TakeProfitRange,
+                Category = SegmentCategory.RiskManagement,
+                DisplayName = "Take Profit (ADX Range)",
+                Order = segmentOrder++,
+                Parameters =
+                [
+                    new SegmentParameter
+                    {
+                        Name = "LowTarget",
+                        Label = "Conservative Target",
+                        Type = ParameterType.Price,
+                        Value = context.TakeProfitLowTarget.Value,
+                        IsRequired = true
+                    },
+                    new SegmentParameter
+                    {
+                        Name = "HighTarget",
+                        Label = "Aggressive Target",
+                        Type = ParameterType.Price,
+                        Value = context.TakeProfitHighTarget.Value,
+                        IsRequired = true
+                    }
+                ]
+            });
+        }
+        else if (context.TakeProfitPrice.HasValue)
+        {
+            // Single fixed TakeProfit
             strategy.Segments.Add(new StrategySegment
             {
                 Type = SegmentType.TakeProfit,
@@ -2640,6 +2692,8 @@ public static partial class IdiotScriptParser
         public int Quantity { get; set; } = 1;
         public double? EntryPrice { get; set; }
         public double? TakeProfitPrice { get; set; }
+        public double? TakeProfitLowTarget { get; set; }  // ADX-based low target
+        public double? TakeProfitHighTarget { get; set; } // ADX-based high target
         public double? StopLossPrice { get; set; }
         public double? TrailingStopLossPercent { get; set; }
         public string? AdaptiveOrderMode { get; set; }
