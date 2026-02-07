@@ -37,7 +37,6 @@
     <Folder Include="Logs\" />
     <Folder Include="History\" />
     <Folder Include="Metadata\" />
-    <Folder Include="NewFolder\" />
     <Folder Include="Profiles\" />
   </ItemGroup>
 

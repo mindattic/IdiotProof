@@ -342,6 +342,120 @@ public sealed class HistoricalDataCache
         return results.OrderBy(i => i.Symbol).ToList();
     }
 
+    /// <summary>
+    /// Incrementally updates cached data by only fetching missing days.
+    /// If cache exists with data through Feb 5, and today is Feb 7, 
+    /// it only fetches Feb 6-7 and merges with cached data.
+    /// </summary>
+    /// <param name="symbol">The ticker symbol.</param>
+    /// <param name="histService">Historical data service for API calls.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Number of new bars fetched (0 if cache was up-to-date).</returns>
+    public async Task<int> IncrementalUpdateAsync(
+        string symbol,
+        HistoricalDataService histService,
+        CancellationToken cancellationToken = default)
+    {
+        if (histService == null)
+            throw new ArgumentNullException(nameof(histService));
+
+        // Load existing cache
+        var cached = LoadFromCache(symbol);
+        
+        if (cached == null || cached.Count == 0)
+        {
+            // No cache - do full fetch
+            Log($"[{symbol}] No cache found - doing full fetch");
+            var fetched = await GetOrFetchAsync(symbol, histService, forceRefresh: false, cancellationToken);
+            return fetched.Count;
+        }
+
+        // Find the last bar date in cache
+        var lastBarTime = cached.Max(b => b.Time);
+        var lastBarDate = DateOnly.FromDateTime(lastBarTime);
+        var today = DateOnly.FromDateTime(DateTime.Now);
+
+        // Check if cache is already up-to-date (last bar is from today)
+        if (lastBarDate >= today)
+        {
+            Log($"[{symbol}] Cache is up-to-date (last bar: {lastBarTime:yyyy-MM-dd HH:mm})");
+            return 0;
+        }
+
+        // Calculate days missing
+        int daysMissing = today.DayNumber - lastBarDate.DayNumber;
+        Log($"[{symbol}] Cache has data through {lastBarDate}, missing {daysMissing} day(s)");
+
+        // Fetch only the missing days (add 1 day buffer for overlap handling)
+        int barsPerDay = 960; // 16 hours * 60 minutes
+        int barsToFetch = barsPerDay * (daysMissing + 1);
+
+        // Fetch from API - the end date is now, and we fetch enough bars to cover missing days
+        await histService.FetchHistoricalDataAsync(
+            symbol,
+            barsToFetch,
+            BarSize.Minutes1,
+            HistoricalDataType.Trades,
+            useRTH: false,
+            cancellationToken: cancellationToken);
+
+        var newBars = histService.Store.GetBars(symbol);
+        if (newBars.Count == 0)
+        {
+            Log($"[{symbol}] No new bars fetched");
+            return 0;
+        }
+
+        // Filter to only bars AFTER our last cached bar (avoid duplicates)
+        var trulyNewBars = newBars.Where(b => b.Time > lastBarTime).ToList();
+
+        if (trulyNewBars.Count == 0)
+        {
+            Log($"[{symbol}] No new bars after {lastBarTime:yyyy-MM-dd HH:mm}");
+            return 0;
+        }
+
+        Log($"[{symbol}] Adding {trulyNewBars.Count} new bars (from {trulyNewBars.Min(b => b.Time):yyyy-MM-dd HH:mm} to {trulyNewBars.Max(b => b.Time):yyyy-MM-dd HH:mm})");
+
+        // Merge new bars with cached bars
+        var merged = cached.Concat(trulyNewBars)
+            .OrderBy(b => b.Time)
+            .ToList();
+
+        // Trim to keep only the most recent DaysToFetch days worth of data
+        var cutoffDate = DateTime.Now.AddDays(-DaysToFetch);
+        var trimmed = merged.Where(b => b.Time >= cutoffDate).ToList();
+
+        // Save merged data
+        SaveToCache(symbol, trimmed);
+
+        Log($"[{symbol}] Updated cache: {trimmed.Count} total bars ({trulyNewBars.Count} new)");
+        return trulyNewBars.Count;
+    }
+
+    /// <summary>
+    /// Gets historical data, using incremental update strategy.
+    /// - If no cache: fetches full 30 days
+    /// - If cache exists: only fetches missing days and merges
+    /// This minimizes API calls.
+    /// </summary>
+    /// <param name="symbol">The ticker symbol.</param>
+    /// <param name="histService">Historical data service for API calls.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>List of historical bars (up-to-date).</returns>
+    public async Task<List<HistoricalBar>> GetWithIncrementalUpdateAsync(
+        string symbol,
+        HistoricalDataService histService,
+        CancellationToken cancellationToken = default)
+    {
+        // First, do incremental update to ensure cache is current
+        await IncrementalUpdateAsync(symbol, histService, cancellationToken);
+
+        // Now load from cache (guaranteed to be up-to-date)
+        var cached = LoadFromCache(symbol);
+        return cached ?? [];
+    }
+
     private static void Log(string message)
     {
         Console.WriteLine($"[HistoryCache] {message}");

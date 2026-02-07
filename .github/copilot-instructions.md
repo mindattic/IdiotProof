@@ -1059,6 +1059,69 @@ An IdiotScript indicator condition is "fully implemented" when it has ALL of the
 - **VWAP-based conditions** (IsAboveVwap, IsBelowVwap, etc.) don't need calculators - VWAP is passed directly to `Evaluate(price, vwap)`
 - **Price-based conditions** (IsPriceAbove, IsPriceBelow, Entry, Breakout) don't need calculators - they use the price parameter
 
+## Watchlist - Multi-Ticker Autonomous Trading
+
+The **watchlist.json** file allows you to configure multiple tickers for autonomous trading in one place. Edit this file outside the app and restart to trade all configured tickers automatically.
+
+### File Location
+```
+IdiotProof.Core\Scripts\watchlist.json
+```
+
+### File Format
+```json
+{
+  "description": "My Trading Watchlist",
+  "enabled": true,
+  "session": "RTH",
+  "tickers": [
+    { "symbol": "NVDA", "quantity": 5, "name": "NVIDIA", "enabled": true },
+    { "symbol": "AAPL", "quantity": 10, "name": "Apple", "enabled": true },
+    { "symbol": "TSLA", "quantity": 3, "name": "Tesla", "enabled": false },
+    { "symbol": "SPY", "quantity": 20, "name": "S&P 500 ETF", "enabled": true }
+  ]
+}
+```
+
+### Fields
+| Field | Description |
+|-------|-------------|
+| `enabled` | Global on/off switch for all autonomous trading |
+| `session` | Default session: `RTH`, `Premarket`, `AfterHours`, `Extended` |
+| `tickers` | Array of ticker configurations |
+| `tickers[].symbol` | Ticker symbol (e.g., "NVDA") |
+| `tickers[].quantity` | Number of shares to trade |
+| `tickers[].name` | Optional friendly name |
+| `tickers[].enabled` | Enable/disable individual tickers |
+| `tickers[].session` | Override session for this ticker |
+
+### Usage in Code
+```csharp
+// Load watchlist
+var watchlist = WatchlistManager.Load();
+
+// Generate IdiotScript for each enabled ticker
+foreach (var script in WatchlistManager.GenerateScripts())
+{
+    // script = "Ticker(NVDA).Name("NVDA Auto").Session(IS.RTH).Quantity(5).AutonomousTrading()"
+}
+
+// Print summary
+WatchlistManager.PrintSummary();
+```
+
+### Quick Commands
+```csharp
+// Add or update a ticker
+WatchlistManager.AddOrUpdate("META", 15);
+
+// Disable without removing
+WatchlistManager.Disable("TSLA");
+
+// Remove completely
+WatchlistManager.Remove("GME");
+```
+
 ## Note
 Ignore the IdiotProof.Frontend project for now - it has build errors related to HeartbeatMessage that will be addressed later.
 

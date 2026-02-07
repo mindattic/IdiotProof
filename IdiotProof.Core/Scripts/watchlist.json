@@ -1,0 +1,31 @@
+{
+  "description": "Autonomous Trading Watchlist - Edit this file to configure your tickers",
+  "enabled": true,
+  "session": "RTH",
+  "tickers": [
+    {
+      "symbol": "NVDA",
+      "quantity": 5,
+      "name": "NVIDIA",
+      "enabled": true
+    },
+    {
+      "symbol": "AAPL",
+      "quantity": 10,
+      "name": "Apple",
+      "enabled": true
+    },
+    {
+      "symbol": "TSLA",
+      "quantity": 3,
+      "name": "Tesla",
+      "enabled": false
+    },
+    {
+      "symbol": "SPY",
+      "quantity": 20,
+      "name": "S&P 500 ETF",
+      "enabled": true
+    }
+  ]
+}
