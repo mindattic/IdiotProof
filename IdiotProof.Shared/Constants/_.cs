@@ -226,10 +226,11 @@ public static class _
     /// </summary>
     public static class Folder
     {
-        public const string Scripts = "IdiotProof.Scripts";
+        public const string Core = "IdiotProof.Core";
+        public const string Scripts = "Scripts";
         public const string Strategies = "Strategies";
         public const string Profiles = "Profiles";
-        public const string Logs = "IdiotProof.Logs";
+        public const string Logs = "Logs";
         public const string Settings = "Settings";
         public const string Backend = "Backend";
         public const string Console = "Console";
@@ -241,12 +242,11 @@ public static class _
     /// </summary>
     public static class Project
     {
+        public const string Core = "IdiotProof.Core";
         public const string Backend = "IdiotProof.Backend";
         public const string Console = "IdiotProof.Console";
         public const string Frontend = "IdiotProof.Frontend";
         public const string Shared = "IdiotProof.Shared";
-        public const string Scripts = "IdiotProof.Scripts";
-        public const string Logs = "IdiotProof.Logs";
     }
 
     /// <summary>

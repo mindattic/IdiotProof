@@ -82,21 +82,21 @@
 // - OrderType(LIMIT)              - Set order type
 // - Repeat() or IsRepeat() or Repeat(Y) or IsRepeat(IS.True) - Strategy repeats after completion
 // - Repeat(N) or IsRepeat(IS.False) - Strategy fires once (default)
-// - AdaptiveOrder() or IsAdaptiveOrder() - Smart dynamic order adjustment
-// - AdaptiveOrder(IS.AGGRESSIVE)  - Adaptive order with aggressive mode
-// - AdaptiveOrder(IS.CONSERVATIVE) - Adaptive order with conservative mode
+// - AutonomousTrading() or IsAutonomousTrading() - AI-driven trading with dynamic TP/SL
+// - AutonomousTrading(IS.AGGRESSIVE)  - Autonomous trading with aggressive mode
+// - AutonomousTrading(IS.FLIPTRADER)  - Always in market, pivots on reversals
 //
 // EXAMPLE:
 // Ticker(NVDA).Session(IS.PREMARKET).ClosePosition(IS.BELL).Qty(1).Entry(200).TakeProfit(201).StopLoss(190).TrailingStopLoss(10).Breakout().Pullback().AboveVwap().EmaBetween(9, 21).EmaAbove(200).MomentumAbove(0)
 //
 // GAP AND GO EXAMPLE:
-// Ticker(NVDA).Session(IS.PREMARKET).GapUp(5).AboveVwap().DiPositive().Order().AdaptiveOrder(IS.AGGRESSIVE)
+// Ticker(NVDA).Session(IS.PREMARKET).GapUp(5).AboveVwap().DiPositive().Order().AutonomousTrading(IS.AGGRESSIVE)
 //
 // REPEATING STRATEGY EXAMPLE:
 // Ticker(ABC).Entry(5.00).TakeProfit(6.00).AboveVwap().DiPositive().Repeat()
 //
-// ADAPTIVE ORDER EXAMPLE:
-// Ticker(AAPL).Entry(150).TakeProfit(160).StopLoss(145).AdaptiveOrder(IS.AGGRESSIVE)
+// AUTONOMOUS TRADING EXAMPLE:
+// Ticker(AAPL).AutonomousTrading(IS.AGGRESSIVE)
 //
 // ============================================================================
 
@@ -246,10 +246,6 @@ public static partial class IdiotScriptParser
 
     [GeneratedRegex(@"^(?:IS)?GAPDOWN\((\d+(?:\.\d+)?)\%?\)$", RegexOptions.IgnoreCase)]
     private static partial Regex GapDownPattern();
-
-    // Adaptive order pattern - supports: AdaptiveOrder, IsAdaptiveOrder, AdaptiveOrder(), AdaptiveOrder(IS.AGGRESSIVE), etc.
-    [GeneratedRegex(@"^(?:IS)?ADAPTIVEORDER(?:\(([A-Za-z0-9_.]*)\))?$", RegexOptions.IgnoreCase)]
-    private static partial Regex AdaptiveOrderPattern();
 
     // Autonomous trading pattern - supports: AutonomousTrading, IsAutonomousTrading, AutonomousTrading(), AutonomousTrading(IS.AGGRESSIVE), etc.
     [GeneratedRegex(@"^(?:IS)?AUTONOMOUSTRADING(?:\(([A-Za-z0-9_.]*)\))?$", RegexOptions.IgnoreCase)]
@@ -832,9 +828,6 @@ public static partial class IdiotScriptParser
         // Trailing Stop Loss
         if (TryParseTrailingStopLoss(command, context)) return;
 
-        // Adaptive Order
-        if (TryParseAdaptiveOrder(command, context)) return;
-
         // Autonomous Trading
         if (TryParseAutonomousTrading(command, context)) return;
 
@@ -1254,51 +1247,6 @@ public static partial class IdiotScriptParser
         throw new IdiotScriptException($"Invalid trailing stop loss: {match.Groups[1].Value}");
     }
 
-    private static bool TryParseAdaptiveOrder(string command, ParseContext context)
-    {
-        var match = AdaptiveOrderPattern().Match(command);
-        if (!match.Success) return false;
-
-        var value = match.Groups[1].Value.Trim();
-
-        // If no value provided (e.g., "AdaptiveOrder", "IsAdaptiveOrder", "AdaptiveOrder()"), default to Balanced
-        if (string.IsNullOrEmpty(value))
-        {
-            context.AdaptiveOrderMode = "Balanced";
-            return true;
-        }
-
-        // Check if it's a constant (IS. prefix)
-        if (IdiotScriptConstants.IsConstant(value))
-        {
-            var resolved = IdiotScriptConstants.ResolveConstant(value);
-            if (!string.IsNullOrEmpty(resolved))
-            {
-                // Normalize mode name
-                context.AdaptiveOrderMode = resolved.ToUpperInvariant() switch
-                {
-                    "CONSERVATIVE" or "SAFE" => "Conservative",
-                    "BALANCED" or "MODERATE" or "NORMAL" => "Balanced",
-                    "AGGRESSIVE" or "RISKY" => "Aggressive",
-                    _ => resolved // Pass through for custom modes
-                };
-                return true;
-            }
-            throw new IdiotScriptException($"Unknown adaptive order constant: {value}");
-        }
-
-        // Direct mode name
-        context.AdaptiveOrderMode = value.ToUpperInvariant() switch
-        {
-            "CONSERVATIVE" or "SAFE" => "Conservative",
-            "BALANCED" or "MODERATE" or "NORMAL" => "Balanced",
-            "AGGRESSIVE" or "RISKY" => "Aggressive",
-            _ => value // Allow custom mode names
-        };
-
-        return true;
-    }
-
     private static bool TryParseAutonomousTrading(string command, ParseContext context)
     {
         var match = AutonomousTradingPattern().Match(command);
@@ -1325,6 +1273,7 @@ public static partial class IdiotScriptParser
                     "CONSERVATIVE" or "SAFE" => "Conservative",
                     "BALANCED" or "MODERATE" or "NORMAL" => "Balanced",
                     "AGGRESSIVE" or "RISKY" => "Aggressive",
+                    "FLIPTRADER" or "FLIP" => "FlipTrader",
                     _ => resolved // Pass through for custom modes
                 };
                 return true;
@@ -1338,6 +1287,7 @@ public static partial class IdiotScriptParser
             "CONSERVATIVE" or "SAFE" => "Conservative",
             "BALANCED" or "MODERATE" or "NORMAL" => "Balanced",
             "AGGRESSIVE" or "RISKY" => "Aggressive",
+            "FLIPTRADER" or "FLIP" => "FlipTrader",
             _ => value // Allow custom mode names
         };
 
@@ -1898,26 +1848,6 @@ public static partial class IdiotScriptParser
                     Label = "Percentage",
                     Type = ParameterType.Percentage,
                     Value = context.TrailingStopLossPercent.Value,
-                    IsRequired = true
-                }]
-            });
-        }
-
-        // Add adaptive order
-        if (!string.IsNullOrEmpty(context.AdaptiveOrderMode))
-        {
-            strategy.Segments.Add(new StrategySegment
-            {
-                Type = SegmentType.AdaptiveOrder,
-                Category = SegmentCategory.RiskManagement,
-                DisplayName = "Adaptive Order",
-                Order = segmentOrder++,
-                Parameters = [new SegmentParameter
-                {
-                    Name = "Mode",
-                    Label = "Mode",
-                    Type = ParameterType.String,
-                    Value = context.AdaptiveOrderMode,
                     IsRequired = true
                 }]
             });
@@ -2696,7 +2626,6 @@ public static partial class IdiotScriptParser
         public double? TakeProfitHighTarget { get; set; } // ADX-based high target
         public double? StopLossPrice { get; set; }
         public double? TrailingStopLossPercent { get; set; }
-        public string? AdaptiveOrderMode { get; set; }
         public string? AutonomousTradingMode { get; set; }
         public List<OrderedCondition> OrderedConditions { get; } = [];
         public TradingSession? Session { get; set; }

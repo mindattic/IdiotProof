@@ -153,6 +153,9 @@ public static class IdiotScriptConstants
     /// <summary>Aggressive adaptive mode: maximize profit potential in strong trends</summary>
     public const string ADAPTIVE_AGGRESSIVE = "IS.AGGRESSIVE";
 
+    /// <summary>FlipTrader mode: always in market, pivots on reversals without TP/SL</summary>
+    public const string ADAPTIVE_FLIPTRADER = "IS.FLIPTRADER";
+
     // ========================================================================
     // ORDER DIRECTION
     // ========================================================================
@@ -252,6 +255,8 @@ public static class IdiotScriptConstants
             "IS.CONSERVATIVE" => "Conservative",
             "IS.BALANCED" => "Balanced",
             "IS.AGGRESSIVE" => "Aggressive",
+            "IS.FLIPTRADER" => "FlipTrader",  // Always in market, pivots on reversals
+            "IS.FLIP" => "FlipTrader",        // Alias
             "IS.SAFE" => "Conservative",      // Alias
             "IS.NORMAL" => "Balanced",        // Alias
             "IS.RISKY" => "Aggressive",       // Alias

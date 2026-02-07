@@ -94,7 +94,6 @@ public static partial class IdiotScriptValidator
         // Risk Management commands
         "TP", "TAKEPROFIT", "SL", "STOPLOSS",
         "TSL", "TRAILINGSTOPLOSS",
-        "ADAPTIVEORDER", "ISADAPTIVEORDER",
 
         // Price Condition commands
         "BREAKOUT", "PULLBACK",
@@ -176,7 +175,7 @@ public static partial class IdiotScriptValidator
         "IS.LONG", "IS.SHORT", "IS.CLOSE_LONG", "IS.CLOSE_SHORT",
 
         // Adaptive Order modes
-        "IS.CONSERVATIVE", "IS.BALANCED", "IS.AGGRESSIVE",
+        "IS.CONSERVATIVE", "IS.BALANCED", "IS.AGGRESSIVE", "IS.FLIPTRADER", "IS.FLIP",
 
         // Indicator thresholds
         "IS.RSI_OVERSOLD", "IS.RSI_OVERBOUGHT", "IS.ADX_STRONG", "IS.ADX_WEAK",

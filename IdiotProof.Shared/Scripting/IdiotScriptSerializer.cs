@@ -149,15 +149,6 @@ public static class IdiotScriptSerializer
             }
         }
 
-        // Adaptive order
-        var adaptiveSegment = orderedSegments.FirstOrDefault(s => s.Type == SegmentType.AdaptiveOrder);
-        if (adaptiveSegment != null)
-        {
-            var mode = GetParameterValue<string>(adaptiveSegment, "Mode", "Balanced");
-            var modeConstant = GetAdaptiveOrderConstant(mode);
-            parts.Add($"AdaptiveOrder({modeConstant})");
-        }
-
         // Autonomous trading
         var autonomousSegment = orderedSegments.FirstOrDefault(s => s.Type == SegmentType.AutonomousTrading);
         if (autonomousSegment != null)
@@ -508,6 +499,7 @@ public static class IdiotScriptSerializer
             "CONSERVATIVE" => "IS.CONSERVATIVE",
             "BALANCED" => "IS.BALANCED",
             "AGGRESSIVE" => "IS.AGGRESSIVE",
+            "FLIPTRADER" => "IS.FLIPTRADER",
             _ => mode
         };
     }

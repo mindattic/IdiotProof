@@ -300,12 +300,6 @@ public static class FluentApiScriptMapping
             "ExecutionBehavior",
             "Allow strategy to repeat after exit"),
 
-        new(".AdaptiveOrder(mode)",
-            ["ADAPTIVEORDER", "ISADAPTIVEORDER"],
-            ["mode: IS.CONSERVATIVE, IS.BALANCED, IS.AGGRESSIVE"],
-            "RiskManagement",
-            "Enables smart dynamic TP/SL adjustment based on market conditions"),
-
         // ====================================================================
         // MACD CONDITIONS
         // ====================================================================

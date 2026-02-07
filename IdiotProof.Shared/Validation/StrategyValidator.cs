@@ -104,7 +104,6 @@ namespace IdiotProof.Shared.Validation
             bool hasRepeat = false;
             bool hasTakeProfit = false;
             bool hasAutonomousTrading = false;
-            bool hasAdaptiveOrder = false;
             int orderIndex = -1;
 
             for (int i = 0; i < segments.Count; i++)
@@ -149,11 +148,6 @@ namespace IdiotProof.Shared.Validation
                     case "AUTONOMOUSTRADING":
                     case "ISAUTONOMOUSTRADING":
                         hasAutonomousTrading = true;
-                        break;
-
-                    case "ADAPTIVEORDER":
-                    case "ISADAPTIVEORDER":
-                        hasAdaptiveOrder = true;
                         break;
                 }
 

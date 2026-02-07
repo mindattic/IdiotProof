@@ -887,7 +887,7 @@ public class IdiotScriptParserTests
     public void Parse_GapAndGoStrategy_ParsesCorrectly()
     {
         // Complete "Gap and Go" strategy
-        var script = "Ticker(NVDA).Session(IS.PREMARKET).GapUp(5).AboveVwap().DiPositive().AdaptiveOrder(IS.AGGRESSIVE)";
+        var script = "Ticker(NVDA).Session(IS.PREMARKET).GapUp(5).AboveVwap().DiPositive().AutonomousTrading(IS.AGGRESSIVE)";
         var result = IdiotScriptParser.Parse(script);
 
         Assert.Multiple(() =>
@@ -896,7 +896,7 @@ public class IdiotScriptParserTests
             Assert.That(result.Segments, Has.Some.Matches<Models.StrategySegment>(s => s.Type == SegmentType.GapUp));
             Assert.That(result.Segments, Has.Some.Matches<Models.StrategySegment>(s => s.Type == SegmentType.IsAboveVwap));
             Assert.That(result.Segments, Has.Some.Matches<Models.StrategySegment>(s => s.Type == SegmentType.IsDI));
-            Assert.That(result.Segments, Has.Some.Matches<Models.StrategySegment>(s => s.Type == SegmentType.AdaptiveOrder));
+            Assert.That(result.Segments, Has.Some.Matches<Models.StrategySegment>(s => s.Type == SegmentType.AutonomousTrading));
         });
     }
 

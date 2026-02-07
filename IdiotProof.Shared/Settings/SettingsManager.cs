@@ -7,10 +7,10 @@
 //   {SolutionRoot}\Settings\{ProjectName}\settings.json
 //
 // Strategies are stored under:
-//   {SolutionRoot}\IdiotProof.Scripts\
+//   {SolutionRoot}\IdiotProof.Core\Scripts\
 //
 // Logs are stored under:
-//   {SolutionRoot}\IdiotProof.Logs\
+//   {SolutionRoot}\IdiotProof.Core\Logs\
 //
 // The solution root is detected by walking up from the executing assembly
 // location until a .sln file is found, or falls back to the current directory.
@@ -100,20 +100,30 @@ public static class SettingsManager
 
     /// <summary>
     /// Gets the shared strategies folder path.
-    /// Strategies are stored in: {SolutionRoot}\IdiotProof.Scripts\Strategies\
+    /// Strategies are stored in: {SolutionRoot}\IdiotProof.Core\Scripts\
     /// </summary>
     public static string GetStrategiesFolder()
     {
-        return Path.Combine(GetBaseFolder(), _.Folder.Scripts, _.Folder.Strategies);
+        return Path.Combine(GetBaseFolder(), _.Folder.Core, _.Folder.Scripts);
     }
 
     /// <summary>
     /// Gets the shared profiles folder path for learning system data.
-    /// Profiles are stored in: {SolutionRoot}\IdiotProof.Scripts\Profiles\
+    /// Profiles are stored in: {SolutionRoot}\IdiotProof.Core\Profiles\
+    /// Learning data for each ticker to improve autonomous trading decisions.
     /// </summary>
     public static string GetProfilesFolder()
     {
-        return Path.Combine(GetBaseFolder(), _.Folder.Scripts, _.Folder.Profiles);
+        return Path.Combine(GetBaseFolder(), _.Folder.Core, _.Folder.Profiles);
+    }
+
+    /// <summary>
+    /// Gets the shared metadata folder path for ticker analysis data.
+    /// Metadata is stored in: {SolutionRoot}\IdiotProof.Core\Metadata\
+    /// </summary>
+    public static string GetMetadataFolder()
+    {
+        return Path.Combine(GetBaseFolder(), _.Folder.Core, "Metadata");
     }
 
     /// <summary>
@@ -121,7 +131,7 @@ public static class SettingsManager
     /// </summary>
     public static string GetLogsFolder()
     {
-        return Path.Combine(GetBaseFolder(), _.Folder.Logs);
+        return Path.Combine(GetBaseFolder(), _.Folder.Core, _.Folder.Logs);
     }
 
     /// <summary>
@@ -158,17 +168,22 @@ public static class SettingsManager
     /// </summary>
     public static void EnsureFoldersExist(string? projectName = null)
     {
-        // Create strategies folder (IdiotProof.Scripts\Strategies)
+        // Create strategies folder (IdiotProof.Core\Scripts)
         var strategiesFolder = GetStrategiesFolder();
         if (!Directory.Exists(strategiesFolder))
             Directory.CreateDirectory(strategiesFolder);
 
-        // Create profiles folder (IdiotProof.Scripts\Profiles)
+        // Create profiles folder (IdiotProof.Core\Profiles)
         var profilesFolder = GetProfilesFolder();
         if (!Directory.Exists(profilesFolder))
             Directory.CreateDirectory(profilesFolder);
 
-        // Create logs folder
+        // Create metadata folder (IdiotProof.Core\Metadata)
+        var metadataFolder = GetMetadataFolder();
+        if (!Directory.Exists(metadataFolder))
+            Directory.CreateDirectory(metadataFolder);
+
+        // Create logs folder (IdiotProof.Core\Logs)
         var logsFolder = GetLogsFolder();
         if (!Directory.Exists(logsFolder))
             Directory.CreateDirectory(logsFolder);
@@ -191,6 +206,3 @@ public static class SettingsManager
         }
     }
 }
-
-
-

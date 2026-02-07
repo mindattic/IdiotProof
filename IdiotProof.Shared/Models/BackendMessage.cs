@@ -29,6 +29,7 @@ namespace IdiotProof.Shared.Models
         ValidateStrategy, // Request strategy validation from backend
         GetTrades, // Get IdiotProof trade tracking data
         RunBacktest, // Run autonomous learning backtest for a symbol
+        GetHistoricalData, // Request historical bars for a symbol on a date
 
         // Responses (Backend -> Frontend)
         StatusResponse,
@@ -38,6 +39,7 @@ namespace IdiotProof.Shared.Models
         ValidationResponse, // Validation result from backend
         TradesResponse, // Trade tracking response
         BacktestResponse, // Backtest result
+        HistoricalDataResponse, // Historical bars response
 
         // Push notifications (Backend -> Frontend)
         ConsoleOutput,
@@ -297,6 +299,65 @@ namespace IdiotProof.Shared.Models
         /// Profile learning confidence (0-100).
         /// </summary>
         public double Confidence { get; set; }
+    }
+
+    /// <summary>
+    /// Request to fetch historical bar data for backtesting.
+    /// </summary>
+    public class HistoricalDataRequest
+    {
+        /// <summary>
+        /// Symbol to fetch data for.
+        /// </summary>
+        public string Symbol { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Date to fetch data for.
+        /// </summary>
+        public DateOnly Date { get; set; }
+
+        /// <summary>
+        /// Include extended hours (premarket/afterhours).
+        /// </summary>
+        public bool IncludeExtendedHours { get; set; } = true;
+    }
+
+    /// <summary>
+    /// Response containing historical bar data.
+    /// </summary>
+    public class HistoricalDataResponse
+    {
+        public bool Success { get; set; }
+        public string? ErrorMessage { get; set; }
+
+        /// <summary>
+        /// Symbol that was requested.
+        /// </summary>
+        public string Symbol { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Date of the data.
+        /// </summary>
+        public DateOnly Date { get; set; }
+
+        /// <summary>
+        /// The historical bars (1-minute OHLCV).
+        /// </summary>
+        public List<HistoricalBarInfo> Bars { get; set; } = [];
+    }
+
+    /// <summary>
+    /// Single historical bar for IPC transfer.
+    /// </summary>
+    public class HistoricalBarInfo
+    {
+        public DateTime Time { get; set; }
+        public double Open { get; set; }
+        public double High { get; set; }
+        public double Low { get; set; }
+        public double Close { get; set; }
+        public long Volume { get; set; }
+        public double? Vwap { get; set; }
     }
 }
 
