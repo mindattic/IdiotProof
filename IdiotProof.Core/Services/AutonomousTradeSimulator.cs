@@ -24,7 +24,14 @@ public enum AutonomousMode
 {
     Conservative,
     Balanced,
-    Aggressive
+    Aggressive,
+    /// <summary>
+    /// Optimized: Uses all available tools to maximize profit.
+    /// Lower entry thresholds with indicator confirmation requirements.
+    /// Dynamic position sizing based on confidence level.
+    /// Trailing stops and partial profit taking.
+    /// </summary>
+    Optimized
 }
 
 /// <summary>

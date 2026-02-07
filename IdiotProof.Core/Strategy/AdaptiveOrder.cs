@@ -377,7 +377,16 @@ namespace IdiotProof.Backend.Models
         /// Enters on moderate signals (score >= 60 or <= -60).
         /// Tighter TP targets, tighter SL for quick profits.
         /// </summary>
-        Aggressive
+        Aggressive,
+
+        /// <summary>
+        /// Optimized: Maximum profit mode using all available tools.
+        /// Uses indicator confirmation to enter on lower thresholds.
+        /// Dynamic position sizing based on score strength.
+        /// Trailing take profits, scaled entries, and learned patterns.
+        /// Requires minimum indicator agreement for entries.
+        /// </summary>
+        Optimized
     }
 
     /// <summary>
@@ -613,6 +622,29 @@ namespace IdiotProof.Backend.Models
             MinSecondsBetweenTrades = 120,  // 2 minutes between trades (was 180)
             MinScoreChangeForTrade = 10,
             TradingHoursOnly = false        // Allow extended hours
+        };
+
+        /// <summary>
+        /// Optimized: Maximum profit mode using all available tools and filters.
+        /// Requires higher indicator confirmation, uses trailing stops, and avoids volatile periods.
+        /// Target: 60%+ win rate with excellent risk:reward.
+        /// </summary>
+        public static AutonomousTradingConfig Optimized => new()
+        {
+            Mode = AutonomousMode.Optimized,
+            LongEntryThreshold = 55,        // Lower threshold, but requires confirmation
+            ShortEntryThreshold = -55,
+            LongExitThreshold = 10,         // Hold longer with trailing stop
+            ShortExitThreshold = -10,
+            TakeProfitAtrMultiplier = 1.5,  // Tighter TP to lock in gains
+            StopLossAtrMultiplier = 2.5,    // Wider SL to avoid whipsaws
+            TakeProfitPercent = 0.015,      // 1.5% TP
+            StopLossPercent = 0.025,        // 2.5% SL
+            AllowDirectionFlip = true,
+            AllowShort = true,
+            MinSecondsBetweenTrades = 60,   // 1 minute between trades
+            MinScoreChangeForTrade = 15,
+            TradingHoursOnly = true         // RTH only for cleaner signals
         };
 
         /// <summary>

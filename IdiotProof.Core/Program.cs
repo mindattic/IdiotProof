@@ -759,14 +759,25 @@ namespace IdiotProof.Backend
             Log("");
 
             // Symbol
-            Console.Write("  Symbol (e.g., AAPL): ");
+            Console.Write("  Symbol(s) (e.g., AAPL or AAPL,MSFT): ");
             var symbolInput = Console.ReadLine()?.Trim().ToUpperInvariant();
             if (string.IsNullOrEmpty(symbolInput))
             {
                 Log("  Cancelled.");
                 return;
             }
-            var symbol = symbolInput;
+            var symbols = symbolInput
+                .Split(new[] { ',', ';', ' ', '\t' }, StringSplitOptions.RemoveEmptyEntries)
+                .Select(s => s.Trim().ToUpperInvariant())
+                .Where(s => !string.IsNullOrWhiteSpace(s))
+                .Distinct()
+                .ToList();
+
+            if (symbols.Count == 0)
+            {
+                Log("  Cancelled.");
+                return;
+            }
 
             // Days
             Console.Write("  Days to backtest [30]: ");
@@ -779,24 +790,36 @@ namespace IdiotProof.Backend
             var qty = string.IsNullOrEmpty(qtyInput) ? 100 : int.TryParse(qtyInput, out var q) ? q : 100;
 
             Log("");
-            Log($"Starting backtest for {symbol}...");
+            Log($"Starting backtest for {symbols.Count} ticker(s)...");
             Log($"  Days: {days}, Quantity: {qty}");
             Log("");
 
-            var request = new RunBacktestRequest
-            {
-                Symbol = symbol,
-                Days = days,
-                Mode = "adaptive", // Ignored - simulator adapts dynamically
-                Quantity = qty,
-                SaveProfile = true
-            };
+            var summaryResults = new List<BacktestResponsePayload>();
 
-            var result = RunBacktestAsync(request).GetAwaiter().GetResult();
-
-            Log("");
-            if (result.Success)
+            foreach (var symbol in symbols)
             {
+                Log($"--- {symbol} ---");
+
+                var request = new RunBacktestRequest
+                {
+                    Symbol = symbol,
+                    Days = days,
+                    Mode = "adaptive", // Ignored - simulator adapts dynamically
+                    Quantity = qty,
+                    SaveProfile = true
+                };
+
+                var result = RunBacktestAsync(request).GetAwaiter().GetResult();
+                summaryResults.Add(result);
+
+                if (!result.Success)
+                {
+                    Log($"Backtest failed: {result.ErrorMessage}");
+                    Log("");
+                    continue;
+                }
+
+                Log("");
                 Log("=== Backtest Results ===");
                 Log($"Symbol:         {result.Symbol}");
                 Log($"Bars Processed: {result.BarsProcessed:N0}");
@@ -817,6 +840,10 @@ namespace IdiotProof.Backend
                     if (profile != null)
                     {
                         Log($"Profile saved: {SettingsManager.GetProfilesFolder()}\\{symbol}.json");
+                        if (profile.BacktestStartDate.HasValue && profile.BacktestEndDate.HasValue)
+                        {
+                            Log($"Backtest range: {profile.BacktestStartDate:yyyy-MM-dd} to {profile.BacktestEndDate:yyyy-MM-dd} ({profile.BacktestDays} days)");
+                        }
                         Log("");
                         Log("Learned Adjustments:");
                         Log($"  Optimal Long Entry:  Score >= {profile.OptimalLongEntryThreshold} (default: 70)");
@@ -830,70 +857,28 @@ namespace IdiotProof.Backend
                         Log($"  Short Win Rate: {profile.ShortWinRate:F1}%");
                         Log($"  Profit Factor: {profile.ProfitFactor:F2}");
                         Log($"  Avg Duration:  {profile.AverageTradeDurationMinutes:F1} min");
-
-                        // Show time window patterns
-                        if (profile.TimeWindowStats.Count > 0)
-                        {
-                            var bestHours = profile.TimeWindowStats
-                                .Where(t => t.Value.TotalTrades >= 3 && t.Value.WinRate >= 60)
-                                .OrderByDescending(t => t.Value.WinRate)
-                                .Take(3)
-                                .ToList();
-
-                            var worstHours = profile.TimeWindowStats
-                                .Where(t => t.Value.TotalTrades >= 3 && t.Value.WinRate < 40)
-                                .OrderBy(t => t.Value.WinRate)
-                                .Take(3)
-                                .ToList();
-
-                            if (bestHours.Count > 0)
-                            {
-                                Log("");
-                                Log("Best Trading Times:");
-                                foreach (var h in bestHours)
-                                    Log($"  {h.Key}: {h.Value.WinRate:F0}% win rate ({h.Value.TotalTrades} trades)");
-                            }
-
-                            if (worstHours.Count > 0)
-                            {
-                                Log("");
-                                Log("Avoid Trading At:");
-                                foreach (var h in worstHours)
-                                    Log($"  {h.Key}: {h.Value.WinRate:F0}% win rate ({h.Value.TotalTrades} trades)");
-                            }
-                        }
-
-                        // Show indicator correlations
-                        if (profile.IndicatorCorrelations.Count > 0)
-                        {
-                            var bestIndicators = profile.IndicatorCorrelations
-                                .Where(c => c.Occurrences >= 3)
-                                .OrderByDescending(c => c.WinRate)
-                                .Take(3)
-                                .ToList();
-
-                            if (bestIndicators.Count > 0)
-                            {
-                                Log("");
-                                Log("Best Indicator Signals:");
-                                foreach (var ind in bestIndicators)
-                                    Log($"  {ind.IndicatorName} {ind.Condition}: {ind.WinRate:F0}% win rate");
-                            }
-                        }
-
-                        Log("");
-                        Log("Next Backtest Impact:");
-                        Log("  -> Entry thresholds will use learned optimal values");
-                        Log("  -> Poor time windows will be avoided");
-                        Log("  -> Streak-based adjustments will be applied");
-                        Log("  -> Run another backtest to see improvement!");
                     }
                     Log("========================");
                 }
+
+                Log("");
             }
-            else
+
+            if (symbols.Count > 1)
             {
-                Log($"Backtest failed: {result.ErrorMessage}");
+                Log("=== Batch Summary ===");
+                foreach (var r in summaryResults)
+                {
+                    if (!r.Success)
+                    {
+                        Log($"{r.Symbol,-8} [ERR] {r.ErrorMessage}");
+                    }
+                    else
+                    {
+                        Log($"{r.Symbol,-8} Trades={r.TotalTrades,-4} Win={r.WinRate,5:F1}%  P&L=${r.TotalPnL,10:F2}");
+                    }
+                }
+                Log("=====================");
             }
         }
 

@@ -30,7 +30,7 @@ public sealed record AutonomousBacktestConfig
     /// <summary>Starting capital in dollars.</summary>
     public decimal StartingCapital { get; init; } = 1000.00m;
 
-    /// <summary>Trading mode (Conservative, Balanced, Aggressive).</summary>
+    /// <summary>Trading mode (Conservative, Balanced, Aggressive, Optimized).</summary>
     public AutonomousMode Mode { get; init; } = AutonomousMode.Balanced;
 
     /// <summary>Allow short positions.</summary>
@@ -40,13 +40,28 @@ public sealed record AutonomousBacktestConfig
     public bool AllowDirectionFlip { get; init; } = true;
 
     /// <summary>Minimum seconds between trades.</summary>
-    public int MinSecondsBetweenTrades { get; init; } = 30;
+    public int MinSecondsBetweenTrades { get; init; } = 60; // Increased to avoid overtrading
 
     /// <summary>ATR multiplier for take profit calculation.</summary>
-    public double TakeProfitAtrMultiplier { get; init; } = 2.0;
+    public double TakeProfitAtrMultiplier { get; init; } = 1.5; // Tighter TP to lock in gains
 
     /// <summary>ATR multiplier for stop loss calculation.</summary>
-    public double StopLossAtrMultiplier { get; init; } = 1.5;
+    public double StopLossAtrMultiplier { get; init; } = 2.5; // Wider SL to avoid whipsaws
+
+    /// <summary>Require trend alignment for entries (price above/below EMA).</summary>
+    public bool RequireTrendAlignment { get; init; } = true;
+
+    /// <summary>Require volume confirmation (above average).</summary>
+    public bool RequireVolumeConfirmation { get; init; } = true;
+
+    /// <summary>Minimum volume ratio for entry (1.0 = average volume).</summary>
+    public double MinVolumeRatio { get; init; } = 1.2;
+
+    /// <summary>Don't trade in the first N minutes of RTH (avoid opening volatility).</summary>
+    public int AvoidFirstMinutesRTH { get; init; } = 5;
+
+    /// <summary>Don't trade in the last N minutes of RTH (avoid closing volatility).</summary>
+    public int AvoidLastMinutesRTH { get; init; } = 10;
 
     /// <summary>Include premarket session (4:00 AM - 9:30 AM).</summary>
     public bool IncludePremarket { get; init; } = true;
@@ -63,6 +78,47 @@ public sealed record AutonomousBacktestConfig
     /// <summary>Use 100% of capital per trade (true) or calculate position size.</summary>
     public bool UseFullCapital { get; init; } = true;
 
+    // ========================================================================
+    // OPTIMIZED MODE SETTINGS (for maximum profit)
+    // ========================================================================
+
+    /// <summary>
+    /// Minimum number of indicators that must agree for entry (Optimized mode).
+    /// Higher values = fewer but higher quality trades.
+    /// </summary>
+    public int MinIndicatorConfirmation { get; init; } = 6; // Increased for better quality
+
+    /// <summary>
+    /// Enable trailing take profit that moves up as price moves favorably.
+    /// </summary>
+    public bool UseTrailingTakeProfit { get; init; } = true;
+
+    /// <summary>
+    /// Trail the take profit by this ATR multiplier behind highest price reached.
+    /// </summary>
+    public double TrailingTakeProfitAtr { get; init; } = 1.0;
+
+    /// <summary>
+    /// Move stop loss to breakeven after price moves this many ATRs in favor.
+    /// </summary>
+    public double MoveToBreakevenAtAtr { get; init; } = 1.5;
+
+    /// <summary>
+    /// Scale position size based on signal strength (Optimized mode).
+    /// Score 90+ = 100% position, Score 70 = 70% position, etc.
+    /// </summary>
+    public bool UseDynamicPositionSizing { get; init; } = true;
+
+    /// <summary>
+    /// Minimum percentage of capital to allocate even on weaker signals.
+    /// </summary>
+    public decimal MinPositionPercent { get; init; } = 0.50m; // Minimum 50% position
+
+    /// <summary>
+    /// Add extra weight when multiple indicator categories agree.
+    /// </summary>
+    public double ConfirmationBonusMultiplier { get; init; } = 1.25;
+
     /// <summary>Maximum percentage of capital to use per trade (if not using full capital).</summary>
     public decimal MaxCapitalPerTradePercent { get; init; } = 0.25m; // 25%
 
@@ -72,18 +128,20 @@ public sealed record AutonomousBacktestConfig
 
     public int LongEntryThreshold => Mode switch
     {
-        AutonomousMode.Conservative => 80,
-        AutonomousMode.Balanced => 70,
-        AutonomousMode.Aggressive => 60,
-        _ => 70
+        AutonomousMode.Conservative => 85, // Higher for safety
+        AutonomousMode.Balanced => 75,     // Increased from 70
+        AutonomousMode.Aggressive => 65,
+        AutonomousMode.Optimized => 55,    // Requires indicator confirmation
+        _ => 75
     };
 
     public int ShortEntryThreshold => Mode switch
     {
-        AutonomousMode.Conservative => -80,
-        AutonomousMode.Balanced => -70,
-        AutonomousMode.Aggressive => -60,
-        _ => -70
+        AutonomousMode.Conservative => -85, // Higher for safety
+        AutonomousMode.Balanced => -75,     // Increased from -70
+        AutonomousMode.Aggressive => -65,
+        AutonomousMode.Optimized => -55,    // Requires indicator confirmation
+        _ => -75
     };
 
     public int LongExitThreshold => Mode switch
@@ -91,6 +149,7 @@ public sealed record AutonomousBacktestConfig
         AutonomousMode.Conservative => 60,
         AutonomousMode.Balanced => 40,
         AutonomousMode.Aggressive => 20,
+        AutonomousMode.Optimized => 10, // Hold longer with trailing stop
         _ => 40
     };
 
@@ -99,6 +158,7 @@ public sealed record AutonomousBacktestConfig
         AutonomousMode.Conservative => -60,
         AutonomousMode.Balanced => -40,
         AutonomousMode.Aggressive => -20,
+        AutonomousMode.Optimized => -10, // Hold longer with trailing stop
         _ => -40
     };
 }
@@ -170,6 +230,11 @@ public sealed class AutonomousBacktestResult
     public double DayLow { get; init; }
     public double DayClose { get; init; }
     public double DayChangePercent => DayOpen > 0 ? (DayClose - DayOpen) / DayOpen * 100 : 0;
+    
+    // Sentiment data
+    public int SentimentScore { get; init; }
+    public int SentimentConfidence { get; init; }
+    public bool HasSentiment => SentimentConfidence > 0;
 
     // ========================================================================
     // Performance Metrics
@@ -377,18 +442,22 @@ public sealed class AutonomousBacktestResult
 
 /// <summary>
 /// Runs autonomous trading backtests against historical IBKR data.
+/// Integrates technical indicators with market sentiment for comprehensive analysis.
 /// </summary>
 public sealed class AutonomousBacktester
 {
     private readonly HistoricalDataService? _histService;
+    private readonly SentimentService? _sentimentService;
 
     /// <summary>
     /// Creates a backtester with IBKR historical data service.
     /// </summary>
     /// <param name="historicalDataService">The historical data service (can be null for offline/synthetic testing).</param>
-    public AutonomousBacktester(HistoricalDataService? historicalDataService)
+    /// <param name="sentimentService">Optional sentiment service for news/earnings integration.</param>
+    public AutonomousBacktester(HistoricalDataService? historicalDataService, SentimentService? sentimentService = null)
     {
         _histService = historicalDataService;
+        _sentimentService = sentimentService;
     }
 
     /// <summary>
@@ -416,6 +485,15 @@ public sealed class AutonomousBacktester
         config ??= new AutonomousBacktestConfig { StartingCapital = startingCapital };
 
         progress?.Report($"Fetching historical data for {symbol} on {date:yyyy-MM-dd}...");
+        
+        // Fetch sentiment data if service available
+        SentimentResult? sentiment = null;
+        if (_sentimentService != null)
+        {
+            progress?.Report($"Fetching sentiment data for {symbol}...");
+            sentiment = await _sentimentService.GetSentimentAsync(symbol);
+            progress?.Report($"Sentiment: {sentiment}");
+        }
 
         // Fetch full day of data (need extended hours for 4AM-8PM)
         // Request extra bars to ensure we get the full day
@@ -454,8 +532,8 @@ public sealed class AutonomousBacktester
         // Convert to BackTestCandles for the simulator
         var candles = ConvertToBackTestCandles(dateBars);
 
-        // Run simulation
-        return RunSimulation(symbol, date, candles, config, progress);
+        // Run simulation with sentiment
+        return RunSimulation(symbol, date, candles, config, sentiment, progress);
     }
 
     /// <summary>
@@ -466,10 +544,11 @@ public sealed class AutonomousBacktester
         DateOnly date,
         List<BackTestCandle> candles,
         AutonomousBacktestConfig? config = null,
-        IProgress<string>? progress = null)
+        IProgress<string>? progress = null,
+        SentimentResult? sentiment = null)
     {
         config ??= new AutonomousBacktestConfig();
-        return RunSimulation(symbol, date, candles, config, progress);
+        return RunSimulation(symbol, date, candles, config, sentiment, progress);
     }
 
     private AutonomousBacktestResult RunSimulation(
@@ -477,6 +556,7 @@ public sealed class AutonomousBacktester
         DateOnly date,
         List<BackTestCandle> candles,
         AutonomousBacktestConfig config,
+        SentimentResult? sentiment,
         IProgress<string>? progress)
     {
         var result = new AutonomousBacktestResult
@@ -490,7 +570,9 @@ public sealed class AutonomousBacktester
             DayOpen = candles.FirstOrDefault()?.Open ?? 0,
             DayHigh = candles.Count > 0 ? candles.Max(c => c.High) : 0,
             DayLow = candles.Count > 0 ? candles.Min(c => c.Low) : 0,
-            DayClose = candles.LastOrDefault()?.Close ?? 0
+            DayClose = candles.LastOrDefault()?.Close ?? 0,
+            SentimentScore = sentiment?.Score ?? 0,
+            SentimentConfidence = sentiment?.Confidence ?? 0
         };
 
         if (candles.Count == 0)
@@ -499,8 +581,12 @@ public sealed class AutonomousBacktester
         // Calculate VWAP for all candles
         CalculateVwap(candles);
 
-        // Create indicator calculator
+        // Create indicator calculator and inject sentiment
         var indicators = new BackTestIndicatorCalculator(candles);
+        if (sentiment != null)
+        {
+            indicators.SetSentiment(sentiment.Score, sentiment.Confidence);
+        }
 
         // Minimum warmup period for indicators (need enough for ADX/MACD)
         int warmupPeriod = Math.Min(50, candles.Count - 1);
@@ -517,8 +603,13 @@ public sealed class AutonomousBacktester
         DateTime lastTradeTime = DateTime.MinValue;
         double takeProfitPrice = 0;
         double stopLossPrice = 0;
+        double originalStopLoss = 0;  // For breakeven tracking
         int tradeNumber = 0;
         int shares = 0;
+        int entryIndex = 0;           // For tracking high/low since entry
+        double highestSinceEntry = 0; // For trailing TP (long)
+        double lowestSinceEntry = double.MaxValue; // For trailing TP (short)
+        double atrAtEntry = 0;        // For ATR-based adjustments
 
         progress?.Report("Simulating trades...");
 
@@ -561,16 +652,61 @@ public sealed class AutonomousBacktester
                 // Check for entry signals
                 bool canTrade = (candle.Timestamp - lastTradeTime).TotalSeconds >= config.MinSecondsBetweenTrades;
                 bool hasCapital = currentCapital > 10; // Minimum $10 to trade
+                
+                // Time-based filters - avoid volatile periods
+                var time = candle.Timestamp.TimeOfDay;
+                var rthOpen = new TimeSpan(9, 30, 0);
+                var rthClose = new TimeSpan(16, 0, 0);
+                bool isRTH = time >= rthOpen && time < rthClose;
+                bool avoidOpenVolatility = isRTH && time < rthOpen.Add(TimeSpan.FromMinutes(config.AvoidFirstMinutesRTH));
+                bool avoidCloseVolatility = isRTH && time > rthClose.Subtract(TimeSpan.FromMinutes(config.AvoidLastMinutesRTH));
+                bool timeOk = !avoidOpenVolatility && !avoidCloseVolatility;
+                
+                // Volume confirmation
+                double volumeRatio = indicators.GetVolumeRatio(i);
+                bool volumeOk = !config.RequireVolumeConfirmation || volumeRatio >= config.MinVolumeRatio;
+                
+                // Trend alignment check (price vs EMA21)
+                double ema21 = indicators.GetEma21(i);
+                bool longTrendOk = !config.RequireTrendAlignment || candle.Close > ema21;
+                bool shortTrendOk = !config.RequireTrendAlignment || candle.Close < ema21;
 
-                if (canTrade && hasCapital)
+                if (canTrade && hasCapital && timeOk && volumeOk)
                 {
-                    // Calculate position size
-                    decimal capitalToUse = config.UseFullCapital
-                        ? currentCapital
-                        : currentCapital * config.MaxCapitalPerTradePercent;
+                    // Get indicator confirmation for Optimized mode
+                    var (bullishCount, bearishCount, totalCategories) = indicators.GetIndicatorConfirmation(i);
+                    bool isOptimizedMode = config.Mode == AutonomousMode.Optimized;
+                    
+                    // In Optimized mode, require minimum indicator confirmation
+                    bool longConfirmed = !isOptimizedMode || bullishCount >= config.MinIndicatorConfirmation;
+                    bool shortConfirmed = !isOptimizedMode || bearishCount >= config.MinIndicatorConfirmation;
+                    
+                    // Calculate position size - dynamic in Optimized mode
+                    decimal capitalToUse;
+                    if (isOptimizedMode && config.UseDynamicPositionSizing)
+                    {
+                        // Scale position size based on signal strength
+                        double scoreStrength = Math.Abs(score) / 100.0; // 0.5 to 1.0
+                        decimal positionPercent = config.MinPositionPercent + 
+                            (1.0m - config.MinPositionPercent) * (decimal)scoreStrength;
+                        capitalToUse = currentCapital * positionPercent;
+                        
+                        // Boost position if high indicator confirmation
+                        int confirmCount = Math.Max(bullishCount, bearishCount);
+                        if (confirmCount >= 8)
+                            capitalToUse *= (decimal)config.ConfirmationBonusMultiplier;
+                    }
+                    else if (config.UseFullCapital)
+                    {
+                        capitalToUse = currentCapital;
+                    }
+                    else
+                    {
+                        capitalToUse = currentCapital * config.MaxCapitalPerTradePercent;
+                    }
 
-                    // Long entry
-                    if (score >= config.LongEntryThreshold)
+                    // Long entry - require trend alignment and bullish confirmation
+                    if (score >= config.LongEntryThreshold && longConfirmed && longTrendOk)
                     {
                         double priceWithSlippage = candle.Close * (1 + (double)config.SlippagePercent);
                         shares = (int)(capitalToUse / (decimal)priceWithSlippage);
@@ -582,17 +718,23 @@ public sealed class AutonomousBacktester
                             entryPrice = priceWithSlippage;
                             entryTime = candle.Timestamp;
                             entryScore = score;
-                            entryReason = $"Score {score:+0} >= {config.LongEntryThreshold} (LONG threshold)";
+                            entryIndex = i;
+                            highestSinceEntry = candle.High;
+                            lowestSinceEntry = candle.Low;
+                            
+                            string confirmStr = isOptimizedMode ? $" [{bullishCount}/{totalCategories} confirm]" : "";
+                            entryReason = $"Score {score:+0} >= {config.LongEntryThreshold}{confirmStr}";
                             lastTradeTime = candle.Timestamp;
 
                             // Calculate TP/SL based on ATR
-                            double atr = indicators.GetAtr(i);
-                            takeProfitPrice = entryPrice + (atr * config.TakeProfitAtrMultiplier);
-                            stopLossPrice = entryPrice - (atr * config.StopLossAtrMultiplier);
+                            atrAtEntry = indicators.GetAtr(i);
+                            takeProfitPrice = entryPrice + (atrAtEntry * config.TakeProfitAtrMultiplier);
+                            stopLossPrice = entryPrice - (atrAtEntry * config.StopLossAtrMultiplier);
+                            originalStopLoss = stopLossPrice;
                         }
                     }
-                    // Short entry
-                    else if (config.AllowShort && score <= config.ShortEntryThreshold)
+                    // Short entry - require trend alignment and bearish confirmation
+                    else if (config.AllowShort && score <= config.ShortEntryThreshold && shortConfirmed && shortTrendOk)
                     {
                         double priceWithSlippage = candle.Close * (1 - (double)config.SlippagePercent);
                         shares = (int)(capitalToUse / (decimal)priceWithSlippage);
@@ -604,18 +746,66 @@ public sealed class AutonomousBacktester
                             entryPrice = priceWithSlippage;
                             entryTime = candle.Timestamp;
                             entryScore = score;
-                            entryReason = $"Score {score:+0} <= {config.ShortEntryThreshold} (SHORT threshold)";
+                            entryIndex = i;
+                            highestSinceEntry = candle.High;
+                            lowestSinceEntry = candle.Low;
+                            
+                            string confirmStr = isOptimizedMode ? $" [{bearishCount}/{totalCategories} confirm]" : "";
+                            entryReason = $"Score {score:+0} <= {config.ShortEntryThreshold}{confirmStr}";
                             lastTradeTime = candle.Timestamp;
 
-                            double atr = indicators.GetAtr(i);
-                            takeProfitPrice = entryPrice - (atr * config.TakeProfitAtrMultiplier);
-                            stopLossPrice = entryPrice + (atr * config.StopLossAtrMultiplier);
+                            atrAtEntry = indicators.GetAtr(i);
+                            takeProfitPrice = entryPrice - (atrAtEntry * config.TakeProfitAtrMultiplier);
+                            stopLossPrice = entryPrice + (atrAtEntry * config.StopLossAtrMultiplier);
+                            originalStopLoss = stopLossPrice;
                         }
                     }
                 }
             }
             else
             {
+                // Track high/low since entry for trailing
+                if (candle.High > highestSinceEntry) highestSinceEntry = candle.High;
+                if (candle.Low < lowestSinceEntry) lowestSinceEntry = candle.Low;
+                
+                // Optimized mode: Trailing take profit and breakeven stop
+                bool isOptimizedMode = config.Mode == AutonomousMode.Optimized;
+                if (isOptimizedMode && config.UseTrailingTakeProfit)
+                {
+                    if (isLong)
+                    {
+                        // Trail TP below the highest price reached
+                        double newTrailingTp = highestSinceEntry - (atrAtEntry * config.TrailingTakeProfitAtr);
+                        if (newTrailingTp > takeProfitPrice && highestSinceEntry > entryPrice + atrAtEntry)
+                        {
+                            takeProfitPrice = newTrailingTp;
+                        }
+                        
+                        // Move stop to breakeven after price moves favorably
+                        double favorableMove = highestSinceEntry - entryPrice;
+                        if (favorableMove >= atrAtEntry * config.MoveToBreakevenAtAtr && stopLossPrice < entryPrice)
+                        {
+                            stopLossPrice = entryPrice; // Breakeven
+                        }
+                    }
+                    else // Short position
+                    {
+                        // Trail TP above the lowest price reached
+                        double newTrailingTp = lowestSinceEntry + (atrAtEntry * config.TrailingTakeProfitAtr);
+                        if (newTrailingTp < takeProfitPrice && lowestSinceEntry < entryPrice - atrAtEntry)
+                        {
+                            takeProfitPrice = newTrailingTp;
+                        }
+                        
+                        // Move stop to breakeven
+                        double favorableMove = entryPrice - lowestSinceEntry;
+                        if (favorableMove >= atrAtEntry * config.MoveToBreakevenAtAtr && stopLossPrice > entryPrice)
+                        {
+                            stopLossPrice = entryPrice; // Breakeven
+                        }
+                    }
+                }
+                
                 // Check exit conditions
                 string? exitReason = null;
                 double exitPrice = candle.Close;
@@ -852,13 +1042,17 @@ public sealed class AutonomousBacktester
 
 /// <summary>
 /// Indicator calculator for backtesting (simplified version for BackTestCandle).
+/// Includes comprehensive technical indicators for market scoring.
 /// </summary>
 internal sealed class BackTestIndicatorCalculator
 {
     private readonly List<BackTestCandle> _candles;
+    
+    // Core indicators
     private readonly double[] _ema9;
     private readonly double[] _ema21;
     private readonly double[] _ema50;
+    private readonly double[] _ema200;
     private readonly double[] _rsi;
     private readonly double[] _adx;
     private readonly double[] _plusDi;
@@ -868,6 +1062,23 @@ internal sealed class BackTestIndicatorCalculator
     private readonly double[] _histogram;
     private readonly double[] _volumeRatio;
     private readonly double[] _atr;
+    
+    // Additional indicators for enhanced scoring
+    private readonly double[] _bollingerUpper;
+    private readonly double[] _bollingerLower;
+    private readonly double[] _bollingerMiddle;
+    private readonly double[] _stochasticK;
+    private readonly double[] _stochasticD;
+    private readonly double[] _obv;
+    private readonly double[] _cci;
+    private readonly double[] _williamsR;
+    private readonly double[] _mfi;       // Money Flow Index
+    private readonly double[] _roc;       // Rate of Change
+    private readonly double[] _momentum;
+    
+    // Sentiment score (injected from SentimentService)
+    private int _sentimentScore;
+    private int _sentimentConfidence;
 
     public BackTestIndicatorCalculator(List<BackTestCandle> candles)
     {
@@ -879,17 +1090,164 @@ internal sealed class BackTestIndicatorCalculator
         var lows = candles.Select(c => c.Low).ToArray();
         var volumes = candles.Select(c => (double)c.Volume).ToArray();
 
+        // Core indicators
         _ema9 = CalculateEma(closes, 9);
         _ema21 = CalculateEma(closes, 21);
         _ema50 = CalculateEma(closes, 50);
+        _ema200 = CalculateEma(closes, 200);
         _rsi = CalculateRsi(closes, 14);
         (_adx, _plusDi, _minusDi) = CalculateAdx(highs, lows, closes, 14);
         (_macd, _signal, _histogram) = CalculateMacd(closes, 12, 26, 9);
         _volumeRatio = CalculateVolumeRatio(volumes, 20);
         _atr = CalculateAtr(highs, lows, closes, 14);
+        
+        // Additional indicators
+        (_bollingerUpper, _bollingerMiddle, _bollingerLower) = CalculateBollingerBands(closes, 20, 2.0);
+        (_stochasticK, _stochasticD) = CalculateStochastic(highs, lows, closes, 14, 3);
+        _obv = CalculateObv(closes, volumes);
+        _cci = CalculateCci(highs, lows, closes, 20);
+        _williamsR = CalculateWilliamsR(highs, lows, closes, 14);
+        _mfi = CalculateMfi(highs, lows, closes, volumes, 14);
+        _roc = CalculateRoc(closes, 10);
+        _momentum = CalculateMomentum(closes, 10);
+    }
+    
+    /// <summary>
+    /// Injects sentiment data from external source (news, earnings, etc.)
+    /// </summary>
+    public void SetSentiment(int score, int confidence)
+    {
+        _sentimentScore = score;
+        _sentimentConfidence = confidence;
     }
 
     public double GetAtr(int index) => index < _atr.Length ? _atr[index] : 0;
+    public double GetVolumeRatio(int index) => index < _volumeRatio.Length ? _volumeRatio[index] : 0;
+    public double GetEma9(int index) => index < _ema9.Length ? _ema9[index] : 0;
+    public double GetEma21(int index) => index < _ema21.Length ? _ema21[index] : 0;
+    public double GetEma50(int index) => index < _ema50.Length ? _ema50[index] : 0;
+    public double GetRsi(int index) => index < _rsi.Length ? _rsi[index] : 50;
+    public double GetMacd(int index) => index < _macd.Length ? _macd[index] : 0;
+    public double GetSignal(int index) => index < _signal.Length ? _signal[index] : 0;
+    public double GetAdx(int index) => index < _adx.Length ? _adx[index] : 0;
+    public double GetPlusDi(int index) => index < _plusDi.Length ? _plusDi[index] : 0;
+    public double GetMinusDi(int index) => index < _minusDi.Length ? _minusDi[index] : 0;
+    
+    // Accessor methods for individual indicator scores
+    public double GetBollingerScore(int index)
+    {
+        if (index < 0 || index >= _candles.Count) return 0;
+        var close = _candles[index].Close;
+        var upper = _bollingerUpper[index];
+        var lower = _bollingerLower[index];
+        var middle = _bollingerMiddle[index];
+        
+        if (upper == lower) return 0;
+        
+        // Position within bands: -100 (at lower) to +100 (at upper)
+        double position = (close - middle) / (upper - middle) * 100;
+        
+        // Reversal signals are stronger at extremes
+        if (close >= upper) return -50; // Overbought, expect pullback
+        if (close <= lower) return 50;  // Oversold, expect bounce
+        
+        return Math.Clamp(-position * 0.5, -100, 100); // Contrarian scoring
+    }
+    
+    public double GetStochasticScore(int index)
+    {
+        if (index < 0 || index >= _stochasticK.Length) return 0;
+        double k = _stochasticK[index];
+        double d = _stochasticD[index];
+        
+        // Overbought/oversold
+        double score = 0;
+        if (k <= 20) score = 100 - (k * 5); // Oversold = bullish
+        else if (k >= 80) score = -(k - 80) * 5; // Overbought = bearish
+        else score = (k - 50) * 2; // Momentum direction
+        
+        // K crossing D adds conviction
+        if (k > d && k < 30) score += 25; // Bullish crossover in oversold
+        if (k < d && k > 70) score -= 25; // Bearish crossover in overbought
+        
+        return Math.Clamp(score, -100, 100);
+    }
+    
+    public double GetObvScore(int index)
+    {
+        if (index < 20 || index >= _obv.Length) return 0;
+        
+        // OBV trend over last 10 bars
+        double obvNow = _obv[index];
+        double obv10Ago = _obv[index - 10];
+        double obvChange = obv10Ago != 0 ? (obvNow - obv10Ago) / Math.Abs(obv10Ago) * 100 : 0;
+        
+        return Math.Clamp(obvChange * 2, -100, 100);
+    }
+    
+    public double GetCciScore(int index)
+    {
+        if (index < 0 || index >= _cci.Length) return 0;
+        double cci = _cci[index];
+        
+        // CCI: +100/-100 are overbought/oversold levels
+        if (cci >= 200) return -80;
+        if (cci >= 100) return -((cci - 100) * 0.8);
+        if (cci <= -200) return 80;
+        if (cci <= -100) return (-cci - 100) * 0.8;
+        
+        return cci * 0.5; // Trend direction
+    }
+    
+    public double GetWilliamsRScore(int index)
+    {
+        if (index < 0 || index >= _williamsR.Length) return 0;
+        double wr = _williamsR[index];
+        
+        // Williams %R: -80 to -100 is oversold (bullish), 0 to -20 is overbought (bearish)
+        if (wr <= -80) return 100 - ((wr + 100) * 5); // Oversold = bullish
+        if (wr >= -20) return -(20 + wr) * 5; // Overbought = bearish
+        
+        return (wr + 50) * 2; // Momentum direction
+    }
+    
+    public double GetMfiScore(int index)
+    {
+        if (index < 0 || index >= _mfi.Length) return 0;
+        double mfi = _mfi[index];
+        
+        // Similar to RSI but includes volume
+        if (mfi <= 20) return 100; // Oversold
+        if (mfi >= 80) return -100; // Overbought
+        
+        return (mfi - 50) * 2;
+    }
+    
+    public double GetMomentumScore(int index)
+    {
+        if (index < 0 || index >= _momentum.Length) return 0;
+        double mom = _momentum[index];
+        double atr = _atr[index];
+        
+        if (atr == 0) return 0;
+        
+        // Normalize momentum by ATR
+        double normalizedMom = mom / atr * 25;
+        return Math.Clamp(normalizedMom, -100, 100);
+    }
+    
+    public double GetRocScore(int index)
+    {
+        if (index < 0 || index >= _roc.Length) return 0;
+        double roc = _roc[index];
+        
+        // ROC as percentage, scale to -100 to 100
+        return Math.Clamp(roc * 10, -100, 100);
+    }
+
+    /// <summary>
+    /// Calculates enhanced market score including all indicators and sentiment.
+    /// </summary>
 
     public double CalculateMarketScore(int index)
     {
@@ -988,14 +1346,152 @@ internal sealed class BackTestIndicatorCalculator
                 volumeScore = -25;
         }
 
-        // Calculate weighted total
-        return
-            vwapScore * 0.15 +
-            emaScore * 0.20 +
-            rsiScore * 0.15 +
-            macdScore * 0.20 +
-            adxScore * 0.20 +
-            volumeScore * 0.10;
+        // ========================================================================
+        // Enhanced Indicators (additional weight distributed)
+        // ========================================================================
+        
+        // Bollinger Bands (5% weight) - Mean reversion signals
+        double bollingerScore = GetBollingerScore(index);
+        
+        // Stochastic (5% weight) - Momentum oscillator
+        double stochasticScore = GetStochasticScore(index);
+        
+        // CCI (3% weight) - Trend strength and reversals
+        double cciScore = GetCciScore(index);
+        
+        // Williams %R (2% weight) - Overbought/oversold confirmation
+        double williamsRScore = GetWilliamsRScore(index);
+        
+        // MFI (3% weight) - Volume-weighted RSI
+        double mfiScore = GetMfiScore(index);
+        
+        // OBV (2% weight) - Volume trend confirmation
+        double obvScore = GetObvScore(index);
+        
+        // ========================================================================
+        // Sentiment Score (from news, earnings, analyst ratings)
+        // Weight depends on confidence level
+        // ========================================================================
+        double sentimentWeight = _sentimentConfidence > 50 ? 0.10 : (_sentimentConfidence > 25 ? 0.05 : 0);
+        double sentimentScore = _sentimentScore;
+        
+        // Adjust core weights when sentiment is factored in
+        double coreWeightAdjustment = 1.0 - sentimentWeight - 0.20; // 20% for enhanced indicators
+
+        // Calculate weighted total with enhanced indicators
+        // Core indicators: 80% base (adjusted for sentiment), Enhanced: 20%, Sentiment: 0-10%
+        double coreScore = 
+            vwapScore * (0.15 * coreWeightAdjustment / 0.80) +
+            emaScore * (0.20 * coreWeightAdjustment / 0.80) +
+            rsiScore * (0.15 * coreWeightAdjustment / 0.80) +
+            macdScore * (0.20 * coreWeightAdjustment / 0.80) +
+            adxScore * (0.20 * coreWeightAdjustment / 0.80) +
+            volumeScore * (0.10 * coreWeightAdjustment / 0.80);
+        
+        double enhancedScore =
+            bollingerScore * 0.05 +
+            stochasticScore * 0.05 +
+            cciScore * 0.03 +
+            williamsRScore * 0.02 +
+            mfiScore * 0.03 +
+            obvScore * 0.02;
+        
+        double finalScore = coreScore + enhancedScore + (sentimentScore * sentimentWeight);
+        
+        return Math.Clamp(finalScore, -100, 100);
+    }
+    
+    /// <summary>
+    /// Gets a detailed breakdown of all indicator scores for analysis.
+    /// </summary>
+    public Dictionary<string, double> GetIndicatorBreakdown(int index)
+    {
+        if (index < 0 || index >= _candles.Count)
+            return new Dictionary<string, double>();
+            
+        var candle = _candles[index];
+        
+        return new Dictionary<string, double>
+        {
+            ["VWAP"] = candle.Vwap > 0 ? Math.Clamp((candle.Close - candle.Vwap) / candle.Vwap * 100 * 20, -100, 100) : 0,
+            ["EMA_Stack"] = GetEmaStackScore(index),
+            ["RSI"] = _rsi[index],
+            ["RSI_Score"] = GetRsiScore(index),
+            ["MACD"] = _macd[index],
+            ["MACD_Signal"] = _signal[index],
+            ["MACD_Score"] = GetMacdScore(index),
+            ["ADX"] = _adx[index],
+            ["+DI"] = _plusDi[index],
+            ["-DI"] = _minusDi[index],
+            ["ADX_Score"] = GetAdxScore(index),
+            ["Volume_Ratio"] = _volumeRatio[index],
+            ["Bollinger"] = GetBollingerScore(index),
+            ["Stochastic_K"] = _stochasticK[index],
+            ["Stochastic_D"] = _stochasticD[index],
+            ["Stochastic_Score"] = GetStochasticScore(index),
+            ["CCI"] = _cci[index],
+            ["CCI_Score"] = GetCciScore(index),
+            ["Williams_R"] = _williamsR[index],
+            ["Williams_R_Score"] = GetWilliamsRScore(index),
+            ["MFI"] = _mfi[index],
+            ["MFI_Score"] = GetMfiScore(index),
+            ["OBV_Score"] = GetObvScore(index),
+            ["Momentum"] = _momentum[index],
+            ["ROC"] = _roc[index],
+            ["ATR"] = _atr[index],
+            ["Sentiment"] = _sentimentScore,
+            ["Sentiment_Confidence"] = _sentimentConfidence,
+            ["Final_Score"] = CalculateMarketScore(index)
+        };
+    }
+    
+    private double GetEmaStackScore(int index)
+    {
+        if (index < 0 || index >= _candles.Count) return 0;
+        var close = _candles[index].Close;
+        
+        int aboveCount = 0;
+        if (close > _ema9[index]) aboveCount++;
+        if (close > _ema21[index]) aboveCount++;
+        if (close > _ema50[index]) aboveCount++;
+        if (close > _ema200[index]) aboveCount++;
+        
+        bool bullishStack = _ema9[index] > _ema21[index] && _ema21[index] > _ema50[index];
+        bool bearishStack = _ema9[index] < _ema21[index] && _ema21[index] < _ema50[index];
+        
+        double score = (aboveCount - 2) * 50;
+        if (bullishStack) score += 25;
+        if (bearishStack) score -= 25;
+        
+        return Math.Clamp(score, -100, 100);
+    }
+    
+    private double GetRsiScore(int index)
+    {
+        if (index < 0 || index >= _rsi.Length) return 0;
+        double rsi = _rsi[index];
+        
+        if (rsi <= 30) return 100 - (rsi - 30) * 3.33;
+        if (rsi >= 70) return -(rsi - 70) * 3.33;
+        return (rsi - 50) * 2;
+    }
+    
+    private double GetMacdScore(int index)
+    {
+        if (index < 0 || index >= _macd.Length) return 0;
+        
+        double score = _macd[index] > _signal[index] ? 50 : -50;
+        double histStrength = Math.Min(Math.Abs(_histogram[index]) / (Math.Abs(_macd[index]) + 0.001) * 100, 50);
+        
+        return Math.Clamp(score + (_histogram[index] > 0 ? histStrength : -histStrength), -100, 100);
+    }
+    
+    private double GetAdxScore(int index)
+    {
+        if (index < 0 || index >= _adx.Length) return 0;
+        
+        double strength = Math.Min(_adx[index] / 50, 1) * 100;
+        return _plusDi[index] > _minusDi[index] ? strength : -strength;
     }
 
     private static double[] CalculateEma(double[] prices, int period)
@@ -1183,5 +1679,394 @@ internal sealed class BackTestIndicatorCalculator
         }
 
         return atr;
+    }
+    
+    // ========================================================================
+    // Additional Indicator Calculations
+    // ========================================================================
+    
+    /// <summary>
+    /// Calculates Bollinger Bands (upper, middle, lower).
+    /// </summary>
+    private static (double[] upper, double[] middle, double[] lower) CalculateBollingerBands(
+        double[] prices, int period, double stdDevMultiplier)
+    {
+        int len = prices.Length;
+        var upper = new double[len];
+        var middle = new double[len];
+        var lower = new double[len];
+        
+        if (len < period) return (upper, middle, lower);
+        
+        for (int i = period - 1; i < len; i++)
+        {
+            // Calculate SMA (middle band)
+            double sum = 0;
+            for (int j = i - period + 1; j <= i; j++)
+                sum += prices[j];
+            
+            double sma = sum / period;
+            middle[i] = sma;
+            
+            // Calculate standard deviation
+            double sumSquares = 0;
+            for (int j = i - period + 1; j <= i; j++)
+            {
+                double diff = prices[j] - sma;
+                sumSquares += diff * diff;
+            }
+            
+            double stdDev = Math.Sqrt(sumSquares / period);
+            
+            upper[i] = sma + (stdDev * stdDevMultiplier);
+            lower[i] = sma - (stdDev * stdDevMultiplier);
+        }
+        
+        return (upper, middle, lower);
+    }
+    
+    /// <summary>
+    /// Calculates Stochastic Oscillator (%K and %D).
+    /// </summary>
+    private static (double[] k, double[] d) CalculateStochastic(
+        double[] highs, double[] lows, double[] closes, int kPeriod, int dPeriod)
+    {
+        int len = closes.Length;
+        var k = new double[len];
+        var d = new double[len];
+        
+        if (len < kPeriod) return (k, d);
+        
+        for (int i = kPeriod - 1; i < len; i++)
+        {
+            double highestHigh = double.MinValue;
+            double lowestLow = double.MaxValue;
+            
+            for (int j = i - kPeriod + 1; j <= i; j++)
+            {
+                if (highs[j] > highestHigh) highestHigh = highs[j];
+                if (lows[j] < lowestLow) lowestLow = lows[j];
+            }
+            
+            double range = highestHigh - lowestLow;
+            k[i] = range > 0 ? ((closes[i] - lowestLow) / range) * 100 : 50;
+        }
+        
+        // %D is SMA of %K
+        d = CalculateSma(k, dPeriod);
+        
+        return (k, d);
+    }
+    
+    /// <summary>
+    /// Simple Moving Average for internal use.
+    /// </summary>
+    private static double[] CalculateSma(double[] data, int period)
+    {
+        var sma = new double[data.Length];
+        if (data.Length < period) return sma;
+        
+        double sum = 0;
+        for (int i = 0; i < period; i++)
+            sum += data[i];
+        
+        sma[period - 1] = sum / period;
+        
+        for (int i = period; i < data.Length; i++)
+        {
+            sum = sum - data[i - period] + data[i];
+            sma[i] = sum / period;
+        }
+        
+        return sma;
+    }
+    
+    /// <summary>
+    /// Calculates On-Balance Volume (OBV).
+    /// </summary>
+    private static double[] CalculateObv(double[] closes, double[] volumes)
+    {
+        var obv = new double[closes.Length];
+        if (closes.Length == 0) return obv;
+        
+        obv[0] = volumes[0];
+        
+        for (int i = 1; i < closes.Length; i++)
+        {
+            if (closes[i] > closes[i - 1])
+                obv[i] = obv[i - 1] + volumes[i];
+            else if (closes[i] < closes[i - 1])
+                obv[i] = obv[i - 1] - volumes[i];
+            else
+                obv[i] = obv[i - 1];
+        }
+        
+        return obv;
+    }
+    
+    /// <summary>
+    /// Calculates Commodity Channel Index (CCI).
+    /// </summary>
+    private static double[] CalculateCci(double[] highs, double[] lows, double[] closes, int period)
+    {
+        int len = closes.Length;
+        var cci = new double[len];
+        
+        if (len < period) return cci;
+        
+        var typicalPrices = new double[len];
+        for (int i = 0; i < len; i++)
+            typicalPrices[i] = (highs[i] + lows[i] + closes[i]) / 3;
+        
+        for (int i = period - 1; i < len; i++)
+        {
+            // Calculate SMA of typical price
+            double sum = 0;
+            for (int j = i - period + 1; j <= i; j++)
+                sum += typicalPrices[j];
+            
+            double sma = sum / period;
+            
+            // Calculate mean deviation
+            double meanDev = 0;
+            for (int j = i - period + 1; j <= i; j++)
+                meanDev += Math.Abs(typicalPrices[j] - sma);
+            
+            meanDev /= period;
+            
+            // CCI = (Typical Price - SMA) / (0.015 * Mean Deviation)
+            cci[i] = meanDev != 0 ? (typicalPrices[i] - sma) / (0.015 * meanDev) : 0;
+        }
+        
+        return cci;
+    }
+    
+    /// <summary>
+    /// Calculates Williams %R.
+    /// </summary>
+    private static double[] CalculateWilliamsR(double[] highs, double[] lows, double[] closes, int period)
+    {
+        int len = closes.Length;
+        var wr = new double[len];
+        
+        if (len < period) return wr;
+        
+        for (int i = period - 1; i < len; i++)
+        {
+            double highestHigh = double.MinValue;
+            double lowestLow = double.MaxValue;
+            
+            for (int j = i - period + 1; j <= i; j++)
+            {
+                if (highs[j] > highestHigh) highestHigh = highs[j];
+                if (lows[j] < lowestLow) lowestLow = lows[j];
+            }
+            
+            double range = highestHigh - lowestLow;
+            // Williams %R = (Highest High - Close) / (Highest High - Lowest Low) * -100
+            wr[i] = range > 0 ? ((highestHigh - closes[i]) / range) * -100 : -50;
+        }
+        
+        return wr;
+    }
+    
+    /// <summary>
+    /// Calculates Money Flow Index (MFI) - Volume-weighted RSI.
+    /// </summary>
+    private static double[] CalculateMfi(double[] highs, double[] lows, double[] closes, double[] volumes, int period)
+    {
+        int len = closes.Length;
+        var mfi = new double[len];
+        
+        if (len < period + 1) return mfi;
+        
+        var typicalPrices = new double[len];
+        var rawMoneyFlow = new double[len];
+        
+        for (int i = 0; i < len; i++)
+        {
+            typicalPrices[i] = (highs[i] + lows[i] + closes[i]) / 3;
+            rawMoneyFlow[i] = typicalPrices[i] * volumes[i];
+        }
+        
+        for (int i = period; i < len; i++)
+        {
+            double positiveFlow = 0;
+            double negativeFlow = 0;
+            
+            for (int j = i - period + 1; j <= i; j++)
+            {
+                if (typicalPrices[j] > typicalPrices[j - 1])
+                    positiveFlow += rawMoneyFlow[j];
+                else if (typicalPrices[j] < typicalPrices[j - 1])
+                    negativeFlow += rawMoneyFlow[j];
+            }
+            
+            if (negativeFlow == 0)
+                mfi[i] = 100;
+            else
+            {
+                double moneyRatio = positiveFlow / negativeFlow;
+                mfi[i] = 100 - (100 / (1 + moneyRatio));
+            }
+        }
+        
+        return mfi;
+    }
+    
+    /// <summary>
+    /// Calculates Rate of Change (ROC) - Percentage price change.
+    /// </summary>
+    private static double[] CalculateRoc(double[] prices, int period)
+    {
+        var roc = new double[prices.Length];
+        
+        for (int i = period; i < prices.Length; i++)
+        {
+            double prevPrice = prices[i - period];
+            roc[i] = prevPrice != 0 ? ((prices[i] - prevPrice) / prevPrice) * 100 : 0;
+        }
+        
+        return roc;
+    }
+    
+    /// <summary>
+    /// Calculates Momentum (price difference over N periods).
+    /// </summary>
+    private static double[] CalculateMomentum(double[] prices, int period)
+    {
+        var momentum = new double[prices.Length];
+        
+        for (int i = period; i < prices.Length; i++)
+        {
+            momentum[i] = prices[i] - prices[i - period];
+        }
+        
+        return momentum;
+    }
+    
+    // ========================================================================
+    // INDICATOR CONFIRMATION (for Optimized mode)
+    // ========================================================================
+    
+    /// <summary>
+    /// Counts how many indicator categories agree on direction.
+    /// Returns positive count for bullish agreement, negative for bearish.
+    /// </summary>
+    public (int BullishCount, int BearishCount, int TotalCategories) GetIndicatorConfirmation(int index)
+    {
+        if (index < 0 || index >= _candles.Count)
+            return (0, 0, 0);
+            
+        int bullish = 0;
+        int bearish = 0;
+        const int totalCategories = 12;
+        
+        var candle = _candles[index];
+        
+        // 1. VWAP Position
+        if (candle.Vwap > 0)
+        {
+            if (candle.Close > candle.Vwap) bullish++;
+            else bearish++;
+        }
+        
+        // 2. EMA Stack (short-term)
+        if (candle.Close > _ema9[index] && candle.Close > _ema21[index]) bullish++;
+        else if (candle.Close < _ema9[index] && candle.Close < _ema21[index]) bearish++;
+        
+        // 3. EMA Stack (long-term)
+        if (_ema9[index] > _ema21[index] && _ema21[index] > _ema50[index]) bullish++;
+        else if (_ema9[index] < _ema21[index] && _ema21[index] < _ema50[index]) bearish++;
+        
+        // 4. RSI
+        if (_rsi[index] > 50 && _rsi[index] < 70) bullish++;
+        else if (_rsi[index] < 50 && _rsi[index] > 30) bearish++;
+        else if (_rsi[index] <= 30) bullish++; // Oversold = bullish reversal
+        else if (_rsi[index] >= 70) bearish++; // Overbought = bearish reversal
+        
+        // 5. MACD Signal
+        if (_macd[index] > _signal[index]) bullish++;
+        else bearish++;
+        
+        // 6. MACD Histogram Momentum
+        if (_histogram[index] > 0 && index > 0 && _histogram[index] > _histogram[index - 1]) bullish++;
+        else if (_histogram[index] < 0 && index > 0 && _histogram[index] < _histogram[index - 1]) bearish++;
+        
+        // 7. ADX/DI Direction
+        if (_plusDi[index] > _minusDi[index]) bullish++;
+        else bearish++;
+        
+        // 8. Volume Confirmation
+        if (_volumeRatio[index] > 1.2)
+        {
+            if (candle.Close > candle.Vwap) bullish++;
+            else bearish++;
+        }
+        
+        // 9. Bollinger Bands
+        double bbPos = _bollingerUpper[index] - _bollingerLower[index];
+        if (bbPos > 0)
+        {
+            double pricePos = (candle.Close - _bollingerLower[index]) / bbPos;
+            if (pricePos > 0.6) bullish++;
+            else if (pricePos < 0.4) bearish++;
+        }
+        
+        // 10. Stochastic
+        if (_stochasticK[index] > _stochasticD[index] && _stochasticK[index] < 80) bullish++;
+        else if (_stochasticK[index] < _stochasticD[index] && _stochasticK[index] > 20) bearish++;
+        
+        // 11. CCI
+        if (_cci[index] > 0 && _cci[index] < 200) bullish++;
+        else if (_cci[index] < 0 && _cci[index] > -200) bearish++;
+        
+        // 12. MFI (Money Flow)
+        if (_mfi[index] > 50 && _mfi[index] < 80) bullish++;
+        else if (_mfi[index] < 50 && _mfi[index] > 20) bearish++;
+        
+        return (bullish, bearish, totalCategories);
+    }
+    
+    /// <summary>
+    /// Gets a recommendation string based on indicator confirmation.
+    /// </summary>
+    public string GetConfirmationSummary(int index)
+    {
+        var (bullish, bearish, total) = GetIndicatorConfirmation(index);
+        double bullishPct = (double)bullish / total * 100;
+        double bearishPct = (double)bearish / total * 100;
+        
+        if (bullish >= 8) return $"STRONG BUY ({bullish}/{total} bullish)";
+        if (bullish >= 6) return $"BUY ({bullish}/{total} bullish)";
+        if (bearish >= 8) return $"STRONG SELL ({bearish}/{total} bearish)";
+        if (bearish >= 6) return $"SELL ({bearish}/{total} bearish)";
+        return $"NEUTRAL (Bull:{bullish} Bear:{bearish} / {total})";
+    }
+    
+    /// <summary>
+    /// Gets highest price reached since the specified index.
+    /// </summary>
+    public double GetHighestSince(int fromIndex, int toIndex)
+    {
+        double highest = 0;
+        for (int i = fromIndex; i <= Math.Min(toIndex, _candles.Count - 1); i++)
+        {
+            if (_candles[i].High > highest) highest = _candles[i].High;
+        }
+        return highest;
+    }
+    
+    /// <summary>
+    /// Gets lowest price reached since the specified index.
+    /// </summary>
+    public double GetLowestSince(int fromIndex, int toIndex)
+    {
+        double lowest = double.MaxValue;
+        for (int i = fromIndex; i <= Math.Min(toIndex, _candles.Count - 1); i++)
+        {
+            if (_candles[i].Low < lowest) lowest = _candles[i].Low;
+        }
+        return lowest == double.MaxValue ? 0 : lowest;
     }
 }

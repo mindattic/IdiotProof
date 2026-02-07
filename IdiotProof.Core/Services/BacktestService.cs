@@ -202,11 +202,25 @@ namespace IdiotProof.Backend.Services
             if (verboseLogging)
             {
                 Console.WriteLine($"[LEARN] Running autonomous learning for {symbol} with {bars.Count} bars...");
+                Console.WriteLine($"        Date range: {bars[0].Time:yyyy-MM-dd} to {bars[^1].Time:yyyy-MM-dd}");
+                Console.WriteLine();
             }
 
-            // Process each bar
+            // Track day number for logging
+            DateTime? currentDay = null;
+            int dayNumber = 0;
+
+            // Process each bar (oldest to newest - bars should already be sorted)
             foreach (var bar in bars)
             {
+                // Check if we've moved to a new trading day
+                if (verboseLogging && bar.Time.Date != currentDay)
+                {
+                    currentDay = bar.Time.Date;
+                    dayNumber++;
+                    Console.WriteLine($"  --- Day {dayNumber}: {bar.Time:ddd MM/dd/yyyy} ---");
+                }
+
                 var trades = simulator.ProcessBar(bar);
 
                 if (verboseLogging)
@@ -220,7 +234,7 @@ namespace IdiotProof.Backend.Services
                             "SL" => " SL",
                             _ => ""
                         };
-                        Console.WriteLine($"  {icon}{reasonTag} {trade.EntryTime:MM/dd HH:mm} -> {trade.ExitTime:HH:mm} | " +
+                        Console.WriteLine($"      {icon}{reasonTag} {trade.EntryTime:HH:mm} -> {trade.ExitTime:HH:mm} | " +
                             $"${trade.EntryPrice:F2} -> ${trade.ExitPrice:F2} | " +
                             $"P&L: ${trade.ProfitLoss:F2} ({trade.ProfitLossPercent:F2}%)");
                     }
@@ -233,19 +247,53 @@ namespace IdiotProof.Backend.Services
                 var finalTrade = simulator.ClosePosition(bars[^1].Close, bars[^1].Time);
                 if (verboseLogging && finalTrade != null)
                 {
-                    Console.WriteLine($"  [END] Closed at end of data: ${finalTrade.ProfitLoss:F2}");
+                    Console.WriteLine($"      [END] Closed at end of data: ${finalTrade.ProfitLoss:F2}");
                 }
             }
 
             var profile = simulator.GetProfile();
 
+            // Save backtest date range to profile
+            if (bars.Count > 0)
+            {
+                profile.BacktestStartDate = bars[0].Time;
+                profile.BacktestEndDate = bars[^1].Time;
+                profile.BacktestDays = dayNumber;
+
+                // Apply time-weighted learning
+                profile.RecalculateWithTimeWeighting(bars[^1].Time);
+            }
+
             if (verboseLogging)
             {
+                Console.WriteLine();
                 Console.WriteLine($"[LEARN] Complete: {profile.GetSummary()}");
             }
 
             return profile;
         }
+    }
+
+    /// <summary>
+    /// Holds all indicator scores for comprehensive analysis.
+    /// </summary>
+    internal struct IndicatorScores
+    {
+        // Core indicators
+        public int Total;
+        public int Vwap;
+        public int Ema;
+        public int Rsi;
+        public int Macd;
+        public int Adx;
+        public int Volume;
+
+        // Extended indicators
+        public int Bollinger;
+        public int Stochastic;
+        public int Obv;
+        public int Cci;
+        public int WilliamsR;
     }
 
     /// <summary>
@@ -289,7 +337,7 @@ namespace IdiotProof.Backend.Services
         private double _pvSum;
         private double _vSum;
 
-        // Indicator calculators
+        // Indicator calculators - Core
         private readonly EmaCalculator _ema9 = new(9);
         private readonly EmaCalculator _ema21 = new(21);
         private readonly EmaCalculator _ema50 = new(50);
@@ -298,6 +346,16 @@ namespace IdiotProof.Backend.Services
         private readonly MacdCalculator _macd = new(12, 26, 9);
         private readonly VolumeCalculator _volume = new(20);
         private readonly AtrCalculator _atr = new(14);
+
+        // Indicator calculators - Extended (new indicators)
+        private readonly BollingerBandsCalculator _bollinger = new(20, 2.0);
+        private readonly StochasticCalculator _stochastic = new(14, 3);
+        private readonly ObvCalculator _obv = new(20);
+        private readonly CciCalculator _cci = new(20);
+        private readonly WilliamsRCalculator _williamsR = new(14);
+
+        // Additional entry scores for extended indicators
+        private int _entryBollingerScore, _entryStochasticScore, _entryObvScore, _entryCciScore, _entryWilliamsRScore;
 
         // Warm-up tracking
         private int _barCount;
@@ -412,7 +470,7 @@ namespace IdiotProof.Backend.Services
             }
             double vwap = _vSum > 0 ? _pvSum / _vSum : bar.Close;
 
-            // Update indicators
+            // Update core indicators
             _ema9.Update(bar.Close);
             _ema21.Update(bar.Close);
             _ema50.Update(bar.Close);
@@ -424,10 +482,17 @@ namespace IdiotProof.Backend.Services
             _atr.Update(bar.Low);
             _atr.Update(bar.Close);
 
+            // Update extended indicators
+            _bollinger.Update(bar.Close);
+            _stochastic.Update(bar.High, bar.Low, bar.Close);
+            _obv.Update(bar.Close, bar.Volume);
+            _cci.Update(bar.High, bar.Low, bar.Close);
+            _williamsR.Update(bar.High, bar.Low, bar.Close);
+
             // Check warm-up
             if (!_indicatorsReady)
             {
-                if (_ema50.IsReady && _adx.IsReady && _rsi.IsReady && _macd.IsReady)
+                if (_ema50.IsReady && _adx.IsReady && _rsi.IsReady && _macd.IsReady && _bollinger.IsReady)
                 {
                     _indicatorsReady = true;
                 }
@@ -437,8 +502,8 @@ namespace IdiotProof.Backend.Services
                 }
             }
 
-            // Calculate market score
-            var (score, vwapS, emaS, rsiS, macdS, adxS, volS) = CalculateScore(bar.Close, vwap);
+            // Calculate market score with all indicators
+            var scores = CalculateScore(bar.Close, vwap);
 
             // Check if within RTH (avoid premarket/afterhours noise)
             var hour = bar.Time.Hour;
@@ -466,15 +531,21 @@ namespace IdiotProof.Backend.Services
                     bool diPositive = _adx.IsReady && _adx.PlusDI > _adx.MinusDI;
                     bool diNegative = _adx.IsReady && _adx.MinusDI > _adx.PlusDI;
 
+                    // Additional confirmation from extended indicators
+                    bool stochasticBullish = _stochastic.IsReady && (_stochastic.IsBullishCrossover || !_stochastic.IsOverbought);
+                    bool stochasticBearish = _stochastic.IsReady && (_stochastic.IsBearishCrossover || !_stochastic.IsOversold);
+                    bool obvConfirmsBull = !_obv.IsReady || _obv.IsAboveEma;
+                    bool obvConfirmsBear = !_obv.IsReady || _obv.IsBelowEma;
+
                     // LONG: Score above threshold AND MACD bullish AND +DI > -DI
-                    if (score >= longThreshold && macdBullish && diPositive)
+                    if (scores.Total >= longThreshold && macdBullish && diPositive && stochasticBullish && obvConfirmsBull)
                     {
-                        EnterPosition(bar.Close, bar.Time, true, score, vwapS, emaS, rsiS, macdS, adxS, volS);
+                        EnterPosition(bar.Close, bar.Time, true, scores);
                     }
                     // SHORT: Score below threshold AND MACD bearish AND -DI > +DI
-                    else if (score <= shortThreshold && macdBearish && diNegative)
+                    else if (scores.Total <= shortThreshold && macdBearish && diNegative && stochasticBearish && obvConfirmsBear)
                     {
-                        EnterPosition(bar.Close, bar.Time, false, score, vwapS, emaS, rsiS, macdS, adxS, volS);
+                        EnterPosition(bar.Close, bar.Time, false, scores);
                     }
                 }
             }
@@ -507,7 +578,7 @@ namespace IdiotProof.Backend.Services
                         bool diFlipped = _adx.IsReady && _adx.MinusDI > _adx.PlusDI;
                         int exitThreshold = GetLongExitThreshold();
 
-                        if (score < exitThreshold)
+                        if (scores.Total < exitThreshold)
                         {
                             _exitConfirmationBars++;
                             // Exit if: MACD flipped bearish AND DI flipped, OR sustained low score
@@ -543,7 +614,7 @@ namespace IdiotProof.Backend.Services
                         bool diFlipped = _adx.IsReady && _adx.PlusDI > _adx.MinusDI;
                         int exitThreshold = GetShortExitThreshold();
 
-                        if (score > exitThreshold)
+                        if (scores.Total > exitThreshold)
                         {
                             _exitConfirmationBars++;
                             if ((macdFlipped && diFlipped) || _exitConfirmationBars >= RequiredExitConfirmationBars)
@@ -561,7 +632,7 @@ namespace IdiotProof.Backend.Services
 
                 if (shouldExit)
                 {
-                    var trade = CreateTradeRecord(exitPrice, bar.Time, score, exitReason);
+                    var trade = CreateTradeRecord(exitPrice, bar.Time, scores.Total, exitReason);
                     completedTrades.Add(trade);
                     _profile.RecordTrade(trade);
                     ResetPosition();
@@ -575,8 +646,8 @@ namespace IdiotProof.Backend.Services
         {
             if (!_inPosition) return null;
 
-            var (score, _, _, _, _, _, _) = CalculateScore(price, _pvSum / Math.Max(_vSum, 1));
-            var trade = CreateTradeRecord(price, time, score, "END");
+            var scoresForClose = CalculateScore(price, _pvSum / Math.Max(_vSum, 1));
+            var trade = CreateTradeRecord(price, time, scoresForClose.Total, "END");
             _profile.RecordTrade(trade);
             ResetPosition();
             return trade;
@@ -584,18 +655,26 @@ namespace IdiotProof.Backend.Services
 
         public TickerProfile GetProfile() => _profile;
 
-        private (int total, int vwap, int ema, int rsi, int macd, int adx, int vol) CalculateScore(double price, double vwap)
+        /// <summary>
+        /// Calculates comprehensive market score using all available indicators.
+        /// Returns individual component scores for analysis and learning.
+        /// </summary>
+        private IndicatorScores CalculateScore(double price, double vwap)
         {
-            int vwapScore = 0, emaScore = 0, rsiScore = 0, macdScore = 0, adxScore = 0, volumeScore = 0;
+            var scores = new IndicatorScores();
 
-            // VWAP Position (15% weight)
+            // ================================================================
+            // CORE INDICATORS (Original weights adjusted for new indicators)
+            // ================================================================
+
+            // VWAP Position (10% weight)
             if (vwap > 0)
             {
                 double vwapDiff = (price - vwap) / vwap * 100;
-                vwapScore = (int)Math.Clamp(vwapDiff * 20, -100, 100);
+                scores.Vwap = (int)Math.Clamp(vwapDiff * 20, -100, 100);
             }
 
-            // EMA Stack Alignment (20% weight)
+            // EMA Stack Alignment (12% weight)
             int bullish = 0, bearish = 0;
             if (_ema9.IsReady && price > _ema9.CurrentValue) bullish++; else bearish++;
             if (_ema21.IsReady && price > _ema21.CurrentValue) bullish++; else bearish++;
@@ -603,74 +682,126 @@ namespace IdiotProof.Backend.Services
             int total = bullish + bearish;
             if (total > 0)
             {
-                emaScore = (int)((bullish - bearish) / (double)total * 100);
+                scores.Ema = (int)((bullish - bearish) / (double)total * 100);
             }
 
-            // RSI (15% weight)
+            // RSI (10% weight)
             if (_rsi.IsReady)
             {
                 double rsi = _rsi.CurrentValue;
                 if (rsi >= 70)
-                    rsiScore = (int)((70 - rsi) * 3.33);
+                    scores.Rsi = (int)((70 - rsi) * 3.33);
                 else if (rsi <= 30)
-                    rsiScore = (int)((30 - rsi) * 3.33);
+                    scores.Rsi = (int)((30 - rsi) * 3.33);
                 else
-                    rsiScore = (int)((rsi - 50) * 2.5);
+                    scores.Rsi = (int)((rsi - 50) * 2.5);
             }
 
-            // MACD (20% weight)
+            // MACD (15% weight)
             if (_macd.IsReady)
             {
-                macdScore = _macd.IsBullish ? 50 : -50;
-                macdScore += (int)Math.Clamp(_macd.Histogram * 500, -50, 50);
+                scores.Macd = _macd.IsBullish ? 50 : -50;
+                scores.Macd += (int)Math.Clamp(_macd.Histogram * 500, -50, 50);
             }
 
-            // ADX Trend Strength (20% weight)
+            // ADX Trend Strength (15% weight)
             if (_adx.IsReady)
             {
                 double adx = _adx.CurrentAdx;
                 bool diPositive = _adx.PlusDI > _adx.MinusDI;
                 int magnitude = (int)Math.Min(adx * 2, 100);
-                adxScore = diPositive ? magnitude : -magnitude;
+                scores.Adx = diPositive ? magnitude : -magnitude;
             }
 
-            // Volume (10% weight)
+            // Volume (8% weight)
             if (_volume.IsReady)
             {
                 double volumeRatio = _volume.VolumeRatio;
                 if (volumeRatio > 1.0)
                 {
                     int volumeMagnitude = (int)Math.Min((volumeRatio - 1.0) * 100, 100);
-                    volumeScore = price > vwap ? volumeMagnitude : -volumeMagnitude;
+                    scores.Volume = price > vwap ? volumeMagnitude : -volumeMagnitude;
                 }
             }
 
-            // Calculate weighted total
-            double totalScore =
-                vwapScore * 0.15 +
-                emaScore * 0.20 +
-                rsiScore * 0.15 +
-                macdScore * 0.20 +
-                adxScore * 0.20 +
-                volumeScore * 0.10;
+            // ================================================================
+            // EXTENDED INDICATORS (New)
+            // ================================================================
 
-            return ((int)Math.Clamp(totalScore, -100, 100), vwapScore, emaScore, rsiScore, macdScore, adxScore, volumeScore);
+            // Bollinger Bands (8% weight) - Mean reversion signals
+            if (_bollinger.IsReady)
+            {
+                scores.Bollinger = _bollinger.GetScore();
+            }
+
+            // Stochastic (8% weight) - Momentum crossovers
+            if (_stochastic.IsReady)
+            {
+                scores.Stochastic = _stochastic.GetScore();
+            }
+
+            // OBV (6% weight) - Volume flow and divergence
+            if (_obv.IsReady)
+            {
+                scores.Obv = _obv.GetScore();
+            }
+
+            // CCI (4% weight) - Trend strength and mean reversion
+            if (_cci.IsReady)
+            {
+                scores.Cci = _cci.GetScore();
+            }
+
+            // Williams %R (4% weight) - Momentum extremes
+            if (_williamsR.IsReady)
+            {
+                scores.WilliamsR = _williamsR.GetScore();
+            }
+
+            // ================================================================
+            // CALCULATE WEIGHTED TOTAL
+            // ================================================================
+            // Weights sum to 100%:
+            // Core: VWAP(10) + EMA(12) + RSI(10) + MACD(15) + ADX(15) + Volume(8) = 70%
+            // Extended: Bollinger(8) + Stochastic(8) + OBV(6) + CCI(4) + WilliamsR(4) = 30%
+
+            double totalScore =
+                scores.Vwap * 0.10 +
+                scores.Ema * 0.12 +
+                scores.Rsi * 0.10 +
+                scores.Macd * 0.15 +
+                scores.Adx * 0.15 +
+                scores.Volume * 0.08 +
+                scores.Bollinger * 0.08 +
+                scores.Stochastic * 0.08 +
+                scores.Obv * 0.06 +
+                scores.Cci * 0.04 +
+                scores.WilliamsR * 0.04;
+
+            scores.Total = (int)Math.Clamp(totalScore, -100, 100);
+
+            return scores;
         }
 
-        private void EnterPosition(double price, DateTime time, bool isLong, int score, int vwap, int ema, int rsi, int macd, int adx, int vol)
+        private void EnterPosition(double price, DateTime time, bool isLong, IndicatorScores scores)
         {
             _inPosition = true;
             _isLong = isLong;
             _entryPrice = price;
             _entryTime = time;
             _lastTradeTime = time;
-            _entryScore = score;
-            _entryVwapScore = vwap;
-            _entryEmaScore = ema;
-            _entryRsiScore = rsi;
-            _entryMacdScore = macd;
-            _entryAdxScore = adx;
-            _entryVolumeScore = vol;
+            _entryScore = scores.Total;
+            _entryVwapScore = scores.Vwap;
+            _entryEmaScore = scores.Ema;
+            _entryRsiScore = scores.Rsi;
+            _entryMacdScore = scores.Macd;
+            _entryAdxScore = scores.Adx;
+            _entryVolumeScore = scores.Volume;
+            _entryBollingerScore = scores.Bollinger;
+            _entryStochasticScore = scores.Stochastic;
+            _entryObvScore = scores.Obv;
+            _entryCciScore = scores.Cci;
+            _entryWilliamsRScore = scores.WilliamsR;
             _exitConfirmationBars = 0;
 
             // Get dynamic ATR multipliers based on volatility

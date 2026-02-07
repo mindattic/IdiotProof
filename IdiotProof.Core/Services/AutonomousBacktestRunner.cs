@@ -207,6 +207,25 @@ public static class AutonomousBacktestRunner
         var results = new List<AutonomousBacktestResult>();
         var currentDate = startDate;
         decimal runningCapital = startingCapital;
+        
+        // Create or load ticker profile for learning
+        var profileManager = new IdiotProof.Backend.Strategy.TickerProfileManager();
+        var profile = profileManager.GetProfile(symbol);
+        profile.BacktestStartDate = startDate.ToDateTime(TimeOnly.MinValue);
+        profile.BacktestEndDate = endDate.ToDateTime(TimeOnly.MaxValue);
+        
+        // Show header with capital and mode
+        string modeDesc = mode switch
+        {
+            AutonomousMode.Optimized => "OPTIMIZED (all tools, max profit)",
+            AutonomousMode.Aggressive => "Aggressive (lower thresholds)",
+            AutonomousMode.Balanced => "Balanced (standard)",
+            AutonomousMode.Conservative => "Conservative (higher thresholds)",
+            _ => mode.ToString()
+        };
+        progress?.Report($"\nCapital: ${startingCapital:N2}");
+        progress?.Report($"Mode: {modeDesc}");
+        progress?.Report($"Symbol: {symbol} | Period: {startDate:yyyy-MM-dd} to {endDate:yyyy-MM-dd}\n");
 
         while (currentDate <= endDate)
         {
@@ -219,17 +238,44 @@ public static class AutonomousBacktestRunner
 
             try
             {
-                progress?.Report($"Processing {currentDate:yyyy-MM-dd}...");
-
                 var result = await RunFromIbkrAsync(
                     histService, symbol, currentDate, runningCapital, mode, allowShort, 
                     null, cancellationToken);
 
                 results.Add(result);
                 runningCapital = result.EndingCapital;
+                
+                // Record trades to profile for learning
+                foreach (var trade in result.Trades)
+                {
+                    var tradeRecord = new IdiotProof.Backend.Strategy.TradeRecord
+                    {
+                        EntryTime = trade.EntryTime,
+                        ExitTime = trade.ExitTime,
+                        EntryPrice = trade.EntryPrice,
+                        ExitPrice = trade.ExitPrice,
+                        WasLong = trade.IsLong,
+                        Quantity = trade.Shares,
+                        EntryScore = (int)trade.EntryScore,
+                        ExitScore = (int)trade.ExitScore,
+                        ExitReason = trade.ExitReason.Contains("profit") ? "TP" : 
+                                     trade.ExitReason.Contains("loss") ? "SL" : "score",
+                        EntrySentimentScore = result.SentimentScore,
+                        EntrySentimentConfidence = result.SentimentConfidence
+                    };
+                    profile.RecordTrade(tradeRecord);
+                }
 
-                progress?.Report($"  {currentDate:yyyy-MM-dd}: {result.TotalTrades} trades, " +
-                               $"P&L: ${result.TotalPnL:+0.00;-0.00}, Capital: ${runningCapital:N2}");
+                // Show trade chain for the day
+                if (result.Trades.Count > 0)
+                {
+                    var tradeChain = FormatTradeChain(result.Trades, result.TotalPnL);
+                    progress?.Report($"[{currentDate:yyyy-MM-dd}] {tradeChain}");
+                }
+                else
+                {
+                    progress?.Report($"[{currentDate:yyyy-MM-dd}] No trades == P/L($0.00)");
+                }
             }
             catch (Exception ex)
             {
@@ -240,6 +286,17 @@ public static class AutonomousBacktestRunner
             await Task.Delay(1000, cancellationToken);
             currentDate = currentDate.AddDays(1);
         }
+        
+        // Apply time-weighted learning - recent days count more
+        var referenceDate = endDate.ToDateTime(TimeOnly.MaxValue);
+        profile.RecalculateWithTimeWeighting(referenceDate);
+        profile.BacktestDays = results.Count;
+        
+        // Save the profile
+        profileManager.SaveProfile(profile);
+        
+        progress?.Report($"\nProfile saved: {profile.GetSummary()}");
+        progress?.Report($"Time-weighted win rate: {profile.TimeWeightedWinRate:F1}%");
 
         return new MultiDayBacktestResult
         {
@@ -249,8 +306,59 @@ public static class AutonomousBacktestRunner
             StartingCapital = startingCapital,
             EndingCapital = runningCapital,
             Mode = mode,
-            DailyResults = results
+            DailyResults = results,
+            Profile = profile
         };
+    }
+
+    /// <summary>
+    /// Formats trades into a chain format for display.
+    /// Example: B($150.25) > S($152.50) > Sh($151.00) > BtC($149.50) == P/L(+$5.75)
+    /// </summary>
+    private static string FormatTradeChain(List<BacktestTrade> trades, decimal totalPnL)
+    {
+        var parts = new List<string>();
+        
+        foreach (var trade in trades)
+        {
+            // Entry action
+            if (trade.IsLong)
+            {
+                parts.Add($"B(${trade.EntryPrice:F2})");
+            }
+            else
+            {
+                parts.Add($"Sh(${trade.EntryPrice:F2})");
+            }
+            
+            // Exit action - determine type from ExitReason
+            var exitReason = trade.ExitReason.ToLowerInvariant();
+            string exitAction;
+            
+            if (exitReason.Contains("stop") || exitReason.Contains("sl"))
+            {
+                exitAction = $"SL(${trade.ExitPrice:F2})";
+            }
+            else if (exitReason.Contains("profit") || exitReason.Contains("tp"))
+            {
+                exitAction = $"TP(${trade.ExitPrice:F2})";
+            }
+            else if (trade.IsLong)
+            {
+                exitAction = $"S(${trade.ExitPrice:F2})";
+            }
+            else
+            {
+                exitAction = $"BtC(${trade.ExitPrice:F2})";
+            }
+            
+            parts.Add(exitAction);
+        }
+        
+        var chain = string.Join(" > ", parts);
+        var pnlStr = totalPnL >= 0 ? $"+${totalPnL:F2}" : $"-${Math.Abs(totalPnL):F2}";
+        
+        return $"{chain} == P/L({pnlStr})";
     }
 
     /// <summary>
@@ -442,6 +550,12 @@ public sealed class MultiDayBacktestResult
     public required decimal EndingCapital { get; init; }
     public required AutonomousMode Mode { get; init; }
     public List<AutonomousBacktestResult> DailyResults { get; init; } = [];
+    
+    /// <summary>
+    /// Time-weighted learning profile built from backtest trades.
+    /// Contains optimal thresholds and indicator correlations.
+    /// </summary>
+    public IdiotProof.Backend.Strategy.TickerProfile? Profile { get; init; }
 
     // Aggregate metrics
     public decimal TotalPnL => EndingCapital - StartingCapital;

@@ -51,6 +51,17 @@ namespace IdiotProof.Backend.Strategy
         public double EntryRsi { get; set; }
         public double EntryAdx { get; set; }
 
+        // Additional indicator scores at entry
+        public int EntryBollingerScore { get; set; }
+        public int EntryStochasticScore { get; set; }
+        public int EntryObvScore { get; set; }
+        public int EntryCciScore { get; set; }
+        public int EntryWilliamsRScore { get; set; }
+
+        // Sentiment at entry (from news/earnings)
+        public int EntrySentimentScore { get; set; }
+        public int EntrySentimentConfidence { get; set; }
+
         // Indicator values at exit
         public int ExitScore { get; set; }
         public double ExitRsi { get; set; }
@@ -58,6 +69,13 @@ namespace IdiotProof.Backend.Strategy
 
         /// <summary>Exit reason: TP, SL, score, END</summary>
         public string ExitReason { get; set; } = "score";
+
+        /// <summary>
+        /// Gets the age of this trade in days from the backtest end date.
+        /// Used for time-weighted learning.
+        /// </summary>
+        [JsonIgnore]
+        public int AgeDays { get; set; }
 
         // Outcome
         public double ProfitLoss => WasLong
@@ -154,6 +172,11 @@ namespace IdiotProof.Backend.Strategy
         public string Symbol { get; set; } = "";
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
         public DateTime LastUpdated { get; set; } = DateTime.UtcNow;
+
+        // Backtest date range
+        public DateTime? BacktestStartDate { get; set; }
+        public DateTime? BacktestEndDate { get; set; }
+        public int BacktestDays { get; set; }
 
         // Trade history (keep last N trades for detailed analysis)
         public List<TradeRecord> RecentTrades { get; set; } = new();
@@ -320,9 +343,21 @@ namespace IdiotProof.Backend.Strategy
             {
                 UpdateCorrelation("RSI", "Overbought (>=70)", trade);
             }
+            else if (trade.EntryRsi >= 50)
+            {
+                UpdateCorrelation("RSI", "Bullish (50-70)", trade);
+            }
+            else
+            {
+                UpdateCorrelation("RSI", "Bearish (30-50)", trade);
+            }
 
             // ADX Trend Strength
-            if (trade.EntryAdx >= 25)
+            if (trade.EntryAdx >= 40)
+            {
+                UpdateCorrelation("ADX", "Very Strong (>=40)", trade);
+            }
+            else if (trade.EntryAdx >= 25)
             {
                 UpdateCorrelation("ADX", "Strong Trend (>=25)", trade);
             }
@@ -332,19 +367,146 @@ namespace IdiotProof.Backend.Strategy
             }
 
             // MACD direction
-            if (trade.EntryMacdScore > 0)
+            if (trade.EntryMacdScore > 50)
+            {
+                UpdateCorrelation("MACD", "Strong Bullish (>50)", trade);
+            }
+            else if (trade.EntryMacdScore > 0)
             {
                 UpdateCorrelation("MACD", "Bullish", trade);
+            }
+            else if (trade.EntryMacdScore < -50)
+            {
+                UpdateCorrelation("MACD", "Strong Bearish (<-50)", trade);
             }
             else
             {
                 UpdateCorrelation("MACD", "Bearish", trade);
             }
 
-            // High volume entries
-            if (trade.EntryVolumeScore > 50)
+            // Volume analysis
+            if (trade.EntryVolumeScore > 75)
+            {
+                UpdateCorrelation("Volume", "Very High (>2x avg)", trade);
+            }
+            else if (trade.EntryVolumeScore > 50)
             {
                 UpdateCorrelation("Volume", "High (>1.5x avg)", trade);
+            }
+            else if (trade.EntryVolumeScore < -25)
+            {
+                UpdateCorrelation("Volume", "Low (<avg)", trade);
+            }
+            
+            // Bollinger Bands
+            if (trade.EntryBollingerScore > 50)
+            {
+                UpdateCorrelation("Bollinger", "Near Lower Band (oversold)", trade);
+            }
+            else if (trade.EntryBollingerScore < -50)
+            {
+                UpdateCorrelation("Bollinger", "Near Upper Band (overbought)", trade);
+            }
+            
+            // Stochastic
+            if (trade.EntryStochasticScore > 75)
+            {
+                UpdateCorrelation("Stochastic", "Oversold Bounce", trade);
+            }
+            else if (trade.EntryStochasticScore < -75)
+            {
+                UpdateCorrelation("Stochastic", "Overbought Reversal", trade);
+            }
+            
+            // CCI
+            if (trade.EntryCciScore > 50)
+            {
+                UpdateCorrelation("CCI", "Oversold Zone", trade);
+            }
+            else if (trade.EntryCciScore < -50)
+            {
+                UpdateCorrelation("CCI", "Overbought Zone", trade);
+            }
+            
+            // Williams %R
+            if (trade.EntryWilliamsRScore > 50)
+            {
+                UpdateCorrelation("Williams%R", "Oversold Signal", trade);
+            }
+            else if (trade.EntryWilliamsRScore < -50)
+            {
+                UpdateCorrelation("Williams%R", "Overbought Signal", trade);
+            }
+            
+            // OBV (On-Balance Volume)
+            if (trade.EntryObvScore > 25)
+            {
+                UpdateCorrelation("OBV", "Rising (bullish)", trade);
+            }
+            else if (trade.EntryObvScore < -25)
+            {
+                UpdateCorrelation("OBV", "Falling (bearish)", trade);
+            }
+            
+            // Sentiment (if available)
+            if (trade.EntrySentimentConfidence >= 50)
+            {
+                if (trade.EntrySentimentScore >= 50)
+                {
+                    UpdateCorrelation("Sentiment", "Strong Bullish (>=50)", trade);
+                }
+                else if (trade.EntrySentimentScore >= 25)
+                {
+                    UpdateCorrelation("Sentiment", "Bullish (25-50)", trade);
+                }
+                else if (trade.EntrySentimentScore <= -50)
+                {
+                    UpdateCorrelation("Sentiment", "Strong Bearish (<=-50)", trade);
+                }
+                else if (trade.EntrySentimentScore <= -25)
+                {
+                    UpdateCorrelation("Sentiment", "Bearish (-50 to -25)", trade);
+                }
+                else
+                {
+                    UpdateCorrelation("Sentiment", "Neutral (-25 to 25)", trade);
+                }
+            }
+            
+            // VWAP position
+            if (trade.EntryVwapScore > 50)
+            {
+                UpdateCorrelation("VWAP", "Well Above (bullish)", trade);
+            }
+            else if (trade.EntryVwapScore > 0)
+            {
+                UpdateCorrelation("VWAP", "Above (bullish)", trade);
+            }
+            else if (trade.EntryVwapScore < -50)
+            {
+                UpdateCorrelation("VWAP", "Well Below (bearish)", trade);
+            }
+            else if (trade.EntryVwapScore < 0)
+            {
+                UpdateCorrelation("VWAP", "Below (bearish)", trade);
+            }
+            
+            // EMA stack
+            if (trade.EntryEmaScore > 75)
+            {
+                UpdateCorrelation("EMA", "Bullish Stack (above all)", trade);
+            }
+            else if (trade.EntryEmaScore > 25)
+            {
+                UpdateCorrelation("EMA", "Bullish Bias", trade);
+            }
+            else if (trade.EntryEmaScore < -75)
+            {
+                UpdateCorrelation("EMA", "Bearish Stack (below all)", trade);
+            }
+            else if (trade.EntryEmaScore < -25)
+            {
+                UpdateCorrelation("EMA", "Bearish Bias", trade);
             }
         }
 
@@ -469,6 +631,133 @@ namespace IdiotProof.Backend.Strategy
         }
 
         /// <summary>
+        /// Gets the top performing indicator conditions for this ticker.
+        /// </summary>
+        /// <param name="minOccurrences">Minimum number of occurrences to consider.</param>
+        /// <param name="count">Number of top conditions to return.</param>
+        public List<IndicatorCorrelation> GetBestIndicatorConditions(int minOccurrences = 5, int count = 10)
+        {
+            return IndicatorCorrelations
+                .Where(c => c.Occurrences >= minOccurrences)
+                .OrderByDescending(c => c.WinRate * (c.AverageProfit > 0 ? 1.5 : 1))
+                .ThenByDescending(c => c.WinRate)
+                .Take(count)
+                .ToList();
+        }
+        
+        /// <summary>
+        /// Gets the worst performing indicator conditions to avoid.
+        /// </summary>
+        public List<IndicatorCorrelation> GetWorstIndicatorConditions(int minOccurrences = 5, int count = 10)
+        {
+            return IndicatorCorrelations
+                .Where(c => c.Occurrences >= minOccurrences && c.WinRate < 45)
+                .OrderBy(c => c.WinRate)
+                .ThenBy(c => c.AverageProfit)
+                .Take(count)
+                .ToList();
+        }
+        
+        /// <summary>
+        /// Gets indicator weight adjustments based on historical performance.
+        /// Returns a multiplier (0.5 to 1.5) for each indicator based on its effectiveness.
+        /// </summary>
+        public Dictionary<string, double> GetIndicatorWeightAdjustments()
+        {
+            var weights = new Dictionary<string, double>();
+            
+            // Group correlations by indicator
+            var byIndicator = IndicatorCorrelations
+                .GroupBy(c => c.IndicatorName)
+                .ToDictionary(g => g.Key, g => g.ToList());
+                
+            foreach (var kvp in byIndicator)
+            {
+                string indicator = kvp.Key;
+                var conditions = kvp.Value;
+                
+                int totalOccurrences = conditions.Sum(c => c.Occurrences);
+                if (totalOccurrences < 10)
+                {
+                    weights[indicator] = 1.0; // Default weight
+                    continue;
+                }
+                
+                // Calculate weighted win rate for this indicator
+                double weightedWinRate = conditions.Sum(c => c.WinRate * c.Occurrences) / totalOccurrences;
+                
+                // Convert to multiplier: 50% win rate = 1.0, 60% = 1.2, 70% = 1.4, 40% = 0.8
+                double multiplier = 1.0 + (weightedWinRate - 50) * 0.02;
+                weights[indicator] = Math.Clamp(multiplier, 0.5, 1.5);
+            }
+            
+            return weights;
+        }
+        
+        /// <summary>
+        /// Gets a sentiment effectiveness score based on historical trades with sentiment data.
+        /// Returns how much sentiment should be weighted in decisions.
+        /// </summary>
+        public double GetSentimentEffectiveness()
+        {
+            var sentimentTrades = RecentTrades
+                .Where(t => t.EntrySentimentConfidence >= 50)
+                .ToList();
+                
+            if (sentimentTrades.Count < 10)
+                return 0.5; // Not enough data, use moderate weight
+                
+            // Check if trading with sentiment direction improves results
+            var withSentiment = sentimentTrades
+                .Where(t => (t.WasLong && t.EntrySentimentScore > 0) || (!t.WasLong && t.EntrySentimentScore < 0))
+                .ToList();
+                
+            var againstSentiment = sentimentTrades
+                .Where(t => (t.WasLong && t.EntrySentimentScore < 0) || (!t.WasLong && t.EntrySentimentScore > 0))
+                .ToList();
+                
+            if (withSentiment.Count < 5 || againstSentiment.Count < 5)
+                return 0.5;
+                
+            double withWinRate = withSentiment.Count(t => t.IsWin) / (double)withSentiment.Count;
+            double againstWinRate = againstSentiment.Count(t => t.IsWin) / (double)againstSentiment.Count;
+            
+            // If trading with sentiment is significantly better, increase weight
+            if (withWinRate > againstWinRate + 0.1)
+                return Math.Min(1.0, 0.5 + (withWinRate - againstWinRate));
+                
+            // If trading against sentiment is better, reduce sentiment weight
+            if (againstWinRate > withWinRate + 0.1)
+                return Math.Max(0.1, 0.5 - (againstWinRate - withWinRate));
+                
+            return 0.5;
+        }
+        
+        /// <summary>
+        /// Gets the best time windows for trading this ticker.
+        /// </summary>
+        public List<TimeWindowStats> GetBestTimeWindows(int minTrades = 5)
+        {
+            return TimeWindowStats.Values
+                .Where(w => w.TotalTrades >= minTrades)
+                .OrderByDescending(w => w.WinRate)
+                .ThenByDescending(w => w.AverageProfit)
+                .Take(5)
+                .ToList();
+        }
+        
+        /// <summary>
+        /// Gets time windows to avoid based on poor historical performance.
+        /// </summary>
+        public List<string> GetBadTimeWindows(int minTrades = 5, double maxWinRate = 40)
+        {
+            return TimeWindowStats.Values
+                .Where(w => w.TotalTrades >= minTrades && w.WinRate < maxWinRate)
+                .Select(w => w.TimeBucket)
+                .ToList();
+        }
+
+        /// <summary>
         /// Gets a summary string of the ticker profile for logging.
         /// </summary>
         public string GetSummary()
@@ -476,6 +765,197 @@ namespace IdiotProof.Backend.Strategy
             return $"{Symbol}: {TotalTrades} trades, {WinRate:F1}% win rate, " +
                    $"PF={ProfitFactor:F2}, Net=${NetProfit:F2}, " +
                    $"Conf={Confidence}%, OptLong={OptimalLongEntryThreshold}, OptShort={OptimalShortEntryThreshold}";
+        }
+
+        // ====================================================================
+        // Time-Weighted Learning
+        // ====================================================================
+
+        /// <summary>
+        /// Half-life in days for exponential decay weighting.
+        /// Trades 7 days old have half the weight of today's trades.
+        /// </summary>
+        public const double DecayHalfLifeDays = 7.0;
+
+        /// <summary>
+        /// Calculates the time decay weight for a trade.
+        /// Recent trades get higher weight (closer to 1.0).
+        /// Older trades decay exponentially.
+        /// </summary>
+        /// <param name="tradeDate">The date of the trade.</param>
+        /// <param name="referenceDate">The reference date (usually backtest end or now).</param>
+        /// <returns>Weight between 0 and 1.</returns>
+        public static double CalculateTimeWeight(DateTime tradeDate, DateTime referenceDate)
+        {
+            double daysDiff = (referenceDate - tradeDate).TotalDays;
+            if (daysDiff < 0) daysDiff = 0;
+
+            // Exponential decay: weight = 0.5^(days/halfLife)
+            return Math.Pow(0.5, daysDiff / DecayHalfLifeDays);
+        }
+
+        /// <summary>
+        /// Recalculates all statistics using time-weighted learning.
+        /// Recent trades are weighted more heavily than older trades.
+        /// </summary>
+        /// <param name="referenceDate">The reference date for decay calculation.</param>
+        public void RecalculateWithTimeWeighting(DateTime? referenceDate = null)
+        {
+            if (RecentTrades.Count == 0) return;
+
+            var refDate = referenceDate ?? RecentTrades.Max(t => t.ExitTime);
+
+            // Calculate time-weighted win rate
+            double weightedWins = 0;
+            double weightedLosses = 0;
+            double weightedProfit = 0;
+
+            foreach (var trade in RecentTrades)
+            {
+                double weight = CalculateTimeWeight(trade.EntryTime, refDate);
+
+                if (trade.IsWin)
+                    weightedWins += weight;
+                else
+                    weightedLosses += weight;
+
+                weightedProfit += trade.ProfitLoss * weight;
+            }
+
+            double totalWeight = weightedWins + weightedLosses;
+            double timeWeightedWinRate = totalWeight > 0 ? (weightedWins / totalWeight) * 100 : 50;
+
+            // Recalculate optimal thresholds with time weighting
+            RecalculateOptimalThresholdsWithTimeWeighting(refDate);
+
+            // Store the time-weighted metrics
+            TimeWeightedWinRate = timeWeightedWinRate;
+            TimeWeightedNetProfit = weightedProfit;
+        }
+
+        /// <summary>
+        /// Time-weighted win rate (recent trades count more).
+        /// </summary>
+        [JsonIgnore]
+        public double TimeWeightedWinRate { get; private set; }
+
+        /// <summary>
+        /// Time-weighted net profit (recent trades count more).
+        /// </summary>
+        [JsonIgnore]
+        public double TimeWeightedNetProfit { get; private set; }
+
+        /// <summary>
+        /// Recalculates optimal thresholds using time-weighted statistics.
+        /// </summary>
+        private void RecalculateOptimalThresholdsWithTimeWeighting(DateTime referenceDate)
+        {
+            if (RecentTrades.Count < 10) return;
+
+            // Group trades by score bucket with time weighting
+            var longScoreBuckets = new Dictionary<int, (double weightedWins, double weightedTotal, double weightedProfit)>();
+            var shortScoreBuckets = new Dictionary<int, (double weightedWins, double weightedTotal, double weightedProfit)>();
+
+            foreach (var trade in RecentTrades)
+            {
+                double weight = CalculateTimeWeight(trade.EntryTime, referenceDate);
+                int scoreBucket = (trade.EntryScore / 5) * 5;
+
+                var buckets = trade.WasLong ? longScoreBuckets : shortScoreBuckets;
+
+                if (!buckets.ContainsKey(scoreBucket))
+                    buckets[scoreBucket] = (0, 0, 0);
+
+                var current = buckets[scoreBucket];
+                buckets[scoreBucket] = (
+                    current.weightedWins + (trade.IsWin ? weight : 0),
+                    current.weightedTotal + weight,
+                    current.weightedProfit + trade.ProfitLoss * weight
+                );
+            }
+
+            // Find optimal long threshold
+            var bestLong = longScoreBuckets
+                .Where(kvp => kvp.Value.weightedTotal >= 2.0) // Minimum weighted sample
+                .Select(kvp => new
+                {
+                    Threshold = kvp.Key,
+                    WinRate = kvp.Value.weightedTotal > 0 ? kvp.Value.weightedWins / kvp.Value.weightedTotal * 100 : 0,
+                    Expectancy = kvp.Value.weightedTotal > 0 ? kvp.Value.weightedProfit / kvp.Value.weightedTotal : 0
+                })
+                .Where(x => x.WinRate > 55)
+                .OrderByDescending(x => x.Expectancy)
+                .ThenByDescending(x => x.WinRate)
+                .FirstOrDefault();
+
+            if (bestLong != null)
+                OptimalLongEntryThreshold = bestLong.Threshold;
+
+            // Find optimal short threshold
+            var bestShort = shortScoreBuckets
+                .Where(kvp => kvp.Value.weightedTotal >= 2.0)
+                .Select(kvp => new
+                {
+                    Threshold = kvp.Key,
+                    WinRate = kvp.Value.weightedTotal > 0 ? kvp.Value.weightedWins / kvp.Value.weightedTotal * 100 : 0,
+                    Expectancy = kvp.Value.weightedTotal > 0 ? kvp.Value.weightedProfit / kvp.Value.weightedTotal : 0
+                })
+                .Where(x => x.WinRate > 55)
+                .OrderByDescending(x => x.Expectancy)
+                .ThenByDescending(x => x.WinRate)
+                .FirstOrDefault();
+
+            if (bestShort != null)
+                OptimalShortEntryThreshold = bestShort.Threshold;
+        }
+
+        // ====================================================================
+        // Sentiment Data
+        // ====================================================================
+
+        /// <summary>
+        /// Latest sentiment score for this ticker (-100 to +100).
+        /// </summary>
+        public int LastSentimentScore { get; set; }
+
+        /// <summary>
+        /// Confidence in the sentiment score (0-100).
+        /// </summary>
+        public int LastSentimentConfidence { get; set; }
+
+        /// <summary>
+        /// When the sentiment was last updated.
+        /// </summary>
+        public DateTime LastSentimentUpdate { get; set; }
+
+        /// <summary>
+        /// Updates the sentiment data for this ticker.
+        /// </summary>
+        public void UpdateSentiment(int score, int confidence)
+        {
+            LastSentimentScore = score;
+            LastSentimentConfidence = confidence;
+            LastSentimentUpdate = DateTime.UtcNow;
+        }
+
+        /// <summary>
+        /// Gets whether sentiment data is fresh (within 1 hour).
+        /// </summary>
+        [JsonIgnore]
+        public bool HasFreshSentiment => (DateTime.UtcNow - LastSentimentUpdate).TotalHours < 1;
+
+        /// <summary>
+        /// Gets the sentiment adjustment for the market score.
+        /// Weighted by confidence.
+        /// </summary>
+        public int GetSentimentAdjustment()
+        {
+            if (!HasFreshSentiment || LastSentimentConfidence < 25)
+                return 0;
+
+            // Weight by confidence and cap at +/- 15 points
+            double adjustment = LastSentimentScore * (LastSentimentConfidence / 100.0) * 0.15;
+            return (int)Math.Clamp(adjustment, -15, 15);
         }
     }
 
@@ -536,6 +1016,11 @@ namespace IdiotProof.Backend.Strategy
         {
             try
             {
+                lock (_lock)
+                {
+                    _profiles[profile.Symbol.ToUpperInvariant()] = profile;
+                }
+
                 string filePath = Path.Combine(_profileDirectory, $"{profile.Symbol}.json");
                 string json = JsonSerializer.Serialize(profile, JsonOptions);
                 File.WriteAllText(filePath, json);
