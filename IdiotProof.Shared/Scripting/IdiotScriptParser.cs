@@ -1252,45 +1252,9 @@ public static partial class IdiotScriptParser
         var match = AutonomousTradingPattern().Match(command);
         if (!match.Success) return false;
 
-        var value = match.Groups[1].Value.Trim();
-
-        // If no value provided (e.g., "AutonomousTrading", "IsAutonomousTrading", "AutonomousTrading()"), default to Balanced
-        if (string.IsNullOrEmpty(value))
-        {
-            context.AutonomousTradingMode = "Balanced";
-            return true;
-        }
-
-        // Check if it's a constant (IS. prefix)
-        if (IdiotScriptConstants.IsConstant(value))
-        {
-            var resolved = IdiotScriptConstants.ResolveConstant(value);
-            if (!string.IsNullOrEmpty(resolved))
-            {
-                // Normalize mode name
-                context.AutonomousTradingMode = resolved.ToUpperInvariant() switch
-                {
-                    "CONSERVATIVE" or "SAFE" => "Conservative",
-                    "BALANCED" or "MODERATE" or "NORMAL" => "Balanced",
-                    "AGGRESSIVE" or "RISKY" => "Aggressive",
-                    "FLIPTRADER" or "FLIP" => "FlipTrader",
-                    _ => resolved // Pass through for custom modes
-                };
-                return true;
-            }
-            throw new IdiotScriptException($"Unknown autonomous trading constant: {value}");
-        }
-
-        // Direct mode name
-        context.AutonomousTradingMode = value.ToUpperInvariant() switch
-        {
-            "CONSERVATIVE" or "SAFE" => "Conservative",
-            "BALANCED" or "MODERATE" or "NORMAL" => "Balanced",
-            "AGGRESSIVE" or "RISKY" => "Aggressive",
-            "FLIPTRADER" or "FLIP" => "FlipTrader",
-            _ => value // Allow custom mode names
-        };
-
+        // AutonomousTrading is always self-adjusting - mode parameter is ignored for backwards compatibility
+        // The system automatically adjusts thresholds based on market conditions (ADX, ATR, indicator agreement, etc.)
+        context.AutonomousTradingMode = "Optimized";
         return true;
     }
 

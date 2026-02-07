@@ -1573,30 +1573,22 @@ namespace IdiotProof.Backend.Strategy
         /// <remarks>
         /// <para><b>Modes:</b></para>
         /// <list type="bullet">
-        /// <item><description><b>Conservative:</b> Higher thresholds (80/-80), fewer trades, safer</description></item>
-        /// <item><description><b>Balanced:</b> Standard thresholds (70/-70)</description></item>
-        /// <item><description><b>Aggressive:</b> Lower thresholds (60/-60), more trades</description></item>
+        /// <item><description>Automatically adjusts thresholds based on market conditions</description></item>
+        /// <item><description>More aggressive in strong trends (high ADX)</description></item>
+        /// <item><description>More conservative in ranging/volatile markets</description></item>
+        /// <item><description>Accounts for indicator agreement, RSI extremes, and time of day</description></item>
         /// </list>
         /// <para><b>Example:</b></para>
         /// <code>
         /// Stock.Ticker("AAPL")
-        ///     .Long()
-        ///     .AutonomousTrading()                // Use balanced mode (default)
-        ///     .AutonomousTrading("Aggressive")   // More active trading
+        ///     .AutonomousTrading()   // Self-adjusting - no mode needed
         ///     .Build();
         /// </code>
         /// </remarks>
-        public StrategyBuilder AutonomousTrading(string mode = "Balanced")
+        public StrategyBuilder AutonomousTrading(string mode = "")
         {
-            var autonomousMode = mode.ToUpperInvariant() switch
-            {
-                "CONSERVATIVE" => Autonomous.Conservative,
-                "AGGRESSIVE" => Autonomous.Aggressive,
-                "FLIPTRADER" or "FLIP" => Autonomous.FlipTrader,
-                _ => Autonomous.Balanced
-            };
-
-            _autonomousTrading = autonomousMode;
+            // Always use self-adjusting Optimized mode - mode parameter ignored for backwards compatibility
+            _autonomousTrading = Autonomous.Optimized;
             return this;
         }
 
@@ -1614,7 +1606,7 @@ namespace IdiotProof.Backend.Strategy
         /// <summary>
         /// Alias for <see cref="AutonomousTrading"/>.
         /// </summary>
-        public StrategyBuilder IsAutonomousTrading(string mode = "Balanced") => AutonomousTrading(mode);
+        public StrategyBuilder IsAutonomousTrading(string mode = "") => AutonomousTrading(mode);
 
         /// <summary>
         /// Sets the time to exit the position if still open.

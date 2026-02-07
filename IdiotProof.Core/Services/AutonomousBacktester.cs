@@ -5,6 +5,12 @@
 // Simulates AutonomousTrading against a full trading day (4:00 AM - 8:00 PM EST)
 // with realistic capital management, position sizing, and detailed trade analysis.
 //
+// FEATURES:
+//   - Dynamic self-calibration: Automatically adjusts thresholds based on performance
+//   - Market regime detection: Adapts to trending vs ranging, volatile vs calm
+//   - Opportunity tracking: Loosens filters when missing profitable setups
+//   - Risk management: Tightens filters after consecutive losses
+//
 // USAGE:
 //   var backtester = new AutonomousBacktester(historicalDataService);
 //   var result = await backtester.RunAsync("NVDA", new DateOnly(2025, 12, 15), 1000.00m);
@@ -15,12 +21,430 @@
 using IdiotProof.Backend.Enums;
 using IdiotProof.Backend.Models;
 using IdiotProof.BackTesting.Models;
+using IdiotProof.Shared.Models;
 using System.Text;
 
 // Use the AutonomousMode from BackTesting.Services
 using AutonomousMode = IdiotProof.BackTesting.Services.AutonomousMode;
 
 namespace IdiotProof.Backend.Services;
+
+// ============================================================================
+// DYNAMIC CALIBRATOR - Self-adjusting parameter system
+// ============================================================================
+
+/// <summary>
+/// Self-calibrating system that dynamically adjusts trading parameters
+/// based on real-time performance and market conditions.
+/// </summary>
+internal sealed class DynamicCalibrator
+{
+    // Current calibrated thresholds (start at moderate levels)
+    public int LongEntryThreshold { get; set; } = 65;
+    public int ShortEntryThreshold { get; set; } = -65;
+    public double TakeProfitAtr { get; set; } = 1.5;
+    public double StopLossAtr { get; set; } = 2.5;
+    public double MinVolumeRatio { get; set; } = 1.0;
+    public bool RequireTrendAlignment { get; set; } = true;
+    public int MinIndicatorConfirmation { get; set; } = 5;
+    
+    // Performance tracking (rolling window)
+    private readonly Queue<TradeResult> _recentTrades = new();
+    private readonly Queue<MissedOpportunity> _missedOpportunities = new();
+    private const int MaxRecentTrades = 20;
+    private const int MaxMissedOpportunities = 50;
+    
+    // Market regime detection
+    private double _currentVolatility;  // ATR as % of price
+    private double _avgVolatility = 1.5;
+    private bool _isTrending;
+    private double _trendStrength;
+    
+    // Consecutive tracking
+    private int _consecutiveLosses;
+    private int _consecutiveWins;
+    private int _consecutiveNoTrades;
+    
+    // Bounds to prevent extreme calibration
+    private const int MinEntryThreshold = 45;
+    private const int MaxEntryThreshold = 85;
+    private const double MinTpAtr = 1.0;
+    private const double MaxTpAtr = 3.0;
+    private const double MinSlAtr = 1.5;
+    private const double MaxSlAtr = 4.0;
+    
+    /// <summary>
+    /// Records a completed trade and adjusts parameters.
+    /// </summary>
+    public void RecordTrade(double entryPrice, double exitPrice, bool isLong, double entryScore, 
+                            double atrAtEntry, bool hitTp, bool hitSl, TimeSpan duration)
+    {
+        double pnlPercent = isLong 
+            ? (exitPrice - entryPrice) / entryPrice * 100
+            : (entryPrice - exitPrice) / entryPrice * 100;
+        
+        var result = new TradeResult
+        {
+            PnLPercent = pnlPercent,
+            IsWin = pnlPercent > 0,
+            EntryScore = entryScore,
+            AtrPercent = atrAtEntry / entryPrice * 100,
+            HitTakeProfit = hitTp,
+            HitStopLoss = hitSl,
+            Duration = duration,
+            WasLong = isLong
+        };
+        
+        _recentTrades.Enqueue(result);
+        while (_recentTrades.Count > MaxRecentTrades)
+            _recentTrades.Dequeue();
+        
+        // Update consecutive counters
+        if (result.IsWin)
+        {
+            _consecutiveWins++;
+            _consecutiveLosses = 0;
+        }
+        else
+        {
+            _consecutiveLosses++;
+            _consecutiveWins = 0;
+        }
+        _consecutiveNoTrades = 0;
+        
+        // Recalibrate after each trade
+        Recalibrate();
+    }
+    
+    /// <summary>
+    /// Records a missed opportunity (price moved favorably but filters blocked entry).
+    /// </summary>
+    public void RecordMissedOpportunity(double score, double priceAtSignal, double priceAfter, 
+                                        bool wasLong, string blockedBy)
+    {
+        double potentialPnl = wasLong 
+            ? (priceAfter - priceAtSignal) / priceAtSignal * 100
+            : (priceAtSignal - priceAfter) / priceAtSignal * 100;
+        
+        // Only record if it would have been profitable
+        if (potentialPnl > 0.5) // At least 0.5% move
+        {
+            _missedOpportunities.Enqueue(new MissedOpportunity
+            {
+                Score = score,
+                PotentialPnLPercent = potentialPnl,
+                BlockedBy = blockedBy,
+                WasLong = wasLong
+            });
+            
+            while (_missedOpportunities.Count > MaxMissedOpportunities)
+                _missedOpportunities.Dequeue();
+        }
+    }
+    
+    /// <summary>
+    /// Called each bar to track no-trade periods.
+    /// </summary>
+    public void RecordNoTrade()
+    {
+        _consecutiveNoTrades++;
+    }
+    
+    /// <summary>
+    /// Updates market regime detection.
+    /// </summary>
+    public void UpdateMarketRegime(double atrPercent, double adx, bool plusDiAboveMinusDi)
+    {
+        _currentVolatility = atrPercent;
+        _avgVolatility = _avgVolatility * 0.95 + atrPercent * 0.05;
+        _isTrending = adx > 25;
+        _trendStrength = adx;
+    }
+    
+    /// <summary>
+    /// Core recalibration logic - adjusts all parameters based on recent performance.
+    /// </summary>
+    private void Recalibrate()
+    {
+        if (_recentTrades.Count < 3) return; // Need minimum trades to calibrate
+        
+        var trades = _recentTrades.ToList();
+        double winRate = trades.Count(t => t.IsWin) / (double)trades.Count;
+        double avgPnL = trades.Average(t => t.PnLPercent);
+        double profitFactor = CalculateProfitFactor(trades);
+        
+        // ================================================================
+        // THRESHOLD CALIBRATION
+        // ================================================================
+        
+        // If losing money overall → tighten thresholds
+        if (avgPnL < 0 || winRate < 0.40)
+        {
+            LongEntryThreshold = Math.Min(MaxEntryThreshold, LongEntryThreshold + 3);
+            ShortEntryThreshold = Math.Max(-MaxEntryThreshold, ShortEntryThreshold - 3);
+            MinIndicatorConfirmation = Math.Min(8, MinIndicatorConfirmation + 1);
+        }
+        // If making money with room to spare → can loosen for more opportunities
+        else if (avgPnL > 0.5 && winRate > 0.55 && profitFactor > 1.5)
+        {
+            LongEntryThreshold = Math.Max(MinEntryThreshold, LongEntryThreshold - 2);
+            ShortEntryThreshold = Math.Min(-MinEntryThreshold, ShortEntryThreshold + 2);
+            MinIndicatorConfirmation = Math.Max(3, MinIndicatorConfirmation - 1);
+        }
+        
+        // ================================================================
+        // TP/SL CALIBRATION
+        // ================================================================
+        
+        // Analyze TP/SL hit rates
+        int tpHits = trades.Count(t => t.HitTakeProfit);
+        int slHits = trades.Count(t => t.HitStopLoss);
+        
+        // If TP rarely hit → TP might be too far, tighten it
+        if (tpHits < trades.Count * 0.3 && trades.Count >= 5)
+        {
+            TakeProfitAtr = Math.Max(MinTpAtr, TakeProfitAtr - 0.1);
+        }
+        // If TP hit often but with small gains, might be too tight
+        else if (tpHits > trades.Count * 0.7 && avgPnL < 0.3)
+        {
+            TakeProfitAtr = Math.Min(MaxTpAtr, TakeProfitAtr + 0.1);
+        }
+        
+        // If SL hit too often → SL too tight, widen it
+        if (slHits > trades.Count * 0.5)
+        {
+            StopLossAtr = Math.Min(MaxSlAtr, StopLossAtr + 0.2);
+        }
+        // If SL rarely hit but losses are big → SL too wide
+        else if (slHits < trades.Count * 0.2 && trades.Any(t => t.PnLPercent < -2))
+        {
+            StopLossAtr = Math.Max(MinSlAtr, StopLossAtr - 0.1);
+        }
+        
+        // ================================================================
+        // VOLUME FILTER CALIBRATION
+        // ================================================================
+        
+        // If missing many opportunities due to volume filter
+        var volumeBlocked = _missedOpportunities.Count(m => m.BlockedBy == "volume");
+        if (volumeBlocked > _missedOpportunities.Count * 0.3 && profitFactor > 1.2)
+        {
+            MinVolumeRatio = Math.Max(0.8, MinVolumeRatio - 0.1);
+        }
+        
+        // ================================================================
+        // TREND FILTER CALIBRATION
+        // ================================================================
+        
+        // If market is ranging (low ADX) and we're doing well, can disable trend filter
+        if (!_isTrending && winRate > 0.5)
+        {
+            RequireTrendAlignment = false;
+        }
+        else if (_isTrending && winRate < 0.45)
+        {
+            RequireTrendAlignment = true;
+        }
+        
+        // ================================================================
+        // CONSECUTIVE LOSS PROTECTION
+        // ================================================================
+        
+        if (_consecutiveLosses >= 3)
+        {
+            // Emergency tightening - become very selective
+            LongEntryThreshold = Math.Min(MaxEntryThreshold, LongEntryThreshold + 5);
+            ShortEntryThreshold = Math.Max(-MaxEntryThreshold, ShortEntryThreshold - 5);
+            MinIndicatorConfirmation = Math.Min(8, MinIndicatorConfirmation + 2);
+        }
+        
+        // ================================================================
+        // WINNING STREAK OPTIMIZATION
+        // ================================================================
+        
+        if (_consecutiveWins >= 3)
+        {
+            // On a roll - can be slightly more aggressive
+            LongEntryThreshold = Math.Max(MinEntryThreshold, LongEntryThreshold - 2);
+            ShortEntryThreshold = Math.Min(-MinEntryThreshold, ShortEntryThreshold + 2);
+        }
+    }
+    
+    /// <summary>
+    /// Calibrates based on missed opportunities.
+    /// Call this periodically (e.g., every 50 bars).
+    /// </summary>
+    public void CalibrateMissedOpportunities()
+    {
+        if (_missedOpportunities.Count < 5) return;
+        
+        var missed = _missedOpportunities.ToList();
+        double avgMissedPnL = missed.Average(m => m.PotentialPnLPercent);
+        
+        // If we're missing big opportunities
+        if (avgMissedPnL > 1.0 && _recentTrades.Count > 0)
+        {
+            var recentWinRate = _recentTrades.Count(t => t.IsWin) / (double)_recentTrades.Count;
+            
+            // Only loosen if we're not losing money
+            if (recentWinRate >= 0.45)
+            {
+                // Identify which filter is blocking most opportunities
+                var byFilter = missed.GroupBy(m => m.BlockedBy)
+                    .OrderByDescending(g => g.Sum(m => m.PotentialPnLPercent))
+                    .FirstOrDefault();
+                
+                if (byFilter != null)
+                {
+                    switch (byFilter.Key)
+                    {
+                        case "threshold":
+                            LongEntryThreshold = Math.Max(MinEntryThreshold, LongEntryThreshold - 3);
+                            ShortEntryThreshold = Math.Min(-MinEntryThreshold, ShortEntryThreshold + 3);
+                            break;
+                        case "volume":
+                            MinVolumeRatio = Math.Max(0.8, MinVolumeRatio - 0.1);
+                            break;
+                        case "trend":
+                            RequireTrendAlignment = false;
+                            break;
+                        case "confirmation":
+                            MinIndicatorConfirmation = Math.Max(3, MinIndicatorConfirmation - 1);
+                            break;
+                    }
+                }
+            }
+        }
+        
+        // Clear old missed opportunities
+        _missedOpportunities.Clear();
+    }
+    
+    private static double CalculateProfitFactor(List<TradeResult> trades)
+    {
+        double grossWins = trades.Where(t => t.PnLPercent > 0).Sum(t => t.PnLPercent);
+        double grossLosses = Math.Abs(trades.Where(t => t.PnLPercent < 0).Sum(t => t.PnLPercent));
+        return grossLosses > 0 ? grossWins / grossLosses : grossWins > 0 ? 10 : 0;
+    }
+    
+    /// <summary>
+    /// Gets a summary of current calibration settings.
+    /// </summary>
+    public string GetCalibrationSummary()
+    {
+        var sb = new StringBuilder();
+        sb.AppendLine("[CALIBRATION]");
+        sb.AppendLine($"  Entry Thresholds: Long >= {LongEntryThreshold}, Short <= {ShortEntryThreshold}");
+        sb.AppendLine($"  TP/SL ATR: {TakeProfitAtr:F1} / {StopLossAtr:F1}");
+        sb.AppendLine($"  Min Volume: {MinVolumeRatio:F1}x, Trend Required: {RequireTrendAlignment}");
+        sb.AppendLine($"  Indicator Confirm: {MinIndicatorConfirmation}/12");
+        sb.AppendLine($"  Recent: {_recentTrades.Count} trades, {_consecutiveWins}W/{_consecutiveLosses}L streak");
+        sb.AppendLine($"  Pending Signals: {_pendingSignals.Count}");
+        return sb.ToString();
+    }
+    
+    // Track potential missed signals before we know if they'd be profitable
+    private readonly List<PendingSignal> _pendingSignals = new();
+    
+    /// <summary>
+    /// Records a potential signal that was blocked by filters.
+    /// We'll evaluate later if this would have been profitable.
+    /// </summary>
+    public void RecordPotentialMissed(double score, double priceAtSignal, bool wasLong, string blockedBy, int barIndex)
+    {
+        _pendingSignals.Add(new PendingSignal
+        {
+            Score = score,
+            PriceAtSignal = priceAtSignal,
+            WasLong = wasLong,
+            BlockedBy = blockedBy,
+            BarIndex = barIndex
+        });
+        
+        // Limit pending signals to avoid memory growth
+        while (_pendingSignals.Count > 100)
+            _pendingSignals.RemoveAt(0);
+    }
+    
+    /// <summary>
+    /// Evaluates pending signals to see if they would have been profitable.
+    /// Uses look-ahead (which is fine since this is backtesting for learning).
+    /// </summary>
+    public void EvaluateMissedOpportunities(List<BackTestCandle> candles, int currentBar)
+    {
+        if (_pendingSignals.Count == 0) return;
+        
+        // Evaluate signals that are at least 20 bars old
+        int lookAhead = 20;
+        var signalsToEvaluate = _pendingSignals.Where(s => currentBar - s.BarIndex >= lookAhead).ToList();
+        
+        foreach (var signal in signalsToEvaluate)
+        {
+            int evalEnd = Math.Min(signal.BarIndex + lookAhead, candles.Count - 1);
+            
+            // Calculate what the max favorable move would have been
+            double signalPrice = signal.PriceAtSignal;
+            double maxFavorable = 0;
+            
+            for (int j = signal.BarIndex + 1; j <= evalEnd; j++)
+            {
+                double favorable = signal.WasLong
+                    ? candles[j].High - signalPrice
+                    : signalPrice - candles[j].Low;
+                maxFavorable = Math.Max(maxFavorable, favorable);
+            }
+            
+            double maxPnlPercent = maxFavorable / signalPrice * 100;
+            
+            // If the signal would have yielded at least 0.5% profit, record it as missed
+            if (maxPnlPercent > 0.5)
+            {
+                _missedOpportunities.Enqueue(new MissedOpportunity
+                {
+                    Score = signal.Score,
+                    PotentialPnLPercent = maxPnlPercent,
+                    BlockedBy = signal.BlockedBy,
+                    WasLong = signal.WasLong
+                });
+                
+                while (_missedOpportunities.Count > MaxMissedOpportunities)
+                    _missedOpportunities.Dequeue();
+            }
+            
+            _pendingSignals.Remove(signal);
+        }
+    }
+    
+    private record TradeResult
+    {
+        public double PnLPercent { get; init; }
+        public bool IsWin { get; init; }
+        public double EntryScore { get; init; }
+        public double AtrPercent { get; init; }
+        public bool HitTakeProfit { get; init; }
+        public bool HitStopLoss { get; init; }
+        public TimeSpan Duration { get; init; }
+        public bool WasLong { get; init; }
+    }
+    
+    private record MissedOpportunity
+    {
+        public double Score { get; init; }
+        public double PotentialPnLPercent { get; init; }
+        public string BlockedBy { get; init; } = "";
+        public bool WasLong { get; init; }
+    }
+    
+    private record PendingSignal
+    {
+        public double Score { get; init; }
+        public double PriceAtSignal { get; init; }
+        public bool WasLong { get; init; }
+        public string BlockedBy { get; init; } = "";
+        public int BarIndex { get; init; }
+    }
+}
 
 /// <summary>
 /// Configuration for autonomous backtesting with capital tracking.
@@ -123,6 +547,67 @@ public sealed record AutonomousBacktestConfig
     public decimal MaxCapitalPerTradePercent { get; init; } = 0.25m; // 25%
 
     // ========================================================================
+    // SELF-CALIBRATION SETTINGS (AI-driven parameter adjustment)
+    // ========================================================================
+
+    /// <summary>
+    /// Enable self-calibrating mode. The system will dynamically adjust thresholds,
+    /// TP/SL ratios, and filters based on real-time performance and missed opportunities.
+    /// When enabled, initial threshold values are used as starting points only.
+    /// </summary>
+    public bool EnableSelfCalibration { get; init; } = false;
+
+    /// <summary>
+    /// How frequently to recalibrate based on missed opportunities (in bars).
+    /// Lower values = more responsive, higher values = more stable.
+    /// </summary>
+    public int CalibrationInterval { get; init; } = 50;
+
+    /// <summary>
+    /// Initial entry threshold for self-calibration (will be adjusted dynamically).
+    /// </summary>
+    public int InitialLongThreshold { get; init; } = 65;
+
+    /// <summary>
+    /// Initial short threshold for self-calibration (will be adjusted dynamically).
+    /// </summary>
+    public int InitialShortThreshold { get; init; } = -65;
+
+    // ========================================================================
+    // TICKER METADATA SETTINGS (stock-specific tuning)
+    // ========================================================================
+
+    /// <summary>
+    /// Enable use of ticker metadata for stock-specific tuning.
+    /// When enabled, the system uses historical patterns (ATR, support/resistance,
+    /// HOD/LOD timing, gap behavior) to improve entry/exit decisions.
+    /// </summary>
+    public bool UseTickerMetadata { get; init; } = true;
+
+    /// <summary>
+    /// Adjust position size based on stock volatility (from metadata).
+    /// High beta/low float stocks get reduced position sizes.
+    /// </summary>
+    public bool UseMetadataPositionSizing { get; init; } = true;
+
+    /// <summary>
+    /// Avoid trading within N days of earnings (from metadata).
+    /// Set to 0 to disable this filter.
+    /// </summary>
+    public int AvoidDaysNearEarnings { get; init; } = 2;
+
+    /// <summary>
+    /// Apply metadata entry score adjustments based on support/resistance,
+    /// time-of-day patterns, and gap behavior.
+    /// </summary>
+    public bool UseMetadataEntryAdjustment { get; init; } = true;
+
+    /// <summary>
+    /// Use ATR from metadata for TP/SL calculation when available.
+    /// </summary>
+    public bool UseMetadataAtr { get; init; } = true;
+
+    // ========================================================================
     // Mode-Specific Thresholds (from AutonomousConfig)
     // ========================================================================
 
@@ -223,6 +708,14 @@ public sealed class AutonomousBacktestResult
     public List<BacktestTrade> Trades { get; init; } = [];
     public List<(DateTime Time, double Score)> ScoreHistory { get; init; } = [];
     public List<(DateTime Time, decimal Capital)> EquityCurve { get; init; } = [];
+    
+    // Self-calibration summary
+    public string? CalibrationSummary { get; set; }
+    public bool UsedSelfCalibration => CalibrationSummary != null;
+
+    // Ticker metadata used for tuning
+    public TickerMetadata? Metadata { get; set; }
+    public bool UsedTickerMetadata => Metadata != null;
 
     // Session stats
     public double DayOpen { get; init; }
@@ -260,7 +753,7 @@ public sealed class AutonomousBacktestResult
     public decimal LargestLoss => LossCount > 0 ? Trades.Where(t => !t.IsWin).Min(t => t.NetPnL) : 0;
 
     public TimeSpan AvgTradeDuration => TotalTrades > 0
-        ? TimeSpan.FromTicks((long)Trades.Average(t => t.Duration.Ticks))
+        ? TimeSpan.FromSeconds(Trades.Average(t => t.Duration.TotalSeconds))
         : TimeSpan.Zero;
 
     public decimal MaxDrawdown { get; set; }
@@ -440,6 +933,308 @@ public sealed class AutonomousBacktestResult
     }
 }
 
+// ============================================================================
+// AGGREGATE BACKTEST RESULT - Statistics across multiple trading days
+// ============================================================================
+
+/// <summary>
+/// Aggregated results from running backtests across multiple trading days.
+/// Provides statistically meaningful metrics when run on 30+ days of data.
+/// </summary>
+public sealed class AggregateBacktestResult
+{
+    public string Symbol { get; init; } = "";
+    public int TotalDays { get; init; }
+    public DateOnly FirstDay { get; init; }
+    public DateOnly LastDay { get; init; }
+    public AutonomousBacktestConfig Config { get; init; } = new();
+
+    // Day-level stats
+    public List<AutonomousBacktestResult> DayResults { get; } = [];
+    public List<decimal> DailyReturns { get; } = [];
+    public int WinningDays { get; set; }
+    public int LosingDays { get; set; }
+    public int BreakEvenDays { get; set; }
+    public int SkippedDays { get; set; }
+
+    // Aggregate trade stats
+    public int TotalTrades { get; private set; }
+    public int TotalWins { get; private set; }
+    public int TotalLosses { get; private set; }
+    public decimal TotalPnL { get; private set; }
+    public decimal AvgDailyPnL { get; private set; }
+    public decimal AvgDailyReturnPercent { get; private set; }
+    public decimal BestDay { get; private set; }
+    public decimal WorstDay { get; private set; }
+    public decimal MaxDrawdown { get; private set; }
+
+    // Statistical metrics
+    public double WinRate { get; private set; }
+    public double DayWinRate { get; private set; }
+    public double ProfitFactor { get; private set; }
+    public double SharpeRatio { get; private set; }
+    public double SortinoRatio { get; private set; }
+    public double CalmarRatio { get; private set; }
+
+    // Trade duration analysis
+    public TimeSpan AvgWinDuration { get; private set; }
+    public TimeSpan AvgLossDuration { get; private set; }
+
+    // Direction analysis
+    public int LongTrades { get; private set; }
+    public int ShortTrades { get; private set; }
+    public double LongWinRate { get; private set; }
+    public double ShortWinRate { get; private set; }
+    public decimal LongPnL { get; private set; }
+    public decimal ShortPnL { get; private set; }
+
+    // Time-of-day analysis (only populated if enough data)
+    public Dictionary<int, (int trades, int wins, decimal pnl)> HourlyPerformance { get; } = [];
+
+    public void CalculateStatistics()
+    {
+        if (DayResults.Count == 0) return;
+
+        // Basic aggregates
+        var allTrades = DayResults.SelectMany(d => d.Trades).ToList();
+        TotalTrades = allTrades.Count;
+        TotalWins = allTrades.Count(t => t.IsWin);
+        TotalLosses = allTrades.Count(t => !t.IsWin);
+        TotalPnL = DayResults.Sum(d => d.TotalPnL);
+        
+        // Daily stats
+        AvgDailyPnL = DayResults.Average(d => d.TotalPnL);
+        AvgDailyReturnPercent = DailyReturns.Count > 0 ? DailyReturns.Average() : 0;
+        BestDay = DailyReturns.Count > 0 ? DailyReturns.Max() : 0;
+        WorstDay = DailyReturns.Count > 0 ? DailyReturns.Min() : 0;
+        MaxDrawdown = DayResults.Max(d => d.MaxDrawdown);
+
+        // Win rates
+        WinRate = TotalTrades > 0 ? (double)TotalWins / TotalTrades * 100 : 0;
+        DayWinRate = DayResults.Count > 0 ? (double)WinningDays / DayResults.Count * 100 : 0;
+
+        // Profit factor
+        decimal grossProfit = allTrades.Where(t => t.NetPnL > 0).Sum(t => t.NetPnL);
+        decimal grossLoss = Math.Abs(allTrades.Where(t => t.NetPnL < 0).Sum(t => t.NetPnL));
+        ProfitFactor = grossLoss > 0 ? (double)(grossProfit / grossLoss) : (double)grossProfit;
+
+        // Sharpe Ratio (annualized, assuming 252 trading days)
+        if (DailyReturns.Count >= 2)
+        {
+            double avgReturn = (double)DailyReturns.Average();
+            double stdDev = CalculateStdDev(DailyReturns.Select(r => (double)r));
+            SharpeRatio = stdDev > 0 ? avgReturn / stdDev * Math.Sqrt(252) : 0;
+        }
+
+        // Sortino Ratio (uses only downside deviation)
+        if (DailyReturns.Count >= 2)
+        {
+            double avgReturn = (double)DailyReturns.Average();
+            var negativeReturns = DailyReturns.Where(r => r < 0).Select(r => (double)r);
+            double downsideDev = negativeReturns.Any() ? CalculateStdDev(negativeReturns) : 0;
+            SortinoRatio = downsideDev > 0 ? avgReturn / downsideDev * Math.Sqrt(252) : 0;
+        }
+
+        // Calmar Ratio (return / max drawdown)
+        decimal maxDdPercent = DayResults.Max(d => d.MaxDrawdownPercent);
+        CalmarRatio = maxDdPercent > 0 ? (double)(AvgDailyReturnPercent * 252 / maxDdPercent) : 0;
+
+        // Trade duration analysis
+        var winningTrades = allTrades.Where(t => t.IsWin).ToList();
+        var losingTrades = allTrades.Where(t => !t.IsWin).ToList();
+        
+        if (winningTrades.Count > 0)
+            AvgWinDuration = TimeSpan.FromTicks((long)winningTrades.Average(t => t.Duration.Ticks));
+        if (losingTrades.Count > 0)
+            AvgLossDuration = TimeSpan.FromTicks((long)losingTrades.Average(t => t.Duration.Ticks));
+
+        // Direction analysis
+        var longTrades = allTrades.Where(t => t.IsLong).ToList();
+        var shortTrades = allTrades.Where(t => !t.IsLong).ToList();
+        
+        LongTrades = longTrades.Count;
+        ShortTrades = shortTrades.Count;
+        LongWinRate = longTrades.Count > 0 ? (double)longTrades.Count(t => t.IsWin) / longTrades.Count * 100 : 0;
+        ShortWinRate = shortTrades.Count > 0 ? (double)shortTrades.Count(t => t.IsWin) / shortTrades.Count * 100 : 0;
+        LongPnL = longTrades.Sum(t => t.NetPnL);
+        ShortPnL = shortTrades.Sum(t => t.NetPnL);
+
+        // Hourly performance (which hours of the day work best)
+        foreach (var trade in allTrades)
+        {
+            int hour = trade.EntryTime.Hour;
+            if (!HourlyPerformance.TryGetValue(hour, out var stats))
+                stats = (0, 0, 0);
+            
+            HourlyPerformance[hour] = (
+                stats.trades + 1,
+                stats.wins + (trade.IsWin ? 1 : 0),
+                stats.pnl + trade.NetPnL
+            );
+        }
+    }
+
+    private static double CalculateStdDev(IEnumerable<double> values)
+    {
+        var list = values.ToList();
+        if (list.Count < 2) return 0;
+        
+        double avg = list.Average();
+        double sumSquares = list.Sum(v => Math.Pow(v - avg, 2));
+        return Math.Sqrt(sumSquares / (list.Count - 1));
+    }
+
+    public override string ToString()
+    {
+        var sb = new StringBuilder();
+        sb.AppendLine($"""
+            +======================================================================+
+            | AGGREGATE BACKTEST RESULT - {Symbol,-10}                             |
+            +======================================================================+
+            | Date Range: {FirstDay:yyyy-MM-dd} to {LastDay:yyyy-MM-dd} ({TotalDays} days)
+            | Days Tested: {DayResults.Count} | Skipped: {SkippedDays}
+            +----------------------------------------------------------------------+
+            | DAY-LEVEL PERFORMANCE                                                |
+            +----------------------------------------------------------------------+
+            | Winning Days: {WinningDays,4} ({DayWinRate:F1}%)
+            | Losing Days:  {LosingDays,4}
+            | Break Even:   {BreakEvenDays,4}
+            | Best Day:     {BestDay,+6:F2}%
+            | Worst Day:    {WorstDay,+6:F2}%
+            | Avg Daily:    {AvgDailyReturnPercent,+6:F2}%
+            +----------------------------------------------------------------------+
+            | TRADE-LEVEL PERFORMANCE                                              |
+            +----------------------------------------------------------------------+
+            | Total Trades: {TotalTrades,6}  | Win Rate:  {WinRate,6:F1}%
+            | Total Wins:   {TotalWins,6}  | Total Losses: {TotalLosses,6}
+            | Total P&L:   ${TotalPnL,9:F2}
+            | Profit Factor: {ProfitFactor,5:F2}
+            +----------------------------------------------------------------------+
+            | DIRECTION BREAKDOWN                                                  |
+            +----------------------------------------------------------------------+
+            | Long:  {LongTrades,5} trades | Win Rate: {LongWinRate,5:F1}% | P&L: ${LongPnL,+8:F2}
+            | Short: {ShortTrades,5} trades | Win Rate: {ShortWinRate,5:F1}% | P&L: ${ShortPnL,+8:F2}
+            +----------------------------------------------------------------------+
+            | RISK METRICS                                                         |
+            +----------------------------------------------------------------------+
+            | Max Drawdown:  ${MaxDrawdown,8:F2}
+            | Sharpe Ratio:   {SharpeRatio,6:F2}
+            | Sortino Ratio:  {SortinoRatio,6:F2}
+            | Calmar Ratio:   {CalmarRatio,6:F2}
+            +----------------------------------------------------------------------+
+            | TRADE DURATION                                                       |
+            +----------------------------------------------------------------------+
+            | Avg Win Duration:  {AvgWinDuration:mm\:ss}
+            | Avg Loss Duration: {AvgLossDuration:mm\:ss}
+            +======================================================================+
+            """);
+
+        // Hourly breakdown if we have data
+        if (HourlyPerformance.Count > 0)
+        {
+            sb.AppendLine("| HOURLY PERFORMANCE                                                   |");
+            sb.AppendLine("+----------------------------------------------------------------------+");
+            foreach (var (hour, stats) in HourlyPerformance.OrderBy(x => x.Key))
+            {
+                double winRate = stats.trades > 0 ? (double)stats.wins / stats.trades * 100 : 0;
+                string hourRange = $"{hour:00}:00-{hour:00}:59";
+                sb.AppendLine($"| {hourRange}: {stats.trades,3} trades, {winRate,5:F1}% win, ${stats.pnl,+8:F2}");
+            }
+            sb.AppendLine("+======================================================================+");
+        }
+
+        return sb.ToString();
+    }
+
+    /// <summary>
+    /// Gets insights and recommendations based on the aggregate data.
+    /// </summary>
+    public string GetInsights()
+    {
+        var sb = new StringBuilder();
+        sb.AppendLine("INSIGHTS FROM AGGREGATE DATA:");
+        sb.AppendLine("=".PadRight(60, '='));
+
+        // Sample size check
+        if (TotalTrades < 30)
+        {
+            sb.AppendLine("[!] WARNING: Only {TotalTrades} trades - need 30+ for reliable statistics.");
+            sb.AppendLine("    Run on more data before drawing conclusions.");
+            sb.AppendLine();
+        }
+
+        // Direction recommendation
+        if (LongTrades >= 10 && ShortTrades >= 10)
+        {
+            if (LongWinRate > ShortWinRate + 10 && LongPnL > ShortPnL)
+            {
+                sb.AppendLine($"[i] LONG trades outperform ({LongWinRate:F1}% vs {ShortWinRate:F1}%)");
+                sb.AppendLine("    Consider: AllowShort = false");
+            }
+            else if (ShortWinRate > LongWinRate + 10 && ShortPnL > LongPnL)
+            {
+                sb.AppendLine($"[i] SHORT trades outperform ({ShortWinRate:F1}% vs {LongWinRate:F1}%)");
+                sb.AppendLine("    Consider: Focus on short setups");
+            }
+        }
+
+        // Hourly insights
+        if (HourlyPerformance.Count >= 3)
+        {
+            var bestHour = HourlyPerformance
+                .Where(h => h.Value.trades >= 5)
+                .OrderByDescending(h => h.Value.pnl)
+                .FirstOrDefault();
+            
+            var worstHour = HourlyPerformance
+                .Where(h => h.Value.trades >= 5)
+                .OrderBy(h => h.Value.pnl)
+                .FirstOrDefault();
+
+            if (bestHour.Value.trades > 0)
+            {
+                sb.AppendLine($"[+] Best hour: {bestHour.Key:00}:00 (${bestHour.Value.pnl:+0.00} across {bestHour.Value.trades} trades)");
+            }
+            if (worstHour.Value.trades > 0 && worstHour.Value.pnl < 0)
+            {
+                sb.AppendLine($"[-] Worst hour: {worstHour.Key:00}:00 (${worstHour.Value.pnl:+0.00} across {worstHour.Value.trades} trades)");
+                sb.AppendLine($"    Consider: Avoid trading at {worstHour.Key:00}:00");
+            }
+        }
+
+        // Win rate vs profit factor discrepancy
+        if (WinRate > 50 && ProfitFactor < 1)
+        {
+            sb.AppendLine("[!] High win rate but unprofitable - losses are larger than wins");
+            sb.AppendLine("    Consider: Tighter stop losses or wider take profits");
+        }
+        else if (WinRate < 50 && ProfitFactor > 1.5)
+        {
+            sb.AppendLine("[i] Low win rate but profitable - winners are much larger than losers");
+            sb.AppendLine("    Strategy is working as a trend-following system");
+        }
+
+        // Risk metrics
+        if (SharpeRatio < 0)
+        {
+            sb.AppendLine("[!] Negative Sharpe ratio - strategy loses money on average");
+        }
+        else if (SharpeRatio > 2)
+        {
+            sb.AppendLine("[+] Excellent Sharpe ratio (>2) - strong risk-adjusted returns");
+        }
+
+        // Duration insights
+        if (AvgLossDuration > AvgWinDuration * 2)
+        {
+            sb.AppendLine("[!] Losing trades held 2x longer than winners");
+            sb.AppendLine("    Consider: Cut losses faster (tighter stops or time-based exit)");
+        }
+
+        return sb.ToString();
+    }
+}
+
 /// <summary>
 /// Runs autonomous trading backtests against historical IBKR data.
 /// Integrates technical indicators with market sentiment for comprehensive analysis.
@@ -448,17 +1243,37 @@ public sealed class AutonomousBacktester
 {
     private readonly HistoricalDataService? _histService;
     private readonly SentimentService? _sentimentService;
+    private readonly HistoricalDataCache _dataCache;
+    private readonly TickerMetadataService _metadataService;
 
     /// <summary>
     /// Creates a backtester with IBKR historical data service.
     /// </summary>
     /// <param name="historicalDataService">The historical data service (can be null for offline/synthetic testing).</param>
     /// <param name="sentimentService">Optional sentiment service for news/earnings integration.</param>
-    public AutonomousBacktester(HistoricalDataService? historicalDataService, SentimentService? sentimentService = null)
+    /// <param name="dataCache">Optional data cache for saving/loading historical data.</param>
+    /// <param name="metadataService">Optional metadata service for ticker-specific tuning.</param>
+    public AutonomousBacktester(
+        HistoricalDataService? historicalDataService, 
+        SentimentService? sentimentService = null,
+        HistoricalDataCache? dataCache = null,
+        TickerMetadataService? metadataService = null)
     {
         _histService = historicalDataService;
         _sentimentService = sentimentService;
+        _dataCache = dataCache ?? new HistoricalDataCache();
+        _metadataService = metadataService ?? new TickerMetadataService();
     }
+
+    /// <summary>
+    /// Gets the data cache for managing cached historical data.
+    /// </summary>
+    public HistoricalDataCache DataCache => _dataCache;
+
+    /// <summary>
+    /// Gets the metadata service for ticker-specific analysis.
+    /// </summary>
+    public TickerMetadataService MetadataService => _metadataService;
 
     /// <summary>
     /// Runs an autonomous trading backtest for a symbol on a specific date.
@@ -484,8 +1299,6 @@ public sealed class AutonomousBacktester
 
         config ??= new AutonomousBacktestConfig { StartingCapital = startingCapital };
 
-        progress?.Report($"Fetching historical data for {symbol} on {date:yyyy-MM-dd}...");
-        
         // Fetch sentiment data if service available
         SentimentResult? sentiment = null;
         if (_sentimentService != null)
@@ -495,20 +1308,27 @@ public sealed class AutonomousBacktester
             progress?.Report($"Sentiment: {sentiment}");
         }
 
-        // Fetch full day of data (need extended hours for 4AM-8PM)
-        // Request extra bars to ensure we get the full day
-        int barsNeeded = 960; // 16 hours * 60 minutes = 960 1-minute bars
-
-        await _histService.FetchHistoricalDataAsync(
-            symbol,
-            barsNeeded,
-            BarSize.Minutes1,
-            HistoricalDataType.Trades,
-            useRTH: false, // Include extended hours
-            endDate: null,
-            cancellationToken: cancellationToken);
-
-        var bars = _histService.Store.GetBars(symbol);
+        // Try loading from cache first (saves expensive API calls)
+        List<HistoricalBar> bars;
+        if (_dataCache.HasCachedData(symbol))
+        {
+            progress?.Report($"Loading {symbol} historical data from cache...");
+            bars = _dataCache.LoadFromCache(symbol) ?? [];
+            
+            if (bars.Count > 0)
+            {
+                progress?.Report($"Loaded {bars.Count} bars from cache.");
+            }
+        }
+        else
+        {
+            progress?.Report($"Fetching historical data for {symbol} from IBKR API (first time)...");
+            
+            // Fetch from API and save to cache
+            bars = await _dataCache.GetOrFetchAsync(symbol, _histService, cancellationToken: cancellationToken);
+            
+            progress?.Report($"Fetched {bars.Count} bars and cached to History/{symbol}.json");
+        }
 
         if (bars.Count == 0)
         {
@@ -588,8 +1408,54 @@ public sealed class AutonomousBacktester
             indicators.SetSentiment(sentiment.Score, sentiment.Confidence);
         }
 
+        // ================================================================
+        // TICKER METADATA - Stock-specific tuning
+        // ================================================================
+        TickerMetadata? metadata = null;
+        if (config.UseTickerMetadata)
+        {
+            metadata = _metadataService.BuildFromHistoricalBars(symbol, 
+                candles.Select(c => new HistoricalBar 
+                { 
+                    Time = c.Timestamp, 
+                    Open = c.Open, 
+                    High = c.High, 
+                    Low = c.Low, 
+                    Close = c.Close, 
+                    Volume = c.Volume 
+                }).ToList());
+            
+            result.Metadata = metadata;
+        }
+
         // Minimum warmup period for indicators (need enough for ADX/MACD)
         int warmupPeriod = Math.Min(50, candles.Count - 1);
+
+        // ================================================================
+        // SELF-CALIBRATION SYSTEM
+        // ================================================================
+        DynamicCalibrator? calibrator = null;
+        if (config.EnableSelfCalibration)
+        {
+            calibrator = new DynamicCalibrator();
+            // Initialize with config starting points
+            calibrator.LongEntryThreshold = config.InitialLongThreshold;
+            calibrator.ShortEntryThreshold = config.InitialShortThreshold;
+            calibrator.TakeProfitAtr = config.TakeProfitAtrMultiplier;
+            calibrator.StopLossAtr = config.StopLossAtrMultiplier;
+            calibrator.MinVolumeRatio = config.MinVolumeRatio;
+            calibrator.RequireTrendAlignment = config.RequireTrendAlignment;
+            calibrator.MinIndicatorConfirmation = config.MinIndicatorConfirmation;
+        }
+        
+        // Helper to get current thresholds (calibrated or static)
+        int GetLongThreshold() => calibrator?.LongEntryThreshold ?? config.LongEntryThreshold;
+        int GetShortThreshold() => calibrator?.ShortEntryThreshold ?? config.ShortEntryThreshold;
+        double GetTpAtr() => calibrator?.TakeProfitAtr ?? config.TakeProfitAtrMultiplier;
+        double GetSlAtr() => calibrator?.StopLossAtr ?? config.StopLossAtrMultiplier;
+        double GetMinVolume() => calibrator?.MinVolumeRatio ?? config.MinVolumeRatio;
+        bool GetTrendRequired() => calibrator?.RequireTrendAlignment ?? config.RequireTrendAlignment;
+        int GetMinConfirm() => calibrator?.MinIndicatorConfirmation ?? config.MinIndicatorConfirmation;
 
         // State tracking
         decimal currentCapital = config.StartingCapital;
@@ -662,34 +1528,93 @@ public sealed class AutonomousBacktester
                 bool avoidCloseVolatility = isRTH && time > rthClose.Subtract(TimeSpan.FromMinutes(config.AvoidLastMinutesRTH));
                 bool timeOk = !avoidOpenVolatility && !avoidCloseVolatility;
                 
-                // Volume confirmation
+                // Volume confirmation (use dynamic threshold if self-calibrating)
                 double volumeRatio = indicators.GetVolumeRatio(i);
-                bool volumeOk = !config.RequireVolumeConfirmation || volumeRatio >= config.MinVolumeRatio;
+                bool volumeOk = !config.RequireVolumeConfirmation || volumeRatio >= GetMinVolume();
                 
-                // Trend alignment check (price vs EMA21)
+                // Trend alignment check (price vs EMA21) - use dynamic setting
                 double ema21 = indicators.GetEma21(i);
-                bool longTrendOk = !config.RequireTrendAlignment || candle.Close > ema21;
-                bool shortTrendOk = !config.RequireTrendAlignment || candle.Close < ema21;
+                bool longTrendOk = !GetTrendRequired() || candle.Close > ema21;
+                bool shortTrendOk = !GetTrendRequired() || candle.Close < ema21;
+                
+                // Update market regime for calibrator
+                if (calibrator != null)
+                {
+                    double atrPercent = indicators.GetAtr(i) / candle.Close * 100;
+                    double adx = indicators.GetAdx(i);
+                    double plusDi = indicators.GetPlusDi(i);
+                    double minusDi = indicators.GetMinusDi(i);
+                    calibrator.UpdateMarketRegime(atrPercent, adx, plusDi > minusDi);
+                }
 
                 if (canTrade && hasCapital && timeOk && volumeOk)
                 {
-                    // Get indicator confirmation for Optimized mode
+                    // Get indicator confirmation for Optimized/SelfCalibration mode
                     var (bullishCount, bearishCount, totalCategories) = indicators.GetIndicatorConfirmation(i);
-                    bool isOptimizedMode = config.Mode == AutonomousMode.Optimized;
+                    bool isOptimizedMode = config.Mode == AutonomousMode.Optimized || config.EnableSelfCalibration;
                     
-                    // In Optimized mode, require minimum indicator confirmation
-                    bool longConfirmed = !isOptimizedMode || bullishCount >= config.MinIndicatorConfirmation;
-                    bool shortConfirmed = !isOptimizedMode || bearishCount >= config.MinIndicatorConfirmation;
+                    // Require minimum indicator confirmation (use dynamic threshold)
+                    int minConfirm = GetMinConfirm();
+                    bool longConfirmed = !isOptimizedMode || bullishCount >= minConfirm;
+                    bool shortConfirmed = !isOptimizedMode || bearishCount >= minConfirm;
+                    
+                    // Get dynamic thresholds
+                    int longThreshold = GetLongThreshold();
+                    int shortThreshold = GetShortThreshold();
+
+                    // ============================================================
+                    // METADATA ADJUSTMENTS - Stock-specific tuning
+                    // ============================================================
+                    int metadataAdjustment = 0;
+                    double positionMultiplier = 1.0;
+                    
+                    if (metadata != null && config.UseTickerMetadata)
+                    {
+                        // Check for earnings avoidance
+                        if (config.AvoidDaysNearEarnings > 0 && metadata.IsNearEarnings)
+                        {
+                            // Skip trading near earnings
+                            continue;
+                        }
+                        
+                        // Calculate minutes from 9:30 market open
+                        int minutesFromOpen = isRTH 
+                            ? (int)(time - rthOpen).TotalMinutes 
+                            : 0;
+                        
+                        // Get entry adjustment from metadata
+                        if (config.UseMetadataEntryAdjustment)
+                        {
+                            // Will be applied to both long and short scores
+                            metadataAdjustment = metadata.GetEntryAdjustment(
+                                candle.Close, 
+                                minutesFromOpen, 
+                                isLong: score > 0  // Direction hint
+                            );
+                        }
+                        
+                        // Apply volatility-based position sizing
+                        if (config.UseMetadataPositionSizing)
+                        {
+                            positionMultiplier = metadata.VolatilityPositionMultiplier;
+                        }
+                    }
+                    
+                    // Apply metadata adjustment to effective score
+                    double effectiveScore = score + metadataAdjustment;
                     
                     // Calculate position size - dynamic in Optimized mode
                     decimal capitalToUse;
                     if (isOptimizedMode && config.UseDynamicPositionSizing)
                     {
                         // Scale position size based on signal strength
-                        double scoreStrength = Math.Abs(score) / 100.0; // 0.5 to 1.0
+                        double scoreStrength = Math.Abs(effectiveScore) / 100.0; // 0.5 to 1.0
                         decimal positionPercent = config.MinPositionPercent + 
                             (1.0m - config.MinPositionPercent) * (decimal)scoreStrength;
                         capitalToUse = currentCapital * positionPercent;
+                        
+                        // Apply metadata volatility multiplier
+                        capitalToUse *= (decimal)positionMultiplier;
                         
                         // Boost position if high indicator confirmation
                         int confirmCount = Math.Max(bullishCount, bearishCount);
@@ -698,7 +1623,7 @@ public sealed class AutonomousBacktester
                     }
                     else if (config.UseFullCapital)
                     {
-                        capitalToUse = currentCapital;
+                        capitalToUse = currentCapital * (decimal)positionMultiplier;
                     }
                     else
                     {
@@ -706,7 +1631,8 @@ public sealed class AutonomousBacktester
                     }
 
                     // Long entry - require trend alignment and bullish confirmation
-                    if (score >= config.LongEntryThreshold && longConfirmed && longTrendOk)
+                    // Use effectiveScore (which includes metadata adjustment) for threshold check
+                    if (effectiveScore >= longThreshold && longConfirmed && longTrendOk)
                     {
                         double priceWithSlippage = candle.Close * (1 + (double)config.SlippagePercent);
                         shares = (int)(capitalToUse / (decimal)priceWithSlippage);
@@ -723,18 +1649,28 @@ public sealed class AutonomousBacktester
                             lowestSinceEntry = candle.Low;
                             
                             string confirmStr = isOptimizedMode ? $" [{bullishCount}/{totalCategories} confirm]" : "";
-                            entryReason = $"Score {score:+0} >= {config.LongEntryThreshold}{confirmStr}";
+                            string calibStr = config.EnableSelfCalibration ? " [CALIB]" : "";
+                            string metaStr = metadataAdjustment != 0 ? $" [META:{metadataAdjustment:+0;-0}]" : "";
+                            entryReason = $"Score {effectiveScore:+0} >= {longThreshold}{confirmStr}{calibStr}{metaStr}";
                             lastTradeTime = candle.Timestamp;
 
-                            // Calculate TP/SL based on ATR
-                            atrAtEntry = indicators.GetAtr(i);
-                            takeProfitPrice = entryPrice + (atrAtEntry * config.TakeProfitAtrMultiplier);
-                            stopLossPrice = entryPrice - (atrAtEntry * config.StopLossAtrMultiplier);
+                            // Calculate TP/SL based on ATR (use metadata ATR if available)
+                            if (config.UseMetadataAtr && metadata?.Atr14Day != null)
+                            {
+                                atrAtEntry = metadata.Atr14Day.Value;
+                            }
+                            else
+                            {
+                                atrAtEntry = indicators.GetAtr(i);
+                            }
+                            takeProfitPrice = entryPrice + (atrAtEntry * GetTpAtr());
+                            stopLossPrice = entryPrice - (atrAtEntry * GetSlAtr());
                             originalStopLoss = stopLossPrice;
                         }
                     }
                     // Short entry - require trend alignment and bearish confirmation
-                    else if (config.AllowShort && score <= config.ShortEntryThreshold && shortConfirmed && shortTrendOk)
+                    // Use effectiveScore (which includes metadata adjustment) for threshold check
+                    else if (config.AllowShort && effectiveScore <= shortThreshold && shortConfirmed && shortTrendOk)
                     {
                         double priceWithSlippage = candle.Close * (1 - (double)config.SlippagePercent);
                         shares = (int)(capitalToUse / (decimal)priceWithSlippage);
@@ -751,16 +1687,67 @@ public sealed class AutonomousBacktester
                             lowestSinceEntry = candle.Low;
                             
                             string confirmStr = isOptimizedMode ? $" [{bearishCount}/{totalCategories} confirm]" : "";
-                            entryReason = $"Score {score:+0} <= {config.ShortEntryThreshold}{confirmStr}";
+                            string calibStr = config.EnableSelfCalibration ? " [CALIB]" : "";
+                            string metaStr = metadataAdjustment != 0 ? $" [META:{metadataAdjustment:+0;-0}]" : "";
+                            entryReason = $"Score {effectiveScore:+0} <= {shortThreshold}{confirmStr}{calibStr}{metaStr}";
                             lastTradeTime = candle.Timestamp;
 
-                            atrAtEntry = indicators.GetAtr(i);
-                            takeProfitPrice = entryPrice - (atrAtEntry * config.TakeProfitAtrMultiplier);
-                            stopLossPrice = entryPrice + (atrAtEntry * config.StopLossAtrMultiplier);
+                            // Calculate TP/SL based on ATR (use metadata ATR if available)
+                            if (config.UseMetadataAtr && metadata?.Atr14Day != null)
+                            {
+                                atrAtEntry = metadata.Atr14Day.Value;
+                            }
+                            else
+                            {
+                                atrAtEntry = indicators.GetAtr(i);
+                            }
+                            takeProfitPrice = entryPrice - (atrAtEntry * GetTpAtr());
+                            stopLossPrice = entryPrice + (atrAtEntry * GetSlAtr());
                             originalStopLoss = stopLossPrice;
                         }
                     }
+                    // MISSED OPPORTUNITY TRACKING for self-calibration
+                    else if (calibrator != null && canTrade && hasCapital)
+                    {
+                        // Track signals that were blocked by filters
+                        if (score >= longThreshold)
+                        {
+                            // Long signal blocked - figure out why
+                            string blockedBy = !longConfirmed ? "confirmation" 
+                                : !longTrendOk ? "trend"
+                                : !volumeOk ? "volume"
+                                : !timeOk ? "time"
+                                : "unknown";
+                            
+                            // We'll evaluate in next calibration if this was a missed opportunity
+                            // Store the price at signal - we'll track where price goes later
+                            calibrator.RecordPotentialMissed(score, candle.Close, true, blockedBy, i);
+                        }
+                        else if (score <= shortThreshold)
+                        {
+                            string blockedBy = !shortConfirmed ? "confirmation"
+                                : !shortTrendOk ? "trend"
+                                : !volumeOk ? "volume"
+                                : !timeOk ? "time"
+                                : "unknown";
+                            
+                            calibrator.RecordPotentialMissed(score, candle.Close, false, blockedBy, i);
+                        }
+                    }
                 }
+                // Track no-trade bars for calibration
+                else if (calibrator != null && !inPosition)
+                {
+                    calibrator.RecordNoTrade();
+                }
+            }
+            
+            // Periodic calibration based on missed opportunities
+            if (calibrator != null && i > 0 && i % config.CalibrationInterval == 0)
+            {
+                // Evaluate missed opportunities: look ahead to see if they would have been profitable
+                calibrator.EvaluateMissedOpportunities(candles, i);
+                calibrator.CalibrateMissedOpportunities();
             }
             else
             {
@@ -873,6 +1860,10 @@ public sealed class AutonomousBacktester
                     currentCapital += netPnL;
 
                     tradeNumber++;
+                    
+                    bool hitTp = exitReason.Contains("Take profit");
+                    bool hitSl = exitReason.Contains("Stop loss");
+                    
                     result.Trades.Add(new BacktestTrade
                     {
                         TradeNumber = tradeNumber,
@@ -890,17 +1881,22 @@ public sealed class AutonomousBacktester
                         CapitalAfter = currentCapital,
                         Commission = commission
                     });
+                    
+                    // Feed trade to calibrator for learning
+                    calibrator?.RecordTrade(
+                        entryPrice, exitPrice, isLong, entryScore,
+                        atrAtEntry, hitTp, hitSl, candle.Timestamp - entryTime);
 
                     inPosition = false;
 
-                    // Check for direction flip
+                    // Check for direction flip (use dynamic thresholds)
                     if (config.AllowDirectionFlip && currentCapital > 10)
                     {
                         decimal capitalToUse = config.UseFullCapital
                             ? currentCapital
                             : currentCapital * config.MaxCapitalPerTradePercent;
 
-                        if (isLong && score <= config.ShortEntryThreshold && config.AllowShort)
+                        if (isLong && score <= GetShortThreshold() && config.AllowShort)
                         {
                             double flipPrice = candle.Close * (1 - (double)config.SlippagePercent);
                             shares = (int)(capitalToUse / (decimal)flipPrice);
@@ -916,11 +1912,11 @@ public sealed class AutonomousBacktester
                                 lastTradeTime = candle.Timestamp;
 
                                 double atr = indicators.GetAtr(i);
-                                takeProfitPrice = entryPrice - (atr * config.TakeProfitAtrMultiplier);
-                                stopLossPrice = entryPrice + (atr * config.StopLossAtrMultiplier);
+                                takeProfitPrice = entryPrice - (atr * GetTpAtr());
+                                stopLossPrice = entryPrice + (atr * GetSlAtr());
                             }
                         }
-                        else if (!isLong && score >= config.LongEntryThreshold)
+                        else if (!isLong && score >= GetLongThreshold())
                         {
                             double flipPrice = candle.Close * (1 + (double)config.SlippagePercent);
                             shares = (int)(capitalToUse / (decimal)flipPrice);
@@ -936,8 +1932,8 @@ public sealed class AutonomousBacktester
                                 lastTradeTime = candle.Timestamp;
 
                                 double atr = indicators.GetAtr(i);
-                                takeProfitPrice = entryPrice + (atr * config.TakeProfitAtrMultiplier);
-                                stopLossPrice = entryPrice - (atr * config.StopLossAtrMultiplier);
+                                takeProfitPrice = entryPrice + (atr * GetTpAtr());
+                                stopLossPrice = entryPrice - (atr * GetSlAtr());
                             }
                         }
                     }
@@ -1001,8 +1997,103 @@ public sealed class AutonomousBacktester
             DayClose = result.DayClose,
             MaxDrawdown = result.MaxDrawdown,
             MaxDrawdownPercent = result.MaxDrawdownPercent,
-            MaxDrawdownTime = result.MaxDrawdownTime
+            MaxDrawdownTime = result.MaxDrawdownTime,
+            SentimentScore = result.SentimentScore,
+            SentimentConfidence = result.SentimentConfidence,
+            CalibrationSummary = calibrator?.GetCalibrationSummary()
         };
+    }
+
+    // ========================================================================
+    // MULTI-DAY BACKTESTING - Aggregate statistics across multiple trading days
+    // ========================================================================
+
+    /// <summary>
+    /// Runs backtest across all available days in the cache for statistically meaningful results.
+    /// Requires 30+ days of data for reliable pattern detection.
+    /// </summary>
+    public async Task<AggregateBacktestResult> RunMultiDayAsync(
+        string symbol,
+        decimal startingCapital = 1000.00m,
+        AutonomousBacktestConfig? config = null,
+        IProgress<string>? progress = null,
+        CancellationToken cancellationToken = default)
+    {
+        config ??= new AutonomousBacktestConfig 
+        { 
+            StartingCapital = startingCapital,
+            // For multi-day, disable self-calibration to get consistent metrics
+            EnableSelfCalibration = false
+        };
+
+        // Ensure we have cached data
+        List<HistoricalBar> bars;
+        if (_dataCache.HasCachedData(symbol))
+        {
+            bars = _dataCache.LoadFromCache(symbol) ?? [];
+        }
+        else if (_histService != null)
+        {
+            progress?.Report($"Fetching {symbol} historical data (first time, may take a moment)...");
+            bars = await _dataCache.GetOrFetchAsync(symbol, _histService, cancellationToken: cancellationToken);
+        }
+        else
+        {
+            throw new InvalidOperationException($"No cached data for {symbol} and no HistoricalDataService available.");
+        }
+
+        if (bars.Count == 0)
+            throw new InvalidOperationException($"No historical data available for {symbol}");
+
+        // Get unique trading days
+        var tradingDays = bars
+            .Select(b => DateOnly.FromDateTime(b.Time))
+            .Distinct()
+            .OrderBy(d => d)
+            .ToList();
+
+        progress?.Report($"Found {tradingDays.Count} trading days for {symbol}");
+
+        var result = new AggregateBacktestResult
+        {
+            Symbol = symbol,
+            TotalDays = tradingDays.Count,
+            FirstDay = tradingDays.First(),
+            LastDay = tradingDays.Last(),
+            Config = config
+        };
+
+        // Run backtest on each day
+        foreach (var day in tradingDays)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            
+            try
+            {
+                progress?.Report($"Backtesting {symbol} on {day:yyyy-MM-dd}...");
+                
+                var dayResult = await RunAsync(symbol, day, startingCapital, config, null, cancellationToken);
+                result.DayResults.Add(dayResult);
+                
+                // Track per-day stats
+                result.DailyReturns.Add(dayResult.TotalReturnPercent);
+                if (dayResult.TotalPnL > 0) result.WinningDays++;
+                else if (dayResult.TotalPnL < 0) result.LosingDays++;
+                else result.BreakEvenDays++;
+            }
+            catch (Exception ex)
+            {
+                progress?.Report($"  Skipped {day:yyyy-MM-dd}: {ex.Message}");
+                result.SkippedDays++;
+            }
+        }
+
+        // Calculate aggregate statistics
+        result.CalculateStatistics();
+        
+        progress?.Report($"Completed: {result.DayResults.Count} days analyzed");
+        
+        return result;
     }
 
     private static List<BackTestCandle> ConvertToBackTestCandles(IReadOnlyList<HistoricalBar> bars)

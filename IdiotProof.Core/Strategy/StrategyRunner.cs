@@ -1498,6 +1498,219 @@ namespace IdiotProof.Backend.Models
         }
 
         /// <summary>
+        /// Calculates dynamic thresholds for OPTIMIZED mode based on current market conditions.
+        /// Automatically adjusts between aggressive/balanced/conservative based on:
+        /// - ADX (trend strength): Strong trend = more aggressive
+        /// - ATR (volatility): High volatility = more conservative  
+        /// - Indicator agreement: High agreement = more aggressive
+        /// - RSI extremes: Overbought/oversold = more conservative (reversal risk)
+        /// </summary>
+        private (int longEntry, int shortEntry, int longExit, int shortExit, double tpMultiplier, double slMultiplier, string reasoning) 
+            CalculateDynamicThresholds(double currentPrice, MarketScore score)
+        {
+            // Start with balanced defaults
+            int longEntry = 65;
+            int shortEntry = -65;
+            int longExit = 35;
+            int shortExit = -35;
+            double tpMultiplier = 2.0;
+            double slMultiplier = 1.5;
+            var reasons = new List<string>();
+            
+            // 1. ADX Trend Strength Adjustment
+            // Strong trend (ADX > 30) = more aggressive, weak trend (ADX < 20) = more conservative
+            double adx = _adxCalculator?.CurrentAdx ?? 20;
+            if (adx >= 40)
+            {
+                // Very strong trend - be aggressive
+                longEntry -= 15;  // 50
+                shortEntry += 15; // -50
+                longExit -= 10;   // 25
+                shortExit += 10;  // -25
+                tpMultiplier = 2.5;
+                slMultiplier = 1.2;
+                reasons.Add($"ADX {adx:F0} (strong trend->aggressive)");
+            }
+            else if (adx >= 25)
+            {
+                // Moderate trend - slightly aggressive
+                longEntry -= 5;   // 60
+                shortEntry += 5;  // -60
+                tpMultiplier = 2.2;
+                slMultiplier = 1.4;
+                reasons.Add($"ADX {adx:F0} (moderate trend)");
+            }
+            else if (adx < 20)
+            {
+                // Weak/ranging - be conservative
+                longEntry += 10;  // 75
+                shortEntry -= 10; // -75
+                longExit += 10;   // 45
+                shortExit -= 10;  // -45
+                tpMultiplier = 1.5;
+                slMultiplier = 2.0;
+                reasons.Add($"ADX {adx:F0} (ranging->conservative)");
+            }
+            
+            // 2. ATR Volatility Adjustment
+            // High volatility = wider stops, higher thresholds
+            if (_atrCalculator?.IsReady == true)
+            {
+                double atrPercent = (_atrCalculator.CurrentAtr / currentPrice) * 100;
+                
+                if (atrPercent > 5.0)
+                {
+                    // Very high volatility - be conservative
+                    longEntry += 10;
+                    shortEntry -= 10;
+                    slMultiplier += 0.5;
+                    reasons.Add($"ATR {atrPercent:F1}% (high vol->conservative)");
+                }
+                else if (atrPercent > 3.0)
+                {
+                    // Moderate-high volatility
+                    longEntry += 5;
+                    shortEntry -= 5;
+                    reasons.Add($"ATR {atrPercent:F1}% (moderate vol)");
+                }
+                else if (atrPercent < 1.0)
+                {
+                    // Low volatility - can be more aggressive
+                    longEntry -= 5;
+                    shortEntry += 5;
+                    tpMultiplier -= 0.3;
+                    reasons.Add($"ATR {atrPercent:F1}% (low vol->aggressive)");
+                }
+            }
+            
+            // 3. Indicator Agreement Adjustment
+            // When all indicators strongly agree, lower thresholds
+            int indicatorAgreement = CalculateIndicatorAgreement(score);
+            if (indicatorAgreement >= 80)
+            {
+                // Strong agreement - very aggressive
+                longEntry -= 10;
+                shortEntry += 10;
+                reasons.Add($"Indicators {indicatorAgreement}% agree (strong->aggressive)");
+            }
+            else if (indicatorAgreement >= 60)
+            {
+                // Good agreement
+                longEntry -= 5;
+                shortEntry += 5;
+                reasons.Add($"Indicators {indicatorAgreement}% agree");
+            }
+            else if (indicatorAgreement < 40)
+            {
+                // Mixed signals - be conservative
+                longEntry += 10;
+                shortEntry -= 10;
+                reasons.Add($"Indicators {indicatorAgreement}% mixed (->conservative)");
+            }
+            
+            // 4. RSI Extreme Adjustment
+            // Be careful at extremes - higher risk of reversal
+            double rsi = _rsiCalculator?.CurrentValue ?? 50;
+            if (rsi > 75)
+            {
+                // Overbought - don't go long aggressively
+                longEntry += 15;
+                reasons.Add($"RSI {rsi:F0} (overbought->careful long)");
+            }
+            else if (rsi < 25)
+            {
+                // Oversold - don't go short aggressively
+                shortEntry -= 15;
+                reasons.Add($"RSI {rsi:F0} (oversold->careful short)");
+            }
+            
+            // 5. Time of Day Adjustment
+            // Be more conservative in first 15 minutes and last 30 minutes
+            var currentTimeET = TimezoneHelper.GetCurrentTime(MarketTimeZone.EST);
+            var minsFromOpen = (int)(currentTimeET - new TimeOnly(9, 30)).TotalMinutes;
+            
+            if (minsFromOpen >= 0 && minsFromOpen <= 15)
+            {
+                // First 15 minutes - volatile, be conservative
+                longEntry += 10;
+                shortEntry -= 10;
+                reasons.Add("First 15min->conservative");
+            }
+            else if (minsFromOpen >= 360) // After 3:30 PM
+            {
+                // Last 30 minutes - be conservative
+                longEntry += 5;
+                shortEntry -= 5;
+                reasons.Add("Last 30min->conservative");
+            }
+            
+            // Clamp thresholds to valid ranges
+            longEntry = Math.Clamp(longEntry, 45, 85);
+            shortEntry = Math.Clamp(shortEntry, -85, -45);
+            longExit = Math.Clamp(longExit, 15, 55);
+            shortExit = Math.Clamp(shortExit, -55, -15);
+            tpMultiplier = Math.Clamp(tpMultiplier, 1.2, 3.5);
+            slMultiplier = Math.Clamp(slMultiplier, 1.0, 3.0);
+            
+            string reasoning = reasons.Count > 0 ? string.Join(", ", reasons) : "Using defaults";
+            
+            return (longEntry, shortEntry, longExit, shortExit, tpMultiplier, slMultiplier, reasoning);
+        }
+        
+        /// <summary>
+        /// Calculates how strongly the indicators agree (0-100%).
+        /// 100% = all indicators pointing same direction with strong values.
+        /// </summary>
+        private int CalculateIndicatorAgreement(MarketScore score)
+        {
+            // Count how many indicators agree on direction
+            int bullishCount = 0;
+            int bearishCount = 0;
+            int totalIndicators = 0;
+            
+            // VWAP (weight: 1)
+            if (score.VwapScore > 10) bullishCount++;
+            else if (score.VwapScore < -10) bearishCount++;
+            totalIndicators++;
+            
+            // EMA (weight: 1)
+            if (score.EmaScore > 20) bullishCount++;
+            else if (score.EmaScore < -20) bearishCount++;
+            totalIndicators++;
+            
+            // RSI (weight: 1)
+            if (score.RsiScore > 10) bullishCount++;
+            else if (score.RsiScore < -10) bearishCount++;
+            totalIndicators++;
+            
+            // MACD (weight: 1)
+            if (score.MacdScore > 20) bullishCount++;
+            else if (score.MacdScore < -20) bearishCount++;
+            totalIndicators++;
+            
+            // ADX (weight: 1)
+            if (score.AdxScore > 20) bullishCount++;
+            else if (score.AdxScore < -20) bearishCount++;
+            totalIndicators++;
+            
+            // Volume (weight: 1)
+            if (score.VolumeScore > 10) bullishCount++;
+            else if (score.VolumeScore < -10) bearishCount++;
+            totalIndicators++;
+            
+            // Agreement = percentage of indicators pointing in the dominant direction
+            int dominant = Math.Max(bullishCount, bearishCount);
+            int agreement = (dominant * 100) / totalIndicators;
+            
+            // Boost if total score strength backs it up
+            int scoreStrength = Math.Abs(score.TotalScore);
+            if (scoreStrength >= 70) agreement = Math.Min(100, agreement + 15);
+            else if (scoreStrength >= 50) agreement = Math.Min(100, agreement + 5);
+            
+            return agreement;
+        }
+
+        /// <summary>
         /// Handles autonomous entry decision when no position is open.
         /// Uses learned patterns from ticker profile to adjust thresholds.
         /// </summary>
@@ -1563,9 +1776,17 @@ namespace IdiotProof.Backend.Models
                 }
             }
 
-            // Apply learned adjustments from ticker profile
-            int adjustedLongThreshold = config.LongEntryThreshold;
-            int adjustedShortThreshold = config.ShortEntryThreshold;
+            // Calculate dynamic thresholds that self-adjust based on market conditions
+            var (dynLong, dynShort, dynLongExit, dynShortExit, dynTp, dynSl, reasoning) = 
+                CalculateDynamicThresholds(currentPrice, score);
+            
+            int adjustedLongThreshold = dynLong;
+            int adjustedShortThreshold = dynShort;
+            double dynamicTpMultiplier = dynTp;
+            double dynamicSlMultiplier = dynSl;
+            
+            // Log the dynamic adjustments
+            Log($"[AUTO] Thresholds: Long>={dynLong}, Short<={dynShort} | {reasoning}", ConsoleColor.DarkCyan);
 
             // Apply S/R adjustment to thresholds (more lenient when near support, stricter near resistance)
             adjustedLongThreshold -= srScoreAdjustment;
@@ -1635,8 +1856,9 @@ namespace IdiotProof.Backend.Models
                     Log($"  Profile: {_tickerProfile.TotalTrades} trades, {_tickerProfile.WinRate:F1}% win rate, Conf={_tickerProfile.Confidence}%", ConsoleColor.DarkGray);
                 }
                 
-                // Calculate TP/SL based on ATR or percentage
-                var (takeProfit, stopLoss) = CalculateAutonomousTpSl(currentPrice, true, config);
+                // Calculate TP/SL based on ATR with self-adjusting multipliers
+                var (takeProfit, stopLoss) = CalculateAutonomousTpSl(currentPrice, true, config, 
+                    dynamicTpMultiplier, dynamicSlMultiplier);
                 
                 Log($"  Auto TP: ${takeProfit:F2} | Auto SL: ${stopLoss:F2}", ConsoleColor.DarkGray);
 
@@ -1679,8 +1901,9 @@ namespace IdiotProof.Backend.Models
                     Log($"  Profile: {_tickerProfile.TotalTrades} trades, {_tickerProfile.WinRate:F1}% win rate, Conf={_tickerProfile.Confidence}%", ConsoleColor.DarkGray);
                 }
                 
-                // Calculate TP/SL based on ATR or percentage
-                var (takeProfit, stopLoss) = CalculateAutonomousTpSl(currentPrice, false, config);
+                // Calculate TP/SL based on ATR with self-adjusting multipliers
+                var (takeProfit, stopLoss) = CalculateAutonomousTpSl(currentPrice, false, config,
+                    dynamicTpMultiplier, dynamicSlMultiplier);
                 
                 Log($"  Auto TP: ${takeProfit:F2} | Auto SL: ${stopLoss:F2}", ConsoleColor.DarkGray);
 
@@ -1838,16 +2061,27 @@ namespace IdiotProof.Backend.Models
         /// <summary>
         /// Calculates take profit and stop loss prices for autonomous trading.
         /// </summary>
-        private (double takeProfit, double stopLoss) CalculateAutonomousTpSl(double entryPrice, bool isLong, AutonomousTradingConfig config)
+        /// <param name="entryPrice">The entry price.</param>
+        /// <param name="isLong">Whether this is a long position.</param>
+        /// <param name="config">The autonomous trading config.</param>
+        /// <param name="tpMultiplierOverride">Optional override for TP ATR multiplier (for OPTIMIZED mode).</param>
+        /// <param name="slMultiplierOverride">Optional override for SL ATR multiplier (for OPTIMIZED mode).</param>
+        private (double takeProfit, double stopLoss) CalculateAutonomousTpSl(
+            double entryPrice, bool isLong, AutonomousTradingConfig config,
+            double? tpMultiplierOverride = null, double? slMultiplierOverride = null)
         {
             double tpDistance, slDistance;
+
+            // Use override multipliers for OPTIMIZED mode, otherwise use config defaults
+            double tpMultiplier = tpMultiplierOverride ?? config.TakeProfitAtrMultiplier;
+            double slMultiplier = slMultiplierOverride ?? config.StopLossAtrMultiplier;
 
             // Try to use ATR if available
             if (_atrCalculator?.IsReady == true)
             {
                 double atr = _atrCalculator.CurrentAtr;
-                tpDistance = atr * config.TakeProfitAtrMultiplier;
-                slDistance = atr * config.StopLossAtrMultiplier;
+                tpDistance = atr * tpMultiplier;
+                slDistance = atr * slMultiplier;
             }
             else
             {

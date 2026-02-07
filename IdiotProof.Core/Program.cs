@@ -586,6 +586,11 @@ namespace IdiotProof.Backend
                             PrintProfiles();
                             break;
 
+                        case "A":
+                        case "a":
+                            RunAggregateBacktestPrompt();
+                            break;
+
                         case "0":
                         case "q":
                             _shutdownCts.Cancel();
@@ -618,6 +623,7 @@ namespace IdiotProof.Backend
             Log("  7. Settings        - Show current settings");
             Log("  8. Script Test     - Backtest IdiotScript strategy");
             Log("  9. Profiles        - View learned ticker profiles");
+            Log("  A. Aggregate Test  - Multi-day stats with insights");
             Log("  0. Exit            - Shutdown and exit");
             Log("----------------------------------------");
             Log("");
@@ -879,6 +885,96 @@ namespace IdiotProof.Backend
                     }
                 }
                 Log("=====================");
+            }
+        }
+
+        private static void RunAggregateBacktestPrompt()
+        {
+            if (!_isConnected || _historicalDataService == null)
+            {
+                Log("ERROR: Not connected to IBKR. Aggregate backtest requires live connection for historical data.");
+                return;
+            }
+
+            Log("=== Aggregate Backtest (30-Day Analysis) ===");
+            Log("This runs backtests across ALL available days and provides statistical insights.");
+            Log("");
+
+            // Symbol
+            Console.Write("  Symbol (e.g., AAPL): ");
+            var symbolInput = Console.ReadLine()?.Trim().ToUpperInvariant();
+            if (string.IsNullOrEmpty(symbolInput))
+            {
+                Log("  Cancelled.");
+                return;
+            }
+
+            // Starting capital
+            Console.Write("  Starting capital [$1000]: ");
+            var capitalInput = Console.ReadLine()?.Trim();
+            decimal capital = string.IsNullOrEmpty(capitalInput) ? 1000m : 
+                              decimal.TryParse(capitalInput, out var c) ? c : 1000m;
+
+            // Mode
+            Console.Write("  Mode (1=Conservative, 2=Balanced, 3=Aggressive) [2]: ");
+            var modeInput = Console.ReadLine()?.Trim();
+            IdiotProof.BackTesting.Services.AutonomousMode mode = modeInput switch
+            {
+                "1" => IdiotProof.BackTesting.Services.AutonomousMode.Conservative,
+                "3" => IdiotProof.BackTesting.Services.AutonomousMode.Aggressive,
+                _ => IdiotProof.BackTesting.Services.AutonomousMode.Balanced
+            };
+
+            Log("");
+            Log($"Running aggregate backtest for {symbolInput}...");
+            Log($"  Capital: ${capital:N2}, Mode: {mode}");
+            Log("");
+            Log("Fetching historical data and running day-by-day simulation...");
+            Log("(This may take a minute for first run - data is cached for future tests)");
+            Log("");
+
+            try
+            {
+                // Create backtester with data cache
+                var dataCache = new HistoricalDataCache();
+                var backtester = new AutonomousBacktester(_historicalDataService, null, dataCache);
+
+                // Configure
+                var config = new AutonomousBacktestConfig
+                {
+                    StartingCapital = capital,
+                    Mode = mode,
+                    AllowShort = true,
+                    EnableSelfCalibration = false, // Consistent metrics across days
+                    UseTickerMetadata = true
+                };
+
+                // Create progress reporter
+                var progress = new Progress<string>(msg => Log($"  {msg}"));
+
+                // Run multi-day backtest
+                var result = backtester.RunMultiDayAsync(
+                    symbolInput, 
+                    capital, 
+                    config, 
+                    progress,
+                    _shutdownCts.Token).GetAwaiter().GetResult();
+
+                // Display results
+                Log("");
+                Console.WriteLine(result.ToString());
+                
+                // Display insights
+                Log("");
+                Console.WriteLine(result.GetInsights());
+            }
+            catch (OperationCanceledException)
+            {
+                Log("Backtest cancelled.");
+            }
+            catch (Exception ex)
+            {
+                Log($"Backtest failed: {ex.Message}");
             }
         }
 

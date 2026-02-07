@@ -499,6 +499,96 @@ public class AutonomousBacktestTests
         Assert.Pass("Mode comparison completed - review output for analysis");
     }
 
+    [Test]
+    [Description("Self-calibrating backtest adapts thresholds based on performance")]
+    public void Backtest_SelfCalibrating_AdaptsThresholds()
+    {
+        // Arrange - Generate multiple days of varied market conditions
+        var allCandles = new List<BackTestCandle>();
+        var baseDate = new DateTime(2025, 6, 15, 4, 0, 0);
+        
+        // Day 1: Uptrend - should learn to loosen long thresholds
+        allCandles.AddRange(GenerateUptrendingDay("TEST", new DateOnly(2025, 6, 15), 
+            startPrice: 100.00, endPrice: 105.00, volatility: 0.002));
+        
+        // Day 2: Choppy - should tighten to avoid false signals
+        var day2Candles = GenerateVolatileRangingDay("TEST", new DateOnly(2025, 6, 16),
+            centerPrice: 105.00, rangePercent: 0.02, volatility: 0.003);
+        // Adjust timestamps for day 2
+        foreach (var c in day2Candles)
+        {
+            var newTimestamp = c.Timestamp.AddDays(1);
+            allCandles.Add(new BackTestCandle
+            {
+                Timestamp = newTimestamp,
+                Open = c.Open, High = c.High, Low = c.Low, Close = c.Close,
+                Volume = c.Volume
+            });
+        }
+        
+        // Day 3: Strong downtrend - should learn short signals
+        var day3Candles = GenerateDowntrendingDay("TEST", new DateOnly(2025, 6, 17),
+            startPrice: 105.00, endPrice: 98.00, volatility: 0.002);
+        foreach (var c in day3Candles)
+        {
+            var newTimestamp = c.Timestamp.AddDays(2);
+            allCandles.Add(new BackTestCandle
+            {
+                Timestamp = newTimestamp,
+                Open = c.Open, High = c.High, Low = c.Low, Close = c.Close,
+                Volume = c.Volume
+            });
+        }
+        
+        // Self-calibrating config
+        var calibratingConfig = new AutonomousBacktestConfig
+        {
+            StartingCapital = 1000.00m,
+            EnableSelfCalibration = true,       // Enable dynamic calibration
+            InitialLongThreshold = 70,          // Start moderate
+            InitialShortThreshold = -70,
+            AllowShort = true,
+            CalibrationInterval = 30            // Calibrate every 30 bars
+        };
+        
+        // Comparison: Static thresholds
+        var staticConfig = new AutonomousBacktestConfig
+        {
+            StartingCapital = 1000.00m,
+            Mode = AutonomousMode.Balanced,
+            AllowShort = true
+        };
+
+        var backtester = CreateOfflineBacktester();
+
+        // Act
+        var calibratingResult = backtester.RunWithCandles("TEST", new DateOnly(2025, 6, 15), allCandles, calibratingConfig);
+        var staticResult = backtester.RunWithCandles("TEST", new DateOnly(2025, 6, 15), allCandles, staticConfig);
+
+        // Assert
+        System.Console.WriteLine("=== SELF-CALIBRATING (Dynamic Thresholds) ===");
+        System.Console.WriteLine(calibratingResult);
+        if (calibratingResult.CalibrationSummary != null)
+        {
+            System.Console.WriteLine("\n" + calibratingResult.CalibrationSummary);
+        }
+        
+        System.Console.WriteLine("\n=== STATIC (Fixed Thresholds) ===");
+        System.Console.WriteLine(staticResult);
+        
+        System.Console.WriteLine("\n=== COMPARISON ===");
+        System.Console.WriteLine($"Self-Calibrating: {calibratingResult.TotalTrades} trades, " +
+            $"{calibratingResult.WinRate:F1}% win rate, ${calibratingResult.TotalPnL:F2} P/L");
+        System.Console.WriteLine($"Static:           {staticResult.TotalTrades} trades, " +
+            $"{staticResult.WinRate:F1}% win rate, ${staticResult.TotalPnL:F2} P/L");
+        
+        // The self-calibrating system should have adapted
+        Assert.That(calibratingResult.UsedSelfCalibration, Is.True, 
+            "Should show self-calibration was used");
+        
+        Assert.Pass("Self-calibrating backtest completed - review calibration summary for adaptation details");
+    }
+
     #endregion
 
     #region Helper Methods

@@ -669,23 +669,72 @@ AutonomousTrading enables fully automated trading where the system monitors all 
 ### Quick Start
 ```idiotscript
 Ticker(AAPL)
-.AutonomousTrading(IS.BALANCED)
+.AutonomousTrading()
 ```
 
 That's it! The system will:
 1. Monitor VWAP, EMA, RSI, MACD, ADX, and Volume continuously
 2. Calculate a market score (-100 to +100)
-3. Enter LONG when score >= threshold, SHORT when score <= negative threshold
-4. Exit when momentum reverses
-5. Optionally flip direction (exit long → enter short)
+3. **Self-adjust thresholds** based on market conditions (more aggressive in strong trends, conservative when ranging)
+4. Enter LONG when score >= dynamic threshold, SHORT when score <= negative threshold
+5. Exit when momentum reverses
+6. Flip direction (exit long → enter short) on strong reversals
 
 ### AutonomousTrading Syntax
 ```
-AutonomousTrading()                   - Enable autonomous trading (balanced mode)
-AutonomousTrading(IS.CONSERVATIVE)    - Fewer trades, higher thresholds (80/-80)
-AutonomousTrading(IS.BALANCED)        - Standard thresholds (70/-70)
-AutonomousTrading(IS.AGGRESSIVE)      - More trades, lower thresholds (60/-60)
-IsAutonomousTrading()                 - Alias for AutonomousTrading()
+AutonomousTrading()       - Enable self-adjusting autonomous trading
+IsAutonomousTrading()     - Alias for AutonomousTrading()
+```
+
+**Note:** Any mode parameters (IS.CONSERVATIVE, IS.BALANCED, etc.) are accepted for backwards compatibility but ignored. The system always self-adjusts.
+
+### Self-Adjusting Thresholds
+
+The system automatically adjusts entry/exit thresholds based on real-time market conditions:
+
+```
++===========================================================================+
+|  DYNAMIC THRESHOLD CALCULATION                                            |
++===========================================================================+
+|                                                                           |
+|  Adjustment Factor        | Effect on Thresholds          | Reasoning    |
+|  ─────────────────────────┼───────────────────────────────┼──────────────|
+|  ADX >= 40 (strong trend) | Long: 50, Short: -50          | Aggressive   |
+|  ADX 25-40 (moderate)     | Long: 60, Short: -60          | Slightly agg |
+|  ADX < 20 (ranging)       | Long: 75, Short: -75          | Conservative |
+|  ─────────────────────────┼───────────────────────────────┼──────────────|
+|  ATR > 5% (high vol)      | +10 to thresholds             | Conservative |
+|  ATR 3-5% (moderate)      | +5 to thresholds              | Slight cons  |
+|  ATR < 1% (low vol)       | -5 to thresholds              | Aggressive   |
+|  ─────────────────────────┼───────────────────────────────┼──────────────|
+|  Indicators 80%+ agree    | -10 to thresholds             | Aggressive   |
+|  Indicators 60-80% agree  | -5 to thresholds              | Slight agg   |
+|  Indicators < 40% agree   | +10 to thresholds             | Conservative |
+|  ─────────────────────────┼───────────────────────────────┼──────────────|
+|  RSI > 75 (overbought)    | Long threshold +15            | Careful long |
+|  RSI < 25 (oversold)      | Short threshold -15           | Careful short|
+|  ─────────────────────────┼───────────────────────────────┼──────────────|
+|  First 15 minutes         | +10 to thresholds             | Volatility   |
+|  Last 30 minutes          | +5 to thresholds              | EOD caution  |
+|                                                                           |
++===========================================================================+
+
+Example: NVDA during strong uptrend (ADX=45, ATR=2%, Indicators=85% bullish)
+  → Long threshold: 65 - 15 (ADX) - 10 (agreement) = 40 (very aggressive)
+  → The system enters earlier when conditions strongly favor the trade
+
+Example: SPY during ranging market (ADX=18, ATR=0.8%, mixed signals)
+  → Long threshold: 65 + 10 (ranging) - 5 (low vol) + 10 (mixed) = 80 (conservative)
+  → The system waits for stronger confirmation before entering
+```
+
+**Recommended Usage:**
+```idiotscript
+Ticker(NVDA)
+.Name("NVDA Autonomous")
+.Session(IS.RTH)
+.Quantity(5)
+.AutonomousTrading()
 ```
 
 ### How AutonomousTrading Works
@@ -729,24 +778,29 @@ IsAutonomousTrading()                 - Alias for AutonomousTrading()
 +===========================================================================+
 ```
 
-### Mode Configuration
+### Self-Adjusting Behavior
+
+The system automatically adjusts its behavior based on market conditions. There are no modes to configure - it's always optimal:
 
 ```
 +===========================================================================+
-|  AUTONOMOUS MODE SETTINGS                                                 |
+|  AUTOMATIC ADJUSTMENTS                                                    |
 +===========================================================================+
 |                                                                           |
-|  Setting                  | CONSERVATIVE | BALANCED | AGGRESSIVE          |
-|  ─────────────────────────┼──────────────┼──────────┼────────────────────|
-|  LongEntryThreshold       |     80       |    70    |    60               |
-|  ShortEntryThreshold      |    -80       |   -70    |   -60               |
-|  LongExitThreshold        |     60       |    40    |    20               |
-|  ShortExitThreshold       |    -60       |   -40    |   -20               |
-|  TakeProfitAtrMultiplier  |    1.5       |   2.0    |   2.5               |
-|  StopLossAtrMultiplier    |    1.0       |   1.5    |   2.0               |
-|  MinSecondsBetweenTrades  |     60       |    30    |    15               |
-|  AllowShort               |   false      |   true   |   true              |
-|  AllowDirectionFlip       |   false      |   true   |   true              |
+|  STRONG TREND (ADX >= 40):                                               |
+|    - Entry thresholds: 50/-50 (aggressive)                               |
+|    - TP multiplier: 2.5x ATR (let winners run)                           |
+|    - SL multiplier: 1.2x ATR (protect capital)                           |
+|                                                                           |
+|  MODERATE TREND (ADX 25-40):                                             |
+|    - Entry thresholds: 60/-60                                            |
+|    - TP multiplier: 2.2x ATR                                             |
+|    - SL multiplier: 1.4x ATR                                             |
+|                                                                           |
+|  RANGING MARKET (ADX < 20):                                              |
+|    - Entry thresholds: 75/-75 (conservative)                             |
+|    - TP multiplier: 1.5x ATR (take quick profits)                        |
+|    - SL multiplier: 2.0x ATR (allow for chop)                            |
 |                                                                           |
 +===========================================================================+
 ```

@@ -230,6 +230,7 @@ public static class _
         public const string Scripts = "Scripts";
         public const string Strategies = "Strategies";
         public const string Profiles = "Profiles";
+        public const string History = "History";
         public const string Logs = "Logs";
         public const string Settings = "Settings";
         public const string Backend = "Backend";

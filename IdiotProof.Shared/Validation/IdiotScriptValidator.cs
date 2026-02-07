@@ -176,6 +176,7 @@ public static partial class IdiotScriptValidator
 
         // Adaptive Order modes
         "IS.CONSERVATIVE", "IS.BALANCED", "IS.AGGRESSIVE", "IS.FLIPTRADER", "IS.FLIP",
+        "IS.OPTIMIZED", "IS.AUTO", "IS.DYNAMIC", "IS.SMART",
 
         // Indicator thresholds
         "IS.RSI_OVERSOLD", "IS.RSI_OVERBOUGHT", "IS.ADX_STRONG", "IS.ADX_WEAK",

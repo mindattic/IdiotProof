@@ -185,6 +185,7 @@ public sealed class TickerMetadataService
             AggregateDailyExtremes(metadata, dayAnalyses);
             AggregateGapBehavior(metadata, dayAnalyses);
             AggregateVwapBehavior(metadata, dayAnalyses);
+            CalculateVolatilityMetrics(metadata, dayAnalyses, bars);
         }
 
         // Find support/resistance levels from all bars
@@ -458,6 +459,77 @@ public sealed class TickerMetadataService
         }
 
         return bounces;
+    }
+
+    private static void CalculateVolatilityMetrics(
+        TickerMetadata metadata, 
+        List<DayAnalysisResult> days,
+        IReadOnlyList<HistoricalBar> bars)
+    {
+        // Calculate 52-week high/low from available data
+        if (bars.Count > 0)
+        {
+            metadata.High52Week = bars.Max(b => b.High);
+            metadata.Low52Week = bars.Min(b => b.Low);
+        }
+
+        // Calculate average daily volume
+        var dailyVolumes = bars
+            .GroupBy(b => DateOnly.FromDateTime(b.Time))
+            .Select(g => g.Sum(b => b.Volume))
+            .ToList();
+
+        if (dailyVolumes.Count > 0)
+        {
+            metadata.AvgVolume = (long)dailyVolumes.Average();
+        }
+
+        // Calculate 14-day ATR (Average True Range)
+        // ATR uses daily OHLC, so we need daily data
+        if (days.Count >= 14)
+        {
+            var atrValues = new List<double>();
+            
+            for (int i = 1; i < days.Count; i++)
+            {
+                var today = days[i];
+                var yesterday = days[i - 1];
+                
+                // True Range = max of:
+                // 1) High - Low
+                // 2) |High - Previous Close|
+                // 3) |Low - Previous Close|
+                double tr1 = today.High - today.Low;
+                double tr2 = Math.Abs(today.High - yesterday.Close);
+                double tr3 = Math.Abs(today.Low - yesterday.Close);
+                double trueRange = Math.Max(tr1, Math.Max(tr2, tr3));
+                
+                atrValues.Add(trueRange);
+            }
+
+            // Take last 14 values for ATR(14)
+            var last14 = atrValues.TakeLast(14).ToList();
+            if (last14.Count == 14)
+            {
+                metadata.Atr14Day = last14.Average();
+            }
+        }
+
+        // Log volatility metrics
+        if (metadata.Atr14Day.HasValue)
+        {
+            double avgPrice = bars.Average(b => b.Close);
+            double atrPercent = metadata.Atr14Day.Value / avgPrice * 100;
+            Console.WriteLine($"[METADATA] {metadata.Symbol}: ATR(14) = ${metadata.Atr14Day.Value:F2} ({atrPercent:F1}% of price)");
+        }
+
+        if (metadata.AvgVolume.HasValue)
+        {
+            string volumeStr = metadata.AvgVolume.Value >= 1_000_000 
+                ? $"{metadata.AvgVolume.Value / 1_000_000.0:F1}M" 
+                : $"{metadata.AvgVolume.Value / 1_000.0:F0}K";
+            Console.WriteLine($"[METADATA] {metadata.Symbol}: Avg Daily Volume = {volumeStr}");
+        }
     }
 
     private static void LogInsights(TickerMetadata metadata)

@@ -1,0 +1,6 @@
+
+Ticker(BNAI)
+.Name("BNAI Autonomous")
+.Session(IS.RTH)
+.Quantity(100)
+.AutonomousTrading(IS.OPTIMIZED)
