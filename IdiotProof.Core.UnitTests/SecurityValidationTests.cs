@@ -17,8 +17,8 @@
 //
 // ============================================================================
 
-using IdiotProof.Shared.Scripting;
-using IdiotProof.Shared.Validation;
+using IdiotProof.Core.Scripting;
+using IdiotProof.Core.Validation;
 
 namespace IdiotProof.Console.UnitTests;
 

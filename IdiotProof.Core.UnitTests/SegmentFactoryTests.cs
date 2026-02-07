@@ -2,9 +2,9 @@
 // SegmentFactoryTests - Tests for strategy segment template creation
 // ============================================================================
 
-using IdiotProof.Shared.Constants;
-using IdiotProof.Shared.Enums;
-using IdiotProof.Shared.Models;
+using IdiotProof.Core.Constants;
+using IdiotProof.Core.Enums;
+using IdiotProof.Core.Models;
 using NUnit.Framework;
 
 namespace IdiotProof.Backend.UnitTests;

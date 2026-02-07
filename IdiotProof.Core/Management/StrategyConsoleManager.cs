@@ -20,8 +20,8 @@
 
 using IdiotProof.Core.Scripting;
 using IdiotProof.Core.UI;
-using IdiotProof.Shared.Models;
-using IdiotProof.Shared.Scripting;
+using IdiotProof.Core.Models;
+using IdiotProof.Core.Scripting;
 
 namespace IdiotProof.Core.Management;
 

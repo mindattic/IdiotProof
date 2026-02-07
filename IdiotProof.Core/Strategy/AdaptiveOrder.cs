@@ -556,6 +556,41 @@ namespace IdiotProof.Backend.Models
         public bool TradingHoursOnly { get; init; } = false;
 
         /// <summary>
+        /// Optimized indicator weights from genetic algorithm optimization.
+        /// When set, these override the default hardcoded weights in StrategyRunner.
+        /// </summary>
+        public IdiotProof.BackTesting.Optimization.IndicatorWeights? OptimizedWeights { get; init; }
+
+        /// <summary>
+        /// Creates an AutonomousTradingConfig from an optimized configuration.
+        /// Use this to apply weights discovered through the genetic optimization process.
+        /// </summary>
+        /// <param name="optimizedConfig">The optimized configuration from genetic algorithm.</param>
+        /// <param name="allowFlip">Whether to allow direction flipping.</param>
+        /// <param name="allowShort">Whether to allow short positions.</param>
+        /// <returns>An AutonomousTradingConfig ready for live trading.</returns>
+        public static AutonomousTradingConfig FromOptimized(
+            IdiotProof.BackTesting.Optimization.OptimizableConfig optimizedConfig,
+            bool allowFlip = true,
+            bool allowShort = true)
+        {
+            return new AutonomousTradingConfig
+            {
+                Mode = AutonomousMode.Balanced,
+                LongEntryThreshold = optimizedConfig.LongEntryThreshold,
+                ShortEntryThreshold = optimizedConfig.ShortEntryThreshold,
+                LongExitThreshold = optimizedConfig.LongExitThreshold,
+                ShortExitThreshold = optimizedConfig.ShortExitThreshold,
+                TakeProfitAtrMultiplier = optimizedConfig.TakeProfitAtr,
+                StopLossAtrMultiplier = optimizedConfig.StopLossAtr,
+                AllowDirectionFlip = allowFlip,
+                AllowShort = allowShort,
+                // Transfer optimized weights for use in score calculation
+                OptimizedWeights = optimizedConfig.Weights
+            };
+        }
+
+        /// <summary>
         /// Gets a human-readable description of this configuration.
         /// </summary>
         public string Description => $"Autonomous ({Mode}): Long>={LongEntryThreshold}, Short<={ShortEntryThreshold}, " +

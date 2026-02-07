@@ -27,10 +27,10 @@ using IdiotProof.Backend.Enums;
 using IdiotProof.Backend.Helpers;
 using IdiotProof.Backend.Logging;
 using IdiotProof.Backend.Strategy;
-using IdiotProof.Shared.Helpers;
-using IdiotProof.Shared.Settings;
+using IdiotProof.Core.Helpers;
+using IdiotProof.Core.Settings;
 using IbContract = IBApi.Contract;
-using MarketTimeZone = IdiotProof.Shared.Enums.MarketTimeZone;
+using MarketTimeZone = IdiotProof.Core.Enums.MarketTimeZone;
 
 namespace IdiotProof.Backend.Models
 {
@@ -177,7 +177,7 @@ namespace IdiotProof.Backend.Models
         private MarketScore? _entryScore;
 
         // Historical metadata - provides insights about stock behavior
-        private IdiotProof.Shared.Models.TickerMetadata? _tickerMetadata;
+        private IdiotProof.Core.Models.TickerMetadata? _tickerMetadata;
 
         /// <summary>
         /// Gets the shared ticker profile manager for learning across sessions.
@@ -187,7 +187,7 @@ namespace IdiotProof.Backend.Models
         /// <summary>
         /// Gets or sets the ticker metadata for informed trading decisions.
         /// </summary>
-        public IdiotProof.Shared.Models.TickerMetadata? TickerMetadata
+        public IdiotProof.Core.Models.TickerMetadata? TickerMetadata
         {
             get => _tickerMetadata;
             set => _tickerMetadata = value;
@@ -1289,7 +1289,8 @@ namespace IdiotProof.Backend.Models
             var originalAdaptive = order.AdaptiveOrder;
             
             // Create a modified order temporarily to access CalculateMarketScore
-            var score = CalculateMarketScoreForAutonomous(currentPrice, vwap);
+            // Pass optimized weights if available from the config
+            var score = CalculateMarketScoreForAutonomous(currentPrice, vwap, config.OptimizedWeights);
 
             // Check if score changed significantly
             int scoreDelta = Math.Abs(score.TotalScore - _lastAutonomousScore);
@@ -1384,8 +1385,33 @@ namespace IdiotProof.Backend.Models
         /// Calculates market score for autonomous trading decision making.
         /// Uses the same logic as adaptive order but without requiring a position.
         /// </summary>
-        private MarketScore CalculateMarketScoreForAutonomous(double price, double vwap)
+        /// <param name="price">Current price.</param>
+        /// <param name="vwap">Current VWAP.</param>
+        /// <param name="optimizedWeights">Optional optimized weights from genetic algorithm.</param>
+        private MarketScore CalculateMarketScoreForAutonomous(double price, double vwap, 
+            IdiotProof.BackTesting.Optimization.IndicatorWeights? optimizedWeights = null)
         {
+            // Get weights - use optimized if provided, otherwise use defaults
+            double wVwap = optimizedWeights?.Vwap ?? 0.13;
+            double wEma = optimizedWeights?.Ema ?? 0.18;
+            double wRsi = optimizedWeights?.Rsi ?? 0.14;
+            double wMacd = optimizedWeights?.Macd ?? 0.20;
+            double wAdx = optimizedWeights?.Adx ?? 0.20;
+            double wVolume = optimizedWeights?.Volume ?? 0.10;
+            double wBollinger = 0.05; // Not in optimized weights, keep fixed
+
+            // Normalize if optimized weights provided (they sum to 1.0, need to adjust for bollinger)
+            if (optimizedWeights != null)
+            {
+                double scaleFactor = 0.95; // Leave 5% for bollinger
+                wVwap *= scaleFactor;
+                wEma *= scaleFactor;
+                wRsi *= scaleFactor;
+                wMacd *= scaleFactor;
+                wAdx *= scaleFactor;
+                wVolume *= scaleFactor;
+            }
+
             // Use balanced weights for score calculation
             int vwapScore = 0, emaScore = 0, rsiScore = 0, macdScore = 0, adxScore = 0, volumeScore = 0;
 
@@ -1464,15 +1490,15 @@ namespace IdiotProof.Backend.Models
             }
 
             // Calculate weighted total score
-            // Slightly reduced other weights to make room for Bollinger (5%)
+            // Uses optimized weights if provided, otherwise uses defaults
             double totalScore =
-                vwapScore * 0.13 +
-                emaScore * 0.18 +
-                rsiScore * 0.14 +
-                macdScore * 0.20 +
-                adxScore * 0.20 +
-                volumeScore * 0.10 +
-                bollingerScore * 0.05;
+                vwapScore * wVwap +
+                emaScore * wEma +
+                rsiScore * wRsi +
+                macdScore * wMacd +
+                adxScore * wAdx +
+                volumeScore * wVolume +
+                bollingerScore * wBollinger;
 
             // Apply time-of-day weight (scales score based on trading quality of time period)
             double timeWeight = GetTimeOfDayWeight();
@@ -2034,7 +2060,7 @@ namespace IdiotProof.Backend.Models
             _autonomousStopLoss = 0;   // Not used in FlipMode
             
             // Create new entry for learning
-            var score = CalculateMarketScoreForAutonomous(currentPrice, vwap);
+            var score = CalculateMarketScoreForAutonomous(currentPrice, vwap, config.OptimizedWeights);
             _entryScore = score;
             _pendingTradeRecord = new TradeRecord
             {

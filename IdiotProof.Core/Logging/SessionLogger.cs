@@ -19,7 +19,7 @@
 // ============================================================================
 
 using System.Text;
-using IdiotProof.Shared.Helpers;
+using IdiotProof.Core.Helpers;
 
 namespace IdiotProof.Backend.Logging;
 

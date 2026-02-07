@@ -29,7 +29,6 @@
 
   <ItemGroup>
     <ProjectReference Include="..\IdiotProof.Core\IdiotProof.Core.csproj" />
-    <ProjectReference Include="..\IdiotProof.Shared\IdiotProof.Shared.csproj" />
   </ItemGroup>
 
   <!-- IBApi DLL reference (same as Core project) -->

@@ -16,8 +16,8 @@
 using IdiotProof.Backend;
 using IdiotProof.Backend.Helpers;
 using IdiotProof.Backend.Models;
-using IdiotProof.Shared.Settings;
-using MarketTimeZone = IdiotProof.Shared.Enums.MarketTimeZone;
+using IdiotProof.Core.Settings;
+using MarketTimeZone = IdiotProof.Core.Enums.MarketTimeZone;
 using NUnit.Framework;
 
 namespace IdiotProof.Backend.UnitTests;

@@ -3,7 +3,7 @@
 // ============================================================================
 
 using IdiotProof.Core.Scripting;
-using IdiotProof.Shared.Models;
+using IdiotProof.Core.Models;
 
 namespace IdiotProof.Console.UnitTests;
 
@@ -87,7 +87,7 @@ public class ScriptParserSanitizationTests
         Assert.That(result.Symbol, Is.EqualTo("AAPL"));
 
         var emaSegment = result.Segments.FirstOrDefault(s => 
-            s.Type == IdiotProof.Shared.Enums.SegmentType.IsEmaBetween);
+            s.Type == IdiotProof.Core.Enums.SegmentType.IsEmaBetween);
         Assert.That(emaSegment, Is.Not.Null);
     }
 

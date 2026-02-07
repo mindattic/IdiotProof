@@ -30,7 +30,7 @@ using IBApi;
 using IdiotProof.Backend.Enums;
 using IdiotProof.Backend.Logging;
 using IdiotProof.Backend.Models;
-using IdiotProof.Shared.Helpers;
+using IdiotProof.Core.Helpers;
 using System;
 using IbContract = IBApi.Contract;
 

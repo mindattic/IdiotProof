@@ -4,7 +4,7 @@
 
 using IdiotProof.Backend.Models;
 using IdiotProof.Backend.Strategy;
-using IdiotProof.Shared.Models;
+using IdiotProof.Core.Models;
 using NUnit.Framework;
 
 namespace IdiotProof.Backend.UnitTests;
@@ -836,8 +836,8 @@ public class StrategyLoaderTests
     {
         return new StrategySegment
         {
-            Type = Shared.Enums.SegmentType.Ticker,
-            Category = Shared.Enums.SegmentCategory.Start,
+            Type = Core.Enums.SegmentType.Ticker,
+            Category = Core.Enums.SegmentCategory.Start,
             DisplayName = "Ticker",
             Parameters = new List<SegmentParameter> { CreateParam("symbol", ParameterType.String, symbol) }
         };
@@ -847,8 +847,8 @@ public class StrategyLoaderTests
     {
         return new StrategySegment
         {
-            Type = Shared.Enums.SegmentType.SessionDuration,
-            Category = Shared.Enums.SegmentCategory.Session,
+            Type = Core.Enums.SegmentType.SessionDuration,
+            Category = Core.Enums.SegmentCategory.Session,
             DisplayName = "Session Duration",
             Parameters = new List<SegmentParameter> { CreateParam("Session", ParameterType.Enum, session, "TradingSession") }
         };
@@ -858,8 +858,8 @@ public class StrategyLoaderTests
     {
         return new StrategySegment
         {
-            Type = Shared.Enums.SegmentType.Breakout,
-            Category = Shared.Enums.SegmentCategory.PriceCondition,
+            Type = Core.Enums.SegmentType.Breakout,
+            Category = Core.Enums.SegmentCategory.PriceCondition,
             DisplayName = "Breakout",
             Parameters = new List<SegmentParameter> { CreateParam("Level", ParameterType.Price, level) }
         };
@@ -869,8 +869,8 @@ public class StrategyLoaderTests
     {
         return new StrategySegment
         {
-            Type = Shared.Enums.SegmentType.Pullback,
-            Category = Shared.Enums.SegmentCategory.PriceCondition,
+            Type = Core.Enums.SegmentType.Pullback,
+            Category = Core.Enums.SegmentCategory.PriceCondition,
             DisplayName = "Pullback",
             Parameters = new List<SegmentParameter> { CreateParam("Level", ParameterType.Price, level) }
         };
@@ -880,8 +880,8 @@ public class StrategyLoaderTests
     {
         return new StrategySegment
         {
-            Type = Shared.Enums.SegmentType.IsPriceAbove,
-            Category = Shared.Enums.SegmentCategory.PriceCondition,
+            Type = Core.Enums.SegmentType.IsPriceAbove,
+            Category = Core.Enums.SegmentCategory.PriceCondition,
             DisplayName = "Price Above",
             Parameters = new List<SegmentParameter> { CreateParam("Level", ParameterType.Price, level) }
         };
@@ -891,8 +891,8 @@ public class StrategyLoaderTests
     {
         return new StrategySegment
         {
-            Type = Shared.Enums.SegmentType.IsPriceBelow,
-            Category = Shared.Enums.SegmentCategory.PriceCondition,
+            Type = Core.Enums.SegmentType.IsPriceBelow,
+            Category = Core.Enums.SegmentCategory.PriceCondition,
             DisplayName = "Price Below",
             Parameters = new List<SegmentParameter> { CreateParam("Level", ParameterType.Price, level) }
         };
@@ -902,8 +902,8 @@ public class StrategyLoaderTests
     {
         return new StrategySegment
         {
-            Type = Shared.Enums.SegmentType.IsAboveVwap,
-            Category = Shared.Enums.SegmentCategory.VwapCondition,
+            Type = Core.Enums.SegmentType.IsAboveVwap,
+            Category = Core.Enums.SegmentCategory.VwapCondition,
             DisplayName = "Above VWAP",
             Parameters = new List<SegmentParameter> { CreateParam("Buffer", ParameterType.Double, buffer) }
         };
@@ -913,8 +913,8 @@ public class StrategyLoaderTests
     {
         return new StrategySegment
         {
-            Type = Shared.Enums.SegmentType.IsBelowVwap,
-            Category = Shared.Enums.SegmentCategory.VwapCondition,
+            Type = Core.Enums.SegmentType.IsBelowVwap,
+            Category = Core.Enums.SegmentCategory.VwapCondition,
             DisplayName = "Below VWAP",
             Parameters = new List<SegmentParameter> { CreateParam("Buffer", ParameterType.Double, buffer) }
         };
@@ -930,8 +930,8 @@ public class StrategyLoaderTests
 
         return new StrategySegment
         {
-            Type = Shared.Enums.SegmentType.IsRsi,
-            Category = Shared.Enums.SegmentCategory.IndicatorCondition,
+            Type = Core.Enums.SegmentType.IsRsi,
+            Category = Core.Enums.SegmentCategory.IndicatorCondition,
             DisplayName = "RSI",
             Parameters = parameters
         };
@@ -941,8 +941,8 @@ public class StrategyLoaderTests
     {
         return new StrategySegment
         {
-            Type = Shared.Enums.SegmentType.IsMacd,
-            Category = Shared.Enums.SegmentCategory.IndicatorCondition,
+            Type = Core.Enums.SegmentType.IsMacd,
+            Category = Core.Enums.SegmentCategory.IndicatorCondition,
             DisplayName = "MACD",
             Parameters = new List<SegmentParameter> { CreateParam("State", ParameterType.Enum, state, "MacdState") }
         };
@@ -952,8 +952,8 @@ public class StrategyLoaderTests
     {
         return new StrategySegment
         {
-            Type = Shared.Enums.SegmentType.IsAdx,
-            Category = Shared.Enums.SegmentCategory.IndicatorCondition,
+            Type = Core.Enums.SegmentType.IsAdx,
+            Category = Core.Enums.SegmentCategory.IndicatorCondition,
             DisplayName = "ADX",
             Parameters = new List<SegmentParameter>
             {
@@ -967,8 +967,8 @@ public class StrategyLoaderTests
     {
         return new StrategySegment
         {
-            Type = Shared.Enums.SegmentType.IsDI,
-            Category = Shared.Enums.SegmentCategory.IndicatorCondition,
+            Type = Core.Enums.SegmentType.IsDI,
+            Category = Core.Enums.SegmentCategory.IndicatorCondition,
             DisplayName = "DI",
             Parameters = new List<SegmentParameter>
             {
@@ -982,8 +982,8 @@ public class StrategyLoaderTests
     {
         return new StrategySegment
         {
-            Type = Shared.Enums.SegmentType.Order,
-            Category = Shared.Enums.SegmentCategory.Order,
+            Type = Core.Enums.SegmentType.Order,
+            Category = Core.Enums.SegmentCategory.Order,
             DisplayName = "Order",
             Parameters = new List<SegmentParameter>
             {
@@ -1009,8 +1009,8 @@ public class StrategyLoaderTests
     {
         return new StrategySegment
         {
-            Type = Shared.Enums.SegmentType.Close,
-            Category = Shared.Enums.SegmentCategory.Order,
+            Type = Core.Enums.SegmentType.Close,
+            Category = Core.Enums.SegmentCategory.Order,
             DisplayName = "Close",
             Parameters = new List<SegmentParameter>
             {
@@ -1024,8 +1024,8 @@ public class StrategyLoaderTests
     {
         return new StrategySegment
         {
-            Type = Shared.Enums.SegmentType.TakeProfit,
-            Category = Shared.Enums.SegmentCategory.RiskManagement,
+            Type = Core.Enums.SegmentType.TakeProfit,
+            Category = Core.Enums.SegmentCategory.RiskManagement,
             DisplayName = "Take Profit",
             Parameters = new List<SegmentParameter> { CreateParam("Price", ParameterType.Price, price) }
         };
@@ -1035,8 +1035,8 @@ public class StrategyLoaderTests
     {
         return new StrategySegment
         {
-            Type = Shared.Enums.SegmentType.StopLoss,
-            Category = Shared.Enums.SegmentCategory.RiskManagement,
+            Type = Core.Enums.SegmentType.StopLoss,
+            Category = Core.Enums.SegmentCategory.RiskManagement,
             DisplayName = "Stop Loss",
             Parameters = new List<SegmentParameter> { CreateParam("Price", ParameterType.Price, price) }
         };
@@ -1046,8 +1046,8 @@ public class StrategyLoaderTests
     {
         return new StrategySegment
         {
-            Type = Shared.Enums.SegmentType.TrailingStopLoss,
-            Category = Shared.Enums.SegmentCategory.RiskManagement,
+            Type = Core.Enums.SegmentType.TrailingStopLoss,
+            Category = Core.Enums.SegmentCategory.RiskManagement,
             DisplayName = "Trailing Stop Loss",
             Parameters = new List<SegmentParameter> { CreateParam("Percentage", ParameterType.Percentage, percent) }
         };
@@ -1057,8 +1057,8 @@ public class StrategyLoaderTests
     {
         return new StrategySegment
         {
-            Type = Shared.Enums.SegmentType.TimeInForce,
-            Category = Shared.Enums.SegmentCategory.OrderConfig,
+            Type = Core.Enums.SegmentType.TimeInForce,
+            Category = Core.Enums.SegmentCategory.OrderConfig,
             DisplayName = "Time In Force",
             Parameters = new List<SegmentParameter> { CreateParam("Type", ParameterType.Enum, tif, "TimeInForce") }
         };
@@ -1068,8 +1068,8 @@ public class StrategyLoaderTests
     {
         return new StrategySegment
         {
-            Type = Shared.Enums.SegmentType.OutsideRTH,
-            Category = Shared.Enums.SegmentCategory.OrderConfig,
+            Type = Core.Enums.SegmentType.OutsideRTH,
+            Category = Core.Enums.SegmentCategory.OrderConfig,
             DisplayName = "Outside RTH",
             Parameters = new List<SegmentParameter>
             {
@@ -1083,8 +1083,8 @@ public class StrategyLoaderTests
     {
         return new StrategySegment
         {
-            Type = Shared.Enums.SegmentType.AllOrNone,
-            Category = Shared.Enums.SegmentCategory.OrderConfig,
+            Type = Core.Enums.SegmentType.AllOrNone,
+            Category = Core.Enums.SegmentCategory.OrderConfig,
             DisplayName = "All Or None",
             Parameters = new List<SegmentParameter> { CreateParam("AllOrNone", ParameterType.Boolean, allOrNone) }
         };

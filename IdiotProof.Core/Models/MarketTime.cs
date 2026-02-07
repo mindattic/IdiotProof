@@ -27,7 +27,7 @@
 // ============================================================================
 
 using IdiotProof.Backend.Helpers;
-using IdiotProof.Shared.Settings;
+using IdiotProof.Core.Settings;
 using System;
 
 namespace IdiotProof.Backend.Models

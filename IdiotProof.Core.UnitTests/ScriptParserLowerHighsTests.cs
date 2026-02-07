@@ -2,8 +2,8 @@
 // StrategyScriptParser LowerHighs and Pattern Tests
 // ============================================================================
 
-using IdiotProof.Shared.Enums;
-using IdiotProof.Shared.Scripting;
+using IdiotProof.Core.Enums;
+using IdiotProof.Core.Scripting;
 
 namespace IdiotProof.Console.UnitTests;
 

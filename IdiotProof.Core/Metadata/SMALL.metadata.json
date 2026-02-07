@@ -1,0 +1,70 @@
+{
+  "Symbol": "SMALL",
+  "CreatedAt": "2026-02-07T06:30:03.8081053Z",
+  "UpdatedAt": "2026-02-07T06:59:00.3203959Z",
+  "DaysAnalyzed": 1,
+  "BarsAnalyzed": 30,
+  "Beta": null,
+  "Atr14Day": null,
+  "AvgVolume": 1071320,
+  "FloatShares": null,
+  "ShortInterestPercent": null,
+  "DaysToCover": null,
+  "Sector": null,
+  "Industry": null,
+  "MarketCap": null,
+  "EarningsDate": null,
+  "ExDividendDate": null,
+  "High52Week": 100.15,
+  "Low52Week": 99.68,
+  "CorrelationSpy": null,
+  "SectorEtf": null,
+  "CorrelationSector": null,
+  "DailyExtremes": {
+    "AvgHodMinutesFromOpen": 3,
+    "AvgLodMinutesFromOpen": 28,
+    "HodInFirst30MinPercent": 100,
+    "LodInFirst30MinPercent": 100,
+    "HodInLast30MinPercent": 0,
+    "LodInLast30MinPercent": 0,
+    "AvgHodPercentFromOpen": 0.15000000000000568,
+    "AvgLodPercentFromOpen": -0.3199999999999932,
+    "AvgDailyRangePercent": 0.46999999999999886
+  },
+  "GapBehavior": {
+    "AvgGapUpPercent": 0,
+    "AvgGapDownPercent": 0,
+    "GapUpFillRate": 0,
+    "GapDownFillRate": 0,
+    "GapUpContinuationRate": 0,
+    "GapDownContinuationRate": 0,
+    "AvgGapFillTimeMinutes": 0
+  },
+  "VwapBehavior": {
+    "AvgPercentAboveVwap": 23.333333333333332,
+    "AvgVwapCrossesPerDay": 7,
+    "VwapRejectionContinuationRate": 0,
+    "VwapReclaimHoldRate": 0
+  },
+  "SupportLevels": [
+    {
+      "Price": 99.76333333333332,
+      "Touches": 3,
+      "Bounces": 13,
+      "Breaks": -10,
+      "IsSupport": true
+    }
+  ],
+  "ResistanceLevels": [
+    {
+      "Price": 100.055,
+      "Touches": 4,
+      "Bounces": 15,
+      "Breaks": -11,
+      "IsSupport": false
+    }
+  ],
+  "HourlyPerformance": [],
+  "AvoidHours": [],
+  "BestHours": []
+}

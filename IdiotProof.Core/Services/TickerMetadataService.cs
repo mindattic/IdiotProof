@@ -21,8 +21,8 @@
 // ============================================================================
 
 using IdiotProof.Backend.Models;
-using IdiotProof.Shared.Models;
-using IdiotProof.Shared.Settings;
+using IdiotProof.Core.Models;
+using IdiotProof.Core.Settings;
 using System.Text.Json;
 
 namespace IdiotProof.Backend.Services;

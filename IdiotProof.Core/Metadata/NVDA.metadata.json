@@ -1,0 +1,112 @@
+{
+  "Symbol": "NVDA",
+  "CreatedAt": "2026-02-07T06:30:03.8494517Z",
+  "UpdatedAt": "2026-02-07T06:59:00.3563151Z",
+  "DaysAnalyzed": 1,
+  "BarsAnalyzed": 390,
+  "Beta": null,
+  "Atr14Day": null,
+  "AvgVolume": 15560180,
+  "FloatShares": null,
+  "ShortInterestPercent": null,
+  "DaysToCover": null,
+  "Sector": null,
+  "Industry": null,
+  "MarketCap": null,
+  "EarningsDate": null,
+  "ExDividendDate": null,
+  "High52Week": 134.29,
+  "Low52Week": 129.58,
+  "CorrelationSpy": null,
+  "SectorEtf": null,
+  "CorrelationSector": null,
+  "DailyExtremes": {
+    "AvgHodMinutesFromOpen": 320,
+    "AvgLodMinutesFromOpen": 0,
+    "HodInFirst30MinPercent": 0,
+    "LodInFirst30MinPercent": 100,
+    "HodInLast30MinPercent": 0,
+    "LodInLast30MinPercent": 0,
+    "AvgHodPercentFromOpen": 3.299999999999994,
+    "AvgLodPercentFromOpen": -0.32307692307691344,
+    "AvgDailyRangePercent": 3.6230769230769075
+  },
+  "GapBehavior": {
+    "AvgGapUpPercent": 0,
+    "AvgGapDownPercent": 0,
+    "GapUpFillRate": 0,
+    "GapDownFillRate": 0,
+    "GapUpContinuationRate": 0,
+    "GapDownContinuationRate": 0,
+    "AvgGapFillTimeMinutes": 0
+  },
+  "VwapBehavior": {
+    "AvgPercentAboveVwap": 84.87179487179488,
+    "AvgVwapCrossesPerDay": 28,
+    "VwapRejectionContinuationRate": 0,
+    "VwapReclaimHoldRate": 0
+  },
+  "SupportLevels": [
+    {
+      "Price": 133.315,
+      "Touches": 2,
+      "Bounces": 20,
+      "Breaks": -18,
+      "IsSupport": true
+    },
+    {
+      "Price": 129.99,
+      "Touches": 2,
+      "Bounces": 10,
+      "Breaks": -8,
+      "IsSupport": true
+    },
+    {
+      "Price": 132.39722222222224,
+      "Touches": 18,
+      "Bounces": 62,
+      "Breaks": -44,
+      "IsSupport": true
+    },
+    {
+      "Price": 131.23700000000002,
+      "Touches": 30,
+      "Bounces": 69,
+      "Breaks": -39,
+      "IsSupport": true
+    }
+  ],
+  "ResistanceLevels": [
+    {
+      "Price": 134.01999999999998,
+      "Touches": 3,
+      "Bounces": 14,
+      "Breaks": -11,
+      "IsSupport": false
+    },
+    {
+      "Price": 133.015,
+      "Touches": 22,
+      "Bounces": 60,
+      "Breaks": -38,
+      "IsSupport": false
+    },
+    {
+      "Price": 131.81814814814814,
+      "Touches": 27,
+      "Bounces": 58,
+      "Breaks": -31,
+      "IsSupport": false
+    },
+    {
+      "Price": 130.255,
+      "Touches": 2,
+      "Bounces": 4,
+      "Breaks": -2,
+      "IsSupport": false
+    }
+  ],
+  "HourlyPerformance": [],
+  "AvoidHours": [],
+  "BestHours": []
+}

@@ -10,7 +10,7 @@
 //
 // ============================================================================
 
-using IdiotProof.Shared.Settings;
+using IdiotProof.Core.Settings;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 

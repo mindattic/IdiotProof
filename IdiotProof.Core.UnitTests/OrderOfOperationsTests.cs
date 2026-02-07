@@ -24,10 +24,10 @@
 // ============================================================================
 
 using IdiotProof.Core.Scripting;
-using IdiotProof.Shared.Enums;
-using IdiotProof.Shared.Models;
-using IdiotProof.Shared.Scripting;
-using IdiotProof.Shared.Validation;
+using IdiotProof.Core.Enums;
+using IdiotProof.Core.Models;
+using IdiotProof.Core.Scripting;
+using IdiotProof.Core.Validation;
 
 namespace IdiotProof.Console.UnitTests;
 

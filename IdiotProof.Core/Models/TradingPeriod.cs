@@ -18,8 +18,8 @@
 
 using System;
 using IdiotProof.Backend.Helpers;
-using IdiotProof.Shared.Enums;
-using IdiotProof.Shared.Settings;
+using IdiotProof.Core.Enums;
+using IdiotProof.Core.Settings;
 
 namespace IdiotProof.Backend.Models
 {

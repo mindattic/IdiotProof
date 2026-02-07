@@ -33,7 +33,7 @@ using IBApi;
 using IdiotProof.Backend.Enums;
 using IdiotProof.Backend.Helpers;
 using IdiotProof.Backend.Models;
-using IdiotProof.Shared.Enums;
+using IdiotProof.Core.Enums;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;

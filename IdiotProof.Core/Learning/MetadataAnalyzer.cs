@@ -17,7 +17,7 @@
 using IdiotProof.BackTesting.Analysis;
 using IdiotProof.BackTesting.Models;
 using IdiotProof.BackTesting.Services;
-using IdiotProof.Shared.Settings;
+using IdiotProof.Core.Settings;
 
 namespace IdiotProof.BackTesting.Learning;
 

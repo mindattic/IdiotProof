@@ -9,12 +9,12 @@ using IdiotProof.Backend.Logging;
 using IdiotProof.Backend.Models;
 using IdiotProof.Backend.Services;
 using IdiotProof.Backend.Strategy;
-using IdiotProof.Shared.Helpers;
-using IdiotProof.Shared.Models;
-using IdiotProof.Shared.Scripting;
-using IdiotProof.Shared.Services;
-using IdiotProof.Shared.Settings;
-using IdiotProof.Shared.Validation;
+using IdiotProof.Core.Helpers;
+using IdiotProof.Core.Models;
+using IdiotProof.Core.Scripting;
+using IdiotProof.Core.Services;
+using IdiotProof.Core.Settings;
+using IdiotProof.Core.Validation;
 
 namespace IdiotProof.Backend
 {
@@ -1485,7 +1485,7 @@ namespace IdiotProof.Backend
         private static string GetDefinitionFingerprint(StrategyDefinition def)
         {
             // Serialize to IdiotScript for canonical comparison
-            return IdiotProof.Shared.Scripting.IdiotScriptSerializer.Serialize(def);
+            return IdiotProof.Core.Scripting.IdiotScriptSerializer.Serialize(def);
         }
 
         private static Task<OperationResultPayload> ActivateStrategyAsync(Guid strategyId)

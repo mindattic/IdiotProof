@@ -3,8 +3,8 @@
 // ============================================================================
 
 using IdiotProof.Core.Scripting;
-using IdiotProof.Shared.Enums;
-using IdiotProof.Shared.Models;
+using IdiotProof.Core.Enums;
+using IdiotProof.Core.Models;
 
 namespace IdiotProof.Console.UnitTests;
 

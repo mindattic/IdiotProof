@@ -1,0 +1,168 @@
+{
+  "Symbol": "AMD",
+  "CreatedAt": "2026-02-07T06:30:03.7997144Z",
+  "UpdatedAt": "2026-02-07T06:59:00.3121706Z",
+  "DaysAnalyzed": 1,
+  "BarsAnalyzed": 390,
+  "Beta": null,
+  "Atr14Day": null,
+  "AvgVolume": 13715636,
+  "FloatShares": null,
+  "ShortInterestPercent": null,
+  "DaysToCover": null,
+  "Sector": null,
+  "Industry": null,
+  "MarketCap": null,
+  "EarningsDate": null,
+  "ExDividendDate": null,
+  "High52Week": 155.48,
+  "Low52Week": 144.63,
+  "CorrelationSpy": null,
+  "SectorEtf": null,
+  "CorrelationSector": null,
+  "DailyExtremes": {
+    "AvgHodMinutesFromOpen": 130,
+    "AvgLodMinutesFromOpen": 262,
+    "HodInFirst30MinPercent": 0,
+    "LodInFirst30MinPercent": 0,
+    "HodInLast30MinPercent": 0,
+    "LodInLast30MinPercent": 0,
+    "AvgHodPercentFromOpen": 3.6533333333333267,
+    "AvgLodPercentFromOpen": -3.580000000000003,
+    "AvgDailyRangePercent": 7.233333333333329
+  },
+  "GapBehavior": {
+    "AvgGapUpPercent": 0,
+    "AvgGapDownPercent": 0,
+    "GapUpFillRate": 0,
+    "GapDownFillRate": 0,
+    "GapUpContinuationRate": 0,
+    "GapDownContinuationRate": 0,
+    "AvgGapFillTimeMinutes": 0
+  },
+  "VwapBehavior": {
+    "AvgPercentAboveVwap": 47.179487179487175,
+    "AvgVwapCrossesPerDay": 14,
+    "VwapRejectionContinuationRate": 0,
+    "VwapReclaimHoldRate": 0
+  },
+  "SupportLevels": [
+    {
+      "Price": 147.07750000000001,
+      "Touches": 4,
+      "Bounces": 15,
+      "Breaks": -11,
+      "IsSupport": true
+    },
+    {
+      "Price": 154.278,
+      "Touches": 5,
+      "Bounces": 15,
+      "Breaks": -10,
+      "IsSupport": true
+    },
+    {
+      "Price": 144.8133333333333,
+      "Touches": 3,
+      "Bounces": 7,
+      "Breaks": -4,
+      "IsSupport": true
+    },
+    {
+      "Price": 148.35166666666666,
+      "Touches": 6,
+      "Bounces": 13,
+      "Breaks": -7,
+      "IsSupport": true
+    },
+    {
+      "Price": 153.2275,
+      "Touches": 8,
+      "Bounces": 17,
+      "Breaks": -9,
+      "IsSupport": true
+    },
+    {
+      "Price": 146.07200000000003,
+      "Touches": 5,
+      "Bounces": 10,
+      "Breaks": -5,
+      "IsSupport": true
+    },
+    {
+      "Price": 151.80111111111108,
+      "Touches": 9,
+      "Bounces": 17,
+      "Breaks": -8,
+      "IsSupport": true
+    },
+    {
+      "Price": 150.33642857142857,
+      "Touches": 14,
+      "Bounces": 26,
+      "Breaks": -12,
+      "IsSupport": true
+    }
+  ],
+  "ResistanceLevels": [
+    {
+      "Price": 155.3166666666667,
+      "Touches": 3,
+      "Bounces": 13,
+      "Breaks": -10,
+      "IsSupport": false
+    },
+    {
+      "Price": 145.89499999999998,
+      "Touches": 4,
+      "Bounces": 16,
+      "Breaks": -12,
+      "IsSupport": false
+    },
+    {
+      "Price": 154.292,
+      "Touches": 5,
+      "Bounces": 16,
+      "Breaks": -11,
+      "IsSupport": false
+    },
+    {
+      "Price": 147.36166666666665,
+      "Touches": 6,
+      "Bounces": 17,
+      "Breaks": -11,
+      "IsSupport": false
+    },
+    {
+      "Price": 148.50666666666666,
+      "Touches": 6,
+      "Bounces": 13,
+      "Breaks": -7,
+      "IsSupport": false
+    },
+    {
+      "Price": 152.8141666666667,
+      "Touches": 12,
+      "Bounces": 24,
+      "Breaks": -12,
+      "IsSupport": false
+    },
+    {
+      "Price": 151.29615384615383,
+      "Touches": 13,
+      "Bounces": 23,
+      "Breaks": -10,
+      "IsSupport": false
+    },
+    {
+      "Price": 149.97,
+      "Touches": 9,
+      "Bounces": 15,
+      "Breaks": -6,
+      "IsSupport": false
+    }
+  ],
+  "HourlyPerformance": [],
+  "AvoidHours": [],
+  "BestHours": []
+}

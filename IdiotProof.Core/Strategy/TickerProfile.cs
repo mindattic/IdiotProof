@@ -23,7 +23,7 @@
 // ╚═══════════════════════════════════════════════════════════════════════════╝
 
 using System.Text.Json;
-using IdiotProof.Shared.Settings;
+using IdiotProof.Core.Settings;
 using System.Text.Json.Serialization;
 
 namespace IdiotProof.Backend.Strategy

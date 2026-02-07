@@ -39,7 +39,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
-using IdiotProof.Shared.Helpers;
+using IdiotProof.Core.Helpers;
 using IbContract = IBApi.Contract;
 
 namespace IdiotProof.Backend.Models

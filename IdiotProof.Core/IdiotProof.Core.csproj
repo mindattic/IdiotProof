@@ -44,8 +44,4 @@
     <PackageReference Include="Google.Protobuf" Version="3.30.0" />
   </ItemGroup>
 
-  <ItemGroup>
-    <ProjectReference Include="..\IdiotProof.Shared\IdiotProof.Shared.csproj" />
-  </ItemGroup>
-
 </Project>

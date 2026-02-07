@@ -7,7 +7,7 @@
 //
 // ============================================================================
 
-using IdiotProof.Shared.Settings;
+using IdiotProof.Core.Settings;
 
 namespace IdiotProof.Backend.Logging;
 

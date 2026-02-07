@@ -29,8 +29,8 @@
 //
 // ============================================================================
 
-using IdiotProof.Shared.Enums;
-using IdiotProof.Shared.Settings;
+using IdiotProof.Core.Enums;
+using IdiotProof.Core.Settings;
 using System;
 using System.Collections.Generic;
 using System.IO;

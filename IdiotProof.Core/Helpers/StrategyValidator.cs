@@ -16,7 +16,7 @@
 using IdiotProof.Backend.Enums;
 using IdiotProof.Backend.Logging;
 using IdiotProof.Backend.Strategy;
-using IdiotProof.Shared.Helpers;
+using IdiotProof.Core.Helpers;
 
 namespace IdiotProof.Backend.Models
 {

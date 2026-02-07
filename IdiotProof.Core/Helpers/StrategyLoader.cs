@@ -41,11 +41,11 @@ using IdiotProof.Backend.Enums;
 using IdiotProof.Backend.Logging;
 using IdiotProof.Backend.Models;
 using IdiotProof.Backend.Strategy;
-using IdiotProof.Shared.Constants;
-using IdiotProof.Shared.Helpers;
-using IdiotProof.Shared.Models;
-using IdiotProof.Shared.Scripting;
-using IdiotProof.Shared.Settings;
+using IdiotProof.Core.Constants;
+using IdiotProof.Core.Helpers;
+using IdiotProof.Core.Models;
+using IdiotProof.Core.Scripting;
+using IdiotProof.Core.Settings;
 using System.Text.Json;
 
 namespace IdiotProof.Backend.Models

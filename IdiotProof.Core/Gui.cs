@@ -1,6 +1,6 @@
 using IdiotProof.Backend.Models;
 using IdiotProof.Backend.Strategy;
-using IdiotProof.Shared.Settings;
+using IdiotProof.Core.Settings;
 using System;
 using System.Collections.Generic;
 

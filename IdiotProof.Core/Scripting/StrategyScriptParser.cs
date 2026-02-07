@@ -3,7 +3,7 @@
 // ============================================================================
 //
 // This is now a thin wrapper around the shared IdiotScriptParser.
-// The full parser implementation is in IdiotProof.Shared.Scripting.
+// The full parser implementation is in IdiotProof.Core.Scripting.
 //
 // IDIOTSCRIPT SYNTAX:
 // Commands use period (.) as the universal delimiter. Commands are case-insensitive.
@@ -51,8 +51,8 @@
 //
 // ============================================================================
 
-using IdiotProof.Shared.Models;
-using IdiotProof.Shared.Scripting;
+using IdiotProof.Core.Models;
+using IdiotProof.Core.Scripting;
 
 namespace IdiotProof.Core.Scripting;
 

@@ -21,8 +21,8 @@
 
 using IdiotProof.Backend.Enums;
 using IdiotProof.Backend.Models;
-using IdiotProof.Shared.Constants;
-using IdiotProof.Shared.Settings;
+using IdiotProof.Core.Constants;
+using IdiotProof.Core.Settings;
 using System;
 using System.Collections.Generic;
 using System.IO;

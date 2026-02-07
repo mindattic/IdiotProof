@@ -1,0 +1,154 @@
+{
+  "Symbol": "RIVN",
+  "CreatedAt": "2026-02-07T06:30:03.8029493Z",
+  "UpdatedAt": "2026-02-07T06:59:00.3151232Z",
+  "DaysAnalyzed": 1,
+  "BarsAnalyzed": 390,
+  "Beta": null,
+  "Atr14Day": null,
+  "AvgVolume": 15391699,
+  "FloatShares": null,
+  "ShortInterestPercent": null,
+  "DaysToCover": null,
+  "Sector": null,
+  "Industry": null,
+  "MarketCap": null,
+  "EarningsDate": null,
+  "ExDividendDate": null,
+  "High52Week": 16.32,
+  "Low52Week": 14.98,
+  "CorrelationSpy": null,
+  "SectorEtf": null,
+  "CorrelationSector": null,
+  "DailyExtremes": {
+    "AvgHodMinutesFromOpen": 361,
+    "AvgLodMinutesFromOpen": 45,
+    "HodInFirst30MinPercent": 0,
+    "LodInFirst30MinPercent": 0,
+    "HodInLast30MinPercent": 100,
+    "LodInLast30MinPercent": 0,
+    "AvgHodPercentFromOpen": 8.800000000000002,
+    "AvgLodPercentFromOpen": -0.1333333333333305,
+    "AvgDailyRangePercent": 8.933333333333332
+  },
+  "GapBehavior": {
+    "AvgGapUpPercent": 0,
+    "AvgGapDownPercent": 0,
+    "GapUpFillRate": 0,
+    "GapDownFillRate": 0,
+    "GapUpContinuationRate": 0,
+    "GapDownContinuationRate": 0,
+    "AvgGapFillTimeMinutes": 0
+  },
+  "VwapBehavior": {
+    "AvgPercentAboveVwap": 87.43589743589743,
+    "AvgVwapCrossesPerDay": 14,
+    "VwapRejectionContinuationRate": 0,
+    "VwapReclaimHoldRate": 0
+  },
+  "SupportLevels": [
+    {
+      "Price": 15.47,
+      "Touches": 2,
+      "Bounces": 16,
+      "Breaks": -14,
+      "IsSupport": true
+    },
+    {
+      "Price": 15.143333333333333,
+      "Touches": 3,
+      "Bounces": 20,
+      "Breaks": -17,
+      "IsSupport": true
+    },
+    {
+      "Price": 15.285,
+      "Touches": 2,
+      "Bounces": 9,
+      "Breaks": -7,
+      "IsSupport": true
+    },
+    {
+      "Price": 15.64,
+      "Touches": 3,
+      "Bounces": 9,
+      "Breaks": -6,
+      "IsSupport": true
+    },
+    {
+      "Price": 16.156250000000004,
+      "Touches": 8,
+      "Bounces": 21,
+      "Breaks": -13,
+      "IsSupport": true
+    },
+    {
+      "Price": 16.002142857142857,
+      "Touches": 14,
+      "Bounces": 34,
+      "Breaks": -20,
+      "IsSupport": true
+    },
+    {
+      "Price": 15.038999999999998,
+      "Touches": 10,
+      "Bounces": 20,
+      "Breaks": -10,
+      "IsSupport": true
+    }
+  ],
+  "ResistanceLevels": [
+    {
+      "Price": 15.735,
+      "Touches": 2,
+      "Bounces": 10,
+      "Breaks": -8,
+      "IsSupport": false
+    },
+    {
+      "Price": 15.14,
+      "Touches": 5,
+      "Bounces": 20,
+      "Breaks": -15,
+      "IsSupport": false
+    },
+    {
+      "Price": 16.118000000000002,
+      "Touches": 10,
+      "Bounces": 36,
+      "Breaks": -26,
+      "IsSupport": false
+    },
+    {
+      "Price": 15.26,
+      "Touches": 7,
+      "Bounces": 19,
+      "Breaks": -12,
+      "IsSupport": false
+    },
+    {
+      "Price": 15.606666666666667,
+      "Touches": 3,
+      "Bounces": 7,
+      "Breaks": -4,
+      "IsSupport": false
+    },
+    {
+      "Price": 16.259285714285713,
+      "Touches": 14,
+      "Bounces": 24,
+      "Breaks": -10,
+      "IsSupport": false
+    },
+    {
+      "Price": 15.465,
+      "Touches": 2,
+      "Bounces": 3,
+      "Breaks": -1,
+      "IsSupport": false
+    }
+  ],
+  "HourlyPerformance": [],
+  "AvoidHours": [],
+  "BestHours": []
+}

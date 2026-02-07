@@ -16,8 +16,8 @@ using IdiotProof.Backend.Enums;
 using IdiotProof.Backend.Helpers;
 using IdiotProof.Backend.Models;
 using IdiotProof.Backend.Strategy;
-using IdiotProof.Shared.Helpers;
-using IdiotProof.Shared.Models;
+using IdiotProof.Core.Helpers;
+using IdiotProof.Core.Models;
 
 namespace IdiotProof.Backend.Services;
 

@@ -21,7 +21,7 @@
 using IdiotProof.Backend.Enums;
 using IdiotProof.Backend.Models;
 using IdiotProof.BackTesting.Models;
-using IdiotProof.Shared.Models;
+using IdiotProof.Core.Models;
 using System.Text;
 
 // Use the AutonomousMode from BackTesting.Services

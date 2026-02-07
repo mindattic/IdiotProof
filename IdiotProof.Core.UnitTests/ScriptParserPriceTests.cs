@@ -3,7 +3,7 @@
 // ============================================================================
 
 using IdiotProof.Core.Scripting;
-using IdiotProof.Shared.Models;
+using IdiotProof.Core.Models;
 
 namespace IdiotProof.Console.UnitTests;
 

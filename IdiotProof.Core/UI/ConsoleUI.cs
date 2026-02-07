@@ -2,8 +2,8 @@
 // ConsoleUI - Console display helpers for the Strategy Builder
 // ============================================================================
 
-using IdiotProof.Shared.Models;
-using IdiotProof.Shared.Settings;
+using IdiotProof.Core.Models;
+using IdiotProof.Core.Settings;
 
 namespace IdiotProof.Core.UI;
 
@@ -357,13 +357,6 @@ public static class ConsoleUI
                     }
 
                     System.Console.WriteLine();
-                }
-
-                // Display IdiotScript (original content including comments) if enabled
-                if (Settings.ShowIdiotScriptInConsole)
-                {
-                    System.Console.ForegroundColor = ConsoleColor.DarkGray;
-                    System.Console.WriteLine(strategy.ToIdiotScript());
                 }
 
                 System.Console.WriteLine();

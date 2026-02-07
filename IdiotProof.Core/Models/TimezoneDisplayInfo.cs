@@ -11,7 +11,7 @@
 // ============================================================================
 
 using System;
-using MarketTimeZone = IdiotProof.Shared.Enums.MarketTimeZone;
+using MarketTimeZone = IdiotProof.Core.Enums.MarketTimeZone;
 
 namespace IdiotProof.Backend.Models
 {
