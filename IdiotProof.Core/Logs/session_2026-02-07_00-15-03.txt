@@ -1,0 +1,13 @@
+═══════════════════════════════════════════════════════════════════
+                    IDIOTPROOF SESSION LOG
+═══════════════════════════════════════════════════════════════════
+Session End: 2026-02-07 12:15:03 AM
+Exit Reason: Console Close (X button)
+
+═══════════════════════════════════════════════════════════════════
+                         CONSOLE OUTPUT
+═══════════════════════════════════════════════════════════════════
+[01:15:01 AM] IdiotProof Core starting...
+[01:15:01 AM] Mode: LIVE | Port: 4001
+[01:15:01 AM] Trade tracking service initialized
+[01:15:01 AM] Connecting to IBKR at 127.0.0.1:4001...
