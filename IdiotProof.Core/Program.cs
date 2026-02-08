@@ -244,14 +244,44 @@ namespace IdiotProof.Backend
                 return;
             }
 
-            var enabledStrategies = _strategies.FindAll(s => s.Enabled);
-            if (enabledStrategies.Count == 0)
+            // Load tickers from watchlist
+            var tickers = LoadTickers();
+            if (tickers.Count == 0)
             {
-                Log("No enabled strategies to run.");
+                Log("No tickers to trade. Press 1 to add tickers first.");
                 return;
             }
+            
+            // Check which tickers have learned profiles
+            var profileFolder = SettingsManager.GetHistoryFolder();
+            var tickersWithProfiles = tickers
+                .Where(t => File.Exists(Path.Combine(profileFolder, $"{t}.profile.json")))
+                .ToList();
+            
+            if (tickersWithProfiles.Count == 0)
+            {
+                Log("No learned profiles found. Press 2 to learn tickers first.");
+                return;
+            }
+            
+            Log($"Starting trading with {tickersWithProfiles.Count} ticker(s)...");
+            
+            // Create autonomous strategies for each ticker with a profile
+            _strategies.Clear();
+            foreach (var symbol in tickersWithProfiles)
+            {
+                var strategy = IdiotProof.Backend.Strategy.Stock.Ticker(symbol)
+                    .TimeFrame(IdiotProof.Backend.Enums.TradingSession.Extended)
+                    .Long()  // Opens position, transitions to StrategyBuilder
+                    .Quantity(100)
+                    .AutonomousTrading()
+                    .Build();
+                
+                _strategies.Add(strategy);
+                Log($"  [{symbol}] Loaded with learned profile");
+            }
 
-            Log($"Activating trading with {enabledStrategies.Count} strategies...");
+            var enabledStrategies = _strategies.FindAll(s => s.Enabled);
 
             // Fetch historical data for indicator warm-up (200 bars)
             // The HistoricalDataStore avoids duplicate fetches by storing per-symbol
@@ -509,7 +539,7 @@ namespace IdiotProof.Backend
         {
             Log("");
             Log("========================================");
-            Log("  IdiotProof Core - Interactive Mode");
+            Log("  IdiotProof - Make Money Trading");
             Log("========================================");
 
             while (!_shutdownCts.IsCancellationRequested)
@@ -529,10 +559,14 @@ namespace IdiotProof.Backend
                     switch (input)
                     {
                         case "1":
-                            PrintStatus();
+                            RunTickersMenu();
                             break;
 
                         case "2":
+                            RunLearnAll();
+                            break;
+
+                        case "3":
                             if (!_isActive)
                             {
                                 ActivateTrading();
@@ -545,31 +579,8 @@ namespace IdiotProof.Backend
                             }
                             else
                             {
-                                Log("Trading already active.");
+                                Log("Trading already active. Press [S] to stop first.");
                             }
-                            break;
-
-                        case "3":
-                            if (_isActive)
-                            {
-                                DeactivateTrading();
-                            }
-                            else
-                            {
-                                Log("Trading not active.");
-                            }
-                            break;
-
-                        case "4":
-                            RunLearnPrompt();
-                            break;
-
-                        case "5":
-                            PrintProfiles();
-                            break;
-
-                        case "6":
-                            PrintSettings();
                             break;
 
                         case "0":
@@ -591,19 +602,233 @@ namespace IdiotProof.Backend
 
         private static void PrintMenu()
         {
+            var tickers = LoadTickers();
+            var tickerCount = tickers.Count;
+            var profileCount = CountProfiles(tickers);
+            
             Log("");
-            Log("----------------------------------------");
-            Log($"  Status: {(_isConnected ? "Connected" : "Disconnected")} | Trading: {(_isActive ? "ACTIVE" : "Paused")}");
-            Log("----------------------------------------");
-            Log("  1. Status          - Show connection info");
-            Log("  2. Start Trading   - Activate live trading");
-            Log("  3. Stop Trading    - Pause trading");
-            Log("  4. Learn           - Fetch data + learn ticker");
-            Log("  5. Profiles        - View learned ticker profiles");
-            Log("  6. Settings        - Show current settings");
-            Log("  0. Exit            - Shutdown and exit");
-            Log("----------------------------------------");
+            Log("========================================");
+            Log($"  Tickers: {tickerCount} | Profiles: {profileCount} | {(_isActive ? "TRADING" : "Idle")}");
+            Log("========================================");
+            Log("  1. Tickers   - Manage ticker watchlist");
+            Log("  2. Learn     - Backtest all tickers (30 days x 10 iter)");
+            Log("  3. Live      - Start live trading");
+            Log("  0. Exit");
+            Log("========================================");
+        }
+
+        // ====================================================================
+        // TICKERS MANAGEMENT
+        // ====================================================================
+        
+        private static string GetTickersPath() => 
+            Path.Combine(SettingsManager.GetHistoryFolder(), "tickers.json");
+        
+        private static List<string> LoadTickers()
+        {
+            var path = GetTickersPath();
+            if (!File.Exists(path))
+                return new List<string>();
+            
+            try
+            {
+                var json = File.ReadAllText(path);
+                return System.Text.Json.JsonSerializer.Deserialize<List<string>>(json) ?? new List<string>();
+            }
+            catch
+            {
+                return new List<string>();
+            }
+        }
+        
+        private static void SaveTickers(List<string> tickers)
+        {
+            var path = GetTickersPath();
+            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+            var json = System.Text.Json.JsonSerializer.Serialize(tickers, new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
+            File.WriteAllText(path, json);
+        }
+        
+        private static int CountProfiles(List<string> tickers)
+        {
+            var profileFolder = SettingsManager.GetHistoryFolder();
+            return tickers.Count(t => File.Exists(Path.Combine(profileFolder, $"{t}.profile.json")));
+        }
+        
+        private static void RunTickersMenu()
+        {
             Log("");
+            Log("=== Ticker Watchlist ===");
+            Log("Commands: [A]dd, [D]elete, [C]lear, [ESC] return to menu");
+            Log("");
+            
+            while (true)
+            {
+                var tickers = LoadTickers();
+                
+                if (tickers.Count == 0)
+                {
+                    Log("  (no tickers - press A to add)");
+                }
+                else
+                {
+                    var profileFolder = SettingsManager.GetHistoryFolder();
+                    for (int i = 0; i < tickers.Count; i++)
+                    {
+                        var t = tickers[i];
+                        var hasProfile = File.Exists(Path.Combine(profileFolder, $"{t}.profile.json"));
+                        Log($"  {i + 1}. {t,-8} {(hasProfile ? "[LEARNED]" : "[--]")}");
+                    }
+                }
+                Log("");
+                
+                Console.Write("Command (A/D/C/ESC): ");
+                var key = Console.ReadKey(intercept: true);
+                Console.WriteLine();
+                
+                if (key.Key == ConsoleKey.Escape)
+                {
+                    Log("Returning to menu...");
+                    break;
+                }
+                
+                switch (char.ToUpper(key.KeyChar))
+                {
+                    case 'A':
+                        Console.Write("  Add ticker(s) (e.g., NVDA or NVDA,AAPL,TSLA): ");
+                        var addInput = Console.ReadLine()?.Trim().ToUpperInvariant();
+                        if (!string.IsNullOrEmpty(addInput))
+                        {
+                            var newTickers = addInput
+                                .Split(new[] { ',', ';', ' ', '\t' }, StringSplitOptions.RemoveEmptyEntries)
+                                .Select(s => s.Trim().ToUpperInvariant())
+                                .Where(s => !string.IsNullOrWhiteSpace(s) && !tickers.Contains(s))
+                                .ToList();
+                            
+                            if (newTickers.Count > 0)
+                            {
+                                tickers.AddRange(newTickers);
+                                SaveTickers(tickers);
+                                Log($"  Added: {string.Join(", ", newTickers)}");
+                            }
+                        }
+                        break;
+                        
+                    case 'D':
+                        Console.Write("  Delete ticker (number or symbol): ");
+                        var delInput = Console.ReadLine()?.Trim().ToUpperInvariant();
+                        if (!string.IsNullOrEmpty(delInput))
+                        {
+                            string? toRemove = null;
+                            if (int.TryParse(delInput, out var idx) && idx >= 1 && idx <= tickers.Count)
+                            {
+                                toRemove = tickers[idx - 1];
+                            }
+                            else if (tickers.Contains(delInput))
+                            {
+                                toRemove = delInput;
+                            }
+                            
+                            if (toRemove != null)
+                            {
+                                tickers.Remove(toRemove);
+                                SaveTickers(tickers);
+                                Log($"  Removed: {toRemove}");
+                            }
+                            else
+                            {
+                                Log($"  Not found: {delInput}");
+                            }
+                        }
+                        break;
+                        
+                    case 'C':
+                        Console.Write("  Clear all tickers? (Y/N): ");
+                        var confirm = Console.ReadKey(intercept: true);
+                        Console.WriteLine();
+                        if (char.ToUpper(confirm.KeyChar) == 'Y')
+                        {
+                            tickers.Clear();
+                            SaveTickers(tickers);
+                            Log("  All tickers cleared.");
+                        }
+                        break;
+                        
+                    default:
+                        Log("  Unknown command. Use A/D/C or ESC.");
+                        break;
+                }
+                
+                Log("");
+            }
+        }
+        
+        // ====================================================================
+        // LEARN ALL TICKERS
+        // ====================================================================
+        
+        private static void RunLearnAll()
+        {
+            if (!_isConnected || _historicalDataService == null)
+            {
+                Log("ERROR: Not connected to IBKR. Learning requires connection to fetch data.");
+                return;
+            }
+            
+            var tickers = LoadTickers();
+            if (tickers.Count == 0)
+            {
+                Log("No tickers to learn. Press 1 to add tickers first.");
+                return;
+            }
+            
+            Log("");
+            Log("========================================");
+            Log($"  LEARNING {tickers.Count} TICKER(S)");
+            Log("  30 days of data, 10 iterations each");
+            Log("========================================");
+            Log("");
+            
+            int completed = 0;
+            int failed = 0;
+            
+            foreach (var symbol in tickers)
+            {
+                Log($"[{completed + failed + 1}/{tickers.Count}] Learning {symbol}...");
+                
+                try
+                {
+                    var learner = new IdiotProof.Core.Learning.LearningBacktester(_historicalDataService);
+                    var progress = new Progress<string>(msg => Log($"  {msg}"));
+                    
+                    var result = learner.LearnAsync(
+                        symbol,
+                        iterations: 10,
+                        daysPerIteration: 30,
+                        progress,
+                        _shutdownCts.Token).GetAwaiter().GetResult();
+                    
+                    Log($"  [OK] {symbol}: Win Rate {result.FinalWinRate:F1}%, Fitness {result.BacktestData?.BestFitnessScore:F2}");
+                    completed++;
+                }
+                catch (OperationCanceledException)
+                {
+                    Log($"  [--] Cancelled.");
+                    break;
+                }
+                catch (Exception ex)
+                {
+                    Log($"  [ERR] {symbol}: {ex.Message}");
+                    failed++;
+                }
+                
+                Log("");
+            }
+            
+            Log("========================================");
+            Log($"  LEARNING COMPLETE: {completed} OK, {failed} failed");
+            Log($"  Profiles saved to: {SettingsManager.GetHistoryFolder()}");
+            Log("========================================");
         }
 
         private static void PrintStatus()

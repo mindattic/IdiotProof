@@ -329,6 +329,7 @@ namespace IdiotProof.Backend.Services
 
         /// <summary>
         /// Calculates the duration string needed to fetch the desired number of bars.
+        /// For 1-minute bars: ~960 bars per day (16 hours extended trading * 60 minutes)
         /// </summary>
         private static string CalculateDuration(int barCount, BarSize barSize)
         {
@@ -338,13 +339,32 @@ namespace IdiotProof.Backend.Services
             return barSize switch
             {
                 BarSize.Seconds1 => $"{Math.Min(bufferedCount, 1800)} S",
-                BarSize.Minutes1 => bufferedCount <= 390 ? "1 D" : bufferedCount <= 780 ? "2 D" : "5 D",
+                BarSize.Minutes1 => CalculateMinutesDuration(bufferedCount),
                 BarSize.Minutes5 => bufferedCount <= 78 ? "1 D" : "1 W",
                 BarSize.Minutes15 => bufferedCount <= 26 ? "1 D" : "2 W",
                 BarSize.Hours1 => bufferedCount <= 6 ? "1 D" : "1 M",
                 BarSize.Days1 => bufferedCount <= 365 ? "1 Y" : "1 Y",
                 _ => "5 D"
             };
+        }
+
+        /// <summary>
+        /// Calculates duration string for 1-minute bars.
+        /// ~960 bars per extended trading day (16 hours * 60 minutes)
+        /// </summary>
+        private static string CalculateMinutesDuration(int bufferedBarCount)
+        {
+            // Estimate days needed (960 bars per trading day for extended hours)
+            int estimatedDays = (int)Math.Ceiling(bufferedBarCount / 960.0);
+            
+            if (estimatedDays <= 1) return "1 D";
+            if (estimatedDays <= 2) return "2 D";
+            if (estimatedDays <= 5) return "5 D";
+            if (estimatedDays <= 10) return "10 D";
+            if (estimatedDays <= 20) return "20 D";
+            if (estimatedDays <= 30) return "1 M";  // ~30 days
+            if (estimatedDays <= 60) return "2 M";
+            return "3 M";  // Max reasonable for 1-min bars
         }
 
         private int GetNextRequestId()
