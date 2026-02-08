@@ -375,6 +375,7 @@ public class AutonomousBacktestTests
             StartingCapital = 1000.00m,
             Mode = AutonomousMode.Aggressive,
             UseFullCapital = false,
+            FixedShareQuantity = 0, // Use capital-based sizing for this test
             MaxCapitalPerTradePercent = 0.25m // Only 25% per trade
         };
 

@@ -604,7 +604,8 @@ public sealed class LearningBacktester
     {
         return new AutonomousBacktestConfig
         {
-            StartingCapital = 1000m,
+            StartingCapital = 10000m, // Not used when FixedShareQuantity is set
+            FixedShareQuantity = 100, // Always use 100 shares per trade
             Mode = AutonomousMode.Optimized,
             EnableSelfCalibration = true,
             InitialLongThreshold = (int)p.LongEntryThreshold,

@@ -1,12 +1,12 @@
 {
   "Symbol": "SMALL",
   "CreatedAt": "2026-02-07T06:30:03.8081053Z",
-  "UpdatedAt": "2026-02-07T06:59:00.3203959Z",
+  "UpdatedAt": "2026-02-08T05:18:14.5147319Z",
   "DaysAnalyzed": 1,
   "BarsAnalyzed": 30,
   "Beta": null,
   "Atr14Day": null,
-  "AvgVolume": 1071320,
+  "AvgVolume": 1053214,
   "FloatShares": null,
   "ShortInterestPercent": null,
   "DaysToCover": null,
@@ -15,21 +15,21 @@
   "MarketCap": null,
   "EarningsDate": null,
   "ExDividendDate": null,
-  "High52Week": 100.15,
-  "Low52Week": 99.68,
+  "High52Week": 100.38,
+  "Low52Week": 100,
   "CorrelationSpy": null,
   "SectorEtf": null,
   "CorrelationSector": null,
   "DailyExtremes": {
-    "AvgHodMinutesFromOpen": 3,
-    "AvgLodMinutesFromOpen": 28,
+    "AvgHodMinutesFromOpen": 8,
+    "AvgLodMinutesFromOpen": 0,
     "HodInFirst30MinPercent": 100,
     "LodInFirst30MinPercent": 100,
     "HodInLast30MinPercent": 0,
     "LodInLast30MinPercent": 0,
-    "AvgHodPercentFromOpen": 0.15000000000000568,
-    "AvgLodPercentFromOpen": -0.3199999999999932,
-    "AvgDailyRangePercent": 0.46999999999999886
+    "AvgHodPercentFromOpen": 0.37999999999999545,
+    "AvgLodPercentFromOpen": 0,
+    "AvgDailyRangePercent": 0.37999999999999545
   },
   "GapBehavior": {
     "AvgGapUpPercent": 0,
@@ -41,25 +41,25 @@
     "AvgGapFillTimeMinutes": 0
   },
   "VwapBehavior": {
-    "AvgPercentAboveVwap": 23.333333333333332,
-    "AvgVwapCrossesPerDay": 7,
+    "AvgPercentAboveVwap": 80,
+    "AvgVwapCrossesPerDay": 6,
     "VwapRejectionContinuationRate": 0,
     "VwapReclaimHoldRate": 0
   },
   "SupportLevels": [
     {
-      "Price": 99.76333333333332,
-      "Touches": 3,
-      "Bounces": 13,
-      "Breaks": -10,
+      "Price": 100.11250000000001,
+      "Touches": 4,
+      "Bounces": 15,
+      "Breaks": -11,
       "IsSupport": true
     }
   ],
   "ResistanceLevels": [
     {
-      "Price": 100.055,
-      "Touches": 4,
-      "Bounces": 15,
+      "Price": 100.345,
+      "Touches": 2,
+      "Bounces": 13,
       "Breaks": -11,
       "IsSupport": false
     }

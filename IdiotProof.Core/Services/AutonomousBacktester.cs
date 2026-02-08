@@ -499,6 +499,9 @@ public sealed record AutonomousBacktestConfig
     /// <summary>Slippage as percentage of price (0.001 = 0.1%).</summary>
     public decimal SlippagePercent { get; init; } = 0.0m;
 
+    /// <summary>Fixed number of shares per trade. If > 0, ignores capital-based sizing.</summary>
+    public int FixedShareQuantity { get; init; } = 100;
+
     /// <summary>Use 100% of capital per trade (true) or calculate position size.</summary>
     public bool UseFullCapital { get; init; } = true;
 
@@ -1635,7 +1638,9 @@ public sealed class AutonomousBacktester
                     if (effectiveScore >= longThreshold && longConfirmed && longTrendOk)
                     {
                         double priceWithSlippage = candle.Close * (1 + (double)config.SlippagePercent);
-                        shares = (int)(capitalToUse / (decimal)priceWithSlippage);
+                        shares = config.FixedShareQuantity > 0 
+                            ? config.FixedShareQuantity 
+                            : (int)(capitalToUse / (decimal)priceWithSlippage);
 
                         if (shares > 0)
                         {
@@ -1673,7 +1678,9 @@ public sealed class AutonomousBacktester
                     else if (config.AllowShort && effectiveScore <= shortThreshold && shortConfirmed && shortTrendOk)
                     {
                         double priceWithSlippage = candle.Close * (1 - (double)config.SlippagePercent);
-                        shares = (int)(capitalToUse / (decimal)priceWithSlippage);
+                        shares = config.FixedShareQuantity > 0 
+                            ? config.FixedShareQuantity 
+                            : (int)(capitalToUse / (decimal)priceWithSlippage);
 
                         if (shares > 0)
                         {
@@ -1749,7 +1756,9 @@ public sealed class AutonomousBacktester
                 calibrator.EvaluateMissedOpportunities(candles, i);
                 calibrator.CalibrateMissedOpportunities();
             }
-            else
+            
+            // Only process exit logic when we're actually in a position
+            if (inPosition)
             {
                 // Track high/low since entry for trailing
                 if (candle.High > highestSinceEntry) highestSinceEntry = candle.High;
@@ -1899,7 +1908,9 @@ public sealed class AutonomousBacktester
                         if (isLong && score <= GetShortThreshold() && config.AllowShort)
                         {
                             double flipPrice = candle.Close * (1 - (double)config.SlippagePercent);
-                            shares = (int)(capitalToUse / (decimal)flipPrice);
+                            shares = config.FixedShareQuantity > 0 
+                                ? config.FixedShareQuantity 
+                                : (int)(capitalToUse / (decimal)flipPrice);
 
                             if (shares > 0)
                             {
@@ -1919,7 +1930,9 @@ public sealed class AutonomousBacktester
                         else if (!isLong && score >= GetLongThreshold())
                         {
                             double flipPrice = candle.Close * (1 + (double)config.SlippagePercent);
-                            shares = (int)(capitalToUse / (decimal)flipPrice);
+                            shares = config.FixedShareQuantity > 0 
+                                ? config.FixedShareQuantity 
+                                : (int)(capitalToUse / (decimal)flipPrice);
 
                             if (shares > 0)
                             {
