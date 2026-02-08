@@ -176,6 +176,9 @@ namespace IdiotProof.Backend.Models
         private TradeRecord? _pendingTradeRecord;
         private MarketScore? _entryScore;
 
+        // AI-learned weights for market score calculation (if available)
+        private IdiotProof.Core.Learning.LearnedWeights? _learnedWeights;
+
         // Historical metadata - provides insights about stock behavior
         private IdiotProof.Core.Models.TickerMetadata? _tickerMetadata;
 
@@ -288,6 +291,13 @@ namespace IdiotProof.Backend.Models
 
             // Initialize EMA and ADX calculators for any indicator conditions in the strategy
             InitializeIndicatorCalculators();
+
+            // Load AI-learned weights if available for this ticker
+            _learnedWeights = IdiotProof.Core.Learning.LearnedWeights.Load(contract.Symbol);
+            if (_learnedWeights != null)
+            {
+                Log($"[AI] Loaded learned weights for {contract.Symbol} (gen {_learnedWeights.Generation})", ConsoleColor.Magenta);
+            }
 
             // Subscribe to fill events
             _wrapper.OnOrderFill += OnOrderFill;
@@ -1383,7 +1393,7 @@ namespace IdiotProof.Backend.Models
 
         /// <summary>
         /// Calculates market score for autonomous trading decision making.
-        /// Uses the SHARED MarketScoreCalculator for consistency with backtesting.
+        /// Uses learned weights if available, otherwise falls back to SHARED MarketScoreCalculator.
         /// </summary>
         /// <param name="price">Current price.</param>
         /// <param name="vwap">Current VWAP.</param>
@@ -1394,23 +1404,53 @@ namespace IdiotProof.Backend.Models
             // Build indicator snapshot from live calculator values
             var snapshot = BuildIndicatorSnapshot(price, vwap);
             
-            // Use the SHARED calculator - same code as backtesting
-            var result = MarketScoreCalculator.Calculate(snapshot);
-            
-            // Apply time-of-day weight (live trading only - not in backtest)
             double timeWeight = GetTimeOfDayWeight();
-            int adjustedScore = (int)Math.Clamp(result.TotalScore * timeWeight, -100, 100);
+            int adjustedScore;
+            int vwapScore, emaScore, rsiScore, macdScore, adxScore, volumeScore, bollingerScore;
+            
+            // If we have AI-learned weights, use the weighted calculator
+            if (_learnedWeights != null)
+            {
+                var extSnap = IdiotProof.Core.Learning.ExtendedSnapshot.FromBasic(snapshot, TimeOnly.FromDateTime(DateTime.Now));
+                var (rawScore, shouldLong, shouldShort, shouldExit) = IdiotProof.Core.Learning.WeightedScoreCalculator.Calculate(extSnap, _learnedWeights);
+                
+                // Convert weighted score to integer, apply time weight
+                adjustedScore = (int)Math.Clamp(rawScore * timeWeight, -100, 100);
+                
+                // Individual component scores (estimated from weighted result)
+                vwapScore = snapshot.Price > snapshot.Vwap ? 15 : -15;
+                emaScore = snapshot.Price > snapshot.Ema9 ? 10 : -10;
+                rsiScore = snapshot.Rsi < 30 ? 10 : (snapshot.Rsi > 70 ? -10 : 0);
+                macdScore = snapshot.Macd > snapshot.MacdSignal ? 10 : -10;
+                adxScore = snapshot.Adx > 25 ? (snapshot.PlusDi > snapshot.MinusDi ? 10 : -10) : 0;
+                volumeScore = snapshot.VolumeRatio > 1.5 ? 5 : 0;
+                bollingerScore = 0;
+            }
+            else
+            {
+                // Use the SHARED calculator - same code as backtesting
+                var result = MarketScoreCalculator.Calculate(snapshot);
+                adjustedScore = (int)Math.Clamp(result.TotalScore * timeWeight, -100, 100);
+                
+                vwapScore = result.VwapScore;
+                emaScore = result.EmaScore;
+                rsiScore = result.RsiScore;
+                macdScore = result.MacdScore;
+                adxScore = result.AdxScore;
+                volumeScore = result.VolumeScore;
+                bollingerScore = result.BollingerScore;
+            }
 
             return new MarketScore
             {
                 TotalScore = adjustedScore,
-                VwapScore = result.VwapScore,
-                EmaScore = result.EmaScore,
-                RsiScore = result.RsiScore,
-                MacdScore = result.MacdScore,
-                AdxScore = result.AdxScore,
-                VolumeScore = result.VolumeScore,
-                BollingerScore = result.BollingerScore,
+                VwapScore = vwapScore,
+                EmaScore = emaScore,
+                RsiScore = rsiScore,
+                MacdScore = macdScore,
+                AdxScore = adxScore,
+                VolumeScore = volumeScore,
+                BollingerScore = bollingerScore,
                 TimeWeight = timeWeight,
                 TakeProfitMultiplier = 1.0,
                 StopLossMultiplier = 1.0,

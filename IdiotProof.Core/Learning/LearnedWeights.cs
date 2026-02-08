@@ -179,6 +179,28 @@ public sealed class LearnedWeights
     }
     
     /// <summary>
+    /// Loads learned weights from file. Returns null if file doesn't exist.
+    /// </summary>
+    public static LearnedWeights? Load(string symbol)
+    {
+        var folder = IdiotProof.Core.Settings.SettingsManager.GetDataFolder();
+        var path = Path.Combine(folder, $"{symbol}.weights.json");
+        
+        if (!File.Exists(path))
+            return null;
+            
+        try
+        {
+            var json = File.ReadAllText(path);
+            return System.Text.Json.JsonSerializer.Deserialize<LearnedWeights>(json);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+    
+    /// <summary>
     /// Creates a mutated copy of this weight vector.
     /// </summary>
     public LearnedWeights Mutate(Random rng, double mutationRate = 0.1, double mutationStrength = 0.1)
