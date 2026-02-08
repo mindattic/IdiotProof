@@ -701,10 +701,32 @@ public sealed class MultiMethodLearner
         // Calculate RSI
         double rsi = CalculateRsi(candles, index, 14);
         
-        // Calculate ADX (simplified)
-        double adx = 25; // Placeholder
-        double plusDi = 25;
-        double minusDi = 20;
+        // Calculate MACD (12, 26, 9)
+        var (macd, signal, histogram) = CalculateMacd(candles, index);
+        
+        // Calculate ADX (14 period)
+        var (adx, plusDi, minusDi) = CalculateAdx(candles, index, 14);
+        
+        // Calculate Volume Ratio (current vs 20-bar average)
+        double volumeRatio = CalculateVolumeRatio(candles, index, 20);
+        
+        // Calculate ATR
+        double atr = CalculateAtr(candles, index, 14);
+        
+        // Calculate Bollinger Bands (20, 2)
+        var (bbMiddle, bbUpper, bbLower) = CalculateBollingerBands(candles, index, 20, 2.0);
+        
+        // Calculate Momentum and ROC
+        double momentum = CalculateMomentum(candles, index, 10);
+        double roc = CalculateRoc(candles, index, 10);
+        
+        // Pattern detection
+        bool isHigherLow = DetectHigherLow(candles, index);
+        bool isLowerHigh = DetectLowerHigh(candles, index);
+        bool isNearLod = c.Close <= c.Low * 1.005;
+        bool isNearHod = c.Close >= c.High * 0.995;
+        bool isVwapReclaim = index > 0 && candles[index - 1].Close < c.Vwap && c.Close > c.Vwap;
+        bool isVwapRejection = c.High > c.Vwap && c.Close < c.Vwap;
         
         return new ExtendedSnapshot
         {
@@ -714,18 +736,26 @@ public sealed class MultiMethodLearner
             Ema21 = ema21,
             Ema50 = ema50,
             Rsi = rsi,
-            Macd = 0,
-            MacdSignal = 0,
-            MacdHistogram = 0,
+            Macd = macd,
+            MacdSignal = signal,
+            MacdHistogram = histogram,
             Adx = adx,
             PlusDi = plusDi,
             MinusDi = minusDi,
-            VolumeRatio = 1.0,
-            BollingerUpper = c.Close * 1.02,
-            BollingerLower = c.Close * 0.98,
-            BollingerMiddle = c.Close,
-            Atr = c.High - c.Low,
-            TimeOfDay = TimeOnly.FromDateTime(c.Timestamp)
+            VolumeRatio = volumeRatio,
+            BollingerUpper = bbUpper,
+            BollingerLower = bbLower,
+            BollingerMiddle = bbMiddle,
+            Atr = atr,
+            Momentum = momentum,
+            Roc = roc,
+            TimeOfDay = TimeOnly.FromDateTime(c.Timestamp),
+            IsHigherLow = isHigherLow,
+            IsLowerHigh = isLowerHigh,
+            IsNearLod = isNearLod,
+            IsNearHod = isNearHod,
+            IsVwapReclaim = isVwapReclaim,
+            IsVwapRejection = isVwapRejection
         };
     }
     
@@ -759,6 +789,132 @@ public sealed class MultiMethodLearner
         if (losses == 0) return 100;
         double rs = gains / losses;
         return 100 - (100 / (1 + rs));
+    }
+    
+    private (double macd, double signal, double histogram) CalculateMacd(List<BackTestCandle> candles, int endIndex)
+    {
+        if (endIndex < 26) return (0, 0, 0);
+        
+        double ema12 = CalculateEma(candles, endIndex, 12);
+        double ema26 = CalculateEma(candles, endIndex, 26);
+        double macd = ema12 - ema26;
+        
+        // Signal line is 9-period EMA of MACD
+        // Simplified: use a rough approximation
+        double signal = macd * 0.2 + (endIndex >= 35 ? CalculateEma(candles, endIndex - 9, 12) - CalculateEma(candles, endIndex - 9, 26) : 0) * 0.8;
+        double histogram = macd - signal;
+        
+        return (macd, signal, histogram);
+    }
+    
+    private (double adx, double plusDi, double minusDi) CalculateAdx(List<BackTestCandle> candles, int endIndex, int period)
+    {
+        if (endIndex < period * 2) return (25, 25, 20);
+        
+        double sumPlusDm = 0, sumMinusDm = 0, sumTr = 0;
+        
+        for (int i = endIndex - period + 1; i <= endIndex; i++)
+        {
+            double high = candles[i].High;
+            double low = candles[i].Low;
+            double prevHigh = candles[i - 1].High;
+            double prevLow = candles[i - 1].Low;
+            double prevClose = candles[i - 1].Close;
+            
+            double tr = Math.Max(high - low, Math.Max(Math.Abs(high - prevClose), Math.Abs(low - prevClose)));
+            double plusDm = high - prevHigh > prevLow - low && high - prevHigh > 0 ? high - prevHigh : 0;
+            double minusDm = prevLow - low > high - prevHigh && prevLow - low > 0 ? prevLow - low : 0;
+            
+            sumTr += tr;
+            sumPlusDm += plusDm;
+            sumMinusDm += minusDm;
+        }
+        
+        if (sumTr == 0) return (25, 25, 20);
+        
+        double plusDi = 100 * sumPlusDm / sumTr;
+        double minusDi = 100 * sumMinusDm / sumTr;
+        double dx = Math.Abs(plusDi - minusDi) / (plusDi + minusDi + 0.0001) * 100;
+        double adx = dx; // Simplified - should be smoothed average of DX
+        
+        return (adx, plusDi, minusDi);
+    }
+    
+    private double CalculateVolumeRatio(List<BackTestCandle> candles, int endIndex, int period)
+    {
+        if (endIndex < period) return 1.0;
+        
+        double avgVolume = 0;
+        for (int i = endIndex - period; i < endIndex; i++)
+        {
+            avgVolume += candles[i].Volume;
+        }
+        avgVolume /= period;
+        
+        if (avgVolume == 0) return 1.0;
+        return candles[endIndex].Volume / avgVolume;
+    }
+    
+    private double CalculateAtr(List<BackTestCandle> candles, int endIndex, int period)
+    {
+        if (endIndex < period) return candles[endIndex].High - candles[endIndex].Low;
+        
+        double atr = 0;
+        for (int i = endIndex - period + 1; i <= endIndex; i++)
+        {
+            double high = candles[i].High;
+            double low = candles[i].Low;
+            double prevClose = candles[i - 1].Close;
+            double tr = Math.Max(high - low, Math.Max(Math.Abs(high - prevClose), Math.Abs(low - prevClose)));
+            atr += tr;
+        }
+        
+        return atr / period;
+    }
+    
+    private (double middle, double upper, double lower) CalculateBollingerBands(List<BackTestCandle> candles, int endIndex, int period, double stdDevMultiplier)
+    {
+        if (endIndex < period) return (candles[endIndex].Close, candles[endIndex].Close * 1.02, candles[endIndex].Close * 0.98);
+        
+        double sum = 0;
+        for (int i = endIndex - period + 1; i <= endIndex; i++)
+        {
+            sum += candles[i].Close;
+        }
+        double middle = sum / period;
+        
+        double sumSq = 0;
+        for (int i = endIndex - period + 1; i <= endIndex; i++)
+        {
+            sumSq += Math.Pow(candles[i].Close - middle, 2);
+        }
+        double stdDev = Math.Sqrt(sumSq / period);
+        
+        return (middle, middle + stdDev * stdDevMultiplier, middle - stdDev * stdDevMultiplier);
+    }
+    
+    private double CalculateMomentum(List<BackTestCandle> candles, int endIndex, int period)
+    {
+        if (endIndex < period) return 0;
+        return candles[endIndex].Close - candles[endIndex - period].Close;
+    }
+    
+    private double CalculateRoc(List<BackTestCandle> candles, int endIndex, int period)
+    {
+        if (endIndex < period || candles[endIndex - period].Close == 0) return 0;
+        return (candles[endIndex].Close - candles[endIndex - period].Close) / candles[endIndex - period].Close * 100;
+    }
+    
+    private bool DetectHigherLow(List<BackTestCandle> candles, int endIndex)
+    {
+        if (endIndex < 3) return false;
+        return candles[endIndex].Low > candles[endIndex - 2].Low && candles[endIndex - 1].Low > candles[endIndex - 3].Low;
+    }
+    
+    private bool DetectLowerHigh(List<BackTestCandle> candles, int endIndex)
+    {
+        if (endIndex < 3) return false;
+        return candles[endIndex].High < candles[endIndex - 2].High && candles[endIndex - 1].High < candles[endIndex - 3].High;
     }
     
     private double CalculateMaxDrawdown(List<double> returns)

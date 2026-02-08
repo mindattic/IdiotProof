@@ -297,6 +297,10 @@ namespace IdiotProof.Backend.Models
             if (_learnedWeights != null)
             {
                 Log($"[AI] Loaded learned weights for {contract.Symbol} (gen {_learnedWeights.Generation})", ConsoleColor.Magenta);
+                
+                // Initialize ALL calculators needed for AI learned weights
+                // These are required to build ExtendedSnapshot with all values
+                InitializeAllCalculatorsForAI();
             }
 
             // Subscribe to fill events
@@ -719,6 +723,47 @@ namespace IdiotProof.Backend.Models
                 // Log error but don't crash - graceful degradation
                 Log($"ERROR in OnCandleComplete: {ex.Message}", ConsoleColor.Red);
             }
+        }
+
+        /// <summary>
+        /// Initializes ALL indicator calculators needed for AI learned weights.
+        /// This ensures live trading has the SAME data as backtesting.
+        /// </summary>
+        private void InitializeAllCalculatorsForAI()
+        {
+            Log("[AI] Initializing all calculators for learned weights...", ConsoleColor.DarkMagenta);
+            
+            // EMAs - required for VWAP/EMA scoring
+            GetOrCreateEmaCalculator(9);
+            GetOrCreateEmaCalculator(21);
+            GetOrCreateEmaCalculator(50);
+            
+            // RSI - for overbought/oversold detection
+            _rsiCalculator ??= new Helpers.RsiCalculator(period: 14);
+            
+            // MACD - for momentum
+            _macdCalculator ??= new Helpers.MacdCalculator(12, 26, 9);
+            
+            // ADX/DI - for trend strength and direction
+            _adxCalculator ??= new Helpers.AdxCalculator(period: 14, ticksPerBar: 50);
+            
+            // Volume - for confirmation signals
+            _volumeCalculator ??= new Helpers.VolumeCalculator(period: 20);
+            
+            // Bollinger Bands - for mean reversion
+            _bollingerBands ??= new Helpers.BollingerBandsCalculator(period: 20, multiplier: 2.0);
+            
+            // ATR - for volatility and TP/SL sizing
+            if (_atrCalculator == null && _strategy.Order.UseAtrStopLoss == false)
+            {
+                _atrCalculator = new Helpers.AtrCalculator(period: 14, ticksPerBar: 50);
+            }
+            
+            // Momentum and ROC - CRITICAL: these were missing before!
+            _momentumCalculator ??= new Helpers.MomentumCalculator(period: 10);
+            _rocCalculator ??= new Helpers.RocCalculator(period: 10);
+            
+            Log("[AI] All required calculators initialized for AI scoring", ConsoleColor.DarkMagenta);
         }
 
         /// <summary>
@@ -1408,14 +1453,29 @@ namespace IdiotProof.Backend.Models
             int adjustedScore;
             int vwapScore, emaScore, rsiScore, macdScore, adxScore, volumeScore, bollingerScore;
             
+            // Learned entry/exit signals (from AI training)
+            bool learnedShouldLong = false;
+            bool learnedShouldShort = false;
+            bool learnedShouldExit = false;
+            bool hasLearnedWeights = false;
+            
             // If we have AI-learned weights, use the weighted calculator
             if (_learnedWeights != null)
             {
-                var extSnap = IdiotProof.Core.Learning.ExtendedSnapshot.FromBasic(snapshot, TimeOnly.FromDateTime(DateTime.Now));
+                hasLearnedWeights = true;
+                
+                // Build FULL ExtendedSnapshot with ALL values (not FromBasic which misses data!)
+                var extSnap = BuildExtendedSnapshot(price, vwap, snapshot);
+                
                 var (rawScore, shouldLong, shouldShort, shouldExit) = IdiotProof.Core.Learning.WeightedScoreCalculator.Calculate(extSnap, _learnedWeights);
                 
                 // Convert weighted score to integer, apply time weight
                 adjustedScore = (int)Math.Clamp(rawScore * timeWeight, -100, 100);
+                
+                // IMPORTANT: Capture the learned entry/exit signals!
+                learnedShouldLong = shouldLong;
+                learnedShouldShort = shouldShort;
+                learnedShouldExit = shouldExit;
                 
                 // Individual component scores (estimated from weighted result)
                 vwapScore = snapshot.Price > snapshot.Vwap ? 15 : -15;
@@ -1454,7 +1514,12 @@ namespace IdiotProof.Backend.Models
                 TimeWeight = timeWeight,
                 TakeProfitMultiplier = 1.0,
                 StopLossMultiplier = 1.0,
-                ShouldEmergencyExit = false
+                ShouldEmergencyExit = false,
+                // LEARNED SIGNALS - from AI training
+                HasLearnedWeights = hasLearnedWeights,
+                LearnedShouldEnterLong = learnedShouldLong,
+                LearnedShouldEnterShort = learnedShouldShort,
+                LearnedShouldExit = learnedShouldExit
             };
         }
         
@@ -1527,6 +1592,88 @@ namespace IdiotProof.Backend.Models
                 BollingerLower = bbLower,
                 BollingerMiddle = bbMiddle,
                 Atr = atr
+            };
+        }
+
+        /// <summary>
+        /// Builds a COMPLETE ExtendedSnapshot with ALL values needed for AI learning.
+        /// This ensures live trading uses the SAME data as backtesting.
+        /// </summary>
+        private IdiotProof.Core.Learning.ExtendedSnapshot BuildExtendedSnapshot(double price, double vwap, IndicatorSnapshot basic)
+        {
+            // Get Momentum and ROC values
+            double momentum = _momentumCalculator?.IsReady == true ? _momentumCalculator.CurrentValue : 0;
+            double roc = _rocCalculator?.IsReady == true ? _rocCalculator.CurrentValue : 0;
+            
+            // Pattern detection using recent candles
+            bool isHigherLow = false;
+            bool isLowerHigh = false;
+            bool isNearLod = false;
+            bool isNearHod = false;
+            bool isVwapReclaim = false;
+            bool isVwapRejection = false;
+            
+            var candles = _candlestickAggregator.GetCompletedCandles();
+            if (candles.Count >= 4)
+            {
+                // Higher lows pattern (bullish)
+                var c0 = candles[candles.Count - 1];
+                var c1 = candles[candles.Count - 2];
+                var c2 = candles[candles.Count - 3];
+                var c3 = candles[candles.Count - 4];
+                isHigherLow = c0.Low > c2.Low && c1.Low > c3.Low;
+                isLowerHigh = c0.High < c2.High && c1.High < c3.High;
+            }
+            
+            // Near HOD/LOD detection
+            if (_sessionHigh > 0 && _sessionLow < double.MaxValue)
+            {
+                double range = _sessionHigh - _sessionLow;
+                if (range > 0)
+                {
+                    isNearHod = price >= _sessionHigh - (range * 0.05);  // Within 5% of HOD
+                    isNearLod = price <= _sessionLow + (range * 0.05);   // Within 5% of LOD
+                }
+            }
+            
+            // VWAP reclaim/rejection using last candle
+            if (candles.Count >= 2 && vwap > 0)
+            {
+                var current = candles[candles.Count - 1];
+                var prev = candles[candles.Count - 2];
+                isVwapReclaim = prev.Close < vwap && current.Close > vwap;  // Crossed above
+                isVwapRejection = current.High > vwap && current.Close < vwap;  // Wick above, close below
+            }
+            
+            return new IdiotProof.Core.Learning.ExtendedSnapshot
+            {
+                Price = basic.Price,
+                Vwap = basic.Vwap,
+                Ema9 = basic.Ema9,
+                Ema21 = basic.Ema21,
+                Ema50 = basic.Ema50,
+                Rsi = basic.Rsi,
+                Macd = basic.Macd,
+                MacdSignal = basic.MacdSignal,
+                MacdHistogram = basic.MacdHistogram,
+                Adx = basic.Adx,
+                PlusDi = basic.PlusDi,
+                MinusDi = basic.MinusDi,
+                VolumeRatio = basic.VolumeRatio,
+                BollingerUpper = basic.BollingerUpper,
+                BollingerLower = basic.BollingerLower,
+                BollingerMiddle = basic.BollingerMiddle,
+                Atr = basic.Atr,
+                // CRITICAL: These were MISSING before - now matching backtesting!
+                Momentum = momentum,
+                Roc = roc,
+                TimeOfDay = TimeOnly.FromDateTime(DateTime.Now),
+                IsHigherLow = isHigherLow,
+                IsLowerHigh = isLowerHigh,
+                IsNearLod = isNearLod,
+                IsNearHod = isNearHod,
+                IsVwapReclaim = isVwapReclaim,
+                IsVwapRejection = isVwapRejection
             };
         }
 
@@ -1876,12 +2023,39 @@ namespace IdiotProof.Backend.Models
                 }
             }
 
-            // Check for LONG entry
-            if (score.TotalScore >= adjustedLongThreshold)
+            // =====================================================================
+            // ENTRY DECISION: Use learned signals when available, else use thresholds
+            // =====================================================================
+            
+            bool shouldEnterLong;
+            bool shouldEnterShort;
+            
+            if (score.HasLearnedWeights)
             {
-                string thresholdInfo = adjustedLongThreshold != config.LongEntryThreshold
-                    ? $" (learned: {adjustedLongThreshold}, default: {config.LongEntryThreshold})"
-                    : "";
+                // AI-learned weights determine entry - this is the trained decision!
+                shouldEnterLong = score.LearnedShouldEnterLong;
+                shouldEnterShort = score.LearnedShouldEnterShort;
+                
+                if (shouldEnterLong || shouldEnterShort)
+                {
+                    Log($"[AI] Learned weights triggered entry: Long={shouldEnterLong}, Short={shouldEnterShort}, Score={score.TotalScore}", ConsoleColor.Magenta);
+                }
+            }
+            else
+            {
+                // Fallback: use hardcoded thresholds
+                shouldEnterLong = score.TotalScore >= adjustedLongThreshold;
+                shouldEnterShort = score.TotalScore <= adjustedShortThreshold;
+            }
+
+            // Check for LONG entry
+            if (shouldEnterLong)
+            {
+                string thresholdInfo = score.HasLearnedWeights 
+                    ? " (AI-learned weights)"
+                    : (adjustedLongThreshold != config.LongEntryThreshold
+                        ? $" (threshold: {adjustedLongThreshold}, default: {config.LongEntryThreshold})"
+                        : "");
                 Log($"*** AUTONOMOUS LONG SIGNAL: Score {score.TotalScore} >= {adjustedLongThreshold}{thresholdInfo}", ConsoleColor.Cyan);
                 Log($"  Indicators: VWAP={score.VwapScore}, EMA={score.EmaScore}, RSI={score.RsiScore}, MACD={score.MacdScore}, ADX={score.AdxScore}, Vol={score.VolumeScore}", ConsoleColor.DarkGray);
                 if (_tickerProfile?.Confidence >= 20)
@@ -1922,11 +2096,13 @@ namespace IdiotProof.Backend.Models
             }
 
             // Check for SHORT entry (if allowed and not blocked)
-            if (config.AllowShort && !_shortSaleBlocked && score.TotalScore <= adjustedShortThreshold)
+            if (config.AllowShort && !_shortSaleBlocked && shouldEnterShort)
             {
-                string thresholdInfo = adjustedShortThreshold != config.ShortEntryThreshold
-                    ? $" (learned: {adjustedShortThreshold}, default: {config.ShortEntryThreshold})"
-                    : "";
+                string thresholdInfo = score.HasLearnedWeights 
+                    ? " (AI-learned weights)"
+                    : (adjustedShortThreshold != config.ShortEntryThreshold
+                        ? $" (threshold: {adjustedShortThreshold}, default: {config.ShortEntryThreshold})"
+                        : "");
                 Log($"*** AUTONOMOUS SHORT SIGNAL: Score {score.TotalScore} <= {adjustedShortThreshold}{thresholdInfo}", ConsoleColor.Magenta);
                 Log($"  Indicators: VWAP={score.VwapScore}, EMA={score.EmaScore}, RSI={score.RsiScore}, MACD={score.MacdScore}, ADX={score.AdxScore}, Vol={score.VolumeScore}", ConsoleColor.DarkGray);
                 if (_tickerProfile?.Confidence >= 20)

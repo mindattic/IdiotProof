@@ -308,6 +308,20 @@ namespace IdiotProof.Backend.Models
         /// <summary>Whether conditions warrant emergency exit.</summary>
         public bool ShouldEmergencyExit { get; init; }
 
+        // ===== LEARNED ENTRY/EXIT SIGNALS (from AI training) =====
+        
+        /// <summary>True if learned weights say to enter long NOW.</summary>
+        public bool LearnedShouldEnterLong { get; init; }
+        
+        /// <summary>True if learned weights say to enter short NOW.</summary>
+        public bool LearnedShouldEnterShort { get; init; }
+        
+        /// <summary>True if learned weights say to exit current position.</summary>
+        public bool LearnedShouldExit { get; init; }
+        
+        /// <summary>True if we have learned weights loaded for this ticker.</summary>
+        public bool HasLearnedWeights { get; init; }
+
         /// <summary>Human-readable market condition description.</summary>
         public string Condition => TotalScore switch
         {
