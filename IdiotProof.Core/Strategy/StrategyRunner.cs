@@ -1383,143 +1383,110 @@ namespace IdiotProof.Backend.Models
 
         /// <summary>
         /// Calculates market score for autonomous trading decision making.
-        /// Uses the same logic as adaptive order but without requiring a position.
+        /// Uses the SHARED MarketScoreCalculator for consistency with backtesting.
         /// </summary>
         /// <param name="price">Current price.</param>
         /// <param name="vwap">Current VWAP.</param>
-        /// <param name="optimizedWeights">Optional optimized weights from genetic algorithm.</param>
+        /// <param name="optimizedWeights">Optional optimized weights (currently ignored - using shared calculator).</param>
         private MarketScore CalculateMarketScoreForAutonomous(double price, double vwap, 
             IdiotProof.BackTesting.Optimization.IndicatorWeights? optimizedWeights = null)
         {
-            // Get weights - use optimized if provided, otherwise use defaults
-            double wVwap = optimizedWeights?.Vwap ?? 0.13;
-            double wEma = optimizedWeights?.Ema ?? 0.18;
-            double wRsi = optimizedWeights?.Rsi ?? 0.14;
-            double wMacd = optimizedWeights?.Macd ?? 0.20;
-            double wAdx = optimizedWeights?.Adx ?? 0.20;
-            double wVolume = optimizedWeights?.Volume ?? 0.10;
-            double wBollinger = 0.05; // Not in optimized weights, keep fixed
-
-            // Normalize if optimized weights provided (they sum to 1.0, need to adjust for bollinger)
-            if (optimizedWeights != null)
-            {
-                double scaleFactor = 0.95; // Leave 5% for bollinger
-                wVwap *= scaleFactor;
-                wEma *= scaleFactor;
-                wRsi *= scaleFactor;
-                wMacd *= scaleFactor;
-                wAdx *= scaleFactor;
-                wVolume *= scaleFactor;
-            }
-
-            // Use balanced weights for score calculation
-            int vwapScore = 0, emaScore = 0, rsiScore = 0, macdScore = 0, adxScore = 0, volumeScore = 0;
-
-            // VWAP Position (15% weight)
-            if (vwap > 0)
-            {
-                double vwapDiff = (price - vwap) / vwap * 100;
-                vwapScore = (int)Math.Clamp(vwapDiff * 20, -100, 100);
-            }
-
-            // EMA Stack Alignment (20% weight)
-            if (_emaCalculators.Count > 0)
-            {
-                int bullishCount = 0, bearishCount = 0;
-                foreach (var kvp in _emaCalculators)
-                {
-                    if (kvp.Value.IsReady)
-                    {
-                        if (price > kvp.Value.CurrentValue) bullishCount++;
-                        else bearishCount++;
-                    }
-                }
-                int total = bullishCount + bearishCount;
-                if (total > 0)
-                {
-                    emaScore = (int)((bullishCount - bearishCount) / (double)total * 100);
-                }
-            }
-
-            // RSI (15% weight)
-            if (_rsiCalculator?.IsReady == true)
-            {
-                double rsi = _rsiCalculator.CurrentValue;
-                if (rsi >= 70)
-                    rsiScore = (int)((70 - rsi) * 3.33); // 70->0, 100->-100
-                else if (rsi <= 30)
-                    rsiScore = (int)((30 - rsi) * 3.33); // 30->0, 0->+100
-                else
-                    rsiScore = (int)((rsi - 50) * 2.5); // 30->-50, 70->+50
-            }
-
-            // MACD (20% weight)
-            if (_macdCalculator?.IsReady == true)
-            {
-                bool bullish = _macdCalculator.IsBullish;
-                double histogram = _macdCalculator.Histogram;
-                macdScore = bullish ? 50 : -50;
-                macdScore += (int)Math.Clamp(histogram * 500, -50, 50);
-            }
-
-            // ADX Trend Strength (20% weight)
-            if (_adxCalculator?.IsReady == true)
-            {
-                double adx = _adxCalculator.CurrentAdx;
-                bool diPositive = _adxCalculator.PlusDI > _adxCalculator.MinusDI;
-                int magnitude = (int)Math.Min(adx * 2, 100);
-                adxScore = diPositive ? magnitude : -magnitude;
-            }
-
-            // Volume (10% weight)
-            if (_volumeCalculator?.IsReady == true)
-            {
-                double volumeRatio = _volumeCalculator.VolumeRatio;
-                if (volumeRatio > 1.0)
-                {
-                    int volumeMagnitude = (int)Math.Min((volumeRatio - 1.0) * 100, 100);
-                    volumeScore = price > vwap ? volumeMagnitude : -volumeMagnitude;
-                }
-            }
-
-            // Bollinger Bands (5% weight for mean reversion signals)
-            int bollingerScore = 0;
-            if (_bollingerBands?.IsReady == true)
-            {
-                bollingerScore = _bollingerBands.GetScore();
-            }
-
-            // Calculate weighted total score
-            // Uses optimized weights if provided, otherwise uses defaults
-            double totalScore =
-                vwapScore * wVwap +
-                emaScore * wEma +
-                rsiScore * wRsi +
-                macdScore * wMacd +
-                adxScore * wAdx +
-                volumeScore * wVolume +
-                bollingerScore * wBollinger;
-
-            // Apply time-of-day weight (scales score based on trading quality of time period)
+            // Build indicator snapshot from live calculator values
+            var snapshot = BuildIndicatorSnapshot(price, vwap);
+            
+            // Use the SHARED calculator - same code as backtesting
+            var result = MarketScoreCalculator.Calculate(snapshot);
+            
+            // Apply time-of-day weight (live trading only - not in backtest)
             double timeWeight = GetTimeOfDayWeight();
-            totalScore *= timeWeight;
-
-            int finalScore = (int)Math.Clamp(totalScore, -100, 100);
+            int adjustedScore = (int)Math.Clamp(result.TotalScore * timeWeight, -100, 100);
 
             return new MarketScore
             {
-                TotalScore = finalScore,
-                VwapScore = vwapScore,
-                EmaScore = emaScore,
-                RsiScore = rsiScore,
-                MacdScore = macdScore,
-                AdxScore = adxScore,
-                VolumeScore = volumeScore,
-                BollingerScore = bollingerScore,
+                TotalScore = adjustedScore,
+                VwapScore = result.VwapScore,
+                EmaScore = result.EmaScore,
+                RsiScore = result.RsiScore,
+                MacdScore = result.MacdScore,
+                AdxScore = result.AdxScore,
+                VolumeScore = result.VolumeScore,
+                BollingerScore = result.BollingerScore,
                 TimeWeight = timeWeight,
                 TakeProfitMultiplier = 1.0,
                 StopLossMultiplier = 1.0,
                 ShouldEmergencyExit = false
+            };
+        }
+        
+        /// <summary>
+        /// Builds an indicator snapshot from live calculator values.
+        /// </summary>
+        private IndicatorSnapshot BuildIndicatorSnapshot(double price, double vwap)
+        {
+            // Get EMA values
+            double ema9 = 0, ema21 = 0, ema50 = 0;
+            if (_emaCalculators.TryGetValue(9, out var ema9Calc) && ema9Calc.IsReady)
+                ema9 = ema9Calc.CurrentValue;
+            if (_emaCalculators.TryGetValue(21, out var ema21Calc) && ema21Calc.IsReady)
+                ema21 = ema21Calc.CurrentValue;
+            if (_emaCalculators.TryGetValue(50, out var ema50Calc) && ema50Calc.IsReady)
+                ema50 = ema50Calc.CurrentValue;
+            
+            // Get RSI
+            double rsi = _rsiCalculator?.IsReady == true ? _rsiCalculator.CurrentValue : 50;
+            
+            // Get MACD
+            double macd = 0, macdSignal = 0, macdHistogram = 0;
+            if (_macdCalculator?.IsReady == true)
+            {
+                macd = _macdCalculator.MacdLine;
+                macdSignal = _macdCalculator.SignalLine;
+                macdHistogram = _macdCalculator.Histogram;
+            }
+            
+            // Get ADX
+            double adx = 0, plusDi = 0, minusDi = 0;
+            if (_adxCalculator?.IsReady == true)
+            {
+                adx = _adxCalculator.CurrentAdx;
+                plusDi = _adxCalculator.PlusDI;
+                minusDi = _adxCalculator.MinusDI;
+            }
+            
+            // Get Volume ratio
+            double volumeRatio = _volumeCalculator?.IsReady == true ? _volumeCalculator.VolumeRatio : 1.0;
+            
+            // Get Bollinger Bands
+            double bbUpper = 0, bbLower = 0, bbMiddle = 0;
+            if (_bollingerBands?.IsReady == true)
+            {
+                bbUpper = _bollingerBands.UpperBand;
+                bbLower = _bollingerBands.LowerBand;
+                bbMiddle = _bollingerBands.MiddleBand;
+            }
+            
+            // Get ATR
+            double atr = _atrCalculator?.IsReady == true ? _atrCalculator.CurrentAtr : 0;
+            
+            return new IndicatorSnapshot
+            {
+                Price = price,
+                Vwap = vwap,
+                Ema9 = ema9,
+                Ema21 = ema21,
+                Ema50 = ema50,
+                Rsi = rsi,
+                Macd = macd,
+                MacdSignal = macdSignal,
+                MacdHistogram = macdHistogram,
+                Adx = adx,
+                PlusDi = plusDi,
+                MinusDi = minusDi,
+                VolumeRatio = volumeRatio,
+                BollingerUpper = bbUpper,
+                BollingerLower = bbLower,
+                BollingerMiddle = bbMiddle,
+                Atr = atr
             };
         }
 

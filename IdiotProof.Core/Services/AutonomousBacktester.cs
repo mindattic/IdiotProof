@@ -21,6 +21,7 @@
 using IdiotProof.Backend.Enums;
 using IdiotProof.Backend.Models;
 using IdiotProof.BackTesting.Models;
+using IdiotProof.Core.Helpers;
 using IdiotProof.Core.Models;
 using System.Text;
 
@@ -2350,159 +2351,41 @@ internal sealed class BackTestIndicatorCalculator
     }
 
     /// <summary>
-    /// Calculates enhanced market score including all indicators and sentiment.
+    /// Calculates market score using the SHARED MarketScoreCalculator.
+    /// This ensures backtesting results EXACTLY match live trading behavior.
     /// </summary>
-
     public double CalculateMarketScore(int index)
     {
         if (index < 0 || index >= _candles.Count)
             return 0;
 
         var candle = _candles[index];
-
-        // VWAP Position (15% weight)
-        double vwapScore = 0;
-        if (candle.Vwap > 0)
+        
+        // Build indicator snapshot from backtest arrays
+        var snapshot = new IndicatorSnapshot
         {
-            double vwapDistance = (candle.Close - candle.Vwap) / candle.Vwap * 100;
-            vwapScore = Math.Clamp(vwapDistance * 20, -100, 100);
-        }
-
-        // EMA Stack (20% weight)
-        double emaScore = 0;
-        int aboveCount = 0;
-        if (candle.Close > _ema9[index]) aboveCount++;
-        if (candle.Close > _ema21[index]) aboveCount++;
-        if (candle.Close > _ema50[index]) aboveCount++;
-
-        bool bullishStack = _ema9[index] > _ema21[index] && _ema21[index] > _ema50[index];
-        bool bearishStack = _ema9[index] < _ema21[index] && _ema21[index] < _ema50[index];
-
-        emaScore = (aboveCount - 1.5) * 66.67;
-        if (bullishStack) emaScore = Math.Min(100, emaScore + 25);
-        if (bearishStack) emaScore = Math.Max(-100, emaScore - 25);
-
-        // RSI (15% weight)
-        double rsiScore = 0;
-        double rsiValue = _rsi[index];
-
-        if (rsiValue <= 30)
-            rsiScore = 100 - (rsiValue - 30) * 3.33;
-        else if (rsiValue >= 70)
-            rsiScore = -(rsiValue - 70) * 3.33;
-        else if (rsiValue < 50)
-            rsiScore = (rsiValue - 50) * 2;
-        else
-            rsiScore = (rsiValue - 50) * 2;
-
-        rsiScore = Math.Clamp(rsiScore, -100, 100);
-
-        // MACD (20% weight)
-        double macdScore = 0;
-        double macdValue = _macd[index];
-        double signalValue = _signal[index];
-        double histogram = _histogram[index];
-
-        if (macdValue > signalValue)
-            macdScore = 50;
-        else
-            macdScore = -50;
-
-        double histogramStrength = Math.Abs(histogram) / (Math.Abs(macdValue) + 0.001) * 100;
-        histogramStrength = Math.Min(histogramStrength, 50);
-
-        if (histogram > 0)
-            macdScore += histogramStrength;
-        else
-            macdScore -= histogramStrength;
-
-        macdScore = Math.Clamp(macdScore, -100, 100);
-
-        // ADX (20% weight)
-        double adxScore = 0;
-        double adxValue = _adx[index];
-        double plusDi = _plusDi[index];
-        double minusDi = _minusDi[index];
-
-        double trendStrength = Math.Min(adxValue / 50, 1) * 100;
-
-        if (plusDi > minusDi)
-            adxScore = trendStrength;
-        else
-            adxScore = -trendStrength;
-
-        // Volume (10% weight)
-        double volumeScore = 0;
-        double volRatio = _volumeRatio[index];
-
-        if (volRatio > 1.5)
-        {
-            if (candle.Close > candle.Vwap)
-                volumeScore = Math.Min((volRatio - 1) * 100, 100);
-            else
-                volumeScore = -Math.Min((volRatio - 1) * 100, 100);
-        }
-        else if (volRatio >= 0.5)
-        {
-            if (candle.Close > candle.Vwap)
-                volumeScore = 25;
-            else
-                volumeScore = -25;
-        }
-
-        // ========================================================================
-        // Enhanced Indicators (additional weight distributed)
-        // ========================================================================
+            Price = candle.Close,
+            Vwap = candle.Vwap,
+            Ema9 = _ema9[index],
+            Ema21 = _ema21[index],
+            Ema50 = _ema50[index],
+            Rsi = _rsi[index],
+            Macd = _macd[index],
+            MacdSignal = _signal[index],
+            MacdHistogram = _histogram[index],
+            Adx = _adx[index],
+            PlusDi = _plusDi[index],
+            MinusDi = _minusDi[index],
+            VolumeRatio = _volumeRatio[index],
+            BollingerUpper = _bollingerUpper[index],
+            BollingerLower = _bollingerLower[index],
+            BollingerMiddle = _bollingerMiddle[index],
+            Atr = _atr[index]
+        };
         
-        // Bollinger Bands (5% weight) - Mean reversion signals
-        double bollingerScore = GetBollingerScore(index);
-        
-        // Stochastic (5% weight) - Momentum oscillator
-        double stochasticScore = GetStochasticScore(index);
-        
-        // CCI (3% weight) - Trend strength and reversals
-        double cciScore = GetCciScore(index);
-        
-        // Williams %R (2% weight) - Overbought/oversold confirmation
-        double williamsRScore = GetWilliamsRScore(index);
-        
-        // MFI (3% weight) - Volume-weighted RSI
-        double mfiScore = GetMfiScore(index);
-        
-        // OBV (2% weight) - Volume trend confirmation
-        double obvScore = GetObvScore(index);
-        
-        // ========================================================================
-        // Sentiment Score (from news, earnings, analyst ratings)
-        // Weight depends on confidence level
-        // ========================================================================
-        double sentimentWeight = _sentimentConfidence > 50 ? 0.10 : (_sentimentConfidence > 25 ? 0.05 : 0);
-        double sentimentScore = _sentimentScore;
-        
-        // Adjust core weights when sentiment is factored in
-        double coreWeightAdjustment = 1.0 - sentimentWeight - 0.20; // 20% for enhanced indicators
-
-        // Calculate weighted total with enhanced indicators
-        // Core indicators: 80% base (adjusted for sentiment), Enhanced: 20%, Sentiment: 0-10%
-        double coreScore = 
-            vwapScore * (0.15 * coreWeightAdjustment / 0.80) +
-            emaScore * (0.20 * coreWeightAdjustment / 0.80) +
-            rsiScore * (0.15 * coreWeightAdjustment / 0.80) +
-            macdScore * (0.20 * coreWeightAdjustment / 0.80) +
-            adxScore * (0.20 * coreWeightAdjustment / 0.80) +
-            volumeScore * (0.10 * coreWeightAdjustment / 0.80);
-        
-        double enhancedScore =
-            bollingerScore * 0.05 +
-            stochasticScore * 0.05 +
-            cciScore * 0.03 +
-            williamsRScore * 0.02 +
-            mfiScore * 0.03 +
-            obvScore * 0.02;
-        
-        double finalScore = coreScore + enhancedScore + (sentimentScore * sentimentWeight);
-        
-        return Math.Clamp(finalScore, -100, 100);
+        // Use the SHARED calculator - same code as live trading
+        var result = MarketScoreCalculator.Calculate(snapshot);
+        return result.TotalScore;
     }
     
     /// <summary>

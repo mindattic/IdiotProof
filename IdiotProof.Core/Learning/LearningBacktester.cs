@@ -276,6 +276,11 @@ public sealed class LearningBacktester
     private List<HistoricalBar>? _cachedBars;
     private string? _cachedSymbol;
     
+    // Collect all log output to save to file
+    private readonly System.Text.StringBuilder _fullLog = new();
+    private string _currentSymbol = "";
+    private DateTime _sessionStartTime;
+    
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         WriteIndented = true,
@@ -320,33 +325,42 @@ public sealed class LearningBacktester
     {
         var sw = Stopwatch.StartNew();
         
+        // Initialize session logging
+        _currentSymbol = symbol;
+        _sessionStartTime = DateTime.Now;
+        _fullLog.Clear();
+        LogAndReport(progress, $"============================================================");
+        LogAndReport(progress, $"LEARNING SESSION: {symbol}");
+        LogAndReport(progress, $"Started: {_sessionStartTime:yyyy-MM-dd HH:mm:ss}");
+        LogAndReport(progress, $"============================================================");
+        
         // ====================================================================
         // STEP 1: Get historical data (fetch missing days incrementally)
         // ====================================================================
-        progress?.Report($"[LEARN] Starting learning process for {symbol}...");
+        LogAndReport(progress, $"[LEARN] Starting learning process for {symbol}...");
         
         if (_histService != null)
         {
             // Fetch incrementally - gets cached data and fills in missing days
             // Over time, this builds up more than 30 days of history
-            progress?.Report($"[FETCH] Checking for missing historical data for {symbol}...");
+            LogAndReport(progress, $"[FETCH] Checking for missing historical data for {symbol}...");
             _cachedBars = await _dataCache.GetOrFetchIncrementalAsync(
                 symbol, 
                 _histService, 
                 daysBack: 30,      // Check last 30 days
                 maxDaysToFetch: 5, // Fetch up to 5 missing days per learning run
                 cancellationToken: ct);
-            progress?.Report($"[FETCH] Have {_cachedBars.Count} bars for {symbol}");
+            LogAndReport(progress, $"[FETCH] Have {_cachedBars.Count} bars for {symbol}");
         }
         else if (_dataCache.HasCachedData(symbol))
         {
             _cachedBars = _dataCache.LoadFromCache(symbol);
-            progress?.Report($"[CACHE] Loaded cached data for {symbol}");
+            LogAndReport(progress, $"[CACHE] Loaded cached data for {symbol}");
         }
         else
         {
-            progress?.Report($"ERROR: No historical data found for {symbol} and no data service available.");
-            progress?.Report($"Either provide a HistoricalDataService or run 'backtest {symbol}' first.");
+            LogAndReport(progress, $"ERROR: No historical data found for {symbol} and no data service available.");
+            LogAndReport(progress, $"Either provide a HistoricalDataService or run 'backtest {symbol}' first.");
             throw new InvalidOperationException($"No historical data for {symbol}. Run 'backtest {symbol}' first.");
         }
         
@@ -364,8 +378,8 @@ public sealed class LearningBacktester
             .OrderBy(d => d)
             .ToList();
         
-        progress?.Report($"[DATA] {_cachedBars.Count} bars covering {availableDates.Count} trading days");
-        progress?.Report($"[DATA] Date range: {availableDates.First()} to {availableDates.Last()}");
+        LogAndReport(progress, $"[DATA] {_cachedBars.Count} bars covering {availableDates.Count} trading days");
+        LogAndReport(progress, $"[DATA] Date range: {availableDates.First()} to {availableDates.Last()}");
         
         // ====================================================================
         // STEP 2: Initialize learning state (in-memory, no persistence)
@@ -379,7 +393,7 @@ public sealed class LearningBacktester
         double initialWinRate = 0;
         double lastWinRate = 0;
         
-        progress?.Report($"[LEARN] Starting {iterations} iterations (30 days each, showing all trades)...");
+        LogAndReport(progress, $"[LEARN] Starting {iterations} iterations (30 days each, showing all trades)...");
         
         int actualIterations = 0;
         double previousWinRate = 0;
@@ -400,13 +414,24 @@ public sealed class LearningBacktester
             if (i == 1) initialWinRate = result.WinRate;
             lastWinRate = result.WinRate;
             
-            // Save result
+            // Check if this will be a new best BEFORE adding
+            bool isNewBest = result.FitnessScore > data.BestFitnessScore;
+            
+            // Save result (updates best if applicable)
             data.AddIteration(result);
             
             // Always print trades with iteration header
             PrintIterationHeader(i, iterations, currentParams, progress);
             PrintVerboseLedger(result, progress);
-            PrintIterationSummary(i, result, previousWinRate, previousFitness, data.BestFitnessScore, progress);
+            PrintIterationSummary(i, result, previousWinRate, previousFitness, isNewBest, progress);
+            
+            // Only save profile when we have a NEW BEST
+            if (isNewBest)
+            {
+                UpdateProfile(profile, data);
+                SaveProfile(profile);
+                LogAndReport(progress, $"[SAVED] {symbol}.profile.json updated with new best parameters!");
+            }
             
             previousWinRate = result.WinRate;
             previousFitness = result.FitnessScore;
@@ -429,23 +454,15 @@ public sealed class LearningBacktester
                 // Bad iteration - revert to best with large mutations to explore
                 currentParams = data.BestParameters.Mutate(_rng, 0.3);
             }
-            
-            // Save profile every 10 iterations
-            if (i % 10 == 0)
-            {
-                UpdateProfile(profile, data);
-                SaveProfile(profile);
-                progress?.Report($"[SAVED] {symbol}.profile.json updated after iteration {i}");
-            }
         }
         
-        // Final save (profile only)
-        UpdateProfile(profile, data);
-        SaveProfile(profile);
-        
+        // Final summary (profile already saved on each new best)
         sw.Stop();
-        progress?.Report($"\n[COMPLETE] {actualIterations} iterations in {sw.Elapsed:hh\\:mm\\:ss}");
-        progress?.Report($"Best fitness: {data.BestFitnessScore:F2}, Best win rate: {data.BestWinRate:F1}% from iteration {data.BestIteration}");
+        LogAndReport(progress, $"\n[COMPLETE] {actualIterations} iterations in {sw.Elapsed:hh\\:mm\\:ss}");
+        LogAndReport(progress, $"Best fitness: {data.BestFitnessScore:F2}, Best win rate: {data.BestWinRate:F1}% from iteration {data.BestIteration}");
+        
+        // Save the complete log to file
+        SaveLogToFile();
         
         return new LearningResult
         {
@@ -624,7 +641,7 @@ public sealed class LearningBacktester
     /// <summary>
     /// Prints results of an iteration.
     /// </summary>
-    private static void PrintIterationResult(IterationResult r, int current, int total, IProgress<string>? progress)
+    private void PrintIterationResult(IterationResult r, int current, int total, IProgress<string>? progress)
     {
         var summary = $@"
 +===========================================================================+
@@ -639,15 +656,15 @@ public sealed class LearningBacktester
 |  RSI Exit: {r.Parameters.MomentumExitRsi,5:F0}  |  Min Profit: {r.Parameters.MinProfitToTake,5:F2}%
 +===========================================================================+";
         
-        progress?.Report(summary);
+        LogAndReportBlock(progress, summary);
     }
     
     /// <summary>
     /// Prints iteration header with current parameters being tested.
     /// </summary>
-    private static void PrintIterationHeader(int current, int total, TunableParameters p, IProgress<string>? progress)
+    private void PrintIterationHeader(int current, int total, TunableParameters p, IProgress<string>? progress)
     {
-        progress?.Report($@"
+        LogAndReportBlock(progress, $@"
 ################################################################################
 ##  ITERATION {current,3} / {total}                                              
 ##  Entry Threshold: {p.LongEntryThreshold:F0}  |  RSI Exit: {p.MomentumExitRsi:F0}  |  Min Profit: {p.MinProfitToTake:F2}%
@@ -657,12 +674,12 @@ public sealed class LearningBacktester
     /// <summary>
     /// Prints iteration summary with comparison to previous iteration.
     /// </summary>
-    private static void PrintIterationSummary(
+    private void PrintIterationSummary(
         int iteration, 
         IterationResult r, 
         double prevWinRate, 
         double prevFitness,
-        double bestFitness,
+        bool isNewBest,
         IProgress<string>? progress)
     {
         var sb = new System.Text.StringBuilder();
@@ -681,20 +698,20 @@ public sealed class LearningBacktester
             sb.AppendLine($"  vs Previous: Win Rate {winTrend}, Fitness {fitTrend} {emoji}");
         }
         
-        if (r.FitnessScore >= bestFitness)
+        if (isNewBest)
         {
-            sb.AppendLine($"  *** NEW BEST! Fitness {r.FitnessScore:F2} ***");
+            sb.AppendLine($"  *** NEW BEST! Fitness {r.FitnessScore:F2} - SAVING PROFILE ***");
         }
         
         sb.AppendLine("--------------------------------------------------------------------------------");
-        progress?.Report(sb.ToString());
+        LogAndReportBlock(progress, sb.ToString());
     }
     
     /// <summary>
     /// Prints a detailed transaction ledger for verbose mode.
     /// Shows every BUY/SELL/SHORT/COVER with timestamps and P&L.
     /// </summary>
-    private static void PrintVerboseLedger(IterationResult r, IProgress<string>? progress)
+    private void PrintVerboseLedger(IterationResult r, IProgress<string>? progress)
     {
         var sb = new System.Text.StringBuilder();
         sb.AppendLine();
@@ -745,7 +762,7 @@ public sealed class LearningBacktester
         sb.AppendLine($"TOTAL P&L: {totalSign}${totalPnL:F2}");
         sb.AppendLine("========================================");
         
-        progress?.Report(sb.ToString());
+        LogAndReportBlock(progress, sb.ToString());
     }
     
     // ========================================================================
@@ -799,6 +816,60 @@ public sealed class LearningBacktester
             profile.TotalTrades += lastIter.TotalTrades;
             profile.TotalWins += lastIter.WinningTrades;
             profile.TotalPnL += lastIter.TotalProfitPercent;
+        }
+    }
+    
+    // ========================================================================
+    // Logging - Captures all output to file
+    // ========================================================================
+    
+    /// <summary>
+    /// Logs a message to both the progress reporter AND the internal log buffer.
+    /// </summary>
+    private void LogAndReport(IProgress<string>? progress, string message)
+    {
+        progress?.Report(message);
+        _fullLog.AppendLine(message);
+    }
+    
+    /// <summary>
+    /// Logs a pre-built string (from StringBuilder) to both outputs.
+    /// </summary>
+    private void LogAndReportBlock(IProgress<string>? progress, string block)
+    {
+        progress?.Report(block);
+        _fullLog.Append(block);
+        if (!block.EndsWith('\n')) _fullLog.AppendLine();
+    }
+    
+    /// <summary>
+    /// Saves the complete learning session log to a file in the Logs folder.
+    /// </summary>
+    private void SaveLogToFile()
+    {
+        try
+        {
+            // Use the project's Logs folder
+            var projectRoot = Path.GetDirectoryName(_dataFolder) ?? _dataFolder;
+            var logsFolder = Path.Combine(projectRoot, "Logs");
+            Directory.CreateDirectory(logsFolder);
+            
+            // Generate filename: learn_SYMBOL_YYYY-MM-DD_HH-MM-SS.txt
+            var timestamp = _sessionStartTime.ToString("yyyy-MM-dd_HH-mm-ss");
+            var filename = $"learn_{_currentSymbol}_{timestamp}.txt";
+            var path = Path.Combine(logsFolder, filename);
+            
+            // Add footer to log
+            _fullLog.AppendLine();
+            _fullLog.AppendLine($"============================================================");
+            _fullLog.AppendLine($"Log saved: {DateTime.Now:yyyy-MM-dd HH:mm:ss}");
+            _fullLog.AppendLine($"============================================================");
+            
+            File.WriteAllText(path, _fullLog.ToString());
+        }
+        catch
+        {
+            // Silently fail - logging shouldn't break the main operation
         }
     }
 }
