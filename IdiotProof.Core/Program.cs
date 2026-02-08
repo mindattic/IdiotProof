@@ -561,38 +561,15 @@ namespace IdiotProof.Backend
                             break;
 
                         case "4":
-                            RunBacktestPrompt();
+                            RunLearnPrompt();
                             break;
 
                         case "5":
-                            PrintStrategies();
-                            break;
-
-                        case "6":
-                            LoadStrategies();
-                            Log("Strategies reloaded.");
-                            break;
-
-                        case "7":
-                            PrintSettings();
-                            break;
-
-                        case "8":
-                            RunStrategyBacktestPrompt();
-                            break;
-
-                        case "9":
                             PrintProfiles();
                             break;
 
-                        case "A":
-                        case "a":
-                            RunAggregateBacktestPrompt();
-                            break;
-
-                        case "L":
-                        case "l":
-                            RunLearningBacktestPrompt();
+                        case "6":
+                            PrintSettings();
                             break;
 
                         case "0":
@@ -621,14 +598,9 @@ namespace IdiotProof.Backend
             Log("  1. Status          - Show connection info");
             Log("  2. Start Trading   - Activate live trading");
             Log("  3. Stop Trading    - Pause trading");
-            Log("  4. Backtest        - Run autonomous backtest");
-            Log("  5. Strategies      - List loaded strategies");
-            Log("  6. Reload          - Reload strategies from disk");
-            Log("  7. Settings        - Show current settings");
-            Log("  8. Script Test     - Backtest IdiotScript strategy");
-            Log("  9. Profiles        - View learned ticker profiles");
-            Log("  A. Aggregate Test  - Multi-day stats with insights");
-            Log("  L. Learn           - Iterative learning backtest");
+            Log("  4. Learn           - Fetch data + learn ticker");
+            Log("  5. Profiles        - View learned ticker profiles");
+            Log("  6. Settings        - Show current settings");
             Log("  0. Exit            - Shutdown and exit");
             Log("----------------------------------------");
             Log("");
@@ -755,6 +727,116 @@ namespace IdiotProof.Backend
 
             Log("");
             Log("Run backtest (option 4) to build/update profiles.");
+            Log("");
+        }
+
+        private static void RunLearnPrompt()
+        {
+            if (!_isConnected || _historicalDataService == null)
+            {
+                Log("ERROR: Not connected to IBKR. Learning requires connection to fetch historical data.");
+                return;
+            }
+
+            Log("");
+            Log("=== Learn Ticker ===");
+            Log("Fetches 30 days of data (if needed), runs learning iterations,");
+            Log("and saves a custom-tuned profile for live trading.");
+            Log("");
+
+            // Symbol(s)
+            Console.Write("  Symbol(s) (e.g., NVDA or NVDA,AAPL,TSLA): ");
+            var symbolInput = Console.ReadLine()?.Trim().ToUpperInvariant();
+            if (string.IsNullOrEmpty(symbolInput))
+            {
+                Log("  Cancelled.");
+                return;
+            }
+
+            var symbols = symbolInput
+                .Split(new[] { ',', ';', ' ', '\t' }, StringSplitOptions.RemoveEmptyEntries)
+                .Select(s => s.Trim().ToUpperInvariant())
+                .Where(s => !string.IsNullOrWhiteSpace(s))
+                .Distinct()
+                .ToList();
+
+            if (symbols.Count == 0)
+            {
+                Log("  Cancelled.");
+                return;
+            }
+
+            // Iterations
+            Console.Write("  Iterations [10]: ");
+            var iterInput = Console.ReadLine()?.Trim();
+            int iterations = string.IsNullOrEmpty(iterInput) ? 10 :
+                             int.TryParse(iterInput, out var i) ? Math.Clamp(i, 1, 1000) : 10;
+
+            Log("");
+            Log($"Learning {symbols.Count} ticker(s) with {iterations} iterations each...");
+            Log("");
+
+            foreach (var symbol in symbols)
+            {
+                Log($"========================================");
+                Log($"  LEARNING: {symbol}");
+                Log($"========================================");
+
+                try
+                {
+                    // Create learner with data service for auto-fetching
+                    var learner = new IdiotProof.Core.Learning.LearningBacktester(_historicalDataService);
+
+                    // Create progress reporter
+                    var progress = new Progress<string>(msg => Log(msg));
+
+                    // Run learning (auto-fetches data if needed)
+                    var history = learner.LearnAsync(
+                        symbol,
+                        iterations,
+                        30, // days per iteration
+                        progress,
+                        _shutdownCts.Token).GetAwaiter().GetResult();
+
+                    // Summary
+                    Log("");
+                    Log($"  [OK] {symbol} LEARNING COMPLETE");
+                    Log($"  Duration: {history.TotalDuration:hh\\:mm\\:ss}");
+
+                    // Show final parameters
+                    var bestParams = history.BacktestData?.BestParameters;
+                    if (bestParams != null)
+                    {
+                        Log($"  Best Entry Threshold: {bestParams.LongEntryThreshold:F0}");
+                    }
+
+                    // Show win rate improvement
+                    Log($"  Win Rate: {history.InitialWinRate:F1}% -> {history.FinalWinRate:F1}% ({history.WinRateImprovement:+0.0;-0.0}%)");
+                    Log($"  Best Fitness: {history.BacktestData?.BestFitnessScore:F2}");
+
+                    // Show profile info
+                    if (history.FinalProfile != null)
+                    {
+                        Log($"  Profile: {history.FinalProfile.TotalTrades} trades, {history.FinalProfile.TotalPnL:F2}% P&L");
+                    }
+                    Log("");
+                }
+                catch (OperationCanceledException)
+                {
+                    Log($"  [--] {symbol} cancelled.");
+                    break;
+                }
+                catch (Exception ex)
+                {
+                    Log($"  [ERR] {symbol} failed: {ex.Message}");
+                    Log("");
+                }
+            }
+
+            Log("========================================");
+            Log("  LEARNING BATCH COMPLETE");
+            Log($"  Profiles saved to: {SettingsManager.GetHistoryFolder()}");
+            Log("========================================");
             Log("");
         }
 
