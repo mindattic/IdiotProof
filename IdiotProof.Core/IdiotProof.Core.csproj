@@ -36,9 +36,7 @@
     <Folder Include="Data\" />
     <Folder Include="Dependancies\" />
     <Folder Include="Logs\" />
-    <Folder Include="History\" />
     <Folder Include="Metadata\" />
-    <Folder Include="Profiles\" />
   </ItemGroup>
 
   <ItemGroup>

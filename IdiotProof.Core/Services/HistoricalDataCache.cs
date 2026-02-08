@@ -39,7 +39,7 @@ namespace IdiotProof.Backend.Services;
 /// </summary>
 public sealed class HistoricalDataCache
 {
-    private static readonly string HistoryDir = SettingsManager.GetHistoryFolder();
+    private static readonly string DataDir = SettingsManager.GetDataFolder();
     
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
@@ -52,6 +52,12 @@ public sealed class HistoricalDataCache
     /// Number of days of historical data to fetch (default: 30).
     /// </summary>
     public int DaysToFetch { get; set; } = 30;
+
+    /// <summary>
+    /// Maximum concurrent API requests when fetching multiple days.
+    /// Keep low to avoid overwhelming IBKR pacing limits.
+    /// </summary>
+    public int MaxConcurrentFetches { get; set; } = 3;
 
     /// <summary>
     /// Whether to automatically refresh data if it's older than the specified age.
@@ -71,9 +77,9 @@ public sealed class HistoricalDataCache
     public HistoricalDataCache()
     {
         // Ensure History directory exists
-        if (!Directory.Exists(HistoryDir))
+        if (!Directory.Exists(DataDir))
         {
-            Directory.CreateDirectory(HistoryDir);
+            Directory.CreateDirectory(DataDir);
         }
     }
 
@@ -82,7 +88,7 @@ public sealed class HistoricalDataCache
     /// </summary>
     public static string GetCacheFilePath(string symbol)
     {
-        return Path.Combine(HistoryDir, $"{symbol.ToUpperInvariant()}.json");
+        return Path.Combine(DataDir, $"{symbol.ToUpperInvariant()}.history.json");
     }
 
     /// <summary>
@@ -201,6 +207,7 @@ public sealed class HistoricalDataCache
 
     /// <summary>
     /// Gets historical data from cache or fetches from API if not available.
+    /// Fetches day-by-day in parallel to avoid timeout issues with large requests.
     /// </summary>
     /// <param name="symbol">The ticker symbol.</param>
     /// <param name="histService">Historical data service for API calls.</param>
@@ -226,34 +233,209 @@ public sealed class HistoricalDataCache
             }
         }
 
-        // Cache miss - fetch from API
+        // Cache miss - fetch from API day by day
         OnCacheMiss?.Invoke(symbol);
-        Log($"[{symbol}] Cache miss - fetching {DaysToFetch} days from IBKR API...");
+        Log($"[{symbol}] Cache miss - fetching {DaysToFetch} days from IBKR API (day-by-day)...");
 
-        // Calculate bars needed: 16 hours/day * 60 min * DaysToFetch
-        // But IBKR limits 1-min bars to max 1 day per request
-        // We need to fetch day by day for multi-day data
-        int barsPerDay = 960; // 16 hours * 60 minutes (4 AM to 8 PM)
-        int totalBars = barsPerDay * DaysToFetch;
+        // Build list of dates to fetch (going backwards from today)
+        var datesToFetch = new List<DateTime>();
+        var today = DateTime.Today;
+        for (int i = 0; i < DaysToFetch; i++)
+        {
+            var date = today.AddDays(-i);
+            // Skip weekends (Saturday = 6, Sunday = 0)
+            if (date.DayOfWeek != DayOfWeek.Saturday && date.DayOfWeek != DayOfWeek.Sunday)
+            {
+                // End of trading day (8 PM Eastern)
+                datesToFetch.Add(date.AddHours(20));
+            }
+        }
+        
+        Log($"[{symbol}] Fetching {datesToFetch.Count} trading days in parallel (max {MaxConcurrentFetches} concurrent)...");
 
-        // For longer durations, use multi-day fetch
-        await histService.FetchHistoricalDataAsync(
-            symbol,
-            totalBars,
-            BarSize.Minutes1,
-            HistoricalDataType.Trades,
-            useRTH: false,
-            cancellationToken: cancellationToken);
+        // Fetch each day in parallel with limited concurrency
+        var semaphore = new SemaphoreSlim(MaxConcurrentFetches);
+        var allBars = new System.Collections.Concurrent.ConcurrentBag<(DateTime Date, List<HistoricalBar> Bars)>();
+        int completedDays = 0;
+        
+        var tasks = datesToFetch.Select(async endDate =>
+        {
+            await semaphore.WaitAsync(cancellationToken);
+            try
+            {
+                // Fetch 1 day of data (960 bars = 16 hours * 60 minutes)
+                await histService.FetchHistoricalDataAsync(
+                    symbol,
+                    960,
+                    BarSize.Minutes1,
+                    HistoricalDataType.Trades,
+                    useRTH: false,
+                    endDate: endDate,
+                    cancellationToken: cancellationToken);
 
-        var bars = histService.Store.GetBars(symbol);
+                // Get the bars from the store
+                var bars = histService.Store.GetBars(symbol).ToList();
+                
+                // Filter to only bars from this specific day
+                var dayBars = bars
+                    .Where(b => b.Time.Date == endDate.Date)
+                    .ToList();
+                
+                if (dayBars.Count > 0)
+                {
+                    allBars.Add((endDate.Date, dayBars));
+                }
+                
+                var done = Interlocked.Increment(ref completedDays);
+                Log($"[{symbol}] Day {done}/{datesToFetch.Count}: {endDate:yyyy-MM-dd} - {dayBars.Count} bars");
+            }
+            finally
+            {
+                semaphore.Release();
+            }
+        }).ToList();
 
-        if (bars.Count > 0)
+        await Task.WhenAll(tasks);
+
+        // Combine all bars in chronological order
+        var combinedBars = allBars
+            .OrderBy(x => x.Date)
+            .SelectMany(x => x.Bars)
+            .OrderBy(b => b.Time)
+            .ToList();
+
+        Log($"[{symbol}] Total: {combinedBars.Count} bars from {datesToFetch.Count} trading days");
+
+        if (combinedBars.Count > 0)
         {
             // Save to cache for next time
-            SaveToCache(symbol, bars.ToList());
+            SaveToCache(symbol, combinedBars);
         }
 
-        return bars.ToList();
+        return combinedBars;
+    }
+
+    /// <summary>
+    /// Gets cached data and fetches any missing days incrementally.
+    /// This allows the cache to grow over time beyond the initial DaysToFetch.
+    /// </summary>
+    /// <param name="symbol">The ticker symbol.</param>
+    /// <param name="histService">Historical data service for API calls.</param>
+    /// <param name="daysBack">How many days back to check for missing data (default: 30).</param>
+    /// <param name="maxDaysToFetch">Maximum new days to fetch per call to avoid overwhelming API (default: 5).</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>List of historical bars including any newly fetched data.</returns>
+    public async Task<List<HistoricalBar>> GetOrFetchIncrementalAsync(
+        string symbol,
+        HistoricalDataService histService,
+        int daysBack = 30,
+        int maxDaysToFetch = 5,
+        CancellationToken cancellationToken = default)
+    {
+        if (histService == null)
+            throw new ArgumentNullException(nameof(histService));
+
+        // Load existing cached data
+        var existingBars = LoadFromCache(symbol) ?? new List<HistoricalBar>();
+        
+        // Find what dates we already have
+        var existingDates = existingBars
+            .Select(b => b.Time.Date)
+            .Distinct()
+            .ToHashSet();
+        
+        Log($"[{symbol}] Existing cache has {existingBars.Count} bars covering {existingDates.Count} trading days");
+
+        // Build list of all trading days we want (going backwards from today)
+        var today = DateTime.Today;
+        var desiredDates = new List<DateTime>();
+        for (int i = 0; i < daysBack; i++)
+        {
+            var date = today.AddDays(-i);
+            // Skip weekends
+            if (date.DayOfWeek != DayOfWeek.Saturday && date.DayOfWeek != DayOfWeek.Sunday)
+            {
+                desiredDates.Add(date);
+            }
+        }
+        
+        // Find missing dates
+        var missingDates = desiredDates
+            .Where(d => !existingDates.Contains(d))
+            .OrderByDescending(d => d) // Most recent first
+            .Take(maxDaysToFetch)      // Limit to avoid overwhelming API
+            .ToList();
+        
+        if (missingDates.Count == 0)
+        {
+            Log($"[{symbol}] No missing days - cache is up to date");
+            return existingBars;
+        }
+        
+        Log($"[{symbol}] Fetching {missingDates.Count} missing days: {string.Join(", ", missingDates.Select(d => d.ToString("MM/dd")))}");
+
+        // Fetch missing days in parallel
+        var semaphore = new SemaphoreSlim(MaxConcurrentFetches);
+        var newBars = new System.Collections.Concurrent.ConcurrentBag<HistoricalBar>();
+        int completedDays = 0;
+        
+        var tasks = missingDates.Select(async date =>
+        {
+            await semaphore.WaitAsync(cancellationToken);
+            try
+            {
+                var endDate = date.AddHours(20); // 8 PM Eastern
+                
+                await histService.FetchHistoricalDataAsync(
+                    symbol,
+                    960, // 16 hours * 60 minutes
+                    BarSize.Minutes1,
+                    HistoricalDataType.Trades,
+                    useRTH: false,
+                    endDate: endDate,
+                    cancellationToken: cancellationToken);
+
+                var bars = histService.Store.GetBars(symbol).ToList();
+                var dayBars = bars.Where(b => b.Time.Date == date).ToList();
+                
+                foreach (var bar in dayBars)
+                {
+                    newBars.Add(bar);
+                }
+                
+                var done = Interlocked.Increment(ref completedDays);
+                Log($"[{symbol}] Incremental {done}/{missingDates.Count}: {date:yyyy-MM-dd} - {dayBars.Count} bars");
+            }
+            finally
+            {
+                semaphore.Release();
+            }
+        }).ToList();
+
+        await Task.WhenAll(tasks);
+
+        // Merge existing and new bars
+        var allBars = existingBars
+            .Concat(newBars)
+            .OrderBy(b => b.Time)
+            .ToList();
+        
+        // Remove duplicates (same timestamp)
+        allBars = allBars
+            .GroupBy(b => b.Time)
+            .Select(g => g.First())
+            .OrderBy(b => b.Time)
+            .ToList();
+
+        Log($"[{symbol}] Total after merge: {allBars.Count} bars covering {allBars.Select(b => b.Time.Date).Distinct().Count()} trading days");
+
+        // Save merged data
+        if (newBars.Count > 0)
+        {
+            SaveToCache(symbol, allBars);
+        }
+
+        return allBars;
     }
 
     /// <summary>
@@ -309,9 +491,9 @@ public sealed class HistoricalDataCache
     /// </summary>
     public void ClearAllCache()
     {
-        if (Directory.Exists(HistoryDir))
+        if (Directory.Exists(DataDir))
         {
-            foreach (var file in Directory.GetFiles(HistoryDir, "*.json"))
+            foreach (var file in Directory.GetFiles(DataDir, "*.history.json"))
             {
                 File.Delete(file);
             }
@@ -326,12 +508,14 @@ public sealed class HistoricalDataCache
     {
         var results = new List<CachedDataInfo>();
 
-        if (!Directory.Exists(HistoryDir))
+        if (!Directory.Exists(DataDir))
             return results;
 
-        foreach (var file in Directory.GetFiles(HistoryDir, "*.json"))
+        foreach (var file in Directory.GetFiles(DataDir, "*.history.json"))
         {
-            var symbol = Path.GetFileNameWithoutExtension(file);
+            // Extract symbol from SYMBOL.history.json
+            var fileName = Path.GetFileNameWithoutExtension(file); // SYMBOL.history
+            var symbol = fileName.Replace(".history", "");
             var info = GetCacheInfo(symbol);
             if (info != null)
             {

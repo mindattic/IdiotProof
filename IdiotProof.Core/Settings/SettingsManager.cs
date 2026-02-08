@@ -118,13 +118,12 @@ public static class SettingsManager
     }
 
     /// <summary>
-    /// Gets the shared history folder path for cached historical data.
-    /// History is stored in: {SolutionRoot}\IdiotProof.Core\History\
-    /// Cached bar data to avoid repeated API calls for backtesting.
+    /// Gets the shared data folder path for cached historical data, profiles, etc.
+    /// Data is stored in: {SolutionRoot}\IdiotProof.Core\Data\
     /// </summary>
-    public static string GetHistoryFolder()
+    public static string GetDataFolder()
     {
-        return Path.Combine(GetBaseFolder(), _.Folder.Core, _.Folder.History);
+        return Path.Combine(GetBaseFolder(), _.Folder.Core, _.Folder.Data);
     }
 
     /// <summary>

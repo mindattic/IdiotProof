@@ -253,7 +253,7 @@ namespace IdiotProof.Backend
             }
             
             // Check which tickers have learned profiles
-            var profileFolder = SettingsManager.GetHistoryFolder();
+            var profileFolder = SettingsManager.GetDataFolder();
             var tickersWithProfiles = tickers
                 .Where(t => File.Exists(Path.Combine(profileFolder, $"{t}.profile.json")))
                 .ToList();
@@ -611,7 +611,7 @@ namespace IdiotProof.Backend
             Log($"  Tickers: {tickerCount} | Profiles: {profileCount} | {(_isActive ? "TRADING" : "Idle")}");
             Log("========================================");
             Log("  1. Tickers   - Manage ticker watchlist");
-            Log("  2. Learn     - Backtest all tickers (30 days x 10 iter)");
+            Log("  2. Learn     - Train until 50% win rate (max 1000 iter)");
             Log("  3. Live      - Start live trading");
             Log("  0. Exit");
             Log("========================================");
@@ -622,7 +622,7 @@ namespace IdiotProof.Backend
         // ====================================================================
         
         private static string GetTickersPath() => 
-            Path.Combine(SettingsManager.GetHistoryFolder(), "tickers.json");
+            Path.Combine(SettingsManager.GetDataFolder(), "tickers.json");
         
         private static List<string> LoadTickers()
         {
@@ -651,7 +651,7 @@ namespace IdiotProof.Backend
         
         private static int CountProfiles(List<string> tickers)
         {
-            var profileFolder = SettingsManager.GetHistoryFolder();
+            var profileFolder = SettingsManager.GetDataFolder();
             return tickers.Count(t => File.Exists(Path.Combine(profileFolder, $"{t}.profile.json")));
         }
         
@@ -672,7 +672,7 @@ namespace IdiotProof.Backend
                 }
                 else
                 {
-                    var profileFolder = SettingsManager.GetHistoryFolder();
+                    var profileFolder = SettingsManager.GetDataFolder();
                     for (int i = 0; i < tickers.Count; i++)
                     {
                         var t = tickers[i];
@@ -785,7 +785,8 @@ namespace IdiotProof.Backend
             Log("");
             Log("========================================");
             Log($"  LEARNING {tickers.Count} TICKER(S)");
-            Log("  30 days of data, 10 iterations each");
+            Log("  30 days of data (incremental), up to 1000 iterations");
+            Log("  Target: 50% win rate");
             Log("========================================");
             Log("");
             
@@ -803,12 +804,13 @@ namespace IdiotProof.Backend
                     
                     var result = learner.LearnAsync(
                         symbol,
-                        iterations: 10,
+                        iterations: 1000,
                         daysPerIteration: 30,
+                        targetWinRate: 50.0,
                         progress,
                         _shutdownCts.Token).GetAwaiter().GetResult();
                     
-                    Log($"  [OK] {symbol}: Win Rate {result.FinalWinRate:F1}%, Fitness {result.BacktestData?.BestFitnessScore:F2}");
+                    Log($"  [OK] {symbol}: Win Rate {result.FinalWinRate:F1}%, Fitness {result.BacktestData?.BestFitnessScore:F2}, Iterations: {result.TotalIterations}");
                     completed++;
                 }
                 catch (OperationCanceledException)
@@ -827,7 +829,7 @@ namespace IdiotProof.Backend
             
             Log("========================================");
             Log($"  LEARNING COMPLETE: {completed} OK, {failed} failed");
-            Log($"  Profiles saved to: {SettingsManager.GetHistoryFolder()}");
+            Log($"  Profiles saved to: {SettingsManager.GetDataFolder()}");
             Log("========================================");
         }
 
@@ -965,7 +967,7 @@ namespace IdiotProof.Backend
 
             Log("");
             Log("=== Learn Ticker ===");
-            Log("Fetches 30 days of data (if needed), runs learning iterations,");
+            Log("Fetches 30 days of data incrementally, runs learning iterations,");
             Log("and saves a custom-tuned profile for live trading.");
             Log("");
 
@@ -1020,6 +1022,7 @@ namespace IdiotProof.Backend
                         symbol,
                         iterations,
                         30, // days per iteration
+                        0,  // no target win rate - run all iterations
                         progress,
                         _shutdownCts.Token).GetAwaiter().GetResult();
 
@@ -1060,7 +1063,7 @@ namespace IdiotProof.Backend
 
             Log("========================================");
             Log("  LEARNING BATCH COMPLETE");
-            Log($"  Profiles saved to: {SettingsManager.GetHistoryFolder()}");
+            Log($"  Profiles saved to: {SettingsManager.GetDataFolder()}");
             Log("========================================");
             Log("");
         }
@@ -1316,7 +1319,7 @@ namespace IdiotProof.Backend
             }
 
             // Check for cached data
-            var dataFolder = SettingsManager.GetHistoryFolder();
+            var dataFolder = SettingsManager.GetDataFolder();
             var cacheFile = Path.Combine(dataFolder, $"{symbolInput}.history.json");
             if (!File.Exists(cacheFile))
             {
@@ -1349,6 +1352,7 @@ namespace IdiotProof.Backend
                     symbolInput,
                     iterations,
                     30, // days per iteration
+                    0,  // no target win rate - run all iterations
                     progress,
                     _shutdownCts.Token).GetAwaiter().GetResult();
 

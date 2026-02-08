@@ -179,6 +179,7 @@ public sealed class BacktestingData
     // Best parameters discovered
     public TunableParameters BestParameters { get; set; } = new();
     public double BestFitnessScore { get; set; }
+    public double BestWinRate { get; set; }
     public int BestIteration { get; set; }
     
     // Historical iterations (keep last 100)
@@ -204,6 +205,7 @@ public sealed class BacktestingData
         if (result.FitnessScore > BestFitnessScore)
         {
             BestFitnessScore = result.FitnessScore;
+            BestWinRate = result.WinRate;
             BestParameters = result.Parameters;
             BestIteration = result.Iteration;
         }
@@ -260,7 +262,7 @@ public sealed class LearningResult
 /// 
 /// WORKFLOW:
 /// 1. Tickers - User adds symbols to watchlist
-/// 2. Learn   - Downloads 30 days of data + runs iterations → saves profile
+/// 2. Learn   - Downloads 30 days of data (incrementally) + runs iterations → saves profile
 /// 3. Live    - Uses learned profiles to trade for real money
 /// </summary>
 public sealed class LearningBacktester
@@ -291,7 +293,7 @@ public sealed class LearningBacktester
     /// If null, data must already be cached.</param>
     public LearningBacktester(HistoricalDataService? histService)
     {
-        _dataFolder = SettingsManager.GetHistoryFolder();
+        _dataFolder = SettingsManager.GetDataFolder();
         Directory.CreateDirectory(_dataFolder);
         _dataCache = new HistoricalDataCache();
         _histService = histService;
@@ -299,47 +301,53 @@ public sealed class LearningBacktester
     
     /// <summary>
     /// Runs the full learning process for a ticker using REAL historical data.
-    /// Automatically fetches 30 days of data if not already cached.
+    /// Fetches missing days incrementally - cache grows beyond 30 days over time.
+    /// Stops early when targetWinRate is reached.
     /// </summary>
     /// <param name="symbol">Ticker symbol to learn.</param>
-    /// <param name="iterations">Number of iterations (default 100).</param>
+    /// <param name="iterations">Maximum iterations (default 100).</param>
     /// <param name="daysPerIteration">Days to simulate per iteration.</param>
+    /// <param name="targetWinRate">Stop early when best win rate reaches this % (default: 0 = no target).</param>
     /// <param name="progress">Progress reporter.</param>
     /// <param name="ct">Cancellation token.</param>
     public async Task<LearningResult> LearnAsync(
         string symbol,
         int iterations = 100,
         int daysPerIteration = 30,
+        double targetWinRate = 0,
         IProgress<string>? progress = null,
         CancellationToken ct = default)
     {
         var sw = Stopwatch.StartNew();
         
         // ====================================================================
-        // STEP 1: Get historical data (fetch if needed)
+        // STEP 1: Get historical data (fetch missing days incrementally)
         // ====================================================================
         progress?.Report($"[LEARN] Starting learning process for {symbol}...");
         
-        if (!_dataCache.HasCachedData(symbol))
+        if (_histService != null)
         {
-            if (_histService != null)
-            {
-                // Auto-fetch 30 days of data
-                progress?.Report($"[FETCH] Downloading 30 days of historical data for {symbol}...");
-                _cachedBars = await _dataCache.GetOrFetchAsync(symbol, _histService, cancellationToken: ct);
-                progress?.Report($"[FETCH] Downloaded {_cachedBars.Count} bars for {symbol}");
-            }
-            else
-            {
-                progress?.Report($"ERROR: No historical data found for {symbol} and no data service available.");
-                progress?.Report($"Either provide a HistoricalDataService or run 'backtest {symbol}' first.");
-                throw new InvalidOperationException($"No historical data for {symbol}. Run 'backtest {symbol}' first.");
-            }
+            // Fetch incrementally - gets cached data and fills in missing days
+            // Over time, this builds up more than 30 days of history
+            progress?.Report($"[FETCH] Checking for missing historical data for {symbol}...");
+            _cachedBars = await _dataCache.GetOrFetchIncrementalAsync(
+                symbol, 
+                _histService, 
+                daysBack: 30,      // Check last 30 days
+                maxDaysToFetch: 5, // Fetch up to 5 missing days per learning run
+                cancellationToken: ct);
+            progress?.Report($"[FETCH] Have {_cachedBars.Count} bars for {symbol}");
         }
-        else
+        else if (_dataCache.HasCachedData(symbol))
         {
             _cachedBars = _dataCache.LoadFromCache(symbol);
             progress?.Report($"[CACHE] Loaded cached data for {symbol}");
+        }
+        else
+        {
+            progress?.Report($"ERROR: No historical data found for {symbol} and no data service available.");
+            progress?.Report($"Either provide a HistoricalDataService or run 'backtest {symbol}' first.");
+            throw new InvalidOperationException($"No historical data for {symbol}. Run 'backtest {symbol}' first.");
         }
         
         _cachedSymbol = symbol;
@@ -371,14 +379,16 @@ public sealed class LearningBacktester
         double initialWinRate = 0;
         double lastWinRate = 0;
         
-        progress?.Report($"[LEARN] Starting {iterations}-iteration learning...");
+        progress?.Report($"[LEARN] Starting up to {iterations} iterations (target: {(targetWinRate > 0 ? $"{targetWinRate}% win rate" : "none")})...");
         if (data.TotalIterationsRun > 0)
         {
             progress?.Report($"[LEARN] Resuming from iteration {data.TotalIterationsRun} (best fitness: {data.BestFitnessScore:F2})");
         }
         
+        int actualIterations = 0;
         for (int i = 1; i <= iterations; i++)
         {
+            actualIterations = i;
             ct.ThrowIfCancellationRequested();
             
             var iterSw = Stopwatch.StartNew();
@@ -424,6 +434,13 @@ public sealed class LearningBacktester
                 SaveProfile(profile);
                 progress?.Report($"[Checkpoint] Saved data after iteration {i}");
             }
+            
+            // Check if target win rate reached
+            if (targetWinRate > 0 && data.BestWinRate >= targetWinRate)
+            {
+                progress?.Report($"[TARGET REACHED] {data.BestWinRate:F1}% win rate >= {targetWinRate}% target after {i} iterations");
+                break;
+            }
         }
         
         // Final save
@@ -432,19 +449,19 @@ public sealed class LearningBacktester
         SaveProfile(profile);
         
         sw.Stop();
-        progress?.Report($"\n[COMPLETE] {iterations} iterations in {sw.Elapsed:hh\\:mm\\:ss}");
-        progress?.Report($"Best fitness: {data.BestFitnessScore:F2} from iteration {data.BestIteration}");
+        progress?.Report($"\n[COMPLETE] {actualIterations} iterations in {sw.Elapsed:hh\\:mm\\:ss}");
+        progress?.Report($"Best fitness: {data.BestFitnessScore:F2}, Best win rate: {data.BestWinRate:F1}% from iteration {data.BestIteration}");
         
         return new LearningResult
         {
             Symbol = symbol,
-            TotalIterations = iterations,
+            TotalIterations = actualIterations,
             TotalDuration = sw.Elapsed,
             FinalProfile = profile,
             BacktestData = data,
             Iterations = data.Iterations,
             InitialWinRate = initialWinRate,
-            FinalWinRate = lastWinRate,
+            FinalWinRate = data.BestWinRate,
             InitialThreshold = initialThreshold,
             FinalThreshold = data.BestParameters.LongEntryThreshold
         };
