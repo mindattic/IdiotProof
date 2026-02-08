@@ -291,6 +291,31 @@ namespace IdiotProof.Core.Models
         public int BarsProcessed { get; set; }
 
         /// <summary>
+        /// Position size (number of shares).
+        /// </summary>
+        public int PositionSize { get; set; }
+
+        /// <summary>
+        /// Average entry price.
+        /// </summary>
+        public double AvgEntryPrice { get; set; }
+
+        /// <summary>
+        /// Starting capital.
+        /// </summary>
+        public decimal StartingCapital { get; set; } = 1000m;
+
+        /// <summary>
+        /// Ending capital after all trades.
+        /// </summary>
+        public decimal EndingCapital { get; set; }
+
+        /// <summary>
+        /// Return percentage.
+        /// </summary>
+        public double ReturnPercent { get; set; }
+
+        /// <summary>
         /// Whether the profile was saved to disk.
         /// </summary>
         public bool ProfileSaved { get; set; }

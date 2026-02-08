@@ -4,7 +4,6 @@
 // ================================================================
 
 using IBApi;
-using IdiotProof.Backend.Helpers;
 using IdiotProof.Backend.Logging;
 using IdiotProof.Backend.Models;
 using IdiotProof.Backend.Services;
@@ -591,6 +590,11 @@ namespace IdiotProof.Backend
                             RunAggregateBacktestPrompt();
                             break;
 
+                        case "L":
+                        case "l":
+                            RunLearningBacktestPrompt();
+                            break;
+
                         case "0":
                         case "q":
                             _shutdownCts.Cancel();
@@ -624,6 +628,7 @@ namespace IdiotProof.Backend
             Log("  8. Script Test     - Backtest IdiotScript strategy");
             Log("  9. Profiles        - View learned ticker profiles");
             Log("  A. Aggregate Test  - Multi-day stats with insights");
+            Log("  L. Learn           - Iterative learning backtest");
             Log("  0. Exit            - Shutdown and exit");
             Log("----------------------------------------");
             Log("");
@@ -791,7 +796,7 @@ namespace IdiotProof.Backend
             var days = string.IsNullOrEmpty(daysInput) ? 30 : int.TryParse(daysInput, out var d) ? d : 30;
 
             // Quantity
-            Console.Write("  Position size [100]: ");
+            Console.Write("  Total Shares [100]: ");
             var qtyInput = Console.ReadLine()?.Trim();
             var qty = string.IsNullOrEmpty(qtyInput) ? 100 : int.TryParse(qtyInput, out var q) ? q : 100;
 
@@ -828,12 +833,20 @@ namespace IdiotProof.Backend
                 Log("");
                 Log("=== Backtest Results ===");
                 Log($"Symbol:         {result.Symbol}");
+                Log($"Position:       {result.PositionSize:N0} shares @ ~${result.AvgEntryPrice:F2}");
                 Log($"Bars Processed: {result.BarsProcessed:N0}");
+                Log("");
+                Log("--- Account Summary ---");
+                Log($"Starting Value: ${result.StartingCapital:N2}");
+                Log($"Profit/Loss:    {(result.TotalPnL >= 0 ? "+" : "")}${result.TotalPnL:N2}");
+                Log($"Ending Value:   ${result.EndingCapital:N2}");
+                Log($"Return:         {(result.ReturnPercent >= 0 ? "+" : "")}{result.ReturnPercent:F2}%");
+                Log("");
+                Log("--- Trade Statistics ---");
                 Log($"Total Trades:   {result.TotalTrades}");
                 Log($"Winning Trades: {result.WinningTrades}");
                 Log($"Win Rate:       {result.WinRate:F1}%");
-                Log($"Total P&L:      ${result.TotalPnL:F2}");
-                Log($"Avg P&L:        ${result.AvgPnL:F2}");
+                Log($"Avg P&L/Trade:  ${result.AvgPnL:F2}");
                 Log($"Confidence:     {result.Confidence:F0}%");
                 Log("========================");
 
@@ -912,7 +925,7 @@ namespace IdiotProof.Backend
             // Starting capital
             Console.Write("  Starting capital [$1000]: ");
             var capitalInput = Console.ReadLine()?.Trim();
-            decimal capital = string.IsNullOrEmpty(capitalInput) ? 1000m : 
+            decimal capital = string.IsNullOrEmpty(capitalInput) ? 1000m :
                               decimal.TryParse(capitalInput, out var c) ? c : 1000m;
 
             // Mode
@@ -954,16 +967,16 @@ namespace IdiotProof.Backend
 
                 // Run multi-day backtest
                 var result = backtester.RunMultiDayAsync(
-                    symbolInput, 
-                    capital, 
-                    config, 
+                    symbolInput,
+                    capital,
+                    config,
                     progress,
                     _shutdownCts.Token).GetAwaiter().GetResult();
 
                 // Display results
                 Log("");
                 Console.WriteLine(result.ToString());
-                
+
                 // Display insights
                 Log("");
                 Console.WriteLine(result.GetInsights());
@@ -975,6 +988,114 @@ namespace IdiotProof.Backend
             catch (Exception ex)
             {
                 Log($"Backtest failed: {ex.Message}");
+            }
+        }
+
+        private static void RunLearningBacktestPrompt()
+        {
+            Log("");
+            Log("=== Iterative Learning Backtest ===");
+            Log("Runs multiple iterations, adjusts parameters, discovers ticker fingerprint.");
+            Log("Results saved to Data/SYMBOL.backtesting.json and SYMBOL.profile.json.");
+            Log("");
+
+            // Symbol
+            Console.Write("  Symbol (e.g., NVDA): ");
+            var symbolInput = Console.ReadLine()?.Trim().ToUpperInvariant();
+            if (string.IsNullOrEmpty(symbolInput))
+            {
+                Log("  Cancelled.");
+                return;
+            }
+
+            // Check for cached data
+            var dataFolder = SettingsManager.GetHistoryFolder();
+            var cacheFile = Path.Combine(dataFolder, $"{symbolInput}.history.json");
+            if (!File.Exists(cacheFile))
+            {
+                Log($"  No cached data found for {symbolInput}.");
+                Log($"  Please run Option 4 (Backtest) first to fetch historical data.");
+                return;
+            }
+
+            // Iterations
+            Console.Write("  Iterations [10]: ");
+            var iterInput = Console.ReadLine()?.Trim();
+            int iterations = string.IsNullOrEmpty(iterInput) ? 10 :
+                             int.TryParse(iterInput, out var i) ? Math.Clamp(i, 1, 1000) : 10;
+
+            Log("");
+            Log($"Starting {iterations}-iteration learning for {symbolInput}...");
+            Log("Each iteration processes 30 days, then adjusts parameters.");
+            Log("");
+
+            try
+            {
+                // Create learner with data service for auto-fetching
+                var learner = new IdiotProof.Core.Learning.LearningBacktester(_historicalDataService);
+
+                // Create progress reporter
+                var progress = new Progress<string>(msg => Log(msg));
+
+                // Run learning
+                var history = learner.LearnAsync(
+                    symbolInput,
+                    iterations,
+                    30, // days per iteration
+                    progress,
+                    _shutdownCts.Token).GetAwaiter().GetResult();
+
+                // Summary
+                Log("");
+                Log("========================================");
+                Log("  LEARNING COMPLETE");
+                Log("========================================");
+                Log($"  Total Iterations: {history.TotalIterations}");
+                Log($"  Duration:         {history.TotalDuration:hh\\:mm\\:ss}");
+                Log($"  Files Saved:");
+                Log($"    - {symbolInput}.backtesting.json");
+                Log($"    - {symbolInput}.profile.json");
+                Log("");
+
+                // Show final parameters
+                var bestParams = history.BacktestData?.BestParameters;
+                if (bestParams != null)
+                {
+                    Log("  Best Parameters Found:");
+                    Log($"    Entry Threshold:     {bestParams.LongEntryThreshold:F0}");
+                    Log($"    LOD Bounce Threshold: {bestParams.LodBounceThreshold:F0}");
+                    Log($"    Near LOD %:          {bestParams.NearLodPercent:F1}%");
+                    Log($"    Near HOD %:          {bestParams.NearHodPercent:F1}%");
+                    Log($"    RSI Exit:            {bestParams.MomentumExitRsi:F0}");
+                    Log("");
+                }
+
+                // Show win rate improvement
+                Log("  Performance:");
+                Log($"    Initial Win Rate: {history.InitialWinRate:F1}%");
+                Log($"    Final Win Rate:   {history.FinalWinRate:F1}%");
+                Log($"    Improvement:      {history.WinRateImprovement:+0.0;-0.0}%");
+                Log($"    Best Fitness:     {history.BacktestData?.BestFitnessScore:F2}");
+                Log("");
+
+                // Show profile info
+                if (history.FinalProfile != null)
+                {
+                    Log("  Profile Summary:");
+                    Log($"    Total Trades:  {history.FinalProfile.TotalTrades}");
+                    Log($"    Total P&L:     {history.FinalProfile.TotalPnL:F2}%");
+                    Log($"    Confidence:    {history.FinalProfile.Confidence:P0}");
+                }
+                Log("");
+            }
+            catch (OperationCanceledException)
+            {
+                Log("Learning cancelled.");
+            }
+            catch (Exception ex)
+            {
+                Log($"Learning failed: {ex.Message}");
+                Log($"Stack: {ex.StackTrace}");
             }
         }
 
@@ -1026,8 +1147,8 @@ namespace IdiotProof.Backend
             Log($"Loading {selectedFile}...");
             var strategies = StrategyLoader.LoadFromFile();
             var symbolWithoutExt = Path.GetFileNameWithoutExtension(selectedFile);
-            
-            var strategy = strategies.FirstOrDefault(s => 
+
+            var strategy = strategies.FirstOrDefault(s =>
                 s.Symbol.Equals(symbolWithoutExt, StringComparison.OrdinalIgnoreCase) ||
                 s.Name.Contains(symbolWithoutExt!, StringComparison.OrdinalIgnoreCase));
 
@@ -1224,7 +1345,7 @@ namespace IdiotProof.Backend
             _wrapper.RequestOpenOrdersAndWait(TimeSpan.FromSeconds(3));
 
             var tradeTracker = _tradeTrackingService;
-            var orders = _wrapper.OpenOrders.Select(kvp => 
+            var orders = _wrapper.OpenOrders.Select(kvp =>
             {
                 var tradeId = tradeTracker?.GetTradeByOrderIdAsync(kvp.Key).Result?.TradeId;
                 return new OrderInfo
@@ -1262,8 +1383,8 @@ namespace IdiotProof.Backend
                     // Market price/value will be filled if we have the price cached
                     MarketPrice = _prices.TryGetValue(kvp.Key, out var price) ? price : null,
                     MarketValue = _prices.TryGetValue(kvp.Key, out var p) ? (double)kvp.Value.Quantity * p : null,
-                    UnrealizedPnL = _prices.TryGetValue(kvp.Key, out var mktPrice) 
-                        ? ((double)kvp.Value.Quantity * mktPrice) - ((double)kvp.Value.Quantity * kvp.Value.AvgCost) 
+                    UnrealizedPnL = _prices.TryGetValue(kvp.Key, out var mktPrice)
+                        ? ((double)kvp.Value.Quantity * mktPrice) - ((double)kvp.Value.Quantity * kvp.Value.AvgCost)
                         : null
                 }).ToList();
 
@@ -1431,19 +1552,19 @@ namespace IdiotProof.Backend
                 if (wasActive && _strategies.Count > 0)
                     ActivateTrading();
 
-                return Task.FromResult(new OperationResultPayload 
-                { 
-                    Success = true, 
-                    Message = message 
+                return Task.FromResult(new OperationResultPayload
+                {
+                    Success = true,
+                    Message = message
                 });
             }
             catch (Exception ex)
             {
                 Log($"Error setting strategies: {ex.Message}");
-                return Task.FromResult(new OperationResultPayload 
-                { 
-                    Success = false, 
-                    ErrorMessage = ex.Message 
+                return Task.FromResult(new OperationResultPayload
+                {
+                    Success = false,
+                    ErrorMessage = ex.Message
                 });
             }
         }

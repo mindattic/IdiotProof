@@ -1,31 +1,14 @@
 ╔════════════════════════════════════════════════════════════════════════╗
-║  SESSION LOG: 2026-02-07_0754                                          ║
+║  SESSION LOG: 2026-02-07_2234                                          ║
 ║  Reason: Periodic Update                                               ║
-║  Timestamp: 2026-02-07 12:34:48                                     ║
-║  Runtime: 04:40:00                                                     ║
+║  Timestamp: 2026-02-07 22:34:27                                     ║
+║  Runtime: 00:00:00                                                     ║
 ╠════════════════════════════════════════════════════════════════════════╣
 ║  STRATEGY SUMMARY                                                       ║
 ╠════════════════════════════════════════════════════════════════════════╣
-║  [*] BNAI     BNAI Autonomous           Registered                     ║
-║  [*] NVDA     NVDA Autonomous           Registered                     ║
+║  No strategies registered                                               ║
 ╠════════════════════════════════════════════════════════════════════════╣
 ║  RECENT EVENTS                                                          ║
 ╠════════════════════════════════════════════════════════════════════════╣
-║  [07:54:48.112] [SESSION] Session started: 2026-02-07_0754             ║
-║  [07:54:48.115] [STARTUP] Mode: LIVE | Port: 4001                      ║
-║  [07:54:48.229] [IB_INFO] Received nextValidId: 116                    ║
-║  [07:54:48.230] [IB_INFO] Subscribed to account updates                ║
-║  [07:54:48.232] [LOADER] Found 2 IdiotScript files in D:\Projects\Id... ║
-║  [07:54:48.269] [LOADER] Loaded IdiotScript: BNAI Autonomous (BNAI)    ║
-║  [07:54:48.270] [LOADER] Loaded IdiotScript: NVDA Autonomous (NVDA)    ║
-║  [07:54:48.270] [LOADER] Loaded 2 enabled strategies from D:\Project... ║
-║  [07:54:48.270] [STRATEGY] Registered: BNAI - BNAI Autonomous (Enabl... ║
-║  [07:54:48.270] [STRATEGY] Registered: NVDA - NVDA Autonomous (Enabl... ║
-║  [07:54:48.272] [VALIDATION] WARN: [BNAI] No exit strategy configure... ║
-║  [07:54:48.272] [VALIDATION] WARN: [NVDA] No exit strategy configure... ║
-║  [10:31:49.803] [IB_ERROR] IB ERROR: id=-1 code=1100 msg=Connectivit... ║
-║  [10:31:49.851] [IB_ERROR] IB ERROR: id=-1 code=1100 msg=Connectivit... ║
-║  [10:45:00.290] [IB_ERROR] IB ERROR (Exception): System.Net.Sockets.... ║
-║     at IBApi.EReader.<Start>b__9_0() in C:\local\git-repos\tws-api-i... ║
-║  [10:45:00.290] [IB_INFO] IB connection closed.                        ║
+║  [22:34:27.326] [SESSION] Session started: 2026-02-07_2234             ║
 ╚════════════════════════════════════════════════════════════════════════╝

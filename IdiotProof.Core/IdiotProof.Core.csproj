@@ -33,6 +33,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Folder Include="Data\" />
     <Folder Include="Dependancies\" />
     <Folder Include="Logs\" />
     <Folder Include="History\" />
