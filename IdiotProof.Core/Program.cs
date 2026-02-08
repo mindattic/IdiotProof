@@ -804,9 +804,8 @@ namespace IdiotProof.Backend
                     
                     var result = learner.LearnAsync(
                         symbol,
-                        iterations: 1,  // Just 1 iteration for verbose ledger
+                        iterations: 100,  // Run 100 iterations with full ledger
                         daysPerIteration: 30,
-                        verbose: true,  // Print full transaction ledger
                         progress,
                         _shutdownCts.Token).GetAwaiter().GetResult();
                     
@@ -1018,11 +1017,11 @@ namespace IdiotProof.Backend
                     var progress = new Progress<string>(msg => Log(msg));
 
                     // Run learning (auto-fetches data if needed)
+                    // Shows every trade for every day across all iterations
                     var history = learner.LearnAsync(
                         symbol,
                         iterations,
                         30, // days per iteration
-                        verbose: true,  // Print full transaction ledger
                         progress,
                         _shutdownCts.Token).GetAwaiter().GetResult();
 
@@ -1306,7 +1305,7 @@ namespace IdiotProof.Backend
             Log("");
             Log("=== Iterative Learning Backtest ===");
             Log("Runs multiple iterations, adjusts parameters, discovers ticker fingerprint.");
-            Log("Results saved to Data/SYMBOL.backtesting.json and SYMBOL.profile.json.");
+            Log("Results saved to Data/SYMBOL.profile.json.");
             Log("");
 
             // Symbol
@@ -1329,10 +1328,10 @@ namespace IdiotProof.Backend
             }
 
             // Iterations
-            Console.Write("  Iterations [10]: ");
+            Console.Write("  Iterations [100]: ");
             var iterInput = Console.ReadLine()?.Trim();
-            int iterations = string.IsNullOrEmpty(iterInput) ? 10 :
-                             int.TryParse(iterInput, out var i) ? Math.Clamp(i, 1, 1000) : 10;
+            int iterations = string.IsNullOrEmpty(iterInput) ? 100 :
+                             int.TryParse(iterInput, out var i) ? Math.Clamp(i, 1, 1000) : 100;
 
             Log("");
             Log($"Starting {iterations}-iteration learning for {symbolInput}...");
@@ -1348,11 +1347,11 @@ namespace IdiotProof.Backend
                 var progress = new Progress<string>(msg => Log(msg));
 
                 // Run learning
+                // Shows every trade for every day across all iterations
                 var history = learner.LearnAsync(
                     symbolInput,
                     iterations,
                     30, // days per iteration
-                    verbose: true,  // Print full transaction ledger
                     progress,
                     _shutdownCts.Token).GetAwaiter().GetResult();
 
@@ -1364,7 +1363,6 @@ namespace IdiotProof.Backend
                 Log($"  Total Iterations: {history.TotalIterations}");
                 Log($"  Duration:         {history.TotalDuration:hh\\:mm\\:ss}");
                 Log($"  Files Saved:");
-                Log($"    - {symbolInput}.backtesting.json");
                 Log($"    - {symbolInput}.profile.json");
                 Log("");
 

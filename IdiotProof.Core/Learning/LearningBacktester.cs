@@ -14,7 +14,7 @@
 // - Results are saved and used to improve the next iteration
 //
 // DATA FILES:
-// - TICKER.backtesting.json: Raw backtest results for learning
+// - TICKER.history.json: Raw OHLCV bars from IBKR API
 // - TICKER.profile.json: Refined configuration for live trading
 //
 // CORE RULE: NEVER TAKE LOSSES
@@ -169,7 +169,7 @@ public sealed class IterationResult
 }
 
 /// <summary>
-/// Complete backtesting results for a ticker (saved to TICKER.backtesting.json).
+/// In-memory backtesting state tracker (not persisted to disk).
 /// </summary>
 public sealed class BacktestingData
 {
@@ -304,18 +304,17 @@ public sealed class LearningBacktester
     /// <summary>
     /// Runs the full learning process for a ticker using REAL historical data.
     /// Fetches missing days incrementally - cache grows beyond 30 days over time.
+    /// Shows every trade for every day so you can see it learning.
     /// </summary>
     /// <param name="symbol">Ticker symbol to learn.</param>
     /// <param name="iterations">Maximum iterations (default 100).</param>
     /// <param name="daysPerIteration">Days to simulate per iteration.</param>
-    /// <param name="verbose">If true, prints full transaction ledger for each day.</param>
     /// <param name="progress">Progress reporter.</param>
     /// <param name="ct">Cancellation token.</param>
     public async Task<LearningResult> LearnAsync(
         string symbol,
         int iterations = 100,
         int daysPerIteration = 30,
-        bool verbose = false,
         IProgress<string>? progress = null,
         CancellationToken ct = default)
     {
@@ -369,24 +368,23 @@ public sealed class LearningBacktester
         progress?.Report($"[DATA] Date range: {availableDates.First()} to {availableDates.Last()}");
         
         // ====================================================================
-        // STEP 2: Load existing learning data or create new
+        // STEP 2: Initialize learning state (in-memory, no persistence)
         // ====================================================================
-        var data = LoadBacktestingData(symbol);
+        var data = new BacktestingData { Symbol = symbol };
         var profile = LoadOrCreateProfile(symbol);
         
-        // Start with best known parameters or defaults
-        var currentParams = data.TotalIterationsRun > 0 ? data.BestParameters : new TunableParameters();
+        // Start with fresh parameters (each run is independent)
+        var currentParams = new TunableParameters();
         double initialThreshold = currentParams.LongEntryThreshold;
         double initialWinRate = 0;
         double lastWinRate = 0;
         
-        progress?.Report($"[LEARN] Starting up to {iterations} iterations{(verbose ? " (VERBOSE MODE - full ledger)" : "")}...");
-        if (data.TotalIterationsRun > 0)
-        {
-            progress?.Report($"[LEARN] Resuming from iteration {data.TotalIterationsRun} (best fitness: {data.BestFitnessScore:F2})");
-        }
+        progress?.Report($"[LEARN] Starting {iterations} iterations (30 days each, showing all trades)...");
         
         int actualIterations = 0;
+        double previousWinRate = 0;
+        double previousFitness = 0;
+        
         for (int i = 1; i <= iterations; i++)
         {
             actualIterations = i;
@@ -405,16 +403,13 @@ public sealed class LearningBacktester
             // Save result
             data.AddIteration(result);
             
-            // Print verbose transaction ledger if enabled
-            if (verbose)
-            {
-                PrintVerboseLedger(result, progress);
-            }
-            else
-            {
-                // Print summary
-                PrintIterationResult(result, i, iterations, progress);
-            }
+            // Always print trades with iteration header
+            PrintIterationHeader(i, iterations, currentParams, progress);
+            PrintVerboseLedger(result, progress);
+            PrintIterationSummary(i, result, previousWinRate, previousFitness, data.BestFitnessScore, progress);
+            
+            previousWinRate = result.WinRate;
+            previousFitness = result.FitnessScore;
             
             // Evolve parameters for next iteration
             // If this iteration was good, mutate slightly from it
@@ -435,18 +430,16 @@ public sealed class LearningBacktester
                 currentParams = data.BestParameters.Mutate(_rng, 0.3);
             }
             
-            // Save every 10 iterations (or every iteration in verbose mode)
-            if (verbose || i % 10 == 0)
+            // Save profile every 10 iterations
+            if (i % 10 == 0)
             {
-                SaveBacktestingData(data);
                 UpdateProfile(profile, data);
                 SaveProfile(profile);
-                if (!verbose) progress?.Report($"[Checkpoint] Saved data after iteration {i}");
+                progress?.Report($"[SAVED] {symbol}.profile.json updated after iteration {i}");
             }
         }
         
-        // Final save
-        SaveBacktestingData(data);
+        // Final save (profile only)
         UpdateProfile(profile, data);
         SaveProfile(profile);
         
@@ -619,7 +612,7 @@ public sealed class LearningBacktester
             InitialShortThreshold = -(int)p.LongEntryThreshold,
             AllowShort = true,
             AllowDirectionFlip = true,
-            UseTickerMetadata = true,
+            UseTickerMetadata = false, // Disable during learning to avoid spam
             AvoidFirstMinutesRTH = p.SkipOpeningMinutes,
             AvoidLastMinutesRTH = 10,
             MinVolumeRatio = 1.0 + (p.VolumeWeight - 1.0) * 0.2, // Scale volume requirement
@@ -647,6 +640,54 @@ public sealed class LearningBacktester
 +===========================================================================+";
         
         progress?.Report(summary);
+    }
+    
+    /// <summary>
+    /// Prints iteration header with current parameters being tested.
+    /// </summary>
+    private static void PrintIterationHeader(int current, int total, TunableParameters p, IProgress<string>? progress)
+    {
+        progress?.Report($@"
+################################################################################
+##  ITERATION {current,3} / {total}                                              
+##  Entry Threshold: {p.LongEntryThreshold:F0}  |  RSI Exit: {p.MomentumExitRsi:F0}  |  Min Profit: {p.MinProfitToTake:F2}%
+################################################################################");
+    }
+    
+    /// <summary>
+    /// Prints iteration summary with comparison to previous iteration.
+    /// </summary>
+    private static void PrintIterationSummary(
+        int iteration, 
+        IterationResult r, 
+        double prevWinRate, 
+        double prevFitness,
+        double bestFitness,
+        IProgress<string>? progress)
+    {
+        var sb = new System.Text.StringBuilder();
+        sb.AppendLine();
+        sb.AppendLine("--------------------------------------------------------------------------------");
+        sb.AppendLine($"ITERATION {iteration} COMPLETE");
+        sb.AppendLine($"  Win Rate: {r.WinRate:F1}%  |  Fitness: {r.FitnessScore:F2}  |  Trades: {r.TotalTrades}");
+        
+        if (iteration > 1)
+        {
+            double winRateDiff = r.WinRate - prevWinRate;
+            double fitnessDiff = r.FitnessScore - prevFitness;
+            string winTrend = winRateDiff >= 0 ? $"+{winRateDiff:F1}%" : $"{winRateDiff:F1}%";
+            string fitTrend = fitnessDiff >= 0 ? $"+{fitnessDiff:F2}" : $"{fitnessDiff:F2}";
+            string emoji = fitnessDiff >= 0 ? "[BETTER]" : "[WORSE]";
+            sb.AppendLine($"  vs Previous: Win Rate {winTrend}, Fitness {fitTrend} {emoji}");
+        }
+        
+        if (r.FitnessScore >= bestFitness)
+        {
+            sb.AppendLine($"  *** NEW BEST! Fitness {r.FitnessScore:F2} ***");
+        }
+        
+        sb.AppendLine("--------------------------------------------------------------------------------");
+        progress?.Report(sb.ToString());
     }
     
     /// <summary>
@@ -708,37 +749,11 @@ public sealed class LearningBacktester
     }
     
     // ========================================================================
-    // Persistence
+    // Persistence (profile only - no backtesting.json)
     // ========================================================================
-    
-    private string GetBacktestingPath(string symbol) => 
-        Path.Combine(_dataFolder, $"{symbol}.backtesting.json");
     
     private string GetProfilePath(string symbol) => 
         Path.Combine(_dataFolder, $"{symbol}.profile.json");
-    
-    private BacktestingData LoadBacktestingData(string symbol)
-    {
-        var path = GetBacktestingPath(symbol);
-        if (File.Exists(path))
-        {
-            var json = File.ReadAllText(path);
-            var data = JsonSerializer.Deserialize<BacktestingData>(json, JsonOptions);
-            if (data != null)
-            {
-                data.Symbol = symbol;
-                return data;
-            }
-        }
-        return new BacktestingData { Symbol = symbol };
-    }
-    
-    private void SaveBacktestingData(BacktestingData data)
-    {
-        var path = GetBacktestingPath(data.Symbol);
-        var json = JsonSerializer.Serialize(data, JsonOptions);
-        File.WriteAllText(path, json);
-    }
     
     private TickerProfile LoadOrCreateProfile(string symbol)
     {
