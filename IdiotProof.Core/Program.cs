@@ -567,6 +567,10 @@ namespace IdiotProof.Backend
                             break;
 
                         case "3":
+                            RunAiLearn();
+                            break;
+
+                        case "4":
                             if (!_isActive)
                             {
                                 ActivateTrading();
@@ -605,16 +609,32 @@ namespace IdiotProof.Backend
             var tickers = LoadTickers();
             var tickerCount = tickers.Count;
             var profileCount = CountProfiles(tickers);
+            var weightsCount = CountWeights(tickers);
             
             Log("");
             Log("========================================");
-            Log($"  Tickers: {tickerCount} | Profiles: {profileCount} | {(_isActive ? "TRADING" : "Idle")}");
+            Log($"  Tickers: {tickerCount} | Profiles: {profileCount} | Weights: {weightsCount} | {(_isActive ? "TRADING" : "Idle")}");
             Log("========================================");
             Log("  1. Tickers   - Manage ticker watchlist");
-            Log("  2. Learn     - Backtest with full transaction ledger");
-            Log("  3. Live      - Start live trading");
+            Log("  2. Learn     - Old learning (7 parameters)");
+            Log("  3. AI Learn  - NEW: 150+ weights, 3 methods compared");
+            Log("  4. Live      - Start live trading");
             Log("  0. Exit");
             Log("========================================");
+        }
+        
+        private static int CountWeights(List<string> tickers)
+        {
+            var folder = SettingsManager.GetDataFolder();
+            return tickers.Count(t => File.Exists(Path.Combine(folder, $"{t}.weights.json")));
+        }
+        
+        private static int CountLearnableWeights()
+        {
+            // LearnedWeights has: 16 indicator base + 16 trending mults + 16 ranging mults 
+            // + 16 time weights + 256 interaction matrix + 8 entry biases + 8 exit sensitivity + 16 patterns
+            // = 352 total weights
+            return 16 + 16 + 16 + 16 + 256 + 8 + 8 + 16;
         }
 
         // ====================================================================
@@ -829,6 +849,74 @@ namespace IdiotProof.Backend
             Log("========================================");
             Log($"  LEARNING COMPLETE: {completed} OK, {failed} failed");
             Log($"  Profiles saved to: {SettingsManager.GetDataFolder()}");
+            Log("========================================");
+        }
+
+        private static void RunAiLearn()
+        {
+            if (!_isConnected || _historicalDataService == null)
+            {
+                Log("ERROR: Not connected to IBKR. AI Learning requires connection to fetch data.");
+                return;
+            }
+            
+            var tickers = LoadTickers();
+            if (tickers.Count == 0)
+            {
+                Log("No tickers to learn. Press 1 to add tickers first.");
+                return;
+            }
+            
+            Log("");
+            Log("========================================");
+            Log($"  AI LEARNING: {tickers.Count} TICKER(S)");
+            Log($"  {CountLearnableWeights()} learnable weights");
+            Log("  3 methods: Genetic, Neural, Gradient");
+            Log("  Train/Validation split: 70%/30%");
+            Log("========================================");
+            Log("");
+            
+            int completed = 0;
+            int failed = 0;
+            
+            foreach (var symbol in tickers)
+            {
+                Log($"[{completed + failed + 1}/{tickers.Count}] AI Learning {symbol}...");
+                
+                try
+                {
+                    var learner = new IdiotProof.Core.Learning.MultiMethodLearner(_historicalDataService);
+                    var progress = new Progress<string>(msg => Log($"  {msg}"));
+                    
+                    var result = learner.LearnAndCompareAsync(
+                        symbol,
+                        generationsPerMethod: 50,
+                        progress,
+                        _shutdownCts.Token).GetAwaiter().GetResult();
+                    
+                    // MultiMethodLearner already prints detailed comparison via progress
+                    Log($"  --> Best method: {result.BestMethod}");
+                    Log($"  --> Saved to: {symbol}.weights.json");
+                    
+                    completed++;
+                }
+                catch (OperationCanceledException)
+                {
+                    Log($"  [--] Cancelled.");
+                    break;
+                }
+                catch (Exception ex)
+                {
+                    Log($"  [ERR] {symbol}: {ex.Message}");
+                    failed++;
+                }
+                
+                Log("");
+            }
+            
+            Log("========================================");
+            Log($"  AI LEARNING COMPLETE: {completed} OK, {failed} failed");
+            Log($"  Weight files saved to: {SettingsManager.GetDataFolder()}");
             Log("========================================");
         }
 
