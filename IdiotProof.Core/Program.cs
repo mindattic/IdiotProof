@@ -611,7 +611,7 @@ namespace IdiotProof.Backend
             Log($"  Tickers: {tickerCount} | Profiles: {profileCount} | {(_isActive ? "TRADING" : "Idle")}");
             Log("========================================");
             Log("  1. Tickers   - Manage ticker watchlist");
-            Log("  2. Learn     - Train until 50% win rate (max 1000 iter)");
+            Log("  2. Learn     - Backtest with full transaction ledger");
             Log("  3. Live      - Start live trading");
             Log("  0. Exit");
             Log("========================================");
@@ -785,8 +785,8 @@ namespace IdiotProof.Backend
             Log("");
             Log("========================================");
             Log($"  LEARNING {tickers.Count} TICKER(S)");
-            Log("  30 days of data (incremental), up to 1000 iterations");
-            Log("  Target: 50% win rate");
+            Log("  30 days of data (incremental)");
+            Log("  VERBOSE MODE: Full transaction ledger");
             Log("========================================");
             Log("");
             
@@ -804,9 +804,9 @@ namespace IdiotProof.Backend
                     
                     var result = learner.LearnAsync(
                         symbol,
-                        iterations: 1000,
+                        iterations: 1,  // Just 1 iteration for verbose ledger
                         daysPerIteration: 30,
-                        targetWinRate: 50.0,
+                        verbose: true,  // Print full transaction ledger
                         progress,
                         _shutdownCts.Token).GetAwaiter().GetResult();
                     
@@ -1022,7 +1022,7 @@ namespace IdiotProof.Backend
                         symbol,
                         iterations,
                         30, // days per iteration
-                        0,  // no target win rate - run all iterations
+                        verbose: true,  // Print full transaction ledger
                         progress,
                         _shutdownCts.Token).GetAwaiter().GetResult();
 
@@ -1352,7 +1352,7 @@ namespace IdiotProof.Backend
                     symbolInput,
                     iterations,
                     30, // days per iteration
-                    0,  // no target win rate - run all iterations
+                    verbose: true,  // Print full transaction ledger
                     progress,
                     _shutdownCts.Token).GetAwaiter().GetResult();
 

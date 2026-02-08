@@ -126,6 +126,8 @@ public sealed class DayResult
     public double DayLow { get; set; }
     public double DayClose { get; set; }
     public double RangePercent { get; set; }
+    public decimal DayPnL { get; set; }
+    public List<BacktestTrade> TradeList { get; set; } = [];
 }
 
 /// <summary>
@@ -302,19 +304,18 @@ public sealed class LearningBacktester
     /// <summary>
     /// Runs the full learning process for a ticker using REAL historical data.
     /// Fetches missing days incrementally - cache grows beyond 30 days over time.
-    /// Stops early when targetWinRate is reached.
     /// </summary>
     /// <param name="symbol">Ticker symbol to learn.</param>
     /// <param name="iterations">Maximum iterations (default 100).</param>
     /// <param name="daysPerIteration">Days to simulate per iteration.</param>
-    /// <param name="targetWinRate">Stop early when best win rate reaches this % (default: 0 = no target).</param>
+    /// <param name="verbose">If true, prints full transaction ledger for each day.</param>
     /// <param name="progress">Progress reporter.</param>
     /// <param name="ct">Cancellation token.</param>
     public async Task<LearningResult> LearnAsync(
         string symbol,
         int iterations = 100,
         int daysPerIteration = 30,
-        double targetWinRate = 0,
+        bool verbose = false,
         IProgress<string>? progress = null,
         CancellationToken ct = default)
     {
@@ -379,7 +380,7 @@ public sealed class LearningBacktester
         double initialWinRate = 0;
         double lastWinRate = 0;
         
-        progress?.Report($"[LEARN] Starting up to {iterations} iterations (target: {(targetWinRate > 0 ? $"{targetWinRate}% win rate" : "none")})...");
+        progress?.Report($"[LEARN] Starting up to {iterations} iterations{(verbose ? " (VERBOSE MODE - full ledger)" : "")}...");
         if (data.TotalIterationsRun > 0)
         {
             progress?.Report($"[LEARN] Resuming from iteration {data.TotalIterationsRun} (best fitness: {data.BestFitnessScore:F2})");
@@ -404,8 +405,16 @@ public sealed class LearningBacktester
             // Save result
             data.AddIteration(result);
             
-            // Print results
-            PrintIterationResult(result, i, iterations, progress);
+            // Print verbose transaction ledger if enabled
+            if (verbose)
+            {
+                PrintVerboseLedger(result, progress);
+            }
+            else
+            {
+                // Print summary
+                PrintIterationResult(result, i, iterations, progress);
+            }
             
             // Evolve parameters for next iteration
             // If this iteration was good, mutate slightly from it
@@ -426,20 +435,13 @@ public sealed class LearningBacktester
                 currentParams = data.BestParameters.Mutate(_rng, 0.3);
             }
             
-            // Save every 10 iterations
-            if (i % 10 == 0)
+            // Save every 10 iterations (or every iteration in verbose mode)
+            if (verbose || i % 10 == 0)
             {
                 SaveBacktestingData(data);
                 UpdateProfile(profile, data);
                 SaveProfile(profile);
-                progress?.Report($"[Checkpoint] Saved data after iteration {i}");
-            }
-            
-            // Check if target win rate reached
-            if (targetWinRate > 0 && data.BestWinRate >= targetWinRate)
-            {
-                progress?.Report($"[TARGET REACHED] {data.BestWinRate:F1}% win rate >= {targetWinRate}% target after {i} iterations");
-                break;
+                if (!verbose) progress?.Report($"[Checkpoint] Saved data after iteration {i}");
             }
         }
         
@@ -542,6 +544,9 @@ public sealed class LearningBacktester
             // Run actual backtest simulation
             var result = backtester.RunWithCandles(symbol, date, candles, config);
             
+            // Calculate day's total P&L from all trades
+            decimal dayPnL = result.Trades.Sum(t => t.NetPnL);
+            
             // Extract results
             var day = new DayResult
             {
@@ -552,7 +557,9 @@ public sealed class LearningBacktester
                 DayHigh = result.DayHigh,
                 DayLow = result.DayLow,
                 DayClose = result.DayClose,
-                RangePercent = result.DayOpen > 0 ? (result.DayHigh - result.DayLow) / result.DayOpen * 100 : 0
+                RangePercent = result.DayOpen > 0 ? (result.DayHigh - result.DayLow) / result.DayOpen * 100 : 0,
+                DayPnL = dayPnL,
+                TradeList = result.Trades.ToList()
             };
             
             dayResults.Add(day);
@@ -640,6 +647,64 @@ public sealed class LearningBacktester
 +===========================================================================+";
         
         progress?.Report(summary);
+    }
+    
+    /// <summary>
+    /// Prints a detailed transaction ledger for verbose mode.
+    /// Shows every BUY/SELL/SHORT/COVER with timestamps and P&L.
+    /// </summary>
+    private static void PrintVerboseLedger(IterationResult r, IProgress<string>? progress)
+    {
+        var sb = new System.Text.StringBuilder();
+        sb.AppendLine();
+        
+        decimal totalPnL = 0;
+        int dayNum = 0;
+        
+        foreach (var day in r.DayResults.OrderBy(d => d.Date))
+        {
+            dayNum++;
+            sb.AppendLine($"Day {dayNum} Start ({day.Date:yyyy-MM-dd})");
+            
+            if (day.TradeList.Count == 0)
+            {
+                sb.AppendLine("  No trades");
+            }
+            else
+            {
+                foreach (var trade in day.TradeList.OrderBy(t => t.EntryTime))
+                {
+                    // Entry line
+                    string buyAction = trade.IsLong ? "Buy" : "Short";
+                    sb.AppendLine($"[{trade.EntryTime:HH:mm:ss}] {buyAction} 100 @ ${trade.EntryPrice:F2}");
+                    
+                    // Exit line with P&L percentage
+                    string sellAction = trade.IsLong ? "Sell" : "Cover";
+                    double pctChange = trade.EntryPrice > 0 
+                        ? (trade.ExitPrice - trade.EntryPrice) / trade.EntryPrice * 100 
+                        : 0;
+                    if (!trade.IsLong) pctChange = -pctChange; // Invert for shorts
+                    string pctSign = pctChange >= 0 ? "+" : "";
+                    sb.AppendLine($"[{trade.ExitTime:HH:mm:ss}] {sellAction} 100 @ ${trade.ExitPrice:F2} ({pctSign}{pctChange:F2}%)");
+                    
+                    totalPnL += trade.NetPnL;
+                }
+            }
+            
+            // Daily summary
+            string dayPnlSign = day.DayPnL >= 0 ? "+" : "";
+            sb.AppendLine($"Day {dayNum} End: {dayPnlSign}${day.DayPnL:F2}");
+            sb.AppendLine();
+        }
+        
+        // Overall summary
+        sb.AppendLine("========================================");
+        sb.AppendLine($"TOTAL: {r.TotalTrades} trades | {r.WinningTrades} wins ({r.WinRate:F1}%)");
+        string totalSign = totalPnL >= 0 ? "+" : "";
+        sb.AppendLine($"TOTAL P&L: {totalSign}${totalPnL:F2}");
+        sb.AppendLine("========================================");
+        
+        progress?.Report(sb.ToString());
     }
     
     // ========================================================================
