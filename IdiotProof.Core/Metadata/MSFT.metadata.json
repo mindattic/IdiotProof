@@ -1,12 +1,12 @@
 {
   "Symbol": "MSFT",
   "CreatedAt": "2026-02-07T06:30:03.7945889Z",
-  "UpdatedAt": "2026-02-08T05:18:14.5053996Z",
+  "UpdatedAt": "2026-02-08T07:15:00.2365205Z",
   "DaysAnalyzed": 1,
   "BarsAnalyzed": 390,
   "Beta": null,
   "Atr14Day": null,
-  "AvgVolume": 15321606,
+  "AvgVolume": 15982101,
   "FloatShares": null,
   "ShortInterestPercent": null,
   "DaysToCover": null,
@@ -15,21 +15,21 @@
   "MarketCap": null,
   "EarningsDate": null,
   "ExDividendDate": null,
-  "High52Week": 403.92,
-  "Low52Week": 387.46,
+  "High52Week": 413.74,
+  "Low52Week": 397.75,
   "CorrelationSpy": null,
   "SectorEtf": null,
   "CorrelationSector": null,
   "DailyExtremes": {
-    "AvgHodMinutesFromOpen": 17,
-    "AvgLodMinutesFromOpen": 377,
-    "HodInFirst30MinPercent": 100,
+    "AvgHodMinutesFromOpen": 147,
+    "AvgLodMinutesFromOpen": 340,
+    "HodInFirst30MinPercent": 0,
     "LodInFirst30MinPercent": 0,
     "HodInLast30MinPercent": 0,
-    "LodInLast30MinPercent": 100,
-    "AvgHodPercentFromOpen": 0.980000000000004,
-    "AvgLodPercentFromOpen": -3.135000000000005,
-    "AvgDailyRangePercent": 4.115000000000009
+    "LodInLast30MinPercent": 0,
+    "AvgHodPercentFromOpen": 3.435000000000002,
+    "AvgLodPercentFromOpen": -0.5625,
+    "AvgDailyRangePercent": 3.9975000000000023
   },
   "GapBehavior": {
     "AvgGapUpPercent": 0,
@@ -41,68 +41,68 @@
     "AvgGapFillTimeMinutes": 0
   },
   "VwapBehavior": {
-    "AvgPercentAboveVwap": 12.307692307692308,
-    "AvgVwapCrossesPerDay": 27,
+    "AvgPercentAboveVwap": 54.1025641025641,
+    "AvgVwapCrossesPerDay": 24,
     "VwapRejectionContinuationRate": 0,
     "VwapReclaimHoldRate": 0
   },
   "SupportLevels": [
     {
-      "Price": 396.125,
-      "Touches": 10,
-      "Bounces": 56,
-      "Breaks": -46,
+      "Price": 402.9975,
+      "Touches": 8,
+      "Bounces": 37,
+      "Breaks": -29,
       "IsSupport": true
     },
     {
-      "Price": 387.9725,
-      "Touches": 4,
-      "Bounces": 15,
-      "Breaks": -11,
+      "Price": 409.65916666666675,
+      "Touches": 12,
+      "Bounces": 28,
+      "Breaks": -16,
       "IsSupport": true
     },
     {
-      "Price": 400.3554545454545,
+      "Price": 406.23636363636365,
       "Touches": 11,
-      "Bounces": 30,
-      "Breaks": -19,
+      "Bounces": 24,
+      "Breaks": -13,
       "IsSupport": true
     },
     {
-      "Price": 393.58451612903224,
-      "Touches": 31,
-      "Bounces": 52,
-      "Breaks": -21,
+      "Price": 400.42384615384617,
+      "Touches": 26,
+      "Bounces": 51,
+      "Breaks": -25,
       "IsSupport": true
     }
   ],
   "ResistanceLevels": [
     {
-      "Price": 398.56699999999995,
-      "Touches": 10,
-      "Bounces": 36,
-      "Breaks": -26,
+      "Price": 413.70666666666665,
+      "Touches": 3,
+      "Bounces": 11,
+      "Breaks": -8,
       "IsSupport": false
     },
     {
-      "Price": 389.966,
-      "Touches": 5,
-      "Bounces": 16,
-      "Breaks": -11,
+      "Price": 411.28818181818184,
+      "Touches": 11,
+      "Bounces": 35,
+      "Breaks": -24,
       "IsSupport": false
     },
     {
-      "Price": 402.6675,
-      "Touches": 12,
-      "Bounces": 30,
-      "Breaks": -18,
+      "Price": 403.0034615384615,
+      "Touches": 26,
+      "Bounces": 62,
+      "Breaks": -36,
       "IsSupport": false
     },
     {
-      "Price": 395.86931034482745,
-      "Touches": 29,
-      "Bounces": 66,
-      "Breaks": -37,
+      "Price": 407.49666666666667,
+      "Touches": 18,
+      "Bounces": 33,
+      "Breaks": -15,
       "IsSupport": false
     }
   ],

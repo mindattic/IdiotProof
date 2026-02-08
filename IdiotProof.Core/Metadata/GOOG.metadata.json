@@ -1,12 +1,12 @@
 {
   "Symbol": "GOOG",
   "CreatedAt": "2026-02-07T06:30:03.8164817Z",
-  "UpdatedAt": "2026-02-08T05:18:14.5211206Z",
+  "UpdatedAt": "2026-02-08T07:15:00.253234Z",
   "DaysAnalyzed": 1,
   "BarsAnalyzed": 390,
   "Beta": null,
   "Atr14Day": null,
-  "AvgVolume": 13664559,
+  "AvgVolume": 13512775,
   "FloatShares": null,
   "ShortInterestPercent": null,
   "DaysToCover": null,
@@ -15,21 +15,21 @@
   "MarketCap": null,
   "EarningsDate": null,
   "ExDividendDate": null,
-  "High52Week": 180.23,
-  "Low52Week": 169.79,
+  "High52Week": 180.28,
+  "Low52Week": 169.71,
   "CorrelationSpy": null,
   "SectorEtf": null,
   "CorrelationSector": null,
   "DailyExtremes": {
-    "AvgHodMinutesFromOpen": 145,
-    "AvgLodMinutesFromOpen": 92,
+    "AvgHodMinutesFromOpen": 269,
+    "AvgLodMinutesFromOpen": 91,
     "HodInFirst30MinPercent": 0,
     "LodInFirst30MinPercent": 0,
     "HodInLast30MinPercent": 0,
     "LodInLast30MinPercent": 0,
-    "AvgHodPercentFromOpen": 2.9885714285714227,
-    "AvgLodPercentFromOpen": -2.9771428571428613,
-    "AvgDailyRangePercent": 5.965714285714284
+    "AvgHodPercentFromOpen": 3.017142857142858,
+    "AvgLodPercentFromOpen": -3.0228571428571382,
+    "AvgDailyRangePercent": 6.0399999999999965
   },
   "GapBehavior": {
     "AvgGapUpPercent": 0,
@@ -41,82 +41,96 @@
     "AvgGapFillTimeMinutes": 0
   },
   "VwapBehavior": {
-    "AvgPercentAboveVwap": 49.23076923076923,
-    "AvgVwapCrossesPerDay": 8,
+    "AvgPercentAboveVwap": 47.69230769230769,
+    "AvgVwapCrossesPerDay": 12,
     "VwapRejectionContinuationRate": 0,
     "VwapReclaimHoldRate": 0
   },
   "SupportLevels": [
     {
-      "Price": 177.96266666666665,
-      "Touches": 15,
+      "Price": 178.37750000000003,
+      "Touches": 12,
       "Bounces": 37,
-      "Breaks": -22,
+      "Breaks": -25,
       "IsSupport": true
     },
     {
-      "Price": 171.9157142857143,
-      "Touches": 7,
-      "Bounces": 17,
+      "Price": 175.018,
+      "Touches": 5,
+      "Bounces": 15,
       "Breaks": -10,
       "IsSupport": true
     },
     {
-      "Price": 176.03111111111113,
-      "Touches": 9,
-      "Bounces": 21,
-      "Breaks": -12,
+      "Price": 173.10333333333335,
+      "Touches": 6,
+      "Bounces": 17,
+      "Breaks": -11,
       "IsSupport": true
     },
     {
-      "Price": 170.37187500000002,
-      "Touches": 16,
-      "Bounces": 36,
-      "Breaks": -20,
+      "Price": 176.79999999999998,
+      "Touches": 9,
+      "Bounces": 19,
+      "Breaks": -10,
+      "IsSupport": true
+    },
+    {
+      "Price": 171.70545454545453,
+      "Touches": 11,
+      "Bounces": 21,
+      "Breaks": -10,
+      "IsSupport": true
+    },
+    {
+      "Price": 170.22142857142853,
+      "Touches": 14,
+      "Bounces": 25,
+      "Breaks": -11,
       "IsSupport": true
     }
   ],
   "ResistanceLevels": [
     {
-      "Price": 174.76000000000002,
-      "Touches": 4,
-      "Bounces": 16,
-      "Breaks": -12,
+      "Price": 176.15,
+      "Touches": 2,
+      "Bounces": 18,
+      "Breaks": -16,
       "IsSupport": false
     },
     {
-      "Price": 177.2825,
-      "Touches": 4,
-      "Bounces": 16,
-      "Breaks": -12,
+      "Price": 172.594,
+      "Touches": 5,
+      "Bounces": 21,
+      "Breaks": -16,
       "IsSupport": false
     },
     {
-      "Price": 171.67461538461538,
-      "Touches": 13,
-      "Bounces": 34,
-      "Breaks": -21,
+      "Price": 177.99166666666667,
+      "Touches": 6,
+      "Bounces": 19,
+      "Breaks": -13,
       "IsSupport": false
     },
     {
-      "Price": 178.88461538461542,
-      "Touches": 13,
-      "Bounces": 27,
-      "Breaks": -14,
+      "Price": 171.496,
+      "Touches": 10,
+      "Bounces": 30,
+      "Breaks": -20,
       "IsSupport": false
     },
     {
-      "Price": 180.07230769230767,
-      "Touches": 13,
-      "Bounces": 27,
-      "Breaks": -14,
-      "IsSupport": false
-    },
-    {
-      "Price": 173.35000000000002,
-      "Touches": 8,
+      "Price": 174.50166666666667,
+      "Touches": 6,
       "Bounces": 13,
-      "Breaks": -5,
+      "Breaks": -7,
+      "IsSupport": false
+    },
+    {
+      "Price": 179.66777777777781,
+      "Touches": 18,
+      "Bounces": 38,
+      "Breaks": -20,
       "IsSupport": false
     }
   ],

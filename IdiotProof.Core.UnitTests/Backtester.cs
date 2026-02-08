@@ -44,6 +44,7 @@ using IdiotProof.Backend.Enums;
 using IdiotProof.Backend.Helpers;
 using IdiotProof.Backend.Models;
 using IdiotProof.Backend.Strategy;
+using IdiotProof.Core.Helpers;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -673,47 +674,24 @@ namespace IdiotProof.Backend.UnitTests
         {
             var order = _strategy.Order;
             bool isLong = order.Side == OrderSide.Buy;
-            double price = bar.Close;
 
-            // Update trailing stop (check high for long positions)
-            if (order.EnableTrailingStopLoss && isLong)
+            // Use the SHARED StrategyEvaluationEngine for exit condition checking
+            // This ensures backtesting behavior EXACTLY matches live trading
+            var exitResult = StrategyEvaluationEngine.CheckExitConditions(
+                currentPrice: bar.Close,
+                barHigh: bar.High,
+                barLow: bar.Low,
+                entryPrice: _entryPrice,
+                order: order,
+                isLong: isLong,
+                highWaterMark: ref _highWaterMark,
+                trailingStopPrice: ref _trailingStopPrice,
+                atrValue: 0 // ATR not available in simple backtester
+            );
+
+            if (exitResult.ShouldExit)
             {
-                if (bar.High > _highWaterMark)
-                {
-                    _highWaterMark = bar.High;
-                    double newStop = _highWaterMark * (1 - order.TrailingStopLossPercent);
-                    if (newStop > _trailingStopPrice)
-                        _trailingStopPrice = newStop;
-                }
-
-                // Check if low touched trailing stop
-                if (bar.Low <= _trailingStopPrice)
-                {
-                    ExitPosition(_trailingStopPrice, bar.Time, "TrailingStop");
-                    return;
-                }
-            }
-
-            // Check take profit
-            if (order.EnableTakeProfit)
-            {
-                double tpPrice = order.TakeProfitPrice ?? (_entryPrice + order.TakeProfitOffset);
-                if ((isLong && bar.High >= tpPrice) || (!isLong && bar.Low <= tpPrice))
-                {
-                    ExitPosition(tpPrice, bar.Time, "TakeProfit");
-                    return;
-                }
-            }
-
-            // Check stop loss
-            if (order.EnableStopLoss)
-            {
-                double slPrice = order.StopLossPrice ?? (_entryPrice - order.StopLossOffset);
-                if ((isLong && bar.Low <= slPrice) || (!isLong && bar.High >= slPrice))
-                {
-                    ExitPosition(slPrice, bar.Time, "StopLoss");
-                    return;
-                }
+                ExitPosition(exitResult.ExitPrice, bar.Time, exitResult.ExitReason);
             }
         }
 
@@ -881,77 +859,40 @@ namespace IdiotProof.Backend.UnitTests
 
         public TickerProfile GetProfile() => _profile;
 
+        /// <summary>
+        /// Calculates market score using the SHARED MarketScoreCalculator.
+        /// This ensures backtesting uses THE EXACT SAME formula as live trading.
+        /// </summary>
         private (int total, int vwap, int ema, int rsi, int macd, int adx, int vol) CalculateScore(double price, double vwap)
         {
-            int vwapScore = 0, emaScore = 0, rsiScore = 0, macdScore = 0, adxScore = 0, volumeScore = 0;
-
-            // VWAP Position (15% weight)
-            if (vwap > 0)
+            // Build indicator snapshot for the shared calculator
+            var snapshot = new IndicatorSnapshot
             {
-                double vwapDiff = (price - vwap) / vwap * 100;
-                vwapScore = (int)Math.Clamp(vwapDiff * 20, -100, 100);
-            }
+                Price = price,
+                Vwap = vwap,
+                Ema9 = _ema9.IsReady ? _ema9.CurrentValue : 0,
+                Ema21 = _ema21.IsReady ? _ema21.CurrentValue : 0,
+                Ema50 = _ema50.IsReady ? _ema50.CurrentValue : 0,
+                Rsi = _rsi.IsReady ? _rsi.CurrentValue : 50,
+                Macd = _macd.IsReady ? _macd.MacdLine : 0,
+                MacdSignal = _macd.IsReady ? _macd.SignalLine : 0,
+                MacdHistogram = _macd.IsReady ? _macd.Histogram : 0,
+                Adx = _adx.IsReady ? _adx.CurrentAdx : 0,
+                PlusDi = _adx.IsReady ? _adx.PlusDI : 0,
+                MinusDi = _adx.IsReady ? _adx.MinusDI : 0,
+                VolumeRatio = _volume.IsReady ? _volume.VolumeRatio : 1.0,
+                // Bollinger and ATR not available in simple learning simulator
+                BollingerUpper = 0,
+                BollingerLower = 0,
+                BollingerMiddle = 0,
+                Atr = 0
+            };
 
-            // EMA Stack Alignment (20% weight)
-            int bullish = 0, bearish = 0;
-            if (_ema9.IsReady && price > _ema9.CurrentValue) bullish++; else bearish++;
-            if (_ema21.IsReady && price > _ema21.CurrentValue) bullish++; else bearish++;
-            if (_ema50.IsReady && price > _ema50.CurrentValue) bullish++; else bearish++;
-            int total = bullish + bearish;
-            if (total > 0)
-            {
-                emaScore = (int)((bullish - bearish) / (double)total * 100);
-            }
+            // Use the SHARED calculator - same code as live trading
+            var result = MarketScoreCalculator.Calculate(snapshot);
 
-            // RSI (15% weight)
-            if (_rsi.IsReady)
-            {
-                double rsi = _rsi.CurrentValue;
-                if (rsi >= 70)
-                    rsiScore = (int)((70 - rsi) * 3.33);
-                else if (rsi <= 30)
-                    rsiScore = (int)((30 - rsi) * 3.33);
-                else
-                    rsiScore = (int)((rsi - 50) * 2.5);
-            }
-
-            // MACD (20% weight)
-            if (_macd.IsReady)
-            {
-                macdScore = _macd.IsBullish ? 50 : -50;
-                macdScore += (int)Math.Clamp(_macd.Histogram * 500, -50, 50);
-            }
-
-            // ADX Trend Strength (20% weight)
-            if (_adx.IsReady)
-            {
-                double adx = _adx.CurrentAdx;
-                bool diPositive = _adx.PlusDI > _adx.MinusDI;
-                int magnitude = (int)Math.Min(adx * 2, 100);
-                adxScore = diPositive ? magnitude : -magnitude;
-            }
-
-            // Volume (10% weight)
-            if (_volume.IsReady)
-            {
-                double volumeRatio = _volume.VolumeRatio;
-                if (volumeRatio > 1.0)
-                {
-                    int volumeMagnitude = (int)Math.Min((volumeRatio - 1.0) * 100, 100);
-                    volumeScore = price > vwap ? volumeMagnitude : -volumeMagnitude;
-                }
-            }
-
-            // Calculate weighted total
-            double totalScore =
-                vwapScore * 0.15 +
-                emaScore * 0.20 +
-                rsiScore * 0.15 +
-                macdScore * 0.20 +
-                adxScore * 0.20 +
-                volumeScore * 0.10;
-
-            return ((int)Math.Clamp(totalScore, -100, 100), vwapScore, emaScore, rsiScore, macdScore, adxScore, volumeScore);
+            return (result.TotalScore, result.VwapScore, result.EmaScore, result.RsiScore, 
+                    result.MacdScore, result.AdxScore, result.VolumeScore);
         }
 
         private void EnterPosition(double price, DateTime time, bool isLong, int score, int vwap, int ema, int rsi, int macd, int adx, int vol)
