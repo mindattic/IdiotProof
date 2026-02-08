@@ -1,27 +1,17 @@
-// ============================================================================
-// Strategy Condition Interface
-// ============================================================================
+// Minimal stub interface - conditions are no longer used with AutonomousTrading
+// This exists only to keep TradingStrategy compiling during transition
 
-namespace IdiotProof.Backend.Strategy
-{
+namespace IdiotProof.Strategy {
     /// <summary>
-    /// Represents a condition that must be met before proceeding to the next step.
+    /// Minimal stub interface for strategy conditions.
+    /// Not used with AutonomousTrading - the market score system handles all entry/exit decisions.
     /// </summary>
     public interface IStrategyCondition
     {
-        /// <summary>
-        /// Gets the name/description of this condition.
-        /// </summary>
+        /// <summary>Gets the condition name for display.</summary>
         string Name { get; }
 
-        /// <summary>
-        /// Evaluates whether the condition is met.
-        /// </summary>
-        /// <param name="currentPrice">The current stock price.</param>
-        /// <param name="vwap">The current VWAP value.</param>
-        /// <returns>True if the condition is satisfied.</returns>
-        bool Evaluate(double currentPrice, double vwap);
+        /// <summary>Evaluates whether this condition is met.</summary>
+        bool Evaluate(double price, double vwap);
     }
 }
-
-

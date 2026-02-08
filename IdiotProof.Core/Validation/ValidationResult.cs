@@ -2,8 +2,7 @@
 // ValidationResult - Result of a validation operation
 // ============================================================================
 
-namespace IdiotProof.Core.Validation
-{
+namespace IdiotProof.Validation {
     /// <summary>
     /// Represents the result of a validation operation.
     /// </summary>

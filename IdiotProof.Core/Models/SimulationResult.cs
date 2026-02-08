@@ -2,7 +2,7 @@
 // Simulation Result - Outcome of a single backtest simulation run
 // ============================================================================
 
-namespace IdiotProof.BackTesting.Models;
+namespace IdiotProof.Models;
 
 /// <summary>
 /// Represents the result of a single backtest simulation.

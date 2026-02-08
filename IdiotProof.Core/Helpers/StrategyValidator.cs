@@ -13,13 +13,12 @@
 //
 // ============================================================================
 
-using IdiotProof.Backend.Enums;
-using IdiotProof.Backend.Logging;
-using IdiotProof.Backend.Strategy;
-using IdiotProof.Core.Helpers;
+using IdiotProof.Enums;
+using IdiotProof.Logging;
+using IdiotProof.Strategy;
+using IdiotProof.Helpers;
 
-namespace IdiotProof.Backend.Models
-{
+namespace IdiotProof.Helpers {
     /// <summary>
     /// Validates trading strategies before execution.
     /// </summary>

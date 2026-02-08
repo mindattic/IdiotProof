@@ -1,5 +1,4 @@
-namespace IdiotProof.Backend.Enums
-{
+namespace IdiotProof.Enums {
     /// <summary>
     /// Specifies the exchange for order routing.
     /// </summary>

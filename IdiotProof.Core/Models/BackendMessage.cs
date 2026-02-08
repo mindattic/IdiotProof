@@ -4,8 +4,7 @@
 
 using System.Text.Json.Serialization;
 
-namespace IdiotProof.Core.Models
-{
+namespace IdiotProof.Models {
     /// <summary>
     /// Types of messages exchanged between backend and frontend.
     /// </summary>

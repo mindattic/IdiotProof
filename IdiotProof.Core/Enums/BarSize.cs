@@ -2,13 +2,12 @@
 // BarSize - Historical Data Bar Size Options
 // ============================================================================
 
-namespace IdiotProof.Backend.Enums
-{
+namespace IdiotProof.Enums {
     /// <summary>
     /// Bar size options for historical data requests.
     /// </summary>
     /// <remarks>
-    /// <para><b>⚠️ IBKR API MAPPING ⚠️</b></para>
+    /// <para><b>! IBKR API MAPPING !</b></para>
     /// <para>Maps to <c>barSizeSetting</c> parameter in <c>reqHistoricalData()</c>.</para>
     /// </remarks>
     public enum BarSize

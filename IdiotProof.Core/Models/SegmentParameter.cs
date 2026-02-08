@@ -4,8 +4,7 @@
 
 using System.Text.Json.Serialization;
 
-namespace IdiotProof.Core.Models
-{
+namespace IdiotProof.Models {
     /// <summary>
     /// Defines a single parameter for a strategy segment.
     /// </summary>

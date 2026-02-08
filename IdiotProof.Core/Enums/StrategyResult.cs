@@ -2,8 +2,7 @@
 // StrategyResult - Possible Outcomes for a Strategy
 // ============================================================================
 
-namespace IdiotProof.Backend.Enums
-{
+namespace IdiotProof.Enums {
     /// <summary>
     /// Possible outcomes for a strategy.
     /// </summary>

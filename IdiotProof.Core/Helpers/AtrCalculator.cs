@@ -20,8 +20,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace IdiotProof.Backend.Helpers
-{
+namespace IdiotProof.Helpers {
     /// <summary>
     /// Calculates Average True Range (ATR) from price ticks for volatility-based stop losses.
     /// </summary>

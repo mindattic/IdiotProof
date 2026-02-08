@@ -15,7 +15,7 @@
 
 using System.Text.Json.Serialization;
 
-namespace IdiotProof.BackTesting.Learning;
+namespace IdiotProof.Learning;
 
 /// <summary>
 /// Represents a price level that acted as support or resistance.

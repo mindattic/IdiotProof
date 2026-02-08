@@ -31,8 +31,7 @@
 using System.Collections.Generic;
 using System.Linq;
 
-namespace IdiotProof.Backend.Helpers
-{
+namespace IdiotProof.Helpers {
     /// <summary>
     /// Calculates average volume and detects volume spikes.
     /// </summary>

@@ -15,15 +15,15 @@
 //
 // ============================================================================
 
-using IdiotProof.Backend.Models;
-using IdiotProof.BackTesting.Learning;
-using IdiotProof.BackTesting.Models;
+using IdiotProof.Models;
+using IdiotProof.Strategy;
+using IdiotProof.Models;
 using System.Collections.Concurrent;
 
 // Use alias to avoid conflict with local types
-using ModelSimResult = IdiotProof.BackTesting.Models.SimulationResult;
+using ModelSimResult = IdiotProof.Models.SimulationResult;
 
-namespace IdiotProof.BackTesting.Optimization;
+namespace IdiotProof.Optimization;
 
 /// <summary>
 /// Configuration for the scientific optimization pipeline.
@@ -457,7 +457,8 @@ public sealed class ScientificOptimizer
             TotalTrades = result.TotalTrades,
             TotalWins = (int)(result.TotalTrades * result.OutOfSampleWinRate),
             TotalLosses = result.TotalTrades - (int)(result.TotalTrades * result.OutOfSampleWinRate),
-            TotalPnL = result.TotalPnL,
+            TotalProfit = result.TotalPnL > 0 ? result.TotalPnL : 0,
+            TotalLoss = result.TotalPnL < 0 ? result.TotalPnL : 0,
             OptimalLongEntryThreshold = result.BestConfig.LongEntryThreshold,
             OptimalShortEntryThreshold = result.BestConfig.ShortEntryThreshold,
             OptimalLongExitThreshold = result.BestConfig.LongExitThreshold,

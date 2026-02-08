@@ -2,13 +2,12 @@
 // OrderType - Order Execution Type
 // ============================================================================
 
-namespace IdiotProof.Backend.Enums
-{
+namespace IdiotProof.Enums {
     /// <summary>
     /// Order type determining execution method.
     /// </summary>
     /// <remarks>
-    /// <para><b>⚠️ IBKR API MAPPING ⚠️</b></para>
+    /// <para><b>! IBKR API MAPPING !</b></para>
     /// <para>Maps to <c>order.OrderType</c> in the IB API:</para>
     /// <list type="bullet">
     ///   <item><see cref="Market"/> → "MKT"</item>

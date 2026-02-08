@@ -2,13 +2,12 @@
 // HistoricalDataType - Data Type for Historical Requests
 // ============================================================================
 
-namespace IdiotProof.Backend.Enums
-{
+namespace IdiotProof.Enums {
     /// <summary>
     /// Data type for historical requests.
     /// </summary>
     /// <remarks>
-    /// <para><b>⚠️ IBKR API MAPPING ⚠️</b></para>
+    /// <para><b>! IBKR API MAPPING !</b></para>
     /// <para>Maps to <c>whatToShow</c> parameter in <c>reqHistoricalData()</c>.</para>
     /// </remarks>
     public enum HistoricalDataType

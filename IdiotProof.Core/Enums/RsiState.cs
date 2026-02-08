@@ -2,8 +2,7 @@
 // RSI State Enum - Relative Strength Index conditions
 // ============================================================================
 
-namespace IdiotProof.Backend.Enums
-{
+namespace IdiotProof.Enums {
     /// <summary>
     /// RSI (Relative Strength Index) market states for condition evaluation.
     /// </summary>

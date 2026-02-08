@@ -8,9 +8,9 @@
 //
 // ============================================================================
 
-using IdiotProof.BackTesting.Models;
+using IdiotProof.Models;
 
-namespace IdiotProof.BackTesting.Analysis;
+namespace IdiotProof.Analysis;
 
 /// <summary>
 /// Configuration for Monte Carlo simulation.

@@ -21,8 +21,7 @@
 
 using System;
 
-namespace IdiotProof.Backend.Helpers
-{
+namespace IdiotProof.Helpers {
     /// <summary>
     /// Calculates the Relative Strength Index (RSI) from candle close prices.
     /// </summary>

@@ -3,7 +3,7 @@
 // ============================================================================
 //
 // CRITICAL: This is the ONLY place market score calculation logic lives.
-// Both live trading (StrategyRunner) and backtesting (AutonomousBacktester)
+// Both live trading (StrategyRunner) and backtesting (Backtester)
 // MUST use this same code. Any change here affects BOTH live and backtest.
 //
 // This ensures backtesting results accurately predict live trading performance.
@@ -12,7 +12,7 @@
 //
 // ============================================================================
 
-namespace IdiotProof.Core.Helpers;
+namespace IdiotProof.Helpers;
 
 /// <summary>
 /// Input data for market score calculation.
@@ -49,6 +49,13 @@ public readonly struct IndicatorSnapshot
     public double BollingerLower { get; init; }
     public double BollingerMiddle { get; init; }
     
+    // Extended Indicators
+    public double StochasticK { get; init; }
+    public double StochasticD { get; init; }
+    public double ObvSlope { get; init; }  // OBV trend direction (-1 to +1)
+    public double Cci { get; init; }
+    public double WilliamsR { get; init; }
+    
     // ATR (for TP/SL calculation)
     public double Atr { get; init; }
 }
@@ -67,6 +74,12 @@ public readonly struct MarketScoreResult
     public int VolumeScore { get; init; }
     public int BollingerScore { get; init; }
     
+    // Extended indicator scores
+    public int StochasticScore { get; init; }
+    public int ObvScore { get; init; }
+    public int CciScore { get; init; }
+    public int WilliamsRScore { get; init; }
+    
     /// <summary>
     /// True if +DI > -DI (bullish directional movement).
     /// </summary>
@@ -79,27 +92,115 @@ public readonly struct MarketScoreResult
 }
 
 /// <summary>
+/// Configurable indicator weights for market score calculation.
+/// Weights should sum to 1.0 (100%).
+/// Training learns optimal weights per ticker.
+/// </summary>
+public readonly struct IndicatorWeights
+{
+    public double Vwap { get; init; }
+    public double Ema { get; init; }
+    public double Rsi { get; init; }
+    public double Macd { get; init; }
+    public double Adx { get; init; }
+    public double Volume { get; init; }
+    public double Bollinger { get; init; }
+    public double Stochastic { get; init; }
+    public double Obv { get; init; }
+    public double Cci { get; init; }
+    public double WilliamsR { get; init; }
+    
+    /// <summary>
+    /// Default weights used when no learned weights are available.
+    /// </summary>
+    public static readonly IndicatorWeights Default = new()
+    {
+        Vwap = 0.10,
+        Ema = 0.15,
+        Rsi = 0.12,
+        Macd = 0.18,
+        Adx = 0.15,
+        Volume = 0.08,
+        Bollinger = 0.05,
+        Stochastic = 0.06,
+        Obv = 0.05,
+        Cci = 0.03,
+        WilliamsR = 0.03
+    };
+    
+    /// <summary>
+    /// Validates that weights sum to approximately 1.0.
+    /// </summary>
+    public bool IsValid()
+    {
+        double sum = Vwap + Ema + Rsi + Macd + Adx + Volume + Bollinger + Stochastic + Obv + Cci + WilliamsR;
+        return Math.Abs(sum - 1.0) < 0.01;
+    }
+    
+    /// <summary>
+    /// Returns a normalized version of weights that sum to 1.0.
+    /// </summary>
+    public IndicatorWeights Normalize()
+    {
+        double sum = Vwap + Ema + Rsi + Macd + Adx + Volume + Bollinger + Stochastic + Obv + Cci + WilliamsR;
+        if (sum <= 0) return Default;
+        
+        return new IndicatorWeights
+        {
+            Vwap = Vwap / sum,
+            Ema = Ema / sum,
+            Rsi = Rsi / sum,
+            Macd = Macd / sum,
+            Adx = Adx / sum,
+            Volume = Volume / sum,
+            Bollinger = Bollinger / sum,
+            Stochastic = Stochastic / sum,
+            Obv = Obv / sum,
+            Cci = Cci / sum,
+            WilliamsR = WilliamsR / sum
+        };
+    }
+}
+
+/// <summary>
 /// THE SINGLE SOURCE OF TRUTH for market score calculation.
 /// Used by BOTH live trading and backtesting.
 /// </summary>
 public static class MarketScoreCalculator
 {
     // ========================================================================
-    // WEIGHTS - Same for live and backtest
+    // DEFAULT WEIGHTS - Same for live and backtest (sum to 100%)
+    // Used when no learned weights are available
     // ========================================================================
-    public const double WeightVwap = 0.13;
-    public const double WeightEma = 0.18;
-    public const double WeightRsi = 0.14;
-    public const double WeightMacd = 0.20;
-    public const double WeightAdx = 0.20;
-    public const double WeightVolume = 0.10;
+    // Core indicators (78%)
+    public const double WeightVwap = 0.10;
+    public const double WeightEma = 0.15;
+    public const double WeightRsi = 0.12;
+    public const double WeightMacd = 0.18;
+    public const double WeightAdx = 0.15;
+    public const double WeightVolume = 0.08;
+    
+    // Extended indicators (22%)
     public const double WeightBollinger = 0.05;
+    public const double WeightStochastic = 0.06;
+    public const double WeightObv = 0.05;
+    public const double WeightCci = 0.03;
+    public const double WeightWilliamsR = 0.03;
     
     /// <summary>
-    /// Calculates market score using the unified formula.
-    /// This is THE ONLY score calculation - used by both live and backtest.
+    /// Calculates market score using DEFAULT weights.
+    /// Use this when no learned weights are available.
     /// </summary>
     public static MarketScoreResult Calculate(IndicatorSnapshot snapshot)
+    {
+        return Calculate(snapshot, IndicatorWeights.Default);
+    }
+    
+    /// <summary>
+    /// Calculates market score using LEARNED weights.
+    /// This is THE ONLY score calculation - used by live, backtest, and training.
+    /// </summary>
+    public static MarketScoreResult Calculate(IndicatorSnapshot snapshot, IndicatorWeights weights)
     {
         // ====================================================================
         // VWAP Position (13% weight)
@@ -190,16 +291,40 @@ public static class MarketScoreCalculator
             snapshot.BollingerMiddle);
 
         // ====================================================================
-        // Weighted Total
+        // Stochastic (6% weight) - Momentum oscillator
+        // ====================================================================
+        int stochasticScore = CalculateStochasticScore(snapshot.StochasticK, snapshot.StochasticD);
+
+        // ====================================================================
+        // OBV (5% weight) - Volume flow confirmation
+        // ====================================================================
+        int obvScore = CalculateObvScore(snapshot.ObvSlope);
+
+        // ====================================================================
+        // CCI (3% weight) - Trend strength and mean reversion
+        // ====================================================================
+        int cciScore = CalculateCciScore(snapshot.Cci);
+
+        // ====================================================================
+        // Williams %R (3% weight) - Momentum extremes
+        // ====================================================================
+        int williamsRScore = CalculateWilliamsRScore(snapshot.WilliamsR);
+
+        // ====================================================================
+        // Weighted Total - Uses learned or default weights
         // ====================================================================
         double totalScore =
-            vwapScore * WeightVwap +
-            emaScore * WeightEma +
-            rsiScore * WeightRsi +
-            macdScore * WeightMacd +
-            adxScore * WeightAdx +
-            volumeScore * WeightVolume +
-            bollingerScore * WeightBollinger;
+            vwapScore * weights.Vwap +
+            emaScore * weights.Ema +
+            rsiScore * weights.Rsi +
+            macdScore * weights.Macd +
+            adxScore * weights.Adx +
+            volumeScore * weights.Volume +
+            bollingerScore * weights.Bollinger +
+            stochasticScore * weights.Stochastic +
+            obvScore * weights.Obv +
+            cciScore * weights.Cci +
+            williamsRScore * weights.WilliamsR;
 
         int finalScore = (int)Math.Clamp(totalScore, -100, 100);
 
@@ -213,6 +338,10 @@ public static class MarketScoreCalculator
             AdxScore = adxScore,
             VolumeScore = volumeScore,
             BollingerScore = bollingerScore,
+            StochasticScore = stochasticScore,
+            ObvScore = obvScore,
+            CciScore = cciScore,
+            WilliamsRScore = williamsRScore,
             IsDiPositive = isDiPositive,
             IsMacdBullish = isMacdBullish
         };
@@ -242,6 +371,85 @@ public static class MarketScoreCalculator
             score = (int)((-0.8 - position) * 250); // Strong oversold = +50
         else
             score = 0; // Within normal range
+            
+        return (int)Math.Clamp(score, -100, 100);
+    }
+    
+    /// <summary>
+    /// Calculates Stochastic oscillator score.
+    /// %K crossing above %D = bullish, crossing below = bearish.
+    /// Overbought (>80) = bearish bias, Oversold (<20) = bullish bias.
+    /// </summary>
+    private static int CalculateStochasticScore(double k, double d)
+    {
+        if (k <= 0 && d <= 0)
+            return 0;
+            
+        int score = 0;
+        
+        // K > D = bullish momentum, K < D = bearish momentum
+        if (k > d)
+            score = 40;
+        else if (k < d)
+            score = -40;
+            
+        // Overbought/oversold adjustments
+        if (k > 80)
+            score -= 30; // Overbought - bearish pressure
+        else if (k < 20)
+            score += 30; // Oversold - bullish bounce expected
+            
+        return (int)Math.Clamp(score, -100, 100);
+    }
+    
+    /// <summary>
+    /// Calculates OBV (On-Balance Volume) score.
+    /// ObvSlope is the normalized slope of OBV (-1 to +1).
+    /// Rising OBV = bullish volume flow, Falling = bearish.
+    /// </summary>
+    private static int CalculateObvScore(double obvSlope)
+    {
+        // ObvSlope ranges from -1 (strong selling) to +1 (strong buying)
+        // Convert to score: -100 to +100
+        return (int)Math.Clamp(obvSlope * 100, -100, 100);
+    }
+    
+    /// <summary>
+    /// Calculates CCI (Commodity Channel Index) score.
+    /// CCI > 100 = overbought, CCI < -100 = oversold.
+    /// </summary>
+    private static int CalculateCciScore(double cci)
+    {
+        // CCI typically ranges from -200 to +200
+        // Map to score with overbought/oversold logic
+        int score;
+        
+        if (cci > 100)
+            score = (int)(-(cci - 100) * 0.5); // Overbought = bearish
+        else if (cci < -100)
+            score = (int)((-100 - cci) * 0.5); // Oversold = bullish
+        else
+            score = (int)(cci * 0.5); // Trend following in normal range
+            
+        return (int)Math.Clamp(score, -100, 100);
+    }
+    
+    /// <summary>
+    /// Calculates Williams %R score.
+    /// Williams %R ranges from -100 to 0.
+    /// -100 to -80 = oversold (bullish), -20 to 0 = overbought (bearish).
+    /// </summary>
+    private static int CalculateWilliamsRScore(double williamsR)
+    {
+        // Williams %R is -100 (oversold) to 0 (overbought)
+        int score;
+        
+        if (williamsR >= -20)
+            score = (int)((williamsR + 20) * -5); // Overbought = bearish
+        else if (williamsR <= -80)
+            score = (int)((-80 - williamsR) * 5); // Oversold = bullish
+        else
+            score = 0; // Normal range
             
         return (int)Math.Clamp(score, -100, 100);
     }

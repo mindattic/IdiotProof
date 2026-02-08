@@ -1,8 +1,8 @@
 // ============================================================================
-// Autonomous Backtester - Full-Day Trading Simulation with Capital Tracking
+// Backtester - Full-Day Trading Simulation with Capital Tracking
 // ============================================================================
 //
-// Simulates AutonomousTrading against a full trading day (4:00 AM - 8:00 PM EST)
+// Simulates trading strategies against a full trading day (4:00 AM - 8:00 PM EST)
 // with realistic capital management, position sizing, and detailed trade analysis.
 //
 // FEATURES:
@@ -12,23 +12,18 @@
 //   - Risk management: Tightens filters after consecutive losses
 //
 // USAGE:
-//   var backtester = new AutonomousBacktester(historicalDataService);
+//   var backtester = new Backtester(historicalDataService);
 //   var result = await backtester.RunAsync("NVDA", new DateOnly(2025, 12, 15), 1000.00m);
 //   Console.WriteLine(result);
 //
 // ============================================================================
 
-using IdiotProof.Backend.Enums;
-using IdiotProof.Backend.Models;
-using IdiotProof.BackTesting.Models;
-using IdiotProof.Core.Helpers;
-using IdiotProof.Core.Models;
+using IdiotProof.Enums;
+using IdiotProof.Models;
+using IdiotProof.Helpers;
 using System.Text;
 
-// Use the AutonomousMode from BackTesting.Services
-using AutonomousMode = IdiotProof.BackTesting.Services.AutonomousMode;
-
-namespace IdiotProof.Backend.Services;
+namespace IdiotProof.Services;
 
 // ============================================================================
 // DYNAMIC CALIBRATOR - Self-adjusting parameter system
@@ -41,13 +36,13 @@ namespace IdiotProof.Backend.Services;
 internal sealed class DynamicCalibrator
 {
     // Current calibrated thresholds (start at moderate levels)
-    public int LongEntryThreshold { get; set; } = 65;
-    public int ShortEntryThreshold { get; set; } = -65;
+    public int LongEntryThreshold { get; set; } = 50;
+    public int ShortEntryThreshold { get; set; } = -50;
     public double TakeProfitAtr { get; set; } = 1.5;
     public double StopLossAtr { get; set; } = 2.5;
-    public double MinVolumeRatio { get; set; } = 1.0;
-    public bool RequireTrendAlignment { get; set; } = true;
-    public int MinIndicatorConfirmation { get; set; } = 5;
+    public double MinVolumeRatio { get; set; } = 0.8;
+    public bool RequireTrendAlignment { get; set; } = false;
+    public int MinIndicatorConfirmation { get; set; } = 4;
     
     // Performance tracking (rolling window)
     private readonly Queue<TradeResult> _recentTrades = new();
@@ -67,8 +62,8 @@ internal sealed class DynamicCalibrator
     private int _consecutiveNoTrades;
     
     // Bounds to prevent extreme calibration
-    private const int MinEntryThreshold = 45;
-    private const int MaxEntryThreshold = 85;
+    private const int MinEntryThreshold = 30;  // Allow lower thresholds for more trades
+    private const int MaxEntryThreshold = 75;  // Cap at reasonable level
     private const double MinTpAtr = 1.0;
     private const double MaxTpAtr = 3.0;
     private const double MinSlAtr = 1.5;
@@ -93,7 +88,7 @@ internal sealed class DynamicCalibrator
             HitTakeProfit = hitTp,
             HitStopLoss = hitSl,
             Duration = duration,
-            WasLong = isLong
+            IsLong = isLong
         };
         
         _recentTrades.Enqueue(result);
@@ -135,7 +130,7 @@ internal sealed class DynamicCalibrator
                 Score = score,
                 PotentialPnLPercent = potentialPnl,
                 BlockedBy = blockedBy,
-                WasLong = wasLong
+                IsLong = wasLong
             });
             
             while (_missedOpportunities.Count > MaxMissedOpportunities)
@@ -358,7 +353,7 @@ internal sealed class DynamicCalibrator
         {
             Score = score,
             PriceAtSignal = priceAtSignal,
-            WasLong = wasLong,
+            IsLong = wasLong,
             BlockedBy = blockedBy,
             BarIndex = barIndex
         });
@@ -390,7 +385,7 @@ internal sealed class DynamicCalibrator
             
             for (int j = signal.BarIndex + 1; j <= evalEnd; j++)
             {
-                double favorable = signal.WasLong
+                double favorable = signal.IsLong
                     ? candles[j].High - signalPrice
                     : signalPrice - candles[j].Low;
                 maxFavorable = Math.Max(maxFavorable, favorable);
@@ -406,7 +401,7 @@ internal sealed class DynamicCalibrator
                     Score = signal.Score,
                     PotentialPnLPercent = maxPnlPercent,
                     BlockedBy = signal.BlockedBy,
-                    WasLong = signal.WasLong
+                    IsLong = signal.IsLong
                 });
                 
                 while (_missedOpportunities.Count > MaxMissedOpportunities)
@@ -426,7 +421,7 @@ internal sealed class DynamicCalibrator
         public bool HitTakeProfit { get; init; }
         public bool HitStopLoss { get; init; }
         public TimeSpan Duration { get; init; }
-        public bool WasLong { get; init; }
+        public bool IsLong { get; init; }
     }
     
     private record MissedOpportunity
@@ -434,14 +429,14 @@ internal sealed class DynamicCalibrator
         public double Score { get; init; }
         public double PotentialPnLPercent { get; init; }
         public string BlockedBy { get; init; } = "";
-        public bool WasLong { get; init; }
+        public bool IsLong { get; init; }
     }
     
     private record PendingSignal
     {
         public double Score { get; init; }
         public double PriceAtSignal { get; init; }
-        public bool WasLong { get; init; }
+        public bool IsLong { get; init; }
         public string BlockedBy { get; init; } = "";
         public int BarIndex { get; init; }
     }
@@ -455,8 +450,8 @@ public sealed record AutonomousBacktestConfig
     /// <summary>Starting capital in dollars.</summary>
     public decimal StartingCapital { get; init; } = 1000.00m;
 
-    /// <summary>Trading mode (Conservative, Balanced, Aggressive, Optimized).</summary>
-    public AutonomousMode Mode { get; init; } = AutonomousMode.Balanced;
+    /// <summary>Base entry threshold - adjusted dynamically based on conditions.</summary>
+    public int BaseEntryThreshold { get; init; } = 50;
 
     /// <summary>Allow short positions.</summary>
     public bool AllowShort { get; init; } = true;
@@ -474,19 +469,19 @@ public sealed record AutonomousBacktestConfig
     public double StopLossAtrMultiplier { get; init; } = 2.5; // Wider SL to avoid whipsaws
 
     /// <summary>Require trend alignment for entries (price above/below EMA).</summary>
-    public bool RequireTrendAlignment { get; init; } = true;
+    public bool RequireTrendAlignment { get; init; } = false; // Allow counter-trend at LOD/HOD
 
     /// <summary>Require volume confirmation (above average).</summary>
-    public bool RequireVolumeConfirmation { get; init; } = true;
+    public bool RequireVolumeConfirmation { get; init; } = false; // Volume already in market score
 
     /// <summary>Minimum volume ratio for entry (1.0 = average volume).</summary>
-    public double MinVolumeRatio { get; init; } = 1.2;
+    public double MinVolumeRatio { get; init; } = 0.8; // Lowered - volume in score handles this
 
     /// <summary>Don't trade in the first N minutes of RTH (avoid opening volatility).</summary>
-    public int AvoidFirstMinutesRTH { get; init; } = 5;
+    public int AvoidFirstMinutesRTH { get; init; } = 2;
 
     /// <summary>Don't trade in the last N minutes of RTH (avoid closing volatility).</summary>
-    public int AvoidLastMinutesRTH { get; init; } = 10;
+    public int AvoidLastMinutesRTH { get; init; } = 5;
 
     /// <summary>Include premarket session (4:00 AM - 9:30 AM).</summary>
     public bool IncludePremarket { get; init; } = true;
@@ -514,7 +509,7 @@ public sealed record AutonomousBacktestConfig
     /// Minimum number of indicators that must agree for entry (Optimized mode).
     /// Higher values = fewer but higher quality trades.
     /// </summary>
-    public int MinIndicatorConfirmation { get; init; } = 6; // Increased for better quality
+    public int MinIndicatorConfirmation { get; init; } = 4; // 4 out of ~10 categories
 
     /// <summary>
     /// Enable trailing take profit that moves up as price moves favorably.
@@ -612,44 +607,24 @@ public sealed record AutonomousBacktestConfig
     public bool UseMetadataAtr { get; init; } = true;
 
     // ========================================================================
-    // Mode-Specific Thresholds (from AutonomousConfig)
+    // Base Thresholds - Adjusted dynamically per bar based on conditions
     // ========================================================================
+    // These are starting points. The actual threshold used each bar is calculated
+    // dynamically based on: ADX (trend strength), ATR (volatility), RSI extremes,
+    // indicator agreement, and ticker profile. Strong trends = lower threshold,
+    // ranging market = higher threshold, etc.
 
-    public int LongEntryThreshold => Mode switch
-    {
-        AutonomousMode.Conservative => 85, // Higher for safety
-        AutonomousMode.Balanced => 75,     // Increased from 70
-        AutonomousMode.Aggressive => 65,
-        AutonomousMode.Optimized => 55,    // Requires indicator confirmation
-        _ => 75
-    };
+    /// <summary>Base long entry threshold (adjusted per bar).</summary>
+    public int LongEntryThreshold => BaseEntryThreshold;
 
-    public int ShortEntryThreshold => Mode switch
-    {
-        AutonomousMode.Conservative => -85, // Higher for safety
-        AutonomousMode.Balanced => -75,     // Increased from -70
-        AutonomousMode.Aggressive => -65,
-        AutonomousMode.Optimized => -55,    // Requires indicator confirmation
-        _ => -75
-    };
+    /// <summary>Base short entry threshold (adjusted per bar).</summary>
+    public int ShortEntryThreshold => -BaseEntryThreshold;
 
-    public int LongExitThreshold => Mode switch
-    {
-        AutonomousMode.Conservative => 60,
-        AutonomousMode.Balanced => 40,
-        AutonomousMode.Aggressive => 20,
-        AutonomousMode.Optimized => 10, // Hold longer with trailing stop
-        _ => 40
-    };
+    /// <summary>Exit threshold - momentum fading.</summary>
+    public int LongExitThreshold => BaseEntryThreshold / 2;
 
-    public int ShortExitThreshold => Mode switch
-    {
-        AutonomousMode.Conservative => -60,
-        AutonomousMode.Balanced => -40,
-        AutonomousMode.Aggressive => -20,
-        AutonomousMode.Optimized => -10, // Hold longer with trailing stop
-        _ => -40
-    };
+    /// <summary>Exit threshold - momentum fading.</summary>
+    public int ShortExitThreshold => -BaseEntryThreshold / 2;
 }
 
 /// <summary>
@@ -855,7 +830,7 @@ public sealed class AutonomousBacktestResult
             | AUTONOMOUS TRADING BACKTEST RESULT                                   |
             +======================================================================+
             | Symbol:       {Symbol,-10} | Date: {Date:yyyy-MM-dd}
-            | Mode:         {Config.Mode,-10} | Allow Short: {Config.AllowShort}
+            | Base Thresh:  {Config.BaseEntryThreshold,-10} | Allow Short: {Config.AllowShort}
             +----------------------------------------------------------------------+
             | MARKET DATA                                                          |
             +----------------------------------------------------------------------+
@@ -1240,10 +1215,10 @@ public sealed class AggregateBacktestResult
 }
 
 /// <summary>
-/// Runs autonomous trading backtests against historical IBKR data.
+/// Runs backtests against historical IBKR data.
 /// Integrates technical indicators with market sentiment for comprehensive analysis.
 /// </summary>
-public sealed class AutonomousBacktester
+public sealed class Backtester
 {
     private readonly HistoricalDataService? _histService;
     private readonly SentimentService? _sentimentService;
@@ -1257,7 +1232,7 @@ public sealed class AutonomousBacktester
     /// <param name="sentimentService">Optional sentiment service for news/earnings integration.</param>
     /// <param name="dataCache">Optional data cache for saving/loading historical data.</param>
     /// <param name="metadataService">Optional metadata service for ticker-specific tuning.</param>
-    public AutonomousBacktester(
+    public Backtester(
         HistoricalDataService? historicalDataService, 
         SentimentService? sentimentService = null,
         HistoricalDataCache? dataCache = null,
@@ -1553,14 +1528,13 @@ public sealed class AutonomousBacktester
 
                 if (canTrade && hasCapital && timeOk && volumeOk)
                 {
-                    // Get indicator confirmation for Optimized/SelfCalibration mode
+                    // Get indicator confirmation - always require for quality entries
                     var (bullishCount, bearishCount, totalCategories) = indicators.GetIndicatorConfirmation(i);
-                    bool isOptimizedMode = config.Mode == AutonomousMode.Optimized || config.EnableSelfCalibration;
                     
                     // Require minimum indicator confirmation (use dynamic threshold)
                     int minConfirm = GetMinConfirm();
-                    bool longConfirmed = !isOptimizedMode || bullishCount >= minConfirm;
-                    bool shortConfirmed = !isOptimizedMode || bearishCount >= minConfirm;
+                    bool longConfirmed = bullishCount >= minConfirm;
+                    bool shortConfirmed = bearishCount >= minConfirm;
                     
                     // Get dynamic thresholds
                     int longThreshold = GetLongThreshold();
@@ -1607,9 +1581,9 @@ public sealed class AutonomousBacktester
                     // Apply metadata adjustment to effective score
                     double effectiveScore = score + metadataAdjustment;
                     
-                    // Calculate position size - dynamic in Optimized mode
+                    // Calculate position size - always use dynamic sizing for optimal results
                     decimal capitalToUse;
-                    if (isOptimizedMode && config.UseDynamicPositionSizing)
+                    if (config.UseDynamicPositionSizing)
                     {
                         // Scale position size based on signal strength
                         double scoreStrength = Math.Abs(effectiveScore) / 100.0; // 0.5 to 1.0
@@ -1654,7 +1628,7 @@ public sealed class AutonomousBacktester
                             highestSinceEntry = candle.High;
                             lowestSinceEntry = candle.Low;
                             
-                            string confirmStr = isOptimizedMode ? $" [{bullishCount}/{totalCategories} confirm]" : "";
+                            string confirmStr = $" [{bullishCount}/{totalCategories} confirm]";
                             string calibStr = config.EnableSelfCalibration ? " [CALIB]" : "";
                             string metaStr = metadataAdjustment != 0 ? $" [META:{metadataAdjustment:+0;-0}]" : "";
                             entryReason = $"Score {effectiveScore:+0} >= {longThreshold}{confirmStr}{calibStr}{metaStr}";
@@ -1694,7 +1668,7 @@ public sealed class AutonomousBacktester
                             highestSinceEntry = candle.High;
                             lowestSinceEntry = candle.Low;
                             
-                            string confirmStr = isOptimizedMode ? $" [{bearishCount}/{totalCategories} confirm]" : "";
+                            string confirmStr = $" [{bearishCount}/{totalCategories} confirm]";
                             string calibStr = config.EnableSelfCalibration ? " [CALIB]" : "";
                             string metaStr = metadataAdjustment != 0 ? $" [META:{metadataAdjustment:+0;-0}]" : "";
                             entryReason = $"Score {effectiveScore:+0} <= {shortThreshold}{confirmStr}{calibStr}{metaStr}";
@@ -1765,9 +1739,8 @@ public sealed class AutonomousBacktester
                 if (candle.High > highestSinceEntry) highestSinceEntry = candle.High;
                 if (candle.Low < lowestSinceEntry) lowestSinceEntry = candle.Low;
                 
-                // Optimized mode: Trailing take profit and breakeven stop
-                bool isOptimizedMode = config.Mode == AutonomousMode.Optimized;
-                if (isOptimizedMode && config.UseTrailingTakeProfit)
+                // Optimized mode: Trailing take profit and breakeven stop - ALWAYS use
+                if (config.UseTrailingTakeProfit)
                 {
                     if (isLong)
                     {
@@ -2153,6 +2126,9 @@ internal sealed class BackTestIndicatorCalculator
 {
     private readonly List<BackTestCandle> _candles;
     
+    // Optional learned weights - when set, uses ticker-specific weights
+    private IdiotProof.Helpers.IndicatorWeights _weights = IdiotProof.Helpers.IndicatorWeights.Default;
+    
     // Core indicators
     private readonly double[] _ema9;
     private readonly double[] _ema21;
@@ -2224,6 +2200,15 @@ internal sealed class BackTestIndicatorCalculator
     {
         _sentimentScore = score;
         _sentimentConfidence = confidence;
+    }
+    
+    /// <summary>
+    /// Sets the indicator weights for score calculation.
+    /// When not set, uses default weights.
+    /// </summary>
+    public void SetWeights(IdiotProof.Helpers.IndicatorWeights weights)
+    {
+        _weights = weights;
     }
 
     public double GetAtr(int index) => index < _atr.Length ? _atr[index] : 0;
@@ -2380,11 +2365,17 @@ internal sealed class BackTestIndicatorCalculator
             BollingerUpper = _bollingerUpper[index],
             BollingerLower = _bollingerLower[index],
             BollingerMiddle = _bollingerMiddle[index],
-            Atr = _atr[index]
+            Atr = _atr[index],
+            // Extended indicators
+            StochasticK = _stochasticK[index],
+            StochasticD = _stochasticD[index],
+            ObvSlope = index > 0 ? (_obv[index] > _obv[index - 1] ? 1.0 : (_obv[index] < _obv[index - 1] ? -1.0 : 0)) : 0,
+            Cci = _cci[index],
+            WilliamsR = _williamsR[index]
         };
         
-        // Use the SHARED calculator - same code as live trading
-        var result = MarketScoreCalculator.Calculate(snapshot);
+        // Use the SHARED calculator with learned or default weights - same code as live trading
+        var result = MarketScoreCalculator.Calculate(snapshot, _weights);
         return result.TotalScore;
     }
     

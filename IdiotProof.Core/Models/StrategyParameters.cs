@@ -2,7 +2,7 @@
 // Strategy Parameters - Configurable strategy settings for optimization
 // ============================================================================
 
-namespace IdiotProof.BackTesting.Models;
+namespace IdiotProof.Models;
 
 /// <summary>
 /// Represents the configurable parameters of a trading strategy.

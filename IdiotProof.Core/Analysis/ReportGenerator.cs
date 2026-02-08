@@ -2,10 +2,10 @@
 // Report Generator - Creates detailed backtest analysis reports
 // ============================================================================
 
-using IdiotProof.BackTesting.Models;
-using IdiotProof.BackTesting.Optimization;
+using IdiotProof.Models;
+using IdiotProof.Optimization;
 
-namespace IdiotProof.BackTesting.Analysis;
+namespace IdiotProof.Analysis;
 
 /// <summary>
 /// Generates detailed analysis reports from backtest results.

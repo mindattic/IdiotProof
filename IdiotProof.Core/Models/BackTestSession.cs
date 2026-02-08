@@ -2,7 +2,7 @@
 // Backtest Session - Collection of candles for a trading day
 // ============================================================================
 
-namespace IdiotProof.BackTesting.Models;
+namespace IdiotProof.Models;
 
 /// <summary>
 /// Represents a complete trading day of 1-minute candle data.

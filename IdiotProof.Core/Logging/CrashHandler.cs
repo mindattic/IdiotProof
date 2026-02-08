@@ -4,8 +4,7 @@ using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace IdiotProof.Backend.Logging
-{
+namespace IdiotProof.Logging {
     /// <summary>
     /// Handles crash dumps, session logging, and console output capture.
     /// </summary>

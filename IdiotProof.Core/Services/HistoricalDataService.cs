@@ -30,10 +30,10 @@
 // ============================================================================
 
 using IBApi;
-using IdiotProof.Backend.Enums;
-using IdiotProof.Backend.Helpers;
-using IdiotProof.Backend.Models;
-using IdiotProof.Core.Enums;
+using IdiotProof.Enums;
+using IdiotProof.Helpers;
+using IdiotProof.Models;
+using IdiotProof.Enums;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -42,8 +42,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using IbContract = IBApi.Contract;
 
-namespace IdiotProof.Backend.Services
-{
+namespace IdiotProof.Services {
     /// <summary>
     /// Service for fetching historical data from IBKR API.
     /// </summary>

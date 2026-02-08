@@ -7,7 +7,7 @@
 //
 // ============================================================================
 
-namespace IdiotProof.Backend.Logging;
+namespace IdiotProof.Logging;
 
 /// <summary>
 /// Logs IPC communication to SessionLogger for overnight monitoring.

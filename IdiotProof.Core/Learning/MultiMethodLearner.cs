@@ -11,16 +11,16 @@
 //
 // ============================================================================
 
-using IdiotProof.Backend.Models;
-using IdiotProof.Backend.Services;
-using IdiotProof.BackTesting.Models;
-using IdiotProof.Core.Helpers;
-using IdiotProof.Core.Settings;
+using IdiotProof.Models;
+using IdiotProof.Services;
+using IdiotProof.Models;
+using IdiotProof.Helpers;
+using IdiotProof.Settings;
 using System.Diagnostics;
 using System.Text;
 using System.Text.Json;
 
-namespace IdiotProof.Core.Learning;
+namespace IdiotProof.Learning;
 
 /// <summary>
 /// Results from running a learning method.

@@ -23,10 +23,9 @@
 // ║  Reference: https://interactivebrokers.github.io/tws-api/               ║
 // ╚═══════════════════════════════════════════════════════════════════════════╝
 
-using IdiotProof.Core.Enums;
+using IdiotProof.Enums;
 
-namespace IdiotProof.Core.Settings
-{
+namespace IdiotProof.Settings {
     /// <summary>
     /// Global configuration for IB connection settings.
     /// These settings apply to all jobs.
@@ -41,7 +40,7 @@ namespace IdiotProof.Core.Settings
     ///   <item><term>4001</term><description>IB Gateway Live Trading</description></item>
     /// </list>
     /// </remarks>
-    public static class Settings
+    public static class AppSettings
     {
         // ----- IB Connection Settings -----
         public const string Host = "127.0.0.1";

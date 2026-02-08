@@ -17,12 +17,11 @@
 // ============================================================================
 
 using System;
-using IdiotProof.Backend.Helpers;
-using IdiotProof.Core.Enums;
-using IdiotProof.Core.Settings;
+using IdiotProof.Helpers;
+using IdiotProof.Enums;
+using IdiotProof.Settings;
 
-namespace IdiotProof.Backend.Models
-{
+namespace IdiotProof.Models {
     /// <summary>
     /// Represents a trading session time period with start and end times.
     /// All times are in Eastern Time (ET) - the standard for US equity markets.
@@ -49,14 +48,14 @@ namespace IdiotProof.Backend.Models
         public TimeOnly End { get; init; }
 
         /// <summary>
-        /// Start time converted to the configured local timezone (Settings.Timezone).
+        /// Start time converted to the configured local timezone (AppSettings.Timezone).
         /// </summary>
-        public TimeOnly StartLocal => TimezoneHelper.ToLocal(Start, Settings.Timezone);
+        public TimeOnly StartLocal => TimezoneHelper.ToLocal(Start, AppSettings.Timezone);
 
         /// <summary>
-        /// End time converted to the configured local timezone (Settings.Timezone).
+        /// End time converted to the configured local timezone (AppSettings.Timezone).
         /// </summary>
-        public TimeOnly EndLocal => TimezoneHelper.ToLocal(End, Settings.Timezone);
+        public TimeOnly EndLocal => TimezoneHelper.ToLocal(End, AppSettings.Timezone);
 
         /// <summary>
         /// A safe buffer time after the period starts (15 minutes after Start).
@@ -72,9 +71,9 @@ namespace IdiotProof.Backend.Models
         public TimeOnly Starting => Start.AddMinutes(15);
 
         /// <summary>
-        /// Starting time converted to the configured local timezone (Settings.Timezone).
+        /// Starting time converted to the configured local timezone (AppSettings.Timezone).
         /// </summary>
-        public TimeOnly StartingLocal => TimezoneHelper.ToLocal(Starting, Settings.Timezone);
+        public TimeOnly StartingLocal => TimezoneHelper.ToLocal(Starting, AppSettings.Timezone);
 
         /// <summary>
         /// A safe buffer time before the period ends (15 minutes before End).
@@ -90,9 +89,9 @@ namespace IdiotProof.Backend.Models
         public TimeOnly Ending => End.AddMinutes(-15);
 
         /// <summary>
-        /// Ending time converted to the configured local timezone (Settings.Timezone).
+        /// Ending time converted to the configured local timezone (AppSettings.Timezone).
         /// </summary>
-        public TimeOnly EndingLocal => TimezoneHelper.ToLocal(Ending, Settings.Timezone);
+        public TimeOnly EndingLocal => TimezoneHelper.ToLocal(Ending, AppSettings.Timezone);
 
         /// <summary>
         /// Initializes a new trading period with the specified start and end times.

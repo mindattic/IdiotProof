@@ -3,7 +3,7 @@
 // ============================================================================
 //
 // ╔═══════════════════════════════════════════════════════════════════════════╗
-// ║  ⚠️  WARNING: DO NOT MODIFY THIS FILE  ⚠️                                  ║
+// ║  !  WARNING: DO NOT MODIFY THIS FILE  !                                  ║
 // ║                                                                           ║
 // ║  This class implements the EWrapper interface from the Interactive        ║
 // ║  Brokers TWS API DLL (IBApi). The interface is defined by IB and cannot   ║
@@ -32,24 +32,23 @@
 // ============================================================================
 
 using IBApi;
-using IdiotProof.Backend.Logging;
+using IdiotProof.Logging;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
-using IdiotProof.Core.Helpers;
+using IdiotProof.Helpers;
 using IbContract = IBApi.Contract;
 
-namespace IdiotProof.Backend.Models
-{
+namespace IdiotProof.Models {
     /// <summary>
     /// EWrapper implementation for the IBKR TWS API.
     /// Handles market data, order IDs, and execution reports.
     /// </summary>
     /// <remarks>
-    /// <para><b>⚠️ EXTERNAL DEPENDENCY - DO NOT MODIFY INTERFACE MEMBERS ⚠️</b></para>
+    /// <para><b>! EXTERNAL DEPENDENCY - DO NOT MODIFY INTERFACE MEMBERS !</b></para>
     /// <para>
     /// This class implements <see cref="EWrapper"/> from the Interactive Brokers TWS API DLL.
     /// All interface method signatures are defined by IB and cannot be changed.

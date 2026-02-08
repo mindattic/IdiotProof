@@ -14,8 +14,7 @@
 
 using System;
 
-namespace IdiotProof.Backend.Helpers
-{
+namespace IdiotProof.Helpers {
     /// <summary>
     /// Provides utilities for price calculations and tick size rounding.
     /// </summary>

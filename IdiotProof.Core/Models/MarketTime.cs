@@ -22,16 +22,15 @@
 //   .ClosePosition(Time.RTH.Start.AddMinutes(-10))  // 9:20 AM ET
 //
 //   // Convert to local timezone
-//   var localOpen = Time.RTH.StartLocal;      // Uses Settings.Timezone
+//   var localOpen = Time.RTH.StartLocal;      // Uses AppSettings.Timezone
 //
 // ============================================================================
 
-using IdiotProof.Backend.Helpers;
-using IdiotProof.Core.Settings;
+using IdiotProof.Helpers;
+using IdiotProof.Settings;
 using System;
 
-namespace IdiotProof.Backend.Models
-{
+namespace IdiotProof.Models {
     /// <summary>
     /// Trading time definitions for different market sessions.
     /// All times are in Eastern Time (ET) - the standard for US equity markets.
@@ -59,7 +58,7 @@ namespace IdiotProof.Backend.Models
     /// .End(Time.PreMarket.End)                        // 9:30 AM ET
     /// 
     /// // Display in local timezone
-    /// Console.WriteLine(Time.RTH.ToString(Settings.Timezone));
+    /// Console.WriteLine(Time.RTH.ToString(AppSettings.Timezone));
     /// </code>
     /// </remarks>
     public static class MarketTime
@@ -144,9 +143,9 @@ namespace IdiotProof.Backend.Models
         /// Converts an Eastern Time to the configured local timezone.
         /// </summary>
         /// <param name="easternTime">The time in Eastern Time.</param>
-        /// <returns>The time in the configured local timezone (Settings.Timezone).</returns>
+        /// <returns>The time in the configured local timezone (AppSettings.Timezone).</returns>
         public static TimeOnly ToLocal(TimeOnly easternTime) =>
-            TimezoneHelper.ToLocal(easternTime, Settings.Timezone);
+            TimezoneHelper.ToLocal(easternTime, AppSettings.Timezone);
 
         /// <summary>
         /// Converts a local time to Eastern Time.
@@ -154,7 +153,7 @@ namespace IdiotProof.Backend.Models
         /// <param name="localTime">The time in local timezone.</param>
         /// <returns>The time in Eastern Time.</returns>
         public static TimeOnly ToEastern(TimeOnly localTime) =>
-            TimezoneHelper.ToEastern(localTime, Settings.Timezone);
+            TimezoneHelper.ToEastern(localTime, AppSettings.Timezone);
     }
 }
 

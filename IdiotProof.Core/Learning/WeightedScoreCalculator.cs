@@ -11,9 +11,9 @@
 //
 // ============================================================================
 
-using IdiotProof.Core.Helpers;
+using IdiotProof.Helpers;
 
-namespace IdiotProof.Core.Learning;
+namespace IdiotProof.Learning;
 
 /// <summary>
 /// Input snapshot for weighted score calculation.

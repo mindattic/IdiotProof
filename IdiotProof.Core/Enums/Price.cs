@@ -2,8 +2,7 @@
 // Price - Price Type Definitions for Orders
 // ============================================================================
 
-namespace IdiotProof.Backend.Enums
-{
+namespace IdiotProof.Enums {
     /// <summary>
     /// Price type for order execution, determining how the order price is calculated.
     /// </summary>

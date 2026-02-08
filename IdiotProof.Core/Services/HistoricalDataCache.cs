@@ -19,10 +19,10 @@
 //
 // ============================================================================
 
-using IdiotProof.Backend.Enums;
-using IdiotProof.Backend.Models;
-using IdiotProof.Core.Constants;
-using IdiotProof.Core.Settings;
+using IdiotProof.Enums;
+using IdiotProof.Models;
+using IdiotProof.Constants;
+using IdiotProof.Settings;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -32,7 +32,7 @@ using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace IdiotProof.Backend.Services;
+namespace IdiotProof.Services;
 
 /// <summary>
 /// Caches historical bar data in JSON files to avoid repeated IBKR API calls.

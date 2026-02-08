@@ -2,10 +2,10 @@
 // Data Exporter - Export backtest data to various formats
 // ============================================================================
 
-using IdiotProof.BackTesting.Models;
+using IdiotProof.Models;
 using System.Text;
 
-namespace IdiotProof.BackTesting.Services;
+namespace IdiotProof.Services;
 
 /// <summary>
 /// Exports backtest data to various formats.

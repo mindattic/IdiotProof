@@ -1,6 +1,0 @@
-
-Ticker(NVDA)
-.Name("NVDA Autonomous")
-.Session(IS.RTH)
-.Quantity(5)
-.AutonomousTrading(IS.FLIP)

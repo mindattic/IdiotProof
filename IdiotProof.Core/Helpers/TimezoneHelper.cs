@@ -44,11 +44,10 @@
 // ============================================================================
 
 using System;
-using IdiotProof.Backend.Models;
-using IdiotProof.Core.Enums;
+using IdiotProof.Models;
+using IdiotProof.Enums;
 
-namespace IdiotProof.Backend.Helpers
-{
+namespace IdiotProof.Helpers {
     /// <summary>
     /// Provides timezone conversion utilities for trading applications.
     /// Handles conversions between Eastern Time (market time) and local timezone.

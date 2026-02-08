@@ -23,17 +23,15 @@
 // ╚═══════════════════════════════════════════════════════════════════════════╝
 
 using IBApi;
-using IdiotProof.Backend.Enums;
-using IdiotProof.Backend.Helpers;
-using IdiotProof.Backend.Logging;
-using IdiotProof.Backend.Strategy;
-using IdiotProof.Core.Helpers;
-using IdiotProof.Core.Settings;
+using IdiotProof.Enums;
+using IdiotProof.Helpers;
+using IdiotProof.Logging;
+using IdiotProof.Models;
+using IdiotProof.Settings;
 using IbContract = IBApi.Contract;
-using MarketTimeZone = IdiotProof.Core.Enums.MarketTimeZone;
+using MarketTimeZone = IdiotProof.Enums.MarketTimeZone;
 
-namespace IdiotProof.Backend.Models
-{
+namespace IdiotProof.Strategy {
     /// <summary>
     /// Executes a multi-step strategy for a single symbol.
     /// Monitors price and VWAP, evaluates conditions in sequence,
@@ -131,6 +129,12 @@ namespace IdiotProof.Backend.Models
 
         // Bollinger Bands calculator for mean reversion signals
         private Helpers.BollingerBandsCalculator? _bollingerBands;
+        
+        // Extended indicator calculators for comprehensive market scoring
+        private Helpers.StochasticCalculator? _stochasticCalculator;
+        private Helpers.ObvCalculator? _obvCalculator;
+        private Helpers.CciCalculator? _cciCalculator;
+        private Helpers.WilliamsRCalculator? _williamsRCalculator;
 
         // Warm-up logging
         private bool _warmupLoggedEma;
@@ -160,15 +164,16 @@ namespace IdiotProof.Backend.Models
         private double _currentAdaptiveTakeProfitPrice;
         private double _currentAdaptiveStopLossPrice;
 
-        // Autonomous trading tracking
-        private DateTime _lastAutonomousTradeTime = DateTime.MinValue;
-        private int _lastAutonomousScore;
-        private bool _autonomousIndicatorsReady;
-        private int _autonomousExitOrderId = -1;
-        private bool _autonomousIsLong = true;  // Tracks position direction for autonomous trades
-        private double _autonomousTakeProfit;   // TP target for autonomous trades
-        private double _autonomousStopLoss;     // SL target for autonomous trades
+        // Dynamic trading tracking
+        private DateTime _lastTradeTime = DateTime.MinValue;
+        private int _lastScore;
+        private bool _indicatorsReady;
+        private int _exitOrderId = -1;
+        private bool _isLong = true;  // Tracks position direction
+        private double _dynamicTakeProfit;   // Dynamic TP target
+        private double _dynamicStopLoss;     // Dynamic SL target
         private bool _shortSaleBlocked;         // True if short sale was rejected for this ticker
+        private double _previousClose;          // Previous session close for gap detection
 
         // Learning system - tracks patterns and outcomes per ticker
         private static readonly TickerProfileManager _profileManager = new();
@@ -177,10 +182,10 @@ namespace IdiotProof.Backend.Models
         private MarketScore? _entryScore;
 
         // AI-learned weights for market score calculation (if available)
-        private IdiotProof.Core.Learning.LearnedWeights? _learnedWeights;
+        private IdiotProof.Learning.LearnedWeights? _learnedWeights;
 
         // Historical metadata - provides insights about stock behavior
-        private IdiotProof.Core.Models.TickerMetadata? _tickerMetadata;
+        private IdiotProof.Models.TickerMetadata? _tickerMetadata;
 
         /// <summary>
         /// Gets the shared ticker profile manager for learning across sessions.
@@ -190,7 +195,7 @@ namespace IdiotProof.Backend.Models
         /// <summary>
         /// Gets or sets the ticker metadata for informed trading decisions.
         /// </summary>
-        public IdiotProof.Core.Models.TickerMetadata? TickerMetadata
+        public IdiotProof.Models.TickerMetadata? TickerMetadata
         {
             get => _tickerMetadata;
             set => _tickerMetadata = value;
@@ -277,7 +282,7 @@ namespace IdiotProof.Backend.Models
             // Initialize candlestick aggregator (1-minute candles, trimmed to MaxCandlesticks setting)
             _candlestickAggregator = new Helpers.CandlestickAggregator(
                 candleSizeMinutes: 1,
-                maxCandles: Settings.MaxCandlesticks);
+                maxCandles: AppSettings.MaxCandlesticks);
             _candlestickAggregator.OnCandleComplete += OnCandleComplete;
 
             // Initialize ATR calculator if ATR-based stop loss is configured
@@ -293,7 +298,7 @@ namespace IdiotProof.Backend.Models
             InitializeIndicatorCalculators();
 
             // Load AI-learned weights if available for this ticker
-            _learnedWeights = IdiotProof.Core.Learning.LearnedWeights.Load(contract.Symbol);
+            _learnedWeights = IdiotProof.Learning.LearnedWeights.Load(contract.Symbol);
             if (_learnedWeights != null)
             {
                 Log($"[AI] Loaded learned weights for {contract.Symbol} (gen {_learnedWeights.Generation})", ConsoleColor.Magenta);
@@ -507,19 +512,9 @@ namespace IdiotProof.Backend.Models
                 previousClose = candles[0].Close;
             }
 
-            foreach (var condition in _strategy.Conditions)
-            {
-                if (condition is GapUpCondition gapUp)
-                {
-                    gapUp.SetPreviousClose(previousClose);
-                    Log($"Set previous close ${previousClose:F2} for GapUp condition ({gapUp.Percentage:F1}%)", ConsoleColor.DarkGray);
-                }
-                else if (condition is GapDownCondition gapDown)
-                {
-                    gapDown.SetPreviousClose(previousClose);
-                    Log($"Set previous close ${previousClose:F2} for GapDown condition ({gapDown.Percentage:F1}%)", ConsoleColor.DarkGray);
-                }
-            }
+            // Store previous close for potential use by autonomous trading
+            _previousClose = previousClose;
+            Log($"Previous close set to ${previousClose:F2} from historical data", ConsoleColor.DarkGray);
         }
 
         /// <summary>
@@ -618,6 +613,19 @@ namespace IdiotProof.Backend.Models
                 catch (Exception ex)
                 {
                     Log($"WARNING: Bollinger Bands calculator update failed: {ex.Message}", ConsoleColor.Yellow);
+                }
+
+                // Update extended indicator calculators
+                try
+                {
+                    _stochasticCalculator?.Update(candle.High, candle.Low, candle.Close);
+                    _obvCalculator?.Update(candle.Close, candle.Volume);
+                    _cciCalculator?.Update(candle.High, candle.Low, candle.Close);
+                    _williamsRCalculator?.Update(candle.High, candle.Low, candle.Close);
+                }
+                catch (Exception ex)
+                {
+                    Log($"WARNING: Extended indicator update failed: {ex.Message}", ConsoleColor.Yellow);
                 }
 
                 // Log warm-up progress
@@ -763,150 +771,22 @@ namespace IdiotProof.Backend.Models
             _momentumCalculator ??= new Helpers.MomentumCalculator(period: 10);
             _rocCalculator ??= new Helpers.RocCalculator(period: 10);
             
+            // Extended indicators for comprehensive market scoring
+            _stochasticCalculator ??= new Helpers.StochasticCalculator(kPeriod: 14, dPeriod: 3);
+            _obvCalculator ??= new Helpers.ObvCalculator(emaPeriod: 20);
+            _cciCalculator ??= new Helpers.CciCalculator(period: 20);
+            _williamsRCalculator ??= new Helpers.WilliamsRCalculator(period: 14);
+            
             Log("[AI] All required calculators initialized for AI scoring", ConsoleColor.DarkMagenta);
         }
 
         /// <summary>
-        /// Initializes all indicator calculators for the strategy conditions
-        /// and wires up the callback functions.
+        /// Initializes all indicator calculators for the strategy.
+        /// For AutonomousTrading, initializes all indicators for market score calculation.
         /// </summary>
         private void InitializeIndicatorCalculators()
         {
-            foreach (var condition in _strategy.Conditions)
-            {
-                try
-                {
-                    switch (condition)
-                    {
-                        case EmaAboveCondition emaAbove:
-                            var emaAboveCalc = GetOrCreateEmaCalculator(emaAbove.Period);
-                            emaAbove.GetEmaValue = () => emaAboveCalc.CurrentValue;
-                            Log($"Initialized EMA({emaAbove.Period}) calculator for 'Above EMA' condition", ConsoleColor.DarkGray);
-                            break;
-
-                        case EmaBelowCondition emaBelow:
-                            var emaBelowCalc = GetOrCreateEmaCalculator(emaBelow.Period);
-                            emaBelow.GetEmaValue = () => emaBelowCalc.CurrentValue;
-                            Log($"Initialized EMA({emaBelow.Period}) calculator for 'Below EMA' condition", ConsoleColor.DarkGray);
-                            break;
-
-                        case EmaBetweenCondition emaBetween:
-                            var lowerCalc = GetOrCreateEmaCalculator(emaBetween.LowerPeriod);
-                            var upperCalc = GetOrCreateEmaCalculator(emaBetween.UpperPeriod);
-                            emaBetween.GetLowerEmaValue = () => lowerCalc.CurrentValue;
-                            emaBetween.GetUpperEmaValue = () => upperCalc.CurrentValue;
-                            Log($"Initialized EMA({emaBetween.LowerPeriod}) and EMA({emaBetween.UpperPeriod}) calculators for 'Between EMA' condition", ConsoleColor.DarkGray);
-                            break;
-
-                        case AdxCondition adxCondition:
-                            // Create ADX calculator if not already initialized
-                            _adxCalculator ??= new Helpers.AdxCalculator(period: 14, ticksPerBar: 50);
-                            adxCondition.GetAdxValue = () => _adxCalculator.CurrentAdx;
-                            Log($"Initialized ADX(14) calculator for 'ADX {adxCondition.Comparison} {adxCondition.Threshold}' condition", ConsoleColor.DarkGray);
-                            break;
-
-                        case RsiCondition rsiCondition:
-                            // Create RSI calculator if not already initialized
-                            _rsiCalculator ??= new Helpers.RsiCalculator(period: 14);
-                            rsiCondition.GetRsiValue = () => _rsiCalculator.CurrentValue;
-                            Log($"Initialized RSI(14) calculator for '{rsiCondition.Name}' condition", ConsoleColor.DarkGray);
-                            break;
-
-                        case MacdCondition macdCondition:
-                            // Create MACD calculator if not already initialized
-                            _macdCalculator ??= new Helpers.MacdCalculator(12, 26, 9);
-                            macdCondition.GetMacdValues = () => (
-                                _macdCalculator.MacdLine,
-                                _macdCalculator.SignalLine,
-                                _macdCalculator.Histogram,
-                                _macdCalculator.PreviousHistogram
-                            );
-                            Log($"Initialized MACD(12,26,9) calculator for '{macdCondition.Name}' condition", ConsoleColor.DarkGray);
-                            break;
-
-                        case DiCondition diCondition:
-                            // DI uses the ADX calculator (which calculates +DI/-DI)
-                            _adxCalculator ??= new Helpers.AdxCalculator(period: 14, ticksPerBar: 50);
-                            diCondition.GetDiValues = () => (_adxCalculator.PlusDI, _adxCalculator.MinusDI);
-                            Log($"Initialized DI calculator for '{diCondition.Name}' condition", ConsoleColor.DarkGray);
-                            break;
-
-                        case MomentumAboveCondition momentumAbove:
-                            _momentumCalculator ??= new Helpers.MomentumCalculator(period: 10);
-                            momentumAbove.GetMomentumValue = () => _momentumCalculator.CurrentValue;
-                            Log($"Initialized Momentum(10) calculator for '{momentumAbove.Name}' condition", ConsoleColor.DarkGray);
-                            break;
-
-                        case MomentumBelowCondition momentumBelow:
-                            _momentumCalculator ??= new Helpers.MomentumCalculator(period: 10);
-                            momentumBelow.GetMomentumValue = () => _momentumCalculator.CurrentValue;
-                            Log($"Initialized Momentum(10) calculator for '{momentumBelow.Name}' condition", ConsoleColor.DarkGray);
-                            break;
-
-                        case HigherLowsCondition higherLows:
-                            higherLows.GetRecentLows = () => _candlestickAggregator.GetRecentLows(higherLows.LookbackBars);
-                            Log($"Initialized HigherLows({higherLows.LookbackBars}) pattern detector", ConsoleColor.DarkGray);
-                            break;
-
-                        case LowerHighsCondition lowerHighs:
-                            lowerHighs.GetRecentHighs = () => _candlestickAggregator.GetRecentHighs(lowerHighs.LookbackBars);
-                            Log($"Initialized LowerHighs({lowerHighs.LookbackBars}) pattern detector", ConsoleColor.DarkGray);
-                            break;
-
-                        case EmaTurningUpCondition emaTurningUp:
-                            var turningUpCalc = GetOrCreateEmaCalculator(emaTurningUp.Period);
-                            emaTurningUp.GetCurrentEmaValue = () => turningUpCalc.CurrentValue;
-                            emaTurningUp.GetPreviousEmaValue = () => turningUpCalc.PreviousValue;
-                            Log($"Initialized EMA({emaTurningUp.Period}) calculator for 'EMA Turning Up' condition", ConsoleColor.DarkGray);
-                            break;
-
-                        case VolumeAboveCondition volumeAbove:
-                            _volumeCalculator ??= new Helpers.VolumeCalculator(period: 20);
-                            volumeAbove.GetCurrentVolume = () => _volumeCalculator.CurrentVolume;
-                            volumeAbove.GetAverageVolume = () => _volumeCalculator.AverageVolume;
-                            Log($"Initialized Volume calculator for 'Volume >= {volumeAbove.Multiplier:F1}x' condition", ConsoleColor.DarkGray);
-                            break;
-
-                        case CloseAboveVwapCondition closeAboveVwap:
-                            closeAboveVwap.GetLastClose = () => _candlestickAggregator.LastCompletedCandle?.Close ?? 0;
-                            Log($"Initialized CloseAboveVwap condition (uses last candle close)", ConsoleColor.DarkGray);
-                            break;
-
-                        case VwapRejectionCondition vwapRejection:
-                            vwapRejection.GetLastHigh = () => _candlestickAggregator.LastCompletedCandle?.High ?? 0;
-                            vwapRejection.GetLastClose = () => _candlestickAggregator.LastCompletedCandle?.Close ?? 0;
-                            Log($"Initialized VwapRejection condition (uses last candle high/close)", ConsoleColor.DarkGray);
-                            break;
-
-                        case RocAboveCondition rocAbove:
-                            _rocCalculator ??= new Helpers.RocCalculator(period: 10);
-                            rocAbove.GetRocValue = () => _rocCalculator.CurrentValue;
-                            Log($"Initialized ROC(10) calculator for '{rocAbove.Name}' condition", ConsoleColor.DarkGray);
-                            break;
-
-                        case RocBelowCondition rocBelow:
-                            _rocCalculator ??= new Helpers.RocCalculator(period: 10);
-                            rocBelow.GetRocValue = () => _rocCalculator.CurrentValue;
-                            Log($"Initialized ROC(10) calculator for '{rocBelow.Name}' condition", ConsoleColor.DarkGray);
-                            break;
-
-                        case GapUpCondition gapUp:
-                            // GapUp condition requires previous close - will be set during historical warm-up
-                            Log($"Registered GapUp condition (requires {gapUp.Percentage:F1}% gap). Previous close will be set from historical data.", ConsoleColor.DarkGray);
-                            break;
-
-                        case GapDownCondition gapDown:
-                            // GapDown condition requires previous close - will be set during historical warm-up
-                            Log($"Registered GapDown condition (requires {gapDown.Percentage:F1}% gap). Previous close will be set from historical data.", ConsoleColor.DarkGray);
-                            break;
-                    }
-                }
-                catch (Exception ex)
-                {
-                    // Log but continue - don't let one failed calculator prevent others from initializing
-                    Log($"WARNING: Failed to initialize calculator for '{condition.Name}': {ex.Message}", ConsoleColor.Yellow);
-                }
-            }
+            // Skip condition-based initialization - AutonomousTrading uses market score
 
             if (_emaCalculators.Count > 0)
             {
@@ -1278,9 +1158,9 @@ namespace IdiotProof.Backend.Models
             }
 
             // Set account if specified
-            if (!string.IsNullOrEmpty(Settings.AccountNumber))
+            if (!string.IsNullOrEmpty(AppSettings.AccountNumber))
             {
-                stopOrder.Account = Settings.AccountNumber;
+                stopOrder.Account = AppSettings.AccountNumber;
             }
 
             var sessionStr = isRTH ? "RTH" : "Extended";
@@ -1320,21 +1200,21 @@ namespace IdiotProof.Backend.Models
             // Check if indicators are ready for market score calculation
             if (!AreIndicatorsReadyForAutonomous())
             {
-                if (!_autonomousIndicatorsReady)
+                if (!_indicatorsReady)
                 {
                     // Log once that we're waiting for warm-up
                     return;
                 }
             }
-            else if (!_autonomousIndicatorsReady)
+            else if (!_indicatorsReady)
             {
-                _autonomousIndicatorsReady = true;
+                _indicatorsReady = true;
                 Log($"[OK] Autonomous trading indicators ready - monitoring for signals", ConsoleColor.Green);
             }
 
             // Rate limiting - don't trade too frequently
             var now = DateTime.UtcNow;
-            var timeSinceLastTrade = (now - _lastAutonomousTradeTime).TotalSeconds;
+            var timeSinceLastTrade = (now - _lastTradeTime).TotalSeconds;
             if (timeSinceLastTrade < config.MinSecondsBetweenTrades)
                 return;
 
@@ -1348,11 +1228,11 @@ namespace IdiotProof.Backend.Models
             var score = CalculateMarketScoreForAutonomous(currentPrice, vwap, config.OptimizedWeights);
 
             // Check if score changed significantly
-            int scoreDelta = Math.Abs(score.TotalScore - _lastAutonomousScore);
-            if (scoreDelta < config.MinScoreChangeForTrade && _lastAutonomousScore != 0)
+            int scoreDelta = Math.Abs(score.TotalScore - _lastScore);
+            if (scoreDelta < config.MinScoreChangeForTrade && _lastScore != 0)
                 return;
 
-            _lastAutonomousScore = score.TotalScore;
+            _lastScore = score.TotalScore;
 
             // Entry/Exit logic based on position state
             if (!_entryFilled)
@@ -1444,7 +1324,7 @@ namespace IdiotProof.Backend.Models
         /// <param name="vwap">Current VWAP.</param>
         /// <param name="optimizedWeights">Optional optimized weights (currently ignored - using shared calculator).</param>
         private MarketScore CalculateMarketScoreForAutonomous(double price, double vwap, 
-            IdiotProof.BackTesting.Optimization.IndicatorWeights? optimizedWeights = null)
+            IdiotProof.Optimization.IndicatorWeights? optimizedWeights = null)
         {
             // Build indicator snapshot from live calculator values
             var snapshot = BuildIndicatorSnapshot(price, vwap);
@@ -1459,46 +1339,39 @@ namespace IdiotProof.Backend.Models
             bool learnedShouldExit = false;
             bool hasLearnedWeights = false;
             
-            // If we have AI-learned weights, use the weighted calculator
+            // Get indicator weights - learned or default
+            var weights = _learnedWeights != null 
+                ? _learnedWeights.ToIndicatorWeights() 
+                : IdiotProof.Helpers.IndicatorWeights.Default;
+            
+            // SINGLE SOURCE OF TRUTH: Use same calculation for live and backtest
+            var result = MarketScoreCalculator.Calculate(snapshot, weights);
+            vwapScore = result.VwapScore;
+            emaScore = result.EmaScore;
+            rsiScore = result.RsiScore;
+            macdScore = result.MacdScore;
+            adxScore = result.AdxScore;
+            volumeScore = result.VolumeScore;
+            bollingerScore = result.BollingerScore;
+            
+            // Apply time weight to the score
+            adjustedScore = (int)Math.Clamp(result.TotalScore * timeWeight, -100, 100);
+            
+            // If we have AI-learned weights, also calculate entry/exit signals
             if (_learnedWeights != null)
             {
                 hasLearnedWeights = true;
                 
-                // Build FULL ExtendedSnapshot with ALL values (not FromBasic which misses data!)
+                // Build FULL ExtendedSnapshot with ALL values for signal detection
                 var extSnap = BuildExtendedSnapshot(price, vwap, snapshot);
                 
-                var (rawScore, shouldLong, shouldShort, shouldExit) = IdiotProof.Core.Learning.WeightedScoreCalculator.Calculate(extSnap, _learnedWeights);
-                
-                // Convert weighted score to integer, apply time weight
-                adjustedScore = (int)Math.Clamp(rawScore * timeWeight, -100, 100);
+                // Get entry/exit signals from the full weighted system
+                var (_, shouldLong, shouldShort, shouldExit) = IdiotProof.Learning.WeightedScoreCalculator.Calculate(extSnap, _learnedWeights);
                 
                 // IMPORTANT: Capture the learned entry/exit signals!
                 learnedShouldLong = shouldLong;
                 learnedShouldShort = shouldShort;
                 learnedShouldExit = shouldExit;
-                
-                // Individual component scores (estimated from weighted result)
-                vwapScore = snapshot.Price > snapshot.Vwap ? 15 : -15;
-                emaScore = snapshot.Price > snapshot.Ema9 ? 10 : -10;
-                rsiScore = snapshot.Rsi < 30 ? 10 : (snapshot.Rsi > 70 ? -10 : 0);
-                macdScore = snapshot.Macd > snapshot.MacdSignal ? 10 : -10;
-                adxScore = snapshot.Adx > 25 ? (snapshot.PlusDi > snapshot.MinusDi ? 10 : -10) : 0;
-                volumeScore = snapshot.VolumeRatio > 1.5 ? 5 : 0;
-                bollingerScore = 0;
-            }
-            else
-            {
-                // Use the SHARED calculator - same code as backtesting
-                var result = MarketScoreCalculator.Calculate(snapshot);
-                adjustedScore = (int)Math.Clamp(result.TotalScore * timeWeight, -100, 100);
-                
-                vwapScore = result.VwapScore;
-                emaScore = result.EmaScore;
-                rsiScore = result.RsiScore;
-                macdScore = result.MacdScore;
-                adxScore = result.AdxScore;
-                volumeScore = result.VolumeScore;
-                bollingerScore = result.BollingerScore;
             }
 
             return new MarketScore
@@ -1573,6 +1446,23 @@ namespace IdiotProof.Backend.Models
             // Get ATR
             double atr = _atrCalculator?.IsReady == true ? _atrCalculator.CurrentAtr : 0;
             
+            // Get extended indicators
+            double stochasticK = 0, stochasticD = 0;
+            if (_stochasticCalculator?.IsReady == true)
+            {
+                stochasticK = _stochasticCalculator.PercentK;
+                stochasticD = _stochasticCalculator.PercentD;
+            }
+            
+            double obvSlope = 0;
+            if (_obvCalculator?.IsReady == true)
+            {
+                // Convert boolean direction to normalized slope: +1 rising, -1 falling, 0 neutral
+                obvSlope = _obvCalculator.IsRising ? 1.0 : (_obvCalculator.IsFalling ? -1.0 : 0);
+            }
+            double cci = _cciCalculator?.IsReady == true ? _cciCalculator.CurrentCci : 0;
+            double williamsR = _williamsRCalculator?.IsReady == true ? _williamsRCalculator.CurrentValue : -50;
+            
             return new IndicatorSnapshot
             {
                 Price = price,
@@ -1591,7 +1481,12 @@ namespace IdiotProof.Backend.Models
                 BollingerUpper = bbUpper,
                 BollingerLower = bbLower,
                 BollingerMiddle = bbMiddle,
-                Atr = atr
+                Atr = atr,
+                StochasticK = stochasticK,
+                StochasticD = stochasticD,
+                ObvSlope = obvSlope,
+                Cci = cci,
+                WilliamsR = williamsR
             };
         }
 
@@ -1599,7 +1494,7 @@ namespace IdiotProof.Backend.Models
         /// Builds a COMPLETE ExtendedSnapshot with ALL values needed for AI learning.
         /// This ensures live trading uses the SAME data as backtesting.
         /// </summary>
-        private IdiotProof.Core.Learning.ExtendedSnapshot BuildExtendedSnapshot(double price, double vwap, IndicatorSnapshot basic)
+        private IdiotProof.Learning.ExtendedSnapshot BuildExtendedSnapshot(double price, double vwap, IndicatorSnapshot basic)
         {
             // Get Momentum and ROC values
             double momentum = _momentumCalculator?.IsReady == true ? _momentumCalculator.CurrentValue : 0;
@@ -1645,7 +1540,7 @@ namespace IdiotProof.Backend.Models
                 isVwapRejection = current.High > vwap && current.Close < vwap;  // Wick above, close below
             }
             
-            return new IdiotProof.Core.Learning.ExtendedSnapshot
+            return new IdiotProof.Learning.ExtendedSnapshot
             {
                 Price = basic.Price,
                 Vwap = basic.Vwap,
@@ -2077,7 +1972,7 @@ namespace IdiotProof.Backend.Models
                 {
                     EntryTime = DateTime.UtcNow,
                     EntryPrice = currentPrice,
-                    WasLong = true,
+                    IsLong = true,
                     Quantity = _strategy.Order.Quantity,
                     EntryScore = score.TotalScore,
                     EntryVwapScore = score.VwapScore,
@@ -2086,8 +1981,8 @@ namespace IdiotProof.Backend.Models
                     EntryMacdScore = score.MacdScore,
                     EntryAdxScore = score.AdxScore,
                     EntryVolumeScore = score.VolumeScore,
-                    EntryRsi = _rsiCalculator?.CurrentValue ?? 50,
-                    EntryAdx = _adxCalculator?.CurrentAdx ?? 20
+                    RsiAtEntry = _rsiCalculator?.CurrentValue ?? 50,
+                    AdxAtEntry = _adxCalculator?.CurrentAdx ?? 20
                 };
                 
                 // Execute long entry
@@ -2124,7 +2019,7 @@ namespace IdiotProof.Backend.Models
                 {
                     EntryTime = DateTime.UtcNow,
                     EntryPrice = currentPrice,
-                    WasLong = false,
+                    IsLong = false,
                     Quantity = _strategy.Order.Quantity,
                     EntryScore = score.TotalScore,
                     EntryVwapScore = score.VwapScore,
@@ -2133,8 +2028,8 @@ namespace IdiotProof.Backend.Models
                     EntryMacdScore = score.MacdScore,
                     EntryAdxScore = score.AdxScore,
                     EntryVolumeScore = score.VolumeScore,
-                    EntryRsi = _rsiCalculator?.CurrentValue ?? 50,
-                    EntryAdx = _adxCalculator?.CurrentAdx ?? 20
+                    RsiAtEntry = _rsiCalculator?.CurrentValue ?? 50,
+                    AdxAtEntry = _adxCalculator?.CurrentAdx ?? 20
                 };
                 
                 // Execute short entry
@@ -2147,7 +2042,7 @@ namespace IdiotProof.Backend.Models
         /// </summary>
         private void HandleAutonomousExit(double currentPrice, double vwap, MarketScore score, AutonomousTradingConfig config)
         {
-            bool isLong = _autonomousIsLong;  // Use tracked position direction
+            bool isLong = _isLong;  // Use tracked position direction
             bool isFlipMode = config.UseFlipMode;
 
             // FLIP MODE: Always flip direction on reversal - stay in market
@@ -2220,27 +2115,27 @@ namespace IdiotProof.Backend.Models
         /// </summary>
         private void ExecuteFlipPosition(double currentPrice, double vwap, bool goLong, AutonomousTradingConfig config)
         {
-            _lastAutonomousTradeTime = DateTime.UtcNow;
+            _lastTradeTime = DateTime.UtcNow;
             
             // Record the exit for learning
             CompletePendingTradeRecord(currentPrice);
             
             // Calculate P&L for logging
-            double pnl = _autonomousIsLong 
+            double pnl = _isLong 
                 ? _strategy.Order.Quantity * (currentPrice - _entryFillPrice)
                 : _strategy.Order.Quantity * (_entryFillPrice - currentPrice);
             
             var pnlColor = pnl >= 0 ? ConsoleColor.Green : ConsoleColor.Red;
             Log($"  Exit P&L: ${pnl:F2}", pnlColor);
-            SessionLogger?.LogFill(_strategy.Symbol, _autonomousIsLong ? "SELL" : "BUY", _strategy.Order.Quantity, currentPrice, pnl);
+            SessionLogger?.LogFill(_strategy.Symbol, _isLong ? "SELL" : "BUY", _strategy.Order.Quantity, currentPrice, pnl);
             
             // Reset for new position
             ResetForNextAutonomousTrade();
             
             // Immediately enter opposite direction
-            _autonomousIsLong = goLong;
-            _autonomousTakeProfit = 0; // Not used in FlipMode
-            _autonomousStopLoss = 0;   // Not used in FlipMode
+            _isLong = goLong;
+            _dynamicTakeProfit = 0; // Not used in FlipMode
+            _dynamicStopLoss = 0;   // Not used in FlipMode
             
             // Create new entry for learning
             var score = CalculateMarketScoreForAutonomous(currentPrice, vwap, config.OptimizedWeights);
@@ -2249,7 +2144,7 @@ namespace IdiotProof.Backend.Models
             {
                 EntryTime = DateTime.UtcNow,
                 EntryPrice = currentPrice,
-                WasLong = goLong,
+                IsLong = goLong,
                 Quantity = _strategy.Order.Quantity,
                 EntryScore = score.TotalScore,
                 EntryVwapScore = score.VwapScore,
@@ -2258,8 +2153,8 @@ namespace IdiotProof.Backend.Models
                 EntryMacdScore = score.MacdScore,
                 EntryAdxScore = score.AdxScore,
                 EntryVolumeScore = score.VolumeScore,
-                EntryRsi = _rsiCalculator?.CurrentValue ?? 50,
-                EntryAdx = _adxCalculator?.CurrentAdx ?? 20
+                RsiAtEntry = _rsiCalculator?.CurrentValue ?? 50,
+                AdxAtEntry = _adxCalculator?.CurrentAdx ?? 20
             };
             
             Log($"  -> New {(goLong ? "LONG" : "SHORT")} entry @ ${currentPrice:F2}", goLong ? ConsoleColor.Cyan : ConsoleColor.Magenta);
@@ -2326,12 +2221,12 @@ namespace IdiotProof.Backend.Models
                 return;
             }
 
-            _lastAutonomousTradeTime = DateTime.UtcNow;
+            _lastTradeTime = DateTime.UtcNow;
             
             // Track autonomous position direction (used by SubmitTakeProfit/StopLoss)
-            _autonomousIsLong = isLong;
-            _autonomousTakeProfit = takeProfit;
-            _autonomousStopLoss = stopLoss;
+            _isLong = isLong;
+            _dynamicTakeProfit = takeProfit;
+            _dynamicStopLoss = stopLoss;
             
             // Set the dynamically calculated TP/SL tracking vars
             _takeProfitTarget = takeProfit;
@@ -2353,7 +2248,7 @@ namespace IdiotProof.Backend.Models
         /// </summary>
         private void ExecuteAutonomousExit(double currentPrice, double vwap, bool wasLong)
         {
-            _lastAutonomousTradeTime = DateTime.UtcNow;
+            _lastTradeTime = DateTime.UtcNow;
 
             // Complete the pending trade record for learning
             CompletePendingTradeRecord(currentPrice);
@@ -2373,7 +2268,7 @@ namespace IdiotProof.Backend.Models
             }
 
             // Submit autonomous exit order (tracked separately so we can cycle after fill)
-            _autonomousExitOrderId = _wrapper.ConsumeNextOrderId();
+            _exitOrderId = _wrapper.ConsumeNextOrderId();
             string action = wasLong ? "SELL" : "BUY"; // Close position
 
             var exitOrder = new Order
@@ -2385,11 +2280,11 @@ namespace IdiotProof.Backend.Models
                 Tif = "GTC"
             };
 
-            if (!string.IsNullOrEmpty(Settings.AccountNumber))
-                exitOrder.Account = Settings.AccountNumber;
+            if (!string.IsNullOrEmpty(AppSettings.AccountNumber))
+                exitOrder.Account = AppSettings.AccountNumber;
 
             Log($">> AUTONOMOUS EXIT: {action} {_strategy.Order.Quantity} @ MKT (cycling to next trade)", ConsoleColor.Yellow);
-            _client.placeOrder(_autonomousExitOrderId, _contract, exitOrder);
+            _client.placeOrder(_exitOrderId, _contract, exitOrder);
         }
 
         /// <summary>
@@ -2408,8 +2303,8 @@ namespace IdiotProof.Backend.Models
                 _pendingTradeRecord.ExitTime = DateTime.UtcNow;
                 _pendingTradeRecord.ExitPrice = exitPrice;
                 _pendingTradeRecord.ExitScore = exitScore.TotalScore;
-                _pendingTradeRecord.ExitRsi = _rsiCalculator?.CurrentValue ?? 50;
-                _pendingTradeRecord.ExitAdx = _adxCalculator?.CurrentAdx ?? 20;
+                _pendingTradeRecord.RsiAtExit = _rsiCalculator?.CurrentValue ?? 50;
+                _pendingTradeRecord.AdxAtExit = _adxCalculator?.CurrentAdx ?? 20;
 
                 // Record the trade
                 _profileManager.RecordTrade(_strategy.Symbol, _pendingTradeRecord);
@@ -2417,7 +2312,7 @@ namespace IdiotProof.Backend.Models
                 // Log the outcome
                 string outcome = _pendingTradeRecord.IsWin ? "WIN" : "LOSS";
                 var color = _pendingTradeRecord.IsWin ? ConsoleColor.Green : ConsoleColor.Red;
-                Log($"[LEARN] Trade recorded: {outcome} ${_pendingTradeRecord.ProfitLoss:F2} ({_pendingTradeRecord.ProfitLossPercent:F2}%)", color);
+                Log($"[LEARN] Trade recorded: {outcome} ${_pendingTradeRecord.PnL:F2} ({_pendingTradeRecord.PnLPercent:F2}%)", color);
                 Log($"  Duration: {_pendingTradeRecord.Duration.TotalMinutes:F0} min | Entry score: {_pendingTradeRecord.EntryScore} | Exit score: {_pendingTradeRecord.ExitScore}", ConsoleColor.DarkGray);
                 Log($"  Profile updated: {_tickerProfile.GetSummary()}", ConsoleColor.DarkGray);
 
@@ -2464,7 +2359,7 @@ namespace IdiotProof.Backend.Models
                 return;
 
             // Calculate market score - use tracked position direction for autonomous trading
-            bool isLong = order.UseAutonomousTrading ? _autonomousIsLong : (order.Side == OrderSide.Buy);
+            bool isLong = order.UseAutonomousTrading ? _isLong : (order.Side == OrderSide.Buy);
             var score = CalculateMarketScore(currentPrice, vwap, isLong);
 
             // Check for emergency exit (AdaptiveOrder threshold-based)
@@ -2622,6 +2517,7 @@ namespace IdiotProof.Backend.Models
 
         /// <summary>
         /// Calculates a market score (-100 to +100) based on multiple indicators.
+        /// Uses MarketScoreCalculator (SINGLE SOURCE OF TRUTH) for consistent scoring.
         /// Positive = bullish, Negative = bearish.
         /// </summary>
         private MarketScore CalculateMarketScore(double price, double vwap, bool isLong)
@@ -2629,95 +2525,24 @@ namespace IdiotProof.Backend.Models
             var order = _strategy.Order;
             var config = order.AdaptiveOrder!;
 
-            int vwapScore = 0, emaScore = 0, rsiScore = 0, macdScore = 0, adxScore = 0, volumeScore = 0;
+            // Get indicator weights - learned or default
+            var weights = _learnedWeights != null 
+                ? _learnedWeights.ToIndicatorWeights() 
+                : IdiotProof.Helpers.IndicatorWeights.Default;
+            
+            // Use MarketScoreCalculator for component scores (SINGLE SOURCE OF TRUTH)
+            var snapshot = BuildIndicatorSnapshot(price, vwap);
+            var result = MarketScoreCalculator.Calculate(snapshot, weights);
+            
+            int vwapScore = result.VwapScore;
+            int emaScore = result.EmaScore;
+            int rsiScore = result.RsiScore;
+            int macdScore = result.MacdScore;
+            int adxScore = result.AdxScore;
+            int volumeScore = result.VolumeScore;
+            int bollingerScore = result.BollingerScore;
 
-            // VWAP Position (15% weight) - Range: -100 to +100
-            if (vwap > 0)
-            {
-                double vwapDiff = (price - vwap) / vwap * 100; // Percentage above/below VWAP
-                vwapScore = (int)Math.Clamp(vwapDiff * 20, -100, 100); // Scale: 5% above VWAP = +100
-            }
-
-            // EMA Stack Alignment (20% weight)
-            if (_emaCalculators.Count > 0)
-            {
-                int bullishCount = 0, bearishCount = 0;
-                var sortedEmas = _emaCalculators.OrderBy(kvp => kvp.Key).ToList();
-
-                foreach (var kvp in sortedEmas)
-                {
-                    if (kvp.Value.IsReady)
-                    {
-                        if (price > kvp.Value.CurrentValue) bullishCount++;
-                        else bearishCount++;
-                    }
-                }
-
-                // Check EMA alignment (price > EMA9 > EMA21 = very bullish)
-                int total = bullishCount + bearishCount;
-                if (total > 0)
-                {
-                    emaScore = (int)((bullishCount - bearishCount) / (double)total * 100);
-                }
-            }
-
-            // RSI (15% weight) - Overbought/oversold affects score
-            if (_rsiCalculator?.IsReady == true)
-            {
-                double rsi = _rsiCalculator.CurrentValue;
-                // RSI 50 = neutral (0), RSI 70+ = overbought (-50 to -100), RSI 30- = oversold (+50 to +100)
-                if (rsi > 70)
-                    rsiScore = (int)(-(rsi - 70) * 3.33); // 70->0, 100->-100
-                else if (rsi < 30)
-                    rsiScore = (int)((30 - rsi) * 3.33); // 30->0, 0->+100
-                else
-                    rsiScore = (int)((rsi - 50) * 2.5); // 30->-50, 70->+50
-            }
-
-            // MACD (20% weight)
-            if (_macdCalculator?.IsReady == true)
-            {
-                bool bullish = _macdCalculator.IsBullish;
-                double histogram = _macdCalculator.Histogram;
-                // Scale histogram to score (-100 to +100)
-                macdScore = bullish ? 50 : -50;
-                macdScore += (int)Math.Clamp(histogram * 500, -50, 50); // Histogram strength adds ±50
-            }
-
-            // ADX Trend Strength (20% weight)
-            if (_adxCalculator?.IsReady == true)
-            {
-                double adx = _adxCalculator.CurrentAdx;
-                bool diPositive = _adxCalculator.PlusDI > _adxCalculator.MinusDI;
-
-                // ADX determines magnitude, DI determines direction
-                int magnitude = (int)Math.Min(adx * 2, 100); // ADX 50+ = max magnitude
-                adxScore = diPositive ? magnitude : -magnitude;
-            }
-
-            // Volume (10% weight)
-            if (_volumeCalculator?.IsReady == true)
-            {
-                double volumeRatio = _volumeCalculator.VolumeRatio;
-                // High volume confirms moves: >1.5x = +50, >2x = +100
-                if (volumeRatio > 1.0)
-                {
-                    int volumeMagnitude = (int)Math.Min((volumeRatio - 1.0) * 100, 100);
-                    // Volume confirms the current direction
-                    volumeScore = price > vwap ? volumeMagnitude : -volumeMagnitude;
-                }
-            }
-
-            // Calculate weighted total score
-            double totalScore =
-                vwapScore * config.WeightVwap +
-                emaScore * config.WeightEma +
-                rsiScore * config.WeightRsi +
-                macdScore * config.WeightMacd +
-                adxScore * config.WeightAdx +
-                volumeScore * config.WeightVolume;
-
-            int finalScore = (int)Math.Clamp(totalScore, -100, 100);
+            int finalScore = result.TotalScore;
 
             // For short positions, invert the score
             if (!isLong)
@@ -2740,6 +2565,7 @@ namespace IdiotProof.Backend.Models
                 MacdScore = macdScore,
                 AdxScore = adxScore,
                 VolumeScore = volumeScore,
+                BollingerScore = bollingerScore,
                 TakeProfitMultiplier = tpMultiplier,
                 StopLossMultiplier = slMultiplier,
                 ShouldEmergencyExit = shouldExit
@@ -2860,8 +2686,8 @@ namespace IdiotProof.Backend.Models
                 Tif = "GTC"
             };
 
-            if (!string.IsNullOrEmpty(Settings.AccountNumber))
-                tpOrder.Account = Settings.AccountNumber;
+            if (!string.IsNullOrEmpty(AppSettings.AccountNumber))
+                tpOrder.Account = AppSettings.AccountNumber;
 
             _wrapper.ModifyOrder(_takeProfitOrderId, _contract, tpOrder);
         }
@@ -2883,8 +2709,8 @@ namespace IdiotProof.Backend.Models
                 Tif = "GTC"
             };
 
-            if (!string.IsNullOrEmpty(Settings.AccountNumber))
-                slOrder.Account = Settings.AccountNumber;
+            if (!string.IsNullOrEmpty(AppSettings.AccountNumber))
+                slOrder.Account = AppSettings.AccountNumber;
 
             _wrapper.ModifyOrder(_stopLossOrderId, _contract, slOrder);
         }
@@ -2923,8 +2749,8 @@ namespace IdiotProof.Backend.Models
                 Tif = "GTC"
             };
 
-            if (!string.IsNullOrEmpty(Settings.AccountNumber))
-                exitOrder.Account = Settings.AccountNumber;
+            if (!string.IsNullOrEmpty(AppSettings.AccountNumber))
+                exitOrder.Account = AppSettings.AccountNumber;
 
             Log($">> EMERGENCY EXIT: {action} {_strategy.Order.Quantity} @ MKT", ConsoleColor.Red);
             _client.placeOrder(exitOrderId, _contract, exitOrder);
@@ -2974,8 +2800,8 @@ namespace IdiotProof.Backend.Models
             // Log next window time
             if (_strategy.StartTime.HasValue)
             {
-                var info = TimezoneHelper.GetTimezoneDisplayInfo(Settings.Timezone);
-                var startLocal = TimezoneHelper.ToLocal(_strategy.StartTime.Value, Settings.Timezone);
+                var info = TimezoneHelper.GetTimezoneDisplayInfo(AppSettings.Timezone);
+                var startLocal = TimezoneHelper.ToLocal(_strategy.StartTime.Value, AppSettings.Timezone);
                 Log($"Will start monitoring at {_strategy.StartTime.Value:h:mm tt} ET ({startLocal:h:mm tt} {info.Abbreviation})", ConsoleColor.DarkGray);
             }
         }
@@ -3153,8 +2979,8 @@ namespace IdiotProof.Backend.Models
                 if (!_waitingForWindowLogged)
                 {
                     _waitingForWindowLogged = true;
-                    var info = TimezoneHelper.GetTimezoneDisplayInfo(Settings.Timezone);
-                    var startLocal = TimezoneHelper.ToLocal(_strategy.StartTime.Value, Settings.Timezone);
+                    var info = TimezoneHelper.GetTimezoneDisplayInfo(AppSettings.Timezone);
+                    var startLocal = TimezoneHelper.ToLocal(_strategy.StartTime.Value, AppSettings.Timezone);
                     Log($"Not monitoring yet - will start at {_strategy.StartTime.Value:h:mm tt} ET ({startLocal:h:mm tt} {info.Abbreviation})", ConsoleColor.DarkYellow);
                 }
                 return;
@@ -3166,9 +2992,9 @@ namespace IdiotProof.Backend.Models
                 if (!_windowEndedLogged)
                 {
                     _windowEndedLogged = true;
-                    var info = TimezoneHelper.GetTimezoneDisplayInfo(Settings.Timezone);
+                    var info = TimezoneHelper.GetTimezoneDisplayInfo(AppSettings.Timezone);
                     var startLocal = _strategy.StartTime.HasValue
-                        ? TimezoneHelper.ToLocal(_strategy.StartTime.Value, Settings.Timezone)
+                        ? TimezoneHelper.ToLocal(_strategy.StartTime.Value, AppSettings.Timezone)
                         : new TimeOnly(4, 0);
                     var startET = _strategy.StartTime ?? new TimeOnly(4, 0);
                     Log($"Strategy window ended at {_strategy.EndTime.Value:h:mm tt} ET - will resume tomorrow at {startET:h:mm tt} ET ({startLocal:h:mm tt} {info.Abbreviation})", ConsoleColor.Yellow);
@@ -3209,78 +3035,12 @@ namespace IdiotProof.Backend.Models
         }
 
         /// <summary>
-        /// Gets additional context info for indicator conditions (the actual indicator values).
+        /// Gets additional context info for conditions (not used with AutonomousTrading).
         /// </summary>
         private string GetEmaContextInfo(IStrategyCondition condition)
         {
-            return condition switch
-            {
-                EmaAboveCondition ema when ema.GetEmaValue != null =>
-                    $" (EMA({ema.Period})=${ema.GetEmaValue():F2})",
-                EmaBelowCondition ema when ema.GetEmaValue != null =>
-                    $" (EMA({ema.Period})=${ema.GetEmaValue():F2})",
-                EmaBetweenCondition ema when ema.GetLowerEmaValue != null && ema.GetUpperEmaValue != null =>
-                    $" (EMA({ema.LowerPeriod})=${ema.GetLowerEmaValue():F2}, EMA({ema.UpperPeriod})=${ema.GetUpperEmaValue():F2})",
-                AdxCondition adx when adx.GetAdxValue != null && _adxCalculator != null =>
-                    $" (ADX={adx.GetAdxValue():F1}, +DI={_adxCalculator.PlusDI:F1}, -DI={_adxCalculator.MinusDI:F1})",
-                RsiCondition rsi when rsi.GetRsiValue != null =>
-                    $" (RSI={rsi.GetRsiValue():F1})",
-                MacdCondition macd when macd.GetMacdValues != null =>
-                    $" (MACD={_macdCalculator?.MacdLine:F2}, Signal={_macdCalculator?.SignalLine:F2})",
-                DiCondition di when di.GetDiValues != null && _adxCalculator != null =>
-                    $" (+DI={_adxCalculator.PlusDI:F1}, -DI={_adxCalculator.MinusDI:F1})",
-                MomentumAboveCondition mom when mom.GetMomentumValue != null =>
-                    $" (Momentum={mom.GetMomentumValue():F2})",
-                MomentumBelowCondition mom when mom.GetMomentumValue != null =>
-                    $" (Momentum={mom.GetMomentumValue():F2})",
-                HigherLowsCondition hl when hl.GetRecentLows != null =>
-                    FormatHigherLowsInfo(hl),
-                LowerHighsCondition lh when lh.GetRecentHighs != null =>
-                    FormatLowerHighsInfo(lh),
-                EmaTurningUpCondition emaUp when emaUp.GetCurrentEmaValue != null && emaUp.GetPreviousEmaValue != null =>
-                    $" (EMA({emaUp.Period})=${emaUp.GetCurrentEmaValue():F2}, Prev=${emaUp.GetPreviousEmaValue():F2})",
-                VolumeAboveCondition vol when vol.GetCurrentVolume != null && vol.GetAverageVolume != null =>
-                    $" (Vol={vol.GetCurrentVolume():N0}, Avg={vol.GetAverageVolume():N0})",
-                CloseAboveVwapCondition closeVwap when closeVwap.GetLastClose != null =>
-                    $" (Close=${closeVwap.GetLastClose():F2})",
-                VwapRejectionCondition vwapRej when vwapRej.GetLastHigh != null && vwapRej.GetLastClose != null =>
-                    $" (High=${vwapRej.GetLastHigh():F2}, Close=${vwapRej.GetLastClose():F2})",
-                RocAboveCondition roc when roc.GetRocValue != null =>
-                    $" (ROC={roc.GetRocValue():F2}%)",
-                RocBelowCondition roc when roc.GetRocValue != null =>
-                    $" (ROC={roc.GetRocValue():F2}%)",
-                GapUpCondition gapUp when gapUp.IsPreviousCloseSet =>
-                    $" (PrevClose=${gapUp.PreviousClose:F2}, Gap={((_lastPrice - gapUp.PreviousClose) / gapUp.PreviousClose * 100):F2}%)",
-                GapDownCondition gapDown when gapDown.IsPreviousCloseSet =>
-                    $" (PrevClose=${gapDown.PreviousClose:F2}, Gap={((gapDown.PreviousClose - _lastPrice) / gapDown.PreviousClose * 100):F2}%)",
-                _ => ""
-            };
-        }
-
-        /// <summary>
-        /// Formats the Higher Lows pattern info for logging.
-        /// </summary>
-        private string FormatHigherLowsInfo(HigherLowsCondition hl)
-        {
-            var lows = hl.GetRecentLows?.Invoke();
-            if (lows == null || lows.Length < 2)
-                return " (HigherLows: waiting for data)";
-
-            var lowsStr = string.Join(" > ", lows.Select(l => $"${l:F2}"));
-            return $" (Lows: {lowsStr})";
-        }
-
-        /// <summary>
-        /// Formats the Lower Highs pattern info for logging.
-        /// </summary>
-        private string FormatLowerHighsInfo(LowerHighsCondition lh)
-        {
-            var highs = lh.GetRecentHighs?.Invoke();
-            if (highs == null || highs.Length < 2)
-                return " (LowerHighs: waiting for data)";
-
-            var highsStr = string.Join(" < ", highs.Select(h => $"${h:F2}"));
-            return $" (Highs: {highsStr})";
+            // Condition context info not used with AutonomousTrading
+            return "";
         }
 
         private void ExecuteOrder(double vwap)
@@ -3311,9 +3071,9 @@ namespace IdiotProof.Backend.Models
             };
 
             // Set account if specified
-            if (!string.IsNullOrEmpty(Settings.AccountNumber))
+            if (!string.IsNullOrEmpty(AppSettings.AccountNumber))
             {
-                ibOrder.Account = Settings.AccountNumber;
+                ibOrder.Account = AppSettings.AccountNumber;
             }
 
             // Set limit price if LIMIT order (either explicit or forced due to extended hours)
@@ -3399,7 +3159,7 @@ namespace IdiotProof.Backend.Models
         /// For autonomous trading, this uses the tracked direction rather than the static order side.
         /// </summary>
         private bool IsPositionLong() =>
-            _strategy.Order.UseAutonomousTrading ? _autonomousIsLong : _strategy.Order.Side == OrderSide.Buy;
+            _strategy.Order.UseAutonomousTrading ? _isLong : _strategy.Order.Side == OrderSide.Buy;
 
         /// <summary>
         /// Gets the IB action string for closing the current position.
@@ -3508,7 +3268,7 @@ namespace IdiotProof.Backend.Models
                 // Handle take profit (for both long and short positions)
                 // Autonomous trading always enables TP/SL with pre-calculated values
                 bool enableTp = _strategy.Order.EnableTakeProfit || 
-                               (_strategy.Order.UseAutonomousTrading && _autonomousTakeProfit > 0);
+                               (_strategy.Order.UseAutonomousTrading && _dynamicTakeProfit > 0);
                 if (enableTp)
                 {
                     SubmitTakeProfit(fillPrice);
@@ -3516,7 +3276,7 @@ namespace IdiotProof.Backend.Models
 
                 // Handle stop loss
                 bool enableSl = _strategy.Order.EnableStopLoss ||
-                               (_strategy.Order.UseAutonomousTrading && _autonomousStopLoss > 0);
+                               (_strategy.Order.UseAutonomousTrading && _dynamicStopLoss > 0);
                 if (enableSl)
                 {
                     SubmitStopLoss(fillPrice);
@@ -3620,7 +3380,7 @@ namespace IdiotProof.Backend.Models
                 if (_strategy.Order.UseAutonomousTrading)
                 {
                     var config = _strategy.Order.AutonomousTrading;
-                    bool wasLong = _autonomousIsLong;
+                    bool positionWasLong = _isLong;
                     
                     // Direction flip on trailing stop - trend reversing, flip direction
                     // Only flip if we had a loss (trend truly reversed), not if we protected profits
@@ -3628,7 +3388,7 @@ namespace IdiotProof.Backend.Models
                     {
                         bool canFlipShort = config.AllowShort && !_shortSaleBlocked;
                         
-                        if (wasLong && canFlipShort)
+                        if (positionWasLong && canFlipShort)
                         {
                             Log($"[AUTONOMOUS] Trailing stop hit with loss - FLIPPING TO SHORT", ConsoleColor.Magenta);
                             ResetForNextAutonomousTrade();
@@ -3637,7 +3397,7 @@ namespace IdiotProof.Backend.Models
                             ExecuteAutonomousEntry(_lastPrice, _pvSum / Math.Max(_vSum, 1), false, tp, sl, config);
                             return;
                         }
-                        else if (!wasLong)
+                        else if (!positionWasLong)
                         {
                             Log($"[AUTONOMOUS] Trailing stop hit with loss - FLIPPING TO LONG", ConsoleColor.Magenta);
                             ResetForNextAutonomousTrade();
@@ -3685,7 +3445,7 @@ namespace IdiotProof.Backend.Models
                 if (_strategy.Order.UseAutonomousTrading)
                 {
                     var config = _strategy.Order.AutonomousTrading;
-                    bool wasLong = _autonomousIsLong;
+                    bool positionWasLong = _isLong;
                     
                     // Direction flip on stop loss - market proved us wrong, flip direction
                     // This minimizes losses by immediately pivoting to the winning side
@@ -3693,7 +3453,7 @@ namespace IdiotProof.Backend.Models
                     {
                         bool canFlipShort = config.AllowShort && !_shortSaleBlocked;
                         
-                        if (wasLong && canFlipShort)
+                        if (positionWasLong && canFlipShort)
                         {
                             Log($"[AUTONOMOUS] Stop loss hit - FLIPPING TO SHORT (market bearish)", ConsoleColor.Magenta);
                             ResetForNextAutonomousTrade();
@@ -3703,7 +3463,7 @@ namespace IdiotProof.Backend.Models
                             ExecuteAutonomousEntry(_lastPrice, _pvSum / Math.Max(_vSum, 1), false, tp, sl, config);
                             return;
                         }
-                        else if (!wasLong)
+                        else if (!positionWasLong)
                         {
                             Log($"[AUTONOMOUS] Stop loss hit - FLIPPING TO LONG (market bullish)", ConsoleColor.Magenta);
                             ResetForNextAutonomousTrade();
@@ -3773,7 +3533,7 @@ namespace IdiotProof.Backend.Models
             }
 
             // Check for autonomous exit order fill (score-based exit)
-            if (orderId == _autonomousExitOrderId)
+            if (orderId == _exitOrderId)
             {
                 _exitFillPrice = fillPrice;
 
@@ -3894,10 +3654,10 @@ namespace IdiotProof.Backend.Models
             _currentAdaptiveStopLossPrice = 0;
 
             // Reset autonomous exit tracking
-            _autonomousExitOrderId = -1;
-            _autonomousTakeProfit = 0;
-            _autonomousStopLoss = 0;
-            // Note: _autonomousIsLong is NOT reset - it will be set on next entry
+            _exitOrderId = -1;
+            _dynamicTakeProfit = 0;
+            _dynamicStopLoss = 0;
+            // Note: _isLong is NOT reset - it will be set on next entry
 
             // Reset close position tracking
             _closePositionTriggered = false;
@@ -3925,9 +3685,9 @@ namespace IdiotProof.Backend.Models
             bool isLong = IsPositionLong();
 
             // For autonomous trading, use pre-calculated TP target
-            if (_strategy.Order.UseAutonomousTrading && _autonomousTakeProfit > 0)
+            if (_strategy.Order.UseAutonomousTrading && _dynamicTakeProfit > 0)
             {
-                tpPrice = _autonomousTakeProfit;
+                tpPrice = _dynamicTakeProfit;
             }
             // Check for ADX-based dynamic take profit
             else if (order.AdxTakeProfit != null && _adxCalculator != null && _adxCalculator.IsReady)
@@ -3975,9 +3735,9 @@ namespace IdiotProof.Backend.Models
             };
 
             // Set account if specified
-            if (!string.IsNullOrEmpty(Settings.AccountNumber))
+            if (!string.IsNullOrEmpty(AppSettings.AccountNumber))
             {
-                tpOrder.Account = Settings.AccountNumber;
+                tpOrder.Account = AppSettings.AccountNumber;
             }
 
             Log($">> SUBMITTING TAKE PROFIT {tpAction} {order.Quantity} @ ${tpPrice:F2}", ConsoleColor.Yellow);
@@ -4080,9 +3840,9 @@ namespace IdiotProof.Backend.Models
             };
 
             // Set account if specified
-            if (!string.IsNullOrEmpty(Settings.AccountNumber))
+            if (!string.IsNullOrEmpty(AppSettings.AccountNumber))
             {
-                exitOrder.Account = Settings.AccountNumber;
+                exitOrder.Account = AppSettings.AccountNumber;
             }
 
             Log($">> SUBMITTING LIMIT EXIT {action} {order.Quantity} @ ${limitPrice:F2}", ConsoleColor.Yellow);
@@ -4104,9 +3864,9 @@ namespace IdiotProof.Backend.Models
             bool isLong = IsPositionLong();
 
             // For autonomous trading, use pre-calculated SL target
-            if (_strategy.Order.UseAutonomousTrading && _autonomousStopLoss > 0)
+            if (_strategy.Order.UseAutonomousTrading && _dynamicStopLoss > 0)
             {
-                slPrice = _autonomousStopLoss;
+                slPrice = _dynamicStopLoss;
             }
             else if (order.StopLossPrice.HasValue)
             {
@@ -4139,9 +3899,9 @@ namespace IdiotProof.Backend.Models
             };
 
             // Set account if specified
-            if (!string.IsNullOrEmpty(Settings.AccountNumber))
+            if (!string.IsNullOrEmpty(AppSettings.AccountNumber))
             {
-                slOrder.Account = Settings.AccountNumber;
+                slOrder.Account = AppSettings.AccountNumber;
             }
 
             Log($">> SUBMITTING STOP LOSS @ ${slPrice:F2}", ConsoleColor.Yellow);
@@ -4269,9 +4029,9 @@ namespace IdiotProof.Backend.Models
             }
 
             // Set account if specified
-            if (!string.IsNullOrEmpty(Settings.AccountNumber))
+            if (!string.IsNullOrEmpty(AppSettings.AccountNumber))
             {
-                closeOrder.Account = Settings.AccountNumber;
+                closeOrder.Account = AppSettings.AccountNumber;
             }
 
             Log($"  OrderId={_closePositionOrderId}", ConsoleColor.DarkGray);

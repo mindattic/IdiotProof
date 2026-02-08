@@ -2,8 +2,7 @@
 // SetupState - Strategy State Machine States
 // ============================================================================
 
-namespace IdiotProof.Backend.Enums
-{
+namespace IdiotProof.Enums {
     /// <summary>
     /// Represents the current state of the pullback strategy state machine.
     /// </summary>

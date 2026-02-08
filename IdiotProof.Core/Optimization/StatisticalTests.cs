@@ -13,7 +13,7 @@
 //
 // ============================================================================
 
-namespace IdiotProof.BackTesting.Optimization;
+namespace IdiotProof.Optimization;
 
 /// <summary>
 /// Results from statistical significance testing.

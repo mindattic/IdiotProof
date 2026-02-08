@@ -2,8 +2,7 @@
 // IdiotProofTrade - Tracks orders created by IdiotProof through their lifecycle
 // ============================================================================
 
-namespace IdiotProof.Core.Models
-{
+namespace IdiotProof.Models {
     /// <summary>
     /// Represents an order created by IdiotProof that should be tracked.
     /// This allows filtering orders on the Orders page to show only IdiotProof trades.

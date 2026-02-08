@@ -17,12 +17,12 @@
 //
 // ============================================================================
 
-using IdiotProof.Core.Constants;
+using IdiotProof.Constants;
 using System.Reflection;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
-namespace IdiotProof.Core.Settings;
+namespace IdiotProof.Settings;
 
 /// <summary>
 /// Manages application settings with per-project isolation.

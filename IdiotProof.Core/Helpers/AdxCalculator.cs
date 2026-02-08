@@ -36,8 +36,7 @@
 
 using System;
 
-namespace IdiotProof.Backend.Helpers
-{
+namespace IdiotProof.Helpers {
     /// <summary>
     /// Calculates Average Directional Index (ADX) and Directional Indicators (+DI/-DI) from price ticks.
     /// </summary>

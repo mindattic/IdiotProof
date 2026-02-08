@@ -35,8 +35,7 @@
 
 using System.Collections.Generic;
 
-namespace IdiotProof.Backend.Helpers
-{
+namespace IdiotProof.Helpers {
     /// <summary>
     /// Calculates price momentum from candle close prices.
     /// </summary>

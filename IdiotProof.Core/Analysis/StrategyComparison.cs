@@ -2,10 +2,10 @@
 // Strategy Comparison - Compare multiple strategies side-by-side
 // ============================================================================
 
-using IdiotProof.BackTesting.Models;
-using IdiotProof.BackTesting.Optimization;
+using IdiotProof.Models;
+using IdiotProof.Optimization;
 
-namespace IdiotProof.BackTesting.Analysis;
+namespace IdiotProof.Analysis;
 
 /// <summary>
 /// Compares multiple strategies and provides comparative analysis.

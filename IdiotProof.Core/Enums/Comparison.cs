@@ -2,8 +2,7 @@
 // Comparison Enum - Comparison operators for indicator conditions
 // ============================================================================
 
-namespace IdiotProof.Backend.Enums
-{
+namespace IdiotProof.Enums {
     /// <summary>
     /// Comparison operators for evaluating technical indicator values.
     /// </summary>

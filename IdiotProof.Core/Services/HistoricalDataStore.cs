@@ -24,10 +24,9 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
-using IdiotProof.Backend.Models;
+using IdiotProof.Models;
 
-namespace IdiotProof.Backend.Services
-{
+namespace IdiotProof.Services {
     /// <summary>
     /// Represents a set of historical data for a single symbol.
     /// </summary>

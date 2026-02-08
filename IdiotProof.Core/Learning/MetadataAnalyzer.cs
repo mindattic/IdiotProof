@@ -14,12 +14,12 @@
 //
 // ============================================================================
 
-using IdiotProof.BackTesting.Analysis;
-using IdiotProof.BackTesting.Models;
-using IdiotProof.BackTesting.Services;
-using IdiotProof.Core.Settings;
+using IdiotProof.Analysis;
+using IdiotProof.Models;
+using IdiotProof.Services;
+using IdiotProof.Settings;
 
-namespace IdiotProof.BackTesting.Learning;
+namespace IdiotProof.Learning;
 
 /// <summary>
 /// Analyzes historical data to extract behavioral patterns for a ticker.

@@ -2,8 +2,7 @@
 // DI Direction Enum - Directional Indicator states
 // ============================================================================
 
-namespace IdiotProof.Backend.Enums
-{
+namespace IdiotProof.Enums {
     /// <summary>
     /// Directional Indicator (+DI/-DI) relationship states.
     /// </summary>

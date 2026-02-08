@@ -2,9 +2,9 @@
 // Technical Indicator Calculator - Computes indicators for backtesting
 // ============================================================================
 
-using IdiotProof.BackTesting.Models;
+using IdiotProof.Models;
 
-namespace IdiotProof.BackTesting.Analysis;
+namespace IdiotProof.Analysis;
 
 /// <summary>
 /// Calculates technical indicators on historical candle data.

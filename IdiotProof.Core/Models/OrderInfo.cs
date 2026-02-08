@@ -2,8 +2,7 @@
 // OrderInfo - Shared model for order information between backend and frontend
 // ============================================================================
 
-namespace IdiotProof.Core.Models
-{
+namespace IdiotProof.Models {
     /// <summary>
     /// Order status from IBKR.
     /// </summary>

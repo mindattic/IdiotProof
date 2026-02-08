@@ -7,9 +7,9 @@
 //
 // ============================================================================
 
-using IdiotProof.BackTesting.Models;
+using IdiotProof.Models;
 
-namespace IdiotProof.BackTesting.Services;
+namespace IdiotProof.Services;
 
 /// <summary>
 /// Simulates trading strategies against historical data.

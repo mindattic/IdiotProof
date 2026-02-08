@@ -20,8 +20,7 @@
 //
 // ============================================================================
 
-namespace IdiotProof.Backend.Helpers
-{
+namespace IdiotProof.Helpers {
     /// <summary>
     /// Calculates On-Balance Volume for volume flow analysis.
     /// </summary>

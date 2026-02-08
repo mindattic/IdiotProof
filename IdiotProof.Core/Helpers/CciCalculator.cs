@@ -23,8 +23,7 @@
 //
 // ============================================================================
 
-namespace IdiotProof.Backend.Helpers
-{
+namespace IdiotProof.Helpers {
     /// <summary>
     /// Calculates the Commodity Channel Index for trend and mean reversion analysis.
     /// </summary>

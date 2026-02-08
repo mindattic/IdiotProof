@@ -2,7 +2,7 @@
 // OrderDirection - Specifies the direction of an order (Long or Short)
 // ============================================================================
 
-namespace IdiotProof.Backend.Enums;
+namespace IdiotProof.Enums;
 
 /// <summary>
 /// Specifies the direction of a trading order.

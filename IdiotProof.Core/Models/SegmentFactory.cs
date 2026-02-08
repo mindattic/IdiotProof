@@ -2,11 +2,10 @@
 // SegmentFactory - Creates segment templates with proper parameters
 // ============================================================================
 
-using IdiotProof.Core.Constants;
-using IdiotProof.Core.Enums;
+using IdiotProof.Constants;
+using IdiotProof.Enums;
 
-namespace IdiotProof.Core.Models
-{
+namespace IdiotProof.Models {
     /// <summary>
     /// Factory for creating strategy segment templates with proper parameters.
     /// </summary>

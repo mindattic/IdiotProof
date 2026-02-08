@@ -14,9 +14,9 @@
 //
 // ============================================================================
 
-using IdiotProof.Backend.Models;
+using IdiotProof.Models;
 
-namespace IdiotProof.BackTesting.Optimization;
+namespace IdiotProof.Optimization;
 
 /// <summary>
 /// Configuration for the genetic optimization process.

@@ -2,9 +2,9 @@
 // Historical Data Provider - Interface for loading candle data
 // ============================================================================
 
-using IdiotProof.BackTesting.Models;
+using IdiotProof.Models;
 
-namespace IdiotProof.BackTesting.Services;
+namespace IdiotProof.Services;
 
 /// <summary>
 /// Interface for providing historical candle data.

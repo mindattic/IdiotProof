@@ -4,8 +4,7 @@
 
 using System.Text.RegularExpressions;
 
-namespace IdiotProof.Core.Validation
-{
+namespace IdiotProof.Validation {
     /// <summary>
     /// Validates primitive inputs for security and format compliance.
     /// Used by both frontend and backend for consistent validation.

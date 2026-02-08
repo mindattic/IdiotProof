@@ -27,10 +27,9 @@
 // ╚═══════════════════════════════════════════════════════════════════════════╝
 
 using System;
-using IdiotProof.Backend.Enums;
+using IdiotProof.Enums;
 
-namespace IdiotProof.Backend.Models
-{
+namespace IdiotProof.Models {
     /// <summary>
     /// Represents a single historical price bar (OHLCV).
     /// </summary>

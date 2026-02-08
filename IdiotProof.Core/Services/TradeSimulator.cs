@@ -1,46 +1,31 @@
 // ============================================================================
-// Autonomous Trade Simulator - Backtest AI-driven trading decisions
+// Trade Simulator - Backtest trading decisions
 // ============================================================================
 //
-// Simulates the AutonomousTrading strategy against historical data.
-// Calculates market scores using all indicators and shows what trades
-// would have been executed with full reasoning.
+// Simulates trading strategies against historical data.
+// Calculates market scores using MarketScoreCalculator (same as live trading)
+// and shows what trades would have been executed with full reasoning.
 //
 // Can optionally use HistoricalMetadata to make smarter decisions based on
 // how the stock typically behaves (HOD/LOD patterns, support/resistance, etc.)
 //
 // ============================================================================
 
-using IdiotProof.BackTesting.Analysis;
-using IdiotProof.BackTesting.Learning;
-using IdiotProof.BackTesting.Models;
+using IdiotProof.Analysis;
+using IdiotProof.Helpers;
+using IdiotProof.Learning;
+using IdiotProof.Models;
+using IdiotProof.Strategy;
 
-namespace IdiotProof.BackTesting.Services;
-
-/// <summary>
-/// Trading mode for autonomous trading.
-/// </summary>
-public enum AutonomousMode
-{
-    Conservative,
-    Balanced,
-    Aggressive,
-    /// <summary>
-    /// Optimized: Uses all available tools to maximize profit.
-    /// Lower entry thresholds with indicator confirmation requirements.
-    /// Dynamic position sizing based on confidence level.
-    /// Trailing stops and partial profit taking.
-    /// </summary>
-    Optimized
-}
+namespace IdiotProof.Services;
 
 /// <summary>
 /// Configuration for autonomous trading simulation.
 /// </summary>
 public sealed record AutonomousConfig
 {
-    /// <summary>Trading mode determines thresholds.</summary>
-    public AutonomousMode Mode { get; init; } = AutonomousMode.Balanced;
+    /// <summary>Base entry threshold - adjusted dynamically based on conditions.</summary>
+    public int BaseEntryThreshold { get; init; } = 50;
 
     /// <summary>Position size in shares.</summary>
     public int Quantity { get; init; } = 100;
@@ -67,40 +52,20 @@ public sealed record AutonomousConfig
     public TimeOnly EodExitTime { get; init; } = new TimeOnly(15, 55);
 
     // ========================================================================
-    // Mode-Specific Thresholds
+    // Base Thresholds - Adjusted dynamically per bar based on conditions
     // ========================================================================
 
-    public int LongEntryThreshold => Mode switch
-    {
-        AutonomousMode.Conservative => 80,
-        AutonomousMode.Balanced => 70,
-        AutonomousMode.Aggressive => 60,
-        _ => 70
-    };
+    /// <summary>Base long entry threshold.</summary>
+    public int LongEntryThreshold => BaseEntryThreshold;
 
-    public int ShortEntryThreshold => Mode switch
-    {
-        AutonomousMode.Conservative => -80,
-        AutonomousMode.Balanced => -70,
-        AutonomousMode.Aggressive => -60,
-        _ => -70
-    };
+    /// <summary>Base short entry threshold.</summary>
+    public int ShortEntryThreshold => -BaseEntryThreshold;
 
-    public int LongExitThreshold => Mode switch
-    {
-        AutonomousMode.Conservative => 60,
-        AutonomousMode.Balanced => 40,
-        AutonomousMode.Aggressive => 20,
-        _ => 40
-    };
+    /// <summary>Exit threshold - momentum fading.</summary>
+    public int LongExitThreshold => BaseEntryThreshold / 2;
 
-    public int ShortExitThreshold => Mode switch
-    {
-        AutonomousMode.Conservative => -60,
-        AutonomousMode.Balanced => -40,
-        AutonomousMode.Aggressive => -20,
-        _ => -40
-    };
+    /// <summary>Exit threshold - momentum fading.</summary>
+    public int ShortExitThreshold => -BaseEntryThreshold / 2;
 }
 
 /// <summary>
@@ -206,7 +171,7 @@ public sealed class AutonomousSimulationResult
             | AUTONOMOUS TRADING SIMULATION                                    |
             +==================================================================+
             | Symbol: {Symbol,-10} | Date: {Date:yyyy-MM-dd}
-            | Mode:   {Config.Mode,-10} | Qty: {Config.Quantity}
+            | Thresh: {Config.BaseEntryThreshold,-10} | Qty: {Config.Quantity}
             +------------------------------------------------------------------+
             | PERFORMANCE                                                      |
             +------------------------------------------------------------------+
@@ -241,17 +206,20 @@ public sealed class AutonomousSimulationResult
 }
 
 /// <summary>
-/// Simulates AutonomousTrading against historical data.
+/// Simulates trading strategies against historical data.
 /// </summary>
-public sealed class AutonomousTradeSimulator
+public sealed class TradeSimulator
 {
     private readonly BackTestSession _session;
     private readonly IndicatorCalculator _indicators;
     private readonly AutonomousConfig _config;
 
     // Historical metadata for smarter decisions (optional)
-    private readonly Learning.HistoricalMetadata? _metadata;
-    private readonly Learning.TickerProfile? _profile;
+    private readonly HistoricalMetadata? _metadata;
+    private readonly TickerProfile? _profile;
+    
+    // Indicator weights - learned or default
+    private IdiotProof.Helpers.IndicatorWeights _weights = IdiotProof.Helpers.IndicatorWeights.Default;
 
     // Cached indicator values
     private double[]? _ema9;
@@ -263,7 +231,7 @@ public sealed class AutonomousTradeSimulator
     private double[]? _volumeRatio;
     private double[]? _atr;
 
-    public AutonomousTradeSimulator(BackTestSession session, AutonomousConfig? config = null)
+    public TradeSimulator(BackTestSession session, AutonomousConfig? config = null)
     {
         _session = session;
         _config = config ?? new AutonomousConfig();
@@ -273,11 +241,11 @@ public sealed class AutonomousTradeSimulator
     /// <summary>
     /// Creates a simulator with historical metadata for smarter decisions.
     /// </summary>
-    public AutonomousTradeSimulator(
+    public TradeSimulator(
         BackTestSession session,
         AutonomousConfig? config,
-        Learning.HistoricalMetadata? metadata,
-        Learning.TickerProfile? profile = null)
+        HistoricalMetadata? metadata,
+        TickerProfile? profile = null)
         : this(session, config)
     {
         _metadata = metadata;
@@ -288,6 +256,15 @@ public sealed class AutonomousTradeSimulator
     /// Gets whether historical metadata is available.
     /// </summary>
     public bool HasHistoricalMetadata => _metadata != null;
+    
+    /// <summary>
+    /// Sets the indicator weights for score calculation.
+    /// Call after construction to use ticker-specific learned weights.
+    /// </summary>
+    public void SetWeights(IdiotProof.Helpers.IndicatorWeights weights)
+    {
+        _weights = weights;
+    }
 
     /// <summary>
     /// Runs the autonomous trading simulation.
@@ -555,153 +532,46 @@ public sealed class AutonomousTradeSimulator
     {
         var candle = _session.Candles[index];
 
-        // ====================================================================
-        // VWAP Position (15% weight)
-        // ====================================================================
-        double vwapScore = 0;
-        if (candle.Vwap > 0)
+        // Create snapshot for MarketScoreCalculator (SINGLE SOURCE OF TRUTH)
+        var snapshot = new IndicatorSnapshot
         {
-            double vwapDistance = (candle.Close - candle.Vwap) / candle.Vwap * 100;
-            // 5% above VWAP = +100, 5% below = -100
-            vwapScore = Math.Clamp(vwapDistance * 20, -100, 100);
-        }
+            Price = candle.Close,
+            Vwap = candle.Vwap,
+            Ema9 = _ema9![index],
+            Ema21 = _ema21![index],
+            Ema50 = _ema50![index],
+            Rsi = _rsi![index],
+            Macd = _macdData!.Value.macd[index],
+            MacdSignal = _macdData.Value.signal[index],
+            MacdHistogram = _macdData.Value.histogram[index],
+            Adx = _adxData!.Value.adx[index],
+            PlusDi = _adxData.Value.plusDi[index],
+            MinusDi = _adxData.Value.minusDi[index],
+            VolumeRatio = _volumeRatio![index],
+            Atr = _atr![index],
+            // Bollinger and extended indicators not calculated - passes 0 (small weight, negligible impact)
+            BollingerUpper = 0,
+            BollingerMiddle = 0,
+            BollingerLower = 0,
+            StochasticK = 0,
+            StochasticD = 0,
+            ObvSlope = 0,
+            Cci = 0,
+            WilliamsR = -50  // Neutral value for Williams %R
+        };
 
-        // ====================================================================
-        // EMA Stack (20% weight)
-        // ====================================================================
-        double emaScore = 0;
-        int aboveCount = 0;
-        if (candle.Close > _ema9![index]) aboveCount++;
-        if (candle.Close > _ema21![index]) aboveCount++;
-        if (candle.Close > _ema50![index]) aboveCount++;
+        var result = MarketScoreCalculator.Calculate(snapshot, _weights);
 
-        // Also check EMA alignment (9 > 21 > 50 = bullish stack)
-        bool bullishStack = _ema9[index] > _ema21[index] && _ema21[index] > _ema50[index];
-        bool bearishStack = _ema9[index] < _ema21[index] && _ema21[index] < _ema50[index];
-
-        emaScore = (aboveCount - 1.5) * 66.67;  // Maps 0->-100, 3->+100
-        if (bullishStack) emaScore = Math.Min(100, emaScore + 25);
-        if (bearishStack) emaScore = Math.Max(-100, emaScore - 25);
-
-        // ====================================================================
-        // RSI (15% weight)
-        // ====================================================================
-        double rsiScore = 0;
-        double rsiValue = _rsi![index];
-
-        if (rsiValue <= 30)
-        {
-            // Oversold = bullish (bounce expected)
-            rsiScore = 100 - (rsiValue - 30) * 3.33;
-        }
-        else if (rsiValue >= 70)
-        {
-            // Overbought = bearish (pullback expected)
-            rsiScore = -(rsiValue - 70) * 3.33;
-        }
-        else if (rsiValue < 50)
-        {
-            // Below 50 = slight bearish
-            rsiScore = (rsiValue - 50) * 2;  // -50 at RSI 25
-        }
-        else
-        {
-            // Above 50 = slight bullish
-            rsiScore = (rsiValue - 50) * 2;  // +40 at RSI 70
-        }
-
-        rsiScore = Math.Clamp(rsiScore, -100, 100);
-
-        // ====================================================================
-        // MACD (20% weight)
-        // ====================================================================
-        double macdScore = 0;
-        double macdValue = _macdData!.Value.macd[index];
-        double signalValue = _macdData.Value.signal[index];
-        double histogram = _macdData.Value.histogram[index];
-
-        // MACD above signal = bullish base
-        if (macdValue > signalValue)
-            macdScore = 50;
-        else
-            macdScore = -50;
-
-        // Histogram strength adds to score
-        double histogramStrength = Math.Abs(histogram) / (Math.Abs(macdValue) + 0.001) * 100;
-        histogramStrength = Math.Min(histogramStrength, 50);
-
-        if (histogram > 0)
-            macdScore += histogramStrength;
-        else
-            macdScore -= histogramStrength;
-
-        macdScore = Math.Clamp(macdScore, -100, 100);
-
-        // ====================================================================
-        // ADX (20% weight)
-        // ====================================================================
-        double adxScore = 0;
-        double adxValue = _adxData!.Value.adx[index];
-        double plusDi = _adxData.Value.plusDi[index];
-        double minusDi = _adxData.Value.minusDi[index];
-
-        // ADX > 25 = trending, direction based on DI
-        double trendStrength = Math.Min(adxValue / 50, 1) * 100;  // ADX 50 = max strength
-
-        if (plusDi > minusDi)
-            adxScore = trendStrength;
-        else
-            adxScore = -trendStrength;
-
-        // ====================================================================
-        // Volume (10% weight)
-        // ====================================================================
-        double volumeScore = 0;
-        double volRatio = _volumeRatio![index];
-
-        // High volume confirms the current direction
-        if (volRatio > 1.5)
-        {
-            // High volume - amplify the direction
-            if (candle.Close > candle.Vwap)
-                volumeScore = Math.Min((volRatio - 1) * 100, 100);
-            else
-                volumeScore = -Math.Min((volRatio - 1) * 100, 100);
-        }
-        else if (volRatio < 0.5)
-        {
-            // Low volume - weak signal, neutral
-            volumeScore = 0;
-        }
-        else
-        {
-            // Normal volume - slight confirmation
-            if (candle.Close > candle.Vwap)
-                volumeScore = 25;
-            else
-                volumeScore = -25;
-        }
-
-        // ====================================================================
-        // Calculate Weighted Total
-        // ====================================================================
-        double totalScore =
-            vwapScore * 0.15 +
-            emaScore * 0.20 +
-            rsiScore * 0.15 +
-            macdScore * 0.20 +
-            adxScore * 0.20 +
-            volumeScore * 0.10;
-
+        // Convert to ScoreBreakdown for display compatibility
         return new ScoreBreakdown
         {
-            VwapScore = vwapScore * 0.15,
-            EmaScore = emaScore * 0.20,
-            RsiScore = rsiScore * 0.15,
-            MacdScore = macdScore * 0.20,
-            AdxScore = adxScore * 0.20,
-            VolumeScore = volumeScore * 0.10,
-            TotalScore = totalScore
+            VwapScore = result.VwapScore * _weights.Vwap,
+            EmaScore = result.EmaScore * _weights.Ema,
+            RsiScore = result.RsiScore * _weights.Rsi,
+            MacdScore = result.MacdScore * _weights.Macd,
+            AdxScore = result.AdxScore * _weights.Adx,
+            VolumeScore = result.VolumeScore * _weights.Volume,
+            TotalScore = result.TotalScore
         };
     }
 

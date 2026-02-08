@@ -22,8 +22,7 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
-namespace IdiotProof.Backend.Services
-{
+namespace IdiotProof.Services {
     /// <summary>
     /// Service for fetching and analyzing market sentiment from news, earnings, and social data.
     /// Integrates multiple data sources to build a comprehensive sentiment picture.

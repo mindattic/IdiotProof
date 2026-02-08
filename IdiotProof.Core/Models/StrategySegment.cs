@@ -2,11 +2,10 @@
 // StrategySegment - Represents a single segment in a strategy chain
 // ============================================================================
 
-using IdiotProof.Core.Enums;
+using IdiotProof.Enums;
 using System.Text.Json.Serialization;
 
-namespace IdiotProof.Core.Models
-{
+namespace IdiotProof.Models {
     /// <summary>
     /// Represents a single draggable segment in the strategy builder.
     /// </summary>

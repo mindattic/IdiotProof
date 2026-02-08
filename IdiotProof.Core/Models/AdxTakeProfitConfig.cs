@@ -15,8 +15,7 @@
 //
 // ============================================================================
 
-namespace IdiotProof.Backend.Models
-{
+namespace IdiotProof.Models {
     /// <summary>
     /// Configuration for ADX-based dynamic take profit levels.
     /// </summary>

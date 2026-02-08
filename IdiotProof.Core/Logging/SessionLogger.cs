@@ -19,9 +19,9 @@
 // ============================================================================
 
 using System.Text;
-using IdiotProof.Core.Helpers;
+using IdiotProof.Helpers;
 
-namespace IdiotProof.Backend.Logging;
+namespace IdiotProof.Logging;
 
 /// <summary>
 /// Logs session state periodically and on close/crash.

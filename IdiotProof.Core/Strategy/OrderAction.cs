@@ -32,11 +32,10 @@
 // ============================================================================
 
 using System;
-using IdiotProof.Backend.Enums;
-using IdiotProof.Backend.Models;
+using IdiotProof.Enums;
+using IdiotProof.Models;
 
-namespace IdiotProof.Backend.Strategy
-{
+namespace IdiotProof.Strategy {
     /// <remarks>
     /// <para><b>Best Practices:</b></para>
     /// <list type="bullet">

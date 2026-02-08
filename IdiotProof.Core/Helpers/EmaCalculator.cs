@@ -21,8 +21,7 @@
 
 using System;
 
-namespace IdiotProof.Backend.Helpers
-{
+namespace IdiotProof.Helpers {
     /// <summary>
     /// Calculates Exponential Moving Average (EMA) from price ticks.
     /// </summary>

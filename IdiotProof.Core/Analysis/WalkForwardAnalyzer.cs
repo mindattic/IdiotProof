@@ -8,11 +8,11 @@
 //
 // ============================================================================
 
-using IdiotProof.BackTesting.Models;
-using IdiotProof.BackTesting.Optimization;
-using IdiotProof.BackTesting.Services;
+using IdiotProof.Models;
+using IdiotProof.Optimization;
+using IdiotProof.Services;
 
-namespace IdiotProof.BackTesting.Analysis;
+namespace IdiotProof.Analysis;
 
 /// <summary>
 /// Configuration for walk-forward analysis.

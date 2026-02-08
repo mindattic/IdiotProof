@@ -10,12 +10,12 @@
 // 4. Be aware of daylight saving time transitions.
 //
 // USAGE:
-//   Settings.Timezone = MarketTimeZone.CST;  // Set your local timezone
+//   AppSettings.Timezone = MarketTimeZone.CST;  // Set your local timezone
 //   var localTime = TimezoneHelper.ToLocal(Time.RTH.Start);  // Convert to local
 //
 // ============================================================================
 
-namespace IdiotProof.Core.Enums;
+namespace IdiotProof.Enums;
 
 /// <summary>
 /// Supported US timezone identifiers for trading strategy configuration.

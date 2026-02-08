@@ -2,8 +2,7 @@ using System;
 using System.IO;
 using System.Text;
 
-namespace IdiotProof.Backend.Logging
-{
+namespace IdiotProof.Logging {
     /// <summary>
     /// TextWriter that captures output while passing through to original.
     /// Automatically trims old content to prevent memory leaks during long runs.

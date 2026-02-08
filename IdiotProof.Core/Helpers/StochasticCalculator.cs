@@ -19,8 +19,7 @@
 //
 // ============================================================================
 
-namespace IdiotProof.Backend.Helpers
-{
+namespace IdiotProof.Helpers {
     /// <summary>
     /// Calculates the Stochastic Oscillator for momentum analysis.
     /// </summary>

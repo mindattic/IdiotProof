@@ -7,9 +7,9 @@
 //
 // ============================================================================
 
-using IdiotProof.Core.Settings;
+using IdiotProof.Settings;
 
-namespace IdiotProof.Backend.Logging;
+namespace IdiotProof.Logging;
 
 /// <summary>
 /// Provides centralized path management for all log files.

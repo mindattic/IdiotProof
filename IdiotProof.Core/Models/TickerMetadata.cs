@@ -14,7 +14,7 @@
 
 using System.Text.Json.Serialization;
 
-namespace IdiotProof.Core.Models;
+namespace IdiotProof.Models;
 
 /// <summary>
 /// Volatility classification for a stock.

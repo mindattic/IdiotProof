@@ -23,8 +23,7 @@
 
 using System;
 
-namespace IdiotProof.Backend.Helpers
-{
+namespace IdiotProof.Helpers {
     /// <summary>
     /// Calculates MACD (Moving Average Convergence Divergence) from candle close prices.
     /// </summary>

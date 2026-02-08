@@ -8,7 +8,7 @@
 //
 // ============================================================================
 
-namespace IdiotProof.BackTesting.Optimization;
+namespace IdiotProof.Optimization;
 
 /// <summary>
 /// Configurable weights for market score calculation.

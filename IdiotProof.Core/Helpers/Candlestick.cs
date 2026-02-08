@@ -28,8 +28,7 @@
 
 using System;
 
-namespace IdiotProof.Backend.Helpers
-{
+namespace IdiotProof.Helpers {
     /// <summary>
     /// Represents a single candlestick (OHLC price bar).
     /// </summary>

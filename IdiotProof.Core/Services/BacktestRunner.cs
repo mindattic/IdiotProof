@@ -1,27 +1,23 @@
 // ============================================================================
-// Autonomous Backtest Runner - Command-line tool for quick backtesting
+// Backtest Runner - Command-line tool for quick backtesting
 // ============================================================================
 //
 // USAGE:
-//   Called from the console to run autonomous trading backtests.
+//   Called from the console to run trading backtests.
 //   Can work with synthetic data (offline) or real IBKR data (when connected).
 //
 // ============================================================================
 
-using IdiotProof.Backend.Enums;
-using IdiotProof.Backend.Models;
-using IdiotProof.BackTesting.Models;
+using IdiotProof.Enums;
+using IdiotProof.Models;
 using System.Text;
 
-// Use the AutonomousMode from BackTesting.Services
-using AutonomousMode = IdiotProof.BackTesting.Services.AutonomousMode;
-
-namespace IdiotProof.Backend.Services;
+namespace IdiotProof.Services;
 
 /// <summary>
-/// Provides methods to run autonomous backtests from different data sources.
+/// Provides methods to run backtests from different data sources.
 /// </summary>
-public static class AutonomousBacktestRunner
+public static class BacktestRunner
 {
     /// <summary>
     /// Runs a backtest using real historical data from IBKR.
@@ -31,7 +27,7 @@ public static class AutonomousBacktestRunner
     /// <param name="symbol">The ticker symbol.</param>
     /// <param name="date">The date to backtest (must be a past trading day).</param>
     /// <param name="startingCapital">Starting capital in dollars.</param>
-    /// <param name="mode">Trading mode (Conservative, Balanced, Aggressive).</param>
+    /// <param name="baseThreshold">Base entry threshold for market score (50 = balanced).</param>
     /// <param name="allowShort">Allow short positions.</param>
     /// <param name="progress">Optional progress reporter.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
@@ -41,7 +37,7 @@ public static class AutonomousBacktestRunner
         string symbol,
         DateOnly date,
         decimal startingCapital = 1000.00m,
-        AutonomousMode mode = AutonomousMode.Balanced,
+        int baseThreshold = 50,
         bool allowShort = true,
         IProgress<string>? progress = null,
         CancellationToken cancellationToken = default)
@@ -98,7 +94,7 @@ public static class AutonomousBacktestRunner
             progress?.Report($"Found {dateBars.Count} bars for {date:yyyy-MM-dd}. Running simulation...");
 
             // Run backtest with real data
-            return RunFromBars(dateBars, symbol, date, startingCapital, mode, allowShort);
+            return RunFromBars(dateBars, symbol, date, startingCapital, baseThreshold, allowShort);
         }
         catch (TimeoutException)
         {
@@ -115,7 +111,7 @@ public static class AutonomousBacktestRunner
     /// <param name="symbol">The ticker symbol.</param>
     /// <param name="date">The date to backtest.</param>
     /// <param name="startingCapital">Starting capital in dollars.</param>
-    /// <param name="mode">Trading mode (Conservative, Balanced, Aggressive).</param>
+    /// <param name="baseThreshold">Base entry threshold for market score.</param>
     /// <param name="allowShort">Allow short positions.</param>
     /// <returns>Complete backtest result.</returns>
     public static AutonomousBacktestResult RunFromBars(
@@ -123,7 +119,7 @@ public static class AutonomousBacktestRunner
         string symbol,
         DateOnly date,
         decimal startingCapital = 1000.00m,
-        AutonomousMode mode = AutonomousMode.Balanced,
+        int baseThreshold = 50,
         bool allowShort = true)
     {
         // Convert HistoricalBar to BackTestCandle
@@ -141,11 +137,11 @@ public static class AutonomousBacktestRunner
         var config = new AutonomousBacktestConfig
         {
             StartingCapital = startingCapital,
-            Mode = mode,
+            BaseEntryThreshold = baseThreshold,
             AllowShort = allowShort
         };
 
-        var backtester = new AutonomousBacktester(null!);
+        var backtester = new Backtester(null!);
         return backtester.RunWithCandles(symbol, date, candles, config);
     }
 
@@ -156,7 +152,7 @@ public static class AutonomousBacktestRunner
     /// <param name="date">The date to simulate.</param>
     /// <param name="startingCapital">Starting capital in dollars.</param>
     /// <param name="scenario">Price scenario to generate.</param>
-    /// <param name="mode">Trading mode.</param>
+    /// <param name="baseThreshold">Base entry threshold.</param>
     /// <param name="allowShort">Allow short positions.</param>
     /// <returns>Complete backtest result.</returns>
     public static AutonomousBacktestResult RunSynthetic(
@@ -164,7 +160,7 @@ public static class AutonomousBacktestRunner
         DateOnly date,
         decimal startingCapital = 1000.00m,
         PriceScenario scenario = PriceScenario.Volatile,
-        AutonomousMode mode = AutonomousMode.Balanced,
+        int baseThreshold = 50,
         bool allowShort = true)
     {
         var candles = GenerateSyntheticCandles(symbol, date, scenario);
@@ -172,11 +168,11 @@ public static class AutonomousBacktestRunner
         var config = new AutonomousBacktestConfig
         {
             StartingCapital = startingCapital,
-            Mode = mode,
+            BaseEntryThreshold = baseThreshold,
             AllowShort = allowShort
         };
 
-        var backtester = new AutonomousBacktester(null!);
+        var backtester = new Backtester(null!);
         return backtester.RunWithCandles(symbol, date, candles, config);
     }
 
@@ -188,7 +184,7 @@ public static class AutonomousBacktestRunner
     /// <param name="startDate">Start date (inclusive).</param>
     /// <param name="endDate">End date (inclusive).</param>
     /// <param name="startingCapital">Starting capital in dollars.</param>
-    /// <param name="mode">Trading mode.</param>
+    /// <param name="baseThreshold">Base entry threshold.</param>
     /// <param name="allowShort">Allow short positions.</param>
     /// <param name="progress">Optional progress reporter.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
@@ -199,7 +195,7 @@ public static class AutonomousBacktestRunner
         DateOnly startDate,
         DateOnly endDate,
         decimal startingCapital = 1000.00m,
-        AutonomousMode mode = AutonomousMode.Balanced,
+        int baseThreshold = 50,
         bool allowShort = true,
         IProgress<string>? progress = null,
         CancellationToken cancellationToken = default)
@@ -209,22 +205,14 @@ public static class AutonomousBacktestRunner
         decimal runningCapital = startingCapital;
         
         // Create or load ticker profile for learning
-        var profileManager = new IdiotProof.Backend.Strategy.TickerProfileManager();
+        var profileManager = new IdiotProof.Strategy.TickerProfileManager();
         var profile = profileManager.GetProfile(symbol);
         profile.BacktestStartDate = startDate.ToDateTime(TimeOnly.MinValue);
         profile.BacktestEndDate = endDate.ToDateTime(TimeOnly.MaxValue);
         
-        // Show header with capital and mode
-        string modeDesc = mode switch
-        {
-            AutonomousMode.Optimized => "OPTIMIZED (all tools, max profit)",
-            AutonomousMode.Aggressive => "Aggressive (lower thresholds)",
-            AutonomousMode.Balanced => "Balanced (standard)",
-            AutonomousMode.Conservative => "Conservative (higher thresholds)",
-            _ => mode.ToString()
-        };
+        // Show header with capital and threshold
         progress?.Report($"\nCapital: ${startingCapital:N2}");
-        progress?.Report($"Mode: {modeDesc}");
+        progress?.Report($"Base Threshold: {baseThreshold}");
         progress?.Report($"Symbol: {symbol} | Period: {startDate:yyyy-MM-dd} to {endDate:yyyy-MM-dd}\n");
 
         while (currentDate <= endDate)
@@ -239,7 +227,7 @@ public static class AutonomousBacktestRunner
             try
             {
                 var result = await RunFromIbkrAsync(
-                    histService, symbol, currentDate, runningCapital, mode, allowShort, 
+                    histService, symbol, currentDate, runningCapital, baseThreshold, allowShort, 
                     null, cancellationToken);
 
                 results.Add(result);
@@ -248,13 +236,13 @@ public static class AutonomousBacktestRunner
                 // Record trades to profile for learning
                 foreach (var trade in result.Trades)
                 {
-                    var tradeRecord = new IdiotProof.Backend.Strategy.TradeRecord
+                    var tradeRecord = new IdiotProof.Strategy.TradeRecord
                     {
                         EntryTime = trade.EntryTime,
                         ExitTime = trade.ExitTime,
                         EntryPrice = trade.EntryPrice,
                         ExitPrice = trade.ExitPrice,
-                        WasLong = trade.IsLong,
+                        IsLong = trade.IsLong,
                         Quantity = trade.Shares,
                         EntryScore = (int)trade.EntryScore,
                         ExitScore = (int)trade.ExitScore,
@@ -305,7 +293,7 @@ public static class AutonomousBacktestRunner
             EndDate = endDate,
             StartingCapital = startingCapital,
             EndingCapital = runningCapital,
-            Mode = mode,
+            BaseThreshold = baseThreshold,
             DailyResults = results,
             Profile = profile
         };
@@ -374,32 +362,32 @@ public static class AutonomousBacktestRunner
         sb.AppendLine($"║  AUTONOMOUS TRADING SCENARIO COMPARISON                                   ║");
         sb.AppendLine($"║  Symbol: {symbol,-10} | Date: {date:yyyy-MM-dd} | Capital: ${startingCapital:N2,-10}     ║");
         sb.AppendLine($"╠══════════════════════════════════════════════════════════════════════════╣");
-        sb.AppendLine($"║  {"Scenario",-12} {"Mode",-12} {"Trades",7} {"Win %",7} {"PnL",12} {"Return",9} ║");
+        sb.AppendLine($"║  {"Scenario",-12} {"Thresh",-12} {"Trades",7} {"Win %",7} {"PnL",12} {"Return",9} ║");
         sb.AppendLine($"╠══════════════════════════════════════════════════════════════════════════╣");
 
         var scenarios = new[] { PriceScenario.Uptrend, PriceScenario.Downtrend, PriceScenario.Volatile, PriceScenario.Range };
-        var modes = new[] { AutonomousMode.Conservative, AutonomousMode.Balanced, AutonomousMode.Aggressive };
+        var thresholds = new[] { 60, 50, 40 }; // Conservative, Balanced, Aggressive equivalents
 
         foreach (var scenario in scenarios)
         {
             var candles = GenerateSyntheticCandles(symbol, date, scenario);
 
-            foreach (var mode in modes)
+            foreach (var threshold in thresholds)
             {
                 var config = new AutonomousBacktestConfig
                 {
                     StartingCapital = startingCapital,
-                    Mode = mode,
+                    BaseEntryThreshold = threshold,
                     AllowShort = true
                 };
 
-                var backtester = new AutonomousBacktester(null!);
+                var backtester = new Backtester(null!);
                 var result = backtester.RunWithCandles(symbol, date, candles, config);
 
                 string pnlStr = result.TotalPnL >= 0 ? $"+${result.TotalPnL:N2}" : $"-${Math.Abs(result.TotalPnL):N2}";
                 string retStr = result.TotalReturnPercent >= 0 ? $"+{result.TotalReturnPercent:N2}%" : $"{result.TotalReturnPercent:N2}%";
 
-                sb.AppendLine($"║  {scenario,-12} {mode,-12} {result.TotalTrades,7} {result.WinRate,6:N1}% {pnlStr,12} {retStr,9} ║");
+                sb.AppendLine($"║  {scenario,-12} {threshold,-12} {result.TotalTrades,7} {result.WinRate,6:N1}% {pnlStr,12} {retStr,9} ║");
             }
         }
 
@@ -409,35 +397,35 @@ public static class AutonomousBacktestRunner
     }
 
     /// <summary>
-    /// Runs a quick mode comparison on a single scenario.
+    /// Runs a quick threshold comparison on a single scenario.
     /// </summary>
-    public static string RunModeComparison(
+    public static string RunThresholdComparison(
         string symbol,
         DateOnly date,
         decimal startingCapital = 1000.00m,
         PriceScenario scenario = PriceScenario.Volatile)
     {
         var sb = new StringBuilder();
-        sb.AppendLine($"\n=== MODE COMPARISON: {symbol} on {date:yyyy-MM-dd} ({scenario}) ===\n");
-        sb.AppendLine($"{"Mode",-15} {"Trades",8} {"Win %",8} {"PnL",12} {"Return %",10} {"MaxDD",10}");
+        sb.AppendLine($"\n=== THRESHOLD COMPARISON: {symbol} on {date:yyyy-MM-dd} ({scenario}) ===\n");
+        sb.AppendLine($"{"Threshold",-15} {"Trades",8} {"Win %",8} {"PnL",12} {"Return %",10} {"MaxDD",10}");
         sb.AppendLine(new string('-', 65));
 
         var candles = GenerateSyntheticCandles(symbol, date, scenario);
-        var modes = new[] { AutonomousMode.Conservative, AutonomousMode.Balanced, AutonomousMode.Aggressive };
+        var thresholds = new[] { 60, 50, 40 }; // Conservative, Balanced, Aggressive equivalents
 
-        foreach (var mode in modes)
+        foreach (var threshold in thresholds)
         {
             var config = new AutonomousBacktestConfig
             {
                 StartingCapital = startingCapital,
-                Mode = mode,
+                BaseEntryThreshold = threshold,
                 AllowShort = true
             };
 
-            var backtester = new AutonomousBacktester(null!);
+            var backtester = new Backtester(null!);
             var result = backtester.RunWithCandles(symbol, date, candles, config);
 
-            sb.AppendLine($"{mode,-15} {result.TotalTrades,8} {result.WinRate,7:N1}% ${result.TotalPnL,10:N2} {result.TotalReturnPercent,9:N2}% ${result.MaxDrawdown,8:N2}");
+            sb.AppendLine($"{threshold,-15} {result.TotalTrades,8} {result.WinRate,7:N1}% ${result.TotalPnL,10:N2} {result.TotalReturnPercent,9:N2}% ${result.MaxDrawdown,8:N2}");
         }
 
         return sb.ToString();
@@ -548,14 +536,14 @@ public sealed class MultiDayBacktestResult
     public required DateOnly EndDate { get; init; }
     public required decimal StartingCapital { get; init; }
     public required decimal EndingCapital { get; init; }
-    public required AutonomousMode Mode { get; init; }
+    public required int BaseThreshold { get; init; }
     public List<AutonomousBacktestResult> DailyResults { get; init; } = [];
     
     /// <summary>
     /// Time-weighted learning profile built from backtest trades.
     /// Contains optimal thresholds and indicator correlations.
     /// </summary>
-    public IdiotProof.Backend.Strategy.TickerProfile? Profile { get; init; }
+    public IdiotProof.Strategy.TickerProfile? Profile { get; init; }
 
     // Aggregate metrics
     public decimal TotalPnL => EndingCapital - StartingCapital;
@@ -602,7 +590,7 @@ public sealed class MultiDayBacktestResult
             +======================================================================+
             | MULTI-DAY AUTONOMOUS TRADING BACKTEST                                |
             +======================================================================+
-            | Symbol:     {Symbol,-10} | Mode: {Mode}
+            | Symbol:     {Symbol,-10} | Threshold: {BaseThreshold}
             | Period:     {StartDate:yyyy-MM-dd} to {EndDate:yyyy-MM-dd}
             +----------------------------------------------------------------------+
             | CAPITAL                                                              |

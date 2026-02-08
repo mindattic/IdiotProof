@@ -2,8 +2,7 @@
 // OrderValidator - Validates order parameters for safe execution
 // ============================================================================
 
-namespace IdiotProof.Core.Validation
-{
+namespace IdiotProof.Validation {
     /// <summary>
     /// Validates order parameters before submission to ensure safety.
     /// </summary>

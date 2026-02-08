@@ -2,7 +2,7 @@
 // Percent - Percentage Value Definitions
 // ============================================================================
 
-namespace IdiotProof.Core.Helpers;
+namespace IdiotProof.Helpers;
 
 /// <summary>
 /// Common percentage values for trailing stop losses and other calculations.

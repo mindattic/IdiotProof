@@ -2,12 +2,11 @@
 // TradeTrackingService - Tracks IdiotProof orders through their lifecycle
 // ============================================================================
 
-using IdiotProof.Core.Models;
+using IdiotProof.Models;
 using System.Collections.Concurrent;
 using System.Text.Json;
 
-namespace IdiotProof.Core.Services
-{
+namespace IdiotProof.Services {
     /// <summary>
     /// Service for tracking IdiotProof trades.
     /// Persists trade data to allow filtering orders to only show IdiotProof trades.

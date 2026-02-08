@@ -2,10 +2,10 @@
 // ConsoleUI - Console display helpers for the Strategy Builder
 // ============================================================================
 
-using IdiotProof.Core.Models;
-using IdiotProof.Core.Settings;
+using IdiotProof.Models;
+using IdiotProof.Settings;
 
-namespace IdiotProof.Core.UI;
+namespace IdiotProof.UI;
 
 /// <summary>
 /// Static helper class for console display formatting.

@@ -2,10 +2,9 @@
 // ITradeTrackingService - Interface for tracking IdiotProof trades
 // ============================================================================
 
-using IdiotProof.Core.Models;
+using IdiotProof.Models;
 
-namespace IdiotProof.Core.Services
-{
+namespace IdiotProof.Services {
     /// <summary>
     /// Service for tracking IdiotProof trades through their lifecycle.
     /// Implemented by both frontend and backend to track orders.

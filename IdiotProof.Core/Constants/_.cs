@@ -12,7 +12,7 @@
 //
 // ============================================================================
 
-namespace IdiotProof.Core.Constants;
+namespace IdiotProof.Constants;
 
 /// <summary>
 /// Central source for string constants used throughout the codebase.

@@ -7,10 +7,10 @@
 //
 // ============================================================================
 
-using IdiotProof.BackTesting.Models;
-using IdiotProof.BackTesting.Services;
+using IdiotProof.Models;
+using IdiotProof.Services;
 
-namespace IdiotProof.BackTesting.Optimization;
+namespace IdiotProof.Optimization;
 
 /// <summary>
 /// Configuration for the optimization process.

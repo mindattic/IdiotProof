@@ -21,11 +21,10 @@
 using System;
 using System.Collections.Generic;
 using System.Text;
-using IdiotProof.Backend.Enums;
-using IdiotProof.Backend.Models;
+using IdiotProof.Enums;
+using IdiotProof.Models;
 
-namespace IdiotProof.Backend.Strategy
-{
+namespace IdiotProof.Strategy {
     /// <summary>
     /// Represents a complete trading strategy with symbol, conditions, and order action.
     /// This is an immutable container created by the <see cref="Stock"/> fluent builder.

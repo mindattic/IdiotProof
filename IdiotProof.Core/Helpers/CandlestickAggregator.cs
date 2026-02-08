@@ -25,8 +25,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace IdiotProof.Backend.Helpers
-{
+namespace IdiotProof.Helpers {
     /// <summary>
     /// Aggregates price ticks into candlesticks (OHLC bars).
     /// </summary>

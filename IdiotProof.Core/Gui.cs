@@ -1,11 +1,10 @@
-using IdiotProof.Backend.Models;
-using IdiotProof.Backend.Strategy;
-using IdiotProof.Core.Settings;
+using IdiotProof.Models;
+using IdiotProof.Strategy;
+using IdiotProof.Settings;
 using System;
 using System.Collections.Generic;
 
-namespace IdiotProof.Backend
-{
+namespace IdiotProof {
     /// <summary>
     /// Console UI display methods for the IdiotProof trading bot.
     /// </summary>
@@ -82,7 +81,7 @@ namespace IdiotProof.Backend
         /// </summary>
         public static void DisplayTradingMode()
         {
-            if (Settings.IsPaperTrading)
+            if (AppSettings.IsPaperTrading)
             {
                 Console.ForegroundColor = ConsoleColor.Yellow;
                 Console.WriteLine("Mode: PAPER TRADING");
@@ -148,7 +147,7 @@ namespace IdiotProof.Backend
             Console.WriteLine("Fetching existing orders from IBKR...");
 
             // Request and wait for open orders
-            wrapper.RequestOpenOrdersAndWait(TimeSpan.FromSeconds(Settings.ConnectionTimeoutSeconds));
+            wrapper.RequestOpenOrdersAndWait(TimeSpan.FromSeconds(AppSettings.ConnectionTimeoutSeconds));
 
             var orders = wrapper.OpenOrders;
 
@@ -164,13 +163,13 @@ namespace IdiotProof.Backend
                 Console.ForegroundColor = ConsoleColor.Cyan;
                 Console.WriteLine($"Found {orders.Count} existing order(s):");
                 Console.WriteLine("+----------------------------------------------------------------------+");
-                Console.WriteLine("¦ OrderId ¦ Symbol ¦ Action ¦  Qty  ¦  Type  ¦   Price  ¦    Status    ¦");
-                Console.WriteLine("+---------+--------+--------+-------+--------+----------+--------------¦");
+                Console.WriteLine("ï¿½ OrderId ï¿½ Symbol ï¿½ Action ï¿½  Qty  ï¿½  Type  ï¿½   Price  ï¿½    Status    ï¿½");
+                Console.WriteLine("+---------+--------+--------+-------+--------+----------+--------------ï¿½");
 
                 foreach (var (orderId, order) in orders)
                 {
                     var priceStr = order.LmtPrice > 0 ? $"${order.LmtPrice:F2}" : "MKT";
-                    Console.WriteLine($"¦ {orderId,7} ¦ {order.Symbol,-6} ¦ {order.Action,-6} ¦ {order.Qty,5} ¦ {order.Type,-6} ¦ {priceStr,8} ¦ {order.Status,-12} ¦");
+                    Console.WriteLine($"ï¿½ {orderId,7} ï¿½ {order.Symbol,-6} ï¿½ {order.Action,-6} ï¿½ {order.Qty,5} ï¿½ {order.Type,-6} ï¿½ {priceStr,8} ï¿½ {order.Status,-12} ï¿½");
                 }
 
                 Console.WriteLine("+----------------------------------------------------------------------+");

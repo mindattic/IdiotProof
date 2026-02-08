@@ -15,7 +15,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
-namespace IdiotProof.Core.Learning;
+namespace IdiotProof.Learning;
 
 /// <summary>
 /// A learned weight vector that captures a stock's trading "DNA".
@@ -29,10 +29,23 @@ public sealed class LearnedWeights
     
     /// <summary>
     /// Primary indicator weights (16 weights).
-    /// Index: 0=VWAP, 1=EMA9, 2=EMA21, 3=EMA50, 4=RSI, 5=MACD, 6=ADX,
-    /// 7=Volume, 8=Bollinger, 9=Momentum, 10=ROC, 11=ATR, 12-15=reserved
+    /// Index: 0=VWAP, 1=EMA, 2=RSI, 3=MACD, 4=ADX, 5=Volume, 6=Bollinger,
+    /// 7=Stochastic, 8=OBV, 9=CCI, 10=WilliamsR, 11-15=reserved
     /// </summary>
     public double[] IndicatorWeights { get; set; } = new double[16];
+    
+    // Indicator indices for weight lookup
+    public const int IDX_VWAP = 0;
+    public const int IDX_EMA = 1;
+    public const int IDX_RSI = 2;
+    public const int IDX_MACD = 3;
+    public const int IDX_ADX = 4;
+    public const int IDX_VOLUME = 5;
+    public const int IDX_BOLLINGER = 6;
+    public const int IDX_STOCHASTIC = 7;
+    public const int IDX_OBV = 8;
+    public const int IDX_CCI = 9;
+    public const int IDX_WILLIAMSR = 10;
     
     /// <summary>
     /// Weights when market is trending (ADX > 25) (16 weights).
@@ -122,6 +135,44 @@ public sealed class LearnedWeights
     // ========================================================================
     
     /// <summary>
+    /// Converts learned weights to the IndicatorWeights struct used by MarketScoreCalculator.
+    /// Uses learned values normalized to sum to 1.0.
+    /// </summary>
+    public IdiotProof.Helpers.IndicatorWeights ToIndicatorWeights()
+    {
+        // Extract raw weights (stored as positive values during learning)
+        double vwap = Math.Max(0.01, IndicatorWeights[IDX_VWAP]);
+        double ema = Math.Max(0.01, IndicatorWeights[IDX_EMA]);
+        double rsi = Math.Max(0.01, IndicatorWeights[IDX_RSI]);
+        double macd = Math.Max(0.01, IndicatorWeights[IDX_MACD]);
+        double adx = Math.Max(0.01, IndicatorWeights[IDX_ADX]);
+        double volume = Math.Max(0.01, IndicatorWeights[IDX_VOLUME]);
+        double bollinger = Math.Max(0.01, IndicatorWeights[IDX_BOLLINGER]);
+        double stochastic = Math.Max(0.01, IndicatorWeights[IDX_STOCHASTIC]);
+        double obv = Math.Max(0.01, IndicatorWeights[IDX_OBV]);
+        double cci = Math.Max(0.01, IndicatorWeights[IDX_CCI]);
+        double williamsR = Math.Max(0.01, IndicatorWeights[IDX_WILLIAMSR]);
+        
+        // Normalize to sum to 1.0
+        double sum = vwap + ema + rsi + macd + adx + volume + bollinger + stochastic + obv + cci + williamsR;
+        
+        return new IdiotProof.Helpers.IndicatorWeights
+        {
+            Vwap = vwap / sum,
+            Ema = ema / sum,
+            Rsi = rsi / sum,
+            Macd = macd / sum,
+            Adx = adx / sum,
+            Volume = volume / sum,
+            Bollinger = bollinger / sum,
+            Stochastic = stochastic / sum,
+            Obv = obv / sum,
+            Cci = cci / sum,
+            WilliamsR = williamsR / sum
+        };
+    }
+    
+    /// <summary>
     /// Total number of learnable weights.
     /// </summary>
     [JsonIgnore]
@@ -183,7 +234,7 @@ public sealed class LearnedWeights
     /// </summary>
     public static LearnedWeights? Load(string symbol)
     {
-        var folder = IdiotProof.Core.Settings.SettingsManager.GetDataFolder();
+        var folder = IdiotProof.Settings.SettingsManager.GetDataFolder();
         var path = Path.Combine(folder, $"{symbol}.weights.json");
         
         if (!File.Exists(path))

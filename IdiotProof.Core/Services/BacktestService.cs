@@ -12,20 +12,20 @@
 //
 // ============================================================================
 
-using IdiotProof.Backend.Enums;
-using IdiotProof.Backend.Helpers;
-using IdiotProof.Backend.Models;
-using IdiotProof.Backend.Strategy;
-using IdiotProof.Core.Models;
+using IdiotProof.Enums;
+using IdiotProof.Helpers;
+using IdiotProof.Models;
+using IdiotProof.Strategy;
+using IdiotProof.Models;
 
-namespace IdiotProof.Backend.Services
-{
+namespace IdiotProof.Services {
     /// <summary>
     /// Service for running autonomous trading backtests and building TickerProfiles.
     /// </summary>
     public sealed class BacktestService
     {
         private readonly HistoricalDataService _historicalDataService;
+        private readonly HistoricalDataCache _cache = new();
 
         public BacktestService(HistoricalDataService historicalDataService)
         {
@@ -49,71 +49,91 @@ namespace IdiotProof.Backend.Services
                 int barsPerDay = 960; // Extended hours: 4am-8pm = 16 hours x 60 min
                 int totalBarsNeeded = request.Days * barsPerDay;
 
-                // IBKR limits: 1 min bars max "5 D" per request
-                // For 30 days, we need multiple requests
                 var allBars = new List<HistoricalBar>();
 
-                // Fetch data in chunks of 5 days
-                int daysRemaining = request.Days;
-                DateTime endDate = DateTime.Now;
-
-                while (daysRemaining > 0 && allBars.Count < totalBarsNeeded)
+                // STEP 1: Check cache first
+                var cachedBars = _cache.LoadFromCache(request.Symbol);
+                if (cachedBars != null && cachedBars.Count >= totalBarsNeeded / 2)
                 {
-                    int fetchDays = Math.Min(daysRemaining, 5);
-                    
-                    Console.WriteLine($"[BACKTEST] Fetching {fetchDays} days ending {endDate:yyyy-MM-dd HH:mm}");
+                    // Use cached data - it has enough bars for our backtest
+                    allBars = cachedBars;
+                    Console.WriteLine($"[BACKTEST] Using cached data: {allBars.Count} bars from {request.Symbol}.history.json");
+                }
+                else
+                {
+                    // STEP 2: No cache or insufficient data - fetch from IBKR API
+                    Console.WriteLine($"[BACKTEST] No cache found, fetching from IBKR API...");
 
-                    // Fetch historical data with specific end date
-                    int barsFetched = await _historicalDataService.FetchHistoricalDataAsync(
-                        request.Symbol,
-                        barCount: fetchDays * barsPerDay,
-                        barSize: BarSize.Minutes1,
-                        dataType: HistoricalDataType.Trades,
-                        useRTH: false,
-                        endDate: endDate);
+                    // IBKR limits: 1 min bars max "5 D" per request
+                    // For 30 days, we need multiple requests
+                    int daysRemaining = request.Days;
+                    DateTime endDate = DateTime.Now;
 
-                    if (barsFetched == 0)
+                    while (daysRemaining > 0 && allBars.Count < totalBarsNeeded)
                     {
-                        if (allBars.Count == 0)
+                        int fetchDays = Math.Min(daysRemaining, 5);
+                        
+                        Console.WriteLine($"[BACKTEST] Fetching {fetchDays} days ending {endDate:yyyy-MM-dd HH:mm}");
+
+                        // Fetch historical data with specific end date
+                        int barsFetched = await _historicalDataService.FetchHistoricalDataAsync(
+                            request.Symbol,
+                            barCount: fetchDays * barsPerDay,
+                            barSize: BarSize.Minutes1,
+                            dataType: HistoricalDataType.Trades,
+                            useRTH: false,
+                            endDate: endDate);
+
+                        if (barsFetched == 0)
                         {
-                            return new BacktestResponsePayload
+                            if (allBars.Count == 0)
                             {
-                                Success = false,
-                                Symbol = request.Symbol,
-                                ErrorMessage = $"Failed to fetch historical data for {request.Symbol}"
-                            };
+                                return new BacktestResponsePayload
+                                {
+                                    Success = false,
+                                    Symbol = request.Symbol,
+                                    ErrorMessage = $"Failed to fetch historical data for {request.Symbol}"
+                                };
+                            }
+                            break; // Use what we have
                         }
-                        break; // Use what we have
-                    }
 
-                    // Get bars from store
-                    var fetchedBars = _historicalDataService.Store.GetBars(request.Symbol);
-                    if (fetchedBars != null && fetchedBars.Count > 0)
-                    {
-                        // Add only bars we don't already have
-                        foreach (var bar in fetchedBars)
+                        // Get bars from store
+                        var fetchedBars = _historicalDataService.Store.GetBars(request.Symbol);
+                        if (fetchedBars != null && fetchedBars.Count > 0)
                         {
-                            if (!allBars.Any(b => b.Time == bar.Time))
+                            // Add only bars we don't already have
+                            foreach (var bar in fetchedBars)
                             {
-                                allBars.Add(bar);
+                                if (!allBars.Any(b => b.Time == bar.Time))
+                                {
+                                    allBars.Add(bar);
+                                }
                             }
                         }
+
+                        daysRemaining -= fetchDays;
+                        endDate = endDate.AddDays(-fetchDays);
+
+                        // Respect pacing limits
+                        if (daysRemaining > 0)
+                        {
+                            await Task.Delay(1000); // Wait 1 second between requests
+                        }
                     }
 
-                    daysRemaining -= fetchDays;
-                    endDate = endDate.AddDays(-fetchDays);
+                    // Sort bars by time
+                    allBars = allBars.OrderBy(b => b.Time).ToList();
 
-                    // Respect pacing limits
-                    if (daysRemaining > 0)
+                    // STEP 3: Save to cache for future use
+                    if (allBars.Count > 0)
                     {
-                        await Task.Delay(1000); // Wait 1 second between requests
+                        _cache.SaveToCache(request.Symbol, allBars);
+                        Console.WriteLine($"[BACKTEST] Saved {allBars.Count} bars to {request.Symbol}.history.json");
                     }
                 }
 
-                // Sort bars by time
-                allBars = allBars.OrderBy(b => b.Time).ToList();
-
-                Console.WriteLine($"[BACKTEST] Fetched {allBars.Count} total bars for {request.Symbol}");
+                Console.WriteLine($"[BACKTEST] Using {allBars.Count} total bars for {request.Symbol}");
 
                 if (allBars.Count < 50)
                 {
@@ -140,7 +160,7 @@ namespace IdiotProof.Backend.Services
                 int totalTrades = profile.TotalTrades;
                 int winningTrades = profile.TotalWins;
                 double winRate = profile.WinRate;
-                double totalPnL = profile.NetProfit;
+                double totalPnL = profile.TotalPnL;
                 double avgPnL = totalTrades > 0 ? totalPnL / totalTrades : 0;
 
                 // Save profile if requested
@@ -234,9 +254,16 @@ namespace IdiotProof.Backend.Services
                             "SL" => " SL",
                             _ => ""
                         };
-                        Console.WriteLine($"      {icon}{reasonTag} {trade.EntryTime:HH:mm} -> {trade.ExitTime:HH:mm} | " +
-                            $"${trade.EntryPrice:F2} -> ${trade.ExitPrice:F2} | " +
-                            $"P&L: ${trade.ProfitLoss:F2} ({trade.ProfitLossPercent:F2}%)");
+                        
+                        // Show clear direction: LONG = Buy->Sell, SHORT = Short->Cover
+                        var direction = trade.IsLong ? "LONG " : "SHORT";
+                        var entryAction = trade.IsLong ? "Buy  " : "Short";
+                        var exitAction = trade.IsLong ? "Sell " : "Cover";
+                        var pnlSign = trade.PnL >= 0 ? "+" : "";
+                        
+                        Console.WriteLine($"      {icon}{reasonTag} {direction} | {entryAction} {trade.EntryTime:h:mm tt} @ ${trade.EntryPrice:F2} | " +
+                            $"{exitAction} {trade.ExitTime:h:mm tt} @ ${trade.ExitPrice:F2} | " +
+                            $"{pnlSign}${trade.PnL:F2} ({pnlSign}{trade.PnLPercent:F2}%)");
                     }
                 }
             }
@@ -247,7 +274,7 @@ namespace IdiotProof.Backend.Services
                 var finalTrade = simulator.ClosePosition(bars[^1].Close, bars[^1].Time);
                 if (verboseLogging && finalTrade != null)
                 {
-                    Console.WriteLine($"      [END] Closed at end of data: ${finalTrade.ProfitLoss:F2}");
+                    Console.WriteLine($"      [END] Closed at end of data: ${finalTrade.PnL:F2}");
                 }
             }
 
@@ -354,6 +381,9 @@ namespace IdiotProof.Backend.Services
         private readonly CciCalculator _cci = new(20);
         private readonly WilliamsRCalculator _williamsR = new(14);
 
+        // Indicator weights - learned or default
+        private IdiotProof.Helpers.IndicatorWeights _weights = IdiotProof.Helpers.IndicatorWeights.Default;
+
         // Additional entry scores for extended indicators
         private int _entryBollingerScore, _entryStochasticScore, _entryObvScore, _entryCciScore, _entryWilliamsRScore;
 
@@ -369,6 +399,15 @@ namespace IdiotProof.Backend.Services
             _quantity = quantity;
             _learnedProfile = learnedProfile;
             _profile = new TickerProfile { Symbol = symbol };
+        }
+        
+        /// <summary>
+        /// Sets the indicator weights for score calculation.
+        /// Call after construction to use ticker-specific learned weights.
+        /// </summary>
+        public void SetWeights(IdiotProof.Helpers.IndicatorWeights weights)
+        {
+            _weights = weights;
         }
 
         /// <summary>
@@ -411,7 +450,7 @@ namespace IdiotProof.Backend.Services
             // If in profit, give more room (lower exit threshold)
             if (_inPosition && _isLong)
             {
-                double unrealizedPnl = (_profile.TotalTrades > 0 ? _profile.NetProfit / _profile.TotalTrades : 0);
+                double unrealizedPnl = (_profile.TotalTrades > 0 ? _profile.TotalPnL / _profile.TotalTrades : 0);
                 if (unrealizedPnl > 0) return Math.Max(baseline - 10, 20);
             }
             return baseline;
@@ -423,7 +462,7 @@ namespace IdiotProof.Backend.Services
             
             if (_inPosition && !_isLong)
             {
-                double unrealizedPnl = (_profile.TotalTrades > 0 ? _profile.NetProfit / _profile.TotalTrades : 0);
+                double unrealizedPnl = (_profile.TotalTrades > 0 ? _profile.TotalPnL / _profile.TotalTrades : 0);
                 if (unrealizedPnl > 0) return Math.Min(baseline + 10, -20);
             }
             return baseline;
@@ -656,129 +695,86 @@ namespace IdiotProof.Backend.Services
         public TickerProfile GetProfile() => _profile;
 
         /// <summary>
-        /// Calculates comprehensive market score using all available indicators.
-        /// Returns individual component scores for analysis and learning.
+        /// Calculates comprehensive market score using MarketScoreCalculator (SINGLE SOURCE OF TRUTH).
+        /// Extended indicators are calculated separately for additional filtering.
         /// </summary>
         private IndicatorScores CalculateScore(double price, double vwap)
         {
             var scores = new IndicatorScores();
 
             // ================================================================
-            // CORE INDICATORS (Original weights adjusted for new indicators)
+            // BUILD SNAPSHOT FOR MarketScoreCalculator
             // ================================================================
-
-            // VWAP Position (10% weight)
-            if (vwap > 0)
+            var snapshot = new IndicatorSnapshot
             {
-                double vwapDiff = (price - vwap) / vwap * 100;
-                scores.Vwap = (int)Math.Clamp(vwapDiff * 20, -100, 100);
-            }
+                Price = price,
+                Vwap = vwap,
+                Ema9 = _ema9.IsReady ? _ema9.CurrentValue : 0,
+                Ema21 = _ema21.IsReady ? _ema21.CurrentValue : 0,
+                Ema50 = _ema50.IsReady ? _ema50.CurrentValue : 0,
+                Rsi = _rsi.IsReady ? _rsi.CurrentValue : 50,
+                Macd = _macd.IsReady ? _macd.MacdLine : 0,
+                MacdSignal = _macd.IsReady ? _macd.SignalLine : 0,
+                MacdHistogram = _macd.IsReady ? _macd.Histogram : 0,
+                Adx = _adx.IsReady ? _adx.CurrentAdx : 0,
+                PlusDi = _adx.IsReady ? _adx.PlusDI : 0,
+                MinusDi = _adx.IsReady ? _adx.MinusDI : 0,
+                VolumeRatio = _volume.IsReady ? _volume.VolumeRatio : 1.0,
+                BollingerUpper = _bollinger.IsReady ? _bollinger.UpperBand : 0,
+                BollingerMiddle = _bollinger.IsReady ? _bollinger.MiddleBand : 0,
+                BollingerLower = _bollinger.IsReady ? _bollinger.LowerBand : 0,
+                Atr = _atr.IsReady ? _atr.CurrentAtr : 0,
+                // Extended indicators
+                StochasticK = _stochastic.IsReady ? _stochastic.PercentK : 0,
+                StochasticD = _stochastic.IsReady ? _stochastic.PercentD : 0,
+                ObvSlope = _obv.IsReady ? (_obv.IsRising ? 1.0 : (_obv.IsFalling ? -1.0 : 0)) : 0,
+                Cci = _cci.IsReady ? _cci.CurrentCci : 0,
+                WilliamsR = _williamsR.IsReady ? _williamsR.CurrentValue : -50
+            };
 
-            // EMA Stack Alignment (12% weight)
-            int bullish = 0, bearish = 0;
-            if (_ema9.IsReady && price > _ema9.CurrentValue) bullish++; else bearish++;
-            if (_ema21.IsReady && price > _ema21.CurrentValue) bullish++; else bearish++;
-            if (_ema50.IsReady && price > _ema50.CurrentValue) bullish++; else bearish++;
-            int total = bullish + bearish;
-            if (total > 0)
-            {
-                scores.Ema = (int)((bullish - bearish) / (double)total * 100);
-            }
-
-            // RSI (10% weight)
-            if (_rsi.IsReady)
-            {
-                double rsi = _rsi.CurrentValue;
-                if (rsi >= 70)
-                    scores.Rsi = (int)((70 - rsi) * 3.33);
-                else if (rsi <= 30)
-                    scores.Rsi = (int)((30 - rsi) * 3.33);
-                else
-                    scores.Rsi = (int)((rsi - 50) * 2.5);
-            }
-
-            // MACD (15% weight)
-            if (_macd.IsReady)
-            {
-                scores.Macd = _macd.IsBullish ? 50 : -50;
-                scores.Macd += (int)Math.Clamp(_macd.Histogram * 500, -50, 50);
-            }
-
-            // ADX Trend Strength (15% weight)
-            if (_adx.IsReady)
-            {
-                double adx = _adx.CurrentAdx;
-                bool diPositive = _adx.PlusDI > _adx.MinusDI;
-                int magnitude = (int)Math.Min(adx * 2, 100);
-                scores.Adx = diPositive ? magnitude : -magnitude;
-            }
-
-            // Volume (8% weight)
-            if (_volume.IsReady)
-            {
-                double volumeRatio = _volume.VolumeRatio;
-                if (volumeRatio > 1.0)
-                {
-                    int volumeMagnitude = (int)Math.Min((volumeRatio - 1.0) * 100, 100);
-                    scores.Volume = price > vwap ? volumeMagnitude : -volumeMagnitude;
-                }
-            }
+            // USE SHARED CALCULATOR with learned or default weights (SINGLE SOURCE OF TRUTH)
+            var result = MarketScoreCalculator.Calculate(snapshot, _weights);
+            
+            scores.Vwap = result.VwapScore;
+            scores.Ema = result.EmaScore;
+            scores.Rsi = result.RsiScore;
+            scores.Macd = result.MacdScore;
+            scores.Adx = result.AdxScore;
+            scores.Volume = result.VolumeScore;
+            scores.Bollinger = result.BollingerScore;
+            scores.Stochastic = result.StochasticScore;
+            scores.Obv = result.ObvScore;
+            scores.Cci = result.CciScore;
+            scores.WilliamsR = result.WilliamsRScore;
+            scores.Total = result.TotalScore;
 
             // ================================================================
-            // EXTENDED INDICATORS (New)
+            // EXTENDED INDICATORS (Additional filters, not in core score)
             // ================================================================
 
-            // Bollinger Bands (8% weight) - Mean reversion signals
-            if (_bollinger.IsReady)
-            {
-                scores.Bollinger = _bollinger.GetScore();
-            }
-
-            // Stochastic (8% weight) - Momentum crossovers
+            // Stochastic - for additional confirmation
             if (_stochastic.IsReady)
             {
                 scores.Stochastic = _stochastic.GetScore();
             }
 
-            // OBV (6% weight) - Volume flow and divergence
+            // OBV - volume flow confirmation
             if (_obv.IsReady)
             {
                 scores.Obv = _obv.GetScore();
             }
 
-            // CCI (4% weight) - Trend strength and mean reversion
+            // CCI - trend strength confirmation
             if (_cci.IsReady)
             {
                 scores.Cci = _cci.GetScore();
             }
 
-            // Williams %R (4% weight) - Momentum extremes
+            // Williams %R - momentum confirmation
             if (_williamsR.IsReady)
             {
                 scores.WilliamsR = _williamsR.GetScore();
             }
-
-            // ================================================================
-            // CALCULATE WEIGHTED TOTAL
-            // ================================================================
-            // Weights sum to 100%:
-            // Core: VWAP(10) + EMA(12) + RSI(10) + MACD(15) + ADX(15) + Volume(8) = 70%
-            // Extended: Bollinger(8) + Stochastic(8) + OBV(6) + CCI(4) + WilliamsR(4) = 30%
-
-            double totalScore =
-                scores.Vwap * 0.10 +
-                scores.Ema * 0.12 +
-                scores.Rsi * 0.10 +
-                scores.Macd * 0.15 +
-                scores.Adx * 0.15 +
-                scores.Volume * 0.08 +
-                scores.Bollinger * 0.08 +
-                scores.Stochastic * 0.08 +
-                scores.Obv * 0.06 +
-                scores.Cci * 0.04 +
-                scores.WilliamsR * 0.04;
-
-            scores.Total = (int)Math.Clamp(totalScore, -100, 100);
 
             return scores;
         }
@@ -848,7 +844,7 @@ namespace IdiotProof.Backend.Services
                 EntryPrice = _entryPrice,
                 ExitTime = exitTime,
                 ExitPrice = exitPrice,
-                WasLong = _isLong,
+                IsLong = _isLong,
                 Quantity = _quantity,
                 EntryScore = _entryScore,
                 ExitScore = exitScore,
@@ -858,10 +854,10 @@ namespace IdiotProof.Backend.Services
                 EntryMacdScore = _entryMacdScore,
                 EntryAdxScore = _entryAdxScore,
                 EntryVolumeScore = _entryVolumeScore,
-                EntryRsi = _rsi.CurrentValue,
-                EntryAdx = _adx.CurrentAdx,
-                ExitRsi = _rsi.CurrentValue,
-                ExitAdx = _adx.CurrentAdx,
+                RsiAtEntry = _rsi.CurrentValue,
+                AdxAtEntry = _adx.CurrentAdx,
+                RsiAtExit = _rsi.CurrentValue,
+                AdxAtExit = _adx.CurrentAdx,
                 ExitReason = exitReason
             };
         }

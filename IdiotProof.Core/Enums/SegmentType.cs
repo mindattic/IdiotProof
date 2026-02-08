@@ -2,8 +2,7 @@
 // SegmentType - Types of strategy segments available for drag and drop
 // ============================================================================
 
-namespace IdiotProof.Core.Enums
-{
+namespace IdiotProof.Enums {
     /// <summary>
     /// Categories of strategy segments for the WYSIWYG builder.
     /// </summary>

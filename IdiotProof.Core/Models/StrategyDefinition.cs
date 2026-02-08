@@ -4,8 +4,7 @@
 
 using System.Text.Json.Serialization;
 
-namespace IdiotProof.Core.Models
-{
+namespace IdiotProof.Models {
     /// <summary>
     /// Represents a complete strategy that can be serialized to/from JSON.
     /// </summary>
@@ -102,11 +101,12 @@ namespace IdiotProof.Core.Models
 
         /// <summary>
         /// Generates the IdiotScript representation of this strategy.
-        /// Returns the original script if available, otherwise re-serializes.
+        /// Returns the original script if available, otherwise empty string.
         /// </summary>
         public string ToIdiotScript()
         {
-            return OriginalScript ?? Scripting.IdiotScriptSerializer.Serialize(this);
+            // IdiotScript serializer removed - return original script or empty
+            return OriginalScript ?? string.Empty;
         }
 
         /// <summary>
@@ -114,7 +114,8 @@ namespace IdiotProof.Core.Models
         /// </summary>
         public string ToAsciiChart()
         {
-            return Scripting.IdiotScriptChartGenerator.GenerateChart(this);
+            // ASCII chart generation removed
+            return "// ASCII chart generation removed";
         }
 
         /// <summary>
@@ -122,7 +123,8 @@ namespace IdiotProof.Core.Models
         /// </summary>
         public string ToAsciiChartComments()
         {
-            return Scripting.IdiotScriptChartGenerator.GenerateChartComments(this);
+            // ASCII chart generation removed
+            return "// ASCII chart generation removed";
         }
 
         /// <summary>

@@ -48,8 +48,7 @@
 //
 // ============================================================================
 
-namespace IdiotProof.Backend.Models
-{
+namespace IdiotProof.Strategy {
     /// <summary>
     /// Configuration for adaptive order management that dynamically adjusts
     /// take profit and stop loss based on real-time market conditions.
@@ -369,41 +368,6 @@ namespace IdiotProof.Backend.Models
     // ========================================================================
 
     /// <summary>
-    /// Trading aggressiveness mode for autonomous trading.
-    /// </summary>
-    public enum AutonomousMode
-    {
-        /// <summary>
-        /// Conservative: Fewer trades, higher confidence thresholds.
-        /// Only enters on very strong signals (score >= 80 or <= -80).
-        /// Wider TP targets, wider SL for fewer stop-outs.
-        /// </summary>
-        Conservative,
-
-        /// <summary>
-        /// Balanced: Standard thresholds and risk management.
-        /// Enters on strong signals (score >= 70 or <= -70).
-        /// </summary>
-        Balanced,
-
-        /// <summary>
-        /// Aggressive: More trades, lower confidence thresholds.
-        /// Enters on moderate signals (score >= 60 or <= -60).
-        /// Tighter TP targets, tighter SL for quick profits.
-        /// </summary>
-        Aggressive,
-
-        /// <summary>
-        /// Optimized: Maximum profit mode using all available tools.
-        /// Uses indicator confirmation to enter on lower thresholds.
-        /// Dynamic position sizing based on score strength.
-        /// Trailing take profits, scaled entries, and learned patterns.
-        /// Requires minimum indicator agreement for entries.
-        /// </summary>
-        Optimized
-    }
-
-    /// <summary>
     /// Configuration for autonomous trading mode where the system
     /// independently decides entry and exit points based on indicator analysis.
     /// </summary>
@@ -431,8 +395,8 @@ namespace IdiotProof.Backend.Models
     /// </remarks>
     public sealed class AutonomousTradingConfig
     {
-        /// <summary>The trading mode (Conservative, Balanced, Aggressive).</summary>
-        public AutonomousMode Mode { get; init; } = AutonomousMode.Balanced;
+        /// <summary>Optional name for this configuration.</summary>
+        public string Name { get; init; } = "Dynamic";
 
         // ========================================================================
         // ENTRY THRESHOLDS
@@ -546,7 +510,7 @@ namespace IdiotProof.Backend.Models
         /// to capture moves in both directions without missing reversals.
         /// </para>
         /// <para>
-        /// ⚠️ WARNING: Flip Mode can result in rapid position changes and increased
+        /// ! WARNING: Flip Mode can result in rapid position changes and increased
         /// commission costs. Best used on volatile stocks with clear trends.
         /// </para>
         /// </remarks>
@@ -573,7 +537,7 @@ namespace IdiotProof.Backend.Models
         /// Optimized indicator weights from genetic algorithm optimization.
         /// When set, these override the default hardcoded weights in StrategyRunner.
         /// </summary>
-        public IdiotProof.BackTesting.Optimization.IndicatorWeights? OptimizedWeights { get; init; }
+        public IdiotProof.Optimization.IndicatorWeights? OptimizedWeights { get; init; }
 
         /// <summary>
         /// Creates an AutonomousTradingConfig from an optimized configuration.
@@ -584,13 +548,13 @@ namespace IdiotProof.Backend.Models
         /// <param name="allowShort">Whether to allow short positions.</param>
         /// <returns>An AutonomousTradingConfig ready for live trading.</returns>
         public static AutonomousTradingConfig FromOptimized(
-            IdiotProof.BackTesting.Optimization.OptimizableConfig optimizedConfig,
+            IdiotProof.Optimization.OptimizableConfig optimizedConfig,
             bool allowFlip = true,
             bool allowShort = true)
         {
             return new AutonomousTradingConfig
             {
-                Mode = AutonomousMode.Balanced,
+                Name = "Optimized",
                 LongEntryThreshold = optimizedConfig.LongEntryThreshold,
                 ShortEntryThreshold = optimizedConfig.ShortEntryThreshold,
                 LongExitThreshold = optimizedConfig.LongExitThreshold,
@@ -607,7 +571,7 @@ namespace IdiotProof.Backend.Models
         /// <summary>
         /// Gets a human-readable description of this configuration.
         /// </summary>
-        public string Description => $"Autonomous ({Mode}): Long>={LongEntryThreshold}, Short<={ShortEntryThreshold}, " +
+        public string Description => $"{Name}: Long>={LongEntryThreshold}, Short<={ShortEntryThreshold}, " +
                                     $"TP×{TakeProfitAtrMultiplier:F1}ATR, SL×{StopLossAtrMultiplier:F1}ATR";
     }
 
@@ -621,7 +585,7 @@ namespace IdiotProof.Backend.Models
         /// </summary>
         public static AutonomousTradingConfig Conservative => new()
         {
-            Mode = AutonomousMode.Conservative,
+            Name = "Conservative",
             LongEntryThreshold = 75,       // High confidence entry (was 90 - too strict)
             ShortEntryThreshold = -75,
             LongExitThreshold = 45,        // Exit when momentum fades
@@ -640,7 +604,7 @@ namespace IdiotProof.Backend.Models
         /// </summary>
         public static AutonomousTradingConfig Balanced => new()
         {
-            Mode = AutonomousMode.Balanced,
+            Name = "Balanced",
             LongEntryThreshold = 65,       // Moderate confidence (was 85 - too strict)
             ShortEntryThreshold = -65,
             LongExitThreshold = 35,        // Exit on fading momentum
@@ -659,7 +623,7 @@ namespace IdiotProof.Backend.Models
         /// </summary>
         public static AutonomousTradingConfig Aggressive => new()
         {
-            Mode = AutonomousMode.Aggressive,
+            Name = "Aggressive",
             LongEntryThreshold = 55,       // Lower threshold for more entries (was 75)
             ShortEntryThreshold = -55,
             LongExitThreshold = 25,        // Stay in longer
@@ -680,7 +644,7 @@ namespace IdiotProof.Backend.Models
         /// </summary>
         public static AutonomousTradingConfig Optimized => new()
         {
-            Mode = AutonomousMode.Optimized,
+            Name = "Optimized",
             LongEntryThreshold = 55,        // Lower threshold, but requires confirmation
             ShortEntryThreshold = -55,
             LongExitThreshold = 10,         // Hold longer with trailing stop
@@ -716,7 +680,7 @@ namespace IdiotProof.Backend.Models
         /// </remarks>
         public static AutonomousTradingConfig FlipTrader => new()
         {
-            Mode = AutonomousMode.Aggressive,
+            Name = "FlipTrader",
             LongEntryThreshold = 50,   // Lower threshold for faster entry
             ShortEntryThreshold = -50, // Lower threshold for faster entry
             LongExitThreshold = 0,     // Exit as soon as momentum neutralizes
@@ -745,7 +709,7 @@ namespace IdiotProof.Backend.Models
         {
             return new AutonomousTradingConfig
             {
-                Mode = AutonomousMode.Balanced,
+                Name = "Custom",
                 LongEntryThreshold = longEntry,
                 ShortEntryThreshold = shortEntry,
                 TakeProfitAtrMultiplier = tpAtr,

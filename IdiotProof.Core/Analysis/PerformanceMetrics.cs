@@ -2,9 +2,9 @@
 // Performance Metrics - Advanced performance calculations
 // ============================================================================
 
-using IdiotProof.BackTesting.Models;
+using IdiotProof.Models;
 
-namespace IdiotProof.BackTesting.Analysis;
+namespace IdiotProof.Analysis;
 
 /// <summary>
 /// Calculates advanced performance metrics for trading results.

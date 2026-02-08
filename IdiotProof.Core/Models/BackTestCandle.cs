@@ -2,7 +2,7 @@
 // BackTest Candle - OHLCV data for backtesting simulation
 // ============================================================================
 
-namespace IdiotProof.BackTesting.Models;
+namespace IdiotProof.Models;
 
 /// <summary>
 /// Represents a single 1-minute OHLCV candlestick for backtesting.

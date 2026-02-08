@@ -23,8 +23,7 @@
 //
 // ============================================================================
 
-namespace IdiotProof.Backend.Helpers
-{
+namespace IdiotProof.Helpers {
     /// <summary>
     /// Calculates Williams %R momentum oscillator.
     /// </summary>

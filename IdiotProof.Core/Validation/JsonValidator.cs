@@ -4,8 +4,7 @@
 
 using System.Text.Json;
 
-namespace IdiotProof.Core.Validation
-{
+namespace IdiotProof.Validation {
     /// <summary>
     /// Validates JSON content before parsing and processing.
     /// </summary>

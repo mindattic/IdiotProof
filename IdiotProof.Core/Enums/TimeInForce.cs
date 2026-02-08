@@ -2,13 +2,12 @@
 // TimeInForce - Time In Force Options for Orders
 // ============================================================================
 
-namespace IdiotProof.Backend.Enums
-{
+namespace IdiotProof.Enums {
     /// <summary>
     /// Time in force options for orders, controlling how long an order remains active.
     /// </summary>
     /// <remarks>
-    /// <para><b>⚠️ IBKR API MAPPING - Values must match IB API string codes ⚠️</b></para>
+    /// <para><b>! IBKR API MAPPING - Values must match IB API string codes !</b></para>
     /// <para>Reference: https://interactivebrokers.github.io/tws-api/classIBApi_1_1Order.html</para>
     /// 
     /// <para><b>IB API Tif Codes:</b></para>

@@ -23,11 +23,11 @@
 // ╚═══════════════════════════════════════════════════════════════════════════╝
 
 using System.Text.Json;
-using IdiotProof.Core.Settings;
+using IdiotProof.Settings;
 using System.Text.Json.Serialization;
+using IdiotProof.Learning;
 
-namespace IdiotProof.Backend.Strategy
-{
+namespace IdiotProof.Strategy {
     /// <summary>
     /// Records a single trade for learning purposes.
     /// </summary>
@@ -37,7 +37,7 @@ namespace IdiotProof.Backend.Strategy
         public DateTime ExitTime { get; set; }
         public double EntryPrice { get; set; }
         public double ExitPrice { get; set; }
-        public bool WasLong { get; set; }
+        public bool IsLong { get; set; }
         public int Quantity { get; set; }
 
         // Indicator values at entry
@@ -48,8 +48,8 @@ namespace IdiotProof.Backend.Strategy
         public int EntryMacdScore { get; set; }
         public int EntryAdxScore { get; set; }
         public int EntryVolumeScore { get; set; }
-        public double EntryRsi { get; set; }
-        public double EntryAdx { get; set; }
+        public double RsiAtEntry { get; set; }
+        public double AdxAtEntry { get; set; }
 
         // Additional indicator scores at entry
         public int EntryBollingerScore { get; set; }
@@ -62,10 +62,17 @@ namespace IdiotProof.Backend.Strategy
         public int EntrySentimentScore { get; set; }
         public int EntrySentimentConfidence { get; set; }
 
+        // Additional indicator values at entry (for backtest learning)
+        public double MacdHistogramAtEntry { get; set; }
+        public double VolumeRatioAtEntry { get; set; }
+        public bool AboveVwapAtEntry { get; set; }
+        public bool AboveEma9AtEntry { get; set; }
+        public bool AboveEma21AtEntry { get; set; }
+
         // Indicator values at exit
         public int ExitScore { get; set; }
-        public double ExitRsi { get; set; }
-        public double ExitAdx { get; set; }
+        public double RsiAtExit { get; set; }
+        public double AdxAtExit { get; set; }
 
         /// <summary>Exit reason: TP, SL, score, END</summary>
         public string ExitReason { get; set; } = "score";
@@ -77,21 +84,25 @@ namespace IdiotProof.Backend.Strategy
         [JsonIgnore]
         public int AgeDays { get; set; }
 
-        // Outcome
-        public double ProfitLoss => WasLong
+        // Outcome (calculated)
+        public double PnL => IsLong
             ? (ExitPrice - EntryPrice) * Quantity
             : (EntryPrice - ExitPrice) * Quantity;
 
-        public double ProfitLossPercent => WasLong
+        public double PnLPercent => IsLong
             ? (ExitPrice - EntryPrice) / EntryPrice * 100
             : (EntryPrice - ExitPrice) / EntryPrice * 100;
 
-        public bool IsWin => ProfitLoss > 0;
+        public bool IsWin => PnL > 0;
 
         public TimeSpan Duration => ExitTime - EntryTime;
 
         public int EntryHour => EntryTime.Hour;
         public int EntryMinute => EntryTime.Minute;
+        
+        /// <summary>Day of week for pattern analysis.</summary>
+        [JsonIgnore]
+        public DayOfWeek DayOfWeek => EntryTime.DayOfWeek;
 
         /// <summary>
         /// Gets the time bucket (e.g., "09:30", "10:00") for pattern analysis.
@@ -123,12 +134,12 @@ namespace IdiotProof.Backend.Strategy
             if (trade.IsWin)
             {
                 Wins++;
-                TotalProfit += trade.ProfitLoss;
+                TotalProfit += trade.PnL;
             }
             else
             {
                 Losses++;
-                TotalLoss += trade.ProfitLoss; // Will be negative
+                TotalLoss += trade.PnL; // Will be negative
             }
         }
     }
@@ -171,7 +182,7 @@ namespace IdiotProof.Backend.Strategy
     {
         public string Symbol { get; set; } = "";
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
-        public DateTime LastUpdated { get; set; } = DateTime.UtcNow;
+        public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 
         // Backtest date range
         public DateTime? BacktestStartDate { get; set; }
@@ -198,7 +209,7 @@ namespace IdiotProof.Backend.Strategy
         public double LongWinRate => LongTrades > 0 ? (double)LongWins / LongTrades * 100 : 50;
         public double ShortWinRate => ShortTrades > 0 ? (double)ShortWins / ShortTrades * 100 : 50;
         public double ProfitFactor => TotalLoss != 0 ? Math.Abs(TotalProfit / TotalLoss) : 1;
-        public double NetProfit => TotalProfit + TotalLoss;
+        public double TotalPnL => TotalProfit + TotalLoss;
 
         // Threshold-specific statistics
         public Dictionary<int, ThresholdStats> LongEntryThresholdStats { get; set; } = new();
@@ -232,12 +243,58 @@ namespace IdiotProof.Backend.Strategy
         public int LongestWinStreak { get; set; }
         public int LongestLossStreak { get; set; }
 
+        // Historical metadata reference (loaded separately)
+        [JsonIgnore]
+        public HistoricalMetadata? HistoricalMetadata { get; set; }
+
+        /// <summary>Gets whether historical metadata is available.</summary>
+        [JsonIgnore]
+        public bool HasHistoricalMetadata => HistoricalMetadata != null;
+
+        // Time patterns (for backtest compatibility)
+        public List<int> BestHours { get; set; } = new();
+        public List<int> AvoidHours { get; set; } = new();
+
+        /// <summary>
+        /// Gets the adjusted entry threshold based on learned patterns.
+        /// Blends learned value with default based on confidence.
+        /// </summary>
+        public double GetAdjustedLongEntryThreshold(double defaultThreshold)
+        {
+            double confidence = Math.Min(TotalTrades / 50.0, 1.0);
+            return OptimalLongEntryThreshold * confidence + defaultThreshold * (1 - confidence);
+        }
+
+        /// <summary>
+        /// Checks if a given hour should be avoided based on historical data.
+        /// </summary>
+        public bool ShouldAvoidHour(int hour)
+        {
+            double confidence = Math.Min(TotalTrades / 50.0, 1.0);
+            return confidence > 0.3 && AvoidHours.Contains(hour);
+        }
+
+        /// <summary>
+        /// Gets a risk multiplier based on current streak.
+        /// More conservative after losses, slightly aggressive after wins.
+        /// </summary>
+        public double GetStreakRiskMultiplier()
+        {
+            if (CurrentStreak <= -3)
+                return 0.5;  // Reduce position size after 3+ losses
+            if (CurrentStreak <= -2)
+                return 0.75;
+            if (CurrentStreak >= 5)
+                return 0.9;  // Slightly reduce to protect gains
+            return 1.0;
+        }
+
         /// <summary>
         /// Records a completed trade and updates all statistics.
         /// </summary>
         public void RecordTrade(TradeRecord trade)
         {
-            LastUpdated = DateTime.UtcNow;
+            UpdatedAt = DateTime.UtcNow;
 
             // Add to recent trades (maintain max size)
             RecentTrades.Add(trade);
@@ -249,20 +306,20 @@ namespace IdiotProof.Backend.Strategy
             if (trade.IsWin)
             {
                 TotalWins++;
-                TotalProfit += trade.ProfitLoss;
+                TotalProfit += trade.PnL;
                 CurrentStreak = CurrentStreak >= 0 ? CurrentStreak + 1 : 1;
                 LongestWinStreak = Math.Max(LongestWinStreak, CurrentStreak);
             }
             else
             {
                 TotalLosses++;
-                TotalLoss += trade.ProfitLoss; // Negative value
+                TotalLoss += trade.PnL; // Negative value
                 CurrentStreak = CurrentStreak <= 0 ? CurrentStreak - 1 : -1;
                 LongestLossStreak = Math.Max(LongestLossStreak, Math.Abs(CurrentStreak));
             }
 
             // Update long/short stats
-            if (trade.WasLong)
+            if (trade.IsLong)
             {
                 LongTrades++;
                 if (trade.IsWin) LongWins++;
@@ -274,13 +331,13 @@ namespace IdiotProof.Backend.Strategy
             }
 
             // Update best/worst
-            BestTradeProfit = Math.Max(BestTradeProfit, trade.ProfitLoss);
-            WorstTradeLoss = Math.Min(WorstTradeLoss, trade.ProfitLoss);
+            BestTradeProfit = Math.Max(BestTradeProfit, trade.PnL);
+            WorstTradeLoss = Math.Min(WorstTradeLoss, trade.PnL);
 
             // Update averages
             AverageTradeDurationMinutes = RecentTrades.Average(t => t.Duration.TotalMinutes);
-            AverageWinAmount = RecentTrades.Where(t => t.IsWin).Select(t => t.ProfitLoss).DefaultIfEmpty(0).Average();
-            AverageLossAmount = RecentTrades.Where(t => !t.IsWin).Select(t => t.ProfitLoss).DefaultIfEmpty(0).Average();
+            AverageWinAmount = RecentTrades.Where(t => t.IsWin).Select(t => t.PnL).DefaultIfEmpty(0).Average();
+            AverageLossAmount = RecentTrades.Where(t => !t.IsWin).Select(t => t.PnL).DefaultIfEmpty(0).Average();
 
             // Update threshold stats
             UpdateThresholdStats(trade);
@@ -300,7 +357,7 @@ namespace IdiotProof.Backend.Strategy
             // Round entry score to nearest 5 for bucketing
             int scoreBucket = (trade.EntryScore / 5) * 5;
 
-            if (trade.WasLong)
+            if (trade.IsLong)
             {
                 if (!LongEntryThresholdStats.ContainsKey(scoreBucket))
                     LongEntryThresholdStats[scoreBucket] = new ThresholdStats { Threshold = scoreBucket };
@@ -329,21 +386,21 @@ namespace IdiotProof.Backend.Strategy
             var stats = TimeWindowStats[bucket];
             stats.TotalTrades++;
             if (trade.IsWin) stats.Wins++;
-            stats.TotalProfit += trade.ProfitLoss;
+            stats.TotalProfit += trade.PnL;
         }
 
         private void UpdateIndicatorCorrelations(TradeRecord trade)
         {
             // RSI Oversold entries
-            if (trade.EntryRsi <= 30)
+            if (trade.RsiAtEntry <= 30)
             {
                 UpdateCorrelation("RSI", "Oversold (<=30)", trade);
             }
-            else if (trade.EntryRsi >= 70)
+            else if (trade.RsiAtEntry >= 70)
             {
                 UpdateCorrelation("RSI", "Overbought (>=70)", trade);
             }
-            else if (trade.EntryRsi >= 50)
+            else if (trade.RsiAtEntry >= 50)
             {
                 UpdateCorrelation("RSI", "Bullish (50-70)", trade);
             }
@@ -353,11 +410,11 @@ namespace IdiotProof.Backend.Strategy
             }
 
             // ADX Trend Strength
-            if (trade.EntryAdx >= 40)
+            if (trade.AdxAtEntry >= 40)
             {
                 UpdateCorrelation("ADX", "Very Strong (>=40)", trade);
             }
-            else if (trade.EntryAdx >= 25)
+            else if (trade.AdxAtEntry >= 25)
             {
                 UpdateCorrelation("ADX", "Strong Trend (>=25)", trade);
             }
@@ -527,7 +584,7 @@ namespace IdiotProof.Backend.Strategy
 
             correlation.Occurrences++;
             if (trade.IsWin) correlation.Wins++;
-            correlation.TotalProfit += trade.ProfitLoss;
+            correlation.TotalProfit += trade.PnL;
         }
 
         /// <summary>
@@ -709,11 +766,11 @@ namespace IdiotProof.Backend.Strategy
                 
             // Check if trading with sentiment direction improves results
             var withSentiment = sentimentTrades
-                .Where(t => (t.WasLong && t.EntrySentimentScore > 0) || (!t.WasLong && t.EntrySentimentScore < 0))
+                .Where(t => (t.IsLong && t.EntrySentimentScore > 0) || (!t.IsLong && t.EntrySentimentScore < 0))
                 .ToList();
                 
             var againstSentiment = sentimentTrades
-                .Where(t => (t.WasLong && t.EntrySentimentScore < 0) || (!t.WasLong && t.EntrySentimentScore > 0))
+                .Where(t => (t.IsLong && t.EntrySentimentScore < 0) || (!t.IsLong && t.EntrySentimentScore > 0))
                 .ToList();
                 
             if (withSentiment.Count < 5 || againstSentiment.Count < 5)
@@ -763,7 +820,7 @@ namespace IdiotProof.Backend.Strategy
         public string GetSummary()
         {
             return $"{Symbol}: {TotalTrades} trades, {WinRate:F1}% win rate, " +
-                   $"PF={ProfitFactor:F2}, Net=${NetProfit:F2}, " +
+                   $"PF={ProfitFactor:F2}, Net=${TotalPnL:F2}, " +
                    $"Conf={Confidence}%, OptLong={OptimalLongEntryThreshold}, OptShort={OptimalShortEntryThreshold}";
         }
 
@@ -819,7 +876,7 @@ namespace IdiotProof.Backend.Strategy
                 else
                     weightedLosses += weight;
 
-                weightedProfit += trade.ProfitLoss * weight;
+                weightedProfit += trade.PnL * weight;
             }
 
             double totalWeight = weightedWins + weightedLosses;
@@ -861,7 +918,7 @@ namespace IdiotProof.Backend.Strategy
                 double weight = CalculateTimeWeight(trade.EntryTime, referenceDate);
                 int scoreBucket = (trade.EntryScore / 5) * 5;
 
-                var buckets = trade.WasLong ? longScoreBuckets : shortScoreBuckets;
+                var buckets = trade.IsLong ? longScoreBuckets : shortScoreBuckets;
 
                 if (!buckets.ContainsKey(scoreBucket))
                     buckets[scoreBucket] = (0, 0, 0);
@@ -870,7 +927,7 @@ namespace IdiotProof.Backend.Strategy
                 buckets[scoreBucket] = (
                     current.weightedWins + (trade.IsWin ? weight : 0),
                     current.weightedTotal + weight,
-                    current.weightedProfit + trade.ProfitLoss * weight
+                    current.weightedProfit + trade.PnL * weight
                 );
             }
 
@@ -1089,7 +1146,7 @@ namespace IdiotProof.Backend.Strategy
 
                 int totalTrades = _profiles.Values.Sum(p => p.TotalTrades);
                 int totalWins = _profiles.Values.Sum(p => p.TotalWins);
-                double netProfit = _profiles.Values.Sum(p => p.NetProfit);
+                double netProfit = _profiles.Values.Sum(p => p.TotalPnL);
                 double winRate = totalTrades > 0 ? (double)totalWins / totalTrades * 100 : 0;
 
                 return $"Overall: {_profiles.Count} tickers, {totalTrades} trades, " +

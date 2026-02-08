@@ -12,9 +12,9 @@
 //
 // ============================================================================
 
-using IdiotProof.Backend.Models;
+using IdiotProof.Models;
 
-namespace IdiotProof.BackTesting.Optimization;
+namespace IdiotProof.Optimization;
 
 /// <summary>
 /// Configuration for walk-forward analysis.

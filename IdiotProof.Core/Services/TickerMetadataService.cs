@@ -20,12 +20,12 @@
 //
 // ============================================================================
 
-using IdiotProof.Backend.Models;
-using IdiotProof.Core.Models;
-using IdiotProof.Core.Settings;
+using IdiotProof.Models;
+using IdiotProof.Models;
+using IdiotProof.Settings;
 using System.Text.Json;
 
-namespace IdiotProof.Backend.Services;
+namespace IdiotProof.Services;
 
 /// <summary>
 /// Service for building and managing ticker metadata during backend warmup.

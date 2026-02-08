@@ -19,10 +19,9 @@
 //
 // ============================================================================
 
-using IdiotProof.Backend.Enums;
+using IdiotProof.Enums;
 
-namespace IdiotProof.Backend.Models
-{
+namespace IdiotProof.Strategy {
     /// <summary>
     /// Shorthand alias for <see cref="TimeInForce"/> enum values.
     /// Provides cleaner, more readable code when configuring orders.

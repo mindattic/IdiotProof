@@ -2,13 +2,12 @@
 // OrderSide - Buy/Sell Direction for Orders
 // ============================================================================
 
-namespace IdiotProof.Backend.Enums
-{
+namespace IdiotProof.Enums {
     /// <summary>
     /// Order side indicating whether to buy or sell.
     /// </summary>
     /// <remarks>
-    /// <para><b>⚠️ IBKR API MAPPING ⚠️</b></para>
+    /// <para><b>! IBKR API MAPPING !</b></para>
     /// <para>Maps to <c>order.Action</c> in the IB API:</para>
     /// <list type="bullet">
     ///   <item><see cref="Buy"/> → "BUY"</item>

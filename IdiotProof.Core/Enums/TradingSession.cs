@@ -2,8 +2,7 @@
 // TradingSession - Trading session time windows
 // ============================================================================
 
-namespace IdiotProof.Backend.Enums
-{
+namespace IdiotProof.Enums {
     /// <summary>
     /// Predefined trading session time windows for use with <see cref="Models.Stock.SessionDuration"/>.
     /// </summary>

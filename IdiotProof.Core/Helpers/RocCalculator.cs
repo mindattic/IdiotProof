@@ -31,8 +31,7 @@
 
 using System.Collections.Generic;
 
-namespace IdiotProof.Backend.Helpers
-{
+namespace IdiotProof.Helpers {
     /// <summary>
     /// Calculates Rate of Change (ROC) from candle close prices.
     /// </summary>

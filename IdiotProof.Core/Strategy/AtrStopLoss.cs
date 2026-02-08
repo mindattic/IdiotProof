@@ -23,8 +23,7 @@
 //
 // ============================================================================
 
-namespace IdiotProof.Backend.Models
-{
+namespace IdiotProof.Strategy {
     /// <summary>
     /// Configuration for ATR-based (Average True Range) stop loss.
     /// ATR measures volatility and adapts stops to market conditions automatically.

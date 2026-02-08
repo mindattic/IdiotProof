@@ -22,8 +22,7 @@
 //
 // ============================================================================
 
-namespace IdiotProof.Core.Validation
-{
+namespace IdiotProof.Validation {
     /// <summary>
     /// Standardized validation error codes used across frontend and backend.
     /// </summary>

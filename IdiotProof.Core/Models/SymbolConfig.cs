@@ -18,8 +18,7 @@
 // ║  Reference: https://interactivebrokers.github.io/tws-api/               ║
 // ╚═══════════════════════════════════════════════════════════════════════════╝
 
-namespace IdiotProof.Backend.Models
-{
+namespace IdiotProof.Models {
     /// <summary>
     /// Configuration for a single symbol's pullback strategy.
     /// Create one instance per symbol you want to trade.

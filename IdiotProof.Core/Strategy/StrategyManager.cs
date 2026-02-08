@@ -17,16 +17,15 @@
 // ============================================================================
 
 using IBApi;
-using IdiotProof.Backend.Helpers;
-using IdiotProof.Backend.Logging;
-using IdiotProof.Backend.Models;
-using IdiotProof.Backend.Strategy;
-using IdiotProof.Core.Helpers;
-using IdiotProof.Core.Models;
+using IdiotProof.Helpers;
+using IdiotProof.Logging;
+using IdiotProof.Models;
+using IdiotProof.Strategy;
+using IdiotProof.Helpers;
+using IdiotProof.Models;
 using System.Collections.Concurrent;
 
-namespace IdiotProof.Backend.Models
-{
+namespace IdiotProof.Strategy {
     /// <summary>
     /// Centralized manager for trading strategy lifecycle.
     /// Handles loading, running, and monitoring of all active strategies.
@@ -301,7 +300,8 @@ namespace IdiotProof.Backend.Models
                 }
 
                 // Load new strategies from .idiot files
-                var strategies = StrategyLoader.LoadFromFile();
+                // TODO: IdiotScript and StrategyLoader removed - strategies now come from WatchlistManager
+                var strategies = new List<TradingStrategy>();
                 await LoadStrategiesAsync(strategies);
 
                 // Restart if was running
@@ -379,9 +379,9 @@ namespace IdiotProof.Backend.Models
 
         private static TradingStrategy? ConvertDefinitionToStrategy(StrategyDefinition definition)
         {
-            // Use the existing StrategyLoader conversion logic
-            // This delegates to the existing parser infrastructure
-            return StrategyLoader.ConvertDefinition(definition);
+            // TODO: StrategyLoader removed - this method is deprecated
+            // Autonomous trading no longer uses StrategyDefinition conversion
+            return null;
         }
 
         private async Task CleanupRunnerAsync(StrategyRunnerInfo info)

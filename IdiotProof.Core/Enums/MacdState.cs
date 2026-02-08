@@ -2,8 +2,7 @@
 // MACD State Enum - Moving Average Convergence Divergence conditions
 // ============================================================================
 
-namespace IdiotProof.Backend.Enums
-{
+namespace IdiotProof.Enums {
     /// <summary>
     /// MACD (Moving Average Convergence Divergence) signal states.
     /// </summary>

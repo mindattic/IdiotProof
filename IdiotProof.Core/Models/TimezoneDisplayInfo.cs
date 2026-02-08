@@ -11,10 +11,9 @@
 // ============================================================================
 
 using System;
-using MarketTimeZone = IdiotProof.Core.Enums.MarketTimeZone;
+using MarketTimeZone = IdiotProof.Enums.MarketTimeZone;
 
-namespace IdiotProof.Backend.Models
-{
+namespace IdiotProof.Models {
     /// <summary>
     /// Contains display information about a timezone configuration.
     /// </summary>

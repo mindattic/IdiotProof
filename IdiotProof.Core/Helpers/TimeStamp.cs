@@ -5,7 +5,7 @@
 // All timestamps use Eastern Time (ET) with 12-hour format (AM/PM).
 // ============================================================================
 
-namespace IdiotProof.Core.Helpers;
+namespace IdiotProof.Helpers;
 
 /// <summary>
 /// Provides centralized timestamp formatting for logging throughout the application.

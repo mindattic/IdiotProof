@@ -2,10 +2,9 @@
 // StrategyValidator - Validates strategy definitions comprehensively
 // ============================================================================
 
-using IdiotProof.Core.Models;
+using IdiotProof.Models;
 
-namespace IdiotProof.Core.Validation
-{
+namespace IdiotProof.Validation {
     /// <summary>
     /// Validates trading strategy definitions for both frontend and backend.
     /// Ensures strategies are complete, well-formed, and safe to execute.

@@ -28,8 +28,7 @@
 //
 // ============================================================================
 
-namespace IdiotProof.Backend.Helpers
-{
+namespace IdiotProof.Helpers {
     /// <summary>
     /// Calculates Bollinger Bands for volatility and mean reversion analysis.
     /// </summary>
