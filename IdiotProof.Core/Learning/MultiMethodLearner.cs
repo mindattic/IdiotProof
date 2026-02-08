@@ -610,7 +610,12 @@ public sealed class MultiMethodLearner
         if (candles.Count < 10)
             return (-1000, 0, 0, 0, 0);
         
-        // Simulate trading using these weights
+        // Simulate trading using these weights - MATCHING LIVE TRADING BEHAVIOR
+        // Constants matching live AutonomousTradingConfig
+        const double SlippagePercent = 0.0005;  // 0.05% slippage per trade (entry + exit)
+        const double TrailingStopPercent = 0.10; // 10% trailing stop (matches live default)
+        const bool AllowDirectionFlip = true;   // Allow immediate direction flip
+        
         int trades = 0;
         int wins = 0;
         double totalPnL = 0;
@@ -619,6 +624,8 @@ public sealed class MultiMethodLearner
         bool inPosition = false;
         bool isLong = false;
         double entryPrice = 0;
+        double highWaterMark = 0;  // For trailing stop (highest price for long, lowest for short)
+        double trailingStopPrice = 0;
         
         for (int i = 50; i < candles.Count; i++) // Skip first 50 for indicator warmup
         {
@@ -633,39 +640,132 @@ public sealed class MultiMethodLearner
             
             if (!inPosition)
             {
-                // Entry logic
+                // Entry logic - apply slippage (worse entry price)
                 if (shouldEnterLong)
                 {
                     inPosition = true;
                     isLong = true;
-                    entryPrice = candle.Close;
+                    entryPrice = candle.Close * (1 + SlippagePercent); // Buy at slightly higher price
+                    highWaterMark = entryPrice;
+                    trailingStopPrice = entryPrice * (1 - TrailingStopPercent);
                 }
                 else if (shouldEnterShort)
                 {
                     inPosition = true;
                     isLong = false;
-                    entryPrice = candle.Close;
+                    entryPrice = candle.Close * (1 - SlippagePercent); // Sell at slightly lower price
+                    highWaterMark = entryPrice; // For shorts this tracks low water mark
+                    trailingStopPrice = entryPrice * (1 + TrailingStopPercent);
                 }
             }
             else
             {
-                // Exit logic - simple profit/loss targets
-                double pnl = isLong ? 
-                    (candle.Close - entryPrice) / entryPrice * 100 :
-                    (entryPrice - candle.Close) / entryPrice * 100;
-                
-                // Exit on target, stop, or shouldExit signal
-                bool shouldTakeProfit = pnl >= 1.0; // 1% profit
-                bool shouldStopLoss = pnl <= -0.5;  // 0.5% loss
-                
-                if (shouldTakeProfit || shouldStopLoss || shouldExit)
+                // Update trailing stop based on high water mark
+                if (isLong)
                 {
-                    trades++;
-                    totalPnL += pnl;
-                    returns.Add(pnl);
-                    if (pnl > 0) wins++;
-                    
-                    inPosition = false;
+                    if (candle.High > highWaterMark)
+                    {
+                        highWaterMark = candle.High;
+                        double newTrailingStop = highWaterMark * (1 - TrailingStopPercent);
+                        if (newTrailingStop > trailingStopPrice)
+                            trailingStopPrice = newTrailingStop;
+                    }
+                }
+                else
+                {
+                    if (candle.Low < highWaterMark)
+                    {
+                        highWaterMark = candle.Low;
+                        double newTrailingStop = highWaterMark * (1 + TrailingStopPercent);
+                        if (newTrailingStop < trailingStopPrice)
+                            trailingStopPrice = newTrailingStop;
+                    }
+                }
+                
+                // Exit logic - USE SAME ATR-BASED TP/SL AS LIVE TRADING
+                double atr = CalculateAtr(candles, i, 14);
+                double tpMultiplier = 2.0;  // Same as live AutonomousTradingConfig default
+                double slMultiplier = 1.5;  // Same as live AutonomousTradingConfig default
+                
+                double tpDistance = atr * tpMultiplier;
+                double slDistance = atr * slMultiplier;
+                
+                double tpTarget = isLong ? entryPrice + tpDistance : entryPrice - tpDistance;
+                double slTarget = isLong ? entryPrice - slDistance : entryPrice + slDistance;
+                
+                // Check trailing stop hit
+                bool hitTrailingStop = isLong 
+                    ? candle.Low <= trailingStopPrice 
+                    : candle.High >= trailingStopPrice;
+                
+                bool hitTp = isLong ? candle.High >= tpTarget : candle.Low <= tpTarget;
+                bool hitSl = isLong ? candle.Low <= slTarget : candle.High >= slTarget;
+                
+                // Check for direction flip opportunity (matches live AllowDirectionFlip behavior)
+                bool shouldFlip = AllowDirectionFlip && 
+                    ((isLong && shouldEnterShort) || (!isLong && shouldEnterLong));
+                
+                // Calculate actual PnL based on exit price
+                double exitPrice = 0;
+                bool shouldExitNow = false;
+                
+                if (hitTp && hitSl)
+                {
+                    // Both hit in same candle - assume SL hit first (conservative)
+                    exitPrice = slTarget;
+                    shouldExitNow = true;
+                }
+                else if (hitTp)
+                {
+                    exitPrice = tpTarget;
+                    shouldExitNow = true;
+                }
+                else if (hitSl || hitTrailingStop)
+                {
+                    // Use the tighter stop (higher for long, lower for short)
+                    if (isLong)
+                        exitPrice = Math.Max(slTarget, trailingStopPrice);
+                    else
+                        exitPrice = Math.Min(slTarget, trailingStopPrice);
+                    shouldExitNow = true;
+                }
+                else if (shouldExit || shouldFlip)
+                {
+                    // Exit signal from learned weights or direction flip
+                    exitPrice = candle.Close;
+                    shouldExitNow = true;
+                }
+                
+                if (!shouldExitNow)
+                    continue; // No exit this candle
+                
+                // Apply exit slippage (worse exit price)
+                if (isLong)
+                    exitPrice *= (1 - SlippagePercent);
+                else
+                    exitPrice *= (1 + SlippagePercent);
+                
+                double pnl = isLong ? 
+                    (exitPrice - entryPrice) / entryPrice * 100 :
+                    (entryPrice - exitPrice) / entryPrice * 100;
+                
+                trades++;
+                totalPnL += pnl;
+                returns.Add(pnl);
+                if (pnl > 0) wins++;
+                
+                inPosition = false;
+                
+                // Direction flip: immediately enter opposite position
+                if (shouldFlip)
+                {
+                    inPosition = true;
+                    isLong = shouldEnterLong; // Flip to the new direction
+                    entryPrice = candle.Close * (isLong ? (1 + SlippagePercent) : (1 - SlippagePercent));
+                    highWaterMark = entryPrice;
+                    trailingStopPrice = isLong 
+                        ? entryPrice * (1 - TrailingStopPercent) 
+                        : entryPrice * (1 + TrailingStopPercent);
                 }
             }
         }

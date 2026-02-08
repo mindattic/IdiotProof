@@ -2467,10 +2467,18 @@ namespace IdiotProof.Backend.Models
             bool isLong = order.UseAutonomousTrading ? _autonomousIsLong : (order.Side == OrderSide.Buy);
             var score = CalculateMarketScore(currentPrice, vwap, isLong);
 
-            // Check for emergency exit
+            // Check for emergency exit (AdaptiveOrder threshold-based)
             if (score.ShouldEmergencyExit)
             {
                 Log($"*** ADAPTIVE EMERGENCY EXIT! Score: {score.TotalScore} ({score.Condition})", ConsoleColor.Red);
+                ExecuteEmergencyExit();
+                return;
+            }
+
+            // Check for learned exit signal (AI weights-based)
+            if (score.HasLearnedWeights && score.LearnedShouldExit)
+            {
+                Log($"*** LEARNED WEIGHTS EXIT! Score: {score.TotalScore}, AI signals exit", ConsoleColor.Yellow);
                 ExecuteEmergencyExit();
                 return;
             }
