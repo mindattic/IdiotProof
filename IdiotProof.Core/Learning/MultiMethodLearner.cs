@@ -106,13 +106,11 @@ public sealed class MultiMethodLearner
         progress?.Report($"[LEARN] Running 5 learning methods IN PARALLEL with {generationsPerMethod} generations each...\n");
         
         // Step 3: Run ALL methods in parallel for maximum speed
-        progress?.Report("=== LAUNCHING ALL 5 METHODS IN PARALLEL ===");
-        progress?.Report("  [1] Genetic Algorithm");
-        progress?.Report("  [2] Feedforward Neural Network");
-        progress?.Report("  [3] Gradient Descent");
-        progress?.Report("  [4] Locality-Sensitive Hashing");
-        progress?.Report("  [5] Long Short-Term Memory");
-        progress?.Report("");
+        progress?.Report("Learning... Genetic Algorithm");
+        progress?.Report("Learning... Feedforward Neural Network");
+        progress?.Report("Learning... Gradient Descent");
+        progress?.Report("Learning... Locality-Sensitive Hashing");
+        progress?.Report("Learning... Long Short-Term Memory");
         
         var parallelSw = Stopwatch.StartNew();
         
