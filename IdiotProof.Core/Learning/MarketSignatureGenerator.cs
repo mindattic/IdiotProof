@@ -32,6 +32,7 @@
 //
 // ============================================================================
 
+using IdiotProof.Calculators;
 using IdiotProof.Helpers;
 
 namespace IdiotProof.Learning;

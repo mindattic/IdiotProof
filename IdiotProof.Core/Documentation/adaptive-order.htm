@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AdaptiveOrder - IdiotProof Documentation</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="page-wrapper">
+        <!-- Sidebar Navigation -->
+        <nav class="sidebar">
+            <div class="sidebar-header">
+                <a href="index.htm" class="logo">
+                    <span class="logo-icon">📈</span>
+                    <span class="logo-text">IdiotProof</span>
+                    <span class="logo-version">v2.0</span>
+                </a>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">Getting Started</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="index.htm" class="nav-link"><span class="nav-icon">🏠</span>Home</a></li>
+                    <li class="nav-item"><a href="quick-start.htm" class="nav-link"><span class="nav-icon">🚀</span>Quick Start</a></li>
+                    <li class="nav-item"><a href="architecture.htm" class="nav-link"><span class="nav-icon">🏗️</span>Architecture</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">IdiotScript DSL</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="idiotscript.htm" class="nav-link"><span class="nav-icon">📜</span>Language Reference</a></li>
+                    <li class="nav-item"><a href="commands.htm" class="nav-link"><span class="nav-icon">⌨️</span>Command Reference</a></li>
+                    <li class="nav-item"><a href="examples.htm" class="nav-link"><span class="nav-icon">💡</span>Strategy Examples</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">Technical Indicators</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="indicators.htm" class="nav-link"><span class="nav-icon">📊</span>Indicator Overview</a></li>
+                    <li class="nav-item"><a href="indicators-vwap.htm" class="nav-link"><span class="nav-icon">〰️</span>VWAP Indicators</a></li>
+                    <li class="nav-item"><a href="indicators-ema.htm" class="nav-link"><span class="nav-icon">📈</span>EMA Indicators</a></li>
+                    <li class="nav-item"><a href="indicators-momentum.htm" class="nav-link"><span class="nav-icon">⚡</span>Momentum</a></li>
+                    <li class="nav-item"><a href="indicators-volume.htm" class="nav-link"><span class="nav-icon">📶</span>Volume Analysis</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">Trading Systems</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="market-score.htm" class="nav-link"><span class="nav-icon">🎯</span>Market Score</a></li>
+                    <li class="nav-item"><a href="adaptive-order.htm" class="nav-link active"><span class="nav-icon">🔄</span>AdaptiveOrder</a></li>
+                    <li class="nav-item"><a href="autonomous-trading.htm" class="nav-link"><span class="nav-icon">🤖</span>AutonomousTrading</a></li>
+                    <li class="nav-item"><a href="order-management.htm" class="nav-link"><span class="nav-icon">📋</span>Order Management</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">AI & Machine Learning</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="ai-overview.htm" class="nav-link"><span class="nav-icon">🧠</span>AI Overview</a></li>
+                    <li class="nav-item"><a href="lstm.htm" class="nav-link"><span class="nav-icon">🔮</span>LSTM Predictor</a></li>
+                    <li class="nav-item"><a href="pattern-matcher.htm" class="nav-link"><span class="nav-icon">🔍</span>Pattern Matcher</a></li>
+                    <li class="nav-item"><a href="learned-weights.htm" class="nav-link"><span class="nav-icon">⚖️</span>Learned Weights</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">Configuration</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="configuration.htm" class="nav-link"><span class="nav-icon">⚙️</span>Settings</a></li>
+                    <li class="nav-item"><a href="watchlist.htm" class="nav-link"><span class="nav-icon">👀</span>Watchlist</a></li>
+                    <li class="nav-item"><a href="strategy-rules.htm" class="nav-link"><span class="nav-icon">📝</span>Strategy Rules</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">Testing & Analysis</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="backtesting.htm" class="nav-link"><span class="nav-icon">⏪</span>Backtesting</a></li>
+                    <li class="nav-item"><a href="simulation.htm" class="nav-link"><span class="nav-icon">🎮</span>Simulation</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">Reference</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="glossary.htm" class="nav-link"><span class="nav-icon">📖</span>Glossary</a></li>
+                    <li class="nav-item"><a href="faq.htm" class="nav-link"><span class="nav-icon">❓</span>FAQ</a></li>
+                    <li class="nav-item"><a href="troubleshooting.htm" class="nav-link"><span class="nav-icon">🔧</span>Troubleshooting</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">Roadmap</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="futureproofing.htm" class="nav-link"><span class="nav-icon">🔮</span>Future-Proofing</a></li>
+                    <li class="nav-item"><a href="wishlist.htm" class="nav-link"><span class="nav-icon">✨</span>Wishlist</a></li>
+                </ul>
+            </div>
+        </nav>
+        
+        <!-- Main Content -->
+        <main class="main-content">
+            <div class="content-wrapper">
+                <!-- Breadcrumb -->
+                <div class="breadcrumb">
+                    <a href="index.htm">Home</a>
+                    <span class="breadcrumb-separator">/</span>
+                    <a href="market-score.htm">Trading Systems</a>
+                    <span class="breadcrumb-separator">/</span>
+                    <span>AdaptiveOrder</span>
+                </div>
+                
+                <!-- Header -->
+                <header class="page-header">
+                    <h1 class="page-title">AdaptiveOrder</h1>
+                    <p class="page-subtitle">
+                        Smart dynamic order management that adjusts Take Profit and Stop Loss
+                        levels in real-time based on market conditions.
+                    </p>
+                </header>
+                
+                <!-- Overview -->
+                <section id="overview">
+                    <h2>What is AdaptiveOrder?</h2>
+                    <p>
+                        AdaptiveOrder monitors market conditions continuously and <strong>dynamically adjusts</strong>
+                        your Take Profit and Stop Loss levels. Instead of static exit prices, your orders
+                        respond intelligently to changing momentum, trend strength, and market sentiment.
+                    </p>
+                    
+                    <div class="callout callout-success">
+                        <div class="callout-title">💡 Key Insight</div>
+                        <p>
+                            AdaptiveOrder requires you to set initial TakeProfit and/or StopLoss values.
+                            It modifies these dynamically but needs starting points for calculation.
+                        </p>
+                    </div>
+                    
+                    <div class="ascii-art">
+ADAPTIVE ORDER CONCEPT
+═══════════════════════════════════════════════════════════════════════════════
+
+    STATIC ORDER (Traditional)          ADAPTIVE ORDER (IdiotProof)
+    
+    TP $160 ─────────────────────       TP $160 ┐
+                                              │ Momentum strong? EXTEND!
+                                        TP $165 ┤
+                                              │ Momentum fading? CONTRACT!
+                                        TP $158 ┘
+    
+    Entry $150 ══════════════════       Entry $150 ═════════════════════════
+    
+                                        SL $147 ┐
+                                              │ Market bearish? TIGHTEN!
+    SL $145 ─────────────────────       SL $145 ┤
+                                              │ Strong trend? WIDEN slightly
+                                        SL $143 ┘
+</div>
+                </section>
+                
+                <!-- How It Works -->
+                <section id="how-it-works">
+                    <h2>How It Works</h2>
+                    
+                    <div class="ascii-art">
+ADAPTIVE ORDER DATA FLOW
+═══════════════════════════════════════════════════════════════════════════════
+
+    ┌─────────────────────────────────────────────────────────────────────────┐
+    │  MARKET ANALYSIS (Every tick)                                           │
+    │                                                                         │
+    │  1. VWAP Position (15%): Bullish above, bearish below                  │
+    │  2. EMA Stack (20%): Short-term vs long-term trend alignment           │
+    │  3. RSI (15%): Overbought/oversold for reversal risk                   │
+    │  4. MACD (20%): Momentum direction and strength                        │
+    │  5. ADX (20%): Trend strength (strong trends get wider targets)        │
+    │  6. Volume (10%): Confirmation of price moves                          │
+    │                                                                         │
+    └────────────────────────────────┬────────────────────────────────────────┘
+                                     │
+                                     ▼
+    ┌─────────────────────────────────────────────────────────────────────────┐
+    │  MARKET SCORE: -100 to +100                                             │
+    │                                                                         │
+    │  <span class="bearish">-100        -70        -30</span>    0    <span class="bullish">+30        +70        +100</span>   │
+    │    │          │          │    │    │          │          │             │
+    │    └──────────┴──────────┴────┴────┴──────────┴──────────┘             │
+    │    BEARISH    MODERATE   WEAK NEUTRAL WEAK   MODERATE   BULLISH        │
+    │                                                                         │
+    └────────────────────────────────┬────────────────────────────────────────┘
+                                     │
+                                     ▼
+    ┌─────────────────────────────────────────────────────────────────────────┐
+    │  TP/SL ADJUSTMENT                                                       │
+    │                                                                         │
+    │  Score +70 to +100: Extend TP, Tighten SL (ride the momentum)          │
+    │  Score +30 to +70:  Keep original values                               │
+    │  Score -30 to +30:  Reduce TP, Widen SL (prepare for chop)             │
+    │  Score -70 to -30:  Reduce TP significantly                            │
+    │  Score below -70:   EMERGENCY EXIT                                      │
+    │                                                                         │
+    └─────────────────────────────────────────────────────────────────────────┘
+</div>
+                </section>
+                
+                <!-- Behavior Table -->
+                <section id="behavior">
+                    <h2>Adaptive Behavior by Score</h2>
+                    
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Score Range</th>
+                                <th>Market State</th>
+                                <th>Take Profit</th>
+                                <th>Stop Loss</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><span class="bullish">+70 to +100</span></td>
+                                <td>Strong Bullish</td>
+                                <td>Extend +25% to +75%</td>
+                                <td>Tighten (protect gains)</td>
+                            </tr>
+                            <tr>
+                                <td><span class="bullish">+30 to +70</span></td>
+                                <td>Moderate Bullish</td>
+                                <td>Keep original</td>
+                                <td>Keep original</td>
+                            </tr>
+                            <tr>
+                                <td><span class="neutral">-30 to +30</span></td>
+                                <td>Neutral/Choppy</td>
+                                <td>Reduce 10-25%</td>
+                                <td>Widen (allow bounce)</td>
+                            </tr>
+                            <tr>
+                                <td><span class="bearish">-70 to -30</span></td>
+                                <td>Moderate Bearish</td>
+                                <td>Reduce 25-50%</td>
+                                <td>Keep original</td>
+                            </tr>
+                            <tr>
+                                <td><span class="bearish">Below -70</span></td>
+                                <td>Strong Bearish</td>
+                                <td colspan="2"><strong>EMERGENCY EXIT</strong></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </section>
+                
+                <!-- Modes -->
+                <section id="modes">
+                    <h2>Adaptive Modes</h2>
+                    <p>
+                        AdaptiveOrder offers three configuration modes that control how aggressively
+                        the system adjusts your TP/SL levels.
+                    </p>
+                    
+                    <div class="ascii-art">
+MODE COMPARISON
+═══════════════════════════════════════════════════════════════════════════════
+
+    Setting                  │  CONSERVATIVE  │  BALANCED  │  AGGRESSIVE
+    ═════════════════════════╪════════════════╪════════════╪═══════════════
+    MaxTakeProfitExtension   │     25%        │    50%     │     <span class="bullish">75%</span>
+    MaxTakeProfitReduction   │     <span class="bearish">60%</span>        │    50%     │     30%
+    MaxStopLossTighten       │     30%        │    50%     │     <span class="bullish">60%</span>
+    MaxStopLossWiden         │     <span class="bullish">40%</span>        │    25%     │     15%
+    EmergencyExitThreshold   │     -60        │    -70     │     <span class="bearish">-80</span>
+    MinScoreChangeForAdjust  │     10         │    15      │     20
+    ─────────────────────────┴────────────────┴────────────┴───────────────
+
+    <span class="bearish">CONSERVATIVE</span>: Protects gains quickly, allows wider stops to avoid noise,
+                   exits sooner on bearish signals. Best for volatile stocks.
+    
+    <span class="neutral">BALANCED</span>:     Standard risk/reward, moderate adjustments in both 
+                   directions. Good default for most situations.
+    
+    <span class="bullish">AGGRESSIVE</span>:   Lets winners run longer, tighter stops to protect capital,
+                   stays in longer during drawdowns. Best for trending stocks.
+</div>
+                    
+                    <h3>Usage Examples</h3>
+                    <div class="code-block">
+<span class="token-comment">// Default (Balanced mode)</span>
+Ticker(AAPL)
+    .Entry(150)
+    .TakeProfit(160)
+    .StopLoss(145)
+    .<span class="token-function">AdaptiveOrder</span>()
+
+<span class="token-comment">// Conservative mode - protect gains</span>
+Ticker(TSLA)
+    .Entry(250)
+    .TakeProfit(270)
+    .StopLoss(240)
+    .<span class="token-function">AdaptiveOrder</span>(<span class="token-constant">IS.CONSERVATIVE</span>)
+
+<span class="token-comment">// Aggressive mode - let winners run</span>
+Ticker(NVDA)
+    .Entry(500)
+    .TakeProfit(550)
+    .StopLoss(480)
+    .<span class="token-function">AdaptiveOrder</span>(<span class="token-constant">IS.AGGRESSIVE</span>)
+</div>
+                </section>
+                
+                <!-- Multiplier Calculation -->
+                <section id="calculation">
+                    <h2>Multiplier Calculation</h2>
+                    
+                    <div class="ascii-art">
+TAKE PROFIT MULTIPLIER FORMULA
+═══════════════════════════════════════════════════════════════════════════════
+
+    Score Range        │ Multiplier Formula                          
+    ═══════════════════╪══════════════════════════════════════════════════════
+    70 to 100          │ 1.0 + (MaxExtension × (score-70)/30)        
+                       │ → Score 100: TP extends up to +75% (aggressive)
+    ───────────────────┼──────────────────────────────────────────────────────
+    30 to 70           │ 1.0 (no change)                             
+                       │ → TP stays at original value
+    ───────────────────┼──────────────────────────────────────────────────────
+    -30 to 30          │ 1.0 - (0.15 × (30-score)/60)                
+                       │ → Slight reduction (up to 15%)
+    ───────────────────┼──────────────────────────────────────────────────────
+    -70 to -30         │ 0.85 - ((MaxReduction/2-0.15) × (-30-s)/40) 
+                       │ → Moderate reduction
+    ───────────────────┼──────────────────────────────────────────────────────
+    < -70              │ 1.0 - MaxReduction                          
+                       │ → Maximum reduction (emergency)
+
+
+STOP LOSS MULTIPLIER FORMULA
+═══════════════════════════════════════════════════════════════════════════════
+
+    Score Range        │ Multiplier Formula                          
+    ═══════════════════╪══════════════════════════════════════════════════════
+    70 to 100          │ 1.0 + (MaxTighten × (score-70)/30)          
+                       │ → Multiplier > 1.0 = TIGHTER stop (closer to entry)
+    ───────────────────┼──────────────────────────────────────────────────────
+    0 to 70            │ 1.0 (no change)                             
+                       │ → SL stays at original distance
+    ───────────────────┼──────────────────────────────────────────────────────
+    -50 to 0           │ 1.0 - (MaxWiden × (-score/50) × 0.5)        
+                       │ → Multiplier < 1.0 = WIDER stop (further from entry)
+    ───────────────────┼──────────────────────────────────────────────────────
+    < -50              │ 1.0 - (MaxWiden × 0.5)                      
+                       │ → Maximum widening to avoid noise stops
+</div>
+                </section>
+                
+                <!-- Concrete Example -->
+                <section id="example">
+                    <h2>Concrete Example: CIGL Trade</h2>
+                    
+                    <div class="ascii-art">
+CIGL ADAPTIVE TRADE EXAMPLE
+═══════════════════════════════════════════════════════════════════════════════
+
+    Entry: $4.15  |  Original TP: $4.80  |  Original SL: $3.90
+    Profit Range: $0.65  |  Loss Range: $0.25
+    Mode: AGGRESSIVE
+
+    MARKET SCORE BREAKDOWN
+    ─────────────────────────────────────────────────────────────────────────
+    VWAP Score:   +80  (price 4% above VWAP)         × 15% = +12.0
+    EMA Score:    +100 (price above all EMAs)        × 20% = +20.0
+    RSI Score:    -30  (RSI at 75, overbought)       × 15% =  -4.5
+    MACD Score:   +90  (bullish + strong histogram)  × 20% = +18.0
+    ADX Score:    +100 (ADX 63 with +DI > -DI)       × 20% = +20.0
+    Volume Score: +60  (1.6x average volume)         × 10% =  +6.0
+    ─────────────────────────────────────────────────────────────────────────
+    TOTAL MARKET SCORE: <span class="bullish">+71.5 → Rounded to +72</span>
+
+    
+    TP CALCULATION (Score +72, Aggressive Mode)
+    ─────────────────────────────────────────────────────────────────────────
+    Score in range 70-100, so we EXTEND Take Profit
+    
+    MaxExtension (Aggressive) = 75% = 0.75
+    
+    TP Multiplier = 1.0 + (0.75 × (72-70)/30)
+                  = 1.0 + (0.75 × 2/30)
+                  = 1.0 + 0.05
+                  = <span class="bullish">1.05</span>
+    
+    Original Profit Range = $4.80 - $4.15 = $0.65
+    New Profit Range = $0.65 × 1.05 = $0.6825
+    
+    <span class="bullish">Adjusted TP = $4.15 + $0.6825 = $4.83</span> (up from $4.80)
+    
+
+    SL CALCULATION (Score +72, Aggressive Mode)
+    ─────────────────────────────────────────────────────────────────────────
+    Score in range 70-100, so we TIGHTEN Stop Loss
+    
+    MaxTighten (Aggressive) = 60% = 0.60
+    
+    SL Multiplier = 1.0 + (0.60 × (72-70)/30)
+                  = 1.0 + (0.60 × 2/30)
+                  = 1.0 + 0.04
+                  = <span class="bullish">1.04</span>
+    
+    Original Loss Range = $4.15 - $3.90 = $0.25
+    New Loss Range = $0.25 / 1.04 = $0.24 (tighter = smaller range)
+    
+    <span class="bullish">Adjusted SL = $4.15 - $0.24 = $3.91</span> (up from $3.90, tighter protection)
+    
+
+    RESULT
+    ─────────────────────────────────────────────────────────────────────────
+    Original: Entry $4.15 → TP $4.80 (+15.7%) | SL $3.90 (-6.0%)
+    Adjusted: Entry $4.15 → TP $4.83 (+16.4%) | SL $3.91 (-5.8%)
+    
+    → TP extended slightly, SL tightened for better risk/reward
+</div>
+                </section>
+                
+                <!-- Feedback Loop -->
+                <section id="feedback-loop">
+                    <h2>Adaptive TP Feedback Loop</h2>
+                    <p>
+                        One of the most powerful features: the system <strong>extends TP when momentum
+                        is strong</strong>, then <strong>contracts it when momentum fades</strong>, allowing
+                        the price to eventually meet the target.
+                    </p>
+                    
+                    <div class="ascii-art">
+TP FEEDBACK LOOP VISUALIZATION
+═══════════════════════════════════════════════════════════════════════════════
+
+    Price
+      ↑
+    $165 ─ ─ ─ ─ ─ ─ ─ ─ Extended TP (score 90+)
+          │            ╱
+    $163 ─│─ ─ ─ ─ ─ ╱─ ─ TP following momentum
+          │        ╱
+    $161 ─│─ ─ ─ ╱─ ─ ─ ─ TP reducing as RSI overbought
+          │    ╱    ╲
+    $160 ─│─ ╱─ ─ ─ ─ <span class="bullish">█</span> ← FILLED HERE (TP came down to meet price)
+          │╱        ╱
+    $158 ─│─ ─ ─ ─ ╱─ Price path
+          │      ╱
+    $155 ─│─ ─ ╱
+          │  ╱
+    $150 ─<span class="bullish">█</span>╱─ ─ ─ ─ ─ Entry
+          │
+          └──────────────────────────────────────────────────────────→ Time
+             T=0  T=5  T=10  T=15  T=20
+
+
+TIMELINE EXAMPLE
+═══════════════════════════════════════════════════════════════════════════════
+
+    Entry: $150  |  Original TP: $160  |  Profit Range: $10
+    Mode: AGGRESSIVE (75% max extension)
+
+    T=0   Price $151, Score +85 (strong momentum)
+          → TP Multiplier = 1.375 → TP extended to $163.75
+    
+    T=5   Price $158, Score +90 (very strong, approaching original TP)
+          → TP Multiplier = 1.50 → TP extended to $165.00
+          → Price would have hit $160 but TP is now $165!
+    
+    T=10  Price $162, Score +75 (RSI overbought, MACD histogram shrinking)
+          → TP Multiplier = 1.125 → TP reduced to $161.25
+    
+    T=15  Price $161, Score +50 (momentum fading)
+          → TP Multiplier = 1.0 → TP back to $160.00
+    
+    T=20  Price $160, Score +45
+          → TP still at $160.00 → <span class="bullish">*** TAKE PROFIT FILLED ***</span>
+    ─────────────────────────────────────────────────────────────────────────
+    Result: Captured $10 profit. System extended TP during strong momentum,
+            then contracted it when momentum faded, allowing fill at optimal time.
+</div>
+                </section>
+                
+                <!-- RSI Key Mechanism -->
+                <section id="rsi-mechanism">
+                    <h2>RSI Overbought Detection</h2>
+                    <p>
+                        RSI is crucial for detecting when momentum is exhausted:
+                    </p>
+                    
+                    <div class="ascii-art">
+RSI SCORE CONTRIBUTION
+═══════════════════════════════════════════════════════════════════════════════
+
+    RSI Value  │  Score Contribution  │  Effect on TP            
+    ═══════════╪══════════════════════╪══════════════════════════════════════
+    30 or less │  <span class="bullish">+100 (oversold)</span>     │  Extend (bullish bounce expected)
+    40         │  +25                 │  Slight extend           
+    50         │  0 (neutral)         │  No change               
+    60         │  +25                 │  Slight extend           
+    70         │  0 (threshold)       │  No change               
+    75         │  <span class="bearish">-17</span>                 │  Start reducing TP       
+    80         │  <span class="bearish">-33</span>                 │  Reduce TP               
+    85         │  <span class="bearish">-50</span>                 │  Significant reduction   
+    90+        │  <span class="bearish">-67 to -100</span>         │  Maximum reduction       
+
+
+    How it works:
+    ─────────────────────────────────────────────────────────────────────────
+    As price rapidly approaches TP:
+      → RSI rises toward 70+ (overbought)
+      → RSI score contribution becomes NEGATIVE
+      → Total market score drops
+      → TP multiplier reduces
+      → TP target comes down to meet the price
+      → <span class="bullish">Trade exits at optimal time!</span>
+</div>
+                </section>
+                
+                <!-- Emergency Exit -->
+                <section id="emergency">
+                    <h2>Emergency Exit</h2>
+                    <p>
+                        When the market score drops below the emergency threshold, AdaptiveOrder
+                        triggers an immediate exit to protect capital.
+                    </p>
+                    
+                    <div class="callout callout-danger">
+                        <div class="callout-title">⚠️ Emergency Exit Thresholds</div>
+                        <ul>
+                            <li><strong>Conservative:</strong> Score ≤ -60</li>
+                            <li><strong>Balanced:</strong> Score ≤ -70</li>
+                            <li><strong>Aggressive:</strong> Score ≤ -80</li>
+                        </ul>
+                    </div>
+                    
+                    <div class="ascii-art">
+EMERGENCY EXIT EXAMPLE
+═══════════════════════════════════════════════════════════════════════════════
+
+    Position: LONG at $150, TP $160, SL $145
+    Mode: Balanced (emergency at -70)
+
+    Time    │ Price │ Score │ Action
+    ════════╪═══════╪═══════╪════════════════════════════════════════════════
+    10:00   │ $152  │  +65  │ Normal - TP at $160, SL at $145
+    10:15   │ $151  │  +45  │ Normal - small reduction to TP
+    10:30   │ $148  │  -15  │ Neutral - TP reduced, SL widened
+    10:45   │ $146  │  -55  │ Bearish - significant TP reduction
+    11:00   │ $144  │  <span class="bearish">-72</span>  │ <span class="bearish">*** EMERGENCY EXIT ***</span>
+    ────────┴───────┴───────┴────────────────────────────────────────────────
+    
+    Result: Exited at $144 instead of waiting for $145 SL
+            Small additional loss, but avoided potential crash
+</div>
+                </section>
+                
+                <!-- Footer -->
+                <footer class="page-footer">
+                    <div class="footer-nav">
+                        <a href="market-score.htm">← Market Score</a>
+                        <a href="autonomous-trading.htm">Next: AutonomousTrading →</a>
+                    </div>
+                    <p class="text-center text-muted">
+                        IdiotProof Trading System Documentation &copy; 2026
+                    </p>
+                </footer>
+            </div>
+        </main>
+    </div>
+</body>
+</html>

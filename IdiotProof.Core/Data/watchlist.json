@@ -1,0 +1,12 @@
+{
+  "tickers": [
+    {
+      "symbol": "SMX",
+      "quantity": 0,
+      "enabled": true
+    }
+  ],
+  "session": "RTH",
+  "enabled": true,
+  "description": null
+}

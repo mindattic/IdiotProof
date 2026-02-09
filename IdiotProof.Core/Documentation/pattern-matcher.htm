@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pattern Matcher - IdiotProof Documentation</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="page-wrapper">
+        <!-- Sidebar Navigation -->
+        <nav class="sidebar">
+            <div class="sidebar-header">
+                <a href="index.htm" class="logo">
+                    <span class="logo-icon">📈</span>
+                    <span class="logo-text">IdiotProof</span>
+                    <span class="logo-version">v2.0</span>
+                </a>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">Getting Started</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="index.htm" class="nav-link"><span class="nav-icon">🏠</span>Home</a></li>
+                    <li class="nav-item"><a href="quick-start.htm" class="nav-link"><span class="nav-icon">🚀</span>Quick Start</a></li>
+                    <li class="nav-item"><a href="architecture.htm" class="nav-link"><span class="nav-icon">🏗️</span>Architecture</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">IdiotScript DSL</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="idiotscript.htm" class="nav-link"><span class="nav-icon">📜</span>Language Reference</a></li>
+                    <li class="nav-item"><a href="commands.htm" class="nav-link"><span class="nav-icon">⌨️</span>Command Reference</a></li>
+                    <li class="nav-item"><a href="examples.htm" class="nav-link"><span class="nav-icon">💡</span>Strategy Examples</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">Technical Indicators</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="indicators.htm" class="nav-link"><span class="nav-icon">📊</span>Indicator Overview</a></li>
+                    <li class="nav-item"><a href="indicators-vwap.htm" class="nav-link"><span class="nav-icon">〰️</span>VWAP Indicators</a></li>
+                    <li class="nav-item"><a href="indicators-ema.htm" class="nav-link"><span class="nav-icon">📈</span>EMA Indicators</a></li>
+                    <li class="nav-item"><a href="indicators-momentum.htm" class="nav-link"><span class="nav-icon">⚡</span>Momentum</a></li>
+                    <li class="nav-item"><a href="indicators-volume.htm" class="nav-link"><span class="nav-icon">📶</span>Volume Analysis</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">Trading Systems</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="market-score.htm" class="nav-link"><span class="nav-icon">🎯</span>Market Score</a></li>
+                    <li class="nav-item"><a href="adaptive-order.htm" class="nav-link"><span class="nav-icon">🔄</span>AdaptiveOrder</a></li>
+                    <li class="nav-item"><a href="autonomous-trading.htm" class="nav-link"><span class="nav-icon">🤖</span>AutonomousTrading</a></li>
+                    <li class="nav-item"><a href="order-management.htm" class="nav-link"><span class="nav-icon">📋</span>Order Management</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">AI & Machine Learning</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="ai-overview.htm" class="nav-link"><span class="nav-icon">🧠</span>AI Overview</a></li>
+                    <li class="nav-item"><a href="lstm.htm" class="nav-link"><span class="nav-icon">🔮</span>LSTM Predictor</a></li>
+                    <li class="nav-item"><a href="pattern-matcher.htm" class="nav-link active"><span class="nav-icon">🔍</span>Pattern Matcher</a></li>
+                    <li class="nav-item"><a href="learned-weights.htm" class="nav-link"><span class="nav-icon">⚖️</span>Learned Weights</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">Configuration</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="configuration.htm" class="nav-link"><span class="nav-icon">⚙️</span>Settings</a></li>
+                    <li class="nav-item"><a href="watchlist.htm" class="nav-link"><span class="nav-icon">👀</span>Watchlist</a></li>
+                    <li class="nav-item"><a href="strategy-rules.htm" class="nav-link"><span class="nav-icon">📝</span>Strategy Rules</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">Testing & Analysis</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="backtesting.htm" class="nav-link"><span class="nav-icon">⏪</span>Backtesting</a></li>
+                    <li class="nav-item"><a href="simulation.htm" class="nav-link"><span class="nav-icon">🎮</span>Simulation</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">Reference</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="glossary.htm" class="nav-link"><span class="nav-icon">📖</span>Glossary</a></li>
+                    <li class="nav-item"><a href="faq.htm" class="nav-link"><span class="nav-icon">❓</span>FAQ</a></li>
+                    <li class="nav-item"><a href="troubleshooting.htm" class="nav-link"><span class="nav-icon">🔧</span>Troubleshooting</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">Roadmap</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="futureproofing.htm" class="nav-link"><span class="nav-icon">🔮</span>Future-Proofing</a></li>
+                    <li class="nav-item"><a href="wishlist.htm" class="nav-link"><span class="nav-icon">✨</span>Wishlist</a></li>
+                </ul>
+            </div>
+        </nav>
+        
+        <!-- Main Content -->
+        <main class="main-content">
+            <div class="content-wrapper">
+                <!-- Breadcrumb -->
+                <div class="breadcrumb">
+                    <a href="index.htm">Home</a>
+                    <span class="breadcrumb-separator">/</span>
+                    <a href="ai-overview.htm">AI & Machine Learning</a>
+                    <span class="breadcrumb-separator">/</span>
+                    <span>Pattern Matcher</span>
+                </div>
+                
+                <!-- Header -->
+                <header class="page-header">
+                    <h1 class="page-title">Pattern Matcher</h1>
+                    <p class="page-subtitle">
+                        LSH-based system for finding historical price patterns similar to current
+                        market conditions in sub-millisecond time.
+                    </p>
+                </header>
+                
+                <!-- What is Pattern Matching -->
+                <section id="overview">
+                    <h2>What is Pattern Matching?</h2>
+                    <p>
+                        The Pattern Matcher uses <strong>Locality-Sensitive Hashing (LSH)</strong> to find
+                        historical price patterns that are similar to the current market state. By analyzing
+                        what happened after similar patterns in the past, it helps validate trading decisions.
+                    </p>
+                    
+                    <div class="ascii-art">
+PATTERN MATCHING CONCEPT
+═══════════════════════════════════════════════════════════════════════════════
+
+    CURRENT PATTERN (Last 180 minutes)
+    ─────────────────────────────────────────────────────────────────────────
+    
+              _____/\
+         ___/       \_
+    ____/             \____
+                           \_____
+    
+    "I've seen this before..."
+    
+    
+    HISTORICAL MATCHES FOUND
+    ─────────────────────────────────────────────────────────────────────────
+    
+    Match 1 (87% similar):         Match 2 (82% similar):
+         _____/\                        ____/\
+    ___/       \_                  ____/     \_
+   /             \____            /            \___
+                      \_____/\                      \___/\
+                             ↑                             ↑
+                        <span class="bullish">+4.2%</span>                       <span class="bullish">+3.1%</span>
+                     (Outcome)                     (Outcome)
+    
+    Match 3 (79% similar):         Match 4 (75% similar):
+         ____/\                         ___/\
+    ____/      \___                ____/     \
+   /               \              /           \____
+                    \__/                           \___
+                       ↑                               ↑
+                   <span class="bearish">-1.8%</span>                         <span class="bullish">+2.3%</span>
+                  (Outcome)                      (Outcome)
+    
+    
+    CONCLUSION: 3 of 4 similar patterns led to gains
+                Average outcome: <span class="bullish">+1.95%</span>
+                Confidence: <span class="bullish">75%</span>
+</div>
+                </section>
+                
+                <!-- How LSH Works -->
+                <section id="lsh">
+                    <h2>How LSH Works</h2>
+                    <p>
+                        Traditional similarity search is O(n) - you must compare against every historical pattern.
+                        LSH uses hash functions to eliminate most comparisons, achieving near O(1) lookup.
+                    </p>
+                    
+                    <div class="ascii-art">
+LOCALITY-SENSITIVE HASHING
+═══════════════════════════════════════════════════════════════════════════════
+
+    TRADITIONAL SEARCH (Slow)          LSH SEARCH (Fast)
+    
+    Query: [0.5, 0.3, 0.8, ...]        Query: [0.5, 0.3, 0.8, ...]
+              │                                    │
+              ▼                                    ▼
+    ┌──────────────────┐               ┌──────────────────┐
+    │ Compare vs ALL   │               │ Hash query       │
+    │ 10,000 patterns  │               │ → Bucket 47      │
+    │                  │               └────────┬─────────┘
+    │ Pattern 1: 45%   │                        │
+    │ Pattern 2: 23%   │                        ▼
+    │ Pattern 3: 87% ✓ │               ┌──────────────────┐
+    │ Pattern 4: 12%   │               │ Bucket 47 has    │
+    │ Pattern 5: 78% ✓ │               │ only 15 patterns │
+    │ ...              │               │ (similar hash)   │
+    │ Pattern 10000    │               └────────┬─────────┘
+    └──────────────────┘                        │
+              │                                 ▼
+         10,000                         ┌──────────────────┐
+       comparisons                      │ Compare vs 15    │
+                                        │ Pattern 3: 87% ✓ │
+                                        │ Pattern 5: 78% ✓ │
+                                        └──────────────────┘
+                                                │
+                                            15
+                                          comparisons
+
+
+THE KEY INSIGHT
+═══════════════════════════════════════════════════════════════════════════════
+
+    LSH hash functions are designed so that:
+    
+    • SIMILAR vectors → LIKELY to hash to the SAME bucket
+    • DISSIMILAR vectors → LIKELY to hash to DIFFERENT buckets
+    
+    This is the opposite of cryptographic hashes (which maximize collision avoidance).
+</div>
+                </section>
+                
+                <!-- Hyperplanes -->
+                <section id="hyperplanes">
+                    <h2>Hyperplane-Based Hashing</h2>
+                    <p>
+                        IdiotProof uses random hyperplane LSH for cosine similarity. Each hyperplane
+                        divides the feature space in half, and the hash is which side of each plane
+                        the vector falls on.
+                    </p>
+                    
+                    <div class="ascii-art">
+RANDOM HYPERPLANE HASHING
+═══════════════════════════════════════════════════════════════════════════════
+
+    2D Example (actual system uses 10+ dimensions):
+    
+                    Hyperplane 1
+                         │
+            ┌────────────│────────────┐
+            │     A      │     B      │
+            │  (1,0)     │  (1,1)     │
+    ────────┼────────────+────────────┼──── Hyperplane 2
+            │     C      │     D      │
+            │  (0,0)     │  (0,1)     │
+            └────────────│────────────┘
+                         │
+    
+    Hash = [side of H1] [side of H2]
+    
+    Point in quadrant A → Hash = "10"
+    Point in quadrant D → Hash = "01"
+    
+    Similar points (nearby) → same quadrant → same hash → found quickly!
+
+
+MULTI-DIMENSIONAL FEATURE VECTOR
+═══════════════════════════════════════════════════════════════════════════════
+
+    Pattern features:
+    
+    Dimension 1:  VWAP distance (normalized)
+    Dimension 2:  EMA(9) distance
+    Dimension 3:  RSI value
+    Dimension 4:  MACD histogram
+    Dimension 5:  ADX
+    Dimension 6:  +DI - -DI
+    Dimension 7:  Volume ratio
+    Dimension 8:  Price momentum
+    Dimension 9:  Volatility (ATR)
+    Dimension 10: Price change %
+    
+    → 10D vector hashed using N hyperplanes
+    → Hash determines bucket
+    → Only compare within bucket
+</div>
+                </section>
+                
+                <!-- Pattern Storage -->
+                <section id="storage">
+                    <h2>Pattern Storage</h2>
+                    <p>
+                        Patterns are stored per-ticker and persist across sessions.
+                    </p>
+                    
+                    <div class="ascii-art">
+PATTERN DATA STRUCTURE
+═══════════════════════════════════════════════════════════════════════════════
+
+    Each stored pattern contains:
+    
+    ┌─────────────────────────────────────────────────────────────────────────┐
+    │  Pattern                                                                │
+    │  ├── Timestamp: When pattern occurred                                  │
+    │  ├── Features: 10D feature vector                                      │
+    │  ├── Hash: LSH bucket identifier                                       │
+    │  ├── Candles: Last 180 minutes of OHLC data                           │
+    │  ├── Indicators: All indicator values at pattern time                  │
+    │  └── Outcome:                                                          │
+    │      ├── PriceChange5Min:  +0.3%                                       │
+    │      ├── PriceChange15Min: +1.2%                                       │
+    │      ├── PriceChange30Min: +2.1%                                       │
+    │      ├── MaxDrawdown:      -0.5%                                       │
+    │      └── MaxGain:          +2.8%                                       │
+    └─────────────────────────────────────────────────────────────────────────┘
+    
+    Storage location: Data/{TICKER}.patterns.json
+</div>
+                </section>
+                
+                <!-- Pattern Match Result -->
+                <section id="result">
+                    <h2>Pattern Match Result</h2>
+                    
+                    <div class="ascii-art">
+PATTERN MATCH OUTPUT
+═══════════════════════════════════════════════════════════════════════════════
+
+    PatternMatchResult {
+        MatchCount         // Number of similar patterns found
+        AverageSimilarity  // 0-1 average match quality
+        BullishCount       // Patterns that led to gains
+        BearishCount       // Patterns that led to losses
+        AverageOutcome     // Average price change %
+        Confidence         // 0-1 confidence in prediction
+        
+        TopMatches[] {
+            Similarity     // 0-1 how similar
+            Outcome        // What happened after
+            Timestamp      // When it occurred
+        }
+    }
+
+
+HOW CONFIDENCE IS CALCULATED
+═══════════════════════════════════════════════════════════════════════════════
+
+    Confidence = f(MatchCount, Similarity, Agreement)
+    
+    Example:
+    ─────────────────────────────────────────────────────────────────────────
+    Found 8 matches with > 70% similarity
+    
+    6 bullish outcomes, 2 bearish outcomes
+    Agreement = 6/8 = 75%
+    
+    Average similarity = 78%
+    
+    Confidence = 0.75 × 0.78 = <span class="bullish">0.585 (58.5%)</span>
+    
+    If confidence > 50%, pattern supports entry
+    If confidence < 50%, pattern suggests caution
+</div>
+                </section>
+                
+                <!-- Integration -->
+                <section id="integration">
+                    <h2>Integration with Trading</h2>
+                    
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Component</th>
+                                <th>How Pattern Matcher Helps</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>Entry Validation</td>
+                                <td>
+                                    Before entering, check if similar patterns were profitable.<br>
+                                    High confidence (>60%) = proceed, Low (<40%) = caution
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>TP/SL Sizing</td>
+                                <td>
+                                    AverageOutcome and MaxGain help calibrate take profit targets.<br>
+                                    MaxDrawdown helps set appropriate stop losses.
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>Exit Timing</td>
+                                <td>
+                                    PriceChange at different intervals helps estimate when to exit.<br>
+                                    If patterns fade after 15 minutes, don't hold for an hour.
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </section>
+                
+                <!-- Persistence -->
+                <section id="persistence">
+                    <h2>File Persistence</h2>
+                    
+                    <div class="code-block">
+<span class="token-comment">// Patterns stored in:</span>
+Data/{TICKER}.patterns.json
+
+<span class="token-comment">// LSH hyperplanes (shared across all tickers):</span>
+Data/lsh_hyperplanes.json
+
+<span class="token-comment">// Example pattern entry:</span>
+{
+    "timestamp": "2026-02-06T10:30:00Z",
+    "hash": "1101001011",
+    "features": [0.45, -0.12, 0.67, 0.23, 0.55, 0.18, 1.4, 0.02, 0.8, 0.5],
+    "outcome": {
+        "change5m": 0.003,
+        "change15m": 0.012,
+        "change30m": 0.021,
+        "maxDrawdown": -0.005,
+        "maxGain": 0.028
+    }
+}
+</div>
+                </section>
+                
+                <!-- Footer -->
+                <footer class="page-footer">
+                    <div class="footer-nav">
+                        <a href="lstm.htm">← LSTM Predictor</a>
+                        <a href="learned-weights.htm">Next: Learned Weights →</a>
+                    </div>
+                    <p class="text-center text-muted">
+                        IdiotProof Trading System Documentation &copy; 2026
+                    </p>
+                </footer>
+            </div>
+        </main>
+    </div>
+</body>
+</html>

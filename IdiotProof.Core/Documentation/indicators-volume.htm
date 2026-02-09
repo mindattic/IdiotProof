@@ -1,0 +1,544 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Volume Analysis - IdiotProof Documentation</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="page-wrapper">
+        <!-- Sidebar Navigation -->
+        <nav class="sidebar">
+            <div class="sidebar-header">
+                <a href="index.htm" class="logo">
+                    <span class="logo-icon">📈</span>
+                    <span class="logo-text">IdiotProof</span>
+                    <span class="logo-version">v2.0</span>
+                </a>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">Getting Started</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="index.htm" class="nav-link"><span class="nav-icon">🏠</span>Home</a></li>
+                    <li class="nav-item"><a href="quick-start.htm" class="nav-link"><span class="nav-icon">🚀</span>Quick Start</a></li>
+                    <li class="nav-item"><a href="architecture.htm" class="nav-link"><span class="nav-icon">🏗️</span>Architecture</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">IdiotScript DSL</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="idiotscript.htm" class="nav-link"><span class="nav-icon">📜</span>Language Reference</a></li>
+                    <li class="nav-item"><a href="commands.htm" class="nav-link"><span class="nav-icon">⌨️</span>Command Reference</a></li>
+                    <li class="nav-item"><a href="examples.htm" class="nav-link"><span class="nav-icon">💡</span>Strategy Examples</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">Technical Indicators</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="indicators.htm" class="nav-link"><span class="nav-icon">📊</span>Indicator Overview</a></li>
+                    <li class="nav-item"><a href="indicators-vwap.htm" class="nav-link"><span class="nav-icon">〰️</span>VWAP Indicators</a></li>
+                    <li class="nav-item"><a href="indicators-ema.htm" class="nav-link"><span class="nav-icon">📈</span>EMA Indicators</a></li>
+                    <li class="nav-item"><a href="indicators-momentum.htm" class="nav-link"><span class="nav-icon">⚡</span>Momentum</a></li>
+                    <li class="nav-item"><a href="indicators-volume.htm" class="nav-link active"><span class="nav-icon">📶</span>Volume Analysis</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">Trading Systems</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="market-score.htm" class="nav-link"><span class="nav-icon">🎯</span>Market Score</a></li>
+                    <li class="nav-item"><a href="adaptive-order.htm" class="nav-link"><span class="nav-icon">🔄</span>AdaptiveOrder</a></li>
+                    <li class="nav-item"><a href="autonomous-trading.htm" class="nav-link"><span class="nav-icon">🤖</span>AutonomousTrading</a></li>
+                    <li class="nav-item"><a href="order-management.htm" class="nav-link"><span class="nav-icon">📋</span>Order Management</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">AI & Machine Learning</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="ai-overview.htm" class="nav-link"><span class="nav-icon">🧠</span>AI Overview</a></li>
+                    <li class="nav-item"><a href="lstm.htm" class="nav-link"><span class="nav-icon">🔮</span>LSTM Predictor</a></li>
+                    <li class="nav-item"><a href="pattern-matcher.htm" class="nav-link"><span class="nav-icon">🔍</span>Pattern Matcher</a></li>
+                    <li class="nav-item"><a href="learned-weights.htm" class="nav-link"><span class="nav-icon">⚖️</span>Learned Weights</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">Configuration</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="configuration.htm" class="nav-link"><span class="nav-icon">⚙️</span>Settings</a></li>
+                    <li class="nav-item"><a href="watchlist.htm" class="nav-link"><span class="nav-icon">👀</span>Watchlist</a></li>
+                    <li class="nav-item"><a href="strategy-rules.htm" class="nav-link"><span class="nav-icon">📝</span>Strategy Rules</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">Testing & Analysis</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="backtesting.htm" class="nav-link"><span class="nav-icon">⏪</span>Backtesting</a></li>
+                    <li class="nav-item"><a href="simulation.htm" class="nav-link"><span class="nav-icon">🎮</span>Simulation</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">Reference</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="glossary.htm" class="nav-link"><span class="nav-icon">📖</span>Glossary</a></li>
+                    <li class="nav-item"><a href="faq.htm" class="nav-link"><span class="nav-icon">❓</span>FAQ</a></li>
+                    <li class="nav-item"><a href="troubleshooting.htm" class="nav-link"><span class="nav-icon">🔧</span>Troubleshooting</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">Roadmap</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="futureproofing.htm" class="nav-link"><span class="nav-icon">🔮</span>Future-Proofing</a></li>
+                    <li class="nav-item"><a href="wishlist.htm" class="nav-link"><span class="nav-icon">✨</span>Wishlist</a></li>
+                </ul>
+            </div>
+        </nav>
+        
+        <!-- Main Content -->
+        <main class="main-content">
+            <div class="content-wrapper">
+                <!-- Breadcrumb -->
+                <div class="breadcrumb">
+                    <a href="index.htm">Home</a>
+                    <span class="breadcrumb-separator">/</span>
+                    <a href="indicators.htm">Technical Indicators</a>
+                    <span class="breadcrumb-separator">/</span>
+                    <span>Volume Analysis</span>
+                </div>
+                
+                <!-- Header -->
+                <header class="page-header">
+                    <h1 class="page-title">Volume Analysis</h1>
+                    <p class="page-subtitle">
+                        Volume is the most important confirmation indicator. Price movements 
+                        on high volume are more significant than those on low volume.
+                    </p>
+                </header>
+                
+                <!-- Overview -->
+                <section id="overview">
+                    <h2>Why Volume Matters</h2>
+                    <p>
+                        Volume shows <strong>conviction</strong> behind price moves. High volume on 
+                        a breakout confirms institutional interest. Low volume suggests lack of 
+                        commitment and potential for reversal.
+                    </p>
+                    
+                    <div class="ascii-art">
+VOLUME CONFIRMATION PRINCIPLE
+═══════════════════════════════════════════════════════════════════════════════
+
+    <span class="bullish">STRONG BREAKOUT (High Volume)</span>
+    
+    Price │                      ___/────────────
+          │                 ____/
+          │ ═══════════════════════════════════ Resistance
+          │            ___/
+          │ ___________/
+          └─────────────────────────────────────────────
+    Vol   │                ████████████
+          │    ██  ██  ██  ████████████████  ← Volume surge
+          │  ████████████  ████████████████████
+          └─────────────────────────────────────────────
+
+
+    <span class="bearish">FALSE BREAKOUT (Low Volume)</span>
+    
+    Price │
+          │                 ___/\___
+          │ ═══════════════════════════════════ Resistance
+          │         ___/\_/        \___
+          │ ________/                   \___
+          └─────────────────────────────────────────────
+    Vol   │
+          │        ██      ██
+          │  ██  ████  ██████  ██  ← No volume surge = weak
+          │ ████████████████████████
+          └─────────────────────────────────────────────
+</div>
+                    
+                    <div class="callout callout-info">
+                        <div class="callout-title">💡 Key Insight</div>
+                        <p>
+                            "Volume precedes price" - Volume often increases before major price 
+                            moves, making it a leading indicator for breakouts and breakdowns.
+                        </p>
+                    </div>
+                </section>
+                
+                <!-- Volume Indicators -->
+                <section id="indicators">
+                    <h2>Volume Indicators in IdiotProof</h2>
+                    
+                    <div class="ascii-art">
+VOLUME INDICATORS
+═══════════════════════════════════════════════════════════════════════════════
+
+    ┌─────────────────┬────────────────────────┬───────────────────────────────┐
+    │  Indicator      │  What It Measures      │  Trading Use                  │
+    ├─────────────────┼────────────────────────┼───────────────────────────────┤
+    │  Relative Vol   │  Current vs Average    │  Confirm breakouts/breakdowns │
+    │  OBV            │  Cumulative volume     │  Divergence detection         │
+    │  Volume Ratio   │  Multi-period compare  │  Surge detection              │
+    └─────────────────┴────────────────────────┴───────────────────────────────┘
+
+
+RELATIVE VOLUME CONCEPT
+═══════════════════════════════════════════════════════════════════════════════
+
+    Average Volume (20-bar): 100,000 shares
+
+    Current Volume    Relative Volume    Interpretation
+    ───────────────────────────────────────────────────────────
+    50,000            0.5x               <span class="bearish">Low - weak conviction</span>
+    100,000           1.0x               Normal
+    150,000           1.5x               <span class="bullish">High - confirmed move</span>
+    200,000+          2.0x+              <span class="bullish">Surge - strong conviction</span>
+</div>
+                </section>
+                
+                <!-- Volume Commands -->
+                <section id="commands">
+                    <h2>Volume IdiotScript Commands</h2>
+                    
+                    <div class="command-table">
+                        <h3>IsVolumeAbove(multiplier)</h3>
+                        <p>
+                            Returns true when current volume is above the specified multiple 
+                            of average volume. Default period is 20 bars.
+                        </p>
+                        <pre><code>Ticker(AAPL)
+    .<span class="token-function">IsVolumeAbove</span>(<span class="token-number">1.5</span>)    <span class="token-comment">// Volume >= 1.5x average</span>
+    .IsAboveVwap()
+    .Entry(150)
+    .TakeProfit(158)</code></pre>
+                    </div>
+                    
+                    <div class="command-table">
+                        <h3>IsHigherLows()</h3>
+                        <p>
+                            Returns true when the price pattern shows higher lows forming,
+                            indicating building bullish pressure.
+                        </p>
+                        <pre><code>Ticker(NVDA)
+    .<span class="token-function">IsHigherLows</span>()       <span class="token-comment">// Building support pattern</span>
+    .IsAboveVwap()
+    .IsVolumeAbove(1.2)
+    .Entry(900)
+    .TakeProfit(920)</code></pre>
+                    </div>
+                </section>
+                
+                <!-- OBV Section -->
+                <section id="obv">
+                    <h2>On-Balance Volume (OBV)</h2>
+                    <p>
+                        OBV is a cumulative indicator that adds volume on up days and subtracts 
+                        volume on down days. It shows whether volume is flowing in or out of a stock.
+                    </p>
+                    
+                    <div class="ascii-art">
+OBV CALCULATION
+═══════════════════════════════════════════════════════════════════════════════
+
+    If Close > Previous Close:
+        OBV = Previous OBV + Current Volume
+    
+    If Close < Previous Close:
+        OBV = Previous OBV - Current Volume
+    
+    If Close = Previous Close:
+        OBV = Previous OBV (no change)
+
+
+OBV DIVERGENCE
+═══════════════════════════════════════════════════════════════════════════════
+
+    <span class="bullish">BULLISH DIVERGENCE: Price down, OBV up</span>
+    
+    Price │
+          │ \
+          │  \____
+          │       \____        ← Price making lower lows
+          │            \
+          └───────────────────────────────────────────
+    OBV   │              ____/
+          │         ____/      ← OBV making higher lows
+          │    ____/
+          │ __/                  (Accumulation happening)
+          └───────────────────────────────────────────
+
+    <span class="bearish">BEARISH DIVERGENCE: Price up, OBV down</span>
+    
+    Price │              ____/
+          │         ____/      ← Price making higher highs
+          │    ____/
+          │ __/
+          └───────────────────────────────────────────
+    OBV   │
+          │ \
+          │  \____
+          │       \____        ← OBV making lower highs
+          │            \         (Distribution happening)
+          └───────────────────────────────────────────
+</div>
+                </section>
+                
+                <!-- Volume Patterns -->
+                <section id="patterns">
+                    <h2>Volume Patterns</h2>
+                    
+                    <div class="ascii-art">
+VOLUME PATTERN RECOGNITION
+═══════════════════════════════════════════════════════════════════════════════
+
+    <span class="bullish">VOLUME SPIKE (Breakout Confirmation)</span>
+    
+                       ████
+                       ████   ← 2x+ normal volume
+               ████    ████
+        ████   ████    ████
+    ──────────────────────────── Average Volume
+        ████   ████    ████
+        ████   ████    ████
+        ████   ████    ████████
+    ────────────────────────────────────────────────
+              ↑ Breakout
+
+
+    <span class="bearish">DECLINING VOLUME ON RALLY (Warning Signal)</span>
+    
+        ████
+        ████   ████
+        ████   ████   ████
+        ████   ████   ████   ████
+    ──────────────────────────────── Average Volume
+        ████   ████   ████   ████
+        ████   ████   ████   ████
+    ────────────────────────────────────────────────
+           ↑ Price rising but volume declining = weak rally
+
+
+    <span class="bullish">VOLUME DRY-UP (Consolidation Before Move)</span>
+    
+        ████
+        ████ 
+        ████   ████
+        ████   ████ 
+    ──────────────────────────────── Average Volume
+               ████    ██
+               ████    ██   ██  ← Volume contracting
+    ────────────────────────────────────────────────
+                          ↑ Watch for breakout
+</div>
+                </section>
+                
+                <!-- Market Score -->
+                <section id="market-score">
+                    <h2>Volume in Market Score</h2>
+                    <p>
+                        Volume contributes <strong>8%</strong> to the total market score. It acts 
+                        as a confirmation/multiplier for other signals.
+                    </p>
+                    
+                    <div class="ascii-art">
+VOLUME SCORE CONTRIBUTION
+═══════════════════════════════════════════════════════════════════════════════
+
+    Volume Ratio    Direction Confirmation    Score Contribution
+    ─────────────────────────────────────────────────────────────
+    2.0x+           Price rising              <span class="bullish">+100</span>
+    2.0x+           Price falling             <span class="bearish">-100</span>
+    1.5x            Price rising              <span class="bullish">+75</span>
+    1.5x            Price falling             <span class="bearish">-75</span>
+    1.0x (average)  Any direction             0
+    0.5x            Against trend             ±50 (dampened)
+
+    Logic: Volume confirms the current price direction
+           High volume + up move = bullish
+           High volume + down move = bearish
+           Low volume = less conviction in any direction
+</div>
+                    
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Condition</th>
+                                <th>Score</th>
+                                <th>Interpretation</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>High volume + bullish price</td>
+                                <td><span class="bullish">+75 to +100</span></td>
+                                <td>Strong buying conviction</td>
+                            </tr>
+                            <tr>
+                                <td>Average volume</td>
+                                <td><span class="neutral">0</span></td>
+                                <td>Normal activity</td>
+                            </tr>
+                            <tr>
+                                <td>Low volume + bullish price</td>
+                                <td><span class="neutral">+25</span></td>
+                                <td>Weak rally, be cautious</td>
+                            </tr>
+                            <tr>
+                                <td>High volume + bearish price</td>
+                                <td><span class="bearish">-75 to -100</span></td>
+                                <td>Strong selling pressure</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </section>
+                
+                <!-- Warm-up -->
+                <section id="warmup">
+                    <h2>Volume Warm-Up Requirements</h2>
+                    
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Indicator</th>
+                                <th>Bars Needed</th>
+                                <th>Start Early By</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>Relative Volume</td>
+                                <td>20 bars</td>
+                                <td>25 minutes</td>
+                            </tr>
+                            <tr>
+                                <td>OBV</td>
+                                <td>1 bar (cumulative)</td>
+                                <td>5 minutes</td>
+                            </tr>
+                            <tr>
+                                <td>IsHigherLows</td>
+                                <td>3+ bars</td>
+                                <td>5 minutes</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    
+                    <div class="callout callout-info">
+                        <div class="callout-title">ℹ️ Note</div>
+                        <p>
+                            Relative Volume needs 20 bars to establish a reliable average.
+                            IsVolumeAbove() signals are most reliable after 25+ minutes.
+                        </p>
+                    </div>
+                </section>
+                
+                <!-- Strategy Examples -->
+                <section id="strategies">
+                    <h2>Volume Trading Strategies</h2>
+                    
+                    <h3>1. Volume Confirmation Breakout</h3>
+                    <p>Only trade breakouts with volume confirmation.</p>
+                    <pre><code>Ticker(AAPL)
+    .Name("Volume Breakout")
+    .Session(IS.RTH)
+    .Quantity(50)
+    .<span class="token-function">IsVolumeAbove</span>(<span class="token-number">1.5</span>)    <span class="token-comment">// Volume 1.5x or higher</span>
+    .<span class="token-function">IsAboveVwap</span>()          <span class="token-comment">// Price above VWAP</span>
+    .<span class="token-function">IsEmaAbove</span>(<span class="token-number">9</span>)          <span class="token-comment">// Short-term bullish</span>
+    .<span class="token-function">IsMomentumAbove</span>(0)     <span class="token-comment">// Positive momentum</span>
+    .Entry(150)
+    .TakeProfit(158)
+    .StopLoss(147)
+    .AdaptiveOrder(IS.AGGRESSIVE)</code></pre>
+                    
+                    <h3>2. Volume + Higher Lows</h3>
+                    <p>Enter when building support with volume confirmation.</p>
+                    <pre><code>Ticker(NVDA)
+    .Name("Higher Lows Volume")
+    .Session(IS.RTH)
+    .Quantity(20)
+    .<span class="token-function">IsHigherLows</span>()         <span class="token-comment">// Building support</span>
+    .<span class="token-function">IsVolumeAbove</span>(<span class="token-number">1.2</span>)     <span class="token-comment">// Above average volume</span>
+    .<span class="token-function">IsAboveVwap</span>()          <span class="token-comment">// Above fair value</span>
+    .Entry(900)
+    .TakeProfit(930)
+    .StopLoss(885)</code></pre>
+                    
+                    <h3>3. High Volume Reversal</h3>
+                    <p>Look for reversals on volume spikes.</p>
+                    <pre><code>Ticker(TSLA)
+    .Name("Volume Reversal")
+    .Session(IS.RTH)
+    .Quantity(15)
+    .<span class="token-function">IsVolumeAbove</span>(<span class="token-number">2.0</span>)     <span class="token-comment">// Significant volume spike</span>
+    .<span class="token-function">IsRsiOversold</span>(<span class="token-number">30</span>)      <span class="token-comment">// Coming from oversold</span>
+    .<span class="token-function">IsEmaTurningUp</span>(<span class="token-number">9</span>)      <span class="token-comment">// EMA turning</span>
+    .Entry(250)
+    .TakeProfit(270)
+    .StopLoss(240)</code></pre>
+                    
+                    <h3>4. Low Volume Short (Weak Rally)</h3>
+                    <p>Short when rallies lack volume conviction.</p>
+                    <pre><code>Ticker(SPY)
+    .Name("Weak Rally Short")
+    .Session(IS.RTH)
+    .Quantity(100)
+    <span class="token-comment">// Note: Would need IsVolumeBelow command</span>
+    .<span class="token-function">IsEmaBelow</span>(<span class="token-number">21</span>)         <span class="token-comment">// Below trend EMA</span>
+    .<span class="token-function">IsBelowVwap</span>()          <span class="token-comment">// Below VWAP</span>
+    .<span class="token-function">IsDiNegative</span>()         <span class="token-comment">// Bearish direction</span>
+    .Order(IS.SHORT)
+    .TakeProfit(495)
+    .StopLoss(508)</code></pre>
+                </section>
+                
+                <!-- Tips -->
+                <section id="tips">
+                    <h2>Volume Trading Tips</h2>
+                    
+                    <div class="callout callout-success">
+                        <div class="callout-title">💡 Pro Tips</div>
+                        <ul>
+                            <li><strong>Never trust a breakout without volume</strong> - Volume is the "truth serum" of price moves</li>
+                            <li><strong>Watch for volume at key levels</strong> - High volume at support/resistance is significant</li>
+                            <li><strong>Volume spikes often mark reversals</strong> - Climactic volume = potential exhaustion</li>
+                            <li><strong>Declining volume during rallies = weakness</strong> - Smart money may be distributing</li>
+                            <li><strong>Compare to recent average, not absolute levels</strong> - 1M volume means nothing without context</li>
+                        </ul>
+                    </div>
+                    
+                    <div class="callout callout-warning">
+                        <div class="callout-title">⚠️ Common Mistakes</div>
+                        <ul>
+                            <li>Trading breakouts on low volume (false breakout risk)</li>
+                            <li>Ignoring volume context in pre/post market (always lower)</li>
+                            <li>Not waiting for volume average to establish (20-bar minimum)</li>
+                            <li>Expecting volume patterns to work the same in all market conditions</li>
+                        </ul>
+                    </div>
+                </section>
+                
+                <!-- Footer Navigation -->
+                <footer class="page-footer">
+                    <div class="footer-nav">
+                        <a href="indicators-momentum.htm">← Momentum Indicators</a>
+                        <a href="market-score.htm">Market Score →</a>
+                    </div>
+                    <p class="text-center text-muted">
+                        IdiotProof Trading System Documentation &copy; 2026
+                    </p>
+                </footer>
+            </div>
+        </main>
+    </div>
+</body>
+</html>

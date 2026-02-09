@@ -14,6 +14,7 @@
 //
 // ============================================================================
 
+using IdiotProof.Calculators;
 using IdiotProof.Constants;
 using IdiotProof.Models;
 using IdiotProof.Services;
@@ -1144,9 +1145,9 @@ public sealed class MultiMethodLearner
     /// <summary>
     /// Converts ExtendedSnapshot to IndicatorSnapshot for LSH processing.
     /// </summary>
-    private static IdiotProof.Helpers.IndicatorSnapshot ToIndicatorSnapshot(ExtendedSnapshot ext)
+    private static IdiotProof.Calculators.IndicatorSnapshot ToIndicatorSnapshot(ExtendedSnapshot ext)
     {
-        return new IdiotProof.Helpers.IndicatorSnapshot
+        return new IdiotProof.Calculators.IndicatorSnapshot
         {
             Price = ext.Price,
             Vwap = ext.Vwap,

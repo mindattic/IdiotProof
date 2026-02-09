@@ -1,0 +1,540 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simulation - IdiotProof Documentation</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="page-wrapper">
+        <!-- Sidebar Navigation -->
+        <nav class="sidebar">
+            <div class="sidebar-header">
+                <a href="index.htm" class="logo">
+                    <span class="logo-icon">📈</span>
+                    <span class="logo-text">IdiotProof</span>
+                    <span class="logo-version">v2.0</span>
+                </a>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">Getting Started</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="index.htm" class="nav-link"><span class="nav-icon">🏠</span>Home</a></li>
+                    <li class="nav-item"><a href="quick-start.htm" class="nav-link"><span class="nav-icon">🚀</span>Quick Start</a></li>
+                    <li class="nav-item"><a href="architecture.htm" class="nav-link"><span class="nav-icon">🏗️</span>Architecture</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">IdiotScript DSL</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="idiotscript.htm" class="nav-link"><span class="nav-icon">📜</span>Language Reference</a></li>
+                    <li class="nav-item"><a href="commands.htm" class="nav-link"><span class="nav-icon">⌨️</span>Command Reference</a></li>
+                    <li class="nav-item"><a href="examples.htm" class="nav-link"><span class="nav-icon">💡</span>Strategy Examples</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">Technical Indicators</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="indicators.htm" class="nav-link"><span class="nav-icon">📊</span>Indicator Overview</a></li>
+                    <li class="nav-item"><a href="indicators-vwap.htm" class="nav-link"><span class="nav-icon">〰️</span>VWAP Indicators</a></li>
+                    <li class="nav-item"><a href="indicators-ema.htm" class="nav-link"><span class="nav-icon">📈</span>EMA Indicators</a></li>
+                    <li class="nav-item"><a href="indicators-momentum.htm" class="nav-link"><span class="nav-icon">⚡</span>Momentum</a></li>
+                    <li class="nav-item"><a href="indicators-volume.htm" class="nav-link"><span class="nav-icon">📶</span>Volume Analysis</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">Trading Systems</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="market-score.htm" class="nav-link"><span class="nav-icon">🎯</span>Market Score</a></li>
+                    <li class="nav-item"><a href="adaptive-order.htm" class="nav-link"><span class="nav-icon">🔄</span>AdaptiveOrder</a></li>
+                    <li class="nav-item"><a href="autonomous-trading.htm" class="nav-link"><span class="nav-icon">🤖</span>AutonomousTrading</a></li>
+                    <li class="nav-item"><a href="order-management.htm" class="nav-link"><span class="nav-icon">📋</span>Order Management</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">AI & Machine Learning</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="ai-overview.htm" class="nav-link"><span class="nav-icon">🧠</span>AI Overview</a></li>
+                    <li class="nav-item"><a href="lstm.htm" class="nav-link"><span class="nav-icon">🔮</span>LSTM Predictor</a></li>
+                    <li class="nav-item"><a href="pattern-matcher.htm" class="nav-link"><span class="nav-icon">🔍</span>Pattern Matcher</a></li>
+                    <li class="nav-item"><a href="learned-weights.htm" class="nav-link"><span class="nav-icon">⚖️</span>Learned Weights</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">Configuration</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="configuration.htm" class="nav-link"><span class="nav-icon">⚙️</span>Settings</a></li>
+                    <li class="nav-item"><a href="watchlist.htm" class="nav-link"><span class="nav-icon">👀</span>Watchlist</a></li>
+                    <li class="nav-item"><a href="strategy-rules.htm" class="nav-link"><span class="nav-icon">📝</span>Strategy Rules</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">Testing & Analysis</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="backtesting.htm" class="nav-link"><span class="nav-icon">⏪</span>Backtesting</a></li>
+                    <li class="nav-item"><a href="simulation.htm" class="nav-link active"><span class="nav-icon">🎮</span>Simulation</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">Reference</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="glossary.htm" class="nav-link"><span class="nav-icon">📖</span>Glossary</a></li>
+                    <li class="nav-item"><a href="faq.htm" class="nav-link"><span class="nav-icon">❓</span>FAQ</a></li>
+                    <li class="nav-item"><a href="troubleshooting.htm" class="nav-link"><span class="nav-icon">🔧</span>Troubleshooting</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">Roadmap</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="futureproofing.htm" class="nav-link"><span class="nav-icon">🔮</span>Future-Proofing</a></li>
+                    <li class="nav-item"><a href="wishlist.htm" class="nav-link"><span class="nav-icon">✨</span>Wishlist</a></li>
+                </ul>
+            </div>
+        </nav>
+        
+        <!-- Main Content -->
+        <main class="main-content">
+            <div class="content-wrapper">
+                <!-- Breadcrumb -->
+                <div class="breadcrumb">
+                    <a href="index.htm">Home</a>
+                    <span class="breadcrumb-separator">/</span>
+                    <a href="#">Testing & Analysis</a>
+                    <span class="breadcrumb-separator">/</span>
+                    <span>Simulation</span>
+                </div>
+                
+                <!-- Header -->
+                <header class="page-header">
+                    <h1 class="page-title">Simulation & Risk Analysis</h1>
+                    <p class="page-subtitle">
+                        Monte Carlo simulation, paper trading, and risk analysis tools to 
+                        understand strategy robustness before deploying real capital.
+                    </p>
+                </header>
+                
+                <!-- Monte Carlo -->
+                <section id="monte-carlo">
+                    <h2>Monte Carlo Simulation</h2>
+                    <p>
+                        Monte Carlo simulation generates thousands of possible equity curves by 
+                        <strong>randomizing trade order</strong> and/or <strong>sampling from historical 
+                        trade outcomes</strong>. This reveals the range of possible outcomes and helps 
+                        set realistic expectations.
+                    </p>
+                    
+                    <div class="ascii-art">
+MONTE CARLO CONCEPT
+═══════════════════════════════════════════════════════════════════════════════
+
+    HISTORICAL TRADES:  W, W, L, W, L, L, W, W, W, L  (10 trades, 60% WR)
+    
+    Single Backtest (Specific Order):
+    ┌──────────────────────────────────────┐
+    │  W→W→L→W→L→L→W→W→W→L                │  P&L: +$620
+    └──────────────────────────────────────┘
+    
+    Monte Carlo (1000 Random Orderings):
+    ┌──────────────────────────────────────┐
+    │  Sim 1:   L→W→W→L→W→W→L→W→W→L       │  P&L: +$580
+    │  Sim 2:   W→L→L→W→W→W→L→W→W→L       │  P&L: +$650
+    │  Sim 3:   L→L→L→W→W→W→W→W→W→L       │  P&L: +$610
+    │  Sim 4:   W→W→W→W→W→W→L→L→L→L       │  P&L: +$540
+    │  ...                                 │
+    │  Sim 1000: L→W→L→W→W→L→W→W→L→W      │  P&L: +$625
+    └──────────────────────────────────────┘
+    
+    Result: Distribution of Possible Outcomes
+    
+    P&L Distribution:
+                            ██
+                          ██████
+                        ██████████
+                      ██████████████
+                    ████████████████████
+    $400  $500  $600  $700  $800  $900  $1000
+          ↑                   ↑
+       5th %ile            95th %ile
+       (worst)             (best)
+</div>
+                    
+                    <h3>Running Monte Carlo</h3>
+                    <pre><code>var simulator = new MonteCarloSimulator(backtestResults);
+
+var monteCarlo = simulator.Run(
+    iterations: 10000,
+    sampleSize: 100  // trades per simulation
+);
+
+Console.WriteLine($"Median P&L: ${monteCarlo.MedianPnL:N0}");
+Console.WriteLine($"5th %ile:   ${monteCarlo.Percentile5:N0}");
+Console.WriteLine($"95th %ile:  ${monteCarlo.Percentile95:N0}");
+Console.WriteLine($"Ruin Risk:  {monteCarlo.RuinProbability:P1}");</code></pre>
+                </section>
+                
+                <!-- Monte Carlo Output -->
+                <section id="mc-output">
+                    <h2>Monte Carlo Results</h2>
+                    
+                    <div class="ascii-art">
+MONTE CARLO SIMULATION RESULTS
+═══════════════════════════════════════════════════════════════════════════════
+
+    Iterations: 10,000 | Trades per Sim: 100 | Based on: 147 historical trades
+    
+    P&L DISTRIBUTION
+    ─────────────────────────────────────────────────────────────────────────
+                                              ███
+                                            █████
+                                           ███████
+                                          █████████
+                                        █████████████
+                                       ███████████████
+                                      █████████████████
+                                     ███████████████████
+                                    █████████████████████
+                                  █████████████████████████
+                                ███████████████████████████████
+                           ██████████████████████████████████████████
+    ────────────────────────────────────────────────────────────────────────
+    -$2K    $0     $2K    $4K    $6K    $8K   $10K   $12K   $14K   $16K
+    
+                           ↑         ↑         ↑
+                    5th %ile    Median   95th %ile
+                      $2,190    $6,350    $11,820
+    
+    STATISTICS
+    ─────────────────────────────────────────────────────────────────────────
+    Mean P&L:            $6,420
+    Std Deviation:       $2,850
+    <span class="bearish">Probability of Loss:  3.2%</span>
+    <span class="bullish">Prob of $5K+ Profit:  68%</span>
+    <span class="bullish">Prob of $10K+ Profit: 22%</span>
+    
+    DRAWDOWN DISTRIBUTION
+    ─────────────────────────────────────────────────────────────────────────
+    Median Max Drawdown:  -8.5%
+    95th %ile Drawdown:  -18.2%  ← <span class="bearish">Prepare for this!</span>
+</div>
+                    
+                    <div class="callout callout-info">
+                        <div class="callout-title">ℹ️ Interpreting Results</div>
+                        <p>
+                            The <strong>5th percentile</strong> represents a "bad luck" scenario - 
+                            only 5% of simulations performed worse. Use this for position sizing 
+                            and to set realistic minimum expectations.
+                        </p>
+                    </div>
+                </section>
+                
+                <!-- Ruin Analysis -->
+                <section id="ruin">
+                    <h2>Risk of Ruin</h2>
+                    <p>
+                        Risk of Ruin calculates the probability of losing a specified percentage 
+                        of your account (e.g., 50%) before reaching a profit target.
+                    </p>
+                    
+                    <div class="ascii-art">
+RISK OF RUIN ANALYSIS
+═══════════════════════════════════════════════════════════════════════════════
+
+    Account: $10,000 | Win Rate: 60% | Win/Loss Ratio: 1.5:1
+    
+    Ruin Threshold    Probability     Risk Level
+    ─────────────────────────────────────────────────────────────────────────
+    25% loss ($7,500) <span class="neutral">8.5%</span>            LOW
+    50% loss ($5,000) <span class="bullish">1.2%</span>            VERY LOW
+    75% loss ($2,500) <span class="bullish">0.1%</span>            MINIMAL
+    
+    ─────────────────────────────────────────────────────────────────────────
+    
+    RUIN PROBABILITY BY RISK PER TRADE:
+    
+    Risk/Trade    Ruin Prob (50%)    Assessment
+    ─────────────────────────────────────────────────────────────────────────
+    1%            <span class="bullish">0.01%</span>              SAFE - Very conservative
+    2%            <span class="bullish">0.5%</span>               SAFE - Recommended
+    5%            <span class="neutral">12%</span>                MODERATE - Aggressive
+    10%           <span class="bearish">45%</span>                HIGH - Dangerous
+    20%           <span class="bearish">78%</span>                EXTREME - Gambling
+</div>
+                    
+                    <pre><code>var ruin = simulator.CalculateRiskOfRuin(
+    accountSize: 10000,
+    ruinThreshold: 0.50,  // 50% loss
+    riskPerTrade: 0.02    // 2% per trade
+);
+
+Console.WriteLine($"Probability of 50% loss: {ruin:P2}");</code></pre>
+                </section>
+                
+                <!-- Paper Trading -->
+                <section id="paper-trading">
+                    <h2>Paper Trading</h2>
+                    <p>
+                        Paper trading runs your strategy in real-time with simulated orders - 
+                        no real money at risk. This is the bridge between backtesting and live trading.
+                    </p>
+                    
+                    <div class="ascii-art">
+PAPER TRADING MODE
+═══════════════════════════════════════════════════════════════════════════════
+
+    ┌─────────────────────────────────────────────────────────────────────┐
+    │  LIVE MARKET DATA                                                   │
+    │  ┌─────────────────────────────────────────────────────────────┐   │
+    │  │  Real prices, real-time updates                             │   │
+    │  │  From: Interactive Brokers TWS                              │   │
+    │  └─────────────────────────────────────────────────────────────┘   │
+    └─────────────────────────────────────────────────────────────────────┘
+                                     │
+                                     ▼
+    ┌─────────────────────────────────────────────────────────────────────┐
+    │  STRATEGY ENGINE                                                    │
+    │  ┌─────────────────────────────────────────────────────────────┐   │
+    │  │  Evaluates conditions                                       │   │
+    │  │  Generates signals: BUY, SELL, HOLD                         │   │
+    │  └─────────────────────────────────────────────────────────────┘   │
+    └─────────────────────────────────────────────────────────────────────┘
+                                     │
+                                     ▼
+    ┌─────────────────────────────────────────────────────────────────────┐
+    │  <span class="neutral">PAPER ORDER EXECUTOR (Simulated)</span>                                   │
+    │  ┌─────────────────────────────────────────────────────────────┐   │
+    │  │  - No real orders sent                                      │   │
+    │  │  - Simulated fills at current price + slippage              │   │
+    │  │  - Virtual P&L tracking                                     │   │
+    │  │  - All trades logged for analysis                           │   │
+    │  └─────────────────────────────────────────────────────────────┘   │
+    └─────────────────────────────────────────────────────────────────────┘
+</div>
+                    
+                    <h3>Enabling Paper Mode</h3>
+                    <pre><code>// In configuration or at runtime:
+tradingSettings.PaperTradingMode = true;
+
+// Or via IdiotScript:
+Ticker(NVDA)
+.Session(IS.RTH)
+.PaperTrade()  // Enable paper trading for this strategy
+.AutonomousTrading()</code></pre>
+                    
+                    <div class="callout callout-warning">
+                        <div class="callout-title">⚠️ Paper Trading Limitations</div>
+                        <ul>
+                            <li><strong>No slippage reality</strong> - Paper fills at exact price, real fills may differ</li>
+                            <li><strong>No market impact</strong> - Your orders don't move the market in paper mode</li>
+                            <li><strong>No emotional pressure</strong> - Real money creates different psychology</li>
+                            <li><strong>No liquidity issues</strong> - Paper always fills, real markets may not</li>
+                        </ul>
+                    </div>
+                </section>
+                
+                <!-- Position Sizing -->
+                <section id="position-sizing">
+                    <h2>Position Size Simulation</h2>
+                    <p>
+                        Simulate different position sizing strategies to optimize risk/reward:
+                    </p>
+                    
+                    <div class="ascii-art">
+POSITION SIZING COMPARISON
+═══════════════════════════════════════════════════════════════════════════════
+
+    Starting Capital: $10,000 | 100 Trades | 60% Win Rate
+    
+    FIXED SIZE: 100 shares per trade
+    ─────────────────────────────────────────────────────────────────────────
+    Ending Capital:  $14,200
+    Max Drawdown:    -$1,800 (-12.7%)
+    Win/Loss Impact: Constant across all trades
+    
+    FIXED FRACTIONAL: 2% risk per trade
+    ─────────────────────────────────────────────────────────────────────────
+    Ending Capital:  $16,850
+    Max Drawdown:    -$2,350 (-14.0%)
+    Effect: Increases size as account grows (compound growth)
+    
+    KELLY CRITERION: Optimal fraction
+    ─────────────────────────────────────────────────────────────────────────
+    Kelly Fraction:  20% (based on 60% WR, 1.5:1 ratio)
+    Half-Kelly:      10% (recommended for safety)
+    
+    ANTI-MARTINGALE: Increase after wins
+    ─────────────────────────────────────────────────────────────────────────
+    Ending Capital:  $18,400
+    Max Drawdown:    -$3,100 (-16.8%)
+    Risk: Larger drawdowns during losing streaks
+</div>
+                    
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Strategy</th>
+                                <th>Final P&L</th>
+                                <th>Sharpe</th>
+                                <th>Max DD</th>
+                                <th>Best For</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>Fixed Size</td>
+                                <td>+$4,200</td>
+                                <td>1.45</td>
+                                <td>-12.7%</td>
+                                <td>Beginners, consistency</td>
+                            </tr>
+                            <tr>
+                                <td>Fixed Fractional</td>
+                                <td class="bullish">+$6,850</td>
+                                <td class="bullish">1.72</td>
+                                <td>-14.0%</td>
+                                <td>Long-term growth</td>
+                            </tr>
+                            <tr>
+                                <td>Half-Kelly</td>
+                                <td>+$8,200</td>
+                                <td>1.65</td>
+                                <td>-18.5%</td>
+                                <td>Aggressive growth</td>
+                            </tr>
+                            <tr>
+                                <td>Anti-Martingale</td>
+                                <td>+$8,400</td>
+                                <td>1.58</td>
+                                <td class="bearish">-16.8%</td>
+                                <td>Trend riders</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </section>
+                
+                <!-- Stress Testing -->
+                <section id="stress-testing">
+                    <h2>Stress Testing</h2>
+                    <p>
+                        Test your strategy against extreme market conditions:
+                    </p>
+                    
+                    <div class="ascii-art">
+STRESS TEST SCENARIOS
+═══════════════════════════════════════════════════════════════════════════════
+
+    SCENARIO 1: Flash Crash (-10% in 15 minutes)
+    ─────────────────────────────────────────────────────────────────────────
+    Normal Period:  Strategy P&L: +$580
+    Flash Crash:    Strategy P&L: <span class="bearish">-$1,240</span>
+    Recovery:       Strategy P&L: +$890
+    Net Impact:     <span class="bullish">+$230</span> (strategy recovered)
+    
+    SCENARIO 2: Extended Bear Market (-30% over 3 months)
+    ─────────────────────────────────────────────────────────────────────────
+    Strategy P&L:   <span class="bearish">-$2,850</span>
+    Win Rate Drop:  60% → 45%
+    Max Drawdown:   -28.5%
+    Assessment:     Strategy struggles in extended downtrends
+    
+    SCENARIO 3: Low Volatility Grind (VIX < 15)
+    ─────────────────────────────────────────────────────────────────────────
+    Strategy P&L:   <span class="neutral">+$1,200</span>
+    Trade Count:    147 → 52 (fewer signals)
+    Win Rate:       60% → 58%
+    Assessment:     Reduced opportunities but profitable
+    
+    SCENARIO 4: Gap Up/Down Events (multiple 5%+ gaps)
+    ─────────────────────────────────────────────────────────────────────────
+    Strategy P&L:   <span class="neutral">+$3,100</span>
+    Slippage Impact: -$450
+    Stop-Loss Gaps: 3 instances (stopped at worse price)
+    Assessment:     Gap detection helps, but slippage hurts
+</div>
+                </section>
+                
+                <!-- Confidence Intervals -->
+                <section id="confidence">
+                    <h2>Confidence Intervals</h2>
+                    <p>
+                        Set realistic expectations by understanding the range of possible outcomes:
+                    </p>
+                    
+                    <div class="ascii-art">
+EXPECTED OUTCOME RANGES
+═══════════════════════════════════════════════════════════════════════════════
+
+    Based on 10,000 Monte Carlo simulations:
+    
+    1 MONTH OUTLOOK (20 trades expected)
+    ─────────────────────────────────────────────────────────────────────────
+    <span class="bearish">Worst Case (5%ile):</span>    -$380    (Bad luck + market conditions)
+    <span class="neutral">Expected (median):</span>     +$420    (Most likely outcome)
+    <span class="bullish">Best Case (95%ile):</span>    +$1,240  (Everything goes right)
+    
+    3 MONTH OUTLOOK (60 trades expected)
+    ─────────────────────────────────────────────────────────────────────────
+    <span class="bearish">Worst Case (5%ile):</span>    +$180    (Still positive!)
+    <span class="neutral">Expected (median):</span>     +$1,890  (Law of large numbers kicks in)
+    <span class="bullish">Best Case (95%ile):</span>    +$4,200
+    
+    12 MONTH OUTLOOK (240 trades expected)
+    ─────────────────────────────────────────────────────────────────────────
+    <span class="bullish">Worst Case (5%ile):</span>    +$2,190  (Even worst case is profitable)
+    <span class="bullish">Expected (median):</span>     +$6,350  (Strategy edge compounds)
+    <span class="bullish">Best Case (95%ile):</span>    +$11,820
+    
+    KEY INSIGHT: Longer timeframes → Tighter distribution around expected value
+</div>
+                </section>
+                
+                <!-- Tips -->
+                <section id="tips">
+                    <h2>Best Practices</h2>
+                    
+                    <div class="callout callout-success">
+                        <div class="callout-title">💡 Pro Tips</div>
+                        <ul>
+                            <li><strong>Run at least 1,000 iterations</strong> for reliable Monte Carlo results</li>
+                            <li><strong>Paper trade for 30+ days</strong> before going live</li>
+                            <li><strong>Size for the 95th percentile drawdown</strong>, not the median</li>
+                            <li><strong>Compare strategy to buy-and-hold</strong> as a baseline</li>
+                            <li><strong>Re-run simulations quarterly</strong> as more data accumulates</li>
+                        </ul>
+                    </div>
+                    
+                    <div class="callout callout-warning">
+                        <div class="callout-title">⚠️ Reality Check</div>
+                        <p>
+                            Simulation results are based on <strong>historical data</strong>. Future 
+                            market conditions may differ significantly. Use simulations to understand 
+                            <em>relative</em> performance and risk characteristics, not to predict 
+                            exact future returns.
+                        </p>
+                    </div>
+                </section>
+                
+                <!-- Footer Navigation -->
+                <footer class="page-footer">
+                    <div class="footer-nav">
+                        <a href="backtesting.htm">← Backtesting</a>
+                        <a href="glossary.htm">Glossary →</a>
+                    </div>
+                    <p class="text-center text-muted">
+                        IdiotProof Trading System Documentation &copy; 2026
+                    </p>
+                </footer>
+            </div>
+        </main>
+    </div>
+</body>
+</html>

@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Backtesting - IdiotProof Documentation</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="page-wrapper">
+        <!-- Sidebar Navigation -->
+        <nav class="sidebar">
+            <div class="sidebar-header">
+                <a href="index.htm" class="logo">
+                    <span class="logo-icon">📈</span>
+                    <span class="logo-text">IdiotProof</span>
+                    <span class="logo-version">v2.0</span>
+                </a>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">Getting Started</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="index.htm" class="nav-link"><span class="nav-icon">🏠</span>Home</a></li>
+                    <li class="nav-item"><a href="quick-start.htm" class="nav-link"><span class="nav-icon">🚀</span>Quick Start</a></li>
+                    <li class="nav-item"><a href="architecture.htm" class="nav-link"><span class="nav-icon">🏗️</span>Architecture</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">IdiotScript DSL</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="idiotscript.htm" class="nav-link"><span class="nav-icon">📜</span>Language Reference</a></li>
+                    <li class="nav-item"><a href="commands.htm" class="nav-link"><span class="nav-icon">⌨️</span>Command Reference</a></li>
+                    <li class="nav-item"><a href="examples.htm" class="nav-link"><span class="nav-icon">💡</span>Strategy Examples</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">Technical Indicators</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="indicators.htm" class="nav-link"><span class="nav-icon">📊</span>Indicator Overview</a></li>
+                    <li class="nav-item"><a href="indicators-vwap.htm" class="nav-link"><span class="nav-icon">〰️</span>VWAP Indicators</a></li>
+                    <li class="nav-item"><a href="indicators-ema.htm" class="nav-link"><span class="nav-icon">📈</span>EMA Indicators</a></li>
+                    <li class="nav-item"><a href="indicators-momentum.htm" class="nav-link"><span class="nav-icon">⚡</span>Momentum</a></li>
+                    <li class="nav-item"><a href="indicators-volume.htm" class="nav-link"><span class="nav-icon">📶</span>Volume Analysis</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">Trading Systems</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="market-score.htm" class="nav-link"><span class="nav-icon">🎯</span>Market Score</a></li>
+                    <li class="nav-item"><a href="adaptive-order.htm" class="nav-link"><span class="nav-icon">🔄</span>AdaptiveOrder</a></li>
+                    <li class="nav-item"><a href="autonomous-trading.htm" class="nav-link"><span class="nav-icon">🤖</span>AutonomousTrading</a></li>
+                    <li class="nav-item"><a href="order-management.htm" class="nav-link"><span class="nav-icon">📋</span>Order Management</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">AI & Machine Learning</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="ai-overview.htm" class="nav-link"><span class="nav-icon">🧠</span>AI Overview</a></li>
+                    <li class="nav-item"><a href="lstm.htm" class="nav-link"><span class="nav-icon">🔮</span>LSTM Predictor</a></li>
+                    <li class="nav-item"><a href="pattern-matcher.htm" class="nav-link"><span class="nav-icon">🔍</span>Pattern Matcher</a></li>
+                    <li class="nav-item"><a href="learned-weights.htm" class="nav-link"><span class="nav-icon">⚖️</span>Learned Weights</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">Configuration</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="configuration.htm" class="nav-link"><span class="nav-icon">⚙️</span>Settings</a></li>
+                    <li class="nav-item"><a href="watchlist.htm" class="nav-link"><span class="nav-icon">👀</span>Watchlist</a></li>
+                    <li class="nav-item"><a href="strategy-rules.htm" class="nav-link"><span class="nav-icon">📝</span>Strategy Rules</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">Testing & Analysis</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="backtesting.htm" class="nav-link active"><span class="nav-icon">⏪</span>Backtesting</a></li>
+                    <li class="nav-item"><a href="simulation.htm" class="nav-link"><span class="nav-icon">🎮</span>Simulation</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">Reference</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="glossary.htm" class="nav-link"><span class="nav-icon">📖</span>Glossary</a></li>
+                    <li class="nav-item"><a href="faq.htm" class="nav-link"><span class="nav-icon">❓</span>FAQ</a></li>
+                    <li class="nav-item"><a href="troubleshooting.htm" class="nav-link"><span class="nav-icon">🔧</span>Troubleshooting</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">Roadmap</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="futureproofing.htm" class="nav-link"><span class="nav-icon">🔮</span>Future-Proofing</a></li>
+                    <li class="nav-item"><a href="wishlist.htm" class="nav-link"><span class="nav-icon">✨</span>Wishlist</a></li>
+                </ul>
+            </div>
+        </nav>
+        
+        <!-- Main Content -->
+        <main class="main-content">
+            <div class="content-wrapper">
+                <!-- Breadcrumb -->
+                <div class="breadcrumb">
+                    <a href="index.htm">Home</a>
+                    <span class="breadcrumb-separator">/</span>
+                    <a href="#">Testing & Analysis</a>
+                    <span class="breadcrumb-separator">/</span>
+                    <span>Backtesting</span>
+                </div>
+                
+                <!-- Header -->
+                <header class="page-header">
+                    <h1 class="page-title">Backtesting</h1>
+                    <p class="page-subtitle">
+                        Test your strategies against historical data to validate performance 
+                        before risking real capital.
+                    </p>
+                </header>
+                
+                <!-- Overview -->
+                <section id="overview">
+                    <h2>What Is Backtesting?</h2>
+                    <p>
+                        Backtesting runs your trading strategy against historical market data to 
+                        see how it would have performed in the past. While past performance doesn't 
+                        guarantee future results, it helps validate strategy logic and identify 
+                        potential weaknesses.
+                    </p>
+                    
+                    <div class="ascii-art">
+BACKTESTING WORKFLOW
+═══════════════════════════════════════════════════════════════════════════════
+
+    ┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
+    │   Historical    │     │    Strategy     │     │    Performance  │
+    │     Data        │ ──▶ │    Engine       │ ──▶ │    Metrics      │
+    │                 │     │                 │     │                 │
+    │  - OHLC bars    │     │  - Indicators   │     │  - Win rate     │
+    │  - Volume       │     │  - Conditions   │     │  - P&L          │
+    │  - Timestamps   │     │  - Orders       │     │  - Drawdown     │
+    └─────────────────┘     └─────────────────┘     └─────────────────┘
+
+
+    HISTORICAL DATA                              SIMULATED TRADING
+    ═══════════════                              ═════════════════
+    
+    │  Date        O      H      L      C    │   Action    P&L
+    ├──────────────────────────────────────────────────────────────
+    │  2026-01-02  $150   $155   $149   $154 │   —         —
+    │  2026-01-03  $154   $160   $153   $158 │   —         —
+    │  2026-01-04  $158   $165   $157   $163 │   <span class="bullish">BUY</span>       —
+    │  2026-01-05  $163   $168   $161   $167 │   —         —
+    │  2026-01-06  $167   $172   $166   $171 │   <span class="bullish">SELL</span>      +$8
+    │  2026-01-07  $171   $169   $164   $166 │   —         —
+    │  ...                                   │
+</div>
+                </section>
+                
+                <!-- Data Sources -->
+                <section id="data-sources">
+                    <h2>Historical Data Sources</h2>
+                    <p>
+                        IdiotProof supports multiple data sources for backtesting:
+                    </p>
+                    
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Source</th>
+                                <th>Resolution</th>
+                                <th>History</th>
+                                <th>Notes</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>Interactive Brokers</td>
+                                <td>1-min to daily</td>
+                                <td>Up to 1 year</td>
+                                <td>Primary source, requires API connection</td>
+                            </tr>
+                            <tr>
+                                <td>Cached Data</td>
+                                <td>As collected</td>
+                                <td>Since first run</td>
+                                <td>Bars saved during live trading</td>
+                            </tr>
+                            <tr>
+                                <td>CSV Import</td>
+                                <td>Any</td>
+                                <td>Any</td>
+                                <td>Custom data files</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    
+                    <h3>Data Requirements</h3>
+                    <ul>
+                        <li><strong>Minimum:</strong> 20 trading days for basic testing</li>
+                        <li><strong>Recommended:</strong> 3-6 months for meaningful results</li>
+                        <li><strong>Optimal:</strong> 1+ year covering different market conditions</li>
+                    </ul>
+                </section>
+                
+                <!-- Running Backtests -->
+                <section id="running">
+                    <h2>Running a Backtest</h2>
+                    
+                    <h3>Basic Backtest</h3>
+                    <pre><code>// Load strategy from .idiot file
+var strategy = IdiotScriptParser.Parse(@"
+    Ticker(NVDA)
+    .IsAboveVwap()
+    .IsEmaAbove(9)
+    .Entry(150)
+    .Order(IS.LONG)
+    .TakeProfit(160)
+    .StopLoss(145)
+");
+
+// Create backtester
+var backtester = new Backtester(strategy);
+
+// Run against historical data
+var results = await backtester.RunAsync(
+    startDate: DateTime.Parse("2025-01-01"),
+    endDate: DateTime.Parse("2025-12-31")
+);
+
+// Print results
+results.PrintSummary();</code></pre>
+                    
+                    <h3>Backtest Output</h3>
+                    <div class="ascii-art">
+BACKTEST RESULTS: NVDA Momentum Strategy
+═══════════════════════════════════════════════════════════════════════════════
+
+    Test Period: 2025-01-01 to 2025-12-31 (252 trading days)
+    
+    PERFORMANCE METRICS
+    ─────────────────────────────────────────────────────────────────────────
+    Total Trades:        147
+    Winning Trades:       89 (<span class="bullish">60.5% win rate</span>)
+    Losing Trades:        58
+    
+    Gross Profit:    $12,450
+    Gross Loss:       $6,230
+    <span class="bullish">Net Profit:       $6,220</span>
+    
+    Largest Win:         $890 (NVDA +6.2%)
+    Largest Loss:        $450 (NVDA -3.1%)
+    Average Win:         $140
+    Average Loss:        $107
+    
+    RISK METRICS
+    ─────────────────────────────────────────────────────────────────────────
+    Profit Factor:       <span class="bullish">2.00</span> (good: > 1.5)
+    Sharpe Ratio:        <span class="bullish">1.85</span> (good: > 1.0)
+    Max Drawdown:        <span class="neutral">-8.2%</span> ($1,640)
+    Max Drawdown Days:   12
+    Recovery Factor:     3.79
+    
+    Expectancy:          <span class="bullish">$42.31 per trade</span>
+    
+    MONTHLY BREAKDOWN
+    ─────────────────────────────────────────────────────────────────────────
+    Jan: +$580  ▓▓▓▓▓▓▓▓▓▓░░░░░░░░░░░░░░
+    Feb: +$320  ▓▓▓▓▓▓░░░░░░░░░░░░░░░░░░
+    Mar: -$180  <span class="bearish">▓▓▓▓░░░░░░░░░░░░░░░░░░░░</span>
+    Apr: +$890  ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓░░░░░░░░
+    May: +$420  ▓▓▓▓▓▓▓▓░░░░░░░░░░░░░░░░
+    Jun: +$750  ▓▓▓▓▓▓▓▓▓▓▓▓▓░░░░░░░░░░░
+    ...
+</div>
+                </section>
+                
+                <!-- Metrics Explained -->
+                <section id="metrics">
+                    <h2>Performance Metrics Explained</h2>
+                    
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Metric</th>
+                                <th>Description</th>
+                                <th>Good Value</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><strong>Win Rate</strong></td>
+                                <td>Percentage of profitable trades</td>
+                                <td class="bullish">&gt; 50%</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Profit Factor</strong></td>
+                                <td>Gross profit ÷ gross loss</td>
+                                <td class="bullish">&gt; 1.5</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Sharpe Ratio</strong></td>
+                                <td>Risk-adjusted return (excess return ÷ std dev)</td>
+                                <td class="bullish">&gt; 1.0</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Max Drawdown</strong></td>
+                                <td>Largest peak-to-trough decline</td>
+                                <td class="bullish">&lt; 20%</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Expectancy</strong></td>
+                                <td>Average profit per trade</td>
+                                <td class="bullish">Positive</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Recovery Factor</strong></td>
+                                <td>Net profit ÷ max drawdown</td>
+                                <td class="bullish">&gt; 2.0</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    
+                    <div class="ascii-art">
+PROFIT FACTOR INTERPRETATION
+═══════════════════════════════════════════════════════════════════════════════
+
+    < 1.0  │  <span class="bearish">LOSING STRATEGY</span> - Losses exceed profits
+    ───────┼───────────────────────────────────────────────────────────────
+    1.0-1.3│  <span class="neutral">MARGINAL</span> - Barely profitable, high risk
+    ───────┼───────────────────────────────────────────────────────────────
+    1.3-1.5│  <span class="neutral">ACCEPTABLE</span> - Slightly profitable
+    ───────┼───────────────────────────────────────────────────────────────
+    1.5-2.0│  <span class="bullish">GOOD</span> - Solid profitability
+    ───────┼───────────────────────────────────────────────────────────────
+    2.0-3.0│  <span class="bullish">EXCELLENT</span> - Very strong strategy
+    ───────┼───────────────────────────────────────────────────────────────
+    > 3.0  │  <span class="bullish">EXCEPTIONAL</span> - Verify for overfitting!
+</div>
+                </section>
+                
+                <!-- Drawdown Analysis -->
+                <section id="drawdown">
+                    <h2>Drawdown Analysis</h2>
+                    <p>
+                        Drawdown measures the peak-to-trough decline in your account. Understanding 
+                        drawdown helps you prepare psychologically and set appropriate position sizes.
+                    </p>
+                    
+                    <div class="ascii-art">
+DRAWDOWN VISUALIZATION
+═══════════════════════════════════════════════════════════════════════════════
+
+    Equity Curve:
+    
+    $11,000 ┤                                    ****
+            │                               ****
+    $10,500 ┤                          ****
+            │       ****          ****
+    $10,000 ┤  ****      ****
+            │                ****──────── Peak
+     $9,500 ┤                    ****
+            │                        ****
+     $9,200 ┤                            **** ── Trough (-8%)
+            │                                ****
+     $9,500 ┤                                    ****
+            │                                        ****
+            └──────────────────────────────────────────────▶ Time
+    
+                            |←── MAX DRAWDOWN: -8% ──→|
+                            |←── 12 DAYS TO RECOVER ──→|
+</div>
+                    
+                    <div class="callout callout-warning">
+                        <div class="callout-title">⚠️ Drawdown Warning</div>
+                        <p>
+                            In live trading, actual drawdowns are often <strong>1.5-2x larger</strong> 
+                            than backtested drawdowns due to slippage, gaps, and market impact. 
+                            If your backtest shows 8% max drawdown, prepare for 12-15% in reality.
+                        </p>
+                    </div>
+                </section>
+                
+                <!-- Strategy Comparison -->
+                <section id="comparison">
+                    <h2>Comparing Strategies</h2>
+                    <p>
+                        Test multiple strategies against the same data to find the best performer:
+                    </p>
+                    
+                    <pre><code>var comparison = new StrategyComparison();
+
+comparison.AddStrategy("VWAP Breakout", vwapStrategy);
+comparison.AddStrategy("EMA Crossover", emaStrategy);
+comparison.AddStrategy("Momentum Only", momentumStrategy);
+
+var results = await comparison.RunAsync(
+    startDate: DateTime.Parse("2025-01-01"),
+    endDate: DateTime.Parse("2025-12-31")
+);
+
+results.PrintComparisonTable();</code></pre>
+                    
+                    <div class="ascii-art">
+STRATEGY COMPARISON
+═══════════════════════════════════════════════════════════════════════════════
+
+    Strategy          Trades   Win%     Net P&L    PF     Sharpe   MaxDD
+    ────────────────────────────────────────────────────────────────────────
+    VWAP Breakout      147     60.5%    +$6,220    2.00    1.85    -8.2%
+    EMA Crossover      183     55.2%    +$4,890    1.62    1.21   -12.5%
+    Momentum Only      212     52.8%    +$3,450    1.38    0.95   -15.8%
+    ────────────────────────────────────────────────────────────────────────
+    
+    <span class="bullish">★ WINNER: VWAP Breakout</span>
+    
+    Best in: Net P&L, Profit Factor, Sharpe Ratio, Max Drawdown
+    Trade-off: Fewer trades (possibly missing opportunities)
+</div>
+                </section>
+                
+                <!-- Walk-Forward -->
+                <section id="walk-forward">
+                    <h2>Walk-Forward Testing</h2>
+                    <p>
+                        Walk-forward analysis helps detect overfitting by testing on out-of-sample data:
+                    </p>
+                    
+                    <div class="ascii-art">
+WALK-FORWARD ANALYSIS
+═══════════════════════════════════════════════════════════════════════════════
+
+    Standard Backtest (In-Sample Only = High Overfitting Risk):
+    ┌────────────────────────────────────────────────────────────────────────┐
+    │  IN-SAMPLE (Train & Test)                                              │
+    │  Jan ─────────────────────────────────────────────────── Dec           │
+    └────────────────────────────────────────────────────────────────────────┘
+    Result: 65% win rate (but is it real or overfitted?)
+
+    
+    Walk-Forward (Rolling Out-of-Sample = Realistic Performance):
+    
+    Window 1:
+    ┌─────────────────────────────┬─────────────┐
+    │  TRAIN (Jan-Jun)            │ TEST (Jul)  │  → 58% win rate
+    └─────────────────────────────┴─────────────┘
+    
+    Window 2:
+        ┌─────────────────────────────┬─────────────┐
+        │  TRAIN (Feb-Jul)            │ TEST (Aug)  │  → 61% win rate
+        └─────────────────────────────┴─────────────┘
+    
+    Window 3:
+            ┌─────────────────────────────┬─────────────┐
+            │  TRAIN (Mar-Aug)            │ TEST (Sep)  │  → 55% win rate
+            └─────────────────────────────┴─────────────┘
+    
+    ...continues rolling forward...
+    
+    Walk-Forward Efficiency = Out-of-Sample Performance / In-Sample Performance
+    Target: > 50% efficiency indicates strategy is robust
+</div>
+                    
+                    <pre><code>var wfa = new WalkForwardAnalyzer(strategy);
+
+var results = wfa.Analyze(
+    startDate: DateTime.Parse("2025-01-01"),
+    endDate: DateTime.Parse("2025-12-31"),
+    trainingDays: 60,
+    testingDays: 20
+);
+
+Console.WriteLine($"WF Efficiency: {results.Efficiency:P1}");</code></pre>
+                </section>
+                
+                <!-- Pitfalls -->
+                <section id="pitfalls">
+                    <h2>Common Pitfalls</h2>
+                    
+                    <div class="callout callout-danger">
+                        <div class="callout-title">🚫 Backtesting Biases to Avoid</div>
+                        <table>
+                            <tr>
+                                <td><strong>Look-Ahead Bias</strong></td>
+                                <td>Using future data that wouldn't be available at trade time</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Survivorship Bias</strong></td>
+                                <td>Only testing on stocks that still exist (ignoring delisted ones)</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Curve Fitting</strong></td>
+                                <td>Over-optimizing parameters to fit historical data perfectly</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Ignoring Costs</strong></td>
+                                <td>Not accounting for commissions, slippage, and spreads</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Cherry-Picking</strong></td>
+                                <td>Only showing results from favorable time periods</td>
+                            </tr>
+                        </table>
+                    </div>
+                </section>
+                
+                <!-- Tips -->
+                <section id="tips">
+                    <h2>Best Practices</h2>
+                    
+                    <div class="callout callout-success">
+                        <div class="callout-title">💡 Pro Tips</div>
+                        <ul>
+                            <li><strong>Test multiple market conditions</strong> - Bull markets, bear markets, sideways</li>
+                            <li><strong>Use realistic costs</strong> - Include commission + estimated slippage</li>
+                            <li><strong>Reserve data for validation</strong> - Don't optimize on your entire dataset</li>
+                            <li><strong>Be skeptical of perfect results</strong> - If it looks too good, it's probably overfit</li>
+                            <li><strong>Paper trade before live</strong> - Validate backtest results in real-time</li>
+                        </ul>
+                    </div>
+                </section>
+                
+                <!-- Footer Navigation -->
+                <footer class="page-footer">
+                    <div class="footer-nav">
+                        <a href="strategy-rules.htm">← Strategy Rules</a>
+                        <a href="simulation.htm">Simulation →</a>
+                    </div>
+                    <p class="text-center text-muted">
+                        IdiotProof Trading System Documentation &copy; 2026
+                    </p>
+                </footer>
+            </div>
+        </main>
+    </div>
+</body>
+</html>

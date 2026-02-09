@@ -1,0 +1,258 @@
+// IdiotProof Trading Protocol Buffer Definitions
+// https://developers.google.com/protocol-buffers
+//
+// These definitions provide type-safe, high-performance serialization
+// for cross-platform communication between IdiotProof.Core and any client.
+
+syntax = "proto3";
+
+option csharp_namespace = "IdiotProof.Core.FutureState.Protos";
+
+package idiotproof.trading;
+
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/wrappers.proto";
+
+// =============================================================================
+// ENUMS
+// =============================================================================
+
+enum OrderDirection {
+    ORDER_DIRECTION_UNSPECIFIED = 0;
+    ORDER_DIRECTION_LONG = 1;
+    ORDER_DIRECTION_SHORT = 2;
+}
+
+enum OrderType {
+    ORDER_TYPE_UNSPECIFIED = 0;
+    ORDER_TYPE_MARKET = 1;
+    ORDER_TYPE_LIMIT = 2;
+    ORDER_TYPE_STOP = 3;
+    ORDER_TYPE_STOP_LIMIT = 4;
+}
+
+enum OrderStatus {
+    ORDER_STATUS_UNSPECIFIED = 0;
+    ORDER_STATUS_PENDING = 1;
+    ORDER_STATUS_SUBMITTED = 2;
+    ORDER_STATUS_FILLED = 3;
+    ORDER_STATUS_PARTIALLY_FILLED = 4;
+    ORDER_STATUS_CANCELLED = 5;
+    ORDER_STATUS_REJECTED = 6;
+    ORDER_STATUS_EXPIRED = 7;
+}
+
+enum TradingSession {
+    TRADING_SESSION_UNSPECIFIED = 0;
+    TRADING_SESSION_PREMARKET = 1;
+    TRADING_SESSION_RTH = 2;      // Regular Trading Hours
+    TRADING_SESSION_AFTERHOURS = 3;
+    TRADING_SESSION_EXTENDED = 4; // All sessions
+}
+
+enum PositionStatus {
+    POSITION_STATUS_UNSPECIFIED = 0;
+    POSITION_STATUS_OPEN = 1;
+    POSITION_STATUS_CLOSED = 2;
+    POSITION_STATUS_PENDING = 3;
+}
+
+// =============================================================================
+// CORE MESSAGES
+// =============================================================================
+
+// Represents a trading order
+message Order {
+    string order_id = 1;
+    string client_id = 2;
+    string ticker = 3;
+    OrderDirection direction = 4;
+    OrderType order_type = 5;
+    int32 quantity = 6;
+    google.protobuf.DoubleValue limit_price = 7;
+    google.protobuf.DoubleValue stop_price = 8;
+    OrderStatus status = 9;
+    google.protobuf.Timestamp created_at = 10;
+    google.protobuf.Timestamp updated_at = 11;
+    google.protobuf.Timestamp filled_at = 12;
+    google.protobuf.DoubleValue fill_price = 13;
+    int32 filled_quantity = 14;
+    string rejection_reason = 15;
+    TradingSession session = 16;
+    bool outside_rth = 17;
+}
+
+// Represents an open position
+message Position {
+    string position_id = 1;
+    string ticker = 2;
+    OrderDirection direction = 3;
+    int32 quantity = 4;
+    double entry_price = 5;
+    double current_price = 6;
+    double unrealized_pnl = 7;
+    double realized_pnl = 8;
+    PositionStatus status = 9;
+    google.protobuf.Timestamp opened_at = 10;
+    google.protobuf.Timestamp closed_at = 11;
+    google.protobuf.DoubleValue take_profit = 12;
+    google.protobuf.DoubleValue stop_loss = 13;
+    google.protobuf.DoubleValue trailing_stop = 14;
+}
+
+// Account information
+message Account {
+    string account_id = 1;
+    double cash_balance = 2;
+    double buying_power = 3;
+    double portfolio_value = 4;
+    double day_trade_count = 5;
+    bool pattern_day_trader = 6;
+    repeated Position positions = 7;
+    repeated Order open_orders = 8;
+    google.protobuf.Timestamp as_of = 9;
+}
+
+// Trade execution record
+message TradeExecution {
+    string execution_id = 1;
+    string order_id = 2;
+    string ticker = 3;
+    OrderDirection direction = 4;
+    int32 quantity = 5;
+    double price = 6;
+    double commission = 7;
+    google.protobuf.Timestamp executed_at = 8;
+    string venue = 9;
+}
+
+// =============================================================================
+// REQUEST/RESPONSE MESSAGES
+// =============================================================================
+
+message PlaceOrderRequest {
+    string client_id = 1;
+    string ticker = 2;
+    OrderDirection direction = 3;
+    OrderType order_type = 4;
+    int32 quantity = 5;
+    google.protobuf.DoubleValue limit_price = 6;
+    google.protobuf.DoubleValue stop_price = 7;
+    google.protobuf.DoubleValue take_profit = 8;
+    google.protobuf.DoubleValue stop_loss = 9;
+    google.protobuf.DoubleValue trailing_stop_percent = 10;
+    TradingSession session = 11;
+    bool outside_rth = 12;
+    string strategy_id = 13;
+    string idempotency_key = 14; // Prevent duplicate orders
+}
+
+message PlaceOrderResponse {
+    bool success = 1;
+    Order order = 2;
+    string error_code = 3;
+    string error_message = 4;
+}
+
+message CancelOrderRequest {
+    string order_id = 1;
+    string client_id = 2;
+}
+
+message CancelOrderResponse {
+    bool success = 1;
+    string error_message = 2;
+}
+
+message ClosePositionRequest {
+    string position_id = 1;
+    string client_id = 2;
+    google.protobuf.DoubleValue limit_price = 3; // Optional limit price
+}
+
+message ClosePositionResponse {
+    bool success = 1;
+    Order closing_order = 2;
+    string error_message = 3;
+}
+
+message GetAccountRequest {
+    string client_id = 1;
+}
+
+message GetAccountResponse {
+    bool success = 1;
+    Account account = 2;
+    string error_message = 3;
+}
+
+message GetPositionsRequest {
+    string client_id = 1;
+    string ticker = 2; // Optional filter
+}
+
+message GetPositionsResponse {
+    bool success = 1;
+    repeated Position positions = 2;
+    string error_message = 3;
+}
+
+message GetOrdersRequest {
+    string client_id = 1;
+    repeated OrderStatus status_filter = 2;
+    string ticker = 3; // Optional filter
+    int32 limit = 4;
+}
+
+message GetOrdersResponse {
+    bool success = 1;
+    repeated Order orders = 2;
+    string error_message = 3;
+}
+
+// =============================================================================
+// STREAMING MESSAGES
+// =============================================================================
+
+message OrderUpdateStream {
+    string client_id = 1;
+    repeated string ticker_filter = 2;
+}
+
+message OrderUpdate {
+    Order order = 1;
+    string update_type = 2; // "created", "filled", "cancelled", etc.
+    google.protobuf.Timestamp timestamp = 3;
+}
+
+message PositionUpdateStream {
+    string client_id = 1;
+}
+
+message PositionUpdate {
+    Position position = 1;
+    string update_type = 2; // "opened", "closed", "pnl_update", etc.
+    google.protobuf.Timestamp timestamp = 3;
+}
+
+// =============================================================================
+// SERVICE DEFINITION
+// =============================================================================
+
+service TradingService {
+    // Order management
+    rpc PlaceOrder(PlaceOrderRequest) returns (PlaceOrderResponse);
+    rpc CancelOrder(CancelOrderRequest) returns (CancelOrderResponse);
+    rpc GetOrders(GetOrdersRequest) returns (GetOrdersResponse);
+    
+    // Position management
+    rpc ClosePosition(ClosePositionRequest) returns (ClosePositionResponse);
+    rpc GetPositions(GetPositionsRequest) returns (GetPositionsResponse);
+    
+    // Account
+    rpc GetAccount(GetAccountRequest) returns (GetAccountResponse);
+    
+    // Streaming updates
+    rpc StreamOrderUpdates(OrderUpdateStream) returns (stream OrderUpdate);
+    rpc StreamPositionUpdates(PositionUpdateStream) returns (stream PositionUpdate);
+}

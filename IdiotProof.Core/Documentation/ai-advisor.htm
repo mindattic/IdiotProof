@@ -1,0 +1,560 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Advisor (ChatGPT) - IdiotProof Documentation</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="page-wrapper">
+        <!-- Sidebar Navigation -->
+        <nav class="sidebar">
+            <div class="sidebar-header">
+                <a href="index.htm" class="logo">
+                    <span class="logo-icon">📈</span>
+                    <span class="logo-text">IdiotProof</span>
+                    <span class="logo-version">v2.0</span>
+                </a>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">Getting Started</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="index.htm" class="nav-link"><span class="nav-icon">🏠</span>Home</a></li>
+                    <li class="nav-item"><a href="quick-start.htm" class="nav-link"><span class="nav-icon">🚀</span>Quick Start</a></li>
+                    <li class="nav-item"><a href="architecture.htm" class="nav-link"><span class="nav-icon">🏗️</span>Architecture</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">Trading Systems</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="market-score.htm" class="nav-link"><span class="nav-icon">🎯</span>Market Score</a></li>
+                    <li class="nav-item"><a href="adaptive-order.htm" class="nav-link"><span class="nav-icon">🔄</span>AdaptiveOrder</a></li>
+                    <li class="nav-item"><a href="autonomous-trading.htm" class="nav-link"><span class="nav-icon">🤖</span>AutonomousTrading</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">AI & Machine Learning</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="ai-overview.htm" class="nav-link"><span class="nav-icon">🧠</span>AI Overview</a></li>
+                    <li class="nav-item"><a href="ai-advisor.htm" class="nav-link active"><span class="nav-icon">💬</span>AI Advisor (ChatGPT)</a></li>
+                    <li class="nav-item"><a href="lstm.htm" class="nav-link"><span class="nav-icon">🔮</span>LSTM Predictor</a></li>
+                    <li class="nav-item"><a href="pattern-matcher.htm" class="nav-link"><span class="nav-icon">🔍</span>Pattern Matcher</a></li>
+                    <li class="nav-item"><a href="ticker-learning.htm" class="nav-link"><span class="nav-icon">📚</span>Ticker Learning</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">Configuration</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="configuration.htm" class="nav-link"><span class="nav-icon">⚙️</span>Settings</a></li>
+                    <li class="nav-item"><a href="watchlist.htm" class="nav-link"><span class="nav-icon">👀</span>Watchlist</a></li>
+                    <li class="nav-item"><a href="strategy-rules.htm" class="nav-link"><span class="nav-icon">📝</span>Strategy Rules</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">Reference</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="glossary.htm" class="nav-link"><span class="nav-icon">📖</span>Glossary</a></li>
+                    <li class="nav-item"><a href="faq.htm" class="nav-link"><span class="nav-icon">❓</span>FAQ</a></li>
+                    <li class="nav-item"><a href="troubleshooting.htm" class="nav-link"><span class="nav-icon">🔧</span>Troubleshooting</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">Roadmap</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="futureproofing.htm" class="nav-link"><span class="nav-icon">🔮</span>Future-Proofing</a></li>
+                    <li class="nav-item"><a href="wishlist.htm" class="nav-link"><span class="nav-icon">✨</span>Wishlist</a></li>
+                </ul>
+            </div>
+        </nav>
+        
+        <!-- Main Content -->
+        <main class="main-content">
+            <div class="content-wrapper">
+                <!-- Breadcrumb -->
+                <div class="breadcrumb">
+                    <a href="index.htm">Home</a>
+                    <span class="breadcrumb-separator">/</span>
+                    <a href="ai-overview.htm">AI & Machine Learning</a>
+                    <span class="breadcrumb-separator">/</span>
+                    <span>AI Advisor (ChatGPT)</span>
+                </div>
+                
+                <!-- Header -->
+                <header class="page-header">
+                    <h1 class="page-title">AI Advisor (ChatGPT)</h1>
+                    <p class="page-subtitle">
+                        Your AI trading analyst. Interprets natural language stock tips,
+                        evaluates entries against custom rules, and provides a "third opinion"
+                        alongside technical indicators.
+                    </p>
+                </header>
+                
+                <!-- What It Does -->
+                <section id="overview">
+                    <h2>What the AI Advisor Does</h2>
+                    <p>
+                        The AI Advisor uses OpenAI's GPT-4 to provide intelligent trading analysis.
+                        It's not a replacement for indicators - it's an additional layer that:
+                    </p>
+                    <ul>
+                        <li>Interprets <strong>natural language stock tips</strong> from <a href="strategy-rules.htm">strategy-rules.json</a></li>
+                        <li>Evaluates whether your <strong>custom rules are satisfied</strong></li>
+                        <li>Provides a <strong>confidence score</strong> and <strong>reasoning</strong></li>
+                        <li>Identifies <strong>risk factors</strong> you might miss</li>
+                        <li>Suggests <strong>TP/SL adjustments</strong> based on market context</li>
+                    </ul>
+                    
+                    <div class="ascii-art">
+AI ADVISOR DECISION FLOW
+═══════════════════════════════════════════════════════════════════════════════
+
+    ┌─────────────────────────────────────────────────────────────────────────┐
+    │                     INPUT DATA COLLECTION                              │
+    └────────────────────────────────┬────────────────────────────────────────┘
+                                     │
+         ┌───────────────────────────┼───────────────────────────┐
+         │                           │                           │
+         ▼                           ▼                           ▼
+    ┌──────────┐              ┌──────────┐              ┌──────────────────┐
+    │ CURRENT  │              │  LSH     │              │ USER-DEFINED     │
+    │INDICATORS│              │ PATTERN  │              │ STRATEGY RULES   │
+    │          │              │ FORECAST │              │                  │
+    │ • RSI    │              │          │              │ • Breakout level │
+    │ • MACD   │              │ • Analogs│              │ • Support level  │
+    │ • ADX    │              │ • P(up)  │              │ • "No chasing"   │
+    │ • EMA    │              │ • Conf   │              │ • Targets        │
+    │ • VWAP   │              │          │              │                  │
+    └────┬─────┘              └────┬─────┘              └────────┬─────────┘
+         │                         │                             │
+         └─────────────────────────┼─────────────────────────────┘
+                                   │
+                                   ▼
+    ┌─────────────────────────────────────────────────────────────────────────┐
+    │                       CHATGPT PROMPT CONSTRUCTION                       │
+    │                                                                         │
+    │  "TRADE ANALYSIS REQUEST: CCHH                                         │
+    │                                                                         │
+    │  === CURRENT INDICATORS ===                                            │
+    │  Price: $0.72, VWAP: $0.68 (+5.9%), RSI: 58.2...                       │
+    │                                                                         │
+    │  === MARKET SCORE ===                                                  │
+    │  Total: +52 (VWAP=8, EMA=12, RSI=5, MACD=15, ADX=10, Vol=2)           │
+    │                                                                         │
+    │  === LSH PATTERN MATCHING ===                                          │
+    │  Analogs Found: 12, P(Higher): 72%, Suggested: LONG                    │
+    │                                                                         │
+    │  === USER-DEFINED STRATEGY RULES ===                                   │
+    │  RULE: Wait for breakout above $0.78, then pullback.                   │
+    │        Only enter if pullback holds above $0.70..."                    │
+    └────────────────────────────────┬────────────────────────────────────────┘
+                                     │
+                                     ▼
+    ┌─────────────────────────────────────────────────────────────────────────┐
+    │                          CHATGPT ANALYSIS                              │
+    │                                                                         │
+    │  The AI considers:                                                     │
+    │  • Are indicators bullish, bearish, or neutral?                        │
+    │  • Does LSH history support this entry?                                │
+    │  • Are the user's CUSTOM RULES satisfied?                              │
+    │  • What are the risks?                                                 │
+    │  • What TP/SL makes sense?                                             │
+    └────────────────────────────────┬────────────────────────────────────────┘
+                                     │
+                                     ▼
+    ┌─────────────────────────────────────────────────────────────────────────┐
+    │                          AI ANALYSIS RESULT                            │
+    │                                                                         │
+    │  ACTION: LONG                                                          │
+    │  CONFIDENCE: 78%                                                        │
+    │  REASONING: Indicators bullish, pullback holding above support.        │
+    │  RULE_STATUS: <span class="bullish">MET</span>                                                        │
+    │  RISKS: RSI approaching overbought, low volume on pullback             │
+    │  TPSL: TP1 at $0.85, SL at $0.68 (below VWAP)                          │
+    └─────────────────────────────────────────────────────────────────────────┘
+</div>
+                </section>
+                
+                <!-- Configuration -->
+                <section id="config">
+                    <h2>Configuration</h2>
+                    
+                    <h3>Setting the OpenAI API Key</h3>
+                    <p>Option 1: Environment variable (recommended)</p>
+                    <div class="code-block">
+<span class="token-comment"># PowerShell</span>
+$env:OPENAI_API_KEY = "sk-..."
+
+<span class="token-comment"># Or add to system environment variables for persistence</span>
+</div>
+                    
+                    <p>Option 2: settings.json</p>
+                    <div class="code-block">
+{
+    <span class="token-string">"ai"</span>: {
+        <span class="token-string">"openaiApiKey"</span>: <span class="token-string">"sk-..."</span>,
+        <span class="token-string">"model"</span>: <span class="token-string">"gpt-4"</span>,
+        <span class="token-string">"enableAdvisor"</span>: <span class="token-keyword">true</span>
+    }
+}
+</div>
+                    
+                    <h3>Supported Models</h3>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Model</th>
+                                <th>Quality</th>
+                                <th>Cost</th>
+                                <th>Recommended</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><code>gpt-4</code></td>
+                                <td>Excellent</td>
+                                <td>~$0.03/call</td>
+                                <td class="bullish">Yes</td>
+                            </tr>
+                            <tr>
+                                <td><code>gpt-4-turbo</code></td>
+                                <td>Excellent</td>
+                                <td>~$0.01/call</td>
+                                <td class="bullish">Yes (faster)</td>
+                            </tr>
+                            <tr>
+                                <td><code>gpt-3.5-turbo</code></td>
+                                <td>Good</td>
+                                <td>~$0.002/call</td>
+                                <td>Budget option</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </section>
+                
+                <!-- Prompt Structure -->
+                <section id="prompt">
+                    <h2>Prompt Structure</h2>
+                    <p>
+                        The AI Advisor constructs detailed prompts that give ChatGPT full context:
+                    </p>
+                    
+                    <div class="ascii-art">
+PROMPT SECTIONS
+═══════════════════════════════════════════════════════════════════════════════
+
+    ┌─────────────────────────────────────────────────────────────────────────┐
+    │  SECTION 1: CURRENT INDICATORS                                         │
+    ├─────────────────────────────────────────────────────────────────────────┤
+    │  Price: $150.25                                                        │
+    │  VWAP: $149.80 (+0.30%)                                                │
+    │  EMA 9/21/50: $150.10 / $149.50 / $148.20                              │
+    │  RSI(14): 58.3                                                         │
+    │  MACD: 0.45 | Signal: 0.32 | Hist: 0.13                               │
+    │  ADX: 34.2 | +DI: 28.5 | -DI: 18.2                                     │
+    │  Volume Ratio: 1.45x average                                           │
+    │  ATR: $1.25                                                            │
+    └─────────────────────────────────────────────────────────────────────────┘
+    
+    ┌─────────────────────────────────────────────────────────────────────────┐
+    │  SECTION 2: MARKET SCORE                                               │
+    ├─────────────────────────────────────────────────────────────────────────┤
+    │  Total: +52                                                            │
+    │  • VWAP: +8   (above VWAP)                                             │
+    │  • EMA:  +12  (price above short-term EMAs)                            │
+    │  • RSI:  +5   (neutral, not overbought)                                │
+    │  • MACD: +15  (bullish crossover)                                      │
+    │  • ADX:  +10  (+DI > -DI, strong trend)                                │
+    │  • Vol:  +2   (slightly above average)                                 │
+    └─────────────────────────────────────────────────────────────────────────┘
+    
+    ┌─────────────────────────────────────────────────────────────────────────┐
+    │  SECTION 3: LSH PATTERN MATCHING (if available)                        │
+    ├─────────────────────────────────────────────────────────────────────────┤
+    │  Analogs Found: 12                                                     │
+    │  P(Higher): 72%                                                        │
+    │  Avg Return: +1.8%                                                     │
+    │  Suggested: LONG                                                       │
+    │  Confidence: 68%                                                       │
+    └─────────────────────────────────────────────────────────────────────────┘
+    
+    ┌─────────────────────────────────────────────────────────────────────────┐
+    │  SECTION 4: USER-DEFINED STRATEGY RULES (if any)                       │
+    ├─────────────────────────────────────────────────────────────────────────┤
+    │  RULE (Day 2 Breakout-Pullback):                                       │
+    │  Wait for breakout above $0.78, then pullback.                         │
+    │  Only enter if pullback holds above $0.70.                             │
+    │  RULE: No chasing. Pullback entries only.                              │
+    │                                                                         │
+    │  Key Levels:                                                           │
+    │    - Support: $0.70                                                    │
+    │    - Breakout: $0.78                                                   │
+    │  Targets: $0.85, $1.00                                                 │
+    └─────────────────────────────────────────────────────────────────────────┘
+    
+    ┌─────────────────────────────────────────────────────────────────────────┐
+    │  SECTION 5: LEARNED WEIGHTS (if available)                             │
+    ├─────────────────────────────────────────────────────────────────────────┤
+    │  Method: GeneticOptimizer                                              │
+    │  Training Fitness: 0.82                                                │
+    │  Validation Fitness: 0.75                                              │
+    │  Long Entry Bias: +0.15                                                │
+    │  Short Entry Bias: -0.08                                               │
+    └─────────────────────────────────────────────────────────────────────────┘
+</div>
+                </section>
+                
+                <!-- Response Format -->
+                <section id="response">
+                    <h2>Response Format</h2>
+                    <p>
+                        The AI returns structured responses that are parsed into an <code>AIAnalysis</code> object:
+                    </p>
+                    
+                    <h3>AIAnalysis Properties</h3>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Property</th>
+                                <th>Type</th>
+                                <th>Description</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><code>Action</code></td>
+                                <td>string</td>
+                                <td>"LONG", "SHORT", or "WAIT"</td>
+                            </tr>
+                            <tr>
+                                <td><code>Confidence</code></td>
+                                <td>int</td>
+                                <td>0-100 confidence level</td>
+                            </tr>
+                            <tr>
+                                <td><code>Reasoning</code></td>
+                                <td>string</td>
+                                <td>One-sentence explanation</td>
+                            </tr>
+                            <tr>
+                                <td><code>RuleStatus</code></td>
+                                <td>string</td>
+                                <td>"MET", "NOT_MET", or "NO_RULES"</td>
+                            </tr>
+                            <tr>
+                                <td><code>RiskFactors</code></td>
+                                <td>List&lt;string&gt;</td>
+                                <td>Identified risks</td>
+                            </tr>
+                            <tr>
+                                <td><code>TpSlAdvice</code></td>
+                                <td>string</td>
+                                <td>Suggested take profit / stop loss</td>
+                            </tr>
+                            <tr>
+                                <td><code>IsUsable</code></td>
+                                <td>bool</td>
+                                <td>True if API call succeeded</td>
+                            </tr>
+                            <tr>
+                                <td><code>AreRulesMet</code></td>
+                                <td>bool</td>
+                                <td>Shorthand for RuleStatus == "MET"</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </section>
+                
+                <!-- Trading Principles -->
+                <section id="principles">
+                    <h2>Built-in Trading Principles</h2>
+                    <p>
+                        The AI Advisor is pre-programmed with trading principles via its system prompt:
+                    </p>
+                    
+                    <div class="ascii-art">
+AI TRADING PRINCIPLES (System Prompt)
+═══════════════════════════════════════════════════════════════════════════════
+
+    ENTRY SIGNALS
+    ─────────────────────────────────────────────────────────────────────────
+    • Score > +70 with confirming LSH   →  <span class="bullish">Strong LONG signal</span>
+    • Score < -70 with confirming LSH   →  <span class="bearish">Strong SHORT signal</span>
+    • Conflicting signals               →  <span class="text-muted">WAIT for clarity</span>
+    
+    CAUTION FLAGS
+    ─────────────────────────────────────────────────────────────────────────
+    • RSI > 80 or RSI < 20              →  Caution for reversals
+    • ADX < 20                          →  Weak trend, avoid trend trades
+    • Low volume                        →  Be skeptical of moves
+    
+    CUSTOM RULES HANDLING
+    ─────────────────────────────────────────────────────────────────────────
+    When user-defined strategy rules are provided:
+    
+    • If rules say "wait for breakout then pullback":
+      → Only recommend entry AFTER both conditions occur
+    
+    • If rules specify support levels:
+      → Verify price is above those levels
+    
+    • Rules are ADDITIONAL filters:
+      → They work WITH indicators, not against them
+    
+    • A good setup needs BOTH:
+      → Good indicators AND rule compliance
+    
+    • If rules say "no chasing":
+      → Recommend WAIT if no pullback has occurred
+    
+    RESPONSE REQUIREMENTS
+    ─────────────────────────────────────────────────────────────────────────
+    • In reasoning, explicitly state whether custom rules are satisfied
+    • Never hallucinate or make up data
+    • If uncertain, recommend WAIT
+    • Be concise and actionable
+</div>
+                </section>
+                
+                <!-- Use Cases -->
+                <section id="usecases">
+                    <h2>Use Cases</h2>
+                    
+                    <h3>1. Entry Analysis</h3>
+                    <p>Primary use case - evaluate a potential trade entry:</p>
+                    <div class="code-block">
+<span class="token-keyword">var</span> analysis = <span class="token-keyword">await</span> advisor.AnalyzeEntryAsync(
+    symbol: <span class="token-string">"AAPL"</span>,
+    snapshot: currentIndicators,
+    lshForecast: patternMatchResult,
+    score: marketScore,
+    learnedWeights: tickerWeights
+);
+
+<span class="token-keyword">if</span> (analysis.Action == <span class="token-string">"LONG"</span> && analysis.Confidence >= <span class="token-number">70</span> && analysis.AreRulesMet)
+{
+    <span class="token-comment">// Strong buy signal with rules satisfied</span>
+}
+</div>
+                    
+                    <h3>2. Learning Method Analysis</h3>
+                    <p>Evaluate which learning method performs best:</p>
+                    <div class="code-block">
+<span class="token-keyword">var</span> analysis = <span class="token-keyword">await</span> advisor.AnalyzeLearningResultsAsync(
+    symbol: <span class="token-string">"NVDA"</span>,
+    methods: learningResults,
+    totalTrainingBars: <span class="token-number">500</span>,
+    totalValidationBars: <span class="token-number">100</span>
+);
+<span class="token-comment">// AI recommends: "GENETIC" or "ENSEMBLE"</span>
+</div>
+                    
+                    <h3>3. Trade Outcome Analysis</h3>
+                    <p>Learn from completed trades:</p>
+                    <div class="code-block">
+<span class="token-keyword">var</span> feedback = <span class="token-keyword">await</span> advisor.AnalyzeTradeOutcomeAsync(
+    symbol: <span class="token-string">"TSLA"</span>,
+    isLong: <span class="token-keyword">true</span>,
+    entryPrice: <span class="token-number">250.00</span>,
+    exitPrice: <span class="token-number">245.00</span>,
+    entrySnapshot: indicators,
+    exitReason: <span class="token-string">"Stop loss hit"</span>
+);
+<span class="token-comment">// Returns: "RSI was at 78 at entry, suggesting overbought conditions..."</span>
+</div>
+                </section>
+                
+                <!-- Rate Limiting -->
+                <section id="ratelimiting">
+                    <h2>Rate Limiting & Caching</h2>
+                    <p>
+                        To control API costs and avoid rate limits, the AI Advisor implements:
+                    </p>
+                    <ul>
+                        <li><strong>Minimum call interval:</strong> 2 seconds between API calls</li>
+                        <li><strong>Response caching:</strong> 5-minute cache for identical requests</li>
+                        <li><strong>Call counting:</strong> Track API usage with <code>advisor.CallCount</code></li>
+                    </ul>
+                    
+                    <div class="card">
+                        <p><strong>Estimated Costs (GPT-4):</strong></p>
+                        <ul>
+                            <li>~500-1000 tokens per analysis call</li>
+                            <li>~$0.02-0.03 per call</li>
+                            <li>100 calls/day ≈ $2-3/day</li>
+                        </ul>
+                    </div>
+                </section>
+                
+                <!-- Accuracy Tracking -->
+                <section id="accuracy">
+                    <h2>Accuracy Tracking</h2>
+                    <p>
+                        The AI Advisor tracks its own accuracy for self-improvement:
+                    </p>
+                    
+                    <div class="code-block">
+<span class="token-comment">// Record actual outcome after trade</span>
+advisor.RecordOutcome(analysis, wasCorrect: <span class="token-keyword">true</span>);
+
+<span class="token-comment">// Get accuracy statistics</span>
+<span class="token-keyword">var</span> (total, correct, accuracy) = advisor.GetAccuracyStats();
+Console.WriteLine($<span class="token-string">"AI Accuracy: {accuracy:F1}% ({correct}/{total})"</span>);
+</div>
+                </section>
+                
+                <!-- Integration -->
+                <section id="integration">
+                    <h2>Integration with Trading Flow</h2>
+                    
+                    <div class="ascii-art">
+WHERE AI ADVISOR FITS
+═══════════════════════════════════════════════════════════════════════════════
+
+    ENTRY DECISION FLOW
+    ─────────────────────────────────────────────────────────────────────────
+    
+    1. Market Score calculated         →  +52 (bullish)
+    2. LSTM prediction generated       →  +0.4 direction, 0.7 confidence
+    3. LSH pattern matching            →  72% probability higher
+    4. <span class="bullish">AI Advisor consulted</span>             →  <span class="bullish">"LONG, 78% conf, rules MET"</span>
+    5. Final decision made             →  ENTER LONG
+    
+    
+    The AI Advisor is ONE input among several. It does NOT override:
+    ─────────────────────────────────────────────────────────────────────────
+    
+    ┌───────────────────────────────────────────────────────────────────┐
+    │                                                                   │
+    │   Market Score (primary)                                          │
+    │         ├── LSTM adjustment: ±25 points                           │
+    │         ├── LSH validation: confirms/contradicts                  │
+    │         └── <span class="bullish">AI Advisor: third opinion + rule check</span>              │
+    │                                                                   │
+    │   Final Score → Entry threshold → Trade or Wait                  │
+    │                                                                   │
+    └───────────────────────────────────────────────────────────────────┘
+</div>
+                </section>
+                
+                <!-- Footer -->
+                <footer class="page-footer">
+                    <div class="footer-nav">
+                        <a href="ai-overview.htm">← AI Overview</a>
+                        <a href="lstm.htm">Next: LSTM Predictor →</a>
+                    </div>
+                    <p class="text-center text-muted">
+                        IdiotProof Trading System Documentation &copy; 2026
+                    </p>
+                </footer>
+            </div>
+        </main>
+    </div>
+</body>
+</html>

@@ -4,6 +4,7 @@
 // ================================================================
 
 using IBApi;
+using IdiotProof.Constants;
 using IdiotProof.Core.Models;
 using IdiotProof.Helpers;
 using IdiotProof.Logging;
@@ -11,6 +12,7 @@ using IdiotProof.Models;
 using IdiotProof.Services;
 using IdiotProof.Strategy;
 using IdiotProof.Settings;
+using IdiotProof.Testing;
 using IdiotProof.Validation;
 
 namespace IdiotProof {
@@ -74,6 +76,8 @@ namespace IdiotProof {
 
         private static void Run()
         {
+            PrintBanner();
+            
             Log("IdiotProof Core starting...");
             Log($"Mode: {(AppSettings.IsPaperTrading ? "PAPER" : "LIVE")} | Port: {AppSettings.Port}");
 
@@ -86,7 +90,7 @@ namespace IdiotProof {
             IbWrapper.SessionLogger = _sessionLogger;
             StrategyManager.SessionLogger = _sessionLogger;
             // StrategyLoader removed - no longer needed
-            IdiotProof.Helpers.StrategyValidator.SessionLogger = _sessionLogger;
+            IdiotProof.Helpers.StrategyValidatorHelper.SessionLogger = _sessionLogger;
 
             // Initialize trade tracking service
             _tradeTrackingService = new TradeTrackingService();
@@ -225,7 +229,7 @@ namespace IdiotProof {
             // Validate using backend's StrategyValidator
             if (_strategies.Count > 0)
             {
-                var result = IdiotProof.Helpers.StrategyValidator.ValidateAll(_strategies);
+                var result = IdiotProof.Helpers.StrategyValidatorHelper.ValidateAll(_strategies);
                 if (!result.IsValid)
                 {
                     foreach (var error in result.Errors)
@@ -257,48 +261,40 @@ namespace IdiotProof {
             }
 
             // Load tickers from watchlist
-            var tickers = LoadTickers();
-            if (tickers.Count == 0)
+            var watchlist = WatchlistManager.Load();
+            var enabledTickers = watchlist.EnabledTickers.ToList();
+            if (enabledTickers.Count == 0)
             {
                 Log("No tickers to trade. Press 1 to add tickers first.");
                 return;
             }
             
-            // Check which tickers have learned profiles
-            var profileFolder = SettingsManager.GetDataFolder();
-            var tickersWithProfiles = tickers
-                .Where(t => File.Exists(Path.Combine(profileFolder, $"{t}.profile.json")))
-                .ToList();
+            Log($"Starting trading with {enabledTickers.Count} ticker(s)...");
             
-            if (tickersWithProfiles.Count == 0)
-            {
-                Log("No learned profiles found. Press 2 to learn tickers first.");
-                return;
-            }
-            
-            Log($"Starting trading with {tickersWithProfiles.Count} ticker(s)...");
-            
-            // Create autonomous strategies for each ticker with a profile
+            // Create strategies for each ticker in watchlist
             _strategies.Clear();
-            foreach (var symbol in tickersWithProfiles)
+            var profileFolder = SettingsManager.GetDataFolder();
+            foreach (var entry in enabledTickers)
             {
-                // Create TradingStrategy directly (Stock fluent API removed)
+                var hasProfile = File.Exists(Path.Combine(profileFolder, $"{entry.Symbol}.profile.json"));
+                var qty = entry.Quantity > 0 ? entry.Quantity : 100; // Default 100 if not set
+                
                 var strategy = new TradingStrategy
                 {
-                    Symbol = symbol,
-                    Name = $"{symbol} Auto",
+                    Symbol = entry.Symbol,
+                    Name = entry.Name ?? $"{entry.Symbol} Auto",
                     Conditions = Array.Empty<IStrategyCondition>(),
                     Order = new OrderAction
                     {
                         Side = IdiotProof.Enums.OrderSide.Buy,
-                        Quantity = 100
+                        Quantity = qty
                     },
-                    Session = IdiotProof.Enums.TradingSession.Extended,
+                    Session = watchlist.DefaultSession,
                     Enabled = true
                 };
                 
                 _strategies.Add(strategy);
-                Log($"  [{symbol}] Loaded with learned profile");
+                Log($"  [{entry.Symbol}] Qty: {qty}{(hasProfile ? " (has profile)" : "")}");
             }
 
             var enabledStrategies = _strategies.FindAll(s => s.Enabled);
@@ -610,6 +606,19 @@ namespace IdiotProof {
                             }
                             break;
 
+                        case "5":
+                        case "t":
+                        case "T":
+                            if (!_isActive)
+                            {
+                                RunLiveTradingTests();
+                            }
+                            else
+                            {
+                                Log("Cannot run tests while trading is active. Stop trading first.");
+                            }
+                            break;
+
                         case "s":
                         case "S":
                             if (_isActive)
@@ -708,6 +717,7 @@ namespace IdiotProof {
                 Log("  2. Learn     - AI learning (150+ weights)");
                 Log("  3. Backtest  - Test learned weights");
                 Log("  4. Live      - Start live trading");
+                Log("  5. Tests     - Run BUY/SELL/SHORT/COVER tests");
                 Log("  0. Exit");
             }
             Log("========================================");
@@ -732,10 +742,10 @@ namespace IdiotProof {
         // ====================================================================
         
         private static string GetTickersPath() => 
-            Path.Combine(SettingsManager.GetDataFolder(), "tickers.json");
+            Path.Combine(SettingsManager.GetDataFolder(), "watchlist.json");
         
         /// <summary>
-        /// Ticker configuration with capital allocation
+        /// Ticker configuration with capital allocation (legacy - now uses WatchlistManager)
         /// </summary>
         private class TickerConfig
         {
@@ -745,63 +755,55 @@ namespace IdiotProof {
         
         private static Dictionary<string, decimal> LoadTickerConfigs()
         {
-            var path = GetTickersPath();
-            if (!File.Exists(path))
-                return new Dictionary<string, decimal>();
-            
-            try
-            {
-                var json = File.ReadAllText(path);
-                
-                // Try new format first (dictionary with capital)
-                try
-                {
-                    var configs = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, decimal>>(json);
-                    if (configs != null)
-                        return configs;
-                }
-                catch { }
-                
-                // Fall back to old format (list of symbols)
-                var oldFormat = System.Text.Json.JsonSerializer.Deserialize<List<string>>(json);
-                if (oldFormat != null)
-                {
-                    // Migrate to new format with default capital
-                    var migrated = oldFormat.ToDictionary(s => s, _ => 1000m);
-                    SaveTickerConfigs(migrated);
-                    return migrated;
-                }
-                
-                return new Dictionary<string, decimal>();
-            }
-            catch
-            {
-                return new Dictionary<string, decimal>();
-            }
+            // Use WatchlistManager as the source of truth
+            var watchlist = WatchlistManager.Load();
+            return watchlist.Tickers.ToDictionary(
+                t => t.Symbol,
+                t => (decimal)(t.Quantity > 0 ? t.Quantity * 100 : 1000),
+                StringComparer.OrdinalIgnoreCase);
         }
         
         private static void SaveTickerConfigs(Dictionary<string, decimal> configs)
         {
-            var path = GetTickersPath();
-            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-            var json = System.Text.Json.JsonSerializer.Serialize(configs, new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
-            File.WriteAllText(path, json);
+            var watchlist = WatchlistManager.Load();
+            
+            // Add any new tickers from configs
+            foreach (var kvp in configs)
+            {
+                if (!watchlist.Tickers.Any(t => string.Equals(t.Symbol, kvp.Key, StringComparison.OrdinalIgnoreCase)))
+                {
+                    watchlist.Tickers.Add(new WatchlistEntry { Symbol = kvp.Key.ToUpperInvariant(), Enabled = true });
+                }
+            }
+            
+            // Remove any tickers not in configs
+            watchlist.Tickers.RemoveAll(t => !configs.ContainsKey(t.Symbol));
+            
+            WatchlistManager.Save(watchlist);
         }
         
         private static List<string> LoadTickers()
         {
-            return LoadTickerConfigs().Keys.ToList();
+            return WatchlistManager.Load().Tickers.Select(t => t.Symbol).ToList();
         }
         
         private static void SaveTickers(List<string> tickers)
         {
-            var existing = LoadTickerConfigs();
-            var newConfigs = new Dictionary<string, decimal>();
+            var watchlist = WatchlistManager.Load();
+            
+            // Add new tickers
             foreach (var t in tickers)
             {
-                newConfigs[t] = existing.TryGetValue(t, out var cap) ? cap : 1000m;
+                if (!watchlist.Tickers.Any(e => string.Equals(e.Symbol, t, StringComparison.OrdinalIgnoreCase)))
+                {
+                    watchlist.Tickers.Add(new WatchlistEntry { Symbol = t.ToUpperInvariant(), Enabled = true });
+                }
             }
-            SaveTickerConfigs(newConfigs);
+            
+            // Remove tickers not in list
+            watchlist.Tickers.RemoveAll(e => !tickers.Contains(e.Symbol, StringComparer.OrdinalIgnoreCase));
+            
+            WatchlistManager.Save(watchlist);
         }
         
         private static double GetTickerPrice(string symbol)
@@ -859,99 +861,92 @@ namespace IdiotProof {
         
         private static void RunTickersMenu()
         {
-            Log("");
-            Log("=== Ticker Watchlist ===");
-            Log("Commands: [A]dd, [D]elete, [C]lear, [S]et Allocation, [R]efresh Prices, [ESC] return");
-            Log("");
-            
             while (true)
             {
-                var configs = LoadTickerConfigs();
+                Log("");
                 
-                if (configs.Count == 0)
+                var watchlist = WatchlistManager.Load();
+                
+                if (watchlist.Tickers.Count == 0)
                 {
-                    Log("  (no tickers - press A to add)");
+                    Log("=== Ticker Watchlist ===");
+                    Log("");
+                    Log("  (no tickers - press 1 to add)");
                 }
                 else
                 {
-                    var profileFolder = SettingsManager.GetDataFolder();
-                    Log("  #   Symbol   Allocation   Price      Shares   Status");
-                    Log("  --- -------- ------------ ---------- -------- --------");
-                    
-                    int i = 1;
-                    foreach (var kvp in configs.OrderBy(k => k.Key))
-                    {
-                        var symbol = kvp.Key;
-                        var capital = kvp.Value;
-                        var hasProfile = File.Exists(Path.Combine(profileFolder, $"{symbol}.profile.json"));
-                        var hasWeights = File.Exists(Path.Combine(profileFolder, $"{symbol}.weights.json"));
-                        
-                        var price = GetTickerPrice(symbol);
-                        var priceStr = price > 0 ? $"${price:F2}" : "--";
-                        var sharesStr = price > 0 ? ((int)(capital / (decimal)price)).ToString() : "--";
-                        
-                        var status = hasWeights ? "LEARNED" : (hasProfile ? "PROFILE" : "NEW");
-                        
-                        Log($"  {i,-3} {symbol,-8} ${capital,-10:N0} {priceStr,-10} {sharesStr,-8} [{status}]");
-                        i++;
-                    }
+                    // Use WatchlistManager for display
+                    TickerDataCache.PrintTable();
                 }
                 Log("");
+                Log("=== Commands ===");
+                Log("  1. Add            - Add ticker(s) to watchlist");
+                Log("  2. Delete         - Remove a ticker");
+                Log("  3. Set Allocation - Change capital allocation");
+                Log("  4. Clear          - Remove all tickers");
+                Log("  5. Refresh        - Refresh prices/descriptions (parallel fetch)");
+                Log("  0. Return");
+                Log("========================================");
                 
-                Console.Write("Command (A/D/S/C/R/ESC): ");
+                Console.Write("Select: ");
                 var key = Console.ReadKey(intercept: true);
                 Console.WriteLine();
                 
-                if (key.Key == ConsoleKey.Escape)
+                if (key.Key == ConsoleKey.Escape || key.KeyChar == '0')
                 {
                     Log("Returning to menu...");
                     break;
                 }
                 
-                switch (char.ToUpper(key.KeyChar))
+                switch (key.KeyChar)
                 {
-                    case 'A':
+                    case '1':
                         Console.Write("  Add ticker(s) (e.g., NVDA or NVDA,AAPL,TSLA): ");
                         var addInput = Console.ReadLine()?.Trim().ToUpperInvariant();
                         if (!string.IsNullOrEmpty(addInput))
                         {
+                            var existingSymbols = watchlist.Tickers.Select(t => t.Symbol).ToHashSet(StringComparer.OrdinalIgnoreCase);
                             var newTickers = addInput
                                 .Split(new[] { ',', ';', ' ', '\t' }, StringSplitOptions.RemoveEmptyEntries)
                                 .Select(s => s.Trim().ToUpperInvariant())
-                                .Where(s => !string.IsNullOrWhiteSpace(s) && !configs.ContainsKey(s))
+                                .Where(s => !string.IsNullOrWhiteSpace(s) && !existingSymbols.Contains(s))
                                 .ToList();
                             
                             if (newTickers.Count > 0)
                             {
                                 foreach (var t in newTickers)
-                                    configs[t] = 1000m; // Default capital
-                                SaveTickerConfigs(configs);
-                                Log($"  Added: {string.Join(", ", newTickers)} (default $1,000 each)");
+                                    watchlist.Tickers.Add(new WatchlistEntry { Symbol = t, Enabled = true });
+                                WatchlistManager.Save(watchlist);
+                                Log($"  Added: {string.Join(", ", newTickers)}");
+                                
+                                // Parallel fetch prices and descriptions for new tickers
+                                Log("  Fetching data for new tickers...");
+                                RefreshTickerCacheAsync(newTickers).GetAwaiter().GetResult();
                             }
                         }
                         break;
                         
-                    case 'D':
+                    case '2':
                         Console.Write("  Delete ticker (number or symbol): ");
                         var delInput = Console.ReadLine()?.Trim().ToUpperInvariant();
                         if (!string.IsNullOrEmpty(delInput))
                         {
-                            var tickers = configs.Keys.OrderBy(k => k).ToList();
-                            string? toRemove = null;
+                            var tickers = watchlist.Tickers.OrderBy(t => t.Symbol).ToList();
+                            WatchlistEntry? toRemove = null;
                             if (int.TryParse(delInput, out var idx) && idx >= 1 && idx <= tickers.Count)
                             {
                                 toRemove = tickers[idx - 1];
                             }
-                            else if (configs.ContainsKey(delInput))
+                            else
                             {
-                                toRemove = delInput;
+                                toRemove = tickers.FirstOrDefault(t => string.Equals(t.Symbol, delInput, StringComparison.OrdinalIgnoreCase));
                             }
                             
                             if (toRemove != null)
                             {
-                                configs.Remove(toRemove);
-                                SaveTickerConfigs(configs);
-                                Log($"  Removed: {toRemove}");
+                                watchlist.Tickers.Remove(toRemove);
+                                WatchlistManager.Save(watchlist);
+                                Log($"  Removed: {toRemove.Symbol}");
                             }
                             else
                             {
@@ -960,32 +955,32 @@ namespace IdiotProof {
                         }
                         break;
                     
-                    case 'S':
-                        Console.Write("  Set allocation for ticker (number or symbol): ");
+                    case '3':
+                        Console.Write("  Set quantity for ticker (number or symbol): ");
                         var capTickerInput = Console.ReadLine()?.Trim().ToUpperInvariant();
                         if (!string.IsNullOrEmpty(capTickerInput))
                         {
-                            var tickers = configs.Keys.OrderBy(k => k).ToList();
-                            string? targetTicker = null;
+                            var tickers = watchlist.Tickers.OrderBy(t => t.Symbol).ToList();
+                            WatchlistEntry? targetEntry = null;
                             if (int.TryParse(capTickerInput, out var idx) && idx >= 1 && idx <= tickers.Count)
                             {
-                                targetTicker = tickers[idx - 1];
+                                targetEntry = tickers[idx - 1];
                             }
-                            else if (configs.ContainsKey(capTickerInput))
+                            else
                             {
-                                targetTicker = capTickerInput;
+                                targetEntry = tickers.FirstOrDefault(t => string.Equals(t.Symbol, capTickerInput, StringComparison.OrdinalIgnoreCase));
                             }
                             
-                            if (targetTicker != null)
+                            if (targetEntry != null)
                             {
-                                var currentCap = configs[targetTicker];
-                                Console.Write($"  Allocation for {targetTicker} (current ${currentCap:N0}): $");
-                                var capInput = Console.ReadLine()?.Trim().Replace("$", "").Replace(",", "");
-                                if (decimal.TryParse(capInput, out var newCap) && newCap > 0)
+                                var currentQty = targetEntry.Quantity > 0 ? targetEntry.Quantity : 0;
+                                Console.Write($"  Quantity for {targetEntry.Symbol} (current {currentQty}, 0=auto): ");
+                                var qtyInput = Console.ReadLine()?.Trim();
+                                if (int.TryParse(qtyInput, out var newQty) && newQty >= 0)
                                 {
-                                    configs[targetTicker] = newCap;
-                                    SaveTickerConfigs(configs);
-                                    Log($"  {targetTicker} allocation set to ${newCap:N0}");
+                                    targetEntry.Quantity = newQty;
+                                    WatchlistManager.Save(watchlist);
+                                    Log($"  {targetEntry.Symbol} quantity set to {(newQty == 0 ? "auto" : newQty.ToString())}");
                                 }
                                 else
                                 {
@@ -999,30 +994,61 @@ namespace IdiotProof {
                         }
                         break;
                         
-                    case 'C':
+                    case '4':
                         Console.Write("  Clear all tickers? (Y/N): ");
                         var confirm = Console.ReadKey(intercept: true);
                         Console.WriteLine();
                         if (char.ToUpper(confirm.KeyChar) == 'Y')
                         {
-                            configs.Clear();
-                            SaveTickerConfigs(configs);
+                            watchlist.Tickers.Clear();
+                            WatchlistManager.Save(watchlist);
                             Log("  All tickers cleared.");
                         }
                         break;
                     
-                    case 'R':
-                        Log("  Refreshing prices...");
-                        // Just re-display the list (prices will be fetched)
+                    case '5':
+                        Log("  Refreshing all tickers (parallel fetch)...");
+                        var allSymbols = watchlist.Tickers.Select(t => t.Symbol).ToList();
+                        RefreshTickerCacheAsync(allSymbols).GetAwaiter().GetResult();
+                        Log("  Refresh complete.");
                         break;
                         
                     default:
-                        Log("  Unknown command. Use A/D/S/C/R or ESC.");
+                        Log("  Unknown command. Use 1-5 or 0 to return.");
                         break;
                 }
                 
                 Log("");
             }
+        }
+        
+        /// <summary>
+        /// Refreshes ticker cache data in parallel (prices, LOD/HOD, descriptions).
+        /// </summary>
+        private static async Task RefreshTickerCacheAsync(IEnumerable<string> symbols)
+        {
+            // Create price provider that uses IBKR connection
+            Func<string, double>? priceProvider = null;
+            if (_isConnected && _wrapper != null && _client != null)
+            {
+                priceProvider = symbol =>
+                {
+                    try
+                    {
+                        // Check cached prices first
+                        if (_prices.TryGetValue(symbol, out var cached) && cached > 0)
+                            return cached;
+                        
+                        return GetTickerPrice(symbol);
+                    }
+                    catch
+                    {
+                        return 0;
+                    }
+                };
+            }
+            
+            await TickerDataCache.RefreshAsync(symbols, priceProvider, _shutdownCts.Token);
         }
 
         private static void RunAiLearn()
@@ -1468,6 +1494,69 @@ namespace IdiotProof {
             Log("");
         }
 
+        // ====================================================================
+        // LIVE TRADING TESTS
+        // ====================================================================
+
+        /// <summary>
+        /// Runs live trading tests to validate BUY/SELL/SHORT/COVER execution.
+        /// </summary>
+        private static void RunLiveTradingTests()
+        {
+            if (!_isConnected || _wrapper == null || _client == null)
+            {
+                Log("ERROR: Not connected to IBKR. Connect first before running tests.");
+                return;
+            }
+
+            // Show test menu
+            QuickOrderTests.ShowTestMenu();
+
+            // Get user selection
+            var (symbol, skipShorts, cancel) = QuickOrderTests.GetUserSelection();
+            if (cancel || string.IsNullOrEmpty(symbol))
+            {
+                Log("Tests cancelled.");
+                return;
+            }
+
+            // Confirm execution
+            if (!QuickOrderTests.ConfirmExecution(symbol, AppSettings.IsPaperTrading))
+            {
+                Log("Tests cancelled.");
+                return;
+            }
+
+            // Create config (Quantity=0 means auto-calculate from $20 target)
+            var config = new LiveTradingTestConfig
+            {
+                Symbol = symbol,
+                Quantity = 0,  // Auto-calculate ~$20 worth
+                FullSuite = true,
+                SkipShortTests = skipShorts,
+                AutoCleanup = true
+            };
+
+            // Run tests
+            Log($"\nRunning live trading tests for {symbol}...");
+            Log("This may take up to 2 minutes. Please wait.\n");
+
+            try
+            {
+                using var runner = new LiveTradingTestRunner(_wrapper, _client, config);
+                var summary = runner.RunAllTestsAsync().GetAwaiter().GetResult();
+
+                // Print results
+                summary.PrintSummary();
+                QuickOrderTests.PrintRecommendations(summary);
+            }
+            catch (Exception ex)
+            {
+                Log($"Test runner failed: {ex.Message}");
+                Log($"Stack trace: {ex.StackTrace}");
+            }
+        }
+
         private static void RunActiveMonitoringLoop()
         {
             // While trading is active, monitor for user input
@@ -1514,9 +1603,9 @@ namespace IdiotProof {
 
         private static bool ConfirmActivateTrading()
         {
-            var configs = LoadTickerConfigs();
+            var watchlist = WatchlistManager.Load();
             
-            if (configs.Count == 0)
+            if (watchlist.Tickers.Count == 0)
             {
                 Log("No tickers configured. Add tickers first (option 1).");
                 return false;
@@ -1531,25 +1620,28 @@ namespace IdiotProof {
             
             Log($"  Mode: {(AppSettings.IsPaperTrading ? "PAPER TRADING" : "*** LIVE TRADING ***")}");
             Log("+--------------------------------------------------------------+");
-            Log("  Symbol     Capital      Price      Shares");
-            Log("  --------   ----------   --------   ------");
+            Log("  Symbol     Quantity     Price      Value");
+            Log("  --------   ----------   --------   ----------");
             
-            decimal totalCapital = 0;
-            foreach (var kvp in configs.OrderBy(k => k.Key))
+            double totalValue = 0;
+            foreach (var entry in watchlist.Tickers.OrderBy(t => t.Symbol))
             {
-                var symbol = kvp.Key;
-                var capital = kvp.Value;
-                totalCapital += capital;
+                var symbol = entry.Symbol;
+                var cached = TickerDataCache.Get(symbol);
+                var price = cached?.Price ?? GetTickerPrice(symbol);
+                var qty = entry.Quantity > 0 ? entry.Quantity : (price > 0 ? TradingDefaults.GetDefaultQuantityForPrice(price) : 0);
+                var value = qty * price;
+                totalValue += value;
                 
-                var price = GetTickerPrice(symbol);
                 var priceStr = price > 0 ? $"${price:F2}" : "--";
-                var sharesStr = price > 0 ? ((int)(capital / (decimal)price)).ToString() : "--";
+                var qtyStr = qty > 0 ? qty.ToString() : "--";
+                var valueStr = value > 0 ? $"${value:N0}" : "--";
                 
-                Log($"  {symbol,-10} ${capital,-10:N0} {priceStr,-10} {sharesStr}");
+                Log($"  {symbol,-10} {qtyStr,-12} {priceStr,-10} {valueStr}");
             }
             
             Log("+--------------------------------------------------------------+");
-            Log($"  Total Capital: ${totalCapital:N0}");
+            Log($"  Total Value: ${totalValue:N0}");
             Log("+--------------------------------------------------------------+");
             
             Console.Write("  Start trading? (y/n): ");
@@ -1628,7 +1720,9 @@ namespace IdiotProof {
             Thread.Sleep(500); // Wait for cancels to process
             
             // Close all positions
-            _ = CloseAllPositionsAsync();
+            #pragma warning disable CS4014 // Fire and forget
+            CloseAllPositionsAsync();
+            #pragma warning restore CS4014
         }
 
         private static void PrintCurrentPrices()
@@ -2494,10 +2588,29 @@ namespace IdiotProof {
 
         // ----- Helpers -----
 
+        private static void PrintBanner()
+        {
+            Console.WriteLine();
+            Console.WriteLine("+=====================================================================+");
+            Console.WriteLine("|  ___ ____ ___ ___ _____ ____  ____   ___   ___  _____               |");
+            Console.WriteLine("| |_ _|  _ \\_ _/ _ \\_   _|  _ \\|  _ \\ / _ \\ / _ \\|  ___|              |");
+            Console.WriteLine("|  | || | | | | | | || | | |_) | |_) | | | | | | | |_                 |");
+            Console.WriteLine("|  | || |_| | | |_| || | |  __/|  _ <| |_| | |_| |  _|                |");
+            Console.WriteLine("| |___|____/___\\___/ |_| |_|   |_| \\_\\\\___/ \\___/|_|                  |");
+            Console.WriteLine("|                                                                     |");
+            Console.WriteLine("|  _____ ____      _    ____ ___ _   _  ____                          |");
+            Console.WriteLine("| |_   _|  _ \\    / \\  |  _ \\_ _| \\ | |/ ___|                         |");
+            Console.WriteLine("|   | | | |_) |  / _ \\ | | | | ||  \\| | |  _                          |");
+            Console.WriteLine("|   | | |  _ <  / ___ \\| |_| | || |\\  | |_| |                         |");
+            Console.WriteLine("|   |_| |_| \\_\\/_/   \\_\\____/___|_| \\_|\\____|                         |");
+            Console.WriteLine("|                                                              v2.0  |");
+            Console.WriteLine("+=====================================================================+");
+            Console.WriteLine();
+        }
+
         private static void Log(string message)
         {
-            var formatted = $"{TimeStamp.NowBracketed} {message}";
-            Console.WriteLine(formatted);
+            ConsoleLog.Info(message);
         }
     }
 }

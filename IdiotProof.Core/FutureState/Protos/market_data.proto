@@ -1,0 +1,268 @@
+// IdiotProof Market Data Protocol Buffer Definitions
+// High-performance streaming market data
+
+syntax = "proto3";
+
+option csharp_namespace = "IdiotProof.Core.FutureState.Protos";
+
+package idiotproof.marketdata;
+
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/wrappers.proto";
+
+// =============================================================================
+// ENUMS
+// =============================================================================
+
+enum BarTimeframe {
+    BAR_TIMEFRAME_UNSPECIFIED = 0;
+    BAR_TIMEFRAME_1_MINUTE = 1;
+    BAR_TIMEFRAME_5_MINUTE = 5;
+    BAR_TIMEFRAME_15_MINUTE = 15;
+    BAR_TIMEFRAME_30_MINUTE = 30;
+    BAR_TIMEFRAME_1_HOUR = 60;
+    BAR_TIMEFRAME_4_HOUR = 240;
+    BAR_TIMEFRAME_DAILY = 1440;
+}
+
+enum MarketStatus {
+    MARKET_STATUS_UNSPECIFIED = 0;
+    MARKET_STATUS_CLOSED = 1;
+    MARKET_STATUS_PREMARKET = 2;
+    MARKET_STATUS_OPEN = 3;
+    MARKET_STATUS_AFTERHOURS = 4;
+    MARKET_STATUS_HALTED = 5;
+}
+
+// =============================================================================
+// CORE MESSAGES
+// =============================================================================
+
+// Real-time quote
+message Quote {
+    string ticker = 1;
+    double bid = 2;
+    double ask = 3;
+    int64 bid_size = 4;
+    int64 ask_size = 5;
+    double last = 6;
+    int64 last_size = 7;
+    int64 volume = 8;
+    google.protobuf.Timestamp timestamp = 9;
+}
+
+// Trade tick
+message Trade {
+    string ticker = 1;
+    double price = 2;
+    int64 size = 3;
+    google.protobuf.Timestamp timestamp = 4;
+    string exchange = 5;
+    string condition = 6; // Trade condition codes
+}
+
+// OHLC Bar
+message Bar {
+    string ticker = 1;
+    double open = 2;
+    double high = 3;
+    double low = 4;
+    double close = 5;
+    int64 volume = 6;
+    double vwap = 7;
+    int32 trade_count = 8;
+    google.protobuf.Timestamp timestamp = 9;
+    BarTimeframe timeframe = 10;
+}
+
+// Full ticker snapshot
+message TickerSnapshot {
+    string ticker = 1;
+    string name = 2;
+    double last_price = 3;
+    double change = 4;
+    double change_percent = 5;
+    double open = 6;
+    double high = 7;
+    double low = 8;
+    double previous_close = 9;
+    int64 volume = 10;
+    double vwap = 11;
+    MarketStatus market_status = 12;
+    google.protobuf.Timestamp timestamp = 13;
+    
+    // Premarket data
+    google.protobuf.DoubleValue premarket_price = 14;
+    google.protobuf.DoubleValue premarket_change_percent = 15;
+    
+    // After hours data
+    google.protobuf.DoubleValue afterhours_price = 16;
+    google.protobuf.DoubleValue afterhours_change_percent = 17;
+}
+
+// Technical indicators snapshot
+message IndicatorSnapshot {
+    string ticker = 1;
+    google.protobuf.Timestamp timestamp = 2;
+    
+    // EMAs
+    google.protobuf.DoubleValue ema_9 = 3;
+    google.protobuf.DoubleValue ema_21 = 4;
+    google.protobuf.DoubleValue ema_50 = 5;
+    google.protobuf.DoubleValue ema_200 = 6;
+    
+    // VWAP
+    google.protobuf.DoubleValue vwap = 7;
+    google.protobuf.DoubleValue vwap_upper_band = 8;
+    google.protobuf.DoubleValue vwap_lower_band = 9;
+    
+    // Momentum indicators
+    google.protobuf.DoubleValue rsi = 10;
+    google.protobuf.DoubleValue macd = 11;
+    google.protobuf.DoubleValue macd_signal = 12;
+    google.protobuf.DoubleValue macd_histogram = 13;
+    
+    // Trend indicators
+    google.protobuf.DoubleValue adx = 14;
+    google.protobuf.DoubleValue plus_di = 15;
+    google.protobuf.DoubleValue minus_di = 16;
+    
+    // Volatility
+    google.protobuf.DoubleValue atr = 17;
+    google.protobuf.DoubleValue bollinger_upper = 18;
+    google.protobuf.DoubleValue bollinger_middle = 19;
+    google.protobuf.DoubleValue bollinger_lower = 20;
+    
+    // Volume
+    google.protobuf.DoubleValue volume_ratio = 21;
+    google.protobuf.DoubleValue obv = 22;
+    
+    // Custom scores
+    google.protobuf.DoubleValue market_score = 23;
+    google.protobuf.DoubleValue momentum_score = 24;
+}
+
+// Market score with breakdown
+message MarketScoreDetail {
+    string ticker = 1;
+    double total_score = 2; // -100 to +100
+    google.protobuf.Timestamp timestamp = 3;
+    
+    // Component scores
+    double vwap_score = 4;
+    double ema_score = 5;
+    double rsi_score = 6;
+    double macd_score = 7;
+    double adx_score = 8;
+    double volume_score = 9;
+    
+    // Weights used
+    double vwap_weight = 10;
+    double ema_weight = 11;
+    double rsi_weight = 12;
+    double macd_weight = 13;
+    double adx_weight = 14;
+    double volume_weight = 15;
+    
+    // Interpretation
+    string signal = 16; // "STRONG_BUY", "BUY", "NEUTRAL", "SELL", "STRONG_SELL"
+    string reasoning = 17;
+}
+
+// =============================================================================
+// REQUEST/RESPONSE MESSAGES
+// =============================================================================
+
+message SubscribeQuotesRequest {
+    string client_id = 1;
+    repeated string tickers = 2;
+}
+
+message SubscribeTradesRequest {
+    string client_id = 1;
+    repeated string tickers = 2;
+}
+
+message SubscribeBarsRequest {
+    string client_id = 1;
+    repeated string tickers = 2;
+    BarTimeframe timeframe = 3;
+}
+
+message GetBarsRequest {
+    string ticker = 1;
+    BarTimeframe timeframe = 2;
+    google.protobuf.Timestamp start = 3;
+    google.protobuf.Timestamp end = 4;
+    int32 limit = 5;
+}
+
+message GetBarsResponse {
+    bool success = 1;
+    repeated Bar bars = 2;
+    string error_message = 3;
+}
+
+message GetSnapshotRequest {
+    string ticker = 1;
+}
+
+message GetSnapshotResponse {
+    bool success = 1;
+    TickerSnapshot snapshot = 2;
+    IndicatorSnapshot indicators = 3;
+    MarketScoreDetail market_score = 4;
+    string error_message = 5;
+}
+
+message GetIndicatorsRequest {
+    string ticker = 1;
+}
+
+message GetIndicatorsResponse {
+    bool success = 1;
+    IndicatorSnapshot indicators = 2;
+    string error_message = 3;
+}
+
+message GetMarketScoreRequest {
+    string ticker = 1;
+    bool include_breakdown = 2;
+}
+
+message GetMarketScoreResponse {
+    bool success = 1;
+    MarketScoreDetail score = 2;
+    string error_message = 3;
+}
+
+message UnsubscribeRequest {
+    string client_id = 1;
+    repeated string tickers = 2;
+}
+
+message UnsubscribeResponse {
+    bool success = 1;
+}
+
+// =============================================================================
+// SERVICE DEFINITION
+// =============================================================================
+
+service MarketDataService {
+    // Streaming subscriptions
+    rpc SubscribeQuotes(SubscribeQuotesRequest) returns (stream Quote);
+    rpc SubscribeTrades(SubscribeTradesRequest) returns (stream Trade);
+    rpc SubscribeBars(SubscribeBarsRequest) returns (stream Bar);
+    rpc StreamMarketScore(SubscribeQuotesRequest) returns (stream MarketScoreDetail);
+    rpc StreamIndicators(SubscribeQuotesRequest) returns (stream IndicatorSnapshot);
+    
+    // Request/Response
+    rpc GetBars(GetBarsRequest) returns (GetBarsResponse);
+    rpc GetSnapshot(GetSnapshotRequest) returns (GetSnapshotResponse);
+    rpc GetIndicators(GetIndicatorsRequest) returns (GetIndicatorsResponse);
+    rpc GetMarketScore(GetMarketScoreRequest) returns (GetMarketScoreResponse);
+    
+    // Subscription management
+    rpc Unsubscribe(UnsubscribeRequest) returns (UnsubscribeResponse);
+}

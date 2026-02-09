@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Future-Proofing - IdiotProof Documentation</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="page-wrapper">
+        <!-- Sidebar Navigation -->
+        <nav class="sidebar">
+            <div class="sidebar-header">
+                <a href="index.htm" class="logo">
+                    <span class="logo-icon">📈</span>
+                    <span class="logo-text">IdiotProof</span>
+                    <span class="logo-version">v2.0</span>
+                </a>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">Getting Started</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="index.htm" class="nav-link"><span class="nav-icon">🏠</span>Home</a></li>
+                    <li class="nav-item"><a href="quick-start.htm" class="nav-link"><span class="nav-icon">🚀</span>Quick Start</a></li>
+                    <li class="nav-item"><a href="architecture.htm" class="nav-link"><span class="nav-icon">🏗️</span>Architecture</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">IdiotScript DSL</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="idiotscript.htm" class="nav-link"><span class="nav-icon">📜</span>Language Reference</a></li>
+                    <li class="nav-item"><a href="commands.htm" class="nav-link"><span class="nav-icon">⌨️</span>Command Reference</a></li>
+                    <li class="nav-item"><a href="examples.htm" class="nav-link"><span class="nav-icon">💡</span>Strategy Examples</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">Trading Systems</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="market-score.htm" class="nav-link"><span class="nav-icon">🎯</span>Market Score</a></li>
+                    <li class="nav-item"><a href="adaptive-order.htm" class="nav-link"><span class="nav-icon">🔄</span>AdaptiveOrder</a></li>
+                    <li class="nav-item"><a href="autonomous-trading.htm" class="nav-link"><span class="nav-icon">🤖</span>AutonomousTrading</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">Configuration</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="configuration.htm" class="nav-link"><span class="nav-icon">⚙️</span>Settings</a></li>
+                    <li class="nav-item"><a href="watchlist.htm" class="nav-link"><span class="nav-icon">👀</span>Watchlist</a></li>
+                    <li class="nav-item"><a href="strategy-rules.htm" class="nav-link"><span class="nav-icon">📝</span>Strategy Rules</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">Reference</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="glossary.htm" class="nav-link"><span class="nav-icon">📖</span>Glossary</a></li>
+                    <li class="nav-item"><a href="faq.htm" class="nav-link"><span class="nav-icon">❓</span>FAQ</a></li>
+                    <li class="nav-item"><a href="troubleshooting.htm" class="nav-link"><span class="nav-icon">🔧</span>Troubleshooting</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">Roadmap</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="futureproofing.htm" class="nav-link active"><span class="nav-icon">🔮</span>Future-Proofing</a></li>
+                    <li class="nav-item"><a href="wishlist.htm" class="nav-link"><span class="nav-icon">✨</span>Wishlist</a></li>
+                </ul>
+            </div>
+        </nav>
+        
+        <!-- Main Content -->
+        <main class="main-content">
+            <div class="content-wrapper">
+                <!-- Breadcrumb -->
+                <div class="breadcrumb">
+                    <a href="index.htm">Home</a>
+                    <span class="breadcrumb-separator">/</span>
+                    <span>Future-Proofing</span>
+                </div>
+                
+                <!-- Header -->
+                <header class="page-header">
+                    <h1 class="page-title">Future-Proofing Architecture</h1>
+                    <p class="page-subtitle">
+                        Modern UI/backend communication strategies for seamless integration
+                        between IdiotProof.Core and friendly user interfaces.
+                    </p>
+                </header>
+                
+                <!-- Problem Statement -->
+                <section id="problem">
+                    <h2>The IPC Problem</h2>
+                    
+                    <div class="card warning">
+                        <p><strong>Previous Attempts:</strong> Earlier versions used MAUI and Blazor with an "IPC server" paradigm 
+                        that proved clunky. Running the backend as a separate process required complex inter-process 
+                        communication, message serialization, and connection management.</p>
+                    </div>
+                    
+                    <p>The key insight: <strong>Don't run the backend as a separate process.</strong> 
+                    Host everything in one app and use dependency injection. That's what made previous attempts clunky.</p>
+                </section>
+                
+                <!-- Recommended Architecture -->
+                <section id="recommended">
+                    <h2>Recommended: In-Process Integration</h2>
+                    
+                    <div class="ascii-art">
+MODERN ARCHITECTURE - NO IPC REQUIRED
+===============================================================================
+
+OPTION 1: BLAZOR HYBRID (MAUI/WPF SHELL)
+─────────────────────────────────────────────────────────────────────────────
+
+    ┌─────────────────────────────────────────────────────────────────────────┐
+    │  MAUI/WPF App (Native Shell)                                            │
+    │  ┌─────────────────────────────────────────────────────────────────────┐│
+    │  │  BlazorWebView (Renders Razor Components)                           ││
+    │  │  ┌─────────────────────────────────────────────────────────────────┐││
+    │  │  │  Your Razor UI Components (.razor files)                        │││
+    │  │  │  - Pages, Charts, Forms                                         │││
+    │  │  └─────────────────────────────────────────────────────────────────┘││
+    │  │              │                                                      ││
+    │  │              │ Direct C# calls (NO IPC!)                            ││
+    │  │              ▼                                                      ││
+    │  │  ┌─────────────────────────────────────────────────────────────────┐││
+    │  │  │  IdiotProof.Core Services (Injected via DI)                     │││
+    │  │  │  - StrategyRunner, TradeTrackingService, etc.                   │││
+    │  │  └─────────────────────────────────────────────────────────────────┘││
+    │  └─────────────────────────────────────────────────────────────────────┘│
+    └─────────────────────────────────────────────────────────────────────────┘
+
+    WHY IT ELIMINATES IPC:
+    - Services are injected directly into Razor components
+    - Same process - no serialization, no network, no protocol
+    - Just call _tradeService.GetPositions() from your UI component
+
+    LONG-TERM VIABILITY:
+    * MAUI is Microsoft's official cross-platform strategy
+    * Blazor Hybrid is production-ready and actively developed
+    * .NET 8+ has excellent MAUI support
+
+
+OPTION 2: BLAZOR SERVER (WEB-BASED)
+─────────────────────────────────────────────────────────────────────────────
+
+    ┌──────────────────────────────────────────────────────────────────────────┐
+    │  ASP.NET Core Host (Same Process)                                        │
+    │  ┌────────────────────────────────────────────────────────────────────┐  │
+    │  │  Blazor Server Hub (SignalR - auto-managed)                        │  │
+    │  │  ┌──────────────────────────────────────────────────────────────┐  │  │
+    │  │  │  Razor Components (run on server, UI diffs sent)             │  │  │
+    │  │  └──────────────────────────────────────────────────────────────┘  │  │
+    │  │              │                                                      │  │
+    │  │              │ Direct service injection (no IPC)                    │  │
+    │  │              ▼                                                      │  │
+    │  │  ┌──────────────────────────────────────────────────────────────┐  │  │
+    │  │  │  IdiotProof.Core Services                                    │  │  │
+    │  │  └──────────────────────────────────────────────────────────────┘  │  │
+    │  └────────────────────────────────────────────────────────────────────┘  │
+    │                          │                                                │
+    │                          │ SignalR (DOM diffs only)                       │
+    │                          ▼                                                │
+    │              ┌──────────────────────┐                                     │
+    │              │  Browser (UI only)   │                                     │
+    │              └──────────────────────┘                                     │
+    └──────────────────────────────────────────────────────────────────────────┘
+
+    WHY IT'S SEAMLESS:
+    - NO separate backend process - everything runs in one ASP.NET Core app
+    - SignalR handles UI updates automatically
+    - Components directly inject services - no API calls needed
+    - Perfect for real-time trading dashboards
+
+    LONG-TERM VIABILITY:
+    * Blazor Server is mature and fully supported
+    * Excellent for real-time data (SignalR handles price feeds perfectly)
+    * No WASM limitations
+</div>
+                </section>
+                
+                <!-- Code Example -->
+                <section id="code-example">
+                    <h2>Implementation Example</h2>
+                    
+                    <h3>Blazor Web App (.NET 8+ Unified Model)</h3>
+                    
+                    <pre><code class="language-csharp">// Program.cs - One app, one process
+var builder = WebApplication.CreateBuilder(args);
+
+// Register your services ONCE
+builder.Services.AddSingleton&lt;IbWrapper&gt;();
+builder.Services.AddSingleton&lt;TradeTrackingService&gt;();
+builder.Services.AddSingleton&lt;StrategyRunner&gt;();
+
+// Add Blazor
+builder.Services.AddRazorComponents()
+    .AddInteractiveServerComponents();
+
+var app = builder.Build();
+app.MapRazorComponents&lt;App&gt;()
+   .AddInteractiveServerRenderMode();
+
+app.Run();</code></pre>
+
+                    <h3>Razor Component Example</h3>
+                    
+                    <pre><code class="language-razor">@* StrategyDashboard.razor *@
+@inject TradeTrackingService TradeService
+@inject StrategyRunner StrategyRunner
+
+&lt;h3&gt;Active Strategies&lt;/h3&gt;
+@foreach (var strategy in _strategies)
+{
+    &lt;StrategyCard Strategy="strategy" /&gt;
+}
+
+@code {
+    private List&lt;TradingStrategy&gt; _strategies = [];
+    
+    protected override void OnInitialized()
+    {
+        // Direct service call - NO IPC!
+        _strategies = StrategyRunner.GetActiveStrategies();
+    }
+}</code></pre>
+                </section>
+                
+                <!-- Comparison Table -->
+                <section id="comparison">
+                    <h2>Architecture Comparison</h2>
+                    
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Approach</th>
+                                <th>IPC Needed</th>
+                                <th>Long-term Support</th>
+                                <th>Complexity</th>
+                                <th>Best For</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr class="highlight">
+                                <td><strong>Blazor Hybrid (MAUI)</strong></td>
+                                <td>❌ No</td>
+                                <td>⭐⭐⭐⭐⭐</td>
+                                <td>Medium</td>
+                                <td>Desktop app with native feel</td>
+                            </tr>
+                            <tr class="highlight">
+                                <td><strong>Blazor Server</strong></td>
+                                <td>❌ No</td>
+                                <td>⭐⭐⭐⭐⭐</td>
+                                <td>Low</td>
+                                <td>Web dashboard, real-time</td>
+                            </tr>
+                            <tr>
+                                <td>Blazor WASM + API</td>
+                                <td>✅ Yes (REST)</td>
+                                <td>⭐⭐⭐⭐</td>
+                                <td>High</td>
+                                <td>SPA, offline-capable</td>
+                            </tr>
+                            <tr>
+                                <td>MAUI + gRPC</td>
+                                <td>✅ Yes</td>
+                                <td>⭐⭐⭐⭐</td>
+                                <td>High</td>
+                                <td>Distributed systems</td>
+                            </tr>
+                            <tr>
+                                <td>WPF + Named Pipes</td>
+                                <td>✅ Yes</td>
+                                <td>⭐⭐⭐</td>
+                                <td>High</td>
+                                <td>Legacy Windows apps</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </section>
+                
+                <!-- Recommendations -->
+                <section id="recommendations">
+                    <h2>Our Recommendations</h2>
+                    
+                    <div class="card success">
+                        <h3>For Desktop Trading App</h3>
+                        <p><strong>Blazor Hybrid with MAUI or WPF</strong></p>
+                        <ul>
+                            <li>Zero IPC - services run in-process</li>
+                            <li>All C# (consistent with IdiotProof.Core)</li>
+                            <li>Native performance for trading operations</li>
+                            <li>BlazorWebView gives you modern web UI</li>
+                        </ul>
+                    </div>
+                    
+                    <div class="card success">
+                        <h3>For Web-Based Dashboard</h3>
+                        <p><strong>Blazor Server (Interactive Server mode)</strong></p>
+                        <ul>
+                            <li>Zero IPC - all server-side</li>
+                            <li>Real-time updates via SignalR (perfect for price feeds)</li>
+                            <li>All C# on server</li>
+                            <li>Access from any browser</li>
+                        </ul>
+                    </div>
+                    
+                    <div class="card info">
+                        <h3>Key Principle</h3>
+                        <p><strong>Don't run the backend as a separate process.</strong></p>
+                        <p>Host everything in one application and use dependency injection. 
+                        Services are registered once and injected wherever needed - no serialization, 
+                        no protocols, no connection management.</p>
+                    </div>
+                </section>
+                
+                <!-- Technology Longevity -->
+                <section id="longevity">
+                    <h2>Technology Longevity Assessment</h2>
+                    
+                    <div class="ascii-art">
+MICROSOFT .NET UI TECHNOLOGY TIMELINE
+===============================================================================
+
+    2002        2006        2012        2019        2021        2024+
+      │           │           │           │           │           │
+      ▼           ▼           ▼           ▼           ▼           ▼
+    ┌─────┐    ┌─────┐    ┌─────┐    ┌─────┐    ┌─────┐    ┌─────┐
+    │WinFo│    │ WPF │    │Metro│    │Blazor│   │ MAUI │   │Blazor│
+    │rms  │    │     │    │/UWP │    │1.0   │   │      │   │United│
+    └─────┘    └─────┘    └─────┘    └─────┘   └─────┘    └─────┘
+       │          │          │          │          │          │
+       │          │          ▼          │          │          │
+       │          │       MOSTLY       │          │          │
+       │          │       DEAD         │          │          │
+       ▼          ▼                    ▼          ▼          ▼
+    Still     Still                 ACTIVE     ACTIVE     ACTIVE
+    Works     Works                 DEVELOP    DEVELOP    DEVELOP
+
+CURRENT MICROSOFT FOCUS (2024-2026+):
+═════════════════════════════════════════════════════════════════════════════
+
+    ┌───────────────────────────────────────────────────────────────────────┐
+    │                    .NET 8/9/10 UNIFIED PLATFORM                       │
+    │                                                                       │
+    │   ┌─────────────┐  ┌─────────────┐  ┌─────────────┐                  │
+    │   │   Blazor    │  │    MAUI     │  │  ASP.NET    │                  │
+    │   │   (Web UI)  │  │  (Native)   │  │   Core      │                  │
+    │   └─────────────┘  └─────────────┘  └─────────────┘                  │
+    │         │                │                │                          │
+    │         └────────────────┼────────────────┘                          │
+    │                          ▼                                           │
+    │                ┌─────────────────┐                                   │
+    │                │  Blazor Hybrid  │  ◄─── RECOMMENDED                 │
+    │                │ (Best of Both)  │                                   │
+    │                └─────────────────┘                                   │
+    │                                                                       │
+    └───────────────────────────────────────────────────────────────────────┘
+
+VERDICT:
+    * Blazor: Actively developed, unified in .NET 8+, strong investment
+    * MAUI: Mobile/Desktop strategy, improving rapidly, Microsoft committed
+    * WPF: Maintenance mode but stable, good for Windows-only desktop
+    * UWP: Deprecated in favor of WinUI 3 / MAUI
+</div>
+                </section>
+                
+                <!-- Next Steps -->
+                <section id="next-steps">
+                    <h2>Implementation Roadmap</h2>
+                    
+                    <ol>
+                        <li><strong>Phase 1:</strong> Create IdiotProof.BlazorUI class library with Razor components</li>
+                        <li><strong>Phase 2:</strong> Build Blazor Server host that references IdiotProof.Core</li>
+                        <li><strong>Phase 3:</strong> Wire up services via DI (no new code needed in Core)</li>
+                        <li><strong>Phase 4:</strong> Add real-time updates using Blazor's built-in mechanisms</li>
+                        <li><strong>Phase 5:</strong> Optionally wrap in MAUI shell for desktop deployment</li>
+                    </ol>
+                </section>
+                
+                <!-- Footer -->
+                <footer class="page-footer">
+                    <div class="footer-nav">
+                        <a href="troubleshooting.htm">← Troubleshooting</a>
+                        <a href="wishlist.htm">Next: Wishlist →</a>
+                    </div>
+                    <p class="text-center text-muted">
+                        IdiotProof Trading System Documentation &copy; 2026
+                    </p>
+                </footer>
+            </div>
+        </main>
+    </div>
+</body>
+</html>

@@ -1,0 +1,639 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Momentum Indicators - IdiotProof Documentation</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="page-wrapper">
+        <!-- Sidebar Navigation -->
+        <nav class="sidebar">
+            <div class="sidebar-header">
+                <a href="index.htm" class="logo">
+                    <span class="logo-icon">📈</span>
+                    <span class="logo-text">IdiotProof</span>
+                    <span class="logo-version">v2.0</span>
+                </a>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">Getting Started</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="index.htm" class="nav-link"><span class="nav-icon">🏠</span>Home</a></li>
+                    <li class="nav-item"><a href="quick-start.htm" class="nav-link"><span class="nav-icon">🚀</span>Quick Start</a></li>
+                    <li class="nav-item"><a href="architecture.htm" class="nav-link"><span class="nav-icon">🏗️</span>Architecture</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">IdiotScript DSL</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="idiotscript.htm" class="nav-link"><span class="nav-icon">📜</span>Language Reference</a></li>
+                    <li class="nav-item"><a href="commands.htm" class="nav-link"><span class="nav-icon">⌨️</span>Command Reference</a></li>
+                    <li class="nav-item"><a href="examples.htm" class="nav-link"><span class="nav-icon">💡</span>Strategy Examples</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">Technical Indicators</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="indicators.htm" class="nav-link"><span class="nav-icon">📊</span>Indicator Overview</a></li>
+                    <li class="nav-item"><a href="indicators-vwap.htm" class="nav-link"><span class="nav-icon">〰️</span>VWAP Indicators</a></li>
+                    <li class="nav-item"><a href="indicators-ema.htm" class="nav-link"><span class="nav-icon">📈</span>EMA Indicators</a></li>
+                    <li class="nav-item"><a href="indicators-momentum.htm" class="nav-link active"><span class="nav-icon">⚡</span>Momentum</a></li>
+                    <li class="nav-item"><a href="indicators-volume.htm" class="nav-link"><span class="nav-icon">📶</span>Volume Analysis</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">Trading Systems</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="market-score.htm" class="nav-link"><span class="nav-icon">🎯</span>Market Score</a></li>
+                    <li class="nav-item"><a href="adaptive-order.htm" class="nav-link"><span class="nav-icon">🔄</span>AdaptiveOrder</a></li>
+                    <li class="nav-item"><a href="autonomous-trading.htm" class="nav-link"><span class="nav-icon">🤖</span>AutonomousTrading</a></li>
+                    <li class="nav-item"><a href="order-management.htm" class="nav-link"><span class="nav-icon">📋</span>Order Management</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">AI & Machine Learning</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="ai-overview.htm" class="nav-link"><span class="nav-icon">🧠</span>AI Overview</a></li>
+                    <li class="nav-item"><a href="lstm.htm" class="nav-link"><span class="nav-icon">🔮</span>LSTM Predictor</a></li>
+                    <li class="nav-item"><a href="pattern-matcher.htm" class="nav-link"><span class="nav-icon">🔍</span>Pattern Matcher</a></li>
+                    <li class="nav-item"><a href="learned-weights.htm" class="nav-link"><span class="nav-icon">⚖️</span>Learned Weights</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">Configuration</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="configuration.htm" class="nav-link"><span class="nav-icon">⚙️</span>Settings</a></li>
+                    <li class="nav-item"><a href="watchlist.htm" class="nav-link"><span class="nav-icon">👀</span>Watchlist</a></li>
+                    <li class="nav-item"><a href="strategy-rules.htm" class="nav-link"><span class="nav-icon">📝</span>Strategy Rules</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">Testing & Analysis</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="backtesting.htm" class="nav-link"><span class="nav-icon">⏪</span>Backtesting</a></li>
+                    <li class="nav-item"><a href="simulation.htm" class="nav-link"><span class="nav-icon">🎮</span>Simulation</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">Reference</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="glossary.htm" class="nav-link"><span class="nav-icon">📖</span>Glossary</a></li>
+                    <li class="nav-item"><a href="faq.htm" class="nav-link"><span class="nav-icon">❓</span>FAQ</a></li>
+                    <li class="nav-item"><a href="troubleshooting.htm" class="nav-link"><span class="nav-icon">🔧</span>Troubleshooting</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">Roadmap</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="futureproofing.htm" class="nav-link"><span class="nav-icon">🔮</span>Future-Proofing</a></li>
+                    <li class="nav-item"><a href="wishlist.htm" class="nav-link"><span class="nav-icon">✨</span>Wishlist</a></li>
+                </ul>
+            </div>
+        </nav>
+        
+        <!-- Main Content -->
+        <main class="main-content">
+            <div class="content-wrapper">
+                <!-- Breadcrumb -->
+                <div class="breadcrumb">
+                    <a href="index.htm">Home</a>
+                    <span class="breadcrumb-separator">/</span>
+                    <a href="indicators.htm">Technical Indicators</a>
+                    <span class="breadcrumb-separator">/</span>
+                    <span>Momentum Indicators</span>
+                </div>
+                
+                <!-- Header -->
+                <header class="page-header">
+                    <h1 class="page-title">Momentum Indicators</h1>
+                    <p class="page-subtitle">
+                        Momentum indicators measure the rate of price change, helping identify 
+                        trend strength, potential reversals, and overbought/oversold conditions.
+                    </p>
+                </header>
+                
+                <!-- Overview -->
+                <section id="overview">
+                    <h2>Momentum Indicators in IdiotProof</h2>
+                    <p>
+                        IdiotProof uses several momentum indicators to measure the speed and 
+                        strength of price movements. These indicators are crucial for:
+                    </p>
+                    <ul>
+                        <li><strong>Confirming trends</strong> - Strong momentum validates trend direction</li>
+                        <li><strong>Spotting reversals</strong> - Divergences warn of potential turns</li>
+                        <li><strong>Timing entries</strong> - RSI extremes suggest entry/exit points</li>
+                        <li><strong>Filtering trades</strong> - Avoid entering against momentum</li>
+                    </ul>
+                    
+                    <div class="ascii-art">
+MOMENTUM INDICATOR OVERVIEW
+═══════════════════════════════════════════════════════════════════════════════
+
+    ┌─────────────┬────────────────────────┬─────────────────────────────────┐
+    │  Indicator  │  What It Measures      │  Best For                       │
+    ├─────────────┼────────────────────────┼─────────────────────────────────┤
+    │  RSI        │  Price momentum (0-100)│  Overbought/oversold extremes   │
+    │  MACD       │  Trend momentum        │  Trend direction & crossovers   │
+    │  ADX/DI     │  Trend strength        │  Trending vs ranging markets    │
+    │  Momentum   │  Raw price change      │  Simple direction confirmation  │
+    │  ROC        │  Rate of change %      │  Acceleration/deceleration      │
+    └─────────────┴────────────────────────┴─────────────────────────────────┘
+</div>
+                </section>
+                
+                <!-- RSI Section -->
+                <section id="rsi">
+                    <h2>RSI (Relative Strength Index)</h2>
+                    <p>
+                        RSI measures the speed and magnitude of recent price changes on a scale 
+                        of 0 to 100. Traditional levels: below 30 = oversold, above 70 = overbought.
+                    </p>
+                    
+                    <div class="ascii-art">
+RSI SCALE
+═══════════════════════════════════════════════════════════════════════════════
+
+    100 ──────────────────────────────────────────────────────── Top
+     │
+     70 ═══════════════════════ OVERBOUGHT ═══════════════════════
+     │                            Zone
+     │       ____                          ____
+     │      /    \                        /    \
+     50 ───/──────\──────────────────────/──────\───── Neutral
+     │            \                    /        \
+     │             \                  /          \
+     30 ═══════════════════════ OVERSOLD ═════════════════════════
+     │                            Zone
+      0 ──────────────────────────────────────────────────────── Bottom
+    
+    RSI > 70: Potential pullback or reversal (wait to buy)
+    RSI < 30: Potential bounce or reversal (look for entry)
+    RSI ~50: Neutral momentum
+</div>
+                    
+                    <h3>RSI IdiotScript Commands</h3>
+                    
+                    <div class="command-table">
+                        <h4>IsRsiOversold(threshold)</h4>
+                        <p>Returns true when RSI is at or below the threshold (default: 30).</p>
+                        <pre><code>Ticker(AAPL)
+    .<span class="token-function">IsRsiOversold</span>(<span class="token-number">30</span>)   <span class="token-comment">// RSI <= 30 (bouncing from oversold)</span>
+    .IsAboveVwap()
+    .Entry(150)
+    .TakeProfit(158)</code></pre>
+                    </div>
+                    
+                    <div class="command-table">
+                        <h4>IsRsiOverbought(threshold)</h4>
+                        <p>Returns true when RSI is at or above the threshold (default: 70).</p>
+                        <pre><code>Ticker(NVDA)
+    .<span class="token-function">IsRsiOverbought</span>(<span class="token-number">70</span>)  <span class="token-comment">// RSI >= 70 (potential short entry)</span>
+    .IsBelowVwap()
+    .Order(IS.SHORT)
+    .TakeProfit(880)</code></pre>
+                    </div>
+                </section>
+                
+                <!-- MACD Section -->
+                <section id="macd">
+                    <h2>MACD (Moving Average Convergence Divergence)</h2>
+                    <p>
+                        MACD shows the relationship between two EMAs. It consists of the MACD line, 
+                        signal line, and histogram showing the difference between them.
+                    </p>
+                    
+                    <div class="ascii-art">
+MACD COMPONENTS
+═══════════════════════════════════════════════════════════════════════════════
+
+    MACD Line = EMA(12) - EMA(26)
+    Signal Line = EMA(9) of MACD Line
+    Histogram = MACD Line - Signal Line
+
+    <span class="bullish">BULLISH SIGNAL (MACD > Signal)</span>
+    
+                    MACD Line ___/
+                             /   \         ___/
+    Signal Line ____________/     \    ___/
+                                   \__/
+                      ↑ Bullish crossover
+
+    Histogram:
+               ████
+           ████████
+       ████████████         ████
+    ───────────────────────────────── Zero Line
+                        ████████
+                    ████████████
+
+
+    <span class="bearish">BEARISH SIGNAL (MACD < Signal)</span>
+    
+    Signal Line ___________
+                           \    ___
+                            \__/   \    ____
+                                    \__/    \___
+    MACD Line                                    \
+                      ↑ Bearish crossover
+</div>
+                    
+                    <h3>MACD IdiotScript Commands</h3>
+                    
+                    <div class="command-table">
+                        <h4>IsMacdBullish()</h4>
+                        <p>Returns true when MACD line is above the Signal line.</p>
+                        <pre><code>Ticker(AAPL)
+    .<span class="token-function">IsMacdBullish</span>()     <span class="token-comment">// MACD > Signal line</span>
+    .IsEmaAbove(9)
+    .Entry(150)
+    .TakeProfit(158)</code></pre>
+                    </div>
+                    
+                    <div class="command-table">
+                        <h4>IsMacdBearish()</h4>
+                        <p>Returns true when MACD line is below the Signal line.</p>
+                        <pre><code>Ticker(SPY)
+    .<span class="token-function">IsMacdBearish</span>()     <span class="token-comment">// MACD < Signal line</span>
+    .IsEmaBelow(21)
+    .Order(IS.SHORT)
+    .TakeProfit(490)</code></pre>
+                    </div>
+                </section>
+                
+                <!-- ADX/DI Section -->
+                <section id="adx">
+                    <h2>ADX and Directional Indicators (DI)</h2>
+                    <p>
+                        ADX measures trend <strong>strength</strong> (not direction), while +DI and 
+                        -DI indicate bullish and bearish directional movement.
+                    </p>
+                    
+                    <div class="ascii-art">
+ADX TREND STRENGTH SCALE
+═══════════════════════════════════════════════════════════════════════════════
+
+    ADX Value     │  Trend Strength          │  Trading Implication
+    ──────────────┼──────────────────────────┼─────────────────────────────────
+    0-20          │  <span class="neutral">Weak/No Trend</span>           │  Range-bound, mean reversion
+    20-25         │  <span class="neutral">Trend Developing</span>        │  Watch for breakouts
+    25-50         │  <span class="bullish">Strong Trend</span>            │  Trade with the trend
+    50-75         │  <span class="bullish">Very Strong Trend</span>       │  Strong continuation expected
+    75+           │  <span class="bullish">Extremely Strong</span>        │  Rare, usually precedes reversal
+
+
+DIRECTIONAL INDICATORS (+DI / -DI)
+═══════════════════════════════════════════════════════════════════════════════
+
+    <span class="bullish">BULLISH: +DI > -DI</span>
+    
+        +DI ────────────────────────/───────────────
+                                   /
+                                  /
+                     ────────────/──────── -DI
+    
+    Higher highs dominating = Bullish pressure
+
+
+    <span class="bearish">BEARISH: -DI > +DI</span>
+    
+                     ────────────\──────── -DI
+                                  \
+                                   \
+        +DI ────────────────────────\───────────────
+    
+    Lower lows dominating = Bearish pressure
+
+
+    DI CROSSOVER
+    
+                        +DI crosses above -DI
+                              ↓
+        +DI ──────────────────X───────────────────
+                             /│
+                            / │  ← Buy signal (with ADX > 25)
+        -DI ───────────────/──X──────────────────
+                              │
+                        -DI crosses below +DI
+</div>
+                    
+                    <h3>ADX/DI IdiotScript Commands</h3>
+                    
+                    <div class="command-table">
+                        <h4>IsAdxAbove(threshold)</h4>
+                        <p>Returns true when ADX is above the threshold, indicating strong trend.</p>
+                        <pre><code>Ticker(TSLA)
+    .<span class="token-function">IsAdxAbove</span>(<span class="token-number">25</span>)       <span class="token-comment">// Strong trend exists</span>
+    .IsDiPositive()       <span class="token-comment">// Bullish direction</span>
+    .Entry(250)
+    .TakeProfit(265)</code></pre>
+                    </div>
+                    
+                    <div class="command-table">
+                        <h4>IsDiPositive()</h4>
+                        <p>Returns true when +DI is greater than -DI (bullish directional movement).</p>
+                        <pre><code>Ticker(AAPL)
+    .<span class="token-function">IsDiPositive</span>()       <span class="token-comment">// +DI > -DI (bullish)</span>
+    .IsAdxAbove(20)
+    .IsEmaAbove(9)
+    .Entry(150)</code></pre>
+                    </div>
+                    
+                    <div class="command-table">
+                        <h4>IsDiNegative()</h4>
+                        <p>Returns true when -DI is greater than +DI (bearish directional movement).</p>
+                        <pre><code>Ticker(SPY)
+    .<span class="token-function">IsDiNegative</span>()       <span class="token-comment">// -DI > +DI (bearish)</span>
+    .IsAdxAbove(25)
+    .Order(IS.SHORT)
+    .TakeProfit(495)</code></pre>
+                    </div>
+                </section>
+                
+                <!-- Momentum/ROC Section -->
+                <section id="momentum-roc">
+                    <h2>Momentum and Rate of Change (ROC)</h2>
+                    <p>
+                        These are simpler momentum measures based on price change over a period.
+                    </p>
+                    
+                    <div class="ascii-art">
+MOMENTUM & ROC CALCULATIONS
+═══════════════════════════════════════════════════════════════════════════════
+
+    Momentum = Current Price - Price N bars ago
+    ROC = ((Current Price - Price N bars ago) / Price N bars ago) × 100
+
+    Example (10-bar period):
+        Current Price: $52.00
+        Price 10 bars ago: $50.00
+        
+        Momentum = $52.00 - $50.00 = <span class="bullish">+$2.00</span>
+        ROC = (($52 - $50) / $50) × 100 = <span class="bullish">+4.0%</span>
+
+
+MOMENTUM CHART
+═══════════════════════════════════════════════════════════════════════════════
+
+    Momentum
+      ↑
+      │         _____
+      │   _____/     \____        ← Positive momentum
+      │  /                \
+    ──┼──────────────────────\────────────── Zero line
+      │                       \___
+      │                           \___      ← Negative momentum
+      │
+      └───────────────────────────────────▶ Time
+
+    Above zero = Bullish momentum
+    Below zero = Bearish momentum
+    Crossing zero = Potential trend change
+</div>
+                    
+                    <h3>Momentum/ROC IdiotScript Commands</h3>
+                    
+                    <div class="command-table">
+                        <h4>IsMomentumAbove(threshold)</h4>
+                        <p>Returns true when momentum is above the threshold (usually 0).</p>
+                        <pre><code>Ticker(NVDA)
+    .<span class="token-function">IsMomentumAbove</span>(<span class="token-number">0</span>)   <span class="token-comment">// Positive momentum</span>
+    .IsAboveVwap()
+    .Entry(900)
+    .TakeProfit(920)</code></pre>
+                    </div>
+                    
+                    <div class="command-table">
+                        <h4>IsMomentumBelow(threshold)</h4>
+                        <p>Returns true when momentum is below the threshold.</p>
+                        <pre><code>Ticker(SPY)
+    .<span class="token-function">IsMomentumBelow</span>(<span class="token-number">0</span>)   <span class="token-comment">// Negative momentum</span>
+    .Order(IS.SHORT)
+    .TakeProfit(495)</code></pre>
+                    </div>
+                    
+                    <div class="command-table">
+                        <h4>IsRocAbove(percent)</h4>
+                        <p>Returns true when Rate of Change is above the percentage threshold.</p>
+                        <pre><code>Ticker(TSLA)
+    .<span class="token-function">IsRocAbove</span>(<span class="token-number">2</span>)       <span class="token-comment">// ROC > 2% (strong upward acceleration)</span>
+    .IsEmaAbove(9)
+    .Entry(250)
+    .TakeProfit(275)</code></pre>
+                    </div>
+                    
+                    <div class="command-table">
+                        <h4>IsRocBelow(percent)</h4>
+                        <p>Returns true when Rate of Change is below the percentage threshold.</p>
+                        <pre><code>Ticker(SPY)
+    .<span class="token-function">IsRocBelow</span>(<span class="token-number">-2</span>)      <span class="token-comment">// ROC < -2% (strong downward acceleration)</span>
+    .Order(IS.SHORT)
+    .TakeProfit(490)</code></pre>
+                    </div>
+                </section>
+                
+                <!-- Market Score -->
+                <section id="market-score">
+                    <h2>Momentum in Market Score</h2>
+                    <p>
+                        Momentum indicators have significant weight in the market score calculation:
+                    </p>
+                    
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Indicator</th>
+                                <th>Weight</th>
+                                <th>Score Contribution</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>MACD</td>
+                                <td>18%</td>
+                                <td>MACD > Signal: +50 base + histogram strength</td>
+                            </tr>
+                            <tr>
+                                <td>ADX/DI</td>
+                                <td>15%</td>
+                                <td>±(ADX value × direction)</td>
+                            </tr>
+                            <tr>
+                                <td>RSI</td>
+                                <td>12%</td>
+                                <td>Oversold (+100) to Overbought (-100)</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    
+                    <p>
+                        Combined, momentum indicators account for <strong>45% of the total market score</strong>,
+                        making them the most influential category.
+                    </p>
+                </section>
+                
+                <!-- Warm-up -->
+                <section id="warmup">
+                    <h2>Warm-Up Requirements</h2>
+                    
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Indicator</th>
+                                <th>Bars Needed</th>
+                                <th>Start Early By</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>RSI(14)</td>
+                                <td>15 bars</td>
+                                <td>20 minutes</td>
+                            </tr>
+                            <tr>
+                                <td>MACD(12,26,9)</td>
+                                <td>35 bars</td>
+                                <td>40 minutes</td>
+                            </tr>
+                            <tr>
+                                <td>ADX(14) / DI</td>
+                                <td>28 bars</td>
+                                <td>30 minutes</td>
+                            </tr>
+                            <tr>
+                                <td>Momentum(10)</td>
+                                <td>11 bars</td>
+                                <td>15 minutes</td>
+                            </tr>
+                            <tr>
+                                <td>ROC(10)</td>
+                                <td>11 bars</td>
+                                <td>15 minutes</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    
+                    <div class="callout callout-warning">
+                        <div class="callout-title">⚠️ MACD Warm-Up</div>
+                        <p>
+                            MACD requires the most warm-up time (35+ bars) because it uses 
+                            EMA(26) in its calculation. Start the backend <strong>40+ minutes</strong> 
+                            before trading if using MACD signals.
+                        </p>
+                    </div>
+                </section>
+                
+                <!-- Strategy Examples -->
+                <section id="strategies">
+                    <h2>Momentum Trading Strategies</h2>
+                    
+                    <h3>1. RSI Bounce Strategy</h3>
+                    <p>Enter when RSI bounces from oversold with trend confirmation.</p>
+                    <pre><code>Ticker(AAPL)
+    .Name("RSI Bounce")
+    .Session(IS.RTH)
+    .Quantity(50)
+    .<span class="token-function">IsRsiOversold</span>(<span class="token-number">30</span>)     <span class="token-comment">// RSI bouncing from 30</span>
+    .<span class="token-function">IsAboveVwap</span>()          <span class="token-comment">// Price reclaimed VWAP</span>
+    .<span class="token-function">IsMomentumAbove</span>(0)     <span class="token-comment">// Momentum turning positive</span>
+    .Entry(150)
+    .TakeProfit(158)
+    .StopLoss(146)</code></pre>
+                    
+                    <h3>2. MACD Momentum Breakout</h3>
+                    <p>Trade breakouts with MACD confirmation.</p>
+                    <pre><code>Ticker(NVDA)
+    .Name("MACD Momentum")
+    .Session(IS.RTH)
+    .Quantity(20)
+    .<span class="token-function">IsMacdBullish</span>()        <span class="token-comment">// MACD > Signal</span>
+    .<span class="token-function">IsAdxAbove</span>(<span class="token-number">25</span>)         <span class="token-comment">// Strong trend</span>
+    .<span class="token-function">IsDiPositive</span>()         <span class="token-comment">// Bullish direction</span>
+    .<span class="token-function">IsEmaAbove</span>(<span class="token-number">9</span>)          <span class="token-comment">// Above short-term EMA</span>
+    .Entry(900)
+    .TakeProfit(930)
+    .StopLoss(880)
+    .AdaptiveOrder(IS.AGGRESSIVE)</code></pre>
+                    
+                    <h3>3. Trend Strength Filter</h3>
+                    <p>Only trade when ADX confirms a strong trend.</p>
+                    <pre><code>Ticker(TSLA)
+    .Name("ADX Trend Filter")
+    .Session(IS.RTH)
+    .Quantity(15)
+    .<span class="token-function">IsAdxAbove</span>(<span class="token-number">30</span>)         <span class="token-comment">// Very strong trend</span>
+    .<span class="token-function">IsDiPositive</span>()         <span class="token-comment">// Bullish</span>
+    .<span class="token-function">IsMacdBullish</span>()        <span class="token-comment">// MACD confirms</span>
+    .<span class="token-function">IsEmaAbove</span>(<span class="token-number">21</span>)         <span class="token-comment">// Above trend EMA</span>
+    .Entry(250)
+    .TakeProfit(275)
+    .StopLoss(240)</code></pre>
+                    
+                    <h3>4. Momentum Short</h3>
+                    <p>Short when all momentum indicators are bearish.</p>
+                    <pre><code>Ticker(SPY)
+    .Name("Momentum Short")
+    .Session(IS.RTH)
+    .Quantity(100)
+    .<span class="token-function">IsMacdBearish</span>()        <span class="token-comment">// MACD < Signal</span>
+    .<span class="token-function">IsDiNegative</span>()         <span class="token-comment">// -DI > +DI</span>
+    .<span class="token-function">IsAdxAbove</span>(<span class="token-number">25</span>)         <span class="token-comment">// Strong trend</span>
+    .<span class="token-function">IsMomentumBelow</span>(0)     <span class="token-comment">// Negative momentum</span>
+    .<span class="token-function">IsBelowVwap</span>()          <span class="token-comment">// Below fair value</span>
+    .Order(IS.SHORT)
+    .TakeProfit(490)
+    .StopLoss(508)</code></pre>
+                </section>
+                
+                <!-- Tips -->
+                <section id="tips">
+                    <h2>Momentum Trading Tips</h2>
+                    
+                    <div class="callout callout-success">
+                        <div class="callout-title">💡 Pro Tips</div>
+                        <ul>
+                            <li><strong>Combine ADX with DI</strong> - ADX alone doesn't show direction</li>
+                            <li><strong>RSI extremes work better in ranges</strong> - In strong trends, RSI can stay overbought</li>
+                            <li><strong>Watch for MACD histogram</strong> - Shrinking histogram warns of momentum loss</li>
+                            <li><strong>ADX > 25 filters out choppy trades</strong> - Only trade with confirmed trends</li>
+                            <li><strong>Look for divergences</strong> - Price making new highs while RSI doesn't = warning</li>
+                        </ul>
+                    </div>
+                    
+                    <div class="callout callout-warning">
+                        <div class="callout-title">⚠️ Common Mistakes</div>
+                        <ul>
+                            <li>Shorting just because RSI is overbought - strong stocks stay overbought</li>
+                            <li>Ignoring ADX strength when trading MACD crossovers</li>
+                            <li>Using momentum indicators in choppy/ranging markets</li>
+                            <li>Not waiting for warm-up period (especially MACD)</li>
+                        </ul>
+                    </div>
+                </section>
+                
+                <!-- Footer Navigation -->
+                <footer class="page-footer">
+                    <div class="footer-nav">
+                        <a href="indicators-ema.htm">← EMA Indicators</a>
+                        <a href="indicators-volume.htm">Volume Analysis →</a>
+                    </div>
+                    <p class="text-center text-muted">
+                        IdiotProof Trading System Documentation &copy; 2026
+                    </p>
+                </footer>
+            </div>
+        </main>
+    </div>
+</body>
+</html>

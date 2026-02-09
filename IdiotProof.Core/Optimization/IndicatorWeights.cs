@@ -189,6 +189,34 @@ public sealed record IndicatorWeights
     /// </summary>
     public string ToCompactString() =>
         $"[{Vwap:F2}/{Ema:F2}/{Rsi:F2}/{Macd:F2}/{Adx:F2}/{Volume:F2}]";
+
+    /// <summary>
+    /// Converts this simplified optimization weights to the full Calculator weights.
+    /// Extended indicators (Bollinger, Stochastic, OBV, CCI, WilliamsR) use small default values.
+    /// </summary>
+    public IdiotProof.Calculators.IndicatorWeights ToCalculatorWeights()
+    {
+        // Normalize the 6 core weights to leave room for extended indicators
+        const double extendedTotal = 0.22;  // 22% for extended indicators
+        const double coreTotal = 1.0 - extendedTotal;  // 78% for core
+        double sum = Vwap + Ema + Rsi + Macd + Adx + Volume;
+        double scale = sum > 0 ? coreTotal / sum : coreTotal / 6;
+        
+        return new IdiotProof.Calculators.IndicatorWeights
+        {
+            Vwap = Vwap * scale,
+            Ema = Ema * scale,
+            Rsi = Rsi * scale,
+            Macd = Macd * scale,
+            Adx = Adx * scale,
+            Volume = Volume * scale,
+            Bollinger = 0.05,
+            Stochastic = 0.06,
+            Obv = 0.05,
+            Cci = 0.03,
+            WilliamsR = 0.03
+        };
+    }
 }
 
 /// <summary>

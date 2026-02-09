@@ -160,4 +160,52 @@ public static class TradingDefaults
     /// Minimum score change required to trigger an adjustment.
     /// </summary>
     public const int MinScoreChangeForAdjustment = 15;
+
+    // ========================================================================
+    // POSITION SIZING
+    // ========================================================================
+    // Formula: price × 3, rounded up to nearest multiple of 5
+    // Examples: $1.50 → 5, $2 → 10, $6 → 20, $10 → 30
+    // ========================================================================
+
+    /// <summary>
+    /// Calculates a sensible default quantity based on stock price.
+    /// Formula: price × 3, rounded up to nearest multiple of 5.
+    /// </summary>
+    /// <param name="price">Current stock price.</param>
+    /// <returns>Recommended quantity (minimum 5 shares).</returns>
+    /// <example>
+    /// GetDefaultQuantityForPrice(1.50)  → 5   ($1.50 × 3 = 4.5 → round up to 5)
+    /// GetDefaultQuantityForPrice(2.00)  → 10  ($2.00 × 3 = 6 → round up to 10)
+    /// GetDefaultQuantityForPrice(6.00)  → 20  ($6.00 × 3 = 18 → round up to 20)
+    /// GetDefaultQuantityForPrice(10.00) → 30  ($10.00 × 3 = 30 → already multiple of 5)
+    /// GetDefaultQuantityForPrice(25.00) → 75  ($25.00 × 3 = 75 → already multiple of 5)
+    /// </example>
+    public static int GetDefaultQuantityForPrice(double price)
+    {
+        if (price <= 0) return 5;
+
+        // price × 3, rounded up to nearest multiple of 5
+        double raw = price * 3;
+        int quantity = (int)(Math.Ceiling(raw / 5.0) * 5);
+        return Math.Max(5, quantity);
+    }
+
+    /// <summary>
+    /// Gets a description of the quantity calculation for display purposes.
+    /// </summary>
+    public static string GetPriceTierName(double price)
+    {
+        int qty = GetDefaultQuantityForPrice(price);
+        return $"{qty} shares";
+    }
+
+    /// <summary>
+    /// Gets the estimated position value for a given price.
+    /// </summary>
+    public static double GetTargetPositionValue(double price)
+    {
+        int qty = GetDefaultQuantityForPrice(price);
+        return qty * price;
+    }
 }

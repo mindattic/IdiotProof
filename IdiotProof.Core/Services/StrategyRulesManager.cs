@@ -53,12 +53,26 @@ public sealed class StrategyRule
     public bool Enabled { get; set; } = true;
 
     /// <summary>
-    /// Expiration date for this rule (format: "YYYY-MM-DD"). 
+    /// Start date for this rule (ISO 8601 format in EST, e.g., "2026-02-07" or "2026-02-07T09:30:00"). 
+    /// Rules only apply on or after this date. Before this date, the rule is ignored.
+    /// Useful for ensuring tips aren't used in backtesting before they were known.
+    /// </summary>
+    [JsonPropertyName("validFrom")]
+    public string? ValidFrom { get; set; }
+
+    /// <summary>
+    /// Expiration date for this rule (ISO 8601 format in EST, e.g., "2026-02-10" or "2026-02-10T16:00:00"). 
     /// Rules only apply on or before this date. After this date, the rule is ignored.
     /// These are typically daily tips that don't apply after the specified date.
     /// </summary>
     [JsonPropertyName("validUntil")]
     public string? ValidUntil { get; set; }
+
+    /// <summary>Eastern Standard Time zone for date comparisons.</summary>
+    private static readonly TimeZoneInfo EstZone = TimeZoneInfo.FindSystemTimeZoneById("Eastern Standard Time");
+    
+    /// <summary>Gets the current date/time in EST.</summary>
+    private static DateTime NowEst => TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, EstZone);
 
     /// <summary>User-friendly name for this strategy.</summary>
     [JsonPropertyName("name")]
@@ -83,31 +97,84 @@ public sealed class StrategyRule
     [JsonPropertyName("notes")]
     public string? Notes { get; set; }
 
-    /// <summary>Checks if the rule has expired based on the validUntil date.</summary>
+    /// <summary>Parses an ISO 8601 date string to DateTime in EST.</summary>
+    private static DateTime? ParseEstDate(string? dateStr)
+    {
+        if (string.IsNullOrWhiteSpace(dateStr))
+            return null;
+        
+        // Try parsing as full ISO 8601 datetime first
+        if (DateTime.TryParse(dateStr, null, System.Globalization.DateTimeStyles.RoundtripKind, out var dt))
+        {
+            // If no timezone info, assume EST
+            if (dt.Kind == DateTimeKind.Unspecified)
+                return dt;
+            // Convert to EST if UTC
+            if (dt.Kind == DateTimeKind.Utc)
+                return TimeZoneInfo.ConvertTimeFromUtc(dt, EstZone);
+            return dt;
+        }
+        
+        // Try parsing as date only (YYYY-MM-DD)
+        if (DateOnly.TryParse(dateStr, out var dateOnly))
+        {
+            return dateOnly.ToDateTime(TimeOnly.MinValue);
+        }
+        
+        return null;
+    }
+
+    /// <summary>Checks if the rule has not yet started (before validFrom date in EST).</summary>
+    [JsonIgnore]
+    public bool IsNotYetValid
+    {
+        get
+        {
+            var startDate = ParseEstDate(ValidFrom);
+            if (startDate == null)
+                return false; // No start date = always started
+            
+            return NowEst < startDate.Value;
+        }
+    }
+
+    /// <summary>Checks if the rule has expired based on the validUntil date in EST.</summary>
     [JsonIgnore]
     public bool IsExpired
     {
         get
         {
-            if (string.IsNullOrWhiteSpace(ValidUntil))
+            var expirationDate = ParseEstDate(ValidUntil);
+            if (expirationDate == null)
                 return false; // No expiration = never expires
             
-            if (DateOnly.TryParse(ValidUntil, out var expirationDate))
-            {
-                return DateOnly.FromDateTime(DateTime.Today) > expirationDate;
-            }
-            return false; // Invalid date format = treat as not expired
+            // If only date was specified (no time), expire at end of day
+            if (expirationDate.Value.TimeOfDay == TimeSpan.Zero)
+                expirationDate = expirationDate.Value.AddDays(1).AddSeconds(-1);
+            
+            return NowEst > expirationDate.Value;
         }
     }
 
-    /// <summary>Checks if the rule is currently valid (enabled and not expired).</summary>
+    /// <summary>Checks if the current date is within the valid date range (in EST).</summary>
     [JsonIgnore]
-    public bool IsValid => Enabled && !IsExpired && !string.IsNullOrWhiteSpace(Rule);
+    public bool IsWithinDateRange => !IsNotYetValid && !IsExpired;
+
+    /// <summary>Checks if the rule is currently valid (enabled, within date range, and has content).</summary>
+    [JsonIgnore]
+    public bool IsValid => Enabled && IsWithinDateRange && !string.IsNullOrWhiteSpace(Rule);
 
     public override string ToString()
     {
-        var expiry = IsExpired ? " [EXPIRED]" : (ValidUntil != null ? $" [until {ValidUntil}]" : "");
-        return $"{Symbol}: {Name ?? Rule.Substring(0, Math.Min(50, Rule.Length))}...{expiry}";
+        var status = IsNotYetValid ? " [NOT YET ACTIVE]" : (IsExpired ? " [EXPIRED]" : "");
+        var dateRange = "";
+        if (ValidFrom != null || ValidUntil != null)
+        {
+            var from = ValidFrom ?? "...";
+            var until = ValidUntil ?? "...";
+            dateRange = $" [{from} to {until}]";
+        }
+        return $"{Symbol}: {Name ?? Rule.Substring(0, Math.Min(50, Rule.Length))}...{status}{dateRange}";
     }
 }
 

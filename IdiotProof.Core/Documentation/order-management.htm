@@ -1,0 +1,626 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Order Management - IdiotProof Documentation</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="page-wrapper">
+        <!-- Sidebar Navigation -->
+        <nav class="sidebar">
+            <div class="sidebar-header">
+                <a href="index.htm" class="logo">
+                    <span class="logo-icon">📈</span>
+                    <span class="logo-text">IdiotProof</span>
+                    <span class="logo-version">v2.0</span>
+                </a>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">Getting Started</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="index.htm" class="nav-link"><span class="nav-icon">🏠</span>Home</a></li>
+                    <li class="nav-item"><a href="quick-start.htm" class="nav-link"><span class="nav-icon">🚀</span>Quick Start</a></li>
+                    <li class="nav-item"><a href="architecture.htm" class="nav-link"><span class="nav-icon">🏗️</span>Architecture</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">IdiotScript DSL</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="idiotscript.htm" class="nav-link"><span class="nav-icon">📜</span>Language Reference</a></li>
+                    <li class="nav-item"><a href="commands.htm" class="nav-link"><span class="nav-icon">⌨️</span>Command Reference</a></li>
+                    <li class="nav-item"><a href="examples.htm" class="nav-link"><span class="nav-icon">💡</span>Strategy Examples</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">Technical Indicators</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="indicators.htm" class="nav-link"><span class="nav-icon">📊</span>Indicator Overview</a></li>
+                    <li class="nav-item"><a href="indicators-vwap.htm" class="nav-link"><span class="nav-icon">〰️</span>VWAP Indicators</a></li>
+                    <li class="nav-item"><a href="indicators-ema.htm" class="nav-link"><span class="nav-icon">📈</span>EMA Indicators</a></li>
+                    <li class="nav-item"><a href="indicators-momentum.htm" class="nav-link"><span class="nav-icon">⚡</span>Momentum</a></li>
+                    <li class="nav-item"><a href="indicators-volume.htm" class="nav-link"><span class="nav-icon">📶</span>Volume Analysis</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">Trading Systems</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="market-score.htm" class="nav-link"><span class="nav-icon">🎯</span>Market Score</a></li>
+                    <li class="nav-item"><a href="adaptive-order.htm" class="nav-link"><span class="nav-icon">🔄</span>AdaptiveOrder</a></li>
+                    <li class="nav-item"><a href="autonomous-trading.htm" class="nav-link"><span class="nav-icon">🤖</span>AutonomousTrading</a></li>
+                    <li class="nav-item"><a href="order-management.htm" class="nav-link active"><span class="nav-icon">📋</span>Order Management</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">AI & Machine Learning</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="ai-overview.htm" class="nav-link"><span class="nav-icon">🧠</span>AI Overview</a></li>
+                    <li class="nav-item"><a href="lstm.htm" class="nav-link"><span class="nav-icon">🔮</span>LSTM Predictor</a></li>
+                    <li class="nav-item"><a href="pattern-matcher.htm" class="nav-link"><span class="nav-icon">🔍</span>Pattern Matcher</a></li>
+                    <li class="nav-item"><a href="learned-weights.htm" class="nav-link"><span class="nav-icon">⚖️</span>Learned Weights</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">Configuration</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="configuration.htm" class="nav-link"><span class="nav-icon">⚙️</span>Settings</a></li>
+                    <li class="nav-item"><a href="watchlist.htm" class="nav-link"><span class="nav-icon">👀</span>Watchlist</a></li>
+                    <li class="nav-item"><a href="strategy-rules.htm" class="nav-link"><span class="nav-icon">📝</span>Strategy Rules</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">Testing & Analysis</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="backtesting.htm" class="nav-link"><span class="nav-icon">⏪</span>Backtesting</a></li>
+                    <li class="nav-item"><a href="simulation.htm" class="nav-link"><span class="nav-icon">🎮</span>Simulation</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">Reference</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="glossary.htm" class="nav-link"><span class="nav-icon">📖</span>Glossary</a></li>
+                    <li class="nav-item"><a href="faq.htm" class="nav-link"><span class="nav-icon">❓</span>FAQ</a></li>
+                    <li class="nav-item"><a href="troubleshooting.htm" class="nav-link"><span class="nav-icon">🔧</span>Troubleshooting</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">Roadmap</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="futureproofing.htm" class="nav-link"><span class="nav-icon">🔮</span>Future-Proofing</a></li>
+                    <li class="nav-item"><a href="wishlist.htm" class="nav-link"><span class="nav-icon">✨</span>Wishlist</a></li>
+                </ul>
+            </div>
+        </nav>
+        
+        <!-- Main Content -->
+        <main class="main-content">
+            <div class="content-wrapper">
+                <!-- Breadcrumb -->
+                <div class="breadcrumb">
+                    <a href="index.htm">Home</a>
+                    <span class="breadcrumb-separator">/</span>
+                    <a href="market-score.htm">Trading Systems</a>
+                    <span class="breadcrumb-separator">/</span>
+                    <span>Order Management</span>
+                </div>
+                
+                <!-- Header -->
+                <header class="page-header">
+                    <h1 class="page-title">Order Management</h1>
+                    <p class="page-subtitle">
+                        Complete guide to order types, position management, and trade execution 
+                        in IdiotProof.
+                    </p>
+                </header>
+                
+                <!-- Order Flow -->
+                <section id="overview">
+                    <h2>Order Lifecycle</h2>
+                    <p>
+                        Orders in IdiotProof flow through a defined lifecycle from strategy 
+                        definition to execution and exit.
+                    </p>
+                    
+                    <div class="ascii-art">
+ORDER LIFECYCLE
+═══════════════════════════════════════════════════════════════════════════════
+
+    ┌─────────────┐     ┌─────────────┐     ┌─────────────┐     ┌─────────────┐
+    │   DEFINE    │ ──▶ │   MONITOR   │ ──▶ │   EXECUTE   │ ──▶ │   MANAGE    │
+    │  Strategy   │     │ Conditions  │     │   Order     │     │  Position   │
+    └─────────────┘     └─────────────┘     └─────────────┘     └─────────────┘
+           │                  │                   │                   │
+           ▼                  ▼                   ▼                   ▼
+    ┌─────────────┐     ┌─────────────┐     ┌─────────────┐     ┌─────────────┐
+    │ • Ticker    │     │ • VWAP pos  │     │ • BUY/SELL  │     │ • TP/SL     │
+    │ • Entry     │     │ • EMA stack │     │ • Quantity  │     │ • Trailing  │
+    │ • Qty       │     │ • RSI/MACD  │     │ • Price     │     │ • Adaptive  │
+    │ • Direction │     │ • All true? │     │ • Submit    │     │ • Exit      │
+    └─────────────┘     └─────────────┘     └─────────────┘     └─────────────┘
+
+
+ORDER STATES
+═══════════════════════════════════════════════════════════════════════════════
+
+    ┌──────────┐    ┌──────────┐    ┌──────────┐    ┌──────────┐
+    │ PENDING  │──▶ │ WORKING  │──▶ │ FILLED   │──▶ │ CLOSED   │
+    └──────────┘    └──────────┘    └──────────┘    └──────────┘
+         │               │               │               │
+         │               │               │               │
+         ▼               ▼               ▼               ▼
+    Waiting for     Submitted       Position        Exit complete
+    conditions      to broker       opened          (TP/SL/Manual)
+</div>
+                </section>
+                
+                <!-- Order Direction -->
+                <section id="direction">
+                    <h2>Order Direction</h2>
+                    <p>
+                        IdiotScript supports both long and short positions with explicit 
+                        direction commands.
+                    </p>
+                    
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Command</th>
+                                <th>Action</th>
+                                <th>Description</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><code>Order()</code></td>
+                                <td>BUY</td>
+                                <td>Opens a LONG position (default)</td>
+                            </tr>
+                            <tr>
+                                <td><code>Order(IS.LONG)</code></td>
+                                <td>BUY</td>
+                                <td>Explicitly opens a LONG position</td>
+                            </tr>
+                            <tr>
+                                <td><code>Order(IS.SHORT)</code></td>
+                                <td>SELL</td>
+                                <td>Opens a SHORT position</td>
+                            </tr>
+                            <tr>
+                                <td><code>Long()</code></td>
+                                <td>BUY</td>
+                                <td>Alias for Order(IS.LONG)</td>
+                            </tr>
+                            <tr>
+                                <td><code>Short()</code></td>
+                                <td>SELL</td>
+                                <td>Alias for Order(IS.SHORT)</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    
+                    <h3>Examples</h3>
+                    <pre><code><span class="token-comment">// Long position (default)</span>
+Ticker(AAPL)
+    .Entry(150)
+    .<span class="token-function">Order</span>()              <span class="token-comment">// Opens long position</span>
+    .TakeProfit(160)
+
+<span class="token-comment">// Short position</span>
+Ticker(SPY)
+    .Entry(500)
+    .<span class="token-function">Order</span>(IS.<span class="token-property">SHORT</span>)     <span class="token-comment">// Opens short position</span>
+    .TakeProfit(490)
+    .StopLoss(505)</code></pre>
+                </section>
+                
+                <!-- Order Configuration -->
+                <section id="config">
+                    <h2>Order Configuration</h2>
+                    <p>
+                        Following the single-responsibility pattern, each order aspect is 
+                        configured with its own chained method.
+                    </p>
+                    
+                    <div class="ascii-art">
+ORDER CONFIGURATION CHAIN
+═══════════════════════════════════════════════════════════════════════════════
+
+    Ticker(AAPL)
+        │
+        ├── .Entry(150)              ← Entry condition (price level)
+        ├── .Order(IS.LONG)          ← Direction (LONG or SHORT)
+        ├── .Quantity(100)           ← Number of shares
+        ├── .PriceType(Price.VWAP)   ← Execution price type
+        ├── .OrderType(Limit)        ← Market or Limit order
+        ├── .OutsideRTH()            ← Allow entry outside RTH
+        ├── .TakeProfit(160)         ← Take profit level
+        ├── .StopLoss(145)           ← Stop loss level
+        ├── .TrailingStopLoss(2)     ← Trailing stop ($ or %)
+        └── .AdaptiveOrder()         ← Dynamic TP/SL adjustment
+</div>
+                    
+                    <h3>Configuration Commands</h3>
+                    
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Command</th>
+                                <th>Purpose</th>
+                                <th>Default</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><code>Quantity(n)</code></td>
+                                <td>Number of shares to trade</td>
+                                <td>1</td>
+                            </tr>
+                            <tr>
+                                <td><code>PriceType(type)</code></td>
+                                <td>Price for execution</td>
+                                <td>Price.Current</td>
+                            </tr>
+                            <tr>
+                                <td><code>OutsideRTH()</code></td>
+                                <td>Allow entry outside RTH</td>
+                                <td>true</td>
+                            </tr>
+                            <tr>
+                                <td><code>TakeProfitOutsideRTH()</code></td>
+                                <td>Allow TP outside RTH</td>
+                                <td>true</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </section>
+                
+                <!-- Price Tiers -->
+                <section id="price-tiers">
+                    <h2>Stock Price Tiers & Auto-Quantity</h2>
+                    <p>
+                        When you omit <code>.Quantity()</code> or set <code>Quantity(0)</code>, 
+                        IdiotProof automatically calculates position size based on the stock's 
+                        price tier. This ensures appropriate position sizing across different 
+                        price levels.
+                    </p>
+                    
+                    <div class="ascii-art">
+STOCK PRICE TIER SYSTEM
+═══════════════════════════════════════════════════════════════════════════════
+
+    ┌─────────────┬───────────────┬─────────────────┬─────────────────────────┐
+    │    TIER     │  PRICE RANGE  │ TARGET POSITION │     EXAMPLE QTY         │
+    ├─────────────┼───────────────┼─────────────────┼─────────────────────────┤
+    │  <span class="bullish">PREMIUM</span>    │    $500+      │     ~$1,000     │  2 shares @ $500        │
+    ├─────────────┼───────────────┼─────────────────┼─────────────────────────┤
+    │  <span class="bullish">BLUE CHIP</span>  │  $100 - $500  │     ~$1,000     │  5 shares @ $200        │
+    ├─────────────┼───────────────┼─────────────────┼─────────────────────────┤
+    │  <span class="neutral">MID-CAP</span>    │   $25 - $100  │      ~$600      │  12 shares @ $50        │
+    ├─────────────┼───────────────┼─────────────────┼─────────────────────────┤
+    │  <span class="neutral">SMALL-CAP</span>  │    $5 - $25   │      ~$350      │  35 shares @ $10        │
+    ├─────────────┼───────────────┼─────────────────┼─────────────────────────┤
+    │  <span class="bearish">PENNY</span>      │    $1 - $5    │      ~$200      │  80 shares @ $2.50      │
+    ├─────────────┼───────────────┼─────────────────┼─────────────────────────┤
+    │  <span class="bearish">MICRO</span>      │     &lt;$1       │      ~$100      │  200 shares @ $0.50     │
+    └─────────────┴───────────────┴─────────────────┴─────────────────────────┘
+
+
+    WHY TIERS MATTER:
+    ─────────────────────────────────────────────────────────────────────────
+    
+    <span class="bullish">Premium/Blue Chip ($100+)</span>
+    • Larger position ($1,000) - more stable, established companies
+    • Lower share count - each share represents significant value
+    • Typically lower volatility % but larger $ moves
+    
+    <span class="neutral">Mid-Cap/Small-Cap ($5-$100)</span>  
+    • Medium position ($350-$600) - balanced risk/reward
+    • Moderate share count for good scaling
+    • Mix of established and growth companies
+    
+    <span class="bearish">Penny/Micro (&lt;$5)</span>
+    • Smaller position ($100-$200) - higher risk, protect capital
+    • Higher share count but limited $ exposure
+    • More volatile, higher potential loss per trade
+</div>
+                    
+                    <h3>Usage</h3>
+                    <pre><code><span class="token-comment">// Auto-quantity based on price tier</span>
+Ticker(NVDA)                    <span class="token-comment">// ~$900 = Premium tier</span>
+    .AutonomousTrading()        <span class="token-comment">// Auto-calculates: ~1 share (~$900 position)</span>
+
+Ticker(AAPL)                    <span class="token-comment">// ~$185 = Blue Chip tier</span>
+    .AutonomousTrading()        <span class="token-comment">// Auto-calculates: ~5 shares (~$925 position)</span>
+
+Ticker(SOFI)                    <span class="token-comment">// ~$12 = Small-Cap tier</span>
+    .AutonomousTrading()        <span class="token-comment">// Auto-calculates: ~29 shares (~$350 position)</span>
+
+<span class="token-comment">// Override with explicit quantity</span>
+Ticker(NVDA)
+    .<span class="token-function">Quantity</span>(10)              <span class="token-comment">// Explicit: 10 shares regardless of tier</span>
+    .AutonomousTrading()</code></pre>
+                    
+                    <div class="callout callout-info">
+                        <div class="callout-title">ℹ️ Tier Philosophy</div>
+                        <p>
+                            The tier system follows a "prestige" model: higher-priced stocks get 
+                            larger positions because they typically represent more established, 
+                            less volatile companies. Lower-priced stocks get smaller positions 
+                            to limit exposure to higher-risk plays.
+                        </p>
+                    </div>
+                </section>
+                
+                <!-- Exit Management -->
+                <section id="exits">
+                    <h2>Exit Management</h2>
+                    <p>
+                        IdiotProof provides multiple exit mechanisms that can be used 
+                        individually or in combination.
+                    </p>
+                    
+                    <div class="ascii-art">
+EXIT TYPES
+═══════════════════════════════════════════════════════════════════════════════
+
+    <span class="bullish">TAKE PROFIT (TakeProfit)</span>
+    
+    Price │                      ████████████ TP Hit
+          │                 ____/
+          │            ____/
+    TP ───┼───────────────────────────────────────────────────
+          │       ____/
+    Entry │ __█__/
+          └───────────────────────────────────────────────────────────
+
+
+    <span class="bearish">STOP LOSS (StopLoss)</span>
+    
+    Entry │ __█__\
+          │       \____
+    SL ───┼───────────────────────────────────────────────────
+          │            \____
+          │                 \____████████████ SL Hit
+          └───────────────────────────────────────────────────────────
+
+
+    <span class="bullish">TRAILING STOP LOSS (TrailingStopLoss)</span>
+    
+    Price │                  Peak
+          │             ____/\
+          │        ____/      \  ← Price drops
+          │   ____/            \
+    Entry │ _/                  \
+          │                      \
+    Trail │ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─\─█─ Trail Stop Hit
+          │   Trail follows        \
+          │   price up but          \____
+          │   never down
+          └───────────────────────────────────────────────────────────
+
+
+    <span class="neutral">EXIT STRATEGY (ExitStrategy)</span>
+    
+          │                              Exit at IS.BELL
+          │                                   ▼
+          │ __________/\__________/\____█____
+          │                              │
+    Entry │                         Close position
+          │                         at session end
+          └───────────────────────────────────────────────────────────
+              9:30              3:00   3:59  4:00
+</div>
+                    
+                    <h3>Exit Commands</h3>
+                    
+                    <div class="command-table">
+                        <h4>TakeProfit(price)</h4>
+                        <p>Close position when price reaches target profit level.</p>
+                        <pre><code>Ticker(AAPL)
+    .Entry(150)
+    .<span class="token-function">TakeProfit</span>(<span class="token-number">160</span>)      <span class="token-comment">// Close at $160 for profit</span></code></pre>
+                    </div>
+                    
+                    <div class="command-table">
+                        <h4>StopLoss(price)</h4>
+                        <p>Close position when price falls to stop loss level.</p>
+                        <pre><code>Ticker(AAPL)
+    .Entry(150)
+    .<span class="token-function">StopLoss</span>(<span class="token-number">145</span>)        <span class="token-comment">// Close at $145 to limit loss</span></code></pre>
+                    </div>
+                    
+                    <div class="command-table">
+                        <h4>TrailingStopLoss(distance)</h4>
+                        <p>
+                            Trailing stop that follows price up but never down. Distance 
+                            can be in dollars or percentage.
+                        </p>
+                        <pre><code>Ticker(AAPL)
+    .Entry(150)
+    .<span class="token-function">TrailingStopLoss</span>(<span class="token-number">5</span>)  <span class="token-comment">// Trail $5 below highest price</span></code></pre>
+                    </div>
+                    
+                    <div class="command-table">
+                        <h4>ExitStrategy(time)</h4>
+                        <p>Close position at specified time or condition.</p>
+                        <pre><code>Ticker(AAPL)
+    .Entry(150)
+    .<span class="token-function">ExitStrategy</span>(IS.<span class="token-property">BELL</span>)           <span class="token-comment">// Exit at session bell</span>
+
+<span class="token-comment">// Exit only if profitable</span>
+Ticker(AAPL)
+    .Entry(150)
+    .<span class="token-function">ExitStrategy</span>(IS.<span class="token-property">BELL</span>).<span class="token-function">IsProfitable</span>()  <span class="token-comment">// Exit at bell if in profit</span></code></pre>
+                    </div>
+                </section>
+                
+                <!-- IS.BELL -->
+                <section id="bell">
+                    <h2>Session Bell Times (IS.BELL)</h2>
+                    <p>
+                        <code>IS.BELL</code> resolves to 1 minute before the current session ends,
+                        allowing clean exits before market close.
+                    </p>
+                    
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Session</th>
+                                <th>IS.BELL Resolves To</th>
+                                <th>Market Close</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>Premarket</td>
+                                <td>9:29 AM</td>
+                                <td>9:30 AM (RTH open)</td>
+                            </tr>
+                            <tr>
+                                <td>RTH (Regular)</td>
+                                <td>3:59 PM</td>
+                                <td>4:00 PM</td>
+                            </tr>
+                            <tr>
+                                <td>After Hours</td>
+                                <td>7:59 PM</td>
+                                <td>8:00 PM</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    
+                    <p>Explicit session bells are also available:</p>
+                    <ul>
+                        <li><code>IS.PREMARKET.BELL</code> → 9:29 AM</li>
+                        <li><code>IS.RTH.BELL</code> → 3:59 PM</li>
+                        <li><code>IS.AFTERHOURS.BELL</code> → 7:59 PM</li>
+                    </ul>
+                </section>
+                
+                <!-- Position Closing -->
+                <section id="closing">
+                    <h2>Position Closing</h2>
+                    <p>
+                        To close positions manually or create exit-only orders:
+                    </p>
+                    
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Command</th>
+                                <th>Action</th>
+                                <th>Use Case</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><code>CloseLong()</code></td>
+                                <td>Submits SELL order</td>
+                                <td>Close existing long position</td>
+                            </tr>
+                            <tr>
+                                <td><code>CloseShort()</code></td>
+                                <td>Submits BUY order</td>
+                                <td>Cover existing short position</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </section>
+                
+                <!-- Repeat -->
+                <section id="repeat">
+                    <h2>Repeat Strategy</h2>
+                    <p>
+                        Use <code>Repeat()</code> to restart a strategy after it completes 
+                        (via TP, SL, or TSL). This allows the strategy to re-enter when 
+                        conditions are met again.
+                    </p>
+                    
+                    <pre><code>Ticker(AAPL)
+    .Entry(150)
+    .TakeProfit(155)
+    .StopLoss(147)
+    .<span class="token-function">Repeat</span>()              <span class="token-comment">// After exit, watch for next entry</span></code></pre>
+                    
+                    <div class="ascii-art">
+REPEAT STRATEGY FLOW
+═══════════════════════════════════════════════════════════════════════════════
+
+    ┌──────────┐     ┌──────────┐     ┌──────────┐     ┌──────────┐
+    │  WAIT    │ ──▶ │  ENTRY   │ ──▶ │  MANAGE  │ ──▶ │  EXIT    │
+    │ Conds    │     │ Executed │     │ Position │     │ TP/SL    │
+    └──────────┘     └──────────┘     └──────────┘     └────┬─────┘
+         ▲                                                   │
+         │                           With Repeat()           │
+         └───────────────────────────────────────────────────┘
+                           Reset and wait for conditions again
+</div>
+                </section>
+                
+                <!-- Complete Example -->
+                <section id="examples">
+                    <h2>Complete Order Examples</h2>
+                    
+                    <h3>1. Full Long Strategy</h3>
+                    <pre><code>Ticker(AAPL)
+    .Name("AAPL Breakout Long")
+    .Session(IS.RTH)
+    .Quantity(50)
+    .Entry(150)
+    .Order(IS.LONG)
+    .IsAboveVwap()
+    .IsEmaAbove(9)
+    .IsMomentumAbove(0)
+    .TakeProfit(160)
+    .StopLoss(145)
+    .TrailingStopLoss(3)
+    .AdaptiveOrder(IS.BALANCED)
+    .Repeat()</code></pre>
+                    
+                    <h3>2. Short Strategy with Time Exit</h3>
+                    <pre><code>Ticker(SPY)
+    .Name("SPY Short to Close")
+    .Session(IS.RTH)
+    .Quantity(100)
+    .Entry(505)
+    .Order(IS.SHORT)
+    .IsBelowVwap()
+    .IsEmaBelow(21)
+    .IsMacdBearish()
+    .TakeProfit(495)
+    .StopLoss(510)
+    .ExitStrategy(IS.BELL).IsProfitable()</code></pre>
+                    
+                    <h3>3. Simple Autonomous</h3>
+                    <pre><code>Ticker(NVDA)
+    .Name("NVDA Auto")
+    .Session(IS.RTH)
+    .Quantity(10)
+    .AutonomousTrading()</code></pre>
+                </section>
+                
+                <!-- Footer Navigation -->
+                <footer class="page-footer">
+                    <div class="footer-nav">
+                        <a href="autonomous-trading.htm">← Autonomous Trading</a>
+                        <a href="ai-overview.htm">AI Overview →</a>
+                    </div>
+                    <p class="text-center text-muted">
+                        IdiotProof Trading System Documentation &copy; 2026
+                    </p>
+                </footer>
+            </div>
+        </main>
+    </div>
+</body>
+</html>

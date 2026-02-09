@@ -456,6 +456,102 @@ Explicit bell constants are also available:
 - `IS.RTH.BELL` → 3:59 PM
 - `IS.AFTERHOURS.BLL` → 7:59 PM
 
+## Opening Bell Pattern Detection (Autonomous Trading)
+
+The system automatically detects patterns around the RTH open (9:30 AM ET) to avoid traps and capitalize on clean setups.
+
+### Pattern 1: First Candle Trap (9:30-9:31)
+The first RTH candle is extremely volatile - even if it moves up, chances of closing profitable are low.
+- **Action**: SKIP ALL ENTRIES during 9:30-9:31 candle
+- **Filter**: `IsFirstRthCandle` → Entry threshold increased by 100 (effectively blocks entry)
+
+### Pattern 2: Premarket Green Rush Warning
+If a stock shows **3+ consecutive green candles** in the last 5 minutes of premarket (9:25-9:30), it's likely to crash after RTH opens.
+- **Detection**: `HasPremarketGreenRushWarning` → true if 3+ green candles at end of premarket
+- **Action**: EXIT any LONG position 3 minutes before RTH bell (9:27-9:30)
+- **Reason**: Extended runs into open typically reverse hard
+
+```
+      Premarket End (9:25-9:30)              RTH Open
+           ↓                                    ↓
+    ████ ████ ████ ████ ████    |    █
+    [G]  [G]  [G]  [G]  [G]     |    █ <-- CRASH!
+                                |    █
+    ← GREEN RUSH WARNING →      |    █████
+         EXIT HERE!             |
+```
+
+### Pattern 3: Clean Rocket Pattern  
+If premarket is clean (no green rush) AND stock rockets up after open, BUY for the move to HOD, then SHORT the fade.
+- **Detection**: `HasCleanPremarket` + above VWAP + first 15 min (9:32-9:45)
+- **Action**: Boost LONG entry confidence (threshold reduced by 15)
+- **Follow-up**: When price reaches HOD, the Early HOD Exit logic kicks in and flips to SHORT
+
+```
+      Premarket                 RTH Open           HOD
+           ↓                       ↓               ↓
+    ██ ██ ██ ██ ██    |    ██ ████ ████████ ████████ ***
+    [G][R][G][R][G]   |       ↑                      ↑
+                      |    BUY here              SELL + SHORT
+    ← CLEAN (mixed) → |    ← CLEAN ROCKET PATTERN →
+```
+
+### Pattern 4: RTH Volatility Window (9:30-9:32)
+Reduced confidence during the first 2 minutes of RTH.
+- **Action**: Entry threshold increased by 15 points
+- **Reason**: Higher chance of false signals during initial volatility
+
+### OpeningBellAnalysis Object
+The `CandlestickAggregator.GetOpeningBellAnalysis(price, vwap)` returns:
+```csharp
+{
+    IsFirstRthCandle: bool,        // 9:30-9:31 trap zone
+    IsRthVolatilityWindow: bool,   // 9:30-9:32 reduced confidence
+    HasGreenRushWarning: bool,     // Exit long signal
+    PremarketGainPercent: double,  // % gain in last 5 min of premarket
+    PremarketGreenCandles: int,    // Count of green candles (9:25-9:30)
+    HasCleanPremarket: bool,       // No warning signs
+    Recommendation: OpeningBellAction  // Suggested action
+}
+```
+
+### OpeningBellAction Enum
+```csharp
+NormalTrading,       // Standard trading rules apply
+HoldAndWatch,        // Premarket - wait for signals
+ExitBeforeBell,      // Green rush detected - exit longs!
+AvoidFirstCandle,    // 9:30-9:31 - skip entries
+ReducedConfidence,   // 9:30-9:32 - stricter thresholds
+CleanRocketBuy       // Clean premarket + above VWAP - buy opportunity
+```
+
+## Auto-Quantity Based on Price Tier
+
+The default position size is now calculated automatically based on stock price "prestige":
+
+| Price Tier | Price Range | Target Position | Example Qty |
+|------------|-------------|-----------------|-------------|
+| Premium | $500+ | ~$1,000 | 2 shares @ $500 |
+| Blue Chip | $100-$500 | ~$1,000 | 5 shares @ $200 |
+| Mid-Cap | $25-$100 | ~$600 | 12 shares @ $50 |
+| Small-Cap | $5-$25 | ~$350 | 35 shares @ $10 |
+| Penny | $1-$5 | ~$200 | 80 shares @ $2.50 |
+| Micro | <$1 | ~$100 | 200 shares @ $0.50 |
+
+To use auto-quantity, set `Quantity(0)` or omit `.Quantity()`:
+```idiotscript
+Ticker(NVDA)
+.AutonomousTrading()
+// Quantity auto-calculated: ~2 shares for ~$1,000 position
+```
+
+To override with explicit quantity:
+```idiotscript
+Ticker(NVDA)
+.Quantity(10)  // Explicit: 10 shares regardless of price
+.AutonomousTrading()
+```
+
 ## ExitStrategy and IsProfitable (Single-Responsibility Pattern)
 Use `ExitStrategy()` for exit timing and chain `.IsProfitable()` to only exit if profitable:
 ```
@@ -693,31 +789,31 @@ IsAutonomousTrading()     - Alias for AutonomousTrading()
 The system automatically adjusts entry/exit thresholds based on real-time market conditions:
 
 ```
-+===========================================================================+
-|  DYNAMIC THRESHOLD CALCULATION                                            |
-+===========================================================================+
-|                                                                           |
-|  Adjustment Factor        | Effect on Thresholds          | Reasoning    |
-|  ─────────────────────────┼───────────────────────────────┼──────────────|
-|  ADX >= 40 (strong trend) | Long: 50, Short: -50          | Aggressive   |
-|  ADX 25-40 (moderate)     | Long: 60, Short: -60          | Slightly agg |
-|  ADX < 20 (ranging)       | Long: 75, Short: -75          | Conservative |
-|  ─────────────────────────┼───────────────────────────────┼──────────────|
-|  ATR > 5% (high vol)      | +10 to thresholds             | Conservative |
-|  ATR 3-5% (moderate)      | +5 to thresholds              | Slight cons  |
-|  ATR < 1% (low vol)       | -5 to thresholds              | Aggressive   |
-|  ─────────────────────────┼───────────────────────────────┼──────────────|
-|  Indicators 80%+ agree    | -10 to thresholds             | Aggressive   |
-|  Indicators 60-80% agree  | -5 to thresholds              | Slight agg   |
-|  Indicators < 40% agree   | +10 to thresholds             | Conservative |
-|  ─────────────────────────┼───────────────────────────────┼──────────────|
-|  RSI > 75 (overbought)    | Long threshold +15            | Careful long |
-|  RSI < 25 (oversold)      | Short threshold -15           | Careful short|
-|  ─────────────────────────┼───────────────────────────────┼──────────────|
-|  First 15 minutes         | +10 to thresholds             | Volatility   |
-|  Last 30 minutes          | +5 to thresholds              | EOD caution  |
-|                                                                           |
-+===========================================================================+
++============================================================================+
+|  DYNAMIC THRESHOLD CALCULATION                                             |
++============================================================================+
+|                                                                            |
+|  Adjustment Factor        | Effect on Thresholds          | Reasoning     |
+|  ─────────────────────────┼───────────────────────────────┼───────────────|
+|  ADX >= 40 (strong trend) | Long: 50, Short: -50          | Aggressive    |
+|  ADX 25-40 (moderate)     | Long: 60, Short: -60          | Slightly agg  |
+|  ADX < 20 (ranging)       | Long: 75, Short: -75          | Conservative  |
+|  ─────────────────────────┼───────────────────────────────┼───────────────|
+|  ATR > 5% (high vol)      | +10 to thresholds             | Conservative  |
+|  ATR 3-5% (moderate)      | +5 to thresholds              | Slight cons   |
+|  ATR < 1% (low vol)       | -5 to thresholds              | Aggressive    |
+|  ─────────────────────────┼───────────────────────────────┼───────────────|
+|  Indicators 80%+ agree    | -10 to thresholds             | Aggressive    |
+|  Indicators 60-80% agree  | -5 to thresholds              | Slight agg    |
+|  Indicators < 40% agree   | +10 to thresholds             | Conservative  |
+|  ─────────────────────────┼───────────────────────────────┼───────────────|
+|  RSI > 75 (overbought)    | Long threshold +15            | Careful long  |
+|  RSI < 25 (oversold)      | Short threshold -15           | Careful short |
+|  ─────────────────────────┼───────────────────────────────┼───────────────|
+|  First 15 minutes         | +10 to thresholds             | Volatility    |
+|  Last 30 minutes          | +5 to thresholds              | EOD caution   |
+|                                                                            |
++============================================================================+
 
 Example: NVDA during strong uptrend (ADX=45, ATR=2%, Indicators=85% bullish)
   → Long threshold: 65 - 15 (ADX) - 10 (agreement) = 40 (very aggressive)
@@ -878,6 +974,60 @@ The system automatically adjusts its behavior based on market conditions. There 
 
 Use AutonomousTrading when: You want the AI to handle everything
 Use AdaptiveOrder when: You have specific entry conditions but want smart exits
+```
+
+### When Does AutonomousTrading Enter SHORT?
+
+The system enters SHORT whenever the market score drops to **-70 or below** - it's NOT limited to HOD rejection. Common SHORT entry scenarios:
+
+| Scenario | Description | Score Impact |
+|----------|-------------|--------------|
+| **Below VWAP + Falling** | Price well below VWAP with downward momentum | VWAP: -60, EMA: -80, MACD: -70 |
+| **HOD Rejection** | Price hits high and reverses sharply | Triggers bearish indicators |
+| **Failed Breakout** | Breaks level then fails back below | Momentum shifts negative |
+| **Bearish Gap Down** | Opens weak and continues selling | All indicators start negative |
+
+**Example: Stock falling below VWAP (not at HOD)**
+```
+Price: $48.50 (2% below VWAP of $49.50)
++----------------------------------------------------------------+
+| VWAP Score:   -60  (well below VWAP)                           |
+| EMA Score:    -80  (below 9, 21, 50 EMAs)                      |
+| MACD Score:   -70  (bearish cross, negative histogram)         |
+| ADX Score:    -50  (ADX 35 with -DI > +DI)                     |
+| RSI Score:    +20  (approaching oversold - slight positive)    |
+| Volume Score: -30  (volume confirming down move)               |
++----------------------------------------------------------------+
+| Total Score:  -78  --> SHORT ENTRY (below -70 threshold)       |
++----------------------------------------------------------------+
+```
+
+**Key Point**: The system shorts based on indicator alignment, not chart location. A stock can be far from HOD and still trigger a SHORT if bearish indicators are strong enough.
+
+### When Does AutonomousTrading Enter LONG?
+
+The system enters LONG whenever the market score rises to **+70 or above**. Common LONG entry scenarios:
+
+| Scenario | Description | Score Impact |
+|----------|-------------|--------------|
+| **Above VWAP + Rising** | Price well above VWAP with upward momentum | VWAP: +60, EMA: +80, MACD: +70 |
+| **LOD Bounce** | Price hits low and reverses sharply | Triggers bullish indicators |
+| **Breakout Confirmation** | Breaks resistance with volume | Momentum shifts positive |
+| **Bullish Gap Up** | Opens strong and continues buying | All indicators start positive |
+
+**Example: Stock rising above VWAP**
+```
+Price: $51.50 (3% above VWAP of $50.00)
++----------------------------------------------------------------+
+| VWAP Score:   +80  (well above VWAP)                           |
+| EMA Score:    +70  (above 9, 21, 50 EMAs)                      |
+| MACD Score:   +60  (bullish cross, positive histogram)         |
+| ADX Score:    +55  (ADX 40 with +DI > -DI)                     |
+| RSI Score:    -10  (slightly overbought - minor negative)      |
+| Volume Score: +40  (volume confirming up move)                 |
++----------------------------------------------------------------+
+| Total Score:  +75  --> LONG ENTRY (above +70 threshold)        |
++----------------------------------------------------------------+
 ```
 
 ### Real-World Example: UBER Chart Analysis
@@ -1167,7 +1317,7 @@ The **watchlist.json** file allows you to configure multiple tickers for autonom
 
 ### File Location
 ```
-IdiotProof.Core\Scripts\watchlist.json
+IdiotProof.Core\Data\watchlist.json
 ```
 
 ### File Format
@@ -1248,6 +1398,7 @@ IdiotProof.Core\Data\strategy-rules.json
     {
       "symbol": "CCHH",
       "enabled": true,
+      "validFrom": "2026-02-07",
       "validUntil": "2026-02-10",
       "name": "Day 2 Breakout-Pullback",
       "rule": "Wait for breakout above $0.78, then pullback. Only enter if pullback holds above $0.70.",
@@ -1268,7 +1419,8 @@ IdiotProof.Core\Data\strategy-rules.json
 | `enabled` | Global on/off switch for all rules |
 | `rules[].symbol` | Ticker symbol this rule applies to |
 | `rules[].enabled` | Enable/disable individual rules |
-| `rules[].validUntil` | **Expiration date (YYYY-MM-DD)**. Rule ignored after this date. For daily tips. |
+| `rules[].validFrom` | **Start date (ISO 8601 in EST)**. e.g., `"2026-02-07"` or `"2026-02-07T09:30:00"`. Rule ignored before this date. Prevents tips from being used in backtesting. |
+| `rules[].validUntil` | **End date (ISO 8601 in EST)**. e.g., `"2026-02-10"` or `"2026-02-10T16:00:00"`. Rule ignored after this date. For daily tips. |
 | `rules[].name` | Friendly name for the strategy |
 | `rules[].rule` | The rule in plain text - ChatGPT interprets this |
 | `rules[].levels.breakout` | Price that must break for consideration |
@@ -1291,6 +1443,7 @@ When ChatGPT evaluates with custom rules, it returns:
   "rules": [
     {
       "symbol": "TONN",
+      "validFrom": "2026-02-07",
       "validUntil": "2026-02-10",
       "name": "Earnings Runner Day 2",
       "rule": "Price breaks above $0.94 (previous high). Wait for retest. Retest must hold above $0.90. RULE: No break = no trade.",
@@ -1299,6 +1452,7 @@ When ChatGPT evaluates with custom rules, it returns:
     },
     {
       "symbol": "SMX",
+      "validFrom": "2026-02-07",
       "validUntil": "2026-02-10",
       "name": "High Volatility Explosive",
       "rule": "Break above $20.50, wait for pullback to $18.70. Only enter if above VWAP AND above EMAs.",

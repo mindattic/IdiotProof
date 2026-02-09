@@ -32,6 +32,7 @@
 using IBApi;
 using IdiotProof.Enums;
 using IdiotProof.Helpers;
+using IdiotProof.Logging;
 using IdiotProof.Models;
 using IdiotProof.Enums;
 using System;
@@ -51,7 +52,7 @@ namespace IdiotProof.Services {
     /// <list type="bullet">
     ///   <item>This service FETCHES data from IBKR</item>
     ///   <item><see cref="HistoricalDataStore"/> STORES data for backtesting</item>
-    ///   <item><see cref="Helpers.CandlestickAggregator"/> handles LIVE data</item>
+    ///   <item><see cref="Helpers.CandlestickAggregatorHelper"/> handles LIVE data</item>
     /// </list>
     /// </remarks>
     public sealed class HistoricalDataService : IDisposable
@@ -376,10 +377,7 @@ namespace IdiotProof.Services {
 
         private static void Log(string message)
         {
-            var easternZone = TimeZoneInfo.FindSystemTimeZoneById("Eastern Standard Time");
-            var easternTime = TimeZoneInfo.ConvertTime(DateTime.Now, easternZone);
-            var timestamp = easternTime.ToString("hh:mm:ss tt");
-            Console.WriteLine($"[{timestamp}] [HIST] {message}");
+            ConsoleLog.History(message);
         }
 
         public void Dispose()

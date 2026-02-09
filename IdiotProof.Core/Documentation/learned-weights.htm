@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Learned Weights - IdiotProof Documentation</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="page-wrapper">
+        <!-- Sidebar Navigation -->
+        <nav class="sidebar">
+            <div class="sidebar-header">
+                <a href="index.htm" class="logo">
+                    <span class="logo-icon">📈</span>
+                    <span class="logo-text">IdiotProof</span>
+                    <span class="logo-version">v2.0</span>
+                </a>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">Getting Started</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="index.htm" class="nav-link"><span class="nav-icon">🏠</span>Home</a></li>
+                    <li class="nav-item"><a href="quick-start.htm" class="nav-link"><span class="nav-icon">🚀</span>Quick Start</a></li>
+                    <li class="nav-item"><a href="architecture.htm" class="nav-link"><span class="nav-icon">🏗️</span>Architecture</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">IdiotScript DSL</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="idiotscript.htm" class="nav-link"><span class="nav-icon">📜</span>Language Reference</a></li>
+                    <li class="nav-item"><a href="commands.htm" class="nav-link"><span class="nav-icon">⌨️</span>Command Reference</a></li>
+                    <li class="nav-item"><a href="examples.htm" class="nav-link"><span class="nav-icon">💡</span>Strategy Examples</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">Technical Indicators</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="indicators.htm" class="nav-link"><span class="nav-icon">📊</span>Indicator Overview</a></li>
+                    <li class="nav-item"><a href="indicators-vwap.htm" class="nav-link"><span class="nav-icon">〰️</span>VWAP Indicators</a></li>
+                    <li class="nav-item"><a href="indicators-ema.htm" class="nav-link"><span class="nav-icon">📈</span>EMA Indicators</a></li>
+                    <li class="nav-item"><a href="indicators-momentum.htm" class="nav-link"><span class="nav-icon">⚡</span>Momentum</a></li>
+                    <li class="nav-item"><a href="indicators-volume.htm" class="nav-link"><span class="nav-icon">📶</span>Volume Analysis</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">Trading Systems</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="market-score.htm" class="nav-link"><span class="nav-icon">🎯</span>Market Score</a></li>
+                    <li class="nav-item"><a href="adaptive-order.htm" class="nav-link"><span class="nav-icon">🔄</span>AdaptiveOrder</a></li>
+                    <li class="nav-item"><a href="autonomous-trading.htm" class="nav-link"><span class="nav-icon">🤖</span>AutonomousTrading</a></li>
+                    <li class="nav-item"><a href="order-management.htm" class="nav-link"><span class="nav-icon">📋</span>Order Management</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">AI & Machine Learning</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="ai-overview.htm" class="nav-link"><span class="nav-icon">🧠</span>AI Overview</a></li>
+                    <li class="nav-item"><a href="lstm.htm" class="nav-link"><span class="nav-icon">🔮</span>LSTM Predictor</a></li>
+                    <li class="nav-item"><a href="pattern-matcher.htm" class="nav-link"><span class="nav-icon">🔍</span>Pattern Matcher</a></li>
+                    <li class="nav-item"><a href="learned-weights.htm" class="nav-link active"><span class="nav-icon">⚖️</span>Learned Weights</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">Configuration</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="configuration.htm" class="nav-link"><span class="nav-icon">⚙️</span>Settings</a></li>
+                    <li class="nav-item"><a href="watchlist.htm" class="nav-link"><span class="nav-icon">👀</span>Watchlist</a></li>
+                    <li class="nav-item"><a href="strategy-rules.htm" class="nav-link"><span class="nav-icon">📝</span>Strategy Rules</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">Testing & Analysis</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="backtesting.htm" class="nav-link"><span class="nav-icon">⏪</span>Backtesting</a></li>
+                    <li class="nav-item"><a href="simulation.htm" class="nav-link"><span class="nav-icon">🎮</span>Simulation</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">Reference</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="glossary.htm" class="nav-link"><span class="nav-icon">📖</span>Glossary</a></li>
+                    <li class="nav-item"><a href="faq.htm" class="nav-link"><span class="nav-icon">❓</span>FAQ</a></li>
+                    <li class="nav-item"><a href="troubleshooting.htm" class="nav-link"><span class="nav-icon">🔧</span>Troubleshooting</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">Roadmap</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="futureproofing.htm" class="nav-link"><span class="nav-icon">🔮</span>Future-Proofing</a></li>
+                    <li class="nav-item"><a href="wishlist.htm" class="nav-link"><span class="nav-icon">✨</span>Wishlist</a></li>
+                </ul>
+            </div>
+        </nav>
+        
+        <!-- Main Content -->
+        <main class="main-content">
+            <div class="content-wrapper">
+                <!-- Breadcrumb -->
+                <div class="breadcrumb">
+                    <a href="index.htm">Home</a>
+                    <span class="breadcrumb-separator">/</span>
+                    <a href="ai-overview.htm">AI & Machine Learning</a>
+                    <span class="breadcrumb-separator">/</span>
+                    <span>Learned Weights</span>
+                </div>
+                
+                <!-- Header -->
+                <header class="page-header">
+                    <h1 class="page-title">Learned Indicator Weights</h1>
+                    <p class="page-subtitle">
+                        IdiotProof learns optimal indicator weights for each ticker using 
+                        genetic algorithms and gradient descent, maximizing predictive accuracy.
+                    </p>
+                </header>
+                
+                <!-- Overview -->
+                <section id="overview">
+                    <h2>What Are Learned Weights?</h2>
+                    <p>
+                        Instead of using fixed indicator weights, IdiotProof learns the optimal 
+                        weights for each ticker through historical analysis. Different stocks 
+                        respond differently to indicators:
+                    </p>
+                    
+                    <ul>
+                        <li><strong>NVDA</strong> might respond strongly to momentum (MACD, RSI)</li>
+                        <li><strong>SPY</strong> might be more VWAP-sensitive</li>
+                        <li><strong>TSLA</strong> might weight ADX/DI heavily due to trending behavior</li>
+                    </ul>
+                    
+                    <div class="ascii-art">
+LEARNED WEIGHTS CONCEPT
+═══════════════════════════════════════════════════════════════════════════════
+
+    DEFAULT WEIGHTS (Fixed)          LEARNED WEIGHTS (Per Ticker)
+    ─────────────────────────        ─────────────────────────────
+    VWAP:   10%                      NVDA:           SPY:            TSLA:
+    EMA:    15%                      VWAP:   8%      VWAP:  14%      VWAP:   6%
+    RSI:    12%                      EMA:   12%      EMA:   18%      EMA:   10%
+    MACD:   18%                      RSI:   18%      RSI:    8%      RSI:   14%
+    ADX:    15%                      MACD:  22%      MACD:  15%      MACD:  16%
+    Vol:     8%                      ADX:   14%      ADX:   12%      ADX:   24%
+    Boll:    5%                      Vol:   10%      Vol:    8%      Vol:   12%
+    ...                              ...             ...             ...
+    ─────────────────────────        ─────────────────────────────────────────
+    Same for all                     Optimized for each ticker's behavior
+</div>
+                </section>
+                
+                <!-- Learning Methods -->
+                <section id="methods">
+                    <h2>Learning Methods</h2>
+                    <p>
+                        IdiotProof uses two primary methods to optimize weights:
+                    </p>
+                    
+                    <div class="ascii-art">
+OPTIMIZATION METHODS
+═══════════════════════════════════════════════════════════════════════════════
+
+    <span class="bullish">1. GENETIC ALGORITHM</span>
+    
+    ┌─────────────┐
+    │ Generation 0│  Random weight combinations
+    └──────┬──────┘
+           │
+           ▼
+    ┌─────────────┐
+    │  Evaluate   │  Test each combination on historical data
+    │   Fitness   │  Fitness = prediction accuracy × profit factor
+    └──────┬──────┘
+           │
+           ▼
+    ┌─────────────┐
+    │   Select    │  Keep top performers
+    │    Best     │
+    └──────┬──────┘
+           │
+           ▼
+    ┌─────────────┐
+    │  Crossover  │  Combine best weights
+    │  + Mutate   │  Add small random variations
+    └──────┬──────┘
+           │
+           ▼
+    ┌─────────────┐
+    │ Generation N│  Repeat until convergence
+    └─────────────┘
+
+
+    <span class="bullish">2. GRADIENT DESCENT</span>
+    
+    Score = Σ (weight_i × indicator_i)
+    
+    For each trade:
+        1. Calculate prediction error
+        2. Compute gradient ∂Error/∂weight_i
+        3. Update: weight_i -= learning_rate × gradient_i
+    
+    Loss │
+         │\
+         │ \
+         │  \____
+         │       \____
+         │            \____  ← Converging to minimum
+         │                 ────────────
+         └───────────────────────────────▶ Iterations
+</div>
+                </section>
+                
+                <!-- Weight Files -->
+                <section id="files">
+                    <h2>Weight Files</h2>
+                    <p>
+                        Learned weights are stored in JSON files in the <code>Data/</code> directory:
+                    </p>
+                    
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>File Pattern</th>
+                                <th>Contents</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><code>{TICKER}.weights.json</code></td>
+                                <td>Indicator weights for this ticker</td>
+                            </tr>
+                            <tr>
+                                <td><code>{TICKER}.history.json</code></td>
+                                <td>Trade history used for learning</td>
+                            </tr>
+                            <tr>
+                                <td><code>{TICKER}.patterns.json</code></td>
+                                <td>Saved patterns for matching</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    
+                    <h3>Example Weight File (NVDA.weights.json)</h3>
+                    <pre><code>{
+  "ticker": "NVDA",
+  "lastUpdated": "2026-02-08T10:30:00Z",
+  "tradesAnalyzed": 247,
+  "weights": {
+    "vwap": 0.08,
+    "emaStack": 0.12,
+    "rsi": 0.18,
+    "macd": 0.22,
+    "adx": 0.14,
+    "volume": 0.10,
+    "bollinger": 0.04,
+    "stochastic": 0.05,
+    "obv": 0.03,
+    "cci": 0.02,
+    "williamsR": 0.02
+  },
+  "performance": {
+    "accuracy": 0.67,
+    "winRate": 0.58,
+    "profitFactor": 1.85
+  }
+}</code></pre>
+                </section>
+                
+                <!-- How It Works -->
+                <section id="how-it-works">
+                    <h2>Learning Process</h2>
+                    
+                    <div class="ascii-art">
+LEARNING WORKFLOW
+═══════════════════════════════════════════════════════════════════════════════
+
+    ┌───────────────────────────────────────────────────────────────────────┐
+    │  1. COLLECT DATA                                                      │
+    │                                                                       │
+    │  For each trade (entry + exit):                                      │
+    │  • Record all indicator values at entry                              │
+    │  • Record market score at entry                                      │
+    │  • Record outcome (profit/loss, % gain)                              │
+    │  • Save to {TICKER}.history.json                                     │
+    └───────────────────────────────────────────────────────────────────────┘
+                                     │
+                                     ▼
+    ┌───────────────────────────────────────────────────────────────────────┐
+    │  2. ANALYZE CORRELATIONS                                              │
+    │                                                                       │
+    │  Calculate correlation between each indicator and trade outcome:     │
+    │                                                                       │
+    │  Indicator       Winning Avg    Losing Avg    Correlation            │
+    │  ────────────────────────────────────────────────────────            │
+    │  MACD Signal     +0.82          -0.45         <span class="bullish">+0.89</span> (strong)         │
+    │  RSI             62             48            <span class="bullish">+0.75</span> (good)           │
+    │  VWAP Position   +1.2%          -0.8%         <span class="bullish">+0.65</span> (moderate)       │
+    │  ...                                                                  │
+    └───────────────────────────────────────────────────────────────────────┘
+                                     │
+                                     ▼
+    ┌───────────────────────────────────────────────────────────────────────┐
+    │  3. OPTIMIZE WEIGHTS                                                  │
+    │                                                                       │
+    │  Using correlation data, run optimization:                           │
+    │  • Genetic algorithm (50 generations, 100 population)                │
+    │  • Or gradient descent (1000 iterations, LR=0.01)                    │
+    │                                                                       │
+    │  Objective: Maximize (Accuracy × ProfitFactor)                       │
+    └───────────────────────────────────────────────────────────────────────┘
+                                     │
+                                     ▼
+    ┌───────────────────────────────────────────────────────────────────────┐
+    │  4. SAVE & APPLY                                                      │
+    │                                                                       │
+    │  • Save optimized weights to {TICKER}.weights.json                   │
+    │  • Market score calculator loads ticker-specific weights             │
+    │  • Future trades use optimized weights                               │
+    └───────────────────────────────────────────────────────────────────────┘
+</div>
+                </section>
+                
+                <!-- Data Requirements -->
+                <section id="requirements">
+                    <h2>Data Requirements</h2>
+                    
+                    <div class="callout callout-info">
+                        <div class="callout-title">ℹ️ Minimum Data for Learning</div>
+                        <p>
+                            Meaningful weight optimization requires sufficient historical data:
+                        </p>
+                        <ul>
+                            <li><strong>Minimum:</strong> 20 trades to start learning</li>
+                            <li><strong>Recommended:</strong> 50+ trades for stable weights</li>
+                            <li><strong>Optimal:</strong> 100+ trades for high confidence</li>
+                        </ul>
+                    </div>
+                    
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Trade Count</th>
+                                <th>Weight Confidence</th>
+                                <th>Blending</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>&lt; 20</td>
+                                <td><span class="bearish">Low</span></td>
+                                <td>100% default weights</td>
+                            </tr>
+                            <tr>
+                                <td>20-50</td>
+                                <td><span class="neutral">Moderate</span></td>
+                                <td>50% learned + 50% default</td>
+                            </tr>
+                            <tr>
+                                <td>50-100</td>
+                                <td><span class="bullish">Good</span></td>
+                                <td>75% learned + 25% default</td>
+                            </tr>
+                            <tr>
+                                <td>&gt; 100</td>
+                                <td><span class="bullish">High</span></td>
+                                <td>100% learned weights</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </section>
+                
+                <!-- Viewing Weights -->
+                <section id="viewing">
+                    <h2>Viewing Current Weights</h2>
+                    <p>
+                        You can view the learned weights for any ticker in the console or 
+                        by examining the weight files directly.
+                    </p>
+                    
+                    <div class="ascii-art">
+WEIGHT COMPARISON VIEW
+═══════════════════════════════════════════════════════════════════════════════
+
+    Ticker: NVDA                 Trades Analyzed: 247
+    ─────────────────────────────────────────────────────────────────────────
+    
+    Indicator    Default    Learned    Delta     Contribution
+    ────────────────────────────────────────────────────────────────────────
+    VWAP         10%        8%         -2%       ▓▓▓▓▓▓▓▓░░░░░░░░░░░░
+    EMA Stack    15%        12%        -3%       ▓▓▓▓▓▓▓▓▓▓▓▓░░░░░░░░
+    RSI          12%        18%        <span class="bullish">+6%</span>       ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓░░
+    MACD         18%        22%        <span class="bullish">+4%</span>       ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓
+    ADX          15%        14%        -1%       ▓▓▓▓▓▓▓▓▓▓▓▓▓▓░░░░░░
+    Volume        8%        10%        <span class="bullish">+2%</span>       ▓▓▓▓▓▓▓▓▓▓░░░░░░░░░░
+    Bollinger     5%         4%        -1%       ▓▓▓▓░░░░░░░░░░░░░░░░
+    Stochastic    6%         5%        -1%       ▓▓▓▓▓░░░░░░░░░░░░░░░
+    OBV           5%         3%        -2%       ▓▓▓░░░░░░░░░░░░░░░░░
+    CCI           3%         2%        -1%       ▓▓░░░░░░░░░░░░░░░░░░
+    Williams %R   3%         2%        -1%       ▓▓░░░░░░░░░░░░░░░░░░
+    ────────────────────────────────────────────────────────────────────────
+    Total       100%       100%                  
+    
+    Top Predictors for NVDA: <span class="bullish">MACD (22%) > RSI (18%) > ADX (14%)</span>
+</div>
+                </section>
+                
+                <!-- Retraining -->
+                <section id="retraining">
+                    <h2>Retraining Weights</h2>
+                    <p>
+                        Weights are automatically updated as new trades complete. You can also 
+                        trigger manual retraining:
+                    </p>
+                    
+                    <h3>Automatic Retraining</h3>
+                    <ul>
+                        <li>Triggered every 10 completed trades</li>
+                        <li>Uses rolling window of last 200 trades</li>
+                        <li>Gradual blending to avoid sudden weight shifts</li>
+                    </ul>
+                    
+                    <h3>Manual Reset</h3>
+                    <p>
+                        To reset weights to defaults and start fresh, delete the weight file:
+                    </p>
+                    <pre><code>Delete: Data/{TICKER}.weights.json
+Delete: Data/{TICKER}.history.json</code></pre>
+                </section>
+                
+                <!-- Tips -->
+                <section id="tips">
+                    <h2>Best Practices</h2>
+                    
+                    <div class="callout callout-success">
+                        <div class="callout-title">💡 Pro Tips</div>
+                        <ul>
+                            <li><strong>Let weights stabilize</strong> - Don't trust weights with &lt;50 trades</li>
+                            <li><strong>Review periodically</strong> - Market conditions change, weights should too</li>
+                            <li><strong>Check correlations</strong> - If MACD weight is 0%, it's not predicting well for this ticker</li>
+                            <li><strong>Compare to defaults</strong> - Large deviations indicate ticker-specific behavior</li>
+                        </ul>
+                    </div>
+                    
+                    <div class="callout callout-warning">
+                        <div class="callout-title">⚠️ Overfitting Warning</div>
+                        <p>
+                            Weights learned from too few trades may <strong>overfit</strong> to 
+                            specific market conditions. The blending mechanism helps prevent this, 
+                            but always maintain healthy skepticism with low trade counts.
+                        </p>
+                    </div>
+                </section>
+                
+                <!-- Footer Navigation -->
+                <footer class="page-footer">
+                    <div class="footer-nav">
+                        <a href="pattern-matcher.htm">← Pattern Matcher</a>
+                        <a href="configuration.htm">Configuration →</a>
+                    </div>
+                    <p class="text-center text-muted">
+                        IdiotProof Trading System Documentation &copy; 2026
+                    </p>
+                </footer>
+            </div>
+        </main>
+    </div>
+</body>
+</html>

@@ -451,8 +451,13 @@ namespace IdiotProof.Strategy {
 
         /// <summary>
         /// Default quantity if not specified in strategy.
+        /// A value of 0 (or less) means auto-calculate based on stock price tier.
         /// </summary>
-        public int DefaultQuantity { get; init; } = 100;
+        /// <remarks>
+        /// When 0, uses <see cref="IdiotProof.Constants.TradingDefaults.GetDefaultQuantityForPrice"/>
+        /// to calculate a sensible position size based on the stock's price "prestige".
+        /// </remarks>
+        public int DefaultQuantity { get; init; } = 0;
 
         /// <summary>
         /// ATR multiplier for take profit calculation.

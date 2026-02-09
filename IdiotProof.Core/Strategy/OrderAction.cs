@@ -60,12 +60,32 @@ namespace IdiotProof.Strategy {
 
         /// <summary>
         /// Number of shares to trade.
+        /// A value of 0 means auto-calculate based on stock price tier.
         /// </summary>
         /// <remarks>
-        /// <b>Best Practice:</b> Always specify explicitly. Calculate position size
-        /// based on risk tolerance (e.g., 1-2% of account per trade).
+        /// <para><b>Auto-Quantity:</b> When set to 0, the system calculates a sensible
+        /// quantity based on stock price "prestige":</para>
+        /// <list type="bullet">
+        ///   <item>Premium ($500+): ~$1,000 position (2 shares @ $500)</item>
+        ///   <item>Blue Chip ($100-$500): ~$1,000 position (5 shares @ $200)</item>
+        ///   <item>Mid-Cap ($25-$100): ~$600 position (12 shares @ $50)</item>
+        ///   <item>Small-Cap ($5-$25): ~$350 position (35 shares @ $10)</item>
+        ///   <item>Penny ($1-$5): ~$200 position (80 shares @ $2.50)</item>
+        ///   <item>Micro (&lt;$1): ~$100 position (200 shares @ $0.50)</item>
+        /// </list>
+        /// <para><b>Best Practice:</b> Use 0 for auto-sizing, or specify explicitly
+        /// based on risk tolerance (e.g., 1-2% of account per trade).</para>
         /// </remarks>
-        public int Quantity { get; init; } = 100;
+        public int Quantity { get; init; } = 0;
+
+        /// <summary>
+        /// Whether to auto-calculate quantity based on stock price.
+        /// </summary>
+        /// <remarks>
+        /// True when Quantity is 0. Uses <see cref="IdiotProof.Constants.TradingDefaults.GetDefaultQuantityForPrice"/>
+        /// to calculate a sensible position size based on price tier.
+        /// </remarks>
+        public bool UseAutoQuantity => Quantity <= 0;
 
         /// <summary>Market or Limit order type for entry.</summary>
         /// <remarks>

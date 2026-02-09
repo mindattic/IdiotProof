@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quick Start Guide - IdiotProof Documentation</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="page-wrapper">
+        <!-- Sidebar Navigation -->
+        <nav class="sidebar">
+            <div class="sidebar-header">
+                <a href="index.htm" class="logo">
+                    <span class="logo-icon">📈</span>
+                    <span class="logo-text">IdiotProof</span>
+                    <span class="logo-version">v2.0</span>
+                </a>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">Getting Started</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="index.htm" class="nav-link"><span class="nav-icon">🏠</span>Home</a></li>
+                    <li class="nav-item"><a href="quick-start.htm" class="nav-link active"><span class="nav-icon">🚀</span>Quick Start</a></li>
+                    <li class="nav-item"><a href="architecture.htm" class="nav-link"><span class="nav-icon">🏗️</span>Architecture</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">IdiotScript DSL</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="idiotscript.htm" class="nav-link"><span class="nav-icon">📜</span>Language Reference</a></li>
+                    <li class="nav-item"><a href="commands.htm" class="nav-link"><span class="nav-icon">⌨️</span>Command Reference</a></li>
+                    <li class="nav-item"><a href="examples.htm" class="nav-link"><span class="nav-icon">💡</span>Strategy Examples</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">Technical Indicators</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="indicators.htm" class="nav-link"><span class="nav-icon">📊</span>Indicator Overview</a></li>
+                    <li class="nav-item"><a href="indicators-vwap.htm" class="nav-link"><span class="nav-icon">〰️</span>VWAP Indicators</a></li>
+                    <li class="nav-item"><a href="indicators-ema.htm" class="nav-link"><span class="nav-icon">📈</span>EMA Indicators</a></li>
+                    <li class="nav-item"><a href="indicators-momentum.htm" class="nav-link"><span class="nav-icon">⚡</span>Momentum</a></li>
+                    <li class="nav-item"><a href="indicators-volume.htm" class="nav-link"><span class="nav-icon">📶</span>Volume Analysis</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">Trading Systems</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="market-score.htm" class="nav-link"><span class="nav-icon">🎯</span>Market Score</a></li>
+                    <li class="nav-item"><a href="adaptive-order.htm" class="nav-link"><span class="nav-icon">🔄</span>AdaptiveOrder</a></li>
+                    <li class="nav-item"><a href="autonomous-trading.htm" class="nav-link"><span class="nav-icon">🤖</span>AutonomousTrading</a></li>
+                    <li class="nav-item"><a href="order-management.htm" class="nav-link"><span class="nav-icon">📋</span>Order Management</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">AI & Machine Learning</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="ai-overview.htm" class="nav-link"><span class="nav-icon">🧠</span>AI Overview</a></li>
+                    <li class="nav-item"><a href="lstm.htm" class="nav-link"><span class="nav-icon">🔮</span>LSTM Predictor</a></li>
+                    <li class="nav-item"><a href="pattern-matcher.htm" class="nav-link"><span class="nav-icon">🔍</span>Pattern Matcher</a></li>
+                    <li class="nav-item"><a href="learned-weights.htm" class="nav-link"><span class="nav-icon">⚖️</span>Learned Weights</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">Configuration</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="configuration.htm" class="nav-link"><span class="nav-icon">⚙️</span>Settings</a></li>
+                    <li class="nav-item"><a href="watchlist.htm" class="nav-link"><span class="nav-icon">👀</span>Watchlist</a></li>
+                    <li class="nav-item"><a href="strategy-rules.htm" class="nav-link"><span class="nav-icon">📝</span>Strategy Rules</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">Testing & Analysis</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="backtesting.htm" class="nav-link"><span class="nav-icon">⏪</span>Backtesting</a></li>
+                    <li class="nav-item"><a href="simulation.htm" class="nav-link"><span class="nav-icon">🎮</span>Simulation</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">Reference</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="glossary.htm" class="nav-link"><span class="nav-icon">📖</span>Glossary</a></li>
+                    <li class="nav-item"><a href="faq.htm" class="nav-link"><span class="nav-icon">❓</span>FAQ</a></li>
+                    <li class="nav-item"><a href="troubleshooting.htm" class="nav-link"><span class="nav-icon">🔧</span>Troubleshooting</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">Roadmap</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="futureproofing.htm" class="nav-link"><span class="nav-icon">🔮</span>Future-Proofing</a></li>
+                    <li class="nav-item"><a href="wishlist.htm" class="nav-link"><span class="nav-icon">✨</span>Wishlist</a></li>
+                </ul>
+            </div>
+        </nav>
+        
+        <!-- Main Content -->
+        <main class="main-content">
+            <div class="content-wrapper">
+                <!-- Breadcrumb -->
+                <div class="breadcrumb">
+                    <a href="index.htm">Home</a>
+                    <span class="breadcrumb-separator">/</span>
+                    <span>Quick Start</span>
+                </div>
+                
+                <!-- Header -->
+                <header class="page-header">
+                    <h1 class="page-title">Quick Start Guide</h1>
+                    <p class="page-subtitle">
+                        Get up and running with IdiotProof in 10 minutes. This guide covers
+                        prerequisites, configuration, and your first trade.
+                    </p>
+                </header>
+                
+                <!-- Prerequisites -->
+                <section>
+                    <h2>Prerequisites</h2>
+                    
+                    <div class="callout callout-info">
+                        <div class="callout-title">ℹ️ What You Need</div>
+                        <ul>
+                            <li><strong>Interactive Brokers Account</strong> - Live or Paper Trading</li>
+                            <li><strong>TWS or IB Gateway</strong> - Running with API enabled</li>
+                            <li><strong>.NET 10 Runtime</strong> - For the backend application</li>
+                            <li><strong>OpenAI API Key</strong> - Optional, for AI Advisor feature</li>
+                        </ul>
+                    </div>
+                    
+                    <h3>Configure TWS API Settings</h3>
+                    <div class="ascii-art">
+TWS CONFIGURATION CHECKLIST
+═══════════════════════════════════════════════════════════════════════════════
+
+In TWS: File → Global Configuration → API → Settings
+
+    [*] Enable ActiveX and Socket Clients
+    [*] Read-Only API (uncheck for live trading)
+    [ ] Download open orders on connection
+    
+    Socket port:  <span class="highlight">7496</span>  (live)  or  <span class="highlight">7497</span>  (paper)
+    
+    Trusted IP Addresses:
+    ┌─────────────────────────┐
+    │ 127.0.0.1               │  ← Required for local connection
+    └─────────────────────────┘
+
+In TWS: File → Global Configuration → API → Precautions
+
+    [ ] Bypass Order Precautions for API Orders
+        ↑ Check this for automated trading (understand the risks!)
+</div>
+                </section>
+                
+                <!-- Step 1: Configure Settings -->
+                <section>
+                    <h2>Step 1: Configure Settings</h2>
+                    
+                    <p>Create or edit <code>appsettings.json</code> in the application folder:</p>
+                    
+                    <pre><code>{
+  <span class="token-property">"TwsHost"</span>: <span class="token-string">"127.0.0.1"</span>,
+  <span class="token-property">"TwsPort"</span>: <span class="token-number">7497</span>,           <span class="token-comment">// 7497=paper, 7496=live</span>
+  <span class="token-property">"ClientId"</span>: <span class="token-number">1</span>,
+  <span class="token-property">"OpenAIApiKey"</span>: <span class="token-string">"sk-..."</span>,   <span class="token-comment">// Optional</span>
+  <span class="token-property">"MaxCandlesticks"</span>: <span class="token-number">500</span>,
+  <span class="token-property">"DataFolder"</span>: <span class="token-string">"Data"</span>
+}</code></pre>
+                </section>
+                
+                <!-- Step 2: Choose Trading Mode -->
+                <section>
+                    <h2>Step 2: Choose Your Trading Mode</h2>
+                    
+                    <p>IdiotProof supports two main trading modes:</p>
+                    
+                    <div class="card-grid">
+                        <div class="card">
+                            <div class="card-icon">📜</div>
+                            <div class="card-title">Manual Strategy Mode</div>
+                            <div class="card-description">
+                                Define specific conditions, entry prices, and exit targets.
+                                You control exactly when and how trades execute.
+                                Use <code>Entry()</code>, <code>IsAboveVwap()</code>, etc.
+                            </div>
+                        </div>
+                        
+                        <div class="card">
+                            <div class="card-icon">🤖</div>
+                            <div class="card-title">Autonomous Mode</div>
+                            <div class="card-description">
+                                Let the AI handle everything. Just specify ticker and quantity.
+                                System calculates entries, exits, and adjusts dynamically.
+                                Use <code>AutonomousTrading()</code>.
+                            </div>
+                        </div>
+                    </div>
+                </section>
+                
+                <!-- Step 3: Create Strategy -->
+                <section>
+                    <h2>Step 3: Create Your First Strategy</h2>
+                    
+                    <h3>Option A: Manual Strategy</h3>
+                    <pre><code><span class="token-comment">// A simple breakout strategy for NVDA</span>
+<span class="token-function">Ticker</span>(<span class="token-string">NVDA</span>)
+    .<span class="token-function">Name</span>(<span class="token-string">"NVDA Breakout"</span>)
+    .<span class="token-function">Session</span>(IS.<span class="token-property">RTH</span>)         <span class="token-comment">// Regular Trading Hours only</span>
+    .<span class="token-function">Quantity</span>(<span class="token-number">5</span>)            <span class="token-comment">// Trade 5 shares</span>
+    .<span class="token-function">Entry</span>(<span class="token-number">850</span>)             <span class="token-comment">// Trigger when price hits $850</span>
+    .<span class="token-function">IsAboveVwap</span>()          <span class="token-comment">// Price must be above VWAP</span>
+    .<span class="token-function">IsEmaAbove</span>(<span class="token-number">9</span>)          <span class="token-comment">// Price above 9-period EMA</span>
+    .<span class="token-function">Order</span>(IS.<span class="token-property">LONG</span>)         <span class="token-comment">// Buy order</span>
+    .<span class="token-function">TakeProfit</span>(<span class="token-number">870</span>)        <span class="token-comment">// Exit at $870</span>
+    .<span class="token-function">StopLoss</span>(<span class="token-number">840</span>)          <span class="token-comment">// Stop loss at $840</span></code></pre>
+                    
+                    <h3>Option B: Autonomous Strategy</h3>
+                    <pre><code><span class="token-comment">// Let AI handle everything</span>
+<span class="token-function">Ticker</span>(<span class="token-string">AAPL</span>)
+    .<span class="token-function">Name</span>(<span class="token-string">"AAPL Autonomous"</span>)
+    .<span class="token-function">Session</span>(IS.<span class="token-property">RTH</span>)
+    .<span class="token-function">Quantity</span>(<span class="token-number">10</span>)
+    .<span class="token-function">AutonomousTrading</span>()    <span class="token-comment">// AI manages everything</span></code></pre>
+                    
+                    <h3>Option C: Use the Watchlist</h3>
+                    <p>For multiple tickers, edit <code>Data/watchlist.json</code>:</p>
+                    <pre><code>{
+  <span class="token-property">"description"</span>: <span class="token-string">"Morning Trading Watchlist"</span>,
+  <span class="token-property">"enabled"</span>: <span class="token-keyword">true</span>,
+  <span class="token-property">"session"</span>: <span class="token-string">"RTH"</span>,
+  <span class="token-property">"tickers"</span>: [
+    { <span class="token-property">"symbol"</span>: <span class="token-string">"NVDA"</span>, <span class="token-property">"quantity"</span>: <span class="token-number">5</span>, <span class="token-property">"enabled"</span>: <span class="token-keyword">true</span> },
+    { <span class="token-property">"symbol"</span>: <span class="token-string">"AAPL"</span>, <span class="token-property">"quantity"</span>: <span class="token-number">10</span>, <span class="token-property">"enabled"</span>: <span class="token-keyword">true</span> },
+    { <span class="token-property">"symbol"</span>: <span class="token-string">"TSLA"</span>, <span class="token-property">"quantity"</span>: <span class="token-number">3</span>, <span class="token-property">"enabled"</span>: <span class="token-keyword">false</span> }
+  ]
+}</code></pre>
+                </section>
+                
+                <!-- Step 4: Indicator Warm-Up -->
+                <section id="warmup">
+                    <h2>Step 4: Understand Indicator Warm-Up</h2>
+                    
+                    <div class="callout callout-danger">
+                        <div class="callout-title">🚨 Critical: Start Early!</div>
+                        <p>
+                            Technical indicators need historical data to calculate. If you start
+                            the backend right at market open, indicators won't be ready and
+                            the system will miss early opportunities or make poor decisions.
+                        </p>
+                    </div>
+                    
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Indicator</th>
+                                <th>Bars Needed</th>
+                                <th>Start Early By</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>EMA(9)</td>
+                                <td>9 bars</td>
+                                <td>10 minutes</td>
+                            </tr>
+                            <tr>
+                                <td>EMA(21)</td>
+                                <td>21 bars</td>
+                                <td>25 minutes</td>
+                            </tr>
+                            <tr>
+                                <td>ADX(14) / DI</td>
+                                <td>28 bars</td>
+                                <td>30 minutes</td>
+                            </tr>
+                            <tr>
+                                <td>RSI(14)</td>
+                                <td>15 bars</td>
+                                <td>20 minutes</td>
+                            </tr>
+                            <tr>
+                                <td>MACD(12,26,9)</td>
+                                <td>35 bars</td>
+                                <td>40 minutes</td>
+                            </tr>
+                            <tr>
+                                <td>EMA(200)</td>
+                                <td>200 bars</td>
+                                <td>3+ hours</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    
+                    <h3>Recommended Start Times</h3>
+                    <div class="ascii-art">
+SESSION WARM-UP TIMELINE
+═══════════════════════════════════════════════════════════════════════════════
+
+PREMARKET SESSION (4:00 AM - 9:30 AM)
+    Start Backend: 3:30 AM
+    ├─────────────────────────────────────────────────────────────────────────┤
+    │          WARM-UP         │              TRADING SESSION                 │
+    │   3:30 AM    4:00 AM     │     4:00 AM ─────────────────── 9:30 AM     │
+    │   <span class="neutral">░░░░░░░░░░░░</span> ↑           │     <span class="bullish">▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓</span>          │
+    │            Premarket     │                                              │
+    │            Opens         │                                              │
+    └─────────────────────────────────────────────────────────────────────────┘
+
+REGULAR TRADING HOURS (9:30 AM - 4:00 PM)
+    Start Backend: 9:00 AM
+    ├─────────────────────────────────────────────────────────────────────────┤
+    │    WARM-UP    │                  TRADING SESSION                        │
+    │ 9:00   9:30   │    9:30 AM ─────────────────────────────── 4:00 PM     │
+    │ <span class="neutral">░░░░░░</span>  ↑      │    <span class="bullish">▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓</span>          │
+    │       RTH     │                                                         │
+    │       Opens   │                                                         │
+    └─────────────────────────────────────────────────────────────────────────┘
+
+AFTER-HOURS SESSION (4:00 PM - 8:00 PM)
+    Start Backend: 3:30 PM
+    ├─────────────────────────────────────────────────────────────────────────┤
+    │    WARM-UP    │              TRADING SESSION                            │
+    │ 3:30   4:00   │    4:00 PM ─────────────────────────── 8:00 PM         │
+    │ <span class="neutral">░░░░░░</span>  ↑      │    <span class="bullish">▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓</span>                    │
+    │       After   │                                                         │
+    │       Hours   │                                                         │
+    └─────────────────────────────────────────────────────────────────────────┘
+</div>
+                </section>
+                
+                <!-- Step 5: Start Trading -->
+                <section>
+                    <h2>Step 5: Start the Backend</h2>
+                    
+                    <pre><code><span class="token-comment"># Navigate to the solution folder</span>
+cd IdiotProof
+
+<span class="token-comment"># Build the project</span>
+dotnet build IdiotProof.Core/IdiotProof.Core.csproj
+
+<span class="token-comment"># Run the backend</span>
+dotnet run --project IdiotProof.Core/IdiotProof.Core.csproj</code></pre>
+                    
+                    <h3>Console Output</h3>
+                    <div class="ascii-art">
+╔═══════════════════════════════════════════════════════════════════════════════╗
+║                         IDIOTPROOF TRADING SYSTEM                             ║
+║                              Version 2.0.0                                    ║
+╚═══════════════════════════════════════════════════════════════════════════════╝
+
+[09:00:01] Connecting to TWS at 127.0.0.1:7497...
+[09:00:01] [OK] Connected to TWS (Paper Trading)
+[09:00:02] Loading watchlist from Data/watchlist.json...
+[09:00:02]   Loaded 3 tickers: NVDA, AAPL, TSLA
+[09:00:02] Initializing strategies...
+
+[09:00:03] <span class="highlight">[NVDA]</span> Strategy initialized - waiting for market data...
+[09:00:03] <span class="highlight">[NVDA]</span> [LSH] Loaded 142 patterns for NVDA
+[09:00:03] <span class="highlight">[NVDA]</span> [AI] OpenAI advisor configured
+
+[09:00:03] <span class="highlight">[AAPL]</span> Strategy initialized - waiting for market data...
+[09:00:03] <span class="highlight">[AAPL]</span> [LSH] Loaded 87 patterns for AAPL
+
+[09:00:04] Requesting historical data for warm-up...
+[09:00:05] <span class="highlight">[NVDA]</span> Warming up indicators with 120 historical bars...
+[09:00:05] <span class="highlight">[NVDA]</span>   [OK] EMA warm-up complete: EMA(9)=$847.23, EMA(21)=$842.15
+[09:00:05] <span class="highlight">[NVDA]</span>   [OK] ADX warm-up complete: ADX=32.4, +DI=28.7, -DI=15.2
+[09:00:05] <span class="highlight">[NVDA]</span>   [OK] RSI warm-up complete: RSI=58.3
+[09:00:05] <span class="highlight">[NVDA]</span>   [OK] MACD warm-up complete: MACD=2.34, Signal=1.89
+
+[09:00:05] <span class="bullish">All indicators ready. Waiting for trading session...</span>
+
+────────────────────────────────────────────────────────────────────────────────
+</div>
+                </section>
+                
+                <!-- Understanding the Output -->
+                <section>
+                    <h2>Step 6: Understanding the Output</h2>
+                    
+                    <p>During trading, you'll see real-time updates for each strategy:</p>
+                    
+                    <div class="ascii-art">
+[09:32:15] <span class="highlight">[NVDA]</span> Price: $852.40 | VWAP: $849.12 | Score: <span class="bullish">+67</span>
+[09:32:15] <span class="highlight">[NVDA]</span>   VWAP: +8 | EMA: +15 | RSI: +5 | MACD: +18 | ADX: +12 | Vol: +6
+[09:32:15] <span class="highlight">[NVDA]</span>   [LSH] 3 analog matches: 73% bullish (avg +1.2% in 30min)
+[09:32:15] <span class="highlight">[NVDA]</span>   [LSTM] BULLISH (Dir=+0.62, Conf=78%, Δ%=+0.8%)
+
+[09:33:42] <span class="highlight">[NVDA]</span> <span class="bullish">Score crossed +70 threshold → ENTERING LONG</span>
+[09:33:42] <span class="highlight">[NVDA]</span> Placing BUY order: 5 shares @ MARKET
+[09:33:42] <span class="highlight">[NVDA]</span> Order submitted: ID=1001
+
+[09:33:43] <span class="highlight">[NVDA]</span> <span class="bullish">[FILLED]</span> BUY 5 NVDA @ $852.85
+[09:33:43] <span class="highlight">[NVDA]</span> Setting TP=$870.00 (ATR-based: 2.0x ATR)
+[09:33:43] <span class="highlight">[NVDA]</span> Setting SL=$845.50 (ATR-based: 1.2x ATR)
+</div>
+                    
+                    <h3>Score Breakdown</h3>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Component</th>
+                                <th>Value</th>
+                                <th>Meaning</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>VWAP: +8</td>
+                                <td class="bullish">Bullish</td>
+                                <td>Price is above VWAP</td>
+                            </tr>
+                            <tr>
+                                <td>EMA: +15</td>
+                                <td class="bullish">Bullish</td>
+                                <td>Price above all short-term EMAs</td>
+                            </tr>
+                            <tr>
+                                <td>RSI: +5</td>
+                                <td class="neutral">Neutral</td>
+                                <td>RSI in neutral zone (40-60)</td>
+                            </tr>
+                            <tr>
+                                <td>MACD: +18</td>
+                                <td class="bullish">Bullish</td>
+                                <td>MACD above signal, strong histogram</td>
+                            </tr>
+                            <tr>
+                                <td>ADX: +12</td>
+                                <td class="bullish">Trending</td>
+                                <td>Strong trend with +DI > -DI</td>
+                            </tr>
+                            <tr>
+                                <td>Vol: +6</td>
+                                <td class="bullish">Bullish</td>
+                                <td>Volume confirming upward move</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </section>
+                
+                <!-- Next Steps -->
+                <section>
+                    <h2>Next Steps</h2>
+                    
+                    <div class="toc">
+                        <div class="toc-title">Continue Learning</div>
+                        <ul class="toc-list">
+                            <li><a href="idiotscript.htm">IdiotScript Language Reference</a> - Master the DSL syntax</li>
+                            <li><a href="indicators.htm">Technical Indicators</a> - Understand all 11 indicators</li>
+                            <li><a href="autonomous-trading.htm">Autonomous Trading</a> - Let AI handle everything</li>
+                            <li><a href="adaptive-order.htm">Adaptive Orders</a> - Dynamic TP/SL management</li>
+                            <li><a href="backtesting.htm">Backtesting</a> - Test strategies on historical data</li>
+                        </ul>
+                    </div>
+                </section>
+                
+                <!-- Footer -->
+                <footer class="page-footer">
+                    <div class="footer-nav">
+                        <a href="index.htm">← Home</a>
+                        <a href="architecture.htm">Next: Architecture →</a>
+                    </div>
+                    <p class="text-center text-muted">
+                        IdiotProof Trading System Documentation &copy; 2026
+                    </p>
+                </footer>
+            </div>
+        </main>
+    </div>
+</body>
+</html>

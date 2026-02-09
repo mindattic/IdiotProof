@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Troubleshooting - IdiotProof Documentation</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="page-wrapper">
+        <!-- Sidebar Navigation -->
+        <nav class="sidebar">
+            <div class="sidebar-header">
+                <a href="index.htm" class="logo">
+                    <span class="logo-icon">📈</span>
+                    <span class="logo-text">IdiotProof</span>
+                    <span class="logo-version">v2.0</span>
+                </a>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">Getting Started</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="index.htm" class="nav-link"><span class="nav-icon">🏠</span>Home</a></li>
+                    <li class="nav-item"><a href="quick-start.htm" class="nav-link"><span class="nav-icon">🚀</span>Quick Start</a></li>
+                    <li class="nav-item"><a href="architecture.htm" class="nav-link"><span class="nav-icon">🏗️</span>Architecture</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">IdiotScript DSL</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="idiotscript.htm" class="nav-link"><span class="nav-icon">📜</span>Language Reference</a></li>
+                    <li class="nav-item"><a href="commands.htm" class="nav-link"><span class="nav-icon">⌨️</span>Command Reference</a></li>
+                    <li class="nav-item"><a href="examples.htm" class="nav-link"><span class="nav-icon">💡</span>Strategy Examples</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">Technical Indicators</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="indicators.htm" class="nav-link"><span class="nav-icon">📊</span>Indicator Overview</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">Trading Systems</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="market-score.htm" class="nav-link"><span class="nav-icon">🎯</span>Market Score</a></li>
+                    <li class="nav-item"><a href="adaptive-order.htm" class="nav-link"><span class="nav-icon">🔄</span>AdaptiveOrder</a></li>
+                    <li class="nav-item"><a href="autonomous-trading.htm" class="nav-link"><span class="nav-icon">🤖</span>AutonomousTrading</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">AI & Machine Learning</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="ai-overview.htm" class="nav-link"><span class="nav-icon">🧠</span>AI Overview</a></li>
+                    <li class="nav-item"><a href="lstm.htm" class="nav-link"><span class="nav-icon">🔮</span>LSTM Predictor</a></li>
+                    <li class="nav-item"><a href="pattern-matcher.htm" class="nav-link"><span class="nav-icon">🔍</span>Pattern Matcher</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">Reference</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="glossary.htm" class="nav-link"><span class="nav-icon">📖</span>Glossary</a></li>
+                    <li class="nav-item"><a href="faq.htm" class="nav-link"><span class="nav-icon">❓</span>FAQ</a></li>
+                    <li class="nav-item"><a href="troubleshooting.htm" class="nav-link active"><span class="nav-icon">🔧</span>Troubleshooting</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">Roadmap</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="futureproofing.htm" class="nav-link"><span class="nav-icon">🔮</span>Future-Proofing</a></li>
+                    <li class="nav-item"><a href="wishlist.htm" class="nav-link"><span class="nav-icon">✨</span>Wishlist</a></li>
+                </ul>
+            </div>
+        </nav>
+        
+        <!-- Main Content -->
+        <main class="main-content">
+            <div class="content-wrapper">
+                <!-- Breadcrumb -->
+                <div class="breadcrumb">
+                    <a href="index.htm">Home</a>
+                    <span class="breadcrumb-separator">/</span>
+                    <span>Troubleshooting</span>
+                </div>
+                
+                <!-- Header -->
+                <header class="page-header">
+                    <h1 class="page-title">Troubleshooting</h1>
+                    <p class="page-subtitle">
+                        Solutions to common problems and error messages.
+                    </p>
+                </header>
+                
+                <!-- Connection Issues -->
+                <section id="connection">
+                    <h2>Connection Issues</h2>
+                    
+                    <h3>Error: "Cannot connect to TWS"</h3>
+                    <div class="card">
+                        <p><strong>Symptoms:</strong></p>
+                        <ul>
+                            <li>Application fails to start trading</li>
+                            <li>Console shows "Connection refused" or timeout errors</li>
+                        </ul>
+                        
+                        <p><strong>Solutions:</strong></p>
+                        <ol>
+                            <li>
+                                <strong>Verify TWS is running:</strong><br>
+                                Open Trader Workstation and log in. It must be running before IdiotProof starts.
+                            </li>
+                            <li>
+                                <strong>Check API settings in TWS:</strong><br>
+                                File → Global Configuration → API → Settings<br>
+                                <ul>
+                                    <li>☑ Enable ActiveX and Socket Clients</li>
+                                    <li>☑ Socket port: 7497 (paper) or 7496 (live)</li>
+                                    <li>☑ Allow connections from localhost only</li>
+                                </ul>
+                            </li>
+                            <li>
+                                <strong>Verify port in settings.json:</strong>
+                                <div class="code-block">
+{
+    "ibkr": {
+        "host": "127.0.0.1",
+        "port": <span class="token-number">7497</span>,  <span class="token-comment">// Match TWS setting</span>
+        "clientId": <span class="token-number">1</span>
+    }
+}
+</div>
+                            </li>
+                            <li>
+                                <strong>Check firewall:</strong><br>
+                                Ensure Windows Firewall allows IdiotProof and TWS to communicate.
+                            </li>
+                        </ol>
+                    </div>
+                    
+                    <h3>Error: "Client ID already in use"</h3>
+                    <div class="card">
+                        <p><strong>Cause:</strong> Another application or instance is connected with the same Client ID.</p>
+                        <p><strong>Solution:</strong> Change clientId in settings.json to a unique number (e.g., 2, 3, etc.).</p>
+                    </div>
+                </section>
+                
+                <!-- Order Issues -->
+                <section id="orders">
+                    <h2>Order Issues</h2>
+                    
+                    <h3>Order not executing</h3>
+                    <div class="card">
+                        <p><strong>Common causes:</strong></p>
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Symptom</th>
+                                    <th>Likely Cause</th>
+                                    <th>Solution</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>Order pending but not filling</td>
+                                    <td>Limit price too far from market</td>
+                                    <td>Use market orders or adjust limit</td>
+                                </tr>
+                                <tr>
+                                    <td>"Outside RTH" rejection</td>
+                                    <td>Order placed outside market hours without permission</td>
+                                    <td>Add <code>.OutsideRTH()</code> to strategy</td>
+                                </tr>
+                                <tr>
+                                    <td>Insufficient funds</td>
+                                    <td>Account has insufficient buying power</td>
+                                    <td>Reduce quantity or add funds</td>
+                                </tr>
+                                <tr>
+                                    <td>Order rejected - PDT</td>
+                                    <td>Pattern Day Trader restriction</td>
+                                    <td>Account needs $25K+ or fewer day trades</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <h3>Take Profit not triggering</h3>
+                    <div class="card">
+                        <p><strong>Check these:</strong></p>
+                        <ol>
+                            <li>
+                                <strong>TP level set correctly:</strong><br>
+                                For longs, TP must be ABOVE entry. For shorts, BELOW entry.
+                            </li>
+                            <li>
+                                <strong>AdaptiveOrder extending TP:</strong><br>
+                                If using AdaptiveOrder, TP may be dynamically extended. Check logs for adjusted levels.
+                            </li>
+                            <li>
+                                <strong>Price never reached:</strong><br>
+                                The price may have approached but not touched the TP level.
+                            </li>
+                        </ol>
+                    </div>
+                </section>
+                
+                <!-- Indicator Issues -->
+                <section id="indicators">
+                    <h2>Indicator Issues</h2>
+                    
+                    <h3>Indicators showing NaN or zero</h3>
+                    <div class="card">
+                        <p><strong>Cause:</strong> Insufficient warm-up time. Indicators need historical data.</p>
+                        <div class="ascii-art">
+INDICATOR WARM-UP TIMES
+═══════════════════════════════════════════════════════════════════════════════
+
+    Indicator           Bars Needed     Start Backend Early By
+    ─────────────────────────────────────────────────────────────────────────
+    EMA(9)                  9           10 minutes
+    EMA(21)                21           25 minutes
+    EMA(200)              200           3+ hours
+    ADX(14)                28           30 minutes
+    RSI(14)                15           20 minutes
+    MACD(12,26,9)          35           40 minutes
+    Bollinger(20)          20           25 minutes
+    ─────────────────────────────────────────────────────────────────────────
+    
+    <span class="bullish">Solution: Start backend 30+ minutes before trading</span>
+</div>
+                    </div>
+                    
+                    <h3>Conditions never triggering</h3>
+                    <div class="card">
+                        <p><strong>Debugging steps:</strong></p>
+                        <ol>
+                            <li>
+                                <strong>Check logs:</strong><br>
+                                View <code>Logs/session_*.txt</code> for indicator values and condition states.
+                            </li>
+                            <li>
+                                <strong>Verify condition values:</strong><br>
+                                <code>IsAdxAbove(25)</code> - Is ADX actually above 25? Check the dashboard.
+                            </li>
+                            <li>
+                                <strong>Sequential evaluation:</strong><br>
+                                Conditions evaluate in order. If an earlier condition isn't met, later ones don't matter.
+                            </li>
+                        </ol>
+                    </div>
+                </section>
+                
+                <!-- Strategy Issues -->
+                <section id="strategy">
+                    <h2>Strategy Issues</h2>
+                    
+                    <h3>Strategy not loading</h3>
+                    <div class="card">
+                        <p><strong>Check these:</strong></p>
+                        <ol>
+                            <li>
+                                <strong>File location:</strong><br>
+                                Scripts must be in <code>IdiotProof.Core/Scripts/</code> with <code>.idiot</code> extension.
+                            </li>
+                            <li>
+                                <strong>Syntax errors:</strong><br>
+                                Check for typos. Commands need parentheses: <code>IsAboveVwap()</code> not <code>IsAboveVwap</code>.
+                            </li>
+                            <li>
+                                <strong>Missing Ticker():</strong><br>
+                                Every strategy must start with <code>Ticker("SYMBOL")</code>.
+                            </li>
+                        </ol>
+                    </div>
+                    
+                    <h3>Parse error messages</h3>
+                    <div class="card">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Error</th>
+                                    <th>Meaning</th>
+                                    <th>Fix</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>"Unknown command: XYZ"</td>
+                                    <td>Command not recognized</td>
+                                    <td>Check spelling, use canonical names</td>
+                                </tr>
+                                <tr>
+                                    <td>"Expected parameter"</td>
+                                    <td>Command requires parameter</td>
+                                    <td>Add required value: <code>Entry(150)</code></td>
+                                </tr>
+                                <tr>
+                                    <td>"Invalid number"</td>
+                                    <td>Parameter should be numeric</td>
+                                    <td>Use number: <code>TakeProfit(160)</code></td>
+                                </tr>
+                                <tr>
+                                    <td>"Unclosed string"</td>
+                                    <td>Missing closing quote</td>
+                                    <td>Complete string: <code>Name("My Strategy")</code></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+                
+                <!-- AI Issues -->
+                <section id="ai">
+                    <h2>AI Component Issues</h2>
+                    
+                    <h3>AI Advisor not responding</h3>
+                    <div class="card">
+                        <p><strong>Check these:</strong></p>
+                        <ol>
+                            <li>
+                                <strong>API key configured:</strong><br>
+                                Set <code>OPENAI_API_KEY</code> environment variable or in settings.json:
+                                <div class="code-block">
+{
+    "ai": {
+        "openaiApiKey": "<span class="token-string">sk-...</span>"
+    }
+}
+</div>
+                            </li>
+                            <li>
+                                <strong>Internet connection:</strong><br>
+                                AI Advisor requires internet access to reach OpenAI API.
+                            </li>
+                            <li>
+                                <strong>API quota:</strong><br>
+                                Verify your OpenAI account has available credits.
+                            </li>
+                        </ol>
+                    </div>
+                    
+                    <h3>LSTM predictions seem wrong</h3>
+                    <div class="card">
+                        <p><strong>This is expected sometimes:</strong></p>
+                        <ul>
+                            <li>LSTM provides probabilistic guidance, not certainty</li>
+                            <li>Predictions improve with more training data</li>
+                            <li>Max impact is ±25 points on Market Score - it's one input among many</li>
+                            <li>After major news events, historical patterns may not apply</li>
+                        </ul>
+                        <p><strong>To reset LSTM:</strong></p>
+                        <p>Delete <code>Profiles/{TICKER}.lstm.json</code> to force retraining.</p>
+                    </div>
+                </section>
+                
+                <!-- Performance Issues -->
+                <section id="performance">
+                    <h2>Performance Issues</h2>
+                    
+                    <h3>High CPU usage</h3>
+                    <div class="card">
+                        <p><strong>Causes and solutions:</strong></p>
+                        <ul>
+                            <li>
+                                <strong>Too many tickers:</strong> Each ticker runs calculations. 
+                                Limit watchlist to essential symbols.
+                            </li>
+                            <li>
+                                <strong>LSTM training:</strong> Training runs every 15 minutes and may spike CPU.
+                                This is temporary and normal.
+                            </li>
+                            <li>
+                                <strong>Debug logging:</strong> Reduce log verbosity in settings.json.
+                            </li>
+                        </ul>
+                    </div>
+                    
+                    <h3>Memory growing over time</h3>
+                    <div class="card">
+                        <p><strong>Cause:</strong> Candle and indicator history accumulates.</p>
+                        <p><strong>Solution:</strong> The system automatically trims history beyond 500 candles.
+                        If memory is still high, restart the backend daily.</p>
+                    </div>
+                </section>
+                
+                <!-- Logs -->
+                <section id="logs">
+                    <h2>Checking Logs</h2>
+                    <p>
+                        Logs are the key to debugging. Find them in <code>Logs/session_*.txt</code>.
+                    </p>
+                    
+                    <div class="ascii-art">
+LOG FORMAT
+═══════════════════════════════════════════════════════════════════════════════
+
+    [2026-02-06 09:30:15] [INFO] Strategy loaded: AAPL VWAP Bounce
+    [2026-02-06 09:30:16] [INFO] Connected to TWS on 127.0.0.1:7497
+    [2026-02-06 09:35:00] [DEBUG] AAPL: Price 150.25, VWAP 149.80, Score +45
+    [2026-02-06 09:35:01] [INFO] Condition met: IsAboveVwap()
+    [2026-02-06 09:35:01] [INFO] All conditions met - placing order
+    [2026-02-06 09:35:01] [INFO] ORDER: BUY 100 AAPL @ MARKET
+    [2026-02-06 09:35:02] [INFO] Order filled: 100 AAPL @ 150.26
+    
+    Levels:
+    [DEBUG] - Detailed indicator values, condition evaluations
+    [INFO]  - Important events, orders, fills
+    [WARN]  - Potential issues that don't stop execution
+    [ERROR] - Problems that may affect trading
+</div>
+                </section>
+                
+                <!-- Getting Help -->
+                <section id="help">
+                    <h2>Getting Help</h2>
+                    <p>When reporting issues, include:</p>
+                    <ol>
+                        <li>The complete .idiot strategy file</li>
+                        <li>Relevant log sections from Logs/session_*.txt</li>
+                        <li>Your settings.json (with API keys removed)</li>
+                        <li>Steps to reproduce the issue</li>
+                        <li>Expected vs actual behavior</li>
+                    </ol>
+                </section>
+                
+                <!-- Footer -->
+                <footer class="page-footer">
+                    <div class="footer-nav">
+                        <a href="faq.htm">← FAQ</a>
+                        <a href="index.htm">Back to Home →</a>
+                    </div>
+                    <p class="text-center text-muted">
+                        IdiotProof Trading System Documentation &copy; 2026
+                    </p>
+                </footer>
+            </div>
+        </main>
+    </div>
+</body>
+</html>

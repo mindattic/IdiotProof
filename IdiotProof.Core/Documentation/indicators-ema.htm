@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EMA Indicators - IdiotProof Documentation</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="page-wrapper">
+        <!-- Sidebar Navigation -->
+        <nav class="sidebar">
+            <div class="sidebar-header">
+                <a href="index.htm" class="logo">
+                    <span class="logo-icon">📈</span>
+                    <span class="logo-text">IdiotProof</span>
+                    <span class="logo-version">v2.0</span>
+                </a>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">Getting Started</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="index.htm" class="nav-link"><span class="nav-icon">🏠</span>Home</a></li>
+                    <li class="nav-item"><a href="quick-start.htm" class="nav-link"><span class="nav-icon">🚀</span>Quick Start</a></li>
+                    <li class="nav-item"><a href="architecture.htm" class="nav-link"><span class="nav-icon">🏗️</span>Architecture</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">IdiotScript DSL</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="idiotscript.htm" class="nav-link"><span class="nav-icon">📜</span>Language Reference</a></li>
+                    <li class="nav-item"><a href="commands.htm" class="nav-link"><span class="nav-icon">⌨️</span>Command Reference</a></li>
+                    <li class="nav-item"><a href="examples.htm" class="nav-link"><span class="nav-icon">💡</span>Strategy Examples</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">Technical Indicators</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="indicators.htm" class="nav-link"><span class="nav-icon">📊</span>Indicator Overview</a></li>
+                    <li class="nav-item"><a href="indicators-vwap.htm" class="nav-link"><span class="nav-icon">〰️</span>VWAP Indicators</a></li>
+                    <li class="nav-item"><a href="indicators-ema.htm" class="nav-link active"><span class="nav-icon">📈</span>EMA Indicators</a></li>
+                    <li class="nav-item"><a href="indicators-momentum.htm" class="nav-link"><span class="nav-icon">⚡</span>Momentum</a></li>
+                    <li class="nav-item"><a href="indicators-volume.htm" class="nav-link"><span class="nav-icon">📶</span>Volume Analysis</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">Trading Systems</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="market-score.htm" class="nav-link"><span class="nav-icon">🎯</span>Market Score</a></li>
+                    <li class="nav-item"><a href="adaptive-order.htm" class="nav-link"><span class="nav-icon">🔄</span>AdaptiveOrder</a></li>
+                    <li class="nav-item"><a href="autonomous-trading.htm" class="nav-link"><span class="nav-icon">🤖</span>AutonomousTrading</a></li>
+                    <li class="nav-item"><a href="order-management.htm" class="nav-link"><span class="nav-icon">📋</span>Order Management</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">AI & Machine Learning</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="ai-overview.htm" class="nav-link"><span class="nav-icon">🧠</span>AI Overview</a></li>
+                    <li class="nav-item"><a href="lstm.htm" class="nav-link"><span class="nav-icon">🔮</span>LSTM Predictor</a></li>
+                    <li class="nav-item"><a href="pattern-matcher.htm" class="nav-link"><span class="nav-icon">🔍</span>Pattern Matcher</a></li>
+                    <li class="nav-item"><a href="learned-weights.htm" class="nav-link"><span class="nav-icon">⚖️</span>Learned Weights</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">Configuration</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="configuration.htm" class="nav-link"><span class="nav-icon">⚙️</span>Settings</a></li>
+                    <li class="nav-item"><a href="watchlist.htm" class="nav-link"><span class="nav-icon">👀</span>Watchlist</a></li>
+                    <li class="nav-item"><a href="strategy-rules.htm" class="nav-link"><span class="nav-icon">📝</span>Strategy Rules</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">Testing & Analysis</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="backtesting.htm" class="nav-link"><span class="nav-icon">⏪</span>Backtesting</a></li>
+                    <li class="nav-item"><a href="simulation.htm" class="nav-link"><span class="nav-icon">🎮</span>Simulation</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">Reference</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="glossary.htm" class="nav-link"><span class="nav-icon">📖</span>Glossary</a></li>
+                    <li class="nav-item"><a href="faq.htm" class="nav-link"><span class="nav-icon">❓</span>FAQ</a></li>
+                    <li class="nav-item"><a href="troubleshooting.htm" class="nav-link"><span class="nav-icon">🔧</span>Troubleshooting</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">Roadmap</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="futureproofing.htm" class="nav-link"><span class="nav-icon">🔮</span>Future-Proofing</a></li>
+                    <li class="nav-item"><a href="wishlist.htm" class="nav-link"><span class="nav-icon">✨</span>Wishlist</a></li>
+                </ul>
+            </div>
+        </nav>
+        
+        <!-- Main Content -->
+        <main class="main-content">
+            <div class="content-wrapper">
+                <!-- Breadcrumb -->
+                <div class="breadcrumb">
+                    <a href="index.htm">Home</a>
+                    <span class="breadcrumb-separator">/</span>
+                    <a href="indicators.htm">Technical Indicators</a>
+                    <span class="breadcrumb-separator">/</span>
+                    <span>EMA Indicators</span>
+                </div>
+                
+                <!-- Header -->
+                <header class="page-header">
+                    <h1 class="page-title">EMA Indicators</h1>
+                    <p class="page-subtitle">
+                        Exponential Moving Averages (EMAs) give more weight to recent price data,
+                        making them more responsive to new information than simple moving averages.
+                    </p>
+                </header>
+                
+                <!-- What is EMA -->
+                <section id="overview">
+                    <h2>What is EMA?</h2>
+                    <p>
+                        The Exponential Moving Average is a type of moving average that places greater 
+                        weight on the most recent data points. Unlike a Simple Moving Average (SMA) 
+                        which weights all values equally, EMA reacts faster to price changes.
+                    </p>
+                    
+                    <div class="ascii-art">
+EMA CALCULATION
+═══════════════════════════════════════════════════════════════════════════════
+
+    EMA = (Price × Multiplier) + (Previous EMA × (1 - Multiplier))
+    
+    Where:
+        Multiplier = 2 / (Period + 1)
+    
+    Example for EMA(9):
+        Multiplier = 2 / (9 + 1) = 0.2
+        
+        If Price = $50.00, Previous EMA = $49.50:
+        EMA = ($50.00 × 0.2) + ($49.50 × 0.8) = $10.00 + $39.60 = <span class="bullish">$49.60</span>
+
+
+COMMON EMA PERIODS
+═══════════════════════════════════════════════════════════════════════════════
+
+    ┌──────────┬─────────────────────┬─────────────────────────────────────┐
+    │  Period  │  Trading Style      │  Purpose                            │
+    ├──────────┼─────────────────────┼─────────────────────────────────────┤
+    │  EMA(9)  │  Scalping/Day       │  Very short-term trend              │
+    │  EMA(21) │  Day/Swing          │  Short-term trend                   │
+    │  EMA(50) │  Swing              │  Medium-term trend                  │
+    │  EMA(200)│  Position           │  Long-term trend (major support)    │
+    └──────────┴─────────────────────┴─────────────────────────────────────┘
+</div>
+                </section>
+                
+                <!-- EMA Stack -->
+                <section id="ema-stack">
+                    <h2>The EMA Stack</h2>
+                    <p>
+                        IdiotProof uses an "EMA Stack" concept where the relationship between 
+                        multiple EMAs indicates trend strength and direction.
+                    </p>
+                    
+                    <div class="ascii-art">
+EMA STACK ALIGNMENT
+═══════════════════════════════════════════════════════════════════════════════
+
+    <span class="bullish">BULLISH STACK: Price > EMA(9) > EMA(21) > EMA(50)</span>
+    
+    Price ─────────────────────────────────────────────────────────
+                                                              ↗
+    EMA(9)  ─────────────────────────────────────────────────
+                                                         ↗
+    EMA(21) ─────────────────────────────────────────────
+                                                    ↗
+    EMA(50) ─────────────────────────────────────────
+    
+    All EMAs stacked and rising = Strong uptrend
+
+
+    <span class="bearish">BEARISH STACK: Price < EMA(9) < EMA(21) < EMA(50)</span>
+    
+    EMA(50) ─────────────────────────────────────────
+                                                    ↘
+    EMA(21) ─────────────────────────────────────────────
+                                                         ↘
+    EMA(9)  ─────────────────────────────────────────────────
+                                                              ↘
+    Price ─────────────────────────────────────────────────────────
+    
+    All EMAs stacked downward = Strong downtrend
+
+
+    <span class="neutral">CHOPPY/TRANSITIONAL: EMAs Converging</span>
+    
+    ────────────────────────╲
+    ────────────────────────────╲      ← EMAs converging
+    ────────────────────────────────╲
+                                    ▲
+                                    │ No clear trend
+                                    │ Wait for separation
+</div>
+                </section>
+                
+                <!-- EMA Commands -->
+                <section id="commands">
+                    <h2>EMA IdiotScript Commands</h2>
+                    
+                    <div class="command-table">
+                        <h3>IsEmaAbove(period)</h3>
+                        <p>Returns true when current price is above the specified EMA.</p>
+                        <pre><code>Ticker(AAPL)
+    .<span class="token-function">IsEmaAbove</span>(<span class="token-number">9</span>)   <span class="token-comment">// Price above EMA(9)</span>
+    .<span class="token-function">IsEmaAbove</span>(<span class="token-number">21</span>)  <span class="token-comment">// AND price above EMA(21)</span>
+    .Entry(150)
+    .TakeProfit(155)</code></pre>
+                    </div>
+                    
+                    <div class="command-table">
+                        <h3>IsEmaBelow(period)</h3>
+                        <p>Returns true when current price is below the specified EMA.</p>
+                        <pre><code>Ticker(SPY)
+    .<span class="token-function">IsEmaBelow</span>(<span class="token-number">21</span>)  <span class="token-comment">// Price below EMA(21)</span>
+    .Order(IS.SHORT)
+    .TakeProfit(495)
+    .StopLoss(508)</code></pre>
+                    </div>
+                    
+                    <div class="command-table">
+                        <h3>IsEmaBetween(shortPeriod, longPeriod)</h3>
+                        <p>
+                            Returns true when price is between two EMAs. This is the 
+                            <strong>pullback zone</strong> - useful for finding entries in trends.
+                        </p>
+                        <pre><code>Ticker(NVDA)
+    .<span class="token-function">IsEmaBetween</span>(<span class="token-number">9</span>, <span class="token-number">21</span>)  <span class="token-comment">// Price between EMA(9) and EMA(21)</span>
+    .<span class="token-function">IsMomentumAbove</span>(0)     <span class="token-comment">// Positive momentum</span>
+    .Entry(900)
+    .TakeProfit(920)</code></pre>
+                    </div>
+                    
+                    <div class="command-table">
+                        <h3>IsEmaTurningUp(period)</h3>
+                        <p>
+                            Returns true when the EMA slope is turning positive or flat after 
+                            a decline. This catches early trend reversals.
+                        </p>
+                        <pre><code>Ticker(TSLA)
+    .<span class="token-function">IsEmaTurningUp</span>(<span class="token-number">9</span>)   <span class="token-comment">// EMA(9) slope turning up</span>
+    .<span class="token-function">IsAboveVwap</span>()          <span class="token-comment">// Confirm with VWAP</span>
+    .Entry(250)
+    .TakeProfit(265)</code></pre>
+                    </div>
+                </section>
+                
+                <!-- EMA Patterns -->
+                <section id="patterns">
+                    <h2>EMA Visual Patterns</h2>
+                    
+                    <div class="ascii-art">
+EMA CROSSOVER PATTERNS
+═══════════════════════════════════════════════════════════════════════════════
+
+    <span class="bullish">GOLDEN CROSS: EMA(9) crosses ABOVE EMA(21)</span>
+    
+                                    EMA(9) ↗
+                                   X
+                           ───────X────────────
+                          X     ↗ EMA(21)
+                         X
+                     ───X───
+                    X
+    ────────────────
+    
+    Bullish signal: Short-term momentum rising above medium-term
+
+
+    <span class="bearish">DEATH CROSS: EMA(9) crosses BELOW EMA(21)</span>
+    
+    ────────────────
+                    X
+                     ───X───
+                        X
+                         X↘ EMA(9)
+                          X     
+                           ───────X────────────
+                                   X EMA(21)
+                                    ↘
+    
+    Bearish signal: Short-term momentum falling below medium-term
+
+
+    <span class="neutral">EMA PULLBACK ZONE</span>
+    
+                            _____
+                     ______/     \____  Price
+                ____/                 \___
+    ═══════════════════════════════════════════════ EMA(9)
+    ═══════════════════════════════════════════════════ EMA(21)
+                    │                 │
+                    └────── Zone ─────┘
+                    
+    Price between EMA(9) and EMA(21) = Potential pullback entry
+</div>
+                </section>
+                
+                <!-- Market Score -->
+                <section id="market-score">
+                    <h2>EMA in Market Score</h2>
+                    <p>
+                        EMA contributes <strong>15%</strong> to the total market score. The score
+                        evaluates the EMA stack alignment:
+                    </p>
+                    
+                    <div class="ascii-art">
+EMA SCORE CONTRIBUTION
+═══════════════════════════════════════════════════════════════════════════════
+
+    EMA Stack Condition               Score Contribution
+    ─────────────────────────────────────────────────────────
+    Price > EMA(9) > EMA(21) > EMA(50)   →   <span class="bullish">+100</span> (max bullish)
+    Price > EMA(9) > EMA(21)             →   <span class="bullish">+67</span>
+    Price > EMA(9)                       →   <span class="bullish">+33</span>
+    Price ≈ EMA(9)                       →   0 (neutral)
+    Price < EMA(9)                       →   <span class="bearish">-33</span>
+    Price < EMA(9) < EMA(21)             →   <span class="bearish">-67</span>
+    Price < EMA(9) < EMA(21) < EMA(50)   →   <span class="bearish">-100</span> (max bearish)
+
+    Additional Factors:
+    ─────────────────────────────────────────────────────────
+    EMA slopes all rising      →   +20 bonus
+    EMA slopes all falling     →   -20 penalty
+    EMAs converging tightly    →   Score dampened (uncertainty)
+</div>
+                    
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Condition</th>
+                                <th>Score</th>
+                                <th>Interpretation</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>Full bullish stack + rising slopes</td>
+                                <td><span class="bullish">+100</span></td>
+                                <td>Strong uptrend, highest conviction</td>
+                            </tr>
+                            <tr>
+                                <td>Price above 9 and 21 EMA</td>
+                                <td><span class="bullish">+67</span></td>
+                                <td>Healthy uptrend</td>
+                            </tr>
+                            <tr>
+                                <td>Price above 9 EMA only</td>
+                                <td><span class="bullish">+33</span></td>
+                                <td>Short-term bullish, watch for continuation</td>
+                            </tr>
+                            <tr>
+                                <td>EMAs tangled, no clear order</td>
+                                <td><span class="neutral">-20 to +20</span></td>
+                                <td>Choppy, avoid or reduce size</td>
+                            </tr>
+                            <tr>
+                                <td>Full bearish stack + falling slopes</td>
+                                <td><span class="bearish">-100</span></td>
+                                <td>Strong downtrend, short or avoid</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </section>
+                
+                <!-- Warm-up Requirements -->
+                <section id="warmup">
+                    <h2>EMA Warm-Up Requirements</h2>
+                    <div class="callout callout-warning">
+                        <div class="callout-title">⚠️ Important: EMA Warm-Up</div>
+                        <p>
+                            EMAs require historical bars equal to their period before they become 
+                            accurate. Start the backend early to collect enough bars.
+                        </p>
+                    </div>
+                    
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>EMA Period</th>
+                                <th>Bars Needed</th>
+                                <th>Start Early By</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>EMA(9)</td>
+                                <td>9 bars</td>
+                                <td>10 minutes</td>
+                            </tr>
+                            <tr>
+                                <td>EMA(21)</td>
+                                <td>21 bars</td>
+                                <td>25 minutes</td>
+                            </tr>
+                            <tr>
+                                <td>EMA(50)</td>
+                                <td>50 bars</td>
+                                <td>1 hour</td>
+                            </tr>
+                            <tr>
+                                <td>EMA(200)</td>
+                                <td>200 bars</td>
+                                <td>3+ hours</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    
+                    <p>
+                        <strong>Recommendation:</strong> For most day trading strategies using 
+                        EMA(9), EMA(21), and EMA(50), start the backend <strong>30 minutes</strong> 
+                        before you plan to trade.
+                    </p>
+                </section>
+                
+                <!-- Strategy Examples -->
+                <section id="strategies">
+                    <h2>EMA Trading Strategies</h2>
+                    
+                    <h3>1. Bullish EMA Stack</h3>
+                    <p>Enter when all EMAs are properly stacked bullish.</p>
+                    <pre><code>Ticker(AAPL)
+    .Name("EMA Stack Long")
+    .Session(IS.RTH)
+    .Quantity(50)
+    .<span class="token-function">IsEmaAbove</span>(<span class="token-number">9</span>)        <span class="token-comment">// Price > EMA(9)</span>
+    .<span class="token-function">IsEmaAbove</span>(<span class="token-number">21</span>)       <span class="token-comment">// Price > EMA(21)</span>
+    .<span class="token-function">IsEmaAbove</span>(<span class="token-number">50</span>)       <span class="token-comment">// Price > EMA(50)</span>
+    .<span class="token-function">IsAboveVwap</span>()         <span class="token-comment">// Confirm with VWAP</span>
+    .Entry(150)
+    .TakeProfit(158)
+    .StopLoss(147)
+    .AdaptiveOrder(IS.AGGRESSIVE)</code></pre>
+                    
+                    <h3>2. EMA Pullback Entry</h3>
+                    <p>Enter on pullback to the 9/21 EMA zone in an uptrend.</p>
+                    <pre><code>Ticker(NVDA)
+    .Name("EMA Pullback")
+    .Session(IS.RTH)
+    .Quantity(20)
+    .<span class="token-function">IsEmaBetween</span>(<span class="token-number">9</span>, <span class="token-number">21</span>)   <span class="token-comment">// In the pullback zone</span>
+    .<span class="token-function">IsEmaAbove</span>(<span class="token-number">50</span>)         <span class="token-comment">// Above major support</span>
+    .<span class="token-function">IsEmaTurningUp</span>(<span class="token-number">9</span>)      <span class="token-comment">// Short EMA turning up</span>
+    .<span class="token-function">IsMomentumAbove</span>(0)      <span class="token-comment">// Positive momentum</span>
+    .Entry(900)
+    .TakeProfit(930)
+    .StopLoss(885)</code></pre>
+                    
+                    <h3>3. EMA Trend Reversal</h3>
+                    <p>Catch early trend changes with EMA slope detection.</p>
+                    <pre><code>Ticker(TSLA)
+    .Name("EMA Reversal")
+    .Session(IS.RTH)
+    .Quantity(15)
+    .<span class="token-function">IsEmaTurningUp</span>(<span class="token-number">9</span>)      <span class="token-comment">// EMA(9) slope turning positive</span>
+    .<span class="token-function">IsEmaTurningUp</span>(<span class="token-number">21</span>)     <span class="token-comment">// EMA(21) also turning</span>
+    .<span class="token-function">IsRsiOversold</span>(<span class="token-number">35</span>)      <span class="token-comment">// Coming out of oversold</span>
+    .Entry(250)
+    .TakeProfit(270)
+    .StopLoss(240)</code></pre>
+                    
+                    <h3>4. Bearish EMA Short</h3>
+                    <p>Short when EMAs are stacked bearish.</p>
+                    <pre><code>Ticker(SPY)
+    .Name("EMA Stack Short")
+    .Session(IS.RTH)
+    .Quantity(100)
+    .<span class="token-function">IsEmaBelow</span>(<span class="token-number">9</span>)         <span class="token-comment">// Price < EMA(9)</span>
+    .<span class="token-function">IsEmaBelow</span>(<span class="token-number">21</span>)        <span class="token-comment">// Price < EMA(21)</span>
+    .<span class="token-function">IsBelowVwap</span>()          <span class="token-comment">// Below VWAP</span>
+    .<span class="token-function">IsDiNegative</span>()         <span class="token-comment">// -DI > +DI</span>
+    .Order(IS.SHORT)
+    .TakeProfit(490)
+    .StopLoss(508)</code></pre>
+                </section>
+                
+                <!-- Tips -->
+                <section id="tips">
+                    <h2>EMA Trading Tips</h2>
+                    
+                    <div class="callout callout-success">
+                        <div class="callout-title">💡 Pro Tips</div>
+                        <ul>
+                            <li><strong>Use multiple EMAs together</strong> - Stack alignment is more reliable than single EMA</li>
+                            <li><strong>EMA(9) is fast, EMA(21) is the trend filter</strong> - Use 9 for entry timing, 21 for trend direction</li>
+                            <li><strong>Pullbacks to EMA(21) are high-probability entries</strong> in strong trends</li>
+                            <li><strong>EMA(50) acts as major support/resistance</strong> - Expect bounces or breaks</li>
+                            <li><strong>Combine with momentum indicators</strong> - EMA + MACD or RSI for confirmation</li>
+                        </ul>
+                    </div>
+                    
+                    <div class="callout callout-warning">
+                        <div class="callout-title">⚠️ Common Mistakes</div>
+                        <ul>
+                            <li>Trading EMA crossovers in choppy markets - wait for confirmation</li>
+                            <li>Using EMA without allowing warm-up time</li>
+                            <li>Ignoring EMA slope - flat EMAs mean indecision, not trend</li>
+                            <li>Fighting the EMA stack - don't long when all EMAs bearish</li>
+                        </ul>
+                    </div>
+                </section>
+                
+                <!-- Footer Navigation -->
+                <footer class="page-footer">
+                    <div class="footer-nav">
+                        <a href="indicators-vwap.htm">← VWAP Indicators</a>
+                        <a href="indicators-momentum.htm">Momentum Indicators →</a>
+                    </div>
+                    <p class="text-center text-muted">
+                        IdiotProof Trading System Documentation &copy; 2026
+                    </p>
+                </footer>
+            </div>
+        </main>
+    </div>
+</body>
+</html>

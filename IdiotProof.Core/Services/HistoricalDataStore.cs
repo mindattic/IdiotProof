@@ -6,7 +6,7 @@
 // ==================
 // Historical data is SEPARATE from live data to enable future backtesting:
 //   - Historical: Fetched from IBKR reqHistoricalData() - immutable, for backtesting
-//   - Live: Aggregated from tick data in CandlestickAggregator - mutable, real-time
+//   - Live: Aggregated from tick data in CandlestickAggregatorHelper - mutable, real-time
 //
 // STORAGE STRUCTURE:
 // ==================

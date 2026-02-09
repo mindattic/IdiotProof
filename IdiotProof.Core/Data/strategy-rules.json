@@ -5,6 +5,7 @@
     {
       "symbol": "CCHH",
       "enabled": true,
+      "validFrom": "2026-02-08",
       "validUntil": "2026-02-10",
       "name": "Day 2 Breakout-Pullback (Chart-Based Revision)",
       "rule": "CONFIRMATIONS (in order):\n1. Price must break above $0.78 (previous HOD / double top)\n2. DO NOT buy the breakout candle\n3. Wait for pullback after the break\n4. Pullback must hold above $0.70 and form higher lows\n5. Entry confirmation: reclaim/hold above EMAs (~$0.71-$0.72) with volume\n6. Invalid if price loses $0.70 and fails to reclaim quickly\n\nCURRENT STATE: Price around $0.73, consolidating under resistance.\nRULE: Pullback entries only. No chasing.",
@@ -20,6 +21,7 @@
     {
       "symbol": "TNON",
       "enabled": true,
+      "validFrom": "2026-02-08",
       "validUntil": "2026-02-10",
       "name": "Earnings Runner Day 2 (Chart-Based Revision)",
       "rule": "CONFIRMATIONS (in order):\n1. Price must break above $0.91 first (local resistance)\n2. Main trigger: break above $0.94 (previous high)\n3. If it breaks, wait for pullback/retest\n4. Retest must hold above $0.90\n5. Entry confirmation: reclaim/hold above $0.90 with volume and EMAs holding\n6. Invalid if price loses $0.88 and fails to reclaim\n\nCURRENT STATE: Price around $0.89, holding above EMAs, with VWAP around $0.83.\nRULE: No break = no trade. Do not buy random green candles under $0.90.",
@@ -37,6 +39,7 @@
     {
       "symbol": "SMX",
       "enabled": true,
+      "validFrom": "2026-02-08",
       "validUntil": "2026-02-10",
       "name": "High Volatility Setup (Chart-Based Revision)",
       "rule": "CONFIRMATIONS (in order):\n1. Do not trade inside the $15.70-$16.20 chop zone\n2. Trigger: reclaim $17.00 with strength and volume\n3. After reclaim, wait for pullback\n4. Pullback must hold above VWAP/EMAs (around $15.80-$15.90)\n5. Entry confirmation: bounce off VWAP/EMAs after holding\n6. Invalid if price loses VWAP and cannot reclaim\n\nCURRENT STATE: Price around $15.90, sitting on VWAP, low volume, ranging.\nRULE: Wait for direction. This is not in explosive mode right now.",

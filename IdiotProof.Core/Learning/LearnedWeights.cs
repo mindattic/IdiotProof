@@ -138,7 +138,7 @@ public sealed class LearnedWeights
     /// Converts learned weights to the IndicatorWeights struct used by MarketScoreCalculator.
     /// Uses learned values normalized to sum to 1.0.
     /// </summary>
-    public IdiotProof.Helpers.IndicatorWeights ToIndicatorWeights()
+    public IdiotProof.Calculators.IndicatorWeights ToIndicatorWeights()
     {
         // Extract raw weights (stored as positive values during learning)
         double vwap = Math.Max(0.01, IndicatorWeights[IDX_VWAP]);
@@ -156,7 +156,7 @@ public sealed class LearnedWeights
         // Normalize to sum to 1.0
         double sum = vwap + ema + rsi + macd + adx + volume + bollinger + stochastic + obv + cci + williamsR;
         
-        return new IdiotProof.Helpers.IndicatorWeights
+        return new IdiotProof.Calculators.IndicatorWeights
         {
             Vwap = vwap / sum,
             Ema = ema / sum,

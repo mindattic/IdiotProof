@@ -7,7 +7,7 @@
 // Edit the file outside the app, restart, and it trades automatically.
 //
 // FILE LOCATION:
-//   {SolutionRoot}\IdiotProof.Core\Scripts\watchlist.json
+//   {SolutionRoot}\IdiotProof.Core\Data\watchlist.json
 //
 // FILE FORMAT:
 // {
@@ -29,7 +29,9 @@
 //
 // ============================================================================
 
+using IdiotProof.Constants;
 using IdiotProof.Enums;
+using IdiotProof.Logging;
 using IdiotProof.Settings;
 using System;
 using System.Collections.Generic;
@@ -37,6 +39,8 @@ using System.IO;
 using System.Linq;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace IdiotProof.Services;
 
@@ -49,21 +53,13 @@ public sealed class WatchlistEntry
     [JsonPropertyName("symbol")]
     public string Symbol { get; set; } = "";
 
-    /// <summary>Number of shares to trade.</summary>
+    /// <summary>Number of shares to trade (0 = auto-calculate based on price).</summary>
     [JsonPropertyName("quantity")]
-    public int Quantity { get; set; } = 1;
-
-    /// <summary>Optional: Override the default session for this ticker.</summary>
-    [JsonPropertyName("session")]
-    public string? Session { get; set; }
+    public int Quantity { get; set; } = 0;
 
     /// <summary>Whether this ticker is enabled (default: true).</summary>
     [JsonPropertyName("enabled")]
     public bool Enabled { get; set; } = true;
-
-    /// <summary>Optional: Custom name for this ticker's strategy.</summary>
-    [JsonPropertyName("name")]
-    public string? Name { get; set; }
 
     public override string ToString() => $"{Symbol} x{Quantity}" + (Enabled ? "" : " [DISABLED]");
 }
@@ -132,7 +128,7 @@ public static class WatchlistManager
     /// </summary>
     public static string GetWatchlistPath()
     {
-        return Path.Combine(SettingsManager.GetStrategiesFolder(), WatchlistFileName);
+        return Path.Combine(SettingsManager.GetDataFolder(), WatchlistFileName);
     }
 
     /// <summary>
@@ -153,8 +149,8 @@ public static class WatchlistManager
 
         if (!File.Exists(path))
         {
-            Console.WriteLine($"[Watchlist] No watchlist found at: {path}");
-            Console.WriteLine($"[Watchlist] Create one to enable autonomous trading.");
+            ConsoleLog.Write("Watchlist", $"No watchlist found at: {path}");
+            ConsoleLog.Write("Watchlist", "Create one to enable autonomous trading.");
             return new Watchlist();
         }
 
@@ -165,21 +161,21 @@ public static class WatchlistManager
 
             if (watchlist == null)
             {
-                Console.WriteLine($"[Watchlist] Failed to parse watchlist, using empty list");
+                ConsoleLog.Warn("Watchlist", "Failed to parse watchlist, using empty list");
                 return new Watchlist();
             }
 
-            Console.WriteLine($"[Watchlist] Loaded {watchlist.EnabledCount}/{watchlist.TotalCount} tickers from {WatchlistFileName}");
+            ConsoleLog.Write("Watchlist", $"Loaded {watchlist.EnabledCount}/{watchlist.TotalCount} tickers from {WatchlistFileName}");
             foreach (var ticker in watchlist.EnabledTickers)
             {
-                Console.WriteLine($"  - {ticker.Symbol} x{ticker.Quantity}");
+                ConsoleLog.Write("Watchlist", $"  - {ticker.Symbol} x{ticker.Quantity}");
             }
 
             return watchlist;
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"[Watchlist] Error loading watchlist: {ex.Message}");
+            ConsoleLog.Error("Watchlist", $"Loading failed: {ex.Message}");
             return new Watchlist();
         }
     }
@@ -203,11 +199,11 @@ public static class WatchlistManager
             var json = JsonSerializer.Serialize(watchlist, JsonOptions);
             File.WriteAllText(path, json);
 
-            Console.WriteLine($"[Watchlist] Saved {watchlist.TotalCount} tickers to {WatchlistFileName}");
+            ConsoleLog.Write("Watchlist", $"Saved {watchlist.TotalCount} tickers to {WatchlistFileName}");
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"[Watchlist] Error saving watchlist: {ex.Message}");
+            ConsoleLog.Error("Watchlist", $"Saving failed: {ex.Message}");
         }
     }
 
@@ -226,16 +222,16 @@ public static class WatchlistManager
             Enabled = true,
             Tickers =
             [
-                new() { Symbol = "NVDA", Quantity = 5, Name = "NVIDIA" },
-                new() { Symbol = "AAPL", Quantity = 10, Name = "Apple" },
-                new() { Symbol = "TSLA", Quantity = 3, Name = "Tesla", Enabled = false },
-                new() { Symbol = "SPY", Quantity = 20, Name = "S&P 500 ETF" }
+                new() { Symbol = "NVDA", Quantity = 5 },
+                new() { Symbol = "AAPL", Quantity = 10 },
+                new() { Symbol = "TSLA", Quantity = 3, Enabled = false },
+                new() { Symbol = "SPY", Quantity = 20 }
             ]
         };
 
         Save(sample);
-        Console.WriteLine($"[Watchlist] Created sample watchlist at: {GetWatchlistPath()}");
-        Console.WriteLine($"[Watchlist] Edit this file to configure your tickers and quantities.");
+        ConsoleLog.Write("Watchlist", $"Created sample watchlist at: {GetWatchlistPath()}");
+        ConsoleLog.Write("Watchlist", "Edit this file to configure your tickers and quantities.");
     }
 
     /// <summary>
@@ -310,14 +306,14 @@ public static class WatchlistManager
         
         if (!watchlist.Enabled)
         {
-            Console.WriteLine("[Watchlist] Autonomous trading is disabled globally");
+            ConsoleLog.Warn("Watchlist", "Autonomous trading is disabled globally");
             yield break;
         }
 
         foreach (var ticker in watchlist.EnabledTickers)
         {
-            var session = ticker.Session ?? watchlist.Session;
-            var name = ticker.Name ?? $"{ticker.Symbol} Auto";
+            var session = watchlist.Session;
+            var name = $"{ticker.Symbol} Auto";
 
             // Generate IdiotScript for this ticker
             var script = $"Ticker({ticker.Symbol})" +
@@ -335,27 +331,122 @@ public static class WatchlistManager
     /// </summary>
     public static void PrintSummary()
     {
+        PrintSummaryWithPrices(null);
+    }
+
+    /// <summary>
+    /// Prints a summary of the current watchlist with price information.
+    /// </summary>
+    /// <param name="priceProvider">Optional function to get current price for a symbol.</param>
+    public static void PrintSummaryWithPrices(Func<string, double>? priceProvider)
+    {
         var watchlist = Load();
 
         Console.WriteLine();
-        Console.WriteLine("╔═══════════════════════════════════════════════════════════╗");
-        Console.WriteLine("║              AUTONOMOUS TRADING WATCHLIST                  ║");
-        Console.WriteLine("╠═══════════════════════════════════════════════════════════╣");
-        Console.WriteLine($"║  Status: {(watchlist.Enabled ? "ENABLED" : "DISABLED"),-48} ║");
-        Console.WriteLine($"║  Session: {watchlist.Session,-47} ║");
-        Console.WriteLine($"║  Tickers: {watchlist.EnabledCount} active, {watchlist.TotalCount - watchlist.EnabledCount} disabled              ║");
-        Console.WriteLine("╠═══════════════════════════════════════════════════════════╣");
-        Console.WriteLine("║  Symbol    Qty     Session       Status                   ║");
-        Console.WriteLine("╠═══════════════════════════════════════════════════════════╣");
+        Console.WriteLine("=== Ticker Watchlist ===");
+        Console.WriteLine();
+        Console.WriteLine($"    {"#",2}  {"Symbol",-8}  {"Qty",5}  {"Price",9}  {"Status",-10}  {"Description"}");
+        Console.WriteLine($"  {"---",3}  {"------",-8}  {"---",5}  {"-----",9}  {"------",-10}  {"-----------"}");
 
-        foreach (var ticker in watchlist.Tickers)
+        int rowNum = 0;
+        foreach (var ticker in watchlist.Tickers.OrderBy(t => t.Symbol))
         {
-            var session = ticker.Session ?? watchlist.Session;
-            var status = ticker.Enabled ? "ACTIVE" : "disabled";
-            Console.WriteLine($"║  {ticker.Symbol,-8}  {ticker.Quantity,4}    {session,-12}  {status,-10}           ║");
+            rowNum++;
+            var status = ticker.Enabled ? "[ACTIVE]" : "[OFF]";
+            var qtyStr = ticker.Quantity > 0 ? $"{ticker.Quantity,5}" : " auto";
+
+            // Get price from cache or provider
+            var cached = TickerDataCache.Get(ticker.Symbol);
+            var price = cached?.Price ?? priceProvider?.Invoke(ticker.Symbol) ?? 0;
+            var priceStr = price > 0 ? $"${price,7:F2}" : $"{"--",9}";
+
+            // Get description
+            var desc = StockDescriptionService.GetDescription(ticker.Symbol);
+
+            Console.WriteLine($"    {rowNum,2}  {ticker.Symbol,-8}  {qtyStr}  {priceStr}  {status,-10}  {desc}");
         }
 
-        Console.WriteLine("╚═══════════════════════════════════════════════════════════╝");
         Console.WriteLine();
+        Console.WriteLine($"  Total: {watchlist.Tickers.Count} ticker(s)");
+        Console.WriteLine();
+    }
+
+    /// <summary>
+    /// Prints a summary of the current watchlist with price information (async).
+    /// </summary>
+    /// <param name="priceProvider">Optional function to get current price for a symbol.</param>
+    /// <param name="ct">Cancellation token.</param>
+    public static async Task PrintSummaryAsync(Func<string, double>? priceProvider, CancellationToken ct = default)
+    {
+        await Task.CompletedTask;
+        PrintSummaryWithPrices(priceProvider);
+    }
+
+    /// <summary>
+    /// Adds multiple tickers from a comma-separated string.
+    /// Quantity is set to 0 (auto-calculated by price tier).
+    /// </summary>
+    /// <param name="commaSeparatedTickers">Comma-separated ticker symbols (e.g., "NVDA, AAPL, TSLA, CCHH")</param>
+    /// <returns>Number of tickers added.</returns>
+    /// <example>
+    /// WatchlistManager.AddFromCsv("NVDA, AAPL, TSLA");
+    /// // Adds all 3 with Quantity=0 (auto tier-based allocation)
+    /// </example>
+    public static int AddFromCsv(string commaSeparatedTickers)
+    {
+        if (string.IsNullOrWhiteSpace(commaSeparatedTickers))
+            return 0;
+
+        var watchlist = Load();
+        int added = 0;
+
+        // Split by comma, semicolon, or whitespace
+        var symbols = commaSeparatedTickers
+            .Split(new[] { ',', ';', ' ', '\t', '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries)
+            .Select(s => s.Trim().ToUpperInvariant())
+            .Where(s => !string.IsNullOrEmpty(s) && s.All(c => char.IsLetterOrDigit(c)))
+            .Distinct(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var symbol in symbols)
+        {
+            var existing = watchlist.Tickers.FirstOrDefault(t => 
+                t.Symbol.Equals(symbol, StringComparison.OrdinalIgnoreCase));
+
+            if (existing != null)
+            {
+                // Already exists - just enable it
+                existing.Enabled = true;
+            }
+            else
+            {
+                // Add new ticker with Quantity=0 (auto tier-based allocation)
+                watchlist.Tickers.Add(new WatchlistEntry
+                {
+                    Symbol = symbol,
+                    Quantity = 0,  // Auto-calculate by price tier
+                    Enabled = true
+                });
+                added++;
+            }
+        }
+
+        if (added > 0)
+        {
+            Save(watchlist);
+            ConsoleLog.Write("Watchlist", $"Added {added} tickers (auto quantity by tier)");
+        }
+
+        return added;
+    }
+
+    /// <summary>
+    /// Clears all tickers from the watchlist.
+    /// </summary>
+    public static void Clear()
+    {
+        var watchlist = Load();
+        watchlist.Tickers.Clear();
+        Save(watchlist);
+        ConsoleLog.Write("Watchlist", "Cleared all tickers");
     }
 }

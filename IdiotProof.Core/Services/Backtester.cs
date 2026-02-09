@@ -18,6 +18,7 @@
 //
 // ============================================================================
 
+using IdiotProof.Calculators;
 using IdiotProof.Constants;
 using IdiotProof.Enums;
 using IdiotProof.Models;
@@ -2184,7 +2185,7 @@ internal sealed class BackTestIndicatorCalculator
     private readonly List<BackTestCandle> _candles;
     
     // Optional learned weights - when set, uses ticker-specific weights
-    private IdiotProof.Helpers.IndicatorWeights _weights = IdiotProof.Helpers.IndicatorWeights.Default;
+    private IdiotProof.Optimization.IndicatorWeights _weights = IdiotProof.Optimization.IndicatorWeights.Default;
     
     // Core indicators
     private readonly double[] _ema9;
@@ -2263,7 +2264,7 @@ internal sealed class BackTestIndicatorCalculator
     /// Sets the indicator weights for score calculation.
     /// When not set, uses default weights.
     /// </summary>
-    public void SetWeights(IdiotProof.Helpers.IndicatorWeights weights)
+    public void SetWeights(IdiotProof.Optimization.IndicatorWeights weights)
     {
         _weights = weights;
     }
@@ -2432,7 +2433,7 @@ internal sealed class BackTestIndicatorCalculator
         };
         
         // Use the SHARED calculator with learned or default weights - same code as live trading
-        var result = MarketScoreCalculator.Calculate(snapshot, _weights);
+        var result = MarketScoreCalculator.Calculate(snapshot, _weights.ToCalculatorWeights());
         return result.TotalScore;
     }
     

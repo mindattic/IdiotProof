@@ -1,0 +1,681 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Technical Indicators - IdiotProof Documentation</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="page-wrapper">
+        <!-- Sidebar Navigation -->
+        <nav class="sidebar">
+            <div class="sidebar-header">
+                <a href="index.htm" class="logo">
+                    <span class="logo-icon">📈</span>
+                    <span class="logo-text">IdiotProof</span>
+                    <span class="logo-version">v2.0</span>
+                </a>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">Getting Started</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="index.htm" class="nav-link"><span class="nav-icon">🏠</span>Home</a></li>
+                    <li class="nav-item"><a href="quick-start.htm" class="nav-link"><span class="nav-icon">🚀</span>Quick Start</a></li>
+                    <li class="nav-item"><a href="architecture.htm" class="nav-link"><span class="nav-icon">🏗️</span>Architecture</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">IdiotScript DSL</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="idiotscript.htm" class="nav-link"><span class="nav-icon">📜</span>Language Reference</a></li>
+                    <li class="nav-item"><a href="commands.htm" class="nav-link"><span class="nav-icon">⌨️</span>Command Reference</a></li>
+                    <li class="nav-item"><a href="examples.htm" class="nav-link"><span class="nav-icon">💡</span>Strategy Examples</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">Technical Indicators</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="indicators.htm" class="nav-link active"><span class="nav-icon">📊</span>Indicator Overview</a></li>
+                    <li class="nav-item"><a href="indicators-vwap.htm" class="nav-link"><span class="nav-icon">〰️</span>VWAP Indicators</a></li>
+                    <li class="nav-item"><a href="indicators-ema.htm" class="nav-link"><span class="nav-icon">📈</span>EMA Indicators</a></li>
+                    <li class="nav-item"><a href="indicators-momentum.htm" class="nav-link"><span class="nav-icon">⚡</span>Momentum</a></li>
+                    <li class="nav-item"><a href="indicators-volume.htm" class="nav-link"><span class="nav-icon">📶</span>Volume Analysis</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">Trading Systems</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="market-score.htm" class="nav-link"><span class="nav-icon">🎯</span>Market Score</a></li>
+                    <li class="nav-item"><a href="adaptive-order.htm" class="nav-link"><span class="nav-icon">🔄</span>AdaptiveOrder</a></li>
+                    <li class="nav-item"><a href="autonomous-trading.htm" class="nav-link"><span class="nav-icon">🤖</span>AutonomousTrading</a></li>
+                    <li class="nav-item"><a href="order-management.htm" class="nav-link"><span class="nav-icon">📋</span>Order Management</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">AI & Machine Learning</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="ai-overview.htm" class="nav-link"><span class="nav-icon">🧠</span>AI Overview</a></li>
+                    <li class="nav-item"><a href="lstm.htm" class="nav-link"><span class="nav-icon">🔮</span>LSTM Predictor</a></li>
+                    <li class="nav-item"><a href="pattern-matcher.htm" class="nav-link"><span class="nav-icon">🔍</span>Pattern Matcher</a></li>
+                    <li class="nav-item"><a href="learned-weights.htm" class="nav-link"><span class="nav-icon">⚖️</span>Learned Weights</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">Configuration</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="configuration.htm" class="nav-link"><span class="nav-icon">⚙️</span>Settings</a></li>
+                    <li class="nav-item"><a href="watchlist.htm" class="nav-link"><span class="nav-icon">👀</span>Watchlist</a></li>
+                    <li class="nav-item"><a href="strategy-rules.htm" class="nav-link"><span class="nav-icon">📝</span>Strategy Rules</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">Testing & Analysis</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="backtesting.htm" class="nav-link"><span class="nav-icon">⏪</span>Backtesting</a></li>
+                    <li class="nav-item"><a href="simulation.htm" class="nav-link"><span class="nav-icon">🎮</span>Simulation</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">Reference</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="glossary.htm" class="nav-link"><span class="nav-icon">📖</span>Glossary</a></li>
+                    <li class="nav-item"><a href="faq.htm" class="nav-link"><span class="nav-icon">❓</span>FAQ</a></li>
+                    <li class="nav-item"><a href="troubleshooting.htm" class="nav-link"><span class="nav-icon">🔧</span>Troubleshooting</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">Roadmap</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="futureproofing.htm" class="nav-link"><span class="nav-icon">🔮</span>Future-Proofing</a></li>
+                    <li class="nav-item"><a href="wishlist.htm" class="nav-link"><span class="nav-icon">✨</span>Wishlist</a></li>
+                </ul>
+            </div>
+        </nav>
+        
+        <!-- Main Content -->
+        <main class="main-content">
+            <div class="content-wrapper">
+                <!-- Breadcrumb -->
+                <div class="breadcrumb">
+                    <a href="index.htm">Home</a>
+                    <span class="breadcrumb-separator">/</span>
+                    <span>Technical Indicators</span>
+                </div>
+                
+                <!-- Header -->
+                <header class="page-header">
+                    <h1 class="page-title">Technical Indicators</h1>
+                    <p class="page-subtitle">
+                        A comprehensive guide to all 11 technical indicators used by IdiotProof's 
+                        Market Score system, with ASCII visualizations and practical usage.
+                    </p>
+                </header>
+                
+                <!-- Indicator Warm-Up -->
+                <section id="warmup">
+                    <h2>Indicator Warm-Up Requirements</h2>
+                    <p>
+                        Technical indicators require <strong>historical price bars</strong> to calculate
+                        properly. The backend uses 1-minute OHLC bars. You must start the backend
+                        early enough to collect sufficient bars before trading.
+                    </p>
+                    
+                    <div class="callout callout-danger">
+                        <div class="callout-title">🚨 Start Early!</div>
+                        <p>
+                            During warm-up, indicator conditions will NOT trigger. This prevents
+                            false entries based on incomplete data.
+                        </p>
+                    </div>
+                    
+                    <div class="ascii-art">
+INDICATOR WARM-UP REQUIREMENTS
+═══════════════════════════════════════════════════════════════════════════════
+
+    Indicator          │ Bars Needed │ Time to Warm Up │ Ready Status
+    ───────────────────┼─────────────┼─────────────────┼──────────────────────
+    VWAP               │     1       │    2 minutes    │ ● <span class="bullish">Ready immediately</span>
+    IsCloseAboveVwap   │     1       │    2 minutes    │ ● <span class="bullish">Ready immediately</span>
+    ───────────────────┼─────────────┼─────────────────┼──────────────────────
+    EMA(9)             │     9       │   10 minutes    │ ◐ Quick
+    EMA(21)            │    21       │   25 minutes    │ ◐ Quick  
+    EMA(50)            │    50       │   55 minutes    │ ◑ Medium
+    EMA(200)           │   200       │  3+ hours       │ ○ <span class="bearish">Slow</span>
+    ───────────────────┼─────────────┼─────────────────┼──────────────────────
+    RSI(14)            │    15       │   20 minutes    │ ◐ Quick
+    MACD(12,26,9)      │    35       │   40 minutes    │ ◑ Medium
+    ADX(14) / DI       │    28       │   30 minutes    │ ◑ Medium
+    ───────────────────┼─────────────┼─────────────────┼──────────────────────
+    Momentum(10)       │    11       │   15 minutes    │ ◐ Quick
+    ROC(10)            │    11       │   15 minutes    │ ◐ Quick
+    Volume Avg         │    20       │   25 minutes    │ ◐ Quick
+    ───────────────────┼─────────────┼─────────────────┼──────────────────────
+    Stochastic(14,3)   │    17       │   20 minutes    │ ◐ Quick
+    Bollinger(20,2)    │    20       │   25 minutes    │ ◐ Quick
+    OBV                │    20       │   25 minutes    │ ◐ Quick
+    CCI(20)            │    21       │   25 minutes    │ ◐ Quick
+    Williams %R(14)    │    15       │   20 minutes    │ ◐ Quick
+    ───────────────────┴─────────────┴─────────────────┴──────────────────────
+
+    RECOMMENDATION: Start backend <span class="bullish">30 minutes</span> before trading session
+                    to ensure all core indicators are warmed up.
+</div>
+                </section>
+                
+                <!-- VWAP -->
+                <section>
+                    <h2>VWAP (Volume-Weighted Average Price)</h2>
+                    <p>
+                        VWAP represents the average price weighted by volume throughout the day.
+                        It's a key institutional benchmark - price above VWAP suggests buying
+                        pressure, below suggests selling pressure.
+                    </p>
+                    
+                    <div class="ascii-art">
+VWAP VISUALIZATION
+═══════════════════════════════════════════════════════════════════════════════
+
+    Price
+      ↑
+      │                                    ___/\
+      │              ___/\          ___---    \___
+      │         ___-/    \___  ___-/             \
+      │    ___-/            \/                    \  
+    ══╪════════════════════════════════════════════════════  VWAP
+      │ _/                                          \_____
+      │/
+      │
+      └────────────────────────────────────────────────────→ Time
+           9:30        11:00        13:00        15:00
+    
+           <span class="bullish">▲ ABOVE VWAP</span>                    <span class="bearish">▼ BELOW VWAP</span>
+           Bullish                    Bearish
+
+
+VWAP REJECTION PATTERN
+═══════════════════════════════════════════════════════════════════════════════
+
+            │ ← Wick tests above VWAP
+    VWAP ═══╪════════════════════════════════════════════════════
+          ┌─┴─┐
+          │   │ ← Close BELOW VWAP = REJECTED
+          │   │   Bearish signal
+          └───┘
+
+<span class="token-comment">IsVwapRejection() detects this pattern</span>
+</div>
+                    
+                    <h3>IdiotScript Commands</h3>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Command</th>
+                                <th>Description</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><code>IsAboveVwap()</code></td>
+                                <td>Current price is above VWAP</td>
+                            </tr>
+                            <tr>
+                                <td><code>IsBelowVwap()</code></td>
+                                <td>Current price is below VWAP</td>
+                            </tr>
+                            <tr>
+                                <td><code>IsCloseAboveVwap()</code></td>
+                                <td>Candle CLOSED above VWAP (stronger)</td>
+                            </tr>
+                            <tr>
+                                <td><code>IsVwapRejection()</code></td>
+                                <td>Wick above VWAP, close below (bearish)</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </section>
+                
+                <!-- EMA -->
+                <section>
+                    <h2>EMA (Exponential Moving Average)</h2>
+                    <p>
+                        EMAs smooth price action and identify trends. IdiotProof uses a stack
+                        of EMAs (9, 21, 50) to determine trend strength and alignment.
+                    </p>
+                    
+                    <div class="ascii-art">
+EMA STACK VISUALIZATION
+═══════════════════════════════════════════════════════════════════════════════
+
+    <span class="bullish">BULLISH ALIGNMENT</span> (Price > EMA9 > EMA21 > EMA50)
+    
+    Price  ─────────────────────────────/
+                                     __/
+    EMA(9)  ──────────────────────__/
+                               __/
+    EMA(21) ───────────────__/
+                        __/
+    EMA(50) ────────__/
+
+
+    <span class="bearish">BEARISH ALIGNMENT</span> (Price < EMA9 < EMA21 < EMA50)
+    
+    EMA(50) ────────\__
+                       \__
+    EMA(21) ───────────────\__
+                              \__
+    EMA(9)  ──────────────────────\__
+                                     \
+    Price  ─────────────────────────────\
+
+
+EMA PULLBACK ZONE
+═══════════════════════════════════════════════════════════════════════════════
+
+                         Price pulls back
+                              ↓
+            /\              /\
+           /  \            /  \____    Price
+          /    \          /
+    EMA(9) ────────────────────────────
+             \        /
+              \______/  ← Pullback zone
+    EMA(21) ───────────────────────────
+    
+    <span class="token-comment">IsEmaBetween(9, 21) - Price in pullback zone</span>
+
+
+EMA TURNING UP PATTERN
+═══════════════════════════════════════════════════════════════════════════════
+
+                                         ___/
+                                     ___/
+                                 ___/ ← EMA slope turning positive
+        \_____                __/
+              \______________/
+                  ↑
+              Flattening before turn
+    
+    <span class="token-comment">IsEmaTurningUp(9) - EMA9 slope positive or flat</span>
+</div>
+                    
+                    <h3>IdiotScript Commands</h3>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Command</th>
+                                <th>Description</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><code>IsEmaAbove(9)</code></td>
+                                <td>Price is above EMA(9)</td>
+                            </tr>
+                            <tr>
+                                <td><code>IsEmaBelow(21)</code></td>
+                                <td>Price is below EMA(21)</td>
+                            </tr>
+                            <tr>
+                                <td><code>IsEmaBetween(9, 21)</code></td>
+                                <td>Price between EMA(9) and EMA(21)</td>
+                            </tr>
+                            <tr>
+                                <td><code>IsEmaTurningUp(9)</code></td>
+                                <td>EMA(9) slope is turning positive</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </section>
+                
+                <!-- RSI -->
+                <section>
+                    <h2>RSI (Relative Strength Index)</h2>
+                    <p>
+                        RSI measures the speed and magnitude of price movements on a 0-100 scale.
+                        It identifies overbought (>70) and oversold (<30) conditions.
+                    </p>
+                    
+                    <div class="ascii-art">
+RSI SCALE AND ZONES
+═══════════════════════════════════════════════════════════════════════════════
+
+                 0         30         50         70        100
+                 │          │          │          │          │
+                 ├──────────┼──────────┼──────────┼──────────┤
+                 │<span class="bullish">▓▓▓▓▓▓▓▓▓▓</span>│          │          │<span class="bearish">▓▓▓▓▓▓▓▓▓▓</span>│
+                 │ OVERSOLD │          │          │OVERBOUGHT│
+                 └──────────┴──────────┴──────────┴──────────┘
+                      ↑                                ↑
+                 <span class="bullish">BUY SIGNAL</span>                    <span class="bearish">SELL SIGNAL</span>
+               (Mean reversion)             (Mean reversion)
+
+
+RSI DIVERGENCE
+═══════════════════════════════════════════════════════════════════════════════
+
+    BULLISH DIVERGENCE (Price falls, RSI rises)
+    
+    Price:     ╲
+                ╲___
+                    ╲___   ← Price makes lower lows
+    
+    RSI:           ___/
+               ___/
+           ___/        ← RSI makes higher lows
+           
+    → Momentum building, potential reversal UP
+
+
+    BEARISH DIVERGENCE (Price rises, RSI falls)
+    
+    Price:         ___/
+               ___/
+           ___/        ← Price makes higher highs
+    
+    RSI:       ╲
+                ╲___
+                    ╲   ← RSI makes lower highs
+                    
+    → Momentum fading, potential reversal DOWN
+</div>
+                    
+                    <h3>IdiotScript Commands</h3>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Command</th>
+                                <th>Description</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><code>IsRsiOversold(30)</code></td>
+                                <td>RSI ≤ 30 (oversold, potential bounce)</td>
+                            </tr>
+                            <tr>
+                                <td><code>IsRsiOverbought(70)</code></td>
+                                <td>RSI ≥ 70 (overbought, potential pullback)</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </section>
+                
+                <!-- MACD -->
+                <section>
+                    <h2>MACD (Moving Average Convergence Divergence)</h2>
+                    <p>
+                        MACD shows the relationship between two EMAs. It consists of the MACD line
+                        (EMA12-EMA26), Signal line (EMA9 of MACD), and Histogram (MACD - Signal).
+                    </p>
+                    
+                    <div class="ascii-art">
+MACD COMPONENTS
+═══════════════════════════════════════════════════════════════════════════════
+
+    MACD Line = EMA(12) - EMA(26)    ← Fast momentum
+    Signal Line = EMA(9) of MACD    ← Slower smoothing
+    Histogram = MACD - Signal       ← Visual divergence
+
+
+MACD BULLISH CROSSOVER
+═══════════════════════════════════════════════════════════════════════════════
+
+              MACD ___
+                  /   \         ___/
+    Signal ______/     \____---/     ← MACD crosses above Signal
+                    ↑               
+              <span class="bullish">BUY SIGNAL</span>           
+
+
+MACD HISTOGRAM
+═══════════════════════════════════════════════════════════════════════════════
+
+                   ████
+               ████████
+           ████████████               ████
+    ───────────────────────────────────────── Zero Line
+                            ████████
+                        ████████████
+        ↑ <span class="bullish">Rising</span>              ↑ <span class="bearish">Falling</span>
+       Bullish              Bearish
+       Momentum             Momentum
+</div>
+                    
+                    <h3>IdiotScript Commands</h3>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Command</th>
+                                <th>Description</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><code>IsMacdBullish()</code></td>
+                                <td>MACD > Signal line</td>
+                            </tr>
+                            <tr>
+                                <td><code>IsMacdBearish()</code></td>
+                                <td>MACD < Signal line</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </section>
+                
+                <!-- ADX -->
+                <section>
+                    <h2>ADX (Average Directional Index)</h2>
+                    <p>
+                        ADX measures trend strength (not direction) on a 0-100 scale.
+                        +DI and -DI indicate directional movement.
+                    </p>
+                    
+                    <div class="ascii-art">
+ADX TREND STRENGTH
+═══════════════════════════════════════════════════════════════════════════════
+
+    ADX Value │ Trend Strength  │ Trading Implication
+    ──────────┼─────────────────┼────────────────────────────────────
+       0-20   │ Weak/No Trend   │ Range-bound, avoid trend strategies
+      20-25   │ Developing      │ Trend may be starting
+      25-50   │ Strong          │ <span class="bullish">Good for trend-following</span>
+      50-75   │ Very Strong     │ <span class="bullish">Excellent trend</span>
+      75-100  │ Extremely Strong│ Rare, potential exhaustion
+
+
+ADX WITH DIRECTIONAL INDICATORS
+═══════════════════════════════════════════════════════════════════════════════
+
+            +DI (bullish)
+           /    \         ___/
+          /      \    ___/    \
+         /        \__/         \
+        /  ___                  \____
+    ___/__/   \_____                 \
+                  -DI (bearish)
+       ↑ 
+    <span class="bullish">+DI > -DI = Bullish</span> (IsDiPositive)
+    
+
+    When ADX rising + DI positive crossover = <span class="bullish">Strong bullish trend confirmed</span>
+    When ADX rising + DI negative crossover = <span class="bearish">Strong bearish trend confirmed</span>
+    When ADX falling = Trend weakening, prepare for range/reversal
+</div>
+                    
+                    <h3>IdiotScript Commands</h3>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Command</th>
+                                <th>Description</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><code>IsAdxAbove(25)</code></td>
+                                <td>ADX ≥ 25 (strong trend exists)</td>
+                            </tr>
+                            <tr>
+                                <td><code>IsDiPositive()</code></td>
+                                <td>+DI > -DI (bullish movement)</td>
+                            </tr>
+                            <tr>
+                                <td><code>IsDiNegative()</code></td>
+                                <td>-DI > +DI (bearish movement)</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </section>
+                
+                <!-- Volume -->
+                <section>
+                    <h2>Volume Analysis</h2>
+                    <p>
+                        Volume confirms price moves. High volume on up-moves is bullish;
+                        high volume on down-moves is bearish. The system compares current
+                        volume to a 20-period average.
+                    </p>
+                    
+                    <div class="ascii-art">
+VOLUME CONFIRMATION
+═══════════════════════════════════════════════════════════════════════════════
+
+                   ████ ← Volume spike (1.5x+ average)
+                   ████     Confirms the move!
+    Average ───────────────────────────
+      ████      ████████      ████
+      ████  ██  ████████  ██  ████
+      ────  ──  ────────  ──  ────
+           Low vol = Weak move
+
+
+VOLUME PATTERNS
+═══════════════════════════════════════════════════════════════════════════════
+
+    <span class="bullish">HEALTHY UPTREND</span>:
+    • Price rising + Volume rising = Strong
+    • Price rising + Volume falling = Weakening
+    
+    <span class="bearish">HEALTHY DOWNTREND</span>:
+    • Price falling + Volume rising = Strong selling
+    • Price falling + Volume falling = Selling exhaustion
+    
+    <span class="neutral">REVERSAL SIGNALS</span>:
+    • Climax volume at top/bottom = Potential reversal
+</div>
+                    
+                    <h3>IdiotScript Commands</h3>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Command</th>
+                                <th>Description</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><code>IsVolumeAbove(1.5)</code></td>
+                                <td>Current volume ≥ 1.5× average</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </section>
+                
+                <!-- Higher Lows -->
+                <section>
+                    <h2>Pattern Recognition</h2>
+                    
+                    <div class="ascii-art">
+HIGHER LOWS PATTERN
+═══════════════════════════════════════════════════════════════════════════════
+
+                             /\
+                 /\         /  \
+       /\       /  \       /    \
+      /  \     /    \     /      \
+     /    \___/  ↑   \___/        \
+           Higher    Higher
+             Low       Low
+
+    <span class="token-comment">IsHigherLows() - Building support, bullish</span>
+
+
+GAP PATTERNS
+═══════════════════════════════════════════════════════════════════════════════
+
+    GAP UP (Bullish)                    GAP DOWN (Bearish)
+    
+    ┌───┐                               │───│ Previous Close
+    │   │ Today's Open                  
+    │   │ (gapped up)                   ┌───┐ Gap down
+    └───┘                               │   │ Today's Open
+    │───│ Previous Close               └───┘
+    
+    <span class="token-comment">IsGapUp(5) - Gapped up 5%+</span>
+    <span class="token-comment">IsGapDown(3) - Gapped down 3%+</span>
+</div>
+                </section>
+                
+                <!-- Quick Reference -->
+                <section>
+                    <h2>Complete Indicator Quick Reference</h2>
+                    
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Category</th>
+                                <th>Command</th>
+                                <th>What It Measures</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr><td rowspan="4"><strong>VWAP</strong></td><td><code>IsAboveVwap()</code></td><td>Price > VWAP</td></tr>
+                            <tr><td><code>IsBelowVwap()</code></td><td>Price < VWAP</td></tr>
+                            <tr><td><code>IsCloseAboveVwap()</code></td><td>Candle closed above VWAP</td></tr>
+                            <tr><td><code>IsVwapRejection()</code></td><td>Wick above, close below VWAP</td></tr>
+                            <tr><td rowspan="4"><strong>EMA</strong></td><td><code>IsEmaAbove(n)</code></td><td>Price > EMA(n)</td></tr>
+                            <tr><td><code>IsEmaBelow(n)</code></td><td>Price < EMA(n)</td></tr>
+                            <tr><td><code>IsEmaBetween(a,b)</code></td><td>Price between two EMAs</td></tr>
+                            <tr><td><code>IsEmaTurningUp(n)</code></td><td>EMA slope positive</td></tr>
+                            <tr><td rowspan="2"><strong>RSI</strong></td><td><code>IsRsiOversold(n)</code></td><td>RSI ≤ n (e.g., 30)</td></tr>
+                            <tr><td><code>IsRsiOverbought(n)</code></td><td>RSI ≥ n (e.g., 70)</td></tr>
+                            <tr><td rowspan="2"><strong>MACD</strong></td><td><code>IsMacdBullish()</code></td><td>MACD > Signal</td></tr>
+                            <tr><td><code>IsMacdBearish()</code></td><td>MACD < Signal</td></tr>
+                            <tr><td rowspan="3"><strong>ADX</strong></td><td><code>IsAdxAbove(n)</code></td><td>ADX ≥ n (trend strength)</td></tr>
+                            <tr><td><code>IsDiPositive()</code></td><td>+DI > -DI</td></tr>
+                            <tr><td><code>IsDiNegative()</code></td><td>-DI > +DI</td></tr>
+                            <tr><td rowspan="2"><strong>Momentum</strong></td><td><code>IsMomentumAbove(n)</code></td><td>Momentum ≥ n</td></tr>
+                            <tr><td><code>IsRocAbove(n)</code></td><td>Rate of Change ≥ n%</td></tr>
+                            <tr><td><strong>Volume</strong></td><td><code>IsVolumeAbove(n)</code></td><td>Volume ≥ n× average</td></tr>
+                            <tr><td><strong>Pattern</strong></td><td><code>IsHigherLows()</code></td><td>Higher lows forming</td></tr>
+                            <tr><td rowspan="2"><strong>Gap</strong></td><td><code>IsGapUp(n)</code></td><td>Gapped up n%+</td></tr>
+                            <tr><td><code>IsGapDown(n)</code></td><td>Gapped down n%+</td></tr>
+                        </tbody>
+                    </table>
+                </section>
+                
+                <!-- Footer -->
+                <footer class="page-footer">
+                    <div class="footer-nav">
+                        <a href="idiotscript.htm">← IdiotScript</a>
+                        <a href="market-score.htm">Next: Market Score →</a>
+                    </div>
+                    <p class="text-center text-muted">
+                        IdiotProof Trading System Documentation &copy; 2026
+                    </p>
+                </footer>
+            </div>
+        </main>
+    </div>
+</body>
+</html>

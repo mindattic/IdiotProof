@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Watchlist - IdiotProof Documentation</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="page-wrapper">
+        <!-- Sidebar Navigation -->
+        <nav class="sidebar">
+            <div class="sidebar-header">
+                <a href="index.htm" class="logo">
+                    <span class="logo-icon">📈</span>
+                    <span class="logo-text">IdiotProof</span>
+                    <span class="logo-version">v2.0</span>
+                </a>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">Getting Started</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="index.htm" class="nav-link"><span class="nav-icon">🏠</span>Home</a></li>
+                    <li class="nav-item"><a href="quick-start.htm" class="nav-link"><span class="nav-icon">🚀</span>Quick Start</a></li>
+                    <li class="nav-item"><a href="architecture.htm" class="nav-link"><span class="nav-icon">🏗️</span>Architecture</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">IdiotScript DSL</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="idiotscript.htm" class="nav-link"><span class="nav-icon">📜</span>Language Reference</a></li>
+                    <li class="nav-item"><a href="commands.htm" class="nav-link"><span class="nav-icon">⌨️</span>Command Reference</a></li>
+                    <li class="nav-item"><a href="examples.htm" class="nav-link"><span class="nav-icon">💡</span>Strategy Examples</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">Trading Systems</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="market-score.htm" class="nav-link"><span class="nav-icon">🎯</span>Market Score</a></li>
+                    <li class="nav-item"><a href="adaptive-order.htm" class="nav-link"><span class="nav-icon">🔄</span>AdaptiveOrder</a></li>
+                    <li class="nav-item"><a href="autonomous-trading.htm" class="nav-link"><span class="nav-icon">🤖</span>AutonomousTrading</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">Configuration</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="configuration.htm" class="nav-link"><span class="nav-icon">⚙️</span>Settings</a></li>
+                    <li class="nav-item"><a href="watchlist.htm" class="nav-link active"><span class="nav-icon">👀</span>Watchlist</a></li>
+                    <li class="nav-item"><a href="strategy-rules.htm" class="nav-link"><span class="nav-icon">📝</span>Strategy Rules</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">Reference</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="glossary.htm" class="nav-link"><span class="nav-icon">📖</span>Glossary</a></li>
+                    <li class="nav-item"><a href="faq.htm" class="nav-link"><span class="nav-icon">❓</span>FAQ</a></li>
+                    <li class="nav-item"><a href="troubleshooting.htm" class="nav-link"><span class="nav-icon">🔧</span>Troubleshooting</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">Roadmap</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="futureproofing.htm" class="nav-link"><span class="nav-icon">🔮</span>Future-Proofing</a></li>
+                    <li class="nav-item"><a href="wishlist.htm" class="nav-link"><span class="nav-icon">✨</span>Wishlist</a></li>
+                </ul>
+            </div>
+        </nav>
+        
+        <!-- Main Content -->
+        <main class="main-content">
+            <div class="content-wrapper">
+                <!-- Breadcrumb -->
+                <div class="breadcrumb">
+                    <a href="index.htm">Home</a>
+                    <span class="breadcrumb-separator">/</span>
+                    <a href="configuration.htm">Configuration</a>
+                    <span class="breadcrumb-separator">/</span>
+                    <span>Watchlist</span>
+                </div>
+                
+                <!-- Header -->
+                <header class="page-header">
+                    <h1 class="page-title">Watchlist Configuration</h1>
+                    <p class="page-subtitle">
+                        Configure multiple tickers for autonomous trading in one file.
+                    </p>
+                </header>
+                
+                <!-- Overview -->
+                <section id="overview">
+                    <h2>Overview</h2>
+                    <p>
+                        The <strong>watchlist.json</strong> file allows you to configure multiple tickers
+                        for autonomous trading without creating individual .idiot files for each.
+                        Edit this file and restart the backend to trade all configured tickers.
+                    </p>
+                    
+                    <div class="ascii-art">
+WATCHLIST WORKFLOW
+═══════════════════════════════════════════════════════════════════════════════
+
+    ┌───────────────────────────────────────────────────────────────────────┐
+    │                         watchlist.json                                │
+    │  ┌─────────────────────────────────────────────────────────────────┐  │
+    │  │  NVDA  →  Qty: 5   →  Session: RTH  →  Enabled: ✓             │  │
+    │  │  AAPL  →  Qty: 10  →  Session: RTH  →  Enabled: ✓             │  │
+    │  │  TSLA  →  Qty: 3   →  Session: RTH  →  Enabled: ✗ (disabled)  │  │
+    │  │  SPY   →  Qty: 20  →  Session: RTH  →  Enabled: ✓             │  │
+    │  └─────────────────────────────────────────────────────────────────┘  │
+    └───────────────────────────────────────────────────────────────────────┘
+                                     │
+                                     ▼
+    ┌───────────────────────────────────────────────────────────────────────┐
+    │                     Backend Startup                                  │
+    │                                                                       │
+    │  WatchlistManager loads watchlist.json                               │
+    │                     │                                                 │
+    │                     ▼                                                 │
+    │  Generates IdiotScript for each enabled ticker:                      │
+    │                                                                       │
+    │  Ticker(NVDA).Name("NVDA Auto").Session(IS.RTH).Qty(5).Autonomous()  │
+    │  Ticker(AAPL).Name("AAPL Auto").Session(IS.RTH).Qty(10).Autonomous() │
+    │  Ticker(SPY).Name("SPY Auto").Session(IS.RTH).Qty(20).Autonomous()   │
+    └───────────────────────────────────────────────────────────────────────┘
+                                     │
+                                     ▼
+    ┌───────────────────────────────────────────────────────────────────────┐
+    │                   Autonomous Trading Active                          │
+    │                                                                       │
+    │  [NVDA] Score: +67  →  <span class="bullish">LONG ACTIVE  →  +1.2%</span>                    │
+    │  [AAPL] Score: +45  →  WAITING...                                    │
+    │  [SPY]  Score: -23  →  WAITING...                                    │
+    └───────────────────────────────────────────────────────────────────────┘
+</div>
+                </section>
+                
+                <!-- File Location -->
+                <section id="location">
+                    <h2>File Location</h2>
+                    <div class="code-block">
+IdiotProof.Core\Data\watchlist.json
+</div>
+                </section>
+                
+                <!-- File Format -->
+                <section id="format">
+                    <h2>File Format</h2>
+                    
+                    <div class="code-block">
+{
+    <span class="token-string">"description"</span>: <span class="token-string">"My Trading Watchlist"</span>,
+    <span class="token-string">"enabled"</span>: <span class="token-keyword">true</span>,
+    <span class="token-string">"session"</span>: <span class="token-string">"RTH"</span>,
+    <span class="token-string">"tickers"</span>: [
+        {
+            <span class="token-string">"symbol"</span>: <span class="token-string">"NVDA"</span>,
+            <span class="token-string">"quantity"</span>: <span class="token-number">5</span>,
+            <span class="token-string">"name"</span>: <span class="token-string">"NVIDIA"</span>,
+            <span class="token-string">"enabled"</span>: <span class="token-keyword">true</span>
+        },
+        {
+            <span class="token-string">"symbol"</span>: <span class="token-string">"AAPL"</span>,
+            <span class="token-string">"quantity"</span>: <span class="token-number">10</span>,
+            <span class="token-string">"name"</span>: <span class="token-string">"Apple"</span>,
+            <span class="token-string">"enabled"</span>: <span class="token-keyword">true</span>
+        },
+        {
+            <span class="token-string">"symbol"</span>: <span class="token-string">"TSLA"</span>,
+            <span class="token-string">"quantity"</span>: <span class="token-number">3</span>,
+            <span class="token-string">"name"</span>: <span class="token-string">"Tesla"</span>,
+            <span class="token-string">"enabled"</span>: <span class="token-keyword">false</span>,
+            <span class="token-string">"session"</span>: <span class="token-string">"Premarket"</span>
+        },
+        {
+            <span class="token-string">"symbol"</span>: <span class="token-string">"SPY"</span>,
+            <span class="token-string">"quantity"</span>: <span class="token-number">20</span>,
+            <span class="token-string">"name"</span>: <span class="token-string">"S&P 500 ETF"</span>,
+            <span class="token-string">"enabled"</span>: <span class="token-keyword">true</span>
+        }
+    ]
+}
+</div>
+                </section>
+                
+                <!-- Field Descriptions -->
+                <section id="fields">
+                    <h2>Field Descriptions</h2>
+                    
+                    <h3>Root-Level Fields</h3>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Field</th>
+                                <th>Type</th>
+                                <th>Description</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><code>description</code></td>
+                                <td>string</td>
+                                <td>Optional description of the watchlist</td>
+                            </tr>
+                            <tr>
+                                <td><code>enabled</code></td>
+                                <td>boolean</td>
+                                <td>Global on/off switch. If false, no tickers trade.</td>
+                            </tr>
+                            <tr>
+                                <td><code>session</code></td>
+                                <td>string</td>
+                                <td>Default session: "RTH", "Premarket", "AfterHours", "Extended"</td>
+                            </tr>
+                            <tr>
+                                <td><code>tickers</code></td>
+                                <td>array</td>
+                                <td>Array of ticker configurations</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    
+                    <h3>Ticker Fields</h3>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Field</th>
+                                <th>Type</th>
+                                <th>Required</th>
+                                <th>Description</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><code>symbol</code></td>
+                                <td>string</td>
+                                <td>Yes</td>
+                                <td>Ticker symbol (e.g., "NVDA")</td>
+                            </tr>
+                            <tr>
+                                <td><code>quantity</code></td>
+                                <td>number</td>
+                                <td>Yes</td>
+                                <td>Number of shares to trade</td>
+                            </tr>
+                            <tr>
+                                <td><code>name</code></td>
+                                <td>string</td>
+                                <td>No</td>
+                                <td>Friendly name for display</td>
+                            </tr>
+                            <tr>
+                                <td><code>enabled</code></td>
+                                <td>boolean</td>
+                                <td>No</td>
+                                <td>Enable/disable this ticker (default: true)</td>
+                            </tr>
+                            <tr>
+                                <td><code>session</code></td>
+                                <td>string</td>
+                                <td>No</td>
+                                <td>Override default session for this ticker</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </section>
+                
+                <!-- Examples -->
+                <section id="examples">
+                    <h2>Configuration Examples</h2>
+                    
+                    <h3>Simple Watchlist</h3>
+                    <div class="code-block">
+{
+    <span class="token-string">"enabled"</span>: <span class="token-keyword">true</span>,
+    <span class="token-string">"session"</span>: <span class="token-string">"RTH"</span>,
+    <span class="token-string">"tickers"</span>: [
+        { <span class="token-string">"symbol"</span>: <span class="token-string">"AAPL"</span>, <span class="token-string">"quantity"</span>: <span class="token-number">10</span> },
+        { <span class="token-string">"symbol"</span>: <span class="token-string">"MSFT"</span>, <span class="token-string">"quantity"</span>: <span class="token-number">8</span> },
+        { <span class="token-string">"symbol"</span>: <span class="token-string">"GOOGL"</span>, <span class="token-string">"quantity"</span>: <span class="token-number">5</span> }
+    ]
+}
+</div>
+                    
+                    <h3>Mixed Sessions</h3>
+                    <div class="code-block">
+{
+    <span class="token-string">"enabled"</span>: <span class="token-keyword">true</span>,
+    <span class="token-string">"session"</span>: <span class="token-string">"RTH"</span>,
+    <span class="token-string">"tickers"</span>: [
+        { <span class="token-string">"symbol"</span>: <span class="token-string">"AAPL"</span>, <span class="token-string">"quantity"</span>: <span class="token-number">10</span> },
+        { <span class="token-string">"symbol"</span>: <span class="token-string">"TSLA"</span>, <span class="token-string">"quantity"</span>: <span class="token-number">3</span>, <span class="token-string">"session"</span>: <span class="token-string">"Premarket"</span> },
+        { <span class="token-string">"symbol"</span>: <span class="token-string">"SPY"</span>, <span class="token-string">"quantity"</span>: <span class="token-number">20</span>, <span class="token-string">"session"</span>: <span class="token-string">"Extended"</span> }
+    ]
+}
+</div>
+                    
+                    <h3>Temporarily Disable Some Tickers</h3>
+                    <div class="code-block">
+{
+    <span class="token-string">"enabled"</span>: <span class="token-keyword">true</span>,
+    <span class="token-string">"session"</span>: <span class="token-string">"RTH"</span>,
+    <span class="token-string">"tickers"</span>: [
+        { <span class="token-string">"symbol"</span>: <span class="token-string">"AAPL"</span>, <span class="token-string">"quantity"</span>: <span class="token-number">10</span>, <span class="token-string">"enabled"</span>: <span class="token-keyword">true</span> },
+        { <span class="token-string">"symbol"</span>: <span class="token-string">"NVDA"</span>, <span class="token-string">"quantity"</span>: <span class="token-number">5</span>, <span class="token-string">"enabled"</span>: <span class="token-keyword">false</span> }, <span class="token-comment">// Skip today</span>
+        { <span class="token-string">"symbol"</span>: <span class="token-string">"META"</span>, <span class="token-string">"quantity"</span>: <span class="token-number">8</span>, <span class="token-string">"enabled"</span>: <span class="token-keyword">true</span> }
+    ]
+}
+</div>
+                </section>
+                
+                <!-- API Usage -->
+                <section id="api">
+                    <h2>Programmatic Access</h2>
+                    
+                    <div class="code-block">
+<span class="token-comment">// Load watchlist</span>
+<span class="token-keyword">var</span> watchlist = WatchlistManager.Load();
+
+<span class="token-comment">// Generate IdiotScript for each enabled ticker</span>
+<span class="token-keyword">foreach</span> (<span class="token-keyword">var</span> script <span class="token-keyword">in</span> WatchlistManager.GenerateScripts())
+{
+    <span class="token-comment">// script = "Ticker(NVDA).Name("NVDA Auto").Session(IS.RTH).Qty(5).AutonomousTrading()"</span>
+}
+
+<span class="token-comment">// Print summary</span>
+WatchlistManager.PrintSummary();
+
+<span class="token-comment">// Add or update a ticker</span>
+WatchlistManager.AddOrUpdate(<span class="token-string">"META"</span>, <span class="token-number">15</span>);
+
+<span class="token-comment">// Disable without removing</span>
+WatchlistManager.Disable(<span class="token-string">"TSLA"</span>);
+
+<span class="token-comment">// Remove completely</span>
+WatchlistManager.Remove(<span class="token-string">"GME"</span>);
+</div>
+                </section>
+                
+                <!-- Best Practices -->
+                <section id="tips">
+                    <h2>Best Practices</h2>
+                    <ul>
+                        <li><strong>Start small:</strong> Begin with 2-3 tickers to validate the system before scaling up.</li>
+                        <li><strong>Use consistent quantities:</strong> Size positions based on your account value and risk tolerance.</li>
+                        <li><strong>Disable instead of remove:</strong> Keep problematic tickers in the list but disabled for future reference.</li>
+                        <li><strong>Session matching:</strong> Use the default session for most tickers, override only when needed.</li>
+                        <li><strong>Backup regularly:</strong> Keep copies of your watchlist.json before making changes.</li>
+                    </ul>
+                </section>
+                
+                <!-- Footer -->
+                <footer class="page-footer">
+                    <div class="footer-nav">
+                        <a href="configuration.htm">← Settings</a>
+                        <a href="strategy-rules.htm">Next: Strategy Rules →</a>
+                    </div>
+                    <p class="text-center text-muted">
+                        IdiotProof Trading System Documentation &copy; 2026
+                    </p>
+                </footer>
+            </div>
+        </main>
+    </div>
+</body>
+</html>

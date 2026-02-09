@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LSTM Predictor - IdiotProof Documentation</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="page-wrapper">
+        <!-- Sidebar Navigation -->
+        <nav class="sidebar">
+            <div class="sidebar-header">
+                <a href="index.htm" class="logo">
+                    <span class="logo-icon">📈</span>
+                    <span class="logo-text">IdiotProof</span>
+                    <span class="logo-version">v2.0</span>
+                </a>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">Getting Started</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="index.htm" class="nav-link"><span class="nav-icon">🏠</span>Home</a></li>
+                    <li class="nav-item"><a href="quick-start.htm" class="nav-link"><span class="nav-icon">🚀</span>Quick Start</a></li>
+                    <li class="nav-item"><a href="architecture.htm" class="nav-link"><span class="nav-icon">🏗️</span>Architecture</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">IdiotScript DSL</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="idiotscript.htm" class="nav-link"><span class="nav-icon">📜</span>Language Reference</a></li>
+                    <li class="nav-item"><a href="commands.htm" class="nav-link"><span class="nav-icon">⌨️</span>Command Reference</a></li>
+                    <li class="nav-item"><a href="examples.htm" class="nav-link"><span class="nav-icon">💡</span>Strategy Examples</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">Technical Indicators</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="indicators.htm" class="nav-link"><span class="nav-icon">📊</span>Indicator Overview</a></li>
+                    <li class="nav-item"><a href="indicators-vwap.htm" class="nav-link"><span class="nav-icon">〰️</span>VWAP Indicators</a></li>
+                    <li class="nav-item"><a href="indicators-ema.htm" class="nav-link"><span class="nav-icon">📈</span>EMA Indicators</a></li>
+                    <li class="nav-item"><a href="indicators-momentum.htm" class="nav-link"><span class="nav-icon">⚡</span>Momentum</a></li>
+                    <li class="nav-item"><a href="indicators-volume.htm" class="nav-link"><span class="nav-icon">📶</span>Volume Analysis</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">Trading Systems</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="market-score.htm" class="nav-link"><span class="nav-icon">🎯</span>Market Score</a></li>
+                    <li class="nav-item"><a href="adaptive-order.htm" class="nav-link"><span class="nav-icon">🔄</span>AdaptiveOrder</a></li>
+                    <li class="nav-item"><a href="autonomous-trading.htm" class="nav-link"><span class="nav-icon">🤖</span>AutonomousTrading</a></li>
+                    <li class="nav-item"><a href="order-management.htm" class="nav-link"><span class="nav-icon">📋</span>Order Management</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">AI & Machine Learning</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="ai-overview.htm" class="nav-link"><span class="nav-icon">🧠</span>AI Overview</a></li>
+                    <li class="nav-item"><a href="lstm.htm" class="nav-link active"><span class="nav-icon">🔮</span>LSTM Predictor</a></li>
+                    <li class="nav-item"><a href="pattern-matcher.htm" class="nav-link"><span class="nav-icon">🔍</span>Pattern Matcher</a></li>
+                    <li class="nav-item"><a href="learned-weights.htm" class="nav-link"><span class="nav-icon">⚖️</span>Learned Weights</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">Configuration</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="configuration.htm" class="nav-link"><span class="nav-icon">⚙️</span>Settings</a></li>
+                    <li class="nav-item"><a href="watchlist.htm" class="nav-link"><span class="nav-icon">👀</span>Watchlist</a></li>
+                    <li class="nav-item"><a href="strategy-rules.htm" class="nav-link"><span class="nav-icon">📝</span>Strategy Rules</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">Testing & Analysis</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="backtesting.htm" class="nav-link"><span class="nav-icon">⏪</span>Backtesting</a></li>
+                    <li class="nav-item"><a href="simulation.htm" class="nav-link"><span class="nav-icon">🎮</span>Simulation</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">Reference</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="glossary.htm" class="nav-link"><span class="nav-icon">📖</span>Glossary</a></li>
+                    <li class="nav-item"><a href="faq.htm" class="nav-link"><span class="nav-icon">❓</span>FAQ</a></li>
+                    <li class="nav-item"><a href="troubleshooting.htm" class="nav-link"><span class="nav-icon">🔧</span>Troubleshooting</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">Roadmap</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="futureproofing.htm" class="nav-link"><span class="nav-icon">🔮</span>Future-Proofing</a></li>
+                    <li class="nav-item"><a href="wishlist.htm" class="nav-link"><span class="nav-icon">✨</span>Wishlist</a></li>
+                </ul>
+            </div>
+        </nav>
+        
+        <!-- Main Content -->
+        <main class="main-content">
+            <div class="content-wrapper">
+                <!-- Breadcrumb -->
+                <div class="breadcrumb">
+                    <a href="index.htm">Home</a>
+                    <span class="breadcrumb-separator">/</span>
+                    <a href="ai-overview.htm">AI & Machine Learning</a>
+                    <span class="breadcrumb-separator">/</span>
+                    <span>LSTM Predictor</span>
+                </div>
+                
+                <!-- Header -->
+                <header class="page-header">
+                    <h1 class="page-title">LSTM Neural Network</h1>
+                    <p class="page-subtitle">
+                        Long Short-Term Memory networks for price direction prediction,
+                        capturing temporal dependencies in sequential market data.
+                    </p>
+                </header>
+                
+                <!-- What is LSTM -->
+                <section id="what-is-lstm">
+                    <h2>What is LSTM?</h2>
+                    <p>
+                        LSTM (Long Short-Term Memory) is a type of recurrent neural network designed
+                        to learn long-term dependencies in sequential data. Unlike traditional neural
+                        networks, LSTM can "remember" patterns over many time steps - perfect for
+                        analyzing price action that depends on historical context.
+                    </p>
+                    
+                    <div class="ascii-art">
+LSTM vs TRADITIONAL NEURAL NETWORK
+═══════════════════════════════════════════════════════════════════════════════
+
+    TRADITIONAL NN (Memoryless)          LSTM (Has Memory)
+    
+    Input ──► [Hidden] ──► Output        Input ──► [Cell State + Hidden] ──► Output
+                                                        ↑         │
+                                                        └─────────┘
+                                                        (Memory loop)
+    
+    Problem: Each prediction is         Solution: Each prediction uses
+    independent. Forgets history.       accumulated memory of patterns.
+    
+    "What is price now?"                "What is price trend over time?"
+</div>
+                </section>
+                
+                <!-- Architecture -->
+                <section id="architecture">
+                    <h2>LSTM Architecture</h2>
+                    
+                    <div class="ascii-art">
+LSTM CELL STRUCTURE
+═══════════════════════════════════════════════════════════════════════════════
+
+                            Cell State (Long-term memory)
+              ┌──────────────────────────────────────────────────────┐
+              │                         ×                     +      │
+              │                         │                     │      │
+              ▼                         │                     │      ▼
+    ┌─────────────────────────────────────────────────────────────────────┐
+    │                                                                     │
+    │   ┌─────────┐    ┌─────────┐    ┌─────────┐    ┌─────────┐        │
+    │   │ FORGET  │    │  INPUT  │    │  CELL   │    │ OUTPUT  │        │
+    │   │  GATE   │    │  GATE   │    │ UPDATE  │    │  GATE   │        │
+    │   │         │    │         │    │         │    │         │        │
+    │   │ "What   │    │ "What   │    │ "New    │    │ "What   │        │
+    │   │  to     │    │  new    │    │  memory │    │  to     │        │
+    │   │  forget"│    │  to add"│    │  value" │    │  output"│        │
+    │   └────┬────┘    └────┬────┘    └────┬────┘    └────┬────┘        │
+    │        │              │              │              │              │
+    │        ▼              ▼              ▼              ▼              │
+    │       σ(f)          σ(i)          tanh(c)         σ(o)            │
+    │                                                                    │
+    └─────────────────────────────────────────────────────────────────────┘
+              ▲                                                    │
+              │                                                    ▼
+         [h(t-1), x(t)]                                      h(t) Output
+         Previous hidden                                     (Next step's input)
+         + Current input
+
+
+GATE OPERATIONS
+═══════════════════════════════════════════════════════════════════════════════
+
+    1. FORGET GATE:   f(t) = σ(Wf · [h(t-1), x(t)] + bf)
+                      Decides what info to throw away from cell state
+                      Value 0 = forget completely, 1 = keep completely
+    
+    2. INPUT GATE:    i(t) = σ(Wi · [h(t-1), x(t)] + bi)
+                      Decides which values to update
+    
+    3. CELL UPDATE:   c̃(t) = tanh(Wc · [h(t-1), x(t)] + bc)
+                      Creates candidate values to add to state
+    
+    4. NEW CELL:      c(t) = f(t) * c(t-1) + i(t) * c̃(t)
+                      Old state × forget + new candidates × input gate
+    
+    5. OUTPUT GATE:   o(t) = σ(Wo · [h(t-1), x(t)] + bo)
+                      Decides what to output
+    
+    6. HIDDEN STATE:  h(t) = o(t) * tanh(c(t))
+                      Final output of this cell
+</div>
+                </section>
+                
+                <!-- Input Features -->
+                <section id="features">
+                    <h2>Input Features</h2>
+                    <p>
+                        The LSTM receives a feature vector from each candle containing normalized
+                        market data:
+                    </p>
+                    
+                    <div class="ascii-art">
+LSTM INPUT FEATURES (per candle)
+═══════════════════════════════════════════════════════════════════════════════
+
+    Feature              │ Normalization                │ Range
+    ─────────────────────┼──────────────────────────────┼──────────────────
+    Price                │ (price - mean) / std         │ ~ -3 to +3
+    VWAP Distance        │ (price - vwap) / atr         │ ~ -5 to +5
+    EMA(9) Distance      │ (price - ema9) / atr         │ ~ -5 to +5
+    EMA(21) Distance     │ (price - ema21) / atr        │ ~ -5 to +5
+    EMA(50) Distance     │ (price - ema50) / atr        │ ~ -5 to +5
+    RSI                  │ (rsi - 50) / 50              │ -1 to +1
+    MACD Histogram       │ histogram / atr              │ ~ -3 to +3
+    ADX                  │ adx / 100                    │ 0 to 1
+    +DI - -DI            │ (plusDI - minusDI) / 100     │ -1 to +1
+    Volume Ratio         │ volume / avgVolume - 1       │ ~ -1 to +5
+    ─────────────────────┴──────────────────────────────┴──────────────────
+    
+    Total: 10 features per time step × N time steps = Input tensor
+</div>
+                </section>
+                
+                <!-- Output -->
+                <section id="output">
+                    <h2>LSTM Prediction Output</h2>
+                    
+                    <div class="ascii-art">
+LSTM PREDICTION STRUCTURE
+═══════════════════════════════════════════════════════════════════════════════
+
+    LstmPrediction {
+        Direction           // <span class="bearish">-1.0</span> (bearish) to <span class="bullish">+1.0</span> (bullish)
+        Confidence          // 0.0 to 1.0 (how sure is the prediction)
+        PredictedChangePercent  // Expected price change %
+        PredictedVolatility     // Expected volatility
+        ScoreAdjustment     // <span class="bearish">-25</span> to <span class="bullish">+25</span> points to apply to market score
+        IsUsable            // True if enough data for reliable prediction
+    }
+
+
+SCORE ADJUSTMENT CALCULATION
+═══════════════════════════════════════════════════════════════════════════════
+
+    ScoreAdjustment = Direction × Confidence × MaxAdjustment
+
+    Example:
+    ─────────────────────────────────────────────────────────────────────────
+    Direction = +0.7 (bullish)
+    Confidence = 0.8 (high confidence)
+    MaxAdjustment = 25
+    
+    ScoreAdjustment = 0.7 × 0.8 × 25 = <span class="bullish">+14 points</span>
+    
+    If base Market Score was +55:
+    Adjusted Score = 55 + 14 = <span class="bullish">+69</span> (closer to entry threshold!)
+</div>
+                </section>
+                
+                <!-- Training -->
+                <section id="training">
+                    <h2>Training Process</h2>
+                    
+                    <div class="ascii-art">
+LSTM TRAINING WORKFLOW
+═══════════════════════════════════════════════════════════════════════════════
+
+    AUTOMATIC TRAINING (During Live Trading)
+    ─────────────────────────────────────────────────────────────────────────
+    
+    Every 15 minutes:
+    ┌─────────────────────────────────────────────────────────────────────────┐
+    │  1. Collect completed candles with indicator values                     │
+    │  2. Build feature sequences (lookback = 10-50 candles)                 │
+    │  3. Create target labels (next candle direction)                       │
+    │  4. Train LSTM for N epochs (default: 10)                              │
+    │  5. Save model weights to Profiles/{TICKER}.lstm.json                  │
+    └─────────────────────────────────────────────────────────────────────────┘
+    
+    
+    TRAINING DATA STRUCTURE
+    ─────────────────────────────────────────────────────────────────────────
+    
+    Time Step:    T-10    T-9    T-8    ...    T-2    T-1    T
+                  ────────────────────────────────────────────
+    Features:     [F1]    [F2]    [F3]   ...   [F9]   [F10]  [?]
+                  ────────────────────────────────────────────
+                                                              │
+                                Label: Direction at T ◄───────┘
+                                       (What LSTM learns to predict)
+</div>
+                    
+                    <div class="callout callout-info">
+                        <div class="callout-title">Warm-Up Requirements</div>
+                        <table>
+                            <tr><th>Metric</th><th>Requirement</th></tr>
+                            <tr><td>Minimum data points</td><td>10 candles before prediction</td></tr>
+                            <tr><td>Optimal data points</td><td>50+ candles for accuracy</td></tr>
+                            <tr><td>Training interval</td><td>Every 15 minutes (automatic)</td></tr>
+                        </table>
+                    </div>
+                </section>
+                
+                <!-- Effect on TP/SL -->
+                <section id="tpsl-effect">
+                    <h2>Effect on TP/SL Sizing</h2>
+                    <p>
+                        LSTM volatility predictions influence how AdaptiveOrder sizes take profit
+                        and stop loss levels.
+                    </p>
+                    
+                    <div class="ascii-art">
+VOLATILITY-BASED TP/SL ADJUSTMENT
+═══════════════════════════════════════════════════════════════════════════════
+
+    LSTM Predicts High Volatility + High Confidence:
+    ┌─────────────────────────────────────────────────────────────────────────┐
+    │  Take Profit: Extended more aggressively (expecting larger moves)       │
+    │  Stop Loss:   Widened to avoid noise stops                             │
+    └─────────────────────────────────────────────────────────────────────────┘
+    
+    LSTM Predicts Low Volatility:
+    ┌─────────────────────────────────────────────────────────────────────────┐
+    │  Take Profit: Kept conservative (smaller expected moves)               │
+    │  Stop Loss:   Tightened (less noise expected)                          │
+    └─────────────────────────────────────────────────────────────────────────┘
+
+
+VISUALIZATION
+═══════════════════════════════════════════════════════════════════════════════
+
+    HIGH VOLATILITY PREDICTION          LOW VOLATILITY PREDICTION
+    
+    TP ────────────────── $165          TP ────── $158
+         Extended (+50%)                    Normal
+    
+    Entry ═══════════════ $150          Entry ═══ $150
+    
+         Widened (+30%)                     Tight
+    SL ────────────────── $143          SL ────── $147
+</div>
+                </section>
+                
+                <!-- Model Persistence -->
+                <section id="persistence">
+                    <h2>Model Persistence</h2>
+                    
+                    <div class="code-block">
+<span class="token-comment">// LSTM model saved to:</span>
+Profiles/{TICKER}.lstm.json
+
+<span class="token-comment">// Example structure:</span>
+{
+    "ticker": "NVDA",
+    "lastTrained": "2026-02-06T14:30:00Z",
+    "trainingEpochs": 150,
+    "validationAccuracy": 0.72,
+    "weights": {
+        "forgetGate": [[...], [...], ...],
+        "inputGate": [[...], [...], ...],
+        "cellUpdate": [[...], [...], ...],
+        "outputGate": [[...], [...], ...],
+        "denseLayer": [[...], [...], ...]
+    },
+    "featureScalers": {
+        "means": [...],
+        "stds": [...]
+    }
+}
+</div>
+                </section>
+                
+                <!-- Footer -->
+                <footer class="page-footer">
+                    <div class="footer-nav">
+                        <a href="ai-overview.htm">← AI Overview</a>
+                        <a href="pattern-matcher.htm">Next: Pattern Matcher →</a>
+                    </div>
+                    <p class="text-center text-muted">
+                        IdiotProof Trading System Documentation &copy; 2026
+                    </p>
+                </footer>
+            </div>
+        </main>
+    </div>
+</body>
+</html>

@@ -1,0 +1,621 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Command Reference - IdiotProof Documentation</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="page-wrapper">
+        <!-- Sidebar Navigation -->
+        <nav class="sidebar">
+            <div class="sidebar-header">
+                <a href="index.htm" class="logo">
+                    <span class="logo-icon">📈</span>
+                    <span class="logo-text">IdiotProof</span>
+                    <span class="logo-version">v2.0</span>
+                </a>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">Getting Started</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="index.htm" class="nav-link"><span class="nav-icon">🏠</span>Home</a></li>
+                    <li class="nav-item"><a href="quick-start.htm" class="nav-link"><span class="nav-icon">🚀</span>Quick Start</a></li>
+                    <li class="nav-item"><a href="architecture.htm" class="nav-link"><span class="nav-icon">🏗️</span>Architecture</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">IdiotScript DSL</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="idiotscript.htm" class="nav-link"><span class="nav-icon">📜</span>Language Reference</a></li>
+                    <li class="nav-item"><a href="commands.htm" class="nav-link active"><span class="nav-icon">⌨️</span>Command Reference</a></li>
+                    <li class="nav-item"><a href="examples.htm" class="nav-link"><span class="nav-icon">💡</span>Strategy Examples</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">Technical Indicators</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="indicators.htm" class="nav-link"><span class="nav-icon">📊</span>Indicator Overview</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">Trading Systems</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="market-score.htm" class="nav-link"><span class="nav-icon">🎯</span>Market Score</a></li>
+                    <li class="nav-item"><a href="adaptive-order.htm" class="nav-link"><span class="nav-icon">🔄</span>AdaptiveOrder</a></li>
+                    <li class="nav-item"><a href="autonomous-trading.htm" class="nav-link"><span class="nav-icon">🤖</span>AutonomousTrading</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">AI & Machine Learning</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="ai-overview.htm" class="nav-link"><span class="nav-icon">🧠</span>AI Overview</a></li>
+                    <li class="nav-item"><a href="lstm.htm" class="nav-link"><span class="nav-icon">🔮</span>LSTM Predictor</a></li>
+                    <li class="nav-item"><a href="pattern-matcher.htm" class="nav-link"><span class="nav-icon">🔍</span>Pattern Matcher</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">Configuration</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="configuration.htm" class="nav-link"><span class="nav-icon">⚙️</span>Settings</a></li>
+                    <li class="nav-item"><a href="watchlist.htm" class="nav-link"><span class="nav-icon">👀</span>Watchlist</a></li>
+                    <li class="nav-item"><a href="strategy-rules.htm" class="nav-link"><span class="nav-icon">📝</span>Strategy Rules</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">Reference</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="glossary.htm" class="nav-link"><span class="nav-icon">📖</span>Glossary</a></li>
+                    <li class="nav-item"><a href="faq.htm" class="nav-link"><span class="nav-icon">❓</span>FAQ</a></li>
+                    <li class="nav-item"><a href="troubleshooting.htm" class="nav-link"><span class="nav-icon">🔧</span>Troubleshooting</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">Roadmap</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="futureproofing.htm" class="nav-link"><span class="nav-icon">🔮</span>Future-Proofing</a></li>
+                    <li class="nav-item"><a href="wishlist.htm" class="nav-link"><span class="nav-icon">✨</span>Wishlist</a></li>
+                </ul>
+            </div>
+        </nav>
+        
+        <!-- Main Content -->
+        <main class="main-content">
+            <div class="content-wrapper">
+                <!-- Breadcrumb -->
+                <div class="breadcrumb">
+                    <a href="index.htm">Home</a>
+                    <span class="breadcrumb-separator">/</span>
+                    <a href="idiotscript.htm">IdiotScript DSL</a>
+                    <span class="breadcrumb-separator">/</span>
+                    <span>Command Reference</span>
+                </div>
+                
+                <!-- Header -->
+                <header class="page-header">
+                    <h1 class="page-title">Command Reference</h1>
+                    <p class="page-subtitle">
+                        Complete reference for all IdiotScript commands, with signatures and examples.
+                    </p>
+                </header>
+                
+                <!-- Configuration Commands -->
+                <section id="config">
+                    <h2>Configuration Commands</h2>
+                    <p>These commands set up the strategy. Order doesn't matter within this group.</p>
+                    
+                    <table class="command-table">
+                        <thead>
+                            <tr>
+                                <th>Command</th>
+                                <th>Description</th>
+                                <th>Example</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><code>Ticker(symbol)</code></td>
+                                <td>Sets the stock symbol. <strong>Required.</strong></td>
+                                <td><code>Ticker("AAPL")</code> or <code>Ticker(AAPL)</code></td>
+                            </tr>
+                            <tr>
+                                <td><code>Name(name)</code></td>
+                                <td>Friendly name for the strategy.</td>
+                                <td><code>Name("AAPL VWAP Bounce")</code></td>
+                            </tr>
+                            <tr>
+                                <td><code>Session(session)</code></td>
+                                <td>Trading session: IS.PREMARKET, IS.RTH, IS.AFTERHOURS, IS.EXTENDED</td>
+                                <td><code>Session(IS.RTH)</code></td>
+                            </tr>
+                            <tr>
+                                <td><code>Quantity(shares)</code></td>
+                                <td>Number of shares per order. Alias: <code>Qty()</code></td>
+                                <td><code>Quantity(100)</code></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </section>
+                
+                <!-- Entry Conditions -->
+                <section id="entry">
+                    <h2>Entry Condition Commands</h2>
+                    <p>Conditions that must be met before order execution. Evaluated sequentially.</p>
+                    
+                    <h3>Price-Based Conditions</h3>
+                    <table class="command-table">
+                        <thead>
+                            <tr>
+                                <th>Command</th>
+                                <th>Description</th>
+                                <th>Example</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><code>Entry(price)</code></td>
+                                <td>Price must reach this level. Alias: <code>IsPriceAbove()</code></td>
+                                <td><code>Entry(150.00)</code></td>
+                            </tr>
+                            <tr>
+                                <td><code>Breakout(price)</code></td>
+                                <td>Price must break above level with momentum.</td>
+                                <td><code>Breakout(155.00)</code></td>
+                            </tr>
+                            <tr>
+                                <td><code>Pullback(price)</code></td>
+                                <td>Price must pull back to level from above.</td>
+                                <td><code>Pullback(148.50)</code></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    
+                    <h3>VWAP Conditions</h3>
+                    <table class="command-table">
+                        <thead>
+                            <tr>
+                                <th>Command</th>
+                                <th>Description</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><code>IsAboveVwap()</code></td>
+                                <td>Current price is above VWAP.</td>
+                            </tr>
+                            <tr>
+                                <td><code>IsBelowVwap()</code></td>
+                                <td>Current price is below VWAP.</td>
+                            </tr>
+                            <tr>
+                                <td><code>IsCloseAboveVwap()</code></td>
+                                <td>Candle closed above VWAP (stronger signal).</td>
+                            </tr>
+                            <tr>
+                                <td><code>IsVwapRejection()</code></td>
+                                <td>Wick above VWAP but close below (bearish rejection).</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    
+                    <h3>EMA Conditions</h3>
+                    <table class="command-table">
+                        <thead>
+                            <tr>
+                                <th>Command</th>
+                                <th>Description</th>
+                                <th>Example</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><code>IsEmaAbove(period)</code></td>
+                                <td>Price is above EMA of specified period.</td>
+                                <td><code>IsEmaAbove(9)</code></td>
+                            </tr>
+                            <tr>
+                                <td><code>IsEmaBelow(period)</code></td>
+                                <td>Price is below EMA of specified period.</td>
+                                <td><code>IsEmaBelow(21)</code></td>
+                            </tr>
+                            <tr>
+                                <td><code>IsEmaBetween(p1, p2)</code></td>
+                                <td>Price is between two EMAs (pullback zone).</td>
+                                <td><code>IsEmaBetween(9, 21)</code></td>
+                            </tr>
+                            <tr>
+                                <td><code>IsEmaTurningUp(period)</code></td>
+                                <td>EMA slope is turning positive.</td>
+                                <td><code>IsEmaTurningUp(9)</code></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    
+                    <h3>Momentum Conditions</h3>
+                    <table class="command-table">
+                        <thead>
+                            <tr>
+                                <th>Command</th>
+                                <th>Description</th>
+                                <th>Example</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><code>IsMomentumAbove(value)</code></td>
+                                <td>Momentum >= threshold.</td>
+                                <td><code>IsMomentumAbove(0)</code></td>
+                            </tr>
+                            <tr>
+                                <td><code>IsMomentumBelow(value)</code></td>
+                                <td>Momentum <= threshold.</td>
+                                <td><code>IsMomentumBelow(-5)</code></td>
+                            </tr>
+                            <tr>
+                                <td><code>IsRocAbove(pct)</code></td>
+                                <td>Rate of Change >= percentage.</td>
+                                <td><code>IsRocAbove(2)</code></td>
+                            </tr>
+                            <tr>
+                                <td><code>IsRocBelow(pct)</code></td>
+                                <td>Rate of Change <= percentage.</td>
+                                <td><code>IsRocBelow(-2)</code></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    
+                    <h3>Trend/Strength Conditions</h3>
+                    <table class="command-table">
+                        <thead>
+                            <tr>
+                                <th>Command</th>
+                                <th>Description</th>
+                                <th>Example</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><code>IsAdxAbove(value)</code></td>
+                                <td>ADX >= threshold (trend strength).</td>
+                                <td><code>IsAdxAbove(25)</code></td>
+                            </tr>
+                            <tr>
+                                <td><code>IsDiPositive()</code></td>
+                                <td>+DI > -DI (bullish directional movement).</td>
+                                <td><code>IsDiPositive()</code></td>
+                            </tr>
+                            <tr>
+                                <td><code>IsDiNegative()</code></td>
+                                <td>-DI > +DI (bearish directional movement).</td>
+                                <td><code>IsDiNegative()</code></td>
+                            </tr>
+                            <tr>
+                                <td><code>IsMacdBullish()</code></td>
+                                <td>MACD > Signal line.</td>
+                                <td><code>IsMacdBullish()</code></td>
+                            </tr>
+                            <tr>
+                                <td><code>IsMacdBearish()</code></td>
+                                <td>MACD < Signal line.</td>
+                                <td><code>IsMacdBearish()</code></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    
+                    <h3>RSI Conditions</h3>
+                    <table class="command-table">
+                        <thead>
+                            <tr>
+                                <th>Command</th>
+                                <th>Description</th>
+                                <th>Example</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><code>IsRsiOversold(value)</code></td>
+                                <td>RSI <= threshold.</td>
+                                <td><code>IsRsiOversold(30)</code></td>
+                            </tr>
+                            <tr>
+                                <td><code>IsRsiOverbought(value)</code></td>
+                                <td>RSI >= threshold.</td>
+                                <td><code>IsRsiOverbought(70)</code></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    
+                    <h3>Pattern/Volume Conditions</h3>
+                    <table class="command-table">
+                        <thead>
+                            <tr>
+                                <th>Command</th>
+                                <th>Description</th>
+                                <th>Example</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><code>IsHigherLows()</code></td>
+                                <td>Higher lows pattern forming.</td>
+                                <td><code>IsHigherLows()</code></td>
+                            </tr>
+                            <tr>
+                                <td><code>IsVolumeAbove(mult)</code></td>
+                                <td>Volume >= multiplier × average.</td>
+                                <td><code>IsVolumeAbove(1.5)</code></td>
+                            </tr>
+                            <tr>
+                                <td><code>IsGapUp(pct)</code></td>
+                                <td>Gapped up X% from previous close.</td>
+                                <td><code>IsGapUp(5)</code></td>
+                            </tr>
+                            <tr>
+                                <td><code>IsGapDown(pct)</code></td>
+                                <td>Gapped down X% from previous close.</td>
+                                <td><code>IsGapDown(3)</code></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </section>
+                
+                <!-- Order Commands -->
+                <section id="order">
+                    <h2>Order Commands</h2>
+                    
+                    <table class="command-table">
+                        <thead>
+                            <tr>
+                                <th>Command</th>
+                                <th>Description</th>
+                                <th>Example</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><code>Order()</code></td>
+                                <td>Execute order. Default: LONG.</td>
+                                <td><code>Order(IS.LONG)</code></td>
+                            </tr>
+                            <tr>
+                                <td><code>Long()</code></td>
+                                <td>Alias for Order(IS.LONG).</td>
+                                <td><code>Long()</code></td>
+                            </tr>
+                            <tr>
+                                <td><code>Short()</code></td>
+                                <td>Alias for Order(IS.SHORT).</td>
+                                <td><code>Short()</code></td>
+                            </tr>
+                            <tr>
+                                <td><code>CloseLong()</code></td>
+                                <td>Create SELL order to close long position.</td>
+                                <td><code>CloseLong()</code></td>
+                            </tr>
+                            <tr>
+                                <td><code>CloseShort()</code></td>
+                                <td>Create BUY order to cover short position.</td>
+                                <td><code>CloseShort()</code></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    
+                    <h3>Order Modifiers</h3>
+                    <table class="command-table">
+                        <thead>
+                            <tr>
+                                <th>Command</th>
+                                <th>Description</th>
+                                <th>Example</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><code>PriceType(type)</code></td>
+                                <td>Price type for execution: Price.Current, Price.VWAP</td>
+                                <td><code>PriceType(Price.Current)</code></td>
+                            </tr>
+                            <tr>
+                                <td><code>OrderType(type)</code></td>
+                                <td>Market vs Limit: OrderType.Market, OrderType.Limit</td>
+                                <td><code>OrderType(OrderType.Market)</code></td>
+                            </tr>
+                            <tr>
+                                <td><code>OutsideRTH()</code></td>
+                                <td>Allow entry order outside RTH. Default: true.</td>
+                                <td><code>OutsideRTH()</code></td>
+                            </tr>
+                            <tr>
+                                <td><code>TakeProfitOutsideRTH()</code></td>
+                                <td>Allow TP order outside RTH. Default: true.</td>
+                                <td><code>TakeProfitOutsideRTH()</code></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </section>
+                
+                <!-- Exit Commands -->
+                <section id="exit">
+                    <h2>Exit Commands</h2>
+                    
+                    <table class="command-table">
+                        <thead>
+                            <tr>
+                                <th>Command</th>
+                                <th>Description</th>
+                                <th>Example</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><code>TakeProfit(price)</code></td>
+                                <td>Exit at profit target. Alias: <code>TP()</code></td>
+                                <td><code>TakeProfit(160)</code></td>
+                            </tr>
+                            <tr>
+                                <td><code>StopLoss(price)</code></td>
+                                <td>Exit at stop level. Alias: <code>SL()</code></td>
+                                <td><code>StopLoss(145)</code></td>
+                            </tr>
+                            <tr>
+                                <td><code>TrailingStopLoss(pct)</code></td>
+                                <td>Trailing stop percentage. Alias: <code>TSL()</code></td>
+                                <td><code>TrailingStopLoss(2)</code></td>
+                            </tr>
+                            <tr>
+                                <td><code>ExitStrategy(time)</code></td>
+                                <td>Exit at specific time or IS.BELL.</td>
+                                <td><code>ExitStrategy(IS.BELL)</code></td>
+                            </tr>
+                            <tr>
+                                <td><code>IsProfitable()</code></td>
+                                <td>Chain to only exit if profitable.</td>
+                                <td><code>ExitStrategy(IS.BELL).IsProfitable()</code></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </section>
+                
+                <!-- AI/Automation Commands -->
+                <section id="ai">
+                    <h2>AI & Automation Commands</h2>
+                    
+                    <table class="command-table">
+                        <thead>
+                            <tr>
+                                <th>Command</th>
+                                <th>Description</th>
+                                <th>Example</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><code>AdaptiveOrder()</code></td>
+                                <td>Enable dynamic TP/SL adjustment.</td>
+                                <td><code>AdaptiveOrder(IS.AGGRESSIVE)</code></td>
+                            </tr>
+                            <tr>
+                                <td><code>AutonomousTrading()</code></td>
+                                <td>Enable fully automated AI trading.</td>
+                                <td><code>AutonomousTrading()</code></td>
+                            </tr>
+                            <tr>
+                                <td><code>Repeat()</code></td>
+                                <td>Restart strategy after exit.</td>
+                                <td><code>Repeat()</code></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </section>
+                
+                <!-- Constants -->
+                <section id="constants">
+                    <h2>Constants Reference</h2>
+                    
+                    <h3>Session Constants</h3>
+                    <table class="command-table">
+                        <thead>
+                            <tr>
+                                <th>Constant</th>
+                                <th>Description</th>
+                                <th>Hours (ET)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><code>IS.PREMARKET</code></td>
+                                <td>Premarket session</td>
+                                <td>4:00 AM - 9:30 AM</td>
+                            </tr>
+                            <tr>
+                                <td><code>IS.RTH</code></td>
+                                <td>Regular Trading Hours</td>
+                                <td>9:30 AM - 4:00 PM</td>
+                            </tr>
+                            <tr>
+                                <td><code>IS.AFTERHOURS</code></td>
+                                <td>After Hours</td>
+                                <td>4:00 PM - 8:00 PM</td>
+                            </tr>
+                            <tr>
+                                <td><code>IS.EXTENDED</code></td>
+                                <td>All hours combined</td>
+                                <td>4:00 AM - 8:00 PM</td>
+                            </tr>
+                            <tr>
+                                <td><code>IS.BELL</code></td>
+                                <td>1 min before session end</td>
+                                <td>Varies by session</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    
+                    <h3>Direction Constants</h3>
+                    <table class="command-table">
+                        <thead>
+                            <tr>
+                                <th>Constant</th>
+                                <th>Description</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><code>IS.LONG</code></td>
+                                <td>Long position (buy)</td>
+                            </tr>
+                            <tr>
+                                <td><code>IS.SHORT</code></td>
+                                <td>Short position (sell)</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    
+                    <h3>Mode Constants</h3>
+                    <table class="command-table">
+                        <thead>
+                            <tr>
+                                <th>Constant</th>
+                                <th>Description</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><code>IS.CONSERVATIVE</code></td>
+                                <td>Risk-averse mode</td>
+                            </tr>
+                            <tr>
+                                <td><code>IS.BALANCED</code></td>
+                                <td>Standard mode</td>
+                            </tr>
+                            <tr>
+                                <td><code>IS.AGGRESSIVE</code></td>
+                                <td>Profit-seeking mode</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </section>
+                
+                <!-- Footer -->
+                <footer class="page-footer">
+                    <div class="footer-nav">
+                        <a href="idiotscript.htm">← Language Reference</a>
+                        <a href="examples.htm">Next: Strategy Examples →</a>
+                    </div>
+                    <p class="text-center text-muted">
+                        IdiotProof Trading System Documentation &copy; 2026
+                    </p>
+                </footer>
+            </div>
+        </main>
+    </div>
+</body>
+</html>

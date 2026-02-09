@@ -24,6 +24,7 @@
 
 using System.Text.Json;
 using IdiotProof.Constants;
+using IdiotProof.Logging;
 using IdiotProof.Settings;
 using System.Text.Json.Serialization;
 using IdiotProof.Learning;
@@ -1085,7 +1086,7 @@ namespace IdiotProof.Strategy {
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"[WARN] Failed to save ticker profile for {profile.Symbol}: {ex.Message}");
+                ConsoleLog.Warn("Profile", $"Failed to save ticker profile for {profile.Symbol}: {ex.Message}");
             }
         }
 
@@ -1109,18 +1110,18 @@ namespace IdiotProof.Strategy {
                     }
                     catch (Exception ex)
                     {
-                        Console.WriteLine($"[WARN] Failed to load ticker profile from {file}: {ex.Message}");
+                        ConsoleLog.Warn("Profile", $"Failed to load ticker profile from {file}: {ex.Message}");
                     }
                 }
 
                 if (_profiles.Count > 0)
                 {
-                    Console.WriteLine($"[OK] Loaded {_profiles.Count} ticker profiles from disk");
+                    ConsoleLog.Success("Profile", $"Loaded {_profiles.Count} ticker profiles from disk");
                 }
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"[WARN] Failed to load ticker profiles: {ex.Message}");
+                ConsoleLog.Warn("Profile", $"Failed to load ticker profiles: {ex.Message}");
             }
         }
 

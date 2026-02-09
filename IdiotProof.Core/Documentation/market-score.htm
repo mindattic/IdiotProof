@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Market Score System - IdiotProof Documentation</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="page-wrapper">
+        <!-- Sidebar Navigation -->
+        <nav class="sidebar">
+            <div class="sidebar-header">
+                <a href="index.htm" class="logo">
+                    <span class="logo-icon">📈</span>
+                    <span class="logo-text">IdiotProof</span>
+                    <span class="logo-version">v2.0</span>
+                </a>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">Getting Started</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="index.htm" class="nav-link"><span class="nav-icon">🏠</span>Home</a></li>
+                    <li class="nav-item"><a href="quick-start.htm" class="nav-link"><span class="nav-icon">🚀</span>Quick Start</a></li>
+                    <li class="nav-item"><a href="architecture.htm" class="nav-link"><span class="nav-icon">🏗️</span>Architecture</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">IdiotScript DSL</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="idiotscript.htm" class="nav-link"><span class="nav-icon">📜</span>Language Reference</a></li>
+                    <li class="nav-item"><a href="commands.htm" class="nav-link"><span class="nav-icon">⌨️</span>Command Reference</a></li>
+                    <li class="nav-item"><a href="examples.htm" class="nav-link"><span class="nav-icon">💡</span>Strategy Examples</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">Technical Indicators</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="indicators.htm" class="nav-link"><span class="nav-icon">📊</span>Indicator Overview</a></li>
+                    <li class="nav-item"><a href="indicators-vwap.htm" class="nav-link"><span class="nav-icon">〰️</span>VWAP Indicators</a></li>
+                    <li class="nav-item"><a href="indicators-ema.htm" class="nav-link"><span class="nav-icon">📈</span>EMA Indicators</a></li>
+                    <li class="nav-item"><a href="indicators-momentum.htm" class="nav-link"><span class="nav-icon">⚡</span>Momentum</a></li>
+                    <li class="nav-item"><a href="indicators-volume.htm" class="nav-link"><span class="nav-icon">📶</span>Volume Analysis</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">Trading Systems</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="market-score.htm" class="nav-link active"><span class="nav-icon">🎯</span>Market Score</a></li>
+                    <li class="nav-item"><a href="adaptive-order.htm" class="nav-link"><span class="nav-icon">🔄</span>AdaptiveOrder</a></li>
+                    <li class="nav-item"><a href="autonomous-trading.htm" class="nav-link"><span class="nav-icon">🤖</span>AutonomousTrading</a></li>
+                    <li class="nav-item"><a href="order-management.htm" class="nav-link"><span class="nav-icon">📋</span>Order Management</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">AI & Machine Learning</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="ai-overview.htm" class="nav-link"><span class="nav-icon">🧠</span>AI Overview</a></li>
+                    <li class="nav-item"><a href="lstm.htm" class="nav-link"><span class="nav-icon">🔮</span>LSTM Predictor</a></li>
+                    <li class="nav-item"><a href="pattern-matcher.htm" class="nav-link"><span class="nav-icon">🔍</span>Pattern Matcher</a></li>
+                    <li class="nav-item"><a href="learned-weights.htm" class="nav-link"><span class="nav-icon">⚖️</span>Learned Weights</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">Configuration</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="configuration.htm" class="nav-link"><span class="nav-icon">⚙️</span>Settings</a></li>
+                    <li class="nav-item"><a href="watchlist.htm" class="nav-link"><span class="nav-icon">👀</span>Watchlist</a></li>
+                    <li class="nav-item"><a href="strategy-rules.htm" class="nav-link"><span class="nav-icon">📝</span>Strategy Rules</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">Testing & Analysis</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="backtesting.htm" class="nav-link"><span class="nav-icon">⏪</span>Backtesting</a></li>
+                    <li class="nav-item"><a href="simulation.htm" class="nav-link"><span class="nav-icon">🎮</span>Simulation</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">Reference</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="glossary.htm" class="nav-link"><span class="nav-icon">📖</span>Glossary</a></li>
+                    <li class="nav-item"><a href="faq.htm" class="nav-link"><span class="nav-icon">❓</span>FAQ</a></li>
+                    <li class="nav-item"><a href="troubleshooting.htm" class="nav-link"><span class="nav-icon">🔧</span>Troubleshooting</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">Roadmap</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="futureproofing.htm" class="nav-link"><span class="nav-icon">🔮</span>Future-Proofing</a></li>
+                    <li class="nav-item"><a href="wishlist.htm" class="nav-link"><span class="nav-icon">✨</span>Wishlist</a></li>
+                </ul>
+            </div>
+        </nav>
+        
+        <!-- Main Content -->
+        <main class="main-content">
+            <div class="content-wrapper">
+                <!-- Breadcrumb -->
+                <div class="breadcrumb">
+                    <a href="index.htm">Home</a>
+                    <span class="breadcrumb-separator">/</span>
+                    <a href="index.htm">Trading Systems</a>
+                    <span class="breadcrumb-separator">/</span>
+                    <span>Market Score</span>
+                </div>
+                
+                <!-- Header -->
+                <header class="page-header">
+                    <h1 class="page-title">Market Score System</h1>
+                    <p class="page-subtitle">
+                        The heart of IdiotProof's decision-making: a composite indicator that combines
+                        11 technical signals into a single actionable score from -100 to +100.
+                    </p>
+                </header>
+                
+                <!-- Overview -->
+                <section>
+                    <h2>What is the Market Score?</h2>
+                    <p>
+                        The Market Score is <strong>THE single source of truth</strong> for trading decisions
+                        in IdiotProof. It takes multiple technical indicators, each providing different
+                        information about price action, and combines them into one unified score:
+                    </p>
+                    
+                    <ul>
+                        <li><strong>+100</strong>: Maximum bullish signal (all indicators aligned bullish)</li>
+                        <li><strong>+70 to +100</strong>: Strong bullish - consider entering long</li>
+                        <li><strong>+30 to +70</strong>: Moderate bullish - cautious optimism</li>
+                        <li><strong>-30 to +30</strong>: Neutral - no clear direction</li>
+                        <li><strong>-70 to -30</strong>: Moderate bearish - cautious pessimism</li>
+                        <li><strong>-100 to -70</strong>: Strong bearish - consider entering short</li>
+                        <li><strong>-100</strong>: Maximum bearish signal</li>
+                    </ul>
+                    
+                    <div class="ascii-art">
+THE MARKET SCORE SCALE
+═══════════════════════════════════════════════════════════════════════════════
+
+   -100        -70         -30          0          +30         +70        +100
+     │          │           │           │           │           │           │
+     ├──────────┼───────────┼───────────┼───────────┼───────────┼───────────┤
+     │<span class="bearish">▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓</span>│           │           │<span class="bullish">▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓</span>│
+     │  <span class="bearish">STRONG BEARISH</span>  │ MODERATE  │  <span class="neutral">NEUTRAL</span>  │ MODERATE  │  <span class="bullish">STRONG BULLISH</span>  │
+     │                  │  BEARISH  │           │  BULLISH  │                  │
+     └──────────────────┴───────────┴───────────┴───────────┴──────────────────┘
+                        │                                   │
+                        ▼                                   ▼
+                  <span class="bearish">ENTER SHORT</span>                          <span class="bullish">ENTER LONG</span>
+                  (Score ≤ -70)                       (Score ≥ +70)
+
+
+SCORE INTERPRETATION QUICK REFERENCE
+═══════════════════════════════════════════════════════════════════════════════
+
+    Score          │ Signal    │ Action              │ Confidence
+    ───────────────┼───────────┼─────────────────────┼────────────────
+    +85 to +100    │ <span class="bullish">BULLISH</span>   │ Strong Buy          │ Very High
+    +70 to +84     │ <span class="bullish">BULLISH</span>   │ Buy                 │ High
+    +50 to +69     │ Bullish   │ Cautious Buy        │ Moderate
+    +30 to +49     │ Bullish   │ Hold / Wait         │ Low
+    -29 to +29     │ <span class="neutral">NEUTRAL</span>   │ No Action           │ None
+    -49 to -30     │ Bearish   │ Hold / Wait         │ Low
+    -69 to -50     │ Bearish   │ Cautious Sell/Short │ Moderate
+    -84 to -70     │ <span class="bearish">BEARISH</span>   │ Short               │ High
+    -100 to -85    │ <span class="bearish">BEARISH</span>   │ Strong Short        │ Very High
+</div>
+                </section>
+                
+                <!-- Indicator Components -->
+                <section>
+                    <h2>Indicator Components</h2>
+                    <p>
+                        The Market Score combines 11 technical indicators, each contributing a
+                        weighted portion to the final score. The default weights sum to 100%:
+                    </p>
+                    
+                    <div class="ascii-art">
+INDICATOR WEIGHT DISTRIBUTION
+═══════════════════════════════════════════════════════════════════════════════
+
+    ┌─────────────────────────────────────────────────────────────────────────┐
+    │                                                                         │
+    │  CORE INDICATORS (78% of total weight)                                 │
+    │  ─────────────────────────────────────────────────────────────────────  │
+    │                                                                         │
+    │   MACD      ████████████████████████████████████░░░░░░░░░░░░   18%     │
+    │   EMA       ██████████████████████████████░░░░░░░░░░░░░░░░░░   15%     │
+    │   ADX       ██████████████████████████████░░░░░░░░░░░░░░░░░░   15%     │
+    │   RSI       ████████████████████████░░░░░░░░░░░░░░░░░░░░░░░░   12%     │
+    │   VWAP      ████████████████████░░░░░░░░░░░░░░░░░░░░░░░░░░░░   10%     │
+    │   Volume    ████████████████░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░    8%     │
+    │             ────────────────────────────────────────────────           │
+    │                                                              = 78%     │
+    │                                                                         │
+    │  EXTENDED INDICATORS (22% of total weight)                             │
+    │  ─────────────────────────────────────────────────────────────────────  │
+    │                                                                         │
+    │   Stochastic  ████████████░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░    6%     │
+    │   Bollinger   ██████████░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░    5%     │
+    │   OBV         ██████████░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░    5%     │
+    │   CCI         ██████░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░    3%     │
+    │   Williams%R  ██████░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░    3%     │
+    │               ────────────────────────────────────────────             │
+    │                                                              = 22%     │
+    │                                                                         │
+    │  ═══════════════════════════════════════════════════════════════════   │
+    │                                                    TOTAL   = 100%      │
+    └─────────────────────────────────────────────────────────────────────────┘
+</div>
+                    
+                    <h3>How Each Indicator Contributes</h3>
+                    
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Indicator</th>
+                                <th>Weight</th>
+                                <th>Bullish Signal</th>
+                                <th>Bearish Signal</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><strong>MACD</strong></td>
+                                <td>18%</td>
+                                <td>MACD > Signal, histogram rising</td>
+                                <td>MACD < Signal, histogram falling</td>
+                            </tr>
+                            <tr>
+                                <td><strong>EMA Stack</strong></td>
+                                <td>15%</td>
+                                <td>Price > EMA(9) > EMA(21) > EMA(50)</td>
+                                <td>Price < all EMAs, inverted stack</td>
+                            </tr>
+                            <tr>
+                                <td><strong>ADX</strong></td>
+                                <td>15%</td>
+                                <td>ADX > 25 with +DI > -DI</td>
+                                <td>ADX > 25 with -DI > +DI</td>
+                            </tr>
+                            <tr>
+                                <td><strong>RSI</strong></td>
+                                <td>12%</td>
+                                <td>RSI 30-50 (oversold bounce)</td>
+                                <td>RSI 70+ (overbought)</td>
+                            </tr>
+                            <tr>
+                                <td><strong>VWAP</strong></td>
+                                <td>10%</td>
+                                <td>Price > VWAP</td>
+                                <td>Price < VWAP</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Volume</strong></td>
+                                <td>8%</td>
+                                <td>High volume on up moves</td>
+                                <td>High volume on down moves</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Stochastic</strong></td>
+                                <td>6%</td>
+                                <td>%K > %D, rising from oversold</td>
+                                <td>%K < %D, falling from overbought</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Bollinger</strong></td>
+                                <td>5%</td>
+                                <td>Price bouncing off lower band</td>
+                                <td>Price rejected at upper band</td>
+                            </tr>
+                            <tr>
+                                <td><strong>OBV</strong></td>
+                                <td>5%</td>
+                                <td>OBV rising (accumulation)</td>
+                                <td>OBV falling (distribution)</td>
+                            </tr>
+                            <tr>
+                                <td><strong>CCI</strong></td>
+                                <td>3%</td>
+                                <td>CCI > 0, momentum positive</td>
+                                <td>CCI < 0, momentum negative</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Williams %R</strong></td>
+                                <td>3%</td>
+                                <td>%R > -50, rising</td>
+                                <td>%R < -50, falling</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </section>
+                
+                <!-- Score Calculation -->
+                <section>
+                    <h2>Score Calculation</h2>
+                    <p>
+                        Each indicator produces a raw score from -100 to +100. These are then
+                        multiplied by their weights and summed:
+                    </p>
+                    
+                    <pre><code><span class="token-comment">// Pseudocode for score calculation</span>
+TotalScore = (VwapScore × 0.10) +
+             (EmaScore × 0.15) +
+             (RsiScore × 0.12) +
+             (MacdScore × 0.18) +
+             (AdxScore × 0.15) +
+             (VolumeScore × 0.08) +
+             (BollingerScore × 0.05) +
+             (StochasticScore × 0.06) +
+             (ObvScore × 0.05) +
+             (CciScore × 0.03) +
+             (WilliamsRScore × 0.03)</code></pre>
+                    
+                    <h3>Example Calculation</h3>
+                    <div class="ascii-art">
+EXAMPLE: NVDA at $852.40
+═══════════════════════════════════════════════════════════════════════════════
+
+Current Market Conditions:
+  • Price: $852.40
+  • VWAP: $849.12 (price 0.39% above)
+  • EMA(9): $850.20, EMA(21): $847.50, EMA(50): $842.00 (all below price)
+  • RSI: 58 (neutral-bullish)
+  • MACD: 2.34, Signal: 1.89, Histogram: +0.45 (bullish)
+  • ADX: 32.4, +DI: 28.7, -DI: 15.2 (strong bullish trend)
+  • Volume: 1.3x average (confirming)
+
+SCORE BREAKDOWN:
+┌────────────────┬──────────┬────────┬─────────────┬────────────────────────────┐
+│  Indicator     │ Raw Score│ Weight │ Contribution│ Reason                      │
+├────────────────┼──────────┼────────┼─────────────┼────────────────────────────┤
+│  VWAP          │   <span class="bullish">+78</span>    │  10%   │    <span class="bullish">+7.8</span>     │ Price 0.39% above VWAP     │
+│  EMA           │   <span class="bullish">+100</span>   │  15%   │    <span class="bullish">+15.0</span>    │ Price above all EMAs       │
+│  RSI           │   <span class="bullish">+40</span>    │  12%   │    <span class="bullish">+4.8</span>     │ Healthy 58, not overbought │
+│  MACD          │   <span class="bullish">+100</span>   │  18%   │    <span class="bullish">+18.0</span>    │ Above signal, + histogram  │
+│  ADX           │   <span class="bullish">+80</span>    │  15%   │    <span class="bullish">+12.0</span>    │ ADX 32 with +DI > -DI      │
+│  Volume        │   <span class="bullish">+60</span>    │   8%   │    <span class="bullish">+4.8</span>     │ 1.3x avg confirming up     │
+│  Bollinger     │   <span class="bullish">+30</span>    │   5%   │    <span class="bullish">+1.5</span>     │ Price in upper half        │
+│  Stochastic    │   <span class="bullish">+50</span>    │   6%   │    <span class="bullish">+3.0</span>     │ %K > %D, mid-range         │
+│  OBV           │   <span class="bullish">+40</span>    │   5%   │    <span class="bullish">+2.0</span>     │ Slight accumulation        │
+│  CCI           │   <span class="bullish">+25</span>    │   3%   │    <span class="bullish">+0.75</span>    │ Positive but not extreme   │
+│  Williams %R   │   <span class="bearish">-20</span>    │   3%   │    <span class="bearish">-0.6</span>     │ Slightly overbought        │
+├────────────────┼──────────┼────────┼─────────────┼────────────────────────────┤
+│  <span class="bullish">TOTAL SCORE</span>   │          │  100%  │    <span class="bullish">+69.05</span>   │ <span class="bullish">STRONG BULLISH</span>             │
+└────────────────┴──────────┴────────┴─────────────┴────────────────────────────┘
+
+Result: Score of <span class="bullish">+69</span> is close to the +70 entry threshold.
+        System will wait for confirmation before entering.
+</div>
+                </section>
+                
+                <!-- Learned Weights -->
+                <section>
+                    <h2>Learned Weights</h2>
+                    <p>
+                        The default weights are just a starting point. IdiotProof learns
+                        <strong>optimal weights per ticker</strong> through genetic algorithms
+                        and gradient descent optimization:
+                    </p>
+                    
+                    <div class="callout callout-info">
+                        <div class="callout-title">💡 Weight Learning</div>
+                        <p>
+                            Different stocks respond better to different indicators. TSLA might
+                            respond strongly to momentum (higher MACD weight), while SPY might
+                            be more VWAP-driven. The system learns these preferences automatically.
+                        </p>
+                    </div>
+                    
+                    <div class="ascii-art">
+WEIGHT LEARNING PROCESS
+═══════════════════════════════════════════════════════════════════════════════
+
+    ┌─────────────────────────────────────────────────────────────────────────┐
+    │                        GENETIC ALGORITHM                                │
+    │                                                                         │
+    │   Generation 1:  Random weight combinations (100 individuals)          │
+    │        ↓                                                                │
+    │   Backtest:      Run each weight set against historical data           │
+    │        ↓                                                                │
+    │   Fitness:       Rank by win rate × profit factor                      │
+    │        ↓                                                                │
+    │   Selection:     Keep top 20% performers                               │
+    │        ↓                                                                │
+    │   Crossover:     Breed winners to create new combinations              │
+    │        ↓                                                                │
+    │   Mutation:      Randomly adjust some weights ±5%                      │
+    │        ↓                                                                │
+    │   Generation 2:  New population with inherited traits                  │
+    │        ↓                                                                │
+    │   ... Repeat for 50+ generations ...                                   │
+    │        ↓                                                                │
+    │   Best Weights:  Optimal for this ticker                               │
+    │                                                                         │
+    └─────────────────────────────────────────────────────────────────────────┘
+
+EXAMPLE: LEARNED WEIGHTS FOR TSLA
+═══════════════════════════════════════════════════════════════════════════════
+
+    Indicator       │ Default │ Learned │ Change │ Interpretation
+    ────────────────┼─────────┼─────────┼────────┼─────────────────────────────
+    MACD            │   18%   │   25%   │  <span class="bullish">+7%</span>   │ Momentum very important
+    EMA             │   15%   │   12%   │  <span class="bearish">-3%</span>   │ Less reliance on trend
+    ADX             │   15%   │   18%   │  <span class="bullish">+3%</span>   │ Trend strength matters
+    RSI             │   12%   │    8%   │  <span class="bearish">-4%</span>   │ Less overbought signals
+    VWAP            │   10%   │   14%   │  <span class="bullish">+4%</span>   │ VWAP important for TSLA
+    Volume          │    8%   │   10%   │  <span class="bullish">+2%</span>   │ Volume confirmation
+    <span class="neutral">... extended indicators adjusted similarly ...</span>
+</div>
+                    
+                    <p>
+                        Learned weights are saved to <code>Data/{TICKER}.weights.json</code>
+                        and loaded automatically when trading that ticker.
+                    </p>
+                </section>
+                
+                <!-- LSTM Enhancement -->
+                <section>
+                    <h2>LSTM Score Enhancement</h2>
+                    <p>
+                        The final score can be adjusted by the <a href="lstm.htm">LSTM neural network</a>
+                        predictor, which provides up to ±25 points based on its prediction:
+                    </p>
+                    
+                    <pre><code>AdjustedScore = MarketScore + LstmAdjustment
+
+<span class="token-comment">// Where LstmAdjustment = Direction × Confidence × 25</span>
+<span class="token-comment">// Direction: -1.0 (bearish) to +1.0 (bullish)</span>
+<span class="token-comment">// Confidence: 0.0 to 1.0</span>
+
+<span class="token-comment">// Example:</span>
+<span class="token-comment">// LSTM predicts bullish (+0.7) with 80% confidence</span>
+<span class="token-comment">// Adjustment = 0.7 × 0.8 × 25 = +14 points</span></code></pre>
+                    
+                    <p>
+                        This allows the AI to boost or dampen the score based on patterns
+                        it detects that aren't captured by traditional indicators.
+                    </p>
+                </section>
+                
+                <!-- Single Source of Truth -->
+                <section>
+                    <h2>Single Source of Truth</h2>
+                    
+                    <div class="callout callout-warning">
+                        <div class="callout-title">⚠️ Critical Architecture Decision</div>
+                        <p>
+                            <code>MarketScoreCalculator</code> is the <strong>ONLY</strong> place
+                            where score calculation logic exists. Both live trading and backtesting
+                            use this exact same code. This ensures backtesting results accurately
+                            predict live trading performance.
+                        </p>
+                    </div>
+                    
+                    <pre><code><span class="token-comment">// MarketScoreCalculator.cs - THE source of truth</span>
+<span class="token-keyword">public static class</span> <span class="token-function">MarketScoreCalculator</span>
+{
+    <span class="token-comment">// Calculate score using DEFAULT weights</span>
+    <span class="token-keyword">public static</span> MarketScoreResult <span class="token-function">Calculate</span>(IndicatorSnapshot snapshot)
+    {
+        <span class="token-keyword">return</span> Calculate(snapshot, IndicatorWeights.Default);
+    }
+    
+    <span class="token-comment">// Calculate score using LEARNED weights</span>
+    <span class="token-keyword">public static</span> MarketScoreResult <span class="token-function">Calculate</span>(
+        IndicatorSnapshot snapshot, 
+        IndicatorWeights weights)
+    {
+        <span class="token-comment">// ... calculation logic ...</span>
+    }
+}</code></pre>
+                </section>
+                
+                <!-- Related Topics -->
+                <section>
+                    <h2>Related Topics</h2>
+                    <div class="toc">
+                        <ul class="toc-list">
+                            <li><a href="autonomous-trading.htm">Autonomous Trading</a> - How the score drives automatic trades</li>
+                            <li><a href="adaptive-order.htm">Adaptive Orders</a> - Dynamic TP/SL based on score changes</li>
+                            <li><a href="learned-weights.htm">Learned Weights</a> - Per-ticker weight optimization</li>
+                            <li><a href="indicators.htm">Indicators</a> - Deep dive on each indicator</li>
+                        </ul>
+                    </div>
+                </section>
+                
+                <!-- Footer -->
+                <footer class="page-footer">
+                    <div class="footer-nav">
+                        <a href="indicators.htm">← Indicators</a>
+                        <a href="adaptive-order.htm">Next: Adaptive Order →</a>
+                    </div>
+                    <p class="text-center text-muted">
+                        IdiotProof Trading System Documentation &copy; 2026
+                    </p>
+                </footer>
+            </div>
+        </main>
+    </div>
+</body>
+</html>

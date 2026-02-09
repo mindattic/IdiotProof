@@ -67,7 +67,7 @@ namespace IdiotProof.Strategy {
         /// </summary>
         private static void Log(string message)
         {
-            Console.WriteLine($"{TimeStamp.NowBracketed} [StrategyManager] {message}");
+            ConsoleLog.Manager(message);
             SessionLogger?.LogEvent("MANAGER", message);
         }
 

@@ -12,7 +12,7 @@
 //
 // ============================================================================
 
-namespace IdiotProof.Helpers;
+namespace IdiotProof.Calculators;
 
 /// <summary>
 /// Input data for market score calculation.

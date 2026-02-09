@@ -249,7 +249,7 @@ namespace IdiotProof.Helpers {
 
         /// <summary>
         /// Updates the ADX with a completed candlestick (OHLC data).
-        /// Use this method when feeding data from a CandlestickAggregator.
+        /// Use this method when feeding data from a CandlestickAggregatorHelper.
         /// </summary>
         /// <param name="high">The candle high price.</param>
         /// <param name="low">The candle low price.</param>

@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Strategy Rules - IdiotProof Documentation</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="page-wrapper">
+        <!-- Sidebar Navigation -->
+        <nav class="sidebar">
+            <div class="sidebar-header">
+                <a href="index.htm" class="logo">
+                    <span class="logo-icon">📈</span>
+                    <span class="logo-text">IdiotProof</span>
+                    <span class="logo-version">v2.0</span>
+                </a>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">Getting Started</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="index.htm" class="nav-link"><span class="nav-icon">🏠</span>Home</a></li>
+                    <li class="nav-item"><a href="quick-start.htm" class="nav-link"><span class="nav-icon">🚀</span>Quick Start</a></li>
+                    <li class="nav-item"><a href="architecture.htm" class="nav-link"><span class="nav-icon">🏗️</span>Architecture</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">Trading Systems</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="market-score.htm" class="nav-link"><span class="nav-icon">🎯</span>Market Score</a></li>
+                    <li class="nav-item"><a href="adaptive-order.htm" class="nav-link"><span class="nav-icon">🔄</span>AdaptiveOrder</a></li>
+                    <li class="nav-item"><a href="autonomous-trading.htm" class="nav-link"><span class="nav-icon">🤖</span>AutonomousTrading</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">AI & Machine Learning</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="ai-overview.htm" class="nav-link"><span class="nav-icon">🧠</span>AI Overview</a></li>
+                    <li class="nav-item"><a href="ai-advisor.htm" class="nav-link"><span class="nav-icon">💬</span>AI Advisor (ChatGPT)</a></li>
+                    <li class="nav-item"><a href="lstm.htm" class="nav-link"><span class="nav-icon">🔮</span>LSTM Predictor</a></li>
+                    <li class="nav-item"><a href="pattern-matcher.htm" class="nav-link"><span class="nav-icon">🔍</span>Pattern Matcher</a></li>
+                    <li class="nav-item"><a href="ticker-learning.htm" class="nav-link"><span class="nav-icon">📚</span>Ticker Learning</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">Configuration</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="configuration.htm" class="nav-link"><span class="nav-icon">⚙️</span>Settings</a></li>
+                    <li class="nav-item"><a href="watchlist.htm" class="nav-link"><span class="nav-icon">👀</span>Watchlist</a></li>
+                    <li class="nav-item"><a href="strategy-rules.htm" class="nav-link active"><span class="nav-icon">📝</span>Strategy Rules</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">Reference</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="glossary.htm" class="nav-link"><span class="nav-icon">📖</span>Glossary</a></li>
+                    <li class="nav-item"><a href="faq.htm" class="nav-link"><span class="nav-icon">❓</span>FAQ</a></li>
+                    <li class="nav-item"><a href="troubleshooting.htm" class="nav-link"><span class="nav-icon">🔧</span>Troubleshooting</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">Roadmap</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="futureproofing.htm" class="nav-link"><span class="nav-icon">🔮</span>Future-Proofing</a></li>
+                    <li class="nav-item"><a href="wishlist.htm" class="nav-link"><span class="nav-icon">✨</span>Wishlist</a></li>
+                </ul>
+            </div>
+        </nav>
+        
+        <!-- Main Content -->
+        <main class="main-content">
+            <div class="content-wrapper">
+                <!-- Breadcrumb -->
+                <div class="breadcrumb">
+                    <a href="index.htm">Home</a>
+                    <span class="breadcrumb-separator">/</span>
+                    <a href="configuration.htm">Configuration</a>
+                    <span class="breadcrumb-separator">/</span>
+                    <span>Strategy Rules</span>
+                </div>
+                
+                <!-- Header -->
+                <header class="page-header">
+                    <h1 class="page-title">Strategy Rules</h1>
+                    <p class="page-subtitle">
+                        Define custom trading rules in plain English that ChatGPT evaluates 
+                        alongside technical indicators. Turn stock tips into actionable filters.
+                    </p>
+                </header>
+                
+                <!-- Overview -->
+                <section id="overview">
+                    <h2>Overview</h2>
+                    <p>
+                        The <strong>strategy-rules.json</strong> file allows you to define trading rules
+                        in natural language. When you receive a stock tip like "wait for AAPL to break $150,
+                        then buy the pullback above $145", you can encode this as a strategy rule.
+                        ChatGPT will evaluate your entries against these rules.
+                    </p>
+                    
+                    <div class="ascii-art">
+HOW STRATEGY RULES WORK
+═══════════════════════════════════════════════════════════════════════════════
+
+    STEP 1: YOU RECEIVE A TIP
+    ─────────────────────────────────────────────────────────────────────────
+    
+    "CCHH is a Day 2 play. Wait for breakout above $0.78, then pullback.
+     Only enter if pullback holds above $0.70. No chasing!"
+    
+    
+    STEP 2: ENCODE IN strategy-rules.json
+    ─────────────────────────────────────────────────────────────────────────
+    
+    {
+      "symbol": "CCHH",
+      "name": "Day 2 Breakout-Pullback",
+      "rule": "Wait for breakout above $0.78, then pullback. 
+               Only enter if pullback holds above $0.70. No chasing!",
+      "levels": {
+        "breakout": 0.78,
+        "support": 0.70
+      },
+      "targets": [0.85, 1.00]
+    }
+    
+    
+    STEP 3: AI ADVISOR EVALUATES ENTRIES
+    ─────────────────────────────────────────────────────────────────────────
+    
+    Current: CCHH @ $0.72 | Just broke $0.78 | Pulling back...
+    
+    ┌─────────────────────────────────────────────────────────────────────────┐
+    │  AI ADVISOR PROMPT:                                                     │
+    │                                                                         │
+    │  === CURRENT INDICATORS ===                                            │
+    │  Price: $0.72                                                          │
+    │  VWAP: $0.68 (+5.9%)                                                   │
+    │  RSI: 58.2                                                             │
+    │  MACD: Bullish                                                         │
+    │  ADX: 34 (+DI > -DI)                                                   │
+    │                                                                         │
+    │  === USER-DEFINED STRATEGY RULES ===                                   │
+    │  RULE (Day 2 Breakout-Pullback):                                       │
+    │  Wait for breakout above $0.78, then pullback.                         │
+    │  Only enter if pullback holds above $0.70. No chasing!                 │
+    │                                                                         │
+    │  Key Levels:                                                           │
+    │    - Support: $0.70                                                    │
+    │    - Breakout: $0.78                                                   │
+    │  Targets: $0.85, $1.00                                                 │
+    └─────────────────────────────────────────────────────────────────────────┘
+    
+    
+    STEP 4: AI RETURNS ANALYSIS WITH RULE STATUS
+    ─────────────────────────────────────────────────────────────────────────
+    
+    ┌─────────────────────────────────────────────────────────────────────────┐
+    │  ACTION: <span class="bullish">LONG</span>                                                          │
+    │  CONFIDENCE: 78%                                                        │
+    │  REASONING: Indicators bullish, pullback holding above $0.70 support.  │
+    │  RULE_STATUS: <span class="bullish">MET</span> ← Custom rules are satisfied!                        │
+    │  RISKS: RSI approaching overbought, low volume on pullback             │
+    │  TPSL: TP1 at $0.85, SL at $0.68 (below VWAP)                          │
+    └─────────────────────────────────────────────────────────────────────────┘
+</div>
+                </section>
+                
+                <!-- File Location -->
+                <section id="location">
+                    <h2>File Location</h2>
+                    <div class="code-block">
+IdiotProof.Core\Data\strategy-rules.json
+</div>
+                </section>
+                
+                <!-- Complete File Format -->
+                <section id="format">
+                    <h2>Complete File Format</h2>
+                    
+                    <div class="code-block">
+{
+    <span class="token-string">"description"</span>: <span class="token-string">"Custom Strategy Rules"</span>,
+    <span class="token-string">"enabled"</span>: <span class="token-keyword">true</span>,
+    <span class="token-string">"rules"</span>: [
+        {
+            <span class="token-string">"symbol"</span>: <span class="token-string">"CCHH"</span>,
+            <span class="token-string">"enabled"</span>: <span class="token-keyword">true</span>,
+            <span class="token-string">"validFrom"</span>: <span class="token-string">"2026-02-07"</span>,
+            <span class="token-string">"validUntil"</span>: <span class="token-string">"2026-02-10"</span>,
+            <span class="token-string">"name"</span>: <span class="token-string">"Day 2 Breakout-Pullback"</span>,
+            <span class="token-string">"rule"</span>: <span class="token-string">"Wait for breakout above $0.78, then pullback.
+Only enter if pullback holds above $0.70.
+RULE: No chasing - pullback entries only."</span>,
+            <span class="token-string">"levels"</span>: {
+                <span class="token-string">"breakout"</span>: <span class="token-number">0.78</span>,
+                <span class="token-string">"support"</span>: <span class="token-number">0.70</span>,
+                <span class="token-string">"previousHigh"</span>: <span class="token-number">0.78</span>
+            },
+            <span class="token-string">"targets"</span>: [<span class="token-number">0.85</span>, <span class="token-number">1.00</span>],
+            <span class="token-string">"notes"</span>: <span class="token-string">"Day 2 watch - be patient for proper setup"</span>
+        }
+    ]
+}
+</div>
+                </section>
+                
+                <!-- Field Reference -->
+                <section id="fields">
+                    <h2>Field Reference</h2>
+                    
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Field</th>
+                                <th>Type</th>
+                                <th>Required</th>
+                                <th>Description</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><code>symbol</code></td>
+                                <td>string</td>
+                                <td>Yes</td>
+                                <td>Ticker symbol (e.g., "CCHH")</td>
+                            </tr>
+                            <tr>
+                                <td><code>enabled</code></td>
+                                <td>boolean</td>
+                                <td>No</td>
+                                <td>Enable/disable this rule (default: true)</td>
+                            </tr>
+                            <tr>
+                                <td><code>validFrom</code></td>
+                                <td>string</td>
+                                <td>No</td>
+                                <td>Start date in EST (ISO 8601). Rule ignored before this date.</td>
+                            </tr>
+                            <tr>
+                                <td><code>validUntil</code></td>
+                                <td>string</td>
+                                <td>No</td>
+                                <td>End date in EST (ISO 8601). Rule ignored after this date.</td>
+                            </tr>
+                            <tr>
+                                <td><code>name</code></td>
+                                <td>string</td>
+                                <td>No</td>
+                                <td>Friendly name for the strategy</td>
+                            </tr>
+                            <tr>
+                                <td><code>rule</code></td>
+                                <td>string</td>
+                                <td>Yes</td>
+                                <td>Plain text rule - ChatGPT interprets this</td>
+                            </tr>
+                            <tr>
+                                <td><code>levels</code></td>
+                                <td>object</td>
+                                <td>No</td>
+                                <td>Key price levels (see below)</td>
+                            </tr>
+                            <tr>
+                                <td><code>targets</code></td>
+                                <td>array</td>
+                                <td>No</td>
+                                <td>Target prices as array of numbers</td>
+                            </tr>
+                            <tr>
+                                <td><code>notes</code></td>
+                                <td>string</td>
+                                <td>No</td>
+                                <td>Additional context for the AI</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    
+                    <h3>Available Level Fields</h3>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Level</th>
+                                <th>Description</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr><td><code>breakout</code></td><td>Price that must break for consideration (resistance)</td></tr>
+                            <tr><td><code>support</code></td><td>Price that pullback must hold above</td></tr>
+                            <tr><td><code>previousHigh</code></td><td>Previous high of day or resistance</td></tr>
+                            <tr><td><code>previousLow</code></td><td>Previous low of day or support</td></tr>
+                            <tr><td><code>vwap</code></td><td>VWAP reference level</td></tr>
+                            <tr><td><code>trigger1</code></td><td>First trigger level before main breakout</td></tr>
+                            <tr><td><code>microSupport</code></td><td>Micro support for tighter stops</td></tr>
+                            <tr><td><code>rangeLow</code></td><td>Range low for choppy markets</td></tr>
+                            <tr><td><code>rangeHigh</code></td><td>Range high for choppy markets</td></tr>
+                        </tbody>
+                    </table>
+                </section>
+                
+                <!-- Date Validity -->
+                <section id="dates">
+                    <h2>Date Validity</h2>
+                    <p>
+                        Rules can have validity windows using <code>validFrom</code> and <code>validUntil</code>.
+                        This is essential for stock tips that are date-specific.
+                    </p>
+                    
+                    <div class="ascii-art">
+DATE VALIDITY EXAMPLES
+═══════════════════════════════════════════════════════════════════════════════
+
+    SCENARIO 1: Single-Day Tip
+    ─────────────────────────────────────────────────────────────────────────
+    You receive a tip on Friday for Monday's catalyst:
+    
+    "validFrom": "2026-02-09",     ← Monday only
+    "validUntil": "2026-02-09"
+    
+    
+    SCENARIO 2: Multi-Day Watch
+    ─────────────────────────────────────────────────────────────────────────
+    Earnings runner that might squeeze for a few days:
+    
+    "validFrom": "2026-02-07",     ← Friday through Tuesday
+    "validUntil": "2026-02-11"
+    
+    
+    SCENARIO 3: Prevent Backtesting Leakage
+    ─────────────────────────────────────────────────────────────────────────
+    Tip received today shouldn't affect historical backtests:
+    
+    "validFrom": "2026-02-08"      ← Only applies from today forward
+                                    ← No validUntil = no expiry
+    
+    
+    RULE STATUS OVER TIME
+    ─────────────────────────────────────────────────────────────────────────
+    
+    Feb 6th     Feb 7th     Feb 8th     Feb 9th     Feb 10th    Feb 11th
+       │           │           │           │           │           │
+       │           │◄──────────────────────►│           │           │
+       │      [NOT YET]  [ACTIVE]  [ACTIVE]  [ACTIVE]  [EXPIRED]   │
+       │                                                            │
+       ├───────────┴───────────────────────────────────────────────┤
+       validFrom: Feb 7                              validUntil: Feb 10
+</div>
+                </section>
+                
+                <!-- Writing Effective Rules -->
+                <section id="writing">
+                    <h2>Writing Effective Rules</h2>
+                    
+                    <h3>Good Rule Examples</h3>
+                    <div class="code-block">
+<span class="token-comment">// Clear, actionable, specific</span>
+<span class="token-string">"rule"</span>: <span class="token-string">"CONFIRMATIONS (in order):
+1. Price breaks above $0.78 (previous HOD / double top)
+2. DO NOT buy the breakout - wait for a pullback
+3. Pullback must hold higher lows above $0.70
+4. Only take entries if pullback forms clean bottoms above $0.70
+
+RULE: No chasing. Pullback entries only."</span>
+</div>
+                    
+                    <h3>Key Principles</h3>
+                    <ul>
+                        <li><strong>Be explicit:</strong> "Wait for breakout THEN pullback" not "buy when it looks good"</li>
+                        <li><strong>Include levels:</strong> "$0.78 breakout", "$0.70 support" are specific</li>
+                        <li><strong>State what NOT to do:</strong> "No chasing", "No FOMO entries"</li>
+                        <li><strong>Order matters:</strong> Numbered steps help the AI understand sequence</li>
+                        <li><strong>End with clear rule:</strong> "RULE: No break = no trade"</li>
+                    </ul>
+                    
+                    <h3>Bad Rule Examples</h3>
+                    <div class="code-block">
+<span class="token-comment">// Too vague - ChatGPT can't evaluate</span>
+<span class="token-string">"rule"</span>: <span class="token-string">"Buy when it looks like it's going up"</span>
+
+<span class="token-comment">// No specific levels</span>
+<span class="token-string">"rule"</span>: <span class="token-string">"Enter on pullback"</span>
+
+<span class="token-comment">// Contradictory</span>
+<span class="token-string">"rule"</span>: <span class="token-string">"Buy breakout but don't chase"</span>
+</div>
+                </section>
+                
+                <!-- AI Response -->
+                <section id="response">
+                    <h2>AI Response Format</h2>
+                    <p>
+                        When ChatGPT evaluates with custom rules, it returns a <code>RULE_STATUS</code>:
+                    </p>
+                    
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Status</th>
+                                <th>Meaning</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td class="bullish"><code>MET</code></td>
+                                <td>All custom rules are satisfied. Entry aligns with your strategy.</td>
+                            </tr>
+                            <tr>
+                                <td class="bearish"><code>NOT_MET</code></td>
+                                <td>Custom rules not satisfied. Wait for better setup.</td>
+                            </tr>
+                            <tr>
+                                <td><code>NO_RULES</code></td>
+                                <td>No custom rules defined for this symbol.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    
+                    <div class="ascii-art">
+EXAMPLE AI RESPONSES
+═══════════════════════════════════════════════════════════════════════════════
+
+    RULE_STATUS: <span class="bullish">MET</span>
+    ─────────────────────────────────────────────────────────────────────────
+    ACTION: LONG
+    CONFIDENCE: 82%
+    REASONING: Price broke $0.78, now pulling back. Currently at $0.72,
+               holding above $0.70 support. Indicators bullish. 
+               <span class="bullish">Custom rules satisfied - proper pullback entry.</span>
+    RISKS: Low volume on pullback, RSI 65
+    
+    
+    RULE_STATUS: <span class="bearish">NOT_MET</span>
+    ─────────────────────────────────────────────────────────────────────────
+    ACTION: WAIT
+    CONFIDENCE: 45%
+    REASONING: Price at $0.76 approaching $0.78 breakout level but has NOT
+               broken yet. <span class="bearish">Rule says "wait for breakout then pullback" - 
+               no breakout has occurred yet.</span>
+    RISKS: Chasing into resistance
+    
+    
+    RULE_STATUS: <span class="bearish">NOT_MET</span>
+    ─────────────────────────────────────────────────────────────────────────
+    ACTION: WAIT
+    CONFIDENCE: 30%
+    REASONING: Price broke $0.78 and is now at $0.82. <span class="bearish">Rule says "no chasing"
+               and "pullback entries only" - this is a breakout chase,
+               not a pullback.</span> Wait for price to pull back above $0.70.
+    RISKS: Extended, no pullback yet
+</div>
+                </section>
+
+                <!-- Real World Example -->
+                <section id="example">
+                    <h2>Complete Real-World Example</h2>
+                    
+                    <div class="code-block">
+{
+    <span class="token-string">"description"</span>: <span class="token-string">"Sunday night prep - tips for Monday trading"</span>,
+    <span class="token-string">"enabled"</span>: <span class="token-keyword">true</span>,
+    <span class="token-string">"rules"</span>: [
+        {
+            <span class="token-string">"symbol"</span>: <span class="token-string">"CCHH"</span>,
+            <span class="token-string">"enabled"</span>: <span class="token-keyword">true</span>,
+            <span class="token-string">"validFrom"</span>: <span class="token-string">"2026-02-09"</span>,
+            <span class="token-string">"validUntil"</span>: <span class="token-string">"2026-02-11"</span>,
+            <span class="token-string">"name"</span>: <span class="token-string">"Day 2 Breakout-Pullback"</span>,
+            <span class="token-string">"rule"</span>: <span class="token-string">"CONFIRMATIONS (in order):
+1. Price breaks above $0.78 (previous HOD / double top)
+2. DO NOT buy the breakout - wait for a pullback
+3. Pullback must hold higher lows above $0.70
+4. Only take entries if pullback forms clean bottoms above $0.70
+
+RULE: No chasing. Pullback entries only."</span>,
+            <span class="token-string">"levels"</span>: {
+                <span class="token-string">"breakout"</span>: <span class="token-number">0.78</span>,
+                <span class="token-string">"support"</span>: <span class="token-number">0.70</span>
+            },
+            <span class="token-string">"targets"</span>: [<span class="token-number">0.85</span>, <span class="token-number">1.00</span>],
+            <span class="token-string">"notes"</span>: <span class="token-string">"Day 2 watch - be patient"</span>
+        },
+        {
+            <span class="token-string">"symbol"</span>: <span class="token-string">"TONN"</span>,
+            <span class="token-string">"enabled"</span>: <span class="token-keyword">true</span>,
+            <span class="token-string">"validFrom"</span>: <span class="token-string">"2026-02-09"</span>,
+            <span class="token-string">"validUntil"</span>: <span class="token-string">"2026-02-11"</span>,
+            <span class="token-string">"name"</span>: <span class="token-string">"Earnings Runner Day 2"</span>,
+            <span class="token-string">"rule"</span>: <span class="token-string">"CONFIRMATIONS (in order):
+1. Price breaks above $0.94 (previous high)
+2. If it breaks, wait for a pullback/retest
+3. Retest must hold above $0.90
+4. If it holds, that is your entry confirmation
+
+RULE: No break = no trade."</span>,
+            <span class="token-string">"levels"</span>: {
+                <span class="token-string">"breakout"</span>: <span class="token-number">0.94</span>,
+                <span class="token-string">"support"</span>: <span class="token-number">0.90</span>
+            },
+            <span class="token-string">"targets"</span>: [<span class="token-number">1.10</span>, <span class="token-number">1.30</span>]
+        },
+        {
+            <span class="token-string">"symbol"</span>: <span class="token-string">"SMX"</span>,
+            <span class="token-string">"enabled"</span>: <span class="token-keyword">true</span>,
+            <span class="token-string">"validFrom"</span>: <span class="token-string">"2026-02-09"</span>,
+            <span class="token-string">"validUntil"</span>: <span class="token-string">"2026-02-11"</span>,
+            <span class="token-string">"name"</span>: <span class="token-string">"High Volatility Explosive"</span>,
+            <span class="token-string">"rule"</span>: <span class="token-string">"CONFIRMATIONS (in order):
+1. Price breaks above $20.50 (topping tail high)
+2. After the break, wait for a pullback
+3. Pullback must hold above $18.70 on the retest
+4. Only take entries if price is above VWAP AND above EMAs
+
+RULE: No break = no trade. Smaller size due to volatility."</span>,
+            <span class="token-string">"levels"</span>: {
+                <span class="token-string">"breakout"</span>: <span class="token-number">20.50</span>,
+                <span class="token-string">"support"</span>: <span class="token-number">18.70</span>
+            },
+            <span class="token-string">"targets"</span>: [<span class="token-number">30.00</span>, <span class="token-number">40.00</span>],
+            <span class="token-string">"notes"</span>: <span class="token-string">"High volatility - use smaller position size"</span>
+        }
+    ]
+}
+</div>
+                </section>
+                
+                <!-- Footer -->
+                <footer class="page-footer">
+                    <div class="footer-nav">
+                        <a href="watchlist.htm">← Watchlist</a>
+                        <a href="ai-advisor.htm">Next: AI Advisor (ChatGPT) →</a>
+                    </div>
+                    <p class="text-center text-muted">
+                        IdiotProof Trading System Documentation &copy; 2026
+                    </p>
+                </footer>
+            </div>
+        </main>
+    </div>
+</body>
+</html>

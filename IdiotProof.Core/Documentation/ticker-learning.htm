@@ -1,0 +1,619 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ticker Learning System - IdiotProof Documentation</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="page-wrapper">
+        <!-- Sidebar Navigation -->
+        <nav class="sidebar">
+            <div class="sidebar-header">
+                <a href="index.htm" class="logo">
+                    <span class="logo-icon">📈</span>
+                    <span class="logo-text">IdiotProof</span>
+                    <span class="logo-version">v2.0</span>
+                </a>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">Getting Started</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="index.htm" class="nav-link"><span class="nav-icon">🏠</span>Home</a></li>
+                    <li class="nav-item"><a href="quick-start.htm" class="nav-link"><span class="nav-icon">🚀</span>Quick Start</a></li>
+                    <li class="nav-item"><a href="architecture.htm" class="nav-link"><span class="nav-icon">🏗️</span>Architecture</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">Trading Systems</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="market-score.htm" class="nav-link"><span class="nav-icon">🎯</span>Market Score</a></li>
+                    <li class="nav-item"><a href="adaptive-order.htm" class="nav-link"><span class="nav-icon">🔄</span>AdaptiveOrder</a></li>
+                    <li class="nav-item"><a href="autonomous-trading.htm" class="nav-link"><span class="nav-icon">🤖</span>AutonomousTrading</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">AI & Machine Learning</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="ai-overview.htm" class="nav-link"><span class="nav-icon">🧠</span>AI Overview</a></li>
+                    <li class="nav-item"><a href="ai-advisor.htm" class="nav-link"><span class="nav-icon">💬</span>AI Advisor (ChatGPT)</a></li>
+                    <li class="nav-item"><a href="lstm.htm" class="nav-link"><span class="nav-icon">🔮</span>LSTM Predictor</a></li>
+                    <li class="nav-item"><a href="pattern-matcher.htm" class="nav-link"><span class="nav-icon">🔍</span>Pattern Matcher</a></li>
+                    <li class="nav-item"><a href="ticker-learning.htm" class="nav-link active"><span class="nav-icon">📚</span>Ticker Learning</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">Configuration</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="configuration.htm" class="nav-link"><span class="nav-icon">⚙️</span>Settings</a></li>
+                    <li class="nav-item"><a href="watchlist.htm" class="nav-link"><span class="nav-icon">👀</span>Watchlist</a></li>
+                    <li class="nav-item"><a href="strategy-rules.htm" class="nav-link"><span class="nav-icon">📝</span>Strategy Rules</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">Reference</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="glossary.htm" class="nav-link"><span class="nav-icon">📖</span>Glossary</a></li>
+                    <li class="nav-item"><a href="faq.htm" class="nav-link"><span class="nav-icon">❓</span>FAQ</a></li>
+                    <li class="nav-item"><a href="troubleshooting.htm" class="nav-link"><span class="nav-icon">🔧</span>Troubleshooting</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">Roadmap</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="futureproofing.htm" class="nav-link"><span class="nav-icon">🔮</span>Future-Proofing</a></li>
+                    <li class="nav-item"><a href="wishlist.htm" class="nav-link"><span class="nav-icon">✨</span>Wishlist</a></li>
+                </ul>
+            </div>
+        </nav>
+        
+        <!-- Main Content -->
+        <main class="main-content">
+            <div class="content-wrapper">
+                <!-- Breadcrumb -->
+                <div class="breadcrumb">
+                    <a href="index.htm">Home</a>
+                    <span class="breadcrumb-separator">/</span>
+                    <a href="ai-overview.htm">AI & Machine Learning</a>
+                    <span class="breadcrumb-separator">/</span>
+                    <span>Ticker Learning</span>
+                </div>
+                
+                <!-- Header -->
+                <header class="page-header">
+                    <h1 class="page-title">Ticker Learning System</h1>
+                    <p class="page-subtitle">
+                        The system learns what works for each specific stock. Every trade is recorded,
+                        analyzed, and used to improve future entries, exits, and timing.
+                        Over time, the system becomes specialized for each ticker.
+                    </p>
+                </header>
+                
+                <!-- Overview -->
+                <section id="overview">
+                    <h2>How It Works</h2>
+                    
+                    <div class="ascii-art">
+TICKER LEARNING PIPELINE
+═══════════════════════════════════════════════════════════════════════════════
+
+    ┌─────────────────────────────────────────────────────────────────────────┐
+    │  1. TRADE ENTRY                                                        │
+    └────────────────────────────────┬────────────────────────────────────────┘
+                                     │
+                                     ▼
+    ┌─────────────────────────────────────────────────────────────────────────┐
+    │  SNAPSHOT ALL INDICATORS AT ENTRY TIME                                 │
+    │                                                                         │
+    │  Entry Score: +72                                                      │
+    │  RSI: 42.5       VWAP Score: +8       EMA Score: +12                   │
+    │  ADX: 38.2       MACD Score: +15      Volume Score: +6                 │
+    │  Stochastic: 35  CCI: -50             Williams%R: -65                  │
+    │  OBV: +25        Bollinger: +30       Sentiment: +40                   │
+    │                                                                         │
+    │  Time: 10:15 AM (bucket "10:15")                                       │
+    └────────────────────────────────┬────────────────────────────────────────┘
+                                     │
+                                     ▼
+    ┌─────────────────────────────────────────────────────────────────────────┐
+    │  2. TRADE EXIT (TP, SL, or score-based)                                │
+    └────────────────────────────────┬────────────────────────────────────────┘
+                                     │
+                                     ▼
+    ┌─────────────────────────────────────────────────────────────────────────┐
+    │  CALCULATE OUTCOME                                                     │
+    │                                                                         │
+    │  Exit Price: $152.50    Entry Price: $150.25                           │
+    │  P&L: +$225 (100 shares × $2.25)                                       │
+    │  P&L %: +1.5%                                                          │
+    │  Duration: 45 minutes                                                  │
+    │  Result: <span class="bullish">WIN</span>                                                          │
+    └────────────────────────────────┬────────────────────────────────────────┘
+                                     │
+                                     ▼
+    ┌─────────────────────────────────────────────────────────────────────────┐
+    │  3. UPDATE PROFILE STATISTICS                                          │
+    │                                                                         │
+    │  ├─ Overall Stats: Win rate, profit factor, streaks                    │
+    │  ├─ Threshold Stats: Win rate at entry score +72                       │
+    │  ├─ Time Window Stats: Win rate at 10:15 bucket                        │
+    │  └─ Indicator Correlations: "RSI 30-50 + ADX >=40 = 68% win rate"      │
+    └────────────────────────────────┬────────────────────────────────────────┘
+                                     │
+                                     ▼
+    ┌─────────────────────────────────────────────────────────────────────────┐
+    │  4. RECALCULATE OPTIMAL THRESHOLDS                                     │
+    │                                                                         │
+    │  Before: Entry at score >=70 (default)                                 │
+    │  After:  Entry at score >=65 (learned - works better for THIS ticker)  │
+    │                                                                         │
+    │  Confidence: 52% (26 trades × 2)                                       │
+    │  Blended threshold = 70×48% + 65×52% = 67.4                            │
+    └─────────────────────────────────────────────────────────────────────────┘
+</div>
+                </section>
+                
+                <!-- What Gets Stored -->
+                <section id="storage">
+                    <h2>What Gets Stored</h2>
+                    <p>
+                        Each ticker has a profile stored in <code>Profiles/{SYMBOL}.json</code>.
+                        The profile contains:
+                    </p>
+                    
+                    <h3>TradeRecord - Per-Trade Data</h3>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Field</th>
+                                <th>Description</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><code>EntryTime</code></td>
+                                <td>When the trade was entered</td>
+                            </tr>
+                            <tr>
+                                <td><code>ExitTime</code></td>
+                                <td>When the trade was exited</td>
+                            </tr>
+                            <tr>
+                                <td><code>EntryPrice</code></td>
+                                <td>Price at entry</td>
+                            </tr>
+                            <tr>
+                                <td><code>ExitPrice</code></td>
+                                <td>Price at exit</td>
+                            </tr>
+                            <tr>
+                                <td><code>IsLong</code></td>
+                                <td>True for long, false for short</td>
+                            </tr>
+                            <tr>
+                                <td><code>Quantity</code></td>
+                                <td>Number of shares</td>
+                            </tr>
+                            <tr>
+                                <td><code>EntryScore</code></td>
+                                <td>Market score at entry</td>
+                            </tr>
+                            <tr>
+                                <td><code>Entry*Score</code></td>
+                                <td>Individual indicator scores (VWAP, EMA, RSI, MACD, ADX, Volume, Bollinger, Stochastic, OBV, CCI, WilliamsR)</td>
+                            </tr>
+                            <tr>
+                                <td><code>RsiAtEntry</code></td>
+                                <td>Raw RSI value at entry</td>
+                            </tr>
+                            <tr>
+                                <td><code>AdxAtEntry</code></td>
+                                <td>Raw ADX value at entry</td>
+                            </tr>
+                            <tr>
+                                <td><code>ExitReason</code></td>
+                                <td>"TP", "SL", "score", or "END"</td>
+                            </tr>
+                            <tr>
+                                <td><code>TimeBucket</code></td>
+                                <td>15-min bucket like "10:15"</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    
+                    <h3>TickerProfile - Aggregate Statistics</h3>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Category</th>
+                                <th>Fields</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><strong>Overall Stats</strong></td>
+                                <td>TotalTrades, TotalWins, TotalLosses, WinRate, ProfitFactor, TotalPnL</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Long Stats</strong></td>
+                                <td>LongTrades, LongWins, LongWinRate</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Short Stats</strong></td>
+                                <td>ShortTrades, ShortWins, ShortWinRate</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Streak Tracking</strong></td>
+                                <td>CurrentStreak, LongestWinStreak, LongestLossStreak</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Threshold Stats</strong></td>
+                                <td>Win rate & expectancy at each score bucket (5-point intervals)</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Time Windows</strong></td>
+                                <td>Win rate & average profit for each 15-min time bucket</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Indicator Correlations</strong></td>
+                                <td>Which indicator conditions lead to wins</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Optimal Thresholds</strong></td>
+                                <td>Learned best entry/exit score levels</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </section>
+                
+                <!-- Threshold Learning -->
+                <section id="thresholds">
+                    <h2>Threshold Learning</h2>
+                    <p>
+                        The system learns what entry score works best for each ticker by tracking
+                        win rates at different threshold levels.
+                    </p>
+                    
+                    <div class="ascii-art">
+THRESHOLD BUCKET ANALYSIS
+═══════════════════════════════════════════════════════════════════════════════
+
+Example: NVDA Long Entry Threshold Stats
+
+    Score Bucket │ Trades │ Wins │ Win Rate │ Expectancy │ Profit Factor
+    ─────────────┼────────┼──────┼──────────┼────────────┼───────────────
+        60       │   12   │   5  │   42%    │   -$15     │     0.8
+        65       │   18   │  10  │   56%    │   +$28     │    <span class="bullish">1.4</span>
+        70       │   15   │   9  │   60%    │   +$45     │    <span class="bullish">1.6</span>
+        75       │   11   │   8  │   73%    │   +$82     │    <span class="bullish">2.1</span>   ◄── Best!
+        80       │    6   │   5  │   83%    │   +$65     │    <span class="bullish">2.5</span>
+        85       │    2   │   2  │  100%    │   +$40     │     ∞
+                                              └─ Too few trades to trust
+
+    RESULT: OptimalLongEntryThreshold = 75
+    (Highest expectancy with sufficient sample size)
+
+
+CONFIDENCE BLENDING
+═══════════════════════════════════════════════════════════════════════════════
+
+    Confidence = min(100, TotalTrades × 2)
+    
+    Blended Threshold = Default × (1 - Confidence%) + Learned × Confidence%
+    
+    Example with 26 trades (52% confidence):
+    ─────────────────────────────────────────────────────────────────────────
+    
+    Default threshold: 70
+    Learned optimal:   75
+    Confidence:        52%
+    
+    Blended = 70 × 0.48 + 75 × 0.52
+            = 33.6 + 39.0
+            = 72.6 (rounded to 73)
+    
+    The system enters at 73 instead of 70, using the learned insight
+    that this ticker performs better with a slightly higher threshold.
+</div>
+                </section>
+                
+                <!-- Time Window Analysis -->
+                <section id="timewindows">
+                    <h2>Time Window Analysis</h2>
+                    <p>
+                        The system learns which times of day work best for each ticker.
+                        Time is bucketed into 15-minute windows.
+                    </p>
+                    
+                    <div class="ascii-art">
+TIME WINDOW HEATMAP (Example: AAPL)
+═══════════════════════════════════════════════════════════════════════════════
+
+    Time     │ Trades │ Wins │ Win Rate │ Status
+    ─────────┼────────┼──────┼──────────┼──────────────────────────
+    09:30    │   22   │   8  │   36%    │ <span class="bearish">AVOID</span> (opening volatility)
+    09:45    │   18   │   9  │   50%    │ Neutral
+    10:00    │   25   │  15  │   60%    │ <span class="bullish">GOOD</span>
+    10:15    │   20   │  14  │   70%    │ <span class="bullish">EXCELLENT</span>
+    10:30    │   15   │  10  │   67%    │ <span class="bullish">GOOD</span>
+    ...      │        │      │          │
+    12:00    │   10   │   4  │   40%    │ <span class="bearish">AVOID</span> (lunch lull)
+    12:15    │    8   │   3  │   38%    │ <span class="bearish">AVOID</span>
+    ...      │        │      │          │
+    14:00    │   12   │   8  │   67%    │ <span class="bullish">GOOD</span>
+    14:15    │   15   │  11  │   73%    │ <span class="bullish">EXCELLENT</span>
+    ...      │        │      │          │
+    15:30    │   20   │  13  │   65%    │ <span class="bullish">GOOD</span>
+    15:45    │   18   │   7  │   39%    │ <span class="bearish">AVOID</span> (EOD volatility)
+
+
+USAGE IN TRADING
+═══════════════════════════════════════════════════════════════════════════════
+
+    bool shouldTrade = profile.IsGoodTimeWindow(DateTime.Now);
+    
+    // Returns false if:
+    //   - This time bucket has ≥5 trades AND
+    //   - Win rate < 40%
+    //
+    // Effect: Strategy skips entries during historically poor time windows
+</div>
+                </section>
+                
+                <!-- Indicator Correlations -->
+                <section id="correlations">
+                    <h2>Indicator Correlation Learning</h2>
+                    <p>
+                        The system tracks which indicator conditions correlate with winning trades
+                        for each ticker. This reveals what signals work best for specific stocks.
+                    </p>
+                    
+                    <div class="ascii-art">
+INDICATOR CORRELATION MATRIX (Example: TSLA)
+═══════════════════════════════════════════════════════════════════════════════
+
+    Indicator    │ Condition           │ Occurrences │ Wins │ Win Rate │ Avg P&L
+    ─────────────┼─────────────────────┼─────────────┼──────┼──────────┼────────
+    RSI          │ Oversold (<=30)     │      8      │   7  │   <span class="bullish">88%</span>    │  +$145
+    RSI          │ Bullish (50-70)     │     45      │  28  │   62%    │   +$52
+    RSI          │ Overbought (>=70)   │     12      │   4  │   <span class="bearish">33%</span>    │   -$28
+    ─────────────┼─────────────────────┼─────────────┼──────┼──────────┼────────
+    ADX          │ Very Strong (>=40)  │     22      │  16  │   <span class="bullish">73%</span>    │  +$110
+    ADX          │ Strong Trend (>=25) │     35      │  21  │   60%    │   +$45
+    ADX          │ Weak Trend (<25)    │     18      │   7  │   <span class="bearish">39%</span>    │   -$15
+    ─────────────┼─────────────────────┼─────────────┼──────┼──────────┼────────
+    MACD         │ Strong Bullish      │     28      │  20  │   <span class="bullish">71%</span>    │   +$88
+    MACD         │ Bullish             │     30      │  18  │   60%    │   +$35
+    MACD         │ Bearish             │     15      │   5  │   <span class="bearish">33%</span>    │   -$42
+    ─────────────┼─────────────────────┼─────────────┼──────┼──────────┼────────
+    Volume       │ Very High (>2x)     │     10      │   8  │   <span class="bullish">80%</span>    │  +$125
+    Volume       │ High (>1.5x)        │     25      │  15  │   60%    │   +$50
+    Volume       │ Low (<avg)          │     12      │   4  │   <span class="bearish">33%</span>    │   -$60
+    ─────────────┼─────────────────────┼─────────────┼──────┼──────────┼────────
+    VWAP         │ Well Above          │     32      │  22  │   <span class="bullish">69%</span>    │   +$72
+    VWAP         │ Above               │     28      │  16  │   57%    │   +$25
+    VWAP         │ Below               │     15      │   4  │   <span class="bearish">27%</span>    │   -$55
+
+
+INSIGHTS FROM CORRELATIONS
+═══════════════════════════════════════════════════════════════════════════════
+
+    For TSLA, the data shows:
+    
+    <span class="bullish">✓ Strong signals:</span>
+      • RSI oversold bounces: 88% win rate
+      • ADX ≥40 with trend trades: 73% win rate
+      • Volume spikes (>2x): 80% win rate
+    
+    <span class="bearish">✗ Weak signals:</span>
+      • RSI overbought entries: only 33% win rate
+      • Low volume trades: only 33% win rate
+      • ADX <25 (ranging): only 39% win rate
+    
+    The system learns: For TSLA, prioritize strong trend + volume confirmation,
+    avoid entries when RSI is overbought or volume is weak.
+</div>
+                </section>
+                
+                <!-- Streak Awareness -->
+                <section id="streaks">
+                    <h2>Streak Awareness</h2>
+                    <p>
+                        The system adjusts behavior based on recent win/loss streaks:
+                    </p>
+                    
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Streak</th>
+                                <th>Risk Multiplier</th>
+                                <th>Effect</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>3+ losses in a row</td>
+                                <td>0.5</td>
+                                <td>Halve position size</td>
+                            </tr>
+                            <tr>
+                                <td>2 losses in a row</td>
+                                <td>0.75</td>
+                                <td>Reduce position size 25%</td>
+                            </tr>
+                            <tr>
+                                <td>Normal</td>
+                                <td>1.0</td>
+                                <td>Standard position size</td>
+                            </tr>
+                            <tr>
+                                <td>5+ wins in a row</td>
+                                <td>0.9</td>
+                                <td>Slight reduction to protect gains</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    
+                    <div class="code-block">
+<span class="token-comment">// In trading logic</span>
+<span class="token-keyword">double</span> riskMultiplier = profile.GetStreakRiskMultiplier();
+<span class="token-keyword">int</span> adjustedQuantity = (<span class="token-keyword">int</span>)(baseQuantity * riskMultiplier);
+</div>
+                </section>
+                
+                <!-- HistoricalMetadata -->
+                <section id="metadata">
+                    <h2>Historical Metadata Integration</h2>
+                    <p>
+                        The profile can reference <code>HistoricalMetadata</code> for additional context
+                        about the ticker's historical behavior patterns.
+                    </p>
+                    
+                    <div class="ascii-art">
+METADATA FILES
+═══════════════════════════════════════════════════════════════════════════════
+
+    Data/NVDA.history.json    - Trade history from backtests
+    Data/NVDA.patterns.json   - Recognized chart patterns
+    Data/NVDA.weights.json    - Learned indicator weights
+    Profiles/NVDA.json        - Ticker profile (this page)
+    Profiles/NVDA.lstm.json   - LSTM model weights
+</div>
+                </section>
+                
+                <!-- Sample Profile -->
+                <section id="sample">
+                    <h2>Sample Profile JSON</h2>
+                    
+                    <div class="code-block">
+{
+    <span class="token-string">"Symbol"</span>: <span class="token-string">"NVDA"</span>,
+    <span class="token-string">"CreatedAt"</span>: <span class="token-string">"2026-01-15T09:30:00Z"</span>,
+    <span class="token-string">"UpdatedAt"</span>: <span class="token-string">"2026-02-06T16:00:00Z"</span>,
+    
+    <span class="token-string">"TotalTrades"</span>: <span class="token-number">87</span>,
+    <span class="token-string">"TotalWins"</span>: <span class="token-number">54</span>,
+    <span class="token-string">"TotalLosses"</span>: <span class="token-number">33</span>,
+    <span class="token-string">"TotalProfit"</span>: <span class="token-number">4250.00</span>,
+    <span class="token-string">"TotalLoss"</span>: <span class="token-number">-1820.00</span>,
+    
+    <span class="token-string">"LongTrades"</span>: <span class="token-number">62</span>,
+    <span class="token-string">"LongWins"</span>: <span class="token-number">42</span>,
+    <span class="token-string">"ShortTrades"</span>: <span class="token-number">25</span>,
+    <span class="token-string">"ShortWins"</span>: <span class="token-number">12</span>,
+    
+    <span class="token-string">"CurrentStreak"</span>: <span class="token-number">3</span>,
+    <span class="token-string">"LongestWinStreak"</span>: <span class="token-number">7</span>,
+    <span class="token-string">"LongestLossStreak"</span>: <span class="token-number">4</span>,
+    
+    <span class="token-string">"OptimalLongEntryThreshold"</span>: <span class="token-number">65</span>,
+    <span class="token-string">"OptimalShortEntryThreshold"</span>: <span class="token-number">-70</span>,
+    <span class="token-string">"OptimalLongExitThreshold"</span>: <span class="token-number">35</span>,
+    <span class="token-string">"OptimalShortExitThreshold"</span>: <span class="token-number">-30</span>,
+    
+    <span class="token-string">"AverageTradeDurationMinutes"</span>: <span class="token-number">42.5</span>,
+    <span class="token-string">"AverageWinAmount"</span>: <span class="token-number">78.70</span>,
+    <span class="token-string">"AverageLossAmount"</span>: <span class="token-number">-55.15</span>,
+    <span class="token-string">"BestTradeProfit"</span>: <span class="token-number">425.00</span>,
+    <span class="token-string">"WorstTradeLoss"</span>: <span class="token-number">-180.00</span>,
+    
+    <span class="token-string">"BestHours"</span>: [<span class="token-number">10</span>, <span class="token-number">14</span>, <span class="token-number">15</span>],
+    <span class="token-string">"AvoidHours"</span>: [<span class="token-number">12</span>],
+    
+    <span class="token-string">"LongEntryThresholdStats"</span>: {
+        <span class="token-string">"65"</span>: { <span class="token-string">"TotalTrades"</span>: <span class="token-number">18</span>, <span class="token-string">"Wins"</span>: <span class="token-number">12</span>, <span class="token-string">"WinRate"</span>: <span class="token-number">66.7</span> },
+        <span class="token-string">"70"</span>: { <span class="token-string">"TotalTrades"</span>: <span class="token-number">22</span>, <span class="token-string">"Wins"</span>: <span class="token-number">16</span>, <span class="token-string">"WinRate"</span>: <span class="token-number">72.7</span> },
+        <span class="token-string">"75"</span>: { <span class="token-string">"TotalTrades"</span>: <span class="token-number">15</span>, <span class="token-string">"Wins"</span>: <span class="token-number">11</span>, <span class="token-string">"WinRate"</span>: <span class="token-number">73.3</span> }
+    },
+    
+    <span class="token-string">"TimeWindowStats"</span>: {
+        <span class="token-string">"10:00"</span>: { <span class="token-string">"TotalTrades"</span>: <span class="token-number">12</span>, <span class="token-string">"Wins"</span>: <span class="token-number">9</span>, <span class="token-string">"WinRate"</span>: <span class="token-number">75.0</span> },
+        <span class="token-string">"12:00"</span>: { <span class="token-string">"TotalTrades"</span>: <span class="token-number">8</span>, <span class="token-string">"Wins"</span>: <span class="token-number">3</span>, <span class="token-string">"WinRate"</span>: <span class="token-number">37.5</span> }
+    },
+    
+    <span class="token-string">"IndicatorCorrelations"</span>: [
+        { <span class="token-string">"IndicatorName"</span>: <span class="token-string">"RSI"</span>, <span class="token-string">"Condition"</span>: <span class="token-string">"Oversold (<=30)"</span>, <span class="token-string">"WinRate"</span>: <span class="token-number">85.0</span> },
+        { <span class="token-string">"IndicatorName"</span>: <span class="token-string">"ADX"</span>, <span class="token-string">"Condition"</span>: <span class="token-string">"Very Strong (>=40)"</span>, <span class="token-string">"WinRate"</span>: <span class="token-number">78.0</span> }
+    ],
+    
+    <span class="token-string">"RecentTrades"</span>: [
+        <span class="token-comment">// Last 100 trades with full indicator snapshots</span>
+    ]
+}
+</div>
+                </section>
+                
+                <!-- Using Learning -->
+                <section id="usage">
+                    <h2>Using Learned Data</h2>
+                    
+                    <h3>Get Adjusted Thresholds</h3>
+                    <div class="code-block">
+<span class="token-comment">// Load profile</span>
+<span class="token-keyword">var</span> profile = TickerProfileManager.Load(<span class="token-string">"NVDA"</span>);
+
+<span class="token-comment">// Get threshold blended with learned optimal</span>
+<span class="token-keyword">int</span> adjustedLongEntry = profile.GetAdjustedLongEntryThreshold(DefaultThreshold);
+
+<span class="token-comment">// Check if current time is good for trading</span>
+<span class="token-keyword">bool</span> goodTime = profile.IsGoodTimeWindow(DateTime.Now);
+
+<span class="token-comment">// Get position size adjustment based on streak</span>
+<span class="token-keyword">double</span> riskMult = profile.GetStreakRiskMultiplier();
+</div>
+                    
+                    <h3>Record a New Trade</h3>
+                    <div class="code-block">
+<span class="token-keyword">var</span> trade = <span class="token-keyword">new</span> TradeRecord
+{
+    EntryTime = entryTime,
+    ExitTime = exitTime,
+    EntryPrice = <span class="token-number">150.25</span>,
+    ExitPrice = <span class="token-number">152.50</span>,
+    IsLong = <span class="token-keyword">true</span>,
+    Quantity = <span class="token-number">100</span>,
+    EntryScore = <span class="token-number">72</span>,
+    RsiAtEntry = <span class="token-number">42.5</span>,
+    AdxAtEntry = <span class="token-number">38.2</span>,
+    ExitReason = <span class="token-string">"TP"</span>
+    <span class="token-comment">// ... all other indicator scores</span>
+};
+
+profile.RecordTrade(trade);
+TickerProfileManager.Save(profile);
+</div>
+                    
+                    <h3>Get Best Indicator Conditions</h3>
+                    <div class="code-block">
+<span class="token-comment">// Find what works for this ticker</span>
+<span class="token-keyword">var</span> bestConditions = profile.GetBestIndicatorConditions(minOccurrences: <span class="token-number">5</span>, count: <span class="token-number">10</span>);
+
+<span class="token-keyword">foreach</span> (<span class="token-keyword">var</span> cond <span class="token-keyword">in</span> bestConditions)
+{
+    Console.WriteLine($<span class="token-string">"{cond.IndicatorName} {cond.Condition}: {cond.WinRate:F1}% win rate"</span>);
+}
+</div>
+                </section>
+                
+                <!-- Footer -->
+                <footer class="page-footer">
+                    <div class="footer-nav">
+                        <a href="pattern-matcher.htm">← Pattern Matcher</a>
+                        <a href="configuration.htm">Next: Configuration →</a>
+                    </div>
+                    <p class="text-center text-muted">
+                        IdiotProof Trading System Documentation &copy; 2026
+                    </p>
+                </footer>
+            </div>
+        </main>
+    </div>
+</body>
+</html>

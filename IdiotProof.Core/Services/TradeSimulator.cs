@@ -12,6 +12,7 @@
 // ============================================================================
 
 using IdiotProof.Analysis;
+using IdiotProof.Calculators;
 using IdiotProof.Constants;
 using IdiotProof.Helpers;
 using IdiotProof.Learning;
@@ -220,7 +221,7 @@ public sealed class TradeSimulator
     private readonly TickerProfile? _profile;
     
     // Indicator weights - learned or default
-    private IdiotProof.Helpers.IndicatorWeights _weights = IdiotProof.Helpers.IndicatorWeights.Default;
+    private IdiotProof.Optimization.IndicatorWeights _weights = IdiotProof.Optimization.IndicatorWeights.Default;
 
     // Cached indicator values
     private double[]? _ema9;
@@ -262,7 +263,7 @@ public sealed class TradeSimulator
     /// Sets the indicator weights for score calculation.
     /// Call after construction to use ticker-specific learned weights.
     /// </summary>
-    public void SetWeights(IdiotProof.Helpers.IndicatorWeights weights)
+    public void SetWeights(IdiotProof.Optimization.IndicatorWeights weights)
     {
         _weights = weights;
     }
@@ -561,7 +562,7 @@ public sealed class TradeSimulator
             WilliamsR = -50  // Neutral value for Williams %R
         };
 
-        var result = MarketScoreCalculator.Calculate(snapshot, _weights);
+        var result = MarketScoreCalculator.Calculate(snapshot, _weights.ToCalculatorWeights());
 
         // Convert to ScoreBreakdown for display compatibility
         return new ScoreBreakdown

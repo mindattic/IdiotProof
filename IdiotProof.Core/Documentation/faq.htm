@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FAQ - IdiotProof Documentation</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="page-wrapper">
+        <!-- Sidebar Navigation -->
+        <nav class="sidebar">
+            <div class="sidebar-header">
+                <a href="index.htm" class="logo">
+                    <span class="logo-icon">📈</span>
+                    <span class="logo-text">IdiotProof</span>
+                    <span class="logo-version">v2.0</span>
+                </a>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">Getting Started</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="index.htm" class="nav-link"><span class="nav-icon">🏠</span>Home</a></li>
+                    <li class="nav-item"><a href="quick-start.htm" class="nav-link"><span class="nav-icon">🚀</span>Quick Start</a></li>
+                    <li class="nav-item"><a href="architecture.htm" class="nav-link"><span class="nav-icon">🏗️</span>Architecture</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">IdiotScript DSL</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="idiotscript.htm" class="nav-link"><span class="nav-icon">📜</span>Language Reference</a></li>
+                    <li class="nav-item"><a href="commands.htm" class="nav-link"><span class="nav-icon">⌨️</span>Command Reference</a></li>
+                    <li class="nav-item"><a href="examples.htm" class="nav-link"><span class="nav-icon">💡</span>Strategy Examples</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">Technical Indicators</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="indicators.htm" class="nav-link"><span class="nav-icon">📊</span>Indicator Overview</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">Trading Systems</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="market-score.htm" class="nav-link"><span class="nav-icon">🎯</span>Market Score</a></li>
+                    <li class="nav-item"><a href="adaptive-order.htm" class="nav-link"><span class="nav-icon">🔄</span>AdaptiveOrder</a></li>
+                    <li class="nav-item"><a href="autonomous-trading.htm" class="nav-link"><span class="nav-icon">🤖</span>AutonomousTrading</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">AI & Machine Learning</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="ai-overview.htm" class="nav-link"><span class="nav-icon">🧠</span>AI Overview</a></li>
+                    <li class="nav-item"><a href="lstm.htm" class="nav-link"><span class="nav-icon">🔮</span>LSTM Predictor</a></li>
+                    <li class="nav-item"><a href="pattern-matcher.htm" class="nav-link"><span class="nav-icon">🔍</span>Pattern Matcher</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">Reference</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="glossary.htm" class="nav-link"><span class="nav-icon">📖</span>Glossary</a></li>
+                    <li class="nav-item"><a href="faq.htm" class="nav-link active"><span class="nav-icon">❓</span>FAQ</a></li>
+                    <li class="nav-item"><a href="troubleshooting.htm" class="nav-link"><span class="nav-icon">🔧</span>Troubleshooting</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">Roadmap</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="futureproofing.htm" class="nav-link"><span class="nav-icon">🔮</span>Future-Proofing</a></li>
+                    <li class="nav-item"><a href="wishlist.htm" class="nav-link"><span class="nav-icon">✨</span>Wishlist</a></li>
+                </ul>
+            </div>
+        </nav>
+        
+        <!-- Main Content -->
+        <main class="main-content">
+            <div class="content-wrapper">
+                <!-- Breadcrumb -->
+                <div class="breadcrumb">
+                    <a href="index.htm">Home</a>
+                    <span class="breadcrumb-separator">/</span>
+                    <span>FAQ</span>
+                </div>
+                
+                <!-- Header -->
+                <header class="page-header">
+                    <h1 class="page-title">Frequently Asked Questions</h1>
+                    <p class="page-subtitle">
+                        Answers to common questions about IdiotProof trading system.
+                    </p>
+                </header>
+                
+                <!-- General Questions -->
+                <section id="general">
+                    <h2>General Questions</h2>
+                    
+                    <h3>What is IdiotProof?</h3>
+                    <p>
+                        IdiotProof is an automated trading system that connects to Interactive Brokers TWS 
+                        to execute stock trades based on strategies defined in IdiotScript, a domain-specific 
+                        language. It uses AI/ML components including LSTM neural networks, pattern matching, 
+                        and ChatGPT integration for enhanced decision-making.
+                    </p>
+                    
+                    <h3>What broker does IdiotProof support?</h3>
+                    <p>
+                        Currently, IdiotProof only supports <strong>Interactive Brokers</strong> via the
+                        TWS (Trader Workstation) API. TWS must be running and configured to accept API
+                        connections on port 7497 (paper trading) or 7496 (live).
+                    </p>
+                    
+                    <h3>Can I use IdiotProof for paper trading?</h3>
+                    <p>
+                        Yes! This is highly recommended before live trading. Connect to TWS paper trading
+                        account (port 7497) to test strategies without risk.
+                    </p>
+                    
+                    <h3>What markets can I trade?</h3>
+                    <p>
+                        IdiotProof is designed for US equities. It supports:
+                    </p>
+                    <ul>
+                        <li>NYSE and NASDAQ stocks</li>
+                        <li>Premarket (4:00 AM - 9:30 AM ET)</li>
+                        <li>Regular Trading Hours (9:30 AM - 4:00 PM ET)</li>
+                        <li>After Hours (4:00 PM - 8:00 PM ET)</li>
+                    </ul>
+                </section>
+                
+                <!-- IdiotScript Questions -->
+                <section id="idiotscript">
+                    <h2>IdiotScript Questions</h2>
+                    
+                    <h3>What's the difference between Entry() and Order()?</h3>
+                    <p>
+                        <strong>Entry(price)</strong> is a CONDITION that triggers when price reaches a level.
+                        <strong>Order(IS.LONG)</strong> is an ACTION that executes when all conditions are met.
+                    </p>
+                    <div class="code-block">
+<span class="token-comment">// Entry = price trigger condition</span>
+<span class="token-function">Entry</span>(<span class="token-number">150</span>)  <span class="token-comment">// Wait for price >= 150</span>
+
+<span class="token-comment">// Order = what to do when conditions met</span>
+<span class="token-function">Order</span>(<span class="token-keyword">IS.LONG</span>)  <span class="token-comment">// Execute a buy order</span>
+</div>
+                    
+                    <h3>Do I need parentheses on commands like IsAboveVwap?</h3>
+                    <p>
+                        Yes. While the parser accepts <code>IsAboveVwap</code> for backwards compatibility,
+                        the canonical form is <code>IsAboveVwap()</code>. Always use parentheses.
+                    </p>
+                    
+                    <h3>What happens if conditions are never met?</h3>
+                    <p>
+                        The strategy waits. No order is placed until ALL entry conditions are satisfied.
+                        The strategy can wait indefinitely until conditions are met or the session ends.
+                    </p>
+                    
+                    <h3>How do I exit at the end of the day?</h3>
+                    <p>
+                        Use <code>ExitStrategy(IS.BELL)</code> to exit 1 minute before session close.
+                        Add <code>.IsProfitable()</code> to only exit if the position is profitable.
+                    </p>
+                </section>
+                
+                <!-- Trading Modes -->
+                <section id="modes">
+                    <h2>Trading Mode Questions</h2>
+                    
+                    <h3>What's the difference between normal strategies and AutonomousTrading?</h3>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Aspect</th>
+                                <th>Normal Strategy</th>
+                                <th>AutonomousTrading</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>Entry Conditions</td>
+                                <td>You define using IdiotScript</td>
+                                <td>AI decides based on Market Score</td>
+                            </tr>
+                            <tr>
+                                <td>Exit Conditions</td>
+                                <td>TakeProfit/StopLoss you set</td>
+                                <td>ATR-based, AI adjusts</td>
+                            </tr>
+                            <tr>
+                                <td>Direction</td>
+                                <td>Fixed per strategy</td>
+                                <td>Can flip long&harr;short</td>
+                            </tr>
+                            <tr>
+                                <td>Control</td>
+                                <td>Full control</td>
+                                <td>Hands-off</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    
+                    <h3>Should I use AdaptiveOrder or AutonomousTrading?</h3>
+                    <p>
+                        <strong>AdaptiveOrder:</strong> Use when you have specific entry conditions but want
+                        smart exit management. You control when to enter, system adjusts TP/SL dynamically.
+                    </p>
+                    <p>
+                        <strong>AutonomousTrading:</strong> Use when you want the AI to handle everything.
+                        Just specify the ticker and let it trade.
+                    </p>
+                </section>
+                
+                <!-- Indicators -->
+                <section id="indicators">
+                    <h2>Indicator Questions</h2>
+                    
+                    <h3>Why aren't my indicator conditions triggering?</h3>
+                    <p>
+                        Most likely: <strong>indicators need warm-up time</strong>. Indicators require
+                        historical data (candles) before they can calculate. Start the backend early:
+                    </p>
+                    <ul>
+                        <li>EMA(9): Start 10 minutes before trading</li>
+                        <li>EMA(21): Start 25 minutes before</li>
+                        <li>EMA(200): Start 3+ hours before</li>
+                        <li>ADX(14): Start 30 minutes before</li>
+                    </ul>
+                    
+                    <h3>What is Market Score?</h3>
+                    <p>
+                        Market Score is a composite value from -100 (extremely bearish) to +100 (extremely
+                        bullish). It combines 11 indicators with weighted contributions. See 
+                        <a href="market-score.htm">Market Score</a> for details.
+                    </p>
+                    
+                    <h3>How does LSTM affect the Market Score?</h3>
+                    <p>
+                        The LSTM predictor can adjust the Market Score by up to ±25 points based on its
+                        direction prediction and confidence level. This helps the score account for
+                        patterns that simple indicators might miss.
+                    </p>
+                </section>
+                
+                <!-- AI Questions -->
+                <section id="ai">
+                    <h2>AI & Machine Learning Questions</h2>
+                    
+                    <h3>Does IdiotProof require an internet connection?</h3>
+                    <p>
+                        For basic trading: No (after connecting to TWS locally).<br>
+                        For AI Advisor (ChatGPT): Yes, requires internet and valid OpenAI API key.
+                    </p>
+                    
+                    <h3>How much does the AI Advisor cost?</h3>
+                    <p>
+                        The AI Advisor uses OpenAI's API. Costs depend on usage. Each analysis call
+                        uses approximately 500-1000 tokens (~$0.01-0.03 per call with GPT-4).
+                    </p>
+                    
+                    <h3>Can the LSTM predict the future?</h3>
+                    <p>
+                        No. The LSTM provides probabilistic directional guidance based on learned patterns.
+                        It's one input among many - it can be wrong. Never rely solely on LSTM predictions.
+                    </p>
+                    
+                    <h3>How does the system learn over time?</h3>
+                    <p>
+                        Three learning mechanisms:
+                    </p>
+                    <ol>
+                        <li><strong>Ticker Profiles:</strong> Win rates and optimal thresholds per symbol</li>
+                        <li><strong>Indicator Weights:</strong> Which indicators work best per symbol</li>
+                        <li><strong>Pattern History:</strong> Stored patterns improve future matching</li>
+                    </ol>
+                </section>
+                
+                <!-- Order Execution -->
+                <section id="orders">
+                    <h2>Order Execution Questions</h2>
+                    
+                    <h3>Are orders placed as market or limit?</h3>
+                    <p>
+                        By default, orders are market orders for immediate execution. You can specify
+                        limit orders using <code>.OrderType(OrderType.Limit)</code>.
+                    </p>
+                    
+                    <h3>Can I trade outside regular hours?</h3>
+                    <p>
+                        Yes. Use <code>.Session(IS.PREMARKET)</code> or <code>.Session(IS.AFTERHOURS)</code>.
+                        Also ensure <code>.OutsideRTH()</code> is set for the order to execute.
+                    </p>
+                    
+                    <h3>What happens if TWS disconnects?</h3>
+                    <p>
+                        Open orders remain on IBKR servers. IdiotProof attempts reconnection.
+                        Upon reconnect, it syncs position state. Stop losses placed at IBKR continue
+                        to protect your position.
+                    </p>
+                </section>
+                
+                <!-- Risk Questions -->
+                <section id="risk">
+                    <h2>Risk Management Questions</h2>
+                    
+                    <h3>Will IdiotProof prevent losses?</h3>
+                    <p>
+                        <strong>No.</strong> Trading involves risk. IdiotProof provides tools like
+                        stop losses and adaptive orders, but losses are still possible and expected.
+                        Never trade more than you can afford to lose.
+                    </p>
+                    
+                    <h3>What's the emergency exit?</h3>
+                    <p>
+                        AdaptiveOrder has an emergency exit when Market Score drops below threshold
+                        (default -70). This closes the position immediately regardless of profit/loss.
+                    </p>
+                    
+                    <h3>Can I set a maximum loss per day?</h3>
+                    <p>
+                        This feature is planned but not yet implemented. Currently, set stop losses
+                        on each trade individually. Consider using IBKR's built-in daily loss limits.
+                    </p>
+                </section>
+                
+                <!-- Footer -->
+                <footer class="page-footer">
+                    <div class="footer-nav">
+                        <a href="glossary.htm">← Glossary</a>
+                        <a href="troubleshooting.htm">Next: Troubleshooting →</a>
+                    </div>
+                    <p class="text-center text-muted">
+                        IdiotProof Trading System Documentation &copy; 2026
+                    </p>
+                </footer>
+            </div>
+        </main>
+    </div>
+</body>
+</html>

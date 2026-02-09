@@ -20,6 +20,7 @@
 //
 // ============================================================================
 
+using IdiotProof.Logging;
 using IdiotProof.Models;
 using IdiotProof.Models;
 using IdiotProof.Settings;
@@ -92,7 +93,7 @@ public sealed class TickerMetadataService
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"[METADATA] Failed to load metadata for {symbol}: {ex.Message}");
+            ConsoleLog.Warn("Metadata", $"Failed to load metadata for {symbol}: {ex.Message}");
             return null;
         }
     }
@@ -151,7 +152,7 @@ public sealed class TickerMetadataService
         if (bars.Count == 0)
             return GetOrCreate(symbol);
 
-        Console.WriteLine($"[METADATA] Building metadata for {symbol} from {bars.Count} historical bars...");
+        ConsoleLog.Write("Metadata", $"Building metadata for {symbol} from {bars.Count} historical bars...");
 
         var metadata = GetOrCreate(symbol);
         metadata.BarsAnalyzed = bars.Count;
@@ -194,7 +195,7 @@ public sealed class TickerMetadataService
         // Save the updated metadata
         Save(metadata);
 
-        Console.WriteLine($"[METADATA] {symbol}: {metadata.DaysAnalyzed} days analyzed, " +
+        ConsoleLog.Write("Metadata", $"{symbol}: {metadata.DaysAnalyzed} days analyzed, " +
             $"{metadata.SupportLevels.Count} supports, {metadata.ResistanceLevels.Count} resistances");
 
         // Log key insights
@@ -520,7 +521,7 @@ public sealed class TickerMetadataService
         {
             double avgPrice = bars.Average(b => b.Close);
             double atrPercent = metadata.Atr14Day.Value / avgPrice * 100;
-            Console.WriteLine($"[METADATA] {metadata.Symbol}: ATR(14) = ${metadata.Atr14Day.Value:F2} ({atrPercent:F1}% of price)");
+            ConsoleLog.Write("Metadata", $"{metadata.Symbol}: ATR(14) = ${metadata.Atr14Day.Value:F2} ({atrPercent:F1}% of price)");
         }
 
         if (metadata.AvgVolume.HasValue)
@@ -528,7 +529,7 @@ public sealed class TickerMetadataService
             string volumeStr = metadata.AvgVolume.Value >= 1_000_000 
                 ? $"{metadata.AvgVolume.Value / 1_000_000.0:F1}M" 
                 : $"{metadata.AvgVolume.Value / 1_000.0:F0}K";
-            Console.WriteLine($"[METADATA] {metadata.Symbol}: Avg Daily Volume = {volumeStr}");
+            ConsoleLog.Write("Metadata", $"{metadata.Symbol}: Avg Daily Volume = {volumeStr}");
         }
     }
 
@@ -540,34 +541,34 @@ public sealed class TickerMetadataService
 
         // HOD/LOD insights
         if (de.HodInFirst30MinPercent > 50)
-            Console.WriteLine($"[METADATA] {metadata.Symbol}: HOD typically in first 30 min ({de.HodInFirst30MinPercent:F0}%) - take profits early on longs");
+            ConsoleLog.Write("Metadata", $"{metadata.Symbol}: HOD typically in first 30 min ({de.HodInFirst30MinPercent:F0}%) - take profits early on longs");
 
         if (de.LodInFirst30MinPercent > 50)
-            Console.WriteLine($"[METADATA] {metadata.Symbol}: LOD typically in first 30 min ({de.LodInFirst30MinPercent:F0}%) - wait for morning dip before buying");
+            ConsoleLog.Write("Metadata", $"{metadata.Symbol}: LOD typically in first 30 min ({de.LodInFirst30MinPercent:F0}%) - wait for morning dip before buying");
 
         // Gap insights
         if (gb.GapUpFillRate > 60)
-            Console.WriteLine($"[METADATA] {metadata.Symbol}: Gap ups fill {gb.GapUpFillRate:F0}% of time - consider fading gaps");
+            ConsoleLog.Write("Metadata", $"{metadata.Symbol}: Gap ups fill {gb.GapUpFillRate:F0}% of time - consider fading gaps");
         else if (gb.GapUpContinuationRate > 60)
-            Console.WriteLine($"[METADATA] {metadata.Symbol}: Gap ups continue {gb.GapUpContinuationRate:F0}% of time - consider buying gaps");
+            ConsoleLog.Write("Metadata", $"{metadata.Symbol}: Gap ups continue {gb.GapUpContinuationRate:F0}% of time - consider buying gaps");
 
         // VWAP insights
         if (vb.AvgPercentAboveVwap > 60)
-            Console.WriteLine($"[METADATA] {metadata.Symbol}: Spends {vb.AvgPercentAboveVwap:F0}% of time above VWAP - bullish bias");
+            ConsoleLog.Write("Metadata", $"{metadata.Symbol}: Spends {vb.AvgPercentAboveVwap:F0}% of time above VWAP - bullish bias");
         else if (vb.AvgPercentAboveVwap < 40)
-            Console.WriteLine($"[METADATA] {metadata.Symbol}: Spends {100 - vb.AvgPercentAboveVwap:F0}% of time below VWAP - bearish bias");
+            ConsoleLog.Write("Metadata", $"{metadata.Symbol}: Spends {100 - vb.AvgPercentAboveVwap:F0}% of time below VWAP - bearish bias");
 
         // Support/Resistance
         if (metadata.SupportLevels.Count > 0)
         {
             var strongestSupport = metadata.SupportLevels.First();
-            Console.WriteLine($"[METADATA] {metadata.Symbol}: Key support at ${strongestSupport.Price:F2} ({strongestSupport.Strength * 100:F0}% strength)");
+            ConsoleLog.Write("Metadata", $"{metadata.Symbol}: Key support at ${strongestSupport.Price:F2} ({strongestSupport.Strength * 100:F0}% strength)");
         }
 
         if (metadata.ResistanceLevels.Count > 0)
         {
             var strongestResistance = metadata.ResistanceLevels.First();
-            Console.WriteLine($"[METADATA] {metadata.Symbol}: Key resistance at ${strongestResistance.Price:F2} ({strongestResistance.Strength * 100:F0}% strength)");
+            ConsoleLog.Write("Metadata", $"{metadata.Symbol}: Key resistance at ${strongestResistance.Price:F2} ({strongestResistance.Strength * 100:F0}% strength)");
         }
     }
 }

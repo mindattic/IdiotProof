@@ -1,0 +1,313 @@
+// IdiotProof Strategy Protocol Buffer Definitions
+// Strategy management and IdiotScript parsing
+
+syntax = "proto3";
+
+option csharp_namespace = "IdiotProof.Core.FutureState.Protos";
+
+package idiotproof.strategy;
+
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/wrappers.proto";
+
+// =============================================================================
+// ENUMS
+// =============================================================================
+
+enum StrategyStatus {
+    STRATEGY_STATUS_UNSPECIFIED = 0;
+    STRATEGY_STATUS_INACTIVE = 1;
+    STRATEGY_STATUS_ACTIVE = 2;
+    STRATEGY_STATUS_PAUSED = 3;
+    STRATEGY_STATUS_COMPLETED = 4;
+    STRATEGY_STATUS_ERROR = 5;
+}
+
+enum ConditionType {
+    CONDITION_TYPE_UNSPECIFIED = 0;
+    CONDITION_TYPE_PRICE_ABOVE = 1;
+    CONDITION_TYPE_PRICE_BELOW = 2;
+    CONDITION_TYPE_ABOVE_VWAP = 3;
+    CONDITION_TYPE_BELOW_VWAP = 4;
+    CONDITION_TYPE_EMA_ABOVE = 5;
+    CONDITION_TYPE_EMA_BELOW = 6;
+    CONDITION_TYPE_RSI_OVERSOLD = 7;
+    CONDITION_TYPE_RSI_OVERBOUGHT = 8;
+    CONDITION_TYPE_ADX_ABOVE = 9;
+    CONDITION_TYPE_DI_POSITIVE = 10;
+    CONDITION_TYPE_DI_NEGATIVE = 11;
+    CONDITION_TYPE_MACD_BULLISH = 12;
+    CONDITION_TYPE_MACD_BEARISH = 13;
+    CONDITION_TYPE_MOMENTUM_ABOVE = 14;
+    CONDITION_TYPE_MOMENTUM_BELOW = 15;
+    CONDITION_TYPE_VOLUME_ABOVE = 16;
+    CONDITION_TYPE_GAP_UP = 17;
+    CONDITION_TYPE_GAP_DOWN = 18;
+    CONDITION_TYPE_HIGHER_LOWS = 19;
+    CONDITION_TYPE_BREAKOUT = 20;
+    CONDITION_TYPE_PULLBACK = 21;
+}
+
+enum ExitType {
+    EXIT_TYPE_UNSPECIFIED = 0;
+    EXIT_TYPE_TAKE_PROFIT = 1;
+    EXIT_TYPE_STOP_LOSS = 2;
+    EXIT_TYPE_TRAILING_STOP = 3;
+    EXIT_TYPE_TIME_EXIT = 4;
+    EXIT_TYPE_CONDITION_EXIT = 5;
+}
+
+enum AdaptiveMode {
+    ADAPTIVE_MODE_UNSPECIFIED = 0;
+    ADAPTIVE_MODE_CONSERVATIVE = 1;
+    ADAPTIVE_MODE_BALANCED = 2;
+    ADAPTIVE_MODE_AGGRESSIVE = 3;
+}
+
+// =============================================================================
+// CORE MESSAGES
+// =============================================================================
+
+// Represents a single condition in a strategy
+message Condition {
+    ConditionType type = 1;
+    google.protobuf.DoubleValue value = 2;
+    google.protobuf.DoubleValue value2 = 3; // For conditions with two values (e.g., EmaBetween)
+    bool is_met = 4;
+    string display_name = 5;
+}
+
+// Exit configuration
+message ExitConfig {
+    ExitType type = 1;
+    google.protobuf.DoubleValue value = 2;
+    google.protobuf.DoubleValue trailing_percent = 3;
+    string time_value = 4; // For time-based exits (e.g., "15:30" or "IS.BELL")
+    bool if_profitable = 5;
+}
+
+// Complete strategy definition
+message Strategy {
+    string strategy_id = 1;
+    string name = 2;
+    string ticker = 3;
+    string raw_script = 4; // Original IdiotScript
+    
+    // Configuration
+    int32 quantity = 5;
+    string session = 6; // "RTH", "Premarket", "AfterHours", "Extended"
+    bool outside_rth = 7;
+    
+    // Conditions (evaluated sequentially)
+    repeated Condition entry_conditions = 8;
+    
+    // Order details
+    string order_direction = 9; // "LONG" or "SHORT"
+    string order_type = 10; // "MARKET" or "LIMIT"
+    google.protobuf.DoubleValue entry_price = 11;
+    
+    // Exit configuration
+    repeated ExitConfig exits = 12;
+    
+    // Advanced features
+    bool adaptive_order = 13;
+    AdaptiveMode adaptive_mode = 14;
+    bool autonomous_trading = 15;
+    bool repeat_enabled = 16;
+    
+    // Status
+    StrategyStatus status = 17;
+    google.protobuf.Timestamp created_at = 18;
+    google.protobuf.Timestamp last_triggered_at = 19;
+    int32 trigger_count = 20;
+}
+
+// Strategy execution state
+message StrategyState {
+    string strategy_id = 1;
+    StrategyStatus status = 2;
+    repeated ConditionState condition_states = 3;
+    string current_phase = 4; // "awaiting_entry", "position_open", "awaiting_exit"
+    google.protobuf.Timestamp phase_entered_at = 5;
+    string position_id = 6; // If position is open
+}
+
+message ConditionState {
+    int32 condition_index = 1;
+    bool is_met = 2;
+    google.protobuf.Timestamp met_at = 3;
+    string current_value = 4;
+    string threshold_value = 5;
+}
+
+// Strategy execution log
+message StrategyLog {
+    string strategy_id = 1;
+    google.protobuf.Timestamp timestamp = 2;
+    string event_type = 3; // "condition_met", "order_placed", "position_opened", etc.
+    string message = 4;
+    map<string, string> details = 5;
+}
+
+// Performance metrics for a strategy
+message StrategyPerformance {
+    string strategy_id = 1;
+    int32 total_trades = 2;
+    int32 winning_trades = 3;
+    int32 losing_trades = 4;
+    double win_rate = 5;
+    double total_pnl = 6;
+    double average_pnl = 7;
+    double largest_win = 8;
+    double largest_loss = 9;
+    double profit_factor = 10;
+    double sharpe_ratio = 11;
+    double max_drawdown = 12;
+    google.protobuf.Timestamp calculated_at = 13;
+}
+
+// =============================================================================
+// REQUEST/RESPONSE MESSAGES
+// =============================================================================
+
+message ParseScriptRequest {
+    string raw_script = 1;
+    bool validate_only = 2; // If true, only validate without creating
+}
+
+message ParseScriptResponse {
+    bool success = 1;
+    Strategy strategy = 2;
+    repeated string validation_errors = 3;
+    repeated string warnings = 4;
+}
+
+message CreateStrategyRequest {
+    string raw_script = 1;
+    string name = 2; // Optional override
+}
+
+message CreateStrategyResponse {
+    bool success = 1;
+    Strategy strategy = 2;
+    string error_message = 3;
+}
+
+message GetStrategyRequest {
+    string strategy_id = 1;
+}
+
+message GetStrategyResponse {
+    bool success = 1;
+    Strategy strategy = 2;
+    StrategyState state = 3;
+    StrategyPerformance performance = 4;
+    string error_message = 5;
+}
+
+message ListStrategiesRequest {
+    string client_id = 1;
+    repeated StrategyStatus status_filter = 2;
+    string ticker_filter = 3;
+    int32 limit = 4;
+    int32 offset = 5;
+}
+
+message ListStrategiesResponse {
+    bool success = 1;
+    repeated Strategy strategies = 2;
+    int32 total_count = 3;
+    string error_message = 4;
+}
+
+message ActivateStrategyRequest {
+    string strategy_id = 1;
+}
+
+message ActivateStrategyResponse {
+    bool success = 1;
+    StrategyStatus new_status = 2;
+    string error_message = 3;
+}
+
+message PauseStrategyRequest {
+    string strategy_id = 1;
+}
+
+message PauseStrategyResponse {
+    bool success = 1;
+    StrategyStatus new_status = 2;
+    string error_message = 3;
+}
+
+message DeleteStrategyRequest {
+    string strategy_id = 1;
+}
+
+message DeleteStrategyResponse {
+    bool success = 1;
+    string error_message = 2;
+}
+
+message GetStrategyLogsRequest {
+    string strategy_id = 1;
+    google.protobuf.Timestamp since = 2;
+    int32 limit = 3;
+}
+
+message GetStrategyLogsResponse {
+    bool success = 1;
+    repeated StrategyLog logs = 2;
+    string error_message = 3;
+}
+
+message StreamStrategyUpdatesRequest {
+    string client_id = 1;
+    repeated string strategy_ids = 2; // Empty = all strategies
+}
+
+message StrategyUpdate {
+    string strategy_id = 1;
+    string update_type = 2; // "state_change", "condition_met", "order_triggered", etc.
+    StrategyState state = 3;
+    StrategyLog log = 4;
+    google.protobuf.Timestamp timestamp = 5;
+}
+
+message GetPerformanceRequest {
+    string strategy_id = 1;
+    google.protobuf.Timestamp start_date = 2;
+    google.protobuf.Timestamp end_date = 3;
+}
+
+message GetPerformanceResponse {
+    bool success = 1;
+    StrategyPerformance performance = 2;
+    string error_message = 3;
+}
+
+// =============================================================================
+// SERVICE DEFINITION
+// =============================================================================
+
+service StrategyService {
+    // Script parsing
+    rpc ParseScript(ParseScriptRequest) returns (ParseScriptResponse);
+    
+    // Strategy CRUD
+    rpc CreateStrategy(CreateStrategyRequest) returns (CreateStrategyResponse);
+    rpc GetStrategy(GetStrategyRequest) returns (GetStrategyResponse);
+    rpc ListStrategies(ListStrategiesRequest) returns (ListStrategiesResponse);
+    rpc DeleteStrategy(DeleteStrategyRequest) returns (DeleteStrategyResponse);
+    
+    // Strategy control
+    rpc ActivateStrategy(ActivateStrategyRequest) returns (ActivateStrategyResponse);
+    rpc PauseStrategy(PauseStrategyRequest) returns (PauseStrategyResponse);
+    
+    // Monitoring
+    rpc GetStrategyLogs(GetStrategyLogsRequest) returns (GetStrategyLogsResponse);
+    rpc StreamStrategyUpdates(StreamStrategyUpdatesRequest) returns (stream StrategyUpdate);
+    
+    // Performance
+    rpc GetPerformance(GetPerformanceRequest) returns (GetPerformanceResponse);
+}

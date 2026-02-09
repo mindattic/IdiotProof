@@ -25,6 +25,7 @@
 using IBApi;
 using IdiotProof.Constants;
 using IdiotProof.Enums;
+using IdiotProof.Calculators;
 using IdiotProof.Helpers;
 using IdiotProof.Logging;
 using IdiotProof.Models;
@@ -103,7 +104,7 @@ namespace IdiotProof.Strategy {
         private Helpers.AtrCalculator? _atrCalculator;
 
         // Candlestick aggregator for candle-based indicators
-        private readonly Helpers.CandlestickAggregator _candlestickAggregator;
+        private readonly Helpers.CandlestickAggregatorHelper _candlestickAggregator;
 
         // EMA calculators for indicator conditions
         private readonly Dictionary<int, Helpers.EmaCalculator> _emaCalculators = new();
@@ -194,7 +195,7 @@ namespace IdiotProof.Strategy {
         // LSH Pattern Matcher - provides "second opinion" based on historical analogs
         private IdiotProof.Learning.PatternMatcher? _patternMatcher;
         private IdiotProof.Learning.PatternForecast? _lastLshForecast;
-        private IdiotProof.Helpers.IndicatorSnapshot? _lastIndicatorSnapshot;
+        private IdiotProof.Calculators.IndicatorSnapshot? _lastIndicatorSnapshot;
 
         // AI Advisor - provides "third opinion" using ChatGPT analysis
         private IdiotProof.Learning.AIAdvisor? _aiAdvisor;
@@ -274,6 +275,35 @@ namespace IdiotProof.Strategy {
         /// <summary>Gets the final result of the strategy.</summary>
         public StrategyResult Result => _result;
 
+        // Effective quantity (auto-calculated based on price if UseAutoQuantity is true)
+        private int _effectiveQuantity;
+
+        /// <summary>
+        /// Gets the effective quantity to use for orders.
+        /// If UseAutoQuantity is true, calculates based on price tier.
+        /// Otherwise returns the explicitly specified quantity.
+        /// </summary>
+        private int GetEffectiveQuantity(double price)
+        {
+            // If we've already calculated it, use that
+            if (_effectiveQuantity > 0)
+                return _effectiveQuantity;
+
+            // Check if we should auto-calculate
+            if (_strategy.Order.UseAutoQuantity)
+            {
+                _effectiveQuantity = TradingDefaults.GetDefaultQuantityForPrice(price);
+                double estimatedPosition = _effectiveQuantity * price;
+                Log($"[AUTO-QTY] ${price:F2} × 3 → {_effectiveQuantity} shares (~${estimatedPosition:F2})", ConsoleColor.DarkGray);
+            }
+            else
+            {
+                _effectiveQuantity = _strategy.Order.Quantity;
+            }
+
+            return _effectiveQuantity;
+        }
+
         /// <summary>Gets the current condition name.</summary>
         public string CurrentConditionName =>
             _currentConditionIndex < _strategy.Conditions.Count
@@ -287,12 +317,11 @@ namespace IdiotProof.Strategy {
         {
             if (color.HasValue)
             {
-                Console.ForegroundColor = color.Value;
+                ConsoleLog.Write(_strategy.Symbol, $"{message}", color.Value);
             }
-            Console.WriteLine($"{TimeStamp.NowBracketed} [{_strategy.Symbol}] {message}");
-            if (color.HasValue)
+            else
             {
-                Console.ResetColor();
+                ConsoleLog.Strategy(_strategy.Symbol, message);
             }
             SessionLogger?.LogEvent(category, $"[{_strategy.Symbol}] {message}");
         }
@@ -308,7 +337,7 @@ namespace IdiotProof.Strategy {
             _lastCheckedDate = DateOnly.FromDateTime(DateTime.Today);
 
             // Initialize candlestick aggregator (1-minute candles, trimmed to MaxCandlesticks setting)
-            _candlestickAggregator = new Helpers.CandlestickAggregator(
+            _candlestickAggregator = new Helpers.CandlestickAggregatorHelper(
                 candleSizeMinutes: 1,
                 maxCandles: AppSettings.MaxCandlesticks);
             _candlestickAggregator.OnCandleComplete += OnCandleComplete;
@@ -1554,7 +1583,7 @@ namespace IdiotProof.Strategy {
             // Get indicator weights - learned or default
             var weights = _learnedWeights != null 
                 ? _learnedWeights.ToIndicatorWeights() 
-                : IdiotProof.Helpers.IndicatorWeights.Default;
+                : IdiotProof.Calculators.IndicatorWeights.Default;
             
             // SINGLE SOURCE OF TRUTH: Use same calculation for live and backtest
             var result = MarketScoreCalculator.Calculate(snapshot, weights);
@@ -1640,7 +1669,7 @@ namespace IdiotProof.Strategy {
         /// <summary>
         /// Builds an indicator snapshot from live calculator values.
         /// </summary>
-        private IndicatorSnapshot BuildIndicatorSnapshot(double price, double vwap)
+        private IdiotProof.Calculators.IndicatorSnapshot BuildIndicatorSnapshot(double price, double vwap)
         {
             // Get EMA values
             double ema9 = 0, ema21 = 0, ema50 = 0;
@@ -1704,7 +1733,7 @@ namespace IdiotProof.Strategy {
             double cci = _cciCalculator?.IsReady == true ? _cciCalculator.CurrentCci : 0;
             double williamsR = _williamsRCalculator?.IsReady == true ? _williamsRCalculator.CurrentValue : -50;
             
-            return new IndicatorSnapshot
+            return new IdiotProof.Calculators.IndicatorSnapshot
             {
                 Price = price,
                 Vwap = vwap,
@@ -1735,7 +1764,7 @@ namespace IdiotProof.Strategy {
         /// Builds a COMPLETE ExtendedSnapshot with ALL values needed for AI learning.
         /// This ensures live trading uses the SAME data as backtesting.
         /// </summary>
-        private IdiotProof.Learning.ExtendedSnapshot BuildExtendedSnapshot(double price, double vwap, IndicatorSnapshot basic)
+        private IdiotProof.Learning.ExtendedSnapshot BuildExtendedSnapshot(double price, double vwap, IdiotProof.Calculators.IndicatorSnapshot basic)
         {
             // Get Momentum and ROC values
             double momentum = _momentumCalculator?.IsReady == true ? _momentumCalculator.CurrentValue : 0;
@@ -2032,6 +2061,31 @@ namespace IdiotProof.Strategy {
         /// </summary>
         private void HandleAutonomousEntry(double currentPrice, double vwap, MarketScore score, AutonomousTradingConfig config)
         {
+            // =====================================================================
+            // OPENING BELL PATTERN FILTER
+            // The first RTH candle (9:30-9:31) is extremely volatile - avoid trading.
+            // If there's a "green rush" at end of premarket, expect crash after open.
+            // =====================================================================
+            var openingAnalysis = _candlestickAggregator.GetOpeningBellAnalysis(currentPrice, vwap);
+            
+            if (openingAnalysis.IsFirstRthCandle)
+            {
+                // First candle trap - too volatile, skip entry
+                Log($"[FILTER] First RTH candle (9:30-9:31) - too volatile, skipping entry", ConsoleColor.DarkYellow);
+                return;
+            }
+            
+            if (openingAnalysis.IsRthVolatilityWindow)
+            {
+                // Volatility window (9:30-9:32) - require higher score threshold
+                Log($"[FILTER] RTH volatility window - reduced confidence ({openingAnalysis})", ConsoleColor.DarkYellow);
+            }
+            
+            // Track opening bell score adjustment (applied to thresholds later)
+            int openingBellPenalty = 0;
+            if (openingAnalysis.IsRthVolatilityWindow)
+                openingBellPenalty = 15; // Stricter entry during volatility window
+
             // Apply ATR volatility filter - skip entries when volatility is too low or too high
             // Small caps and volatile growth stocks can have 10-20% ATR, so use 15% as upper limit
             if (_atrCalculator?.IsReady == true)
@@ -2136,6 +2190,14 @@ namespace IdiotProof.Strategy {
             // Log the dynamic adjustments
             Log($"[AUTO] Thresholds: Long>={dynLong}, Short<={dynShort} | {reasoning}", ConsoleColor.DarkCyan);
 
+            // Apply opening bell penalty (stricter during RTH volatility window)
+            if (openingBellPenalty > 0)
+            {
+                adjustedLongThreshold += openingBellPenalty;
+                adjustedShortThreshold -= openingBellPenalty;
+                Log($"[OPENING] RTH volatility window: threshold penalty +{openingBellPenalty}", ConsoleColor.DarkYellow);
+            }
+
             // Apply S/R adjustment to thresholds (more lenient when near support, stricter near resistance)
             adjustedLongThreshold -= srScoreAdjustment;
             adjustedShortThreshold += srScoreAdjustment;
@@ -2232,6 +2294,29 @@ namespace IdiotProof.Strategy {
             }
 
             // =====================================================================
+            // CLEAN ROCKET PATTERN: Clean premarket + above VWAP + rocket up = ride to HOD
+            // If premarket was clean (no green rush) and stock rockets up after open,
+            // this is a high-probability trade - reduce threshold and mark for HOD exit
+            // =====================================================================
+            if (openingAnalysis.Recommendation == OpeningBellAction.CleanRocketBuy)
+            {
+                var now = TimezoneHelper.GetCurrentTime(MarketTimeZone.EST);
+                var rocketWindow = new TimeOnly(9, 32);  // After volatility window settles
+                var rocketEnd = new TimeOnly(9, 45);     // Don't chase after first 15 min
+                
+                if (now >= rocketWindow && now <= rocketEnd)
+                {
+                    // Clean rocket pattern detected - boost LONG confidence
+                    if (!shouldEnterLong && score.TotalScore >= adjustedLongThreshold - 15)
+                    {
+                        Log($"[CLEAN ROCKET] *** Clean premarket + above VWAP + early strength ***", ConsoleColor.Cyan);
+                        Log($"  Boosting LONG entry (score {score.TotalScore} close to threshold {adjustedLongThreshold})", ConsoleColor.Cyan);
+                        shouldEnterLong = true;
+                    }
+                }
+            }
+
+            // =====================================================================
             // LSH PATTERN MATCHING: Get "second opinion" from historical analogs
             // =====================================================================
             
@@ -2302,7 +2387,7 @@ namespace IdiotProof.Strategy {
                 var snapshot = _lastIndicatorSnapshot.Value;
                 var lshForecast = _lastLshForecast;
                 var learnedWeights = _learnedWeights;
-                var scoreResult = new IdiotProof.Helpers.MarketScoreResult
+                var scoreResult = new IdiotProof.Calculators.MarketScoreResult
                 {
                     TotalScore = score.TotalScore,
                     VwapScore = score.VwapScore,
@@ -2375,7 +2460,7 @@ namespace IdiotProof.Strategy {
                     EntryTime = DateTime.UtcNow,
                     EntryPrice = currentPrice,
                     IsLong = true,
-                    Quantity = _strategy.Order.Quantity,
+                    Quantity = GetEffectiveQuantity(currentPrice),
                     EntryScore = score.TotalScore,
                     EntryVwapScore = score.VwapScore,
                     EntryEmaScore = score.EmaScore,
@@ -2422,7 +2507,7 @@ namespace IdiotProof.Strategy {
                     EntryTime = DateTime.UtcNow,
                     EntryPrice = currentPrice,
                     IsLong = false,
-                    Quantity = _strategy.Order.Quantity,
+                    Quantity = GetEffectiveQuantity(currentPrice),
                     EntryScore = score.TotalScore,
                     EntryVwapScore = score.VwapScore,
                     EntryEmaScore = score.EmaScore,
@@ -2446,6 +2531,37 @@ namespace IdiotProof.Strategy {
         {
             bool isLong = _isLong;  // Use tracked position direction
             bool isFlipMode = config.UseFlipMode;
+
+            // =====================================================================
+            // PREMARKET GREEN RUSH WARNING EXIT
+            // If stock shows lots of green candles right before RTH bell (9:25-9:30),
+            // it's likely to crash after open. EXIT any long position before the bell.
+            // =====================================================================
+            var openingAnalysis = _candlestickAggregator.GetOpeningBellAnalysis(currentPrice, vwap);
+            
+            if (isLong && openingAnalysis.HasGreenRushWarning)
+            {
+                var now = TimezoneHelper.GetCurrentTime(MarketTimeZone.EST);
+                var rthOpen = new TimeOnly(9, 30);
+                
+                // Only exit if we're in the last few minutes before RTH open
+                if (now >= rthOpen.AddMinutes(-3) && now < rthOpen)
+                {
+                    int qty = _effectiveQuantity > 0 ? _effectiveQuantity : GetEffectiveQuantity(currentPrice);
+                    double pnl = (currentPrice - _entryFillPrice) * qty;
+                    double pnlPercent = (_entryFillPrice > 0) ? ((currentPrice - _entryFillPrice) / _entryFillPrice) * 100 : 0;
+                    
+                    Log($"*** GREEN RUSH WARNING EXIT! Multiple green candles before RTH bell =  crash likely!", ConsoleColor.Red);
+                    Log($"  Premarket gain: {openingAnalysis.PremarketGainPercent:+0.0;-0.0}% | Green candles: {openingAnalysis.PremarketGreenCandles}", ConsoleColor.Yellow);
+                    Log($"  Exiting LONG at ${currentPrice:F2} ({pnlPercent:+0.00;-0.00}%, ${pnl:+0.00;-0.00})", ConsoleColor.Yellow);
+                    
+                    ExecuteAutonomousExit(currentPrice, vwap, isLong);
+                    
+                    // After RTH opens and first candle settles, consider shorting the fade
+                    // This will be handled by normal entry logic after 9:32
+                    return;
+                }
+            }
 
             // =====================================================================
             // EARLY HOD EXIT: If ticker typically makes HOD early and we're near it
@@ -2604,7 +2720,7 @@ namespace IdiotProof.Strategy {
                 EntryTime = DateTime.UtcNow,
                 EntryPrice = currentPrice,
                 IsLong = goLong,
-                Quantity = _strategy.Order.Quantity,
+                Quantity = GetEffectiveQuantity(currentPrice),
                 EntryScore = score.TotalScore,
                 EntryVwapScore = score.VwapScore,
                 EntryEmaScore = score.EmaScore,
@@ -2730,11 +2846,14 @@ namespace IdiotProof.Strategy {
             _exitOrderId = _wrapper.ConsumeNextOrderId();
             string action = wasLong ? "SELL" : "BUY"; // Close position
 
+            // Use effective quantity (already calculated at entry)
+            int qty = _effectiveQuantity > 0 ? _effectiveQuantity : GetEffectiveQuantity(currentPrice);
+
             var exitOrder = new Order
             {
                 Action = action,
                 OrderType = "MKT",
-                TotalQuantity = _strategy.Order.Quantity,
+                TotalQuantity = qty,
                 OutsideRth = true,
                 Tif = "GTC"
             };
@@ -2742,7 +2861,7 @@ namespace IdiotProof.Strategy {
             if (!string.IsNullOrEmpty(AppSettings.AccountNumber))
                 exitOrder.Account = AppSettings.AccountNumber;
 
-            Log($">> AUTONOMOUS EXIT: {action} {_strategy.Order.Quantity} @ MKT (cycling to next trade)", ConsoleColor.Yellow);
+            Log($">> AUTONOMOUS EXIT: {action} {qty} @ MKT (cycling to next trade)", ConsoleColor.Yellow);
             _client.placeOrder(_exitOrderId, _contract, exitOrder);
         }
 
@@ -3035,7 +3154,7 @@ namespace IdiotProof.Strategy {
             // Get indicator weights - learned or default
             var weights = _learnedWeights != null 
                 ? _learnedWeights.ToIndicatorWeights() 
-                : IdiotProof.Helpers.IndicatorWeights.Default;
+                : IdiotProof.Calculators.IndicatorWeights.Default;
             
             // Use MarketScoreCalculator for component scores (SINGLE SOURCE OF TRUTH)
             var snapshot = BuildIndicatorSnapshot(price, vwap);
@@ -3269,12 +3388,15 @@ namespace IdiotProof.Strategy {
         {
             if (_takeProfitOrderId <= 0) return;
 
+            // Use effective quantity (already calculated at entry time)
+            int qty = _effectiveQuantity > 0 ? _effectiveQuantity : GetEffectiveQuantity(_lastPrice);
+
             var tpOrder = new Order
             {
                 Action = _strategy.Order.Side == OrderSide.Buy ? "SELL" : "BUY",
                 OrderType = "LMT",
                 LmtPrice = newPrice,
-                TotalQuantity = _strategy.Order.Quantity,
+                TotalQuantity = qty,
                 OutsideRth = _strategy.Order.TakeProfitOutsideRth,
                 Tif = "GTC"
             };
@@ -3292,12 +3414,15 @@ namespace IdiotProof.Strategy {
         {
             if (_stopLossOrderId <= 0) return;
 
+            // Use effective quantity (already calculated at entry time)
+            int slQty = _effectiveQuantity > 0 ? _effectiveQuantity : GetEffectiveQuantity(_lastPrice);
+
             var slOrder = new Order
             {
                 Action = _strategy.Order.Side == OrderSide.Buy ? "SELL" : "BUY",
                 OrderType = "STP",
                 AuxPrice = newPrice,
-                TotalQuantity = _strategy.Order.Quantity,
+                TotalQuantity = slQty,
                 OutsideRth = true,
                 Tif = "GTC"
             };
@@ -3333,11 +3458,14 @@ namespace IdiotProof.Strategy {
             int exitOrderId = _wrapper.ConsumeNextOrderId();
             string action = _strategy.Order.Side == OrderSide.Buy ? "SELL" : "BUY";
 
+            // Use effective quantity (already calculated at entry time)
+            int emergencyQty = _effectiveQuantity > 0 ? _effectiveQuantity : GetEffectiveQuantity(_lastPrice);
+
             var exitOrder = new Order
             {
                 Action = action,
                 OrderType = "MKT",
-                TotalQuantity = _strategy.Order.Quantity,
+                TotalQuantity = emergencyQty,
                 OutsideRth = true,
                 Tif = "GTC"
             };
@@ -3345,7 +3473,7 @@ namespace IdiotProof.Strategy {
             if (!string.IsNullOrEmpty(AppSettings.AccountNumber))
                 exitOrder.Account = AppSettings.AccountNumber;
 
-            Log($">> EMERGENCY EXIT: {action} {_strategy.Order.Quantity} @ MKT", ConsoleColor.Red);
+            Log($">> EMERGENCY EXIT: {action} {emergencyQty} @ MKT", ConsoleColor.Red);
             _client.placeOrder(exitOrderId, _contract, exitOrder);
 
             _isComplete = true;
@@ -3653,11 +3781,14 @@ namespace IdiotProof.Strategy {
             // For autonomous trading, use tracked direction; otherwise use order's side
             string entryAction = _strategy.Order.UseAutonomousTrading ? GetOpenAction() : order.GetIbAction();
 
+            // Get effective quantity (auto-calculated if UseAutoQuantity is true)
+            int qty = GetEffectiveQuantity(_lastPrice);
+
             var ibOrder = new Order
             {
                 Action = entryAction,
                 OrderType = effectiveOrderType,
-                TotalQuantity = order.Quantity,
+                TotalQuantity = qty,
                 OutsideRth = GetEffectiveOutsideRth(order),
                 Tif = order.GetIbTif(),
                 AllOrNone = order.AllOrNone

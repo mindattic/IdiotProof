@@ -12,9 +12,11 @@
 //
 // ============================================================================
 
+using IdiotProof.Calculators;
 using IdiotProof.Constants;
 using IdiotProof.Enums;
 using IdiotProof.Helpers;
+using IdiotProof.Logging;
 using IdiotProof.Models;
 using IdiotProof.Strategy;
 
@@ -41,7 +43,7 @@ namespace IdiotProof.Services {
         {
             try
             {
-                Console.WriteLine($"[BACKTEST] Starting backtest for {request.Symbol}, {request.Days} days, mode: {request.Mode}");
+                ConsoleLog.Write("Backtest", $"Starting backtest for {request.Symbol}, {request.Days} days, mode: {request.Mode}");
 
                 // Calculate bars needed for the requested days
                 // 1 trading day = ~390 minutes RTH or ~960 minutes extended hours
@@ -60,7 +62,7 @@ namespace IdiotProof.Services {
                     allBars = cachedBars;
                     var lastBarTime = cachedBars.Max(b => b.Time);
                     var firstBarTime = cachedBars.Min(b => b.Time);
-                    Console.WriteLine($"[BACKTEST] Loaded {cachedBars.Count} bars from cache ({firstBarTime:MM/dd HH:mm} to {lastBarTime:MM/dd HH:mm})");
+                    ConsoleLog.Write("Backtest", $"Loaded {cachedBars.Count} bars from cache ({firstBarTime:MM/dd HH:mm} to {lastBarTime:MM/dd HH:mm})");
 
                     // STEP 2a: Check if we need to backfill RECENT data (forward fill)
                     var timeSinceLastBar = DateTime.Now - lastBarTime;
@@ -70,7 +72,7 @@ namespace IdiotProof.Services {
                     if (hoursGap > 2)
                     {
                         int daysToBackfill = Math.Min((int)Math.Ceiling(hoursGap / 24.0) + 1, 5); // Max 5 days per request
-                        Console.WriteLine($"[BACKTEST] Cache is {hoursGap:F1} hours old, backfilling {daysToBackfill} days from IBKR...");
+                        ConsoleLog.Write("Backtest", $"Cache is {hoursGap:F1} hours old, backfilling {daysToBackfill} days from IBKR...");
 
                         try
                         {
@@ -100,27 +102,27 @@ namespace IdiotProof.Services {
                                     if (newBarsAdded > 0)
                                     {
                                         cacheWasUpdated = true;
-                                        Console.WriteLine($"[BACKTEST] Added {newBarsAdded} new bars from IBKR (forward backfill complete)");
+                                        ConsoleLog.Write("Backtest", $"Added {newBarsAdded} new bars from IBKR (forward backfill complete)");
                                     }
                                     else
                                     {
-                                        Console.WriteLine($"[BACKTEST] No new bars to add (market may be closed)");
+                                        ConsoleLog.Write("Backtest", "No new bars to add (market may be closed)");
                                     }
                                 }
                             }
                         }
                         catch (TimeoutException)
                         {
-                            Console.WriteLine($"[BACKTEST] IBKR forward backfill timed out - using cached data only");
+                            ConsoleLog.Warn("Backtest", "IBKR forward backfill timed out - using cached data only");
                         }
                         catch (Exception ex)
                         {
-                            Console.WriteLine($"[BACKTEST] IBKR forward backfill failed ({ex.Message}) - using cached data only");
+                            ConsoleLog.Warn("Backtest", $"IBKR forward backfill failed ({ex.Message}) - using cached data only");
                         }
                     }
                     else
                     {
-                        Console.WriteLine($"[BACKTEST] Cache is fresh ({hoursGap:F1} hours old), no forward backfill needed");
+                        ConsoleLog.Write("Backtest", $"Cache is fresh ({hoursGap:F1} hours old), no forward backfill needed");
                     }
 
                     // STEP 2b: Check if we need to backfill OLDER data (backward fill)
@@ -131,7 +133,7 @@ namespace IdiotProof.Services {
                     if (cachedDays < daysNeeded)
                     {
                         int daysToFetchBack = daysNeeded - cachedDays;
-                        Console.WriteLine($"[BACKTEST] Cache has ~{cachedDays} days, need {daysNeeded} days. Fetching {daysToFetchBack} more days of history...");
+                        ConsoleLog.Write("Backtest", $"Cache has ~{cachedDays} days, need {daysNeeded} days. Fetching {daysToFetchBack} more days of history...");
 
                         // Fetch in 5-day chunks going backward
                         DateTime endDate = firstBarTime.AddMinutes(-1); // Start just before our oldest bar
@@ -140,7 +142,7 @@ namespace IdiotProof.Services {
                         while (daysRemaining > 0)
                         {
                             int fetchDays = Math.Min(daysRemaining, 5);
-                            Console.WriteLine($"[BACKTEST] Fetching {fetchDays} days ending {endDate:MM/dd HH:mm}...");
+                            ConsoleLog.Write("Backtest", $"Fetching {fetchDays} days ending {endDate:MM/dd HH:mm}...");
 
                             try
                             {
@@ -154,7 +156,7 @@ namespace IdiotProof.Services {
 
                                 if (barsFetched == 0)
                                 {
-                                    Console.WriteLine($"[BACKTEST] No more historical data available from IBKR");
+                                    ConsoleLog.Write("Backtest", "No more historical data available from IBKR");
                                     break;
                                 }
 
@@ -175,11 +177,11 @@ namespace IdiotProof.Services {
                                     {
                                         cacheWasUpdated = true;
                                         firstBarTime = allBars.Min(b => b.Time); // Update for next iteration
-                                        Console.WriteLine($"[BACKTEST] Added {oldBarsAdded} historical bars (now starting from {firstBarTime:MM/dd HH:mm})");
+                                        ConsoleLog.Write("Backtest", $"Added {oldBarsAdded} historical bars (now starting from {firstBarTime:MM/dd HH:mm})");
                                     }
                                     else
                                     {
-                                        Console.WriteLine($"[BACKTEST] No older bars found in this chunk");
+                                        ConsoleLog.Write("Backtest", "No older bars found in this chunk");
                                         break;
                                     }
                                 }
@@ -195,12 +197,12 @@ namespace IdiotProof.Services {
                             }
                             catch (TimeoutException)
                             {
-                                Console.WriteLine($"[BACKTEST] IBKR backward backfill timed out - using available data");
+                                ConsoleLog.Warn("Backtest", "IBKR backward backfill timed out - using available data");
                                 break;
                             }
                             catch (Exception ex)
                             {
-                                Console.WriteLine($"[BACKTEST] IBKR backward backfill failed ({ex.Message}) - using available data");
+                                ConsoleLog.Warn("Backtest", $"IBKR backward backfill failed ({ex.Message}) - using available data");
                                 break;
                             }
                         }
@@ -209,7 +211,7 @@ namespace IdiotProof.Services {
                 else
                 {
                     // STEP 2c: No cache - fetch everything from IBKR API
-                    Console.WriteLine($"[BACKTEST] No cache found, fetching {request.Days} days from IBKR API...");
+                    ConsoleLog.Write("Backtest", $"No cache found, fetching {request.Days} days from IBKR API...");
 
                     // IBKR limits: 1 min bars max "5 D" per request
                     // For 30 days, we need multiple requests
@@ -220,7 +222,7 @@ namespace IdiotProof.Services {
                     {
                         int fetchDays = Math.Min(daysRemaining, 5);
                         
-                        Console.WriteLine($"[BACKTEST] Fetching {fetchDays} days ending {endDate:yyyy-MM-dd HH:mm}");
+                        ConsoleLog.Write("Backtest", $"Fetching {fetchDays} days ending {endDate:yyyy-MM-dd HH:mm}");
 
                         // Fetch historical data with specific end date
                         int barsFetched = await _historicalDataService.FetchHistoricalDataAsync(
@@ -276,7 +278,7 @@ namespace IdiotProof.Services {
                     if (allBars.Count > 0)
                     {
                         _cache.SaveToCache(request.Symbol, allBars);
-                        Console.WriteLine($"[BACKTEST] Saved {allBars.Count} bars to {request.Symbol}.history.json");
+                        ConsoleLog.Write("Backtest", $"Saved {allBars.Count} bars to {request.Symbol}.history.json");
                     }
                 }
 
@@ -285,10 +287,10 @@ namespace IdiotProof.Services {
                 {
                     allBars = allBars.OrderBy(b => b.Time).ToList();
                     _cache.SaveToCache(request.Symbol, allBars);
-                    Console.WriteLine($"[BACKTEST] Updated cache with {allBars.Count} total bars");
+                    ConsoleLog.Write("Backtest", $"Updated cache with {allBars.Count} total bars");
                 }
 
-                Console.WriteLine($"[BACKTEST] Using {allBars.Count} total bars for {request.Symbol}");
+                ConsoleLog.Write("Backtest", $"Using {allBars.Count} total bars for {request.Symbol}");
 
                 if (allBars.Count < 50)
                 {
@@ -324,10 +326,10 @@ namespace IdiotProof.Services {
                 {
                     StrategyRunner.ProfileManager.SaveProfile(profile);
                     profileSaved = true;
-                    Console.WriteLine($"[BACKTEST] Profile saved for {request.Symbol}");
+                    ConsoleLog.Write("Backtest", $"Profile saved for {request.Symbol}");
                 }
 
-                Console.WriteLine($"[BACKTEST] Complete: {totalTrades} trades, {winRate:F1}% win rate, ${totalPnL:F2} total P&L");
+                ConsoleLog.Success("Backtest", $"Complete: {totalTrades} trades, {winRate:F1}% win rate, ${totalPnL:F2} total P&L");
 
                 return new BacktestResponsePayload
                 {
@@ -346,7 +348,7 @@ namespace IdiotProof.Services {
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"[BACKTEST] Error: {ex.Message}");
+                ConsoleLog.Error("Backtest", ex.Message);
                 return new BacktestResponsePayload
                 {
                     Success = false,
@@ -368,7 +370,7 @@ namespace IdiotProof.Services {
         {
             if (bars.Count < 50)
             {
-                Console.WriteLine($"[WARN] Need at least 50 bars for autonomous learning, got {bars.Count}");
+                ConsoleLog.Warn("Backtest", $"Need at least 50 bars for autonomous learning, got {bars.Count}");
                 return (new TickerProfile { Symbol = symbol }, "");
             }
 
@@ -377,8 +379,8 @@ namespace IdiotProof.Services {
 
             if (verboseLogging)
             {
-                Console.WriteLine($"[LEARN] Running autonomous learning for {symbol} with {bars.Count} bars...");
-                Console.WriteLine($"        Date range: {bars[0].Time:yyyy-MM-dd} to {bars[^1].Time:yyyy-MM-dd}");
+                ConsoleLog.Write("Learn", $"Running autonomous learning for {symbol} with {bars.Count} bars...");
+                ConsoleLog.Write("Learn", $"Date range: {bars[0].Time:yyyy-MM-dd} to {bars[^1].Time:yyyy-MM-dd}");
                 Console.WriteLine();
             }
 
@@ -398,7 +400,7 @@ namespace IdiotProof.Services {
                     currentDay = bar.Time.Date;
                     dayNumber++;
                     if (verboseLogging)
-                        Console.WriteLine($"  --- Day {dayNumber}: {bar.Time:ddd MM/dd/yyyy} ---");
+                        ConsoleLog.Write("Learn", $"--- Day {dayNumber}: {bar.Time:ddd MM/dd/yyyy} ---");
                 }
 
                 var trades = simulator.ProcessBar(bar);
@@ -427,7 +429,7 @@ namespace IdiotProof.Services {
                         var exitAction = trade.IsLong ? "Sell " : "Cover";
                         var pnlSign = trade.PnL >= 0 ? "+" : "";
                         
-                        Console.WriteLine($"      {icon}{reasonTag} {direction} | {entryAction} {trade.EntryTime:h:mm tt} @ ${trade.EntryPrice:F2} | " +
+                        ConsoleLog.Write("Learn", $"{icon}{reasonTag} {direction} | {entryAction} {trade.EntryTime:h:mm tt} @ ${trade.EntryPrice:F2} | " +
                             $"{exitAction} {trade.ExitTime:h:mm tt} @ ${trade.ExitPrice:F2} | " +
                             $"{pnlSign}${trade.PnL:F2} ({pnlSign}{trade.PnLPercent:F2}%)");
                     }
@@ -442,7 +444,7 @@ namespace IdiotProof.Services {
                 {
                     allTrades.Add((dayNumber, bars[^1].Time.Date, finalTrade));
                     if (verboseLogging)
-                        Console.WriteLine($"      [END] Closed at end of data: ${finalTrade.PnL:F2}");
+                        ConsoleLog.Write("Learn", $"[END] Closed at end of data: ${finalTrade.PnL:F2}");
                 }
             }
 
@@ -462,7 +464,7 @@ namespace IdiotProof.Services {
             if (verboseLogging)
             {
                 Console.WriteLine();
-                Console.WriteLine($"[LEARN] Complete: {profile.GetSummary()}");
+                ConsoleLog.Success("Learn", $"Complete: {profile.GetSummary()}");
             }
             
             // Build detailed trade log
@@ -614,7 +616,7 @@ namespace IdiotProof.Services {
         private readonly WilliamsRCalculator _williamsR = new(14);
 
         // Indicator weights - learned or default
-        private IdiotProof.Helpers.IndicatorWeights _weights = IdiotProof.Helpers.IndicatorWeights.Default;
+        private IdiotProof.Optimization.IndicatorWeights _weights = IdiotProof.Optimization.IndicatorWeights.Default;
 
         // Additional entry scores for extended indicators
         private int _entryBollingerScore, _entryStochasticScore, _entryObvScore, _entryCciScore, _entryWilliamsRScore;
@@ -637,7 +639,7 @@ namespace IdiotProof.Services {
         /// Sets the indicator weights for score calculation.
         /// Call after construction to use ticker-specific learned weights.
         /// </summary>
-        public void SetWeights(IdiotProof.Helpers.IndicatorWeights weights)
+        public void SetWeights(IdiotProof.Optimization.IndicatorWeights weights)
         {
             _weights = weights;
         }
@@ -965,7 +967,7 @@ namespace IdiotProof.Services {
             };
 
             // USE SHARED CALCULATOR with learned or default weights (SINGLE SOURCE OF TRUTH)
-            var result = MarketScoreCalculator.Calculate(snapshot, _weights);
+            var result = MarketScoreCalculator.Calculate(snapshot, _weights.ToCalculatorWeights());
             
             scores.Vwap = result.VwapScore;
             scores.Ema = result.EmaScore;

@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IdiotProof - Autonomous Trading System Documentation</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="page-wrapper">
+        <!-- Sidebar Navigation -->
+        <nav class="sidebar">
+            <div class="sidebar-header">
+                <a href="index.htm" class="logo">
+                    <span class="logo-icon">📈</span>
+                    <span class="logo-text">IdiotProof</span>
+                    <span class="logo-version">v2.0</span>
+                </a>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">Getting Started</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="index.htm" class="nav-link active"><span class="nav-icon">🏠</span>Home</a></li>
+                    <li class="nav-item"><a href="quick-start.htm" class="nav-link"><span class="nav-icon">🚀</span>Quick Start</a></li>
+                    <li class="nav-item"><a href="architecture.htm" class="nav-link"><span class="nav-icon">🏗️</span>Architecture</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">IdiotScript DSL</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="idiotscript.htm" class="nav-link"><span class="nav-icon">📜</span>Language Reference</a></li>
+                    <li class="nav-item"><a href="commands.htm" class="nav-link"><span class="nav-icon">⌨️</span>Command Reference</a></li>
+                    <li class="nav-item"><a href="examples.htm" class="nav-link"><span class="nav-icon">💡</span>Strategy Examples</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">Technical Indicators</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="indicators.htm" class="nav-link"><span class="nav-icon">📊</span>Indicator Overview</a></li>
+                    <li class="nav-item"><a href="indicators-vwap.htm" class="nav-link"><span class="nav-icon">〰️</span>VWAP Indicators</a></li>
+                    <li class="nav-item"><a href="indicators-ema.htm" class="nav-link"><span class="nav-icon">📈</span>EMA Indicators</a></li>
+                    <li class="nav-item"><a href="indicators-momentum.htm" class="nav-link"><span class="nav-icon">⚡</span>Momentum</a></li>
+                    <li class="nav-item"><a href="indicators-volume.htm" class="nav-link"><span class="nav-icon">📶</span>Volume Analysis</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">Trading Systems</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="market-score.htm" class="nav-link"><span class="nav-icon">🎯</span>Market Score</a></li>
+                    <li class="nav-item"><a href="adaptive-order.htm" class="nav-link"><span class="nav-icon">🔄</span>AdaptiveOrder</a></li>
+                    <li class="nav-item"><a href="autonomous-trading.htm" class="nav-link"><span class="nav-icon">🤖</span>AutonomousTrading</a></li>
+                    <li class="nav-item"><a href="order-management.htm" class="nav-link"><span class="nav-icon">📋</span>Order Management</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">AI & Machine Learning</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="ai-overview.htm" class="nav-link"><span class="nav-icon">🧠</span>AI Overview</a></li>
+                    <li class="nav-item"><a href="lstm.htm" class="nav-link"><span class="nav-icon">🔮</span>LSTM Predictor</a></li>
+                    <li class="nav-item"><a href="pattern-matcher.htm" class="nav-link"><span class="nav-icon">🔍</span>Pattern Matcher</a></li>
+                    <li class="nav-item"><a href="learned-weights.htm" class="nav-link"><span class="nav-icon">⚖️</span>Learned Weights</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">Configuration</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="configuration.htm" class="nav-link"><span class="nav-icon">⚙️</span>Settings</a></li>
+                    <li class="nav-item"><a href="watchlist.htm" class="nav-link"><span class="nav-icon">👀</span>Watchlist</a></li>
+                    <li class="nav-item"><a href="strategy-rules.htm" class="nav-link"><span class="nav-icon">📝</span>Strategy Rules</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">Testing & Analysis</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="backtesting.htm" class="nav-link"><span class="nav-icon">⏪</span>Backtesting</a></li>
+                    <li class="nav-item"><a href="simulation.htm" class="nav-link"><span class="nav-icon">🎮</span>Simulation</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">Reference</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="glossary.htm" class="nav-link"><span class="nav-icon">📖</span>Glossary</a></li>
+                    <li class="nav-item"><a href="faq.htm" class="nav-link"><span class="nav-icon">❓</span>FAQ</a></li>
+                    <li class="nav-item"><a href="troubleshooting.htm" class="nav-link"><span class="nav-icon">🔧</span>Troubleshooting</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">Roadmap</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="futureproofing.htm" class="nav-link"><span class="nav-icon">🔮</span>Future-Proofing</a></li>
+                    <li class="nav-item"><a href="wishlist.htm" class="nav-link"><span class="nav-icon">✨</span>Wishlist</a></li>
+                </ul>
+            </div>
+        </nav>
+        
+        <!-- Main Content -->
+        <main class="main-content">
+            <div class="content-wrapper">
+                <!-- Header -->
+                <header class="page-header">
+                    <h1 class="page-title">IdiotProof Trading System</h1>
+                    <p class="page-subtitle">
+                        An autonomous algorithmic trading platform with AI-powered decision support,
+                        designed to be so simple that even an idiot can profit from it.
+                    </p>
+                </header>
+                
+                <!-- Hero ASCII Art -->
+                <div class="ascii-art">
+╔═══════════════════════════════════════════════════════════════════════════════════╗
+║                                                                                   ║
+║   ██╗██████╗ ██╗ ██████╗ ████████╗██████╗ ██████╗  ██████╗  ██████╗ ███████╗     ║
+║   ██║██╔══██╗██║██╔═══██╗╚══██╔══╝██╔══██╗██╔══██╗██╔═══██╗██╔═══██╗██╔════╝     ║
+║   ██║██║  ██║██║██║   ██║   ██║   ██████╔╝██████╔╝██║   ██║██║   ██║█████╗       ║
+║   ██║██║  ██║██║██║   ██║   ██║   ██╔═══╝ ██╔══██╗██║   ██║██║   ██║██╔══╝       ║
+║   ██║██████╔╝██║╚██████╔╝   ██║   ██║     ██║  ██║╚██████╔╝╚██████╔╝██║          ║
+║   ╚═╝╚═════╝ ╚═╝ ╚═════╝    ╚═╝   ╚═╝     ╚═╝  ╚═╝ ╚═════╝  ╚═════╝ ╚═╝          ║
+║                                                                                   ║
+║     ████████╗██████╗  █████╗ ██████╗ ██╗███╗   ██╗ ██████╗                        ║
+║     ╚══██╔══╝██╔══██╗██╔══██╗██╔══██╗██║████╗  ██║██╔════╝                        ║
+║        ██║   ██████╔╝███████║██║  ██║██║██╔██╗ ██║██║  ███╗                       ║
+║        ██║   ██╔══██╗██╔══██║██║  ██║██║██║╚██╗██║██║   ██║                       ║
+║        ██║   ██║  ██║██║  ██║██████╔╝██║██║ ╚████║╚██████╔╝  <span class="bullish">v2.0</span>                ║
+║        ╚═╝   ╚═╝  ╚═╝╚═╝  ╚═╝╚═════╝ ╚═╝╚═╝  ╚═══╝ ╚═════╝                        ║
+║                                                                                   ║
+╚═══════════════════════════════════════════════════════════════════════════════════╝
+</div>
+                
+                <!-- Introduction -->
+                <section>
+                    <h2>What is IdiotProof?</h2>
+                    <p>
+                        IdiotProof is a sophisticated algorithmic trading system that combines multiple 
+                        technical indicators, machine learning models, and AI-powered analysis to make 
+                        autonomous trading decisions. Built on top of the Interactive Brokers TWS API,
+                        it provides:
+                    </p>
+                    
+                    <div class="card-grid">
+                        <div class="card">
+                            <div class="card-icon">📜</div>
+                            <div class="card-title">IdiotScript DSL</div>
+                            <div class="card-description">
+                                A domain-specific language for defining trading strategies in plain,
+                                readable syntax. Write <code>Ticker(AAPL).Entry(150).TakeProfit(160)</code>
+                                and let the system handle the rest.
+                            </div>
+                        </div>
+                        
+                        <div class="card">
+                            <div class="card-icon">🎯</div>
+                            <div class="card-title">Market Score System</div>
+                            <div class="card-description">
+                                Combines 11 technical indicators into a single score from -100 (bearish)
+                                to +100 (bullish). Uses learned weights optimized per ticker.
+                            </div>
+                        </div>
+                        
+                        <div class="card">
+                            <div class="card-icon">🤖</div>
+                            <div class="card-title">Autonomous Trading</div>
+                            <div class="card-description">
+                                Self-adjusting entry/exit thresholds based on real-time market conditions.
+                                The system adapts to trending vs ranging markets automatically.
+                            </div>
+                        </div>
+                        
+                        <div class="card">
+                            <div class="card-icon">🧠</div>
+                            <div class="card-title">AI Integration</div>
+                            <div class="card-description">
+                                LSTM neural networks for price prediction, LSH pattern matching for
+                                historical analogs, and ChatGPT-powered decision support.
+                            </div>
+                        </div>
+                        
+                        <div class="card">
+                            <div class="card-icon">🔄</div>
+                            <div class="card-title">Adaptive Orders</div>
+                            <div class="card-description">
+                                Dynamic take profit and stop loss adjustments based on momentum.
+                                Extends targets in strong trends, contracts in weak conditions.
+                            </div>
+                        </div>
+                        
+                        <div class="card">
+                            <div class="card-icon">📊</div>
+                            <div class="card-title">Comprehensive Analysis</div>
+                            <div class="card-description">
+                                Backtesting, Monte Carlo simulation, walk-forward analysis, and
+                                real-time performance tracking built in.
+                            </div>
+                        </div>
+                    </div>
+                </section>
+                
+                <!-- System Overview Diagram -->
+                <section>
+                    <h2>System Data Flow</h2>
+                    <div class="ascii-art">
+┌────────────────────────────────────────────────────────────────────────────────────┐
+│                           IDIOTPROOF SYSTEM ARCHITECTURE                           │
+└────────────────────────────────────────────────────────────────────────────────────┘
+
+   ┌─────────────┐      ┌─────────────────┐      ┌─────────────────────────────────┐
+   │  .idiot     │ ───▶ │   IdiotScript   │ ───▶ │      TradingStrategy            │
+   │  Files      │      │   Parser        │      │  • Symbol, Conditions, Order    │
+   └─────────────┘      └─────────────────┘      └─────────────┬───────────────────┘
+                                                               │
+                                                               ▼
+┌──────────────────────────────────────────────────────────────────────────────────┐
+│                              STRATEGY RUNNER                                      │
+├──────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                  │
+│   <span class="highlight">Market Data Feed</span>                       <span class="highlight">Indicator Calculators</span>            │
+│   ┌─────────────────┐                   ┌─────────────────────────────┐         │
+│   │ Price Ticks     │                   │  EMA(9, 21, 50)            │         │
+│   │ Bid/Ask         │  ───────────────▶ │  RSI(14)                   │         │
+│   │ Volume          │                   │  MACD(12, 26, 9)           │         │
+│   │ VWAP            │                   │  ADX(14), +DI, -DI         │         │
+│   └─────────────────┘                   │  Bollinger, Stochastic     │         │
+│                                         │  OBV, CCI, Williams %R     │         │
+│                                         └──────────────┬──────────────┘         │
+│                                                        │                         │
+│                                                        ▼                         │
+│   ┌────────────────────────────────────────────────────────────────────────┐    │
+│   │                       <span class="bullish">MARKET SCORE CALCULATOR</span>                       │    │
+│   │  ┌────────┬────────┬────────┬────────┬────────┬────────┬────────┐    │    │
+│   │  │ VWAP   │  EMA   │  RSI   │  MACD  │  ADX   │  VOL   │ BOLL   │    │    │
+│   │  │  10%   │  15%   │  12%   │  18%   │  15%   │   8%   │   5%   │    │    │
+│   │  └────────┴────────┴────────┴────────┴────────┴────────┴────────┘    │    │
+│   │                              │                                        │    │
+│   │                   Score: -100 ◀────────────▶ +100                    │    │
+│   └────────────────────────────────────────────────────────────────────────┘    │
+│                                  │                                               │
+│              ┌───────────────────┼───────────────────┐                          │
+│              ▼                   ▼                   ▼                          │
+│   ┌──────────────────┐ ┌──────────────────┐ ┌──────────────────┐               │
+│   │  <span class="highlight">LSTM Predictor</span>  │ │  <span class="highlight">Pattern Matcher</span> │ │   <span class="highlight">AI Advisor</span>    │               │
+│   │  Neural Network  │ │  Historical LSH  │ │  ChatGPT API   │               │
+│   │  ±25 score adj.  │ │  Analog Periods  │ │  Third Opinion │               │
+│   └──────────────────┘ └──────────────────┘ └──────────────────┘               │
+│                                  │                                               │
+│                                  ▼                                               │
+│   ┌────────────────────────────────────────────────────────────────────────┐    │
+│   │                         <span class="bullish">TRADING DECISION</span>                              │    │
+│   │                                                                        │    │
+│   │   Score ≥ +70  ──────────▶  ENTER LONG   ──────────▶  IBKR BUY ORDER  │    │
+│   │   Score ≤ -70  ──────────▶  ENTER SHORT  ──────────▶  IBKR SELL ORDER │    │
+│   │   Score change ──────────▶  ADJUST TP/SL ──────────▶  MODIFY ORDERS   │    │
+│   │   Score reversal ────────▶  EXIT POSITION ─────────▶  CLOSE POSITION  │    │
+│   └────────────────────────────────────────────────────────────────────────┘    │
+│                                                                                  │
+└──────────────────────────────────────────────────────────────────────────────────┘
+                                       │
+                                       ▼
+                        ┌───────────────────────────┐
+                        │   Interactive Brokers     │
+                        │   TWS / Gateway           │
+                        │   Order Execution         │
+                        └───────────────────────────┘
+</div>
+                </section>
+                
+                <!-- Quick Start Section -->
+                <section>
+                    <h2>Quick Start</h2>
+                    
+                    <h3>1. Define a Strategy</h3>
+                    <p>Create an IdiotScript strategy using the fluent API:</p>
+                    <pre><code><span class="token-function">Ticker</span>(<span class="token-string">NVDA</span>)
+    .<span class="token-function">Name</span>(<span class="token-string">"NVDA Breakout"</span>)
+    .<span class="token-function">Session</span>(IS.<span class="token-property">RTH</span>)
+    .<span class="token-function">Quantity</span>(<span class="token-number">10</span>)
+    .<span class="token-function">Entry</span>(<span class="token-number">850</span>)
+    .<span class="token-function">IsAboveVwap</span>()
+    .<span class="token-function">IsEmaAbove</span>(<span class="token-number">9</span>)
+    .<span class="token-function">TakeProfit</span>(<span class="token-number">880</span>)
+    .<span class="token-function">StopLoss</span>(<span class="token-number">835</span>)
+    .<span class="token-function">AdaptiveOrder</span>(IS.<span class="token-property">BALANCED</span>)</code></pre>
+                    
+                    <h3>2. Or Use Autonomous Trading</h3>
+                    <p>Let the AI handle everything:</p>
+                    <pre><code><span class="token-function">Ticker</span>(<span class="token-string">AAPL</span>)
+    .<span class="token-function">Name</span>(<span class="token-string">"AAPL Auto"</span>)
+    .<span class="token-function">Session</span>(IS.<span class="token-property">RTH</span>)
+    .<span class="token-function">Quantity</span>(<span class="token-number">25</span>)
+    .<span class="token-function">AutonomousTrading</span>()</code></pre>
+                    
+                    <h3>3. Start the Backend</h3>
+                    <div class="callout callout-warning">
+                        <div class="callout-title">⚠️ Indicator Warm-Up Required</div>
+                        <p>
+                            Technical indicators require historical price bars to calculate properly.
+                            Start the backend <strong>30+ minutes</strong> before trading to allow 
+                            all indicators to warm up. See the <a href="indicators.htm#warmup">Indicator Warm-Up Guide</a>.
+                        </p>
+                    </div>
+                    
+                    <p>
+                        For complete setup instructions, see the <a href="quick-start.htm">Quick Start Guide</a>.
+                    </p>
+                </section>
+                
+                <!-- Key Concepts -->
+                <section>
+                    <h2>Key Concepts</h2>
+                    
+                    <div class="toc">
+                        <div class="toc-title">Core Concepts You Need to Understand</div>
+                        <ul class="toc-list">
+                            <li><a href="market-score.htm">Market Score</a> - The unified indicator score from -100 to +100</li>
+                            <li><a href="idiotscript.htm">IdiotScript</a> - The domain-specific language for strategies</li>
+                            <li><a href="autonomous-trading.htm">AutonomousTrading</a> - Fully automated AI trading mode</li>
+                            <li><a href="adaptive-order.htm">AdaptiveOrder</a> - Dynamic TP/SL adjustment</li>
+                            <li><a href="indicators.htm">Technical Indicators</a> - The 11 indicators used</li>
+                            <li><a href="watchlist.htm">Watchlist</a> - Multi-ticker configuration</li>
+                        </ul>
+                    </div>
+                </section>
+                
+                <!-- Market Score Preview -->
+                <section>
+                    <h2>Market Score at a Glance</h2>
+                    <p>
+                        The heart of IdiotProof is the Market Score - a composite indicator that combines
+                        11 technical signals into a single value:
+                    </p>
+                    
+                    <div class="ascii-art">
+MARKET SCORE GAUGE
+══════════════════════════════════════════════════════════════════════════════════
+
+                        BEARISH              NEUTRAL              BULLISH
+                           │                    │                    │
+    ─100      ─70      ─40 │ ─20       0       +20 │ +40      +70       +100
+      │        │        │  │  │        │        │  │  │        │          │
+      ├────────┼────────┼──┼──┼────────┼────────┼──┼──┼────────┼──────────┤
+      │<span class="bearish">▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓</span>│  │        │        │  │  │<span class="bullish">▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓</span>│
+      │<span class="bearish">▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓</span>│  │<span class="neutral">░░░░░░░░░░░░░░░░░░░░</span>│  │<span class="bullish">▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓</span>│
+      │<span class="bearish">▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓</span>│  │<span class="neutral">░░░░░░░░░░░░░░░░░░░░</span>│  │<span class="bullish">▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓</span>│
+      └────────┴────────┴──┴──┴────────┴────────┴──┴──┴────────┴──────────┘
+                │                │                │
+                ▼                ▼                ▼
+          <span class="bearish">ENTER SHORT</span>         WAIT          <span class="bullish">ENTER LONG</span>
+          Score ≤ -70                       Score ≥ +70
+
+
+INDICATOR WEIGHTS
+══════════════════════════════════════════════════════════════════════════════════
+
+    ┌─────────────────────────────────────────────────────────────────────────┐
+    │  VWAP    ██████████░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░  10%    │
+    │  EMA     ███████████████░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░  15%    │
+    │  RSI     ████████████░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░  12%    │
+    │  MACD    ██████████████████░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░  18%    │
+    │  ADX     ███████████████░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░  15%    │
+    │  Volume  ████████░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░   8%    │
+    │  Boll    █████░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░   5%    │
+    │  Stoch   ██████░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░   6%    │
+    │  OBV     █████░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░   5%    │
+    │  CCI     ███░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░   3%    │
+    │  WillR   ███░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░   3%    │
+    └─────────────────────────────────────────────────────────────────────────┘
+                                                                     ───────
+                                                                       100%
+</div>
+                    
+                    <p>
+                        Each indicator contributes to the final score based on its weight.
+                        The system learns optimal weights per ticker through genetic algorithms
+                        and gradient descent. See <a href="market-score.htm">Market Score</a> for details.
+                    </p>
+                </section>
+                
+                <!-- Footer -->
+                <footer class="page-footer">
+                    <div class="footer-nav">
+                        <span></span>
+                        <a href="quick-start.htm">Next: Quick Start Guide →</a>
+                    </div>
+                    <p class="text-center text-muted">
+                        IdiotProof Trading System Documentation &copy; 2026
+                    </p>
+                </footer>
+            </div>
+        </main>
+    </div>
+</body>
+</html>

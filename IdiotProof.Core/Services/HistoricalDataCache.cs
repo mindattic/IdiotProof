@@ -20,6 +20,7 @@
 // ============================================================================
 
 using IdiotProof.Enums;
+using IdiotProof.Logging;
 using IdiotProof.Models;
 using IdiotProof.Constants;
 using IdiotProof.Settings;
@@ -642,7 +643,7 @@ public sealed class HistoricalDataCache
 
     private static void Log(string message)
     {
-        Console.WriteLine($"[HistoryCache] {message}");
+        ConsoleLog.HistoryCache(message);
     }
 }
 
@@ -685,5 +686,108 @@ public sealed class CachedDataInfo
     public override string ToString()
     {
         return $"{Symbol}: {BarCount} bars, {DaysCovered} days ({FirstBar:yyyy-MM-dd} to {LastBar:yyyy-MM-dd}), fetched {FetchedAt:yyyy-MM-dd HH:mm}, {FileSizeFormatted}";
+    }
+}
+
+/// <summary>
+/// Summary of a single trading day's price action.
+/// </summary>
+public sealed class DaySummary
+{
+    public string Symbol { get; set; } = "";
+    public DateTime Date { get; set; }
+    public double Open { get; set; }
+    public double High { get; set; }  // HOD
+    public double Low { get; set; }   // LOD
+    public double Close { get; set; }
+    public long Volume { get; set; }
+    
+    /// <summary>Range (HOD - LOD)</summary>
+    public double Range => High - Low;
+    
+    /// <summary>Range as percentage of close</summary>
+    public double RangePercent => Close > 0 ? (Range / Close) * 100 : 0;
+
+    public override string ToString() => $"{Symbol} {Date:yyyy-MM-dd}: O={Open:F2} H={High:F2} L={Low:F2} C={Close:F2}";
+}
+
+/// <summary>
+/// Static helpers for getting previous day data.
+/// </summary>
+public static class HistoricalDataHelper
+{
+    private static readonly JsonSerializerOptions JsonOptions = new()
+    {
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+        Converters = { new JsonStringEnumConverter() }
+    };
+
+    /// <summary>
+    /// Gets the previous trading day's summary (HOD, LOD, Close) from cached history.
+    /// </summary>
+    /// <param name="symbol">Ticker symbol.</param>
+    /// <param name="referenceDate">Date to look back from (default: today).</param>
+    /// <returns>DaySummary or null if no data.</returns>
+    public static DaySummary? GetPreviousDaySummary(string symbol, DateTime? referenceDate = null)
+    {
+        var path = HistoricalDataCache.GetCacheFilePath(symbol);
+        if (!File.Exists(path))
+            return null;
+
+        try
+        {
+            var json = File.ReadAllText(path);
+            var data = JsonSerializer.Deserialize<CachedHistoricalData>(json, JsonOptions);
+
+            if (data?.Bars == null || data.Bars.Count == 0)
+                return null;
+
+            var refDate = (referenceDate ?? DateTime.Now).Date;
+            
+            // Find the most recent complete trading day before reference date
+            var previousDayBars = data.Bars
+                .Where(b => b.Time.Date < refDate)
+                .GroupBy(b => b.Time.Date)
+                .OrderByDescending(g => g.Key)
+                .FirstOrDefault();
+
+            if (previousDayBars == null)
+                return null;
+
+            var bars = previousDayBars.ToList();
+            return new DaySummary
+            {
+                Symbol = symbol.ToUpperInvariant(),
+                Date = previousDayBars.Key,
+                Open = bars.First().Open,
+                High = bars.Max(b => b.High),
+                Low = bars.Min(b => b.Low),
+                Close = bars.Last().Close,
+                Volume = bars.Sum(b => b.Volume)
+            };
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Gets previous day summaries for multiple symbols.
+    /// </summary>
+    public static Dictionary<string, DaySummary> GetPreviousDaySummaries(IEnumerable<string> symbols, DateTime? referenceDate = null)
+    {
+        var result = new Dictionary<string, DaySummary>(StringComparer.OrdinalIgnoreCase);
+        
+        foreach (var symbol in symbols)
+        {
+            var summary = GetPreviousDaySummary(symbol, referenceDate);
+            if (summary != null)
+            {
+                result[symbol] = summary;
+            }
+        }
+
+        return result;
     }
 }

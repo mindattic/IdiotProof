@@ -1,0 +1,516 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Strategy Examples - IdiotProof Documentation</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="page-wrapper">
+        <!-- Sidebar Navigation -->
+        <nav class="sidebar">
+            <div class="sidebar-header">
+                <a href="index.htm" class="logo">
+                    <span class="logo-icon">📈</span>
+                    <span class="logo-text">IdiotProof</span>
+                    <span class="logo-version">v2.0</span>
+                </a>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">Getting Started</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="index.htm" class="nav-link"><span class="nav-icon">🏠</span>Home</a></li>
+                    <li class="nav-item"><a href="quick-start.htm" class="nav-link"><span class="nav-icon">🚀</span>Quick Start</a></li>
+                    <li class="nav-item"><a href="architecture.htm" class="nav-link"><span class="nav-icon">🏗️</span>Architecture</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">IdiotScript DSL</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="idiotscript.htm" class="nav-link"><span class="nav-icon">📜</span>Language Reference</a></li>
+                    <li class="nav-item"><a href="commands.htm" class="nav-link"><span class="nav-icon">⌨️</span>Command Reference</a></li>
+                    <li class="nav-item"><a href="examples.htm" class="nav-link active"><span class="nav-icon">💡</span>Strategy Examples</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">Technical Indicators</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="indicators.htm" class="nav-link"><span class="nav-icon">📊</span>Indicator Overview</a></li>
+                    <li class="nav-item"><a href="indicators-vwap.htm" class="nav-link"><span class="nav-icon">〰️</span>VWAP Indicators</a></li>
+                    <li class="nav-item"><a href="indicators-ema.htm" class="nav-link"><span class="nav-icon">📈</span>EMA Indicators</a></li>
+                    <li class="nav-item"><a href="indicators-momentum.htm" class="nav-link"><span class="nav-icon">⚡</span>Momentum</a></li>
+                    <li class="nav-item"><a href="indicators-volume.htm" class="nav-link"><span class="nav-icon">📶</span>Volume Analysis</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">Trading Systems</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="market-score.htm" class="nav-link"><span class="nav-icon">🎯</span>Market Score</a></li>
+                    <li class="nav-item"><a href="adaptive-order.htm" class="nav-link"><span class="nav-icon">🔄</span>AdaptiveOrder</a></li>
+                    <li class="nav-item"><a href="autonomous-trading.htm" class="nav-link"><span class="nav-icon">🤖</span>AutonomousTrading</a></li>
+                    <li class="nav-item"><a href="order-management.htm" class="nav-link"><span class="nav-icon">📋</span>Order Management</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">AI & Machine Learning</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="ai-overview.htm" class="nav-link"><span class="nav-icon">🧠</span>AI Overview</a></li>
+                    <li class="nav-item"><a href="lstm.htm" class="nav-link"><span class="nav-icon">🔮</span>LSTM Predictor</a></li>
+                    <li class="nav-item"><a href="pattern-matcher.htm" class="nav-link"><span class="nav-icon">🔍</span>Pattern Matcher</a></li>
+                    <li class="nav-item"><a href="learned-weights.htm" class="nav-link"><span class="nav-icon">⚖️</span>Learned Weights</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">Configuration</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="configuration.htm" class="nav-link"><span class="nav-icon">⚙️</span>Settings</a></li>
+                    <li class="nav-item"><a href="watchlist.htm" class="nav-link"><span class="nav-icon">👀</span>Watchlist</a></li>
+                    <li class="nav-item"><a href="strategy-rules.htm" class="nav-link"><span class="nav-icon">📝</span>Strategy Rules</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">Testing & Analysis</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="backtesting.htm" class="nav-link"><span class="nav-icon">⏪</span>Backtesting</a></li>
+                    <li class="nav-item"><a href="simulation.htm" class="nav-link"><span class="nav-icon">🎮</span>Simulation</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">Reference</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="glossary.htm" class="nav-link"><span class="nav-icon">📖</span>Glossary</a></li>
+                    <li class="nav-item"><a href="faq.htm" class="nav-link"><span class="nav-icon">❓</span>FAQ</a></li>
+                    <li class="nav-item"><a href="troubleshooting.htm" class="nav-link"><span class="nav-icon">🔧</span>Troubleshooting</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">Roadmap</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="futureproofing.htm" class="nav-link"><span class="nav-icon">🔮</span>Future-Proofing</a></li>
+                    <li class="nav-item"><a href="wishlist.htm" class="nav-link"><span class="nav-icon">✨</span>Wishlist</a></li>
+                </ul>
+            </div>
+        </nav>
+        
+        <!-- Main Content -->
+        <main class="main-content">
+            <div class="content-wrapper">
+                <!-- Breadcrumb -->
+                <div class="breadcrumb">
+                    <a href="index.htm">Home</a>
+                    <span class="breadcrumb-separator">/</span>
+                    <a href="idiotscript.htm">IdiotScript DSL</a>
+                    <span class="breadcrumb-separator">/</span>
+                    <span>Strategy Examples</span>
+                </div>
+                
+                <!-- Header -->
+                <header class="page-header">
+                    <h1 class="page-title">Strategy Examples</h1>
+                    <p class="page-subtitle">
+                        Real-world IdiotScript strategies from simple setups to advanced multi-condition entries.
+                    </p>
+                </header>
+                
+                <!-- Example 1: VWAP Bounce -->
+                <section id="vwap-bounce">
+                    <h2>1. VWAP Bounce Strategy</h2>
+                    <p>
+                        A classic mean-reversion strategy that buys when price reclaims VWAP
+                        with confirmation from EMA and volume.
+                    </p>
+                    
+                    <div class="code-block">
+<span class="token-comment">// VWAP Bounce Strategy</span>
+<span class="token-comment">// Enters when price bounces off VWAP with confirmation</span>
+
+Ticker(AAPL)
+    .Name("AAPL VWAP Bounce")
+    .Session(<span class="token-constant">IS.RTH</span>)
+    .Quantity(100)
+    
+    <span class="token-comment">// Entry conditions (sequential)</span>
+    .<span class="token-function">IsCloseAboveVwap</span>()       <span class="token-comment">// Candle must CLOSE above VWAP</span>
+    .<span class="token-function">IsEmaAbove</span>(9)            <span class="token-comment">// Price above short-term EMA</span>
+    .<span class="token-function">IsVolumeAbove</span>(1.5)       <span class="token-comment">// Volume 1.5x average confirms</span>
+    
+    <span class="token-comment">// Order</span>
+    .<span class="token-function">Order</span>(<span class="token-constant">IS.LONG</span>)
+    
+    <span class="token-comment">// Exits</span>
+    .<span class="token-function">TakeProfit</span>(175)
+    .<span class="token-function">StopLoss</span>(165)
+    .<span class="token-function">TrailingStopLoss</span>(2)      <span class="token-comment">// $2 trailing stop</span>
+</div>
+                    
+                    <div class="ascii-art">
+VWAP BOUNCE PATTERN
+═══════════════════════════════════════════════════════════════════════════════
+
+    Price $
+         │                          ┌───┐
+         │                    ┌─┐   │   │
+         │            ┌─┐     │ │ ┌─┤   │
+    VWAP ═════════════╪═╪═════╪═╪═╪═╪═══╪════════════════════════════════════
+         │          ┌─┤ │     │ │ │ │   │
+         │          │ └─┘     │ └─┘ │   │
+         │        ┌─┤         └─────┘   │
+         │        │ │                   │
+         │      ┌─┤ │                   │
+         └──────└─┘─┴───────────────────┴────────────────────────→ Time
+                  ↑                     ↑
+             Close BELOW            Close ABOVE
+             (wait...)              + Volume spike
+                                    = <span class="bullish">ENTRY!</span>
+</div>
+                </section>
+                
+                <!-- Example 2: Gap and Go -->
+                <section id="gap-and-go">
+                    <h2>2. Gap and Go Strategy</h2>
+                    <p>
+                        Catches momentum on stocks that gap up significantly at open.
+                    </p>
+                    
+                    <div class="code-block">
+<span class="token-comment">// Gap and Go - Momentum Strategy</span>
+<span class="token-comment">// Catches strong gap-up momentum plays</span>
+
+Ticker(TSLA)
+    .Name("TSLA Gap and Go")
+    .Session(<span class="token-constant">IS.PREMARKET</span>)    <span class="token-comment">// Start in premarket</span>
+    .Quantity(50)
+    
+    <span class="token-comment">// Gap detection</span>
+    .<span class="token-function">IsGapUp</span>(5)               <span class="token-comment">// 5%+ gap from previous close</span>
+    
+    <span class="token-comment">// Confirmation</span>
+    .<span class="token-function">IsAboveVwap</span>()            <span class="token-comment">// Holding above VWAP</span>
+    .<span class="token-function">IsDiPositive</span>()           <span class="token-comment">// Bullish directional movement</span>
+    .<span class="token-function">IsMomentumAbove</span>(0)       <span class="token-comment">// Positive momentum</span>
+    
+    <span class="token-comment">// Aggressive entry for momentum</span>
+    .<span class="token-function">Order</span>(<span class="token-constant">IS.LONG</span>)
+    
+    <span class="token-comment">// Tight risk management</span>
+    .<span class="token-function">TakeProfit</span>(280)
+    .<span class="token-function">StopLoss</span>(255)
+    .<span class="token-function">AdaptiveOrder</span>(<span class="token-constant">IS.AGGRESSIVE</span>)  <span class="token-comment">// Let winners run</span>
+</div>
+                    
+                    <div class="ascii-art">
+GAP UP PATTERN
+═══════════════════════════════════════════════════════════════════════════════
+
+    Previous Day          │    Today
+    ────────────────────  │  ────────────────────────────────────────────
+                          │
+         ┌───┐            │                       ___/\
+         │   │ Close      │                   ___/    \___
+         └───┘            │               ___/
+                          │           ___/
+                        ╔═╧═══════════════════════════════════════════════════
+                        ║   GAP!    Open
+                        ╠═════════════════════════════════════════════════════
+                        ║
+                        ║  5%+ gap = momentum play
+                        ╚═════════════════════════════════════════════════════
+</div>
+                </section>
+                
+                <!-- Example 3: Trend Following -->
+                <section id="trend-following">
+                    <h2>3. Trend Following Strategy</h2>
+                    <p>
+                        A multi-indicator trend confirmation strategy using ADX for trend strength.
+                    </p>
+                    
+                    <div class="code-block">
+<span class="token-comment">// Trend Following Strategy</span>
+<span class="token-comment">// Multiple indicators confirm strong trend</span>
+
+Ticker(NVDA)
+    .Name("NVDA Trend Follow")
+    .Session(<span class="token-constant">IS.RTH</span>)
+    .Quantity(25)
+    
+    <span class="token-comment">// Trend strength check</span>
+    .<span class="token-function">IsAdxAbove</span>(25)           <span class="token-comment">// Strong trend exists</span>
+    .<span class="token-function">IsDiPositive</span>()           <span class="token-comment">// Bullish direction</span>
+    
+    <span class="token-comment">// EMA stack confirmation</span>
+    .<span class="token-function">IsEmaAbove</span>(9)            <span class="token-comment">// Above short-term</span>
+    .<span class="token-function">IsEmaAbove</span>(21)           <span class="token-comment">// Above medium-term</span>
+    
+    <span class="token-comment">// Momentum confirmation</span>
+    .<span class="token-function">IsMacdBullish</span>()          <span class="token-comment">// MACD > Signal</span>
+    .<span class="token-function">IsMomentumAbove</span>(0)       <span class="token-comment">// Positive momentum</span>
+    
+    <span class="token-comment">// Entry and exits</span>
+    .<span class="token-function">Order</span>(<span class="token-constant">IS.LONG</span>)
+    .<span class="token-function">TakeProfit</span>(550)
+    .<span class="token-function">StopLoss</span>(480)
+    .<span class="token-function">AdaptiveOrder</span>(<span class="token-constant">IS.BALANCED</span>)
+</div>
+                </section>
+                
+                <!-- Example 4: Mean Reversion -->
+                <section id="mean-reversion">
+                    <h2>4. RSI Mean Reversion Strategy</h2>
+                    <p>
+                        Buys oversold conditions with pullback confirmation.
+                    </p>
+                    
+                    <div class="code-block">
+<span class="token-comment">// RSI Mean Reversion Strategy</span>
+<span class="token-comment">// Buy oversold bounces with EMA support</span>
+
+Ticker(SPY)
+    .Name("SPY Mean Reversion")
+    .Session(<span class="token-constant">IS.RTH</span>)
+    .Quantity(200)
+    
+    <span class="token-comment">// Oversold detection</span>
+    .<span class="token-function">IsRsiOversold</span>(30)        <span class="token-comment">// RSI <= 30</span>
+    
+    <span class="token-comment">// Pullback zone</span>
+    .<span class="token-function">IsEmaBetween</span>(9, 21)      <span class="token-comment">// In support zone</span>
+    
+    <span class="token-comment">// Bounce confirmation</span>
+    .<span class="token-function">IsVolumeAbove</span>(1.5)       <span class="token-comment">// Volume on bounce</span>
+    .<span class="token-function">IsHigherLows</span>()           <span class="token-comment">// Building support</span>
+    
+    <span class="token-comment">// Conservative entry</span>
+    .<span class="token-function">Order</span>(<span class="token-constant">IS.LONG</span>)
+    .<span class="token-function">TakeProfit</span>(475)
+    .<span class="token-function">StopLoss</span>(455)
+    .<span class="token-function">AdaptiveOrder</span>(<span class="token-constant">IS.CONSERVATIVE</span>)  <span class="token-comment">// Protect gains</span>
+</div>
+                    
+                    <div class="ascii-art">
+RSI OVERSOLD BOUNCE
+═══════════════════════════════════════════════════════════════════════════════
+
+    RSI
+    100 ┌────────────────────────────────────────────────────────────────────
+        │
+     70 ├ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ OVERBOUGHT
+        │           \___
+     50 │               \__
+        │                  \__
+     30 ├ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ \___ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ OVERSOLD
+        │                         \__   ___/
+        │                            \_/ ← <span class="bullish">ENTRY</span> (RSI bouncing from < 30)
+      0 └────────────────────────────────────────────────────────────────────
+</div>
+                </section>
+                
+                <!-- Example 5: Breakout -->
+                <section id="breakout">
+                    <h2>5. Breakout-Pullback Strategy</h2>
+                    <p>
+                        Waits for breakout above resistance, then enters on pullback.
+                    </p>
+                    
+                    <div class="code-block">
+<span class="token-comment">// Breakout-Pullback Strategy</span>
+<span class="token-comment">// Breakout above resistance, wait for pullback entry</span>
+
+Ticker(AMZN)
+    .Name("AMZN Breakout")
+    .Session(<span class="token-constant">IS.RTH</span>)
+    .Quantity(30)
+    
+    <span class="token-comment">// Breakout detection</span>
+    .<span class="token-function">Breakout</span>(185)            <span class="token-comment">// Price breaks above $185</span>
+    
+    <span class="token-comment">// Pullback entry</span>
+    .<span class="token-function">Pullback</span>(182)            <span class="token-comment">// Wait for pullback to $182</span>
+    
+    <span class="token-comment">// Confirmation pullback is holding</span>
+    .<span class="token-function">IsAboveVwap</span>()            <span class="token-comment">// Still above VWAP</span>
+    .<span class="token-function">IsEmaAbove</span>(9)            <span class="token-comment">// EMA support held</span>
+    
+    <span class="token-comment">// Entry</span>
+    .<span class="token-function">Order</span>(<span class="token-constant">IS.LONG</span>)
+    .<span class="token-function">TakeProfit</span>(195)
+    .<span class="token-function">StopLoss</span>(178)
+</div>
+                    
+                    <div class="ascii-art">
+BREAKOUT-PULLBACK PATTERN
+═══════════════════════════════════════════════════════════════════════════════
+
+    $195 ────────────────────────────────────────────────── Target (TP)
+         
+    $190                                         ___/\
+                                             ___/    \___
+    $185 ════════════════════════════════___/════════════════ Breakout Level
+                              ___/\     /
+    $182              ___/\__/    \___/← <span class="bullish">ENTRY</span> (Pullback to $182)
+         ___     ___/
+    $180    \___/
+                    ↑
+               Breakout!
+         
+    $178 ────────────────────────────────────────────────── Stop Loss
+</div>
+                </section>
+                
+                <!-- Example 6: End of Day Exit -->
+                <section id="eod-exit">
+                    <h2>6. Timed Exit Strategy</h2>
+                    <p>
+                        Uses ExitStrategy to exit at specific time, only if profitable.
+                    </p>
+                    
+                    <div class="code-block">
+<span class="token-comment">// Timed Exit Strategy</span>
+<span class="token-comment">// Exit at bell if profitable, otherwise hold overnight</span>
+
+Ticker(META)
+    .Name("META Timed Exit")
+    .Session(<span class="token-constant">IS.RTH</span>)
+    .Quantity(40)
+    
+    <span class="token-comment">// Entry conditions</span>
+    .<span class="token-function">IsAboveVwap</span>()
+    .<span class="token-function">IsEmaAbove</span>(9)
+    .<span class="token-function">IsMacdBullish</span>()
+    
+    <span class="token-comment">// Entry</span>
+    .<span class="token-function">Order</span>(<span class="token-constant">IS.LONG</span>)
+    
+    <span class="token-comment">// Standard exits</span>
+    .<span class="token-function">TakeProfit</span>(620)
+    .<span class="token-function">StopLoss</span>(580)
+    
+    <span class="token-comment">// Timed exit at bell, only if profitable</span>
+    .<span class="token-function">ExitStrategy</span>(<span class="token-constant">IS.BELL</span>).<span class="token-function">IsProfitable</span>()
+</div>
+                    
+                    <div class="callout callout-info">
+                        <div class="callout-title">IS.BELL Values</div>
+                        <ul>
+                            <li>Premarket session: 9:29 AM</li>
+                            <li>RTH session: 3:59 PM</li>
+                            <li>After Hours session: 7:59 PM</li>
+                        </ul>
+                    </div>
+                </section>
+                
+                <!-- Example 7: Autonomous -->
+                <section id="autonomous">
+                    <h2>7. Fully Autonomous Trading</h2>
+                    <p>
+                        Let the AI handle everything - entries, exits, direction.
+                    </p>
+                    
+                    <div class="code-block">
+<span class="token-comment">// Fully Autonomous Trading</span>
+<span class="token-comment">// AI handles all decisions</span>
+
+Ticker(NVDA)
+    .Name("NVDA Autonomous")
+    .Session(<span class="token-constant">IS.RTH</span>)
+    .Quantity(10)
+    .<span class="token-function">AutonomousTrading</span>()
+
+<span class="token-comment">// That's it! The system will:</span>
+<span class="token-comment">// - Monitor all 11 indicators</span>
+<span class="token-comment">// - Calculate market score</span>
+<span class="token-comment">// - Self-adjust entry thresholds</span>
+<span class="token-comment">// - Enter LONG or SHORT based on score</span>
+<span class="token-comment">// - Exit when momentum reverses</span>
+<span class="token-comment">// - Learn and improve over time</span>
+</div>
+                </section>
+                
+                <!-- Example 8: Repeat Strategy -->
+                <section id="repeat">
+                    <h2>8. Repeating Strategy</h2>
+                    <p>
+                        Strategy that restarts after exit, catching multiple trades per day.
+                    </p>
+                    
+                    <div class="code-block">
+<span class="token-comment">// Repeating Scalp Strategy</span>
+<span class="token-comment">// Catches multiple VWAP bounces throughout the day</span>
+
+Ticker(QQQ)
+    .Name("QQQ Scalper")
+    .Session(<span class="token-constant">IS.RTH</span>)
+    .Quantity(500)
+    
+    <span class="token-comment">// Quick scalp setup</span>
+    .<span class="token-function">IsCloseAboveVwap</span>()
+    .<span class="token-function">IsEmaAbove</span>(9)
+    
+    .<span class="token-function">Order</span>(<span class="token-constant">IS.LONG</span>)
+    
+    <span class="token-comment">// Tight TP/SL for scalping</span>
+    .<span class="token-function">TakeProfit</span>(455)
+    .<span class="token-function">StopLoss</span>(450)
+    
+    <span class="token-comment">// Repeat after exit!</span>
+    .<span class="token-function">Repeat</span>()
+</div>
+                </section>
+                
+                <!-- Execution Flow Visualization -->
+                <section id="flow-visualization">
+                    <h2>Strategy Execution Flow Visualization</h2>
+                    <p>
+                        Use this three-column format to understand any IdiotScript strategy:
+                    </p>
+                    
+                    <div class="ascii-art">
+STRATEGY EXECUTION FLOW: VWAP Bounce Example
+═══════════════════════════════════════════════════════════════════════════════
+
+┌─────────────────┐   ┌─────────────────────────┐   ┌─────────────────────────┐
+│    [CONFIG]     │   │   [ENTRY CONDITIONS]    │   │    [EXIT CONDITIONS]    │
+│                 │   │                         │   │                         │
+│  Ticker: AAPL   │   │  1. IsCloseAboveVwap()  │   │  TakeProfit: $175       │
+│  Session: RTH   │   │        ↓ MET            │   │  StopLoss: $165         │
+│  Quantity: 100  │   │  2. IsEmaAbove(9)       │   │  TrailingStop: $2       │
+│                 │   │        ↓ MET            │   │                         │
+│  (Order doesn't │   │  3. IsVolumeAbove(1.5)  │   │  Whichever hits first   │
+│   matter)       │   │        ↓ MET            │   │  exits the trade        │
+│                 │   │                         │   │                         │
+└─────────────────┘   └───────────┬─────────────┘   └─────────────────────────┘
+                                  │
+                                  ▼
+                      ┌───────────────────────┐
+                      │     ✅ ORDER PLACED    │
+                      │     Order(IS.LONG)    │
+                      │     100 shares AAPL   │
+                      └───────────────────────┘
+</div>
+                </section>
+                
+                <!-- Footer -->
+                <footer class="page-footer">
+                    <div class="footer-nav">
+                        <a href="commands.htm">← Command Reference</a>
+                        <a href="indicators.htm">Next: Indicators →</a>
+                    </div>
+                    <p class="text-center text-muted">
+                        IdiotProof Trading System Documentation &copy; 2026
+                    </p>
+                </footer>
+            </div>
+        </main>
+    </div>
+</body>
+</html>

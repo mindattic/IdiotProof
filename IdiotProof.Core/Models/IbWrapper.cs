@@ -429,7 +429,7 @@ namespace IdiotProof.Models {
         /// </summary>
         private static void Log(string category, string message)
         {
-            Console.WriteLine($"{TimeStamp.NowBracketed} {message}");
+            ConsoleLog.Ibkr(message);
             SessionLogger?.LogEvent(category, message);
         }
 

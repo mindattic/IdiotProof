@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VWAP Indicators - IdiotProof Documentation</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="page-wrapper">
+        <!-- Sidebar Navigation -->
+        <nav class="sidebar">
+            <div class="sidebar-header">
+                <a href="index.htm" class="logo">
+                    <span class="logo-icon">📈</span>
+                    <span class="logo-text">IdiotProof</span>
+                    <span class="logo-version">v2.0</span>
+                </a>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">Getting Started</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="index.htm" class="nav-link"><span class="nav-icon">🏠</span>Home</a></li>
+                    <li class="nav-item"><a href="quick-start.htm" class="nav-link"><span class="nav-icon">🚀</span>Quick Start</a></li>
+                    <li class="nav-item"><a href="architecture.htm" class="nav-link"><span class="nav-icon">🏗️</span>Architecture</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">IdiotScript DSL</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="idiotscript.htm" class="nav-link"><span class="nav-icon">📜</span>Language Reference</a></li>
+                    <li class="nav-item"><a href="commands.htm" class="nav-link"><span class="nav-icon">⌨️</span>Command Reference</a></li>
+                    <li class="nav-item"><a href="examples.htm" class="nav-link"><span class="nav-icon">💡</span>Strategy Examples</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">Technical Indicators</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="indicators.htm" class="nav-link"><span class="nav-icon">📊</span>Indicator Overview</a></li>
+                    <li class="nav-item"><a href="indicators-vwap.htm" class="nav-link active"><span class="nav-icon">〰️</span>VWAP Indicators</a></li>
+                    <li class="nav-item"><a href="indicators-ema.htm" class="nav-link"><span class="nav-icon">📈</span>EMA Indicators</a></li>
+                    <li class="nav-item"><a href="indicators-momentum.htm" class="nav-link"><span class="nav-icon">⚡</span>Momentum</a></li>
+                    <li class="nav-item"><a href="indicators-volume.htm" class="nav-link"><span class="nav-icon">📶</span>Volume Analysis</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">Trading Systems</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="market-score.htm" class="nav-link"><span class="nav-icon">🎯</span>Market Score</a></li>
+                    <li class="nav-item"><a href="adaptive-order.htm" class="nav-link"><span class="nav-icon">🔄</span>AdaptiveOrder</a></li>
+                    <li class="nav-item"><a href="autonomous-trading.htm" class="nav-link"><span class="nav-icon">🤖</span>AutonomousTrading</a></li>
+                    <li class="nav-item"><a href="order-management.htm" class="nav-link"><span class="nav-icon">📋</span>Order Management</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">AI & Machine Learning</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="ai-overview.htm" class="nav-link"><span class="nav-icon">🧠</span>AI Overview</a></li>
+                    <li class="nav-item"><a href="lstm.htm" class="nav-link"><span class="nav-icon">🔮</span>LSTM Predictor</a></li>
+                    <li class="nav-item"><a href="pattern-matcher.htm" class="nav-link"><span class="nav-icon">🔍</span>Pattern Matcher</a></li>
+                    <li class="nav-item"><a href="learned-weights.htm" class="nav-link"><span class="nav-icon">⚖️</span>Learned Weights</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">Configuration</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="configuration.htm" class="nav-link"><span class="nav-icon">⚙️</span>Settings</a></li>
+                    <li class="nav-item"><a href="watchlist.htm" class="nav-link"><span class="nav-icon">👀</span>Watchlist</a></li>
+                    <li class="nav-item"><a href="strategy-rules.htm" class="nav-link"><span class="nav-icon">📝</span>Strategy Rules</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">Testing & Analysis</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="backtesting.htm" class="nav-link"><span class="nav-icon">⏪</span>Backtesting</a></li>
+                    <li class="nav-item"><a href="simulation.htm" class="nav-link"><span class="nav-icon">🎮</span>Simulation</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">Reference</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="glossary.htm" class="nav-link"><span class="nav-icon">📖</span>Glossary</a></li>
+                    <li class="nav-item"><a href="faq.htm" class="nav-link"><span class="nav-icon">❓</span>FAQ</a></li>
+                    <li class="nav-item"><a href="troubleshooting.htm" class="nav-link"><span class="nav-icon">🔧</span>Troubleshooting</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">Roadmap</div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="futureproofing.htm" class="nav-link"><span class="nav-icon">🔮</span>Future-Proofing</a></li>
+                    <li class="nav-item"><a href="wishlist.htm" class="nav-link"><span class="nav-icon">✨</span>Wishlist</a></li>
+                </ul>
+            </div>
+        </nav>
+        
+        <!-- Main Content -->
+        <main class="main-content">
+            <div class="content-wrapper">
+                <!-- Breadcrumb -->
+                <div class="breadcrumb">
+                    <a href="index.htm">Home</a>
+                    <span class="breadcrumb-separator">/</span>
+                    <a href="indicators.htm">Technical Indicators</a>
+                    <span class="breadcrumb-separator">/</span>
+                    <span>VWAP Indicators</span>
+                </div>
+                
+                <!-- Header -->
+                <header class="page-header">
+                    <h1 class="page-title">VWAP Indicators</h1>
+                    <p class="page-subtitle">
+                        Volume Weighted Average Price (VWAP) is a trading benchmark that gives the 
+                        average price a security has traded at throughout the day, weighted by volume.
+                    </p>
+                </header>
+                
+                <!-- What is VWAP -->
+                <section id="overview">
+                    <h2>What is VWAP?</h2>
+                    <p>
+                        VWAP represents the <strong>fair value</strong> of a stock for the trading day.
+                        Institutional traders use VWAP to gauge whether they received a good fill price.
+                        Price above VWAP suggests bullish sentiment; below VWAP suggests bearish.
+                    </p>
+                    
+                    <div class="ascii-art">
+VWAP CALCULATION
+═══════════════════════════════════════════════════════════════════════════════
+
+    VWAP = Cumulative(Price × Volume) / Cumulative(Volume)
+    
+    Where Price = (High + Low + Close) / 3  (Typical Price)
+
+    Example:
+    ┌─────────┬────────┬────────┬────────┬─────────┬──────────────┐
+    │  Time   │  High  │  Low   │ Close  │ Volume  │ Typical × Vol│
+    ├─────────┼────────┼────────┼────────┼─────────┼──────────────┤
+    │  9:30   │ $50.50 │ $50.00 │ $50.25 │  10,000 │   $502,500   │
+    │  9:31   │ $50.60 │ $50.20 │ $50.40 │  15,000 │   $756,000   │
+    │  9:32   │ $50.80 │ $50.30 │ $50.55 │  12,000 │   $606,600   │
+    └─────────┴────────┴────────┴────────┴─────────┴──────────────┘
+    
+    Cumulative P×V = $502,500 + $756,000 + $606,600 = $1,865,100
+    Cumulative Vol = 10,000 + 15,000 + 12,000 = 37,000
+    
+    VWAP = $1,865,100 / 37,000 = <span class="bullish">$50.41</span>
+</div>
+                </section>
+                
+                <!-- VWAP Commands -->
+                <section id="commands">
+                    <h2>VWAP IdiotScript Commands</h2>
+                    
+                    <div class="command-table">
+                        <h3>IsAboveVwap()</h3>
+                        <p>Returns true when current price is above VWAP. Basic bullish filter.</p>
+                        <pre><code>Ticker(AAPL)
+    .<span class="token-function">IsAboveVwap</span>()  <span class="token-comment">// Only enter when price > VWAP</span>
+    .Entry(150)
+    .TakeProfit(155)</code></pre>
+                    </div>
+                    
+                    <div class="command-table">
+                        <h3>IsBelowVwap()</h3>
+                        <p>Returns true when current price is below VWAP. Basic bearish filter.</p>
+                        <pre><code>Ticker(AAPL)
+    .<span class="token-function">IsBelowVwap</span>()  <span class="token-comment">// Only short when price < VWAP</span>
+    .Entry(145)
+    .Order(IS.SHORT)
+    .TakeProfit(140)</code></pre>
+                    </div>
+                    
+                    <div class="command-table">
+                        <h3>IsCloseAboveVwap()</h3>
+                        <p>
+                            Returns true when the candle <strong>closes</strong> above VWAP. 
+                            This is a stronger signal than IsAboveVwap because it confirms 
+                            the price held above VWAP by the end of the candle.
+                        </p>
+                        <pre><code>Ticker(NVDA)
+    .<span class="token-function">IsCloseAboveVwap</span>()  <span class="token-comment">// Stronger confirmation</span>
+    .IsEmaAbove(9)
+    .Entry(900)
+    .TakeProfit(920)</code></pre>
+                    </div>
+                    
+                    <div class="command-table">
+                        <h3>IsVwapRejection()</h3>
+                        <p>
+                            Returns true when price wicks above VWAP but closes below. 
+                            This is a bearish rejection signal indicating sellers defended VWAP.
+                        </p>
+                        <pre><code>Ticker(SPY)
+    .<span class="token-function">IsVwapRejection</span>()  <span class="token-comment">// Bearish rejection pattern</span>
+    .Order(IS.SHORT)
+    .TakeProfit(495)
+    .StopLoss(510)</code></pre>
+                    </div>
+                </section>
+                
+                <!-- Visual Patterns -->
+                <section id="patterns">
+                    <h2>VWAP Visual Patterns</h2>
+                    
+                    <div class="ascii-art">
+VWAP POSITION PATTERNS
+═══════════════════════════════════════════════════════════════════════════════
+
+    <span class="bullish">BULLISH: Price Above VWAP</span>
+    
+    Price
+      │                    ___/\___
+      │              _____/        \___
+      │         ____/                  
+      │    ____/
+    ══╪══════════════════════════════════════ VWAP
+      │
+      │
+      └──────────────────────────────────────────▶ Time
+    
+    Buyers in control. Look for long entries on pullbacks to VWAP.
+
+
+    <span class="bearish">BEARISH: Price Below VWAP</span>
+    
+    Price
+      │
+    ══╪══════════════════════════════════════ VWAP
+      │    \____
+      │         \____
+      │              \_____
+      │                    \___/\___
+      │                             \_____
+      └──────────────────────────────────────────▶ Time
+    
+    Sellers in control. Look for short entries on bounces to VWAP.
+
+
+    <span class="neutral">VWAP REJECTION (Bearish Signal)</span>
+    
+    Price
+      │           │ ← Wick above VWAP
+    ══╪═══════════╪══════════════════════════ VWAP
+      │       ┌───┴───┐
+      │       │       │ ← Close below = REJECTED
+      │       └───────┘
+      │
+      └──────────────────────────────────────────▶ Time
+    
+    Price tried to break VWAP but sellers pushed it back down.
+</div>
+                </section>
+                
+                <!-- Market Score Contribution -->
+                <section id="market-score">
+                    <h2>VWAP in Market Score</h2>
+                    <p>
+                        VWAP contributes <strong>10%</strong> to the total market score. The score
+                        is calculated based on how far price is from VWAP:
+                    </p>
+                    
+                    <div class="ascii-art">
+VWAP SCORE CONTRIBUTION
+═══════════════════════════════════════════════════════════════════════════════
+
+    Distance from VWAP        Score Contribution
+    ─────────────────────────────────────────────
+    5%+ above VWAP        →   <span class="bullish">+100</span> (max bullish)
+    2.5% above VWAP       →   <span class="bullish">+50</span>
+    At VWAP (±0.5%)       →   0 (neutral)
+    2.5% below VWAP       →   <span class="bearish">-50</span>
+    5%+ below VWAP        →   <span class="bearish">-100</span> (max bearish)
+
+    Formula:
+    ────────────────────────────────────────────────────────────
+    percentFromVwap = ((price - vwap) / vwap) × 100
+    score = Clamp(percentFromVwap × 20, -100, +100)
+    
+    Example: Price $52, VWAP $50
+    percentFromVwap = ((52 - 50) / 50) × 100 = 4%
+    score = 4 × 20 = <span class="bullish">+80</span>
+</div>
+                    
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Condition</th>
+                                <th>Score Range</th>
+                                <th>Interpretation</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>Price 3%+ above VWAP</td>
+                                <td><span class="bullish">+60 to +100</span></td>
+                                <td>Strong bullish - extended from fair value</td>
+                            </tr>
+                            <tr>
+                                <td>Price 1-3% above VWAP</td>
+                                <td><span class="bullish">+20 to +60</span></td>
+                                <td>Moderately bullish</td>
+                            </tr>
+                            <tr>
+                                <td>Price near VWAP (±1%)</td>
+                                <td><span class="neutral">-20 to +20</span></td>
+                                <td>Neutral - at fair value</td>
+                            </tr>
+                            <tr>
+                                <td>Price 1-3% below VWAP</td>
+                                <td><span class="bearish">-60 to -20</span></td>
+                                <td>Moderately bearish</td>
+                            </tr>
+                            <tr>
+                                <td>Price 3%+ below VWAP</td>
+                                <td><span class="bearish">-100 to -60</span></td>
+                                <td>Strong bearish - discounted from fair value</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </section>
+                
+                <!-- Strategy Examples -->
+                <section id="strategies">
+                    <h2>VWAP Trading Strategies</h2>
+                    
+                    <h3>1. VWAP Bounce (Long)</h3>
+                    <p>Enter long when price pulls back to VWAP and bounces.</p>
+                    <pre><code>Ticker(AAPL)
+    .Name("VWAP Bounce Long")
+    .Session(IS.RTH)
+    .Quantity(50)
+    .<span class="token-function">IsCloseAboveVwap</span>()     <span class="token-comment">// Confirmed above VWAP</span>
+    .<span class="token-function">IsEmaAbove</span>(9)          <span class="token-comment">// Short-term trend up</span>
+    .<span class="token-function">IsHigherLows</span>()         <span class="token-comment">// Building support</span>
+    .Entry(150)
+    .TakeProfit(155)
+    .StopLoss(148)
+    .AdaptiveOrder(IS.BALANCED)</code></pre>
+                    
+                    <h3>2. VWAP Rejection (Short)</h3>
+                    <p>Short when price fails to hold above VWAP.</p>
+                    <pre><code>Ticker(SPY)
+    .Name("VWAP Rejection Short")
+    .Session(IS.RTH)
+    .Quantity(100)
+    .<span class="token-function">IsVwapRejection</span>()     <span class="token-comment">// Bearish rejection</span>
+    .<span class="token-function">IsEmaBelow</span>(21)         <span class="token-comment">// Medium-term trend down</span>
+    .Order(IS.SHORT)
+    .TakeProfit(495)
+    .StopLoss(508)
+    .AdaptiveOrder(IS.CONSERVATIVE)</code></pre>
+                    
+                    <h3>3. VWAP Reclaim</h3>
+                    <p>Enter when price reclaims VWAP after being below.</p>
+                    <pre><code>Ticker(TSLA)
+    .Name("VWAP Reclaim")
+    .Session(IS.RTH)
+    .Quantity(20)
+    .<span class="token-function">IsCloseAboveVwap</span>()     <span class="token-comment">// Just reclaimed VWAP</span>
+    .<span class="token-function">IsMomentumAbove</span>(0)     <span class="token-comment">// Positive momentum</span>
+    .<span class="token-function">IsVolumeAbove</span>(1.2)     <span class="token-comment">// Volume confirmation</span>
+    .Entry(250)
+    .TakeProfit(265)
+    .StopLoss(245)</code></pre>
+                </section>
+                
+                <!-- Warm-up -->
+                <section id="warmup">
+                    <h2>Warm-Up Requirements</h2>
+                    <div class="callout callout-info">
+                        <div class="callout-title">ℹ️ VWAP Warm-Up</div>
+                        <p>
+                            VWAP requires <strong>minimal warm-up</strong> because it calculates from
+                            the first bar of the session. However, VWAP is most reliable after 
+                            <strong>30+ minutes</strong> of trading when enough volume has accumulated.
+                        </p>
+                    </div>
+                    
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Time After Open</th>
+                                <th>VWAP Reliability</th>
+                                <th>Recommendation</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>0-15 minutes</td>
+                                <td><span class="bearish">Low</span></td>
+                                <td>Avoid VWAP signals - too volatile</td>
+                            </tr>
+                            <tr>
+                                <td>15-30 minutes</td>
+                                <td><span class="neutral">Moderate</span></td>
+                                <td>Use with caution, confirm with other indicators</td>
+                            </tr>
+                            <tr>
+                                <td>30+ minutes</td>
+                                <td><span class="bullish">High</span></td>
+                                <td>VWAP is reliable benchmark</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </section>
+                
+                <!-- Tips -->
+                <section id="tips">
+                    <h2>VWAP Trading Tips</h2>
+                    
+                    <div class="callout callout-success">
+                        <div class="callout-title">💡 Pro Tips</div>
+                        <ul>
+                            <li><strong>VWAP resets daily</strong> - It only applies to the current session</li>
+                            <li><strong>Combine with volume</strong> - VWAP moves are more significant on high volume</li>
+                            <li><strong>Watch for VWAP magnets</strong> - Price often returns to VWAP</li>
+                            <li><strong>Use IsCloseAboveVwap over IsAboveVwap</strong> for stronger signals</li>
+                            <li><strong>VWAP works best in RTH</strong> - Extended hours have less volume</li>
+                        </ul>
+                    </div>
+                    
+                    <div class="callout callout-warning">
+                        <div class="callout-title">⚠️ Common Mistakes</div>
+                        <ul>
+                            <li>Trading VWAP signals in the first 15 minutes of market open</li>
+                            <li>Ignoring volume confirmation on VWAP breaks</li>
+                            <li>Using VWAP in pre-market or after-hours (low reliability)</li>
+                            <li>Not combining VWAP with trend indicators (EMA, ADX)</li>
+                        </ul>
+                    </div>
+                </section>
+                
+                <!-- Footer Navigation -->
+                <footer class="page-footer">
+                    <div class="footer-nav">
+                        <a href="indicators.htm">← Indicator Overview</a>
+                        <a href="indicators-ema.htm">EMA Indicators →</a>
+                    </div>
+                    <p class="text-center text-muted">
+                        IdiotProof Trading System Documentation &copy; 2026
+                    </p>
+                </footer>
+            </div>
+        </main>
+    </div>
+</body>
+</html>

@@ -2,6 +2,7 @@
 // TradeTrackingService - Tracks IdiotProof orders through their lifecycle
 // ============================================================================
 
+using IdiotProof.Logging;
 using IdiotProof.Models;
 using System.Collections.Concurrent;
 using System.Text.Json;
@@ -281,7 +282,7 @@ namespace IdiotProof.Services {
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"[TradeTracking] Error loading trades: {ex.Message}");
+                ConsoleLog.Error("TradeTracking", $"Loading trades failed: {ex.Message}");
             }
         }
 
@@ -301,7 +302,7 @@ namespace IdiotProof.Services {
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"[TradeTracking] Error saving trades: {ex.Message}");
+                ConsoleLog.Error("TradeTracking", $"Saving trades failed: {ex.Message}");
             }
             finally
             {
