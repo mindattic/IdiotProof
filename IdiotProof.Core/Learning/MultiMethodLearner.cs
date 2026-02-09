@@ -54,6 +54,50 @@ public sealed class MethodResult
 /// </summary>
 public sealed class MultiMethodLearner
 {
+    // ========================================================================
+    // CONFIGURATION CONSTANTS
+    // ========================================================================
+    
+    // Genetic Algorithm
+    private const int GeneticPopulationSize = 20;
+    private const int GeneticEliteCount = 4;
+    private const double GeneticMutationRate = 0.15;
+    private const int GeneticTournamentSize = 3;
+    
+    // All methods
+    private const int EarlyStoppingPatience = 15;  // Generations without improvement before stopping
+    private const int IndicatorWarmupBars = 50;    // Bars needed for indicator warmup
+    private const int ForecastHorizonBars = 5;     // Bars ahead for outcome calculation
+    
+    // Neural Network
+    private const int NeuralHiddenSize = 32;
+    private const int NeuralInputSize = 16;
+    private const int NeuralOutputSize = 16;
+    private const double NeuralInitialLearningRate = 0.01;
+    private const double NeuralLearningRateDecay = 0.99;
+    
+    // Gradient Descent
+    private const double GradientInitialLearningRate = 0.1;
+    private const double GradientLearningRateDecay = 0.98;
+    private const double GradientEpsilon = 0.05;
+    
+    // LSH Pattern Matching
+    private const int LshMaxAnalogs = 15;
+    private const int LshMaxDistance = 90;
+    private const double LshMinConfidence = 0.5;
+    
+    // LSTM Neural Network
+    private const double LstmLearningRate = 0.001;
+    private const double LstmMinConfidence = 0.5;
+    private const double LstmDirectionThreshold = 0.1;
+    
+    // Trading Simulation
+    private const double TrailingStopPercent = 0.10;  // 10% trailing stop
+    
+    // ========================================================================
+    // FIELDS
+    // ========================================================================
+    
     private readonly HistoricalDataService? _histService;
     private readonly HistoricalDataCache _dataCache;
     private readonly string _dataFolder;
@@ -103,6 +147,12 @@ public sealed class MultiMethodLearner
         var trainCandles = ConvertToCandles(trainBars);
         var valCandles = ConvertToCandles(valBars);
         
+        // PERFORMANCE: Pre-compute all snapshots ONCE - O(n) instead of O(n² × evaluations)
+        progress?.Report($"[DATA] Pre-computing indicators (this eliminates O(n²) recalculation)...");
+        var trainSnapshots = PrecomputeSnapshots(trainCandles);
+        var valSnapshots = PrecomputeSnapshots(valCandles);
+        progress?.Report($"[DATA] Pre-computed {trainSnapshots.Count} train + {valSnapshots.Count} val snapshots");
+        
         progress?.Report($"[LEARN] Running 5 learning methods IN PARALLEL with {generationsPerMethod} generations each...\n");
         
         // Step 3: Run ALL methods in parallel for maximum speed
@@ -114,43 +164,43 @@ public sealed class MultiMethodLearner
         
         var parallelSw = Stopwatch.StartNew();
         
-        // Launch all 5 tasks simultaneously
-        var geneticTask = Task.Run(async () =>
+        // Launch all 5 tasks simultaneously - pass pre-computed snapshots
+        var geneticTask = Task.Run(() =>
         {
             var taskSw = Stopwatch.StartNew();
-            var result = await RunGeneticAsync(symbol, trainCandles, valCandles, generationsPerMethod, null, ct);
+            var result = RunGenetic(symbol, trainCandles, valCandles, trainSnapshots, valSnapshots, generationsPerMethod, null, ct);
             result.Duration = taskSw.Elapsed;
             return result;
         }, ct);
         
-        var neuralTask = Task.Run(async () =>
+        var neuralTask = Task.Run(() =>
         {
             var taskSw = Stopwatch.StartNew();
-            var result = await RunNeuralAsync(symbol, trainCandles, valCandles, generationsPerMethod, null, ct);
+            var result = RunNeural(symbol, trainCandles, valCandles, trainSnapshots, valSnapshots, generationsPerMethod, null, ct);
             result.Duration = taskSw.Elapsed;
             return result;
         }, ct);
         
-        var gradientTask = Task.Run(async () =>
+        var gradientTask = Task.Run(() =>
         {
             var taskSw = Stopwatch.StartNew();
-            var result = await RunGradientAsync(symbol, trainCandles, valCandles, generationsPerMethod, null, ct);
+            var result = RunGradient(symbol, trainCandles, valCandles, trainSnapshots, valSnapshots, generationsPerMethod, null, ct);
             result.Duration = taskSw.Elapsed;
             return result;
         }, ct);
         
-        var lshTask = Task.Run(async () =>
+        var lshTask = Task.Run(() =>
         {
             var taskSw = Stopwatch.StartNew();
-            var result = await RunLSHAsync(symbol, trainCandles, valCandles, generationsPerMethod, null, ct);
+            var result = RunLSH(symbol, trainCandles, valCandles, trainSnapshots, valSnapshots, generationsPerMethod, null, ct);
             result.Duration = taskSw.Elapsed;
             return result;
         }, ct);
         
-        var lstmTask = Task.Run(async () =>
+        var lstmTask = Task.Run(() =>
         {
             var taskSw = Stopwatch.StartNew();
-            var result = await RunLSTMAsync(symbol, trainCandles, valCandles, generationsPerMethod, null, ct);
+            var result = RunLSTM(symbol, trainCandles, valCandles, trainSnapshots, valSnapshots, generationsPerMethod, null, ct);
             result.Duration = taskSw.Elapsed;
             return result;
         }, ct);
@@ -280,26 +330,22 @@ public sealed class MultiMethodLearner
     // METHOD 1: GENETIC ALGORITHM
     // ========================================================================
     
-    private async Task<MethodResult> RunGeneticAsync(
+    private MethodResult RunGenetic(
         string symbol,
         List<BackTestCandle> trainData,
         List<BackTestCandle> valData,
+        List<ExtendedSnapshot> trainSnapshots,
+        List<ExtendedSnapshot> valSnapshots,
         int generations,
         IProgress<string>? progress,
         CancellationToken ct)
     {
-        await Task.Yield();
-        
         var result = new MethodResult { MethodName = "GENETIC" };
         var sw = Stopwatch.StartNew();
         
-        const int populationSize = 20;
-        const int eliteCount = 4;
-        const double mutationRate = 0.15;
-        
         // Initialize population
         var population = new List<LearnedWeights>();
-        for (int i = 0; i < populationSize; i++)
+        for (int i = 0; i < GeneticPopulationSize; i++)
         {
             population.Add(LearnedWeights.CreateRandom(symbol, _rng));
         }
@@ -312,12 +358,12 @@ public sealed class MultiMethodLearner
         {
             ct.ThrowIfCancellationRequested();
             
-            // Evaluate all on training data
+            // Evaluate all on training data using pre-computed snapshots
             var scored = new List<(LearnedWeights w, double trainFit, double valFit)>();
             foreach (var w in population)
             {
-                var trainResult = EvaluateWeights(w, trainData);
-                var valResult = EvaluateWeights(w, valData);
+                var trainResult = EvaluateWeightsWithSnapshots(w, trainData, trainSnapshots);
+                var valResult = EvaluateWeightsWithSnapshots(w, valData, valSnapshots);
                 scored.Add((w, trainResult.fitness, valResult.fitness));
             }
             
@@ -341,9 +387,9 @@ public sealed class MultiMethodLearner
             }
             
             // Early stopping if no improvement
-            if (noImprovementCount >= 15)
+            if (noImprovementCount >= EarlyStoppingPatience)
             {
-                progress?.Report($"  Early stopping at gen {gen} (no improvement for 15 generations)");
+                progress?.Report($"  Early stopping at gen {gen} (no improvement for {EarlyStoppingPatience} generations)");
                 break;
             }
             
@@ -351,16 +397,16 @@ public sealed class MultiMethodLearner
             var newPopulation = new List<LearnedWeights>();
             
             // Keep elites
-            for (int i = 0; i < eliteCount; i++)
+            for (int i = 0; i < GeneticEliteCount; i++)
                 newPopulation.Add(scored[i].w.Clone());
             
             // Breed rest
-            while (newPopulation.Count < populationSize)
+            while (newPopulation.Count < GeneticPopulationSize)
             {
-                var parent1 = TournamentSelect(scored, 3);
-                var parent2 = TournamentSelect(scored, 3);
+                var parent1 = TournamentSelect(scored, GeneticTournamentSize);
+                var parent2 = TournamentSelect(scored, GeneticTournamentSize);
                 var child = parent1.Crossover(parent2, _rng);
-                child = child.Mutate(_rng, mutationRate);
+                child = child.Mutate(_rng, GeneticMutationRate);
                 newPopulation.Add(child);
             }
             
@@ -373,8 +419,8 @@ public sealed class MultiMethodLearner
         if (best != null)
         {
             result.BestWeights = best;
-            var trainEval = EvaluateWeights(best, trainData);
-            var valEval = EvaluateWeights(best, valData);
+            var trainEval = EvaluateWeightsWithSnapshots(best, trainData, trainSnapshots);
+            var valEval = EvaluateWeightsWithSnapshots(best, valData, valSnapshots);
             
             result.TrainingFitness = trainEval.fitness;
             result.TrainingWinRate = trainEval.winRate;
@@ -406,109 +452,109 @@ public sealed class MultiMethodLearner
     // METHOD 2: NEURAL NETWORK
     // ========================================================================
     
-    private async Task<MethodResult> RunNeuralAsync(
+    private MethodResult RunNeural(
         string symbol,
         List<BackTestCandle> trainData,
         List<BackTestCandle> valData,
+        List<ExtendedSnapshot> trainSnapshots,
+        List<ExtendedSnapshot> valSnapshots,
         int epochs,
         IProgress<string>? progress,
         CancellationToken ct)
     {
-        await Task.Yield();
-        
         var result = new MethodResult { MethodName = "NEURAL" };
         var sw = Stopwatch.StartNew();
         
         // Simple 2-layer neural network to predict weight adjustments
-        // Input: 16 raw indicator values
-        // Hidden: 32 neurons
-        // Output: 16 weight adjustments
+        // Input: 16 normalized indicator values
+        // Hidden: 32 neurons with tanh activation
+        // Output: 16 weight adjustments (linear)
         
-        int inputSize = 16;
-        int hiddenSize = 32;
-        int outputSize = 16;
+        // Initialize network weights randomly (Xavier initialization)
+        double xavierIH = Math.Sqrt(6.0 / (NeuralInputSize + NeuralHiddenSize));
+        double xavierHO = Math.Sqrt(6.0 / (NeuralHiddenSize + NeuralOutputSize));
         
-        // Initialize network weights randomly
-        var weightsIH = new double[inputSize * hiddenSize];
-        var weightsHO = new double[hiddenSize * outputSize];
-        var biasH = new double[hiddenSize];
-        var biasO = new double[outputSize];
+        var weightsIH = new double[NeuralInputSize * NeuralHiddenSize];
+        var weightsHO = new double[NeuralHiddenSize * NeuralOutputSize];
+        var biasH = new double[NeuralHiddenSize];
+        var biasO = new double[NeuralOutputSize];
         
         for (int i = 0; i < weightsIH.Length; i++)
-            weightsIH[i] = (_rng.NextDouble() - 0.5) * 0.1;
+            weightsIH[i] = (_rng.NextDouble() * 2 - 1) * xavierIH;
         for (int i = 0; i < weightsHO.Length; i++)
-            weightsHO[i] = (_rng.NextDouble() - 0.5) * 0.1;
+            weightsHO[i] = (_rng.NextDouble() * 2 - 1) * xavierHO;
         
         // Start with a base weight vector
         var baseWeights = LearnedWeights.CreateRandom(symbol, _rng);
         LearnedWeights? best = null;
         double bestValFitness = double.MinValue;
-        double learningRate = 0.01;
+        double learningRate = NeuralInitialLearningRate;
         int noImprovementCount = 0;
+        
+        // Get normalized indicators from snapshots (use last snapshot which is fully warmed up)
+        var inputIndicators = GetNormalizedIndicators(trainSnapshots[^1]);
         
         for (int epoch = 1; epoch <= epochs; epoch++)
         {
             ct.ThrowIfCancellationRequested();
             
-            // Get average indicator values from training data to feed into network
-            var avgIndicators = GetAverageIndicators(trainData);
-            
             // Forward pass
-            var hidden = new double[hiddenSize];
-            for (int h = 0; h < hiddenSize; h++)
+            var hidden = new double[NeuralHiddenSize];
+            for (int h = 0; h < NeuralHiddenSize; h++)
             {
                 double sum = biasH[h];
-                for (int i = 0; i < inputSize; i++)
-                    sum += avgIndicators[i] * weightsIH[i * hiddenSize + h];
-                hidden[h] = Math.Tanh(sum); // Activation
+                for (int i = 0; i < NeuralInputSize; i++)
+                    sum += inputIndicators[i] * weightsIH[i * NeuralHiddenSize + h];
+                hidden[h] = Math.Tanh(sum);
             }
             
-            var output = new double[outputSize];
-            for (int o = 0; o < outputSize; o++)
+            var output = new double[NeuralOutputSize];
+            for (int o = 0; o < NeuralOutputSize; o++)
             {
                 double sum = biasO[o];
-                for (int h = 0; h < hiddenSize; h++)
-                    sum += hidden[h] * weightsHO[h * outputSize + o];
-                output[o] = sum; // Linear output
+                for (int h = 0; h < NeuralHiddenSize; h++)
+                    sum += hidden[h] * weightsHO[h * NeuralOutputSize + o];
+                output[o] = sum;
             }
             
             // Apply output as adjustments to base weights
-            var testWeights = baseWeights.Clone();
-            for (int i = 0; i < Math.Min(output.Length, testWeights.IndicatorWeights.Length); i++)
-            {
-                testWeights.IndicatorWeights[i] += output[i] * 0.1;
-            }
+            var testWeights = ApplyNetworkOutput(baseWeights, output);
             
-            // Evaluate
-            var trainEval = EvaluateWeights(testWeights, trainData);
-            var valEval = EvaluateWeights(testWeights, valData);
+            // Evaluate current weights
+            var trainEval = EvaluateWeightsWithSnapshots(testWeights, trainData, trainSnapshots);
+            var valEval = EvaluateWeightsWithSnapshots(testWeights, valData, valSnapshots);
             
-            // Simple gradient estimation: perturb and measure
+            // SPSA-style gradient estimation (perturb all weights simultaneously)
+            // This is much more efficient than per-weight finite differences
             double epsilon = 0.01;
-            for (int w = 0; w < weightsHO.Length; w++)
+            var perturbation = new double[weightsHO.Length];
+            for (int i = 0; i < perturbation.Length; i++)
+                perturbation[i] = _rng.NextDouble() > 0.5 ? 1.0 : -1.0;  // Bernoulli ±1
+            
+            // Positive perturbation
+            var plusWeightsHO = new double[weightsHO.Length];
+            for (int i = 0; i < weightsHO.Length; i++)
+                plusWeightsHO[i] = weightsHO[i] + epsilon * perturbation[i];
+            
+            var plusOutput = ForwardPassHO(hidden, plusWeightsHO, biasO);
+            var plusTestWeights = ApplyNetworkOutput(baseWeights, plusOutput);
+            var plusEval = EvaluateWeightsWithSnapshots(plusTestWeights, trainData, trainSnapshots);
+            
+            // Negative perturbation
+            var minusWeightsHO = new double[weightsHO.Length];
+            for (int i = 0; i < weightsHO.Length; i++)
+                minusWeightsHO[i] = weightsHO[i] - epsilon * perturbation[i];
+            
+            var minusOutput = ForwardPassHO(hidden, minusWeightsHO, biasO);
+            var minusTestWeights = ApplyNetworkOutput(baseWeights, minusOutput);
+            var minusEval = EvaluateWeightsWithSnapshots(minusTestWeights, trainData, trainSnapshots);
+            
+            // SPSA gradient: g_i = (f(θ+) - f(θ-)) / (2 * epsilon * Δ_i)
+            double fitnessDiff = plusEval.fitness - minusEval.fitness;
+            for (int i = 0; i < weightsHO.Length; i++)
             {
-                double original = weightsHO[w];
-                weightsHO[w] += epsilon;
-                
-                // Recalculate output
-                for (int o = 0; o < outputSize; o++)
-                {
-                    double sum = biasO[o];
-                    for (int h = 0; h < hiddenSize; h++)
-                        sum += hidden[h] * weightsHO[h * outputSize + o];
-                    output[o] = sum;
-                }
-                
-                var perturbedWeights = baseWeights.Clone();
-                for (int i = 0; i < Math.Min(output.Length, perturbedWeights.IndicatorWeights.Length); i++)
-                {
-                    perturbedWeights.IndicatorWeights[i] += output[i] * 0.1;
-                }
-                
-                var perturbedEval = EvaluateWeights(perturbedWeights, trainData);
-                double gradient = (perturbedEval.fitness - trainEval.fitness) / epsilon;
-                
-                weightsHO[w] = original + learningRate * gradient;
+                double gradient = fitnessDiff / (2 * epsilon * perturbation[i]);
+                weightsHO[i] += learningRate * gradient;
             }
             
             // Check for improvement
@@ -527,14 +573,14 @@ public sealed class MultiMethodLearner
             }
             
             // Early stopping
-            if (noImprovementCount >= 15)
+            if (noImprovementCount >= EarlyStoppingPatience)
             {
                 progress?.Report($"  Early stopping at epoch {epoch}");
                 break;
             }
             
             // Decay learning rate
-            learningRate *= 0.99;
+            learningRate *= NeuralLearningRateDecay;
         }
         
         result.Duration = sw.Elapsed;
@@ -543,8 +589,8 @@ public sealed class MultiMethodLearner
         if (best != null)
         {
             result.BestWeights = best;
-            var trainEval = EvaluateWeights(best, trainData);
-            var valEval = EvaluateWeights(best, valData);
+            var trainEval = EvaluateWeightsWithSnapshots(best, trainData, trainSnapshots);
+            var valEval = EvaluateWeightsWithSnapshots(best, valData, valSnapshots);
             
             result.TrainingFitness = trainEval.fitness;
             result.TrainingWinRate = trainEval.winRate;
@@ -566,43 +612,86 @@ public sealed class MultiMethodLearner
         return result;
     }
     
-    private double[] GetAverageIndicators(List<BackTestCandle> candles)
+    /// <summary>
+    /// Forward pass for hidden-to-output layer only (for gradient estimation).
+    /// </summary>
+    private double[] ForwardPassHO(double[] hidden, double[] weightsHO, double[] biasO)
+    {
+        var output = new double[NeuralOutputSize];
+        for (int o = 0; o < NeuralOutputSize; o++)
+        {
+            double sum = biasO[o];
+            for (int h = 0; h < NeuralHiddenSize; h++)
+                sum += hidden[h] * weightsHO[h * NeuralOutputSize + o];
+            output[o] = sum;
+        }
+        return output;
+    }
+    
+    /// <summary>
+    /// Applies neural network output to base weights.
+    /// </summary>
+    private static LearnedWeights ApplyNetworkOutput(LearnedWeights baseWeights, double[] output)
+    {
+        var testWeights = baseWeights.Clone();
+        for (int i = 0; i < Math.Min(output.Length, testWeights.IndicatorWeights.Length); i++)
+        {
+            testWeights.IndicatorWeights[i] += output[i] * 0.1;
+        }
+        return testWeights;
+    }
+    
+    /// <summary>
+    /// Normalizes indicators from a snapshot for neural network input.
+    /// </summary>
+    private static double[] GetNormalizedIndicators(ExtendedSnapshot snapshot)
     {
         var result = new double[16];
-        if (candles.Count == 0) return result;
         
-        // Calculate average values
-        double avgClose = candles.Average(c => c.Close);
-        double avgVwap = candles.Where(c => c.Vwap > 0).DefaultIfEmpty().Average(c => c?.Vwap ?? 0);
-        double avgVolume = candles.Average(c => c.Volume);
-        
-        // Simplified indicator approximations
-        result[0] = avgVwap > 0 ? (avgClose - avgVwap) / avgVwap : 0; // VWAP
-        result[1] = 0.5; // EMA9 (placeholder)
-        result[2] = 0.5; // EMA21
-        result[3] = 0.5; // EMA50
-        result[4] = 50;  // RSI (neutral)
-        result[5] = 0;   // MACD
-        result[6] = 25;  // ADX
-        result[7] = 1.0; // Volume ratio
+        result[0] = snapshot.Vwap > 0 ? (snapshot.Price - snapshot.Vwap) / snapshot.Vwap * 10 : 0;
+        result[1] = snapshot.Ema9 > 0 ? (snapshot.Price - snapshot.Ema9) / snapshot.Ema9 * 10 : 0;
+        result[2] = snapshot.Ema21 > 0 ? (snapshot.Price - snapshot.Ema21) / snapshot.Ema21 * 10 : 0;
+        result[3] = snapshot.Ema50 > 0 ? (snapshot.Price - snapshot.Ema50) / snapshot.Ema50 * 10 : 0;
+        result[4] = (snapshot.Rsi - 50) / 50;
+        result[5] = snapshot.MacdHistogram * 100;
+        result[6] = (snapshot.Adx - 25) / 25;
+        result[7] = snapshot.VolumeRatio - 1.0;
+        result[8] = snapshot.PlusDi > snapshot.MinusDi ? 1 : -1;
+        result[9] = snapshot.Macd > snapshot.MacdSignal ? 1 : -1;
+        result[10] = snapshot.Price > 0 ? snapshot.Momentum / snapshot.Price * 100 : 0;
+        result[11] = snapshot.Roc / 10;
+        result[12] = snapshot.IsHigherLow ? 1 : 0;
+        result[13] = snapshot.IsLowerHigh ? 1 : 0;
+        result[14] = snapshot.IsVwapReclaim ? 1 : 0;
+        result[15] = snapshot.IsVwapRejection ? 1 : 0;
         
         return result;
+    }
+    
+    private double[] GetAverageIndicators(List<BackTestCandle> candles)
+    {
+        if (candles.Count < IndicatorWarmupBars) return new double[16];
+        
+        // Calculate REAL indicator values from the most recent candles
+        int lastIdx = candles.Count - 1;
+        var snapshot = BuildSnapshot(candles, lastIdx);
+        return GetNormalizedIndicators(snapshot);
     }
     
     // ========================================================================
     // METHOD 3: GRADIENT DESCENT
     // ========================================================================
     
-    private async Task<MethodResult> RunGradientAsync(
+    private MethodResult RunGradient(
         string symbol,
         List<BackTestCandle> trainData,
         List<BackTestCandle> valData,
+        List<ExtendedSnapshot> trainSnapshots,
+        List<ExtendedSnapshot> valSnapshots,
         int iterations,
         IProgress<string>? progress,
         CancellationToken ct)
     {
-        await Task.Yield();
-        
         var result = new MethodResult { MethodName = "GRADIENT" };
         var sw = Stopwatch.StartNew();
         
@@ -610,34 +699,32 @@ public sealed class MultiMethodLearner
         var currentWeights = LearnedWeights.CreateRandom(symbol, _rng);
         LearnedWeights? best = null;
         double bestValFitness = double.MinValue;
-        double learningRate = 0.1;
+        double learningRate = GradientInitialLearningRate;
         int noImprovementCount = 0;
         
         for (int iter = 1; iter <= iterations; iter++)
         {
             ct.ThrowIfCancellationRequested();
             
-            var currentEval = EvaluateWeights(currentWeights, trainData);
-            var valEval = EvaluateWeights(currentWeights, valData);
+            var currentEval = EvaluateWeightsWithSnapshots(currentWeights, trainData, trainSnapshots);
+            var valEval = EvaluateWeightsWithSnapshots(currentWeights, valData, valSnapshots);
             
             // Numerical gradient estimation for key weights
-            double epsilon = 0.05;
-            
             // Only optimize the most important weights (indicator weights)
             for (int i = 0; i < currentWeights.IndicatorWeights.Length; i++)
             {
                 double original = currentWeights.IndicatorWeights[i];
                 
                 // Positive perturbation
-                currentWeights.IndicatorWeights[i] = original + epsilon;
-                var plusEval = EvaluateWeights(currentWeights, trainData);
+                currentWeights.IndicatorWeights[i] = original + GradientEpsilon;
+                var plusEval = EvaluateWeightsWithSnapshots(currentWeights, trainData, trainSnapshots);
                 
                 // Negative perturbation
-                currentWeights.IndicatorWeights[i] = original - epsilon;
-                var minusEval = EvaluateWeights(currentWeights, trainData);
+                currentWeights.IndicatorWeights[i] = original - GradientEpsilon;
+                var minusEval = EvaluateWeightsWithSnapshots(currentWeights, trainData, trainSnapshots);
                 
-                // Gradient
-                double gradient = (plusEval.fitness - minusEval.fitness) / (2 * epsilon);
+                // Gradient (central difference)
+                double gradient = (plusEval.fitness - minusEval.fitness) / (2 * GradientEpsilon);
                 
                 // Update
                 currentWeights.IndicatorWeights[i] = original + learningRate * gradient;
@@ -650,14 +737,15 @@ public sealed class MultiMethodLearner
             for (int i = 0; i < currentWeights.EntryBiases.Length; i++)
             {
                 double original = currentWeights.EntryBiases[i];
+                double biasEpsilon = GradientEpsilon * 10;
                 
-                currentWeights.EntryBiases[i] = original + epsilon * 10;
-                var plusEval = EvaluateWeights(currentWeights, trainData);
+                currentWeights.EntryBiases[i] = original + biasEpsilon;
+                var plusEval = EvaluateWeightsWithSnapshots(currentWeights, trainData, trainSnapshots);
                 
-                currentWeights.EntryBiases[i] = original - epsilon * 10;
-                var minusEval = EvaluateWeights(currentWeights, trainData);
+                currentWeights.EntryBiases[i] = original - biasEpsilon;
+                var minusEval = EvaluateWeightsWithSnapshots(currentWeights, trainData, trainSnapshots);
                 
-                double gradient = (plusEval.fitness - minusEval.fitness) / (2 * epsilon * 10);
+                double gradient = (plusEval.fitness - minusEval.fitness) / (2 * biasEpsilon);
                 currentWeights.EntryBiases[i] = original + learningRate * gradient * 5;
             }
             
@@ -677,14 +765,14 @@ public sealed class MultiMethodLearner
             }
             
             // Early stopping
-            if (noImprovementCount >= 15)
+            if (noImprovementCount >= EarlyStoppingPatience)
             {
                 progress?.Report($"  Early stopping at iter {iter}");
                 break;
             }
             
             // Decay learning rate
-            learningRate *= 0.98;
+            learningRate *= GradientLearningRateDecay;
         }
         
         result.Duration = sw.Elapsed;
@@ -693,8 +781,8 @@ public sealed class MultiMethodLearner
         if (best != null)
         {
             result.BestWeights = best;
-            var trainEval = EvaluateWeights(best, trainData);
-            var valEval = EvaluateWeights(best, valData);
+            var trainEval = EvaluateWeightsWithSnapshots(best, trainData, trainSnapshots);
+            var valEval = EvaluateWeightsWithSnapshots(best, valData, valSnapshots);
             
             result.TrainingFitness = trainEval.fitness;
             result.TrainingWinRate = trainEval.winRate;
@@ -733,16 +821,16 @@ public sealed class MultiMethodLearner
     //
     // ========================================================================
     
-    private async Task<MethodResult> RunLSHAsync(
+    private MethodResult RunLSH(
         string symbol,
         List<BackTestCandle> trainData,
         List<BackTestCandle> valData,
+        List<ExtendedSnapshot> trainSnapshots,
+        List<ExtendedSnapshot> valSnapshots,
         int _iterations,  // Not used for LSH, but kept for API consistency
         IProgress<string>? progress,
         CancellationToken ct)
     {
-        await Task.Yield();
-        
         var result = new MethodResult { MethodName = "LSH" };
         var sw = Stopwatch.StartNew();
         
@@ -751,24 +839,24 @@ public sealed class MultiMethodLearner
         
         progress?.Report($"  Building pattern database from {trainData.Count} training bars...");
         
-        // Step 1: Build pattern database from training data
+        // Step 1: Build pattern database from training data using pre-computed snapshots
         int patternsAdded = 0;
-        for (int i = 50; i < trainData.Count - 5; i++)  // Skip warmup and leave room for outcome
+        for (int i = IndicatorWarmupBars; i < trainData.Count - ForecastHorizonBars; i++)
         {
             ct.ThrowIfCancellationRequested();
             
-            var snapshot = BuildSnapshot(trainData, i);
+            var snapshot = trainSnapshots[i];
             var indicatorSnapshot = ToIndicatorSnapshot(snapshot);
             
             // Calculate next-period outcome (5 bars forward = 5 minutes on 1-min bars)
             double currentPrice = trainData[i].Close;
-            double futurePrice = trainData[i + 5].Close;
+            double futurePrice = trainData[i + ForecastHorizonBars].Close;
             double nextReturn = (futurePrice - currentPrice) / currentPrice;
             
-            // Find max gain and max drawdown in next 5 bars
+            // Find max gain and max drawdown in next bars
             double maxHigh = currentPrice;
             double maxLow = currentPrice;
-            for (int j = i + 1; j <= i + 5 && j < trainData.Count; j++)
+            for (int j = i + 1; j <= i + ForecastHorizonBars && j < trainData.Count; j++)
             {
                 maxHigh = Math.Max(maxHigh, trainData[j].High);
                 maxLow = Math.Min(maxLow, trainData[j].Low);
@@ -805,24 +893,24 @@ public sealed class MultiMethodLearner
         
         double slippagePercent = TradingDefaults.SlippagePercent;
         
-        for (int i = 50; i < valData.Count - 5; i += 5)  // Check every 5 bars
+        for (int i = IndicatorWarmupBars; i < valData.Count - ForecastHorizonBars; i += ForecastHorizonBars)
         {
             ct.ThrowIfCancellationRequested();
             
-            var snapshot = BuildSnapshot(valData, i);
+            var snapshot = valSnapshots[i];
             var indicatorSnapshot = ToIndicatorSnapshot(snapshot);
             
             // Get forecast from pattern matcher
-            var forecast = patternMatcher.GetForecast(indicatorSnapshot, maxAnalogs: 15, maxDistance: 90);
+            var forecast = patternMatcher.GetForecast(indicatorSnapshot, maxAnalogs: LshMaxAnalogs, maxDistance: LshMaxDistance);
             
-            if (!forecast.IsUsable)
+            if (!forecast.IsUsable || forecast.Confidence < LshMinConfidence)
                 continue;  // Skip if not enough good analogs
             
             predictions++;
             
             // Calculate actual outcome
             double currentPrice = valData[i].Close;
-            double futurePrice = valData[i + 5].Close;
+            double futurePrice = valData[i + ForecastHorizonBars].Close;
             double actualReturn = (futurePrice - currentPrice) / currentPrice;
             bool wentHigher = actualReturn > 0;
             
@@ -861,7 +949,7 @@ public sealed class MultiMethodLearner
         }
         
         result.Duration = sw.Elapsed;
-        result.GenerationsRun = patternMatcher.PatternCount;  // Store pattern count here
+        result.GenerationsRun = patternMatcher.PatternCount;
         
         // Calculate metrics
         double winRate = predictions > 0 ? (double)correctPredictions / predictions * 100 : 0;
@@ -896,21 +984,29 @@ public sealed class MultiMethodLearner
         return result;
     }
     
-    /// <summary>
-    /// LSTM-based learning method.
-    /// Uses Long Short-Term Memory neural network to learn temporal patterns in price data.
-    /// LSTM excels at capturing sequential dependencies that other methods miss.
-    /// </summary>
-    private async Task<MethodResult> RunLSTMAsync(
+    // ========================================================================
+    // METHOD 5: LSTM (Long Short-Term Memory Neural Network)
+    // ========================================================================
+    //
+    // Uses LSTM neural network to learn temporal patterns in price data.
+    // LSTM excels at capturing sequential dependencies that other methods miss.
+    // Unlike the weight optimization methods, LSTM:
+    // 1. Learns its own internal weights during training
+    // 2. Uses trained weights to make directional predictions
+    // 3. Persists the model for future use
+    //
+    // ========================================================================
+    
+    private MethodResult RunLSTM(
         string symbol,
         List<BackTestCandle> trainData,
         List<BackTestCandle> valData,
+        List<ExtendedSnapshot> trainSnapshots,
+        List<ExtendedSnapshot> valSnapshots,
         int epochs,
         IProgress<string>? progress,
         CancellationToken ct)
     {
-        await Task.Yield();
-        
         var result = new MethodResult { MethodName = "LSTM" };
         var sw = Stopwatch.StartNew();
         
@@ -919,13 +1015,13 @@ public sealed class MultiMethodLearner
         
         progress?.Report($"  Training LSTM on {trainData.Count} bars for {epochs} epochs...");
         
-        // Step 1: Build training data from candles using BuildSnapshot
+        // Step 1: Build training data using pre-computed snapshots
         int samplesAdded = 0;
-        for (int i = 50; i < trainData.Count - 5; i++)  // Skip warmup and leave room for outcome
+        for (int i = IndicatorWarmupBars; i < trainData.Count - ForecastHorizonBars; i++)
         {
             ct.ThrowIfCancellationRequested();
             
-            var snapshot = BuildSnapshot(trainData, i);
+            var snapshot = trainSnapshots[i];
             lstmPredictor.AddDataPoint(snapshot);
             
             samplesAdded++;
@@ -938,16 +1034,14 @@ public sealed class MultiMethodLearner
         
         // Step 2: Train the LSTM for specified epochs
         progress?.Report($"  Training for {epochs} epochs...");
-        lstmPredictor.Train(epochs: epochs, learningRate: 0.001);
+        lstmPredictor.Train(epochs: epochs, learningRate: LstmLearningRate);
         
         var (trainingSamples, isTrained, meanReturn, stdReturn) = lstmPredictor.GetStats();
         progress?.Report($"  Training complete: {trainingSamples} samples, mean return: {meanReturn:F4}%");
         
-        // Step 3: Evaluate on validation data
+        // Step 3: Evaluate on validation data using the TRAINED model
+        // NOTE: Do NOT reset - we need to keep the trained weights!
         progress?.Report($"  Validating on {valData.Count} bars...");
-        
-        // Create a fresh LSTM for validation (or reset the current one)
-        lstmPredictor.Reset();
         
         int predictions = 0;
         int correctPredictions = 0;
@@ -958,30 +1052,30 @@ public sealed class MultiMethodLearner
         
         double slippagePercent = TradingDefaults.SlippagePercent;
         
-        for (int i = 50; i < valData.Count - 5; i += 5)  // Check every 5 bars
+        for (int i = IndicatorWarmupBars; i < valData.Count - ForecastHorizonBars; i += ForecastHorizonBars)
         {
             ct.ThrowIfCancellationRequested();
             
-            var snapshot = BuildSnapshot(valData, i);
+            var snapshot = valSnapshots[i];
             lstmPredictor.AddDataPoint(snapshot);
             
             var prediction = lstmPredictor.Predict();
             
             // Skip if not usable (not enough sequence or low confidence)
-            if (!prediction.IsUsable || prediction.Confidence < 0.5)
+            if (!prediction.IsUsable || prediction.Confidence < LstmMinConfidence)
                 continue;
             
             predictions++;
             
-            // Calculate actual outcome (5 bars forward)
+            // Calculate actual outcome
             double currentPrice = valData[i].Close;
-            double futurePrice = valData[i + 5].Close;
+            double futurePrice = valData[i + ForecastHorizonBars].Close;
             double actualReturn = (futurePrice - currentPrice) / currentPrice;
             bool wentHigher = actualReturn > 0;
             
             // Check prediction accuracy
-            bool predictedHigher = prediction.Direction > 0.1;
-            bool predictedLower = prediction.Direction < -0.1;
+            bool predictedHigher = prediction.Direction > LstmDirectionThreshold;
+            bool predictedLower = prediction.Direction < -LstmDirectionThreshold;
             
             if (predictedHigher || predictedLower)
             {
@@ -1013,7 +1107,7 @@ public sealed class MultiMethodLearner
         }
         
         result.Duration = sw.Elapsed;
-        result.GenerationsRun = samplesAdded;  // Store sample count
+        result.GenerationsRun = samplesAdded;
         
         // Calculate metrics
         double winRate = predictions > 0 ? (double)correctPredictions / predictions * 100 : 0;
@@ -1089,10 +1183,216 @@ public sealed class MultiMethodLearner
     // EVALUATION
     // ========================================================================
     
+    /// <summary>
+    /// Pre-computes all snapshots for a candle list. O(n) operation done once.
+    /// Much faster than recalculating in EvaluateWeights which is called thousands of times.
+    /// </summary>
+    private List<ExtendedSnapshot> PrecomputeSnapshots(List<BackTestCandle> candles)
+    {
+        var snapshots = new List<ExtendedSnapshot>(candles.Count);
+        
+        // For the first 50 candles, we create placeholder snapshots (indicators need warmup)
+        for (int i = 0; i < Math.Min(50, candles.Count); i++)
+        {
+            snapshots.Add(new ExtendedSnapshot { Price = candles[i].Close, Vwap = candles[i].Vwap });
+        }
+        
+        // For remaining candles, calculate full snapshots
+        for (int i = 50; i < candles.Count; i++)
+        {
+            snapshots.Add(BuildSnapshot(candles, i));
+        }
+        
+        return snapshots;
+    }
+    
     private (double fitness, double winRate, double pnl, double sharpe, int trades) 
         EvaluateWeights(LearnedWeights weights, List<BackTestCandle> candles)
     {
         return EvaluateWeightsWithLSH(weights, candles, null);
+    }
+    
+    /// <summary>
+    /// Evaluate weights using pre-computed snapshots for O(1) indicator access.
+    /// This is the performance-optimized version used by the learning methods.
+    /// </summary>
+    private (double fitness, double winRate, double pnl, double sharpe, int trades) 
+        EvaluateWeightsWithSnapshots(
+            LearnedWeights weights, 
+            List<BackTestCandle> candles, 
+            List<ExtendedSnapshot> snapshots)
+    {
+        if (candles.Count < 10 || snapshots.Count < 10)
+            return (-1000, 0, 0, 0, 0);
+        
+        // Simulate trading using these weights - MATCHING LIVE TRADING BEHAVIOR
+        double slippagePercent = TradingDefaults.SlippagePercent;
+        
+        int trades = 0;
+        int wins = 0;
+        double totalPnL = 0;
+        var returns = new List<double>();
+        
+        bool inPosition = false;
+        bool isLong = false;
+        double entryPrice = 0;
+        double highWaterMark = 0;
+        double trailingStopPrice = 0;
+        
+        for (int i = IndicatorWarmupBars; i < candles.Count && i < snapshots.Count; i++)
+        {
+            var candle = candles[i];
+            var snapshot = snapshots[i];
+            
+            // Calculate score using weights
+            var (score, shouldEnterLong, shouldEnterShort, shouldExit) = 
+                WeightedScoreCalculator.Calculate(snapshot, weights);
+            
+            if (!inPosition)
+            {
+                // Entry logic - apply slippage (worse entry price)
+                if (shouldEnterLong)
+                {
+                    inPosition = true;
+                    isLong = true;
+                    entryPrice = candle.Close * (1 + slippagePercent);
+                    highWaterMark = entryPrice;
+                    trailingStopPrice = entryPrice * (1 - TrailingStopPercent);
+                }
+                else if (shouldEnterShort)
+                {
+                    inPosition = true;
+                    isLong = false;
+                    entryPrice = candle.Close * (1 - slippagePercent);
+                    highWaterMark = entryPrice;
+                    trailingStopPrice = entryPrice * (1 + TrailingStopPercent);
+                }
+            }
+            else
+            {
+                // Update trailing stop based on high water mark
+                if (isLong)
+                {
+                    if (candle.High > highWaterMark)
+                    {
+                        highWaterMark = candle.High;
+                        double newTrailingStop = highWaterMark * (1 - TrailingStopPercent);
+                        if (newTrailingStop > trailingStopPrice)
+                            trailingStopPrice = newTrailingStop;
+                    }
+                }
+                else
+                {
+                    if (candle.Low < highWaterMark)
+                    {
+                        highWaterMark = candle.Low;
+                        double newTrailingStop = highWaterMark * (1 + TrailingStopPercent);
+                        if (newTrailingStop < trailingStopPrice)
+                            trailingStopPrice = newTrailingStop;
+                    }
+                }
+                
+                // Exit logic - USE SAME ATR-BASED TP/SL AS LIVE TRADING
+                double atr = snapshot.Atr > 0 ? snapshot.Atr : CalculateAtr(candles, i, 14);
+                double tpMultiplier = TradingDefaults.TpAtrMultiplier;
+                double slMultiplier = TradingDefaults.SlAtrMultiplier;
+                
+                double tpDistance = atr * tpMultiplier;
+                double slDistance = atr * slMultiplier;
+                
+                double tpTarget = isLong ? entryPrice + tpDistance : entryPrice - tpDistance;
+                double slTarget = isLong ? entryPrice - slDistance : entryPrice + slDistance;
+                
+                // Check trailing stop hit
+                bool hitTrailingStop = isLong 
+                    ? candle.Low <= trailingStopPrice 
+                    : candle.High >= trailingStopPrice;
+                
+                bool hitTp = isLong ? candle.High >= tpTarget : candle.Low <= tpTarget;
+                bool hitSl = isLong ? candle.Low <= slTarget : candle.High >= slTarget;
+                
+                // Check for direction flip opportunity
+                bool shouldFlip = (isLong && shouldEnterShort) || (!isLong && shouldEnterLong);
+                
+                // Calculate actual PnL based on exit price
+                double exitPrice = 0;
+                bool shouldExitNow = false;
+                
+                if (hitTp && hitSl)
+                {
+                    exitPrice = slTarget; // Conservative: assume SL hit first
+                    shouldExitNow = true;
+                }
+                else if (hitTp)
+                {
+                    exitPrice = tpTarget;
+                    shouldExitNow = true;
+                }
+                else if (hitSl || hitTrailingStop)
+                {
+                    if (isLong)
+                        exitPrice = Math.Max(slTarget, trailingStopPrice);
+                    else
+                        exitPrice = Math.Min(slTarget, trailingStopPrice);
+                    shouldExitNow = true;
+                }
+                else if (shouldExit || shouldFlip)
+                {
+                    exitPrice = candle.Close;
+                    shouldExitNow = true;
+                }
+                
+                if (!shouldExitNow)
+                    continue;
+                
+                // Apply exit slippage
+                if (isLong)
+                    exitPrice *= (1 - slippagePercent);
+                else
+                    exitPrice *= (1 + slippagePercent);
+                
+                double pnl = isLong ? 
+                    (exitPrice - entryPrice) / entryPrice * 100 :
+                    (entryPrice - exitPrice) / entryPrice * 100;
+                
+                trades++;
+                totalPnL += pnl;
+                returns.Add(pnl);
+                if (pnl > 0) wins++;
+                
+                inPosition = false;
+                
+                // Direction flip: immediately enter opposite position
+                if (shouldFlip)
+                {
+                    inPosition = true;
+                    isLong = shouldEnterLong;
+                    entryPrice = candle.Close * (isLong ? (1 + slippagePercent) : (1 - slippagePercent));
+                    highWaterMark = entryPrice;
+                    trailingStopPrice = isLong 
+                        ? entryPrice * (1 - TrailingStopPercent) 
+                        : entryPrice * (1 + TrailingStopPercent);
+                }
+            }
+        }
+        
+        // Calculate metrics
+        double winRate = trades > 0 ? (double)wins / trades * 100 : 0;
+        
+        // Sharpe ratio
+        double sharpe = 0;
+        if (returns.Count > 1)
+        {
+            double avgReturn = returns.Average();
+            double stdDev = Math.Sqrt(returns.Sum(r => Math.Pow(r - avgReturn, 2)) / returns.Count);
+            sharpe = stdDev > 0 ? avgReturn / stdDev * Math.Sqrt(252) : 0;
+        }
+        
+        // Calculate fitness
+        double maxDrawdown = CalculateMaxDrawdown(returns);
+        double fitness = WeightedScoreCalculator.CalculateFitness(trades, wins, totalPnL, maxDrawdown, sharpe);
+        
+        return (fitness, winRate, totalPnL, sharpe, trades);
     }
     
     private (double fitness, double winRate, double pnl, double sharpe, int trades) 
@@ -1425,15 +1725,32 @@ public sealed class MultiMethodLearner
     
     private (double macd, double signal, double histogram) CalculateMacd(List<BackTestCandle> candles, int endIndex)
     {
-        if (endIndex < 26) return (0, 0, 0);
+        if (endIndex < 35) return (0, 0, 0);  // Need 26 + 9 for proper MACD
         
+        // Calculate current MACD line
         double ema12 = CalculateEma(candles, endIndex, 12);
         double ema26 = CalculateEma(candles, endIndex, 26);
         double macd = ema12 - ema26;
         
-        // Signal line is 9-period EMA of MACD
-        // Simplified: use a rough approximation
-        double signal = macd * 0.2 + (endIndex >= 35 ? CalculateEma(candles, endIndex - 9, 12) - CalculateEma(candles, endIndex - 9, 26) : 0) * 0.8;
+        // Signal line is 9-period EMA of MACD values
+        // Calculate historical MACD values and compute EMA
+        double multiplier = 2.0 / 10.0;  // 9-period EMA multiplier
+        double signal = 0;
+        
+        // Compute MACD at startpoint (9 bars back)
+        int startIdx = endIndex - 9;
+        if (startIdx >= 26)
+        {
+            signal = CalculateEma(candles, startIdx, 12) - CalculateEma(candles, startIdx, 26);
+        }
+        
+        // Apply EMA smoothing for signal line
+        for (int i = startIdx + 1; i <= endIndex; i++)
+        {
+            double macdAtI = CalculateEma(candles, i, 12) - CalculateEma(candles, i, 26);
+            signal = (macdAtI - signal) * multiplier + signal;
+        }
+        
         double histogram = macd - signal;
         
         return (macd, signal, histogram);

@@ -584,13 +584,52 @@ namespace IdiotProof {
                                 if (_isActive)
                                 {
                                     Log("Trading activated. Monitoring markets...");
-                                    Log("Press [M] for menu, [S] to stop, [P] for prices");
+                                    Log("Press [M] for menu, [S] to stop, [P] for prices, [CTRL+ALT+X] emergency close");
                                     RunActiveMonitoringLoop();
                                 }
                             }
                             else
                             {
                                 Log("Trading already active. Press [S] to stop first.");
+                            }
+                            break;
+
+                        case "s":
+                        case "S":
+                            if (_isActive)
+                            {
+                                DeactivateTrading();
+                                Log("Trading stopped.");
+                            }
+                            else
+                            {
+                                Log("Trading is not active.");
+                            }
+                            break;
+
+                        case "p":
+                        case "P":
+                            if (_isActive)
+                            {
+                                PrintCurrentPrices();
+                            }
+                            else
+                            {
+                                Log("No trading session active.");
+                            }
+                            break;
+
+                        case "m":
+                        case "M":
+                            if (_isActive)
+                            {
+                                Log("Returning to monitoring... (trading still active)");
+                                Log("Press [M] for menu, [S] to stop, [P] for prices, [CTRL+ALT+X] emergency close");
+                                RunActiveMonitoringLoop();
+                            }
+                            else
+                            {
+                                Log("No trading session to monitor.");
                             }
                             break;
 
@@ -622,11 +661,24 @@ namespace IdiotProof {
             Log("========================================");
             Log($"  Tickers: {tickerCount} | Profiles: {profileCount} | Weights: {weightsCount} | {(_isActive ? "TRADING" : "Idle")}");
             Log("========================================");
-            Log("  1. Tickers   - Manage ticker watchlist");
-            Log("  2. Learn     - AI learning (150+ weights)");
-            Log("  3. Backtest  - Test learned weights");
-            Log("  4. Live      - Start live trading");
-            Log("  0. Exit");
+            
+            if (_isActive)
+            {
+                // Show trading-specific menu
+                Log("  S. Stop      - Stop live trading");
+                Log("  P. Prices    - Show current prices");
+                Log("  M. Monitor   - Return to monitoring");
+                Log("  X. Emergency - CTRL+ALT+X to close all");
+                Log("  0. Exit");
+            }
+            else
+            {
+                Log("  1. Tickers   - Manage ticker watchlist");
+                Log("  2. Learn     - AI learning (150+ weights)");
+                Log("  3. Backtest  - Test learned weights");
+                Log("  4. Live      - Start live trading");
+                Log("  0. Exit");
+            }
             Log("========================================");
         }
         
@@ -1103,6 +1155,17 @@ namespace IdiotProof {
                     }
                     Log("========================");
                 }
+                
+                // Show detailed trade log
+                if (!string.IsNullOrEmpty(result.DetailedTradeLog))
+                {
+                    Log("");
+                    Log("=== Detailed Trade Log ===");
+                    foreach (var line in result.DetailedTradeLog.Split('\n'))
+                    {
+                        Log(line.TrimEnd());
+                    }
+                }
 
                 Log("");
             }
@@ -1230,6 +1293,25 @@ namespace IdiotProof {
                 if (Console.KeyAvailable)
                 {
                     var key = Console.ReadKey(intercept: true);
+                    
+                    // Check for CTRL+ALT+X emergency close
+                    if (key.Key == ConsoleKey.X && 
+                        key.Modifiers.HasFlag(ConsoleModifiers.Control) && 
+                        key.Modifiers.HasFlag(ConsoleModifiers.Alt))
+                    {
+                        Console.ForegroundColor = ConsoleColor.Red;
+                        Log("[!!!] EMERGENCY CLOSE ALL POSITIONS [!!!]");
+                        Console.ResetColor();
+                        
+                        // Cancel all open orders first
+                        _wrapper?.CancelAllOrders();
+                        Thread.Sleep(500); // Wait for cancels to process
+                        
+                        // Close all positions
+                        _ = CloseAllPositionsAsync();
+                        continue;
+                    }
+                    
                     if (key.Key == ConsoleKey.M || key.Key == ConsoleKey.Escape)
                     {
                         Log("Returning to menu... (trading still active)");
@@ -1248,7 +1330,7 @@ namespace IdiotProof {
                     }
                     else if (key.Key == ConsoleKey.H)
                     {
-                        Log("Keys: [M]=Menu [S]=Stop [P]=Prices [H]=Help [Esc]=Menu");
+                        Log("Keys: [M]=Menu [S]=Stop [P]=Prices [H]=Help [CTRL+ALT+X]=Emergency Close");
                     }
                 }
                 Thread.Sleep(100);
@@ -1400,6 +1482,111 @@ namespace IdiotProof {
             }
             catch (Exception ex)
             {
+                return Task.FromResult(new OperationResultPayload { Success = false, ErrorMessage = ex.Message });
+            }
+        }
+
+        private static Task<OperationResultPayload> CloseAllPositionsAsync()
+        {
+            if (_wrapper == null || _client == null)
+                return Task.FromResult(new OperationResultPayload { Success = false, ErrorMessage = "Not connected" });
+
+            try
+            {
+                // Refresh positions to get current state
+                _wrapper.RequestPositionsAndWait(TimeSpan.FromSeconds(3));
+
+                var positions = _wrapper.Positions.Where(p => p.Value.Quantity != 0).ToList();
+                
+                if (positions.Count == 0)
+                {
+                    Log("No open positions to close.");
+                    return Task.FromResult(new OperationResultPayload { Success = true, Message = "No positions to close" });
+                }
+
+                Log("");
+                Console.ForegroundColor = ConsoleColor.Red;
+                Log("+==============================================================+");
+                Log("|  EMERGENCY LIQUIDATION - CLOSING ALL POSITIONS              |");
+                Log("+==============================================================+");
+                Console.ResetColor();
+
+                var closedCount = 0;
+                var errors = new List<string>();
+
+                foreach (var kvp in positions)
+                {
+                    var symbol = kvp.Key;
+                    var position = kvp.Value;
+
+                    try
+                    {
+                        // Create contract
+                        var contract = new Contract
+                        {
+                            Symbol = symbol,
+                            SecType = "STK",
+                            Currency = "USD",
+                            Exchange = "SMART"
+                        };
+
+                        // Create order to close position (opposite side)
+                        var order = new Order
+                        {
+                            Action = position.Quantity > 0 ? "SELL" : "BUY",
+                            OrderType = "MKT",
+                            TotalQuantity = Math.Abs(position.Quantity),
+                            Tif = "GTC",
+                            OutsideRth = true
+                        };
+
+                        var orderId = _wrapper.ConsumeNextOrderId();
+                        var positionType = position.Quantity > 0 ? "LONG" : "SHORT";
+                        
+                        Console.ForegroundColor = ConsoleColor.Yellow;
+                        Log($"  [{symbol}] Closing {positionType} {Math.Abs(position.Quantity)} shares @ MKT (Order #{orderId})");
+                        Console.ResetColor();
+                        
+                        _client.placeOrder(orderId, contract, order);
+                        closedCount++;
+                        
+                        Thread.Sleep(50); // Small delay between orders
+                    }
+                    catch (Exception ex)
+                    {
+                        errors.Add($"{symbol}: {ex.Message}");
+                        Log($"  [ERR] Failed to close {symbol}: {ex.Message}");
+                    }
+                }
+
+                Log("+--------------------------------------------------------------+");
+                
+                if (errors.Count == 0)
+                {
+                    Console.ForegroundColor = ConsoleColor.Green;
+                    Log($"  [OK] Close orders sent for {closedCount} position(s)");
+                    Console.ResetColor();
+                }
+                else
+                {
+                    Console.ForegroundColor = ConsoleColor.Yellow;
+                    Log($"  Sent {closedCount} orders, {errors.Count} failed");
+                    Console.ResetColor();
+                }
+                
+                Log("+==============================================================+");
+                Log("");
+
+                return Task.FromResult(new OperationResultPayload 
+                { 
+                    Success = errors.Count == 0, 
+                    Message = $"Close orders sent for {closedCount} positions",
+                    ErrorMessage = errors.Count > 0 ? string.Join("; ", errors) : null
+                });
+            }
+            catch (Exception ex)
+            {
+                Log($"[ERR] Emergency close failed: {ex.Message}");
                 return Task.FromResult(new OperationResultPayload { Success = false, ErrorMessage = ex.Message });
             }
         }

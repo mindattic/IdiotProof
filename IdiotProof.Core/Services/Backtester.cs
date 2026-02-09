@@ -827,6 +827,57 @@ public sealed class AutonomousBacktestResult
     // Display
     // ========================================================================
 
+    /// <summary>
+    /// Generates a detailed trade log in the format:
+    /// Day 1 (MM/DD/YYYY)
+    ///   Buy:   $124.54 @ 10:11 AM
+    ///   Sell:  $125.23 @ 10:45 AM
+    ///   P/L:   +$0.69
+    /// </summary>
+    public string ToDetailedTradeLog(int dayNumber = 0)
+    {
+        var sb = new StringBuilder();
+        
+        // Day header
+        if (dayNumber > 0)
+            sb.AppendLine($"Day {dayNumber} ({Date:MM/dd/yyyy})");
+        else
+            sb.AppendLine($"{Date:MM/dd/yyyy}");
+        
+        sb.AppendLine(new string('-', 40));
+        
+        if (Trades.Count == 0)
+        {
+            sb.AppendLine("  (no trades)");
+        }
+        else
+        {
+            foreach (var trade in Trades)
+            {
+                if (trade.IsLong)
+                {
+                    sb.AppendLine($"  Buy:   ${trade.EntryPrice,8:F2} @ {trade.EntryTime:h:mm tt}");
+                    sb.AppendLine($"  Sell:  ${trade.ExitPrice,8:F2} @ {trade.ExitTime:h:mm tt}");
+                }
+                else
+                {
+                    sb.AppendLine($"  Short: ${trade.EntryPrice,8:F2} @ {trade.EntryTime:h:mm tt}");
+                    sb.AppendLine($"  Cover: ${trade.ExitPrice,8:F2} @ {trade.ExitTime:h:mm tt}");
+                }
+                
+                var pnlSign = trade.NetPnL >= 0 ? "+" : "";
+                sb.AppendLine($"  P/L:   {pnlSign}${trade.NetPnL:F2}");
+                sb.AppendLine();
+            }
+        }
+        
+        // Daily summary
+        var dayPnlSign = TotalPnL >= 0 ? "+" : "";
+        sb.AppendLine($"  Daily P/L: {dayPnlSign}${TotalPnL:F2} ({TotalTrades} trades, {WinRate:F0}% win)");
+        
+        return sb.ToString();
+    }
+
     public override string ToString()
     {
         var sb = new StringBuilder();

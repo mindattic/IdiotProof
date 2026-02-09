@@ -323,6 +323,29 @@ namespace IdiotProof.Models {
         /// Profile learning confidence (0-100).
         /// </summary>
         public double Confidence { get; set; }
+        
+        /// <summary>
+        /// Detailed trade log with day-by-day breakdown.
+        /// </summary>
+        public string? DetailedTradeLog { get; set; }
+        
+        /// <summary>
+        /// Individual trade records for display.
+        /// </summary>
+        public List<BacktestTradeEntry> Trades { get; set; } = new();
+    }
+    
+    /// <summary>
+    /// Individual trade entry for display in backtest results.
+    /// </summary>
+    public class BacktestTradeEntry
+    {
+        public DateTime EntryTime { get; set; }
+        public DateTime ExitTime { get; set; }
+        public double EntryPrice { get; set; }
+        public double ExitPrice { get; set; }
+        public double PnL { get; set; }
+        public bool IsLong { get; set; }
     }
 
     /// <summary>

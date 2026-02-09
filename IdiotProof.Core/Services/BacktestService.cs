@@ -304,7 +304,7 @@ namespace IdiotProof.Services {
                 var existingProfile = StrategyRunner.ProfileManager.GetProfile(request.Symbol);
 
                 // Run the simulation with adaptive config
-                var profile = RunAutonomousLearning(
+                var (profile, detailedLog) = RunAutonomousLearning(
                     request.Symbol,
                     allBars,
                     request.Quantity,
@@ -340,7 +340,8 @@ namespace IdiotProof.Services {
                     AvgPnL = avgPnL,
                     BarsProcessed = allBars.Count,
                     ProfileSaved = profileSaved,
-                    Confidence = profile.Confidence
+                    Confidence = profile.Confidence,
+                    DetailedTradeLog = detailedLog
                 };
             }
             catch (Exception ex)
@@ -358,7 +359,7 @@ namespace IdiotProof.Services {
         /// <summary>
         /// Runs autonomous trading simulation against historical data and populates a TickerProfile.
         /// </summary>
-        private static TickerProfile RunAutonomousLearning(
+        private static (TickerProfile Profile, string DetailedLog) RunAutonomousLearning(
             string symbol,
             IReadOnlyList<HistoricalBar> bars,
             int quantity = 100,
@@ -368,7 +369,7 @@ namespace IdiotProof.Services {
             if (bars.Count < 50)
             {
                 Console.WriteLine($"[WARN] Need at least 50 bars for autonomous learning, got {bars.Count}");
-                return new TickerProfile { Symbol = symbol };
+                return (new TickerProfile { Symbol = symbol }, "");
             }
 
             // Create adaptive simulator that uses learned thresholds from profile
@@ -384,19 +385,29 @@ namespace IdiotProof.Services {
             // Track day number for logging
             DateTime? currentDay = null;
             int dayNumber = 0;
+            
+            // Collect all trades with their dates for detailed log
+            var allTrades = new List<(int DayNum, DateTime Date, Strategy.TradeRecord Trade)>();
 
             // Process each bar (oldest to newest - bars should already be sorted)
             foreach (var bar in bars)
             {
                 // Check if we've moved to a new trading day
-                if (verboseLogging && bar.Time.Date != currentDay)
+                if (bar.Time.Date != currentDay)
                 {
                     currentDay = bar.Time.Date;
                     dayNumber++;
-                    Console.WriteLine($"  --- Day {dayNumber}: {bar.Time:ddd MM/dd/yyyy} ---");
+                    if (verboseLogging)
+                        Console.WriteLine($"  --- Day {dayNumber}: {bar.Time:ddd MM/dd/yyyy} ---");
                 }
 
                 var trades = simulator.ProcessBar(bar);
+                
+                // Collect trades for detailed log
+                foreach (var trade in trades)
+                {
+                    allTrades.Add((dayNumber, bar.Time.Date, trade));
+                }
 
                 if (verboseLogging)
                 {
@@ -427,9 +438,11 @@ namespace IdiotProof.Services {
             if (simulator.HasOpenPosition)
             {
                 var finalTrade = simulator.ClosePosition(bars[^1].Close, bars[^1].Time);
-                if (verboseLogging && finalTrade != null)
+                if (finalTrade != null)
                 {
-                    Console.WriteLine($"      [END] Closed at end of data: ${finalTrade.PnL:F2}");
+                    allTrades.Add((dayNumber, bars[^1].Time.Date, finalTrade));
+                    if (verboseLogging)
+                        Console.WriteLine($"      [END] Closed at end of data: ${finalTrade.PnL:F2}");
                 }
             }
 
@@ -451,8 +464,72 @@ namespace IdiotProof.Services {
                 Console.WriteLine();
                 Console.WriteLine($"[LEARN] Complete: {profile.GetSummary()}");
             }
+            
+            // Build detailed trade log
+            var detailedLog = BuildDetailedTradeLog(symbol, allTrades, profile.TotalPnL);
 
-            return profile;
+            return (profile, detailedLog);
+        }
+        
+        /// <summary>
+        /// Builds a detailed trade log in the format:
+        /// Day 1 (MM/DD/YYYY)
+        ///   Buy:   $124.54 @ 10:11 AM
+        ///   Sell:  $125.23 @ 10:45 AM
+        ///   P/L:   +$0.69
+        /// </summary>
+        private static string BuildDetailedTradeLog(
+            string symbol,
+            List<(int DayNum, DateTime Date, Strategy.TradeRecord Trade)> trades,
+            double totalPnL)
+        {
+            var sb = new System.Text.StringBuilder();
+            
+            sb.AppendLine($"========================================");
+            sb.AppendLine($"  {symbol} DETAILED TRADE LOG");
+            sb.AppendLine($"========================================");
+            sb.AppendLine();
+            
+            // Group trades by day
+            var tradesByDay = trades.GroupBy(t => (t.DayNum, t.Date)).OrderBy(g => g.Key.DayNum);
+            
+            foreach (var dayGroup in tradesByDay)
+            {
+                sb.AppendLine($"Day {dayGroup.Key.DayNum} ({dayGroup.Key.Date:MM/dd/yyyy})");
+                sb.AppendLine(new string('-', 40));
+                
+                double dayPnL = 0;
+                foreach (var (_, _, trade) in dayGroup)
+                {
+                    if (trade.IsLong)
+                    {
+                        sb.AppendLine($"  Buy:   ${trade.EntryPrice,8:F2} @ {trade.EntryTime:h:mm tt}");
+                        sb.AppendLine($"  Sell:  ${trade.ExitPrice,8:F2} @ {trade.ExitTime:h:mm tt}");
+                    }
+                    else
+                    {
+                        sb.AppendLine($"  Short: ${trade.EntryPrice,8:F2} @ {trade.EntryTime:h:mm tt}");
+                        sb.AppendLine($"  Cover: ${trade.ExitPrice,8:F2} @ {trade.ExitTime:h:mm tt}");
+                    }
+                    
+                    var pnlSign = trade.PnL >= 0 ? "+" : "";
+                    sb.AppendLine($"  P/L:   {pnlSign}${trade.PnL:F2}");
+                    sb.AppendLine();
+                    dayPnL += trade.PnL;
+                }
+                
+                var dayPnlSign = dayPnL >= 0 ? "+" : "";
+                sb.AppendLine($"  Daily P/L: {dayPnlSign}${dayPnL:F2} ({dayGroup.Count()} trades)");
+                sb.AppendLine();
+            }
+            
+            // Total summary
+            sb.AppendLine("========================================");
+            var totalSign = totalPnL >= 0 ? "+" : "";
+            sb.AppendLine($"TOTAL: {totalSign}${totalPnL:F2} ({trades.Count} trades)");
+            sb.AppendLine("========================================");
+            
+            return sb.ToString();
         }
     }
 

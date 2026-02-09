@@ -583,6 +583,40 @@ public sealed class MultiDayBacktestResult
 
     public decimal MaxDrawdownPercent => StartingCapital > 0 ? MaxDrawdown / StartingCapital * 100 : 0;
 
+    /// <summary>
+    /// Generates a detailed trade log showing each day's trades:
+    /// Day 1 (MM/DD/YYYY)
+    ///   Buy:   $124.54 @ 10:11 AM
+    ///   Sell:  $125.23 @ 10:45 AM
+    ///   P/L:   +$0.69
+    /// </summary>
+    public string ToDetailedTradeLog()
+    {
+        var sb = new StringBuilder();
+        
+        sb.AppendLine($"╔══════════════════════════════════════════════════════════╗");
+        sb.AppendLine($"║  {Symbol} DETAILED TRADE LOG                              ");
+        sb.AppendLine($"║  {StartDate:MM/dd/yyyy} to {EndDate:MM/dd/yyyy}                               ");
+        sb.AppendLine($"╚══════════════════════════════════════════════════════════╝");
+        sb.AppendLine();
+        
+        int dayNum = 1;
+        foreach (var day in DailyResults)
+        {
+            sb.AppendLine(day.ToDetailedTradeLog(dayNum));
+            dayNum++;
+        }
+        
+        // Total summary
+        sb.AppendLine("══════════════════════════════════════════════════════════");
+        var totalSign = TotalPnL >= 0 ? "+" : "";
+        sb.AppendLine($"TOTAL: {totalSign}${TotalPnL:F2} over {TradingDays} days ({TotalTrades} trades)");
+        sb.AppendLine($"       Win Rate: {WinRate:F1}% | Profitable Days: {ProfitableDays}/{TradingDays}");
+        sb.AppendLine("══════════════════════════════════════════════════════════");
+        
+        return sb.ToString();
+    }
+
     public override string ToString()
     {
         var sb = new StringBuilder();
