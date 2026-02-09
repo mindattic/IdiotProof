@@ -12,11 +12,11 @@
 //
 // ============================================================================
 
+using IdiotProof.Constants;
 using IdiotProof.Enums;
 using IdiotProof.Helpers;
 using IdiotProof.Models;
 using IdiotProof.Strategy;
-using IdiotProof.Models;
 
 namespace IdiotProof.Services {
     /// <summary>
@@ -48,21 +48,168 @@ namespace IdiotProof.Services {
                 // We'll use extended hours data
                 int barsPerDay = 960; // Extended hours: 4am-8pm = 16 hours x 60 min
                 int totalBarsNeeded = request.Days * barsPerDay;
+                const int minimumViableBars = 255; // Minimum for EMA200 warmup
 
                 var allBars = new List<HistoricalBar>();
+                bool cacheWasUpdated = false;
 
-                // STEP 1: Check cache first
+                // STEP 1: Load cached data first (always use local data when available)
                 var cachedBars = _cache.LoadFromCache(request.Symbol);
-                if (cachedBars != null && cachedBars.Count >= totalBarsNeeded / 2)
+                if (cachedBars != null && cachedBars.Count > 0)
                 {
-                    // Use cached data - it has enough bars for our backtest
                     allBars = cachedBars;
-                    Console.WriteLine($"[BACKTEST] Using cached data: {allBars.Count} bars from {request.Symbol}.history.json");
+                    var lastBarTime = cachedBars.Max(b => b.Time);
+                    var firstBarTime = cachedBars.Min(b => b.Time);
+                    Console.WriteLine($"[BACKTEST] Loaded {cachedBars.Count} bars from cache ({firstBarTime:MM/dd HH:mm} to {lastBarTime:MM/dd HH:mm})");
+
+                    // STEP 2a: Check if we need to backfill RECENT data (forward fill)
+                    var timeSinceLastBar = DateTime.Now - lastBarTime;
+                    var hoursGap = timeSinceLastBar.TotalHours;
+                    
+                    // Backfill if gap is more than 2 hours (account for market closed periods)
+                    if (hoursGap > 2)
+                    {
+                        int daysToBackfill = Math.Min((int)Math.Ceiling(hoursGap / 24.0) + 1, 5); // Max 5 days per request
+                        Console.WriteLine($"[BACKTEST] Cache is {hoursGap:F1} hours old, backfilling {daysToBackfill} days from IBKR...");
+
+                        try
+                        {
+                            int barsFetched = await _historicalDataService.FetchHistoricalDataAsync(
+                                request.Symbol,
+                                barCount: daysToBackfill * barsPerDay,
+                                barSize: BarSize.Minutes1,
+                                dataType: HistoricalDataType.Trades,
+                                useRTH: false,
+                                endDate: null); // null = up to now
+
+                            if (barsFetched > 0)
+                            {
+                                var fetchedBars = _historicalDataService.Store.GetBars(request.Symbol);
+                                if (fetchedBars != null)
+                                {
+                                    int newBarsAdded = 0;
+                                    foreach (var bar in fetchedBars)
+                                    {
+                                        // Only add bars newer than what we have
+                                        if (bar.Time > lastBarTime && !allBars.Any(b => b.Time == bar.Time))
+                                        {
+                                            allBars.Add(bar);
+                                            newBarsAdded++;
+                                        }
+                                    }
+                                    if (newBarsAdded > 0)
+                                    {
+                                        cacheWasUpdated = true;
+                                        Console.WriteLine($"[BACKTEST] Added {newBarsAdded} new bars from IBKR (forward backfill complete)");
+                                    }
+                                    else
+                                    {
+                                        Console.WriteLine($"[BACKTEST] No new bars to add (market may be closed)");
+                                    }
+                                }
+                            }
+                        }
+                        catch (TimeoutException)
+                        {
+                            Console.WriteLine($"[BACKTEST] IBKR forward backfill timed out - using cached data only");
+                        }
+                        catch (Exception ex)
+                        {
+                            Console.WriteLine($"[BACKTEST] IBKR forward backfill failed ({ex.Message}) - using cached data only");
+                        }
+                    }
+                    else
+                    {
+                        Console.WriteLine($"[BACKTEST] Cache is fresh ({hoursGap:F1} hours old), no forward backfill needed");
+                    }
+
+                    // STEP 2b: Check if we need to backfill OLDER data (backward fill)
+                    // Calculate how many days of data we currently have
+                    int cachedDays = (int)Math.Ceiling((lastBarTime - firstBarTime).TotalDays);
+                    int daysNeeded = request.Days;
+                    
+                    if (cachedDays < daysNeeded)
+                    {
+                        int daysToFetchBack = daysNeeded - cachedDays;
+                        Console.WriteLine($"[BACKTEST] Cache has ~{cachedDays} days, need {daysNeeded} days. Fetching {daysToFetchBack} more days of history...");
+
+                        // Fetch in 5-day chunks going backward
+                        DateTime endDate = firstBarTime.AddMinutes(-1); // Start just before our oldest bar
+                        int daysRemaining = daysToFetchBack;
+
+                        while (daysRemaining > 0)
+                        {
+                            int fetchDays = Math.Min(daysRemaining, 5);
+                            Console.WriteLine($"[BACKTEST] Fetching {fetchDays} days ending {endDate:MM/dd HH:mm}...");
+
+                            try
+                            {
+                                int barsFetched = await _historicalDataService.FetchHistoricalDataAsync(
+                                    request.Symbol,
+                                    barCount: fetchDays * barsPerDay,
+                                    barSize: BarSize.Minutes1,
+                                    dataType: HistoricalDataType.Trades,
+                                    useRTH: false,
+                                    endDate: endDate);
+
+                                if (barsFetched == 0)
+                                {
+                                    Console.WriteLine($"[BACKTEST] No more historical data available from IBKR");
+                                    break;
+                                }
+
+                                var fetchedBars = _historicalDataService.Store.GetBars(request.Symbol);
+                                if (fetchedBars != null)
+                                {
+                                    int oldBarsAdded = 0;
+                                    foreach (var bar in fetchedBars)
+                                    {
+                                        // Only add bars older than what we have
+                                        if (bar.Time < firstBarTime && !allBars.Any(b => b.Time == bar.Time))
+                                        {
+                                            allBars.Add(bar);
+                                            oldBarsAdded++;
+                                        }
+                                    }
+                                    if (oldBarsAdded > 0)
+                                    {
+                                        cacheWasUpdated = true;
+                                        firstBarTime = allBars.Min(b => b.Time); // Update for next iteration
+                                        Console.WriteLine($"[BACKTEST] Added {oldBarsAdded} historical bars (now starting from {firstBarTime:MM/dd HH:mm})");
+                                    }
+                                    else
+                                    {
+                                        Console.WriteLine($"[BACKTEST] No older bars found in this chunk");
+                                        break;
+                                    }
+                                }
+
+                                daysRemaining -= fetchDays;
+                                endDate = endDate.AddDays(-fetchDays);
+
+                                // Respect pacing limits
+                                if (daysRemaining > 0)
+                                {
+                                    await Task.Delay(1000);
+                                }
+                            }
+                            catch (TimeoutException)
+                            {
+                                Console.WriteLine($"[BACKTEST] IBKR backward backfill timed out - using available data");
+                                break;
+                            }
+                            catch (Exception ex)
+                            {
+                                Console.WriteLine($"[BACKTEST] IBKR backward backfill failed ({ex.Message}) - using available data");
+                                break;
+                            }
+                        }
+                    }
                 }
                 else
                 {
-                    // STEP 2: No cache or insufficient data - fetch from IBKR API
-                    Console.WriteLine($"[BACKTEST] No cache found, fetching from IBKR API...");
+                    // STEP 2c: No cache - fetch everything from IBKR API
+                    Console.WriteLine($"[BACKTEST] No cache found, fetching {request.Days} days from IBKR API...");
 
                     // IBKR limits: 1 min bars max "5 D" per request
                     // For 30 days, we need multiple requests
@@ -131,6 +278,14 @@ namespace IdiotProof.Services {
                         _cache.SaveToCache(request.Symbol, allBars);
                         Console.WriteLine($"[BACKTEST] Saved {allBars.Count} bars to {request.Symbol}.history.json");
                     }
+                }
+
+                // Save updated cache if we backfilled new data
+                if (cacheWasUpdated && allBars.Count > 0)
+                {
+                    allBars = allBars.OrderBy(b => b.Time).ToList();
+                    _cache.SaveToCache(request.Symbol, allBars);
+                    Console.WriteLine($"[BACKTEST] Updated cache with {allBars.Count} total bars");
                 }
 
                 Console.WriteLine($"[BACKTEST] Using {allBars.Count} total bars for {request.Symbol}");
@@ -335,13 +490,13 @@ namespace IdiotProof.Services {
         private readonly TickerProfile? _learnedProfile;
 
         // Baseline thresholds (adjusted dynamically by ADX and learned profile)
-        private const int BaselineLongEntry = 70;
-        private const int BaselineShortEntry = -70;
-        private const int BaselineLongExit = 35;
-        private const int BaselineShortExit = -35;
-        private const double BaselineTpAtrMultiplier = 2.0;
-        private const double BaselineSlAtrMultiplier = 3.0;
-        private const int MinSecondsBetweenTrades = 180; // 3 minutes
+        private static readonly int BaselineLongEntry = TradingDefaults.LongEntryThreshold;
+        private static readonly int BaselineShortEntry = TradingDefaults.ShortEntryThreshold;
+        private static readonly int BaselineLongExit = TradingDefaults.LongExitThreshold;
+        private static readonly int BaselineShortExit = TradingDefaults.ShortExitThreshold;
+        private static readonly double BaselineTpAtrMultiplier = TradingDefaults.TpAtrMultiplier;
+        private static readonly double BaselineSlAtrMultiplier = TradingDefaults.SlAtrMultiplier;
+        private static readonly int MinSecondsBetweenTrades = TradingDefaults.MinSecondsBetweenAdjustments;
 
         // Position tracking
         private bool _inPosition;

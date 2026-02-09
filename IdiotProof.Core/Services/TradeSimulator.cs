@@ -12,6 +12,7 @@
 // ============================================================================
 
 using IdiotProof.Analysis;
+using IdiotProof.Constants;
 using IdiotProof.Helpers;
 using IdiotProof.Learning;
 using IdiotProof.Models;
@@ -25,7 +26,7 @@ namespace IdiotProof.Services;
 public sealed record AutonomousConfig
 {
     /// <summary>Base entry threshold - adjusted dynamically based on conditions.</summary>
-    public int BaseEntryThreshold { get; init; } = 50;
+    public int BaseEntryThreshold { get; init; } = TradingDefaults.LongEntryThreshold;
 
     /// <summary>Position size in shares.</summary>
     public int Quantity { get; init; } = 100;
@@ -37,13 +38,13 @@ public sealed record AutonomousConfig
     public bool AllowDirectionFlip { get; init; } = true;
 
     /// <summary>Minimum seconds between trades.</summary>
-    public int MinSecondsBetweenTrades { get; init; } = 30;
+    public int MinSecondsBetweenTrades { get; init; } = TradingDefaults.MinSecondsBetweenAdjustments;
 
     /// <summary>ATR multiplier for take profit.</summary>
-    public double TakeProfitAtrMultiplier { get; init; } = 2.0;
+    public double TakeProfitAtrMultiplier { get; init; } = TradingDefaults.TpAtrMultiplier;
 
     /// <summary>ATR multiplier for stop loss.</summary>
-    public double StopLossAtrMultiplier { get; init; } = 1.5;
+    public double StopLossAtrMultiplier { get; init; } = TradingDefaults.SlAtrMultiplier;
 
     /// <summary>Exit at end of day.</summary>
     public bool ExitAtEod { get; init; } = true;

@@ -17,12 +17,11 @@
 // ============================================================================
 
 using IBApi;
+using IdiotProof.Core.Models;
 using IdiotProof.Helpers;
 using IdiotProof.Logging;
 using IdiotProof.Models;
 using IdiotProof.Strategy;
-using IdiotProof.Helpers;
-using IdiotProof.Models;
 using System.Collections.Concurrent;
 
 namespace IdiotProof.Strategy {

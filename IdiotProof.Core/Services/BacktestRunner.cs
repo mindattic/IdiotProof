@@ -8,6 +8,7 @@
 //
 // ============================================================================
 
+using IdiotProof.Constants;
 using IdiotProof.Enums;
 using IdiotProof.Models;
 using System.Text;
@@ -27,7 +28,7 @@ public static class BacktestRunner
     /// <param name="symbol">The ticker symbol.</param>
     /// <param name="date">The date to backtest (must be a past trading day).</param>
     /// <param name="startingCapital">Starting capital in dollars.</param>
-    /// <param name="baseThreshold">Base entry threshold for market score (50 = balanced).</param>
+    /// <param name="baseThreshold">Base entry threshold for market score.</param>
     /// <param name="allowShort">Allow short positions.</param>
     /// <param name="progress">Optional progress reporter.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
@@ -37,7 +38,7 @@ public static class BacktestRunner
         string symbol,
         DateOnly date,
         decimal startingCapital = 1000.00m,
-        int baseThreshold = 50,
+        int baseThreshold = TradingDefaults.LongEntryThreshold,
         bool allowShort = true,
         IProgress<string>? progress = null,
         CancellationToken cancellationToken = default)
@@ -119,7 +120,7 @@ public static class BacktestRunner
         string symbol,
         DateOnly date,
         decimal startingCapital = 1000.00m,
-        int baseThreshold = 50,
+        int baseThreshold = TradingDefaults.LongEntryThreshold,
         bool allowShort = true)
     {
         // Convert HistoricalBar to BackTestCandle
@@ -160,7 +161,7 @@ public static class BacktestRunner
         DateOnly date,
         decimal startingCapital = 1000.00m,
         PriceScenario scenario = PriceScenario.Volatile,
-        int baseThreshold = 50,
+        int baseThreshold = TradingDefaults.LongEntryThreshold,
         bool allowShort = true)
     {
         var candles = GenerateSyntheticCandles(symbol, date, scenario);
@@ -195,7 +196,7 @@ public static class BacktestRunner
         DateOnly startDate,
         DateOnly endDate,
         decimal startingCapital = 1000.00m,
-        int baseThreshold = 50,
+        int baseThreshold = TradingDefaults.LongEntryThreshold,
         bool allowShort = true,
         IProgress<string>? progress = null,
         CancellationToken cancellationToken = default)

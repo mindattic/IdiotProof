@@ -18,6 +18,7 @@
 //
 // ============================================================================
 
+using IdiotProof.Constants;
 using IdiotProof.Enums;
 using IdiotProof.Models;
 using IdiotProof.Helpers;
@@ -36,10 +37,10 @@ namespace IdiotProof.Services;
 internal sealed class DynamicCalibrator
 {
     // Current calibrated thresholds (start at moderate levels)
-    public int LongEntryThreshold { get; set; } = 50;
-    public int ShortEntryThreshold { get; set; } = -50;
-    public double TakeProfitAtr { get; set; } = 1.5;
-    public double StopLossAtr { get; set; } = 2.5;
+    public int LongEntryThreshold { get; set; } = TradingDefaults.LongEntryThreshold;
+    public int ShortEntryThreshold { get; set; } = TradingDefaults.ShortEntryThreshold;
+    public double TakeProfitAtr { get; set; } = TradingDefaults.TpAtrMultiplier;
+    public double StopLossAtr { get; set; } = TradingDefaults.SlAtrMultiplier;
     public double MinVolumeRatio { get; set; } = 0.8;
     public bool RequireTrendAlignment { get; set; } = false;
     public int MinIndicatorConfirmation { get; set; } = 4;
@@ -492,8 +493,8 @@ public sealed record AutonomousBacktestConfig
     /// <summary>Commission per trade in dollars.</summary>
     public decimal CommissionPerTrade { get; init; } = 0.00m;
 
-    /// <summary>Slippage as percentage of price (0.001 = 0.1%).</summary>
-    public decimal SlippagePercent { get; init; } = 0.0m;
+    /// <summary>Slippage as percentage of price (use TradingDefaults.SlippagePercent for realistic sim).</summary>
+    public decimal SlippagePercent { get; init; } = TradingDefaults.BacktestSlippage;
 
     /// <summary>Fixed number of shares per trade. If > 0, ignores capital-based sizing.</summary>
     public int FixedShareQuantity { get; init; } = 100;
@@ -707,6 +708,11 @@ public sealed class AutonomousBacktestResult
     public int SentimentScore { get; init; }
     public int SentimentConfidence { get; init; }
     public bool HasSentiment => SentimentConfidence > 0;
+
+    // AI Analysis
+    public string? AIAnalysisSummary { get; set; }
+    public int AIConfidence { get; set; }
+    public bool HasAIAnalysis => !string.IsNullOrEmpty(AIAnalysisSummary);
 
     // ========================================================================
     // Performance Metrics

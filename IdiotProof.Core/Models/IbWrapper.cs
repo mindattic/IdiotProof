@@ -32,6 +32,8 @@
 // ============================================================================
 
 using IBApi;
+using IdiotProof.Core.Models;
+using IdiotProof.Helpers;
 using IdiotProof.Logging;
 using System;
 using System.Collections.Concurrent;
@@ -39,7 +41,6 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
-using IdiotProof.Helpers;
 using IbContract = IBApi.Contract;
 
 namespace IdiotProof.Models {

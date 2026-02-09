@@ -13,10 +13,10 @@
 //
 // ============================================================================
 
+using IdiotProof.Core.Models;
 using IdiotProof.Enums;
 using IdiotProof.Logging;
 using IdiotProof.Strategy;
-using IdiotProof.Helpers;
 
 namespace IdiotProof.Helpers {
     /// <summary>

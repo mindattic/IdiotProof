@@ -19,6 +19,7 @@
 // ============================================================================
 
 using System.Text;
+using IdiotProof.Core.Models;
 using IdiotProof.Helpers;
 
 namespace IdiotProof.Logging;

@@ -382,6 +382,8 @@ public sealed class LearningComparison
     public LearnedWeights? GeneticResult { get; set; }
     public LearnedWeights? NeuralResult { get; set; }
     public LearnedWeights? GradientResult { get; set; }
+    public LearnedWeights? LshResult { get; set; }
+    public LearnedWeights? LstmResult { get; set; }
     
     // The winner (highest validation fitness)
     public string BestMethod { get; set; } = "";
@@ -390,4 +392,19 @@ public sealed class LearningComparison
     public TimeSpan GeneticDuration { get; set; }
     public TimeSpan NeuralDuration { get; set; }
     public TimeSpan GradientDuration { get; set; }
+    public TimeSpan LshDuration { get; set; }
+    public TimeSpan LstmDuration { get; set; }
+    
+    // LSH-specific metrics
+    public int LshPatternsStored { get; set; }
+    public double LshAverageAnalogDistance { get; set; }
+    
+    // LSTM-specific metrics
+    public int LstmTrainingSamples { get; set; }
+    public double LstmDirectionAccuracy { get; set; }
+    
+    // AI analysis of the learning results
+    public string? AIRecommendation { get; set; }
+    public string? AIReasoning { get; set; }
+    public int AIConfidence { get; set; }
 }

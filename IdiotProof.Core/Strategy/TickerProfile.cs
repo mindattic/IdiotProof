@@ -23,6 +23,7 @@
 // ╚═══════════════════════════════════════════════════════════════════════════╝
 
 using System.Text.Json;
+using IdiotProof.Constants;
 using IdiotProof.Settings;
 using System.Text.Json.Serialization;
 using IdiotProof.Learning;
@@ -223,10 +224,10 @@ namespace IdiotProof.Strategy {
         public List<IndicatorCorrelation> IndicatorCorrelations { get; set; } = new();
 
         // Learned optimal values (adjusted over time)
-        public int OptimalLongEntryThreshold { get; set; } = 70;
-        public int OptimalShortEntryThreshold { get; set; } = -70;
-        public int OptimalLongExitThreshold { get; set; } = 40;
-        public int OptimalShortExitThreshold { get; set; } = -40;
+        public int OptimalLongEntryThreshold { get; set; } = TradingDefaults.LongEntryThreshold;
+        public int OptimalShortEntryThreshold { get; set; } = TradingDefaults.ShortEntryThreshold;
+        public int OptimalLongExitThreshold { get; set; } = TradingDefaults.LongExitThreshold;
+        public int OptimalShortExitThreshold { get; set; } = TradingDefaults.ShortExitThreshold;
 
         // Confidence level (0-100, increases with more trades)
         public int Confidence => Math.Min(100, TotalTrades * 2);

@@ -1,19 +1,22 @@
 // ============================================================================
-// MultiMethodLearner - Three Learning Approaches in One
+// MultiMethodLearner - Five Learning Approaches in One
 // ============================================================================
 //
-// Implements three different learning methods:
+// Implements five different learning methods:
 // 1. GENETIC - Evolve a population of weight vectors
 // 2. NEURAL  - Small neural network that outputs weight adjustments
 // 3. GRADIENT - Direct gradient descent on weights
+// 4. LSH     - Locality Sensitive Hashing for pattern matching
+// 5. LSTM    - Long Short-Term Memory for sequence prediction
 //
-// All three use the same train/validation split to measure true learning.
+// All five use the same train/validation split to measure true learning.
+// ALL methods work both OFFLINE (training) and LIVE (real-time trading).
 //
 // ============================================================================
 
+using IdiotProof.Constants;
 using IdiotProof.Models;
 using IdiotProof.Services;
-using IdiotProof.Models;
 using IdiotProof.Helpers;
 using IdiotProof.Settings;
 using System.Diagnostics;
@@ -100,34 +103,101 @@ public sealed class MultiMethodLearner
         var trainCandles = ConvertToCandles(trainBars);
         var valCandles = ConvertToCandles(valBars);
         
-        progress?.Report($"[LEARN] Running 3 learning methods with {generationsPerMethod} generations each...\n");
+        progress?.Report($"[LEARN] Running 5 learning methods IN PARALLEL with {generationsPerMethod} generations each...\n");
         
-        // Step 3: Run Genetic Algorithm
-        progress?.Report("=== METHOD 1: GENETIC ALGORITHM ===");
-        var geneticSw = Stopwatch.StartNew();
-        var geneticResult = await RunGeneticAsync(symbol, trainCandles, valCandles, generationsPerMethod, progress, ct);
-        comparison.GeneticDuration = geneticSw.Elapsed;
+        // Step 3: Run ALL methods in parallel for maximum speed
+        progress?.Report("=== LAUNCHING ALL 5 METHODS IN PARALLEL ===");
+        progress?.Report("  [1] Genetic Algorithm");
+        progress?.Report("  [2] Feedforward Neural Network");
+        progress?.Report("  [3] Gradient Descent");
+        progress?.Report("  [4] Locality-Sensitive Hashing");
+        progress?.Report("  [5] Long Short-Term Memory");
+        progress?.Report("");
+        
+        var parallelSw = Stopwatch.StartNew();
+        
+        // Launch all 5 tasks simultaneously
+        var geneticTask = Task.Run(async () =>
+        {
+            var taskSw = Stopwatch.StartNew();
+            var result = await RunGeneticAsync(symbol, trainCandles, valCandles, generationsPerMethod, null, ct);
+            result.Duration = taskSw.Elapsed;
+            return result;
+        }, ct);
+        
+        var neuralTask = Task.Run(async () =>
+        {
+            var taskSw = Stopwatch.StartNew();
+            var result = await RunNeuralAsync(symbol, trainCandles, valCandles, generationsPerMethod, null, ct);
+            result.Duration = taskSw.Elapsed;
+            return result;
+        }, ct);
+        
+        var gradientTask = Task.Run(async () =>
+        {
+            var taskSw = Stopwatch.StartNew();
+            var result = await RunGradientAsync(symbol, trainCandles, valCandles, generationsPerMethod, null, ct);
+            result.Duration = taskSw.Elapsed;
+            return result;
+        }, ct);
+        
+        var lshTask = Task.Run(async () =>
+        {
+            var taskSw = Stopwatch.StartNew();
+            var result = await RunLSHAsync(symbol, trainCandles, valCandles, generationsPerMethod, null, ct);
+            result.Duration = taskSw.Elapsed;
+            return result;
+        }, ct);
+        
+        var lstmTask = Task.Run(async () =>
+        {
+            var taskSw = Stopwatch.StartNew();
+            var result = await RunLSTMAsync(symbol, trainCandles, valCandles, generationsPerMethod, null, ct);
+            result.Duration = taskSw.Elapsed;
+            return result;
+        }, ct);
+        
+        // Wait for all to complete
+        await Task.WhenAll(geneticTask, neuralTask, gradientTask, lshTask, lstmTask);
+        
+        var geneticResult = geneticTask.Result;
+        var neuralResult = neuralTask.Result;
+        var gradientResult = gradientTask.Result;
+        var lshResult = lshTask.Result;
+        var lstmResult = lstmTask.Result;
+        
+        parallelSw.Stop();
+        progress?.Report($"=== ALL METHODS COMPLETE (Total: {parallelSw.Elapsed:mm\\:ss\\.fff}) ===\n");
+        
+        // Store results in comparison
+        comparison.GeneticDuration = geneticResult.Duration;
         comparison.GeneticResult = geneticResult.BestWeights;
-        PrintMethodSummary(geneticResult, progress);
         
-        // Step 4: Run Neural Network
-        progress?.Report("\n=== METHOD 2: NEURAL NETWORK ===");
-        var neuralSw = Stopwatch.StartNew();
-        var neuralResult = await RunNeuralAsync(symbol, trainCandles, valCandles, generationsPerMethod, progress, ct);
-        comparison.NeuralDuration = neuralSw.Elapsed;
+        comparison.NeuralDuration = neuralResult.Duration;
         comparison.NeuralResult = neuralResult.BestWeights;
-        PrintMethodSummary(neuralResult, progress);
         
-        // Step 5: Run Gradient Descent
-        progress?.Report("\n=== METHOD 3: GRADIENT DESCENT ===");
-        var gradientSw = Stopwatch.StartNew();
-        var gradientResult = await RunGradientAsync(symbol, trainCandles, valCandles, generationsPerMethod, progress, ct);
-        comparison.GradientDuration = gradientSw.Elapsed;
+        comparison.GradientDuration = gradientResult.Duration;
         comparison.GradientResult = gradientResult.BestWeights;
-        PrintMethodSummary(gradientResult, progress);
         
-        // Step 6: Determine winner (highest VALIDATION fitness)
-        var results = new[] { geneticResult, neuralResult, gradientResult };
+        comparison.LshDuration = lshResult.Duration;
+        comparison.LshResult = lshResult.BestWeights;
+        comparison.LshPatternsStored = lshResult.GenerationsRun;
+        
+        comparison.LstmDuration = lstmResult.Duration;
+        comparison.LstmResult = lstmResult.BestWeights;
+        comparison.LstmTrainingSamples = lstmResult.GenerationsRun;
+        comparison.LstmDirectionAccuracy = lstmResult.ValidationWinRate;
+        
+        // Print individual summaries
+        progress?.Report("--- METHOD RESULTS ---");
+        PrintMethodSummary(geneticResult, progress);
+        PrintMethodSummary(neuralResult, progress);
+        PrintMethodSummary(gradientResult, progress);
+        PrintMethodSummary(lshResult, progress);
+        PrintMethodSummary(lstmResult, progress);
+        
+        // Step 4: Determine winner (highest VALIDATION fitness)
+        var results = new[] { geneticResult, neuralResult, gradientResult, lshResult, lstmResult };
         var best = results.OrderByDescending(r => r.ValidationFitness).First();
         
         comparison.BestMethod = best.MethodName;
@@ -152,7 +222,55 @@ public sealed class MultiMethodLearner
         progress?.Report(new string('=', 70));
         progress?.Report($"\nBest method: {comparison.BestMethod} (Validation Fitness: {best.ValidationFitness:F2})");
         progress?.Report($"Saved to: {_dataFolder}\\{symbol}.weights.json");
-        progress?.Report($"Total time: {sw.Elapsed:mm\\:ss}");
+        
+        // Step 5: Get AI analysis of the learning results
+        progress?.Report("\n=== AI ANALYSIS ===");
+        try
+        {
+            using var advisor = new AIAdvisor();
+            if (advisor.IsConfigured)
+            {
+                var methodSummaries = results.Select(r => new LearningMethodSummary
+                {
+                    MethodName = r.MethodName,
+                    ValidationFitness = r.ValidationFitness,
+                    ValidationWinRate = r.ValidationWinRate,
+                    ValidationPnL = r.ValidationPnL,
+                    IsBest = r == best
+                });
+                
+                var aiAnalysis = await advisor.AnalyzeLearningResultsAsync(
+                    symbol, methodSummaries, trainCandles.Count, valCandles.Count, ct);
+                
+                if (aiAnalysis.IsUsable)
+                {
+                    comparison.AIRecommendation = aiAnalysis.Action;
+                    comparison.AIReasoning = aiAnalysis.Reasoning;
+                    comparison.AIConfidence = aiAnalysis.Confidence;
+                    
+                    progress?.Report($"[AI] Recommendation: {aiAnalysis.Action} (Confidence: {aiAnalysis.Confidence}%)");
+                    progress?.Report($"[AI] Reasoning: {aiAnalysis.Reasoning}");
+                    if (aiAnalysis.RiskFactors.Count > 0)
+                    {
+                        progress?.Report($"[AI] Concerns: {string.Join(", ", aiAnalysis.RiskFactors)}");
+                    }
+                }
+                else
+                {
+                    progress?.Report($"[AI] Analysis unavailable: {aiAnalysis.Error}");
+                }
+            }
+            else
+            {
+                progress?.Report("[AI] Skipped - OPENAI_IDIOTPROOF_API_KEY not configured");
+            }
+        }
+        catch (Exception ex)
+        {
+            progress?.Report($"[AI] Error: {ex.Message}");
+        }
+        
+        progress?.Report($"\nTotal time: {sw.Elapsed:mm\\:ss}");
         
         // Save log
         SaveLog(symbol, progress);
@@ -601,20 +719,398 @@ public sealed class MultiMethodLearner
     }
     
     // ========================================================================
+    // METHOD 4: LSH PATTERN MATCHING (Locality-Sensitive Hashing)
+    // ========================================================================
+    //
+    // Uses Hamming distance in N-cube space to find historical patterns
+    // that are similar to current market conditions. Based on the insight
+    // that in high-dimensional spaces, random vectors cluster around N/2
+    // distance, so genuinely similar patterns stand out clearly.
+    //
+    // Unlike the other methods that optimize weights, LSH:
+    // 1. Builds a pattern database from training data
+    // 2. For each validation point, finds analog patterns
+    // 3. Uses analog outcomes to predict direction
+    // 4. Measures accuracy of predictions
+    //
+    // ========================================================================
+    
+    private async Task<MethodResult> RunLSHAsync(
+        string symbol,
+        List<BackTestCandle> trainData,
+        List<BackTestCandle> valData,
+        int _iterations,  // Not used for LSH, but kept for API consistency
+        IProgress<string>? progress,
+        CancellationToken ct)
+    {
+        await Task.Yield();
+        
+        var result = new MethodResult { MethodName = "LSH" };
+        var sw = Stopwatch.StartNew();
+        
+        // Create pattern matcher for this symbol
+        var patternMatcher = new PatternMatcher(symbol, _dataFolder);
+        
+        progress?.Report($"  Building pattern database from {trainData.Count} training bars...");
+        
+        // Step 1: Build pattern database from training data
+        int patternsAdded = 0;
+        for (int i = 50; i < trainData.Count - 5; i++)  // Skip warmup and leave room for outcome
+        {
+            ct.ThrowIfCancellationRequested();
+            
+            var snapshot = BuildSnapshot(trainData, i);
+            var indicatorSnapshot = ToIndicatorSnapshot(snapshot);
+            
+            // Calculate next-period outcome (5 bars forward = 5 minutes on 1-min bars)
+            double currentPrice = trainData[i].Close;
+            double futurePrice = trainData[i + 5].Close;
+            double nextReturn = (futurePrice - currentPrice) / currentPrice;
+            
+            // Find max gain and max drawdown in next 5 bars
+            double maxHigh = currentPrice;
+            double maxLow = currentPrice;
+            for (int j = i + 1; j <= i + 5 && j < trainData.Count; j++)
+            {
+                maxHigh = Math.Max(maxHigh, trainData[j].High);
+                maxLow = Math.Min(maxLow, trainData[j].Low);
+            }
+            double maxGain = (maxHigh - currentPrice) / currentPrice;
+            double maxDrawdown = (currentPrice - maxLow) / currentPrice;
+            
+            // Record pattern
+            patternMatcher.RecordPattern(
+                indicatorSnapshot,
+                trainData[i].Timestamp,
+                currentPrice,
+                0,  // Market score not needed for pure LSH
+                nextReturn,
+                maxGain,
+                maxDrawdown);
+            
+            patternsAdded++;
+            
+            if (patternsAdded % 500 == 0)
+                progress?.Report($"  Built {patternsAdded} patterns...");
+        }
+        
+        progress?.Report($"  Pattern database: {patternMatcher.PatternCount} patterns");
+        progress?.Report($"  Testing on {valData.Count} validation bars...");
+        
+        // Step 2: Test on validation data using pattern predictions
+        int predictions = 0;
+        int correctPredictions = 0;
+        double totalPnL = 0;
+        int wins = 0;
+        int losses = 0;
+        var returns = new List<double>();
+        
+        double slippagePercent = TradingDefaults.SlippagePercent;
+        
+        for (int i = 50; i < valData.Count - 5; i += 5)  // Check every 5 bars
+        {
+            ct.ThrowIfCancellationRequested();
+            
+            var snapshot = BuildSnapshot(valData, i);
+            var indicatorSnapshot = ToIndicatorSnapshot(snapshot);
+            
+            // Get forecast from pattern matcher
+            var forecast = patternMatcher.GetForecast(indicatorSnapshot, maxAnalogs: 15, maxDistance: 90);
+            
+            if (!forecast.IsUsable)
+                continue;  // Skip if not enough good analogs
+            
+            predictions++;
+            
+            // Calculate actual outcome
+            double currentPrice = valData[i].Close;
+            double futurePrice = valData[i + 5].Close;
+            double actualReturn = (futurePrice - currentPrice) / currentPrice;
+            bool wentHigher = actualReturn > 0;
+            
+            // Check prediction accuracy
+            bool predictedHigher = forecast.SuggestedDirection == 1;
+            bool predictedLower = forecast.SuggestedDirection == -1;
+            
+            // Only count if we made a directional prediction
+            if (predictedHigher || predictedLower)
+            {
+                bool correct = (predictedHigher && wentHigher) || (predictedLower && !wentHigher);
+                if (correct)
+                    correctPredictions++;
+                
+                // Simulate trade based on prediction
+                double entryPrice, exitPrice, pnl;
+                if (predictedHigher)
+                {
+                    entryPrice = currentPrice * (1 + slippagePercent);
+                    exitPrice = futurePrice * (1 - slippagePercent);
+                    pnl = exitPrice - entryPrice;
+                }
+                else
+                {
+                    entryPrice = currentPrice * (1 - slippagePercent);
+                    exitPrice = futurePrice * (1 + slippagePercent);
+                    pnl = entryPrice - exitPrice;
+                }
+                
+                totalPnL += pnl;
+                returns.Add(pnl / entryPrice * 100);
+                
+                if (pnl > 0) wins++;
+                else losses++;
+            }
+        }
+        
+        result.Duration = sw.Elapsed;
+        result.GenerationsRun = patternMatcher.PatternCount;  // Store pattern count here
+        
+        // Calculate metrics
+        double winRate = predictions > 0 ? (double)correctPredictions / predictions * 100 : 0;
+        double sharpe = returns.Count > 1 
+            ? returns.Average() / (StandardDeviation(returns) + 0.0001) * Math.Sqrt(252) 
+            : 0;
+        
+        // Fitness: weighted combination of accuracy, PnL, and Sharpe
+        double fitness = winRate * 0.4 + Math.Max(0, totalPnL * 10) * 0.3 + Math.Max(0, sharpe * 10) * 0.3;
+        
+        progress?.Report($"  Predictions: {predictions}, Correct: {correctPredictions}, Accuracy: {winRate:F1}%");
+        
+        // Create weights result (LSH doesn't optimize weights, but we need to return something)
+        var weights = LearnedWeights.CreateRandom(symbol, _rng);
+        weights.LearningMethod = "lsh";
+        weights.TrainingFitness = fitness;
+        weights.ValidationFitness = fitness;
+        
+        result.BestWeights = weights;
+        result.TrainingFitness = fitness;
+        result.TrainingWinRate = winRate;
+        result.TrainingPnL = totalPnL;
+        result.ValidationFitness = fitness;
+        result.ValidationWinRate = winRate;
+        result.ValidationPnL = totalPnL;
+        result.ValidationSharpe = sharpe;
+        
+        // Save the pattern database for future use
+        patternMatcher.Save();
+        progress?.Report($"  Saved pattern database to disk");
+        
+        return result;
+    }
+    
+    /// <summary>
+    /// LSTM-based learning method.
+    /// Uses Long Short-Term Memory neural network to learn temporal patterns in price data.
+    /// LSTM excels at capturing sequential dependencies that other methods miss.
+    /// </summary>
+    private async Task<MethodResult> RunLSTMAsync(
+        string symbol,
+        List<BackTestCandle> trainData,
+        List<BackTestCandle> valData,
+        int epochs,
+        IProgress<string>? progress,
+        CancellationToken ct)
+    {
+        await Task.Yield();
+        
+        var result = new MethodResult { MethodName = "LSTM" };
+        var sw = Stopwatch.StartNew();
+        
+        // Create LSTM predictor for this symbol
+        var lstmPredictor = new LstmPredictor(symbol);
+        
+        progress?.Report($"  Training LSTM on {trainData.Count} bars for {epochs} epochs...");
+        
+        // Step 1: Build training data from candles using BuildSnapshot
+        int samplesAdded = 0;
+        for (int i = 50; i < trainData.Count - 5; i++)  // Skip warmup and leave room for outcome
+        {
+            ct.ThrowIfCancellationRequested();
+            
+            var snapshot = BuildSnapshot(trainData, i);
+            lstmPredictor.AddDataPoint(snapshot);
+            
+            samplesAdded++;
+            
+            if (samplesAdded % 500 == 0)
+                progress?.Report($"  Added {samplesAdded} training samples...");
+        }
+        
+        progress?.Report($"  LSTM training data: {samplesAdded} samples");
+        
+        // Step 2: Train the LSTM for specified epochs
+        progress?.Report($"  Training for {epochs} epochs...");
+        lstmPredictor.Train(epochs: epochs, learningRate: 0.001);
+        
+        var (trainingSamples, isTrained, meanReturn, stdReturn) = lstmPredictor.GetStats();
+        progress?.Report($"  Training complete: {trainingSamples} samples, mean return: {meanReturn:F4}%");
+        
+        // Step 3: Evaluate on validation data
+        progress?.Report($"  Validating on {valData.Count} bars...");
+        
+        // Create a fresh LSTM for validation (or reset the current one)
+        lstmPredictor.Reset();
+        
+        int predictions = 0;
+        int correctPredictions = 0;
+        double totalPnL = 0;
+        int wins = 0;
+        int losses = 0;
+        var returns = new List<double>();
+        
+        double slippagePercent = TradingDefaults.SlippagePercent;
+        
+        for (int i = 50; i < valData.Count - 5; i += 5)  // Check every 5 bars
+        {
+            ct.ThrowIfCancellationRequested();
+            
+            var snapshot = BuildSnapshot(valData, i);
+            lstmPredictor.AddDataPoint(snapshot);
+            
+            var prediction = lstmPredictor.Predict();
+            
+            // Skip if not usable (not enough sequence or low confidence)
+            if (!prediction.IsUsable || prediction.Confidence < 0.5)
+                continue;
+            
+            predictions++;
+            
+            // Calculate actual outcome (5 bars forward)
+            double currentPrice = valData[i].Close;
+            double futurePrice = valData[i + 5].Close;
+            double actualReturn = (futurePrice - currentPrice) / currentPrice;
+            bool wentHigher = actualReturn > 0;
+            
+            // Check prediction accuracy
+            bool predictedHigher = prediction.Direction > 0.1;
+            bool predictedLower = prediction.Direction < -0.1;
+            
+            if (predictedHigher || predictedLower)
+            {
+                bool correct = (predictedHigher && wentHigher) || (predictedLower && !wentHigher);
+                if (correct)
+                    correctPredictions++;
+                
+                // Simulate trade based on prediction
+                double entryPrice, exitPrice, pnl;
+                if (predictedHigher)
+                {
+                    entryPrice = currentPrice * (1 + slippagePercent);
+                    exitPrice = futurePrice * (1 - slippagePercent);
+                    pnl = exitPrice - entryPrice;
+                }
+                else
+                {
+                    entryPrice = currentPrice * (1 - slippagePercent);
+                    exitPrice = futurePrice * (1 + slippagePercent);
+                    pnl = entryPrice - exitPrice;
+                }
+                
+                totalPnL += pnl;
+                returns.Add(pnl / entryPrice * 100);
+                
+                if (pnl > 0) wins++;
+                else losses++;
+            }
+        }
+        
+        result.Duration = sw.Elapsed;
+        result.GenerationsRun = samplesAdded;  // Store sample count
+        
+        // Calculate metrics
+        double winRate = predictions > 0 ? (double)correctPredictions / predictions * 100 : 0;
+        double sharpe = returns.Count > 1 
+            ? returns.Average() / (StandardDeviation(returns) + 0.0001) * Math.Sqrt(252) 
+            : 0;
+        
+        // Fitness: weighted combination of accuracy, PnL, and Sharpe
+        double fitness = winRate * 0.4 + Math.Max(0, totalPnL * 10) * 0.3 + Math.Max(0, sharpe * 10) * 0.3;
+        
+        progress?.Report($"  Predictions: {predictions}, Correct: {correctPredictions}, Accuracy: {winRate:F1}%");
+        
+        // Create weights result
+        var weights = LearnedWeights.CreateRandom(symbol, _rng);
+        weights.LearningMethod = "lstm";
+        weights.TrainingFitness = fitness;
+        weights.ValidationFitness = fitness;
+        
+        result.BestWeights = weights;
+        result.TrainingFitness = fitness;
+        result.TrainingWinRate = winRate;
+        result.TrainingPnL = totalPnL;
+        result.ValidationFitness = fitness;
+        result.ValidationWinRate = winRate;
+        result.ValidationPnL = totalPnL;
+        result.ValidationSharpe = sharpe;
+        
+        // Note: Model is saved automatically by Train() when sufficient data
+        progress?.Report($"  LSTM model persisted");
+        
+        return result;
+    }
+    
+    /// <summary>
+    /// Converts ExtendedSnapshot to IndicatorSnapshot for LSH processing.
+    /// </summary>
+    private static IdiotProof.Helpers.IndicatorSnapshot ToIndicatorSnapshot(ExtendedSnapshot ext)
+    {
+        return new IdiotProof.Helpers.IndicatorSnapshot
+        {
+            Price = ext.Price,
+            Vwap = ext.Vwap,
+            Ema9 = ext.Ema9,
+            Ema21 = ext.Ema21,
+            Ema50 = ext.Ema50,
+            Rsi = ext.Rsi,
+            Macd = ext.Macd,
+            MacdSignal = ext.MacdSignal,
+            MacdHistogram = ext.MacdHistogram,
+            Adx = ext.Adx,
+            PlusDi = ext.PlusDi,
+            MinusDi = ext.MinusDi,
+            VolumeRatio = ext.VolumeRatio,
+            BollingerUpper = ext.BollingerUpper,
+            BollingerLower = ext.BollingerLower,
+            BollingerMiddle = ext.BollingerMiddle,
+            Atr = ext.Atr
+        };
+    }
+    
+    /// <summary>
+    /// Calculates standard deviation for Sharpe ratio calculation.
+    /// </summary>
+    private static double StandardDeviation(List<double> values)
+    {
+        if (values.Count < 2) return 0;
+        double avg = values.Average();
+        double sumSquares = values.Sum(v => (v - avg) * (v - avg));
+        return Math.Sqrt(sumSquares / (values.Count - 1));
+    }
+    
+    // ========================================================================
     // EVALUATION
     // ========================================================================
     
     private (double fitness, double winRate, double pnl, double sharpe, int trades) 
         EvaluateWeights(LearnedWeights weights, List<BackTestCandle> candles)
     {
+        return EvaluateWeightsWithLSH(weights, candles, null);
+    }
+    
+    private (double fitness, double winRate, double pnl, double sharpe, int trades) 
+        EvaluateWeightsWithLSH(LearnedWeights weights, List<BackTestCandle> candles, PatternMatcher? patternMatcher)
+    {
         if (candles.Count < 10)
             return (-1000, 0, 0, 0, 0);
         
         // Simulate trading using these weights - MATCHING LIVE TRADING BEHAVIOR
         // Constants matching live AutonomousTradingConfig
-        const double SlippagePercent = 0.0005;  // 0.05% slippage per trade (entry + exit)
+        double slippagePercent = TradingDefaults.SlippagePercent;  // 0.05% slippage per trade (entry + exit)
         const double TrailingStopPercent = 0.10; // 10% trailing stop (matches live default)
         const bool AllowDirectionFlip = true;   // Allow immediate direction flip
+        
+        // LSH configuration (matching live StrategyRunner logic)
+        bool useLSH = patternMatcher != null && patternMatcher.PatternCount >= 100;
         
         int trades = 0;
         int wins = 0;
@@ -638,6 +1134,44 @@ public sealed class MultiMethodLearner
             var (score, shouldEnterLong, shouldEnterShort, shouldExit) = 
                 WeightedScoreCalculator.Calculate(snapshot, weights);
             
+            // Apply LSH "second opinion" if available
+            if (useLSH && !inPosition)
+            {
+                var indicatorSnap = ToIndicatorSnapshot(snapshot);
+                var lshForecast = patternMatcher!.GetForecast(indicatorSnap, maxAnalogs: 15, maxDistance: 85);
+                
+                if (lshForecast.IsUsable)
+                {
+                    bool lshConfirmsLong = lshForecast.SuggestedDirection == 1 && lshForecast.Confidence >= 0.6;
+                    bool lshConfirmsShort = lshForecast.SuggestedDirection == -1 && lshForecast.Confidence >= 0.6;
+                    bool lshVetoesLong = lshForecast.SuggestedDirection == -1 && lshForecast.Confidence >= 0.7;
+                    bool lshVetoesShort = lshForecast.SuggestedDirection == 1 && lshForecast.Confidence >= 0.7;
+                    
+                    // Apply LSH influence (same logic as live StrategyRunner)
+                    if (shouldEnterLong && lshVetoesLong)
+                    {
+                        shouldEnterLong = false;  // LSH veto
+                    }
+                    else if (shouldEnterShort && lshVetoesShort)
+                    {
+                        shouldEnterShort = false;  // LSH veto
+                    }
+                    else if (!shouldEnterLong && !shouldEnterShort && lshForecast.Confidence >= 0.65)
+                    {
+                        // LSH boost (only when score is close to threshold)
+                        // Use simplified threshold check since we don't have exact thresholds here
+                        if (lshConfirmsLong && score >= 60)
+                        {
+                            shouldEnterLong = true;  // LSH boost
+                        }
+                        else if (lshConfirmsShort && score <= -60)
+                        {
+                            shouldEnterShort = true;  // LSH boost
+                        }
+                    }
+                }
+            }
+            
             if (!inPosition)
             {
                 // Entry logic - apply slippage (worse entry price)
@@ -645,7 +1179,7 @@ public sealed class MultiMethodLearner
                 {
                     inPosition = true;
                     isLong = true;
-                    entryPrice = candle.Close * (1 + SlippagePercent); // Buy at slightly higher price
+                    entryPrice = candle.Close * (1 + slippagePercent); // Buy at slightly higher price
                     highWaterMark = entryPrice;
                     trailingStopPrice = entryPrice * (1 - TrailingStopPercent);
                 }
@@ -653,7 +1187,7 @@ public sealed class MultiMethodLearner
                 {
                     inPosition = true;
                     isLong = false;
-                    entryPrice = candle.Close * (1 - SlippagePercent); // Sell at slightly lower price
+                    entryPrice = candle.Close * (1 - slippagePercent); // Sell at slightly lower price
                     highWaterMark = entryPrice; // For shorts this tracks low water mark
                     trailingStopPrice = entryPrice * (1 + TrailingStopPercent);
                 }
@@ -684,8 +1218,8 @@ public sealed class MultiMethodLearner
                 
                 // Exit logic - USE SAME ATR-BASED TP/SL AS LIVE TRADING
                 double atr = CalculateAtr(candles, i, 14);
-                double tpMultiplier = 2.0;  // Same as live AutonomousTradingConfig default
-                double slMultiplier = 1.5;  // Same as live AutonomousTradingConfig default
+                double tpMultiplier = TradingDefaults.TpAtrMultiplier;  // Same as live AutonomousTradingConfig default
+                double slMultiplier = TradingDefaults.SlAtrMultiplier;  // Same as live AutonomousTradingConfig default
                 
                 double tpDistance = atr * tpMultiplier;
                 double slDistance = atr * slMultiplier;
@@ -741,9 +1275,9 @@ public sealed class MultiMethodLearner
                 
                 // Apply exit slippage (worse exit price)
                 if (isLong)
-                    exitPrice *= (1 - SlippagePercent);
+                    exitPrice *= (1 - slippagePercent);
                 else
-                    exitPrice *= (1 + SlippagePercent);
+                    exitPrice *= (1 + slippagePercent);
                 
                 double pnl = isLong ? 
                     (exitPrice - entryPrice) / entryPrice * 100 :
@@ -761,7 +1295,7 @@ public sealed class MultiMethodLearner
                 {
                     inPosition = true;
                     isLong = shouldEnterLong; // Flip to the new direction
-                    entryPrice = candle.Close * (isLong ? (1 + SlippagePercent) : (1 - SlippagePercent));
+                    entryPrice = candle.Close * (isLong ? (1 + slippagePercent) : (1 - slippagePercent));
                     highWaterMark = entryPrice;
                     trailingStopPrice = isLong 
                         ? entryPrice * (1 - TrailingStopPercent) 

@@ -4,13 +4,12 @@
 // ================================================================
 
 using IBApi;
+using IdiotProof.Core.Models;
+using IdiotProof.Helpers;
 using IdiotProof.Logging;
 using IdiotProof.Models;
 using IdiotProof.Services;
 using IdiotProof.Strategy;
-using IdiotProof.Helpers;
-using IdiotProof.Models;
-using IdiotProof.Services;
 using IdiotProof.Settings;
 using IdiotProof.Validation;
 

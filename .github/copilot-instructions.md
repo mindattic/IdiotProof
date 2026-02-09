@@ -1047,6 +1047,108 @@ Each trade records:
 | Win rate at threshold 80 > threshold 70 | Adjust to 80 for this ticker |
 | Time window win rate < 40% | Skip entries in that window |
 
+## LSTM Neural Network Integration
+
+The system includes **Long Short-Term Memory (LSTM)** neural networks for enhanced price direction prediction. LSTM networks excel at capturing temporal dependencies in sequential data like stock prices.
+
+### How LSTM Works in IdiotProof
+
+```
++===========================================================================+
+|  LSTM ARCHITECTURE                                                        |
++===========================================================================+
+|                                                                           |
+|  INPUT FEATURES (from each candle):                                      |
+|  +-------------------------------------------------------------------+   |
+|  |  - Price (normalized)                                              |   |
+|  |  - VWAP distance                                                   |   |
+|  |  - EMA values (9, 21, 50)                                         |   |
+|  |  - RSI, MACD, ADX                                                 |   |
+|  |  - Volume ratio                                                    |   |
+|  +-------------------------------------------------------------------+   |
+|                                                                           |
+|  LSTM CELL (memory gates):                                               |
+|  +-------------------------------------------------------------------+   |
+|  |  - Forget Gate: Decides what information to discard               |   |
+|  |  - Input Gate: Decides what new information to store              |   |
+|  |  - Output Gate: Decides what information to output                |   |
+|  +-------------------------------------------------------------------+   |
+|                                                                           |
+|  OUTPUT:                                                                  |
+|  +-------------------------------------------------------------------+   |
+|  |  - Direction: -1.0 (bearish) to +1.0 (bullish)                    |   |
+|  |  - Confidence: 0.0 to 1.0                                         |   |
+|  |  - Predicted volatility                                           |   |
+|  |  - Score adjustment: ±25 points applied to market score           |   |
+|  +-------------------------------------------------------------------+   |
+|                                                                           |
++===========================================================================+
+```
+
+### LSTM Integration Points
+
+| Component | Integration |
+|-----------|-------------|
+| **AutonomousTrading** | LSTM prediction adjusts market score by up to ±25 points |
+| **AdaptiveOrder** | LSTM volatility used for smarter TP/SL sizing |
+| **Market Score** | LSTM direction/confidence factored into entry/exit decisions |
+
+### LSTM Warm-Up Requirements
+
+| Metric | Requirement |
+|--------|-------------|
+| Minimum data points | 10 candles before prediction |
+| Optimal data points | 50+ candles for accurate prediction |
+| Training interval | Every 15 minutes (automatic) |
+
+### LSTM Prediction Output
+
+```
+LstmPrediction {
+    Direction           // -1.0 to +1.0 (bearish to bullish)
+    Confidence          // 0.0 to 1.0 (prediction confidence)
+    PredictedChangePercent  // Expected price change %
+    PredictedVolatility     // Expected volatility
+    ScoreAdjustment     // ±25 to apply to market score
+    IsUsable            // True if enough data for prediction
+}
+```
+
+### Example: LSTM Score Adjustment
+
+```
+Market Score (before LSTM): +55
+LSTM Prediction: Direction=+0.7, Confidence=0.8
+LSTM Score Adjustment: +0.7 × 0.8 × 25 = +14
+
+Adjusted Market Score: +55 + 14 = +69
+```
+
+### LSTM Effect on TP/SL
+
+When LSTM predicts high volatility with high confidence:
+- **Take Profit**: Extended more aggressively (expecting larger moves)
+- **Stop Loss**: Widened to avoid noise stops
+
+When LSTM predicts low volatility:
+- **Take Profit**: Kept conservative (smaller expected moves)
+- **Stop Loss**: Tightened (less noise expected)
+
+### Training LSTM Models
+
+LSTM models train automatically during live trading:
+1. Data collected: Every completed candle with indicator values
+2. Training triggered: Every 15 minutes
+3. Model persisted: `Profiles/{TICKER}.lstm.json`
+
+For offline training from historical data:
+```csharp
+var trainer = new LstmTrainingManager();
+var candles = trainer.LoadTrainingData("NVDA");
+var result = trainer.TrainFromHistoricalData("NVDA", candles, epochs: 20);
+Console.WriteLine(result); // Shows training/validation accuracy
+```
+
 ## Indicator Implementation Requirements
 An IdiotScript indicator condition is "fully implemented" when it has ALL of these components:
 1. **Condition class** exists (e.g., `MomentumAboveCondition` in `IndicatorConditions.cs`)

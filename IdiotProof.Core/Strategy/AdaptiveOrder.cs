@@ -48,6 +48,8 @@
 //
 // ============================================================================
 
+using IdiotProof.Constants;
+
 namespace IdiotProof.Strategy {
     /// <summary>
     /// Configuration for adaptive order management that dynamically adjusts
@@ -106,7 +108,7 @@ namespace IdiotProof.Strategy {
         /// <para><b>Default:</b> -70</para>
         /// <para>Only applies to long positions. For shorts, the threshold is +70.</para>
         /// </remarks>
-        public int EmergencyExitThreshold { get; init; } = -70;
+        public int EmergencyExitThreshold { get; init; } = TradingDefaults.EmergencyExitThresholdLong;
 
         /// <summary>
         /// Maximum percentage to extend take profit in strong trends.
@@ -144,27 +146,8 @@ namespace IdiotProof.Strategy {
         /// </remarks>
         public double MaxStopLossWiden { get; init; } = 0.25;
 
-        // ========================================================================
-        // INDICATOR WEIGHTS (must sum to 1.0)
-        // ========================================================================
-
-        /// <summary>Weight for VWAP position in score calculation.</summary>
-        public double WeightVwap { get; init; } = 0.15;
-
-        /// <summary>Weight for EMA stack alignment in score calculation.</summary>
-        public double WeightEma { get; init; } = 0.20;
-
-        /// <summary>Weight for RSI in score calculation.</summary>
-        public double WeightRsi { get; init; } = 0.15;
-
-        /// <summary>Weight for MACD in score calculation.</summary>
-        public double WeightMacd { get; init; } = 0.20;
-
-        /// <summary>Weight for ADX trend strength in score calculation.</summary>
-        public double WeightAdx { get; init; } = 0.20;
-
-        /// <summary>Weight for volume confirmation in score calculation.</summary>
-        public double WeightVolume { get; init; } = 0.10;
+        // NOTE: Indicator weights are managed by MarketScoreCalculator.IndicatorWeights
+        // They can be learned per-ticker via LearnedWeights.ToIndicatorWeights()
 
         /// <summary>
         /// Gets a human-readable description of this configuration.
@@ -321,6 +304,26 @@ namespace IdiotProof.Strategy {
         /// <summary>True if we have learned weights loaded for this ticker.</summary>
         public bool HasLearnedWeights { get; init; }
 
+        // ===== LSTM PREDICTION SIGNALS =====
+        
+        /// <summary>LSTM-predicted direction (-1.0 bearish to +1.0 bullish).</summary>
+        public double LstmDirection { get; init; }
+        
+        /// <summary>LSTM prediction confidence (0.0 to 1.0).</summary>
+        public double LstmConfidence { get; init; }
+        
+        /// <summary>LSTM-predicted price change percentage.</summary>
+        public double LstmPredictedChangePercent { get; init; }
+        
+        /// <summary>LSTM-predicted volatility (for TP/SL sizing).</summary>
+        public double LstmPredictedVolatility { get; init; }
+        
+        /// <summary>Score adjustment from LSTM prediction (max ±25).</summary>
+        public int LstmScoreAdjustment { get; init; }
+        
+        /// <summary>True if LSTM prediction is usable.</summary>
+        public bool HasLstmPrediction { get; init; }
+
         /// <summary>Human-readable market condition description.</summary>
         public string Condition => TotalScore switch
         {
@@ -407,18 +410,18 @@ namespace IdiotProof.Strategy {
         /// Score must be >= this value to go long.
         /// </summary>
         /// <remarks>
-        /// Conservative: 80, Balanced: 70, Aggressive: 60
+        /// Conservative: 80, Balanced: 65, Aggressive: 55
         /// </remarks>
-        public int LongEntryThreshold { get; init; } = 70;
+        public int LongEntryThreshold { get; init; } = TradingDefaults.LongEntryThreshold;
 
         /// <summary>
         /// Maximum market score to enter a SHORT position (-100 to 0).
         /// Score must be <= this value to go short.
         /// </summary>
         /// <remarks>
-        /// Conservative: -80, Balanced: -70, Aggressive: -60
+        /// Conservative: -80, Balanced: -65, Aggressive: -55
         /// </remarks>
-        public int ShortEntryThreshold { get; init; } = -70;
+        public int ShortEntryThreshold { get; init; } = TradingDefaults.ShortEntryThreshold;
 
         // ========================================================================
         // EXIT THRESHOLDS
@@ -429,18 +432,18 @@ namespace IdiotProof.Strategy {
         /// If score drops below this while long, consider exiting.
         /// </summary>
         /// <remarks>
-        /// Exit long if score falls below 30 (lost bullish momentum).
+        /// Exit long if score falls below 40 (lost bullish momentum).
         /// </remarks>
-        public int LongExitThreshold { get; init; } = 30;
+        public int LongExitThreshold { get; init; } = TradingDefaults.LongExitThreshold;
 
         /// <summary>
         /// Score threshold to exit a SHORT position (-100 to 0).
         /// If score rises above this while short, consider exiting.
         /// </summary>
         /// <remarks>
-        /// Exit short if score rises above -30 (lost bearish momentum).
+        /// Exit short if score rises above -40 (lost bearish momentum).
         /// </remarks>
-        public int ShortExitThreshold { get; init; } = -30;
+        public int ShortExitThreshold { get; init; } = TradingDefaults.ShortExitThreshold;
 
         // ========================================================================
         // POSITION SIZING AND RISK

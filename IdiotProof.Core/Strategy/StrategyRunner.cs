@@ -23,10 +23,12 @@
 // ╚═══════════════════════════════════════════════════════════════════════════╝
 
 using IBApi;
+using IdiotProof.Constants;
 using IdiotProof.Enums;
 using IdiotProof.Helpers;
 using IdiotProof.Logging;
 using IdiotProof.Models;
+using IdiotProof.Core.Models;
 using IdiotProof.Settings;
 using IbContract = IBApi.Contract;
 using MarketTimeZone = IdiotProof.Enums.MarketTimeZone;
@@ -184,6 +186,24 @@ namespace IdiotProof.Strategy {
         // AI-learned weights for market score calculation (if available)
         private IdiotProof.Learning.LearnedWeights? _learnedWeights;
 
+        // LSH Pattern Matcher - provides "second opinion" based on historical analogs
+        private IdiotProof.Learning.PatternMatcher? _patternMatcher;
+        private IdiotProof.Learning.PatternForecast? _lastLshForecast;
+        private IdiotProof.Helpers.IndicatorSnapshot? _lastIndicatorSnapshot;
+
+        // AI Advisor - provides "third opinion" using ChatGPT analysis
+        private IdiotProof.Learning.AIAdvisor? _aiAdvisor;
+        private IdiotProof.Learning.AIAnalysis? _lastAiAnalysis;
+        private DateTime _lastAiAnalysisTime = DateTime.MinValue;
+        private readonly TimeSpan _aiAnalysisInterval = TimeSpan.FromMinutes(5);  // Rate limit AI calls
+
+        // LSTM Predictor - provides deep learning-based price direction prediction
+        private IdiotProof.Learning.LstmPredictor? _lstmPredictor;
+        private IdiotProof.Learning.LstmPrediction? _lastLstmPrediction;
+        private bool _lstmWarmupLogged;
+        private DateTime _lastLstmTrainingTime = DateTime.MinValue;
+        private readonly TimeSpan _lstmTrainingInterval = TimeSpan.FromMinutes(15);  // Retrain every 15 minutes
+
         // Historical metadata - provides insights about stock behavior
         private IdiotProof.Models.TickerMetadata? _tickerMetadata;
 
@@ -308,6 +328,21 @@ namespace IdiotProof.Strategy {
                 InitializeAllCalculatorsForAI();
             }
 
+            // Initialize LSH Pattern Matcher for analog-based predictions
+            var dataFolder = IdiotProof.Settings.SettingsManager.GetDataFolder();
+            _patternMatcher = new IdiotProof.Learning.PatternMatcher(contract.Symbol, dataFolder);
+            if (_patternMatcher.PatternCount > 0)
+            {
+                Log($"[LSH] Loaded {_patternMatcher.PatternCount} patterns for {contract.Symbol}", ConsoleColor.DarkCyan);
+            }
+
+            // Initialize AI Advisor for ChatGPT-powered decision support
+            _aiAdvisor = new IdiotProof.Learning.AIAdvisor();
+            if (_aiAdvisor.IsConfigured)
+            {
+                Log($"[AI] OpenAI advisor configured for {contract.Symbol}", ConsoleColor.Magenta);
+            }
+
             // Subscribe to fill events
             _wrapper.OnOrderFill += OnOrderFill;
 
@@ -343,7 +378,7 @@ namespace IdiotProof.Strategy {
             Log($"Warming up indicators with {historicalBars.Count} historical bars...", ConsoleColor.Cyan);
 
             // Convert HistoricalBars to Candlesticks
-            var candles = historicalBars.Select(bar => new Helpers.Candlestick
+            var candles = historicalBars.Select(bar => new Candlestick
             {
                 Timestamp = bar.Time,
                 Open = bar.Open,
@@ -496,7 +531,7 @@ namespace IdiotProof.Strategy {
         /// Sets the previous session close price for all GapUp/GapDown conditions.
         /// </summary>
         /// <param name="candles">Historical candles to extract previous close from.</param>
-        private void SetPreviousCloseForGapConditions(List<Helpers.Candlestick> candles)
+        private void SetPreviousCloseForGapConditions(List<Candlestick> candles)
         {
             if (candles.Count == 0)
                 return;
@@ -521,7 +556,7 @@ namespace IdiotProof.Strategy {
         /// Called when a new candlestick completes.
         /// Updates all candle-based indicators.
         /// </summary>
-        private void OnCandleComplete(Helpers.Candlestick candle)
+        private void OnCandleComplete(Candlestick candle)
         {
             // Thread-safe check - don't process if disposed
             if (_disposed)
@@ -626,6 +661,38 @@ namespace IdiotProof.Strategy {
                 catch (Exception ex)
                 {
                     Log($"WARNING: Extended indicator update failed: {ex.Message}", ConsoleColor.Yellow);
+                }
+
+                // Update LSTM predictor with indicator snapshot
+                try
+                {
+                    if (_lstmPredictor != null && AreIndicatorsReadyForAutonomous())
+                    {
+                        var vwap = _vSum > 0 ? _pvSum / _vSum : candle.Close;
+                        var snapshot = BuildIndicatorSnapshot(candle.Close, vwap);
+                        _lstmPredictor.AddDataPoint(snapshot);
+                        _lastLstmPrediction = _lstmPredictor.Predict();
+                        
+                        // Log LSTM warm-up complete
+                        if (!_lstmWarmupLogged && _lastLstmPrediction?.IsUsable == true)
+                        {
+                            _lstmWarmupLogged = true;
+                            var stats = _lstmPredictor.GetStats();
+                            Log($"[OK] LSTM warm-up complete ({_lastLstmPrediction.Value.SequenceLength} data points)", ConsoleColor.Green);
+                        }
+                        
+                        // Periodically retrain LSTM
+                        var now = DateTime.UtcNow;
+                        if ((now - _lastLstmTrainingTime) >= _lstmTrainingInterval)
+                        {
+                            _lstmPredictor.Train(epochs: 5, learningRate: 0.001);
+                            _lastLstmTrainingTime = now;
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Log($"WARNING: LSTM predictor update failed: {ex.Message}", ConsoleColor.Yellow);
                 }
 
                 // Log warm-up progress
@@ -879,6 +946,13 @@ namespace IdiotProof.Strategy {
             {
                 _atrCalculator = new Helpers.AtrCalculator(period: 14, ticksPerBar: 50);
                 Log($"Initialized ATR(14) for autonomous TP/SL calculation", ConsoleColor.DarkGray);
+            }
+
+            // Initialize LSTM predictor for deep learning-based price prediction
+            if (_strategy.Order.UseAutonomousTrading)
+            {
+                _lstmPredictor = new IdiotProof.Learning.LstmPredictor(_strategy.Symbol);
+                Log($"Initialized LSTM predictor for {_strategy.Symbol}", ConsoleColor.DarkGray);
             }
         }
 
@@ -1329,6 +1403,9 @@ namespace IdiotProof.Strategy {
             // Build indicator snapshot from live calculator values
             var snapshot = BuildIndicatorSnapshot(price, vwap);
             
+            // Store for LSH pattern matching
+            _lastIndicatorSnapshot = snapshot;
+            
             double timeWeight = GetTimeOfDayWeight();
             int adjustedScore;
             int vwapScore, emaScore, rsiScore, macdScore, adxScore, volumeScore, bollingerScore;
@@ -1356,6 +1433,28 @@ namespace IdiotProof.Strategy {
             
             // Apply time weight to the score
             adjustedScore = (int)Math.Clamp(result.TotalScore * timeWeight, -100, 100);
+            
+            // LSTM prediction adjustment
+            double lstmDirection = 0;
+            double lstmConfidence = 0;
+            double lstmPredictedChange = 0;
+            double lstmVolatility = 0;
+            int lstmScoreAdjustment = 0;
+            bool hasLstmPrediction = false;
+            
+            if (_lastLstmPrediction?.IsUsable == true)
+            {
+                var lstm = _lastLstmPrediction.Value;
+                lstmDirection = lstm.Direction;
+                lstmConfidence = lstm.Confidence;
+                lstmPredictedChange = lstm.PredictedChangePercent;
+                lstmVolatility = lstm.PredictedVolatility;
+                lstmScoreAdjustment = lstm.ScoreAdjustment;
+                hasLstmPrediction = true;
+                
+                // Apply LSTM adjustment to score (max ±25 points)
+                adjustedScore = (int)Math.Clamp(adjustedScore + lstmScoreAdjustment, -100, 100);
+            }
             
             // If we have AI-learned weights, also calculate entry/exit signals
             if (_learnedWeights != null)
@@ -1392,7 +1491,14 @@ namespace IdiotProof.Strategy {
                 HasLearnedWeights = hasLearnedWeights,
                 LearnedShouldEnterLong = learnedShouldLong,
                 LearnedShouldEnterShort = learnedShouldShort,
-                LearnedShouldExit = learnedShouldExit
+                LearnedShouldExit = learnedShouldExit,
+                // LSTM PREDICTION SIGNALS
+                LstmDirection = lstmDirection,
+                LstmConfidence = lstmConfidence,
+                LstmPredictedChangePercent = lstmPredictedChange,
+                LstmPredictedVolatility = lstmVolatility,
+                LstmScoreAdjustment = lstmScoreAdjustment,
+                HasLstmPrediction = hasLstmPrediction
             };
         }
         
@@ -1583,47 +1689,47 @@ namespace IdiotProof.Strategy {
         private (int longEntry, int shortEntry, int longExit, int shortExit, double tpMultiplier, double slMultiplier, string reasoning) 
             CalculateDynamicThresholds(double currentPrice, MarketScore score)
         {
-            // Start with balanced defaults
-            int longEntry = 65;
-            int shortEntry = -65;
-            int longExit = 35;
-            int shortExit = -35;
-            double tpMultiplier = 2.0;
-            double slMultiplier = 1.5;
+            // Start with balanced defaults from TradingDefaults
+            int longEntry = TradingDefaults.LongEntryThreshold;
+            int shortEntry = TradingDefaults.ShortEntryThreshold;
+            int longExit = TradingDefaults.LongExitThreshold;
+            int shortExit = TradingDefaults.ShortExitThreshold;
+            double tpMultiplier = TradingDefaults.TpAtrMultiplier;
+            double slMultiplier = TradingDefaults.SlAtrMultiplier;
             var reasons = new List<string>();
             
             // 1. ADX Trend Strength Adjustment
             // Strong trend (ADX > 30) = more aggressive, weak trend (ADX < 20) = more conservative
             double adx = _adxCalculator?.CurrentAdx ?? 20;
-            if (adx >= 40)
+            if (adx >= TradingDefaults.AdxStrongTrend)
             {
                 // Very strong trend - be aggressive
                 longEntry -= 15;  // 50
                 shortEntry += 15; // -50
                 longExit -= 10;   // 25
                 shortExit += 10;  // -25
-                tpMultiplier = 2.5;
-                slMultiplier = 1.2;
+                tpMultiplier = TradingDefaults.StrongTrend.TpMultiplier;
+                slMultiplier = TradingDefaults.StrongTrend.SlMultiplier;
                 reasons.Add($"ADX {adx:F0} (strong trend->aggressive)");
             }
-            else if (adx >= 25)
+            else if (adx >= TradingDefaults.AdxModerateTrend)
             {
                 // Moderate trend - slightly aggressive
                 longEntry -= 5;   // 60
                 shortEntry += 5;  // -60
-                tpMultiplier = 2.2;
-                slMultiplier = 1.4;
+                tpMultiplier = TradingDefaults.ModerateTrend.TpMultiplier;
+                slMultiplier = TradingDefaults.ModerateTrend.SlMultiplier;
                 reasons.Add($"ADX {adx:F0} (moderate trend)");
             }
-            else if (adx < 20)
+            else if (adx < TradingDefaults.AdxRangingMarket)
             {
                 // Weak/ranging - be conservative
                 longEntry += 10;  // 75
                 shortEntry -= 10; // -75
                 longExit += 10;   // 45
                 shortExit -= 10;  // -45
-                tpMultiplier = 1.5;
-                slMultiplier = 2.0;
+                tpMultiplier = TradingDefaults.RangingMarket.TpMultiplier;
+                slMultiplier = TradingDefaults.RangingMarket.SlMultiplier;
                 reasons.Add($"ADX {adx:F0} (ranging->conservative)");
             }
             
@@ -1724,8 +1830,8 @@ namespace IdiotProof.Strategy {
             shortEntry = Math.Clamp(shortEntry, -85, -45);
             longExit = Math.Clamp(longExit, 15, 55);
             shortExit = Math.Clamp(shortExit, -55, -15);
-            tpMultiplier = Math.Clamp(tpMultiplier, 1.2, 3.5);
-            slMultiplier = Math.Clamp(slMultiplier, 1.0, 3.0);
+            tpMultiplier = Math.Clamp(tpMultiplier, TradingDefaults.MinTpAtrMultiplier, TradingDefaults.MaxTpAtrMultiplier);
+            slMultiplier = Math.Clamp(slMultiplier, TradingDefaults.MinSlAtrMultiplier, TradingDefaults.MaxSlAtrMultiplier);
             
             string reasoning = reasons.Count > 0 ? string.Join(", ", reasons) : "Using defaults";
             
@@ -1941,6 +2047,120 @@ namespace IdiotProof.Strategy {
                 // Fallback: use hardcoded thresholds
                 shouldEnterLong = score.TotalScore >= adjustedLongThreshold;
                 shouldEnterShort = score.TotalScore <= adjustedShortThreshold;
+            }
+
+            // =====================================================================
+            // LSH PATTERN MATCHING: Get "second opinion" from historical analogs
+            // =====================================================================
+            
+            if (_patternMatcher != null && _patternMatcher.PatternCount >= 100 && _lastIndicatorSnapshot.HasValue)
+            {
+                var lshForecast = _patternMatcher.GetForecast(_lastIndicatorSnapshot.Value, maxAnalogs: 15, maxDistance: 85);
+                _lastLshForecast = lshForecast;
+                
+                if (lshForecast.IsUsable)
+                {
+                    // LSH provides a "confirming" or "vetoing" signal
+                    // If main system wants to enter but LSH strongly disagrees, skip
+                    // If main system is neutral but LSH is very confident, consider entry
+                    
+                    bool lshConfirmsLong = lshForecast.SuggestedDirection == 1 && lshForecast.Confidence >= 0.6;
+                    bool lshConfirmsShort = lshForecast.SuggestedDirection == -1 && lshForecast.Confidence >= 0.6;
+                    bool lshVetoesLong = lshForecast.SuggestedDirection == -1 && lshForecast.Confidence >= 0.7;
+                    bool lshVetoesShort = lshForecast.SuggestedDirection == 1 && lshForecast.Confidence >= 0.7;
+                    
+                    // Log LSH opinion
+                    if (shouldEnterLong || shouldEnterShort || lshForecast.Confidence >= 0.65)
+                    {
+                        string direction = lshForecast.SuggestedDirection switch
+                        {
+                            1 => "LONG",
+                            -1 => "SHORT",
+                            _ => "NEUTRAL"
+                        };
+                        Log($"[LSH] {lshForecast.AnalogCount} analogs: {direction} | P(up)={lshForecast.ProbabilityHigher:P0} | Conf={lshForecast.Confidence:P0} | AvgRet={lshForecast.AverageReturn:+0.00%;-0.00%}", ConsoleColor.DarkCyan);
+                    }
+                    
+                    // Apply LSH influence
+                    if (shouldEnterLong && lshVetoesLong)
+                    {
+                        Log($"[LSH] VETO: Skipping LONG - historical analogs strongly bearish", ConsoleColor.DarkYellow);
+                        shouldEnterLong = false;
+                    }
+                    else if (shouldEnterShort && lshVetoesShort)
+                    {
+                        Log($"[LSH] VETO: Skipping SHORT - historical analogs strongly bullish", ConsoleColor.DarkYellow);
+                        shouldEnterShort = false;
+                    }
+                    else if (!shouldEnterLong && !shouldEnterShort && lshConfirmsLong && score.TotalScore >= adjustedLongThreshold - 10)
+                    {
+                        // LSH strongly agrees and score is close - boost into entry
+                        Log($"[LSH] BOOST: Entering LONG - historical analogs strongly bullish (score was {score.TotalScore}, needed {adjustedLongThreshold})", ConsoleColor.Cyan);
+                        shouldEnterLong = true;
+                    }
+                    else if (!shouldEnterLong && !shouldEnterShort && lshConfirmsShort && score.TotalScore <= adjustedShortThreshold + 10)
+                    {
+                        Log($"[LSH] BOOST: Entering SHORT - historical analogs strongly bearish (score was {score.TotalScore}, needed {adjustedShortThreshold})", ConsoleColor.Magenta);
+                        shouldEnterShort = true;
+                    }
+                }
+            }
+
+            // =====================================================================
+            // AI ADVISOR: Get ChatGPT analysis as "third opinion" (rate-limited)
+            // =====================================================================
+            
+            if (_aiAdvisor != null && _aiAdvisor.IsConfigured && 
+                (shouldEnterLong || shouldEnterShort) && 
+                DateTime.UtcNow - _lastAiAnalysisTime >= _aiAnalysisInterval &&
+                _lastIndicatorSnapshot.HasValue)
+            {
+                // Fire-and-forget AI analysis to avoid blocking trading decisions
+                // The analysis runs async and updates _lastAiAnalysis when complete
+                var snapshot = _lastIndicatorSnapshot.Value;
+                var lshForecast = _lastLshForecast;
+                var learnedWeights = _learnedWeights;
+                var scoreResult = new IdiotProof.Helpers.MarketScoreResult
+                {
+                    TotalScore = score.TotalScore,
+                    VwapScore = score.VwapScore,
+                    EmaScore = score.EmaScore,
+                    RsiScore = score.RsiScore,
+                    MacdScore = score.MacdScore,
+                    AdxScore = score.AdxScore,
+                    VolumeScore = score.VolumeScore,
+                    BollingerScore = score.BollingerScore
+                };
+                
+                // Fire-and-forget pattern - the task runs in background
+                Task.Run(async () =>
+                {
+                    try
+                    {
+                        var aiAnalysis = await _aiAdvisor.AnalyzeEntryAsync(
+                            _strategy.Symbol,
+                            snapshot,
+                            lshForecast,
+                            scoreResult,
+                            learnedWeights);
+                        
+                        _lastAiAnalysis = aiAnalysis;
+                        _lastAiAnalysisTime = DateTime.UtcNow;
+                        
+                        if (aiAnalysis.IsUsable)
+                        {
+                            Log($"[AI] {aiAnalysis.Action} (Conf={aiAnalysis.Confidence}%): {aiAnalysis.Reasoning}", ConsoleColor.Magenta);
+                            if (aiAnalysis.RiskFactors.Count > 0)
+                            {
+                                Log($"[AI] Risks: {string.Join(", ", aiAnalysis.RiskFactors)}", ConsoleColor.DarkGray);
+                            }
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Log($"[AI] Error: {ex.Message}", ConsoleColor.DarkRed);
+                    }
+                });
             }
 
             // Check for LONG entry
@@ -2309,12 +2529,59 @@ namespace IdiotProof.Strategy {
                 // Record the trade
                 _profileManager.RecordTrade(_strategy.Symbol, _pendingTradeRecord);
 
+                // Record LSH pattern for future analog matching
+                if (_patternMatcher != null && _lastIndicatorSnapshot.HasValue)
+                {
+                    try
+                    {
+                        double entryPrice = _pendingTradeRecord.EntryPrice;
+                        double nextReturn = (exitPrice - entryPrice) / entryPrice;
+                        // For live trading, we don't have exact max gain/drawdown, estimate from returns
+                        double maxGain = Math.Max(0, nextReturn);
+                        double maxDrawdown = Math.Max(0, -nextReturn);
+                        
+                        _patternMatcher.RecordPattern(
+                            _lastIndicatorSnapshot.Value,
+                            _pendingTradeRecord.EntryTime,
+                            entryPrice,
+                            _pendingTradeRecord.EntryScore,
+                            nextReturn,
+                            maxGain,
+                            maxDrawdown);
+                        
+                        // Periodically save patterns (every 10 trades)
+                        if (_patternMatcher.PatternCount % 10 == 0)
+                        {
+                            _patternMatcher.Save();
+                        }
+                    }
+                    catch (Exception lshEx)
+                    {
+                        Log($"[LSH] Pattern recording failed: {lshEx.Message}", ConsoleColor.DarkGray);
+                    }
+                }
+
                 // Log the outcome
                 string outcome = _pendingTradeRecord.IsWin ? "WIN" : "LOSS";
                 var color = _pendingTradeRecord.IsWin ? ConsoleColor.Green : ConsoleColor.Red;
                 Log($"[LEARN] Trade recorded: {outcome} ${_pendingTradeRecord.PnL:F2} ({_pendingTradeRecord.PnLPercent:F2}%)", color);
                 Log($"  Duration: {_pendingTradeRecord.Duration.TotalMinutes:F0} min | Entry score: {_pendingTradeRecord.EntryScore} | Exit score: {_pendingTradeRecord.ExitScore}", ConsoleColor.DarkGray);
                 Log($"  Profile updated: {_tickerProfile.GetSummary()}", ConsoleColor.DarkGray);
+
+                // Record AI recommendation accuracy for learning
+                if (_aiAdvisor != null && _lastAiAnalysis != null && _lastAiAnalysis.IsUsable)
+                {
+                    bool aiWasCorrect = (_lastAiAnalysis.Action == "LONG" && _pendingTradeRecord.IsLong && _pendingTradeRecord.IsWin) ||
+                                        (_lastAiAnalysis.Action == "SHORT" && !_pendingTradeRecord.IsLong && _pendingTradeRecord.IsWin) ||
+                                        (_lastAiAnalysis.Action == "WAIT" && !_pendingTradeRecord.IsWin);
+                    _aiAdvisor.RecordOutcome(_lastAiAnalysis, aiWasCorrect);
+                    
+                    var (total, correct, accuracy) = _aiAdvisor.GetAccuracyStats();
+                    if (total >= 5)
+                    {
+                        Log($"[AI] Accuracy: {accuracy:F0}% ({correct}/{total} correct)", ConsoleColor.DarkMagenta);
+                    }
+                }
 
                 _pendingTradeRecord = null;
             }
@@ -2518,6 +2785,7 @@ namespace IdiotProof.Strategy {
         /// <summary>
         /// Calculates a market score (-100 to +100) based on multiple indicators.
         /// Uses MarketScoreCalculator (SINGLE SOURCE OF TRUTH) for consistent scoring.
+        /// Integrates LSTM predictions when available for enhanced accuracy.
         /// Positive = bullish, Negative = bearish.
         /// </summary>
         private MarketScore CalculateMarketScore(double price, double vwap, bool isLong)
@@ -2543,14 +2811,36 @@ namespace IdiotProof.Strategy {
             int bollingerScore = result.BollingerScore;
 
             int finalScore = result.TotalScore;
+            
+            // LSTM prediction integration
+            double lstmDirection = 0;
+            double lstmConfidence = 0;
+            double lstmPredictedChange = 0;
+            double lstmVolatility = 0;
+            int lstmScoreAdjustment = 0;
+            bool hasLstmPrediction = false;
+            
+            if (_lastLstmPrediction?.IsUsable == true)
+            {
+                var lstm = _lastLstmPrediction.Value;
+                lstmDirection = lstm.Direction;
+                lstmConfidence = lstm.Confidence;
+                lstmPredictedChange = lstm.PredictedChangePercent;
+                lstmVolatility = lstm.PredictedVolatility;
+                lstmScoreAdjustment = lstm.ScoreAdjustment;
+                hasLstmPrediction = true;
+                
+                // Apply LSTM adjustment to final score (max ±25 points)
+                finalScore = (int)Math.Clamp(finalScore + lstmScoreAdjustment, -100, 100);
+            }
 
             // For short positions, invert the score
             if (!isLong)
                 finalScore = -finalScore;
 
-            // Calculate adjustment multipliers based on score and mode
-            double tpMultiplier = CalculateTakeProfitMultiplier(finalScore, config);
-            double slMultiplier = CalculateStopLossMultiplier(finalScore, config);
+            // Calculate adjustment multipliers based on score, mode, and LSTM volatility
+            double tpMultiplier = CalculateTakeProfitMultiplier(finalScore, config, lstmVolatility, lstmConfidence);
+            double slMultiplier = CalculateStopLossMultiplier(finalScore, config, lstmVolatility, lstmConfidence);
 
             bool shouldExit = isLong
                 ? finalScore <= config.EmergencyExitThreshold
@@ -2568,7 +2858,14 @@ namespace IdiotProof.Strategy {
                 BollingerScore = bollingerScore,
                 TakeProfitMultiplier = tpMultiplier,
                 StopLossMultiplier = slMultiplier,
-                ShouldEmergencyExit = shouldExit
+                ShouldEmergencyExit = shouldExit,
+                // LSTM prediction signals
+                LstmDirection = lstmDirection,
+                LstmConfidence = lstmConfidence,
+                LstmPredictedChangePercent = lstmPredictedChange,
+                LstmPredictedVolatility = lstmVolatility,
+                LstmScoreAdjustment = lstmScoreAdjustment,
+                HasLstmPrediction = hasLstmPrediction
             };
         }
 
@@ -2595,9 +2892,12 @@ namespace IdiotProof.Strategy {
         }
 
         /// <summary>
-        /// Calculates the take profit multiplier based on market score.
+        /// Calculates the take profit multiplier based on market score and LSTM predictions.
+        /// When LSTM volatility is high but direction agrees with score, extend TP more.
+        /// When LSTM confidence is high, weight its prediction more heavily.
         /// </summary>
-        private static double CalculateTakeProfitMultiplier(int score, AdaptiveOrderConfig config)
+        private static double CalculateTakeProfitMultiplier(int score, AdaptiveOrderConfig config, 
+            double lstmVolatility = 0, double lstmConfidence = 0)
         {
             // Score ranges: -100 to +100
             // Strong bullish (70+): Extend TP
@@ -2605,68 +2905,122 @@ namespace IdiotProof.Strategy {
             // Neutral (-30 to 30): Slightly reduce
             // Moderate bearish (-70 to -30): Reduce significantly
             // Strong bearish (<-70): Maximum reduction
+            
+            double baseMultiplier;
 
             if (score >= 70)
             {
                 // Extend: 1.0 to 1.0 + MaxExtension
                 double extensionFactor = (score - 70) / 30.0; // 0 at 70, 1 at 100
-                return 1.0 + (config.MaxTakeProfitExtension * extensionFactor);
+                baseMultiplier = 1.0 + (config.MaxTakeProfitExtension * extensionFactor);
             }
             else if (score >= 30)
             {
                 // Keep original
-                return 1.0;
+                baseMultiplier = 1.0;
             }
             else if (score >= -30)
             {
                 // Slight reduction: 1.0 to 0.85
                 double reductionFactor = (30 - score) / 60.0; // 0 at 30, 1 at -30
-                return 1.0 - (0.15 * reductionFactor);
+                baseMultiplier = 1.0 - (0.15 * reductionFactor);
             }
             else if (score >= -70)
             {
                 // Moderate reduction: 0.85 to 1.0 - MaxReduction/2
                 double reductionFactor = (-30 - score) / 40.0; // 0 at -30, 1 at -70
-                return 0.85 - ((config.MaxTakeProfitReduction / 2 - 0.15) * reductionFactor);
+                baseMultiplier = 0.85 - ((config.MaxTakeProfitReduction / 2 - 0.15) * reductionFactor);
             }
             else
             {
                 // Maximum reduction
-                return 1.0 - config.MaxTakeProfitReduction;
+                baseMultiplier = 1.0 - config.MaxTakeProfitReduction;
             }
+            
+            // LSTM enhancement: Adjust multiplier based on predicted volatility and confidence
+            if (lstmConfidence > 0.5 && lstmVolatility > 0)
+            {
+                // High volatility + high confidence = can extend/reduce more aggressively
+                // Normalize volatility effect (typical range 0.5% - 3%)
+                double volatilityFactor = Math.Clamp(lstmVolatility / 2.0, 0.5, 2.0);
+                double confidenceWeight = (lstmConfidence - 0.5) * 2; // 0 at 0.5, 1 at 1.0
+                
+                if (baseMultiplier > 1.0)
+                {
+                    // Extending: High volatility = extend even more (expecting big move)
+                    double extension = (baseMultiplier - 1.0) * (1 + (volatilityFactor - 1) * confidenceWeight * 0.3);
+                    baseMultiplier = 1.0 + extension;
+                }
+                else if (baseMultiplier < 1.0)
+                {
+                    // Reducing: High volatility in bearish = reduce less (might spike back)
+                    double reduction = (1.0 - baseMultiplier) * (1 - (volatilityFactor - 1) * confidenceWeight * 0.2);
+                    baseMultiplier = 1.0 - reduction;
+                }
+            }
+            
+            return Math.Clamp(baseMultiplier, 0.5, 2.0);
         }
 
         /// <summary>
-        /// Calculates the stop loss multiplier based on market score.
+        /// Calculates the stop loss multiplier based on market score and LSTM predictions.
+        /// LSTM volatility helps size stops appropriately for expected price swings.
         /// </summary>
-        private static double CalculateStopLossMultiplier(int score, AdaptiveOrderConfig config)
+        private static double CalculateStopLossMultiplier(int score, AdaptiveOrderConfig config,
+            double lstmVolatility = 0, double lstmConfidence = 0)
         {
             // Strong bullish: Tighten SL to protect gains
             // Neutral: Widen slightly to avoid noise
             // Bearish: Keep tight to limit losses
+            
+            double baseMultiplier;
 
             if (score >= 70)
             {
                 // Tighten: Multiplier > 1 means stop gets closer
                 double tightenFactor = (score - 70) / 30.0;
-                return 1.0 + (config.MaxStopLossTighten * tightenFactor);
+                baseMultiplier = 1.0 + (config.MaxStopLossTighten * tightenFactor);
             }
             else if (score >= 0)
             {
                 // Slight tighten to neutral
-                return 1.0;
+                baseMultiplier = 1.0;
             }
             else if (score >= -50)
             {
                 // Widen slightly: Multiplier < 1 means stop gets further
                 double widenFactor = -score / 50.0;
-                return 1.0 - (config.MaxStopLossWiden * widenFactor * 0.5);
+                baseMultiplier = 1.0 - (config.MaxStopLossWiden * widenFactor * 0.5);
             }
             else
             {
                 // Keep relatively tight in bearish conditions
-                return 1.0 - (config.MaxStopLossWiden * 0.5);
+                baseMultiplier = 1.0 - (config.MaxStopLossWiden * 0.5);
             }
+            
+            // LSTM enhancement: Adjust stop based on predicted volatility
+            if (lstmConfidence > 0.5 && lstmVolatility > 0)
+            {
+                // High volatility = widen stops to avoid noise stops
+                // Low volatility = can tighten stops
+                double volatilityFactor = Math.Clamp(lstmVolatility / 2.0, 0.5, 2.0);
+                double confidenceWeight = (lstmConfidence - 0.5) * 2;
+                
+                // If volatility is high, widen the stop slightly
+                if (volatilityFactor > 1.0)
+                {
+                    double widenAdjustment = (volatilityFactor - 1.0) * confidenceWeight * config.MaxStopLossWiden * 0.5;
+                    baseMultiplier -= widenAdjustment; // Lower multiplier = wider stop
+                }
+                // If volatility is low, can tighten more
+                else if (volatilityFactor < 0.8)
+                {
+                    double tightenAdjustment = (1.0 - volatilityFactor) * confidenceWeight * config.MaxStopLossTighten * 0.3;
+                    baseMultiplier += tightenAdjustment; // Higher multiplier = tighter stop
+                }
+            }
+            
+            return Math.Clamp(baseMultiplier, 0.5, 2.0);
         }
 
         /// <summary>
@@ -4051,6 +4405,10 @@ namespace IdiotProof.Strategy {
                 if (_disposed) return;
                 _disposed = true;
             }
+
+            // Dispose AI advisor
+            _aiAdvisor?.Dispose();
+            _aiAdvisor = null;
 
             // Dispose timers first to prevent callbacks after disposal starts
             _cancelTimer?.Dispose();
