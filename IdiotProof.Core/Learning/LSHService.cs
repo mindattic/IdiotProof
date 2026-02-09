@@ -216,10 +216,23 @@ public sealed class LSHService
     {
         try
         {
-            if (!File.Exists(HyperplanesFilePath))
+            var path = HyperplanesFilePath;
+            
+            // Check for legacy location in Patterns subfolder
+            if (!File.Exists(path))
+            {
+                var legacyPath = Path.Combine(_dataDirectory, "Patterns", HyperplanesFileName);
+                if (File.Exists(legacyPath))
+                {
+                    path = legacyPath;
+                    // Migrate: save to new location after loading
+                }
+            }
+            
+            if (!File.Exists(path))
                 return false;
 
-            var json = File.ReadAllText(HyperplanesFilePath);
+            var json = File.ReadAllText(path);
             var data = JsonSerializer.Deserialize<HyperplaneData>(json);
 
             if (data == null ||

@@ -42,6 +42,9 @@ public sealed class AIAnalysis
     /// <summary>Suggested adjustments to TP/SL if any.</summary>
     public string TpSlAdvice { get; set; } = "";
     
+    /// <summary>Status of user-defined custom rules: "MET", "NOT_MET", or "NO_RULES".</summary>
+    public string RuleStatus { get; set; } = "NO_RULES";
+    
     /// <summary>Whether this analysis is usable (API succeeded).</summary>
     public bool IsUsable { get; set; }
     
@@ -51,10 +54,14 @@ public sealed class AIAnalysis
     /// <summary>Raw response from the model.</summary>
     public string RawResponse { get; set; } = "";
     
+    /// <summary>Whether the user's custom rules are satisfied.</summary>
+    public bool AreRulesMet => RuleStatus.Equals("MET", StringComparison.OrdinalIgnoreCase);
+    
     public override string ToString()
     {
         if (!IsUsable) return $"[AI] Error: {Error}";
-        return $"[AI] {Action} (Conf={Confidence}%): {Reasoning}";
+        var ruleInfo = RuleStatus != "NO_RULES" ? $" [Rules: {RuleStatus}]" : "";
+        return $"[AI] {Action} (Conf={Confidence}%){ruleInfo}: {Reasoning}";
     }
 }
 
@@ -380,11 +387,19 @@ public sealed class AIAdvisor : IDisposable
             sb.AppendLine($"Short Entry Bias: {shortBias:F3}");
         }
         
+        // Include custom strategy rules from the user's strategy-rules.json
+        var customRules = StrategyRulesManager.GetRulesForPrompt(symbol);
+        if (!string.IsNullOrWhiteSpace(customRules))
+        {
+            sb.Append(customRules);
+        }
+        
         sb.AppendLine();
         sb.AppendLine("Respond in this EXACT format:");
         sb.AppendLine("ACTION: LONG|SHORT|WAIT");
         sb.AppendLine("CONFIDENCE: 0-100");
-        sb.AppendLine("REASONING: one sentence");
+        sb.AppendLine("REASONING: one sentence (include whether custom rules are met if applicable)");
+        sb.AppendLine("RULE_STATUS: MET|NOT_MET|NO_RULES (whether user-defined rules are satisfied)");
         sb.AppendLine("RISKS: comma-separated list");
         sb.AppendLine("TPSL: optional advice");
         
@@ -460,6 +475,12 @@ public sealed class AIAdvisor : IDisposable
             {
                 analysis.TpSlAdvice = trimmed[5..].Trim();
             }
+            else if (trimmed.StartsWith("RULE_STATUS:", StringComparison.OrdinalIgnoreCase))
+            {
+                var value = trimmed[12..].Trim().ToUpperInvariant();
+                if (value is "MET" or "NOT_MET" or "NO_RULES")
+                    analysis.RuleStatus = value;
+            }
         }
         
         return analysis;
@@ -517,6 +538,16 @@ public sealed class AIAdvisor : IDisposable
         - RSI extremes (>80 or <20) = Caution for reversals
         - Low ADX (<20) = Weak trend, avoid trend trades
         - High volume confirms moves, low volume = skepticism
+        
+        CUSTOM USER RULES:
+        When user-defined strategy rules are provided, incorporate them into your analysis:
+        - If rules specify "wait for breakout then pullback", only recommend entry AFTER both occur
+        - If rules specify support levels, verify price is above those levels
+        - Rules are ADDITIONAL filters - they work WITH indicators, not against them
+        - A good setup needs BOTH good indicators AND rule compliance
+        - If rules say "no chasing" or "pullback only", recommend WAIT if no pullback has occurred
+        
+        In your reasoning, explicitly state whether the custom rules are satisfied.
         
         Always respond in the exact format requested.
         """;

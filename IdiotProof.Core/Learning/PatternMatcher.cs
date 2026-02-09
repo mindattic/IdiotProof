@@ -173,11 +173,11 @@ public sealed class PatternMatcher
     /// Creates a pattern matcher for a specific ticker.
     /// </summary>
     /// <param name="symbol">The ticker symbol.</param>
-    /// <param name="dataDirectory">Directory for pattern storage.</param>
+    /// <param name="dataDirectory">Directory for pattern storage (base Data folder).</param>
     public PatternMatcher(string symbol, string dataDirectory)
     {
         _symbol = symbol.ToUpperInvariant();
-        _dataDirectory = Path.Combine(dataDirectory, "Patterns");
+        _dataDirectory = dataDirectory;  // Use base Data folder directly
         _signatureGenerator = new MarketSignatureGenerator(_dataDirectory);
 
         if (!Directory.Exists(_dataDirectory))
@@ -398,7 +398,7 @@ public sealed class PatternMatcher
         {
             try
             {
-                var path = Path.Combine(_dataDirectory, $"{_symbol}_{PatternFileName}");
+                var path = Path.Combine(_dataDirectory, $"{_symbol}.patterns.json");
                 var options = new JsonSerializerOptions 
                 { 
                     WriteIndented = false,  // Compact for large files
@@ -422,7 +422,21 @@ public sealed class PatternMatcher
     {
         try
         {
-            var path = Path.Combine(_dataDirectory, $"{_symbol}_{PatternFileName}");
+            // Try new format first, fall back to legacy format
+            var path = Path.Combine(_dataDirectory, $"{_symbol}.patterns.json");
+            
+            // Check for legacy format in Patterns subfolder
+            if (!File.Exists(path))
+            {
+                var legacyPath = Path.Combine(_dataDirectory, "Patterns", $"{_symbol}_patterns.json");
+                if (File.Exists(legacyPath))
+                {
+                    path = legacyPath;
+                    // Will save in new format on next save
+                    _isDirty = true;
+                }
+            }
+            
             if (!File.Exists(path)) return;
 
             var json = File.ReadAllText(path);

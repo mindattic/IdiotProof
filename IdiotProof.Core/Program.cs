@@ -196,6 +196,19 @@ namespace IdiotProof {
         {
             Log("Loading strategies from disk...");
 
+            // Ensure all required folders exist
+            SettingsManager.EnsureFoldersExist();
+            
+            // Create sample strategy rules file if it doesn't exist
+            StrategyRulesManager.CreateSampleIfNotExists();
+            
+            // Load and display any custom strategy rules
+            var rules = StrategyRulesManager.Load();
+            if (rules.Enabled && rules.EnabledRules.Any())
+            {
+                Log($"[StrategyRules] {rules.EnabledRules.Count()} custom rules loaded (ChatGPT will evaluate entries against these)");
+            }
+
             // TODO: StrategyLoader removed - strategies now come from autonomous trading
             // Use WatchlistManager for autonomous trading, or leave empty for learning mode
             _strategies = new List<TradingStrategy>();
@@ -580,12 +593,15 @@ namespace IdiotProof {
                         case "4":
                             if (!_isActive)
                             {
-                                ActivateTrading();
-                                if (_isActive)
+                                if (ConfirmActivateTrading())
                                 {
-                                    Log("Trading activated. Monitoring markets...");
-                                    Log("Press [M] for menu, [S] to stop, [P] for prices, [CTRL+ALT+X] emergency close");
-                                    RunActiveMonitoringLoop();
+                                    ActivateTrading();
+                                    if (_isActive)
+                                    {
+                                        Log("Trading activated. Monitoring markets...");
+                                        Log("Press [M] for menu, [S] to stop, [P] for prices, [X] to close all");
+                                        RunActiveMonitoringLoop();
+                                    }
                                 }
                             }
                             else
@@ -624,12 +640,27 @@ namespace IdiotProof {
                             if (_isActive)
                             {
                                 Log("Returning to monitoring... (trading still active)");
-                                Log("Press [M] for menu, [S] to stop, [P] for prices, [CTRL+ALT+X] emergency close");
+                                Log("Press [M] for menu, [S] to stop, [P] for prices, [X] to close all");
                                 RunActiveMonitoringLoop();
                             }
                             else
                             {
                                 Log("No trading session to monitor.");
+                            }
+                            break;
+
+                        case "x":
+                        case "X":
+                            if (_isActive)
+                            {
+                                if (ConfirmCloseAllPositions())
+                                {
+                                    ExecuteEmergencyClose();
+                                }
+                            }
+                            else
+                            {
+                                Log("No trading session active.");
                             }
                             break;
 
@@ -668,7 +699,7 @@ namespace IdiotProof {
                 Log("  S. Stop      - Stop live trading");
                 Log("  P. Prices    - Show current prices");
                 Log("  M. Monitor   - Return to monitoring");
-                Log("  X. Emergency - CTRL+ALT+X to close all");
+                Log("  X. Close All - Close all positions");
                 Log("  0. Exit");
             }
             else
@@ -703,29 +734,121 @@ namespace IdiotProof {
         private static string GetTickersPath() => 
             Path.Combine(SettingsManager.GetDataFolder(), "tickers.json");
         
-        private static List<string> LoadTickers()
+        /// <summary>
+        /// Ticker configuration with capital allocation
+        /// </summary>
+        private class TickerConfig
+        {
+            public string Symbol { get; set; } = "";
+            public decimal Capital { get; set; } = 1000m; // Default $1000 per ticker
+        }
+        
+        private static Dictionary<string, decimal> LoadTickerConfigs()
         {
             var path = GetTickersPath();
             if (!File.Exists(path))
-                return new List<string>();
+                return new Dictionary<string, decimal>();
             
             try
             {
                 var json = File.ReadAllText(path);
-                return System.Text.Json.JsonSerializer.Deserialize<List<string>>(json) ?? new List<string>();
+                
+                // Try new format first (dictionary with capital)
+                try
+                {
+                    var configs = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, decimal>>(json);
+                    if (configs != null)
+                        return configs;
+                }
+                catch { }
+                
+                // Fall back to old format (list of symbols)
+                var oldFormat = System.Text.Json.JsonSerializer.Deserialize<List<string>>(json);
+                if (oldFormat != null)
+                {
+                    // Migrate to new format with default capital
+                    var migrated = oldFormat.ToDictionary(s => s, _ => 1000m);
+                    SaveTickerConfigs(migrated);
+                    return migrated;
+                }
+                
+                return new Dictionary<string, decimal>();
             }
             catch
             {
-                return new List<string>();
+                return new Dictionary<string, decimal>();
             }
+        }
+        
+        private static void SaveTickerConfigs(Dictionary<string, decimal> configs)
+        {
+            var path = GetTickersPath();
+            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+            var json = System.Text.Json.JsonSerializer.Serialize(configs, new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
+            File.WriteAllText(path, json);
+        }
+        
+        private static List<string> LoadTickers()
+        {
+            return LoadTickerConfigs().Keys.ToList();
         }
         
         private static void SaveTickers(List<string> tickers)
         {
-            var path = GetTickersPath();
-            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-            var json = System.Text.Json.JsonSerializer.Serialize(tickers, new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
-            File.WriteAllText(path, json);
+            var existing = LoadTickerConfigs();
+            var newConfigs = new Dictionary<string, decimal>();
+            foreach (var t in tickers)
+            {
+                newConfigs[t] = existing.TryGetValue(t, out var cap) ? cap : 1000m;
+            }
+            SaveTickerConfigs(newConfigs);
+        }
+        
+        private static double GetTickerPrice(string symbol)
+        {
+            if (_wrapper == null || _client == null || !_isConnected)
+                return 0;
+            
+            // Check if we already have a price from active trading
+            if (_prices.TryGetValue(symbol, out var cachedPrice) && cachedPrice > 0)
+                return cachedPrice;
+            
+            // Request snapshot price
+            try
+            {
+                var contract = new Contract
+                {
+                    Symbol = symbol,
+                    SecType = "STK",
+                    Currency = "USD",
+                    Exchange = "SMART"
+                };
+                
+                double price = 0;
+                var priceReceived = new ManualResetEventSlim(false);
+                var tickerId = _wrapper.ConsumeNextOrderId();
+                
+                _wrapper.RegisterTickerHandler(tickerId, (p, size) =>
+                {
+                    if (p > 0)
+                    {
+                        price = p;
+                        priceReceived.Set();
+                    }
+                });
+                
+                _client.reqMktData(tickerId, contract, "", true, false, null); // snapshot = true
+                
+                priceReceived.Wait(TimeSpan.FromSeconds(3));
+                
+                _wrapper.UnregisterTickerHandler(tickerId);
+                
+                return price;
+            }
+            catch
+            {
+                return 0;
+            }
         }
         
         private static int CountProfiles(List<string> tickers)
@@ -738,30 +861,44 @@ namespace IdiotProof {
         {
             Log("");
             Log("=== Ticker Watchlist ===");
-            Log("Commands: [A]dd, [D]elete, [C]lear, [ESC] return to menu");
+            Log("Commands: [A]dd, [D]elete, [C]lear, [S]et Allocation, [R]efresh Prices, [ESC] return");
             Log("");
             
             while (true)
             {
-                var tickers = LoadTickers();
+                var configs = LoadTickerConfigs();
                 
-                if (tickers.Count == 0)
+                if (configs.Count == 0)
                 {
                     Log("  (no tickers - press A to add)");
                 }
                 else
                 {
                     var profileFolder = SettingsManager.GetDataFolder();
-                    for (int i = 0; i < tickers.Count; i++)
+                    Log("  #   Symbol   Allocation   Price      Shares   Status");
+                    Log("  --- -------- ------------ ---------- -------- --------");
+                    
+                    int i = 1;
+                    foreach (var kvp in configs.OrderBy(k => k.Key))
                     {
-                        var t = tickers[i];
-                        var hasProfile = File.Exists(Path.Combine(profileFolder, $"{t}.profile.json"));
-                        Log($"  {i + 1}. {t,-8} {(hasProfile ? "[LEARNED]" : "[--]")}");
+                        var symbol = kvp.Key;
+                        var capital = kvp.Value;
+                        var hasProfile = File.Exists(Path.Combine(profileFolder, $"{symbol}.profile.json"));
+                        var hasWeights = File.Exists(Path.Combine(profileFolder, $"{symbol}.weights.json"));
+                        
+                        var price = GetTickerPrice(symbol);
+                        var priceStr = price > 0 ? $"${price:F2}" : "--";
+                        var sharesStr = price > 0 ? ((int)(capital / (decimal)price)).ToString() : "--";
+                        
+                        var status = hasWeights ? "LEARNED" : (hasProfile ? "PROFILE" : "NEW");
+                        
+                        Log($"  {i,-3} {symbol,-8} ${capital,-10:N0} {priceStr,-10} {sharesStr,-8} [{status}]");
+                        i++;
                     }
                 }
                 Log("");
                 
-                Console.Write("Command (A/D/C/ESC): ");
+                Console.Write("Command (A/D/S/C/R/ESC): ");
                 var key = Console.ReadKey(intercept: true);
                 Console.WriteLine();
                 
@@ -781,14 +918,15 @@ namespace IdiotProof {
                             var newTickers = addInput
                                 .Split(new[] { ',', ';', ' ', '\t' }, StringSplitOptions.RemoveEmptyEntries)
                                 .Select(s => s.Trim().ToUpperInvariant())
-                                .Where(s => !string.IsNullOrWhiteSpace(s) && !tickers.Contains(s))
+                                .Where(s => !string.IsNullOrWhiteSpace(s) && !configs.ContainsKey(s))
                                 .ToList();
                             
                             if (newTickers.Count > 0)
                             {
-                                tickers.AddRange(newTickers);
-                                SaveTickers(tickers);
-                                Log($"  Added: {string.Join(", ", newTickers)}");
+                                foreach (var t in newTickers)
+                                    configs[t] = 1000m; // Default capital
+                                SaveTickerConfigs(configs);
+                                Log($"  Added: {string.Join(", ", newTickers)} (default $1,000 each)");
                             }
                         }
                         break;
@@ -798,25 +936,65 @@ namespace IdiotProof {
                         var delInput = Console.ReadLine()?.Trim().ToUpperInvariant();
                         if (!string.IsNullOrEmpty(delInput))
                         {
+                            var tickers = configs.Keys.OrderBy(k => k).ToList();
                             string? toRemove = null;
                             if (int.TryParse(delInput, out var idx) && idx >= 1 && idx <= tickers.Count)
                             {
                                 toRemove = tickers[idx - 1];
                             }
-                            else if (tickers.Contains(delInput))
+                            else if (configs.ContainsKey(delInput))
                             {
                                 toRemove = delInput;
                             }
                             
                             if (toRemove != null)
                             {
-                                tickers.Remove(toRemove);
-                                SaveTickers(tickers);
+                                configs.Remove(toRemove);
+                                SaveTickerConfigs(configs);
                                 Log($"  Removed: {toRemove}");
                             }
                             else
                             {
                                 Log($"  Not found: {delInput}");
+                            }
+                        }
+                        break;
+                    
+                    case 'S':
+                        Console.Write("  Set allocation for ticker (number or symbol): ");
+                        var capTickerInput = Console.ReadLine()?.Trim().ToUpperInvariant();
+                        if (!string.IsNullOrEmpty(capTickerInput))
+                        {
+                            var tickers = configs.Keys.OrderBy(k => k).ToList();
+                            string? targetTicker = null;
+                            if (int.TryParse(capTickerInput, out var idx) && idx >= 1 && idx <= tickers.Count)
+                            {
+                                targetTicker = tickers[idx - 1];
+                            }
+                            else if (configs.ContainsKey(capTickerInput))
+                            {
+                                targetTicker = capTickerInput;
+                            }
+                            
+                            if (targetTicker != null)
+                            {
+                                var currentCap = configs[targetTicker];
+                                Console.Write($"  Allocation for {targetTicker} (current ${currentCap:N0}): $");
+                                var capInput = Console.ReadLine()?.Trim().Replace("$", "").Replace(",", "");
+                                if (decimal.TryParse(capInput, out var newCap) && newCap > 0)
+                                {
+                                    configs[targetTicker] = newCap;
+                                    SaveTickerConfigs(configs);
+                                    Log($"  {targetTicker} allocation set to ${newCap:N0}");
+                                }
+                                else
+                                {
+                                    Log($"  Invalid amount.");
+                                }
+                            }
+                            else
+                            {
+                                Log($"  Not found: {capTickerInput}");
                             }
                         }
                         break;
@@ -827,14 +1005,19 @@ namespace IdiotProof {
                         Console.WriteLine();
                         if (char.ToUpper(confirm.KeyChar) == 'Y')
                         {
-                            tickers.Clear();
-                            SaveTickers(tickers);
+                            configs.Clear();
+                            SaveTickerConfigs(configs);
                             Log("  All tickers cleared.");
                         }
                         break;
+                    
+                    case 'R':
+                        Log("  Refreshing prices...");
+                        // Just re-display the list (prices will be fetched)
+                        break;
                         
                     default:
-                        Log("  Unknown command. Use A/D/C or ESC.");
+                        Log("  Unknown command. Use A/D/S/C/R or ESC.");
                         break;
                 }
                 
@@ -1294,21 +1477,13 @@ namespace IdiotProof {
                 {
                     var key = Console.ReadKey(intercept: true);
                     
-                    // Check for CTRL+ALT+X emergency close
-                    if (key.Key == ConsoleKey.X && 
-                        key.Modifiers.HasFlag(ConsoleModifiers.Control) && 
-                        key.Modifiers.HasFlag(ConsoleModifiers.Alt))
+                    // Check for X to close all positions
+                    if (key.Key == ConsoleKey.X)
                     {
-                        Console.ForegroundColor = ConsoleColor.Red;
-                        Log("[!!!] EMERGENCY CLOSE ALL POSITIONS [!!!]");
-                        Console.ResetColor();
-                        
-                        // Cancel all open orders first
-                        _wrapper?.CancelAllOrders();
-                        Thread.Sleep(500); // Wait for cancels to process
-                        
-                        // Close all positions
-                        _ = CloseAllPositionsAsync();
+                        if (ConfirmCloseAllPositions())
+                        {
+                            ExecuteEmergencyClose();
+                        }
                         continue;
                     }
                     
@@ -1330,11 +1505,130 @@ namespace IdiotProof {
                     }
                     else if (key.Key == ConsoleKey.H)
                     {
-                        Log("Keys: [M]=Menu [S]=Stop [P]=Prices [H]=Help [CTRL+ALT+X]=Emergency Close");
+                        Log("Keys: [M]=Menu [S]=Stop [P]=Prices [X]=Close All [H]=Help");
                     }
                 }
                 Thread.Sleep(100);
             }
+        }
+
+        private static bool ConfirmActivateTrading()
+        {
+            var configs = LoadTickerConfigs();
+            
+            if (configs.Count == 0)
+            {
+                Log("No tickers configured. Add tickers first (option 1).");
+                return false;
+            }
+
+            Console.ForegroundColor = ConsoleColor.Yellow;
+            Log("");
+            Log("+==============================================================+");
+            Log("|  ACTIVATE LIVE TRADING                                       |");
+            Log("+==============================================================+");
+            Console.ResetColor();
+            
+            Log($"  Mode: {(AppSettings.IsPaperTrading ? "PAPER TRADING" : "*** LIVE TRADING ***")}");
+            Log("+--------------------------------------------------------------+");
+            Log("  Symbol     Capital      Price      Shares");
+            Log("  --------   ----------   --------   ------");
+            
+            decimal totalCapital = 0;
+            foreach (var kvp in configs.OrderBy(k => k.Key))
+            {
+                var symbol = kvp.Key;
+                var capital = kvp.Value;
+                totalCapital += capital;
+                
+                var price = GetTickerPrice(symbol);
+                var priceStr = price > 0 ? $"${price:F2}" : "--";
+                var sharesStr = price > 0 ? ((int)(capital / (decimal)price)).ToString() : "--";
+                
+                Log($"  {symbol,-10} ${capital,-10:N0} {priceStr,-10} {sharesStr}");
+            }
+            
+            Log("+--------------------------------------------------------------+");
+            Log($"  Total Capital: ${totalCapital:N0}");
+            Log("+--------------------------------------------------------------+");
+            
+            Console.Write("  Start trading? (y/n): ");
+            var response = Console.ReadLine()?.Trim().ToLowerInvariant();
+            Log("");
+            
+            return response == "y" || response == "yes";
+        }
+
+        private static bool ConfirmCloseAllPositions()
+        {
+            Console.ForegroundColor = ConsoleColor.Red;
+            Log("");
+            Log("+==============================================================+");
+            Log("|  WARNING: CLOSE IDIOTPROOF POSITIONS                        |");
+            Log("+==============================================================+");
+            Console.ResetColor();
+            
+            // Get tickers that IdiotProof is managing
+            var managedTickers = _runners.Select(r => r.Strategy.Symbol).ToHashSet(StringComparer.OrdinalIgnoreCase);
+            
+            if (managedTickers.Count == 0)
+            {
+                Log("  No active IdiotProof strategies - nothing to close.");
+                Log("+==============================================================+");
+                Log("");
+                return false;
+            }
+            
+            // Show current positions for managed tickers only
+            if (_wrapper != null)
+            {
+                _wrapper.RequestPositionsAndWait(TimeSpan.FromSeconds(2));
+                var positions = _wrapper.Positions
+                    .Where(p => p.Value.Quantity != 0 && managedTickers.Contains(p.Key))
+                    .ToList();
+                
+                if (positions.Count == 0)
+                {
+                    Log("  No open IdiotProof positions to close.");
+                    Log("+==============================================================+");
+                    Log("");
+                    return false;
+                }
+                
+                Log($"  Managed tickers: {string.Join(", ", managedTickers)}");
+                Log("");
+                foreach (var kvp in positions)
+                {
+                    var posType = kvp.Value.Quantity > 0 ? "LONG" : "SHORT";
+                    Log($"  {kvp.Key}: {posType} {Math.Abs(kvp.Value.Quantity)} shares @ ${kvp.Value.AvgCost:F2}");
+                }
+            }
+            
+            Console.ForegroundColor = ConsoleColor.Yellow;
+            Log("+--------------------------------------------------------------+");
+            Log("  This will cancel orders and close IdiotProof positions at MARKET");
+            Log("  (Other positions in your account will NOT be affected)");
+            Console.ResetColor();
+            Console.Write("  Are you sure? (y/n): ");
+            
+            var response = Console.ReadLine()?.Trim().ToLowerInvariant();
+            Log("");
+            
+            return response == "y" || response == "yes";
+        }
+
+        private static void ExecuteEmergencyClose()
+        {
+            Console.ForegroundColor = ConsoleColor.Red;
+            Log("[!!!] EMERGENCY CLOSE ALL POSITIONS [!!!]");
+            Console.ResetColor();
+            
+            // Cancel all open orders first
+            _wrapper?.CancelAllOrders();
+            Thread.Sleep(500); // Wait for cancels to process
+            
+            // Close all positions
+            _ = CloseAllPositionsAsync();
         }
 
         private static void PrintCurrentPrices()
@@ -1493,21 +1787,33 @@ namespace IdiotProof {
 
             try
             {
+                // Get tickers that IdiotProof is managing
+                var managedTickers = _runners.Select(r => r.Strategy.Symbol).ToHashSet(StringComparer.OrdinalIgnoreCase);
+                
+                if (managedTickers.Count == 0)
+                {
+                    Log("No active IdiotProof strategies to close.");
+                    return Task.FromResult(new OperationResultPayload { Success = true, Message = "No managed strategies" });
+                }
+                
                 // Refresh positions to get current state
                 _wrapper.RequestPositionsAndWait(TimeSpan.FromSeconds(3));
 
-                var positions = _wrapper.Positions.Where(p => p.Value.Quantity != 0).ToList();
+                // Only close positions for tickers IdiotProof is managing
+                var positions = _wrapper.Positions
+                    .Where(p => p.Value.Quantity != 0 && managedTickers.Contains(p.Key))
+                    .ToList();
                 
                 if (positions.Count == 0)
                 {
-                    Log("No open positions to close.");
+                    Log("No open IdiotProof positions to close.");
                     return Task.FromResult(new OperationResultPayload { Success = true, Message = "No positions to close" });
                 }
 
                 Log("");
                 Console.ForegroundColor = ConsoleColor.Red;
                 Log("+==============================================================+");
-                Log("|  EMERGENCY LIQUIDATION - CLOSING ALL POSITIONS              |");
+                Log("|  EMERGENCY LIQUIDATION - CLOSING IDIOTPROOF POSITIONS       |");
                 Log("+==============================================================+");
                 Console.ResetColor();
 

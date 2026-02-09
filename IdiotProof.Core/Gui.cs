@@ -105,7 +105,6 @@ namespace IdiotProof {
             Console.WriteLine("  Review strategies above before starting.                      ");
             Console.WriteLine("  Press CTRL+ALT+ENTER to activate trading.                     ");
             Console.WriteLine("  Press CTRL+ALT+C to cancel all open orders.                   ");
-            Console.WriteLine("  Press CTRL+ALT+X to close ALL positions (emergency).          ");
             Console.WriteLine("  Press CTRL+ALT+Q to quit.                                     ");
             Console.WriteLine("================================================================");
             Console.ResetColor();

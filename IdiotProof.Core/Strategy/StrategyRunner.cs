@@ -29,6 +29,7 @@ using IdiotProof.Helpers;
 using IdiotProof.Logging;
 using IdiotProof.Models;
 using IdiotProof.Core.Models;
+using IdiotProof.Services;
 using IdiotProof.Settings;
 using IbContract = IBApi.Contract;
 using MarketTimeZone = IdiotProof.Enums.MarketTimeZone;
@@ -176,6 +177,10 @@ namespace IdiotProof.Strategy {
         private double _dynamicStopLoss;     // Dynamic SL target
         private bool _shortSaleBlocked;         // True if short sale was rejected for this ticker
         private double _previousClose;          // Previous session close for gap detection
+        
+        // HOD Fade Strategy: Tracks when we shorted at HOD to cover at VWAP
+        private bool _isHodFadeShort;           // True if current short is from HOD fade strategy
+        private double _hodFadeVwapTarget;      // VWAP target for covering the HOD fade short
 
         // Learning system - tracks patterns and outcomes per ticker
         private static readonly TickerProfileManager _profileManager = new();
@@ -206,6 +211,9 @@ namespace IdiotProof.Strategy {
 
         // Historical metadata - provides insights about stock behavior
         private IdiotProof.Models.TickerMetadata? _tickerMetadata;
+
+        // Breakout-Pullback tracker - detects resistance-becomes-support patterns
+        private Helpers.BreakoutPullbackTracker? _breakoutTracker;
 
         /// <summary>
         /// Gets the shared ticker profile manager for learning across sessions.
@@ -341,6 +349,18 @@ namespace IdiotProof.Strategy {
             if (_aiAdvisor.IsConfigured)
             {
                 Log($"[AI] OpenAI advisor configured for {contract.Symbol}", ConsoleColor.Magenta);
+            }
+
+            // Initialize Breakout-Pullback tracker from strategy rules
+            _breakoutTracker = new Helpers.BreakoutPullbackTracker(contract.Symbol);
+            var strategyRules = StrategyRulesManager.Load();
+            if (strategyRules.HasRulesFor(contract.Symbol))
+            {
+                _breakoutTracker.LoadFromStrategyRule(strategyRules);
+                if (_breakoutTracker.HasLevels)
+                {
+                    Log($"[BREAKOUT] Tracking breakout ${_breakoutTracker.BreakoutLevel:F2}, support ${_breakoutTracker.SupportLevel:F2}", ConsoleColor.DarkCyan);
+                }
             }
 
             // Subscribe to fill events
@@ -661,6 +681,29 @@ namespace IdiotProof.Strategy {
                 catch (Exception ex)
                 {
                     Log($"WARNING: Extended indicator update failed: {ex.Message}", ConsoleColor.Yellow);
+                }
+
+                // Update breakout-pullback tracker with candle close (new bar)
+                try
+                {
+                    if (_breakoutTracker != null && _breakoutTracker.HasLevels)
+                    {
+                        var result = _breakoutTracker.Update(candle.Close, isNewBar: true);
+                        
+                        // Log significant state changes
+                        if (result.State == Helpers.BreakoutState.BrokeOut && result.ScoreAdjustment < 0)
+                        {
+                            Log($"[BREAKOUT] New bar: Broke ${_breakoutTracker.BreakoutLevel:F2} - waiting for pullback", ConsoleColor.Yellow);
+                        }
+                        else if (result.IsIdealEntry)
+                        {
+                            Log($"[BREAKOUT] *** PULLBACK CONFIRMED *** Bouncing from ${_breakoutTracker.SupportLevel:F2} support", ConsoleColor.Green);
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Log($"WARNING: Breakout tracker update failed: {ex.Message}", ConsoleColor.Yellow);
                 }
 
                 // Update LSTM predictor with indicator snapshot
@@ -1336,6 +1379,98 @@ namespace IdiotProof.Strategy {
         }
 
         /// <summary>
+        /// Checks if we should exit a LONG position early because the ticker typically 
+        /// makes its high of day (HOD) in the first 30 minutes of RTH.
+        /// This captures gains before the typical fade pattern.
+        /// </summary>
+        /// <param name="currentPrice">Current price</param>
+        /// <returns>True if we should exit early at HOD</returns>
+        private bool ShouldExitAtEarlyHod(double currentPrice)
+        {
+            // Only check if we have metadata that says HOD typically occurs early
+            if (_tickerMetadata == null || !_tickerMetadata.HodTypicallyEarly)
+                return false;
+            
+            // Check if we're within the first 30 minutes of RTH (9:30-10:00 AM ET)
+            var now = TimezoneHelper.GetCurrentTime(MarketTimeZone.EST);
+            var rthOpen = new TimeOnly(9, 30);
+            var earlyPeriodEnd = new TimeOnly(10, 0);
+            
+            if (now < rthOpen || now > earlyPeriodEnd)
+                return false;
+            
+            // Check if price is near the session high
+            if (_sessionHigh <= 0 || _sessionLow <= 0 || _sessionLow >= double.MaxValue)
+                return false;
+            
+            double range = _sessionHigh - _sessionLow;
+            if (range <= 0)
+                return false;
+            
+            // Price must be within 3% of session high AND above VWAP for strong confirmation
+            bool nearHod = currentPrice >= _sessionHigh - (range * 0.03);
+            bool aboveVwap = currentPrice > GetVwap();
+            
+            // Must be in profit to trigger early exit
+            bool inProfit = currentPrice > _entryFillPrice;
+            
+            // Signal strength: RSI should indicate overbought territory
+            bool rsiOverbought = _rsiCalculator?.CurrentValue >= 65;
+            
+            if (nearHod && aboveVwap && inProfit)
+            {
+                // Additional confirmation: RSI overbought OR significant profit
+                double profitPercent = (_entryFillPrice > 0) ? (currentPrice - _entryFillPrice) / _entryFillPrice * 100 : 0;
+                bool significantProfit = profitPercent >= 0.5; // 0.5% or more
+                
+                if (rsiOverbought || significantProfit)
+                {
+                    Log($"[HOD] Early exit conditions met: Near HOD={nearHod}, Above VWAP={aboveVwap}, RSI={_rsiCalculator?.CurrentValue:F1}, Profit={profitPercent:+0.00;-0.00}%", ConsoleColor.Yellow);
+                    return true;
+                }
+            }
+            
+            return false;
+        }
+
+        /// <summary>
+        /// Determines if we should cover a HOD fade short position at VWAP.
+        /// Called when we're short from a HOD fade pattern and watching for VWAP reversion.
+        /// </summary>
+        private bool ShouldCoverHodFadeShortAtVwap(double currentPrice, double vwap)
+        {
+            // Must be in a HOD fade short
+            if (!_isHodFadeShort)
+                return false;
+            
+            // Price should be at or below VWAP
+            if (currentPrice > vwap * 1.002) // Allow 0.2% above VWAP for slippage
+                return false;
+            
+            // Check RSI for oversold bounce potential
+            bool rsiOversold = _rsiCalculator?.CurrentValue <= 40;
+            
+            // Price is at/below VWAP - good cover point
+            bool atVwapTarget = currentPrice <= vwap;
+            
+            // Calculate profit on the short
+            double shortProfit = _entryFillPrice - currentPrice;
+            double profitPercent = (_entryFillPrice > 0) ? shortProfit / _entryFillPrice * 100 : 0;
+            
+            // Cover conditions:
+            // 1. Price at/below VWAP (primary target)
+            // 2. OR RSI oversold (reversal likely)
+            // 3. OR profit >= 0.5% (don't be greedy)
+            if (atVwapTarget || rsiOversold || profitPercent >= 0.5)
+            {
+                Log($"[HOD FADE] Cover conditions met: AtVWAP={atVwapTarget}, RSI={_rsiCalculator?.CurrentValue:F1}, ShortProfit={profitPercent:+0.00;-0.00}%", ConsoleColor.Cyan);
+                return true;
+            }
+            
+            return false;
+        }
+
+        /// <summary>
         /// Gets a time-of-day weight multiplier for score adjustment.
         /// Returns a value between 0.5 and 1.2 based on trading quality of the time period.
         /// </summary>
@@ -1957,6 +2092,38 @@ namespace IdiotProof.Strategy {
                 }
             }
 
+            // =====================================================================
+            // BREAKOUT-PULLBACK PATTERN DETECTION
+            // Classic pattern: Resistance becomes support after breakout
+            // =====================================================================
+            int breakoutScoreAdjustment = 0;
+            bool breakoutWaiting = false;  // Flag to veto entry if pattern says wait
+            
+            if (_breakoutTracker != null && _breakoutTracker.HasLevels)
+            {
+                var breakoutResult = _breakoutTracker.Update(currentPrice, isNewBar: false);
+                breakoutScoreAdjustment = breakoutResult.ScoreAdjustment;
+                breakoutWaiting = breakoutResult.ShouldWait;
+                
+                // Log state transitions and important signals
+                if (breakoutResult.IsIdealEntry)
+                {
+                    Log($"[BREAKOUT] *** IDEAL ENTRY *** {breakoutResult.Reason}", ConsoleColor.Green);
+                }
+                else if (breakoutResult.State == Helpers.BreakoutState.PullingBack)
+                {
+                    Log($"[BREAKOUT] {breakoutResult.Reason}", ConsoleColor.Yellow);
+                }
+                else if (breakoutResult.State == Helpers.BreakoutState.BrokeOut)
+                {
+                    Log($"[BREAKOUT] {breakoutResult.Reason}", ConsoleColor.DarkYellow);
+                }
+                else if (breakoutResult.State == Helpers.BreakoutState.Failed)
+                {
+                    Log($"[BREAKOUT] {breakoutResult.Reason}", ConsoleColor.Red);
+                }
+            }
+
             // Calculate dynamic thresholds that self-adjust based on market conditions
             var (dynLong, dynShort, dynLongExit, dynShortExit, dynTp, dynSl, reasoning) = 
                 CalculateDynamicThresholds(currentPrice, score);
@@ -1972,6 +2139,14 @@ namespace IdiotProof.Strategy {
             // Apply S/R adjustment to thresholds (more lenient when near support, stricter near resistance)
             adjustedLongThreshold -= srScoreAdjustment;
             adjustedShortThreshold += srScoreAdjustment;
+
+            // Apply breakout-pullback adjustment (bonus for confirmed pullback, penalty for chasing)
+            if (breakoutScoreAdjustment != 0)
+            {
+                adjustedLongThreshold -= breakoutScoreAdjustment;  // Lower threshold for ideal pullback entries
+                adjustedShortThreshold += breakoutScoreAdjustment;
+                Log($"[BREAKOUT] Threshold adjusted by {breakoutScoreAdjustment:+#;-#;0} (Long>={adjustedLongThreshold}, Short<={adjustedShortThreshold})", ConsoleColor.DarkCyan);
+            }
 
             if (_tickerProfile != null && _tickerProfile.Confidence >= 20)
             {
@@ -2027,6 +2202,13 @@ namespace IdiotProof.Strategy {
             // =====================================================================
             // ENTRY DECISION: Use learned signals when available, else use thresholds
             // =====================================================================
+            
+            // Breakout-pullback veto: If pattern says wait (e.g., chasing breakout), skip entry
+            if (breakoutWaiting && _breakoutTracker != null && _breakoutTracker.HasLevels)
+            {
+                Log($"[BREAKOUT] Entry vetoed - waiting for pullback confirmation", ConsoleColor.DarkYellow);
+                return;  // Skip this tick, wait for proper pullback
+            }
             
             bool shouldEnterLong;
             bool shouldEnterShort;
@@ -2264,6 +2446,63 @@ namespace IdiotProof.Strategy {
         {
             bool isLong = _isLong;  // Use tracked position direction
             bool isFlipMode = config.UseFlipMode;
+
+            // =====================================================================
+            // EARLY HOD EXIT: If ticker typically makes HOD early and we're near it
+            // Sell LONG → Immediately SHORT → Plan to cover at VWAP
+            // =====================================================================
+            if (isLong && ShouldExitAtEarlyHod(currentPrice))
+            {
+                double pnl = (currentPrice - _entryFillPrice) * _strategy.Order.Quantity;
+                double pnlPercent = (_entryFillPrice > 0) ? ((currentPrice - _entryFillPrice) / _entryFillPrice) * 100 : 0;
+                
+                Log($"*** EARLY HOD EXIT: Price ${currentPrice:F2} near session high in first 30 min!", ConsoleColor.Green);
+                Log($"  Ticker typically makes HOD early - locking in {pnlPercent:+0.00;-0.00}% profit (${pnl:+0.00;-0.00})", ConsoleColor.Green);
+                
+                ExecuteAutonomousExit(currentPrice, vwap, isLong);
+                
+                // HOD reached → Price likely to fade → FLIP TO SHORT
+                if (config.AllowShort && !_shortSaleBlocked)
+                {
+                    Log($"  -> HOD fade strategy: Flipping to SHORT, target cover at VWAP (${vwap:F2})", ConsoleColor.Magenta);
+                    
+                    // Use VWAP as take profit for the short (cover target)
+                    double shortTp = vwap;
+                    // Stop loss above HOD with buffer
+                    double shortSl = currentPrice * 1.02; // 2% above entry
+                    
+                    // Mark this as a HOD-fade short for special handling
+                    _isHodFadeShort = true;
+                    _hodFadeVwapTarget = vwap;
+                    
+                    ExecuteAutonomousEntry(currentPrice, vwap, false, shortTp, shortSl, config);
+                }
+                return;
+            }
+            
+            // =====================================================================
+            // HOD FADE SHORT COVER: Cover short at VWAP, then go LONG again
+            // =====================================================================
+            if (!isLong && _isHodFadeShort && ShouldCoverHodFadeShortAtVwap(currentPrice, vwap))
+            {
+                double pnl = (_entryFillPrice - currentPrice) * _strategy.Order.Quantity;
+                double pnlPercent = (_entryFillPrice > 0) ? ((_entryFillPrice - currentPrice) / _entryFillPrice) * 100 : 0;
+                
+                Log($"*** VWAP COVER: Price ${currentPrice:F2} reached VWAP target (${_hodFadeVwapTarget:F2})", ConsoleColor.Cyan);
+                Log($"  HOD fade complete - locking in {pnlPercent:+0.00;-0.00}% short profit (${pnl:+0.00;-0.00})", ConsoleColor.Cyan);
+                
+                ExecuteAutonomousExit(currentPrice, vwap, isLong);
+                _isHodFadeShort = false;
+                _hodFadeVwapTarget = 0;
+                
+                // VWAP bounce → Price likely to go up → FLIP TO LONG
+                Log($"  -> VWAP bounce strategy: Flipping to LONG for continuation", ConsoleColor.Cyan);
+                
+                // Calculate TP/SL for the new long position
+                var (longTp, longSl) = CalculateAutonomousTpSl(currentPrice, true, config);
+                ExecuteAutonomousEntry(currentPrice, vwap, true, longTp, longSl, config);
+                return;
+            }
 
             // FLIP MODE: Always flip direction on reversal - stay in market
             if (isFlipMode)
@@ -3736,28 +3975,32 @@ namespace IdiotProof.Strategy {
                     var config = _strategy.Order.AutonomousTrading;
                     bool positionWasLong = _isLong;
                     
-                    // Direction flip on trailing stop - trend reversing, flip direction
-                    // Only flip if we had a loss (trend truly reversed), not if we protected profits
-                    if (config != null && config.AllowDirectionFlip && pnl < 0)
+                    // Direction flip on trailing stop - TSL triggered means trend reversed
+                    // Flip direction: If LONG TSL hit → go SHORT (price dropping)
+                    //                 If SHORT TSL hit → go LONG (price rising)
+                    if (config != null && config.AllowDirectionFlip)
                     {
                         bool canFlipShort = config.AllowShort && !_shortSaleBlocked;
+                        double vwap = _pvSum / Math.Max(_vSum, 1);
                         
                         if (positionWasLong && canFlipShort)
                         {
-                            Log($"[AUTONOMOUS] Trailing stop hit with loss - FLIPPING TO SHORT", ConsoleColor.Magenta);
+                            string profitType = pnl >= 0 ? "profit protected" : "loss limited";
+                            Log($"[AUTONOMOUS] TSL triggered ({profitType}) - FLIPPING TO SHORT (price falling)", ConsoleColor.Magenta);
                             ResetForNextAutonomousTrade();
                             
                             var (tp, sl) = CalculateAutonomousTpSl(_lastPrice, false, config);
-                            ExecuteAutonomousEntry(_lastPrice, _pvSum / Math.Max(_vSum, 1), false, tp, sl, config);
+                            ExecuteAutonomousEntry(_lastPrice, vwap, false, tp, sl, config);
                             return;
                         }
                         else if (!positionWasLong)
                         {
-                            Log($"[AUTONOMOUS] Trailing stop hit with loss - FLIPPING TO LONG", ConsoleColor.Magenta);
+                            string profitType = pnl >= 0 ? "profit protected" : "loss limited";
+                            Log($"[AUTONOMOUS] TSL triggered ({profitType}) - FLIPPING TO LONG (price rising)", ConsoleColor.Magenta);
                             ResetForNextAutonomousTrade();
                             
                             var (tp, sl) = CalculateAutonomousTpSl(_lastPrice, true, config);
-                            ExecuteAutonomousEntry(_lastPrice, _pvSum / Math.Max(_vSum, 1), true, tp, sl, config);
+                            ExecuteAutonomousEntry(_lastPrice, vwap, true, tp, sl, config);
                             return;
                         }
                     }

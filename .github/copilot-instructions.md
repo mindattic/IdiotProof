@@ -1224,6 +1224,109 @@ WatchlistManager.Disable("TSLA");
 WatchlistManager.Remove("GME");
 ```
 
+## Strategy Rules - Custom AI-Evaluated Trading Rules
+
+The **strategy-rules.json** file allows you to define custom trading rules in plain text that ChatGPT evaluates alongside its indicator-based analysis. Rules work as **additional filters** - they enhance the AI's decision-making without overriding the market score logic.
+
+### File Location
+```
+IdiotProof.Core\Data\strategy-rules.json
+```
+
+### How It Works
+1. User defines rules as plain text (breakout levels, pullback requirements, etc.)
+2. When the AI advisor evaluates a potential entry, it includes your custom rules in the prompt
+3. ChatGPT analyzes entries against BOTH indicators AND your custom rules
+4. The AI reports whether rules are MET, NOT_MET, or NO_RULES in its analysis
+
+### File Format
+```json
+{
+  "description": "Custom Strategy Rules",
+  "enabled": true,
+  "rules": [
+    {
+      "symbol": "CCHH",
+      "enabled": true,
+      "validUntil": "2026-02-10",
+      "name": "Day 2 Breakout-Pullback",
+      "rule": "Wait for breakout above $0.78, then pullback. Only enter if pullback holds above $0.70.",
+      "levels": {
+        "breakout": 0.78,
+        "support": 0.70
+      },
+      "targets": [0.85, 1.00],
+      "notes": "No chasing - pullback entries only"
+    }
+  ]
+}
+```
+
+### Fields
+| Field | Description |
+|-------|-------------|
+| `enabled` | Global on/off switch for all rules |
+| `rules[].symbol` | Ticker symbol this rule applies to |
+| `rules[].enabled` | Enable/disable individual rules |
+| `rules[].validUntil` | **Expiration date (YYYY-MM-DD)**. Rule ignored after this date. For daily tips. |
+| `rules[].name` | Friendly name for the strategy |
+| `rules[].rule` | The rule in plain text - ChatGPT interprets this |
+| `rules[].levels.breakout` | Price that must break for consideration |
+| `rules[].levels.support` | Price that pullback must hold above |
+| `rules[].targets` | Target prices for the trade |
+| `rules[].notes` | Additional notes for the AI |
+
+### AIAnalysis Response Fields
+When ChatGPT evaluates with custom rules, it returns:
+- `Action`: LONG, SHORT, or WAIT
+- `Confidence`: 0-100
+- `RuleStatus`: MET, NOT_MET, or NO_RULES
+- `Reasoning`: Includes whether custom rules are satisfied
+- `RiskFactors`: List of identified risks
+
+### Example Custom Rules
+
+```json
+{
+  "rules": [
+    {
+      "symbol": "TONN",
+      "validUntil": "2026-02-10",
+      "name": "Earnings Runner Day 2",
+      "rule": "Price breaks above $0.94 (previous high). Wait for retest. Retest must hold above $0.90. RULE: No break = no trade.",
+      "levels": { "breakout": 0.94, "support": 0.90 },
+      "targets": [1.10, 1.30]
+    },
+    {
+      "symbol": "SMX",
+      "validUntil": "2026-02-10",
+      "name": "High Volatility Explosive",
+      "rule": "Break above $20.50, wait for pullback to $18.70. Only enter if above VWAP AND above EMAs.",
+      "levels": { "breakout": 20.50, "support": 18.70 },
+      "targets": [30.00, 40.00]
+    }
+  ]
+}
+```
+
+### Usage in Code
+```csharp
+// Load rules
+var config = StrategyRulesManager.Load();
+
+// Get rules for a specific symbol
+var rules = config.GetRulesForSymbol("CCHH");
+
+// Get formatted rules for AI prompt
+string rulesPrompt = StrategyRulesManager.GetRulesForPrompt("CCHH");
+
+// Add or update a rule
+StrategyRulesManager.AddOrUpdate(new StrategyRule { Symbol = "AAPL", Rule = "..." });
+
+// Print summary
+StrategyRulesManager.PrintSummary();
+```
+
 ## Note
 Ignore the IdiotProof.Frontend project for now - it has build errors related to HeartbeatMessage that will be addressed later.
 
