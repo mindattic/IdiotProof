@@ -197,8 +197,8 @@ public sealed record IndicatorWeights
     public IdiotProof.Calculators.IndicatorWeights ToCalculatorWeights()
     {
         // Normalize the 6 core weights to leave room for extended indicators
-        const double extendedTotal = 0.22;  // 22% for extended indicators
-        const double coreTotal = 1.0 - extendedTotal;  // 78% for core
+        const double extendedTotal = 0.33;  // 33% for extended indicators
+        const double coreTotal = 1.0 - extendedTotal;  // 67% for core
         double sum = Vwap + Ema + Rsi + Macd + Adx + Volume;
         double scale = sum > 0 ? coreTotal / sum : coreTotal / 6;
         
@@ -211,10 +211,12 @@ public sealed record IndicatorWeights
             Adx = Adx * scale,
             Volume = Volume * scale,
             Bollinger = 0.05,
-            Stochastic = 0.06,
+            Stochastic = 0.05,
             Obv = 0.05,
             Cci = 0.03,
-            WilliamsR = 0.03
+            WilliamsR = 0.03,
+            Sma = 0.06,
+            Momentum = 0.06
         };
     }
 }

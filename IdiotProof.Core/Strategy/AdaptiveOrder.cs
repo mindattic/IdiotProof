@@ -147,7 +147,6 @@ namespace IdiotProof.Strategy {
         public double MaxStopLossWiden { get; init; } = 0.25;
 
         // NOTE: Indicator weights are managed by MarketScoreCalculator.IndicatorWeights
-        // They can be learned per-ticker via LearnedWeights.ToIndicatorWeights()
 
         /// <summary>
         /// Gets a human-readable description of this configuration.
@@ -289,40 +288,6 @@ namespace IdiotProof.Strategy {
 
         /// <summary>Whether conditions warrant emergency exit.</summary>
         public bool ShouldEmergencyExit { get; init; }
-
-        // ===== LEARNED ENTRY/EXIT SIGNALS (from AI training) =====
-        
-        /// <summary>True if learned weights say to enter long NOW.</summary>
-        public bool LearnedShouldEnterLong { get; init; }
-        
-        /// <summary>True if learned weights say to enter short NOW.</summary>
-        public bool LearnedShouldEnterShort { get; init; }
-        
-        /// <summary>True if learned weights say to exit current position.</summary>
-        public bool LearnedShouldExit { get; init; }
-        
-        /// <summary>True if we have learned weights loaded for this ticker.</summary>
-        public bool HasLearnedWeights { get; init; }
-
-        // ===== LSTM PREDICTION SIGNALS =====
-        
-        /// <summary>LSTM-predicted direction (-1.0 bearish to +1.0 bullish).</summary>
-        public double LstmDirection { get; init; }
-        
-        /// <summary>LSTM prediction confidence (0.0 to 1.0).</summary>
-        public double LstmConfidence { get; init; }
-        
-        /// <summary>LSTM-predicted price change percentage.</summary>
-        public double LstmPredictedChangePercent { get; init; }
-        
-        /// <summary>LSTM-predicted volatility (for TP/SL sizing).</summary>
-        public double LstmPredictedVolatility { get; init; }
-        
-        /// <summary>Score adjustment from LSTM prediction (max ±25).</summary>
-        public int LstmScoreAdjustment { get; init; }
-        
-        /// <summary>True if LSTM prediction is usable.</summary>
-        public bool HasLstmPrediction { get; init; }
 
         /// <summary>Human-readable market condition description.</summary>
         public string Condition => TotalScore switch

@@ -5,6 +5,12 @@
       "name": null,
       "allocation": 0,
       "enabled": true
+    },
+    {
+      "symbol": "UUUU",
+      "name": null,
+      "allocation": 0,
+      "enabled": true
     }
   ],
   "session": "RTH",

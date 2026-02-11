@@ -46,7 +46,26 @@ public sealed class OpenAIService : IDisposable
     private readonly List<ChatMessage> _conversationHistory = [];
     private bool _disposed;
 
-    private const string DefaultModel = "gpt-4o-mini";
+    // Valid OpenAI model options (as of Feb 2026):
+    // ── GPT-5 Series ──
+    //   "gpt-5.2"             - Latest flagship, best quality + speed
+    //   "gpt-5.1"             - Previous flagship
+    //   "gpt-5"               - Original GPT-5
+    //   "gpt-5-mini"          - Smaller GPT-5, cheaper, fast
+    // ── GPT-4 Series ──
+    //   "gpt-4.1"             - Latest GPT-4 generation
+    //   "gpt-4.1-mini"        - Smaller GPT-4.1, good balance
+    //   "gpt-4.1-nano"        - Smallest GPT-4.1, fastest/cheapest
+    //   "gpt-4o"              - GPT-4 Omni, multimodal
+    //   "gpt-4o-mini"         - Smaller GPT-4o, cheap and fast
+    //   "gpt-4-turbo"         - GPT-4 Turbo (legacy)
+    // ── Reasoning Models ──
+    //   "o3"                  - Advanced reasoning, slow, expensive
+    //   "o3-mini"             - Smaller reasoning model
+    //   "o4-mini"             - Latest small reasoning model
+    //   "o1"                  - Original reasoning model
+    //   "o1-mini"             - Smaller original reasoning
+    private const string DefaultModel = "gpt-5.2";
     private const string ApiEndpoint = "https://api.openai.com/v1/chat/completions";
     private const int MaxRetries = 5;
     private const int BaseDelayMs = 2000;
@@ -237,7 +256,7 @@ public sealed class OpenAIService : IDisposable
             model = _model,
             messages = messages.Select(m => new { role = m.Role, content = m.Content }).ToArray(),
             temperature = 0.7,
-            max_tokens = 2000
+            max_completion_tokens = 2000
         };
 
         using var request = new HttpRequestMessage(HttpMethod.Post, ApiEndpoint);

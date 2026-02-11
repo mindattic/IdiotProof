@@ -730,14 +730,6 @@ namespace IdiotProof {
             return tickers.Count(t => File.Exists(Path.Combine(folder, $"{t}.weights.json")));
         }
         
-        private static int CountLearnableWeights()
-        {
-            // LearnedWeights has: 16 indicator base + 16 trending mults + 16 ranging mults 
-            // + 16 time weights + 256 interaction matrix + 8 entry biases + 8 exit sensitivity + 16 patterns
-            // = 352 total weights
-            return 16 + 16 + 16 + 16 + 256 + 8 + 8 + 16;
-        }
-
         // ====================================================================
         // TICKERS MANAGEMENT
         // ====================================================================
@@ -1061,70 +1053,8 @@ namespace IdiotProof {
 
         private static void RunAiLearn()
         {
-            if (!_isConnected || _historicalDataService == null)
-            {
-                Log("ERROR: Not connected to IBKR. AI Learning requires connection to fetch data.");
-                return;
-            }
-            
-            var tickers = LoadTickers();
-            if (tickers.Count == 0)
-            {
-                Log("No tickers to learn. Press 1 to add tickers first.");
-                return;
-            }
-            
-            Log("");
-            Log("========================================");
-            Log($"  AI LEARNING: {tickers.Count} TICKER(S)");
-            Log($"  {CountLearnableWeights()} learnable weights");
-            Log("  3 methods: Genetic, Neural, Gradient");
-            Log("  Train/Validation split: 70%/30%");
-            Log("========================================");
-            Log("");
-            
-            int completed = 0;
-            int failed = 0;
-            
-            foreach (var symbol in tickers)
-            {
-                Log($"[{completed + failed + 1}/{tickers.Count}] AI Learning {symbol}...");
-                
-                try
-                {
-                    var learner = new IdiotProof.Learning.MultiMethodLearner(_historicalDataService);
-                    var progress = new Progress<string>(msg => Log($"  {msg}"));
-                    
-                    var result = learner.LearnAndCompareAsync(
-                        symbol,
-                        generationsPerMethod: 50,
-                        progress,
-                        _shutdownCts.Token).GetAwaiter().GetResult();
-                    
-                    // MultiMethodLearner already prints detailed comparison via progress
-                    Log($"  --> Best method: {result.BestMethod}");
-                    Log($"  --> Saved to: {symbol}.weights.json");
-                    
-                    completed++;
-                }
-                catch (OperationCanceledException)
-                {
-                    Log($"  [--] Cancelled.");
-                    break;
-                }
-                catch (Exception ex)
-                {
-                    Log($"  [ERR] {symbol}: {ex.Message}");
-                    failed++;
-                }
-                
-                Log("");
-            }
-            
-            Log("========================================");
-            Log($"  AI LEARNING COMPLETE: {completed} OK, {failed} failed");
-            Log($"  Weight files saved to: {SettingsManager.GetDataFolder()}");
-            Log("========================================");
+            Log("AI Learning has been removed. The system now uses ChatGPT AI Advisor for trading decisions.");
+            Log("Configure your OpenAI API key via OPENAI_IDIOTPROOF_API_KEY environment variable.");
         }
 
         private static void PrintStatus()

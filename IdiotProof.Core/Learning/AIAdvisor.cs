@@ -3,15 +3,12 @@
 // ============================================================================
 //
 // PURPOSE:
-// Integrates OpenAI with the learning system (LSH, Genetic, Neural, Gradient)
-// to provide intelligent trading decision support during:
-// - Learning phase: Analyze weight optimization results
-// - Backtesting: Validate strategy decisions
-// - Live trading: Provide "third opinion" alongside indicators and LSH
+// Integrates OpenAI to provide intelligent trading decision support during:
+// - Live trading: Provide AI analysis alongside indicator-based scoring
 //
 // USAGE:
 // var advisor = new AIAdvisor();
-// var analysis = await advisor.AnalyzeEntryAsync(snapshot, lshForecast, score);
+// var analysis = await advisor.AnalyzeEntryAsync(symbol, snapshot, score);
 //
 // ============================================================================
 
@@ -80,7 +77,7 @@ public sealed class LearningMethodSummary
 
 /// <summary>
 /// AI-powered trading advisor that integrates with the learning system.
-/// Uses ChatGPT to provide decision support alongside indicators and LSH.
+/// Uses ChatGPT to provide decision support alongside indicators.
 /// </summary>
 public sealed class AIAdvisor : IDisposable
 {
@@ -361,14 +358,12 @@ public sealed class AIAdvisor : IDisposable
     public AIAnalysis AnalyzeEntrySync(
         string symbol,
         IndicatorSnapshot snapshot,
-        PatternForecast? lshForecast,
         MarketScoreResult score,
-        LearnedWeights? learnedWeights = null,
         int timeoutMs = 10000)
     {
         try
         {
-            var task = AnalyzeEntryAsync(symbol, snapshot, lshForecast, score, learnedWeights, CancellationToken.None);
+            var task = AnalyzeEntryAsync(symbol, snapshot, score, CancellationToken.None);
             if (task.Wait(timeoutMs))
             {
                 return task.Result;
@@ -424,7 +419,7 @@ public sealed class AIAdvisor : IDisposable
         }
 
         // Full AI mode - synchronous call
-        var analysis = AnalyzeEntrySync(symbol, snapshot, null, score, null, 10000);
+        var analysis = AnalyzeEntrySync(symbol, snapshot, score, 10000);
         
         if (!analysis.IsUsable)
         {
@@ -501,14 +496,12 @@ public sealed class AIAdvisor : IDisposable
 
     /// <summary>
     /// Analyze a potential entry decision during live trading.
-    /// Combines indicator data, LSH forecast, and learning results.
+    /// Combines indicator data with market score analysis.
     /// </summary>
     public async Task<AIAnalysis> AnalyzeEntryAsync(
         string symbol,
         IndicatorSnapshot snapshot,
-        PatternForecast? lshForecast,
         MarketScoreResult score,
-        LearnedWeights? learnedWeights = null,
         CancellationToken ct = default)
     {
         if (!IsConfigured)
@@ -537,7 +530,7 @@ public sealed class AIAdvisor : IDisposable
             await Task.Delay(_minCallInterval - timeSinceLastCall, ct);
         }
 
-        var prompt = BuildEntryAnalysisPrompt(symbol, snapshot, lshForecast, score, learnedWeights);
+        var prompt = BuildEntryAnalysisPrompt(symbol, snapshot, score);
         
         try
         {
@@ -717,32 +710,117 @@ public sealed class AIAdvisor : IDisposable
     private string BuildEntryAnalysisPrompt(
         string symbol,
         IndicatorSnapshot snapshot,
-        PatternForecast? lshForecast,
-        MarketScoreResult score,
-        LearnedWeights? weights)
+        MarketScoreResult score)
     {
         var sb = new StringBuilder();
         
         sb.AppendLine($"TRADE ANALYSIS REQUEST: {symbol}");
+        sb.AppendLine($"Timestamp: {DateTime.Now:yyyy-MM-dd HH:mm:ss} ET");
         sb.AppendLine();
-        sb.AppendLine("=== CURRENT INDICATORS ===");
-        sb.AppendLine($"Price: ${snapshot.Price:F2}");
-        sb.AppendLine($"VWAP: ${snapshot.Vwap:F2} ({((snapshot.Price - snapshot.Vwap) / snapshot.Vwap * 100):+0.00;-0.00}%)");
-        sb.AppendLine($"EMA 9/21/34/50: ${snapshot.Ema9:F2} / ${snapshot.Ema21:F2} / ${snapshot.Ema34:F2} / ${snapshot.Ema50:F2}");
-        sb.AppendLine($"Price vs EMA 34: {(snapshot.Price > snapshot.Ema34 ? "ABOVE" : "BELOW")} ({((snapshot.Price - snapshot.Ema34) / snapshot.Ema34 * 100):+0.00;-0.00}%)");
-        sb.AppendLine($"RSI(14): {snapshot.Rsi:F1}");
-        sb.AppendLine($"MACD: {snapshot.Macd:F4} | Signal: {snapshot.MacdSignal:F4} | Hist: {snapshot.MacdHistogram:F4}");
-        sb.AppendLine($"ADX: {snapshot.Adx:F1} | +DI: {snapshot.PlusDi:F1} | -DI: {snapshot.MinusDi:F1}");
-        sb.AppendLine($"Volume Ratio: {snapshot.VolumeRatio:F2}x average");
-        sb.AppendLine($"ATR: ${snapshot.Atr:F2}");
         
-        // CHOP DETECTION
+        // ============================================================
+        // SECTION 1: PRICE & ANCHOR LEVELS
+        // ============================================================
+        sb.AppendLine("=== PRICE & ANCHOR LEVELS ===");
+        sb.AppendLine($"Current Price: ${snapshot.Price:F2}");
+        sb.AppendLine($"VWAP: ${snapshot.Vwap:F2} ({((snapshot.Price - snapshot.Vwap) / Math.Max(snapshot.Vwap, 0.01) * 100):+0.00;-0.00}% from VWAP)");
+        sb.AppendLine();
+        
+        // ============================================================
+        // SECTION 2: MOVING AVERAGES (EMA + SMA)
+        // ============================================================
+        sb.AppendLine("=== MOVING AVERAGES ===");
+        sb.AppendLine($"EMA(9):  ${snapshot.Ema9:F2}  | Price {(snapshot.Price > snapshot.Ema9 ? "ABOVE" : "BELOW")}");
+        sb.AppendLine($"EMA(21): ${snapshot.Ema21:F2}  | Price {(snapshot.Price > snapshot.Ema21 ? "ABOVE" : "BELOW")}");
+        sb.AppendLine($"EMA(34): ${snapshot.Ema34:F2}  | Price {(snapshot.Price > snapshot.Ema34 ? "ABOVE" : "BELOW")} (KEY DECISION LEVEL)");
+        sb.AppendLine($"EMA(50): ${snapshot.Ema50:F2}  | Price {(snapshot.Price > snapshot.Ema50 ? "ABOVE" : "BELOW")}");
+        sb.AppendLine($"SMA(20): ${snapshot.Sma20:F2}  | Price {(snapshot.Price > snapshot.Sma20 ? "ABOVE" : "BELOW")}");
+        sb.AppendLine($"SMA(50): ${snapshot.Sma50:F2}  | Price {(snapshot.Price > snapshot.Sma50 ? "ABOVE" : "BELOW")}");
+        
+        // EMA stack alignment
+        int bullishEmas = 0;
+        if (snapshot.Price > snapshot.Ema9 && snapshot.Ema9 > 0) bullishEmas++;
+        if (snapshot.Price > snapshot.Ema21 && snapshot.Ema21 > 0) bullishEmas++;
+        if (snapshot.Price > snapshot.Ema34 && snapshot.Ema34 > 0) bullishEmas++;
+        if (snapshot.Price > snapshot.Ema50 && snapshot.Ema50 > 0) bullishEmas++;
+        sb.AppendLine($"EMA Stack: Price above {bullishEmas}/4 EMAs ({(bullishEmas >= 3 ? "BULLISH" : bullishEmas <= 1 ? "BEARISH" : "MIXED")})");
+        
+        // SMA crossover
+        if (snapshot.Sma20 > 0 && snapshot.Sma50 > 0)
+        {
+            sb.AppendLine($"SMA Cross: SMA(20) {(snapshot.Sma20 > snapshot.Sma50 ? ">" : "<")} SMA(50) = {(snapshot.Sma20 > snapshot.Sma50 ? "GOLDEN CROSS (bullish)" : "DEATH CROSS (bearish)")}");
+        }
+        sb.AppendLine();
+        
+        // ============================================================
+        // SECTION 3: MOMENTUM OSCILLATORS
+        // ============================================================
+        sb.AppendLine("=== MOMENTUM OSCILLATORS ===");
+        sb.AppendLine($"RSI(14): {snapshot.Rsi:F1} ({(snapshot.Rsi >= 70 ? "OVERBOUGHT" : snapshot.Rsi <= 30 ? "OVERSOLD" : snapshot.Rsi > 50 ? "Bullish zone" : "Bearish zone")})");
+        sb.AppendLine($"MACD Line: {snapshot.Macd:F4}");
+        sb.AppendLine($"MACD Signal: {snapshot.MacdSignal:F4}");
+        sb.AppendLine($"MACD Histogram: {snapshot.MacdHistogram:F4} ({(snapshot.MacdHistogram > 0 ? "BULLISH" : "BEARISH")}{(Math.Abs(snapshot.MacdHistogram) > Math.Abs(snapshot.MacdSignal * 0.1) ? " STRONG" : "")})");
+        sb.AppendLine($"MACD Cross: {(snapshot.Macd > snapshot.MacdSignal ? "MACD > Signal = BULLISH" : "MACD < Signal = BEARISH")}");
+        sb.AppendLine($"Stochastic %K: {snapshot.StochasticK:F1} | %D: {snapshot.StochasticD:F1} ({(snapshot.StochasticK > 80 ? "OVERBOUGHT" : snapshot.StochasticK < 20 ? "OVERSOLD" : "Normal")})");
+        sb.AppendLine($"Stochastic Cross: %K {(snapshot.StochasticK > snapshot.StochasticD ? ">" : "<")} %D = {(snapshot.StochasticK > snapshot.StochasticD ? "BULLISH momentum" : "BEARISH momentum")}");
+        sb.AppendLine($"Williams %R(14): {snapshot.WilliamsR:F1} ({(snapshot.WilliamsR >= -20 ? "OVERBOUGHT" : snapshot.WilliamsR <= -80 ? "OVERSOLD" : "Normal")})");
+        sb.AppendLine($"CCI(20): {snapshot.Cci:F1} ({(snapshot.Cci > 100 ? "OVERBOUGHT/strong uptrend" : snapshot.Cci < -100 ? "OVERSOLD/strong downtrend" : "Normal range")})");
+        sb.AppendLine($"Momentum(10): {snapshot.Momentum:F2} ({(snapshot.Momentum > 0 ? "POSITIVE (price rising vs 10 bars ago)" : "NEGATIVE (price falling vs 10 bars ago)")})");
+        sb.AppendLine($"ROC(10): {snapshot.Roc:F2}% ({(snapshot.Roc > 2 ? "STRONG bullish" : snapshot.Roc > 0 ? "Mild bullish" : snapshot.Roc < -2 ? "STRONG bearish" : "Mild bearish")})");
+        sb.AppendLine();
+        
+        // ============================================================
+        // SECTION 4: TREND STRENGTH & DIRECTION
+        // ============================================================
+        sb.AppendLine("=== TREND STRENGTH & DIRECTION ===");
+        sb.AppendLine($"ADX(14): {snapshot.Adx:F1} ({(snapshot.Adx >= 40 ? "VERY STRONG trend" : snapshot.Adx >= 25 ? "Strong trend" : snapshot.Adx >= 20 ? "Developing trend" : "WEAK/NO trend (ranging)")})");
+        sb.AppendLine($"+DI: {snapshot.PlusDi:F1} | -DI: {snapshot.MinusDi:F1}");
+        sb.AppendLine($"DI Direction: {(snapshot.PlusDi > snapshot.MinusDi ? "+DI > -DI = BULLISH directional movement" : "-DI > +DI = BEARISH directional movement")}");
+        sb.AppendLine($"DI Spread: {Math.Abs(snapshot.PlusDi - snapshot.MinusDi):F1} ({(Math.Abs(snapshot.PlusDi - snapshot.MinusDi) > 10 ? "Strong conviction" : "Weak/mixed direction")})");
+        sb.AppendLine();
+        
+        // ============================================================
+        // SECTION 5: VOLUME ANALYSIS
+        // ============================================================
+        sb.AppendLine("=== VOLUME ANALYSIS ===");
+        sb.AppendLine($"Volume Ratio: {snapshot.VolumeRatio:F2}x average ({(snapshot.VolumeRatio >= 2.0 ? "VERY HIGH - strong confirmation" : snapshot.VolumeRatio >= 1.5 ? "HIGH - good confirmation" : snapshot.VolumeRatio >= 1.0 ? "Normal" : snapshot.VolumeRatio >= 0.7 ? "Below average - weak" : "LOW - no conviction")})");
+        sb.AppendLine($"OBV Trend: {(snapshot.ObvSlope > 0 ? "RISING (smart money buying)" : snapshot.ObvSlope < 0 ? "FALLING (smart money selling)" : "FLAT (neutral)")}");
+        sb.AppendLine();
+        
+        // ============================================================
+        // SECTION 6: VOLATILITY (Bollinger Bands + ATR)
+        // ============================================================
+        sb.AppendLine("=== VOLATILITY ===");
+        sb.AppendLine($"Bollinger Upper: ${snapshot.BollingerUpper:F2}");
+        sb.AppendLine($"Bollinger Middle (SMA20): ${snapshot.BollingerMiddle:F2}");
+        sb.AppendLine($"Bollinger Lower: ${snapshot.BollingerLower:F2}");
+        if (snapshot.BollingerUpper > 0 && snapshot.BollingerLower > 0)
+        {
+            double bbPosition = snapshot.BollingerUpper - snapshot.BollingerLower > 0
+                ? (snapshot.Price - snapshot.BollingerLower) / (snapshot.BollingerUpper - snapshot.BollingerLower)
+                : 0.5;
+            sb.AppendLine($"BB Position: {bbPosition:P0} ({(bbPosition > 0.8 ? "Near upper band - OVERBOUGHT (mean reversion risk)" : bbPosition < 0.2 ? "Near lower band - OVERSOLD (bounce potential)" : "Mid-range")})");
+            double bandwidth = (snapshot.BollingerUpper - snapshot.BollingerLower) / Math.Max(snapshot.BollingerMiddle, 0.01) * 100;
+            sb.AppendLine($"BB Bandwidth: {bandwidth:F2}% ({(bandwidth < 3 ? "SQUEEZE - expect breakout" : bandwidth > 8 ? "WIDE - high volatility" : "Normal")})");
+        }
+        sb.AppendLine($"ATR(14): ${snapshot.Atr:F2} ({(snapshot.Price > 0 ? $"{(snapshot.Atr / snapshot.Price * 100):F2}% of price" : "N/A")})");
+        sb.AppendLine();
+        
+        // ============================================================
+        // SECTION 7: CHOP DETECTION
+        // ============================================================
         bool isChop = IsChopDetected(snapshot);
+        sb.AppendLine("=== MARKET STATE ===");
+        sb.AppendLine($"CHOP DETECTED: {(isChop ? "YES - Market is RANGING/CHOPPY (avoid trades)" : "NO - Market is TRENDING (trades viable)")}");
+        if (isChop)
+        {
+            sb.AppendLine("  Chop signals: RSI neutral (45-55), ADX low (<20), MACD compressed, price near VWAP, DI lines close");
+        }
         sb.AppendLine();
-        sb.AppendLine("=== SETUP ANALYSIS ===");
-        sb.AppendLine($"CHOP DETECTED: {(isChop ? "YES - NO TRADING (confidence capped at 49)" : "NO - Market trending")}");
         
-        // LONG/SHORT requirements check
+        // ============================================================
+        // SECTION 8: REQUIREMENT SCORECARD
+        // ============================================================
         bool priceAboveEma34 = snapshot.Ema34 > 0 && snapshot.Price > snapshot.Ema34;
         bool rsiBullish = snapshot.Rsi > 50;
         bool rsiBearish = snapshot.Rsi < 45;
@@ -751,53 +829,51 @@ public sealed class AIAdvisor : IDisposable
         bool priceAboveVwap = snapshot.Vwap > 0 && snapshot.Price > snapshot.Vwap;
         bool adxStrong = snapshot.Adx >= 20;
         bool diPositive = snapshot.PlusDi > snapshot.MinusDi;
+        bool volumeConfirms = snapshot.VolumeRatio >= 1.2;
+        bool smaAligned = snapshot.Sma20 > snapshot.Sma50 && snapshot.Sma20 > 0 && snapshot.Sma50 > 0;
+        bool momentumPositive = snapshot.Momentum > 0;
         
-        sb.AppendLine();
+        int longMet = 0, longTotal = 9;
         sb.AppendLine("LONG REQUIREMENTS:");
-        sb.AppendLine($"  - Price > EMA 34: {(priceAboveEma34 ? "[MET]" : "[FAILED]")}");
-        sb.AppendLine($"  - Price > VWAP: {(priceAboveVwap ? "[MET]" : "[FAILED]")}");
-        sb.AppendLine($"  - RSI > 50: {(rsiBullish ? "[MET]" : "[FAILED]")} (RSI={snapshot.Rsi:F1})");
-        sb.AppendLine($"  - MACD Bullish: {(macdBullish ? "[MET]" : "[FAILED]")}");
-        sb.AppendLine($"  - ADX >= 20: {(adxStrong ? "[MET]" : "[FAILED]")} (ADX={snapshot.Adx:F1})");
-        sb.AppendLine($"  - +DI > -DI: {(diPositive ? "[MET]" : "[FAILED]")}");
+        sb.AppendLine($"  {(priceAboveEma34 ? "[MET]" : "[---]")} Price > EMA 34");               if (priceAboveEma34) longMet++;
+        sb.AppendLine($"  {(priceAboveVwap ? "[MET]" : "[---]")} Price > VWAP");                   if (priceAboveVwap) longMet++;
+        sb.AppendLine($"  {(rsiBullish ? "[MET]" : "[---]")} RSI > 50 (RSI={snapshot.Rsi:F1})");   if (rsiBullish) longMet++;
+        sb.AppendLine($"  {(macdBullish ? "[MET]" : "[---]")} MACD Bullish");                      if (macdBullish) longMet++;
+        sb.AppendLine($"  {(adxStrong ? "[MET]" : "[---]")} ADX >= 20 (ADX={snapshot.Adx:F1})");   if (adxStrong) longMet++;
+        sb.AppendLine($"  {(diPositive ? "[MET]" : "[---]")} +DI > -DI");                          if (diPositive) longMet++;
+        sb.AppendLine($"  {(volumeConfirms ? "[MET]" : "[---]")} Volume >= 1.2x average");         if (volumeConfirms) longMet++;
+        sb.AppendLine($"  {(smaAligned ? "[MET]" : "[---]")} SMA(20) > SMA(50) (Golden Cross)");   if (smaAligned) longMet++;
+        sb.AppendLine($"  {(momentumPositive ? "[MET]" : "[---]")} Momentum > 0");                 if (momentumPositive) longMet++;
+        sb.AppendLine($"  Score: {longMet}/{longTotal} requirements met");
         
         sb.AppendLine();
+        
+        int shortMet = 0;
         sb.AppendLine("SHORT REQUIREMENTS:");
-        sb.AppendLine($"  - Price < EMA 34: {(!priceAboveEma34 ? "[MET]" : "[FAILED]")}");
-        sb.AppendLine($"  - Price < VWAP: {(!priceAboveVwap ? "[MET]" : "[FAILED]")}");
-        sb.AppendLine($"  - RSI < 45: {(rsiBearish ? "[MET]" : "[FAILED]")} (RSI={snapshot.Rsi:F1})");
-        sb.AppendLine($"  - MACD Bearish: {(macdBearish ? "[MET]" : "[FAILED]")}");
-        sb.AppendLine($"  - ADX >= 20: {(adxStrong ? "[MET]" : "[FAILED]")} (ADX={snapshot.Adx:F1})");
-        sb.AppendLine($"  - -DI > +DI: {(!diPositive ? "[MET]" : "[FAILED]")}");
-        
+        sb.AppendLine($"  {(!priceAboveEma34 ? "[MET]" : "[---]")} Price < EMA 34");                  if (!priceAboveEma34) shortMet++;
+        sb.AppendLine($"  {(!priceAboveVwap ? "[MET]" : "[---]")} Price < VWAP");                      if (!priceAboveVwap) shortMet++;
+        sb.AppendLine($"  {(rsiBearish ? "[MET]" : "[---]")} RSI < 45 (RSI={snapshot.Rsi:F1})");       if (rsiBearish) shortMet++;
+        sb.AppendLine($"  {(macdBearish ? "[MET]" : "[---]")} MACD Bearish");                          if (macdBearish) shortMet++;
+        sb.AppendLine($"  {(adxStrong ? "[MET]" : "[---]")} ADX >= 20 (ADX={snapshot.Adx:F1})");       if (adxStrong) shortMet++;
+        sb.AppendLine($"  {(!diPositive ? "[MET]" : "[---]")} -DI > +DI");                             if (!diPositive) shortMet++;
+        sb.AppendLine($"  {(volumeConfirms ? "[MET]" : "[---]")} Volume >= 1.2x average");             if (volumeConfirms) shortMet++;
+        sb.AppendLine($"  {(!smaAligned ? "[MET]" : "[---]")} SMA(20) < SMA(50) (Death Cross)");       if (!smaAligned) shortMet++;
+        sb.AppendLine($"  {(!momentumPositive ? "[MET]" : "[---]")} Momentum < 0");                    if (!momentumPositive) shortMet++;
+        sb.AppendLine($"  Score: {shortMet}/{longTotal} requirements met");
         sb.AppendLine();
-        sb.AppendLine("=== MARKET SCORE ===");
-        sb.AppendLine($"Total: {score.TotalScore} (VWAP={score.VwapScore}, EMA={score.EmaScore}, RSI={score.RsiScore}, MACD={score.MacdScore}, ADX={score.AdxScore}, Vol={score.VolumeScore})");
-        sb.AppendLine($"DI Positive: {score.IsDiPositive} | MACD Bullish: {score.IsMacdBullish}");
         
-        if (lshForecast != null && lshForecast.IsUsable)
-        {
-            sb.AppendLine();
-            sb.AppendLine("=== LSH PATTERN MATCHING ===");
-            sb.AppendLine($"Analogs Found: {lshForecast.AnalogCount}");
-            sb.AppendLine($"P(Higher): {lshForecast.ProbabilityHigher:P0}");
-            sb.AppendLine($"Avg Return: {lshForecast.AverageReturn:+0.00;-0.00}%");
-            sb.AppendLine($"Suggested: {(lshForecast.SuggestedDirection == 1 ? "LONG" : lshForecast.SuggestedDirection == -1 ? "SHORT" : "NEUTRAL")}");
-            sb.AppendLine($"Confidence: {lshForecast.Confidence:P0}");
-        }
-        
-        if (weights != null)
-        {
-            sb.AppendLine();
-            sb.AppendLine("=== LEARNED WEIGHTS ===");
-            sb.AppendLine($"Method: {weights.LearningMethod}");
-            sb.AppendLine($"Training Fitness: {weights.TrainingFitness:F2}");
-            sb.AppendLine($"Validation Fitness: {weights.ValidationFitness:F2}");
-            var longBias = weights.EntryBiases[0];
-            var shortBias = weights.EntryBiases[1];
-            sb.AppendLine($"Long Entry Bias: {longBias:F3}");
-            sb.AppendLine($"Short Entry Bias: {shortBias:F3}");
-        }
+        // ============================================================
+        // SECTION 9: COMPOSITE MARKET SCORE
+        // ============================================================
+        sb.AppendLine("=== COMPOSITE MARKET SCORE ===");
+        sb.AppendLine($"Total Score: {score.TotalScore} / 100 ({(score.TotalScore >= 70 ? "STRONG BULLISH" : score.TotalScore >= 30 ? "Mild bullish" : score.TotalScore <= -70 ? "STRONG BEARISH" : score.TotalScore <= -30 ? "Mild bearish" : "NEUTRAL")})");
+        sb.AppendLine($"  VWAP:       {score.VwapScore,4}  |  EMA:        {score.EmaScore,4}");
+        sb.AppendLine($"  RSI:        {score.RsiScore,4}  |  MACD:       {score.MacdScore,4}");
+        sb.AppendLine($"  ADX:        {score.AdxScore,4}  |  Volume:     {score.VolumeScore,4}");
+        sb.AppendLine($"  Bollinger:  {score.BollingerScore,4}  |  Stochastic: {score.StochasticScore,4}");
+        sb.AppendLine($"  OBV:        {score.ObvScore,4}  |  CCI:        {score.CciScore,4}");
+        sb.AppendLine($"  Williams%R: {score.WilliamsRScore,4}  |  SMA:        {score.SmaScore,4}");
+        sb.AppendLine($"  Momentum:   {score.MomentumScore,4}");
         
         // Include custom strategy rules from the user's strategy-rules.json
         var customRules = StrategyRulesManager.GetRulesForPrompt(symbol);
@@ -807,19 +883,17 @@ public sealed class AIAdvisor : IDisposable
         }
         
         sb.AppendLine();
-        sb.AppendLine("=== RESPONSE RULES ===");
-        sb.AppendLine("- LONG or SHORT requires confidence >= 55 (RELAXED from 85 - too strict)");
-        sb.AppendLine("- If CHOP detected (RSI 45-55, ADX<20, tight MACD), output WAIT with confidence <= 49");
-        sb.AppendLine("- DO NOT require ALL conditions - 4 out of 6 met is acceptable for a trade");
-        sb.AppendLine("- COVER = exit existing position (when exit conditions are met)");
+        sb.AppendLine("=== YOUR TASK ===");
+        sb.AppendLine("Analyze ALL indicators above holistically. Give a decisive recommendation.");
+        sb.AppendLine("You are being paid to make profitable trades. Be bold when the setup is clear.");
         sb.AppendLine();
         sb.AppendLine("Respond in this EXACT format:");
-        sb.AppendLine("ACTION: LONG|SHORT|COVER|WAIT");
-        sb.AppendLine("CONFIDENCE: 0-100 (55+ for LONG/SHORT - 4/6 requirements is acceptable)");
-        sb.AppendLine("REASONING: one sentence (include which requirements passed/failed)");
-        sb.AppendLine("RULE_STATUS: MET|NOT_MET|NO_RULES (whether user-defined rules are satisfied)");
-        sb.AppendLine("RISKS: comma-separated list");
-        sb.AppendLine("TPSL: optional advice");
+        sb.AppendLine("ACTION: BUY|SELL|SHORT|COVER|WAIT");
+        sb.AppendLine("CONFIDENCE: 0-100");
+        sb.AppendLine("REASONING: one concise sentence explaining which indicators drove your decision");
+        sb.AppendLine("RULE_STATUS: MET|NOT_MET|NO_RULES");
+        sb.AppendLine("RISKS: comma-separated list of key risks");
+        sb.AppendLine("TPSL: suggest take-profit and stop-loss levels based on ATR and support/resistance");
         
         return sb.ToString();
     }
@@ -1011,34 +1085,161 @@ public sealed class AIAdvisor : IDisposable
 
         // Fallback to hardcoded default
         const string defaultPrompt = """
-            You are a quantitative trading analyst providing real-time trade analysis.
-            
-            Your role:
-            - Analyze indicator data and provide clear BUY/SELL/WAIT recommendations
-            - Consider risk/reward and market conditions
-            - Be concise and actionable
-            - Never hallucinate or make up data
-            - If uncertain, recommend WAIT
-            
-            Key trading principles:
-            - Score > 70 with confirming LSH = Strong LONG signal
-            - Score < -70 with confirming LSH = Strong SHORT signal
-            - Conflicting signals = WAIT for clarity
-            - RSI extremes (>80 or <20) = Caution for reversals
-            - Low ADX (<20) = Weak trend, avoid trend trades
-            - High volume confirms moves, low volume = skepticism
-            
+            You are a professional quantitative trading analyst embedded in an automated stock trading system called IdiotProof.
+            Your ONLY job is to analyze real-time indicator data and make PROFITABLE trading decisions.
+            You are being paid based on performance. Every dollar counts.
+
+            ═══════════════════════════════════════════════════════════════
+            YOUR AVAILABLE INDICATORS (all pre-calculated and provided):
+            ═══════════════════════════════════════════════════════════════
+
+            TREND INDICATORS:
+            • EMA (9, 21, 34, 50) - Exponential Moving Averages at 4 timeframes
+              - EMA 34 is the PRIMARY decision level. Price above = bullish bias, below = bearish.
+              - EMA stack alignment (price above all = strong trend)
+            • SMA (20, 50) - Simple Moving Averages for crossover signals
+              - SMA 20 > SMA 50 = "Golden Cross" (bullish structure)
+              - SMA 20 < SMA 50 = "Death Cross" (bearish structure)
+            • VWAP - Volume Weighted Average Price (institutional anchor)
+              - Price above VWAP = institutions buying, below = selling
+            • ADX (14) - Average Directional Index (trend STRENGTH, not direction)
+              - ADX < 20 = NO trend (ranging/choppy) → AVOID trading
+              - ADX 20-25 = trend developing
+              - ADX 25-40 = strong trend → trade WITH the trend
+              - ADX > 40 = very strong trend → aggressive entries acceptable
+            • +DI / -DI - Directional Indicators (trend DIRECTION)
+              - +DI > -DI = bullish directional pressure
+              - -DI > +DI = bearish directional pressure
+
+            MOMENTUM OSCILLATORS:
+            • RSI (14) - Relative Strength Index
+              - RSI > 70 = OVERBOUGHT (potential reversal DOWN, risky for new longs)
+              - RSI < 30 = OVERSOLD (potential reversal UP, risky for new shorts)
+              - RSI 50-70 = bullish zone, RSI 30-50 = bearish zone
+              - RSI divergence from price = powerful reversal signal
+            • MACD (12, 26, 9) - Moving Average Convergence Divergence
+              - MACD > Signal = bullish momentum
+              - MACD < Signal = bearish momentum
+              - Histogram rising = momentum increasing, falling = fading
+              - Zero-line cross = significant trend change
+            • Stochastic (14, 3) - %K and %D oscillator
+              - %K > 80 = overbought, %K < 20 = oversold
+              - %K crossing above %D = bullish, below = bearish
+            • Williams %R (14) - Overbought/oversold momentum
+              - Near 0 = overbought, near -100 = oversold
+            • CCI (20) - Commodity Channel Index
+              - CCI > 100 = overbought/strong uptrend
+              - CCI < -100 = oversold/strong downtrend
+            • Momentum (10) - Raw price momentum (current price - price 10 bars ago)
+              - Positive = price gaining, Negative = price losing
+            • ROC (10) - Rate of Change as percentage
+              - ROC > 2% = strong bullish momentum
+              - ROC < -2% = strong bearish momentum
+
+            VOLUME INDICATORS:
+            • Volume Ratio - Current volume vs 20-bar average
+              - > 1.5x = strong volume confirmation
+              - < 0.7x = low conviction, be skeptical of moves
+            • OBV Slope - On-Balance Volume direction
+              - Rising = smart money accumulating (bullish)
+              - Falling = smart money distributing (bearish)
+              - OBV divergence from price = early warning of reversal
+
+            VOLATILITY INDICATORS:
+            • Bollinger Bands (20, 2.0) - Volatility envelope
+              - Price near upper band = overbought (mean reversion risk)
+              - Price near lower band = oversold (bounce potential)
+              - Band SQUEEZE (narrow bands) = expect explosive breakout
+              - Band EXPANSION = high volatility, trend in progress
+            • ATR (14) - Average True Range (volatility measure)
+              - Use ATR for TP/SL sizing (TP = 2x ATR, SL = 1.5x ATR typical)
+              - High ATR = wider stops needed, Low ATR = tighter stops
+
+            ═══════════════════════════════════════════════════════════════
+            DECISION FRAMEWORK:
+            ═══════════════════════════════════════════════════════════════
+
+            BUY (enter long) when:
+            - Price above EMA 34 AND VWAP
+            - MACD bullish (MACD > Signal, histogram positive/rising)
+            - RSI in bullish zone (50-65 ideal, avoid >70)
+            - ADX >= 20 with +DI > -DI
+            - Volume confirming (ratio >= 1.0, OBV rising)
+            - SMA 20 > SMA 50 (Golden Cross structure)
+            - Momentum positive, ROC positive
+            - NOT in Bollinger upper extreme
+
+            SELL (close long) when:
+            - RSI overbought (>70) AND momentum fading
+            - MACD histogram turning negative
+            - Price breaks below EMA 34
+            - Volume declining on push higher (exhaustion)
+            - Stochastic/Williams %R overbought crossover
+            - Take Profit target reached
+
+            SHORT (enter short) when:
+            - Price below EMA 34 AND VWAP
+            - MACD bearish (MACD < Signal, histogram negative/falling)
+            - RSI in bearish zone (35-50 ideal, avoid <30)
+            - ADX >= 20 with -DI > +DI
+            - Volume confirming (ratio >= 1.0, OBV falling)
+            - SMA 20 < SMA 50 (Death Cross structure)
+            - Momentum negative, ROC negative
+
+            COVER (close short) when:
+            - RSI oversold (<30) AND momentum bouncing
+            - MACD histogram turning positive
+            - Price breaks above EMA 34
+            - Stochastic/Williams %R oversold crossover
+
+            WAIT when:
+            - ADX < 20 (no trend - CHOPPY market)
+            - RSI in neutral zone (45-55) with compressed MACD
+            - Conflicting signals (half bullish, half bearish)
+            - Low volume with no clear direction
+            - Price stuck between Bollinger bands with no momentum
+            - Fewer than 5 out of 9 requirements met for either direction
+
+            ═══════════════════════════════════════════════════════════════
+            CONFLUENCE SCORING:
+            ═══════════════════════════════════════════════════════════════
+            Count how many indicators agree:
+            - 7-9 out of 9 requirements → Confidence 80-95 (STRONG entry)
+            - 5-6 out of 9 requirements → Confidence 60-79 (acceptable entry)
+            - 4 out of 9 requirements   → Confidence 50-59 (marginal, proceed with caution)
+            - 3 or fewer requirements   → Confidence < 50 (WAIT, do not enter)
+
+            ═══════════════════════════════════════════════════════════════
+            RISK MANAGEMENT RULES:
+            ═══════════════════════════════════════════════════════════════
+            - NEVER chase extended moves (4+ same-color candles without pullback)
+            - Suggest TP/SL levels based on ATR: TP = 2-2.5x ATR, SL = 1-1.5x ATR
+            - If volume is below 0.7x average, downgrade confidence by 10-15 points
+            - If RSI is overbought for a LONG or oversold for a SHORT, add to risks
+            - Bollinger Squeeze = be ready for breakout but wait for direction confirmation
+            - Early morning (first 2 minutes of RTH) = add 10 uncertainty points
+
+            ═══════════════════════════════════════════════════════════════
             CUSTOM USER RULES:
-            When user-defined strategy rules are provided, incorporate them into your analysis:
+            ═══════════════════════════════════════════════════════════════
+            When user-defined strategy rules are provided in the analysis:
             - If rules specify "wait for breakout then pullback", only recommend entry AFTER both occur
             - If rules specify support levels, verify price is above those levels
             - Rules are ADDITIONAL filters - they work WITH indicators, not against them
             - A good setup needs BOTH good indicators AND rule compliance
             - If rules say "no chasing" or "pullback only", recommend WAIT if no pullback has occurred
-            
-            In your reasoning, explicitly state whether the custom rules are satisfied.
-            
-            Always respond in the exact format requested.
+            - In your reasoning, explicitly state whether the custom rules are satisfied
+            - Set RULE_STATUS to MET, NOT_MET, or NO_RULES accordingly
+
+            ═══════════════════════════════════════════════════════════════
+            RESPONSE FORMAT (strict - parse depends on this):
+            ═══════════════════════════════════════════════════════════════
+            ACTION: BUY|SELL|SHORT|COVER|WAIT
+            CONFIDENCE: 0-100
+            REASONING: one concise sentence
+            RULE_STATUS: MET|NOT_MET|NO_RULES
+            RISKS: comma-separated list
+            TPSL: TP=$X.XX SL=$X.XX (based on ATR and levels)
             """;
 
         lock (_promptCacheLock)

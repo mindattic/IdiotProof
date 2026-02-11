@@ -57,8 +57,20 @@ public readonly struct IndicatorSnapshot
     public double Cci { get; init; }
     public double WilliamsR { get; init; }
     
+    // SMA (Simple Moving Average)
+    public double Sma20 { get; init; }
+    public double Sma50 { get; init; }
+    
+    // Momentum / Rate of Change
+    public double Momentum { get; init; }
+    public double Roc { get; init; }
+    
     // ATR (for TP/SL calculation)
     public double Atr { get; init; }
+
+    // Bollinger Bands derived
+    public double BollingerPercentB { get; init; }
+    public double BollingerBandwidth { get; init; }
 }
 
 /// <summary>
@@ -80,6 +92,8 @@ public readonly struct MarketScoreResult
     public int ObvScore { get; init; }
     public int CciScore { get; init; }
     public int WilliamsRScore { get; init; }
+    public int SmaScore { get; init; }
+    public int MomentumScore { get; init; }
     
     /// <summary>
     /// True if +DI > -DI (bullish directional movement).
@@ -110,23 +124,27 @@ public readonly struct IndicatorWeights
     public double Obv { get; init; }
     public double Cci { get; init; }
     public double WilliamsR { get; init; }
+    public double Sma { get; init; }
+    public double Momentum { get; init; }
     
     /// <summary>
     /// Default weights used when no learned weights are available.
     /// </summary>
     public static readonly IndicatorWeights Default = new()
     {
-        Vwap = 0.10,
-        Ema = 0.15,
-        Rsi = 0.12,
-        Macd = 0.18,
-        Adx = 0.15,
-        Volume = 0.08,
+        Vwap = 0.09,
+        Ema = 0.13,
+        Rsi = 0.10,
+        Macd = 0.16,
+        Adx = 0.13,
+        Volume = 0.07,
         Bollinger = 0.05,
-        Stochastic = 0.06,
+        Stochastic = 0.05,
         Obv = 0.05,
         Cci = 0.03,
-        WilliamsR = 0.03
+        WilliamsR = 0.03,
+        Sma = 0.06,
+        Momentum = 0.05
     };
     
     /// <summary>
@@ -134,7 +152,7 @@ public readonly struct IndicatorWeights
     /// </summary>
     public bool IsValid()
     {
-        double sum = Vwap + Ema + Rsi + Macd + Adx + Volume + Bollinger + Stochastic + Obv + Cci + WilliamsR;
+        double sum = Vwap + Ema + Rsi + Macd + Adx + Volume + Bollinger + Stochastic + Obv + Cci + WilliamsR + Sma + Momentum;
         return Math.Abs(sum - 1.0) < 0.01;
     }
     
@@ -143,7 +161,7 @@ public readonly struct IndicatorWeights
     /// </summary>
     public IndicatorWeights Normalize()
     {
-        double sum = Vwap + Ema + Rsi + Macd + Adx + Volume + Bollinger + Stochastic + Obv + Cci + WilliamsR;
+        double sum = Vwap + Ema + Rsi + Macd + Adx + Volume + Bollinger + Stochastic + Obv + Cci + WilliamsR + Sma + Momentum;
         if (sum <= 0) return Default;
         
         return new IndicatorWeights
@@ -158,7 +176,9 @@ public readonly struct IndicatorWeights
             Stochastic = Stochastic / sum,
             Obv = Obv / sum,
             Cci = Cci / sum,
-            WilliamsR = WilliamsR / sum
+            WilliamsR = WilliamsR / sum,
+            Sma = Sma / sum,
+            Momentum = Momentum / sum
         };
     }
 }
@@ -173,20 +193,22 @@ public static class MarketScoreCalculator
     // DEFAULT WEIGHTS - Same for live and backtest (sum to 100%)
     // Used when no learned weights are available
     // ========================================================================
-    // Core indicators (78%)
-    public const double WeightVwap = 0.10;
-    public const double WeightEma = 0.15;
-    public const double WeightRsi = 0.12;
-    public const double WeightMacd = 0.18;
-    public const double WeightAdx = 0.15;
-    public const double WeightVolume = 0.08;
+    // Core indicators (68%)
+    public const double WeightVwap = 0.09;
+    public const double WeightEma = 0.13;
+    public const double WeightRsi = 0.10;
+    public const double WeightMacd = 0.16;
+    public const double WeightAdx = 0.13;
+    public const double WeightVolume = 0.07;
     
-    // Extended indicators (22%)
+    // Extended indicators (32%)
     public const double WeightBollinger = 0.05;
-    public const double WeightStochastic = 0.06;
+    public const double WeightStochastic = 0.05;
     public const double WeightObv = 0.05;
     public const double WeightCci = 0.03;
     public const double WeightWilliamsR = 0.03;
+    public const double WeightSma = 0.06;
+    public const double WeightMomentum = 0.05;
     
     /// <summary>
     /// Calculates market score using DEFAULT weights.
@@ -312,6 +334,16 @@ public static class MarketScoreCalculator
         int williamsRScore = CalculateWilliamsRScore(snapshot.WilliamsR);
 
         // ====================================================================
+        // SMA (6% weight) - Trend confirmation via simple moving averages
+        // ====================================================================
+        int smaScore = CalculateSmaScore(snapshot.Price, snapshot.Sma20, snapshot.Sma50);
+
+        // ====================================================================
+        // Momentum/ROC (5% weight) - Price momentum and rate of change
+        // ====================================================================
+        int momentumScore = CalculateMomentumScore(snapshot.Momentum, snapshot.Roc);
+
+        // ====================================================================
         // Weighted Total - Uses learned or default weights
         // ====================================================================
         double totalScore =
@@ -325,7 +357,9 @@ public static class MarketScoreCalculator
             stochasticScore * weights.Stochastic +
             obvScore * weights.Obv +
             cciScore * weights.Cci +
-            williamsRScore * weights.WilliamsR;
+            williamsRScore * weights.WilliamsR +
+            smaScore * weights.Sma +
+            momentumScore * weights.Momentum;
 
         int finalScore = (int)Math.Clamp(totalScore, -100, 100);
 
@@ -343,6 +377,8 @@ public static class MarketScoreCalculator
             ObvScore = obvScore,
             CciScore = cciScore,
             WilliamsRScore = williamsRScore,
+            SmaScore = smaScore,
+            MomentumScore = momentumScore,
             IsDiPositive = isDiPositive,
             IsMacdBullish = isMacdBullish
         };
@@ -452,6 +488,75 @@ public static class MarketScoreCalculator
         else
             score = 0; // Normal range
             
+        return (int)Math.Clamp(score, -100, 100);
+    }
+    
+    /// <summary>
+    /// Calculates SMA score based on price position relative to SMA 20 and SMA 50.
+    /// Price above both = strong bullish, below both = strong bearish.
+    /// SMA 20 > SMA 50 = bullish structure ("Golden Cross" territory).
+    /// </summary>
+    private static int CalculateSmaScore(double price, double sma20, double sma50)
+    {
+        if (sma20 <= 0 && sma50 <= 0)
+            return 0;
+        
+        int score = 0;
+        
+        // Price vs SMA 20 (short-term trend)
+        if (sma20 > 0)
+        {
+            if (price > sma20)
+                score += 30; // Bullish: price above short-term SMA
+            else
+                score -= 30; // Bearish: price below short-term SMA
+        }
+        
+        // Price vs SMA 50 (medium-term trend)
+        if (sma50 > 0)
+        {
+            if (price > sma50)
+                score += 25; // Bullish: price above medium-term SMA
+            else
+                score -= 25; // Bearish: price below medium-term SMA
+        }
+        
+        // SMA alignment (Golden Cross / Death Cross territory)
+        if (sma20 > 0 && sma50 > 0)
+        {
+            if (sma20 > sma50)
+                score += 20; // Bullish alignment: short-term above long-term
+            else
+                score -= 20; // Bearish alignment: short-term below long-term
+        }
+        
+        return (int)Math.Clamp(score, -100, 100);
+    }
+    
+    /// <summary>
+    /// Calculates Momentum/ROC combined score.
+    /// Momentum > 0 = bullish, ROC > 0% = bullish.
+    /// </summary>
+    private static int CalculateMomentumScore(double momentum, double roc)
+    {
+        int score = 0;
+        
+        // Momentum component (price - price_N_bars_ago)
+        if (momentum > 0)
+            score += 35; // Bullish momentum
+        else if (momentum < 0)
+            score -= 35; // Bearish momentum
+        
+        // ROC component (percentage rate of change)
+        if (roc > 2.0)
+            score += 40; // Strong bullish ROC (>2%)
+        else if (roc > 0)
+            score += 15; // Mild bullish ROC
+        else if (roc < -2.0)
+            score -= 40; // Strong bearish ROC (<-2%)
+        else if (roc < 0)
+            score -= 15; // Mild bearish ROC
+        
         return (int)Math.Clamp(score, -100, 100);
     }
     

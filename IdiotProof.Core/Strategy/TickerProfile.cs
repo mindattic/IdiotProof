@@ -76,20 +76,6 @@ namespace IdiotProof.Strategy {
         public double RsiAtExit { get; set; }
         public double AdxAtExit { get; set; }
 
-        // ML/AI tracking for A/B comparison
-        /// <summary>True if LSTM prediction was used for this trade's entry decision.</summary>
-        public bool LstmUsed { get; set; }
-        /// <summary>The LSTM score adjustment applied at entry (-25 to +25).</summary>
-        public int LstmScoreAdjustment { get; set; }
-        /// <summary>LSTM confidence at entry (0-1).</summary>
-        public double LstmConfidence { get; set; }
-        /// <summary>LSTM predicted direction at entry (-1 to +1).</summary>
-        public double LstmDirection { get; set; }
-        /// <summary>True if learned weights were used for this trade.</summary>
-        public bool LearnedWeightsUsed { get; set; }
-        /// <summary>True if LSTM prediction direction matched actual trade outcome.</summary>
-        public bool LstmPredictionCorrect { get; set; }
-
         /// <summary>Exit reason: TP, SL, score, END</summary>
         public string ExitReason { get; set; } = "score";
 
@@ -259,24 +245,6 @@ namespace IdiotProof.Strategy {
         public int LongestWinStreak { get; set; }
         public int LongestLossStreak { get; set; }
 
-        // ML/AI A/B Comparison Stats
-        /// <summary>Trades where LSTM was used.</summary>
-        public int LstmEnabledTrades { get; set; }
-        /// <summary>Wins from trades where LSTM was used.</summary>
-        public int LstmEnabledWins { get; set; }
-        /// <summary>Total P&L from LSTM-enabled trades.</summary>
-        public double LstmEnabledPnL { get; set; }
-        /// <summary>Trades where LSTM was NOT used.</summary>
-        public int LstmDisabledTrades { get; set; }
-        /// <summary>Wins from trades where LSTM was NOT used.</summary>
-        public int LstmDisabledWins { get; set; }
-        /// <summary>Total P&L from LSTM-disabled trades.</summary>
-        public double LstmDisabledPnL { get; set; }
-        /// <summary>Count of LSTM predictions that matched actual outcome.</summary>
-        public int LstmCorrectPredictions { get; set; }
-        /// <summary>Count of LSTM predictions that did NOT match actual outcome.</summary>
-        public int LstmIncorrectPredictions { get; set; }
-
         // Historical metadata reference (loaded separately)
         [JsonIgnore]
         public HistoricalMetadata? HistoricalMetadata { get; set; }
@@ -367,26 +335,6 @@ namespace IdiotProof.Strategy {
             // Update best/worst
             BestTradeProfit = Math.Max(BestTradeProfit, trade.PnL);
             WorstTradeLoss = Math.Min(WorstTradeLoss, trade.PnL);
-
-            // Update ML/AI A/B comparison stats
-            if (trade.LstmUsed)
-            {
-                LstmEnabledTrades++;
-                LstmEnabledPnL += trade.PnL;
-                if (trade.IsWin) LstmEnabledWins++;
-                
-                // Track prediction accuracy
-                if (trade.LstmPredictionCorrect)
-                    LstmCorrectPredictions++;
-                else
-                    LstmIncorrectPredictions++;
-            }
-            else
-            {
-                LstmDisabledTrades++;
-                LstmDisabledPnL += trade.PnL;
-                if (trade.IsWin) LstmDisabledWins++;
-            }
 
             // Update averages
             AverageTradeDurationMinutes = RecentTrades.Average(t => t.Duration.TotalMinutes);
@@ -878,83 +826,6 @@ namespace IdiotProof.Strategy {
                    $"Conf={Confidence}%, OptLong={OptimalLongEntryThreshold}, OptShort={OptimalShortEntryThreshold}";
         }
 
-        /// <summary>
-        /// Gets a detailed ML/AI A/B comparison report showing impact of LSTM and learned weights.
-        /// </summary>
-        public string GetMlComparisonReport()
-        {
-            var sb = new System.Text.StringBuilder();
-            sb.AppendLine($"=== ML/AI A/B COMPARISON: {Symbol} ===");
-            sb.AppendLine();
-
-            // Overall stats
-            sb.AppendLine($"TOTAL: {TotalTrades} trades, {WinRate:F1}% win rate, Net P&L: ${TotalPnL:F2}");
-            sb.AppendLine();
-
-            // LSTM comparison
-            sb.AppendLine("LSTM NEURAL NETWORK IMPACT:");
-            if (LstmEnabledTrades > 0 || LstmDisabledTrades > 0)
-            {
-                double lstmOnWinRate = LstmEnabledTrades > 0 ? (double)LstmEnabledWins / LstmEnabledTrades * 100 : 0;
-                double lstmOffWinRate = LstmDisabledTrades > 0 ? (double)LstmDisabledWins / LstmDisabledTrades * 100 : 0;
-                double lstmOnAvgPnL = LstmEnabledTrades > 0 ? LstmEnabledPnL / LstmEnabledTrades : 0;
-                double lstmOffAvgPnL = LstmDisabledTrades > 0 ? LstmDisabledPnL / LstmDisabledTrades : 0;
-
-                sb.AppendLine($"  WITH LSTM:    {LstmEnabledTrades,4} trades | {lstmOnWinRate,5:F1}% win rate | ${LstmEnabledPnL,10:F2} total | ${lstmOnAvgPnL,8:F2}/trade");
-                sb.AppendLine($"  WITHOUT LSTM: {LstmDisabledTrades,4} trades | {lstmOffWinRate,5:F1}% win rate | ${LstmDisabledPnL,10:F2} total | ${lstmOffAvgPnL,8:F2}/trade");
-
-                // Verdict
-                double winRateDiff = lstmOnWinRate - lstmOffWinRate;
-                double pnlDiff = lstmOnAvgPnL - lstmOffAvgPnL;
-                string verdict;
-                if (LstmEnabledTrades < 5 || LstmDisabledTrades < 5)
-                    verdict = "INSUFFICIENT DATA (need 5+ trades in each group)";
-                else if (winRateDiff > 5 && pnlDiff > 0)
-                    verdict = $"LSTM HELPS (+{winRateDiff:F1}% win rate, +${pnlDiff:F2}/trade)";
-                else if (winRateDiff < -5 || pnlDiff < -1)
-                    verdict = $"LSTM HURTS ({winRateDiff:F1}% win rate, ${pnlDiff:F2}/trade)";
-                else
-                    verdict = "LSTM has MINIMAL IMPACT";
-
-                sb.AppendLine($"  VERDICT: {verdict}");
-
-                // Prediction accuracy
-                if (LstmCorrectPredictions + LstmIncorrectPredictions > 0)
-                {
-                    int totalPredictions = LstmCorrectPredictions + LstmIncorrectPredictions;
-                    double accuracy = (double)LstmCorrectPredictions / totalPredictions * 100;
-                    sb.AppendLine($"  LSTM PREDICTION ACCURACY: {LstmCorrectPredictions}/{totalPredictions} ({accuracy:F1}%)");
-                    sb.AppendLine($"    (50% = random, >55% = potentially useful, >60% = strong signal)");
-                }
-            }
-            else
-            {
-                sb.AppendLine("  No ML comparison data yet. Trades will be tagged as ML goes live.");
-            }
-
-            return sb.ToString();
-        }
-
-        /// <summary>
-        /// Gets calculated win rate for LSTM-enabled trades.
-        /// </summary>
-        [JsonIgnore]
-        public double LstmEnabledWinRate => LstmEnabledTrades > 0 ? (double)LstmEnabledWins / LstmEnabledTrades * 100 : 0;
-
-        /// <summary>
-        /// Gets calculated win rate for non-LSTM trades.
-        /// </summary>
-        [JsonIgnore]
-        public double LstmDisabledWinRate => LstmDisabledTrades > 0 ? (double)LstmDisabledWins / LstmDisabledTrades * 100 : 0;
-
-        /// <summary>
-        /// Gets LSTM prediction accuracy percentage.
-        /// </summary>
-        [JsonIgnore]
-        public double LstmPredictionAccuracy => (LstmCorrectPredictions + LstmIncorrectPredictions) > 0 
-            ? (double)LstmCorrectPredictions / (LstmCorrectPredictions + LstmIncorrectPredictions) * 100 
-            : 0;
-
         // ====================================================================
         // Time-Weighted Learning
         // ====================================================================
@@ -1285,139 +1156,5 @@ namespace IdiotProof.Strategy {
             }
         }
 
-        /// <summary>
-        /// Gets an aggregate ML/AI comparison report across all tickers.
-        /// </summary>
-        public string GetOverallMlComparisonReport()
-        {
-            lock (_lock)
-            {
-                if (_profiles.Count == 0)
-                    return "No ticker profiles yet";
-
-                var sb = new System.Text.StringBuilder();
-                sb.AppendLine("╔════════════════════════════════════════════════════════════════════════════╗");
-                sb.AppendLine("║                    ML/AI A/B COMPARISON - AGGREGATE REPORT                 ║");
-                sb.AppendLine("╚════════════════════════════════════════════════════════════════════════════╝");
-                sb.AppendLine();
-
-                // Aggregate stats
-                int totalTrades = _profiles.Values.Sum(p => p.TotalTrades);
-                int totalWins = _profiles.Values.Sum(p => p.TotalWins);
-                double netProfit = _profiles.Values.Sum(p => p.TotalPnL);
-                double winRate = totalTrades > 0 ? (double)totalWins / totalTrades * 100 : 0;
-
-                sb.AppendLine($"BASELINE: {_profiles.Count} tickers, {totalTrades} total trades");
-                sb.AppendLine($"  Win Rate: {winRate:F1}% | Net P&L: ${netProfit:F2}");
-                sb.AppendLine();
-
-                // Aggregate LSTM stats
-                int lstmOnTrades = _profiles.Values.Sum(p => p.LstmEnabledTrades);
-                int lstmOnWins = _profiles.Values.Sum(p => p.LstmEnabledWins);
-                double lstmOnPnL = _profiles.Values.Sum(p => p.LstmEnabledPnL);
-                int lstmOffTrades = _profiles.Values.Sum(p => p.LstmDisabledTrades);
-                int lstmOffWins = _profiles.Values.Sum(p => p.LstmDisabledWins);
-                double lstmOffPnL = _profiles.Values.Sum(p => p.LstmDisabledPnL);
-                int lstmCorrect = _profiles.Values.Sum(p => p.LstmCorrectPredictions);
-                int lstmIncorrect = _profiles.Values.Sum(p => p.LstmIncorrectPredictions);
-
-                sb.AppendLine("┌────────────────────────────────────────────────────────────────────────────┐");
-                sb.AppendLine("│ LSTM NEURAL NETWORK COMPARISON                                             │");
-                sb.AppendLine("├────────────────────────────────────────────────────────────────────────────┤");
-
-                if (lstmOnTrades > 0 || lstmOffTrades > 0)
-                {
-                    double lstmOnWinRate = lstmOnTrades > 0 ? (double)lstmOnWins / lstmOnTrades * 100 : 0;
-                    double lstmOffWinRate = lstmOffTrades > 0 ? (double)lstmOffWins / lstmOffTrades * 100 : 0;
-                    double lstmOnAvgPnL = lstmOnTrades > 0 ? lstmOnPnL / lstmOnTrades : 0;
-                    double lstmOffAvgPnL = lstmOffTrades > 0 ? lstmOffPnL / lstmOffTrades : 0;
-
-                    sb.AppendLine($"│ WITH LSTM:    {lstmOnTrades,5} trades | {lstmOnWinRate,5:F1}% win | ${lstmOnPnL,12:F2} total | ${lstmOnAvgPnL,8:F2}/trade │");
-                    sb.AppendLine($"│ WITHOUT LSTM: {lstmOffTrades,5} trades | {lstmOffWinRate,5:F1}% win | ${lstmOffPnL,12:F2} total | ${lstmOffAvgPnL,8:F2}/trade │");
-                    sb.AppendLine("├────────────────────────────────────────────────────────────────────────────┤");
-
-                    // Verdict
-                    double winRateDiff = lstmOnWinRate - lstmOffWinRate;
-                    double pnlDiff = lstmOnAvgPnL - lstmOffAvgPnL;
-                    string verdict;
-                    string verdictIcon;
-                    if (lstmOnTrades < 10 || lstmOffTrades < 10)
-                    {
-                        verdict = "INSUFFICIENT DATA (need 10+ trades in each group)";
-                        verdictIcon = "?";
-                    }
-                    else if (winRateDiff > 5 && pnlDiff > 0)
-                    {
-                        verdict = $"LSTM SIGNIFICANTLY HELPS! (+{winRateDiff:F1}% win rate, +${pnlDiff:F2}/trade)";
-                        verdictIcon = "[OK]";
-                    }
-                    else if (winRateDiff > 2 && pnlDiff > 0)
-                    {
-                        verdict = $"LSTM SLIGHTLY HELPS (+{winRateDiff:F1}% win rate, +${pnlDiff:F2}/trade)";
-                        verdictIcon = "[+]";
-                    }
-                    else if (winRateDiff < -5 || pnlDiff < -5)
-                    {
-                        verdict = $"LSTM HURTING PERFORMANCE ({winRateDiff:F1}% win rate, ${pnlDiff:F2}/trade)";
-                        verdictIcon = "[!]";
-                    }
-                    else
-                    {
-                        verdict = "LSTM has MINIMAL/NO IMPACT on performance";
-                        verdictIcon = "[-]";
-                    }
-
-                    sb.AppendLine($"│ VERDICT: {verdictIcon} {verdict,-60} │");
-
-                    // Prediction accuracy
-                    if (lstmCorrect + lstmIncorrect > 0)
-                    {
-                        int totalPredictions = lstmCorrect + lstmIncorrect;
-                        double accuracy = (double)lstmCorrect / totalPredictions * 100;
-                        string accuracyVerdict = accuracy >= 60 ? "STRONG" : accuracy >= 55 ? "USEFUL" : accuracy >= 50 ? "MARGINAL" : "HARMFUL";
-                        sb.AppendLine("├────────────────────────────────────────────────────────────────────────────┤");
-                        sb.AppendLine($"│ LSTM DIRECTION PREDICTION: {lstmCorrect}/{totalPredictions} correct ({accuracy:F1}%) - {accuracyVerdict,-15}        │");
-                        sb.AppendLine($"│   50% = random | 55% = useful | 60%+ = strong signal                      │");
-                    }
-                }
-                else
-                {
-                    sb.AppendLine("│ No ML comparison data yet. New trades will be tagged for comparison.       │");
-                }
-
-                sb.AppendLine("└────────────────────────────────────────────────────────────────────────────┘");
-                sb.AppendLine();
-
-                // Per-ticker breakdown (only show tickers with enough data)
-                var tickersWithData = _profiles.Values
-                    .Where(p => p.LstmEnabledTrades >= 3 || p.LstmDisabledTrades >= 3)
-                    .OrderByDescending(p => p.TotalTrades)
-                    .Take(10)
-                    .ToList();
-
-                if (tickersWithData.Any())
-                {
-                    sb.AppendLine("TOP TICKERS BY ML IMPACT:");
-                    sb.AppendLine("┌──────────┬────────────────────────┬────────────────────────┬─────────────┐");
-                    sb.AppendLine("│ TICKER   │ WITH LSTM              │ WITHOUT LSTM           │ DIFFERENCE  │");
-                    sb.AppendLine("├──────────┼────────────────────────┼────────────────────────┼─────────────┤");
-
-                    foreach (var p in tickersWithData)
-                    {
-                        double wr1 = p.LstmEnabledWinRate;
-                        double wr2 = p.LstmDisabledWinRate;
-                        double diff = wr1 - wr2;
-                        string diffStr = diff >= 0 ? $"+{diff:F1}%" : $"{diff:F1}%";
-                        string diffIcon = diff > 5 ? "[+]" : diff < -5 ? "[-]" : "[ ]";
-
-                        sb.AppendLine($"│ {p.Symbol,-8} │ {p.LstmEnabledTrades,4}t @ {wr1,5:F1}% win    │ {p.LstmDisabledTrades,4}t @ {wr2,5:F1}% win    │ {diffIcon} {diffStr,6} │");
-                    }
-
-                    sb.AppendLine("└──────────┴────────────────────────┴────────────────────────┴─────────────┘");
-                }
-
-                return sb.ToString();
-            }
-        }
     }
 }
