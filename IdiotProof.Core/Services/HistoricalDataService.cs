@@ -63,6 +63,7 @@ namespace IdiotProof.Services {
 
         // Request tracking
         private readonly ConcurrentDictionary<int, HistoricalDataRequest> _pendingRequests = new();
+        private readonly ConcurrentDictionary<int, List<HistoricalBar>> _requestResults = new();
         private int _nextRequestId = 9000; // Start high to avoid conflict with order IDs
         private readonly object _requestIdLock = new();
 
@@ -317,6 +318,9 @@ namespace IdiotProof.Services {
                 .TakeLast(request.BarCount)
                 .ToList();
 
+            // Store bars for retrieval by FetchHistoricalBarsAsync
+            _requestResults[reqId] = sortedBars;
+
             // Store in the data store
             _store.SetHistoricalData(request.Symbol, sortedBars);
 
@@ -325,6 +329,116 @@ namespace IdiotProof.Services {
             // Complete the task
             request.CompletionSource.TrySetResult(sortedBars.Count);
             OnDataFetched?.Invoke(request.Symbol, sortedBars.Count);
+        }
+
+        /// <summary>
+        /// Fetches historical bars and returns them directly, bypassing the shared store.
+        /// Designed for parallel chunked fetching where multiple requests for the same
+        /// symbol run concurrently (avoids store overwrite race conditions).
+        /// </summary>
+        /// <param name="symbol">The ticker symbol.</param>
+        /// <param name="duration">IBKR duration string (e.g., "5 D", "1 D", "1 W").</param>
+        /// <param name="barSize">Bar size (default: 1 minute).</param>
+        /// <param name="dataType">Data type (default: TRADES).</param>
+        /// <param name="useRTH">Use regular trading hours only (default: false).</param>
+        /// <param name="endDate">End date/time for the data (default: null = current time).</param>
+        /// <param name="cancellationToken">Cancellation token.</param>
+        /// <returns>List of historical bars for the requested period.</returns>
+        public async Task<List<HistoricalBar>> FetchHistoricalBarsAsync(
+            string symbol,
+            string duration = "5 D",
+            BarSize barSize = BarSize.Minutes1,
+            HistoricalDataType dataType = HistoricalDataType.Trades,
+            bool useRTH = false,
+            DateTime? endDate = null,
+            CancellationToken cancellationToken = default)
+        {
+            if (_disposed)
+                throw new ObjectDisposedException(nameof(HistoricalDataService));
+
+            var contract = new IbContract
+            {
+                Symbol = symbol,
+                SecType = "STK",
+                Currency = "USD",
+                Exchange = "SMART"
+            };
+
+            await _pacingSemaphore.WaitAsync(cancellationToken);
+            try
+            {
+                var timeSinceLastRequest = DateTime.Now - _lastRequestTime;
+                if (timeSinceLastRequest < _minRequestInterval)
+                {
+                    await Task.Delay(_minRequestInterval - timeSinceLastRequest, cancellationToken);
+                }
+
+                int reqId = GetNextRequestId();
+                var request = new HistoricalDataRequest
+                {
+                    RequestId = reqId,
+                    Symbol = symbol,
+                    BarCount = int.MaxValue, // Return all bars - no trimming
+                    CompletionSource = new TaskCompletionSource<int>()
+                };
+
+                _pendingRequests[reqId] = request;
+
+                cancellationToken.Register(() =>
+                {
+                    if (_pendingRequests.TryRemove(reqId, out var req))
+                    {
+                        req.CompletionSource.TrySetCanceled(cancellationToken);
+                    }
+                });
+
+                string endDateTime = "";
+                if (endDate.HasValue)
+                {
+                    endDateTime = $"{endDate.Value:yyyyMMdd HH:mm:ss} {TimezoneHelper.GetIbkrTimezoneString(MarketTimeZone.EST)}";
+                }
+
+                Log($"[{symbol}] Requesting chunk (duration: {duration}, end: {endDate:yyyy-MM-dd}, barSize: {barSize.ToIbString()})...");
+
+                _client.reqHistoricalData(
+                    reqId,
+                    contract,
+                    endDateTime,
+                    duration,
+                    barSize.ToIbString(),
+                    dataType.ToIbString(),
+                    useRTH ? 1 : 0,
+                    1,
+                    false,
+                    null
+                );
+
+                _lastRequestTime = DateTime.Now;
+
+                // Longer timeout for multi-day chunks (60s vs 30s)
+                using var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(60));
+                using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeoutCts.Token);
+
+                try
+                {
+                    await request.CompletionSource.Task.WaitAsync(linkedCts.Token);
+                }
+                catch (OperationCanceledException) when (timeoutCts.IsCancellationRequested)
+                {
+                    _pendingRequests.TryRemove(reqId, out _);
+                    _requestResults.TryRemove(reqId, out _);
+                    OnFetchError?.Invoke(symbol, $"Chunk request timed out (end: {endDate:yyyy-MM-dd})");
+                    return [];
+                }
+
+                // Retrieve bars directly from results (avoids shared store race condition)
+                _requestResults.TryRemove(reqId, out var bars);
+                return bars ?? [];
+            }
+            finally
+            {
+                _pacingSemaphore.Release();
+            }
         }
 
         /// <summary>
@@ -397,6 +511,7 @@ namespace IdiotProof.Services {
                 request.CompletionSource.TrySetCanceled();
             }
             _pendingRequests.Clear();
+            _requestResults.Clear();
         }
 
         /// <summary>

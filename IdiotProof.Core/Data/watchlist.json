@@ -1,49 +1,13 @@
 {
   "tickers": [
     {
-      "symbol": "CCHH",
-      "name": null,
-      "allocation": 1000,
-      "enabled": true
-    },
-    {
-      "symbol": "PLBY",
-      "name": null,
-      "allocation": 1000,
-      "enabled": true
-    },
-    {
-      "symbol": "QNCX",
-      "name": null,
-      "allocation": 1000,
-      "enabled": true
-    },
-    {
       "symbol": "NVDA",
       "name": null,
-      "allocation": 1000,
-      "enabled": true
-    },
-    {
-      "symbol": "TSLA",
-      "name": null,
-      "allocation": 1000,
-      "enabled": true
-    },
-    {
-      "symbol": "GOOG",
-      "name": null,
-      "allocation": 1000,
-      "enabled": true
-    },
-    {
-      "symbol": "UUUU",
-      "name": null,
-      "allocation": 1000,
+      "allocation": 0,
       "enabled": true
     }
   ],
-  "session": "Extended",
+  "session": "RTH",
   "enabled": true,
-  "description": "Tickers for learning, backtesting, and live trading"
+  "description": null
 }

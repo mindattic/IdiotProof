@@ -208,13 +208,14 @@ public sealed class HistoricalDataCache
 
     /// <summary>
     /// Gets historical data from cache or fetches from API if not available.
-    /// Fetches day-by-day in parallel to avoid timeout issues with large requests.
+    /// Fetches in parallel 5-day chunks to minimize API calls, then reassembles
+    /// all bars chronologically and writes to TICKER.history.json.
     /// </summary>
     /// <param name="symbol">The ticker symbol.</param>
     /// <param name="histService">Historical data service for API calls.</param>
     /// <param name="forceRefresh">Force re-fetch even if cached.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    /// <returns>List of historical bars.</returns>
+    /// <returns>List of historical bars in chronological order.</returns>
     public async Task<List<HistoricalBar>> GetOrFetchAsync(
         string symbol,
         HistoricalDataService histService,
@@ -234,61 +235,58 @@ public sealed class HistoricalDataCache
             }
         }
 
-        // Cache miss - fetch from API day by day
+        // Cache miss - fetch from API in 5-day chunks
         OnCacheMiss?.Invoke(symbol);
-        Log($"[{symbol}] Cache miss - fetching {DaysToFetch} days from IBKR API (day-by-day)...");
 
-        // Build list of dates to fetch (going backwards from today)
-        var datesToFetch = new List<DateTime>();
+        // Calculate how many calendar days we need to cover DaysToFetch trading days
+        // ~1.4x multiplier accounts for weekends (5 trading days per 7 calendar days) + holidays
+        int calendarDaysNeeded = (int)(DaysToFetch * 7.0 / 5.0) + 2;
+        int chunkSizeDays = 5;
+        int chunkCount = (int)Math.Ceiling(calendarDaysNeeded / (double)chunkSizeDays);
+
+        // Build 5-day chunk end dates going backwards from today
+        var chunks = new List<DateTime>();
         var today = DateTime.Today;
-        for (int i = 0; i < DaysToFetch; i++)
+        for (int i = 0; i < chunkCount; i++)
         {
-            var date = today.AddDays(-i);
-            // Skip weekends (Saturday = 6, Sunday = 0)
-            if (date.DayOfWeek != DayOfWeek.Saturday && date.DayOfWeek != DayOfWeek.Sunday)
-            {
-                // End of trading day (8 PM Eastern)
-                datesToFetch.Add(date.AddHours(20));
-            }
+            // Each chunk ends at 8 PM Eastern on the boundary date
+            chunks.Add(today.AddDays(-i * chunkSizeDays).AddHours(20));
         }
-        
-        Log($"[{symbol}] Fetching {datesToFetch.Count} trading days in parallel (max {MaxConcurrentFetches} concurrent)...");
 
-        // Fetch each day in parallel with limited concurrency
+        Log($"[{symbol}] Cache miss - fetching {DaysToFetch} trading days in {chunks.Count} chunks of {chunkSizeDays} days (max {MaxConcurrentFetches} concurrent)...");
+
+        // Fetch each 5-day chunk in parallel with limited concurrency
         var semaphore = new SemaphoreSlim(MaxConcurrentFetches);
-        var allBars = new System.Collections.Concurrent.ConcurrentBag<(DateTime Date, List<HistoricalBar> Bars)>();
-        int completedDays = 0;
-        
-        var tasks = datesToFetch.Select(async endDate =>
+        var chunkResults = new System.Collections.Concurrent.ConcurrentBag<List<HistoricalBar>>();
+        int completedChunks = 0;
+
+        var tasks = chunks.Select(async endDate =>
         {
             await semaphore.WaitAsync(cancellationToken);
             try
             {
-                // Fetch 1 day of data (960 bars = 16 hours * 60 minutes)
-                await histService.FetchHistoricalDataAsync(
+                // Fetch 5 calendar days of data directly, returns bars without shared store race
+                var bars = await histService.FetchHistoricalBarsAsync(
                     symbol,
-                    960,
-                    BarSize.Minutes1,
-                    HistoricalDataType.Trades,
+                    duration: $"{chunkSizeDays} D",
+                    barSize: BarSize.Minutes1,
+                    dataType: HistoricalDataType.Trades,
                     useRTH: false,
                     endDate: endDate,
                     cancellationToken: cancellationToken);
 
-                // Get the bars from the store
-                var bars = histService.Store.GetBars(symbol).ToList();
-                
-                // Filter to only bars from this specific day
-                var dayBars = bars
-                    .Where(b => b.Time.Date == endDate.Date)
-                    .ToList();
-                
-                if (dayBars.Count > 0)
+                if (bars.Count > 0)
                 {
-                    allBars.Add((endDate.Date, dayBars));
+                    chunkResults.Add(bars);
                 }
-                
-                var done = Interlocked.Increment(ref completedDays);
-                Log($"[{symbol}] Day {done}/{datesToFetch.Count}: {endDate:yyyy-MM-dd} - {dayBars.Count} bars");
+
+                var done = Interlocked.Increment(ref completedChunks);
+                Log($"[{symbol}] Chunk {done}/{chunks.Count}: ending {endDate:yyyy-MM-dd} - {bars.Count} bars");
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                var done = Interlocked.Increment(ref completedChunks);
+                Log($"[{symbol}] Chunk {done}/{chunks.Count}: ending {endDate:yyyy-MM-dd} - FAILED: {ex.Message}");
             }
             finally
             {
@@ -298,18 +296,20 @@ public sealed class HistoricalDataCache
 
         await Task.WhenAll(tasks);
 
-        // Combine all bars in chronological order
-        var combinedBars = allBars
-            .OrderBy(x => x.Date)
-            .SelectMany(x => x.Bars)
+        // Reassemble all chunks chronologically and deduplicate by timestamp
+        var combinedBars = chunkResults
+            .SelectMany(chunk => chunk)
+            .GroupBy(b => b.Time)
+            .Select(g => g.First())
             .OrderBy(b => b.Time)
             .ToList();
 
-        Log($"[{symbol}] Total: {combinedBars.Count} bars from {datesToFetch.Count} trading days");
+        var tradingDays = combinedBars.Select(b => b.Time.Date).Distinct().Count();
+        Log($"[{symbol}] Total: {combinedBars.Count} bars across {tradingDays} trading days (from {chunks.Count} chunks)");
 
         if (combinedBars.Count > 0)
         {
-            // Save to cache for next time
+            // Save reassembled data to TICKER.history.json
             SaveToCache(symbol, combinedBars);
         }
 

@@ -1,27 +1,0 @@
-╔════════════════════════════════════════════════════════════════════════╗
-║  SESSION LOG: 2026-02-06_2247                                          ║
-║  Reason: Disposed                                                      ║
-║  Timestamp: 2026-02-06 22:48:26                                     ║
-║  Runtime: 00:00:30                                                     ║
-╠════════════════════════════════════════════════════════════════════════╣
-║  STRATEGY SUMMARY                                                       ║
-╠════════════════════════════════════════════════════════════════════════╣
-║  No strategies registered                                               ║
-╠════════════════════════════════════════════════════════════════════════╣
-║  RECENT EVENTS                                                          ║
-╠════════════════════════════════════════════════════════════════════════╣
-║  [22:47:56.185] [SESSION] Session started: 2026-02-06_2247             ║
-║  [22:47:56.188] [STARTUP] Mode: LIVE | Port: 4001                      ║
-║  [22:47:56.269] [IB_INFO] Received nextValidId: 116                    ║
-║  [22:47:56.274] [IB_INFO] Subscribed to account updates                ║
-║  [22:47:56.276] [LOADER] Found 2 IdiotScript files in D:\Projects\Id... ║
-║  [22:47:56.313] [LOADER] Error parsing IdiotScript BNAI.idiot: Unkno... ║
-║  [22:47:56.324] [LOADER] Error parsing IdiotScript NVDA.idiot: Unkno... ║
-║  [22:47:56.324] [LOADER] Loaded 0 enabled strategies from D:\Project... ║
-║  [22:48:10.754] [LOADER] Found 2 IdiotScript files in D:\Projects\Id... ║
-║  [22:48:10.764] [LOADER] Error parsing IdiotScript BNAI.idiot: Unkno... ║
-║  [22:48:10.773] [LOADER] Error parsing IdiotScript NVDA.idiot: Unkno... ║
-║  [22:48:10.773] [LOADER] Loaded 0 enabled strategies from D:\Project... ║
-║  [22:48:26.916] [SESSION] Final log written: Shutdown                  ║
-║  [22:48:26.917] [IB_INFO] IB connection closed.                        ║
-╚════════════════════════════════════════════════════════════════════════╝
