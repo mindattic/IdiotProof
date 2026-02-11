@@ -4,6 +4,7 @@
 //
 // PURPOSE:
 // Simple JSON file to configure which tickers to trade and how much.
+// Each ticker must be enabled AND have allocation > $0 to trade.
 // Edit the file outside the app, restart, and it trades automatically.
 //
 // FILE LOCATION:
@@ -12,9 +13,9 @@
 // FILE FORMAT:
 // {
 //   "tickers": [
-//     { "symbol": "NVDA", "quantity": 5 },
-//     { "symbol": "AAPL", "quantity": 10 },
-//     { "symbol": "TSLA", "quantity": 3 }
+//     { "symbol": "NVDA", "allocation": 1000, "enabled": true },
+//     { "symbol": "AAPL", "allocation": 0, "enabled": false },
+//     { "symbol": "TSLA", "allocation": 500, "enabled": true }
 //   ],
 //   "session": "RTH",
 //   "enabled": true
@@ -57,22 +58,26 @@ public sealed class WatchlistEntry
     [JsonPropertyName("name")]
     public string? Name { get; set; }
 
-    /// <summary>Dollar allocation per trade (e.g., 1000 = $1,000). 0 = use default allocation.</summary>
+    /// <summary>Dollar allocation for this ticker (how much you're willing to risk). $0 = not configured (will not trade).</summary>
     [JsonPropertyName("allocation")]
     public double Allocation { get; set; } = 0;
 
-    /// <summary>Whether this ticker is enabled (default: true).</summary>
+    /// <summary>Whether this ticker is enabled for trading (default: false - must be manually turned on).</summary>
     [JsonPropertyName("enabled")]
-    public bool Enabled { get; set; } = true;
+    public bool Enabled { get; set; } = false;
+
+    /// <summary>Whether this ticker is ready to trade (enabled AND has allocation).</summary>
+    [JsonIgnore]
+    public bool IsReadyToTrade => Enabled && Allocation > 0;
 
     /// <summary>
     /// Calculate number of shares to buy based on current price.
+    /// Returns 0 if allocation is not configured.
     /// </summary>
     public int GetQuantityForPrice(double price)
     {
-        if (price <= 0) return 0;
-        var alloc = Allocation > 0 ? Allocation : TradingDefaults.DefaultAllocationDollars;
-        return (int)Math.Floor(alloc / price);
+        if (price <= 0 || Allocation <= 0) return 0;
+        return (int)Math.Floor(Allocation / price);
     }
 
     public override string ToString() => $"{Symbol} ${Allocation:F0}" + (Enabled ? "" : " [DISABLED]");
@@ -99,9 +104,9 @@ public sealed class Watchlist
     [JsonPropertyName("description")]
     public string? Description { get; set; }
 
-    /// <summary>Gets only enabled tickers.</summary>
+    /// <summary>Gets only tickers that are enabled AND have allocation configured.</summary>
     [JsonIgnore]
-    public IEnumerable<WatchlistEntry> EnabledTickers => Tickers.Where(t => t.Enabled && !string.IsNullOrEmpty(t.Symbol));
+    public IEnumerable<WatchlistEntry> EnabledTickers => Tickers.Where(t => t.IsReadyToTrade && !string.IsNullOrEmpty(t.Symbol));
 
     /// <summary>Gets the total number of tickers.</summary>
     [JsonIgnore]
@@ -180,10 +185,17 @@ public static class WatchlistManager
             }
 
             ConsoleLog.Write("Watchlist", $"Loaded {watchlist.EnabledCount}/{watchlist.TotalCount} tickers from {WatchlistFileName}");
-            foreach (var ticker in watchlist.EnabledTickers)
+            foreach (var ticker in watchlist.Tickers)
             {
-                var allocStr = ticker.Allocation > 0 ? $"${ticker.Allocation:F0}" : "auto";
-                ConsoleLog.Write("Watchlist", $"  - {ticker.Symbol} ({allocStr})");
+                if (ticker.IsReadyToTrade)
+                {
+                    ConsoleLog.Write("Watchlist", $"  * {ticker.Symbol} (${ticker.Allocation:F0})");
+                }
+                else
+                {
+                    var reason = !ticker.Enabled ? "disabled" : "$0 allocation";
+                    ConsoleLog.Write("Watchlist", $"  o {ticker.Symbol} ({reason})");
+                }
             }
 
             return watchlist;
@@ -224,6 +236,7 @@ public static class WatchlistManager
 
     /// <summary>
     /// Creates a sample watchlist file if none exists.
+    /// All tickers start disabled with $0 allocation - user must manually configure.
     /// </summary>
     public static void CreateSampleIfNotExists()
     {
@@ -232,25 +245,26 @@ public static class WatchlistManager
 
         var sample = new Watchlist
         {
-            Description = "Autonomous Trading Watchlist - Edit this file to add/remove tickers",
+            Description = "Autonomous Trading Watchlist - Edit this file to add/remove tickers. Set allocation and enabled=true to trade.",
             Session = "RTH",
             Enabled = true,
             Tickers =
             [
-                new() { Symbol = "NVDA", Allocation = 1000 },
-                new() { Symbol = "AAPL", Allocation = 1000 },
-                new() { Symbol = "TSLA", Allocation = 500, Enabled = false },
-                new() { Symbol = "SPY", Allocation = 2000 }
+                new() { Symbol = "NVDA", Allocation = 0, Enabled = false },
+                new() { Symbol = "AAPL", Allocation = 0, Enabled = false },
+                new() { Symbol = "TSLA", Allocation = 0, Enabled = false },
+                new() { Symbol = "SPY", Allocation = 0, Enabled = false }
             ]
         };
 
         Save(sample);
         ConsoleLog.Write("Watchlist", $"Created sample watchlist at: {GetWatchlistPath()}");
-        ConsoleLog.Write("Watchlist", "Edit this file to configure your tickers and quantities.");
+        ConsoleLog.Write("Watchlist", "Edit this file to enable tickers and set allocations.");
     }
 
     /// <summary>
     /// Adds a ticker to the watchlist (or updates allocation if exists).
+    /// New tickers start disabled with $0 allocation by default.
     /// </summary>
     public static void AddOrUpdate(string symbol, double allocation)
     {
@@ -261,7 +275,7 @@ public static class WatchlistManager
         if (existing != null)
         {
             existing.Allocation = allocation;
-            existing.Enabled = true;
+            if (allocation > 0) existing.Enabled = true;
         }
         else
         {
@@ -269,7 +283,7 @@ public static class WatchlistManager
             {
                 Symbol = symbol.ToUpperInvariant(),
                 Allocation = allocation,
-                Enabled = true
+                Enabled = allocation > 0  // Only enable if allocation is configured
             });
         }
 
@@ -329,7 +343,10 @@ public static class WatchlistManager
         {
             var session = watchlist.Session;
             var name = $"{ticker.Symbol} Auto";
-            var alloc = ticker.Allocation > 0 ? ticker.Allocation : TradingDefaults.DefaultAllocationDollars;
+            var alloc = ticker.Allocation;
+
+            // Skip tickers with no allocation configured
+            if (alloc <= 0) continue;
 
             // Generate IdiotScript for this ticker (allocation-based, quantity calculated at order time)
             var script = $"Ticker({ticker.Symbol})" +
@@ -393,7 +410,16 @@ public static class WatchlistManager
         foreach (var ticker in watchlist.Tickers.OrderBy(t => t.Symbol))
         {
             rowNum++;
-            var status = ticker.Enabled ? "[ACTIVE]" : "[OFF]";
+
+            // Determine if this ticker is active (enabled + has allocation)
+            bool isActive = ticker.IsReadyToTrade;
+            string status;
+            if (!ticker.Enabled)
+                status = "[OFF]";
+            else if (ticker.Allocation <= 0)
+                status = "[$0]";
+            else
+                status = "[ACTIVE]";
 
             // Get price: try live provider first, then cache
             double price = 0;
@@ -411,27 +437,41 @@ public static class WatchlistManager
             
             var priceStr = price > 0 ? $"${price:F2}" : "--";
 
-            // Calculate investment value from allocation
-            var alloc = ticker.Allocation > 0 ? ticker.Allocation : TradingDefaults.DefaultAllocationDollars;
-            var qty = price > 0 ? ticker.GetQuantityForPrice(price) : 0;
-            var allocStr = ticker.Allocation > 0 ? $"${alloc:F0}" : " auto";
-            var investmentValue = alloc;
-            var investStr = $"${investmentValue:F0}";
+            // Show allocation - $0 means not configured
+            var allocStr = ticker.Allocation > 0 ? $"${ticker.Allocation:F0}" : "  $0";
             
-            if (investmentValue > 0)
-                totalInvestment += investmentValue;
+            if (isActive)
+                totalInvestment += ticker.Allocation;
 
             // Get description
             var desc = StockDescriptionService.GetDescription(ticker.Symbol);
 
-            // Format:  1  CCHH        $1000   $0.82  [ACTIVE]    China Ceramics Co. Ltd. - Manufacturing ceramics
-            Console.WriteLine($" {rowNum,2}  {ticker.Symbol,-10}{allocStr}     {priceStr,7}  {status,-10}  {desc}");
+            // Disabled or unconfigured tickers render in gray to make it obvious
+            if (!isActive)
+            {
+                Console.ForegroundColor = ConsoleColor.DarkGray;
+            }
+
+            // Format:  1  CCHH        $1000   $0.82  [ACTIVE]    China Ceramics Co. Ltd.
+            Console.WriteLine($" {rowNum,2}  {ticker.Symbol,-10}{allocStr,7}  {priceStr,7}  {status,-10}  {desc}");
+
+            if (!isActive)
+            {
+                Console.ResetColor();
+            }
         }
 
         Console.WriteLine();
         if (totalInvestment > 0)
         {
-            Console.WriteLine($"  Total Investment: ${totalInvestment:F2}");
+            Console.WriteLine($"  Total Allocated: ${totalInvestment:F0}");
+            Console.WriteLine();
+        }
+        else
+        {
+            Console.ForegroundColor = ConsoleColor.DarkGray;
+            Console.WriteLine("  No tickers configured. Set allocation > $0 and enabled = true to trade.");
+            Console.ResetColor();
             Console.WriteLine();
         }
     }
@@ -479,17 +519,17 @@ public static class WatchlistManager
 
             if (existing != null)
             {
-                // Already exists - just enable it
-                existing.Enabled = true;
+                // Already exists - just enable it if it has allocation
+                if (existing.Allocation > 0) existing.Enabled = true;
             }
             else
             {
-                // Add new ticker with Allocation=0 (auto tier-based allocation)
+                // Add new ticker with Allocation=0 (disabled, must manually configure)
                 watchlist.Tickers.Add(new WatchlistEntry
                 {
                     Symbol = symbol,
-                    Allocation = 0,  // Auto-calculate by price tier
-                    Enabled = true
+                    Allocation = 0,  // Must be manually set
+                    Enabled = false  // Must be manually enabled
                 });
                 added++;
             }

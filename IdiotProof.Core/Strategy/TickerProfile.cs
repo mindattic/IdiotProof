@@ -207,9 +207,9 @@ namespace IdiotProof.Strategy {
         public int ShortWins { get; set; }
 
         // Calculated properties
-        public double WinRate => TotalTrades > 0 ? (double)TotalWins / TotalTrades * 100 : 50;
-        public double LongWinRate => LongTrades > 0 ? (double)LongWins / LongTrades * 100 : 50;
-        public double ShortWinRate => ShortTrades > 0 ? (double)ShortWins / ShortTrades * 100 : 50;
+        public double WinRate => TotalTrades > 0 ? (double)TotalWins / TotalTrades * 100 : 0;
+        public double LongWinRate => LongTrades > 0 ? (double)LongWins / LongTrades * 100 : 0;
+        public double ShortWinRate => ShortTrades > 0 ? (double)ShortWins / ShortTrades * 100 : 0;
         public double ProfitFactor => TotalLoss != 0 ? Math.Abs(TotalProfit / TotalLoss) : 1;
         public double TotalPnL => TotalProfit + TotalLoss;
 

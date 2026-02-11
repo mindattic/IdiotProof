@@ -1355,27 +1355,10 @@ public sealed class Backtester
             progress?.Report($"Sentiment: {sentiment}");
         }
 
-        // Try loading from cache first (saves expensive API calls)
-        List<HistoricalBar> bars;
-        if (_dataCache.HasCachedData(symbol))
-        {
-            progress?.Report($"Loading {symbol} historical data from cache...");
-            bars = _dataCache.LoadFromCache(symbol) ?? [];
-            
-            if (bars.Count > 0)
-            {
-                progress?.Report($"Loaded {bars.Count} bars from cache.");
-            }
-        }
-        else
-        {
-            progress?.Report($"Fetching historical data for {symbol} from IBKR API (first time)...");
-            
-            // Fetch from API and save to cache
-            bars = await _dataCache.GetOrFetchAsync(symbol, _histService, cancellationToken: cancellationToken);
-            
-            progress?.Report($"Fetched {bars.Count} bars and cached to History/{symbol}.json");
-        }
+        // Load from cache, auto-filling forward to current date if cache is stale
+        progress?.Report($"Loading {symbol} historical data (auto-filling to current date)...");
+        List<HistoricalBar> bars = await _dataCache.GetOrFetchAsync(symbol, _histService, cancellationToken: cancellationToken);
+        progress?.Report($"Loaded {bars.Count} bars.");
 
         if (bars.Count == 0)
         {
@@ -2081,16 +2064,16 @@ public sealed class Backtester
             EnableSelfCalibration = false
         };
 
-        // Ensure we have cached data
+        // Load from cache, auto-filling forward to current date if cache is stale
         List<HistoricalBar> bars;
-        if (_dataCache.HasCachedData(symbol))
+        if (_histService != null)
+        {
+            progress?.Report($"Loading {symbol} historical data (auto-filling to current date)...");
+            bars = await _dataCache.GetOrFetchAsync(symbol, _histService, cancellationToken: cancellationToken);
+        }
+        else if (_dataCache.HasCachedData(symbol))
         {
             bars = _dataCache.LoadFromCache(symbol) ?? [];
-        }
-        else if (_histService != null)
-        {
-            progress?.Report($"Fetching {symbol} historical data (first time, may take a moment)...");
-            bars = await _dataCache.GetOrFetchAsync(symbol, _histService, cancellationToken: cancellationToken);
         }
         else
         {

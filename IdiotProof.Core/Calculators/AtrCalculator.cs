@@ -121,6 +121,61 @@ namespace IdiotProof.Helpers {
         }
 
         /// <summary>
+        /// Updates the ATR directly from a completed OHLC candle (bar).
+        /// This is more accurate than calling Update() with individual ticks when
+        /// the data is already in bar format (e.g., during backtesting).
+        /// Each call = one complete bar, so ATR becomes ready after 'period' bars.
+        /// </summary>
+        /// <param name="high">Bar high price.</param>
+        /// <param name="low">Bar low price.</param>
+        /// <param name="close">Bar close price.</param>
+        /// <returns>The updated ATR value.</returns>
+        public double UpdateFromCandle(double high, double low, double close)
+        {
+            if (high <= 0 || low <= 0 || close <= 0)
+                return _currentAtr;
+
+            if (!_isInitialized)
+            {
+                _previousClose = close;
+                _isInitialized = true;
+                return 0;
+            }
+
+            // Calculate True Range directly from the bar
+            double highLowRange = high - low;
+            double highCloseRange = Math.Abs(high - _previousClose);
+            double lowCloseRange = Math.Abs(low - _previousClose);
+            double trueRange = Math.Max(highLowRange, Math.Max(highCloseRange, lowCloseRange));
+
+            // Add to queue
+            _trueRanges.Enqueue(trueRange);
+            _highs.Enqueue(high);
+            _lows.Enqueue(low);
+
+            // Keep queue at period size
+            while (_trueRanges.Count > _period)
+            {
+                _trueRanges.Dequeue();
+                _highs.Dequeue();
+                _lows.Dequeue();
+            }
+
+            // Calculate ATR using Wilder's smoothing
+            if (_trueRanges.Count == 1)
+            {
+                _currentAtr = trueRange;
+            }
+            else
+            {
+                _currentAtr = ((_currentAtr * (_period - 1)) + trueRange) / _period;
+            }
+
+            _previousClose = close;
+            return _currentAtr;
+        }
+
+        /// <summary>
         /// Calculates the stop loss price based on current ATR and configuration.
         /// </summary>
         /// <param name="referencePrice">The price to calculate stop from (e.g., high water mark).</param>

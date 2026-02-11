@@ -144,6 +144,9 @@ namespace IdiotProof.Strategy {
         private Helpers.SmaCalculator? _sma20Calculator;
         private Helpers.SmaCalculator? _sma50Calculator;
 
+        // Previous day levels tracker for S/R (PDH/PDL/PDC, pivot points, multi-day range)
+        private Calculators.PreviousDayLevelsTracker? _prevDayLevels;
+
         // Price action context for proactive multi-bar pattern analysis (FVG, pullback, extension detection)
         private readonly Helpers.PriceActionContext _priceActionContext = new();
 
@@ -374,6 +377,14 @@ namespace IdiotProof.Strategy {
                 }
             }
 
+            // Initialize Previous Day Levels tracker for S/R analysis
+            _prevDayLevels = new Calculators.PreviousDayLevelsTracker(contract.Symbol);
+            _prevDayLevels.InitializeFromCache();
+            if (_prevDayLevels.HasData)
+            {
+                Log($"[S/R] {_prevDayLevels.GetLevelsSummary()}", ConsoleColor.DarkCyan);
+            }
+
             // Subscribe to fill events
             _wrapper.OnOrderFill += OnOrderFill;
 
@@ -531,8 +542,14 @@ namespace IdiotProof.Strategy {
                 _lastPrice = candles[^1].Close;
 
                 // Set previous close for gap conditions
-                // Use the close of the day before the last bar (or just use the first bar's open if we only have intraday data)
                 SetPreviousCloseForGapConditions(candles);
+                
+                // Seed previous day levels tracker from historical candles
+                _prevDayLevels?.SeedFromHistoricalCandles(candles);
+                if (_prevDayLevels?.HasData == true)
+                {
+                    Log($"  [OK] Previous day levels: {_prevDayLevels.GetLevelsSummary()}", ConsoleColor.Green);
+                }
             }
 
             // Log historical metadata insights if available
@@ -690,6 +707,7 @@ namespace IdiotProof.Strategy {
                     _williamsRCalculator?.Update(candle.High, candle.Low, candle.Close);
                     _sma20Calculator?.Update(candle.Close);
                     _sma50Calculator?.Update(candle.Close);
+                    _prevDayLevels?.Update(candle);
                 }
                 catch (Exception ex)
                 {
@@ -1737,7 +1755,14 @@ namespace IdiotProof.Strategy {
                 Momentum = momentum,
                 Roc = roc,
                 BollingerPercentB = bbPercentB,
-                BollingerBandwidth = bbBandwidth
+                BollingerBandwidth = bbBandwidth,
+                PrevDayHigh = _prevDayLevels?.PrevDayHigh ?? 0,
+                PrevDayLow = _prevDayLevels?.PrevDayLow ?? 0,
+                PrevDayClose = _prevDayLevels?.PrevDayClose ?? 0,
+                TwoDayHigh = _prevDayLevels?.TwoDayHigh ?? 0,
+                TwoDayLow = _prevDayLevels?.TwoDayLow ?? 0,
+                SessionHigh = _prevDayLevels?.SessionHigh ?? 0,
+                SessionLow = _prevDayLevels?.SessionLow ?? 0
             };
         }
 
@@ -2264,6 +2289,11 @@ namespace IdiotProof.Strategy {
                             {
                                 Log($"[AI] Risks: {string.Join(", ", aiAnalysis.RiskFactors)}", ConsoleColor.DarkGray);
                             }
+                            if (aiAnalysis.RuleStatus != "NO_RULES")
+                            {
+                                var ruleColor = aiAnalysis.AreRulesMet ? ConsoleColor.Green : ConsoleColor.Yellow;
+                                Log($"[AI] Strategy Rules: {aiAnalysis.RuleStatus}", ruleColor);
+                            }
                         }
                     }
                     catch (Exception ex)
@@ -2531,9 +2561,9 @@ namespace IdiotProof.Strategy {
                     : "";
                 Log($"*** AUTONOMOUS LONG SIGNAL: Score {score.TotalScore} >= {adjustedLongThreshold}{thresholdInfo}", ConsoleColor.Cyan);
                 Log($"  Indicators: VWAP={score.VwapScore}, EMA={score.EmaScore}, RSI={score.RsiScore}, MACD={score.MacdScore}, ADX={score.AdxScore}, Vol={score.VolumeScore}", ConsoleColor.DarkGray);
-                if (_tickerProfile?.Confidence >= 20)
+                if (_prevDayLevels?.HasData == true)
                 {
-                    Log($"  Profile: {_tickerProfile.TotalTrades} trades, {_tickerProfile.WinRate:F1}% win rate, Conf={_tickerProfile.Confidence}%", ConsoleColor.DarkGray);
+                    Log($"  S/R Levels: PDH=${_prevDayLevels.PrevDayHigh:F2}, PDL=${_prevDayLevels.PrevDayLow:F2}, PDC=${_prevDayLevels.PrevDayClose:F2}", ConsoleColor.DarkGray);
                 }
                 
                 // Calculate TP/SL based on ATR with self-adjusting multipliers
@@ -2614,9 +2644,9 @@ namespace IdiotProof.Strategy {
                     : "";
                 Log($"*** AUTONOMOUS SHORT SIGNAL: Score {score.TotalScore} <= {adjustedShortThreshold}{thresholdInfo}", ConsoleColor.Magenta);
                 Log($"  Indicators: VWAP={score.VwapScore}, EMA={score.EmaScore}, RSI={score.RsiScore}, MACD={score.MacdScore}, ADX={score.AdxScore}, Vol={score.VolumeScore}", ConsoleColor.DarkGray);
-                if (_tickerProfile?.Confidence >= 20)
+                if (_prevDayLevels?.HasData == true)
                 {
-                    Log($"  Profile: {_tickerProfile.TotalTrades} trades, {_tickerProfile.WinRate:F1}% win rate, Conf={_tickerProfile.Confidence}%", ConsoleColor.DarkGray);
+                    Log($"  S/R Levels: PDH=${_prevDayLevels.PrevDayHigh:F2}, PDL=${_prevDayLevels.PrevDayLow:F2}, PDC=${_prevDayLevels.PrevDayClose:F2}", ConsoleColor.DarkGray);
                 }
                 
                 // Calculate TP/SL based on ATR with self-adjusting multipliers

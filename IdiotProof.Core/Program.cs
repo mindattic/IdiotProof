@@ -580,14 +580,10 @@ namespace IdiotProof {
                             break;
 
                         case "2":
-                            RunAiLearn();
-                            break;
-
-                        case "3":
                             RunBacktestPrompt();
                             break;
 
-                        case "4":
+                        case "3":
                             if (!_isActive)
                             {
                                 if (ConfirmActivateTrading())
@@ -607,7 +603,7 @@ namespace IdiotProof {
                             }
                             break;
 
-                        case "5":
+                        case "4":
                         case "t":
                         case "T":
                             if (!_isActive)
@@ -696,11 +692,10 @@ namespace IdiotProof {
             var tickers = LoadTickers();
             var tickerCount = tickers.Count;
             var profileCount = CountProfiles(tickers);
-            var weightsCount = CountWeights(tickers);
             
             Log("");
             Log("========================================");
-            Log($"  Tickers: {tickerCount} | Profiles: {profileCount} | Weights: {weightsCount} | {(_isActive ? "TRADING" : "Idle")}");
+            Log($"  Tickers: {tickerCount} | Profiles: {profileCount} | {(_isActive ? "TRADING" : "Idle")}");
             Log("========================================");
             
             if (_isActive)
@@ -715,20 +710,15 @@ namespace IdiotProof {
             else
             {
                 Log("  1. Tickers   - Manage ticker watchlist");
-                Log("  2. Learn     - AI learning (150+ weights)");
-                Log("  3. Backtest  - Test learned weights");
-                Log("  4. Live      - Start live trading");
-                Log("  5. Tests     - Run BUY/SELL/SHORT/COVER tests");
+                Log("  2. Backtest  - Run backtest simulation");
+                Log("  3. Live      - Start live trading");
+                Log("  4. Tests     - Run BUY/SELL/SHORT/COVER tests");
                 Log("  0. Exit");
             }
             Log("========================================");
         }
         
-        private static int CountWeights(List<string> tickers)
-        {
-            var folder = SettingsManager.GetDataFolder();
-            return tickers.Count(t => File.Exists(Path.Combine(folder, $"{t}.weights.json")));
-        }
+
         
         // ====================================================================
         // TICKERS MANAGEMENT
@@ -883,8 +873,9 @@ namespace IdiotProof {
                 Log("  1. Add            - Add ticker(s) to watchlist");
                 Log("  2. Delete         - Remove a ticker");
                 Log("  3. Set Allocation - Change capital allocation");
-                Log("  4. Clear          - Remove all tickers");
-                Log("  5. Refresh        - Refresh prices/descriptions (parallel fetch)");
+                Log("  4. Toggle         - Enable/disable a ticker");
+                Log("  5. Clear          - Remove all tickers");
+                Log("  6. Refresh        - Refresh prices/descriptions (parallel fetch)");
                 Log("  0. Return");
                 Log("========================================");
                 
@@ -915,9 +906,9 @@ namespace IdiotProof {
                             if (newTickers.Count > 0)
                             {
                                 foreach (var t in newTickers)
-                                    watchlist.Tickers.Add(new WatchlistEntry { Symbol = t, Enabled = true });
+                                    watchlist.Tickers.Add(new WatchlistEntry { Symbol = t, Allocation = 0, Enabled = false });
                                 WatchlistManager.Save(watchlist);
-                                Log($"  Added: {string.Join(", ", newTickers)}");
+                                Log($"  Added: {string.Join(", ", newTickers)} (disabled, $0 allocation - configure to trade)");
                                 
                                 // Parallel fetch prices and descriptions for new tickers
                                 Log("  Fetching data for new tickers...");
@@ -973,14 +964,15 @@ namespace IdiotProof {
                             
                             if (targetEntry != null)
                             {
-                                var currentAlloc = targetEntry.Allocation > 0 ? targetEntry.Allocation : TradingDefaults.DefaultAllocationDollars;
-                                Console.Write($"  Allocation for {targetEntry.Symbol} (current ${currentAlloc:F0}, 0=auto): $");
+                                var currentAlloc = targetEntry.Allocation;
+                                Console.Write($"  Allocation for {targetEntry.Symbol} (current ${currentAlloc:F0}): $");
                                 var allocInput = Console.ReadLine()?.Trim();
                                 if (double.TryParse(allocInput, out var newAlloc) && newAlloc >= 0)
                                 {
                                     targetEntry.Allocation = newAlloc;
+                                    if (newAlloc > 0) targetEntry.Enabled = true;
                                     WatchlistManager.Save(watchlist);
-                                    Log($"  {targetEntry.Symbol} allocation set to {(newAlloc == 0 ? "auto ($" + TradingDefaults.DefaultAllocationDollars + ")" : "$" + newAlloc.ToString("F0"))}");
+                                    Log($"  {targetEntry.Symbol} allocation set to ${newAlloc:F0}{(newAlloc == 0 ? " (will not trade)" : "")}");
                                 }
                                 else
                                 {
@@ -995,6 +987,39 @@ namespace IdiotProof {
                         break;
                         
                     case '4':
+                        Console.Write("  Toggle ticker (number or symbol): ");
+                        var toggleInput = Console.ReadLine()?.Trim().ToUpperInvariant();
+                        if (!string.IsNullOrEmpty(toggleInput))
+                        {
+                            var tickers = watchlist.Tickers.OrderBy(t => t.Symbol).ToList();
+                            WatchlistEntry? toggleEntry = null;
+                            if (int.TryParse(toggleInput, out var tidx) && tidx >= 1 && tidx <= tickers.Count)
+                            {
+                                toggleEntry = tickers[tidx - 1];
+                            }
+                            else
+                            {
+                                toggleEntry = tickers.FirstOrDefault(t => string.Equals(t.Symbol, toggleInput, StringComparison.OrdinalIgnoreCase));
+                            }
+                            
+                            if (toggleEntry != null)
+                            {
+                                toggleEntry.Enabled = !toggleEntry.Enabled;
+                                WatchlistManager.Save(watchlist);
+                                var state = toggleEntry.Enabled ? "ENABLED" : "DISABLED";
+                                if (toggleEntry.Enabled && toggleEntry.Allocation <= 0)
+                                    Log($"  {toggleEntry.Symbol} {state} (warning: $0 allocation - set allocation to trade)");
+                                else
+                                    Log($"  {toggleEntry.Symbol} {state}");
+                            }
+                            else
+                            {
+                                Log($"  Not found: {toggleInput}");
+                            }
+                        }
+                        break;
+                    
+                    case '5':
                         Console.Write("  Clear all tickers? (Y/N): ");
                         var confirm = Console.ReadKey(intercept: true);
                         Console.WriteLine();
@@ -1006,7 +1031,7 @@ namespace IdiotProof {
                         }
                         break;
                     
-                    case '5':
+                    case '6':
                         Log("  Refreshing all tickers (parallel fetch)...");
                         var allSymbols = watchlist.Tickers.Select(t => t.Symbol).ToList();
                         RefreshTickerCacheAsync(allSymbols).GetAwaiter().GetResult();
@@ -1014,7 +1039,7 @@ namespace IdiotProof {
                         break;
                         
                     default:
-                        Log("  Unknown command. Use 1-5 or 0 to return.");
+                        Log("  Unknown command. Use 1-6 or 0 to return.");
                         break;
                 }
                 
@@ -1049,12 +1074,6 @@ namespace IdiotProof {
             }
             
             await TickerDataCache.RefreshAsync(symbols, priceProvider, _shutdownCts.Token);
-        }
-
-        private static void RunAiLearn()
-        {
-            Log("AI Learning has been removed. The system now uses ChatGPT AI Advisor for trading decisions.");
-            Log("Configure your OpenAI API key via OPENAI_IDIOTPROOF_API_KEY environment variable.");
         }
 
         private static void PrintStatus()
@@ -1189,9 +1208,12 @@ namespace IdiotProof {
                 return;
             }
 
-            // Get symbols from watchlist.json
+            // Get ALL symbols from watchlist (backtest runs all tickers regardless of enabled/allocation)
             var watchlist = WatchlistManager.Load();
-            var symbols = watchlist.EnabledTickers.Select(t => t.Symbol).ToList();
+            var symbols = watchlist.Tickers
+                .Where(t => !string.IsNullOrEmpty(t.Symbol))
+                .Select(t => t.Symbol)
+                .ToList();
             
             if (symbols.Count == 0)
             {
@@ -1202,6 +1224,7 @@ namespace IdiotProof {
             Log("=== Backtest Configuration ===");
             Log("");
             Log($"  Tickers from watchlist: {string.Join(", ", symbols)}");
+            Log($"  Allocation: ${TradingDefaults.DefaultAllocationDollars:F0} per ticker (backtest default)");
             Log("");
 
             // Days
@@ -1209,48 +1232,20 @@ namespace IdiotProof {
             var daysInput = Console.ReadLine()?.Trim();
             var days = string.IsNullOrEmpty(daysInput) ? 30 : int.TryParse(daysInput, out var d) ? d : 30;
 
-            // AI Confirmation
-            Console.Write("  Use ChatGPT confirmation? (y/N): ");
-            var aiInput = Console.ReadLine()?.Trim().ToLowerInvariant();
-            var useAiConfirmation = aiInput == "y" || aiInput == "yes";
-
-            if (useAiConfirmation)
-            {
-                Log("");
-                Log("  [!] ChatGPT confirmation ENABLED");
-                Log("      Each potential trade will be verified by AI before execution.");
-                Log("      This will be slower (~2-3 sec per signal) but more accurate.");
-                if (days > 5)
-                {
-                    Log("");
-                    Log("  [!] WARNING: You have ChatGPT enabled with >5 days.");
-                    Log("      Consider reducing days to 5 or less for faster testing.");
-                    Console.Write("  Continue anyway? (y/N): ");
-                    var continueAnyway = Console.ReadLine()?.Trim().ToLowerInvariant();
-                    if (continueAnyway != "y" && continueAnyway != "yes")
-                    {
-                        Log("Aborted.");
-                        return;
-                    }
-                }
-            }
-
             Log("");
             Log($"Starting backtest for {symbols.Count} ticker(s)...");
             Log($"  Days: {days}");
-            if (useAiConfirmation) Log($"  AI Confirmation: ENABLED");
+            Log($"  AI Confirmation: ENABLED");
             Log("");
 
             var summaryResults = new List<BacktestResponsePayload>();
 
             foreach (var symbol in symbols)
             {
-                // Get quantity from watchlist for this ticker
-                var entry = watchlist.Tickers.FirstOrDefault(t => 
-                    string.Equals(t.Symbol, symbol, StringComparison.OrdinalIgnoreCase));
-                var alloc = entry?.Allocation > 0 ? entry.Allocation : TradingDefaults.DefaultAllocationDollars;
+                // Backtest always uses $1000 fake allocation regardless of watchlist settings
+                var alloc = TradingDefaults.DefaultAllocationDollars;
 
-                Log($"--- {symbol} (${alloc:F0} allocation) ---");
+                Log($"--- {symbol} (${alloc:F0} backtest allocation) ---");
 
                 var request = new RunBacktestRequest
                 {
@@ -1259,7 +1254,7 @@ namespace IdiotProof {
                     Mode = "adaptive", // Ignored - simulator adapts dynamically
                     Allocation = alloc,
                     SaveProfile = true,
-                    UseAiConfirmation = useAiConfirmation
+                    UseAiConfirmation = true
                 };
 
                 var result = RunBacktestAsync(request).GetAwaiter().GetResult();
@@ -1333,6 +1328,9 @@ namespace IdiotProof {
                     }
                 }
 
+                // Write backtest log to Logs\ folder
+                WriteBacktestLog(result, days, alloc);
+
                 Log("");
             }
 
@@ -1351,6 +1349,104 @@ namespace IdiotProof {
                     }
                 }
                 Log("=====================");
+            }
+        }
+
+        /// <summary>
+        /// Writes a backtest result log file to the Logs\ folder.
+        /// Format: backtest_{SYMBOL}_{date}.txt
+        /// </summary>
+        private static void WriteBacktestLog(BacktestResponsePayload result, int days, double allocation)
+        {
+            try
+            {
+                var logsFolder = Logging.LogPaths.GetLogsFolder();
+                var timestamp = DateTime.Now.ToString("yyyy-MM-dd_HH-mm-ss");
+                var fileName = $"backtest_{result.Symbol}_{timestamp}.txt";
+                var filePath = Path.Combine(logsFolder, fileName);
+
+                var sb = new System.Text.StringBuilder();
+                sb.AppendLine($"=== Backtest Log: {result.Symbol} ===");
+                sb.AppendLine($"Date:           {DateTime.Now:yyyy-MM-dd HH:mm:ss}");
+                sb.AppendLine($"Days:           {days}");
+                sb.AppendLine($"Allocation:     ${allocation:F0}");
+                sb.AppendLine();
+
+                if (!result.Success)
+                {
+                    sb.AppendLine($"FAILED: {result.ErrorMessage}");
+                    File.WriteAllText(filePath, sb.ToString());
+                    Log($"Backtest log saved: {fileName}");
+                    return;
+                }
+
+                sb.AppendLine("--- Results ---");
+                sb.AppendLine($"Position:       {result.PositionSize:N0} shares @ ~${result.AvgEntryPrice:F2}");
+                sb.AppendLine($"Bars Processed: {result.BarsProcessed:N0}");
+                sb.AppendLine();
+                sb.AppendLine("--- Account Summary ---");
+                sb.AppendLine($"Starting Value: ${result.StartingCapital:N2}");
+                sb.AppendLine($"Profit/Loss:    {(result.TotalPnL >= 0 ? "+" : "")}${result.TotalPnL:N2}");
+                sb.AppendLine($"Ending Value:   ${result.EndingCapital:N2}");
+                sb.AppendLine($"Return:         {(result.ReturnPercent >= 0 ? "+" : "")}{result.ReturnPercent:F2}%");
+                sb.AppendLine();
+                sb.AppendLine("--- Trade Statistics ---");
+                sb.AppendLine($"Total Trades:   {result.TotalTrades}");
+                sb.AppendLine($"Winning Trades: {result.WinningTrades}");
+                sb.AppendLine($"Win Rate:       {result.WinRate:F1}%");
+                sb.AppendLine($"Avg P&L/Trade:  ${result.AvgPnL:F2}");
+                sb.AppendLine($"Confidence:     {result.Confidence:F0}%");
+                sb.AppendLine();
+
+                // Profile learning
+                if (result.ProfileSaved)
+                {
+                    var profile = StrategyRunner.ProfileManager.GetProfile(result.Symbol);
+                    if (profile != null)
+                    {
+                        sb.AppendLine("--- Profile Learning ---");
+                        if (profile.BacktestStartDate.HasValue && profile.BacktestEndDate.HasValue)
+                            sb.AppendLine($"Backtest Range: {profile.BacktestStartDate:yyyy-MM-dd} to {profile.BacktestEndDate:yyyy-MM-dd} ({profile.BacktestDays} days)");
+                        sb.AppendLine($"Optimal Long Entry:  Score >= {profile.OptimalLongEntryThreshold}");
+                        sb.AppendLine($"Optimal Short Entry: Score <= {profile.OptimalShortEntryThreshold}");
+                        sb.AppendLine($"Optimal Long Exit:   Score <  {profile.OptimalLongExitThreshold}");
+                        sb.AppendLine($"Optimal Short Exit:  Score >  {profile.OptimalShortExitThreshold}");
+                        sb.AppendLine($"Long Win Rate:  {profile.LongWinRate:F1}%");
+                        sb.AppendLine($"Short Win Rate: {profile.ShortWinRate:F1}%");
+                        sb.AppendLine($"Profit Factor:  {profile.ProfitFactor:F2}");
+                        sb.AppendLine($"Avg Duration:   {profile.AverageTradeDurationMinutes:F1} min");
+                        sb.AppendLine();
+                    }
+                }
+
+                // Detailed trade log
+                if (!string.IsNullOrEmpty(result.DetailedTradeLog))
+                {
+                    sb.AppendLine("--- Detailed Trade Log ---");
+                    sb.AppendLine(result.DetailedTradeLog);
+                }
+
+                // Individual trades
+                if (result.Trades.Count > 0)
+                {
+                    sb.AppendLine("--- Individual Trades ---");
+                    sb.AppendLine($"{"#",-4} {"Direction",-6} {"Entry Time",-20} {"Entry$",-10} {"Exit Time",-20} {"Exit$",-10} {"P&L",-10}");
+                    int tradeNum = 1;
+                    foreach (var t in result.Trades)
+                    {
+                        var dir = t.IsLong ? "LONG" : "SHORT";
+                        sb.AppendLine($"{tradeNum,-4} {dir,-6} {t.EntryTime:yyyy-MM-dd HH:mm,-20} ${t.EntryPrice,-9:F2} {t.ExitTime:yyyy-MM-dd HH:mm,-20} ${t.ExitPrice,-9:F2} {(t.PnL >= 0 ? "+" : "")}${t.PnL:F2}");
+                        tradeNum++;
+                    }
+                    sb.AppendLine();
+                }
+
+                File.WriteAllText(filePath, sb.ToString());
+                Log($"Backtest log saved: {fileName}");
+            }
+            catch (Exception ex)
+            {
+                Log($"WARNING: Failed to write backtest log: {ex.Message}");
             }
         }
 
@@ -1593,17 +1689,24 @@ namespace IdiotProof {
                 var symbol = entry.Symbol;
                 var cached = TickerDataCache.Get(symbol);
                 var price = cached?.Price ?? GetTickerPrice(symbol);
-                var alloc = entry.Allocation > 0 ? entry.Allocation : TradingDefaults.DefaultAllocationDollars;
-                var qty = entry.GetQuantityForPrice(price > 0 ? price : 10.0);
-                var value = alloc; // Value is the allocation
+                var alloc = entry.Allocation;
+                var qty = alloc > 0 ? entry.GetQuantityForPrice(price > 0 ? price : 10.0) : 0;
+                var value = alloc;
                 totalValue += value;
                 
                 var priceStr = price > 0 ? $"${price:F2}" : "--";
-                var allocStr = $"${alloc:F0}";
+                var allocStr = alloc > 0 ? $"${alloc:F0}" : "$0";
                 var qtyStr = qty > 0 ? qty.ToString() : "--";
                 var valueStr = value > 0 ? $"${value:N0}" : "--";
+
+                // Gray out disabled/unconfigured tickers
+                if (!entry.IsReadyToTrade)
+                    Console.ForegroundColor = ConsoleColor.DarkGray;
                 
                 Log($"  {symbol,-10} {allocStr,-12} {qtyStr,-10} {priceStr,-10} {valueStr}");
+
+                if (!entry.IsReadyToTrade)
+                    Console.ResetColor();
             }
             
             Log("+--------------------------------------------------------------+");

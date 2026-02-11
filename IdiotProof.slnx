@@ -1,3 +1,4 @@
 <Solution>
+  <Project Path="IdiotProof.Core.UnitTests/IdiotProof.Core.UnitTests.csproj" />
   <Project Path="IdiotProof.Core/IdiotProof.Core.csproj" />
 </Solution>

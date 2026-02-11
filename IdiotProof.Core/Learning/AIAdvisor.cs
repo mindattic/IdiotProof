@@ -462,7 +462,9 @@ public sealed class AIAdvisor : IDisposable
                 $"BLOCKED: AI confidence {analysis.Confidence}% < {MinConfidenceRequired}% required");
         }
 
-        return (true, analysis.Confidence, $"AI approved {direction} with {analysis.Confidence}% confidence");
+        // Strategy rules are advisory only - log status but don't block
+        var ruleInfo = analysis.RuleStatus != "NO_RULES" ? $" [Rules: {analysis.RuleStatus}]" : "";
+        return (true, analysis.Confidence, $"AI approved {direction} with {analysis.Confidence}% confidence{ruleInfo}");
     }
     
     // Track decision accuracy for self-improvement
@@ -727,6 +729,51 @@ public sealed class AIAdvisor : IDisposable
         sb.AppendLine();
         
         // ============================================================
+        // SECTION 1.5: PREVIOUS DAY LEVELS (S/R)
+        // ============================================================
+        if (snapshot.PrevDayHigh > 0 && snapshot.PrevDayLow > 0)
+        {
+            sb.AppendLine("=== PREVIOUS DAY LEVELS (KEY S/R) ===");
+            sb.AppendLine($"PDH (Resistance): ${snapshot.PrevDayHigh:F2} ({((snapshot.Price - snapshot.PrevDayHigh) / Math.Max(snapshot.PrevDayHigh, 0.01) * 100):+0.00;-0.00}% from PDH)");
+            sb.AppendLine($"PDL (Support):    ${snapshot.PrevDayLow:F2} ({((snapshot.Price - snapshot.PrevDayLow) / Math.Max(snapshot.PrevDayLow, 0.01) * 100):+0.00;-0.00}% from PDL)");
+            sb.AppendLine($"PDC (Pivot):      ${snapshot.PrevDayClose:F2} ({((snapshot.Price - snapshot.PrevDayClose) / Math.Max(snapshot.PrevDayClose, 0.01) * 100):+0.00;-0.00}% from PDC)");
+            
+            double prevRange = snapshot.PrevDayHigh - snapshot.PrevDayLow;
+            sb.AppendLine($"Prev Day Range:   ${prevRange:F2}");
+            
+            // Position within previous range
+            if (prevRange > 0)
+            {
+                double posInRange = (snapshot.Price - snapshot.PrevDayLow) / prevRange;
+                string zone = posInRange > 1.0 ? "ABOVE yesterday (breakout)" :
+                              posInRange < 0.0 ? "BELOW yesterday (breakdown)" :
+                              posInRange > 0.67 ? "PREMIUM ZONE (upper third)" :
+                              posInRange < 0.33 ? "DISCOUNT ZONE (lower third)" :
+                              "MID-RANGE (equilibrium)";
+                sb.AppendLine($"Position in Range: {posInRange:P0} = {zone}");
+            }
+            
+            if (snapshot.TwoDayHigh > 0 && snapshot.TwoDayLow > 0)
+            {
+                sb.AppendLine($"2-Day High:       ${snapshot.TwoDayHigh:F2} ({(snapshot.Price > snapshot.TwoDayHigh ? "ABOVE - multi-day breakout!" : $"{((snapshot.TwoDayHigh - snapshot.Price) / snapshot.Price * 100):F2}% below")})");
+                sb.AppendLine($"2-Day Low:        ${snapshot.TwoDayLow:F2} ({(snapshot.Price < snapshot.TwoDayLow ? "BELOW - multi-day breakdown!" : $"{((snapshot.Price - snapshot.TwoDayLow) / snapshot.Price * 100):F2}% above")})");
+            }
+            
+            if (snapshot.SessionHigh > 0 && snapshot.SessionLow > 0)
+            {
+                sb.AppendLine($"Today HOD:        ${snapshot.SessionHigh:F2}");
+                sb.AppendLine($"Today LOD:        ${snapshot.SessionLow:F2}");
+            }
+            
+            sb.AppendLine();
+            sb.AppendLine("S/R RULES: Price AT PDH = expect resistance. Price BREAKING above PDH = bullish breakout (buy).");
+            sb.AppendLine("Price AT PDL = expect support. Price BREAKING below PDL = bearish breakdown (short).");
+            sb.AppendLine("Price above PDC = bullish bias. Price below PDC = bearish bias.");
+            sb.AppendLine("Yesterday's range defines today's battlefield. Breakout above/below = directional move.");
+            sb.AppendLine();
+        }
+        
+        // ============================================================
         // SECTION 2: MOVING AVERAGES (EMA + SMA)
         // ============================================================
         sb.AppendLine("=== MOVING AVERAGES ===");
@@ -765,8 +812,8 @@ public sealed class AIAdvisor : IDisposable
         sb.AppendLine($"Stochastic Cross: %K {(snapshot.StochasticK > snapshot.StochasticD ? ">" : "<")} %D = {(snapshot.StochasticK > snapshot.StochasticD ? "BULLISH momentum" : "BEARISH momentum")}");
         sb.AppendLine($"Williams %R(14): {snapshot.WilliamsR:F1} ({(snapshot.WilliamsR >= -20 ? "OVERBOUGHT" : snapshot.WilliamsR <= -80 ? "OVERSOLD" : "Normal")})");
         sb.AppendLine($"CCI(20): {snapshot.Cci:F1} ({(snapshot.Cci > 100 ? "OVERBOUGHT/strong uptrend" : snapshot.Cci < -100 ? "OVERSOLD/strong downtrend" : "Normal range")})");
-        sb.AppendLine($"Momentum(10): {snapshot.Momentum:F2} ({(snapshot.Momentum > 0 ? "POSITIVE (price rising vs 10 bars ago)" : "NEGATIVE (price falling vs 10 bars ago)")})");
-        sb.AppendLine($"ROC(10): {snapshot.Roc:F2}% ({(snapshot.Roc > 2 ? "STRONG bullish" : snapshot.Roc > 0 ? "Mild bullish" : snapshot.Roc < -2 ? "STRONG bearish" : "Mild bearish")})");
+        sb.AppendLine($"Momentum(10): {snapshot.Momentum:F2} ({(snapshot.Momentum > 0 ? "POSITIVE (price rising vs 10 bars ago)" : snapshot.Momentum < 0 ? "NEGATIVE (price falling vs 10 bars ago)" : "NEUTRAL (flat)")})");
+        sb.AppendLine($"ROC(10): {snapshot.Roc:F2}% ({(snapshot.Roc > 2 ? "STRONG bullish" : snapshot.Roc > 0 ? "Mild bullish" : snapshot.Roc < -2 ? "STRONG bearish" : snapshot.Roc < 0 ? "Mild bearish" : "NEUTRAL")})");
         sb.AppendLine();
         
         // ============================================================
@@ -832,6 +879,7 @@ public sealed class AIAdvisor : IDisposable
         bool volumeConfirms = snapshot.VolumeRatio >= 1.2;
         bool smaAligned = snapshot.Sma20 > snapshot.Sma50 && snapshot.Sma20 > 0 && snapshot.Sma50 > 0;
         bool momentumPositive = snapshot.Momentum > 0;
+        bool momentumNegative = snapshot.Momentum < 0;
         
         int longMet = 0, longTotal = 9;
         sb.AppendLine("LONG REQUIREMENTS:");
@@ -858,7 +906,7 @@ public sealed class AIAdvisor : IDisposable
         sb.AppendLine($"  {(!diPositive ? "[MET]" : "[---]")} -DI > +DI");                             if (!diPositive) shortMet++;
         sb.AppendLine($"  {(volumeConfirms ? "[MET]" : "[---]")} Volume >= 1.2x average");             if (volumeConfirms) shortMet++;
         sb.AppendLine($"  {(!smaAligned ? "[MET]" : "[---]")} SMA(20) < SMA(50) (Death Cross)");       if (!smaAligned) shortMet++;
-        sb.AppendLine($"  {(!momentumPositive ? "[MET]" : "[---]")} Momentum < 0");                    if (!momentumPositive) shortMet++;
+        sb.AppendLine($"  {(!momentumPositive ? "[MET]" : "[---]")} Momentum < 0");                    if (momentumNegative) shortMet++;
         sb.AppendLine($"  Score: {shortMet}/{longTotal} requirements met");
         sb.AppendLine();
         
@@ -873,7 +921,7 @@ public sealed class AIAdvisor : IDisposable
         sb.AppendLine($"  Bollinger:  {score.BollingerScore,4}  |  Stochastic: {score.StochasticScore,4}");
         sb.AppendLine($"  OBV:        {score.ObvScore,4}  |  CCI:        {score.CciScore,4}");
         sb.AppendLine($"  Williams%R: {score.WilliamsRScore,4}  |  SMA:        {score.SmaScore,4}");
-        sb.AppendLine($"  Momentum:   {score.MomentumScore,4}");
+        sb.AppendLine($"  Momentum:   {score.MomentumScore,4}  |  S/R:        {score.SupportResistanceScore,4}");
         
         // Include custom strategy rules from the user's strategy-rules.json
         var customRules = StrategyRulesManager.GetRulesForPrompt(symbol);
@@ -893,7 +941,7 @@ public sealed class AIAdvisor : IDisposable
         sb.AppendLine("REASONING: one concise sentence explaining which indicators drove your decision");
         sb.AppendLine("RULE_STATUS: MET|NOT_MET|NO_RULES");
         sb.AppendLine("RISKS: comma-separated list of key risks");
-        sb.AppendLine("TPSL: suggest take-profit and stop-loss levels based on ATR and support/resistance");
+        sb.AppendLine("TPSL: suggest take-profit and stop-loss levels based on ATR, PDH/PDL, and session high/low");
         
         return sb.ToString();
     }

@@ -251,7 +251,7 @@ namespace IdiotProof.Models {
         /// When enabled, each potential entry is sent to ChatGPT for approval.
         /// This makes backtest slower but more accurate.
         /// </summary>
-        public bool UseAiConfirmation { get; set; } = false;
+        public bool UseAiConfirmation { get; set; } = true;
     }
 
     /// <summary>

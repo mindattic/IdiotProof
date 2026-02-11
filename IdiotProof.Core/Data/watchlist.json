@@ -1,19 +1,49 @@
 {
   "tickers": [
     {
+      "symbol": "CCHH",
+      "name": null,
+      "allocation": 1000,
+      "enabled": true
+    },
+    {
+      "symbol": "JZXN",
+      "name": null,
+      "allocation": 1000,
+      "enabled": true
+    },
+    {
       "symbol": "NVDA",
       "name": null,
       "allocation": 0,
-      "enabled": true
+      "enabled": false
     },
     {
       "symbol": "UUUU",
       "name": null,
       "allocation": 0,
-      "enabled": true
+      "enabled": false
+    },
+    {
+      "symbol": "TSLA",
+      "name": null,
+      "allocation": 0,
+      "enabled": false
+    },
+    {
+      "symbol": "BE",
+      "name": null,
+      "allocation": 0,
+      "enabled": false
+    },
+    {
+      "symbol": "SNDK",
+      "name": null,
+      "allocation": 0,
+      "enabled": false
     }
   ],
-  "session": "RTH",
+  "session": "Extended",
   "enabled": true,
   "description": null
 }

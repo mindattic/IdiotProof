@@ -71,6 +71,17 @@ public readonly struct IndicatorSnapshot
     // Bollinger Bands derived
     public double BollingerPercentB { get; init; }
     public double BollingerBandwidth { get; init; }
+    
+    // Previous Day Levels (Support/Resistance)
+    public double PrevDayHigh { get; init; }
+    public double PrevDayLow { get; init; }
+    public double PrevDayClose { get; init; }
+    
+    // Multi-day key levels
+    public double TwoDayHigh { get; init; }    // Highest high of last 2 days
+    public double TwoDayLow { get; init; }     // Lowest low of last 2 days
+    public double SessionHigh { get; init; }   // Current session high
+    public double SessionLow { get; init; }    // Current session low
 }
 
 /// <summary>
@@ -104,6 +115,12 @@ public readonly struct MarketScoreResult
     /// True if MACD > Signal (bullish MACD).
     /// </summary>
     public bool IsMacdBullish { get; init; }
+    
+    /// <summary>
+    /// Support/Resistance proximity score (-100 to +100).
+    /// Positive = near support (bullish), Negative = near resistance (bearish).
+    /// </summary>
+    public int SupportResistanceScore { get; init; }
 }
 
 /// <summary>
@@ -344,6 +361,12 @@ public static class MarketScoreCalculator
         int momentumScore = CalculateMomentumScore(snapshot.Momentum, snapshot.Roc);
 
         // ====================================================================
+        // Support/Resistance from Previous Day Levels (bonus, not weighted)
+        // PDH/PDL/PDC act as natural S/R - proximity adjusts score
+        // ====================================================================
+        int srScore = CalculateSupportResistanceScore(snapshot);
+
+        // ====================================================================
         // Weighted Total - Uses learned or default weights
         // ====================================================================
         double totalScore =
@@ -361,7 +384,7 @@ public static class MarketScoreCalculator
             smaScore * weights.Sma +
             momentumScore * weights.Momentum;
 
-        int finalScore = (int)Math.Clamp(totalScore, -100, 100);
+        int finalScore = (int)Math.Clamp(totalScore + srScore * 0.15, -100, 100);
 
         return new MarketScoreResult
         {
@@ -380,7 +403,8 @@ public static class MarketScoreCalculator
             SmaScore = smaScore,
             MomentumScore = momentumScore,
             IsDiPositive = isDiPositive,
-            IsMacdBullish = isMacdBullish
+            IsMacdBullish = isMacdBullish,
+            SupportResistanceScore = srScore
         };
     }
     
@@ -556,6 +580,108 @@ public static class MarketScoreCalculator
             score -= 40; // Strong bearish ROC (<-2%)
         else if (roc < 0)
             score -= 15; // Mild bearish ROC
+        
+        return (int)Math.Clamp(score, -100, 100);
+    }
+    
+    /// <summary>
+    /// Calculates Support/Resistance score from Previous Day Levels.
+    /// PDH acts as resistance, PDL acts as support, PDC acts as pivot.
+    /// Price bouncing off support = bullish, rejected at resistance = bearish.
+    /// </summary>
+    private static int CalculateSupportResistanceScore(IndicatorSnapshot snapshot)
+    {
+        double price = snapshot.Price;
+        double pdh = snapshot.PrevDayHigh;
+        double pdl = snapshot.PrevDayLow;
+        double pdc = snapshot.PrevDayClose;
+        
+        // Need valid previous day data
+        if (pdh <= 0 || pdl <= 0 || pdc <= 0 || price <= 0)
+            return 0;
+        
+        double prevRange = pdh - pdl;
+        if (prevRange <= 0)
+            return 0;
+        
+        int score = 0;
+        
+        // Proximity threshold: within 0.5% of a level = "at" the level
+        double proximityPct = 0.005;
+        
+        // --- Previous Day High (Resistance) ---
+        double distToPdh = (price - pdh) / price;
+        if (Math.Abs(distToPdh) < proximityPct)
+        {
+            // Price AT PDH - acts as resistance
+            score -= 30; // Bearish: testing resistance
+        }
+        else if (distToPdh > 0 && distToPdh < 0.02)
+        {
+            // Price just BROKE ABOVE PDH - breakout, old resistance becomes support
+            score += 40; // Bullish: breakout above yesterday's high
+        }
+        else if (distToPdh > 0.02)
+        {
+            // Price well above PDH - extended, PDH is now strong support below
+            score += 15;
+        }
+        
+        // --- Previous Day Low (Support) ---
+        double distToPdl = (price - pdl) / price;
+        if (Math.Abs(distToPdl) < proximityPct)
+        {
+            // Price AT PDL - acts as support
+            score += 30; // Bullish: testing support
+        }
+        else if (distToPdl < 0 && distToPdl > -0.02)
+        {
+            // Price just BROKE BELOW PDL - breakdown, old support becomes resistance
+            score -= 40; // Bearish: breakdown below yesterday's low
+        }
+        else if (distToPdl < -0.02)
+        {
+            // Price well below PDL - extended down, PDL is now resistance above
+            score -= 15;
+        }
+        
+        // --- Previous Day Close (Pivot) ---
+        double distToPdc = (price - pdc) / price;
+        if (price > pdc)
+        {
+            // Above previous close = bullish bias
+            score += (int)Math.Min(distToPdc * 1000, 20); // Up to +20 based on distance
+        }
+        else
+        {
+            // Below previous close = bearish bias
+            score += (int)Math.Max(distToPdc * 1000, -20); // Down to -20 based on distance
+        }
+        
+        // --- Position within previous day range (Premium/Discount) ---
+        double positionInRange = (price - pdl) / prevRange;
+        if (positionInRange >= 0 && positionInRange <= 1)
+        {
+            // Price is within yesterday's range
+            if (positionInRange < 0.33)
+                score += 15; // Discount zone - bullish
+            else if (positionInRange > 0.67)
+                score -= 15; // Premium zone - bearish (unless breakout)
+        }
+        
+        // --- Two-day high/low (wider S/R) ---
+        if (snapshot.TwoDayHigh > 0)
+        {
+            double distTo2dh = (price - snapshot.TwoDayHigh) / price;
+            if (distTo2dh > 0 && distTo2dh < 0.01)
+                score += 25; // Breaking multi-day high = strong bullish
+        }
+        if (snapshot.TwoDayLow > 0)
+        {
+            double distTo2dl = (price - snapshot.TwoDayLow) / price;
+            if (distTo2dl < 0 && distTo2dl > -0.01)
+                score -= 25; // Breaking multi-day low = strong bearish
+        }
         
         return (int)Math.Clamp(score, -100, 100);
     }

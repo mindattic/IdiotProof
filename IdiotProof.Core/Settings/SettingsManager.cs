@@ -127,6 +127,19 @@ public static class SettingsManager
     }
 
     /// <summary>
+    /// Gets the per-ticker data folder path.
+    /// Ticker data is stored in: {SolutionRoot}\IdiotProof.Core\Data\{SYMBOL}\
+    /// Creates the directory if it doesn't exist.
+    /// </summary>
+    public static string GetTickerDataFolder(string symbol)
+    {
+        var folder = Path.Combine(GetDataFolder(), symbol.ToUpperInvariant());
+        if (!Directory.Exists(folder))
+            Directory.CreateDirectory(folder);
+        return folder;
+    }
+
+    /// <summary>
     /// Gets the shared metadata folder path for ticker analysis data.
     /// Metadata is stored in: {SolutionRoot}\IdiotProof.Core\Metadata\
     /// </summary>

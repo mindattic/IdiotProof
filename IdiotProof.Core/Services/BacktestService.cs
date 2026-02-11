@@ -344,7 +344,9 @@ namespace IdiotProof.Services {
                     BarsProcessed = allBars.Count,
                     ProfileSaved = profileSaved,
                     Confidence = profile.Confidence,
-                    DetailedTradeLog = detailedLog
+                    DetailedTradeLog = detailedLog,
+                    EndingCapital = (decimal)(request.Allocation + totalPnL),
+                    ReturnPercent = request.Allocation > 0 ? totalPnL / request.Allocation * 100 : 0
                 };
             }
             catch (Exception ex)
@@ -368,7 +370,7 @@ namespace IdiotProof.Services {
             double allocation = 1000.0,
             TickerProfile? existingProfile = null,
             bool verboseLogging = false,
-            bool useAiConfirmation = false)
+            bool useAiConfirmation = true)
         {
             if (bars.Count < 50)
             {
@@ -615,19 +617,23 @@ namespace IdiotProof.Services {
         private int _exitConfirmationBars;
         private const int RequiredExitConfirmationBars = 2;
 
-        // VWAP tracking
+        // VWAP tracking (resets each trading day)
         private double _pvSum;
         private double _vSum;
+        private DateTime? _currentVwapDay;
 
         // Indicator calculators - Core
         private readonly EmaCalculator _ema9 = new(9);
         private readonly EmaCalculator _ema21 = new(21);
+        private readonly EmaCalculator _ema34 = new(34);
         private readonly EmaCalculator _ema50 = new(50);
         private readonly AdxCalculator _adx = new(14, 50);
         private readonly RsiCalculator _rsi = new(14);
         private readonly MacdCalculator _macd = new(12, 26, 9);
         private readonly VolumeCalculator _volume = new(20);
         private readonly AtrCalculator _atr = new(14);
+        private readonly SmaCalculator _sma20 = new(20);
+        private readonly SmaCalculator _sma50 = new(50);
 
         // Indicator calculators - Extended (new indicators)
         private readonly BollingerBandsCalculator _bollinger = new(20, 2.0);
@@ -635,6 +641,9 @@ namespace IdiotProof.Services {
         private readonly ObvCalculator _obv = new(20);
         private readonly CciCalculator _cci = new(20);
         private readonly WilliamsRCalculator _williamsR = new(14);
+        private readonly MomentumCalculator _momentum = new(10);
+        private readonly RocCalculator _roc = new(10);
+        private readonly Calculators.PreviousDayLevelsTracker _prevDayLevels;
 
         // Trend direction filter - prevents trading against obvious trends
         private readonly Helpers.TrendDirectionFilter _trendFilter = new();
@@ -663,6 +672,7 @@ namespace IdiotProof.Services {
             _allocation = allocation > 0 ? allocation : TradingDefaults.DefaultAllocationDollars;
             _learnedProfile = learnedProfile;
             _profile = new TickerProfile { Symbol = symbol };
+            _prevDayLevels = new Calculators.PreviousDayLevelsTracker(symbol);
         }
         
         /// <summary>
@@ -768,12 +778,12 @@ namespace IdiotProof.Services {
                 if (atrPercent > 0.02) // High volatility (>2%)
                 {
                     tpMult = 2.5; // Wider TP
-                    slMult = 4.0; // Much wider SL
+                    slMult = 1.5; // Tighter SL (positive R:R = TP > SL)
                 }
                 else if (atrPercent < 0.008) // Low volatility (<0.8%)
                 {
                     tpMult = 1.5; // Tighter TP
-                    slMult = 2.0; // Tighter SL
+                    slMult = 1.0; // Tighter SL
                 }
             }
             return (tpMult, slMult);
@@ -783,6 +793,14 @@ namespace IdiotProof.Services {
         {
             var completedTrades = new List<TradeRecord>();
             _barCount++;
+
+            // Reset VWAP at the start of each new trading day
+            if (_currentVwapDay == null || bar.Time.Date != _currentVwapDay)
+            {
+                _pvSum = 0;
+                _vSum = 0;
+                _currentVwapDay = bar.Time.Date;
+            }
 
             // Update VWAP
             if (bar.Close > 0 && bar.Volume > 0)
@@ -795,14 +813,15 @@ namespace IdiotProof.Services {
             // Update core indicators
             _ema9.Update(bar.Close);
             _ema21.Update(bar.Close);
+            _ema34.Update(bar.Close);
             _ema50.Update(bar.Close);
             _adx.UpdateFromCandle(bar.High, bar.Low, bar.Close);
             _rsi.Update(bar.Close);
             _macd.Update(bar.Close);
             _volume.Update(bar.Volume);
-            _atr.Update(bar.High);
-            _atr.Update(bar.Low);
-            _atr.Update(bar.Close);
+            _atr.UpdateFromCandle(bar.High, bar.Low, bar.Close);
+            _sma20.Update(bar.Close);
+            _sma50.Update(bar.Close);
 
             // Update extended indicators
             _bollinger.Update(bar.Close);
@@ -810,6 +829,9 @@ namespace IdiotProof.Services {
             _obv.Update(bar.Close, bar.Volume);
             _cci.Update(bar.High, bar.Low, bar.Close);
             _williamsR.Update(bar.High, bar.Low, bar.Close);
+            _momentum.Update(bar.Close);
+            _roc.Update(bar.Close);
+            _prevDayLevels.UpdateFromBar(bar);
 
             // Update trend direction filter
             _trendFilter.Update(
@@ -825,7 +847,7 @@ namespace IdiotProof.Services {
             // Check warm-up
             if (!_indicatorsReady)
             {
-                if (_ema50.IsReady && _adx.IsReady && _rsi.IsReady && _macd.IsReady && _bollinger.IsReady)
+                if (_ema50.IsReady && _adx.IsReady && _rsi.IsReady && _macd.IsReady && _bollinger.IsReady && _atr.IsReady && _momentum.IsReady && _roc.IsReady)
                 {
                     _indicatorsReady = true;
                 }
@@ -882,13 +904,14 @@ namespace IdiotProof.Services {
                     bool trendAllowsLong = !_trendFilter.IsReady || !_trendFilter.IsInClearDowntrend;
                     bool trendAllowsShort = !_trendFilter.IsReady || !_trendFilter.IsInClearUptrend;
 
-                    // Build snapshot for confidence check
+                    // Build snapshot for confidence check (populate ALL fields for AI)
                     var snapshot = new IndicatorSnapshot
                     {
                         Price = bar.Close,
                         Vwap = vwap,
                         Ema9 = _ema9.IsReady ? _ema9.CurrentValue : 0,
                         Ema21 = _ema21.IsReady ? _ema21.CurrentValue : 0,
+                        Ema34 = _ema34.IsReady ? _ema34.CurrentValue : 0,
                         Ema50 = _ema50.IsReady ? _ema50.CurrentValue : 0,
                         Rsi = _rsi.IsReady ? _rsi.CurrentValue : 50,
                         Macd = _macd.IsReady ? _macd.MacdLine : 0,
@@ -897,7 +920,29 @@ namespace IdiotProof.Services {
                         Adx = _adx.IsReady ? _adx.CurrentAdx : 0,
                         PlusDi = _adx.IsReady ? _adx.PlusDI : 0,
                         MinusDi = _adx.IsReady ? _adx.MinusDI : 0,
-                        VolumeRatio = _volume.IsReady ? _volume.VolumeRatio : 1.0
+                        VolumeRatio = _volume.IsReady ? _volume.VolumeRatio : 1.0,
+                        BollingerUpper = _bollinger.IsReady ? _bollinger.UpperBand : 0,
+                        BollingerMiddle = _bollinger.IsReady ? _bollinger.MiddleBand : 0,
+                        BollingerLower = _bollinger.IsReady ? _bollinger.LowerBand : 0,
+                        BollingerPercentB = _bollinger.IsReady ? _bollinger.PercentB : 0,
+                        BollingerBandwidth = _bollinger.IsReady ? _bollinger.Bandwidth : 0,
+                        Atr = _atr.IsReady ? _atr.CurrentAtr : 0,
+                        Sma20 = _sma20.IsReady ? _sma20.CurrentValue : 0,
+                        Sma50 = _sma50.IsReady ? _sma50.CurrentValue : 0,
+                        Momentum = _momentum.IsReady ? _momentum.CurrentValue : 0,
+                        Roc = _roc.IsReady ? _roc.CurrentValue : 0,
+                        StochasticK = _stochastic.IsReady ? _stochastic.PercentK : 0,
+                        StochasticD = _stochastic.IsReady ? _stochastic.PercentD : 0,
+                        ObvSlope = _obv.IsReady ? (_obv.IsRising ? 1.0 : (_obv.IsFalling ? -1.0 : 0)) : 0,
+                        Cci = _cci.IsReady ? _cci.CurrentCci : 0,
+                        WilliamsR = _williamsR.IsReady ? _williamsR.CurrentValue : -50,
+                        PrevDayHigh = _prevDayLevels.HasData ? _prevDayLevels.PrevDayHigh : 0,
+                        PrevDayLow = _prevDayLevels.HasData ? _prevDayLevels.PrevDayLow : 0,
+                        PrevDayClose = _prevDayLevels.HasData ? _prevDayLevels.PrevDayClose : 0,
+                        TwoDayHigh = _prevDayLevels.TwoDayHigh,
+                        TwoDayLow = _prevDayLevels.TwoDayLow,
+                        SessionHigh = _prevDayLevels.SessionHigh,
+                        SessionLow = _prevDayLevels.SessionLow
                     };
 
                     // AI confidence check - use real ChatGPT if enabled, otherwise synthetic
@@ -1115,6 +1160,7 @@ namespace IdiotProof.Services {
                 Vwap = vwap,
                 Ema9 = _ema9.IsReady ? _ema9.CurrentValue : 0,
                 Ema21 = _ema21.IsReady ? _ema21.CurrentValue : 0,
+                Ema34 = _ema34.IsReady ? _ema34.CurrentValue : 0,
                 Ema50 = _ema50.IsReady ? _ema50.CurrentValue : 0,
                 Rsi = _rsi.IsReady ? _rsi.CurrentValue : 50,
                 Macd = _macd.IsReady ? _macd.MacdLine : 0,
@@ -1127,13 +1173,26 @@ namespace IdiotProof.Services {
                 BollingerUpper = _bollinger.IsReady ? _bollinger.UpperBand : 0,
                 BollingerMiddle = _bollinger.IsReady ? _bollinger.MiddleBand : 0,
                 BollingerLower = _bollinger.IsReady ? _bollinger.LowerBand : 0,
+                BollingerPercentB = _bollinger.IsReady ? _bollinger.PercentB : 0,
+                BollingerBandwidth = _bollinger.IsReady ? _bollinger.Bandwidth : 0,
                 Atr = _atr.IsReady ? _atr.CurrentAtr : 0,
+                Sma20 = _sma20.IsReady ? _sma20.CurrentValue : 0,
+                Sma50 = _sma50.IsReady ? _sma50.CurrentValue : 0,
+                Momentum = _momentum.IsReady ? _momentum.CurrentValue : 0,
+                Roc = _roc.IsReady ? _roc.CurrentValue : 0,
                 // Extended indicators
                 StochasticK = _stochastic.IsReady ? _stochastic.PercentK : 0,
                 StochasticD = _stochastic.IsReady ? _stochastic.PercentD : 0,
                 ObvSlope = _obv.IsReady ? (_obv.IsRising ? 1.0 : (_obv.IsFalling ? -1.0 : 0)) : 0,
                 Cci = _cci.IsReady ? _cci.CurrentCci : 0,
-                WilliamsR = _williamsR.IsReady ? _williamsR.CurrentValue : -50
+                WilliamsR = _williamsR.IsReady ? _williamsR.CurrentValue : -50,
+                PrevDayHigh = _prevDayLevels.HasData ? _prevDayLevels.PrevDayHigh : 0,
+                PrevDayLow = _prevDayLevels.HasData ? _prevDayLevels.PrevDayLow : 0,
+                PrevDayClose = _prevDayLevels.HasData ? _prevDayLevels.PrevDayClose : 0,
+                TwoDayHigh = _prevDayLevels.TwoDayHigh,
+                TwoDayLow = _prevDayLevels.TwoDayLow,
+                SessionHigh = _prevDayLevels.SessionHigh,
+                SessionLow = _prevDayLevels.SessionLow
             };
 
             // USE SHARED CALCULATOR with learned or default weights (SINGLE SOURCE OF TRUTH)

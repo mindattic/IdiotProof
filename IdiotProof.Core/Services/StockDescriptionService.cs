@@ -13,9 +13,9 @@
 // - Results are cached for 30 days
 //
 // FILE PATTERN:
-//   {SolutionRoot}\IdiotProof.Core\Data\NVDA.description.json
-//   {SolutionRoot}\IdiotProof.Core\Data\AAPL.description.json
-//   {SolutionRoot}\IdiotProof.Core\Data\CCHH.description.json
+//   {SolutionRoot}\IdiotProof.Core\Data\NVDA\NVDA.description.json
+//   {SolutionRoot}\IdiotProof.Core\Data\AAPL\AAPL.description.json
+//   {SolutionRoot}\IdiotProof.Core\Data\CCHH\CCHH.description.json
 //
 // USAGE (correct pattern - ONE API call for all unknown symbols):
 //   // Step 1: Fetch all missing descriptions in ONE ChatGPT call
@@ -130,11 +130,13 @@ public static class StockDescriptionService
 
     /// <summary>
     /// Gets the path to a ticker's description file.
+    /// Stored in per-ticker subfolder: Data/{SYMBOL}/{SYMBOL}.description.json
     /// </summary>
     private static string GetDescriptionPath(string symbol)
     {
-        // Store in Data folder as SYMBOL.description.json (e.g., NVDA.description.json)
-        return Path.Combine(SettingsManager.GetDataFolder(), $"{symbol.ToUpperInvariant()}{DescriptionFileSuffix}");
+        // Store in Data/{SYMBOL}/{SYMBOL}.description.json
+        var tickerFolder = SettingsManager.GetTickerDataFolder(symbol);
+        return Path.Combine(tickerFolder, $"{symbol.ToUpperInvariant()}{DescriptionFileSuffix}");
     }
 
     /// <summary>
@@ -154,8 +156,8 @@ public static class StockDescriptionService
             if (!Directory.Exists(dataFolder))
                 return;
 
-            // Scan for all *.description.json files
-            var descFiles = Directory.GetFiles(dataFolder, $"*{DescriptionFileSuffix}");
+            // Scan for all *.description.json files in per-ticker subfolders
+            var descFiles = Directory.GetFiles(dataFolder, $"*{DescriptionFileSuffix}", SearchOption.AllDirectories);
             foreach (var file in descFiles)
             {
                 try
