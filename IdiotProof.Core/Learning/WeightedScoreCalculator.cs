@@ -27,6 +27,7 @@ public readonly struct ExtendedSnapshot
     public double Vwap { get; init; }
     public double Ema9 { get; init; }
     public double Ema21 { get; init; }
+    public double Ema34 { get; init; }
     public double Ema50 { get; init; }
     public double Rsi { get; init; }
     public double Macd { get; init; }
@@ -65,6 +66,7 @@ public readonly struct ExtendedSnapshot
             Vwap = basic.Vwap,
             Ema9 = basic.Ema9,
             Ema21 = basic.Ema21,
+            Ema34 = basic.Ema34,
             Ema50 = basic.Ema50,
             Rsi = basic.Rsi,
             Macd = basic.Macd,

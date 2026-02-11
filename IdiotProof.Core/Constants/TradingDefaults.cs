@@ -164,9 +164,15 @@ public static class TradingDefaults
     // ========================================================================
     // POSITION SIZING
     // ========================================================================
-    // Formula: price × 3, rounded up to nearest multiple of 5
-    // Examples: $1.50 → 5, $2 → 10, $6 → 20, $10 → 30
+    // Default allocation: $1,000 per trade.
+    // Quantity is calculated as: allocation / current_price
     // ========================================================================
+
+    /// <summary>
+    /// Default dollar allocation per trade when not specified.
+    /// $1,000 = reasonable size for most stocks.
+    /// </summary>
+    public const double DefaultAllocationDollars = 1000.0;
 
     /// <summary>
     /// Calculates a sensible default quantity based on stock price.

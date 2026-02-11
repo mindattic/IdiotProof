@@ -226,6 +226,7 @@ public sealed class TradeSimulator
     // Cached indicator values
     private double[]? _ema9;
     private double[]? _ema21;
+    private double[]? _ema34;
     private double[]? _ema50;
     private double[]? _rsi;
     private (double[] adx, double[] plusDi, double[] minusDi)? _adxData;
@@ -518,6 +519,7 @@ public sealed class TradeSimulator
     {
         _ema9 = _indicators.CalculateEma(9);
         _ema21 = _indicators.CalculateEma(21);
+        _ema34 = _indicators.CalculateEma(34);  // PRIMARY: Key decision level for trading rules
         _ema50 = _indicators.CalculateEma(50);
         _rsi = _indicators.CalculateRsi(14);
         _adxData = _indicators.CalculateAdx(14);
@@ -541,6 +543,7 @@ public sealed class TradeSimulator
             Vwap = candle.Vwap,
             Ema9 = _ema9![index],
             Ema21 = _ema21![index],
+            Ema34 = _ema34![index],
             Ema50 = _ema50![index],
             Rsi = _rsi![index],
             Macd = _macdData!.Value.macd[index],

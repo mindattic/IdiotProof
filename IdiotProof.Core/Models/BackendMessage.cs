@@ -236,14 +236,22 @@ namespace IdiotProof.Models {
         public string Mode { get; set; } = "Balanced";
 
         /// <summary>
-        /// Position size for simulated trades.
+        /// Dollar allocation per trade (e.g., 1000 = $1,000).
+        /// Quantity is calculated as: allocation / entry_price
         /// </summary>
-        public int Quantity { get; set; } = 100;
+        public double Allocation { get; set; } = 1000.0;
 
         /// <summary>
         /// Whether to save the learned profile to disk.
         /// </summary>
         public bool SaveProfile { get; set; } = true;
+
+        /// <summary>
+        /// Whether to use real ChatGPT API for trade confirmation.
+        /// When enabled, each potential entry is sent to ChatGPT for approval.
+        /// This makes backtest slower but more accurate.
+        /// </summary>
+        public bool UseAiConfirmation { get; set; } = false;
     }
 
     /// <summary>

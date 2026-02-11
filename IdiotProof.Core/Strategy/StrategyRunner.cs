@@ -140,6 +140,12 @@ namespace IdiotProof.Strategy {
         private Helpers.CciCalculator? _cciCalculator;
         private Helpers.WilliamsRCalculator? _williamsRCalculator;
 
+        // Price action context for proactive multi-bar pattern analysis (FVG, pullback, extension detection)
+        private readonly Helpers.PriceActionContext _priceActionContext = new();
+
+        // Proactive market scanner for forming patterns, momentum exhaustion, volume profile
+        private readonly Helpers.ProactiveMarketScanner _proactiveScanner = new();
+
         // Warm-up logging
         private bool _warmupLoggedEma;
         private bool _warmupLoggedAdx;
@@ -215,6 +221,9 @@ namespace IdiotProof.Strategy {
 
         // Breakout-Pullback tracker - detects resistance-becomes-support patterns
         private Helpers.BreakoutPullbackTracker? _breakoutTracker;
+        
+        // Trend Direction Filter - prevents buying clear downtrends / shorting clear uptrends
+        private readonly Helpers.TrendDirectionFilter _trendFilter = new();
 
         /// <summary>
         /// Gets the shared ticker profile manager for learning across sessions.
@@ -734,6 +743,24 @@ namespace IdiotProof.Strategy {
                 {
                     Log($"WARNING: Breakout tracker update failed: {ex.Message}", ConsoleColor.Yellow);
                 }
+                
+                // Update trend direction filter with candle data
+                try
+                {
+                    var vwap = _vSum > 0 ? _pvSum / _vSum : candle.Close;
+                    double ema9 = _emaCalculators.TryGetValue(9, out var e9) && e9.IsReady ? e9.CurrentValue : 0;
+                    double ema21 = _emaCalculators.TryGetValue(21, out var e21) && e21.IsReady ? e21.CurrentValue : 0;
+                    double ema50 = _emaCalculators.TryGetValue(50, out var e50) && e50.IsReady ? e50.CurrentValue : 0;
+                    double adx = _adxCalculator?.CurrentAdx ?? 0;
+                    double plusDi = _adxCalculator?.PlusDI ?? 0;
+                    double minusDi = _adxCalculator?.MinusDI ?? 0;
+                    
+                    _trendFilter.Update(candle.Close, vwap, ema9, ema21, ema50, adx, plusDi, minusDi, candle.High, candle.Low);
+                }
+                catch (Exception ex)
+                {
+                    Log($"WARNING: Trend filter update failed: {ex.Message}", ConsoleColor.Yellow);
+                }
 
                 // Update LSTM predictor with indicator snapshot
                 try
@@ -765,6 +792,45 @@ namespace IdiotProof.Strategy {
                 catch (Exception ex)
                 {
                     Log($"WARNING: LSTM predictor update failed: {ex.Message}", ConsoleColor.Yellow);
+                }
+
+                // Update Price Action Context with new candle for proactive multi-bar pattern analysis
+                // This tracks FVGs, swing points, consolidations, extension detection, and pullback quality
+                try
+                {
+                    double ema9 = _emaCalculators.TryGetValue(9, out var e9) && e9.IsReady ? e9.CurrentValue : 0;
+                    double ema21 = _emaCalculators.TryGetValue(21, out var e21) && e21.IsReady ? e21.CurrentValue : 0;
+                    double atr = _atrCalculator?.IsReady == true ? _atrCalculator.CurrentAtr : 0;
+                    double rsi = _rsiCalculator?.IsReady == true ? _rsiCalculator.CurrentValue : 50;
+                    double macd = _macdCalculator?.IsReady == true ? _macdCalculator.MacdLine : 0;
+                    
+                    _priceActionContext.Update(candle, ema9, ema21, atr, rsi, macd);
+                }
+                catch (Exception ex)
+                {
+                    Log($"WARNING: PriceAction context update failed: {ex.Message}", ConsoleColor.Yellow);
+                }
+
+                // Update Proactive Market Scanner with forming patterns, momentum exhaustion, volume profile
+                try
+                {
+                    double ema9 = _emaCalculators.TryGetValue(9, out var e9) && e9.IsReady ? e9.CurrentValue : 0;
+                    double ema21 = _emaCalculators.TryGetValue(21, out var e21) && e21.IsReady ? e21.CurrentValue : 0;
+                    double ema50 = _emaCalculators.TryGetValue(50, out var e50) && e50.IsReady ? e50.CurrentValue : 0;
+                    double rsi = _rsiCalculator?.IsReady == true ? _rsiCalculator.CurrentValue : 50;
+                    double macd = _macdCalculator?.IsReady == true ? _macdCalculator.MacdLine : 0;
+                    double macdSignal = _macdCalculator?.IsReady == true ? _macdCalculator.SignalLine : 0;
+                    double macdHist = _macdCalculator?.IsReady == true ? _macdCalculator.Histogram : 0;
+                    double adx = _adxCalculator?.IsReady == true ? _adxCalculator.CurrentAdx : 20;
+                    double plusDi = _adxCalculator?.IsReady == true ? _adxCalculator.PlusDI : 0;
+                    double minusDi = _adxCalculator?.IsReady == true ? _adxCalculator.MinusDI : 0;
+                    double atr = _atrCalculator?.IsReady == true ? _atrCalculator.CurrentAtr : 0;
+                    
+                    _proactiveScanner.Update(candle, ema9, ema21, ema50, rsi, macd, macdSignal, macdHist, adx, plusDi, minusDi, atr);
+                }
+                catch (Exception ex)
+                {
+                    Log($"WARNING: ProactiveScanner update failed: {ex.Message}", ConsoleColor.Yellow);
                 }
 
                 // Log warm-up progress
@@ -880,9 +946,10 @@ namespace IdiotProof.Strategy {
         {
             Log("[AI] Initializing all calculators for learned weights...", ConsoleColor.DarkMagenta);
             
-            // EMAs - required for VWAP/EMA scoring
+            // EMAs - required for VWAP/EMA scoring (including EMA 34 for new trading rules)
             GetOrCreateEmaCalculator(9);
             GetOrCreateEmaCalculator(21);
+            GetOrCreateEmaCalculator(34);  // PRIMARY: EMA 34 is the key decision level
             GetOrCreateEmaCalculator(50);
             
             // RSI - for overbought/oversold detection
@@ -987,11 +1054,13 @@ namespace IdiotProof.Strategy {
         /// </summary>
         private void InitializeAllIndicatorsForMarketScore()
         {
-            // Initialize EMA calculators for market score (9, 21, 50)
+            // Initialize EMA calculators for market score (9, 21, 34, 50)
+            // EMA 34 is the PRIMARY decision level for new trading rules
             GetOrCreateEmaCalculator(9);
             GetOrCreateEmaCalculator(21);
+            GetOrCreateEmaCalculator(34);  // PRIMARY: Key decision level
             GetOrCreateEmaCalculator(50);
-            Log($"Initialized EMA(9,21,50) for market score calculation", ConsoleColor.DarkGray);
+            Log($"Initialized EMA(9,21,34,50) for market score calculation", ConsoleColor.DarkGray);
 
             // Initialize ADX/DI calculator
             _adxCalculator ??= new Helpers.AdxCalculator(period: 14, ticksPerBar: 50);
@@ -1671,12 +1740,14 @@ namespace IdiotProof.Strategy {
         /// </summary>
         private IdiotProof.Calculators.IndicatorSnapshot BuildIndicatorSnapshot(double price, double vwap)
         {
-            // Get EMA values
-            double ema9 = 0, ema21 = 0, ema50 = 0;
+            // Get EMA values (including EMA 34 for new trading rules)
+            double ema9 = 0, ema21 = 0, ema34 = 0, ema50 = 0;
             if (_emaCalculators.TryGetValue(9, out var ema9Calc) && ema9Calc.IsReady)
                 ema9 = ema9Calc.CurrentValue;
             if (_emaCalculators.TryGetValue(21, out var ema21Calc) && ema21Calc.IsReady)
                 ema21 = ema21Calc.CurrentValue;
+            if (_emaCalculators.TryGetValue(34, out var ema34Calc) && ema34Calc.IsReady)
+                ema34 = ema34Calc.CurrentValue;
             if (_emaCalculators.TryGetValue(50, out var ema50Calc) && ema50Calc.IsReady)
                 ema50 = ema50Calc.CurrentValue;
             
@@ -1739,6 +1810,7 @@ namespace IdiotProof.Strategy {
                 Vwap = vwap,
                 Ema9 = ema9,
                 Ema21 = ema21,
+                Ema34 = ema34,
                 Ema50 = ema50,
                 Rsi = rsi,
                 Macd = macd,
@@ -2292,6 +2364,24 @@ namespace IdiotProof.Strategy {
                 shouldEnterLong = score.TotalScore >= adjustedLongThreshold;
                 shouldEnterShort = score.TotalScore <= adjustedShortThreshold;
             }
+            
+            // =====================================================================
+            // APPLY TREND DIRECTION FILTER: Block entries against clear trends
+            // =====================================================================
+            if (_trendFilter.IsReady)
+            {
+                if (_trendFilter.IsInClearDowntrend && shouldEnterLong)
+                {
+                    Log($"[TREND FILTER] BLOCKED LONG entry - clear downtrend ({_trendFilter.Reason})", ConsoleColor.Red);
+                    shouldEnterLong = false;
+                }
+                
+                if (_trendFilter.IsInClearUptrend && shouldEnterShort)
+                {
+                    Log($"[TREND FILTER] BLOCKED SHORT entry - clear uptrend ({_trendFilter.Reason})", ConsoleColor.Red);
+                    shouldEnterShort = false;
+                }
+            }
 
             // =====================================================================
             // CLEAN ROCKET PATTERN: Clean premarket + above VWAP + rocket up = ride to HOD
@@ -2430,9 +2520,259 @@ namespace IdiotProof.Strategy {
                 });
             }
 
+            // =====================================================================
+            // PRICE ACTION CONTEXT: Proactive multi-bar pattern analysis
+            // Checks: FVGs, pullback quality, extension/chase, consolidation, structure
+            // This transforms the system from reactive to proactive!
+            // =====================================================================
+            
+            if (_priceActionContext.CandleCount >= 10)
+            {
+                try
+                {
+                    double rsi = _rsiCalculator?.IsReady == true ? _rsiCalculator.CurrentValue : 50;
+                    double macd = _macdCalculator?.IsReady == true ? _macdCalculator.MacdLine : 0;
+                    
+                    var paAnalysis = _priceActionContext.GetAnalysis(currentPrice, rsi, macd);
+                    
+                    // Log significant price action context
+                    if (paAnalysis.ShouldWaitForPullback)
+                    {
+                        Log($"[PA] Wait for pullback - overextended ({paAnalysis.ConsecutiveGreenBars} green bars, {paAnalysis.DistanceFromEma9Percent:F1}% from EMA9)", ConsoleColor.DarkYellow);
+                    }
+                    
+                    if (paAnalysis.IsFirstPullbackAfterBreakout)
+                    {
+                        Log($"[PA] *** FIRST PULLBACK AFTER BREAKOUT *** Ideal entry point ({paAnalysis.BarsSinceBreakout} bars since breakout)", ConsoleColor.Green);
+                    }
+                    
+                    if (paAnalysis.NearestBullishFvg != null && !paAnalysis.NearestBullishFvg.IsFilled)
+                    {
+                        Log($"[PA] Near bullish FVG: ${paAnalysis.NearestBullishFvg.Low:F2}-${paAnalysis.NearestBullishFvg.High:F2}", ConsoleColor.Cyan);
+                    }
+                    
+                    if (paAnalysis.JustSweptLows)
+                    {
+                        Log($"[PA] *** LIQUIDITY GRAB *** Just swept lows and reversed - bullish signal", ConsoleColor.Green);
+                    }
+                    else if (paAnalysis.JustSweptHighs)
+                    {
+                        Log($"[PA] *** LIQUIDITY GRAB *** Just swept highs and reversed - bearish signal", ConsoleColor.Red);
+                    }
+                    
+                    if (paAnalysis.HasBullishRsiDivergence)
+                    {
+                        Log($"[PA] Bullish RSI divergence detected (price lower, RSI higher)", ConsoleColor.Cyan);
+                    }
+                    else if (paAnalysis.HasBearishRsiDivergence)
+                    {
+                        Log($"[PA] Bearish RSI divergence detected (price higher, RSI lower)", ConsoleColor.Magenta);
+                    }
+                    
+                    // Apply score adjustments from price action
+                    int paLongAdj = paAnalysis.LongScoreAdjustment;
+                    int paShortAdj = paAnalysis.ShortScoreAdjustment;
+                    
+                    if (paLongAdj != 0 || paShortAdj != 0)
+                    {
+                        adjustedLongThreshold -= paLongAdj;    // Lower threshold = easier to enter
+                        adjustedShortThreshold += paShortAdj;  // Higher (less negative) = easier to short
+                        Log($"[PA] Threshold adjusted: Long adj {paLongAdj:+#;-#;0} (now {adjustedLongThreshold}), Short adj {paShortAdj:+#;-#;0} (now {adjustedShortThreshold})", ConsoleColor.DarkCyan);
+                    }
+                    
+                    // VETO entries based on price action context
+                    if (shouldEnterLong && paAnalysis.BlockLongEntry)
+                    {
+                        Log($"[PA] BLOCKED LONG: {paAnalysis.Reasoning}", ConsoleColor.Red);
+                        Log($"     Bearish factors: {string.Join(", ", paAnalysis.BearishFactors)}", ConsoleColor.DarkRed);
+                        shouldEnterLong = false;
+                    }
+                    
+                    if (shouldEnterShort && paAnalysis.BlockShortEntry)
+                    {
+                        Log($"[PA] BLOCKED SHORT: {paAnalysis.Reasoning}", ConsoleColor.Red);
+                        Log($"     Bullish factors: {string.Join(", ", paAnalysis.BullishFactors)}", ConsoleColor.DarkRed);
+                        shouldEnterShort = false;
+                    }
+                    
+                    // Don't chase - overextended stocks should wait for pullback
+                    if (shouldEnterLong && paAnalysis.ShouldWaitForPullback && paAnalysis.ConsecutiveGreenBars >= 4)
+                    {
+                        Log($"[PA] VETO: Don't chase - {paAnalysis.ConsecutiveGreenBars} consecutive green bars", ConsoleColor.DarkYellow);
+                        shouldEnterLong = false;
+                    }
+                    
+                    if (shouldEnterShort && paAnalysis.ShouldWaitForPullback && paAnalysis.ConsecutiveRedBars >= 4)
+                    {
+                        Log($"[PA] VETO: Don't chase - {paAnalysis.ConsecutiveRedBars} consecutive red bars", ConsoleColor.DarkYellow);
+                        shouldEnterShort = false;
+                    }
+                    
+                    // BOOST entries for ideal setups
+                    if (!shouldEnterLong && paAnalysis.IsIdealLongEntry && score.TotalScore >= adjustedLongThreshold - 20)
+                    {
+                        Log($"[PA] BOOST: Ideal LONG setup detected - {paAnalysis.Reasoning}", ConsoleColor.Green);
+                        Log($"     Bullish factors: {string.Join(", ", paAnalysis.BullishFactors)}", ConsoleColor.DarkGreen);
+                        shouldEnterLong = true;
+                    }
+                    
+                    if (!shouldEnterShort && paAnalysis.IsIdealShortEntry && score.TotalScore <= adjustedShortThreshold + 20)
+                    {
+                        Log($"[PA] BOOST: Ideal SHORT setup detected - {paAnalysis.Reasoning}", ConsoleColor.Magenta);
+                        Log($"     Bearish factors: {string.Join(", ", paAnalysis.BearishFactors)}", ConsoleColor.DarkMagenta);
+                        shouldEnterShort = true;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Log($"WARNING: PriceAction analysis failed: {ex.Message}", ConsoleColor.Yellow);
+                }
+            }
+
+            // =====================================================================
+            // PROACTIVE MARKET SCANNER: Empirical pattern detection & opportunity scoring
+            // Scans for FORMING patterns, momentum exhaustion, volume profile analysis
+            // Decisions made with confidence based on empirical evidence, not just current candle
+            // =====================================================================
+            
+            if (_proactiveScanner.HasEnoughData)
+            {
+                try
+                {
+                    var opportunity = _proactiveScanner.GetOpportunity(currentPrice);
+                    
+                    // Log significant patterns forming
+                    if (opportunity.ActivePattern != null)
+                    {
+                        Log($"[PATTERN] {opportunity.ActivePattern}", ConsoleColor.Cyan);
+                    }
+                    
+                    foreach (var pattern in opportunity.FormingPatterns.Where(p => p.Confidence >= 0.6))
+                    {
+                        Log($"[FORMING] {pattern.Type} ({pattern.Stage}) - {pattern.Description}", ConsoleColor.DarkCyan);
+                    }
+                    
+                    // Log momentum exhaustion warning
+                    if (opportunity.Momentum.IsExhausting && opportunity.Momentum.ExhaustionProbability >= 0.6)
+                    {
+                        Log($"[MOMENTUM] *** EXHAUSTION WARNING *** {opportunity.Momentum.Reason}", ConsoleColor.Yellow);
+                    }
+                    
+                    // Log A/D divergence
+                    if (opportunity.AccumDist.IsDiverging)
+                    {
+                        Log($"[A/D] {opportunity.AccumDist.DivergenceType} divergence - {(opportunity.AccumDist.IsAccumulating ? "accumulating" : "distributing")}", ConsoleColor.DarkYellow);
+                    }
+                    
+                    // Log high confidence setups
+                    if (opportunity.EmpiricalConfidence >= 75)
+                    {
+                        Log($"[EMPIRICAL] Confidence: {opportunity.EmpiricalConfidence:F0}% | Evidence: +{opportunity.BullishEvidence.Count}/-{opportunity.BearishEvidence.Count}", ConsoleColor.White);
+                        Log($"  {opportunity.RecommendedAction}", ConsoleColor.White);
+                    }
+                    
+                    // Apply proactive scanner influence
+                    if (opportunity.IsHighConfidenceLongSetup && !shouldEnterLong && score.TotalScore >= adjustedLongThreshold - 25)
+                    {
+                        Log($"[PROACTIVE] *** HIGH CONFIDENCE LONG *** {opportunity.RecommendedAction}", ConsoleColor.Green);
+                        Log($"     Bullish evidence: {string.Join(", ", opportunity.BullishEvidence)}", ConsoleColor.DarkGreen);
+                        shouldEnterLong = true;
+                    }
+                    
+                    if (opportunity.IsHighConfidenceShortSetup && !shouldEnterShort && score.TotalScore <= adjustedShortThreshold + 25)
+                    {
+                        Log($"[PROACTIVE] *** HIGH CONFIDENCE SHORT *** {opportunity.RecommendedAction}", ConsoleColor.Magenta);
+                        Log($"     Bearish evidence: {string.Join(", ", opportunity.BearishEvidence)}", ConsoleColor.DarkMagenta);
+                        shouldEnterShort = true;
+                    }
+                    
+                    // Block entries on momentum exhaustion
+                    if (shouldEnterLong && opportunity.Momentum.State == Helpers.MomentumState.WeakeningBullish && 
+                        opportunity.Momentum.ExhaustionProbability >= 0.7)
+                    {
+                        Log($"[PROACTIVE] BLOCKED LONG - Bullish momentum exhausting ({opportunity.Momentum.ExhaustionProbability:P0} probability)", ConsoleColor.Red);
+                        shouldEnterLong = false;
+                    }
+                    
+                    if (shouldEnterShort && opportunity.Momentum.State == Helpers.MomentumState.WeakeningBearish && 
+                        opportunity.Momentum.ExhaustionProbability >= 0.7)
+                    {
+                        Log($"[PROACTIVE] BLOCKED SHORT - Bearish momentum exhausting ({opportunity.Momentum.ExhaustionProbability:P0} probability)", ConsoleColor.Red);
+                        shouldEnterShort = false;
+                    }
+                    
+                    // Block entries if scanner says wait
+                    if (opportunity.ShouldWaitForBetterEntry && opportunity.EmpiricalConfidence < 50)
+                    {
+                        if (shouldEnterLong)
+                        {
+                            Log($"[PROACTIVE] WAIT - Need more bullish evidence ({opportunity.BullishEvidence.Count} vs {opportunity.BearishEvidence.Count})", ConsoleColor.DarkYellow);
+                            shouldEnterLong = false;
+                        }
+                        if (shouldEnterShort)
+                        {
+                            Log($"[PROACTIVE] WAIT - Need more bearish evidence ({opportunity.BearishEvidence.Count} vs {opportunity.BullishEvidence.Count})", ConsoleColor.DarkYellow);
+                            shouldEnterShort = false;
+                        }
+                    }
+                    
+                    // Log ideal entry levels for pattern setups
+                    if (opportunity.ActivePattern != null && opportunity.ActivePattern.Stage >= Helpers.PatternStage.LateFormation)
+                    {
+                        double distToEntry = Math.Abs(currentPrice - opportunity.ActivePattern.EntryLevel) / currentPrice * 100;
+                        if (distToEntry < 2)
+                        {
+                            Log($"[PATTERN ENTRY] Near {opportunity.ActivePattern.Type} entry: ${opportunity.ActivePattern.EntryLevel:F2} | Target: ${opportunity.ActivePattern.TargetLevel:F2} | Stop: ${opportunity.ActivePattern.StopLevel:F2} | R:R={opportunity.ActivePattern.RiskRewardRatio:F1}", ConsoleColor.White);
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Log($"WARNING: ProactiveScanner analysis failed: {ex.Message}", ConsoleColor.Yellow);
+                }
+            }
+
             // Check for LONG entry
             if (shouldEnterLong)
             {
+                // AI CONFIDENCE CHECK - Block entry if confidence too low
+                int aiConfidence = 0;
+                bool aiApproved = true;
+                string aiReason = "";
+                
+                if (_lastIndicatorSnapshot.HasValue && _aiAdvisor != null)
+                {
+                    var snapshot = _lastIndicatorSnapshot.Value;
+                    var scoreResult = new IdiotProof.Calculators.MarketScoreResult
+                    {
+                        TotalScore = score.TotalScore,
+                        VwapScore = score.VwapScore,
+                        EmaScore = score.EmaScore,
+                        RsiScore = score.RsiScore,
+                        MacdScore = score.MacdScore,
+                        AdxScore = score.AdxScore,
+                        VolumeScore = score.VolumeScore,
+                        BollingerScore = score.BollingerScore
+                    };
+                    
+                    // Use synthetic for speed, real AI only if configured and on borderline cases
+                    bool useSynthetic = !_aiAdvisor.IsConfigured;
+                    (aiApproved, aiConfidence, aiReason) = _aiAdvisor.CheckTradeApproval(
+                        _strategy.Symbol, snapshot, isLong: true, scoreResult, useSyntheticForSpeed: useSynthetic);
+                    
+                    if (!aiApproved)
+                    {
+                        Log($"[AI GATE] LONG BLOCKED: {aiReason}", ConsoleColor.Red);
+                        shouldEnterLong = false;
+                    }
+                    else
+                    {
+                        Log($"[AI GATE] LONG approved (Conf={aiConfidence}%)", ConsoleColor.Green);
+                    }
+                }
+
+                if (!shouldEnterLong) return; // Blocked by AI
+
                 string thresholdInfo = score.HasLearnedWeights 
                     ? " (AI-learned weights)"
                     : (adjustedLongThreshold != config.LongEntryThreshold
@@ -2469,7 +2809,13 @@ namespace IdiotProof.Strategy {
                     EntryAdxScore = score.AdxScore,
                     EntryVolumeScore = score.VolumeScore,
                     RsiAtEntry = _rsiCalculator?.CurrentValue ?? 50,
-                    AdxAtEntry = _adxCalculator?.CurrentAdx ?? 20
+                    AdxAtEntry = _adxCalculator?.CurrentAdx ?? 20,
+                    // ML/AI tracking
+                    LstmUsed = score.HasLstmPrediction,
+                    LstmScoreAdjustment = score.LstmScoreAdjustment,
+                    LstmConfidence = score.LstmConfidence,
+                    LstmDirection = score.LstmDirection,
+                    LearnedWeightsUsed = score.HasLearnedWeights
                 };
                 
                 // Execute long entry
@@ -2480,6 +2826,44 @@ namespace IdiotProof.Strategy {
             // Check for SHORT entry (if allowed and not blocked)
             if (config.AllowShort && !_shortSaleBlocked && shouldEnterShort)
             {
+                // AI CONFIDENCE CHECK - Block entry if confidence too low
+                int aiConfidence = 0;
+                bool aiApproved = true;
+                string aiReason = "";
+                
+                if (_lastIndicatorSnapshot.HasValue && _aiAdvisor != null)
+                {
+                    var snapshot = _lastIndicatorSnapshot.Value;
+                    var scoreResult = new IdiotProof.Calculators.MarketScoreResult
+                    {
+                        TotalScore = score.TotalScore,
+                        VwapScore = score.VwapScore,
+                        EmaScore = score.EmaScore,
+                        RsiScore = score.RsiScore,
+                        MacdScore = score.MacdScore,
+                        AdxScore = score.AdxScore,
+                        VolumeScore = score.VolumeScore,
+                        BollingerScore = score.BollingerScore
+                    };
+                    
+                    // Use synthetic for speed, real AI only if configured
+                    bool useSynthetic = !_aiAdvisor.IsConfigured;
+                    (aiApproved, aiConfidence, aiReason) = _aiAdvisor.CheckTradeApproval(
+                        _strategy.Symbol, snapshot, isLong: false, scoreResult, useSyntheticForSpeed: useSynthetic);
+                    
+                    if (!aiApproved)
+                    {
+                        Log($"[AI GATE] SHORT BLOCKED: {aiReason}", ConsoleColor.Red);
+                        shouldEnterShort = false;
+                    }
+                    else
+                    {
+                        Log($"[AI GATE] SHORT approved (Conf={aiConfidence}%)", ConsoleColor.Green);
+                    }
+                }
+
+                if (!shouldEnterShort) return; // Blocked by AI
+
                 string thresholdInfo = score.HasLearnedWeights 
                     ? " (AI-learned weights)"
                     : (adjustedShortThreshold != config.ShortEntryThreshold
@@ -2516,7 +2900,13 @@ namespace IdiotProof.Strategy {
                     EntryAdxScore = score.AdxScore,
                     EntryVolumeScore = score.VolumeScore,
                     RsiAtEntry = _rsiCalculator?.CurrentValue ?? 50,
-                    AdxAtEntry = _adxCalculator?.CurrentAdx ?? 20
+                    AdxAtEntry = _adxCalculator?.CurrentAdx ?? 20,
+                    // ML/AI tracking
+                    LstmUsed = score.HasLstmPrediction,
+                    LstmScoreAdjustment = score.LstmScoreAdjustment,
+                    LstmConfidence = score.LstmConfidence,
+                    LstmDirection = score.LstmDirection,
+                    LearnedWeightsUsed = score.HasLearnedWeights
                 };
                 
                 // Execute short entry
@@ -2729,7 +3119,13 @@ namespace IdiotProof.Strategy {
                 EntryAdxScore = score.AdxScore,
                 EntryVolumeScore = score.VolumeScore,
                 RsiAtEntry = _rsiCalculator?.CurrentValue ?? 50,
-                AdxAtEntry = _adxCalculator?.CurrentAdx ?? 20
+                AdxAtEntry = _adxCalculator?.CurrentAdx ?? 20,
+                // ML/AI tracking
+                LstmUsed = score.HasLstmPrediction,
+                LstmScoreAdjustment = score.LstmScoreAdjustment,
+                LstmConfidence = score.LstmConfidence,
+                LstmDirection = score.LstmDirection,
+                LearnedWeightsUsed = score.HasLearnedWeights
             };
             
             Log($"  -> New {(goLong ? "LONG" : "SHORT")} entry @ ${currentPrice:F2}", goLong ? ConsoleColor.Cyan : ConsoleColor.Magenta);
@@ -2883,6 +3279,33 @@ namespace IdiotProof.Strategy {
                 _pendingTradeRecord.ExitScore = exitScore.TotalScore;
                 _pendingTradeRecord.RsiAtExit = _rsiCalculator?.CurrentValue ?? 50;
                 _pendingTradeRecord.AdxAtExit = _adxCalculator?.CurrentAdx ?? 20;
+
+                // Calculate LSTM prediction correctness
+                if (_pendingTradeRecord.LstmUsed)
+                {
+                    // LSTM direction > 0 means it predicted bullish, < 0 means bearish
+                    bool lstmPredictedBullish = _pendingTradeRecord.LstmDirection > 0;
+                    // Actual outcome based on P&L direction
+                    bool actuallyBullish = _pendingTradeRecord.IsLong
+                        ? exitPrice > _pendingTradeRecord.EntryPrice  // Long: price went up
+                        : exitPrice < _pendingTradeRecord.EntryPrice; // Short: price went down (bullish for short = price down)
+                    
+                    // For shorts, we need to invert: if we shorted and price went down, LSTM should have predicted bearish
+                    if (!_pendingTradeRecord.IsLong)
+                    {
+                        // Short trade: LSTM bearish (< 0) and price went down = correct
+                        _pendingTradeRecord.LstmPredictionCorrect = 
+                            (!lstmPredictedBullish && exitPrice < _pendingTradeRecord.EntryPrice) ||
+                            (lstmPredictedBullish && exitPrice > _pendingTradeRecord.EntryPrice);
+                    }
+                    else
+                    {
+                        // Long trade: LSTM bullish (> 0) and price went up = correct
+                        _pendingTradeRecord.LstmPredictionCorrect = 
+                            (lstmPredictedBullish && exitPrice > _pendingTradeRecord.EntryPrice) ||
+                            (!lstmPredictedBullish && exitPrice < _pendingTradeRecord.EntryPrice);
+                    }
+                }
 
                 // Record the trade
                 _profileManager.RecordTrade(_strategy.Symbol, _pendingTradeRecord);
@@ -3507,6 +3930,9 @@ namespace IdiotProof.Strategy {
             // Reset session tracking
             _sessionHigh = 0;
             _sessionLow = double.MaxValue;
+            
+            // Reset trend direction filter for new session
+            _trendFilter.Reset();
 
             // Reset logging flags
             _waitingForWindowLogged = false;

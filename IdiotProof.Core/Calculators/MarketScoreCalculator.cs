@@ -26,6 +26,7 @@ public readonly struct IndicatorSnapshot
     // EMA values
     public double Ema9 { get; init; }
     public double Ema21 { get; init; }
+    public double Ema34 { get; init; }
     public double Ema50 { get; init; }
     
     // RSI

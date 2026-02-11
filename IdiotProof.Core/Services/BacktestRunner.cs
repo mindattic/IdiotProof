@@ -187,6 +187,7 @@ public static class BacktestRunner
     /// <param name="startingCapital">Starting capital in dollars.</param>
     /// <param name="baseThreshold">Base entry threshold.</param>
     /// <param name="allowShort">Allow short positions.</param>
+    /// <param name="showIndividualTrades">Show detailed trade output per day (false = summary only).</param>
     /// <param name="progress">Optional progress reporter.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>Summary of results across all days.</returns>
@@ -198,6 +199,7 @@ public static class BacktestRunner
         decimal startingCapital = 1000.00m,
         int baseThreshold = TradingDefaults.LongEntryThreshold,
         bool allowShort = true,
+        bool showIndividualTrades = true,
         IProgress<string>? progress = null,
         CancellationToken cancellationToken = default)
     {
@@ -216,6 +218,17 @@ public static class BacktestRunner
         progress?.Report($"Base Threshold: {baseThreshold}");
         progress?.Report($"Symbol: {symbol} | Period: {startDate:yyyy-MM-dd} to {endDate:yyyy-MM-dd}\n");
 
+        // Count trading days for progress reporting in summary mode
+        int tradingDayCount = 0;
+        int processedDays = 0;
+        var tempDate = startDate;
+        while (tempDate <= endDate)
+        {
+            if (tempDate.DayOfWeek != DayOfWeek.Saturday && tempDate.DayOfWeek != DayOfWeek.Sunday)
+                tradingDayCount++;
+            tempDate = tempDate.AddDays(1);
+        }
+
         while (currentDate <= endDate)
         {
             // Skip weekends
@@ -224,6 +237,8 @@ public static class BacktestRunner
                 currentDate = currentDate.AddDays(1);
                 continue;
             }
+
+            processedDays++;
 
             try
             {
@@ -255,20 +270,31 @@ public static class BacktestRunner
                     profile.RecordTrade(tradeRecord);
                 }
 
-                // Show trade chain for the day
-                if (result.Trades.Count > 0)
+                // Show trade chain for the day (only if showIndividualTrades is enabled)
+                if (showIndividualTrades)
                 {
-                    var tradeChain = FormatTradeChain(result.Trades, result.TotalPnL);
-                    progress?.Report($"[{currentDate:yyyy-MM-dd}] {tradeChain}");
+                    if (result.Trades.Count > 0)
+                    {
+                        var tradeChain = FormatTradeChain(result.Trades, result.TotalPnL);
+                        progress?.Report($"[{currentDate:yyyy-MM-dd}] {tradeChain}");
+                    }
+                    else
+                    {
+                        progress?.Report($"[{currentDate:yyyy-MM-dd}] No trades == P/L($0.00)");
+                    }
                 }
-                else
+                else if (processedDays == 1 || processedDays % 5 == 0 || processedDays == tradingDayCount)
                 {
-                    progress?.Report($"[{currentDate:yyyy-MM-dd}] No trades == P/L($0.00)");
+                    // Summary mode: show progress every 5 days
+                    progress?.Report($"Processing day {processedDays}/{tradingDayCount}...");
                 }
             }
             catch (Exception ex)
             {
-                progress?.Report($"  {currentDate:yyyy-MM-dd}: SKIPPED - {ex.Message}");
+                if (showIndividualTrades)
+                {
+                    progress?.Report($"  {currentDate:yyyy-MM-dd}: SKIPPED - {ex.Message}");
+                }
             }
 
             // IBKR pacing - wait between requests

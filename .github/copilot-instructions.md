@@ -1197,6 +1197,215 @@ Each trade records:
 | Win rate at threshold 80 > threshold 70 | Adjust to 80 for this ticker |
 | Time window win rate < 40% | Skip entries in that window |
 
+## PriceActionContext - Proactive Multi-Bar Pattern Analysis
+
+PriceActionContext transforms the trading system from **reactive** (indicator score triggers entry) to **proactive** (understand market structure, wait for high-probability setups).
+
+### Why This Matters
+
+The original problem: "The system decides 1 candle at a time without allowing normal patterns to occur like pullbacks and fair value gaps."
+
+**Before PriceActionContext:**
+- Score is 75 → ENTER NOW!
+- Chases extended moves
+- Enters against trend structure
+- No awareness of where price is in the current swing
+
+**After PriceActionContext:**
+- Score is 75, BUT:
+  - 5 consecutive green candles = DON'T CHASE, wait for pullback
+  - Just broke out = wait for first pullback to test breakout level
+  - In premium zone of downtrend = risky for longs
+  - Bearish RSI divergence = momentum exhaustion warning
+  - Near unfilled bullish FVG = potential support
+
+### What PriceActionContext Tracks
+
+| Pattern | Description | Entry Impact |
+|---------|-------------|--------------|
+| **Fair Value Gaps (FVGs)** | Imbalance zones where price moved too fast | Support/resistance, often revisited |
+| **Swing Points** | Local highs and lows for structure analysis | HH/HL = uptrend, LH/LL = downtrend |
+| **Consolidation Zones** | Price compressing before breakout | Tight range = potential explosive move |
+| **Extension Detection** | Consecutive same-color bars, distance from EMA | DON'T CHASE overextended moves |
+| **Pullback Quality** | Fibonacci depth, volume decrease | Healthy pullback = better entry |
+| **Premium/Discount Zones** | Top/middle/bottom 1/3 of range | Buy discount, sell premium |
+| **Liquidity Sweeps** | Swept lows then reversed | Bullish trap/grab pattern |
+| **Divergences** | Price vs RSI/MACD disagreement | Early reversal warning |
+| **Candle Patterns** | Engulfing, hammer, shooting star | Reversal signals |
+
+### Trend Structure Analysis
+
+```
++============================================================================+
+|  TREND STATE DETECTION                                                     |
++============================================================================+
+|                                                                            |
+|  TrendState.StrongUptrend:                                                |
+|    - 2+ consecutive Higher Highs                                          |
+|    - 2+ consecutive Higher Lows                                           |
+|    → Favor LONG entries, avoid SHORTS                                     |
+|                                                                            |
+|  TrendState.StrongDowntrend:                                              |
+|    - 2+ consecutive Lower Highs                                           |
+|    - 2+ consecutive Lower Lows                                            |
+|    → Favor SHORT entries, avoid LONGS                                     |
+|                                                                            |
+|  TrendState.TrendReversal:                                                |
+|    - Structure break detected (violation of last swing)                   |
+|    → High alert - potential direction change                              |
+|                                                                            |
++============================================================================+
+```
+
+### Fair Value Gap Detection
+
+```
+BULLISH FVG (Support):
+                                  +---+
+                                  |   | ← Candle 3 (low = gap top)
+                                  |   |
+                             +----+---+
+                             |    |
+              +---+          |    |
+              |   | ← Candle 1 (high = gap bottom)
+              |   |          |    | ← Candle 2 (impulse candle)
+              +---+          +----+
+
+              Gap zone: Candle1.High to Candle3.Low
+              Often acts as SUPPORT when revisited
+
+
+BEARISH FVG (Resistance):
+              +---+
+              |   | ← Candle 1 (low = gap top)
+              |   |
+              +---+----+
+                  |    |
+                  |    | ← Candle 2 (impulse candle)
+              +---+----+
+              |   |
+              |   | ← Candle 3 (high = gap bottom)
+              +---+
+
+              Gap zone: Candle3.High to Candle1.Low
+              Often acts as RESISTANCE when revisited
+```
+
+### Extension Detection (Anti-Chase)
+
+```
+OVEREXTENDED - DON'T CHASE:
+╔═══════════════════════════════════════════════════════════════════════╗
+║  Conditions that trigger "wait for pullback":                         ║
+║                                                                        ║
+║  1. 4+ consecutive same-color candles (configurable)                  ║
+║  2. Price > 2.5% from EMA(9) (configurable)                           ║
+║  3. RSI approaching overbought/oversold                               ║
+║                                                                        ║
+║  WAIT FOR PULLBACK:                                                    ║
+║                    ████                                                ║
+║               ████████                                                 ║
+║          ████████████   ← 5 green bars = EXTENDED                     ║
+║     ████████████████                                                   ║
+║████████████████████     ← Price far from EMA                          ║
+║──────────────────────   EMA(9)                                         ║
+║                                                                        ║
+║  Entry blocked until: pullback tests EMA or prior support             ║
+╚═══════════════════════════════════════════════════════════════════════╝
+```
+
+### First Pullback After Breakout (Ideal Entry)
+
+```
+IDEAL ENTRY PATTERN:
+                                 ████  ← Price testing breakout level
+                            ████    ████  from ABOVE (now support)
+                       ████
+═══════════════════════════════════════ ← RESISTANCE becomes SUPPORT
+                  ████
+             ████████
+        ████████████
+═══════════════════════ ← Prior resistance
+
+│
+├── 1. Price consolidates below resistance
+├── 2. BREAKOUT above resistance (don't chase!)
+├── 3. PULLBACK to test breakout level
+└── 4. HOLD above = ENTER LONG (ideal entry)
+```
+
+### Entry Quality Assessment
+
+```csharp
+public enum EntryQuality
+{
+    Ideal,       // +35 adj, 3+ bullish factors, aligned with trend
+    Good,        // +20 adj, 2+ supporting factors
+    Acceptable,  // +0 adj, more supporting than opposing
+    Poor,        // -10 adj, against trend
+    Avoid        // Chasing, against structure, multiple opposing factors
+}
+```
+
+### Score Adjustments from PriceActionContext
+
+| Pattern | Long Adjustment | Short Adjustment |
+|---------|----------------|------------------|
+| Strong uptrend (HH/HL) | +15 | -20 |
+| Strong downtrend (LH/LL) | -20 | +15 |
+| Healthy pullback in uptrend | +20 | - |
+| First pullback after breakout | +25 | - |
+| Near bullish FVG | +10 | - |
+| Overextended (4+ green bars) | -25 (VETO) | - |
+| Swept lows and reversed | +20 | -15 |
+| Bullish RSI divergence | +15 | - |
+| Bullish engulfing at support | +10 | - |
+| In discount zone of uptrend | +10 | - |
+| In premium zone (not uptrend) | -10 | - |
+
+### Integration with AutonomousTrading
+
+PriceActionContext runs **after** the market score calculation and **before** the final entry decision:
+
+```
+Market Score = 75 (above entry threshold)
+                ↓
+┌───────────────────────────────────────────────────────────────────┐
+│  PRICE ACTION CONTEXT CHECK                                       │
+│                                                                   │
+│  Trend: StrongUptrend (HH:2, HL:3)               → +15 LONG      │
+│  Extension: 5 consecutive green bars              → VETO LONG    │
+│  Pullback: Not in pullback                        → 0            │
+│  FVG: Near bullish gap at $48.50-$49.00          → +10 LONG     │
+│                                                                   │
+│  RESULT: shouldEnterLong = FALSE (vetoed by extension)           │
+│  MESSAGE: "[PA] VETO: Don't chase - 5 consecutive green bars"    │
+└───────────────────────────────────────────────────────────────────┘
+                ↓
+WAIT for pullback...
+```
+
+### PriceActionAnalysis Object
+
+```csharp
+var analysis = _priceActionContext.GetAnalysis(currentPrice, rsi, macd);
+
+// Key properties:
+analysis.LongEntryQuality      // Ideal, Good, Acceptable, Poor, Avoid
+analysis.ShortEntryQuality     // Same enum
+analysis.TrendState            // StrongUptrend, Ranging, StrongDowntrend, etc.
+analysis.ShouldWaitForPullback // True if overextended
+analysis.IsIdealLongEntry      // True if perfect setup
+analysis.BlockLongEntry        // True if entry should be vetoed
+analysis.LongScoreAdjustment   // +/- points to add to threshold
+analysis.BullishFactors        // List of bullish signals detected
+analysis.BearishFactors        // List of bearish signals detected
+analysis.NearestBullishFvg     // Closest unfilled bullish FVG
+analysis.IsFirstPullbackAfterBreakout  // Ideal entry signal
+analysis.JustSweptLows         // Liquidity grab pattern
+analysis.HasBullishRsiDivergence  // Divergence detected
+```
+
 ## LSTM Neural Network Integration
 
 The system includes **Long Short-Term Memory (LSTM)** neural networks for enhanced price direction prediction. LSTM networks excel at capturing temporal dependencies in sequential data like stock prices.

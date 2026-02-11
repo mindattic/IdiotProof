@@ -53,15 +53,29 @@ public sealed class WatchlistEntry
     [JsonPropertyName("symbol")]
     public string Symbol { get; set; } = "";
 
-    /// <summary>Number of shares to trade (0 = auto-calculate based on price).</summary>
-    [JsonPropertyName("quantity")]
-    public int Quantity { get; set; } = 0;
+    /// <summary>Optional friendly name for this ticker.</summary>
+    [JsonPropertyName("name")]
+    public string? Name { get; set; }
+
+    /// <summary>Dollar allocation per trade (e.g., 1000 = $1,000). 0 = use default allocation.</summary>
+    [JsonPropertyName("allocation")]
+    public double Allocation { get; set; } = 0;
 
     /// <summary>Whether this ticker is enabled (default: true).</summary>
     [JsonPropertyName("enabled")]
     public bool Enabled { get; set; } = true;
 
-    public override string ToString() => $"{Symbol} x{Quantity}" + (Enabled ? "" : " [DISABLED]");
+    /// <summary>
+    /// Calculate number of shares to buy based on current price.
+    /// </summary>
+    public int GetQuantityForPrice(double price)
+    {
+        if (price <= 0) return 0;
+        var alloc = Allocation > 0 ? Allocation : TradingDefaults.DefaultAllocationDollars;
+        return (int)Math.Floor(alloc / price);
+    }
+
+    public override string ToString() => $"{Symbol} ${Allocation:F0}" + (Enabled ? "" : " [DISABLED]");
 }
 
 /// <summary>
@@ -168,7 +182,8 @@ public static class WatchlistManager
             ConsoleLog.Write("Watchlist", $"Loaded {watchlist.EnabledCount}/{watchlist.TotalCount} tickers from {WatchlistFileName}");
             foreach (var ticker in watchlist.EnabledTickers)
             {
-                ConsoleLog.Write("Watchlist", $"  - {ticker.Symbol} x{ticker.Quantity}");
+                var allocStr = ticker.Allocation > 0 ? $"${ticker.Allocation:F0}" : "auto";
+                ConsoleLog.Write("Watchlist", $"  - {ticker.Symbol} ({allocStr})");
             }
 
             return watchlist;
@@ -222,10 +237,10 @@ public static class WatchlistManager
             Enabled = true,
             Tickers =
             [
-                new() { Symbol = "NVDA", Quantity = 5 },
-                new() { Symbol = "AAPL", Quantity = 10 },
-                new() { Symbol = "TSLA", Quantity = 3, Enabled = false },
-                new() { Symbol = "SPY", Quantity = 20 }
+                new() { Symbol = "NVDA", Allocation = 1000 },
+                new() { Symbol = "AAPL", Allocation = 1000 },
+                new() { Symbol = "TSLA", Allocation = 500, Enabled = false },
+                new() { Symbol = "SPY", Allocation = 2000 }
             ]
         };
 
@@ -235,9 +250,9 @@ public static class WatchlistManager
     }
 
     /// <summary>
-    /// Adds a ticker to the watchlist (or updates quantity if exists).
+    /// Adds a ticker to the watchlist (or updates allocation if exists).
     /// </summary>
-    public static void AddOrUpdate(string symbol, int quantity)
+    public static void AddOrUpdate(string symbol, double allocation)
     {
         var watchlist = Load();
         var existing = watchlist.Tickers.FirstOrDefault(t => 
@@ -245,7 +260,7 @@ public static class WatchlistManager
 
         if (existing != null)
         {
-            existing.Quantity = quantity;
+            existing.Allocation = allocation;
             existing.Enabled = true;
         }
         else
@@ -253,7 +268,7 @@ public static class WatchlistManager
             watchlist.Tickers.Add(new WatchlistEntry
             {
                 Symbol = symbol.ToUpperInvariant(),
-                Quantity = quantity,
+                Allocation = allocation,
                 Enabled = true
             });
         }
@@ -314,12 +329,13 @@ public static class WatchlistManager
         {
             var session = watchlist.Session;
             var name = $"{ticker.Symbol} Auto";
+            var alloc = ticker.Allocation > 0 ? ticker.Allocation : TradingDefaults.DefaultAllocationDollars;
 
-            // Generate IdiotScript for this ticker
+            // Generate IdiotScript for this ticker (allocation-based, quantity calculated at order time)
             var script = $"Ticker({ticker.Symbol})" +
                         $".Name(\"{name}\")" +
                         $".Session(IS.{session.ToUpperInvariant()})" +
-                        $".Quantity({ticker.Quantity})" +
+                        $".Allocation({alloc:F0})" +
                         $".AutonomousTrading()";
 
             yield return script;
@@ -345,30 +361,79 @@ public static class WatchlistManager
         Console.WriteLine();
         Console.WriteLine("=== Ticker Watchlist ===");
         Console.WriteLine();
-        Console.WriteLine($"    {"#",2}  {"Symbol",-8}  {"Qty",5}  {"Price",9}  {"Status",-10}  {"Description"}");
-        Console.WriteLine($"  {"---",3}  {"------",-8}  {"---",5}  {"-----",9}  {"------",-10}  {"-----------"}");
 
+        if (watchlist.Tickers.Count == 0)
+        {
+            Console.WriteLine("  (no tickers - press 1 to add)");
+            Console.WriteLine();
+            return;
+        }
+
+        // Check if any tickers need descriptions fetched from ChatGPT
+        var symbols = watchlist.Tickers.Select(t => t.Symbol).ToList();
+        var missingDesc = symbols.Where(s => 
+            StockDescriptionService.GetDescription(s).Contains("(not fetched)")).ToList();
+        
+        if (missingDesc.Count > 0)
+        {
+            Console.WriteLine($"  Fetching {missingDesc.Count} description(s) from AI...");
+            try
+            {
+                StockDescriptionService.FetchMissingDescriptionsAsync(missingDesc).GetAwaiter().GetResult();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"  Warning: Could not fetch descriptions: {ex.Message}");
+            }
+        }
+
+        double totalInvestment = 0;
         int rowNum = 0;
+        
         foreach (var ticker in watchlist.Tickers.OrderBy(t => t.Symbol))
         {
             rowNum++;
             var status = ticker.Enabled ? "[ACTIVE]" : "[OFF]";
-            var qtyStr = ticker.Quantity > 0 ? $"{ticker.Quantity,5}" : " auto";
 
-            // Get price from cache or provider
-            var cached = TickerDataCache.Get(ticker.Symbol);
-            var price = cached?.Price ?? priceProvider?.Invoke(ticker.Symbol) ?? 0;
-            var priceStr = price > 0 ? $"${price,7:F2}" : $"{"--",9}";
+            // Get price: try live provider first, then cache
+            double price = 0;
+            if (priceProvider != null)
+            {
+                price = priceProvider(ticker.Symbol);
+                if (price > 0)
+                    TickerDataCache.UpdatePrice(ticker.Symbol, price);
+            }
+            if (price <= 0)
+            {
+                var cached = TickerDataCache.Get(ticker.Symbol);
+                price = cached?.Price ?? 0;
+            }
+            
+            var priceStr = price > 0 ? $"${price:F2}" : "--";
+
+            // Calculate investment value from allocation
+            var alloc = ticker.Allocation > 0 ? ticker.Allocation : TradingDefaults.DefaultAllocationDollars;
+            var qty = price > 0 ? ticker.GetQuantityForPrice(price) : 0;
+            var allocStr = ticker.Allocation > 0 ? $"${alloc:F0}" : " auto";
+            var investmentValue = alloc;
+            var investStr = $"${investmentValue:F0}";
+            
+            if (investmentValue > 0)
+                totalInvestment += investmentValue;
 
             // Get description
             var desc = StockDescriptionService.GetDescription(ticker.Symbol);
 
-            Console.WriteLine($"    {rowNum,2}  {ticker.Symbol,-8}  {qtyStr}  {priceStr}  {status,-10}  {desc}");
+            // Format:  1  CCHH        $1000   $0.82  [ACTIVE]    China Ceramics Co. Ltd. - Manufacturing ceramics
+            Console.WriteLine($" {rowNum,2}  {ticker.Symbol,-10}{allocStr}     {priceStr,7}  {status,-10}  {desc}");
         }
 
         Console.WriteLine();
-        Console.WriteLine($"  Total: {watchlist.Tickers.Count} ticker(s)");
-        Console.WriteLine();
+        if (totalInvestment > 0)
+        {
+            Console.WriteLine($"  Total Investment: ${totalInvestment:F2}");
+            Console.WriteLine();
+        }
     }
 
     /// <summary>
@@ -419,11 +484,11 @@ public static class WatchlistManager
             }
             else
             {
-                // Add new ticker with Quantity=0 (auto tier-based allocation)
+                // Add new ticker with Allocation=0 (auto tier-based allocation)
                 watchlist.Tickers.Add(new WatchlistEntry
                 {
                     Symbol = symbol,
-                    Quantity = 0,  // Auto-calculate by price tier
+                    Allocation = 0,  // Auto-calculate by price tier
                     Enabled = true
                 });
                 added++;

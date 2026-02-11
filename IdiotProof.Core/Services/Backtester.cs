@@ -609,6 +609,16 @@ public sealed record AutonomousBacktestConfig
     public bool UseMetadataAtr { get; init; } = true;
 
     // ========================================================================
+    // OUTPUT SETTINGS
+    // ========================================================================
+
+    /// <summary>
+    /// Show individual trade details during multi-day backtests.
+    /// When false, shows only total profit per stock (summary mode).
+    /// </summary>
+    public bool ShowIndividualTrades { get; init; } = true;
+
+    // ========================================================================
     // Base Thresholds - Adjusted dynamically per bar based on conditions
     // ========================================================================
     // These are starting points. The actual threshold used each bar is calculated
@@ -2109,13 +2119,24 @@ public sealed class Backtester
         };
 
         // Run backtest on each day
+        int dayIndex = 0;
         foreach (var day in tradingDays)
         {
             cancellationToken.ThrowIfCancellationRequested();
+            dayIndex++;
             
             try
             {
-                progress?.Report($"Backtesting {symbol} on {day:yyyy-MM-dd}...");
+                // Show progress differently based on ShowIndividualTrades setting
+                if (config.ShowIndividualTrades)
+                {
+                    progress?.Report($"Backtesting {symbol} on {day:yyyy-MM-dd}...");
+                }
+                else if (dayIndex == 1 || dayIndex % 5 == 0 || dayIndex == tradingDays.Count)
+                {
+                    // Summary mode: show progress every 5 days
+                    progress?.Report($"Processing day {dayIndex}/{tradingDays.Count}...");
+                }
                 
                 var dayResult = await RunAsync(symbol, day, startingCapital, config, null, cancellationToken);
                 result.DayResults.Add(dayResult);
@@ -2128,7 +2149,10 @@ public sealed class Backtester
             }
             catch (Exception ex)
             {
-                progress?.Report($"  Skipped {day:yyyy-MM-dd}: {ex.Message}");
+                if (config.ShowIndividualTrades)
+                {
+                    progress?.Report($"  Skipped {day:yyyy-MM-dd}: {ex.Message}");
+                }
                 result.SkippedDays++;
             }
         }

@@ -132,8 +132,8 @@ public static class TickerDataCache
     /// <summary>
     /// Displays the ticker table.
     /// </summary>
-    public static void PrintTable(Dictionary<string, decimal>? configs = null)
+    public static void PrintTable(Func<string, double>? priceProvider = null)
     {
-        WatchlistManager.PrintSummary();
+        WatchlistManager.PrintSummaryWithPrices(priceProvider);
     }
 }

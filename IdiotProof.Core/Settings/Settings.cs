@@ -105,6 +105,14 @@ namespace IdiotProof.Settings {
         /// </summary>
         public static readonly TimeSpan Heartbeat = TimeSpan.FromMinutes(5);
 
+        // ----- Backtest Settings -----
+
+        /// <summary>
+        /// When true, shows individual trade details per day in backtest output.
+        /// When false, only shows the summary.
+        /// </summary>
+        public static bool ShowBacktestDailyDetails { get; set; } = false;
+
         // ----- Backend Mode Settings -----
 
         /// <summary>

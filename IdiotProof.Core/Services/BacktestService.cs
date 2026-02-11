@@ -309,9 +309,10 @@ namespace IdiotProof.Services {
                 var (profile, detailedLog) = RunAutonomousLearning(
                     request.Symbol,
                     allBars,
-                    request.Quantity,
+                    request.Allocation,
                     existingProfile,
-                    verboseLogging: true);
+                    verboseLogging: true,
+                    useAiConfirmation: request.UseAiConfirmation);
 
                 // Calculate results
                 int totalTrades = profile.TotalTrades;
@@ -364,9 +365,10 @@ namespace IdiotProof.Services {
         private static (TickerProfile Profile, string DetailedLog) RunAutonomousLearning(
             string symbol,
             IReadOnlyList<HistoricalBar> bars,
-            int quantity = 100,
+            double allocation = 1000.0,
             TickerProfile? existingProfile = null,
-            bool verboseLogging = false)
+            bool verboseLogging = false,
+            bool useAiConfirmation = false)
         {
             if (bars.Count < 50)
             {
@@ -375,7 +377,14 @@ namespace IdiotProof.Services {
             }
 
             // Create adaptive simulator that uses learned thresholds from profile
-            var simulator = new AutonomousLearningSimulator(symbol, quantity, existingProfile);
+            var simulator = new AutonomousLearningSimulator(symbol, allocation, existingProfile);
+
+            // Enable ChatGPT confirmation if requested
+            if (useAiConfirmation)
+            {
+                simulator.EnableChatGptConfirmation();
+                ConsoleLog.Write("Learn", $"ChatGPT confirmation ENABLED for {symbol}");
+            }
 
             if (verboseLogging)
             {
@@ -465,6 +474,13 @@ namespace IdiotProof.Services {
             {
                 Console.WriteLine();
                 ConsoleLog.Success("Learn", $"Complete: {profile.GetSummary()}");
+                
+                // Show AI confirmation stats if enabled
+                var (aiApproved, aiBlocked) = simulator.GetAiStats();
+                if (aiApproved + aiBlocked > 0)
+                {
+                    ConsoleLog.Write("Learn", $"AI Confirmation: {aiApproved} approved, {aiBlocked} blocked");
+                }
             }
             
             // Build detailed trade log
@@ -497,32 +513,36 @@ namespace IdiotProof.Services {
             
             foreach (var dayGroup in tradesByDay)
             {
-                sb.AppendLine($"Day {dayGroup.Key.DayNum} ({dayGroup.Key.Date:MM/dd/yyyy})");
-                sb.AppendLine(new string('-', 40));
+                double dayPnL = dayGroup.Sum(t => t.Trade.PnL);
                 
-                double dayPnL = 0;
-                foreach (var (_, _, trade) in dayGroup)
+                // Only show individual trade details if setting is enabled
+                if (Settings.AppSettings.ShowBacktestDailyDetails)
                 {
-                    if (trade.IsLong)
+                    sb.AppendLine($"Day {dayGroup.Key.DayNum} ({dayGroup.Key.Date:MM/dd/yyyy})");
+                    sb.AppendLine(new string('-', 40));
+                    
+                    foreach (var (_, _, trade) in dayGroup)
                     {
-                        sb.AppendLine($"  Buy:   ${trade.EntryPrice,8:F2} @ {trade.EntryTime:h:mm tt}");
-                        sb.AppendLine($"  Sell:  ${trade.ExitPrice,8:F2} @ {trade.ExitTime:h:mm tt}");
-                    }
-                    else
-                    {
-                        sb.AppendLine($"  Short: ${trade.EntryPrice,8:F2} @ {trade.EntryTime:h:mm tt}");
-                        sb.AppendLine($"  Cover: ${trade.ExitPrice,8:F2} @ {trade.ExitTime:h:mm tt}");
+                        if (trade.IsLong)
+                        {
+                            sb.AppendLine($"  Buy:   ${trade.EntryPrice,8:F2} @ {trade.EntryTime:h:mm tt}");
+                            sb.AppendLine($"  Sell:  ${trade.ExitPrice,8:F2} @ {trade.ExitTime:h:mm tt}");
+                        }
+                        else
+                        {
+                            sb.AppendLine($"  Short: ${trade.EntryPrice,8:F2} @ {trade.EntryTime:h:mm tt}");
+                            sb.AppendLine($"  Cover: ${trade.ExitPrice,8:F2} @ {trade.ExitTime:h:mm tt}");
+                        }
+                        
+                        var pnlSign = trade.PnL >= 0 ? "+" : "";
+                        sb.AppendLine($"  P/L:   {pnlSign}${trade.PnL:F2}");
+                        sb.AppendLine();
                     }
                     
-                    var pnlSign = trade.PnL >= 0 ? "+" : "";
-                    sb.AppendLine($"  P/L:   {pnlSign}${trade.PnL:F2}");
+                    var dayPnlSign = dayPnL >= 0 ? "+" : "";
+                    sb.AppendLine($"  Daily P/L: {dayPnlSign}${dayPnL:F2} ({dayGroup.Count()} trades)");
                     sb.AppendLine();
-                    dayPnL += trade.PnL;
                 }
-                
-                var dayPnlSign = dayPnL >= 0 ? "+" : "";
-                sb.AppendLine($"  Daily P/L: {dayPnlSign}${dayPnL:F2} ({dayGroup.Count()} trades)");
-                sb.AppendLine();
             }
             
             // Total summary
@@ -564,7 +584,8 @@ namespace IdiotProof.Services {
     internal sealed class AutonomousLearningSimulator
     {
         private readonly string _symbol;
-        private readonly int _quantity;
+        private readonly double _allocation;
+        private int _currentTradeQuantity; // Quantity for current trade (calculated at entry)
         private readonly TickerProfile _profile;
         private readonly TickerProfile? _learnedProfile;
 
@@ -615,6 +636,15 @@ namespace IdiotProof.Services {
         private readonly CciCalculator _cci = new(20);
         private readonly WilliamsRCalculator _williamsR = new(14);
 
+        // Trend direction filter - prevents trading against obvious trends
+        private readonly Helpers.TrendDirectionFilter _trendFilter = new();
+
+        // AI Advisor for ChatGPT confirmation (optional)
+        private Learning.AIAdvisor? _aiAdvisor;
+        private bool _useRealAiConfirmation;
+        private int _aiBlockedCount;
+        private int _aiApprovedCount;
+
         // Indicator weights - learned or default
         private IdiotProof.Optimization.IndicatorWeights _weights = IdiotProof.Optimization.IndicatorWeights.Default;
 
@@ -627,10 +657,10 @@ namespace IdiotProof.Services {
 
         public bool HasOpenPosition => _inPosition;
 
-        public AutonomousLearningSimulator(string symbol, int quantity, TickerProfile? learnedProfile = null)
+        public AutonomousLearningSimulator(string symbol, double allocation, TickerProfile? learnedProfile = null)
         {
             _symbol = symbol;
-            _quantity = quantity;
+            _allocation = allocation > 0 ? allocation : TradingDefaults.DefaultAllocationDollars;
             _learnedProfile = learnedProfile;
             _profile = new TickerProfile { Symbol = symbol };
         }
@@ -643,6 +673,25 @@ namespace IdiotProof.Services {
         {
             _weights = weights;
         }
+
+        /// <summary>
+        /// Enables real ChatGPT confirmation for each trade entry.
+        /// This will make the backtest slower but more accurate.
+        /// </summary>
+        public void EnableChatGptConfirmation()
+        {
+            _aiAdvisor = new Learning.AIAdvisor();
+            _useRealAiConfirmation = _aiAdvisor.IsConfigured;
+            if (_useRealAiConfirmation)
+            {
+                _aiAdvisor.MinConfidenceRequired = 55; // Same as synthetic threshold
+            }
+        }
+
+        /// <summary>
+        /// Get AI statistics from backtest run.
+        /// </summary>
+        public (int approved, int blocked) GetAiStats() => (_aiApprovedCount, _aiBlockedCount);
 
         /// <summary>
         /// Get dynamic entry threshold based on ADX and learned profile.
@@ -762,6 +811,17 @@ namespace IdiotProof.Services {
             _cci.Update(bar.High, bar.Low, bar.Close);
             _williamsR.Update(bar.High, bar.Low, bar.Close);
 
+            // Update trend direction filter
+            _trendFilter.Update(
+                bar.Close, vwap,
+                _ema9.IsReady ? _ema9.CurrentValue : 0,
+                _ema21.IsReady ? _ema21.CurrentValue : 0,
+                _ema50.IsReady ? _ema50.CurrentValue : 0,
+                _adx.IsReady ? _adx.CurrentAdx : 0,
+                _adx.IsReady ? _adx.PlusDI : 0,
+                _adx.IsReady ? _adx.MinusDI : 0,
+                bar.High, bar.Low);
+
             // Check warm-up
             if (!_indicatorsReady)
             {
@@ -783,6 +843,14 @@ namespace IdiotProof.Services {
             var minute = bar.Time.Minute;
             var timeOfDay = hour * 60 + minute;
             bool withinTradingHours = timeOfDay >= 570 && timeOfDay < 960; // 9:30 AM - 4:00 PM
+            
+            // Opening bell protection: skip first 2 minutes (9:30-9:32) due to extreme volatility
+            // This is where GOOG lost $5,690 in 3 minutes - never trade the open!
+            bool isOpeningBellWindow = timeOfDay >= 570 && timeOfDay < 572; // 9:30-9:32 AM
+            if (isOpeningBellWindow)
+            {
+                withinTradingHours = false; // Block trading during opening volatility
+            }
 
             // Check time between trades
             bool canTrade = (bar.Time - _lastTradeTime).TotalSeconds >= MinSecondsBetweenTrades;
@@ -810,15 +878,117 @@ namespace IdiotProof.Services {
                     bool obvConfirmsBull = !_obv.IsReady || _obv.IsAboveEma;
                     bool obvConfirmsBear = !_obv.IsReady || _obv.IsBelowEma;
 
-                    // LONG: Score above threshold AND MACD bullish AND +DI > -DI
-                    if (scores.Total >= longThreshold && macdBullish && diPositive && stochasticBullish && obvConfirmsBull)
+                    // LONG: Score above threshold AND MACD bullish AND +DI > -DI AND not in clear downtrend
+                    bool trendAllowsLong = !_trendFilter.IsReady || !_trendFilter.IsInClearDowntrend;
+                    bool trendAllowsShort = !_trendFilter.IsReady || !_trendFilter.IsInClearUptrend;
+
+                    // Build snapshot for confidence check
+                    var snapshot = new IndicatorSnapshot
                     {
-                        EnterPosition(bar.Close, bar.Time, true, scores);
+                        Price = bar.Close,
+                        Vwap = vwap,
+                        Ema9 = _ema9.IsReady ? _ema9.CurrentValue : 0,
+                        Ema21 = _ema21.IsReady ? _ema21.CurrentValue : 0,
+                        Ema50 = _ema50.IsReady ? _ema50.CurrentValue : 0,
+                        Rsi = _rsi.IsReady ? _rsi.CurrentValue : 50,
+                        Macd = _macd.IsReady ? _macd.MacdLine : 0,
+                        MacdSignal = _macd.IsReady ? _macd.SignalLine : 0,
+                        MacdHistogram = _macd.IsReady ? _macd.Histogram : 0,
+                        Adx = _adx.IsReady ? _adx.CurrentAdx : 0,
+                        PlusDi = _adx.IsReady ? _adx.PlusDI : 0,
+                        MinusDi = _adx.IsReady ? _adx.MinusDI : 0,
+                        VolumeRatio = _volume.IsReady ? _volume.VolumeRatio : 1.0
+                    };
+
+                    // AI confidence check - use real ChatGPT if enabled, otherwise synthetic
+                    const int MinSyntheticConfidence = 55;
+
+                    if (scores.Total >= longThreshold && macdBullish && diPositive && stochasticBullish && obvConfirmsBull && trendAllowsLong)
+                    {
+                        bool aiApproved = false;
+                        
+                        if (_useRealAiConfirmation && _aiAdvisor != null)
+                        {
+                            // Real ChatGPT API call
+                            var scoreResult = new Calculators.MarketScoreResult
+                            {
+                                TotalScore = scores.Total,
+                                VwapScore = scores.Vwap,
+                                EmaScore = scores.Ema,
+                                RsiScore = scores.Rsi,
+                                MacdScore = scores.Macd,
+                                AdxScore = scores.Adx,
+                                VolumeScore = scores.Volume
+                            };
+                            var (approved, confidence, reason) = _aiAdvisor.CheckTradeApproval(
+                                _symbol, snapshot, isLong: true, scoreResult, useSyntheticForSpeed: false);
+                            aiApproved = approved;
+                            if (approved) _aiApprovedCount++;
+                            else
+                            {
+                                _aiBlockedCount++;
+                                // Log first few blocked trades to debug
+                                if (_aiBlockedCount <= 3)
+                                {
+                                    ConsoleLog.Warn("AI", $"[{_symbol}] LONG blocked (#{_aiBlockedCount}): {reason}");
+                                }
+                            }
+                        }
+                        else
+                        {
+                            // Fast synthetic check
+                            int longConfidence = Learning.AIAdvisor.CalculateSyntheticConfidence(snapshot, isLong: true);
+                            aiApproved = longConfidence >= MinSyntheticConfidence;
+                        }
+
+                        if (aiApproved)
+                        {
+                            EnterPosition(bar.Close, bar.Time, true, scores);
+                        }
                     }
-                    // SHORT: Score below threshold AND MACD bearish AND -DI > +DI
-                    else if (scores.Total <= shortThreshold && macdBearish && diNegative && stochasticBearish && obvConfirmsBear)
+                    // SHORT: Score below threshold AND MACD bearish AND -DI > +DI AND not in clear uptrend
+                    else if (scores.Total <= shortThreshold && macdBearish && diNegative && stochasticBearish && obvConfirmsBear && trendAllowsShort)
                     {
-                        EnterPosition(bar.Close, bar.Time, false, scores);
+                        bool aiApproved = false;
+                        
+                        if (_useRealAiConfirmation && _aiAdvisor != null)
+                        {
+                            // Real ChatGPT API call
+                            var scoreResult = new Calculators.MarketScoreResult
+                            {
+                                TotalScore = scores.Total,
+                                VwapScore = scores.Vwap,
+                                EmaScore = scores.Ema,
+                                RsiScore = scores.Rsi,
+                                MacdScore = scores.Macd,
+                                AdxScore = scores.Adx,
+                                VolumeScore = scores.Volume
+                            };
+                            var (approved, confidence, reason) = _aiAdvisor.CheckTradeApproval(
+                                _symbol, snapshot, isLong: false, scoreResult, useSyntheticForSpeed: false);
+                            aiApproved = approved;
+                            if (approved) _aiApprovedCount++;
+                            else
+                            {
+                                _aiBlockedCount++;
+                                // Log first few blocked trades to debug
+                                if (_aiBlockedCount <= 3)
+                                {
+                                    ConsoleLog.Warn("AI", $"[{_symbol}] SHORT blocked (#{_aiBlockedCount}): {reason}");
+                                }
+                            }
+                        }
+                        else
+                        {
+                            // Fast synthetic check
+                            int shortConfidence = Learning.AIAdvisor.CalculateSyntheticConfidence(snapshot, isLong: false);
+                            aiApproved = shortConfidence >= MinSyntheticConfidence;
+                        }
+
+                        if (aiApproved)
+                        {
+                            EnterPosition(bar.Close, bar.Time, false, scores);
+                        }
                     }
                 }
             }
@@ -1020,6 +1190,11 @@ namespace IdiotProof.Services {
             _entryPrice = price;
             _entryTime = time;
             _lastTradeTime = time;
+            
+            // Calculate quantity from allocation and entry price
+            _currentTradeQuantity = price > 0 ? (int)Math.Floor(_allocation / price) : 1;
+            if (_currentTradeQuantity < 1) _currentTradeQuantity = 1;
+            
             _entryScore = scores.Total;
             _entryVwapScore = scores.Vwap;
             _entryEmaScore = scores.Ema;
@@ -1079,7 +1254,7 @@ namespace IdiotProof.Services {
                 ExitTime = exitTime,
                 ExitPrice = exitPrice,
                 IsLong = _isLong,
-                Quantity = _quantity,
+                Quantity = _currentTradeQuantity,
                 EntryScore = _entryScore,
                 ExitScore = exitScore,
                 EntryVwapScore = _entryVwapScore,
