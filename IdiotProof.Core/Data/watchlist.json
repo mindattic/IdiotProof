@@ -16,31 +16,31 @@
       "symbol": "NVDA",
       "name": null,
       "allocation": 0,
-      "enabled": false
+      "enabled": true
     },
     {
       "symbol": "UUUU",
       "name": null,
       "allocation": 0,
-      "enabled": false
+      "enabled": true
     },
     {
       "symbol": "TSLA",
       "name": null,
       "allocation": 0,
-      "enabled": false
+      "enabled": true
     },
     {
       "symbol": "BE",
       "name": null,
       "allocation": 0,
-      "enabled": false
+      "enabled": true
     },
     {
       "symbol": "SNDK",
       "name": null,
       "allocation": 0,
-      "enabled": false
+      "enabled": true
     }
   ],
   "session": "Extended",

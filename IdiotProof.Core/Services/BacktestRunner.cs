@@ -39,7 +39,7 @@ public static class BacktestRunner
         DateOnly date,
         decimal startingCapital = 1000.00m,
         int baseThreshold = TradingDefaults.LongEntryThreshold,
-        bool allowShort = true,
+        bool allowShort = false,
         IProgress<string>? progress = null,
         CancellationToken cancellationToken = default)
     {
@@ -121,7 +121,7 @@ public static class BacktestRunner
         DateOnly date,
         decimal startingCapital = 1000.00m,
         int baseThreshold = TradingDefaults.LongEntryThreshold,
-        bool allowShort = true)
+        bool allowShort = false)
     {
         // Convert HistoricalBar to BackTestCandle
         var candles = bars.Select(b => new BackTestCandle
@@ -162,7 +162,7 @@ public static class BacktestRunner
         decimal startingCapital = 1000.00m,
         PriceScenario scenario = PriceScenario.Volatile,
         int baseThreshold = TradingDefaults.LongEntryThreshold,
-        bool allowShort = true)
+        bool allowShort = false)
     {
         var candles = GenerateSyntheticCandles(symbol, date, scenario);
 
@@ -198,7 +198,7 @@ public static class BacktestRunner
         DateOnly endDate,
         decimal startingCapital = 1000.00m,
         int baseThreshold = TradingDefaults.LongEntryThreshold,
-        bool allowShort = true,
+        bool allowShort = false,
         bool showIndividualTrades = true,
         IProgress<string>? progress = null,
         CancellationToken cancellationToken = default)
@@ -405,7 +405,7 @@ public static class BacktestRunner
                 {
                     StartingCapital = startingCapital,
                     BaseEntryThreshold = threshold,
-                    AllowShort = true
+                    AllowShort = false
                 };
 
                 var backtester = new Backtester(null!);
@@ -446,7 +446,7 @@ public static class BacktestRunner
             {
                 StartingCapital = startingCapital,
                 BaseEntryThreshold = threshold,
-                AllowShort = true
+                AllowShort = false
             };
 
             var backtester = new Backtester(null!);

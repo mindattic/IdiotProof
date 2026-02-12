@@ -239,8 +239,12 @@ public sealed class PriceActionContext
     private const int MaxFvgs = 20;                // Max FVGs to track
     private const int MaxSwingPoints = 30;         // Max swing points
     private const int SwingLookback = 3;           // Bars on each side for swing detection
-    private const double ExtensionThreshold = 2.5; // % from EMA9 = overextended
-    private const int ChaseThreshold = 4;          // Consecutive same-color bars = chasing
+    private const double ExtensionThreshold = 2.5; // % from EMA9 = overextended (for stocks >$25)
+    private const int ChaseThreshold = 4;          // Consecutive same-color bars = chasing (for stocks >$25)
+    
+    // Price-tier thresholds (penny stocks need tighter chase detection)
+    private double _extensionThreshold = ExtensionThreshold;
+    private int _chaseThreshold = ChaseThreshold;
     
     // State
     private readonly List<Candlestick> _candles = new();
@@ -286,6 +290,22 @@ public sealed class PriceActionContext
     public void Update(Candlestick candle, double ema9 = 0, double ema21 = 0, 
                        double atr = 0, double rsi = 0, double macd = 0)
     {
+        // Adjust chase detection thresholds based on price tier
+        // Penny stocks need tighter detection because they move in bigger % per candle
+        _extensionThreshold = candle.Close switch
+        {
+            < 1.0 => 5.0,    // 5% from EMA9 for sub-$1 (normal noise is 2-3%)
+            < 5.0 => 4.0,    // 4% for $1-$5
+            < 25.0 => 3.0,   // 3% for $5-$25
+            _ => ExtensionThreshold // 2.5% default for $25+
+        };
+        _chaseThreshold = candle.Close switch
+        {
+            < 1.0 => 3,      // 3 consecutive bars = chasing on pennies
+            < 5.0 => 3,      // 3 for $1-$5
+            _ => ChaseThreshold // 4 default for $5+
+        };
+
         // Check for new session
         var candleDate = candle.Timestamp.Date;
         if (candleDate != _sessionDate)
@@ -387,12 +407,12 @@ public sealed class PriceActionContext
         // ====================================================================
         var (isExtended, greenBars, redBars, ema9Distance, shouldWait) = AnalyzeExtension(currentPrice);
         
-        if (isExtended && greenBars >= ChaseThreshold)
+        if (isExtended && greenBars >= _chaseThreshold)
         {
             bearishFactors.Add($"Overextended UP ({greenBars} green bars, {ema9Distance:F1}% from EMA9)");
             longAdj -= 25; // Don't chase
         }
-        else if (isExtended && redBars >= ChaseThreshold)
+        else if (isExtended && redBars >= _chaseThreshold)
         {
             bullishFactors.Add($"Overextended DOWN ({redBars} red bars, {ema9Distance:F1}% from EMA9)");
             shortAdj -= 25; // Don't chase
@@ -551,9 +571,9 @@ public sealed class PriceActionContext
         // CALCULATE FINAL ENTRY QUALITY
         // ====================================================================
         var longQuality = CalculateEntryQuality(longAdj, bullishFactors.Count, bearishFactors.Count, 
-                                                 trendState, true, isExtended && greenBars >= ChaseThreshold);
+                                                 trendState, true, isExtended && greenBars >= _chaseThreshold);
         var shortQuality = CalculateEntryQuality(shortAdj, bearishFactors.Count, bullishFactors.Count,
-                                                  trendState, false, isExtended && redBars >= ChaseThreshold);
+                                                  trendState, false, isExtended && redBars >= _chaseThreshold);
         
         // Build reasoning
         var reasoning = BuildReasoning(trendState, longQuality, shortQuality, 
@@ -705,11 +725,11 @@ public sealed class PriceActionContext
             ema9Dist = Math.Abs((currentPrice - _ema9) / _ema9 * 100);
         }
         
-        bool isExtended = ema9Dist >= ExtensionThreshold || 
-                          greenBars >= ChaseThreshold || 
-                          redBars >= ChaseThreshold;
+        bool isExtended = ema9Dist >= _extensionThreshold || 
+                          greenBars >= _chaseThreshold || 
+                          redBars >= _chaseThreshold;
         
-        bool shouldWait = isExtended && (greenBars >= ChaseThreshold || redBars >= ChaseThreshold);
+        bool shouldWait = isExtended && (greenBars >= _chaseThreshold || redBars >= _chaseThreshold);
         
         return (isExtended, greenBars, redBars, ema9Dist, shouldWait);
     }

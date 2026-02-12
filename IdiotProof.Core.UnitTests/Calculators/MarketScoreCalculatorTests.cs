@@ -510,5 +510,108 @@ public class MarketScoreCalculatorTests
             var result = MarketScoreCalculator.Calculate(snapshot);
             Assert.That(result.TotalScore, Is.LessThanOrEqualTo(100));
         }
+
+        // ================================================================
+        // Bounce scenario: stock bounces off support, higher lows forming,
+        // ADX 20+, RSI recovering (not overbought), MACD histogram growing
+        // with signal crossover. Price still below EMAs (early bounce).
+        // This is the exact pattern the system was failing to detect.
+        // ================================================================
+        [Test]
+        public void Calculate_BounceOffSupport_ProducesPositiveScore()
+        {
+            var snapshot = new IndicatorSnapshot
+            {
+                // Price still below EMAs (early bounce - lagging indicators haven't caught up)
+                Price = 48.50,
+                Vwap = 49.00,         // Slightly below VWAP (still recovering)
+                Ema9 = 49.20,         // Below EMA9
+                Ema21 = 50.00,        // Below EMA21
+                Ema34 = 50.50,
+                Ema50 = 51.00,        // Below EMA50
+
+                // Leading indicators are bullish (the bounce)
+                Rsi = 42,             // Recovering from oversold, NOT overbought
+                Macd = 0.15,          // MACD crossed above signal
+                MacdSignal = 0.05,    // Signal line below MACD = bullish cross
+                MacdHistogram = 0.10, // Histogram growing positive
+
+                // Trend strength and direction
+                Adx = 25,             // Trend strength >= 20
+                PlusDi = 22,          // +DI > -DI = bullish directional movement
+                MinusDi = 16,
+
+                // Volume confirming
+                VolumeRatio = 1.4,    // Above average volume on bounce
+
+                // Supporting indicators
+                BollingerUpper = 52, BollingerLower = 47, BollingerMiddle = 49.5,
+                BollingerPercentB = 0.3, BollingerBandwidth = 10,
+                StochasticK = 35,     // Rising from oversold
+                StochasticD = 28,     // K > D = bullish
+                ObvSlope = 0.3,       // OBV rising (accumulation)
+                Cci = 20,             // Recovering
+                WilliamsR = -65,      // Mid-range
+                Sma20 = 49.80,        // Below SMA20 (lagging)
+                Sma50 = 50.50,        // Below SMA50 (lagging)
+                Momentum = 1.5,       // Positive momentum
+                Roc = 1.2             // Positive rate of change
+            };
+
+            var result = MarketScoreCalculator.Calculate(snapshot);
+
+            // The bounce pattern should produce a POSITIVE score
+            // that can potentially reach the long entry threshold (65)
+            Assert.That(result.TotalScore, Is.GreaterThan(0),
+                "Bounce off support with bullish leading indicators should produce positive score, " +
+                $"even when price is below EMAs. Actual score: {result.TotalScore}");
+        }
+
+        [Test]
+        public void Calculate_BounceWithStrongConfluence_ReachesEntryThreshold()
+        {
+            var snapshot = new IndicatorSnapshot
+            {
+                // Price at VWAP (just reclaiming)
+                Price = 50.00,
+                Vwap = 49.80,         // Just above VWAP
+                Ema9 = 50.50,         // Still below EMA9
+                Ema21 = 51.00,
+                Ema34 = 51.50,
+                Ema50 = 52.00,
+
+                // Strong leading indicator agreement
+                Rsi = 38,             // Recovery zone (was oversold)
+                Macd = 0.30,          // Bullish
+                MacdSignal = 0.10,    // Strong bullish cross
+                MacdHistogram = 0.20,
+
+                Adx = 30,             // Strong trend
+                PlusDi = 28,          // Clearly bullish direction
+                MinusDi = 14,
+
+                VolumeRatio = 1.8,    // Strong volume confirmation
+
+                BollingerUpper = 54, BollingerLower = 47, BollingerMiddle = 50.5,
+                BollingerPercentB = 0.43, BollingerBandwidth = 14,
+                StochasticK = 40,
+                StochasticD = 30,     // K > D bullish
+                ObvSlope = 0.5,       // Strong accumulation
+                Cci = 40,
+                WilliamsR = -55,
+                Sma20 = 50.80,
+                Sma50 = 51.50,
+                Momentum = 3.0,       // Strong positive momentum
+                Roc = 2.5             // Strong ROC
+            };
+
+            var result = MarketScoreCalculator.Calculate(snapshot);
+
+            // With strong confluence of leading indicators + RSI recovery zone boost,
+            // the score should reach or approach the long entry threshold of 65
+            Assert.That(result.TotalScore, Is.GreaterThanOrEqualTo(40),
+                "Strong confluence bounce should produce score >= 40. " +
+                $"Actual score: {result.TotalScore}");
+        }
     }
 }

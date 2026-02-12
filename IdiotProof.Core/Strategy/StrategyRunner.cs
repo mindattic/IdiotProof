@@ -1612,7 +1612,7 @@ namespace IdiotProof.Strategy {
             int adjustedScore;
             int vwapScore, emaScore, rsiScore, macdScore, adxScore, volumeScore, bollingerScore;
             
-            var weights = IdiotProof.Calculators.IndicatorWeights.Default;
+            var weights = IndicatorConfigManager.GetWeights();
             
             // SINGLE SOURCE OF TRUTH: Use same calculation for live and backtest
             var result = MarketScoreCalculator.Calculate(snapshot, weights);
@@ -2206,19 +2206,39 @@ namespace IdiotProof.Strategy {
             
             // =====================================================================
             // APPLY TREND DIRECTION FILTER: Block entries against clear trends
+            // BUT allow strong reversal signals through (bounce off support)
+            // A score significantly above threshold = genuine reversal, not a trap
             // =====================================================================
             if (_trendFilter.IsReady)
             {
                 if (_trendFilter.IsInClearDowntrend && shouldEnterLong)
                 {
-                    Log($"[TREND FILTER] BLOCKED LONG entry - clear downtrend ({_trendFilter.Reason})", ConsoleColor.Red);
-                    shouldEnterLong = false;
+                    // Allow strong bounce signals through: if score >= threshold + 10,
+                    // the bounce has enough momentum to override the downtrend filter
+                    bool isStrongBounce = score.TotalScore >= adjustedLongThreshold + 10;
+                    if (!isStrongBounce)
+                    {
+                        Log($"[TREND FILTER] BLOCKED LONG entry - clear downtrend ({_trendFilter.Reason})", ConsoleColor.Red);
+                        shouldEnterLong = false;
+                    }
+                    else
+                    {
+                        Log($"[TREND FILTER] Allowing LONG despite downtrend - strong bounce signal (score {score.TotalScore} >> threshold {adjustedLongThreshold})", ConsoleColor.Yellow);
+                    }
                 }
                 
                 if (_trendFilter.IsInClearUptrend && shouldEnterShort)
                 {
-                    Log($"[TREND FILTER] BLOCKED SHORT entry - clear uptrend ({_trendFilter.Reason})", ConsoleColor.Red);
-                    shouldEnterShort = false;
+                    bool isStrongBreakdown = score.TotalScore <= adjustedShortThreshold - 10;
+                    if (!isStrongBreakdown)
+                    {
+                        Log($"[TREND FILTER] BLOCKED SHORT entry - clear uptrend ({_trendFilter.Reason})", ConsoleColor.Red);
+                        shouldEnterShort = false;
+                    }
+                    else
+                    {
+                        Log($"[TREND FILTER] Allowing SHORT despite uptrend - strong breakdown signal (score {score.TotalScore} << threshold {adjustedShortThreshold})", ConsoleColor.Yellow);
+                    }
                 }
             }
 
@@ -2379,15 +2399,17 @@ namespace IdiotProof.Strategy {
                     }
                     
                     // Don't chase - overextended stocks should wait for pullback
-                    if (shouldEnterLong && paAnalysis.ShouldWaitForPullback && paAnalysis.ConsecutiveGreenBars >= 4)
+                    // ShouldWaitForPullback alone is sufficient (PriceActionContext already uses
+                    // price-tier-aware thresholds internally)
+                    if (shouldEnterLong && paAnalysis.ShouldWaitForPullback)
                     {
-                        Log($"[PA] VETO: Don't chase - {paAnalysis.ConsecutiveGreenBars} consecutive green bars", ConsoleColor.DarkYellow);
+                        Log($"[PA] VETO: Don't chase - {paAnalysis.ConsecutiveGreenBars} consecutive green bars, {paAnalysis.DistanceFromEma9Percent:F1}% from EMA9", ConsoleColor.DarkYellow);
                         shouldEnterLong = false;
                     }
                     
-                    if (shouldEnterShort && paAnalysis.ShouldWaitForPullback && paAnalysis.ConsecutiveRedBars >= 4)
+                    if (shouldEnterShort && paAnalysis.ShouldWaitForPullback)
                     {
-                        Log($"[PA] VETO: Don't chase - {paAnalysis.ConsecutiveRedBars} consecutive red bars", ConsoleColor.DarkYellow);
+                        Log($"[PA] VETO: Don't chase - {paAnalysis.ConsecutiveRedBars} consecutive red bars, {paAnalysis.DistanceFromEma9Percent:F1}% from EMA9", ConsoleColor.DarkYellow);
                         shouldEnterShort = false;
                     }
                     
@@ -2807,7 +2829,11 @@ namespace IdiotProof.Strategy {
             }
 
             // STANDARD MODE: Use exit thresholds, optionally flip
-            if (isLong && score.TotalScore < config.LongExitThreshold)
+            // Enforce minimum hold time before score-based exits (SL/TP still fire immediately via orders)
+            bool holdTimeMet = _lastTradeTime != DateTime.MinValue &&
+                (DateTime.UtcNow - _lastTradeTime).TotalMinutes >= TradingDefaults.MinHoldMinutesBeforeScoreExit;
+            
+            if (isLong && holdTimeMet && score.TotalScore < config.LongExitThreshold)
             {
                 Log($"*** AUTONOMOUS LONG EXIT: Score {score.TotalScore} < {config.LongExitThreshold} ({score.Condition})", ConsoleColor.Yellow);
                 Log($"  Position was LONG, momentum lost. Consider direction flip: {config.AllowDirectionFlip}", ConsoleColor.DarkGray);
@@ -2823,7 +2849,7 @@ namespace IdiotProof.Strategy {
                     ExecuteAutonomousEntry(currentPrice, vwap, false, tp, sl, config);
                 }
             }
-            else if (!isLong && score.TotalScore > config.ShortExitThreshold)
+            else if (!isLong && holdTimeMet && score.TotalScore > config.ShortExitThreshold)
             {
                 Log($"*** AUTONOMOUS SHORT EXIT: Score {score.TotalScore} > {config.ShortExitThreshold} ({score.Condition})", ConsoleColor.Yellow);
                 Log($"  Position was SHORT, momentum lost. Consider direction flip: {config.AllowDirectionFlip}", ConsoleColor.DarkGray);
@@ -2916,8 +2942,10 @@ namespace IdiotProof.Strategy {
             if (_atrCalculator?.IsReady == true)
             {
                 double atr = _atrCalculator.CurrentAtr;
-                tpDistance = atr * tpMultiplier;
-                slDistance = atr * slMultiplier;
+                // Scale ATR multiplier based on price tier (penny stocks need wider stops)
+                double scale = TradingDefaults.GetAtrMultiplierScale(entryPrice);
+                tpDistance = atr * tpMultiplier * scale;
+                slDistance = atr * slMultiplier * scale;
             }
             else
             {
@@ -2925,6 +2953,9 @@ namespace IdiotProof.Strategy {
                 tpDistance = entryPrice * config.TakeProfitPercent;
                 slDistance = entryPrice * config.StopLossPercent;
             }
+
+            // Enforce minimum distances based on price tier
+            (tpDistance, slDistance) = TradingDefaults.EnforceMinimumDistances(entryPrice, tpDistance, slDistance);
 
             if (isLong)
             {
@@ -3268,8 +3299,8 @@ namespace IdiotProof.Strategy {
             var order = _strategy.Order;
             var config = order.AdaptiveOrder!;
 
-            // Get indicator weights
-            var weights = IdiotProof.Calculators.IndicatorWeights.Default;
+            // Get indicator weights (from indicator-config.json with dynamic redistribution)
+            var weights = IndicatorConfigManager.GetWeights();
             
             // Use MarketScoreCalculator for component scores (SINGLE SOURCE OF TRUTH)
             var snapshot = BuildIndicatorSnapshot(price, vwap);
@@ -4216,7 +4247,6 @@ namespace IdiotProof.Strategy {
                     bool positionWasLong = _isLong;
                     
                     // Direction flip on stop loss - market proved us wrong, flip direction
-                    // This minimizes losses by immediately pivoting to the winning side
                     if (config != null && config.AllowDirectionFlip)
                     {
                         bool canFlipShort = config.AllowShort && !_shortSaleBlocked;
@@ -4365,6 +4395,8 @@ namespace IdiotProof.Strategy {
                 return;
             }
         }
+
+
 
         /// <summary>
         /// Resets state after an autonomous trade completes to allow the next trade.

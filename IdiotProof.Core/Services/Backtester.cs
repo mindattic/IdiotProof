@@ -456,10 +456,10 @@ public sealed record AutonomousBacktestConfig
     public int BaseEntryThreshold { get; init; } = 50;
 
     /// <summary>Allow short positions.</summary>
-    public bool AllowShort { get; init; } = true;
+    public bool AllowShort { get; init; } = false;
 
     /// <summary>Allow flipping from long to short (and vice versa).</summary>
-    public bool AllowDirectionFlip { get; init; } = true;
+    public bool AllowDirectionFlip { get; init; } = false;
 
     /// <summary>Minimum seconds between trades.</summary>
     public int MinSecondsBetweenTrades { get; init; } = 60; // Increased to avoid overtrading
@@ -1694,8 +1694,12 @@ public sealed class Backtester
                             {
                                 atrAtEntry = indicators.GetAtr(i);
                             }
-                            takeProfitPrice = entryPrice + (atrAtEntry * GetTpAtr());
-                            stopLossPrice = entryPrice - (atrAtEntry * GetSlAtr());
+                            takeProfitPrice = entryPrice + (atrAtEntry * GetTpAtr() * TradingDefaults.GetAtrMultiplierScale(entryPrice));
+                            stopLossPrice = entryPrice - (atrAtEntry * GetSlAtr() * TradingDefaults.GetAtrMultiplierScale(entryPrice));
+                            // Enforce minimum distances for penny stocks
+                            var (minTpD, minSlD) = TradingDefaults.EnforceMinimumDistances(entryPrice, takeProfitPrice - entryPrice, entryPrice - stopLossPrice);
+                            takeProfitPrice = entryPrice + minTpD;
+                            stopLossPrice = entryPrice - minSlD;
                             originalStopLoss = stopLossPrice;
                         }
                     }
@@ -1734,8 +1738,12 @@ public sealed class Backtester
                             {
                                 atrAtEntry = indicators.GetAtr(i);
                             }
-                            takeProfitPrice = entryPrice - (atrAtEntry * GetTpAtr());
-                            stopLossPrice = entryPrice + (atrAtEntry * GetSlAtr());
+                            takeProfitPrice = entryPrice - (atrAtEntry * GetTpAtr() * TradingDefaults.GetAtrMultiplierScale(entryPrice));
+                            stopLossPrice = entryPrice + (atrAtEntry * GetSlAtr() * TradingDefaults.GetAtrMultiplierScale(entryPrice));
+                            // Enforce minimum distances for penny stocks
+                            var (minTpDS, minSlDS) = TradingDefaults.EnforceMinimumDistances(entryPrice, entryPrice - takeProfitPrice, stopLossPrice - entryPrice);
+                            takeProfitPrice = entryPrice - minTpDS;
+                            stopLossPrice = entryPrice + minSlDS;
                             originalStopLoss = stopLossPrice;
                         }
                     }
@@ -1830,6 +1838,7 @@ public sealed class Backtester
                 // Check exit conditions
                 string? exitReason = null;
                 double exitPrice = candle.Close;
+                int barsHeld = i - entryIndex;
 
                 if (isLong)
                 {
@@ -1843,11 +1852,11 @@ public sealed class Backtester
                         exitReason = $"Stop loss at ${stopLossPrice:F2}";
                         exitPrice = stopLossPrice;
                     }
-                    else if (score < config.LongExitThreshold)
+                    else if (barsHeld >= TradingDefaults.MinHoldBarsBeforeScoreExit && score < config.LongExitThreshold)
                     {
                         exitReason = $"Score {score:+0} < {config.LongExitThreshold} (momentum fading)";
                     }
-                    else if (score <= -70)
+                    else if (barsHeld >= TradingDefaults.MinHoldBarsBeforeScoreExit && score <= -70)
                     {
                         exitReason = $"Emergency exit - bearish signal ({score:+0})";
                     }
@@ -1864,11 +1873,11 @@ public sealed class Backtester
                         exitReason = $"Stop loss at ${stopLossPrice:F2}";
                         exitPrice = stopLossPrice;
                     }
-                    else if (score > config.ShortExitThreshold)
+                    else if (barsHeld >= TradingDefaults.MinHoldBarsBeforeScoreExit && score > config.ShortExitThreshold)
                     {
                         exitReason = $"Score {score:+0} > {config.ShortExitThreshold} (momentum fading)";
                     }
-                    else if (score >= 70)
+                    else if (barsHeld >= TradingDefaults.MinHoldBarsBeforeScoreExit && score >= 70)
                     {
                         exitReason = $"Emergency exit - bullish signal ({score:+0})";
                     }
@@ -1948,8 +1957,12 @@ public sealed class Backtester
                                 lastTradeTime = candle.Timestamp;
 
                                 double atr = indicators.GetAtr(i);
-                                takeProfitPrice = entryPrice - (atr * GetTpAtr());
-                                stopLossPrice = entryPrice + (atr * GetSlAtr());
+                                double scale = TradingDefaults.GetAtrMultiplierScale(entryPrice);
+                                takeProfitPrice = entryPrice - (atr * GetTpAtr() * scale);
+                                stopLossPrice = entryPrice + (atr * GetSlAtr() * scale);
+                                var (mTpF1, mSlF1) = TradingDefaults.EnforceMinimumDistances(entryPrice, entryPrice - takeProfitPrice, stopLossPrice - entryPrice);
+                                takeProfitPrice = entryPrice - mTpF1;
+                                stopLossPrice = entryPrice + mSlF1;
                             }
                         }
                         else if (!isLong && score >= GetLongThreshold())
@@ -1970,8 +1983,12 @@ public sealed class Backtester
                                 lastTradeTime = candle.Timestamp;
 
                                 double atr = indicators.GetAtr(i);
-                                takeProfitPrice = entryPrice + (atr * GetTpAtr());
-                                stopLossPrice = entryPrice - (atr * GetSlAtr());
+                                double scaleL = TradingDefaults.GetAtrMultiplierScale(entryPrice);
+                                takeProfitPrice = entryPrice + (atr * GetTpAtr() * scaleL);
+                                stopLossPrice = entryPrice - (atr * GetSlAtr() * scaleL);
+                                var (mTpF2, mSlF2) = TradingDefaults.EnforceMinimumDistances(entryPrice, takeProfitPrice - entryPrice, entryPrice - stopLossPrice);
+                                takeProfitPrice = entryPrice + mTpF2;
+                                stopLossPrice = entryPrice - mSlF2;
                             }
                         }
                     }

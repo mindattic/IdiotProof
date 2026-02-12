@@ -1,0 +1,19 @@
+{
+  "description": "Indicator Configuration - Enable/disable indicators and adjust base weights",
+  "enabled": true,
+  "indicators": {
+    "vwap":       { "enabled": true, "baseWeight": 0.09, "name": "VWAP Position" },
+    "ema":        { "enabled": true, "baseWeight": 0.13, "name": "EMA Stack" },
+    "rsi":        { "enabled": true, "baseWeight": 0.10, "name": "RSI Momentum" },
+    "macd":       { "enabled": true, "baseWeight": 0.16, "name": "MACD Signal" },
+    "adx":        { "enabled": true, "baseWeight": 0.13, "name": "ADX Trend Strength" },
+    "volume":     { "enabled": true, "baseWeight": 0.07, "name": "Volume Confirmation" },
+    "bollinger":  { "enabled": true, "baseWeight": 0.05, "name": "Bollinger Bands" },
+    "stochastic": { "enabled": true, "baseWeight": 0.05, "name": "Stochastic Oscillator" },
+    "obv":        { "enabled": true, "baseWeight": 0.05, "name": "On-Balance Volume" },
+    "cci":        { "enabled": true, "baseWeight": 0.03, "name": "CCI" },
+    "williamsR":  { "enabled": true, "baseWeight": 0.03, "name": "Williams %R" },
+    "sma":        { "enabled": true, "baseWeight": 0.06, "name": "SMA Trend" },
+    "momentum":   { "enabled": true, "baseWeight": 0.05, "name": "Momentum/ROC" }
+  }
+}

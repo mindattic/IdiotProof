@@ -134,6 +134,23 @@ public static class TradingDefaults
     /// </summary>
     public const decimal BacktestSlippage = 0.0m;
 
+    /// <summary>
+    /// Gets realistic slippage percentage based on stock price tier.
+    /// Low-priced stocks have wider bid-ask spreads, so slippage is much higher.
+    /// For a $0.60 stock, $0.01 spread = 1.67% - this must be accounted for.
+    /// </summary>
+    public static double GetSlippagePercent(double price)
+    {
+        return price switch
+        {
+            < 1.0 => 0.015,    // 1.5% slippage for sub-$1 (typical $0.01-$0.02 spread on $0.50-$1.00)
+            < 5.0 => 0.005,    // 0.5% slippage for $1-$5
+            < 25.0 => 0.002,   // 0.2% slippage for $5-$25
+            < 100.0 => 0.001,  // 0.1% slippage for $25-$100
+            _ => 0.0005        // 0.05% slippage for $100+
+        };
+    }
+
     // ========================================================================
     // ADX THRESHOLDS FOR DYNAMIC ADJUSTMENTS
     // ========================================================================
@@ -146,6 +163,92 @@ public static class TradingDefaults
 
     /// <summary>ADX level indicating a ranging/weak market.</summary>
     public const double AdxRangingMarket = 20.0;
+
+    // ========================================================================
+    // PRICE-TIER-AWARE MINIMUM SL/TP DISTANCES
+    // Penny stocks need wider stops to survive normal micro-volatility.
+    // These are MINIMUM percentage distances from entry price.
+    // ========================================================================
+
+    /// <summary>
+    /// Gets the minimum stop loss distance as a percentage of entry price.
+    /// Penny stocks get wider minimums because their tick-to-tick noise is
+    /// a larger percentage of price.
+    /// </summary>
+    public static double GetMinSlPercent(double entryPrice)
+    {
+        return entryPrice switch
+        {
+            < 1.0 => 0.05,    // 5% min SL for sub-$1 stocks
+            < 5.0 => 0.035,   // 3.5% min SL for $1-$5 stocks
+            < 25.0 => 0.025,  // 2.5% min SL for $5-$25 stocks
+            < 100.0 => 0.015, // 1.5% min SL for $25-$100 stocks
+            _ => 0.01         // 1% min SL for $100+ stocks
+        };
+    }
+
+    /// <summary>
+    /// Gets the minimum take profit distance as a percentage of entry price.
+    /// Ensures TP is always a meaningful target relative to price.
+    /// </summary>
+    public static double GetMinTpPercent(double entryPrice)
+    {
+        return entryPrice switch
+        {
+            < 1.0 => 0.07,    // 7% min TP for sub-$1 stocks
+            < 5.0 => 0.05,    // 5% min TP for $1-$5 stocks
+            < 25.0 => 0.035,  // 3.5% min TP for $5-$25 stocks
+            < 100.0 => 0.02,  // 2% min TP for $25-$100 stocks
+            _ => 0.015        // 1.5% min TP for $100+ stocks
+        };
+    }
+
+    /// <summary>
+    /// Gets an ATR multiplier scaling factor for the stock's price tier.
+    /// Low-priced stocks get larger multipliers because 1-minute ATR is tiny
+    /// relative to the noise they experience.
+    /// </summary>
+    public static double GetAtrMultiplierScale(double entryPrice)
+    {
+        return entryPrice switch
+        {
+            < 1.0 => 3.0,    // Triple the ATR multiplier for sub-$1
+            < 5.0 => 2.0,    // Double for $1-$5
+            < 25.0 => 1.5,   // 1.5x for $5-$25
+            _ => 1.0          // Standard for $25+
+        };
+    }
+
+    /// <summary>
+    /// Enforces minimum TP/SL distances based on price tier.
+    /// Call this after calculating raw ATR-based TP/SL distances.
+    /// </summary>
+    public static (double tpDistance, double slDistance) EnforceMinimumDistances(
+        double entryPrice, double rawTpDistance, double rawSlDistance)
+    {
+        double minTp = entryPrice * GetMinTpPercent(entryPrice);
+        double minSl = entryPrice * GetMinSlPercent(entryPrice);
+
+        return (Math.Max(rawTpDistance, minTp), Math.Max(rawSlDistance, minSl));
+    }
+
+    // ========================================================================
+    // MINIMUM HOLD TIME
+    // Prevents premature score-based exits on noisy stocks.
+    // SL/TP still fire immediately - this only delays score exits.
+    // ========================================================================
+
+    /// <summary>
+    /// Minimum number of bars to hold a position before allowing score-based
+    /// exits. SL and TP can still trigger immediately. This prevents the
+    /// system from entering and exiting on the next bar due to score noise.
+    /// </summary>
+    public const int MinHoldBarsBeforeScoreExit = 5;
+
+    /// <summary>
+    /// Minimum hold time in minutes before score-based exit (for live trading).
+    /// </summary>
+    public const int MinHoldMinutesBeforeScoreExit = 5;
 
     // ========================================================================
     // TIMING

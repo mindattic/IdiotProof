@@ -609,13 +609,12 @@ namespace IdiotProof.Services {
         private int _entryScore;
         private int _entryVwapScore, _entryEmaScore, _entryRsiScore, _entryMacdScore, _entryAdxScore, _entryVolumeScore;
 
+
         // TP/SL price levels (ATR-based)
         private double _takeProfitPrice;
         private double _stopLossPrice;
 
-        // Exit confirmation tracking (avoid exiting on one bad candle)
-        private int _exitConfirmationBars;
-        private const int RequiredExitConfirmationBars = 2;
+
 
         // VWAP tracking (resets each trading day)
         private double _pvSum;
@@ -654,6 +653,9 @@ namespace IdiotProof.Services {
         private int _aiBlockedCount;
         private int _aiApprovedCount;
 
+        // Short selling toggle (default: disabled)
+        private readonly bool _allowShort;
+
         // Indicator weights - learned or default
         private IdiotProof.Optimization.IndicatorWeights _weights = IdiotProof.Optimization.IndicatorWeights.Default;
 
@@ -666,13 +668,14 @@ namespace IdiotProof.Services {
 
         public bool HasOpenPosition => _inPosition;
 
-        public AutonomousLearningSimulator(string symbol, double allocation, TickerProfile? learnedProfile = null)
+        public AutonomousLearningSimulator(string symbol, double allocation, TickerProfile? learnedProfile = null, bool allowShort = false)
         {
             _symbol = symbol;
             _allocation = allocation > 0 ? allocation : TradingDefaults.DefaultAllocationDollars;
             _learnedProfile = learnedProfile;
             _profile = new TickerProfile { Symbol = symbol };
             _prevDayLevels = new Calculators.PreviousDayLevelsTracker(symbol);
+            _allowShort = allowShort;
         }
         
         /// <summary>
@@ -879,28 +882,14 @@ namespace IdiotProof.Services {
 
             if (!_inPosition)
             {
-                // Reset exit confirmation on no position
-                _exitConfirmationBars = 0;
-
                 // Get dynamic thresholds
                 int longThreshold = GetLongEntryThreshold();
                 int shortThreshold = GetShortEntryThreshold();
 
-                // Entry requires: 1) score above threshold, 2) +DI/-DI aligned, 3) MACD confirms
+                // Entry requires: score above threshold + trend filter + AI confidence (matches LIVE)
                 if (withinTradingHours && canTrade)
                 {
-                    bool macdBullish = _macd.IsReady && _macd.IsBullish;
-                    bool macdBearish = _macd.IsReady && !_macd.IsBullish;
-                    bool diPositive = _adx.IsReady && _adx.PlusDI > _adx.MinusDI;
-                    bool diNegative = _adx.IsReady && _adx.MinusDI > _adx.PlusDI;
-
-                    // Additional confirmation from extended indicators
-                    bool stochasticBullish = _stochastic.IsReady && (_stochastic.IsBullishCrossover || !_stochastic.IsOverbought);
-                    bool stochasticBearish = _stochastic.IsReady && (_stochastic.IsBearishCrossover || !_stochastic.IsOversold);
-                    bool obvConfirmsBull = !_obv.IsReady || _obv.IsAboveEma;
-                    bool obvConfirmsBear = !_obv.IsReady || _obv.IsBelowEma;
-
-                    // LONG: Score above threshold AND MACD bullish AND +DI > -DI AND not in clear downtrend
+                    // Trend direction filter (matches LIVE: allows strong signals to override)
                     bool trendAllowsLong = !_trendFilter.IsReady || !_trendFilter.IsInClearDowntrend;
                     bool trendAllowsShort = !_trendFilter.IsReady || !_trendFilter.IsInClearUptrend;
 
@@ -948,7 +937,8 @@ namespace IdiotProof.Services {
                     // AI confidence check - use real ChatGPT if enabled, otherwise synthetic
                     const int MinSyntheticConfidence = 55;
 
-                    if (scores.Total >= longThreshold && macdBullish && diPositive && stochasticBullish && obvConfirmsBull && trendAllowsLong)
+                    // LONG: Score above threshold AND trend allows (matches LIVE - no MACD/DI/Stochastic/OBV gates)
+                    if (scores.Total >= longThreshold && trendAllowsLong)
                     {
                         bool aiApproved = false;
                         
@@ -991,8 +981,8 @@ namespace IdiotProof.Services {
                             EnterPosition(bar.Close, bar.Time, true, scores);
                         }
                     }
-                    // SHORT: Score below threshold AND MACD bearish AND -DI > +DI AND not in clear uptrend
-                    else if (scores.Total <= shortThreshold && macdBearish && diNegative && stochasticBearish && obvConfirmsBear && trendAllowsShort)
+                    // SHORT: Score below threshold AND trend allows (matches LIVE - no MACD/DI/Stochastic/OBV gates)
+                    else if (_allowShort && scores.Total <= shortThreshold && trendAllowsShort)
                     {
                         bool aiApproved = false;
                         
@@ -1039,10 +1029,13 @@ namespace IdiotProof.Services {
             }
             else
             {
-                // Check for exit - TP/SL first (price-based), then score-based with confirmation
+                // Check for exit - TP/SL first (price-based), then score-based
                 bool shouldExit = false;
                 double exitPrice = bar.Close;
                 string exitReason = "score";
+                
+                // Apply slippage for score-based exits (TP/SL use fixed price)
+                double exitSlippage = TradingDefaults.GetSlippagePercent(bar.Close);
 
                 // Check TP/SL hits using bar high/low
                 if (_isLong)
@@ -1061,24 +1054,14 @@ namespace IdiotProof.Services {
                     }
                     else
                     {
-                        // Score-based exit: require MACD flip OR sustained score drop
-                        bool macdFlipped = _macd.IsReady && !_macd.IsBullish;
-                        bool diFlipped = _adx.IsReady && _adx.MinusDI > _adx.PlusDI;
+                        // Score-based exit: immediate on threshold breach (matches LIVE)
                         int exitThreshold = GetLongExitThreshold();
 
                         if (scores.Total < exitThreshold)
                         {
-                            _exitConfirmationBars++;
-                            // Exit if: MACD flipped bearish AND DI flipped, OR sustained low score
-                            if ((macdFlipped && diFlipped) || _exitConfirmationBars >= RequiredExitConfirmationBars)
-                            {
-                                shouldExit = true;
-                                exitReason = "reversal";
-                            }
-                        }
-                        else
-                        {
-                            _exitConfirmationBars = 0; // Reset if score recovers
+                            shouldExit = true;
+                            exitPrice = bar.Close * (1 - exitSlippage); // Selling long at slightly lower
+                            exitReason = "reversal";
                         }
                     }
                 }
@@ -1098,22 +1081,14 @@ namespace IdiotProof.Services {
                     }
                     else
                     {
-                        bool macdFlipped = _macd.IsReady && _macd.IsBullish;
-                        bool diFlipped = _adx.IsReady && _adx.PlusDI > _adx.MinusDI;
+                        // Score-based exit: immediate on threshold breach (matches LIVE)
                         int exitThreshold = GetShortExitThreshold();
 
                         if (scores.Total > exitThreshold)
                         {
-                            _exitConfirmationBars++;
-                            if ((macdFlipped && diFlipped) || _exitConfirmationBars >= RequiredExitConfirmationBars)
-                            {
-                                shouldExit = true;
-                                exitReason = "reversal";
-                            }
-                        }
-                        else
-                        {
-                            _exitConfirmationBars = 0;
+                            shouldExit = true;
+                            exitPrice = bar.Close * (1 + exitSlippage); // Covering short at slightly higher
+                            exitReason = "reversal";
                         }
                     }
                 }
@@ -1123,6 +1098,7 @@ namespace IdiotProof.Services {
                     var trade = CreateTradeRecord(exitPrice, bar.Time, scores.Total, exitReason);
                     completedTrades.Add(trade);
                     _profile.RecordTrade(trade);
+                    
                     ResetPosition();
                 }
             }
@@ -1244,9 +1220,15 @@ namespace IdiotProof.Services {
 
         private void EnterPosition(double price, DateTime time, bool isLong, IndicatorScores scores)
         {
+            // Apply realistic slippage (matches TradeSimulator and LIVE reality)
+            double slippagePct = TradingDefaults.GetSlippagePercent(price);
+            double slippedPrice = isLong 
+                ? price * (1 + slippagePct)   // Buy at slightly higher
+                : price * (1 - slippagePct);  // Sell at slightly lower
+            
             _inPosition = true;
             _isLong = isLong;
-            _entryPrice = price;
+            _entryPrice = slippedPrice;
             _entryTime = time;
             _lastTradeTime = time;
             
@@ -1266,7 +1248,6 @@ namespace IdiotProof.Services {
             _entryObvScore = scores.Obv;
             _entryCciScore = scores.Cci;
             _entryWilliamsRScore = scores.WilliamsR;
-            _exitConfirmationBars = 0;
 
             // Get dynamic ATR multipliers based on volatility
             var (tpMult, slMult) = GetAtrMultipliers();
@@ -1338,7 +1319,6 @@ namespace IdiotProof.Services {
             _entryScore = 0;
             _takeProfitPrice = 0;
             _stopLossPrice = 0;
-            _exitConfirmationBars = 0;
         }
     }
 }

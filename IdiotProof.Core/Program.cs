@@ -273,10 +273,9 @@ namespace IdiotProof {
             
             // Create strategies for each ticker in watchlist
             _strategies.Clear();
-            var profileFolder = SettingsManager.GetDataFolder();
             foreach (var entry in enabledTickers)
             {
-                var hasProfile = File.Exists(Path.Combine(profileFolder, $"{entry.Symbol}.profile.json"));
+                var hasProfile = File.Exists(Path.Combine(SettingsManager.GetTickerDataFolder(entry.Symbol), $"{entry.Symbol}.profile.json"));
                 var price = GetTickerPrice(entry.Symbol);
                 var qty = entry.GetQuantityForPrice(price > 0 ? price : 10.0); // Fallback to $10 for qty calc
                 
@@ -838,8 +837,7 @@ namespace IdiotProof {
         
         private static int CountProfiles(List<string> tickers)
         {
-            var profileFolder = SettingsManager.GetDataFolder();
-            return tickers.Count(t => File.Exists(Path.Combine(profileFolder, $"{t}.profile.json")));
+            return tickers.Count(t => File.Exists(Path.Combine(SettingsManager.GetTickerDataFolder(t), $"{t}.profile.json")));
         }
         
         private static void RunTickersMenu()
@@ -1129,7 +1127,7 @@ namespace IdiotProof {
         {
             Log("");
             Log("=== Learned Ticker Profiles ===");
-            Log($"Profile Directory: {SettingsManager.GetProfilesFolder()}");
+            Log($"Profile Directory: {SettingsManager.GetDataFolder()} (per-ticker subfolders)");
             Log("");
 
             var profiles = StrategyRunner.ProfileManager.GetAllProfiles()
@@ -1208,16 +1206,16 @@ namespace IdiotProof {
                 return;
             }
 
-            // Get ALL symbols from watchlist (backtest runs all tickers regardless of enabled/allocation)
+            // Backtest only enabled tickers (allocation ignored - uses $1000 fake dollars)
             var watchlist = WatchlistManager.Load();
             var symbols = watchlist.Tickers
-                .Where(t => !string.IsNullOrEmpty(t.Symbol))
+                .Where(t => t.Enabled && !string.IsNullOrEmpty(t.Symbol))
                 .Select(t => t.Symbol)
                 .ToList();
             
             if (symbols.Count == 0)
             {
-                Log("No tickers in watchlist. Press 1 to add tickers first.");
+                Log("No enabled tickers in watchlist. Enable tickers first (option 4).");
                 return;
             }
 
@@ -1228,9 +1226,9 @@ namespace IdiotProof {
             Log("");
 
             // Days
-            Console.Write("  Days to backtest [30]: ");
+            Console.Write("  Trading days to backtest [20]: ");
             var daysInput = Console.ReadLine()?.Trim();
-            var days = string.IsNullOrEmpty(daysInput) ? 30 : int.TryParse(daysInput, out var d) ? d : 30;
+            var days = string.IsNullOrEmpty(daysInput) ? 20 : int.TryParse(daysInput, out var d) ? d : 20;
 
             Log("");
             Log($"Starting backtest for {symbols.Count} ticker(s)...");
@@ -1295,7 +1293,7 @@ namespace IdiotProof {
                     var profile = StrategyRunner.ProfileManager.GetProfile(symbol);
                     if (profile != null)
                     {
-                        Log($"Profile saved: {SettingsManager.GetProfilesFolder()}\\{symbol}.json");
+                        Log($"Profile saved: {SettingsManager.GetTickerDataFolder(symbol)}\\{symbol}.profile.json");
                         if (profile.BacktestStartDate.HasValue && profile.BacktestEndDate.HasValue)
                         {
                             Log($"Backtest range: {profile.BacktestStartDate:yyyy-MM-dd} to {profile.BacktestEndDate:yyyy-MM-dd} ({profile.BacktestDays} days)");
@@ -1508,7 +1506,7 @@ namespace IdiotProof {
                 {
                     StartingCapital = capital,
                     BaseEntryThreshold = threshold,
-                    AllowShort = true,
+                    AllowShort = false,
                     EnableSelfCalibration = false, // Consistent metrics across days
                     UseTickerMetadata = true,
                     ShowIndividualTrades = showIndividualTrades

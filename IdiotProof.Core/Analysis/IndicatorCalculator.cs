@@ -357,6 +357,218 @@ public sealed class IndicatorCalculator
     // ========================================================================
 
     /// <summary>
+    /// Calculates Simple Moving Average for each candle.
+    /// </summary>
+    public double[] CalculateSma(int period)
+    {
+        var sma = new double[_candles.Count];
+        double sum = 0;
+
+        for (int i = 0; i < _candles.Count; i++)
+        {
+            sum += _candles[i].Close;
+            if (i >= period)
+                sum -= _candles[i - period].Close;
+            sma[i] = i >= period - 1 ? sum / period : _candles[i].Close;
+        }
+
+        return sma;
+    }
+
+    /// <summary>
+    /// Calculates Bollinger Bands (upper, middle/SMA, lower, %B, bandwidth).
+    /// </summary>
+    public (double[] upper, double[] middle, double[] lower, double[] percentB, double[] bandwidth) CalculateBollingerBands(int period = 20, double multiplier = 2.0)
+    {
+        var sma = CalculateSma(period);
+        var upper = new double[_candles.Count];
+        var middle = sma;
+        var lower = new double[_candles.Count];
+        var percentB = new double[_candles.Count];
+        var bandwidth = new double[_candles.Count];
+
+        for (int i = 0; i < _candles.Count; i++)
+        {
+            if (i < period - 1)
+            {
+                upper[i] = _candles[i].Close;
+                lower[i] = _candles[i].Close;
+                percentB[i] = 0.5;
+                bandwidth[i] = 0;
+                continue;
+            }
+
+            // Calculate standard deviation
+            double sumSq = 0;
+            for (int j = i - period + 1; j <= i; j++)
+            {
+                double diff = _candles[j].Close - sma[i];
+                sumSq += diff * diff;
+            }
+            double stdDev = Math.Sqrt(sumSq / period);
+
+            upper[i] = sma[i] + (multiplier * stdDev);
+            lower[i] = sma[i] - (multiplier * stdDev);
+            double bandRange = upper[i] - lower[i];
+            percentB[i] = bandRange > 0 ? (_candles[i].Close - lower[i]) / bandRange : 0.5;
+            bandwidth[i] = sma[i] > 0 ? bandRange / sma[i] * 100 : 0;
+        }
+
+        return (upper, middle, lower, percentB, bandwidth);
+    }
+
+    /// <summary>
+    /// Calculates Stochastic Oscillator (%K and %D).
+    /// </summary>
+    public (double[] k, double[] d) CalculateStochastic(int period = 14, int smoothing = 3)
+    {
+        var k = new double[_candles.Count];
+        var d = new double[_candles.Count];
+
+        for (int i = 0; i < _candles.Count; i++)
+        {
+            if (i < period - 1)
+            {
+                k[i] = 50;
+                continue;
+            }
+
+            double highestHigh = double.MinValue;
+            double lowestLow = double.MaxValue;
+            for (int j = i - period + 1; j <= i; j++)
+            {
+                if (_candles[j].High > highestHigh) highestHigh = _candles[j].High;
+                if (_candles[j].Low < lowestLow) lowestLow = _candles[j].Low;
+            }
+
+            double range = highestHigh - lowestLow;
+            k[i] = range > 0 ? ((_candles[i].Close - lowestLow) / range) * 100 : 50;
+        }
+
+        // Smooth %K to get %D (SMA of %K)
+        double sum = 0;
+        for (int i = 0; i < _candles.Count; i++)
+        {
+            sum += k[i];
+            if (i >= smoothing)
+                sum -= k[i - smoothing];
+            d[i] = i >= smoothing - 1 ? sum / smoothing : k[i];
+        }
+
+        return (k, d);
+    }
+
+    /// <summary>
+    /// Calculates On Balance Volume slope (normalized -1 to +1).
+    /// </summary>
+    public double[] CalculateObvSlope(int smoothingPeriod = 20)
+    {
+        var obvSlope = new double[_candles.Count];
+        var obv = new double[_candles.Count];
+
+        // Calculate raw OBV
+        obv[0] = _candles[0].Volume;
+        for (int i = 1; i < _candles.Count; i++)
+        {
+            if (_candles[i].Close > _candles[i - 1].Close)
+                obv[i] = obv[i - 1] + _candles[i].Volume;
+            else if (_candles[i].Close < _candles[i - 1].Close)
+                obv[i] = obv[i - 1] - _candles[i].Volume;
+            else
+                obv[i] = obv[i - 1];
+        }
+
+        // Calculate slope using linear regression over smoothing period
+        for (int i = 0; i < _candles.Count; i++)
+        {
+            if (i < smoothingPeriod)
+            {
+                obvSlope[i] = 0;
+                continue;
+            }
+
+            // Simple slope: (current - lookback) / lookback, clamped to -1..1
+            double prevObv = obv[i - smoothingPeriod];
+            double range = Math.Abs(prevObv) > 0 ? Math.Abs(prevObv) : 1;
+            double slope = (obv[i] - prevObv) / range;
+            obvSlope[i] = Math.Clamp(slope, -1.0, 1.0);
+        }
+
+        return obvSlope;
+    }
+
+    /// <summary>
+    /// Calculates Commodity Channel Index (CCI).
+    /// </summary>
+    public double[] CalculateCci(int period = 20)
+    {
+        var cci = new double[_candles.Count];
+
+        for (int i = 0; i < _candles.Count; i++)
+        {
+            if (i < period - 1)
+            {
+                cci[i] = 0;
+                continue;
+            }
+
+            // Typical price
+            double sumTp = 0;
+            for (int j = i - period + 1; j <= i; j++)
+            {
+                sumTp += (_candles[j].High + _candles[j].Low + _candles[j].Close) / 3;
+            }
+            double meanTp = sumTp / period;
+
+            // Mean deviation
+            double sumDev = 0;
+            for (int j = i - period + 1; j <= i; j++)
+            {
+                double tp = (_candles[j].High + _candles[j].Low + _candles[j].Close) / 3;
+                sumDev += Math.Abs(tp - meanTp);
+            }
+            double meanDev = sumDev / period;
+
+            double currentTp = (_candles[i].High + _candles[i].Low + _candles[i].Close) / 3;
+            cci[i] = meanDev > 0 ? (currentTp - meanTp) / (0.015 * meanDev) : 0;
+        }
+
+        return cci;
+    }
+
+    /// <summary>
+    /// Calculates Williams %R.
+    /// </summary>
+    public double[] CalculateWilliamsR(int period = 14)
+    {
+        var wr = new double[_candles.Count];
+
+        for (int i = 0; i < _candles.Count; i++)
+        {
+            if (i < period - 1)
+            {
+                wr[i] = -50; // Neutral
+                continue;
+            }
+
+            double highestHigh = double.MinValue;
+            double lowestLow = double.MaxValue;
+            for (int j = i - period + 1; j <= i; j++)
+            {
+                if (_candles[j].High > highestHigh) highestHigh = _candles[j].High;
+                if (_candles[j].Low < lowestLow) lowestLow = _candles[j].Low;
+            }
+
+            double range = highestHigh - lowestLow;
+            wr[i] = range > 0 ? ((highestHigh - _candles[i].Close) / range) * -100 : -50;
+        }
+
+        return wr;
+    }
+
+    // ========================================================================
+
+    /// <summary>
     /// Detects higher lows pattern at each candle.
     /// </summary>
     public bool[] DetectHigherLows(int lookback = 3)

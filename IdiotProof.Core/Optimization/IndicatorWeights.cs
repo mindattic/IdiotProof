@@ -8,6 +8,8 @@
 //
 // ============================================================================
 
+using IdiotProof.Services;
+
 namespace IdiotProof.Optimization;
 
 /// <summary>
@@ -193,30 +195,60 @@ public sealed record IndicatorWeights
     /// <summary>
     /// Converts this simplified optimization weights to the full Calculator weights.
     /// Extended indicators (Bollinger, Stochastic, OBV, CCI, WilliamsR) use small default values.
+    /// Respects indicator-config.json toggles: disabled indicators are zeroed, remaining normalized.
     /// </summary>
     public IdiotProof.Calculators.IndicatorWeights ToCalculatorWeights()
     {
-        // Normalize the 6 core weights to leave room for extended indicators
+        // If using default weights (not custom optimization), defer entirely to indicator config
+        if (this == Default)
+        {
+            return Services.IndicatorConfigManager.GetWeights();
+        }
+
+        // For custom optimization weights, build the full 13-indicator set
+        // then apply indicator-config.json disabled toggles
         const double extendedTotal = 0.33;  // 33% for extended indicators
         const double coreTotal = 1.0 - extendedTotal;  // 67% for core
         double sum = Vwap + Ema + Rsi + Macd + Adx + Volume;
         double scale = sum > 0 ? coreTotal / sum : coreTotal / 6;
-        
+
+        // Get indicator config to check which are disabled
+        var config = Services.IndicatorConfigManager.Load();
+
+        double vwap = config.Vwap.Enabled ? Vwap * scale : 0;
+        double ema = config.Ema.Enabled ? Ema * scale : 0;
+        double rsi = config.Rsi.Enabled ? Rsi * scale : 0;
+        double macd = config.Macd.Enabled ? Macd * scale : 0;
+        double adx = config.Adx.Enabled ? Adx * scale : 0;
+        double volume = config.Volume.Enabled ? Volume * scale : 0;
+        double bollinger = config.Bollinger.Enabled ? 0.05 : 0;
+        double stochastic = config.Stochastic.Enabled ? 0.05 : 0;
+        double obv = config.Obv.Enabled ? 0.05 : 0;
+        double cci = config.Cci.Enabled ? 0.03 : 0;
+        double williamsR = config.WilliamsR.Enabled ? 0.03 : 0;
+        double sma = config.Sma.Enabled ? 0.06 : 0;
+        double momentum = config.Momentum.Enabled ? 0.06 : 0;
+
+        // Normalize so enabled weights sum to 1.0
+        double total = vwap + ema + rsi + macd + adx + volume +
+                       bollinger + stochastic + obv + cci + williamsR + sma + momentum;
+        if (total <= 0) return IdiotProof.Calculators.IndicatorWeights.Default;
+
         return new IdiotProof.Calculators.IndicatorWeights
         {
-            Vwap = Vwap * scale,
-            Ema = Ema * scale,
-            Rsi = Rsi * scale,
-            Macd = Macd * scale,
-            Adx = Adx * scale,
-            Volume = Volume * scale,
-            Bollinger = 0.05,
-            Stochastic = 0.05,
-            Obv = 0.05,
-            Cci = 0.03,
-            WilliamsR = 0.03,
-            Sma = 0.06,
-            Momentum = 0.06
+            Vwap = vwap / total,
+            Ema = ema / total,
+            Rsi = rsi / total,
+            Macd = macd / total,
+            Adx = adx / total,
+            Volume = volume / total,
+            Bollinger = bollinger / total,
+            Stochastic = stochastic / total,
+            Obv = obv / total,
+            Cci = cci / total,
+            WilliamsR = williamsR / total,
+            Sma = sma / total,
+            Momentum = momentum / total
         };
     }
 }

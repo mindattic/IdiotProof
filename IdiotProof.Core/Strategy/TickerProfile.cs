@@ -597,11 +597,40 @@ namespace IdiotProof.Strategy {
             // Need at least 10 trades to start adjusting
             if (TotalTrades < 10) return;
 
+            // ================================================================
+            // DEFENSIVE: Raise thresholds when performance is terrible
+            // If we're losing badly, demand STRONGER signals to enter
+            // ================================================================
+            double overallWinRate = TotalTrades > 0 ? (double)TotalWins / TotalTrades * 100.0 : 0;
+            double profitFactor = ProfitFactor;
+
+            if (overallWinRate < 30 || profitFactor < 0.5)
+            {
+                // Terrible performance - require much stronger signals
+                int penalty = overallWinRate < 20 ? 15 : 10;
+                OptimalLongEntryThreshold = Math.Min(85, TradingDefaults.LongEntryThreshold + penalty);
+                OptimalShortEntryThreshold = Math.Max(-85, TradingDefaults.ShortEntryThreshold - penalty);
+                return; // Don't let bucket analysis override this
+            }
+            else if (overallWinRate < 40)
+            {
+                // Poor performance - slightly more conservative
+                int penalty = 5;
+                OptimalLongEntryThreshold = Math.Min(80, TradingDefaults.LongEntryThreshold + penalty);
+                OptimalShortEntryThreshold = Math.Max(-80, TradingDefaults.ShortEntryThreshold - penalty);
+                return;
+            }
+
+            // ================================================================
+            // NORMAL: Find best threshold from bucket analysis
+            // Only used when performance is decent (win rate >= 40%)
+            // ================================================================
+
             // Find best long entry threshold
             if (LongEntryThresholdStats.Count > 0)
             {
                 var bestLongThreshold = LongEntryThresholdStats
-                    .Where(kvp => kvp.Value.TotalTrades >= 3) // Minimum sample size
+                    .Where(kvp => kvp.Value.TotalTrades >= 5) // Minimum sample size (was 3, too low)
                     .OrderByDescending(kvp => kvp.Value.Expectancy)
                     .ThenByDescending(kvp => kvp.Value.WinRate)
                     .FirstOrDefault();
@@ -616,7 +645,7 @@ namespace IdiotProof.Strategy {
             if (ShortEntryThresholdStats.Count > 0)
             {
                 var bestShortThreshold = ShortEntryThresholdStats
-                    .Where(kvp => kvp.Value.TotalTrades >= 3)
+                    .Where(kvp => kvp.Value.TotalTrades >= 5) // Minimum sample size (was 3, too low)
                     .OrderByDescending(kvp => kvp.Value.Expectancy)
                     .ThenByDescending(kvp => kvp.Value.WinRate)
                     .FirstOrDefault();
@@ -1080,7 +1109,9 @@ namespace IdiotProof.Strategy {
                     _profiles[profile.Symbol.ToUpperInvariant()] = profile;
                 }
 
-                string filePath = Path.Combine(_profileDirectory, $"{profile.Symbol}.json");
+                var tickerFolder = Path.Combine(_profileDirectory, profile.Symbol.ToUpperInvariant());
+                Directory.CreateDirectory(tickerFolder);
+                string filePath = Path.Combine(tickerFolder, $"{profile.Symbol.ToUpperInvariant()}.profile.json");
                 string json = JsonSerializer.Serialize(profile, JsonOptions);
                 File.WriteAllText(filePath, json);
             }
@@ -1097,11 +1128,16 @@ namespace IdiotProof.Strategy {
         {
             try
             {
-                foreach (var file in Directory.GetFiles(_profileDirectory, "*.json"))
+                // Scan Data\{SYMBOL}\{SYMBOL}.profile.json in per-ticker subfolders
+                foreach (var dir in Directory.GetDirectories(_profileDirectory))
                 {
+                    var symbol = Path.GetFileName(dir).ToUpperInvariant();
+                    var profileFile = Path.Combine(dir, $"{symbol}.profile.json");
+                    if (!File.Exists(profileFile)) continue;
+
                     try
                     {
-                        string json = File.ReadAllText(file);
+                        string json = File.ReadAllText(profileFile);
                         var profile = JsonSerializer.Deserialize<TickerProfile>(json, JsonOptions);
                         if (profile != null)
                         {
@@ -1110,7 +1146,7 @@ namespace IdiotProof.Strategy {
                     }
                     catch (Exception ex)
                     {
-                        ConsoleLog.Warn("Profile", $"Failed to load ticker profile from {file}: {ex.Message}");
+                        ConsoleLog.Warn("Profile", $"Failed to load ticker profile from {profileFile}: {ex.Message}");
                     }
                 }
 

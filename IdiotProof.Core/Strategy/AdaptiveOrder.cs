@@ -461,13 +461,13 @@ namespace IdiotProof.Strategy {
         /// If true: Exit long and enter short when score becomes bearish.
         /// If false: Just exit without entering opposite direction.
         /// </summary>
-        public bool AllowDirectionFlip { get; init; } = true;
+        public bool AllowDirectionFlip { get; init; } = false;
 
         /// <summary>
         /// Whether to allow shorting.
-        /// If false, only long positions are taken.
+        /// If false, only long positions are taken (buy low, sell high).
         /// </summary>
-        public bool AllowShort { get; init; } = true;
+        public bool AllowShort { get; init; } = false;
 
         /// <summary>
         /// Whether to use Flip Mode - stay in market and pivot on reversals.
@@ -522,8 +522,8 @@ namespace IdiotProof.Strategy {
         /// <returns>An AutonomousTradingConfig ready for live trading.</returns>
         public static AutonomousTradingConfig FromOptimized(
             IdiotProof.Optimization.OptimizableConfig optimizedConfig,
-            bool allowFlip = true,
-            bool allowShort = true)
+            bool allowFlip = false,
+            bool allowShort = false)
         {
             return new AutonomousTradingConfig
             {
@@ -626,8 +626,8 @@ namespace IdiotProof.Strategy {
             StopLossAtrMultiplier = 2.5,    // Wider SL to avoid whipsaws
             TakeProfitPercent = 0.015,      // 1.5% TP
             StopLossPercent = 0.025,        // 2.5% SL
-            AllowDirectionFlip = true,
-            AllowShort = true,
+            AllowDirectionFlip = false,
+            AllowShort = false,
             MinSecondsBetweenTrades = 60,   // 1 minute between trades
             MinScoreChangeForTrade = 15,
             TradingHoursOnly = true         // RTH only for cleaner signals
@@ -662,9 +662,9 @@ namespace IdiotProof.Strategy {
             StopLossAtrMultiplier = 0,   // Not used in flip mode
             TakeProfitPercent = 0,       // Not used in flip mode
             StopLossPercent = 0,         // Not used in flip mode
-            AllowDirectionFlip = true,
-            AllowShort = true,
-            UseFlipMode = true,
+            AllowDirectionFlip = false,
+            AllowShort = false,
+            UseFlipMode = false,
             MinSecondsBetweenTrades = 10,  // Fast pivoting
             MinScoreChangeForTrade = 10    // React to smaller changes
         };
@@ -677,8 +677,8 @@ namespace IdiotProof.Strategy {
             int shortEntry = -70,
             double tpAtr = 2.5,
             double slAtr = 1.5,
-            bool allowFlip = true,
-            bool allowShort = true)
+            bool allowFlip = false,
+            bool allowShort = false)
         {
             return new AutonomousTradingConfig
             {

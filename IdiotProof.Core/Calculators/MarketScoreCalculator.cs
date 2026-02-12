@@ -279,16 +279,52 @@ public static class MarketScoreCalculator
 
         // ====================================================================
         // RSI (14% weight)
+        // Smooth scoring with NO discontinuities.
+        // Key change: RSI 30-50 is now neutral-to-bullish (bounce recovery zone)
+        // instead of heavily bearish. This allows bounce detection.
         // ====================================================================
         int rsiScore = 0;
         double rsi = snapshot.Rsi;
         
-        if (rsi >= 70)
-            rsiScore = (int)((70 - rsi) * 3.33); // 70->0, 100->-100
-        else if (rsi <= 30)
-            rsiScore = (int)((30 - rsi) * 3.33); // 30->0, 0->+100
+        if (rsi <= 0 || rsi >= 100)
+        {
+            rsiScore = 0;
+        }
+        else if (rsi <= 20)
+        {
+            // Deeply oversold → strong bullish mean-reversion expected
+            rsiScore = 100;
+        }
+        else if (rsi <= 35)
+        {
+            // Oversold recovery zone → bullish (bounce forming)
+            // 20→100, 35→25 (smooth decline)
+            rsiScore = (int)(100 - (rsi - 20) * 5.0);
+        }
+        else if (rsi <= 50)
+        {
+            // Recovery zone → mildly bullish to neutral (room to run)
+            // 35→25, 50→0
+            rsiScore = (int)(25.0 - (rsi - 35) * (25.0 / 15.0));
+        }
+        else if (rsi <= 65)
+        {
+            // Healthy bullish momentum → neutral to mildly bullish
+            // 50→0, 65→+25
+            rsiScore = (int)((rsi - 50) * (25.0 / 15.0));
+        }
+        else if (rsi <= 75)
+        {
+            // Getting extended → bullish fading to neutral
+            // 65→+25, 75→0
+            rsiScore = (int)(25.0 - (rsi - 65) * 2.5);
+        }
         else
-            rsiScore = (int)((rsi - 50) * 2.5); // 30->-50, 70->+50
+        {
+            // Overbought → bearish (mean reversion risk)
+            // 75→0, 100→-100
+            rsiScore = (int)(-(rsi - 75) * 4.0);
+        }
         
         rsiScore = (int)Math.Clamp(rsiScore, -100, 100);
 
@@ -367,6 +403,18 @@ public static class MarketScoreCalculator
         int srScore = CalculateSupportResistanceScore(snapshot);
 
         // ====================================================================
+        // DIRECTIONAL CONFLUENCE BONUS
+        // When multiple momentum/directional indicators agree (e.g., MACD bullish,
+        // +DI > -DI, positive momentum, stochastic bullish, OBV rising) while
+        // RSI is in a healthy range, this is a high-probability setup.
+        // This bonus helps overcome the lagging indicator drag (EMA/SMA/VWAP)
+        // during early bounces and reversals.
+        // ====================================================================
+        int confluenceBonus = CalculateDirectionalConfluence(
+            macdScore, adxScore, momentumScore, stochasticScore, obvScore,
+            snapshot.Rsi, snapshot.Adx, snapshot.PlusDi > snapshot.MinusDi);
+
+        // ====================================================================
         // Weighted Total - Uses learned or default weights
         // ====================================================================
         double totalScore =
@@ -384,7 +432,9 @@ public static class MarketScoreCalculator
             smaScore * weights.Sma +
             momentumScore * weights.Momentum;
 
-        int finalScore = (int)Math.Clamp(totalScore + srScore * 0.15, -100, 100);
+        // S/R bonus increased from 0.15 to 0.25 so that support bounces
+        // have more impact on the overall score
+        int finalScore = (int)Math.Clamp(totalScore + srScore * 0.25 + confluenceBonus, -100, 100);
 
         return new MarketScoreResult
         {
@@ -684,6 +734,83 @@ public static class MarketScoreCalculator
         }
         
         return (int)Math.Clamp(score, -100, 100);
+    }
+    
+    /// <summary>
+    /// Calculates a directional confluence bonus when multiple momentum/directional
+    /// indicators agree. This helps detect bounce and reversal setups where price
+    /// is still below lagging indicators (EMA/SMA/VWAP) but leading indicators
+    /// (MACD, ADX/DI, Stochastic, Momentum, OBV) have already turned bullish/bearish.
+    /// 
+    /// Pattern: Support bounce + higher lows + ADX 20+ + RSI not overbought + MACD bullish crossover
+    /// → This is exactly the pattern the confluence bonus rewards.
+    /// </summary>
+    /// <returns>Bonus from -20 to +20 added directly to the total score.</returns>
+    private static int CalculateDirectionalConfluence(
+        int macdScore, int adxScore, int momentumScore, int stochasticScore, int obvScore,
+        double rsi, double adx, bool isDiPositive)
+    {
+        // Count bullish/bearish directional indicators
+        int bullishCount = 0;
+        int bearishCount = 0;
+        
+        // MACD direction (strong signal)
+        if (macdScore > 20) bullishCount++;
+        else if (macdScore < -20) bearishCount++;
+        
+        // ADX/DI direction (strong signal)
+        if (adxScore > 20) bullishCount++;
+        else if (adxScore < -20) bearishCount++;
+        
+        // Momentum direction
+        if (momentumScore > 15) bullishCount++;
+        else if (momentumScore < -15) bearishCount++;
+        
+        // Stochastic direction
+        if (stochasticScore > 15) bullishCount++;
+        else if (stochasticScore < -15) bearishCount++;
+        
+        // OBV direction (volume confirmation)
+        if (obvScore > 20) bullishCount++;
+        else if (obvScore < -20) bearishCount++;
+        
+        int bonus = 0;
+        
+        // BULLISH CONFLUENCE: 4+ bullish directional indicators agree
+        // AND RSI is in healthy range (not overbought) AND ADX shows trending
+        if (bullishCount >= 4 && rsi < 70 && adx >= 20)
+        {
+            // Strong directional agreement with healthy RSI = high probability bounce/continuation
+            bonus = bullishCount >= 5 ? 20 : 15;
+            
+            // Extra boost when RSI is in recovery zone (30-50) = early bounce detection
+            if (rsi >= 30 && rsi <= 50)
+                bonus += 5;
+        }
+        else if (bullishCount >= 3 && rsi < 65 && adx >= 25 && isDiPositive)
+        {
+            // Moderate bullish confluence with DI confirmation
+            bonus = 10;
+        }
+        
+        // BEARISH CONFLUENCE: 4+ bearish directional indicators agree
+        // AND RSI is not oversold AND ADX shows trending
+        if (bearishCount >= 4 && rsi > 30 && adx >= 20)
+        {
+            int bearBonus = bearishCount >= 5 ? -20 : -15;
+            
+            // Extra penalty when RSI is in 50-70 range = early breakdown detection
+            if (rsi >= 50 && rsi <= 70)
+                bearBonus -= 5;
+            
+            bonus = bearBonus;
+        }
+        else if (bearishCount >= 3 && rsi > 35 && adx >= 25 && !isDiPositive)
+        {
+            bonus = -10;
+        }
+        
+        return (int)Math.Clamp(bonus, -25, 25);
     }
     
     /// <summary>

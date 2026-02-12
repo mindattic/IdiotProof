@@ -33,10 +33,10 @@ public sealed record AutonomousConfig
     public int Quantity { get; init; } = 100;
 
     /// <summary>Allow short positions.</summary>
-    public bool AllowShort { get; init; } = true;
+    public bool AllowShort { get; init; } = false;
 
     /// <summary>Allow flipping from long to short (and vice versa).</summary>
-    public bool AllowDirectionFlip { get; init; } = true;
+    public bool AllowDirectionFlip { get; init; } = false;
 
     /// <summary>Minimum seconds between trades.</summary>
     public int MinSecondsBetweenTrades { get; init; } = TradingDefaults.MinSecondsBetweenAdjustments;
@@ -64,10 +64,10 @@ public sealed record AutonomousConfig
     public int ShortEntryThreshold => -BaseEntryThreshold;
 
     /// <summary>Exit threshold - momentum fading.</summary>
-    public int LongExitThreshold => BaseEntryThreshold / 2;
+    public int LongExitThreshold => (int)(BaseEntryThreshold * 0.6);  // 40 when base=65 (matches LIVE)
 
     /// <summary>Exit threshold - momentum fading.</summary>
-    public int ShortExitThreshold => -BaseEntryThreshold / 2;
+    public int ShortExitThreshold => -(int)(BaseEntryThreshold * 0.6);  // -40 when base=65 (matches LIVE)
 }
 
 /// <summary>
@@ -233,6 +233,17 @@ public sealed class TradeSimulator
     private (double[] macd, double[] signal, double[] histogram)? _macdData;
     private double[]? _volumeRatio;
     private double[]? _atr;
+    
+    // Extended indicators (must match LIVE for score parity)
+    private (double[] upper, double[] middle, double[] lower, double[] percentB, double[] bandwidth)? _bollingerData;
+    private (double[] k, double[] d)? _stochasticData;
+    private double[]? _obvSlope;
+    private double[]? _cci;
+    private double[]? _williamsR;
+    private double[]? _sma20;
+    private double[]? _sma50;
+    private double[]? _momentum;
+    private double[]? _roc;
 
     public TradeSimulator(BackTestSession session, AutonomousConfig? config = null)
     {
@@ -302,6 +313,7 @@ public sealed class TradeSimulator
         double takeProfitPrice = 0;
         double stopLossPrice = 0;
 
+
         progress?.Report("Running simulation...");
 
         for (int i = warmupPeriod; i < candles.Count; i++)
@@ -337,15 +349,22 @@ public sealed class TradeSimulator
             {
                 // Check for entry signals
                 bool canTrade = (candle.Timestamp - lastTradeTime).TotalSeconds >= _config.MinSecondsBetweenTrades;
+                
+                // Opening bell protection (matches LIVE: block 9:30-9:32 entries)
+                if (canTrade && time >= new TimeOnly(9, 30) && time < new TimeOnly(9, 32))
+                    canTrade = false;
 
                 if (canTrade)
                 {
+                    // Apply realistic slippage based on price tier (penny stocks have wide spreads)
+                    double slippagePct = TradingDefaults.GetSlippagePercent(candle.Close);
+                    
                     // Long entry
                     if (score.TotalScore >= _config.LongEntryThreshold)
                     {
                         inPosition = true;
                         isLong = true;
-                        entryPrice = candle.Close;
+                        entryPrice = candle.Close * (1 + slippagePct); // Buy at slightly higher price
                         entryTime = candle.Timestamp;
                         entryScore = score;
                         entryReason = $"Score {score.TotalScore:+0} >= {_config.LongEntryThreshold} (LONG threshold)";
@@ -361,7 +380,7 @@ public sealed class TradeSimulator
                     {
                         inPosition = true;
                         isLong = false;
-                        entryPrice = candle.Close;
+                        entryPrice = candle.Close * (1 - slippagePct); // Sell at slightly lower price
                         entryTime = candle.Timestamp;
                         entryScore = score;
                         entryReason = $"Score {score.TotalScore:+0} <= {_config.ShortEntryThreshold} (SHORT threshold)";
@@ -379,6 +398,9 @@ public sealed class TradeSimulator
                 // Check exit conditions
                 string? exitReason = null;
                 double exitPrice = candle.Close;
+                
+                // Apply slippage to score-based exits (TP/SL exits use the fixed price)
+                double exitSlippage = TradingDefaults.GetSlippagePercent(candle.Close);
 
                 if (isLong)
                 {
@@ -398,11 +420,13 @@ public sealed class TradeSimulator
                     else if (score.TotalScore < _config.LongExitThreshold)
                     {
                         exitReason = $"Score {score.TotalScore:+0} < {_config.LongExitThreshold} (momentum fading)";
+                        exitPrice = candle.Close * (1 - exitSlippage); // Selling long at slightly lower
                     }
                     // Emergency exit on strong bearish signal
                     else if (score.TotalScore <= -70)
                     {
                         exitReason = $"Emergency exit - strong bearish signal ({score.TotalScore:+0})";
+                        exitPrice = candle.Close * (1 - exitSlippage); // Selling long at slightly lower
                     }
                 }
                 else  // Short position
@@ -423,17 +447,19 @@ public sealed class TradeSimulator
                     else if (score.TotalScore > _config.ShortExitThreshold)
                     {
                         exitReason = $"Score {score.TotalScore:+0} > {_config.ShortExitThreshold} (momentum fading)";
+                        exitPrice = candle.Close * (1 + exitSlippage); // Covering short at slightly higher
                     }
                     // Emergency exit on strong bullish signal
                     else if (score.TotalScore >= 70)
                     {
                         exitReason = $"Emergency exit - strong bullish signal ({score.TotalScore:+0})";
+                        exitPrice = candle.Close * (1 + exitSlippage); // Covering short at slightly higher
                     }
                 }
 
                 if (exitReason != null)
                 {
-                    result.Trades.Add(new AutonomousTrade
+                    var trade = new AutonomousTrade
                     {
                         EntryTime = entryTime,
                         ExitTime = candle.Timestamp,
@@ -445,19 +471,22 @@ public sealed class TradeSimulator
                         ExitReason = exitReason,
                         EntryScore = entryScore,
                         ExitScore = score
-                    });
+                    };
+                    result.Trades.Add(trade);
 
                     inPosition = false;
 
                     // Check for direction flip
                     if (_config.AllowDirectionFlip)
                     {
+                        double flipSlippage = TradingDefaults.GetSlippagePercent(candle.Close);
+                        
                         if (isLong && score.TotalScore <= _config.ShortEntryThreshold && _config.AllowShort)
                         {
                             // Flip to short
                             inPosition = true;
                             isLong = false;
-                            entryPrice = candle.Close;
+                            entryPrice = candle.Close * (1 - flipSlippage); // Sell at slightly lower
                             entryTime = candle.Timestamp;
                             entryScore = score;
                             entryReason = $"Direction flip: Score {score.TotalScore:+0} - going SHORT";
@@ -472,7 +501,7 @@ public sealed class TradeSimulator
                             // Flip to long
                             inPosition = true;
                             isLong = true;
-                            entryPrice = candle.Close;
+                            entryPrice = candle.Close * (1 + flipSlippage); // Buy at slightly higher
                             entryTime = candle.Timestamp;
                             entryScore = score;
                             entryReason = $"Direction flip: Score {score.TotalScore:+0} - going LONG";
@@ -526,6 +555,17 @@ public sealed class TradeSimulator
         _macdData = _indicators.CalculateMacd(12, 26, 9);
         _volumeRatio = _indicators.CalculateVolumeRatio(20);
         _atr = _indicators.CalculateAtr(14);
+        
+        // Extended indicators (must match LIVE for score parity)
+        _bollingerData = _indicators.CalculateBollingerBands(20, 2.0);
+        _stochasticData = _indicators.CalculateStochastic(14, 3);
+        _obvSlope = _indicators.CalculateObvSlope(20);
+        _cci = _indicators.CalculateCci(20);
+        _williamsR = _indicators.CalculateWilliamsR(14);
+        _sma20 = _indicators.CalculateSma(20);
+        _sma50 = _indicators.CalculateSma(50);
+        _momentum = _indicators.CalculateMomentum(10);
+        _roc = _indicators.CalculateRoc(10);
     }
 
     /// <summary>
@@ -554,28 +594,35 @@ public sealed class TradeSimulator
             MinusDi = _adxData.Value.minusDi[index],
             VolumeRatio = _volumeRatio![index],
             Atr = _atr![index],
-            // Bollinger and extended indicators not calculated - passes 0 (small weight, negligible impact)
-            BollingerUpper = 0,
-            BollingerMiddle = 0,
-            BollingerLower = 0,
-            StochasticK = 0,
-            StochasticD = 0,
-            ObvSlope = 0,
-            Cci = 0,
-            WilliamsR = -50  // Neutral value for Williams %R
+            // Extended indicators - real values matching LIVE
+            BollingerUpper = _bollingerData!.Value.upper[index],
+            BollingerMiddle = _bollingerData.Value.middle[index],
+            BollingerLower = _bollingerData.Value.lower[index],
+            StochasticK = _stochasticData!.Value.k[index],
+            StochasticD = _stochasticData.Value.d[index],
+            ObvSlope = _obvSlope![index],
+            Cci = _cci![index],
+            WilliamsR = _williamsR![index],
+            Sma20 = _sma20![index],
+            Sma50 = _sma50![index],
+            Momentum = _momentum![index],
+            Roc = _roc![index],
+            BollingerPercentB = _bollingerData.Value.percentB[index],
+            BollingerBandwidth = _bollingerData.Value.bandwidth[index]
         };
 
         var result = MarketScoreCalculator.Calculate(snapshot, _weights.ToCalculatorWeights());
 
         // Convert to ScoreBreakdown for display compatibility
+        // Use raw component scores (weights already applied by MarketScoreCalculator)
         return new ScoreBreakdown
         {
-            VwapScore = result.VwapScore * _weights.Vwap,
-            EmaScore = result.EmaScore * _weights.Ema,
-            RsiScore = result.RsiScore * _weights.Rsi,
-            MacdScore = result.MacdScore * _weights.Macd,
-            AdxScore = result.AdxScore * _weights.Adx,
-            VolumeScore = result.VolumeScore * _weights.Volume,
+            VwapScore = result.VwapScore,
+            EmaScore = result.EmaScore,
+            RsiScore = result.RsiScore,
+            MacdScore = result.MacdScore,
+            AdxScore = result.AdxScore,
+            VolumeScore = result.VolumeScore,
             TotalScore = result.TotalScore
         };
     }
