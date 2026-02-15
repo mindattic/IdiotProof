@@ -92,6 +92,42 @@ public sealed class IbkrWebBridge : IHostedService
     /// Gets all current positions.
     /// </summary>
     public List<PositionInfo> GetPositions() => _positions.Values.ToList();
+
+    // Order tracking
+    private readonly ConcurrentDictionary<int, OrderInfo> _orders = new();
+
+    /// <summary>
+    /// Updates order data from Core.
+    /// </summary>
+    public void UpdateOrder(int orderId, string symbol, string direction, int quantity, string orderType, double? limitPrice, double? stopPrice, string status)
+    {
+        var order = new OrderInfo
+        {
+            OrderId = orderId,
+            Symbol = symbol.ToUpperInvariant(),
+            Direction = direction,
+            Quantity = quantity,
+            OrderType = orderType,
+            LimitPrice = limitPrice,
+            StopPrice = stopPrice,
+            Status = status
+        };
+
+        // Remove filled/cancelled orders
+        if (status == "Filled" || status == "Cancelled")
+        {
+            _orders.TryRemove(orderId, out _);
+        }
+        else
+        {
+            _orders[orderId] = order;
+        }
+    }
+
+    /// <summary>
+    /// Gets all current open orders.
+    /// </summary>
+    public List<OrderInfo> GetOrders() => _orders.Values.ToList();
     
     /// <summary>
     /// Called when a price tick arrives from Core.
@@ -241,4 +277,19 @@ public sealed class PositionInfo
     public double? MarketValue => MarketPrice.HasValue ? (double)Quantity * MarketPrice.Value : null;
     public double? UnrealizedPnL { get; set; }
     public bool IsLong => Quantity > 0;
+}
+
+/// <summary>
+/// Order information for display.
+/// </summary>
+public sealed class OrderInfo
+{
+    public int OrderId { get; set; }
+    public string Symbol { get; set; } = "";
+    public string Direction { get; set; } = "";
+    public int Quantity { get; set; }
+    public string OrderType { get; set; } = "";
+    public double? LimitPrice { get; set; }
+    public double? StopPrice { get; set; }
+    public string Status { get; set; } = "";
 }

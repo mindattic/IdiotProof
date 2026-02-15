@@ -1,5 +1,24 @@
 # Copilot Instructions
 
+## Project Architecture
+
+**IdiotProof.Core** is a **headless background service** with NO console UI. All user interaction happens via **IdiotProof.Web** (Blazor frontend). Core should never have `Console.ReadLine`, `Console.ReadKey`, interactive menus, or user prompts.
+┌─────────────────────────────────────────────────────────────────┐
+│  IdiotProof.Web (Blazor)                                        │
+│  - All UI/UX: Dashboard, Trade, Analyze, Backtest, Orders       │
+│  - Log tab: Shows messages from Core                            │
+│  - Sends commands to Core via SignalR/HTTP                      │
+└───────────────────────────▲─────────────────────────────────────┘
+                            │ HTTP API + SignalR
+┌───────────────────────────▼─────────────────────────────────────┐
+│  IdiotProof.Core (Headless Engine)                              │
+│  - IBKR API connection                                          │
+│  - Strategy execution (StrategyRunner)                          │
+│  - Market data streaming to Web                                 │
+│  - Receives commands: ActivateTrading, ClosePosition, etc.      │
+│  - NO console menus or interactive prompts                      │
+└─────────────────────────────────────────────────────────────────┘
+
 ## Project Guidelines
 - User intends IdiotScript chained conditions to be evaluated sequentially (state machine over time), not as a single simultaneous AND condition.
 - In IdiotProof, the backend doesn't load strategies directly; it reads strategies retrieved from the frontend, which gets them from .idiot files. The data flow is: .idiot files → Frontend → Backend.
@@ -12,7 +31,7 @@
   - `IsAboveVwap()` not `AboveVwap()` (canonical)
   - `ExitStrategy()` not `ClosePosition()` (canonical)
 
-## Alert System - Multi-Channel Notifications (Menu Option 6)
+## Alert System - Multi-Channel Notifications
 
 The **Alert System** detects sudden price moves and notifies you via Discord, Email, SMS, or Telegram with **pre-calculated trade setups ready for one-click execution**.
 
@@ -33,9 +52,7 @@ The **Alert System** detects sudden price moves and notifies you via Discord, Em
 | **SMS** | Twilio account | ~$0.01/msg |
 | **Telegram** | Create bot via @BotFather | FREE |
 
-### Alert Message Format (Discord)
-```
-🚨 **NVDA SUDDEN SPIKE** 🚨
+### Alert Message Format (Discord)🚨 **NVDA SUDDEN SPIKE** 🚨
 
 **Price:** $142.50 (+5.2% in 3min)
 **Volume:** 3.5x average
@@ -65,12 +82,8 @@ R:R:     2.5:1
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ⏱️ Setups valid for 5 minutes | Alert ID: `12345678`
-```
-
 ### Configuration File
-Edit `IdiotProof.Core\Data\alert-config.json`:
-```json
-{
+Edit `IdiotProof.Core\Data\alert-config.json`:{
   "discord": {
     "enabled": true,
     "webhookUrl": "https://discord.com/api/webhooks/..."
@@ -83,8 +96,6 @@ Edit `IdiotProof.Core\Data\alert-config.json`:
     "cooldownMinutes": 5
   }
 }
-```
-
 ### Key Files
 - `AlertService.cs` - Multi-channel alert sending
 - `SuddenMoveDetector.cs` - Price spike detection
@@ -93,7 +104,7 @@ Edit `IdiotProof.Core\Data\alert-config.json`:
 
 ## Gapper Scanner - Premarket Gap Detection
 
-The **Gapper Scanner** (menu option 5 or 'G') monitors your watchlist for stocks gapping up/down during premarket. **YOU make the final trading decision** - it just alerts you with confidence scores.
+The **Gapper Scanner** monitors your watchlist for stocks gapping up/down during premarket. **YOU make the final trading decision** - it just alerts you with confidence scores.
 
 ### What It Tracks
 | Metric | Description | Weight |
@@ -112,15 +123,11 @@ The **Gapper Scanner** (menu option 5 or 'G') monitors your watchlist for stocks
 | 35-49 | D | Weak - probably avoid |
 | 0-34 | F | Not a real gapper |
 
-### Scanner Output
-```
-╔══════════════════════════════════════════════════════════════════════════╗
+### Scanner Output╔══════════════════════════════════════════════════════════════════════════╗
 ║  GAPPER ALERT: NVDA   ↑+8.2%  $142.50  Vol:3.2x  Conf:85%               ║
 ║  Building momentum | 45 min to open | Action: YOUR CALL                 ║
 ║  Gap:25/30  Vol:25/30  Mom:20/25  Hold:15/15                            ║
 ╚══════════════════════════════════════════════════════════════════════════╝
-```
-
 ### Scanner Commands
 | Key | Action |
 |-----|--------|
@@ -136,8 +143,6 @@ Press a number key (1-9) to quick trade a gapper. The system auto-calculates:
 - **Take Profit**: 2.5x risk distance
 - **Trailing Stop**: Based on volatility (1-2%)
 - **Quantity**: Based on $50 risk (configurable)
-
-```
 ╔══════════════════════════════════════════════════════════════════════════╗
 ║  QUICK TRADE: NVDA   LONG                                                ║
 ╠══════════════════════════════════════════════════════════════════════════╣
@@ -151,27 +156,21 @@ Press a number key (1-9) to quick trade a gapper. The system auto-calculates:
 ╠══════════════════════════════════════════════════════════════════════════╣
 ║  [ENTER] Execute Trade  |  [ESC] Cancel                                  ║
 ╚══════════════════════════════════════════════════════════════════════════╝
-```
-
 ### Dual-Account Hedging
 Press **H** for hedge analysis. If enabled, places:
 - **Primary Account**: LONG position
 - **Secondary Account**: SHORT position
 
 Profits from movement in either direction. Skips if price is too choppy.
-
-```csharp
 // Enable in AppSettings
 AppSettings.DualAccountHedgingEnabled = true;
 AppSettings.AccountNumber = "U22434144";        // Primary (LONG)
 AppSettings.SecondaryAccountNumber = "U23270497"; // Secondary (SHORT)
-```
-
 ### Key Files
 - `GapperScanner.cs` - Core scanner logic
 - `GapperInfo` - Per-ticker tracking data
 - `GapperConfidence` - Confidence breakdown
-- `QuickTradeLevels` - Auto-calculated entry/SL/TP
+- `QuickTradeLevels' - Auto-calculated entry/SL/TP
 - `QuickTradeCalculator` - Level calculation logic
 
 ## Indicator Warm-Up Requirements
@@ -228,33 +227,19 @@ Each fluent API method and DSL command should "do just one thing":
 - If no parameter is specified, use the built-in default value
 - Methods that previously had 2+ params are split into separate single-responsibility methods
 
-### Order Direction Syntax
-```
-Order()               - Opens a LONG position (default)
+### Order Direction SyntaxOrder()               - Opens a LONG position (default)
 Order(IS.LONG)        - Opens a LONG position (explicit)
 Order(IS.SHORT)       - Opens a SHORT position
 Long()                - Alias for Order(IS.LONG)
 Short()               - Alias for Order(IS.SHORT)
-```
-
-### Order Configuration (Chained Methods)
-```
-.Quantity(100)        - Sets order quantity
+### Order Configuration (Chained Methods).Quantity(100)        - Sets order quantity
 .PriceType(Price.Current)  - Sets price type for execution
 .OrderType(OrderType.Market)  - Sets market vs limit order
 .OutsideRTH()         - Allow entry order outside RTH (default: true)
 .TakeProfitOutsideRTH()  - Allow TP order outside RTH (default: true)
-```
-
-### Position Closing
-```
-CloseLong()           - Create SELL order to close a long position
+### Position ClosingCloseLong()           - Create SELL order to close a long position
 CloseShort()          - Create BUY order to cover a short position
-```
-
-**Example - Single Responsibility Chain:**
-```csharp
-Stock.Ticker("AAPL")
+**Example - Single Responsibility Chain:**Stock.Ticker("AAPL")
     .Entry(150)
     .Long()                // Sets direction only
     .Quantity(100)         // Sets quantity separately
@@ -263,84 +248,44 @@ Stock.Ticker("AAPL")
     .TakeProfitOutsideRTH()  // Enables outside RTH for take profit
     .TakeProfit(160)
     .Build();
-```
-
-**Legacy Syntax (Deprecated but still works):**
-```
-Buy()                 - Deprecated, use Order(IS.LONG)
+**Legacy Syntax (Deprecated but still works):**Buy()                 - Deprecated, use Order(IS.LONG)
 Sell()                - Deprecated, use Order(IS.SHORT)
-```
-
 ## All Available IdiotScript Indicators
 
-### Price/VWAP Conditions
-```
-IsAboveVwap()         - Price above VWAP
+### Price/VWAP ConditionsIsAboveVwap()         - Price above VWAP
 IsBelowVwap()         - Price below VWAP
 IsCloseAboveVwap()    - Candle CLOSED above VWAP (stronger signal)
 IsVwapRejection()     - Wick above VWAP, close below (bearish rejection)
 IsVwapRejected()      - Alias for IsVwapRejection()
-```
-
-### Gap Conditions
-```
-IsGapUp(pct)          - Price gapped up X% from previous close (e.g., IsGapUp(5) = 5%+)
+### Gap ConditionsIsGapUp(pct)          - Price gapped up X% from previous close (e.g., IsGapUp(5) = 5%+)
 IsGapDown(pct)        - Price gapped down X% from previous close (e.g., IsGapDown(3) = 3%+)
-```
-
-### EMA Conditions
-```
-IsEmaAbove(period)    - Price above EMA (e.g., IsEmaAbove(9))
+### EMA ConditionsIsEmaAbove(period)    - Price above EMA (e.g., IsEmaAbove(9))
 IsEmaBelow(period)    - Price below EMA
 IsEmaBetween(p1, p2)  - Price between two EMAs (e.g., IsEmaBetween(9, 21))
 IsEmaTurningUp(period)- EMA slope turning positive/flat
-```
-
-### Momentum Conditions
-```
-IsMomentumAbove(val)  - Momentum >= threshold (e.g., IsMomentumAbove(0))
+### Momentum ConditionsIsMomentumAbove(val)  - Momentum >= threshold (e.g., IsMomentumAbove(0))
 IsMomentumBelow(val)  - Momentum <= threshold
 IsRocAbove(pct)       - Rate of Change >= % (e.g., IsRocAbove(2))
 IsRocBelow(pct)       - Rate of Change <= %
-```
-
-### Trend/Strength Conditions
-```
-IsAdxAbove(val)       - ADX >= threshold (trend strength)
+### Trend/Strength ConditionsIsAdxAbove(val)       - ADX >= threshold (trend strength)
 IsDiPositive()        - +DI > -DI (bullish directional movement)
 IsDiNegative()        - -DI > +DI (bearish directional movement)
 IsMacdBullish()       - MACD > Signal line
 IsMacdBearish()       - MACD < Signal line
-```
-
-### RSI Conditions
-```
-IsRsiOversold(val)    - RSI <= threshold (e.g., IsRsiOversold(30))
+### RSI ConditionsIsRsiOversold(val)    - RSI <= threshold (e.g., IsRsiOversold(30))
 IsRsiOverbought(val)  - RSI >= threshold (e.g., IsRsiOverbought(70))
-```
-
-### Pattern Conditions
-```
-IsHigherLows()        - Higher lows forming (bullish)
+### Pattern ConditionsIsHigherLows()        - Higher lows forming (bullish)
 IsVolumeAbove(mult)   - Volume >= multiplier × average (e.g., IsVolumeAbove(1.5))
-```
-
-### Smart Order Management
-```
-AdaptiveOrder()                   - Enable smart dynamic TP/SL adjustment (balanced mode)
+### Smart Order ManagementAdaptiveOrder()                   - Enable smart dynamic TP/SL adjustment (balanced mode)
 AdaptiveOrder(IS.CONSERVATIVE)    - Protect gains, quick to take profits
 AdaptiveOrder(IS.BALANCED)        - Equal priority to profit and protection  
 AdaptiveOrder(IS.AGGRESSIVE)      - Maximize profit potential in strong trends
 IsAdaptiveOrder()                 - Alias for AdaptiveOrder()
-```
-
 ## AdaptiveOrder - Smart Dynamic Order Management
 
 AdaptiveOrder monitors market conditions in real-time and dynamically adjusts take profit and stop loss levels.
 
-### How It Works
-```
-╔═══════════════════════════════════════════════════════════════════════════╗
+### How It Works╔═══════════════════════════════════════════════════════════════════════════╗
 ║  MARKET ANALYSIS                                                          ║
 ║                                                                           ║
 ║  The system continuously evaluates multiple indicators:                   ║
@@ -355,11 +300,7 @@ AdaptiveOrder monitors market conditions in real-time and dynamically adjusts ta
 ║  These are combined into a Market Score (-100 to +100)                   ║
 ║  Positive = bullish, Negative = bearish                                  ║
 ╚═══════════════════════════════════════════════════════════════════════════╝
-```
-
-### Adaptive Behavior Table
-```
-╔═══════════════════════════════════════════════════════════════════════════╗
+### Adaptive Behavior Table╔═══════════════════════════════════════════════════════════════════════════╗
 ║  SCENARIO               │  TAKE PROFIT         │  STOP LOSS              ║
 ║─────────────────────────┼──────────────────────┼─────────────────────────║
 ║  Strong bullish (70+)   │  Extend +50%         │  Tighten (protect gain) ║
@@ -368,9 +309,7 @@ AdaptiveOrder monitors market conditions in real-time and dynamically adjusts ta
 ║  Moderate bear (-70-30) │  Reduce 50%          │  Keep original          ║
 ║  Strong bearish (<-70)  │  EXIT IMMEDIATELY    │  N/A - Emergency exit   ║
 ╚═══════════════════════════════════════════════════════════════════════════╝
-### Example Strategy with AdaptiveOrder
-```idiotscript
-Ticker(AAPL)
+### Example Strategy with AdaptiveOrderTicker(AAPL)
 .Entry(150)
 .TakeProfit(160)         # Original TP target
 .StopLoss(145)           # Original SL level
@@ -378,16 +317,12 @@ Ticker(AAPL)
 .IsEmaAbove(9)
 .IsDiPositive()
 .AdaptiveOrder(IS.AGGRESSIVE)  # System will dynamically adjust TP/SL
-```
-
 **Note:** AdaptiveOrder requires TakeProfit and/or StopLoss to be set. It modifies these values dynamically but needs starting points for calculation.
 
 ### How AdaptiveOrder Calculates Adjustments
 
 #### Score-Based Take Profit Multiplier
 The TP multiplier determines how much to extend or reduce the original take profit target:
-
-```
 Score Range        │ Multiplier Formula                          │ Example (TP=$160, Entry=$150)
 ───────────────────┼─────────────────────────────────────────────┼──────────────────────────────
 70 to 100          │ 1.0 + (MaxExtension × (score-70)/30)        │ Score 100: TP → $167.50 (+75%)
@@ -395,25 +330,17 @@ Score Range        │ Multiplier Formula                          │ Example (
 -30 to 30          │ 1.0 - (0.15 × (30-score)/60)                │ Score 0:   TP → $158.75 (-12.5%)
 -70 to -30         │ 0.85 - ((MaxReduction/2-0.15) × (-30-s)/40) │ Score -50: TP → $156.25 (-37.5%)
 < -70              │ 1.0 - MaxReduction                          │ Score -80: TP → $155.00 (-50%)
-```
-
 #### Score-Based Stop Loss Multiplier
 The SL multiplier determines how much to tighten (move closer) or widen (move further) the stop:
-
-```
 Score Range        │ Multiplier Formula                          │ Example (SL=$145, Entry=$150)
 ───────────────────┼─────────────────────────────────────────────┼──────────────────────────────
 70 to 100          │ 1.0 + (MaxTighten × (score-70)/30)          │ Score 100: SL → $147.50 (tighter)
 0 to 70            │ 1.0 (no change)                             │ Score 50:  SL → $145.00
 -50 to 0           │ 1.0 - (MaxWiden × (-score/50) × 0.5)        │ Score -25: SL → $144.38 (wider)
 < -50              │ 1.0 - (MaxWiden × 0.5)                      │ Score -60: SL → $144.38 (wider)
-```
-
 Note: Multiplier > 1.0 = tighter stop (closer to entry), Multiplier < 1.0 = wider stop (further from entry)
 
-### Mode Configuration Settings
-```
-╔═══════════════════════════════════════════════════════════════════════════════════╗
+### Mode Configuration Settings╔═══════════════════════════════════════════════════════════════════════════════════╗
 ║  Setting                  │  CONSERVATIVE  │  BALANCED  │  AGGRESSIVE             ║
 ╠═══════════════════════════╪════════════════╪════════════╪═════════════════════════╣
 ║  MaxTakeProfitExtension   │     25%        │    50%     │     75%                 ║
@@ -427,9 +354,7 @@ Note: Multiplier > 1.0 = tighter stop (closer to entry), Multiplier < 1.0 = wide
 **Balanced**: Standard risk/reward, moderate adjustments in both directions.  
 **Aggressive**: Lets winners run longer, tighter stops to protect capital, stays in longer during drawdowns.
 
-### Indicator Weight Configuration (Default)
-```
-VWAP Position:    15%  - Price relative to VWAP (5% above VWAP = +100 score)
+### Indicator Weight Configuration (Default)VWAP Position:    15%  - Price relative to VWAP (5% above VWAP = +100 score)
 EMA Stack:        20%  - Alignment of short/medium/long EMAs
 RSI:              15%  - Overbought (70+) = negative, Oversold (30-) = positive
 MACD:             20%  - MACD > Signal = +50, plus histogram strength ±50
@@ -437,11 +362,7 @@ ADX:              20%  - Trend strength × direction (ADX 50 = ±100)
 Volume:           10%  - Volume ratio confirms current direction
 ────────────────────
 Total:           100%
-```
-
 ### Concrete Example: CIGL Adaptive Trade
-
-```
 Entry: $4.15  |  Original TP: $4.80  |  Original SL: $3.90
 Profit Range: $0.65  |  Loss Range: $0.25
 Mode: AGGRESSIVE
@@ -459,13 +380,9 @@ SL Multiplier = 1.0 + (0.60 × (85-70)/30) = 1.30
 
 Adjusted TP: $4.15 + ($0.65 × 1.375) = $5.04  (+21% from entry)
 Adjusted SL: $4.15 - ($0.25 / 1.30) = $3.96   (tighter protection)
-```
-
 ### Adaptive TP Feedback Loop (Smart Trailing Take Profit)
 
 The system extends TP when momentum is strong, then contracts it when momentum fades, allowing the price to eventually meet the target:
-
-```
 ╔═══════════════════════════════════════════════════════════════════════════════╗
 ║  MOMENTUM STRONG (Price approaching TP fast)                                  ║
 ║  ├── MACD: Bullish with strong histogram → +70 to +100 score                 ║
@@ -476,7 +393,7 @@ The system extends TP when momentum is strong, then contracts it when momentum f
 ║  MOMENTUM FADING (Price slowing near extended TP)                             ║
 ║  ├── MACD: Histogram shrinking → score drops                                 ║
 ║  ├── ADX: Still high but momentum slowing                                    ║
-║  ├── RSI: Becoming overbought (70+) → NEGATIVE contribution (-10 to -100)    ║
+║  ├── RSI: Becoming overbought (70+) → strong negative                       ║
 ║  └── Result: Total Score drops to 30-69 → TP RETURNS TO ORIGINAL             ║
 ╠═══════════════════════════════════════════════════════════════════════════════╣
 ║  MOMENTUM EXHAUSTED                                                           ║
@@ -486,8 +403,6 @@ The system extends TP when momentum is strong, then contracts it when momentum f
 ║      → Price finally meets the lowered TP target → PROFIT TAKEN              ║
 ╚═══════════════════════════════════════════════════════════════════════════════╝
 ### Timeline Example: Dynamic TP Adjustment
-
-```
 Entry: $150  |  Original TP: $160  |  Profit Range: $10
 Mode: AGGRESSIVE (75% max extension)
 
@@ -511,16 +426,12 @@ T=20  Price $160, Score +45
 ─────────────────────────────────────────────────────────────────────────────
 Result: Captured $10 profit. System extended TP during strong momentum,
         then contracted it when momentum faded, allowing fill at optimal time.
-```
-
 ### TP Extension Visualization
-
-```
 Price
   ↑
 $165 ─ ─ ─ ─ ─ ─ ─ ─ Extended TP (score 90+)
       │            ╱
-$163 ─│─ ─ ─ ─ ─ ╱─ ─ TP following momentum
+$163 ─│─ ─ ─ ─ ─ ╱─ ─ ─ TP following momentum
       │        ╱
 $161 ─│─ ─ ─ ╱─ ─ ─ ─ TP reducing as RSI overbought
       │    ╱    ↘
@@ -534,8 +445,6 @@ $150 ─█╱─ ─ ─ ─ ─ Entry
       │
       └──────────────────────────────────→ Time
          T=0  T=5  T=10  T=15  T=20
-```
-
 ### RSI Overbought Detection (Key Mechanism)
 
 The RSI component is crucial for detecting when momentum is exhausted:
@@ -562,50 +471,32 @@ As price rapidly approaches TP:
   → Total score drops
   → TP multiplier reduces
   → TP target comes down to meet the price
-```
-
 ## Indicator ASCII Visualizations
 
-### VWAP Rejection Pattern
-```
-      │ ← Wick above VWAP
+### VWAP Rejection Pattern      │ ← Wick above VWAP
 VWAP ═╪═══════════════════════════
     ┌─┴─┐
     │   │ ← Close below = REJECTED
     └───┘
-```
-
-### Higher Lows Pattern
-```
-                         /\
+### Higher Lows Pattern                         /\
              /\         /  \
    /\       /  \       /    \
   /  \     /    \     /      \
  /    \___/  ↑   \___/        \
        Higher    Higher
          Low       Low
-```
-
-### Momentum Above Zero
-```
-    /\                    /\
+### Momentum Above Zero    /\                    /\
    /  \                  /  \     Price
   /    \                /    \
 ─/──────\──────────────/──────\────── Zero
          \            /        \
           \__________/
       ↑ Momentum > 0
-```
-
-### Volume Spike
-```
-               ████
+### Volume Spike               ████
                ████   ← Volume spike (1.5x+)
 Average ───────────────────────────
   ████      ████████      ████
   ████  ██  ████████  ██  ████
-```
-
 ## IS.BELL Session-Aware Behavior
 `IS.BELL` resolves to 1 minute before the current session ends:
 - **Premarket**: 9:29 AM (1 min before 9:30 open)
@@ -632,8 +523,6 @@ If a stock shows **3+ consecutive green candles** in the last 5 minutes of prema
 - **Detection**: `HasPremarketGreenRushWarning` → true if 3+ green candles at end of premarket
 - **Action**: EXIT any LONG position 3 minutes before RTH bell (9:27-9:30)
 - **Reason**: Extended runs into open typically reverse hard
-
-```
       Premarket End (9:25-9:30)              RTH Open
            ↓                                    ↓
     ████ ████ ████ ████ ████    |    █
@@ -641,32 +530,24 @@ If a stock shows **3+ consecutive green candles** in the last 5 minutes of prema
                                 |    █
     ← GREEN RUSH WARNING →      |    █████
          EXIT HERE!             |
-```
-
 ### Pattern 3: Clean Rocket Pattern  
 If premarket is clean (no green rush) AND stock rockets up after open, BUY for the move to HOD, then SHORT the fade.
 - **Detection**: `HasCleanPremarket` + above VWAP + first 15 min (9:32-9:45)
 - **Action**: Boost LONG entry confidence (threshold reduced by 15)
 - **Follow-up**: When price reaches HOD, the Early HOD Exit logic kicks in and flips to SHORT
-
-```
       Premarket                 RTH Open           HOD
            ↓                       ↓               ↓
     ██ ██ ██ ██ ██    |    ██ ████ ████████ ████████ ***
     [G][R][G][R][G]   |       ↑                      ↑
                       |    BUY here              SELL + SHORT
     ← CLEAN (mixed) → |    ← CLEAN ROCKET PATTERN →
-```
-
 ### Pattern 4: RTH Volatility Window (9:30-9:32)
 Reduced confidence during the first 2 minutes of RTH.
 - **Action**: Entry threshold increased by 15 points
 - **Reason**: Higher chance of false signals during initial volatility
 
 ### OpeningBellAnalysis Object
-The `CandlestickAggregator.GetOpeningBellAnalysis(price, vwap)` returns:
-```csharp
-{
+The `CandlestickAggregator.GetOpeningBellAnalysis(price, vwap)` returns:{
     IsFirstRthCandle: bool,        // 9:30-9:31 trap zone
     IsRthVolatilityWindow: bool,   // 9:30-9:32 reduced confidence
     HasGreenRushWarning: bool,     // Exit long signal
@@ -675,18 +556,12 @@ The `CandlestickAggregator.GetOpeningBellAnalysis(price, vwap)` returns:
     HasCleanPremarket: bool,       // No warning signs
     Recommendation: OpeningBellAction  // Suggested action
 }
-```
-
-### OpeningBellAction Enum
-```csharp
-NormalTrading,       // Standard trading rules apply
+### OpeningBellAction EnumNormalTrading,       // Standard trading rules apply
 HoldAndWatch,        // Premarket - wait for signals
 ExitBeforeBell,      // Green rush detected - exit longs!
 AvoidFirstCandle,    // 9:30-9:31 - skip entries
 ReducedConfidence,   // 9:30-9:32 - stricter thresholds
 CleanRocketBuy       // Clean premarket + above VWAP - buy opportunity
-```
-
 ## Auto-Quantity Based on Price Tier
 
 The default position size is now calculated automatically based on stock price "prestige":
@@ -700,28 +575,16 @@ The default position size is now calculated automatically based on stock price "
 | Penny | $1-$5 | ~$200 | 80 shares @ $2.50 |
 | Micro | <$1 | ~$100 | 200 shares @ $0.50 |
 
-To use auto-quantity, set `Quantity(0)` or omit `.Quantity()`:
-```idiotscript
-Ticker(NVDA)
+To use auto-quantity, set `Quantity(0)` or omit `.Quantity()`:Ticker(NVDA)
 .AutonomousTrading()
 // Quantity auto-calculated: ~2 shares for ~$1,000 position
-```
-
-To override with explicit quantity:
-```idiotscript
-Ticker(NVDA)
+To override with explicit quantity:Ticker(NVDA)
 .Quantity(10)  // Explicit: 10 shares regardless of price
 .AutonomousTrading()
-```
-
 ## ExitStrategy and IsProfitable (Single-Responsibility Pattern)
-Use `ExitStrategy()` for exit timing and chain `.IsProfitable()` to only exit if profitable:
-```
-ExitStrategy(IS.BELL)                    # Exit at session bell
+Use `ExitStrategy()` for exit timing and chain `.IsProfitable()` to only exit if profitable:ExitStrategy(IS.BELL)                    # Exit at session bell
 ExitStrategy(IS.BELL).IsProfitable()     # Exit at bell only if profitable
 ExitStrategy(15:30).IsProfitable()       # Exit at 3:30 PM only if profitable
-```
-
 ## ASCII-Only Console Output
 The console UI uses ASCII-only characters (no Unicode). Use:
 - `*` for enabled, `o` for disabled
@@ -730,9 +593,7 @@ The console UI uses ASCII-only characters (no Unicode). Use:
 
 ## Complete Indicator ASCII Reference
 
-### RSI (Relative Strength Index)
-```
-RSI Scale (0-100):
+### RSI (Relative Strength Index)RSI Scale (0-100):
 +--------------------------------------------+
 |  100 -------------------------------- Top  |
 |   70 =============== OVERBOUGHT ========== | <- IsRsiOverbought(70)
@@ -750,11 +611,7 @@ RSI Oversold Bounce Strategy:
     /          \                  /          \
      30 ═══════════════════════════════════
                ↑ Buy signal (RSI <= 30)
-```
-
-### ADX (Average Directional Index)
-```
-ADX Trend Strength:
+### ADX (Average Directional Index)ADX Trend Strength:
 +--------------------------------------------+
 |  75+ ---- Extremely Strong (rare) -------- |
 |  50+ ---- Very Strong Trend -------------- |
@@ -772,11 +629,7 @@ ADX with DI Crossover:
 ___/__/   \_____                 \
               -DI
    ↑ +DI > -DI = Bullish (IsDiPositive)
-```
-
-### MACD (Moving Average Convergence Divergence)
-```
-MACD Components:
+### MACD (Moving Average Convergence Divergence)MACD Components:
 +--------------------------------------------+
 |   MACD Line = EMA(12) - EMA(26)           |
 |   Signal Line = EMA(9) of MACD             |
@@ -798,11 +651,7 @@ MACD Histogram:
                     ████████
                 ████████████
     ↑ Rising        ↑ Falling
-```
-
-### EMA (Exponential Moving Average)
-```
-Price vs Multiple EMAs:
+### EMA (Exponential Moving Average)Price vs Multiple EMAs:
 +--------------------------------------------+
 |                      ___/                  |
 |  Price ___________/     \____              |
@@ -832,11 +681,7 @@ EMA Turning Up Pattern:
 |         \______________/                   |
 |             ↑ Flattening before turn       |
 +--------------------------------------------+
-```
-
-### Rate of Change (ROC)
-```
-ROC % Scale:
+### Rate of Change (ROC)ROC % Scale:
 +--------------------------------------------+
 |  +5% ----- Strong Bullish Momentum ------- |
 |  +2% =============== THRESHOLD =========== | <- IsRocAbove(2)
@@ -846,11 +691,7 @@ ROC % Scale:
 +--------------------------------------------+
 
 ROC = ((Price - Price_N_bars_ago) / Price_N_bars_ago) × 100
-```
-
-### IsCloseAboveVwap (Strong VWAP Signal)
-```
-IsCloseAboveVwap vs IsAboveVwap:
+### IsCloseAboveVwap (Strong VWAP Signal)IsCloseAboveVwap vs IsAboveVwap:
 +--------------------------------------------+
 |         +---+                              |
 |         |   | <- Close ABOVE = Strong      |
@@ -864,11 +705,7 @@ IsCloseAboveVwap vs IsAboveVwap:
 |         |   | <- Close below, wick above   |
 |         +---+    (weak/rejected)           |
 +--------------------------------------------+
-```
-
-### Combined Strategy Visualization
-```
-Bullish Continuation Setup:
+### Combined Strategy VisualizationBullish Continuation Setup:
 +--------------------------------------------+
 |  ENTRY CONDITIONS (Sequential):            |
 |                                            |
@@ -890,46 +727,28 @@ Strategy Flow:
        ↓             ↓                 ↓
     Setup         Wait for          Manage
     params        signals           position
-```
-
 ## Indicator Combinations (Common Strategies)
 
-### Trend Following
-```idiotscript
-Ticker(AAPL)
+### Trend FollowingTicker(AAPL)
 .IsAdxAbove(25)      # Strong trend exists
 .IsDiPositive()      # Bullish direction
 .IsEmaAbove(9)       # Short-term bullish
 .IsEmaAbove(21)      # Medium-term bullish
 .IsMomentumAbove(0)  # Positive momentum
-```
-
-### Mean Reversion
-```idiotscript
-Ticker(AAPL)
+### Mean ReversionTicker(AAPL)
 .IsRsiOversold(30)   # Oversold condition
 .IsEmaBetween(9, 21) # In pullback zone
 .IsVolumeAbove(1.5)  # Volume confirmation
-```
-
-### VWAP Bounce
-```idiotscript
-Ticker(AAPL)
+### VWAP BounceTicker(AAPL)
 .IsCloseAboveVwap()  # Strong VWAP reclaim
 .IsEmaAbove(9)       # Short-term bullish
 .IsHigherLows()      # Building support
-```
-
 ## AutonomousTrading - AI-Driven Entry/Exit Decisions
 
 AutonomousTrading enables fully automated trading where the system monitors all indicators and independently decides when to buy, sell, short, or close positions based on market score analysis.
 
-### Quick Start
-```idiotscript
-Ticker(AAPL)
+### Quick StartTicker(AAPL)
 .AutonomousTrading()
-```
-
 That's it! The system will:
 1. Monitor VWAP, EMA, RSI, MACD, ADX, and Volume continuously
 2. Calculate a market score (-100 to +100)
@@ -938,19 +757,13 @@ That's it! The system will:
 5. Exit when momentum reverses
 6. Flip direction (exit long → enter short) on strong reversals
 
-### AutonomousTrading Syntax
-```
-AutonomousTrading()       - Enable self-adjusting autonomous trading
+### AutonomousTrading SyntaxAutonomousTrading()       - Enable self-adjusting autonomous trading
 IsAutonomousTrading()     - Alias for AutonomousTrading()
-```
-
 **Note:** Any mode parameters (IS.CONSERVATIVE, IS.BALANCED, etc.) are accepted for backwards compatibility but ignored. The system always self-adjusts.
 
 ### Self-Adjusting Thresholds
 
 The system automatically adjusts entry/exit thresholds based on real-time market conditions:
-
-```
 +============================================================================+
 |  DYNAMIC THRESHOLD CALCULATION                                             |
 +============================================================================+
@@ -984,20 +797,12 @@ Example: NVDA during strong uptrend (ADX=45, ATR=2%, Indicators=85% bullish)
 Example: SPY during ranging market (ADX=18, ATR=0.8%, mixed signals)
   → Long threshold: 65 + 10 (ranging) - 5 (low vol) + 10 (mixed) = 80 (conservative)
   → The system waits for stronger confirmation before entering
-```
-
-**Recommended Usage:**
-```idiotscript
-Ticker(NVDA)
+**Recommended Usage:**Ticker(NVDA)
 .Name("NVDA Autonomous")
 .Session(IS.RTH)
 .Quantity(5)
 .AutonomousTrading()
-```
-
 ### How AutonomousTrading Works
-
-```
 +===========================================================================+
 |  AUTONOMOUS TRADING FLOW                                                  |
 +===========================================================================+
@@ -1034,13 +839,9 @@ Ticker(NVDA)
 |  │  Exit SHORT + Score >= +70 ────────────────────► FLIP TO LONG       │  |
 |  └─────────────────────────────────────────────────────────────────────┘  |
 +===========================================================================+
-```
-
 ### Self-Adjusting Behavior
 
 The system automatically adjusts its behavior based on market conditions. There are no modes to configure - it's always optimal:
-
-```
 +===========================================================================+
 |  AUTOMATIC ADJUSTMENTS                                                    |
 +===========================================================================+
@@ -1061,11 +862,7 @@ The system automatically adjusts its behavior based on market conditions. There 
 |    - SL multiplier: 2.0x ATR (allow for chop)                            |
 |                                                                           |
 +===========================================================================+
-```
-
 ### Indicator Score Calculation
-
-```
 +===========================================================================+
 |  INDICATOR SCORING DETAILS                                                |
 +===========================================================================+
@@ -1114,11 +911,7 @@ The system automatically adjusts its behavior based on market conditions. There 
 |  └────────────────────────────────────────────────────────────────────┘  |
 |                                                                           |
 +===========================================================================+
-```
-
 ### AutonomousTrading vs AdaptiveOrder
-
-```
 +===========================================================================+
 |  COMPARISON: AUTONOMOUS vs ADAPTIVE                                       |
 +===========================================================================+
@@ -1136,8 +929,6 @@ The system automatically adjusts its behavior based on market conditions. There 
 
 Use AutonomousTrading when: You want the AI to handle everything
 Use AdaptiveOrder when: You have specific entry conditions but want smart exits
-```
-
 ### When Does AutonomousTrading Enter SHORT?
 
 The system enters SHORT whenever the market score drops to **-70 or below** - it's NOT limited to HOD rejection. Common SHORT entry scenarios:
@@ -1149,9 +940,7 @@ The system enters SHORT whenever the market score drops to **-70 or below** - it
 | **Failed Breakout** | Breaks level then fails back below | Momentum shifts negative |
 | **Bearish Gap Down** | Opens weak and continues selling | All indicators start negative |
 
-**Example: Stock falling below VWAP (not at HOD)**
-```
-Price: $48.50 (2% below VWAP of $49.50)
+**Example: Stock falling below VWAP (not at HOD)**Price: $48.50 (2% below VWAP of $49.50)
 +----------------------------------------------------------------+
 | VWAP Score:   -60  (well below VWAP)                           |
 | EMA Score:    -80  (below 9, 21, 50 EMAs)                      |
@@ -1162,8 +951,6 @@ Price: $48.50 (2% below VWAP of $49.50)
 +----------------------------------------------------------------+
 | Total Score:  -78  --> SHORT ENTRY (below -70 threshold)       |
 +----------------------------------------------------------------+
-```
-
 **Key Point**: The system shorts based on indicator alignment, not chart location. A stock can be far from HOD and still trigger a SHORT if bearish indicators are strong enough.
 
 ### When Does AutonomousTrading Enter LONG?
@@ -1177,9 +964,7 @@ The system enters LONG whenever the market score rises to **+70 or above**. Comm
 | **Breakout Confirmation** | Breaks resistance with volume | Momentum shifts positive |
 | **Bullish Gap Up** | Opens strong and continues buying | All indicators start positive |
 
-**Example: Stock rising above VWAP**
-```
-Price: $51.50 (3% above VWAP of $50.00)
+**Example: Stock rising above VWAP**Price: $51.50 (3% above VWAP of $50.00)
 +----------------------------------------------------------------+
 | VWAP Score:   +80  (well above VWAP)                           |
 | EMA Score:    +70  (above 9, 21, 50 EMAs)                      |
@@ -1190,11 +975,7 @@ Price: $51.50 (3% above VWAP of $50.00)
 +----------------------------------------------------------------+
 | Total Score:  +75  --> LONG ENTRY (above +70 threshold)        |
 +----------------------------------------------------------------+
-```
-
 ### Real-World Example: UBER Chart Analysis
-
-```
 +===========================================================================+
 |  UBER AUTONOMOUS TRADING SIMULATION                                       |
 |  Date: Feb 5, 2026 | LOD: $73.50 | HOD: $78.30 | Close: $74.28           |
@@ -1259,11 +1040,7 @@ TOTAL RESULT:
 |  TOTAL GAIN:                      |  +$5.50/share  (+7.3%)       |
 |  On 100 shares:                   |  +$550 profit                |
 +==================================================================+
-```
-
 ### Key Signals That Drove Decisions
-
-```
 +===========================================================================+
 |  SIGNAL BREAKDOWN                                                         |
 +===========================================================================+
@@ -1303,554 +1080,45 @@ TOTAL RESULT:
             ▼                                     ▼
      SCORE: -72                            SCORE: -28
      ENTRY SHORT                           EXIT SHORT
-```
-
 ### AutonomousTrading Learning System
 
 AutonomousTrading builds a **TickerProfile** for each symbol over time, learning what works specifically for that stock.
 
 ```
-+===========================================================================+
-|  TICKER LEARNING SYSTEM                                                   |
-+===========================================================================+
-|                                                                           |
-|  WHAT IT LEARNS:                                                         |
-|  +-------------------------------------------------------------------+   |
-|  |  Optimal entry thresholds       - Score level with best win rate  |   |
-|  |  Optimal exit thresholds        - When to exit for max profit     |   |
-|  |  Time-of-day patterns           - Best hours/minutes to trade     |   |
-|  |  Indicator correlations         - Which signals work best          |   |
-|  |  Win rate at different levels   - Bucketed by entry score         |   |
-|  |  Streak awareness               - More conservative after losses  |   |
-|  +-------------------------------------------------------------------+   |
-|                                                                           |
-|  HOW IT ADAPTS:                                                          |
-|  +-------------------------------------------------------------------+   |
-|  |  1. After 10+ trades: Start adjusting thresholds                  |   |
-|  |  2. After 20+ trades: Avoid historically poor time windows        |   |
-|  |  3. After 50+ trades: Full confidence in learned patterns        |   |
-|  |                                                                    |   |
-|  |  Blending: Learned × Confidence + Default × (1 - Confidence)      |   |
-|  +-------------------------------------------------------------------+   |
-|                                                                           |
-|  PERSISTENCE:                                                            |
-|  +-------------------------------------------------------------------+   |
-|  |  Profiles saved to: IdiotProof.Scripts\Profiles\SYMBOL.json       |   |
-|  |  Accumulates across sessions - never loses learning               |   |
-|  +-------------------------------------------------------------------+   |
-|                                                                           |
-+===========================================================================+
+╔══════════════════════════════════════════════════════════════════════════════╗
+║  TICKER PROFILE - NVDA                                                       ║
+╠════════════════╦══════════╦═════════════╦═════════════════╦═══════════════╣
+║ DATE           │ SCORE    │ POSITION    │ RISK            │ REWARD        ║
+╠════════════════╬══════════╬═════════════╬═════════════════╬═══════════════╣
+║ 2026-02-07     │ +75      │ LONG        │ $2.00           │ $5.00         ║
+║ 2026-02-08     │ +80      │ LONG        │ $1.80           │ $4.50         ║
+║ 2026-02-09     │ -30      │ SHORT       │ $2.50           │ $6.00         ║
+║ 2026-02-10     │ +90      │ LONG        │ $2.20           │ $5.50         ║
+╠════════════════╬══════════╬═════════════╬═════════════════╬═══════════════╣
+║ AVERAGE         │ +53      │             │ $2.13           │ $5.50         ║
+║ STDEV            │ 26       │             │ $0.25           │ $0.25          ║
+╚════════════════╩══════════╩═════════════╩═════════════════╩═══════════════╝
 ```
 
-### TradeRecord Structure
+### Ticker Profile Fields
+- `DATE`: Date of the trade or analysis
+- `SCORE`: Market score at the time (+100 to -100)
+- `POSITION`: LONG, SHORT, or FLAT
+- `RISK`: Risk amount per share
+- `REWARD`: Target reward per share
 
-Each trade records:
-- Entry/exit time, price, score
-- All indicator values at entry (RSI, ADX, MACD, etc.)
-- Outcome (win/loss, P&L, duration)
-- Used for correlation analysis
-
-### Profile Adjustments
-
-| Metric | Effect |
-|--------|--------|
-| Historical win rate > 60% | Slightly more aggressive |
-| Loss streak >= 3 | Temporarily more conservative |
-| Win rate at threshold 80 > threshold 70 | Adjust to 80 for this ticker |
-| Time window win rate < 40% | Skip entries in that window |
-
-## PriceActionContext - Proactive Multi-Bar Pattern Analysis
-
-PriceActionContext transforms the trading system from **reactive** (indicator score triggers entry) to **proactive** (understand market structure, wait for high-probability setups).
-
-### Why This Matters
-
-The original problem: "The system decides 1 candle at a time without allowing normal patterns to occur like pullbacks and fair value gaps."
-
-**Before PriceActionContext:**
-- Score is 75 → ENTER NOW!
-- Chases extended moves
-- Enters against trend structure
-- No awareness of where price is in the current swing
-
-**After PriceActionContext:**
-- Score is 75, BUT:
-  - 5 consecutive green candles = DON'T CHASE, wait for pullback
-  - Just broke out = wait for first pullback to test breakout level
-  - In premium zone of downtrend = risky for longs
-  - Bearish RSI divergence = momentum exhaustion warning
-  - Near unfilled bullish FVG = potential support
-
-### What PriceActionContext Tracks
-
-| Pattern | Description | Entry Impact |
-|---------|-------------|--------------|
-| **Fair Value Gaps (FVGs)** | Imbalance zones where price moved too fast | Support/resistance, often revisited |
-| **Swing Points** | Local highs and lows for structure analysis | HH/HL = uptrend, LH/LL = downtrend |
-| **Consolidation Zones** | Price compressing before breakout | Tight range = potential explosive move |
-| **Extension Detection** | Consecutive same-color bars, distance from EMA | DON'T CHASE overextended moves |
-| **Pullback Quality** | Fibonacci depth, volume decrease | Healthy pullback = better entry |
-| **Premium/Discount Zones** | Top/middle/bottom 1/3 of range | Buy discount, sell premium |
-| **Liquidity Sweeps** | Swept lows then reversed | Bullish trap/grab pattern |
-| **Divergences** | Price vs RSI/MACD disagreement | Early reversal warning |
-| **Candle Patterns** | Engulfing, hammer, shooting star | Reversal signals |
-
-### Trend Structure Analysis
-
-```
-+============================================================================+
-|  TREND STATE DETECTION                                                     |
-+============================================================================+
-|                                                                            |
-|  TrendState.StrongUptrend:                                                |
-|    - 2+ consecutive Higher Highs                                          |
-|    - 2+ consecutive Higher Lows                                           |
-|    → Favor LONG entries, avoid SHORTS                                     |
-|                                                                            |
-|  TrendState.StrongDowntrend:                                              |
-|    - 2+ consecutive Lower Highs                                           |
-|    - 2+ consecutive Lower Lows                                            |
-|    → Favor SHORT entries, avoid LONGS                                     |
-|                                                                            |
-|  TrendState.TrendReversal:                                                |
-|    - Structure break detected (violation of last swing)                   |
-|    → High alert - potential direction change                              |
-|                                                                            |
-+============================================================================+
-```
-
-### Fair Value Gap Detection
-
-```
-BULLISH FVG (Support):
-                                  +---+
-                                  |   | ← Candle 3 (low = gap top)
-                                  |   |
-                             +----+---+
-                             |    |
-              +---+          |    |
-              |   | ← Candle 1 (high = gap bottom)
-              |   |          |    | ← Candle 2 (impulse candle)
-              +---+          +----+
-
-              Gap zone: Candle1.High to Candle3.Low
-              Often acts as SUPPORT when revisited
-
-
-BEARISH FVG (Resistance):
-              +---+
-              |   | ← Candle 1 (low = gap top)
-              |   |
-              +---+----+
-                  |    |
-                  |    | ← Candle 2 (impulse candle)
-              +---+----+
-              |   |
-              |   | ← Candle 3 (high = gap bottom)
-              +---+
-
-              Gap zone: Candle3.High to Candle1.Low
-              Often acts as RESISTANCE when revisited
-```
-
-### Extension Detection (Anti-Chase)
-
-```
-OVEREXTENDED - DON'T CHASE:
-╔═══════════════════════════════════════════════════════════════════════╗
-║  Conditions that trigger "wait for pullback":                         ║
-║                                                                        ║
-║  1. 4+ consecutive same-color candles (configurable)                  ║
-║  2. Price > 2.5% from EMA(9) (configurable)                           ║
-║  3. RSI approaching overbought/oversold                               ║
-║                                                                        ║
-║  WAIT FOR PULLBACK:                                                    ║
-║                    ████                                                ║
-║               ████████                                                 ║
-║          ████████████   ← 5 green bars = EXTENDED                     ║
-║     ████████████████                                                   ║
-║████████████████████     ← Price far from EMA                          ║
-║──────────────────────   EMA(9)                                         ║
-║                                                                        ║
-║  Entry blocked until: pullback tests EMA or prior support             ║
-╚═══════════════════════════════════════════════════════════════════════╝
-```
-
-### First Pullback After Breakout (Ideal Entry)
-
-```
-IDEAL ENTRY PATTERN:
-                                 ████  ← Price testing breakout level
-                            ████    ████  from ABOVE (now support)
-                       ████
-═══════════════════════════════════════ ← RESISTANCE becomes SUPPORT
-                  ████
-             ████████
-        ████████████
-═══════════════════════ ← Prior resistance
-
-│
-├── 1. Price consolidates below resistance
-├── 2. BREAKOUT above resistance (don't chase!)
-├── 3. PULLBACK to test breakout level
-└── 4. HOLD above = ENTER LONG (ideal entry)
-```
-
-### Entry Quality Assessment
-
+### Usage
 ```csharp
-public enum EntryQuality
-{
-    Ideal,       // +35 adj, 3+ bullish factors, aligned with trend
-    Good,        // +20 adj, 2+ supporting factors
-    Acceptable,  // +0 adj, more supporting than opposing
-    Poor,        // -10 adj, against trend
-    Avoid        // Chasing, against structure, multiple opposing factors
-}
+// Load profile for a ticker
+var profile = TickerProfileManager.Load("NVDA");
+
+// Get average score for trade decisions
+var avgScore = profile.GetAverageScore();
+
+// Determine position size based on risk
+var positionSize = profile.GetPositionSize(currentPrice, riskAmount);
 ```
 
-### Score Adjustments from PriceActionContext
-
-| Pattern | Long Adjustment | Short Adjustment |
-|---------|----------------|------------------|
-| Strong uptrend (HH/HL) | +15 | -20 |
-| Strong downtrend (LH/LL) | -20 | +15 |
-| Healthy pullback in uptrend | +20 | - |
-| First pullback after breakout | +25 | - |
-| Near bullish FVG | +10 | - |
-| Overextended (4+ green bars) | -25 (VETO) | - |
-| Swept lows and reversed | +20 | -15 |
-| Bullish RSI divergence | +15 | - |
-| Bullish engulfing at support | +10 | - |
-| In discount zone of uptrend | +10 | - |
-| In premium zone (not uptrend) | -10 | - |
-
-### Integration with AutonomousTrading
-
-PriceActionContext runs **after** the market score calculation and **before** the final entry decision:
-
-```
-Market Score = 75 (above entry threshold)
-                ↓
-┌───────────────────────────────────────────────────────────────────┐
-│  PRICE ACTION CONTEXT CHECK                                       │
-│                                                                   │
-│  Trend: StrongUptrend (HH:2, HL:3)               → +15 LONG      │
-│  Extension: 5 consecutive green bars              → VETO LONG    │
-│  Pullback: Not in pullback                        → 0            │
-│  FVG: Near bullish gap at $48.50-$49.00          → +10 LONG     │
-│                                                                   │
-│  RESULT: shouldEnterLong = FALSE (vetoed by extension)           │
-│  MESSAGE: "[PA] VETO: Don't chase - 5 consecutive green bars"    │
-└───────────────────────────────────────────────────────────────────┘
-                ↓
-WAIT for pullback...
-```
-
-### PriceActionAnalysis Object
-
-```csharp
-var analysis = _priceActionContext.GetAnalysis(currentPrice, rsi, macd);
-
-// Key properties:
-analysis.LongEntryQuality      // Ideal, Good, Acceptable, Poor, Avoid
-analysis.ShortEntryQuality     // Same enum
-analysis.TrendState            // StrongUptrend, Ranging, StrongDowntrend, etc.
-analysis.ShouldWaitForPullback // True if overextended
-analysis.IsIdealLongEntry      // True if perfect setup
-analysis.BlockLongEntry        // True if entry should be vetoed
-analysis.LongScoreAdjustment   // +/- points to add to threshold
-analysis.BullishFactors        // List of bullish signals detected
-analysis.BearishFactors        // List of bearish signals detected
-analysis.NearestBullishFvg     // Closest unfilled bullish FVG
-analysis.IsFirstPullbackAfterBreakout  // Ideal entry signal
-analysis.JustSweptLows         // Liquidity grab pattern
-analysis.HasBullishRsiDivergence  // Divergence detected
-```
-
-## LSTM Neural Network Integration
-
-The system includes **Long Short-Term Memory (LSTM)** neural networks for enhanced price direction prediction. LSTM networks excel at capturing temporal dependencies in sequential data like stock prices.
-
-### How LSTM Works in IdiotProof
-
-```
-+===========================================================================+
-|  LSTM ARCHITECTURE                                                        |
-+===========================================================================+
-|                                                                           |
-|  INPUT FEATURES (from each candle):                                      |
-|  +-------------------------------------------------------------------+   |
-|  |  - Price (normalized)                                              |   |
-|  |  - VWAP distance                                                   |   |
-|  |  - EMA values (9, 21, 50)                                         |   |
-|  |  - RSI, MACD, ADX                                                 |   |
-|  |  - Volume ratio                                                    |   |
-|  +-------------------------------------------------------------------+   |
-|                                                                           |
-|  LSTM CELL (memory gates):                                               |
-|  +-------------------------------------------------------------------+   |
-|  |  - Forget Gate: Decides what information to discard               |   |
-|  |  - Input Gate: Decides what new information to store              |   |
-|  |  - Output Gate: Decides what information to output                |   |
-|  +-------------------------------------------------------------------+   |
-|                                                                           |
-|  OUTPUT:                                                                  |
-|  +-------------------------------------------------------------------+   |
-|  |  - Direction: -1.0 (bearish) to +1.0 (bullish)                    |   |
-|  |  - Confidence: 0.0 to 1.0                                         |   |
-|  |  - Predicted volatility                                           |   |
-|  |  - Score adjustment: ±25 points applied to market score           |   |
-|  +-------------------------------------------------------------------+   |
-|                                                                           |
-+===========================================================================+
-```
-
-### LSTM Integration Points
-
-| Component | Integration |
-|-----------|-------------|
-| **AutonomousTrading** | LSTM prediction adjusts market score by up to ±25 points |
-| **AdaptiveOrder** | LSTM volatility used for smarter TP/SL sizing |
-| **Market Score** | LSTM direction/confidence factored into entry/exit decisions |
-
-### LSTM Warm-Up Requirements
-
-| Metric | Requirement |
-|--------|-------------|
-| Minimum data points | 10 candles before prediction |
-| Optimal data points | 50+ candles for accurate prediction |
-| Training interval | Every 15 minutes (automatic) |
-
-### LSTM Prediction Output
-
-```
-LstmPrediction {
-    Direction           // -1.0 to +1.0 (bearish to bullish)
-    Confidence          // 0.0 to 1.0 (prediction confidence)
-    PredictedChangePercent  // Expected price change %
-    PredictedVolatility     // Expected volatility
-    ScoreAdjustment     // ±25 to apply to market score
-    IsUsable            // True if enough data for prediction
-}
-```
-
-### Example: LSTM Score Adjustment
-
-```
-Market Score (before LSTM): +55
-LSTM Prediction: Direction=+0.7, Confidence=0.8
-LSTM Score Adjustment: +0.7 × 0.8 × 25 = +14
-
-Adjusted Market Score: +55 + 14 = +69
-```
-
-### LSTM Effect on TP/SL
-
-When LSTM predicts high volatility with high confidence:
-- **Take Profit**: Extended more aggressively (expecting larger moves)
-- **Stop Loss**: Widened to avoid noise stops
-
-When LSTM predicts low volatility:
-- **Take Profit**: Kept conservative (smaller expected moves)
-- **Stop Loss**: Tightened (less noise expected)
-
-### Training LSTM Models
-
-LSTM models train automatically during live trading:
-1. Data collected: Every completed candle with indicator values
-2. Training triggered: Every 15 minutes
-3. Model persisted: `Profiles/{TICKER}.lstm.json`
-
-For offline training from historical data:
-```csharp
-var trainer = new LstmTrainingManager();
-var candles = trainer.LoadTrainingData("NVDA");
-var result = trainer.TrainFromHistoricalData("NVDA", candles, epochs: 20);
-Console.WriteLine(result); // Shows training/validation accuracy
-```
-
-## Indicator Implementation Requirements
-An IdiotScript indicator condition is "fully implemented" when it has ALL of these components:
-1. **Condition class** exists (e.g., `MomentumAboveCondition` in `IndicatorConditions.cs`)
-2. **`Stock.IsXxx()` method** exists in `Stock.cs` to add the condition
-3. **Wire-up in `StrategyRunner.InitializeIndicatorCalculators()`** to set the callback (e.g., `GetMomentumValue`)
-4. **Calculator class** exists (if needed) and is updated in `OnCandleComplete()`
-5. **Context info display** in `GetEmaContextInfo()` method (shows indicator values when triggered)
-
-### Exceptions
-- **VWAP-based conditions** (IsAboveVwap, IsBelowVwap, etc.) don't need calculators - VWAP is passed directly to `Evaluate(price, vwap)`
-- **Price-based conditions** (IsPriceAbove, IsPriceBelow, Entry, Breakout) don't need calculators - they use the price parameter
-
-## Watchlist - Multi-Ticker Autonomous Trading
-
-The **watchlist.json** file allows you to configure multiple tickers for autonomous trading in one place. Edit this file outside the app and restart to trade all configured tickers automatically.
-
-### File Location
-```
-IdiotProof.Core\Data\watchlist.json
-```
-
-### File Format
-```json
-{
-  "description": "My Trading Watchlist",
-  "enabled": true,
-  "session": "RTH",
-  "tickers": [
-    { "symbol": "NVDA", "quantity": 5, "name": "NVIDIA", "enabled": true },
-    { "symbol": "AAPL", "quantity": 10, "name": "Apple", "enabled": true },
-    { "symbol": "TSLA", "quantity": 3, "name": "Tesla", "enabled": false },
-    { "symbol": "SPY", "quantity": 20, "name": "S&P 500 ETF", "enabled": true }
-  ]
-}
-```
-
-### Fields
-| Field | Description |
-|-------|-------------|
-| `enabled` | Global on/off switch for all autonomous trading |
-| `session` | Default session: `RTH`, `Premarket`, `AfterHours`, `Extended` |
-| `tickers` | Array of ticker configurations |
-| `tickers[].symbol` | Ticker symbol (e.g., "NVDA") |
-| `tickers[].quantity` | Number of shares to trade |
-| `tickers[].name` | Optional friendly name |
-| `tickers[].enabled` | Enable/disable individual tickers |
-| `tickers[].session` | Override session for this ticker |
-
-### Usage in Code
-```csharp
-// Load watchlist
-var watchlist = WatchlistManager.Load();
-
-// Generate IdiotScript for each enabled ticker
-foreach (var script in WatchlistManager.GenerateScripts())
-{
-    // script = "Ticker(NVDA).Name("NVDA Auto").Session(IS.RTH).Quantity(5).AutonomousTrading()"
-}
-
-// Print summary
-WatchlistManager.PrintSummary();
-```
-
-### Quick Commands
-```csharp
-// Add or update a ticker
-WatchlistManager.AddOrUpdate("META", 15);
-
-// Disable without removing
-WatchlistManager.Disable("TSLA");
-
-// Remove completely
-WatchlistManager.Remove("GME");
-```
-
-## Strategy Rules - Custom AI-Evaluated Trading Rules
-
-The **strategy-rules.json** file allows you to define custom trading rules in plain text that ChatGPT evaluates alongside its indicator-based analysis. Rules work as **additional filters** - they enhance the AI's decision-making without overriding the market score logic.
-
-### File Location
-```
-IdiotProof.Core\Data\strategy-rules.json
-```
-
-### How It Works
-1. User defines rules as plain text (breakout levels, pullback requirements, etc.)
-2. When the AI advisor evaluates a potential entry, it includes your custom rules in the prompt
-3. ChatGPT analyzes entries against BOTH indicators AND your custom rules
-4. The AI reports whether rules are MET, NOT_MET, or NO_RULES in its analysis
-
-### File Format
-```json
-{
-  "description": "Custom Strategy Rules",
-  "enabled": true,
-  "rules": [
-    {
-      "symbol": "CCHH",
-      "enabled": true,
-      "validFrom": "2026-02-07",
-      "validUntil": "2026-02-10",
-      "name": "Day 2 Breakout-Pullback",
-      "rule": "Wait for breakout above $0.78, then pullback. Only enter if pullback holds above $0.70.",
-      "levels": {
-        "breakout": 0.78,
-        "support": 0.70
-      },
-      "targets": [0.85, 1.00],
-      "notes": "No chasing - pullback entries only"
-    }
-  ]
-}
-```
-
-### Fields
-| Field | Description |
-|-------|-------------|
-| `enabled` | Global on/off switch for all rules |
-| `rules[].symbol` | Ticker symbol this rule applies to |
-| `rules[].enabled` | Enable/disable individual rules |
-| `rules[].validFrom` | **Start date (ISO 8601 in EST)**. e.g., `"2026-02-07"` or `"2026-02-07T09:30:00"`. Rule ignored before this date. Prevents tips from being used in backtesting. |
-| `rules[].validUntil` | **End date (ISO 8601 in EST)**. e.g., `"2026-02-10"` or `"2026-02-10T16:00:00"`. Rule ignored after this date. For daily tips. |
-| `rules[].name` | Friendly name for the strategy |
-| `rules[].rule` | The rule in plain text - ChatGPT interprets this |
-| `rules[].levels.breakout` | Price that must break for consideration |
-| `rules[].levels.support` | Price that pullback must hold above |
-| `rules[].targets` | Target prices for the trade |
-| `rules[].notes` | Additional notes for the AI |
-
-### AIAnalysis Response Fields
-When ChatGPT evaluates with custom rules, it returns:
-- `Action`: LONG, SHORT, or WAIT
-- `Confidence`: 0-100
-- `RuleStatus`: MET, NOT_MET, or NO_RULES
-- `Reasoning`: Includes whether custom rules are satisfied
-- `RiskFactors`: List of identified risks
-
-### Example Custom Rules
-
-```json
-{
-  "rules": [
-    {
-      "symbol": "TONN",
-      "validFrom": "2026-02-07",
-      "validUntil": "2026-02-10",
-      "name": "Earnings Runner Day 2",
-      "rule": "Price breaks above $0.94 (previous high). Wait for retest. Retest must hold above $0.90. RULE: No break = no trade.",
-      "levels": { "breakout": 0.94, "support": 0.90 },
-      "targets": [1.10, 1.30]
-    },
-    {
-      "symbol": "SMX",
-      "validFrom": "2026-02-07",
-      "validUntil": "2026-02-10",
-      "name": "High Volatility Explosive",
-      "rule": "Break above $20.50, wait for pullback to $18.70. Only enter if above VWAP AND above EMAs.",
-      "levels": { "breakout": 20.50, "support": 18.70 },
-      "targets": [30.00, 40.00]
-    }
-  ]
-}
-```
-
-### Usage in Code
-```csharp
-// Load rules
-var config = StrategyRulesManager.Load();
-
-// Get rules for a specific symbol
-var rules = config.GetRulesForSymbol("CCHH");
-
-// Get formatted rules for AI prompt
-string rulesPrompt = StrategyRulesManager.GetRulesForPrompt("CCHH");
-
-// Add or update a rule
-StrategyRulesManager.AddOrUpdate(new StrategyRule { Symbol = "AAPL", Rule = "..." });
-
-// Print summary
-StrategyRulesManager.PrintSummary();
-```
 
 ## Note
 Ignore the IdiotProof.Frontend project for now - it has build errors related to HeartbeatMessage that will be addressed later.

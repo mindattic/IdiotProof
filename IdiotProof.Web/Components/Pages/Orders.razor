@@ -223,14 +223,15 @@
 
         try
         {
-            // Refresh positions
+            // Refresh positions from WebBridge (real-time)
             if (WebBridge.IsConnected)
             {
                 _positions = WebBridge.GetPositions();
                 _totalPnL = _positions.Sum(p => p.UnrealizedPnL ?? 0);
+                _orders = WebBridge.GetOrders();
             }
-            
-            await Task.Delay(500); // Simulated refresh time
+
+            await Task.Delay(100); // Brief delay for UI update
         }
         finally
         {
@@ -241,23 +242,63 @@
 
     private async Task CancelOrder(int orderId)
     {
-        // TODO: Implement via HTTP call to Core
-        await JS.InvokeVoidAsync("AudioAlerts.notification");
-        Console.WriteLine($"Cancel order requested: {orderId}");
+        // Send cancel request via SignalR hub
+        if (_hubConnection?.State == HubConnectionState.Connected)
+        {
+            try
+            {
+                await _hubConnection.InvokeAsync("CancelOrder", orderId);
+                await JS.InvokeVoidAsync("AudioAlerts.success");
+                _orders.RemoveAll(o => o.OrderId == orderId);
+                StateHasChanged();
+            }
+            catch
+            {
+                await JS.InvokeVoidAsync("AudioAlerts.error");
+            }
+        }
+        else
+        {
+            await JS.InvokeVoidAsync("AudioAlerts.error");
+            Console.WriteLine("Not connected to trading hub");
+        }
     }
 
     private async Task CancelAllOrders()
     {
-        // TODO: Implement via HTTP call to Core
-        await JS.InvokeVoidAsync("AudioAlerts.notification");
-        Console.WriteLine("Cancel all orders requested");
+        if (_hubConnection?.State == HubConnectionState.Connected)
+        {
+            try
+            {
+                await _hubConnection.InvokeAsync("CancelAllOrders");
+                await JS.InvokeVoidAsync("AudioAlerts.success");
+                _orders.Clear();
+                StateHasChanged();
+            }
+            catch
+            {
+                await JS.InvokeVoidAsync("AudioAlerts.error");
+            }
+        }
     }
 
     private async Task ClosePosition(string symbol)
     {
-        // TODO: Implement via HTTP call to Core
-        await JS.InvokeVoidAsync("AudioAlerts.notification");
-        Console.WriteLine($"Close position requested: {symbol}");
+        if (_hubConnection?.State == HubConnectionState.Connected)
+        {
+            try
+            {
+                await _hubConnection.InvokeAsync("ClosePosition", symbol);
+                await JS.InvokeVoidAsync("AudioAlerts.success");
+                _positions.RemoveAll(p => p.Symbol == symbol);
+                _totalPnL = _positions.Sum(p => p.UnrealizedPnL ?? 0);
+                StateHasChanged();
+            }
+            catch
+            {
+                await JS.InvokeVoidAsync("AudioAlerts.error");
+            }
+        }
     }
 
     private void NavigateToTrade(string symbol)
@@ -271,18 +312,5 @@
         {
             await _hubConnection.DisposeAsync();
         }
-    }
-
-    // Order info model (matches what Core sends)
-    private sealed class OrderInfo
-    {
-        public int OrderId { get; set; }
-        public string Symbol { get; set; } = "";
-        public string Direction { get; set; } = "";
-        public int Quantity { get; set; }
-        public string OrderType { get; set; } = "";
-        public double? LimitPrice { get; set; }
-        public double? StopPrice { get; set; }
-        public string Status { get; set; } = "";
     }
 }

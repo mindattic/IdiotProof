@@ -201,6 +201,61 @@ public class MarketDataController : ControllerBase
     {
         return Ok(_bridge.GetPositions());
     }
+
+    /// <summary>
+    /// Receives order updates from Core.
+    /// POST /api/marketdata/orders
+    /// </summary>
+    [HttpPost("orders")]
+    public async Task<IActionResult> UpdateOrders([FromBody] OrderData[] orders)
+    {
+        foreach (var order in orders)
+        {
+            _bridge.UpdateOrder(order.OrderId, order.Symbol, order.Direction, order.Quantity, 
+                order.OrderType, order.LimitPrice, order.StopPrice, order.Status);
+        }
+
+        // Broadcast to connected clients
+        var orderInfos = _bridge.GetOrders();
+        await _broadcaster.BroadcastOrdersAsync(orderInfos);
+
+        return Ok(new { updated = orders.Length });
+    }
+
+    /// <summary>
+    /// Gets current open orders.
+    /// GET /api/marketdata/orders
+    /// </summary>
+    [HttpGet("orders")]
+    public IActionResult GetOrders()
+    {
+        return Ok(_bridge.GetOrders());
+    }
+
+    /// <summary>
+    /// Gets pending commands queued by Web clients (for Core to poll and execute).
+    /// GET /api/marketdata/commands
+    /// </summary>
+    [HttpGet("commands")]
+    public IActionResult GetPendingCommands()
+    {
+        var commands = MarketDataHub.GetPendingCommands();
+        return Ok(commands);
+    }
+
+    /// <summary>
+    /// Receives log messages from Core for display in the Log tab.
+    /// POST /api/marketdata/log
+    /// </summary>
+    [HttpPost("log")]
+    public async Task<IActionResult> PostLogMessage([FromBody] LogMessageData log)
+    {
+        if (string.IsNullOrEmpty(log.Message))
+            return BadRequest("Message is required");
+
+        await _broadcaster.BroadcastLogMessageAsync(log.Timestamp, log.Message);
+        return Ok();
+    }
 }
 
 // Request DTOs
@@ -254,4 +309,22 @@ public sealed class PositionData
     public double AvgCost { get; set; }
     public double? MarketPrice { get; set; }
     public double? UnrealizedPnL { get; set; }
+}
+
+public sealed class OrderData
+{
+    public int OrderId { get; set; }
+    public string Symbol { get; set; } = "";
+    public string Direction { get; set; } = "";
+    public int Quantity { get; set; }
+    public string OrderType { get; set; } = "";
+    public double? LimitPrice { get; set; }
+    public double? StopPrice { get; set; }
+    public string Status { get; set; } = "";
+}
+
+public sealed class LogMessageData
+{
+    public DateTimeOffset Timestamp { get; set; }
+    public string Message { get; set; } = "";
 }

@@ -16,42 +16,45 @@ namespace IdiotProof.Web.Hubs;
 public class MarketDataHub : Hub
 {
     private static readonly ConcurrentDictionary<string, HashSet<string>> _symbolSubscriptions = new();
-    
+
+    // Pending commands queue for Core to poll
+    private static readonly ConcurrentQueue<TradingCommand> _pendingCommands = new();
+
     /// <summary>
     /// Subscribe to real-time updates for a symbol.
     /// </summary>
     public async Task SubscribeToSymbol(string symbol)
     {
         symbol = symbol.ToUpperInvariant();
-        
+
         // Add connection to symbol's subscriber list
         _symbolSubscriptions.AddOrUpdate(
             symbol,
             _ => [Context.ConnectionId],
             (_, set) => { set.Add(Context.ConnectionId); return set; }
         );
-        
+
         // Add to SignalR group for efficient broadcasting
         await Groups.AddToGroupAsync(Context.ConnectionId, $"symbol:{symbol}");
-        
+
         await Clients.Caller.SendAsync("SubscriptionConfirmed", symbol);
     }
-    
+
     /// <summary>
     /// Unsubscribe from a symbol.
     /// </summary>
     public async Task UnsubscribeFromSymbol(string symbol)
     {
         symbol = symbol.ToUpperInvariant();
-        
+
         if (_symbolSubscriptions.TryGetValue(symbol, out var subscribers))
         {
             subscribers.Remove(Context.ConnectionId);
         }
-        
+
         await Groups.RemoveFromGroupAsync(Context.ConnectionId, $"symbol:{symbol}");
     }
-    
+
     /// <summary>
     /// Get list of currently subscribed symbols for this connection.
     /// </summary>
@@ -61,10 +64,123 @@ public class MarketDataHub : Hub
             .Where(kvp => kvp.Value.Contains(Context.ConnectionId))
             .Select(kvp => kvp.Key)
             .ToList();
-        
+
         return Task.FromResult(symbols);
     }
-    
+
+    /// <summary>
+    /// Cancel a specific order (queued for Core to process).
+    /// </summary>
+    public async Task CancelOrder(int orderId)
+    {
+        _pendingCommands.Enqueue(new TradingCommand
+        {
+            Type = CommandType.CancelOrder,
+            OrderId = orderId,
+            Timestamp = DateTimeOffset.UtcNow
+        });
+
+        await Clients.Caller.SendAsync("CommandQueued", new { type = "CancelOrder", orderId });
+    }
+
+    /// <summary>
+    /// Cancel all open orders (queued for Core to process).
+    /// </summary>
+    public async Task CancelAllOrders()
+    {
+        _pendingCommands.Enqueue(new TradingCommand
+        {
+            Type = CommandType.CancelAllOrders,
+            Timestamp = DateTimeOffset.UtcNow
+        });
+
+        await Clients.Caller.SendAsync("CommandQueued", new { type = "CancelAllOrders" });
+    }
+
+    /// <summary>
+    /// Close a specific position (queued for Core to process).
+    /// </summary>
+    public async Task ClosePosition(string symbol)
+    {
+        _pendingCommands.Enqueue(new TradingCommand
+        {
+            Type = CommandType.ClosePosition,
+            Symbol = symbol.ToUpperInvariant(),
+            Timestamp = DateTimeOffset.UtcNow
+        });
+
+        await Clients.Caller.SendAsync("CommandQueued", new { type = "ClosePosition", symbol });
+    }
+
+    /// <summary>
+    /// Close all positions (queued for Core to process).
+    /// </summary>
+    public async Task CloseAllPositions()
+    {
+        _pendingCommands.Enqueue(new TradingCommand
+        {
+            Type = CommandType.CloseAllPositions,
+            Timestamp = DateTimeOffset.UtcNow
+        });
+
+        await Clients.Caller.SendAsync("CommandQueued", new { type = "CloseAllPositions" });
+    }
+
+    /// <summary>
+    /// Activate trading (queued for Core to process).
+    /// </summary>
+    public async Task ActivateTrading()
+    {
+        _pendingCommands.Enqueue(new TradingCommand
+        {
+            Type = CommandType.ActivateTrading,
+            Timestamp = DateTimeOffset.UtcNow
+        });
+
+        await Clients.Caller.SendAsync("CommandQueued", new { type = "ActivateTrading" });
+    }
+
+    /// <summary>
+    /// Deactivate trading (queued for Core to process).
+    /// </summary>
+    public async Task DeactivateTrading()
+    {
+        _pendingCommands.Enqueue(new TradingCommand
+        {
+            Type = CommandType.DeactivateTrading,
+            Timestamp = DateTimeOffset.UtcNow
+        });
+
+        await Clients.Caller.SendAsync("CommandQueued", new { type = "DeactivateTrading" });
+    }
+
+    /// <summary>
+    /// Reload watchlist (queued for Core to process).
+    /// </summary>
+    public async Task ReloadWatchlist()
+    {
+        _pendingCommands.Enqueue(new TradingCommand
+        {
+            Type = CommandType.ReloadWatchlist,
+            Timestamp = DateTimeOffset.UtcNow
+        });
+
+        await Clients.Caller.SendAsync("CommandQueued", new { type = "ReloadWatchlist" });
+    }
+
+    /// <summary>
+    /// Gets and clears pending commands (called by Core via HTTP).
+    /// </summary>
+    public static List<TradingCommand> GetPendingCommands()
+    {
+        var commands = new List<TradingCommand>();
+        while (_pendingCommands.TryDequeue(out var cmd))
+        {
+            commands.Add(cmd);
+        }
+        return commands;
+    }
+
     public override async Task OnDisconnectedAsync(Exception? exception)
     {
         // Clean up subscriptions when client disconnects
@@ -72,9 +188,31 @@ public class MarketDataHub : Hub
         {
             kvp.Value.Remove(Context.ConnectionId);
         }
-        
+
         await base.OnDisconnectedAsync(exception);
     }
+}
+
+/// <summary>
+/// Trading command queued for Core to process.
+/// </summary>
+public sealed class TradingCommand
+{
+    public CommandType Type { get; set; }
+    public int OrderId { get; set; }
+    public string? Symbol { get; set; }
+    public DateTimeOffset Timestamp { get; set; }
+}
+
+public enum CommandType
+{
+    CancelOrder,
+    CancelAllOrders,
+    ClosePosition,
+    CloseAllPositions,
+    ActivateTrading,
+    DeactivateTrading,
+    ReloadWatchlist
 }
 
 /// <summary>
@@ -200,7 +338,41 @@ public sealed class MarketDataBroadcaster
             _logger.LogError(ex, "Error broadcasting positions");
         }
     }
-    
+
+    /// <summary>
+    /// Broadcast order updates to all connected clients.
+    /// </summary>
+    public async Task BroadcastOrdersAsync(IEnumerable<object> orders)
+    {
+        try
+        {
+            await _hubContext.Clients.All.SendAsync("OrdersUpdated", orders.ToList());
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error broadcasting orders");
+        }
+    }
+
+    /// <summary>
+    /// Broadcast a log message from Core to all connected clients.
+    /// </summary>
+    public async Task BroadcastLogMessageAsync(DateTimeOffset timestamp, string message)
+    {
+        try
+        {
+            await _hubContext.Clients.All.SendAsync("ReceiveLogMessage", new
+            {
+                timestamp = timestamp.ToUnixTimeMilliseconds(),
+                message
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error broadcasting log message");
+        }
+    }
+
     private void UpdateCurrentCandle(MarketTick tick)
     {
         // Round to current minute

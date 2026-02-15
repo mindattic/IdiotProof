@@ -299,6 +299,68 @@ public sealed class WebFrontendClient : IDisposable
         }
     }
 
+    /// <summary>
+    /// Sends order updates to the web frontend.
+    /// </summary>
+    public async Task SendOrdersAsync(IEnumerable<OrderPayload> orders)
+    {
+        if (!_config.Enabled) return;
+
+        try
+        {
+            await _httpClient.PostAsJsonAsync("/api/marketdata/orders", orders.ToArray());
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[WebClient] Failed to send orders: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Sends a log message to the web frontend for display in the Log tab.
+    /// </summary>
+    public async Task SendLogMessageAsync(string message)
+    {
+        if (!_config.Enabled) return;
+
+        try
+        {
+            var payload = new
+            {
+                timestamp = DateTimeOffset.Now,
+                message
+            };
+            await _httpClient.PostAsJsonAsync("/api/marketdata/log", payload);
+        }
+        catch
+        {
+            // Silent fail - don't recurse on log failures
+        }
+    }
+
+    /// <summary>
+    /// Polls for pending commands from the Web frontend.
+    /// </summary>
+    public async Task<List<TradingCommandPayload>> GetPendingCommandsAsync()
+    {
+        if (!_config.Enabled) return [];
+
+        try
+        {
+            var response = await _httpClient.GetAsync("/api/marketdata/commands");
+            if (response.IsSuccessStatusCode)
+            {
+                return await response.Content.ReadFromJsonAsync<List<TradingCommandPayload>>() ?? [];
+            }
+        }
+        catch
+        {
+            // Silent fail
+        }
+
+        return [];
+    }
+
     public void Dispose()
     {
         if (_disposed) return;
@@ -328,4 +390,30 @@ public sealed class PositionPayload
     public double AvgCost { get; set; }
     public double? MarketPrice { get; set; }
     public double? UnrealizedPnL { get; set; }
+}
+
+/// <summary>
+/// Order data payload for web frontend.
+/// </summary>
+public sealed class OrderPayload
+{
+    public int OrderId { get; set; }
+    public string Symbol { get; set; } = "";
+    public string Direction { get; set; } = "";
+    public int Quantity { get; set; }
+    public string OrderType { get; set; } = "";
+    public double? LimitPrice { get; set; }
+    public double? StopPrice { get; set; }
+    public string Status { get; set; } = "";
+}
+
+/// <summary>
+/// Trading command received from web frontend.
+/// </summary>
+public sealed class TradingCommandPayload
+{
+    public string Type { get; set; } = "";
+    public int OrderId { get; set; }
+    public string? Symbol { get; set; }
+    public DateTimeOffset Timestamp { get; set; }
 }
