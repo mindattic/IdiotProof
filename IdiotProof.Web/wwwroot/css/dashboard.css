@@ -570,3 +570,98 @@ body {
     background: #388bfd;
     transform: translateY(-1px);
 }
+
+/* P&L Banner */
+.pnl-banner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 24px;
+    gap: 24px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.pnl-banner.positive {
+    background: linear-gradient(90deg, var(--accent-green-bg), transparent);
+    border-left: 4px solid var(--accent-green);
+}
+
+.pnl-banner.negative {
+    background: linear-gradient(90deg, var(--accent-red-bg), transparent);
+    border-left: 4px solid var(--accent-red);
+}
+
+.pnl-summary {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.pnl-label {
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+}
+
+.pnl-value {
+    font-size: 1.5rem;
+    font-weight: 700;
+}
+
+.pnl-banner.positive .pnl-value {
+    color: var(--accent-green);
+}
+
+.pnl-banner.negative .pnl-value {
+    color: var(--accent-red);
+}
+
+.positions-mini {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.position-chip {
+    padding: 4px 10px;
+    border-radius: 9999px;
+    font-size: 0.75rem;
+    font-weight: 500;
+}
+
+.position-chip.profit {
+    background: var(--accent-green-bg);
+    color: var(--accent-green);
+}
+
+.position-chip.loss {
+    background: var(--accent-red-bg);
+    color: var(--accent-red);
+}
+
+.position-chip.more {
+    background: var(--bg-tertiary);
+    color: var(--text-secondary);
+}
+
+.btn-view-positions {
+    padding: 8px 16px;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius);
+    color: var(--text-primary);
+    cursor: pointer;
+    font-size: 0.75rem;
+    font-weight: 500;
+    transition: all 0.2s;
+    white-space: nowrap;
+}
+
+.btn-view-positions:hover {
+    background: var(--border-color);
+}
+
+.connection-status.ibkr-connected {
+    color: var(--accent-blue);
+    background: rgba(88, 166, 255, 0.15);
+    font-weight: 600;
+}

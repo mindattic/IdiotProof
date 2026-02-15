@@ -185,6 +185,21 @@ public sealed class MarketDataBroadcaster
             _logger.LogError(ex, "Error broadcasting alert");
         }
     }
+
+    /// <summary>
+    /// Broadcast position updates to all connected clients.
+    /// </summary>
+    public async Task BroadcastPositionsAsync(IEnumerable<object> positions)
+    {
+        try
+        {
+            await _hubContext.Clients.All.SendAsync("PositionsUpdated", positions.ToList());
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error broadcasting positions");
+        }
+    }
     
     private void UpdateCurrentCandle(MarketTick tick)
     {

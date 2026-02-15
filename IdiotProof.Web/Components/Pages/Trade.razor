@@ -64,6 +64,37 @@
     <div class="trade-layout">
         <!-- Left Panel: Symbol Selection & Alerts -->
         <aside class="alerts-panel" role="complementary" aria-label="Alerts and Watchlist">
+            @* Open Positions Section *@
+            @if (_positions.Count > 0)
+            {
+                <section class="positions-section">
+                    <h2>📊 Open Positions</h2>
+                    <div class="positions-list">
+                        @foreach (var pos in _positions)
+                        {
+                            var pnl = pos.UnrealizedPnL ?? 0;
+                            var pnlClass = pnl >= 0 ? "profit" : "loss";
+                            <div class="position-item @pnlClass" @onclick="() => SelectSymbol(pos.Symbol)">
+                                <div class="position-header">
+                                    <span class="pos-symbol">@pos.Symbol</span>
+                                    <span class="pos-qty">@pos.Quantity shares</span>
+                                </div>
+                                <div class="position-details">
+                                    <span class="pos-avg">Avg: $@pos.AvgCost.ToString("F2")</span>
+                                    <span class="pos-pnl @pnlClass">@(pnl >= 0 ? "+" : "")$@pnl.ToString("F2")</span>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                    <div class="positions-total">
+                        <span>Total P&L:</span>
+                        <span class="@(_totalPnL >= 0 ? "profit" : "loss")">
+                            @(_totalPnL >= 0 ? "+" : "")$@_totalPnL.ToString("F2")
+                        </span>
+                    </div>
+                </section>
+            }
+
             <section class="watchlist-section">
                 <h2>📋 Watchlist</h2>
                 <div class="watchlist" role="listbox" aria-label="Watchlist symbols">
@@ -400,18 +431,22 @@
     private MarketTick? _currentTick;
     private readonly List<WatchlistItem> _watchlist = [];
     private readonly List<TradingAlert> _alerts = [];
-    
+
+    // Positions
+    private List<PositionInfo> _positions = [];
+    private double _totalPnL = 0;
+
     // Chart
     private string _interval = "1";
     private bool _showVwap = true;
     private bool _showEmas = true;
     private bool _hasChartData;
-    
+
     // AI
     private string _aiInsight = "";
     private string _chatInput = "";
     private bool _isAnalyzing;
-    
+
     // Trade Setup
     private TradeSetup? _proposedSetup;
     
@@ -508,6 +543,14 @@
             await JS.InvokeVoidAsync("AudioAlerts.playSound", soundName);
 
             await InvokeAsync(StateHasChanged);
+        });
+
+        // Handle position updates
+        _hubConnection.On<List<PositionInfo>>("PositionsUpdated", positions =>
+        {
+            _positions = positions;
+            _totalPnL = positions.Sum(p => p.UnrealizedPnL ?? 0);
+            InvokeAsync(StateHasChanged);
         });
 
         // Handle connection state changes

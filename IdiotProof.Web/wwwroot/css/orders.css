@@ -1,0 +1,315 @@
+/* ============================================================================
+   Orders Page Styles
+   ============================================================================ */
+
+.orders-page {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    overflow: hidden;
+}
+
+.orders-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: var(--space-3) var(--space-4);
+    background: var(--bg-secondary);
+    border-bottom: 1px solid var(--border-color);
+}
+
+.orders-header h1 {
+    font-size: 1.25rem;
+    margin: 0;
+}
+
+.orders-header .subtitle {
+    font-size: 0.875rem;
+    color: var(--text-muted);
+}
+
+.header-right {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+}
+
+.connection-status {
+    font-size: 0.875rem;
+    padding: var(--space-1) var(--space-3);
+    border-radius: 9999px;
+}
+
+.connection-status.connected {
+    color: var(--accent-green);
+    background: var(--accent-green-bg);
+}
+
+.connection-status.disconnected {
+    color: var(--text-muted);
+    background: var(--bg-tertiary);
+}
+
+.btn-refresh,
+.btn-cancel-all {
+    padding: var(--space-2) var(--space-3);
+    border-radius: var(--radius);
+    font-size: 0.875rem;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-refresh {
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-color);
+    color: var(--text-primary);
+}
+
+.btn-refresh:hover:not(:disabled) {
+    background: var(--border-color);
+}
+
+.btn-cancel-all {
+    background: var(--accent-red-bg);
+    border: 1px solid var(--accent-red);
+    color: var(--accent-red);
+}
+
+.btn-cancel-all:hover:not(:disabled) {
+    background: var(--accent-red);
+    color: white;
+}
+
+/* Content */
+.orders-content {
+    flex: 1;
+    padding: var(--space-4);
+    overflow-y: auto;
+}
+
+.disconnected-notice {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    padding: var(--space-4);
+    background: var(--accent-yellow-bg);
+    border: 1px solid var(--accent-yellow);
+    border-radius: var(--radius);
+    margin-bottom: var(--space-4);
+}
+
+.notice-icon {
+    font-size: 1.5rem;
+}
+
+.empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: var(--space-8);
+    text-align: center;
+    color: var(--text-muted);
+}
+
+.empty-icon {
+    font-size: 3rem;
+    margin-bottom: var(--space-3);
+}
+
+.empty-state .hint {
+    font-size: 0.875rem;
+}
+
+/* Orders Table */
+.orders-table,
+.positions-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: var(--bg-secondary);
+    border-radius: var(--radius);
+    overflow: hidden;
+}
+
+.orders-table th,
+.positions-table th {
+    text-align: left;
+    padding: var(--space-3);
+    background: var(--bg-tertiary);
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-secondary);
+    border-bottom: 1px solid var(--border-color);
+}
+
+.orders-table td,
+.positions-table td {
+    padding: var(--space-3);
+    border-bottom: 1px solid var(--border-color);
+}
+
+.order-row:hover,
+.position-row:hover {
+    background: var(--bg-tertiary);
+}
+
+.order-id {
+    font-family: var(--font-mono);
+    font-size: 0.875rem;
+    color: var(--text-muted);
+}
+
+.symbol strong {
+    color: var(--text-primary);
+}
+
+.direction {
+    font-weight: 700;
+    padding: var(--space-1) var(--space-2);
+    border-radius: var(--radius-sm);
+    font-size: 0.75rem;
+}
+
+.direction.buy,
+.direction.long {
+    color: var(--accent-green);
+    background: var(--accent-green-bg);
+}
+
+.direction.sell,
+.direction.short {
+    color: var(--accent-red);
+    background: var(--accent-red-bg);
+}
+
+.order-type {
+    font-size: 0.875rem;
+}
+
+.price {
+    font-family: var(--font-mono);
+}
+
+.price .market {
+    color: var(--text-muted);
+    font-style: italic;
+}
+
+.status {
+    font-weight: 600;
+    font-size: 0.75rem;
+    padding: var(--space-1) var(--space-2);
+    border-radius: var(--radius-sm);
+}
+
+.status.submitted,
+.status.presubmitted {
+    color: var(--accent-yellow);
+    background: var(--accent-yellow-bg);
+}
+
+.status.filled {
+    color: var(--accent-green);
+    background: var(--accent-green-bg);
+}
+
+.status.cancelled {
+    color: var(--text-muted);
+    background: var(--bg-tertiary);
+}
+
+.actions {
+    display: flex;
+    gap: var(--space-2);
+}
+
+.btn-small {
+    padding: var(--space-1) var(--space-2);
+    font-size: 0.75rem;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-cancel {
+    background: var(--accent-red-bg);
+    border: 1px solid var(--accent-red);
+    color: var(--accent-red);
+}
+
+.btn-cancel:hover {
+    background: var(--accent-red);
+    color: white;
+}
+
+.btn-close {
+    background: var(--accent-yellow-bg);
+    border: 1px solid var(--accent-yellow);
+    color: var(--accent-yellow);
+}
+
+.btn-close:hover {
+    background: var(--accent-yellow);
+    color: var(--bg-primary);
+}
+
+.btn-trade {
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-color);
+    color: var(--text-primary);
+}
+
+.btn-trade:hover {
+    background: var(--accent-blue);
+    border-color: var(--accent-blue);
+    color: white;
+}
+
+/* Positions Section */
+.positions-section {
+    margin-top: var(--space-6);
+    padding: var(--space-4);
+    background: var(--bg-secondary);
+    border-radius: var(--radius);
+}
+
+.positions-section h2 {
+    font-size: 1rem;
+    margin-bottom: var(--space-3);
+}
+
+.pnl {
+    font-family: var(--font-mono);
+    font-weight: 700;
+}
+
+.pnl.profit,
+.profit {
+    color: var(--accent-green);
+}
+
+.pnl.loss,
+.loss {
+    color: var(--accent-red);
+}
+
+.no-price {
+    color: var(--text-muted);
+}
+
+.positions-total {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: var(--space-4);
+    padding-top: var(--space-3);
+    border-top: 1px solid var(--border-color);
+    font-weight: 700;
+}
+
+.positions-total .profit,
+.positions-total .loss {
+    font-family: var(--font-mono);
+    font-size: 1.25rem;
+}

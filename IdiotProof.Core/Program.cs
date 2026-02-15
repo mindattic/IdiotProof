@@ -502,6 +502,61 @@ namespace IdiotProof {
 
             // Start periodic price check timer
             StartPriceCheckTimer();
+
+            // Start web frontend heartbeat and position update timer
+            StartWebFrontendTimer();
+        }
+
+        private static Timer? _webFrontendTimer;
+
+        private static void StartWebFrontendTimer()
+        {
+            if (_webFrontendClient == null) return;
+
+            // Send heartbeat and positions every 5 seconds
+            _webFrontendTimer = new Timer(OnWebFrontendTimer, null, 0, 5000);
+        }
+
+        private static void StopWebFrontendTimer()
+        {
+            _webFrontendTimer?.Dispose();
+            _webFrontendTimer = null;
+        }
+
+        private static async void OnWebFrontendTimer(object? state)
+        {
+            if (_webFrontendClient == null || _wrapper == null) return;
+
+            try
+            {
+                // Send heartbeat
+                await _webFrontendClient.SendHeartbeatAsync();
+
+                // Send position updates
+                _wrapper.RequestPositionsAndWait(TimeSpan.FromSeconds(2));
+                var positions = _wrapper.Positions
+                    .Where(p => p.Value.Quantity != 0)
+                    .Select(p => new PositionPayload
+                    {
+                        Symbol = p.Key,
+                        Quantity = p.Value.Quantity,
+                        AvgCost = p.Value.AvgCost,
+                        MarketPrice = _prices.TryGetValue(p.Key, out var price) ? price : null,
+                        UnrealizedPnL = _prices.TryGetValue(p.Key, out var mktPrice) 
+                            ? ((double)p.Value.Quantity * mktPrice) - ((double)p.Value.Quantity * p.Value.AvgCost)
+                            : null
+                    })
+                    .ToList();
+
+                if (positions.Count > 0)
+                {
+                    await _webFrontendClient.SendPositionsAsync(positions);
+                }
+            }
+            catch
+            {
+                // Silent fail - don't interrupt trading if web frontend is down
+            }
         }
 
         private static void StartPriceCheckTimer()
@@ -592,6 +647,9 @@ namespace IdiotProof {
 
             // Stop price check timer
             StopPriceCheckTimer();
+
+            // Stop web frontend timer
+            StopWebFrontendTimer();
 
             _isActive = false;
             Log("Trading deactivated.");

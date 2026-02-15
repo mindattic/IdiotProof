@@ -161,6 +161,46 @@ public class MarketDataController : ControllerBase
     {
         return Ok(_bridge.GetTrackedSymbols());
     }
+
+    /// <summary>
+    /// Heartbeat from Core to indicate it's connected and sending data.
+    /// POST /api/marketdata/heartbeat
+    /// </summary>
+    [HttpPost("heartbeat")]
+    public IActionResult Heartbeat()
+    {
+        _bridge.OnHeartbeat();
+        return Ok(new { status = "ok", timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds() });
+    }
+
+    /// <summary>
+    /// Receives position updates from Core.
+    /// POST /api/marketdata/positions
+    /// </summary>
+    [HttpPost("positions")]
+    public async Task<IActionResult> UpdatePositions([FromBody] PositionData[] positions)
+    {
+        foreach (var pos in positions)
+        {
+            _bridge.UpdatePosition(pos.Symbol, pos.Quantity, pos.AvgCost, pos.MarketPrice, pos.UnrealizedPnL);
+        }
+
+        // Broadcast to connected clients
+        var positionInfos = _bridge.GetPositions();
+        await _broadcaster.BroadcastPositionsAsync(positionInfos);
+
+        return Ok(new { updated = positions.Length });
+    }
+
+    /// <summary>
+    /// Gets current positions.
+    /// GET /api/marketdata/positions
+    /// </summary>
+    [HttpGet("positions")]
+    public IActionResult GetPositions()
+    {
+        return Ok(_bridge.GetPositions());
+    }
 }
 
 // Request DTOs
@@ -205,4 +245,13 @@ public sealed class AlertData
     public string Reason { get; set; } = "";
     public object? LongSetup { get; set; }
     public object? ShortSetup { get; set; }
+}
+
+public sealed class PositionData
+{
+    public string Symbol { get; set; } = "";
+    public decimal Quantity { get; set; }
+    public double AvgCost { get; set; }
+    public double? MarketPrice { get; set; }
+    public double? UnrealizedPnL { get; set; }
 }

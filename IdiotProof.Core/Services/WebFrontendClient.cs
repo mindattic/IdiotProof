@@ -264,16 +264,50 @@ public sealed class WebFrontendClient : IDisposable
             return false;
         }
     }
-    
+
+    /// <summary>
+    /// Sends a heartbeat to indicate Core is connected and sending data.
+    /// </summary>
+    public async Task SendHeartbeatAsync()
+    {
+        if (!_config.Enabled) return;
+
+        try
+        {
+            await _httpClient.PostAsync("/api/marketdata/heartbeat", null);
+        }
+        catch
+        {
+            // Silent fail
+        }
+    }
+
+    /// <summary>
+    /// Sends position updates to the web frontend.
+    /// </summary>
+    public async Task SendPositionsAsync(IEnumerable<PositionPayload> positions)
+    {
+        if (!_config.Enabled) return;
+
+        try
+        {
+            await _httpClient.PostAsJsonAsync("/api/marketdata/positions", positions.ToArray());
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[WebClient] Failed to send positions: {ex.Message}");
+        }
+    }
+
     public void Dispose()
     {
         if (_disposed) return;
         _disposed = true;
-        
+
         _batchTimer?.Dispose();
         _httpClient.Dispose();
     }
-    
+
     private sealed class TickPayload
     {
         public string Symbol { get; set; } = "";
@@ -282,4 +316,16 @@ public sealed class WebFrontendClient : IDisposable
         public double Ask { get; set; }
         public long Volume { get; set; }
     }
+}
+
+/// <summary>
+/// Position data payload for web frontend.
+/// </summary>
+public sealed class PositionPayload
+{
+    public string Symbol { get; set; } = "";
+    public decimal Quantity { get; set; }
+    public double AvgCost { get; set; }
+    public double? MarketPrice { get; set; }
+    public double? UnrealizedPnL { get; set; }
 }

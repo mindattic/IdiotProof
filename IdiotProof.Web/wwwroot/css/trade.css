@@ -631,3 +631,106 @@
     color: var(--text-muted);
     padding: var(--space-6);
 }
+
+/* === POSITIONS SECTION === */
+
+.positions-section {
+    padding: var(--space-3);
+    border-bottom: 1px solid var(--border-color);
+}
+
+.positions-section h2 {
+    font-size: var(--font-size-sm);
+    font-weight: 600;
+    margin-bottom: var(--space-2);
+    color: var(--text-secondary);
+}
+
+.positions-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+}
+
+.position-item {
+    padding: var(--space-2) var(--space-3);
+    background: var(--bg-tertiary);
+    border-radius: var(--radius);
+    border-left: 3px solid var(--border-color);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.position-item:hover {
+    background: var(--bg-secondary);
+}
+
+.position-item.profit {
+    border-left-color: var(--accent-green);
+}
+
+.position-item.loss {
+    border-left-color: var(--accent-red);
+}
+
+.position-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--space-1);
+}
+
+.pos-symbol {
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.pos-qty {
+    font-size: var(--font-size-xs);
+    color: var(--text-muted);
+}
+
+.position-details {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.pos-avg {
+    font-size: var(--font-size-xs);
+    color: var(--text-muted);
+    font-family: var(--font-mono);
+}
+
+.pos-pnl {
+    font-weight: 700;
+    font-family: var(--font-mono);
+}
+
+.pos-pnl.profit {
+    color: var(--accent-green);
+}
+
+.pos-pnl.loss {
+    color: var(--accent-red);
+}
+
+.positions-total {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: var(--space-3);
+    padding-top: var(--space-2);
+    border-top: 1px solid var(--border-color);
+    font-weight: 700;
+}
+
+.positions-total .profit {
+    color: var(--accent-green);
+    font-family: var(--font-mono);
+}
+
+.positions-total .loss {
+    color: var(--accent-red);
+    font-family: var(--font-mono);
+}

@@ -1,0 +1,288 @@
+@page "/orders"
+@using IdiotProof.Web.Services
+@using IdiotProof.Web.Hubs
+@using Microsoft.AspNetCore.SignalR.Client
+@inject NavigationManager Navigation
+@inject IbkrWebBridge WebBridge
+@inject IJSRuntime JS
+@implements IAsyncDisposable
+
+<PageTitle>Orders - IdiotProof</PageTitle>
+
+<div class="orders-page">
+    <header class="orders-header">
+        <div class="header-left">
+            <h1>📋 Order Management</h1>
+            <span class="subtitle">View and manage your open orders</span>
+        </div>
+        <div class="header-right">
+            <span class="connection-status @(WebBridge.IsConnected ? "connected" : "disconnected")">
+                @(WebBridge.IsConnected ? "● IBKR Connected" : "○ Disconnected")
+            </span>
+            <button class="btn-refresh" @onclick="RefreshOrders" disabled="@_isRefreshing">
+                @(_isRefreshing ? "⟳ Refreshing..." : "⟳ Refresh")
+            </button>
+            <button class="btn-cancel-all" @onclick="CancelAllOrders" disabled="@(_orders.Count == 0)">
+                ❌ Cancel All
+            </button>
+        </div>
+    </header>
+
+    <div class="orders-content">
+        @if (!WebBridge.IsConnected)
+        {
+            <div class="disconnected-notice">
+                <span class="notice-icon">⚠️</span>
+                <p>Not connected to IBKR. Start IdiotProof.Core with trading active to see live orders.</p>
+            </div>
+        }
+        else if (_orders.Count == 0)
+        {
+            <div class="empty-state">
+                <span class="empty-icon">📭</span>
+                <p>No open orders</p>
+                <p class="hint">Orders placed through IdiotProof will appear here</p>
+            </div>
+        }
+        else
+        {
+            <table class="orders-table">
+                <thead>
+                    <tr>
+                        <th>Order ID</th>
+                        <th>Symbol</th>
+                        <th>Direction</th>
+                        <th>Quantity</th>
+                        <th>Type</th>
+                        <th>Price</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var order in _orders)
+                    {
+                        var dirClass = order.Direction == "BUY" ? "buy" : "sell";
+                        <tr class="order-row @dirClass">
+                            <td class="order-id">@order.OrderId</td>
+                            <td class="symbol">
+                                <strong>@order.Symbol</strong>
+                            </td>
+                            <td class="direction @dirClass">
+                                @order.Direction
+                            </td>
+                            <td class="quantity">@order.Quantity</td>
+                            <td class="order-type">@order.OrderType</td>
+                            <td class="price">
+                                @if (order.LimitPrice.HasValue && order.LimitPrice > 0)
+                                {
+                                    <span>$@order.LimitPrice.Value.ToString("F2")</span>
+                                }
+                                else if (order.StopPrice.HasValue && order.StopPrice > 0)
+                                {
+                                    <span>$@order.StopPrice.Value.ToString("F2")</span>
+                                }
+                                else
+                                {
+                                    <span class="market">MKT</span>
+                                }
+                            </td>
+                            <td class="status @order.Status.ToLower()">
+                                @order.Status
+                            </td>
+                            <td class="actions">
+                                <button class="btn-small btn-cancel" @onclick="() => CancelOrder(order.OrderId)">
+                                    Cancel
+                                </button>
+                                <button class="btn-small btn-trade" @onclick="() => NavigateToTrade(order.Symbol)">
+                                    Trade
+                                </button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+    </div>
+
+    @* Positions Summary *@
+    @if (_positions.Count > 0)
+    {
+        <section class="positions-section">
+            <h2>📊 Open Positions</h2>
+            <table class="positions-table">
+                <thead>
+                    <tr>
+                        <th>Symbol</th>
+                        <th>Quantity</th>
+                        <th>Avg Cost</th>
+                        <th>Market Price</th>
+                        <th>P&L</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var pos in _positions)
+                    {
+                        var pnl = pos.UnrealizedPnL ?? 0;
+                        var pnlClass = pnl >= 0 ? "profit" : "loss";
+                        <tr class="position-row @pnlClass">
+                            <td class="symbol">
+                                <strong>@pos.Symbol</strong>
+                                <span class="direction @(pos.IsLong ? "long" : "short")">
+                                    @(pos.IsLong ? "LONG" : "SHORT")
+                                </span>
+                            </td>
+                            <td class="quantity">@Math.Abs(pos.Quantity)</td>
+                            <td class="avg-cost">$@pos.AvgCost.ToString("F2")</td>
+                            <td class="market-price">
+                                @if (pos.MarketPrice.HasValue)
+                                {
+                                    <span>$@pos.MarketPrice.Value.ToString("F2")</span>
+                                }
+                                else
+                                {
+                                    <span class="no-price">--</span>
+                                }
+                            </td>
+                            <td class="pnl @pnlClass">
+                                @(pnl >= 0 ? "+" : "")$@pnl.ToString("F2")
+                            </td>
+                            <td class="actions">
+                                <button class="btn-small btn-close" @onclick="() => ClosePosition(pos.Symbol)">
+                                    Close
+                                </button>
+                                <button class="btn-small btn-trade" @onclick="() => NavigateToTrade(pos.Symbol)">
+                                    Trade
+                                </button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+            
+            <div class="positions-total">
+                <span>Total Unrealized P&L:</span>
+                <span class="@(_totalPnL >= 0 ? "profit" : "loss")">
+                    @(_totalPnL >= 0 ? "+" : "")$@_totalPnL.ToString("F2")
+                </span>
+            </div>
+        </section>
+    }
+</div>
+
+@code {
+    private HubConnection? _hubConnection;
+    private List<OrderInfo> _orders = [];
+    private List<PositionInfo> _positions = [];
+    private double _totalPnL = 0;
+    private bool _isRefreshing;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Connect to market data hub for updates
+        _hubConnection = new HubConnectionBuilder()
+            .WithUrl(Navigation.ToAbsoluteUri("/hubs/marketdata"))
+            .WithAutomaticReconnect()
+            .Build();
+
+        _hubConnection.On<List<PositionInfo>>("PositionsUpdated", positions =>
+        {
+            _positions = positions;
+            _totalPnL = positions.Sum(p => p.UnrealizedPnL ?? 0);
+            InvokeAsync(StateHasChanged);
+        });
+
+        _hubConnection.On<List<OrderInfo>>("OrdersUpdated", orders =>
+        {
+            _orders = orders;
+            InvokeAsync(StateHasChanged);
+        });
+
+        try
+        {
+            await _hubConnection.StartAsync();
+            
+            // Load initial data
+            if (WebBridge.IsConnected)
+            {
+                _positions = WebBridge.GetPositions();
+                _totalPnL = _positions.Sum(p => p.UnrealizedPnL ?? 0);
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"SignalR connection failed: {ex.Message}");
+        }
+    }
+
+    private async Task RefreshOrders()
+    {
+        _isRefreshing = true;
+        StateHasChanged();
+
+        try
+        {
+            // Refresh positions
+            if (WebBridge.IsConnected)
+            {
+                _positions = WebBridge.GetPositions();
+                _totalPnL = _positions.Sum(p => p.UnrealizedPnL ?? 0);
+            }
+            
+            await Task.Delay(500); // Simulated refresh time
+        }
+        finally
+        {
+            _isRefreshing = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task CancelOrder(int orderId)
+    {
+        // TODO: Implement via HTTP call to Core
+        await JS.InvokeVoidAsync("AudioAlerts.notification");
+        Console.WriteLine($"Cancel order requested: {orderId}");
+    }
+
+    private async Task CancelAllOrders()
+    {
+        // TODO: Implement via HTTP call to Core
+        await JS.InvokeVoidAsync("AudioAlerts.notification");
+        Console.WriteLine("Cancel all orders requested");
+    }
+
+    private async Task ClosePosition(string symbol)
+    {
+        // TODO: Implement via HTTP call to Core
+        await JS.InvokeVoidAsync("AudioAlerts.notification");
+        Console.WriteLine($"Close position requested: {symbol}");
+    }
+
+    private void NavigateToTrade(string symbol)
+    {
+        Navigation.NavigateTo($"/trade/{symbol}");
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_hubConnection != null)
+        {
+            await _hubConnection.DisposeAsync();
+        }
+    }
+
+    // Order info model (matches what Core sends)
+    private sealed class OrderInfo
+    {
+        public int OrderId { get; set; }
+        public string Symbol { get; set; } = "";
+        public string Direction { get; set; } = "";
+        public int Quantity { get; set; }
+        public string OrderType { get; set; } = "";
+        public double? LimitPrice { get; set; }
+        public double? StopPrice { get; set; }
+        public string Status { get; set; } = "";
+    }
+}

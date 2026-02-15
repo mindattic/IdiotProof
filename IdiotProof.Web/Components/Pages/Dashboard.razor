@@ -1,9 +1,14 @@
 @page "/"
 @page "/dashboard"
 @using IdiotProof.Web.Services.MarketScanner
+@using IdiotProof.Web.Services
+@using IdiotProof.Web.Hubs
 @using Microsoft.AspNetCore.SignalR.Client
 @inject NavigationManager Navigation
 @inject MarketScannerService Scanner
+@inject IbkrWebBridge WebBridge
+@inject TradeExecutionService TradeExecution
+@inject IJSRuntime JS
 @implements IAsyncDisposable
 
 <PageTitle>IdiotProof Dashboard</PageTitle>
@@ -15,8 +20,19 @@
             <span class="subtitle">Market Scanner & Trade Assistant</span>
         </div>
         <div class="header-right">
-            <span class="connection-status @(_isConnected ? "connected" : "disconnected")">
-                @(_isConnected ? "● Live" : "○ Connecting...")
+            <span class="connection-status @(WebBridge.IsConnected ? "ibkr-connected" : "") @(_isConnected ? "connected" : "disconnected")">
+                @if (WebBridge.IsConnected)
+                {
+                    <text>● IBKR Live</text>
+                }
+                else if (_isConnected)
+                {
+                    <text>● Scanner Live</text>
+                }
+                else
+                {
+                    <text>○ Connecting...</text>
+                }
             </span>
             <span class="last-update">Last scan: @_lastUpdate.ToString("HH:mm:ss")</span>
             <button class="btn-refresh" @onclick="RefreshAsync" disabled="@_isRefreshing">
@@ -31,6 +47,31 @@
             </button>
         </div>
     </header>
+
+    @* Live P&L and Positions Panel (shown when IBKR is connected) *@
+    @if (WebBridge.IsConnected && _positions.Count > 0)
+    {
+        <div class="pnl-banner @(_totalPnL >= 0 ? "positive" : "negative")">
+            <div class="pnl-summary">
+                <span class="pnl-label">Today's P&L:</span>
+                <span class="pnl-value">@(_totalPnL >= 0 ? "+" : "")$@_totalPnL.ToString("N2")</span>
+            </div>
+            <div class="positions-mini">
+                @foreach (var pos in _positions.Take(5))
+                {
+                    var pnl = pos.UnrealizedPnL ?? 0;
+                    <span class="position-chip @(pnl >= 0 ? "profit" : "loss")">
+                        @pos.Symbol: @(pnl >= 0 ? "+" : "")$@pnl.ToString("N0")
+                    </span>
+                }
+                @if (_positions.Count > 5)
+                {
+                    <span class="position-chip more">+@(_positions.Count - 5) more</span>
+                }
+            </div>
+            <button class="btn-view-positions" @onclick="NavigateToTrade">View All Positions</button>
+        </div>
+    }
 
     <div class="stats-bar">
         <div class="stat">
@@ -285,42 +326,74 @@
     private bool _isConnected;
     private bool _isRefreshing;
     private DateTime _lastUpdate = DateTime.Now;
-    
+
     private List<GapperCandidate> _candidates = new();
     private GapperCandidate? _selectedCandidate;
     private GapperCandidate? _alertCandidate;
     private ScanStatistics _stats = new();
-    
+
     private bool _showLongScenario = true;
     private bool _showShortScenario = false;
-    
+
+    // Position tracking
+    private List<PositionInfo> _positions = new();
+    private double _totalPnL = 0;
+
     protected override async Task OnInitializedAsync()
     {
         // Load initial data
         _candidates = Scanner.GetTopCandidates(20).ToList();
         _stats = Scanner.GetStatistics();
-        
+
         // Setup SignalR connection
         _hubConnection = new HubConnectionBuilder()
             .WithUrl(Navigation.ToAbsoluteUri("/hubs/trading"))
             .WithAutomaticReconnect()
             .Build();
-        
+
         _hubConnection.On<List<GapperCandidate>>("GappersUpdated", OnGappersUpdated);
         _hubConnection.On<GapperCandidate>("GapperAlert", OnGapperAlert);
-        
+
         _hubConnection.Reconnecting += _ => { _isConnected = false; InvokeAsync(StateHasChanged); return Task.CompletedTask; };
         _hubConnection.Reconnected += _ => { _isConnected = true; InvokeAsync(StateHasChanged); return Task.CompletedTask; };
-        
+
+        // Also connect to market data hub for position updates
+        var marketHub = new HubConnectionBuilder()
+            .WithUrl(Navigation.ToAbsoluteUri("/hubs/marketdata"))
+            .WithAutomaticReconnect()
+            .Build();
+
+        marketHub.On<List<PositionInfo>>("PositionsUpdated", OnPositionsUpdated);
+
         try
         {
             await _hubConnection.StartAsync();
+            await marketHub.StartAsync();
             _isConnected = true;
+
+            // Request initial positions
+            if (WebBridge.IsConnected)
+            {
+                _positions = WebBridge.GetPositions();
+                _totalPnL = _positions.Sum(p => p.UnrealizedPnL ?? 0);
+            }
         }
         catch (Exception ex)
         {
             Console.WriteLine($"SignalR connection failed: {ex.Message}");
         }
+    }
+
+    private void OnPositionsUpdated(List<PositionInfo> positions)
+    {
+        _positions = positions;
+        _totalPnL = positions.Sum(p => p.UnrealizedPnL ?? 0);
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void NavigateToTrade()
+    {
+        Navigation.NavigateTo("/trade");
     }
     
     private void OnGappersUpdated(List<GapperCandidate> candidates)
@@ -385,10 +458,26 @@
     
     private async Task ExecuteTrade(TradeScenario scenario)
     {
-        // TODO: Connect to IBKR via IdiotProof.Core
-        // For now, show confirmation
-        Console.WriteLine($"Execute {scenario.Direction} {scenario.Symbol}: " +
-            $"Entry ${scenario.EntryPrice}, SL ${scenario.StopLoss}, TP ${scenario.TakeProfit}, Qty {scenario.Quantity}");
+        try
+        {
+            var result = await TradeExecution.ExecuteScenarioAsync(scenario);
+
+            if (result.Success)
+            {
+                await JS.InvokeVoidAsync("AudioAlerts.success");
+                Console.WriteLine($"Trade executed: {scenario.Direction} {scenario.Symbol}");
+            }
+            else
+            {
+                await JS.InvokeVoidAsync("AudioAlerts.error");
+                Console.WriteLine($"Trade failed: {result.ErrorMessage}");
+            }
+        }
+        catch (Exception ex)
+        {
+            await JS.InvokeVoidAsync("AudioAlerts.error");
+            Console.WriteLine($"Trade execution error: {ex.Message}");
+        }
     }
     
     private static string FormatVolume(long volume)

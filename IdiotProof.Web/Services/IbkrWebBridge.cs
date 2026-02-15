@@ -23,11 +23,18 @@ public sealed class IbkrWebBridge : IHostedService
     private readonly MarketDataBroadcaster _broadcaster;
     private readonly ILogger<IbkrWebBridge> _logger;
     private readonly ConcurrentDictionary<string, SymbolState> _symbolStates = new();
-    
+    private readonly ConcurrentDictionary<string, PositionInfo> _positions = new();
+
     // Track last broadcast time to throttle updates
     private readonly ConcurrentDictionary<string, DateTime> _lastBroadcast = new();
     private readonly TimeSpan _minBroadcastInterval = TimeSpan.FromMilliseconds(100);
-    
+
+    // Connection status
+    private bool _isConnected;
+    private DateTime _lastHeartbeat;
+
+    public bool IsConnected => _isConnected && (DateTime.UtcNow - _lastHeartbeat).TotalSeconds < 30;
+
     public IbkrWebBridge(
         MarketDataBroadcaster broadcaster,
         ILogger<IbkrWebBridge> logger)
@@ -35,18 +42,56 @@ public sealed class IbkrWebBridge : IHostedService
         _broadcaster = broadcaster;
         _logger = logger;
     }
-    
+
     public Task StartAsync(CancellationToken cancellationToken)
     {
         _logger.LogInformation("IBKR Web Bridge started - ready to receive price data");
         return Task.CompletedTask;
     }
-    
+
     public Task StopAsync(CancellationToken cancellationToken)
     {
         _logger.LogInformation("IBKR Web Bridge stopped");
         return Task.CompletedTask;
     }
+
+    /// <summary>
+    /// Called by Core to indicate it's connected and sending data.
+    /// </summary>
+    public void OnHeartbeat()
+    {
+        _isConnected = true;
+        _lastHeartbeat = DateTime.UtcNow;
+    }
+
+    /// <summary>
+    /// Updates position data from Core.
+    /// </summary>
+    public void UpdatePosition(string symbol, decimal quantity, double avgCost, double? marketPrice, double? unrealizedPnL)
+    {
+        var position = new PositionInfo
+        {
+            Symbol = symbol.ToUpperInvariant(),
+            Quantity = quantity,
+            AvgCost = avgCost,
+            MarketPrice = marketPrice,
+            UnrealizedPnL = unrealizedPnL
+        };
+
+        if (quantity == 0)
+        {
+            _positions.TryRemove(symbol.ToUpperInvariant(), out _);
+        }
+        else
+        {
+            _positions[symbol.ToUpperInvariant()] = position;
+        }
+    }
+
+    /// <summary>
+    /// Gets all current positions.
+    /// </summary>
+    public List<PositionInfo> GetPositions() => _positions.Values.ToList();
     
     /// <summary>
     /// Called when a price tick arrives from Core.
@@ -182,4 +227,18 @@ public sealed class SymbolState
     
     public double ChangePercent => PrevClose > 0 ? ((LastPrice - PrevClose) / PrevClose) * 100 : 0;
     public double Change => LastPrice - PrevClose;
+}
+
+/// <summary>
+/// Position information for display.
+/// </summary>
+public sealed class PositionInfo
+{
+    public string Symbol { get; set; } = "";
+    public decimal Quantity { get; set; }
+    public double AvgCost { get; set; }
+    public double? MarketPrice { get; set; }
+    public double? MarketValue => MarketPrice.HasValue ? (double)Quantity * MarketPrice.Value : null;
+    public double? UnrealizedPnL { get; set; }
+    public bool IsLong => Quantity > 0;
 }
