@@ -1,18 +1,6 @@
 {
   "tickers": [
     {
-      "symbol": "CCHH",
-      "name": null,
-      "allocation": 1000,
-      "enabled": true
-    },
-    {
-      "symbol": "JZXN",
-      "name": null,
-      "allocation": 1000,
-      "enabled": true
-    },
-    {
       "symbol": "NVDA",
       "name": null,
       "allocation": 0,

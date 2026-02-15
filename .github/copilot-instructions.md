@@ -12,6 +12,168 @@
   - `IsAboveVwap()` not `AboveVwap()` (canonical)
   - `ExitStrategy()` not `ClosePosition()` (canonical)
 
+## Alert System - Multi-Channel Notifications (Menu Option 6)
+
+The **Alert System** detects sudden price moves and notifies you via Discord, Email, SMS, or Telegram with **pre-calculated trade setups ready for one-click execution**.
+
+### The Problem It Solves
+> "By the time I notice a move, analyze it, calculate R:R, and fill in the order form, I'm just chasing the stock."
+
+### The Solution
+1. System detects sudden moves **INSTANTLY**
+2. Pre-calculates LONG and SHORT setups with SL/TP/R:R
+3. Sends alert with **ONE-CLICK execution** details
+4. You just click "GO" - no scrambling
+
+### Alert Channels
+| Channel | Setup | Cost |
+|---------|-------|------|
+| **Discord** | Create webhook in server settings | FREE |
+| **Email** | SMTP server (Gmail works) | FREE |
+| **SMS** | Twilio account | ~$0.01/msg |
+| **Telegram** | Create bot via @BotFather | FREE |
+
+### Alert Message Format (Discord)
+```
+🚨 **NVDA SUDDEN SPIKE** 🚨
+
+**Price:** $142.50 (+5.2% in 3min)
+**Volume:** 3.5x average
+**Confidence:** 85%
+
+💡 **Analysis:** Price spiking UP, accelerating (1.8x faster), high volume (3.5x avg)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📈 **LONG Setup** (ID: `a1b2c3d4`)
+Entry:   $142.50
+Stop:    $139.75 (-1.9%)
+Target:  $149.38 (+4.8%)
+Qty:     17 shares
+Risk:    $46.75
+Reward:  $116.96
+R:R:     2.5:1
+
+📉 **SHORT Setup** (ID: `e5f6g7h8`)
+Entry:   $142.50
+Stop:    $145.50 (+2.1%)
+Target:  $135.00 (-5.3%)
+Qty:     16 shares
+Risk:    $48.00
+Reward:  $120.00
+R:R:     2.5:1
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+⏱️ Setups valid for 5 minutes | Alert ID: `12345678`
+```
+
+### Configuration File
+Edit `IdiotProof.Core\Data\alert-config.json`:
+```json
+{
+  "discord": {
+    "enabled": true,
+    "webhookUrl": "https://discord.com/api/webhooks/..."
+  },
+  "detection": {
+    "minPercentChange": 3.0,
+    "timeWindowMinutes": 3,
+    "minVolumeRatio": 2.0,
+    "minConfidence": 60,
+    "cooldownMinutes": 5
+  }
+}
+```
+
+### Key Files
+- `AlertService.cs` - Multi-channel alert sending
+- `SuddenMoveDetector.cs` - Price spike detection
+- `AlertConfigManager.cs` - Configuration loading
+- `alert-config.json` - User configuration
+
+## Gapper Scanner - Premarket Gap Detection
+
+The **Gapper Scanner** (menu option 5 or 'G') monitors your watchlist for stocks gapping up/down during premarket. **YOU make the final trading decision** - it just alerts you with confidence scores.
+
+### What It Tracks
+| Metric | Description | Weight |
+|--------|-------------|--------|
+| **Gap %** | Price change from previous close | 0-30 pts |
+| **Volume** | Premarket volume vs daily average | 0-30 pts |
+| **Momentum** | Is price building or fading? | 0-25 pts |
+| **Holding** | Is it near premarket high or fading? | 0-15 pts |
+
+### Confidence Grades
+| Score | Grade | Meaning |
+|-------|-------|---------|
+| 80-100 | A | Strong gapper - high conviction setup |
+| 65-79 | B | Good gapper - worth watching closely |
+| 50-64 | C | Moderate - needs more confirmation |
+| 35-49 | D | Weak - probably avoid |
+| 0-34 | F | Not a real gapper |
+
+### Scanner Output
+```
+╔══════════════════════════════════════════════════════════════════════════╗
+║  GAPPER ALERT: NVDA   ↑+8.2%  $142.50  Vol:3.2x  Conf:85%               ║
+║  Building momentum | 45 min to open | Action: YOUR CALL                 ║
+║  Gap:25/30  Vol:25/30  Mom:20/25  Hold:15/15                            ║
+╚══════════════════════════════════════════════════════════════════════════╝
+```
+
+### Scanner Commands
+| Key | Action |
+|-----|--------|
+| **R** | Refresh summary table |
+| **1-9** | Quick trade ticker by number |
+| **H** | Hedge analysis (dual-account) |
+| **Q** | Quit scanner |
+
+### Quick Trade Feature
+Press a number key (1-9) to quick trade a gapper. The system auto-calculates:
+- **Entry Price**: Current price
+- **Stop Loss**: Below premarket low or 2% (whichever is tighter)
+- **Take Profit**: 2.5x risk distance
+- **Trailing Stop**: Based on volatility (1-2%)
+- **Quantity**: Based on $50 risk (configurable)
+
+```
+╔══════════════════════════════════════════════════════════════════════════╗
+║  QUICK TRADE: NVDA   LONG                                                ║
+╠══════════════════════════════════════════════════════════════════════════╣
+║  Entry:     $142.50                                                      ║
+║  Stop Loss: $139.75 (-1.9%)                                              ║
+║  Take Profit: $149.38                                                    ║
+║  Trailing Stop: 1.5%                                                     ║
+╠══════════════════════════════════════════════════════════════════════════╣
+║  Quantity: 18 shares                                                     ║
+║  Risk: $49.50  |  Reward: $123.84  |  R:R = 2.5                         ║
+╠══════════════════════════════════════════════════════════════════════════╣
+║  [ENTER] Execute Trade  |  [ESC] Cancel                                  ║
+╚══════════════════════════════════════════════════════════════════════════╝
+```
+
+### Dual-Account Hedging
+Press **H** for hedge analysis. If enabled, places:
+- **Primary Account**: LONG position
+- **Secondary Account**: SHORT position
+
+Profits from movement in either direction. Skips if price is too choppy.
+
+```csharp
+// Enable in AppSettings
+AppSettings.DualAccountHedgingEnabled = true;
+AppSettings.AccountNumber = "U22434144";        // Primary (LONG)
+AppSettings.SecondaryAccountNumber = "U23270497"; // Secondary (SHORT)
+```
+
+### Key Files
+- `GapperScanner.cs` - Core scanner logic
+- `GapperInfo` - Per-ticker tracking data
+- `GapperConfidence` - Confidence breakdown
+- `QuickTradeLevels` - Auto-calculated entry/SL/TP
+- `QuickTradeCalculator` - Level calculation logic
+
 ## Indicator Warm-Up Requirements
 Technical indicators (EMA, ADX, RSI, etc.) require historical price bars to calculate properly. The backend uses 1-minute OHLC bars. **Start the backend early** to collect bars before trading.
 

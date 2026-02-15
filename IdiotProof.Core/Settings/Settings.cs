@@ -67,10 +67,20 @@ namespace IdiotProof.Settings {
         /// Your IBKR account ID (e.g., "U1234567" or "DU1234567" for paper).
         /// Required if multiple accounts under one login.
         /// Leave empty to use the default/primary account.
-        /// Main = U22434144; 
-        /// Secondary = U23270497
         /// </summary>
         public const string AccountNumber = "U22434144";
+
+        /// <summary>
+        /// Secondary IBKR account for hedged trading (Long on one, Short on other).
+        /// Leave empty to disable dual-account mode.
+        /// </summary>
+        public const string SecondaryAccountNumber = "U23270497";
+
+        /// <summary>
+        /// When true, enables dual-account hedging (LONG on primary, SHORT on secondary).
+        /// Both accounts must be configured and accessible via the same TWS/Gateway.
+        /// </summary>
+        public static bool DualAccountHedgingEnabled { get; set; } = false;
 
         // ----- Timezone Settings -----
 
@@ -119,6 +129,35 @@ namespace IdiotProof.Settings {
         /// When true, suppresses most console output. Only shows minimal heartbeat (*Blip*).
         /// </summary>
         public static bool SilentMode { get; set; } = false;
+
+        // ----- Web Frontend Settings -----
+
+        /// <summary>
+        /// URL of the IdiotProof.Web frontend for live data streaming.
+        /// Set to null to disable web frontend integration.
+        /// </summary>
+        public static string? WebFrontendUrl { get; set; } = "http://localhost:5000";
+
+        // ----- Risk Management Settings -----
+
+        /// <summary>
+        /// When true, enables stop loss orders in autonomous trading.
+        /// Set to false to disable stop losses and let positions run until score-based exit or TP.
+        /// </summary>
+        /// <remarks>
+        /// Use this to focus on perfecting LONG entry timing before worrying about risk management.
+        /// When disabled, exits will only occur via Take Profit, score-based exit, or manual intervention.
+        /// </remarks>
+        public static bool UseStopLoss { get; set; } = false;
+
+        /// <summary>
+        /// When true, enables trailing stop loss in autonomous trading.
+        /// Set to false to disable trailing stops and let winners run longer.
+        /// </summary>
+        /// <remarks>
+        /// Use this alongside UseStopLoss = false to maximize upside capture while learning optimal entries.
+        /// </remarks>
+        public static bool UseTrailingStopLoss { get; set; } = false;
 
         // ----- Indicator Settings -----
 

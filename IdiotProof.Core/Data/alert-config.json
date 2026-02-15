@@ -1,0 +1,50 @@
+{
+  "$schema": "./alert-config.schema.json",
+  "description": "IdiotProof Alert Configuration - Get notified when stocks are moving",
+  
+  "discord": {
+    "enabled": true,
+    "webhookUrl": "YOUR_DISCORD_WEBHOOK_URL_HERE",
+    "instructions": "Create webhook: Server Settings > Integrations > Webhooks > New Webhook"
+  },
+  
+  "email": {
+    "enabled": false,
+    "smtpServer": "smtp.gmail.com",
+    "smtpPort": 587,
+    "username": "your.email@gmail.com",
+    "password": "your_app_password",
+    "from": "your.email@gmail.com",
+    "to": "your.email@gmail.com",
+    "instructions": "For Gmail: Enable 2FA, create App Password at myaccount.google.com/apppasswords"
+  },
+  
+  "sms": {
+    "enabled": false,
+    "twilioAccountSid": "YOUR_TWILIO_ACCOUNT_SID",
+    "twilioAuthToken": "YOUR_TWILIO_AUTH_TOKEN",
+    "fromNumber": "+1234567890",
+    "toNumber": "+1234567890",
+    "instructions": "Sign up at twilio.com, get a phone number (~$1/month + $0.01/SMS)"
+  },
+  
+  "telegram": {
+    "enabled": false,
+    "botToken": "YOUR_BOT_TOKEN",
+    "chatId": "YOUR_CHAT_ID",
+    "instructions": "Create bot: Talk to @BotFather, get chat ID: Talk to @userinfobot"
+  },
+  
+  "detection": {
+    "minPercentChange": 3.0,
+    "timeWindowMinutes": 3,
+    "minVolumeRatio": 2.0,
+    "minConfidence": 60,
+    "cooldownMinutes": 5
+  },
+  
+  "trading": {
+    "defaultRiskDollars": 50.0,
+    "setupExpirationMinutes": 5
+  }
+}

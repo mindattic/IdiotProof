@@ -23,6 +23,7 @@ using IdiotProof.Constants;
 using IdiotProof.Enums;
 using IdiotProof.Models;
 using IdiotProof.Helpers;
+using IdiotProof.Settings;
 using System.Text;
 
 namespace IdiotProof.Services;
@@ -1847,7 +1848,7 @@ public sealed class Backtester
                         exitReason = $"Take profit at ${takeProfitPrice:F2}";
                         exitPrice = takeProfitPrice;
                     }
-                    else if (candle.Low <= stopLossPrice)
+                    else if (AppSettings.UseStopLoss && candle.Low <= stopLossPrice)
                     {
                         exitReason = $"Stop loss at ${stopLossPrice:F2}";
                         exitPrice = stopLossPrice;
@@ -1868,7 +1869,7 @@ public sealed class Backtester
                         exitReason = $"Take profit at ${takeProfitPrice:F2}";
                         exitPrice = takeProfitPrice;
                     }
-                    else if (candle.High >= stopLossPrice)
+                    else if (AppSettings.UseStopLoss && candle.High >= stopLossPrice)
                     {
                         exitReason = $"Stop loss at ${stopLossPrice:F2}";
                         exitPrice = stopLossPrice;

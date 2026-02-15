@@ -17,6 +17,7 @@ using IdiotProof.Constants;
 using IdiotProof.Helpers;
 using IdiotProof.Learning;
 using IdiotProof.Models;
+using IdiotProof.Settings;
 using IdiotProof.Strategy;
 
 namespace IdiotProof.Services;
@@ -398,7 +399,7 @@ public sealed class TradeSimulator
                 // Check exit conditions
                 string? exitReason = null;
                 double exitPrice = candle.Close;
-                
+
                 // Apply slippage to score-based exits (TP/SL exits use the fixed price)
                 double exitSlippage = TradingDefaults.GetSlippagePercent(candle.Close);
 
@@ -410,8 +411,8 @@ public sealed class TradeSimulator
                         exitReason = $"Take profit hit at ${takeProfitPrice:F2}";
                         exitPrice = takeProfitPrice;
                     }
-                    // Stop loss
-                    else if (candle.Low <= stopLossPrice)
+                    // Stop loss (only if enabled in settings)
+                    else if (AppSettings.UseStopLoss && candle.Low <= stopLossPrice)
                     {
                         exitReason = $"Stop loss hit at ${stopLossPrice:F2}";
                         exitPrice = stopLossPrice;
@@ -437,8 +438,8 @@ public sealed class TradeSimulator
                         exitReason = $"Take profit hit at ${takeProfitPrice:F2}";
                         exitPrice = takeProfitPrice;
                     }
-                    // Stop loss
-                    else if (candle.High >= stopLossPrice)
+                    // Stop loss (only if enabled in settings)
+                    else if (AppSettings.UseStopLoss && candle.High >= stopLossPrice)
                     {
                         exitReason = $"Stop loss hit at ${stopLossPrice:F2}";
                         exitPrice = stopLossPrice;

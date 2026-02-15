@@ -1,0 +1,419 @@
+@page "/"
+@page "/dashboard"
+@using IdiotProof.Web.Services.MarketScanner
+@using Microsoft.AspNetCore.SignalR.Client
+@inject NavigationManager Navigation
+@inject MarketScannerService Scanner
+@implements IAsyncDisposable
+
+<PageTitle>IdiotProof Dashboard</PageTitle>
+
+<div class="dashboard">
+    <header class="dashboard-header">
+        <div class="header-left">
+            <h1>🎯 IdiotProof Trading</h1>
+            <span class="subtitle">Market Scanner & Trade Assistant</span>
+        </div>
+        <div class="header-right">
+            <span class="connection-status @(_isConnected ? "connected" : "disconnected")">
+                @(_isConnected ? "● Live" : "○ Connecting...")
+            </span>
+            <span class="last-update">Last scan: @_lastUpdate.ToString("HH:mm:ss")</span>
+            <button class="btn-refresh" @onclick="RefreshAsync" disabled="@_isRefreshing">
+                @if (_isRefreshing)
+                {
+                    <span>⟳ Scanning...</span>
+                }
+                else
+                {
+                    <span>⟳ Refresh</span>
+                }
+            </button>
+        </div>
+    </header>
+
+    <div class="stats-bar">
+        <div class="stat">
+            <span class="stat-value">@_stats.TotalCandidates</span>
+            <span class="stat-label">Gappers Found</span>
+        </div>
+        <div class="stat gap-up">
+            <span class="stat-value">@_stats.GapUps</span>
+            <span class="stat-label">Gap Up ↑</span>
+        </div>
+        <div class="stat gap-down">
+            <span class="stat-value">@_stats.GapDowns</span>
+            <span class="stat-label">Gap Down ↓</span>
+        </div>
+        <div class="stat high-conf">
+            <span class="stat-value">@_stats.HighConfidence</span>
+            <span class="stat-label">High Confidence</span>
+        </div>
+        <div class="stat">
+            <span class="stat-value">@_stats.MultiSourceConfirmed</span>
+            <span class="stat-label">Multi-Source ✓</span>
+        </div>
+    </div>
+
+    @if (_alertCandidate != null)
+    {
+        <div class="alert-banner @(_alertCandidate.IsGapUp ? "gap-up" : "gap-down")">
+            <span class="alert-icon">🚨</span>
+            <span class="alert-text">
+                <strong>@_alertCandidate.Symbol</strong> 
+                @(_alertCandidate.IsGapUp ? "↑" : "↓")@_alertCandidate.GapPercent.ToString("+0.0;-0.0")% 
+                @@ $@(_alertCandidate.PremarketPrice.ToString("F2"))
+                — Confidence: @_alertCandidate.ConfidenceScore%
+            </span>
+            <button class="alert-action" @onclick="() => SelectCandidate(_alertCandidate)">View Trade</button>
+            <button class="alert-dismiss" @onclick="DismissAlert">✕</button>
+        </div>
+    }
+
+    <div class="main-content">
+        <div class="gapper-list">
+            <h2>Top Gappers</h2>
+            
+            @if (_candidates.Count == 0)
+            {
+                <div class="empty-state">
+                    <p>No gappers detected yet.</p>
+                    <p>Scanner runs automatically during market hours.</p>
+                    <button class="btn-primary" @onclick="RefreshAsync">Start Scan Now</button>
+                </div>
+            }
+            else
+            {
+                <table class="gapper-table">
+                    <thead>
+                        <tr>
+                            <th>Symbol</th>
+                            <th>Gap %</th>
+                            <th>Price</th>
+                            <th>Volume</th>
+                            <th>Confidence</th>
+                            <th>Sources</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var candidate in _candidates)
+                        {
+                            <tr class="@(candidate == _selectedCandidate ? "selected" : "") @(candidate.IsGapUp ? "gap-up" : "gap-down")"
+                                @onclick="() => SelectCandidate(candidate)">
+                                <td class="symbol">
+                                    <strong>@candidate.Symbol</strong>
+                                    @if (!string.IsNullOrEmpty(candidate.CompanyName))
+                                    {
+                                        <small>@candidate.CompanyName</small>
+                                    }
+                                </td>
+                                <td class="gap-percent @(candidate.IsGapUp ? "positive" : "negative")">
+                                    @(candidate.IsGapUp ? "↑" : "↓") @candidate.GapPercent.ToString("+0.0;-0.0")%
+                                </td>
+                                <td class="price">$@candidate.PremarketPrice.ToString("F2")</td>
+                                <td class="volume">@FormatVolume(candidate.PremarketVolume)</td>
+                                <td class="confidence">
+                                    <span class="confidence-badge @GetConfidenceClass(candidate.ConfidenceScore)">
+                                        @candidate.ConfidenceGrade (@candidate.ConfidenceScore%)
+                                    </span>
+                                </td>
+                                <td class="sources">
+                                    @foreach (var source in candidate.Sources.Take(3))
+                                    {
+                                        <span class="source-badge">@source</span>
+                                    }
+                                    @if (candidate.Sources.Count > 3)
+                                    {
+                                        <span class="source-more">+@(candidate.Sources.Count - 3)</span>
+                                    }
+                                </td>
+                                <td class="actions">
+                                    <button class="btn-small btn-long" @onclick:stopPropagation="true" 
+                                            @onclick="() => ShowScenario(candidate, true)">LONG</button>
+                                    <button class="btn-small btn-short" @onclick:stopPropagation="true"
+                                            @onclick="() => ShowScenario(candidate, false)">SHORT</button>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+        </div>
+
+        @if (_selectedCandidate != null)
+        {
+            <div class="trade-panel">
+                <h2>Trade Setup: @_selectedCandidate.Symbol</h2>
+                
+                <div class="candidate-details">
+                    <div class="detail-row">
+                        <span class="label">Company:</span>
+                        <span class="value">@(_selectedCandidate.CompanyName ?? "N/A")</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="label">Sector:</span>
+                        <span class="value">@(_selectedCandidate.Sector ?? "N/A")</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="label">Market Cap:</span>
+                        <span class="value">@_selectedCandidate.MarketCapTier</span>
+                    </div>
+                    @if (!string.IsNullOrEmpty(_selectedCandidate.Catalyst))
+                    {
+                        <div class="detail-row">
+                            <span class="label">Catalyst:</span>
+                            <span class="value catalyst">@_selectedCandidate.Catalyst</span>
+                        </div>
+                    }
+                </div>
+
+                <div class="scenarios">
+                    @if (_selectedCandidate.LongScenario != null)
+                    {
+                        <div class="scenario long @(_showLongScenario ? "expanded" : "")">
+                            <div class="scenario-header" @onclick="() => _showLongScenario = !_showLongScenario">
+                                <span class="direction">📈 LONG</span>
+                                <span class="scenario-confidence">@_selectedCandidate.LongScenario.ScenarioConfidence% conf</span>
+                            </div>
+                            @if (_showLongScenario)
+                            {
+                                <div class="scenario-body">
+                                    <div class="scenario-row">
+                                        <span>Entry:</span>
+                                        <span class="entry">$@_selectedCandidate.LongScenario.EntryPrice.ToString("F2")</span>
+                                    </div>
+                                    <div class="scenario-row">
+                                        <span>Stop Loss:</span>
+                                        <span class="stop">$@_selectedCandidate.LongScenario.StopLoss.ToString("F2") 
+                                            (-@_selectedCandidate.LongScenario.StopLossPercent.ToString("F1")%)</span>
+                                    </div>
+                                    <div class="scenario-row">
+                                        <span>Take Profit:</span>
+                                        <span class="target">$@_selectedCandidate.LongScenario.TakeProfit.ToString("F2") 
+                                            (+@_selectedCandidate.LongScenario.TakeProfitPercent.ToString("F1")%)</span>
+                                    </div>
+                                    <div class="scenario-row">
+                                        <span>Trailing Stop:</span>
+                                        <span>@_selectedCandidate.LongScenario.TrailingStopPercent.ToString("F1")%</span>
+                                    </div>
+                                    <div class="scenario-row">
+                                        <span>Quantity:</span>
+                                        <span>@_selectedCandidate.LongScenario.Quantity shares</span>
+                                    </div>
+                                    <div class="scenario-row highlight">
+                                        <span>Risk:</span>
+                                        <span class="risk">$@_selectedCandidate.LongScenario.RiskDollars.ToString("F2")</span>
+                                    </div>
+                                    <div class="scenario-row highlight">
+                                        <span>Reward:</span>
+                                        <span class="reward">$@_selectedCandidate.LongScenario.RewardDollars.ToString("F2")</span>
+                                    </div>
+                                    <div class="scenario-row highlight">
+                                        <span>R:R Ratio:</span>
+                                        <span class="rr @(_selectedCandidate.LongScenario.RiskRewardRatio >= 2 ? "good" : "")">
+                                            1:@_selectedCandidate.LongScenario.RiskRewardRatio.ToString("F1")
+                                        </span>
+                                    </div>
+                                    <p class="rationale">@_selectedCandidate.LongScenario.Rationale</p>
+                                    <button class="btn-execute btn-long" @onclick="() => ExecuteTrade(_selectedCandidate.LongScenario)">
+                                        🚀 Execute LONG Trade
+                                    </button>
+                                </div>
+                            }
+                        </div>
+                    }
+
+                    @if (_selectedCandidate.ShortScenario != null)
+                    {
+                        <div class="scenario short @(_showShortScenario ? "expanded" : "")">
+                            <div class="scenario-header" @onclick="() => _showShortScenario = !_showShortScenario">
+                                <span class="direction">📉 SHORT</span>
+                                <span class="scenario-confidence">@_selectedCandidate.ShortScenario.ScenarioConfidence% conf</span>
+                            </div>
+                            @if (_showShortScenario)
+                            {
+                                <div class="scenario-body">
+                                    <div class="scenario-row">
+                                        <span>Entry:</span>
+                                        <span class="entry">$@_selectedCandidate.ShortScenario.EntryPrice.ToString("F2")</span>
+                                    </div>
+                                    <div class="scenario-row">
+                                        <span>Stop Loss:</span>
+                                        <span class="stop">$@_selectedCandidate.ShortScenario.StopLoss.ToString("F2") 
+                                            (+@_selectedCandidate.ShortScenario.StopLossPercent.ToString("F1")%)</span>
+                                    </div>
+                                    <div class="scenario-row">
+                                        <span>Take Profit:</span>
+                                        <span class="target">$@_selectedCandidate.ShortScenario.TakeProfit.ToString("F2") 
+                                            (-@_selectedCandidate.ShortScenario.TakeProfitPercent.ToString("F1")%)</span>
+                                    </div>
+                                    <div class="scenario-row">
+                                        <span>Quantity:</span>
+                                        <span>@_selectedCandidate.ShortScenario.Quantity shares</span>
+                                    </div>
+                                    <div class="scenario-row highlight">
+                                        <span>Risk:</span>
+                                        <span class="risk">$@_selectedCandidate.ShortScenario.RiskDollars.ToString("F2")</span>
+                                    </div>
+                                    <div class="scenario-row highlight">
+                                        <span>Reward:</span>
+                                        <span class="reward">$@_selectedCandidate.ShortScenario.RewardDollars.ToString("F2")</span>
+                                    </div>
+                                    <div class="scenario-row highlight">
+                                        <span>R:R Ratio:</span>
+                                        <span class="rr @(_selectedCandidate.ShortScenario.RiskRewardRatio >= 2 ? "good" : "")">
+                                            1:@_selectedCandidate.ShortScenario.RiskRewardRatio.ToString("F1")
+                                        </span>
+                                    </div>
+                                    <p class="rationale">@_selectedCandidate.ShortScenario.Rationale</p>
+                                    <button class="btn-execute btn-short" @onclick="() => ExecuteTrade(_selectedCandidate.ShortScenario)">
+                                        🔻 Execute SHORT Trade
+                                    </button>
+                                </div>
+                            }
+                        </div>
+                    }
+                </div>
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    private HubConnection? _hubConnection;
+    private bool _isConnected;
+    private bool _isRefreshing;
+    private DateTime _lastUpdate = DateTime.Now;
+    
+    private List<GapperCandidate> _candidates = new();
+    private GapperCandidate? _selectedCandidate;
+    private GapperCandidate? _alertCandidate;
+    private ScanStatistics _stats = new();
+    
+    private bool _showLongScenario = true;
+    private bool _showShortScenario = false;
+    
+    protected override async Task OnInitializedAsync()
+    {
+        // Load initial data
+        _candidates = Scanner.GetTopCandidates(20).ToList();
+        _stats = Scanner.GetStatistics();
+        
+        // Setup SignalR connection
+        _hubConnection = new HubConnectionBuilder()
+            .WithUrl(Navigation.ToAbsoluteUri("/hubs/trading"))
+            .WithAutomaticReconnect()
+            .Build();
+        
+        _hubConnection.On<List<GapperCandidate>>("GappersUpdated", OnGappersUpdated);
+        _hubConnection.On<GapperCandidate>("GapperAlert", OnGapperAlert);
+        
+        _hubConnection.Reconnecting += _ => { _isConnected = false; InvokeAsync(StateHasChanged); return Task.CompletedTask; };
+        _hubConnection.Reconnected += _ => { _isConnected = true; InvokeAsync(StateHasChanged); return Task.CompletedTask; };
+        
+        try
+        {
+            await _hubConnection.StartAsync();
+            _isConnected = true;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"SignalR connection failed: {ex.Message}");
+        }
+    }
+    
+    private void OnGappersUpdated(List<GapperCandidate> candidates)
+    {
+        _candidates = candidates;
+        _stats = Scanner.GetStatistics();
+        _lastUpdate = DateTime.Now;
+        InvokeAsync(StateHasChanged);
+    }
+    
+    private void OnGapperAlert(GapperCandidate candidate)
+    {
+        _alertCandidate = candidate;
+        InvokeAsync(StateHasChanged);
+    }
+    
+    private async Task RefreshAsync()
+    {
+        _isRefreshing = true;
+        StateHasChanged();
+        
+        try
+        {
+            if (_hubConnection?.State == HubConnectionState.Connected)
+            {
+                await _hubConnection.InvokeAsync("RequestRefresh");
+            }
+            else
+            {
+                await Scanner.TriggerScanAsync();
+                _candidates = Scanner.GetTopCandidates(20).ToList();
+                _stats = Scanner.GetStatistics();
+            }
+            
+            _lastUpdate = DateTime.Now;
+        }
+        finally
+        {
+            _isRefreshing = false;
+            StateHasChanged();
+        }
+    }
+    
+    private void SelectCandidate(GapperCandidate candidate)
+    {
+        _selectedCandidate = candidate;
+        _showLongScenario = candidate.IsGapUp;
+        _showShortScenario = !candidate.IsGapUp;
+    }
+    
+    private void ShowScenario(GapperCandidate candidate, bool isLong)
+    {
+        _selectedCandidate = candidate;
+        _showLongScenario = isLong;
+        _showShortScenario = !isLong;
+    }
+    
+    private void DismissAlert()
+    {
+        _alertCandidate = null;
+    }
+    
+    private async Task ExecuteTrade(TradeScenario scenario)
+    {
+        // TODO: Connect to IBKR via IdiotProof.Core
+        // For now, show confirmation
+        Console.WriteLine($"Execute {scenario.Direction} {scenario.Symbol}: " +
+            $"Entry ${scenario.EntryPrice}, SL ${scenario.StopLoss}, TP ${scenario.TakeProfit}, Qty {scenario.Quantity}");
+    }
+    
+    private static string FormatVolume(long volume)
+    {
+        return volume switch
+        {
+            >= 1_000_000 => $"{volume / 1_000_000.0:F1}M",
+            >= 1_000 => $"{volume / 1_000.0:F0}K",
+            _ => volume.ToString()
+        };
+    }
+    
+    private static string GetConfidenceClass(int confidence) => confidence switch
+    {
+        >= 80 => "excellent",
+        >= 65 => "good",
+        >= 50 => "moderate",
+        _ => "low"
+    };
+    
+    public async ValueTask DisposeAsync()
+    {
+        if (_hubConnection != null)
+        {
+            await _hubConnection.DisposeAsync();
+        }
+    }
+}

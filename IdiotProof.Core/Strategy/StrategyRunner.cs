@@ -1154,7 +1154,8 @@ namespace IdiotProof.Strategy {
         {
             var order = _strategy.Order;
 
-            if (!order.EnableTrailingStopLoss || _trailingStopLossTriggered)
+            // Check global setting first, then order-level setting
+            if (!AppSettings.UseTrailingStopLoss || !order.EnableTrailingStopLoss || _trailingStopLossTriggered)
                 return;
 
             bool isLong = order.Side == OrderSide.Buy;
@@ -4069,9 +4070,10 @@ namespace IdiotProof.Strategy {
                     SubmitTakeProfit(fillPrice);
                 }
 
-                // Handle stop loss
-                bool enableSl = _strategy.Order.EnableStopLoss ||
-                               (_strategy.Order.UseAutonomousTrading && _dynamicStopLoss > 0);
+                // Handle stop loss (check global setting first)
+                bool enableSl = AppSettings.UseStopLoss && 
+                               (_strategy.Order.EnableStopLoss ||
+                               (_strategy.Order.UseAutonomousTrading && _dynamicStopLoss > 0));
                 if (enableSl)
                 {
                     SubmitStopLoss(fillPrice);
@@ -4101,8 +4103,8 @@ namespace IdiotProof.Strategy {
                     Log($"ADAPTIVE ORDER ENABLED: TP=${_originalTakeProfitPrice:F2}, SL=${_originalStopLossPrice:F2} ({_strategy.Order.AdaptiveOrder!.Mode})", ConsoleColor.Cyan);
                 }
 
-                // Initialize trailing stop loss tracking
-                if (_strategy.Order.EnableTrailingStopLoss)
+                // Initialize trailing stop loss tracking (check global setting first)
+                if (AppSettings.UseTrailingStopLoss && _strategy.Order.EnableTrailingStopLoss)
                 {
                     _highWaterMark = fillPrice;
                     bool isLong = IsPositionLong();

@@ -4,9 +4,11 @@
 // ================================================================
 
 using IBApi;
+using IdiotProof.Alerts;
 using IdiotProof.Constants;
 using IdiotProof.Core.Models;
 using IdiotProof.Helpers;
+using IdiotProof.Integration;
 using IdiotProof.Logging;
 using IdiotProof.Models;
 using IdiotProof.Services;
@@ -31,6 +33,14 @@ namespace IdiotProof {
         private static HistoricalDataService? _historicalDataService;
         private static BacktestService? _backtestService;
         private static TickerMetadataService? _metadataService;
+
+        // Alert components
+        private static AlertService? _alertService;
+        private static SuddenMoveDetector? _suddenMoveDetector;
+
+        // Web frontend integration
+        private static WebFrontendClient? _webFrontendClient;
+        private static IdiotProof.Integration.AlertWebIntegration? _alertWebIntegration;
 
         // State
         private static readonly List<StrategyRunner> _runners = [];
@@ -95,6 +105,9 @@ namespace IdiotProof {
             // Initialize trade tracking service
             _tradeTrackingService = new TradeTrackingService();
             Log("Trade tracking service initialized");
+
+            // Initialize web frontend client for live data streaming
+            InitializeWebFrontendClient();
 
             // Connect to IBKR
             if (!ConnectToIbkr())
@@ -196,16 +209,47 @@ namespace IdiotProof {
             return true;
         }
 
+        private static void InitializeWebFrontendClient()
+        {
+            try
+            {
+                _webFrontendClient = new WebFrontendClient(new WebFrontendConfig
+                {
+                    BaseUrl = AppSettings.WebFrontendUrl ?? "http://localhost:5000",
+                    Enabled = true,
+                    BatchTicks = true,
+                    BatchSize = 10,
+                    BatchTimeout = TimeSpan.FromMilliseconds(100)
+                });
+
+                // Test connection
+                var connected = _webFrontendClient.TestConnectionAsync().GetAwaiter().GetResult();
+                if (connected)
+                {
+                    Log("Web frontend connected - live data will stream to browser");
+                }
+                else
+                {
+                    Log("Web frontend not running - start IdiotProof.Web for live charts");
+                }
+            }
+            catch (Exception ex)
+            {
+                Log($"Web frontend client init failed: {ex.Message}");
+                _webFrontendClient = null;
+            }
+        }
+
         private static void LoadStrategies()
         {
             Log("Loading strategies from disk...");
 
             // Ensure all required folders exist
             SettingsManager.EnsureFoldersExist();
-            
+
             // Create sample strategy rules file if it doesn't exist
             StrategyRulesManager.CreateSampleIfNotExists();
-            
+
             // Load and display any custom strategy rules
             var rules = StrategyRulesManager.Load();
             if (rules.Enabled && rules.EnabledRules.Any())
@@ -389,6 +433,9 @@ namespace IdiotProof {
                 _wrapper.RegisterTickerHandler(tickerId, (price, size) =>
                 {
                     _prices[strategy.Symbol] = price;
+
+                    // Send to web frontend for live charting (if connected)
+                    Task.Run(async () => await (_webFrontendClient?.OnPriceTickAsync(strategy.Symbol, price, 0, 0, size) ?? Task.CompletedTask));
                 });
 
                 _client.reqMktData(tickerId, contract, "", false, false, null);
@@ -615,6 +662,25 @@ namespace IdiotProof {
                             }
                             break;
 
+                        case "5":
+                        case "g":
+                        case "G":
+                            if (!_isActive)
+                            {
+                                RunGapperScanner();
+                            }
+                            else
+                            {
+                                Log("Cannot run scanner while trading is active. Stop trading first.");
+                            }
+                            break;
+
+                        case "6":
+                        case "a":
+                        case "A":
+                            RunAlertsMenu();
+                            break;
+
                         case "s":
                         case "S":
                             if (_isActive)
@@ -712,6 +778,8 @@ namespace IdiotProof {
                 Log("  2. Backtest  - Run backtest simulation");
                 Log("  3. Live      - Start live trading");
                 Log("  4. Tests     - Run BUY/SELL/SHORT/COVER tests");
+                Log("  5. Scanner   - Premarket gapper scanner");
+                Log("  6. Alerts    - Configure alert channels");
                 Log("  0. Exit");
             }
             Log("========================================");
@@ -1445,6 +1513,829 @@ namespace IdiotProof {
             catch (Exception ex)
             {
                 Log($"WARNING: Failed to write backtest log: {ex.Message}");
+            }
+        }
+
+        // ====================================================================
+        // ALERTS MANAGEMENT - Multi-Channel Alert Configuration
+        // ====================================================================
+
+        private static void RunAlertsMenu()
+        {
+            while (true)
+            {
+                var config = AlertConfigManager.Load();
+                AlertConfigManager.PrintStatus(config);
+
+                Log("=== Commands ===");
+                Log("  1. Test Alert    - Send test alert to all enabled channels");
+                Log("  2. Open Config   - Open alert-config.json in editor");
+                Log("  3. Start Monitor - Run sudden move detector with alerts");
+                Log("  0. Return");
+                Log("========================================");
+
+                Console.Write("Select: ");
+                var key = Console.ReadKey(intercept: true);
+                Console.WriteLine();
+
+                if (key.Key == ConsoleKey.Escape || key.KeyChar == '0')
+                {
+                    Log("Returning to menu...");
+                    break;
+                }
+
+                switch (key.KeyChar)
+                {
+                    case '1':
+                        SendTestAlert(config);
+                        break;
+
+                    case '2':
+                        OpenAlertConfig();
+                        break;
+
+                    case '3':
+                        if (!_isActive)
+                        {
+                            RunAlertMonitor(config);
+                        }
+                        else
+                        {
+                            Log("Cannot run monitor while trading is active.");
+                        }
+                        break;
+                }
+            }
+        }
+
+        private static void SendTestAlert(AlertConfig config)
+        {
+            Log("Sending test alert to all enabled channels...");
+
+            using var alertService = new AlertService(config);
+
+            var testAlert = new TradingAlert
+            {
+                Symbol = "TEST",
+                Type = AlertType.SuddenSpike,
+                Severity = AlertSeverity.High,
+                CurrentPrice = 100.00,
+                PreviousPrice = 95.00,
+                PercentChange = 5.26,
+                VolumeRatio = 3.5,
+                TimeFrame = TimeSpan.FromMinutes(3),
+                Confidence = 85,
+                Reason = "Test alert - system working correctly",
+                LongSetup = new TradeSetup
+                {
+                    Symbol = "TEST",
+                    IsLong = true,
+                    EntryPrice = 100.00,
+                    StopLoss = 97.00,
+                    TakeProfit = 107.50,
+                    TrailingStopPercent = 1.5,
+                    Quantity = 17,
+                    RiskDollars = 51.00,
+                    RewardDollars = 127.50,
+                    RiskRewardRatio = 2.5
+                },
+                ShortSetup = new TradeSetup
+                {
+                    Symbol = "TEST",
+                    IsLong = false,
+                    EntryPrice = 100.00,
+                    StopLoss = 103.00,
+                    TakeProfit = 92.50,
+                    TrailingStopPercent = 1.5,
+                    Quantity = 17,
+                    RiskDollars = 51.00,
+                    RewardDollars = 127.50,
+                    RiskRewardRatio = 2.5
+                }
+            };
+
+            alertService.SendAlertAsync(testAlert).GetAwaiter().GetResult();
+
+            Console.ForegroundColor = ConsoleColor.Green;
+            Log("[OK] Test alert sent!");
+            Console.ResetColor();
+            Log("Check your enabled channels for the alert.");
+            Console.ReadKey(intercept: true);
+        }
+
+        private static void OpenAlertConfig()
+        {
+            var configPath = Path.Combine(SettingsManager.GetDataFolder(), "alert-config.json");
+
+            if (!File.Exists(configPath))
+            {
+                AlertConfigManager.CreateDefaultConfig();
+            }
+
+            try
+            {
+                var psi = new System.Diagnostics.ProcessStartInfo
+                {
+                    FileName = configPath,
+                    UseShellExecute = true
+                };
+                System.Diagnostics.Process.Start(psi);
+                Log($"Opened: {configPath}");
+                Log("Edit the file, save it, then return here to reload.");
+            }
+            catch (Exception ex)
+            {
+                Log($"Could not open file: {ex.Message}");
+                Log($"Config path: {configPath}");
+            }
+
+            Console.ReadKey(intercept: true);
+        }
+
+        private static void RunAlertMonitor(AlertConfig config)
+        {
+            if (!_isConnected || _client == null || _wrapper == null)
+            {
+                Log("ERROR: Not connected to IBKR. Monitor requires live connection.");
+                return;
+            }
+
+            var watchlist = WatchlistManager.Load();
+            var symbols = watchlist.Tickers.Select(t => t.Symbol).ToList();
+
+            if (symbols.Count == 0)
+            {
+                Log("No tickers in watchlist. Add tickers first (menu option 1).");
+                return;
+            }
+
+            Log("");
+            Console.ForegroundColor = ConsoleColor.Cyan;
+            Log("╔══════════════════════════════════════════════════════════════════════════╗");
+            Log("║  SUDDEN MOVE DETECTOR + ALERTS                                           ║");
+            Log("║  Monitoring for price spikes, will alert via configured channels         ║");
+            Log("╚══════════════════════════════════════════════════════════════════════════╝");
+            Console.ResetColor();
+            Log("");
+            Log($"Monitoring {symbols.Count} ticker(s): {string.Join(", ", symbols)}");
+            Log($"Alert threshold: {config.MinPercentChangeToAlert}% in 3 min, Volume {config.MinVolumeRatioToAlert}x+");
+            Log("");
+
+            // Initialize alert service
+            _alertService = new AlertService(config);
+            _alertService.OnAlert += (alert) =>
+            {
+                // Also print to console
+                Console.Beep(1000, 200);
+                Console.Beep(1200, 200);
+                Console.ForegroundColor = ConsoleColor.Yellow;
+                Log($"\n{alert.SeverityEmoji} ALERT: {alert.Symbol} {alert.TypeDescription} " +
+                    $"({alert.PercentChange:+0.0;-0.0}% in {(int)alert.TimeFrame.TotalMinutes}min)");
+                Log($"   Confidence: {alert.Confidence}% | {alert.Reason}");
+                if (alert.LongSetup != null)
+                    Log($"   LONG: Entry ${alert.LongSetup.EntryPrice:F2} SL ${alert.LongSetup.StopLoss:F2} " +
+                        $"TP ${alert.LongSetup.TakeProfit:F2} R:R={alert.LongSetup.RiskRewardRatio:F1}");
+                if (alert.ShortSetup != null)
+                    Log($"   SHORT: Entry ${alert.ShortSetup.EntryPrice:F2} SL ${alert.ShortSetup.StopLoss:F2} " +
+                        $"TP ${alert.ShortSetup.TakeProfit:F2} R:R={alert.ShortSetup.RiskRewardRatio:F1}");
+                Console.ResetColor();
+            };
+
+            // Initialize sudden move detector
+            _suddenMoveDetector = new SuddenMoveDetector(new MoveDetectorConfig
+            {
+                MinPercentChange = config.MinPercentChangeToAlert,
+                MinVolumeRatio = config.MinVolumeRatioToAlert,
+                DefaultRiskDollars = 50.0
+            });
+
+            // Initialize web frontend client (sends data to IdiotProof.Web)
+            _webFrontendClient = new WebFrontendClient(new WebFrontendConfig
+            {
+                BaseUrl = "http://localhost:5000",
+                Enabled = true,
+                BatchTicks = true
+            });
+
+            // Wire up alert web integration
+            _alertWebIntegration = _suddenMoveDetector.CreateAlertWebIntegration(_alertService, _webFrontendClient);
+
+            _suddenMoveDetector.OnSuddenMoveDetected += async (alert) =>
+            {
+                if (alert.Confidence >= config.MinConfidenceToAlert)
+                {
+                    await _alertService.SendAlertAsync(alert);
+                }
+            };
+
+            // Get previous close and subscribe to market data
+            Log("Subscribing to market data...");
+            var tickerIds = new Dictionary<string, int>();
+            int baseTickerId = 6001;
+
+            foreach (var symbol in symbols)
+            {
+                try
+                {
+                    var cached = TickerDataCache.Get(symbol);
+                    double prevClose = cached?.PrevClose ?? 0;
+                    double avgVolume = 1_000_000;
+
+                    if (prevClose <= 0 && _historicalDataStore?.HasData(symbol) == true)
+                    {
+                        var candles = _historicalDataStore.GetBars(symbol);
+                        if (candles.Count > 0)
+                        {
+                            prevClose = candles.Last().Close;
+                            avgVolume = candles.Average(c => c.Volume);
+                        }
+                    }
+
+                    if (prevClose <= 0)
+                    {
+                        Log($"  [{symbol}] WARNING: No previous close. Skipping.");
+                        continue;
+                    }
+
+                    _suddenMoveDetector.RegisterSymbol(symbol, prevClose, avgVolume);
+                    Log($"  [{symbol}] Prev close: ${prevClose:F2}");
+
+                    var tickerId = baseTickerId++;
+                    tickerIds[symbol] = tickerId;
+
+                    var contract = new Contract
+                    {
+                        Symbol = symbol,
+                        SecType = "STK",
+                        Currency = "USD",
+                        Exchange = "SMART"
+                    };
+
+                    _wrapper.RegisterTickerHandler(tickerId, (price, size) =>
+                    {
+                        if (price > 0)
+                        {
+                            _suddenMoveDetector.OnPriceTick(symbol, price, size);
+
+                            // Also send to web frontend for live charting
+                            Task.Run(async () => await (_webFrontendClient?.OnPriceTickAsync(symbol, price, 0, 0, size) ?? Task.CompletedTask));
+                        }
+                    });
+
+                    _client.reqMktData(tickerId, contract, "", false, false, null);
+                }
+                catch (Exception ex)
+                {
+                    Log($"  [{symbol}] ERROR: {ex.Message}");
+                }
+            }
+
+            Log("");
+            Log("Monitor active. Press [Q] to quit.");
+            Log("Watching for sudden moves...");
+            Log("");
+
+            // Monitor loop
+            while (!_shutdownCts.IsCancellationRequested)
+            {
+                if (Console.KeyAvailable)
+                {
+                    var key = Console.ReadKey(intercept: true);
+                    if (key.Key == ConsoleKey.Q || key.Key == ConsoleKey.Escape)
+                        break;
+                }
+                Thread.Sleep(100);
+            }
+
+            // Cleanup
+            Log("Stopping monitor...");
+            foreach (var kvp in tickerIds)
+            {
+                try
+                {
+                    _client.cancelMktData(kvp.Value);
+                    _wrapper.UnregisterTickerHandler(kvp.Value);
+                }
+                catch { }
+            }
+
+            _alertService?.Dispose();
+            _alertService = null;
+            _alertWebIntegration?.Dispose();
+            _alertWebIntegration = null;
+            _webFrontendClient?.Dispose();
+            _webFrontendClient = null;
+            _suddenMoveDetector = null;
+
+            Log("Monitor stopped.");
+        }
+
+        // ====================================================================
+        // GAPPER SCANNER - Premarket Gap Detection
+        // ====================================================================
+
+        private static GapperScanner? _gapperScanner;
+
+        private static void RunGapperScanner()
+        {
+            if (!_isConnected || _client == null || _wrapper == null)
+            {
+                Log("ERROR: Not connected to IBKR. Scanner requires live connection.");
+                return;
+            }
+
+            Log("");
+            Log("╔══════════════════════════════════════════════════════════════════════════╗");
+            Log("║  PREMARKET GAPPER SCANNER                                                ║");
+            Log("║  Monitors watchlist for stocks gapping up/down. YOU make the call.       ║");
+            Log("╚══════════════════════════════════════════════════════════════════════════╝");
+            Log("");
+
+            var watchlist = WatchlistManager.Load();
+            var symbols = watchlist.Tickers.Select(t => t.Symbol).ToList();
+
+            if (symbols.Count == 0)
+            {
+                Log("No tickers in watchlist. Add tickers first (menu option 1).");
+                return;
+            }
+
+            Log($"Scanning {symbols.Count} ticker(s): {string.Join(", ", symbols)}");
+            Log("");
+
+            // Configuration
+            Console.Write("  Min gap % to alert [3.0]: ");
+            var gapInput = Console.ReadLine()?.Trim();
+            double minGap = string.IsNullOrEmpty(gapInput) ? 3.0 :
+                           double.TryParse(gapInput, out var g) ? g : 3.0;
+
+            Console.Write("  Min volume ratio [1.5]: ");
+            var volInput = Console.ReadLine()?.Trim();
+            double minVol = string.IsNullOrEmpty(volInput) ? 1.5 :
+                           double.TryParse(volInput, out var v) ? v : 1.5;
+
+            Console.Write("  Min confidence % to alert [50]: ");
+            var confInput = Console.ReadLine()?.Trim();
+            int minConf = string.IsNullOrEmpty(confInput) ? 50 :
+                         int.TryParse(confInput, out var c) ? c : 50;
+
+            Log("");
+            Log($"Config: Gap >= {minGap}%, Volume >= {minVol}x, Confidence >= {minConf}%");
+            Log("");
+
+            // Initialize scanner
+            _gapperScanner = new GapperScanner
+            {
+                MinGapPercent = minGap,
+                MinVolumeRatio = minVol,
+                MinConfidence = minConf
+            };
+
+            // Set up alert handler
+            _gapperScanner.OnGapperAlert += (gapper, confidence) =>
+            {
+                // Play console beep for attention
+                try { Console.Beep(800, 200); Console.Beep(1000, 200); } catch { }
+                GapperScanner.PrintAlert(gapper, confidence);
+            };
+
+            // Get previous close for each symbol and subscribe to market data
+            Log("Fetching previous close and subscribing to market data...");
+            var tickerIds = new Dictionary<string, int>();
+            int baseTickerId = 5001; // Different range from trading
+
+            foreach (var symbol in symbols)
+            {
+                try
+                {
+                    // Get previous close from cache or historical data
+                    var cached = TickerDataCache.Get(symbol);
+                    double prevClose = cached?.PrevClose ?? 0;
+                    double avgVolume = 1_000_000; // Default 1M
+
+                    // If no cached data, try to get it
+                    if (prevClose <= 0 && _historicalDataService != null && _historicalDataStore != null)
+                    {
+                        Log($"  [{symbol}] Fetching historical data...");
+                        var bars = _historicalDataService.FetchMultipleAsync([symbol], 200, 1)
+                            .GetAwaiter().GetResult();
+
+                        if (_historicalDataStore.HasData(symbol))
+                        {
+                            var candles = _historicalDataStore.GetBars(symbol);
+                            if (candles.Count > 0)
+                            {
+                                // Previous close = close of last RTH session
+                                prevClose = candles.Last().Close;
+                                avgVolume = candles.Average(c => c.Volume);
+                            }
+                        }
+                    }
+
+                    if (prevClose <= 0)
+                    {
+                        Log($"  [{symbol}] WARNING: No previous close available. Skipping.");
+                        continue;
+                    }
+
+                    // Register with scanner
+                    _gapperScanner.RegisterSymbol(symbol, prevClose, avgVolume);
+                    Log($"  [{symbol}] Prev close: ${prevClose:F2}, Avg vol: {avgVolume:N0}");
+
+                    // Subscribe to market data
+                    var tickerId = baseTickerId++;
+                    tickerIds[symbol] = tickerId;
+
+                    var contract = new Contract
+                    {
+                        Symbol = symbol,
+                        SecType = "STK",
+                        Currency = "USD",
+                        Exchange = "SMART"
+                    };
+
+                    _wrapper.RegisterTickerHandler(tickerId, (price, size) =>
+                    {
+                        if (price > 0)
+                        {
+                            _gapperScanner.OnPriceUpdate(symbol, price, size);
+                        }
+                    });
+
+                    // Request streaming market data
+                    _client.reqMktData(tickerId, contract, "", false, false, null);
+                }
+                catch (Exception ex)
+                {
+                    Log($"  [{symbol}] ERROR: {ex.Message}");
+                }
+            }
+
+            Log("");
+            Log("Scanner active. Commands:");
+            Log("  [R] Refresh summary");
+            Log("  [1-9] Quick trade ticker #");
+            Log("  [H] Hedge analysis (dual-account)");
+            Log("  [Q] Quit scanner");
+            Log("");
+
+            // Run scanner loop
+            var scannerActive = true;
+            while (scannerActive && !_shutdownCts.IsCancellationRequested)
+            {
+                if (Console.KeyAvailable)
+                {
+                    var key = Console.ReadKey(intercept: true);
+                    var keyChar = char.ToUpperInvariant(key.KeyChar);
+
+                    switch (keyChar)
+                    {
+                        case 'R':
+                            _gapperScanner.PrintScanSummary();
+                            break;
+
+                        case 'Q':
+                        case '\u001b': // ESC
+                            scannerActive = false;
+                            break;
+
+                        case 'H':
+                            // Hedge analysis - show dual-account setup
+                            RunHedgeAnalysis();
+                            break;
+
+                        case '1': case '2': case '3': case '4': case '5':
+                        case '6': case '7': case '8': case '9':
+                            // Quick trade by number
+                            var tickerNum = keyChar - '0';
+                            RunQuickTrade(tickerNum);
+                            break;
+                    }
+                }
+                else
+                {
+                    Thread.Sleep(100);
+                }
+            }
+
+            // Cleanup - unsubscribe from market data
+            Log("Stopping scanner...");
+            foreach (var kvp in tickerIds)
+            {
+                try
+                {
+                    _client.cancelMktData(kvp.Value);
+                    _wrapper.UnregisterTickerHandler(kvp.Value);
+                }
+                catch { }
+            }
+
+            _gapperScanner = null;
+            Log("Scanner stopped.");
+        }
+
+        /// <summary>
+        /// Runs quick trade for a specific gapper by number.
+        /// </summary>
+        private static void RunQuickTrade(int tickerNum)
+        {
+            if (_gapperScanner == null) return;
+
+            var gappers = _gapperScanner.GetAllGappers().ToList();
+            if (tickerNum < 1 || tickerNum > gappers.Count)
+            {
+                Log($"Invalid ticker number. Use 1-{gappers.Count}");
+                return;
+            }
+
+            var (gapper, confidence) = gappers[tickerNum - 1];
+
+            // Calculate trade levels based on direction
+            var levels = gapper.IsGapUp 
+                ? QuickTradeCalculator.CalculateLong(gapper)
+                : QuickTradeCalculator.CalculateShort(gapper);
+
+            levels.Print();
+
+            // Wait for user decision
+            Log("Press [ENTER] to execute, [L] for LONG, [S] for SHORT, [ESC] to cancel");
+
+            while (true)
+            {
+                if (Console.KeyAvailable)
+                {
+                    var key = Console.ReadKey(intercept: true);
+
+                    if (key.Key == ConsoleKey.Escape)
+                    {
+                        Log("Trade cancelled.");
+                        return;
+                    }
+
+                    if (key.Key == ConsoleKey.Enter)
+                    {
+                        ExecuteQuickTrade(levels);
+                        return;
+                    }
+
+                    if (char.ToUpperInvariant(key.KeyChar) == 'L')
+                    {
+                        var longLevels = QuickTradeCalculator.CalculateLong(gapper);
+                        longLevels.Print();
+                        Log("Press [ENTER] to execute LONG, [ESC] to cancel");
+                    }
+                    else if (char.ToUpperInvariant(key.KeyChar) == 'S')
+                    {
+                        var shortLevels = QuickTradeCalculator.CalculateShort(gapper);
+                        shortLevels.Print();
+                        Log("Press [ENTER] to execute SHORT, [ESC] to cancel");
+                    }
+                }
+                Thread.Sleep(50);
+            }
+        }
+
+        /// <summary>
+        /// Executes a quick trade with the calculated levels.
+        /// </summary>
+        private static void ExecuteQuickTrade(QuickTradeLevels levels)
+        {
+            if (_wrapper == null || _client == null || !_isConnected)
+            {
+                Log("ERROR: Not connected to IBKR");
+                return;
+            }
+
+            try
+            {
+                var contract = new Contract
+                {
+                    Symbol = levels.Symbol,
+                    SecType = "STK",
+                    Currency = "USD",
+                    Exchange = "SMART"
+                };
+
+                // Entry order (limit at current price)
+                var entryOrder = new Order
+                {
+                    Action = levels.IsLong ? "BUY" : "SELL",
+                    OrderType = "LMT",
+                    LmtPrice = levels.EntryPrice,
+                    TotalQuantity = levels.Quantity,
+                    Tif = "GTC",
+                    OutsideRth = true
+                };
+
+                var entryOrderId = _wrapper.ConsumeNextOrderId();
+
+                // Stop Loss order (attached)
+                var stopOrder = new Order
+                {
+                    Action = levels.IsLong ? "SELL" : "BUY",
+                    OrderType = "STP",
+                    AuxPrice = levels.StopLoss,
+                    TotalQuantity = levels.Quantity,
+                    Tif = "GTC",
+                    OutsideRth = true,
+                    ParentId = entryOrderId,
+                    Transmit = false  // Don't transmit until TP is attached
+                };
+
+                var stopOrderId = _wrapper.ConsumeNextOrderId();
+
+                // Take Profit order (attached)
+                var tpOrder = new Order
+                {
+                    Action = levels.IsLong ? "SELL" : "BUY",
+                    OrderType = "LMT",
+                    LmtPrice = levels.TakeProfit,
+                    TotalQuantity = levels.Quantity,
+                    Tif = "GTC",
+                    OutsideRth = true,
+                    ParentId = entryOrderId,
+                    Transmit = true  // Transmit all orders now
+                };
+
+                var tpOrderId = _wrapper.ConsumeNextOrderId();
+
+                // Place bracket order
+                _client.placeOrder(entryOrderId, contract, entryOrder);
+                _client.placeOrder(stopOrderId, contract, stopOrder);
+                _client.placeOrder(tpOrderId, contract, tpOrder);
+
+                Console.ForegroundColor = ConsoleColor.Green;
+                Log($"[OK] BRACKET ORDER PLACED: {levels.Symbol}");
+                Log($"     Entry #{entryOrderId}: {entryOrder.Action} {levels.Quantity} @ ${levels.EntryPrice:F2}");
+                Log($"     Stop  #{stopOrderId}: @ ${levels.StopLoss:F2}");
+                Log($"     TP    #{tpOrderId}: @ ${levels.TakeProfit:F2}");
+                Console.ResetColor();
+            }
+            catch (Exception ex)
+            {
+                Log($"ERROR placing order: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Runs hedge analysis for dual-account trading.
+        /// </summary>
+        private static void RunHedgeAnalysis()
+        {
+            if (_gapperScanner == null) return;
+
+            Console.Write("Enter ticker # for hedge analysis (1-9): ");
+            var input = Console.ReadLine()?.Trim();
+
+            if (!int.TryParse(input, out var tickerNum))
+            {
+                Log("Invalid input.");
+                return;
+            }
+
+            var gappers = _gapperScanner.GetAllGappers().ToList();
+            if (tickerNum < 1 || tickerNum > gappers.Count)
+            {
+                Log($"Invalid ticker number. Use 1-{gappers.Count}");
+                return;
+            }
+
+            var (gapper, _) = gappers[tickerNum - 1];
+
+            // Show hedge analysis
+            QuickTradeCalculator.PrintHedgeAnalysis(gapper);
+
+            // Wait for decision
+            while (true)
+            {
+                if (Console.KeyAvailable)
+                {
+                    var key = Console.ReadKey(intercept: true);
+                    var keyChar = char.ToUpperInvariant(key.KeyChar);
+
+                    if (key.Key == ConsoleKey.Escape)
+                    {
+                        Log("Hedge cancelled.");
+                        return;
+                    }
+
+                    if (keyChar == 'H')
+                    {
+                        // Execute both sides
+                        if (!AppSettings.DualAccountHedgingEnabled)
+                        {
+                            Log("Dual-account hedging not enabled. Set AppSettings.DualAccountHedgingEnabled = true");
+                            return;
+                        }
+
+                        var (longLevels, shortLevels) = QuickTradeCalculator.CalculateHedge(gapper);
+
+                        Log($"Executing HEDGE on {gapper.Symbol}...");
+                        Log($"  Primary ({AppSettings.AccountNumber}): LONG");
+                        ExecuteQuickTradeOnAccount(longLevels, AppSettings.AccountNumber);
+
+                        Log($"  Secondary ({AppSettings.SecondaryAccountNumber}): SHORT");
+                        ExecuteQuickTradeOnAccount(shortLevels, AppSettings.SecondaryAccountNumber);
+
+                        return;
+                    }
+
+                    if (keyChar == 'L')
+                    {
+                        var longLevels = QuickTradeCalculator.CalculateLong(gapper);
+                        ExecuteQuickTrade(longLevels);
+                        return;
+                    }
+
+                    if (keyChar == 'S')
+                    {
+                        var shortLevels = QuickTradeCalculator.CalculateShort(gapper);
+                        ExecuteQuickTrade(shortLevels);
+                        return;
+                    }
+                }
+                Thread.Sleep(50);
+            }
+        }
+
+        /// <summary>
+        /// Executes a quick trade on a specific account (for dual-account hedging).
+        /// </summary>
+        private static void ExecuteQuickTradeOnAccount(QuickTradeLevels levels, string accountNumber)
+        {
+            if (_wrapper == null || _client == null || !_isConnected)
+            {
+                Log($"ERROR: Not connected to IBKR");
+                return;
+            }
+
+            try
+            {
+                var contract = new Contract
+                {
+                    Symbol = levels.Symbol,
+                    SecType = "STK",
+                    Currency = "USD",
+                    Exchange = "SMART"
+                };
+
+                // Entry order with account specified
+                var entryOrder = new Order
+                {
+                    Account = accountNumber,
+                    Action = levels.IsLong ? "BUY" : "SELL",
+                    OrderType = "LMT",
+                    LmtPrice = levels.EntryPrice,
+                    TotalQuantity = levels.Quantity,
+                    Tif = "GTC",
+                    OutsideRth = true
+                };
+
+                var entryOrderId = _wrapper.ConsumeNextOrderId();
+
+                // Stop Loss
+                var stopOrder = new Order
+                {
+                    Account = accountNumber,
+                    Action = levels.IsLong ? "SELL" : "BUY",
+                    OrderType = "STP",
+                    AuxPrice = levels.StopLoss,
+                    TotalQuantity = levels.Quantity,
+                    Tif = "GTC",
+                    OutsideRth = true,
+                    ParentId = entryOrderId,
+                    Transmit = false
+                };
+
+                var stopOrderId = _wrapper.ConsumeNextOrderId();
+
+                // Take Profit
+                var tpOrder = new Order
+                {
+                    Account = accountNumber,
+                    Action = levels.IsLong ? "SELL" : "BUY",
+                    OrderType = "LMT",
+                    LmtPrice = levels.TakeProfit,
+                    TotalQuantity = levels.Quantity,
+                    Tif = "GTC",
+                    OutsideRth = true,
+                    ParentId = entryOrderId,
+                    Transmit = true
+                };
+
+                var tpOrderId = _wrapper.ConsumeNextOrderId();
+
+                // Place bracket order
+                _client.placeOrder(entryOrderId, contract, entryOrder);
+                _client.placeOrder(stopOrderId, contract, stopOrder);
+                _client.placeOrder(tpOrderId, contract, tpOrder);
+
+                var direction = levels.IsLong ? "LONG" : "SHORT";
+                Log($"     [OK] {direction} #{entryOrderId} placed on {accountNumber}");
+            }
+            catch (Exception ex)
+            {
+                Log($"     [ERR] Failed: {ex.Message}");
             }
         }
 

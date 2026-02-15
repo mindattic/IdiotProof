@@ -1,0 +1,564 @@
+@page "/backtest"
+@page "/backtest/{Symbol}"
+@using IdiotProof.Web.Services.TradingView
+@using IdiotProof.Shared
+@inject HistoricalDataProvider HistoricalData
+@inject ChartDataService ChartService
+@inject IJSRuntime JS
+@implements IAsyncDisposable
+
+<PageTitle>Backtest - @(Symbol ?? "Select Symbol")</PageTitle>
+
+<div class="backtest-page">
+    <header class="backtest-header">
+        <div class="header-left">
+            <h1>📊 Backtest Visualization</h1>
+            <span class="subtitle">Replay historical trades with your indicators</span>
+        </div>
+        
+        <div class="controls">
+            <select @bind="_selectedSymbol" @bind:after="OnSymbolChanged" class="symbol-select">
+                <option value="">-- Select Symbol --</option>
+                @foreach (var symbol in _availableSymbols)
+                {
+                    <option value="@symbol">@symbol</option>
+                }
+            </select>
+            
+            <select @bind="_selectedDate" @bind:after="OnDateChanged" class="date-select" disabled="@string.IsNullOrEmpty(_selectedSymbol)">
+                <option value="">-- Select Date --</option>
+                @foreach (var date in _availableDates)
+                {
+                    <option value="@date.ToString("yyyy-MM-dd")">@date.ToString("ddd MMM dd, yyyy")</option>
+                }
+            </select>
+            
+            <select @bind="_intervalMinutes" @bind:after="OnIntervalChanged" class="interval-select">
+                <option value="1">1 min</option>
+                <option value="5">5 min</option>
+                <option value="15">15 min</option>
+                <option value="30">30 min</option>
+                <option value="60">1 hour</option>
+            </select>
+        </div>
+    </header>
+
+    <div class="chart-toolbar">
+        <div class="indicator-toggles">
+            <label><input type="checkbox" @bind="_showVwap" @bind:after="UpdateOverlays" /> VWAP</label>
+            <label><input type="checkbox" @bind="_showEma9" @bind:after="UpdateOverlays" /> EMA 9</label>
+            <label><input type="checkbox" @bind="_showEma21" @bind:after="UpdateOverlays" /> EMA 21</label>
+            <label><input type="checkbox" @bind="_showEma50" @bind:after="UpdateOverlays" /> EMA 50</label>
+        </div>
+        
+        <div class="playback-controls">
+            <button class="btn-icon" @onclick="() => StepBackward()" disabled="@(!_canPlayback)" title="Step Back">⏮️</button>
+            <button class="btn-icon" @onclick="() => TogglePlayback()" disabled="@(!_canPlayback)" title="@(_isPlaying ? "Pause" : "Play")">
+                @(_isPlaying ? "⏸️" : "▶️")
+            </button>
+            <button class="btn-icon" @onclick="() => StepForward()" disabled="@(!_canPlayback)" title="Step Forward">⏭️</button>
+            <input type="range" min="1" max="100" @bind="_playbackSpeed" class="speed-slider" title="Playback Speed" />
+            <span class="speed-label">@(_playbackSpeed)x</span>
+        </div>
+        
+        <div class="view-controls">
+            <button class="btn-small" @onclick="FitContent">Fit All</button>
+            <button class="btn-small" @onclick="ScrollToStart">To Start</button>
+            <button class="btn-small" @onclick="ScrollToEnd">To End</button>
+        </div>
+    </div>
+
+    <div class="main-content">
+        <div class="chart-container" id="backtest-chart">
+            @if (_isLoading)
+            {
+                <div class="loading-overlay">
+                    <div class="spinner"></div>
+                    <span>Loading historical data...</span>
+                </div>
+            }
+            else if (!_hasData)
+            {
+                <div class="empty-state">
+                    <span class="empty-icon">📈</span>
+                    <p>Select a symbol and date to load historical data</p>
+                    <p class="hint">Your collected candle data will be visualized here</p>
+                </div>
+            }
+        </div>
+
+        <div class="stats-panel">
+            <h3>📊 Session Statistics</h3>
+            
+            @if (_sessionStats != null)
+            {
+                <div class="stat-grid">
+                    <div class="stat-item">
+                        <span class="stat-label">Open</span>
+                        <span class="stat-value">$@_sessionStats.Open.ToString("F2")</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">High</span>
+                        <span class="stat-value high">$@_sessionStats.High.ToString("F2")</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Low</span>
+                        <span class="stat-value low">$@_sessionStats.Low.ToString("F2")</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Close</span>
+                        <span class="stat-value">$@_sessionStats.Close.ToString("F2")</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Range</span>
+                        <span class="stat-value">$@_sessionStats.Range.ToString("F2") (@_sessionStats.RangePercent.ToString("F1")%)</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Volume</span>
+                        <span class="stat-value">@FormatVolume(_sessionStats.TotalVolume)</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Candles</span>
+                        <span class="stat-value">@_sessionStats.CandleCount</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Avg Volume</span>
+                        <span class="stat-value">@FormatVolume(_sessionStats.AverageVolume)</span>
+                    </div>
+                </div>
+            }
+            
+            <h3>🎯 Simulated Trades</h3>
+            
+            @if (_simulatedTrades.Count > 0)
+            {
+                <div class="trades-list">
+                    @foreach (var trade in _simulatedTrades)
+                    {
+                        <div class="trade-item @(trade.PnL >= 0 ? "profit" : "loss")">
+                            <div class="trade-header">
+                                <span class="trade-direction @(trade.IsLong ? "long" : "short")">
+                                    @(trade.IsLong ? "LONG" : "SHORT")
+                                </span>
+                                <span class="trade-pnl @(trade.PnL >= 0 ? "profit" : "loss")">
+                                    @(trade.PnL >= 0 ? "+" : "")$@trade.PnL.ToString("F2")
+                                </span>
+                            </div>
+                            <div class="trade-details">
+                                <span>Entry: $@trade.EntryPrice.ToString("F2") @@ @trade.EntryTime.ToString("HH:mm")</span>
+                                <span>Exit: $@trade.ExitPrice.ToString("F2") @@ @trade.ExitTime.ToString("HH:mm")</span>
+                            </div>
+                        </div>
+                    }
+                </div>
+                
+                <div class="trades-summary">
+                    <div class="summary-item">
+                        <span>Total P&L:</span>
+                        <span class="@(_totalPnL >= 0 ? "profit" : "loss")">
+                            @(_totalPnL >= 0 ? "+" : "")$@_totalPnL.ToString("F2")
+                        </span>
+                    </div>
+                    <div class="summary-item">
+                        <span>Win Rate:</span>
+                        <span>@_winRate.ToString("F0")%</span>
+                    </div>
+                </div>
+            }
+            else
+            {
+                <p class="no-trades">No trades simulated yet. Run a backtest to see results.</p>
+            }
+            
+            <button class="btn-run-backtest" @onclick="RunSimulation" disabled="@(!_hasData)">
+                🚀 Run Strategy Simulation
+            </button>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public string? Symbol { get; set; }
+    
+    // Data
+    private List<string> _availableSymbols = [];
+    private List<DateTime> _availableDates = [];
+    private List<ChartDataPoint> _candles = [];
+    private ChartBundle? _chartBundle;
+    
+    // UI State
+    private string _selectedSymbol = "";
+    private string _selectedDate = "";
+    private int _intervalMinutes = 1;
+    private bool _isLoading;
+    private bool _hasData;
+    
+    // Indicators
+    private bool _showVwap = true;
+    private bool _showEma9 = true;
+    private bool _showEma21 = true;
+    private bool _showEma50 = false;
+    
+    // Playback
+    private bool _isPlaying;
+    private bool _canPlayback;
+    private int _playbackSpeed = 10;
+    private int _currentCandleIndex;
+    private Timer? _playbackTimer;
+    
+    // Statistics
+    private SessionStats? _sessionStats;
+    private List<SimulatedTrade> _simulatedTrades = [];
+    private double _totalPnL;
+    private double _winRate;
+    
+    protected override async Task OnInitializedAsync()
+    {
+        _availableSymbols = HistoricalData.GetAvailableSymbols();
+        
+        if (!string.IsNullOrEmpty(Symbol) && _availableSymbols.Contains(Symbol.ToUpperInvariant()))
+        {
+            _selectedSymbol = Symbol.ToUpperInvariant();
+            await OnSymbolChanged();
+        }
+    }
+    
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await JS.InvokeVoidAsync("initializeChart", "backtest-chart", new { height = 500 });
+        }
+    }
+    
+    private async Task OnSymbolChanged()
+    {
+        if (string.IsNullOrEmpty(_selectedSymbol))
+        {
+            _availableDates = [];
+            return;
+        }
+        
+        _isLoading = true;
+        StateHasChanged();
+        
+        try
+        {
+            _availableDates = await HistoricalData.GetTradingDaysAsync(_selectedSymbol);
+            
+            // Default to most recent date
+            if (_availableDates.Count > 0)
+            {
+                _selectedDate = _availableDates.Last().ToString("yyyy-MM-dd");
+                await OnDateChanged();
+            }
+        }
+        finally
+        {
+            _isLoading = false;
+            StateHasChanged();
+        }
+    }
+    
+    private async Task OnDateChanged()
+    {
+        if (string.IsNullOrEmpty(_selectedSymbol) || string.IsNullOrEmpty(_selectedDate))
+            return;
+        
+        if (!DateTime.TryParse(_selectedDate, out var date))
+            return;
+        
+        _isLoading = true;
+        StateHasChanged();
+        
+        try
+        {
+            _candles = await HistoricalData.GetDayDataAsync(_selectedSymbol, date, _intervalMinutes);
+            _hasData = _candles.Count > 0;
+            _canPlayback = _hasData;
+            _currentCandleIndex = _candles.Count;
+            
+            if (_hasData)
+            {
+                // Build chart data with indicators
+                var config = new ChartConfig
+                {
+                    Symbol = _selectedSymbol,
+                    ShowVwap = _showVwap,
+                    ShowEma9 = _showEma9,
+                    ShowEma21 = _showEma21,
+                    ShowEma50 = _showEma50
+                };
+                _chartBundle = ChartService.PrepareChartData(_candles, config);
+                
+                // Calculate session stats
+                CalculateSessionStats();
+                
+                // Render chart
+                await RenderChart();
+            }
+        }
+        finally
+        {
+            _isLoading = false;
+            StateHasChanged();
+        }
+    }
+    
+    private async Task OnIntervalChanged()
+    {
+        if (!string.IsNullOrEmpty(_selectedDate))
+        {
+            await OnDateChanged();
+        }
+    }
+    
+    private async Task RenderChart()
+    {
+        if (_chartBundle == null) return;
+        
+        // Set candle data
+        await JS.InvokeVoidAsync("setCandleData", _chartBundle.Candles);
+        
+        // Add overlays
+        await UpdateOverlays();
+    }
+    
+    private async Task UpdateOverlays()
+    {
+        if (_chartBundle == null) return;
+        
+        foreach (var overlay in _chartBundle.Overlays)
+        {
+            var shouldShow = overlay.Name switch
+            {
+                "VWAP" => _showVwap,
+                "EMA 9" => _showEma9,
+                "EMA 21" => _showEma21,
+                "EMA 50" => _showEma50,
+                _ => true
+            };
+            
+            if (shouldShow)
+            {
+                var points = overlay.Points.Select(p => new { time = p.Time, value = p.Value }).ToArray();
+                await JS.InvokeVoidAsync("addOverlay", overlay.Name, points, overlay.Color, overlay.LineWidth);
+            }
+            else
+            {
+                await JS.InvokeVoidAsync("removeOverlay", overlay.Name);
+            }
+        }
+    }
+    
+    private void CalculateSessionStats()
+    {
+        if (_candles.Count == 0) return;
+        
+        var open = _candles.First().Open;
+        var close = _candles.Last().Close;
+        var high = _candles.Max(c => c.High);
+        var low = _candles.Min(c => c.Low);
+        var totalVolume = _candles.Sum(c => c.Volume);
+        
+        _sessionStats = new SessionStats
+        {
+            Open = open,
+            High = high,
+            Low = low,
+            Close = close,
+            Range = high - low,
+            RangePercent = ((high - low) / low) * 100,
+            TotalVolume = totalVolume,
+            AverageVolume = totalVolume / _candles.Count,
+            CandleCount = _candles.Count
+        };
+    }
+    
+    // Playback controls
+    private void TogglePlayback()
+    {
+        _isPlaying = !_isPlaying;
+        
+        if (_isPlaying)
+        {
+            _playbackTimer = new Timer(async _ =>
+            {
+                await InvokeAsync(async () =>
+                {
+                    if (_currentCandleIndex < _candles.Count)
+                    {
+                        _currentCandleIndex++;
+                        await UpdatePlayback();
+                    }
+                    else
+                    {
+                        _isPlaying = false;
+                        _playbackTimer?.Dispose();
+                    }
+                    StateHasChanged();
+                });
+            }, null, 0, 1000 / _playbackSpeed);
+        }
+        else
+        {
+            _playbackTimer?.Dispose();
+        }
+    }
+    
+    private async Task StepForward()
+    {
+        if (_currentCandleIndex < _candles.Count)
+        {
+            _currentCandleIndex++;
+            await UpdatePlayback();
+        }
+    }
+    
+    private async Task StepBackward()
+    {
+        if (_currentCandleIndex > 1)
+        {
+            _currentCandleIndex--;
+            await UpdatePlayback();
+        }
+    }
+    
+    private async Task UpdatePlayback()
+    {
+        var visibleCandles = _candles.Take(_currentCandleIndex).ToList();
+        await JS.InvokeVoidAsync("setCandleData", visibleCandles);
+    }
+    
+    private async Task FitContent() => await JS.InvokeVoidAsync("fitContent");
+    private async Task ScrollToStart() => await JS.InvokeVoidAsync("setVisibleRange", _candles.First().Time, _candles.First().Time + 3600);
+    private async Task ScrollToEnd() => await JS.InvokeVoidAsync("fitContent");
+    
+    // Simulation
+    private async Task RunSimulation()
+    {
+        _simulatedTrades.Clear();
+        
+        // Simple EMA crossover strategy for demo
+        if (_chartBundle?.Overlays == null) return;
+        
+        var ema9 = _chartBundle.Overlays.FirstOrDefault(o => o.Name == "EMA 9");
+        var ema21 = _chartBundle.Overlays.FirstOrDefault(o => o.Name == "EMA 21");
+        
+        if (ema9 == null || ema21 == null) return;
+        
+        bool inPosition = false;
+        bool isLong = false;
+        double entryPrice = 0;
+        long entryTime = 0;
+        
+        for (int i = 1; i < _candles.Count; i++)
+        {
+            var candle = _candles[i];
+            var prevCandle = _candles[i - 1];
+            
+            var currEma9 = ema9.Points.FirstOrDefault(p => p.Time == candle.Time).Value;
+            var currEma21 = ema21.Points.FirstOrDefault(p => p.Time == candle.Time).Value;
+            var prevEma9 = ema9.Points.FirstOrDefault(p => p.Time == prevCandle.Time).Value;
+            var prevEma21 = ema21.Points.FirstOrDefault(p => p.Time == prevCandle.Time).Value;
+            
+            if (currEma9 == 0 || currEma21 == 0) continue;
+            
+            // EMA 9 crosses above EMA 21 = BUY
+            if (!inPosition && prevEma9 <= prevEma21 && currEma9 > currEma21)
+            {
+                inPosition = true;
+                isLong = true;
+                entryPrice = candle.Close;
+                entryTime = candle.Time;
+            }
+            // EMA 9 crosses below EMA 21 = SELL
+            else if (!inPosition && prevEma9 >= prevEma21 && currEma9 < currEma21)
+            {
+                inPosition = true;
+                isLong = false;
+                entryPrice = candle.Close;
+                entryTime = candle.Time;
+            }
+            // Exit on opposite cross
+            else if (inPosition)
+            {
+                bool shouldExit = (isLong && currEma9 < currEma21) || (!isLong && currEma9 > currEma21);
+                
+                if (shouldExit)
+                {
+                    var pnl = isLong 
+                        ? (candle.Close - entryPrice) * 10  // 10 shares
+                        : (entryPrice - candle.Close) * 10;
+                    
+                    _simulatedTrades.Add(new SimulatedTrade
+                    {
+                        IsLong = isLong,
+                        EntryPrice = entryPrice,
+                        EntryTime = DateTimeOffset.FromUnixTimeSeconds(entryTime).DateTime,
+                        ExitPrice = candle.Close,
+                        ExitTime = DateTimeOffset.FromUnixTimeSeconds(candle.Time).DateTime,
+                        PnL = Math.Round(pnl, 2)
+                    });
+                    
+                    inPosition = false;
+                }
+            }
+        }
+        
+        // Calculate totals
+        _totalPnL = _simulatedTrades.Sum(t => t.PnL);
+        var winners = _simulatedTrades.Count(t => t.PnL > 0);
+        _winRate = _simulatedTrades.Count > 0 ? (winners / (double)_simulatedTrades.Count) * 100 : 0;
+        
+        // Add markers to chart
+        var markers = _simulatedTrades.SelectMany(t => new[]
+        {
+            new { time = new DateTimeOffset(t.EntryTime).ToUnixTimeSeconds(), isEntry = true, isLong = t.IsLong, isProfit = false, label = t.IsLong ? "BUY" : "SHORT" },
+            new { time = new DateTimeOffset(t.ExitTime).ToUnixTimeSeconds(), isEntry = false, isLong = t.IsLong, isProfit = t.PnL > 0, label = t.PnL > 0 ? "WIN" : "LOSS" }
+        }).ToArray();
+        
+        await JS.InvokeVoidAsync("addTradeMarkers", markers);
+        
+        StateHasChanged();
+    }
+    
+    // Helpers
+    private static string FormatVolume(double volume) => volume switch
+    {
+        >= 1_000_000 => $"{volume / 1_000_000:F1}M",
+        >= 1_000 => $"{volume / 1_000:F0}K",
+        _ => volume.ToString("F0")
+    };
+    
+    public async ValueTask DisposeAsync()
+    {
+        _playbackTimer?.Dispose();
+        await JS.InvokeVoidAsync("destroyChart");
+    }
+    
+    // Models
+    private sealed class SessionStats
+    {
+        public double Open { get; set; }
+        public double High { get; set; }
+        public double Low { get; set; }
+        public double Close { get; set; }
+        public double Range { get; set; }
+        public double RangePercent { get; set; }
+        public double TotalVolume { get; set; }
+        public double AverageVolume { get; set; }
+        public int CandleCount { get; set; }
+    }
+    
+    private sealed class SimulatedTrade
+    {
+        public bool IsLong { get; set; }
+        public double EntryPrice { get; set; }
+        public DateTime EntryTime { get; set; }
+        public double ExitPrice { get; set; }
+        public DateTime ExitTime { get; set; }
+        public double PnL { get; set; }
+    }
+}

@@ -1,0 +1,152 @@
+﻿@inherits LayoutComponentBase
+
+<div class="app-layout">
+    <nav class="sidebar" role="navigation" aria-label="Main navigation">
+        <div class="sidebar-header">
+            <span class="logo" aria-hidden="true">🎯</span>
+            <span class="brand">IdiotProof</span>
+        </div>
+
+        <div class="nav-section">
+            <NavLink class="nav-link" href="/" Match="NavLinkMatch.All">
+                <span class="nav-icon" aria-hidden="true">📊</span>
+                <span class="nav-text">Dashboard</span>
+            </NavLink>
+
+            <NavLink class="nav-link" href="/trade">
+                <span class="nav-icon" aria-hidden="true">🚀</span>
+                <span class="nav-text">Trade</span>
+            </NavLink>
+
+            <NavLink class="nav-link" href="/analyze">
+                <span class="nav-icon" aria-hidden="true">🔍</span>
+                <span class="nav-text">Analyze</span>
+            </NavLink>
+
+            <NavLink class="nav-link" href="/backtest">
+                <span class="nav-icon" aria-hidden="true">⏪</span>
+                <span class="nav-text">Backtest</span>
+            </NavLink>
+        </div>
+
+        <div class="nav-section">
+            <span class="nav-section-title">Quick Trade</span>
+            <NavLink class="nav-link symbol-link" href="/trade/NVDA">NVDA</NavLink>
+            <NavLink class="nav-link symbol-link" href="/trade/AAPL">AAPL</NavLink>
+            <NavLink class="nav-link symbol-link" href="/trade/TSLA">TSLA</NavLink>
+            <NavLink class="nav-link symbol-link" href="/trade/SPY">SPY</NavLink>
+        </div>
+
+        <div class="sidebar-footer">
+            <span class="version">v1.0.0</span>
+        </div>
+    </nav>
+
+    <main class="page-content">
+        @Body
+    </main>
+</div>
+
+<div id="blazor-error-ui" data-nosnippet>
+    An unhandled error has occurred.
+    <a href="." class="reload">Reload</a>
+    <span class="dismiss">🗙</span>
+</div>
+
+<style>
+    .app-layout {
+        display: flex;
+        min-height: 100vh;
+    }
+
+    .sidebar {
+        width: 200px;
+        background: var(--bg-secondary);
+        border-right: 1px solid var(--border-color);
+        display: flex;
+        flex-direction: column;
+        flex-shrink: 0;
+    }
+
+    .sidebar-header {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 16px;
+        border-bottom: 1px solid var(--border-color);
+    }
+
+    .logo {
+        font-size: 1.5rem;
+    }
+
+    .brand {
+        font-weight: 700;
+        font-size: 1.1rem;
+    }
+
+    .nav-section {
+        padding: 12px;
+    }
+
+    .nav-section-title {
+        display: block;
+        font-size: 0.7rem;
+        color: var(--text-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        padding: 8px 12px 4px;
+    }
+
+    .nav-link {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 10px 12px;
+        border-radius: var(--radius);
+        color: var(--text-secondary);
+        text-decoration: none;
+        transition: all 0.15s;
+        margin-bottom: 2px;
+    }
+
+    .nav-link:hover {
+        background: var(--bg-tertiary);
+        color: var(--text-primary);
+    }
+
+    .nav-link.active {
+        background: rgba(88, 166, 255, 0.15);
+        color: var(--accent-blue);
+    }
+
+    .nav-icon {
+        font-size: 1.1rem;
+    }
+
+    .nav-text {
+        font-size: 0.9rem;
+    }
+
+    .symbol-link {
+        padding: 6px 12px 6px 32px;
+        font-size: 0.85rem;
+        font-family: 'SF Mono', Monaco, monospace;
+    }
+
+    .sidebar-footer {
+        margin-top: auto;
+        padding: 12px 16px;
+        border-top: 1px solid var(--border-color);
+    }
+
+    .version {
+        font-size: 0.7rem;
+        color: var(--text-muted);
+    }
+
+    .page-content {
+        flex: 1;
+        overflow-x: hidden;
+    }
+</style>

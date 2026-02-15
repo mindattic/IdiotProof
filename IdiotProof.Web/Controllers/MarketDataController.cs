@@ -1,0 +1,208 @@
+// ============================================================================
+// Market Data API Controller - Receives Live Data from Core
+// ============================================================================
+// Core posts price ticks here, and we broadcast them to web clients via SignalR.
+// This is the entry point for all live IBKR data into the web frontend.
+// ============================================================================
+
+using Microsoft.AspNetCore.Mvc;
+using IdiotProof.Web.Services;
+using IdiotProof.Web.Hubs;
+
+namespace IdiotProof.Web.Controllers;
+
+[ApiController]
+[Route("api/[controller]")]
+public class MarketDataController : ControllerBase
+{
+    private readonly IbkrWebBridge _bridge;
+    private readonly MarketDataBroadcaster _broadcaster;
+    private readonly ILogger<MarketDataController> _logger;
+    
+    public MarketDataController(
+        IbkrWebBridge bridge,
+        MarketDataBroadcaster broadcaster,
+        ILogger<MarketDataController> logger)
+    {
+        _bridge = bridge;
+        _broadcaster = broadcaster;
+        _logger = logger;
+    }
+    
+    /// <summary>
+    /// Receives a price tick from Core.
+    /// POST /api/marketdata/tick
+    /// </summary>
+    [HttpPost("tick")]
+    public async Task<IActionResult> PostTick([FromBody] TickData tick)
+    {
+        if (string.IsNullOrEmpty(tick.Symbol))
+            return BadRequest("Symbol is required");
+        
+        await _bridge.OnPriceTickAsync(
+            tick.Symbol,
+            tick.Price,
+            tick.Bid,
+            tick.Ask,
+            tick.Volume);
+        
+        return Ok();
+    }
+    
+    /// <summary>
+    /// Receives multiple ticks in a batch (more efficient).
+    /// POST /api/marketdata/ticks
+    /// </summary>
+    [HttpPost("ticks")]
+    public async Task<IActionResult> PostTicks([FromBody] TickData[] ticks)
+    {
+        foreach (var tick in ticks)
+        {
+            if (!string.IsNullOrEmpty(tick.Symbol))
+            {
+                await _bridge.OnPriceTickAsync(
+                    tick.Symbol,
+                    tick.Price,
+                    tick.Bid,
+                    tick.Ask,
+                    tick.Volume);
+            }
+        }
+        
+        return Ok(new { processed = ticks.Length });
+    }
+    
+    /// <summary>
+    /// Receives a completed candle from Core.
+    /// POST /api/marketdata/candle
+    /// </summary>
+    [HttpPost("candle")]
+    public async Task<IActionResult> PostCandle([FromBody] CandleData candle)
+    {
+        if (string.IsNullOrEmpty(candle.Symbol))
+            return BadRequest("Symbol is required");
+        
+        await _bridge.OnCandleCompleteAsync(
+            candle.Symbol,
+            candle.Time,
+            candle.Open,
+            candle.High,
+            candle.Low,
+            candle.Close,
+            candle.Volume);
+        
+        return Ok();
+    }
+    
+    /// <summary>
+    /// Sets daily reference data for a symbol (called once per day by Core).
+    /// POST /api/marketdata/daily
+    /// </summary>
+    [HttpPost("daily")]
+    public IActionResult SetDailyData([FromBody] DailyData data)
+    {
+        if (string.IsNullOrEmpty(data.Symbol))
+            return BadRequest("Symbol is required");
+        
+        _bridge.SetSymbolDailyData(
+            data.Symbol,
+            data.PrevClose,
+            data.DayOpen,
+            data.DayHigh,
+            data.DayLow,
+            data.AvgVolume);
+        
+        return Ok();
+    }
+    
+    /// <summary>
+    /// Broadcasts an alert to all connected clients.
+    /// POST /api/marketdata/alert
+    /// </summary>
+    [HttpPost("alert")]
+    public async Task<IActionResult> PostAlert([FromBody] AlertData alert)
+    {
+        await _broadcaster.BroadcastAlertAsync(alert);
+        _logger.LogInformation("Alert broadcast: {Symbol} {Type}", alert.Symbol, alert.Type);
+        return Ok();
+    }
+    
+    /// <summary>
+    /// Gets current state for a symbol.
+    /// GET /api/marketdata/{symbol}/state
+    /// </summary>
+    [HttpGet("{symbol}/state")]
+    public IActionResult GetSymbolState(string symbol)
+    {
+        var state = _bridge.GetSymbolState(symbol);
+        if (state == null)
+            return NotFound($"No data for {symbol}");
+        
+        return Ok(new
+        {
+            symbol = state.Symbol,
+            price = state.LastPrice,
+            prevClose = state.PrevClose,
+            change = state.Change,
+            changePercent = state.ChangePercent,
+            dayHigh = state.DayHigh,
+            dayLow = state.DayLow,
+            dayVolume = state.DayVolume,
+            vwap = state.Vwap
+        });
+    }
+    
+    /// <summary>
+    /// Gets list of tracked symbols.
+    /// GET /api/marketdata/symbols
+    /// </summary>
+    [HttpGet("symbols")]
+    public IActionResult GetTrackedSymbols()
+    {
+        return Ok(_bridge.GetTrackedSymbols());
+    }
+}
+
+// Request DTOs
+public sealed class TickData
+{
+    public string Symbol { get; set; } = "";
+    public double Price { get; set; }
+    public double Bid { get; set; }
+    public double Ask { get; set; }
+    public long Volume { get; set; }
+}
+
+public sealed class CandleData
+{
+    public string Symbol { get; set; } = "";
+    public long Time { get; set; }
+    public double Open { get; set; }
+    public double High { get; set; }
+    public double Low { get; set; }
+    public double Close { get; set; }
+    public long Volume { get; set; }
+}
+
+public sealed class DailyData
+{
+    public string Symbol { get; set; } = "";
+    public double PrevClose { get; set; }
+    public double DayOpen { get; set; }
+    public double DayHigh { get; set; }
+    public double DayLow { get; set; }
+    public double AvgVolume { get; set; }
+}
+
+public sealed class AlertData
+{
+    public string Symbol { get; set; } = "";
+    public string Type { get; set; } = "";  // "SuddenSpike", "SuddenDrop", etc.
+    public string Severity { get; set; } = "";
+    public double Price { get; set; }
+    public double ChangePercent { get; set; }
+    public int Confidence { get; set; }
+    public string Reason { get; set; } = "";
+    public object? LongSetup { get; set; }
+    public object? ShortSetup { get; set; }
+}

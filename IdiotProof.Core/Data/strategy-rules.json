@@ -1,0 +1,7 @@
+{
+  "description": "Custom Strategy Rules",
+  "enabled": true,
+  "useStopLoss": false,
+  "useTrailingStopLoss": false,
+  "rules": []
+}

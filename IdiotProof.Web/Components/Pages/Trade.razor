@@ -1,0 +1,808 @@
+@page "/trade"
+@page "/trade/{Symbol}"
+@using IdiotProof.Web.Hubs
+@using IdiotProof.Web.Services
+@using IdiotProof.Web.Services.TradingView
+@using IdiotProof.Web.Services.AI
+@using IdiotProof.Shared
+@using IdiotProof.Shared.Risk
+@using Microsoft.AspNetCore.SignalR.Client
+@inject NavigationManager Navigation
+@inject ChartDataService ChartService
+@inject HistoricalDataProvider HistoricalData
+@inject AiAdvisorService AiAdvisor
+@inject TradeExecutionService TradeExecution
+@inject IbkrWebBridge WebBridge
+@inject IJSRuntime JS
+@implements IAsyncDisposable
+
+<PageTitle>Trade - @(Symbol ?? "Select Symbol")</PageTitle>
+
+<!-- Skip link for screen readers -->
+<a href="#main-content" class="skip-link">Skip to main content</a>
+
+<div class="trade-command-center" id="main-content" role="main">
+    <!-- Risk Guardian Status Bar -->
+    <header class="risk-header" role="banner" aria-label="Risk Status">
+        <div class="risk-guardian-status" role="status" aria-live="polite">
+            <span class="guardian-icon" aria-hidden="true">🛡️</span>
+            <span class="guardian-label">Risk Guardian</span>
+            <div class="risk-limits">
+                <span class="risk-item">
+                    <span class="risk-label">Max Per Trade:</span>
+                    <span class="risk-value">$@_riskConfig.MaxLossPerTrade</span>
+                </span>
+                <span class="risk-item">
+                    <span class="risk-label">Daily Remaining:</span>
+                    <span class="risk-value @(_guardianStatus?.RemainingDailyRisk < 100 ? "warning" : "")">
+                        $@(_guardianStatus?.RemainingDailyRisk.ToString("F0") ?? "500")
+                    </span>
+                </span>
+                @if (_guardianStatus?.IsCircuitBreakerTripped == true)
+                {
+                    <span class="circuit-breaker" role="alert">
+                        🛑 CIRCUIT BREAKER: Daily limit reached. Trading halted.
+                    </span>
+                }
+            </div>
+        </div>
+        
+        <div class="connection-status" role="status">
+            @if (_isConnected)
+            {
+                <span class="status-dot connected" aria-hidden="true"></span>
+                <span>Live</span>
+            }
+            else
+            {
+                <span class="status-dot disconnected" aria-hidden="true"></span>
+                <span>Connecting...</span>
+            }
+        </div>
+    </header>
+
+    <div class="trade-layout">
+        <!-- Left Panel: Symbol Selection & Alerts -->
+        <aside class="alerts-panel" role="complementary" aria-label="Alerts and Watchlist">
+            <section class="watchlist-section">
+                <h2>📋 Watchlist</h2>
+                <div class="watchlist" role="listbox" aria-label="Watchlist symbols">
+                    @foreach (var sym in _watchlist)
+                    {
+                        <button class="watchlist-item @(sym.Symbol == Symbol ? "active" : "")"
+                                role="option"
+                                aria-selected="@(sym.Symbol == Symbol)"
+                                @onclick="() => SelectSymbol(sym.Symbol)">
+                            <span class="wl-symbol">@sym.Symbol</span>
+                            <span class="wl-price">$@sym.LastPrice.ToString("F2")</span>
+                            <span class="wl-change @(sym.ChangePercent >= 0 ? "up" : "down")">
+                                @sym.ChangePercent.ToString("+0.0;-0.0")%
+                            </span>
+                            @if (sym.ConfidenceScore > 0)
+                            {
+                                <span class="wl-confidence" title="AI Confidence Score">
+                                    @sym.ConfidenceScore%
+                                </span>
+                            }
+                        </button>
+                    }
+                </div>
+            </section>
+            
+            <section class="alerts-section">
+                <h2>🚨 Alerts</h2>
+                <div class="alerts-list" role="log" aria-live="polite">
+                    @foreach (var alert in _alerts.TakeLast(5))
+                    {
+                        <div class="alert-item @alert.Severity.ToString().ToLower()" 
+                             role="alert"
+                             @onclick="() => SelectSymbol(alert.Symbol)">
+                            <span class="alert-icon" aria-hidden="true">
+                                @(alert.Type == AlertType.SuddenSpike ? "📈" : "📉")
+                            </span>
+                            <div class="alert-content">
+                                <strong>@alert.Symbol</strong>
+                                <span>@alert.ChangePercent.ToString("+0.0;-0.0")% in @((int)alert.TimeFrame.TotalMinutes)min</span>
+                            </div>
+                            <span class="alert-conf">@alert.Confidence%</span>
+                        </div>
+                    }
+                    
+                    @if (_alerts.Count == 0)
+                    {
+                        <p class="no-alerts">No alerts yet. Monitoring your watchlist...</p>
+                    }
+                </div>
+            </section>
+        </aside>
+
+        <!-- Center: Chart -->
+        <main class="chart-panel">
+            <div class="chart-header">
+                <div class="symbol-info">
+                    <h1>@(Symbol ?? "Select Symbol")</h1>
+                    @if (_currentTick != null)
+                    {
+                        <span class="current-price">$@_currentTick.Price.ToString("F2")</span>
+                        <span class="price-change @(_currentTick.ChangePercent >= 0 ? "up" : "down")">
+                            @_currentTick.ChangePercent.ToString("+0.00;-0.00")%
+                        </span>
+                    }
+                </div>
+                
+                <div class="chart-controls">
+                    <div class="interval-selector" role="radiogroup" aria-label="Chart interval">
+                        @foreach (var interval in new[] { ("1", "1m"), ("5", "5m"), ("15", "15m") })
+                        {
+                            <button class="@(_interval == interval.Item1 ? "active" : "")"
+                                    role="radio"
+                                    aria-checked="@(_interval == interval.Item1)"
+                                    @onclick="() => SetInterval(interval.Item1)">
+                                @interval.Item2
+                            </button>
+                        }
+                    </div>
+                    
+                    <div class="indicator-toggles">
+                        <label class="toggle">
+                            <input type="checkbox" @bind="_showVwap" @bind:after="UpdateIndicators" />
+                            <span>VWAP</span>
+                        </label>
+                        <label class="toggle">
+                            <input type="checkbox" @bind="_showEmas" @bind:after="UpdateIndicators" />
+                            <span>EMAs</span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+            
+            <div id="live-chart" class="chart-container" role="img" aria-label="Price chart for @Symbol">
+                @if (!_hasChartData)
+                {
+                    <div class="chart-placeholder">
+                        <span class="placeholder-icon" aria-hidden="true">📊</span>
+                        <p>Select a symbol to view live chart</p>
+                    </div>
+                }
+            </div>
+        </main>
+
+        <!-- Right Panel: AI Advisor & Trade Execution -->
+        <aside class="advisor-panel" role="complementary" aria-label="AI Advisor and Trade Execution">
+            <!-- AI Advisor Section -->
+            <section class="ai-section">
+                <h2>🤖 AI Advisor</h2>
+                
+                <div class="ai-quick-actions">
+                    <button class="btn btn-primary" @onclick="AnalyzeCurrentSetup" disabled="@(string.IsNullOrEmpty(Symbol) || _isAnalyzing)">
+                        @if (_isAnalyzing)
+                        {
+                            <span>Analyzing...</span>
+                        }
+                        else
+                        {
+                            <span>🔍 Analyze</span>
+                        }
+                    </button>
+                </div>
+                
+                @if (!string.IsNullOrEmpty(_aiInsight))
+                {
+                    <div class="ai-insight" role="region" aria-label="AI Analysis">
+                        @((MarkupString)_aiInsight)
+                    </div>
+                }
+                
+                <!-- Chat Input -->
+                <div class="ai-chat">
+                    <label for="chat-input" class="sr-only">Ask AI about this setup</label>
+                    <input type="text" 
+                           id="chat-input"
+                           class="input"
+                           placeholder="Ask about this setup..."
+                           @bind="_chatInput"
+                           @onkeydown="HandleChatKeyPress" />
+                    <button class="btn btn-icon" @onclick="SendChatMessage" aria-label="Send message">
+                        ➤
+                    </button>
+                </div>
+            </section>
+
+            <!-- Trade Setup Section -->
+            <section class="trade-section">
+                <h2>🎯 Trade Setup</h2>
+                
+                @if (_proposedSetup != null)
+                {
+                    <div class="setup-form" role="form" aria-label="Trade setup form">
+                        <!-- Direction -->
+                        <div class="form-row">
+                            <span class="form-label">Direction</span>
+                            <div class="direction-toggle" role="radiogroup">
+                                <button class="@(_proposedSetup.IsLong ? "active long" : "")"
+                                        role="radio"
+                                        aria-checked="@_proposedSetup.IsLong"
+                                        @onclick="() => SetDirection(true)">
+                                    📈 LONG
+                                </button>
+                                <button class="@(!_proposedSetup.IsLong ? "active short" : "")"
+                                        role="radio"
+                                        aria-checked="@(!_proposedSetup.IsLong)"
+                                        @onclick="() => SetDirection(false)">
+                                    📉 SHORT
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <!-- Entry -->
+                        <div class="form-row">
+                            <label for="entry-price">Entry Price</label>
+                            <input type="number" 
+                                   id="entry-price"
+                                   class="input"
+                                   step="0.01"
+                                   @bind="_proposedSetup.EntryPrice" 
+                                   @bind:after="RecalculateSetup" />
+                        </div>
+                        
+                        <!-- Stop Loss - REQUIRED -->
+                        <div class="form-row required">
+                            <label for="stop-loss" class="required">Stop Loss</label>
+                            <input type="number" 
+                                   id="stop-loss"
+                                   class="input @(_proposedSetup.StopLoss <= 0 ? "input-error" : "")"
+                                   step="0.01"
+                                   @bind="_proposedSetup.StopLoss"
+                                   @bind:after="RecalculateSetup"
+                                   aria-required="true"
+                                   aria-invalid="@(_proposedSetup.StopLoss <= 0)" />
+                            <span class="field-hint">
+                                @if (_proposedSetup.StopLoss > 0)
+                                {
+                                    var slPercent = Math.Abs((_proposedSetup.EntryPrice - _proposedSetup.StopLoss) / _proposedSetup.EntryPrice * 100);
+                                    <text>@slPercent.ToString("F1")% from entry</text>
+                                }
+                            </span>
+                        </div>
+                        
+                        <!-- Take Profit -->
+                        <div class="form-row">
+                            <label for="take-profit">Take Profit</label>
+                            <input type="number" 
+                                   id="take-profit"
+                                   class="input"
+                                   step="0.01"
+                                   @bind="_proposedSetup.TakeProfit"
+                                   @bind:after="RecalculateSetup" />
+                        </div>
+                        
+                        <!-- Quantity -->
+                        <div class="form-row">
+                            <label for="quantity">Quantity</label>
+                            <div class="quantity-row">
+                                <input type="number" 
+                                       id="quantity"
+                                       class="input"
+                                       min="1"
+                                       @bind="_proposedSetup.Quantity"
+                                       @bind:after="RecalculateSetup" />
+                                <button class="btn" @onclick="AutoCalculateQuantity" 
+                                        title="Auto-calculate based on risk limits">
+                                    Auto
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <!-- Risk Summary -->
+                        <div class="risk-summary" role="region" aria-label="Risk Summary">
+                            <div class="risk-row">
+                                <span>Risk if Stop Hit:</span>
+                                <span class="risk-value loss">-$@_proposedSetup.RiskDollars.ToString("F2")</span>
+                            </div>
+                            <div class="risk-row">
+                                <span>Reward if TP Hit:</span>
+                                <span class="risk-value gain">+$@_proposedSetup.RewardDollars.ToString("F2")</span>
+                            </div>
+                            <div class="risk-row">
+                                <span>Risk:Reward Ratio:</span>
+                                <span class="risk-value @(_proposedSetup.RiskRewardRatio >= 2 ? "good" : "")">
+                                    1:@_proposedSetup.RiskRewardRatio.ToString("F1")
+                                </span>
+                            </div>
+                        </div>
+                        
+                        <!-- Risk Guardian Validation -->
+                        @if (_validationResult != null)
+                        {
+                            <div class="validation-result @(_validationResult.IsApproved ? "approved" : "blocked")"
+                                 role="alert">
+                                @if (!_validationResult.IsApproved)
+                                {
+                                    <h3>🛑 Trade Blocked</h3>
+                                    <ul>
+                                        @foreach (var reason in _validationResult.BlockReasons)
+                                        {
+                                            <li>@reason</li>
+                                        }
+                                    </ul>
+                                    
+                                    @if (_validationResult.AdjustedSetup != null)
+                                    {
+                                        <button class="btn" @onclick="ApplyAdjustedSetup">
+                                            Apply Suggested Adjustment
+                                        </button>
+                                    }
+                                }
+                                else if (_validationResult.Warnings.Count > 0)
+                                {
+                                    <h3>⚠️ Warnings</h3>
+                                    <ul>
+                                        @foreach (var warning in _validationResult.Warnings)
+                                        {
+                                            <li>@warning</li>
+                                        }
+                                    </ul>
+                                }
+                            </div>
+                        }
+                        
+                        <!-- Execute Button -->
+                        <button class="btn-execute @(_proposedSetup.IsLong ? "long" : "short")"
+                                @onclick="ExecuteTrade"
+                                disabled="@(!_validationResult?.IsApproved ?? true)"
+                                aria-describedby="execute-description">
+                            @if (_validationResult?.RequiresConfirmation == true)
+                            {
+                                <span>⚠️ Confirm & Execute</span>
+                            }
+                            else
+                            {
+                                <span>🚀 Execute @(_proposedSetup.IsLong ? "LONG" : "SHORT")</span>
+                            }
+                        </button>
+                        <p id="execute-description" class="execute-description">
+                            @(_proposedSetup.IsLong ? "BUY" : "SELL") @_proposedSetup.Quantity shares 
+                            @@ $@_proposedSetup.EntryPrice.ToString("F2") with stop @@ $@_proposedSetup.StopLoss.ToString("F2")
+                        </p>
+                    </div>
+                }
+                else
+                {
+                    <p class="no-setup">
+                        Select a symbol and analyze to generate a trade setup.
+                    </p>
+                }
+            </section>
+        </aside>
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public string? Symbol { get; set; }
+    
+    // Risk Guardian
+    private readonly RiskGuardianConfig _riskConfig = new()
+    {
+        MaxLossPerTrade = 100,
+        MaxLossPerDay = 500,
+        AccountBalance = 10_000
+    };
+    private RiskGuardian _riskGuardian = null!;
+    private RiskGuardianStatus? _guardianStatus;
+    private RiskGuardianResult? _validationResult;
+    
+    // Connection
+    private HubConnection? _hubConnection;
+    private bool _isConnected;
+    
+    // Market Data
+    private MarketTick? _currentTick;
+    private readonly List<WatchlistItem> _watchlist = [];
+    private readonly List<TradingAlert> _alerts = [];
+    
+    // Chart
+    private string _interval = "1";
+    private bool _showVwap = true;
+    private bool _showEmas = true;
+    private bool _hasChartData;
+    
+    // AI
+    private string _aiInsight = "";
+    private string _chatInput = "";
+    private bool _isAnalyzing;
+    
+    // Trade Setup
+    private TradeSetup? _proposedSetup;
+    
+    protected override async Task OnInitializedAsync()
+    {
+        _riskGuardian = new RiskGuardian(_riskConfig);
+        _guardianStatus = _riskGuardian.GetStatus();
+        
+        // Initialize sample watchlist
+        _watchlist.AddRange(new[]
+        {
+            new WatchlistItem { Symbol = "NVDA", LastPrice = 142.50, ChangePercent = 3.2, ConfidenceScore = 78 },
+            new WatchlistItem { Symbol = "AAPL", LastPrice = 185.20, ChangePercent = -0.8, ConfidenceScore = 62 },
+            new WatchlistItem { Symbol = "TSLA", LastPrice = 248.90, ChangePercent = 5.1, ConfidenceScore = 85 },
+            new WatchlistItem { Symbol = "SPY", LastPrice = 502.30, ChangePercent = 0.3, ConfidenceScore = 55 }
+        });
+        
+        // Connect to live market data hub
+        await ConnectToMarketDataHub();
+        
+        if (!string.IsNullOrEmpty(Symbol))
+        {
+            await SelectSymbol(Symbol);
+        }
+    }
+    
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await JS.InvokeVoidAsync("initializeChart", "live-chart", new { height = 500 });
+        }
+    }
+    
+    private async Task ConnectToMarketDataHub()
+    {
+        _hubConnection = new HubConnectionBuilder()
+            .WithUrl(Navigation.ToAbsoluteUri("/hubs/marketdata"))
+            .WithAutomaticReconnect()
+            .Build();
+
+        // Handle price ticks
+        _hubConnection.On<MarketTick>("ReceiveTick", async tick =>
+        {
+            if (tick.Symbol == Symbol)
+            {
+                _currentTick = tick;
+                await InvokeAsync(StateHasChanged);
+
+                // Update chart with new tick
+                await JS.InvokeVoidAsync("updateChartTick", tick);
+            }
+
+            // Update watchlist
+            var item = _watchlist.FirstOrDefault(w => w.Symbol == tick.Symbol);
+            if (item != null)
+            {
+                item.LastPrice = tick.Price;
+                item.ChangePercent = tick.ChangePercent;
+            }
+        });
+
+        // Handle completed candles
+        _hubConnection.On<CandleUpdate>("ReceiveCandle", async candle =>
+        {
+            if (candle.Symbol == Symbol)
+            {
+                await JS.InvokeVoidAsync("updateChartCandle", candle);
+            }
+        });
+
+        // Handle alerts
+        _hubConnection.On<AlertData>("ReceiveAlert", async alertData =>
+        {
+            var alert = new TradingAlert
+            {
+                Symbol = alertData.Symbol,
+                Type = alertData.Type == "SuddenSpike" ? AlertType.SuddenSpike : AlertType.SuddenDrop,
+                Severity = Enum.TryParse<AlertSeverity>(alertData.Severity, true, out var sev) ? sev : AlertSeverity.Medium,
+                ChangePercent = alertData.ChangePercent,
+                TimeFrame = TimeSpan.FromMinutes(3),
+                Confidence = alertData.Confidence
+            };
+
+            _alerts.Add(alert);
+
+            // Play audio alert based on severity
+            var soundName = alert.Severity switch
+            {
+                AlertSeverity.Critical => "critical",
+                AlertSeverity.High => "alert",
+                _ => "notification"
+            };
+            await JS.InvokeVoidAsync("AudioAlerts.playSound", soundName);
+
+            await InvokeAsync(StateHasChanged);
+        });
+
+        // Handle connection state changes
+        _hubConnection.Reconnecting += _ =>
+        {
+            _isConnected = false;
+            InvokeAsync(StateHasChanged);
+            return Task.CompletedTask;
+        };
+
+        _hubConnection.Reconnected += _ =>
+        {
+            _isConnected = true;
+            InvokeAsync(StateHasChanged);
+            return Task.CompletedTask;
+        };
+
+        try
+        {
+            await _hubConnection.StartAsync();
+            _isConnected = true;
+
+            // Subscribe to all watchlist symbols
+            foreach (var item in _watchlist)
+            {
+                await _hubConnection.InvokeAsync("SubscribeToSymbol", item.Symbol);
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Connection failed: {ex.Message}");
+            _isConnected = false;
+        }
+    }
+    
+    private async Task SelectSymbol(string symbol)
+    {
+        Symbol = symbol.ToUpperInvariant();
+        
+        // Subscribe to live data
+        if (_hubConnection?.State == HubConnectionState.Connected)
+        {
+            await _hubConnection.InvokeAsync("SubscribeToSymbol", Symbol);
+        }
+        
+        // Load historical data for chart
+        await LoadChartData();
+        
+        // Create initial trade setup
+        var watchItem = _watchlist.FirstOrDefault(w => w.Symbol == Symbol);
+        var price = watchItem?.LastPrice ?? 100;
+        
+        _proposedSetup = new TradeSetup
+        {
+            Symbol = Symbol,
+            Direction = TradeDirection.Long,
+            EntryPrice = Math.Round(price, 2),
+            StopLoss = Math.Round(price * 0.98, 2),
+            TakeProfit = Math.Round(price * 1.05, 2),
+            Quantity = 10
+        };
+        
+        RecalculateSetup();
+        
+        StateHasChanged();
+    }
+    
+    private async Task LoadChartData()
+    {
+        var candles = await HistoricalData.GetCandlesAsync(
+            Symbol!, 
+            DateTime.Today.AddDays(-1), 
+            DateTime.Now, 
+            int.Parse(_interval));
+        
+        if (candles.Count > 0)
+        {
+            await JS.InvokeVoidAsync("setCandleData", candles);
+            _hasChartData = true;
+            await UpdateIndicators();
+        }
+    }
+    
+    private void SetInterval(string interval)
+    {
+        _interval = interval;
+        _ = LoadChartData();
+    }
+    
+    private async Task UpdateIndicators()
+    {
+        // Toggle overlays on chart
+        if (_showVwap)
+        {
+            // Add VWAP overlay
+        }
+        
+        await Task.CompletedTask;
+    }
+    
+    private void SetDirection(bool isLong)
+    {
+        if (_proposedSetup != null)
+        {
+            _proposedSetup.Direction = isLong ? TradeDirection.Long : TradeDirection.Short;
+
+            // Swap stop and target when direction changes
+            var oldStop = _proposedSetup.StopLoss;
+            var oldTarget = _proposedSetup.TakeProfit;
+
+            if (isLong)
+            {
+                _proposedSetup.StopLoss = Math.Min(oldStop, _proposedSetup.EntryPrice * 0.98);
+                _proposedSetup.TakeProfit = Math.Max(oldTarget, _proposedSetup.EntryPrice * 1.05);
+            }
+            else
+            {
+                _proposedSetup.StopLoss = Math.Max(oldStop, _proposedSetup.EntryPrice * 1.02);
+                _proposedSetup.TakeProfit = Math.Min(oldTarget, _proposedSetup.EntryPrice * 0.95);
+            }
+
+            RecalculateSetup();
+            _ = UpdateTradeLevelsOnChart();
+        }
+    }
+
+    private async Task UpdateTradeLevelsOnChart()
+    {
+        if (_proposedSetup == null) return;
+
+        await JS.InvokeVoidAsync("showTradeLevels", new
+        {
+            entryPrice = _proposedSetup.EntryPrice,
+            stopLoss = _proposedSetup.StopLoss,
+            takeProfit = _proposedSetup.TakeProfit,
+            isLong = _proposedSetup.IsLong
+        });
+    }
+
+    private void RecalculateSetup()
+    {
+        if (_proposedSetup == null) return;
+
+        var riskPerShare = Math.Abs(_proposedSetup.EntryPrice - _proposedSetup.StopLoss);
+        var rewardPerShare = Math.Abs(_proposedSetup.TakeProfit - _proposedSetup.EntryPrice);
+
+        _proposedSetup.RiskDollars = Math.Round(riskPerShare * _proposedSetup.Quantity, 2);
+        _proposedSetup.RewardDollars = Math.Round(rewardPerShare * _proposedSetup.Quantity, 2);
+
+        // Validate with Risk Guardian
+        _validationResult = _riskGuardian.ValidateTrade(_proposedSetup);
+        _guardianStatus = _riskGuardian.GetStatus();
+
+        // Update chart visualization
+        _ = UpdateTradeLevelsOnChart();
+    }
+    
+    private void AutoCalculateQuantity()
+    {
+        if (_proposedSetup == null) return;
+        
+        var maxQty = _riskGuardian.CalculateMaxQuantity(_proposedSetup.EntryPrice, _proposedSetup.StopLoss);
+        _proposedSetup.Quantity = maxQty;
+        RecalculateSetup();
+    }
+    
+    private void ApplyAdjustedSetup()
+    {
+        if (_validationResult?.AdjustedSetup != null)
+        {
+            _proposedSetup = _validationResult.AdjustedSetup;
+            RecalculateSetup();
+        }
+    }
+    
+    private async Task AnalyzeCurrentSetup()
+    {
+        if (string.IsNullOrEmpty(Symbol)) return;
+        
+        _isAnalyzing = true;
+        StateHasChanged();
+        
+        try
+        {
+            var indicators = new IndicatorSnapshot
+            {
+                Symbol = Symbol,
+                Price = _currentTick?.Price ?? _proposedSetup?.EntryPrice ?? 0
+            };
+            
+            _aiInsight = await AiAdvisor.InterpretIndicatorsAsync(indicators);
+        }
+        finally
+        {
+            _isAnalyzing = false;
+            StateHasChanged();
+        }
+    }
+    
+    private async Task HandleChatKeyPress(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" && !string.IsNullOrWhiteSpace(_chatInput))
+        {
+            await SendChatMessage();
+        }
+    }
+    
+    private async Task SendChatMessage()
+    {
+        if (string.IsNullOrWhiteSpace(_chatInput)) return;
+        
+        // TODO: Send to AI and get response
+        _aiInsight += $"<p><strong>You:</strong> {_chatInput}</p>";
+        _chatInput = "";
+        
+        await Task.CompletedTask;
+        StateHasChanged();
+    }
+    
+    private async Task ExecuteTrade()
+    {
+        if (_proposedSetup == null || _validationResult?.IsApproved != true) return;
+
+        try
+        {
+            // Execute via IBKR through TradeExecutionService
+            var result = await TradeExecution.ExecuteTradeAsync(_proposedSetup);
+
+            if (result.Success)
+            {
+                // Play success sound
+                await JS.InvokeVoidAsync("AudioAlerts.success");
+
+                // Update AI insight with execution confirmation
+                _aiInsight += $"<p class='execution-success'>✅ Order placed: {_proposedSetup.Direction} {_proposedSetup.Quantity} shares @ ${_proposedSetup.EntryPrice:F2}</p>";
+
+                // Note: Daily loss tracking happens when trade actually closes with a loss
+                // For now, just refresh the guardian status
+                _guardianStatus = _riskGuardian.GetStatus();
+            }
+            else
+            {
+                // Play error sound
+                await JS.InvokeVoidAsync("AudioAlerts.error");
+                _aiInsight += $"<p class='execution-error'>❌ Order failed: {result.Message}</p>";
+            }
+        }
+        catch (Exception ex)
+        {
+            await JS.InvokeVoidAsync("AudioAlerts.error");
+            _aiInsight += $"<p class='execution-error'>❌ Execution error: {ex.Message}</p>";
+        }
+
+        StateHasChanged();
+    }
+    
+    public async ValueTask DisposeAsync()
+    {
+        if (_hubConnection != null)
+        {
+            await _hubConnection.DisposeAsync();
+        }
+    }
+    
+    // Helper classes
+    private sealed class WatchlistItem
+    {
+        public string Symbol { get; set; } = "";
+        public double LastPrice { get; set; }
+        public double ChangePercent { get; set; }
+        public int ConfidenceScore { get; set; }
+    }
+    
+    private enum AlertType { SuddenSpike, SuddenDrop }
+    private enum AlertSeverity { Low, Medium, High, Critical }
+    
+    private sealed class TradingAlert
+    {
+        public string Symbol { get; set; } = "";
+        public AlertType Type { get; set; }
+        public AlertSeverity Severity { get; set; }
+        public double ChangePercent { get; set; }
+        public TimeSpan TimeFrame { get; set; }
+        public int Confidence { get; set; }
+    }
+
+    // AlertData from MarketDataController
+    private sealed class AlertData
+    {
+        public string Symbol { get; set; } = "";
+        public string Type { get; set; } = "";
+        public string Severity { get; set; } = "";
+        public double Price { get; set; }
+        public double ChangePercent { get; set; }
+        public int Confidence { get; set; }
+        public string Reason { get; set; } = "";
+    }
+}
