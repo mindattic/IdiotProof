@@ -150,10 +150,38 @@ Overall market score: {marketScore}/100 ({(marketScore >= 50 ? "BULLISH" : "BEAR
 
 Speak directly to the trader. Be concise.
 ";
-        
+
         return await CallGptAsync(prompt, ct);
     }
-    
+
+    /// <summary>
+    /// Gets general trading advice based on a user question.
+    /// Used by the global chatbox.
+    /// </summary>
+    public async Task<string> GetAdviceAsync(string question, string? symbol = null, CancellationToken ct = default)
+    {
+        var symbolContext = !string.IsNullOrEmpty(symbol) 
+            ? $"The user is currently viewing {symbol}. " 
+            : "";
+
+        var prompt = $@"
+You are an expert trading assistant for IdiotProof, an automated trading system.
+{symbolContext}
+
+USER QUESTION: {question}
+
+Provide a helpful, concise response. Be direct and actionable.
+- If they ask about a specific stock, give relevant trading insights
+- If they ask about strategies, explain in simple terms
+- If they ask about risk, prioritize safety
+- Keep responses under 150 words unless more detail is needed
+
+Remember: You are an ADVISOR. The trader makes the final decision.
+";
+
+        return await CallGptAsync(prompt, ct);
+    }
+
     private string BuildAnalysisPrompt(string symbol, IndicatorSnapshot indicators, TradeSetup? setup)
     {
         var marketScore = indicators.CalculateMarketScore();

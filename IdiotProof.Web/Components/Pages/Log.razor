@@ -1,0 +1,172 @@
+@page "/log"
+@using Microsoft.AspNetCore.SignalR.Client
+@inject NavigationManager Navigation
+@inject IJSRuntime JS
+@implements IAsyncDisposable
+
+<PageTitle>Log - IdiotProof</PageTitle>
+
+<div class="log-container">
+    <div class="log-toolbar">
+        <button class="log-filter-btn @GetFilterClass(null)" @onclick="@(() => SetFilter(null))">All</button>
+        <button class="log-filter-btn @GetFilterClass("Trade")" @onclick="@(() => SetFilter("Trade"))">Trades</button>
+        <button class="log-filter-btn @GetFilterClass("Order")" @onclick="@(() => SetFilter("Order"))">Orders</button>
+        <button class="log-filter-btn @GetFilterClass("Alert")" @onclick="@(() => SetFilter("Alert"))">Alerts</button>
+        <button class="log-filter-btn @GetFilterClass("Connection")" @onclick="@(() => SetFilter("Connection"))">Connection</button>
+        <button class="log-filter-btn @GetFilterClass("AI")" @onclick="@(() => SetFilter("AI"))">AI</button>
+
+        <input type="text" class="log-search" placeholder="🔍 Search logs..." @bind="SearchText" @bind:event="oninput" />
+
+        <button class="log-filter-btn" @onclick="ClearLogs" title="Clear all logs">🗑️ Clear</button>
+        <button class="log-filter-btn" @onclick="ToggleAutoScroll" title="Toggle auto-scroll">
+            @(AutoScroll ? "📜 Auto" : "⏸️ Manual")
+        </button>
+    </div>
+
+    <div class="log-entries" @ref="logEntriesRef">
+        @if (!FilteredLogs.Any())
+        {
+            <div class="log-empty">
+                <div class="log-empty-icon">📋</div>
+                <div>No log entries yet</div>
+                <div style="font-size: 12px; margin-top: 8px;">Waiting for Core to send messages...</div>
+            </div>
+        }
+        else
+        {
+            @foreach (var log in FilteredLogs)
+            {
+                <div class="log-entry" data-level="@log.Level" @onclick="() => CopyToChat(log)">
+                    <span class="log-timestamp">@FormatTimestamp(log.Timestamp)</span>
+                    <span class="log-category" data-category="@log.Category">@log.Category</span>
+                    <span class="log-content">
+                        @if (!string.IsNullOrEmpty(log.HtmlContent))
+                        {
+                            @((MarkupString)log.HtmlContent)
+                        }
+                        else
+                        {
+                            @log.Message
+                        }
+                    </span>
+                    <button class="log-copy-btn" @onclick:stopPropagation="true" @onclick="() => CopyToClipboard(log)">
+                        📋 Copy
+                    </button>
+                </div>
+            }
+        }
+    </div>
+</div>
+
+@code {
+    private HubConnection? hubConnection;
+    private ElementReference logEntriesRef;
+    private List<LogEntry> Logs { get; set; } = [];
+    private string? ActiveFilter { get; set; }
+    private string SearchText { get; set; } = "";
+    private bool AutoScroll { get; set; } = true;
+    private const int MaxLogs = 1000;
+
+    private IEnumerable<LogEntry> FilteredLogs => Logs
+        .Where(l => ActiveFilter == null || l.Category == ActiveFilter)
+        .Where(l => string.IsNullOrEmpty(SearchText) || 
+                    l.Message.Contains(SearchText, StringComparison.OrdinalIgnoreCase) ||
+                    (l.Symbol?.Contains(SearchText, StringComparison.OrdinalIgnoreCase) ?? false))
+        .OrderByDescending(l => l.Timestamp);
+
+    private string GetFilterClass(string? filter) => ActiveFilter == filter ? "active" : "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        hubConnection = new HubConnectionBuilder()
+            .WithUrl(Navigation.ToAbsoluteUri("/hubs/marketdata"))
+            .WithAutomaticReconnect()
+            .Build();
+
+        hubConnection.On<LogEntry>("ReceiveLogMessage", async (log) =>
+        {
+            Logs.Add(log);
+
+            // Trim old logs
+            while (Logs.Count > MaxLogs)
+            {
+                Logs.RemoveAt(0);
+            }
+
+            await InvokeAsync(StateHasChanged);
+
+            if (AutoScroll)
+            {
+                await ScrollToBottom();
+            }
+        });
+
+        await hubConnection.StartAsync();
+    }
+
+    private void SetFilter(string? filter)
+    {
+        ActiveFilter = filter;
+    }
+
+    private void ClearLogs()
+    {
+        Logs.Clear();
+    }
+
+    private void ToggleAutoScroll()
+    {
+        AutoScroll = !AutoScroll;
+    }
+
+    private async Task ScrollToBottom()
+    {
+        try
+        {
+            await JS.InvokeVoidAsync("eval", "document.querySelector('.log-entries')?.scrollTo({top: 0, behavior: 'smooth'})");
+        }
+        catch { }
+    }
+
+    private async Task CopyToClipboard(LogEntry log)
+    {
+        var text = $"[{FormatTimestamp(log.Timestamp)}] [{log.Category}] {log.Message}";
+        await JS.InvokeVoidAsync("navigator.clipboard.writeText", text);
+    }
+
+    private async Task CopyToChat(LogEntry log)
+    {
+        // Send log to the global chatbox via JavaScript
+        var text = log.Message;
+        if (!string.IsNullOrEmpty(log.Symbol))
+        {
+            text = $"[{log.Symbol}] {text}";
+        }
+        await JS.InvokeVoidAsync("IdiotProof.copyToChat", text);
+    }
+
+    private static string FormatTimestamp(long timestamp)
+    {
+        var dt = DateTimeOffset.FromUnixTimeMilliseconds(timestamp).ToLocalTime();
+        return dt.ToString("HH:mm:ss.fff");
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (hubConnection is not null)
+        {
+            await hubConnection.DisposeAsync();
+        }
+    }
+
+    private sealed class LogEntry
+    {
+        public string Id { get; set; } = "";
+        public long Timestamp { get; set; }
+        public string Level { get; set; } = "Info";
+        public string Category { get; set; } = "System";
+        public string Message { get; set; } = "";
+        public string? Symbol { get; set; }
+        public string? HtmlContent { get; set; }
+    }
+}

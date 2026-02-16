@@ -253,7 +253,7 @@ public class MarketDataController : ControllerBase
         if (string.IsNullOrEmpty(log.Message))
             return BadRequest("Message is required");
 
-        await _broadcaster.BroadcastLogMessageAsync(log.Timestamp, log.Message);
+        await _broadcaster.BroadcastLogMessageAsync(log);
         return Ok();
     }
 }
@@ -325,6 +325,12 @@ public sealed class OrderData
 
 public sealed class LogMessageData
 {
-    public DateTimeOffset Timestamp { get; set; }
+    public string Id { get; set; } = "";
+    public long Timestamp { get; set; }
+    public string Level { get; set; } = "Info";
+    public string Category { get; set; } = "System";
     public string Message { get; set; } = "";
+    public string? Symbol { get; set; }
+    public string? HtmlContent { get; set; }
+    public object? Data { get; set; }
 }

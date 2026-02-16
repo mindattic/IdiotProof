@@ -7,6 +7,7 @@
 
 using Microsoft.AspNetCore.SignalR;
 using System.Collections.Concurrent;
+using IdiotProof.Web.Controllers;
 
 namespace IdiotProof.Web.Hubs;
 
@@ -357,14 +358,20 @@ public sealed class MarketDataBroadcaster
     /// <summary>
     /// Broadcast a log message from Core to all connected clients.
     /// </summary>
-    public async Task BroadcastLogMessageAsync(DateTimeOffset timestamp, string message)
+    public async Task BroadcastLogMessageAsync(LogMessageData log)
     {
         try
         {
             await _hubContext.Clients.All.SendAsync("ReceiveLogMessage", new
             {
-                timestamp = timestamp.ToUnixTimeMilliseconds(),
-                message
+                id = log.Id,
+                timestamp = log.Timestamp,
+                level = log.Level,
+                category = log.Category,
+                message = log.Message,
+                symbol = log.Symbol,
+                htmlContent = log.HtmlContent,
+                data = log.Data
             });
         }
         catch (Exception ex)

@@ -1,4 +1,5 @@
 ﻿@inherits LayoutComponentBase
+@using IdiotProof.Web.Components.Shared
 
 <div class="app-layout">
     <nav class="sidebar" role="navigation" aria-label="Main navigation">
@@ -32,6 +33,11 @@
                 <span class="nav-icon" aria-hidden="true">⏪</span>
                 <span class="nav-text">Backtest</span>
             </NavLink>
+
+            <NavLink class="nav-link" href="/log">
+                <span class="nav-icon" aria-hidden="true">📜</span>
+                <span class="nav-text">Log</span>
+            </NavLink>
         </div>
 
         <div class="nav-section">
@@ -50,6 +56,9 @@
     <main class="page-content">
         @Body
     </main>
+
+    @* Global AI Chatbox - Available on all screens *@
+    <GlobalChatbox />
 </div>
 
 <div id="blazor-error-ui" data-nosnippet>
