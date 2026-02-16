@@ -4,6 +4,7 @@
 @using IdiotProof.Web.Services.TradingView
 @using IdiotProof.Shared
 @using Microsoft.JSInterop
+@using System.Text.Json
 @inject HistoricalDataProvider HistoricalData
 @inject ChartDataService ChartService
 @inject IJSRuntime JS
@@ -90,91 +91,178 @@
         </div>
 
         <div class="stats-panel">
-            <h3>📊 Session Statistics</h3>
-            
-            @if (_sessionStats != null)
+            <div class="panel-tabs">
+                <button class="tab-btn @(_activeTab == "stats" ? "active" : "")" @onclick="@(() => _activeTab = "stats")">📊 Statistics</button>
+                <button class="tab-btn @(_activeTab == "trades" ? "active" : "")" @onclick="@(() => _activeTab = "trades")">🎯 Trades</button>
+                <button class="tab-btn @(_activeTab == "settings" ? "active" : "")" @onclick="@(() => _activeTab = "settings")">⚙️ Settings</button>
+            </div>
+
+            @if (_activeTab == "stats")
             {
-                <div class="stat-grid">
-                    <div class="stat-item">
-                        <span class="stat-label">Open</span>
-                        <span class="stat-value">$@_sessionStats.Open.ToString("F2")</span>
+                <h3>📊 Session Statistics</h3>
+
+                @if (_sessionStats != null)
+                {
+                    <div class="stat-grid">
+                        <div class="stat-item">
+                            <span class="stat-label">Open</span>
+                            <span class="stat-value">$@_sessionStats.Open.ToString("F2")</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">High</span>
+                            <span class="stat-value high">$@_sessionStats.High.ToString("F2")</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">Low</span>
+                            <span class="stat-value low">$@_sessionStats.Low.ToString("F2")</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">Close</span>
+                            <span class="stat-value">$@_sessionStats.Close.ToString("F2")</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">Range</span>
+                            <span class="stat-value">$@_sessionStats.Range.ToString("F2") (@_sessionStats.RangePercent.ToString("F1")%)</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">Volume</span>
+                            <span class="stat-value">@FormatVolume(_sessionStats.TotalVolume)</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">Candles</span>
+                            <span class="stat-value">@_sessionStats.CandleCount</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">Avg Volume</span>
+                            <span class="stat-value">@FormatVolume(_sessionStats.AverageVolume)</span>
+                        </div>
                     </div>
-                    <div class="stat-item">
-                        <span class="stat-label">High</span>
-                        <span class="stat-value high">$@_sessionStats.High.ToString("F2")</span>
+                }
+            }
+
+            @if (_activeTab == "trades")
+            {
+                <h3>🎯 Simulated Trades</h3>
+
+                @if (_simulatedTrades.Count > 0)
+                {
+                    <div class="trades-list">
+                        @foreach (var trade in _simulatedTrades)
+                        {
+                            <div class="trade-item @(trade.PnL >= 0 ? "profit" : "loss")">
+                                <div class="trade-header">
+                                    <span class="trade-direction @(trade.IsLong ? "long" : "short")">
+                                        @(trade.IsLong ? "LONG" : "SHORT")
+                                    </span>
+                                    <span class="trade-pnl @(trade.PnL >= 0 ? "profit" : "loss")">
+                                        @(trade.PnL >= 0 ? "+" : "")$@trade.PnL.ToString("F2")
+                                    </span>
+                                </div>
+                                <div class="trade-details">
+                                    <span>Entry: $@trade.EntryPrice.ToString("F2") @@ @trade.EntryTime.ToString("HH:mm")</span>
+                                    <span>Exit: $@trade.ExitPrice.ToString("F2") @@ @trade.ExitTime.ToString("HH:mm")</span>
+                                </div>
+                            </div>
+                        }
                     </div>
-                    <div class="stat-item">
-                        <span class="stat-label">Low</span>
-                        <span class="stat-value low">$@_sessionStats.Low.ToString("F2")</span>
+
+                    <div class="trades-summary">
+                        <div class="summary-item">
+                            <span>Total P&amp;L:</span>
+                            <span class="@(_totalPnL >= 0 ? "profit" : "loss")">
+                                @(_totalPnL >= 0 ? "+" : "")$@_totalPnL.ToString("F2")
+                            </span>
+                        </div>
+                        <div class="summary-item">
+                            <span>Win Rate:</span>
+                            <span>@_winRate.ToString("F0")%</span>
+                        </div>
                     </div>
-                    <div class="stat-item">
-                        <span class="stat-label">Close</span>
-                        <span class="stat-value">$@_sessionStats.Close.ToString("F2")</span>
+                }
+                else
+                {
+                    <p class="no-trades">No trades simulated yet. Run a backtest to see results.</p>
+                }
+
+                <button class="btn-run-backtest" @onclick="RunSimulation" disabled="@(!_hasData)">
+                    🚀 Run Strategy Simulation
+                </button>
+            }
+
+            @if (_activeTab == "settings")
+            {
+                <h3>⚙️ Backtest Settings</h3>
+
+                <div class="settings-section">
+                    <div class="setting-group">
+                        <label class="setting-label">
+                            <input type="checkbox" @bind="_backtestSettings.ShowDailyDetails" />
+                            Show Daily Details
+                        </label>
+                        <span class="setting-hint">Display individual trade details per day</span>
                     </div>
-                    <div class="stat-item">
-                        <span class="stat-label">Range</span>
-                        <span class="stat-value">$@_sessionStats.Range.ToString("F2") (@_sessionStats.RangePercent.ToString("F1")%)</span>
+
+                    <div class="setting-group">
+                        <label class="setting-label">
+                            <input type="checkbox" @bind="_backtestSettings.UseStopLoss" />
+                            Use Stop Loss
+                        </label>
+                        <span class="setting-hint">Enable stop loss orders in simulation</span>
                     </div>
-                    <div class="stat-item">
-                        <span class="stat-label">Volume</span>
-                        <span class="stat-value">@FormatVolume(_sessionStats.TotalVolume)</span>
+
+                    <div class="setting-group">
+                        <label class="setting-label">
+                            <input type="checkbox" @bind="_backtestSettings.UseTrailingStopLoss" />
+                            Use Trailing Stop Loss
+                        </label>
+                        <span class="setting-hint">Enable trailing stop for protecting gains</span>
                     </div>
-                    <div class="stat-item">
-                        <span class="stat-label">Candles</span>
-                        <span class="stat-value">@_sessionStats.CandleCount</span>
+
+                    <div class="setting-group">
+                        <label class="setting-label">Position Size (shares)</label>
+                        <input type="number" class="setting-input" @bind="_backtestSettings.PositionSize" min="1" max="1000" />
                     </div>
-                    <div class="stat-item">
-                        <span class="stat-label">Avg Volume</span>
-                        <span class="stat-value">@FormatVolume(_sessionStats.AverageVolume)</span>
+
+                    <div class="setting-group">
+                        <label class="setting-label">Stop Loss %</label>
+                        <input type="number" class="setting-input" @bind="_backtestSettings.StopLossPercent" min="0.1" max="10" step="0.1" />
+                    </div>
+
+                    <div class="setting-group">
+                        <label class="setting-label">Take Profit %</label>
+                        <input type="number" class="setting-input" @bind="_backtestSettings.TakeProfitPercent" min="0.1" max="20" step="0.1" />
                     </div>
                 </div>
-            }
-            
-            <h3>🎯 Simulated Trades</h3>
-            
-            @if (_simulatedTrades.Count > 0)
-            {
-                <div class="trades-list">
-                    @foreach (var trade in _simulatedTrades)
-                    {
-                        <div class="trade-item @(trade.PnL >= 0 ? "profit" : "loss")">
-                            <div class="trade-header">
-                                <span class="trade-direction @(trade.IsLong ? "long" : "short")">
-                                    @(trade.IsLong ? "LONG" : "SHORT")
-                                </span>
-                                <span class="trade-pnl @(trade.PnL >= 0 ? "profit" : "loss")">
-                                    @(trade.PnL >= 0 ? "+" : "")$@trade.PnL.ToString("F2")
-                                </span>
-                            </div>
-                            <div class="trade-details">
-                                <span>Entry: $@trade.EntryPrice.ToString("F2") @@ @trade.EntryTime.ToString("HH:mm")</span>
-                                <span>Exit: $@trade.ExitPrice.ToString("F2") @@ @trade.ExitTime.ToString("HH:mm")</span>
-                            </div>
+
+                <div class="settings-json-section">
+                    <div class="json-header">
+                        <span>📝 JSON Editor</span>
+                        <div class="json-actions">
+                            <button class="btn-small" @onclick="FormatJson" title="Format JSON">Format</button>
+                            <button class="btn-small" @onclick="ResetSettings" title="Reset to defaults">Reset</button>
                         </div>
+                    </div>
+                    <textarea class="settings-json-editor @(_settingsJsonError != null ? "error" : "")" 
+                              @bind="_settingsJson" 
+                              @bind:after="OnSettingsJsonChanged"
+                              rows="12"
+                              spellcheck="false"></textarea>
+                    @if (_settingsJsonError != null)
+                    {
+                        <div class="json-error">⚠️ @_settingsJsonError</div>
+                    }
+                    else if (_settingsJsonDirty)
+                    {
+                        <div class="json-dirty">✏️ Unsaved changes</div>
                     }
                 </div>
-                
-                <div class="trades-summary">
-                    <div class="summary-item">
-                        <span>Total P&L:</span>
-                        <span class="@(_totalPnL >= 0 ? "profit" : "loss")">
-                            @(_totalPnL >= 0 ? "+" : "")$@_totalPnL.ToString("F2")
-                        </span>
-                    </div>
-                    <div class="summary-item">
-                        <span>Win Rate:</span>
-                        <span>@_winRate.ToString("F0")%</span>
-                    </div>
+
+                <div class="settings-actions">
+                    <button class="btn-apply" @onclick="ApplySettings" disabled="@(_settingsJsonError != null)">
+                        ✅ Apply Settings
+                    </button>
                 </div>
             }
-            else
-            {
-                <p class="no-trades">No trades simulated yet. Run a backtest to see results.</p>
-            }
-            
-            <button class="btn-run-backtest" @onclick="RunSimulation" disabled="@(!_hasData)">
-                🚀 Run Strategy Simulation
-            </button>
         </div>
     </div>
 </div>
@@ -218,10 +306,20 @@
     private List<SimulatedTrade> _simulatedTrades = [];
     private double _totalPnL;
     private double _winRate;
-    
+
+    // Tabs
+    private string _activeTab = "stats";
+
+    // Settings
+    private BacktestSettings _backtestSettings = new();
+    private string _settingsJson = "";
+    private string? _settingsJsonError;
+    private bool _settingsJsonDirty;
+
     protected override async Task OnInitializedAsync()
     {
         _availableSymbols = HistoricalData.GetAvailableSymbols();
+        InitializeSettings();
 
         if (!string.IsNullOrEmpty(Symbol) && _availableSymbols.Contains(Symbol.ToUpperInvariant()))
         {
@@ -537,59 +635,51 @@
     private async Task RunSimulation()
     {
         _simulatedTrades.Clear();
-        
-        // Simple EMA crossover strategy for demo
+
+        // Use settings for EMA crossover strategy
         if (_chartBundle?.Overlays == null) return;
-        
-        var ema9 = _chartBundle.Overlays.FirstOrDefault(o => o.Name == "EMA 9");
-        var ema21 = _chartBundle.Overlays.FirstOrDefault(o => o.Name == "EMA 21");
-        
+
+        var ema9 = _chartBundle.Overlays.FirstOrDefault(o => o.Name == $"EMA {_backtestSettings.EmaCrossoverShort}") 
+                   ?? _chartBundle.Overlays.FirstOrDefault(o => o.Name == "EMA 9");
+        var ema21 = _chartBundle.Overlays.FirstOrDefault(o => o.Name == $"EMA {_backtestSettings.EmaCrossoverLong}")
+                    ?? _chartBundle.Overlays.FirstOrDefault(o => o.Name == "EMA 21");
+
         if (ema9 == null || ema21 == null) return;
-        
+
         bool inPosition = false;
         bool isLong = false;
         double entryPrice = 0;
         long entryTime = 0;
-        
+
         for (int i = 1; i < _candles.Count; i++)
         {
             var candle = _candles[i];
             var prevCandle = _candles[i - 1];
-            
+
             var currEma9 = ema9.Points.FirstOrDefault(p => p.Time == candle.Time).Value;
             var currEma21 = ema21.Points.FirstOrDefault(p => p.Time == candle.Time).Value;
             var prevEma9 = ema9.Points.FirstOrDefault(p => p.Time == prevCandle.Time).Value;
             var prevEma21 = ema21.Points.FirstOrDefault(p => p.Time == prevCandle.Time).Value;
-            
+
             if (currEma9 == 0 || currEma21 == 0) continue;
-            
-            // EMA 9 crosses above EMA 21 = BUY
-            if (!inPosition && prevEma9 <= prevEma21 && currEma9 > currEma21)
+
+            // Check stop loss / take profit if in position
+            if (inPosition)
             {
-                inPosition = true;
-                isLong = true;
-                entryPrice = candle.Close;
-                entryTime = candle.Time;
-            }
-            // EMA 9 crosses below EMA 21 = SELL
-            else if (!inPosition && prevEma9 >= prevEma21 && currEma9 < currEma21)
-            {
-                inPosition = true;
-                isLong = false;
-                entryPrice = candle.Close;
-                entryTime = candle.Time;
-            }
-            // Exit on opposite cross
-            else if (inPosition)
-            {
-                bool shouldExit = (isLong && currEma9 < currEma21) || (!isLong && currEma9 > currEma21);
-                
-                if (shouldExit)
+                var pnlPercent = isLong 
+                    ? ((candle.Close - entryPrice) / entryPrice) * 100
+                    : ((entryPrice - candle.Close) / entryPrice) * 100;
+
+                bool hitStopLoss = _backtestSettings.UseStopLoss && pnlPercent <= -_backtestSettings.StopLossPercent;
+                bool hitTakeProfit = pnlPercent >= _backtestSettings.TakeProfitPercent;
+                bool emaCrossExit = (isLong && currEma9 < currEma21) || (!isLong && currEma9 > currEma21);
+
+                if (hitStopLoss || hitTakeProfit || emaCrossExit)
                 {
                     var pnl = isLong 
-                        ? (candle.Close - entryPrice) * 10  // 10 shares
-                        : (entryPrice - candle.Close) * 10;
-                    
+                        ? (candle.Close - entryPrice) * _backtestSettings.PositionSize
+                        : (entryPrice - candle.Close) * _backtestSettings.PositionSize;
+
                     _simulatedTrades.Add(new SimulatedTrade
                     {
                         IsLong = isLong,
@@ -599,12 +689,33 @@
                         ExitTime = DateTimeOffset.FromUnixTimeSeconds(candle.Time).DateTime,
                         PnL = Math.Round(pnl, 2)
                     });
-                    
+
                     inPosition = false;
                 }
             }
+
+            // Entry signals (only if not in position)
+            if (!inPosition)
+            {
+                // EMA 9 crosses above EMA 21 = BUY
+                if (prevEma9 <= prevEma21 && currEma9 > currEma21)
+                {
+                    inPosition = true;
+                    isLong = true;
+                    entryPrice = candle.Close;
+                    entryTime = candle.Time;
+                }
+                // EMA 9 crosses below EMA 21 = SELL
+                else if (prevEma9 >= prevEma21 && currEma9 < currEma21)
+                {
+                    inPosition = true;
+                    isLong = false;
+                    entryPrice = candle.Close;
+                    entryTime = candle.Time;
+                }
+            }
         }
-        
+
         // Calculate totals
         _totalPnL = _simulatedTrades.Sum(t => t.PnL);
         var winners = _simulatedTrades.Count(t => t.PnL > 0);
@@ -632,7 +743,81 @@
         >= 1_000 => $"{volume / 1_000:F0}K",
         _ => volume.ToString("F0")
     };
-    
+
+    // Settings methods
+    private void InitializeSettings()
+    {
+        _backtestSettings = new BacktestSettings();
+        UpdateSettingsJson();
+    }
+
+    private void UpdateSettingsJson()
+    {
+        var options = new JsonSerializerOptions { WriteIndented = true };
+        _settingsJson = JsonSerializer.Serialize(_backtestSettings, options);
+        _settingsJsonDirty = false;
+        _settingsJsonError = null;
+    }
+
+    private void OnSettingsJsonChanged()
+    {
+        _settingsJsonDirty = true;
+        try
+        {
+            var parsed = JsonSerializer.Deserialize<BacktestSettings>(_settingsJson);
+            if (parsed != null)
+            {
+                _settingsJsonError = null;
+            }
+        }
+        catch (JsonException ex)
+        {
+            _settingsJsonError = $"Invalid JSON: {ex.Message}";
+        }
+    }
+
+    private void FormatJson()
+    {
+        try
+        {
+            var parsed = JsonSerializer.Deserialize<BacktestSettings>(_settingsJson);
+            if (parsed != null)
+            {
+                var options = new JsonSerializerOptions { WriteIndented = true };
+                _settingsJson = JsonSerializer.Serialize(parsed, options);
+                _settingsJsonError = null;
+            }
+        }
+        catch (JsonException ex)
+        {
+            _settingsJsonError = $"Cannot format: {ex.Message}";
+        }
+    }
+
+    private void ResetSettings()
+    {
+        _backtestSettings = new BacktestSettings();
+        UpdateSettingsJson();
+    }
+
+    private void ApplySettings()
+    {
+        try
+        {
+            var parsed = JsonSerializer.Deserialize<BacktestSettings>(_settingsJson);
+            if (parsed != null)
+            {
+                _backtestSettings = parsed;
+                _settingsJsonDirty = false;
+                _settingsJsonError = null;
+            }
+        }
+        catch (JsonException ex)
+        {
+            _settingsJsonError = $"Cannot apply: {ex.Message}";
+        }
+    }
+
     public async ValueTask DisposeAsync()
     {
         _playbackTimer?.Dispose();
@@ -672,5 +857,20 @@
         public double ExitPrice { get; set; }
         public DateTime ExitTime { get; set; }
         public double PnL { get; set; }
+    }
+
+    private sealed class BacktestSettings
+    {
+        public bool ShowDailyDetails { get; set; } = false;
+        public bool UseStopLoss { get; set; } = true;
+        public bool UseTrailingStopLoss { get; set; } = false;
+        public int PositionSize { get; set; } = 10;
+        public double StopLossPercent { get; set; } = 2.0;
+        public double TakeProfitPercent { get; set; } = 4.0;
+        public double TrailingStopPercent { get; set; } = 1.5;
+        public int EmaCrossoverShort { get; set; } = 9;
+        public int EmaCrossoverLong { get; set; } = 21;
+        public bool RequireVwapConfirmation { get; set; } = false;
+        public double MinVolumeRatio { get; set; } = 1.0;
     }
 }
