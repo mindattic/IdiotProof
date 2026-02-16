@@ -156,12 +156,18 @@ internal sealed class Program
     private static void StartHeartbeatTimer()
     {
         // Log heartbeat every 5 minutes
-        _heartbeatTimer = new Timer(_ =>
+        _heartbeatTimer = new Timer(async _ =>
         {
             var status = _isConnected ? "Connected" : "Disconnected";
             var trading = _isActive ? $"Trading ({_runners.Count} strategies)" : "Idle";
             Log($"[Heartbeat] IBKR: {status} | Status: {trading}");
-        }, null, TimeSpan.FromMinutes(5), TimeSpan.FromMinutes(5));
+
+            // Send heartbeat to Web frontend to maintain connection status
+            if (_webFrontendClient != null)
+            {
+                await _webFrontendClient.SendHeartbeatAsync();
+            }
+        }, null, TimeSpan.FromSeconds(10), TimeSpan.FromSeconds(10));  // Send every 10 seconds
     }
 
     private static bool ConnectToIbkr()

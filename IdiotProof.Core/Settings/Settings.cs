@@ -136,7 +136,7 @@ namespace IdiotProof.Settings {
         /// URL of the IdiotProof.Web frontend for live data streaming.
         /// Set to null to disable web frontend integration.
         /// </summary>
-        public static string? WebFrontendUrl { get; set; } = "http://localhost:5000";
+        public static string? WebFrontendUrl { get; set; } = "http://localhost:5114";
 
         // ----- Risk Management Settings -----
 

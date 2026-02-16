@@ -1,5 +1,6 @@
 @page "/"
 @page "/dashboard"
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
 @using IdiotProof.Web.Services.MarketScanner
 @using IdiotProof.Web.Services
 @using IdiotProof.Web.Hubs
@@ -35,7 +36,8 @@
                 }
             </span>
             <span class="last-update">Last scan: @_lastUpdate.ToString("HH:mm:ss")</span>
-            <button class="btn-refresh" @onclick="RefreshAsync" disabled="@_isRefreshing">
+            <button class="btn-refresh" @onclick="RefreshAsync" disabled="@_isRefreshing" 
+                    title="Scan all sources for gapping stocks (premarket movers with significant volume)">
                 @if (_isRefreshing)
                 {
                     <span>⟳ Scanning...</span>
@@ -171,14 +173,24 @@
                                 </td>
                                 <td class="actions">
                                     <button class="btn-small btn-long" @onclick:stopPropagation="true" 
-                                            @onclick="() => ShowScenario(candidate, true)">LONG</button>
+                                            @onclick="() => ExecuteQuickTrade(candidate, true)">LONG</button>
                                     <button class="btn-small btn-short" @onclick:stopPropagation="true"
-                                            @onclick="() => ShowScenario(candidate, false)">SHORT</button>
+                                            @onclick="() => ExecuteQuickTrade(candidate, false)">SHORT</button>
                                 </td>
                             </tr>
                         }
                     </tbody>
                 </table>
+
+                @* Pagination Controls *@
+                @if (_totalPages > 1)
+                {
+                    <div class="pagination">
+                        <button class="btn-page" disabled="@(_currentPage <= 1)" @onclick="PreviousPage">← Prev</button>
+                        <span class="page-info">Page @_currentPage of @_totalPages (@_allCandidates.Count total)</span>
+                        <button class="btn-page" disabled="@(_currentPage >= _totalPages)" @onclick="NextPage">Next →</button>
+                    </div>
+                }
             }
         </div>
 
@@ -242,22 +254,25 @@
                                         <span>Quantity:</span>
                                         <span>@_selectedCandidate.LongScenario.Quantity shares</span>
                                     </div>
-                                    <div class="scenario-row highlight">
-                                        <span>Risk:</span>
-                                        <span class="risk">$@_selectedCandidate.LongScenario.RiskDollars.ToString("F2")</span>
-                                    </div>
-                                    <div class="scenario-row highlight">
-                                        <span>Reward:</span>
-                                        <span class="reward">$@_selectedCandidate.LongScenario.RewardDollars.ToString("F2")</span>
-                                    </div>
-                                    <div class="scenario-row highlight">
-                                        <span>R:R Ratio:</span>
-                                        <span class="rr @(_selectedCandidate.LongScenario.RiskRewardRatio >= 2 ? "good" : "")">
-                                            1:@_selectedCandidate.LongScenario.RiskRewardRatio.ToString("F1")
-                                        </span>
+                                    <div class="scenario-summary">
+                                        <div class="summary-item">
+                                            <span class="label">Risk if Stop Hit</span>
+                                            <span class="value risk">-$@_selectedCandidate.LongScenario.RiskDollars.ToString("F2")</span>
+                                        </div>
+                                        <div class="summary-item">
+                                            <span class="label">Reward if TP Hit</span>
+                                            <span class="value reward">+$@_selectedCandidate.LongScenario.RewardDollars.ToString("F2")</span>
+                                        </div>
+                                        <div class="summary-item">
+                                            <span class="label">Risk:Reward Ratio</span>
+                                            <span class="value rr @(_selectedCandidate.LongScenario.RiskRewardRatio >= 2 ? "good" : "")">
+                                                1:@_selectedCandidate.LongScenario.RiskRewardRatio.ToString("F1")
+                                            </span>
+                                        </div>
                                     </div>
                                     <p class="rationale">@_selectedCandidate.LongScenario.Rationale</p>
-                                    <button class="btn-execute btn-long" @onclick="() => ExecuteTrade(_selectedCandidate.LongScenario)">
+                                    <button class="btn-execute btn-long" @onclick="() => ExecuteTrade(_selectedCandidate.LongScenario)"
+                                            title="Submit a BUY order with automatic Stop Loss and Take Profit bracket orders">
                                         🚀 Execute LONG Trade
                                     </button>
                                 </div>
@@ -293,22 +308,25 @@
                                         <span>Quantity:</span>
                                         <span>@_selectedCandidate.ShortScenario.Quantity shares</span>
                                     </div>
-                                    <div class="scenario-row highlight">
-                                        <span>Risk:</span>
-                                        <span class="risk">$@_selectedCandidate.ShortScenario.RiskDollars.ToString("F2")</span>
-                                    </div>
-                                    <div class="scenario-row highlight">
-                                        <span>Reward:</span>
-                                        <span class="reward">$@_selectedCandidate.ShortScenario.RewardDollars.ToString("F2")</span>
-                                    </div>
-                                    <div class="scenario-row highlight">
-                                        <span>R:R Ratio:</span>
-                                        <span class="rr @(_selectedCandidate.ShortScenario.RiskRewardRatio >= 2 ? "good" : "")">
-                                            1:@_selectedCandidate.ShortScenario.RiskRewardRatio.ToString("F1")
-                                        </span>
+                                    <div class="scenario-summary">
+                                        <div class="summary-item">
+                                            <span class="label">Risk if Stop Hit</span>
+                                            <span class="value risk">-$@_selectedCandidate.ShortScenario.RiskDollars.ToString("F2")</span>
+                                        </div>
+                                        <div class="summary-item">
+                                            <span class="label">Reward if TP Hit</span>
+                                            <span class="value reward">+$@_selectedCandidate.ShortScenario.RewardDollars.ToString("F2")</span>
+                                        </div>
+                                        <div class="summary-item">
+                                            <span class="label">Risk:Reward Ratio</span>
+                                            <span class="value rr @(_selectedCandidate.ShortScenario.RiskRewardRatio >= 2 ? "good" : "")">
+                                                1:@_selectedCandidate.ShortScenario.RiskRewardRatio.ToString("F1")
+                                            </span>
+                                        </div>
                                     </div>
                                     <p class="rationale">@_selectedCandidate.ShortScenario.Rationale</p>
-                                    <button class="btn-execute btn-short" @onclick="() => ExecuteTrade(_selectedCandidate.ShortScenario)">
+                                    <button class="btn-execute btn-short" @onclick="() => ExecuteTrade(_selectedCandidate.ShortScenario)"
+                                            title="Submit a SELL SHORT order with automatic Stop Loss and Take Profit bracket orders">
                                         🔻 Execute SHORT Trade
                                     </button>
                                 </div>
@@ -335,14 +353,21 @@
     private bool _showLongScenario = true;
     private bool _showShortScenario = false;
 
+    // Pagination
+    private int _currentPage = 1;
+    private int _pageSize = 20;
+    private int _totalPages => (int)Math.Ceiling(_allCandidates.Count / (double)_pageSize);
+    private List<GapperCandidate> _allCandidates = new();
+
     // Position tracking
     private List<PositionInfo> _positions = new();
     private double _totalPnL = 0;
 
     protected override async Task OnInitializedAsync()
     {
-        // Load initial data
-        _candidates = Scanner.GetTopCandidates(20).ToList();
+        // Load initial data - get all candidates for pagination
+        _allCandidates = Scanner.GetTopCandidates(200).ToList();
+        _candidates = _allCandidates.Take(_pageSize).ToList();
         _stats = Scanner.GetStatistics();
 
         // Setup SignalR connection
@@ -398,7 +423,8 @@
     
     private void OnGappersUpdated(List<GapperCandidate> candidates)
     {
-        _candidates = candidates;
+        _allCandidates = candidates;
+        _candidates = _allCandidates.Skip((_currentPage - 1) * _pageSize).Take(_pageSize).ToList();
         _stats = Scanner.GetStatistics();
         _lastUpdate = DateTime.Now;
         InvokeAsync(StateHasChanged);
@@ -414,7 +440,7 @@
     {
         _isRefreshing = true;
         StateHasChanged();
-        
+
         try
         {
             if (_hubConnection?.State == HubConnectionState.Connected)
@@ -424,10 +450,12 @@
             else
             {
                 await Scanner.TriggerScanAsync();
-                _candidates = Scanner.GetTopCandidates(20).ToList();
-                _stats = Scanner.GetStatistics();
             }
-            
+
+            // Always reload from scanner after refresh
+            _allCandidates = Scanner.GetTopCandidates(200).ToList();
+            _candidates = _allCandidates.Skip((_currentPage - 1) * _pageSize).Take(_pageSize).ToList();
+            _stats = Scanner.GetStatistics();
             _lastUpdate = DateTime.Now;
         }
         finally
@@ -479,7 +507,58 @@
             Console.WriteLine($"Trade execution error: {ex.Message}");
         }
     }
-    
+
+    private async Task ExecuteQuickTrade(GapperCandidate candidate, bool isLong)
+    {
+        var scenario = isLong ? candidate.LongScenario : candidate.ShortScenario;
+        if (scenario == null)
+        {
+            // If no pre-calculated scenario, navigate to trade page
+            Navigation.NavigateTo($"/trade/{candidate.Symbol}");
+            return;
+        }
+
+        try
+        {
+            var result = await TradeExecution.ExecuteScenarioAsync(scenario);
+
+            if (result.Success)
+            {
+                await JS.InvokeVoidAsync("AudioAlerts.success");
+                // Navigate to Orders page to see the pending order
+                Navigation.NavigateTo("/orders");
+            }
+            else
+            {
+                await JS.InvokeVoidAsync("AudioAlerts.error");
+                Console.WriteLine($"Trade failed: {result.ErrorMessage}");
+            }
+        }
+        catch (Exception ex)
+        {
+            await JS.InvokeVoidAsync("AudioAlerts.error");
+            Console.WriteLine($"Quick trade error: {ex.Message}");
+        }
+    }
+
+    private void NextPage()
+    {
+        if (_currentPage < _totalPages)
+        {
+            _currentPage++;
+            _candidates = _allCandidates.Skip((_currentPage - 1) * _pageSize).Take(_pageSize).ToList();
+        }
+    }
+
+    private void PreviousPage()
+    {
+        if (_currentPage > 1)
+        {
+            _currentPage--;
+            _candidates = _allCandidates.Skip((_currentPage - 1) * _pageSize).Take(_pageSize).ToList();
+        }
+    }
+
     private static string FormatVolume(long volume)
     {
         return volume switch

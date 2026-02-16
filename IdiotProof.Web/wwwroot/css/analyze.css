@@ -134,6 +134,7 @@
 .qs-symbol {
     font-weight: 600;
     font-size: 0.8rem;
+    color: white;
 }
 
 .qs-change {
@@ -317,6 +318,15 @@
     margin-bottom: 16px;
     line-height: 1.6;
     border-left: 3px solid var(--accent-purple);
+}
+
+.ai-summary ul {
+    margin: 8px 0;
+    padding-left: 24px;
+}
+
+.ai-summary li {
+    margin-bottom: 4px;
 }
 
 .analysis-grid {

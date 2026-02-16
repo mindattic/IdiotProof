@@ -313,3 +313,37 @@
     font-family: var(--font-mono);
     font-size: 1.25rem;
 }
+
+/* Pending Orders Section */
+.pending-orders-section {
+    margin: var(--space-6) var(--space-5);
+    padding: var(--space-4);
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    border-left: 4px solid var(--accent-yellow, #f0b429);
+}
+
+.pending-orders-section h2 {
+    margin: 0 0 var(--space-2) 0;
+    color: var(--accent-yellow, #f0b429);
+}
+
+.pending-orders-section .hint {
+    margin: 0 0 var(--space-4) 0;
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+}
+
+.pending-orders-section .price.stop {
+    color: var(--accent-red);
+}
+
+.pending-orders-section .price.target {
+    color: var(--accent-green);
+}
+
+.pending-orders-section .time {
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+}

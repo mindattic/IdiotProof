@@ -188,4 +188,26 @@ document.addEventListener('keydown', () => AudioAlerts.init(), { once: true });
 // Expose to window for Blazor interop
 window.AudioAlerts = AudioAlerts;
 
+// IdiotProof global namespace for Blazor interop
+window.IdiotProof = window.IdiotProof || {};
+
+// Copy text to the global chatbox (if it exists)
+window.IdiotProof.copyToChat = function(text) {
+    // Find the chatbox input and set its value
+    const chatInput = document.querySelector('.chatbox-input input, #global-chat-input');
+    if (chatInput) {
+        chatInput.value = text;
+        chatInput.dispatchEvent(new Event('input', { bubbles: true }));
+        chatInput.focus();
+        return true;
+    }
+
+    // Fallback: copy to clipboard
+    if (navigator.clipboard) {
+        navigator.clipboard.writeText(text);
+        console.log('Copied to clipboard:', text);
+    }
+    return false;
+};
+
 console.log('Audio alert system loaded');

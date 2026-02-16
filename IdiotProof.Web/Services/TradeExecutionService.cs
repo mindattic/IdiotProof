@@ -181,6 +181,26 @@ public sealed class TradeExecutionService
         
         return orders.OrderByDescending(o => o.CreatedUtc).ToList();
     }
+
+    /// <summary>
+    /// Cancels a pending order by deleting its file.
+    /// </summary>
+    public async Task CancelPendingOrderAsync(string orderId)
+    {
+        var ordersDir = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "IdiotProof", "PendingOrders");
+
+        var filePath = Path.Combine(ordersDir, $"{orderId}.json");
+
+        if (File.Exists(filePath))
+        {
+            File.Delete(filePath);
+            _logger.LogInformation("Canceled pending order: {OrderId}", orderId);
+        }
+
+        await Task.CompletedTask;
+    }
 }
 
 /// <summary>

@@ -1,13 +1,17 @@
 @page "/log"
-@using Microsoft.AspNetCore.SignalR.Client
-@inject NavigationManager Navigation
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
+@using IdiotProof.Web.Services
+@inject GlobalLogService LogService
 @inject IJSRuntime JS
-@implements IAsyncDisposable
+@implements IDisposable
 
 <PageTitle>Log - IdiotProof</PageTitle>
 
 <div class="log-container">
     <div class="log-toolbar">
+        <div class="connection-indicator @(LogService.IsConnected ? "connected" : "disconnected")">
+            @(LogService.IsConnected ? "● Connected" : "○ Connecting...")
+        </div>
         <button class="log-filter-btn @GetFilterClass(null)" @onclick="@(() => SetFilter(null))">All</button>
         <button class="log-filter-btn @GetFilterClass("Trade")" @onclick="@(() => SetFilter("Trade"))">Trades</button>
         <button class="log-filter-btn @GetFilterClass("Order")" @onclick="@(() => SetFilter("Order"))">Orders</button>
@@ -21,6 +25,7 @@
         <button class="log-filter-btn" @onclick="ToggleAutoScroll" title="Toggle auto-scroll">
             @(AutoScroll ? "📜 Auto" : "⏸️ Manual")
         </button>
+        <span class="log-count">@LogService.Logs.Count logs</span>
     </div>
 
     <div class="log-entries" @ref="logEntriesRef">
@@ -59,15 +64,12 @@
 </div>
 
 @code {
-    private HubConnection? hubConnection;
     private ElementReference logEntriesRef;
-    private List<LogEntry> Logs { get; set; } = [];
     private string? ActiveFilter { get; set; }
     private string SearchText { get; set; } = "";
     private bool AutoScroll { get; set; } = true;
-    private const int MaxLogs = 1000;
 
-    private IEnumerable<LogEntry> FilteredLogs => Logs
+    private IEnumerable<LogEntry> FilteredLogs => LogService.Logs
         .Where(l => ActiveFilter == null || l.Category == ActiveFilter)
         .Where(l => string.IsNullOrEmpty(SearchText) || 
                     l.Message.Contains(SearchText, StringComparison.OrdinalIgnoreCase) ||
@@ -76,32 +78,20 @@
 
     private string GetFilterClass(string? filter) => ActiveFilter == filter ? "active" : "";
 
-    protected override async Task OnInitializedAsync()
+    protected override void OnInitialized()
     {
-        hubConnection = new HubConnectionBuilder()
-            .WithUrl(Navigation.ToAbsoluteUri("/hubs/marketdata"))
-            .WithAutomaticReconnect()
-            .Build();
+        // Subscribe to log updates from the global service
+        LogService.OnLogReceived += OnLogReceived;
+    }
 
-        hubConnection.On<LogEntry>("ReceiveLogMessage", async (log) =>
+    private async void OnLogReceived()
+    {
+        await InvokeAsync(StateHasChanged);
+
+        if (AutoScroll)
         {
-            Logs.Add(log);
-
-            // Trim old logs
-            while (Logs.Count > MaxLogs)
-            {
-                Logs.RemoveAt(0);
-            }
-
-            await InvokeAsync(StateHasChanged);
-
-            if (AutoScroll)
-            {
-                await ScrollToBottom();
-            }
-        });
-
-        await hubConnection.StartAsync();
+            await ScrollToBottom();
+        }
     }
 
     private void SetFilter(string? filter)
@@ -111,7 +101,7 @@
 
     private void ClearLogs()
     {
-        Logs.Clear();
+        LogService.ClearLogs();
     }
 
     private void ToggleAutoScroll()
@@ -131,18 +121,26 @@
     private async Task CopyToClipboard(LogEntry log)
     {
         var text = $"[{FormatTimestamp(log.Timestamp)}] [{log.Category}] {log.Message}";
-        await JS.InvokeVoidAsync("navigator.clipboard.writeText", text);
+        try
+        {
+            await JS.InvokeVoidAsync("navigator.clipboard.writeText", text);
+        }
+        catch { }
     }
 
     private async Task CopyToChat(LogEntry log)
     {
-        // Send log to the global chatbox via JavaScript
         var text = log.Message;
         if (!string.IsNullOrEmpty(log.Symbol))
         {
             text = $"[{log.Symbol}] {text}";
         }
-        await JS.InvokeVoidAsync("IdiotProof.copyToChat", text);
+        try
+        {
+            // Copy to clipboard as fallback if copyToChat doesn't exist
+            await JS.InvokeVoidAsync("navigator.clipboard.writeText", text);
+        }
+        catch { }
     }
 
     private static string FormatTimestamp(long timestamp)
@@ -151,22 +149,8 @@
         return dt.ToString("HH:mm:ss.fff");
     }
 
-    public async ValueTask DisposeAsync()
+    public void Dispose()
     {
-        if (hubConnection is not null)
-        {
-            await hubConnection.DisposeAsync();
-        }
-    }
-
-    private sealed class LogEntry
-    {
-        public string Id { get; set; } = "";
-        public long Timestamp { get; set; }
-        public string Level { get; set; } = "Info";
-        public string Category { get; set; } = "System";
-        public string Message { get; set; } = "";
-        public string? Symbol { get; set; }
-        public string? HtmlContent { get; set; }
+        LogService.OnLogReceived -= OnLogReceived;
     }
 }

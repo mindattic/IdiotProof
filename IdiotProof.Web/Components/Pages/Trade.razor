@@ -1,5 +1,6 @@
 @page "/trade"
 @page "/trade/{Symbol}"
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
 @using IdiotProof.Web.Hubs
 @using IdiotProof.Web.Services
 @using IdiotProof.Web.Services.TradingView
@@ -620,17 +621,26 @@
     
     private async Task LoadChartData()
     {
+        if (string.IsNullOrEmpty(Symbol)) return;
+
+        // Try to load historical data - look back further if needed
         var candles = await HistoricalData.GetCandlesAsync(
             Symbol!, 
-            DateTime.Today.AddDays(-1), 
+            DateTime.Today.AddDays(-30),  // Look back up to 30 days
             DateTime.Now, 
             int.Parse(_interval));
-        
+
         if (candles.Count > 0)
         {
             await JS.InvokeVoidAsync("setCandleData", candles);
             _hasChartData = true;
             await UpdateIndicators();
+        }
+        else
+        {
+            // No historical data available - show empty chart with message
+            _hasChartData = false;
+            Console.WriteLine($"No historical data available for {Symbol}");
         }
     }
     

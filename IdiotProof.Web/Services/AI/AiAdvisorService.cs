@@ -281,27 +281,36 @@ Respond in JSON format:
   ""targetPercent"": 5.0
 }}";
         }
-        
-        return $@"**{symbol} Analysis**
 
-The stock is showing a mixed picture. Price is holding above VWAP which is bullish, and the EMA stack is properly aligned (9 > 21 > 50). However, RSI is approaching overbought territory which suggests we may see a pullback soon.
+        return $@"<div class='ai-mock'>
+<h4>{symbol} Analysis</h4>
+<p>The stock is showing a mixed picture. Price is holding above VWAP which is bullish, and the EMA stack is properly aligned (9 &gt; 21 &gt; 50). However, RSI is approaching overbought territory which suggests we may see a pullback soon.</p>
 
-**Bullish Factors:**
-- Price above VWAP
-- EMAs properly stacked
-- Volume confirming the move
+<h5>✅ Bullish Factors:</h5>
+<ul>
+<li>Price above VWAP</li>
+<li>EMAs properly stacked</li>
+<li>Volume confirming the move</li>
+</ul>
 
-**Bearish Factors:**
-- RSI near overbought
-- Extended from recent base
+<h5>⚠️ Bearish Factors:</h5>
+<ul>
+<li>RSI near overbought</li>
+<li>Extended from recent base</li>
+</ul>
 
-**Recommendation:** WAIT for either:
-1. A pullback to EMA 21 for a better entry, or
-2. A breakout above the current high on volume
+<h5>📋 Recommendation: <strong>WAIT</strong></h5>
+<p>Either:</p>
+<ol>
+<li>Wait for a pullback to EMA 21 for a better entry, or</li>
+<li>Wait for a breakout above the current high on volume</li>
+</ol>
 
-Risk Level: **Medium**
+<p><strong>Risk Level:</strong> Medium</p>
+<p>If entering now, keep position size small and use a tight stop below VWAP.</p>
 
-If entering now, keep position size small and use a tight stop below VWAP.";
+<p style='color: #6e7681; font-size: 0.875rem; margin-top: 1rem;'>ℹ️ <em>Mock response - Configure OpenAI API key in appsettings.json for real AI analysis</em></p>
+</div>";
     }
     
     private AiAnalysis ParseAnalysisResponse(string symbol, string response)

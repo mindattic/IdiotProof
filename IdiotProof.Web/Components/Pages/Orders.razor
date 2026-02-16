@@ -1,9 +1,11 @@
 @page "/orders"
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
 @using IdiotProof.Web.Services
 @using IdiotProof.Web.Hubs
 @using Microsoft.AspNetCore.SignalR.Client
 @inject NavigationManager Navigation
 @inject IbkrWebBridge WebBridge
+@inject TradeExecutionService TradeExecution
 @inject IJSRuntime JS
 @implements IAsyncDisposable
 
@@ -16,13 +18,16 @@
             <span class="subtitle">View and manage your open orders</span>
         </div>
         <div class="header-right">
-            <span class="connection-status @(WebBridge.IsConnected ? "connected" : "disconnected")">
+            <span class="connection-status @(WebBridge.IsConnected ? "connected" : "disconnected")"
+                  title="@(WebBridge.IsConnected ? "Connected to Interactive Brokers TWS/Gateway" : "Not connected - start IdiotProof.Core with IBKR running")">
                 @(WebBridge.IsConnected ? "● IBKR Connected" : "○ Disconnected")
             </span>
-            <button class="btn-refresh" @onclick="RefreshOrders" disabled="@_isRefreshing">
+            <button class="btn-refresh" @onclick="RefreshOrders" disabled="@_isRefreshing"
+                    title="Refresh order and position data from IBKR">
                 @(_isRefreshing ? "⟳ Refreshing..." : "⟳ Refresh")
             </button>
-            <button class="btn-cancel-all" @onclick="CancelAllOrders" disabled="@(_orders.Count == 0)">
+            <button class="btn-cancel-all" @onclick="CancelAllOrders" disabled="@(_orders.Count == 0)"
+                    title="Cancel all open orders (does NOT close positions)">
                 ❌ Cancel All
             </button>
         </div>
@@ -105,6 +110,50 @@
         }
     </div>
 
+    @* Pending Orders from Web UI *@
+    @if (_pendingOrders.Count > 0)
+    {
+        <section class="pending-orders-section">
+            <h2>⏳ Pending Orders (from Web UI)</h2>
+            <p class="hint">These orders will execute when Core picks them up. Run IdiotProof.Core to execute.</p>
+            <table class="orders-table">
+                <thead>
+                    <tr>
+                        <th>Symbol</th>
+                        <th>Direction</th>
+                        <th>Qty</th>
+                        <th>Entry</th>
+                        <th>Stop Loss</th>
+                        <th>Take Profit</th>
+                        <th>Created</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var order in _pendingOrders)
+                    {
+                        var dirClass = order.IsLong ? "buy" : "sell";
+                        <tr class="order-row @dirClass">
+                            <td class="symbol"><strong>@order.Symbol</strong></td>
+                            <td class="direction @dirClass">@(order.IsLong ? "LONG" : "SHORT")</td>
+                            <td class="quantity">@order.Quantity</td>
+                            <td class="price">$@order.EntryPrice.ToString("F2")</td>
+                            <td class="price stop">$@order.StopLoss.ToString("F2")</td>
+                            <td class="price target">$@order.TakeProfit.ToString("F2")</td>
+                            <td class="time">@order.CreatedUtc.ToLocalTime().ToString("HH:mm:ss")</td>
+                            <td class="actions">
+                                <button class="btn-small btn-cancel" @onclick="() => CancelPendingOrder(order.Id)"
+                                        title="Remove this pending order">
+                                    Cancel
+                                </button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </section>
+    }
+
     @* Positions Summary *@
     @if (_positions.Count > 0)
     {
@@ -174,6 +223,7 @@
 @code {
     private HubConnection? _hubConnection;
     private List<OrderInfo> _orders = [];
+    private List<PendingTradeOrder> _pendingOrders = [];
     private List<PositionInfo> _positions = [];
     private double _totalPnL = 0;
     private bool _isRefreshing;
@@ -202,13 +252,16 @@
         try
         {
             await _hubConnection.StartAsync();
-            
+
             // Load initial data
             if (WebBridge.IsConnected)
             {
                 _positions = WebBridge.GetPositions();
                 _totalPnL = _positions.Sum(p => p.UnrealizedPnL ?? 0);
             }
+
+            // Load pending orders from file
+            _pendingOrders = await TradeExecution.GetPendingOrdersAsync();
         }
         catch (Exception ex)
         {
@@ -231,12 +284,28 @@
                 _orders = WebBridge.GetOrders();
             }
 
-            await Task.Delay(100); // Brief delay for UI update
+            // Load pending orders from file
+            _pendingOrders = await TradeExecution.GetPendingOrdersAsync();
         }
         finally
         {
             _isRefreshing = false;
             StateHasChanged();
+        }
+    }
+
+    private async Task CancelPendingOrder(string orderId)
+    {
+        try
+        {
+            await TradeExecution.CancelPendingOrderAsync(orderId);
+            _pendingOrders.RemoveAll(o => o.Id == orderId);
+            await JS.InvokeVoidAsync("AudioAlerts.success");
+            StateHasChanged();
+        }
+        catch
+        {
+            await JS.InvokeVoidAsync("AudioAlerts.error");
         }
     }
 

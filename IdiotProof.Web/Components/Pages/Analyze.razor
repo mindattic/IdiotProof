@@ -1,13 +1,17 @@
 @page "/analyze"
 @page "/analyze/{Symbol}"
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
 @using IdiotProof.Web.Services.TradingView
 @using IdiotProof.Web.Services.AI
 @using IdiotProof.Web.Services.MarketScanner
 @using IdiotProof.Shared
+@using Microsoft.JSInterop
 @inject ChartDataService ChartService
+@inject HistoricalDataProvider HistoricalData
 @inject AiAdvisorService AiAdvisor
 @inject MarketScannerService Scanner
 @inject IJSRuntime JS
+@implements IAsyncDisposable
 
 <PageTitle>@Symbol Analysis - IdiotProof</PageTitle>
 
@@ -16,8 +20,9 @@
     <header class="center-header">
         <div class="symbol-selector">
             <input type="text" @bind="_symbolInput" @bind:event="oninput" 
+                   @onkeydown="OnSymbolKeyDown"
                    placeholder="Enter symbol..." class="symbol-input" />
-            <button class="btn-go" @onclick="LoadSymbolAsync">Analyze</button>
+            <button class="btn-go" @onclick="LoadSymbolAsync" title="Analyze this symbol's technical indicators">Analyze</button>
         </div>
         
         @if (_indicators != null)
@@ -244,7 +249,7 @@
 @code {
     [Parameter]
     public string? Symbol { get; set; }
-    
+
     private string _symbolInput = "";
     private ChartConfig _chartConfig = new();
     private ChartBundle? _chartData;
@@ -254,28 +259,52 @@
     private TradeSetup? _proposedSetup;
     private RiskCheckResult? _riskCheck;
     private RiskLimits _riskLimits = new();
-    
+
     private bool _isLoading;
     private bool _isAnalyzing;
-    
+    private bool _isJsReady;
+
     private List<GapperCandidate> _topGappers = [];
-    
+
     protected override async Task OnInitializedAsync()
     {
         // Load top gappers for quick access
         _topGappers = Scanner.GetTopCandidates(10).ToList();
-        
+
         if (!string.IsNullOrEmpty(Symbol))
         {
             _symbolInput = Symbol;
+            // Don't load yet - wait for JS to be ready
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            _isJsReady = true;
+
+            // Now load data if symbol was specified
+            if (!string.IsNullOrEmpty(Symbol))
+            {
+                await LoadSymbolAsync();
+                StateHasChanged();
+            }
+        }
+    }
+
+    private async Task OnSymbolKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+        {
             await LoadSymbolAsync();
         }
     }
-    
+
     private async Task LoadSymbolAsync()
     {
         if (string.IsNullOrWhiteSpace(_symbolInput)) return;
-        
+
         Symbol = _symbolInput.ToUpperInvariant();
         _chartConfig.Symbol = Symbol;
         _isLoading = true;
@@ -283,20 +312,27 @@
         _aiSummary = "";
         _proposedSetup = null;
         StateHasChanged();
-        
+
         try
         {
-            // TODO: Fetch real chart data from IBKR or data provider
-            // For now, generate sample data
-            var candles = GenerateSampleCandles(Symbol, 200);
+            // Try to load real historical data first
+            var intervalMinutes = int.TryParse(_chartConfig.Interval, out var i) ? i : 1;
+            var candles = await HistoricalData.GetCandlesAsync(Symbol, DateTime.Today.AddDays(-30), DateTime.Now, intervalMinutes);
+
+            // Fall back to sample data if no historical data available
+            if (candles.Count == 0)
+            {
+                candles = GenerateSampleCandles(Symbol, 200);
+            }
+
             _chartData = ChartService.PrepareChartData(candles, _chartConfig);
-            
+
             // Build indicator snapshot from latest data
             _indicators = BuildIndicatorSnapshot(Symbol, candles, _chartData);
-            
+
             // Render chart via JavaScript interop
             await RenderChartAsync();
-            
+
             // Auto-generate trade setup based on indicators
             _proposedSetup = GenerateTradeSetup(_indicators);
             if (_proposedSetup != null)
@@ -376,9 +412,42 @@
     private async Task RenderChartAsync()
     {
         if (_chartData == null) return;
-        
-        // Call JavaScript to render the chart
-        // await JS.InvokeVoidAsync("renderTradingViewChart", "tv-chart", _chartData);
+
+        try
+        {
+            // Initialize chart and set data
+            await JS.InvokeVoidAsync("initializeChart", "chart-container", new { height = 400 });
+            await JS.InvokeVoidAsync("setCandleData", _chartData.Candles);
+
+            // Add overlays
+            foreach (var overlay in _chartData.Overlays)
+            {
+                var shouldShow = overlay.Name switch
+                {
+                    "VWAP" => _chartConfig.ShowVwap,
+                    "EMA 9" => _chartConfig.ShowEma9,
+                    "EMA 21" => _chartConfig.ShowEma21,
+                    _ => true
+                };
+
+                if (shouldShow && overlay.Points.Count > 0)
+                {
+                    var points = overlay.Points
+                        .Where(p => p.Value > 0)
+                        .Select(p => new { time = p.Time, value = p.Value })
+                        .ToList();
+
+                    if (points.Count > 0)
+                    {
+                        await JS.InvokeVoidAsync("addOverlay", overlay.Name, points, overlay.Color, overlay.LineWidth);
+                    }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Chart render error: {ex.Message}");
+        }
     }
     
     // Helper methods
@@ -535,5 +604,20 @@
             .Replace("\n\n", "</p><p>")
             .Replace("\n- ", "<br/>• ")
             .Replace("\n", "<br/>");
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_isJsReady)
+        {
+            try
+            {
+                await JS.InvokeVoidAsync("destroyChart");
+            }
+            catch (JSDisconnectedException)
+            {
+                // Circuit disconnected, ignore
+            }
+        }
     }
 }

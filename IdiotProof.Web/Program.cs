@@ -58,6 +58,10 @@ builder.Services.AddSingleton<MarketDataBroadcaster>();
 builder.Services.AddSingleton<IbkrWebBridge>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<IbkrWebBridge>());
 
+// Register Global Log Service (collects logs regardless of which page is active)
+builder.Services.AddSingleton<GlobalLogService>();
+builder.Services.AddHostedService(sp => sp.GetRequiredService<GlobalLogService>());
+
 var app = builder.Build();
 
 // Initialize TradingHubNotifier (to subscribe to events)

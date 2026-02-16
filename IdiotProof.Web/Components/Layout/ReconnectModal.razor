@@ -2,30 +2,37 @@
 
 <dialog id="components-reconnect-modal" data-nosnippet>
     <div class="components-reconnect-container">
+        <div class="modal-header">
+            <span class="modal-icon">🔌</span>
+            <h2>Connection Lost</h2>
+        </div>
         <div class="components-rejoining-animation" aria-hidden="true">
             <div></div>
             <div></div>
         </div>
         <p class="components-reconnect-first-attempt-visible">
-            Rejoining the server...
+            Reconnecting to server...
         </p>
         <p class="components-reconnect-repeated-attempt-visible">
-            Rejoin failed... trying again in <span id="components-seconds-to-next-attempt"></span> seconds.
+            Connection failed. Retrying in <span id="components-seconds-to-next-attempt"></span> seconds...
         </p>
         <p class="components-reconnect-failed-visible">
-            Failed to rejoin.<br />Please retry or reload the page.
+            Unable to reconnect.<br />Please check your connection and try again.
         </p>
         <button id="components-reconnect-button" class="components-reconnect-failed-visible">
-            Retry
+            Retry Connection
         </button>
         <p class="components-pause-visible">
-            The session has been paused by the server.
+            Session paused by server.
         </p>
         <p class="components-resume-failed-visible">
-            Failed to resume the session.<br />Please retry or reload the page.
+            Failed to resume session.<br />Please try again.
         </p>
         <button id="components-resume-button" class="components-pause-visible components-resume-failed-visible">
-            Resume
+            Resume Session
         </button>
+        <p class="help-text">
+            If the problem persists, try refreshing the page.
+        </p>
     </div>
 </dialog>

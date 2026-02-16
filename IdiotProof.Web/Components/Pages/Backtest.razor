@@ -1,7 +1,9 @@
 @page "/backtest"
 @page "/backtest/{Symbol}"
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
 @using IdiotProof.Web.Services.TradingView
 @using IdiotProof.Shared
+@using Microsoft.JSInterop
 @inject HistoricalDataProvider HistoricalData
 @inject ChartDataService ChartService
 @inject IJSRuntime JS
@@ -206,6 +208,10 @@
     private int _playbackSpeed = 10;
     private int _currentCandleIndex;
     private Timer? _playbackTimer;
+
+    // JS interop readiness
+    private bool _isJsReady;
+    private bool _pendingRender;
     
     // Statistics
     private SessionStats? _sessionStats;
@@ -216,19 +222,84 @@
     protected override async Task OnInitializedAsync()
     {
         _availableSymbols = HistoricalData.GetAvailableSymbols();
-        
+
         if (!string.IsNullOrEmpty(Symbol) && _availableSymbols.Contains(Symbol.ToUpperInvariant()))
         {
             _selectedSymbol = Symbol.ToUpperInvariant();
-            await OnSymbolChanged();
+            // Load data but don't render chart yet (JS not ready during prerender)
+            await LoadDataForSymbol();
         }
     }
-    
+
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (firstRender)
         {
             await JS.InvokeVoidAsync("initializeChart", "backtest-chart", new { height = 500 });
+            _isJsReady = true;
+
+            // Render any pending chart data
+            if (_pendingRender && _hasData)
+            {
+                await RenderChart();
+                _pendingRender = false;
+                StateHasChanged();
+            }
+        }
+    }
+
+    private async Task LoadDataForSymbol()
+    {
+        if (string.IsNullOrEmpty(_selectedSymbol))
+        {
+            _availableDates = [];
+            return;
+        }
+
+        _isLoading = true;
+
+        try
+        {
+            _availableDates = await HistoricalData.GetTradingDaysAsync(_selectedSymbol);
+
+            if (_availableDates.Count > 0)
+            {
+                _selectedDate = _availableDates.Last().ToString("yyyy-MM-dd");
+                await LoadDataForDate();
+            }
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async Task LoadDataForDate()
+    {
+        if (string.IsNullOrEmpty(_selectedSymbol) || string.IsNullOrEmpty(_selectedDate))
+            return;
+
+        if (!DateTime.TryParse(_selectedDate, out var date))
+            return;
+
+        _candles = await HistoricalData.GetDayDataAsync(_selectedSymbol, date, _intervalMinutes);
+        _hasData = _candles.Count > 0;
+        _canPlayback = _hasData;
+        _currentCandleIndex = _candles.Count;
+
+        if (_hasData)
+        {
+            var config = new ChartConfig
+            {
+                Symbol = _selectedSymbol,
+                ShowVwap = _showVwap,
+                ShowEma9 = _showEma9,
+                ShowEma21 = _showEma21,
+                ShowEma50 = _showEma50
+            };
+            _chartBundle = ChartService.PrepareChartData(_candles, config);
+            CalculateSessionStats();
+            _pendingRender = true;
         }
     }
     
@@ -239,15 +310,14 @@
             _availableDates = [];
             return;
         }
-        
+
         _isLoading = true;
         StateHasChanged();
-        
+
         try
         {
             _availableDates = await HistoricalData.GetTradingDaysAsync(_selectedSymbol);
-            
-            // Default to most recent date
+
             if (_availableDates.Count > 0)
             {
                 _selectedDate = _availableDates.Last().ToString("yyyy-MM-dd");
@@ -260,28 +330,27 @@
             StateHasChanged();
         }
     }
-    
+
     private async Task OnDateChanged()
     {
         if (string.IsNullOrEmpty(_selectedSymbol) || string.IsNullOrEmpty(_selectedDate))
             return;
-        
+
         if (!DateTime.TryParse(_selectedDate, out var date))
             return;
-        
+
         _isLoading = true;
         StateHasChanged();
-        
+
         try
         {
             _candles = await HistoricalData.GetDayDataAsync(_selectedSymbol, date, _intervalMinutes);
             _hasData = _candles.Count > 0;
             _canPlayback = _hasData;
             _currentCandleIndex = _candles.Count;
-            
+
             if (_hasData)
             {
-                // Build chart data with indicators
                 var config = new ChartConfig
                 {
                     Symbol = _selectedSymbol,
@@ -291,12 +360,17 @@
                     ShowEma50 = _showEma50
                 };
                 _chartBundle = ChartService.PrepareChartData(_candles, config);
-                
-                // Calculate session stats
                 CalculateSessionStats();
-                
-                // Render chart
-                await RenderChart();
+
+                // Only render if JS is ready, otherwise mark as pending
+                if (_isJsReady)
+                {
+                    await RenderChart();
+                }
+                else
+                {
+                    _pendingRender = true;
+                }
             }
         }
         finally
@@ -316,19 +390,16 @@
     
     private async Task RenderChart()
     {
-        if (_chartBundle == null) return;
-        
-        // Set candle data
+        if (_chartBundle == null || !_isJsReady) return;
+
         await JS.InvokeVoidAsync("setCandleData", _chartBundle.Candles);
-        
-        // Add overlays
         await UpdateOverlays();
     }
-    
+
     private async Task UpdateOverlays()
     {
-        if (_chartBundle == null) return;
-        
+        if (_chartBundle == null || !_isJsReady) return;
+
         foreach (var overlay in _chartBundle.Overlays)
         {
             var shouldShow = overlay.Name switch
@@ -339,19 +410,33 @@
                 "EMA 50" => _showEma50,
                 _ => true
             };
-            
-            if (shouldShow)
+
+            try
             {
-                var points = overlay.Points.Select(p => new { time = p.Time, value = p.Value }).ToArray();
-                await JS.InvokeVoidAsync("addOverlay", overlay.Name, points, overlay.Color, overlay.LineWidth);
+                if (shouldShow && overlay.Points.Count > 0)
+                {
+                    var points = overlay.Points
+                        .Where(p => p.Value > 0)
+                        .Select(p => new { time = p.Time, value = p.Value })
+                        .ToList();
+
+                    if (points.Count > 0)
+                    {
+                        await JS.InvokeVoidAsync("addOverlay", overlay.Name, points, overlay.Color, overlay.LineWidth);
+                    }
+                }
+                else
+                {
+                    await JS.InvokeVoidAsync("removeOverlay", overlay.Name);
+                }
             }
-            else
+            catch (Exception ex)
             {
-                await JS.InvokeVoidAsync("removeOverlay", overlay.Name);
+                Console.WriteLine($"Overlay error for {overlay.Name}: {ex.Message}");
             }
         }
     }
-    
+
     private void CalculateSessionStats()
     {
         if (_candles.Count == 0) return;
@@ -427,13 +512,26 @@
     
     private async Task UpdatePlayback()
     {
+        if (!_isJsReady) return;
         var visibleCandles = _candles.Take(_currentCandleIndex).ToList();
         await JS.InvokeVoidAsync("setCandleData", visibleCandles);
     }
-    
-    private async Task FitContent() => await JS.InvokeVoidAsync("fitContent");
-    private async Task ScrollToStart() => await JS.InvokeVoidAsync("setVisibleRange", _candles.First().Time, _candles.First().Time + 3600);
-    private async Task ScrollToEnd() => await JS.InvokeVoidAsync("fitContent");
+
+    private async Task FitContent()
+    {
+        if (_isJsReady) await JS.InvokeVoidAsync("fitContent");
+    }
+
+    private async Task ScrollToStart()
+    {
+        if (_isJsReady && _candles.Count > 0)
+            await JS.InvokeVoidAsync("setVisibleRange", _candles.First().Time, _candles.First().Time + 3600);
+    }
+
+    private async Task ScrollToEnd()
+    {
+        if (_isJsReady) await JS.InvokeVoidAsync("fitContent");
+    }
     
     // Simulation
     private async Task RunSimulation()
@@ -511,16 +609,19 @@
         _totalPnL = _simulatedTrades.Sum(t => t.PnL);
         var winners = _simulatedTrades.Count(t => t.PnL > 0);
         _winRate = _simulatedTrades.Count > 0 ? (winners / (double)_simulatedTrades.Count) * 100 : 0;
-        
+
         // Add markers to chart
-        var markers = _simulatedTrades.SelectMany(t => new[]
+        if (_isJsReady && _simulatedTrades.Count > 0)
         {
-            new { time = new DateTimeOffset(t.EntryTime).ToUnixTimeSeconds(), isEntry = true, isLong = t.IsLong, isProfit = false, label = t.IsLong ? "BUY" : "SHORT" },
-            new { time = new DateTimeOffset(t.ExitTime).ToUnixTimeSeconds(), isEntry = false, isLong = t.IsLong, isProfit = t.PnL > 0, label = t.PnL > 0 ? "WIN" : "LOSS" }
-        }).ToArray();
-        
-        await JS.InvokeVoidAsync("addTradeMarkers", markers);
-        
+            var markers = _simulatedTrades.SelectMany(t => new object[]
+            {
+                new { time = new DateTimeOffset(t.EntryTime).ToUnixTimeSeconds(), isEntry = true, isLong = t.IsLong, isProfit = false, label = t.IsLong ? "BUY" : "SHORT" },
+                new { time = new DateTimeOffset(t.ExitTime).ToUnixTimeSeconds(), isEntry = false, isLong = t.IsLong, isProfit = t.PnL > 0, label = t.PnL > 0 ? "WIN" : "LOSS" }
+            }).ToArray();
+
+            await JS.InvokeVoidAsync("addTradeMarkers", (object)markers);
+        }
+
         StateHasChanged();
     }
     
@@ -535,7 +636,18 @@
     public async ValueTask DisposeAsync()
     {
         _playbackTimer?.Dispose();
-        await JS.InvokeVoidAsync("destroyChart");
+
+        if (_isJsReady)
+        {
+            try
+            {
+                await JS.InvokeVoidAsync("destroyChart");
+            }
+            catch (JSDisconnectedException)
+            {
+                // Circuit disconnected, ignore
+            }
+        }
     }
     
     // Models

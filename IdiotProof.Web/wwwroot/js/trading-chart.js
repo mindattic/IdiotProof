@@ -121,9 +121,11 @@ window.initializeChart = function(containerId, options = {}) {
     // Handle resize
     const resizeObserver = new ResizeObserver(entries => {
         for (const entry of entries) {
-            chart.applyOptions({
-                width: entry.contentRect.width,
-            });
+            if (chart) {
+                chart.applyOptions({
+                    width: entry.contentRect.width,
+                });
+            }
         }
     });
     resizeObserver.observe(container);
@@ -217,7 +219,18 @@ window.removeOverlay = function(name) {
  */
 window.addTradeMarkers = function(trades) {
     if (!candleSeries) return false;
-    
+
+    // Ensure trades is an array
+    if (!trades || !Array.isArray(trades)) {
+        console.error('addTradeMarkers: trades is not an array', typeof trades, trades);
+        return false;
+    }
+
+    if (trades.length === 0) {
+        console.log('No trade markers to add');
+        return true;
+    }
+
     markers = trades.map(t => ({
         time: t.time,
         position: t.isEntry 
@@ -232,9 +245,9 @@ window.addTradeMarkers = function(trades) {
         text: t.label || '',
         size: 2,
     }));
-    
+
     candleSeries.setMarkers(markers);
-    
+
     console.log('Added', markers.length, 'trade markers');
     return true;
 };

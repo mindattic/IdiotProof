@@ -79,6 +79,26 @@ public sealed class TradingHub : Hub
     {
         return _scanner.GetStatistics();
     }
+
+    /// <summary>
+    /// Cancels a specific order by ID.
+    /// </summary>
+    public async Task CancelOrder(int orderId)
+    {
+        _logger.LogInformation("Client {ConnectionId} requested cancel for order {OrderId}", Context.ConnectionId, orderId);
+        // Queue command to be sent to Core
+        await Clients.All.SendAsync("OrderCancelRequested", orderId);
+    }
+
+    /// <summary>
+    /// Cancels all open orders.
+    /// </summary>
+    public async Task CancelAllOrders()
+    {
+        _logger.LogInformation("Client {ConnectionId} requested cancel all orders", Context.ConnectionId);
+        // Queue command to be sent to Core
+        await Clients.All.SendAsync("CancelAllOrdersRequested");
+    }
 }
 
 /// <summary>

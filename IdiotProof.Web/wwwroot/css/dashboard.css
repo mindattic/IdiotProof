@@ -211,10 +211,23 @@ body {
 /* Main Content */
 .main-content {
     display: grid;
-    grid-template-columns: 1fr 400px;
+    grid-template-columns: 1fr 420px;
     gap: 24px;
     padding: 24px;
     flex: 1;
+    min-height: 0;
+}
+
+/* When no trade panel is selected, expand gapper list */
+.main-content:has(.trade-panel.hidden),
+.main-content:not(:has(.trade-panel)) {
+    grid-template-columns: 1fr;
+}
+
+@media (max-width: 1400px) {
+    .main-content {
+        grid-template-columns: 1fr 380px;
+    }
 }
 
 @media (max-width: 1200px) {
@@ -470,8 +483,57 @@ body {
 .scenario-row.highlight {
     font-weight: 500;
     padding-top: 8px;
+    margin-top: 0;
+}
+
+.scenario-row.highlight:first-of-type {
     border-top: 1px solid var(--border-color);
     margin-top: 8px;
+}
+
+/* Risk/Reward summary grid */
+.scenario-summary {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    padding-top: 12px;
+    border-top: 1px solid var(--border-color);
+    margin-top: 12px;
+}
+
+.summary-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+}
+
+.summary-item .label {
+    font-size: 0.7rem;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    margin-bottom: 4px;
+}
+
+.summary-item .value {
+    font-size: 0.9rem;
+    font-weight: 600;
+}
+
+.summary-item .value.risk {
+    color: var(--accent-red);
+}
+
+.summary-item .value.reward {
+    color: var(--accent-green);
+}
+
+.summary-item .value.rr {
+    color: var(--text-primary);
+}
+
+.summary-item .value.rr.good {
+    color: var(--accent-green);
 }
 
 .scenario-row .entry {
@@ -664,4 +726,41 @@ body {
     color: var(--accent-blue);
     background: rgba(88, 166, 255, 0.15);
     font-weight: 600;
+}
+
+/* Pagination */
+.pagination {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    padding: 16px;
+    border-top: 1px solid var(--border-color);
+    background: var(--bg-secondary);
+}
+
+.btn-page {
+    padding: 8px 16px;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius);
+    color: var(--text-primary);
+    cursor: pointer;
+    font-size: 0.875rem;
+    font-weight: 500;
+    transition: all 0.2s;
+}
+
+.btn-page:hover:not(:disabled) {
+    background: var(--border-color);
+}
+
+.btn-page:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.page-info {
+    color: var(--text-secondary);
+    font-size: 0.875rem;
 }
