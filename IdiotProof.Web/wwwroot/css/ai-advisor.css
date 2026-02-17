@@ -1,0 +1,377 @@
+/* ============================================================================
+   AI Advisor Panel Styles - Persistent Chat at Bottom
+   ============================================================================ */
+
+.ai-advisor-container {
+    position: fixed;
+    bottom: 0;
+    left: 200px; /* Account for sidebar */
+    right: 0;
+    background: var(--bg-secondary, #161b22);
+    border-top: 1px solid var(--border-color, #30363d);
+    z-index: 10000; /* Higher than any other fixed element */
+    transition: height 0.3s ease;
+    display: flex;
+    flex-direction: column;
+}
+
+.ai-advisor-container.collapsed {
+    height: 48px;
+}
+
+.ai-advisor-container.expanded {
+    height: 380px;
+    box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.4);
+}
+
+/* ============================================================================
+   AI Help Icons - Clickable robot icons throughout the UI
+   ============================================================================ */
+
+.ai-help-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    margin-left: 6px;
+    background: linear-gradient(135deg, rgba(88, 166, 255, 0.15) 0%, rgba(35, 134, 54, 0.15) 100%);
+    border: 1px solid rgba(88, 166, 255, 0.3);
+    border-radius: 50%;
+    font-size: 14px;
+    cursor: pointer;
+    opacity: 0.6;
+    transition: all 0.2s ease;
+    vertical-align: middle;
+}
+
+.ai-help-icon:hover {
+    opacity: 1;
+    transform: scale(1.15);
+    background: linear-gradient(135deg, rgba(88, 166, 255, 0.3) 0%, rgba(35, 134, 54, 0.3) 100%);
+    border-color: var(--accent-blue, #58a6ff);
+    box-shadow: 0 0 12px rgba(88, 166, 255, 0.4);
+}
+
+.ai-help-icon:active {
+    transform: scale(0.95);
+}
+
+/* Subtle pulse animation on hover */
+.ai-help-icon:hover::after {
+    content: '';
+    position: absolute;
+    inset: -4px;
+    border-radius: 50%;
+    border: 2px solid rgba(88, 166, 255, 0.5);
+    animation: ai-help-pulse 1s ease-out infinite;
+}
+
+@keyframes ai-help-pulse {
+    0% {
+        transform: scale(1);
+        opacity: 0.8;
+    }
+    100% {
+        transform: scale(1.4);
+        opacity: 0;
+    }
+}
+
+/* Position variants */
+.ai-help-icon.inline {
+    display: inline-flex;
+    margin-left: 4px;
+}
+
+.ai-help-icon.absolute-right {
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+}
+
+.ai-help-icon.absolute-right:hover {
+    transform: translateY(-50%) scale(1.15);
+}
+
+/* Header */
+.ai-advisor-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 16px;
+    background: linear-gradient(135deg, #1a1f2e 0%, #21262d 100%);
+    cursor: pointer;
+    user-select: none;
+    border-bottom: 1px solid var(--border-color, #30363d);
+    height: 48px;
+    flex-shrink: 0;
+}
+
+.ai-advisor-header:hover {
+    background: linear-gradient(135deg, #1f2638 0%, #262c36 100%);
+}
+
+.header-left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.ai-icon {
+    font-size: 1.4rem;
+    animation: pulse-glow 2s ease-in-out infinite;
+}
+
+@keyframes pulse-glow {
+    0%, 100% { filter: drop-shadow(0 0 3px rgba(88, 166, 255, 0.5)); }
+    50% { filter: drop-shadow(0 0 8px rgba(88, 166, 255, 0.8)); }
+}
+
+.ai-title {
+    font-weight: 600;
+    font-size: 1rem;
+    color: var(--text-primary, #c9d1d9);
+}
+
+.analyzing-badge {
+    background: var(--accent-blue, #58a6ff);
+    color: white;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    animation: pulse 1s ease-in-out infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.6; }
+}
+
+.header-right {
+    display: flex;
+    gap: 8px;
+}
+
+.btn-capture {
+    background: linear-gradient(135deg, #238636 0%, #1f6feb 100%);
+    border: none;
+    border-radius: 6px;
+    padding: 6px 12px;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-capture:hover:not(:disabled) {
+    transform: scale(1.05);
+    box-shadow: 0 2px 8px rgba(35, 134, 54, 0.4);
+}
+
+.btn-capture:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.btn-toggle {
+    background: transparent;
+    border: none;
+    color: var(--text-secondary, #8b949e);
+    font-size: 1rem;
+    cursor: pointer;
+    padding: 4px 8px;
+}
+
+.btn-toggle:hover {
+    color: var(--text-primary, #c9d1d9);
+}
+
+/* Body */
+.ai-advisor-body {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+/* Messages */
+.messages-container {
+    flex: 1;
+    overflow-y: auto;
+    padding: 12px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    text-align: center;
+    color: var(--text-secondary, #8b949e);
+    font-size: 0.9rem;
+}
+
+.empty-state p {
+    margin: 4px 0;
+}
+
+.message {
+    max-width: 85%;
+    animation: message-slide 0.3s ease;
+}
+
+@keyframes message-slide {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.message.user {
+    align-self: flex-end;
+}
+
+.message.ai {
+    align-self: flex-start;
+}
+
+.message-header {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.7rem;
+    color: var(--text-muted, #484f58);
+    margin-bottom: 4px;
+    padding: 0 4px;
+}
+
+.message-content {
+    padding: 10px 14px;
+    border-radius: 12px;
+    font-size: 0.85rem;
+    line-height: 1.5;
+}
+
+.message.user .message-content {
+    background: linear-gradient(135deg, #238636 0%, #1f6feb 100%);
+    color: white;
+    border-bottom-right-radius: 4px;
+}
+
+.message.ai .message-content {
+    background: var(--bg-tertiary, #21262d);
+    color: var(--text-primary, #c9d1d9);
+    border-bottom-left-radius: 4px;
+    border: 1px solid var(--border-color, #30363d);
+}
+
+.screenshot-preview {
+    margin-bottom: 8px;
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.screenshot-preview img {
+    width: 100%;
+    max-height: 120px;
+    object-fit: cover;
+    display: block;
+}
+
+.message-text {
+    word-break: break-word;
+}
+
+/* Input */
+.input-container {
+    display: flex;
+    gap: 8px;
+    padding: 12px 16px;
+    border-top: 1px solid var(--border-color, #30363d);
+    background: var(--bg-tertiary, #21262d);
+}
+
+.input-container input {
+    flex: 1;
+    padding: 10px 14px;
+    border: 1px solid var(--border-color, #30363d);
+    border-radius: 20px;
+    background: var(--bg-primary, #0d1117);
+    color: var(--text-primary, #c9d1d9);
+    font-size: 0.9rem;
+    outline: none;
+    transition: border-color 0.2s;
+}
+
+.input-container input:focus {
+    border-color: var(--accent-blue, #58a6ff);
+}
+
+.input-container input::placeholder {
+    color: var(--text-muted, #484f58);
+}
+
+.btn-send {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    border: none;
+    background: linear-gradient(135deg, #238636 0%, #1f6feb 100%);
+    color: white;
+    font-size: 1rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+}
+
+.btn-send:hover:not(:disabled) {
+    transform: scale(1.05);
+    box-shadow: 0 2px 8px rgba(35, 134, 54, 0.4);
+}
+
+.btn-send:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* Scrollbar */
+.messages-container::-webkit-scrollbar {
+    width: 6px;
+}
+
+.messages-container::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.messages-container::-webkit-scrollbar-thumb {
+    background: var(--border-color, #30363d);
+    border-radius: 3px;
+}
+
+.messages-container::-webkit-scrollbar-thumb:hover {
+    background: var(--text-muted, #484f58);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .ai-advisor-container {
+        left: 0;
+    }
+    
+    .ai-advisor-container.expanded {
+        height: 50vh;
+    }
+}

@@ -1,0 +1,26 @@
+﻿# LIMN Variant 3 - Higher Lows Focus
+# Emphasizes pattern recognition with volume
+# Good for continuation plays
+
+Ticker(LIMN)
+.Name("LIMN-V3-HigherLows")
+.Session(IS.PREMARKET)
+.Qty(500)
+
+# Entry Conditions:
+# 1. Entry above $1.18 (pattern confirmation)
+# 2. Higher lows pattern (5 bars for stronger signal)
+# 3. Volume spike (1.5x average)
+# 4. Above VWAP
+# 5. Positive momentum
+.Entry(1.18)
+.HigherLows(5)
+.VolumeAbove(1.5)
+.AboveVwap()
+.MomentumAbove(0)
+
+# Exit - Balanced targets
+.TakeProfit(2.10)
+.StopLoss(0.92)
+.TSL(10)
+.ClosePosition(IS.BELL, IS.PROFITABLE)

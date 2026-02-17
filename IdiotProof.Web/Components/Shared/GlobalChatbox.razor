@@ -3,8 +3,8 @@
 @inject AiAdvisorService AiService
 @inject IJSRuntime JS
 
-<div class="global-chatbox @(IsMinimized ? "minimized" : "expanded")">
-    <div class="chatbox-header" @onclick="ToggleMinimize">
+<div class="global-chatbox @(IsMinimized ? "minimized" : "expanded")" @onclick:stopPropagation="true">
+    <div class="chatbox-header" @onclick="ToggleMinimize" role="button" tabindex="0" aria-expanded="@(!IsMinimized)" aria-label="Toggle AI Assistant">
         <div class="chatbox-toggle">🤖</div>
         <span class="chatbox-title">AI Assistant</span>
         @if (!string.IsNullOrEmpty(CurrentSymbol))
@@ -13,11 +13,12 @@
                 Watching: <span style="color: #58a6ff; font-weight: 600;">@CurrentSymbol</span>
             </span>
         }
-        <button class="chatbox-minimize-btn" @onclick:stopPropagation="true" @onclick="ToggleMinimize">
+        <span class="chatbox-expand-hint">@(IsMinimized ? "Click to expand" : "")</span>
+        <button class="chatbox-minimize-btn" @onclick:stopPropagation="true" @onclick="ToggleMinimize" aria-label="@(IsMinimized ? "Expand" : "Collapse")">
             @(IsMinimized ? "▲" : "▼")
         </button>
     </div>
-    
+
     @if (!IsMinimized)
     {
         <div class="chatbox-body">

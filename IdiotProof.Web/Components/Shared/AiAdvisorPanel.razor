@@ -1,0 +1,339 @@
+@using IdiotProof.Web.Services.AI
+@using System.Text.Json
+@inject AiAdvisorService AiAdvisor
+@inject IJSRuntime JS
+@inject NavigationManager Navigation
+
+<div class="ai-advisor-container @(_isExpanded ? "expanded" : "collapsed")">
+    <div class="ai-advisor-header" @onclick="ToggleExpanded">
+        <div class="header-left">
+            <span class="ai-icon">🤖</span>
+            <span class="ai-title">AI Advisor</span>
+            @if (_isAnalyzing)
+            {
+                <span class="analyzing-badge">Analyzing...</span>
+            }
+        </div>
+        <div class="header-right">
+            <button class="btn-capture" @onclick="CaptureAndAnalyze" @onclick:stopPropagation="true" 
+                    disabled="@_isAnalyzing" title="Capture & Analyze Screen">
+                📸
+            </button>
+            <button class="btn-toggle" title="@(_isExpanded ? "Minimize" : "Expand")">
+                @(_isExpanded ? "▼" : "▲")
+            </button>
+        </div>
+    </div>
+    
+    @if (_isExpanded)
+    {
+        <div class="ai-advisor-body">
+            <div class="messages-container" @ref="_messagesContainer">
+                @if (_messages.Count == 0)
+                {
+                    <div class="empty-state">
+                        <p>👋 Hi! I'm your AI trading advisor.</p>
+                        <p>Click 📸 to capture the screen and I'll analyze what I see.</p>
+                        <p>Or ask me anything about your trades!</p>
+                    </div>
+                }
+                else
+                {
+                    @foreach (var message in _messages)
+                    {
+                        <div class="message @(message.IsUser ? "user" : "ai")">
+                            <div class="message-header">
+                                <span class="sender">@(message.IsUser ? "You" : "AI Advisor")</span>
+                                <span class="time">@message.Timestamp.ToString("HH:mm")</span>
+                            </div>
+                            <div class="message-content">
+                                @if (message.HasImage)
+                                {
+                                    <div class="screenshot-preview">
+                                        <img src="@message.ImageData" alt="Screenshot" />
+                                    </div>
+                                }
+                                <div class="message-text">@((MarkupString)FormatMessage(message.Text))</div>
+                            </div>
+                        </div>
+                    }
+                }
+            </div>
+            
+            <div class="input-container">
+                <input type="text" 
+                       @bind="_userInput" 
+                       @bind:event="oninput"
+                       @onkeypress="HandleKeyPress"
+                       placeholder="Ask about your trades..." 
+                       disabled="@_isAnalyzing" />
+                <button class="btn-send" @onclick="SendMessage" disabled="@(string.IsNullOrWhiteSpace(_userInput) || _isAnalyzing)">
+                    ➤
+                </button>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private bool _isExpanded = false;
+    private bool _isAnalyzing = false;
+    private string _userInput = "";
+    private List<ChatMessage> _messages = new();
+    private ElementReference _messagesContainer;
+    private string _currentPage = "";
+    private DotNetObjectReference<AiAdvisorPanel>? _dotNetRef;
+
+    protected override void OnInitialized()
+    {
+        Navigation.LocationChanged += OnLocationChanged;
+        _currentPage = GetPageName(Navigation.Uri);
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            // Register for AI help icon clicks
+            _dotNetRef = DotNetObjectReference.Create(this);
+            await JS.InvokeVoidAsync("registerAiAdvisorCallback", _dotNetRef);
+        }
+    }
+
+    /// <summary>
+    /// Called from JavaScript when an AI help icon is clicked
+    /// </summary>
+    [JSInvokable]
+    public async Task ReceiveContextFromHelpIcon(string context)
+    {
+        if (string.IsNullOrWhiteSpace(context)) return;
+
+        // Expand the panel
+        _isExpanded = true;
+
+        // Add a user message with the context
+        _messages.Add(new ChatMessage
+        {
+            IsUser = true,
+            Text = $"Help me understand this:\n{context}",
+            Timestamp = DateTime.Now
+        });
+
+        StateHasChanged();
+        await ScrollToBottom();
+
+        // Get AI response
+        _isAnalyzing = true;
+        StateHasChanged();
+
+        try
+        {
+            var response = await AiAdvisor.GetAdviceAsync($"Explain this to me as a trading advisor. Be concise and helpful:\n\n{context}", _currentPage);
+
+            _messages.Add(new ChatMessage
+            {
+                IsUser = false,
+                Text = response,
+                Timestamp = DateTime.Now
+            });
+        }
+        catch (Exception ex)
+        {
+            _messages.Add(new ChatMessage
+            {
+                IsUser = false,
+                Text = $"❌ Error: {ex.Message}",
+                Timestamp = DateTime.Now
+            });
+        }
+        finally
+        {
+            _isAnalyzing = false;
+            StateHasChanged();
+            await ScrollToBottom();
+        }
+    }
+
+    private void OnLocationChanged(object? sender, LocationChangedEventArgs e)
+    {
+        var newPage = GetPageName(e.Location);
+        if (newPage != _currentPage)
+        {
+            _currentPage = newPage;
+            // Auto-analyze on page change if expanded
+            if (_isExpanded && !_isAnalyzing)
+            {
+                _ = AutoAnalyzePageChange();
+            }
+        }
+    }
+    
+    private async Task AutoAnalyzePageChange()
+    {
+        await Task.Delay(500); // Wait for page to render
+        await InvokeAsync(StateHasChanged);
+    }
+    
+    private string GetPageName(string uri)
+    {
+        var path = new Uri(uri).AbsolutePath.TrimStart('/');
+        return string.IsNullOrEmpty(path) ? "Dashboard" : path.Split('/')[0];
+    }
+    
+    private void ToggleExpanded()
+    {
+        _isExpanded = !_isExpanded;
+    }
+    
+    private async Task CaptureAndAnalyze()
+    {
+        if (_isAnalyzing) return;
+
+        _isAnalyzing = true;
+        StateHasChanged();
+
+        try
+        {
+            // Capture screenshot using JavaScript
+            var screenshotData = await JS.InvokeAsync<string>("captureScreenshot");
+
+            // Also extract the page context from data-analysis/data-meta attributes
+            var pageContext = await JS.InvokeAsync<string>("getPageSummary");
+
+            if (!string.IsNullOrEmpty(screenshotData))
+            {
+                // Add user message with screenshot
+                _messages.Add(new ChatMessage
+                {
+                    IsUser = true,
+                    Text = $"Analyzing the {_currentPage} page...",
+                    Timestamp = DateTime.Now,
+                    HasImage = true,
+                    ImageData = screenshotData
+                });
+
+                await ScrollToBottom();
+                StateHasChanged();
+
+                // Send to AI for analysis with context
+                var analysis = await AiAdvisor.AnalyzeScreenshotAsync(screenshotData, _currentPage, pageContext);
+
+                _messages.Add(new ChatMessage
+                {
+                    IsUser = false,
+                    Text = analysis,
+                    Timestamp = DateTime.Now
+                });
+
+                await ScrollToBottom();
+            }
+            else
+            {
+                _messages.Add(new ChatMessage
+                {
+                    IsUser = false,
+                    Text = "⚠️ Couldn't capture the screen. Make sure the page is fully loaded.",
+                    Timestamp = DateTime.Now
+                });
+            }
+        }
+        catch (Exception ex)
+        {
+            _messages.Add(new ChatMessage
+            {
+                IsUser = false,
+                Text = $"❌ Error analyzing screen: {ex.Message}",
+                Timestamp = DateTime.Now
+            });
+        }
+        finally
+        {
+            _isAnalyzing = false;
+            StateHasChanged();
+        }
+    }
+    
+    private async Task SendMessage()
+    {
+        if (string.IsNullOrWhiteSpace(_userInput) || _isAnalyzing) return;
+        
+        var userMessage = _userInput.Trim();
+        _userInput = "";
+        _isAnalyzing = true;
+        
+        _messages.Add(new ChatMessage
+        {
+            IsUser = true,
+            Text = userMessage,
+            Timestamp = DateTime.Now
+        });
+        
+        await ScrollToBottom();
+        StateHasChanged();
+        
+        try
+        {
+            var response = await AiAdvisor.GetAdviceAsync(userMessage, _currentPage);
+            
+            _messages.Add(new ChatMessage
+            {
+                IsUser = false,
+                Text = response,
+                Timestamp = DateTime.Now
+            });
+            
+            await ScrollToBottom();
+        }
+        catch (Exception ex)
+        {
+            _messages.Add(new ChatMessage
+            {
+                IsUser = false,
+                Text = $"❌ Error: {ex.Message}",
+                Timestamp = DateTime.Now
+            });
+        }
+        finally
+        {
+            _isAnalyzing = false;
+            StateHasChanged();
+        }
+    }
+    
+    private async Task HandleKeyPress(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" && !string.IsNullOrWhiteSpace(_userInput))
+        {
+            await SendMessage();
+        }
+    }
+    
+    private async Task ScrollToBottom()
+    {
+        await Task.Delay(50);
+        await JS.InvokeVoidAsync("scrollToBottom", _messagesContainer);
+    }
+    
+    private string FormatMessage(string text)
+    {
+        // Convert markdown-style formatting to HTML
+        return text
+            .Replace("\n", "<br/>")
+            .Replace("**", "<strong>")
+            .Replace("*", "<em>");
+    }
+    
+    public void Dispose()
+    {
+        Navigation.LocationChanged -= OnLocationChanged;
+    }
+    
+    private class ChatMessage
+    {
+        public bool IsUser { get; set; }
+        public string Text { get; set; } = "";
+        public DateTime Timestamp { get; set; }
+        public bool HasImage { get; set; }
+        public string? ImageData { get; set; }
+    }
+}

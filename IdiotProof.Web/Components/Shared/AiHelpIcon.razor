@@ -1,0 +1,59 @@
+@* Clickable AI Help Icon - Click to get AI insights about the parent element *@
+@inject IJSRuntime JS
+
+<button class="ai-help-icon" @onclick="RequestAiHelp" title="Ask AI about this">
+    🤖
+</button>
+
+@code {
+    /// <summary>
+    /// Optional context to pass directly (overrides auto-extraction)
+    /// </summary>
+    [Parameter]
+    public string? Context { get; set; }
+
+    /// <summary>
+    /// Optional element ID to extract context from
+    /// </summary>
+    [Parameter]
+    public string? TargetId { get; set; }
+
+    /// <summary>
+    /// CSS selector to find parent element with data attributes
+    /// </summary>
+    [Parameter]
+    public string? ParentSelector { get; set; }
+
+    /// <summary>
+    /// Event callback when AI help is requested
+    /// </summary>
+    [Parameter]
+    public EventCallback<string> OnHelpRequested { get; set; }
+
+    private async Task RequestAiHelp()
+    {
+        string context;
+
+        if (!string.IsNullOrEmpty(Context))
+        {
+            // Use directly provided context
+            context = Context;
+        }
+        else
+        {
+            // Extract context from DOM using JS
+            context = await JS.InvokeAsync<string>("extractAiContext", TargetId, ParentSelector);
+        }
+
+        if (!string.IsNullOrWhiteSpace(context))
+        {
+            // Send to AI Advisor via global event
+            await JS.InvokeVoidAsync("sendToAiAdvisor", context);
+        }
+
+        if (OnHelpRequested.HasDelegate)
+        {
+            await OnHelpRequested.InvokeAsync(context);
+        }
+    }
+}

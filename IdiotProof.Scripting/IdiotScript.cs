@@ -165,7 +165,37 @@ public sealed class StrategyBuilder
         _strategy.EntryConditions.Add(new IndicatorCondition(IndicatorType.VolumeAbove, multiplier));
         return this;
     }
-    
+
+    /// <summary>
+    /// Price must hold above this level (used for support confirmation).
+    /// Example: HoldsAbove(0.48) - price must stay above $0.48
+    /// </summary>
+    public StrategyBuilder HoldsAbove(double price)
+    {
+        _strategy.EntryConditions.Add(new PriceLevelCondition(PriceLevelType.HoldsAbove, price));
+        return this;
+    }
+
+    /// <summary>
+    /// Price must hold below this level (used for resistance confirmation in shorts).
+    /// Example: HoldsBelow(150) - price must stay below $150
+    /// </summary>
+    public StrategyBuilder HoldsBelow(double price)
+    {
+        _strategy.EntryConditions.Add(new PriceLevelCondition(PriceLevelType.HoldsBelow, price));
+        return this;
+    }
+
+    /// <summary>
+    /// Price must be near a specific level (within tolerance %).
+    /// Example: IsNear(3.68, 1.0) - price within 1% of $3.68
+    /// </summary>
+    public StrategyBuilder IsNear(double price, double tolerancePercent = 1.0)
+    {
+        _strategy.EntryConditions.Add(new PriceLevelCondition(PriceLevelType.Near, price, tolerancePercent));
+        return this;
+    }
+
     // ========================================
     // ORDER DIRECTION
     // ========================================
@@ -188,7 +218,39 @@ public sealed class StrategyBuilder
         _strategy.TakeProfitPrice = price;
         return this;
     }
-    
+
+    /// <summary>
+    /// Sets multiple take profit targets for scaling out.
+    /// Example: TakeProfit(5.00, 6.50, 8.00) - T1: $5, T2: $6.50, T3: $8
+    /// </summary>
+    public StrategyBuilder TakeProfit(double t1, double t2, double? t3 = null)
+    {
+        _strategy.TakeProfitTargets.Clear();
+        _strategy.TakeProfitTargets.Add(new TakeProfitTarget { Price = t1, PercentToSell = t3.HasValue ? 33 : 50, Label = "T1" });
+        _strategy.TakeProfitTargets.Add(new TakeProfitTarget { Price = t2, PercentToSell = t3.HasValue ? 33 : 50, Label = "T2" });
+        if (t3.HasValue)
+            _strategy.TakeProfitTargets.Add(new TakeProfitTarget { Price = t3.Value, PercentToSell = 34, Label = "T3" });
+        _strategy.TakeProfitPrice = t1; // Primary target for simple exits
+        return this;
+    }
+
+    /// <summary>
+    /// Adds a specific take profit target with custom percentage to sell.
+    /// Example: AddTarget(5.00, 50, "T1") - sell 50% at $5
+    /// </summary>
+    public StrategyBuilder AddTarget(double price, int percentToSell, string? label = null)
+    {
+        _strategy.TakeProfitTargets.Add(new TakeProfitTarget 
+        { 
+            Price = price, 
+            PercentToSell = percentToSell, 
+            Label = label ?? $"T{_strategy.TakeProfitTargets.Count + 1}" 
+        });
+        if (!_strategy.TakeProfitPrice.HasValue)
+            _strategy.TakeProfitPrice = price;
+        return this;
+    }
+
     public StrategyBuilder TakeProfitPercent(double percent)
     {
         _strategy.TakeProfitPercent = percent;
@@ -311,14 +373,34 @@ public sealed class StrategyDefinition
     
     public double? TakeProfitPrice { get; set; }
     public double? TakeProfitPercent { get; set; }
+    public List<TakeProfitTarget> TakeProfitTargets { get; } = [];
     public double? StopLossPrice { get; set; }
     public double? StopLossPercent { get; set; }
     public double? TrailingStopPercent { get; set; }
     public TimeSpan? ExitTime { get; set; }
-    
+
     public bool IsAutonomous { get; set; }
     public bool IsAdaptive { get; set; }
     public bool ShouldRepeat { get; set; }
+
+    /// <summary>
+    /// Checks if this strategy has multiple take profit targets.
+    /// </summary>
+    public bool HasMultipleTargets => TakeProfitTargets.Count > 1;
+}
+
+/// <summary>
+/// Represents a single take profit target for scaling out.
+/// </summary>
+ public sealed class TakeProfitTarget
+{
+    public string Label { get; set; } = "T1";
+    public double Price { get; set; }
+    public int PercentToSell { get; set; } = 100;
+    public bool IsHit { get; set; }
+    public DateTime? HitTime { get; set; }
+
+    public override string ToString() => $"{Label}: ${Price:F2} ({PercentToSell}%)";
 }
 
 // ========================================
@@ -343,6 +425,18 @@ public enum IndicatorType
     MacdBullish, MacdBearish,
     GapUp, GapDown,
     VolumeAbove
+}
+
+/// <summary>
+/// Types of price level conditions.
+/// </summary>
+ public enum PriceLevelType
+{
+    HoldsAbove,   // Price must stay above this level
+    HoldsBelow,   // Price must stay below this level
+    Near,         // Price must be near this level (within tolerance)
+    BreaksAbove,  // Price must break above this level
+    BreaksBelow   // Price must break below this level
 }
 
 public sealed class PriceCondition(ConditionType type, double price) : ICondition
@@ -371,11 +465,11 @@ public sealed class IndicatorCondition(IndicatorType type, double? parameter = n
 {
     public IndicatorType Type { get; } = type;
     public double? Parameter { get; } = parameter;
-    
+
     public string ToScript() => Parameter.HasValue 
         ? $"Is{Type}({Parameter})" 
         : $"Is{Type}()";
-    
+
     public bool Evaluate(IndicatorSnapshot indicators) => Type switch
     {
         IndicatorType.VwapAbove => indicators.VwapDistance > 0,
@@ -392,4 +486,79 @@ public sealed class IndicatorCondition(IndicatorType type, double? parameter = n
         IndicatorType.VolumeAbove => indicators.VolumeRatio >= (Parameter ?? 1.5),
         _ => true
     };
+}
+
+/// <summary>
+/// Condition based on price level (support/resistance).
+/// Used for HoldsAbove(), HoldsBelow(), IsNear(), etc.
+/// </summary>
+public sealed class PriceLevelCondition : ICondition
+{
+    public PriceLevelType Type { get; }
+    public double Level { get; }
+    public double TolerancePercent { get; }
+
+    // Track if price has violated the level (for HoldsAbove/HoldsBelow)
+    private bool _hasViolated = false;
+    private double _lowestSeen = double.MaxValue;
+    private double _highestSeen = double.MinValue;
+
+    public PriceLevelCondition(PriceLevelType type, double level, double tolerancePercent = 1.0)
+    {
+        Type = type;
+        Level = level;
+        TolerancePercent = tolerancePercent;
+    }
+
+    public string ToScript() => Type switch
+    {
+        PriceLevelType.HoldsAbove => $"HoldsAbove({Level})",
+        PriceLevelType.HoldsBelow => $"HoldsBelow({Level})",
+        PriceLevelType.Near => $"IsNear({Level}, {TolerancePercent})",
+        PriceLevelType.BreaksAbove => $"BreaksAbove({Level})",
+        PriceLevelType.BreaksBelow => $"BreaksBelow({Level})",
+        _ => $"PriceLevel({Level})"
+    };
+
+    /// <summary>
+    /// Updates tracking and evaluates the condition.
+    /// </summary>
+    public bool Evaluate(IndicatorSnapshot indicators)
+    {
+        var price = indicators.Price;
+
+        // Track extremes
+        if (price < _lowestSeen) _lowestSeen = price;
+        if (price > _highestSeen) _highestSeen = price;
+
+        return Type switch
+        {
+            // HoldsAbove: True if price is currently above AND has never gone significantly below
+            PriceLevelType.HoldsAbove => price >= Level && _lowestSeen >= Level * 0.995, // 0.5% tolerance
+
+            // HoldsBelow: True if price is currently below AND has never gone significantly above
+            PriceLevelType.HoldsBelow => price <= Level && _highestSeen <= Level * 1.005,
+
+            // Near: True if price is within tolerance % of level
+            PriceLevelType.Near => Math.Abs((price - Level) / Level * 100) <= TolerancePercent,
+
+            // BreaksAbove: True if price breaks above level
+            PriceLevelType.BreaksAbove => price > Level && _highestSeen > Level,
+
+            // BreaksBelow: True if price breaks below level
+            PriceLevelType.BreaksBelow => price < Level && _lowestSeen < Level,
+
+            _ => true
+        };
+    }
+
+    /// <summary>
+    /// Resets tracking state (call when strategy resets).
+    /// </summary>
+    public void Reset()
+    {
+        _hasViolated = false;
+        _lowestSeen = double.MaxValue;
+        _highestSeen = double.MinValue;
+    }
 }

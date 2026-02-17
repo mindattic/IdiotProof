@@ -1,0 +1,36 @@
+{
+  "$schema": "./app-settings.schema.json",
+  "appVersion": "1.0.0",
+  "lastModified": "2025-01-01T00:00:00Z",
+  "settings": {
+    "ibConnection": {
+      "host": "127.0.0.1",
+      "port": 4001,
+      "clientId": 99,
+      "connectionTimeoutSeconds": 10,
+      "accountNumber": "U22434144",
+      "secondaryAccountNumber": "U23270497",
+      "dualAccountHedgingEnabled": false
+    },
+    "display": {
+      "timezone": "EST",
+      "silentMode": false,
+      "showBacktestDailyDetails": false
+    },
+    "webIntegration": {
+      "webFrontendUrl": "http://localhost:5114"
+    },
+    "riskManagement": {
+      "useStopLoss": false,
+      "useTrailingStopLoss": false
+    },
+    "indicators": {
+      "maxCandlesticks": 255
+    },
+    "timing": {
+      "heartbeatMinutes": 5,
+      "ipcPingIntervalSeconds": 300,
+      "tickerPriceCheckIntervalSeconds": 300
+    }
+  }
+}

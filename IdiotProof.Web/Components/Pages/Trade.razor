@@ -22,18 +22,18 @@
 <!-- Skip link for screen readers -->
 <a href="#main-content" class="skip-link">Skip to main content</a>
 
-<div class="trade-command-center" id="main-content" role="main">
+<div class="trade-command-center" id="main-content" role="main" data-meta="Trade command center - live trading interface with chart, positions, and order execution">
     <!-- Risk Guardian Status Bar -->
-    <header class="risk-header" role="banner" aria-label="Risk Status">
+    <header class="risk-header" role="banner" aria-label="Risk Status" data-analysis="Risk Guardian protects capital with position and daily limits">
         <div class="risk-guardian-status" role="status" aria-live="polite">
             <span class="guardian-icon" aria-hidden="true">🛡️</span>
             <span class="guardian-label">Risk Guardian</span>
             <div class="risk-limits">
-                <span class="risk-item">
+                <span class="risk-item" data-meta="Maximum loss allowed per single trade">
                     <span class="risk-label">Max Per Trade:</span>
                     <span class="risk-value">$@_riskConfig.MaxLossPerTrade</span>
                 </span>
-                <span class="risk-item">
+                <span class="risk-item" data-meta="Remaining daily loss allowance">
                     <span class="risk-label">Daily Remaining:</span>
                     <span class="risk-value @(_guardianStatus?.RemainingDailyRisk < 100 ? "warning" : "")">
                         $@(_guardianStatus?.RemainingDailyRisk.ToString("F0") ?? "500")
@@ -41,14 +41,14 @@
                 </span>
                 @if (_guardianStatus?.IsCircuitBreakerTripped == true)
                 {
-                    <span class="circuit-breaker" role="alert">
+                    <span class="circuit-breaker" role="alert" data-analysis="Circuit breaker activated - trading halted">
                         🛑 CIRCUIT BREAKER: Daily limit reached. Trading halted.
                     </span>
                 }
             </div>
         </div>
-        
-        <div class="connection-status" role="status">
+
+        <div class="connection-status" role="status" data-meta="IBKR connection status">
             @if (_isConnected)
             {
                 <span class="status-dot connected" aria-hidden="true"></span>
@@ -68,14 +68,15 @@
             @* Open Positions Section *@
             @if (_positions.Count > 0)
             {
-                <section class="positions-section">
+                <section class="positions-section" data-analysis="Open positions summary - click any position to view chart">
                     <h2>📊 Open Positions</h2>
                     <div class="positions-list">
                         @foreach (var pos in _positions)
                         {
                             var pnl = pos.UnrealizedPnL ?? 0;
                             var pnlClass = pnl >= 0 ? "profit" : "loss";
-                            <div class="position-item @pnlClass" @onclick="() => SelectSymbol(pos.Symbol)">
+                            <div class="position-item @pnlClass" @onclick="() => SelectSymbol(pos.Symbol)"
+                                 data-analysis="Position details - click to manage">
                                 <div class="position-header">
                                     <span class="pos-symbol">@pos.Symbol</span>
                                     <span class="pos-qty">@pos.Quantity shares</span>
@@ -87,7 +88,7 @@
                             </div>
                         }
                     </div>
-                    <div class="positions-total">
+                    <div class="positions-total" data-meta="Combined unrealized P&L across all open positions">
                         <span>Total P&L:</span>
                         <span class="@(_totalPnL >= 0 ? "profit" : "loss")">
                             @(_totalPnL >= 0 ? "+" : "")$@_totalPnL.ToString("F2")

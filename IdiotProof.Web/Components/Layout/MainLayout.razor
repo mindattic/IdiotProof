@@ -39,9 +39,14 @@
                 <span class="nav-text">Log</span>
             </NavLink>
 
-            <NavLink class="nav-link" href="/glossary">
+            <NavLink class="nav-link" href="/learning-center">
                 <span class="nav-icon" aria-hidden="true">📖</span>
-                <span class="nav-text">Glossary</span>
+                <span class="nav-text">Learn</span>
+            </NavLink>
+
+            <NavLink class="nav-link" href="/settings">
+                <span class="nav-icon" aria-hidden="true">⚙️</span>
+                <span class="nav-text">Settings</span>
             </NavLink>
         </div>
 
@@ -62,8 +67,8 @@
         @Body
     </main>
 
-    @* Global AI Chatbox - Available on all screens *@
-    <GlobalChatbox />
+    @* AI Advisor Panel - Persistent at bottom with screenshot capability *@
+    <IdiotProof.Web.Components.Shared.AiAdvisorPanel />
 </div>
 
 <div id="blazor-error-ui" data-nosnippet>
@@ -167,5 +172,6 @@
     .page-content {
         flex: 1;
         overflow-x: hidden;
+        padding-bottom: 60px; /* Space for AI Advisor collapsed state */
     }
 </style>

@@ -378,7 +378,7 @@ Respond in JSON format:
     private AiAnalysis BuildFallbackAnalysis(string symbol, IndicatorSnapshot indicators)
     {
         var score = indicators.CalculateMarketScore();
-        
+
         return new AiAnalysis
         {
             Symbol = symbol,
@@ -390,4 +390,120 @@ Respond in JSON format:
             RiskLevel = Math.Abs(score) < 30 ? "High" : Math.Abs(score) < 50 ? "Medium" : "Low"
         };
     }
+
+    /// <summary>
+    /// Analyzes a screenshot using OpenAI Vision API.
+    /// </summary>
+    public async Task<string> AnalyzeScreenshotAsync(string base64ImageData, string currentPage, string? pageContext = null, CancellationToken ct = default)
+    {
+        var pageDescription = GetPageContext(currentPage);
+
+        var contextSection = !string.IsNullOrEmpty(pageContext) 
+            ? $@"
+
+EXTRACTED PAGE DATA (from data-analysis and data-meta attributes):
+{pageContext}
+
+Use this extracted data to provide accurate analysis of the specific values and metrics shown."
+            : "";
+
+        var prompt = $@"You are an expert trading analyst for IdiotProof, an automated trading system.
+
+The user is viewing the {currentPage} page. {pageDescription}
+{contextSection}
+
+Analyze this screenshot and provide insights:
+1. **What You See** - Briefly describe the key elements visible
+2. **Key Observations** - Point out important data, patterns, or indicators
+3. **Actionable Insights** - What should the trader pay attention to?
+4. **Potential Issues** - Any warnings or concerns?
+
+Be concise (under 200 words). Speak directly to the trader. If you see charts, describe price action and indicator alignment. If you see orders or trades, comment on the positions.";
+
+        try
+        {
+            if (string.IsNullOrEmpty(_config.ApiKey))
+            {
+                return GetMockScreenshotAnalysis(currentPage);
+            }
+
+            var request = new
+            {
+                model = "gpt-4o",
+                messages = new object[]
+                {
+                    new { 
+                        role = "user", 
+                        content = new object[]
+                        {
+                            new { type = "text", text = prompt },
+                            new { 
+                                type = "image_url", 
+                                image_url = new { 
+                                    url = base64ImageData,
+                                    detail = "high"  // HIGH resolution - pixel perfect for accurate financial analysis
+                                } 
+                            }
+                        }
+                    }
+                },
+                max_tokens = 800
+            };
+
+            var json = JsonSerializer.Serialize(request);
+            var content = new StringContent(json, System.Text.Encoding.UTF8, "application/json");
+
+            var response = await _httpClient.PostAsync($"{_config.BaseUrl}/chat/completions", content, ct);
+            response.EnsureSuccessStatusCode();
+
+            var responseJson = await response.Content.ReadAsStringAsync(ct);
+            var responseObj = JsonDocument.Parse(responseJson);
+
+            return responseObj.RootElement
+                .GetProperty("choices")[0]
+                .GetProperty("message")
+                .GetProperty("content")
+                .GetString() ?? "Unable to analyze image.";
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Screenshot analysis failed");
+            return $"❌ Analysis failed: {ex.Message}\n\n{GetMockScreenshotAnalysis(currentPage)}";
+        }
+    }
+
+    private string GetPageContext(string page) => page.ToLowerInvariant() switch
+    {
+        "dashboard" or "" => "This shows the main dashboard with market overview, gapper scanner, and quick stats.",
+        "trade" => "This shows the trading interface with order entry and position management.",
+        "orders" => "This shows open orders and pending executions.",
+        "analyze" => "This shows detailed chart analysis with technical indicators.",
+        "backtest" => "This shows the backtesting interface with historical trade simulation.",
+        "settings" => "This shows application configuration settings.",
+        "log" => "This shows the application log with events and messages.",
+        _ => "This is a page in the trading application."
+    };
+
+    private string GetMockScreenshotAnalysis(string page) => $@"**📸 Screenshot Analysis - {page} Page**
+
+**What I See:**
+I can see the {page} page of your trading application. The interface appears to be showing trading-related data and controls.
+
+**Key Observations:**
+• The page layout includes your main navigation sidebar
+• The content area displays {page.ToLowerInvariant()} functionality
+• Dark theme is active for reduced eye strain
+
+**Actionable Insights:**
+• Review any highlighted values or alerts on screen
+• Check for any warning indicators or risk levels
+• Ensure all displayed data is current and accurate
+
+**Note:**
+⚠️ *This is a mock analysis. Configure your OpenAI API key in appsettings.json for real AI-powered screenshot analysis using GPT-4 Vision.*
+
+To enable real analysis:
+1. Add your OpenAI API key to `appsettings.json`
+2. Ensure you have access to GPT-4 Vision (gpt-4o model)
+3. The AI will then analyze actual chart patterns, indicator values, and provide specific trading insights";
 }

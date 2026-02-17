@@ -4,6 +4,7 @@ using IdiotProof.Web.Services;
 using IdiotProof.Web.Services.AI;
 using IdiotProof.Web.Services.MarketScanner;
 using IdiotProof.Web.Services.MarketScanner.Sources;
+using IdiotProof.Web.Services.Settings;
 using IdiotProof.Web.Services.TradingView;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -57,6 +58,9 @@ builder.Services.AddSingleton<MarketDataBroadcaster>();
 // Register IBKR Web Bridge (receives data from Core, broadcasts to clients)
 builder.Services.AddSingleton<IbkrWebBridge>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<IbkrWebBridge>());
+
+// Register Settings Provider
+builder.Services.AddSingleton<SettingsProvider>();
 
 // Register Global Log Service (collects logs regardless of which page is active)
 builder.Services.AddSingleton<GlobalLogService>();

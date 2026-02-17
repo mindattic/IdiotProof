@@ -7,28 +7,31 @@
 
 <PageTitle>Log - IdiotProof</PageTitle>
 
-<div class="log-container">
-    <div class="log-toolbar">
-        <div class="connection-indicator @(LogService.IsConnected ? "connected" : "disconnected")">
+<div class="log-container" data-meta="System log viewer - real-time messages from Core engine including trades, orders, alerts, and AI insights">
+    <div class="log-toolbar" data-analysis="@LogService.Logs.Count total logs. Filter by category or search text. Auto-scroll @(AutoScroll ? "enabled" : "disabled").">
+        <div class="connection-indicator @(LogService.IsConnected ? "connected" : "disconnected")"
+             data-meta="@(LogService.IsConnected ? "Connected to Core - receiving real-time logs" : "Waiting for Core connection")">
             @(LogService.IsConnected ? "● Connected" : "○ Connecting...")
         </div>
-        <button class="log-filter-btn @GetFilterClass(null)" @onclick="@(() => SetFilter(null))">All</button>
-        <button class="log-filter-btn @GetFilterClass("Trade")" @onclick="@(() => SetFilter("Trade"))">Trades</button>
-        <button class="log-filter-btn @GetFilterClass("Order")" @onclick="@(() => SetFilter("Order"))">Orders</button>
-        <button class="log-filter-btn @GetFilterClass("Alert")" @onclick="@(() => SetFilter("Alert"))">Alerts</button>
-        <button class="log-filter-btn @GetFilterClass("Connection")" @onclick="@(() => SetFilter("Connection"))">Connection</button>
-        <button class="log-filter-btn @GetFilterClass("AI")" @onclick="@(() => SetFilter("AI"))">AI</button>
+        <button class="log-filter-btn @GetFilterClass(null)" @onclick="@(() => SetFilter(null))" data-meta="Show all log categories">All</button>
+        <button class="log-filter-btn @GetFilterClass("Trade")" @onclick="@(() => SetFilter("Trade"))" data-meta="Filter: Trade executions and position changes">Trades</button>
+        <button class="log-filter-btn @GetFilterClass("Order")" @onclick="@(() => SetFilter("Order"))" data-meta="Filter: Order submissions, fills, and cancellations">Orders</button>
+        <button class="log-filter-btn @GetFilterClass("Alert")" @onclick="@(() => SetFilter("Alert"))" data-meta="Filter: Price alerts and sudden move detections">Alerts</button>
+        <button class="log-filter-btn @GetFilterClass("Connection")" @onclick="@(() => SetFilter("Connection"))" data-meta="Filter: IBKR connection status and errors">Connection</button>
+        <button class="log-filter-btn @GetFilterClass("AI")" @onclick="@(() => SetFilter("AI"))" data-meta="Filter: AI advisor insights and recommendations">AI</button>
 
-        <input type="text" class="log-search" placeholder="🔍 Search logs..." @bind="SearchText" @bind:event="oninput" />
+        <input type="text" class="log-search" placeholder="🔍 Search logs..." @bind="SearchText" @bind:event="oninput" 
+               data-meta="Search within log messages. Filters by content or symbol." />
 
-        <button class="log-filter-btn" @onclick="ClearLogs" title="Clear all logs">🗑️ Clear</button>
-        <button class="log-filter-btn" @onclick="ToggleAutoScroll" title="Toggle auto-scroll">
+        <button class="log-filter-btn" @onclick="ClearLogs" title="Clear all logs" data-meta="Clear log display (does not affect Core)">🗑️ Clear</button>
+        <button class="log-filter-btn" @onclick="ToggleAutoScroll" title="Toggle auto-scroll"
+                data-meta="@(AutoScroll ? "Auto-scroll ON: New logs scroll into view" : "Auto-scroll OFF: Manual scroll mode")">
             @(AutoScroll ? "📜 Auto" : "⏸️ Manual")
         </button>
         <span class="log-count">@LogService.Logs.Count logs</span>
     </div>
 
-    <div class="log-entries" @ref="logEntriesRef">
+    <div class="log-entries" @ref="logEntriesRef" data-analysis="Log entries filtered by: @(ActiveFilter ?? "All"). @FilteredLogs.Count() visible.">
         @if (!FilteredLogs.Any())
         {
             <div class="log-empty">
@@ -41,9 +44,10 @@
         {
             @foreach (var log in FilteredLogs)
             {
-                <div class="log-entry" data-level="@log.Level" @onclick="() => CopyToChat(log)">
+                <div class="log-entry" data-level="@log.Level" @onclick="() => CopyToChat(log)"
+                     data-analysis="[@log.Timestamp.ToString("HH:mm:ss")] @log.Category: @(log.Message.Length > 100 ? log.Message.Substring(0, 100) + "..." : log.Message)">
                     <span class="log-timestamp">@FormatTimestamp(log.Timestamp)</span>
-                    <span class="log-category" data-category="@log.Category">@log.Category</span>
+                    <span class="log-category" data-category="@log.Category" data-meta="Category: @log.Category">@log.Category</span>
                     <span class="log-content">
                         @if (!string.IsNullOrEmpty(log.HtmlContent))
                         {
@@ -54,7 +58,8 @@
                             @log.Message
                         }
                     </span>
-                    <button class="log-copy-btn" @onclick:stopPropagation="true" @onclick="() => CopyToClipboard(log)">
+                    <button class="log-copy-btn" @onclick:stopPropagation="true" @onclick="() => CopyToClipboard(log)"
+                            data-meta="Copy log entry to clipboard">
                         📋 Copy
                     </button>
                 </div>

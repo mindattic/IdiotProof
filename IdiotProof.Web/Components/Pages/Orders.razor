@@ -11,7 +11,7 @@
 
 <PageTitle>Orders - IdiotProof</PageTitle>
 
-<div class="orders-page">
+<div class="orders-page" data-meta="Order management page - view and manage open orders from IBKR">
     <header class="orders-header">
         <div class="header-left">
             <h1>📋 Order Management</h1>
@@ -19,24 +19,27 @@
         </div>
         <div class="header-right">
             <span class="connection-status @(WebBridge.IsConnected ? "connected" : "disconnected")"
-                  title="@(WebBridge.IsConnected ? "Connected to Interactive Brokers TWS/Gateway" : "Not connected - start IdiotProof.Core with IBKR running")">
+                  title="@(WebBridge.IsConnected ? "Connected to Interactive Brokers TWS/Gateway" : "Not connected - start IdiotProof.Core with IBKR running")"
+                  data-meta="@(WebBridge.IsConnected ? "IBKR connected - real-time order updates active" : "IBKR disconnected - start Core to see live orders")">
                 @(WebBridge.IsConnected ? "● IBKR Connected" : "○ Disconnected")
             </span>
             <button class="btn-refresh" @onclick="RefreshOrders" disabled="@_isRefreshing"
-                    title="Refresh order and position data from IBKR">
+                    title="Refresh order and position data from IBKR"
+                    data-meta="Pull latest order status from IBKR">
                 @(_isRefreshing ? "⟳ Refreshing..." : "⟳ Refresh")
             </button>
             <button class="btn-cancel-all" @onclick="CancelAllOrders" disabled="@(_orders.Count == 0)"
-                    title="Cancel all open orders (does NOT close positions)">
+                    title="Cancel all open orders (does NOT close positions)"
+                    data-meta="Cancels all pending orders. Does NOT exit positions.">
                 ❌ Cancel All
             </button>
         </div>
     </header>
 
-    <div class="orders-content">
+    <div class="orders-content" data-analysis="@(_orders.Count) open orders. @(_orders.Count(o => o.Direction == "BUY")) buys, @(_orders.Count(o => o.Direction == "SELL")) sells.">
         @if (!WebBridge.IsConnected)
         {
-            <div class="disconnected-notice">
+            <div class="disconnected-notice" data-analysis="IBKR not connected. Start IdiotProof.Core with TWS/Gateway running to see live orders.">
                 <span class="notice-icon">⚠️</span>
                 <p>Not connected to IBKR. Start IdiotProof.Core with trading active to see live orders.</p>
             </div>
@@ -51,16 +54,16 @@
         }
         else
         {
-            <table class="orders-table">
+            <table class="orders-table" data-analysis="Live orders from IBKR. Click Cancel to remove order, Trade to open chart.">
                 <thead>
                     <tr>
-                        <th>Order ID</th>
-                        <th>Symbol</th>
-                        <th>Direction</th>
-                        <th>Quantity</th>
-                        <th>Type</th>
-                        <th>Price</th>
-                        <th>Status</th>
+                        <th data-meta="IBKR order identifier">Order ID</th>
+                        <th data-meta="Stock ticker">Symbol</th>
+                        <th data-meta="BUY (opening long/closing short) or SELL (opening short/closing long)">Direction</th>
+                        <th data-meta="Number of shares">Quantity</th>
+                        <th data-meta="LMT=limit, MKT=market, STP=stop, STP LMT=stop limit">Type</th>
+                        <th data-meta="Limit or stop price for the order">Price</th>
+                        <th data-meta="Order status: Working, Filled, Cancelled, etc.">Status</th>
                         <th>Actions</th>
                     </tr>
                 </thead>
@@ -68,12 +71,18 @@
                     @foreach (var order in _orders)
                     {
                         var dirClass = order.Direction == "BUY" ? "buy" : "sell";
-                        <tr class="order-row @dirClass">
+                        var priceDisplay = order.LimitPrice.HasValue && order.LimitPrice > 0 
+                            ? $"${order.LimitPrice.Value:F2}" 
+                            : order.StopPrice.HasValue && order.StopPrice > 0 
+                                ? $"${order.StopPrice.Value:F2}" 
+                                : "MKT";
+                        <tr class="order-row @dirClass"
+                            data-analysis="Order details - click Cancel to remove">
                             <td class="order-id">@order.OrderId</td>
                             <td class="symbol">
                                 <strong>@order.Symbol</strong>
                             </td>
-                            <td class="direction @dirClass">
+                            <td class="direction @dirClass" data-meta="@(order.Direction == "BUY" ? "Buying to open long or close short" : "Selling to open short or close long")">
                                 @order.Direction
                             </td>
                             <td class="quantity">@order.Quantity</td>
@@ -96,10 +105,12 @@
                                 @order.Status
                             </td>
                             <td class="actions">
-                                <button class="btn-small btn-cancel" @onclick="() => CancelOrder(order.OrderId)">
+                                <button class="btn-small btn-cancel" @onclick="() => CancelOrder(order.OrderId)"
+                                        data-meta="Cancel this order. Order will not execute.">
                                     Cancel
                                 </button>
-                                <button class="btn-small btn-trade" @onclick="() => NavigateToTrade(order.Symbol)">
+                                <button class="btn-small btn-trade" @onclick="() => NavigateToTrade(order.Symbol)"
+                                        data-meta="Open trade page for @order.Symbol">
                                     Trade
                                 </button>
                             </td>

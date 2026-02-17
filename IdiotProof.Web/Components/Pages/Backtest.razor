@@ -2,9 +2,12 @@
 @page "/backtest/{Symbol}"
 @rendermode @(new InteractiveServerRenderMode(prerender: false))
 @using IdiotProof.Web.Services.TradingView
+@using IdiotProof.Web.Components.Shared
 @using IdiotProof.Shared
 @using Microsoft.JSInterop
 @using System.Text.Json
+@using System.IO
+@using Microsoft.AspNetCore.Components.Forms
 @inject HistoricalDataProvider HistoricalData
 @inject ChartDataService ChartService
 @inject IJSRuntime JS
@@ -12,31 +15,34 @@
 
 <PageTitle>Backtest - @(Symbol ?? "Select Symbol")</PageTitle>
 
-<div class="backtest-page">
-    <header class="backtest-header">
+<div class="backtest-page" data-meta="Backtest visualization page for replaying historical trades with technical indicators">
+    <header class="backtest-header" data-meta="Controls for selecting symbol, date, and timeframe">
         <div class="header-left">
-            <h1>📊 Backtest Visualization</h1>
+            <h1>📊 Backtest Visualization <AiHelpIcon Context="What is backtesting? Explain how to use this visualization page to analyze historical trades and improve my trading strategy." /></h1>
             <span class="subtitle">Replay historical trades with your indicators</span>
         </div>
-        
-        <div class="controls">
-            <select @bind="_selectedSymbol" @bind:after="OnSymbolChanged" class="symbol-select">
+
+        <div class="controls" data-analysis="Symbol and date selection determines which historical data to load for backtesting">
+            <select @bind="_selectedSymbol" @bind:after="OnSymbolChanged" class="symbol-select"
+                    data-meta="Stock symbol selector - available symbols come from collected historical data">
                 <option value="">-- Select Symbol --</option>
                 @foreach (var symbol in _availableSymbols)
                 {
                     <option value="@symbol">@symbol</option>
                 }
             </select>
-            
-            <select @bind="_selectedDate" @bind:after="OnDateChanged" class="date-select" disabled="@string.IsNullOrEmpty(_selectedSymbol)">
+
+            <select @bind="_selectedDate" @bind:after="OnDateChanged" class="date-select" disabled="@string.IsNullOrEmpty(_selectedSymbol)"
+                    data-meta="Trading date selector - shows dates where candle data was collected">
                 <option value="">-- Select Date --</option>
                 @foreach (var date in _availableDates)
                 {
                     <option value="@date.ToString("yyyy-MM-dd")">@date.ToString("ddd MMM dd, yyyy")</option>
                 }
             </select>
-            
-            <select @bind="_intervalMinutes" @bind:after="OnIntervalChanged" class="interval-select">
+
+            <select @bind="_intervalMinutes" @bind:after="OnIntervalChanged" class="interval-select"
+                    data-meta="Candle interval - aggregates 1-min data into larger timeframes. Larger intervals smooth noise but lose granularity.">
                 <option value="1">1 min</option>
                 <option value="5">5 min</option>
                 <option value="15">15 min</option>
@@ -46,24 +52,25 @@
         </div>
     </header>
 
-    <div class="chart-toolbar">
-        <div class="indicator-toggles">
-            <label><input type="checkbox" @bind="_showVwap" @bind:after="UpdateOverlays" /> VWAP</label>
-            <label><input type="checkbox" @bind="_showEma9" @bind:after="UpdateOverlays" /> EMA 9</label>
-            <label><input type="checkbox" @bind="_showEma21" @bind:after="UpdateOverlays" /> EMA 21</label>
-            <label><input type="checkbox" @bind="_showEma50" @bind:after="UpdateOverlays" /> EMA 50</label>
+    <div class="chart-toolbar" data-meta="Chart controls for indicators, playback, and view manipulation">
+        <div class="indicator-toggles" data-analysis="Technical indicators overlay on price chart. VWAP=Volume Weighted Avg Price (institutional levels). EMAs=Exponential Moving Averages (trend direction).">
+            <label data-meta="VWAP: Key institutional level. Price above=bullish, below=bearish."><input type="checkbox" @bind="_showVwap" @bind:after="UpdateOverlays" /> VWAP</label>
+            <label data-meta="EMA 9: Fast moving average. Reacts quickly to price changes."><input type="checkbox" @bind="_showEma9" @bind:after="UpdateOverlays" /> EMA 9</label>
+            <label data-meta="EMA 21: Medium moving average. EMA9 crossing EMA21 = trend signal."><input type="checkbox" @bind="_showEma21" @bind:after="UpdateOverlays" /> EMA 21</label>
+            <label data-meta="EMA 50: Slow moving average. Major trend direction indicator."><input type="checkbox" @bind="_showEma50" @bind:after="UpdateOverlays" /> EMA 50</label>
         </div>
-        
-        <div class="playback-controls">
+
+        <div class="playback-controls" data-analysis="Replay historical price action candle-by-candle to study how trades would have developed">
             <button class="btn-icon" @onclick="() => StepBackward()" disabled="@(!_canPlayback)" title="Step Back">⏮️</button>
             <button class="btn-icon" @onclick="() => TogglePlayback()" disabled="@(!_canPlayback)" title="@(_isPlaying ? "Pause" : "Play")">
                 @(_isPlaying ? "⏸️" : "▶️")
             </button>
             <button class="btn-icon" @onclick="() => StepForward()" disabled="@(!_canPlayback)" title="Step Forward">⏭️</button>
-            <input type="range" min="1" max="100" @bind="_playbackSpeed" class="speed-slider" title="Playback Speed" />
+            <input type="range" min="1" max="100" @bind="_playbackSpeed" class="speed-slider" title="Playback Speed" 
+                   data-meta="Playback speed: Higher=faster replay. Use slower speeds to study price action." />
             <span class="speed-label">@(_playbackSpeed)x</span>
         </div>
-        
+
         <div class="view-controls">
             <button class="btn-small" @onclick="FitContent">Fit All</button>
             <button class="btn-small" @onclick="ScrollToStart">To Start</button>
@@ -99,40 +106,40 @@
 
             @if (_activeTab == "stats")
             {
-                <h3>📊 Session Statistics</h3>
+                <h3>📊 Session Statistics <AiHelpIcon Context="Explain these session statistics. What do Open, High, Low, Close (OHLC) tell me? How should I interpret the Range% and Volume data for trading decisions?" /></h3>
 
                 @if (_sessionStats != null)
                 {
-                    <div class="stat-grid">
-                        <div class="stat-item">
+                    <div class="stat-grid" data-analysis="Session OHLC data for @_selectedSymbol on @_selectedDate. Range% indicates volatility. Volume confirms price moves.">
+                        <div class="stat-item" data-meta="Opening price: First trade of the session. Compare to Close for daily direction.">
                             <span class="stat-label">Open</span>
                             <span class="stat-value">$@_sessionStats.Open.ToString("F2")</span>
                         </div>
-                        <div class="stat-item">
+                        <div class="stat-item" data-meta="Session high: Resistance level. Failed breakouts above are bearish.">
                             <span class="stat-label">High</span>
                             <span class="stat-value high">$@_sessionStats.High.ToString("F2")</span>
                         </div>
-                        <div class="stat-item">
+                        <div class="stat-item" data-meta="Session low: Support level. Failed breakdowns below are bullish.">
                             <span class="stat-label">Low</span>
                             <span class="stat-value low">$@_sessionStats.Low.ToString("F2")</span>
                         </div>
-                        <div class="stat-item">
+                        <div class="stat-item" data-meta="Closing price: Last trade. Close>Open=bullish day, Close<Open=bearish day.">
                             <span class="stat-label">Close</span>
                             <span class="stat-value">$@_sessionStats.Close.ToString("F2")</span>
                         </div>
-                        <div class="stat-item">
+                        <div class="stat-item" data-meta="Price range: High-Low. Higher range=more volatility=more opportunity but more risk.">
                             <span class="stat-label">Range</span>
                             <span class="stat-value">$@_sessionStats.Range.ToString("F2") (@_sessionStats.RangePercent.ToString("F1")%)</span>
                         </div>
-                        <div class="stat-item">
+                        <div class="stat-item" data-meta="Total volume: All shares traded. Higher volume validates price moves.">
                             <span class="stat-label">Volume</span>
                             <span class="stat-value">@FormatVolume(_sessionStats.TotalVolume)</span>
                         </div>
-                        <div class="stat-item">
+                        <div class="stat-item" data-meta="Candle count: Number of price bars. More candles=more data points for analysis.">
                             <span class="stat-label">Candles</span>
                             <span class="stat-value">@_sessionStats.CandleCount</span>
                         </div>
-                        <div class="stat-item">
+                        <div class="stat-item" data-meta="Average volume per candle: Baseline for volume analysis. Spikes above are significant.">
                             <span class="stat-label">Avg Volume</span>
                             <span class="stat-value">@FormatVolume(_sessionStats.AverageVolume)</span>
                         </div>
@@ -142,16 +149,127 @@
 
             @if (_activeTab == "trades")
             {
-                <h3>🎯 Simulated Trades</h3>
+                <h3>🎯 Simulated Trades <AiHelpIcon Context="Explain what these simulated trades show. How do I interpret Total P&L, Win Rate, and Profit Factor? What makes a good backtest result?" /></h3>
+
+                <div class="strategy-selector">
+                    <label>Strategy:</label>
+                    <select @bind="_selectedStrategy" class="strategy-select">
+                        <option value="ema-crossover">EMA Crossover</option>
+                        <option value="vwap-bounce">VWAP Bounce</option>
+                        <option value="momentum">Momentum</option>
+                    </select>
+                </div>
+
+                <div class="strategy-description">
+                    @switch (_selectedStrategy)
+                    {
+                        case "ema-crossover":
+                            <p>📈 <strong>EMA Crossover:</strong> Enters LONG when EMA @(_backtestSettings.EmaCrossoverShort) crosses above EMA @(_backtestSettings.EmaCrossoverLong), SHORT when it crosses below. Classic trend-following strategy. <AiHelpIcon Context="Explain the EMA Crossover strategy in detail. How does it work? What are its strengths and weaknesses? When does it perform best?" /></p>
+                            break;
+                        case "vwap-bounce":
+                            <p>📊 <strong>VWAP Bounce:</strong> Enters when price bounces off VWAP (support/resistance). LONG on bounce up from VWAP, SHORT on rejection down from VWAP. <AiHelpIcon Context="Explain the VWAP Bounce strategy. What is VWAP and why do prices bounce off it? When should I use this strategy?" /></p>
+                            break;
+                        case "momentum":
+                            <p>🚀 <strong>Momentum:</strong> Enters on strong price momentum (ROC over 1.5%) with EMA alignment and consecutive candle confirmation. Catches explosive moves. <AiHelpIcon Context="Explain the Momentum strategy. What is Rate of Change (ROC)? How does this strategy catch explosive moves?" /></p>
+                            break;
+                    }
+                </div>
 
                 @if (_simulatedTrades.Count > 0)
                 {
-                    <div class="trades-list">
+                    <div class="performance-summary" data-analysis="Key performance metrics: PnL=profit/loss, WinRate=% profitable trades, ProfitFactor=gross profit/gross loss (>1 is profitable)">
+                        <div class="perf-card @(_totalPnL >= 0 ? "profit" : "loss")" 
+                             data-meta="Total P&L: Net profit/loss. @(_totalPnL >= 0 ? "Positive=strategy is profitable" : "Negative=strategy needs adjustment")">
+                            <span class="perf-label">Total P&amp;L <AiHelpIcon Context="@($"My backtest shows Total P&L of ${_totalPnL:F2}. Is this good? How should I interpret this result? What factors affect P&L?")" /></span>
+                            <span class="perf-value">@(_totalPnL >= 0 ? "+" : "")$@_totalPnL.ToString("F2")</span>
+                        </div>
+                        <div class="perf-card" data-meta="Win Rate: @_winRate.ToString("F1")%. Target >50%. Below 40% requires high R:R to be profitable.">
+                            <span class="perf-label">Win Rate <AiHelpIcon Context="@($"My backtest shows Win Rate of {_winRate:F1}%. Is this good? What win rate do professional traders aim for?")" /></span>
+                            <span class="perf-value">@_winRate.ToString("F1")%</span>
+                        </div>
+                        <div class="perf-card" data-meta="Trade count: @_simulatedTrades.Count trades. More trades=more statistical significance.">
+                            <span class="perf-label">Trades</span>
+                            <span class="perf-value">@_simulatedTrades.Count</span>
+                        </div>
+                        <div class="perf-card @(_profitFactor >= 1 ? "profit" : "loss")" 
+                             data-meta="Profit Factor: @_profitFactor.ToString("F2"). >1.5=good, >2.0=excellent. <1=losing strategy.">
+                            <span class="perf-label">Profit Factor <AiHelpIcon Context="@($"My Profit Factor is {_profitFactor:F2}. Explain what Profit Factor means and whether this is a good number.")" /></span>
+                            <span class="perf-value">@_profitFactor.ToString("F2")</span>
+                        </div>
+                    </div>
+
+                    <div class="advanced-stats" data-analysis="Risk metrics: Expectancy=avg profit per trade. MaxDD=worst peak-to-trough decline. AvgWin/Loss ratio determines required win rate.">
+                        <div class="stat-row" data-meta="Average winning trade. Higher avg win allows lower win rate.">
+                            <span>Avg Win:</span>
+                            <span class="profit">+$@_avgWin.ToString("F2")</span>
+                        </div>
+                        <div class="stat-row" data-meta="Average losing trade. Smaller losses = better risk management.">
+                            <span>Avg Loss:</span>
+                            <span class="loss">-$@Math.Abs(_avgLoss).ToString("F2")</span>
+                        </div>
+                        <div class="stat-row" data-meta="Max Drawdown: Largest equity decline. Risk of ruin indicator. Should be <20% of capital.">
+                            <span>Max Drawdown: <AiHelpIcon Context="@($"My Max Drawdown is ${_maxDrawdown:F2}. Explain what drawdown means and how to reduce it.")" /></span>
+                            <span class="loss">$@_maxDrawdown.ToString("F2")</span>
+                        </div>
+                        <div class="stat-row" data-meta="Expectancy: Average profit per trade. Must be positive for long-term profitability.">
+                            <span>Expectancy: <AiHelpIcon Context="@($"My Expectancy is ${_expectancy:F2}. What does expectancy mean and is this a good number?")" /></span>
+                            <span class="@(_expectancy >= 0 ? "profit" : "loss")">$@_expectancy.ToString("F2")</span>
+                        </div>
+                        <div class="stat-row" data-meta="Best trade: Shows upside potential of the strategy.">
+                            <span>Largest Win:</span>
+                            <span class="profit">+$@_largestWin.ToString("F2")</span>
+                        </div>
+                        <div class="stat-row" data-meta="Worst trade: Shows maximum single-trade risk. Should be limited by stop-loss.">
+                            <span>Largest Loss:</span>
+                            <span class="loss">-$@Math.Abs(_largestLoss).ToString("F2")</span>
+                        </div>
+                    </div>
+
+                    <div class="equity-curve-section">
+                        <h4>📈 Equity Curve <AiHelpIcon Context="Explain what the equity curve shows. What patterns should I look for? What does a healthy equity curve look like?" /></h4>
+                        <div class="equity-curve">
+                            @{
+                                var equityPoints = GetEquityCurvePoints();
+                                var maxEquity = equityPoints.Max();
+                                var minEquity = equityPoints.Min();
+                                var range = maxEquity - minEquity;
+                                if (range == 0) range = 1;
+                            }
+                            <svg viewBox="0 0 300 80" class="equity-svg">
+                                <defs>
+                                    <linearGradient id="equityGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+                                        <stop offset="0%" style="stop-color:@(_totalPnL >= 0 ? "#238636" : "#f85149");stop-opacity:0.3" />
+                                        <stop offset="100%" style="stop-color:@(_totalPnL >= 0 ? "#238636" : "#f85149");stop-opacity:0" />
+                                    </linearGradient>
+                                </defs>
+                                @if (equityPoints.Count > 1)
+                                {
+                                    var points = string.Join(" ", equityPoints.Select((v, i) => 
+                                        $"{i * 300.0 / (equityPoints.Count - 1)},{80 - ((v - minEquity) / range * 70 + 5)}"));
+                                    var areaPoints = $"0,80 {points} 300,80";
+                                    <polygon points="@areaPoints" fill="url(#equityGrad)" />
+                                    <polyline points="@points" fill="none" stroke="@(_totalPnL >= 0 ? "#238636" : "#f85149")" stroke-width="2" />
+                                }
+                            </svg>
+                            <div class="equity-labels">
+                                <span>Start: $0</span>
+                                <span>End: @(_totalPnL >= 0 ? "+" : "")$@_totalPnL.ToString("F2")</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="trades-list" data-analysis="Individual trade log showing entry/exit points and P&L for each position">
                         @foreach (var trade in _simulatedTrades)
                         {
-                            <div class="trade-item @(trade.PnL >= 0 ? "profit" : "loss")">
+                            var holdTime = (trade.ExitTime - trade.EntryTime).TotalMinutes;
+                            var pnlPercent = trade.IsLong 
+                                ? ((trade.ExitPrice - trade.EntryPrice) / trade.EntryPrice) * 100
+                                : ((trade.EntryPrice - trade.ExitPrice) / trade.EntryPrice) * 100;
+                            <div class="trade-item @(trade.PnL >= 0 ? "profit" : "loss")"
+                                 data-analysis="@(trade.IsLong ? "LONG" : "SHORT") trade: Entry $@trade.EntryPrice.ToString("F2") → Exit $@trade.ExitPrice.ToString("F2"). Held @holdTime.ToString("F0") min. @(pnlPercent >= 0 ? "Profit" : "Loss") @Math.Abs(pnlPercent).ToString("F2")%">
                                 <div class="trade-header">
-                                    <span class="trade-direction @(trade.IsLong ? "long" : "short")">
+                                    <span class="trade-direction @(trade.IsLong ? "long" : "short")"
+                                          data-meta="@(trade.IsLong ? "LONG: Bought expecting price to rise" : "SHORT: Sold expecting price to fall")">
                                         @(trade.IsLong ? "LONG" : "SHORT")
                                     </span>
                                     <span class="trade-pnl @(trade.PnL >= 0 ? "profit" : "loss")">
@@ -165,23 +283,10 @@
                             </div>
                         }
                     </div>
-
-                    <div class="trades-summary">
-                        <div class="summary-item">
-                            <span>Total P&amp;L:</span>
-                            <span class="@(_totalPnL >= 0 ? "profit" : "loss")">
-                                @(_totalPnL >= 0 ? "+" : "")$@_totalPnL.ToString("F2")
-                            </span>
-                        </div>
-                        <div class="summary-item">
-                            <span>Win Rate:</span>
-                            <span>@_winRate.ToString("F0")%</span>
-                        </div>
-                    </div>
                 }
                 else
                 {
-                    <p class="no-trades">No trades simulated yet. Run a backtest to see results.</p>
+                    <p class="no-trades">No trades simulated yet. Select a strategy and run the simulation.</p>
                 }
 
                 <button class="btn-run-backtest" @onclick="RunSimulation" disabled="@(!_hasData)">
@@ -191,12 +296,12 @@
 
             @if (_activeTab == "settings")
             {
-                <h3>⚙️ Backtest Settings</h3>
+                <h3>⚙️ Backtest Settings <AiHelpIcon Context="Explain these backtest settings. What Position Size should I use? How do I choose Stop Loss and Take Profit percentages? What are good values for EMA periods?" /></h3>
 
                 <div class="settings-section">
                     <div class="setting-group">
                         <label class="setting-label">
-                            <input type="checkbox" @bind="_backtestSettings.ShowDailyDetails" />
+                            <input type="checkbox" @bind="_backtestSettings.ShowDailyDetails" @bind:after="SyncSettingsToJson" />
                             Show Daily Details
                         </label>
                         <span class="setting-hint">Display individual trade details per day</span>
@@ -204,7 +309,7 @@
 
                     <div class="setting-group">
                         <label class="setting-label">
-                            <input type="checkbox" @bind="_backtestSettings.UseStopLoss" />
+                            <input type="checkbox" @bind="_backtestSettings.UseStopLoss" @bind:after="SyncSettingsToJson" />
                             Use Stop Loss
                         </label>
                         <span class="setting-hint">Enable stop loss orders in simulation</span>
@@ -212,7 +317,7 @@
 
                     <div class="setting-group">
                         <label class="setting-label">
-                            <input type="checkbox" @bind="_backtestSettings.UseTrailingStopLoss" />
+                            <input type="checkbox" @bind="_backtestSettings.UseTrailingStopLoss" @bind:after="SyncSettingsToJson" />
                             Use Trailing Stop Loss
                         </label>
                         <span class="setting-hint">Enable trailing stop for protecting gains</span>
@@ -220,17 +325,46 @@
 
                     <div class="setting-group">
                         <label class="setting-label">Position Size (shares)</label>
-                        <input type="number" class="setting-input" @bind="_backtestSettings.PositionSize" min="1" max="1000" />
+                        <input type="number" class="setting-input" @bind="_backtestSettings.PositionSize" @bind:after="SyncSettingsToJson" min="1" max="1000" />
                     </div>
 
                     <div class="setting-group">
                         <label class="setting-label">Stop Loss %</label>
-                        <input type="number" class="setting-input" @bind="_backtestSettings.StopLossPercent" min="0.1" max="10" step="0.1" />
+                        <input type="number" class="setting-input" @bind="_backtestSettings.StopLossPercent" @bind:after="SyncSettingsToJson" min="0.1" max="10" step="0.1" />
                     </div>
 
                     <div class="setting-group">
                         <label class="setting-label">Take Profit %</label>
-                        <input type="number" class="setting-input" @bind="_backtestSettings.TakeProfitPercent" min="0.1" max="20" step="0.1" />
+                        <input type="number" class="setting-input" @bind="_backtestSettings.TakeProfitPercent" @bind:after="SyncSettingsToJson" min="0.1" max="20" step="0.1" />
+                    </div>
+
+                    <div class="setting-group">
+                        <label class="setting-label">Trailing Stop %</label>
+                        <input type="number" class="setting-input" @bind="_backtestSettings.TrailingStopPercent" @bind:after="SyncSettingsToJson" min="0.1" max="10" step="0.1" />
+                    </div>
+
+                    <div class="setting-group">
+                        <label class="setting-label">EMA Short Period</label>
+                        <input type="number" class="setting-input" @bind="_backtestSettings.EmaCrossoverShort" @bind:after="SyncSettingsToJson" min="3" max="50" />
+                    </div>
+
+                    <div class="setting-group">
+                        <label class="setting-label">EMA Long Period</label>
+                        <input type="number" class="setting-input" @bind="_backtestSettings.EmaCrossoverLong" @bind:after="SyncSettingsToJson" min="10" max="200" />
+                    </div>
+
+                    <div class="setting-group">
+                        <label class="setting-label">
+                            <input type="checkbox" @bind="_backtestSettings.RequireVwapConfirmation" @bind:after="SyncSettingsToJson" />
+                            Require VWAP Confirmation
+                        </label>
+                        <span class="setting-hint">Only enter long above VWAP, short below</span>
+                    </div>
+
+                    <div class="setting-group">
+                        <label class="setting-label">Min Volume Ratio</label>
+                        <input type="number" class="setting-input" @bind="_backtestSettings.MinVolumeRatio" @bind:after="SyncSettingsToJson" min="0.5" max="5" step="0.1" />
+                        <span class="setting-hint">Volume must be X times average to enter</span>
                     </div>
                 </div>
 
@@ -240,12 +374,17 @@
                         <div class="json-actions">
                             <button class="btn-small" @onclick="FormatJson" title="Format JSON">Format</button>
                             <button class="btn-small" @onclick="ResetSettings" title="Reset to defaults">Reset</button>
+                            <button class="btn-small" @onclick="ExportSettings" title="Download settings">Export</button>
+                            <label class="btn-small import-btn">
+                                Import
+                                <InputFile OnChange="ImportSettings" accept=".json" style="display:none" />
+                            </label>
                         </div>
                     </div>
                     <textarea class="settings-json-editor @(_settingsJsonError != null ? "error" : "")" 
                               @bind="_settingsJson" 
                               @bind:after="OnSettingsJsonChanged"
-                              rows="12"
+                              rows="14"
                               spellcheck="false"></textarea>
                     @if (_settingsJsonError != null)
                     {
@@ -253,13 +392,20 @@
                     }
                     else if (_settingsJsonDirty)
                     {
-                        <div class="json-dirty">✏️ Unsaved changes</div>
+                        <div class="json-dirty">✏️ Unsaved changes - click Apply to use</div>
+                    }
+                    else if (_settingsSaved)
+                    {
+                        <div class="json-saved">✅ Settings applied</div>
                     }
                 </div>
 
                 <div class="settings-actions">
-                    <button class="btn-apply" @onclick="ApplySettings" disabled="@(_settingsJsonError != null)">
+                    <button class="btn-apply" @onclick="ApplySettings" disabled="@(_settingsJsonError != null || !_settingsJsonDirty)">
                         ✅ Apply Settings
+                    </button>
+                    <button class="btn-save" @onclick="SaveToLocalStorage" title="Save to browser storage">
+                        💾 Save
                     </button>
                 </div>
             }
@@ -306,6 +452,16 @@
     private List<SimulatedTrade> _simulatedTrades = [];
     private double _totalPnL;
     private double _winRate;
+    private double _profitFactor;
+    private double _avgWin;
+    private double _avgLoss;
+    private double _maxDrawdown;
+    private double _expectancy;
+    private double _largestWin;
+    private double _largestLoss;
+
+    // Strategy
+    private string _selectedStrategy = "ema-crossover";
 
     // Tabs
     private string _activeTab = "stats";
@@ -315,11 +471,13 @@
     private string _settingsJson = "";
     private string? _settingsJsonError;
     private bool _settingsJsonDirty;
+    private bool _settingsSaved;
+    private const string LocalStorageKey = "idiotproof_backtest_settings";
 
     protected override async Task OnInitializedAsync()
     {
         _availableSymbols = HistoricalData.GetAvailableSymbols();
-        InitializeSettings();
+        await InitializeSettings();
 
         if (!string.IsNullOrEmpty(Symbol) && _availableSymbols.Contains(Symbol.ToUpperInvariant()))
         {
@@ -336,13 +494,18 @@
             await JS.InvokeVoidAsync("initializeChart", "backtest-chart", new { height = 500 });
             _isJsReady = true;
 
+            // Load settings from local storage now that JS is ready
+            await LoadFromLocalStorage();
+            UpdateSettingsJson();
+
             // Render any pending chart data
             if (_pendingRender && _hasData)
             {
                 await RenderChart();
                 _pendingRender = false;
-                StateHasChanged();
             }
+
+            StateHasChanged();
         }
     }
 
@@ -636,10 +799,43 @@
     {
         _simulatedTrades.Clear();
 
-        // Use settings for EMA crossover strategy
-        if (_chartBundle?.Overlays == null) return;
+        if (_chartBundle?.Overlays == null || _candles.Count < 2) return;
 
-        var ema9 = _chartBundle.Overlays.FirstOrDefault(o => o.Name == $"EMA {_backtestSettings.EmaCrossoverShort}") 
+        // Run the selected strategy
+        switch (_selectedStrategy)
+        {
+            case "ema-crossover":
+                RunEmaCrossoverStrategy();
+                break;
+            case "vwap-bounce":
+                RunVwapBounceStrategy();
+                break;
+            case "momentum":
+                RunMomentumStrategy();
+                break;
+        }
+
+        // Calculate totals and advanced statistics
+        CalculateTradeStatistics();
+
+        // Add markers to chart
+        if (_isJsReady && _simulatedTrades.Count > 0)
+        {
+            var markers = _simulatedTrades.SelectMany(t => new object[]
+            {
+                new { time = new DateTimeOffset(t.EntryTime).ToUnixTimeSeconds(), isEntry = true, isLong = t.IsLong, isProfit = false, label = t.IsLong ? "BUY" : "SHORT" },
+                new { time = new DateTimeOffset(t.ExitTime).ToUnixTimeSeconds(), isEntry = false, isLong = t.IsLong, isProfit = t.PnL > 0, label = t.PnL > 0 ? "WIN" : "LOSS" }
+            }).ToArray();
+
+            await JS.InvokeVoidAsync("addTradeMarkers", (object)markers);
+        }
+
+        StateHasChanged();
+    }
+
+    private void RunEmaCrossoverStrategy()
+    {
+        var ema9 = _chartBundle!.Overlays.FirstOrDefault(o => o.Name == $"EMA {_backtestSettings.EmaCrossoverShort}") 
                    ?? _chartBundle.Overlays.FirstOrDefault(o => o.Name == "EMA 9");
         var ema21 = _chartBundle.Overlays.FirstOrDefault(o => o.Name == $"EMA {_backtestSettings.EmaCrossoverLong}")
                     ?? _chartBundle.Overlays.FirstOrDefault(o => o.Name == "EMA 21");
@@ -663,7 +859,7 @@
 
             if (currEma9 == 0 || currEma21 == 0) continue;
 
-            // Check stop loss / take profit if in position
+            // Check exit conditions if in position
             if (inPosition)
             {
                 var pnlPercent = isLong 
@@ -676,28 +872,14 @@
 
                 if (hitStopLoss || hitTakeProfit || emaCrossExit)
                 {
-                    var pnl = isLong 
-                        ? (candle.Close - entryPrice) * _backtestSettings.PositionSize
-                        : (entryPrice - candle.Close) * _backtestSettings.PositionSize;
-
-                    _simulatedTrades.Add(new SimulatedTrade
-                    {
-                        IsLong = isLong,
-                        EntryPrice = entryPrice,
-                        EntryTime = DateTimeOffset.FromUnixTimeSeconds(entryTime).DateTime,
-                        ExitPrice = candle.Close,
-                        ExitTime = DateTimeOffset.FromUnixTimeSeconds(candle.Time).DateTime,
-                        PnL = Math.Round(pnl, 2)
-                    });
-
+                    RecordTrade(isLong, entryPrice, entryTime, candle.Close, candle.Time);
                     inPosition = false;
                 }
             }
 
-            // Entry signals (only if not in position)
+            // Entry signals
             if (!inPosition)
             {
-                // EMA 9 crosses above EMA 21 = BUY
                 if (prevEma9 <= prevEma21 && currEma9 > currEma21)
                 {
                     inPosition = true;
@@ -705,7 +887,6 @@
                     entryPrice = candle.Close;
                     entryTime = candle.Time;
                 }
-                // EMA 9 crosses below EMA 21 = SELL
                 else if (prevEma9 >= prevEma21 && currEma9 < currEma21)
                 {
                     inPosition = true;
@@ -715,27 +896,262 @@
                 }
             }
         }
+    }
 
-        // Calculate totals
-        _totalPnL = _simulatedTrades.Sum(t => t.PnL);
-        var winners = _simulatedTrades.Count(t => t.PnL > 0);
-        _winRate = _simulatedTrades.Count > 0 ? (winners / (double)_simulatedTrades.Count) * 100 : 0;
+    private void RunVwapBounceStrategy()
+    {
+        var vwap = _chartBundle!.Overlays.FirstOrDefault(o => o.Name == "VWAP");
+        var ema9 = _chartBundle.Overlays.FirstOrDefault(o => o.Name == "EMA 9");
 
-        // Add markers to chart
-        if (_isJsReady && _simulatedTrades.Count > 0)
+        if (vwap == null) return;
+
+        bool inPosition = false;
+        bool isLong = false;
+        double entryPrice = 0;
+        long entryTime = 0;
+        int barsInPosition = 0;
+        const int minHoldBars = 3;
+
+        for (int i = 2; i < _candles.Count; i++)
         {
-            var markers = _simulatedTrades.SelectMany(t => new object[]
-            {
-                new { time = new DateTimeOffset(t.EntryTime).ToUnixTimeSeconds(), isEntry = true, isLong = t.IsLong, isProfit = false, label = t.IsLong ? "BUY" : "SHORT" },
-                new { time = new DateTimeOffset(t.ExitTime).ToUnixTimeSeconds(), isEntry = false, isLong = t.IsLong, isProfit = t.PnL > 0, label = t.PnL > 0 ? "WIN" : "LOSS" }
-            }).ToArray();
+            var candle = _candles[i];
+            var prevCandle = _candles[i - 1];
+            var prevPrevCandle = _candles[i - 2];
 
-            await JS.InvokeVoidAsync("addTradeMarkers", (object)markers);
+            var currVwap = vwap.Points.FirstOrDefault(p => p.Time == candle.Time).Value;
+            var prevVwap = vwap.Points.FirstOrDefault(p => p.Time == prevCandle.Time).Value;
+
+            if (currVwap == 0) continue;
+
+            // Check exit conditions
+            if (inPosition)
+            {
+                barsInPosition++;
+                var pnlPercent = isLong 
+                    ? ((candle.Close - entryPrice) / entryPrice) * 100
+                    : ((entryPrice - candle.Close) / entryPrice) * 100;
+
+                bool hitStopLoss = _backtestSettings.UseStopLoss && pnlPercent <= -_backtestSettings.StopLossPercent;
+                bool hitTakeProfit = pnlPercent >= _backtestSettings.TakeProfitPercent;
+
+                // Exit if price crosses back through VWAP in wrong direction (after min hold)
+                bool vwapCrossExit = barsInPosition >= minHoldBars && 
+                    ((isLong && candle.Close < currVwap) || (!isLong && candle.Close > currVwap));
+
+                if (hitStopLoss || hitTakeProfit || vwapCrossExit)
+                {
+                    RecordTrade(isLong, entryPrice, entryTime, candle.Close, candle.Time);
+                    inPosition = false;
+                    barsInPosition = 0;
+                }
+            }
+
+            // Entry: VWAP bounce pattern
+            if (!inPosition)
+            {
+                // Long: Price dips to VWAP from above and bounces (low touches VWAP, close above)
+                bool vwapBounceUp = prevCandle.Low <= prevVwap * 1.002 && // Within 0.2% of VWAP
+                                    prevCandle.Close > prevVwap &&
+                                    candle.Close > prevCandle.Close &&
+                                    candle.Close > currVwap;
+
+                // Short: Price rises to VWAP from below and rejects
+                bool vwapBounceDown = prevCandle.High >= prevVwap * 0.998 &&
+                                      prevCandle.Close < prevVwap &&
+                                      candle.Close < prevCandle.Close &&
+                                      candle.Close < currVwap;
+
+                if (vwapBounceUp)
+                {
+                    inPosition = true;
+                    isLong = true;
+                    entryPrice = candle.Close;
+                    entryTime = candle.Time;
+                    barsInPosition = 0;
+                }
+                else if (vwapBounceDown)
+                {
+                    inPosition = true;
+                    isLong = false;
+                    entryPrice = candle.Close;
+                    entryTime = candle.Time;
+                    barsInPosition = 0;
+                }
+            }
+        }
+    }
+
+    private void RunMomentumStrategy()
+    {
+        var ema9 = _chartBundle!.Overlays.FirstOrDefault(o => o.Name == "EMA 9");
+        var ema21 = _chartBundle.Overlays.FirstOrDefault(o => o.Name == "EMA 21");
+
+        if (ema9 == null || ema21 == null) return;
+
+        bool inPosition = false;
+        bool isLong = false;
+        double entryPrice = 0;
+        long entryTime = 0;
+        const int lookback = 5;
+
+        for (int i = lookback; i < _candles.Count; i++)
+        {
+            var candle = _candles[i];
+
+            var currEma9 = ema9.Points.FirstOrDefault(p => p.Time == candle.Time).Value;
+            var currEma21 = ema21.Points.FirstOrDefault(p => p.Time == candle.Time).Value;
+
+            if (currEma9 == 0 || currEma21 == 0) continue;
+
+            // Calculate momentum (Rate of Change)
+            var lookbackCandle = _candles[i - lookback];
+            var roc = ((candle.Close - lookbackCandle.Close) / lookbackCandle.Close) * 100;
+
+            // Calculate consecutive up/down candles
+            int consecutiveUp = 0;
+            int consecutiveDown = 0;
+            for (int j = i - 1; j >= Math.Max(0, i - 3); j--)
+            {
+                if (_candles[j].Close > _candles[j].Open) consecutiveUp++;
+                else consecutiveDown++;
+            }
+
+            // Check exit conditions
+            if (inPosition)
+            {
+                var pnlPercent = isLong 
+                    ? ((candle.Close - entryPrice) / entryPrice) * 100
+                    : ((entryPrice - candle.Close) / entryPrice) * 100;
+
+                bool hitStopLoss = _backtestSettings.UseStopLoss && pnlPercent <= -_backtestSettings.StopLossPercent;
+                bool hitTakeProfit = pnlPercent >= _backtestSettings.TakeProfitPercent;
+
+                // Exit on momentum reversal
+                bool momentumReversal = (isLong && roc < -1.0) || (!isLong && roc > 1.0);
+
+                if (hitStopLoss || hitTakeProfit || momentumReversal)
+                {
+                    RecordTrade(isLong, entryPrice, entryTime, candle.Close, candle.Time);
+                    inPosition = false;
+                }
+            }
+
+            // Entry: Strong momentum with trend confirmation
+            if (!inPosition)
+            {
+                // Long: Strong positive ROC + price above EMAs + consecutive green candles
+                bool strongBullishMomentum = roc > 1.5 &&
+                                              candle.Close > currEma9 &&
+                                              currEma9 > currEma21 &&
+                                              consecutiveUp >= 2;
+
+                // Short: Strong negative ROC + price below EMAs + consecutive red candles
+                bool strongBearishMomentum = roc < -1.5 &&
+                                              candle.Close < currEma9 &&
+                                              currEma9 < currEma21 &&
+                                              consecutiveDown >= 2;
+
+                if (strongBullishMomentum)
+                {
+                    inPosition = true;
+                    isLong = true;
+                    entryPrice = candle.Close;
+                    entryTime = candle.Time;
+                }
+                else if (strongBearishMomentum)
+                {
+                    inPosition = true;
+                    isLong = false;
+                    entryPrice = candle.Close;
+                    entryTime = candle.Time;
+                }
+            }
+        }
+    }
+
+    private void RecordTrade(bool isLong, double entryPrice, long entryTime, double exitPrice, long exitTime)
+    {
+        var pnl = isLong 
+            ? (exitPrice - entryPrice) * _backtestSettings.PositionSize
+            : (entryPrice - exitPrice) * _backtestSettings.PositionSize;
+
+        _simulatedTrades.Add(new SimulatedTrade
+        {
+            IsLong = isLong,
+            EntryPrice = entryPrice,
+            EntryTime = DateTimeOffset.FromUnixTimeSeconds(entryTime).DateTime,
+            ExitPrice = exitPrice,
+            ExitTime = DateTimeOffset.FromUnixTimeSeconds(exitTime).DateTime,
+            PnL = Math.Round(pnl, 2)
+        });
+    }
+
+    private void CalculateTradeStatistics()
+    {
+        if (_simulatedTrades.Count == 0)
+        {
+            _totalPnL = 0;
+            _winRate = 0;
+            _profitFactor = 0;
+            _avgWin = 0;
+            _avgLoss = 0;
+            _maxDrawdown = 0;
+            _expectancy = 0;
+            _largestWin = 0;
+            _largestLoss = 0;
+            return;
         }
 
-        StateHasChanged();
+        _totalPnL = _simulatedTrades.Sum(t => t.PnL);
+
+        var winners = _simulatedTrades.Where(t => t.PnL > 0).ToList();
+        var losers = _simulatedTrades.Where(t => t.PnL <= 0).ToList();
+
+        _winRate = _simulatedTrades.Count > 0 ? (winners.Count / (double)_simulatedTrades.Count) * 100 : 0;
+
+        var totalWins = winners.Sum(t => t.PnL);
+        var totalLosses = Math.Abs(losers.Sum(t => t.PnL));
+        _profitFactor = totalLosses > 0 ? totalWins / totalLosses : totalWins > 0 ? 99.99 : 0;
+
+        _avgWin = winners.Count > 0 ? winners.Average(t => t.PnL) : 0;
+        _avgLoss = losers.Count > 0 ? losers.Average(t => t.PnL) : 0;
+
+        _largestWin = winners.Count > 0 ? winners.Max(t => t.PnL) : 0;
+        _largestLoss = losers.Count > 0 ? losers.Min(t => t.PnL) : 0;
+
+        // Calculate max drawdown from equity curve
+        double equity = 0;
+        double peak = 0;
+        _maxDrawdown = 0;
+
+        foreach (var trade in _simulatedTrades)
+        {
+            equity += trade.PnL;
+            if (equity > peak) peak = equity;
+            var drawdown = peak - equity;
+            if (drawdown > _maxDrawdown) _maxDrawdown = drawdown;
+        }
+
+        // Expectancy = (Win% × Avg Win) - (Loss% × Avg Loss)
+        var winPct = winners.Count / (double)_simulatedTrades.Count;
+        var lossPct = losers.Count / (double)_simulatedTrades.Count;
+        _expectancy = (winPct * _avgWin) + (lossPct * _avgLoss); // avgLoss is already negative
     }
-    
+
+    private List<double> GetEquityCurvePoints()
+    {
+        var points = new List<double> { 0 };
+        double equity = 0;
+
+        foreach (var trade in _simulatedTrades)
+        {
+            equity += trade.PnL;
+            points.Add(equity);
+        }
+
+        return points;
+    }
+
     // Helpers
     private static string FormatVolume(double volume) => volume switch
     {
@@ -745,10 +1161,24 @@
     };
 
     // Settings methods
-    private void InitializeSettings()
+    private async Task InitializeSettings()
     {
-        _backtestSettings = new BacktestSettings();
+        // Try to load from local storage first
+        if (_isJsReady)
+        {
+            await LoadFromLocalStorage();
+        }
+        else
+        {
+            _backtestSettings = new BacktestSettings();
+        }
         UpdateSettingsJson();
+    }
+
+    private void SyncSettingsToJson()
+    {
+        UpdateSettingsJson();
+        _settingsSaved = false;
     }
 
     private void UpdateSettingsJson()
@@ -762,6 +1192,7 @@
     private void OnSettingsJsonChanged()
     {
         _settingsJsonDirty = true;
+        _settingsSaved = false;
         try
         {
             var parsed = JsonSerializer.Deserialize<BacktestSettings>(_settingsJson);
@@ -798,6 +1229,7 @@
     {
         _backtestSettings = new BacktestSettings();
         UpdateSettingsJson();
+        _settingsSaved = false;
     }
 
     private void ApplySettings()
@@ -810,12 +1242,106 @@
                 _backtestSettings = parsed;
                 _settingsJsonDirty = false;
                 _settingsJsonError = null;
+                _settingsSaved = true;
             }
         }
         catch (JsonException ex)
         {
             _settingsJsonError = $"Cannot apply: {ex.Message}";
         }
+    }
+
+    private async Task SaveToLocalStorage()
+    {
+        try
+        {
+            await JS.InvokeVoidAsync("localStorage.setItem", LocalStorageKey, _settingsJson);
+            _settingsSaved = true;
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Failed to save settings: {ex.Message}");
+        }
+    }
+
+    private async Task LoadFromLocalStorage()
+    {
+        try
+        {
+            var json = await JS.InvokeAsync<string?>("localStorage.getItem", LocalStorageKey);
+            if (!string.IsNullOrEmpty(json))
+            {
+                var parsed = JsonSerializer.Deserialize<BacktestSettings>(json);
+                if (parsed != null)
+                {
+                    _backtestSettings = parsed;
+                    _settingsSaved = true;
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Failed to load settings: {ex.Message}");
+            _backtestSettings = new BacktestSettings();
+        }
+    }
+
+    private async Task ExportSettings()
+    {
+        try
+        {
+            var json = JsonSerializer.Serialize(_backtestSettings, new JsonSerializerOptions { WriteIndented = true });
+            var bytes = System.Text.Encoding.UTF8.GetBytes(json);
+            var base64 = Convert.ToBase64String(bytes);
+
+            await JS.InvokeVoidAsync("eval", $@"
+                const link = document.createElement('a');
+                link.href = 'data:application/json;base64,{base64}';
+                link.download = 'backtest-settings.json';
+                link.click();
+            ");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Export failed: {ex.Message}");
+        }
+    }
+
+    private async Task ImportSettings(InputFileChangeEventArgs e)
+    {
+        try
+        {
+            var file = e.File;
+            if (file.Size > 1024 * 100) // 100KB limit
+            {
+                _settingsJsonError = "File too large (max 100KB)";
+                return;
+            }
+
+            using var stream = file.OpenReadStream();
+            using var reader = new StreamReader(stream);
+            var json = await reader.ReadToEndAsync();
+
+            var parsed = JsonSerializer.Deserialize<BacktestSettings>(json);
+            if (parsed != null)
+            {
+                _backtestSettings = parsed;
+                UpdateSettingsJson();
+                _settingsSaved = false;
+                _settingsJsonError = null;
+            }
+        }
+        catch (JsonException ex)
+        {
+            _settingsJsonError = $"Invalid JSON file: {ex.Message}";
+        }
+        catch (Exception ex)
+        {
+            _settingsJsonError = $"Import failed: {ex.Message}";
+        }
+
+        StateHasChanged();
     }
 
     public async ValueTask DisposeAsync()

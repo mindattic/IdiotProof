@@ -1,0 +1,160 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "IdiotProof Application Settings",
+  "description": "Configuration schema for IdiotProof trading application",
+  "type": "object",
+  "properties": {
+    "appVersion": {
+      "type": "string",
+      "description": "Application version"
+    },
+    "lastModified": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Last modification timestamp"
+    },
+    "settings": {
+      "type": "object",
+      "properties": {
+        "ibConnection": {
+          "type": "object",
+          "description": "Interactive Brokers connection settings",
+          "properties": {
+            "host": {
+              "type": "string",
+              "default": "127.0.0.1",
+              "description": "IP address or hostname of TWS/Gateway"
+            },
+            "port": {
+              "type": "integer",
+              "enum": [7497, 7496, 4002, 4001],
+              "default": 4002,
+              "description": "TWS Paper: 7497, TWS Live: 7496, Gateway Paper: 4002, Gateway Live: 4001"
+            },
+            "clientId": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 999,
+              "default": 99,
+              "description": "Unique client ID for this connection"
+            },
+            "connectionTimeoutSeconds": {
+              "type": "integer",
+              "minimum": 5,
+              "maximum": 60,
+              "default": 10,
+              "description": "Timeout in seconds to wait for connection"
+            },
+            "accountNumber": {
+              "type": "string",
+              "pattern": "^[A-Z]{1,2}[0-9]+$",
+              "description": "Primary IBKR account ID (e.g., U1234567)"
+            },
+            "secondaryAccountNumber": {
+              "type": "string",
+              "pattern": "^[A-Z]{1,2}[0-9]+$",
+              "description": "Secondary account for dual-account hedging"
+            },
+            "dualAccountHedgingEnabled": {
+              "type": "boolean",
+              "default": false,
+              "description": "Enable LONG on primary, SHORT on secondary account"
+            }
+          },
+          "required": ["host", "port", "clientId"]
+        },
+        "display": {
+          "type": "object",
+          "description": "Display and UI settings",
+          "properties": {
+            "timezone": {
+              "type": "string",
+              "enum": ["EST", "CST", "MST", "PST"],
+              "default": "EST",
+              "description": "Your local timezone for time display"
+            },
+            "silentMode": {
+              "type": "boolean",
+              "default": false,
+              "description": "Suppress most console output"
+            },
+            "showBacktestDailyDetails": {
+              "type": "boolean",
+              "default": false,
+              "description": "Show individual trade details per day in backtest"
+            }
+          }
+        },
+        "webIntegration": {
+          "type": "object",
+          "description": "Web frontend integration settings",
+          "properties": {
+            "webFrontendUrl": {
+              "type": ["string", "null"],
+              "format": "uri",
+              "default": "http://localhost:5114",
+              "description": "URL of the web frontend for live data streaming"
+            }
+          }
+        },
+        "riskManagement": {
+          "type": "object",
+          "description": "Risk management and stop loss settings",
+          "properties": {
+            "useStopLoss": {
+              "type": "boolean",
+              "default": false,
+              "description": "Enable stop loss orders in autonomous trading"
+            },
+            "useTrailingStopLoss": {
+              "type": "boolean",
+              "default": false,
+              "description": "Enable trailing stop loss in autonomous trading"
+            }
+          }
+        },
+        "indicators": {
+          "type": "object",
+          "description": "Technical indicator settings",
+          "properties": {
+            "maxCandlesticks": {
+              "type": "integer",
+              "minimum": 50,
+              "maximum": 500,
+              "default": 255,
+              "description": "Maximum candlesticks to retain for indicator calculations"
+            }
+          }
+        },
+        "timing": {
+          "type": "object",
+          "description": "Timing and interval settings",
+          "properties": {
+            "heartbeatMinutes": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 30,
+              "default": 5,
+              "description": "Interval between connection heartbeat checks"
+            },
+            "ipcPingIntervalSeconds": {
+              "type": "integer",
+              "minimum": 30,
+              "maximum": 600,
+              "default": 300,
+              "description": "Interval between IPC ping messages"
+            },
+            "tickerPriceCheckIntervalSeconds": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 600,
+              "default": 300,
+              "description": "Interval between ticker price reports (0 to disable)"
+            }
+          }
+        }
+      }
+    }
+  },
+  "required": ["settings"]
+}

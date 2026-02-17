@@ -15,29 +15,37 @@
 
 <PageTitle>@Symbol Analysis - IdiotProof</PageTitle>
 
-<div class="command-center">
+<div class="command-center" data-meta="Analysis command center - deep technical analysis with AI-powered trade recommendations">
     @* Header with symbol selector and confidence *@
     <header class="center-header">
-        <div class="symbol-selector">
+        <div class="symbol-selector" data-meta="Enter stock ticker to analyze. Press Enter or click Analyze.">
             <input type="text" @bind="_symbolInput" @bind:event="oninput" 
                    @onkeydown="OnSymbolKeyDown"
                    placeholder="Enter symbol..." class="symbol-input" />
             <button class="btn-go" @onclick="LoadSymbolAsync" title="Analyze this symbol's technical indicators">Analyze</button>
         </div>
-        
+
         @if (_indicators != null)
         {
-            <div class="confidence-display @GetScoreClass(_indicators.CalculateMarketScore())">
-                <span class="score-value">@_indicators.CalculateMarketScore()</span>
+            var score = _indicators.CalculateMarketScore();
+            var scoreInterpretation = score >= 70 ? "Strong bullish - high conviction LONG" :
+                                      score >= 30 ? "Moderately bullish - consider LONG with caution" :
+                                      score >= -30 ? "Neutral - wait for clearer signal" :
+                                      score >= -70 ? "Moderately bearish - consider SHORT with caution" :
+                                      "Strong bearish - high conviction SHORT";
+            <div class="confidence-display @GetScoreClass(score)" 
+                 data-analysis="Market Score: @score. @scoreInterpretation. Based on VWAP, EMAs, RSI, MACD, ADX, and Volume analysis.">
+                <span class="score-value">@score</span>
                 <span class="score-label">Market Score</span>
             </div>
         }
-        
-        <div class="quick-actions">
+
+        <div class="quick-actions" data-meta="Top gappers from scanner - click to analyze">
             @foreach (var candidate in _topGappers.Take(5))
             {
                 <button class="quick-symbol @(candidate.Symbol == Symbol ? "active" : "")"
-                        @onclick="() => LoadSymbol(candidate.Symbol)">
+                        @onclick="() => LoadSymbol(candidate.Symbol)"
+                        data-meta="@candidate.Symbol: @(candidate.IsGapUp ? "Gap UP" : "Gap DOWN") @candidate.GapPercent.ToString("+0.0;-0.0")%. Confidence @candidate.ConfidenceScore%.">
                     <span class="qs-symbol">@candidate.Symbol</span>
                     <span class="qs-change @(candidate.IsGapUp ? "up" : "down")">
                         @candidate.GapPercent.ToString("+0.0;-0.0")%
@@ -51,21 +59,21 @@
     <div class="center-main">
         @* Chart Panel (Top Half) *@
         <div class="chart-panel">
-            <div class="chart-toolbar">
-                <div class="interval-selector">
+            <div class="chart-toolbar" data-meta="Chart configuration - timeframe and indicator overlays">
+                <div class="interval-selector" data-analysis="Timeframe selection: 1m for scalping, 5m for day trading, 15m+ for swing setups">
                     @foreach (var interval in new[] { "1", "5", "15", "30", "60" })
                     {
                         <button class="@(_chartConfig.Interval == interval ? "active" : "")"
                                 @onclick="() => SetInterval(interval)">@interval@(interval == "60" ? "H" : "m")</button>
                     }
                 </div>
-                
-                <div class="indicator-toggles">
-                    <label><input type="checkbox" @bind="_chartConfig.ShowVwap" /> VWAP</label>
-                    <label><input type="checkbox" @bind="_chartConfig.ShowEma9" /> EMA 9</label>
-                    <label><input type="checkbox" @bind="_chartConfig.ShowEma21" /> EMA 21</label>
-                    <label><input type="checkbox" @bind="_chartConfig.ShowRsi" /> RSI</label>
-                    <label><input type="checkbox" @bind="_chartConfig.ShowMacd" /> MACD</label>
+
+                <div class="indicator-toggles" data-analysis="Technical indicators: VWAP=institutional level, EMAs=trend direction, RSI=overbought/oversold, MACD=momentum">
+                    <label data-meta="VWAP: Volume Weighted Avg Price. Above=bullish, Below=bearish."><input type="checkbox" @bind="_chartConfig.ShowVwap" /> VWAP</label>
+                    <label data-meta="EMA 9: Fast trend. Price above=short-term bullish."><input type="checkbox" @bind="_chartConfig.ShowEma9" /> EMA 9</label>
+                    <label data-meta="EMA 21: Medium trend. EMA9 > EMA21=bullish crossover."><input type="checkbox" @bind="_chartConfig.ShowEma21" /> EMA 21</label>
+                    <label data-meta="RSI: 0-100 momentum. >70=overbought, <30=oversold."><input type="checkbox" @bind="_chartConfig.ShowRsi" /> RSI</label>
+                    <label data-meta="MACD: Momentum indicator. MACD > Signal=bullish."><input type="checkbox" @bind="_chartConfig.ShowMacd" /> MACD</label>
                 </div>
             </div>
             
@@ -160,46 +168,46 @@
             @* Risk-Protected Trade Setup *@
             @if (_proposedSetup != null)
             {
-                <div class="trade-setup-panel">
+                <div class="trade-setup-panel" data-analysis="Trade setup with risk/reward analysis - review levels before executing">
                     <h3>🎯 Trade Setup</h3>
-                    
+
                     <div class="setup-details">
-                        <div class="setup-row">
+                        <div class="setup-row" data-meta="Trade direction based on market score and indicator alignment">
                             <span class="label">Direction:</span>
                             <span class="value @(_proposedSetup.IsLong ? "long" : "short")">
                                 @(_proposedSetup.IsLong ? "📈 LONG" : "📉 SHORT")
                             </span>
                         </div>
-                        <div class="setup-row">
+                        <div class="setup-row" data-meta="Entry price: Execute at this price or better">
                             <span class="label">Entry:</span>
                             <span class="value">$@_proposedSetup.EntryPrice.ToString("F2")</span>
                         </div>
-                        <div class="setup-row">
+                        <div class="setup-row" data-meta="Stop Loss: Auto-exit if price hits this level. Limits max loss.">
                             <span class="label">Stop Loss:</span>
                             <span class="value stop">$@_proposedSetup.StopLoss.ToString("F2") 
                                 (@_proposedSetup.StopLossPercent.ToString("F1")%)</span>
                         </div>
-                        <div class="setup-row">
+                        <div class="setup-row" data-meta="Take Profit: Auto-exit when target reached. Lock in gains.">
                             <span class="label">Take Profit:</span>
                             <span class="value target">$@_proposedSetup.TakeProfit.ToString("F2") 
                                 (@_proposedSetup.TakeProfitPercent.ToString("F1")%)</span>
                         </div>
-                        <div class="setup-row">
+                        <div class="setup-row" data-meta="Position size: Number of shares to trade">
                             <span class="label">Quantity:</span>
                             <span class="value">@_proposedSetup.Quantity shares</span>
                         </div>
                     </div>
-                    
-                    <div class="risk-summary">
-                        <div class="risk-item">
+
+                    <div class="risk-summary" data-analysis="Risk analysis: Max loss $@_proposedSetup.RiskDollars.ToString("F2") if stop hit, potential gain $@_proposedSetup.RewardDollars.ToString("F2") if target hit. Risk:Reward 1:@_proposedSetup.RiskRewardRatio.ToString("F1") - @(_proposedSetup.RiskRewardRatio >= 2.5 ? "Excellent" : _proposedSetup.RiskRewardRatio >= 2 ? "Good" : _proposedSetup.RiskRewardRatio >= 1.5 ? "Acceptable" : "Poor - consider adjusting")">
+                        <div class="risk-item" data-meta="Maximum dollar loss if stop loss triggered">
                             <span class="risk-label">Max Loss:</span>
                             <span class="risk-value loss">$@_proposedSetup.RiskDollars.ToString("F2")</span>
                         </div>
-                        <div class="risk-item">
+                        <div class="risk-item" data-meta="Potential profit if take profit reached">
                             <span class="risk-label">Potential Gain:</span>
                             <span class="risk-value gain">$@_proposedSetup.RewardDollars.ToString("F2")</span>
                         </div>
-                        <div class="risk-item">
+                        <div class="risk-item" data-meta="Risk:Reward ratio. Target 2:1 or higher for positive expectancy.">
                             <span class="risk-label">R:R Ratio:</span>
                             <span class="risk-value rr @(_proposedSetup.RiskRewardRatio >= 2 ? "good" : "")">
                                 1:@_proposedSetup.RiskRewardRatio.ToString("F1")

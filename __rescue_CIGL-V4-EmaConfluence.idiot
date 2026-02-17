@@ -1,0 +1,27 @@
+﻿# CIGL Variant 4 - EMA Confluence
+# Uses multiple EMA levels for confirmation
+# Technical analysis focused
+
+Ticker(CIGL)
+.Name("CIGL-V4-EmaConfluence")
+.Session(IS.PREMARKET)
+.Qty(100)
+
+# Entry Conditions:
+# 1. Entry above $4.45
+# 2. Above short-term EMA(9)
+# 3. Above medium-term EMA(21)
+# 4. EMA(9) turning up (momentum shift)
+# 5. Above VWAP for volume confirmation
+.Entry(4.45)
+.EmaAbove(9)
+.EmaAbove(21)
+.EmaTurningUp(9)
+.AboveVwap()
+.MomentumAbove(0)
+
+# Exit - Balanced approach
+.TakeProfit(5.50)
+.StopLoss(3.55)
+.TSL(10)
+.ClosePosition(IS.BELL, IS.PROFITABLE)

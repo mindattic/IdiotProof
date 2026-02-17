@@ -5,19 +5,20 @@
 .global-chatbox {
     position: fixed;
     bottom: 0;
-    left: 0;
+    left: 200px; /* Account for sidebar width */
     right: 0;
     background: var(--bg-secondary, #161b22);
     border-top: 1px solid var(--border-color, #30363d);
-    z-index: 1000;
-    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    z-index: 9999;
+    transition: height 0.3s ease, box-shadow 0.3s ease;
 }
 
 .global-chatbox.minimized {
-    transform: translateY(calc(100% - 44px));
+    height: 44px;
 }
 
 .global-chatbox.expanded {
+    height: 400px;
     box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.4);
 }
 
@@ -25,9 +26,15 @@
     display: flex;
     align-items: center;
     padding: 8px 16px;
+    height: 44px;
     background: var(--bg-tertiary, #21262d);
     cursor: pointer;
     user-select: none;
+    border-bottom: 1px solid var(--border-color, #30363d);
+}
+
+.chatbox-header:hover {
+    background: var(--bg-hover, #292e36);
 }
 
 .chatbox-toggle {
@@ -70,10 +77,22 @@
     color: var(--text-primary, #c9d1d9);
 }
 
+.chatbox-expand-hint {
+    font-size: 11px;
+    color: var(--text-muted, #484f58);
+    margin-right: 12px;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+}
+
+.chatbox-header:hover .chatbox-expand-hint {
+    opacity: 1;
+}
+
 .chatbox-body {
     display: flex;
     flex-direction: column;
-    max-height: 300px;
+    height: calc(100% - 44px);
     overflow: hidden;
 }
 
@@ -81,7 +100,7 @@
     flex: 1;
     overflow-y: auto;
     padding: 12px 16px;
-    max-height: 200px;
+    min-height: 0; /* Allow flex shrinking */
 }
 
 .chat-message {
@@ -291,15 +310,28 @@
 
 /* Responsive adjustments */
 @media (max-width: 768px) {
-    .chatbox-body {
-        max-height: 250px;
+    .global-chatbox {
+        left: 0; /* No sidebar on mobile */
     }
-    
+
+    .global-chatbox.expanded {
+        height: 60vh;
+    }
+
     .chat-bubble {
         max-width: 90%;
     }
-    
+
     .chatbox-quick-actions {
         display: none;
     }
+}
+
+/* Ensure main content doesn't overlap */
+.global-chatbox.minimized ~ .page-content {
+    margin-bottom: 44px;
+}
+
+.global-chatbox.expanded ~ .page-content {
+    margin-bottom: 400px;
 }
