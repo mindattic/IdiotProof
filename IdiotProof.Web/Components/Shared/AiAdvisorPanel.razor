@@ -4,6 +4,23 @@
 @inject IJSRuntime JS
 @inject NavigationManager Navigation
 
+@* Floating Screenshot Button - Always Visible *@
+<button class="ai-fab @(_isAnalyzing ? "analyzing" : "")" 
+        @onclick="CaptureAndAnalyze" 
+        disabled="@_isAnalyzing"
+        title="📸 Take a picture and explain this to me"
+        data-tooltip="Capture screen and get AI analysis of what you're seeing">
+    @if (_isAnalyzing)
+    {
+        <span class="fab-spinner">⟳</span>
+    }
+    else
+    {
+        <span class="fab-icon">📸</span>
+    }
+    <span class="fab-label">Explain This</span>
+</button>
+
 <div class="ai-advisor-container @(_isExpanded ? "expanded" : "collapsed")">
     <div class="ai-advisor-header" @onclick="ToggleExpanded">
         <div class="header-left">
@@ -16,25 +33,70 @@
         </div>
         <div class="header-right">
             <button class="btn-capture" @onclick="CaptureAndAnalyze" @onclick:stopPropagation="true" 
-                    disabled="@_isAnalyzing" title="Capture & Analyze Screen">
+                    disabled="@_isAnalyzing" 
+                    title="Capture & Analyze Screen"
+                    data-tooltip="Take a screenshot and get AI-powered analysis">
                 📸
+            </button>
+            <button class="btn-context" @onclick="ExtractAndShowContext" @onclick:stopPropagation="true"
+                    disabled="@_isAnalyzing"
+                    title="Extract Page Context"
+                    data-tooltip="Show all data-analysis and data-meta information on this page">
+                📋
             </button>
             <button class="btn-toggle" title="@(_isExpanded ? "Minimize" : "Expand")">
                 @(_isExpanded ? "▼" : "▲")
             </button>
         </div>
     </div>
-    
+
     @if (_isExpanded)
     {
         <div class="ai-advisor-body">
+            <div class="quick-actions">
+                <button class="quick-action" @onclick='() => AskQuickQuestion("What should I focus on right now?")'
+                        data-tooltip="Get AI advice on current priorities">
+                    🎯 What now?
+                </button>
+                <button class="quick-action" @onclick='() => AskQuickQuestion("Explain the current market conditions")'
+                        data-tooltip="Get market sentiment analysis">
+                    📊 Market
+                </button>
+                <button class="quick-action" @onclick='() => AskQuickQuestion("What are the risks I should watch for?")'
+                        data-tooltip="Get risk assessment">
+                    ⚠️ Risks
+                </button>
+                <button class="quick-action" @onclick="CaptureAndAnalyze"
+                        data-tooltip="Take a picture and explain this to me">
+                    📸 Explain This
+                </button>
+            </div>
+
             <div class="messages-container" @ref="_messagesContainer">
                 @if (_messages.Count == 0)
                 {
                     <div class="empty-state">
                         <p>👋 Hi! I'm your AI trading advisor.</p>
-                        <p>Click 📸 to capture the screen and I'll analyze what I see.</p>
-                        <p>Or ask me anything about your trades!</p>
+                        <p>📸 Click <strong>"Explain This"</strong> anytime to capture the screen and I'll analyze what I see.</p>
+                        <p>💡 I can see all the data on your screen including charts, indicators, and statistics.</p>
+                        <div class="empty-state-features">
+                            <div class="feature">
+                                <span class="feature-icon">📊</span>
+                                <span class="feature-text">Chart analysis</span>
+                            </div>
+                            <div class="feature">
+                                <span class="feature-icon">📈</span>
+                                <span class="feature-text">Pattern detection</span>
+                            </div>
+                            <div class="feature">
+                                <span class="feature-icon">⚠️</span>
+                                <span class="feature-text">Risk warnings</span>
+                            </div>
+                            <div class="feature">
+                                <span class="feature-icon">💡</span>
+                                <span class="feature-text">Trade ideas</span>
+                            </div>
+                        </div>
                     </div>
                 }
                 else
@@ -307,27 +369,122 @@
             await SendMessage();
         }
     }
-    
+
     private async Task ScrollToBottom()
     {
         await Task.Delay(50);
         await JS.InvokeVoidAsync("scrollToBottom", _messagesContainer);
     }
-    
+
+    private async Task AskQuickQuestion(string question)
+    {
+        if (_isAnalyzing) return;
+
+        // Expand panel if collapsed
+        _isExpanded = true;
+
+        _isAnalyzing = true;
+        StateHasChanged();
+
+        _messages.Add(new ChatMessage
+        {
+            IsUser = true,
+            Text = question,
+            Timestamp = DateTime.Now
+        });
+
+        await ScrollToBottom();
+
+        try
+        {
+            // Get page context for better answers
+            var pageContext = await JS.InvokeAsync<string>("getPageSummary");
+            var contextEnhancedQuestion = $"{question}\n\nCurrent page context:\n{pageContext}";
+
+            var response = await AiAdvisor.GetAdviceAsync(contextEnhancedQuestion, _currentPage);
+
+            _messages.Add(new ChatMessage
+            {
+                IsUser = false,
+                Text = response,
+                Timestamp = DateTime.Now
+            });
+
+            await ScrollToBottom();
+        }
+        catch (Exception ex)
+        {
+            _messages.Add(new ChatMessage
+            {
+                IsUser = false,
+                Text = $"❌ Error: {ex.Message}",
+                Timestamp = DateTime.Now
+            });
+        }
+        finally
+        {
+            _isAnalyzing = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task ExtractAndShowContext()
+    {
+        if (_isAnalyzing) return;
+
+        _isExpanded = true;
+
+        try
+        {
+            var context = await JS.InvokeAsync<object>("extractAnalysisContext");
+            var contextJson = JsonSerializer.Serialize(context, new JsonSerializerOptions { WriteIndented = true });
+
+            _messages.Add(new ChatMessage
+            {
+                IsUser = true,
+                Text = "📋 Extracted page context",
+                Timestamp = DateTime.Now
+            });
+
+            _messages.Add(new ChatMessage
+            {
+                IsUser = false,
+                Text = $"**Page Data Extracted:**\n\n```json\n{contextJson}\n```\n\nThis data is used to provide you with contextual analysis. All elements with `data-analysis` and `data-meta` attributes are captured and sent to the AI for accurate insights.",
+                Timestamp = DateTime.Now
+            });
+
+            await ScrollToBottom();
+        }
+        catch (Exception ex)
+        {
+            _messages.Add(new ChatMessage
+            {
+                IsUser = false,
+                Text = $"❌ Error extracting context: {ex.Message}",
+                Timestamp = DateTime.Now
+            });
+        }
+
+        StateHasChanged();
+    }
+
     private string FormatMessage(string text)
     {
         // Convert markdown-style formatting to HTML
         return text
+            .Replace("```json", "<pre><code class='json'>")
+            .Replace("```", "</code></pre>")
             .Replace("\n", "<br/>")
             .Replace("**", "<strong>")
             .Replace("*", "<em>");
     }
-    
+
     public void Dispose()
     {
         Navigation.LocationChanged -= OnLocationChanged;
+        _dotNetRef?.Dispose();
     }
-    
+
     private class ChatMessage
     {
         public bool IsUser { get; set; }

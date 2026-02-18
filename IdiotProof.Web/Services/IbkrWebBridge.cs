@@ -11,6 +11,7 @@
 using System.Collections.Concurrent;
 using System.Text.Json;
 using IdiotProof.Web.Hubs;
+using IdiotProof.Web.Services.MarketScanner;
 using IdiotProof.Shared;
 
 namespace IdiotProof.Web.Services;
@@ -22,6 +23,7 @@ public sealed class IbkrWebBridge : IHostedService
 {
     private readonly MarketDataBroadcaster _broadcaster;
     private readonly ILogger<IbkrWebBridge> _logger;
+    private readonly IServiceProvider _serviceProvider;
     private readonly ConcurrentDictionary<string, SymbolState> _symbolStates = new();
     private readonly ConcurrentDictionary<string, PositionInfo> _positions = new();
 
@@ -37,10 +39,12 @@ public sealed class IbkrWebBridge : IHostedService
 
     public IbkrWebBridge(
         MarketDataBroadcaster broadcaster,
-        ILogger<IbkrWebBridge> logger)
+        ILogger<IbkrWebBridge> logger,
+        IServiceProvider serviceProvider)
     {
         _broadcaster = broadcaster;
         _logger = logger;
+        _serviceProvider = serviceProvider;
     }
 
     public Task StartAsync(CancellationToken cancellationToken)
@@ -135,20 +139,31 @@ public sealed class IbkrWebBridge : IHostedService
     public async Task OnPriceTickAsync(string symbol, double price, double bid, double ask, long volume)
     {
         symbol = symbol.ToUpperInvariant();
-        
+
         // Get or create symbol state
         var state = _symbolStates.GetOrAdd(symbol, _ => new SymbolState { Symbol = symbol });
-        
+
         // Update state
         state.UpdatePrice(price, volume);
-        
+
+        // Update breakout setups with current price and VWAP
+        try
+        {
+            var setupService = _serviceProvider.GetService<BreakoutSetupService>();
+            setupService?.UpdatePrice(symbol, price, state.Vwap);
+        }
+        catch
+        {
+            // Non-critical - don't fail price updates
+        }
+
         // Throttle broadcasts
         if (_lastBroadcast.TryGetValue(symbol, out var lastTime) && 
             DateTime.UtcNow - lastTime < _minBroadcastInterval)
         {
             return;
         }
-        
+
         _lastBroadcast[symbol] = DateTime.UtcNow;
         
         // Create tick

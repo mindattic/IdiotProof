@@ -276,6 +276,12 @@ IsMacdBearish()       - MACD < Signal line
 IsRsiOverbought(val)  - RSI >= threshold (e.g., IsRsiOverbought(70))
 ### Pattern ConditionsIsHigherLows()        - Higher lows forming (bullish)
 IsVolumeAbove(mult)   - Volume >= multiplier × average (e.g., IsVolumeAbove(1.5))
+### Support/Resistance Level ConditionsHoldsAbove(price)     - Price must stay above this support level (e.g., HoldsAbove(0.48))
+HoldsBelow(price)     - Price must stay below this resistance level
+IsNear(price, pct)    - Price within X% of level (e.g., IsNear(3.68, 1.0))
+### Multi-Target Take ProfitTakeProfit(t1, t2)     - Two targets, sells 50% at each
+TakeProfit(t1, t2, t3) - Three targets, sells 33% at each
+AddTarget(price, pct, label) - Custom target with specific sell percentage
 ### Smart Order ManagementAdaptiveOrder()                   - Enable smart dynamic TP/SL adjustment (balanced mode)
 AdaptiveOrder(IS.CONSERVATIVE)    - Protect gains, quick to take profits
 AdaptiveOrder(IS.BALANCED)        - Equal priority to profit and protection  
@@ -1125,3 +1131,60 @@ Ignore the IdiotProof.Frontend project for now - it has build errors related to 
 
 ## Repeat Command
 - Use the `Repeat()` command to restart the strategy after it has been completed through Take Profit, Stop Loss, or Trailing Stop Loss. This allows the strategy to re-enter when conditions are met again after an exit.
+
+## Breakout-Pullback Strategy System ("No Break, No Trade")
+
+A complete system for replicating the pro trader methodology of breakout-pullback strategies.
+
+### The Pattern╔═══════════════════════════════════════════════════════════════════════════════╗
+║  "NO BREAK, NO TRADE" BREAKOUT-PULLBACK PATTERN                               ║
+╠═══════════════════════════════════════════════════════════════════════════════╣
+║                                                                               ║
+║  1. TRIGGER: Break above resistance level (e.g., $3.68)                      ║
+║  2. DON'T CHASE: Wait for pullback toward the breakout level                 ║
+║  3. CONFIRMATION: Price holds support (VWAP + specific level)                 ║
+║  4. ENTRY: On confirmed bounce from support zone                              ║
+║  5. SCALE OUT: T1 (quick scalp), T2 (main target), T3 (runner)               ║
+║  6. INVALIDATION: If support breaks, pattern failed - NO TRADE                ║
+║                                                                               ║
+╚═══════════════════════════════════════════════════════════════════════════════╝
+### State Machine
+```
+Watching → Triggered → PullingBack → Confirmed → Entered → Scaling → Completed
+                ↓                       ↓
+           Invalidated            Invalidated
+```
+
+### Example Strategy (ERNA - Dual Support)Ticker(ERNA)
+    .Name("ERNA AH Momentum")
+    .Session(IS.PREMARKET)
+    .Breakout(0.52)          // Wait for break above $0.52
+    .Pullback()              // Wait for pullback
+    .IsAboveVwap()           // Must hold VWAP (dynamic support)
+    .HoldsAbove(0.48)        // AND must hold above $0.48 (static support)
+    .Long()
+    .TakeProfit(0.66, 0.88)  // T1: $0.66 (27%), T2: $0.88 (69%)
+    .StopLoss(0.46)          // Below $0.48 invalidation
+    .Repeat()
+### Key Components
+
+| Component | File | Purpose |
+|-----------|------|---------|
+| `BreakoutPullbackTracker` | Core | State machine for pattern tracking |
+| `PremarketSetupScanner` | Scripting | Scans gappers for qualified setups |
+| `BreakoutSetupService` | Web | Bridges scanner to real-time monitoring |
+| `MultiTargetExitManager` | Scripting | Handles scaling out at T1, T2, T3 |
+| `BreakoutSetups.razor` | Web | UI component showing active setups |
+
+### Scanning Criteria (PremarketSetupScanner)
+- **Price**: $0.30 - $25.00 (small caps, more volatile)
+- **Gap**: 3%+ from previous close
+- **Volume**: 1.5x average volume ratio
+- **Confidence**: 60+ score to qualify
+
+### Multi-Target Scaling (MultiTargetExitManager)
+- **T1**: Quick scalp (40% of position)
+- **T2**: Main target (40% of position)
+- **T3**: Runner (20% of position)
+- After T1 hit: Stop moves to breakeven
+- After T2 hit: Stop moves to T1 level

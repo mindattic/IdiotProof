@@ -370,8 +370,215 @@
     .ai-advisor-container {
         left: 0;
     }
-    
+
     .ai-advisor-container.expanded {
         height: 50vh;
     }
+}
+
+/* ============================================================================
+   Floating Action Button - "Explain This" Screenshot Capture
+   ============================================================================ */
+
+.ai-fab {
+    position: fixed;
+    bottom: 420px; /* Above the AI advisor panel */
+    right: 24px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 20px;
+    background: linear-gradient(135deg, #238636 0%, #2ea043 100%);
+    border: none;
+    border-radius: 50px;
+    color: #fff;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    box-shadow: 0 4px 20px rgba(35, 134, 54, 0.4),
+                0 0 40px rgba(35, 134, 54, 0.2);
+    z-index: 10001;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    animation: fab-glow 3s ease-in-out infinite;
+}
+
+@keyframes fab-glow {
+    0%, 100% {
+        box-shadow: 0 4px 20px rgba(35, 134, 54, 0.4),
+                    0 0 40px rgba(35, 134, 54, 0.2);
+    }
+    50% {
+        box-shadow: 0 4px 24px rgba(35, 134, 54, 0.6),
+                    0 0 60px rgba(35, 134, 54, 0.3);
+    }
+}
+
+.ai-fab:hover {
+    transform: scale(1.05) translateY(-2px);
+    background: linear-gradient(135deg, #2ea043 0%, #3fb950 100%);
+    box-shadow: 0 8px 32px rgba(35, 134, 54, 0.5),
+                0 0 60px rgba(35, 134, 54, 0.3);
+}
+
+.ai-fab:active {
+    transform: scale(0.98);
+}
+
+.ai-fab:disabled {
+    opacity: 0.7;
+    cursor: wait;
+    animation: none;
+}
+
+.ai-fab.analyzing {
+    background: linear-gradient(135deg, #1f6feb 0%, #58a6ff 100%);
+    animation: fab-analyzing 1s ease-in-out infinite;
+}
+
+@keyframes fab-analyzing {
+    0%, 100% {
+        box-shadow: 0 4px 20px rgba(31, 111, 235, 0.4),
+                    0 0 40px rgba(31, 111, 235, 0.2);
+    }
+    50% {
+        box-shadow: 0 4px 32px rgba(88, 166, 255, 0.6),
+                    0 0 60px rgba(88, 166, 255, 0.4);
+    }
+}
+
+.fab-icon {
+    font-size: 18px;
+}
+
+.fab-spinner {
+    font-size: 18px;
+    animation: fab-spin 1s linear infinite;
+}
+
+@keyframes fab-spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+.fab-label {
+    white-space: nowrap;
+}
+
+/* Hide label on smaller screens */
+@media (max-width: 900px) {
+    .ai-fab {
+        padding: 14px;
+        border-radius: 50%;
+    }
+
+    .fab-label {
+        display: none;
+    }
+}
+
+/* Adjust FAB position when panel is collapsed */
+.ai-advisor-container.collapsed ~ .ai-fab,
+.ai-fab:has(~ .ai-advisor-container.collapsed) {
+    bottom: 80px;
+}
+
+/* ============================================================================
+   Quick Actions
+   ============================================================================ */
+
+.quick-actions {
+    display: flex;
+    gap: 8px;
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border-color, #30363d);
+    overflow-x: auto;
+    flex-shrink: 0;
+}
+
+.quick-action {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 6px 12px;
+    background: rgba(88, 166, 255, 0.1);
+    border: 1px solid rgba(88, 166, 255, 0.2);
+    border-radius: 16px;
+    color: var(--accent-blue, #58a6ff);
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.2s ease;
+}
+
+.quick-action:hover {
+    background: rgba(88, 166, 255, 0.2);
+    border-color: var(--accent-blue, #58a6ff);
+    transform: translateY(-1px);
+}
+
+.quick-action:active {
+    transform: scale(0.98);
+}
+
+/* ============================================================================
+   Empty State Features
+   ============================================================================ */
+
+.empty-state-features {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+    margin-top: 16px;
+    padding: 12px;
+}
+
+.feature {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    background: rgba(88, 166, 255, 0.05);
+    border: 1px solid rgba(88, 166, 255, 0.1);
+    border-radius: 8px;
+    font-size: 12px;
+    color: var(--text-secondary, #8b949e);
+}
+
+.feature-icon {
+    font-size: 16px;
+}
+
+.feature-text {
+    white-space: nowrap;
+}
+
+/* ============================================================================
+   Context Button
+   ============================================================================ */
+
+.btn-context {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    background: rgba(88, 166, 255, 0.1);
+    border: 1px solid rgba(88, 166, 255, 0.2);
+    border-radius: 6px;
+    color: var(--accent-blue, #58a6ff);
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-context:hover:not(:disabled) {
+    background: rgba(88, 166, 255, 0.2);
+    border-color: var(--accent-blue, #58a6ff);
+}
+
+.btn-context:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
 }

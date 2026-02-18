@@ -23,6 +23,7 @@
                 <option value="orders">Order Types</option>
                 <option value="indicators">Indicators</option>
                 <option value="scoring">Scoring System</option>
+                <option value="breakout">Breakout-Pullback Strategy</option>
             </select>
         </div>
     </header>
@@ -258,6 +259,122 @@
                         }
                     </div>
                 }
+            </section>
+        }
+
+        @* Breakout-Pullback Strategy System *@
+        @if (ShouldShowSection("breakout"))
+        {
+            <section class="learning-center-section breakout-strategy" data-analysis="Complete breakout-pullback strategy system documentation">
+                <h2>🎯 Breakout-Pullback Strategy System</h2>
+
+                <div class="strategy-intro" data-meta="The 'No Break, No Trade' methodology for high-probability entries">
+                    <p><strong>"No Break, No Trade"</strong> - The system waits for a confirmed breakout and pullback before entry, avoiding FOMO trades and chasing.</p>
+                </div>
+
+                <div class="guide-card" data-meta="The breakout-pullback pattern explained">
+                    <h3>📈 The Pattern</h3>
+                    <pre class="pattern-diagram">
+      Price
+        │         *** (HOD)
+        │        *   *
+        │       *     * ←── PULLBACK
+        │      *       *
+   ═════│═════*═════════*════════ TRIGGER LEVEL
+        │    *           * ←── BOUNCE (Entry)
+        │   *            
+   ─────│──*────────────────────── SUPPORT/VWAP
+        │ *             
+        │*____________________________________________ Time
+           │        │         │
+         Break   Pullback  Confirm
+                    </pre>
+                    <ol>
+                        <li><strong>TRIGGER:</strong> Price breaks above resistance level</li>
+                        <li><strong>DON'T CHASE:</strong> Wait for pullback toward breakout level</li>
+                        <li><strong>CONFIRMATION:</strong> Price holds support (VWAP + key level)</li>
+                        <li><strong>ENTRY:</strong> On confirmed bounce from support zone</li>
+                        <li><strong>SCALE OUT:</strong> T1 (quick scalp), T2 (main target), T3 (runner)</li>
+                    </ol>
+                </div>
+
+                <div class="guide-card" data-meta="Setup state machine - how setups progress through states">
+                    <h3>🔄 Setup State Machine</h3>
+                    <pre class="state-diagram">
+    👀 WATCHING ──▶ 🚀 TRIGGERED ──▶ ↩️ PULLBACK ──▶ ✅ CONFIRMED ──▶ 📈 ENTERED ──▶ 🎯 COMPLETED
+         │               │                │               │              │
+         │               ▼                ▼               ▼              ▼
+         └─────────▶ ❌ INVALIDATED ◀────┴───────────────┴──────────────┘
+                   (Pattern failed - NO TRADE)
+                    </pre>
+                    <table class="state-table">
+                        <tr><td>👀 <strong>WATCHING</strong></td><td>Monitoring for price to break above trigger</td></tr>
+                        <tr><td>🚀 <strong>TRIGGERED</strong></td><td>Breakout occurred! Waiting for pullback</td></tr>
+                        <tr><td>↩️ <strong>PULLBACK</strong></td><td>Price pulling back - watching support</td></tr>
+                        <tr><td>✅ <strong>CONFIRMED</strong></td><td>Ready for entry! Pullback held support</td></tr>
+                        <tr><td>📈 <strong>ENTERED</strong></td><td>Position active - monitoring targets</td></tr>
+                        <tr><td>🎯 <strong>COMPLETED</strong></td><td>All targets hit or manually closed</td></tr>
+                        <tr><td>❌ <strong>INVALIDATED</strong></td><td>Support broke - pattern failed</td></tr>
+                    </table>
+                </div>
+
+                <div class="guide-card" data-meta="Multi-target exit strategy for scaling out">
+                    <h3>💰 Multi-Target Exit Strategy</h3>
+                    <table class="target-table">
+                        <tr>
+                            <th>Target</th>
+                            <th>% to Sell</th>
+                            <th>Purpose</th>
+                            <th>Stop Action</th>
+                        </tr>
+                        <tr data-meta="T1: Quick scalp to lock in profits early">
+                            <td><strong>T1</strong></td>
+                            <td>40%</td>
+                            <td>Quick scalp - secure profits</td>
+                            <td>Move stop to breakeven</td>
+                        </tr>
+                        <tr data-meta="T2: Main target - where most profit comes from">
+                            <td><strong>T2</strong></td>
+                            <td>40%</td>
+                            <td>Main target - primary profit</td>
+                            <td>Move stop to T1 level</td>
+                        </tr>
+                        <tr data-meta="T3: Runner - let the rest ride for extended moves">
+                            <td><strong>T3</strong></td>
+                            <td>20%</td>
+                            <td>Runner - capture extended move</td>
+                            <td>Trailing stop</td>
+                        </tr>
+                    </table>
+                </div>
+
+                <div class="guide-card" data-meta="Scanning criteria for qualified setups">
+                    <h3>🔍 Scanning Criteria</h3>
+                    <p>The PremarketSetupScanner filters for these conditions:</p>
+                    <ul>
+                        <li><strong>Price:</strong> $0.30 - $25.00 (small caps, more volatile)</li>
+                        <li><strong>Gap:</strong> 3%+ from previous close</li>
+                        <li><strong>Volume:</strong> 1.5x average volume ratio</li>
+                        <li><strong>Confidence:</strong> 60+ score to qualify</li>
+                    </ul>
+                </div>
+
+                <div class="guide-card" data-meta="Example IdiotScript for breakout-pullback">
+                    <h3>📝 IdiotScript Example</h3>
+                    <pre class="code-block">
+Ticker(ERNA)
+    .Name("ERNA AH Momentum")
+    .Session(IS.PREMARKET)
+    .Breakout(0.52)          // Wait for break above $0.52
+    .Pullback()              // Wait for pullback
+    .IsAboveVwap()           // Must hold VWAP (dynamic support)
+    .HoldsAbove(0.48)        // AND must hold above $0.48 (static)
+    .Long()
+    .TakeProfit(0.66, 0.88)  // T1: $0.66 (27%), T2: $0.88 (69%)
+    .StopLoss(0.46)          // Below $0.48 invalidation
+    .Repeat()                // Re-enter after exit
+                    </pre>
+                </div>
             </section>
         }
     </div>

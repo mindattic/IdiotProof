@@ -28,6 +28,12 @@ builder.Services.AddSingleton<MarketScannerService>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<MarketScannerService>());
 builder.Services.AddSingleton<TradingHubNotifier>();
 
+// Register Breakout Setup services (generates "No Break No Trade" strategies)
+builder.Services.AddSingleton<BreakoutSetupPersistence>();
+builder.Services.AddSingleton<BreakoutSetupAlerts>();
+builder.Services.AddSingleton<BreakoutSetupService>();
+builder.Services.AddSingleton<BreakoutBacktester>();
+
 // Register gapper sources (scrapers)
 builder.Services.AddTransient<IGapperSource, StockAnalysisSource>();
 builder.Services.AddTransient<IGapperSource, BarchartSource>();

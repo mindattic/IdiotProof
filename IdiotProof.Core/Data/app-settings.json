@@ -3,9 +3,14 @@
   "appVersion": "1.0.0",
   "lastModified": "2025-01-01T00:00:00Z",
   "settings": {
+    "paperTrading": {
+      "enabled": true,
+      "startingBalance": 30000.00,
+      "currentBalance": 30000.00
+    },
     "ibConnection": {
       "host": "127.0.0.1",
-      "port": 4001,
+      "port": 4002,
       "clientId": 99,
       "connectionTimeoutSeconds": 10,
       "accountNumber": "U22434144",

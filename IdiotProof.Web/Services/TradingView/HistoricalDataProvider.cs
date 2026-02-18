@@ -254,4 +254,39 @@ public sealed class HistoricalDataProvider
             _cache.Clear();
         }
     }
+
+    /// <summary>
+    /// Gets historical bars for backtesting (returns raw HistoricalBar objects).
+    /// </summary>
+    public async Task<List<HistoricalBar>> GetHistoricalBarsAsync(
+        string symbol,
+        DateTime startDate,
+        DateTime endDate,
+        string interval = "1min",
+        CancellationToken ct = default)
+    {
+        var data = await LoadHistoricalDataAsync(symbol, ct);
+        if (data == null) return [];
+
+        var bars = data.Bars
+            .Where(b => b.Time >= startDate && b.Time <= endDate)
+            .OrderBy(b => b.Time)
+            .ToList();
+
+        // Parse interval (e.g., "1min", "5min", "15min")
+        int intervalMinutes = 1;
+        if (interval.EndsWith("min"))
+        {
+            int.TryParse(interval.Replace("min", ""), out intervalMinutes);
+            intervalMinutes = Math.Max(1, intervalMinutes);
+        }
+
+        // Aggregate if needed
+        if (intervalMinutes > 1)
+        {
+            bars = AggregateCandles(bars, intervalMinutes);
+        }
+
+        return bars;
+    }
 }

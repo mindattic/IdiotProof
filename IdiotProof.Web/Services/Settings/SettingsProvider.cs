@@ -22,9 +22,52 @@ public class SettingsProvider
     {
         if (_cachedBundle != null)
             return _cachedBundle;
-            
+
         var settings = new List<SettingDefinition>
         {
+            // ===== Paper Trading Settings =====
+            new()
+            {
+                Key = "PaperTradingEnabled",
+                DisplayName = "Paper Trading Mode",
+                Category = "Paper Trading",
+                Description = "When enabled, all trades are simulated. No real money is used.",
+                ControlType = SettingControlType.Toggle,
+                DataType = SettingDataType.Bool,
+                Value = AppSettings.PaperTradingEnabled,
+                DefaultValue = true,
+                Order = 1
+            },
+            new()
+            {
+                Key = "PaperTradingStartingBalance",
+                DisplayName = "Starting Balance",
+                Category = "Paper Trading",
+                Description = "Initial simulated account balance",
+                ControlType = SettingControlType.Currency,
+                DataType = SettingDataType.Double,
+                Value = AppSettings.PaperTradingStartingBalance,
+                DefaultValue = 30000.00,
+                Min = 1000,
+                Max = 1000000,
+                Unit = "$",
+                Order = 2
+            },
+            new()
+            {
+                Key = "PaperTradingCurrentBalance",
+                DisplayName = "Current Balance",
+                Category = "Paper Trading",
+                Description = "Current simulated account balance (updates as trades execute)",
+                ControlType = SettingControlType.ReadOnly,
+                DataType = SettingDataType.Double,
+                Value = AppSettings.PaperTradingCurrentBalance,
+                DefaultValue = 30000.00,
+                Unit = "$",
+                IsReadOnly = true,
+                Order = 3
+            },
+
             // ===== IB Connection Settings =====
             new()
             {

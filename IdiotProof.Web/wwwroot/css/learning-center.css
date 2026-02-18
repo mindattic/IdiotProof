@@ -305,3 +305,101 @@
         padding: 8px;
     }
 }
+
+/* ============================================================================
+   Breakout-Pullback Strategy Section
+   ============================================================================ */
+
+.breakout-strategy {
+    border-left: 3px solid var(--accent-green, #3fb950);
+}
+
+.breakout-strategy h2 {
+    color: var(--accent-green, #3fb950);
+}
+
+.strategy-intro {
+    background: linear-gradient(135deg, rgba(63, 185, 80, 0.1) 0%, rgba(88, 166, 255, 0.1) 100%);
+    border: 1px solid rgba(63, 185, 80, 0.3);
+    border-radius: 8px;
+    padding: 16px;
+    margin-bottom: 20px;
+}
+
+.strategy-intro p {
+    margin: 0;
+    color: var(--text-primary, #f0f6fc);
+    font-size: 1rem;
+}
+
+.pattern-diagram,
+.state-diagram {
+    background: var(--bg-primary, #0d1117);
+    padding: 16px;
+    border-radius: 8px;
+    font-family: 'SF Mono', 'Consolas', monospace;
+    font-size: 0.75rem;
+    line-height: 1.4;
+    overflow-x: auto;
+    color: var(--text-secondary, #8b949e);
+    margin: 16px 0;
+    white-space: pre;
+}
+
+.state-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 16px;
+}
+
+.state-table tr {
+    border-bottom: 1px solid var(--border-color, #30363d);
+}
+
+.state-table td {
+    padding: 10px;
+    color: var(--text-secondary, #8b949e);
+}
+
+.state-table td:first-child {
+    width: 150px;
+    white-space: nowrap;
+    color: var(--text-primary, #f0f6fc);
+}
+
+.target-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.target-table th {
+    background: var(--bg-secondary, #161b22);
+    padding: 12px;
+    text-align: left;
+    font-weight: 600;
+    color: var(--text-primary, #f0f6fc);
+    border-bottom: 2px solid var(--accent-green, #3fb950);
+}
+
+.target-table td {
+    padding: 12px;
+    border-bottom: 1px solid var(--border-color, #30363d);
+    color: var(--text-secondary, #8b949e);
+}
+
+.target-table tr:hover {
+    background: rgba(88, 166, 255, 0.05);
+}
+
+.breakout-strategy .code-block {
+    background: var(--bg-primary, #0d1117);
+    padding: 16px;
+    border-radius: 8px;
+    font-family: 'SF Mono', 'Consolas', monospace;
+    font-size: 0.85rem;
+    line-height: 1.6;
+    overflow-x: auto;
+    color: var(--accent-green, #3fb950);
+    white-space: pre;
+    margin: 12px 0 0 0;
+}

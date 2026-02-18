@@ -82,6 +82,25 @@ namespace IdiotProof.Settings {
         /// </summary>
         public static bool DualAccountHedgingEnabled { get; set; } = false;
 
+        // ----- Paper Trading Mode -----
+
+        /// <summary>
+        /// When true, the application operates in paper trading (simulation) mode.
+        /// No real money is used; all trades are simulated.
+        /// </summary>
+        public static bool PaperTradingEnabled { get; set; } = true;
+
+        /// <summary>
+        /// Starting balance for paper trading simulation.
+        /// </summary>
+        public static decimal PaperTradingStartingBalance { get; set; } = 30000.00m;
+
+        /// <summary>
+        /// Current balance for paper trading simulation.
+        /// Updated as simulated trades execute.
+        /// </summary>
+        public static decimal PaperTradingCurrentBalance { get; set; } = 30000.00m;
+
         // ----- Timezone Settings -----
 
         /// <summary>
