@@ -18,7 +18,7 @@
 <div class="backtest-page" data-meta="Backtest visualization page for replaying historical trades with technical indicators">
     <header class="backtest-header" data-meta="Controls for selecting symbol, date, and timeframe">
         <div class="header-left">
-            <h1>📊 Backtest Visualization <AiHelpIcon Context="What is backtesting? Explain how to use this visualization page to analyze historical trades and improve my trading strategy." /></h1>
+            <h1>📊 Backtest Visualization</h1>
             <span class="subtitle">Replay historical trades with your indicators</span>
         </div>
 
@@ -106,7 +106,7 @@
 
             @if (_activeTab == "stats")
             {
-                <h3>📊 Session Statistics <AiHelpIcon Context="Explain these session statistics. What do Open, High, Low, Close (OHLC) tell me? How should I interpret the Range% and Volume data for trading decisions?" /></h3>
+                <h3>📊 Session Statistics</h3>
 
                 @if (_sessionStats != null)
                 {
@@ -149,7 +149,7 @@
 
             @if (_activeTab == "trades")
             {
-                <h3>🎯 Simulated Trades <AiHelpIcon Context="Explain what these simulated trades show. How do I interpret Total P&L, Win Rate, and Profit Factor? What makes a good backtest result?" /></h3>
+                <h3>🎯 Simulated Trades</h3>
 
                 <div class="strategy-selector">
                     <label>Strategy:</label>
@@ -164,13 +164,13 @@
                     @switch (_selectedStrategy)
                     {
                         case "ema-crossover":
-                            <p>📈 <strong>EMA Crossover:</strong> Enters LONG when EMA @(_backtestSettings.EmaCrossoverShort) crosses above EMA @(_backtestSettings.EmaCrossoverLong), SHORT when it crosses below. Classic trend-following strategy. <AiHelpIcon Context="Explain the EMA Crossover strategy in detail. How does it work? What are its strengths and weaknesses? When does it perform best?" /></p>
+                            <p>📈 <strong>EMA Crossover:</strong> Enters LONG when EMA @(_backtestSettings.EmaCrossoverShort) crosses above EMA @(_backtestSettings.EmaCrossoverLong), SHORT when it crosses below. Classic trend-following strategy.</p>
                             break;
                         case "vwap-bounce":
-                            <p>📊 <strong>VWAP Bounce:</strong> Enters when price bounces off VWAP (support/resistance). LONG on bounce up from VWAP, SHORT on rejection down from VWAP. <AiHelpIcon Context="Explain the VWAP Bounce strategy. What is VWAP and why do prices bounce off it? When should I use this strategy?" /></p>
+                            <p>📊 <strong>VWAP Bounce:</strong> Enters when price bounces off VWAP (support/resistance). LONG on bounce up from VWAP, SHORT on rejection down from VWAP.</p>
                             break;
                         case "momentum":
-                            <p>🚀 <strong>Momentum:</strong> Enters on strong price momentum (ROC over 1.5%) with EMA alignment and consecutive candle confirmation. Catches explosive moves. <AiHelpIcon Context="Explain the Momentum strategy. What is Rate of Change (ROC)? How does this strategy catch explosive moves?" /></p>
+                            <p>🚀 <strong>Momentum:</strong> Enters on strong price momentum (ROC over 1.5%) with EMA alignment and consecutive candle confirmation. Catches explosive moves.</p>
                             break;
                     }
                 </div>
@@ -180,11 +180,11 @@
                     <div class="performance-summary" data-analysis="Key performance metrics: PnL=profit/loss, WinRate=% profitable trades, ProfitFactor=gross profit/gross loss (>1 is profitable)">
                         <div class="perf-card @(_totalPnL >= 0 ? "profit" : "loss")" 
                              data-meta="Total P&L: Net profit/loss. @(_totalPnL >= 0 ? "Positive=strategy is profitable" : "Negative=strategy needs adjustment")">
-                            <span class="perf-label">Total P&amp;L <AiHelpIcon Context="@($"My backtest shows Total P&L of ${_totalPnL:F2}. Is this good? How should I interpret this result? What factors affect P&L?")" /></span>
+                            <span class="perf-label">Total P&amp;L</span>
                             <span class="perf-value">@(_totalPnL >= 0 ? "+" : "")$@_totalPnL.ToString("F2")</span>
                         </div>
                         <div class="perf-card" data-meta="Win Rate: @_winRate.ToString("F1")%. Target >50%. Below 40% requires high R:R to be profitable.">
-                            <span class="perf-label">Win Rate <AiHelpIcon Context="@($"My backtest shows Win Rate of {_winRate:F1}%. Is this good? What win rate do professional traders aim for?")" /></span>
+                            <span class="perf-label">Win Rate</span>
                             <span class="perf-value">@_winRate.ToString("F1")%</span>
                         </div>
                         <div class="perf-card" data-meta="Trade count: @_simulatedTrades.Count trades. More trades=more statistical significance.">
@@ -193,7 +193,7 @@
                         </div>
                         <div class="perf-card @(_profitFactor >= 1 ? "profit" : "loss")" 
                              data-meta="Profit Factor: @_profitFactor.ToString("F2"). >1.5=good, >2.0=excellent. <1=losing strategy.">
-                            <span class="perf-label">Profit Factor <AiHelpIcon Context="@($"My Profit Factor is {_profitFactor:F2}. Explain what Profit Factor means and whether this is a good number.")" /></span>
+                            <span class="perf-label">Profit Factor</span>
                             <span class="perf-value">@_profitFactor.ToString("F2")</span>
                         </div>
                     </div>
@@ -208,11 +208,11 @@
                             <span class="loss">-$@Math.Abs(_avgLoss).ToString("F2")</span>
                         </div>
                         <div class="stat-row" data-meta="Max Drawdown: Largest equity decline. Risk of ruin indicator. Should be <20% of capital.">
-                            <span>Max Drawdown: <AiHelpIcon Context="@($"My Max Drawdown is ${_maxDrawdown:F2}. Explain what drawdown means and how to reduce it.")" /></span>
+                            <span>Max Drawdown:</span>
                             <span class="loss">$@_maxDrawdown.ToString("F2")</span>
                         </div>
                         <div class="stat-row" data-meta="Expectancy: Average profit per trade. Must be positive for long-term profitability.">
-                            <span>Expectancy: <AiHelpIcon Context="@($"My Expectancy is ${_expectancy:F2}. What does expectancy mean and is this a good number?")" /></span>
+                            <span>Expectancy:</span>
                             <span class="@(_expectancy >= 0 ? "profit" : "loss")">$@_expectancy.ToString("F2")</span>
                         </div>
                         <div class="stat-row" data-meta="Best trade: Shows upside potential of the strategy.">
@@ -226,7 +226,7 @@
                     </div>
 
                     <div class="equity-curve-section">
-                        <h4>📈 Equity Curve <AiHelpIcon Context="Explain what the equity curve shows. What patterns should I look for? What does a healthy equity curve look like?" /></h4>
+                        <h4>📈 Equity Curve</h4>
                         <div class="equity-curve">
                             @{
                                 var equityPoints = GetEquityCurvePoints();
@@ -296,7 +296,7 @@
 
             @if (_activeTab == "settings")
             {
-                <h3>⚙️ Backtest Settings <AiHelpIcon Context="Explain these backtest settings. What Position Size should I use? How do I choose Stop Loss and Take Profit percentages? What are good values for EMA periods?" /></h3>
+                <h3>⚙️ Backtest Settings</h3>
 
                 <div class="settings-section">
                     <div class="setting-group">

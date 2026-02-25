@@ -764,3 +764,166 @@ body {
     color: var(--text-secondary);
     font-size: 0.875rem;
 }
+
+/* Stock Lookup Section */
+.stock-lookup-section {
+    margin: 16px 24px;
+    padding: 20px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+}
+
+.lookup-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
+.lookup-header h3 {
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin: 0;
+}
+
+.lookup-hint {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+}
+
+.lookup-form {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
+.lookup-input {
+    flex: 1;
+    max-width: 300px;
+    padding: 10px 16px;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius);
+    color: var(--text-primary);
+    font-size: 1rem;
+    font-family: 'SF Mono', Monaco, monospace;
+    text-transform: uppercase;
+}
+
+.lookup-input:focus {
+    outline: none;
+    border-color: var(--accent-blue);
+    box-shadow: 0 0 0 3px rgba(88, 166, 255, 0.15);
+}
+
+.lookup-input::placeholder {
+    color: var(--text-muted);
+    text-transform: none;
+}
+
+.btn-lookup {
+    padding: 10px 20px;
+    background: var(--accent-blue);
+    border: none;
+    border-radius: var(--radius);
+    color: white;
+    font-size: 0.9rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-lookup:hover:not(:disabled) {
+    background: #388bfd;
+}
+
+.btn-lookup:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.lookup-result {
+    padding: 16px;
+    background: var(--bg-tertiary);
+    border-radius: var(--radius);
+    border-left: 4px solid var(--accent-blue);
+}
+
+.lookup-result.gap-up {
+    border-left-color: var(--accent-green);
+}
+
+.lookup-result.gap-down {
+    border-left-color: var(--accent-red);
+}
+
+.lookup-result-header {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    margin-bottom: 12px;
+}
+
+.lookup-symbol {
+    font-size: 1.25rem;
+    font-weight: 700;
+    font-family: 'SF Mono', Monaco, monospace;
+}
+
+.lookup-company {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+}
+
+.lookup-result-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    margin-bottom: 16px;
+}
+
+.lookup-stat {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.lookup-stat.highlight {
+    background: var(--bg-secondary);
+    padding: 8px 12px;
+    border-radius: var(--radius);
+}
+
+.lookup-stat-label {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.lookup-stat-value {
+    font-size: 1rem;
+    font-weight: 600;
+}
+
+.lookup-stat-value.positive {
+    color: var(--accent-green);
+}
+
+.lookup-stat-value.negative {
+    color: var(--accent-red);
+}
+
+.lookup-actions {
+    display: flex;
+    gap: 10px;
+}
+
+.lookup-error {
+    padding: 12px 16px;
+    background: var(--accent-red-bg);
+    border-radius: var(--radius);
+    color: var(--accent-red);
+    font-size: 0.9rem;
+}

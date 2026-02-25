@@ -180,4 +180,65 @@ public sealed class MarketScannerService : BackgroundService
     {
         await RunFullScanAsync(ct);
     }
+
+    /// <summary>
+    /// Looks up a specific symbol and calculates its confidence score.
+    /// </summary>
+    public async Task<GapperCandidate?> LookupSymbolAsync(string symbol, CancellationToken ct = default)
+    {
+        symbol = symbol.Trim().ToUpperInvariant();
+
+        // First check if we already have it cached
+        var existing = _aggregator.GetCandidate(symbol);
+        if (existing != null)
+            return existing;
+
+        _logger.LogInformation("Looking up symbol: {Symbol}", symbol);
+
+        try
+        {
+            using var scope = _services.CreateScope();
+            var sources = scope.ServiceProvider.GetServices<IGapperSource>().ToList();
+
+            // Try each source to find the symbol
+            foreach (var source in sources.OrderBy(s => s.Priority))
+            {
+                if (ct.IsCancellationRequested) break;
+
+                try
+                {
+                    var rawData = await source.FetchGappersAsync(ct);
+                    var match = rawData.FirstOrDefault(r => 
+                        r.Symbol.Equals(symbol, StringComparison.OrdinalIgnoreCase));
+
+                    if (match != null)
+                    {
+                        // Process just this one symbol
+                        _aggregator.ProcessRawData([match]);
+                        var candidate = _aggregator.GetCandidate(symbol);
+                        if (candidate != null)
+                        {
+                            _logger.LogInformation("Found {Symbol}: Gap {Gap:+0.0;-0.0}%, Confidence {Conf}%",
+                                symbol, candidate.GapPercent, candidate.ConfidenceScore);
+                            return candidate;
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed to lookup {Symbol} from {Source}", symbol, source.SourceName);
+                }
+            }
+
+            // If not found in any source, create a basic candidate with estimated confidence
+            // This is a fallback - in production you'd want a proper quote API
+            _logger.LogWarning("Symbol {Symbol} not found in any scanner source", symbol);
+            return null;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error looking up symbol {Symbol}", symbol);
+            return null;
+        }
+    }
 }

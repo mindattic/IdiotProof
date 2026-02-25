@@ -102,6 +102,76 @@
         </div>
     </div>
 
+    @* Stock Lookup Section *@
+    <div class="stock-lookup-section">
+        <div class="lookup-header">
+            <h3>🔍 Stock Lookup</h3>
+            <span class="lookup-hint">Enter a symbol to check confidence score</span>
+        </div>
+        <div class="lookup-form">
+            <input type="text" 
+                   class="lookup-input" 
+                   placeholder="Enter symbol (e.g., AAPL)" 
+                   @bind="_lookupSymbol" 
+                   @bind:event="oninput"
+                   @onkeypress="OnLookupKeyPress"
+                   maxlength="10" />
+            <button class="btn-lookup" @onclick="LookupStock" disabled="@(_isLookingUp || string.IsNullOrWhiteSpace(_lookupSymbol))">
+                @if (_isLookingUp)
+                {
+                    <span>Looking up...</span>
+                }
+                else
+                {
+                    <span>Check Confidence</span>
+                }
+            </button>
+        </div>
+
+        @if (_lookupResult != null)
+        {
+            <div class="lookup-result @(_lookupResult.IsGapUp ? "gap-up" : "gap-down")">
+                <div class="lookup-result-header">
+                    <span class="lookup-symbol">@_lookupResult.Symbol</span>
+                    <span class="lookup-company">@(_lookupResult.CompanyName ?? "")</span>
+                </div>
+                <div class="lookup-result-grid">
+                    <div class="lookup-stat">
+                        <span class="lookup-stat-label">Price</span>
+                        <span class="lookup-stat-value">$@_lookupResult.PremarketPrice.ToString("F2")</span>
+                    </div>
+                    <div class="lookup-stat">
+                        <span class="lookup-stat-label">Gap</span>
+                        <span class="lookup-stat-value @(_lookupResult.IsGapUp ? "positive" : "negative")">
+                            @(_lookupResult.IsGapUp ? "↑" : "↓") @_lookupResult.GapPercent.ToString("+0.0;-0.0")%
+                        </span>
+                    </div>
+                    <div class="lookup-stat">
+                        <span class="lookup-stat-label">Volume</span>
+                        <span class="lookup-stat-value">@FormatVolume(_lookupResult.PremarketVolume)</span>
+                    </div>
+                    <div class="lookup-stat highlight">
+                        <span class="lookup-stat-label">Confidence</span>
+                        <span class="lookup-stat-value confidence-badge @GetConfidenceClass(_lookupResult.ConfidenceScore)">
+                            @_lookupResult.ConfidenceGrade (@_lookupResult.ConfidenceScore%)
+                        </span>
+                    </div>
+                </div>
+                <div class="lookup-actions">
+                    <button class="btn-small btn-long" @onclick="() => ExecuteQuickTrade(_lookupResult, true)">LONG</button>
+                    <button class="btn-small btn-short" @onclick="() => ExecuteQuickTrade(_lookupResult, false)">SHORT</button>
+                    <button class="btn-small" @onclick="() => SelectCandidate(_lookupResult)">View Details</button>
+                </div>
+            </div>
+        }
+        else if (_lookupError != null)
+        {
+            <div class="lookup-error">
+                <span>⚠️ @_lookupError</span>
+            </div>
+        }
+    </div>
+
     @if (_alertCandidate != null)
     {
         <div class="alert-banner @(_alertCandidate.IsGapUp ? "gap-up" : "gap-down")">
@@ -381,6 +451,12 @@
     private List<PositionInfo> _positions = new();
     private double _totalPnL = 0;
 
+    // Stock lookup
+    private string _lookupSymbol = "";
+    private GapperCandidate? _lookupResult;
+    private string? _lookupError;
+    private bool _isLookingUp;
+
     protected override async Task OnInitializedAsync()
     {
         // Load initial data - get all candidates for pagination
@@ -594,7 +670,64 @@
         >= 50 => "moderate",
         _ => "low"
     };
-    
+
+    // Stock Lookup Methods
+    private async Task OnLookupKeyPress(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" && !string.IsNullOrWhiteSpace(_lookupSymbol))
+        {
+            await LookupStock();
+        }
+    }
+
+    private async Task LookupStock()
+    {
+        if (string.IsNullOrWhiteSpace(_lookupSymbol))
+            return;
+
+        _isLookingUp = true;
+        _lookupError = null;
+        _lookupResult = null;
+        StateHasChanged();
+
+        try
+        {
+            var symbol = _lookupSymbol.Trim().ToUpperInvariant();
+
+            // First check if it's already in our scanned candidates
+            var existing = _allCandidates.FirstOrDefault(c => 
+                c.Symbol.Equals(symbol, StringComparison.OrdinalIgnoreCase));
+
+            if (existing != null)
+            {
+                _lookupResult = existing;
+            }
+            else
+            {
+                // Try to look it up via the scanner service
+                var result = await Scanner.LookupSymbolAsync(symbol);
+
+                if (result != null)
+                {
+                    _lookupResult = result;
+                }
+                else
+                {
+                    _lookupError = $"Could not find data for '{symbol}'. Try during market hours or check the symbol.";
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _lookupError = $"Lookup failed: {ex.Message}";
+        }
+        finally
+        {
+            _isLookingUp = false;
+            StateHasChanged();
+        }
+    }
+
     public async ValueTask DisposeAsync()
     {
         if (_hubConnection != null)
