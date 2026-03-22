@@ -1,0 +1,24 @@
+@if (Signals != null && Signals.Count > 0)
+{
+    <div class="signal-list">
+        @foreach (var signal in Signals)
+        {
+            <div class="signal-item @(signal.Direction == TradeDirection.Long ? "signal-long" : "signal-short")">
+                <strong>@signal.Symbol</strong>
+                <span>@signal.Direction</span>
+                <span>@signal.ConfidencePercent%</span>
+                <span>Entry: @signal.SuggestedEntry.ToString("F2")</span>
+                <span class="signal-reason">@signal.Reason</span>
+                <span class="signal-time">@signal.GeneratedUtc.ToString("HH:mm:ss")</span>
+            </div>
+        }
+    </div>
+}
+else
+{
+    <div class="signal-empty">No signals yet. Add symbols and strategies to begin.</div>
+}
+
+@code {
+    [Parameter] public List<TradeSignal>? Signals { get; set; }
+}

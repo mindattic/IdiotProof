@@ -1,7 +1,0 @@
-<Solution>
-  <Project Path="IdiotProof.Core.UnitTests/IdiotProof.Core.UnitTests.csproj" />
-  <Project Path="IdiotProof.Core/IdiotProof.Core.csproj" />
-  <Project Path="IdiotProof.Scripting/IdiotProof.Scripting.csproj" />
-  <Project Path="IdiotProof.Shared/IdiotProof.Shared.csproj" />
-  <Project Path="IdiotProof.Web/IdiotProof.Web.csproj" />
-</Solution>

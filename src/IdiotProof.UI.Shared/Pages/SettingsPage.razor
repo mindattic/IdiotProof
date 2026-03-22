@@ -1,0 +1,64 @@
+@page "/settings"
+@inject AppSettings Settings
+@inject IdiotProof.Engine.Storage.IStorageProvider Storage
+
+<div class="settings-page">
+    <h2>Settings</h2>
+
+    <div class="settings-section">
+        <h3>IBKR Connection</h3>
+        <label>Host: <input @bind="Settings.IbkrHost" /></label>
+        <label>Live Port: <input type="number" @bind="Settings.IbkrLivePort" /></label>
+        <label>Paper Port: <input type="number" @bind="Settings.IbkrPaperPort" /></label>
+        <label>Client ID: <input type="number" @bind="Settings.IbkrClientId" /></label>
+        <label><input type="checkbox" @bind="Settings.IbkrUsePaper" /> Use Paper Trading</label>
+    </div>
+
+    <div class="settings-section">
+        <h3>Alpaca</h3>
+        <label>API Key ID: <input @bind="Settings.AlpacaApiKeyId" /></label>
+        <label>API Secret: <input type="password" @bind="Settings.AlpacaApiSecretKey" /></label>
+        <label><input type="checkbox" @bind="Settings.AlpacaIsPaper" /> Paper Mode</label>
+    </div>
+
+    <div class="settings-section">
+        <h3>Polygon.io</h3>
+        <label>API Key: <input @bind="Settings.PolygonApiKey" /></label>
+    </div>
+
+    <div class="settings-section">
+        <h3>Defaults</h3>
+        <label>Default Broker:
+            <select @bind="Settings.DefaultBroker">
+                <option value="Sandbox">Sandbox</option>
+                <option value="Ibkr">IBKR</option>
+                <option value="Alpaca">Alpaca</option>
+            </select>
+        </label>
+        <label>Default Data Feed:
+            <select @bind="Settings.DefaultDataFeed">
+                <option value="Polygon">Polygon.io</option>
+                <option value="Ibkr">IBKR</option>
+            </select>
+        </label>
+    </div>
+
+    <button class="btn-save" @onclick="SaveSettings">Save Settings</button>
+    @if (_saved)
+    {
+        <span class="save-confirmation">Settings saved.</span>
+    }
+</div>
+
+@code {
+    private bool _saved;
+
+    private async Task SaveSettings()
+    {
+        Settings.Save(Storage);
+        _saved = true;
+        StateHasChanged();
+        await Task.Delay(3000);
+        _saved = false;
+    }
+}

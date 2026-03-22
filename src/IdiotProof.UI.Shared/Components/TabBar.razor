@@ -1,0 +1,28 @@
+@inject WorkspaceManager WorkspaceManager
+
+<div class="tab-bar">
+    @foreach (var tab in WorkspaceManager.Tabs)
+    {
+        <button class="tab-button @(tab.TabId == ActiveTabId ? "active" : "")"
+                @onclick="() => SelectTab(tab.TabId)">
+            @tab.Name
+        </button>
+    }
+    <button class="tab-button tab-add" @onclick="AddTab">+</button>
+</div>
+
+@code {
+    [Parameter] public string? ActiveTabId { get; set; }
+    [Parameter] public EventCallback<string> OnTabSelected { get; set; }
+
+    private async Task SelectTab(string tabId)
+    {
+        await OnTabSelected.InvokeAsync(tabId);
+    }
+
+    private async Task AddTab()
+    {
+        var tab = WorkspaceManager.Create($"Workspace {WorkspaceManager.Tabs.Count + 1}");
+        await OnTabSelected.InvokeAsync(tab.TabId);
+    }
+}

@@ -1,0 +1,40 @@
+@inject WorkspaceManager WorkspaceManager
+
+@if (Tab != null)
+{
+    <div class="workspace-view">
+        <div class="workspace-header">
+            <h2>@Tab.Name</h2>
+            <span class="workspace-id">@Tab.TabId</span>
+        </div>
+
+        <div class="workspace-panels">
+            <div class="panel watchlist-panel">
+                <h3>Watchlist</h3>
+                <WatchlistPanel Tab="Tab" OnChanged="SaveTab" />
+            </div>
+
+            <div class="panel strategy-panel">
+                <h3>Strategies</h3>
+                <StrategyPanel Tab="Tab" OnChanged="SaveTab" />
+            </div>
+
+            <div class="panel signals-panel">
+                <h3>Signals</h3>
+                <SignalDisplay Signals="@_signals" />
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public WorkspaceTab? Tab { get; set; }
+
+    private List<TradeSignal> _signals = [];
+
+    private void SaveTab()
+    {
+        if (Tab != null)
+            WorkspaceManager.Save(Tab);
+    }
+}
