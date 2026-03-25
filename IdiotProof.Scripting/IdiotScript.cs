@@ -282,6 +282,36 @@ public sealed class StrategyBuilder
     }
     
     // ========================================
+    // BRANCHING LOGIC
+    // ========================================
+
+    /// <summary>
+    /// Starts a conditional branch using the last-added condition as the "if".
+    /// Usage: .IsAboveVwap().Then(b => b.Long().TakeProfit(5.00))
+    ///        .ElseIf(c => c.IsBelowVwap(), b => b.Short().TakeProfit(3.00))
+    ///        .Else(b => b.Long().TakeProfit(4.00))
+    /// </summary>
+    public ConditionalBuilder Then(Action<BranchBuilder> configure)
+    {
+        if (_strategy.EntryConditions.Count == 0)
+            throw new InvalidOperationException("Then() requires a preceding condition (e.g. .IsAboveVwap().Then(...))");
+
+        // Pop the last condition to use as the "if" condition
+        var condition = _strategy.EntryConditions[^1];
+        _strategy.EntryConditions.RemoveAt(_strategy.EntryConditions.Count - 1);
+
+        var block = new ConditionalBlock();
+        _strategy.ConditionalBlocks.Add(block);
+
+        // Build the "then" branch
+        var builder = new BranchBuilder();
+        configure(builder);
+        block.Branches.Add(new ConditionalBranch { Condition = condition, Overrides = builder.Overrides });
+
+        return new ConditionalBuilder(this, block);
+    }
+
+    // ========================================
     // ADVANCED
     // ========================================
     
@@ -330,13 +360,19 @@ public sealed class StrategyBuilder
         {
             parts.Add(cond.ToScript());
         }
-        
+
+        // Conditional blocks
+        foreach (var block in _strategy.ConditionalBlocks)
+        {
+            parts.Add(block.ToScript());
+        }
+
         // Direction
         if (_strategy.Direction == TradeDirection.Short)
             parts.Add("Short()");
         else
             parts.Add("Long()");
-        
+
         // Exit conditions
         if (_strategy.TakeProfitPrice.HasValue)
             parts.Add($"TakeProfit({_strategy.TakeProfitPrice})");
@@ -387,6 +423,9 @@ public sealed class StrategyDefinition
     /// Checks if this strategy has multiple take profit targets.
     /// </summary>
     public bool HasMultipleTargets => TakeProfitTargets.Count > 1;
+
+    public List<ConditionalBlock> ConditionalBlocks { get; } = [];
+    public bool HasBranching => ConditionalBlocks.Count > 0;
 }
 
 /// <summary>
@@ -561,4 +600,299 @@ public sealed class PriceLevelCondition : ICondition
         _lowestSeen = double.MaxValue;
         _highestSeen = double.MinValue;
     }
+}
+
+// ========================================
+// BRANCHING LOGIC
+// ========================================
+
+/// <summary>
+/// A conditional block containing If/ElseIf/Else branches.
+/// At evaluation time, the first matching branch's overrides are applied.
+/// </summary>
+public sealed class ConditionalBlock
+{
+    public List<ConditionalBranch> Branches { get; } = [];
+
+    /// <summary>
+    /// Evaluates branches in order and returns the first match.
+    /// Returns null if no branch matches (no Else and no conditions met).
+    /// </summary>
+    public ConditionalBranch? Evaluate(IndicatorSnapshot snapshot)
+    {
+        foreach (var branch in Branches)
+        {
+            if (branch.Condition is null || branch.Condition.Evaluate(snapshot))
+                return branch;
+        }
+        return null;
+    }
+
+    public string ToScript()
+    {
+        var parts = new List<string>();
+        for (int i = 0; i < Branches.Count; i++)
+        {
+            var branch = Branches[i];
+            if (i == 0)
+            {
+                parts.Add($"{branch.Condition!.ToScript()}");
+                parts.Add($"    .Then({branch.Overrides.ToScript()})");
+            }
+            else if (branch.Condition is not null)
+            {
+                parts.Add($"    .ElseIf({branch.Condition.ToScript()}, {branch.Overrides.ToScript()})");
+            }
+            else
+            {
+                parts.Add($"    .Else({branch.Overrides.ToScript()})");
+            }
+        }
+        return string.Join("\n", parts);
+    }
+}
+
+/// <summary>
+/// A single branch in a conditional block.
+/// </summary>
+public sealed class ConditionalBranch
+{
+    /// <summary>
+    /// The condition to evaluate. Null means this is the Else (default) branch.
+    /// </summary>
+    public ICondition? Condition { get; set; }
+
+    /// <summary>
+    /// Strategy overrides to apply when this branch matches.
+    /// </summary>
+    public StrategyOverrides Overrides { get; set; } = new();
+}
+
+/// <summary>
+/// Partial strategy settings that override the base strategy when a branch matches.
+/// Only non-null properties are applied.
+/// </summary>
+public sealed class StrategyOverrides
+{
+    public TradeDirection? Direction { get; set; }
+    public List<ICondition> EntryConditions { get; } = [];
+    public double? TakeProfitPrice { get; set; }
+    public List<TakeProfitTarget> TakeProfitTargets { get; } = [];
+    public double? StopLossPrice { get; set; }
+    public double? StopLossPercent { get; set; }
+    public double? TrailingStopPercent { get; set; }
+
+    public string ToScript()
+    {
+        var parts = new List<string>();
+        if (Direction.HasValue)
+            parts.Add(Direction == TradeDirection.Short ? "Short()" : "Long()");
+        foreach (var cond in EntryConditions)
+            parts.Add(cond.ToScript());
+        if (TakeProfitTargets.Count > 0)
+            parts.Add($"TakeProfit({string.Join(", ", TakeProfitTargets.Select(t => t.Price.ToString()))})");
+        else if (TakeProfitPrice.HasValue)
+            parts.Add($"TakeProfit({TakeProfitPrice})");
+        if (StopLossPrice.HasValue)
+            parts.Add($"StopLoss({StopLossPrice})");
+        if (StopLossPercent.HasValue)
+            parts.Add($"StopLossPercent({StopLossPercent})");
+        if (TrailingStopPercent.HasValue)
+            parts.Add($"TrailingStopLoss({TrailingStopPercent})");
+        return string.Join(".", parts);
+    }
+
+    /// <summary>
+    /// Applies these overrides to a strategy definition.
+    /// Only non-null properties are applied; everything else keeps the base value.
+    /// </summary>
+    public void ApplyTo(StrategyDefinition strategy)
+    {
+        if (Direction.HasValue)
+            strategy.Direction = Direction.Value;
+        if (EntryConditions.Count > 0)
+            foreach (var c in EntryConditions)
+                strategy.EntryConditions.Add(c);
+        if (TakeProfitPrice.HasValue)
+            strategy.TakeProfitPrice = TakeProfitPrice;
+        if (TakeProfitTargets.Count > 0)
+        {
+            strategy.TakeProfitTargets.Clear();
+            foreach (var t in TakeProfitTargets)
+                strategy.TakeProfitTargets.Add(t);
+        }
+        if (StopLossPrice.HasValue)
+            strategy.StopLossPrice = StopLossPrice;
+        if (StopLossPercent.HasValue)
+            strategy.StopLossPercent = StopLossPercent;
+        if (TrailingStopPercent.HasValue)
+            strategy.TrailingStopPercent = TrailingStopPercent;
+    }
+}
+
+/// <summary>
+/// Fluent builder for configuring a branch's strategy overrides.
+/// Used inside Then(), ElseIf(), and Else() lambdas.
+/// </summary>
+public sealed class BranchBuilder
+{
+    internal StrategyOverrides Overrides { get; } = new();
+
+    public BranchBuilder Long()
+    {
+        Overrides.Direction = TradeDirection.Long;
+        return this;
+    }
+
+    public BranchBuilder Short()
+    {
+        Overrides.Direction = TradeDirection.Short;
+        return this;
+    }
+
+    public BranchBuilder TakeProfit(double price)
+    {
+        Overrides.TakeProfitPrice = price;
+        return this;
+    }
+
+    public BranchBuilder TakeProfit(double t1, double t2, double? t3 = null)
+    {
+        Overrides.TakeProfitTargets.Clear();
+        Overrides.TakeProfitTargets.Add(new TakeProfitTarget { Price = t1, PercentToSell = t3.HasValue ? 33 : 50, Label = "T1" });
+        Overrides.TakeProfitTargets.Add(new TakeProfitTarget { Price = t2, PercentToSell = t3.HasValue ? 33 : 50, Label = "T2" });
+        if (t3.HasValue)
+            Overrides.TakeProfitTargets.Add(new TakeProfitTarget { Price = t3.Value, PercentToSell = 34, Label = "T3" });
+        Overrides.TakeProfitPrice = t1;
+        return this;
+    }
+
+    public BranchBuilder StopLoss(double price)
+    {
+        Overrides.StopLossPrice = price;
+        return this;
+    }
+
+    public BranchBuilder StopLossPercent(double percent)
+    {
+        Overrides.StopLossPercent = percent;
+        return this;
+    }
+
+    public BranchBuilder TrailingStopLoss(double percent)
+    {
+        Overrides.TrailingStopPercent = percent;
+        return this;
+    }
+
+    public BranchBuilder IsAboveVwap()
+    {
+        Overrides.EntryConditions.Add(new IndicatorCondition(IndicatorType.VwapAbove));
+        return this;
+    }
+
+    public BranchBuilder IsBelowVwap()
+    {
+        Overrides.EntryConditions.Add(new IndicatorCondition(IndicatorType.VwapBelow));
+        return this;
+    }
+
+    public BranchBuilder HoldsAbove(double price)
+    {
+        Overrides.EntryConditions.Add(new PriceLevelCondition(PriceLevelType.HoldsAbove, price));
+        return this;
+    }
+
+    public BranchBuilder HoldsBelow(double price)
+    {
+        Overrides.EntryConditions.Add(new PriceLevelCondition(PriceLevelType.HoldsBelow, price));
+        return this;
+    }
+}
+
+/// <summary>
+/// Factory for creating conditions inside ElseIf lambdas.
+/// Mirrors the condition methods from StrategyBuilder.
+/// </summary>
+public sealed class ConditionFactory
+{
+    public ICondition IsAboveVwap() => new IndicatorCondition(IndicatorType.VwapAbove);
+    public ICondition IsBelowVwap() => new IndicatorCondition(IndicatorType.VwapBelow);
+    public ICondition IsEmaAbove(int period) => new IndicatorCondition(IndicatorType.EmaAbove, period);
+    public ICondition IsEmaBelow(int period) => new IndicatorCondition(IndicatorType.EmaBelow, period);
+    public ICondition IsDiPositive() => new IndicatorCondition(IndicatorType.DiPositive);
+    public ICondition IsDiNegative() => new IndicatorCondition(IndicatorType.DiNegative);
+    public ICondition IsAdxAbove(double threshold) => new IndicatorCondition(IndicatorType.AdxAbove, threshold);
+    public ICondition IsRsiOversold(double threshold = 30) => new IndicatorCondition(IndicatorType.RsiOversold, threshold);
+    public ICondition IsRsiOverbought(double threshold = 70) => new IndicatorCondition(IndicatorType.RsiOverbought, threshold);
+    public ICondition IsMacdBullish() => new IndicatorCondition(IndicatorType.MacdBullish);
+    public ICondition IsMacdBearish() => new IndicatorCondition(IndicatorType.MacdBearish);
+    public ICondition IsGapUp(double minPercent = 3) => new IndicatorCondition(IndicatorType.GapUp, minPercent);
+    public ICondition IsGapDown(double minPercent = 3) => new IndicatorCondition(IndicatorType.GapDown, minPercent);
+    public ICondition IsVolumeAbove(double multiplier) => new IndicatorCondition(IndicatorType.VolumeAbove, multiplier);
+    public ICondition HoldsAbove(double price) => new PriceLevelCondition(PriceLevelType.HoldsAbove, price);
+    public ICondition HoldsBelow(double price) => new PriceLevelCondition(PriceLevelType.HoldsBelow, price);
+    public ICondition IsNear(double price, double tolerance = 1.0) => new PriceLevelCondition(PriceLevelType.Near, price, tolerance);
+    public ICondition BreaksAbove(double price) => new PriceLevelCondition(PriceLevelType.BreaksAbove, price);
+    public ICondition BreaksBelow(double price) => new PriceLevelCondition(PriceLevelType.BreaksBelow, price);
+    public ICondition Breakout(double? level = null) => new PatternCondition(PatternType.Breakout, level);
+    public ICondition Pullback(double? level = null) => new PatternCondition(PatternType.Pullback, level);
+}
+
+/// <summary>
+/// Fluent builder for chaining ElseIf/Else after a Then().
+/// Returns to StrategyBuilder when the conditional block is complete.
+/// </summary>
+public sealed class ConditionalBuilder
+{
+    private readonly StrategyBuilder _parent;
+    private readonly ConditionalBlock _block;
+
+    internal ConditionalBuilder(StrategyBuilder parent, ConditionalBlock block)
+    {
+        _parent = parent;
+        _block = block;
+    }
+
+    /// <summary>
+    /// Adds an ElseIf branch with a condition and actions.
+    /// Usage: .ElseIf(c => c.IsBelowVwap(), b => b.Short().TakeProfit(3.00))
+    /// </summary>
+    public ConditionalBuilder ElseIf(Func<ConditionFactory, ICondition> condition, Action<BranchBuilder> configure)
+    {
+        var cond = condition(new ConditionFactory());
+        var builder = new BranchBuilder();
+        configure(builder);
+        _block.Branches.Add(new ConditionalBranch { Condition = cond, Overrides = builder.Overrides });
+        return this;
+    }
+
+    /// <summary>
+    /// Adds the default Else branch (no condition).
+    /// Returns to StrategyBuilder for continued chaining.
+    /// Usage: .Else(b => b.Long().TakeProfit(4.00))
+    /// </summary>
+    public StrategyBuilder Else(Action<BranchBuilder> configure)
+    {
+        var builder = new BranchBuilder();
+        configure(builder);
+        _block.Branches.Add(new ConditionalBranch { Condition = null, Overrides = builder.Overrides });
+        return _parent;
+    }
+
+    /// <summary>
+    /// Ends the conditional block without an Else branch.
+    /// Returns to StrategyBuilder for continued chaining.
+    /// </summary>
+    public StrategyBuilder EndIf() => _parent;
+
+    // Delegate common terminal methods to allow chaining without EndIf()
+    public StrategyBuilder StopLoss(double price) => _parent.StopLoss(price);
+    public StrategyBuilder StopLossPercent(double percent) => _parent.StopLossPercent(percent);
+    public StrategyBuilder TrailingStopLoss(double percent) => _parent.TrailingStopLoss(percent);
+    public StrategyBuilder Repeat() => _parent.Repeat();
+    public StrategyBuilder AutonomousTrading() => _parent.AutonomousTrading();
+    public StrategyBuilder AdaptiveOrder() => _parent.AdaptiveOrder();
+    public StrategyDefinition Build() => _parent.Build();
+    public string ToScript() => _parent.ToScript();
 }
