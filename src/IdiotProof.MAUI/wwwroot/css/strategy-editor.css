@@ -1,0 +1,604 @@
+/* ── Layout (3-column: sidebar | grid | code) ──────────── */
+.editor-layout {
+    display: flex;
+    height: 100vh;
+    width: 100vw;
+    overflow: hidden;
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    background: #0f0f14;
+    color: #e0e0e6;
+}
+
+/* ── Left Sidebar ──────────────────────────────────────── */
+.editor-sidebar {
+    width: 260px;
+    min-width: 260px;
+    background: #16161e;
+    border-right: 1px solid #2a2a3a;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.sidebar-section {
+    border-bottom: 1px solid #2a2a3a;
+}
+
+.sidebar-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 14px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #888;
+}
+
+/* ── Strategy List ─────────────────────────────────────── */
+.strategy-list {
+    max-height: 180px;
+    overflow-y: auto;
+}
+
+.strategy-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 14px;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+
+.strategy-item:hover { background: #1e1e2e; }
+.strategy-item.active {
+    background: #252540;
+    border-left: 3px solid #6366f1;
+}
+
+.strategy-name {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 0.85rem;
+}
+
+.rename-input {
+    flex: 1;
+    background: #1a1a2e;
+    border: 1px solid #6366f1;
+    color: #e0e0e6;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-size: 0.85rem;
+    outline: none;
+}
+
+.btn-icon {
+    background: none;
+    border: none;
+    color: #888;
+    cursor: pointer;
+    font-size: 1.1rem;
+    padding: 2px 6px;
+    border-radius: 3px;
+    transition: all 0.15s;
+}
+
+.btn-icon:hover { color: #e0e0e6; background: #2a2a3a; }
+.btn-delete:hover { color: #ef4444; }
+
+/* ── Toolbox ───────────────────────────────────────────── */
+.toolbox-section {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    border-bottom: 1px solid #2a2a3a;
+}
+
+.toolbox-scroll {
+    flex: 1;
+    overflow-y: auto;
+    padding-bottom: 8px;
+}
+
+.toolbox-category {
+    border-bottom: 1px solid #1a1a2a;
+}
+
+.toolbox-category-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 8px 14px;
+    background: none;
+    border: none;
+    color: #888;
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.toolbox-category-header:hover { color: #bbb; background: #1a1a2a; }
+
+.toolbox-category-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.toolbox-chevron {
+    margin-left: auto;
+    font-size: 0.55rem;
+    transition: transform 0.2s;
+}
+
+.toolbox-chevron.expanded { transform: rotate(90deg); }
+
+.toolbox-items {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    padding: 0 6px 6px;
+}
+
+.toolbox-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 5px 10px;
+    background: #1a1a28;
+    border: 1px solid transparent;
+    border-left: 3px solid transparent;
+    border-radius: 5px;
+    cursor: grab;
+    font-size: 0.75rem;
+    font-family: 'Cascadia Code', 'Fira Code', monospace;
+    color: #a5b4fc;
+    transition: all 0.15s;
+    user-select: none;
+}
+
+.toolbox-item:hover {
+    border-color: #6366f1;
+    background: #252540;
+    color: #c7d2fe;
+}
+
+.toolbox-item:active {
+    background: #2d2d50;
+    transform: scale(0.98);
+    cursor: grabbing;
+}
+
+.toolbox-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    min-width: 22px;
+    border-radius: 4px;
+    font-weight: 700;
+    font-size: 0.55rem;
+    color: #fff;
+}
+
+.toolbox-label {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* ── Right Panel: Code Preview ─────────────────────────── */
+.code-panel {
+    width: 300px;
+    min-width: 260px;
+    background: #16161e;
+    border-left: 1px solid #2a2a3a;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.code-preview {
+    padding: 10px 14px;
+    margin: 0;
+    font-family: 'Cascadia Code', 'Fira Code', monospace;
+    font-size: 0.75rem;
+    line-height: 1.6;
+    color: #a5b4fc;
+    background: #0f0f14;
+    overflow: auto;
+    flex: 1;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+/* ── Script Grid (center area) ─────────────────────────── */
+.script-grid {
+    flex: 1;
+    overflow-y: auto;
+    padding: 24px 32px;
+    background: #0f0f14;
+    min-height: 0;
+}
+
+.empty-state {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    color: #555;
+}
+
+.empty-state-inner { text-align: center; }
+
+.empty-state-icon {
+    font-size: 3rem;
+    margin-bottom: 12px;
+    opacity: 0.4;
+}
+
+.grid-header {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    margin-bottom: 20px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid #2a2a3a;
+}
+
+.grid-title {
+    margin: 0;
+    font-size: 1.3rem;
+    font-weight: 600;
+    color: #e0e0e6;
+}
+
+.grid-subtitle {
+    font-size: 0.8rem;
+    color: #666;
+}
+
+/* ── Segment Chain ─────────────────────────────────────── */
+.segment-chain {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    max-width: 720px;
+}
+
+/* ── Segment Card ──────────────────────────────────────── */
+.segment-card {
+    display: flex;
+    align-items: stretch;
+    background: #16161e;
+    border: 1px solid #2a2a3a;
+    border-left: 4px solid var(--seg-color, #6366f1);
+    border-radius: 8px;
+    transition: all 0.15s;
+    cursor: grab;
+}
+
+.segment-card:hover {
+    border-color: #3a3a4a;
+    border-left-color: var(--seg-color, #6366f1);
+    background: #1a1a26;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.segment-card:active { cursor: grabbing; }
+
+.segment-card.segment-invalid {
+    border-color: #ef4444;
+    border-left-color: #ef4444;
+}
+
+/* Handle */
+.segment-handle {
+    display: flex;
+    align-items: center;
+    padding: 0 8px;
+    color: #444;
+    font-size: 0.7rem;
+    cursor: grab;
+    user-select: none;
+    transition: color 0.15s;
+}
+
+.segment-handle:hover { color: #888; }
+
+/* Icon */
+.segment-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    min-width: 36px;
+    font-size: 0.6rem;
+    font-weight: 700;
+    color: #fff;
+}
+
+/* Content */
+.segment-content {
+    flex: 1;
+    padding: 10px 12px;
+    min-width: 0;
+}
+
+.segment-name {
+    font-family: 'Cascadia Code', 'Fira Code', monospace;
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: #c7d2fe;
+    margin-bottom: 4px;
+}
+
+/* Parameters */
+.segment-params {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 16px;
+    margin-top: 6px;
+}
+
+.param-group {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 100px;
+}
+
+.param-label {
+    font-size: 0.65rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #666;
+    cursor: help;
+}
+
+.param-input {
+    padding: 4px 8px;
+    background: #0f0f14;
+    border: 1px solid #2a2a3a;
+    border-radius: 4px;
+    color: #e0e0e6;
+    font-size: 0.8rem;
+    outline: none;
+    width: 100%;
+    box-sizing: border-box;
+    min-width: 80px;
+}
+
+.param-input:focus { border-color: #6366f1; }
+
+.param-number { width: 100px; }
+
+.param-input-group {
+    display: flex;
+    align-items: center;
+}
+
+.param-input-group .param-input { border-radius: 0; }
+
+.param-prefix, .param-suffix {
+    padding: 4px 6px;
+    background: #1a1a28;
+    border: 1px solid #2a2a3a;
+    color: #888;
+    font-size: 0.75rem;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.param-prefix {
+    border-right: none;
+    border-radius: 4px 0 0 4px;
+}
+
+.param-suffix {
+    border-left: none;
+    border-radius: 0 4px 4px 0;
+}
+
+.param-input-group .param-prefix + .param-input { border-radius: 0; }
+
+.param-select {
+    padding: 4px 8px;
+    background: #0f0f14;
+    border: 1px solid #2a2a3a;
+    border-radius: 4px;
+    color: #e0e0e6;
+    font-size: 0.8rem;
+    outline: none;
+    min-width: 100px;
+    cursor: pointer;
+}
+
+.param-select:focus { border-color: #6366f1; }
+
+.param-checkbox {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.75rem;
+    color: #aaa;
+    cursor: pointer;
+    padding: 4px 0;
+}
+
+.param-checkbox input[type="checkbox"] {
+    accent-color: #6366f1;
+    width: 14px;
+    height: 14px;
+}
+
+/* Actions */
+.segment-actions {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 2px;
+    padding: 4px 6px;
+    opacity: 0;
+    transition: opacity 0.15s;
+}
+
+.segment-card:hover .segment-actions { opacity: 1; }
+
+.btn-seg {
+    background: none;
+    border: none;
+    color: #555;
+    cursor: pointer;
+    font-size: 0.65rem;
+    padding: 2px 4px;
+    border-radius: 3px;
+    transition: all 0.15s;
+    line-height: 1;
+}
+
+.btn-seg:hover { color: #e0e0e6; background: #2a2a3a; }
+.btn-seg-remove:hover { color: #ef4444; background: #2a1515; }
+
+/* ── Drop Zones ────────────────────────────────────────── */
+.drop-zone {
+    height: 6px;
+    position: relative;
+    transition: height 0.2s ease, background 0.2s ease;
+    border-radius: 4px;
+}
+
+/* When ANY drag is active, expand all drop zones so they're hittable */
+body.is-dragging .drop-zone {
+    height: 28px;
+    background: rgba(99, 102, 241, 0.03);
+    border: 1px dashed transparent;
+    margin: 2px 0;
+}
+
+body.is-dragging .drop-zone:hover {
+    background: rgba(99, 102, 241, 0.08);
+    border-color: rgba(99, 102, 241, 0.3);
+}
+
+.drop-indicator {
+    position: absolute;
+    left: 12px;
+    right: 12px;
+    top: 50%;
+    height: 2px;
+    background: transparent;
+    border-radius: 1px;
+    transition: all 0.15s;
+    transform: translateY(-50%);
+}
+
+/* JS adds this class on dragover */
+.drop-zone.drop-active {
+    height: 36px !important;
+    background: rgba(99, 102, 241, 0.12) !important;
+    border: 2px dashed #6366f1 !important;
+}
+
+.drop-zone.drop-active .drop-indicator {
+    background: #6366f1;
+    box-shadow: 0 0 12px rgba(99, 102, 241, 0.6);
+    height: 3px;
+}
+
+/* Bottom drop zone */
+.drop-zone-end {
+    min-height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 2px dashed #2a2a3a;
+    border-radius: 8px;
+    margin-top: 8px;
+    transition: all 0.2s;
+}
+
+body.is-dragging .drop-zone-end {
+    min-height: 64px;
+    border-color: rgba(99, 102, 241, 0.3);
+    background: rgba(99, 102, 241, 0.03);
+}
+
+.drop-zone-end.drop-active {
+    border-color: #6366f1 !important;
+    background: rgba(99, 102, 241, 0.12) !important;
+}
+
+.drop-hint {
+    font-size: 0.75rem;
+    color: #444;
+}
+
+body.is-dragging .drop-hint {
+    color: #6366f1;
+}
+
+/* ── Drag ghost styling ────────────────────────────────── */
+body.is-dragging .toolbox-item {
+    cursor: grabbing;
+}
+
+body.is-dragging .segment-card {
+    cursor: grabbing;
+}
+
+/* Dim the card being dragged */
+.segment-card[data-drag-segment]:active {
+    opacity: 0.5;
+}
+
+/* ── Connector dots between segments ───────────────────── */
+.drop-zone::after {
+    content: '';
+    position: absolute;
+    left: 20px;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: #2a2a3a;
+    pointer-events: none;
+}
+
+body.is-dragging .drop-zone::after {
+    background: rgba(99, 102, 241, 0.2);
+}
+
+.drop-zone.drop-active::after {
+    background: #6366f1;
+}
+
+.drop-zone-end::after { display: none; }
+
+/* ── Scrollbar ─────────────────────────────────────────── */
+::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+
+::-webkit-scrollbar-track { background: transparent; }
+
+::-webkit-scrollbar-thumb {
+    background: #2a2a3a;
+    border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover { background: #3a3a4a; }

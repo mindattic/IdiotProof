@@ -1,0 +1,420 @@
+@page "/"
+@page "/editor"
+@page "/editor/{StrategyId}"
+
+@using IdiotProof.MAUI.Models
+@using IdiotProof.MAUI.Services
+@implements IDisposable
+
+@inject StrategyFileService FileService
+@inject IJSRuntime JS
+
+<div class="editor-layout">
+    <!-- ── Left Sidebar: Strategies + Toolbox ───────────── -->
+    <div class="editor-sidebar">
+        <!-- Strategy List -->
+        <div class="sidebar-section">
+            <div class="sidebar-header">
+                <span>Strategies</span>
+                <button class="btn-icon" @onclick="CreateNew" title="New Strategy">+</button>
+            </div>
+            <div class="strategy-list">
+                @foreach (var s in _strategies)
+                {
+                    <div class="strategy-item @(s.Id == _current?.Id ? "active" : "")"
+                         @onclick="() => LoadStrategy(s.Id)">
+                        @if (_renamingId == s.Id)
+                        {
+                            <input type="text" @bind="_renameValue" @bind:event="oninput"
+                                   @onblur="FinishRename" @onkeydown="OnRenameKey"
+                                   class="rename-input" autofocus />
+                        }
+                        else
+                        {
+                            <span class="strategy-name" @ondblclick="() => StartRename(s)">@s.Name</span>
+                            <button class="btn-icon btn-delete" @onclick:stopPropagation="true"
+                                    @onclick="() => DeleteStrategy(s.Id)" title="Delete">&#xd7;</button>
+                        }
+                    </div>
+                }
+            </div>
+        </div>
+
+        <!-- Toolbox -->
+        <div class="toolbox-section">
+            <div class="sidebar-header"><span>Segments</span></div>
+            <div class="toolbox-scroll">
+                @foreach (var cat in SegmentCatalog.Categories)
+                {
+                    <div class="toolbox-category">
+                        <button class="toolbox-category-header"
+                                @onclick="() => ToggleCategory(cat.Name)">
+                            <span class="toolbox-category-dot" style="background:@cat.Color"></span>
+                            <span>@cat.Name</span>
+                            <span class="toolbox-chevron @(_expandedCats.Contains(cat.Name) ? "expanded" : "")">&#9654;</span>
+                        </button>
+                        @if (_expandedCats.Contains(cat.Name))
+                        {
+                            <div class="toolbox-items">
+                                @foreach (var key in cat.SegmentKeys)
+                                {
+                                    if (!SegmentCatalog.Exists(key)) continue;
+                                    var template = SegmentCatalog.Create(key);
+                                    <div class="toolbox-item"
+                                         style="border-left-color: @template.Color"
+                                         draggable="true"
+                                         data-drag-toolbox="@key"
+                                         @onclick="() => AddSegment(key)">
+                                        <span class="toolbox-icon" style="background:@template.Color">@template.Icon</span>
+                                        <span class="toolbox-label">@template.DisplayName</span>
+                                    </div>
+                                }
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+
+    <!-- ── Center: Script Grid ──────────────────────────── -->
+    <div class="script-grid">
+        @if (_current is null)
+        {
+            <div class="empty-state">
+                <div class="empty-state-inner">
+                    <div class="empty-state-icon">&#9998;</div>
+                    <div>Create or select a strategy to begin</div>
+                </div>
+            </div>
+        }
+        else
+        {
+            <div class="grid-header">
+                <h2 class="grid-title">@_current.Name</h2>
+                <span class="grid-subtitle">@_current.Segments.Count segment@(_current.Segments.Count != 1 ? "s" : "")</span>
+            </div>
+
+            <div class="segment-chain">
+                @for (var i = 0; i < _current.Segments.Count; i++)
+                {
+                    var idx = i;
+                    var seg = _current.Segments[i];
+
+                    <!-- Drop zone above this segment -->
+                    <div class="drop-zone" data-drop-index="@idx">
+                        <div class="drop-indicator"></div>
+                    </div>
+
+                    <!-- Segment card -->
+                    <div class="segment-card @(!seg.IsValid ? "segment-invalid" : "")"
+                         style="--seg-color: @seg.Color"
+                         draggable="true"
+                         data-drag-segment="@idx">
+
+                        <div class="segment-handle" title="Drag to reorder">&#x2630;</div>
+
+                        <div class="segment-icon" style="background:@seg.Color">@seg.Icon</div>
+
+                        <div class="segment-content">
+                            <div class="segment-name">@seg.DisplayName</div>
+
+                            @if (seg.Parameters.Count > 0)
+                            {
+                                <div class="segment-params">
+                                    @foreach (var param in seg.Parameters)
+                                    {
+                                        <div class="param-group">
+                                            <label class="param-label" title="@param.HelpText">@param.Label</label>
+                                            @switch (param.Kind)
+                                            {
+                                                case ParamKind.String:
+                                                    <input type="text" class="param-input"
+                                                           value="@param.Value"
+                                                           placeholder="@param.Placeholder"
+                                                           @onchange="(e) => SetParam(seg, param, e.Value)"
+                                                           title="@param.HelpText" />
+                                                    break;
+
+                                                case ParamKind.Integer:
+                                                    <input type="number" class="param-input param-number"
+                                                           value="@param.Value"
+                                                           min="@param.Min" max="@param.Max" step="@(param.Step ?? 1)"
+                                                           @onchange="(e) => SetParam(seg, param, e.Value)"
+                                                           title="@param.HelpText" />
+                                                    break;
+
+                                                case ParamKind.Double:
+                                                case ParamKind.Price:
+                                                case ParamKind.Percentage:
+                                                    <div class="param-input-group">
+                                                        @if (param.Kind == ParamKind.Price)
+                                                        {
+                                                            <span class="param-prefix">$</span>
+                                                        }
+                                                        <input type="number" class="param-input param-number"
+                                                               value="@param.Value"
+                                                               min="@param.Min" max="@param.Max"
+                                                               step="@(param.Step ?? 0.01)"
+                                                               @onchange="(e) => SetParam(seg, param, e.Value)"
+                                                               title="@param.HelpText" />
+                                                        @if (param.Kind == ParamKind.Percentage)
+                                                        {
+                                                            <span class="param-suffix">%</span>
+                                                        }
+                                                    </div>
+                                                    break;
+
+                                                case ParamKind.Boolean:
+                                                    <label class="param-checkbox">
+                                                        <input type="checkbox"
+                                                               checked="@(param.Value?.ToString() == "True" || param.Value?.ToString() == "true")"
+                                                               @onchange="(e) => SetParam(seg, param, e.Value)" />
+                                                        <span>@param.Label</span>
+                                                    </label>
+                                                    break;
+
+                                                case ParamKind.Enum:
+                                                    <select class="param-select"
+                                                            value="@param.Value"
+                                                            @onchange="(e) => SetParam(seg, param, e.Value)"
+                                                            title="@param.HelpText">
+                                                        <option value="">-- select --</option>
+                                                        @if (param.Options is not null)
+                                                        {
+                                                            @foreach (var opt in param.Options)
+                                                            {
+                                                                <option value="@opt" selected="@(param.Value?.ToString() == opt)">@opt</option>
+                                                            }
+                                                        }
+                                                    </select>
+                                                    break;
+
+                                                case ParamKind.Time:
+                                                    <input type="time" class="param-input"
+                                                           value="@param.Value"
+                                                           @onchange="(e) => SetParam(seg, param, e.Value)"
+                                                           title="@param.HelpText" />
+                                                    break;
+                                            }
+                                        </div>
+                                    }
+                                </div>
+                            }
+                        </div>
+
+                        <div class="segment-actions">
+                            @if (idx > 0)
+                            {
+                                <button class="btn-seg" @onclick="() => MoveUp(idx)" title="Move up">&#9650;</button>
+                            }
+                            @if (idx < _current.Segments.Count - 1)
+                            {
+                                <button class="btn-seg" @onclick="() => MoveDown(idx)" title="Move down">&#9660;</button>
+                            }
+                            <button class="btn-seg btn-seg-remove" @onclick="() => RemoveSegment(idx)" title="Remove">&#xd7;</button>
+                        </div>
+                    </div>
+                }
+
+                <!-- Drop zone at the bottom -->
+                <div class="drop-zone drop-zone-end" data-drop-index="@_current.Segments.Count">
+                    <div class="drop-indicator"></div>
+                    <span class="drop-hint">Drop segment here or click one in the toolbox</span>
+                </div>
+            </div>
+        }
+    </div>
+
+    <!-- ── Right Panel: Code Preview ────────────────────── -->
+    <div class="code-panel">
+        <div class="sidebar-header">
+            <span>Fluent API</span>
+            <button class="btn-icon" @onclick="RefreshCode" title="Refresh">&#x21bb;</button>
+        </div>
+        <pre class="code-preview">@_codePreview</pre>
+    </div>
+</div>
+
+@code {
+    [Parameter] public string? StrategyId { get; set; }
+
+    private List<ScriptStrategy> _strategies = [];
+    private ScriptStrategy? _current;
+    private string _codePreview = "";
+    private DotNetObjectReference<StrategyEditor>? _dotnetRef;
+
+    // Rename
+    private string? _renamingId;
+    private string _renameValue = "";
+
+    // Category expand state
+    private readonly HashSet<string> _expandedCats = ["Start", "Price", "Order", "Risk"];
+
+    protected override async Task OnInitializedAsync()
+    {
+        _strategies = await FileService.GetAllAsync();
+        if (StrategyId is not null)
+            _current = await FileService.LoadAsync(StrategyId);
+        else if (_strategies.Count > 0)
+            _current = await FileService.LoadAsync(_strategies[0].Id);
+        RefreshCode();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            _dotnetRef = DotNetObjectReference.Create(this);
+            await JS.InvokeVoidAsync("DragDrop.init", _dotnetRef);
+        }
+    }
+
+    public void Dispose()
+    {
+        _dotnetRef?.Dispose();
+    }
+
+    // ── JS Interop callbacks ──────────────────────────────
+
+    [JSInvokable]
+    public async Task JsDropToolbox(string key, int dropIndex)
+    {
+        if (_current is null) return;
+        var seg = SegmentCatalog.Create(key);
+        dropIndex = Math.Clamp(dropIndex, 0, _current.Segments.Count);
+        _current.Segments.Insert(dropIndex, seg);
+        await SaveAndRefresh();
+        StateHasChanged();
+    }
+
+    [JSInvokable]
+    public async Task JsDropSegment(int fromIndex, int dropIndex)
+    {
+        if (_current is null) return;
+        if (fromIndex < 0 || fromIndex >= _current.Segments.Count) return;
+        if (fromIndex == dropIndex || fromIndex == dropIndex - 1) return;
+
+        var seg = _current.Segments[fromIndex];
+        _current.Segments.RemoveAt(fromIndex);
+        var insertAt = fromIndex < dropIndex ? dropIndex - 1 : dropIndex;
+        insertAt = Math.Clamp(insertAt, 0, _current.Segments.Count);
+        _current.Segments.Insert(insertAt, seg);
+        await SaveAndRefresh();
+        StateHasChanged();
+    }
+
+    // ── Strategy CRUD ─────────────────────────────────────
+
+    private async Task CreateNew()
+    {
+        var s = await FileService.CreateAsync();
+        _strategies.Insert(0, s);
+        _current = s;
+        RefreshCode();
+    }
+
+    private async Task LoadStrategy(string id)
+    {
+        _current = await FileService.LoadAsync(id);
+        RefreshCode();
+    }
+
+    private async Task DeleteStrategy(string id)
+    {
+        await FileService.DeleteAsync(id);
+        _strategies.RemoveAll(s => s.Id == id);
+        if (_current?.Id == id)
+        {
+            _current = _strategies.Count > 0 ? await FileService.LoadAsync(_strategies[0].Id) : null;
+            RefreshCode();
+        }
+    }
+
+    private void StartRename(ScriptStrategy s)
+    {
+        _renamingId = s.Id;
+        _renameValue = s.Name;
+    }
+
+    private async Task FinishRename()
+    {
+        if (_renamingId is not null && !string.IsNullOrWhiteSpace(_renameValue))
+        {
+            await FileService.RenameAsync(_renamingId, _renameValue);
+            var item = _strategies.Find(s => s.Id == _renamingId);
+            if (item is not null) item.Name = _renameValue;
+            if (_current?.Id == _renamingId) _current.Name = _renameValue;
+        }
+        _renamingId = null;
+    }
+
+    private async Task OnRenameKey(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter") await FinishRename();
+        if (e.Key == "Escape") _renamingId = null;
+    }
+
+    // ── Segment operations ────────────────────────────────
+
+    private async Task AddSegment(string key)
+    {
+        if (_current is null) return;
+        var seg = SegmentCatalog.Create(key);
+        _current.Segments.Add(seg);
+        await SaveAndRefresh();
+    }
+
+    private async Task RemoveSegment(int index)
+    {
+        if (_current is null || index < 0 || index >= _current.Segments.Count) return;
+        _current.Segments.RemoveAt(index);
+        await SaveAndRefresh();
+    }
+
+    private async Task MoveUp(int index)
+    {
+        if (_current is null || index <= 0) return;
+        (_current.Segments[index], _current.Segments[index - 1]) =
+            (_current.Segments[index - 1], _current.Segments[index]);
+        await SaveAndRefresh();
+    }
+
+    private async Task MoveDown(int index)
+    {
+        if (_current is null || index >= _current.Segments.Count - 1) return;
+        (_current.Segments[index], _current.Segments[index + 1]) =
+            (_current.Segments[index + 1], _current.Segments[index]);
+        await SaveAndRefresh();
+    }
+
+    private async Task SetParam(ScriptSegment seg, ScriptParam param, object? value)
+    {
+        param.Value = value;
+        await SaveAndRefresh();
+    }
+
+    // ── Toolbox ───────────────────────────────────────────
+
+    private void ToggleCategory(string name)
+    {
+        if (!_expandedCats.Remove(name))
+            _expandedCats.Add(name);
+    }
+
+    // ── Code preview ──────────────────────────────────────
+
+    private void RefreshCode()
+    {
+        _codePreview = _current is not null
+            ? FluentApiGenerator.Generate(_current)
+            : "// No strategy loaded";
+    }
+
+    private async Task SaveAndRefresh()
+    {
+        if (_current is not null)
+            await FileService.SaveAsync(_current);
+        RefreshCode();
+    }
+}
