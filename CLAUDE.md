@@ -1,0 +1,1 @@
+# IdiotProof Project Rules
