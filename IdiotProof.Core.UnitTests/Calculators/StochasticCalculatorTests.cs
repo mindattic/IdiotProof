@@ -1,4 +1,4 @@
-// ============================================================================
+﻿// ============================================================================
 // Stochastic Calculator Tests - Validates Stochastic Oscillator with real data
 // ============================================================================
 
@@ -10,12 +10,12 @@ namespace IdiotProof.Core.UnitTests.Calculators;
 [TestFixture]
 public class StochasticCalculatorTests
 {
-    private List<TestBar> _bars = null!;
+    private List<TestBar> bars = null!;
 
     [OneTimeSetUp]
     public void LoadData()
     {
-        _bars = TestDataLoader.LoadBars("NVDA", 200);
+        bars = TestDataLoader.LoadBars("NVDA", 200);
     }
 
     // ========================================================================
@@ -52,14 +52,14 @@ public class StochasticCalculatorTests
 
         for (int i = 0; i < 13; i++)
         {
-            stoch.Update(_bars[i].High, _bars[i].Low, _bars[i].Close);
+            stoch.Update(bars[i].High, bars[i].Low, bars[i].Close);
             Assert.That(stoch.IsReady, Is.False);
         }
 
         // After k period bars + d period, should be ready
         for (int i = 13; i < 20; i++)
         {
-            stoch.Update(_bars[i].High, _bars[i].Low, _bars[i].Close);
+            stoch.Update(bars[i].High, bars[i].Low, bars[i].Close);
             if (stoch.IsReady) break;
         }
         Assert.That(stoch.IsReady, Is.True);
@@ -76,7 +76,7 @@ public class StochasticCalculatorTests
 
         for (int i = 0; i < 100; i++)
         {
-            stoch.Update(_bars[i].High, _bars[i].Low, _bars[i].Close);
+            stoch.Update(bars[i].High, bars[i].Low, bars[i].Close);
             if (stoch.IsReady)
             {
                 Assert.That(stoch.PercentK, Is.GreaterThanOrEqualTo(0).And.LessThanOrEqualTo(100),
@@ -97,9 +97,9 @@ public class StochasticCalculatorTests
         var stoch = new StochasticCalculator(5, 3);
 
         for (int i = 0; i < 5; i++)
-            stoch.Update(_bars[i].High, _bars[i].Low, _bars[i].Close);
+            stoch.Update(bars[i].High, bars[i].Low, bars[i].Close);
 
-        var subset = _bars.Take(5).ToList();
+        var subset = bars.Take(5).ToList();
         double hh = subset.Max(b => b.High);
         double ll = subset.Min(b => b.Low);
         double close = subset[^1].Close;
@@ -164,7 +164,7 @@ public class StochasticCalculatorTests
 
         for (int i = 0; i < 50; i++)
         {
-            stoch.Update(_bars[i].High, _bars[i].Low, _bars[i].Close);
+            stoch.Update(bars[i].High, bars[i].Low, bars[i].Close);
             int score = stoch.GetScore();
             Assert.That(score, Is.GreaterThanOrEqualTo(-100).And.LessThanOrEqualTo(100));
         }
@@ -179,7 +179,7 @@ public class StochasticCalculatorTests
     {
         var stoch = new StochasticCalculator(5, 3);
         for (int i = 0; i < 10; i++)
-            stoch.Update(_bars[i].High, _bars[i].Low, _bars[i].Close);
+            stoch.Update(bars[i].High, bars[i].Low, bars[i].Close);
 
         double beforeK = stoch.PercentK;
         stoch.Update(0, 0, 0);
@@ -196,7 +196,7 @@ public class StochasticCalculatorTests
         var stoch = new StochasticCalculator(14, 3);
 
         for (int i = 0; i < 50; i++)
-            stoch.Update(_bars[i].High, _bars[i].Low, _bars[i].Close);
+            stoch.Update(bars[i].High, bars[i].Low, bars[i].Close);
 
         Assert.That(stoch.IsReady, Is.True);
         Assert.That(stoch.PercentK, Is.GreaterThan(0).And.LessThan(100));

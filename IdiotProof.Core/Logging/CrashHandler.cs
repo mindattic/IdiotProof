@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.IO;
 using System.Runtime.InteropServices;
 using System.Text;
@@ -14,7 +14,7 @@ namespace IdiotProof.Logging {
         [DllImport("Kernel32")]
         private static extern bool SetConsoleCtrlHandler(ConsoleCtrlHandler handler, bool add);
         private delegate bool ConsoleCtrlHandler(int ctrlType);
-        private static ConsoleCtrlHandler? _consoleCtrlHandler;
+        private static ConsoleCtrlHandler? consoleCtrlHandler;
 
         // Control signal types
         private const int CTRL_C_EVENT = 0;
@@ -24,8 +24,8 @@ namespace IdiotProof.Logging {
         private const int CTRL_SHUTDOWN_EVENT = 6;
 
         // Console output capture for crash dumps and session logs
-        private static readonly StringBuilder _consoleLog = new();
-        private static readonly object _logLock = new();
+        private static readonly StringBuilder consoleLog = new();
+        private static readonly object logLock = new();
         private const int MaxConsoleLogSize = 15 * 1024 * 1024; // 15 MB max buffer
         private const int TrimToSize = 10 * 1024 * 1024;        // Trim to 10 MB when exceeded
 
@@ -36,7 +36,7 @@ namespace IdiotProof.Logging {
         {
             // Redirect console output to capture it
             var originalOut = Console.Out;
-            var capturingWriter = new CapturingTextWriter(originalOut, _consoleLog, _logLock, MaxConsoleLogSize, TrimToSize);
+            var capturingWriter = new CapturingTextWriter(originalOut, consoleLog, logLock, MaxConsoleLogSize, TrimToSize);
             Console.SetOut(capturingWriter);
 
             // Handle unhandled exceptions
@@ -61,8 +61,8 @@ namespace IdiotProof.Logging {
             // Handle console close button (X), Ctrl+C, logoff, shutdown (Windows only)
             if (OperatingSystem.IsWindows())
             {
-                _consoleCtrlHandler = new ConsoleCtrlHandler(OnConsoleCtrlEvent);
-                SetConsoleCtrlHandler(_consoleCtrlHandler, true);
+                consoleCtrlHandler = new ConsoleCtrlHandler(OnConsoleCtrlEvent);
+                SetConsoleCtrlHandler(consoleCtrlHandler, true);
             }
 
             // Handle Ctrl+C via .NET (cross-platform)
@@ -126,9 +126,9 @@ namespace IdiotProof.Logging {
                 sb.AppendLine("                         CONSOLE OUTPUT");
                 sb.AppendLine("═══════════════════════════════════════════════════════════════════");
 
-                lock (_logLock)
+                lock (logLock)
                 {
-                    sb.Append(_consoleLog);
+                    sb.Append(consoleLog);
                 }
 
                 File.WriteAllText(filename, sb.ToString());
@@ -194,9 +194,9 @@ namespace IdiotProof.Logging {
                 sb.AppendLine("                         CONSOLE OUTPUT");
                 sb.AppendLine("═══════════════════════════════════════════════════════════════════");
 
-                lock (_logLock)
+                lock (logLock)
                 {
-                    sb.Append(_consoleLog);
+                    sb.Append(consoleLog);
                 }
 
                 File.WriteAllText(filename, sb.ToString());

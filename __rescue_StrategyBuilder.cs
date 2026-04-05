@@ -27,12 +27,12 @@ public static class Stock
 /// </summary>
 public class StrategyBuilder
 {
-    private readonly StrategyDefinition _strategy;
-    private int _segmentOrder = 1;
+    private readonly StrategyDefinition strategy;
+    private int segmentOrder = 1;
 
     internal StrategyBuilder(string symbol)
     {
-        _strategy = new StrategyDefinition
+        strategy = new StrategyDefinition
         {
             Name = $"{symbol} Strategy",
             Symbol = symbol,
@@ -56,7 +56,7 @@ public class StrategyBuilder
     /// </summary>
     public StrategyBuilder Name(string name)
     {
-        _strategy.Name = name;
+        strategy.Name = name;
         return this;
     }
 
@@ -65,7 +65,7 @@ public class StrategyBuilder
     /// </summary>
     public StrategyBuilder Description(string description)
     {
-        _strategy.Description = description;
+        strategy.Description = description;
         return this;
     }
 
@@ -74,7 +74,7 @@ public class StrategyBuilder
     /// </summary>
     public StrategyBuilder Author(string author)
     {
-        _strategy.Author = author;
+        strategy.Author = author;
         return this;
     }
 
@@ -83,7 +83,7 @@ public class StrategyBuilder
     /// </summary>
     public StrategyBuilder Enabled(bool enabled = true)
     {
-        _strategy.Enabled = enabled;
+        strategy.Enabled = enabled;
         return this;
     }
 
@@ -655,7 +655,7 @@ public class StrategyBuilder
     /// </remarks>
     public StrategyBuilder Repeat(bool repeat = true)
     {
-        _strategy.RepeatEnabled = repeat;
+        strategy.RepeatEnabled = repeat;
         if (repeat)
         {
             AddSegment(SegmentType.Repeat, SegmentCategory.Execution, "Repeat", []);
@@ -668,8 +668,8 @@ public class StrategyBuilder
     /// </summary>
     public StrategyDefinition Build()
     {
-        _strategy.ModifiedAt = DateTime.UtcNow;
-        return _strategy;
+        strategy.ModifiedAt = DateTime.UtcNow;
+        return strategy;
     }
 
     /// <summary>
@@ -679,13 +679,13 @@ public class StrategyBuilder
 
     private void AddSegment(SegmentType type, SegmentCategory category, string displayName, List<SegmentParameter> parameters)
     {
-        _strategy.Segments.Add(new StrategySegment
+        strategy.Segments.Add(new StrategySegment
         {
             Type = type,
             Category = category,
             DisplayName = displayName,
             Parameters = parameters,
-            Order = _segmentOrder++
+            Order = segmentOrder++
         });
     }
 }

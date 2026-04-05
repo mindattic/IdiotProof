@@ -1,4 +1,4 @@
-// ============================================================================
+﻿// ============================================================================
 // StrategyPicker - Analyzes market data to find breakout-pullback candidates
 // ============================================================================
 //
@@ -46,11 +46,11 @@ public sealed class SetupCriteria
 /// </summary>
 public sealed class StrategyPicker
 {
-    private readonly SetupCriteria _criteria;
+    private readonly SetupCriteria criteria;
     
     public StrategyPicker(SetupCriteria? criteria = null)
     {
-        _criteria = criteria ?? new SetupCriteria();
+        criteria = criteria ?? new SetupCriteria();
     }
     
     /// <summary>
@@ -59,13 +59,13 @@ public sealed class StrategyPicker
     public TradingSetup? Analyze(StockSnapshot snapshot)
     {
         // Check basic filters
-        if (snapshot.Price < _criteria.MinPrice || snapshot.Price > _criteria.MaxPrice)
+        if (snapshot.Price < criteria.MinPrice || snapshot.Price > criteria.MaxPrice)
             return null;
             
-        if (snapshot.AverageVolume < _criteria.MinAverageVolume)
+        if (snapshot.AverageVolume < criteria.MinAverageVolume)
             return null;
             
-        if (_criteria.RequireGap && Math.Abs(snapshot.GapPercent) < _criteria.MinGapPercent)
+        if (criteria.RequireGap && Math.Abs(snapshot.GapPercent) < criteria.MinGapPercent)
             return null;
         
         // Find resistance level (key breakout trigger)
@@ -75,7 +75,7 @@ public sealed class StrategyPicker
             
         // Check if near resistance
         var distanceToResistance = (resistance.Value - snapshot.Price) / snapshot.Price * 100;
-        if (distanceToResistance > _criteria.MaxDistanceToResistancePercent)
+        if (distanceToResistance > criteria.MaxDistanceToResistancePercent)
             return null;
             
         // Determine support level
@@ -85,7 +85,7 @@ public sealed class StrategyPicker
         var invalidation = CalculateInvalidation(snapshot, support);
         
         // Calculate targets based on risk:reward
-        var targets = CalculateTargets(resistance.Value, invalidation, _criteria.TargetRiskReward);
+        var targets = CalculateTargets(resistance.Value, invalidation, criteria.TargetRiskReward);
         
         // Determine bias and pattern
         var (bias, pattern) = DetermineBiasAndPattern(snapshot);

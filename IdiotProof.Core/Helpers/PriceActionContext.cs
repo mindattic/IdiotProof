@@ -1,4 +1,4 @@
-// ============================================================================
+﻿// ============================================================================
 // PriceActionContext - Proactive Multi-Bar Pattern Analysis
 // ============================================================================
 //
@@ -243,45 +243,45 @@ public sealed class PriceActionContext
     private const int ChaseThreshold = 4;          // Consecutive same-color bars = chasing (for stocks >$25)
     
     // Price-tier thresholds (penny stocks need tighter chase detection)
-    private double _extensionThreshold = ExtensionThreshold;
-    private int _chaseThreshold = ChaseThreshold;
+    private double extensionThreshold = ExtensionThreshold;
+    private int chaseThreshold = ChaseThreshold;
     
     // State
-    private readonly List<Candlestick> _candles = new();
-    private readonly List<FairValueGap> _fvgs = new();
-    private readonly List<SwingPoint> _swings = new();
-    private readonly List<ConsolidationZone> _consolidations = new();
+    private readonly List<Candlestick> candles = new();
+    private readonly List<FairValueGap> fvgs = new();
+    private readonly List<SwingPoint> swings = new();
+    private readonly List<ConsolidationZone> consolidations = new();
     
     // Cached values for divergence detection
-    private readonly List<(DateTime time, double price, double rsi)> _rsiHistory = new();
-    private readonly List<(DateTime time, double price, double macd)> _macdHistory = new();
+    private readonly List<(DateTime time, double price, double rsi)> rsiHistory = new();
+    private readonly List<(DateTime time, double price, double macd)> macdHistory = new();
     
     // Session tracking
-    private double _sessionHigh = double.MinValue;
-    private double _sessionLow = double.MaxValue;
-    private double _sessionOpen = 0;
-    private DateTime _sessionDate = DateTime.MinValue;
+    private double sessionHigh = double.MinValue;
+    private double sessionLow = double.MaxValue;
+    private double sessionOpen = 0;
+    private DateTime sessionDate = DateTime.MinValue;
     
     // EMA cache
-    private double _ema9 = 0;
-    private double _ema21 = 0;
-    private double _atr = 0;
+    private double ema9 = 0;
+    private double ema21 = 0;
+    private double atr = 0;
     
     /// <summary>
     /// Number of candles in history.
     /// </summary>
-    public int CandleCount => _candles.Count;
+    public int CandleCount => candles.Count;
     
     /// <summary>
     /// Active unfilled Fair Value Gaps.
     /// </summary>
     public IReadOnlyList<FairValueGap> UnfilledFvgs => 
-        _fvgs.Where(f => !f.IsFilled).ToList().AsReadOnly();
+        fvgs.Where(f => !f.IsFilled).ToList().AsReadOnly();
     
     /// <summary>
     /// Recent swing points for structure analysis.
     /// </summary>
-    public IReadOnlyList<SwingPoint> SwingPoints => _swings.AsReadOnly();
+    public IReadOnlyList<SwingPoint> SwingPoints => swings.AsReadOnly();
     
     /// <summary>
     /// Updates context with a new completed candle.
@@ -292,14 +292,14 @@ public sealed class PriceActionContext
     {
         // Adjust chase detection thresholds based on price tier
         // Penny stocks need tighter detection because they move in bigger % per candle
-        _extensionThreshold = candle.Close switch
+        extensionThreshold = candle.Close switch
         {
             < 1.0 => 5.0,    // 5% from EMA9 for sub-$1 (normal noise is 2-3%)
             < 5.0 => 4.0,    // 4% for $1-$5
             < 25.0 => 3.0,   // 3% for $5-$25
             _ => ExtensionThreshold // 2.5% default for $25+
         };
-        _chaseThreshold = candle.Close switch
+        chaseThreshold = candle.Close switch
         {
             < 1.0 => 3,      // 3 consecutive bars = chasing on pennies
             < 5.0 => 3,      // 3 for $1-$5
@@ -308,39 +308,39 @@ public sealed class PriceActionContext
 
         // Check for new session
         var candleDate = candle.Timestamp.Date;
-        if (candleDate != _sessionDate)
+        if (candleDate != sessionDate)
         {
-            _sessionDate = candleDate;
-            _sessionHigh = candle.High;
-            _sessionLow = candle.Low;
-            _sessionOpen = candle.Open;
+            sessionDate = candleDate;
+            sessionHigh = candle.High;
+            sessionLow = candle.Low;
+            sessionOpen = candle.Open;
         }
         else
         {
-            _sessionHigh = Math.Max(_sessionHigh, candle.High);
-            _sessionLow = Math.Min(_sessionLow, candle.Low);
+            sessionHigh = Math.Max(sessionHigh, candle.High);
+            sessionLow = Math.Min(sessionLow, candle.Low);
         }
         
         // Cache indicator values
-        _ema9 = ema9;
-        _ema21 = ema21;
-        _atr = atr;
+        this.ema9 = ema9;
+        this.ema21 = ema21;
+        this.atr = atr;
         
         // Add candle
-        _candles.Add(candle);
-        if (_candles.Count > MaxCandles)
-            _candles.RemoveAt(0);
+        candles.Add(candle);
+        if (candles.Count > MaxCandles)
+            candles.RemoveAt(0);
         
         // Track RSI/MACD for divergences
         if (rsi > 0)
         {
-            _rsiHistory.Add((candle.Timestamp, candle.Close, rsi));
-            if (_rsiHistory.Count > 50) _rsiHistory.RemoveAt(0);
+            rsiHistory.Add((candle.Timestamp, candle.Close, rsi));
+            if (rsiHistory.Count > 50) rsiHistory.RemoveAt(0);
         }
         if (macd != 0)
         {
-            _macdHistory.Add((candle.Timestamp, candle.Close, macd));
-            if (_macdHistory.Count > 50) _macdHistory.RemoveAt(0);
+            macdHistory.Add((candle.Timestamp, candle.Close, macd));
+            if (macdHistory.Count > 50) macdHistory.RemoveAt(0);
         }
         
         // Detect swing points
@@ -362,7 +362,7 @@ public sealed class PriceActionContext
     public PriceActionAnalysis GetAnalysis(double currentPrice, double currentRsi = 50, 
                                             double currentMacd = 0)
     {
-        if (_candles.Count < 10)
+        if (candles.Count < 10)
         {
             return new PriceActionAnalysis
             {
@@ -407,12 +407,12 @@ public sealed class PriceActionContext
         // ====================================================================
         var (isExtended, greenBars, redBars, ema9Distance, shouldWait) = AnalyzeExtension(currentPrice);
         
-        if (isExtended && greenBars >= _chaseThreshold)
+        if (isExtended && greenBars >= chaseThreshold)
         {
             bearishFactors.Add($"Overextended UP ({greenBars} green bars, {ema9Distance:F1}% from EMA9)");
             longAdj -= 25; // Don't chase
         }
-        else if (isExtended && redBars >= _chaseThreshold)
+        else if (isExtended && redBars >= chaseThreshold)
         {
             bullishFactors.Add($"Overextended DOWN ({redBars} red bars, {ema9Distance:F1}% from EMA9)");
             shortAdj -= 25; // Don't chase
@@ -571,9 +571,9 @@ public sealed class PriceActionContext
         // CALCULATE FINAL ENTRY QUALITY
         // ====================================================================
         var longQuality = CalculateEntryQuality(longAdj, bullishFactors.Count, bearishFactors.Count, 
-                                                 trendState, true, isExtended && greenBars >= _chaseThreshold);
+                                                 trendState, true, isExtended && greenBars >= chaseThreshold);
         var shortQuality = CalculateEntryQuality(shortAdj, bearishFactors.Count, bullishFactors.Count,
-                                                  trendState, false, isExtended && redBars >= _chaseThreshold);
+                                                  trendState, false, isExtended && redBars >= chaseThreshold);
         
         // Build reasoning
         var reasoning = BuildReasoning(trendState, longQuality, shortQuality, 
@@ -636,11 +636,11 @@ public sealed class PriceActionContext
     
     private (TrendState state, int hh, int hl, int lh, int ll, bool structureBreak) AnalyzeTrendStructure()
     {
-        if (_swings.Count < 4)
+        if (swings.Count < 4)
             return (TrendState.Ranging, 0, 0, 0, 0, false);
         
-        var highs = _swings.Where(s => s.IsHigh).OrderByDescending(s => s.Timestamp).Take(5).ToList();
-        var lows = _swings.Where(s => !s.IsHigh).OrderByDescending(s => s.Timestamp).Take(5).ToList();
+        var highs = swings.Where(s => s.IsHigh).OrderByDescending(s => s.Timestamp).Take(5).ToList();
+        var lows = swings.Where(s => !s.IsHigh).OrderByDescending(s => s.Timestamp).Take(5).ToList();
         
         if (highs.Count < 2 || lows.Count < 2)
             return (TrendState.Ranging, 0, 0, 0, 0, false);
@@ -664,9 +664,9 @@ public sealed class PriceActionContext
         
         // Detect structure break (most recent swing violated)
         bool structureBreak = false;
-        if (_candles.Count > 0)
+        if (candles.Count > 0)
         {
-            var lastCandle = _candles[^1];
+            var lastCandle = candles[^1];
             var lastSwingLow = lows.FirstOrDefault();
             var lastSwingHigh = highs.FirstOrDefault();
             
@@ -698,14 +698,14 @@ public sealed class PriceActionContext
     private (bool isExtended, int greenBars, int redBars, double ema9Dist, bool shouldWait) 
         AnalyzeExtension(double currentPrice)
     {
-        if (_candles.Count < 5)
+        if (candles.Count < 5)
             return (false, 0, 0, 0, false);
         
         // Count consecutive same-color bars
         int greenBars = 0, redBars = 0;
-        for (int i = _candles.Count - 1; i >= 0; i--)
+        for (int i = candles.Count - 1; i >= 0; i--)
         {
-            var c = _candles[i];
+            var c = candles[i];
             if (c.Close > c.Open)
             {
                 if (redBars > 0) break;
@@ -720,24 +720,24 @@ public sealed class PriceActionContext
         
         // Calculate distance from EMA9
         double ema9Dist = 0;
-        if (_ema9 > 0)
+        if (ema9 > 0)
         {
-            ema9Dist = Math.Abs((currentPrice - _ema9) / _ema9 * 100);
+            ema9Dist = Math.Abs((currentPrice - ema9) / ema9 * 100);
         }
         
-        bool isExtended = ema9Dist >= _extensionThreshold || 
-                          greenBars >= _chaseThreshold || 
-                          redBars >= _chaseThreshold;
+        bool isExtended = ema9Dist >= extensionThreshold || 
+                          greenBars >= chaseThreshold || 
+                          redBars >= chaseThreshold;
         
-        bool shouldWait = isExtended && (greenBars >= _chaseThreshold || redBars >= _chaseThreshold);
+        bool shouldWait = isExtended && (greenBars >= chaseThreshold || redBars >= chaseThreshold);
         
         return (isExtended, greenBars, redBars, ema9Dist, shouldWait);
     }
     
     private (bool inPullback, double depth, bool healthy, double fibLevel) AnalyzePullback(double currentPrice)
     {
-        var highs = _swings.Where(s => s.IsHigh).OrderByDescending(s => s.Timestamp).Take(3).ToList();
-        var lows = _swings.Where(s => !s.IsHigh).OrderByDescending(s => s.Timestamp).Take(3).ToList();
+        var highs = swings.Where(s => s.IsHigh).OrderByDescending(s => s.Timestamp).Take(3).ToList();
+        var lows = swings.Where(s => !s.IsHigh).OrderByDescending(s => s.Timestamp).Take(3).ToList();
         
         if (highs.Count < 2 || lows.Count < 1)
             return (false, 0, false, 0);
@@ -764,9 +764,9 @@ public sealed class PriceActionContext
         bool healthy = fibLevel >= 0.382 && fibLevel <= 0.618;
         
         // Check volume decrease during pullback
-        if (_candles.Count >= 3)
+        if (candles.Count >= 3)
         {
-            var recentCandles = _candles.TakeLast(5).ToList();
+            var recentCandles = candles.TakeLast(5).ToList();
             var upCandles = recentCandles.Where(c => c.Close > c.Open).ToList();
             var downCandles = recentCandles.Where(c => c.Close <= c.Open).ToList();
             
@@ -785,7 +785,7 @@ public sealed class PriceActionContext
     private (FairValueGap? bullish, FairValueGap? bearish, bool inFvg, bool filling) 
         AnalyzeFvgs(double currentPrice)
     {
-        var unfilled = _fvgs.Where(f => !f.IsFilled).ToList();
+        var unfilled = fvgs.Where(f => !f.IsFilled).ToList();
         
         var nearestBull = unfilled
             .Where(f => f.IsBullish && f.Low <= currentPrice)
@@ -806,11 +806,11 @@ public sealed class PriceActionContext
     private (ConsolidationZone? active, bool breaking, bool firstPb, int barsSince) 
         AnalyzeConsolidation(double currentPrice)
     {
-        if (!_consolidations.Any())
+        if (!consolidations.Any())
             return (null, false, false, 0);
         
-        var active = _consolidations.LastOrDefault(c => !c.IsBroken);
-        var broken = _consolidations.Where(c => c.IsBroken).OrderByDescending(c => c.EndTime).FirstOrDefault();
+        var active = consolidations.LastOrDefault(c => !c.IsBroken);
+        var broken = consolidations.Where(c => c.IsBroken).OrderByDescending(c => c.EndTime).FirstOrDefault();
         
         bool breaking = false;
         if (active != null)
@@ -823,7 +823,7 @@ public sealed class PriceActionContext
         int barsSince = 0;
         if (broken != null)
         {
-            barsSince = _candles.Count(c => c.Timestamp > broken.EndTime);
+            barsSince = candles.Count(c => c.Timestamp > broken.EndTime);
             
             // If we broke out up and now pulling back to the breakout level
             if (broken.BreakoutDirection > 0 && currentPrice <= broken.High * 1.02 && currentPrice >= broken.High * 0.98)
@@ -842,14 +842,14 @@ public sealed class PriceActionContext
     
     private (bool premium, bool discount, bool fairValue) AnalyzePremiumDiscount(double currentPrice)
     {
-        if (_sessionHigh <= _sessionLow || _sessionHigh == double.MinValue)
+        if (sessionHigh <= sessionLow || sessionHigh == double.MinValue)
             return (false, false, true);
         
-        double range = _sessionHigh - _sessionLow;
+        double range = sessionHigh - sessionLow;
         double third = range / 3;
         
-        bool premium = currentPrice >= _sessionHigh - third;
-        bool discount = currentPrice <= _sessionLow + third;
+        bool premium = currentPrice >= sessionHigh - third;
+        bool discount = currentPrice <= sessionLow + third;
         bool fairValue = !premium && !discount;
         
         return (premium, discount, fairValue);
@@ -861,22 +861,22 @@ public sealed class PriceActionContext
         bool sweptLows = false, sweptHighs = false;
         double liqAbove = 0, liqBelow = 0;
         
-        if (_candles.Count < 5 || _swings.Count < 2)
+        if (candles.Count < 5 || swings.Count < 2)
             return (false, false, liqAbove, liqBelow);
         
-        var recentLows = _swings.Where(s => !s.IsHigh).OrderByDescending(s => s.Timestamp).Take(3).ToList();
-        var recentHighs = _swings.Where(s => s.IsHigh).OrderByDescending(s => s.Timestamp).Take(3).ToList();
+        var recentLows = swings.Where(s => !s.IsHigh).OrderByDescending(s => s.Timestamp).Take(3).ToList();
+        var recentHighs = swings.Where(s => s.IsHigh).OrderByDescending(s => s.Timestamp).Take(3).ToList();
         
         // Nearest liquidity pools
         liqAbove = recentHighs.Where(h => h.Price > currentPrice).OrderBy(h => h.Price).FirstOrDefault()?.Price ?? 0;
         liqBelow = recentLows.Where(l => l.Price < currentPrice).OrderByDescending(l => l.Price).FirstOrDefault()?.Price ?? 0;
         
         // Check last 3 candles for liquidity sweeps
-        if (_candles.Count >= 3)
+        if (candles.Count >= 3)
         {
-            var last = _candles[^1];
-            var prev = _candles[^2];
-            var prev2 = _candles[^3];
+            var last = candles[^1];
+            var prev = candles[^2];
+            var prev2 = candles[^3];
             
             // Swept lows: went below prior swing low then closed back above
             var priorLow = recentLows.Skip(1).FirstOrDefault();
@@ -905,16 +905,16 @@ public sealed class PriceActionContext
     {
         bool bullRsi = false, bearRsi = false, bullMacd = false, bearMacd = false;
         
-        if (_rsiHistory.Count < 10)
+        if (rsiHistory.Count < 10)
             return (bullRsi, bearRsi, bullMacd, bearMacd);
         
         // Find recent swing lows in price
-        var priceLows = FindLocalExtremes(_candles.TakeLast(20).ToList(), false);
+        var priceLows = FindLocalExtremes(candles.TakeLast(20).ToList(), false);
         var rsiAtLows = new List<(double price, double rsi)>();
         
         foreach (var low in priceLows)
         {
-            var rsiMatch = _rsiHistory.Where(r => Math.Abs((r.time - low.Timestamp).TotalMinutes) < 5).FirstOrDefault();
+            var rsiMatch = rsiHistory.Where(r => Math.Abs((r.time - low.Timestamp).TotalMinutes) < 5).FirstOrDefault();
             if (rsiMatch != default)
             {
                 rsiAtLows.Add((low.Low, rsiMatch.rsi));
@@ -930,12 +930,12 @@ public sealed class PriceActionContext
         }
         
         // Find recent swing highs for bearish divergence
-        var priceHighs = FindLocalExtremes(_candles.TakeLast(20).ToList(), true);
+        var priceHighs = FindLocalExtremes(candles.TakeLast(20).ToList(), true);
         var rsiAtHighs = new List<(double price, double rsi)>();
         
         foreach (var high in priceHighs)
         {
-            var rsiMatch = _rsiHistory.Where(r => Math.Abs((r.time - high.Timestamp).TotalMinutes) < 5).FirstOrDefault();
+            var rsiMatch = rsiHistory.Where(r => Math.Abs((r.time - high.Timestamp).TotalMinutes) < 5).FirstOrDefault();
             if (rsiMatch != default)
             {
                 rsiAtHighs.Add((high.High, rsiMatch.rsi));
@@ -951,12 +951,12 @@ public sealed class PriceActionContext
         }
         
         // Similar for MACD divergences
-        if (_macdHistory.Count >= 10)
+        if (macdHistory.Count >= 10)
         {
             var macdAtLows = new List<(double price, double macd)>();
             foreach (var low in priceLows)
             {
-                var macdMatch = _macdHistory.Where(m => Math.Abs((m.time - low.Timestamp).TotalMinutes) < 5).FirstOrDefault();
+                var macdMatch = macdHistory.Where(m => Math.Abs((m.time - low.Timestamp).TotalMinutes) < 5).FirstOrDefault();
                 if (macdMatch != default)
                     macdAtLows.Add((low.Low, macdMatch.macd));
             }
@@ -974,11 +974,11 @@ public sealed class PriceActionContext
     private (bool bullEngulf, bool bearEngulf, bool hammer, bool shootingStar, bool doji) 
         AnalyzeCandlePatterns()
     {
-        if (_candles.Count < 2)
+        if (candles.Count < 2)
             return (false, false, false, false, false);
         
-        var curr = _candles[^1];
-        var prev = _candles[^2];
+        var curr = candles[^1];
+        var prev = candles[^2];
         
         double currBody = Math.Abs(curr.Close - curr.Open);
         double prevBody = Math.Abs(prev.Close - prev.Open);
@@ -1016,29 +1016,29 @@ public sealed class PriceActionContext
     
     private void DetectSwingPoints()
     {
-        if (_candles.Count < SwingLookback * 2 + 1)
+        if (candles.Count < SwingLookback * 2 + 1)
             return;
         
-        int idx = _candles.Count - 1 - SwingLookback;
+        int idx = candles.Count - 1 - SwingLookback;
         if (idx < SwingLookback)
             return;
         
-        var candle = _candles[idx];
+        var candle = candles[idx];
         bool isSwingHigh = true, isSwingLow = true;
         
         for (int i = idx - SwingLookback; i <= idx + SwingLookback; i++)
         {
             if (i == idx) continue;
-            if (_candles[i].High >= candle.High) isSwingHigh = false;
-            if (_candles[i].Low <= candle.Low) isSwingLow = false;
+            if (candles[i].High >= candle.High) isSwingHigh = false;
+            if (candles[i].Low <= candle.Low) isSwingLow = false;
         }
         
         if (isSwingHigh)
         {
             // Avoid duplicates
-            if (!_swings.Any(s => s.Timestamp == candle.Timestamp && s.IsHigh))
+            if (!swings.Any(s => s.Timestamp == candle.Timestamp && s.IsHigh))
             {
-                _swings.Add(new SwingPoint
+                swings.Add(new SwingPoint
                 {
                     Timestamp = candle.Timestamp,
                     Price = candle.High,
@@ -1046,16 +1046,16 @@ public sealed class PriceActionContext
                     BarIndex = idx
                 });
                 
-                if (_swings.Count > MaxSwingPoints)
-                    _swings.RemoveAt(0);
+                if (swings.Count > MaxSwingPoints)
+                    swings.RemoveAt(0);
             }
         }
         
         if (isSwingLow)
         {
-            if (!_swings.Any(s => s.Timestamp == candle.Timestamp && !s.IsHigh))
+            if (!swings.Any(s => s.Timestamp == candle.Timestamp && !s.IsHigh))
             {
-                _swings.Add(new SwingPoint
+                swings.Add(new SwingPoint
                 {
                     Timestamp = candle.Timestamp,
                     Price = candle.Low,
@@ -1063,20 +1063,20 @@ public sealed class PriceActionContext
                     BarIndex = idx
                 });
                 
-                if (_swings.Count > MaxSwingPoints)
-                    _swings.RemoveAt(0);
+                if (swings.Count > MaxSwingPoints)
+                    swings.RemoveAt(0);
             }
         }
     }
     
     private void DetectFvg()
     {
-        if (_candles.Count < 3)
+        if (candles.Count < 3)
             return;
         
-        var c0 = _candles[^3]; // Oldest of 3
-        var c1 = _candles[^2]; // Middle
-        var c2 = _candles[^1]; // Newest
+        var c0 = candles[^3]; // Oldest of 3
+        var c1 = candles[^2]; // Middle
+        var c2 = candles[^1]; // Newest
         
         // Bullish FVG: Gap between c0.High and c2.Low (c1 is the impulse candle)
         if (c2.Low > c0.High && c1.Close > c1.Open)
@@ -1089,11 +1089,11 @@ public sealed class PriceActionContext
                 IsBullish = true
             };
             
-            if (fvg.Size > _atr * 0.1 || fvg.Size > c1.Close * 0.001) // Minimum size check
+            if (fvg.Size > atr * 0.1 || fvg.Size > c1.Close * 0.001) // Minimum size check
             {
-                _fvgs.Add(fvg);
-                if (_fvgs.Count > MaxFvgs)
-                    _fvgs.RemoveAt(0);
+                fvgs.Add(fvg);
+                if (fvgs.Count > MaxFvgs)
+                    fvgs.RemoveAt(0);
             }
         }
         
@@ -1108,18 +1108,18 @@ public sealed class PriceActionContext
                 IsBullish = false
             };
             
-            if (fvg.Size > _atr * 0.1 || fvg.Size > c1.Close * 0.001)
+            if (fvg.Size > atr * 0.1 || fvg.Size > c1.Close * 0.001)
             {
-                _fvgs.Add(fvg);
-                if (_fvgs.Count > MaxFvgs)
-                    _fvgs.RemoveAt(0);
+                fvgs.Add(fvg);
+                if (fvgs.Count > MaxFvgs)
+                    fvgs.RemoveAt(0);
             }
         }
     }
     
     private void UpdateFvgFills(Candlestick candle)
     {
-        foreach (var fvg in _fvgs.Where(f => !f.IsFilled))
+        foreach (var fvg in fvgs.Where(f => !f.IsFilled))
         {
             if (fvg.IsBullish)
             {
@@ -1148,11 +1148,11 @@ public sealed class PriceActionContext
     
     private void DetectConsolidation()
     {
-        if (_candles.Count < 10)
+        if (candles.Count < 10)
             return;
         
         // Look at last 10 candles for consolidation
-        var recent = _candles.TakeLast(10).ToList();
+        var recent = candles.TakeLast(10).ToList();
         double high = recent.Max(c => c.High);
         double low = recent.Min(c => c.Low);
         double range = high - low;
@@ -1163,14 +1163,14 @@ public sealed class PriceActionContext
         // Consolidation: overall range is less than 4x average candle range
         bool isConsolidating = range < avgCandleRange * 4;
         
-        var activeConsol = _consolidations.LastOrDefault(c => !c.IsBroken);
+        var activeConsol = consolidations.LastOrDefault(c => !c.IsBroken);
         
         if (isConsolidating)
         {
             if (activeConsol == null)
             {
                 // Start new consolidation
-                _consolidations.Add(new ConsolidationZone
+                consolidations.Add(new ConsolidationZone
                 {
                     StartTime = recent[0].Timestamp,
                     EndTime = recent[^1].Timestamp,
@@ -1191,7 +1191,7 @@ public sealed class PriceActionContext
         else if (activeConsol != null)
         {
             // Check for breakout
-            var lastCandle = _candles[^1];
+            var lastCandle = candles[^1];
             if (lastCandle.Close > activeConsol.High)
             {
                 activeConsol.IsBroken = true;
@@ -1207,8 +1207,8 @@ public sealed class PriceActionContext
         }
         
         // Cleanup old consolidations
-        if (_consolidations.Count > 10)
-            _consolidations.RemoveRange(0, _consolidations.Count - 10);
+        if (consolidations.Count > 10)
+            consolidations.RemoveRange(0, consolidations.Count - 10);
     }
     
     // ========================================================================
@@ -1304,15 +1304,15 @@ public sealed class PriceActionContext
     /// </summary>
     public void Reset()
     {
-        _candles.Clear();
-        _fvgs.Clear();
-        _swings.Clear();
-        _consolidations.Clear();
-        _rsiHistory.Clear();
-        _macdHistory.Clear();
-        _sessionHigh = double.MinValue;
-        _sessionLow = double.MaxValue;
-        _sessionOpen = 0;
-        _sessionDate = DateTime.MinValue;
+        candles.Clear();
+        fvgs.Clear();
+        swings.Clear();
+        consolidations.Clear();
+        rsiHistory.Clear();
+        macdHistory.Clear();
+        sessionHigh = double.MinValue;
+        sessionLow = double.MaxValue;
+        sessionOpen = 0;
+        sessionDate = DateTime.MinValue;
     }
 }

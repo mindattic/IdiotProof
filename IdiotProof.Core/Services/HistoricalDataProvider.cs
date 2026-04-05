@@ -36,15 +36,15 @@ public interface IHistoricalDataProvider
 /// </summary>
 public sealed class CsvHistoricalDataProvider : IHistoricalDataProvider
 {
-    private readonly string _dataDirectory;
+    private readonly string dataDirectory;
 
     public CsvHistoricalDataProvider(string dataDirectory)
     {
-        _dataDirectory = dataDirectory;
+        this.dataDirectory = dataDirectory;
         
-        if (!Directory.Exists(_dataDirectory))
+        if (!Directory.Exists(dataDirectory))
         {
-            Directory.CreateDirectory(_dataDirectory);
+            Directory.CreateDirectory(dataDirectory);
         }
     }
 
@@ -108,7 +108,7 @@ public sealed class CsvHistoricalDataProvider : IHistoricalDataProvider
     public (DateOnly start, DateOnly end)? GetAvailableDateRange(string symbol)
     {
         var pattern = $"{symbol.ToUpperInvariant()}_*.csv";
-        var files = Directory.GetFiles(_dataDirectory, pattern);
+        var files = Directory.GetFiles(dataDirectory, pattern);
         
         if (files.Length == 0) return null;
 
@@ -138,12 +138,12 @@ public sealed class CsvHistoricalDataProvider : IHistoricalDataProvider
 
         foreach (var pattern in patterns)
         {
-            var path = Path.Combine(_dataDirectory, pattern);
+            var path = Path.Combine(dataDirectory, pattern);
             if (File.Exists(path)) return path;
         }
 
         // Return default pattern
-        return Path.Combine(_dataDirectory, patterns[0]);
+        return Path.Combine(dataDirectory, patterns[0]);
     }
 }
 
@@ -152,7 +152,7 @@ public sealed class CsvHistoricalDataProvider : IHistoricalDataProvider
 /// </summary>
 public sealed class SyntheticDataProvider : IHistoricalDataProvider
 {
-    private readonly Random _random = new();
+    private readonly Random random = new();
 
     /// <inheritdoc />
     public Task<BackTestSession> LoadSessionAsync(string symbol, DateOnly date)
@@ -187,17 +187,17 @@ public sealed class SyntheticDataProvider : IHistoricalDataProvider
             "AAPL" => 180.0,
             "TSLA" => 250.0,
             "NVDA" => 500.0,
-            _ => 10.0 + _random.NextDouble() * 90  // Random $10-$100
+            _ => 10.0 + random.NextDouble() * 90  // Random $10-$100
         };
 
         double price = basePrice;
         double volatility = basePrice * 0.001;  // 0.1% per minute base volatility
         
         // Market open spike
-        bool hasGap = _random.NextDouble() > 0.7;
+        bool hasGap = random.NextDouble() > 0.7;
         if (hasGap)
         {
-            price *= 1 + (_random.NextDouble() * 0.05 - 0.01);  // -1% to +5% gap
+            price *= 1 + (random.NextDouble() * 0.05 - 0.01);  // -1% to +5% gap
         }
 
         // Generate RTH candles (9:30 AM to 4:00 PM = 390 minutes)
@@ -213,22 +213,22 @@ public sealed class SyntheticDataProvider : IHistoricalDataProvider
             if (i > 360) periodVolatility *= 1.5;  // Last 30 mins
 
             // Random walk with mean reversion
-            double change = (_random.NextDouble() * 2 - 1) * periodVolatility;
+            double change = (random.NextDouble() * 2 - 1) * periodVolatility;
             double meanReversion = (basePrice - price) * 0.001;
             price += change + meanReversion;
 
             // Generate OHLC from the price movement
             double open = price;
-            double high = price + _random.NextDouble() * periodVolatility;
-            double low = price - _random.NextDouble() * periodVolatility;
-            double close = price + (_random.NextDouble() * 2 - 1) * periodVolatility * 0.5;
+            double high = price + random.NextDouble() * periodVolatility;
+            double low = price - random.NextDouble() * periodVolatility;
+            double close = price + (random.NextDouble() * 2 - 1) * periodVolatility * 0.5;
 
             // Ensure OHLC consistency
             high = Math.Max(high, Math.Max(open, close));
             low = Math.Min(low, Math.Min(open, close));
 
             // Generate volume (higher at open/close)
-            long baseVolume = 10000 + _random.Next(50000);
+            long baseVolume = 10000 + random.Next(50000);
             if (i < 30 || i > 360) baseVolume *= 2;
 
             candles.Add(new BackTestCandle

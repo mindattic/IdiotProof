@@ -1,4 +1,4 @@
-// ============================================================================
+﻿// ============================================================================
 // ROC Calculator Tests - Validates Rate of Change with real data
 // ============================================================================
 
@@ -10,12 +10,12 @@ namespace IdiotProof.Core.UnitTests.Calculators;
 [TestFixture]
 public class RocCalculatorTests
 {
-    private List<TestBar> _bars = null!;
+    private List<TestBar> bars = null!;
 
     [OneTimeSetUp]
     public void LoadData()
     {
-        _bars = TestDataLoader.LoadBars("NVDA", 200);
+        bars = TestDataLoader.LoadBars("NVDA", 200);
     }
 
     // ========================================================================
@@ -46,11 +46,11 @@ public class RocCalculatorTests
 
         for (int i = 0; i < 9; i++)
         {
-            roc.Update(_bars[i].Close);
+            roc.Update(bars[i].Close);
             Assert.That(roc.IsReady, Is.False);
         }
 
-        roc.Update(_bars[9].Close);
+        roc.Update(bars[9].Close);
         Assert.That(roc.IsReady, Is.True);
     }
 
@@ -64,10 +64,10 @@ public class RocCalculatorTests
         var roc = new RocCalculator(10);
 
         for (int i = 0; i <= 10; i++)
-            roc.Update(_bars[i].Close);
+            roc.Update(bars[i].Close);
 
-        double oldPrice = _bars[0].Close;
-        double newPrice = _bars[10].Close;
+        double oldPrice = bars[0].Close;
+        double newPrice = bars[10].Close;
         double expected = ((newPrice - oldPrice) / oldPrice) * 100;
 
         Assert.That(roc.CurrentValue, Is.EqualTo(expected).Within(0.001),
@@ -135,7 +135,7 @@ public class RocCalculatorTests
     {
         var roc = new RocCalculator(5);
         for (int i = 0; i < 10; i++)
-            roc.Update(_bars[i].Close);
+            roc.Update(bars[i].Close);
 
         double before = roc.CurrentValue;
         roc.Update(0);
@@ -147,7 +147,7 @@ public class RocCalculatorTests
     {
         var roc = new RocCalculator(10);
         for (int i = 0; i < 20; i++)
-            roc.Update(_bars[i].Close);
+            roc.Update(bars[i].Close);
 
         roc.Reset();
 

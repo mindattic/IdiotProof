@@ -12,11 +12,11 @@ namespace IdiotProof.Services;
 /// </summary>
 public sealed class DataExporter
 {
-    private readonly BackTestSession _session;
+    private readonly BackTestSession session;
 
     public DataExporter(BackTestSession session)
     {
-        _session = session;
+        this.session = session;
     }
 
     /// <summary>
@@ -31,7 +31,7 @@ public sealed class DataExporter
             sb.AppendLine("DateTime,Open,High,Low,Close,Volume,VWAP");
         }
 
-        foreach (var candle in _session.Candles)
+        foreach (var candle in session.Candles)
         {
             sb.AppendLine($"{candle.Timestamp:yyyy-MM-dd HH:mm:ss}," +
                 $"{candle.Open:F2}," +
@@ -105,19 +105,19 @@ public sealed class DataExporter
     {
         var summary = new
         {
-            _session.Symbol,
-            Date = _session.Date.ToString("yyyy-MM-dd"),
-            _session.Open,
-            _session.High,
-            _session.Low,
-            _session.Close,
-            _session.Range,
-            _session.Change,
-            _session.ChangePercent,
-            _session.TotalVolume,
-            _session.CandleCount,
-            StartTime = _session.StartTime.ToString("HH:mm"),
-            EndTime = _session.EndTime.ToString("HH:mm")
+            session.Symbol,
+            Date = session.Date.ToString("yyyy-MM-dd"),
+            session.Open,
+            session.High,
+            session.Low,
+            session.Close,
+            session.Range,
+            session.Change,
+            session.ChangePercent,
+            session.TotalVolume,
+            session.CandleCount,
+            StartTime = session.StartTime.ToString("HH:mm"),
+            EndTime = session.EndTime.ToString("HH:mm")
         };
 
         string json = System.Text.Json.JsonSerializer.Serialize(summary, new System.Text.Json.JsonSerializerOptions
@@ -134,15 +134,15 @@ public sealed class DataExporter
 /// </summary>
 public sealed class DataImporter
 {
-    private readonly string _dataDirectory;
+    private readonly string dataDirectory;
 
     public DataImporter(string dataDirectory)
     {
-        _dataDirectory = dataDirectory;
+        this.dataDirectory = dataDirectory;
 
-        if (!Directory.Exists(_dataDirectory))
+        if (!Directory.Exists(dataDirectory))
         {
-            Directory.CreateDirectory(_dataDirectory);
+            Directory.CreateDirectory(dataDirectory);
         }
     }
 
@@ -153,7 +153,7 @@ public sealed class DataImporter
     {
         var results = new List<(string Symbol, DateOnly Date, string FilePath)>();
 
-        var csvFiles = Directory.GetFiles(_dataDirectory, "*.csv", SearchOption.AllDirectories);
+        var csvFiles = Directory.GetFiles(dataDirectory, "*.csv", SearchOption.AllDirectories);
 
         foreach (var file in csvFiles)
         {
@@ -206,7 +206,7 @@ public sealed class DataImporter
 
         if (data.Count == 0)
         {
-            Console.WriteLine($"No data files found in: {Path.GetFullPath(_dataDirectory)}");
+            Console.WriteLine($"No data files found in: {Path.GetFullPath(dataDirectory)}");
             Console.WriteLine();
             Console.WriteLine("To get started:");
             Console.WriteLine("  1. Use --synthetic flag to generate test data");

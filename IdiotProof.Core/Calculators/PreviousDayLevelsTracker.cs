@@ -1,4 +1,4 @@
-// ============================================================================
+﻿// ============================================================================
 // PreviousDayLevelsTracker - Tracks previous day high/low/close for S/R
 // ============================================================================
 //
@@ -28,58 +28,58 @@ namespace IdiotProof.Calculators;
 /// </summary>
 public sealed class PreviousDayLevelsTracker
 {
-    private readonly string _symbol;
+    private readonly string symbol;
     
     // Previous day levels (the main S/R)
-    private double _prevDayHigh;
-    private double _prevDayLow;
-    private double _prevDayClose;
+    private double prevDayHigh;
+    private double prevDayLow;
+    private double prevDayClose;
     
     // Two days ago (for multi-day S/R context)
-    private double _twoDaysAgoHigh;
-    private double _twoDaysAgoLow;
+    private double twoDaysAgoHigh;
+    private double twoDaysAgoLow;
     
     // Current session tracking (to become "previous day" at rollover)
-    private double _sessionHigh = double.MinValue;
-    private double _sessionLow = double.MaxValue;
-    private double _sessionClose;
-    private DateTime _sessionDate = DateTime.MinValue;
-    private bool _hasSessionData;
+    private double sessionHigh = double.MinValue;
+    private double sessionLow = double.MaxValue;
+    private double sessionClose;
+    private DateTime sessionDate = DateTime.MinValue;
+    private bool hasSessionData;
     
     // Multi-day extremes
-    private double _twoDayHigh;
-    private double _twoDayLow;
+    private double twoDayHigh;
+    private double twoDayLow;
     
     /// <summary>Previous day's highest price (Resistance).</summary>
-    public double PrevDayHigh => _prevDayHigh;
+    public double PrevDayHigh => prevDayHigh;
     
     /// <summary>Previous day's lowest price (Support).</summary>
-    public double PrevDayLow => _prevDayLow;
+    public double PrevDayLow => prevDayLow;
     
     /// <summary>Previous day's closing price (Pivot).</summary>
-    public double PrevDayClose => _prevDayClose;
+    public double PrevDayClose => prevDayClose;
     
     /// <summary>Highest price across the last 2 days.</summary>
-    public double TwoDayHigh => _twoDayHigh;
+    public double TwoDayHigh => twoDayHigh;
     
     /// <summary>Lowest price across the last 2 days.</summary>
-    public double TwoDayLow => _twoDayLow;
+    public double TwoDayLow => twoDayLow;
     
     /// <summary>Current session's highest price so far.</summary>
-    public double SessionHigh => _sessionHigh == double.MinValue ? 0 : _sessionHigh;
+    public double SessionHigh => sessionHigh == double.MinValue ? 0 : sessionHigh;
     
     /// <summary>Current session's lowest price so far.</summary>
-    public double SessionLow => _sessionLow == double.MaxValue ? 0 : _sessionLow;
+    public double SessionLow => sessionLow == double.MaxValue ? 0 : sessionLow;
     
     /// <summary>True if we have valid previous day data for S/R.</summary>
-    public bool HasData => _prevDayHigh > 0 && _prevDayLow > 0;
+    public bool HasData => prevDayHigh > 0 && prevDayLow > 0;
     
     /// <summary>Previous day's price range (PDH - PDL).</summary>
-    public double PrevDayRange => _prevDayHigh - _prevDayLow;
+    public double PrevDayRange => prevDayHigh - prevDayLow;
     
     public PreviousDayLevelsTracker(string symbol)
     {
-        _symbol = symbol;
+        this.symbol = symbol;
     }
     
     /// <summary>
@@ -88,16 +88,16 @@ public sealed class PreviousDayLevelsTracker
     /// </summary>
     public void InitializeFromCache()
     {
-        var cached = TickerDataCache.Get(_symbol);
+        var cached = TickerDataCache.Get(symbol);
         if (cached != null)
         {
-            _prevDayHigh = cached.Hod;
-            _prevDayLow = cached.Lod;
-            _prevDayClose = cached.PrevClose;
+            prevDayHigh = cached.Hod;
+            prevDayLow = cached.Lod;
+            prevDayClose = cached.PrevClose;
             
             // Initially, 2-day range equals 1-day (will update as data flows)
-            _twoDayHigh = _prevDayHigh;
-            _twoDayLow = _prevDayLow;
+            twoDayHigh = prevDayHigh;
+            twoDayLow = prevDayLow;
         }
     }
     
@@ -126,23 +126,23 @@ public sealed class PreviousDayLevelsTracker
         if (completeDays.Count >= 1)
         {
             var prevDay = completeDays[0];
-            _prevDayHigh = prevDay.Max(c => c.High);
-            _prevDayLow = prevDay.Min(c => c.Low);
-            _prevDayClose = prevDay.Last().Close;
+            prevDayHigh = prevDay.Max(c => c.High);
+            prevDayLow = prevDay.Min(c => c.Low);
+            prevDayClose = prevDay.Last().Close;
             
-            _twoDayHigh = _prevDayHigh;
-            _twoDayLow = _prevDayLow;
+            twoDayHigh = prevDayHigh;
+            twoDayLow = prevDayLow;
         }
         
         if (completeDays.Count >= 2)
         {
             var twoDaysAgo = completeDays[1];
-            _twoDaysAgoHigh = twoDaysAgo.Max(c => c.High);
-            _twoDaysAgoLow = twoDaysAgo.Min(c => c.Low);
+            twoDaysAgoHigh = twoDaysAgo.Max(c => c.High);
+            twoDaysAgoLow = twoDaysAgo.Min(c => c.Low);
             
             // 2-day range = max of last 2 complete days
-            _twoDayHigh = Math.Max(_prevDayHigh, _twoDaysAgoHigh);
-            _twoDayLow = Math.Min(_prevDayLow, _twoDaysAgoLow);
+            twoDayHigh = Math.Max(prevDayHigh, twoDaysAgoHigh);
+            twoDayLow = Math.Min(prevDayLow, twoDaysAgoLow);
         }
     }
     
@@ -155,44 +155,44 @@ public sealed class PreviousDayLevelsTracker
         var candleDate = candle.Timestamp.Date;
         
         // Day boundary - roll levels forward
-        if (candleDate != _sessionDate && _sessionDate != DateTime.MinValue && _hasSessionData)
+        if (candleDate != sessionDate && sessionDate != DateTime.MinValue && hasSessionData)
         {
             // Previous "previous day" becomes "two days ago"
-            _twoDaysAgoHigh = _prevDayHigh;
-            _twoDaysAgoLow = _prevDayLow;
+            twoDaysAgoHigh = prevDayHigh;
+            twoDaysAgoLow = prevDayLow;
             
             // Current session becomes "previous day"
-            _prevDayHigh = _sessionHigh;
-            _prevDayLow = _sessionLow;
-            _prevDayClose = _sessionClose;
+            prevDayHigh = sessionHigh;
+            prevDayLow = sessionLow;
+            prevDayClose = sessionClose;
             
             // Update 2-day extremes
-            _twoDayHigh = Math.Max(_prevDayHigh, _twoDaysAgoHigh > 0 ? _twoDaysAgoHigh : _prevDayHigh);
-            _twoDayLow = _twoDaysAgoLow > 0
-                ? Math.Min(_prevDayLow, _twoDaysAgoLow)
-                : _prevDayLow;
+            twoDayHigh = Math.Max(prevDayHigh, twoDaysAgoHigh > 0 ? twoDaysAgoHigh : prevDayHigh);
+            twoDayLow = twoDaysAgoLow > 0
+                ? Math.Min(prevDayLow, twoDaysAgoLow)
+                : prevDayLow;
             
             // Reset session tracking for the new day
-            _sessionHigh = candle.High;
-            _sessionLow = candle.Low;
-            _sessionClose = candle.Close;
+            sessionHigh = candle.High;
+            sessionLow = candle.Low;
+            sessionClose = candle.Close;
         }
         
         // Initialize session if first candle
-        if (_sessionDate == DateTime.MinValue || candleDate != _sessionDate)
+        if (sessionDate == DateTime.MinValue || candleDate != sessionDate)
         {
-            _sessionDate = candleDate;
-            _sessionHigh = candle.High;
-            _sessionLow = candle.Low;
-            _sessionClose = candle.Close;
-            _hasSessionData = true;
+            sessionDate = candleDate;
+            sessionHigh = candle.High;
+            sessionLow = candle.Low;
+            sessionClose = candle.Close;
+            hasSessionData = true;
         }
         else
         {
             // Update current session extremes
-            _sessionHigh = Math.Max(_sessionHigh, candle.High);
-            _sessionLow = Math.Min(_sessionLow, candle.Low);
-            _sessionClose = candle.Close; // Always update to latest close
+            sessionHigh = Math.Max(sessionHigh, candle.High);
+            sessionLow = Math.Min(sessionLow, candle.Low);
+            sessionClose = candle.Close; // Always update to latest close
         }
     }
     
@@ -204,38 +204,38 @@ public sealed class PreviousDayLevelsTracker
         var barDate = bar.Time.Date;
         
         // Day boundary - roll levels forward
-        if (barDate != _sessionDate && _sessionDate != DateTime.MinValue && _hasSessionData)
+        if (barDate != sessionDate && sessionDate != DateTime.MinValue && hasSessionData)
         {
-            _twoDaysAgoHigh = _prevDayHigh;
-            _twoDaysAgoLow = _prevDayLow;
+            twoDaysAgoHigh = prevDayHigh;
+            twoDaysAgoLow = prevDayLow;
             
-            _prevDayHigh = _sessionHigh;
-            _prevDayLow = _sessionLow;
-            _prevDayClose = _sessionClose;
+            prevDayHigh = sessionHigh;
+            prevDayLow = sessionLow;
+            prevDayClose = sessionClose;
             
-            _twoDayHigh = Math.Max(_prevDayHigh, _twoDaysAgoHigh > 0 ? _twoDaysAgoHigh : _prevDayHigh);
-            _twoDayLow = _twoDaysAgoLow > 0
-                ? Math.Min(_prevDayLow, _twoDaysAgoLow)
-                : _prevDayLow;
+            twoDayHigh = Math.Max(prevDayHigh, twoDaysAgoHigh > 0 ? twoDaysAgoHigh : prevDayHigh);
+            twoDayLow = twoDaysAgoLow > 0
+                ? Math.Min(prevDayLow, twoDaysAgoLow)
+                : prevDayLow;
             
-            _sessionHigh = bar.High;
-            _sessionLow = bar.Low;
-            _sessionClose = bar.Close;
+            sessionHigh = bar.High;
+            sessionLow = bar.Low;
+            sessionClose = bar.Close;
         }
         
-        if (_sessionDate == DateTime.MinValue || barDate != _sessionDate)
+        if (sessionDate == DateTime.MinValue || barDate != sessionDate)
         {
-            _sessionDate = barDate;
-            _sessionHigh = bar.High;
-            _sessionLow = bar.Low;
-            _sessionClose = bar.Close;
-            _hasSessionData = true;
+            sessionDate = barDate;
+            sessionHigh = bar.High;
+            sessionLow = bar.Low;
+            sessionClose = bar.Close;
+            hasSessionData = true;
         }
         else
         {
-            _sessionHigh = Math.Max(_sessionHigh, bar.High);
-            _sessionLow = Math.Min(_sessionLow, bar.Low);
-            _sessionClose = bar.Close;
+            sessionHigh = Math.Max(sessionHigh, bar.High);
+            sessionLow = Math.Min(sessionLow, bar.Low);
+            sessionClose = bar.Close;
         }
     }
     
@@ -248,11 +248,11 @@ public sealed class PreviousDayLevelsTracker
         if (!HasData)
             return (0, 0, 0, 0, 0);
         
-        double pivot = (_prevDayHigh + _prevDayLow + _prevDayClose) / 3.0;
-        double r1 = 2.0 * pivot - _prevDayLow;
-        double s1 = 2.0 * pivot - _prevDayHigh;
-        double r2 = pivot + (_prevDayHigh - _prevDayLow);
-        double s2 = pivot - (_prevDayHigh - _prevDayLow);
+        double pivot = (prevDayHigh + prevDayLow + prevDayClose) / 3.0;
+        double r1 = 2.0 * pivot - prevDayLow;
+        double s1 = 2.0 * pivot - prevDayHigh;
+        double r2 = pivot + (prevDayHigh - prevDayLow);
+        double s2 = pivot - (prevDayHigh - prevDayLow);
         
         return (R2: r2, R1: r1, Pivot: pivot, S1: s1, S2: s2);
     }
@@ -266,9 +266,9 @@ public sealed class PreviousDayLevelsTracker
             return "PDH/PDL/PDC: Not available";
         
         var pivots = GetPivotPoints();
-        return $"PDH: ${_prevDayHigh:F2} | PDL: ${_prevDayLow:F2} | PDC: ${_prevDayClose:F2} | " +
+        return $"PDH: ${prevDayHigh:F2} | PDL: ${prevDayLow:F2} | PDC: ${prevDayClose:F2} | " +
                $"Range: ${PrevDayRange:F2} | Pivot: ${pivots.Pivot:F2} | " +
                $"R1: ${pivots.R1:F2} | S1: ${pivots.S1:F2} | " +
-               $"2D-High: ${_twoDayHigh:F2} | 2D-Low: ${_twoDayLow:F2}";
+               $"2D-High: ${twoDayHigh:F2} | 2D-Low: ${twoDayLow:F2}";
     }
 }

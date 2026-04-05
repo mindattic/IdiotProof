@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using IdiotProof.Engine.Storage;
 
 namespace IdiotProof.Engine.Workspace;
@@ -8,20 +8,20 @@ namespace IdiotProof.Engine.Workspace;
 /// </summary>
 public sealed class WorkspaceManager
 {
-    private readonly IStorageProvider _storage;
-    private readonly List<WorkspaceTab> _tabs = [];
+    private readonly IStorageProvider storage;
+    private readonly List<WorkspaceTab> tabs = [];
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         WriteIndented = true,
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase
     };
 
-    public IReadOnlyList<WorkspaceTab> Tabs => _tabs;
+    public IReadOnlyList<WorkspaceTab> Tabs => tabs;
 
     public WorkspaceManager(IStorageProvider storage)
     {
-        _storage = storage;
-        _storage.EnsureDirectories();
+        this.storage = storage;
+        storage.EnsureDirectories();
     }
 
     /// <summary>
@@ -29,8 +29,8 @@ public sealed class WorkspaceManager
     /// </summary>
     public void LoadAll()
     {
-        _tabs.Clear();
-        var dir = _storage.WorkspacesPath;
+        tabs.Clear();
+        var dir = storage.WorkspacesPath;
         if (!Directory.Exists(dir)) return;
 
         foreach (var file in Directory.GetFiles(dir, "*.json"))
@@ -39,15 +39,15 @@ public sealed class WorkspaceManager
             {
                 var json = File.ReadAllText(file);
                 var tab = JsonSerializer.Deserialize<WorkspaceTab>(json, JsonOptions);
-                if (tab != null) _tabs.Add(tab);
+                if (tab != null) tabs.Add(tab);
             }
             catch { /* skip corrupt files */ }
         }
 
-        _tabs.Sort((a, b) => a.DisplayOrder.CompareTo(b.DisplayOrder));
+        tabs.Sort((a, b) => a.DisplayOrder.CompareTo(b.DisplayOrder));
 
         // Create a default tab if none exist
-        if (_tabs.Count == 0)
+        if (tabs.Count == 0)
         {
             var defaultTab = new WorkspaceTab
             {
@@ -55,7 +55,7 @@ public sealed class WorkspaceManager
                 DisplayOrder = 0,
                 Strategies = [new StrategyBinding { StrategyName = "ITI" }]
             };
-            _tabs.Add(defaultTab);
+            tabs.Add(defaultTab);
             Save(defaultTab);
         }
     }
@@ -65,8 +65,8 @@ public sealed class WorkspaceManager
     /// </summary>
     public void Save(WorkspaceTab tab)
     {
-        _storage.EnsureDirectories();
-        var path = Path.Combine(_storage.WorkspacesPath, $"{tab.TabId}.json");
+        storage.EnsureDirectories();
+        var path = Path.Combine(storage.WorkspacesPath, $"{tab.TabId}.json");
         var json = JsonSerializer.Serialize(tab, JsonOptions);
         File.WriteAllText(path, json);
     }
@@ -79,10 +79,10 @@ public sealed class WorkspaceManager
         var tab = new WorkspaceTab
         {
             Name = name,
-            DisplayOrder = _tabs.Count,
+            DisplayOrder = tabs.Count,
             Strategies = [new StrategyBinding { StrategyName = "ITI" }]
         };
-        _tabs.Add(tab);
+        tabs.Add(tab);
         Save(tab);
         return tab;
     }
@@ -92,11 +92,11 @@ public sealed class WorkspaceManager
     /// </summary>
     public bool Delete(string tabId)
     {
-        var tab = _tabs.FirstOrDefault(t => t.TabId == tabId);
+        var tab = tabs.FirstOrDefault(t => t.TabId == tabId);
         if (tab == null) return false;
 
-        _tabs.Remove(tab);
-        var path = Path.Combine(_storage.WorkspacesPath, $"{tabId}.json");
+        tabs.Remove(tab);
+        var path = Path.Combine(storage.WorkspacesPath, $"{tabId}.json");
         if (File.Exists(path)) File.Delete(path);
         return true;
     }
@@ -104,5 +104,5 @@ public sealed class WorkspaceManager
     /// <summary>
     /// Get a workspace tab by ID.
     /// </summary>
-    public WorkspaceTab? Get(string tabId) => _tabs.FirstOrDefault(t => t.TabId == tabId);
+    public WorkspaceTab? Get(string tabId) => tabs.FirstOrDefault(t => t.TabId == tabId);
 }

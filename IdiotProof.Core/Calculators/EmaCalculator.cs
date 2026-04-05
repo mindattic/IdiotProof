@@ -1,4 +1,4 @@
-// ============================================================================
+﻿// ============================================================================
 // EMA Calculator - Exponential Moving Average Calculation
 // ============================================================================
 //
@@ -35,35 +35,35 @@ namespace IdiotProof.Helpers {
     /// </remarks>
     public sealed class EmaCalculator
     {
-        private readonly int _period;
-        private readonly double _multiplier;
-        private double _currentEma;
-        private double _previousEma;
-        private double _priceSum;
-        private int _priceCount;
-        private bool _isInitialized;
+        private readonly int period;
+        private readonly double multiplier;
+        private double currentEma;
+        private double previousEma;
+        private double priceSum;
+        private int priceCount;
+        private bool isInitialized;
 
         /// <summary>
         /// Gets the EMA period.
         /// </summary>
-        public int Period => _period;
+        public int Period => period;
 
         /// <summary>
         /// Gets the current EMA value.
         /// </summary>
-        public double CurrentValue => _currentEma;
+        public double CurrentValue => currentEma;
 
         /// <summary>
         /// Gets the previous EMA value (1 bar ago).
         /// Used for slope/direction detection.
         /// </summary>
-        public double PreviousValue => _previousEma;
+        public double PreviousValue => previousEma;
 
         /// <summary>
         /// Gets whether the EMA calculator has enough data to provide a reliable value.
         /// Requires at least 'period' price points to initialize.
         /// </summary>
-        public bool IsReady => _isInitialized;
+        public bool IsReady => isInitialized;
 
         /// <summary>
         /// Creates a new EMA calculator.
@@ -74,8 +74,8 @@ namespace IdiotProof.Helpers {
             if (period < 1)
                 throw new ArgumentOutOfRangeException(nameof(period), "Period must be at least 1.");
 
-            _period = period;
-            _multiplier = 2.0 / (period + 1);
+            this.period = period;
+            multiplier = 2.0 / (period + 1);
         }
 
         /// <summary>
@@ -86,28 +86,28 @@ namespace IdiotProof.Helpers {
         public double Update(double price)
         {
             if (price <= 0)
-                return _currentEma;
+                return currentEma;
 
-            if (!_isInitialized)
+            if (!isInitialized)
             {
                 // Accumulate prices for initial SMA
-                _priceSum += price;
-                _priceCount++;
+                priceSum += price;
+                priceCount++;
 
-                if (_priceCount >= _period)
+                if (priceCount >= period)
                 {
                     // Initialize EMA with SMA
-                    _currentEma = _priceSum / _priceCount;
-                    _isInitialized = true;
+                    currentEma = priceSum / priceCount;
+                    isInitialized = true;
                 }
 
-                return _currentEma;
+                return currentEma;
             }
 
             // Apply EMA formula: EMA = (Price - Previous EMA) × Multiplier + Previous EMA
-            _previousEma = _currentEma;
-            _currentEma = (price - _currentEma) * _multiplier + _currentEma;
-            return _currentEma;
+            previousEma = currentEma;
+            currentEma = (price - currentEma) * multiplier + currentEma;
+            return currentEma;
         }
 
         /// <summary>
@@ -115,11 +115,11 @@ namespace IdiotProof.Helpers {
         /// </summary>
         public void Reset()
         {
-            _currentEma = 0;
-            _previousEma = 0;
-            _priceSum = 0;
-            _priceCount = 0;
-            _isInitialized = false;
+            currentEma = 0;
+            previousEma = 0;
+            priceSum = 0;
+            priceCount = 0;
+            isInitialized = false;
         }
     }
 }

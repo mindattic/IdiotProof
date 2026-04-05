@@ -1,4 +1,4 @@
-// ============================================================================
+﻿// ============================================================================
 // ROC Calculator - Rate of Change Indicator
 // ============================================================================
 //
@@ -41,24 +41,24 @@ namespace IdiotProof.Helpers {
     /// </remarks>
     public sealed class RocCalculator
     {
-        private readonly int _period;
-        private readonly Queue<double> _priceHistory;
-        private double _currentRoc;
+        private readonly int period;
+        private readonly Queue<double> priceHistory;
+        private double currentRoc;
 
         /// <summary>
         /// Gets the ROC period.
         /// </summary>
-        public int Period => _period;
+        public int Period => period;
 
         /// <summary>
         /// Gets the current ROC value (percentage).
         /// </summary>
-        public double CurrentValue => _currentRoc;
+        public double CurrentValue => currentRoc;
 
         /// <summary>
         /// Gets whether the calculator has enough data to produce valid ROC.
         /// </summary>
-        public bool IsReady => _priceHistory.Count >= _period;
+        public bool IsReady => priceHistory.Count >= period;
 
         /// <summary>
         /// Creates a new ROC calculator.
@@ -69,8 +69,8 @@ namespace IdiotProof.Helpers {
             if (period < 1)
                 throw new System.ArgumentOutOfRangeException(nameof(period), "Period must be at least 1.");
 
-            _period = period;
-            _priceHistory = new Queue<double>(period + 1);
+            this.period = period;
+            priceHistory = new Queue<double>(period + 1);
         }
 
         /// <summary>
@@ -81,28 +81,28 @@ namespace IdiotProof.Helpers {
         public double Update(double closePrice)
         {
             if (closePrice <= 0)
-                return _currentRoc;
+                return currentRoc;
 
-            _priceHistory.Enqueue(closePrice);
+            priceHistory.Enqueue(closePrice);
 
             // Keep only the required history
-            while (_priceHistory.Count > _period + 1)
+            while (priceHistory.Count > period + 1)
             {
-                _priceHistory.Dequeue();
+                priceHistory.Dequeue();
             }
 
             // Calculate ROC once we have enough data
-            if (_priceHistory.Count > _period)
+            if (priceHistory.Count > period)
             {
                 // Peek at the oldest price (N periods ago)
-                double oldPrice = _priceHistory.Peek();
+                double oldPrice = priceHistory.Peek();
                 if (oldPrice > 0)
                 {
-                    _currentRoc = ((closePrice - oldPrice) / oldPrice) * 100;
+                    currentRoc = ((closePrice - oldPrice) / oldPrice) * 100;
                 }
             }
 
-            return _currentRoc;
+            return currentRoc;
         }
 
         /// <summary>
@@ -110,8 +110,8 @@ namespace IdiotProof.Helpers {
         /// </summary>
         public void Reset()
         {
-            _priceHistory.Clear();
-            _currentRoc = 0;
+            priceHistory.Clear();
+            currentRoc = 0;
         }
     }
 }

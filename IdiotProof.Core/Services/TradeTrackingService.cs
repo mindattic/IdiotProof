@@ -14,12 +14,12 @@ namespace IdiotProof.Services {
     /// </summary>
     public class TradeTrackingService : ITradeTrackingService, IDisposable
     {
-        private readonly string _tradesFilePath;
-        private readonly ConcurrentDictionary<Guid, IdiotProofTrade> _trades = new();
-        private readonly ConcurrentDictionary<int, Guid> _orderIdToTradeId = new();
-        private readonly SemaphoreSlim _saveLock = new(1, 1);
-        private readonly JsonSerializerOptions _jsonOptions;
-        private bool _disposed;
+        private readonly string tradesFilePath;
+        private readonly ConcurrentDictionary<Guid, IdiotProofTrade> trades = new();
+        private readonly ConcurrentDictionary<int, Guid> orderIdToTradeId = new();
+        private readonly SemaphoreSlim saveLock = new(1, 1);
+        private readonly JsonSerializerOptions jsonOptions;
+        private bool disposed;
 
         /// <summary>
         /// Initializes the trade tracking service.
@@ -32,9 +32,9 @@ namespace IdiotProof.Services {
                 "IdiotProof");
             
             Directory.CreateDirectory(folder);
-            _tradesFilePath = Path.Combine(folder, "trades.json");
+            tradesFilePath = Path.Combine(folder, "trades.json");
 
-            _jsonOptions = new JsonSerializerOptions
+            jsonOptions = new JsonSerializerOptions
             {
                 WriteIndented = true,
                 PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
@@ -67,8 +67,8 @@ namespace IdiotProof.Services {
                 LastUpdated = DateTime.UtcNow
             };
 
-            _trades[trade.TradeId] = trade;
-            _orderIdToTradeId[entryOrderId] = trade.TradeId;
+            trades[trade.TradeId] = trade;
+            orderIdToTradeId[entryOrderId] = trade.TradeId;
 
             await SaveTradesAsync();
             return trade;
@@ -79,7 +79,7 @@ namespace IdiotProof.Services {
         /// </summary>
         public async Task AddChildOrderAsync(Guid tradeId, int orderId, string orderType)
         {
-            if (!_trades.TryGetValue(tradeId, out var trade))
+            if (!trades.TryGetValue(tradeId, out var trade))
                 return;
 
             switch (orderType.ToUpperInvariant())
@@ -96,7 +96,7 @@ namespace IdiotProof.Services {
                     break;
             }
 
-            _orderIdToTradeId[orderId] = tradeId;
+            orderIdToTradeId[orderId] = tradeId;
             trade.LastUpdated = DateTime.UtcNow;
 
             await SaveTradesAsync();
@@ -107,10 +107,10 @@ namespace IdiotProof.Services {
         /// </summary>
         public async Task UpdateTradeStatusAsync(int orderId, OrderStatus status, double? fillPrice = null)
         {
-            if (!_orderIdToTradeId.TryGetValue(orderId, out var tradeId))
+            if (!orderIdToTradeId.TryGetValue(orderId, out var tradeId))
                 return;
 
-            if (!_trades.TryGetValue(tradeId, out var trade))
+            if (!trades.TryGetValue(tradeId, out var trade))
                 return;
 
             trade.LastUpdated = DateTime.UtcNow;
@@ -172,7 +172,7 @@ namespace IdiotProof.Services {
         /// </summary>
         public Task<List<IdiotProofTrade>> GetAllTradesAsync()
         {
-            return Task.FromResult(_trades.Values.OrderByDescending(t => t.CreatedAt).ToList());
+            return Task.FromResult(trades.Values.OrderByDescending(t => t.CreatedAt).ToList());
         }
 
         /// <summary>
@@ -180,7 +180,7 @@ namespace IdiotProof.Services {
         /// </summary>
         public Task<List<IdiotProofTrade>> GetActiveTradesAsync()
         {
-            var activeTrades = _trades.Values
+            var activeTrades = trades.Values
                 .Where(t => t.Status is TradeStatus.Pending or TradeStatus.EntrySubmitted or TradeStatus.Open)
                 .OrderByDescending(t => t.CreatedAt)
                 .ToList();
@@ -193,7 +193,7 @@ namespace IdiotProof.Services {
         /// </summary>
         public Task<IdiotProofTrade?> GetTradeByIdAsync(Guid tradeId)
         {
-            _trades.TryGetValue(tradeId, out var trade);
+            trades.TryGetValue(tradeId, out var trade);
             return Task.FromResult(trade);
         }
 
@@ -202,9 +202,9 @@ namespace IdiotProof.Services {
         /// </summary>
         public Task<IdiotProofTrade?> GetTradeByOrderIdAsync(int orderId)
         {
-            if (_orderIdToTradeId.TryGetValue(orderId, out var tradeId))
+            if (orderIdToTradeId.TryGetValue(orderId, out var tradeId))
             {
-                _trades.TryGetValue(tradeId, out var trade);
+                trades.TryGetValue(tradeId, out var trade);
                 return Task.FromResult(trade);
             }
 
@@ -216,7 +216,7 @@ namespace IdiotProof.Services {
         /// </summary>
         public bool IsIdiotProofOrder(int orderId)
         {
-            return _orderIdToTradeId.ContainsKey(orderId);
+            return orderIdToTradeId.ContainsKey(orderId);
         }
 
         /// <summary>
@@ -224,7 +224,7 @@ namespace IdiotProof.Services {
         /// </summary>
         public HashSet<int> GetAllIdiotProofOrderIds()
         {
-            return new HashSet<int>(_orderIdToTradeId.Keys);
+            return new HashSet<int>(orderIdToTradeId.Keys);
         }
 
         /// <summary>
@@ -233,19 +233,19 @@ namespace IdiotProof.Services {
         public async Task CleanupOldTradesAsync(int daysToKeep = 30)
         {
             var cutoffDate = DateTime.UtcNow.AddDays(-daysToKeep);
-            var tradesToRemove = _trades.Values
+            var tradesToRemove = trades.Values
                 .Where(t => t.Status is not (TradeStatus.Pending or TradeStatus.EntrySubmitted or TradeStatus.Open)
                          && t.LastUpdated < cutoffDate)
                 .ToList();
 
             foreach (var trade in tradesToRemove)
             {
-                if (_trades.TryRemove(trade.TradeId, out _))
+                if (trades.TryRemove(trade.TradeId, out _))
                 {
                     // Remove all order ID mappings
                     foreach (var orderId in trade.GetAllOrderIds())
                     {
-                        _orderIdToTradeId.TryRemove(orderId, out _);
+                        orderIdToTradeId.TryRemove(orderId, out _);
                     }
                 }
             }
@@ -257,27 +257,27 @@ namespace IdiotProof.Services {
         {
             try
             {
-                if (!File.Exists(_tradesFilePath))
+                if (!File.Exists(tradesFilePath))
                     return;
 
-                var json = File.ReadAllText(_tradesFilePath);
-                var collection = JsonSerializer.Deserialize<IdiotProofTradeCollection>(json, _jsonOptions);
+                var json = File.ReadAllText(tradesFilePath);
+                var collection = JsonSerializer.Deserialize<IdiotProofTradeCollection>(json, jsonOptions);
                 
                 if (collection?.Trades == null)
                     return;
 
                 foreach (var trade in collection.Trades)
                 {
-                    _trades[trade.TradeId] = trade;
+                    trades[trade.TradeId] = trade;
                     
                     // Rebuild order ID index
-                    _orderIdToTradeId[trade.EntryOrderId] = trade.TradeId;
+                    orderIdToTradeId[trade.EntryOrderId] = trade.TradeId;
                     if (trade.StopLossOrderId.HasValue)
-                        _orderIdToTradeId[trade.StopLossOrderId.Value] = trade.TradeId;
+                        orderIdToTradeId[trade.StopLossOrderId.Value] = trade.TradeId;
                     if (trade.TakeProfitOrderId.HasValue)
-                        _orderIdToTradeId[trade.TakeProfitOrderId.Value] = trade.TradeId;
+                        orderIdToTradeId[trade.TakeProfitOrderId.Value] = trade.TradeId;
                     foreach (var childId in trade.ChildOrderIds)
-                        _orderIdToTradeId[childId] = trade.TradeId;
+                        orderIdToTradeId[childId] = trade.TradeId;
                 }
             }
             catch (Exception ex)
@@ -288,17 +288,17 @@ namespace IdiotProof.Services {
 
         private async Task SaveTradesAsync()
         {
-            await _saveLock.WaitAsync();
+            await saveLock.WaitAsync();
             try
             {
                 var collection = new IdiotProofTradeCollection
                 {
-                    Trades = _trades.Values.ToList(),
+                    Trades = trades.Values.ToList(),
                     LastModified = DateTime.UtcNow
                 };
 
-                var json = JsonSerializer.Serialize(collection, _jsonOptions);
-                await File.WriteAllTextAsync(_tradesFilePath, json);
+                var json = JsonSerializer.Serialize(collection, jsonOptions);
+                await File.WriteAllTextAsync(tradesFilePath, json);
             }
             catch (Exception ex)
             {
@@ -306,7 +306,7 @@ namespace IdiotProof.Services {
             }
             finally
             {
-                _saveLock.Release();
+                saveLock.Release();
             }
         }
 
@@ -315,11 +315,11 @@ namespace IdiotProof.Services {
         /// </summary>
         public void Dispose()
         {
-            if (_disposed)
+            if (disposed)
                 return;
-            _disposed = true;
+            disposed = true;
 
-            _saveLock.Dispose();
+            saveLock.Dispose();
         }
     }
 }

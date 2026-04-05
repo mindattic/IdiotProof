@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.IO;
 using System.Text;
 
@@ -9,44 +9,44 @@ namespace IdiotProof.Logging {
     /// </summary>
     internal sealed class CapturingTextWriter : TextWriter
     {
-        private readonly TextWriter _original;
-        private readonly StringBuilder _capture;
-        private readonly object _lock;
-        private readonly int _maxSize;
-        private readonly int _trimToSize;
+        private readonly TextWriter original;
+        private readonly StringBuilder capture;
+        private readonly object lockObj;
+        private readonly int maxSize;
+        private readonly int trimToSize;
 
         public CapturingTextWriter(TextWriter original, StringBuilder capture, object lockObj, int maxSize, int trimToSize)
         {
-            _original = original;
-            _capture = capture;
-            _lock = lockObj;
-            _maxSize = maxSize;
-            _trimToSize = trimToSize;
+            this.original = original;
+            this.capture = capture;
+            lockObj = lockObj;
+            this.maxSize = maxSize;
+            this.trimToSize = trimToSize;
         }
 
-        public override Encoding Encoding => _original.Encoding;
+        public override Encoding Encoding => original.Encoding;
 
         public override void Write(char value)
         {
-            _original.Write(value);
+            original.Write(value);
             SafeAppend(value.ToString());
         }
 
         public override void Write(string? value)
         {
-            _original.Write(value);
+            original.Write(value);
             SafeAppend(value);
         }
 
         public override void WriteLine(string? value)
         {
-            _original.WriteLine(value);
+            original.WriteLine(value);
             SafeAppend(value + Environment.NewLine);
         }
 
         public override void WriteLine()
         {
-            _original.WriteLine();
+            original.WriteLine();
             SafeAppend(Environment.NewLine);
         }
 
@@ -57,20 +57,20 @@ namespace IdiotProof.Logging {
 
             try
             {
-                lock (_lock)
+                lock (lockObj)
                 {
-                    _capture.Append(value);
+                    capture.Append(value);
 
                     // Trim if exceeded max size (keep most recent content)
-                    if (_capture.Length > _maxSize)
+                    if (capture.Length > maxSize)
                     {
-                        int removeCount = _capture.Length - _trimToSize;
+                        int removeCount = capture.Length - trimToSize;
 
                         // Find the next newline after removeCount to keep logs clean
                         int newlineIndex = -1;
-                        for (int i = removeCount; i < _capture.Length && i < removeCount + 1000; i++)
+                        for (int i = removeCount; i < capture.Length && i < removeCount + 1000; i++)
                         {
-                            if (_capture[i] == '\n')
+                            if (capture[i] == '\n')
                             {
                                 newlineIndex = i + 1;
                                 break;
@@ -78,8 +78,8 @@ namespace IdiotProof.Logging {
                         }
 
                         removeCount = newlineIndex > 0 ? newlineIndex : removeCount;
-                        _capture.Remove(0, removeCount);
-                        _capture.Insert(0, $"[... {removeCount:N0} chars trimmed ...]{Environment.NewLine}");
+                        capture.Remove(0, removeCount);
+                        capture.Insert(0, $"[... {removeCount:N0} chars trimmed ...]{Environment.NewLine}");
                     }
                 }
             }

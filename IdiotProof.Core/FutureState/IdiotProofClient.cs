@@ -1,4 +1,4 @@
-// IdiotProof.Core.FutureState
+﻿// IdiotProof.Core.FutureState
 // Unified Service Client
 // Single entry point for all IdiotProof.Core functionality across platforms
 
@@ -258,72 +258,72 @@ public interface IIdiotProofClient : IAsyncDisposable
 /// </summary>
 public class IdiotProofClientBuilder
 {
-    private readonly IdiotProofClientConfiguration _config = new();
-    private IPlatformServices? _platformServices;
+    private readonly IdiotProofClientConfiguration config = new();
+    private IPlatformServices? platformServices;
     
     public IdiotProofClientBuilder WithServerUrl(string serverUrl)
     {
-        _config.ServerUrl = serverUrl;
+        config.ServerUrl = serverUrl;
         return this;
     }
     
     public IdiotProofClientBuilder WithApiKey(string apiKey)
     {
-        _config.ApiKey = apiKey;
+        config.ApiKey = apiKey;
         return this;
     }
     
     public IdiotProofClientBuilder WithTransport(TransportProtocol protocol)
     {
-        _config.PreferredTransport = protocol;
+        config.PreferredTransport = protocol;
         return this;
     }
     
     public IdiotProofClientBuilder WithAutoReconnect(bool enable = true)
     {
-        _config.AutoReconnect = enable;
+        config.AutoReconnect = enable;
         return this;
     }
     
     public IdiotProofClientBuilder WithOfflineMode(bool enable = true)
     {
-        _config.EnableOfflineMode = enable;
+        config.EnableOfflineMode = enable;
         return this;
     }
     
     public IdiotProofClientBuilder WithPlatformServices(IPlatformServices platformServices)
     {
-        _platformServices = platformServices;
+        this.platformServices = platformServices;
         return this;
     }
     
     public IdiotProofClientBuilder WithRateLimiting(RateLimitConfiguration config)
     {
-        _config.RateLimit = config;
+        this.config.RateLimit = config;
         return this;
     }
-    
+
     public IdiotProofClientBuilder WithSecurityConfiguration(SecurityConfiguration config)
     {
-        _config.Security = config;
+        this.config.Security = config;
         return this;
     }
     
     public IIdiotProofClient Build()
     {
-        if (string.IsNullOrEmpty(_config.ServerUrl))
+        if (string.IsNullOrEmpty(config.ServerUrl))
             throw new InvalidOperationException("Server URL is required. Call WithServerUrl().");
         
         // Use platform-detected transport if not specified
-        _config.PreferredTransport ??= PlatformConfiguration.RecommendedTransport;
+        config.PreferredTransport ??= PlatformConfiguration.RecommendedTransport;
         
         // Register platform services if provided
-        if (_platformServices != null && !PlatformServiceRegistry.IsInitialized)
+        if (platformServices != null && !PlatformServiceRegistry.IsInitialized)
         {
-            PlatformServiceRegistry.Initialize(_platformServices);
+            PlatformServiceRegistry.Initialize(platformServices);
         }
         
-        return new IdiotProofClient(_config);
+        return new IdiotProofClient(config);
     }
 }
 
@@ -332,24 +332,24 @@ public class IdiotProofClientBuilder
 /// </summary>
 internal class IdiotProofClient : IIdiotProofClient
 {
-    private readonly IdiotProofClientConfiguration _config;
-    private readonly IFeatureFlagService _featureFlags;
-    private readonly IRateLimiter _rateLimiter;
-    private ClientConnectionStatus _status = ClientConnectionStatus.Disconnected;
+    private readonly IdiotProofClientConfiguration config;
+    private readonly IFeatureFlagService featureFlags;
+    private readonly IRateLimiter rateLimiter;
+    private ClientConnectionStatus status = ClientConnectionStatus.Disconnected;
     
     // These would be implemented with actual transport
-    public ClientConnectionStatus Status => _status;
-    public bool IsConnected => _status == ClientConnectionStatus.Connected;
+    public ClientConnectionStatus Status => status;
+    public bool IsConnected => status == ClientConnectionStatus.Connected;
     public event EventHandler<ClientConnectionStatus>? StatusChanged;
     
     public ISecurityProvider Security => throw new NotImplementedException("Implement with actual security provider");
-    public IFeatureFlagService FeatureFlags => _featureFlags;
+    public IFeatureFlagService FeatureFlags => featureFlags;
     
     internal IdiotProofClient(IdiotProofClientConfiguration config)
     {
-        _config = config;
-        _featureFlags = new FeatureFlagService();
-        _rateLimiter = new RateLimiter(config.RateLimit);
+        this.config = config;
+        featureFlags = new FeatureFlagService();
+        rateLimiter = new RateLimiter(config.RateLimit);
     }
     
     public Task<bool> ConnectAsync(CancellationToken cancellationToken = default)
@@ -368,9 +368,9 @@ internal class IdiotProofClient : IIdiotProofClient
     
     private void SetStatus(ClientConnectionStatus status)
     {
-        if (_status != status)
+        if (status != status)
         {
-            _status = status;
+            this.status = status;
             StatusChanged?.Invoke(this, status);
         }
     }

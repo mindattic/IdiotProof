@@ -1,4 +1,4 @@
-// ============================================================================
+﻿// ============================================================================
 // SettingsManager - Manages per-project settings files
 // ============================================================================
 //
@@ -32,7 +32,7 @@ public static class SettingsManager
     private const string SettingsFileName = "settings.json";
 
     // Cached base folder path
-    private static string? _cachedBaseFolder;
+    private static string? cachedBaseFolder;
 
     // ========================================================================
     // PATH HELPERS
@@ -45,11 +45,11 @@ public static class SettingsManager
     /// </summary>
     public static string GetBaseFolder()
     {
-        if (_cachedBaseFolder != null)
-            return _cachedBaseFolder;
+        if (cachedBaseFolder != null)
+            return cachedBaseFolder;
 
-        _cachedBaseFolder = FindSolutionRoot() ?? Directory.GetCurrentDirectory();
-        return _cachedBaseFolder;
+        cachedBaseFolder = FindSolutionRoot() ?? Directory.GetCurrentDirectory();
+        return cachedBaseFolder;
     }
 
     /// <summary>
@@ -57,7 +57,7 @@ public static class SettingsManager
     /// </summary>
     public static void SetBaseFolder(string path)
     {
-        _cachedBaseFolder = path;
+        cachedBaseFolder = path;
     }
 
     /// <summary>
@@ -65,7 +65,7 @@ public static class SettingsManager
     /// </summary>
     public static void ResetBaseFolder()
     {
-        _cachedBaseFolder = null;
+        cachedBaseFolder = null;
     }
 
     /// <summary>

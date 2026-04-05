@@ -76,17 +76,17 @@ namespace IdiotProof.Services {
     /// </remarks>
     public sealed class HistoricalDataStore
     {
-        private readonly ConcurrentDictionary<string, HistoricalDataSet> _data = new(StringComparer.OrdinalIgnoreCase);
+        private readonly ConcurrentDictionary<string, HistoricalDataSet> data = new(StringComparer.OrdinalIgnoreCase);
 
         /// <summary>
         /// Gets all symbols that have historical data loaded.
         /// </summary>
-        public IEnumerable<string> Symbols => _data.Keys;
+        public IEnumerable<string> Symbols => data.Keys;
 
         /// <summary>
         /// Gets the total number of symbols with historical data.
         /// </summary>
-        public int SymbolCount => _data.Count;
+        public int SymbolCount => data.Count;
 
         /// <summary>
         /// Sets (replaces) historical data for a symbol.
@@ -97,7 +97,7 @@ namespace IdiotProof.Services {
         {
             var barList = bars.OrderBy(b => b.Time).ToList();
 
-            _data[symbol] = new HistoricalDataSet
+            data[symbol] = new HistoricalDataSet
             {
                 Symbol = symbol,
                 FetchedAtUtc = DateTime.UtcNow,
@@ -115,7 +115,7 @@ namespace IdiotProof.Services {
         /// <returns>True if bar was appended, false if symbol has no existing data.</returns>
         public bool AppendBar(string symbol, HistoricalBar bar, int maxBars = 500)
         {
-            if (!_data.TryGetValue(symbol, out var dataset))
+            if (!data.TryGetValue(symbol, out var dataset))
                 return false;
 
             // Don't append if bar already exists (duplicate)
@@ -140,7 +140,7 @@ namespace IdiotProof.Services {
         /// <returns>The data set, or null if no data exists.</returns>
         public HistoricalDataSet? GetHistoricalData(string symbol)
         {
-            return _data.TryGetValue(symbol, out var dataset) ? dataset : null;
+            return data.TryGetValue(symbol, out var dataset) ? dataset : null;
         }
 
         /// <summary>
@@ -150,7 +150,7 @@ namespace IdiotProof.Services {
         /// <returns>List of bars, or empty list if no data.</returns>
         public IReadOnlyList<HistoricalBar> GetBars(string symbol)
         {
-            return _data.TryGetValue(symbol, out var dataset) ? dataset.Bars : [];
+            return data.TryGetValue(symbol, out var dataset) ? dataset.Bars : [];
         }
 
         /// <summary>
@@ -161,7 +161,7 @@ namespace IdiotProof.Services {
         /// <returns>List of bars, or empty list if no data.</returns>
         public IReadOnlyList<HistoricalBar> GetRecentBars(string symbol, int count)
         {
-            if (!_data.TryGetValue(symbol, out var dataset))
+            if (!data.TryGetValue(symbol, out var dataset))
                 return [];
 
             return dataset.Bars.TakeLast(Math.Min(count, dataset.Bars.Count)).ToList();
@@ -176,7 +176,7 @@ namespace IdiotProof.Services {
         /// <returns>List of bars in the range, or empty list if no data.</returns>
         public IReadOnlyList<HistoricalBar> GetBarsInRange(string symbol, DateTime startDate, DateTime endDate)
         {
-            if (!_data.TryGetValue(symbol, out var dataset))
+            if (!data.TryGetValue(symbol, out var dataset))
                 return [];
 
             return dataset.Bars
@@ -191,7 +191,7 @@ namespace IdiotProof.Services {
         /// <returns>List of close prices in chronological order.</returns>
         public IReadOnlyList<double> GetClosePrices(string symbol)
         {
-            if (!_data.TryGetValue(symbol, out var dataset))
+            if (!data.TryGetValue(symbol, out var dataset))
                 return [];
 
             return dataset.Bars.Select(b => b.Close).ToList();
@@ -205,7 +205,7 @@ namespace IdiotProof.Services {
         /// <returns>List of close prices.</returns>
         public IReadOnlyList<double> GetRecentClosePrices(string symbol, int count)
         {
-            if (!_data.TryGetValue(symbol, out var dataset))
+            if (!data.TryGetValue(symbol, out var dataset))
                 return [];
 
             return dataset.Bars.TakeLast(Math.Min(count, dataset.Bars.Count))
@@ -220,7 +220,7 @@ namespace IdiotProof.Services {
         /// <returns>The last bar, or null if no data.</returns>
         public HistoricalBar? GetLastBar(string symbol)
         {
-            if (!_data.TryGetValue(symbol, out var dataset) || dataset.Bars.Count == 0)
+            if (!data.TryGetValue(symbol, out var dataset) || dataset.Bars.Count == 0)
                 return null;
 
             return dataset.Bars[^1];
@@ -231,7 +231,7 @@ namespace IdiotProof.Services {
         /// </summary>
         public bool HasData(string symbol)
         {
-            return _data.ContainsKey(symbol);
+            return data.ContainsKey(symbol);
         }
 
         /// <summary>
@@ -239,7 +239,7 @@ namespace IdiotProof.Services {
         /// </summary>
         public bool IsWarmedUp(string symbol)
         {
-            return _data.TryGetValue(symbol, out var dataset) && dataset.IsWarmedUp;
+            return data.TryGetValue(symbol, out var dataset) && dataset.IsWarmedUp;
         }
 
         /// <summary>
@@ -247,7 +247,7 @@ namespace IdiotProof.Services {
         /// </summary>
         public bool IsFullyWarmedUp(string symbol)
         {
-            return _data.TryGetValue(symbol, out var dataset) && dataset.IsFullyWarmedUp;
+            return data.TryGetValue(symbol, out var dataset) && dataset.IsFullyWarmedUp;
         }
 
         /// <summary>
@@ -255,7 +255,7 @@ namespace IdiotProof.Services {
         /// </summary>
         public bool Remove(string symbol)
         {
-            return _data.TryRemove(symbol, out _);
+            return data.TryRemove(symbol, out _);
         }
 
         /// <summary>
@@ -263,7 +263,7 @@ namespace IdiotProof.Services {
         /// </summary>
         public void Clear()
         {
-            _data.Clear();
+            data.Clear();
         }
 
         /// <summary>
@@ -271,7 +271,7 @@ namespace IdiotProof.Services {
         /// </summary>
         public IReadOnlyDictionary<string, (int BarCount, DateTime? StartDate, DateTime? EndDate)> GetSummary()
         {
-            return _data.ToDictionary(
+            return data.ToDictionary(
                 kvp => kvp.Key,
                 kvp => (kvp.Value.BarCount, kvp.Value.StartDate, kvp.Value.EndDate)
             );

@@ -1,4 +1,4 @@
-// IdiotProof.Core.FutureState.Security
+﻿// IdiotProof.Core.FutureState.Security
 // Token Service for JWT and API Key authentication
 // Supports both stateless JWT tokens and persistent API keys
 
@@ -159,19 +159,19 @@ public interface ITokenService
 /// </summary>
 public class TokenService : ITokenService
 {
-    private readonly TokenConfiguration _config;
+    private readonly TokenConfiguration config;
     
     // In production, these would be in a persistent store (Redis, DB)
-    private readonly ConcurrentDictionary<string, (string clientId, DateTime expires)> _refreshTokens = new();
-    private readonly ConcurrentDictionary<string, ApiKey> _apiKeys = new();
-    private readonly ConcurrentDictionary<string, List<string>> _revokedTokens = new();
-    private readonly ConcurrentDictionary<string, (int attempts, DateTime? lockoutEnd)> _failedAttempts = new();
+    private readonly ConcurrentDictionary<string, (string clientId, DateTime expires)> refreshTokens = new();
+    private readonly ConcurrentDictionary<string, ApiKey> apiKeys = new();
+    private readonly ConcurrentDictionary<string, List<string>> revokedTokens = new();
+    private readonly ConcurrentDictionary<string, (int attempts, DateTime? lockoutEnd)> failedAttempts = new();
     
     public TokenService(TokenConfiguration config)
     {
-        _config = config ?? throw new ArgumentNullException(nameof(config));
+        config = config ?? throw new ArgumentNullException(nameof(config));
         
-        if (string.IsNullOrEmpty(_config.JwtSecretKey) || _config.JwtSecretKey.Length < 32)
+        if (string.IsNullOrEmpty(config.JwtSecretKey) || config.JwtSecretKey.Length < 32)
         {
             throw new ArgumentException("JWT secret key must be at least 32 characters");
         }
@@ -189,10 +189,10 @@ public class TokenService : ITokenService
             permissions = claims.Permissions,
             custom = claims.CustomClaims,
             iat = DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
-            exp = DateTimeOffset.UtcNow.Add(_config.AccessTokenExpiration).ToUnixTimeSeconds(),
+            exp = DateTimeOffset.UtcNow.Add(config.AccessTokenExpiration).ToUnixTimeSeconds(),
             jti = Guid.NewGuid().ToString("N"),
-            iss = _config.Issuer,
-            aud = _config.Audience
+            iss = config.Issuer,
+            aud = config.Audience
         };
         
         var headerBytes = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(header));
@@ -202,7 +202,7 @@ public class TokenService : ITokenService
         var payloadBase64 = Base64UrlEncode(payloadBytes);
         
         var dataToSign = $"{headerBase64}.{payloadBase64}";
-        var signature = ComputeHmacSha256(dataToSign, _config.JwtSecretKey);
+        var signature = ComputeHmacSha256(dataToSign, config.JwtSecretKey);
         
         return $"{dataToSign}.{signature}";
     }
@@ -212,7 +212,7 @@ public class TokenService : ITokenService
         var token = GenerateSecureToken(64);
         var tokenHash = ComputeSha256(token);
         
-        _refreshTokens[tokenHash] = (clientId, DateTime.UtcNow.Add(_config.RefreshTokenExpiration));
+        refreshTokens[tokenHash] = (clientId, DateTime.UtcNow.Add(config.RefreshTokenExpiration));
         
         return token;
     }
@@ -234,7 +234,7 @@ public class TokenService : ITokenService
             
             // Verify signature
             var dataToVerify = $"{header}.{payload}";
-            var expectedSignature = ComputeHmacSha256(dataToVerify, _config.JwtSecretKey);
+            var expectedSignature = ComputeHmacSha256(dataToVerify, config.JwtSecretKey);
             
             if (!CryptographicEquals(signature, expectedSignature))
                 return TokenValidationResult.Failure("Invalid signature");
@@ -257,7 +257,7 @@ public class TokenService : ITokenService
             // Check issuer
             if (payloadData.TryGetValue("iss", out var issElement))
             {
-                if (issElement.GetString() != _config.Issuer)
+                if (issElement.GetString() != config.Issuer)
                     return TokenValidationResult.Failure("Invalid issuer");
             }
             
@@ -268,7 +268,7 @@ public class TokenService : ITokenService
                 if (payloadData.TryGetValue("client_id", out var clientIdElement))
                 {
                     var clientId = clientIdElement.GetString() ?? string.Empty;
-                    if (_revokedTokens.TryGetValue(clientId, out var revokedList) && 
+                    if (revokedTokens.TryGetValue(clientId, out var revokedList) && 
                         revokedList.Contains(jti))
                     {
                         return TokenValidationResult.Failure("Token has been revoked");
@@ -302,17 +302,17 @@ public class TokenService : ITokenService
     {
         var tokenHash = ComputeSha256(refreshToken);
         
-        if (!_refreshTokens.TryGetValue(tokenHash, out var data))
+        if (!refreshTokens.TryGetValue(tokenHash, out var data))
             return null;
             
         if (data.expires < DateTime.UtcNow)
         {
-            _refreshTokens.TryRemove(tokenHash, out _);
+            refreshTokens.TryRemove(tokenHash, out _);
             return null;
         }
         
         // Remove old refresh token (single use)
-        _refreshTokens.TryRemove(tokenHash, out _);
+        refreshTokens.TryRemove(tokenHash, out _);
         
         // Generate new tokens
         var claims = new TokenClaims
@@ -341,12 +341,12 @@ public class TokenService : ITokenService
             Name = InputSanitizer.SanitizeString(name, 100),
             Permissions = permissions,
             CreatedAt = DateTime.UtcNow,
-            ExpiresAt = _config.ApiKeyExpiration.HasValue 
-                ? DateTime.UtcNow.Add(_config.ApiKeyExpiration.Value) 
+            ExpiresAt = config.ApiKeyExpiration.HasValue 
+                ? DateTime.UtcNow.Add(config.ApiKeyExpiration.Value) 
                 : null
         };
         
-        _apiKeys[hashedKey] = key;
+        apiKeys[hashedKey] = key;
         
         return (keyId, apiKey);
     }
@@ -358,7 +358,7 @@ public class TokenService : ITokenService
             
         var hashedKey = ComputeSha256(apiKey);
         
-        if (!_apiKeys.TryGetValue(hashedKey, out var key))
+        if (!apiKeys.TryGetValue(hashedKey, out var key))
             return TokenValidationResult.Failure("Invalid API key");
             
         if (key.IsRevoked)
@@ -383,7 +383,7 @@ public class TokenService : ITokenService
     
     public bool RevokeApiKey(string keyId, string reason)
     {
-        var key = _apiKeys.Values.FirstOrDefault(k => k.KeyId == keyId);
+        var key = apiKeys.Values.FirstOrDefault(k => k.KeyId == keyId);
         if (key == null)
             return false;
             
@@ -396,18 +396,18 @@ public class TokenService : ITokenService
     public void RevokeAllClientTokens(string clientId)
     {
         // Remove all refresh tokens for client
-        var toRemove = _refreshTokens
+        var toRemove = refreshTokens
             .Where(kvp => kvp.Value.clientId == clientId)
             .Select(kvp => kvp.Key)
             .ToList();
             
         foreach (var key in toRemove)
         {
-            _refreshTokens.TryRemove(key, out _);
+            refreshTokens.TryRemove(key, out _);
         }
         
         // Revoke all API keys for client
-        var apiKeysToRevoke = _apiKeys.Values
+        var apiKeysToRevoke = apiKeys.Values
             .Where(k => k.ClientId == clientId)
             .ToList();
             

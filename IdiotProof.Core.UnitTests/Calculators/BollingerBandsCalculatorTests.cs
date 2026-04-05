@@ -1,4 +1,4 @@
-// ============================================================================
+﻿// ============================================================================
 // Bollinger Bands Calculator Tests - Validates BB with real data
 // ============================================================================
 
@@ -10,12 +10,12 @@ namespace IdiotProof.Core.UnitTests.Calculators;
 [TestFixture]
 public class BollingerBandsCalculatorTests
 {
-    private List<TestBar> _bars = null!;
+    private List<TestBar> bars = null!;
 
     [OneTimeSetUp]
     public void LoadData()
     {
-        _bars = TestDataLoader.LoadBars("NVDA", 200);
+        bars = TestDataLoader.LoadBars("NVDA", 200);
     }
 
     // ========================================================================
@@ -52,11 +52,11 @@ public class BollingerBandsCalculatorTests
 
         for (int i = 0; i < 19; i++)
         {
-            bb.Update(_bars[i].Close);
+            bb.Update(bars[i].Close);
             Assert.That(bb.IsReady, Is.False);
         }
 
-        bb.Update(_bars[19].Close);
+        bb.Update(bars[19].Close);
         Assert.That(bb.IsReady, Is.True);
     }
 
@@ -71,7 +71,7 @@ public class BollingerBandsCalculatorTests
 
         for (int i = 0; i < 100; i++)
         {
-            bb.Update(_bars[i].Close);
+            bb.Update(bars[i].Close);
             if (bb.IsReady)
             {
                 Assert.That(bb.UpperBand, Is.GreaterThanOrEqualTo(bb.MiddleBand),
@@ -92,8 +92,8 @@ public class BollingerBandsCalculatorTests
 
         for (int i = 0; i < 50; i++)
         {
-            bb.Update(_bars[i].Close);
-            sma.Update(_bars[i].Close);
+            bb.Update(bars[i].Close);
+            sma.Update(bars[i].Close);
         }
 
         Assert.That(bb.MiddleBand, Is.EqualTo(sma.CurrentValue).Within(0.001),
@@ -110,11 +110,11 @@ public class BollingerBandsCalculatorTests
         var bb = new BollingerBandsCalculator(20, 2.0);
 
         for (int i = 0; i < 50; i++)
-            bb.Update(_bars[i].Close);
+            bb.Update(bars[i].Close);
 
         Assert.That(bb.IsReady, Is.True);
 
-        double price = _bars[49].Close;
+        double price = bars[49].Close;
         double expectedPctB = (price - bb.LowerBand) / (bb.UpperBand - bb.LowerBand);
         Assert.That(bb.PercentB, Is.EqualTo(expectedPctB).Within(0.001));
     }
@@ -125,7 +125,7 @@ public class BollingerBandsCalculatorTests
         var bb = new BollingerBandsCalculator(20, 2.0);
 
         for (int i = 0; i < 100; i++)
-            bb.Update(_bars[i].Close);
+            bb.Update(bars[i].Close);
 
         // IsAboveUpperBand should be true iff %B > 1
         Assert.That(bb.IsAboveUpperBand, Is.EqualTo(bb.PercentB > 1.0));
@@ -137,7 +137,7 @@ public class BollingerBandsCalculatorTests
         var bb = new BollingerBandsCalculator(20, 2.0);
 
         for (int i = 0; i < 100; i++)
-            bb.Update(_bars[i].Close);
+            bb.Update(bars[i].Close);
 
         Assert.That(bb.IsBelowLowerBand, Is.EqualTo(bb.PercentB < 0.0));
     }
@@ -153,7 +153,7 @@ public class BollingerBandsCalculatorTests
 
         for (int i = 0; i < 100; i++)
         {
-            bb.Update(_bars[i].Close);
+            bb.Update(bars[i].Close);
             if (bb.IsReady)
             {
                 Assert.That(bb.Bandwidth, Is.GreaterThanOrEqualTo(0),
@@ -168,7 +168,7 @@ public class BollingerBandsCalculatorTests
         var bb = new BollingerBandsCalculator(20, 2.0);
 
         for (int i = 0; i < 50; i++)
-            bb.Update(_bars[i].Close);
+            bb.Update(bars[i].Close);
 
         double expected = (bb.UpperBand - bb.LowerBand) / bb.MiddleBand * 100;
         Assert.That(bb.Bandwidth, Is.EqualTo(expected).Within(0.01));
@@ -232,7 +232,7 @@ public class BollingerBandsCalculatorTests
     {
         var bb = new BollingerBandsCalculator(20, 2.0);
         for (int i = 0; i < 25; i++)
-            bb.Update(_bars[i].Close);
+            bb.Update(bars[i].Close);
 
         double before = bb.MiddleBand;
         bb.Update(0);
@@ -247,8 +247,8 @@ public class BollingerBandsCalculatorTests
 
         for (int i = 0; i < 30; i++)
         {
-            bb2.Update(_bars[i].Close);
-            bb3.Update(_bars[i].Close);
+            bb2.Update(bars[i].Close);
+            bb3.Update(bars[i].Close);
         }
 
         Assert.That(bb3.UpperBand - bb3.LowerBand, 

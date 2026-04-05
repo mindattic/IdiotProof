@@ -1,4 +1,4 @@
-// IdiotProof.Core.FutureState.Abstractions
+﻿// IdiotProof.Core.FutureState.Abstractions
 // Platform Services Abstraction
 // Provides platform-specific implementations for different targets
 
@@ -395,13 +395,13 @@ public static class PlatformFeatures
 /// </summary>
 public static class PlatformServiceRegistry
 {
-    private static IPlatformServices? _current;
+    private static IPlatformServices? current;
     
     /// <summary>
     /// Gets the current platform services instance.
     /// </summary>
     public static IPlatformServices Current => 
-        _current ?? throw new InvalidOperationException(
+        current ?? throw new InvalidOperationException(
             "Platform services not initialized. Call PlatformServiceRegistry.Initialize() first.");
     
     /// <summary>
@@ -410,11 +410,11 @@ public static class PlatformServiceRegistry
     /// </summary>
     public static void Initialize(IPlatformServices platformServices)
     {
-        _current = platformServices ?? throw new ArgumentNullException(nameof(platformServices));
+        current = platformServices ?? throw new ArgumentNullException(nameof(platformServices));
     }
     
     /// <summary>
     /// Whether platform services are initialized.
     /// </summary>
-    public static bool IsInitialized => _current != null;
+    public static bool IsInitialized => current != null;
 }

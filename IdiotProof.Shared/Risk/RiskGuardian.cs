@@ -1,4 +1,4 @@
-// ============================================================================
+﻿// ============================================================================
 // Risk Guardian - Makes It IMPOSSIBLE to Lose More Than Your Limit
 // ============================================================================
 // This is the GATEKEEPER. No trade goes through without:
@@ -85,13 +85,13 @@ public sealed class RiskGuardianResult
 /// </summary>
 public sealed class RiskGuardian
 {
-    private readonly RiskGuardianConfig _config;
-    private double _dailyLoss = 0;
-    private DateTime _lastResetDate = DateTime.Today;
+    private readonly RiskGuardianConfig config;
+    private double dailyLoss = 0;
+    private DateTime lastResetDate = DateTime.Today;
     
     public RiskGuardian(RiskGuardianConfig? config = null)
     {
-        _config = config ?? new RiskGuardianConfig();
+        config = config ?? new RiskGuardianConfig();
     }
     
     /// <summary>
@@ -102,10 +102,10 @@ public sealed class RiskGuardian
         var result = new RiskGuardianResult();
         
         // Reset daily loss if new day
-        if (DateTime.Today > _lastResetDate)
+        if (DateTime.Today > lastResetDate)
         {
-            _dailyLoss = 0;
-            _lastResetDate = DateTime.Today;
+            dailyLoss = 0;
+            lastResetDate = DateTime.Today;
         }
         
         // === CRITICAL CHECKS - These BLOCK the trade ===
@@ -144,12 +144,12 @@ public sealed class RiskGuardian
         result.WorstCaseLoss = totalRisk * 1.5;
 
         // 4. Check if risk exceeds max per trade
-        if (totalRisk > _config.MaxLossPerTrade)
+        if (totalRisk > config.MaxLossPerTrade)
         {
-            result.BlockReasons.Add($"Risk ${totalRisk:F2} exceeds max ${_config.MaxLossPerTrade:F2} per trade");
+            result.BlockReasons.Add($"Risk ${totalRisk:F2} exceeds max ${config.MaxLossPerTrade:F2} per trade");
 
             // Suggest adjusted quantity
-            var adjustedQty = (int)Math.Floor(_config.MaxLossPerTrade / riskPerShare);
+            var adjustedQty = (int)Math.Floor(config.MaxLossPerTrade / riskPerShare);
             if (adjustedQty >= 1)
             {
                 result.AdjustedSetup = CloneWithQuantity(setup, adjustedQty);
@@ -158,10 +158,10 @@ public sealed class RiskGuardian
         }
 
         // 5. Check daily loss limit
-        if (_dailyLoss + totalRisk > _config.MaxLossPerDay)
+        if (dailyLoss + totalRisk > config.MaxLossPerDay)
         {
-            var remaining = _config.MaxLossPerDay - _dailyLoss;
-            result.BlockReasons.Add($"Would exceed daily loss limit. Already lost ${_dailyLoss:F2}, limit is ${_config.MaxLossPerDay:F2}");
+            var remaining = config.MaxLossPerDay - dailyLoss;
+            result.BlockReasons.Add($"Would exceed daily loss limit. Already lost ${dailyLoss:F2}, limit is ${config.MaxLossPerDay:F2}");
 
             if (remaining > 0)
             {
@@ -175,21 +175,21 @@ public sealed class RiskGuardian
         }
 
         // 6. Check stop loss distance
-        if (stopPercent < _config.MinStopLossPercent)
+        if (stopPercent < config.MinStopLossPercent)
         {
-            result.BlockReasons.Add($"Stop loss too tight ({stopPercent:F2}%). Min is {_config.MinStopLossPercent}% to avoid noise stops");
+            result.BlockReasons.Add($"Stop loss too tight ({stopPercent:F2}%). Min is {config.MinStopLossPercent}% to avoid noise stops");
         }
         
-        if (stopPercent > _config.MaxStopLossPercent)
+        if (stopPercent > config.MaxStopLossPercent)
         {
-            result.BlockReasons.Add($"Stop loss too wide ({stopPercent:F2}%). Max is {_config.MaxStopLossPercent}%");
+            result.BlockReasons.Add($"Stop loss too wide ({stopPercent:F2}%). Max is {config.MaxStopLossPercent}%");
         }
         
         // 7. Check account risk percent
-        var accountRiskPercent = (totalRisk / _config.AccountBalance) * 100;
-        if (accountRiskPercent > _config.MaxAccountRiskPercent)
+        var accountRiskPercent = (totalRisk / config.AccountBalance) * 100;
+        if (accountRiskPercent > config.MaxAccountRiskPercent)
         {
-            result.BlockReasons.Add($"Risk is {accountRiskPercent:F2}% of account. Max is {_config.MaxAccountRiskPercent}%");
+            result.BlockReasons.Add($"Risk is {accountRiskPercent:F2}% of account. Max is {config.MaxAccountRiskPercent}%");
         }
         
         // === WARNINGS - These don't block but require attention ===
@@ -215,7 +215,7 @@ public sealed class RiskGuardian
         // === FINAL DECISION ===
         
         result.IsApproved = result.BlockReasons.Count == 0;
-        result.RequiresConfirmation = result.IsApproved && totalRisk > _config.ConfirmationThreshold;
+        result.RequiresConfirmation = result.IsApproved && totalRisk > config.ConfirmationThreshold;
         
         return result;
     }
@@ -227,14 +227,14 @@ public sealed class RiskGuardian
     {
         if (pnl < 0)
         {
-            _dailyLoss += Math.Abs(pnl);
+            dailyLoss += Math.Abs(pnl);
         }
     }
     
     /// <summary>
     /// Gets remaining daily risk allowance.
     /// </summary>
-    public double GetRemainingDailyRisk() => Math.Max(0, _config.MaxLossPerDay - _dailyLoss);
+    public double GetRemainingDailyRisk() => Math.Max(0, config.MaxLossPerDay - dailyLoss);
     
     /// <summary>
     /// Calculates the maximum quantity you can trade given current limits.
@@ -245,9 +245,9 @@ public sealed class RiskGuardian
         if (riskPerShare <= 0) return 0;
         
         // Take the most restrictive limit
-        var fromMaxPerTrade = (int)Math.Floor(_config.MaxLossPerTrade / riskPerShare);
+        var fromMaxPerTrade = (int)Math.Floor(config.MaxLossPerTrade / riskPerShare);
         var fromDailyRemaining = (int)Math.Floor(GetRemainingDailyRisk() / riskPerShare);
-        var fromAccountPercent = (int)Math.Floor((_config.AccountBalance * _config.MaxAccountRiskPercent / 100) / riskPerShare);
+        var fromAccountPercent = (int)Math.Floor((config.AccountBalance * config.MaxAccountRiskPercent / 100) / riskPerShare);
         
         return Math.Max(1, Math.Min(fromMaxPerTrade, Math.Min(fromDailyRemaining, fromAccountPercent)));
     }
@@ -262,17 +262,17 @@ public sealed class RiskGuardian
     {
         // Default to middle of allowed range
         var stopPercent = preferredStopPercent ?? 
-            (_config.MinStopLossPercent + _config.MaxStopLossPercent) / 2;
+            (config.MinStopLossPercent + config.MaxStopLossPercent) / 2;
         
         // Clamp to allowed range
-        stopPercent = Math.Clamp(stopPercent, _config.MinStopLossPercent, _config.MaxStopLossPercent);
+        stopPercent = Math.Clamp(stopPercent, config.MinStopLossPercent, config.MaxStopLossPercent);
         
         var stopDistance = entryPrice * (stopPercent / 100);
         var stopLoss = isLong ? entryPrice - stopDistance : entryPrice + stopDistance;
         
         // Calculate quantity based on max loss
         var riskPerShare = stopDistance;
-        var maxLoss = Math.Min(_config.MaxLossPerTrade, GetRemainingDailyRisk());
+        var maxLoss = Math.Min(config.MaxLossPerTrade, GetRemainingDailyRisk());
         var quantity = (int)Math.Floor(maxLoss / riskPerShare);
         quantity = Math.Max(1, quantity);
         
@@ -284,12 +284,12 @@ public sealed class RiskGuardian
     /// </summary>
     public RiskGuardianStatus GetStatus() => new()
     {
-        MaxLossPerTrade = _config.MaxLossPerTrade,
-        MaxLossPerDay = _config.MaxLossPerDay,
-        DailyLossSoFar = _dailyLoss,
+        MaxLossPerTrade = config.MaxLossPerTrade,
+        MaxLossPerDay = config.MaxLossPerDay,
+        DailyLossSoFar = dailyLoss,
         RemainingDailyRisk = GetRemainingDailyRisk(),
-        AccountBalance = _config.AccountBalance,
-        IsCircuitBreakerTripped = _dailyLoss >= _config.MaxLossPerDay
+        AccountBalance = config.AccountBalance,
+        IsCircuitBreakerTripped = dailyLoss >= config.MaxLossPerDay
     };
 
     /// <summary>

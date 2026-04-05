@@ -1,4 +1,4 @@
-// ============================================================================
+﻿// ============================================================================
 // IpcLogger - Logs all IPC communication for debugging/overnight monitoring
 // ============================================================================
 //
@@ -15,7 +15,7 @@ namespace IdiotProof.Logging;
 /// </summary>
 public static class IpcLogger
 {
-    private static bool _enabled = true;
+    private static bool enabled = true;
 
     /// <summary>
     /// Shared session logger instance (set from Program.cs via IpcServer).
@@ -27,8 +27,8 @@ public static class IpcLogger
     /// </summary>
     public static bool Enabled
     {
-        get => _enabled;
-        set => _enabled = value;
+        get => enabled;
+        set => enabled = value;
     }
 
     /// <summary>
@@ -73,7 +73,7 @@ public static class IpcLogger
 
     private static void Log(string message)
     {
-        if (!_enabled) return;
+        if (!enabled) return;
 
         SessionLogger?.LogEvent("IPC", message);
     }

@@ -1,4 +1,4 @@
-// ============================================================================
+﻿// ============================================================================
 // RSI Calculator Tests - Validates Relative Strength Index with real data
 // ============================================================================
 
@@ -10,12 +10,12 @@ namespace IdiotProof.Core.UnitTests.Calculators;
 [TestFixture]
 public class RsiCalculatorTests
 {
-    private List<TestBar> _bars = null!;
+    private List<TestBar> bars = null!;
 
     [OneTimeSetUp]
     public void LoadData()
     {
-        _bars = TestDataLoader.LoadBars("NVDA", 500);
+        bars = TestDataLoader.LoadBars("NVDA", 500);
     }
 
     // ========================================================================
@@ -53,11 +53,11 @@ public class RsiCalculatorTests
 
         for (int i = 0; i < 14; i++)
         {
-            rsi.Update(_bars[i].Close);
+            rsi.Update(bars[i].Close);
             Assert.That(rsi.IsReady, Is.False, $"Should not be ready after {i + 1} data points");
         }
 
-        rsi.Update(_bars[14].Close);
+        rsi.Update(bars[14].Close);
         Assert.That(rsi.IsReady, Is.True, "Should be ready after 15 data points for RSI(14)");
     }
 
@@ -72,7 +72,7 @@ public class RsiCalculatorTests
 
         for (int i = 0; i < 300; i++)
         {
-            rsi.Update(_bars[i].Close);
+            rsi.Update(bars[i].Close);
             if (rsi.IsReady)
             {
                 Assert.That(rsi.CurrentValue, Is.GreaterThanOrEqualTo(0).And.LessThanOrEqualTo(100),
@@ -136,7 +136,7 @@ public class RsiCalculatorTests
         var rsi = new RsiCalculator(14);
 
         for (int i = 0; i < 200; i++)
-            rsi.Update(_bars[i].Close);
+            rsi.Update(bars[i].Close);
 
         Assert.That(rsi.IsReady, Is.True);
         // In normal market conditions, RSI is typically 20-80
@@ -155,12 +155,12 @@ public class RsiCalculatorTests
 
         // Feed enough data to get past initial period
         for (int i = 0; i < 100; i++)
-            rsi.Update(_bars[i].Close);
+            rsi.Update(bars[i].Close);
 
         double prev = rsi.CurrentValue;
 
         // A small price change should cause small RSI movement (smoothing effect)
-        rsi.Update(_bars[100].Close);
+        rsi.Update(bars[100].Close);
         double diff = Math.Abs(rsi.CurrentValue - prev);
 
         Assert.That(diff, Is.LessThan(20),
@@ -176,7 +176,7 @@ public class RsiCalculatorTests
     {
         var rsi = new RsiCalculator(14);
         for (int i = 0; i < 20; i++)
-            rsi.Update(_bars[i].Close);
+            rsi.Update(bars[i].Close);
 
         double before = rsi.CurrentValue;
         rsi.Update(0);
@@ -188,7 +188,7 @@ public class RsiCalculatorTests
     {
         var rsi = new RsiCalculator(14);
         for (int i = 0; i < 30; i++)
-            rsi.Update(_bars[i].Close);
+            rsi.Update(bars[i].Close);
 
         rsi.Reset();
 

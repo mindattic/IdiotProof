@@ -1,4 +1,4 @@
-// ============================================================================
+﻿// ============================================================================
 // SMA Calculator Tests - Validates Simple Moving Average with real data
 // ============================================================================
 
@@ -10,12 +10,12 @@ namespace IdiotProof.Core.UnitTests.Calculators;
 [TestFixture]
 public class SmaCalculatorTests
 {
-    private List<TestBar> _bars = null!;
+    private List<TestBar> bars = null!;
 
     [OneTimeSetUp]
     public void LoadData()
     {
-        _bars = TestDataLoader.LoadBars("NVDA", 300);
+        bars = TestDataLoader.LoadBars("NVDA", 300);
     }
 
     // ========================================================================
@@ -51,11 +51,11 @@ public class SmaCalculatorTests
 
         for (int i = 0; i < 19; i++)
         {
-            sma.Update(_bars[i].Close);
+            sma.Update(bars[i].Close);
             Assert.That(sma.IsReady, Is.False);
         }
 
-        sma.Update(_bars[19].Close);
+        sma.Update(bars[19].Close);
         Assert.That(sma.IsReady, Is.True, "Should be ready after 20 prices for SMA(20)");
     }
 
@@ -70,12 +70,12 @@ public class SmaCalculatorTests
 
         // Feed 50 bars
         for (int i = 0; i < 50; i++)
-            sma.Update(_bars[i].Close);
+            sma.Update(bars[i].Close);
 
         // Manually calculate SMA of last 20 prices
         double expectedSum = 0;
         for (int i = 30; i < 50; i++)
-            expectedSum += _bars[i].Close;
+            expectedSum += bars[i].Close;
         double expectedSma = expectedSum / 20;
 
         Assert.That(sma.CurrentValue, Is.EqualTo(expectedSma).Within(0.0001),
@@ -89,15 +89,15 @@ public class SmaCalculatorTests
 
         // Feed exactly 5 prices
         for (int i = 0; i < 5; i++)
-            sma.Update(_bars[i].Close);
+            sma.Update(bars[i].Close);
 
         double sma5 = sma.CurrentValue;
-        double expectedSum = _bars.Take(5).Sum(b => b.Close) / 5.0;
+        double expectedSum = bars.Take(5).Sum(b => b.Close) / 5.0;
         Assert.That(sma5, Is.EqualTo(expectedSum).Within(0.0001));
 
         // Feed 6th price - should drop the 1st
-        sma.Update(_bars[5].Close);
-        double expectedAfter = _bars.Skip(1).Take(5).Sum(b => b.Close) / 5.0;
+        sma.Update(bars[5].Close);
+        double expectedAfter = bars.Skip(1).Take(5).Sum(b => b.Close) / 5.0;
         Assert.That(sma.CurrentValue, Is.EqualTo(expectedAfter).Within(0.0001));
     }
 
@@ -110,10 +110,10 @@ public class SmaCalculatorTests
     {
         var sma = new SmaCalculator(10);
         for (int i = 0; i < 20; i++)
-            sma.Update(_bars[i].Close);
+            sma.Update(bars[i].Close);
 
         double prev = sma.CurrentValue;
-        sma.Update(_bars[20].Close);
+        sma.Update(bars[20].Close);
 
         Assert.That(sma.PreviousValue, Is.EqualTo(prev).Within(0.0001));
     }
@@ -152,7 +152,7 @@ public class SmaCalculatorTests
     {
         var sma = new SmaCalculator(20);
         for (int i = 0; i < 20; i++)
-            sma.Update(_bars[i].Close);
+            sma.Update(bars[i].Close);
 
         double highPrice = sma.CurrentValue + 10;
         Assert.That(sma.IsPriceAbove(highPrice), Is.True);
@@ -163,7 +163,7 @@ public class SmaCalculatorTests
     {
         var sma = new SmaCalculator(20);
         for (int i = 0; i < 20; i++)
-            sma.Update(_bars[i].Close);
+            sma.Update(bars[i].Close);
 
         double lowPrice = sma.CurrentValue - 10;
         Assert.That(sma.IsPriceBelow(lowPrice), Is.True);
@@ -174,7 +174,7 @@ public class SmaCalculatorTests
     {
         var sma = new SmaCalculator(20);
         for (int i = 0; i < 20; i++)
-            sma.Update(_bars[i].Close);
+            sma.Update(bars[i].Close);
 
         double smaVal = sma.CurrentValue;
         double testPrice = smaVal * 1.05; // 5% above
@@ -188,7 +188,7 @@ public class SmaCalculatorTests
     {
         var sma = new SmaCalculator(20);
         for (int i = 0; i < 20; i++)
-            sma.Update(_bars[i].Close);
+            sma.Update(bars[i].Close);
 
         double abovePrice = sma.CurrentValue * 1.02;
         int score = sma.GetScore(abovePrice);
@@ -200,7 +200,7 @@ public class SmaCalculatorTests
     {
         var sma = new SmaCalculator(20);
         for (int i = 0; i < 20; i++)
-            sma.Update(_bars[i].Close);
+            sma.Update(bars[i].Close);
 
         double belowPrice = sma.CurrentValue * 0.98;
         int score = sma.GetScore(belowPrice);
@@ -216,7 +216,7 @@ public class SmaCalculatorTests
     {
         var sma = new SmaCalculator(20);
         for (int i = 0; i < 30; i++)
-            sma.Update(_bars[i].Close);
+            sma.Update(bars[i].Close);
 
         sma.Reset();
 
@@ -237,7 +237,7 @@ public class SmaCalculatorTests
     {
         var sma = new SmaCalculator(5);
         for (int i = 0; i < 5; i++)
-            sma.Update(_bars[i].Close);
+            sma.Update(bars[i].Close);
 
         double before = sma.CurrentValue;
         sma.Update(0);
@@ -249,10 +249,10 @@ public class SmaCalculatorTests
     {
         var sma = new SmaCalculator(50);
         for (int i = 0; i < 200; i++)
-            sma.Update(_bars[i].Close);
+            sma.Update(bars[i].Close);
 
-        double min = _bars.Take(200).Min(b => b.Low);
-        double max = _bars.Take(200).Max(b => b.High);
+        double min = bars.Take(200).Min(b => b.Low);
+        double max = bars.Take(200).Max(b => b.High);
 
         Assert.That(sma.CurrentValue, Is.GreaterThanOrEqualTo(min).And.LessThanOrEqualTo(max),
             "SMA should be within the observed price range");

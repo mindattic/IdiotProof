@@ -294,8 +294,8 @@ public sealed class StrategyRulesConfig
 public static class StrategyRulesManager
 {
     private const string RulesFileName = "strategy-rules.json";
-    private static StrategyRulesConfig? _cachedConfig;
-    private static DateTime _lastLoadTime = DateTime.MinValue;
+    private static StrategyRulesConfig? cachedConfig;
+    private static DateTime lastLoadTime = DateTime.MinValue;
     private static readonly TimeSpan CacheExpiry = TimeSpan.FromMinutes(1);
 
     private static readonly JsonSerializerOptions JsonOptions = new()
@@ -331,18 +331,18 @@ public static class StrategyRulesManager
     public static StrategyRulesConfig Load()
     {
         // Check cache
-        if (_cachedConfig != null && DateTime.UtcNow - _lastLoadTime < CacheExpiry)
+        if (cachedConfig != null && DateTime.UtcNow - lastLoadTime < CacheExpiry)
         {
-            return _cachedConfig;
+            return cachedConfig;
         }
 
         var path = GetRulesPath();
 
         if (!File.Exists(path))
         {
-            _cachedConfig = new StrategyRulesConfig();
-            _lastLoadTime = DateTime.UtcNow;
-            return _cachedConfig;
+            cachedConfig = new StrategyRulesConfig();
+            lastLoadTime = DateTime.UtcNow;
+            return cachedConfig;
         }
 
         try
@@ -353,7 +353,7 @@ public static class StrategyRulesManager
             if (config == null)
             {
                 Console.WriteLine($"[StrategyRules] Failed to parse rules, using empty config");
-                _cachedConfig = new StrategyRulesConfig();
+                cachedConfig = new StrategyRulesConfig();
             }
             else
             {
@@ -362,18 +362,18 @@ public static class StrategyRulesManager
                 {
                     Console.WriteLine($"  - {rule.Symbol}: {rule.Name ?? "(custom rule)"}");
                 }
-                _cachedConfig = config;
+                cachedConfig = config;
             }
 
-            _lastLoadTime = DateTime.UtcNow;
-            return _cachedConfig;
+            lastLoadTime = DateTime.UtcNow;
+            return cachedConfig;
         }
         catch (Exception ex)
         {
             Console.WriteLine($"[StrategyRules] Error loading rules: {ex.Message}");
-            _cachedConfig = new StrategyRulesConfig();
-            _lastLoadTime = DateTime.UtcNow;
-            return _cachedConfig;
+            cachedConfig = new StrategyRulesConfig();
+            lastLoadTime = DateTime.UtcNow;
+            return cachedConfig;
         }
     }
 
@@ -382,8 +382,8 @@ public static class StrategyRulesManager
     /// </summary>
     public static void InvalidateCache()
     {
-        _cachedConfig = null;
-        _lastLoadTime = DateTime.MinValue;
+        cachedConfig = null;
+        lastLoadTime = DateTime.MinValue;
     }
 
     /// <summary>
@@ -408,8 +408,8 @@ public static class StrategyRulesManager
             Console.WriteLine($"[StrategyRules] Saved {config.Rules.Count} rules to {RulesFileName}");
             
             // Update cache
-            _cachedConfig = config;
-            _lastLoadTime = DateTime.UtcNow;
+            cachedConfig = config;
+            lastLoadTime = DateTime.UtcNow;
         }
         catch (Exception ex)
         {

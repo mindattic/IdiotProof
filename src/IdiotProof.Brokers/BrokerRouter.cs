@@ -1,4 +1,4 @@
-using IdiotProof.Models;
+﻿using IdiotProof.Models;
 
 namespace IdiotProof.Brokers;
 
@@ -7,16 +7,16 @@ namespace IdiotProof.Brokers;
 /// </summary>
 public sealed class BrokerRouter
 {
-    private readonly Dictionary<BrokerType, IBrokerClient> _brokers = new();
+    private readonly Dictionary<BrokerType, IBrokerClient> brokers = new();
 
     public void Register(IBrokerClient client)
     {
-        _brokers[client.BrokerType] = client;
+        brokers[client.BrokerType] = client;
     }
 
     public IBrokerClient GetBroker(BrokerType type)
     {
-        if (_brokers.TryGetValue(type, out var client))
+        if (brokers.TryGetValue(type, out var client))
             return client;
         throw new InvalidOperationException($"No broker registered for type: {type}");
     }

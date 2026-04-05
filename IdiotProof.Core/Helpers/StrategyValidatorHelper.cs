@@ -1,4 +1,4 @@
-// ============================================================================
+﻿// ============================================================================
 // StrategyValidator - Validates trading strategies before execution
 // ============================================================================
 //
@@ -243,32 +243,32 @@ namespace IdiotProof.Helpers {
     /// </summary>
     public sealed class StrategyValidationResult
     {
-        private readonly List<string> _errors = [];
-        private readonly List<string> _warnings = [];
+        private readonly List<string> errors = [];
+        private readonly List<string> warnings = [];
 
         /// <summary>
         /// Gets whether validation passed (no errors).
         /// </summary>
-        public bool IsValid => _errors.Count == 0;
+        public bool IsValid => errors.Count == 0;
 
         /// <summary>
         /// Gets the list of errors.
         /// </summary>
-        public IReadOnlyList<string> Errors => _errors;
+        public IReadOnlyList<string> Errors => errors;
 
         /// <summary>
         /// Gets the list of warnings.
         /// </summary>
-        public IReadOnlyList<string> Warnings => _warnings;
+        public IReadOnlyList<string> Warnings => warnings;
 
         internal void AddError(string message)
         {
-            _errors.Add(message);
+            errors.Add(message);
         }
 
         internal void AddWarning(string message)
         {
-            _warnings.Add(message);
+            warnings.Add(message);
         }
 
         /// <summary>
@@ -276,29 +276,29 @@ namespace IdiotProof.Helpers {
         /// </summary>
         public void PrintResults()
         {
-            if (IsValid && _warnings.Count == 0)
+            if (IsValid && warnings.Count == 0)
             {
                 ConsoleLog.Success("Validator", "All strategies validated successfully");
                 StrategyValidatorHelper.SessionLogger?.LogEvent("VALIDATOR", "All strategies validated successfully");
                 return;
             }
 
-            if (_errors.Count > 0)
+            if (errors.Count > 0)
             {
-                ConsoleLog.Error("Validator", $"Validation failed with {_errors.Count} error(s):");
-                StrategyValidatorHelper.SessionLogger?.LogEvent("VALIDATOR", $"Validation failed with {_errors.Count} error(s)");
-                foreach (var error in _errors)
+                ConsoleLog.Error("Validator", $"Validation failed with {errors.Count} error(s):");
+                StrategyValidatorHelper.SessionLogger?.LogEvent("VALIDATOR", $"Validation failed with {errors.Count} error(s)");
+                foreach (var error in errors)
                 {
                     ConsoleLog.Error("Validator", $"  {error}");
                     StrategyValidatorHelper.SessionLogger?.LogEvent("VALIDATOR", $"ERROR: {error}");
                 }
             }
 
-            if (_warnings.Count > 0)
+            if (warnings.Count > 0)
             {
-                ConsoleLog.Warn("Validator", $"{_warnings.Count} warning(s):");
-                StrategyValidatorHelper.SessionLogger?.LogEvent("VALIDATOR", $"{_warnings.Count} warning(s)");
-                foreach (var warning in _warnings)
+                ConsoleLog.Warn("Validator", $"{warnings.Count} warning(s):");
+                StrategyValidatorHelper.SessionLogger?.LogEvent("VALIDATOR", $"{warnings.Count} warning(s)");
+                foreach (var warning in warnings)
                 {
                     ConsoleLog.Warn("Validator", $"  {warning}");
                     StrategyValidatorHelper.SessionLogger?.LogEvent("VALIDATOR", $"WARN: {warning}");

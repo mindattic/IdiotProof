@@ -1,4 +1,4 @@
-// ============================================================================
+﻿// ============================================================================
 // Candlestick Aggregator - Aggregates Ticks into Time-Based Candlesticks
 // ============================================================================
 //
@@ -44,62 +44,62 @@ namespace IdiotProof.Helpers {
     /// </remarks>
     public sealed class CandlestickAggregatorHelper
     {
-        private readonly int _candleSizeMinutes;
-        private readonly int _maxCandles;
-        private readonly Queue<Candlestick> _completedCandles;
+        private readonly int candleSizeMinutes;
+        private readonly int maxCandles;
+        private readonly Queue<Candlestick> completedCandles;
 
         // Current candlestick being formed
-        private DateTime _currentCandleStart;
-        private double _currentOpen;
-        private double _currentHigh;
-        private double _currentLow;
-        private double _currentClose;
-        private long _currentVolume;
-        private int _currentTickCount;
-        private bool _hasCurrentCandle;
+        private DateTime currentCandleStart;
+        private double currentOpen;
+        private double currentHigh;
+        private double currentLow;
+        private double currentClose;
+        private long currentVolume;
+        private int currentTickCount;
+        private bool hasCurrentCandle;
 
         /// <summary>
         /// Gets the candlestick size in minutes.
         /// </summary>
-        public int CandleSizeMinutes => _candleSizeMinutes;
+        public int CandleSizeMinutes => candleSizeMinutes;
 
         /// <summary>
         /// Gets the maximum number of candlesticks to retain.
         /// </summary>
-        public int MaxCandles => _maxCandles;
+        public int MaxCandles => maxCandles;
 
         /// <summary>
         /// Gets the number of completed candlesticks.
         /// </summary>
-        public int CompletedCandleCount => _completedCandles.Count;
+        public int CompletedCandleCount => completedCandles.Count;
 
         /// <summary>
         /// Gets whether the aggregator has enough candlesticks for basic indicators (21+).
         /// </summary>
-        public bool IsWarmedUp => _completedCandles.Count >= 21;
+        public bool IsWarmedUp => completedCandles.Count >= 21;
 
         /// <summary>
         /// Gets whether the aggregator has reached maximum capacity.
         /// </summary>
-        public bool IsFullyWarmedUp => _completedCandles.Count >= _maxCandles;
+        public bool IsFullyWarmedUp => completedCandles.Count >= maxCandles;
 
         /// <summary>
         /// Gets the most recent completed candlestick, or null if none.
         /// </summary>
-        public Candlestick? LastCompletedCandle => _completedCandles.Count > 0 ? _completedCandles.Last() : null;
+        public Candlestick? LastCompletedCandle => completedCandles.Count > 0 ? completedCandles.Last() : null;
 
         /// <summary>
         /// Gets the current forming candlestick (not yet complete).
         /// </summary>
-        public Candlestick? CurrentCandle => _hasCurrentCandle ? new Candlestick
+        public Candlestick? CurrentCandle => hasCurrentCandle ? new Candlestick
         {
-            Timestamp = _currentCandleStart,
-            Open = _currentOpen,
-            High = _currentHigh,
-            Low = _currentLow,
-            Close = _currentClose,
-            Volume = _currentVolume,
-            TickCount = _currentTickCount,
+            Timestamp = currentCandleStart,
+            Open = currentOpen,
+            High = currentHigh,
+            Low = currentLow,
+            Close = currentClose,
+            Volume = currentVolume,
+            TickCount = currentTickCount,
             IsComplete = false
         } : null;
 
@@ -120,9 +120,9 @@ namespace IdiotProof.Helpers {
             if (maxCandles < 1)
                 throw new ArgumentOutOfRangeException(nameof(maxCandles), "Max candlesticks must be at least 1.");
 
-            _candleSizeMinutes = candleSizeMinutes;
-            _maxCandles = maxCandles;
-            _completedCandles = new Queue<Candlestick>(maxCandles + 1);
+            this.candleSizeMinutes = candleSizeMinutes;
+            this.maxCandles = maxCandles;
+            completedCandles = new Queue<Candlestick>(maxCandles + 1);
         }
 
         /// <summary>
@@ -140,7 +140,7 @@ namespace IdiotProof.Helpers {
             var candleStart = GetCandleStartTime(now);
 
             // Check if we need to complete the current candlestick and start a new one
-            if (_hasCurrentCandle && candleStart > _currentCandleStart)
+            if (hasCurrentCandle && candleStart > currentCandleStart)
             {
                 CompleteCurrentCandle();
                 StartNewCandle(candleStart, price, volume);
@@ -148,7 +148,7 @@ namespace IdiotProof.Helpers {
             }
 
             // Update current candlestick or start first candlestick
-            if (!_hasCurrentCandle)
+            if (!hasCurrentCandle)
             {
                 StartNewCandle(candleStart, price, volume);
             }
@@ -165,7 +165,7 @@ namespace IdiotProof.Helpers {
         /// </summary>
         public IReadOnlyList<Candlestick> GetCompletedCandles()
         {
-            return _completedCandles.ToList();
+            return completedCandles.ToList();
         }
 
         /// <summary>
@@ -174,7 +174,7 @@ namespace IdiotProof.Helpers {
         /// <param name="count">Number of candlesticks to retrieve.</param>
         public IReadOnlyList<Candlestick> GetRecentCandles(int count)
         {
-            return _completedCandles.TakeLast(Math.Min(count, _completedCandles.Count)).ToList();
+            return completedCandles.TakeLast(Math.Min(count, completedCandles.Count)).ToList();
         }
 
         /// <summary>
@@ -182,7 +182,7 @@ namespace IdiotProof.Helpers {
         /// </summary>
         public IReadOnlyList<double> GetClosePrices()
         {
-            return _completedCandles.Select(c => c.Close).ToList();
+            return completedCandles.Select(c => c.Close).ToList();
         }
 
         /// <summary>
@@ -190,7 +190,7 @@ namespace IdiotProof.Helpers {
         /// </summary>
         public IReadOnlyList<double> GetRecentClosePrices(int count)
         {
-            return _completedCandles.TakeLast(Math.Min(count, _completedCandles.Count))
+            return completedCandles.TakeLast(Math.Min(count, completedCandles.Count))
                 .Select(c => c.Close)
                 .ToList();
         }
@@ -203,7 +203,7 @@ namespace IdiotProof.Helpers {
         /// <returns>Array of low prices, most recent first.</returns>
         public double[] GetRecentLows(int count)
         {
-            return _completedCandles.TakeLast(Math.Min(count, _completedCandles.Count))
+            return completedCandles.TakeLast(Math.Min(count, completedCandles.Count))
                 .Select(c => c.Low)
                 .Reverse()  // Most recent first for pattern detection
                 .ToArray();
@@ -217,7 +217,7 @@ namespace IdiotProof.Helpers {
         /// <returns>Array of high prices, most recent first.</returns>
         public double[] GetRecentHighs(int count)
         {
-            return _completedCandles.TakeLast(Math.Min(count, _completedCandles.Count))
+            return completedCandles.TakeLast(Math.Min(count, completedCandles.Count))
                 .Select(c => c.High)
                 .Reverse()  // Most recent first for pattern detection
                 .ToArray();
@@ -228,75 +228,75 @@ namespace IdiotProof.Helpers {
         /// </summary>
         public void Reset()
         {
-            _completedCandles.Clear();
-            _hasCurrentCandle = false;
-            _currentOpen = 0;
-            _currentHigh = 0;
-            _currentLow = 0;
-            _currentClose = 0;
-            _currentVolume = 0;
-            _currentTickCount = 0;
+            completedCandles.Clear();
+            hasCurrentCandle = false;
+            currentOpen = 0;
+            currentHigh = 0;
+            currentLow = 0;
+            currentClose = 0;
+            currentVolume = 0;
+            currentTickCount = 0;
         }
 
         private DateTime GetCandleStartTime(DateTime time)
         {
             // Round down to the nearest candlestick boundary
-            var minutes = time.Minute - (time.Minute % _candleSizeMinutes);
+            var minutes = time.Minute - (time.Minute % candleSizeMinutes);
             return new DateTime(time.Year, time.Month, time.Day, time.Hour, minutes, 0);
         }
 
         private void StartNewCandle(DateTime candleStart, double price, long volume)
         {
-            _currentCandleStart = candleStart;
-            _currentOpen = price;
-            _currentHigh = price;
-            _currentLow = price;
-            _currentClose = price;
-            _currentVolume = volume;
-            _currentTickCount = 1;
-            _hasCurrentCandle = true;
+            currentCandleStart = candleStart;
+            currentOpen = price;
+            currentHigh = price;
+            currentLow = price;
+            currentClose = price;
+            currentVolume = volume;
+            currentTickCount = 1;
+            hasCurrentCandle = true;
         }
 
         private void UpdateCurrentCandle(double price, long volume)
         {
-            if (price > _currentHigh)
-                _currentHigh = price;
-            if (price < _currentLow)
-                _currentLow = price;
-            _currentClose = price;
-            _currentVolume += volume;
-            _currentTickCount++;
+            if (price > currentHigh)
+                currentHigh = price;
+            if (price < currentLow)
+                currentLow = price;
+            currentClose = price;
+            currentVolume += volume;
+            currentTickCount++;
         }
 
         private void CompleteCurrentCandle()
         {
-            if (!_hasCurrentCandle)
+            if (!hasCurrentCandle)
                 return;
 
             var completedCandle = new Candlestick
             {
-                Timestamp = _currentCandleStart,
-                Open = _currentOpen,
-                High = _currentHigh,
-                Low = _currentLow,
-                Close = _currentClose,
-                Volume = _currentVolume,
-                TickCount = _currentTickCount,
+                Timestamp = currentCandleStart,
+                Open = currentOpen,
+                High = currentHigh,
+                Low = currentLow,
+                Close = currentClose,
+                Volume = currentVolume,
+                TickCount = currentTickCount,
                 IsComplete = true
             };
 
-            _completedCandles.Enqueue(completedCandle);
+            completedCandles.Enqueue(completedCandle);
 
             // Maintain max size
-            while (_completedCandles.Count > _maxCandles)
+            while (completedCandles.Count > maxCandles)
             {
-                _completedCandles.Dequeue();
+                completedCandles.Dequeue();
             }
 
             // Raise event
             OnCandleComplete?.Invoke(completedCandle);
 
-            _hasCurrentCandle = false;
+            hasCurrentCandle = false;
         }
 
         /// <summary>
@@ -330,12 +330,12 @@ namespace IdiotProof.Helpers {
             foreach (var candle in historicalCandles)
             {
                 // Add directly to the queue
-                _completedCandles.Enqueue(candle);
+                completedCandles.Enqueue(candle);
 
                 // Maintain max size
-                while (_completedCandles.Count > _maxCandles)
+                while (completedCandles.Count > maxCandles)
                 {
-                    _completedCandles.Dequeue();
+                    completedCandles.Dequeue();
                 }
 
                 // Optionally fire events (for indicator warm-up)
@@ -380,7 +380,7 @@ namespace IdiotProof.Helpers {
             var rthOpen = new TimeOnly(9, 30);
             var cutoffTime = rthOpen.AddMinutes(-minutes);
             
-            return _completedCandles
+            return completedCandles
                 .Where(c => {
                     var time = TimeOnly.FromDateTime(c.Timestamp);
                     return time >= cutoffTime && time < rthOpen;

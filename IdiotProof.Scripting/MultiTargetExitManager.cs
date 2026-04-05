@@ -1,4 +1,4 @@
-// ============================================================================
+﻿// ============================================================================
 // MultiTargetExitManager - Handles scaling out at multiple take profit levels
 // ============================================================================
 //
@@ -22,62 +22,62 @@ namespace IdiotProof.Scripting;
 /// </summary>
 public sealed class MultiTargetExitManager
 {
-    private readonly string _symbol;
-    private readonly List<ManagedTarget> _targets = [];
-    private readonly MultiTargetConfig _config;
+    private readonly string symbol;
+    private readonly List<ManagedTarget> targets = [];
+    private readonly MultiTargetConfig config;
     
     // Position tracking
-    private int _originalQuantity;
-    private int _remainingQuantity;
-    private double _entryPrice;
-    private double _currentStopLoss;
-    private double _breakEvenPrice;
+    private int originalQuantity;
+    private int remainingQuantity;
+    private double entryPrice;
+    private double currentStopLoss;
+    private double breakEvenPrice;
     
     // State
-    private ExitManagerState _state = ExitManagerState.Inactive;
-    private readonly List<PartialExit> _exits = [];
+    private ExitManagerState state = ExitManagerState.Inactive;
+    private readonly List<PartialExit> exits = [];
     
     public MultiTargetExitManager(string symbol, MultiTargetConfig? config = null)
     {
-        _symbol = symbol;
-        _config = config ?? new MultiTargetConfig();
+        this.symbol = symbol;
+        this.config = config ?? new MultiTargetConfig();
     }
     
     /// <summary>
     /// Current state of the exit manager.
     /// </summary>
-    public ExitManagerState State => _state;
+    public ExitManagerState State => state;
     
     /// <summary>
     /// Remaining quantity to manage.
     /// </summary>
-    public int RemainingQuantity => _remainingQuantity;
+    public int RemainingQuantity => remainingQuantity;
     
     /// <summary>
     /// Gets all configured targets.
     /// </summary>
-    public IReadOnlyList<ManagedTarget> Targets => _targets.AsReadOnly();
+    public IReadOnlyList<ManagedTarget> Targets => targets.AsReadOnly();
     
     /// <summary>
     /// Gets all completed partial exits.
     /// </summary>
-    public IReadOnlyList<PartialExit> Exits => _exits.AsReadOnly();
+    public IReadOnlyList<PartialExit> Exits => exits.AsReadOnly();
     
     /// <summary>
     /// Gets realized P&L from partial exits.
     /// </summary>
-    public double RealizedPnL => _exits.Sum(e => e.PnL);
+    public double RealizedPnL => exits.Sum(e => e.PnL);
     
     /// <summary>
     /// Initializes the exit manager with position details and targets.
     /// </summary>
     public void Initialize(double entryPrice, int quantity, double stopLoss, IEnumerable<TakeProfitTarget> targets)
     {
-        _entryPrice = entryPrice;
-        _originalQuantity = quantity;
-        _remainingQuantity = quantity;
-        _currentStopLoss = stopLoss;
-        _breakEvenPrice = entryPrice * 1.001; // Slightly above entry for fees
+        this.entryPrice = entryPrice;
+        originalQuantity = quantity;
+        remainingQuantity = quantity;
+        currentStopLoss = stopLoss;
+        breakEvenPrice = entryPrice * 1.001; // Slightly above entry for fees
         
         // Calculate quantities for each target
         var targetList = targets.ToList();
@@ -105,9 +105,9 @@ public sealed class MultiTargetExitManager
             adjustedTargets[^1].QuantityToSell -= totalQty - quantity;
         }
         
-        _targets.Clear();
-        _targets.AddRange(adjustedTargets);
-        _state = ExitManagerState.Active;
+        this.targets.Clear();
+        this.targets.AddRange(adjustedTargets);
+        state = ExitManagerState.Active;
     }
     
     /// <summary>
@@ -115,17 +115,17 @@ public sealed class MultiTargetExitManager
     /// </summary>
     public ExitSignal? Update(double currentPrice)
     {
-        if (_state != ExitManagerState.Active || _remainingQuantity <= 0)
+        if (state != ExitManagerState.Active || remainingQuantity <= 0)
             return null;
         
         // Check stop loss first
-        if (currentPrice <= _currentStopLoss)
+        if (currentPrice <= currentStopLoss)
         {
-            return CreateExitSignal(ExitReason.StopLoss, _remainingQuantity, currentPrice);
+            return CreateExitSignal(ExitReason.StopLoss, remainingQuantity, currentPrice);
         }
         
         // Check targets (in order)
-        foreach (var target in _targets.Where(t => !t.IsHit))
+        foreach (var target in targets.Where(t => !t.IsHit))
         {
             if (currentPrice >= target.Price)
             {
@@ -134,7 +134,7 @@ public sealed class MultiTargetExitManager
                 target.HitTime = DateTime.UtcNow;
                 target.HitPrice = currentPrice;
                 
-                var quantityToSell = Math.Min(target.QuantityToSell, _remainingQuantity);
+                var quantityToSell = Math.Min(target.QuantityToSell, remainingQuantity);
                 
                 // Record the partial exit
                 var exit = new PartialExit
@@ -143,19 +143,19 @@ public sealed class MultiTargetExitManager
                     Quantity = quantityToSell,
                     Price = currentPrice,
                     Time = DateTime.UtcNow,
-                    PnL = (currentPrice - _entryPrice) * quantityToSell
+                    PnL = (currentPrice - entryPrice) * quantityToSell
                 };
-                _exits.Add(exit);
+                exits.Add(exit);
                 
-                _remainingQuantity -= quantityToSell;
+                remainingQuantity -= quantityToSell;
                 
                 // Adjust stop loss after target hit
                 AdjustStopLossAfterTarget(target);
                 
                 // Check if fully exited
-                if (_remainingQuantity <= 0)
+                if (remainingQuantity <= 0)
                 {
-                    _state = ExitManagerState.Completed;
+                    state = ExitManagerState.Completed;
                 }
                 
                 return CreateExitSignal(ExitReason.TargetHit, quantityToSell, currentPrice, target.Label);
@@ -167,29 +167,29 @@ public sealed class MultiTargetExitManager
     
     private void AdjustStopLossAfterTarget(ManagedTarget hitTarget)
     {
-        switch (_config.StopLossAdjustment)
+        switch (config.StopLossAdjustment)
         {
             case StopLossAdjustmentMode.MoveToBreakeven:
                 // After T1, move stop to breakeven
                 if (hitTarget.Label == "T1")
                 {
-                    _currentStopLoss = _breakEvenPrice;
+                    currentStopLoss = breakEvenPrice;
                 }
                 break;
                 
             case StopLossAdjustmentMode.TrailBelowTarget:
                 // Move stop to just below the hit target
-                _currentStopLoss = hitTarget.Price * 0.98; // 2% below target
+                currentStopLoss = hitTarget.Price * 0.98; // 2% below target
                 break;
                 
             case StopLossAdjustmentMode.Progressive:
                 // Progressively tighter stops
                 if (hitTarget.Label == "T1")
-                    _currentStopLoss = _breakEvenPrice;
+                    currentStopLoss = breakEvenPrice;
                 else if (hitTarget.Label == "T2")
-                    _currentStopLoss = _targets.First(t => t.Label == "T1").Price;
+                    currentStopLoss = targets.First(t => t.Label == "T1").Price;
                 else
-                    _currentStopLoss = _targets.FirstOrDefault(t => t.Label == "T2")?.Price ?? _breakEvenPrice;
+                    currentStopLoss = targets.FirstOrDefault(t => t.Label == "T2")?.Price ?? breakEvenPrice;
                 break;
                 
             case StopLossAdjustmentMode.None:
@@ -203,15 +203,15 @@ public sealed class MultiTargetExitManager
     {
         return new ExitSignal
         {
-            Symbol = _symbol,
+            Symbol = symbol,
             Reason = reason,
             Quantity = quantity,
             Price = price,
             TargetLabel = targetLabel,
-            RemainingQuantity = _remainingQuantity,
-            RealizedPnL = (price - _entryPrice) * quantity,
+            RemainingQuantity = remainingQuantity,
+            RealizedPnL = (price - entryPrice) * quantity,
             TotalRealizedPnL = RealizedPnL,
-            NewStopLoss = _currentStopLoss
+            NewStopLoss = currentStopLoss
         };
     }
     
@@ -221,29 +221,29 @@ public sealed class MultiTargetExitManager
     public string GetExitPlan()
     {
         var sb = new System.Text.StringBuilder();
-        sb.AppendLine($"Exit Plan for {_symbol}:");
-        sb.AppendLine($"  Entry: ${_entryPrice:F2} x {_originalQuantity} shares");
-        sb.AppendLine($"  Stop Loss: ${_currentStopLoss:F2}");
+        sb.AppendLine($"Exit Plan for {symbol}:");
+        sb.AppendLine($"  Entry: ${entryPrice:F2} x {originalQuantity} shares");
+        sb.AppendLine($"  Stop Loss: ${currentStopLoss:F2}");
         sb.AppendLine();
         
-        foreach (var target in _targets)
+        foreach (var target in targets)
         {
             var status = target.IsHit ? "[HIT]" : "[---]";
             sb.AppendLine($"  {status} {target.Label}: ${target.Price:F2} - Sell {target.QuantityToSell} shares ({target.PercentToSell}%)");
         }
         
-        if (_exits.Count > 0)
+        if (exits.Count > 0)
         {
             sb.AppendLine();
             sb.AppendLine("  Partial Exits:");
-            foreach (var exit in _exits)
+            foreach (var exit in exits)
             {
                 sb.AppendLine($"    {exit.TargetLabel}: {exit.Quantity} @ ${exit.Price:F2} = ${exit.PnL:+0.00;-0.00}");
             }
             sb.AppendLine($"  Total Realized: ${RealizedPnL:+0.00;-0.00}");
         }
         
-        sb.AppendLine($"  Remaining: {_remainingQuantity} shares");
+        sb.AppendLine($"  Remaining: {remainingQuantity} shares");
         
         return sb.ToString();
     }

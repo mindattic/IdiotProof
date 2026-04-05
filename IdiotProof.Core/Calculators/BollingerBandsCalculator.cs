@@ -1,4 +1,4 @@
-// ============================================================================
+﻿// ============================================================================
 // Bollinger Bands Calculator - Mean Reversion and Volatility Analysis
 // ============================================================================
 //
@@ -34,31 +34,31 @@ namespace IdiotProof.Helpers {
     /// </summary>
     public sealed class BollingerBandsCalculator
     {
-        private readonly int _period;
-        private readonly double _multiplier;
-        private readonly Queue<double> _prices;
+        private readonly int period;
+        private readonly double multiplier;
+        private readonly Queue<double> prices;
         
-        private double _sma;
-        private double _upperBand;
-        private double _lowerBand;
-        private double _percentB;
-        private double _bandwidth;
-        private bool _isReady;
+        private double sma;
+        private double upperBand;
+        private double lowerBand;
+        private double percentB;
+        private double bandwidth;
+        private bool isReady;
 
         /// <summary>
         /// Gets the current Simple Moving Average (middle band).
         /// </summary>
-        public double MiddleBand => _sma;
+        public double MiddleBand => sma;
 
         /// <summary>
         /// Gets the upper Bollinger Band.
         /// </summary>
-        public double UpperBand => _upperBand;
+        public double UpperBand => upperBand;
 
         /// <summary>
         /// Gets the lower Bollinger Band.
         /// </summary>
-        public double LowerBand => _lowerBand;
+        public double LowerBand => lowerBand;
 
         /// <summary>
         /// Gets the %B value indicating position within the bands.
@@ -67,40 +67,40 @@ namespace IdiotProof.Helpers {
         /// 0.5-1.0 = upper half
         /// &gt; 1.0 = above upper band (overbought)
         /// </summary>
-        public double PercentB => _percentB;
+        public double PercentB => percentB;
 
         /// <summary>
         /// Gets the bandwidth as a percentage of the middle band.
         /// Low values indicate a squeeze (potential breakout).
         /// High values indicate high volatility.
         /// </summary>
-        public double Bandwidth => _bandwidth;
+        public double Bandwidth => bandwidth;
 
         /// <summary>
         /// Gets whether the calculator has enough data for reliable values.
         /// </summary>
-        public bool IsReady => _isReady;
+        public bool IsReady => isReady;
 
         /// <summary>
         /// Gets whether price is above the upper band (overbought).
         /// </summary>
-        public bool IsAboveUpperBand => _isReady && _percentB > 1.0;
+        public bool IsAboveUpperBand => isReady && percentB > 1.0;
 
         /// <summary>
         /// Gets whether price is below the lower band (oversold).
         /// </summary>
-        public bool IsBelowLowerBand => _isReady && _percentB < 0.0;
+        public bool IsBelowLowerBand => isReady && percentB < 0.0;
 
         /// <summary>
         /// Gets whether bands are in a squeeze (low volatility, potential breakout).
         /// Typically when bandwidth &lt; 5%.
         /// </summary>
-        public bool IsInSqueeze => _isReady && _bandwidth < 5.0;
+        public bool IsInSqueeze => isReady && bandwidth < 5.0;
 
         /// <summary>
         /// Gets whether bands show high volatility (bandwidth &gt; 15%).
         /// </summary>
-        public bool IsHighVolatility => _isReady && _bandwidth > 15.0;
+        public bool IsHighVolatility => isReady && bandwidth > 15.0;
 
         /// <summary>
         /// Creates a new Bollinger Bands calculator.
@@ -114,9 +114,9 @@ namespace IdiotProof.Helpers {
             if (multiplier <= 0)
                 throw new ArgumentOutOfRangeException(nameof(multiplier), "Multiplier must be positive.");
 
-            _period = period;
-            _multiplier = multiplier;
-            _prices = new Queue<double>(period + 1);
+            this.period = period;
+            this.multiplier = multiplier;
+            prices = new Queue<double>(period + 1);
         }
 
         /// <summary>
@@ -128,46 +128,46 @@ namespace IdiotProof.Helpers {
             if (price <= 0)
                 return;
 
-            _prices.Enqueue(price);
+            prices.Enqueue(price);
 
             // Maintain window size
-            while (_prices.Count > _period)
-                _prices.Dequeue();
+            while (prices.Count > period)
+                prices.Dequeue();
 
             // Need full period for calculation
-            if (_prices.Count < _period)
+            if (prices.Count < period)
             {
-                _isReady = false;
+                isReady = false;
                 return;
             }
 
-            _isReady = true;
+            isReady = true;
 
             // Calculate SMA
             double sum = 0;
-            foreach (var p in _prices)
+            foreach (var p in prices)
                 sum += p;
-            _sma = sum / _period;
+            sma = sum / period;
 
             // Calculate standard deviation
             double sumSquaredDiff = 0;
-            foreach (var p in _prices)
+            foreach (var p in prices)
             {
-                double diff = p - _sma;
+                double diff = p - sma;
                 sumSquaredDiff += diff * diff;
             }
-            double stdDev = Math.Sqrt(sumSquaredDiff / _period);
+            double stdDev = Math.Sqrt(sumSquaredDiff / period);
 
             // Calculate bands
-            _upperBand = _sma + (_multiplier * stdDev);
-            _lowerBand = _sma - (_multiplier * stdDev);
+            upperBand = sma + (multiplier * stdDev);
+            lowerBand = sma - (multiplier * stdDev);
 
             // Calculate %B
-            double bandWidth = _upperBand - _lowerBand;
-            _percentB = bandWidth > 0 ? (price - _lowerBand) / bandWidth : 0.5;
+            double bandWidth = upperBand - lowerBand;
+            percentB = bandWidth > 0 ? (price - lowerBand) / bandWidth : 0.5;
 
             // Calculate bandwidth percentage
-            _bandwidth = _sma > 0 ? (bandWidth / _sma) * 100 : 0;
+            bandwidth = sma > 0 ? (bandWidth / sma) * 100 : 0;
         }
 
         /// <summary>
@@ -178,28 +178,28 @@ namespace IdiotProof.Helpers {
         /// </summary>
         public int GetScore()
         {
-            if (!_isReady)
+            if (!isReady)
                 return 0;
 
             // Below lower band = oversold, bullish reversal potential
-            if (_percentB <= 0.0)
+            if (percentB <= 0.0)
             {
                 // The further below, the more bullish (capped at -0.5)
-                double deviation = Math.Max(-0.5, _percentB);
+                double deviation = Math.Max(-0.5, percentB);
                 return (int)Math.Clamp(-deviation * 200, 0, 100);
             }
 
             // Above upper band = overbought, bearish reversal potential
-            if (_percentB >= 1.0)
+            if (percentB >= 1.0)
             {
                 // The further above, the more bearish (capped at 1.5)
-                double deviation = Math.Min(1.5, _percentB);
+                double deviation = Math.Min(1.5, percentB);
                 return (int)Math.Clamp((1 - deviation) * 200, -100, 0);
             }
 
             // Within bands - slight mean reversion bias toward middle
             // %B 0.5 = 0 score, 0.0 = +25, 1.0 = -25
-            return (int)((_percentB - 0.5) * -50);
+            return (int)((percentB - 0.5) * -50);
         }
 
         /// <summary>
@@ -207,10 +207,10 @@ namespace IdiotProof.Helpers {
         /// </summary>
         public string GetDescription()
         {
-            if (!_isReady)
+            if (!isReady)
                 return "Insufficient data";
 
-            string position = _percentB switch
+            string position = percentB switch
             {
                 < 0 => "OVERSOLD (below lower band)",
                 <= 0.2 => "Lower band zone",
@@ -221,7 +221,7 @@ namespace IdiotProof.Helpers {
                 _ => "OVERBOUGHT (above upper band)"
             };
 
-            string volatility = _bandwidth switch
+            string volatility = bandwidth switch
             {
                 < 3 => "Very tight squeeze",
                 < 5 => "Squeeze",
@@ -230,10 +230,10 @@ namespace IdiotProof.Helpers {
                 _ => "High volatility"
             };
 
-            return $"{position} | %B: {_percentB:F2} | Band: {volatility} ({_bandwidth:F1}%)";
+            return $"{position} | %B: {percentB:F2} | Band: {volatility} ({bandwidth:F1}%)";
         }
 
         public override string ToString() =>
-            $"BB({_period},{_multiplier}): Lower={_lowerBand:F2} Mid={_sma:F2} Upper={_upperBand:F2} | %B={_percentB:F2} | BW={_bandwidth:F1}%";
+            $"BB({period},{multiplier}): Lower={lowerBand:F2} Mid={sma:F2} Upper={upperBand:F2} | %B={percentB:F2} | BW={bandwidth:F1}%";
     }
 }

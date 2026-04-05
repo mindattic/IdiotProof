@@ -1,4 +1,4 @@
-// ============================================================================
+﻿// ============================================================================
 // On-Balance Volume (OBV) Calculator - Volume Flow Analysis
 // ============================================================================
 //
@@ -26,51 +26,51 @@ namespace IdiotProof.Helpers {
     /// </summary>
     public sealed class ObvCalculator
     {
-        private readonly int _emaPeriod;
-        private readonly Queue<double> _obvValues;
-        private readonly Queue<double> _prices;
+        private readonly int emaPeriod;
+        private readonly Queue<double> obvValues;
+        private readonly Queue<double> prices;
 
-        private double _obv;
-        private double _previousClose;
-        private double _obvEma;
-        private double _previousObv;
-        private bool _isReady;
-        private int _barCount;
+        private double obv;
+        private double previousClose;
+        private double obvEma;
+        private double previousObv;
+        private bool isReady;
+        private int barCount;
 
         /// <summary>
         /// Gets the current OBV value.
         /// </summary>
-        public double CurrentObv => _obv;
+        public double CurrentObv => obv;
 
         /// <summary>
         /// Gets the OBV EMA for smoothing.
         /// </summary>
-        public double ObvEma => _obvEma;
+        public double ObvEma => obvEma;
 
         /// <summary>
         /// Gets whether the calculator has enough data.
         /// </summary>
-        public bool IsReady => _isReady;
+        public bool IsReady => isReady;
 
         /// <summary>
         /// Gets whether OBV is rising (accumulation).
         /// </summary>
-        public bool IsRising => _isReady && _obv > _previousObv;
+        public bool IsRising => isReady && obv > previousObv;
 
         /// <summary>
         /// Gets whether OBV is falling (distribution).
         /// </summary>
-        public bool IsFalling => _isReady && _obv < _previousObv;
+        public bool IsFalling => isReady && obv < previousObv;
 
         /// <summary>
         /// Gets whether OBV is above its EMA (bullish volume flow).
         /// </summary>
-        public bool IsAboveEma => _isReady && _obv > _obvEma;
+        public bool IsAboveEma => isReady && obv > obvEma;
 
         /// <summary>
         /// Gets whether OBV is below its EMA (bearish volume flow).
         /// </summary>
-        public bool IsBelowEma => _isReady && _obv < _obvEma;
+        public bool IsBelowEma => isReady && obv < obvEma;
 
         /// <summary>
         /// Creates a new OBV calculator.
@@ -78,9 +78,9 @@ namespace IdiotProof.Helpers {
         /// <param name="emaPeriod">Period for OBV EMA smoothing (default: 20).</param>
         public ObvCalculator(int emaPeriod = 20)
         {
-            _emaPeriod = emaPeriod;
-            _obvValues = new Queue<double>(emaPeriod + 1);
-            _prices = new Queue<double>(10);
+            this.emaPeriod = emaPeriod;
+            obvValues = new Queue<double>(emaPeriod + 1);
+            prices = new Queue<double>(10);
         }
 
         /// <summary>
@@ -91,31 +91,31 @@ namespace IdiotProof.Helpers {
             if (close <= 0 || volume < 0)
                 return;
 
-            _barCount++;
-            _previousObv = _obv;
+            barCount++;
+            previousObv = obv;
 
-            if (_previousClose > 0)
+            if (previousClose > 0)
             {
-                if (close > _previousClose)
-                    _obv += volume;
-                else if (close < _previousClose)
-                    _obv -= volume;
+                if (close > previousClose)
+                    obv += volume;
+                else if (close < previousClose)
+                    obv -= volume;
                 // If equal, OBV stays the same
             }
 
-            _previousClose = close;
-            _prices.Enqueue(close);
-            while (_prices.Count > 10) _prices.Dequeue();
+            previousClose = close;
+            prices.Enqueue(close);
+            while (prices.Count > 10) prices.Dequeue();
 
             // Update OBV EMA
-            _obvValues.Enqueue(_obv);
-            while (_obvValues.Count > _emaPeriod) _obvValues.Dequeue();
+            obvValues.Enqueue(obv);
+            while (obvValues.Count > emaPeriod) obvValues.Dequeue();
 
-            if (_obvValues.Count >= _emaPeriod)
+            if (obvValues.Count >= emaPeriod)
             {
                 // Simple moving average for smoothing
-                _obvEma = _obvValues.Average();
-                _isReady = true;
+                obvEma = obvValues.Average();
+                isReady = true;
             }
         }
 
@@ -125,12 +125,12 @@ namespace IdiotProof.Helpers {
         /// </summary>
         public int GetDivergenceScore()
         {
-            if (!_isReady || _prices.Count < 5)
+            if (!isReady || prices.Count < 5)
                 return 0;
 
-            var priceList = _prices.ToList();
+            var priceList = prices.ToList();
             var recentPriceSlope = (priceList[^1] - priceList[^5]) / priceList[^5];
-            var recentObvSlope = _previousObv != 0 ? (_obv - _previousObv) / Math.Abs(_previousObv) : 0;
+            var recentObvSlope = previousObv != 0 ? (obv - previousObv) / Math.Abs(previousObv) : 0;
 
             // Bullish divergence: price down, OBV up
             if (recentPriceSlope < -0.01 && recentObvSlope > 0.01)
@@ -148,13 +148,13 @@ namespace IdiotProof.Helpers {
         /// </summary>
         public int GetScore()
         {
-            if (!_isReady)
+            if (!isReady)
                 return 0;
 
             int score = 0;
 
             // OBV above/below EMA
-            double obvDiff = (_obv - _obvEma) / Math.Max(Math.Abs(_obvEma), 1);
+            double obvDiff = (obv - obvEma) / Math.Max(Math.Abs(obvEma), 1);
             score += (int)Math.Clamp(obvDiff * 100, -40, 40);
 
             // Rising/Falling OBV

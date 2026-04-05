@@ -1,4 +1,4 @@
-using System.Collections.Concurrent;
+﻿using System.Collections.Concurrent;
 using IdiotProof.Models;
 
 namespace IdiotProof.Brokers;
@@ -8,7 +8,7 @@ namespace IdiotProof.Brokers;
 /// </summary>
 public sealed class SandboxBrokerClient : IBrokerClient
 {
-    private readonly ConcurrentDictionary<string, Position> _positions = new();
+    private readonly ConcurrentDictionary<string, Position> positions = new();
 
     public BrokerType BrokerType => BrokerType.Sandbox;
     public bool IsConnected => true;
@@ -39,7 +39,7 @@ public sealed class SandboxBrokerClient : IBrokerClient
 
     public Task<IReadOnlyList<Position>> GetPositionsAsync(CancellationToken ct = default)
     {
-        IReadOnlyList<Position> positions = _positions.Values.ToList();
-        return Task.FromResult(positions);
+        IReadOnlyList<Position> result = this.positions.Values.ToList();
+        return Task.FromResult(result);
     }
 }

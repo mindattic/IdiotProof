@@ -1,4 +1,4 @@
-using System.Runtime.CompilerServices;
+﻿using System.Runtime.CompilerServices;
 using IdiotProof.Models;
 
 namespace IdiotProof.DataFeeds;
@@ -8,31 +8,31 @@ namespace IdiotProof.DataFeeds;
 /// </summary>
 public sealed class SwitchableMarketDataFeed : IMarketDataFeed
 {
-    private readonly Dictionary<string, IMarketDataFeed> _feeds = new(StringComparer.OrdinalIgnoreCase);
-    private string _activeFeedName;
+    private readonly Dictionary<string, IMarketDataFeed> feeds = new(StringComparer.OrdinalIgnoreCase);
+    private string activeFeedName;
 
-    public string FeedName => _activeFeedName;
+    public string FeedName => activeFeedName;
 
     public SwitchableMarketDataFeed(string defaultFeedName = "Polygon")
     {
-        _activeFeedName = defaultFeedName;
+        activeFeedName = defaultFeedName;
     }
 
     public void Register(IMarketDataFeed feed)
     {
-        _feeds[feed.FeedName] = feed;
+        feeds[feed.FeedName] = feed;
     }
 
     public void SetActiveFeed(string feedName)
     {
-        _activeFeedName = feedName;
+        activeFeedName = feedName;
     }
 
     private IMarketDataFeed GetActive()
     {
-        if (_feeds.TryGetValue(_activeFeedName, out var feed))
+        if (feeds.TryGetValue(activeFeedName, out var feed))
             return feed;
-        return _feeds.Values.FirstOrDefault()
+        return feeds.Values.FirstOrDefault()
             ?? throw new InvalidOperationException("No market data feeds registered.");
     }
 

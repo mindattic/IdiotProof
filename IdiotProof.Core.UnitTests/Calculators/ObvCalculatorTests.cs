@@ -1,4 +1,4 @@
-// ============================================================================
+﻿// ============================================================================
 // OBV Calculator Tests - Validates On-Balance Volume with real data
 // ============================================================================
 
@@ -10,12 +10,12 @@ namespace IdiotProof.Core.UnitTests.Calculators;
 [TestFixture]
 public class ObvCalculatorTests
 {
-    private List<TestBar> _bars = null!;
+    private List<TestBar> bars = null!;
 
     [OneTimeSetUp]
     public void LoadData()
     {
-        _bars = TestDataLoader.LoadBars("NVDA", 200);
+        bars = TestDataLoader.LoadBars("NVDA", 200);
     }
 
     // ========================================================================
@@ -121,7 +121,7 @@ public class ObvCalculatorTests
         var obv = new ObvCalculator(10);
 
         for (int i = 0; i < 50; i++)
-            obv.Update(_bars[i].Close, _bars[i].Volume);
+            obv.Update(bars[i].Close, bars[i].Volume);
 
         if (obv.IsReady)
         {
@@ -164,7 +164,7 @@ public class ObvCalculatorTests
         var obv = new ObvCalculator(20);
 
         for (int i = 0; i < 100; i++)
-            obv.Update(_bars[i].Close, _bars[i].Volume);
+            obv.Update(bars[i].Close, bars[i].Volume);
 
         Assert.That(obv.CurrentObv, Is.Not.EqualTo(0),
             "OBV with 100 bars of real NVDA data should be non-zero");

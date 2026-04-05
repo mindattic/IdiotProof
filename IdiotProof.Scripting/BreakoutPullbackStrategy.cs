@@ -1,4 +1,4 @@
-// ============================================================================
+﻿// ============================================================================
 // BreakoutPullbackStrategy - Generates "No Break, No Trade" strategies
 // ============================================================================
 //
@@ -21,66 +21,66 @@ namespace IdiotProof.Scripting;
 /// </summary>
 public sealed class BreakoutPullbackStrategyBuilder
 {
-    private string _symbol = "";
-    private string? _name;
-    private TradingSession _session = TradingSession.RTH;
-    private int _quantity = 0;  // Auto-calculate based on price tier
+    private string symbol = "";
+    private string? name;
+    private TradingSession session = TradingSession.RTH;
+    private int quantity = 0;  // Auto-calculate based on price tier
     
     // Levels
-    private double _trigger;      // Breakout level (resistance)
-    private double _support;      // Must hold this after breakout
-    private double _invalidation; // Stop loss level
-    private List<double> _targets = [];
+    private double trigger;      // Breakout level (resistance)
+    private double support;      // Must hold this after breakout
+    private double invalidation; // Stop loss level
+    private List<double> targets = [];
     
     // Pattern info
-    private string _bias = "Bullish continuation";
-    private string _pattern = "Breakout pullback";
+    private string bias = "Bullish continuation";
+    private string pattern = "Breakout pullback";
     
     /// <summary>
     /// Creates a new breakout-pullback strategy for the given symbol.
     /// </summary>
-    public static BreakoutPullbackStrategyBuilder Create(string symbol) => new() { _symbol = symbol.ToUpperInvariant() };
+    public static BreakoutPullbackStrategyBuilder Create(string symbol) => new() { symbol = symbol.ToUpperInvariant() };
     
-    public BreakoutPullbackStrategyBuilder WithName(string name) { _name = name; return this; }
-    public BreakoutPullbackStrategyBuilder WithSession(TradingSession session) { _session = session; return this; }
-    public BreakoutPullbackStrategyBuilder WithQuantity(int qty) { _quantity = qty; return this; }
+    public BreakoutPullbackStrategyBuilder WithName(string name) { this.name = name; return this; }
+    public BreakoutPullbackStrategyBuilder WithSession(TradingSession session) { this.session = session; return this; }
+    public BreakoutPullbackStrategyBuilder WithQuantity(int qty) { quantity = qty; return this; }
     
     /// <summary>
     /// Sets the breakout trigger level (resistance that must break).
     /// </summary>
-    public BreakoutPullbackStrategyBuilder Trigger(double price) { _trigger = price; return this; }
+    public BreakoutPullbackStrategyBuilder Trigger(double price) { trigger = price; return this; }
     
     /// <summary>
     /// Sets the support level that must hold after breakout for confirmation.
     /// If not set, defaults to the trigger level (resistance becomes support).
     /// </summary>
-    public BreakoutPullbackStrategyBuilder Support(double price) { _support = price; return this; }
+    public BreakoutPullbackStrategyBuilder Support(double price) { support = price; return this; }
     
     /// <summary>
     /// Sets the invalidation level (where to stop out if pattern fails).
     /// If not set, calculated as 2% below support.
     /// </summary>
-    public BreakoutPullbackStrategyBuilder Invalidation(double price) { _invalidation = price; return this; }
+    public BreakoutPullbackStrategyBuilder Invalidation(double price) { invalidation = price; return this; }
     
     /// <summary>
     /// Adds a target price level. Call multiple times for T1, T2, T3, etc.
     /// </summary>
-    public BreakoutPullbackStrategyBuilder Target(double price) { _targets.Add(price); return this; }
+    public BreakoutPullbackStrategyBuilder Target(double price) { targets.Add(price); return this; }
     
     /// <summary>
     /// Adds multiple targets at once.
     /// </summary>
-    public BreakoutPullbackStrategyBuilder Targets(params double[] prices) { _targets.AddRange(prices); return this; }
+    public BreakoutPullbackStrategyBuilder Targets(params double[] prices) { targets.AddRange(prices); return this; }
     
     /// <summary>
     /// Sets the pattern description (e.g., "Coiled wedge breakout").
     /// </summary>
-    public BreakoutPullbackStrategyBuilder Pattern(string pattern) { _pattern = pattern; return this; }
+    public BreakoutPullbackStrategyBuilder Pattern(string pattern) { this.pattern = pattern; return this; }
     
     /// <summary>
     /// Sets the bias description (e.g., "Bullish continuation").
     /// </summary>
-    public BreakoutPullbackStrategyBuilder Bias(string bias) { _bias = bias; return this; }
+    public BreakoutPullbackStrategyBuilder Bias(string bias) { this.bias = bias; return this; }
     
     /// <summary>
     /// Auto-calculates targets based on support level and risk:reward ratios.
@@ -90,53 +90,53 @@ public sealed class BreakoutPullbackStrategyBuilder
     /// <param name="riskReward3">R:R for T3 (default 4.0, optional)</param>
     public BreakoutPullbackStrategyBuilder AutoTargets(double riskReward1 = 1.5, double riskReward2 = 2.5, double riskReward3 = 0)
     {
-        if (_trigger <= 0) throw new InvalidOperationException("Set Trigger() before AutoTargets()");
+        if (trigger <= 0) throw new InvalidOperationException("Set Trigger() before AutoTargets()");
         
-        var support = _support > 0 ? _support : _trigger;
-        var invalidation = _invalidation > 0 ? _invalidation : support * 0.98; // 2% below support
-        
+        var effectiveSupport = this.support > 0 ? this.support : trigger;
+        var effectiveInvalidation = this.invalidation > 0 ? this.invalidation : effectiveSupport * 0.98; // 2% below support
+
         // Entry is assumed near trigger level
-        var entry = _trigger;
-        var risk = entry - invalidation;
-        
-        _targets.Clear();
-        _targets.Add(Math.Round(entry + risk * riskReward1, 2));  // T1
-        _targets.Add(Math.Round(entry + risk * riskReward2, 2));  // T2
+        var entry = trigger;
+        var risk = entry - effectiveInvalidation;
+
+        targets.Clear();
+        targets.Add(Math.Round(entry + risk * riskReward1, 2));  // T1
+        targets.Add(Math.Round(entry + risk * riskReward2, 2));  // T2
         if (riskReward3 > 0)
-            _targets.Add(Math.Round(entry + risk * riskReward3, 2));  // T3
-        
+            targets.Add(Math.Round(entry + risk * riskReward3, 2));  // T3
+
         return this;
     }
-    
+
     /// <summary>
     /// Builds the strategy definition.
     /// </summary>
     public StrategyDefinition Build()
     {
-        if (string.IsNullOrEmpty(_symbol))
+        if (string.IsNullOrEmpty(symbol))
             throw new InvalidOperationException("Symbol is required");
-        if (_trigger <= 0)
+        if (trigger <= 0)
             throw new InvalidOperationException("Trigger level is required");
-        
+
         // Calculate defaults
-        var support = _support > 0 ? _support : _trigger;
-        var invalidation = _invalidation > 0 ? _invalidation : support * 0.98;
-        var primaryTarget = _targets.Count > 0 ? _targets[0] : _trigger * 1.15;
+        var effectiveSupport = this.support > 0 ? this.support : trigger;
+        var effectiveInvalidation = this.invalidation > 0 ? this.invalidation : effectiveSupport * 0.98;
+        var primaryTarget = targets.Count > 0 ? targets[0] : trigger * 1.15;
         
         var strategy = new StrategyDefinition
         {
-            Symbol = _symbol,
-            Name = _name ?? $"{_symbol} Breakout-Pullback",
-            Session = _session,
-            Quantity = _quantity,
+            Symbol = symbol,
+            Name = name ?? $"{symbol} Breakout-Pullback",
+            Session = session,
+            Quantity = quantity,
             Direction = TradeDirection.Long,
             TakeProfitPrice = primaryTarget,
-            StopLossPrice = invalidation
+            StopLossPrice = effectiveInvalidation
         };
-        
+
         // Entry conditions: Breakout then Pullback then VWAP hold
-        strategy.EntryConditions.Add(new PatternCondition(PatternType.Breakout, _trigger));
-        strategy.EntryConditions.Add(new PatternCondition(PatternType.Pullback, support));
+        strategy.EntryConditions.Add(new PatternCondition(PatternType.Breakout, trigger));
+        strategy.EntryConditions.Add(new PatternCondition(PatternType.Pullback, effectiveSupport));
         strategy.EntryConditions.Add(new IndicatorCondition(IndicatorType.VwapAbove));
         
         return strategy;
@@ -147,29 +147,29 @@ public sealed class BreakoutPullbackStrategyBuilder
     /// </summary>
     public string ToScript()
     {
-        var support = _support > 0 ? _support : _trigger;
-        var invalidation = _invalidation > 0 ? _invalidation : support * 0.98;
-        var primaryTarget = _targets.Count > 0 ? _targets[0] : _trigger * 1.15;
-        
-        var script = $@"// {_symbol} - {_bias}
-// Pattern: {_pattern}
-// Trigger: Break over ${_trigger:F2}
-// Support: ${support:F2}
+        var effectiveSupport = this.support > 0 ? this.support : trigger;
+        var effectiveInvalidation = this.invalidation > 0 ? this.invalidation : effectiveSupport * 0.98;
+        var primaryTarget = targets.Count > 0 ? targets[0] : trigger * 1.15;
+
+        var script = $@"// {symbol} - {bias}
+// Pattern: {pattern}
+// Trigger: Break over ${trigger:F2}
+// Support: ${effectiveSupport:F2}
 // Rule: NO BREAK, NO TRADE
 
-Ticker({_symbol})
-    .Name(""{_name ?? $"{_symbol} Breakout-Pullback"}"")
-    .Session(IS.{_session.ToString().ToUpperInvariant()})
-    .Breakout({_trigger})
-    .Pullback({support})
+Ticker({symbol})
+    .Name(""{name ?? $"{symbol} Breakout-Pullback"}"")
+    .Session(IS.{session.ToString().ToUpperInvariant()})
+    .Breakout({trigger})
+    .Pullback({effectiveSupport})
     .IsAboveVwap()
     .Long()
     .TakeProfit({primaryTarget})
-    .StopLoss({invalidation})";
+    .StopLoss({effectiveInvalidation})";
 
-        if (_targets.Count > 1)
+        if (targets.Count > 1)
         {
-            script += $"\n    // Additional targets: {string.Join(", ", _targets.Skip(1).Select(t => $"${t:F2}"))}";
+            script += $"\n    // Additional targets: {string.Join(", ", targets.Skip(1).Select(t => $"${t:F2}"))}";
         }
         
         return script;
@@ -180,37 +180,37 @@ Ticker({_symbol})
     /// </summary>
     public string ToStrategyCard()
     {
-        var support = _support > 0 ? _support : _trigger;
-        var invalidation = _invalidation > 0 ? _invalidation : support * 0.98;
-        
+        var effectiveSupport = this.support > 0 ? this.support : trigger;
+        var effectiveInvalidation = this.invalidation > 0 ? this.invalidation : effectiveSupport * 0.98;
+
         var card = $@"
 ╔═══════════════════════════════════════════════════════════════════════════════╗
-║  {_symbol,-10} {_bias,-30}                            ║
+║  {symbol,-10} {bias,-30}                            ║
 ╠═══════════════════════════════════════════════════════════════════════════════╣
-║  Pattern: {_pattern,-60}  ║
+║  Pattern: {pattern,-60}  ║
 ║                                                                               ║
-║  Trigger:      Break over ${_trigger,-8:F2}                                     ║
+║  Trigger:      Break over ${trigger,-8:F2}                                     ║
 ║                                                                               ║
 ║  Confirmation:                                                                ║
 ║    • Pullback after breakout                                                  ║
 ║    • Holds / reclaims VWAP                                                    ║
-║    • Holds above ${support,-8:F2}                                               ║
+║    • Holds above ${effectiveSupport,-8:F2}                                               ║
 ║                                                                               ║
 ║  Entry:        On confirmed VWAP hold after breakout                          ║
 ║                                                                               ║
 ║  Targets:";
 
-        for (int i = 0; i < _targets.Count; i++)
+        for (int i = 0; i < targets.Count; i++)
         {
-            var pct = ((_targets[i] - _trigger) / _trigger * 100);
-            card += $"\n║    T{i + 1}: ${_targets[i],-8:F2} ({pct:+0.0}%)                                              ";
+            var pct = ((targets[i] - trigger) / trigger * 100);
+            card += $"\n║    T{i + 1}: ${targets[i],-8:F2} ({pct:+0.0}%)                                              ";
         }
         
         card += $@"
 ║                                                                               ║
 ║  Invalidation:                                                                ║
-║    • No break over ${_trigger:F2}                                                ║
-║    • Loss of VWAP and ${support:F2} after breakout                              ║
+║    • No break over ${trigger:F2}                                                ║
+║    • Loss of VWAP and ${effectiveSupport:F2} after breakout                              ║
 ║                                                                               ║
 ║  Rule: NO BREAK, NO TRADE.                                                    ║
 ╚═══════════════════════════════════════════════════════════════════════════════╝";

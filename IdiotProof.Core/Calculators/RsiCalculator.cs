@@ -1,4 +1,4 @@
-// ============================================================================
+﻿// ============================================================================
 // RSI Calculator - Relative Strength Index
 // ============================================================================
 //
@@ -27,27 +27,27 @@ namespace IdiotProof.Helpers {
     /// </summary>
     public sealed class RsiCalculator
     {
-        private readonly int _period;
-        private double _avgGain;
-        private double _avgLoss;
-        private double _previousClose;
-        private int _dataPoints;
-        private double _currentRsi;
+        private readonly int period;
+        private double avgGain;
+        private double avgLoss;
+        private double previousClose;
+        private int dataPoints;
+        private double currentRsi;
 
         /// <summary>
         /// Gets the RSI period.
         /// </summary>
-        public int Period => _period;
+        public int Period => period;
 
         /// <summary>
         /// Gets the current RSI value (0-100).
         /// </summary>
-        public double CurrentValue => _currentRsi;
+        public double CurrentValue => currentRsi;
 
         /// <summary>
         /// Gets whether the calculator has enough data to produce valid RSI.
         /// </summary>
-        public bool IsReady => _dataPoints > _period;
+        public bool IsReady => dataPoints > period;
 
         /// <summary>
         /// Creates a new RSI calculator.
@@ -58,7 +58,7 @@ namespace IdiotProof.Helpers {
             if (period < 1)
                 throw new ArgumentOutOfRangeException(nameof(period), "Period must be at least 1.");
 
-            _period = period;
+            this.period = period;
         }
 
         /// <summary>
@@ -69,54 +69,54 @@ namespace IdiotProof.Helpers {
         public double Update(double closePrice)
         {
             if (closePrice <= 0)
-                return _currentRsi;
+                return currentRsi;
 
-            _dataPoints++;
+            dataPoints++;
 
-            if (_dataPoints == 1)
+            if (dataPoints == 1)
             {
                 // First data point - just store it
-                _previousClose = closePrice;
-                _currentRsi = 50; // Neutral default
-                return _currentRsi;
+                previousClose = closePrice;
+                currentRsi = 50; // Neutral default
+                return currentRsi;
             }
 
             // Calculate change
-            double change = closePrice - _previousClose;
+            double change = closePrice - previousClose;
             double gain = change > 0 ? change : 0;
             double loss = change < 0 ? -change : 0;
 
-            if (_dataPoints <= _period + 1)
+            if (dataPoints <= period + 1)
             {
                 // Initial period - use simple average
-                _avgGain = ((_avgGain * (_dataPoints - 2)) + gain) / (_dataPoints - 1);
-                _avgLoss = ((_avgLoss * (_dataPoints - 2)) + loss) / (_dataPoints - 1);
+                avgGain = ((avgGain * (dataPoints - 2)) + gain) / (dataPoints - 1);
+                avgLoss = ((avgLoss * (dataPoints - 2)) + loss) / (dataPoints - 1);
             }
             else
             {
                 // Smoothed average (Wilder's smoothing)
-                _avgGain = ((_avgGain * (_period - 1)) + gain) / _period;
-                _avgLoss = ((_avgLoss * (_period - 1)) + loss) / _period;
+                avgGain = ((avgGain * (period - 1)) + gain) / period;
+                avgLoss = ((avgLoss * (period - 1)) + loss) / period;
             }
 
-            _previousClose = closePrice;
+            previousClose = closePrice;
 
             // Calculate RSI
-            if (_avgLoss == 0)
+            if (avgLoss == 0)
             {
-                _currentRsi = 100; // No losses = maximum RSI
+                currentRsi = 100; // No losses = maximum RSI
             }
-            else if (_avgGain == 0)
+            else if (avgGain == 0)
             {
-                _currentRsi = 0; // No gains = minimum RSI
+                currentRsi = 0; // No gains = minimum RSI
             }
             else
             {
-                double rs = _avgGain / _avgLoss;
-                _currentRsi = 100 - (100 / (1 + rs));
+                double rs = avgGain / avgLoss;
+                currentRsi = 100 - (100 / (1 + rs));
             }
 
-            return _currentRsi;
+            return currentRsi;
         }
 
         /// <summary>
@@ -124,11 +124,11 @@ namespace IdiotProof.Helpers {
         /// </summary>
         public void Reset()
         {
-            _avgGain = 0;
-            _avgLoss = 0;
-            _previousClose = 0;
-            _dataPoints = 0;
-            _currentRsi = 0;
+            avgGain = 0;
+            avgLoss = 0;
+            previousClose = 0;
+            dataPoints = 0;
+            currentRsi = 0;
         }
     }
 }

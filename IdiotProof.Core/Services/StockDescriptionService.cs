@@ -57,8 +57,8 @@ public static class StockDescriptionService
     private const string DescriptionFileSuffix = ".description.json";
     private static readonly TimeSpan CacheExpiry = TimeSpan.FromDays(30); // Descriptions rarely change
     
-    private static Dictionary<string, StockDescriptionEntry>? _cache;
-    private static readonly object _lock = new();
+    private static Dictionary<string, StockDescriptionEntry>? cache;
+    private static readonly object lockObj = new();
     
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
@@ -144,13 +144,13 @@ public static class StockDescriptionService
     /// </summary>
     private static void EnsureCacheLoaded()
     {
-        if (_cache != null) return;
+        if (cache != null) return;
 
-        lock (_lock)
+        lock (lockObj)
         {
-            if (_cache != null) return;
+            if (cache != null) return;
 
-            _cache = new Dictionary<string, StockDescriptionEntry>(StringComparer.OrdinalIgnoreCase);
+            cache = new Dictionary<string, StockDescriptionEntry>(StringComparer.OrdinalIgnoreCase);
             var dataFolder = SettingsManager.GetDataFolder();
 
             if (!Directory.Exists(dataFolder))
@@ -166,7 +166,7 @@ public static class StockDescriptionService
                     var entry = JsonSerializer.Deserialize<StockDescriptionEntry>(json, JsonOptions);
                     if (entry != null && !string.IsNullOrEmpty(entry.Symbol))
                     {
-                        _cache[entry.Symbol] = entry;
+                        cache[entry.Symbol] = entry;
                     }
                 }
                 catch
@@ -243,9 +243,9 @@ public static class StockDescriptionService
         }
 
         // Check cache
-        lock (_lock)
+        lock (lockObj)
         {
-            if (_cache!.TryGetValue(symbol, out var cached))
+            if (cache!.TryGetValue(symbol, out var cached))
             {
                 if (DateTime.UtcNow - cached.FetchedAt < CacheExpiry)
                 {
@@ -286,9 +286,9 @@ public static class StockDescriptionService
             }
 
             // Check cache
-            lock (_lock)
+            lock (lockObj)
             {
-                if (_cache!.TryGetValue(s, out var cached) && 
+                if (cache!.TryGetValue(s, out var cached) && 
                     DateTime.UtcNow - cached.FetchedAt < CacheExpiry)
                 {
                     result[s] = cached.Description;
@@ -316,9 +316,9 @@ public static class StockDescriptionService
                         FetchedAt = DateTime.UtcNow
                     };
                     
-                    lock (_lock)
+                    lock (lockObj)
                     {
-                        _cache![kvp.Key] = entry;
+                        cache![kvp.Key] = entry;
                     }
                     
                     // Save each ticker to its own file
@@ -451,9 +451,9 @@ public static class StockDescriptionService
             FetchedAt = DateTime.UtcNow
         };
 
-        lock (_lock)
+        lock (lockObj)
         {
-            _cache![symbol] = entry;
+            cache![symbol] = entry;
         }
         
         // Save to individual file
@@ -479,9 +479,9 @@ public static class StockDescriptionService
 
         // Check cache
         EnsureCacheLoaded();
-        lock (_lock)
+        lock (lockObj)
         {
-            if (_cache!.TryGetValue(symbol, out var cached) && 
+            if (cache!.TryGetValue(symbol, out var cached) && 
                 DateTime.UtcNow - cached.FetchedAt < CacheExpiry)
             {
                 return cached.Description;
@@ -509,9 +509,9 @@ public static class StockDescriptionService
                 continue;
 
             // Skip cached
-            lock (_lock)
+            lock (lockObj)
             {
-                if (_cache!.TryGetValue(s, out var cached) && 
+                if (cache!.TryGetValue(s, out var cached) && 
                     DateTime.UtcNow - cached.FetchedAt < CacheExpiry)
                     continue;
             }

@@ -1,4 +1,4 @@
-using IdiotProof.Models;
+﻿using IdiotProof.Models;
 
 namespace IdiotProof.Brokers;
 
@@ -9,50 +9,50 @@ namespace IdiotProof.Brokers;
 /// </summary>
 public sealed class IbkrBrokerClient : IBrokerClient, IDisposable
 {
-    private readonly string _host;
-    private readonly int _port;
-    private readonly int _clientId;
-    private IBApi.EClientSocket? _socket;
-    private IBApi.EReaderMonitorSignal? _signal;
-    private bool _connected;
+    private readonly string host;
+    private readonly int port;
+    private readonly int clientId;
+    private IBApi.EClientSocket? socket;
+    private IBApi.EReaderMonitorSignal? signal;
+    private bool connected;
 
     public BrokerType BrokerType => BrokerType.Ibkr;
-    public bool IsConnected => _connected && (_socket?.IsConnected() ?? false);
+    public bool IsConnected => connected && (socket?.IsConnected() ?? false);
 
     public IbkrBrokerClient(string host = "127.0.0.1", int port = 4002, int clientId = 99)
     {
-        _host = host;
-        _port = port;
-        _clientId = clientId;
+        this.host = host;
+        this.port = port;
+        this.clientId = clientId;
     }
 
     public Task<bool> ConnectAsync(CancellationToken ct = default)
     {
         try
         {
-            _signal = new IBApi.EReaderMonitorSignal();
+            signal = new IBApi.EReaderMonitorSignal();
             var wrapper = new IbkrWrapper();
-            _socket = new IBApi.EClientSocket(wrapper, _signal);
-            _socket.eConnect(_host, _port, _clientId);
+            socket = new IBApi.EClientSocket(wrapper, signal);
+            socket.eConnect(host, port, clientId);
 
             // Start EReader pump
-            var reader = new IBApi.EReader(_socket, _signal);
+            var reader = new IBApi.EReader(socket, signal);
             reader.Start();
             Task.Factory.StartNew(() =>
             {
-                while (_socket.IsConnected())
+                while (socket.IsConnected())
                 {
-                    _signal.waitForSignal();
+                    signal.waitForSignal();
                     reader.processMsgs();
                 }
             }, TaskCreationOptions.LongRunning);
 
-            _connected = _socket.IsConnected();
-            return Task.FromResult(_connected);
+            connected = socket.IsConnected();
+            return Task.FromResult(connected);
         }
         catch (Exception ex)
         {
-            _connected = false;
+            connected = false;
             System.Diagnostics.Debug.WriteLine($"IBKR connect failed: {ex.Message}");
             return Task.FromResult(false);
         }
@@ -60,14 +60,14 @@ public sealed class IbkrBrokerClient : IBrokerClient, IDisposable
 
     public Task DisconnectAsync()
     {
-        _socket?.eDisconnect();
-        _connected = false;
+        socket?.eDisconnect();
+        connected = false;
         return Task.CompletedTask;
     }
 
     public Task<OrderResult> PlaceOrderAsync(OrderRequest request, CancellationToken ct = default)
     {
-        // TODO: Full order placement via _socket.placeOrder()
+        // TODO: Full order placement via socket.placeOrder()
         return Task.FromResult(new OrderResult
         {
             IsSuccess = false,
@@ -93,7 +93,7 @@ public sealed class IbkrBrokerClient : IBrokerClient, IDisposable
 
     public void Dispose()
     {
-        _socket?.eDisconnect();
+        socket?.eDisconnect();
     }
 }
 

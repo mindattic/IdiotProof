@@ -1,4 +1,4 @@
-namespace IdiotProof.Engine.Storage;
+﻿namespace IdiotProof.Engine.Storage;
 
 /// <summary>
 /// Abstracts file paths for Web vs Desktop storage.
@@ -21,17 +21,17 @@ public interface IStorageProvider
 /// </summary>
 public sealed class WebStorageProvider : IStorageProvider
 {
-    private readonly string _basePath;
+    private readonly string basePath;
 
     public WebStorageProvider(string? basePath = null)
     {
-        _basePath = basePath ?? Path.Combine(AppContext.BaseDirectory, "AppData");
+        basePath = basePath ?? Path.Combine(AppContext.BaseDirectory, "AppData");
     }
 
-    public string SettingsPath => Path.Combine(_basePath, "Settings");
-    public string WorkspacesPath => Path.Combine(_basePath, "Workspaces");
-    public string DataPath => Path.Combine(_basePath, "Data");
-    public string LogsPath => Path.Combine(_basePath, "Logs");
+    public string SettingsPath => Path.Combine(basePath, "Settings");
+    public string WorkspacesPath => Path.Combine(basePath, "Workspaces");
+    public string DataPath => Path.Combine(basePath, "Data");
+    public string LogsPath => Path.Combine(basePath, "Logs");
 
     public void EnsureDirectories()
     {
@@ -47,19 +47,19 @@ public sealed class WebStorageProvider : IStorageProvider
 /// </summary>
 public sealed class DesktopStorageProvider : IStorageProvider
 {
-    private readonly string _basePath;
+    private readonly string basePath;
 
     public DesktopStorageProvider()
     {
-        _basePath = Path.Combine(
+        basePath = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
             "MindAttic");
     }
 
-    public string SettingsPath => Path.Combine(_basePath, "Settings");
-    public string WorkspacesPath => Path.Combine(_basePath, "Workspaces");
-    public string DataPath => Path.Combine(_basePath, "Data");
-    public string LogsPath => Path.Combine(_basePath, "Logs");
+    public string SettingsPath => Path.Combine(basePath, "Settings");
+    public string WorkspacesPath => Path.Combine(basePath, "Workspaces");
+    public string DataPath => Path.Combine(basePath, "Data");
+    public string LogsPath => Path.Combine(basePath, "Logs");
 
     public void EnsureDirectories()
     {

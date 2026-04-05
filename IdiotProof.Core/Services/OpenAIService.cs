@@ -40,11 +40,11 @@ public record ChatMessage(string Role, string Content);
 /// </summary>
 public sealed class OpenAIService : IDisposable
 {
-    private readonly HttpClient _httpClient;
-    private readonly string _apiKey;
-    private readonly string _model;
-    private readonly List<ChatMessage> _conversationHistory = [];
-    private bool _disposed;
+    private readonly HttpClient httpClient;
+    private readonly string apiKey;
+    private readonly string model;
+    private readonly List<ChatMessage> conversationHistory = [];
+    private bool disposed;
 
     // Valid OpenAI model options (as of Feb 2026):
     // ── GPT-5 Series ──
@@ -97,22 +97,22 @@ public sealed class OpenAIService : IDisposable
     /// <param name="apiKey">Optional API key override (defaults to env var)</param>
     public OpenAIService(string? model = null, string? apiKey = null)
     {
-        _model = model ?? DefaultModel;
-        _apiKey = apiKey 
+        this.model = model ?? DefaultModel;
+        this.apiKey = apiKey 
             ?? Environment.GetEnvironmentVariable("OPENAI_IDIOTPROOF_API_KEY")
             ?? "";
         
-        _httpClient = new HttpClient();
-        _httpClient.Timeout = TimeSpan.FromSeconds(60);
+        httpClient = new HttpClient();
+        httpClient.Timeout = TimeSpan.FromSeconds(60);
         
         // Add trading system prompt to conversation
-        _conversationHistory.Add(new ChatMessage("system", TradingSystemPrompt));
+        conversationHistory.Add(new ChatMessage("system", TradingSystemPrompt));
     }
 
     /// <summary>
     /// Checks if the API key is configured.
     /// </summary>
-    public bool IsConfigured => !string.IsNullOrWhiteSpace(_apiKey);
+    public bool IsConfigured => !string.IsNullOrWhiteSpace(apiKey);
 
     /// <summary>
     /// Ask a simple question and get a reply.
@@ -123,11 +123,11 @@ public sealed class OpenAIService : IDisposable
         if (string.IsNullOrWhiteSpace(question))
             throw new ArgumentException("Question cannot be empty", nameof(question));
 
-        _conversationHistory.Add(new ChatMessage("user", question));
+        conversationHistory.Add(new ChatMessage("user", question));
         
         var reply = await GetReplyWithRetryAsync(ct);
         
-        _conversationHistory.Add(new ChatMessage("assistant", reply.Text));
+        conversationHistory.Add(new ChatMessage("assistant", reply.Text));
         
         return reply;
     }
@@ -200,18 +200,18 @@ public sealed class OpenAIService : IDisposable
     /// </summary>
     public void ClearHistory()
     {
-        _conversationHistory.Clear();
-        _conversationHistory.Add(new ChatMessage("system", TradingSystemPrompt));
+        conversationHistory.Clear();
+        conversationHistory.Add(new ChatMessage("system", TradingSystemPrompt));
     }
 
     /// <summary>
     /// Get the current conversation history.
     /// </summary>
-    public IReadOnlyList<ChatMessage> GetHistory() => _conversationHistory.AsReadOnly();
+    public IReadOnlyList<ChatMessage> GetHistory() => conversationHistory.AsReadOnly();
 
     private async Task<ChatReply> GetReplyWithRetryAsync(CancellationToken ct)
     {
-        return await SendMessagesAsync(_conversationHistory, ct);
+        return await SendMessagesAsync(conversationHistory, ct);
     }
 
     private async Task<ChatReply> SendMessagesAsync(List<ChatMessage> messages, CancellationToken ct)
@@ -253,14 +253,14 @@ public sealed class OpenAIService : IDisposable
 
         var payload = new
         {
-            model = _model,
+            model = this.model,
             messages = messages.Select(m => new { role = m.Role, content = m.Content }).ToArray(),
             temperature = 0.7,
             max_completion_tokens = 2000
         };
 
         using var request = new HttpRequestMessage(HttpMethod.Post, ApiEndpoint);
-        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _apiKey);
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
         request.Content = new StringContent(
             JsonSerializer.Serialize(payload),
             Encoding.UTF8,
@@ -268,7 +268,7 @@ public sealed class OpenAIService : IDisposable
 
         try
         {
-            using var response = await _httpClient.SendAsync(request, ct);
+            using var response = await httpClient.SendAsync(request, ct);
             var json = await response.Content.ReadAsStringAsync(ct);
             var statusCode = (int)response.StatusCode;
 
@@ -396,10 +396,10 @@ public sealed class OpenAIService : IDisposable
 
     public void Dispose()
     {
-        if (!_disposed)
+        if (!disposed)
         {
-            _httpClient.Dispose();
-            _disposed = true;
+            httpClient.Dispose();
+            disposed = true;
         }
     }
 }

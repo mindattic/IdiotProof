@@ -1,4 +1,4 @@
-// ============================================================================
+﻿// ============================================================================
 // AlertService - Multi-Channel Alerting System
 // ============================================================================
 //
@@ -277,18 +277,18 @@ public sealed class AlertConfig
 /// </summary>
 public sealed class AlertService : IDisposable
 {
-    private readonly AlertConfig _config;
-    private readonly HttpClient _httpClient;
-    private readonly Dictionary<string, DateTime> _lastAlertTime = new();
-    private readonly object _lock = new();
+    private readonly AlertConfig config;
+    private readonly HttpClient httpClient;
+    private readonly Dictionary<string, DateTime> lastAlertTime = new();
+    private readonly object lockObj = new();
     
     // Store pending setups for one-click execution
-    private readonly Dictionary<string, TradeSetup> _pendingSetups = new();
+    private readonly Dictionary<string, TradeSetup> pendingSetups = new();
     
     public AlertService(AlertConfig config)
     {
-        _config = config;
-        _httpClient = new HttpClient();
+        this.config = config;
+        httpClient = new HttpClient();
     }
     
     /// <summary>
@@ -302,21 +302,21 @@ public sealed class AlertService : IDisposable
     public async Task SendAlertAsync(TradingAlert alert)
     {
         // Check cooldown
-        lock (_lock)
+        lock (lockObj)
         {
-            if (_lastAlertTime.TryGetValue(alert.Symbol, out var lastTime))
+            if (lastAlertTime.TryGetValue(alert.Symbol, out var lastTime))
             {
-                if (DateTime.Now - lastTime < _config.CooldownPerSymbol)
+                if (DateTime.Now - lastTime < config.CooldownPerSymbol)
                     return;  // Still in cooldown
             }
-            _lastAlertTime[alert.Symbol] = DateTime.Now;
+            lastAlertTime[alert.Symbol] = DateTime.Now;
         }
         
         // Store setups for retrieval
         if (alert.LongSetup != null)
-            _pendingSetups[alert.LongSetup.SetupId] = alert.LongSetup;
+            pendingSetups[alert.LongSetup.SetupId] = alert.LongSetup;
         if (alert.ShortSetup != null)
-            _pendingSetups[alert.ShortSetup.SetupId] = alert.ShortSetup;
+            pendingSetups[alert.ShortSetup.SetupId] = alert.ShortSetup;
         
         // Fire local event
         OnAlert?.Invoke(alert);
@@ -324,16 +324,16 @@ public sealed class AlertService : IDisposable
         // Send to all enabled channels
         var tasks = new List<Task>();
         
-        if (_config.DiscordEnabled && !string.IsNullOrEmpty(_config.DiscordWebhookUrl))
+        if (config.DiscordEnabled && !string.IsNullOrEmpty(config.DiscordWebhookUrl))
             tasks.Add(SendDiscordAlertAsync(alert));
         
-        if (_config.EmailEnabled && !string.IsNullOrEmpty(_config.SmtpServer))
+        if (config.EmailEnabled && !string.IsNullOrEmpty(config.SmtpServer))
             tasks.Add(SendEmailAlertAsync(alert));
         
-        if (_config.SmsEnabled && !string.IsNullOrEmpty(_config.TwilioAccountSid))
+        if (config.SmsEnabled && !string.IsNullOrEmpty(config.TwilioAccountSid))
             tasks.Add(SendSmsAlertAsync(alert));
         
-        if (_config.TelegramEnabled && !string.IsNullOrEmpty(_config.TelegramBotToken))
+        if (config.TelegramEnabled && !string.IsNullOrEmpty(config.TelegramBotToken))
             tasks.Add(SendTelegramAlertAsync(alert));
         
         await Task.WhenAll(tasks);
@@ -344,12 +344,12 @@ public sealed class AlertService : IDisposable
     /// </summary>
     public TradeSetup? GetSetup(string setupId)
     {
-        if (_pendingSetups.TryGetValue(setupId, out var setup))
+        if (pendingSetups.TryGetValue(setupId, out var setup))
         {
             if (!setup.IsExpired)
                 return setup;
             
-            _pendingSetups.Remove(setupId);
+            pendingSetups.Remove(setupId);
         }
         return null;
     }
@@ -359,9 +359,9 @@ public sealed class AlertService : IDisposable
     /// </summary>
     public void CleanupExpiredSetups()
     {
-        var expired = _pendingSetups.Where(kvp => kvp.Value.IsExpired).Select(kvp => kvp.Key).ToList();
+        var expired = pendingSetups.Where(kvp => kvp.Value.IsExpired).Select(kvp => kvp.Key).ToList();
         foreach (var key in expired)
-            _pendingSetups.Remove(key);
+            pendingSetups.Remove(key);
     }
     
     // ========================================
@@ -382,7 +382,7 @@ public sealed class AlertService : IDisposable
             var json = JsonSerializer.Serialize(payload);
             var content = new StringContent(json, Encoding.UTF8, "application/json");
             
-            var response = await _httpClient.PostAsync(_config.DiscordWebhookUrl, content);
+            var response = await httpClient.PostAsync(config.DiscordWebhookUrl, content);
             
             if (!response.IsSuccessStatusCode)
             {
@@ -403,20 +403,20 @@ public sealed class AlertService : IDisposable
     {
         try
         {
-            using var client = new SmtpClient(_config.SmtpServer, _config.SmtpPort)
+            using var client = new SmtpClient(config.SmtpServer, config.SmtpPort)
             {
-                Credentials = new NetworkCredential(_config.SmtpUsername, _config.SmtpPassword),
+                Credentials = new NetworkCredential(config.SmtpUsername, config.SmtpPassword),
                 EnableSsl = true
             };
             
             var message = new MailMessage
             {
-                From = new MailAddress(_config.EmailFrom!),
+                From = new MailAddress(config.EmailFrom!),
                 Subject = $"🚨 {alert.Symbol} {alert.TypeDescription} ({alert.PercentChange:+0.0;-0.0}%)",
                 Body = alert.ToEmailHtml(),
                 IsBodyHtml = true
             };
-            message.To.Add(_config.EmailTo!);
+            message.To.Add(config.EmailTo!);
             
             await client.SendMailAsync(message);
         }
@@ -440,21 +440,21 @@ public sealed class AlertService : IDisposable
                          $"LONG: Entry ${alert.LongSetup?.EntryPrice:F2} SL ${alert.LongSetup?.StopLoss:F2}\n" +
                          $"SHORT: Entry ${alert.ShortSetup?.EntryPrice:F2} SL ${alert.ShortSetup?.StopLoss:F2}";
             
-            var url = $"https://api.twilio.com/2010-04-01/Accounts/{_config.TwilioAccountSid}/Messages.json";
+            var url = $"https://api.twilio.com/2010-04-01/Accounts/{config.TwilioAccountSid}/Messages.json";
             
             var content = new FormUrlEncodedContent(new Dictionary<string, string>
             {
-                ["To"] = _config.SmsToNumber!,
-                ["From"] = _config.TwilioFromNumber!,
+                ["To"] = config.SmsToNumber!,
+                ["From"] = config.TwilioFromNumber!,
                 ["Body"] = message
             });
             
             var authToken = Convert.ToBase64String(
-                Encoding.UTF8.GetBytes($"{_config.TwilioAccountSid}:{_config.TwilioAuthToken}"));
-            _httpClient.DefaultRequestHeaders.Authorization = 
+                Encoding.UTF8.GetBytes($"{config.TwilioAccountSid}:{config.TwilioAuthToken}"));
+            httpClient.DefaultRequestHeaders.Authorization = 
                 new System.Net.Http.Headers.AuthenticationHeaderValue("Basic", authToken);
             
-            await _httpClient.PostAsync(url, content);
+            await httpClient.PostAsync(url, content);
         }
         catch (Exception ex)
         {
@@ -470,11 +470,11 @@ public sealed class AlertService : IDisposable
     {
         try
         {
-            var url = $"https://api.telegram.org/bot{_config.TelegramBotToken}/sendMessage";
+            var url = $"https://api.telegram.org/bot{config.TelegramBotToken}/sendMessage";
             
             var payload = new
             {
-                chat_id = _config.TelegramChatId,
+                chat_id = config.TelegramChatId,
                 text = alert.ToDiscordMessage(),  // Markdown works in Telegram too
                 parse_mode = "Markdown"
             };
@@ -482,7 +482,7 @@ public sealed class AlertService : IDisposable
             var json = JsonSerializer.Serialize(payload);
             var content = new StringContent(json, Encoding.UTF8, "application/json");
             
-            await _httpClient.PostAsync(url, content);
+            await httpClient.PostAsync(url, content);
         }
         catch (Exception ex)
         {
@@ -492,6 +492,6 @@ public sealed class AlertService : IDisposable
     
     public void Dispose()
     {
-        _httpClient.Dispose();
+        httpClient.Dispose();
     }
 }

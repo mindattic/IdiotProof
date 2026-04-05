@@ -1,4 +1,4 @@
-using System.Runtime.CompilerServices;
+﻿using System.Runtime.CompilerServices;
 using System.Text.Json;
 using IdiotProof.Models;
 
@@ -9,25 +9,25 @@ namespace IdiotProof.DataFeeds;
 /// </summary>
 public sealed class PolygonDataFeed : IMarketDataFeed, IAsyncDisposable
 {
-    private readonly string _apiKey;
-    private readonly HttpClient _httpClient;
+    private readonly string apiKey;
+    private readonly HttpClient httpClient;
 
     public string FeedName => "Polygon";
 
     public PolygonDataFeed(string apiKey)
     {
-        _apiKey = apiKey ?? string.Empty;
-        _httpClient = new HttpClient { BaseAddress = new Uri("https://api.polygon.io/") };
+        apiKey = apiKey ?? string.Empty;
+        httpClient = new HttpClient { BaseAddress = new Uri("https://api.polygon.io/") };
     }
 
     public async Task<LatestPrice?> GetLatestPriceAsync(string symbol, CancellationToken ct = default)
     {
-        if (string.IsNullOrWhiteSpace(_apiKey))
+        if (string.IsNullOrWhiteSpace(apiKey))
             throw new InvalidOperationException("Polygon API key not configured.");
         if (string.IsNullOrWhiteSpace(symbol)) return null;
 
-        var url = $"v2/last/trade/{symbol}?apiKey={_apiKey}";
-        using var response = await _httpClient.GetAsync(url, ct).ConfigureAwait(false);
+        var url = $"v2/last/trade/{symbol}?apiKey={apiKey}";
+        using var response = await httpClient.GetAsync(url, ct).ConfigureAwait(false);
         if (!response.IsSuccessStatusCode) return null;
 
         var json = await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
@@ -45,7 +45,7 @@ public sealed class PolygonDataFeed : IMarketDataFeed, IAsyncDisposable
         string symbol, DateTime startUtc, DateTime endUtc, TimeSpan candleSize,
         [EnumeratorCancellation] CancellationToken ct = default)
     {
-        if (string.IsNullOrWhiteSpace(_apiKey))
+        if (string.IsNullOrWhiteSpace(apiKey))
             throw new InvalidOperationException("Polygon API key not configured.");
         if (string.IsNullOrWhiteSpace(symbol)) yield break;
 
@@ -53,8 +53,8 @@ public sealed class PolygonDataFeed : IMarketDataFeed, IAsyncDisposable
         var to = endUtc.ToString("yyyy-MM-dd");
         var (multiplier, timespan) = ToPolygonSpan(candleSize);
 
-        var url = $"v2/aggs/ticker/{symbol}/range/{multiplier}/{timespan}/{from}/{to}?adjusted=true&sort=asc&limit=50000&apiKey={_apiKey}";
-        using var response = await _httpClient.GetAsync(url, ct).ConfigureAwait(false);
+        var url = $"v2/aggs/ticker/{symbol}/range/{multiplier}/{timespan}/{from}/{to}?adjusted=true&sort=asc&limit=50000&apiKey={apiKey}";
+        using var response = await httpClient.GetAsync(url, ct).ConfigureAwait(false);
         if (!response.IsSuccessStatusCode) yield break;
 
         var json = await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
@@ -93,7 +93,7 @@ public sealed class PolygonDataFeed : IMarketDataFeed, IAsyncDisposable
 
     public ValueTask DisposeAsync()
     {
-        _httpClient.Dispose();
+        httpClient.Dispose();
         return ValueTask.CompletedTask;
     }
 }

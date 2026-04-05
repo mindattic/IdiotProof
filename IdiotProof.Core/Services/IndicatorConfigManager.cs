@@ -192,8 +192,8 @@ public static class IndicatorConfigManager
     private const string ConfigFileName = "indicator-config.json";
 
     // Cached config (loaded once, reused)
-    private static IndicatorConfig? _cached;
-    private static IndicatorWeights? _cachedWeights;
+    private static IndicatorConfig? cached;
+    private static IndicatorWeights? cachedWeights;
 
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
@@ -223,8 +223,8 @@ public static class IndicatorConfigManager
     /// </summary>
     public static IndicatorConfig Load()
     {
-        if (_cached != null)
-            return _cached;
+        if (cached != null)
+            return cached;
 
         var path = GetConfigPath();
 
@@ -233,7 +233,7 @@ public static class IndicatorConfigManager
             ConsoleLog.Write("Indicators", $"No indicator config found, creating default at: {path}");
             var defaultConfig = IndicatorConfig.CreateDefault();
             Save(defaultConfig);
-            _cached = defaultConfig;
+            cached = defaultConfig;
             return defaultConfig;
         }
 
@@ -245,18 +245,18 @@ public static class IndicatorConfigManager
             if (config == null)
             {
                 ConsoleLog.Warn("Indicators", "Failed to parse indicator config, using defaults");
-                _cached = IndicatorConfig.CreateDefault();
-                return _cached;
+                cached = IndicatorConfig.CreateDefault();
+                return cached;
             }
 
-            _cached = config;
+            cached = config;
             return config;
         }
         catch (Exception ex)
         {
             ConsoleLog.Warn("Indicators", $"Error reading indicator config: {ex.Message}");
-            _cached = IndicatorConfig.CreateDefault();
-            return _cached;
+            cached = IndicatorConfig.CreateDefault();
+            return cached;
         }
     }
 
@@ -274,7 +274,7 @@ public static class IndicatorConfigManager
         File.WriteAllText(path, json);
 
         // Invalidate weight cache
-        _cachedWeights = null;
+        cachedWeights = null;
     }
 
     /// <summary>
@@ -284,12 +284,12 @@ public static class IndicatorConfigManager
     /// </summary>
     public static IndicatorWeights GetWeights()
     {
-        if (_cachedWeights.HasValue)
-            return _cachedWeights.Value;
+        if (cachedWeights.HasValue)
+            return cachedWeights.Value;
 
         var config = Load();
         var weights = config.ToCalculatorWeights();
-        _cachedWeights = weights;
+        cachedWeights = weights;
         return weights;
     }
 
@@ -352,8 +352,8 @@ public static class IndicatorConfigManager
     /// </summary>
     public static void InvalidateCache()
     {
-        _cached = null;
-        _cachedWeights = null;
+        cached = null;
+        cachedWeights = null;
     }
 
     /// <summary>

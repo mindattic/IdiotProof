@@ -32,20 +32,20 @@ public sealed class TickerCacheEntry
 /// </summary>
 public static class TickerDataCache
 {
-    private static readonly ConcurrentDictionary<string, TickerCacheEntry> _cache = new(StringComparer.OrdinalIgnoreCase);
+    private static readonly ConcurrentDictionary<string, TickerCacheEntry> cache = new(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>
     /// Gets cached data for a ticker. Returns null if not cached.
     /// </summary>
     public static TickerCacheEntry? Get(string symbol)
     {
-        return _cache.TryGetValue(symbol, out var entry) ? entry : null;
+        return cache.TryGetValue(symbol, out var entry) ? entry : null;
     }
 
     /// <summary>
     /// Gets all cached entries.
     /// </summary>
-    public static IReadOnlyDictionary<string, TickerCacheEntry> GetAll() => _cache;
+    public static IReadOnlyDictionary<string, TickerCacheEntry> GetAll() => cache;
 
     /// <summary>
     /// Refreshes the cache for specified symbols.
@@ -72,7 +72,7 @@ public static class TickerDataCache
                 if (price <= 0 && prevDay != null)
                     price = prevDay.Close;
 
-                _cache[symbol] = new TickerCacheEntry
+                cache[symbol] = new TickerCacheEntry
                 {
                     Symbol = symbol.ToUpperInvariant(),
                     Price = price,
@@ -97,14 +97,14 @@ public static class TickerDataCache
     /// </summary>
     public static void UpdatePrice(string symbol, double price)
     {
-        if (_cache.TryGetValue(symbol, out var entry))
+        if (cache.TryGetValue(symbol, out var entry))
         {
             entry.Price = price;
             entry.LastUpdated = DateTime.UtcNow;
         }
         else
         {
-            _cache[symbol] = new TickerCacheEntry
+            cache[symbol] = new TickerCacheEntry
             {
                 Symbol = symbol.ToUpperInvariant(),
                 Price = price,
@@ -118,7 +118,7 @@ public static class TickerDataCache
     /// </summary>
     public static void Remove(string symbol)
     {
-        _cache.TryRemove(symbol, out var _removed);
+        cache.TryRemove(symbol, out var _removed);
     }
 
     /// <summary>
@@ -126,7 +126,7 @@ public static class TickerDataCache
     /// </summary>
     public static void Clear()
     {
-        _cache.Clear();
+        cache.Clear();
     }
 
     /// <summary>

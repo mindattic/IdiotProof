@@ -1,4 +1,4 @@
-// ============================================================================
+﻿// ============================================================================
 // SessionLogger - Periodic session state logging with crash recovery
 // ============================================================================
 //
@@ -29,14 +29,14 @@ namespace IdiotProof.Logging;
 /// </summary>
 public sealed class SessionLogger : IDisposable
 {
-    private readonly string _sessionId;
-    private readonly DateTime _sessionStart;
-    private readonly Timer _periodicTimer;
-    private readonly object _lock = new();
-    private readonly List<StrategyLogEntry> _strategyEntries = [];
-    private readonly StringBuilder _eventLog = new();
-    private bool _disposed;
-    private string? _currentStateFilePath;
+    private readonly string sessionId;
+    private readonly DateTime sessionStart;
+    private readonly Timer periodicTimer;
+    private readonly object lockObj = new();
+    private readonly List<StrategyLogEntry> strategyEntries = [];
+    private readonly StringBuilder eventLog = new();
+    private bool disposed;
+    private string? currentStateFilePath;
 
     private const int LogIntervalMinutes = 20;
 
@@ -45,23 +45,23 @@ public sealed class SessionLogger : IDisposable
     /// </summary>
     public SessionLogger()
     {
-        _sessionId = DateTime.Now.ToString("yyyy-MM-dd_HHmm");
-        _sessionStart = DateTime.Now;
-        _currentStateFilePath = GetStateFilePath();
+        sessionId = DateTime.Now.ToString("yyyy-MM-dd_HHmm");
+        sessionStart = DateTime.Now;
+        currentStateFilePath = GetStateFilePath();
 
         // Register for unhandled exceptions
         AppDomain.CurrentDomain.UnhandledException += OnUnhandledException;
         AppDomain.CurrentDomain.ProcessExit += OnProcessExit;
 
         // Start periodic logging timer (every 20 minutes)
-        _periodicTimer = new Timer(
+        periodicTimer = new Timer(
             callback: _ => WritePeriodicLog(),
             state: null,
             dueTime: TimeSpan.FromMinutes(LogIntervalMinutes),
             period: TimeSpan.FromMinutes(LogIntervalMinutes)
         );
 
-        LogEvent("SESSION", $"Session started: {_sessionId}");
+        LogEvent("SESSION", $"Session started: {sessionId}");
         WritePeriodicLog(); // Write initial state
     }
 
@@ -70,9 +70,9 @@ public sealed class SessionLogger : IDisposable
     /// </summary>
     public void RegisterStrategy(string symbol, string name, bool enabled)
     {
-        lock (_lock)
+        lock (lockObj)
         {
-            _strategyEntries.Add(new StrategyLogEntry
+            strategyEntries.Add(new StrategyLogEntry
             {
                 Symbol = symbol,
                 Name = name,
@@ -89,9 +89,9 @@ public sealed class SessionLogger : IDisposable
     /// </summary>
     public void UpdateStrategyStatus(string symbol, string status, string? details = null)
     {
-        lock (_lock)
+        lock (lockObj)
         {
-            var entry = _strategyEntries.FirstOrDefault(e => e.Symbol == symbol);
+            var entry = strategyEntries.FirstOrDefault(e => e.Symbol == symbol);
             if (entry != null)
             {
                 entry.Status = status;
@@ -107,9 +107,9 @@ public sealed class SessionLogger : IDisposable
     /// </summary>
     public void LogOrder(string symbol, string action, int quantity, double price, string? orderId = null)
     {
-        lock (_lock)
+        lock (lockObj)
         {
-            var entry = _strategyEntries.FirstOrDefault(e => e.Symbol == symbol);
+            var entry = strategyEntries.FirstOrDefault(e => e.Symbol == symbol);
             if (entry != null)
             {
                 entry.Orders.Add(new OrderLogEntry
@@ -130,9 +130,9 @@ public sealed class SessionLogger : IDisposable
     /// </summary>
     public void LogFill(string symbol, string action, int quantity, double price, double? pnl = null)
     {
-        lock (_lock)
+        lock (lockObj)
         {
-            var entry = _strategyEntries.FirstOrDefault(e => e.Symbol == symbol);
+            var entry = strategyEntries.FirstOrDefault(e => e.Symbol == symbol);
             if (entry != null)
             {
                 entry.Fills.Add(new FillLogEntry
@@ -162,18 +162,18 @@ public sealed class SessionLogger : IDisposable
         var timestamp = DateTime.Now.ToString("HH:mm:ss.fff");
         var line = $"[{timestamp}] [{category}] {message}";
 
-        lock (_lock)
+        lock (lockObj)
         {
-            _eventLog.AppendLine(line);
+            eventLog.AppendLine(line);
 
             // Keep event log from growing too large (keep last 1000 lines)
-            var lines = _eventLog.ToString().Split('\n');
+            var lines = eventLog.ToString().Split('\n');
             if (lines.Length > 1000)
             {
-                _eventLog.Clear();
+                eventLog.Clear();
                 foreach (var l in lines.TakeLast(800))
                 {
-                    _eventLog.AppendLine(l.TrimEnd());
+                    eventLog.AppendLine(l.TrimEnd());
                 }
             }
         }
@@ -199,12 +199,12 @@ public sealed class SessionLogger : IDisposable
 
     private void WritePeriodicLog()
     {
-        if (_disposed) return;
+        if (disposed) return;
 
         try
         {
-            _currentStateFilePath = GetStateFilePath();
-            WriteLog(_currentStateFilePath, "Periodic Update", isFinal: false);
+            currentStateFilePath = GetStateFilePath();
+            WriteLog(currentStateFilePath, "Periodic Update", isFinal: false);
         }
         catch (Exception ex)
         {
@@ -217,13 +217,13 @@ public sealed class SessionLogger : IDisposable
     {
         var sb = new StringBuilder();
 
-        lock (_lock)
+        lock (lockObj)
         {
-            var runtime = DateTime.Now - _sessionStart;
+            var runtime = DateTime.Now - sessionStart;
 
             // Header
             sb.AppendLine("╔════════════════════════════════════════════════════════════════════════╗");
-            sb.AppendLine($"║  SESSION LOG: {_sessionId,-56} ║");
+            sb.AppendLine($"║  SESSION LOG: {sessionId,-56} ║");
             sb.AppendLine($"║  Reason: {reason,-61} ║");
             sb.AppendLine($"║  Timestamp: {DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"),-55} ║");
             sb.AppendLine($"║  Runtime: {runtime.ToString(@"hh\:mm\:ss"),-60} ║");
@@ -233,13 +233,13 @@ public sealed class SessionLogger : IDisposable
             sb.AppendLine("║  STRATEGY SUMMARY                                                       ║");
             sb.AppendLine("╠════════════════════════════════════════════════════════════════════════╣");
 
-            if (_strategyEntries.Count == 0)
+            if (strategyEntries.Count == 0)
             {
                 sb.AppendLine("║  No strategies registered                                               ║");
             }
             else
             {
-                foreach (var entry in _strategyEntries)
+                foreach (var entry in strategyEntries)
                 {
                     var enabledStr = entry.Enabled ? "*" : "o";
                     var statusLine = $"  [{enabledStr}] {entry.Symbol,-8} {entry.Name,-25} {entry.Status,-15}";
@@ -253,13 +253,13 @@ public sealed class SessionLogger : IDisposable
             }
 
             // Order Details (if final)
-            if (isFinal && _strategyEntries.Any(e => e.Orders.Count > 0 || e.Fills.Count > 0))
+            if (isFinal && strategyEntries.Any(e => e.Orders.Count > 0 || e.Fills.Count > 0))
             {
                 sb.AppendLine("╠════════════════════════════════════════════════════════════════════════╣");
                 sb.AppendLine("║  ORDER DETAILS                                                          ║");
                 sb.AppendLine("╠════════════════════════════════════════════════════════════════════════╣");
 
-                foreach (var entry in _strategyEntries.Where(e => e.Orders.Count > 0 || e.Fills.Count > 0))
+                foreach (var entry in strategyEntries.Where(e => e.Orders.Count > 0 || e.Fills.Count > 0))
                 {
                     sb.AppendLine($"║  {entry.Symbol} - {entry.Name,-50}       ║");
                     foreach (var order in entry.Orders)
@@ -281,7 +281,7 @@ public sealed class SessionLogger : IDisposable
             sb.AppendLine("║  RECENT EVENTS                                                          ║");
             sb.AppendLine("╠════════════════════════════════════════════════════════════════════════╣");
 
-            var events = _eventLog.ToString().Split('\n', StringSplitOptions.RemoveEmptyEntries);
+            var events = eventLog.ToString().Split('\n', StringSplitOptions.RemoveEmptyEntries);
             var recentEvents = events.TakeLast(50);
             foreach (var evt in recentEvents)
             {
@@ -305,12 +305,12 @@ public sealed class SessionLogger : IDisposable
 
     private string GetFinalFilePath()
     {
-        return Path.Combine(LogPaths.GetLogsFolder(), $"session_{_sessionId}_final.log");
+        return Path.Combine(LogPaths.GetLogsFolder(), $"session_{sessionId}_final.log");
     }
 
     private string GetCrashFilePath()
     {
-        return Path.Combine(LogPaths.GetLogsFolder(), $"session_{_sessionId}_crash.log");
+        return Path.Combine(LogPaths.GetLogsFolder(), $"session_{sessionId}_crash.log");
     }
 
     private void OnUnhandledException(object sender, UnhandledExceptionEventArgs e)
@@ -341,7 +341,7 @@ public sealed class SessionLogger : IDisposable
 
     private void OnProcessExit(object? sender, EventArgs e)
     {
-        if (!_disposed)
+        if (!disposed)
         {
             WriteFinalLog("Process Exit");
         }
@@ -349,10 +349,10 @@ public sealed class SessionLogger : IDisposable
 
     public void Dispose()
     {
-        if (_disposed) return;
-        _disposed = true;
+        if (disposed) return;
+        disposed = true;
 
-        _periodicTimer.Dispose();
+        periodicTimer.Dispose();
 
         AppDomain.CurrentDomain.UnhandledException -= OnUnhandledException;
         AppDomain.CurrentDomain.ProcessExit -= OnProcessExit;

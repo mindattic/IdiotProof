@@ -1,4 +1,4 @@
-// ============================================================================
+﻿// ============================================================================
 // Monte Carlo Simulator - Risk analysis through randomization
 // ============================================================================
 //
@@ -65,14 +65,14 @@ public sealed record MonteCarloIteration
 /// </summary>
 public sealed class MonteCarloResult
 {
-    private readonly List<double> _sortedPnLs;
-    private readonly List<double> _sortedDrawdowns;
+    private readonly List<double> sortedPnLs;
+    private readonly List<double> sortedDrawdowns;
 
     public MonteCarloResult(List<MonteCarloIteration> iterations)
     {
         Iterations = iterations;
-        _sortedPnLs = iterations.Select(i => i.FinalPnL).OrderBy(x => x).ToList();
-        _sortedDrawdowns = iterations.Select(i => i.MaxDrawdown).OrderByDescending(x => x).ToList();
+        sortedPnLs = iterations.Select(i => i.FinalPnL).OrderBy(x => x).ToList();
+        sortedDrawdowns = iterations.Select(i => i.MaxDrawdown).OrderByDescending(x => x).ToList();
     }
 
     /// <summary>All iteration results.</summary>
@@ -89,7 +89,7 @@ public sealed class MonteCarloResult
     public double MeanPnL => Iterations.Count > 0 ? Iterations.Average(i => i.FinalPnL) : 0;
 
     /// <summary>Median PnL.</summary>
-    public double MedianPnL => GetPercentile(_sortedPnLs, 0.5);
+    public double MedianPnL => GetPercentile(sortedPnLs, 0.5);
 
     /// <summary>Standard deviation of PnL.</summary>
     public double StdDevPnL
@@ -104,13 +104,13 @@ public sealed class MonteCarloResult
     }
 
     /// <summary>Minimum PnL (worst case).</summary>
-    public double MinPnL => _sortedPnLs.Count > 0 ? _sortedPnLs[0] : 0;
+    public double MinPnL => sortedPnLs.Count > 0 ? sortedPnLs[0] : 0;
 
     /// <summary>Maximum PnL (best case).</summary>
-    public double MaxPnL => _sortedPnLs.Count > 0 ? _sortedPnLs[^1] : 0;
+    public double MaxPnL => sortedPnLs.Count > 0 ? sortedPnLs[^1] : 0;
 
     /// <summary>PnL at given percentile (e.g., 5th percentile for 95% confidence).</summary>
-    public double GetPnLAtPercentile(double percentile) => GetPercentile(_sortedPnLs, percentile);
+    public double GetPnLAtPercentile(double percentile) => GetPercentile(sortedPnLs, percentile);
 
     /// <summary>Probability of profit (% of iterations with positive PnL).</summary>
     public double ProbabilityOfProfit => Iterations.Count > 0
@@ -132,7 +132,7 @@ public sealed class MonteCarloResult
     public double ExpectedShortfall(double confidence = 0.95)
     {
         double varValue = GetPnLAtPercentile(1 - confidence);
-        var tailLosses = _sortedPnLs.Where(p => p <= varValue).ToList();
+        var tailLosses = sortedPnLs.Where(p => p <= varValue).ToList();
         return tailLosses.Count > 0 ? -tailLosses.Average() : 0;
     }
 
@@ -140,7 +140,7 @@ public sealed class MonteCarloResult
     public double AvgMaxDrawdown => Iterations.Count > 0 ? Iterations.Average(i => i.MaxDrawdown) : 0;
 
     /// <summary>Worst maximum drawdown at given percentile.</summary>
-    public double WorstDrawdown(double percentile = 0.95) => GetPercentile(_sortedDrawdowns, percentile);
+    public double WorstDrawdown(double percentile = 0.95) => GetPercentile(sortedDrawdowns, percentile);
 
     // ========================================================================
     // Helpers
@@ -197,12 +197,12 @@ public sealed class MonteCarloResult
 /// </summary>
 public sealed class MonteCarloSimulator
 {
-    private readonly Random _random = new();
-    private readonly MonteCarloConfig _config;
+    private readonly Random random = new();
+    private readonly MonteCarloConfig config;
 
     public MonteCarloSimulator(MonteCarloConfig? config = null)
     {
-        _config = config ?? new MonteCarloConfig();
+        config = config ?? new MonteCarloConfig();
     }
 
     /// <summary>
@@ -212,10 +212,10 @@ public sealed class MonteCarloSimulator
     {
         var iterations = new List<MonteCarloIteration>();
 
-        for (int i = 0; i < _config.Iterations; i++)
+        for (int i = 0; i < config.Iterations; i++)
         {
             if (i % 100 == 0)
-                progress?.Report(i * 100 / _config.Iterations);
+                progress?.Report(i * 100 / config.Iterations);
 
             var iteration = RunIteration(trades, i + 1);
             iterations.Add(iteration);
@@ -231,9 +231,9 @@ public sealed class MonteCarloSimulator
         var trades = originalTrades.ToList();
 
         // Shuffle trade order if configured
-        if (_config.ShuffleTrades)
+        if (config.ShuffleTrades)
         {
-            trades = trades.OrderBy(_ => _random.Next()).ToList();
+            trades = trades.OrderBy(_ => random.Next()).ToList();
         }
 
         // Simulate the trades
@@ -246,7 +246,7 @@ public sealed class MonteCarloSimulator
         foreach (var trade in trades)
         {
             // Skip trades randomly if configured
-            if (_config.RandomSkipTrades && _random.NextDouble() < _config.SkipProbability)
+            if (config.RandomSkipTrades && random.NextDouble() < config.SkipProbability)
                 continue;
 
             tradesExecuted++;
@@ -254,9 +254,9 @@ public sealed class MonteCarloSimulator
             // Calculate PnL with optional slippage
             double pnl = trade.PnL;
 
-            if (_config.AddSlippage)
+            if (config.AddSlippage)
             {
-                double slippage = (_random.NextDouble() * 2 - 1) * _config.MaxSlippage * trade.Quantity;
+                double slippage = (random.NextDouble() * 2 - 1) * config.MaxSlippage * trade.Quantity;
                 pnl -= Math.Abs(slippage);  // Slippage always hurts
             }
 
@@ -291,7 +291,7 @@ public sealed class MonteCarloSimulator
 
         for (int i = 0; i < curveCount; i++)
         {
-            var shuffledTrades = trades.OrderBy(_ => _random.Next()).ToList();
+            var shuffledTrades = trades.OrderBy(_ => random.Next()).ToList();
             var curve = new double[shuffledTrades.Count + 1];
             curve[0] = 0;  // Starting point
 

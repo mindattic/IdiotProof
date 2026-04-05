@@ -213,44 +213,44 @@ public sealed class AutonomousSimulationResult
 /// </summary>
 public sealed class TradeSimulator
 {
-    private readonly BackTestSession _session;
-    private readonly IndicatorCalculator _indicators;
-    private readonly AutonomousConfig _config;
+    private readonly BackTestSession session;
+    private readonly IndicatorCalculator indicators;
+    private readonly AutonomousConfig config;
 
     // Historical metadata for smarter decisions (optional)
-    private readonly HistoricalMetadata? _metadata;
-    private readonly TickerProfile? _profile;
+    private readonly HistoricalMetadata? metadata;
+    private readonly TickerProfile? profile;
     
     // Indicator weights - learned or default
-    private IdiotProof.Optimization.IndicatorWeights _weights = IdiotProof.Optimization.IndicatorWeights.Default;
+    private IdiotProof.Optimization.IndicatorWeights weights = IdiotProof.Optimization.IndicatorWeights.Default;
 
     // Cached indicator values
-    private double[]? _ema9;
-    private double[]? _ema21;
-    private double[]? _ema34;
-    private double[]? _ema50;
-    private double[]? _rsi;
-    private (double[] adx, double[] plusDi, double[] minusDi)? _adxData;
-    private (double[] macd, double[] signal, double[] histogram)? _macdData;
-    private double[]? _volumeRatio;
-    private double[]? _atr;
+    private double[]? ema9;
+    private double[]? ema21;
+    private double[]? ema34;
+    private double[]? ema50;
+    private double[]? rsi;
+    private (double[] adx, double[] plusDi, double[] minusDi)? adxData;
+    private (double[] macd, double[] signal, double[] histogram)? macdData;
+    private double[]? volumeRatio;
+    private double[]? atr;
     
     // Extended indicators (must match LIVE for score parity)
-    private (double[] upper, double[] middle, double[] lower, double[] percentB, double[] bandwidth)? _bollingerData;
-    private (double[] k, double[] d)? _stochasticData;
-    private double[]? _obvSlope;
-    private double[]? _cci;
-    private double[]? _williamsR;
-    private double[]? _sma20;
-    private double[]? _sma50;
-    private double[]? _momentum;
-    private double[]? _roc;
+    private (double[] upper, double[] middle, double[] lower, double[] percentB, double[] bandwidth)? bollingerData;
+    private (double[] k, double[] d)? stochasticData;
+    private double[]? obvSlope;
+    private double[]? cci;
+    private double[]? williamsR;
+    private double[]? sma20;
+    private double[]? sma50;
+    private double[]? momentum;
+    private double[]? roc;
 
     public TradeSimulator(BackTestSession session, AutonomousConfig? config = null)
     {
-        _session = session;
-        _config = config ?? new AutonomousConfig();
-        _indicators = new IndicatorCalculator(session.Candles);
+        this.session = session;
+        this.config = config ?? new AutonomousConfig();
+        indicators = new IndicatorCalculator(session.Candles);
     }
 
     /// <summary>
@@ -263,14 +263,14 @@ public sealed class TradeSimulator
         TickerProfile? profile = null)
         : this(session, config)
     {
-        _metadata = metadata;
-        _profile = profile;
+        this.metadata = metadata;
+        this.profile = profile;
     }
 
     /// <summary>
     /// Gets whether historical metadata is available.
     /// </summary>
-    public bool HasHistoricalMetadata => _metadata != null;
+    public bool HasHistoricalMetadata => metadata != null;
     
     /// <summary>
     /// Sets the indicator weights for score calculation.
@@ -278,7 +278,7 @@ public sealed class TradeSimulator
     /// </summary>
     public void SetWeights(IdiotProof.Optimization.IndicatorWeights weights)
     {
-        _weights = weights;
+        this.weights = weights;
     }
 
     /// <summary>
@@ -288,12 +288,12 @@ public sealed class TradeSimulator
     {
         var result = new AutonomousSimulationResult
         {
-            Symbol = _session.Symbol,
-            Date = _session.Date,
-            Config = _config
+            Symbol = session.Symbol,
+            Date = session.Date,
+            Config = config
         };
 
-        var candles = _session.Candles;
+        var candles = session.Candles;
         if (candles.Count == 0)
             return result;
 
@@ -327,7 +327,7 @@ public sealed class TradeSimulator
             result.ScoreHistory.Add((candle.Timestamp, score));
 
             // Check for EOD exit
-            if (inPosition && _config.ExitAtEod && time >= _config.EodExitTime)
+            if (inPosition && config.ExitAtEod && time >= config.EodExitTime)
             {
                 result.Trades.Add(new AutonomousTrade
                 {
@@ -335,7 +335,7 @@ public sealed class TradeSimulator
                     ExitTime = candle.Timestamp,
                     EntryPrice = entryPrice,
                     ExitPrice = candle.Close,
-                    Quantity = _config.Quantity,
+                    Quantity = config.Quantity,
                     IsLong = isLong,
                     EntryReason = entryReason,
                     ExitReason = "End of day exit",
@@ -349,7 +349,7 @@ public sealed class TradeSimulator
             if (!inPosition)
             {
                 // Check for entry signals
-                bool canTrade = (candle.Timestamp - lastTradeTime).TotalSeconds >= _config.MinSecondsBetweenTrades;
+                bool canTrade = (candle.Timestamp - lastTradeTime).TotalSeconds >= config.MinSecondsBetweenTrades;
                 
                 // Opening bell protection (matches LIVE: block 9:30-9:32 entries)
                 if (canTrade && time >= new TimeOnly(9, 30) && time < new TimeOnly(9, 32))
@@ -361,36 +361,36 @@ public sealed class TradeSimulator
                     double slippagePct = TradingDefaults.GetSlippagePercent(candle.Close);
                     
                     // Long entry
-                    if (score.TotalScore >= _config.LongEntryThreshold)
+                    if (score.TotalScore >= config.LongEntryThreshold)
                     {
                         inPosition = true;
                         isLong = true;
                         entryPrice = candle.Close * (1 + slippagePct); // Buy at slightly higher price
                         entryTime = candle.Timestamp;
                         entryScore = score;
-                        entryReason = $"Score {score.TotalScore:+0} >= {_config.LongEntryThreshold} (LONG threshold)";
+                        entryReason = $"Score {score.TotalScore:+0} >= {config.LongEntryThreshold} (LONG threshold)";
                         lastTradeTime = candle.Timestamp;
 
                         // Calculate TP/SL based on ATR
-                        double atr = _atr![i];
-                        takeProfitPrice = entryPrice + (atr * _config.TakeProfitAtrMultiplier);
-                        stopLossPrice = entryPrice - (atr * _config.StopLossAtrMultiplier);
+                        double atrVal = atr![i];
+                        takeProfitPrice = entryPrice + (atrVal * config.TakeProfitAtrMultiplier);
+                        stopLossPrice = entryPrice - (atrVal * config.StopLossAtrMultiplier);
                     }
                     // Short entry
-                    else if (_config.AllowShort && score.TotalScore <= _config.ShortEntryThreshold)
+                    else if (config.AllowShort && score.TotalScore <= config.ShortEntryThreshold)
                     {
                         inPosition = true;
                         isLong = false;
                         entryPrice = candle.Close * (1 - slippagePct); // Sell at slightly lower price
                         entryTime = candle.Timestamp;
                         entryScore = score;
-                        entryReason = $"Score {score.TotalScore:+0} <= {_config.ShortEntryThreshold} (SHORT threshold)";
+                        entryReason = $"Score {score.TotalScore:+0} <= {config.ShortEntryThreshold} (SHORT threshold)";
                         lastTradeTime = candle.Timestamp;
 
                         // Calculate TP/SL based on ATR (inverted for short)
-                        double atr = _atr![i];
-                        takeProfitPrice = entryPrice - (atr * _config.TakeProfitAtrMultiplier);
-                        stopLossPrice = entryPrice + (atr * _config.StopLossAtrMultiplier);
+                        double atrVal = atr![i];
+                        takeProfitPrice = entryPrice - (atrVal * config.TakeProfitAtrMultiplier);
+                        stopLossPrice = entryPrice + (atrVal * config.StopLossAtrMultiplier);
                     }
                 }
             }
@@ -418,9 +418,9 @@ public sealed class TradeSimulator
                         exitPrice = stopLossPrice;
                     }
                     // Score-based exit
-                    else if (score.TotalScore < _config.LongExitThreshold)
+                    else if (score.TotalScore < config.LongExitThreshold)
                     {
-                        exitReason = $"Score {score.TotalScore:+0} < {_config.LongExitThreshold} (momentum fading)";
+                        exitReason = $"Score {score.TotalScore:+0} < {config.LongExitThreshold} (momentum fading)";
                         exitPrice = candle.Close * (1 - exitSlippage); // Selling long at slightly lower
                     }
                     // Emergency exit on strong bearish signal
@@ -445,9 +445,9 @@ public sealed class TradeSimulator
                         exitPrice = stopLossPrice;
                     }
                     // Score-based exit
-                    else if (score.TotalScore > _config.ShortExitThreshold)
+                    else if (score.TotalScore > config.ShortExitThreshold)
                     {
-                        exitReason = $"Score {score.TotalScore:+0} > {_config.ShortExitThreshold} (momentum fading)";
+                        exitReason = $"Score {score.TotalScore:+0} > {config.ShortExitThreshold} (momentum fading)";
                         exitPrice = candle.Close * (1 + exitSlippage); // Covering short at slightly higher
                     }
                     // Emergency exit on strong bullish signal
@@ -466,7 +466,7 @@ public sealed class TradeSimulator
                         ExitTime = candle.Timestamp,
                         EntryPrice = entryPrice,
                         ExitPrice = exitPrice,
-                        Quantity = _config.Quantity,
+                        Quantity = config.Quantity,
                         IsLong = isLong,
                         EntryReason = entryReason,
                         ExitReason = exitReason,
@@ -478,11 +478,11 @@ public sealed class TradeSimulator
                     inPosition = false;
 
                     // Check for direction flip
-                    if (_config.AllowDirectionFlip)
+                    if (config.AllowDirectionFlip)
                     {
                         double flipSlippage = TradingDefaults.GetSlippagePercent(candle.Close);
                         
-                        if (isLong && score.TotalScore <= _config.ShortEntryThreshold && _config.AllowShort)
+                        if (isLong && score.TotalScore <= config.ShortEntryThreshold && config.AllowShort)
                         {
                             // Flip to short
                             inPosition = true;
@@ -493,11 +493,11 @@ public sealed class TradeSimulator
                             entryReason = $"Direction flip: Score {score.TotalScore:+0} - going SHORT";
                             lastTradeTime = candle.Timestamp;
 
-                            double atr = _atr![i];
-                            takeProfitPrice = entryPrice - (atr * _config.TakeProfitAtrMultiplier);
-                            stopLossPrice = entryPrice + (atr * _config.StopLossAtrMultiplier);
+                            double atrVal = atr![i];
+                            takeProfitPrice = entryPrice - (atrVal * config.TakeProfitAtrMultiplier);
+                            stopLossPrice = entryPrice + (atrVal * config.StopLossAtrMultiplier);
                         }
-                        else if (!isLong && score.TotalScore >= _config.LongEntryThreshold)
+                        else if (!isLong && score.TotalScore >= config.LongEntryThreshold)
                         {
                             // Flip to long
                             inPosition = true;
@@ -508,9 +508,9 @@ public sealed class TradeSimulator
                             entryReason = $"Direction flip: Score {score.TotalScore:+0} - going LONG";
                             lastTradeTime = candle.Timestamp;
 
-                            double atr = _atr![i];
-                            takeProfitPrice = entryPrice + (atr * _config.TakeProfitAtrMultiplier);
-                            stopLossPrice = entryPrice - (atr * _config.StopLossAtrMultiplier);
+                            double atrVal = atr![i];
+                            takeProfitPrice = entryPrice + (atrVal * config.TakeProfitAtrMultiplier);
+                            stopLossPrice = entryPrice - (atrVal * config.StopLossAtrMultiplier);
                         }
                     }
                 }
@@ -529,7 +529,7 @@ public sealed class TradeSimulator
                 ExitTime = lastCandle.Timestamp,
                 EntryPrice = entryPrice,
                 ExitPrice = lastCandle.Close,
-                Quantity = _config.Quantity,
+                Quantity = config.Quantity,
                 IsLong = isLong,
                 EntryReason = entryReason,
                 ExitReason = "End of data",
@@ -547,26 +547,26 @@ public sealed class TradeSimulator
 
     private void CalculateAllIndicators()
     {
-        _ema9 = _indicators.CalculateEma(9);
-        _ema21 = _indicators.CalculateEma(21);
-        _ema34 = _indicators.CalculateEma(34);  // PRIMARY: Key decision level for trading rules
-        _ema50 = _indicators.CalculateEma(50);
-        _rsi = _indicators.CalculateRsi(14);
-        _adxData = _indicators.CalculateAdx(14);
-        _macdData = _indicators.CalculateMacd(12, 26, 9);
-        _volumeRatio = _indicators.CalculateVolumeRatio(20);
-        _atr = _indicators.CalculateAtr(14);
+        ema9 = indicators.CalculateEma(9);
+        ema21 = indicators.CalculateEma(21);
+        ema34 = indicators.CalculateEma(34);  // PRIMARY: Key decision level for trading rules
+        ema50 = indicators.CalculateEma(50);
+        rsi = indicators.CalculateRsi(14);
+        adxData = indicators.CalculateAdx(14);
+        macdData = indicators.CalculateMacd(12, 26, 9);
+        volumeRatio = indicators.CalculateVolumeRatio(20);
+        atr = indicators.CalculateAtr(14);
         
         // Extended indicators (must match LIVE for score parity)
-        _bollingerData = _indicators.CalculateBollingerBands(20, 2.0);
-        _stochasticData = _indicators.CalculateStochastic(14, 3);
-        _obvSlope = _indicators.CalculateObvSlope(20);
-        _cci = _indicators.CalculateCci(20);
-        _williamsR = _indicators.CalculateWilliamsR(14);
-        _sma20 = _indicators.CalculateSma(20);
-        _sma50 = _indicators.CalculateSma(50);
-        _momentum = _indicators.CalculateMomentum(10);
-        _roc = _indicators.CalculateRoc(10);
+        bollingerData = indicators.CalculateBollingerBands(20, 2.0);
+        stochasticData = indicators.CalculateStochastic(14, 3);
+        obvSlope = indicators.CalculateObvSlope(20);
+        cci = indicators.CalculateCci(20);
+        williamsR = indicators.CalculateWilliamsR(14);
+        sma20 = indicators.CalculateSma(20);
+        sma50 = indicators.CalculateSma(50);
+        momentum = indicators.CalculateMomentum(10);
+        roc = indicators.CalculateRoc(10);
     }
 
     /// <summary>
@@ -575,44 +575,44 @@ public sealed class TradeSimulator
     /// </summary>
     private ScoreBreakdown CalculateMarketScore(int index)
     {
-        var candle = _session.Candles[index];
+        var candle = session.Candles[index];
 
         // Create snapshot for MarketScoreCalculator (SINGLE SOURCE OF TRUTH)
         var snapshot = new IndicatorSnapshot
         {
             Price = candle.Close,
             Vwap = candle.Vwap,
-            Ema9 = _ema9![index],
-            Ema21 = _ema21![index],
-            Ema34 = _ema34![index],
-            Ema50 = _ema50![index],
-            Rsi = _rsi![index],
-            Macd = _macdData!.Value.macd[index],
-            MacdSignal = _macdData.Value.signal[index],
-            MacdHistogram = _macdData.Value.histogram[index],
-            Adx = _adxData!.Value.adx[index],
-            PlusDi = _adxData.Value.plusDi[index],
-            MinusDi = _adxData.Value.minusDi[index],
-            VolumeRatio = _volumeRatio![index],
-            Atr = _atr![index],
+            Ema9 = ema9![index],
+            Ema21 = ema21![index],
+            Ema34 = ema34![index],
+            Ema50 = ema50![index],
+            Rsi = rsi![index],
+            Macd = macdData!.Value.macd[index],
+            MacdSignal = macdData.Value.signal[index],
+            MacdHistogram = macdData.Value.histogram[index],
+            Adx = adxData!.Value.adx[index],
+            PlusDi = adxData.Value.plusDi[index],
+            MinusDi = adxData.Value.minusDi[index],
+            VolumeRatio = volumeRatio![index],
+            Atr = atr![index],
             // Extended indicators - real values matching LIVE
-            BollingerUpper = _bollingerData!.Value.upper[index],
-            BollingerMiddle = _bollingerData.Value.middle[index],
-            BollingerLower = _bollingerData.Value.lower[index],
-            StochasticK = _stochasticData!.Value.k[index],
-            StochasticD = _stochasticData.Value.d[index],
-            ObvSlope = _obvSlope![index],
-            Cci = _cci![index],
-            WilliamsR = _williamsR![index],
-            Sma20 = _sma20![index],
-            Sma50 = _sma50![index],
-            Momentum = _momentum![index],
-            Roc = _roc![index],
-            BollingerPercentB = _bollingerData.Value.percentB[index],
-            BollingerBandwidth = _bollingerData.Value.bandwidth[index]
+            BollingerUpper = bollingerData!.Value.upper[index],
+            BollingerMiddle = bollingerData.Value.middle[index],
+            BollingerLower = bollingerData.Value.lower[index],
+            StochasticK = stochasticData!.Value.k[index],
+            StochasticD = stochasticData.Value.d[index],
+            ObvSlope = obvSlope![index],
+            Cci = cci![index],
+            WilliamsR = williamsR![index],
+            Sma20 = sma20![index],
+            Sma50 = sma50![index],
+            Momentum = momentum![index],
+            Roc = roc![index],
+            BollingerPercentB = bollingerData.Value.percentB[index],
+            BollingerBandwidth = bollingerData.Value.bandwidth[index]
         };
 
-        var result = MarketScoreCalculator.Calculate(snapshot, _weights.ToCalculatorWeights());
+        var result = MarketScoreCalculator.Calculate(snapshot, weights.ToCalculatorWeights());
 
         // Convert to ScoreBreakdown for display compatibility
         // Use raw component scores (weights already applied by MarketScoreCalculator)
@@ -637,9 +637,9 @@ public sealed class TradeSimulator
         int candleIndex,
         bool isLongEntry)
     {
-        if (_metadata == null) return (rawScore, null);
+        if (metadata == null) return (rawScore, null);
 
-        var candle = _session.Candles[candleIndex];
+        var candle = session.Candles[candleIndex];
         var time = TimeOnly.FromDateTime(candle.Timestamp);
         int minutesFromOpen = (int)(candle.Timestamp.TimeOfDay - new TimeSpan(9, 30, 0)).TotalMinutes;
         if (minutesFromOpen < 0) minutesFromOpen = 0;
@@ -653,7 +653,7 @@ public sealed class TradeSimulator
         if (isLongEntry)
         {
             // If HOD typically occurs in first 30 min and we're past that, reduce long confidence
-            if (_metadata.DailyExtremes.HodInFirst30MinPercent > 50 && minutesFromOpen > 30)
+            if (metadata.DailyExtremes.HodInFirst30MinPercent > 50 && minutesFromOpen > 30)
             {
                 adjustment -= 10;
                 reasons.Add("HOD typically early");
@@ -661,7 +661,7 @@ public sealed class TradeSimulator
 
             // If LOD typically occurs now, boost long entry (buying the dip)
             if (minutesFromOpen > 0 && 
-                Math.Abs(minutesFromOpen - _metadata.DailyExtremes.AvgLodMinutesFromOpen) < 30)
+                Math.Abs(minutesFromOpen - metadata.DailyExtremes.AvgLodMinutesFromOpen) < 30)
             {
                 adjustment += 15;
                 reasons.Add("near typical LOD time");
@@ -670,7 +670,7 @@ public sealed class TradeSimulator
         else  // Short entry
         {
             // If LOD typically occurs in first 30 min and we're past that, reduce short confidence
-            if (_metadata.DailyExtremes.LodInFirst30MinPercent > 50 && minutesFromOpen > 30)
+            if (metadata.DailyExtremes.LodInFirst30MinPercent > 50 && minutesFromOpen > 30)
             {
                 adjustment -= 10;
                 reasons.Add("LOD typically early");
@@ -678,7 +678,7 @@ public sealed class TradeSimulator
 
             // If HOD typically occurs now, boost short entry (selling the top)
             if (minutesFromOpen > 0 &&
-                Math.Abs(minutesFromOpen - _metadata.DailyExtremes.AvgHodMinutesFromOpen) < 30)
+                Math.Abs(minutesFromOpen - metadata.DailyExtremes.AvgHodMinutesFromOpen) < 30)
             {
                 adjustment += 15;
                 reasons.Add("near typical HOD time");
@@ -691,7 +691,7 @@ public sealed class TradeSimulator
         double currentPrice = candle.Close;
 
         // Check if price is near a support level (good for longs)
-        foreach (var support in _metadata.SupportLevels.Where(s => s.Strength >= 0.6))
+        foreach (var support in metadata.SupportLevels.Where(s => s.Strength >= 0.6))
         {
             double distance = Math.Abs(currentPrice - support.Price) / support.Price * 100;
             if (distance < 0.5)  // Within 0.5% of support
@@ -711,7 +711,7 @@ public sealed class TradeSimulator
         }
 
         // Check if price is near a resistance level (good for shorts)
-        foreach (var resistance in _metadata.ResistanceLevels.Where(r => r.Strength >= 0.6))
+        foreach (var resistance in metadata.ResistanceLevels.Where(r => r.Strength >= 0.6))
         {
             double distance = Math.Abs(currentPrice - resistance.Price) / resistance.Price * 100;
             if (distance < 0.5)  // Within 0.5% of resistance
@@ -739,24 +739,24 @@ public sealed class TradeSimulator
         // ====================================================================
         // Profile-Based Adjustments (from learned trading patterns)
         // ====================================================================
-        if (_profile != null)
+        if (profile != null)
         {
             // Avoid hours with historically poor performance
-            if (_profile.ShouldAvoidHour(time.Hour))
+            if (profile.ShouldAvoidHour(time.Hour))
             {
                 adjustment -= 15;
                 reasons.Add($"avoid {time.Hour}:00 (low win rate)");
             }
 
             // Boost during best hours
-            if (_profile.BestHours.Contains(time.Hour))
+            if (profile.BestHours.Contains(time.Hour))
             {
                 adjustment += 10;
                 reasons.Add($"best hour {time.Hour}:00");
             }
 
             // Adjust for streaks
-            double streakMultiplier = _profile.GetStreakRiskMultiplier();
+            double streakMultiplier = profile.GetStreakRiskMultiplier();
             if (streakMultiplier < 1.0)
             {
                 adjustment *= streakMultiplier;
@@ -828,8 +828,8 @@ public sealed class TradeSimulator
                 ? new string('+', barLength)
                 : new string('-', barLength);
 
-            string signal = score.TotalScore >= _config.LongEntryThreshold ? " -> LONG" :
-                           score.TotalScore <= _config.ShortEntryThreshold ? " -> SHORT" : "";
+            string signal = score.TotalScore >= config.LongEntryThreshold ? " -> LONG" :
+                           score.TotalScore <= config.ShortEntryThreshold ? " -> SHORT" : "";
 
             sb.AppendLine($"| {time:HH:mm} | {score.TotalScore,6:+0;-0;0} | {bar,-20} {signal}");
         }

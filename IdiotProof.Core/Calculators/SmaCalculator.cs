@@ -1,4 +1,4 @@
-// ============================================================================
+﻿// ============================================================================
 // SMA Calculator - Simple Moving Average Calculation
 // ============================================================================
 //
@@ -40,14 +40,14 @@ namespace IdiotProof.Helpers
     /// </remarks>
     public sealed class SmaCalculator
     {
-        private readonly int _period;
-        private readonly Queue<double> _prices;
-        private double _sum;
+        private readonly int period;
+        private readonly Queue<double> prices;
+        private double sum;
 
         /// <summary>
         /// Gets the SMA period.
         /// </summary>
-        public int Period => _period;
+        public int Period => period;
 
         /// <summary>
         /// Gets the current SMA value.
@@ -64,7 +64,7 @@ namespace IdiotProof.Helpers
         /// Gets whether the SMA calculator has enough data to provide a reliable value.
         /// Requires at least 'period' price points.
         /// </summary>
-        public bool IsReady => _prices.Count >= _period;
+        public bool IsReady => prices.Count >= period;
 
         /// <summary>
         /// Gets the slope direction: positive = rising, negative = falling.
@@ -90,8 +90,8 @@ namespace IdiotProof.Helpers
             if (period < 1)
                 throw new ArgumentOutOfRangeException(nameof(period), "Period must be at least 1.");
 
-            _period = period;
-            _prices = new Queue<double>(period + 1);
+            this.period = period;
+            prices = new Queue<double>(period + 1);
         }
 
         /// <summary>
@@ -104,17 +104,17 @@ namespace IdiotProof.Helpers
             if (price <= 0)
                 return CurrentValue;
 
-            _sum += price;
-            _prices.Enqueue(price);
+            sum += price;
+            prices.Enqueue(price);
 
             // Remove oldest price if we exceed the period
-            if (_prices.Count > _period)
+            if (prices.Count > period)
             {
-                _sum -= _prices.Dequeue();
+                sum -= prices.Dequeue();
             }
 
             PreviousValue = CurrentValue;
-            CurrentValue = _sum / _prices.Count;
+            CurrentValue = sum / prices.Count;
             return CurrentValue;
         }
 
@@ -169,8 +169,8 @@ namespace IdiotProof.Helpers
         /// </summary>
         public void Reset()
         {
-            _prices.Clear();
-            _sum = 0;
+            prices.Clear();
+            sum = 0;
             CurrentValue = 0;
             PreviousValue = 0;
         }

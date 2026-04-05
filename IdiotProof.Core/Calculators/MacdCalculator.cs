@@ -1,4 +1,4 @@
-// ============================================================================
+﻿// ============================================================================
 // MACD Calculator - Moving Average Convergence Divergence
 // ============================================================================
 //
@@ -29,11 +29,11 @@ namespace IdiotProof.Helpers {
     /// </summary>
     public sealed class MacdCalculator
     {
-        private readonly EmaCalculator _fastEma;
-        private readonly EmaCalculator _slowEma;
-        private readonly EmaCalculator _signalEma;
-        private int _dataPoints;
-        private double _previousHistogram;
+        private readonly EmaCalculator fastEma;
+        private readonly EmaCalculator slowEma;
+        private readonly EmaCalculator signalEma;
+        private int dataPoints;
+        private double previousHistogram;
 
         /// <summary>
         /// Gets the fast EMA period (default: 12).
@@ -68,7 +68,7 @@ namespace IdiotProof.Helpers {
         /// <summary>
         /// Gets the previous histogram value (for rising/falling detection).
         /// </summary>
-        public double PreviousHistogram => _previousHistogram;
+        public double PreviousHistogram => previousHistogram;
 
         /// <summary>
         /// Gets whether the MACD is bullish (MACD > Signal).
@@ -88,12 +88,12 @@ namespace IdiotProof.Helpers {
         /// <summary>
         /// Gets whether the histogram is rising.
         /// </summary>
-        public bool IsHistogramRising => Histogram > _previousHistogram;
+        public bool IsHistogramRising => Histogram > previousHistogram;
 
         /// <summary>
         /// Gets whether the calculator has enough data to produce valid MACD.
         /// </summary>
-        public bool IsReady => _dataPoints >= SlowPeriod + SignalPeriod;
+        public bool IsReady => dataPoints >= SlowPeriod + SignalPeriod;
 
         /// <summary>
         /// Creates a new MACD calculator with default parameters (12, 26, 9).
@@ -123,9 +123,9 @@ namespace IdiotProof.Helpers {
             SlowPeriod = slowPeriod;
             SignalPeriod = signalPeriod;
 
-            _fastEma = new EmaCalculator(fastPeriod);
-            _slowEma = new EmaCalculator(slowPeriod);
-            _signalEma = new EmaCalculator(signalPeriod);
+            fastEma = new EmaCalculator(fastPeriod);
+            slowEma = new EmaCalculator(slowPeriod);
+            signalEma = new EmaCalculator(signalPeriod);
         }
 
         /// <summary>
@@ -137,21 +137,21 @@ namespace IdiotProof.Helpers {
             if (closePrice <= 0)
                 return;
 
-            _dataPoints++;
+            dataPoints++;
 
             // Update fast and slow EMAs
-            _fastEma.Update(closePrice);
-            _slowEma.Update(closePrice);
+            fastEma.Update(closePrice);
+            slowEma.Update(closePrice);
 
             // Calculate MACD line
-            MacdLine = _fastEma.CurrentValue - _slowEma.CurrentValue;
+            MacdLine = fastEma.CurrentValue - slowEma.CurrentValue;
 
             // Update signal line (EMA of MACD)
-            _signalEma.Update(MacdLine);
-            SignalLine = _signalEma.CurrentValue;
+            signalEma.Update(MacdLine);
+            SignalLine = signalEma.CurrentValue;
 
             // Calculate histogram
-            _previousHistogram = Histogram;
+            previousHistogram = Histogram;
             Histogram = MacdLine - SignalLine;
         }
 
@@ -160,14 +160,14 @@ namespace IdiotProof.Helpers {
         /// </summary>
         public void Reset()
         {
-            _fastEma.Reset();
-            _slowEma.Reset();
-            _signalEma.Reset();
-            _dataPoints = 0;
+            fastEma.Reset();
+            slowEma.Reset();
+            signalEma.Reset();
+            dataPoints = 0;
             MacdLine = 0;
             SignalLine = 0;
             Histogram = 0;
-            _previousHistogram = 0;
+            previousHistogram = 0;
         }
     }
 }

@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using System.Text.Json.Serialization;
 using IdiotProof.MAUI.Models;
 
@@ -16,22 +16,22 @@ public sealed class StrategyFileService
         Converters = { new JsonStringEnumConverter(JsonNamingPolicy.CamelCase) }
     };
 
-    private readonly string _storageDir;
+    private readonly string storageDir;
 
     public StrategyFileService()
     {
-        _storageDir = Path.Combine(FileSystem.AppDataDirectory, "Strategies");
-        Directory.CreateDirectory(_storageDir);
+        storageDir = Path.Combine(FileSystem.AppDataDirectory, "Strategies");
+        Directory.CreateDirectory(storageDir);
     }
 
-    private string FilePath(string id) => Path.Combine(_storageDir, $"{id}.json");
+    private string FilePath(string id) => Path.Combine(storageDir, $"{id}.json");
 
     public async Task<List<ScriptStrategy>> GetAllAsync()
     {
         var strategies = new List<ScriptStrategy>();
-        if (!Directory.Exists(_storageDir)) return strategies;
+        if (!Directory.Exists(storageDir)) return strategies;
 
-        foreach (var file in Directory.GetFiles(_storageDir, "*.json"))
+        foreach (var file in Directory.GetFiles(storageDir, "*.json"))
         {
             try
             {

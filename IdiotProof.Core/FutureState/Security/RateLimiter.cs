@@ -1,4 +1,4 @@
-// IdiotProof.Core.FutureState.Security
+﻿// IdiotProof.Core.FutureState.Security
 // Rate Limiter for DDoS protection and fair usage
 // Supports multiple algorithms: Fixed Window, Sliding Window, Token Bucket
 
@@ -155,23 +155,23 @@ public interface IRateLimiter
 /// </summary>
 public class RateLimiter : IRateLimiter
 {
-    private readonly RateLimitConfiguration _config;
+    private readonly RateLimitConfiguration config;
     
     // Fixed/Sliding window tracking
-    private readonly ConcurrentDictionary<string, WindowData> _windowData = new();
+    private readonly ConcurrentDictionary<string, WindowData> windowData = new();
     
     // Token bucket tracking
-    private readonly ConcurrentDictionary<string, TokenBucketData> _bucketData = new();
+    private readonly ConcurrentDictionary<string, TokenBucketData> bucketData = new();
     
     // Cleanup timer
-    private readonly Timer _cleanupTimer;
+    private readonly Timer cleanupTimer;
     
     public RateLimiter(RateLimitConfiguration config)
     {
-        _config = config ?? throw new ArgumentNullException(nameof(config));
+        config = config ?? throw new ArgumentNullException(nameof(config));
         
         // Cleanup expired entries every 5 minutes
-        _cleanupTimer = new Timer(CleanupExpiredEntries, null, TimeSpan.FromMinutes(5), TimeSpan.FromMinutes(5));
+        cleanupTimer = new Timer(CleanupExpiredEntries, null, TimeSpan.FromMinutes(5), TimeSpan.FromMinutes(5));
     }
     
     public RateLimitResult CheckLimit(string clientId, string? endpoint = null)
@@ -179,7 +179,7 @@ public class RateLimiter : IRateLimiter
         var key = GetKey(clientId, endpoint);
         var (maxRequests, window) = GetLimits(endpoint);
         
-        return _config.Algorithm switch
+        return config.Algorithm switch
         {
             RateLimitAlgorithm.FixedWindow => CheckFixedWindow(key, maxRequests, window),
             RateLimitAlgorithm.SlidingWindow => CheckSlidingWindow(key, maxRequests, window),
@@ -199,7 +199,7 @@ public class RateLimiter : IRateLimiter
     {
         var keysToRemove = new List<string>();
         
-        foreach (var key in _windowData.Keys)
+        foreach (var key in windowData.Keys)
         {
             if (key.StartsWith(clientId))
                 keysToRemove.Add(key);
@@ -207,16 +207,16 @@ public class RateLimiter : IRateLimiter
         
         foreach (var key in keysToRemove)
         {
-            _windowData.TryRemove(key, out _);
+            windowData.TryRemove(key, out _);
         }
         
-        foreach (var key in _bucketData.Keys)
+        foreach (var key in bucketData.Keys)
         {
             if (key.StartsWith(clientId))
             {
-                if (_bucketData.TryGetValue(key, out var bucket))
+                if (bucketData.TryGetValue(key, out var bucket))
                 {
-                    bucket.Tokens = _config.MaxBucketSize;
+                    bucket.Tokens = config.MaxBucketSize;
                 }
             }
         }
@@ -227,22 +227,22 @@ public class RateLimiter : IRateLimiter
         var key = GetKey(clientId, endpoint);
         var (maxRequests, window) = GetLimits(endpoint);
         
-        if (_config.Algorithm == RateLimitAlgorithm.TokenBucket)
+        if (config.Algorithm == RateLimitAlgorithm.TokenBucket)
         {
-            if (_bucketData.TryGetValue(key, out var bucket))
+            if (bucketData.TryGetValue(key, out var bucket))
             {
                 RefillBucket(bucket);
                 return new RateLimitResult
                 {
                     IsAllowed = true,
-                    CurrentCount = _config.MaxBucketSize - (int)bucket.Tokens,
-                    MaxAllowed = _config.MaxBucketSize
+                    CurrentCount = config.MaxBucketSize - (int)bucket.Tokens,
+                    MaxAllowed = config.MaxBucketSize
                 };
             }
         }
         else
         {
-            if (_windowData.TryGetValue(key, out var data))
+            if (windowData.TryGetValue(key, out var data))
             {
                 return new RateLimitResult
                 {
@@ -268,7 +268,7 @@ public class RateLimiter : IRateLimiter
         var now = DateTime.UtcNow;
         var windowStart = new DateTime(now.Ticks - (now.Ticks % window.Ticks), DateTimeKind.Utc);
         
-        var data = _windowData.AddOrUpdate(
+        var data = windowData.AddOrUpdate(
             key,
             _ => new WindowData { WindowStart = windowStart, Count = 1 },
             (_, existing) =>
@@ -304,7 +304,7 @@ public class RateLimiter : IRateLimiter
         var now = DateTime.UtcNow;
         var windowStart = now.Subtract(window);
         
-        var data = _windowData.GetOrAdd(key, _ => new WindowData { WindowStart = now });
+        var data = windowData.GetOrAdd(key, _ => new WindowData { WindowStart = now });
         
         lock (data)
         {
@@ -315,8 +315,8 @@ public class RateLimiter : IRateLimiter
             }
             
             var currentCount = data.Timestamps.Count;
-            var effectiveMax = _config.AllowBurst 
-                ? (int)(maxRequests * _config.BurstMultiplier)
+            var effectiveMax = config.AllowBurst 
+                ? (int)(maxRequests * config.BurstMultiplier)
                 : maxRequests;
             
             if (currentCount < effectiveMax)
@@ -347,9 +347,9 @@ public class RateLimiter : IRateLimiter
     // Token Bucket Algorithm
     private RateLimitResult CheckTokenBucket(string key)
     {
-        var bucket = _bucketData.GetOrAdd(key, _ => new TokenBucketData
+        var bucket = bucketData.GetOrAdd(key, _ => new TokenBucketData
         {
-            Tokens = _config.MaxBucketSize,
+            Tokens = config.MaxBucketSize,
             LastRefill = DateTime.UtcNow
         });
         
@@ -364,19 +364,19 @@ public class RateLimiter : IRateLimiter
                 return new RateLimitResult
                 {
                     IsAllowed = true,
-                    CurrentCount = _config.MaxBucketSize - (int)bucket.Tokens,
-                    MaxAllowed = _config.MaxBucketSize
+                    CurrentCount = config.MaxBucketSize - (int)bucket.Tokens,
+                    MaxAllowed = config.MaxBucketSize
                 };
             }
             
             // Calculate when a token will be available
-            var secondsUntilToken = 1.0 / _config.TokenRefillRate;
+            var secondsUntilToken = 1.0 / config.TokenRefillRate;
             
             return new RateLimitResult
             {
                 IsAllowed = false,
-                CurrentCount = _config.MaxBucketSize,
-                MaxAllowed = _config.MaxBucketSize,
+                CurrentCount = config.MaxBucketSize,
+                MaxAllowed = config.MaxBucketSize,
                 ResetAt = DateTime.UtcNow.AddSeconds(secondsUntilToken),
                 DenialReason = "Rate limit exceeded (token bucket empty)"
             };
@@ -387,9 +387,9 @@ public class RateLimiter : IRateLimiter
     {
         var now = DateTime.UtcNow;
         var elapsed = (now - bucket.LastRefill).TotalSeconds;
-        var tokensToAdd = elapsed * _config.TokenRefillRate;
+        var tokensToAdd = elapsed * config.TokenRefillRate;
         
-        bucket.Tokens = Math.Min(_config.MaxBucketSize, bucket.Tokens + tokensToAdd);
+        bucket.Tokens = Math.Min(config.MaxBucketSize, bucket.Tokens + tokensToAdd);
         bucket.LastRefill = now;
     }
     
@@ -400,21 +400,21 @@ public class RateLimiter : IRateLimiter
     
     private (int requests, TimeSpan window) GetLimits(string? endpoint)
     {
-        if (endpoint != null && _config.EndpointLimits.TryGetValue(endpoint, out var limits))
+        if (endpoint != null && config.EndpointLimits.TryGetValue(endpoint, out var limits))
         {
             return limits;
         }
         
-        return (_config.RequestsPerWindow, _config.WindowDuration);
+        return (config.RequestsPerWindow, config.WindowDuration);
     }
     
     private void CleanupExpiredEntries(object? state)
     {
-        var cutoff = DateTime.UtcNow.Subtract(_config.WindowDuration * 2);
+        var cutoff = DateTime.UtcNow.Subtract(config.WindowDuration * 2);
         
         var keysToRemove = new List<string>();
         
-        foreach (var kvp in _windowData)
+        foreach (var kvp in windowData)
         {
             if (kvp.Value.WindowStart < cutoff)
             {
@@ -424,16 +424,16 @@ public class RateLimiter : IRateLimiter
         
         foreach (var key in keysToRemove)
         {
-            _windowData.TryRemove(key, out _);
+            windowData.TryRemove(key, out _);
         }
         
         // Clean up token buckets that are full (no activity)
-        foreach (var kvp in _bucketData)
+        foreach (var kvp in bucketData)
         {
-            if (kvp.Value.Tokens >= _config.MaxBucketSize && 
+            if (kvp.Value.Tokens >= config.MaxBucketSize && 
                 kvp.Value.LastRefill < cutoff)
             {
-                _bucketData.TryRemove(kvp.Key, out _);
+                bucketData.TryRemove(kvp.Key, out _);
             }
         }
     }

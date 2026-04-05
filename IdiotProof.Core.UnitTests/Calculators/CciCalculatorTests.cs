@@ -1,4 +1,4 @@
-// ============================================================================
+﻿// ============================================================================
 // CCI Calculator Tests - Validates Commodity Channel Index with real data
 // ============================================================================
 
@@ -10,12 +10,12 @@ namespace IdiotProof.Core.UnitTests.Calculators;
 [TestFixture]
 public class CciCalculatorTests
 {
-    private List<TestBar> _bars = null!;
+    private List<TestBar> bars = null!;
 
     [OneTimeSetUp]
     public void LoadData()
     {
-        _bars = TestDataLoader.LoadBars("NVDA", 200);
+        bars = TestDataLoader.LoadBars("NVDA", 200);
     }
 
     // ========================================================================
@@ -46,11 +46,11 @@ public class CciCalculatorTests
 
         for (int i = 0; i < 19; i++)
         {
-            cci.Update(_bars[i].High, _bars[i].Low, _bars[i].Close);
+            cci.Update(bars[i].High, bars[i].Low, bars[i].Close);
             Assert.That(cci.IsReady, Is.False);
         }
 
-        cci.Update(_bars[19].High, _bars[19].Low, _bars[19].Close);
+        cci.Update(bars[19].High, bars[19].Low, bars[19].Close);
         Assert.That(cci.IsReady, Is.True);
     }
 
@@ -64,7 +64,7 @@ public class CciCalculatorTests
         var cci = new CciCalculator(5);
 
         // Feed 5 bars
-        var subset = _bars.Take(5).ToList();
+        var subset = bars.Take(5).ToList();
         foreach (var b in subset)
             cci.Update(b.High, b.Low, b.Close);
 
@@ -160,7 +160,7 @@ public class CciCalculatorTests
 
         for (int i = 0; i < 100; i++)
         {
-            cci.Update(_bars[i].High, _bars[i].Low, _bars[i].Close);
+            cci.Update(bars[i].High, bars[i].Low, bars[i].Close);
             int score = cci.GetScore();
             Assert.That(score, Is.GreaterThanOrEqualTo(-100).And.LessThanOrEqualTo(100),
                 $"CCI score out of range at bar {i}");
@@ -176,7 +176,7 @@ public class CciCalculatorTests
     {
         var cci = new CciCalculator(5);
         for (int i = 0; i < 10; i++)
-            cci.Update(_bars[i].High, _bars[i].Low, _bars[i].Close);
+            cci.Update(bars[i].High, bars[i].Low, bars[i].Close);
 
         double before = cci.CurrentCci;
         cci.Update(0, 0, 0);
@@ -193,7 +193,7 @@ public class CciCalculatorTests
         var cci = new CciCalculator(20);
 
         for (int i = 0; i < 100; i++)
-            cci.Update(_bars[i].High, _bars[i].Low, _bars[i].Close);
+            cci.Update(bars[i].High, bars[i].Low, bars[i].Close);
 
         Assert.That(cci.IsReady, Is.True);
         Assert.That(Math.Abs(cci.CurrentCci), Is.LessThan(500),

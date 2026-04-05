@@ -1,4 +1,4 @@
-// ============================================================================
+﻿// ============================================================================
 // BreakoutPullbackTracker - Tracks breakout/pullback patterns for optimal entries
 // ============================================================================
 //
@@ -77,19 +77,19 @@ public readonly struct BreakoutPullbackResult
 public sealed class BreakoutPullbackTracker
 {
     // Configuration
-    private readonly string _symbol;
-    private double _breakoutLevel;      // Price that must break (resistance)
-    private double _supportLevel;       // Where pullback must hold (often same as breakout)
-    private double _previousHigh;       // Previous high for reference
+    private readonly string symbol;
+    private double breakoutLevel;      // Price that must break (resistance)
+    private double supportLevel;       // Where pullback must hold (often same as breakout)
+    private double previousHigh;       // Previous high for reference
     
     // State tracking
-    private BreakoutState _state = BreakoutState.Waiting;
-    private double _breakoutHighWaterMark;   // Highest price after breakout
-    private DateTime _breakoutTime = DateTime.MinValue;
-    private DateTime _pullbackStartTime = DateTime.MinValue;
-    private int _barsAboveBreakout;
-    private int _barsPullingBack;
-    private double _pullbackLow;        // Lowest price during pullback
+    private BreakoutState state = BreakoutState.Waiting;
+    private double breakoutHighWaterMark;   // Highest price after breakout
+    private DateTime breakoutTime = DateTime.MinValue;
+    private DateTime pullbackStartTime = DateTime.MinValue;
+    private int barsAboveBreakout;
+    private int barsPullingBack;
+    private double pullbackLow;        // Lowest price during pullback
     
     // Configuration constants
     private const double BreakoutConfirmationPercent = 0.5;   // Must break by 0.5% to confirm
@@ -99,37 +99,37 @@ public sealed class BreakoutPullbackTracker
     
     public BreakoutPullbackTracker(string symbol)
     {
-        _symbol = symbol;
+        this.symbol = symbol;
     }
     
     /// <summary>
     /// Gets the current state of the breakout-pullback pattern.
     /// </summary>
-    public BreakoutState State => _state;
+    public BreakoutState State => state;
     
     /// <summary>
     /// Gets whether levels are configured for this tracker.
     /// </summary>
-    public bool HasLevels => _breakoutLevel > 0;
+    public bool HasLevels => breakoutLevel > 0;
     
     /// <summary>
     /// Gets the configured breakout level.
     /// </summary>
-    public double BreakoutLevel => _breakoutLevel;
+    public double BreakoutLevel => breakoutLevel;
     
     /// <summary>
     /// Gets the configured support level.
     /// </summary>
-    public double SupportLevel => _supportLevel;
+    public double SupportLevel => supportLevel;
     
     /// <summary>
     /// Configures the breakout and support levels.
     /// </summary>
     public void SetLevels(double breakoutLevel, double supportLevel, double previousHigh = 0)
     {
-        _breakoutLevel = breakoutLevel;
-        _supportLevel = supportLevel > 0 ? supportLevel : breakoutLevel; // Default support = breakout level
-        _previousHigh = previousHigh > 0 ? previousHigh : breakoutLevel;
+        this.breakoutLevel = breakoutLevel;
+        supportLevel = supportLevel > 0 ? supportLevel : breakoutLevel; // Default support = breakout level
+        previousHigh = previousHigh > 0 ? previousHigh : breakoutLevel;
         
         // Reset state when levels change
         Reset();
@@ -140,7 +140,7 @@ public sealed class BreakoutPullbackTracker
     /// </summary>
     public void LoadFromStrategyRule(StrategyRulesConfig config)
     {
-        var rules = config.GetRulesForSymbol(_symbol).ToList();
+        var rules = config.GetRulesForSymbol(symbol).ToList();
         if (rules.Count == 0)
             return;
             
@@ -165,13 +165,13 @@ public sealed class BreakoutPullbackTracker
     /// </summary>
     public void Reset()
     {
-        _state = BreakoutState.Waiting;
-        _breakoutHighWaterMark = 0;
-        _breakoutTime = DateTime.MinValue;
-        _pullbackStartTime = DateTime.MinValue;
-        _barsAboveBreakout = 0;
-        _barsPullingBack = 0;
-        _pullbackLow = double.MaxValue;
+        state = BreakoutState.Waiting;
+        breakoutHighWaterMark = 0;
+        breakoutTime = DateTime.MinValue;
+        pullbackStartTime = DateTime.MinValue;
+        barsAboveBreakout = 0;
+        barsPullingBack = 0;
+        pullbackLow = double.MaxValue;
     }
     
     /// <summary>
@@ -194,11 +194,11 @@ public sealed class BreakoutPullbackTracker
             };
         }
         
-        double breakoutPercent = (currentPrice - _breakoutLevel) / _breakoutLevel * 100;
-        double supportPercent = (currentPrice - _supportLevel) / _supportLevel * 100;
+        double breakoutPercent = (currentPrice - breakoutLevel) / breakoutLevel * 100;
+        double supportPercent = (currentPrice - supportLevel) / supportLevel * 100;
         
         // Update state machine
-        switch (_state)
+        switch (state)
         {
             case BreakoutState.Waiting:
                 UpdateWaitingState(currentPrice, breakoutPercent, isNewBar);
@@ -229,78 +229,78 @@ public sealed class BreakoutPullbackTracker
         // Breakout confirmed when price exceeds level by confirmation threshold
         if (breakoutPercent >= BreakoutConfirmationPercent)
         {
-            _state = BreakoutState.BrokeOut;
-            _breakoutHighWaterMark = price;
-            _breakoutTime = DateTime.UtcNow;
-            _barsAboveBreakout = 1;
+            state = BreakoutState.BrokeOut;
+            breakoutHighWaterMark = price;
+            breakoutTime = DateTime.UtcNow;
+            barsAboveBreakout = 1;
         }
     }
     
     private void UpdateBrokeOutState(double price, double breakoutPercent, bool isNewBar)
     {
         // Track high water mark
-        if (price > _breakoutHighWaterMark)
+        if (price > breakoutHighWaterMark)
         {
-            _breakoutHighWaterMark = price;
+            breakoutHighWaterMark = price;
         }
         
         if (isNewBar && breakoutPercent > 0)
         {
-            _barsAboveBreakout++;
+            barsAboveBreakout++;
         }
         
         // Transition to pulling back when price retreats toward breakout level
         // But only after we've had at least MinBarsAboveBreakout above
-        if (_barsAboveBreakout >= MinBarsAboveBreakout)
+        if (barsAboveBreakout >= MinBarsAboveBreakout)
         {
-            double retracePercent = (_breakoutHighWaterMark - price) / _breakoutHighWaterMark * 100;
+            double retracePercent = (breakoutHighWaterMark - price) / breakoutHighWaterMark * 100;
             
             // If we've retraced at least 30% of the move above breakout, we're pulling back
-            double moveAboveBreakout = _breakoutHighWaterMark - _breakoutLevel;
-            double retraceFromHigh = _breakoutHighWaterMark - price;
+            double moveAboveBreakout = breakoutHighWaterMark - breakoutLevel;
+            double retraceFromHigh = breakoutHighWaterMark - price;
             
             if (moveAboveBreakout > 0 && retraceFromHigh >= moveAboveBreakout * 0.3)
             {
-                _state = BreakoutState.PullingBack;
-                _pullbackStartTime = DateTime.UtcNow;
-                _barsPullingBack = 1;
-                _pullbackLow = price;
+                state = BreakoutState.PullingBack;
+                pullbackStartTime = DateTime.UtcNow;
+                barsPullingBack = 1;
+                pullbackLow = price;
             }
         }
         
         // Failed if price drops below breakout level too quickly (false breakout)
-        if (breakoutPercent < -BreakoutConfirmationPercent && _barsAboveBreakout < MinBarsAboveBreakout)
+        if (breakoutPercent < -BreakoutConfirmationPercent && barsAboveBreakout < MinBarsAboveBreakout)
         {
-            _state = BreakoutState.Failed;
+            state = BreakoutState.Failed;
         }
     }
     
     private void UpdatePullingBackState(double price, double supportPercent, bool isNewBar)
     {
         // Track pullback low
-        if (price < _pullbackLow)
+        if (price < pullbackLow)
         {
-            _pullbackLow = price;
+            pullbackLow = price;
         }
         
         if (isNewBar)
         {
-            _barsPullingBack++;
+            barsPullingBack++;
         }
         
         // Check if in support zone (within ±SupportZonePercent of support level)
         bool inSupportZone = Math.Abs(supportPercent) <= SupportZonePercent;
         
         // CONFIRMED: Price is bouncing from support zone
-        if (inSupportZone && price > _pullbackLow * 1.005) // 0.5% bounce from low
+        if (inSupportZone && price > pullbackLow * 1.005) // 0.5% bounce from low
         {
-            _state = BreakoutState.Confirmed;
+            state = BreakoutState.Confirmed;
         }
         
         // FAILED: Price breaks below support
         if (supportPercent < -FailurePercent)
         {
-            _state = BreakoutState.Failed;
+            state = BreakoutState.Failed;
         }
     }
     
@@ -309,17 +309,17 @@ public sealed class BreakoutPullbackTracker
         // Stay confirmed unless support breaks
         if (supportPercent < -FailurePercent)
         {
-            _state = BreakoutState.Failed;
+            state = BreakoutState.Failed;
         }
         
         // If price goes significantly above breakout again, could be new leg up
         // Reset to BrokeOut for fresh tracking
-        double breakoutPercent = (price - _breakoutLevel) / _breakoutLevel * 100;
+        double breakoutPercent = (price - breakoutLevel) / breakoutLevel * 100;
         if (breakoutPercent > 5.0) // 5% above breakout = new leg
         {
-            _state = BreakoutState.BrokeOut;
-            _breakoutHighWaterMark = price;
-            _barsAboveBreakout = 1;
+            state = BreakoutState.BrokeOut;
+            breakoutHighWaterMark = price;
+            barsAboveBreakout = 1;
         }
     }
     
@@ -329,16 +329,16 @@ public sealed class BreakoutPullbackTracker
         if (supportPercent > SupportZonePercent)
         {
             // Back above support zone - try again
-            double breakoutPercent = (price - _breakoutLevel) / _breakoutLevel * 100;
+            double breakoutPercent = (price - breakoutLevel) / breakoutLevel * 100;
             if (breakoutPercent >= BreakoutConfirmationPercent)
             {
-                _state = BreakoutState.BrokeOut;
-                _breakoutHighWaterMark = price;
-                _barsAboveBreakout = 1;
+                state = BreakoutState.BrokeOut;
+                breakoutHighWaterMark = price;
+                barsAboveBreakout = 1;
             }
             else
             {
-                _state = BreakoutState.Waiting;
+                state = BreakoutState.Waiting;
             }
         }
     }
@@ -350,16 +350,16 @@ public sealed class BreakoutPullbackTracker
         bool shouldWait = false;
         string reason;
         
-        switch (_state)
+        switch (state)
         {
             case BreakoutState.Waiting:
-                reason = $"Waiting for breakout above ${_breakoutLevel:F2}";
+                reason = $"Waiting for breakout above ${breakoutLevel:F2}";
                 shouldWait = true;  // Don't enter yet - no breakout
                 scoreAdj = -10;     // Slight penalty - pattern not triggered
                 break;
                 
             case BreakoutState.BrokeOut:
-                reason = $"Broke ${_breakoutLevel:F2}, high ${_breakoutHighWaterMark:F2} - DON'T CHASE";
+                reason = $"Broke ${breakoutLevel:F2}, high ${breakoutHighWaterMark:F2} - DON'T CHASE";
                 shouldWait = true;  // Don't chase the breakout - wait for pullback
                 scoreAdj = -15;     // Penalty for chasing breakout
                 break;
@@ -368,27 +368,27 @@ public sealed class BreakoutPullbackTracker
                 double distToSupport = Math.Abs(supportPercent);
                 if (distToSupport <= SupportZonePercent)
                 {
-                    reason = $"In support zone ${_supportLevel:F2} (±{SupportZonePercent}%) - WATCH FOR BOUNCE";
+                    reason = $"In support zone ${supportLevel:F2} (±{SupportZonePercent}%) - WATCH FOR BOUNCE";
                     shouldWait = false;  // Almost there - stay alert
                     scoreAdj = +15;      // Getting close to ideal entry
                 }
                 else
                 {
-                    reason = $"Pulling back toward ${_supportLevel:F2} ({distToSupport:F1}% away)";
+                    reason = $"Pulling back toward ${supportLevel:F2} ({distToSupport:F1}% away)";
                     shouldWait = true;   // Not in zone yet
                     scoreAdj = 0;        // Neutral
                 }
                 break;
                 
             case BreakoutState.Confirmed:
-                reason = $"PULLBACK CONFIRMED - Bouncing from ${_supportLevel:F2} support";
+                reason = $"PULLBACK CONFIRMED - Bouncing from ${supportLevel:F2} support";
                 idealEntry = true;
                 shouldWait = false;
                 scoreAdj = +30;  // Strong bonus for confirmed pullback entry
                 break;
                 
             case BreakoutState.Failed:
-                reason = $"FAILED - Price below support ${_supportLevel:F2}";
+                reason = $"FAILED - Price below support ${supportLevel:F2}";
                 shouldWait = true;  // Don't enter failed pattern
                 scoreAdj = -30;     // Strong penalty
                 break;
@@ -400,13 +400,13 @@ public sealed class BreakoutPullbackTracker
         
         return new BreakoutPullbackResult
         {
-            State = _state,
+            State = state,
             ScoreAdjustment = scoreAdj,
             IsIdealEntry = idealEntry,
             ShouldWait = shouldWait,
             Reason = reason,
-            BreakoutLevel = _breakoutLevel,
-            SupportLevel = _supportLevel,
+            BreakoutLevel = breakoutLevel,
+            SupportLevel = supportLevel,
             DistanceToSupportPercent = supportPercent
         };
     }

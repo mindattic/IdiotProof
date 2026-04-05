@@ -140,9 +140,9 @@ public sealed class GapperConfidence
 /// </summary>
 public sealed class GapperScanner
 {
-    private readonly ConcurrentDictionary<string, GapperInfo> _gappers = new();
-    private readonly HashSet<string> _alertedSymbols = new();
-    private readonly object _alertLock = new();
+    private readonly ConcurrentDictionary<string, GapperInfo> gappers = new();
+    private readonly HashSet<string> alertedSymbols = new();
+    private readonly object alertLock = new();
     
     // Configuration
     public double MinGapPercent { get; set; } = 3.0;       // Minimum gap % to alert
@@ -160,7 +160,7 @@ public sealed class GapperScanner
     /// </summary>
     public void RegisterSymbol(string symbol, double previousClose, double avgVolume = 1_000_000)
     {
-        _gappers[symbol] = new GapperInfo
+        gappers[symbol] = new GapperInfo
         {
             Symbol = symbol,
             PreviousClose = previousClose,
@@ -173,7 +173,7 @@ public sealed class GapperScanner
     /// </summary>
     public void OnPriceUpdate(string symbol, double price, long volume = 0)
     {
-        if (!_gappers.TryGetValue(symbol, out var gapper))
+        if (!gappers.TryGetValue(symbol, out var gapper))
             return;
         
         gapper.AddPrice(price);
@@ -185,13 +185,13 @@ public sealed class GapperScanner
         
         if (ShouldAlert(gapper, confidence))
         {
-            lock (_alertLock)
+            lock (alertLock)
             {
                 // Don't spam alerts for the same symbol
                 var alertKey = $"{symbol}_{confidence.Grade}";
-                if (!_alertedSymbols.Contains(alertKey))
+                if (!alertedSymbols.Contains(alertKey))
                 {
-                    _alertedSymbols.Add(alertKey);
+                    alertedSymbols.Add(alertKey);
                     OnGapperAlert?.Invoke(gapper, confidence);
                 }
             }
@@ -288,7 +288,7 @@ public sealed class GapperScanner
     /// </summary>
     public IEnumerable<(GapperInfo Gapper, GapperConfidence Confidence)> GetAllGappers()
     {
-        return _gappers.Values
+        return gappers.Values
             .Select(g => (Gapper: g, Confidence: CalculateConfidence(g)))
             .OrderByDescending(x => x.Confidence.Total);
     }
@@ -299,9 +299,9 @@ public sealed class GapperScanner
     /// </summary>
     public void ResetAlerts()
     {
-        lock (_alertLock)
+        lock (alertLock)
         {
-            _alertedSymbols.Clear();
+            alertedSymbols.Clear();
         }
     }
     
@@ -310,7 +310,7 @@ public sealed class GapperScanner
     /// </summary>
     public void Clear()
     {
-        _gappers.Clear();
+        gappers.Clear();
         ResetAlerts();
     }
     
@@ -432,7 +432,7 @@ public sealed class GapperScanner
     /// </summary>
     public GapperInfo? GetGapper(string symbol)
     {
-        return _gappers.TryGetValue(symbol, out var gapper) ? gapper : null;
+        return gappers.TryGetValue(symbol, out var gapper) ? gapper : null;
     }
 }
 

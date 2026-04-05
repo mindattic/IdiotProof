@@ -1,4 +1,4 @@
-// ============================================================================
+﻿// ============================================================================
 // Technical Indicator Calculator - Computes indicators for backtesting
 // ============================================================================
 
@@ -11,11 +11,11 @@ namespace IdiotProof.Analysis;
 /// </summary>
 public sealed class IndicatorCalculator
 {
-    private readonly List<BackTestCandle> _candles;
+    private readonly List<BackTestCandle> candles;
 
     public IndicatorCalculator(List<BackTestCandle> candles)
     {
-        _candles = candles;
+        this.candles = candles;
     }
 
     // ========================================================================
@@ -27,25 +27,25 @@ public sealed class IndicatorCalculator
     /// </summary>
     public double[] CalculateEma(int period)
     {
-        if (_candles.Count == 0) return [];
+        if (candles.Count == 0) return [];
 
-        var ema = new double[_candles.Count];
+        var ema = new double[candles.Count];
         double multiplier = 2.0 / (period + 1);
 
         // First EMA is SMA
         double sum = 0;
-        for (int i = 0; i < Math.Min(period, _candles.Count); i++)
+        for (int i = 0; i < Math.Min(period, candles.Count); i++)
         {
-            sum += _candles[i].Close;
+            sum += candles[i].Close;
             ema[i] = sum / (i + 1);  // Running SMA during warmup
         }
 
-        if (_candles.Count <= period) return ema;
+        if (candles.Count <= period) return ema;
 
         // EMA calculation
-        for (int i = period; i < _candles.Count; i++)
+        for (int i = period; i < candles.Count; i++)
         {
-            ema[i] = (_candles[i].Close - ema[i - 1]) * multiplier + ema[i - 1];
+            ema[i] = (candles[i].Close - ema[i - 1]) * multiplier + ema[i - 1];
         }
 
         return ema;
@@ -69,16 +69,16 @@ public sealed class IndicatorCalculator
     /// </summary>
     public double[] CalculateRsi(int period = 14)
     {
-        if (_candles.Count <= period) return new double[_candles.Count];
+        if (candles.Count <= period) return new double[candles.Count];
 
-        var rsi = new double[_candles.Count];
-        var gains = new double[_candles.Count];
-        var losses = new double[_candles.Count];
+        var rsi = new double[candles.Count];
+        var gains = new double[candles.Count];
+        var losses = new double[candles.Count];
 
         // Calculate price changes
-        for (int i = 1; i < _candles.Count; i++)
+        for (int i = 1; i < candles.Count; i++)
         {
-            double change = _candles[i].Close - _candles[i - 1].Close;
+            double change = candles[i].Close - candles[i - 1].Close;
             gains[i] = change > 0 ? change : 0;
             losses[i] = change < 0 ? -change : 0;
         }
@@ -96,7 +96,7 @@ public sealed class IndicatorCalculator
         rsi[period] = avgLoss == 0 ? 100 : 100 - (100 / (1 + avgGain / avgLoss));
 
         // Smoothed averages
-        for (int i = period + 1; i < _candles.Count; i++)
+        for (int i = period + 1; i < candles.Count; i++)
         {
             avgGain = (avgGain * (period - 1) + gains[i]) / period;
             avgLoss = (avgLoss * (period - 1) + losses[i]) / period;
@@ -116,7 +116,7 @@ public sealed class IndicatorCalculator
     /// </summary>
     public (double[] adx, double[] plusDi, double[] minusDi) CalculateAdx(int period = 14)
     {
-        int count = _candles.Count;
+        int count = candles.Count;
         var adx = new double[count];
         var plusDi = new double[count];
         var minusDi = new double[count];
@@ -130,8 +130,8 @@ public sealed class IndicatorCalculator
         // Calculate TR, +DM, -DM
         for (int i = 1; i < count; i++)
         {
-            var curr = _candles[i];
-            var prev = _candles[i - 1];
+            var curr = candles[i];
+            var prev = candles[i - 1];
 
             double highLow = curr.High - curr.Low;
             double highPrevClose = Math.Abs(curr.High - prev.Close);
@@ -211,24 +211,24 @@ public sealed class IndicatorCalculator
         var fastEma = CalculateEma(fastPeriod);
         var slowEma = CalculateEma(slowPeriod);
 
-        var macd = new double[_candles.Count];
-        var signal = new double[_candles.Count];
-        var histogram = new double[_candles.Count];
+        var macd = new double[candles.Count];
+        var signal = new double[candles.Count];
+        var histogram = new double[candles.Count];
 
         // MACD = Fast EMA - Slow EMA
-        for (int i = 0; i < _candles.Count; i++)
+        for (int i = 0; i < candles.Count; i++)
         {
             macd[i] = fastEma[i] - slowEma[i];
         }
 
         // Signal = EMA of MACD
         double multiplier = 2.0 / (signalPeriod + 1);
-        for (int i = 0; i < slowPeriod && i < _candles.Count; i++)
+        for (int i = 0; i < slowPeriod && i < candles.Count; i++)
         {
             signal[i] = macd[i];  // Warmup
         }
 
-        for (int i = slowPeriod; i < _candles.Count; i++)
+        for (int i = slowPeriod; i < candles.Count; i++)
         {
             signal[i] = (macd[i] - signal[i - 1]) * multiplier + signal[i - 1];
             histogram[i] = macd[i] - signal[i];
@@ -246,11 +246,11 @@ public sealed class IndicatorCalculator
     /// </summary>
     public double[] CalculateMomentum(int period = 10)
     {
-        var momentum = new double[_candles.Count];
+        var momentum = new double[candles.Count];
 
-        for (int i = period; i < _candles.Count; i++)
+        for (int i = period; i < candles.Count; i++)
         {
-            momentum[i] = _candles[i].Close - _candles[i - period].Close;
+            momentum[i] = candles[i].Close - candles[i - period].Close;
         }
 
         return momentum;
@@ -261,12 +261,12 @@ public sealed class IndicatorCalculator
     /// </summary>
     public double[] CalculateRoc(int period = 10)
     {
-        var roc = new double[_candles.Count];
+        var roc = new double[candles.Count];
 
-        for (int i = period; i < _candles.Count; i++)
+        for (int i = period; i < candles.Count; i++)
         {
-            double prevClose = _candles[i - period].Close;
-            roc[i] = prevClose > 0 ? ((_candles[i].Close - prevClose) / prevClose) * 100 : 0;
+            double prevClose = candles[i - period].Close;
+            roc[i] = prevClose > 0 ? ((candles[i].Close - prevClose) / prevClose) * 100 : 0;
         }
 
         return roc;
@@ -281,16 +281,16 @@ public sealed class IndicatorCalculator
     /// </summary>
     public double[] CalculateAtr(int period = 14)
     {
-        var atr = new double[_candles.Count];
-        var tr = new double[_candles.Count];
+        var atr = new double[candles.Count];
+        var tr = new double[candles.Count];
 
         // Calculate True Range
-        tr[0] = _candles[0].High - _candles[0].Low;
+        tr[0] = candles[0].High - candles[0].Low;
 
-        for (int i = 1; i < _candles.Count; i++)
+        for (int i = 1; i < candles.Count; i++)
         {
-            var curr = _candles[i];
-            var prev = _candles[i - 1];
+            var curr = candles[i];
+            var prev = candles[i - 1];
 
             double highLow = curr.High - curr.Low;
             double highPrevClose = Math.Abs(curr.High - prev.Close);
@@ -300,14 +300,14 @@ public sealed class IndicatorCalculator
 
         // First ATR is SMA
         double sum = 0;
-        for (int i = 0; i < Math.Min(period, _candles.Count); i++)
+        for (int i = 0; i < Math.Min(period, candles.Count); i++)
         {
             sum += tr[i];
             atr[i] = sum / (i + 1);
         }
 
         // Smoothed ATR
-        for (int i = period; i < _candles.Count; i++)
+        for (int i = period; i < candles.Count; i++)
         {
             atr[i] = (atr[i - 1] * (period - 1) + tr[i]) / period;
         }
@@ -324,13 +324,13 @@ public sealed class IndicatorCalculator
     /// </summary>
     public double[] CalculateVolumeSma(int period = 20)
     {
-        var sma = new double[_candles.Count];
+        var sma = new double[candles.Count];
 
-        for (int i = 0; i < _candles.Count; i++)
+        for (int i = 0; i < candles.Count; i++)
         {
             int start = Math.Max(0, i - period + 1);
             int count = i - start + 1;
-            sma[i] = _candles.Skip(start).Take(count).Average(c => c.Volume);
+            sma[i] = candles.Skip(start).Take(count).Average(c => c.Volume);
         }
 
         return sma;
@@ -342,11 +342,11 @@ public sealed class IndicatorCalculator
     public double[] CalculateVolumeRatio(int period = 20)
     {
         var avgVolume = CalculateVolumeSma(period);
-        var ratio = new double[_candles.Count];
+        var ratio = new double[candles.Count];
 
-        for (int i = 0; i < _candles.Count; i++)
+        for (int i = 0; i < candles.Count; i++)
         {
-            ratio[i] = avgVolume[i] > 0 ? _candles[i].Volume / avgVolume[i] : 1;
+            ratio[i] = avgVolume[i] > 0 ? candles[i].Volume / avgVolume[i] : 1;
         }
 
         return ratio;
@@ -361,15 +361,15 @@ public sealed class IndicatorCalculator
     /// </summary>
     public double[] CalculateSma(int period)
     {
-        var sma = new double[_candles.Count];
+        var sma = new double[candles.Count];
         double sum = 0;
 
-        for (int i = 0; i < _candles.Count; i++)
+        for (int i = 0; i < candles.Count; i++)
         {
-            sum += _candles[i].Close;
+            sum += candles[i].Close;
             if (i >= period)
-                sum -= _candles[i - period].Close;
-            sma[i] = i >= period - 1 ? sum / period : _candles[i].Close;
+                sum -= candles[i - period].Close;
+            sma[i] = i >= period - 1 ? sum / period : candles[i].Close;
         }
 
         return sma;
@@ -381,18 +381,18 @@ public sealed class IndicatorCalculator
     public (double[] upper, double[] middle, double[] lower, double[] percentB, double[] bandwidth) CalculateBollingerBands(int period = 20, double multiplier = 2.0)
     {
         var sma = CalculateSma(period);
-        var upper = new double[_candles.Count];
+        var upper = new double[candles.Count];
         var middle = sma;
-        var lower = new double[_candles.Count];
-        var percentB = new double[_candles.Count];
-        var bandwidth = new double[_candles.Count];
+        var lower = new double[candles.Count];
+        var percentB = new double[candles.Count];
+        var bandwidth = new double[candles.Count];
 
-        for (int i = 0; i < _candles.Count; i++)
+        for (int i = 0; i < candles.Count; i++)
         {
             if (i < period - 1)
             {
-                upper[i] = _candles[i].Close;
-                lower[i] = _candles[i].Close;
+                upper[i] = candles[i].Close;
+                lower[i] = candles[i].Close;
                 percentB[i] = 0.5;
                 bandwidth[i] = 0;
                 continue;
@@ -402,7 +402,7 @@ public sealed class IndicatorCalculator
             double sumSq = 0;
             for (int j = i - period + 1; j <= i; j++)
             {
-                double diff = _candles[j].Close - sma[i];
+                double diff = candles[j].Close - sma[i];
                 sumSq += diff * diff;
             }
             double stdDev = Math.Sqrt(sumSq / period);
@@ -410,7 +410,7 @@ public sealed class IndicatorCalculator
             upper[i] = sma[i] + (multiplier * stdDev);
             lower[i] = sma[i] - (multiplier * stdDev);
             double bandRange = upper[i] - lower[i];
-            percentB[i] = bandRange > 0 ? (_candles[i].Close - lower[i]) / bandRange : 0.5;
+            percentB[i] = bandRange > 0 ? (candles[i].Close - lower[i]) / bandRange : 0.5;
             bandwidth[i] = sma[i] > 0 ? bandRange / sma[i] * 100 : 0;
         }
 
@@ -422,10 +422,10 @@ public sealed class IndicatorCalculator
     /// </summary>
     public (double[] k, double[] d) CalculateStochastic(int period = 14, int smoothing = 3)
     {
-        var k = new double[_candles.Count];
-        var d = new double[_candles.Count];
+        var k = new double[candles.Count];
+        var d = new double[candles.Count];
 
-        for (int i = 0; i < _candles.Count; i++)
+        for (int i = 0; i < candles.Count; i++)
         {
             if (i < period - 1)
             {
@@ -437,17 +437,17 @@ public sealed class IndicatorCalculator
             double lowestLow = double.MaxValue;
             for (int j = i - period + 1; j <= i; j++)
             {
-                if (_candles[j].High > highestHigh) highestHigh = _candles[j].High;
-                if (_candles[j].Low < lowestLow) lowestLow = _candles[j].Low;
+                if (candles[j].High > highestHigh) highestHigh = candles[j].High;
+                if (candles[j].Low < lowestLow) lowestLow = candles[j].Low;
             }
 
             double range = highestHigh - lowestLow;
-            k[i] = range > 0 ? ((_candles[i].Close - lowestLow) / range) * 100 : 50;
+            k[i] = range > 0 ? ((candles[i].Close - lowestLow) / range) * 100 : 50;
         }
 
         // Smooth %K to get %D (SMA of %K)
         double sum = 0;
-        for (int i = 0; i < _candles.Count; i++)
+        for (int i = 0; i < candles.Count; i++)
         {
             sum += k[i];
             if (i >= smoothing)
@@ -463,23 +463,23 @@ public sealed class IndicatorCalculator
     /// </summary>
     public double[] CalculateObvSlope(int smoothingPeriod = 20)
     {
-        var obvSlope = new double[_candles.Count];
-        var obv = new double[_candles.Count];
+        var obvSlope = new double[candles.Count];
+        var obv = new double[candles.Count];
 
         // Calculate raw OBV
-        obv[0] = _candles[0].Volume;
-        for (int i = 1; i < _candles.Count; i++)
+        obv[0] = candles[0].Volume;
+        for (int i = 1; i < candles.Count; i++)
         {
-            if (_candles[i].Close > _candles[i - 1].Close)
-                obv[i] = obv[i - 1] + _candles[i].Volume;
-            else if (_candles[i].Close < _candles[i - 1].Close)
-                obv[i] = obv[i - 1] - _candles[i].Volume;
+            if (candles[i].Close > candles[i - 1].Close)
+                obv[i] = obv[i - 1] + candles[i].Volume;
+            else if (candles[i].Close < candles[i - 1].Close)
+                obv[i] = obv[i - 1] - candles[i].Volume;
             else
                 obv[i] = obv[i - 1];
         }
 
         // Calculate slope using linear regression over smoothing period
-        for (int i = 0; i < _candles.Count; i++)
+        for (int i = 0; i < candles.Count; i++)
         {
             if (i < smoothingPeriod)
             {
@@ -502,9 +502,9 @@ public sealed class IndicatorCalculator
     /// </summary>
     public double[] CalculateCci(int period = 20)
     {
-        var cci = new double[_candles.Count];
+        var cci = new double[candles.Count];
 
-        for (int i = 0; i < _candles.Count; i++)
+        for (int i = 0; i < candles.Count; i++)
         {
             if (i < period - 1)
             {
@@ -516,7 +516,7 @@ public sealed class IndicatorCalculator
             double sumTp = 0;
             for (int j = i - period + 1; j <= i; j++)
             {
-                sumTp += (_candles[j].High + _candles[j].Low + _candles[j].Close) / 3;
+                sumTp += (candles[j].High + candles[j].Low + candles[j].Close) / 3;
             }
             double meanTp = sumTp / period;
 
@@ -524,12 +524,12 @@ public sealed class IndicatorCalculator
             double sumDev = 0;
             for (int j = i - period + 1; j <= i; j++)
             {
-                double tp = (_candles[j].High + _candles[j].Low + _candles[j].Close) / 3;
+                double tp = (candles[j].High + candles[j].Low + candles[j].Close) / 3;
                 sumDev += Math.Abs(tp - meanTp);
             }
             double meanDev = sumDev / period;
 
-            double currentTp = (_candles[i].High + _candles[i].Low + _candles[i].Close) / 3;
+            double currentTp = (candles[i].High + candles[i].Low + candles[i].Close) / 3;
             cci[i] = meanDev > 0 ? (currentTp - meanTp) / (0.015 * meanDev) : 0;
         }
 
@@ -541,9 +541,9 @@ public sealed class IndicatorCalculator
     /// </summary>
     public double[] CalculateWilliamsR(int period = 14)
     {
-        var wr = new double[_candles.Count];
+        var wr = new double[candles.Count];
 
-        for (int i = 0; i < _candles.Count; i++)
+        for (int i = 0; i < candles.Count; i++)
         {
             if (i < period - 1)
             {
@@ -555,12 +555,12 @@ public sealed class IndicatorCalculator
             double lowestLow = double.MaxValue;
             for (int j = i - period + 1; j <= i; j++)
             {
-                if (_candles[j].High > highestHigh) highestHigh = _candles[j].High;
-                if (_candles[j].Low < lowestLow) lowestLow = _candles[j].Low;
+                if (candles[j].High > highestHigh) highestHigh = candles[j].High;
+                if (candles[j].Low < lowestLow) lowestLow = candles[j].Low;
             }
 
             double range = highestHigh - lowestLow;
-            wr[i] = range > 0 ? ((highestHigh - _candles[i].Close) / range) * -100 : -50;
+            wr[i] = range > 0 ? ((highestHigh - candles[i].Close) / range) * -100 : -50;
         }
 
         return wr;
@@ -573,14 +573,14 @@ public sealed class IndicatorCalculator
     /// </summary>
     public bool[] DetectHigherLows(int lookback = 3)
     {
-        var result = new bool[_candles.Count];
+        var result = new bool[candles.Count];
 
-        for (int i = lookback; i < _candles.Count; i++)
+        for (int i = lookback; i < candles.Count; i++)
         {
             bool higherLows = true;
             for (int j = 1; j < lookback; j++)
             {
-                if (_candles[i - j].Low <= _candles[i - j - 1].Low)
+                if (candles[i - j].Low <= candles[i - j - 1].Low)
                 {
                     higherLows = false;
                     break;
@@ -597,14 +597,14 @@ public sealed class IndicatorCalculator
     /// </summary>
     public bool[] DetectHigherHighs(int lookback = 3)
     {
-        var result = new bool[_candles.Count];
+        var result = new bool[candles.Count];
 
-        for (int i = lookback; i < _candles.Count; i++)
+        for (int i = lookback; i < candles.Count; i++)
         {
             bool higherHighs = true;
             for (int j = 1; j < lookback; j++)
             {
-                if (_candles[i - j].High <= _candles[i - j - 1].High)
+                if (candles[i - j].High <= candles[i - j - 1].High)
                 {
                     higherHighs = false;
                     break;

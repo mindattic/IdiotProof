@@ -1,4 +1,4 @@
-// ============================================================================
+﻿// ============================================================================
 // IB Wrapper - EWrapper implementation for IBKR API
 // ============================================================================
 //
@@ -117,31 +117,31 @@ namespace IdiotProof.Models {
         /// </remarks>
         public EReaderSignal Signal { get; } = new EReaderMonitorSignal();
 
-        private EClientSocket? _client;
-        private bool _disposed;
-        private volatile bool _isConnected;
+        private EClientSocket? client;
+        private bool disposed;
+        private volatile bool isConnected;
 
-        private readonly ManualResetEventSlim _nextValidIdEvent = new ManualResetEventSlim(false);
-        private readonly ManualResetEventSlim _pingResponseEvent = new ManualResetEventSlim(false);
-        private readonly object _orderIdLock = new object();
-        private readonly object _pingLock = new object();
-        private int _nextOrderId = -1;
-        private long _lastServerTime;
-        private long _pingStartTicks;
+        private readonly ManualResetEventSlim nextValidIdEvent = new ManualResetEventSlim(false);
+        private readonly ManualResetEventSlim pingResponseEvent = new ManualResetEventSlim(false);
+        private readonly object orderIdLock = new object();
+        private readonly object pingLock = new object();
+        private int nextOrderId = -1;
+        private long lastServerTime;
+        private long pingStartTicks;
 
         // Market data caches for LAST and LAST_SIZE pairing
-        private readonly ConcurrentDictionary<int, double> _lastByTicker = new();
-        private readonly ConcurrentDictionary<int, int> _lastSizeByTicker = new();
+        private readonly ConcurrentDictionary<int, double> lastByTicker = new();
+        private readonly ConcurrentDictionary<int, int> lastSizeByTicker = new();
 
         // Market data caches for BID and ASK prices
-        private readonly ConcurrentDictionary<int, double> _bidByTicker = new();
-        private readonly ConcurrentDictionary<int, double> _askByTicker = new();
+        private readonly ConcurrentDictionary<int, double> bidByTicker = new();
+        private readonly ConcurrentDictionary<int, double> askByTicker = new();
 
         // Per-ticker handlers for routing market data to specific runners
-        private readonly ConcurrentDictionary<int, Action<double, int>> _tickerHandlers = new();
+        private readonly ConcurrentDictionary<int, Action<double, int>> tickerHandlers = new();
 
         // Per-ticker handlers for bid/ask updates
-        private readonly ConcurrentDictionary<int, Action<double, double>> _bidAskHandlers = new();
+        private readonly ConcurrentDictionary<int, Action<double, double>> bidAskHandlers = new();
 
         /// <summary>
         /// Event fired when any last trade is received (legacy, fires for all tickers).
@@ -217,24 +217,24 @@ namespace IdiotProof.Models {
         /// <summary>
         /// Gets whether the connection to IBKR is currently active.
         /// </summary>
-        public bool IsConnected => _isConnected;
+        public bool IsConnected => isConnected;
 
         // Track open orders
-        private readonly ConcurrentDictionary<int, (string Symbol, string Action, decimal Qty, string Type, double LmtPrice, string Status)> _openOrders = new();
+        private readonly ConcurrentDictionary<int, (string Symbol, string Action, decimal Qty, string Type, double LmtPrice, string Status)> openOrders = new();
 
         // Track positions
-        private readonly ConcurrentDictionary<string, (decimal Quantity, double AvgCost)> _positions = new();
-        private readonly ManualResetEventSlim _positionsEndEvent = new ManualResetEventSlim(false);
+        private readonly ConcurrentDictionary<string, (decimal Quantity, double AvgCost)> positions = new();
+        private readonly ManualResetEventSlim positionsEndEvent = new ManualResetEventSlim(false);
 
         /// <summary>
         /// Gets all currently tracked open orders.
         /// </summary>
-        public IReadOnlyDictionary<int, (string Symbol, string Action, decimal Qty, string Type, double LmtPrice, string Status)> OpenOrders => _openOrders;
+        public IReadOnlyDictionary<int, (string Symbol, string Action, decimal Qty, string Type, double LmtPrice, string Status)> OpenOrders => openOrders;
 
         /// <summary>
         /// Gets all currently tracked positions.
         /// </summary>
-        public IReadOnlyDictionary<string, (decimal Quantity, double AvgCost)> Positions => _positions;
+        public IReadOnlyDictionary<string, (decimal Quantity, double AvgCost)> Positions => positions;
 
         /// <summary>
         /// Event fired when a position update is received.
@@ -248,26 +248,26 @@ namespace IdiotProof.Models {
         public event Action? OnPositionsEnd;
 
         // Track account values (margin, buying power, etc.)
-        private readonly ConcurrentDictionary<string, double> _accountValues = new();
-        private volatile bool _accountUpdatesSubscribed;
+        private readonly ConcurrentDictionary<string, double> accountValues = new();
+        private volatile bool accountUpdatesSubscribed;
 
         /// <summary>
         /// Gets the available buying power (AvailableFunds-S).
         /// Returns 0 if account updates haven't been received yet.
         /// </summary>
-        public double BuyingPower => _accountValues.TryGetValue("BuyingPower", out var bp) ? bp : 0;
+        public double BuyingPower => accountValues.TryGetValue("BuyingPower", out var bp) ? bp : 0;
 
         /// <summary>
         /// Gets the net liquidation value (NetLiquidation-S).
         /// Returns 0 if account updates haven't been received yet.
         /// </summary>
-        public double NetLiquidation => _accountValues.TryGetValue("NetLiquidation", out var nl) ? nl : 0;
+        public double NetLiquidation => accountValues.TryGetValue("NetLiquidation", out var nl) ? nl : 0;
 
         /// <summary>
         /// Gets the available funds for new positions (AvailableFunds-S).
         /// Returns 0 if account updates haven't been received yet.
         /// </summary>
-        public double AvailableFunds => _accountValues.TryGetValue("AvailableFunds", out var af) ? af : 0;
+        public double AvailableFunds => accountValues.TryGetValue("AvailableFunds", out var af) ? af : 0;
 
         /// <summary>
         /// Requests account updates from IBKR.
@@ -276,10 +276,10 @@ namespace IdiotProof.Models {
         /// <param name="accountNumber">Optional account number. If empty, uses the first managed account.</param>
         public void RequestAccountUpdates(string accountNumber = "")
         {
-            if (_accountUpdatesSubscribed) return;
+            if (accountUpdatesSubscribed) return;
 
-            _client?.reqAccountUpdates(true, accountNumber);
-            _accountUpdatesSubscribed = true;
+            client?.reqAccountUpdates(true, accountNumber);
+            accountUpdatesSubscribed = true;
             Log("IB_INFO", "Subscribed to account updates");
         }
 
@@ -302,7 +302,7 @@ namespace IdiotProof.Models {
         /// Gets the last server time received from a ping (Unix timestamp in seconds).
         /// Returns 0 if no ping has been performed yet.
         /// </summary>
-        public long LastServerTime => Interlocked.Read(ref _lastServerTime);
+        public long LastServerTime => Interlocked.Read(ref lastServerTime);
 
         /// <summary>
         /// Requests all open orders from IBKR.
@@ -310,7 +310,7 @@ namespace IdiotProof.Models {
         /// </summary>
         public void RequestOpenOrders()
         {
-            _client?.reqAllOpenOrders();
+            client?.reqAllOpenOrders();
         }
 
         /// <summary>
@@ -326,8 +326,8 @@ namespace IdiotProof.Models {
             try
             {
                 // Clear existing orders before refreshing - they will be re-added by openOrder callbacks
-                _openOrders.Clear();
-                _client?.reqAllOpenOrders();
+                openOrders.Clear();
+                client?.reqAllOpenOrders();
                 completedEvent.Wait(timeout);
             }
             finally
@@ -342,7 +342,7 @@ namespace IdiotProof.Models {
         /// </summary>
         public void RequestPositions()
         {
-            _client?.reqPositions();
+            client?.reqPositions();
         }
 
         /// <summary>
@@ -351,10 +351,10 @@ namespace IdiotProof.Models {
         /// <param name="timeout">Timeout for the request.</param>
         public void RequestPositionsAndWait(TimeSpan timeout)
         {
-            _positionsEndEvent.Reset();
-            _positions.Clear();
-            _client?.reqPositions();
-            _positionsEndEvent.Wait(timeout);
+            positionsEndEvent.Reset();
+            positions.Clear();
+            client?.reqPositions();
+            positionsEndEvent.Wait(timeout);
         }
 
         /// <summary>
@@ -362,7 +362,7 @@ namespace IdiotProof.Models {
         /// </summary>
         public void CancelPositions()
         {
-            _client?.cancelPositions();
+            client?.cancelPositions();
         }
 
         /// <summary>
@@ -371,7 +371,7 @@ namespace IdiotProof.Models {
         /// <param name="orderId">The order ID to cancel.</param>
         public void CancelOrder(int orderId)
         {
-            _client?.cancelOrder(orderId, new OrderCancel());
+            client?.cancelOrder(orderId, new OrderCancel());
         }
 
         /// <summary>
@@ -379,7 +379,7 @@ namespace IdiotProof.Models {
         /// </summary>
         public void CancelAllOrders()
         {
-            _client?.reqGlobalCancel(new OrderCancel());
+            client?.reqGlobalCancel(new OrderCancel());
         }
 
         /// <summary>
@@ -401,14 +401,14 @@ namespace IdiotProof.Models {
         /// </remarks>
         public void ModifyOrder(int orderId, IbContract contract, Order order)
         {
-            if (_client == null)
+            if (client == null)
             {
                 Log("ORDER", "Cannot modify order - client not connected");
                 return;
             }
 
             Log("ORDER", $"Modifying order #{orderId}: {order.Action} {order.TotalQuantity} {order.OrderType} @ {(order.OrderType == "LMT" ? $"${order.LmtPrice:F2}" : order.OrderType == "STP" ? $"${order.AuxPrice:F2}" : "MKT")}");
-            _client.placeOrder(orderId, contract, order);
+            client.placeOrder(orderId, contract, order);
         }
 
         /// <summary>
@@ -421,7 +421,7 @@ namespace IdiotProof.Models {
         /// </remarks>
         public void AttachClient(EClientSocket client)
         {
-            _client = client;
+            this.client = client;
         }
 
         /// <summary>
@@ -447,32 +447,32 @@ namespace IdiotProof.Models {
         {
             var effectiveTimeout = timeout ?? TimeSpan.FromSeconds(5);
 
-            lock (_pingLock)
+            lock (pingLock)
             {
-                if (_client == null || _disposed)
+                if (client == null || disposed)
                 {
                     return new PingResult { Success = false, ServerTime = 0, LatencyMs = 0 };
                 }
 
                 // Reset the event before sending request
-                _pingResponseEvent.Reset();
-                _pingStartTicks = Stopwatch.GetTimestamp();
+                pingResponseEvent.Reset();
+                pingStartTicks = Stopwatch.GetTimestamp();
 
                 // Request current time from server
-                _client.reqCurrentTime();
+                client.reqCurrentTime();
 
                 // Wait for response
-                bool received = _pingResponseEvent.Wait(effectiveTimeout);
+                bool received = pingResponseEvent.Wait(effectiveTimeout);
 
                 if (received)
                 {
-                    long elapsedTicks = Stopwatch.GetTimestamp() - _pingStartTicks;
+                    long elapsedTicks = Stopwatch.GetTimestamp() - pingStartTicks;
                     long latencyMs = (elapsedTicks * 1000) / Stopwatch.Frequency;
 
                     return new PingResult
                     {
                         Success = true,
-                        ServerTime = Interlocked.Read(ref _lastServerTime),
+                        ServerTime = Interlocked.Read(ref lastServerTime),
                         LatencyMs = latencyMs
                     };
                 }
@@ -502,7 +502,7 @@ namespace IdiotProof.Models {
         /// </remarks>
         public void RegisterTickerHandler(int tickerId, Action<double, int> handler)
         {
-            _tickerHandlers[tickerId] = handler;
+            tickerHandlers[tickerId] = handler;
         }
 
         /// <summary>
@@ -512,7 +512,7 @@ namespace IdiotProof.Models {
         /// <param name="handler">Callback invoked with (bidPrice, askPrice) when bid or ask updates.</param>
         public void RegisterBidAskHandler(int tickerId, Action<double, double> handler)
         {
-            _bidAskHandlers[tickerId] = handler;
+            bidAskHandlers[tickerId] = handler;
         }
 
         /// <summary>
@@ -522,8 +522,8 @@ namespace IdiotProof.Models {
         /// <returns>Tuple of (bid, ask). Returns (0, 0) if not available.</returns>
         public (double Bid, double Ask) GetBidAsk(int tickerId)
         {
-            double bid = _bidByTicker.TryGetValue(tickerId, out var b) ? b : 0;
-            double ask = _askByTicker.TryGetValue(tickerId, out var a) ? a : 0;
+            double bid = bidByTicker.TryGetValue(tickerId, out var b) ? b : 0;
+            double ask = askByTicker.TryGetValue(tickerId, out var a) ? a : 0;
             return (bid, ask);
         }
 
@@ -536,13 +536,13 @@ namespace IdiotProof.Models {
         /// </remarks>
         public void UnregisterTickerHandler(int tickerId)
         {
-            _tickerHandlers.TryRemove(tickerId, out _);
-            _bidAskHandlers.TryRemove(tickerId, out _);
+            tickerHandlers.TryRemove(tickerId, out _);
+            bidAskHandlers.TryRemove(tickerId, out _);
             // Clear cached market data to prevent memory buildup
-            _lastByTicker.TryRemove(tickerId, out _);
-            _lastSizeByTicker.TryRemove(tickerId, out _);
-            _bidByTicker.TryRemove(tickerId, out _);
-            _askByTicker.TryRemove(tickerId, out _);
+            lastByTicker.TryRemove(tickerId, out _);
+            lastSizeByTicker.TryRemove(tickerId, out _);
+            bidByTicker.TryRemove(tickerId, out _);
+            askByTicker.TryRemove(tickerId, out _);
         }
 
         /// <summary>
@@ -556,7 +556,7 @@ namespace IdiotProof.Models {
         /// </remarks>
         public bool WaitForNextValidId(TimeSpan timeout)
         {
-            return _nextValidIdEvent.Wait(timeout);
+            return nextValidIdEvent.Wait(timeout);
         }
 
         /// <summary>
@@ -570,13 +570,13 @@ namespace IdiotProof.Models {
         /// </remarks>
         public int ConsumeNextOrderId()
         {
-            lock (_orderIdLock)
+            lock (orderIdLock)
             {
-                if (_nextOrderId < 0)
+                if (nextOrderId < 0)
                     throw new InvalidOperationException("nextOrderId not initialized.");
 
-                int id = _nextOrderId;
-                _nextOrderId++;
+                int id = nextOrderId;
+                nextOrderId++;
                 return id;
             }
         }
@@ -606,19 +606,19 @@ namespace IdiotProof.Models {
             switch (errorCode)
             {
                 case 1100: // Connectivity lost
-                    _isConnected = false;
+                    isConnected = false;
                     Log("IB_ERROR", $"IB ERROR: id={id} code={errorCode} msg={errorMsg}");
                     OnConnectionLost?.Invoke();
                     return;
 
                 case 1101: // Connectivity restored - data lost, need to resubscribe
-                    _isConnected = true;
+                    isConnected = true;
                     Log("IB_INFO", $"IB INFO: id={id} code={errorCode} msg={errorMsg}");
                     OnConnectionRestored?.Invoke(true); // dataLost = true
                     return;
 
                 case 1102: // Connectivity restored - data maintained
-                    _isConnected = true;
+                    isConnected = true;
                     Log("IB_INFO", $"IB INFO: id={id} code={errorCode} msg={errorMsg}");
                     OnConnectionRestored?.Invoke(false); // dataLost = false
                     return;
@@ -627,7 +627,7 @@ namespace IdiotProof.Models {
             // Code 202 = Order Canceled - remove from tracking (this is a confirmation, not an error)
             if (errorCode == 202 && id >= 0)
             {
-                _openOrders.TryRemove(id, out _);
+                openOrders.TryRemove(id, out _);
             }
 
             // Fire order rejection event for order-related errors
@@ -652,19 +652,19 @@ namespace IdiotProof.Models {
             switch (errorCode)
             {
                 case 1100: // Connectivity lost
-                    _isConnected = false;
+                    isConnected = false;
                     Log("IB_ERROR", $"IB ERROR: id={id} code={errorCode} msg={errorMsg}");
                     OnConnectionLost?.Invoke();
                     return;
 
                 case 1101: // Connectivity restored - data lost, need to resubscribe
-                    _isConnected = true;
+                    isConnected = true;
                     Log("IB_INFO", $"IB INFO: id={id} code={errorCode} msg={errorMsg}");
                     OnConnectionRestored?.Invoke(true); // dataLost = true
                     return;
 
                 case 1102: // Connectivity restored - data maintained
-                    _isConnected = true;
+                    isConnected = true;
                     Log("IB_INFO", $"IB INFO: id={id} code={errorCode} msg={errorMsg}");
                     OnConnectionRestored?.Invoke(false); // dataLost = false
                     return;
@@ -673,7 +673,7 @@ namespace IdiotProof.Models {
             // Code 202 = Order Canceled - remove from tracking (this is a confirmation, not an error)
             if (errorCode == 202 && id >= 0)
             {
-                _openOrders.TryRemove(id, out _);
+                openOrders.TryRemove(id, out _);
             }
 
             // Fire order rejection event for order-related errors
@@ -714,15 +714,15 @@ namespace IdiotProof.Models {
 
         public void connectionClosed()
         {
-            _isConnected = false;
+            isConnected = false;
             Log("IB_INFO", "IB connection closed.");
         }
 
         public void connectAck()
         {
-            if (_client != null && _client.AsyncEConnect)
+            if (client != null && client.AsyncEConnect)
             {
-                _client.startApi();
+                client.startApi();
             }
         }
 
@@ -731,14 +731,14 @@ namespace IdiotProof.Models {
         // -------------------------
         public void nextValidId(int orderId)
         {
-            lock (_orderIdLock)
+            lock (orderIdLock)
             {
-                _nextOrderId = orderId;
+                nextOrderId = orderId;
             }
 
-            _isConnected = true;
+            isConnected = true;
             Log("IB_INFO", $"Received nextValidId: {orderId}");
-            _nextValidIdEvent.Set();
+            nextValidIdEvent.Set();
         }
 
         // -------------------------
@@ -748,12 +748,12 @@ namespace IdiotProof.Models {
         {
             if (field == TickType.LAST)
             {
-                _lastByTicker[tickerId] = price;
+                lastByTicker[tickerId] = price;
 
-                if (_lastSizeByTicker.TryGetValue(tickerId, out int size))
+                if (lastSizeByTicker.TryGetValue(tickerId, out int size))
                 {
                     // Fire ticker-specific handler if registered
-                    if (_tickerHandlers.TryGetValue(tickerId, out var handler))
+                    if (tickerHandlers.TryGetValue(tickerId, out var handler))
                     {
                         handler(price, size);
                     }
@@ -764,23 +764,23 @@ namespace IdiotProof.Models {
             }
             else if (field == TickType.BID)
             {
-                _bidByTicker[tickerId] = price;
+                bidByTicker[tickerId] = price;
                 FireBidAskHandler(tickerId);
             }
             else if (field == TickType.ASK)
             {
-                _askByTicker[tickerId] = price;
+                askByTicker[tickerId] = price;
                 FireBidAskHandler(tickerId);
             }
         }
 
         private void FireBidAskHandler(int tickerId)
         {
-            if (_bidByTicker.TryGetValue(tickerId, out double bid) &&
-                _askByTicker.TryGetValue(tickerId, out double ask) &&
+            if (bidByTicker.TryGetValue(tickerId, out double bid) &&
+                askByTicker.TryGetValue(tickerId, out double ask) &&
                 bid > 0 && ask > 0)
             {
-                if (_bidAskHandlers.TryGetValue(tickerId, out var handler))
+                if (bidAskHandlers.TryGetValue(tickerId, out var handler))
                 {
                     handler(bid, ask);
                 }
@@ -791,12 +791,12 @@ namespace IdiotProof.Models {
         {
             if (field == TickType.LAST_SIZE)
             {
-                _lastSizeByTicker[tickerId] = (int)size;
+                lastSizeByTicker[tickerId] = (int)size;
 
-                if (_lastByTicker.TryGetValue(tickerId, out double price))
+                if (lastByTicker.TryGetValue(tickerId, out double price))
                 {
                     // Fire ticker-specific handler if registered
-                    if (_tickerHandlers.TryGetValue(tickerId, out var handler))
+                    if (tickerHandlers.TryGetValue(tickerId, out var handler))
                     {
                         handler(price, (int)size);
                     }
@@ -831,9 +831,9 @@ namespace IdiotProof.Models {
         public void orderStatus(int orderId, string status, decimal filled, decimal remaining, double avgFillPrice, long permId, int parentId, double lastFillPrice, int clientId, string whyHeld, double mktCapPrice) 
         {
             // Update order status in our tracking dictionary
-            if (_openOrders.TryGetValue(orderId, out var order))
+            if (openOrders.TryGetValue(orderId, out var order))
             {
-                _openOrders[orderId] = (order.Symbol, order.Action, order.Qty, order.Type, order.LmtPrice, status);
+                openOrders[orderId] = (order.Symbol, order.Action, order.Qty, order.Type, order.LmtPrice, status);
             }
 
             // Fire event for status change
@@ -843,7 +843,7 @@ namespace IdiotProof.Models {
         public void openOrder(int orderId, IbContract contract, IBApi.Order order, IBApi.OrderState orderState) 
         {
             // Track the open order
-            _openOrders[orderId] = (
+            openOrders[orderId] = (
                 contract.Symbol,
                 order.Action,
                 order.TotalQuantity,
@@ -876,7 +876,7 @@ namespace IdiotProof.Models {
                 case "SMA":
                     if (double.TryParse(value, out double numValue))
                     {
-                        _accountValues[key] = numValue;
+                        accountValues[key] = numValue;
                     }
                     break;
             }
@@ -904,8 +904,8 @@ namespace IdiotProof.Models {
         public void currentTime(long time)
         {
             // Store the server time and signal any waiting ping request
-            Interlocked.Exchange(ref _lastServerTime, time);
-            _pingResponseEvent.Set();
+            Interlocked.Exchange(ref lastServerTime, time);
+            pingResponseEvent.Set();
         }
         public void fundamentalData(int reqId, string data) { }
         public void deltaNeutralValidation(int reqId, IBApi.DeltaNeutralContract deltaNeutralContract) { }
@@ -917,17 +917,17 @@ namespace IdiotProof.Models {
             var symbol = contract.Symbol;
             if (pos != 0)
             {
-                _positions[symbol] = (pos, avgCost);
+                positions[symbol] = (pos, avgCost);
             }
             else
             {
-                _positions.TryRemove(symbol, out _);
+                positions.TryRemove(symbol, out _);
             }
             OnPosition?.Invoke(symbol, pos, avgCost);
         }
         public void positionEnd()
         {
-            _positionsEndEvent.Set();
+            positionsEndEvent.Set();
             OnPositionsEnd?.Invoke();
         }
         public void accountSummary(int reqId, string account, string tag, string value, string currency) { }
@@ -1005,21 +1005,21 @@ namespace IdiotProof.Models {
         /// </remarks>
         public void Dispose()
         {
-            if (_disposed)
+            if (disposed)
                 return;
-            _disposed = true;
+            disposed = true;
 
             // Dispose all ManualResetEventSlim instances (releases native handles)
-            _nextValidIdEvent.Dispose();
-            _pingResponseEvent.Dispose();
-            _positionsEndEvent.Dispose();
+            nextValidIdEvent.Dispose();
+            pingResponseEvent.Dispose();
+            positionsEndEvent.Dispose();
 
             // Clear all cached data
-            _tickerHandlers.Clear();
-            _lastByTicker.Clear();
-            _lastSizeByTicker.Clear();
-            _openOrders.Clear();
-            _positions.Clear();
+            tickerHandlers.Clear();
+            lastByTicker.Clear();
+            lastSizeByTicker.Clear();
+            openOrders.Clear();
+            positions.Clear();
 
             // Clear event subscribers to prevent holding references
             OnLastTrade = null;
@@ -1034,7 +1034,7 @@ namespace IdiotProof.Models {
             OnPosition = null;
             OnPositionsEnd = null;
 
-            _client = null;
+            client = null;
         }
     }
 }

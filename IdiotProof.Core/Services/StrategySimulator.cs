@@ -16,11 +16,11 @@ namespace IdiotProof.Services;
 /// </summary>
 public sealed class StrategySimulator
 {
-    private readonly BackTestSession _session;
+    private readonly BackTestSession session;
 
     public StrategySimulator(BackTestSession session)
     {
-        _session = session;
+        this.session = session;
     }
 
     /// <summary>
@@ -29,7 +29,7 @@ public sealed class StrategySimulator
     public SimulationResult Simulate(StrategyParameters parameters)
     {
         var result = new SimulationResult { Parameters = parameters };
-        var candles = _session.Candles;
+        var candles = session.Candles;
 
         if (candles.Count == 0)
             return result;

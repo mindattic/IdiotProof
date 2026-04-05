@@ -1,4 +1,4 @@
-// ============================================================================
+﻿// ============================================================================
 // Test Data Loader - Loads real historical bar data for unit tests
 // ============================================================================
 
@@ -57,8 +57,8 @@ public sealed record TestHistoryFile
 /// </summary>
 public static class TestDataLoader
 {
-    private static readonly Dictionary<string, TestHistoryFile> _cache = new();
-    private static readonly object _lock = new();
+    private static readonly Dictionary<string, TestHistoryFile> cache = new();
+    private static readonly object lockObj = new();
 
     /// <summary>
     /// Gets the path to the Data folder containing history JSON files.
@@ -86,9 +86,9 @@ public static class TestDataLoader
     /// </summary>
     public static List<TestBar> LoadBars(string symbol)
     {
-        lock (_lock)
+        lock (lockObj)
         {
-            if (_cache.TryGetValue(symbol, out var cached))
+            if (cache.TryGetValue(symbol, out var cached))
                 return cached.Bars;
 
             var filePath = Path.Combine(GetDataFolder(), symbol, $"{symbol}.history.json");
@@ -102,7 +102,7 @@ public static class TestDataLoader
             var history = JsonSerializer.Deserialize<TestHistoryFile>(json)
                 ?? throw new InvalidOperationException($"Failed to deserialize {filePath}");
 
-            _cache[symbol] = history;
+            cache[symbol] = history;
             return history.Bars;
         }
     }

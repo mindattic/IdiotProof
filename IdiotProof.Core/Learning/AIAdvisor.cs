@@ -1,4 +1,4 @@
-// ============================================================================
+﻿// ============================================================================
 // AIAdvisor - ChatGPT-Powered Trading Decision Support
 // ============================================================================
 //
@@ -81,15 +81,15 @@ public sealed class LearningMethodSummary
 /// </summary>
 public sealed class AIAdvisor : IDisposable
 {
-    private readonly OpenAIService _openai;
-    private readonly Dictionary<string, (AIAnalysis analysis, DateTime expiry)> _cache = new();
-    private readonly TimeSpan _cacheExpiry = TimeSpan.FromMinutes(5);
-    private readonly object _lock = new();
+    private readonly OpenAIService openai;
+    private readonly Dictionary<string, (AIAnalysis analysis, DateTime expiry)> cache = new();
+    private readonly TimeSpan cacheExpiry = TimeSpan.FromMinutes(5);
+    private readonly object lockObj = new();
     
-    private bool _disposed;
-    private int _callCount;
-    private DateTime _lastCall = DateTime.MinValue;
-    private readonly TimeSpan _minCallInterval = TimeSpan.FromSeconds(2);
+    private bool disposed;
+    private int callCount;
+    private DateTime lastCall = DateTime.MinValue;
+    private readonly TimeSpan minCallInterval = TimeSpan.FromSeconds(2);
 
     /// <summary>
     /// Minimum AI confidence required to enter a trade (0-100).
@@ -468,14 +468,14 @@ public sealed class AIAdvisor : IDisposable
     }
     
     // Track decision accuracy for self-improvement
-    private readonly List<(AIAnalysis analysis, bool wasCorrect)> _history = [];
+    private readonly List<(AIAnalysis analysis, bool wasCorrect)> history = [];
 
     /// <summary>
     /// Creates an AI advisor using the default OpenAI configuration.
     /// </summary>
     public AIAdvisor()
     {
-        _openai = new OpenAIService();
+        openai = new OpenAIService();
     }
     
     /// <summary>
@@ -483,18 +483,18 @@ public sealed class AIAdvisor : IDisposable
     /// </summary>
     public AIAdvisor(OpenAIService openai)
     {
-        _openai = openai;
+        this.openai = openai;
     }
 
     /// <summary>
     /// Whether the AI advisor is configured and ready to use.
     /// </summary>
-    public bool IsConfigured => _openai.IsConfigured;
+    public bool IsConfigured => openai.IsConfigured;
     
     /// <summary>
     /// Number of API calls made during this session.
     /// </summary>
-    public int CallCount => _callCount;
+    public int CallCount => callCount;
 
     /// <summary>
     /// Analyze a potential entry decision during live trading.
@@ -517,29 +517,29 @@ public sealed class AIAdvisor : IDisposable
 
         // Check cache
         var cacheKey = $"{symbol}_{DateTime.UtcNow:yyyyMMdd_HHmm}_{score.TotalScore}";
-        lock (_lock)
+        lock (lockObj)
         {
-            if (_cache.TryGetValue(cacheKey, out var cached) && cached.expiry > DateTime.UtcNow)
+            if (cache.TryGetValue(cacheKey, out var cached) && cached.expiry > DateTime.UtcNow)
             {
                 return cached.analysis;
             }
         }
 
         // Rate limiting
-        var timeSinceLastCall = DateTime.UtcNow - _lastCall;
-        if (timeSinceLastCall < _minCallInterval)
+        var timeSinceLastCall = DateTime.UtcNow - lastCall;
+        if (timeSinceLastCall < minCallInterval)
         {
-            await Task.Delay(_minCallInterval - timeSinceLastCall, ct);
+            await Task.Delay(minCallInterval - timeSinceLastCall, ct);
         }
 
         var prompt = BuildEntryAnalysisPrompt(symbol, snapshot, score);
         
         try
         {
-            _lastCall = DateTime.UtcNow;
-            _callCount++;
+            lastCall = DateTime.UtcNow;
+            callCount++;
             
-            var reply = await _openai.AskWithInstructionsAsync(
+            var reply = await openai.AskWithInstructionsAsync(
                 prompt,
                 GetTradingSystemPrompt(),
                 ct);
@@ -548,9 +548,9 @@ public sealed class AIAdvisor : IDisposable
             analysis.RawResponse = reply.Text;
             
             // Cache the result
-            lock (_lock)
+            lock (lockObj)
             {
-                _cache[cacheKey] = (analysis, DateTime.UtcNow.Add(_cacheExpiry));
+                cache[cacheKey] = (analysis, DateTime.UtcNow.Add(cacheExpiry));
             }
             
             return analysis;
@@ -588,10 +588,10 @@ public sealed class AIAdvisor : IDisposable
         
         try
         {
-            _lastCall = DateTime.UtcNow;
-            _callCount++;
+            lastCall = DateTime.UtcNow;
+            callCount++;
             
-            var reply = await _openai.AskWithInstructionsAsync(
+            var reply = await openai.AskWithInstructionsAsync(
                 prompt,
                 GetLearningSystemPrompt(),
                 ct);
@@ -649,7 +649,7 @@ public sealed class AIAdvisor : IDisposable
 
         try
         {
-            var reply = await _openai.AskAsync(prompt, ct);
+            var reply = await openai.AskAsync(prompt, ct);
             return reply.Text;
         }
         catch (Exception ex)
@@ -668,7 +668,7 @@ public sealed class AIAdvisor : IDisposable
 
         try
         {
-            var reply = await _openai.GetMathModelAsync(indicatorName, ct);
+            var reply = await openai.GetMathModelAsync(indicatorName, ct);
             return reply.Text;
         }
         catch (Exception ex)
@@ -682,14 +682,14 @@ public sealed class AIAdvisor : IDisposable
     /// </summary>
     public void RecordOutcome(AIAnalysis analysis, bool wasCorrect)
     {
-        lock (_lock)
+        lock (lockObj)
         {
-            _history.Add((analysis, wasCorrect));
+            history.Add((analysis, wasCorrect));
             
             // Keep only last 100 records
-            if (_history.Count > 100)
+            if (history.Count > 100)
             {
-                _history.RemoveAt(0);
+                history.RemoveAt(0);
             }
         }
     }
@@ -699,13 +699,13 @@ public sealed class AIAdvisor : IDisposable
     /// </summary>
     public (int total, int correct, double accuracy) GetAccuracyStats()
     {
-        lock (_lock)
+        lock (lockObj)
         {
-            if (_history.Count == 0)
+            if (history.Count == 0)
                 return (0, 0, 0);
             
-            var correct = _history.Count(h => h.wasCorrect);
-            return (_history.Count, correct, (double)correct / _history.Count * 100);
+            var correct = history.Count(h => h.wasCorrect);
+            return (history.Count, correct, (double)correct / history.Count * 100);
         }
     }
 
@@ -1085,16 +1085,16 @@ public sealed class AIAdvisor : IDisposable
     }
 
     // Cached system prompt (loaded from file once)
-    private static string? _cachedTradingSystemPrompt;
-    private static readonly object _promptCacheLock = new();
+    private static string? cachedTradingSystemPrompt;
+    private static readonly object promptCacheLock = new();
 
     private static string GetTradingSystemPrompt()
     {
         // Return cached prompt if available
-        lock (_promptCacheLock)
+        lock (promptCacheLock)
         {
-            if (_cachedTradingSystemPrompt != null)
-                return _cachedTradingSystemPrompt;
+            if (cachedTradingSystemPrompt != null)
+                return cachedTradingSystemPrompt;
         }
 
         // Try to load from file
@@ -1119,9 +1119,9 @@ public sealed class AIAdvisor : IDisposable
             if (File.Exists(promptPath))
             {
                 var prompt = File.ReadAllText(promptPath);
-                lock (_promptCacheLock)
+                lock (promptCacheLock)
                 {
-                    _cachedTradingSystemPrompt = prompt;
+                    cachedTradingSystemPrompt = prompt;
                 }
                 return prompt;
             }
@@ -1290,9 +1290,9 @@ public sealed class AIAdvisor : IDisposable
             TPSL: TP=$X.XX SL=$X.XX (based on ATR and levels)
             """;
 
-        lock (_promptCacheLock)
+        lock (promptCacheLock)
         {
-            _cachedTradingSystemPrompt = defaultPrompt;
+            cachedTradingSystemPrompt = defaultPrompt;
         }
         return defaultPrompt;
     }
@@ -1319,10 +1319,10 @@ public sealed class AIAdvisor : IDisposable
 
     public void Dispose()
     {
-        if (!_disposed)
+        if (!disposed)
         {
-            _openai.Dispose();
-            _disposed = true;
+            openai.Dispose();
+            disposed = true;
         }
     }
 }

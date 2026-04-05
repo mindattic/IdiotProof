@@ -1,4 +1,4 @@
-// ============================================================================
+﻿// ============================================================================
 // SuddenMoveDetector - Real-Time Price Spike Detection
 // ============================================================================
 //
@@ -30,8 +30,8 @@ public sealed class PriceTracker
     public double AverageVolume { get; set; } = 1_000_000;
     
     // Recent price history (timestamp, price, volume)
-    private readonly List<(DateTime Time, double Price, long Volume)> _history = new(100);
-    private readonly object _lock = new();
+    private readonly List<(DateTime Time, double Price, long Volume)> history = new(100);
+    private readonly object lockObj = new();
     
     // Session high/low for breakout detection
     public double SessionHigh { get; private set; }
@@ -41,7 +41,7 @@ public sealed class PriceTracker
     
     public void AddTick(double price, long volume = 0)
     {
-        lock (_lock)
+        lock (lockObj)
         {
             CurrentPrice = price;
             CurrentVolume = volume;
@@ -49,11 +49,11 @@ public sealed class PriceTracker
             if (price > SessionHigh) SessionHigh = price;
             if (price < SessionLow) SessionLow = price;
             
-            _history.Add((DateTime.Now, price, volume));
+            history.Add((DateTime.Now, price, volume));
             
             // Keep last 100 ticks (roughly 5-10 minutes at normal pace)
-            if (_history.Count > 100)
-                _history.RemoveAt(0);
+            if (history.Count > 100)
+                history.RemoveAt(0);
         }
     }
     
@@ -62,10 +62,10 @@ public sealed class PriceTracker
     /// </summary>
     public double? GetPriceMinutesAgo(int minutes)
     {
-        lock (_lock)
+        lock (lockObj)
         {
             var targetTime = DateTime.Now.AddMinutes(-minutes);
-            var tick = _history.LastOrDefault(h => h.Time <= targetTime);
+            var tick = history.LastOrDefault(h => h.Time <= targetTime);
             return tick.Price > 0 ? tick.Price : null;
         }
     }
@@ -87,10 +87,10 @@ public sealed class PriceTracker
     /// </summary>
     public long GetVolumeOverMinutes(int minutes)
     {
-        lock (_lock)
+        lock (lockObj)
         {
             var cutoff = DateTime.Now.AddMinutes(-minutes);
-            return _history.Where(h => h.Time >= cutoff).Sum(h => h.Volume);
+            return history.Where(h => h.Time >= cutoff).Sum(h => h.Volume);
         }
     }
     
@@ -100,13 +100,13 @@ public sealed class PriceTracker
     /// </summary>
     public double GetAcceleration()
     {
-        lock (_lock)
+        lock (lockObj)
         {
-            if (_history.Count < 20) return 1.0;
+            if (history.Count < 20) return 1.0;
             
-            var midpoint = _history.Count / 2;
-            var firstHalf = _history.Take(midpoint).ToList();
-            var secondHalf = _history.Skip(midpoint).ToList();
+            var midpoint = history.Count / 2;
+            var firstHalf = history.Take(midpoint).ToList();
+            var secondHalf = history.Skip(midpoint).ToList();
             
             if (firstHalf.Count < 2 || secondHalf.Count < 2) return 1.0;
             
@@ -181,10 +181,10 @@ public sealed class MoveDetectorConfig
 /// </summary>
 public sealed class SuddenMoveDetector
 {
-    private readonly MoveDetectorConfig _config;
-    private readonly ConcurrentDictionary<string, PriceTracker> _trackers = new();
-    private readonly HashSet<string> _recentAlerts = new();
-    private readonly object _alertLock = new();
+    private readonly MoveDetectorConfig config;
+    private readonly ConcurrentDictionary<string, PriceTracker> trackers = new();
+    private readonly HashSet<string> recentAlerts = new();
+    private readonly object alertLock = new();
     
     /// <summary>
     /// Event fired when a sudden move is detected.
@@ -193,7 +193,7 @@ public sealed class SuddenMoveDetector
     
     public SuddenMoveDetector(MoveDetectorConfig? config = null)
     {
-        _config = config ?? new MoveDetectorConfig();
+        config = config ?? new MoveDetectorConfig();
     }
     
     /// <summary>
@@ -201,7 +201,7 @@ public sealed class SuddenMoveDetector
     /// </summary>
     public void RegisterSymbol(string symbol, double previousClose, double avgVolume = 1_000_000)
     {
-        _trackers[symbol] = new PriceTracker
+        trackers[symbol] = new PriceTracker
         {
             Symbol = symbol,
             PreviousClose = previousClose,
@@ -214,7 +214,7 @@ public sealed class SuddenMoveDetector
     /// </summary>
     public void OnPriceTick(string symbol, double price, long volume = 0)
     {
-        if (!_trackers.TryGetValue(symbol, out var tracker))
+        if (!trackers.TryGetValue(symbol, out var tracker))
             return;
         
         tracker.AddTick(price, volume);
@@ -225,11 +225,11 @@ public sealed class SuddenMoveDetector
         {
             // Prevent duplicate alerts
             var alertKey = $"{symbol}_{DateTime.Now:HHmm}";
-            lock (_alertLock)
+            lock (alertLock)
             {
-                if (_recentAlerts.Contains(alertKey))
+                if (recentAlerts.Contains(alertKey))
                     return;
-                _recentAlerts.Add(alertKey);
+                recentAlerts.Add(alertKey);
             }
             
             OnSuddenMoveDetected?.Invoke(alert);
@@ -238,13 +238,13 @@ public sealed class SuddenMoveDetector
     
     private TradingAlert? CheckForSuddenMove(PriceTracker tracker)
     {
-        var percentChange = tracker.GetPercentChangeOverMinutes(_config.TimeWindowMinutes);
+        var percentChange = tracker.GetPercentChangeOverMinutes(config.TimeWindowMinutes);
         if (percentChange == null) return null;
         
         var absChange = Math.Abs(percentChange.Value);
         
         // Check if change exceeds threshold
-        if (absChange < _config.MinPercentChange)
+        if (absChange < config.MinPercentChange)
             return null;
         
         // Determine alert type and severity
@@ -273,12 +273,12 @@ public sealed class SuddenMoveDetector
             Type = type,
             Severity = severity,
             CurrentPrice = tracker.CurrentPrice,
-            PreviousPrice = tracker.GetPriceMinutesAgo(_config.TimeWindowMinutes) ?? tracker.PreviousClose,
+            PreviousPrice = tracker.GetPriceMinutesAgo(config.TimeWindowMinutes) ?? tracker.PreviousClose,
             PercentChange = percentChange.Value,
             VolumeRatio = tracker.AverageVolume > 0 
-                ? tracker.GetVolumeOverMinutes(_config.TimeWindowMinutes) / (tracker.AverageVolume / 60.0 * _config.TimeWindowMinutes)
+                ? tracker.GetVolumeOverMinutes(config.TimeWindowMinutes) / (tracker.AverageVolume / 60.0 * config.TimeWindowMinutes)
                 : 0,
-            TimeFrame = TimeSpan.FromMinutes(_config.TimeWindowMinutes),
+            TimeFrame = TimeSpan.FromMinutes(config.TimeWindowMinutes),
             Confidence = confidence,
             Reason = reason,
             LongSetup = longSetup,
@@ -294,14 +294,14 @@ public sealed class SuddenMoveDetector
         score += Math.Min(40, (int)(absChange * 8));
         
         // Volume confirmation (up to 30 points)
-        var recentVolume = tracker.GetVolumeOverMinutes(_config.TimeWindowMinutes);
-        var expectedVolume = tracker.AverageVolume / 60.0 * _config.TimeWindowMinutes;
+        var recentVolume = tracker.GetVolumeOverMinutes(config.TimeWindowMinutes);
+        var expectedVolume = tracker.AverageVolume / 60.0 * config.TimeWindowMinutes;
         var volumeRatio = expectedVolume > 0 ? recentVolume / expectedVolume : 0;
         score += Math.Min(30, (int)(volumeRatio * 10));
         
         // Acceleration (up to 20 points)
         var acceleration = tracker.GetAcceleration();
-        if (acceleration > _config.AccelerationThreshold)
+        if (acceleration > config.AccelerationThreshold)
             score += Math.Min(20, (int)((acceleration - 1) * 10));
         
         // Near session extremes (10 points)
@@ -324,8 +324,8 @@ public sealed class SuddenMoveDetector
             reasons.Add($"accelerating ({acceleration:F1}x faster)");
         
         // Volume
-        var volumeRatio = tracker.GetVolumeOverMinutes(_config.TimeWindowMinutes) / 
-                         (tracker.AverageVolume / 60.0 * _config.TimeWindowMinutes);
+        var volumeRatio = tracker.GetVolumeOverMinutes(config.TimeWindowMinutes) / 
+                         (tracker.AverageVolume / 60.0 * config.TimeWindowMinutes);
         if (volumeRatio > 2)
             reasons.Add($"high volume ({volumeRatio:F1}x avg)");
         
@@ -365,7 +365,7 @@ public sealed class SuddenMoveDetector
         // Quantity based on risk
         var riskPerShare = entry - stopLoss;
         var quantity = riskPerShare > 0 
-            ? (int)Math.Floor(_config.DefaultRiskDollars / riskPerShare) 
+            ? (int)Math.Floor(config.DefaultRiskDollars / riskPerShare) 
             : 1;
         quantity = Math.Max(1, quantity);
         
@@ -410,7 +410,7 @@ public sealed class SuddenMoveDetector
         // Quantity based on risk
         var riskPerShare = stopLoss - entry;
         var quantity = riskPerShare > 0 
-            ? (int)Math.Floor(_config.DefaultRiskDollars / riskPerShare) 
+            ? (int)Math.Floor(config.DefaultRiskDollars / riskPerShare) 
             : 1;
         quantity = Math.Max(1, quantity);
         
@@ -438,9 +438,9 @@ public sealed class SuddenMoveDetector
     /// </summary>
     public void ClearRecentAlerts()
     {
-        lock (_alertLock)
+        lock (alertLock)
         {
-            _recentAlerts.Clear();
+            recentAlerts.Clear();
         }
     }
 }

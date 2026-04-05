@@ -1,4 +1,4 @@
-using System.Net.Http.Json;
+﻿using System.Net.Http.Json;
 using System.Text.Json;
 using IdiotProof.Models;
 
@@ -9,11 +9,11 @@ namespace IdiotProof.Brokers;
 /// </summary>
 public sealed class AlpacaBrokerClient : IBrokerClient, IAsyncDisposable
 {
-    private readonly HttpClient _httpClient;
-    private bool _connected;
+    private readonly HttpClient httpClient;
+    private bool connected;
 
     public BrokerType BrokerType => BrokerType.Alpaca;
-    public bool IsConnected => _connected;
+    public bool IsConnected => connected;
 
     public AlpacaBrokerClient(string apiKeyId, string apiSecretKey, bool isPaper = true)
     {
@@ -21,24 +21,24 @@ public sealed class AlpacaBrokerClient : IBrokerClient, IAsyncDisposable
             ? "https://paper-api.alpaca.markets"
             : "https://api.alpaca.markets";
 
-        _httpClient = new HttpClient { BaseAddress = new Uri(baseUri) };
+        httpClient = new HttpClient { BaseAddress = new Uri(baseUri) };
 
         if (!string.IsNullOrWhiteSpace(apiKeyId) && !string.IsNullOrWhiteSpace(apiSecretKey))
         {
-            _httpClient.DefaultRequestHeaders.Add("APCA-API-KEY-ID", apiKeyId);
-            _httpClient.DefaultRequestHeaders.Add("APCA-API-SECRET-KEY", apiSecretKey);
+            httpClient.DefaultRequestHeaders.Add("APCA-API-KEY-ID", apiKeyId);
+            httpClient.DefaultRequestHeaders.Add("APCA-API-SECRET-KEY", apiSecretKey);
         }
     }
 
     public Task<bool> ConnectAsync(CancellationToken ct = default)
     {
-        _connected = true;
+        connected = true;
         return Task.FromResult(true);
     }
 
     public Task DisconnectAsync()
     {
-        _connected = false;
+        connected = false;
         return Task.CompletedTask;
     }
 
@@ -62,7 +62,7 @@ public sealed class AlpacaBrokerClient : IBrokerClient, IAsyncDisposable
             limit_price = request.Type == OrderType.Limit ? request.LimitPrice : null
         };
 
-        using var response = await _httpClient.PostAsJsonAsync("/v2/orders", payload, ct).ConfigureAwait(false);
+        using var response = await httpClient.PostAsJsonAsync("/v2/orders", payload, ct).ConfigureAwait(false);
         var content = await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
 
         if (!response.IsSuccessStatusCode)
@@ -103,7 +103,7 @@ public sealed class AlpacaBrokerClient : IBrokerClient, IAsyncDisposable
 
     public ValueTask DisposeAsync()
     {
-        _httpClient.Dispose();
+        httpClient.Dispose();
         return ValueTask.CompletedTask;
     }
 }

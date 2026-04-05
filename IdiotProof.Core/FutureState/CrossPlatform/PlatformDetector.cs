@@ -1,4 +1,4 @@
-// IdiotProof.Core.FutureState.CrossPlatform
+﻿// IdiotProof.Core.FutureState.CrossPlatform
 // Platform Detection and Capability Checking
 // Detects runtime platform and available features
 
@@ -14,18 +14,18 @@ namespace IdiotProof.Core.FutureState.CrossPlatform;
 /// </summary>
 public static class PlatformDetector
 {
-    private static PlatformInfo? _cachedInfo;
+    private static PlatformInfo? cachedInfo;
     
     /// <summary>
     /// Gets information about the current platform.
     /// </summary>
     public static PlatformInfo GetPlatformInfo()
     {
-        if (_cachedInfo != null)
-            return _cachedInfo;
+        if (cachedInfo != null)
+            return cachedInfo;
             
-        _cachedInfo = DetectPlatform();
-        return _cachedInfo;
+        cachedInfo = DetectPlatform();
+        return cachedInfo;
     }
     
     /// <summary>

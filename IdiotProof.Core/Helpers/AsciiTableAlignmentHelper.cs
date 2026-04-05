@@ -1,4 +1,4 @@
-// ============================================================================
+﻿// ============================================================================
 // AsciiTableAlignmentHelper - Properly aligned ASCII table output
 // ============================================================================
 //
@@ -94,18 +94,18 @@ public sealed class TableColumn
 /// </remarks>
 public sealed class AsciiTable
 {
-    private readonly List<TableColumn> _columns = [];
-    private readonly List<string[]> _rows = [];
-    private string? _timestampPrefix;
-    private string _columnSeparator = "  "; // Default: 2 spaces between columns
-    private char _headerUnderlineChar = TableChars.Dash; // Default: '-'
+    private readonly List<TableColumn> columns = [];
+    private readonly List<string[]> rows = [];
+    private string? timestampPrefix;
+    private string columnSeparator = "  "; // Default: 2 spaces between columns
+    private char headerUnderlineChar = TableChars.Dash; // Default: '-'
 
     /// <summary>
     /// Sets a timestamp prefix for all output lines.
     /// </summary>
     public AsciiTable WithTimestamp(string? prefix = null)
     {
-        _timestampPrefix = prefix ?? DateTime.Now.ToString("[HH:mm:ss]  ");
+        timestampPrefix = prefix ?? DateTime.Now.ToString("[HH:mm:ss]  ");
         return this;
     }
 
@@ -115,7 +115,7 @@ public sealed class AsciiTable
     /// <param name="separator">Use spaces, <see cref="TableChars.Pipe"/>, or <see cref="TableChars.Colon"/>.</param>
     public AsciiTable WithColumnSeparator(string separator)
     {
-        _columnSeparator = separator;
+        columnSeparator = separator;
         return this;
     }
 
@@ -125,7 +125,7 @@ public sealed class AsciiTable
     /// <param name="ch">Use <see cref="TableChars"/> constants: Dash, Equals, Dot, Tilde, Hash, Underscore.</param>
     public AsciiTable WithHeaderUnderline(char ch)
     {
-        _headerUnderlineChar = ch;
+        headerUnderlineChar = ch;
         return this;
     }
 
@@ -137,7 +137,7 @@ public sealed class AsciiTable
     /// <param name="alignment">Text alignment within column.</param>
     public AsciiTable AddColumn(string header, int minWidth = 0, ColumnAlign alignment = ColumnAlign.Left)
     {
-        _columns.Add(new TableColumn
+        columns.Add(new TableColumn
         {
             Header = header,
             MinWidth = minWidth,
@@ -153,18 +153,18 @@ public sealed class AsciiTable
     public AsciiTable AddRow(params string[] values)
     {
         // Pad with empty strings if not enough values
-        var row = new string[_columns.Count];
-        for (int i = 0; i < _columns.Count; i++)
+        var row = new string[columns.Count];
+        for (int i = 0; i < columns.Count; i++)
         {
             row[i] = i < values.Length ? (values[i] ?? "") : "";
             
             // Update actual width if this value is longer
-            if (row[i].Length > _columns[i].ActualWidth)
+            if (row[i].Length > columns[i].ActualWidth)
             {
-                _columns[i].ActualWidth = row[i].Length;
+                columns[i].ActualWidth = row[i].Length;
             }
         }
-        _rows.Add(row);
+        rows.Add(row);
         return this;
     }
 
@@ -189,12 +189,12 @@ public sealed class AsciiTable
     public string BuildHeaderLine()
     {
         var sb = new StringBuilder();
-        sb.Append(_timestampPrefix ?? "");
+        sb.Append(timestampPrefix ?? "");
         
-        for (int i = 0; i < _columns.Count; i++)
+        for (int i = 0; i < columns.Count; i++)
         {
-            if (i > 0) sb.Append(_columnSeparator);
-            sb.Append(FormatCell(_columns[i].Header, _columns[i]));
+            if (i > 0) sb.Append(columnSeparator);
+            sb.Append(FormatCell(columns[i].Header, columns[i]));
         }
         
         return sb.ToString();
@@ -206,12 +206,12 @@ public sealed class AsciiTable
     public string BuildSeparatorLine()
     {
         var sb = new StringBuilder();
-        sb.Append(_timestampPrefix ?? "");
+        sb.Append(timestampPrefix ?? "");
         
-        for (int i = 0; i < _columns.Count; i++)
+        for (int i = 0; i < columns.Count; i++)
         {
-            if (i > 0) sb.Append(_columnSeparator);
-            sb.Append(new string(_headerUnderlineChar, _columns[i].ActualWidth));
+            if (i > 0) sb.Append(columnSeparator);
+            sb.Append(new string(headerUnderlineChar, columns[i].ActualWidth));
         }
         
         return sb.ToString();
@@ -222,17 +222,17 @@ public sealed class AsciiTable
     /// </summary>
     public string BuildRowLine(int rowIndex)
     {
-        if (rowIndex < 0 || rowIndex >= _rows.Count)
+        if (rowIndex < 0 || rowIndex >= rows.Count)
             return "";
 
-        var row = _rows[rowIndex];
+        var row = rows[rowIndex];
         var sb = new StringBuilder();
-        sb.Append(_timestampPrefix ?? "");
+        sb.Append(timestampPrefix ?? "");
         
-        for (int i = 0; i < _columns.Count; i++)
+        for (int i = 0; i < columns.Count; i++)
         {
-            if (i > 0) sb.Append(_columnSeparator);
-            sb.Append(FormatCell(row[i], _columns[i]));
+            if (i > 0) sb.Append(columnSeparator);
+            sb.Append(FormatCell(row[i], columns[i]));
         }
         
         return sb.ToString();
@@ -244,7 +244,7 @@ public sealed class AsciiTable
     public string BuildFooterSeparator()
     {
         var sb = new StringBuilder();
-        sb.Append(_timestampPrefix ?? "");
+        sb.Append(timestampPrefix ?? "");
         sb.Append(new string('-', TotalWidth));
         return sb.ToString();
     }
@@ -255,7 +255,7 @@ public sealed class AsciiTable
     public string BuildFooterLine(string label, string value)
     {
         var sb = new StringBuilder();
-        sb.Append(_timestampPrefix ?? "");
+        sb.Append(timestampPrefix ?? "");
         sb.Append(label);
         sb.Append(value);
         return sb.ToString();
@@ -269,7 +269,7 @@ public sealed class AsciiTable
         Console.WriteLine(BuildHeaderLine());
         Console.WriteLine(BuildSeparatorLine());
         
-        for (int i = 0; i < _rows.Count; i++)
+        for (int i = 0; i < rows.Count; i++)
         {
             Console.WriteLine(BuildRowLine(i));
         }
@@ -291,8 +291,8 @@ public sealed class AsciiTable
     public void PrintWithTitle(string title)
     {
         var centered = CenterText(title, TotalWidth);
-        Console.WriteLine((_timestampPrefix ?? "") + centered);
-        Console.WriteLine((_timestampPrefix ?? "") + new string('=', TotalWidth));
+        Console.WriteLine((timestampPrefix ?? "") + centered);
+        Console.WriteLine((timestampPrefix ?? "") + new string('=', TotalWidth));
         Print();
     }
 
@@ -317,7 +317,7 @@ public sealed class AsciiTable
             BuildSeparatorLine()
         };
         
-        for (int i = 0; i < _rows.Count; i++)
+        for (int i = 0; i < rows.Count; i++)
         {
             lines.Add(BuildRowLine(i));
         }
@@ -328,12 +328,12 @@ public sealed class AsciiTable
     /// <summary>
     /// Gets the total table width (columns + separators).
     /// </summary>
-    public int TotalWidth => _columns.Count == 0 
+    public int TotalWidth => columns.Count == 0 
         ? 0 
-        : _columns.Sum(c => c.ActualWidth) + (_columns.Count - 1) * _columnSeparator.Length;
+        : columns.Sum(c => c.ActualWidth) + (columns.Count - 1) * columnSeparator.Length;
 
     /// <summary>
     /// Gets the row count.
     /// </summary>
-    public int RowCount => _rows.Count;
+    public int RowCount => rows.Count;
 }

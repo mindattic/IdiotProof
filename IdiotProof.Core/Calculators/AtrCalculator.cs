@@ -1,4 +1,4 @@
-// ============================================================================
+﻿// ============================================================================
 // ATR Calculator - Average True Range Calculation
 // ============================================================================
 //
@@ -37,28 +37,28 @@ namespace IdiotProof.Helpers {
     /// </remarks>
     public sealed class AtrCalculator
     {
-        private readonly int _period;
-        private readonly Queue<double> _highs;
-        private readonly Queue<double> _lows;
-        private readonly Queue<double> _trueRanges;
+        private readonly int period;
+        private readonly Queue<double> highs;
+        private readonly Queue<double> lows;
+        private readonly Queue<double> trueRanges;
         
-        private double _currentHigh;
-        private double _currentLow;
-        private double _previousClose;
-        private double _currentAtr;
-        private int _ticksInBar;
-        private readonly int _ticksPerBar;
-        private bool _isInitialized;
+        private double currentHigh;
+        private double currentLow;
+        private double previousClose;
+        private double currentAtr;
+        private int ticksInBar;
+        private readonly int ticksPerBar;
+        private bool isInitialized;
 
         /// <summary>
         /// Gets the current ATR value.
         /// </summary>
-        public double CurrentAtr => _currentAtr;
+        public double CurrentAtr => currentAtr;
 
         /// <summary>
         /// Gets whether the ATR calculator has enough data to provide a reliable value.
         /// </summary>
-        public bool IsReady => _isInitialized && _trueRanges.Count >= _period / 2;
+        public bool IsReady => isInitialized && trueRanges.Count >= period / 2;
 
         /// <summary>
         /// Creates a new ATR calculator.
@@ -72,11 +72,11 @@ namespace IdiotProof.Helpers {
             if (ticksPerBar < 1)
                 throw new ArgumentOutOfRangeException(nameof(ticksPerBar), "Ticks per bar must be at least 1.");
 
-            _period = period;
-            _ticksPerBar = ticksPerBar;
-            _highs = new Queue<double>(period + 1);
-            _lows = new Queue<double>(period + 1);
-            _trueRanges = new Queue<double>(period + 1);
+            this.period = period;
+            this.ticksPerBar = ticksPerBar;
+            highs = new Queue<double>(period + 1);
+            lows = new Queue<double>(period + 1);
+            trueRanges = new Queue<double>(period + 1);
             
             ResetBar();
         }
@@ -89,35 +89,35 @@ namespace IdiotProof.Helpers {
         public double Update(double price)
         {
             if (price <= 0)
-                return _currentAtr;
+                return currentAtr;
 
             // Initialize on first tick
-            if (!_isInitialized)
+            if (!isInitialized)
             {
-                _currentHigh = price;
-                _currentLow = price;
-                _previousClose = price;
-                _isInitialized = true;
+                currentHigh = price;
+                currentLow = price;
+                previousClose = price;
+                isInitialized = true;
                 return 0;
             }
 
             // Update current bar's high/low
-            if (price > _currentHigh)
-                _currentHigh = price;
-            if (price < _currentLow)
-                _currentLow = price;
+            if (price > currentHigh)
+                currentHigh = price;
+            if (price < currentLow)
+                currentLow = price;
 
-            _ticksInBar++;
+            ticksInBar++;
 
             // Complete the bar after N ticks
-            if (_ticksInBar >= _ticksPerBar)
+            if (ticksInBar >= ticksPerBar)
             {
                 CompleteBar(price);
                 ResetBar();
-                _previousClose = price;
+                previousClose = price;
             }
 
-            return _currentAtr;
+            return currentAtr;
         }
 
         /// <summary>
@@ -133,46 +133,46 @@ namespace IdiotProof.Helpers {
         public double UpdateFromCandle(double high, double low, double close)
         {
             if (high <= 0 || low <= 0 || close <= 0)
-                return _currentAtr;
+                return currentAtr;
 
-            if (!_isInitialized)
+            if (!isInitialized)
             {
-                _previousClose = close;
-                _isInitialized = true;
+                previousClose = close;
+                isInitialized = true;
                 return 0;
             }
 
             // Calculate True Range directly from the bar
             double highLowRange = high - low;
-            double highCloseRange = Math.Abs(high - _previousClose);
-            double lowCloseRange = Math.Abs(low - _previousClose);
+            double highCloseRange = Math.Abs(high - previousClose);
+            double lowCloseRange = Math.Abs(low - previousClose);
             double trueRange = Math.Max(highLowRange, Math.Max(highCloseRange, lowCloseRange));
 
             // Add to queue
-            _trueRanges.Enqueue(trueRange);
-            _highs.Enqueue(high);
-            _lows.Enqueue(low);
+            trueRanges.Enqueue(trueRange);
+            highs.Enqueue(high);
+            lows.Enqueue(low);
 
             // Keep queue at period size
-            while (_trueRanges.Count > _period)
+            while (trueRanges.Count > period)
             {
-                _trueRanges.Dequeue();
-                _highs.Dequeue();
-                _lows.Dequeue();
+                trueRanges.Dequeue();
+                highs.Dequeue();
+                lows.Dequeue();
             }
 
             // Calculate ATR using Wilder's smoothing
-            if (_trueRanges.Count == 1)
+            if (trueRanges.Count == 1)
             {
-                _currentAtr = trueRange;
+                currentAtr = trueRange;
             }
             else
             {
-                _currentAtr = ((_currentAtr * (_period - 1)) + trueRange) / _period;
+                currentAtr = ((currentAtr * (period - 1)) + trueRange) / period;
             }
 
-            _previousClose = close;
-            return _currentAtr;
+            previousClose = close;
+            return currentAtr;
         }
 
         /// <summary>
@@ -191,7 +191,7 @@ namespace IdiotProof.Helpers {
             double minPercent = 0.01,
             double maxPercent = 0.25)
         {
-            if (!IsReady || _currentAtr <= 0)
+            if (!IsReady || currentAtr <= 0)
             {
                 // Fall back to percentage-based stop if ATR not ready
                 double fallbackDistance = referencePrice * 0.10; // 10% fallback
@@ -201,7 +201,7 @@ namespace IdiotProof.Helpers {
             }
 
             // Calculate ATR-based stop distance
-            double atrDistance = _currentAtr * multiplier;
+            double atrDistance = currentAtr * multiplier;
 
             // Apply min/max bounds
             double minDistance = referencePrice * minPercent;
@@ -223,48 +223,48 @@ namespace IdiotProof.Helpers {
         {
             if (price <= 0 || !IsReady)
                 return 0;
-            return _currentAtr / price;
+            return currentAtr / price;
         }
 
         private void CompleteBar(double closePrice)
         {
             // Calculate True Range
-            double highLowRange = _currentHigh - _currentLow;
-            double highCloseRange = Math.Abs(_currentHigh - _previousClose);
-            double lowCloseRange = Math.Abs(_currentLow - _previousClose);
+            double highLowRange = currentHigh - currentLow;
+            double highCloseRange = Math.Abs(currentHigh - previousClose);
+            double lowCloseRange = Math.Abs(currentLow - previousClose);
 
             double trueRange = Math.Max(highLowRange, Math.Max(highCloseRange, lowCloseRange));
 
             // Add to queue
-            _trueRanges.Enqueue(trueRange);
-            _highs.Enqueue(_currentHigh);
-            _lows.Enqueue(_currentLow);
+            trueRanges.Enqueue(trueRange);
+            highs.Enqueue(currentHigh);
+            lows.Enqueue(currentLow);
 
             // Keep queue at period size
-            while (_trueRanges.Count > _period)
+            while (trueRanges.Count > period)
             {
-                _trueRanges.Dequeue();
-                _highs.Dequeue();
-                _lows.Dequeue();
+                trueRanges.Dequeue();
+                highs.Dequeue();
+                lows.Dequeue();
             }
 
             // Calculate ATR using Wilder's smoothing (EMA)
-            if (_trueRanges.Count == 1)
+            if (trueRanges.Count == 1)
             {
-                _currentAtr = trueRange;
+                currentAtr = trueRange;
             }
             else
             {
                 // Wilder's smoothing: ATR = ((Prior ATR × (n-1)) + Current TR) / n
-                _currentAtr = ((_currentAtr * (_period - 1)) + trueRange) / _period;
+                currentAtr = ((currentAtr * (period - 1)) + trueRange) / period;
             }
         }
 
         private void ResetBar()
         {
-            _currentHigh = double.MinValue;
-            _currentLow = double.MaxValue;
-            _ticksInBar = 0;
+            currentHigh = double.MinValue;
+            currentLow = double.MaxValue;
+            ticksInBar = 0;
         }
 
         /// <summary>
@@ -272,11 +272,11 @@ namespace IdiotProof.Helpers {
         /// </summary>
         public void Reset()
         {
-            _highs.Clear();
-            _lows.Clear();
-            _trueRanges.Clear();
-            _currentAtr = 0;
-            _isInitialized = false;
+            highs.Clear();
+            lows.Clear();
+            trueRanges.Clear();
+            currentAtr = 0;
+            isInitialized = false;
             ResetBar();
         }
     }

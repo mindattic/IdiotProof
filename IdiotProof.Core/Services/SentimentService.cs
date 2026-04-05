@@ -29,21 +29,21 @@ namespace IdiotProof.Services {
     /// </summary>
     public sealed class SentimentService : IDisposable
     {
-        private readonly HttpClient _httpClient;
-        private readonly HttpClient _alphaVantageClient;
-        private readonly HttpClient _polygonClient;
-        private readonly string _finnhubApiKey;
-        private readonly string _alphaVantageApiKey;
-        private readonly string _polygonApiKey;
-        private readonly Dictionary<string, SentimentCache> _cache = new();
-        private readonly TimeSpan _cacheExpiry = TimeSpan.FromMinutes(15);
-        private readonly SemaphoreSlim _rateLimiter = new(1, 1);
-        private DateTime _lastApiCall = DateTime.MinValue;
-        private readonly TimeSpan _minCallInterval = TimeSpan.FromSeconds(1.1); // 60 calls/min = ~1 call/sec
+        private readonly HttpClient httpClient;
+        private readonly HttpClient alphaVantageClient;
+        private readonly HttpClient polygonClient;
+        private readonly string finnhubApiKey;
+        private readonly string alphaVantageApiKey;
+        private readonly string polygonApiKey;
+        private readonly Dictionary<string, SentimentCache> cache = new();
+        private readonly TimeSpan cacheExpiry = TimeSpan.FromMinutes(15);
+        private readonly SemaphoreSlim rateLimiter = new(1, 1);
+        private DateTime lastApiCall = DateTime.MinValue;
+        private readonly TimeSpan minCallInterval = TimeSpan.FromSeconds(1.1); // 60 calls/min = ~1 call/sec
         
         // Track API call counts for rate limiting
-        private int _alphaVantageCallsToday = 0;
-        private DateOnly _alphaVantageCallDate = DateOnly.MinValue;
+        private int alphaVantageCallsToday = 0;
+        private DateOnly alphaVantageCallDate = DateOnly.MinValue;
         private const int MaxAlphaVantageDailyCalls = 25;
 
         // Extended sentiment keywords for NLP scoring
@@ -125,23 +125,23 @@ namespace IdiotProof.Services {
 
         public SentimentService(string? finnhubApiKey = null, string? alphaVantageApiKey = null, string? polygonApiKey = null)
         {
-            _finnhubApiKey = finnhubApiKey ?? Environment.GetEnvironmentVariable("FINNHUB_API_KEY") ?? "";
-            _alphaVantageApiKey = alphaVantageApiKey ?? Environment.GetEnvironmentVariable("ALPHAVANTAGE_API_KEY") ?? "";
-            _polygonApiKey = polygonApiKey ?? Environment.GetEnvironmentVariable("POLYGON_API_KEY") ?? "";
+            this.finnhubApiKey = finnhubApiKey ?? Environment.GetEnvironmentVariable("FINNHUB_API_KEY") ?? "";
+            this.alphaVantageApiKey = alphaVantageApiKey ?? Environment.GetEnvironmentVariable("ALPHAVANTAGE_API_KEY") ?? "";
+            this.polygonApiKey = polygonApiKey ?? Environment.GetEnvironmentVariable("POLYGON_API_KEY") ?? "";
             
-            _httpClient = new HttpClient
+            httpClient = new HttpClient
             {
                 BaseAddress = new Uri("https://finnhub.io/api/v1/"),
                 Timeout = TimeSpan.FromSeconds(10)
             };
             
-            _alphaVantageClient = new HttpClient
+            alphaVantageClient = new HttpClient
             {
                 BaseAddress = new Uri("https://www.alphavantage.co/"),
                 Timeout = TimeSpan.FromSeconds(15)
             };
             
-            _polygonClient = new HttpClient
+            polygonClient = new HttpClient
             {
                 BaseAddress = new Uri("https://api.polygon.io/"),
                 Timeout = TimeSpan.FromSeconds(10)
@@ -153,19 +153,19 @@ namespace IdiotProof.Services {
         private void LogApiKeyStatus()
         {
             Console.WriteLine("[SENTIMENT] API Key Status:");
-            Console.WriteLine($"  - Finnhub:       {(string.IsNullOrEmpty(_finnhubApiKey) ? "NOT SET" : "Configured")}");
-            Console.WriteLine($"  - Alpha Vantage: {(string.IsNullOrEmpty(_alphaVantageApiKey) ? "NOT SET" : "Configured")}");
-            Console.WriteLine($"  - Polygon.io:    {(string.IsNullOrEmpty(_polygonApiKey) ? "NOT SET" : "Configured")}");
+            Console.WriteLine($"  - Finnhub:       {(string.IsNullOrEmpty(finnhubApiKey) ? "NOT SET" : "Configured")}");
+            Console.WriteLine($"  - Alpha Vantage: {(string.IsNullOrEmpty(alphaVantageApiKey) ? "NOT SET" : "Configured")}");
+            Console.WriteLine($"  - Polygon.io:    {(string.IsNullOrEmpty(polygonApiKey) ? "NOT SET" : "Configured")}");
             
-            if (string.IsNullOrEmpty(_finnhubApiKey))
+            if (string.IsNullOrEmpty(finnhubApiKey))
             {
                 Console.WriteLine("            Get a free Finnhub API key at: https://finnhub.io/register");
             }
-            if (string.IsNullOrEmpty(_alphaVantageApiKey))
+            if (string.IsNullOrEmpty(alphaVantageApiKey))
             {
                 Console.WriteLine("            Get a free Alpha Vantage API key at: https://www.alphavantage.co/support/#api-key");
             }
-            if (string.IsNullOrEmpty(_polygonApiKey))
+            if (string.IsNullOrEmpty(polygonApiKey))
             {
                 Console.WriteLine("            Get a free Polygon.io API key at: https://polygon.io/dashboard/signup");
             }
@@ -178,36 +178,36 @@ namespace IdiotProof.Services {
         public async Task<SentimentResult> GetSentimentAsync(string symbol)
         {
             // Check cache first
-            if (_cache.TryGetValue(symbol, out var cached) && !cached.IsExpired(_cacheExpiry))
+            if (cache.TryGetValue(symbol, out var cached) && !cached.IsExpired(cacheExpiry))
             {
                 return cached.Result;
             }
 
-            if (string.IsNullOrEmpty(_finnhubApiKey))
+            if (string.IsNullOrEmpty(finnhubApiKey))
             {
                 return new SentimentResult { Symbol = symbol, Score = 0, Confidence = 0, Message = "No API key configured" };
             }
 
             try
             {
-                await _rateLimiter.WaitAsync();
+                await rateLimiter.WaitAsync();
                 try
                 {
                     // Respect rate limits
-                    var timeSinceLastCall = DateTime.UtcNow - _lastApiCall;
-                    if (timeSinceLastCall < _minCallInterval)
+                    var timeSinceLastCall = DateTime.UtcNow - lastApiCall;
+                    if (timeSinceLastCall < minCallInterval)
                     {
-                        await Task.Delay(_minCallInterval - timeSinceLastCall);
+                        await Task.Delay(minCallInterval - timeSinceLastCall);
                     }
 
                     var result = await FetchSentimentAsync(symbol);
-                    _cache[symbol] = new SentimentCache { Result = result, FetchedAt = DateTime.UtcNow };
-                    _lastApiCall = DateTime.UtcNow;
+                    cache[symbol] = new SentimentCache { Result = result, FetchedAt = DateTime.UtcNow };
+                    lastApiCall = DateTime.UtcNow;
                     return result;
                 }
                 finally
                 {
-                    _rateLimiter.Release();
+                    rateLimiter.Release();
                 }
             }
             catch (Exception ex)
@@ -256,7 +256,7 @@ namespace IdiotProof.Services {
             }
             
             // 5. Fetch Alpha Vantage news sentiment (if API key available)
-            if (!string.IsNullOrEmpty(_alphaVantageApiKey))
+            if (!string.IsNullOrEmpty(alphaVantageApiKey))
             {
                 var avScore = await FetchAlphaVantageSentimentAsync(symbol);
                 if (avScore.HasValue)
@@ -267,7 +267,7 @@ namespace IdiotProof.Services {
             }
             
             // 6. Fetch Polygon.io ticker news (if API key available)
-            if (!string.IsNullOrEmpty(_polygonApiKey))
+            if (!string.IsNullOrEmpty(polygonApiKey))
             {
                 var polygonScore = await FetchPolygonNewsAsync(symbol);
                 if (polygonScore.HasValue)
@@ -282,8 +282,8 @@ namespace IdiotProof.Services {
             {
                 // Weights adjusted based on available sources
                 double finnhubWeight = 0.70; // Base Finnhub sources
-                double avWeight = !string.IsNullOrEmpty(_alphaVantageApiKey) ? 0.15 : 0;
-                double polygonWeight = !string.IsNullOrEmpty(_polygonApiKey) ? 0.15 : 0;
+                double avWeight = !string.IsNullOrEmpty(alphaVantageApiKey) ? 0.15 : 0;
+                double polygonWeight = !string.IsNullOrEmpty(polygonApiKey) ? 0.15 : 0;
                 
                 // Normalize if some sources unavailable
                 double totalWeight = finnhubWeight + avWeight + polygonWeight;
@@ -311,24 +311,24 @@ namespace IdiotProof.Services {
         {
             // Check daily rate limit
             var today = DateOnly.FromDateTime(DateTime.UtcNow);
-            if (_alphaVantageCallDate != today)
+            if (alphaVantageCallDate != today)
             {
-                _alphaVantageCallDate = today;
-                _alphaVantageCallsToday = 0;
+                alphaVantageCallDate = today;
+                alphaVantageCallsToday = 0;
             }
             
-            if (_alphaVantageCallsToday >= MaxAlphaVantageDailyCalls)
+            if (alphaVantageCallsToday >= MaxAlphaVantageDailyCalls)
                 return null;
                 
             try
             {
-                var url = $"query?function=NEWS_SENTIMENT&tickers={symbol}&apikey={_alphaVantageApiKey}";
-                var response = await _alphaVantageClient.GetAsync(url);
+                var url = $"query?function=NEWS_SENTIMENT&tickers={symbol}&apikey={alphaVantageApiKey}";
+                var response = await alphaVantageClient.GetAsync(url);
                 
                 if (!response.IsSuccessStatusCode)
                     return null;
                     
-                _alphaVantageCallsToday++;
+                alphaVantageCallsToday++;
                 
                 var json = await response.Content.ReadAsStringAsync();
                 using var doc = JsonDocument.Parse(json);
@@ -387,8 +387,8 @@ namespace IdiotProof.Services {
         {
             try
             {
-                var url = $"v2/reference/news?ticker={symbol}&limit=20&apiKey={_polygonApiKey}";
-                var response = await _polygonClient.GetAsync(url);
+                var url = $"v2/reference/news?ticker={symbol}&limit=20&apiKey={polygonApiKey}";
+                var response = await polygonClient.GetAsync(url);
                 
                 if (!response.IsSuccessStatusCode)
                     return null;
@@ -439,9 +439,9 @@ namespace IdiotProof.Services {
             {
                 var fromDate = DateTime.UtcNow.AddDays(-7).ToString("yyyy-MM-dd");
                 var toDate = DateTime.UtcNow.ToString("yyyy-MM-dd");
-                var url = $"company-news?symbol={symbol}&from={fromDate}&to={toDate}&token={_finnhubApiKey}";
+                var url = $"company-news?symbol={symbol}&from={fromDate}&to={toDate}&token={finnhubApiKey}";
 
-                var response = await _httpClient.GetAsync(url);
+                var response = await httpClient.GetAsync(url);
                 if (!response.IsSuccessStatusCode)
                     return null;
 
@@ -483,8 +483,8 @@ namespace IdiotProof.Services {
         {
             try
             {
-                var url = $"stock/recommendation?symbol={symbol}&token={_finnhubApiKey}";
-                var response = await _httpClient.GetAsync(url);
+                var url = $"stock/recommendation?symbol={symbol}&token={finnhubApiKey}";
+                var response = await httpClient.GetAsync(url);
                 if (!response.IsSuccessStatusCode)
                     return null;
 
@@ -518,8 +518,8 @@ namespace IdiotProof.Services {
         {
             try
             {
-                var url = $"stock/earnings?symbol={symbol}&token={_finnhubApiKey}";
-                var response = await _httpClient.GetAsync(url);
+                var url = $"stock/earnings?symbol={symbol}&token={finnhubApiKey}";
+                var response = await httpClient.GetAsync(url);
                 if (!response.IsSuccessStatusCode)
                     return null;
 
@@ -564,9 +564,9 @@ namespace IdiotProof.Services {
             try
             {
                 var fromDate = DateTime.UtcNow.AddDays(-90).ToString("yyyy-MM-dd");
-                var url = $"stock/insider-transactions?symbol={symbol}&from={fromDate}&token={_finnhubApiKey}";
+                var url = $"stock/insider-transactions?symbol={symbol}&from={fromDate}&token={finnhubApiKey}";
 
-                var response = await _httpClient.GetAsync(url);
+                var response = await httpClient.GetAsync(url);
                 if (!response.IsSuccessStatusCode)
                     return null;
 
@@ -635,10 +635,10 @@ namespace IdiotProof.Services {
 
         public void Dispose()
         {
-            _httpClient.Dispose();
-            _alphaVantageClient.Dispose();
-            _polygonClient.Dispose();
-            _rateLimiter.Dispose();
+            httpClient.Dispose();
+            alphaVantageClient.Dispose();
+            polygonClient.Dispose();
+            rateLimiter.Dispose();
         }
 
         /// <summary>
@@ -646,7 +646,7 @@ namespace IdiotProof.Services {
         /// </summary>
         public void InvalidateCache(string symbol)
         {
-            _cache.Remove(symbol);
+            cache.Remove(symbol);
         }
 
         /// <summary>
@@ -654,7 +654,7 @@ namespace IdiotProof.Services {
         /// </summary>
         public void ClearCache()
         {
-            _cache.Clear();
+            cache.Clear();
         }
         
         /// <summary>
@@ -663,10 +663,10 @@ namespace IdiotProof.Services {
         public int GetAlphaVantageCallsRemaining()
         {
             var today = DateOnly.FromDateTime(DateTime.UtcNow);
-            if (_alphaVantageCallDate != today)
+            if (alphaVantageCallDate != today)
                 return MaxAlphaVantageDailyCalls;
                 
-            return Math.Max(0, MaxAlphaVantageDailyCalls - _alphaVantageCallsToday);
+            return Math.Max(0, MaxAlphaVantageDailyCalls - alphaVantageCallsToday);
         }
     }
 

@@ -1,4 +1,4 @@
-// IdiotProof.Core.FutureState.Abstractions
+﻿// IdiotProof.Core.FutureState.Abstractions
 // Transport Layer Abstraction
 // Allows switching between gRPC, REST, WebSocket, or other protocols
 
@@ -264,16 +264,16 @@ public interface ITransportFactory
 public abstract class TransportLayerBase : ITransportLayer
 {
     protected readonly TransportConfiguration _config;
-    private ConnectionState _state = ConnectionState.Disconnected;
+    private ConnectionState state = ConnectionState.Disconnected;
     
     public ConnectionState State
     {
-        get => _state;
+        get => state;
         protected set
         {
-            if (_state != value)
+            if (state != value)
             {
-                _state = value;
+                state = value;
                 StateChanged?.Invoke(this, value);
             }
         }

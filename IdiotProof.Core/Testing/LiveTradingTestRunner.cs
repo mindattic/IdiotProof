@@ -38,45 +38,45 @@ namespace IdiotProof.Testing;
 /// </summary>
 public sealed class LiveTradingTestRunner : IDisposable
 {
-    private readonly IbWrapper _wrapper;
-    private readonly EClientSocket _client;
-    private readonly LiveTradingTestConfig _config;
-    private readonly LiveTestSummary _summary;
+    private readonly IbWrapper wrapper;
+    private readonly EClientSocket client;
+    private readonly LiveTradingTestConfig config;
+    private readonly LiveTestSummary summary;
     
     // Contract for test stock
-    private IbContract? _contract;
+    private IbContract? contract;
     
     // Price tracking
-    private double _lastPrice;
-    private double _bidPrice;
-    private double _askPrice;
+    private double lastPrice;
+    private double bidPrice;
+    private double askPrice;
     
     // Order tracking
-    private int _pendingOrderId = -1;
-    private bool _orderFilled;
-    private double _fillPrice;
-    private int _filledQuantity;
-    private string? _orderError;
-    private readonly ManualResetEventSlim _fillEvent = new(false);
+    private int pendingOrderId = -1;
+    private bool orderFilled;
+    private double fillPrice;
+    private int filledQuantity;
+    private string? orderError;
+    private readonly ManualResetEventSlim fillEvent = new(false);
     
     // Position tracking
-    private int _currentPosition;
+    private int currentPosition;
     
     // Quantity to trade (calculated from price)
-    private int _testQuantity;
+    private int testQuantity;
     
     // State
-    private bool _disposed;
+    private bool disposed;
 
     public LiveTradingTestRunner(IbWrapper wrapper, EClientSocket client, LiveTradingTestConfig? config = null)
     {
-        _wrapper = wrapper ?? throw new ArgumentNullException(nameof(wrapper));
-        _client = client ?? throw new ArgumentNullException(nameof(client));
-        _config = config ?? new LiveTradingTestConfig();
-        _summary = new LiveTestSummary { Symbol = _config.Symbol };
-        
+        this.wrapper = wrapper ?? throw new ArgumentNullException(nameof(wrapper));
+        this.client = client ?? throw new ArgumentNullException(nameof(client));
+        this.config = config ?? new LiveTradingTestConfig();
+        summary = new LiveTestSummary { Symbol = this.config.Symbol };
+
         // Validate config
-        _config.Validate();
+        this.config.Validate();
     }
 
     /// <summary>
@@ -85,7 +85,7 @@ public sealed class LiveTradingTestRunner : IDisposable
     /// <returns>Summary of test results.</returns>
     public async Task<LiveTestSummary> RunAllTestsAsync()
     {
-        _summary.TestStartTime = DateTime.Now;
+        summary.TestStartTime = DateTime.Now;
         var stopwatch = Stopwatch.StartNew();
 
         try
@@ -93,9 +93,9 @@ public sealed class LiveTradingTestRunner : IDisposable
             // Pre-flight checks
             if (!RunPreFlightChecks())
             {
-                _summary.TestEndTime = DateTime.Now;
-                _summary.TotalDuration = stopwatch.Elapsed;
-                return _summary;
+                summary.TestEndTime = DateTime.Now;
+                summary.TotalDuration = stopwatch.Elapsed;
+                return summary;
             }
 
             // Subscribe to events
@@ -107,28 +107,28 @@ public sealed class LiveTradingTestRunner : IDisposable
             // Wait for initial price
             if (!await WaitForPriceAsync())
             {
-                _summary.AddResult(TestResult.Fail("MarketData", "Failed to receive market data within timeout"));
-                return _summary;
+                summary.AddResult(TestResult.Fail("MarketData", "Failed to receive market data within timeout"));
+                return summary;
             }
 
-            Log($"Current price for {_config.Symbol}: ${_lastPrice:F2} (Bid: ${_bidPrice:F2}, Ask: ${_askPrice:F2})", ConsoleColor.Cyan);
+            Log($"Current price for {config.Symbol}: ${lastPrice:F2} (Bid: ${bidPrice:F2}, Ask: ${askPrice:F2})", ConsoleColor.Cyan);
 
             // Calculate quantity: price * 3, rounded up to nearest 5
-            _testQuantity = _config.Quantity > 0 
-                ? _config.Quantity 
-                : LiveTradingTestConfig.CalculateQuantity(_lastPrice);
+            testQuantity = config.Quantity > 0 
+                ? config.Quantity 
+                : LiveTradingTestConfig.CalculateQuantity(lastPrice);
             
-            var estimatedCost = _lastPrice * _testQuantity;
-            Log($"Test quantity: {_testQuantity} shares (~${estimatedCost:F2} per trade)", ConsoleColor.Cyan);
+            var estimatedCost = lastPrice * testQuantity;
+            Log($"Test quantity: {testQuantity} shares (~${estimatedCost:F2} per trade)", ConsoleColor.Cyan);
 
             // Run test sequence
-            if (_config.FullSuite)
+            if (config.FullSuite)
             {
                 // Test 1: BUY (enter long)
                 await RunBuyTestAsync();
 
                 // Test 2: SELL (exit long)
-                if (_currentPosition > 0)
+                if (currentPosition > 0)
                 {
                     await RunSellTestAsync();
                 }
@@ -137,12 +137,12 @@ public sealed class LiveTradingTestRunner : IDisposable
                 await Task.Delay(LiveTradingTestConfig.DelayBetweenTestsMs);
 
                 // Test 3: SHORT (enter short) - if not skipped
-                if (!_config.SkipShortTests)
+                if (!config.SkipShortTests)
                 {
                     await RunShortTestAsync();
 
                     // Test 4: COVER (exit short)
-                    if (_currentPosition < 0)
+                    if (currentPosition < 0)
                     {
                         await RunCoverTestAsync();
                     }
@@ -154,7 +154,7 @@ public sealed class LiveTradingTestRunner : IDisposable
             }
 
             // Cleanup: Ensure we're flat
-            if (_config.AutoCleanup && _currentPosition != 0)
+            if (config.AutoCleanup && currentPosition != 0)
             {
                 await CleanupPositionAsync();
             }
@@ -164,10 +164,10 @@ public sealed class LiveTradingTestRunner : IDisposable
         }
         catch (Exception ex)
         {
-            _summary.AddResult(TestResult.Fail("Unexpected", $"Test runner error: {ex.Message}", ex.StackTrace));
+            summary.AddResult(TestResult.Fail("Unexpected", $"Test runner error: {ex.Message}", ex.StackTrace));
             
             // Emergency cleanup
-            if (_config.AutoCleanup && _currentPosition != 0)
+            if (config.AutoCleanup && currentPosition != 0)
             {
                 try
                 {
@@ -183,11 +183,11 @@ public sealed class LiveTradingTestRunner : IDisposable
         {
             UnsubscribeFromEvents();
             stopwatch.Stop();
-            _summary.TotalDuration = stopwatch.Elapsed;
-            _summary.TestEndTime = DateTime.Now;
+            summary.TotalDuration = stopwatch.Elapsed;
+            summary.TestEndTime = DateTime.Now;
         }
 
-        return _summary;
+        return summary;
     }
 
     /// <summary>
@@ -202,19 +202,19 @@ public sealed class LiveTradingTestRunner : IDisposable
 
         if (now < rthStart || now >= rthEnd)
         {
-            _summary.AddResult(TestResult.Fail("RTH Check", 
+            summary.AddResult(TestResult.Fail("RTH Check", 
                 $"Tests must run during RTH (9:30 AM - 4:00 PM ET). Current time: {now}"));
             return false;
         }
-        _summary.AddResult(TestResult.Pass("RTH Check", $"Within RTH window ({now})"));
+        summary.AddResult(TestResult.Pass("RTH Check", $"Within RTH window ({now})"));
 
         // Check 2: Connection
-        if (!_wrapper.IsConnected)
+        if (!wrapper.IsConnected)
         {
-            _summary.AddResult(TestResult.Fail("Connection", "Not connected to IBKR"));
+            summary.AddResult(TestResult.Fail("Connection", "Not connected to IBKR"));
             return false;
         }
-        _summary.AddResult(TestResult.Pass("Connection", "Connected to IBKR"));
+        summary.AddResult(TestResult.Pass("Connection", "Connected to IBKR"));
 
         // Check 3: Paper trading warning
         if (!AppSettings.IsPaperTrading)
@@ -225,7 +225,7 @@ public sealed class LiveTradingTestRunner : IDisposable
         }
         else
         {
-            _summary.AddResult(TestResult.Pass("Account Type", "Paper trading account"));
+            summary.AddResult(TestResult.Pass("Account Type", "Paper trading account"));
         }
 
         return true;
@@ -236,25 +236,25 @@ public sealed class LiveTradingTestRunner : IDisposable
     /// </summary>
     private Task SubscribeToMarketDataAsync()
     {
-        _contract = new IbContract
+        contract = new IbContract
         {
-            Symbol = _config.Symbol,
+            Symbol = config.Symbol,
             SecType = "STK",
             Exchange = "SMART",
             Currency = "USD"
         };
 
-        int tickerId = _wrapper.ConsumeNextOrderId();
+        int tickerId = wrapper.ConsumeNextOrderId();
         
-        _wrapper.RegisterTickerHandler(tickerId, (price, size) =>
+        wrapper.RegisterTickerHandler(tickerId, (price, size) =>
         {
-            _lastPrice = price;
+            lastPrice = price;
         });
 
         // Request market data
-        _client.reqMktData(tickerId, _contract, "", false, false, null);
+        client.reqMktData(tickerId, contract, "", false, false, null);
         
-        Log($"Subscribed to market data for {_config.Symbol} (tickerId: {tickerId})", ConsoleColor.DarkGray);
+        Log($"Subscribed to market data for {config.Symbol} (tickerId: {tickerId})", ConsoleColor.DarkGray);
         
         return Task.CompletedTask;
     }
@@ -269,7 +269,7 @@ public sealed class LiveTradingTestRunner : IDisposable
 
         while (stopwatch.Elapsed < timeout)
         {
-            if (_lastPrice > 0)
+            if (lastPrice > 0)
             {
                 return true;
             }
@@ -291,21 +291,21 @@ public sealed class LiveTradingTestRunner : IDisposable
         {
             ResetOrderState();
             
-            var orderId = _wrapper.ConsumeNextOrderId();
-            _pendingOrderId = orderId;
+            var orderId = wrapper.ConsumeNextOrderId();
+            pendingOrderId = orderId;
 
             var order = new Order
             {
                 Action = "BUY",
                 OrderType = "MKT",
-                TotalQuantity = _config.Quantity,
+                TotalQuantity = config.Quantity,
                 Tif = "GTC",
                 Account = AppSettings.AccountNumber
             };
 
-            Log($"Placing BUY order: {_config.Quantity} shares of {_config.Symbol} @ MKT (OrderId: {orderId})", ConsoleColor.Cyan);
+            Log($"Placing BUY order: {config.Quantity} shares of {config.Symbol} @ MKT (OrderId: {orderId})", ConsoleColor.Cyan);
             
-            _client.placeOrder(orderId, _contract, order);
+            client.placeOrder(orderId, contract, order);
 
             // Wait for fill
             var filled = await WaitForFillAsync(LiveTradingTestConfig.OrderFillTimeoutSeconds);
@@ -313,25 +313,25 @@ public sealed class LiveTradingTestRunner : IDisposable
 
             if (filled)
             {
-                _currentPosition += _filledQuantity;
-                _summary.AddResult(TestResult.Pass("BUY", 
-                    $"Filled {_filledQuantity} @ ${_fillPrice:F2}", 
-                    _fillPrice, 
+                currentPosition += filledQuantity;
+                summary.AddResult(TestResult.Pass("BUY", 
+                    $"Filled {filledQuantity} @ ${fillPrice:F2}", 
+                    fillPrice, 
                     orderId, 
                     stopwatch.Elapsed));
-                Log($"[OK] BUY filled @ ${_fillPrice:F2} in {stopwatch.ElapsedMilliseconds}ms", ConsoleColor.Green);
+                Log($"[OK] BUY filled @ ${fillPrice:F2} in {stopwatch.ElapsedMilliseconds}ms", ConsoleColor.Green);
             }
             else
             {
-                var error = _orderError ?? "Order did not fill within timeout";
-                _summary.AddResult(TestResult.Fail("BUY", error, _orderError));
+                var error = orderError ?? "Order did not fill within timeout";
+                summary.AddResult(TestResult.Fail("BUY", error, orderError));
                 Log($"[FAIL] BUY failed: {error}", ConsoleColor.Red);
             }
         }
         catch (Exception ex)
         {
             stopwatch.Stop();
-            _summary.AddResult(TestResult.Fail("BUY", $"Exception: {ex.Message}", ex.StackTrace));
+            summary.AddResult(TestResult.Fail("BUY", $"Exception: {ex.Message}", ex.StackTrace));
             Log($"[FAIL] BUY exception: {ex.Message}", ConsoleColor.Red);
         }
     }
@@ -348,21 +348,21 @@ public sealed class LiveTradingTestRunner : IDisposable
         {
             ResetOrderState();
             
-            var orderId = _wrapper.ConsumeNextOrderId();
-            _pendingOrderId = orderId;
+            var orderId = wrapper.ConsumeNextOrderId();
+            pendingOrderId = orderId;
 
             var order = new Order
             {
                 Action = "SELL",
                 OrderType = "MKT",
-                TotalQuantity = _config.Quantity,
+                TotalQuantity = config.Quantity,
                 Tif = "GTC",
                 Account = AppSettings.AccountNumber
             };
 
-            Log($"Placing SELL order: {_config.Quantity} shares of {_config.Symbol} @ MKT (OrderId: {orderId})", ConsoleColor.Cyan);
+            Log($"Placing SELL order: {config.Quantity} shares of {config.Symbol} @ MKT (OrderId: {orderId})", ConsoleColor.Cyan);
             
-            _client.placeOrder(orderId, _contract, order);
+            client.placeOrder(orderId, contract, order);
 
             // Wait for fill
             var filled = await WaitForFillAsync(LiveTradingTestConfig.OrderFillTimeoutSeconds);
@@ -370,25 +370,25 @@ public sealed class LiveTradingTestRunner : IDisposable
 
             if (filled)
             {
-                _currentPosition -= _filledQuantity;
-                _summary.AddResult(TestResult.Pass("SELL", 
-                    $"Filled {_filledQuantity} @ ${_fillPrice:F2}", 
-                    _fillPrice, 
+                currentPosition -= filledQuantity;
+                summary.AddResult(TestResult.Pass("SELL", 
+                    $"Filled {filledQuantity} @ ${fillPrice:F2}", 
+                    fillPrice, 
                     orderId, 
                     stopwatch.Elapsed));
-                Log($"[OK] SELL filled @ ${_fillPrice:F2} in {stopwatch.ElapsedMilliseconds}ms", ConsoleColor.Green);
+                Log($"[OK] SELL filled @ ${fillPrice:F2} in {stopwatch.ElapsedMilliseconds}ms", ConsoleColor.Green);
             }
             else
             {
-                var error = _orderError ?? "Order did not fill within timeout";
-                _summary.AddResult(TestResult.Fail("SELL", error, _orderError));
+                var error = orderError ?? "Order did not fill within timeout";
+                summary.AddResult(TestResult.Fail("SELL", error, orderError));
                 Log($"[FAIL] SELL failed: {error}", ConsoleColor.Red);
             }
         }
         catch (Exception ex)
         {
             stopwatch.Stop();
-            _summary.AddResult(TestResult.Fail("SELL", $"Exception: {ex.Message}", ex.StackTrace));
+            summary.AddResult(TestResult.Fail("SELL", $"Exception: {ex.Message}", ex.StackTrace));
             Log($"[FAIL] SELL exception: {ex.Message}", ConsoleColor.Red);
         }
     }
@@ -405,8 +405,8 @@ public sealed class LiveTradingTestRunner : IDisposable
         {
             ResetOrderState();
             
-            var orderId = _wrapper.ConsumeNextOrderId();
-            _pendingOrderId = orderId;
+            var orderId = wrapper.ConsumeNextOrderId();
+            pendingOrderId = orderId;
 
             // SHORT is done by selling shares you don't own
             // IBKR automatically treats this as a short sale
@@ -414,14 +414,14 @@ public sealed class LiveTradingTestRunner : IDisposable
             {
                 Action = "SELL",
                 OrderType = "MKT",
-                TotalQuantity = _config.Quantity,
+                TotalQuantity = config.Quantity,
                 Tif = "GTC",
                 Account = AppSettings.AccountNumber
             };
 
-            Log($"Placing SHORT order: {_config.Quantity} shares of {_config.Symbol} @ MKT (OrderId: {orderId})", ConsoleColor.Cyan);
+            Log($"Placing SHORT order: {config.Quantity} shares of {config.Symbol} @ MKT (OrderId: {orderId})", ConsoleColor.Cyan);
             
-            _client.placeOrder(orderId, _contract, order);
+            client.placeOrder(orderId, contract, order);
 
             // Wait for fill
             var filled = await WaitForFillAsync(LiveTradingTestConfig.OrderFillTimeoutSeconds);
@@ -429,29 +429,29 @@ public sealed class LiveTradingTestRunner : IDisposable
 
             if (filled)
             {
-                _currentPosition -= _filledQuantity;
-                _summary.AddResult(TestResult.Pass("SHORT", 
-                    $"Filled {_filledQuantity} @ ${_fillPrice:F2}", 
-                    _fillPrice, 
+                currentPosition -= filledQuantity;
+                summary.AddResult(TestResult.Pass("SHORT", 
+                    $"Filled {filledQuantity} @ ${fillPrice:F2}", 
+                    fillPrice, 
                     orderId, 
                     stopwatch.Elapsed));
-                Log($"[OK] SHORT filled @ ${_fillPrice:F2} in {stopwatch.ElapsedMilliseconds}ms", ConsoleColor.Green);
+                Log($"[OK] SHORT filled @ ${fillPrice:F2} in {stopwatch.ElapsedMilliseconds}ms", ConsoleColor.Green);
             }
             else
             {
-                var error = _orderError ?? "Order did not fill within timeout";
+                var error = orderError ?? "Order did not fill within timeout";
                 
                 // Check if this is a short sale rejection
                 if (error.Contains("short", StringComparison.OrdinalIgnoreCase) ||
                     error.Contains("locate", StringComparison.OrdinalIgnoreCase))
                 {
-                    _summary.AddResult(TestResult.Fail("SHORT", 
+                    summary.AddResult(TestResult.Fail("SHORT", 
                         $"Stock not shortable: {error}", 
                         "Try a different stock or check margin requirements"));
                 }
                 else
                 {
-                    _summary.AddResult(TestResult.Fail("SHORT", error, _orderError));
+                    summary.AddResult(TestResult.Fail("SHORT", error, orderError));
                 }
                 Log($"[FAIL] SHORT failed: {error}", ConsoleColor.Red);
             }
@@ -459,7 +459,7 @@ public sealed class LiveTradingTestRunner : IDisposable
         catch (Exception ex)
         {
             stopwatch.Stop();
-            _summary.AddResult(TestResult.Fail("SHORT", $"Exception: {ex.Message}", ex.StackTrace));
+            summary.AddResult(TestResult.Fail("SHORT", $"Exception: {ex.Message}", ex.StackTrace));
             Log($"[FAIL] SHORT exception: {ex.Message}", ConsoleColor.Red);
         }
     }
@@ -476,22 +476,22 @@ public sealed class LiveTradingTestRunner : IDisposable
         {
             ResetOrderState();
             
-            var orderId = _wrapper.ConsumeNextOrderId();
-            _pendingOrderId = orderId;
+            var orderId = wrapper.ConsumeNextOrderId();
+            pendingOrderId = orderId;
 
             // COVER is done by buying shares to close the short position
             var order = new Order
             {
                 Action = "BUY",
                 OrderType = "MKT",
-                TotalQuantity = _config.Quantity,
+                TotalQuantity = config.Quantity,
                 Tif = "GTC",
                 Account = AppSettings.AccountNumber
             };
 
-            Log($"Placing COVER order: {_config.Quantity} shares of {_config.Symbol} @ MKT (OrderId: {orderId})", ConsoleColor.Cyan);
+            Log($"Placing COVER order: {config.Quantity} shares of {config.Symbol} @ MKT (OrderId: {orderId})", ConsoleColor.Cyan);
             
-            _client.placeOrder(orderId, _contract, order);
+            client.placeOrder(orderId, contract, order);
 
             // Wait for fill
             var filled = await WaitForFillAsync(LiveTradingTestConfig.OrderFillTimeoutSeconds);
@@ -499,25 +499,25 @@ public sealed class LiveTradingTestRunner : IDisposable
 
             if (filled)
             {
-                _currentPosition += _filledQuantity;
-                _summary.AddResult(TestResult.Pass("COVER", 
-                    $"Filled {_filledQuantity} @ ${_fillPrice:F2}", 
-                    _fillPrice, 
+                currentPosition += filledQuantity;
+                summary.AddResult(TestResult.Pass("COVER", 
+                    $"Filled {filledQuantity} @ ${fillPrice:F2}", 
+                    fillPrice, 
                     orderId, 
                     stopwatch.Elapsed));
-                Log($"[OK] COVER filled @ ${_fillPrice:F2} in {stopwatch.ElapsedMilliseconds}ms", ConsoleColor.Green);
+                Log($"[OK] COVER filled @ ${fillPrice:F2} in {stopwatch.ElapsedMilliseconds}ms", ConsoleColor.Green);
             }
             else
             {
-                var error = _orderError ?? "Order did not fill within timeout";
-                _summary.AddResult(TestResult.Fail("COVER", error, _orderError));
+                var error = orderError ?? "Order did not fill within timeout";
+                summary.AddResult(TestResult.Fail("COVER", error, orderError));
                 Log($"[FAIL] COVER failed: {error}", ConsoleColor.Red);
             }
         }
         catch (Exception ex)
         {
             stopwatch.Stop();
-            _summary.AddResult(TestResult.Fail("COVER", $"Exception: {ex.Message}", ex.StackTrace));
+            summary.AddResult(TestResult.Fail("COVER", $"Exception: {ex.Message}", ex.StackTrace));
             Log($"[FAIL] COVER exception: {ex.Message}", ConsoleColor.Red);
         }
     }
@@ -529,17 +529,17 @@ public sealed class LiveTradingTestRunner : IDisposable
     {
         Log("\n=== POSITION CHECK ===", ConsoleColor.Yellow);
 
-        if (_currentPosition == 0)
+        if (currentPosition == 0)
         {
-            _summary.AddResult(TestResult.Pass("Position Check", "Position is flat (0 shares)"));
+            summary.AddResult(TestResult.Pass("Position Check", "Position is flat (0 shares)"));
             Log("[OK] Position is flat", ConsoleColor.Green);
         }
         else
         {
-            _summary.AddResult(TestResult.Fail("Position Check", 
-                $"Position is not flat: {_currentPosition} shares",
+            summary.AddResult(TestResult.Fail("Position Check", 
+                $"Position is not flat: {currentPosition} shares",
                 "Manual cleanup may be required"));
-            Log($"[FAIL] Position not flat: {_currentPosition} shares", ConsoleColor.Red);
+            Log($"[FAIL] Position not flat: {currentPosition} shares", ConsoleColor.Red);
         }
 
         return Task.CompletedTask;
@@ -556,11 +556,11 @@ public sealed class LiveTradingTestRunner : IDisposable
         {
             ResetOrderState();
             
-            var orderId = _wrapper.ConsumeNextOrderId();
-            _pendingOrderId = orderId;
+            var orderId = wrapper.ConsumeNextOrderId();
+            pendingOrderId = orderId;
 
-            string action = _currentPosition > 0 ? "SELL" : "BUY";
-            int quantity = Math.Abs(_currentPosition);
+            string action = currentPosition > 0 ? "SELL" : "BUY";
+            int quantity = Math.Abs(currentPosition);
 
             var order = new Order
             {
@@ -573,18 +573,18 @@ public sealed class LiveTradingTestRunner : IDisposable
 
             Log($"Cleanup: {action} {quantity} shares to flatten position", ConsoleColor.Yellow);
             
-            _client.placeOrder(orderId, _contract, order);
+            client.placeOrder(orderId, contract, order);
 
             var filled = await WaitForFillAsync(30);
 
             if (filled)
             {
-                _currentPosition = 0;
-                Log($"[OK] Cleanup complete @ ${_fillPrice:F2}", ConsoleColor.Green);
+                currentPosition = 0;
+                Log($"[OK] Cleanup complete @ ${fillPrice:F2}", ConsoleColor.Green);
             }
             else
             {
-                Log($"[FAIL] Cleanup failed: {_orderError ?? "Timeout"}", ConsoleColor.Red);
+                Log($"[FAIL] Cleanup failed: {orderError ?? "Timeout"}", ConsoleColor.Red);
             }
         }
         catch (Exception ex)
@@ -598,12 +598,12 @@ public sealed class LiveTradingTestRunner : IDisposable
     /// </summary>
     private void ResetOrderState()
     {
-        _pendingOrderId = -1;
-        _orderFilled = false;
-        _fillPrice = 0;
-        _filledQuantity = 0;
-        _orderError = null;
-        _fillEvent.Reset();
+        pendingOrderId = -1;
+        orderFilled = false;
+        fillPrice = 0;
+        filledQuantity = 0;
+        orderError = null;
+        fillEvent.Reset();
     }
 
     /// <summary>
@@ -616,12 +616,12 @@ public sealed class LiveTradingTestRunner : IDisposable
 
         while (stopwatch.Elapsed < timeout)
         {
-            if (_orderFilled)
+            if (orderFilled)
             {
                 return true;
             }
 
-            if (_orderError != null)
+            if (orderError != null)
             {
                 return false;
             }
@@ -637,8 +637,8 @@ public sealed class LiveTradingTestRunner : IDisposable
     /// </summary>
     private void SubscribeToEvents()
     {
-        _wrapper.OnOrderFill += OnOrderFill;
-        _wrapper.OnOrderRejected += OnOrderRejected;
+        wrapper.OnOrderFill += OnOrderFill;
+        wrapper.OnOrderRejected += OnOrderRejected;
     }
 
     /// <summary>
@@ -646,8 +646,8 @@ public sealed class LiveTradingTestRunner : IDisposable
     /// </summary>
     private void UnsubscribeFromEvents()
     {
-        _wrapper.OnOrderFill -= OnOrderFill;
-        _wrapper.OnOrderRejected -= OnOrderRejected;
+        wrapper.OnOrderFill -= OnOrderFill;
+        wrapper.OnOrderRejected -= OnOrderRejected;
     }
 
     /// <summary>
@@ -655,12 +655,12 @@ public sealed class LiveTradingTestRunner : IDisposable
     /// </summary>
     private void OnOrderFill(int orderId, double avgFillPrice, int filledQty)
     {
-        if (orderId != _pendingOrderId) return;
+        if (orderId != pendingOrderId) return;
 
-        _orderFilled = true;
-        _fillPrice = avgFillPrice;
-        _filledQuantity = filledQty;
-        _fillEvent.Set();
+        orderFilled = true;
+        fillPrice = avgFillPrice;
+        filledQuantity = filledQty;
+        fillEvent.Set();
 
         Log($"  Fill received: OrderId={orderId}, Price=${avgFillPrice:F2}, Qty={filledQty}", ConsoleColor.DarkGray);
     }
@@ -670,10 +670,10 @@ public sealed class LiveTradingTestRunner : IDisposable
     /// </summary>
     private void OnOrderRejected(int orderId, int errorCode, string reason)
     {
-        if (orderId != _pendingOrderId) return;
+        if (orderId != pendingOrderId) return;
 
-        _orderError = $"Error {errorCode}: {reason}";
-        _fillEvent.Set();
+        orderError = $"Error {errorCode}: {reason}";
+        fillEvent.Set();
 
         Log($"  Order rejected: OrderId={orderId}, Code={errorCode}, Reason={reason}", ConsoleColor.DarkRed);
     }
@@ -697,10 +697,10 @@ public sealed class LiveTradingTestRunner : IDisposable
 
     public void Dispose()
     {
-        if (_disposed) return;
-        _disposed = true;
+        if (disposed) return;
+        disposed = true;
 
         UnsubscribeFromEvents();
-        _fillEvent.Dispose();
+        fillEvent.Dispose();
     }
 }

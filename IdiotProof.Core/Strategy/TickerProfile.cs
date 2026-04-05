@@ -1,4 +1,4 @@
-// ============================================================================
+﻿// ============================================================================
 // Ticker Profile - Learning System for Autonomous Trading
 // ============================================================================
 //
@@ -1053,9 +1053,9 @@ namespace IdiotProof.Strategy {
     /// </summary>
     public class TickerProfileManager
     {
-        private readonly Dictionary<string, TickerProfile> _profiles = new();
-        private readonly string _profileDirectory;
-        private readonly object _lock = new();
+        private readonly Dictionary<string, TickerProfile> profiles = new();
+        private readonly string profileDirectory;
+        private readonly object lockObj = new();
 
         private static readonly JsonSerializerOptions JsonOptions = new()
         {
@@ -1065,9 +1065,9 @@ namespace IdiotProof.Strategy {
 
         public TickerProfileManager(string? profileDirectory = null)
         {
-            _profileDirectory = profileDirectory ?? SettingsManager.GetProfilesFolder();
+            profileDirectory = profileDirectory ?? SettingsManager.GetProfilesFolder();
 
-            Directory.CreateDirectory(_profileDirectory);
+            Directory.CreateDirectory(profileDirectory);
             LoadAllProfiles();
         }
 
@@ -1076,12 +1076,12 @@ namespace IdiotProof.Strategy {
         /// </summary>
         public TickerProfile GetProfile(string symbol)
         {
-            lock (_lock)
+            lock (lockObj)
             {
-                if (!_profiles.TryGetValue(symbol.ToUpperInvariant(), out var profile))
+                if (!profiles.TryGetValue(symbol.ToUpperInvariant(), out var profile))
                 {
                     profile = new TickerProfile { Symbol = symbol.ToUpperInvariant() };
-                    _profiles[symbol.ToUpperInvariant()] = profile;
+                    profiles[symbol.ToUpperInvariant()] = profile;
                 }
                 return profile;
             }
@@ -1104,12 +1104,12 @@ namespace IdiotProof.Strategy {
         {
             try
             {
-                lock (_lock)
+                lock (lockObj)
                 {
-                    _profiles[profile.Symbol.ToUpperInvariant()] = profile;
+                    profiles[profile.Symbol.ToUpperInvariant()] = profile;
                 }
 
-                var tickerFolder = Path.Combine(_profileDirectory, profile.Symbol.ToUpperInvariant());
+                var tickerFolder = Path.Combine(profileDirectory, profile.Symbol.ToUpperInvariant());
                 Directory.CreateDirectory(tickerFolder);
                 string filePath = Path.Combine(tickerFolder, $"{profile.Symbol.ToUpperInvariant()}.profile.json");
                 string json = JsonSerializer.Serialize(profile, JsonOptions);
@@ -1129,7 +1129,7 @@ namespace IdiotProof.Strategy {
             try
             {
                 // Scan Data\{SYMBOL}\{SYMBOL}.profile.json in per-ticker subfolders
-                foreach (var dir in Directory.GetDirectories(_profileDirectory))
+                foreach (var dir in Directory.GetDirectories(profileDirectory))
                 {
                     var symbol = Path.GetFileName(dir).ToUpperInvariant();
                     var profileFile = Path.Combine(dir, $"{symbol}.profile.json");
@@ -1141,7 +1141,7 @@ namespace IdiotProof.Strategy {
                         var profile = JsonSerializer.Deserialize<TickerProfile>(json, JsonOptions);
                         if (profile != null)
                         {
-                            _profiles[profile.Symbol.ToUpperInvariant()] = profile;
+                            profiles[profile.Symbol.ToUpperInvariant()] = profile;
                         }
                     }
                     catch (Exception ex)
@@ -1150,9 +1150,9 @@ namespace IdiotProof.Strategy {
                     }
                 }
 
-                if (_profiles.Count > 0)
+                if (profiles.Count > 0)
                 {
-                    ConsoleLog.Success("Profile", $"Loaded {_profiles.Count} ticker profiles from disk");
+                    ConsoleLog.Success("Profile", $"Loaded {profiles.Count} ticker profiles from disk");
                 }
             }
             catch (Exception ex)
@@ -1166,9 +1166,9 @@ namespace IdiotProof.Strategy {
         /// </summary>
         public IReadOnlyCollection<TickerProfile> GetAllProfiles()
         {
-            lock (_lock)
+            lock (lockObj)
             {
-                return _profiles.Values.ToList().AsReadOnly();
+                return profiles.Values.ToList().AsReadOnly();
             }
         }
 
@@ -1177,17 +1177,17 @@ namespace IdiotProof.Strategy {
         /// </summary>
         public string GetOverallSummary()
         {
-            lock (_lock)
+            lock (lockObj)
             {
-                if (_profiles.Count == 0)
+                if (profiles.Count == 0)
                     return "No ticker profiles yet";
 
-                int totalTrades = _profiles.Values.Sum(p => p.TotalTrades);
-                int totalWins = _profiles.Values.Sum(p => p.TotalWins);
-                double netProfit = _profiles.Values.Sum(p => p.TotalPnL);
+                int totalTrades = profiles.Values.Sum(p => p.TotalTrades);
+                int totalWins = profiles.Values.Sum(p => p.TotalWins);
+                double netProfit = profiles.Values.Sum(p => p.TotalPnL);
                 double winRate = totalTrades > 0 ? (double)totalWins / totalTrades * 100 : 0;
 
-                return $"Overall: {_profiles.Count} tickers, {totalTrades} trades, " +
+                return $"Overall: {profiles.Count} tickers, {totalTrades} trades, " +
                        $"{winRate:F1}% win rate, Net P&L: ${netProfit:F2}";
             }
         }

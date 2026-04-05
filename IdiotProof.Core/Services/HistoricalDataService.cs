@@ -57,22 +57,22 @@ namespace IdiotProof.Services {
     /// </remarks>
     public sealed class HistoricalDataService : IDisposable
     {
-        private readonly EClientSocket _client;
-        private readonly IbWrapper _wrapper;
-        private readonly HistoricalDataStore _store;
+        private readonly EClientSocket client;
+        private readonly IbWrapper wrapper;
+        private readonly HistoricalDataStore store;
 
         // Request tracking
-        private readonly ConcurrentDictionary<int, HistoricalDataRequest> _pendingRequests = new();
-        private readonly ConcurrentDictionary<int, List<HistoricalBar>> _requestResults = new();
-        private int _nextRequestId = 9000; // Start high to avoid conflict with order IDs
-        private readonly object _requestIdLock = new();
+        private readonly ConcurrentDictionary<int, HistoricalDataRequest> pendingRequests = new();
+        private readonly ConcurrentDictionary<int, List<HistoricalBar>> requestResults = new();
+        private int nextRequestId = 9000; // Start high to avoid conflict with order IDs
+        private readonly object requestIdLock = new();
 
         // Pacing control
-        private readonly SemaphoreSlim _pacingSemaphore = new(5); // Max 5 concurrent requests
-        private DateTime _lastRequestTime = DateTime.MinValue;
-        private readonly TimeSpan _minRequestInterval = TimeSpan.FromMilliseconds(500); // 500ms between requests
+        private readonly SemaphoreSlim pacingSemaphore = new(5); // Max 5 concurrent requests
+        private DateTime lastRequestTime = DateTime.MinValue;
+        private readonly TimeSpan minRequestInterval = TimeSpan.FromMilliseconds(500); // 500ms between requests
 
-        private bool _disposed;
+        private bool disposed;
 
         /// <summary>
         /// Event raised when historical data fetch completes for a symbol.
@@ -87,17 +87,17 @@ namespace IdiotProof.Services {
         /// <summary>
         /// Gets the historical data store.
         /// </summary>
-        public HistoricalDataStore Store => _store;
+        public HistoricalDataStore Store => store;
 
         public HistoricalDataService(EClientSocket client, IbWrapper wrapper, HistoricalDataStore store)
         {
-            _client = client ?? throw new ArgumentNullException(nameof(client));
-            _wrapper = wrapper ?? throw new ArgumentNullException(nameof(wrapper));
-            _store = store ?? throw new ArgumentNullException(nameof(store));
+            this.client = client ?? throw new ArgumentNullException(nameof(client));
+            this.wrapper = wrapper ?? throw new ArgumentNullException(nameof(wrapper));
+            this.store = store ?? throw new ArgumentNullException(nameof(store));
 
             // Subscribe to historical data callbacks
-            _wrapper.OnHistoricalData += HandleHistoricalData;
-            _wrapper.OnHistoricalDataEnd += HandleHistoricalDataEnd;
+            wrapper.OnHistoricalData += HandleHistoricalData;
+            wrapper.OnHistoricalDataEnd += HandleHistoricalDataEnd;
         }
 
         /// <summary>
@@ -120,7 +120,7 @@ namespace IdiotProof.Services {
             DateTime? endDate = null,
             CancellationToken cancellationToken = default)
         {
-            if (_disposed)
+            if (disposed)
                 throw new ObjectDisposedException(nameof(HistoricalDataService));
 
             // Create contract
@@ -137,14 +137,14 @@ namespace IdiotProof.Services {
             string duration = CalculateDuration(barCount, barSize);
 
             // Pacing control
-            await _pacingSemaphore.WaitAsync(cancellationToken);
+            await pacingSemaphore.WaitAsync(cancellationToken);
             try
             {
                 // Ensure minimum interval between requests
-                var timeSinceLastRequest = DateTime.Now - _lastRequestTime;
-                if (timeSinceLastRequest < _minRequestInterval)
+                var timeSinceLastRequest = DateTime.Now - lastRequestTime;
+                if (timeSinceLastRequest < minRequestInterval)
                 {
-                    await Task.Delay(_minRequestInterval - timeSinceLastRequest, cancellationToken);
+                    await Task.Delay(minRequestInterval - timeSinceLastRequest, cancellationToken);
                 }
 
                 // Create request tracking
@@ -157,12 +157,12 @@ namespace IdiotProof.Services {
                     CompletionSource = new TaskCompletionSource<int>()
                 };
 
-                _pendingRequests[reqId] = request;
+                pendingRequests[reqId] = request;
 
                 // Register cancellation
                 cancellationToken.Register(() =>
                 {
-                    if (_pendingRequests.TryRemove(reqId, out var req))
+                    if (pendingRequests.TryRemove(reqId, out var req))
                     {
                         req.CompletionSource.TrySetCanceled(cancellationToken);
                     }
@@ -179,7 +179,7 @@ namespace IdiotProof.Services {
                 Log($"[{symbol}] Requesting {barCount} bars (duration: {duration}, barSize: {barSize.ToIbString()})...");
 
                 // Make the request
-                _client.reqHistoricalData(
+                client.reqHistoricalData(
                     reqId,
                     contract,
                     endDateTime,
@@ -192,7 +192,7 @@ namespace IdiotProof.Services {
                     null // chartOptions
                 );
 
-                _lastRequestTime = DateTime.Now;
+                lastRequestTime = DateTime.Now;
 
                 // Wait for completion with timeout
                 using var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
@@ -204,14 +204,14 @@ namespace IdiotProof.Services {
                 }
                 catch (OperationCanceledException) when (timeoutCts.IsCancellationRequested)
                 {
-                    _pendingRequests.TryRemove(reqId, out _);
+                    pendingRequests.TryRemove(reqId, out _);
                     OnFetchError?.Invoke(symbol, "Request timed out");
                     throw new TimeoutException($"Historical data request for {symbol} timed out.");
                 }
             }
             finally
             {
-                _pacingSemaphore.Release();
+                pacingSemaphore.Release();
             }
         }
 
@@ -260,7 +260,7 @@ namespace IdiotProof.Services {
         /// </summary>
         private void HandleHistoricalData(int reqId, Bar bar)
         {
-            if (!_pendingRequests.TryGetValue(reqId, out var request))
+            if (!pendingRequests.TryGetValue(reqId, out var request))
                 return;
 
             // Parse the bar time - IBKR returns various formats:
@@ -309,7 +309,7 @@ namespace IdiotProof.Services {
         /// </summary>
         private void HandleHistoricalDataEnd(int reqId, string start, string end)
         {
-            if (!_pendingRequests.TryRemove(reqId, out var request))
+            if (!pendingRequests.TryRemove(reqId, out var request))
                 return;
 
             // Sort bars by time and take the requested count (most recent)
@@ -319,10 +319,10 @@ namespace IdiotProof.Services {
                 .ToList();
 
             // Store bars for retrieval by FetchHistoricalBarsAsync
-            _requestResults[reqId] = sortedBars;
+            requestResults[reqId] = sortedBars;
 
             // Store in the data store
-            _store.SetHistoricalData(request.Symbol, sortedBars);
+            store.SetHistoricalData(request.Symbol, sortedBars);
 
             Log($"[{request.Symbol}] Received {sortedBars.Count} bars (range: {start} to {end})");
 
@@ -353,7 +353,7 @@ namespace IdiotProof.Services {
             DateTime? endDate = null,
             CancellationToken cancellationToken = default)
         {
-            if (_disposed)
+            if (disposed)
                 throw new ObjectDisposedException(nameof(HistoricalDataService));
 
             var contract = new IbContract
@@ -364,13 +364,13 @@ namespace IdiotProof.Services {
                 Exchange = "SMART"
             };
 
-            await _pacingSemaphore.WaitAsync(cancellationToken);
+            await pacingSemaphore.WaitAsync(cancellationToken);
             try
             {
-                var timeSinceLastRequest = DateTime.Now - _lastRequestTime;
-                if (timeSinceLastRequest < _minRequestInterval)
+                var timeSinceLastRequest = DateTime.Now - lastRequestTime;
+                if (timeSinceLastRequest < minRequestInterval)
                 {
-                    await Task.Delay(_minRequestInterval - timeSinceLastRequest, cancellationToken);
+                    await Task.Delay(minRequestInterval - timeSinceLastRequest, cancellationToken);
                 }
 
                 int reqId = GetNextRequestId();
@@ -382,11 +382,11 @@ namespace IdiotProof.Services {
                     CompletionSource = new TaskCompletionSource<int>()
                 };
 
-                _pendingRequests[reqId] = request;
+                pendingRequests[reqId] = request;
 
                 cancellationToken.Register(() =>
                 {
-                    if (_pendingRequests.TryRemove(reqId, out var req))
+                    if (pendingRequests.TryRemove(reqId, out var req))
                     {
                         req.CompletionSource.TrySetCanceled(cancellationToken);
                     }
@@ -400,7 +400,7 @@ namespace IdiotProof.Services {
 
                 Log($"[{symbol}] Requesting chunk (duration: {duration}, end: {endDate:yyyy-MM-dd}, barSize: {barSize.ToIbString()})...");
 
-                _client.reqHistoricalData(
+                client.reqHistoricalData(
                     reqId,
                     contract,
                     endDateTime,
@@ -413,7 +413,7 @@ namespace IdiotProof.Services {
                     null
                 );
 
-                _lastRequestTime = DateTime.Now;
+                lastRequestTime = DateTime.Now;
 
                 // Longer timeout for multi-day chunks (60s vs 30s)
                 using var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(60));
@@ -425,19 +425,19 @@ namespace IdiotProof.Services {
                 }
                 catch (OperationCanceledException) when (timeoutCts.IsCancellationRequested)
                 {
-                    _pendingRequests.TryRemove(reqId, out _);
-                    _requestResults.TryRemove(reqId, out _);
+                    pendingRequests.TryRemove(reqId, out _);
+                    requestResults.TryRemove(reqId, out _);
                     OnFetchError?.Invoke(symbol, $"Chunk request timed out (end: {endDate:yyyy-MM-dd})");
                     return [];
                 }
 
                 // Retrieve bars directly from results (avoids shared store race condition)
-                _requestResults.TryRemove(reqId, out var bars);
+                requestResults.TryRemove(reqId, out var bars);
                 return bars ?? [];
             }
             finally
             {
-                _pacingSemaphore.Release();
+                pacingSemaphore.Release();
             }
         }
 
@@ -483,9 +483,9 @@ namespace IdiotProof.Services {
 
         private int GetNextRequestId()
         {
-            lock (_requestIdLock)
+            lock (requestIdLock)
             {
-                return _nextRequestId++;
+                return nextRequestId++;
             }
         }
 
@@ -496,22 +496,22 @@ namespace IdiotProof.Services {
 
         public void Dispose()
         {
-            if (_disposed)
+            if (disposed)
                 return;
-            _disposed = true;
+            disposed = true;
 
-            _wrapper.OnHistoricalData -= HandleHistoricalData;
-            _wrapper.OnHistoricalDataEnd -= HandleHistoricalDataEnd;
+            wrapper.OnHistoricalData -= HandleHistoricalData;
+            wrapper.OnHistoricalDataEnd -= HandleHistoricalDataEnd;
 
-            _pacingSemaphore.Dispose();
+            pacingSemaphore.Dispose();
 
             // Cancel any pending requests
-            foreach (var request in _pendingRequests.Values)
+            foreach (var request in pendingRequests.Values)
             {
                 request.CompletionSource.TrySetCanceled();
             }
-            _pendingRequests.Clear();
-            _requestResults.Clear();
+            pendingRequests.Clear();
+            requestResults.Clear();
         }
 
         /// <summary>

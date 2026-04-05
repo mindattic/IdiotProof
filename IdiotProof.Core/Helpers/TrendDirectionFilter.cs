@@ -1,4 +1,4 @@
-// ============================================================================
+﻿// ============================================================================
 // TrendDirectionFilter - Prevents trading against clear trends
 // ============================================================================
 //
@@ -60,26 +60,26 @@ public sealed class TrendDirectionFilter
     // Tracking state
     // ========================================================================
     
-    private int _candlesBelowVwap;
-    private int _candlesAboveVwap;
+    private int candlesBelowVwap;
+    private int candlesAboveVwap;
     
     // Track last EMA values to calculate slopes
-    private readonly Queue<double> _ema9History = new();
-    private readonly Queue<double> _ema21History = new();
-    private readonly Queue<double> _ema50History = new();
+    private readonly Queue<double> ema9History = new();
+    private readonly Queue<double> ema21History = new();
+    private readonly Queue<double> ema50History = new();
     
     // Track swing highs/lows for structure analysis
-    private readonly Queue<double> _recentHighs = new();
-    private readonly Queue<double> _recentLows = new();
-    private double _lastHigh;
-    private double _lastLow = double.MaxValue;
+    private readonly Queue<double> recentHighs = new();
+    private readonly Queue<double> recentLows = new();
+    private double lastHigh;
+    private double lastLow = double.MaxValue;
     
     // Current indicator values
-    private double _currentAdx;
-    private double _currentPlusDi;
-    private double _currentMinusDi;
-    private double _currentPrice;
-    private double _currentVwap;
+    private double currentAdx;
+    private double currentPlusDi;
+    private double currentMinusDi;
+    private double currentPrice;
+    private double currentVwap;
 
     // ========================================================================
     // Public properties
@@ -113,12 +113,12 @@ public sealed class TrendDirectionFilter
     /// <summary>
     /// Number of consecutive candles below VWAP.
     /// </summary>
-    public int CandlesBelowVwap => _candlesBelowVwap;
+    public int CandlesBelowVwap => candlesBelowVwap;
     
     /// <summary>
     /// Number of consecutive candles above VWAP.
     /// </summary>
-    public int CandlesAboveVwap => _candlesAboveVwap;
+    public int CandlesAboveVwap => candlesAboveVwap;
 
     // ========================================================================
     // Update methods
@@ -140,11 +140,11 @@ public sealed class TrendDirectionFilter
     public void Update(double price, double vwap, double ema9, double ema21, double ema50,
                        double adx, double plusDi, double minusDi, double high, double low)
     {
-        _currentPrice = price;
-        _currentVwap = vwap;
-        _currentAdx = adx;
-        _currentPlusDi = plusDi;
-        _currentMinusDi = minusDi;
+        currentPrice = price;
+        currentVwap = vwap;
+        currentAdx = adx;
+        currentPlusDi = plusDi;
+        currentMinusDi = minusDi;
         
         // Update VWAP position tracking
         UpdateVwapTracking(price, vwap);
@@ -164,8 +164,8 @@ public sealed class TrendDirectionFilter
     /// </summary>
     public void UpdateVwapPosition(double price, double vwap)
     {
-        _currentPrice = price;
-        _currentVwap = vwap;
+        currentPrice = price;
+        currentVwap = vwap;
     }
     
     private void UpdateVwapTracking(double price, double vwap)
@@ -174,13 +174,13 @@ public sealed class TrendDirectionFilter
         
         if (price < vwap)
         {
-            _candlesBelowVwap++;
-            _candlesAboveVwap = 0;
+            candlesBelowVwap++;
+            candlesAboveVwap = 0;
         }
         else if (price > vwap)
         {
-            _candlesAboveVwap++;
-            _candlesBelowVwap = 0;
+            candlesAboveVwap++;
+            candlesBelowVwap = 0;
         }
         // If price == vwap exactly, don't reset either counter
     }
@@ -188,36 +188,36 @@ public sealed class TrendDirectionFilter
     private void UpdateEmaHistory(double ema9, double ema21, double ema50)
     {
         // Add new values
-        _ema9History.Enqueue(ema9);
-        _ema21History.Enqueue(ema21);
-        _ema50History.Enqueue(ema50);
+        ema9History.Enqueue(ema9);
+        ema21History.Enqueue(ema21);
+        ema50History.Enqueue(ema50);
         
         // Keep only the last N samples
-        while (_ema9History.Count > SlopeSampleCount) _ema9History.Dequeue();
-        while (_ema21History.Count > SlopeSampleCount) _ema21History.Dequeue();
-        while (_ema50History.Count > SlopeSampleCount) _ema50History.Dequeue();
+        while (ema9History.Count > SlopeSampleCount) ema9History.Dequeue();
+        while (ema21History.Count > SlopeSampleCount) ema21History.Dequeue();
+        while (ema50History.Count > SlopeSampleCount) ema50History.Dequeue();
     }
     
     private void UpdateSwingTracking(double high, double low)
     {
         // Track intraday high/low
-        if (high > _lastHigh)
-            _lastHigh = high;
-        if (low < _lastLow)
-            _lastLow = low;
+        if (high > lastHigh)
+            lastHigh = high;
+        if (low < lastLow)
+            lastLow = low;
         
         // Store recent highs/lows for pattern detection
-        _recentHighs.Enqueue(high);
-        _recentLows.Enqueue(low);
+        recentHighs.Enqueue(high);
+        recentLows.Enqueue(low);
         
-        while (_recentHighs.Count > 5) _recentHighs.Dequeue();
-        while (_recentLows.Count > 5) _recentLows.Dequeue();
+        while (recentHighs.Count > 5) recentHighs.Dequeue();
+        while (recentLows.Count > 5) recentLows.Dequeue();
     }
     
     private void CalculateTrendAssessment()
     {
         // Need minimum data
-        if (_ema9History.Count < 3)
+        if (ema9History.Count < 3)
         {
             IsReady = false;
             IsInClearDowntrend = false;
@@ -252,18 +252,18 @@ public sealed class TrendDirectionFilter
         var reasons = new List<string>();
         
         // Clear DOWNTREND conditions
-        bool vwapBearish = _candlesBelowVwap >= MinCandlesBelowVwap;
+        bool vwapBearish = candlesBelowVwap >= MinCandlesBelowVwap;
         bool emaBearish = emaSignal < -50;
-        bool diBearish = _currentMinusDi > _currentPlusDi && _currentAdx >= MinAdxForTrendFilter;
+        bool diBearish = currentMinusDi > currentPlusDi && currentAdx >= MinAdxForTrendFilter;
         
         int bearishConfirmations = (vwapBearish ? 1 : 0) + (emaBearish ? 1 : 0) + (diBearish ? 1 : 0);
         
         if (bearishConfirmations >= 2)
         {
             IsInClearDowntrend = true;
-            if (vwapBearish) reasons.Add($"below VWAP {_candlesBelowVwap} bars");
+            if (vwapBearish) reasons.Add($"below VWAP {candlesBelowVwap} bars");
             if (emaBearish) reasons.Add("EMAs sloping down");
-            if (diBearish) reasons.Add($"-DI>{_currentMinusDi:F0} > +DI>{_currentPlusDi:F0}");
+            if (diBearish) reasons.Add($"-DI>{currentMinusDi:F0} > +DI>{currentPlusDi:F0}");
         }
         else
         {
@@ -271,18 +271,18 @@ public sealed class TrendDirectionFilter
         }
         
         // Clear UPTREND conditions
-        bool vwapBullish = _candlesAboveVwap >= MinCandlesAboveVwap;
+        bool vwapBullish = candlesAboveVwap >= MinCandlesAboveVwap;
         bool emaBullish = emaSignal > 50;
-        bool diBullish = _currentPlusDi > _currentMinusDi && _currentAdx >= MinAdxForTrendFilter;
+        bool diBullish = currentPlusDi > currentMinusDi && currentAdx >= MinAdxForTrendFilter;
         
         int bullishConfirmations = (vwapBullish ? 1 : 0) + (emaBullish ? 1 : 0) + (diBullish ? 1 : 0);
         
         if (bullishConfirmations >= 2)
         {
             IsInClearUptrend = true;
-            if (vwapBullish) reasons.Add($"above VWAP {_candlesAboveVwap} bars");
+            if (vwapBullish) reasons.Add($"above VWAP {candlesAboveVwap} bars");
             if (emaBullish) reasons.Add("EMAs sloping up");
-            if (diBullish) reasons.Add($"+DI>{_currentPlusDi:F0} > -DI>{_currentMinusDi:F0}");
+            if (diBullish) reasons.Add($"+DI>{currentPlusDi:F0} > -DI>{currentMinusDi:F0}");
         }
         else
         {
@@ -297,26 +297,26 @@ public sealed class TrendDirectionFilter
     /// </summary>
     private int CalculateVwapSignal()
     {
-        if (_candlesBelowVwap >= MinCandlesBelowVwap)
+        if (candlesBelowVwap >= MinCandlesBelowVwap)
         {
             // Sustained below VWAP = bearish
             // More bars = stronger signal (capped at 20 bars for max signal)
-            int strength = Math.Min(_candlesBelowVwap, 20);
+            int strength = Math.Min(candlesBelowVwap, 20);
             return -50 - (strength * 50 / 20);  // -50 to -100
         }
         
-        if (_candlesAboveVwap >= MinCandlesAboveVwap)
+        if (candlesAboveVwap >= MinCandlesAboveVwap)
         {
             // Sustained above VWAP = bullish
-            int strength = Math.Min(_candlesAboveVwap, 20);
+            int strength = Math.Min(candlesAboveVwap, 20);
             return 50 + (strength * 50 / 20);  // +50 to +100
         }
         
         // Neither condition met - return proportional signal
-        if (_candlesBelowVwap > 0)
-            return -_candlesBelowVwap * 5;  // -5 per bar below
-        if (_candlesAboveVwap > 0)
-            return _candlesAboveVwap * 5;   // +5 per bar above
+        if (candlesBelowVwap > 0)
+            return -candlesBelowVwap * 5;  // -5 per bar below
+        if (candlesAboveVwap > 0)
+            return candlesAboveVwap * 5;   // +5 per bar above
             
         return 0;
     }
@@ -326,12 +326,12 @@ public sealed class TrendDirectionFilter
     /// </summary>
     private int CalculateEmaSignal()
     {
-        if (_ema9History.Count < 3 || _ema21History.Count < 3 || _ema50History.Count < 3)
+        if (ema9History.Count < 3 || ema21History.Count < 3 || ema50History.Count < 3)
             return 0;
         
-        var ema9Arr = new List<double>(_ema9History);
-        var ema21Arr = new List<double>(_ema21History);
-        var ema50Arr = new List<double>(_ema50History);
+        var ema9Arr = new List<double>(ema9History);
+        var ema21Arr = new List<double>(ema21History);
+        var ema50Arr = new List<double>(ema50History);
         
         // Calculate slopes (positive = rising, negative = falling)
         double slope9 = ema9Arr[^1] - ema9Arr[0];
@@ -343,8 +343,8 @@ public sealed class TrendDirectionFilter
         int bullishSlopes = (slope9 > 0 ? 1 : 0) + (slope21 > 0 ? 1 : 0) + (slope50 > 0 ? 1 : 0);
         
         // Also check EMA stacking (price position relative to EMAs)
-        bool belowAll = _currentPrice < ema9Arr[^1] && _currentPrice < ema21Arr[^1] && _currentPrice < ema50Arr[^1];
-        bool aboveAll = _currentPrice > ema9Arr[^1] && _currentPrice > ema21Arr[^1] && _currentPrice > ema50Arr[^1];
+        bool belowAll = currentPrice < ema9Arr[^1] && currentPrice < ema21Arr[^1] && currentPrice < ema50Arr[^1];
+        bool aboveAll = currentPrice > ema9Arr[^1] && currentPrice > ema21Arr[^1] && currentPrice > ema50Arr[^1];
         
         int signal = 0;
         
@@ -375,14 +375,14 @@ public sealed class TrendDirectionFilter
     private int CalculateDiSignal()
     {
         // No signal if ADX is too low (no trend)
-        if (_currentAdx < MinAdxForTrendFilter)
+        if (currentAdx < MinAdxForTrendFilter)
             return 0;
         
         // DI spread determines direction and strength
-        double diSpread = _currentPlusDi - _currentMinusDi;
+        double diSpread = currentPlusDi - currentMinusDi;
         
         // Scale by ADX (stronger ADX = stronger signal)
-        double adxMultiplier = Math.Min(_currentAdx / 50.0, 1.0);  // Cap at ADX 50
+        double adxMultiplier = Math.Min(currentAdx / 50.0, 1.0);  // Cap at ADX 50
         
         int signal = (int)(diSpread * 2 * adxMultiplier);  // ±50 DI spread = ±100 signal
         
@@ -394,11 +394,11 @@ public sealed class TrendDirectionFilter
     /// </summary>
     private int CalculateStructureSignal()
     {
-        if (_recentHighs.Count < 3 || _recentLows.Count < 3)
+        if (recentHighs.Count < 3 || recentLows.Count < 3)
             return 0;
         
-        var highs = new List<double>(_recentHighs);
-        var lows = new List<double>(_recentLows);
+        var highs = new List<double>(recentHighs);
+        var lows = new List<double>(recentLows);
         
         // Count lower highs and lower lows (bearish)
         int lowerHighs = 0;
@@ -432,15 +432,15 @@ public sealed class TrendDirectionFilter
     /// </summary>
     public void Reset()
     {
-        _candlesBelowVwap = 0;
-        _candlesAboveVwap = 0;
-        _ema9History.Clear();
-        _ema21History.Clear();
-        _ema50History.Clear();
-        _recentHighs.Clear();
-        _recentLows.Clear();
-        _lastHigh = 0;
-        _lastLow = double.MaxValue;
+        candlesBelowVwap = 0;
+        candlesAboveVwap = 0;
+        ema9History.Clear();
+        ema21History.Clear();
+        ema50History.Clear();
+        recentHighs.Clear();
+        recentLows.Clear();
+        lastHigh = 0;
+        lastLow = double.MaxValue;
         IsReady = false;
         IsInClearDowntrend = false;
         IsInClearUptrend = false;
@@ -463,6 +463,6 @@ public sealed class TrendDirectionFilter
             _ => "NEUTRAL"
         };
         
-        return $"[TREND] {status} | Score={TrendScore:+#;-#;0} | VWAP: {(_candlesBelowVwap > 0 ? $"-{_candlesBelowVwap}" : _candlesAboveVwap > 0 ? $"+{_candlesAboveVwap}" : "0")} bars | {Reason}";
+        return $"[TREND] {status} | Score={TrendScore:+#;-#;0} | VWAP: {(candlesBelowVwap > 0 ? $"-{candlesBelowVwap}" : candlesAboveVwap > 0 ? $"+{candlesAboveVwap}" : "0")} bars | {Reason}";
     }
 }

@@ -1,4 +1,4 @@
-// ============================================================================
+﻿// ============================================================================
 // Volume Calculator - Average Volume Tracking
 // ============================================================================
 //
@@ -37,35 +37,35 @@ namespace IdiotProof.Helpers {
     /// </summary>
     public sealed class VolumeCalculator
     {
-        private readonly int _period;
-        private readonly Queue<long> _volumeHistory;
-        private long _currentVolume;
-        private double _averageVolume;
+        private readonly int period;
+        private readonly Queue<long> volumeHistory;
+        private long currentVolume;
+        private double averageVolume;
 
         /// <summary>
         /// Gets the averaging period.
         /// </summary>
-        public int Period => _period;
+        public int Period => period;
 
         /// <summary>
         /// Gets the current candle's volume.
         /// </summary>
-        public long CurrentVolume => _currentVolume;
+        public long CurrentVolume => currentVolume;
 
         /// <summary>
         /// Gets the average volume over the period.
         /// </summary>
-        public double AverageVolume => _averageVolume;
+        public double AverageVolume => averageVolume;
 
         /// <summary>
         /// Gets the volume ratio (current / average).
         /// </summary>
-        public double VolumeRatio => _averageVolume > 0 ? _currentVolume / _averageVolume : 0;
+        public double VolumeRatio => averageVolume > 0 ? currentVolume / averageVolume : 0;
 
         /// <summary>
         /// Gets whether the calculator has enough data.
         /// </summary>
-        public bool IsReady => _volumeHistory.Count >= _period;
+        public bool IsReady => volumeHistory.Count >= period;
 
         /// <summary>
         /// Creates a new volume calculator.
@@ -76,8 +76,8 @@ namespace IdiotProof.Helpers {
             if (period < 1)
                 throw new System.ArgumentOutOfRangeException(nameof(period), "Period must be at least 1.");
 
-            _period = period;
-            _volumeHistory = new Queue<long>(period + 1);
+            this.period = period;
+            volumeHistory = new Queue<long>(period + 1);
         }
 
         /// <summary>
@@ -89,19 +89,19 @@ namespace IdiotProof.Helpers {
             if (volume <= 0)
                 return;
 
-            _currentVolume = volume;
-            _volumeHistory.Enqueue(volume);
+            currentVolume = volume;
+            volumeHistory.Enqueue(volume);
 
             // Keep only the required history
-            while (_volumeHistory.Count > _period)
+            while (volumeHistory.Count > period)
             {
-                _volumeHistory.Dequeue();
+                volumeHistory.Dequeue();
             }
 
             // Calculate average
-            if (_volumeHistory.Count > 0)
+            if (volumeHistory.Count > 0)
             {
-                _averageVolume = _volumeHistory.Average();
+                averageVolume = volumeHistory.Average();
             }
         }
 
@@ -112,10 +112,10 @@ namespace IdiotProof.Helpers {
         /// <returns>True if current volume >= average × multiplier.</returns>
         public bool IsAboveAverage(double multiplier)
         {
-            if (!IsReady || _averageVolume <= 0)
+            if (!IsReady || averageVolume <= 0)
                 return false;
 
-            return _currentVolume >= _averageVolume * multiplier;
+            return currentVolume >= averageVolume * multiplier;
         }
 
         /// <summary>
@@ -123,9 +123,9 @@ namespace IdiotProof.Helpers {
         /// </summary>
         public void Reset()
         {
-            _volumeHistory.Clear();
-            _currentVolume = 0;
-            _averageVolume = 0;
+            volumeHistory.Clear();
+            currentVolume = 0;
+            averageVolume = 0;
         }
     }
 }

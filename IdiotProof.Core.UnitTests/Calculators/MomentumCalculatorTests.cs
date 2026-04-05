@@ -1,4 +1,4 @@
-// ============================================================================
+﻿// ============================================================================
 // Momentum Calculator Tests - Validates Momentum indicator with real data
 // ============================================================================
 
@@ -10,12 +10,12 @@ namespace IdiotProof.Core.UnitTests.Calculators;
 [TestFixture]
 public class MomentumCalculatorTests
 {
-    private List<TestBar> _bars = null!;
+    private List<TestBar> bars = null!;
 
     [OneTimeSetUp]
     public void LoadData()
     {
-        _bars = TestDataLoader.LoadBars("NVDA", 200);
+        bars = TestDataLoader.LoadBars("NVDA", 200);
     }
 
     // ========================================================================
@@ -46,11 +46,11 @@ public class MomentumCalculatorTests
 
         for (int i = 0; i < 9; i++)
         {
-            mom.Update(_bars[i].Close);
+            mom.Update(bars[i].Close);
             Assert.That(mom.IsReady, Is.False);
         }
 
-        mom.Update(_bars[9].Close);
+        mom.Update(bars[9].Close);
         Assert.That(mom.IsReady, Is.True, "Momentum(10) should be ready after 10 prices");
     }
 
@@ -64,9 +64,9 @@ public class MomentumCalculatorTests
         var mom = new MomentumCalculator(10);
 
         for (int i = 0; i <= 10; i++)
-            mom.Update(_bars[i].Close);
+            mom.Update(bars[i].Close);
 
-        double expected = _bars[10].Close - _bars[0].Close;
+        double expected = bars[10].Close - bars[0].Close;
         Assert.That(mom.CurrentValue, Is.EqualTo(expected).Within(0.0001),
             "Momentum = Current Price - Price 10 bars ago");
     }
@@ -77,10 +77,10 @@ public class MomentumCalculatorTests
         var mom = new MomentumCalculator(5);
 
         for (int i = 0; i <= 10; i++)
-            mom.Update(_bars[i].Close);
+            mom.Update(bars[i].Close);
 
         // Momentum should be bars[10] - bars[5]
-        double expected = _bars[10].Close - _bars[5].Close;
+        double expected = bars[10].Close - bars[5].Close;
         Assert.That(mom.CurrentValue, Is.EqualTo(expected).Within(0.0001));
     }
 
@@ -135,7 +135,7 @@ public class MomentumCalculatorTests
     {
         var mom = new MomentumCalculator(5);
         for (int i = 0; i < 10; i++)
-            mom.Update(_bars[i].Close);
+            mom.Update(bars[i].Close);
 
         double before = mom.CurrentValue;
         mom.Update(0);
@@ -147,7 +147,7 @@ public class MomentumCalculatorTests
     {
         var mom = new MomentumCalculator(10);
         for (int i = 0; i < 20; i++)
-            mom.Update(_bars[i].Close);
+            mom.Update(bars[i].Close);
 
         mom.Reset();
 

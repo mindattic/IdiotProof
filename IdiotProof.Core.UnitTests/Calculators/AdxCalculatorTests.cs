@@ -1,4 +1,4 @@
-// ============================================================================
+﻿// ============================================================================
 // ADX Calculator Tests - Validates Average Directional Index with real data
 // ============================================================================
 
@@ -10,12 +10,12 @@ namespace IdiotProof.Core.UnitTests.Calculators;
 [TestFixture]
 public class AdxCalculatorTests
 {
-    private List<TestBar> _bars = null!;
+    private List<TestBar> bars = null!;
 
     [OneTimeSetUp]
     public void LoadData()
     {
-        _bars = TestDataLoader.LoadBars("NVDA", 500);
+        bars = TestDataLoader.LoadBars("NVDA", 500);
     }
 
     // ========================================================================
@@ -52,7 +52,7 @@ public class AdxCalculatorTests
 
         for (int i = 0; i < 27; i++)
         {
-            adx.UpdateFromCandle(_bars[i].High, _bars[i].Low, _bars[i].Close);
+            adx.UpdateFromCandle(bars[i].High, bars[i].Low, bars[i].Close);
             Assert.That(adx.IsReady, Is.False, $"Not ready at {i + 1} bars");
         }
 
@@ -60,11 +60,11 @@ public class AdxCalculatorTests
         // First call initializes, so bar 0 doesn't count
         // barsCompleted increments from the second call onward
         // We need 28 completed bars, which means 29 calls (1 init + 28 completed)
-        adx.UpdateFromCandle(_bars[27].High, _bars[27].Low, _bars[27].Close);
+        adx.UpdateFromCandle(bars[27].High, bars[27].Low, bars[27].Close);
         // Keep feeding until ready
         for (int i = 28; i < 40; i++)
         {
-            adx.UpdateFromCandle(_bars[i].High, _bars[i].Low, _bars[i].Close);
+            adx.UpdateFromCandle(bars[i].High, bars[i].Low, bars[i].Close);
             if (adx.IsReady) break;
         }
 
@@ -82,7 +82,7 @@ public class AdxCalculatorTests
 
         for (int i = 0; i < 300; i++)
         {
-            adx.UpdateFromCandle(_bars[i].High, _bars[i].Low, _bars[i].Close);
+            adx.UpdateFromCandle(bars[i].High, bars[i].Low, bars[i].Close);
             if (adx.IsReady)
             {
                 Assert.That(adx.CurrentAdx, Is.GreaterThanOrEqualTo(0).And.LessThanOrEqualTo(100),
@@ -98,7 +98,7 @@ public class AdxCalculatorTests
 
         for (int i = 0; i < 300; i++)
         {
-            adx.UpdateFromCandle(_bars[i].High, _bars[i].Low, _bars[i].Close);
+            adx.UpdateFromCandle(bars[i].High, bars[i].Low, bars[i].Close);
             if (adx.IsReady)
             {
                 Assert.That(adx.PlusDI, Is.GreaterThanOrEqualTo(0).And.LessThanOrEqualTo(100),
@@ -159,7 +159,7 @@ public class AdxCalculatorTests
         var adx = new AdxCalculator(14);
 
         for (int i = 0; i < 100; i++)
-            adx.UpdateFromCandle(_bars[i].High, _bars[i].Low, _bars[i].Close);
+            adx.UpdateFromCandle(bars[i].High, bars[i].Low, bars[i].Close);
 
         if (adx.IsReady)
         {
@@ -178,7 +178,7 @@ public class AdxCalculatorTests
     {
         var adx = new AdxCalculator(14);
         for (int i = 0; i < 50; i++)
-            adx.UpdateFromCandle(_bars[i].High, _bars[i].Low, _bars[i].Close);
+            adx.UpdateFromCandle(bars[i].High, bars[i].Low, bars[i].Close);
 
         double before = adx.CurrentAdx;
         adx.UpdateFromCandle(0, 0, 0);
@@ -190,7 +190,7 @@ public class AdxCalculatorTests
     {
         var adx = new AdxCalculator(14);
         for (int i = 0; i < 50; i++)
-            adx.UpdateFromCandle(_bars[i].High, _bars[i].Low, _bars[i].Close);
+            adx.UpdateFromCandle(bars[i].High, bars[i].Low, bars[i].Close);
 
         adx.Reset();
 
@@ -213,7 +213,7 @@ public class AdxCalculatorTests
         var adx = new AdxCalculator(14);
 
         for (int i = 0; i < 200; i++)
-            adx.UpdateFromCandle(_bars[i].High, _bars[i].Low, _bars[i].Close);
+            adx.UpdateFromCandle(bars[i].High, bars[i].Low, bars[i].Close);
 
         Assert.That(adx.IsReady, Is.True);
         // A stock like NVDA typically has some trend, ADX usually 10-60

@@ -1,4 +1,4 @@
-// ============================================================================
+﻿// ============================================================================
 // StrategyManager - Centralized manager for strategy lifecycle
 // ============================================================================
 //
@@ -51,16 +51,16 @@ namespace IdiotProof.Strategy {
         /// </summary>
         public static SessionLogger? SessionLogger { get; set; }
 
-        private readonly IbWrapper _wrapper;
-        private readonly EClientSocket _client;
-        private readonly ConcurrentDictionary<Guid, StrategyRunnerInfo> _runners = new();
-        private readonly ConcurrentDictionary<string, Contract> _contracts = new();
-        private readonly SemaphoreSlim _loadLock = new(1, 1);
-        private readonly object _stateLock = new();
+        private readonly IbWrapper wrapper;
+        private readonly EClientSocket client;
+        private readonly ConcurrentDictionary<Guid, StrategyRunnerInfo> runners = new();
+        private readonly ConcurrentDictionary<string, Contract> contracts = new();
+        private readonly SemaphoreSlim loadLock = new(1, 1);
+        private readonly object stateLock = new();
 
-        private volatile bool _disposed;
-        private volatile bool _isRunning;
-        private int _nextTickerId = 2000; // Start high to avoid conflicts with other subscriptions
+        private volatile bool disposed;
+        private volatile bool isRunning;
+        private int nextTickerId = 2000; // Start high to avoid conflicts with other subscriptions
 
         /// <summary>
         /// Logs a message to both console and session log file.
@@ -74,17 +74,17 @@ namespace IdiotProof.Strategy {
         /// <summary>
         /// Gets whether the manager is currently running strategies.
         /// </summary>
-        public bool IsRunning => _isRunning;
+        public bool IsRunning => isRunning;
 
         /// <summary>
         /// Gets the count of active strategy runners.
         /// </summary>
-        public int ActiveCount => _runners.Count(r => !r.Value.Runner.IsComplete);
+        public int ActiveCount => runners.Count(r => !r.Value.Runner.IsComplete);
 
         /// <summary>
         /// Gets the total count of strategy runners.
         /// </summary>
-        public int TotalCount => _runners.Count;
+        public int TotalCount => runners.Count;
 
         /// <summary>
         /// Event fired when a strategy completes (success or failure).
@@ -104,8 +104,8 @@ namespace IdiotProof.Strategy {
         /// <exception cref="ArgumentNullException">Thrown if wrapper or client is null.</exception>
         public StrategyManager(IbWrapper wrapper, EClientSocket client)
         {
-            _wrapper = wrapper ?? throw new ArgumentNullException(nameof(wrapper));
-            _client = client ?? throw new ArgumentNullException(nameof(client));
+            wrapper = wrapper ?? throw new ArgumentNullException(nameof(wrapper));
+            client = client ?? throw new ArgumentNullException(nameof(client));
         }
 
         /// <summary>
@@ -115,7 +115,7 @@ namespace IdiotProof.Strategy {
         /// <returns>The number of strategies loaded.</returns>
         public async Task<int> LoadStrategiesAsync(IEnumerable<TradingStrategy> strategies)
         {
-            await _loadLock.WaitAsync();
+            await loadLock.WaitAsync();
             try
             {
                 ThrowIfDisposed();
@@ -138,7 +138,7 @@ namespace IdiotProof.Strategy {
             }
             finally
             {
-                _loadLock.Release();
+                loadLock.Release();
             }
         }
 
@@ -158,10 +158,10 @@ namespace IdiotProof.Strategy {
             var contract = GetOrCreateContract(strategy);
 
             // Create runner
-            var runner = new StrategyRunner(strategy, contract, _wrapper, _client);
+            var runner = new StrategyRunner(strategy, contract, wrapper, client);
 
             // Allocate ticker ID and register handler
-            int tickerId = Interlocked.Increment(ref _nextTickerId);
+            int tickerId = Interlocked.Increment(ref nextTickerId);
 
             var info = new StrategyRunnerInfo
             {
@@ -172,19 +172,19 @@ namespace IdiotProof.Strategy {
                 CreatedAt = DateTime.UtcNow
             };
 
-            if (!_runners.TryAdd(strategyId, info))
+            if (!runners.TryAdd(strategyId, info))
             {
                 runner.Dispose();
                 throw new InvalidOperationException($"Strategy with ID {strategyId} already exists.");
             }
 
             // Register market data handler
-            _wrapper.RegisterTickerHandler(tickerId, runner.OnLastTrade);
+            wrapper.RegisterTickerHandler(tickerId, runner.OnLastTrade);
 
             // If already running, subscribe to market data immediately
-            if (_isRunning)
+            if (isRunning)
             {
-                await Task.Run(() => _client.reqMktData(tickerId, contract, "", false, false, null));
+                await Task.Run(() => client.reqMktData(tickerId, contract, "", false, false, null));
             }
 
             Log($"Added strategy: {strategy.Symbol} (ID: {strategyId})");
@@ -199,7 +199,7 @@ namespace IdiotProof.Strategy {
         {
             ThrowIfDisposed();
 
-            if (_runners.TryRemove(id, out var info))
+            if (runners.TryRemove(id, out var info))
             {
                 await CleanupRunnerAsync(info);
                 Log($"Removed strategy: {info.Runner.Symbol} (ID: {id})");
@@ -216,11 +216,11 @@ namespace IdiotProof.Strategy {
         {
             ThrowIfDisposed();
 
-            lock (_stateLock)
+            lock (stateLock)
             {
-                if (_isRunning)
+                if (isRunning)
                     return;
-                _isRunning = true;
+                isRunning = true;
             }
 
             Log("Starting all strategies...");
@@ -228,14 +228,14 @@ namespace IdiotProof.Strategy {
             // Subscribe to market data for all strategies
             await Task.Run(() =>
             {
-                foreach (var kvp in _runners)
+                foreach (var kvp in runners)
                 {
                     var info = kvp.Value;
-                    _client.reqMktData(info.TickerId, info.Contract, "", false, false, null);
+                    client.reqMktData(info.TickerId, info.Contract, "", false, false, null);
                 }
             });
 
-            Log($"Started {_runners.Count} strategies");
+            Log($"Started {runners.Count} strategies");
         }
 
         /// <summary>
@@ -243,11 +243,11 @@ namespace IdiotProof.Strategy {
         /// </summary>
         public async Task StopAllAsync()
         {
-            lock (_stateLock)
+            lock (stateLock)
             {
-                if (!_isRunning)
+                if (!isRunning)
                     return;
-                _isRunning = false;
+                isRunning = false;
             }
 
             Log("Stopping all strategies...");
@@ -255,12 +255,12 @@ namespace IdiotProof.Strategy {
             // Cancel market data subscriptions
             await Task.Run(() =>
             {
-                foreach (var kvp in _runners)
+                foreach (var kvp in runners)
                 {
                     var info = kvp.Value;
                     try
                     {
-                        _client.cancelMktData(info.TickerId);
+                        client.cancelMktData(info.TickerId);
                     }
                     catch
                     {
@@ -277,7 +277,7 @@ namespace IdiotProof.Strategy {
         /// </summary>
         public async Task ReloadStrategiesAsync()
         {
-            await _loadLock.WaitAsync();
+            await loadLock.WaitAsync();
             try
             {
                 ThrowIfDisposed();
@@ -285,14 +285,14 @@ namespace IdiotProof.Strategy {
                 Log("Reloading strategies...");
 
                 // Stop current strategies
-                bool wasRunning = _isRunning;
+                bool wasRunning = isRunning;
                 if (wasRunning)
                     await StopAllAsync();
 
                 // Clear existing runners
-                foreach (var kvp in _runners.ToArray())
+                foreach (var kvp in runners.ToArray())
                 {
-                    if (_runners.TryRemove(kvp.Key, out var info))
+                    if (runners.TryRemove(kvp.Key, out var info))
                     {
                         await CleanupRunnerAsync(info);
                     }
@@ -311,7 +311,7 @@ namespace IdiotProof.Strategy {
             }
             finally
             {
-                _loadLock.Release();
+                loadLock.Release();
             }
         }
 
@@ -321,7 +321,7 @@ namespace IdiotProof.Strategy {
         /// <returns>List of strategy status information.</returns>
         public IReadOnlyList<StrategyStatusInfo> GetAllStatus()
         {
-            return _runners.Values
+            return runners.Values
                 .Select(info => new StrategyStatusInfo
                 {
                     Id = info.Id,
@@ -345,7 +345,7 @@ namespace IdiotProof.Strategy {
         /// <returns>The status info, or null if not found.</returns>
         public StrategyStatusInfo? GetStatus(Guid id)
         {
-            if (_runners.TryGetValue(id, out var info))
+            if (runners.TryGetValue(id, out var info))
             {
                 return new StrategyStatusInfo
                 {
@@ -366,7 +366,7 @@ namespace IdiotProof.Strategy {
 
         private Contract GetOrCreateContract(TradingStrategy strategy)
         {
-            return _contracts.GetOrAdd(strategy.Symbol, _ => new Contract
+            return contracts.GetOrAdd(strategy.Symbol, _ => new Contract
             {
                 Symbol = strategy.Symbol,
                 SecType = strategy.SecType,
@@ -388,7 +388,7 @@ namespace IdiotProof.Strategy {
             try
             {
                 // Cancel market data subscription
-                _client.cancelMktData(info.TickerId);
+                client.cancelMktData(info.TickerId);
             }
             catch
             {
@@ -396,7 +396,7 @@ namespace IdiotProof.Strategy {
             }
 
             // Unregister ticker handler
-            _wrapper.UnregisterTickerHandler(info.TickerId);
+            wrapper.UnregisterTickerHandler(info.TickerId);
 
             // Dispose runner
             await Task.Run(() => info.Runner.Dispose());
@@ -424,7 +424,7 @@ namespace IdiotProof.Strategy {
 
         private void ThrowIfDisposed()
         {
-            ObjectDisposedException.ThrowIf(_disposed, this);
+            ObjectDisposedException.ThrowIf(disposed, this);
         }
 
         public void Dispose()
@@ -434,24 +434,24 @@ namespace IdiotProof.Strategy {
 
         public async ValueTask DisposeAsync()
         {
-            if (_disposed)
+            if (disposed)
                 return;
 
-            _disposed = true;
+            disposed = true;
 
             // Stop all strategies
             await StopAllAsync();
 
             // Cleanup all runners
-            foreach (var kvp in _runners.ToArray())
+            foreach (var kvp in runners.ToArray())
             {
-                if (_runners.TryRemove(kvp.Key, out var info))
+                if (runners.TryRemove(kvp.Key, out var info))
                 {
                     await CleanupRunnerAsync(info);
                 }
             }
 
-            _loadLock.Dispose();
+            loadLock.Dispose();
 
             Log("Disposed");
         }

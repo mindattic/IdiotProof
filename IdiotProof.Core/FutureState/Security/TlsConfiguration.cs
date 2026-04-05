@@ -1,4 +1,4 @@
-// IdiotProof.Core.FutureState.Security
+﻿// IdiotProof.Core.FutureState.Security
 // TLS/SSL Configuration for secure communications
 // Supports both gRPC and REST endpoints
 
@@ -104,50 +104,50 @@ public interface ITlsProvider
 /// </summary>
 public class TlsProvider : ITlsProvider
 {
-    private readonly TlsConfiguration _config;
-    private X509Certificate2? _serverCertificate;
+    private readonly TlsConfiguration config;
+    private X509Certificate2? serverCertificate;
     
     public TlsProvider(TlsConfiguration config)
     {
-        _config = config ?? throw new ArgumentNullException(nameof(config));
+        config = config ?? throw new ArgumentNullException(nameof(config));
     }
     
     public X509Certificate2 LoadServerCertificate()
     {
-        if (_serverCertificate != null)
-            return _serverCertificate;
+        if (serverCertificate != null)
+            return serverCertificate;
             
-        if (string.IsNullOrEmpty(_config.CertificatePath))
+        if (string.IsNullOrEmpty(config.CertificatePath))
         {
             throw new InvalidOperationException(
                 "Certificate path not configured. Set CertificatePath in TlsConfiguration.");
         }
         
-        if (!File.Exists(_config.CertificatePath))
+        if (!File.Exists(config.CertificatePath))
         {
             throw new FileNotFoundException(
-                $"Certificate file not found: {_config.CertificatePath}");
+                $"Certificate file not found: {config.CertificatePath}");
         }
         
-        _serverCertificate = new X509Certificate2(
-            _config.CertificatePath,
-            _config.CertificatePassword,
+        serverCertificate = new X509Certificate2(
+            config.CertificatePath,
+            config.CertificatePassword,
             X509KeyStorageFlags.MachineKeySet | X509KeyStorageFlags.PersistKeySet);
             
         // Validate certificate
-        if (_serverCertificate.NotAfter < DateTime.UtcNow)
+        if (serverCertificate.NotAfter < DateTime.UtcNow)
         {
             throw new InvalidOperationException(
-                $"Server certificate expired on {_serverCertificate.NotAfter}");
+                $"Server certificate expired on {serverCertificate.NotAfter}");
         }
         
-        if (_serverCertificate.NotBefore > DateTime.UtcNow)
+        if (serverCertificate.NotBefore > DateTime.UtcNow)
         {
             throw new InvalidOperationException(
-                $"Server certificate not valid until {_serverCertificate.NotBefore}");
+                $"Server certificate not valid until {serverCertificate.NotBefore}");
         }
         
-        return _serverCertificate;
+        return serverCertificate;
     }
     
     public bool ValidateClientCertificate(X509Certificate2 certificate, out string errorMessage)
@@ -175,7 +175,7 @@ public class TlsProvider : ITlsProvider
         
         // Build certificate chain
         using var chain = new X509Chain();
-        chain.ChainPolicy.RevocationMode = _config.RevocationMode switch
+        chain.ChainPolicy.RevocationMode = config.RevocationMode switch
         {
             CertificateRevocationMode.None => X509RevocationMode.NoCheck,
             CertificateRevocationMode.Online => X509RevocationMode.Online,
@@ -184,9 +184,9 @@ public class TlsProvider : ITlsProvider
         };
         
         // Add trusted CA if configured
-        if (!string.IsNullOrEmpty(_config.TrustedCaPath) && File.Exists(_config.TrustedCaPath))
+        if (!string.IsNullOrEmpty(config.TrustedCaPath) && File.Exists(config.TrustedCaPath))
         {
-            var trustedCa = new X509Certificate2(_config.TrustedCaPath);
+            var trustedCa = new X509Certificate2(config.TrustedCaPath);
             chain.ChainPolicy.ExtraStore.Add(trustedCa);
         }
         

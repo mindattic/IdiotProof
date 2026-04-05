@@ -33,22 +33,22 @@ namespace IdiotProof.Services;
 /// </summary>
 public sealed class TickerMetadataService
 {
-    private readonly string _metadataDirectory;
-    private readonly Dictionary<string, TickerMetadata> _cache = new(StringComparer.OrdinalIgnoreCase);
-    private static readonly object _lock = new();
+    private readonly string metadataDirectory;
+    private readonly Dictionary<string, TickerMetadata> cache = new(StringComparer.OrdinalIgnoreCase);
+    private static readonly object lockObj = new();
 
     /// <summary>
     /// Gets the metadata storage directory.
     /// </summary>
-    public string MetadataDirectory => _metadataDirectory;
+    public string MetadataDirectory => metadataDirectory;
 
     public TickerMetadataService(string? metadataDirectory = null)
     {
-        _metadataDirectory = metadataDirectory ?? GetDefaultMetadataDirectory();
+        this.metadataDirectory = metadataDirectory ?? GetDefaultMetadataDirectory();
 
-        if (!Directory.Exists(_metadataDirectory))
+        if (!Directory.Exists(metadataDirectory))
         {
-            Directory.CreateDirectory(_metadataDirectory);
+            Directory.CreateDirectory(metadataDirectory);
         }
     }
 
@@ -68,13 +68,13 @@ public sealed class TickerMetadataService
     {
         symbol = symbol.ToUpperInvariant();
 
-        lock (_lock)
+        lock (lockObj)
         {
-            if (_cache.TryGetValue(symbol, out var cached))
+            if (cache.TryGetValue(symbol, out var cached))
                 return cached;
         }
 
-        var filePath = Path.Combine(_metadataDirectory, $"{symbol}.metadata.json");
+        var filePath = Path.Combine(metadataDirectory, $"{symbol}.metadata.json");
         if (!File.Exists(filePath))
             return null;
 
@@ -84,9 +84,9 @@ public sealed class TickerMetadataService
             var metadata = JsonSerializer.Deserialize<TickerMetadata>(json);
             if (metadata != null)
             {
-                lock (_lock)
+                lock (lockObj)
                 {
-                    _cache[symbol] = metadata;
+                    cache[symbol] = metadata;
                 }
             }
             return metadata;
@@ -110,9 +110,9 @@ public sealed class TickerMetadataService
             return existing;
 
         var metadata = new TickerMetadata { Symbol = symbol };
-        lock (_lock)
+        lock (lockObj)
         {
-            _cache[symbol] = metadata;
+            cache[symbol] = metadata;
         }
         return metadata;
     }
@@ -124,12 +124,12 @@ public sealed class TickerMetadataService
     {
         metadata.UpdatedAt = DateTime.UtcNow;
 
-        lock (_lock)
+        lock (lockObj)
         {
-            _cache[metadata.Symbol.ToUpperInvariant()] = metadata;
+            cache[metadata.Symbol.ToUpperInvariant()] = metadata;
         }
 
-        var filePath = Path.Combine(_metadataDirectory, $"{metadata.Symbol.ToUpperInvariant()}.metadata.json");
+        var filePath = Path.Combine(metadataDirectory, $"{metadata.Symbol.ToUpperInvariant()}.metadata.json");
         var json = JsonSerializer.Serialize(metadata, new JsonSerializerOptions
         {
             WriteIndented = true

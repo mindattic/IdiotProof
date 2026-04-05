@@ -1,4 +1,4 @@
-// ============================================================================
+﻿// ============================================================================
 // ADX Calculator - Average Directional Index Calculation
 // ============================================================================
 //
@@ -50,60 +50,60 @@ namespace IdiotProof.Helpers {
     /// </remarks>
     public sealed class AdxCalculator
     {
-        private readonly int _period;
-        private readonly int _ticksPerBar;
+        private readonly int period;
+        private readonly int ticksPerBar;
 
         // Current bar tracking
-        private double _currentHigh;
-        private double _currentLow;
-        private double _currentOpen;
-        private int _ticksInBar;
+        private double currentHigh;
+        private double currentLow;
+        private double currentOpen;
+        private int ticksInBar;
 
         // Previous bar values
-        private double _previousHigh;
-        private double _previousLow;
-        private double _previousClose;
+        private double previousHigh;
+        private double previousLow;
+        private double previousClose;
 
         // Smoothed values (Wilder's smoothing)
-        private double _smoothedTR;
-        private double _smoothedPlusDM;
-        private double _smoothedMinusDM;
-        private double _smoothedDX;
+        private double smoothedTR;
+        private double smoothedPlusDM;
+        private double smoothedMinusDM;
+        private double smoothedDX;
 
         // Current indicator values
-        private double _currentPlusDI;
-        private double _currentMinusDI;
-        private double _currentAdx;
+        private double currentPlusDI;
+        private double currentMinusDI;
+        private double currentAdx;
 
         // Initialization tracking
-        private bool _isInitialized;
-        private int _barsCompleted;
+        private bool isInitialized;
+        private int barsCompleted;
 
         /// <summary>
         /// Gets the ADX period.
         /// </summary>
-        public int Period => _period;
+        public int Period => period;
 
         /// <summary>
         /// Gets the current ADX value (0-100).
         /// </summary>
-        public double CurrentAdx => _currentAdx;
+        public double CurrentAdx => currentAdx;
 
         /// <summary>
         /// Gets the current +DI value (0-100).
         /// </summary>
-        public double PlusDI => _currentPlusDI;
+        public double PlusDI => currentPlusDI;
 
         /// <summary>
         /// Gets the current -DI value (0-100).
         /// </summary>
-        public double MinusDI => _currentMinusDI;
+        public double MinusDI => currentMinusDI;
 
         /// <summary>
         /// Gets whether the ADX calculator has enough data to provide reliable values.
         /// Requires at least 2× period bars to fully initialize.
         /// </summary>
-        public bool IsReady => _barsCompleted >= _period * 2;
+        public bool IsReady => barsCompleted >= period * 2;
 
         /// <summary>
         /// Creates a new ADX calculator.
@@ -117,8 +117,8 @@ namespace IdiotProof.Helpers {
             if (ticksPerBar < 1)
                 throw new ArgumentOutOfRangeException(nameof(ticksPerBar), "Ticks per bar must be at least 1.");
 
-            _period = period;
-            _ticksPerBar = ticksPerBar;
+            this.period = period;
+            this.ticksPerBar = ticksPerBar;
             ResetBar();
         }
 
@@ -130,58 +130,58 @@ namespace IdiotProof.Helpers {
         public double Update(double price)
         {
             if (price <= 0)
-                return _currentAdx;
+                return currentAdx;
 
             // Initialize on first tick
-            if (!_isInitialized)
+            if (!isInitialized)
             {
-                _currentHigh = price;
-                _currentLow = price;
-                _currentOpen = price;
-                _previousHigh = price;
-                _previousLow = price;
-                _previousClose = price;
-                _isInitialized = true;
+                currentHigh = price;
+                currentLow = price;
+                currentOpen = price;
+                previousHigh = price;
+                previousLow = price;
+                previousClose = price;
+                isInitialized = true;
                 return 0;
             }
 
             // Update current bar's high/low
-            if (price > _currentHigh)
-                _currentHigh = price;
-            if (price < _currentLow)
-                _currentLow = price;
+            if (price > currentHigh)
+                currentHigh = price;
+            if (price < currentLow)
+                currentLow = price;
 
-            _ticksInBar++;
+            ticksInBar++;
 
             // Complete the bar after N ticks
-            if (_ticksInBar >= _ticksPerBar)
+            if (ticksInBar >= ticksPerBar)
             {
                 CompleteBar(price);
                 
                 // Store for next bar
-                _previousHigh = _currentHigh;
-                _previousLow = _currentLow;
-                _previousClose = price;
+                previousHigh = currentHigh;
+                previousLow = currentLow;
+                previousClose = price;
                 
                 ResetBar();
             }
 
-            return _currentAdx;
+            return currentAdx;
         }
 
         private void CompleteBar(double closePrice)
         {
-            _barsCompleted++;
+            barsCompleted++;
 
             // Calculate True Range
-            double highLowRange = _currentHigh - _currentLow;
-            double highCloseRange = Math.Abs(_currentHigh - _previousClose);
-            double lowCloseRange = Math.Abs(_currentLow - _previousClose);
+            double highLowRange = currentHigh - currentLow;
+            double highCloseRange = Math.Abs(currentHigh - previousClose);
+            double lowCloseRange = Math.Abs(currentLow - previousClose);
             double trueRange = Math.Max(highLowRange, Math.Max(highCloseRange, lowCloseRange));
 
             // Calculate Directional Movement
-            double upMove = _currentHigh - _previousHigh;
-            double downMove = _previousLow - _currentLow;
+            double upMove = currentHigh - previousHigh;
+            double downMove = previousLow - currentLow;
 
             double plusDM = 0;
             double minusDM = 0;
@@ -192,59 +192,59 @@ namespace IdiotProof.Helpers {
                 minusDM = downMove;
 
             // Apply Wilder's smoothing
-            if (_barsCompleted == 1)
+            if (barsCompleted == 1)
             {
                 // First bar - initialize smoothed values
-                _smoothedTR = trueRange;
-                _smoothedPlusDM = plusDM;
-                _smoothedMinusDM = minusDM;
+                smoothedTR = trueRange;
+                smoothedPlusDM = plusDM;
+                smoothedMinusDM = minusDM;
             }
             else
             {
                 // Wilder's smoothing: Smoothed = Prior - (Prior / n) + Current
-                _smoothedTR = _smoothedTR - (_smoothedTR / _period) + trueRange;
-                _smoothedPlusDM = _smoothedPlusDM - (_smoothedPlusDM / _period) + plusDM;
-                _smoothedMinusDM = _smoothedMinusDM - (_smoothedMinusDM / _period) + minusDM;
+                smoothedTR = smoothedTR - (smoothedTR / period) + trueRange;
+                smoothedPlusDM = smoothedPlusDM - (smoothedPlusDM / period) + plusDM;
+                smoothedMinusDM = smoothedMinusDM - (smoothedMinusDM / period) + minusDM;
             }
 
             // Calculate +DI and -DI
-            if (_smoothedTR > 0)
+            if (smoothedTR > 0)
             {
-                _currentPlusDI = (_smoothedPlusDM / _smoothedTR) * 100;
-                _currentMinusDI = (_smoothedMinusDM / _smoothedTR) * 100;
+                currentPlusDI = (smoothedPlusDM / smoothedTR) * 100;
+                currentMinusDI = (smoothedMinusDM / smoothedTR) * 100;
             }
 
             // Calculate DX
-            double diSum = _currentPlusDI + _currentMinusDI;
+            double diSum = currentPlusDI + currentMinusDI;
             double dx = 0;
             if (diSum > 0)
             {
-                dx = (Math.Abs(_currentPlusDI - _currentMinusDI) / diSum) * 100;
+                dx = (Math.Abs(currentPlusDI - currentMinusDI) / diSum) * 100;
             }
 
             // Calculate ADX using Wilder's smoothing of DX
-            if (_barsCompleted <= _period)
+            if (barsCompleted <= period)
             {
                 // Accumulate DX for initial average
-                _smoothedDX += dx;
-                if (_barsCompleted == _period)
+                smoothedDX += dx;
+                if (barsCompleted == period)
                 {
-                    _currentAdx = _smoothedDX / _period;
+                    currentAdx = smoothedDX / period;
                 }
             }
             else
             {
                 // Wilder's smoothing: ADX = ((Prior ADX × (n-1)) + Current DX) / n
-                _currentAdx = ((_currentAdx * (_period - 1)) + dx) / _period;
+                currentAdx = ((currentAdx * (period - 1)) + dx) / period;
             }
         }
 
         private void ResetBar()
         {
-            _currentHigh = double.MinValue;
-            _currentLow = double.MaxValue;
-            _currentOpen = 0;
-            _ticksInBar = 0;
+            currentHigh = double.MinValue;
+            currentLow = double.MaxValue;
+            currentOpen = 0;
+            ticksInBar = 0;
         }
 
         /// <summary>
@@ -262,31 +262,31 @@ namespace IdiotProof.Helpers {
         public double UpdateFromCandle(double high, double low, double close)
         {
             if (high <= 0 || low <= 0 || close <= 0)
-                return _currentAdx;
+                return currentAdx;
 
             // Initialize on first candle
-            if (!_isInitialized)
+            if (!isInitialized)
             {
-                _previousHigh = high;
-                _previousLow = low;
-                _previousClose = close;
-                _isInitialized = true;
+                previousHigh = high;
+                previousLow = low;
+                previousClose = close;
+                isInitialized = true;
                 return 0;
             }
 
             // Set current bar values from the candle
-            _currentHigh = high;
-            _currentLow = low;
+            currentHigh = high;
+            currentLow = low;
 
             // Complete the bar immediately (each candle = one bar)
             CompleteBar(close);
 
             // Store for next candle
-            _previousHigh = high;
-            _previousLow = low;
-            _previousClose = close;
+            previousHigh = high;
+            previousLow = low;
+            previousClose = close;
 
-            return _currentAdx;
+            return currentAdx;
         }
 
         /// <summary>
@@ -294,18 +294,18 @@ namespace IdiotProof.Helpers {
         /// </summary>
         public void Reset()
         {
-            _smoothedTR = 0;
-            _smoothedPlusDM = 0;
-            _smoothedMinusDM = 0;
-            _smoothedDX = 0;
-            _currentPlusDI = 0;
-            _currentMinusDI = 0;
-            _currentAdx = 0;
-            _barsCompleted = 0;
-            _isInitialized = false;
-            _previousHigh = 0;
-            _previousLow = 0;
-            _previousClose = 0;
+            smoothedTR = 0;
+            smoothedPlusDM = 0;
+            smoothedMinusDM = 0;
+            smoothedDX = 0;
+            currentPlusDI = 0;
+            currentMinusDI = 0;
+            currentAdx = 0;
+            barsCompleted = 0;
+            isInitialized = false;
+            previousHigh = 0;
+            previousLow = 0;
+            previousClose = 0;
             ResetBar();
         }
     }

@@ -1,4 +1,4 @@
-// ============================================================================
+﻿// ============================================================================
 // Momentum Calculator - Price Momentum Indicator
 // ============================================================================
 //
@@ -45,24 +45,24 @@ namespace IdiotProof.Helpers {
     /// </remarks>
     public sealed class MomentumCalculator
     {
-        private readonly int _period;
-        private readonly Queue<double> _priceHistory;
-        private double _currentMomentum;
+        private readonly int period;
+        private readonly Queue<double> priceHistory;
+        private double currentMomentum;
 
         /// <summary>
         /// Gets the momentum period.
         /// </summary>
-        public int Period => _period;
+        public int Period => period;
 
         /// <summary>
         /// Gets the current momentum value.
         /// </summary>
-        public double CurrentValue => _currentMomentum;
+        public double CurrentValue => currentMomentum;
 
         /// <summary>
         /// Gets whether the calculator has enough data to produce valid momentum.
         /// </summary>
-        public bool IsReady => _priceHistory.Count >= _period;
+        public bool IsReady => priceHistory.Count >= period;
 
         /// <summary>
         /// Creates a new momentum calculator.
@@ -73,8 +73,8 @@ namespace IdiotProof.Helpers {
             if (period < 1)
                 throw new System.ArgumentOutOfRangeException(nameof(period), "Period must be at least 1.");
 
-            _period = period;
-            _priceHistory = new Queue<double>(period + 1);
+            this.period = period;
+            priceHistory = new Queue<double>(period + 1);
         }
 
         /// <summary>
@@ -85,25 +85,25 @@ namespace IdiotProof.Helpers {
         public double Update(double closePrice)
         {
             if (closePrice <= 0)
-                return _currentMomentum;
+                return currentMomentum;
 
-            _priceHistory.Enqueue(closePrice);
+            priceHistory.Enqueue(closePrice);
 
             // Keep only the required history
-            while (_priceHistory.Count > _period + 1)
+            while (priceHistory.Count > period + 1)
             {
-                _priceHistory.Dequeue();
+                priceHistory.Dequeue();
             }
 
             // Calculate momentum once we have enough data
-            if (_priceHistory.Count > _period)
+            if (priceHistory.Count > period)
             {
                 // Peek at the oldest price (N periods ago)
-                double oldPrice = _priceHistory.Peek();
-                _currentMomentum = closePrice - oldPrice;
+                double oldPrice = priceHistory.Peek();
+                currentMomentum = closePrice - oldPrice;
             }
 
-            return _currentMomentum;
+            return currentMomentum;
         }
 
         /// <summary>
@@ -111,8 +111,8 @@ namespace IdiotProof.Helpers {
         /// </summary>
         public void Reset()
         {
-            _priceHistory.Clear();
-            _currentMomentum = 0;
+            priceHistory.Clear();
+            currentMomentum = 0;
         }
     }
 }

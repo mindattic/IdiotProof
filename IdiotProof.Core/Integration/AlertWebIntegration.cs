@@ -1,4 +1,4 @@
-// ============================================================================
+﻿// ============================================================================
 // Alert to Web Integration - Sends Alerts to Web Frontend
 // ============================================================================
 // This helper bridges the SuddenMoveDetector alerts to the Web frontend.
@@ -15,29 +15,29 @@ namespace IdiotProof.Integration;
 /// </summary>
 public sealed class AlertWebIntegration : IDisposable
 {
-    private readonly SuddenMoveDetector _detector;
-    private readonly AlertService _alertService;
-    private readonly WebFrontendClient _webClient;
-    private bool _disposed;
+    private readonly SuddenMoveDetector detector;
+    private readonly AlertService alertService;
+    private readonly WebFrontendClient webClient;
+    private bool disposed;
     
     public AlertWebIntegration(
         SuddenMoveDetector detector,
         AlertService alertService,
         WebFrontendClient webClient)
     {
-        _detector = detector;
-        _alertService = alertService;
-        _webClient = webClient;
+        this.detector = detector;
+        this.alertService = alertService;
+        this.webClient = webClient;
         
         // Wire up event handlers
-        _detector.OnSuddenMoveDetected += OnSuddenMove;
-        _alertService.OnAlert += OnAlertGenerated;
+        detector.OnSuddenMoveDetected += OnSuddenMove;
+        alertService.OnAlert += OnAlertGenerated;
     }
     
     private async void OnSuddenMove(TradingAlert alert)
     {
         // Send alert through all channels (Discord, Email, etc.)
-        await _alertService.SendAlertAsync(alert);
+        await alertService.SendAlertAsync(alert);
     }
     
     private async void OnAlertGenerated(TradingAlert alert)
@@ -45,7 +45,7 @@ public sealed class AlertWebIntegration : IDisposable
         // Also push to web frontend for live display
         try
         {
-            await _webClient.SendAlertAsync(
+            await webClient.SendAlertAsync(
                 alert.Symbol,
                 alert.Type.ToString(),
                 alert.Severity.ToString(),
@@ -66,11 +66,11 @@ public sealed class AlertWebIntegration : IDisposable
     
     public void Dispose()
     {
-        if (_disposed) return;
-        _disposed = true;
+        if (disposed) return;
+        disposed = true;
         
-        _detector.OnSuddenMoveDetected -= OnSuddenMove;
-        _alertService.OnAlert -= OnAlertGenerated;
+        detector.OnSuddenMoveDetected -= OnSuddenMove;
+        alertService.OnAlert -= OnAlertGenerated;
     }
 }
 

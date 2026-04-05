@@ -1,4 +1,4 @@
-// ============================================================================
+﻿// ============================================================================
 // MACD Calculator Tests - Validates MACD with real NVDA data
 // ============================================================================
 
@@ -10,12 +10,12 @@ namespace IdiotProof.Core.UnitTests.Calculators;
 [TestFixture]
 public class MacdCalculatorTests
 {
-    private List<TestBar> _bars = null!;
+    private List<TestBar> bars = null!;
 
     [OneTimeSetUp]
     public void LoadData()
     {
-        _bars = TestDataLoader.LoadBars("NVDA", 500);
+        bars = TestDataLoader.LoadBars("NVDA", 500);
     }
 
     // ========================================================================
@@ -66,11 +66,11 @@ public class MacdCalculatorTests
 
         for (int i = 0; i < required - 1; i++)
         {
-            macd.Update(_bars[i].Close);
+            macd.Update(bars[i].Close);
             Assert.That(macd.IsReady, Is.False, $"Not ready at {i + 1}");
         }
 
-        macd.Update(_bars[required - 1].Close);
+        macd.Update(bars[required - 1].Close);
         Assert.That(macd.IsReady, Is.True, $"Should be ready after {required} data points");
     }
 
@@ -87,7 +87,7 @@ public class MacdCalculatorTests
 
         for (int i = 0; i < 100; i++)
         {
-            double price = _bars[i].Close;
+            double price = bars[i].Close;
             macd.Update(price);
             fastEma.Update(price);
             slowEma.Update(price);
@@ -108,7 +108,7 @@ public class MacdCalculatorTests
         var macd = new MacdCalculator();
 
         for (int i = 0; i < 100; i++)
-            macd.Update(_bars[i].Close);
+            macd.Update(bars[i].Close);
 
         double expectedHistogram = macd.MacdLine - macd.SignalLine;
         Assert.That(macd.Histogram, Is.EqualTo(expectedHistogram).Within(0.0001),
@@ -124,7 +124,7 @@ public class MacdCalculatorTests
     {
         var macd = new MacdCalculator();
         for (int i = 0; i < 100; i++)
-            macd.Update(_bars[i].Close);
+            macd.Update(bars[i].Close);
 
         if (macd.MacdLine > macd.SignalLine)
         {
@@ -177,7 +177,7 @@ public class MacdCalculatorTests
         var macd = new MacdCalculator();
 
         for (int i = 0; i < 100; i++)
-            macd.Update(_bars[i].Close);
+            macd.Update(bars[i].Close);
 
         bool expected = macd.Histogram > macd.PreviousHistogram;
         Assert.That(macd.IsHistogramRising, Is.EqualTo(expected));
@@ -192,7 +192,7 @@ public class MacdCalculatorTests
     {
         var macd = new MacdCalculator();
         for (int i = 0; i < 50; i++)
-            macd.Update(_bars[i].Close);
+            macd.Update(bars[i].Close);
 
         double prevMacd = macd.MacdLine;
         macd.Update(0);
@@ -204,7 +204,7 @@ public class MacdCalculatorTests
     {
         var macd = new MacdCalculator();
         for (int i = 0; i < 50; i++)
-            macd.Update(_bars[i].Close);
+            macd.Update(bars[i].Close);
 
         macd.Reset();
 
@@ -227,11 +227,11 @@ public class MacdCalculatorTests
         var macd = new MacdCalculator();
 
         for (int i = 0; i < 200; i++)
-            macd.Update(_bars[i].Close);
+            macd.Update(bars[i].Close);
 
         Assert.That(macd.IsReady, Is.True);
 
-        double avgPrice = _bars.Take(200).Average(b => b.Close);
+        double avgPrice = bars.Take(200).Average(b => b.Close);
 
         // MACD line should be small relative to the price
         Assert.That(Math.Abs(macd.MacdLine), Is.LessThan(avgPrice * 0.1),

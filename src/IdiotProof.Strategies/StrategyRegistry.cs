@@ -1,4 +1,4 @@
-using IdiotProof.Models;
+﻿using IdiotProof.Models;
 
 namespace IdiotProof.Strategies;
 
@@ -7,7 +7,7 @@ namespace IdiotProof.Strategies;
 /// </summary>
 public sealed class StrategyRegistry
 {
-    private readonly Dictionary<string, IStrategy> _strategies = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, IStrategy> strategies = new(StringComparer.OrdinalIgnoreCase);
 
     public StrategyRegistry()
     {
@@ -18,15 +18,15 @@ public sealed class StrategyRegistry
 
     public void Register(IStrategy strategy)
     {
-        _strategies[strategy.Name] = strategy;
+        strategies[strategy.Name] = strategy;
     }
 
     public IStrategy? Get(string name)
     {
-        return _strategies.TryGetValue(name, out var s) ? s : null;
+        return strategies.TryGetValue(name, out var s) ? s : null;
     }
 
-    public IReadOnlyList<IStrategy> GetAll() => _strategies.Values.ToList();
+    public IReadOnlyList<IStrategy> GetAll() => strategies.Values.ToList();
 
-    public IReadOnlyList<string> GetNames() => _strategies.Keys.ToList();
+    public IReadOnlyList<string> GetNames() => strategies.Keys.ToList();
 }

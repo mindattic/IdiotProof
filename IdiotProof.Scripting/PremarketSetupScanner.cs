@@ -1,4 +1,4 @@
-// ============================================================================
+﻿// ============================================================================
 // PremarketSetupScanner - Automatically identifies "No Break No Trade" setups
 // ============================================================================
 //
@@ -199,11 +199,11 @@ public enum SetupState
 /// </summary>
 public sealed class PremarketSetupScanner
 {
-    private readonly SetupScannerConfig _config;
+    private readonly SetupScannerConfig config;
     
     public PremarketSetupScanner(SetupScannerConfig? config = null)
     {
-        _config = config ?? new SetupScannerConfig();
+        config = config ?? new SetupScannerConfig();
     }
     
     /// <summary>
@@ -218,7 +218,7 @@ public sealed class PremarketSetupScanner
         foreach (var gapper in candidates)
         {
             var setup = AnalyzeGapper(gapper);
-            if (setup != null && setup.ConfidenceScore >= _config.MinConfidenceScore)
+            if (setup != null && setup.ConfidenceScore >= config.MinConfidenceScore)
             {
                 result.Setups.Add(setup);
             }
@@ -239,13 +239,13 @@ public sealed class PremarketSetupScanner
     public BreakoutSetup? AnalyzeGapper(ScannerInput gapper)
     {
         // Basic filters
-        if (gapper.PremarketPrice < _config.MinPrice || gapper.PremarketPrice > _config.MaxPrice)
+        if (gapper.PremarketPrice < config.MinPrice || gapper.PremarketPrice > config.MaxPrice)
             return null;
             
-        if (Math.Abs(gapper.GapPercent) < _config.MinGapPercent)
+        if (Math.Abs(gapper.GapPercent) < config.MinGapPercent)
             return null;
             
-        if (gapper.VolumeRatio < _config.MinVolumeRatio)
+        if (gapper.VolumeRatio < config.MinVolumeRatio)
             return null;
         
         // Determine bias and pattern

@@ -1,4 +1,4 @@
-// ============================================================================
+﻿// ============================================================================
 // ATR Calculator Tests - Validates Average True Range with real data
 // ============================================================================
 
@@ -10,12 +10,12 @@ namespace IdiotProof.Core.UnitTests.Calculators;
 [TestFixture]
 public class AtrCalculatorTests
 {
-    private List<TestBar> _bars = null!;
+    private List<TestBar> bars = null!;
 
     [OneTimeSetUp]
     public void LoadData()
     {
-        _bars = TestDataLoader.LoadBars("NVDA", 300);
+        bars = TestDataLoader.LoadBars("NVDA", 300);
     }
 
     // ========================================================================
@@ -52,12 +52,12 @@ public class AtrCalculatorTests
         var atr = new AtrCalculator(14);
 
         // First call initializes previous close
-        atr.UpdateFromCandle(_bars[0].High, _bars[0].Low, _bars[0].Close);
+        atr.UpdateFromCandle(bars[0].High, bars[0].Low, bars[0].Close);
         Assert.That(atr.IsReady, Is.False);
 
         // Feed bars until ready (period / 2 = 7 bars)
         for (int i = 1; i <= 8; i++)
-            atr.UpdateFromCandle(_bars[i].High, _bars[i].Low, _bars[i].Close);
+            atr.UpdateFromCandle(bars[i].High, bars[i].Low, bars[i].Close);
 
         Assert.That(atr.IsReady, Is.True, "ATR should be ready after period/2 candles");
     }
@@ -69,7 +69,7 @@ public class AtrCalculatorTests
 
         for (int i = 0; i < 100; i++)
         {
-            atr.UpdateFromCandle(_bars[i].High, _bars[i].Low, _bars[i].Close);
+            atr.UpdateFromCandle(bars[i].High, bars[i].Low, bars[i].Close);
             Assert.That(atr.CurrentAtr, Is.GreaterThanOrEqualTo(0),
                 $"ATR should never be negative, got {atr.CurrentAtr} at bar {i}");
         }
@@ -125,11 +125,11 @@ public class AtrCalculatorTests
     {
         var atr = new AtrCalculator(14);
         for (int i = 0; i < 30; i++)
-            atr.UpdateFromCandle(_bars[i].High, _bars[i].Low, _bars[i].Close);
+            atr.UpdateFromCandle(bars[i].High, bars[i].Low, bars[i].Close);
 
         Assert.That(atr.IsReady, Is.True);
 
-        double referencePrice = _bars[29].Close;
+        double referencePrice = bars[29].Close;
         double stopPrice = atr.CalculateStopPrice(referencePrice, 2.0, isLong: true);
 
         Assert.That(stopPrice, Is.LessThan(referencePrice),
@@ -143,9 +143,9 @@ public class AtrCalculatorTests
     {
         var atr = new AtrCalculator(14);
         for (int i = 0; i < 30; i++)
-            atr.UpdateFromCandle(_bars[i].High, _bars[i].Low, _bars[i].Close);
+            atr.UpdateFromCandle(bars[i].High, bars[i].Low, bars[i].Close);
 
-        double referencePrice = _bars[29].Close;
+        double referencePrice = bars[29].Close;
         double stopPrice = atr.CalculateStopPrice(referencePrice, 2.0, isLong: false);
 
         Assert.That(stopPrice, Is.GreaterThan(referencePrice),
@@ -157,9 +157,9 @@ public class AtrCalculatorTests
     {
         var atr = new AtrCalculator(14);
         for (int i = 0; i < 30; i++)
-            atr.UpdateFromCandle(_bars[i].High, _bars[i].Low, _bars[i].Close);
+            atr.UpdateFromCandle(bars[i].High, bars[i].Low, bars[i].Close);
 
-        double refPrice = _bars[29].Close;
+        double refPrice = bars[29].Close;
         double stop1x = atr.CalculateStopPrice(refPrice, 1.0, isLong: true);
         double stop3x = atr.CalculateStopPrice(refPrice, 3.0, isLong: true);
 
@@ -178,9 +178,9 @@ public class AtrCalculatorTests
     {
         var atr = new AtrCalculator(14);
         for (int i = 0; i < 30; i++)
-            atr.UpdateFromCandle(_bars[i].High, _bars[i].Low, _bars[i].Close);
+            atr.UpdateFromCandle(bars[i].High, bars[i].Low, bars[i].Close);
 
-        double price = _bars[29].Close;
+        double price = bars[29].Close;
         double pct = atr.GetAtrPercent(price);
 
         double expected = atr.CurrentAtr / price;
@@ -192,7 +192,7 @@ public class AtrCalculatorTests
     {
         var atr = new AtrCalculator(14);
         for (int i = 0; i < 30; i++)
-            atr.UpdateFromCandle(_bars[i].High, _bars[i].Low, _bars[i].Close);
+            atr.UpdateFromCandle(bars[i].High, bars[i].Low, bars[i].Close);
 
         Assert.That(atr.GetAtrPercent(0), Is.EqualTo(0));
     }
@@ -206,7 +206,7 @@ public class AtrCalculatorTests
     {
         var atr = new AtrCalculator(14);
         for (int i = 0; i < 20; i++)
-            atr.UpdateFromCandle(_bars[i].High, _bars[i].Low, _bars[i].Close);
+            atr.UpdateFromCandle(bars[i].High, bars[i].Low, bars[i].Close);
 
         double before = atr.CurrentAtr;
         atr.UpdateFromCandle(0, 0, 0);
@@ -218,7 +218,7 @@ public class AtrCalculatorTests
     {
         var atr = new AtrCalculator(14);
         for (int i = 0; i < 30; i++)
-            atr.UpdateFromCandle(_bars[i].High, _bars[i].Low, _bars[i].Close);
+            atr.UpdateFromCandle(bars[i].High, bars[i].Low, bars[i].Close);
 
         atr.Reset();
 
@@ -239,12 +239,12 @@ public class AtrCalculatorTests
         var atr = new AtrCalculator(14);
 
         for (int i = 0; i < 200; i++)
-            atr.UpdateFromCandle(_bars[i].High, _bars[i].Low, _bars[i].Close);
+            atr.UpdateFromCandle(bars[i].High, bars[i].Low, bars[i].Close);
 
         Assert.That(atr.IsReady, Is.True);
 
         // NVDA typically has ATR of a few dollars
-        double avgPrice = _bars.Take(200).Average(b => b.Close);
+        double avgPrice = bars.Take(200).Average(b => b.Close);
         double atrPct = atr.CurrentAtr / avgPrice * 100;
 
         Assert.That(atrPct, Is.GreaterThan(0.01).And.LessThan(20),

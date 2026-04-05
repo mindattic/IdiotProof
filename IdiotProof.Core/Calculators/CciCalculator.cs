@@ -1,4 +1,4 @@
-// ============================================================================
+﻿// ============================================================================
 // Commodity Channel Index (CCI) Calculator - Mean Reversion & Trend
 // ============================================================================
 //
@@ -29,52 +29,52 @@ namespace IdiotProof.Helpers {
     /// </summary>
     public sealed class CciCalculator
     {
-        private readonly int _period;
-        private readonly Queue<double> _typicalPrices;
+        private readonly int period;
+        private readonly Queue<double> typicalPrices;
 
-        private double _cci;
-        private double _previousCci;
-        private bool _isReady;
+        private double cci;
+        private double previousCci;
+        private bool isReady;
 
         /// <summary>
         /// Gets the current CCI value.
         /// </summary>
-        public double CurrentCci => _cci;
+        public double CurrentCci => cci;
 
         /// <summary>
         /// Gets whether the calculator has enough data.
         /// </summary>
-        public bool IsReady => _isReady;
+        public bool IsReady => isReady;
 
         /// <summary>
         /// Gets whether CCI indicates overbought condition (>+100).
         /// </summary>
-        public bool IsOverbought => _isReady && _cci > 100;
+        public bool IsOverbought => isReady && cci > 100;
 
         /// <summary>
         /// Gets whether CCI indicates oversold condition (<-100).
         /// </summary>
-        public bool IsOversold => _isReady && _cci < -100;
+        public bool IsOversold => isReady && cci < -100;
 
         /// <summary>
         /// Gets whether CCI indicates a strong uptrend (>+200).
         /// </summary>
-        public bool IsStrongUptrend => _isReady && _cci > 200;
+        public bool IsStrongUptrend => isReady && cci > 200;
 
         /// <summary>
         /// Gets whether CCI indicates a strong downtrend (<-200).
         /// </summary>
-        public bool IsStrongDowntrend => _isReady && _cci < -200;
+        public bool IsStrongDowntrend => isReady && cci < -200;
 
         /// <summary>
         /// Gets whether CCI just crossed above +100 (potential uptrend start).
         /// </summary>
-        public bool CrossedAbove100 => _isReady && _previousCci <= 100 && _cci > 100;
+        public bool CrossedAbove100 => isReady && previousCci <= 100 && cci > 100;
 
         /// <summary>
         /// Gets whether CCI just crossed below -100 (potential downtrend start).
         /// </summary>
-        public bool CrossedBelow100 => _isReady && _previousCci >= -100 && _cci < -100;
+        public bool CrossedBelow100 => isReady && previousCci >= -100 && cci < -100;
 
         /// <summary>
         /// Creates a new CCI calculator.
@@ -85,8 +85,8 @@ namespace IdiotProof.Helpers {
             if (period < 2)
                 throw new ArgumentOutOfRangeException(nameof(period), "Period must be at least 2.");
 
-            _period = period;
-            _typicalPrices = new Queue<double>(period + 1);
+            this.period = period;
+            typicalPrices = new Queue<double>(period + 1);
         }
 
         /// <summary>
@@ -98,29 +98,29 @@ namespace IdiotProof.Helpers {
                 return;
 
             double typicalPrice = (high + low + close) / 3;
-            _typicalPrices.Enqueue(typicalPrice);
+            typicalPrices.Enqueue(typicalPrice);
 
-            while (_typicalPrices.Count > _period)
-                _typicalPrices.Dequeue();
+            while (typicalPrices.Count > period)
+                typicalPrices.Dequeue();
 
-            if (_typicalPrices.Count < _period)
+            if (typicalPrices.Count < period)
             {
-                _isReady = false;
+                isReady = false;
                 return;
             }
 
-            _isReady = true;
-            _previousCci = _cci;
+            isReady = true;
+            previousCci = cci;
 
             // Calculate SMA of typical prices
-            double sma = _typicalPrices.Average();
+            double sma = typicalPrices.Average();
 
             // Calculate mean deviation
-            double meanDeviation = _typicalPrices.Select(tp => Math.Abs(tp - sma)).Average();
+            double meanDeviation = typicalPrices.Select(tp => Math.Abs(tp - sma)).Average();
 
             // Calculate CCI
             const double constant = 0.015;
-            _cci = meanDeviation > 0 ? (typicalPrice - sma) / (constant * meanDeviation) : 0;
+            cci = meanDeviation > 0 ? (typicalPrice - sma) / (constant * meanDeviation) : 0;
         }
 
         /// <summary>
@@ -128,7 +128,7 @@ namespace IdiotProof.Helpers {
         /// </summary>
         public int GetScore()
         {
-            if (!_isReady)
+            if (!isReady)
                 return 0;
 
             // Strong trend signals
@@ -144,19 +144,19 @@ namespace IdiotProof.Helpers {
                 return -60;
 
             // Mean reversion from extremes
-            if (_previousCci > 100 && _cci < 100)
+            if (previousCci > 100 && cci < 100)
                 return -40; // Reverting from overbought
-            if (_previousCci < -100 && _cci > -100)
+            if (previousCci < -100 && cci > -100)
                 return 40; // Reverting from oversold
 
             // General position
             if (IsOverbought)
-                return (int)Math.Clamp((_cci - 100) * -0.3, -50, 0);
+                return (int)Math.Clamp((cci - 100) * -0.3, -50, 0);
             if (IsOversold)
-                return (int)Math.Clamp((-100 - _cci) * 0.3, 0, 50);
+                return (int)Math.Clamp((-100 - cci) * 0.3, 0, 50);
 
             // Neutral zone: scale linearly
-            return (int)Math.Clamp(_cci * 0.3, -30, 30);
+            return (int)Math.Clamp(cci * 0.3, -30, 30);
         }
     }
 }

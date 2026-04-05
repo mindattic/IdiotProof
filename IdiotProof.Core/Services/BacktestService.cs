@@ -26,12 +26,12 @@ namespace IdiotProof.Services {
     /// </summary>
     public sealed class BacktestService
     {
-        private readonly HistoricalDataService _historicalDataService;
-        private readonly HistoricalDataCache _cache = new();
+        private readonly HistoricalDataService historicalDataService;
+        private readonly HistoricalDataCache cache = new();
 
         public BacktestService(HistoricalDataService historicalDataService)
         {
-            _historicalDataService = historicalDataService ?? throw new ArgumentNullException(nameof(historicalDataService));
+            this.historicalDataService = historicalDataService ?? throw new ArgumentNullException(nameof(historicalDataService));
         }
 
         /// <summary>
@@ -56,7 +56,7 @@ namespace IdiotProof.Services {
                 bool cacheWasUpdated = false;
 
                 // STEP 1: Load cached data first (always use local data when available)
-                var cachedBars = _cache.LoadFromCache(request.Symbol);
+                var cachedBars = cache.LoadFromCache(request.Symbol);
                 if (cachedBars != null && cachedBars.Count > 0)
                 {
                     allBars = cachedBars;
@@ -76,7 +76,7 @@ namespace IdiotProof.Services {
 
                         try
                         {
-                            int barsFetched = await _historicalDataService.FetchHistoricalDataAsync(
+                            int barsFetched = await historicalDataService.FetchHistoricalDataAsync(
                                 request.Symbol,
                                 barCount: daysToBackfill * barsPerDay,
                                 barSize: BarSize.Minutes1,
@@ -86,7 +86,7 @@ namespace IdiotProof.Services {
 
                             if (barsFetched > 0)
                             {
-                                var fetchedBars = _historicalDataService.Store.GetBars(request.Symbol);
+                                var fetchedBars = historicalDataService.Store.GetBars(request.Symbol);
                                 if (fetchedBars != null)
                                 {
                                     int newBarsAdded = 0;
@@ -146,7 +146,7 @@ namespace IdiotProof.Services {
 
                             try
                             {
-                                int barsFetched = await _historicalDataService.FetchHistoricalDataAsync(
+                                int barsFetched = await historicalDataService.FetchHistoricalDataAsync(
                                     request.Symbol,
                                     barCount: fetchDays * barsPerDay,
                                     barSize: BarSize.Minutes1,
@@ -160,7 +160,7 @@ namespace IdiotProof.Services {
                                     break;
                                 }
 
-                                var fetchedBars = _historicalDataService.Store.GetBars(request.Symbol);
+                                var fetchedBars = historicalDataService.Store.GetBars(request.Symbol);
                                 if (fetchedBars != null)
                                 {
                                     int oldBarsAdded = 0;
@@ -225,7 +225,7 @@ namespace IdiotProof.Services {
                         ConsoleLog.Write("Backtest", $"Fetching {fetchDays} days ending {endDate:yyyy-MM-dd HH:mm}");
 
                         // Fetch historical data with specific end date
-                        int barsFetched = await _historicalDataService.FetchHistoricalDataAsync(
+                        int barsFetched = await historicalDataService.FetchHistoricalDataAsync(
                             request.Symbol,
                             barCount: fetchDays * barsPerDay,
                             barSize: BarSize.Minutes1,
@@ -248,7 +248,7 @@ namespace IdiotProof.Services {
                         }
 
                         // Get bars from store
-                        var fetchedBars = _historicalDataService.Store.GetBars(request.Symbol);
+                        var fetchedBars = historicalDataService.Store.GetBars(request.Symbol);
                         if (fetchedBars != null && fetchedBars.Count > 0)
                         {
                             // Add only bars we don't already have
@@ -277,7 +277,7 @@ namespace IdiotProof.Services {
                     // STEP 3: Save to cache for future use
                     if (allBars.Count > 0)
                     {
-                        _cache.SaveToCache(request.Symbol, allBars);
+                        cache.SaveToCache(request.Symbol, allBars);
                         ConsoleLog.Write("Backtest", $"Saved {allBars.Count} bars to {request.Symbol}.history.json");
                     }
                 }
@@ -286,7 +286,7 @@ namespace IdiotProof.Services {
                 if (cacheWasUpdated && allBars.Count > 0)
                 {
                     allBars = allBars.OrderBy(b => b.Time).ToList();
-                    _cache.SaveToCache(request.Symbol, allBars);
+                    cache.SaveToCache(request.Symbol, allBars);
                     ConsoleLog.Write("Backtest", $"Updated cache with {allBars.Count} total bars");
                 }
 
@@ -585,11 +585,11 @@ namespace IdiotProof.Services {
     /// </summary>
     internal sealed class AutonomousLearningSimulator
     {
-        private readonly string _symbol;
-        private readonly double _allocation;
-        private int _currentTradeQuantity; // Quantity for current trade (calculated at entry)
-        private readonly TickerProfile _profile;
-        private readonly TickerProfile? _learnedProfile;
+        private readonly string symbol;
+        private readonly double allocation;
+        private int currentTradeQuantity; // Quantity for current trade (calculated at entry)
+        private readonly TickerProfile profile;
+        private readonly TickerProfile? learnedProfile;
 
         // Baseline thresholds (adjusted dynamically by ADX and learned profile)
         private static readonly int BaselineLongEntry = TradingDefaults.LongEntryThreshold;
@@ -601,81 +601,81 @@ namespace IdiotProof.Services {
         private static readonly int MinSecondsBetweenTrades = TradingDefaults.MinSecondsBetweenAdjustments;
 
         // Position tracking
-        private bool _inPosition;
-        private bool _isLong;
-        private double _entryPrice;
-        private DateTime _entryTime;
-        private DateTime _lastTradeTime;
-        private int _entryScore;
-        private int _entryVwapScore, _entryEmaScore, _entryRsiScore, _entryMacdScore, _entryAdxScore, _entryVolumeScore;
+        private bool inPosition;
+        private bool isLong;
+        private double entryPrice;
+        private DateTime entryTime;
+        private DateTime lastTradeTime;
+        private int entryScore;
+        private int entryVwapScore, entryEmaScore, entryRsiScore, entryMacdScore, entryAdxScore, entryVolumeScore;
 
 
         // TP/SL price levels (ATR-based)
-        private double _takeProfitPrice;
-        private double _stopLossPrice;
+        private double takeProfitPrice;
+        private double stopLossPrice;
 
 
 
         // VWAP tracking (resets each trading day)
-        private double _pvSum;
-        private double _vSum;
-        private DateTime? _currentVwapDay;
+        private double pvSum;
+        private double vSum;
+        private DateTime? currentVwapDay;
 
         // Indicator calculators - Core
-        private readonly EmaCalculator _ema9 = new(9);
-        private readonly EmaCalculator _ema21 = new(21);
-        private readonly EmaCalculator _ema34 = new(34);
-        private readonly EmaCalculator _ema50 = new(50);
-        private readonly AdxCalculator _adx = new(14, 50);
-        private readonly RsiCalculator _rsi = new(14);
-        private readonly MacdCalculator _macd = new(12, 26, 9);
-        private readonly VolumeCalculator _volume = new(20);
-        private readonly AtrCalculator _atr = new(14);
-        private readonly SmaCalculator _sma20 = new(20);
-        private readonly SmaCalculator _sma50 = new(50);
+        private readonly EmaCalculator ema9 = new(9);
+        private readonly EmaCalculator ema21 = new(21);
+        private readonly EmaCalculator ema34 = new(34);
+        private readonly EmaCalculator ema50 = new(50);
+        private readonly AdxCalculator adx = new(14, 50);
+        private readonly RsiCalculator rsi = new(14);
+        private readonly MacdCalculator macd = new(12, 26, 9);
+        private readonly VolumeCalculator volume = new(20);
+        private readonly AtrCalculator atr = new(14);
+        private readonly SmaCalculator sma20 = new(20);
+        private readonly SmaCalculator sma50 = new(50);
 
         // Indicator calculators - Extended (new indicators)
-        private readonly BollingerBandsCalculator _bollinger = new(20, 2.0);
-        private readonly StochasticCalculator _stochastic = new(14, 3);
-        private readonly ObvCalculator _obv = new(20);
-        private readonly CciCalculator _cci = new(20);
-        private readonly WilliamsRCalculator _williamsR = new(14);
-        private readonly MomentumCalculator _momentum = new(10);
-        private readonly RocCalculator _roc = new(10);
-        private readonly Calculators.PreviousDayLevelsTracker _prevDayLevels;
+        private readonly BollingerBandsCalculator bollinger = new(20, 2.0);
+        private readonly StochasticCalculator stochastic = new(14, 3);
+        private readonly ObvCalculator obv = new(20);
+        private readonly CciCalculator cci = new(20);
+        private readonly WilliamsRCalculator williamsR = new(14);
+        private readonly MomentumCalculator momentum = new(10);
+        private readonly RocCalculator roc = new(10);
+        private readonly Calculators.PreviousDayLevelsTracker prevDayLevels;
 
         // Trend direction filter - prevents trading against obvious trends
-        private readonly Helpers.TrendDirectionFilter _trendFilter = new();
+        private readonly Helpers.TrendDirectionFilter trendFilter = new();
 
         // AI Advisor for ChatGPT confirmation (optional)
-        private Learning.AIAdvisor? _aiAdvisor;
-        private bool _useRealAiConfirmation;
-        private int _aiBlockedCount;
-        private int _aiApprovedCount;
+        private Learning.AIAdvisor? aiAdvisor;
+        private bool useRealAiConfirmation;
+        private int aiBlockedCount;
+        private int aiApprovedCount;
 
         // Short selling toggle (default: disabled)
-        private readonly bool _allowShort;
+        private readonly bool allowShort;
 
         // Indicator weights - learned or default
-        private IdiotProof.Optimization.IndicatorWeights _weights = IdiotProof.Optimization.IndicatorWeights.Default;
+        private IdiotProof.Optimization.IndicatorWeights weights = IdiotProof.Optimization.IndicatorWeights.Default;
 
         // Additional entry scores for extended indicators
-        private int _entryBollingerScore, _entryStochasticScore, _entryObvScore, _entryCciScore, _entryWilliamsRScore;
+        private int entryBollingerScore, entryStochasticScore, entryObvScore, entryCciScore, entryWilliamsRScore;
 
         // Warm-up tracking
-        private int _barCount;
-        private bool _indicatorsReady;
+        private int barCount;
+        private bool indicatorsReady;
 
-        public bool HasOpenPosition => _inPosition;
+        public bool HasOpenPosition => inPosition;
 
         public AutonomousLearningSimulator(string symbol, double allocation, TickerProfile? learnedProfile = null, bool allowShort = false)
         {
-            _symbol = symbol;
-            _allocation = allocation > 0 ? allocation : TradingDefaults.DefaultAllocationDollars;
-            _learnedProfile = learnedProfile;
-            _profile = new TickerProfile { Symbol = symbol };
-            _prevDayLevels = new Calculators.PreviousDayLevelsTracker(symbol);
-            _allowShort = allowShort;
+            this.symbol = symbol;
+            this.allocation = allocation > 0 ? allocation : TradingDefaults.DefaultAllocationDollars;
+            this.learnedProfile = learnedProfile;
+            profile = new TickerProfile { Symbol = symbol };
+            prevDayLevels = new Calculators.PreviousDayLevelsTracker(symbol);
+            this.allowShort = allowShort;
         }
         
         /// <summary>
@@ -684,7 +684,7 @@ namespace IdiotProof.Services {
         /// </summary>
         public void SetWeights(IdiotProof.Optimization.IndicatorWeights weights)
         {
-            _weights = weights;
+            weights = weights;
         }
 
         /// <summary>
@@ -693,18 +693,18 @@ namespace IdiotProof.Services {
         /// </summary>
         public void EnableChatGptConfirmation()
         {
-            _aiAdvisor = new Learning.AIAdvisor();
-            _useRealAiConfirmation = _aiAdvisor.IsConfigured;
-            if (_useRealAiConfirmation)
+            aiAdvisor = new Learning.AIAdvisor();
+            useRealAiConfirmation = aiAdvisor.IsConfigured;
+            if (useRealAiConfirmation)
             {
-                _aiAdvisor.MinConfidenceRequired = 55; // Same as synthetic threshold
+                aiAdvisor.MinConfidenceRequired = 55; // Same as synthetic threshold
             }
         }
 
         /// <summary>
         /// Get AI statistics from backtest run.
         /// </summary>
-        public (int approved, int blocked) GetAiStats() => (_aiApprovedCount, _aiBlockedCount);
+        public (int approved, int blocked) GetAiStats() => (aiApprovedCount, aiBlockedCount);
 
         /// <summary>
         /// Get dynamic entry threshold based on ADX and learned profile.
@@ -712,41 +712,41 @@ namespace IdiotProof.Services {
         /// </summary>
         private int GetLongEntryThreshold()
         {
-            int baseline = _learnedProfile?.OptimalLongEntryThreshold ?? BaselineLongEntry;
+            int baseline = learnedProfile?.OptimalLongEntryThreshold ?? BaselineLongEntry;
             
             // Adjust based on ADX - stronger trend = lower threshold needed
-            if (_adx.IsReady)
+            if (adx.IsReady)
             {
-                double adx = _adx.CurrentAdx;
-                if (adx >= 40) return Math.Max(baseline - 15, 50); // Very strong trend: lower bar
-                if (adx >= 25) return Math.Max(baseline - 5, 55);  // Moderate trend: slightly lower
-                if (adx < 15) return Math.Min(baseline + 10, 85);  // Weak trend: higher bar
+                double adxVal = adx.CurrentAdx;
+                if (adxVal >= 40) return Math.Max(baseline - 15, 50); // Very strong trend: lower bar
+                if (adxVal >= 25) return Math.Max(baseline - 5, 55);  // Moderate trend: slightly lower
+                if (adxVal < 15) return Math.Min(baseline + 10, 85);  // Weak trend: higher bar
             }
             return baseline;
         }
 
         private int GetShortEntryThreshold()
         {
-            int baseline = _learnedProfile?.OptimalShortEntryThreshold ?? BaselineShortEntry;
-            
-            if (_adx.IsReady)
+            int baseline = learnedProfile?.OptimalShortEntryThreshold ?? BaselineShortEntry;
+
+            if (adx.IsReady)
             {
-                double adx = _adx.CurrentAdx;
-                if (adx >= 40) return Math.Min(baseline + 15, -50);
-                if (adx >= 25) return Math.Min(baseline + 5, -55);
-                if (adx < 15) return Math.Max(baseline - 10, -85);
+                double adxVal = adx.CurrentAdx;
+                if (adxVal >= 40) return Math.Min(baseline + 15, -50);
+                if (adxVal >= 25) return Math.Min(baseline + 5, -55);
+                if (adxVal < 15) return Math.Max(baseline - 10, -85);
             }
             return baseline;
         }
 
         private int GetLongExitThreshold()
         {
-            int baseline = _learnedProfile?.OptimalLongExitThreshold ?? BaselineLongExit;
+            int baseline = learnedProfile?.OptimalLongExitThreshold ?? BaselineLongExit;
             
             // If in profit, give more room (lower exit threshold)
-            if (_inPosition && _isLong)
+            if (inPosition && isLong)
             {
-                double unrealizedPnl = (_profile.TotalTrades > 0 ? _profile.TotalPnL / _profile.TotalTrades : 0);
+                double unrealizedPnl = (profile.TotalTrades > 0 ? profile.TotalPnL / profile.TotalTrades : 0);
                 if (unrealizedPnl > 0) return Math.Max(baseline - 10, 20);
             }
             return baseline;
@@ -754,11 +754,11 @@ namespace IdiotProof.Services {
 
         private int GetShortExitThreshold()
         {
-            int baseline = _learnedProfile?.OptimalShortExitThreshold ?? BaselineShortExit;
+            int baseline = learnedProfile?.OptimalShortExitThreshold ?? BaselineShortExit;
             
-            if (_inPosition && !_isLong)
+            if (inPosition && !isLong)
             {
-                double unrealizedPnl = (_profile.TotalTrades > 0 ? _profile.TotalPnL / _profile.TotalTrades : 0);
+                double unrealizedPnl = (profile.TotalTrades > 0 ? profile.TotalPnL / profile.TotalTrades : 0);
                 if (unrealizedPnl > 0) return Math.Min(baseline + 10, -20);
             }
             return baseline;
@@ -773,10 +773,10 @@ namespace IdiotProof.Services {
             double tpMult = BaselineTpAtrMultiplier;
             double slMult = BaselineSlAtrMultiplier;
 
-            if (_atr.IsReady && _ema50.IsReady)
+            if (atr.IsReady && ema50.IsReady)
             {
                 // Calculate volatility ratio: ATR as % of price
-                double atrPercent = _atr.CurrentAtr / _ema50.CurrentValue;
+                double atrPercent = atr.CurrentAtr / ema50.CurrentValue;
                 
                 if (atrPercent > 0.02) // High volatility (>2%)
                 {
@@ -795,64 +795,64 @@ namespace IdiotProof.Services {
         public List<TradeRecord> ProcessBar(HistoricalBar bar)
         {
             var completedTrades = new List<TradeRecord>();
-            _barCount++;
+            barCount++;
 
             // Reset VWAP at the start of each new trading day
-            if (_currentVwapDay == null || bar.Time.Date != _currentVwapDay)
+            if (currentVwapDay == null || bar.Time.Date != currentVwapDay)
             {
-                _pvSum = 0;
-                _vSum = 0;
-                _currentVwapDay = bar.Time.Date;
+                pvSum = 0;
+                vSum = 0;
+                currentVwapDay = bar.Time.Date;
             }
 
             // Update VWAP
             if (bar.Close > 0 && bar.Volume > 0)
             {
-                _pvSum += bar.Close * bar.Volume;
-                _vSum += bar.Volume;
+                pvSum += bar.Close * bar.Volume;
+                vSum += bar.Volume;
             }
-            double vwap = _vSum > 0 ? _pvSum / _vSum : bar.Close;
+            double vwap = vSum > 0 ? pvSum / vSum : bar.Close;
 
             // Update core indicators
-            _ema9.Update(bar.Close);
-            _ema21.Update(bar.Close);
-            _ema34.Update(bar.Close);
-            _ema50.Update(bar.Close);
-            _adx.UpdateFromCandle(bar.High, bar.Low, bar.Close);
-            _rsi.Update(bar.Close);
-            _macd.Update(bar.Close);
-            _volume.Update(bar.Volume);
-            _atr.UpdateFromCandle(bar.High, bar.Low, bar.Close);
-            _sma20.Update(bar.Close);
-            _sma50.Update(bar.Close);
+            ema9.Update(bar.Close);
+            ema21.Update(bar.Close);
+            ema34.Update(bar.Close);
+            ema50.Update(bar.Close);
+            adx.UpdateFromCandle(bar.High, bar.Low, bar.Close);
+            rsi.Update(bar.Close);
+            macd.Update(bar.Close);
+            volume.Update(bar.Volume);
+            atr.UpdateFromCandle(bar.High, bar.Low, bar.Close);
+            sma20.Update(bar.Close);
+            sma50.Update(bar.Close);
 
             // Update extended indicators
-            _bollinger.Update(bar.Close);
-            _stochastic.Update(bar.High, bar.Low, bar.Close);
-            _obv.Update(bar.Close, bar.Volume);
-            _cci.Update(bar.High, bar.Low, bar.Close);
-            _williamsR.Update(bar.High, bar.Low, bar.Close);
-            _momentum.Update(bar.Close);
-            _roc.Update(bar.Close);
-            _prevDayLevels.UpdateFromBar(bar);
+            bollinger.Update(bar.Close);
+            stochastic.Update(bar.High, bar.Low, bar.Close);
+            obv.Update(bar.Close, bar.Volume);
+            cci.Update(bar.High, bar.Low, bar.Close);
+            williamsR.Update(bar.High, bar.Low, bar.Close);
+            momentum.Update(bar.Close);
+            roc.Update(bar.Close);
+            prevDayLevels.UpdateFromBar(bar);
 
             // Update trend direction filter
-            _trendFilter.Update(
+            trendFilter.Update(
                 bar.Close, vwap,
-                _ema9.IsReady ? _ema9.CurrentValue : 0,
-                _ema21.IsReady ? _ema21.CurrentValue : 0,
-                _ema50.IsReady ? _ema50.CurrentValue : 0,
-                _adx.IsReady ? _adx.CurrentAdx : 0,
-                _adx.IsReady ? _adx.PlusDI : 0,
-                _adx.IsReady ? _adx.MinusDI : 0,
+                ema9.IsReady ? ema9.CurrentValue : 0,
+                ema21.IsReady ? ema21.CurrentValue : 0,
+                ema50.IsReady ? ema50.CurrentValue : 0,
+                adx.IsReady ? adx.CurrentAdx : 0,
+                adx.IsReady ? adx.PlusDI : 0,
+                adx.IsReady ? adx.MinusDI : 0,
                 bar.High, bar.Low);
 
             // Check warm-up
-            if (!_indicatorsReady)
+            if (!indicatorsReady)
             {
-                if (_ema50.IsReady && _adx.IsReady && _rsi.IsReady && _macd.IsReady && _bollinger.IsReady && _atr.IsReady && _momentum.IsReady && _roc.IsReady)
+                if (ema50.IsReady && adx.IsReady && rsi.IsReady && macd.IsReady && bollinger.IsReady && atr.IsReady && momentum.IsReady && roc.IsReady)
                 {
-                    _indicatorsReady = true;
+                    indicatorsReady = true;
                 }
                 else
                 {
@@ -878,9 +878,9 @@ namespace IdiotProof.Services {
             }
 
             // Check time between trades
-            bool canTrade = (bar.Time - _lastTradeTime).TotalSeconds >= MinSecondsBetweenTrades;
+            bool canTrade = (bar.Time - lastTradeTime).TotalSeconds >= MinSecondsBetweenTrades;
 
-            if (!_inPosition)
+            if (!inPosition)
             {
                 // Get dynamic thresholds
                 int longThreshold = GetLongEntryThreshold();
@@ -890,48 +890,48 @@ namespace IdiotProof.Services {
                 if (withinTradingHours && canTrade)
                 {
                     // Trend direction filter (matches LIVE: allows strong signals to override)
-                    bool trendAllowsLong = !_trendFilter.IsReady || !_trendFilter.IsInClearDowntrend;
-                    bool trendAllowsShort = !_trendFilter.IsReady || !_trendFilter.IsInClearUptrend;
+                    bool trendAllowsLong = !trendFilter.IsReady || !trendFilter.IsInClearDowntrend;
+                    bool trendAllowsShort = !trendFilter.IsReady || !trendFilter.IsInClearUptrend;
 
                     // Build snapshot for confidence check (populate ALL fields for AI)
                     var snapshot = new IndicatorSnapshot
                     {
                         Price = bar.Close,
                         Vwap = vwap,
-                        Ema9 = _ema9.IsReady ? _ema9.CurrentValue : 0,
-                        Ema21 = _ema21.IsReady ? _ema21.CurrentValue : 0,
-                        Ema34 = _ema34.IsReady ? _ema34.CurrentValue : 0,
-                        Ema50 = _ema50.IsReady ? _ema50.CurrentValue : 0,
-                        Rsi = _rsi.IsReady ? _rsi.CurrentValue : 50,
-                        Macd = _macd.IsReady ? _macd.MacdLine : 0,
-                        MacdSignal = _macd.IsReady ? _macd.SignalLine : 0,
-                        MacdHistogram = _macd.IsReady ? _macd.Histogram : 0,
-                        Adx = _adx.IsReady ? _adx.CurrentAdx : 0,
-                        PlusDi = _adx.IsReady ? _adx.PlusDI : 0,
-                        MinusDi = _adx.IsReady ? _adx.MinusDI : 0,
-                        VolumeRatio = _volume.IsReady ? _volume.VolumeRatio : 1.0,
-                        BollingerUpper = _bollinger.IsReady ? _bollinger.UpperBand : 0,
-                        BollingerMiddle = _bollinger.IsReady ? _bollinger.MiddleBand : 0,
-                        BollingerLower = _bollinger.IsReady ? _bollinger.LowerBand : 0,
-                        BollingerPercentB = _bollinger.IsReady ? _bollinger.PercentB : 0,
-                        BollingerBandwidth = _bollinger.IsReady ? _bollinger.Bandwidth : 0,
-                        Atr = _atr.IsReady ? _atr.CurrentAtr : 0,
-                        Sma20 = _sma20.IsReady ? _sma20.CurrentValue : 0,
-                        Sma50 = _sma50.IsReady ? _sma50.CurrentValue : 0,
-                        Momentum = _momentum.IsReady ? _momentum.CurrentValue : 0,
-                        Roc = _roc.IsReady ? _roc.CurrentValue : 0,
-                        StochasticK = _stochastic.IsReady ? _stochastic.PercentK : 0,
-                        StochasticD = _stochastic.IsReady ? _stochastic.PercentD : 0,
-                        ObvSlope = _obv.IsReady ? (_obv.IsRising ? 1.0 : (_obv.IsFalling ? -1.0 : 0)) : 0,
-                        Cci = _cci.IsReady ? _cci.CurrentCci : 0,
-                        WilliamsR = _williamsR.IsReady ? _williamsR.CurrentValue : -50,
-                        PrevDayHigh = _prevDayLevels.HasData ? _prevDayLevels.PrevDayHigh : 0,
-                        PrevDayLow = _prevDayLevels.HasData ? _prevDayLevels.PrevDayLow : 0,
-                        PrevDayClose = _prevDayLevels.HasData ? _prevDayLevels.PrevDayClose : 0,
-                        TwoDayHigh = _prevDayLevels.TwoDayHigh,
-                        TwoDayLow = _prevDayLevels.TwoDayLow,
-                        SessionHigh = _prevDayLevels.SessionHigh,
-                        SessionLow = _prevDayLevels.SessionLow
+                        Ema9 = ema9.IsReady ? ema9.CurrentValue : 0,
+                        Ema21 = ema21.IsReady ? ema21.CurrentValue : 0,
+                        Ema34 = ema34.IsReady ? ema34.CurrentValue : 0,
+                        Ema50 = ema50.IsReady ? ema50.CurrentValue : 0,
+                        Rsi = rsi.IsReady ? rsi.CurrentValue : 50,
+                        Macd = macd.IsReady ? macd.MacdLine : 0,
+                        MacdSignal = macd.IsReady ? macd.SignalLine : 0,
+                        MacdHistogram = macd.IsReady ? macd.Histogram : 0,
+                        Adx = adx.IsReady ? adx.CurrentAdx : 0,
+                        PlusDi = adx.IsReady ? adx.PlusDI : 0,
+                        MinusDi = adx.IsReady ? adx.MinusDI : 0,
+                        VolumeRatio = volume.IsReady ? volume.VolumeRatio : 1.0,
+                        BollingerUpper = bollinger.IsReady ? bollinger.UpperBand : 0,
+                        BollingerMiddle = bollinger.IsReady ? bollinger.MiddleBand : 0,
+                        BollingerLower = bollinger.IsReady ? bollinger.LowerBand : 0,
+                        BollingerPercentB = bollinger.IsReady ? bollinger.PercentB : 0,
+                        BollingerBandwidth = bollinger.IsReady ? bollinger.Bandwidth : 0,
+                        Atr = atr.IsReady ? atr.CurrentAtr : 0,
+                        Sma20 = sma20.IsReady ? sma20.CurrentValue : 0,
+                        Sma50 = sma50.IsReady ? sma50.CurrentValue : 0,
+                        Momentum = momentum.IsReady ? momentum.CurrentValue : 0,
+                        Roc = roc.IsReady ? roc.CurrentValue : 0,
+                        StochasticK = stochastic.IsReady ? stochastic.PercentK : 0,
+                        StochasticD = stochastic.IsReady ? stochastic.PercentD : 0,
+                        ObvSlope = obv.IsReady ? (obv.IsRising ? 1.0 : (obv.IsFalling ? -1.0 : 0)) : 0,
+                        Cci = cci.IsReady ? cci.CurrentCci : 0,
+                        WilliamsR = williamsR.IsReady ? williamsR.CurrentValue : -50,
+                        PrevDayHigh = prevDayLevels.HasData ? prevDayLevels.PrevDayHigh : 0,
+                        PrevDayLow = prevDayLevels.HasData ? prevDayLevels.PrevDayLow : 0,
+                        PrevDayClose = prevDayLevels.HasData ? prevDayLevels.PrevDayClose : 0,
+                        TwoDayHigh = prevDayLevels.TwoDayHigh,
+                        TwoDayLow = prevDayLevels.TwoDayLow,
+                        SessionHigh = prevDayLevels.SessionHigh,
+                        SessionLow = prevDayLevels.SessionLow
                     };
 
                     // AI confidence check - use real ChatGPT if enabled, otherwise synthetic
@@ -942,7 +942,7 @@ namespace IdiotProof.Services {
                     {
                         bool aiApproved = false;
                         
-                        if (_useRealAiConfirmation && _aiAdvisor != null)
+                        if (useRealAiConfirmation && aiAdvisor != null)
                         {
                             // Real ChatGPT API call
                             var scoreResult = new Calculators.MarketScoreResult
@@ -955,17 +955,17 @@ namespace IdiotProof.Services {
                                 AdxScore = scores.Adx,
                                 VolumeScore = scores.Volume
                             };
-                            var (approved, confidence, reason) = _aiAdvisor.CheckTradeApproval(
-                                _symbol, snapshot, isLong: true, scoreResult, useSyntheticForSpeed: false);
+                            var (approved, confidence, reason) = aiAdvisor.CheckTradeApproval(
+                                symbol, snapshot, isLong: true, scoreResult, useSyntheticForSpeed: false);
                             aiApproved = approved;
-                            if (approved) _aiApprovedCount++;
+                            if (approved) aiApprovedCount++;
                             else
                             {
-                                _aiBlockedCount++;
+                                aiBlockedCount++;
                                 // Log first few blocked trades to debug
-                                if (_aiBlockedCount <= 3)
+                                if (aiBlockedCount <= 3)
                                 {
-                                    ConsoleLog.Warn("AI", $"[{_symbol}] LONG blocked (#{_aiBlockedCount}): {reason}");
+                                    ConsoleLog.Warn("AI", $"[{symbol}] LONG blocked (#{aiBlockedCount}): {reason}");
                                 }
                             }
                         }
@@ -982,11 +982,11 @@ namespace IdiotProof.Services {
                         }
                     }
                     // SHORT: Score below threshold AND trend allows (matches LIVE - no MACD/DI/Stochastic/OBV gates)
-                    else if (_allowShort && scores.Total <= shortThreshold && trendAllowsShort)
+                    else if (allowShort && scores.Total <= shortThreshold && trendAllowsShort)
                     {
                         bool aiApproved = false;
                         
-                        if (_useRealAiConfirmation && _aiAdvisor != null)
+                        if (useRealAiConfirmation && aiAdvisor != null)
                         {
                             // Real ChatGPT API call
                             var scoreResult = new Calculators.MarketScoreResult
@@ -999,17 +999,17 @@ namespace IdiotProof.Services {
                                 AdxScore = scores.Adx,
                                 VolumeScore = scores.Volume
                             };
-                            var (approved, confidence, reason) = _aiAdvisor.CheckTradeApproval(
-                                _symbol, snapshot, isLong: false, scoreResult, useSyntheticForSpeed: false);
+                            var (approved, confidence, reason) = aiAdvisor.CheckTradeApproval(
+                                symbol, snapshot, isLong: false, scoreResult, useSyntheticForSpeed: false);
                             aiApproved = approved;
-                            if (approved) _aiApprovedCount++;
+                            if (approved) aiApprovedCount++;
                             else
                             {
-                                _aiBlockedCount++;
+                                aiBlockedCount++;
                                 // Log first few blocked trades to debug
-                                if (_aiBlockedCount <= 3)
+                                if (aiBlockedCount <= 3)
                                 {
-                                    ConsoleLog.Warn("AI", $"[{_symbol}] SHORT blocked (#{_aiBlockedCount}): {reason}");
+                                    ConsoleLog.Warn("AI", $"[{symbol}] SHORT blocked (#{aiBlockedCount}): {reason}");
                                 }
                             }
                         }
@@ -1038,18 +1038,18 @@ namespace IdiotProof.Services {
                 double exitSlippage = TradingDefaults.GetSlippagePercent(bar.Close);
 
                 // Check TP/SL hits using bar high/low
-                if (_isLong)
+                if (isLong)
                 {
-                    if (_takeProfitPrice > 0 && bar.High >= _takeProfitPrice)
+                    if (takeProfitPrice > 0 && bar.High >= takeProfitPrice)
                     {
                         shouldExit = true;
-                        exitPrice = _takeProfitPrice;
+                        exitPrice = takeProfitPrice;
                         exitReason = "TP";
                     }
-                    else if (_stopLossPrice > 0 && bar.Low <= _stopLossPrice)
+                    else if (stopLossPrice > 0 && bar.Low <= stopLossPrice)
                     {
                         shouldExit = true;
-                        exitPrice = _stopLossPrice;
+                        exitPrice = stopLossPrice;
                         exitReason = "SL";
                     }
                     else
@@ -1067,16 +1067,16 @@ namespace IdiotProof.Services {
                 }
                 else // SHORT position
                 {
-                    if (_takeProfitPrice > 0 && bar.Low <= _takeProfitPrice)
+                    if (takeProfitPrice > 0 && bar.Low <= takeProfitPrice)
                     {
                         shouldExit = true;
-                        exitPrice = _takeProfitPrice;
+                        exitPrice = takeProfitPrice;
                         exitReason = "TP";
                     }
-                    else if (_stopLossPrice > 0 && bar.High >= _stopLossPrice)
+                    else if (stopLossPrice > 0 && bar.High >= stopLossPrice)
                     {
                         shouldExit = true;
-                        exitPrice = _stopLossPrice;
+                        exitPrice = stopLossPrice;
                         exitReason = "SL";
                     }
                     else
@@ -1097,7 +1097,7 @@ namespace IdiotProof.Services {
                 {
                     var trade = CreateTradeRecord(exitPrice, bar.Time, scores.Total, exitReason);
                     completedTrades.Add(trade);
-                    _profile.RecordTrade(trade);
+                    profile.RecordTrade(trade);
                     
                     ResetPosition();
                 }
@@ -1108,16 +1108,16 @@ namespace IdiotProof.Services {
 
         public TradeRecord? ClosePosition(double price, DateTime time)
         {
-            if (!_inPosition) return null;
+            if (!inPosition) return null;
 
-            var scoresForClose = CalculateScore(price, _pvSum / Math.Max(_vSum, 1));
+            var scoresForClose = CalculateScore(price, pvSum / Math.Max(vSum, 1));
             var trade = CreateTradeRecord(price, time, scoresForClose.Total, "END");
-            _profile.RecordTrade(trade);
+            profile.RecordTrade(trade);
             ResetPosition();
             return trade;
         }
 
-        public TickerProfile GetProfile() => _profile;
+        public TickerProfile GetProfile() => profile;
 
         /// <summary>
         /// Calculates comprehensive market score using MarketScoreCalculator (SINGLE SOURCE OF TRUTH).
@@ -1134,45 +1134,45 @@ namespace IdiotProof.Services {
             {
                 Price = price,
                 Vwap = vwap,
-                Ema9 = _ema9.IsReady ? _ema9.CurrentValue : 0,
-                Ema21 = _ema21.IsReady ? _ema21.CurrentValue : 0,
-                Ema34 = _ema34.IsReady ? _ema34.CurrentValue : 0,
-                Ema50 = _ema50.IsReady ? _ema50.CurrentValue : 0,
-                Rsi = _rsi.IsReady ? _rsi.CurrentValue : 50,
-                Macd = _macd.IsReady ? _macd.MacdLine : 0,
-                MacdSignal = _macd.IsReady ? _macd.SignalLine : 0,
-                MacdHistogram = _macd.IsReady ? _macd.Histogram : 0,
-                Adx = _adx.IsReady ? _adx.CurrentAdx : 0,
-                PlusDi = _adx.IsReady ? _adx.PlusDI : 0,
-                MinusDi = _adx.IsReady ? _adx.MinusDI : 0,
-                VolumeRatio = _volume.IsReady ? _volume.VolumeRatio : 1.0,
-                BollingerUpper = _bollinger.IsReady ? _bollinger.UpperBand : 0,
-                BollingerMiddle = _bollinger.IsReady ? _bollinger.MiddleBand : 0,
-                BollingerLower = _bollinger.IsReady ? _bollinger.LowerBand : 0,
-                BollingerPercentB = _bollinger.IsReady ? _bollinger.PercentB : 0,
-                BollingerBandwidth = _bollinger.IsReady ? _bollinger.Bandwidth : 0,
-                Atr = _atr.IsReady ? _atr.CurrentAtr : 0,
-                Sma20 = _sma20.IsReady ? _sma20.CurrentValue : 0,
-                Sma50 = _sma50.IsReady ? _sma50.CurrentValue : 0,
-                Momentum = _momentum.IsReady ? _momentum.CurrentValue : 0,
-                Roc = _roc.IsReady ? _roc.CurrentValue : 0,
+                Ema9 = ema9.IsReady ? ema9.CurrentValue : 0,
+                Ema21 = ema21.IsReady ? ema21.CurrentValue : 0,
+                Ema34 = ema34.IsReady ? ema34.CurrentValue : 0,
+                Ema50 = ema50.IsReady ? ema50.CurrentValue : 0,
+                Rsi = rsi.IsReady ? rsi.CurrentValue : 50,
+                Macd = macd.IsReady ? macd.MacdLine : 0,
+                MacdSignal = macd.IsReady ? macd.SignalLine : 0,
+                MacdHistogram = macd.IsReady ? macd.Histogram : 0,
+                Adx = adx.IsReady ? adx.CurrentAdx : 0,
+                PlusDi = adx.IsReady ? adx.PlusDI : 0,
+                MinusDi = adx.IsReady ? adx.MinusDI : 0,
+                VolumeRatio = volume.IsReady ? volume.VolumeRatio : 1.0,
+                BollingerUpper = bollinger.IsReady ? bollinger.UpperBand : 0,
+                BollingerMiddle = bollinger.IsReady ? bollinger.MiddleBand : 0,
+                BollingerLower = bollinger.IsReady ? bollinger.LowerBand : 0,
+                BollingerPercentB = bollinger.IsReady ? bollinger.PercentB : 0,
+                BollingerBandwidth = bollinger.IsReady ? bollinger.Bandwidth : 0,
+                Atr = atr.IsReady ? atr.CurrentAtr : 0,
+                Sma20 = sma20.IsReady ? sma20.CurrentValue : 0,
+                Sma50 = sma50.IsReady ? sma50.CurrentValue : 0,
+                Momentum = momentum.IsReady ? momentum.CurrentValue : 0,
+                Roc = roc.IsReady ? roc.CurrentValue : 0,
                 // Extended indicators
-                StochasticK = _stochastic.IsReady ? _stochastic.PercentK : 0,
-                StochasticD = _stochastic.IsReady ? _stochastic.PercentD : 0,
-                ObvSlope = _obv.IsReady ? (_obv.IsRising ? 1.0 : (_obv.IsFalling ? -1.0 : 0)) : 0,
-                Cci = _cci.IsReady ? _cci.CurrentCci : 0,
-                WilliamsR = _williamsR.IsReady ? _williamsR.CurrentValue : -50,
-                PrevDayHigh = _prevDayLevels.HasData ? _prevDayLevels.PrevDayHigh : 0,
-                PrevDayLow = _prevDayLevels.HasData ? _prevDayLevels.PrevDayLow : 0,
-                PrevDayClose = _prevDayLevels.HasData ? _prevDayLevels.PrevDayClose : 0,
-                TwoDayHigh = _prevDayLevels.TwoDayHigh,
-                TwoDayLow = _prevDayLevels.TwoDayLow,
-                SessionHigh = _prevDayLevels.SessionHigh,
-                SessionLow = _prevDayLevels.SessionLow
+                StochasticK = stochastic.IsReady ? stochastic.PercentK : 0,
+                StochasticD = stochastic.IsReady ? stochastic.PercentD : 0,
+                ObvSlope = obv.IsReady ? (obv.IsRising ? 1.0 : (obv.IsFalling ? -1.0 : 0)) : 0,
+                Cci = cci.IsReady ? cci.CurrentCci : 0,
+                WilliamsR = williamsR.IsReady ? williamsR.CurrentValue : -50,
+                PrevDayHigh = prevDayLevels.HasData ? prevDayLevels.PrevDayHigh : 0,
+                PrevDayLow = prevDayLevels.HasData ? prevDayLevels.PrevDayLow : 0,
+                PrevDayClose = prevDayLevels.HasData ? prevDayLevels.PrevDayClose : 0,
+                TwoDayHigh = prevDayLevels.TwoDayHigh,
+                TwoDayLow = prevDayLevels.TwoDayLow,
+                SessionHigh = prevDayLevels.SessionHigh,
+                SessionLow = prevDayLevels.SessionLow
             };
 
             // USE SHARED CALCULATOR with learned or default weights (SINGLE SOURCE OF TRUTH)
-            var result = MarketScoreCalculator.Calculate(snapshot, _weights.ToCalculatorWeights());
+            var result = MarketScoreCalculator.Calculate(snapshot, weights.ToCalculatorWeights());
             
             scores.Vwap = result.VwapScore;
             scores.Ema = result.EmaScore;
@@ -1192,27 +1192,27 @@ namespace IdiotProof.Services {
             // ================================================================
 
             // Stochastic - for additional confirmation
-            if (_stochastic.IsReady)
+            if (stochastic.IsReady)
             {
-                scores.Stochastic = _stochastic.GetScore();
+                scores.Stochastic = stochastic.GetScore();
             }
 
             // OBV - volume flow confirmation
-            if (_obv.IsReady)
+            if (obv.IsReady)
             {
-                scores.Obv = _obv.GetScore();
+                scores.Obv = obv.GetScore();
             }
 
             // CCI - trend strength confirmation
-            if (_cci.IsReady)
+            if (cci.IsReady)
             {
-                scores.Cci = _cci.GetScore();
+                scores.Cci = cci.GetScore();
             }
 
             // Williams %R - momentum confirmation
-            if (_williamsR.IsReady)
+            if (williamsR.IsReady)
             {
-                scores.WilliamsR = _williamsR.GetScore();
+                scores.WilliamsR = williamsR.GetScore();
             }
 
             return scores;
@@ -1226,45 +1226,45 @@ namespace IdiotProof.Services {
                 ? price * (1 + slippagePct)   // Buy at slightly higher
                 : price * (1 - slippagePct);  // Sell at slightly lower
             
-            _inPosition = true;
-            _isLong = isLong;
-            _entryPrice = slippedPrice;
-            _entryTime = time;
-            _lastTradeTime = time;
+            inPosition = true;
+            isLong = isLong;
+            entryPrice = slippedPrice;
+            entryTime = time;
+            lastTradeTime = time;
             
             // Calculate quantity from allocation and entry price
-            _currentTradeQuantity = price > 0 ? (int)Math.Floor(_allocation / price) : 1;
-            if (_currentTradeQuantity < 1) _currentTradeQuantity = 1;
+            currentTradeQuantity = price > 0 ? (int)Math.Floor(allocation / price) : 1;
+            if (currentTradeQuantity < 1) currentTradeQuantity = 1;
             
-            _entryScore = scores.Total;
-            _entryVwapScore = scores.Vwap;
-            _entryEmaScore = scores.Ema;
-            _entryRsiScore = scores.Rsi;
-            _entryMacdScore = scores.Macd;
-            _entryAdxScore = scores.Adx;
-            _entryVolumeScore = scores.Volume;
-            _entryBollingerScore = scores.Bollinger;
-            _entryStochasticScore = scores.Stochastic;
-            _entryObvScore = scores.Obv;
-            _entryCciScore = scores.Cci;
-            _entryWilliamsRScore = scores.WilliamsR;
+            entryScore = scores.Total;
+            entryVwapScore = scores.Vwap;
+            entryEmaScore = scores.Ema;
+            entryRsiScore = scores.Rsi;
+            entryMacdScore = scores.Macd;
+            entryAdxScore = scores.Adx;
+            entryVolumeScore = scores.Volume;
+            entryBollingerScore = scores.Bollinger;
+            entryStochasticScore = scores.Stochastic;
+            entryObvScore = scores.Obv;
+            entryCciScore = scores.Cci;
+            entryWilliamsRScore = scores.WilliamsR;
 
             // Get dynamic ATR multipliers based on volatility
             var (tpMult, slMult) = GetAtrMultipliers();
 
             // Calculate ATR-based TP/SL prices
-            double atrValue = _atr.IsReady ? _atr.CurrentAtr : 0;
+            double atrValue = atr.IsReady ? atr.CurrentAtr : 0;
             if (atrValue > 0)
             {
                 if (isLong)
                 {
-                    _takeProfitPrice = price + (atrValue * tpMult);
-                    _stopLossPrice = price - (atrValue * slMult);
+                    takeProfitPrice = price + (atrValue * tpMult);
+                    stopLossPrice = price - (atrValue * slMult);
                 }
                 else
                 {
-                    _takeProfitPrice = price - (atrValue * tpMult);
-                    _stopLossPrice = price + (atrValue * slMult);
+                    takeProfitPrice = price - (atrValue * tpMult);
+                    stopLossPrice = price + (atrValue * slMult);
                 }
             }
             else
@@ -1274,13 +1274,13 @@ namespace IdiotProof.Services {
                 double slPct = 0.025;
                 if (isLong)
                 {
-                    _takeProfitPrice = price * (1 + tpPct);
-                    _stopLossPrice = price * (1 - slPct);
+                    takeProfitPrice = price * (1 + tpPct);
+                    stopLossPrice = price * (1 - slPct);
                 }
                 else
                 {
-                    _takeProfitPrice = price * (1 - tpPct);
-                    _stopLossPrice = price * (1 + slPct);
+                    takeProfitPrice = price * (1 - tpPct);
+                    stopLossPrice = price * (1 + slPct);
                 }
             }
         }
@@ -1289,36 +1289,36 @@ namespace IdiotProof.Services {
         {
             return new TradeRecord
             {
-                EntryTime = _entryTime,
-                EntryPrice = _entryPrice,
+                EntryTime = entryTime,
+                EntryPrice = entryPrice,
                 ExitTime = exitTime,
                 ExitPrice = exitPrice,
-                IsLong = _isLong,
-                Quantity = _currentTradeQuantity,
-                EntryScore = _entryScore,
+                IsLong = isLong,
+                Quantity = currentTradeQuantity,
+                EntryScore = entryScore,
                 ExitScore = exitScore,
-                EntryVwapScore = _entryVwapScore,
-                EntryEmaScore = _entryEmaScore,
-                EntryRsiScore = _entryRsiScore,
-                EntryMacdScore = _entryMacdScore,
-                EntryAdxScore = _entryAdxScore,
-                EntryVolumeScore = _entryVolumeScore,
-                RsiAtEntry = _rsi.CurrentValue,
-                AdxAtEntry = _adx.CurrentAdx,
-                RsiAtExit = _rsi.CurrentValue,
-                AdxAtExit = _adx.CurrentAdx,
+                EntryVwapScore = entryVwapScore,
+                EntryEmaScore = entryEmaScore,
+                EntryRsiScore = entryRsiScore,
+                EntryMacdScore = entryMacdScore,
+                EntryAdxScore = entryAdxScore,
+                EntryVolumeScore = entryVolumeScore,
+                RsiAtEntry = rsi.CurrentValue,
+                AdxAtEntry = adx.CurrentAdx,
+                RsiAtExit = rsi.CurrentValue,
+                AdxAtExit = adx.CurrentAdx,
                 ExitReason = exitReason
             };
         }
 
         private void ResetPosition()
         {
-            _inPosition = false;
-            _isLong = false;
-            _entryPrice = 0;
-            _entryScore = 0;
-            _takeProfitPrice = 0;
-            _stopLossPrice = 0;
+            inPosition = false;
+            isLong = false;
+            entryPrice = 0;
+            entryScore = 0;
+            takeProfitPrice = 0;
+            stopLossPrice = 0;
         }
     }
 }

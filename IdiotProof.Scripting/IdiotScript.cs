@@ -1,4 +1,4 @@
-// ============================================================================
+﻿// ============================================================================
 // IdiotProof.Scripting - IdiotScript DSL for Trading Strategies
 // ============================================================================
 // This library provides the IdiotScript domain-specific language for
@@ -31,11 +31,11 @@ public static class Stock
 /// </summary>
 public sealed class StrategyBuilder
 {
-    private readonly StrategyDefinition _strategy = new();
+    private readonly StrategyDefinition strategy = new();
     
     internal StrategyBuilder(string symbol)
     {
-        _strategy.Symbol = symbol.ToUpperInvariant();
+        strategy.Symbol = symbol.ToUpperInvariant();
     }
     
     // ========================================
@@ -44,19 +44,19 @@ public sealed class StrategyBuilder
     
     public StrategyBuilder Name(string name)
     {
-        _strategy.Name = name;
+        strategy.Name = name;
         return this;
     }
     
     public StrategyBuilder Session(TradingSession session)
     {
-        _strategy.Session = session;
+        strategy.Session = session;
         return this;
     }
     
     public StrategyBuilder Quantity(int quantity)
     {
-        _strategy.Quantity = quantity;
+        strategy.Quantity = quantity;
         return this;
     }
     
@@ -66,103 +66,103 @@ public sealed class StrategyBuilder
     
     public StrategyBuilder Entry(double price)
     {
-        _strategy.EntryConditions.Add(new PriceCondition(ConditionType.Entry, price));
+        strategy.EntryConditions.Add(new PriceCondition(ConditionType.Entry, price));
         return this;
     }
     
     public StrategyBuilder Breakout(double? level = null)
     {
-        _strategy.EntryConditions.Add(new PatternCondition(PatternType.Breakout, level));
+        strategy.EntryConditions.Add(new PatternCondition(PatternType.Breakout, level));
         return this;
     }
     
     public StrategyBuilder Pullback(double? level = null)
     {
-        _strategy.EntryConditions.Add(new PatternCondition(PatternType.Pullback, level));
+        strategy.EntryConditions.Add(new PatternCondition(PatternType.Pullback, level));
         return this;
     }
     
     public StrategyBuilder IsAboveVwap()
     {
-        _strategy.EntryConditions.Add(new IndicatorCondition(IndicatorType.VwapAbove));
+        strategy.EntryConditions.Add(new IndicatorCondition(IndicatorType.VwapAbove));
         return this;
     }
     
     public StrategyBuilder IsBelowVwap()
     {
-        _strategy.EntryConditions.Add(new IndicatorCondition(IndicatorType.VwapBelow));
+        strategy.EntryConditions.Add(new IndicatorCondition(IndicatorType.VwapBelow));
         return this;
     }
     
     public StrategyBuilder IsEmaAbove(int period)
     {
-        _strategy.EntryConditions.Add(new IndicatorCondition(IndicatorType.EmaAbove, period));
+        strategy.EntryConditions.Add(new IndicatorCondition(IndicatorType.EmaAbove, period));
         return this;
     }
     
     public StrategyBuilder IsEmaBelow(int period)
     {
-        _strategy.EntryConditions.Add(new IndicatorCondition(IndicatorType.EmaBelow, period));
+        strategy.EntryConditions.Add(new IndicatorCondition(IndicatorType.EmaBelow, period));
         return this;
     }
     
     public StrategyBuilder IsDiPositive()
     {
-        _strategy.EntryConditions.Add(new IndicatorCondition(IndicatorType.DiPositive));
+        strategy.EntryConditions.Add(new IndicatorCondition(IndicatorType.DiPositive));
         return this;
     }
     
     public StrategyBuilder IsDiNegative()
     {
-        _strategy.EntryConditions.Add(new IndicatorCondition(IndicatorType.DiNegative));
+        strategy.EntryConditions.Add(new IndicatorCondition(IndicatorType.DiNegative));
         return this;
     }
     
     public StrategyBuilder IsAdxAbove(double threshold)
     {
-        _strategy.EntryConditions.Add(new IndicatorCondition(IndicatorType.AdxAbove, threshold));
+        strategy.EntryConditions.Add(new IndicatorCondition(IndicatorType.AdxAbove, threshold));
         return this;
     }
     
     public StrategyBuilder IsRsiOversold(double threshold = 30)
     {
-        _strategy.EntryConditions.Add(new IndicatorCondition(IndicatorType.RsiOversold, threshold));
+        strategy.EntryConditions.Add(new IndicatorCondition(IndicatorType.RsiOversold, threshold));
         return this;
     }
     
     public StrategyBuilder IsRsiOverbought(double threshold = 70)
     {
-        _strategy.EntryConditions.Add(new IndicatorCondition(IndicatorType.RsiOverbought, threshold));
+        strategy.EntryConditions.Add(new IndicatorCondition(IndicatorType.RsiOverbought, threshold));
         return this;
     }
     
     public StrategyBuilder IsMacdBullish()
     {
-        _strategy.EntryConditions.Add(new IndicatorCondition(IndicatorType.MacdBullish));
+        strategy.EntryConditions.Add(new IndicatorCondition(IndicatorType.MacdBullish));
         return this;
     }
     
     public StrategyBuilder IsMacdBearish()
     {
-        _strategy.EntryConditions.Add(new IndicatorCondition(IndicatorType.MacdBearish));
+        strategy.EntryConditions.Add(new IndicatorCondition(IndicatorType.MacdBearish));
         return this;
     }
     
     public StrategyBuilder IsGapUp(double minPercent = 3)
     {
-        _strategy.EntryConditions.Add(new IndicatorCondition(IndicatorType.GapUp, minPercent));
+        strategy.EntryConditions.Add(new IndicatorCondition(IndicatorType.GapUp, minPercent));
         return this;
     }
     
     public StrategyBuilder IsGapDown(double minPercent = 3)
     {
-        _strategy.EntryConditions.Add(new IndicatorCondition(IndicatorType.GapDown, minPercent));
+        strategy.EntryConditions.Add(new IndicatorCondition(IndicatorType.GapDown, minPercent));
         return this;
     }
     
     public StrategyBuilder IsVolumeAbove(double multiplier)
     {
-        _strategy.EntryConditions.Add(new IndicatorCondition(IndicatorType.VolumeAbove, multiplier));
+        strategy.EntryConditions.Add(new IndicatorCondition(IndicatorType.VolumeAbove, multiplier));
         return this;
     }
 
@@ -172,7 +172,7 @@ public sealed class StrategyBuilder
     /// </summary>
     public StrategyBuilder HoldsAbove(double price)
     {
-        _strategy.EntryConditions.Add(new PriceLevelCondition(PriceLevelType.HoldsAbove, price));
+        strategy.EntryConditions.Add(new PriceLevelCondition(PriceLevelType.HoldsAbove, price));
         return this;
     }
 
@@ -182,7 +182,7 @@ public sealed class StrategyBuilder
     /// </summary>
     public StrategyBuilder HoldsBelow(double price)
     {
-        _strategy.EntryConditions.Add(new PriceLevelCondition(PriceLevelType.HoldsBelow, price));
+        strategy.EntryConditions.Add(new PriceLevelCondition(PriceLevelType.HoldsBelow, price));
         return this;
     }
 
@@ -192,7 +192,7 @@ public sealed class StrategyBuilder
     /// </summary>
     public StrategyBuilder IsNear(double price, double tolerancePercent = 1.0)
     {
-        _strategy.EntryConditions.Add(new PriceLevelCondition(PriceLevelType.Near, price, tolerancePercent));
+        strategy.EntryConditions.Add(new PriceLevelCondition(PriceLevelType.Near, price, tolerancePercent));
         return this;
     }
 
@@ -202,7 +202,7 @@ public sealed class StrategyBuilder
     
     public StrategyBuilder Order(TradeDirection direction = TradeDirection.Long)
     {
-        _strategy.Direction = direction;
+        strategy.Direction = direction;
         return this;
     }
     
@@ -215,7 +215,7 @@ public sealed class StrategyBuilder
     
     public StrategyBuilder TakeProfit(double price)
     {
-        _strategy.TakeProfitPrice = price;
+        strategy.TakeProfitPrice = price;
         return this;
     }
 
@@ -225,12 +225,12 @@ public sealed class StrategyBuilder
     /// </summary>
     public StrategyBuilder TakeProfit(double t1, double t2, double? t3 = null)
     {
-        _strategy.TakeProfitTargets.Clear();
-        _strategy.TakeProfitTargets.Add(new TakeProfitTarget { Price = t1, PercentToSell = t3.HasValue ? 33 : 50, Label = "T1" });
-        _strategy.TakeProfitTargets.Add(new TakeProfitTarget { Price = t2, PercentToSell = t3.HasValue ? 33 : 50, Label = "T2" });
+        strategy.TakeProfitTargets.Clear();
+        strategy.TakeProfitTargets.Add(new TakeProfitTarget { Price = t1, PercentToSell = t3.HasValue ? 33 : 50, Label = "T1" });
+        strategy.TakeProfitTargets.Add(new TakeProfitTarget { Price = t2, PercentToSell = t3.HasValue ? 33 : 50, Label = "T2" });
         if (t3.HasValue)
-            _strategy.TakeProfitTargets.Add(new TakeProfitTarget { Price = t3.Value, PercentToSell = 34, Label = "T3" });
-        _strategy.TakeProfitPrice = t1; // Primary target for simple exits
+            strategy.TakeProfitTargets.Add(new TakeProfitTarget { Price = t3.Value, PercentToSell = 34, Label = "T3" });
+        strategy.TakeProfitPrice = t1; // Primary target for simple exits
         return this;
     }
 
@@ -240,44 +240,44 @@ public sealed class StrategyBuilder
     /// </summary>
     public StrategyBuilder AddTarget(double price, int percentToSell, string? label = null)
     {
-        _strategy.TakeProfitTargets.Add(new TakeProfitTarget 
+        strategy.TakeProfitTargets.Add(new TakeProfitTarget 
         { 
             Price = price, 
             PercentToSell = percentToSell, 
-            Label = label ?? $"T{_strategy.TakeProfitTargets.Count + 1}" 
+            Label = label ?? $"T{strategy.TakeProfitTargets.Count + 1}" 
         });
-        if (!_strategy.TakeProfitPrice.HasValue)
-            _strategy.TakeProfitPrice = price;
+        if (!strategy.TakeProfitPrice.HasValue)
+            strategy.TakeProfitPrice = price;
         return this;
     }
 
     public StrategyBuilder TakeProfitPercent(double percent)
     {
-        _strategy.TakeProfitPercent = percent;
+        strategy.TakeProfitPercent = percent;
         return this;
     }
     
     public StrategyBuilder StopLoss(double price)
     {
-        _strategy.StopLossPrice = price;
+        strategy.StopLossPrice = price;
         return this;
     }
     
     public StrategyBuilder StopLossPercent(double percent)
     {
-        _strategy.StopLossPercent = percent;
+        strategy.StopLossPercent = percent;
         return this;
     }
     
     public StrategyBuilder TrailingStopLoss(double percent)
     {
-        _strategy.TrailingStopPercent = percent;
+        strategy.TrailingStopPercent = percent;
         return this;
     }
     
     public StrategyBuilder ExitStrategy(TimeSpan timeOfDay)
     {
-        _strategy.ExitTime = timeOfDay;
+        strategy.ExitTime = timeOfDay;
         return this;
     }
     
@@ -293,15 +293,15 @@ public sealed class StrategyBuilder
     /// </summary>
     public ConditionalBuilder Then(Action<BranchBuilder> configure)
     {
-        if (_strategy.EntryConditions.Count == 0)
+        if (strategy.EntryConditions.Count == 0)
             throw new InvalidOperationException("Then() requires a preceding condition (e.g. .IsAboveVwap().Then(...))");
 
         // Pop the last condition to use as the "if" condition
-        var condition = _strategy.EntryConditions[^1];
-        _strategy.EntryConditions.RemoveAt(_strategy.EntryConditions.Count - 1);
+        var condition = strategy.EntryConditions[^1];
+        strategy.EntryConditions.RemoveAt(strategy.EntryConditions.Count - 1);
 
         var block = new ConditionalBlock();
-        _strategy.ConditionalBlocks.Add(block);
+        strategy.ConditionalBlocks.Add(block);
 
         // Build the "then" branch
         var builder = new BranchBuilder();
@@ -317,19 +317,19 @@ public sealed class StrategyBuilder
     
     public StrategyBuilder AutonomousTrading()
     {
-        _strategy.IsAutonomous = true;
+        strategy.IsAutonomous = true;
         return this;
     }
     
     public StrategyBuilder AdaptiveOrder()
     {
-        _strategy.IsAdaptive = true;
+        strategy.IsAdaptive = true;
         return this;
     }
     
     public StrategyBuilder Repeat()
     {
-        _strategy.ShouldRepeat = true;
+        strategy.ShouldRepeat = true;
         return this;
     }
     
@@ -337,56 +337,56 @@ public sealed class StrategyBuilder
     // BUILD
     // ========================================
     
-    public StrategyDefinition Build() => _strategy;
+    public StrategyDefinition Build() => strategy;
     
     /// <summary>
     /// Serializes the strategy to IdiotScript text format.
     /// </summary>
     public string ToScript()
     {
-        var parts = new List<string> { $"Ticker({_strategy.Symbol})" };
+        var parts = new List<string> { $"Ticker({strategy.Symbol})" };
         
-        if (!string.IsNullOrEmpty(_strategy.Name))
-            parts.Add($"Name(\"{_strategy.Name}\")");
+        if (!string.IsNullOrEmpty(strategy.Name))
+            parts.Add($"Name(\"{strategy.Name}\")");
         
-        if (_strategy.Session != TradingSession.RTH)
-            parts.Add($"Session(IS.{_strategy.Session.ToString().ToUpperInvariant()})");
+        if (strategy.Session != TradingSession.RTH)
+            parts.Add($"Session(IS.{strategy.Session.ToString().ToUpperInvariant()})");
         
-        if (_strategy.Quantity > 0)
-            parts.Add($"Quantity({_strategy.Quantity})");
+        if (strategy.Quantity > 0)
+            parts.Add($"Quantity({strategy.Quantity})");
         
         // Entry conditions
-        foreach (var cond in _strategy.EntryConditions)
+        foreach (var cond in strategy.EntryConditions)
         {
             parts.Add(cond.ToScript());
         }
 
         // Conditional blocks
-        foreach (var block in _strategy.ConditionalBlocks)
+        foreach (var block in strategy.ConditionalBlocks)
         {
             parts.Add(block.ToScript());
         }
 
         // Direction
-        if (_strategy.Direction == TradeDirection.Short)
+        if (strategy.Direction == TradeDirection.Short)
             parts.Add("Short()");
         else
             parts.Add("Long()");
 
         // Exit conditions
-        if (_strategy.TakeProfitPrice.HasValue)
-            parts.Add($"TakeProfit({_strategy.TakeProfitPrice})");
-        if (_strategy.StopLossPrice.HasValue)
-            parts.Add($"StopLoss({_strategy.StopLossPrice})");
-        if (_strategy.TrailingStopPercent.HasValue)
-            parts.Add($"TrailingStopLoss({_strategy.TrailingStopPercent})");
+        if (strategy.TakeProfitPrice.HasValue)
+            parts.Add($"TakeProfit({strategy.TakeProfitPrice})");
+        if (strategy.StopLossPrice.HasValue)
+            parts.Add($"StopLoss({strategy.StopLossPrice})");
+        if (strategy.TrailingStopPercent.HasValue)
+            parts.Add($"TrailingStopLoss({strategy.TrailingStopPercent})");
         
         // Advanced
-        if (_strategy.IsAutonomous)
+        if (strategy.IsAutonomous)
             parts.Add("AutonomousTrading()");
-        if (_strategy.IsAdaptive)
+        if (strategy.IsAdaptive)
             parts.Add("AdaptiveOrder()");
-        if (_strategy.ShouldRepeat)
+        if (strategy.ShouldRepeat)
             parts.Add("Repeat()");
         
         return string.Join("\n    .", parts);
@@ -538,9 +538,9 @@ public sealed class PriceLevelCondition : ICondition
     public double TolerancePercent { get; }
 
     // Track if price has violated the level (for HoldsAbove/HoldsBelow)
-    private bool _hasViolated = false;
-    private double _lowestSeen = double.MaxValue;
-    private double _highestSeen = double.MinValue;
+    private bool hasViolated = false;
+    private double lowestSeen = double.MaxValue;
+    private double highestSeen = double.MinValue;
 
     public PriceLevelCondition(PriceLevelType type, double level, double tolerancePercent = 1.0)
     {
@@ -567,25 +567,25 @@ public sealed class PriceLevelCondition : ICondition
         var price = indicators.Price;
 
         // Track extremes
-        if (price < _lowestSeen) _lowestSeen = price;
-        if (price > _highestSeen) _highestSeen = price;
+        if (price < lowestSeen) lowestSeen = price;
+        if (price > highestSeen) highestSeen = price;
 
         return Type switch
         {
             // HoldsAbove: True if price is currently above AND has never gone significantly below
-            PriceLevelType.HoldsAbove => price >= Level && _lowestSeen >= Level * 0.995, // 0.5% tolerance
+            PriceLevelType.HoldsAbove => price >= Level && lowestSeen >= Level * 0.995, // 0.5% tolerance
 
             // HoldsBelow: True if price is currently below AND has never gone significantly above
-            PriceLevelType.HoldsBelow => price <= Level && _highestSeen <= Level * 1.005,
+            PriceLevelType.HoldsBelow => price <= Level && highestSeen <= Level * 1.005,
 
             // Near: True if price is within tolerance % of level
             PriceLevelType.Near => Math.Abs((price - Level) / Level * 100) <= TolerancePercent,
 
             // BreaksAbove: True if price breaks above level
-            PriceLevelType.BreaksAbove => price > Level && _highestSeen > Level,
+            PriceLevelType.BreaksAbove => price > Level && highestSeen > Level,
 
             // BreaksBelow: True if price breaks below level
-            PriceLevelType.BreaksBelow => price < Level && _lowestSeen < Level,
+            PriceLevelType.BreaksBelow => price < Level && lowestSeen < Level,
 
             _ => true
         };
@@ -596,9 +596,9 @@ public sealed class PriceLevelCondition : ICondition
     /// </summary>
     public void Reset()
     {
-        _hasViolated = false;
-        _lowestSeen = double.MaxValue;
-        _highestSeen = double.MinValue;
+        hasViolated = false;
+        lowestSeen = double.MaxValue;
+        highestSeen = double.MinValue;
     }
 }
 
@@ -845,13 +845,13 @@ public sealed class ConditionFactory
 /// </summary>
 public sealed class ConditionalBuilder
 {
-    private readonly StrategyBuilder _parent;
-    private readonly ConditionalBlock _block;
+    private readonly StrategyBuilder parent;
+    private readonly ConditionalBlock block;
 
     internal ConditionalBuilder(StrategyBuilder parent, ConditionalBlock block)
     {
-        _parent = parent;
-        _block = block;
+        this.parent = parent;
+        this.block = block;
     }
 
     /// <summary>
@@ -863,7 +863,7 @@ public sealed class ConditionalBuilder
         var cond = condition(new ConditionFactory());
         var builder = new BranchBuilder();
         configure(builder);
-        _block.Branches.Add(new ConditionalBranch { Condition = cond, Overrides = builder.Overrides });
+        block.Branches.Add(new ConditionalBranch { Condition = cond, Overrides = builder.Overrides });
         return this;
     }
 
@@ -876,23 +876,23 @@ public sealed class ConditionalBuilder
     {
         var builder = new BranchBuilder();
         configure(builder);
-        _block.Branches.Add(new ConditionalBranch { Condition = null, Overrides = builder.Overrides });
-        return _parent;
+        block.Branches.Add(new ConditionalBranch { Condition = null, Overrides = builder.Overrides });
+        return parent;
     }
 
     /// <summary>
     /// Ends the conditional block without an Else branch.
     /// Returns to StrategyBuilder for continued chaining.
     /// </summary>
-    public StrategyBuilder EndIf() => _parent;
+    public StrategyBuilder EndIf() => parent;
 
     // Delegate common terminal methods to allow chaining without EndIf()
-    public StrategyBuilder StopLoss(double price) => _parent.StopLoss(price);
-    public StrategyBuilder StopLossPercent(double percent) => _parent.StopLossPercent(percent);
-    public StrategyBuilder TrailingStopLoss(double percent) => _parent.TrailingStopLoss(percent);
-    public StrategyBuilder Repeat() => _parent.Repeat();
-    public StrategyBuilder AutonomousTrading() => _parent.AutonomousTrading();
-    public StrategyBuilder AdaptiveOrder() => _parent.AdaptiveOrder();
-    public StrategyDefinition Build() => _parent.Build();
-    public string ToScript() => _parent.ToScript();
+    public StrategyBuilder StopLoss(double price) => parent.StopLoss(price);
+    public StrategyBuilder StopLossPercent(double percent) => parent.StopLossPercent(percent);
+    public StrategyBuilder TrailingStopLoss(double percent) => parent.TrailingStopLoss(percent);
+    public StrategyBuilder Repeat() => parent.Repeat();
+    public StrategyBuilder AutonomousTrading() => parent.AutonomousTrading();
+    public StrategyBuilder AdaptiveOrder() => parent.AdaptiveOrder();
+    public StrategyDefinition Build() => parent.Build();
+    public string ToScript() => parent.ToScript();
 }

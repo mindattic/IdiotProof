@@ -26,38 +26,38 @@ namespace IdiotProof;
 internal sealed class Program
 {
     // Core components
-    private static IbWrapper? _wrapper;
-    private static EClientSocket? _client;
-    private static readonly CancellationTokenSource _shutdownCts = new();
-    private static TradeTrackingService? _tradeTrackingService;
-    private static SessionLogger? _sessionLogger;
+    private static IbWrapper? wrapper;
+    private static EClientSocket? client;
+    private static readonly CancellationTokenSource shutdownCts = new();
+    private static TradeTrackingService? tradeTrackingService;
+    private static SessionLogger? sessionLogger;
 
     // Historical data components
-    private static HistoricalDataStore? _historicalDataStore;
-    private static HistoricalDataService? _historicalDataService;
-    private static BacktestService? _backtestService;
-    private static TickerMetadataService? _metadataService;
+    private static HistoricalDataStore? historicalDataStore;
+    private static HistoricalDataService? historicalDataService;
+    private static BacktestService? backtestService;
+    private static TickerMetadataService? metadataService;
 
     // Alert components
-    private static AlertService? _alertService;
-    private static SuddenMoveDetector? _suddenMoveDetector;
+    private static AlertService? alertService;
+    private static SuddenMoveDetector? suddenMoveDetector;
 
     // Web frontend integration
-    private static WebFrontendClient? _webFrontendClient;
-    private static AlertWebIntegration? _alertWebIntegration;
+    private static WebFrontendClient? webFrontendClient;
+    private static AlertWebIntegration? alertWebIntegration;
 
     // State
-    private static readonly List<StrategyRunner> _runners = [];
-    private static readonly List<int> _tickerIds = [];
-    private static readonly Dictionary<string, Contract> _contracts = [];
-    private static readonly Dictionary<string, double> _prices = [];
-    private static readonly Dictionary<string, double> _previousPrices = [];
-    private static List<TradingStrategy> _strategies = [];
-    private static bool _isConnected;
-    private static bool _isActive;
-    private static Timer? _priceCheckTimer;
-    private static Timer? _webFrontendTimer;
-    private static Timer? _heartbeatTimer;
+    private static readonly List<StrategyRunner> runners = [];
+    private static readonly List<int> tickerIds = [];
+    private static readonly Dictionary<string, Contract> contracts = [];
+    private static readonly Dictionary<string, double> prices = [];
+    private static readonly Dictionary<string, double> previousPrices = [];
+    private static List<TradingStrategy> strategies = [];
+    private static bool isConnected;
+    private static bool isActive;
+    private static Timer? priceCheckTimer;
+    private static Timer? webFrontendTimer;
+    private static Timer? heartbeatTimer;
 
     public static void Main(string[] args)
     {
@@ -87,17 +87,17 @@ internal sealed class Program
         Log($"Mode: {(AppSettings.IsPaperTrading ? "PAPER" : "LIVE")} | Port: {AppSettings.Port}");
 
         // Initialize session logger
-        _sessionLogger = new SessionLogger();
-        _sessionLogger.LogEvent("STARTUP", $"Headless mode | {(AppSettings.IsPaperTrading ? "PAPER" : "LIVE")} | Port: {AppSettings.Port}");
+        sessionLogger = new SessionLogger();
+        sessionLogger.LogEvent("STARTUP", $"Headless mode | {(AppSettings.IsPaperTrading ? "PAPER" : "LIVE")} | Port: {AppSettings.Port}");
 
         // Share session logger with all backend classes
-        StrategyRunner.SessionLogger = _sessionLogger;
-        IbWrapper.SessionLogger = _sessionLogger;
-        StrategyManager.SessionLogger = _sessionLogger;
-        StrategyValidatorHelper.SessionLogger = _sessionLogger;
+        StrategyRunner.SessionLogger = sessionLogger;
+        IbWrapper.SessionLogger = sessionLogger;
+        StrategyManager.SessionLogger = sessionLogger;
+        StrategyValidatorHelper.SessionLogger = sessionLogger;
 
         // Initialize trade tracking service
-        _tradeTrackingService = new TradeTrackingService();
+        tradeTrackingService = new TradeTrackingService();
         Log("Trade tracking service initialized");
 
         // Initialize web frontend client for live data streaming
@@ -113,7 +113,7 @@ internal sealed class Program
         LoadStrategies();
 
         // Auto-activate trading if we have tickers configured
-        if (_isConnected)
+        if (isConnected)
         {
             var watchlist = WatchlistManager.Load();
             if (watchlist.EnabledTickers.Any())
@@ -135,14 +135,14 @@ internal sealed class Program
         {
             e.Cancel = true;
             Log("Shutdown signal received...");
-            _shutdownCts.Cancel();
+            shutdownCts.Cancel();
         };
 
         // Wait for shutdown signal
         Log("Core engine running. Waiting for shutdown signal...");
         try
         {
-            _shutdownCts.Token.WaitHandle.WaitOne();
+            shutdownCts.Token.WaitHandle.WaitOne();
         }
         catch (ObjectDisposedException)
         {
@@ -156,16 +156,16 @@ internal sealed class Program
     private static void StartHeartbeatTimer()
     {
         // Log heartbeat every 5 minutes
-        _heartbeatTimer = new Timer(async _ =>
+        heartbeatTimer = new Timer(async _ =>
         {
-            var status = _isConnected ? "Connected" : "Disconnected";
-            var trading = _isActive ? $"Trading ({_runners.Count} strategies)" : "Idle";
+            var status = isConnected ? "Connected" : "Disconnected";
+            var trading = isActive ? $"Trading ({runners.Count} strategies)" : "Idle";
             Log($"[Heartbeat] IBKR: {status} | Status: {trading}");
 
             // Send heartbeat to Web frontend to maintain connection status
-            if (_webFrontendClient != null)
+            if (webFrontendClient != null)
             {
-                await _webFrontendClient.SendHeartbeatAsync();
+                await webFrontendClient.SendHeartbeatAsync();
             }
         }, null, TimeSpan.FromSeconds(10), TimeSpan.FromSeconds(10));  // Send every 10 seconds
     }
@@ -174,21 +174,21 @@ internal sealed class Program
     {
         Log($"Connecting to IBKR at {AppSettings.Host}:{AppSettings.Port}...");
 
-        _wrapper = new IbWrapper();
-        _client = new EClientSocket(_wrapper, _wrapper.Signal);
-        _wrapper.AttachClient(_client);
+        wrapper = new IbWrapper();
+        client = new EClientSocket(wrapper, wrapper.Signal);
+        wrapper.AttachClient(client);
 
-        _client.eConnect(AppSettings.Host, AppSettings.Port, AppSettings.ClientId);
+        client.eConnect(AppSettings.Host, AppSettings.Port, AppSettings.ClientId);
 
         // Start reader thread
-        var reader = new EReader(_client, _wrapper.Signal);
+        var reader = new EReader(client, wrapper.Signal);
         reader.Start();
 
         var readerThread = new Thread(() =>
         {
-            while (_client.IsConnected())
+            while (client.IsConnected())
             {
-                _wrapper.Signal.waitForSignal();
+                wrapper.Signal.waitForSignal();
                 reader.processMsgs();
             }
         })
@@ -198,36 +198,36 @@ internal sealed class Program
         readerThread.Start();
 
         // Wait for connection
-        if (!_wrapper.WaitForNextValidId(TimeSpan.FromSeconds(AppSettings.ConnectionTimeoutSeconds)))
+        if (!wrapper.WaitForNextValidId(TimeSpan.FromSeconds(AppSettings.ConnectionTimeoutSeconds)))
         {
-            _isConnected = false;
+            isConnected = false;
             return false;
         }
 
-        _isConnected = true;
+        isConnected = true;
         Log("Connected to IBKR successfully!");
         Log($"Trading Mode: {(AppSettings.IsPaperTrading ? "PAPER" : "LIVE")}");
 
         // Subscribe to account updates
-        _wrapper.RequestAccountUpdates(AppSettings.AccountNumber ?? "");
+        wrapper.RequestAccountUpdates(AppSettings.AccountNumber ?? "");
 
         // Initialize historical data components
-        _historicalDataStore = new HistoricalDataStore();
-        _historicalDataService = new HistoricalDataService(_client, _wrapper, _historicalDataStore);
-        _backtestService = new BacktestService(_historicalDataService);
-        _metadataService = new TickerMetadataService();
+        historicalDataStore = new HistoricalDataStore();
+        historicalDataService = new HistoricalDataService(client, wrapper, historicalDataStore);
+        backtestService = new BacktestService(historicalDataService);
+        metadataService = new TickerMetadataService();
         Log("Historical data service initialized");
 
         // Setup reconnection handlers
-        _wrapper.OnConnectionLost += () =>
+        wrapper.OnConnectionLost += () =>
         {
-            _isConnected = false;
+            isConnected = false;
             Log("*** CONNECTION LOST ***");
         };
 
-        _wrapper.OnConnectionRestored += (dataLost) =>
+        wrapper.OnConnectionRestored += (dataLost) =>
         {
-            _isConnected = true;
+            isConnected = true;
             Log("*** CONNECTION RESTORED ***");
             if (dataLost)
             {
@@ -236,7 +236,7 @@ internal sealed class Program
             }
 
             // Auto-activate trading if not already active
-            if (!_isActive)
+            if (!isActive)
             {
                 var watchlist = WatchlistManager.Load();
                 if (watchlist.EnabledTickers.Any())
@@ -254,7 +254,7 @@ internal sealed class Program
     {
         try
         {
-            _webFrontendClient = new WebFrontendClient(new WebFrontendConfig
+            webFrontendClient = new WebFrontendClient(new WebFrontendConfig
             {
                 BaseUrl = AppSettings.WebFrontendUrl ?? "http://localhost:5000",
                 Enabled = true,
@@ -263,7 +263,7 @@ internal sealed class Program
                 BatchTimeout = TimeSpan.FromMilliseconds(100)
             });
 
-            var connected = _webFrontendClient.TestConnectionAsync().GetAwaiter().GetResult();
+            var connected = webFrontendClient.TestConnectionAsync().GetAwaiter().GetResult();
             if (connected)
             {
                 Log("Web frontend connected - streaming to browser");
@@ -276,7 +276,7 @@ internal sealed class Program
         catch (Exception ex)
         {
             Log($"Web frontend init failed: {ex.Message}");
-            _webFrontendClient = null;
+            webFrontendClient = null;
         }
     }
 
@@ -297,19 +297,19 @@ internal sealed class Program
             Log($"[StrategyRules] {rules.EnabledRules.Count()} custom rules loaded");
         }
 
-        _strategies = [];
+        strategies = [];
         Log("Configuration loaded. Strategies created from watchlist on activation.");
     }
 
     private static void ActivateTrading()
     {
-        if (_isActive)
+        if (isActive)
         {
             Log("Trading already active.");
             return;
         }
 
-        if (!_isConnected || _client == null || _wrapper == null)
+        if (!isConnected || client == null || wrapper == null)
         {
             Log("Cannot activate: Not connected to IBKR.");
             return;
@@ -326,7 +326,7 @@ internal sealed class Program
         Log($"Activating trading with {enabledTickers.Count} ticker(s)...");
 
         // Create strategies for each enabled ticker
-        _strategies.Clear();
+        strategies.Clear();
         foreach (var entry in enabledTickers)
         {
             var hasProfile = File.Exists(Path.Combine(SettingsManager.GetTickerDataFolder(entry.Symbol), $"{entry.Symbol}.profile.json"));
@@ -347,24 +347,24 @@ internal sealed class Program
                 Enabled = true
             };
 
-            _strategies.Add(strategy);
+            strategies.Add(strategy);
             Log($"  [{entry.Symbol}] Qty: {qty}{(hasProfile ? " (profile)" : "")}");
         }
 
-        var enabledStrategies = _strategies.FindAll(s => s.Enabled);
+        var enabledStrategies = strategies.FindAll(s => s.Enabled);
         var uniqueSymbols = enabledStrategies.Select(s => s.Symbol).Distinct().ToList();
 
         // Fetch historical data for warm-up
-        if (_historicalDataService != null && _historicalDataStore != null)
+        if (historicalDataService != null && historicalDataStore != null)
         {
-            var symbolsToFetch = uniqueSymbols.Where(s => !_historicalDataStore.HasData(s)).ToList();
+            var symbolsToFetch = uniqueSymbols.Where(s => !historicalDataStore.HasData(s)).ToList();
 
             if (symbolsToFetch.Count > 0)
             {
                 Log($"Fetching historical data for {symbolsToFetch.Count} symbol(s)...");
                 try
                 {
-                    var results = _historicalDataService.FetchMultipleAsync(symbolsToFetch, barCount: 200, maxConcurrency: 3)
+                    var results = historicalDataService.FetchMultipleAsync(symbolsToFetch, barCount: 200, maxConcurrency: 3)
                         .GetAwaiter().GetResult();
 
                     foreach (var kvp in results)
@@ -383,18 +383,18 @@ internal sealed class Program
         }
 
         // Build metadata from historical data
-        if (_metadataService != null && _historicalDataStore != null)
+        if (metadataService != null && historicalDataStore != null)
         {
             foreach (var symbol in uniqueSymbols)
             {
-                if (_historicalDataStore.HasData(symbol))
+                if (historicalDataStore.HasData(symbol))
                 {
-                    var bars = _historicalDataStore.GetBars(symbol);
+                    var bars = historicalDataStore.GetBars(symbol);
                     if (bars.Count > 0)
                     {
                         try
                         {
-                            _metadataService.BuildFromHistoricalBars(symbol, bars);
+                            metadataService.BuildFromHistoricalBars(symbol, bars);
                         }
                         catch (Exception ex)
                         {
@@ -409,7 +409,7 @@ internal sealed class Program
         int baseTickerId = 1001;
         foreach (var strategy in enabledStrategies)
         {
-            if (_contracts.ContainsKey(strategy.Symbol))
+            if (contracts.ContainsKey(strategy.Symbol))
                 continue;
 
             int tickerId = baseTickerId++;
@@ -423,24 +423,24 @@ internal sealed class Program
                 Currency = strategy.Currency
             };
 
-            _contracts[strategy.Symbol] = contract;
-            _prices[strategy.Symbol] = 0;
+            contracts[strategy.Symbol] = contract;
+            prices[strategy.Symbol] = 0;
 
-            _wrapper.RegisterTickerHandler(tickerId, (price, size) =>
+            wrapper.RegisterTickerHandler(tickerId, (price, size) =>
             {
-                _prices[strategy.Symbol] = price;
-                Task.Run(async () => await (_webFrontendClient?.OnPriceTickAsync(strategy.Symbol, price, 0, 0, size) ?? Task.CompletedTask));
+                prices[strategy.Symbol] = price;
+                Task.Run(async () => await (webFrontendClient?.OnPriceTickAsync(strategy.Symbol, price, 0, 0, size) ?? Task.CompletedTask));
             });
 
-            _client.reqMktData(tickerId, contract, "", false, false, null);
-            _tickerIds.Add(tickerId);
+            client.reqMktData(tickerId, contract, "", false, false, null);
+            tickerIds.Add(tickerId);
         }
 
         // Wait for initial prices
         var priceWaitStart = DateTime.UtcNow;
         while ((DateTime.UtcNow - priceWaitStart).TotalSeconds < 5)
         {
-            if (_prices.Values.All(p => p > 0))
+            if (prices.Values.All(p => p > 0))
                 break;
             Thread.Sleep(100);
         }
@@ -448,16 +448,16 @@ internal sealed class Program
         // Create strategy runners
         foreach (var strategy in enabledStrategies)
         {
-            var contract = _contracts[strategy.Symbol];
-            var runner = new StrategyRunner(strategy, contract, _wrapper, _client);
+            var contract = contracts[strategy.Symbol];
+            var runner = new StrategyRunner(strategy, contract, wrapper, client);
 
-            if (_metadataService != null)
-                runner.TickerMetadata = _metadataService.Load(strategy.Symbol);
+            if (metadataService != null)
+                runner.TickerMetadata = metadataService.Load(strategy.Symbol);
 
-            if (_historicalDataStore?.HasData(strategy.Symbol) == true)
-                runner.WarmUpFromHistoricalData(_historicalDataStore.GetBars(strategy.Symbol));
+            if (historicalDataStore?.HasData(strategy.Symbol) == true)
+                runner.WarmUpFromHistoricalData(historicalDataStore.GetBars(strategy.Symbol));
 
-            _runners.Add(runner);
+            runners.Add(runner);
 
             // Wire up ticker handler
             int tickerIndex = enabledStrategies
@@ -469,19 +469,19 @@ internal sealed class Program
             {
                 int tickerId = 1001 + tickerIndex;
                 var symbol = strategy.Symbol;
-                _wrapper.RegisterTickerHandler(tickerId, (price, size) =>
+                wrapper.RegisterTickerHandler(tickerId, (price, size) =>
                 {
-                    _prices[symbol] = price;
+                    prices[symbol] = price;
                     runner.OnLastTrade(price, size);
                 });
 
-                _wrapper.RegisterBidAskHandler(tickerId, runner.OnBidAskUpdate);
+                wrapper.RegisterBidAskHandler(tickerId, runner.OnBidAskUpdate);
             }
         }
 
-        _isActive = true;
+        isActive = true;
         Log(">>> TRADING ACTIVATED <<<");
-        _sessionLogger?.LogEvent("TRADING", "Trading activated");
+        sessionLogger?.LogEvent("TRADING", "Trading activated");
 
         StartPriceCheckTimer();
         StartWebFrontendTimer();
@@ -489,74 +489,74 @@ internal sealed class Program
 
     private static void DeactivateTrading()
     {
-        if (!_isActive)
+        if (!isActive)
             return;
 
         Log("Deactivating trading...");
 
-        foreach (var runner in _runners)
+        foreach (var runner in runners)
             runner.Dispose();
-        _runners.Clear();
+        runners.Clear();
 
-        if (_client != null && _wrapper != null)
+        if (client != null && wrapper != null)
         {
-            foreach (var tickerId in _tickerIds)
+            foreach (var tickerId in tickerIds)
             {
-                _client.cancelMktData(tickerId);
-                _wrapper.UnregisterTickerHandler(tickerId);
+                client.cancelMktData(tickerId);
+                wrapper.UnregisterTickerHandler(tickerId);
             }
         }
-        _tickerIds.Clear();
-        _contracts.Clear();
-        _prices.Clear();
+        tickerIds.Clear();
+        contracts.Clear();
+        prices.Clear();
 
         StopPriceCheckTimer();
         StopWebFrontendTimer();
 
-        _isActive = false;
+        isActive = false;
         Log("Trading deactivated.");
-        _sessionLogger?.LogEvent("TRADING", "Trading deactivated");
+        sessionLogger?.LogEvent("TRADING", "Trading deactivated");
     }
 
     private static void StartWebFrontendTimer()
     {
-        if (_webFrontendClient == null) return;
-        _webFrontendTimer = new Timer(OnWebFrontendTimer, null, 0, 5000);
+        if (webFrontendClient == null) return;
+        webFrontendTimer = new Timer(OnWebFrontendTimer, null, 0, 5000);
     }
 
     private static void StopWebFrontendTimer()
     {
-        _webFrontendTimer?.Dispose();
-        _webFrontendTimer = null;
+        webFrontendTimer?.Dispose();
+        webFrontendTimer = null;
     }
 
     private static async void OnWebFrontendTimer(object? state)
     {
-        if (_webFrontendClient == null || _wrapper == null) return;
+        if (webFrontendClient == null || wrapper == null) return;
 
         try
         {
-            await _webFrontendClient.SendHeartbeatAsync();
+            await webFrontendClient.SendHeartbeatAsync();
 
-            _wrapper.RequestPositionsAndWait(TimeSpan.FromSeconds(2));
-            var positions = _wrapper.Positions
+            wrapper.RequestPositionsAndWait(TimeSpan.FromSeconds(2));
+            var positions = wrapper.Positions
                 .Where(p => p.Value.Quantity != 0)
                 .Select(p => new PositionPayload
                 {
                     Symbol = p.Key,
                     Quantity = p.Value.Quantity,
                     AvgCost = p.Value.AvgCost,
-                    MarketPrice = _prices.TryGetValue(p.Key, out var price) ? price : null,
-                    UnrealizedPnL = _prices.TryGetValue(p.Key, out var mktPrice)
+                    MarketPrice = prices.TryGetValue(p.Key, out var price) ? price : null,
+                    UnrealizedPnL = prices.TryGetValue(p.Key, out var mktPrice)
                         ? ((double)p.Value.Quantity * mktPrice) - ((double)p.Value.Quantity * p.Value.AvgCost)
                         : null
                 })
                 .ToList();
 
             if (positions.Count > 0)
-                await _webFrontendClient.SendPositionsAsync(positions);
+                await webFrontendClient.SendPositionsAsync(positions);
 
-            var orders = _wrapper.OpenOrders
+            var orders = wrapper.OpenOrders
                 .Select(o => new OrderPayload
                 {
                     OrderId = o.Key,
@@ -570,10 +570,10 @@ internal sealed class Program
                 })
                 .ToList();
 
-            await _webFrontendClient.SendOrdersAsync(orders);
+            await webFrontendClient.SendOrdersAsync(orders);
 
             // Process commands from Web UI
-            var commands = await _webFrontendClient.GetPendingCommandsAsync();
+            var commands = await webFrontendClient.GetPendingCommandsAsync();
             foreach (var cmd in commands)
             {
                 ProcessWebCommand(cmd);
@@ -587,7 +587,7 @@ internal sealed class Program
 
     private static void ProcessWebCommand(TradingCommandPayload cmd)
     {
-        if (_client == null || _wrapper == null) return;
+        if (client == null || wrapper == null) return;
 
         try
         {
@@ -605,12 +605,12 @@ internal sealed class Program
 
                 case "CancelOrder":
                     Log($"[Web] Cancel order {cmd.OrderId}");
-                    _wrapper.CancelOrder(cmd.OrderId);
+                    wrapper.CancelOrder(cmd.OrderId);
                     break;
 
                 case "CancelAllOrders":
                     Log("[Web] Cancel all orders");
-                    _wrapper.CancelAllOrders();
+                    wrapper.CancelAllOrders();
                     break;
 
                 case "ClosePosition":
@@ -628,7 +628,7 @@ internal sealed class Program
 
                 case "ReloadWatchlist":
                     Log("[Web] Reload watchlist");
-                    var wasActive = _isActive;
+                    var wasActive = isActive;
                     if (wasActive) DeactivateTrading();
                     LoadStrategies();
                     if (wasActive) ActivateTrading();
@@ -643,9 +643,9 @@ internal sealed class Program
 
     private static void ClosePositionBySymbol(string symbol)
     {
-        if (_wrapper == null || _client == null) return;
+        if (wrapper == null || client == null) return;
 
-        if (_wrapper.Positions.TryGetValue(symbol, out var pos) && pos.Quantity != 0)
+        if (wrapper.Positions.TryGetValue(symbol, out var pos) && pos.Quantity != 0)
         {
             var contract = new Contract
             {
@@ -664,18 +664,18 @@ internal sealed class Program
                 OutsideRth = true
             };
 
-            var orderId = _wrapper.ConsumeNextOrderId();
-            _client.placeOrder(orderId, contract, order);
+            var orderId = wrapper.ConsumeNextOrderId();
+            client.placeOrder(orderId, contract, order);
             Log($"Close order: {order.Action} {order.TotalQuantity} {symbol} @ MKT (ID: {orderId})");
         }
     }
 
     private static void CloseAllPositions()
     {
-        if (_wrapper == null) return;
+        if (wrapper == null) return;
 
-        var managedTickers = _runners.Select(r => r.Strategy.Symbol).ToHashSet(StringComparer.OrdinalIgnoreCase);
-        foreach (var pos in _wrapper.Positions.Where(p => p.Value.Quantity != 0 && managedTickers.Contains(p.Key)))
+        var managedTickers = runners.Select(r => r.Strategy.Symbol).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        foreach (var pos in wrapper.Positions.Where(p => p.Value.Quantity != 0 && managedTickers.Contains(p.Key)))
         {
             ClosePositionBySymbol(pos.Key);
         }
@@ -686,28 +686,28 @@ internal sealed class Program
         if (AppSettings.TickerPriceCheckIntervalSeconds <= 0)
             return;
 
-        foreach (var kvp in _prices)
-            _previousPrices[kvp.Key] = kvp.Value;
+        foreach (var kvp in prices)
+            previousPrices[kvp.Key] = kvp.Value;
 
         var intervalMs = AppSettings.TickerPriceCheckIntervalSeconds * 1000;
-        _priceCheckTimer = new Timer(OnPriceCheckTimer, null, intervalMs, intervalMs);
+        priceCheckTimer = new Timer(OnPriceCheckTimer, null, intervalMs, intervalMs);
     }
 
     private static void StopPriceCheckTimer()
     {
-        _priceCheckTimer?.Dispose();
-        _priceCheckTimer = null;
-        _previousPrices.Clear();
+        priceCheckTimer?.Dispose();
+        priceCheckTimer = null;
+        previousPrices.Clear();
     }
 
     private static void OnPriceCheckTimer(object? state)
     {
-        if (!_isActive || _prices.Count == 0)
+        if (!isActive || prices.Count == 0)
             return;
 
         var priceReports = new List<string>();
 
-        foreach (var kvp in _prices.OrderBy(p => p.Key))
+        foreach (var kvp in prices.OrderBy(p => p.Key))
         {
             var symbol = kvp.Key;
             var currentPrice = kvp.Value;
@@ -715,7 +715,7 @@ internal sealed class Program
             if (currentPrice <= 0)
                 continue;
 
-            var previousPrice = _previousPrices.TryGetValue(symbol, out var prev) ? prev : currentPrice;
+            var previousPrice = previousPrices.TryGetValue(symbol, out var prev) ? prev : currentPrice;
             var percentChange = previousPrice > 0 ? ((currentPrice - previousPrice) / previousPrice) * 100 : 0;
 
             string changeIndicator;
@@ -727,7 +727,7 @@ internal sealed class Program
                 changeIndicator = "0.00%";
 
             priceReports.Add($"{symbol}: {currentPrice:F2} ({changeIndicator})");
-            _previousPrices[symbol] = currentPrice;
+            previousPrices[symbol] = currentPrice;
         }
 
         if (priceReports.Count > 0)
@@ -738,10 +738,10 @@ internal sealed class Program
 
     private static double GetTickerPrice(string symbol)
     {
-        if (_wrapper == null || _client == null || !_isConnected)
+        if (wrapper == null || client == null || !isConnected)
             return 0;
 
-        if (_prices.TryGetValue(symbol, out var cachedPrice) && cachedPrice > 0)
+        if (prices.TryGetValue(symbol, out var cachedPrice) && cachedPrice > 0)
             return cachedPrice;
 
         try
@@ -756,9 +756,9 @@ internal sealed class Program
 
             double price = 0;
             var priceReceived = new ManualResetEventSlim(false);
-            var tickerId = _wrapper.ConsumeNextOrderId();
+            var tickerId = wrapper.ConsumeNextOrderId();
 
-            _wrapper.RegisterTickerHandler(tickerId, (p, size) =>
+            wrapper.RegisterTickerHandler(tickerId, (p, size) =>
             {
                 if (p > 0)
                 {
@@ -767,9 +767,9 @@ internal sealed class Program
                 }
             });
 
-            _client.reqMktData(tickerId, contract, "", true, false, null);
+            client.reqMktData(tickerId, contract, "", true, false, null);
             priceReceived.Wait(TimeSpan.FromSeconds(3));
-            _wrapper.UnregisterTickerHandler(tickerId);
+            wrapper.UnregisterTickerHandler(tickerId);
 
             return price;
         }
@@ -781,17 +781,17 @@ internal sealed class Program
 
     private static void ResubscribeMarketData()
     {
-        if (_client == null) return;
+        if (client == null) return;
 
         int tickerIndex = 0;
-        foreach (var kvp in _contracts)
+        foreach (var kvp in contracts)
         {
-            if (tickerIndex < _tickerIds.Count)
+            if (tickerIndex < tickerIds.Count)
             {
-                int tickerId = _tickerIds[tickerIndex];
-                try { _client.cancelMktData(tickerId); } catch { }
+                int tickerId = tickerIds[tickerIndex];
+                try { client.cancelMktData(tickerId); } catch { }
                 Thread.Sleep(100);
-                _client.reqMktData(tickerId, kvp.Value, "", false, false, null);
+                client.reqMktData(tickerId, kvp.Value, "", false, false, null);
                 tickerIndex++;
             }
         }
@@ -802,20 +802,20 @@ internal sealed class Program
     {
         Log("Shutting down...");
 
-        _heartbeatTimer?.Dispose();
-        _sessionLogger?.WriteFinalLog("Shutdown");
+        heartbeatTimer?.Dispose();
+        sessionLogger?.WriteFinalLog("Shutdown");
 
         DeactivateTrading();
 
-        _historicalDataService?.Dispose();
-        _client?.eDisconnect();
-        _wrapper?.Dispose();
-        _sessionLogger?.Dispose();
-        _tradeTrackingService?.Dispose();
-        _alertService?.Dispose();
-        _alertWebIntegration?.Dispose();
-        _webFrontendClient?.Dispose();
-        _shutdownCts.Dispose();
+        historicalDataService?.Dispose();
+        client?.eDisconnect();
+        wrapper?.Dispose();
+        sessionLogger?.Dispose();
+        tradeTrackingService?.Dispose();
+        alertService?.Dispose();
+        alertWebIntegration?.Dispose();
+        webFrontendClient?.Dispose();
+        shutdownCts.Dispose();
 
         Log("Core engine stopped.");
     }
@@ -826,14 +826,14 @@ internal sealed class Program
     private static void Log(string message)
     {
         // Log to session logger (writes to file)
-        _sessionLogger?.LogEvent("CORE", message);
+        sessionLogger?.LogEvent("CORE", message);
 
         // Send to Web UI log tab
         Task.Run(async () =>
         {
             try
             {
-                await (_webFrontendClient?.SendLogMessageAsync(message) ?? Task.CompletedTask);
+                await (webFrontendClient?.SendLogMessageAsync(message) ?? Task.CompletedTask);
             }
             catch
             {

@@ -57,26 +57,26 @@ public sealed class WebFrontendConfig
 /// </summary>
 public sealed class WebFrontendClient : IDisposable
 {
-    private readonly WebFrontendConfig _config;
-    private readonly HttpClient _httpClient;
-    private readonly List<TickPayload> _tickBatch = new();
-    private readonly object _batchLock = new();
-    private readonly Timer? _batchTimer;
-    private bool _disposed;
+    private readonly WebFrontendConfig config;
+    private readonly HttpClient httpClient;
+    private readonly List<TickPayload> tickBatch = new();
+    private readonly object batchLock = new();
+    private readonly Timer? batchTimer;
+    private bool disposed;
     
     public WebFrontendClient(WebFrontendConfig? config = null)
     {
-        _config = config ?? new WebFrontendConfig();
+        this.config = config ?? new WebFrontendConfig();
         
-        _httpClient = new HttpClient
+        httpClient = new HttpClient
         {
-            BaseAddress = new Uri(_config.BaseUrl),
-            Timeout = _config.Timeout
+            BaseAddress = new Uri(config.BaseUrl),
+            Timeout = config.Timeout
         };
         
-        if (_config.BatchTicks)
+        if (config.BatchTicks)
         {
-            _batchTimer = new Timer(FlushBatch, null, _config.BatchTimeout, _config.BatchTimeout);
+            batchTimer = new Timer(FlushBatch, null, config.BatchTimeout, config.BatchTimeout);
         }
     }
     
@@ -85,7 +85,7 @@ public sealed class WebFrontendClient : IDisposable
     /// </summary>
     public async Task OnPriceTickAsync(string symbol, double price, double bid = 0, double ask = 0, long volume = 0)
     {
-        if (!_config.Enabled) return;
+        if (!config.Enabled) return;
         
         var tick = new TickPayload
         {
@@ -96,13 +96,13 @@ public sealed class WebFrontendClient : IDisposable
             Volume = volume
         };
         
-        if (_config.BatchTicks)
+        if (config.BatchTicks)
         {
-            lock (_batchLock)
+            lock (batchLock)
             {
-                _tickBatch.Add(tick);
+                tickBatch.Add(tick);
                 
-                if (_tickBatch.Count >= _config.BatchSize)
+                if (tickBatch.Count >= config.BatchSize)
                 {
                     _ = FlushBatchAsync();
                 }
@@ -119,7 +119,7 @@ public sealed class WebFrontendClient : IDisposable
     /// </summary>
     public async Task OnCandleCompleteAsync(string symbol, DateTime time, double open, double high, double low, double close, long volume)
     {
-        if (!_config.Enabled) return;
+        if (!config.Enabled) return;
         
         try
         {
@@ -134,7 +134,7 @@ public sealed class WebFrontendClient : IDisposable
                 volume
             };
             
-            await _httpClient.PostAsJsonAsync("/api/marketdata/candle", candle);
+            await httpClient.PostAsJsonAsync("/api/marketdata/candle", candle);
         }
         catch (Exception ex)
         {
@@ -148,7 +148,7 @@ public sealed class WebFrontendClient : IDisposable
     /// </summary>
     public async Task SetDailyDataAsync(string symbol, double prevClose, double dayOpen, double dayHigh, double dayLow, double avgVolume)
     {
-        if (!_config.Enabled) return;
+        if (!config.Enabled) return;
         
         try
         {
@@ -162,7 +162,7 @@ public sealed class WebFrontendClient : IDisposable
                 avgVolume
             };
             
-            await _httpClient.PostAsJsonAsync("/api/marketdata/daily", data);
+            await httpClient.PostAsJsonAsync("/api/marketdata/daily", data);
         }
         catch (Exception ex)
         {
@@ -184,7 +184,7 @@ public sealed class WebFrontendClient : IDisposable
         object? longSetup = null,
         object? shortSetup = null)
     {
-        if (!_config.Enabled) return;
+        if (!config.Enabled) return;
         
         try
         {
@@ -201,7 +201,7 @@ public sealed class WebFrontendClient : IDisposable
                 shortSetup
             };
             
-            await _httpClient.PostAsJsonAsync("/api/marketdata/alert", alert);
+            await httpClient.PostAsJsonAsync("/api/marketdata/alert", alert);
             Console.WriteLine($"[WebClient] Alert sent: {symbol} {type}");
         }
         catch (Exception ex)
@@ -214,7 +214,7 @@ public sealed class WebFrontendClient : IDisposable
     {
         try
         {
-            await _httpClient.PostAsJsonAsync("/api/marketdata/tick", tick);
+            await httpClient.PostAsJsonAsync("/api/marketdata/tick", tick);
         }
         catch
         {
@@ -231,17 +231,17 @@ public sealed class WebFrontendClient : IDisposable
     {
         TickPayload[] ticksToSend;
         
-        lock (_batchLock)
+        lock (batchLock)
         {
-            if (_tickBatch.Count == 0) return;
+            if (tickBatch.Count == 0) return;
             
-            ticksToSend = _tickBatch.ToArray();
-            _tickBatch.Clear();
+            ticksToSend = tickBatch.ToArray();
+            tickBatch.Clear();
         }
         
         try
         {
-            await _httpClient.PostAsJsonAsync("/api/marketdata/ticks", ticksToSend);
+            await httpClient.PostAsJsonAsync("/api/marketdata/ticks", ticksToSend);
         }
         catch
         {
@@ -256,7 +256,7 @@ public sealed class WebFrontendClient : IDisposable
     {
         try
         {
-            var response = await _httpClient.GetAsync("/api/marketdata/symbols");
+            var response = await httpClient.GetAsync("/api/marketdata/symbols");
             return response.IsSuccessStatusCode;
         }
         catch
@@ -270,11 +270,11 @@ public sealed class WebFrontendClient : IDisposable
     /// </summary>
     public async Task SendHeartbeatAsync()
     {
-        if (!_config.Enabled) return;
+        if (!config.Enabled) return;
 
         try
         {
-            await _httpClient.PostAsync("/api/marketdata/heartbeat", null);
+            await httpClient.PostAsync("/api/marketdata/heartbeat", null);
         }
         catch
         {
@@ -287,11 +287,11 @@ public sealed class WebFrontendClient : IDisposable
     /// </summary>
     public async Task SendPositionsAsync(IEnumerable<PositionPayload> positions)
     {
-        if (!_config.Enabled) return;
+        if (!config.Enabled) return;
 
         try
         {
-            await _httpClient.PostAsJsonAsync("/api/marketdata/positions", positions.ToArray());
+            await httpClient.PostAsJsonAsync("/api/marketdata/positions", positions.ToArray());
         }
         catch (Exception ex)
         {
@@ -304,11 +304,11 @@ public sealed class WebFrontendClient : IDisposable
     /// </summary>
     public async Task SendOrdersAsync(IEnumerable<OrderPayload> orders)
     {
-        if (!_config.Enabled) return;
+        if (!config.Enabled) return;
 
         try
         {
-            await _httpClient.PostAsJsonAsync("/api/marketdata/orders", orders.ToArray());
+            await httpClient.PostAsJsonAsync("/api/marketdata/orders", orders.ToArray());
         }
         catch (Exception ex)
         {
@@ -321,7 +321,7 @@ public sealed class WebFrontendClient : IDisposable
     /// </summary>
     public async Task SendLogMessageAsync(string message)
     {
-        if (!_config.Enabled) return;
+        if (!config.Enabled) return;
 
         try
         {
@@ -334,7 +334,7 @@ public sealed class WebFrontendClient : IDisposable
                 message,
                 htmlContent = (string?)null
             };
-            await _httpClient.PostAsJsonAsync("/api/marketdata/log", payload);
+            await httpClient.PostAsJsonAsync("/api/marketdata/log", payload);
         }
         catch
         {
@@ -353,7 +353,7 @@ public sealed class WebFrontendClient : IDisposable
         string? htmlContent = null,
         object? data = null)
     {
-        if (!_config.Enabled) return;
+        if (!config.Enabled) return;
 
         try
         {
@@ -368,7 +368,7 @@ public sealed class WebFrontendClient : IDisposable
                 htmlContent,
                 data
             };
-            await _httpClient.PostAsJsonAsync("/api/marketdata/log", payload);
+            await httpClient.PostAsJsonAsync("/api/marketdata/log", payload);
         }
         catch
         {
@@ -503,11 +503,11 @@ public sealed class WebFrontendClient : IDisposable
     /// </summary>
     public async Task<List<TradingCommandPayload>> GetPendingCommandsAsync()
     {
-        if (!_config.Enabled) return [];
+        if (!config.Enabled) return [];
 
         try
         {
-            var response = await _httpClient.GetAsync("/api/marketdata/commands");
+            var response = await httpClient.GetAsync("/api/marketdata/commands");
             if (response.IsSuccessStatusCode)
             {
                 return await response.Content.ReadFromJsonAsync<List<TradingCommandPayload>>() ?? [];
@@ -523,11 +523,11 @@ public sealed class WebFrontendClient : IDisposable
 
     public void Dispose()
     {
-        if (_disposed) return;
-        _disposed = true;
+        if (disposed) return;
+        disposed = true;
 
-        _batchTimer?.Dispose();
-        _httpClient.Dispose();
+        batchTimer?.Dispose();
+        httpClient.Dispose();
     }
 
     private sealed class TickPayload

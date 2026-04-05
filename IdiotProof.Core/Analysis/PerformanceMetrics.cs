@@ -1,4 +1,4 @@
-// ============================================================================
+﻿// ============================================================================
 // Performance Metrics - Advanced performance calculations
 // ============================================================================
 
@@ -11,13 +11,13 @@ namespace IdiotProof.Analysis;
 /// </summary>
 public sealed class PerformanceMetrics
 {
-    private readonly SimulationResult _result;
-    private readonly double _initialCapital;
+    private readonly SimulationResult result;
+    private readonly double initialCapital;
 
     public PerformanceMetrics(SimulationResult result, double initialCapital = 10000)
     {
-        _result = result;
-        _initialCapital = initialCapital;
+        this.result = result;
+        this.initialCapital = initialCapital;
     }
 
     // ========================================================================
@@ -25,24 +25,24 @@ public sealed class PerformanceMetrics
     // ========================================================================
 
     /// <summary>Total return in dollars.</summary>
-    public double TotalReturn => _result.TotalPnL;
+    public double TotalReturn => result.TotalPnL;
 
     /// <summary>Total return as percentage of initial capital.</summary>
-    public double TotalReturnPercent => TotalReturn / _initialCapital * 100;
+    public double TotalReturnPercent => TotalReturn / initialCapital * 100;
 
     /// <summary>Average return per trade.</summary>
-    public double AvgReturnPerTrade => _result.Trades.Count > 0
-        ? TotalReturn / _result.Trades.Count
+    public double AvgReturnPerTrade => result.Trades.Count > 0
+        ? TotalReturn / result.Trades.Count
         : 0;
 
     /// <summary>Best single trade.</summary>
-    public double BestTrade => _result.Trades.Count > 0
-        ? _result.Trades.Max(t => t.PnL)
+    public double BestTrade => result.Trades.Count > 0
+        ? result.Trades.Max(t => t.PnL)
         : 0;
 
     /// <summary>Worst single trade.</summary>
-    public double WorstTrade => _result.Trades.Count > 0
-        ? _result.Trades.Min(t => t.PnL)
+    public double WorstTrade => result.Trades.Count > 0
+        ? result.Trades.Min(t => t.PnL)
         : 0;
 
     // ========================================================================
@@ -50,10 +50,10 @@ public sealed class PerformanceMetrics
     // ========================================================================
 
     /// <summary>Maximum drawdown in dollars.</summary>
-    public double MaxDrawdown => _result.MaxDrawdown;
+    public double MaxDrawdown => result.MaxDrawdown;
 
     /// <summary>Maximum drawdown as percentage.</summary>
-    public double MaxDrawdownPercent => _result.MaxDrawdownPercent;
+    public double MaxDrawdownPercent => result.MaxDrawdownPercent;
 
     /// <summary>Calmar Ratio (annualized return / max drawdown).</summary>
     public double CalmarRatio => MaxDrawdown > 0
@@ -65,8 +65,8 @@ public sealed class PerformanceMetrics
     {
         get
         {
-            if (_result.Trades.Count < 2) return 0;
-            var pnls = _result.Trades.Select(t => t.PnL).ToList();
+            if (result.Trades.Count < 2) return 0;
+            var pnls = result.Trades.Select(t => t.PnL).ToList();
             double mean = pnls.Average();
             double variance = pnls.Sum(p => Math.Pow(p - mean, 2)) / (pnls.Count - 1);
             return Math.Sqrt(variance);
@@ -83,7 +83,7 @@ public sealed class PerformanceMetrics
     {
         get
         {
-            var losses = _result.Trades.Where(t => t.PnL < 0).Select(t => t.PnL).ToList();
+            var losses = result.Trades.Where(t => t.PnL < 0).Select(t => t.PnL).ToList();
             if (losses.Count == 0) return TotalReturn > 0 ? double.MaxValue : 0;
 
             double downsideDeviation = Math.Sqrt(losses.Sum(l => l * l) / losses.Count);
@@ -96,16 +96,16 @@ public sealed class PerformanceMetrics
     // ========================================================================
 
     /// <summary>Win rate as percentage.</summary>
-    public double WinRate => _result.WinRate;
+    public double WinRate => result.WinRate;
 
     /// <summary>Profit factor.</summary>
-    public double ProfitFactor => _result.ProfitFactor;
+    public double ProfitFactor => result.ProfitFactor;
 
     /// <summary>Average winning trade.</summary>
-    public double AvgWin => _result.AvgWin;
+    public double AvgWin => result.AvgWin;
 
     /// <summary>Average losing trade.</summary>
-    public double AvgLoss => _result.AvgLoss;
+    public double AvgLoss => result.AvgLoss;
 
     /// <summary>Ratio of avg win to avg loss.</summary>
     public double PayoffRatio => AvgLoss != 0
@@ -129,7 +129,7 @@ public sealed class PerformanceMetrics
         get
         {
             int max = 0, current = 0;
-            foreach (var trade in _result.Trades)
+            foreach (var trade in result.Trades)
             {
                 if (trade.PnL > 0) { current++; max = Math.Max(max, current); }
                 else { current = 0; }
@@ -144,7 +144,7 @@ public sealed class PerformanceMetrics
         get
         {
             int max = 0, current = 0;
-            foreach (var trade in _result.Trades)
+            foreach (var trade in result.Trades)
             {
                 if (trade.PnL < 0) { current++; max = Math.Max(max, current); }
                 else { current = 0; }
@@ -158,18 +158,18 @@ public sealed class PerformanceMetrics
     // ========================================================================
 
     /// <summary>Average trade duration.</summary>
-    public TimeSpan AvgTradeDuration => _result.Trades.Count > 0
-        ? TimeSpan.FromMinutes(_result.Trades.Average(t => t.Duration.TotalMinutes))
+    public TimeSpan AvgTradeDuration => result.Trades.Count > 0
+        ? TimeSpan.FromMinutes(result.Trades.Average(t => t.Duration.TotalMinutes))
         : TimeSpan.Zero;
 
     /// <summary>Longest trade duration.</summary>
-    public TimeSpan LongestTrade => _result.Trades.Count > 0
-        ? _result.Trades.Max(t => t.Duration)
+    public TimeSpan LongestTrade => result.Trades.Count > 0
+        ? result.Trades.Max(t => t.Duration)
         : TimeSpan.Zero;
 
     /// <summary>Shortest trade duration.</summary>
-    public TimeSpan ShortestTrade => _result.Trades.Count > 0
-        ? _result.Trades.Min(t => t.Duration)
+    public TimeSpan ShortestTrade => result.Trades.Count > 0
+        ? result.Trades.Min(t => t.Duration)
         : TimeSpan.Zero;
 
     // ========================================================================
@@ -178,7 +178,7 @@ public sealed class PerformanceMetrics
 
     /// <summary>Count of trades by exit reason.</summary>
     public Dictionary<ExitReason, int> ExitReasonCounts =>
-        _result.Trades
+        result.Trades
             .GroupBy(t => t.ExitReason)
             .ToDictionary(g => g.Key, g => g.Count());
 
@@ -213,7 +213,7 @@ public sealed class PerformanceMetrics
             +------------------------------------------------------------------+
             | TRADE ANALYSIS                                                   |
             +------------------------------------------------------------------+
-            | Trades:            {_result.Trades.Count,10}
+            | Trades:            {result.Trades.Count,10}
             | Win Rate:          {WinRate,10:F1}%
             | Profit Factor:     {ProfitFactor,10:F2}
             | Payoff Ratio:      {PayoffRatio,10:F2}

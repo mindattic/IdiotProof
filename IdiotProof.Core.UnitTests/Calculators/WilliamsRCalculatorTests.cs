@@ -1,4 +1,4 @@
-// ============================================================================
+﻿// ============================================================================
 // Williams %R Calculator Tests - Validates Williams %R with real data
 // ============================================================================
 
@@ -10,12 +10,12 @@ namespace IdiotProof.Core.UnitTests.Calculators;
 [TestFixture]
 public class WilliamsRCalculatorTests
 {
-    private List<TestBar> _bars = null!;
+    private List<TestBar> bars = null!;
 
     [OneTimeSetUp]
     public void LoadData()
     {
-        _bars = TestDataLoader.LoadBars("NVDA", 200);
+        bars = TestDataLoader.LoadBars("NVDA", 200);
     }
 
     // ========================================================================
@@ -46,11 +46,11 @@ public class WilliamsRCalculatorTests
 
         for (int i = 0; i < 13; i++)
         {
-            wr.Update(_bars[i].High, _bars[i].Low, _bars[i].Close);
+            wr.Update(bars[i].High, bars[i].Low, bars[i].Close);
             Assert.That(wr.IsReady, Is.False);
         }
 
-        wr.Update(_bars[13].High, _bars[13].Low, _bars[13].Close);
+        wr.Update(bars[13].High, bars[13].Low, bars[13].Close);
         Assert.That(wr.IsReady, Is.True);
     }
 
@@ -65,7 +65,7 @@ public class WilliamsRCalculatorTests
 
         for (int i = 0; i < 100; i++)
         {
-            wr.Update(_bars[i].High, _bars[i].Low, _bars[i].Close);
+            wr.Update(bars[i].High, bars[i].Low, bars[i].Close);
             if (wr.IsReady)
             {
                 Assert.That(wr.CurrentValue, Is.GreaterThanOrEqualTo(-100).And.LessThanOrEqualTo(0),
@@ -84,9 +84,9 @@ public class WilliamsRCalculatorTests
         var wr = new WilliamsRCalculator(5);
 
         for (int i = 0; i < 5; i++)
-            wr.Update(_bars[i].High, _bars[i].Low, _bars[i].Close);
+            wr.Update(bars[i].High, bars[i].Low, bars[i].Close);
 
-        var subset = _bars.Take(5).ToList();
+        var subset = bars.Take(5).ToList();
         double hh = subset.Max(b => b.High);
         double ll = subset.Min(b => b.Low);
         double close = subset[^1].Close;
@@ -185,7 +185,7 @@ public class WilliamsRCalculatorTests
 
         for (int i = 0; i < 50; i++)
         {
-            wr.Update(_bars[i].High, _bars[i].Low, _bars[i].Close);
+            wr.Update(bars[i].High, bars[i].Low, bars[i].Close);
             int score = wr.GetScore();
             Assert.That(score, Is.GreaterThanOrEqualTo(-100).And.LessThanOrEqualTo(100));
         }
@@ -200,7 +200,7 @@ public class WilliamsRCalculatorTests
     {
         var wr = new WilliamsRCalculator(5);
         for (int i = 0; i < 10; i++)
-            wr.Update(_bars[i].High, _bars[i].Low, _bars[i].Close);
+            wr.Update(bars[i].High, bars[i].Low, bars[i].Close);
 
         double before = wr.CurrentValue;
         wr.Update(0, 0, 0);
@@ -217,7 +217,7 @@ public class WilliamsRCalculatorTests
         var wr = new WilliamsRCalculator(14);
 
         for (int i = 0; i < 100; i++)
-            wr.Update(_bars[i].High, _bars[i].Low, _bars[i].Close);
+            wr.Update(bars[i].High, bars[i].Low, bars[i].Close);
 
         Assert.That(wr.IsReady, Is.True);
         Assert.That(wr.CurrentValue, Is.GreaterThanOrEqualTo(-100).And.LessThanOrEqualTo(0));

@@ -1,4 +1,4 @@
-// ============================================================================
+﻿// ============================================================================
 // Stochastic Oscillator Calculator - Momentum Analysis
 // ============================================================================
 //
@@ -25,55 +25,55 @@ namespace IdiotProof.Helpers {
     /// </summary>
     public sealed class StochasticCalculator
     {
-        private readonly int _kPeriod;
-        private readonly int _dPeriod;
-        private readonly Queue<double> _highs;
-        private readonly Queue<double> _lows;
-        private readonly Queue<double> _closes;
-        private readonly Queue<double> _kValues;
+        private readonly int kPeriod;
+        private readonly int dPeriod;
+        private readonly Queue<double> highs;
+        private readonly Queue<double> lows;
+        private readonly Queue<double> closes;
+        private readonly Queue<double> kValues;
 
-        private double _percentK;
-        private double _percentD;
-        private double _previousK;
-        private double _previousD;
-        private bool _isReady;
+        private double percentK;
+        private double percentD;
+        private double previousK;
+        private double previousD;
+        private bool isReady;
 
         /// <summary>
         /// Gets the %K value (fast stochastic).
         /// </summary>
-        public double PercentK => _percentK;
+        public double PercentK => percentK;
 
         /// <summary>
         /// Gets the %D value (slow stochastic / signal line).
         /// </summary>
-        public double PercentD => _percentD;
+        public double PercentD => percentD;
 
         /// <summary>
         /// Gets whether the calculator has enough data.
         /// </summary>
-        public bool IsReady => _isReady;
+        public bool IsReady => isReady;
 
         /// <summary>
         /// Gets whether stochastic is in overbought territory (>80).
         /// </summary>
-        public bool IsOverbought => _isReady && _percentK > 80;
+        public bool IsOverbought => isReady && percentK > 80;
 
         /// <summary>
         /// Gets whether stochastic is in oversold territory (<20).
         /// </summary>
-        public bool IsOversold => _isReady && _percentK < 20;
+        public bool IsOversold => isReady && percentK < 20;
 
         /// <summary>
         /// Gets whether there's a bullish crossover (%K crosses above %D in oversold zone).
         /// </summary>
-        public bool IsBullishCrossover => _isReady &&
-            _previousK <= _previousD && _percentK > _percentD && _percentK < 30;
+        public bool IsBullishCrossover => isReady &&
+            previousK <= previousD && percentK > percentD && percentK < 30;
 
         /// <summary>
         /// Gets whether there's a bearish crossover (%K crosses below %D in overbought zone).
         /// </summary>
-        public bool IsBearishCrossover => _isReady &&
-            _previousK >= _previousD && _percentK < _percentD && _percentK > 70;
+        public bool IsBearishCrossover => isReady &&
+            previousK >= previousD && percentK < percentD && percentK > 70;
 
         /// <summary>
         /// Creates a new Stochastic Oscillator calculator.
@@ -87,12 +87,12 @@ namespace IdiotProof.Helpers {
             if (dPeriod < 1)
                 throw new ArgumentOutOfRangeException(nameof(dPeriod), "D period must be at least 1.");
 
-            _kPeriod = kPeriod;
-            _dPeriod = dPeriod;
-            _highs = new Queue<double>(kPeriod + 1);
-            _lows = new Queue<double>(kPeriod + 1);
-            _closes = new Queue<double>(kPeriod + 1);
-            _kValues = new Queue<double>(dPeriod + 1);
+            this.kPeriod = kPeriod;
+            this.dPeriod = dPeriod;
+            highs = new Queue<double>(kPeriod + 1);
+            lows = new Queue<double>(kPeriod + 1);
+            closes = new Queue<double>(kPeriod + 1);
+            kValues = new Queue<double>(dPeriod + 1);
         }
 
         /// <summary>
@@ -103,37 +103,37 @@ namespace IdiotProof.Helpers {
             if (high <= 0 || low <= 0 || close <= 0)
                 return;
 
-            _highs.Enqueue(high);
-            _lows.Enqueue(low);
-            _closes.Enqueue(close);
+            highs.Enqueue(high);
+            lows.Enqueue(low);
+            closes.Enqueue(close);
 
             // Maintain window size
-            while (_highs.Count > _kPeriod) _highs.Dequeue();
-            while (_lows.Count > _kPeriod) _lows.Dequeue();
-            while (_closes.Count > _kPeriod) _closes.Dequeue();
+            while (highs.Count > kPeriod) highs.Dequeue();
+            while (lows.Count > kPeriod) lows.Dequeue();
+            while (closes.Count > kPeriod) closes.Dequeue();
 
-            if (_highs.Count < _kPeriod)
+            if (highs.Count < kPeriod)
             {
-                _isReady = false;
+                isReady = false;
                 return;
             }
 
             // Calculate %K
-            double highestHigh = _highs.Max();
-            double lowestLow = _lows.Min();
+            double highestHigh = highs.Max();
+            double lowestLow = lows.Min();
             double range = highestHigh - lowestLow;
 
-            _previousK = _percentK;
-            _percentK = range > 0 ? 100 * (close - lowestLow) / range : 50;
+            previousK = percentK;
+            percentK = range > 0 ? 100 * (close - lowestLow) / range : 50;
 
             // Calculate %D (SMA of %K)
-            _kValues.Enqueue(_percentK);
-            while (_kValues.Count > _dPeriod) _kValues.Dequeue();
+            kValues.Enqueue(percentK);
+            while (kValues.Count > dPeriod) kValues.Dequeue();
 
-            _previousD = _percentD;
-            _percentD = _kValues.Average();
+            previousD = percentD;
+            percentD = kValues.Average();
 
-            _isReady = _kValues.Count >= _dPeriod;
+            isReady = kValues.Count >= dPeriod;
         }
 
         /// <summary>
@@ -141,7 +141,7 @@ namespace IdiotProof.Helpers {
         /// </summary>
         public int GetScore()
         {
-            if (!_isReady)
+            if (!isReady)
                 return 0;
 
             // Bullish crossover in oversold = strong buy signal
@@ -154,14 +154,14 @@ namespace IdiotProof.Helpers {
 
             // Oversold = bullish potential
             if (IsOversold)
-                return (int)((20 - _percentK) * 3); // Max +60
+                return (int)((20 - percentK) * 3); // Max +60
 
             // Overbought = bearish potential
             if (IsOverbought)
-                return (int)((_percentK - 80) * -3); // Max -60
+                return (int)((percentK - 80) * -3); // Max -60
 
             // Neutral zone: slight bias based on position relative to %D
-            return (int)((_percentK - _percentD) * 1.5);
+            return (int)((percentK - percentD) * 1.5);
         }
     }
 }

@@ -1,4 +1,4 @@
-// IdiotProof.Core.FutureState.CrossPlatform
+﻿// IdiotProof.Core.FutureState.CrossPlatform
 // Feature Flags for Platform-Specific and A/B Testing
 // Enables gradual rollouts and platform-specific features
 
@@ -133,9 +133,9 @@ public interface IFeatureFlagService
 /// </summary>
 public class FeatureFlagService : IFeatureFlagService
 {
-    private readonly Dictionary<string, FeatureFlag> _flags = new();
-    private readonly Dictionary<string, bool> _overrides = new();
-    private readonly object _lock = new();
+    private readonly Dictionary<string, FeatureFlag> flags = new();
+    private readonly Dictionary<string, bool> overrides = new();
+    private readonly object lockObj = new();
     
     public FeatureFlagService()
     {
@@ -145,15 +145,15 @@ public class FeatureFlagService : IFeatureFlagService
     public FeatureFlagResult Evaluate(string flagName, FeatureFlagContext? context = null)
     {
         // Check overrides first (for testing)
-        lock (_lock)
+        lock (lockObj)
         {
-            if (_overrides.TryGetValue(flagName, out var overrideValue))
+            if (overrides.TryGetValue(flagName, out var overrideValue))
             {
                 return overrideValue ? FeatureFlagResult.Enabled() : FeatureFlagResult.Disabled();
             }
         }
         
-        if (!_flags.TryGetValue(flagName, out var flag))
+        if (!flags.TryGetValue(flagName, out var flag))
         {
             // Unknown flag - return disabled
             return FeatureFlagResult.Disabled();
@@ -169,9 +169,9 @@ public class FeatureFlagService : IFeatureFlagService
     
     public IReadOnlyDictionary<string, FeatureFlag> GetAllFlags()
     {
-        lock (_lock)
+        lock (lockObj)
         {
-            return new Dictionary<string, FeatureFlag>(_flags);
+            return new Dictionary<string, FeatureFlag>(flags);
         }
     }
     
@@ -184,17 +184,17 @@ public class FeatureFlagService : IFeatureFlagService
     
     public void SetOverride(string flagName, bool value)
     {
-        lock (_lock)
+        lock (lockObj)
         {
-            _overrides[flagName] = value;
+            overrides[flagName] = value;
         }
     }
     
     public void ClearOverrides()
     {
-        lock (_lock)
+        lock (lockObj)
         {
-            _overrides.Clear();
+            overrides.Clear();
         }
     }
     
@@ -385,7 +385,7 @@ public class FeatureFlagService : IFeatureFlagService
     
     private void RegisterFlag(FeatureFlag flag)
     {
-        _flags[flag.Name] = flag;
+        flags[flag.Name] = flag;
     }
 }
 

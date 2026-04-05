@@ -1,4 +1,4 @@
-// ============================================================================
+﻿// ============================================================================
 // Volume Calculator Tests - Validates Volume analysis with real data
 // ============================================================================
 
@@ -10,12 +10,12 @@ namespace IdiotProof.Core.UnitTests.Calculators;
 [TestFixture]
 public class VolumeCalculatorTests
 {
-    private List<TestBar> _bars = null!;
+    private List<TestBar> bars = null!;
 
     [OneTimeSetUp]
     public void LoadData()
     {
-        _bars = TestDataLoader.LoadBars("NVDA", 200);
+        bars = TestDataLoader.LoadBars("NVDA", 200);
     }
 
     // ========================================================================
@@ -46,11 +46,11 @@ public class VolumeCalculatorTests
 
         for (int i = 0; i < 19; i++)
         {
-            vol.Update(_bars[i].Volume);
+            vol.Update(bars[i].Volume);
             Assert.That(vol.IsReady, Is.False);
         }
 
-        vol.Update(_bars[19].Volume);
+        vol.Update(bars[19].Volume);
         Assert.That(vol.IsReady, Is.True);
     }
 
@@ -64,12 +64,12 @@ public class VolumeCalculatorTests
         var vol = new VolumeCalculator(10);
 
         for (int i = 0; i < 10; i++)
-            vol.Update(_bars[i].Volume);
+            vol.Update(bars[i].Volume);
 
-        double expected = _bars.Take(10).Where(b => b.Volume > 0).Average(b => (double)b.Volume);
+        double expected = bars.Take(10).Where(b => b.Volume > 0).Average(b => (double)b.Volume);
         // Note: zero-volume bars are ignored by the calculator
         // Only include non-zero volumes
-        var nonZeroVols = _bars.Take(10).Where(b => b.Volume > 0).ToList();
+        var nonZeroVols = bars.Take(10).Where(b => b.Volume > 0).ToList();
         if (nonZeroVols.Count == 10)
         {
             Assert.That(vol.AverageVolume, Is.EqualTo(expected).Within(1),
@@ -87,7 +87,7 @@ public class VolumeCalculatorTests
         var vol = new VolumeCalculator(10);
 
         for (int i = 0; i < 20; i++)
-            vol.Update(_bars[i].Volume);
+            vol.Update(bars[i].Volume);
 
         if (vol.AverageVolume > 0)
         {
@@ -146,7 +146,7 @@ public class VolumeCalculatorTests
     {
         var vol = new VolumeCalculator(10);
         for (int i = 0; i < 20; i++)
-            vol.Update(_bars[i].Volume);
+            vol.Update(bars[i].Volume);
 
         vol.Reset();
 
@@ -168,7 +168,7 @@ public class VolumeCalculatorTests
         var vol = new VolumeCalculator(20);
 
         for (int i = 0; i < 100; i++)
-            vol.Update(_bars[i].Volume);
+            vol.Update(bars[i].Volume);
 
         Assert.That(vol.IsReady, Is.True);
         Assert.That(vol.AverageVolume, Is.GreaterThan(0),

@@ -1,4 +1,4 @@
-// ============================================================================
+﻿// ============================================================================
 // Williams %R Calculator - Momentum Oscillator
 // ============================================================================
 //
@@ -29,45 +29,45 @@ namespace IdiotProof.Helpers {
     /// </summary>
     public sealed class WilliamsRCalculator
     {
-        private readonly int _period;
-        private readonly Queue<double> _highs;
-        private readonly Queue<double> _lows;
+        private readonly int period;
+        private readonly Queue<double> highs;
+        private readonly Queue<double> lows;
 
-        private double _williamsR;
-        private double _previousWilliamsR;
-        private bool _isReady;
+        private double williamsR;
+        private double previousWilliamsR;
+        private bool isReady;
 
         /// <summary>
         /// Gets the current Williams %R value (-100 to 0).
         /// </summary>
-        public double CurrentValue => _williamsR;
+        public double CurrentValue => williamsR;
 
         /// <summary>
         /// Gets whether the calculator has enough data.
         /// </summary>
-        public bool IsReady => _isReady;
+        public bool IsReady => isReady;
 
         /// <summary>
         /// Gets whether Williams %R indicates overbought (-20 to 0).
         /// </summary>
-        public bool IsOverbought => _isReady && _williamsR > -20;
+        public bool IsOverbought => isReady && williamsR > -20;
 
         /// <summary>
         /// Gets whether Williams %R indicates oversold (-100 to -80).
         /// </summary>
-        public bool IsOversold => _isReady && _williamsR < -80;
+        public bool IsOversold => isReady && williamsR < -80;
 
         /// <summary>
         /// Gets whether there's a bullish crossover (leaving oversold zone).
         /// </summary>
-        public bool IsBullishCrossover => _isReady &&
-            _previousWilliamsR < -80 && _williamsR >= -80;
+        public bool IsBullishCrossover => isReady &&
+            previousWilliamsR < -80 && williamsR >= -80;
 
         /// <summary>
         /// Gets whether there's a bearish crossover (entering overbought zone).
         /// </summary>
-        public bool IsBearishCrossover => _isReady &&
-            _previousWilliamsR > -20 && _williamsR <= -20;
+        public bool IsBearishCrossover => isReady &&
+            previousWilliamsR > -20 && williamsR <= -20;
 
         /// <summary>
         /// Creates a new Williams %R calculator.
@@ -78,9 +78,9 @@ namespace IdiotProof.Helpers {
             if (period < 2)
                 throw new ArgumentOutOfRangeException(nameof(period), "Period must be at least 2.");
 
-            _period = period;
-            _highs = new Queue<double>(period + 1);
-            _lows = new Queue<double>(period + 1);
+            this.period = period;
+            highs = new Queue<double>(period + 1);
+            lows = new Queue<double>(period + 1);
         }
 
         /// <summary>
@@ -91,26 +91,26 @@ namespace IdiotProof.Helpers {
             if (high <= 0 || low <= 0 || close <= 0)
                 return;
 
-            _highs.Enqueue(high);
-            _lows.Enqueue(low);
+            highs.Enqueue(high);
+            lows.Enqueue(low);
 
-            while (_highs.Count > _period) _highs.Dequeue();
-            while (_lows.Count > _period) _lows.Dequeue();
+            while (highs.Count > period) highs.Dequeue();
+            while (lows.Count > period) lows.Dequeue();
 
-            if (_highs.Count < _period)
+            if (highs.Count < period)
             {
-                _isReady = false;
+                isReady = false;
                 return;
             }
 
-            _isReady = true;
-            _previousWilliamsR = _williamsR;
+            isReady = true;
+            previousWilliamsR = williamsR;
 
-            double highestHigh = _highs.Max();
-            double lowestLow = _lows.Min();
+            double highestHigh = highs.Max();
+            double lowestLow = lows.Min();
             double range = highestHigh - lowestLow;
 
-            _williamsR = range > 0
+            williamsR = range > 0
                 ? ((highestHigh - close) / range) * -100
                 : -50; // Neutral if no range
         }
@@ -120,7 +120,7 @@ namespace IdiotProof.Helpers {
         /// </summary>
         public int GetScore()
         {
-            if (!_isReady)
+            if (!isReady)
                 return 0;
 
             // Bullish crossover from oversold
@@ -135,7 +135,7 @@ namespace IdiotProof.Helpers {
             if (IsOversold)
             {
                 // More oversold = more bullish
-                double depth = -80 - _williamsR; // 0 to 20
+                double depth = -80 - williamsR; // 0 to 20
                 return (int)Math.Clamp(depth * 3, 0, 60);
             }
 
@@ -143,13 +143,13 @@ namespace IdiotProof.Helpers {
             if (IsOverbought)
             {
                 // More overbought = more bearish
-                double depth = _williamsR + 20; // 0 to 20
+                double depth = williamsR + 20; // 0 to 20
                 return (int)Math.Clamp(depth * -3, -60, 0);
             }
 
             // Neutral zone: slight bias based on position
             // -80 to -20 maps to roughly -30 to +30
-            return (int)((_williamsR + 50) * 0.75);
+            return (int)((williamsR + 50) * 0.75);
         }
     }
 }

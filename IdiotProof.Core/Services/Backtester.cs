@@ -48,21 +48,21 @@ internal sealed class DynamicCalibrator
     public int MinIndicatorConfirmation { get; set; } = 4;
     
     // Performance tracking (rolling window)
-    private readonly Queue<TradeResult> _recentTrades = new();
-    private readonly Queue<MissedOpportunity> _missedOpportunities = new();
+    private readonly Queue<TradeResult> recentTrades = new();
+    private readonly Queue<MissedOpportunity> missedOpportunities = new();
     private const int MaxRecentTrades = 20;
     private const int MaxMissedOpportunities = 50;
     
     // Market regime detection
-    private double _currentVolatility;  // ATR as % of price
-    private double _avgVolatility = 1.5;
-    private bool _isTrending;
-    private double _trendStrength;
+    private double currentVolatility;  // ATR as % of price
+    private double avgVolatility = 1.5;
+    private bool isTrending;
+    private double trendStrength;
     
     // Consecutive tracking
-    private int _consecutiveLosses;
-    private int _consecutiveWins;
-    private int _consecutiveNoTrades;
+    private int consecutiveLosses;
+    private int consecutiveWins;
+    private int consecutiveNoTrades;
     
     // Bounds to prevent extreme calibration
     private const int MinEntryThreshold = 30;  // Allow lower thresholds for more trades
@@ -94,22 +94,22 @@ internal sealed class DynamicCalibrator
             IsLong = isLong
         };
         
-        _recentTrades.Enqueue(result);
-        while (_recentTrades.Count > MaxRecentTrades)
-            _recentTrades.Dequeue();
+        recentTrades.Enqueue(result);
+        while (recentTrades.Count > MaxRecentTrades)
+            recentTrades.Dequeue();
         
         // Update consecutive counters
         if (result.IsWin)
         {
-            _consecutiveWins++;
-            _consecutiveLosses = 0;
+            consecutiveWins++;
+            consecutiveLosses = 0;
         }
         else
         {
-            _consecutiveLosses++;
-            _consecutiveWins = 0;
+            consecutiveLosses++;
+            consecutiveWins = 0;
         }
-        _consecutiveNoTrades = 0;
+        consecutiveNoTrades = 0;
         
         // Recalibrate after each trade
         Recalibrate();
@@ -128,7 +128,7 @@ internal sealed class DynamicCalibrator
         // Only record if it would have been profitable
         if (potentialPnl > 0.5) // At least 0.5% move
         {
-            _missedOpportunities.Enqueue(new MissedOpportunity
+            missedOpportunities.Enqueue(new MissedOpportunity
             {
                 Score = score,
                 PotentialPnLPercent = potentialPnl,
@@ -136,8 +136,8 @@ internal sealed class DynamicCalibrator
                 IsLong = wasLong
             });
             
-            while (_missedOpportunities.Count > MaxMissedOpportunities)
-                _missedOpportunities.Dequeue();
+            while (missedOpportunities.Count > MaxMissedOpportunities)
+                missedOpportunities.Dequeue();
         }
     }
     
@@ -146,7 +146,7 @@ internal sealed class DynamicCalibrator
     /// </summary>
     public void RecordNoTrade()
     {
-        _consecutiveNoTrades++;
+        consecutiveNoTrades++;
     }
     
     /// <summary>
@@ -154,10 +154,10 @@ internal sealed class DynamicCalibrator
     /// </summary>
     public void UpdateMarketRegime(double atrPercent, double adx, bool plusDiAboveMinusDi)
     {
-        _currentVolatility = atrPercent;
-        _avgVolatility = _avgVolatility * 0.95 + atrPercent * 0.05;
-        _isTrending = adx > 25;
-        _trendStrength = adx;
+        currentVolatility = atrPercent;
+        avgVolatility = avgVolatility * 0.95 + atrPercent * 0.05;
+        isTrending = adx > 25;
+        trendStrength = adx;
     }
     
     /// <summary>
@@ -165,9 +165,9 @@ internal sealed class DynamicCalibrator
     /// </summary>
     private void Recalibrate()
     {
-        if (_recentTrades.Count < 3) return; // Need minimum trades to calibrate
+        if (recentTrades.Count < 3) return; // Need minimum trades to calibrate
         
-        var trades = _recentTrades.ToList();
+        var trades = recentTrades.ToList();
         double winRate = trades.Count(t => t.IsWin) / (double)trades.Count;
         double avgPnL = trades.Average(t => t.PnLPercent);
         double profitFactor = CalculateProfitFactor(trades);
@@ -226,8 +226,8 @@ internal sealed class DynamicCalibrator
         // ================================================================
         
         // If missing many opportunities due to volume filter
-        var volumeBlocked = _missedOpportunities.Count(m => m.BlockedBy == "volume");
-        if (volumeBlocked > _missedOpportunities.Count * 0.3 && profitFactor > 1.2)
+        var volumeBlocked = missedOpportunities.Count(m => m.BlockedBy == "volume");
+        if (volumeBlocked > missedOpportunities.Count * 0.3 && profitFactor > 1.2)
         {
             MinVolumeRatio = Math.Max(0.8, MinVolumeRatio - 0.1);
         }
@@ -237,11 +237,11 @@ internal sealed class DynamicCalibrator
         // ================================================================
         
         // If market is ranging (low ADX) and we're doing well, can disable trend filter
-        if (!_isTrending && winRate > 0.5)
+        if (!isTrending && winRate > 0.5)
         {
             RequireTrendAlignment = false;
         }
-        else if (_isTrending && winRate < 0.45)
+        else if (isTrending && winRate < 0.45)
         {
             RequireTrendAlignment = true;
         }
@@ -250,7 +250,7 @@ internal sealed class DynamicCalibrator
         // CONSECUTIVE LOSS PROTECTION
         // ================================================================
         
-        if (_consecutiveLosses >= 3)
+        if (consecutiveLosses >= 3)
         {
             // Emergency tightening - become very selective
             LongEntryThreshold = Math.Min(MaxEntryThreshold, LongEntryThreshold + 5);
@@ -262,7 +262,7 @@ internal sealed class DynamicCalibrator
         // WINNING STREAK OPTIMIZATION
         // ================================================================
         
-        if (_consecutiveWins >= 3)
+        if (consecutiveWins >= 3)
         {
             // On a roll - can be slightly more aggressive
             LongEntryThreshold = Math.Max(MinEntryThreshold, LongEntryThreshold - 2);
@@ -276,15 +276,15 @@ internal sealed class DynamicCalibrator
     /// </summary>
     public void CalibrateMissedOpportunities()
     {
-        if (_missedOpportunities.Count < 5) return;
+        if (missedOpportunities.Count < 5) return;
         
-        var missed = _missedOpportunities.ToList();
+        var missed = missedOpportunities.ToList();
         double avgMissedPnL = missed.Average(m => m.PotentialPnLPercent);
         
         // If we're missing big opportunities
-        if (avgMissedPnL > 1.0 && _recentTrades.Count > 0)
+        if (avgMissedPnL > 1.0 && recentTrades.Count > 0)
         {
-            var recentWinRate = _recentTrades.Count(t => t.IsWin) / (double)_recentTrades.Count;
+            var recentWinRate = recentTrades.Count(t => t.IsWin) / (double)recentTrades.Count;
             
             // Only loosen if we're not losing money
             if (recentWinRate >= 0.45)
@@ -317,7 +317,7 @@ internal sealed class DynamicCalibrator
         }
         
         // Clear old missed opportunities
-        _missedOpportunities.Clear();
+        missedOpportunities.Clear();
     }
     
     private static double CalculateProfitFactor(List<TradeResult> trades)
@@ -338,13 +338,13 @@ internal sealed class DynamicCalibrator
         sb.AppendLine($"  TP/SL ATR: {TakeProfitAtr:F1} / {StopLossAtr:F1}");
         sb.AppendLine($"  Min Volume: {MinVolumeRatio:F1}x, Trend Required: {RequireTrendAlignment}");
         sb.AppendLine($"  Indicator Confirm: {MinIndicatorConfirmation}/12");
-        sb.AppendLine($"  Recent: {_recentTrades.Count} trades, {_consecutiveWins}W/{_consecutiveLosses}L streak");
-        sb.AppendLine($"  Pending Signals: {_pendingSignals.Count}");
+        sb.AppendLine($"  Recent: {recentTrades.Count} trades, {consecutiveWins}W/{consecutiveLosses}L streak");
+        sb.AppendLine($"  Pending Signals: {pendingSignals.Count}");
         return sb.ToString();
     }
     
     // Track potential missed signals before we know if they'd be profitable
-    private readonly List<PendingSignal> _pendingSignals = new();
+    private readonly List<PendingSignal> pendingSignals = new();
     
     /// <summary>
     /// Records a potential signal that was blocked by filters.
@@ -352,7 +352,7 @@ internal sealed class DynamicCalibrator
     /// </summary>
     public void RecordPotentialMissed(double score, double priceAtSignal, bool wasLong, string blockedBy, int barIndex)
     {
-        _pendingSignals.Add(new PendingSignal
+        pendingSignals.Add(new PendingSignal
         {
             Score = score,
             PriceAtSignal = priceAtSignal,
@@ -362,8 +362,8 @@ internal sealed class DynamicCalibrator
         });
         
         // Limit pending signals to avoid memory growth
-        while (_pendingSignals.Count > 100)
-            _pendingSignals.RemoveAt(0);
+        while (pendingSignals.Count > 100)
+            pendingSignals.RemoveAt(0);
     }
     
     /// <summary>
@@ -372,11 +372,11 @@ internal sealed class DynamicCalibrator
     /// </summary>
     public void EvaluateMissedOpportunities(List<BackTestCandle> candles, int currentBar)
     {
-        if (_pendingSignals.Count == 0) return;
+        if (pendingSignals.Count == 0) return;
         
         // Evaluate signals that are at least 20 bars old
         int lookAhead = 20;
-        var signalsToEvaluate = _pendingSignals.Where(s => currentBar - s.BarIndex >= lookAhead).ToList();
+        var signalsToEvaluate = pendingSignals.Where(s => currentBar - s.BarIndex >= lookAhead).ToList();
         
         foreach (var signal in signalsToEvaluate)
         {
@@ -399,7 +399,7 @@ internal sealed class DynamicCalibrator
             // If the signal would have yielded at least 0.5% profit, record it as missed
             if (maxPnlPercent > 0.5)
             {
-                _missedOpportunities.Enqueue(new MissedOpportunity
+                missedOpportunities.Enqueue(new MissedOpportunity
                 {
                     Score = signal.Score,
                     PotentialPnLPercent = maxPnlPercent,
@@ -407,11 +407,11 @@ internal sealed class DynamicCalibrator
                     IsLong = signal.IsLong
                 });
                 
-                while (_missedOpportunities.Count > MaxMissedOpportunities)
-                    _missedOpportunities.Dequeue();
+                while (missedOpportunities.Count > MaxMissedOpportunities)
+                    missedOpportunities.Dequeue();
             }
             
-            _pendingSignals.Remove(signal);
+            pendingSignals.Remove(signal);
         }
     }
     
@@ -1289,10 +1289,10 @@ public sealed class AggregateBacktestResult
 /// </summary>
 public sealed class Backtester
 {
-    private readonly HistoricalDataService? _histService;
-    private readonly SentimentService? _sentimentService;
-    private readonly HistoricalDataCache _dataCache;
-    private readonly TickerMetadataService _metadataService;
+    private readonly HistoricalDataService? histService;
+    private readonly SentimentService? sentimentService;
+    private readonly HistoricalDataCache dataCache;
+    private readonly TickerMetadataService metadataService;
 
     /// <summary>
     /// Creates a backtester with IBKR historical data service.
@@ -1307,21 +1307,21 @@ public sealed class Backtester
         HistoricalDataCache? dataCache = null,
         TickerMetadataService? metadataService = null)
     {
-        _histService = historicalDataService;
-        _sentimentService = sentimentService;
-        _dataCache = dataCache ?? new HistoricalDataCache();
-        _metadataService = metadataService ?? new TickerMetadataService();
+        histService = historicalDataService;
+        this.sentimentService = sentimentService;
+        this.dataCache = dataCache ?? new HistoricalDataCache();
+        this.metadataService = metadataService ?? new TickerMetadataService();
     }
 
     /// <summary>
     /// Gets the data cache for managing cached historical data.
     /// </summary>
-    public HistoricalDataCache DataCache => _dataCache;
+    public HistoricalDataCache DataCache => dataCache;
 
     /// <summary>
     /// Gets the metadata service for ticker-specific analysis.
     /// </summary>
-    public TickerMetadataService MetadataService => _metadataService;
+    public TickerMetadataService MetadataService => metadataService;
 
     /// <summary>
     /// Runs an autonomous trading backtest for a symbol on a specific date.
@@ -1342,23 +1342,23 @@ public sealed class Backtester
         IProgress<string>? progress = null,
         CancellationToken cancellationToken = default)
     {
-        if (_histService == null)
+        if (histService == null)
             throw new InvalidOperationException("HistoricalDataService is required for RunAsync. Use RunWithCandles for offline testing.");
 
         config ??= new AutonomousBacktestConfig { StartingCapital = startingCapital };
 
         // Fetch sentiment data if service available
         SentimentResult? sentiment = null;
-        if (_sentimentService != null)
+        if (sentimentService != null)
         {
             progress?.Report($"Fetching sentiment data for {symbol}...");
-            sentiment = await _sentimentService.GetSentimentAsync(symbol);
+            sentiment = await sentimentService.GetSentimentAsync(symbol);
             progress?.Report($"Sentiment: {sentiment}");
         }
 
         // Load from cache, auto-filling forward to current date if cache is stale
         progress?.Report($"Loading {symbol} historical data (auto-filling to current date)...");
-        List<HistoricalBar> bars = await _dataCache.GetOrFetchAsync(symbol, _histService, cancellationToken: cancellationToken);
+        List<HistoricalBar> bars = await dataCache.GetOrFetchAsync(symbol, histService, cancellationToken: cancellationToken);
         progress?.Report($"Loaded {bars.Count} bars.");
 
         if (bars.Count == 0)
@@ -1445,7 +1445,7 @@ public sealed class Backtester
         TickerMetadata? metadata = null;
         if (config.UseTickerMetadata)
         {
-            metadata = _metadataService.BuildFromHistoricalBars(symbol, 
+            metadata = metadataService.BuildFromHistoricalBars(symbol, 
                 candles.Select(c => new HistoricalBar 
                 { 
                     Time = c.Timestamp, 
@@ -2084,14 +2084,14 @@ public sealed class Backtester
 
         // Load from cache, auto-filling forward to current date if cache is stale
         List<HistoricalBar> bars;
-        if (_histService != null)
+        if (histService != null)
         {
             progress?.Report($"Loading {symbol} historical data (auto-filling to current date)...");
-            bars = await _dataCache.GetOrFetchAsync(symbol, _histService, cancellationToken: cancellationToken);
+            bars = await dataCache.GetOrFetchAsync(symbol, histService, cancellationToken: cancellationToken);
         }
-        else if (_dataCache.HasCachedData(symbol))
+        else if (dataCache.HasCachedData(symbol))
         {
-            bars = _dataCache.LoadFromCache(symbol) ?? [];
+            bars = dataCache.LoadFromCache(symbol) ?? [];
         }
         else
         {
@@ -2207,46 +2207,46 @@ public sealed class Backtester
 /// </summary>
 internal sealed class BackTestIndicatorCalculator
 {
-    private readonly List<BackTestCandle> _candles;
+    private readonly List<BackTestCandle> candles;
     
     // Optional learned weights - when set, uses ticker-specific weights
-    private IdiotProof.Optimization.IndicatorWeights _weights = IdiotProof.Optimization.IndicatorWeights.Default;
+    private IdiotProof.Optimization.IndicatorWeights weights = IdiotProof.Optimization.IndicatorWeights.Default;
     
     // Core indicators
-    private readonly double[] _ema9;
-    private readonly double[] _ema21;
-    private readonly double[] _ema50;
-    private readonly double[] _ema200;
-    private readonly double[] _rsi;
-    private readonly double[] _adx;
-    private readonly double[] _plusDi;
-    private readonly double[] _minusDi;
-    private readonly double[] _macd;
-    private readonly double[] _signal;
-    private readonly double[] _histogram;
-    private readonly double[] _volumeRatio;
-    private readonly double[] _atr;
+    private readonly double[] ema9;
+    private readonly double[] ema21;
+    private readonly double[] ema50;
+    private readonly double[] ema200;
+    private readonly double[] rsi;
+    private readonly double[] adx;
+    private readonly double[] plusDi;
+    private readonly double[] minusDi;
+    private readonly double[] macd;
+    private readonly double[] signal;
+    private readonly double[] histogram;
+    private readonly double[] volumeRatio;
+    private readonly double[] atr;
     
     // Additional indicators for enhanced scoring
-    private readonly double[] _bollingerUpper;
-    private readonly double[] _bollingerLower;
-    private readonly double[] _bollingerMiddle;
-    private readonly double[] _stochasticK;
-    private readonly double[] _stochasticD;
-    private readonly double[] _obv;
-    private readonly double[] _cci;
-    private readonly double[] _williamsR;
-    private readonly double[] _mfi;       // Money Flow Index
-    private readonly double[] _roc;       // Rate of Change
-    private readonly double[] _momentum;
+    private readonly double[] bollingerUpper;
+    private readonly double[] bollingerLower;
+    private readonly double[] bollingerMiddle;
+    private readonly double[] stochasticK;
+    private readonly double[] stochasticD;
+    private readonly double[] obv;
+    private readonly double[] cci;
+    private readonly double[] williamsR;
+    private readonly double[] mfi;       // Money Flow Index
+    private readonly double[] roc;       // Rate of Change
+    private readonly double[] momentum;
     
     // Sentiment score (injected from SentimentService)
-    private int _sentimentScore;
-    private int _sentimentConfidence;
+    private int sentimentScore;
+    private int sentimentConfidence;
 
     public BackTestIndicatorCalculator(List<BackTestCandle> candles)
     {
-        _candles = candles;
+        this.candles = candles;
 
         // Pre-calculate all indicators
         var closes = candles.Select(c => c.Close).ToArray();
@@ -2255,25 +2255,25 @@ internal sealed class BackTestIndicatorCalculator
         var volumes = candles.Select(c => (double)c.Volume).ToArray();
 
         // Core indicators
-        _ema9 = CalculateEma(closes, 9);
-        _ema21 = CalculateEma(closes, 21);
-        _ema50 = CalculateEma(closes, 50);
-        _ema200 = CalculateEma(closes, 200);
-        _rsi = CalculateRsi(closes, 14);
-        (_adx, _plusDi, _minusDi) = CalculateAdx(highs, lows, closes, 14);
-        (_macd, _signal, _histogram) = CalculateMacd(closes, 12, 26, 9);
-        _volumeRatio = CalculateVolumeRatio(volumes, 20);
-        _atr = CalculateAtr(highs, lows, closes, 14);
+        ema9 = CalculateEma(closes, 9);
+        ema21 = CalculateEma(closes, 21);
+        ema50 = CalculateEma(closes, 50);
+        ema200 = CalculateEma(closes, 200);
+        rsi = CalculateRsi(closes, 14);
+        (adx, plusDi, minusDi) = CalculateAdx(highs, lows, closes, 14);
+        (macd, signal, histogram) = CalculateMacd(closes, 12, 26, 9);
+        volumeRatio = CalculateVolumeRatio(volumes, 20);
+        atr = CalculateAtr(highs, lows, closes, 14);
         
         // Additional indicators
-        (_bollingerUpper, _bollingerMiddle, _bollingerLower) = CalculateBollingerBands(closes, 20, 2.0);
-        (_stochasticK, _stochasticD) = CalculateStochastic(highs, lows, closes, 14, 3);
-        _obv = CalculateObv(closes, volumes);
-        _cci = CalculateCci(highs, lows, closes, 20);
-        _williamsR = CalculateWilliamsR(highs, lows, closes, 14);
-        _mfi = CalculateMfi(highs, lows, closes, volumes, 14);
-        _roc = CalculateRoc(closes, 10);
-        _momentum = CalculateMomentum(closes, 10);
+        (bollingerUpper, bollingerMiddle, bollingerLower) = CalculateBollingerBands(closes, 20, 2.0);
+        (stochasticK, stochasticD) = CalculateStochastic(highs, lows, closes, 14, 3);
+        obv = CalculateObv(closes, volumes);
+        cci = CalculateCci(highs, lows, closes, 20);
+        williamsR = CalculateWilliamsR(highs, lows, closes, 14);
+        mfi = CalculateMfi(highs, lows, closes, volumes, 14);
+        roc = CalculateRoc(closes, 10);
+        momentum = CalculateMomentum(closes, 10);
     }
     
     /// <summary>
@@ -2281,8 +2281,8 @@ internal sealed class BackTestIndicatorCalculator
     /// </summary>
     public void SetSentiment(int score, int confidence)
     {
-        _sentimentScore = score;
-        _sentimentConfidence = confidence;
+        sentimentScore = score;
+        sentimentConfidence = confidence;
     }
     
     /// <summary>
@@ -2291,29 +2291,29 @@ internal sealed class BackTestIndicatorCalculator
     /// </summary>
     public void SetWeights(IdiotProof.Optimization.IndicatorWeights weights)
     {
-        _weights = weights;
+        weights = weights;
     }
 
-    public double GetAtr(int index) => index < _atr.Length ? _atr[index] : 0;
-    public double GetVolumeRatio(int index) => index < _volumeRatio.Length ? _volumeRatio[index] : 0;
-    public double GetEma9(int index) => index < _ema9.Length ? _ema9[index] : 0;
-    public double GetEma21(int index) => index < _ema21.Length ? _ema21[index] : 0;
-    public double GetEma50(int index) => index < _ema50.Length ? _ema50[index] : 0;
-    public double GetRsi(int index) => index < _rsi.Length ? _rsi[index] : 50;
-    public double GetMacd(int index) => index < _macd.Length ? _macd[index] : 0;
-    public double GetSignal(int index) => index < _signal.Length ? _signal[index] : 0;
-    public double GetAdx(int index) => index < _adx.Length ? _adx[index] : 0;
-    public double GetPlusDi(int index) => index < _plusDi.Length ? _plusDi[index] : 0;
-    public double GetMinusDi(int index) => index < _minusDi.Length ? _minusDi[index] : 0;
+    public double GetAtr(int index) => index < atr.Length ? atr[index] : 0;
+    public double GetVolumeRatio(int index) => index < volumeRatio.Length ? volumeRatio[index] : 0;
+    public double GetEma9(int index) => index < ema9.Length ? ema9[index] : 0;
+    public double GetEma21(int index) => index < ema21.Length ? ema21[index] : 0;
+    public double GetEma50(int index) => index < ema50.Length ? ema50[index] : 0;
+    public double GetRsi(int index) => index < rsi.Length ? rsi[index] : 50;
+    public double GetMacd(int index) => index < macd.Length ? macd[index] : 0;
+    public double GetSignal(int index) => index < signal.Length ? signal[index] : 0;
+    public double GetAdx(int index) => index < adx.Length ? adx[index] : 0;
+    public double GetPlusDi(int index) => index < plusDi.Length ? plusDi[index] : 0;
+    public double GetMinusDi(int index) => index < minusDi.Length ? minusDi[index] : 0;
     
     // Accessor methods for individual indicator scores
     public double GetBollingerScore(int index)
     {
-        if (index < 0 || index >= _candles.Count) return 0;
-        var close = _candles[index].Close;
-        var upper = _bollingerUpper[index];
-        var lower = _bollingerLower[index];
-        var middle = _bollingerMiddle[index];
+        if (index < 0 || index >= candles.Count) return 0;
+        var close = candles[index].Close;
+        var upper = bollingerUpper[index];
+        var lower = bollingerLower[index];
+        var middle = bollingerMiddle[index];
         
         if (upper == lower) return 0;
         
@@ -2329,9 +2329,9 @@ internal sealed class BackTestIndicatorCalculator
     
     public double GetStochasticScore(int index)
     {
-        if (index < 0 || index >= _stochasticK.Length) return 0;
-        double k = _stochasticK[index];
-        double d = _stochasticD[index];
+        if (index < 0 || index >= stochasticK.Length) return 0;
+        double k = stochasticK[index];
+        double d = stochasticD[index];
         
         // Overbought/oversold
         double score = 0;
@@ -2348,11 +2348,11 @@ internal sealed class BackTestIndicatorCalculator
     
     public double GetObvScore(int index)
     {
-        if (index < 20 || index >= _obv.Length) return 0;
+        if (index < 20 || index >= obv.Length) return 0;
         
         // OBV trend over last 10 bars
-        double obvNow = _obv[index];
-        double obv10Ago = _obv[index - 10];
+        double obvNow = obv[index];
+        double obv10Ago = obv[index - 10];
         double obvChange = obv10Ago != 0 ? (obvNow - obv10Ago) / Math.Abs(obv10Ago) * 100 : 0;
         
         return Math.Clamp(obvChange * 2, -100, 100);
@@ -2360,22 +2360,22 @@ internal sealed class BackTestIndicatorCalculator
     
     public double GetCciScore(int index)
     {
-        if (index < 0 || index >= _cci.Length) return 0;
-        double cci = _cci[index];
-        
+        if (index < 0 || index >= cci.Length) return 0;
+        double cciVal = cci[index];
+
         // CCI: +100/-100 are overbought/oversold levels
-        if (cci >= 200) return -80;
-        if (cci >= 100) return -((cci - 100) * 0.8);
-        if (cci <= -200) return 80;
-        if (cci <= -100) return (-cci - 100) * 0.8;
-        
-        return cci * 0.5; // Trend direction
+        if (cciVal >= 200) return -80;
+        if (cciVal >= 100) return -((cciVal - 100) * 0.8);
+        if (cciVal <= -200) return 80;
+        if (cciVal <= -100) return (-cciVal - 100) * 0.8;
+
+        return cciVal * 0.5; // Trend direction
     }
     
     public double GetWilliamsRScore(int index)
     {
-        if (index < 0 || index >= _williamsR.Length) return 0;
-        double wr = _williamsR[index];
+        if (index < 0 || index >= williamsR.Length) return 0;
+        double wr = williamsR[index];
         
         // Williams %R: -80 to -100 is oversold (bullish), 0 to -20 is overbought (bearish)
         if (wr <= -80) return 100 - ((wr + 100) * 5); // Oversold = bullish
@@ -2386,36 +2386,36 @@ internal sealed class BackTestIndicatorCalculator
     
     public double GetMfiScore(int index)
     {
-        if (index < 0 || index >= _mfi.Length) return 0;
-        double mfi = _mfi[index];
-        
+        if (index < 0 || index >= mfi.Length) return 0;
+        double mfiVal = mfi[index];
+
         // Similar to RSI but includes volume
-        if (mfi <= 20) return 100; // Oversold
-        if (mfi >= 80) return -100; // Overbought
-        
-        return (mfi - 50) * 2;
+        if (mfiVal <= 20) return 100; // Oversold
+        if (mfiVal >= 80) return -100; // Overbought
+
+        return (mfiVal - 50) * 2;
     }
     
     public double GetMomentumScore(int index)
     {
-        if (index < 0 || index >= _momentum.Length) return 0;
-        double mom = _momentum[index];
-        double atr = _atr[index];
-        
-        if (atr == 0) return 0;
-        
+        if (index < 0 || index >= momentum.Length) return 0;
+        double mom = momentum[index];
+        double atrVal = atr[index];
+
+        if (atrVal == 0) return 0;
+
         // Normalize momentum by ATR
-        double normalizedMom = mom / atr * 25;
+        double normalizedMom = mom / atrVal * 25;
         return Math.Clamp(normalizedMom, -100, 100);
     }
     
     public double GetRocScore(int index)
     {
-        if (index < 0 || index >= _roc.Length) return 0;
-        double roc = _roc[index];
-        
+        if (index < 0 || index >= roc.Length) return 0;
+        double rocVal = roc[index];
+
         // ROC as percentage, scale to -100 to 100
-        return Math.Clamp(roc * 10, -100, 100);
+        return Math.Clamp(rocVal * 10, -100, 100);
     }
 
     /// <summary>
@@ -2424,41 +2424,41 @@ internal sealed class BackTestIndicatorCalculator
     /// </summary>
     public double CalculateMarketScore(int index)
     {
-        if (index < 0 || index >= _candles.Count)
+        if (index < 0 || index >= candles.Count)
             return 0;
 
-        var candle = _candles[index];
+        var candle = candles[index];
         
         // Build indicator snapshot from backtest arrays
         var snapshot = new IndicatorSnapshot
         {
             Price = candle.Close,
             Vwap = candle.Vwap,
-            Ema9 = _ema9[index],
-            Ema21 = _ema21[index],
-            Ema50 = _ema50[index],
-            Rsi = _rsi[index],
-            Macd = _macd[index],
-            MacdSignal = _signal[index],
-            MacdHistogram = _histogram[index],
-            Adx = _adx[index],
-            PlusDi = _plusDi[index],
-            MinusDi = _minusDi[index],
-            VolumeRatio = _volumeRatio[index],
-            BollingerUpper = _bollingerUpper[index],
-            BollingerLower = _bollingerLower[index],
-            BollingerMiddle = _bollingerMiddle[index],
-            Atr = _atr[index],
+            Ema9 = ema9[index],
+            Ema21 = ema21[index],
+            Ema50 = ema50[index],
+            Rsi = rsi[index],
+            Macd = macd[index],
+            MacdSignal = signal[index],
+            MacdHistogram = histogram[index],
+            Adx = adx[index],
+            PlusDi = plusDi[index],
+            MinusDi = minusDi[index],
+            VolumeRatio = volumeRatio[index],
+            BollingerUpper = bollingerUpper[index],
+            BollingerLower = bollingerLower[index],
+            BollingerMiddle = bollingerMiddle[index],
+            Atr = atr[index],
             // Extended indicators
-            StochasticK = _stochasticK[index],
-            StochasticD = _stochasticD[index],
-            ObvSlope = index > 0 ? (_obv[index] > _obv[index - 1] ? 1.0 : (_obv[index] < _obv[index - 1] ? -1.0 : 0)) : 0,
-            Cci = _cci[index],
-            WilliamsR = _williamsR[index]
+            StochasticK = stochasticK[index],
+            StochasticD = stochasticD[index],
+            ObvSlope = index > 0 ? (obv[index] > obv[index - 1] ? 1.0 : (obv[index] < obv[index - 1] ? -1.0 : 0)) : 0,
+            Cci = cci[index],
+            WilliamsR = williamsR[index]
         };
         
         // Use the SHARED calculator with learned or default weights - same code as live trading
-        var result = MarketScoreCalculator.Calculate(snapshot, _weights.ToCalculatorWeights());
+        var result = MarketScoreCalculator.Calculate(snapshot, weights.ToCalculatorWeights());
         return result.TotalScore;
     }
     
@@ -2467,58 +2467,58 @@ internal sealed class BackTestIndicatorCalculator
     /// </summary>
     public Dictionary<string, double> GetIndicatorBreakdown(int index)
     {
-        if (index < 0 || index >= _candles.Count)
+        if (index < 0 || index >= candles.Count)
             return new Dictionary<string, double>();
             
-        var candle = _candles[index];
+        var candle = candles[index];
         
         return new Dictionary<string, double>
         {
             ["VWAP"] = candle.Vwap > 0 ? Math.Clamp((candle.Close - candle.Vwap) / candle.Vwap * 100 * 20, -100, 100) : 0,
             ["EMA_Stack"] = GetEmaStackScore(index),
-            ["RSI"] = _rsi[index],
+            ["RSI"] = rsi[index],
             ["RSI_Score"] = GetRsiScore(index),
-            ["MACD"] = _macd[index],
-            ["MACD_Signal"] = _signal[index],
+            ["MACD"] = macd[index],
+            ["MACD_Signal"] = signal[index],
             ["MACD_Score"] = GetMacdScore(index),
-            ["ADX"] = _adx[index],
-            ["+DI"] = _plusDi[index],
-            ["-DI"] = _minusDi[index],
+            ["ADX"] = adx[index],
+            ["+DI"] = plusDi[index],
+            ["-DI"] = minusDi[index],
             ["ADX_Score"] = GetAdxScore(index),
-            ["Volume_Ratio"] = _volumeRatio[index],
+            ["Volume_Ratio"] = volumeRatio[index],
             ["Bollinger"] = GetBollingerScore(index),
-            ["Stochastic_K"] = _stochasticK[index],
-            ["Stochastic_D"] = _stochasticD[index],
+            ["Stochastic_K"] = stochasticK[index],
+            ["Stochastic_D"] = stochasticD[index],
             ["Stochastic_Score"] = GetStochasticScore(index),
-            ["CCI"] = _cci[index],
+            ["CCI"] = cci[index],
             ["CCI_Score"] = GetCciScore(index),
-            ["Williams_R"] = _williamsR[index],
+            ["Williams_R"] = williamsR[index],
             ["Williams_R_Score"] = GetWilliamsRScore(index),
-            ["MFI"] = _mfi[index],
+            ["MFI"] = mfi[index],
             ["MFI_Score"] = GetMfiScore(index),
             ["OBV_Score"] = GetObvScore(index),
-            ["Momentum"] = _momentum[index],
-            ["ROC"] = _roc[index],
-            ["ATR"] = _atr[index],
-            ["Sentiment"] = _sentimentScore,
-            ["Sentiment_Confidence"] = _sentimentConfidence,
+            ["Momentum"] = momentum[index],
+            ["ROC"] = roc[index],
+            ["ATR"] = atr[index],
+            ["Sentiment"] = sentimentScore,
+            ["Sentiment_Confidence"] = sentimentConfidence,
             ["Final_Score"] = CalculateMarketScore(index)
         };
     }
     
     private double GetEmaStackScore(int index)
     {
-        if (index < 0 || index >= _candles.Count) return 0;
-        var close = _candles[index].Close;
+        if (index < 0 || index >= candles.Count) return 0;
+        var close = candles[index].Close;
         
         int aboveCount = 0;
-        if (close > _ema9[index]) aboveCount++;
-        if (close > _ema21[index]) aboveCount++;
-        if (close > _ema50[index]) aboveCount++;
-        if (close > _ema200[index]) aboveCount++;
+        if (close > ema9[index]) aboveCount++;
+        if (close > ema21[index]) aboveCount++;
+        if (close > ema50[index]) aboveCount++;
+        if (close > ema200[index]) aboveCount++;
         
-        bool bullishStack = _ema9[index] > _ema21[index] && _ema21[index] > _ema50[index];
-        bool bearishStack = _ema9[index] < _ema21[index] && _ema21[index] < _ema50[index];
+        bool bullishStack = ema9[index] > ema21[index] && ema21[index] > ema50[index];
+        bool bearishStack = ema9[index] < ema21[index] && ema21[index] < ema50[index];
         
         double score = (aboveCount - 2) * 50;
         if (bullishStack) score += 25;
@@ -2529,30 +2529,30 @@ internal sealed class BackTestIndicatorCalculator
     
     private double GetRsiScore(int index)
     {
-        if (index < 0 || index >= _rsi.Length) return 0;
-        double rsi = _rsi[index];
-        
-        if (rsi <= 30) return 100 - (rsi - 30) * 3.33;
-        if (rsi >= 70) return -(rsi - 70) * 3.33;
-        return (rsi - 50) * 2;
+        if (index < 0 || index >= rsi.Length) return 0;
+        double rsiVal = rsi[index];
+
+        if (rsiVal <= 30) return 100 - (rsiVal - 30) * 3.33;
+        if (rsiVal >= 70) return -(rsiVal - 70) * 3.33;
+        return (rsiVal - 50) * 2;
     }
     
     private double GetMacdScore(int index)
     {
-        if (index < 0 || index >= _macd.Length) return 0;
+        if (index < 0 || index >= macd.Length) return 0;
         
-        double score = _macd[index] > _signal[index] ? 50 : -50;
-        double histStrength = Math.Min(Math.Abs(_histogram[index]) / (Math.Abs(_macd[index]) + 0.001) * 100, 50);
+        double score = macd[index] > signal[index] ? 50 : -50;
+        double histStrength = Math.Min(Math.Abs(histogram[index]) / (Math.Abs(macd[index]) + 0.001) * 100, 50);
         
-        return Math.Clamp(score + (_histogram[index] > 0 ? histStrength : -histStrength), -100, 100);
+        return Math.Clamp(score + (histogram[index] > 0 ? histStrength : -histStrength), -100, 100);
     }
     
     private double GetAdxScore(int index)
     {
-        if (index < 0 || index >= _adx.Length) return 0;
+        if (index < 0 || index >= adx.Length) return 0;
         
-        double strength = Math.Min(_adx[index] / 50, 1) * 100;
-        return _plusDi[index] > _minusDi[index] ? strength : -strength;
+        double strength = Math.Min(adx[index] / 50, 1) * 100;
+        return plusDi[index] > minusDi[index] ? strength : -strength;
     }
 
     private static double[] CalculateEma(double[] prices, int period)
@@ -3016,14 +3016,14 @@ internal sealed class BackTestIndicatorCalculator
     /// </summary>
     public (int BullishCount, int BearishCount, int TotalCategories) GetIndicatorConfirmation(int index)
     {
-        if (index < 0 || index >= _candles.Count)
+        if (index < 0 || index >= candles.Count)
             return (0, 0, 0);
             
         int bullish = 0;
         int bearish = 0;
         const int totalCategories = 12;
         
-        var candle = _candles[index];
+        var candle = candles[index];
         
         // 1. VWAP Position
         if (candle.Vwap > 0)
@@ -3033,58 +3033,58 @@ internal sealed class BackTestIndicatorCalculator
         }
         
         // 2. EMA Stack (short-term)
-        if (candle.Close > _ema9[index] && candle.Close > _ema21[index]) bullish++;
-        else if (candle.Close < _ema9[index] && candle.Close < _ema21[index]) bearish++;
+        if (candle.Close > ema9[index] && candle.Close > ema21[index]) bullish++;
+        else if (candle.Close < ema9[index] && candle.Close < ema21[index]) bearish++;
         
         // 3. EMA Stack (long-term)
-        if (_ema9[index] > _ema21[index] && _ema21[index] > _ema50[index]) bullish++;
-        else if (_ema9[index] < _ema21[index] && _ema21[index] < _ema50[index]) bearish++;
+        if (ema9[index] > ema21[index] && ema21[index] > ema50[index]) bullish++;
+        else if (ema9[index] < ema21[index] && ema21[index] < ema50[index]) bearish++;
         
         // 4. RSI
-        if (_rsi[index] > 50 && _rsi[index] < 70) bullish++;
-        else if (_rsi[index] < 50 && _rsi[index] > 30) bearish++;
-        else if (_rsi[index] <= 30) bullish++; // Oversold = bullish reversal
-        else if (_rsi[index] >= 70) bearish++; // Overbought = bearish reversal
+        if (rsi[index] > 50 && rsi[index] < 70) bullish++;
+        else if (rsi[index] < 50 && rsi[index] > 30) bearish++;
+        else if (rsi[index] <= 30) bullish++; // Oversold = bullish reversal
+        else if (rsi[index] >= 70) bearish++; // Overbought = bearish reversal
         
         // 5. MACD Signal
-        if (_macd[index] > _signal[index]) bullish++;
+        if (macd[index] > signal[index]) bullish++;
         else bearish++;
         
         // 6. MACD Histogram Momentum
-        if (_histogram[index] > 0 && index > 0 && _histogram[index] > _histogram[index - 1]) bullish++;
-        else if (_histogram[index] < 0 && index > 0 && _histogram[index] < _histogram[index - 1]) bearish++;
+        if (histogram[index] > 0 && index > 0 && histogram[index] > histogram[index - 1]) bullish++;
+        else if (histogram[index] < 0 && index > 0 && histogram[index] < histogram[index - 1]) bearish++;
         
         // 7. ADX/DI Direction
-        if (_plusDi[index] > _minusDi[index]) bullish++;
+        if (plusDi[index] > minusDi[index]) bullish++;
         else bearish++;
         
         // 8. Volume Confirmation
-        if (_volumeRatio[index] > 1.2)
+        if (volumeRatio[index] > 1.2)
         {
             if (candle.Close > candle.Vwap) bullish++;
             else bearish++;
         }
         
         // 9. Bollinger Bands
-        double bbPos = _bollingerUpper[index] - _bollingerLower[index];
+        double bbPos = bollingerUpper[index] - bollingerLower[index];
         if (bbPos > 0)
         {
-            double pricePos = (candle.Close - _bollingerLower[index]) / bbPos;
+            double pricePos = (candle.Close - bollingerLower[index]) / bbPos;
             if (pricePos > 0.6) bullish++;
             else if (pricePos < 0.4) bearish++;
         }
         
         // 10. Stochastic
-        if (_stochasticK[index] > _stochasticD[index] && _stochasticK[index] < 80) bullish++;
-        else if (_stochasticK[index] < _stochasticD[index] && _stochasticK[index] > 20) bearish++;
+        if (stochasticK[index] > stochasticD[index] && stochasticK[index] < 80) bullish++;
+        else if (stochasticK[index] < stochasticD[index] && stochasticK[index] > 20) bearish++;
         
         // 11. CCI
-        if (_cci[index] > 0 && _cci[index] < 200) bullish++;
-        else if (_cci[index] < 0 && _cci[index] > -200) bearish++;
+        if (cci[index] > 0 && cci[index] < 200) bullish++;
+        else if (cci[index] < 0 && cci[index] > -200) bearish++;
         
         // 12. MFI (Money Flow)
-        if (_mfi[index] > 50 && _mfi[index] < 80) bullish++;
-        else if (_mfi[index] < 50 && _mfi[index] > 20) bearish++;
+        if (mfi[index] > 50 && mfi[index] < 80) bullish++;
+        else if (mfi[index] < 50 && mfi[index] > 20) bearish++;
         
         return (bullish, bearish, totalCategories);
     }
@@ -3111,9 +3111,9 @@ internal sealed class BackTestIndicatorCalculator
     public double GetHighestSince(int fromIndex, int toIndex)
     {
         double highest = 0;
-        for (int i = fromIndex; i <= Math.Min(toIndex, _candles.Count - 1); i++)
+        for (int i = fromIndex; i <= Math.Min(toIndex, candles.Count - 1); i++)
         {
-            if (_candles[i].High > highest) highest = _candles[i].High;
+            if (candles[i].High > highest) highest = candles[i].High;
         }
         return highest;
     }
@@ -3124,9 +3124,9 @@ internal sealed class BackTestIndicatorCalculator
     public double GetLowestSince(int fromIndex, int toIndex)
     {
         double lowest = double.MaxValue;
-        for (int i = fromIndex; i <= Math.Min(toIndex, _candles.Count - 1); i++)
+        for (int i = fromIndex; i <= Math.Min(toIndex, candles.Count - 1); i++)
         {
-            if (_candles[i].Low < lowest) lowest = _candles[i].Low;
+            if (candles[i].Low < lowest) lowest = candles[i].Low;
         }
         return lowest == double.MaxValue ? 0 : lowest;
     }

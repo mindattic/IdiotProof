@@ -1,4 +1,4 @@
-// ============================================================================
+﻿// ============================================================================
 // ProactiveMarketScanner - Empirical Pattern Detection & Opportunity Scoring
 // ============================================================================
 //
@@ -237,37 +237,37 @@ public sealed class ProactiveMarketScanner
     
     #region State
     
-    private readonly List<Candlestick> _candles = new();
-    private readonly List<double> _momentumHistory = new();
-    private readonly List<double> _adLineHistory = new();
-    private readonly Dictionary<double, long> _volumeByPrice = new();
+    private readonly List<Candlestick> candles = new();
+    private readonly List<double> momentumHistory = new();
+    private readonly List<double> adLineHistory = new();
+    private readonly Dictionary<double, long> volumeByPrice = new();
     
     // Tracked patterns
-    private readonly List<DetectedPattern> _activePatterns = new();
-    private readonly List<DetectedPattern> _completedPatterns = new();
+    private readonly List<DetectedPattern> activePatterns = new();
+    private readonly List<DetectedPattern> completedPatterns = new();
     
     // Empirical tracking - count outcomes for confidence building
-    private readonly Dictionary<PatternType, (int wins, int losses)> _patternPerformance = new();
+    private readonly Dictionary<PatternType, (int wins, int losses)> patternPerformance = new();
     
     // Session tracking
-    private double _sessionHigh = double.MinValue;
-    private double _sessionLow = double.MaxValue;
-    private DateTime _sessionDate = DateTime.MinValue;
+    private double sessionHigh = double.MinValue;
+    private double sessionLow = double.MaxValue;
+    private DateTime sessionDate = DateTime.MinValue;
     
     // Indicator values (passed in from outside)
-    private double _ema9, _ema21, _ema50;
-    private double _rsi, _macd, _macdSignal, _macdHistogram;
-    private double _adx, _plusDi, _minusDi;
-    private double _atr;
+    private double ema9, ema21, ema50;
+    private double rsi, macd, macdSignal, macdHistogram;
+    private double adx, plusDi, minusDi;
+    private double atr;
     
     #endregion
     
     #region Public Properties
     
-    public int CandleCount => _candles.Count;
-    public bool HasEnoughData => _candles.Count >= MinimumBarsForAnalysis;
-    public IReadOnlyList<DetectedPattern> ActivePatterns => _activePatterns.AsReadOnly();
-    public IReadOnlyList<DetectedPattern> CompletedPatterns => _completedPatterns.AsReadOnly();
+    public int CandleCount => candles.Count;
+    public bool HasEnoughData => candles.Count >= MinimumBarsForAnalysis;
+    public IReadOnlyList<DetectedPattern> ActivePatterns => activePatterns.AsReadOnly();
+    public IReadOnlyList<DetectedPattern> CompletedPatterns => completedPatterns.AsReadOnly();
     
     #endregion
     
@@ -283,36 +283,36 @@ public sealed class ProactiveMarketScanner
                        double atr = 0)
     {
         // Store indicator values
-        _ema9 = ema9;
-        _ema21 = ema21;
-        _ema50 = ema50;
-        _rsi = rsi;
-        _macd = macd;
-        _macdSignal = macdSignal;
-        _macdHistogram = macdHistogram;
-        _adx = adx;
-        _plusDi = plusDi;
-        _minusDi = minusDi;
-        _atr = atr;
+        this.ema9 = ema9;
+        this.ema21 = ema21;
+        this.ema50 = ema50;
+        this.rsi = rsi;
+        this.macd = macd;
+        this.macdSignal = macdSignal;
+        this.macdHistogram = macdHistogram;
+        this.adx = adx;
+        this.plusDi = plusDi;
+        this.minusDi = minusDi;
+        this.atr = atr;
         
         // Track session
         var candleDate = candle.Timestamp.Date;
-        if (candleDate != _sessionDate)
+        if (candleDate != sessionDate)
         {
-            _sessionDate = candleDate;
-            _sessionHigh = candle.High;
-            _sessionLow = candle.Low;
+            sessionDate = candleDate;
+            sessionHigh = candle.High;
+            sessionLow = candle.Low;
         }
         else
         {
-            _sessionHigh = Math.Max(_sessionHigh, candle.High);
-            _sessionLow = Math.Min(_sessionLow, candle.Low);
+            sessionHigh = Math.Max(sessionHigh, candle.High);
+            sessionLow = Math.Min(sessionLow, candle.Low);
         }
         
         // Add candle
-        _candles.Add(candle);
-        if (_candles.Count > MaxCandleHistory)
-            _candles.RemoveAt(0);
+        candles.Add(candle);
+        if (candles.Count > MaxCandleHistory)
+            candles.RemoveAt(0);
         
         // Update volume profile
         UpdateVolumeProfile(candle);
@@ -396,8 +396,8 @@ public sealed class ProactiveMarketScanner
         {
             Timestamp = DateTime.UtcNow,
             CurrentPrice = currentPrice,
-            ActivePattern = _activePatterns.FirstOrDefault(p => p.Stage >= PatternStage.LateFormation),
-            FormingPatterns = _activePatterns.Where(p => p.Stage < PatternStage.LateFormation).ToList(),
+            ActivePattern = activePatterns.FirstOrDefault(p => p.Stage >= PatternStage.LateFormation),
+            FormingPatterns = activePatterns.Where(p => p.Stage < PatternStage.LateFormation).ToList(),
             Momentum = momentum,
             VolumeProfile = volumeProfile,
             AccumDist = accumDist,
@@ -421,14 +421,14 @@ public sealed class ProactiveMarketScanner
     /// </summary>
     public void RecordPatternOutcome(PatternType type, bool wasSuccessful)
     {
-        if (!_patternPerformance.ContainsKey(type))
-            _patternPerformance[type] = (0, 0);
+        if (!patternPerformance.ContainsKey(type))
+            patternPerformance[type] = (0, 0);
         
-        var (wins, losses) = _patternPerformance[type];
+        var (wins, losses) = patternPerformance[type];
         if (wasSuccessful)
-            _patternPerformance[type] = (wins + 1, losses);
+            patternPerformance[type] = (wins + 1, losses);
         else
-            _patternPerformance[type] = (wins, losses + 1);
+            patternPerformance[type] = (wins, losses + 1);
     }
     
     /// <summary>
@@ -436,7 +436,7 @@ public sealed class ProactiveMarketScanner
     /// </summary>
     public double GetPatternWinRate(PatternType type)
     {
-        if (!_patternPerformance.TryGetValue(type, out var stats))
+        if (!patternPerformance.TryGetValue(type, out var stats))
             return 0.5; // Default 50% if no history
         
         int total = stats.wins + stats.losses;
@@ -448,14 +448,14 @@ public sealed class ProactiveMarketScanner
     /// </summary>
     public void Reset()
     {
-        _candles.Clear();
-        _momentumHistory.Clear();
-        _adLineHistory.Clear();
-        _volumeByPrice.Clear();
-        _activePatterns.Clear();
-        _sessionHigh = double.MinValue;
-        _sessionLow = double.MaxValue;
-        _sessionDate = DateTime.MinValue;
+        candles.Clear();
+        momentumHistory.Clear();
+        adLineHistory.Clear();
+        volumeByPrice.Clear();
+        activePatterns.Clear();
+        sessionHigh = double.MinValue;
+        sessionLow = double.MaxValue;
+        sessionDate = DateTime.MinValue;
     }
     
     #endregion
@@ -464,7 +464,7 @@ public sealed class ProactiveMarketScanner
     
     private void ScanForPatterns()
     {
-        if (_candles.Count < 15)
+        if (candles.Count < 15)
             return;
         
         // Check for bull flag
@@ -482,10 +482,10 @@ public sealed class ProactiveMarketScanner
     
     private void DetectBullFlag()
     {
-        if (_candles.Count < 20)
+        if (candles.Count < 20)
             return;
         
-        var recent = _candles.TakeLast(20).ToList();
+        var recent = candles.TakeLast(20).ToList();
         
         // Bull flag: Strong up move (pole) followed by gentle down/sideways drift (flag)
         // Look for: 5+ green candles, then 5-10 candles of consolidation
@@ -541,7 +541,7 @@ public sealed class ProactiveMarketScanner
         {
             double entryLevel = flagHigh; // Enter on breakout above flag
             double targetLevel = entryLevel + poleHeight; // Measured move
-            double stopLevel = flagLow - (_atr > 0 ? _atr * 0.5 : flagRange * 0.25);
+            double stopLevel = flagLow - (atr > 0 ? atr * 0.5 : flagRange * 0.25);
             
             var confidence = CalculatePatternConfidence(PatternType.BullFlag, poleHeight, flagRange, flagCandles.Count);
             
@@ -564,10 +564,10 @@ public sealed class ProactiveMarketScanner
     
     private void DetectBearFlag()
     {
-        if (_candles.Count < 20)
+        if (candles.Count < 20)
             return;
         
-        var recent = _candles.TakeLast(20).ToList();
+        var recent = candles.TakeLast(20).ToList();
         
         // Bear flag: Strong down move (pole) followed by gentle up/sideways drift (flag)
         int poleStart = -1, poleEnd = -1;
@@ -618,7 +618,7 @@ public sealed class ProactiveMarketScanner
         {
             double entryLevel = flagLow;
             double targetLevel = entryLevel - poleHeight;
-            double stopLevel = flagHigh + (_atr > 0 ? _atr * 0.5 : flagRange * 0.25);
+            double stopLevel = flagHigh + (atr > 0 ? atr * 0.5 : flagRange * 0.25);
             
             var confidence = CalculatePatternConfidence(PatternType.BearFlag, poleHeight, flagRange, flagCandles.Count);
             
@@ -641,10 +641,10 @@ public sealed class ProactiveMarketScanner
     
     private void DetectTriangles()
     {
-        if (_candles.Count < 15)
+        if (candles.Count < 15)
             return;
         
-        var recent = _candles.TakeLast(15).ToList();
+        var recent = candles.TakeLast(15).ToList();
         
         // Find swing highs and lows
         var swingHighs = new List<(int index, double price)>();
@@ -687,7 +687,7 @@ public sealed class ProactiveMarketScanner
                 StartTime = recent[Math.Min(swingHighs[0].index, swingLows[0].index)].Timestamp,
                 EntryLevel = resistance * 1.002, // Slight buffer above resistance
                 TargetLevel = resistance + range,
-                StopLevel = support - (_atr > 0 ? _atr : range * 0.2),
+                StopLevel = support - (atr > 0 ? atr : range * 0.2),
                 Confidence = 0.65,
                 BarsInFormation = recent.Count,
                 Description = "Ascending triangle: Higher lows + flat resistance"
@@ -715,7 +715,7 @@ public sealed class ProactiveMarketScanner
                 StartTime = recent[Math.Min(swingHighs[0].index, swingLows[0].index)].Timestamp,
                 EntryLevel = support * 0.998,
                 TargetLevel = support - range,
-                StopLevel = resistance + (_atr > 0 ? _atr : range * 0.2),
+                StopLevel = resistance + (atr > 0 ? atr : range * 0.2),
                 Confidence = 0.65,
                 BarsInFormation = recent.Count,
                 Description = "Descending triangle: Lower highs + flat support"
@@ -727,10 +727,10 @@ public sealed class ProactiveMarketScanner
     
     private void DetectDoublePatterns()
     {
-        if (_candles.Count < 30)
+        if (candles.Count < 30)
             return;
         
-        var recent = _candles.TakeLast(30).ToList();
+        var recent = candles.TakeLast(30).ToList();
         
         // Find the two lowest lows for double bottom
         var sortedByLow = recent.OrderBy(c => c.Low).Take(2).ToList();
@@ -759,7 +759,7 @@ public sealed class ProactiveMarketScanner
                         StartTime = recent[startIdx].Timestamp,
                         EntryLevel = neckline * 1.002,
                         TargetLevel = neckline + depth,
-                        StopLevel = Math.Min(low1, low2) - (_atr > 0 ? _atr * 0.5 : depth * 0.1),
+                        StopLevel = Math.Min(low1, low2) - (atr > 0 ? atr * 0.5 : depth * 0.1),
                         Confidence = 0.70,
                         BarsInFormation = endIdx - startIdx,
                         Description = $"Double bottom at ${low1:F2} - neckline ${neckline:F2}"
@@ -795,7 +795,7 @@ public sealed class ProactiveMarketScanner
                         StartTime = recent[startIdx].Timestamp,
                         EntryLevel = neckline * 0.998,
                         TargetLevel = neckline - depth,
-                        StopLevel = Math.Max(high1, high2) + (_atr > 0 ? _atr * 0.5 : depth * 0.1),
+                        StopLevel = Math.Max(high1, high2) + (atr > 0 ? atr * 0.5 : depth * 0.1),
                         Confidence = 0.70,
                         BarsInFormation = endIdx - startIdx,
                         Description = $"Double top at ${high1:F2} - neckline ${neckline:F2}"
@@ -810,19 +810,19 @@ public sealed class ProactiveMarketScanner
     private void AddOrUpdatePattern(DetectedPattern pattern)
     {
         // Remove existing pattern of same type
-        _activePatterns.RemoveAll(p => p.Type == pattern.Type);
-        _activePatterns.Add(pattern);
+        activePatterns.RemoveAll(p => p.Type == pattern.Type);
+        activePatterns.Add(pattern);
         
         // Keep only top 5 patterns
-        if (_activePatterns.Count > 5)
+        if (activePatterns.Count > 5)
         {
-            _activePatterns.RemoveAt(0);
+            activePatterns.RemoveAt(0);
         }
     }
     
     private void UpdatePatternStatus(double currentPrice)
     {
-        foreach (var pattern in _activePatterns.ToList())
+        foreach (var pattern in activePatterns.ToList())
         {
             bool brokeOut = false;
             bool failed = false;
@@ -846,16 +846,16 @@ public sealed class ProactiveMarketScanner
             
             if (brokeOut || failed)
             {
-                _activePatterns.Remove(pattern);
-                _completedPatterns.Add(pattern with 
+                activePatterns.Remove(pattern);
+                completedPatterns.Add(pattern with 
                 { 
                     Stage = failed ? PatternStage.Failed : PatternStage.BrokeOut,
                     BreakoutTime = DateTime.UtcNow
                 });
                 
                 // Keep only last 20 completed patterns
-                if (_completedPatterns.Count > 20)
-                    _completedPatterns.RemoveAt(0);
+                if (completedPatterns.Count > 20)
+                    completedPatterns.RemoveAt(0);
             }
         }
     }
@@ -879,9 +879,9 @@ public sealed class ProactiveMarketScanner
             baseConfidence += 0.10;
         
         // RSI confirmation
-        if (type == PatternType.BullFlag && _rsi > 40 && _rsi < 70)
+        if (type == PatternType.BullFlag && rsi > 40 && rsi < 70)
             baseConfidence += 0.05;
-        if (type == PatternType.BearFlag && _rsi > 30 && _rsi < 60)
+        if (type == PatternType.BearFlag && rsi > 30 && rsi < 60)
             baseConfidence += 0.05;
         
         return Math.Clamp(baseConfidence, 0.3, 0.95);
@@ -893,20 +893,20 @@ public sealed class ProactiveMarketScanner
     
     private void UpdateMomentumTracking(Candlestick candle)
     {
-        if (_candles.Count < 10)
+        if (candles.Count < 10)
             return;
         
         // Calculate momentum as rate of change over 10 bars
-        double momentum = (candle.Close - _candles[^10].Close) / _candles[^10].Close * 100;
-        _momentumHistory.Add(momentum);
+        double momentum = (candle.Close - candles[^10].Close) / candles[^10].Close * 100;
+        momentumHistory.Add(momentum);
         
-        if (_momentumHistory.Count > 50)
-            _momentumHistory.RemoveAt(0);
+        if (momentumHistory.Count > 50)
+            momentumHistory.RemoveAt(0);
     }
     
     private MomentumAnalysis AnalyzeMomentum(double currentPrice)
     {
-        if (_momentumHistory.Count < 5)
+        if (momentumHistory.Count < 5)
         {
             return new MomentumAnalysis
             {
@@ -915,13 +915,13 @@ public sealed class ProactiveMarketScanner
             };
         }
         
-        double currentMomentum = _momentumHistory.Last();
-        double prevMomentum = _momentumHistory[^2];
+        double currentMomentum = momentumHistory.Last();
+        double prevMomentum = momentumHistory[^2];
         double momentumChange = currentMomentum - prevMomentum;
         
         // Calculate rate of momentum change
-        double roc = _momentumHistory.Count >= 5 
-            ? (_momentumHistory[^1] - _momentumHistory[^5]) / 5 
+        double roc = momentumHistory.Count >= 5 
+            ? (momentumHistory[^1] - momentumHistory[^5]) / 5 
             : 0;
         
         // Determine state
@@ -942,9 +942,9 @@ public sealed class ProactiveMarketScanner
         
         // Check for divergence (price vs momentum)
         bool isDiverging = false;
-        if (_candles.Count >= 10)
+        if (candles.Count >= 10)
         {
-            double priceChange = (currentPrice - _candles[^10].Close) / _candles[^10].Close * 100;
+            double priceChange = (currentPrice - candles[^10].Close) / candles[^10].Close * 100;
             isDiverging = (priceChange > 1 && currentMomentum < 0) || (priceChange < -1 && currentMomentum > 0);
         }
         
@@ -1006,22 +1006,22 @@ public sealed class ProactiveMarketScanner
         for (double price = candle.Low; price <= candle.High; price += priceStep)
         {
             double roundedPrice = Math.Round(price * 100) / 100; // Round to cents
-            if (!_volumeByPrice.ContainsKey(roundedPrice))
-                _volumeByPrice[roundedPrice] = 0;
-            _volumeByPrice[roundedPrice] += volumePerLevel;
+            if (!volumeByPrice.ContainsKey(roundedPrice))
+                volumeByPrice[roundedPrice] = 0;
+            volumeByPrice[roundedPrice] += volumePerLevel;
         }
         
         // Cleanup old prices (keep within session range + buffer)
-        var keysToRemove = _volumeByPrice.Keys
-            .Where(p => p < _sessionLow * 0.95 || p > _sessionHigh * 1.05)
+        var keysToRemove = volumeByPrice.Keys
+            .Where(p => p < sessionLow * 0.95 || p > sessionHigh * 1.05)
             .ToList();
         foreach (var key in keysToRemove)
-            _volumeByPrice.Remove(key);
+            volumeByPrice.Remove(key);
     }
     
     private VolumeProfileAnalysis AnalyzeVolumeProfile(double currentPrice)
     {
-        if (_volumeByPrice.Count < 10)
+        if (volumeByPrice.Count < 10)
         {
             return new VolumeProfileAnalysis
             {
@@ -1033,24 +1033,24 @@ public sealed class ProactiveMarketScanner
         }
         
         // Find POC (price with highest volume)
-        var poc = _volumeByPrice.OrderByDescending(kv => kv.Value).First().Key;
+        var poc = volumeByPrice.OrderByDescending(kv => kv.Value).First().Key;
         
         // Calculate total volume
-        long totalVolume = _volumeByPrice.Values.Sum();
+        long totalVolume = volumeByPrice.Values.Sum();
         long targetVolume = (long)(totalVolume * 0.7); // 70% value area
         
         // Build value area from POC outward
-        var sortedPrices = _volumeByPrice.Keys.OrderBy(p => p).ToList();
+        var sortedPrices = volumeByPrice.Keys.OrderBy(p => p).ToList();
         int pocIndex = sortedPrices.IndexOf(poc);
         
-        long volumeInVa = _volumeByPrice[poc];
+        long volumeInVa = volumeByPrice[poc];
         int lowerIdx = pocIndex - 1;
         int upperIdx = pocIndex + 1;
         
         while (volumeInVa < targetVolume && (lowerIdx >= 0 || upperIdx < sortedPrices.Count))
         {
-            long lowerVol = lowerIdx >= 0 ? _volumeByPrice[sortedPrices[lowerIdx]] : 0;
-            long upperVol = upperIdx < sortedPrices.Count ? _volumeByPrice[sortedPrices[upperIdx]] : 0;
+            long lowerVol = lowerIdx >= 0 ? volumeByPrice[sortedPrices[lowerIdx]] : 0;
+            long upperVol = upperIdx < sortedPrices.Count ? volumeByPrice[sortedPrices[upperIdx]] : 0;
             
             if (lowerVol >= upperVol && lowerIdx >= 0)
             {
@@ -1083,7 +1083,7 @@ public sealed class ProactiveMarketScanner
             zone = VolumeZone.InValueArea;
         
         // Find high volume levels (nodes)
-        var highVolumeLevels = _volumeByPrice
+        var highVolumeLevels = volumeByPrice
             .OrderByDescending(kv => kv.Value)
             .Take(5)
             .Select(kv => (kv.Key, kv.Value))
@@ -1097,7 +1097,7 @@ public sealed class ProactiveMarketScanner
             CurrentZone = zone,
             DistanceToPOC = distToPoc,
             IsPriceAtPOC = distToPoc < 0.5,
-            VolumeWeightedPrice = _volumeByPrice.Sum(kv => kv.Key * kv.Value) / totalVolume,
+            VolumeWeightedPrice = volumeByPrice.Sum(kv => kv.Key * kv.Value) / totalVolume,
             HighVolumeLevels = highVolumeLevels
         };
     }
@@ -1115,16 +1115,16 @@ public sealed class ProactiveMarketScanner
         double clv = ((candle.Close - candle.Low) - (candle.High - candle.Close)) / range;
         double ad = clv * candle.Volume;
         
-        double prevAd = _adLineHistory.Count > 0 ? _adLineHistory.Last() : 0;
-        _adLineHistory.Add(prevAd + ad);
+        double prevAd = adLineHistory.Count > 0 ? adLineHistory.Last() : 0;
+        adLineHistory.Add(prevAd + ad);
         
-        if (_adLineHistory.Count > 100)
-            _adLineHistory.RemoveAt(0);
+        if (adLineHistory.Count > 100)
+            adLineHistory.RemoveAt(0);
     }
     
     private AccumulationDistributionAnalysis AnalyzeAccumulationDistribution(double currentPrice)
     {
-        if (_adLineHistory.Count < 10)
+        if (adLineHistory.Count < 10)
         {
             return new AccumulationDistributionAnalysis
             {
@@ -1132,8 +1132,8 @@ public sealed class ProactiveMarketScanner
             };
         }
         
-        double currentAd = _adLineHistory.Last();
-        double adTrend = (currentAd - _adLineHistory[^10]) / 10;
+        double currentAd = adLineHistory.Last();
+        double adTrend = (currentAd - adLineHistory[^10]) / 10;
         
         // Determine accumulation/distribution
         bool isAccumulating = adTrend > 0;
@@ -1141,9 +1141,9 @@ public sealed class ProactiveMarketScanner
         
         // Check for divergence
         string divergenceType = "None";
-        if (_candles.Count >= 10)
+        if (candles.Count >= 10)
         {
-            double priceChange = _candles[^1].Close - _candles[^10].Close;
+            double priceChange = candles[^1].Close - candles[^10].Close;
             bool priceUp = priceChange > 0;
             bool adUp = adTrend > 0;
             
@@ -1255,7 +1255,7 @@ public sealed class ProactiveMarketScanner
     private void GatherPatternEvidence(double currentPrice,
                                         List<string> bullish, List<string> bearish)
     {
-        foreach (var pattern in _activePatterns)
+        foreach (var pattern in activePatterns)
         {
             if (pattern.Stage < PatternStage.MidFormation) continue;
             
@@ -1294,40 +1294,40 @@ public sealed class ProactiveMarketScanner
     private void GatherPriceStructureEvidence(double currentPrice,
                                                List<string> bullish, List<string> bearish)
     {
-        if (_candles.Count < 20) return;
+        if (candles.Count < 20) return;
         
         // EMA alignment
-        if (_ema9 > 0 && _ema21 > 0 && _ema50 > 0)
+        if (ema9 > 0 && ema21 > 0 && ema50 > 0)
         {
-            if (currentPrice > _ema9 && _ema9 > _ema21 && _ema21 > _ema50)
+            if (currentPrice > ema9 && ema9 > ema21 && ema21 > ema50)
                 bullish.Add("Bullish EMA stack (Price > 9 > 21 > 50)");
-            else if (currentPrice < _ema9 && _ema9 < _ema21 && _ema21 < _ema50)
+            else if (currentPrice < ema9 && ema9 < ema21 && ema21 < ema50)
                 bearish.Add("Bearish EMA stack (Price < 9 < 21 < 50)");
         }
         
         // MACD
-        if (_macdHistogram > 0 && _macdHistogram > _momentumHistory.LastOrDefault())
+        if (macdHistogram > 0 && macdHistogram > momentumHistory.LastOrDefault())
             bullish.Add("MACD histogram rising");
-        else if (_macdHistogram < 0 && _macdHistogram < _momentumHistory.LastOrDefault())
+        else if (macdHistogram < 0 && macdHistogram < momentumHistory.LastOrDefault())
             bearish.Add("MACD histogram falling");
         
         // RSI
-        if (_rsi < 30)
-            bullish.Add($"RSI oversold ({_rsi:F0})");
-        else if (_rsi > 70)
-            bearish.Add($"RSI overbought ({_rsi:F0})");
+        if (rsi < 30)
+            bullish.Add($"RSI oversold ({rsi:F0})");
+        else if (rsi > 70)
+            bearish.Add($"RSI overbought ({rsi:F0})");
         
         // ADX trend strength
-        if (_adx > 25)
+        if (adx > 25)
         {
-            if (_plusDi > _minusDi)
-                bullish.Add($"Strong uptrend (ADX={_adx:F0}, +DI>{-_minusDi:F0})");
+            if (plusDi > minusDi)
+                bullish.Add($"Strong uptrend (ADX={adx:F0}, +DI>{-minusDi:F0})");
             else
-                bearish.Add($"Strong downtrend (ADX={_adx:F0}, -DI>{_minusDi:F0})");
+                bearish.Add($"Strong downtrend (ADX={adx:F0}, -DI>{minusDi:F0})");
         }
         
         // Higher highs/lows vs lower highs/lows (last 10 bars)
-        var recent10 = _candles.TakeLast(10).ToList();
+        var recent10 = candles.TakeLast(10).ToList();
         int higherHighs = 0, lowerLows = 0;
         for (int i = 1; i < recent10.Count; i++)
         {
@@ -1368,7 +1368,7 @@ public sealed class ProactiveMarketScanner
             confidence -= 10;
         
         // Pattern bonus
-        if (_activePatterns.Any(p => p.Stage >= PatternStage.LateFormation && p.Confidence >= 0.65))
+        if (activePatterns.Any(p => p.Stage >= PatternStage.LateFormation && p.Confidence >= 0.65))
             confidence += 15;
         
         // A/D agreement
@@ -1413,7 +1413,7 @@ public sealed class ProactiveMarketScanner
         }
         
         // Check for pattern setups
-        var readyPattern = _activePatterns.FirstOrDefault(p => p.Stage >= PatternStage.ReadyToBreak);
+        var readyPattern = activePatterns.FirstOrDefault(p => p.Stage >= PatternStage.ReadyToBreak);
         if (readyPattern != null)
         {
             return $"PATTERN WATCH - {readyPattern.Type} ready to break. Entry: ${readyPattern.EntryLevel:F2}";
@@ -1432,7 +1432,7 @@ public sealed class ProactiveMarketScanner
         double shortEntry = Math.Max(volume.VAH, volume.POC);
         
         // Stop loss: Beyond the value area
-        double sl = longEntry - (_atr > 0 ? _atr * 1.5 : (volume.VAH - volume.VAL) * 0.3);
+        double sl = longEntry - (atr > 0 ? atr * 1.5 : (volume.VAH - volume.VAL) * 0.3);
         
         // Take profit: Opposite end of value area + extension
         double tp = volume.VAH + (volume.VAH - volume.VAL) * 0.5;
