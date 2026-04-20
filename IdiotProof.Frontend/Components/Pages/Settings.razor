@@ -1,0 +1,343 @@
+@page "/settings"
+@rendermode InteractiveServer
+@inject AppSettings AppSettings
+@inject IStorageProvider StorageProvider
+@inject TradingStateService TradingState
+@inject UserManager<AppUser> UserMgr
+@inject AuthenticationStateProvider AuthStateProvider
+
+<PageTitle>Settings — IdiotProof</PageTitle>
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h4 class="mb-0 text-white">
+        <i class="bi bi-gear me-2" style="color:var(--text-muted)"></i>Settings
+    </h4>
+    <button class="btn btn-success btn-sm" @onclick="SaveSettings">
+        <i class="bi bi-floppy me-1"></i>Save
+    </button>
+</div>
+
+@if (!string.IsNullOrEmpty(saveMessage))
+{
+    <div class="alert alert-success small py-2 mb-3">@saveMessage</div>
+}
+
+<!-- General Settings -->
+<div class="trading-card p-3 mb-3">
+    <h6 class="text-white mb-3">General</h6>
+    <div class="row g-3">
+        <div class="col-md-4">
+            <label class="form-label text-muted small">Default Broker</label>
+            <select class="form-select bg-dark text-white border-secondary" @bind="defaultBroker">
+                <option value="Sandbox">Sandbox (safe)</option>
+                <option value="Alpaca">Alpaca</option>
+                <option value="Ibkr">IBKR</option>
+            </select>
+        </div>
+        <div class="col-md-4">
+            <label class="form-label text-muted small">Default Data Feed</label>
+            <select class="form-select bg-dark text-white border-secondary" @bind="defaultDataFeed">
+                <option value="Polygon">Polygon.io</option>
+            </select>
+        </div>
+        <div class="col-md-4">
+            <label class="form-label text-muted small">Timezone</label>
+            <select class="form-select bg-dark text-white border-secondary" @bind="timezone">
+                <option value="Eastern Standard Time">Eastern (ET)</option>
+                <option value="Central Standard Time">Central (CT)</option>
+                <option value="Mountain Standard Time">Mountain (MT)</option>
+                <option value="Pacific Standard Time">Pacific (PT)</option>
+                <option value="UTC">UTC</option>
+            </select>
+        </div>
+        <div class="col-md-4">
+            <div class="form-check form-switch">
+                <input class="form-check-input" type="checkbox" id="showConnMsg" @bind="showConnectionMessages" />
+                <label class="form-check-label text-muted small" for="showConnMsg">Show Connection Messages</label>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Strategy Execution -->
+<div class="trading-card p-3 mb-3">
+    <h6 class="text-white mb-3">Strategy Execution</h6>
+    <div class="row g-3">
+        <div class="col-md-4">
+            <label class="form-label text-muted small">Evaluation Interval (seconds)</label>
+            <input type="number" min="5" max="300" class="form-control bg-dark text-white border-secondary"
+                   @bind="evalInterval" />
+            <div class="text-muted" style="font-size:0.7rem">Min 5s, recommended 30s</div>
+        </div>
+        <div class="col-md-4">
+            <label class="form-label text-muted small">Max Concurrent Evaluations</label>
+            <input type="number" min="1" max="20" class="form-control bg-dark text-white border-secondary"
+                   @bind="maxConcurrent" />
+        </div>
+    </div>
+</div>
+
+<!-- LLM Voting -->
+<div class="trading-card p-3 mb-3">
+    <h6 class="text-white mb-3">
+        <i class="bi bi-robot me-1"></i>LLM Signal Voting
+    </h6>
+    <div class="row g-3 mb-3">
+        <div class="col-md-3">
+            <div class="form-check form-switch">
+                <input class="form-check-input" type="checkbox" id="llmEnabled" @bind="llmEnabled" />
+                <label class="form-check-label text-muted small" for="llmEnabled">Enable LLM Voting</label>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <label class="form-label text-muted small">
+                Consensus Threshold: <strong>@consensusThreshold%</strong>
+            </label>
+            <input type="range" class="form-range" min="50" max="100" step="5"
+                   @bind="consensusThreshold"
+                   @bind:event="oninput" />
+            <div class="text-muted" style="font-size:0.7rem">% of weighted votes required to approve</div>
+        </div>
+    </div>
+
+    <!-- Voter Weights -->
+    <div class="row g-2">
+        @foreach (var voter in voters)
+        {
+            var v = voter;
+            <div class="col-md-6">
+                <div class="border border-secondary rounded p-2">
+                    <div class="d-flex justify-content-between align-items-center mb-1">
+                        <span class="text-white small">@v.ModelId</span>
+                        <span class="badge bg-secondary">Weight: @v.Weight</span>
+                    </div>
+                    <input type="range" class="form-range" min="0" max="5" step="1"
+                           value="@v.Weight"
+                           @onchange="@((e) => { if (int.TryParse(e.Value?.ToString(), out var w)) v.Weight = w; })" />
+                </div>
+            </div>
+        }
+    </div>
+</div>
+
+<!-- Audit Log -->
+<div class="trading-card p-3 mb-3">
+    <h6 class="text-white mb-3">
+        <i class="bi bi-journal-text me-1"></i>Audit Log (last 100 entries)
+    </h6>
+    <div style="max-height:300px;overflow-y:auto;font-family:monospace;font-size:0.75rem;background:var(--bg-secondary);border-radius:4px;padding:12px">
+        @if (logEntries.Any())
+        {
+            @foreach (var line in logEntries)
+            {
+                <div class="text-muted">@line</div>
+            }
+        }
+        else
+        {
+            <div class="text-muted">No log entries found.</div>
+        }
+    </div>
+</div>
+
+<!-- Password -->
+<div class="trading-card p-3 mb-3">
+    <h6 class="text-white mb-3">
+        <i class="bi bi-lock me-1"></i>Change Password
+    </h6>
+    @if (!string.IsNullOrEmpty(passwordMessage))
+    {
+        <div class="alert @(passwordError ? "alert-danger" : "alert-success") small py-2 mb-3">@passwordMessage</div>
+    }
+    <div class="row g-2" style="max-width:400px">
+        <div class="col-12">
+            <label class="form-label text-muted small">New Password</label>
+            <input type="password" class="form-control bg-dark text-white border-secondary"
+                   @bind="newPassword" placeholder="New password" />
+        </div>
+        <div class="col-12">
+            <label class="form-label text-muted small">Confirm Password</label>
+            <input type="password" class="form-control bg-dark text-white border-secondary"
+                   @bind="confirmPassword" placeholder="Confirm password" />
+        </div>
+        <div class="col-12">
+            <button class="btn btn-sm btn-outline-warning" @onclick="ChangePassword">
+                <i class="bi bi-lock-fill me-1"></i>Update Password
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Danger Zone -->
+<div class="trading-card p-3 border border-danger">
+    <h6 class="text-danger mb-3">
+        <i class="bi bi-exclamation-octagon me-1"></i>Danger Zone
+    </h6>
+    <div class="d-flex align-items-center justify-content-between">
+        <div>
+            <div class="text-white small">Clear All Data</div>
+            <div class="text-muted" style="font-size:0.75rem">Deletes all workspaces, signals, and settings. Cannot be undone.</div>
+        </div>
+        <button class="btn btn-sm btn-outline-danger" @onclick="() => showClearModal = true">
+            Clear All Data
+        </button>
+    </div>
+</div>
+
+<!-- Clear Confirm Modal -->
+@if (showClearModal)
+{
+    <div class="modal-backdrop fade show"></div>
+    <div class="modal fade show d-block" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content bg-dark border-danger">
+                <div class="modal-header border-danger">
+                    <h5 class="modal-title text-danger">Confirm Clear All Data</h5>
+                </div>
+                <div class="modal-body text-white">
+                    <p>This will permanently delete <strong>all workspaces, settings, and signal history</strong>.</p>
+                    <p class="text-danger fw-bold">This cannot be undone.</p>
+                </div>
+                <div class="modal-footer border-secondary">
+                    <button class="btn btn-secondary" @onclick="() => showClearModal = false">Cancel</button>
+                    <button class="btn btn-danger" @onclick="ClearAllData">Yes, Delete Everything</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private string defaultBroker = "Sandbox";
+    private string defaultDataFeed = "Polygon";
+    private string timezone = "Central Standard Time";
+    private bool showConnectionMessages = true;
+    private int evalInterval = 30;
+    private int maxConcurrent = 5;
+    private bool llmEnabled;
+    private int consensusThreshold = 66;
+    private bool showClearModal;
+    private string saveMessage = "";
+    private List<string> logEntries = [];
+    private string newPassword = "";
+    private string confirmPassword = "";
+    private string passwordMessage = "";
+    private bool passwordError;
+
+    private sealed class VoterConfig
+    {
+        public string ModelId { get; set; } = "";
+        public int Weight { get; set; } = 1;
+    }
+
+    private List<VoterConfig> voters =
+    [
+        new() { ModelId = "claude-sonnet-4-6", Weight = 2 },
+        new() { ModelId = "claude-haiku-4-5-20251001", Weight = 1 },
+    ];
+
+    protected override void OnInitialized()
+    {
+        defaultBroker = AppSettings.DefaultBroker;
+        defaultDataFeed = AppSettings.DefaultDataFeed;
+        timezone = AppSettings.Timezone;
+        showConnectionMessages = AppSettings.ShowConnectionMessages;
+        llmEnabled = AppSettings.LlmVotingEnabled;
+        evalInterval = AppSettings.StrategyEvaluationIntervalSeconds;
+        maxConcurrent = AppSettings.MaxConcurrentEvaluations;
+
+        LoadLogEntries();
+    }
+
+    private void LoadLogEntries()
+    {
+        try
+        {
+            var logDir = StorageProvider.LogsPath;
+            var logs = Directory.GetFiles(logDir, "*.log")
+                .OrderByDescending(f => f)
+                .FirstOrDefault();
+            if (logs != null)
+            {
+                logEntries = File.ReadAllLines(logs)
+                    .Reverse()
+                    .Take(100)
+                    .ToList();
+            }
+        }
+        catch { logEntries = ["(Could not read log files)"]; }
+    }
+
+    private void SaveSettings()
+    {
+        AppSettings.DefaultBroker = defaultBroker;
+        AppSettings.DefaultDataFeed = defaultDataFeed;
+        AppSettings.Timezone = timezone;
+        AppSettings.ShowConnectionMessages = showConnectionMessages;
+        AppSettings.LlmVotingEnabled = llmEnabled;
+        AppSettings.StrategyEvaluationIntervalSeconds = Math.Clamp(evalInterval, 5, 300);
+        AppSettings.MaxConcurrentEvaluations = Math.Clamp(maxConcurrent, 1, 20);
+
+        AppSettings.Save(StorageProvider);
+        saveMessage = "Settings saved.";
+    }
+
+    private async Task ChangePassword()
+    {
+        passwordMessage = "";
+        passwordError = false;
+
+        if (string.IsNullOrWhiteSpace(newPassword) || newPassword.Length < 8)
+        {
+            passwordMessage = "Password must be at least 8 characters.";
+            passwordError = true;
+            return;
+        }
+        if (newPassword != confirmPassword)
+        {
+            passwordMessage = "Passwords do not match.";
+            passwordError = true;
+            return;
+        }
+
+        var auth = await AuthStateProvider.GetAuthenticationStateAsync();
+        var userId = auth.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+        if (userId == null) { passwordMessage = "Not authenticated."; passwordError = true; return; }
+
+        var user = await UserMgr.FindByIdAsync(userId);
+        if (user == null) { passwordMessage = "User not found."; passwordError = true; return; }
+
+        var token = await UserMgr.GeneratePasswordResetTokenAsync(user);
+        var result = await UserMgr.ResetPasswordAsync(user, token, newPassword);
+
+        if (result.Succeeded)
+        {
+            newPassword = "";
+            confirmPassword = "";
+            passwordMessage = "Password updated successfully.";
+        }
+        else
+        {
+            passwordMessage = string.Join(" ", result.Errors.Select(e => e.Description));
+            passwordError = true;
+        }
+    }
+
+    private void ClearAllData()
+    {
+        try
+        {
+            foreach (var dir in new[] { StorageProvider.WorkspacesPath, StorageProvider.DataPath })
+            {
+                if (Directory.Exists(dir))
+                    foreach (var f in Directory.GetFiles(dir))
+                        File.Delete(f);
+            }
+            var settingsFile = Path.Combine(StorageProvider.SettingsPath, "app-settings.json");
+            if (File.Exists(settingsFile)) File.Delete(settingsFile);
+        }
+        catch { }
+        showClearModal = false;
+        saveMessage = "All data cleared. Restart the application.";
+    }
+}

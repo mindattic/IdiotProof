@@ -1,0 +1,184 @@
+@page "/signals"
+@rendermode InteractiveServer
+@inject TradingStateService TradingState
+@inject UserKeyService UserKeyService
+@inject AuditLogger AuditLogger
+@inject IJSRuntime JS
+@inject AuthenticationStateProvider AuthStateProvider
+@implements IDisposable
+
+<PageTitle>Signals — IdiotProof</PageTitle>
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h4 class="mb-0 text-white">
+        <i class="bi bi-lightning-charge me-2" style="color:var(--yellow)"></i>
+        Signal Feed
+        <span class="badge bg-secondary ms-2">@filteredSignals.Count</span>
+    </h4>
+    <button class="btn btn-sm btn-outline-secondary" @onclick="ExportCsv">
+        <i class="bi bi-download me-1"></i>Export CSV
+    </button>
+</div>
+
+<!-- Filter Bar -->
+<div class="trading-card p-3 mb-3">
+    <div class="row g-2 align-items-end">
+        <div class="col-md-3">
+            <label class="form-label text-muted small">Symbol</label>
+            <input class="form-control form-control-sm bg-dark text-white border-secondary"
+                   placeholder="Filter by symbol..."
+                   @bind="filterSymbol"
+                   @bind:event="oninput" />
+        </div>
+        <div class="col-md-3">
+            <label class="form-label text-muted small">Strategy</label>
+            <input class="form-control form-control-sm bg-dark text-white border-secondary"
+                   placeholder="Filter by strategy..."
+                   @bind="filterStrategy"
+                   @bind:event="oninput" />
+        </div>
+        <div class="col-md-2">
+            <label class="form-label text-muted small">Direction</label>
+            <select class="form-select form-select-sm bg-dark text-white border-secondary" @bind="filterDirection">
+                <option value="">All</option>
+                <option value="Long">Long</option>
+                <option value="Short">Short</option>
+            </select>
+        </div>
+        <div class="col-md-3">
+            <label class="form-label text-muted small">
+                Min Confidence: <strong>@minConfidence%</strong>
+            </label>
+            <input type="range" class="form-range" min="0" max="100" step="5"
+                   @bind="minConfidence"
+                   @bind:event="oninput" />
+        </div>
+        <div class="col-md-1">
+            <button class="btn btn-sm btn-outline-secondary w-100" @onclick="ClearFilters">Clear</button>
+        </div>
+    </div>
+</div>
+
+@if (!string.IsNullOrEmpty(executionFeedback))
+{
+    <div class="alert alert-info small py-2 mb-3">@executionFeedback</div>
+}
+
+<!-- Signal List -->
+@if (!filteredSignals.Any())
+{
+    <div class="text-center py-5 text-muted">
+        <i class="bi bi-inbox fs-1 d-block mb-3"></i>
+        No signals match your filters.
+    </div>
+}
+else
+{
+    <div class="d-flex flex-column gap-2">
+        @foreach (var signal in filteredSignals)
+        {
+            TradingState.SignalVotes.TryGetValue(
+                $"{signal.Symbol}_{signal.StrategyName}_{signal.GeneratedUtc:yyyyMMddHHmmss}",
+                out var vote);
+            <SignalCard Signal="@signal"
+                        VotingResult="@vote"
+                        OnExecute="@(EventCallback.Factory.Create<TradeSignal>(this, OnExecuteSignal))" />
+        }
+    </div>
+}
+
+@code {
+    private string userId = "";
+    private string filterSymbol = "";
+    private string filterStrategy = "";
+    private string filterDirection = "";
+    private int minConfidence = 0;
+    private List<TradeSignal> filteredSignals = [];
+    private string? executionFeedback;
+    private System.Threading.Timer? refreshTimer;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var auth = await AuthStateProvider.GetAuthenticationStateAsync();
+        userId = auth.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? "";
+
+        ApplyFilters();
+        refreshTimer = new System.Threading.Timer(_ =>
+        {
+            ApplyFilters();
+            InvokeAsync(StateHasChanged);
+        }, null, TimeSpan.FromSeconds(3), TimeSpan.FromSeconds(3));
+    }
+
+    private void ApplyFilters()
+    {
+        var signals = TradingState.GetRecentSignalsForUser(userId).AsEnumerable();
+
+        if (!string.IsNullOrWhiteSpace(filterSymbol))
+            signals = signals.Where(s => s.Symbol.Contains(filterSymbol.Trim(), StringComparison.OrdinalIgnoreCase));
+
+        if (!string.IsNullOrWhiteSpace(filterStrategy))
+            signals = signals.Where(s => s.StrategyName.Contains(filterStrategy.Trim(), StringComparison.OrdinalIgnoreCase));
+
+        if (!string.IsNullOrWhiteSpace(filterDirection) && Enum.TryParse<TradeDirection>(filterDirection, out var dir))
+            signals = signals.Where(s => s.Direction == dir);
+
+        if (minConfidence > 0)
+            signals = signals.Where(s => s.ConfidencePercent >= minConfidence);
+
+        filteredSignals = signals.ToList();
+    }
+
+    private void ClearFilters()
+    {
+        filterSymbol = "";
+        filterStrategy = "";
+        filterDirection = "";
+        minConfidence = 0;
+        ApplyFilters();
+    }
+
+    private async Task OnExecuteSignal(TradeSignal signal)
+    {
+        executionFeedback = null;
+        try
+        {
+            var keys = await UserKeyService.GetOrCreateAsync(userId);
+            IBrokerClient broker = !string.IsNullOrWhiteSpace(keys.AlpacaApiKeyId)
+                ? new AlpacaBrokerClient(keys.AlpacaApiKeyId, keys.AlpacaApiSecretKey ?? "", keys.AlpacaIsPaper)
+                : new SandboxBrokerClient();
+
+            var request = new OrderRequest
+            {
+                Symbol = signal.Symbol,
+                Quantity = 1,
+                Side = signal.Direction == TradeDirection.Long ? OrderSide.Buy : OrderSide.Sell,
+                Type = OrderType.Market,
+                TimeInForce = "DAY"
+            };
+            var result = await broker.PlaceOrderAsync(request);
+            AuditLogger.Log("MANUAL_TRADE", $"BrokerOrderId={result.BrokerOrderId} Symbol={signal.Symbol} Side={request.Side} Strategy={signal.StrategyName}", signal.Symbol);
+            executionFeedback = result.IsSuccess
+                ? $"Order placed: {request.Side} {signal.Symbol} (ID: {result.BrokerOrderId})"
+                : $"Order rejected: {result.Message}";
+        }
+        catch (Exception ex)
+        {
+            executionFeedback = $"Error: {ex.Message}";
+        }
+    }
+
+    private async Task ExportCsv()
+    {
+        var sb = new System.Text.StringBuilder();
+        sb.AppendLine("Time (UTC),Symbol,Direction,Strategy,Confidence,Entry,Stop,Reason");
+        foreach (var s in filteredSignals)
+        {
+            sb.AppendLine($"{s.GeneratedUtc:yyyy-MM-dd HH:mm:ss},{s.Symbol},{s.Direction},{s.StrategyName},{s.ConfidencePercent:F1},{s.SuggestedEntry:F2},{s.SuggestedStop:F2},{s.Reason.Replace(",", " ")}");
+        }
+        var filename = $"signals_{DateTime.UtcNow:yyyyMMdd_HHmmss}.csv";
+        await JS.InvokeVoidAsync("IdiotProof.downloadFile", filename, "text/csv", sb.ToString());
+    }
+
+    public void Dispose() => refreshTimer?.Dispose();
+}

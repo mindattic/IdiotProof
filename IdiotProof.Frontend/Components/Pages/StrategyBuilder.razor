@@ -1,0 +1,419 @@
+@page "/builder"
+@rendermode InteractiveServer
+@inject StrategyRegistry StrategyRegistry
+@inject WorkspaceManager WorkspaceManager
+@inject AuthenticationStateProvider AuthStateProvider
+
+<PageTitle>Strategy Builder — IdiotProof</PageTitle>
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h4 class="mb-0 text-white">
+        <i class="bi bi-code-square me-2" style="color:var(--blue)"></i>Strategy Builder
+    </h4>
+    <div class="btn-group btn-group-sm">
+        <button class="btn @(mode == "guided" ? "btn-primary" : "btn-outline-secondary")" @onclick='() => mode = "guided"'>
+            <i class="bi bi-list-check me-1"></i>Guided
+        </button>
+        <button class="btn @(mode == "script" ? "btn-primary" : "btn-outline-secondary")" @onclick='() => mode = "script"'>
+            <i class="bi bi-terminal me-1"></i>Script
+        </button>
+    </div>
+</div>
+
+<div class="row g-3">
+    <!-- Main Builder Area -->
+    <div class="col-lg-8">
+        @if (mode == "guided")
+        {
+            <!-- Step Progress -->
+            <div class="trading-card p-3 mb-3">
+                <div class="d-flex gap-2 align-items-center">
+                    @for (int i = 1; i <= 5; i++)
+                    {
+                        var stepNum = i;
+                        var isActive = currentStep == stepNum;
+                        var isDone = currentStep > stepNum;
+                        <div class="d-flex align-items-center gap-1" @onclick="() => GoToStep(stepNum)" style="cursor:pointer">
+                            <div class="rounded-circle d-flex align-items-center justify-content-center"
+                                 style="width:28px;height:28px;background:@(isDone ? "var(--green)" : isActive ? "var(--blue)" : "var(--bg-secondary)");font-size:0.75rem;color:white">
+                                @if (isDone)
+                                { <i class="bi bi-check"></i> }
+                                else
+                                { @stepNum }
+                            </div>
+                            <span class="small @(isActive ? "text-white" : "text-muted") d-none d-md-inline">@StepName(stepNum)</span>
+                        </div>
+                        @if (stepNum < 5)
+                        {
+                            <div class="flex-grow-1 border-top" style="border-color:var(--border)!important;max-width:40px"></div>
+                        }
+                    }
+                </div>
+            </div>
+
+            <div class="trading-card p-3 mb-3">
+                <!-- Step 1: Name & Type -->
+                @if (currentStep == 1)
+                {
+                    <h6 class="text-white mb-3">Step 1: Name & Type</h6>
+                    <div class="mb-3">
+                        <label class="form-label text-muted small">Strategy Name</label>
+                        <input class="form-control bg-dark text-white border-secondary"
+                               placeholder="My Custom Strategy"
+                               @bind="strategyName" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label text-muted small">Strategy Type</label>
+                        <div class="row g-2">
+                            @foreach (var type in new[] { ("ITI", "Is This It? — looks for reversal setups"), ("PremarketBreakout", "Premarket Breakout — gaps and early momentum"), ("MomentumDecay", "Momentum Decay — fading exhausted moves"), ("LowHigh", "Low/High — range breakouts"), ("Custom", "Custom Fluent — write your own") })
+                            {
+                                var t = type;
+                                <div class="col-md-6">
+                                    <div class="border rounded p-2 @(strategyType == t.Item1 ? "border-primary bg-dark" : "border-secondary")"
+                                         style="cursor:pointer" @onclick="() => strategyType = t.Item1">
+                                        <div class="text-white small fw-semibold">@t.Item1</div>
+                                        <div class="text-muted" style="font-size:0.7rem">@t.Item2</div>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                }
+
+                <!-- Step 2: Entry Conditions -->
+                @if (currentStep == 2)
+                {
+                    <h6 class="text-white mb-3">Step 2: Entry Conditions</h6>
+                    <div class="row g-2">
+                        @foreach (var cond in entryConditions)
+                        {
+                            var c = cond;
+                            <div class="col-md-6">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="cond_@c.Key"
+                                           checked="@c.Value"
+                                           @onchange="(e) => entryConditions[c.Key] = (bool)(e.Value ?? false)" />
+                                    <label class="form-check-label text-white small" for="cond_@c.Key">@c.Key</label>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                    <div class="mt-3">
+                        <label class="form-label text-muted small">Min Volume (relative to average, e.g. 1.5 = 150%)</label>
+                        <input type="number" step="0.1" class="form-control form-control-sm bg-dark text-white border-secondary"
+                               style="width:120px" @bind="minVolumeMultiplier" />
+                    </div>
+                    <div class="mt-2">
+                        <label class="form-label text-muted small">Gap Up/Down % Trigger</label>
+                        <input type="number" step="0.1" class="form-control form-control-sm bg-dark text-white border-secondary"
+                               style="width:120px" @bind="gapPercent" />
+                    </div>
+                }
+
+                <!-- Step 3: Exit Rules -->
+                @if (currentStep == 3)
+                {
+                    <h6 class="text-white mb-3">Step 3: Exit Rules</h6>
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label text-muted small">Take Profit %</label>
+                            <input type="number" step="0.1" class="form-control bg-dark text-white border-secondary"
+                                   @bind="takeProfitPct" />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label text-muted small">Stop Loss %</label>
+                            <input type="number" step="0.1" class="form-control bg-dark text-white border-secondary"
+                                   @bind="stopLossPct" />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label text-muted small">Trailing Stop %</label>
+                            <input type="number" step="0.1" class="form-control bg-dark text-white border-secondary"
+                                   @bind="trailingStopPct" />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label text-muted small">Time Exit (minutes)</label>
+                            <input type="number" class="form-control bg-dark text-white border-secondary"
+                                   @bind="timeExitMinutes" />
+                        </div>
+                    </div>
+                }
+
+                <!-- Step 4: Sessions -->
+                @if (currentStep == 4)
+                {
+                    <h6 class="text-white mb-3">Step 4: Allowed Sessions</h6>
+                    @foreach (var session in Enum.GetValues<TradingSession>())
+                    {
+                        var s = session;
+                        <div class="form-check mb-2">
+                            <input class="form-check-input" type="checkbox" id="sess_@s"
+                                   checked="@allowedSessions.Contains(s)"
+                                   @onchange="(e) => ToggleSession(s, (bool)(e.Value ?? false))" />
+                            <label class="form-check-label text-white" for="sess_@s">@s</label>
+                        </div>
+                    }
+                }
+
+                <!-- Step 5: Risk -->
+                @if (currentStep == 5)
+                {
+                    <h6 class="text-white mb-3">Step 5: Risk Parameters</h6>
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label text-muted small">Max Loss per Trade ($)</label>
+                            <input type="number" class="form-control bg-dark text-white border-secondary"
+                                   @bind="maxLossPerTrade" />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label text-muted small">Min R:R Ratio</label>
+                            <input type="number" step="0.1" class="form-control bg-dark text-white border-secondary"
+                                   @bind="minRR" />
+                        </div>
+                    </div>
+                    <div class="mt-4">
+                        <h6 class="text-white mb-2">Generated Script Preview</h6>
+                        <pre class="p-3 rounded text-white" style="background:var(--bg-secondary);font-size:0.8rem;overflow-x:auto">@GenerateScript()</pre>
+                    </div>
+                    <div class="mt-3">
+                        <label class="form-label text-muted small">Add to Workspace</label>
+                        <div class="d-flex gap-2">
+                            <select class="form-select form-select-sm bg-dark text-white border-secondary" @bind="targetWorkspaceId">
+                                <option value="">Select workspace...</option>
+                                @foreach (var tab in userTabs)
+                                {
+                                    <option value="@tab.TabId">@tab.Name</option>
+                                }
+                            </select>
+                            <button class="btn btn-success btn-sm" @onclick="AddToWorkspace">Add</button>
+                        </div>
+                        @if (!string.IsNullOrEmpty(addMessage))
+                        {
+                            <div class="text-muted small mt-1">@addMessage</div>
+                        }
+                    </div>
+                }
+
+                <div class="d-flex justify-content-between mt-4">
+                    <button class="btn btn-outline-secondary btn-sm" disabled="@(currentStep <= 1)" @onclick="PrevStep">
+                        <i class="bi bi-arrow-left me-1"></i>Back
+                    </button>
+                    @if (currentStep < 5)
+                    {
+                        <button class="btn btn-primary btn-sm" @onclick="NextStep">
+                            Next <i class="bi bi-arrow-right ms-1"></i>
+                        </button>
+                    }
+                </div>
+            </div>
+        }
+        else
+        {
+            <!-- Script Editor -->
+            <div class="trading-card p-3">
+                <h6 class="text-white mb-3">IdiotScript Editor</h6>
+                <div class="position-relative">
+                    <textarea class="form-control bg-dark text-white border-secondary"
+                              style="font-family:monospace;font-size:0.85rem;min-height:400px;line-height:1.5"
+                              @bind="scriptContent"
+                              placeholder="// IdiotScript DSL&#10;// Example:&#10;// Strategy(&quot;My Strategy&quot;)&#10;//   .RequiresVwapAbove()&#10;//   .RequiresRsiBelow(30)&#10;//   .TakeProfit(2.0m)&#10;//   .StopLoss(1.0m)&#10;//   .Build()">
+                    </textarea>
+                </div>
+                <div class="d-flex gap-2 mt-2">
+                    <button class="btn btn-outline-secondary btn-sm" @onclick="ValidateScript">
+                        <i class="bi bi-check-circle me-1"></i>Validate
+                    </button>
+                    <div class="d-flex gap-2 align-items-center">
+                        <select class="form-select form-select-sm bg-dark text-white border-secondary" @bind="targetWorkspaceId">
+                            <option value="">Workspace...</option>
+                            @foreach (var tab in userTabs)
+                            {
+                                <option value="@tab.TabId">@tab.Name</option>
+                            }
+                        </select>
+                        <button class="btn btn-success btn-sm" @onclick="AddToWorkspace">
+                            <i class="bi bi-plus-circle me-1"></i>Add to Workspace
+                        </button>
+                    </div>
+                </div>
+                @if (!string.IsNullOrEmpty(scriptValidationMessage))
+                {
+                    <div class="alert @(scriptValid ? "alert-success" : "alert-danger") small mt-2 py-1">
+                        @scriptValidationMessage
+                    </div>
+                }
+                @if (!string.IsNullOrEmpty(addMessage))
+                {
+                    <div class="text-muted small mt-1">@addMessage</div>
+                }
+            </div>
+        }
+    </div>
+
+    <!-- Templates Sidebar -->
+    <div class="col-lg-4">
+        <div class="trading-card p-3">
+            <h6 class="text-white mb-3">
+                <i class="bi bi-collection me-1" style="color:var(--yellow)"></i>Built-in Strategies
+            </h6>
+            @foreach (var strat in StrategyRegistry.GetAll())
+            {
+                <div class="border border-secondary rounded p-2 mb-2">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <div class="text-white small fw-semibold">@strat.Name</div>
+                            <div class="text-muted" style="font-size:0.7rem">@strat.Description</div>
+                            <span class="badge bg-secondary mt-1" style="font-size:0.65rem">@strat.Type</span>
+                        </div>
+                        <button class="btn btn-sm btn-outline-secondary py-0" @onclick="() => LoadTemplate(strat.Name)">
+                            Use
+                        </button>
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    private string userId = "";
+    private IReadOnlyList<WorkspaceTab> userTabs = [];
+    private string mode = "guided";
+    private int currentStep = 1;
+    private string strategyName = "My Strategy";
+    private string strategyType = "ITI";
+    private decimal takeProfitPct = 2.0m;
+    private decimal stopLossPct = 1.0m;
+    private decimal trailingStopPct = 0m;
+    private int timeExitMinutes = 0;
+    private decimal maxLossPerTrade = 100m;
+    private decimal minRR = 1.5m;
+    private decimal minVolumeMultiplier = 1.5m;
+    private decimal gapPercent = 2.0m;
+    private string targetWorkspaceId = "";
+    private string addMessage = "";
+    private string scriptContent = "";
+    private string scriptValidationMessage = "";
+    private bool scriptValid;
+    private List<TradingSession> allowedSessions = [TradingSession.RTH];
+
+    private Dictionary<string, bool> entryConditions = new()
+    {
+        ["VWAP Above"] = false,
+        ["VWAP Below"] = false,
+        ["EMA Cross Bullish"] = false,
+        ["EMA Cross Bearish"] = false,
+        ["RSI Oversold (<30)"] = false,
+        ["RSI Overbought (>70)"] = false,
+        ["MACD Bullish"] = false,
+        ["MACD Bearish"] = false,
+        ["Gap Up"] = false,
+        ["Gap Down"] = false,
+        ["Volume Spike"] = false,
+    };
+
+    protected override async Task OnInitializedAsync()
+    {
+        var auth = await AuthStateProvider.GetAuthenticationStateAsync();
+        userId = auth.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? "";
+        userTabs = WorkspaceManager.GetTabsForUser(userId);
+    }
+
+    private string StepName(int step) => step switch
+    {
+        1 => "Name",
+        2 => "Entry",
+        3 => "Exit",
+        4 => "Sessions",
+        5 => "Risk",
+        _ => ""
+    };
+
+    private void GoToStep(int step) => currentStep = step;
+    private void NextStep() { if (currentStep < 5) currentStep++; }
+    private void PrevStep() { if (currentStep > 1) currentStep--; }
+
+    private void ToggleSession(TradingSession session, bool add)
+    {
+        if (add && !allowedSessions.Contains(session)) allowedSessions.Add(session);
+        else allowedSessions.Remove(session);
+    }
+
+    private string GenerateScript()
+    {
+        var sb = new System.Text.StringBuilder();
+        sb.AppendLine($"Strategy(\"{strategyName}\")");
+        sb.AppendLine($"  .Type(StrategyType.{strategyType})");
+        foreach (var c in entryConditions.Where(c => c.Value))
+        {
+            sb.AppendLine($"  .Require(\"{c.Key}\")");
+        }
+        if (minVolumeMultiplier > 1)
+            sb.AppendLine($"  .RequiresVolumeAbove({minVolumeMultiplier}m)");
+        if (takeProfitPct > 0)
+            sb.AppendLine($"  .TakeProfit({takeProfitPct}m)");
+        if (stopLossPct > 0)
+            sb.AppendLine($"  .StopLoss({stopLossPct}m)");
+        if (trailingStopPct > 0)
+            sb.AppendLine($"  .TrailingStop({trailingStopPct}m)");
+        if (timeExitMinutes > 0)
+            sb.AppendLine($"  .TimeExit({timeExitMinutes})");
+        if (maxLossPerTrade > 0)
+            sb.AppendLine($"  .MaxLoss({maxLossPerTrade}m)");
+        sb.AppendLine($"  .MinRiskReward({minRR}m)");
+        foreach (var sess in allowedSessions)
+            sb.AppendLine($"  .AllowSession(TradingSession.{sess})");
+        sb.AppendLine("  .Build()");
+        return sb.ToString();
+    }
+
+    private void ValidateScript()
+    {
+        if (string.IsNullOrWhiteSpace(scriptContent))
+        {
+            scriptValidationMessage = "Script is empty.";
+            scriptValid = false;
+            return;
+        }
+        // Basic validation — check for Strategy() call
+        if (scriptContent.Contains("Strategy("))
+        {
+            scriptValidationMessage = "Script looks valid. (Full parse not available in browser.)";
+            scriptValid = true;
+        }
+        else
+        {
+            scriptValidationMessage = "Script must start with Strategy(\"name\").";
+            scriptValid = false;
+        }
+    }
+
+    private void AddToWorkspace()
+    {
+        if (string.IsNullOrEmpty(targetWorkspaceId))
+        {
+            addMessage = "Select a workspace first.";
+            return;
+        }
+        var tab = WorkspaceManager.Get(userId, targetWorkspaceId);
+        if (tab == null) { addMessage = "Workspace not found."; return; }
+
+        var name = mode == "guided" ? strategyName : "CustomScript";
+        if (!tab.Strategies.Any(s => s.StrategyName == name))
+        {
+            tab.Strategies.Add(new StrategyBinding { StrategyName = name, Enabled = true });
+            WorkspaceManager.Save(userId, tab);
+            addMessage = $"Strategy '{name}' added to {tab.Name}.";
+        }
+        else
+        {
+            addMessage = $"'{name}' is already in {tab.Name}.";
+        }
+    }
+
+    private void LoadTemplate(string name)
+    {
+        strategyName = name;
+        mode = "guided";
+        currentStep = 1;
+    }
+}

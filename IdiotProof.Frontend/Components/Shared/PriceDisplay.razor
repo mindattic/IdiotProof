@@ -1,0 +1,43 @@
+@implements IDisposable
+
+<div class="price-display d-flex align-items-baseline gap-2">
+    <span class="text-muted small">@Symbol</span>
+    <span class="price-value fs-4 fw-bold text-white @flashClass">
+        $@Price.ToString("0.00##")
+    </span>
+    @if (PriceChange != 0)
+    {
+        <span class="@(PriceChange >= 0 ? "text-green" : "text-red") small">
+            @(PriceChange >= 0 ? "+" : "")@PriceChange.ToString("0.00")
+            (@(PriceChangePct >= 0 ? "+" : "")@PriceChangePct.ToString("0.00")%)
+        </span>
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public string Symbol { get; set; } = "";
+    [Parameter] public decimal Price { get; set; }
+    [Parameter] public decimal PriceChange { get; set; }
+    [Parameter] public decimal PriceChangePct { get; set; }
+
+    private decimal previousPrice;
+    private string flashClass = "";
+    private System.Threading.Timer? flashTimer;
+
+    protected override void OnParametersSet()
+    {
+        if (previousPrice != 0 && Price != previousPrice)
+        {
+            flashClass = Price > previousPrice ? "price-flash-up" : "price-flash-down";
+            flashTimer?.Dispose();
+            flashTimer = new System.Threading.Timer(_ =>
+            {
+                flashClass = "";
+                InvokeAsync(StateHasChanged);
+            }, null, 350, Timeout.Infinite);
+        }
+        previousPrice = Price;
+    }
+
+    public void Dispose() => flashTimer?.Dispose();
+}

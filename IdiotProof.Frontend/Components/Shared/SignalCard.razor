@@ -1,0 +1,129 @@
+@using IdiotProof.Frontend.Services
+
+<div class="trading-card p-3 mb-2 signal-card @(Signal.Direction == TradeDirection.Long ? "signal-card-long" : "signal-card-short")">
+    <div class="d-flex justify-content-between align-items-start mb-2">
+        <div>
+            <span class="fw-bold text-white me-2">@Signal.Symbol</span>
+            @if (Signal.Direction == TradeDirection.Long)
+            {
+                <span class="badge bg-success signal-long">
+                    <i class="bi bi-triangle-fill me-1" style="font-size:0.55rem"></i>Long
+                </span>
+            }
+            else
+            {
+                <span class="badge bg-danger signal-short">
+                    <i class="bi bi-triangle-fill me-1" style="font-size:0.55rem;transform:rotate(180deg);display:inline-block"></i>Short
+                </span>
+            }
+            <span class="text-muted small ms-2">@Signal.StrategyName</span>
+        </div>
+        <div class="d-flex align-items-center gap-2">
+            <span class="text-muted small">@Signal.GeneratedUtc.ToString("HH:mm:ss")</span>
+            @if (OnExecute.HasDelegate)
+            {
+                <button class="btn btn-sm btn-outline-success py-0 px-2" @onclick="() => OnExecute.InvokeAsync(Signal)">
+                    <i class="bi bi-play-fill me-1" style="font-size:0.7rem"></i>Execute
+                </button>
+            }
+        </div>
+    </div>
+
+    <!-- Confidence Bar -->
+    <div class="mb-2">
+        <div class="d-flex justify-content-between align-items-center mb-1">
+            <span class="text-muted" style="font-size:0.7rem">Confidence</span>
+            <span class="text-white small fw-semibold">@Signal.ConfidencePercent.ToString("0")%</span>
+        </div>
+        <div class="confidence-bar-wrapper">
+            <div class="confidence-bar @ConfidenceColor" style="width:@(Signal.ConfidencePercent)%"></div>
+        </div>
+    </div>
+
+    <!-- Price Levels -->
+    <div class="d-flex gap-3 mb-2">
+        <div>
+            <div class="text-muted" style="font-size:0.65rem">Entry</div>
+            <div class="text-white small">$@Signal.SuggestedEntry.ToString("0.00")</div>
+        </div>
+        <div>
+            <div class="text-muted" style="font-size:0.65rem">Stop</div>
+            <div class="text-red small">$@Signal.SuggestedStop.ToString("0.00")</div>
+        </div>
+        @foreach (var (target, i) in Signal.Targets.Select((t, i) => (t, i + 1)).Take(2))
+        {
+            <div>
+                <div class="text-muted" style="font-size:0.65rem">T@i</div>
+                <div class="text-green small">$@target.ToString("0.00")</div>
+            </div>
+        }
+    </div>
+
+    @if (!string.IsNullOrEmpty(Signal.Reason))
+    {
+        <div class="text-muted small mb-2" style="font-size:0.7rem;font-style:italic">@Signal.Reason</div>
+    }
+
+    <!-- LLM Voting Result -->
+    @if (VotingResult != null && VotingResult.Votes.Any())
+    {
+        <div class="border-top border-dark pt-2 mt-1">
+            <div class="d-flex justify-content-between align-items-center mb-1">
+                <span class="text-muted" style="font-size:0.65rem">
+                    <i class="bi bi-robot me-1"></i>AI Consensus
+                </span>
+                <span class="badge @ConsensusClass small">
+                    @VotingResult.Consensus (@VotingResult.ConsensusConfidence.ToString("0")%)
+                </span>
+            </div>
+            <div class="d-flex flex-wrap gap-1">
+                @foreach (var vote in VotingResult.Votes)
+                {
+                    <div class="border rounded px-2 py-1 @VoteClass(vote.Decision)" style="font-size:0.65rem">
+                        <span class="text-muted">@vote.ModelId.Split('-').Last()</span>
+                        <span class="ms-1 @VoteTextClass(vote.Decision)">@vote.Decision (@vote.Confidence.ToString("0")%)</span>
+                    </div>
+                }
+            </div>
+            @if (!string.IsNullOrEmpty(VotingResult.ConsensusReasoning))
+            {
+                <div class="text-muted mt-1" style="font-size:0.65rem;font-style:italic">
+                    @(VotingResult.ConsensusReasoning.Length > 120
+                        ? VotingResult.ConsensusReasoning[..117] + "..."
+                        : VotingResult.ConsensusReasoning)
+                </div>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public TradeSignal Signal { get; set; } = null!;
+    [Parameter] public LlmVotingResult? VotingResult { get; set; }
+    [Parameter] public EventCallback<TradeSignal> OnExecute { get; set; }
+
+    private string ConfidenceColor => Signal.ConfidencePercent >= 70 ? "confidence-bar-high"
+        : Signal.ConfidencePercent >= 50 ? "confidence-bar-mid"
+        : "confidence-bar-low";
+
+    private string ConsensusClass => VotingResult?.Consensus switch
+    {
+        VoteDecision.Approve => "bg-success",
+        VoteDecision.Reject => "bg-danger",
+        _ => "bg-secondary"
+    };
+
+    private static string VoteClass(VoteDecision d) => d switch
+    {
+        VoteDecision.Approve => "border-success",
+        VoteDecision.Reject => "border-danger",
+        _ => "border-secondary"
+    };
+
+    private static string VoteTextClass(VoteDecision d) => d switch
+    {
+        VoteDecision.Approve => "text-green",
+        VoteDecision.Reject => "text-red",
+        _ => "text-muted"
+    };
+}

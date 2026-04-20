@@ -1,0 +1,19 @@
+<Router AppAssembly="typeof(App).Assembly">
+    <Found Context="routeData">
+        <AuthorizeRouteView RouteData="routeData" DefaultLayout="typeof(Layout.MainLayout)">
+            <NotAuthorized>
+                <RedirectToLogin />
+            </NotAuthorized>
+        </AuthorizeRouteView>
+        <FocusOnNavigate RouteData="routeData" Selector="h1" />
+    </Found>
+    <NotFound>
+        <PageTitle>Not found</PageTitle>
+        <LayoutView Layout="typeof(Layout.MainLayout)">
+            <div class="container mt-5 text-center">
+                <h2 class="text-muted">404 — Page not found</h2>
+                <a href="/" class="btn btn-outline-secondary mt-3">Back to Dashboard</a>
+            </div>
+        </LayoutView>
+    </NotFound>
+</Router>

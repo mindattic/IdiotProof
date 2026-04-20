@@ -1,0 +1,72 @@
+@inject NavigationManager Nav
+@inject AuthenticationStateProvider AuthStateProvider
+
+<ul class="nav flex-column sidebar-nav px-2 py-3 gap-1">
+    <li class="nav-item">
+        <NavLink class="nav-link sidebar-link" href="/" Match="NavLinkMatch.All">
+            <i class="bi bi-speedometer2 me-2"></i>Dashboard
+        </NavLink>
+    </li>
+    <li class="nav-item">
+        <NavLink class="nav-link sidebar-link" href="/workspaces">
+            <i class="bi bi-layers me-2"></i>Workspaces
+        </NavLink>
+    </li>
+    <li class="nav-item">
+        <NavLink class="nav-link sidebar-link" href="/builder">
+            <i class="bi bi-code-square me-2"></i>Strategy Builder
+        </NavLink>
+    </li>
+    <li class="nav-item">
+        <NavLink class="nav-link sidebar-link" href="/positions">
+            <i class="bi bi-briefcase me-2"></i>Positions
+        </NavLink>
+    </li>
+    <li class="nav-item">
+        <NavLink class="nav-link sidebar-link" href="/signals">
+            <i class="bi bi-lightning-charge me-2"></i>Signals
+        </NavLink>
+    </li>
+    <li class="nav-item mt-2">
+        <hr class="sidebar-divider" />
+    </li>
+    <li class="nav-item">
+        <NavLink class="nav-link sidebar-link" href="/glossary">
+            <i class="bi bi-book me-2"></i>Glossary
+        </NavLink>
+    </li>
+    <li class="nav-item">
+        <NavLink class="nav-link sidebar-link" href="/settings">
+            <i class="bi bi-gear me-2"></i>Settings
+        </NavLink>
+    </li>
+    <li class="nav-item">
+        <NavLink class="nav-link sidebar-link" href="/api-keys">
+            <i class="bi bi-key me-2"></i>API Keys
+        </NavLink>
+    </li>
+    <li class="nav-item">
+        <NavLink class="nav-link sidebar-link" href="/setup">
+            <i class="bi bi-magic me-2"></i>Setup
+        </NavLink>
+    </li>
+    <li class="nav-item mt-auto pt-2">
+        <hr class="sidebar-divider" />
+        <div class="px-2 py-1 text-muted d-flex align-items-center gap-1" style="font-size:0.7rem;overflow:hidden">
+            <i class="bi bi-person-circle flex-shrink-0"></i>
+            <span class="text-truncate">@userEmail</span>
+        </div>
+    </li>
+</ul>
+
+@code {
+    private string userEmail = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        var auth = await AuthStateProvider.GetAuthenticationStateAsync();
+        userEmail = auth.User.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value
+                 ?? auth.User.Identity?.Name
+                 ?? "";
+    }
+}

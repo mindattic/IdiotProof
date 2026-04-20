@@ -1,0 +1,155 @@
+@page "/login"
+@attribute [AllowAnonymous]
+@inject NavigationManager Nav
+@layout EmptyLayout
+
+<PageTitle>Sign In — IdiotProof</PageTitle>
+
+<div class="login-wrapper">
+    <div class="login-card">
+        <div class="login-logo">
+            <span class="logo-icon">⚡</span>
+            <h1>IdiotProof</h1>
+            <p class="logo-sub">Trading Strategy Platform</p>
+        </div>
+
+        @if (!string.IsNullOrEmpty(errorMessage))
+        {
+            <div class="alert-error">@errorMessage</div>
+        }
+
+        <form method="post" action="/login-submit">
+            <input type="hidden" name="returnUrl" value="@ReturnUrl" />
+            <AntiforgeryToken />
+
+            <div class="form-group">
+                <label>Email</label>
+                <input type="email" name="email" class="form-control" autofocus placeholder="you@example.com" />
+            </div>
+            <div class="form-group">
+                <label>Password</label>
+                <input type="password" name="password" class="form-control" placeholder="Your password" />
+            </div>
+
+            <button type="submit" class="btn-login">Sign In</button>
+        </form>
+
+        <p class="login-warning" style="margin-top:1rem">
+            No account? <a href="/register" style="color:#79c0ff">Create one free</a> — bring your own API keys.
+        </p>
+        <p class="login-warning">
+            This application can place real orders with real brokers. Keep your credentials secure.
+        </p>
+    </div>
+</div>
+
+@code {
+    [SupplyParameterFromQuery] private string? ReturnUrl { get; set; }
+    [SupplyParameterFromQuery] private string? Error { get; set; }
+
+    private string errorMessage = "";
+
+    protected override void OnInitialized()
+    {
+        if (Error == "invalid") errorMessage = "Incorrect email or password.";
+        if (Error == "locked") errorMessage = "Account locked. Try again later.";
+    }
+}
+
+<style>
+.login-wrapper {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--bg-primary, #0d1117);
+}
+
+.login-card {
+    width: 100%;
+    max-width: 380px;
+    background: var(--bg-card, #1c2128);
+    border: 1px solid var(--border, #30363d);
+    border-radius: 12px;
+    padding: 2.5rem;
+}
+
+.login-logo {
+    text-align: center;
+    margin-bottom: 2rem;
+}
+
+.logo-icon { font-size: 2.5rem; }
+.login-logo h1 { font-size: 1.8rem; font-weight: 700; color: #e6edf3; margin: 0.25rem 0; }
+.logo-sub { color: #8b949e; font-size: 0.85rem; }
+
+.alert-setup {
+    background: rgba(56, 139, 253, 0.15);
+    border: 1px solid rgba(56, 139, 253, 0.4);
+    border-radius: 6px;
+    padding: 0.75rem 1rem;
+    font-size: 0.85rem;
+    color: #79c0ff;
+    margin-bottom: 1.25rem;
+}
+
+.alert-error {
+    background: rgba(248, 81, 73, 0.15);
+    border: 1px solid rgba(248, 81, 73, 0.4);
+    border-radius: 6px;
+    padding: 0.75rem 1rem;
+    font-size: 0.85rem;
+    color: #f85149;
+    margin-bottom: 1.25rem;
+}
+
+.form-group {
+    margin-bottom: 1.25rem;
+}
+
+.form-group label {
+    display: block;
+    color: #8b949e;
+    font-size: 0.85rem;
+    margin-bottom: 0.4rem;
+}
+
+.form-control {
+    width: 100%;
+    padding: 0.6rem 0.85rem;
+    background: #0d1117;
+    border: 1px solid #30363d;
+    border-radius: 6px;
+    color: #e6edf3;
+    font-size: 1rem;
+    box-sizing: border-box;
+}
+
+.form-control:focus {
+    outline: none;
+    border-color: #388bfd;
+    box-shadow: 0 0 0 3px rgba(56, 139, 253, 0.15);
+}
+
+.btn-login {
+    width: 100%;
+    padding: 0.7rem;
+    background: #238636;
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.btn-login:hover { background: #2ea043; }
+
+.login-warning {
+    margin-top: 1.5rem;
+    font-size: 0.75rem;
+    color: #6e7681;
+    text-align: center;
+}
+</style>

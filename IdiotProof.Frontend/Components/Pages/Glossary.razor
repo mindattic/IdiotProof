@@ -1,0 +1,136 @@
+@page "/glossary"
+@rendermode InteractiveServer
+@inject IJSRuntime JS
+
+<PageTitle>Glossary — IdiotProof</PageTitle>
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h4 class="mb-0 text-white">
+        <i class="bi bi-book me-2" style="color:var(--blue)"></i>Trading Glossary
+    </h4>
+    <input class="form-control form-control-sm bg-dark text-white border-secondary"
+           style="max-width:260px"
+           placeholder="Search terms..."
+           @bind="searchTerm"
+           @bind:event="oninput" />
+</div>
+
+<!-- Alphabet Index -->
+<div class="d-flex flex-wrap gap-1 mb-4">
+    @foreach (var letter in "ABCDEFGHIJKLMNOPQRSTUVWXYZ")
+    {
+        var l = letter.ToString();
+        var hasTerms = filtered.Any(t => t.Term.StartsWith(l, StringComparison.OrdinalIgnoreCase));
+        <button class="btn btn-sm @(hasTerms ? "btn-outline-secondary" : "btn-link text-muted")"
+                style="width:32px;padding:2px 0;font-size:0.8rem"
+                disabled="@(!hasTerms)"
+                @onclick="() => ScrollToLetter(l)">
+            @l
+        </button>
+    }
+</div>
+
+<!-- Terms -->
+@{
+    var grouped = filtered
+        .GroupBy(t => t.Term[0].ToString().ToUpperInvariant())
+        .OrderBy(g => g.Key);
+}
+
+@foreach (var group in grouped)
+{
+    <div id="letter-@group.Key" class="mb-4">
+        <div class="text-muted small fw-bold mb-2 d-flex align-items-center gap-2">
+            <span style="color:var(--green);font-size:1.1rem">@group.Key</span>
+            <div class="flex-grow-1 border-top" style="border-color:var(--border)!important"></div>
+        </div>
+        @foreach (var term in group.OrderBy(t => t.Term))
+        {
+            <div class="trading-card p-3 mb-2">
+                <div class="fw-semibold text-white mb-1">@term.Term</div>
+                <div class="text-muted small">@term.Definition</div>
+                @if (!string.IsNullOrEmpty(term.Category))
+                {
+                    <span class="badge bg-secondary mt-1" style="font-size:0.65rem">@term.Category</span>
+                }
+            </div>
+        }
+    </div>
+}
+
+@if (!filtered.Any())
+{
+    <div class="text-center py-5 text-muted">
+        <i class="bi bi-search fs-1 d-block mb-3"></i>
+        No terms match "@searchTerm"
+    </div>
+}
+
+@code {
+    private string searchTerm = "";
+
+    private sealed record GlossaryTerm(string Term, string Definition, string Category = "");
+
+    private static readonly List<GlossaryTerm> AllTerms =
+    [
+        new("ADX", "Average Directional Index — measures the strength of a trend (not direction). Values above 25 indicate a strong trend.", "Indicator"),
+        new("ATR", "Average True Range — measures market volatility by calculating the average range between high and low prices over a period. Used for stop loss placement.", "Indicator"),
+        new("After Hours", "Trading that occurs after the regular market close (4:00 PM ET) until 8:00 PM ET. Lower volume and wider spreads.", "Session"),
+        new("Bollinger Bands", "A volatility indicator consisting of a middle SMA with upper and lower bands 2 standard deviations away. Prices near the bands can indicate overbought/oversold conditions.", "Indicator"),
+        new("Breakout", "When price moves above a resistance level or below a support level with increased volume, often signaling the start of a new trend.", "Pattern"),
+        new("Confidence Score", "A numeric score (0-100) assigned by a strategy indicating how strong the trade signal is based on technical criteria met.", "IdiotProof"),
+        new("Consolidation", "A period where price moves sideways within a range, neither making new highs nor new lows. Often precedes a breakout.", "Pattern"),
+        new("DI+ DI-", "Directional Indicators — components of the ADX system. DI+ measures upward movement; DI- measures downward movement. Crossovers generate signals.", "Indicator"),
+        new("Divergence", "When price makes a new high/low but an indicator does not confirm it. Can signal a potential reversal.", "Signal"),
+        new("Drawdown", "The peak-to-trough decline in account value. Maximum drawdown is the largest such decline over a given period.", "Risk"),
+        new("EMA", "Exponential Moving Average — a type of moving average that gives more weight to recent prices. Faster to respond than SMA.", "Indicator"),
+        new("Gap Down", "When a stock opens below the previous day's close, leaving a gap on the chart. Often indicates negative news or sentiment.", "Pattern"),
+        new("Gap Up", "When a stock opens above the previous day's close, leaving a gap on the chart. Often indicates positive news or sentiment.", "Pattern"),
+        new("Histogram", "In MACD, the histogram shows the difference between the MACD line and signal line. Growing bars indicate increasing momentum.", "Indicator"),
+        new("ITI", "Is This It? — IdiotProof's primary strategy that looks for high-probability reversal setups using multiple confirming indicators.", "IdiotProof"),
+        new("LLM Voting", "IdiotProof's AI consensus system where multiple Claude models independently evaluate a trade signal and vote to approve, reject, or abstain.", "IdiotProof"),
+        new("Liquidity", "How easily an asset can be bought or sold without significantly affecting its price. High-volume stocks have better liquidity.", "Market"),
+        new("Long", "Buying a security with the expectation that its price will rise. Profit is made when price increases.", "Trade"),
+        new("Low/High", "A breakout strategy that enters trades when price breaks above the previous session's high or below the previous session's low.", "IdiotProof"),
+        new("MACD", "Moving Average Convergence Divergence — tracks the relationship between two EMAs (typically 12 and 26 period). Used to identify trend direction and momentum.", "Indicator"),
+        new("Mean Reversion", "A trading approach based on the idea that prices tend to return to their historical average after moving away from it.", "Strategy"),
+        new("Momentum", "The rate of acceleration of a security's price. High momentum means price is moving quickly in one direction.", "Indicator"),
+        new("Momentum Decay", "An IdiotProof strategy that identifies when a strong momentum move is exhausting and fades the move expecting a pullback.", "IdiotProof"),
+        new("Overbought", "A condition where a security has risen too far too fast and may be due for a pullback. RSI above 70 often indicates overbought.", "Signal"),
+        new("Oversold", "A condition where a security has fallen too far too fast and may be due for a bounce. RSI below 30 often indicates oversold.", "Signal"),
+        new("Paper Trading", "Simulated trading using fake money to practice strategies without financial risk. All IdiotProof brokers support paper trading.", "Risk"),
+        new("Position Sizing", "Determining how many shares or contracts to buy based on account size, risk tolerance, and stop loss distance.", "Risk"),
+        new("Premarket", "Trading before the regular market session, typically 4:00 AM - 9:30 AM ET. Important for gap analysis.", "Session"),
+        new("Premarket Breakout", "A strategy that identifies stocks with significant premarket moves and trades breakouts from premarket highs/lows at the open.", "IdiotProof"),
+        new("Pullback", "A temporary reversal against the primary trend. In an uptrend, a pullback is a short-term decline before prices resume higher.", "Pattern"),
+        new("RSI", "Relative Strength Index — a momentum oscillator (0-100) that measures the speed and change of price movements. Above 70 = overbought, below 30 = oversold.", "Indicator"),
+        new("RTH", "Regular Trading Hours — the main US stock market session, 9:30 AM - 4:00 PM ET Monday through Friday.", "Session"),
+        new("Resistance", "A price level where selling pressure has historically overcome buying pressure, causing price to reverse downward.", "Level"),
+        new("Risk:Reward Ratio", "The ratio of potential profit to potential loss on a trade. A 2:1 ratio means you expect to make $2 for every $1 risked.", "Risk"),
+        new("SMA", "Simple Moving Average — the arithmetic mean of prices over a specified period. Less reactive to recent prices than EMA.", "Indicator"),
+        new("Scalping", "A short-term trading style that aims to profit from small price movements, often holding positions for seconds to minutes.", "Strategy"),
+        new("Short", "Selling a security you don't own with the expectation that its price will fall. Profit is made when price decreases.", "Trade"),
+        new("Signal Line", "In MACD, the 9-period EMA of the MACD line. Crossovers between MACD and signal line generate buy/sell signals.", "Indicator"),
+        new("Slippage", "The difference between the expected price of a trade and the actual execution price, usually due to low liquidity or fast markets.", "Execution"),
+        new("Stop Loss", "A predetermined price at which a losing position will be automatically closed to limit further losses.", "Risk"),
+        new("Support", "A price level where buying pressure has historically overcome selling pressure, causing price to reverse upward.", "Level"),
+        new("Swing Trading", "A trading style that holds positions for days to weeks, aiming to capture medium-term price moves.", "Strategy"),
+        new("Take Profit", "A predetermined price target where a profitable position will be automatically closed to lock in gains.", "Risk"),
+        new("Trailing Stop", "A stop loss that moves with the price in the direction of the trade, locking in profits while allowing the trade to run.", "Risk"),
+        new("Trend Following", "A strategy that identifies and trades in the direction of the prevailing trend, buying uptrends and selling downtrends.", "Strategy"),
+        new("VWAP", "Volume Weighted Average Price — the average price weighted by volume over the trading day. Institutional benchmark; price above VWAP is bullish.", "Indicator"),
+        new("Wilder Smoothing", "A specific smoothing method developed by J. Welles Wilder, used in indicators like RSI, ATR, and ADX. Similar to EMA but uses different multiplier.", "Indicator"),
+    ];
+
+    private List<GlossaryTerm> filtered => string.IsNullOrWhiteSpace(searchTerm)
+        ? AllTerms
+        : AllTerms.Where(t =>
+            t.Term.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ||
+            t.Definition.Contains(searchTerm, StringComparison.OrdinalIgnoreCase)).ToList();
+
+    private async Task ScrollToLetter(string letter)
+    {
+        searchTerm = "";
+        await JS.InvokeVoidAsync("IdiotProof.scrollToId", $"letter-{letter}");
+    }
+}

@@ -1,0 +1,378 @@
+@page "/api-keys"
+@rendermode InteractiveServer
+@using IdiotProof.Frontend.Data
+@using Microsoft.AspNetCore.Components.Authorization
+@inject UserKeyService UserKeyService
+@inject IHttpClientFactory HttpClientFactory
+@inject AuthenticationStateProvider AuthStateProvider
+
+<PageTitle>API Keys — IdiotProof</PageTitle>
+
+<div class="alert alert-warning d-flex align-items-start gap-2 mb-4" role="alert">
+    <i class="bi bi-shield-exclamation fs-4 flex-shrink-0"></i>
+    <div>
+        <strong>Security Notice:</strong> API keys are stored locally in your AppData folder and never transmitted to any third party.
+        Keys are masked in this interface. Treat your live broker keys like passwords — never share them.
+    </div>
+</div>
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h4 class="mb-0 text-white">
+        <i class="bi bi-key me-2" style="color:var(--yellow)"></i>API Keys & Connections
+    </h4>
+    <button class="btn btn-success btn-sm" @onclick="() => SaveAll()">
+        <i class="bi bi-floppy me-1"></i>Save All
+    </button>
+</div>
+
+@if (!string.IsNullOrEmpty(saveMessage))
+{
+    <div class="alert alert-success small py-2 mb-3">@saveMessage</div>
+}
+
+<!-- IBKR Section -->
+<div class="trading-card p-3 mb-3">
+    <h6 class="text-white mb-3">
+        <i class="bi bi-building me-1"></i>Interactive Brokers (TWS / Gateway)
+    </h6>
+    <div class="row g-3">
+        <div class="col-md-4">
+            <label class="form-label text-muted small">Host</label>
+            <input class="form-control bg-dark text-white border-secondary" @bind="ibkrHost" />
+        </div>
+        <div class="col-md-2">
+            <label class="form-label text-muted small">Live Port</label>
+            <input type="number" class="form-control bg-dark text-white border-secondary" @bind="ibkrLivePort" />
+        </div>
+        <div class="col-md-2">
+            <label class="form-label text-muted small">Paper Port</label>
+            <input type="number" class="form-control bg-dark text-white border-secondary" @bind="ibkrPaperPort" />
+        </div>
+        <div class="col-md-2">
+            <label class="form-label text-muted small">Client ID</label>
+            <input type="number" class="form-control bg-dark text-white border-secondary" @bind="ibkrClientId" />
+        </div>
+        <div class="col-md-2 d-flex align-items-end">
+            <div class="form-check form-switch">
+                <input class="form-check-input" type="checkbox" id="ibkrPaper" @bind="ibkrUsePaper" />
+                <label class="form-check-label text-muted small" for="ibkrPaper">Paper Mode</label>
+            </div>
+        </div>
+    </div>
+    @if (!ibkrUsePaper)
+    {
+        <div class="alert alert-danger small py-1 mt-2">
+            <i class="bi bi-exclamation-triangle me-1"></i>
+            <strong>LIVE trading mode.</strong> Real money will be used.
+        </div>
+    }
+</div>
+
+<!-- Alpaca Section -->
+<div class="trading-card p-3 mb-3">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h6 class="text-white mb-0">
+            <i class="bi bi-graph-up me-1"></i>Alpaca
+        </h6>
+        <button class="btn btn-sm btn-outline-secondary" @onclick="TestAlpaca">
+            <i class="bi bi-broadcast me-1"></i>Test Connection
+        </button>
+    </div>
+    @if (!string.IsNullOrEmpty(alpacaTestResult))
+    {
+        <div class="alert @(alpacaTestOk ? "alert-success" : "alert-danger") small py-1 mb-2">@alpacaTestResult</div>
+    }
+    <div class="row g-3">
+        <div class="col-md-5">
+            <label class="form-label text-muted small">API Key ID</label>
+            <div class="input-group">
+                <input class="form-control bg-dark text-white border-secondary"
+                       type="@(showAlpacaKey ? "text" : "password")"
+                       @bind="alpacaKeyId"
+                       placeholder="PK..." />
+                <button class="btn btn-outline-secondary" @onclick="() => showAlpacaKey = !showAlpacaKey">
+                    <i class="bi @(showAlpacaKey ? "bi-eye-slash" : "bi-eye")"></i>
+                </button>
+            </div>
+        </div>
+        <div class="col-md-5">
+            <label class="form-label text-muted small">Secret Key</label>
+            <div class="input-group">
+                <input class="form-control bg-dark text-white border-secondary"
+                       type="@(showAlpacaSecret ? "text" : "password")"
+                       @bind="alpacaSecret"
+                       placeholder="••••••••••••" />
+                <button class="btn btn-outline-secondary" @onclick="() => showAlpacaSecret = !showAlpacaSecret">
+                    <i class="bi @(showAlpacaSecret ? "bi-eye-slash" : "bi-eye")"></i>
+                </button>
+            </div>
+        </div>
+        <div class="col-md-2 d-flex align-items-end">
+            <div class="form-check form-switch">
+                <input class="form-check-input" type="checkbox" id="alpacaPaper"
+                       checked="@alpacaIsPaper"
+                       @onchange="OnAlpacaPaperChange" />
+                <label class="form-check-label text-muted small" for="alpacaPaper">Paper</label>
+            </div>
+        </div>
+    </div>
+    @if (!alpacaIsPaper)
+    {
+        <div class="alert alert-danger small py-1 mt-2">
+            <i class="bi bi-exclamation-triangle me-1"></i>
+            <strong>LIVE Alpaca trading.</strong> Real money will be used.
+        </div>
+    }
+</div>
+
+<!-- Polygon Section -->
+<div class="trading-card p-3 mb-3">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h6 class="text-white mb-0">
+            <i class="bi bi-hexagon me-1"></i>Polygon.io (Market Data)
+        </h6>
+        <button class="btn btn-sm btn-outline-secondary" @onclick="TestPolygon">
+            <i class="bi bi-broadcast me-1"></i>Test Connection
+        </button>
+    </div>
+    @if (!string.IsNullOrEmpty(polygonTestResult))
+    {
+        <div class="alert @(polygonTestOk ? "alert-success" : "alert-danger") small py-1 mb-2">@polygonTestResult</div>
+    }
+    <div class="col-md-6">
+        <label class="form-label text-muted small">API Key</label>
+        <div class="input-group">
+            <input class="form-control bg-dark text-white border-secondary"
+                   type="@(showPolygonKey ? "text" : "password")"
+                   @bind="polygonKey"
+                   placeholder="••••••••••••" />
+            <button class="btn btn-outline-secondary" @onclick="() => showPolygonKey = !showPolygonKey">
+                <i class="bi @(showPolygonKey ? "bi-eye-slash" : "bi-eye")"></i>
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Claude / AI Section -->
+<div class="trading-card p-3 mb-3">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h6 class="text-white mb-0">
+            <i class="bi bi-robot me-1"></i>AI (Claude) — LLM Signal Voting
+        </h6>
+    </div>
+    <div class="row g-3">
+        <div class="col-md-6">
+            <label class="form-label text-muted small">Claude API Key</label>
+            <div class="input-group">
+                <input class="form-control bg-dark text-white border-secondary"
+                       type="@(showClaudeKey ? "text" : "password")"
+                       @bind="claudeKey"
+                       placeholder="sk-ant-..." />
+                <button class="btn btn-outline-secondary" @onclick="() => showClaudeKey = !showClaudeKey">
+                    <i class="bi @(showClaudeKey ? "bi-eye-slash" : "bi-eye")"></i>
+                </button>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <label class="form-label text-muted small">Primary Model</label>
+            <select class="form-select bg-dark text-white border-secondary">
+                <option selected>claude-sonnet-4-6 (Recommended)</option>
+                <option>claude-haiku-4-5-20251001</option>
+            </select>
+        </div>
+        <div class="col-md-2 d-flex align-items-end">
+            <div class="form-check form-switch">
+                <input class="form-check-input" type="checkbox" id="llmEnabled" @bind="llmVotingEnabled" />
+                <label class="form-check-label text-muted small" for="llmEnabled">Enabled</label>
+            </div>
+        </div>
+    </div>
+    @if (llmVotingEnabled && string.IsNullOrWhiteSpace(claudeKey))
+    {
+        <div class="alert alert-warning small py-1 mt-2">
+            LLM voting is enabled but no API key is set. Voting will be skipped.
+        </div>
+    }
+</div>
+
+<!-- Alpaca Live Mode Confirm Modal -->
+@if (showLiveModeModal)
+{
+    <div class="modal-backdrop fade show"></div>
+    <div class="modal fade show d-block" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content bg-dark border-danger">
+                <div class="modal-header border-danger">
+                    <h5 class="modal-title text-danger">
+                        <i class="bi bi-exclamation-triangle me-2"></i>Enable Live Trading?
+                    </h5>
+                </div>
+                <div class="modal-body text-white">
+                    <p>Disabling paper mode for Alpaca means orders will be placed with <strong>real money</strong>.</p>
+                    <p class="text-warning">Are you absolutely sure you want to continue?</p>
+                </div>
+                <div class="modal-footer border-danger">
+                    <button class="btn btn-secondary" @onclick="CancelLiveMode">Cancel</button>
+                    <button class="btn btn-danger" @onclick="ConfirmLiveMode">Yes, Use Real Money</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private string ibkrHost = "127.0.0.1";
+    private int ibkrLivePort = 7496;
+    private int ibkrPaperPort = 7497;
+    private int ibkrClientId = 1;
+    private bool ibkrUsePaper = true;
+
+    private string alpacaKeyId = "";
+    private string alpacaSecret = "";
+    private bool alpacaIsPaper = true;
+    private bool showAlpacaKey;
+    private bool showAlpacaSecret;
+    private bool showLiveModeModal;
+
+    private string polygonKey = "";
+    private bool showPolygonKey;
+
+    private string claudeKey = "";
+    private bool showClaudeKey;
+    private bool llmVotingEnabled;
+
+    private string alpacaTestResult = "";
+    private bool alpacaTestOk;
+    private string polygonTestResult = "";
+    private bool polygonTestOk;
+    private string saveMessage = "";
+
+    private string? userId;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var auth = await AuthStateProvider.GetAuthenticationStateAsync();
+        userId = auth.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+        if (userId is null) return;
+
+        var keys = await UserKeyService.GetOrCreateAsync(userId);
+        ibkrHost       = keys.IbkrHost;
+        ibkrLivePort   = keys.IbkrLivePort;
+        ibkrPaperPort  = keys.IbkrPaperPort;
+        ibkrClientId   = keys.IbkrClientId;
+        ibkrUsePaper   = keys.IbkrUsePaper;
+        alpacaKeyId    = keys.AlpacaApiKeyId ?? "";
+        alpacaSecret   = keys.AlpacaApiSecretKey ?? "";
+        alpacaIsPaper  = keys.AlpacaIsPaper;
+        polygonKey     = keys.PolygonApiKey ?? "";
+        claudeKey      = keys.ClaudeApiKey ?? "";
+        llmVotingEnabled = keys.LlmVotingEnabled;
+    }
+
+    private void OnAlpacaPaperChange(ChangeEventArgs e)
+    {
+        var newVal = (bool)(e.Value ?? true);
+        if (!newVal)
+            showLiveModeModal = true;
+        else
+            alpacaIsPaper = true;
+    }
+
+    private void ConfirmLiveMode() { alpacaIsPaper = false; showLiveModeModal = false; }
+    private void CancelLiveMode() { alpacaIsPaper = true; showLiveModeModal = false; }
+
+    private async Task TestAlpaca()
+    {
+        if (string.IsNullOrWhiteSpace(alpacaKeyId) || string.IsNullOrWhiteSpace(alpacaSecret))
+        {
+            alpacaTestResult = "Enter API Key ID and Secret Key first.";
+            alpacaTestOk = false;
+            return;
+        }
+        alpacaTestResult = "Testing...";
+        alpacaTestOk = false;
+        StateHasChanged();
+        try
+        {
+            using var client = HttpClientFactory.CreateClient();
+            var baseUrl = alpacaIsPaper
+                ? "https://paper-api.alpaca.markets"
+                : "https://api.alpaca.markets";
+            client.DefaultRequestHeaders.Add("APCA-API-KEY-ID", alpacaKeyId);
+            client.DefaultRequestHeaders.Add("APCA-API-SECRET-KEY", alpacaSecret);
+            var resp = await client.GetAsync($"{baseUrl}/v2/account");
+            if (resp.IsSuccessStatusCode)
+            {
+                alpacaTestResult = $"Connected! ({(alpacaIsPaper ? "Paper" : "Live")})";
+                alpacaTestOk = true;
+            }
+            else
+            {
+                alpacaTestResult = $"Failed: HTTP {(int)resp.StatusCode} — check your keys.";
+                alpacaTestOk = false;
+            }
+        }
+        catch (Exception ex)
+        {
+            alpacaTestResult = $"Error: {ex.Message}";
+            alpacaTestOk = false;
+        }
+    }
+
+    private async Task TestPolygon()
+    {
+        if (string.IsNullOrWhiteSpace(polygonKey))
+        {
+            polygonTestResult = "Enter a Polygon API key first.";
+            polygonTestOk = false;
+            return;
+        }
+        polygonTestResult = "Testing...";
+        polygonTestOk = false;
+        StateHasChanged();
+        try
+        {
+            using var client = HttpClientFactory.CreateClient();
+            var resp = await client.GetAsync($"https://api.polygon.io/v2/aggs/ticker/AAPL/prev?apiKey={polygonKey}");
+            if (resp.IsSuccessStatusCode)
+            {
+                polygonTestResult = "Connected! Market data feed is working.";
+                polygonTestOk = true;
+            }
+            else
+            {
+                polygonTestResult = $"Failed: HTTP {(int)resp.StatusCode} — check your key.";
+                polygonTestOk = false;
+            }
+        }
+        catch (Exception ex)
+        {
+            polygonTestResult = $"Error: {ex.Message}";
+            polygonTestOk = false;
+        }
+    }
+
+    private async Task SaveAll()
+    {
+        if (userId is null) return;
+
+        var keys = new UserApiKeys
+        {
+            UserId             = userId,
+            IbkrHost           = ibkrHost,
+            IbkrLivePort       = ibkrLivePort,
+            IbkrPaperPort      = ibkrPaperPort,
+            IbkrClientId       = ibkrClientId,
+            IbkrUsePaper       = ibkrUsePaper,
+            AlpacaApiKeyId     = alpacaKeyId,
+            AlpacaApiSecretKey = alpacaSecret,
+            AlpacaIsPaper      = alpacaIsPaper,
+            PolygonApiKey      = polygonKey,
+            ClaudeApiKey       = claudeKey,
+            LlmVotingEnabled   = llmVotingEnabled
+        };
+
+        await UserKeyService.SaveAsync(userId, keys);
+        saveMessage = "Keys saved successfully.";
+    }
+}
