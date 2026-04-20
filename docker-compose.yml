@@ -1,0 +1,23 @@
+version: '3.9'
+
+services:
+  idiotproof:
+    build:
+      context: .
+      dockerfile: src/IdiotProof.Frontend/Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      # Secrets — set these or use .env file (never commit real values)
+      - AlpacaApiKeyId=${ALPACA_KEY_ID}
+      - AlpacaApiSecretKey=${ALPACA_SECRET}
+      - PolygonApiKey=${POLYGON_KEY}
+      - ClaudeApiKey=${CLAUDE_KEY}
+    volumes:
+      # Persist workspaces, settings, and logs across container restarts
+      - idiotproof-data:/app/AppData
+    restart: unless-stopped
+
+volumes:
+  idiotproof-data:

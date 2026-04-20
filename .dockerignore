@@ -1,0 +1,8 @@
+**/.vs
+**/.git
+**/.gitignore
+**/bin
+**/obj
+**/node_modules
+**/*.user
+**/AppData
