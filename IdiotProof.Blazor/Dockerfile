@@ -9,7 +9,7 @@ FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 ARG BUILD_CONFIGURATION=Release
 WORKDIR /src
 
-COPY ["src/IdiotProof.Frontend/IdiotProof.Frontend.csproj", "src/IdiotProof.Frontend/"]
+COPY ["src/IdiotProof.Blazor/IdiotProof.Blazor.csproj", "src/IdiotProof.Blazor/"]
 COPY ["src/IdiotProof.Engine/IdiotProof.Engine.csproj", "src/IdiotProof.Engine/"]
 COPY ["src/IdiotProof.Models/IdiotProof.Models.csproj", "src/IdiotProof.Models/"]
 COPY ["src/IdiotProof.Brokers/IdiotProof.Brokers.csproj", "src/IdiotProof.Brokers/"]
@@ -19,14 +19,14 @@ COPY ["src/IdiotProof.Indicators/IdiotProof.Indicators.csproj", "src/IdiotProof.
 COPY ["IdiotProof.Shared/IdiotProof.Shared.csproj", "IdiotProof.Shared/"]
 COPY ["IdiotProof.Scripting/IdiotProof.Scripting.csproj", "IdiotProof.Scripting/"]
 
-RUN dotnet restore "src/IdiotProof.Frontend/IdiotProof.Frontend.csproj"
+RUN dotnet restore "src/IdiotProof.Blazor/IdiotProof.Blazor.csproj"
 
 COPY . .
-WORKDIR "/src/src/IdiotProof.Frontend"
-RUN dotnet build "IdiotProof.Frontend.csproj" -c $BUILD_CONFIGURATION -o /app/build
+WORKDIR "/src/src/IdiotProof.Blazor"
+RUN dotnet build "IdiotProof.Blazor.csproj" -c $BUILD_CONFIGURATION -o /app/build
 
 FROM build AS publish
-RUN dotnet publish "IdiotProof.Frontend.csproj" -c $BUILD_CONFIGURATION -o /app/publish --no-restore
+RUN dotnet publish "IdiotProof.Blazor.csproj" -c $BUILD_CONFIGURATION -o /app/publish --no-restore
 
 FROM base AS final
 WORKDIR /app
@@ -34,4 +34,4 @@ COPY --from=publish /app/publish .
 
 RUN mkdir -p /app/AppData/Settings /app/AppData/Workspaces /app/AppData/Logs /app/AppData/Data
 
-ENTRYPOINT ["dotnet", "IdiotProof.Frontend.dll"]
+ENTRYPOINT ["dotnet", "IdiotProof.Blazor.dll"]

@@ -1,8 +1,8 @@
-using IdiotProof.Frontend.Data;
+using IdiotProof.Blazor.Data;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.EntityFrameworkCore;
 
-namespace IdiotProof.Frontend.Services;
+namespace IdiotProof.Blazor.Services;
 
 /// <summary>
 /// Loads and saves per-user API keys, encrypting sensitive fields with IDataProtector.

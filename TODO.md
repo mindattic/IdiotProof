@@ -5,8 +5,8 @@
 **Goal:** Author a strategy, press play, and watch it unfold on the chart as a translucent "ghost" trade path. When the strategy hits a condition, fork the ghost into pass/fail branches so the full decision tree is visible in-place.
 
 ### Prerequisites (not yet wired)
-- [ ] Add TradingView Lightweight Charts to `IdiotProof.Frontend/wwwroot/` (script + interop JS)
-- [ ] Create `IdiotProof.Frontend/Components/Chart.razor` wrapping the chart via JS interop
+- [ ] Add TradingView Lightweight Charts to `IdiotProof.Blazor/wwwroot/` (script + interop JS)
+- [ ] Create `IdiotProof.Blazor/Components/Chart.razor` wrapping the chart via JS interop
 - [ ] Feed candles from `IdiotProof.Core/Services/HistoricalDataService.cs` (IBKR source) into the chart — SignalR for live, REST for historical
 - [ ] Mount the chart on `TickerWorkspace.razor`
 

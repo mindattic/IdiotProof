@@ -4,7 +4,7 @@ services:
   idiotproof:
     build:
       context: .
-      dockerfile: src/IdiotProof.Frontend/Dockerfile
+      dockerfile: src/IdiotProof.Blazor/Dockerfile
     ports:
       - "8080:8080"
     environment:

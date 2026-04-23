@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Identity;
 
-namespace IdiotProof.Frontend.Data;
+namespace IdiotProof.Blazor.Data;
 
 /// <summary>
 /// Application user — extends IdentityUser with no extra fields for now.

@@ -1,6 +1,6 @@
 using IdiotProof.Models;
 
-namespace IdiotProof.Frontend.Services;
+namespace IdiotProof.Blazor.Services;
 
 /// <summary>
 /// Singleton in-memory state for the running trading application.

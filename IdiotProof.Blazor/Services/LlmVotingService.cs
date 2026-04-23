@@ -5,7 +5,7 @@ using System.Text.Json.Serialization;
 using IdiotProof.Engine.Settings;
 using IdiotProof.Models;
 
-namespace IdiotProof.Frontend.Services;
+namespace IdiotProof.Blazor.Services;
 
 public enum VoteDecision { Approve, Reject, Abstain }
 

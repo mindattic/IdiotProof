@@ -1,4 +1,4 @@
-namespace IdiotProof.Frontend.Data;
+namespace IdiotProof.Blazor.Data;
 
 /// <summary>
 /// Per-user broker and data feed credentials. Sensitive string fields are stored

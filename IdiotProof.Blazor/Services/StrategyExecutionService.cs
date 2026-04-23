@@ -2,14 +2,15 @@ using IdiotProof.Brokers;
 using IdiotProof.DataFeeds;
 using IdiotProof.Engine;
 using IdiotProof.Engine.Settings;
+using IdiotProof.Engine.Storage;
 using IdiotProof.Engine.Workspace;
-using IdiotProof.Frontend.Data;
-using IdiotProof.Frontend.Hubs;
+using IdiotProof.Blazor.Data;
+using IdiotProof.Blazor.Hubs;
 using IdiotProof.Models;
 using IdiotProof.Strategies;
 using Microsoft.AspNetCore.SignalR;
 
-namespace IdiotProof.Frontend.Services;
+namespace IdiotProof.Blazor.Services;
 
 public sealed class StrategyExecutionService : BackgroundService
 {
@@ -27,6 +28,7 @@ public sealed class StrategyExecutionService : BackgroundService
     private readonly AppSettings appSettings;
     private readonly AuditLogger auditLogger;
     private readonly IHubContext<TradingHub> hubContext;
+    private readonly IStorageProvider storage;
     private readonly ILogger<StrategyExecutionService> logger;
 
     public StrategyExecutionService(
@@ -38,6 +40,7 @@ public sealed class StrategyExecutionService : BackgroundService
         AppSettings appSettings,
         AuditLogger auditLogger,
         IHubContext<TradingHub> hubContext,
+        IStorageProvider storage,
         ILogger<StrategyExecutionService> logger)
     {
         this.scopeFactory      = scopeFactory;
@@ -48,6 +51,7 @@ public sealed class StrategyExecutionService : BackgroundService
         this.appSettings       = appSettings;
         this.auditLogger       = auditLogger;
         this.hubContext        = hubContext;
+        this.storage           = storage;
         this.logger            = logger;
     }
 
@@ -58,32 +62,34 @@ public sealed class StrategyExecutionService : BackgroundService
         auditLogger.Log("ENGINE_START", $"Interval={appSettings.StrategyEvaluationIntervalSeconds}s");
 
         var positionCyclesSinceRefresh = 0;
+        var interval = Math.Max(appSettings.StrategyEvaluationIntervalSeconds, 5);
 
-        while (!stoppingToken.IsCancellationRequested)
+        var options = new SupervisedLoopOptions
         {
-            var interval = Math.Max(appSettings.StrategyEvaluationIntervalSeconds, 5);
-
-            try
+            Tick = async ct =>
             {
-                await RunEvaluationCycleAsync(stoppingToken);
+                await RunEvaluationCycleAsync(ct);
                 tradingState.RecordEvaluation();
-            }
-            catch (OperationCanceledException) { break; }
-            catch (Exception ex)
-            {
-                logger.LogError(ex, "Unhandled error in evaluation cycle");
-            }
 
-            positionCyclesSinceRefresh++;
-            if (positionCyclesSinceRefresh >= (60 / interval))
+                positionCyclesSinceRefresh++;
+                if (positionCyclesSinceRefresh >= Math.Max(60 / interval, 1))
+                {
+                    positionCyclesSinceRefresh = 0;
+                    await RefreshPositionsAsync(ct);
+                }
+            },
+            Interval = TimeSpan.FromSeconds(interval),
+            MinBackoff = TimeSpan.FromSeconds(Math.Max(interval, 5)),
+            MaxBackoff = TimeSpan.FromMinutes(5),
+            HeartbeatPath = Path.Combine(storage.LogsPath, "engine.heartbeat"),
+            OnTickFailed = (ex, count) =>
             {
-                positionCyclesSinceRefresh = 0;
-                await RefreshPositionsAsync(stoppingToken);
+                logger.LogError(ex, "Evaluation cycle failed (consecutive failures: {Count})", count);
+                auditLogger.Log("ENGINE_TICK_FAIL", $"Consecutive={count} Error={ex.Message}");
             }
+        };
 
-            try { await Task.Delay(TimeSpan.FromSeconds(interval), stoppingToken); }
-            catch (OperationCanceledException) { break; }
-        }
+        await SupervisedLoop.RunAsync(options, stoppingToken);
 
         tradingState.SetEngineRunning(false);
         auditLogger.Log("ENGINE_STOP", "Strategy engine stopped cleanly");

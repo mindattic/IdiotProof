@@ -1,17 +1,18 @@
 using IdiotProof.Engine;
 using IdiotProof.Engine.Storage;
-using IdiotProof.Frontend.Components;
-using IdiotProof.Frontend.Data;
-using IdiotProof.Frontend.Hubs;
-using IdiotProof.Frontend.Services;
+using IdiotProof.Blazor.Components;
+using IdiotProof.Blazor.Data;
+using IdiotProof.Blazor.Hubs;
+using IdiotProof.Blazor.Services;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // ── Storage ──────────────────────────────────────────────────────────────────────
-var storageProvider = new WebStorageProvider(
-    Path.Combine(AppContext.BaseDirectory, "AppData"));
+// Resolves to %LOCALAPPDATA%\IdiotProof (or $IDIOTPROOF_DATA_DIR if set) so the CLI
+// runner and the Blazor server share the same Workspaces/Settings/Data tree.
+var storageProvider = new WebStorageProvider();
 storageProvider.EnsureDirectories();
 
 // ── Blazor ───────────────────────────────────────────────────────────────────────

@@ -1127,7 +1127,7 @@ var positionSize = profile.GetPositionSize(currentPrice, riskAmount);
 
 
 ## Note
-Ignore the IdiotProof.Frontend project for now - it has build errors related to HeartbeatMessage that will be addressed later.
+Ignore the IdiotProof.Blazor project for now - it has build errors related to HeartbeatMessage that will be addressed later.
 
 ## Repeat Command
 - Use the `Repeat()` command to restart the strategy after it has been completed through Take Profit, Stop Loss, or Trailing Stop Loss. This allows the strategy to re-enter when conditions are met again after an exit.

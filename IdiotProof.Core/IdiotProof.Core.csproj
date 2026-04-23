@@ -11,14 +11,14 @@
 
   <!-- Exclude other project folders from main project compilation -->
   <ItemGroup>
-    <Compile Remove="IdiotProof.Frontend\**" />
+    <Compile Remove="IdiotProof.Blazor\**" />
     <Compile Remove="IdiotProof.Shared\**" />
     <Compile Remove="IdiotProof.UnitTests\**" />
-    <None Remove="IdiotProof.Frontend\**" />
+    <None Remove="IdiotProof.Blazor\**" />
     <None Remove="IdiotProof.Shared\**" />
     <None Remove="IdiotProof.UnitTests\**" />
     <Content Remove="IdiotProof.UnitTests\**" />
-    <EmbeddedResource Remove="IdiotProof.Frontend\**" />
+    <EmbeddedResource Remove="IdiotProof.Blazor\**" />
     <EmbeddedResource Remove="IdiotProof.Shared\**" />
     <EmbeddedResource Remove="IdiotProof.UnitTests\**" />
   </ItemGroup>

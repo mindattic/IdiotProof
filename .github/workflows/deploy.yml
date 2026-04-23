@@ -21,16 +21,16 @@ jobs:
           dotnet-version: ${{ env.DOTNET_VERSION }}
 
       - name: Restore dependencies
-        run: dotnet restore src/IdiotProof.Frontend/IdiotProof.Frontend.csproj
+        run: dotnet restore src/IdiotProof.Blazor/IdiotProof.Blazor.csproj
 
       - name: Build
-        run: dotnet build src/IdiotProof.Frontend/IdiotProof.Frontend.csproj -c Release --no-restore
+        run: dotnet build src/IdiotProof.Blazor/IdiotProof.Blazor.csproj -c Release --no-restore
 
       - name: Test
         run: dotnet test --no-build --verbosity normal || true
 
       - name: Publish
-        run: dotnet publish src/IdiotProof.Frontend/IdiotProof.Frontend.csproj -c Release -o ./publish --no-restore
+        run: dotnet publish src/IdiotProof.Blazor/IdiotProof.Blazor.csproj -c Release -o ./publish --no-restore
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4

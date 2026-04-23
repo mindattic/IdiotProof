@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.SignalR;
 
-namespace IdiotProof.Frontend.Hubs;
+namespace IdiotProof.Blazor.Hubs;
 
 /// <summary>
 /// SignalR hub for real-time trading updates.

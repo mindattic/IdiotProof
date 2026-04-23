@@ -25,7 +25,7 @@ public sealed class WebStorageProvider : IStorageProvider
 
     public WebStorageProvider(string? basePath = null)
     {
-        this.basePath = basePath ?? Path.Combine(AppContext.BaseDirectory, "AppData");
+        this.basePath = basePath ?? StorageLocation.Resolve();
     }
 
     public string SettingsPath => Path.Combine(basePath, "Settings");

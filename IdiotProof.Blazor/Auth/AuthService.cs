@@ -3,7 +3,7 @@ using System.Text;
 using IdiotProof.Engine.Settings;
 using IdiotProof.Engine.Storage;
 
-namespace IdiotProof.Frontend.Auth;
+namespace IdiotProof.Blazor.Auth;
 
 /// <summary>
 /// Single-owner password authentication. The password hash is stored in AppSettings.

@@ -10,10 +10,12 @@ using Microsoft.Extensions.DependencyInjection;
 using Spectre.Console;
 using Spectre.Console.Cli;
 using System.ComponentModel;
+using System.Collections.Concurrent;
 
 // ── DI Setup ─────────────────────────────────────────────────────────────────
 
-var storage = new WebStorageProvider(Path.Combine(AppContext.BaseDirectory, "AppData"));
+// Shared with the Blazor server: %LOCALAPPDATA%\IdiotProof (or $IDIOTPROOF_DATA_DIR).
+var storage = new WebStorageProvider();
 var services = new ServiceCollection();
 services.AddIdiotProofEngine(storage);
 
@@ -391,6 +393,7 @@ internal sealed class RunCommand(
     StrategyRegistry registry,
     WorkspaceManager workspaceManager,
     SwitchableMarketDataFeed dataFeed,
+    IStorageProvider storage,
     AppSettings settings) : Command<RunSettings>
 {
     private record TickerState(string Symbol, decimal LastPrice, int SignalCount, DateTime LastEvalUtc, string Status);
@@ -400,26 +403,20 @@ internal sealed class RunCommand(
         var interval = Math.Max(5, args.Interval);
 
         AnsiConsole.MarkupLine("[bold cyan]Starting strategy evaluation loop. Press [yellow]Ctrl+C[/] to stop.[/]");
-        AnsiConsole.MarkupLine($"[dim]Interval: {interval}s[/]");
+        AnsiConsole.MarkupLine($"[dim]Interval: {interval}s · Heartbeat: {Path.Combine(storage.LogsPath, "cli.heartbeat")}[/]");
 
         var tz = TimeZoneInfo.FindSystemTimeZoneById(settings.Timezone);
 
-        // Gather all tickers from all workspaces
-        var tickers = workspaceManager.Tabs
-            .SelectMany(t => t.Watchlist)
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .ToList();
-
+        var tickers = CollectTickers();
         if (tickers.Count == 0)
         {
             AnsiConsole.MarkupLine("[yellow]No tickers in any workspace. Add tickers to a workspace first.[/]");
             return 0;
         }
 
-        var states = tickers.ToDictionary(
-            t => t,
-            t => new TickerState(t, 0m, 0, DateTime.UtcNow, "Pending"),
-            StringComparer.OrdinalIgnoreCase);
+        var states = new ConcurrentDictionary<string, TickerState>(StringComparer.OrdinalIgnoreCase);
+        foreach (var t in tickers)
+            states[t] = new TickerState(t, 0m, 0, DateTime.UtcNow, "Pending");
 
         using var cts = new CancellationTokenSource();
         Console.CancelKeyPress += (_, e) => { e.Cancel = true; cts.Cancel(); };
@@ -428,73 +425,98 @@ internal sealed class RunCommand(
             .AutoClear(false)
             .Start(liveCtx =>
             {
-                while (!cts.Token.IsCancellationRequested)
+                var options = new SupervisedLoopOptions
                 {
-                    foreach (var ticker in tickers)
+                    Tick = ct => EvaluateAllTickersAsync(states, tz, liveCtx, ct),
+                    Interval = TimeSpan.FromSeconds(interval),
+                    MinBackoff = TimeSpan.FromSeconds(interval),
+                    MaxBackoff = TimeSpan.FromMinutes(5),
+                    HeartbeatPath = Path.Combine(storage.LogsPath, "cli.heartbeat"),
+                    OnTickFailed = (ex, count) =>
                     {
-                        if (cts.Token.IsCancellationRequested) break;
-
-                        try
-                        {
-                            var endUtc = DateTime.UtcNow;
-                            var startUtc = endUtc.AddMinutes(-60 * 5); // ~60 5-min candles
-                            var candles = new List<Candle>();
-
-                            var fetchCts = CancellationTokenSource.CreateLinkedTokenSource(cts.Token);
-                            fetchCts.CancelAfter(TimeSpan.FromSeconds(15));
-
-                            var asyncEnum = dataFeed.GetHistoricalCandlesAsync(ticker, startUtc, endUtc, TimeSpan.FromMinutes(5), fetchCts.Token);
-                            Task.Run(async () =>
-                            {
-                                await foreach (var c in asyncEnum) candles.Add(c);
-                            }).Wait(fetchCts.Token);
-
-                            var lastPrice = candles.Count > 0 ? candles[^1].Close : 0m;
-
-                            var stratCtx = new StrategyContext
-                            {
-                                Timezone = tz,
-                                EvaluationTimeUtc = DateTime.UtcNow
-                            };
-
-                            var allSignals = new List<TradeSignal>();
-                            foreach (var strat in registry.GetAll())
-                            {
-                                try
-                                {
-                                    var sigs = strat.Evaluate(ticker, candles, stratCtx);
-                                    allSignals.AddRange(sigs);
-                                }
-                                catch { /* skip failed strategy */ }
-                            }
-
-                            states[ticker] = new TickerState(ticker, lastPrice, allSignals.Count, DateTime.UtcNow,
-                                allSignals.Count > 0 ? $"[green]{allSignals.Count} signal(s)[/]" : "[dim]No signals[/]");
-                        }
-                        catch (OperationCanceledException)
-                        {
-                            break;
-                        }
-                        catch (Exception ex)
-                        {
-                            states[ticker] = new TickerState(ticker, 0m, 0, DateTime.UtcNow, $"[red]Error: {ex.Message[..Math.Min(ex.Message.Length, 30)]}[/]");
-                        }
-
-                        liveCtx.UpdateTarget(BuildTable(states, tz));
+                        // Surface the failure in the live table without killing the loop.
+                        var msg = ex.Message.Length > 50 ? ex.Message[..50] + "…" : ex.Message;
+                        AnsiConsole.MarkupLine($"[red]Tick #{count} failed: {Markup.Escape(msg)}[/]");
                     }
+                };
 
-                    // Wait for next interval
-                    try { Task.Delay(TimeSpan.FromSeconds(interval), cts.Token).Wait(); }
-                    catch (OperationCanceledException) { break; }
-                    catch (AggregateException ae) when (ae.InnerException is OperationCanceledException) { break; }
-                }
+                SupervisedLoop.RunAsync(options, cts.Token).GetAwaiter().GetResult();
             });
 
         AnsiConsole.MarkupLine("[bold cyan]Evaluation loop stopped.[/]");
         return 0;
     }
 
-    private static Table BuildTable(Dictionary<string, TickerState> states, TimeZoneInfo tz)
+    /// <summary>
+    /// Pulls watchlist tickers from every per-user workspace plus the legacy global
+    /// workspace, so a strategy authored in the Blazor builder is picked up here too.
+    /// </summary>
+    private List<string> CollectTickers()
+    {
+        var allTabs = workspaceManager.GetAllUsers().SelectMany(u => u.Tabs)
+            .Concat(workspaceManager.Tabs);
+
+        return allTabs
+            .SelectMany(t => t.Watchlist)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
+
+    private async Task EvaluateAllTickersAsync(
+        ConcurrentDictionary<string, TickerState> states,
+        TimeZoneInfo tz,
+        LiveDisplayContext liveCtx,
+        CancellationToken ct)
+    {
+        // Refresh the ticker set each tick so newly-added watchlist symbols are picked up
+        // without a process restart — important for the days/weeks runtime target.
+        var tickers = CollectTickers();
+        foreach (var t in tickers)
+            states.TryAdd(t, new TickerState(t, 0m, 0, DateTime.UtcNow, "Pending"));
+
+        foreach (var ticker in tickers)
+        {
+            ct.ThrowIfCancellationRequested();
+
+            try
+            {
+                using var fetchCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+                fetchCts.CancelAfter(TimeSpan.FromSeconds(15));
+
+                var endUtc = DateTime.UtcNow;
+                var startUtc = endUtc.AddMinutes(-60 * 5);
+                var candles = new List<Candle>();
+                await foreach (var c in dataFeed.GetHistoricalCandlesAsync(ticker, startUtc, endUtc, TimeSpan.FromMinutes(5), fetchCts.Token))
+                    candles.Add(c);
+
+                var lastPrice = candles.Count > 0 ? candles[^1].Close : 0m;
+                var stratCtx = new StrategyContext { Timezone = tz, EvaluationTimeUtc = DateTime.UtcNow };
+
+                var signalCount = 0;
+                foreach (var strat in registry.GetAll())
+                {
+                    try { signalCount += strat.Evaluate(ticker, candles, stratCtx).Count; }
+                    catch { /* a single misbehaving strategy must not stop the rest */ }
+                }
+
+                states[ticker] = new TickerState(ticker, lastPrice, signalCount, DateTime.UtcNow,
+                    signalCount > 0 ? $"[green]{signalCount} signal(s)[/]" : "[dim]No signals[/]");
+            }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                var msg = ex.Message.Length > 30 ? ex.Message[..30] + "…" : ex.Message;
+                states[ticker] = new TickerState(ticker, 0m, 0, DateTime.UtcNow, $"[red]Error: {Markup.Escape(msg)}[/]");
+            }
+
+            liveCtx.UpdateTarget(BuildTable(states, tz));
+        }
+    }
+
+    private static Table BuildTable(IReadOnlyDictionary<string, TickerState> states, TimeZoneInfo tz)
     {
         var table = new Table()
             .Border(TableBorder.Rounded)

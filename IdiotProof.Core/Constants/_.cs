@@ -246,7 +246,7 @@ public static class _
         public const string Core = "IdiotProof.Core";
         public const string Backend = "IdiotProof.Backend";
         public const string Console = "IdiotProof.Console";
-        public const string Frontend = "IdiotProof.Frontend";
+        public const string Blazor = "IdiotProof.Blazor";
         public const string Shared = "IdiotProof.Core";
     }
 

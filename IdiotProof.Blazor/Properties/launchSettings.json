@@ -1,6 +1,6 @@
 {
   "profiles": {
-    "IdiotProof.Frontend": {
+    "IdiotProof.Blazor": {
       "commandName": "Project",
       "launchBrowser": true,
       "environmentVariables": {
