@@ -180,15 +180,29 @@ public sealed class OpenAIService : IDisposable
             turns.Add(new ChatTurn(m.Role, m.Content));
         }
 
-        var text = await legion.CallChatAsync(
-            providerId: "openai",
-            apiKey: apiKey,
-            model: model,
-            messages: turns,
-            systemPrompt: systemHoist,
-            maxTokens: 2000,
-            temperature: 0.7,
-            ct: ct);
+        string text;
+        try
+        {
+            text = await legion.CallChatAsync(
+                providerId: "openai",
+                apiKey: apiKey,
+                model: model,
+                messages: turns,
+                systemPrompt: systemHoist,
+                maxTokens: 2000,
+                temperature: 0.7,
+                ct: ct);
+        }
+        catch (CircuitBreakerOpenException ex)
+        {
+            Console.WriteLine($"[IdiotProof] Legion circuit breaker open for openai: {ex.Message}");
+            throw;
+        }
+        catch (HttpRequestException ex)
+        {
+            Console.WriteLine($"[IdiotProof] Legion call failed for openai (model={model}, status={ex.StatusCode}): {ex.Message}");
+            throw;
+        }
 
         var diagnostic = JsonSerializer.Serialize(new
         {
