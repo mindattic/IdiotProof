@@ -1,60 +1,62 @@
 @inject NavigationManager Nav
 @inject AuthenticationStateProvider AuthStateProvider
 
-<ul class="nav flex-column sidebar-nav px-2 py-3 gap-1">
+<ul class="nav flex-column sidebar-nav px-2 py-3 gap-1" role="list">
     <li class="nav-item">
-        <NavLink class="nav-link sidebar-link" href="/" Match="NavLinkMatch.All">
-            <i class="bi bi-speedometer2 me-2"></i>Dashboard
+        <NavLink class="nav-link sidebar-link" href="/" Match="NavLinkMatch.All" aria-label="Dashboard">
+            <i class="bi bi-speedometer2 me-2" aria-hidden="true"></i>Dashboard
         </NavLink>
     </li>
     <li class="nav-item">
-        <NavLink class="nav-link sidebar-link" href="/workspaces">
-            <i class="bi bi-layers me-2"></i>Workspaces
+        <NavLink class="nav-link sidebar-link" href="/workspaces" aria-label="Workspaces">
+            <i class="bi bi-layers me-2" aria-hidden="true"></i>Workspaces
         </NavLink>
     </li>
     <li class="nav-item">
-        <NavLink class="nav-link sidebar-link" href="/builder">
-            <i class="bi bi-code-square me-2"></i>Strategy Builder
+        <NavLink class="nav-link sidebar-link" href="/builder" aria-label="Strategy Builder">
+            <i class="bi bi-code-square me-2" aria-hidden="true"></i>Strategy Builder
         </NavLink>
     </li>
     <li class="nav-item">
-        <NavLink class="nav-link sidebar-link" href="/positions">
-            <i class="bi bi-briefcase me-2"></i>Positions
+        <NavLink class="nav-link sidebar-link" href="/positions" aria-label="Positions">
+            <i class="bi bi-briefcase me-2" aria-hidden="true"></i>Positions
         </NavLink>
     </li>
     <li class="nav-item">
-        <NavLink class="nav-link sidebar-link" href="/signals">
-            <i class="bi bi-lightning-charge me-2"></i>Signals
+        <NavLink class="nav-link sidebar-link" href="/signals" aria-label="Signals">
+            <i class="bi bi-lightning-charge me-2" aria-hidden="true"></i>Signals
         </NavLink>
     </li>
-    <li class="nav-item mt-2">
+    <li class="nav-item mt-2" aria-hidden="true">
         <hr class="sidebar-divider" />
     </li>
     <li class="nav-item">
-        <NavLink class="nav-link sidebar-link" href="/glossary">
-            <i class="bi bi-book me-2"></i>Glossary
+        <NavLink class="nav-link sidebar-link" href="/glossary" aria-label="Glossary">
+            <i class="bi bi-book me-2" aria-hidden="true"></i>Glossary
         </NavLink>
     </li>
     <li class="nav-item">
-        <NavLink class="nav-link sidebar-link" href="/settings">
-            <i class="bi bi-gear me-2"></i>Settings
+        <NavLink class="nav-link sidebar-link" href="/settings" aria-label="Settings">
+            <i class="bi bi-gear me-2" aria-hidden="true"></i>Settings
         </NavLink>
     </li>
     <li class="nav-item">
-        <NavLink class="nav-link sidebar-link" href="/api-keys">
-            <i class="bi bi-key me-2"></i>API Keys
+        <NavLink class="nav-link sidebar-link" href="/api-keys" aria-label="API Keys">
+            <i class="bi bi-key me-2" aria-hidden="true"></i>API Keys
         </NavLink>
     </li>
     <li class="nav-item">
-        <NavLink class="nav-link sidebar-link" href="/setup">
-            <i class="bi bi-magic me-2"></i>Setup
+        <NavLink class="nav-link sidebar-link" href="/setup" aria-label="Setup">
+            <i class="bi bi-magic me-2" aria-hidden="true"></i>Setup
         </NavLink>
     </li>
     <li class="nav-item mt-auto pt-2">
-        <hr class="sidebar-divider" />
-        <div class="px-2 py-1 text-muted d-flex align-items-center gap-1" style="font-size:0.7rem;overflow:hidden">
-            <i class="bi bi-person-circle flex-shrink-0"></i>
-            <span class="text-truncate">@userEmail</span>
+        <hr class="sidebar-divider" aria-hidden="true" />
+        <div class="px-2 py-1 text-muted d-flex align-items-center gap-1"
+             style="font-size:0.7rem;overflow:hidden"
+             aria-label="Signed in as @userEmail">
+            <i class="bi bi-person-circle flex-shrink-0" aria-hidden="true"></i>
+            <span class="text-truncate" aria-hidden="true">@userEmail</span>
         </div>
     </li>
 </ul>

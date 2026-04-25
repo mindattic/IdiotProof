@@ -15,40 +15,44 @@
 @if (string.IsNullOrEmpty(TabId))
 {
     <!-- Workspace List View -->
+    <section aria-labelledby="workspaces-heading">
     <div class="d-flex justify-content-between align-items-center mb-4">
-        <h4 class="mb-0 text-white">
-            <i class="bi bi-layers me-2" style="color:var(--blue)"></i>Workspaces
-        </h4>
-        <button class="btn btn-success btn-sm" @onclick="ShowNewWorkspaceModal">
-            <i class="bi bi-plus-circle me-1"></i>New Workspace
+        <h1 id="workspaces-heading" class="h4 mb-0 text-white">
+            <i class="bi bi-layers me-2" style="color:var(--blue)" aria-hidden="true"></i>Workspaces
+        </h1>
+        <button class="btn btn-success btn-sm" type="button" @onclick="ShowNewWorkspaceModal" aria-label="Create new workspace">
+            <i class="bi bi-plus-circle me-1" aria-hidden="true"></i>New Workspace
         </button>
     </div>
 
-    <div class="row g-3">
+    <ul class="row g-3 list-unstyled" role="list">
         @foreach (var tab in userTabs)
         {
-            <div class="col-md-6 col-lg-4">
-                <div class="trading-card p-3 h-100">
+            <li class="col-md-6 col-lg-4">
+                <article class="trading-card p-3 h-100" aria-labelledby="ws-name-@tab.TabId">
                     <div class="d-flex justify-content-between align-items-start mb-2">
-                        <h6 class="text-white mb-0">@tab.Name</h6>
+                        <h2 id="ws-name-@tab.TabId" class="h6 text-white mb-0">@tab.Name</h2>
                         <div class="d-flex gap-1">
-                            <a href="/workspace/@tab.TabId" class="btn btn-sm btn-outline-success">Open</a>
-                            <button class="btn btn-sm btn-outline-danger" @onclick="() => DeleteWorkspace(tab.TabId)">
-                                <i class="bi bi-trash"></i>
+                            <a href="/workspace/@tab.TabId" class="btn btn-sm btn-outline-success" aria-label="Open workspace @tab.Name">Open</a>
+                            <button class="btn btn-sm btn-outline-danger"
+                                    type="button"
+                                    aria-label="Delete workspace @tab.Name"
+                                    @onclick="() => DeleteWorkspace(tab.TabId)">
+                                <i class="bi bi-trash" aria-hidden="true"></i>
                             </button>
                         </div>
                     </div>
                     <div class="text-muted small mb-2">
                         Created @tab.CreatedUtc.ToString("MMM d, yyyy")
                     </div>
-                    <div class="d-flex flex-wrap gap-1 mb-2">
+                    <div class="d-flex flex-wrap gap-1 mb-2" aria-label="Watchlist preview">
                         @foreach (var sym in tab.Watchlist.Take(5))
                         {
                             <span class="badge bg-dark border border-secondary">@sym</span>
                         }
                         @if (tab.Watchlist.Count > 5)
                         {
-                            <span class="badge bg-secondary">+@(tab.Watchlist.Count - 5)</span>
+                            <span class="badge bg-secondary" aria-label="@(tab.Watchlist.Count - 5) more tickers">+@(tab.Watchlist.Count - 5)</span>
                         }
                         @if (!tab.Watchlist.Any())
                         {
@@ -66,39 +70,48 @@
                             <span>Manual</span>
                         }
                     </div>
-                </div>
-            </div>
+                </article>
+            </li>
         }
         @if (!userTabs.Any())
         {
-            <div class="col-12 text-center py-5 text-muted">
-                <i class="bi bi-layers fs-1 d-block mb-3"></i>
+            <li class="col-12 text-center py-5 text-muted">
+                <i class="bi bi-layers fs-1 d-block mb-3" aria-hidden="true"></i>
                 No workspaces yet. Create one to get started.
-            </div>
+            </li>
         }
-    </div>
+    </ul>
+    </section>
 
     <!-- New Workspace Modal -->
     @if (showNewModal)
     {
-        <div class="modal-backdrop fade show"></div>
-        <div class="modal fade show d-block" tabindex="-1">
+        <div class="modal-backdrop fade show" @onclick="() => showNewModal = false"></div>
+        <div class="modal fade show d-block"
+             role="dialog"
+             aria-modal="true"
+             aria-labelledby="new-ws-title"
+             tabindex="-1"
+             @onkeydown="OnNewWorkspaceModalKey">
             <div class="modal-dialog modal-dialog-centered">
                 <div class="modal-content bg-dark border-secondary">
                     <div class="modal-header border-secondary">
-                        <h5 class="modal-title text-white">New Workspace</h5>
-                        <button type="button" class="btn-close btn-close-white" @onclick="() => showNewModal = false"></button>
+                        <h2 id="new-ws-title" class="h5 modal-title text-white">New Workspace</h2>
+                        <button type="button" class="btn-close btn-close-white" aria-label="Close" @onclick="() => showNewModal = false"></button>
                     </div>
                     <div class="modal-body">
-                        <label class="form-label text-muted small">Workspace Name</label>
-                        <input class="form-control bg-dark text-white border-secondary"
+                        <label class="form-label text-muted small" for="new-ws-name">Workspace Name</label>
+                        <input id="new-ws-name"
+                               class="form-control bg-dark text-white border-secondary"
                                placeholder="e.g. Momentum Plays"
+                               aria-required="true"
+                               autofocus
                                @bind="newWorkspaceName"
                                @onkeydown="OnNewWorkspaceKeyDown" />
                     </div>
                     <div class="modal-footer border-secondary">
-                        <button class="btn btn-secondary" @onclick="() => showNewModal = false">Cancel</button>
-                        <button class="btn btn-success" @onclick="CreateWorkspace">Create</button>
+                        <button class="btn btn-secondary" type="button" @onclick="() => showNewModal = false">Cancel</button>
+                        <button class="btn btn-success" type="button" @onclick="CreateWorkspace">Create</button>
                     </div>
                 </div>
             </div>
@@ -119,22 +132,32 @@ else
     {
         <div class="d-flex justify-content-between align-items-center mb-3">
             <div class="d-flex align-items-center gap-2">
-                <a href="/workspaces" class="btn btn-sm btn-outline-secondary">
-                    <i class="bi bi-arrow-left"></i>
+                <a href="/workspaces" class="btn btn-sm btn-outline-secondary" aria-label="Back to workspaces">
+                    <i class="bi bi-arrow-left" aria-hidden="true"></i>
                 </a>
                 @if (editingName)
                 {
-                    <input class="form-control form-control-sm bg-dark text-white border-secondary"
+                    <label class="visually-hidden" for="ws-name-edit">Workspace name</label>
+                    <input id="ws-name-edit"
+                           class="form-control form-control-sm bg-dark text-white border-secondary"
                            style="width:200px"
+                           aria-label="Workspace name"
                            @bind="editNameValue"
                            @onblur="SaveName"
                            @onkeydown="OnNameKeyDown" />
                 }
                 else
                 {
-                    <h4 class="mb-0 text-white" @ondblclick="StartEditName" style="cursor:pointer" title="Double-click to rename">
-                        @currentTab.Name <i class="bi bi-pencil text-muted" style="font-size:0.7rem"></i>
-                    </h4>
+                    <h1 class="h4 mb-0 text-white" @ondblclick="StartEditName" style="cursor:pointer" title="Double-click to rename">
+                        @currentTab.Name
+                        <button type="button"
+                                class="btn btn-link p-0 ms-1 align-baseline"
+                                aria-label="Rename workspace"
+                                @onclick="StartEditName"
+                                @onclick:stopPropagation="true">
+                            <i class="bi bi-pencil text-muted" style="font-size:0.7rem" aria-hidden="true"></i>
+                        </button>
+                    </h1>
                 }
             </div>
             <div class="d-flex align-items-center gap-2">
@@ -143,42 +166,53 @@ else
                     <label class="form-check-label text-muted small" for="autoTradeSwitch">Auto-Trade</label>
                     <input class="form-check-input" type="checkbox" id="autoTradeSwitch"
                            checked="@currentTab.Settings.AutoTrade"
+                           aria-describedby="auto-trade-status"
                            @onchange="OnAutoTradeToggle" />
                     @if (currentTab.Settings.AutoTrade)
                     {
-                        <span class="badge bg-danger">LIVE</span>
+                        <span id="auto-trade-status" class="badge bg-danger" role="status">LIVE</span>
                     }
                 </div>
             </div>
         </div>
 
         <!-- Watchlist + Broker Selectors -->
-        <div class="trading-card p-3 mb-3">
+        <section class="trading-card p-3 mb-3" aria-labelledby="watchlist-heading">
+            <h2 id="watchlist-heading" class="visually-hidden">Watchlist and broker settings</h2>
             <div class="row g-3 align-items-end">
                 <div class="col-md-6">
-                    <label class="form-label text-muted small">Watchlist</label>
-                    <div class="d-flex flex-wrap gap-2 mb-2">
+                    <label class="form-label text-muted small" for="new-ticker-input">Watchlist</label>
+                    <ul class="d-flex flex-wrap gap-2 mb-2 list-unstyled" aria-label="Watched tickers">
                         @foreach (var sym in currentTab.Watchlist)
                         {
-                            <span class="badge bg-dark border border-secondary d-flex align-items-center gap-1">
-                                @sym
-                                <button class="btn btn-sm p-0 text-danger" style="line-height:1" @onclick="() => RemoveTicker(sym)">
-                                    <i class="bi bi-x" style="font-size:0.8rem"></i>
-                                </button>
-                            </span>
+                            <li>
+                                <span class="badge bg-dark border border-secondary d-flex align-items-center gap-1">
+                                    @sym
+                                    <button class="btn btn-sm p-0 text-danger"
+                                            type="button"
+                                            style="line-height:1"
+                                            aria-label="Remove @sym from watchlist"
+                                            @onclick="() => RemoveTicker(sym)">
+                                        <i class="bi bi-x" style="font-size:0.8rem" aria-hidden="true"></i>
+                                    </button>
+                                </span>
+                            </li>
                         }
-                    </div>
+                    </ul>
                     <div class="input-group input-group-sm">
-                        <input class="form-control bg-dark text-white border-secondary"
+                        <input id="new-ticker-input"
+                               class="form-control bg-dark text-white border-secondary"
                                placeholder="Add ticker..."
+                               aria-label="Ticker symbol"
                                @bind="newTickerInput"
                                @onkeydown="OnAddTickerKeyDown" />
-                        <button class="btn btn-outline-success" @onclick="AddTicker">+</button>
+                        <button class="btn btn-outline-success" type="button" @onclick="AddTicker" aria-label="Add ticker to watchlist">+</button>
                     </div>
                 </div>
                 <div class="col-md-3">
-                    <label class="form-label text-muted small">Broker</label>
-                    <select class="form-select form-select-sm bg-dark text-white border-secondary"
+                    <label class="form-label text-muted small" for="broker-select">Broker</label>
+                    <select id="broker-select"
+                            class="form-select form-select-sm bg-dark text-white border-secondary"
                             @bind="currentTab.BrokerOverride"
                             @bind:after="SaveTab">
                         <option value="">Default (@AppSettings.DefaultBroker)</option>
@@ -188,8 +222,9 @@ else
                     </select>
                 </div>
                 <div class="col-md-3">
-                    <label class="form-label text-muted small">Data Feed</label>
-                    <select class="form-select form-select-sm bg-dark text-white border-secondary"
+                    <label class="form-label text-muted small" for="datafeed-select">Data Feed</label>
+                    <select id="datafeed-select"
+                            class="form-select form-select-sm bg-dark text-white border-secondary"
                             @bind="currentTab.DataFeedOverride"
                             @bind:after="SaveTab">
                         <option value="">Default (@AppSettings.DefaultDataFeed)</option>
@@ -197,38 +232,48 @@ else
                     </select>
                 </div>
             </div>
-        </div>
+        </section>
 
         <!-- Risk Parameters (collapsible) -->
-        <div class="trading-card p-3 mb-3">
-            <button class="btn btn-sm btn-link text-muted p-0 d-flex align-items-center gap-1" @onclick="() => riskExpanded = !riskExpanded">
-                <i class="bi @(riskExpanded ? "bi-chevron-down" : "bi-chevron-right")"></i>
+        <section class="trading-card p-3 mb-3" aria-labelledby="risk-toggle">
+            <button id="risk-toggle"
+                    class="btn btn-sm btn-link text-muted p-0 d-flex align-items-center gap-1"
+                    type="button"
+                    aria-expanded="@riskExpanded"
+                    aria-controls="risk-panel"
+                    @onclick="() => riskExpanded = !riskExpanded">
+                <i class="bi @(riskExpanded ? "bi-chevron-down" : "bi-chevron-right")" aria-hidden="true"></i>
                 <span class="small">Risk Parameters</span>
             </button>
+            <div id="risk-panel" hidden="@(!riskExpanded)">
             @if (riskExpanded)
             {
                 <div class="row g-2 mt-2">
                     <div class="col-md-3">
-                        <label class="form-label text-muted" style="font-size:0.7rem">Max Position Size ($)</label>
-                        <input type="number" class="form-control form-control-sm bg-dark text-white border-secondary"
+                        <label class="form-label text-muted" style="font-size:0.7rem" for="risk-max-position">Max Position Size ($)</label>
+                        <input id="risk-max-position"
+                               type="number" class="form-control form-control-sm bg-dark text-white border-secondary"
                                @bind="currentTab.Settings.MaxPositionSize"
                                @bind:after="SaveTab" />
                     </div>
                     <div class="col-md-3">
-                        <label class="form-label text-muted" style="font-size:0.7rem">Max Loss / Trade ($)</label>
-                        <input type="number" class="form-control form-control-sm bg-dark text-white border-secondary"
+                        <label class="form-label text-muted" style="font-size:0.7rem" for="risk-max-loss-trade">Max Loss / Trade ($)</label>
+                        <input id="risk-max-loss-trade"
+                               type="number" class="form-control form-control-sm bg-dark text-white border-secondary"
                                @bind="currentTab.Settings.RiskLimits.MaxLossPerTrade"
                                @bind:after="SaveTab" />
                     </div>
                     <div class="col-md-3">
-                        <label class="form-label text-muted" style="font-size:0.7rem">Max Loss / Day ($)</label>
-                        <input type="number" class="form-control form-control-sm bg-dark text-white border-secondary"
+                        <label class="form-label text-muted" style="font-size:0.7rem" for="risk-max-loss-day">Max Loss / Day ($)</label>
+                        <input id="risk-max-loss-day"
+                               type="number" class="form-control form-control-sm bg-dark text-white border-secondary"
                                @bind="currentTab.Settings.RiskLimits.MaxLossPerDay"
                                @bind:after="SaveTab" />
                     </div>
                     <div class="col-md-3">
-                        <label class="form-label text-muted" style="font-size:0.7rem">Allowed Sessions</label>
-                        <select class="form-select form-select-sm bg-dark text-white border-secondary"
+                        <label class="form-label text-muted" style="font-size:0.7rem" for="risk-allowed-sessions">Allowed Sessions</label>
+                        <select id="risk-allowed-sessions"
+                                class="form-select form-select-sm bg-dark text-white border-secondary"
                                 @bind="currentTab.Settings.AllowedSessions"
                                 @bind:after="SaveTab">
                             @foreach (var session in Enum.GetValues<TradingSession>())
@@ -239,34 +284,47 @@ else
                     </div>
                 </div>
             }
-        </div>
+            </div>
+        </section>
 
+        <div role="status" aria-live="polite" aria-atomic="true">
         @if (!string.IsNullOrEmpty(orderFeedback))
         {
             <div class="alert alert-info small py-2 mb-3">@orderFeedback</div>
         }
+        </div>
 
         <!-- Per-Ticker Tabs -->
         @if (!currentTab.Watchlist.Any())
         {
             <div class="text-center py-5 text-muted">
-                <i class="bi bi-search fs-1 d-block mb-3"></i>
+                <i class="bi bi-search fs-1 d-block mb-3" aria-hidden="true"></i>
                 Add tickers to the watchlist to see strategy signals.
             </div>
         }
         else
         {
-            <ul class="nav nav-tabs mb-3" style="border-color:var(--border)">
+            <ul class="nav nav-tabs mb-3"
+                role="tablist"
+                aria-label="Tickers in watchlist"
+                style="border-color:var(--border)">
                 @foreach (var sym in currentTab.Watchlist)
                 {
-                    <li class="nav-item">
-                        <button class="nav-link @(selectedTicker == sym ? "active" : "")"
-                                style="@(selectedTicker == sym ? "background:var(--bg-card);border-color:var(--border);color:var(--text-primary)" : "color:var(--text-muted)")"
+                    var isSelected = selectedTicker == sym;
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link @(isSelected ? "active" : "")"
+                                type="button"
+                                role="tab"
+                                aria-selected="@isSelected"
+                                aria-controls="ticker-panel-@sym"
+                                id="ticker-tab-@sym"
+                                tabindex="@(isSelected ? "0" : "-1")"
+                                style="@(isSelected ? "background:var(--bg-card);border-color:var(--border);color:var(--text-primary)" : "color:var(--text-muted)")"
                                 @onclick="() => selectedTicker = sym">
                             @sym
                             @if (TradingState.LivePrices.TryGetValue(sym, out var lp))
                             {
-                                <span class="ms-1 text-muted small">$@lp.Price.ToString("0.00")</span>
+                                <span class="ms-1 text-muted small" aria-label="Price $@lp.Price.ToString("0.00")">$@lp.Price.ToString("0.00")</span>
                             }
                         </button>
                     </li>
@@ -275,7 +333,10 @@ else
 
             @if (!string.IsNullOrEmpty(selectedTicker))
             {
-                <div class="row g-3">
+                <div class="row g-3"
+                     role="tabpanel"
+                     id="ticker-panel-@selectedTicker"
+                     aria-labelledby="ticker-tab-@selectedTicker">
                     <div class="col-md-4">
                         <div class="trading-card p-3 mb-3">
                             @if (TradingState.LivePrices.TryGetValue(selectedTicker, out var price))
@@ -287,24 +348,28 @@ else
                             }
                             else
                             {
-                                <div class="text-muted small">Price loading...</div>
+                                <div class="text-muted small" role="status">Price loading...</div>
                             }
                         </div>
                     </div>
                     <div class="col-md-8">
                         <!-- Strategies for selected ticker -->
-                        <div class="trading-card p-3 mb-3">
+                        <section class="trading-card p-3 mb-3" aria-labelledby="strategies-heading">
                             <div class="d-flex justify-content-between align-items-center mb-3">
-                                <h6 class="mb-0 text-white">Strategies</h6>
+                                <h2 id="strategies-heading" class="h6 mb-0 text-white">Strategies</h2>
                                 <div class="d-flex gap-2 align-items-center">
-                                    <select class="form-select form-select-sm bg-dark text-white border-secondary" style="width:auto" @bind="strategyToAdd">
+                                    <label class="visually-hidden" for="add-strategy-select">Strategy to add</label>
+                                    <select id="add-strategy-select"
+                                            class="form-select form-select-sm bg-dark text-white border-secondary"
+                                            style="width:auto"
+                                            @bind="strategyToAdd">
                                         <option value="">Add strategy...</option>
                                         @foreach (var s in StrategyRegistry.GetAll())
                                         {
                                             <option value="@s.Name">@s.Name</option>
                                         }
                                     </select>
-                                    <button class="btn btn-sm btn-outline-success" @onclick="AddStrategy">+</button>
+                                    <button class="btn btn-sm btn-outline-success" type="button" @onclick="AddStrategy" aria-label="Add selected strategy">+</button>
                                 </div>
                             </div>
                             @foreach (var binding in currentTab.Strategies)
@@ -313,12 +378,16 @@ else
                                     <div class="d-flex justify-content-between align-items-center mb-2">
                                         <div class="d-flex align-items-center gap-2">
                                             <input type="checkbox" class="form-check-input"
+                                                   id="strat-toggle-@binding.StrategyName"
                                                    checked="@binding.Enabled"
                                                    @onchange="(e) => ToggleStrategy(binding, (bool)(e.Value ?? false))" />
-                                            <span class="text-white small fw-semibold">@binding.StrategyName</span>
+                                            <label class="text-white small fw-semibold mb-0" for="strat-toggle-@binding.StrategyName">@binding.StrategyName</label>
                                         </div>
-                                        <button class="btn btn-sm btn-outline-danger py-0" @onclick="() => RemoveStrategy(binding)">
-                                            <i class="bi bi-trash" style="font-size:0.7rem"></i>
+                                        <button class="btn btn-sm btn-outline-danger py-0"
+                                                type="button"
+                                                aria-label="Remove strategy @binding.StrategyName"
+                                                @onclick="() => RemoveStrategy(binding)">
+                                            <i class="bi bi-trash" style="font-size:0.7rem" aria-hidden="true"></i>
                                         </button>
                                     </div>
 
@@ -339,11 +408,11 @@ else
                                     }
                                     else
                                     {
-                                        <div class="text-muted" style="font-size:0.75rem">Waiting for next evaluation...</div>
+                                        <div class="text-muted" style="font-size:0.75rem" role="status">Waiting for next evaluation...</div>
                                     }
                                 </div>
                             }
-                        </div>
+                        </section>
                     </div>
                 </div>
             }
@@ -353,16 +422,22 @@ else
     <!-- Auto-Trade Confirm Modal -->
     @if (showAutoTradeModal)
     {
-        <div class="modal-backdrop fade show"></div>
-        <div class="modal fade show d-block" tabindex="-1">
+        <div class="modal-backdrop fade show" @onclick="CancelAutoTrade"></div>
+        <div class="modal fade show d-block"
+             role="dialog"
+             aria-modal="true"
+             aria-labelledby="auto-trade-title"
+             aria-describedby="auto-trade-desc"
+             tabindex="-1"
+             @onkeydown="OnAutoTradeModalKey">
             <div class="modal-dialog modal-dialog-centered">
                 <div class="modal-content bg-dark border-danger">
                     <div class="modal-header border-danger">
-                        <h5 class="modal-title text-danger">
-                            <i class="bi bi-exclamation-triangle me-2"></i>Enable Auto-Trade?
-                        </h5>
+                        <h2 id="auto-trade-title" class="h5 modal-title text-danger">
+                            <i class="bi bi-exclamation-triangle me-2" aria-hidden="true"></i>Enable Auto-Trade?
+                        </h2>
                     </div>
-                    <div class="modal-body text-white">
+                    <div class="modal-body text-white" id="auto-trade-desc">
                         <p>Auto-trading will place <strong>real orders</strong> automatically when strategy signals are generated and approved by LLM voting.</p>
                         <p class="text-warning small">This uses real money. Ensure your broker is configured correctly and risk limits are set.</p>
                         <div class="alert alert-danger small">
@@ -371,8 +446,8 @@ else
                         </div>
                     </div>
                     <div class="modal-footer border-danger">
-                        <button class="btn btn-secondary" @onclick="CancelAutoTrade">Cancel</button>
-                        <button class="btn btn-danger" @onclick="ConfirmAutoTrade">Yes, Enable Auto-Trade</button>
+                        <button class="btn btn-secondary" type="button" @onclick="CancelAutoTrade" autofocus>Cancel</button>
+                        <button class="btn btn-danger" type="button" @onclick="ConfirmAutoTrade">Yes, Enable Auto-Trade</button>
                     </div>
                 </div>
             </div>
@@ -426,6 +501,16 @@ else
     private void OnNewWorkspaceKeyDown(KeyboardEventArgs e)
     {
         if (e.Key == "Enter") CreateWorkspace();
+    }
+
+    private void OnNewWorkspaceModalKey(KeyboardEventArgs e)
+    {
+        if (e.Key == "Escape") showNewModal = false;
+    }
+
+    private void OnAutoTradeModalKey(KeyboardEventArgs e)
+    {
+        if (e.Key == "Escape") CancelAutoTrade();
     }
 
     private void CreateWorkspace()

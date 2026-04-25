@@ -9,24 +9,29 @@
 <PageTitle>Positions — IdiotProof</PageTitle>
 
 <div class="d-flex justify-content-between align-items-center mb-4">
-    <h4 class="mb-0 text-white">
-        <i class="bi bi-briefcase me-2" style="color:var(--blue)"></i>Open Positions
-    </h4>
+    <h1 class="h4 mb-0 text-white">
+        <i class="bi bi-briefcase me-2" style="color:var(--blue)" aria-hidden="true"></i>Open Positions
+    </h1>
     <div class="d-flex gap-2 align-items-center">
         @if (lastRefreshed.HasValue)
         {
-            <span class="text-muted small">Updated @lastRefreshed.Value.ToString("HH:mm:ss")</span>
+            <span class="text-muted small" aria-live="polite">Updated @lastRefreshed.Value.ToString("HH:mm:ss")</span>
         }
-        <button class="btn btn-sm btn-outline-secondary" @onclick="RefreshPositions" disabled="@isRefreshing">
-            <i class="bi bi-arrow-clockwise @(isRefreshing ? "spin" : "")"></i> Refresh
+        <button class="btn btn-sm btn-outline-secondary"
+                type="button"
+                @onclick="RefreshPositions"
+                disabled="@isRefreshing"
+                aria-busy="@isRefreshing"
+                aria-label="Refresh positions">
+            <i class="bi bi-arrow-clockwise @(isRefreshing ? "spin" : "")" aria-hidden="true"></i> Refresh
         </button>
     </div>
 </div>
 
 @if (allPositions.Count == 0 && !isRefreshing)
 {
-    <div class="text-center py-5 text-muted">
-        <i class="bi bi-briefcase fs-1 d-block mb-3"></i>
+    <div class="text-center py-5 text-muted" role="status">
+        <i class="bi bi-briefcase fs-1 d-block mb-3" aria-hidden="true"></i>
         <div class="mb-2">No open positions</div>
         <a href="/workspaces" class="btn btn-outline-secondary btn-sm">Go to Workspaces</a>
     </div>
@@ -35,23 +40,25 @@ else
 {
     @foreach (var brokerGroup in TradingState.GetPositionsForUser(userId))
     {
-        <div class="trading-card p-3 mb-3">
-            <h6 class="text-white mb-3">
-                <i class="bi bi-building me-1"></i>@brokerGroup.Key
-                <span class="badge bg-secondary ms-1">@brokerGroup.Value.Count</span>
-            </h6>
+        var brokerSlug = brokerGroup.Key.ToString().ToLowerInvariant();
+        <section class="trading-card p-3 mb-3" aria-labelledby="positions-@brokerSlug-heading">
+            <h2 id="positions-@brokerSlug-heading" class="h6 text-white mb-3">
+                <i class="bi bi-building me-1" aria-hidden="true"></i>@brokerGroup.Key
+                <span class="badge bg-secondary ms-1" aria-label="@brokerGroup.Value.Count positions">@brokerGroup.Value.Count</span>
+            </h2>
             <div class="table-responsive">
-                <table class="table table-sm table-dark table-hover mb-0">
+                <table class="table table-sm table-dark table-hover mb-0" aria-label="@brokerGroup.Key positions">
+                    <caption class="visually-hidden">Open positions held with @brokerGroup.Key</caption>
                     <thead>
                         <tr class="text-muted small">
-                            <th>Symbol</th>
-                            <th class="text-end">Qty</th>
-                            <th class="text-end">Avg Price</th>
-                            <th class="text-end">Current</th>
-                            <th class="text-end">P&L ($)</th>
-                            <th class="text-end">P&L (%)</th>
-                            <th class="text-end">Value</th>
-                            <th></th>
+                            <th scope="col">Symbol</th>
+                            <th scope="col" class="text-end">Qty</th>
+                            <th scope="col" class="text-end">Avg Price</th>
+                            <th scope="col" class="text-end">Current</th>
+                            <th scope="col" class="text-end">P&amp;L ($)</th>
+                            <th scope="col" class="text-end">P&amp;L (%)</th>
+                            <th scope="col" class="text-end">Value</th>
+                            <th scope="col"><span class="visually-hidden">Actions</span></th>
                         </tr>
                     </thead>
                     <tbody>
@@ -59,8 +66,9 @@ else
                         {
                             var pnlPct = pos.AveragePrice > 0 ? (pos.UnrealizedPnl / (pos.AveragePrice * pos.Quantity)) * 100 : 0;
                             var rowClass = pos.UnrealizedPnl >= 0 ? "text-green" : "text-red";
+                            var pnlSrLabel = pos.UnrealizedPnl >= 0 ? "gain" : "loss";
                             <tr>
-                                <td class="fw-bold text-white">@pos.Symbol</td>
+                                <th scope="row" class="fw-bold text-white">@pos.Symbol</th>
                                 <td class="text-end text-white">@pos.Quantity</td>
                                 <td class="text-end text-muted">$@pos.AveragePrice.ToString("0.00")</td>
                                 <td class="text-end text-white">
@@ -70,18 +78,20 @@ else
                                     }
                                     else
                                     {
-                                        <span class="text-muted">—</span>
+                                        <span class="text-muted" aria-label="Price unavailable">—</span>
                                     }
                                 </td>
-                                <td class="text-end @rowClass">
-                                    @pos.UnrealizedPnl.ToString("+$0.00;-$0.00;$0.00")
+                                <td class="text-end @rowClass" aria-label="@pnlSrLabel of @pos.UnrealizedPnl.ToString("0.00") dollars">
+                                    <span aria-hidden="true">@pos.UnrealizedPnl.ToString("+$0.00;-$0.00;$0.00")</span>
                                 </td>
-                                <td class="text-end @rowClass">
-                                    @pnlPct.ToString("+0.00;-0.00;0.00")%
+                                <td class="text-end @rowClass" aria-label="@pnlSrLabel of @pnlPct.ToString("0.00") percent">
+                                    <span aria-hidden="true">@pnlPct.ToString("+0.00;-0.00;0.00")%</span>
                                 </td>
                                 <td class="text-end text-white">$@pos.MarketValue.ToString("0.00")</td>
                                 <td>
                                     <button class="btn btn-sm btn-outline-danger py-0"
+                                            type="button"
+                                            aria-label="Close @pos.Symbol position (@pos.Quantity shares)"
                                             @onclick="() => ConfirmClose(brokerGroup.Key, pos)">
                                         Close
                                     </button>
@@ -91,46 +101,55 @@ else
                     </tbody>
                 </table>
             </div>
-        </div>
+        </section>
     }
 
     <!-- Summary Footer -->
-    <div class="trading-card p-3">
+    <section class="trading-card p-3" aria-labelledby="totals-heading">
+        <h2 id="totals-heading" class="visually-hidden">Portfolio totals</h2>
         <div class="d-flex justify-content-end gap-4">
             <div class="text-end">
-                <div class="text-muted small">Total Market Value</div>
-                <div class="text-white fw-bold">$@totalValue.ToString("0.00")</div>
+                <div class="text-muted small" id="total-value-label">Total Market Value</div>
+                <div class="text-white fw-bold" aria-labelledby="total-value-label">$@totalValue.ToString("0.00")</div>
             </div>
             <div class="text-end">
-                <div class="text-muted small">Total Unrealized P&L</div>
-                <div class="@(totalPnl >= 0 ? "text-green" : "text-red") fw-bold">
-                    @totalPnl.ToString("+$0.00;-$0.00;$0.00")
+                <div class="text-muted small" id="total-pnl-label">Total Unrealized P&amp;L</div>
+                <div class="@(totalPnl >= 0 ? "text-green" : "text-red") fw-bold"
+                     aria-labelledby="total-pnl-label"
+                     aria-label="Total unrealized P and L: @totalPnl.ToString("+$0.00;-$0.00;$0.00")">
+                    <span aria-hidden="true">@totalPnl.ToString("+$0.00;-$0.00;$0.00")</span>
                 </div>
             </div>
         </div>
-    </div>
+    </section>
 }
 
 <!-- Close Confirmation Modal -->
 @if (positionToClose != null)
 {
-    <div class="modal-backdrop fade show"></div>
-    <div class="modal fade show d-block" tabindex="-1">
+    <div class="modal-backdrop fade show" @onclick="CancelClose"></div>
+    <div class="modal fade show d-block"
+         role="dialog"
+         aria-modal="true"
+         aria-labelledby="close-pos-title"
+         aria-describedby="close-pos-desc"
+         tabindex="-1"
+         @onkeydown="OnCloseModalKey">
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content bg-dark border-danger">
                 <div class="modal-header border-secondary">
-                    <h5 class="modal-title text-white">Close Position</h5>
+                    <h2 id="close-pos-title" class="h5 modal-title text-white">Close Position</h2>
                 </div>
-                <div class="modal-body text-white">
+                <div class="modal-body text-white" id="close-pos-desc">
                     Close <strong>@positionToClose.Symbol</strong>? (@positionToClose.Quantity shares at avg $@positionToClose.AveragePrice.ToString("0.00"))
                 </div>
                 @if (!string.IsNullOrEmpty(closeError))
                 {
-                    <div class="alert alert-danger small py-1 mx-3">@closeError</div>
+                    <div class="alert alert-danger small py-1 mx-3" role="alert">@closeError</div>
                 }
                 <div class="modal-footer border-secondary">
-                    <button class="btn btn-secondary" @onclick="() => { positionToClose = null; closeError = null; }">Cancel</button>
-                    <button class="btn btn-danger" @onclick="ClosePosition">Close Position</button>
+                    <button class="btn btn-secondary" type="button" @onclick="CancelClose" autofocus>Cancel</button>
+                    <button class="btn btn-danger" type="button" @onclick="ClosePosition">Close Position</button>
                 </div>
             </div>
         </div>
@@ -194,6 +213,17 @@ else
     private void ConfirmClose(string broker, Position pos)
     {
         positionToClose = pos;
+    }
+
+    private void CancelClose()
+    {
+        positionToClose = null;
+        closeError = null;
+    }
+
+    private void OnCloseModalKey(KeyboardEventArgs e)
+    {
+        if (e.Key == "Escape") CancelClose();
     }
 
     private async Task ClosePosition()

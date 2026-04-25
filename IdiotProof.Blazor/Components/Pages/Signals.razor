@@ -10,81 +10,104 @@
 <PageTitle>Signals — IdiotProof</PageTitle>
 
 <div class="d-flex justify-content-between align-items-center mb-4">
-    <h4 class="mb-0 text-white">
-        <i class="bi bi-lightning-charge me-2" style="color:var(--yellow)"></i>
+    <h1 class="h4 mb-0 text-white">
+        <i class="bi bi-lightning-charge me-2" style="color:var(--yellow)" aria-hidden="true"></i>
         Signal Feed
-        <span class="badge bg-secondary ms-2">@filteredSignals.Count</span>
-    </h4>
-    <button class="btn btn-sm btn-outline-secondary" @onclick="ExportCsv">
-        <i class="bi bi-download me-1"></i>Export CSV
+        <span class="badge bg-secondary ms-2"
+              aria-live="polite"
+              aria-label="@filteredSignals.Count signals matching filters">@filteredSignals.Count</span>
+    </h1>
+    <button class="btn btn-sm btn-outline-secondary"
+            type="button"
+            @onclick="ExportCsv"
+            aria-label="Export filtered signals as CSV">
+        <i class="bi bi-download me-1" aria-hidden="true"></i>Export CSV
     </button>
 </div>
 
 <!-- Filter Bar -->
-<div class="trading-card p-3 mb-3">
+<section class="trading-card p-3 mb-3" aria-labelledby="filters-heading">
+    <h2 id="filters-heading" class="visually-hidden">Filters</h2>
     <div class="row g-2 align-items-end">
         <div class="col-md-3">
-            <label class="form-label text-muted small">Symbol</label>
-            <input class="form-control form-control-sm bg-dark text-white border-secondary"
+            <label class="form-label text-muted small" for="filter-symbol">Symbol</label>
+            <input id="filter-symbol"
+                   class="form-control form-control-sm bg-dark text-white border-secondary"
                    placeholder="Filter by symbol..."
                    @bind="filterSymbol"
                    @bind:event="oninput" />
         </div>
         <div class="col-md-3">
-            <label class="form-label text-muted small">Strategy</label>
-            <input class="form-control form-control-sm bg-dark text-white border-secondary"
+            <label class="form-label text-muted small" for="filter-strategy">Strategy</label>
+            <input id="filter-strategy"
+                   class="form-control form-control-sm bg-dark text-white border-secondary"
                    placeholder="Filter by strategy..."
                    @bind="filterStrategy"
                    @bind:event="oninput" />
         </div>
         <div class="col-md-2">
-            <label class="form-label text-muted small">Direction</label>
-            <select class="form-select form-select-sm bg-dark text-white border-secondary" @bind="filterDirection">
+            <label class="form-label text-muted small" for="filter-direction">Direction</label>
+            <select id="filter-direction"
+                    class="form-select form-select-sm bg-dark text-white border-secondary"
+                    @bind="filterDirection">
                 <option value="">All</option>
                 <option value="Long">Long</option>
                 <option value="Short">Short</option>
             </select>
         </div>
         <div class="col-md-3">
-            <label class="form-label text-muted small">
+            <label class="form-label text-muted small" for="filter-min-confidence">
                 Min Confidence: <strong>@minConfidence%</strong>
             </label>
-            <input type="range" class="form-range" min="0" max="100" step="5"
+            <input id="filter-min-confidence"
+                   type="range" class="form-range" min="0" max="100" step="5"
+                   aria-valuenow="@minConfidence"
+                   aria-valuemin="0"
+                   aria-valuemax="100"
+                   aria-valuetext="@minConfidence percent"
                    @bind="minConfidence"
                    @bind:event="oninput" />
         </div>
         <div class="col-md-1">
-            <button class="btn btn-sm btn-outline-secondary w-100" @onclick="ClearFilters">Clear</button>
+            <button class="btn btn-sm btn-outline-secondary w-100"
+                    type="button"
+                    aria-label="Clear all filters"
+                    @onclick="ClearFilters">Clear</button>
         </div>
     </div>
-</div>
+</section>
 
+<div role="status" aria-live="polite" aria-atomic="true">
 @if (!string.IsNullOrEmpty(executionFeedback))
 {
     <div class="alert alert-info small py-2 mb-3">@executionFeedback</div>
 }
+</div>
 
 <!-- Signal List -->
 @if (!filteredSignals.Any())
 {
-    <div class="text-center py-5 text-muted">
-        <i class="bi bi-inbox fs-1 d-block mb-3"></i>
+    <div class="text-center py-5 text-muted" role="status">
+        <i class="bi bi-inbox fs-1 d-block mb-3" aria-hidden="true"></i>
         No signals match your filters.
     </div>
 }
 else
 {
-    <div class="d-flex flex-column gap-2">
+    <ul class="d-flex flex-column gap-2 list-unstyled mb-0"
+        aria-label="Filtered trading signals">
         @foreach (var signal in filteredSignals)
         {
             TradingState.SignalVotes.TryGetValue(
                 $"{signal.Symbol}_{signal.StrategyName}_{signal.GeneratedUtc:yyyyMMddHHmmss}",
                 out var vote);
-            <SignalCard Signal="@signal"
-                        VotingResult="@vote"
-                        OnExecute="@(EventCallback.Factory.Create<TradeSignal>(this, OnExecuteSignal))" />
+            <li>
+                <SignalCard Signal="@signal"
+                            VotingResult="@vote"
+                            OnExecute="@(EventCallback.Factory.Create<TradeSignal>(this, OnExecuteSignal))" />
+            </li>
         }
-    </div>
+    </ul>
 }
 
 @code {

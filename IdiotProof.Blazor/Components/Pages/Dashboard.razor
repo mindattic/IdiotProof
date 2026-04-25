@@ -8,141 +8,160 @@
 <PageTitle>Dashboard — IdiotProof</PageTitle>
 
 <div class="d-flex justify-content-between align-items-center mb-4">
-    <h4 class="mb-0 text-white">
-        <i class="bi bi-speedometer2 me-2" style="color:var(--green)"></i>Dashboard
-    </h4>
-    <span class="text-muted small">Auto-refreshes every 5s</span>
+    <h1 class="h4 mb-0 text-white">
+        <i class="bi bi-speedometer2 me-2" style="color:var(--green)" aria-hidden="true"></i>Dashboard
+    </h1>
+    <span class="text-muted small" aria-live="off">Auto-refreshes every 5s</span>
 </div>
 
 <!-- Stat Cards -->
-<div class="row g-3 mb-4">
+<section class="row g-3 mb-4" aria-label="Account summary statistics">
     <div class="col-6 col-lg-3">
-        <div class="trading-card p-3 text-center">
-            <div class="text-muted small mb-1">Total Workspaces</div>
-            <div class="fs-2 fw-bold text-white">@userTabs.Count</div>
+        <div class="trading-card p-3 text-center" role="group" aria-labelledby="stat-workspaces-label">
+            <div id="stat-workspaces-label" class="text-muted small mb-1">Total Workspaces</div>
+            <div class="fs-2 fw-bold text-white" aria-live="polite">@userTabs.Count</div>
         </div>
     </div>
     <div class="col-6 col-lg-3">
-        <div class="trading-card p-3 text-center">
-            <div class="text-muted small mb-1">Active Strategies</div>
-            <div class="fs-2 fw-bold text-white">@activeStrategies</div>
+        <div class="trading-card p-3 text-center" role="group" aria-labelledby="stat-strategies-label">
+            <div id="stat-strategies-label" class="text-muted small mb-1">Active Strategies</div>
+            <div class="fs-2 fw-bold text-white" aria-live="polite">@activeStrategies</div>
         </div>
     </div>
     <div class="col-6 col-lg-3">
-        <div class="trading-card p-3 text-center">
-            <div class="text-muted small mb-1">Open Positions</div>
-            <div class="fs-2 fw-bold text-white">@openPositions</div>
+        <div class="trading-card p-3 text-center" role="group" aria-labelledby="stat-positions-label">
+            <div id="stat-positions-label" class="text-muted small mb-1">Open Positions</div>
+            <div class="fs-2 fw-bold text-white" aria-live="polite">@openPositions</div>
         </div>
     </div>
     <div class="col-6 col-lg-3">
-        <div class="trading-card p-3 text-center">
-            <div class="text-muted small mb-1">Today's P&L</div>
-            <div class="fs-2 fw-bold @(todaysPnl >= 0 ? "text-green" : "text-red")">
-                @todaysPnl.ToString("+$0.00;-$0.00;$0.00")
+        <div class="trading-card p-3 text-center" role="group" aria-labelledby="stat-pnl-label">
+            <div id="stat-pnl-label" class="text-muted small mb-1">Today's P&amp;L</div>
+            <div class="fs-2 fw-bold @(todaysPnl >= 0 ? "text-green" : "text-red")"
+                 aria-live="polite"
+                 aria-label="Today's profit and loss: @todaysPnl.ToString("+$0.00;-$0.00;$0.00")">
+                <span aria-hidden="true">@todaysPnl.ToString("+$0.00;-$0.00;$0.00")</span>
             </div>
         </div>
     </div>
-</div>
+</section>
 
 <div class="row g-3">
     <!-- Recent Signals -->
     <div class="col-lg-8">
-        <div class="trading-card p-3">
+        <section class="trading-card p-3" aria-labelledby="recent-signals-heading">
             <div class="d-flex justify-content-between align-items-center mb-3">
-                <h6 class="mb-0 text-white">
-                    <i class="bi bi-lightning-charge me-1" style="color:var(--yellow)"></i>
+                <h2 id="recent-signals-heading" class="h6 mb-0 text-white">
+                    <i class="bi bi-lightning-charge me-1" style="color:var(--yellow)" aria-hidden="true"></i>
                     Recent Signals
-                    <span class="badge bg-secondary ms-2">@recentSignals.Count</span>
-                </h6>
-                <a href="/signals" class="btn btn-sm btn-outline-secondary">View All</a>
+                    <span class="badge bg-secondary ms-2" aria-label="@recentSignals.Count signals">@recentSignals.Count</span>
+                </h2>
+                <a href="/signals" class="btn btn-sm btn-outline-secondary" aria-label="View all signals">View All</a>
             </div>
             @if (recentSignals.Count == 0)
             {
-                <div class="text-muted text-center py-4">
-                    <i class="bi bi-inbox fs-2 d-block mb-2"></i>No signals yet — start a workspace to begin scanning
+                <div class="text-muted text-center py-4" role="status">
+                    <i class="bi bi-inbox fs-2 d-block mb-2" aria-hidden="true"></i>No signals yet — start a workspace to begin scanning
                 </div>
             }
             else
             {
                 <div class="table-responsive">
-                    <table class="table table-sm table-dark table-hover mb-0">
+                    <table class="table table-sm table-dark table-hover mb-0" aria-label="Recent trading signals">
+                        <caption class="visually-hidden">Most recent trading signals across all workspaces</caption>
                         <thead>
                             <tr class="text-muted small">
-                                <th>Symbol</th>
-                                <th>Direction</th>
-                                <th>Confidence</th>
-                                <th>Strategy</th>
-                                <th>Time</th>
+                                <th scope="col">Symbol</th>
+                                <th scope="col">Direction</th>
+                                <th scope="col">Confidence</th>
+                                <th scope="col">Strategy</th>
+                                <th scope="col">Time</th>
                             </tr>
                         </thead>
                         <tbody>
                             @foreach (var signal in recentSignals.Take(20))
                             {
                                 <tr>
-                                    <td class="fw-bold text-white">@signal.Symbol</td>
+                                    <th scope="row" class="fw-bold text-white">@signal.Symbol</th>
                                     <td>
                                         @if (signal.Direction == TradeDirection.Long)
                                         {
-                                            <span class="signal-long"><i class="bi bi-triangle-fill me-1" style="font-size:0.6rem"></i>Long</span>
+                                            <span class="signal-long" aria-label="Long position">
+                                                <i class="bi bi-triangle-fill me-1" style="font-size:0.6rem" aria-hidden="true"></i>Long
+                                            </span>
                                         }
                                         else
                                         {
-                                            <span class="signal-short"><i class="bi bi-triangle-fill me-1" style="font-size:0.6rem;transform:rotate(180deg);display:inline-block"></i>Short</span>
+                                            <span class="signal-short" aria-label="Short position">
+                                                <i class="bi bi-triangle-fill me-1" style="font-size:0.6rem;transform:rotate(180deg);display:inline-block" aria-hidden="true"></i>Short
+                                            </span>
                                         }
                                     </td>
                                     <td>
-                                        <div class="confidence-bar-wrapper">
+                                        <div class="confidence-bar-wrapper"
+                                             role="progressbar"
+                                             aria-valuenow="@((int)signal.ConfidencePercent)"
+                                             aria-valuemin="0"
+                                             aria-valuemax="100"
+                                             aria-label="Signal confidence: @signal.ConfidencePercent.ToString("0") percent">
                                             <div class="confidence-bar" style="width:@(signal.ConfidencePercent)%"></div>
-                                            <span class="confidence-label">@signal.ConfidencePercent.ToString("0")%</span>
+                                            <span class="confidence-label" aria-hidden="true">@signal.ConfidencePercent.ToString("0")%</span>
                                         </div>
                                     </td>
                                     <td class="text-muted small">@signal.StrategyName</td>
-                                    <td class="text-muted small">@signal.GeneratedUtc.ToString("HH:mm:ss")</td>
+                                    <td class="text-muted small">
+                                        <time datetime="@signal.GeneratedUtc.ToString("o")">@signal.GeneratedUtc.ToString("HH:mm:ss")</time>
+                                    </td>
                                 </tr>
                             }
                         </tbody>
                     </table>
                 </div>
             }
-        </div>
+        </section>
     </div>
 
     <!-- Active Workspaces -->
-    <div class="col-lg-4">
-        <div class="trading-card p-3 mb-3">
+    <aside class="col-lg-4">
+        <section class="trading-card p-3 mb-3" aria-labelledby="ws-summary-heading">
             <div class="d-flex justify-content-between align-items-center mb-3">
-                <h6 class="mb-0 text-white">
-                    <i class="bi bi-layers me-1" style="color:var(--blue)"></i>Workspaces
-                </h6>
-                <a href="/workspaces" class="btn btn-sm btn-outline-secondary">Manage</a>
+                <h2 id="ws-summary-heading" class="h6 mb-0 text-white">
+                    <i class="bi bi-layers me-1" style="color:var(--blue)" aria-hidden="true"></i>Workspaces
+                </h2>
+                <a href="/workspaces" class="btn btn-sm btn-outline-secondary" aria-label="Manage workspaces">Manage</a>
             </div>
+            <ul class="list-unstyled mb-0">
             @foreach (var tab in userTabs)
             {
-                <div class="d-flex justify-content-between align-items-center py-2 border-bottom border-dark">
+                <li class="d-flex justify-content-between align-items-center py-2 border-bottom border-dark">
                     <div>
                         <div class="text-white small fw-semibold">@tab.Name</div>
                         <div class="text-muted" style="font-size:0.7rem">
                             @tab.Watchlist.Count tickers &bull; @tab.Strategies.Count(s => s.Enabled) strategies
                         </div>
                     </div>
-                    <a href="/workspace/@tab.TabId" class="btn btn-sm btn-outline-secondary py-0">Open</a>
-                </div>
+                    <a href="/workspace/@tab.TabId" class="btn btn-sm btn-outline-secondary py-0" aria-label="Open workspace @tab.Name">Open</a>
+                </li>
             }
             @if (!userTabs.Any())
             {
-                <div class="text-muted text-center py-3 small">No workspaces yet</div>
+                <li class="text-muted text-center py-3 small">No workspaces yet</li>
             }
-        </div>
+            </ul>
+        </section>
 
         <!-- Quick Add Watchlist -->
-        <div class="trading-card p-3">
-            <h6 class="mb-3 text-white">
-                <i class="bi bi-plus-circle me-1" style="color:var(--green)"></i>Quick Add to Watchlist
-            </h6>
+        <section class="trading-card p-3" aria-labelledby="quick-add-heading">
+            <h2 id="quick-add-heading" class="h6 mb-3 text-white">
+                <i class="bi bi-plus-circle me-1" style="color:var(--green)" aria-hidden="true"></i>Quick Add to Watchlist
+            </h2>
             @if (userTabs.Any())
             {
                 <div class="mb-2">
-                    <select class="form-select form-select-sm bg-dark text-white border-secondary" @bind="quickAddWorkspaceId">
+                    <label class="visually-hidden" for="quick-add-workspace">Workspace</label>
+                    <select id="quick-add-workspace"
+                            class="form-select form-select-sm bg-dark text-white border-secondary"
+                            @bind="quickAddWorkspaceId">
                         @foreach (var tab in userTabs)
                         {
                             <option value="@tab.TabId">@tab.Name</option>
@@ -150,16 +169,20 @@
                     </select>
                 </div>
                 <div class="input-group input-group-sm">
-                    <input class="form-control bg-dark text-white border-secondary"
+                    <label class="visually-hidden" for="quick-add-symbol">Ticker symbol</label>
+                    <input id="quick-add-symbol"
+                           class="form-control bg-dark text-white border-secondary"
                            placeholder="Ticker (e.g. AAPL)"
                            @bind="quickAddSymbol"
                            @onkeydown="OnQuickAddKeyDown" />
-                    <button class="btn btn-outline-success" @onclick="QuickAddTicker">Add</button>
+                    <button class="btn btn-outline-success" type="button" @onclick="QuickAddTicker" aria-label="Add ticker to watchlist">Add</button>
                 </div>
+                <div role="status" aria-live="polite" aria-atomic="true">
                 @if (!string.IsNullOrEmpty(quickAddMessage))
                 {
                     <div class="text-muted small mt-1">@quickAddMessage</div>
                 }
+                </div>
             }
             else
             {
@@ -167,8 +190,8 @@
                     <a href="/workspaces" class="text-info">Create a workspace</a> first
                 </div>
             }
-        </div>
-    </div>
+        </section>
+    </aside>
 </div>
 
 @code {

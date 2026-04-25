@@ -8,8 +8,9 @@
 
 <PageTitle>API Keys — IdiotProof</PageTitle>
 
+<section aria-labelledby="api-keys-heading">
 <div class="alert alert-warning d-flex align-items-start gap-2 mb-4" role="alert">
-    <i class="bi bi-shield-exclamation fs-4 flex-shrink-0"></i>
+    <i class="bi bi-shield-exclamation fs-4 flex-shrink-0" aria-hidden="true"></i>
     <div>
         <strong>Security Notice:</strong> API keys are stored locally in your AppData folder and never transmitted to any third party.
         Keys are masked in this interface. Treat your live broker keys like passwords — never share them.
@@ -17,40 +18,42 @@
 </div>
 
 <div class="d-flex justify-content-between align-items-center mb-4">
-    <h4 class="mb-0 text-white">
-        <i class="bi bi-key me-2" style="color:var(--yellow)"></i>API Keys & Connections
-    </h4>
-    <button class="btn btn-success btn-sm" @onclick="() => SaveAll()">
-        <i class="bi bi-floppy me-1"></i>Save All
+    <h1 id="api-keys-heading" class="h4 mb-0 text-white">
+        <i class="bi bi-key me-2" style="color:var(--yellow)" aria-hidden="true"></i>API Keys &amp; Connections
+    </h1>
+    <button class="btn btn-success btn-sm" type="button" @onclick="() => SaveAll()" aria-label="Save all API keys and connection settings">
+        <i class="bi bi-floppy me-1" aria-hidden="true"></i>Save All
     </button>
 </div>
 
+<div role="status" aria-live="polite" aria-atomic="true">
 @if (!string.IsNullOrEmpty(saveMessage))
 {
     <div class="alert alert-success small py-2 mb-3">@saveMessage</div>
 }
+</div>
 
 <!-- IBKR Section -->
-<div class="trading-card p-3 mb-3">
-    <h6 class="text-white mb-3">
-        <i class="bi bi-building me-1"></i>Interactive Brokers (TWS / Gateway)
-    </h6>
+<section class="trading-card p-3 mb-3" aria-labelledby="ibkr-heading">
+    <h2 id="ibkr-heading" class="h6 text-white mb-3">
+        <i class="bi bi-building me-1" aria-hidden="true"></i>Interactive Brokers (TWS / Gateway)
+    </h2>
     <div class="row g-3">
         <div class="col-md-4">
-            <label class="form-label text-muted small">Host</label>
-            <input class="form-control bg-dark text-white border-secondary" @bind="ibkrHost" />
+            <label class="form-label text-muted small" for="ibkr-host">Host</label>
+            <input id="ibkr-host" class="form-control bg-dark text-white border-secondary" @bind="ibkrHost" autocomplete="off" />
         </div>
         <div class="col-md-2">
-            <label class="form-label text-muted small">Live Port</label>
-            <input type="number" class="form-control bg-dark text-white border-secondary" @bind="ibkrLivePort" />
+            <label class="form-label text-muted small" for="ibkr-live-port">Live Port</label>
+            <input id="ibkr-live-port" type="number" class="form-control bg-dark text-white border-secondary" @bind="ibkrLivePort" autocomplete="off" />
         </div>
         <div class="col-md-2">
-            <label class="form-label text-muted small">Paper Port</label>
-            <input type="number" class="form-control bg-dark text-white border-secondary" @bind="ibkrPaperPort" />
+            <label class="form-label text-muted small" for="ibkr-paper-port">Paper Port</label>
+            <input id="ibkr-paper-port" type="number" class="form-control bg-dark text-white border-secondary" @bind="ibkrPaperPort" autocomplete="off" />
         </div>
         <div class="col-md-2">
-            <label class="form-label text-muted small">Client ID</label>
-            <input type="number" class="form-control bg-dark text-white border-secondary" @bind="ibkrClientId" />
+            <label class="form-label text-muted small" for="ibkr-client-id">Client ID</label>
+            <input id="ibkr-client-id" type="number" class="form-control bg-dark text-white border-secondary" @bind="ibkrClientId" autocomplete="off" />
         </div>
         <div class="col-md-2 d-flex align-items-end">
             <div class="form-check form-switch">
@@ -61,49 +64,63 @@
     </div>
     @if (!ibkrUsePaper)
     {
-        <div class="alert alert-danger small py-1 mt-2">
-            <i class="bi bi-exclamation-triangle me-1"></i>
+        <div class="alert alert-danger small py-1 mt-2" role="alert">
+            <i class="bi bi-exclamation-triangle me-1" aria-hidden="true"></i>
             <strong>LIVE trading mode.</strong> Real money will be used.
         </div>
     }
-</div>
+</section>
 
 <!-- Alpaca Section -->
-<div class="trading-card p-3 mb-3">
+<section class="trading-card p-3 mb-3" aria-labelledby="alpaca-heading">
     <div class="d-flex justify-content-between align-items-center mb-3">
-        <h6 class="text-white mb-0">
-            <i class="bi bi-graph-up me-1"></i>Alpaca
-        </h6>
-        <button class="btn btn-sm btn-outline-secondary" @onclick="TestAlpaca">
-            <i class="bi bi-broadcast me-1"></i>Test Connection
+        <h2 id="alpaca-heading" class="h6 text-white mb-0">
+            <i class="bi bi-graph-up me-1" aria-hidden="true"></i>Alpaca
+        </h2>
+        <button class="btn btn-sm btn-outline-secondary" type="button" @onclick="TestAlpaca" aria-label="Test Alpaca connection">
+            <i class="bi bi-broadcast me-1" aria-hidden="true"></i>Test Connection
         </button>
     </div>
+    <div role="status" aria-live="polite" aria-atomic="true">
     @if (!string.IsNullOrEmpty(alpacaTestResult))
     {
         <div class="alert @(alpacaTestOk ? "alert-success" : "alert-danger") small py-1 mb-2">@alpacaTestResult</div>
     }
+    </div>
     <div class="row g-3">
         <div class="col-md-5">
-            <label class="form-label text-muted small">API Key ID</label>
+            <label class="form-label text-muted small" for="alpaca-key-id">API Key ID</label>
             <div class="input-group">
-                <input class="form-control bg-dark text-white border-secondary"
+                <input id="alpaca-key-id"
+                       class="form-control bg-dark text-white border-secondary"
                        type="@(showAlpacaKey ? "text" : "password")"
                        @bind="alpacaKeyId"
+                       autocomplete="off"
                        placeholder="PK..." />
-                <button class="btn btn-outline-secondary" @onclick="() => showAlpacaKey = !showAlpacaKey">
-                    <i class="bi @(showAlpacaKey ? "bi-eye-slash" : "bi-eye")"></i>
+                <button class="btn btn-outline-secondary"
+                        type="button"
+                        @onclick="() => showAlpacaKey = !showAlpacaKey"
+                        aria-label="@(showAlpacaKey ? "Hide Alpaca API key ID" : "Show Alpaca API key ID")"
+                        aria-pressed="@showAlpacaKey">
+                    <i class="bi @(showAlpacaKey ? "bi-eye-slash" : "bi-eye")" aria-hidden="true"></i>
                 </button>
             </div>
         </div>
         <div class="col-md-5">
-            <label class="form-label text-muted small">Secret Key</label>
+            <label class="form-label text-muted small" for="alpaca-secret">Secret Key</label>
             <div class="input-group">
-                <input class="form-control bg-dark text-white border-secondary"
+                <input id="alpaca-secret"
+                       class="form-control bg-dark text-white border-secondary"
                        type="@(showAlpacaSecret ? "text" : "password")"
                        @bind="alpacaSecret"
+                       autocomplete="off"
                        placeholder="••••••••••••" />
-                <button class="btn btn-outline-secondary" @onclick="() => showAlpacaSecret = !showAlpacaSecret">
-                    <i class="bi @(showAlpacaSecret ? "bi-eye-slash" : "bi-eye")"></i>
+                <button class="btn btn-outline-secondary"
+                        type="button"
+                        @onclick="() => showAlpacaSecret = !showAlpacaSecret"
+                        aria-label="@(showAlpacaSecret ? "Hide Alpaca secret key" : "Show Alpaca secret key")"
+                        aria-pressed="@showAlpacaSecret">
+                    <i class="bi @(showAlpacaSecret ? "bi-eye-slash" : "bi-eye")" aria-hidden="true"></i>
                 </button>
             </div>
         </div>
@@ -118,64 +135,78 @@
     </div>
     @if (!alpacaIsPaper)
     {
-        <div class="alert alert-danger small py-1 mt-2">
-            <i class="bi bi-exclamation-triangle me-1"></i>
+        <div class="alert alert-danger small py-1 mt-2" role="alert">
+            <i class="bi bi-exclamation-triangle me-1" aria-hidden="true"></i>
             <strong>LIVE Alpaca trading.</strong> Real money will be used.
         </div>
     }
-</div>
+</section>
 
 <!-- Polygon Section -->
-<div class="trading-card p-3 mb-3">
+<section class="trading-card p-3 mb-3" aria-labelledby="polygon-heading">
     <div class="d-flex justify-content-between align-items-center mb-3">
-        <h6 class="text-white mb-0">
-            <i class="bi bi-hexagon me-1"></i>Polygon.io (Market Data)
-        </h6>
-        <button class="btn btn-sm btn-outline-secondary" @onclick="TestPolygon">
-            <i class="bi bi-broadcast me-1"></i>Test Connection
+        <h2 id="polygon-heading" class="h6 text-white mb-0">
+            <i class="bi bi-hexagon me-1" aria-hidden="true"></i>Polygon.io (Market Data)
+        </h2>
+        <button class="btn btn-sm btn-outline-secondary" type="button" @onclick="TestPolygon" aria-label="Test Polygon connection">
+            <i class="bi bi-broadcast me-1" aria-hidden="true"></i>Test Connection
         </button>
     </div>
+    <div role="status" aria-live="polite" aria-atomic="true">
     @if (!string.IsNullOrEmpty(polygonTestResult))
     {
         <div class="alert @(polygonTestOk ? "alert-success" : "alert-danger") small py-1 mb-2">@polygonTestResult</div>
     }
+    </div>
     <div class="col-md-6">
-        <label class="form-label text-muted small">API Key</label>
+        <label class="form-label text-muted small" for="polygon-key">API Key</label>
         <div class="input-group">
-            <input class="form-control bg-dark text-white border-secondary"
+            <input id="polygon-key"
+                   class="form-control bg-dark text-white border-secondary"
                    type="@(showPolygonKey ? "text" : "password")"
                    @bind="polygonKey"
+                   autocomplete="off"
                    placeholder="••••••••••••" />
-            <button class="btn btn-outline-secondary" @onclick="() => showPolygonKey = !showPolygonKey">
-                <i class="bi @(showPolygonKey ? "bi-eye-slash" : "bi-eye")"></i>
+            <button class="btn btn-outline-secondary"
+                    type="button"
+                    @onclick="() => showPolygonKey = !showPolygonKey"
+                    aria-label="@(showPolygonKey ? "Hide Polygon API key" : "Show Polygon API key")"
+                    aria-pressed="@showPolygonKey">
+                <i class="bi @(showPolygonKey ? "bi-eye-slash" : "bi-eye")" aria-hidden="true"></i>
             </button>
         </div>
     </div>
-</div>
+</section>
 
 <!-- Claude / AI Section -->
-<div class="trading-card p-3 mb-3">
+<section class="trading-card p-3 mb-3" aria-labelledby="claude-heading">
     <div class="d-flex justify-content-between align-items-center mb-3">
-        <h6 class="text-white mb-0">
-            <i class="bi bi-robot me-1"></i>AI (Claude) — LLM Signal Voting
-        </h6>
+        <h2 id="claude-heading" class="h6 text-white mb-0">
+            <i class="bi bi-robot me-1" aria-hidden="true"></i>AI (Claude) — LLM Signal Voting
+        </h2>
     </div>
     <div class="row g-3">
         <div class="col-md-6">
-            <label class="form-label text-muted small">Claude API Key</label>
+            <label class="form-label text-muted small" for="claude-key">Claude API Key</label>
             <div class="input-group">
-                <input class="form-control bg-dark text-white border-secondary"
+                <input id="claude-key"
+                       class="form-control bg-dark text-white border-secondary"
                        type="@(showClaudeKey ? "text" : "password")"
                        @bind="claudeKey"
+                       autocomplete="off"
                        placeholder="sk-ant-..." />
-                <button class="btn btn-outline-secondary" @onclick="() => showClaudeKey = !showClaudeKey">
-                    <i class="bi @(showClaudeKey ? "bi-eye-slash" : "bi-eye")"></i>
+                <button class="btn btn-outline-secondary"
+                        type="button"
+                        @onclick="() => showClaudeKey = !showClaudeKey"
+                        aria-label="@(showClaudeKey ? "Hide Claude API key" : "Show Claude API key")"
+                        aria-pressed="@showClaudeKey">
+                    <i class="bi @(showClaudeKey ? "bi-eye-slash" : "bi-eye")" aria-hidden="true"></i>
                 </button>
             </div>
         </div>
         <div class="col-md-4">
-            <label class="form-label text-muted small">Primary Model</label>
-            <select class="form-select bg-dark text-white border-secondary">
+            <label class="form-label text-muted small" for="claude-model">Primary Model</label>
+            <select id="claude-model" class="form-select bg-dark text-white border-secondary">
                 <option selected>claude-sonnet-4-6 (Recommended)</option>
                 <option>claude-haiku-4-5-20251001</option>
             </select>
@@ -189,31 +220,38 @@
     </div>
     @if (llmVotingEnabled && string.IsNullOrWhiteSpace(claudeKey))
     {
-        <div class="alert alert-warning small py-1 mt-2">
+        <div class="alert alert-warning small py-1 mt-2" role="alert">
             LLM voting is enabled but no API key is set. Voting will be skipped.
         </div>
     }
-</div>
+</section>
+</section>
 
 <!-- Alpaca Live Mode Confirm Modal -->
 @if (showLiveModeModal)
 {
-    <div class="modal-backdrop fade show"></div>
-    <div class="modal fade show d-block" tabindex="-1">
+    <div class="modal-backdrop fade show" @onclick="CancelLiveMode"></div>
+    <div class="modal fade show d-block"
+         role="dialog"
+         aria-modal="true"
+         aria-labelledby="live-mode-title"
+         aria-describedby="live-mode-desc"
+         tabindex="-1"
+         @onkeydown="HandleLiveModeKey">
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content bg-dark border-danger">
                 <div class="modal-header border-danger">
-                    <h5 class="modal-title text-danger">
-                        <i class="bi bi-exclamation-triangle me-2"></i>Enable Live Trading?
-                    </h5>
+                    <h2 id="live-mode-title" class="h5 modal-title text-danger">
+                        <i class="bi bi-exclamation-triangle me-2" aria-hidden="true"></i>Enable Live Trading?
+                    </h2>
                 </div>
-                <div class="modal-body text-white">
+                <div class="modal-body text-white" id="live-mode-desc">
                     <p>Disabling paper mode for Alpaca means orders will be placed with <strong>real money</strong>.</p>
                     <p class="text-warning">Are you absolutely sure you want to continue?</p>
                 </div>
                 <div class="modal-footer border-danger">
-                    <button class="btn btn-secondary" @onclick="CancelLiveMode">Cancel</button>
-                    <button class="btn btn-danger" @onclick="ConfirmLiveMode">Yes, Use Real Money</button>
+                    <button class="btn btn-secondary" type="button" @onclick="CancelLiveMode">Cancel</button>
+                    <button class="btn btn-danger" type="button" @onclick="ConfirmLiveMode" autofocus>Yes, Use Real Money</button>
                 </div>
             </div>
         </div>
@@ -280,6 +318,11 @@
 
     private void ConfirmLiveMode() { alpacaIsPaper = false; showLiveModeModal = false; }
     private void CancelLiveMode() { alpacaIsPaper = true; showLiveModeModal = false; }
+
+    private void HandleLiveModeKey(KeyboardEventArgs e)
+    {
+        if (e.Key == "Escape") CancelLiveMode();
+    }
 
     private async Task TestAlpaca()
     {

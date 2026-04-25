@@ -8,14 +8,73 @@
     --bg-card: #1c2128;
     --border: #30363d;
     --text-primary: #e6edf3;
-    --text-muted: #8b949e;
+    --text-muted: #b1bac4; /* WCAG AA on bg-secondary (was #8b949e ~4.2:1, now ~6.5:1) */
+    --text-subtle: #8b949e; /* legacy soft tone for non-essential captions */
     --green: #3fb950;
     --red: #f85149;
     --blue: #58a6ff;
     --yellow: #d29922;
+    --focus-ring: #58a6ff;
     --sidebar-width: 220px;
     --topbar-height: 52px;
     --footer-height: 36px;
+}
+
+/* ── Accessibility: visually hidden helper ── */
+.visually-hidden, .sr-only {
+    position: absolute !important;
+    width: 1px !important;
+    height: 1px !important;
+    padding: 0 !important;
+    margin: -1px !important;
+    overflow: hidden !important;
+    clip: rect(0,0,0,0) !important;
+    white-space: nowrap !important;
+    border: 0 !important;
+}
+
+/* ── Accessibility: skip-to-main-content link ── */
+.skip-link {
+    position: absolute;
+    top: -40px;
+    left: 8px;
+    background: var(--blue);
+    color: #0d1117;
+    padding: 8px 16px;
+    border-radius: 4px;
+    text-decoration: none;
+    font-weight: 600;
+    z-index: 2000;
+    transition: top 0.15s ease;
+}
+.skip-link:focus {
+    top: 8px;
+    outline: 3px solid #fff;
+    outline-offset: 2px;
+}
+
+/* ── Accessibility: visible focus indicators on dark theme ── */
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+[role="button"]:focus-visible,
+[role="tab"]:focus-visible,
+[tabindex]:focus-visible {
+    outline: 2px solid var(--focus-ring);
+    outline-offset: 2px;
+    box-shadow: 0 0 0 4px rgba(88,166,255,0.25);
+}
+
+/* Respect users who prefer reduced motion */
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        animation-duration: 0.001ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.001ms !important;
+        scroll-behavior: auto !important;
+    }
 }
 
 /* ── Base ── */
@@ -188,7 +247,7 @@ html, body {
     border-color: var(--border);
 }
 
-.form-control::placeholder { color: var(--text-muted); }
+.form-control::placeholder { color: #9aa4ad; opacity: 1; } /* WCAG-acceptable on bg-secondary */
 
 .btn-outline-secondary {
     color: var(--text-muted);
@@ -219,29 +278,29 @@ html, body {
     letter-spacing: 0.02em;
 }
 
-/* ── Alert Tweaks ── */
+/* ── Alert Tweaks (contrast tuned for dark theme) ── */
 .alert-warning {
-    background-color: rgba(210,153,34,0.12);
-    border-color: rgba(210,153,34,0.4);
-    color: #e3b341;
+    background-color: rgba(210,153,34,0.18);
+    border-color: rgba(210,153,34,0.5);
+    color: #f0c040;
 }
 
 .alert-danger {
-    background-color: rgba(248,81,73,0.12);
-    border-color: rgba(248,81,73,0.4);
-    color: #ff7b72;
+    background-color: rgba(248,81,73,0.18);
+    border-color: rgba(248,81,73,0.5);
+    color: #ff8a82;
 }
 
 .alert-success {
-    background-color: rgba(63,185,80,0.12);
-    border-color: rgba(63,185,80,0.4);
-    color: var(--green);
+    background-color: rgba(63,185,80,0.18);
+    border-color: rgba(63,185,80,0.5);
+    color: #56d364;
 }
 
 .alert-info {
-    background-color: rgba(88,166,255,0.12);
-    border-color: rgba(88,166,255,0.4);
-    color: var(--blue);
+    background-color: rgba(88,166,255,0.18);
+    border-color: rgba(88,166,255,0.5);
+    color: #79b8ff;
 }
 
 /* ── Range Slider ── */

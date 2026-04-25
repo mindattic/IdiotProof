@@ -5,30 +5,39 @@
 <PageTitle>Glossary — IdiotProof</PageTitle>
 
 <div class="d-flex justify-content-between align-items-center mb-4">
-    <h4 class="mb-0 text-white">
-        <i class="bi bi-book me-2" style="color:var(--blue)"></i>Trading Glossary
-    </h4>
-    <input class="form-control form-control-sm bg-dark text-white border-secondary"
-           style="max-width:260px"
-           placeholder="Search terms..."
-           @bind="searchTerm"
-           @bind:event="oninput" />
+    <h1 class="h4 mb-0 text-white">
+        <i class="bi bi-book me-2" style="color:var(--blue)" aria-hidden="true"></i>Trading Glossary
+    </h1>
+    <div role="search">
+        <label class="visually-hidden" for="glossary-search">Search glossary terms</label>
+        <input id="glossary-search"
+               type="search"
+               class="form-control form-control-sm bg-dark text-white border-secondary"
+               style="max-width:260px"
+               placeholder="Search terms..."
+               aria-controls="glossary-terms"
+               @bind="searchTerm"
+               @bind:event="oninput" />
+    </div>
 </div>
 
 <!-- Alphabet Index -->
-<div class="d-flex flex-wrap gap-1 mb-4">
+<nav class="d-flex flex-wrap gap-1 mb-4" aria-label="Jump to glossary letter">
     @foreach (var letter in "ABCDEFGHIJKLMNOPQRSTUVWXYZ")
     {
         var l = letter.ToString();
         var hasTerms = filtered.Any(t => t.Term.StartsWith(l, StringComparison.OrdinalIgnoreCase));
         <button class="btn btn-sm @(hasTerms ? "btn-outline-secondary" : "btn-link text-muted")"
+                type="button"
                 style="width:32px;padding:2px 0;font-size:0.8rem"
                 disabled="@(!hasTerms)"
+                aria-disabled="@(!hasTerms)"
+                aria-label="@(hasTerms ? $"Jump to letter {l}" : $"No terms for letter {l}")"
                 @onclick="() => ScrollToLetter(l)">
             @l
         </button>
     }
-</div>
+</nav>
 
 <!-- Terms -->
 @{
@@ -37,34 +46,42 @@
         .OrderBy(g => g.Key);
 }
 
+<div id="glossary-terms" role="region" aria-label="Glossary terms" aria-live="polite">
 @foreach (var group in grouped)
 {
-    <div id="letter-@group.Key" class="mb-4">
-        <div class="text-muted small fw-bold mb-2 d-flex align-items-center gap-2">
+    <section id="letter-@group.Key" class="mb-4" aria-labelledby="letter-heading-@group.Key">
+        <h2 id="letter-heading-@group.Key" class="text-muted small fw-bold mb-2 d-flex align-items-center gap-2">
             <span style="color:var(--green);font-size:1.1rem">@group.Key</span>
-            <div class="flex-grow-1 border-top" style="border-color:var(--border)!important"></div>
-        </div>
-        @foreach (var term in group.OrderBy(t => t.Term))
-        {
-            <div class="trading-card p-3 mb-2">
-                <div class="fw-semibold text-white mb-1">@term.Term</div>
-                <div class="text-muted small">@term.Definition</div>
-                @if (!string.IsNullOrEmpty(term.Category))
-                {
-                    <span class="badge bg-secondary mt-1" style="font-size:0.65rem">@term.Category</span>
-                }
-            </div>
-        }
-    </div>
+            <span class="flex-grow-1 border-top" aria-hidden="true" style="border-color:var(--border)!important"></span>
+        </h2>
+        <dl>
+            @foreach (var term in group.OrderBy(t => t.Term))
+            {
+                <div class="trading-card p-3 mb-2">
+                    <dt class="fw-semibold text-white mb-1">@term.Term</dt>
+                    <dd class="text-muted small mb-0">
+                        @term.Definition
+                        @if (!string.IsNullOrEmpty(term.Category))
+                        {
+                            <span class="badge bg-secondary ms-1 mt-1"
+                                  style="font-size:0.65rem"
+                                  aria-label="Category: @term.Category">@term.Category</span>
+                        }
+                    </dd>
+                </div>
+            }
+        </dl>
+    </section>
 }
 
 @if (!filtered.Any())
 {
-    <div class="text-center py-5 text-muted">
-        <i class="bi bi-search fs-1 d-block mb-3"></i>
+    <div class="text-center py-5 text-muted" role="status">
+        <i class="bi bi-search fs-1 d-block mb-3" aria-hidden="true"></i>
         No terms match "@searchTerm"
     </div>
 }
+</div>
 
 @code {
     private string searchTerm = "";
