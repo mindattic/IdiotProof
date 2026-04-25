@@ -11,9 +11,12 @@
 // var reply = await openai.AskAsync("What's the formula for calculating EMA?");
 // Console.WriteLine(reply.Text);
 //
-// ENVIRONMENT:
-// Set OPENAI_IDIOTPROOF_API_KEY environment variable with your API key.
-// Run: setx OPENAI_IDIOTPROOF_API_KEY "sk-..."
+// CREDENTIAL RESOLUTION (first hit wins):
+//   1. %APPDATA%/MindAttic/LLM/credentials.json  (OpenAI.apiKey) — shared across all MindAttic apps
+//   2. OPENAI_IDIOTPROOF_API_KEY environment variable
+//
+// To populate the MindAttic store, create credentials.json with:
+//   { "OpenAI": { "apiKey": "sk-..." } }
 //
 // ============================================================================
 
@@ -21,6 +24,7 @@ using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
+using MindAttic.Legion;
 
 namespace IdiotProof.Services;
 
@@ -91,20 +95,27 @@ public sealed class OpenAIService : IDisposable
 
     /// <summary>
     /// Creates a new OpenAI service instance.
-    /// Reads API key from OPENAI_API_KEY environment variable.
+    /// Key resolution order: explicit apiKey → %APPDATA%/MindAttic/LLM/credentials.json →
+    /// OPENAI_IDIOTPROOF_API_KEY env var.
     /// </summary>
     /// <param name="model">Model to use (default: gpt-4o-mini)</param>
-    /// <param name="apiKey">Optional API key override (defaults to env var)</param>
+    /// <param name="apiKey">Optional API key override (defaults to MindAttic store, then env var)</param>
     public OpenAIService(string? model = null, string? apiKey = null)
     {
         this.model = model ?? DefaultModel;
-        this.apiKey = apiKey 
-            ?? Environment.GetEnvironmentVariable("OPENAI_IDIOTPROOF_API_KEY")
-            ?? "";
-        
+
+        if (string.IsNullOrWhiteSpace(apiKey))
+        {
+            apiKey = MindAtticCredentialStore.GetKey("openai");
+        }
+        if (string.IsNullOrWhiteSpace(apiKey))
+            apiKey = Environment.GetEnvironmentVariable("OPENAI_IDIOTPROOF_API_KEY");
+
+        this.apiKey = apiKey ?? "";
+
         httpClient = new HttpClient();
         httpClient.Timeout = TimeSpan.FromSeconds(60);
-        
+
         // Add trading system prompt to conversation
         conversationHistory.Add(new ChatMessage("system", TradingSystemPrompt));
     }

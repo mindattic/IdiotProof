@@ -184,11 +184,12 @@ public sealed class StrategyExecutionService : BackgroundService
                 auditLogger.Log("SIGNAL", $"Dir={signal.Direction} Conf={signal.ConfidencePercent:F1}% Entry={signal.SuggestedEntry:F2} Strat={signal.StrategyName}", symbol);
 
                 LlmVotingResult? voteResult = null;
-                if (keys.LlmVotingEnabled && !string.IsNullOrWhiteSpace(keys.ClaudeApiKey))
+                if (keys.LlmVotingEnabled && !string.IsNullOrWhiteSpace(ResolveClaudeKey(keys)))
                 {
                     try
                     {
-                        // Temporarily overlay user's Claude key for this vote
+                        // Use user's Claude key if set, else fall back to the shared
+                        // MindAttic LLM store loaded into appSettings.
                         var userSettings = CloneSettingsWithUserKeys(keys);
                         voteResult = await llmVoting.VoteOnSignalAsync(signal, candles, userSettings, ct);
                         if (voteResult.Votes.Count > 0)
@@ -335,13 +336,27 @@ public sealed class StrategyExecutionService : BackgroundService
     {
         var s = new AppSettings
         {
-            ClaudeApiKey     = keys.ClaudeApiKey ?? "",
+            ClaudeApiKey     = ResolveClaudeKey(keys),
             LlmVotingEnabled = keys.LlmVotingEnabled,
+            LlmVoterModel    = !string.IsNullOrWhiteSpace(keys.ClaudeModel)
+                ? keys.ClaudeModel
+                : appSettings.LlmVoterModel,
+            LlmConsensusThreshold = appSettings.LlmConsensusThreshold,
             Timezone         = appSettings.Timezone,
             StrategyEvaluationIntervalSeconds = appSettings.StrategyEvaluationIntervalSeconds
         };
         return s;
     }
+
+    /// <summary>
+    /// Per-user Claude key resolution: the user's own DB key wins when set; otherwise
+    /// fall back to appSettings.ClaudeApiKey, which is already overlaid from the
+    /// MindAttic LLM credential store (%APPDATA%/MindAttic/LLM/credentials.json).
+    /// </summary>
+    private string ResolveClaudeKey(UserApiKeys keys) =>
+        !string.IsNullOrWhiteSpace(keys.ClaudeApiKey)
+            ? keys.ClaudeApiKey!
+            : appSettings.ClaudeApiKey;
 
     private TimeZoneInfo GetTimezone()
     {
