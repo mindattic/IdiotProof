@@ -1,9 +1,9 @@
-using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using IdiotProof.Engine.Settings;
 using IdiotProof.Models;
+using MindAttic.Legion;
 
 namespace IdiotProof.Blazor.Services;
 
@@ -88,7 +88,7 @@ file static class TraderPersonas
 
 public sealed class LlmVotingService
 {
-    private readonly IHttpClientFactory httpClientFactory;
+    private readonly LegionClient legion;
     private readonly ILogger<LlmVotingService> logger;
 
     private static readonly JsonSerializerOptions JsonOpts = new()
@@ -98,9 +98,9 @@ public sealed class LlmVotingService
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
     };
 
-    public LlmVotingService(IHttpClientFactory httpClientFactory, ILogger<LlmVotingService> logger)
+    public LlmVotingService(LegionClient legion, ILogger<LlmVotingService> logger)
     {
-        this.httpClientFactory = httpClientFactory;
+        this.legion = legion;
         this.logger = logger;
     }
 
@@ -190,36 +190,15 @@ public sealed class LlmVotingService
 
         try
         {
-            using var client = httpClientFactory.CreateClient();
-            client.DefaultRequestHeaders.Add("x-api-key", apiKey);
-            client.DefaultRequestHeaders.Add("anthropic-version", "2023-06-01");
-
-            var body = new
-            {
-                model = modelId,
-                max_tokens = 256,
-                system = systemPrompt,
-                messages = new[]
-                {
-                    new { role = "user", content = signalContext }
-                }
-            };
-
-            var response = await client.PostAsJsonAsync(
-                "https://api.anthropic.com/v1/messages", body, JsonOpts, ct);
-
-            if (!response.IsSuccessStatusCode)
-            {
-                var err = await response.Content.ReadAsStringAsync(ct);
-                logger.LogWarning("LLM persona {Persona} returned {Status}: {Error}", personaName, response.StatusCode, err);
-                return vote;
-            }
-
-            var responseJson = await response.Content.ReadFromJsonAsync<JsonElement>(ct);
-            var content = responseJson
-                .GetProperty("content")[0]
-                .GetProperty("text")
-                .GetString() ?? "";
+            var content = await legion.CallAsync(
+                providerId: "claude",
+                apiKey: apiKey,
+                model: modelId,
+                systemPrompt: systemPrompt,
+                userMessage: signalContext,
+                maxTokens: 256,
+                temperature: 0.7,
+                ct: ct);
 
             var parsed = ParseVoteJson(content);
             if (parsed != null)

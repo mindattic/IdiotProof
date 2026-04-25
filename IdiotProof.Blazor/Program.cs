@@ -6,6 +6,7 @@ using IdiotProof.Blazor.Hubs;
 using IdiotProof.Blazor.Services;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using MindAttic.Legion;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -68,6 +69,9 @@ builder.Services.AddSignalR(o =>
 // ── Web services ─────────────────────────────────────────────────────────────────
 builder.Services.AddHostedService<StrategyExecutionService>();
 builder.Services.AddSingleton<TradingStateService>();
+// MindAttic.Legion is the gateway for all LLM communication — register the
+// universal client before any service that talks to an LLM.
+builder.Services.AddLegionClient();
 builder.Services.AddSingleton<LlmVotingService>();
 builder.Services.AddScoped<UserKeyService>();
 builder.Services.AddHttpClient();

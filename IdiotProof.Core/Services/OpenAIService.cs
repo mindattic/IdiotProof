@@ -1,80 +1,51 @@
 // ============================================================================
-// OpenAIService - AI-Powered Chat and Mathematical Model Generation
+// OpenAIService — IdiotProof's OpenAI chat helper
 // ============================================================================
 //
 // PURPOSE:
-// Communicates with OpenAI's API to answer questions, generate mathematical
-// models, and provide trading insights based on market data.
+// Communicates with OpenAI to answer questions, generate mathematical models,
+// and provide trading insights based on market data. The wire-level work
+// (endpoints, auth headers, payload shape, response parsing, retries with
+// exponential backoff, per-provider circuit breaker) is owned by
+// MindAttic.Legion's LegionClient — this class is just IdiotProof's
+// orchestration layer (system prompt, multi-turn history, helper methods).
 //
 // USAGE:
-// var openai = new OpenAIService();
-// var reply = await openai.AskAsync("What's the formula for calculating EMA?");
-// Console.WriteLine(reply.Text);
+//   var openai = new OpenAIService();
+//   var reply = await openai.AskAsync("What's the formula for calculating EMA?");
 //
 // CREDENTIAL RESOLUTION (first hit wins):
-//   1. %APPDATA%/MindAttic/LLM/credentials.json  (OpenAI.apiKey) — shared across all MindAttic apps
-//   2. OPENAI_IDIOTPROOF_API_KEY environment variable
-//
-// To populate the MindAttic store, create credentials.json with:
-//   { "OpenAI": { "apiKey": "sk-..." } }
-//
+//   1. Explicit apiKey passed to the constructor
+//   2. %APPDATA%/MindAttic/LLM/providers.json (provider id "openai") via Legion
+//   3. OPENAI_IDIOTPROOF_API_KEY environment variable
 // ============================================================================
 
-using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
-using System.Text.RegularExpressions;
 using MindAttic.Legion;
 
 namespace IdiotProof.Services;
 
-/// <summary>
-/// Response from OpenAI containing the text reply and raw JSON.
-/// </summary>
+/// <summary>Reply from a chat call: the response text plus a small diagnostic JSON blob.</summary>
 public record ChatReply(string Text, string FullJson);
 
-/// <summary>
-/// A simple chat message with role (system/user/assistant) and content.
-/// </summary>
+/// <summary>A single message in the conversation history.</summary>
 public record ChatMessage(string Role, string Content);
 
 /// <summary>
-/// Service for interacting with OpenAI's Chat Completions API.
-/// Supports general questions and mathematical model generation for trading.
+/// IdiotProof-flavoured OpenAI client. Routes the wire-level call through
+/// MindAttic.Legion; keeps the trading-domain system prompt and the multi-turn
+/// conversation history local.
 /// </summary>
 public sealed class OpenAIService : IDisposable
 {
-    private readonly HttpClient httpClient;
+    private readonly LegionClient legion;
     private readonly string apiKey;
     private readonly string model;
     private readonly List<ChatMessage> conversationHistory = [];
-    private bool disposed;
 
-    // Valid OpenAI model options (as of Feb 2026):
-    // ── GPT-5 Series ──
-    //   "gpt-5.2"             - Latest flagship, best quality + speed
-    //   "gpt-5.1"             - Previous flagship
-    //   "gpt-5"               - Original GPT-5
-    //   "gpt-5-mini"          - Smaller GPT-5, cheaper, fast
-    // ── GPT-4 Series ──
-    //   "gpt-4.1"             - Latest GPT-4 generation
-    //   "gpt-4.1-mini"        - Smaller GPT-4.1, good balance
-    //   "gpt-4.1-nano"        - Smallest GPT-4.1, fastest/cheapest
-    //   "gpt-4o"              - GPT-4 Omni, multimodal
-    //   "gpt-4o-mini"         - Smaller GPT-4o, cheap and fast
-    //   "gpt-4-turbo"         - GPT-4 Turbo (legacy)
-    // ── Reasoning Models ──
-    //   "o3"                  - Advanced reasoning, slow, expensive
-    //   "o3-mini"             - Smaller reasoning model
-    //   "o4-mini"             - Latest small reasoning model
-    //   "o1"                  - Original reasoning model
-    //   "o1-mini"             - Smaller original reasoning
-    private const string DefaultModel = "gpt-5.2";
-    private const string ApiEndpoint = "https://api.openai.com/v1/chat/completions";
-    private const int MaxRetries = 5;
-    private const int BaseDelayMs = 2000;
+    private const string DefaultModel = "gpt-4.1-mini";
 
-    // System prompt for trading-focused mathematical assistance
     private const string TradingSystemPrompt = """
         You are an expert quantitative analyst and trading systems developer.
         You specialize in:
@@ -83,334 +54,149 @@ public sealed class OpenAIService : IDisposable
         - Statistical analysis of market data
         - Risk management formulas (position sizing, Kelly criterion, etc.)
         - Backtesting methodology and performance metrics
-        
+
         When asked about formulas or calculations:
         - Provide the mathematical formula first
         - Then explain each variable
         - Give a practical C# code example when relevant
         - Use LaTeX notation for complex equations when helpful
-        
+
         Be concise and precise. Focus on actionable information.
         """;
 
     /// <summary>
-    /// Creates a new OpenAI service instance.
-    /// Key resolution order: explicit apiKey → %APPDATA%/MindAttic/LLM/credentials.json →
-    /// OPENAI_IDIOTPROOF_API_KEY env var.
+    /// Creates a new OpenAI service instance backed by MindAttic.Legion.
     /// </summary>
-    /// <param name="model">Model to use (default: gpt-4o-mini)</param>
-    /// <param name="apiKey">Optional API key override (defaults to MindAttic store, then env var)</param>
+    /// <param name="model">Model to use (default: gpt-4.1-mini)</param>
+    /// <param name="apiKey">Optional API key override (defaults to Legion shared store, then env var)</param>
     public OpenAIService(string? model = null, string? apiKey = null)
     {
         this.model = model ?? DefaultModel;
 
         if (string.IsNullOrWhiteSpace(apiKey))
-        {
             apiKey = MindAtticCredentialStore.GetKey("openai");
-        }
         if (string.IsNullOrWhiteSpace(apiKey))
             apiKey = Environment.GetEnvironmentVariable("OPENAI_IDIOTPROOF_API_KEY");
 
         this.apiKey = apiKey ?? "";
 
-        httpClient = new HttpClient();
-        httpClient.Timeout = TimeSpan.FromSeconds(60);
+        // Legion owns retries + circuit breaker, so we skip per-app retry loops.
+        this.legion = new LegionClient(new HttpClient { Timeout = TimeSpan.FromSeconds(60) });
 
-        // Add trading system prompt to conversation
         conversationHistory.Add(new ChatMessage("system", TradingSystemPrompt));
     }
 
-    /// <summary>
-    /// Checks if the API key is configured.
-    /// </summary>
+    /// <summary>Checks if the API key is configured.</summary>
     public bool IsConfigured => !string.IsNullOrWhiteSpace(apiKey);
 
-    /// <summary>
-    /// Ask a simple question and get a reply.
-    /// Maintains conversation history for context.
-    /// </summary>
+    /// <summary>Ask a question; reply is added to conversation history.</summary>
     public async Task<ChatReply> AskAsync(string question, CancellationToken ct = default)
     {
         if (string.IsNullOrWhiteSpace(question))
             throw new ArgumentException("Question cannot be empty", nameof(question));
 
         conversationHistory.Add(new ChatMessage("user", question));
-        
-        var reply = await GetReplyWithRetryAsync(ct);
-        
+        var reply = await SendAsync(conversationHistory, systemPrompt: null, ct);
         conversationHistory.Add(new ChatMessage("assistant", reply.Text));
-        
         return reply;
     }
 
-    /// <summary>
-    /// Ask a question with custom system instructions (does not use trading prompt).
-    /// </summary>
+    /// <summary>Ask with custom system instructions; does not modify history.</summary>
     public async Task<ChatReply> AskWithInstructionsAsync(
-        string question, 
-        string systemInstructions, 
-        CancellationToken ct = default)
+        string question, string systemInstructions, CancellationToken ct = default)
     {
-        var messages = new List<ChatMessage>
+        var transient = new List<ChatMessage>
         {
-            new("system", systemInstructions),
             new("user", question)
         };
-        
-        return await SendMessagesAsync(messages, ct);
+        return await SendAsync(transient, systemInstructions, ct);
     }
 
-    /// <summary>
-    /// Ask specifically for a mathematical model or formula explanation.
-    /// </summary>
-    public async Task<ChatReply> GetMathModelAsync(string topic, CancellationToken ct = default)
+    /// <summary>Ask specifically for a mathematical model or formula explanation.</summary>
+    public Task<ChatReply> GetMathModelAsync(string topic, CancellationToken ct = default)
     {
         var prompt = $"""
             Provide the mathematical model/formula for: {topic}
-            
+
             Include:
             1. The formula in mathematical notation
             2. Variable definitions
             3. A practical C# implementation
             4. Usage example with sample values
             """;
-        
-        return await AskAsync(prompt, ct);
+        return AskAsync(prompt, ct);
     }
 
-    /// <summary>
-    /// Analyze a trading strategy and provide insights.
-    /// </summary>
-    public async Task<ChatReply> AnalyzeStrategyAsync(
+    /// <summary>Analyze a trading strategy and provide insights.</summary>
+    public Task<ChatReply> AnalyzeStrategyAsync(
         string strategyDescription,
         Dictionary<string, double>? performanceMetrics = null,
         CancellationToken ct = default)
     {
         var sb = new StringBuilder();
         sb.AppendLine($"Analyze this trading strategy: {strategyDescription}");
-        
         if (performanceMetrics?.Count > 0)
         {
             sb.AppendLine("\nPerformance metrics:");
-            foreach (var (key, value) in performanceMetrics)
-            {
-                sb.AppendLine($"- {key}: {value:F2}");
-            }
+            foreach (var (k, v) in performanceMetrics)
+                sb.AppendLine($"- {k}: {v:F2}");
         }
-        
         sb.AppendLine("\nProvide:");
         sb.AppendLine("1. Strengths and weaknesses");
         sb.AppendLine("2. Suggested improvements");
         sb.AppendLine("3. Risk considerations");
-        
-        return await AskAsync(sb.ToString(), ct);
+        return AskAsync(sb.ToString(), ct);
     }
 
-    /// <summary>
-    /// Clear conversation history (keeps system prompt).
-    /// </summary>
+    /// <summary>Clear conversation history (re-seeds with the trading system prompt).</summary>
     public void ClearHistory()
     {
         conversationHistory.Clear();
         conversationHistory.Add(new ChatMessage("system", TradingSystemPrompt));
     }
 
-    /// <summary>
-    /// Get the current conversation history.
-    /// </summary>
     public IReadOnlyList<ChatMessage> GetHistory() => conversationHistory.AsReadOnly();
 
-    private async Task<ChatReply> GetReplyWithRetryAsync(CancellationToken ct)
-    {
-        return await SendMessagesAsync(conversationHistory, ct);
-    }
+    public void Dispose() { /* Legion owns the HttpClient now; nothing app-side to release. */ }
 
-    private async Task<ChatReply> SendMessagesAsync(List<ChatMessage> messages, CancellationToken ct)
-    {
-        Exception? lastException = null;
-
-        for (int attempt = 0; attempt <= MaxRetries; attempt++)
-        {
-            try
-            {
-                return await SendMessagesCoreAsync(messages, ct);
-            }
-            catch (InvalidOperationException ex) when (IsRetryableError(ex.Message))
-            {
-                lastException = ex;
-
-                if (attempt == MaxRetries)
-                {
-                    Console.WriteLine($"[OpenAI] API call failed after {MaxRetries + 1} attempts");
-                    throw;
-                }
-
-                var delayMs = CalculateDelay(ex.Message, attempt);
-                Console.WriteLine($"[OpenAI] Rate limited, waiting {delayMs}ms (attempt {attempt + 1}/{MaxRetries})");
-                await Task.Delay(delayMs, ct);
-            }
-        }
-
-        throw lastException ?? new InvalidOperationException("Unexpected retry loop exit");
-    }
-
-    private async Task<ChatReply> SendMessagesCoreAsync(List<ChatMessage> messages, CancellationToken ct)
+    private async Task<ChatReply> SendAsync(
+        IEnumerable<ChatMessage> messages, string? systemPrompt, CancellationToken ct)
     {
         if (!IsConfigured)
-        {
             throw new InvalidOperationException(
-                "OpenAI API key not configured. Set OPENAI_IDIOTPROOF_API_KEY environment variable.");
-        }
+                "OpenAI API key not configured. Set it via the shared MindAttic credential store or OPENAI_IDIOTPROOF_API_KEY.");
 
-        var payload = new
+        // Map IdiotProof's ChatMessage to Legion's ChatTurn. The system entry (if
+        // any) is hoisted out and passed as the systemPrompt parameter.
+        var systemHoist = systemPrompt;
+        var turns = new List<ChatTurn>();
+        foreach (var m in messages)
         {
-            model = this.model,
-            messages = messages.Select(m => new { role = m.Role, content = m.Content }).ToArray(),
-            temperature = 0.7,
-            max_completion_tokens = 2000
-        };
-
-        using var request = new HttpRequestMessage(HttpMethod.Post, ApiEndpoint);
-        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
-        request.Content = new StringContent(
-            JsonSerializer.Serialize(payload),
-            Encoding.UTF8,
-            "application/json");
-
-        try
-        {
-            using var response = await httpClient.SendAsync(request, ct);
-            var json = await response.Content.ReadAsStringAsync(ct);
-            var statusCode = (int)response.StatusCode;
-
-            if (statusCode != 200)
+            if (string.Equals(m.Role, "system", StringComparison.OrdinalIgnoreCase))
             {
-                var errorMessage = ExtractErrorMessage(json, statusCode);
-                throw new InvalidOperationException($"OpenAI HTTP {statusCode}: {errorMessage}");
+                systemHoist ??= m.Content;
+                continue;
             }
-
-            var text = ExtractResponseText(json);
-            var formattedJson = FormatJson(json);
-
-            return new ChatReply(text, formattedJson);
-        }
-        catch (HttpRequestException ex)
-        {
-            throw new InvalidOperationException($"Network error: {ex.Message}", ex);
-        }
-        catch (TaskCanceledException ex) when (!ct.IsCancellationRequested)
-        {
-            throw new InvalidOperationException("OpenAI API request timed out", ex);
-        }
-    }
-
-    private static bool IsRetryableError(string message)
-    {
-        return message.Contains("429") ||
-               message.Contains("Rate") ||
-               message.Contains("overloaded") ||
-               message.Contains("502") ||
-               message.Contains("503");
-    }
-
-    private static int CalculateDelay(string errorMessage, int attempt)
-    {
-        // Exponential backoff: 2s, 4s, 8s, 16s, 32s
-        var delayMs = BaseDelayMs * (int)Math.Pow(2, attempt);
-
-        // Try to extract wait time from error message
-        var waitMatch = Regex.Match(errorMessage, @"try again in (\d+\.?\d*)s");
-        if (waitMatch.Success && double.TryParse(
-            waitMatch.Groups[1].Value,
-            System.Globalization.NumberStyles.Float,
-            System.Globalization.CultureInfo.InvariantCulture,
-            out var waitSeconds))
-        {
-            delayMs = (int)(waitSeconds * 1000) + 500; // Add 500ms buffer
+            turns.Add(new ChatTurn(m.Role, m.Content));
         }
 
-        return delayMs;
-    }
+        var text = await legion.CallChatAsync(
+            providerId: "openai",
+            apiKey: apiKey,
+            model: model,
+            messages: turns,
+            systemPrompt: systemHoist,
+            maxTokens: 2000,
+            temperature: 0.7,
+            ct: ct);
 
-    private static string ExtractErrorMessage(string json, int statusCode)
-    {
-        var apiError = ExtractOpenAIError(json);
-        
-        return statusCode switch
+        var diagnostic = JsonSerializer.Serialize(new
         {
-            400 => $"Bad Request - {apiError ?? "Check your message format"}",
-            401 => "Unauthorized - Invalid or expired API key",
-            403 => "Forbidden - API key lacks permissions",
-            404 => "Not Found - Invalid endpoint or model name",
-            429 => $"Rate Limited - {apiError ?? "Too many requests"}",
-            500 => "OpenAI Server Error - Try again later",
-            502 => "Bad Gateway - OpenAI temporarily unavailable",
-            503 => "Service Unavailable - OpenAI overloaded",
-            _ => apiError ?? json
-        };
-    }
+            provider = "openai",
+            model,
+            text,
+        }, new JsonSerializerOptions { WriteIndented = true });
 
-    private static string? ExtractOpenAIError(string json)
-    {
-        try
-        {
-            using var doc = JsonDocument.Parse(json);
-            if (doc.RootElement.TryGetProperty("error", out var error) &&
-                error.TryGetProperty("message", out var message))
-            {
-                return message.GetString();
-            }
-        }
-        catch { }
-        return null;
-    }
-
-    private static string ExtractResponseText(string json)
-    {
-        try
-        {
-            using var doc = JsonDocument.Parse(json);
-
-            // Standard Chat Completions format: choices[0].message.content
-            if (doc.RootElement.TryGetProperty("choices", out var choices) &&
-                choices.ValueKind == JsonValueKind.Array &&
-                choices.GetArrayLength() > 0)
-            {
-                var firstChoice = choices[0];
-                if (firstChoice.TryGetProperty("message", out var message) &&
-                    message.TryGetProperty("content", out var content))
-                {
-                    return content.GetString() ?? "";
-                }
-            }
-        }
-        catch { }
-
-        return json;
-    }
-
-    private static string FormatJson(string json)
-    {
-        try
-        {
-            using var doc = JsonDocument.Parse(json);
-            return JsonSerializer.Serialize(doc.RootElement, new JsonSerializerOptions 
-            { 
-                WriteIndented = true 
-            });
-        }
-        catch
-        {
-            return json;
-        }
-    }
-
-    public void Dispose()
-    {
-        if (!disposed)
-        {
-            httpClient.Dispose();
-            disposed = true;
-        }
+        return new ChatReply(text, diagnostic);
     }
 }
