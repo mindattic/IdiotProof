@@ -23,54 +23,10 @@ using System.Net.Http.Json;
 using System.Net.Mail;
 using System.Text;
 using System.Text.Json;
+using IdiotProof.Models;
 using IdiotProof.Settings;
 
 namespace IdiotProof.Alerts;
-
-/// <summary>
-/// Pre-calculated trade setup ready for instant execution.
-/// </summary>
-public sealed class TradeSetup
-{
-    public string Symbol { get; init; } = "";
-    public bool IsLong { get; init; }
-    public double EntryPrice { get; init; }
-    public double StopLoss { get; init; }
-    public double TakeProfit { get; init; }
-    public double TrailingStopPercent { get; init; }
-    public int Quantity { get; init; }
-    public double RiskDollars { get; init; }
-    public double RewardDollars { get; init; }
-    public double RiskRewardRatio { get; init; }
-    public DateTime GeneratedAt { get; init; } = DateTime.Now;
-    public string SetupId { get; init; } = Guid.NewGuid().ToString("N")[..8];
-    
-    /// <summary>
-    /// Time until this setup expires (setups are only valid briefly).
-    /// </summary>
-    public TimeSpan ExpiresIn => TimeSpan.FromMinutes(5) - (DateTime.Now - GeneratedAt);
-    public bool IsExpired => ExpiresIn <= TimeSpan.Zero;
-    
-    public string Direction => IsLong ? "LONG" : "SHORT";
-    public string DirectionEmoji => IsLong ? "📈" : "📉";
-    
-    public string ToDiscordEmbed()
-    {
-        var sb = new StringBuilder();
-        sb.AppendLine($"{DirectionEmoji} **{Direction} Setup** (ID: `{SetupId}`)");
-        sb.AppendLine($"```");
-        sb.AppendLine($"Entry:   ${EntryPrice:F2}");
-        sb.AppendLine($"Stop:    ${StopLoss:F2} ({(IsLong ? "-" : "+")}{Math.Abs((StopLoss - EntryPrice) / EntryPrice * 100):F1}%)");
-        sb.AppendLine($"Target:  ${TakeProfit:F2} ({(IsLong ? "+" : "-")}{Math.Abs((TakeProfit - EntryPrice) / EntryPrice * 100):F1}%)");
-        sb.AppendLine($"Trail:   {TrailingStopPercent:F1}%");
-        sb.AppendLine($"Qty:     {Quantity} shares");
-        sb.AppendLine($"Risk:    ${RiskDollars:F2}");
-        sb.AppendLine($"Reward:  ${RewardDollars:F2}");
-        sb.AppendLine($"R:R:     {RiskRewardRatio:F1}:1");
-        sb.AppendLine($"```");
-        return sb.ToString();
-    }
-}
 
 /// <summary>
 /// Alert containing detected move and pre-generated trade setups.

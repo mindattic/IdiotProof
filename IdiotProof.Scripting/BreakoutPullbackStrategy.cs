@@ -12,6 +12,7 @@
 // This creates IdiotScript strategies that execute this pattern.
 // ============================================================================
 
+using IdiotProof.Models;
 using IdiotProof.Shared;
 
 namespace IdiotProof.Scripting;

@@ -1,3 +1,4 @@
+using IdiotProof.Models;
 using IdiotProof.Scripting;
 using IdiotProof.Shared;
 

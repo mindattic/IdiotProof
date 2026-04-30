@@ -140,7 +140,17 @@ public sealed class AutonomousSimulationResult
     // ========================================================================
 
     public double TotalPnL => Trades.Sum(t => t.PnL);
-    public double TotalPnLPercent => Trades.Sum(t => t.PnLPercent);
+
+    // Return on total capital deployed (sum of PnL$ / sum of entry notional).
+    // Summing per-trade percentages double-counts: a +50% then -50% trade does NOT net to 0%.
+    public double TotalPnLPercent
+    {
+        get
+        {
+            var totalNotional = Trades.Sum(t => t.EntryPrice * t.Quantity);
+            return totalNotional > 0 ? TotalPnL / totalNotional * 100 : 0;
+        }
+    }
     public int WinCount => Trades.Count(t => t.PnL > 0);
     public int LossCount => Trades.Count(t => t.PnL < 0);
     public double WinRate => Trades.Count > 0 ? (double)WinCount / Trades.Count * 100 : 0;

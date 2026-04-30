@@ -14,7 +14,12 @@ public sealed class TradeSignal
     public string Reason { get; init; } = string.Empty;
     public string StrategyName { get; init; } = string.Empty;
     public DateTime GeneratedUtc { get; init; } = DateTime.UtcNow;
-    /// <summary>Identity user ID of the account that generated this signal.</summary>
+    /// <summary>
+    /// Identity user ID of the account that generated this signal. Mutable on purpose:
+    /// strategies are pure (they don't know about users) and the execution service stamps
+    /// this after the signal is produced. If/when signal stamping moves into a factory,
+    /// this should become init-only.
+    /// </summary>
     public string UserId { get; set; } = string.Empty;
 }
 
@@ -77,32 +82,33 @@ public sealed record LatestPrice(
     string Source);
 
 /// <summary>
-/// Pre-calculated trade setup ready for execution.
+/// Pre-calculated trade setup ready for execution. Canonical, decimal-based, immutable.
+/// All money/price fields are <c>decimal</c> to avoid binary float drift on prices.
 /// </summary>
 public sealed class TradeSetup
 {
-    public string SetupId { get; set; } = Guid.NewGuid().ToString("N")[..8];
-    public DateTime GeneratedUtc { get; set; } = DateTime.UtcNow;
-    public DateTime ExpiresUtc { get; set; } = DateTime.UtcNow.AddMinutes(10);
+    public string SetupId { get; init; } = Guid.NewGuid().ToString("N")[..8];
+    public DateTime GeneratedUtc { get; init; } = DateTime.UtcNow;
+    public DateTime ExpiresUtc { get; init; } = DateTime.UtcNow.AddMinutes(10);
 
-    public string Symbol { get; set; } = "";
-    public string? CompanyName { get; set; }
-    public TradeDirection Direction { get; set; }
+    public string Symbol { get; init; } = "";
+    public string? CompanyName { get; init; }
+    public TradeDirection Direction { get; init; }
     public bool IsLong => Direction == TradeDirection.Long;
 
-    public decimal EntryPrice { get; set; }
-    public OrderType EntryType { get; set; } = OrderType.Limit;
+    public decimal EntryPrice { get; init; }
+    public OrderType EntryType { get; init; } = OrderType.Limit;
 
-    public decimal StopLoss { get; set; }
-    public decimal TakeProfit { get; set; }
-    public decimal TrailingStopPercent { get; set; }
+    public decimal StopLoss { get; init; }
+    public decimal TakeProfit { get; init; }
+    public decimal TrailingStopPercent { get; init; }
 
-    public int Quantity { get; set; }
-    public decimal RiskDollars { get; set; }
-    public decimal RewardDollars { get; set; }
+    public int Quantity { get; init; }
+    public decimal RiskDollars { get; init; }
+    public decimal RewardDollars { get; init; }
     public decimal RiskRewardRatio => RiskDollars > 0 ? RewardDollars / RiskDollars : 0;
 
-    public int ConfidenceScore { get; set; }
+    public int ConfidenceScore { get; init; }
     public ConfidenceGrade Grade => ConfidenceScore switch
     {
         >= 85 => ConfidenceGrade.APlus,
@@ -113,10 +119,32 @@ public sealed class TradeSetup
         _ => ConfidenceGrade.F
     };
 
-    public string Rationale { get; set; } = "";
-    public List<string> BullishFactors { get; set; } = [];
-    public List<string> BearishFactors { get; set; } = [];
+    public string Rationale { get; init; } = "";
+    public List<string> BullishFactors { get; init; } = [];
+    public List<string> BearishFactors { get; init; } = [];
+
     public bool IsExpired => DateTime.UtcNow > ExpiresUtc;
+
+    /// <summary>Time remaining before this setup expires. Negative when already expired.</summary>
+    public TimeSpan ExpiresIn => ExpiresUtc - DateTime.UtcNow;
+
+    /// <summary>
+    /// Internal consistency check: positive sizing, stop on the correct side of entry,
+    /// confidence in [0,100]. Stricter rules (per-trade and daily risk caps) are enforced
+    /// by <see cref="IdiotProof.Shared.Risk.RiskGuardian"/>.
+    /// </summary>
+    public bool IsWellFormed
+    {
+        get
+        {
+            if (Quantity <= 0) return false;
+            if (EntryPrice <= 0m || StopLoss <= 0m || TakeProfit <= 0m) return false;
+            if (ConfidenceScore < 0 || ConfidenceScore > 100) return false;
+            if (Direction == TradeDirection.Long && (StopLoss >= EntryPrice || TakeProfit <= EntryPrice)) return false;
+            if (Direction == TradeDirection.Short && (StopLoss <= EntryPrice || TakeProfit >= EntryPrice)) return false;
+            return true;
+        }
+    }
 }
 
 /// <summary>

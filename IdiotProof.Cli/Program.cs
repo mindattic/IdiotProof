@@ -493,14 +493,34 @@ internal sealed class RunCommand(
                 var stratCtx = new StrategyContext { Timezone = tz, EvaluationTimeUtc = DateTime.UtcNow };
 
                 var signalCount = 0;
+                var stratFailures = new List<string>();
                 foreach (var strat in registry.GetAll())
                 {
-                    try { signalCount += strat.Evaluate(ticker, candles, stratCtx).Count; }
-                    catch { /* a single misbehaving strategy must not stop the rest */ }
+                    try
+                    {
+                        signalCount += strat.Evaluate(ticker, candles, stratCtx).Count;
+                    }
+                    catch (Exception strategyEx)
+                    {
+                        // A single misbehaving strategy must not stop the rest, but the operator
+                        // needs to see that something is broken — silent "no signals" hides bugs.
+                        var stratName = strat.GetType().Name;
+                        stratFailures.Add($"{stratName}: {strategyEx.Message}");
+                        AnsiConsole.MarkupLine($"[red]Strategy {Markup.Escape(stratName)} threw on {Markup.Escape(ticker)}: {Markup.Escape(strategyEx.Message)}[/]");
+                    }
                 }
 
-                states[ticker] = new TickerState(ticker, lastPrice, signalCount, DateTime.UtcNow,
-                    signalCount > 0 ? $"[green]{signalCount} signal(s)[/]" : "[dim]No signals[/]");
+                string status;
+                if (stratFailures.Count > 0 && signalCount == 0)
+                    status = $"[red]All {stratFailures.Count} strategies errored[/]";
+                else if (stratFailures.Count > 0)
+                    status = $"[yellow]{signalCount} signal(s), {stratFailures.Count} error(s)[/]";
+                else if (signalCount > 0)
+                    status = $"[green]{signalCount} signal(s)[/]";
+                else
+                    status = "[dim]No signals[/]";
+
+                states[ticker] = new TickerState(ticker, lastPrice, signalCount, DateTime.UtcNow, status);
             }
             catch (OperationCanceledException) when (ct.IsCancellationRequested)
             {

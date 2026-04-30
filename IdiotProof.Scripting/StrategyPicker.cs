@@ -10,6 +10,7 @@
 //
 // ============================================================================
 
+using IdiotProof.Models;
 using IdiotProof.Shared;
 
 namespace IdiotProof.Scripting;
@@ -50,7 +51,7 @@ public sealed class StrategyPicker
     
     public StrategyPicker(SetupCriteria? criteria = null)
     {
-        criteria = criteria ?? new SetupCriteria();
+        this.criteria = criteria ?? new SetupCriteria();
     }
     
     /// <summary>

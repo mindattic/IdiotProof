@@ -21,7 +21,11 @@ public sealed class AlpacaBrokerClient : IBrokerClient, IAsyncDisposable
             ? "https://paper-api.alpaca.markets"
             : "https://api.alpaca.markets";
 
-        httpClient = new HttpClient { BaseAddress = new Uri(baseUri) };
+        httpClient = new HttpClient
+        {
+            BaseAddress = new Uri(baseUri),
+            Timeout = TimeSpan.FromSeconds(30)
+        };
 
         if (!string.IsNullOrWhiteSpace(apiKeyId) && !string.IsNullOrWhiteSpace(apiSecretKey))
         {

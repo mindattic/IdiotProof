@@ -12,6 +12,7 @@
 // - MultiTargetExitManager: Handles partial exits automatically
 // ============================================================================
 
+using IdiotProof.Models;
 using IdiotProof.Scripting;
 using IdiotProof.Shared;
 

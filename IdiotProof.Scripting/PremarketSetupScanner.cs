@@ -12,6 +12,7 @@
 // like: "ERNA - Break over $0.52, confirmation: pullback + VWAP hold + $0.48"
 // ============================================================================
 
+using IdiotProof.Models;
 using IdiotProof.Shared;
 
 namespace IdiotProof.Scripting;
@@ -203,7 +204,7 @@ public sealed class PremarketSetupScanner
     
     public PremarketSetupScanner(SetupScannerConfig? config = null)
     {
-        config = config ?? new SetupScannerConfig();
+        this.config = config ?? new SetupScannerConfig();
     }
     
     /// <summary>

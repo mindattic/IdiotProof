@@ -11,6 +11,7 @@
 // - Strategy sharing and templates
 // ============================================================================
 
+using IdiotProof.Models;
 using IdiotProof.Shared;
 
 namespace IdiotProof.Scripting;
@@ -538,9 +539,13 @@ public sealed class PriceLevelCondition : ICondition
     public double TolerancePercent { get; }
 
     // Track if price has violated the level (for HoldsAbove/HoldsBelow)
-    private bool hasViolated = false;
     private double lowestSeen = double.MaxValue;
     private double highestSeen = double.MinValue;
+    private double? previousPrice;
+
+    // Auto-reset when the evaluation context changes (different symbol or new session date).
+    private string? lastSymbol;
+    private DateOnly? lastSessionDate;
 
     public PriceLevelCondition(PriceLevelType type, double level, double tolerancePercent = 1.0)
     {
@@ -565,12 +570,24 @@ public sealed class PriceLevelCondition : ICondition
     public bool Evaluate(IndicatorSnapshot indicators)
     {
         var price = indicators.Price;
+        var sessionDate = DateOnly.FromDateTime(indicators.Timestamp);
+        var symbol = indicators.Symbol;
+
+        // Auto-reset on context change so accumulated extremes don't leak across symbols/sessions.
+        if (lastSymbol != null && (lastSymbol != symbol || lastSessionDate != sessionDate))
+            Reset();
+
+        lastSymbol = symbol;
+        lastSessionDate = sessionDate;
+
+        // Capture previous-bar side before updating extremes/previousPrice.
+        var prior = previousPrice;
 
         // Track extremes
         if (price < lowestSeen) lowestSeen = price;
         if (price > highestSeen) highestSeen = price;
 
-        return Type switch
+        var result = Type switch
         {
             // HoldsAbove: True if price is currently above AND has never gone significantly below
             PriceLevelType.HoldsAbove => price >= Level && lowestSeen >= Level * 0.995, // 0.5% tolerance
@@ -581,24 +598,27 @@ public sealed class PriceLevelCondition : ICondition
             // Near: True if price is within tolerance % of level
             PriceLevelType.Near => Math.Abs((price - Level) / Level * 100) <= TolerancePercent,
 
-            // BreaksAbove: True if price breaks above level
-            PriceLevelType.BreaksAbove => price > Level && highestSeen > Level,
+            // BreaksAbove: only fires on the cross (prior bar at-or-below, current bar above).
+            PriceLevelType.BreaksAbove => prior is { } p1 && p1 <= Level && price > Level,
 
-            // BreaksBelow: True if price breaks below level
-            PriceLevelType.BreaksBelow => price < Level && lowestSeen < Level,
+            // BreaksBelow: only fires on the cross (prior bar at-or-above, current bar below).
+            PriceLevelType.BreaksBelow => prior is { } p2 && p2 >= Level && price < Level,
 
             _ => true
         };
+
+        previousPrice = price;
+        return result;
     }
 
     /// <summary>
-    /// Resets tracking state (call when strategy resets).
+    /// Resets tracking state. Called automatically on symbol/session change; can be called manually too.
     /// </summary>
     public void Reset()
     {
-        hasViolated = false;
         lowestSeen = double.MaxValue;
         highestSeen = double.MinValue;
+        previousPrice = null;
     }
 }
 

@@ -13,6 +13,7 @@
 // - Logs the partial exit
 // ============================================================================
 
+using IdiotProof.Models;
 using IdiotProof.Shared;
 
 namespace IdiotProof.Scripting;

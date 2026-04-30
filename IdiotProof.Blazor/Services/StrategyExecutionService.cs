@@ -294,16 +294,24 @@ public sealed class StrategyExecutionService : BackgroundService
 
         foreach (var (userId, keys) in userList)
         {
-            if (string.IsNullOrWhiteSpace(keys.AlpacaApiKeyId)) continue;
+            IBrokerClient? broker = null;
             try
             {
-                var broker = BuildBroker(keys);
+                broker = BuildBroker(keys);
+                if (!broker.IsConnected)
+                    await broker.ConnectAsync(ct);
+
                 var positions = await broker.GetPositionsAsync(ct);
-                tradingState.UpdatePositions(userId, BrokerType.Alpaca, positions.ToList());
+                tradingState.UpdatePositions(userId, broker.BrokerType, positions.ToList());
             }
             catch (Exception ex)
             {
-                logger.LogDebug(ex, "Position refresh failed for user {UserId}", userId);
+                logger.LogDebug(ex, "Position refresh failed for user {UserId} on {Broker}", userId, broker?.BrokerType);
+            }
+            finally
+            {
+                if (broker is IAsyncDisposable iad) await iad.DisposeAsync();
+                else if (broker is IDisposable id) id.Dispose();
             }
         }
     }
@@ -326,10 +334,29 @@ public sealed class StrategyExecutionService : BackgroundService
 
     private static IBrokerClient BuildBroker(UserApiKeys keys)
     {
+        // Honor the user's explicitly chosen broker when its credentials are configured;
+        // otherwise fall back to whichever broker has credentials, then sandbox.
+        var preference = keys.DefaultBroker?.Trim();
+
+        if (string.Equals(preference, "Ibkr", StringComparison.OrdinalIgnoreCase))
+            return BuildIbkr(keys);
+
+        if (string.Equals(preference, "Alpaca", StringComparison.OrdinalIgnoreCase) &&
+            !string.IsNullOrWhiteSpace(keys.AlpacaApiKeyId))
+        {
+            return new AlpacaBrokerClient(keys.AlpacaApiKeyId, keys.AlpacaApiSecretKey ?? "", keys.AlpacaIsPaper);
+        }
+
         if (!string.IsNullOrWhiteSpace(keys.AlpacaApiKeyId))
             return new AlpacaBrokerClient(keys.AlpacaApiKeyId, keys.AlpacaApiSecretKey ?? "", keys.AlpacaIsPaper);
 
         return new SandboxBrokerClient();
+    }
+
+    private static IBrokerClient BuildIbkr(UserApiKeys keys)
+    {
+        var port = keys.IbkrUsePaper ? keys.IbkrPaperPort : keys.IbkrLivePort;
+        return new IbkrBrokerClient(keys.IbkrHost, port, keys.IbkrClientId);
     }
 
     private AppSettings CloneSettingsWithUserKeys(UserApiKeys keys)

@@ -145,8 +145,8 @@ namespace IdiotProof.Models {
                     Type = ParameterType.Enum,
                     IsRequired = true,
                     EnumTypeName = "TradingSession",
-                    Options = Enum.GetNames<TradingSession>().ToList(),
-                    DefaultValue = TradingSession.PreMarket,
+                    Options = Enum.GetNames<IdiotProof.Enums.TradingSession>().ToList(),
+                    DefaultValue = IdiotProof.Enums.TradingSession.PreMarket,
                     HelpText = "Select a predefined trading session"
                 }
             ]

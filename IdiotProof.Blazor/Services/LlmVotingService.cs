@@ -91,6 +91,10 @@ public sealed class LlmVotingService
     private readonly LegionClient legion;
     private readonly ILogger<LlmVotingService> logger;
 
+    // Bound concurrent LLM calls process-wide. Without this, a burst of N concurrent signals
+    // would fan out to N * personas.Count requests at once and trip rate limits.
+    private static readonly SemaphoreSlim ConcurrencyGate = new(initialCount: 6, maxCount: 6);
+
     private static readonly JsonSerializerOptions JsonOpts = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
@@ -188,6 +192,7 @@ public sealed class LlmVotingService
     {
         var vote = new LlmVote { PersonaName = personaName, ModelId = modelId, Decision = VoteDecision.Abstain };
 
+        await ConcurrencyGate.WaitAsync(ct).ConfigureAwait(false);
         try
         {
             var content = await legion.CallAsync(
@@ -212,6 +217,10 @@ public sealed class LlmVotingService
         catch (Exception ex)
         {
             logger.LogWarning(ex, "Error calling LLM persona {Persona}", personaName);
+        }
+        finally
+        {
+            ConcurrencyGate.Release();
         }
 
         return vote;

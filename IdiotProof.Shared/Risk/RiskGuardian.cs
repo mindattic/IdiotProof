@@ -1,4 +1,4 @@
-﻿// ============================================================================
+// ============================================================================
 // Risk Guardian - Makes It IMPOSSIBLE to Lose More Than Your Limit
 // ============================================================================
 // This is the GATEKEEPER. No trade goes through without:
@@ -7,9 +7,12 @@
 // 3. Position size that can't exceed your max loss even in worst case
 //
 // "I will NEVER allow you to lose more than $X on any single trade"
+//
+// All money fields are decimal — RiskGuardian operates on the canonical
+// IdiotProof.Models.TradeSetup, which is decimal-priced.
 // ============================================================================
 
-using IdiotProof.Shared;
+using IdiotProof.Models;
 
 namespace IdiotProof.Shared.Risk;
 
@@ -18,40 +21,26 @@ namespace IdiotProof.Shared.Risk;
 /// </summary>
 public sealed class RiskGuardianConfig
 {
-    /// <summary>
-    /// ABSOLUTE MAXIMUM you can lose on a single trade. Non-negotiable.
-    /// </summary>
-    public double MaxLossPerTrade { get; set; } = 100.0;
-    
-    /// <summary>
-    /// ABSOLUTE MAXIMUM you can lose in a single day. Circuit breaker.
-    /// </summary>
-    public double MaxLossPerDay { get; set; } = 500.0;
-    
-    /// <summary>
-    /// Minimum stop loss distance (percent). Prevents micro-stops that get triggered by noise.
-    /// </summary>
-    public double MinStopLossPercent { get; set; } = 0.5;
-    
-    /// <summary>
-    /// Maximum stop loss distance (percent). Prevents ridiculously wide stops.
-    /// </summary>
-    public double MaxStopLossPercent { get; set; } = 5.0;
-    
-    /// <summary>
-    /// Require confirmation for trades above this risk amount.
-    /// </summary>
-    public double ConfirmationThreshold { get; set; } = 50.0;
-    
-    /// <summary>
-    /// Account balance for position sizing calculations.
-    /// </summary>
-    public double AccountBalance { get; set; } = 10_000.0;
-    
-    /// <summary>
-    /// Maximum percent of account to risk per trade.
-    /// </summary>
-    public double MaxAccountRiskPercent { get; set; } = 1.0;
+    /// <summary>ABSOLUTE MAXIMUM you can lose on a single trade. Non-negotiable.</summary>
+    public decimal MaxLossPerTrade { get; set; } = 100m;
+
+    /// <summary>ABSOLUTE MAXIMUM you can lose in a single day. Circuit breaker.</summary>
+    public decimal MaxLossPerDay { get; set; } = 500m;
+
+    /// <summary>Minimum stop loss distance (percent). Prevents micro-stops triggered by noise.</summary>
+    public decimal MinStopLossPercent { get; set; } = 0.5m;
+
+    /// <summary>Maximum stop loss distance (percent). Prevents ridiculously wide stops.</summary>
+    public decimal MaxStopLossPercent { get; set; } = 5m;
+
+    /// <summary>Require confirmation for trades above this risk amount.</summary>
+    public decimal ConfirmationThreshold { get; set; } = 50m;
+
+    /// <summary>Account balance for position sizing calculations.</summary>
+    public decimal AccountBalance { get; set; } = 10_000m;
+
+    /// <summary>Maximum percent of account to risk per trade.</summary>
+    public decimal MaxAccountRiskPercent { get; set; } = 1m;
 }
 
 /// <summary>
@@ -64,18 +53,14 @@ public sealed class RiskGuardianResult
     public List<string> BlockReasons { get; } = [];
     public List<string> Warnings { get; } = [];
     public TradeSetup? AdjustedSetup { get; set; }
-    
-    /// <summary>
-    /// Absolute worst-case loss if everything goes wrong (gap through stop, etc.)
-    /// </summary>
-    public double WorstCaseLoss { get; set; }
-    
-    /// <summary>
-    /// Expected loss if stop is hit normally.
-    /// </summary>
-    public double ExpectedLoss { get; set; }
-    
-    public string Summary => IsApproved 
+
+    /// <summary>Absolute worst-case loss if everything goes wrong (gap through stop, etc.)</summary>
+    public decimal WorstCaseLoss { get; set; }
+
+    /// <summary>Expected loss if stop is hit normally.</summary>
+    public decimal ExpectedLoss { get; set; }
+
+    public string Summary => IsApproved
         ? (RequiresConfirmation ? "⚠️ APPROVED WITH CONFIRMATION" : "✅ APPROVED")
         : $"🛑 BLOCKED: {string.Join(", ", BlockReasons)}";
 }
@@ -85,39 +70,42 @@ public sealed class RiskGuardianResult
 /// </summary>
 public sealed class RiskGuardian
 {
+    private static readonly TimeZoneInfo EasternTimeZone = ResolveEasternTimeZone();
+
     private readonly RiskGuardianConfig config;
-    private double dailyLoss = 0;
-    private DateTime lastResetDate = DateTime.Today;
-    
+    private decimal dailyLoss;
+    private DateOnly lastResetDate = CurrentTradingDate();
+
     public RiskGuardian(RiskGuardianConfig? config = null)
     {
-        config = config ?? new RiskGuardianConfig();
+        this.config = config ?? new RiskGuardianConfig();
     }
-    
+
     /// <summary>
     /// Validates a trade setup. Returns approval status and any adjustments needed.
     /// </summary>
     public RiskGuardianResult ValidateTrade(TradeSetup setup)
     {
         var result = new RiskGuardianResult();
-        
-        // Reset daily loss if new day
-        if (DateTime.Today > lastResetDate)
+
+        // Reset daily loss when the US equity trading day rolls over (in ET, not server local time).
+        var today = CurrentTradingDate();
+        if (today > lastResetDate)
         {
-            dailyLoss = 0;
-            lastResetDate = DateTime.Today;
+            dailyLoss = 0m;
+            lastResetDate = today;
         }
-        
+
         // === CRITICAL CHECKS - These BLOCK the trade ===
-        
+
         // 1. MUST have a stop loss
-        if (setup.StopLoss <= 0)
+        if (setup.StopLoss <= 0m)
         {
             result.BlockReasons.Add("NO STOP LOSS - Every trade MUST have a stop loss");
             result.IsApproved = false;
             return result;
         }
-        
+
         // 2. Stop loss must be on correct side of entry
         if (setup.IsLong && setup.StopLoss >= setup.EntryPrice)
         {
@@ -131,17 +119,17 @@ public sealed class RiskGuardian
             result.IsApproved = false;
             return result;
         }
-        
+
         // 3. Calculate actual risk
         var stopDistance = Math.Abs(setup.EntryPrice - setup.StopLoss);
-        var stopPercent = (stopDistance / setup.EntryPrice) * 100;
+        var stopPercent = setup.EntryPrice > 0m ? (stopDistance / setup.EntryPrice) * 100m : 0m;
         var riskPerShare = stopDistance;
         var totalRisk = riskPerShare * setup.Quantity;
-        
+
         result.ExpectedLoss = totalRisk;
-        
+
         // Worst case: assume 50% slippage through stop (gap scenario)
-        result.WorstCaseLoss = totalRisk * 1.5;
+        result.WorstCaseLoss = totalRisk * 1.5m;
 
         // 4. Check if risk exceeds max per trade
         if (totalRisk > config.MaxLossPerTrade)
@@ -149,11 +137,14 @@ public sealed class RiskGuardian
             result.BlockReasons.Add($"Risk ${totalRisk:F2} exceeds max ${config.MaxLossPerTrade:F2} per trade");
 
             // Suggest adjusted quantity
-            var adjustedQty = (int)Math.Floor(config.MaxLossPerTrade / riskPerShare);
-            if (adjustedQty >= 1)
+            if (riskPerShare > 0m)
             {
-                result.AdjustedSetup = CloneWithQuantity(setup, adjustedQty);
-                result.Warnings.Add($"Suggested reduced quantity: {adjustedQty} shares (risk: ${adjustedQty * riskPerShare:F2})");
+                var adjustedQty = (int)Math.Floor(config.MaxLossPerTrade / riskPerShare);
+                if (adjustedQty >= 1)
+                {
+                    result.AdjustedSetup = CloneWithQuantity(setup, adjustedQty);
+                    result.Warnings.Add($"Suggested reduced quantity: {adjustedQty} shares (risk: ${adjustedQty * riskPerShare:F2})");
+                }
             }
         }
 
@@ -163,7 +154,7 @@ public sealed class RiskGuardian
             var remaining = config.MaxLossPerDay - dailyLoss;
             result.BlockReasons.Add($"Would exceed daily loss limit. Already lost ${dailyLoss:F2}, limit is ${config.MaxLossPerDay:F2}");
 
-            if (remaining > 0)
+            if (remaining > 0m && riskPerShare > 0m)
             {
                 var adjustedQty = (int)Math.Floor(remaining / riskPerShare);
                 if (adjustedQty >= 1)
@@ -179,103 +170,106 @@ public sealed class RiskGuardian
         {
             result.BlockReasons.Add($"Stop loss too tight ({stopPercent:F2}%). Min is {config.MinStopLossPercent}% to avoid noise stops");
         }
-        
+
         if (stopPercent > config.MaxStopLossPercent)
         {
             result.BlockReasons.Add($"Stop loss too wide ({stopPercent:F2}%). Max is {config.MaxStopLossPercent}%");
         }
-        
+
         // 7. Check account risk percent
-        var accountRiskPercent = (totalRisk / config.AccountBalance) * 100;
-        if (accountRiskPercent > config.MaxAccountRiskPercent)
+        if (config.AccountBalance > 0m)
         {
-            result.BlockReasons.Add($"Risk is {accountRiskPercent:F2}% of account. Max is {config.MaxAccountRiskPercent}%");
+            var accountRiskPercent = (totalRisk / config.AccountBalance) * 100m;
+            if (accountRiskPercent > config.MaxAccountRiskPercent)
+            {
+                result.BlockReasons.Add($"Risk is {accountRiskPercent:F2}% of account. Max is {config.MaxAccountRiskPercent}%");
+            }
         }
-        
+
         // === WARNINGS - These don't block but require attention ===
-        
+
         // R:R ratio check
-        if (setup.RiskRewardRatio < 1.5)
+        if (setup.RiskRewardRatio < 1.5m)
         {
             result.Warnings.Add($"R:R ratio {setup.RiskRewardRatio:F1} is below recommended 1.5");
         }
-        
+
         // Confidence check
         if (setup.ConfidenceScore < 50)
         {
             result.Warnings.Add($"Low confidence score ({setup.ConfidenceScore}%). Consider waiting for better setup");
         }
-        
+
         // Quantity sanity check
         if (setup.Quantity > 1000)
         {
             result.Warnings.Add($"Large position size ({setup.Quantity} shares). Double-check this is intentional");
         }
-        
+
         // === FINAL DECISION ===
-        
+
         result.IsApproved = result.BlockReasons.Count == 0;
         result.RequiresConfirmation = result.IsApproved && totalRisk > config.ConfirmationThreshold;
-        
+
         return result;
     }
-    
+
     /// <summary>
     /// Records a completed trade for daily tracking.
     /// </summary>
-    public void RecordTradePnL(double pnl)
+    public void RecordTradePnL(decimal pnl)
     {
-        if (pnl < 0)
+        if (pnl < 0m)
         {
             dailyLoss += Math.Abs(pnl);
         }
     }
-    
+
     /// <summary>
     /// Gets remaining daily risk allowance.
     /// </summary>
-    public double GetRemainingDailyRisk() => Math.Max(0, config.MaxLossPerDay - dailyLoss);
-    
+    public decimal GetRemainingDailyRisk() => Math.Max(0m, config.MaxLossPerDay - dailyLoss);
+
     /// <summary>
     /// Calculates the maximum quantity you can trade given current limits.
     /// </summary>
-    public int CalculateMaxQuantity(double entryPrice, double stopLoss)
+    public int CalculateMaxQuantity(decimal entryPrice, decimal stopLoss)
     {
         var riskPerShare = Math.Abs(entryPrice - stopLoss);
-        if (riskPerShare <= 0) return 0;
-        
+        if (riskPerShare <= 0m) return 0;
+
         // Take the most restrictive limit
-        var fromMaxPerTrade = (int)Math.Floor(config.MaxLossPerTrade / riskPerShare);
+        var fromMaxPerTrade    = (int)Math.Floor(config.MaxLossPerTrade / riskPerShare);
         var fromDailyRemaining = (int)Math.Floor(GetRemainingDailyRisk() / riskPerShare);
-        var fromAccountPercent = (int)Math.Floor((config.AccountBalance * config.MaxAccountRiskPercent / 100) / riskPerShare);
-        
+        var fromAccountPercent = (int)Math.Floor((config.AccountBalance * config.MaxAccountRiskPercent / 100m) / riskPerShare);
+
         return Math.Max(1, Math.Min(fromMaxPerTrade, Math.Min(fromDailyRemaining, fromAccountPercent)));
     }
-    
+
     /// <summary>
     /// Auto-calculates a safe stop loss and quantity given entry and direction.
     /// </summary>
-    public (double StopLoss, int Quantity) CalculateSafeParameters(
-        double entryPrice, 
-        bool isLong, 
-        double? preferredStopPercent = null)
+    public (decimal StopLoss, int Quantity) CalculateSafeParameters(
+        decimal entryPrice,
+        bool isLong,
+        decimal? preferredStopPercent = null)
     {
         // Default to middle of allowed range
-        var stopPercent = preferredStopPercent ?? 
-            (config.MinStopLossPercent + config.MaxStopLossPercent) / 2;
-        
+        var stopPercent = preferredStopPercent ??
+            (config.MinStopLossPercent + config.MaxStopLossPercent) / 2m;
+
         // Clamp to allowed range
         stopPercent = Math.Clamp(stopPercent, config.MinStopLossPercent, config.MaxStopLossPercent);
-        
-        var stopDistance = entryPrice * (stopPercent / 100);
+
+        var stopDistance = entryPrice * (stopPercent / 100m);
         var stopLoss = isLong ? entryPrice - stopDistance : entryPrice + stopDistance;
-        
+
         // Calculate quantity based on max loss
         var riskPerShare = stopDistance;
         var maxLoss = Math.Min(config.MaxLossPerTrade, GetRemainingDailyRisk());
-        var quantity = (int)Math.Floor(maxLoss / riskPerShare);
+        var quantity = riskPerShare > 0m ? (int)Math.Floor(maxLoss / riskPerShare) : 1;
         quantity = Math.Max(1, quantity);
-        
+
         return (Math.Round(stopLoss, 2), quantity);
     }
 
@@ -295,27 +289,41 @@ public sealed class RiskGuardian
     /// <summary>
     /// Creates a copy of the setup with adjusted quantity.
     /// </summary>
-    private static TradeSetup CloneWithQuantity(TradeSetup original, int newQuantity)
+    private static TradeSetup CloneWithQuantity(TradeSetup original, int newQuantity) => new()
     {
-        return new TradeSetup
-        {
-            SetupId = original.SetupId,
-            Symbol = original.Symbol,
-            CompanyName = original.CompanyName,
-            Direction = original.Direction,
-            EntryPrice = original.EntryPrice,
-            EntryType = original.EntryType,
-            StopLoss = original.StopLoss,
-            TakeProfit = original.TakeProfit,
-            TrailingStopPercent = original.TrailingStopPercent,
-            Quantity = newQuantity,
-            RiskDollars = Math.Abs(original.EntryPrice - original.StopLoss) * newQuantity,
-            RewardDollars = Math.Abs(original.TakeProfit - original.EntryPrice) * newQuantity,
-            ConfidenceScore = original.ConfidenceScore,
-            Rationale = original.Rationale,
-            BullishFactors = original.BullishFactors,
-            BearishFactors = original.BearishFactors
-        };
+        SetupId = original.SetupId,
+        Symbol = original.Symbol,
+        CompanyName = original.CompanyName,
+        Direction = original.Direction,
+        EntryPrice = original.EntryPrice,
+        EntryType = original.EntryType,
+        StopLoss = original.StopLoss,
+        TakeProfit = original.TakeProfit,
+        TrailingStopPercent = original.TrailingStopPercent,
+        Quantity = newQuantity,
+        RiskDollars = Math.Abs(original.EntryPrice - original.StopLoss) * newQuantity,
+        RewardDollars = Math.Abs(original.TakeProfit - original.EntryPrice) * newQuantity,
+        ConfidenceScore = original.ConfidenceScore,
+        Rationale = original.Rationale,
+        BullishFactors = original.BullishFactors,
+        BearishFactors = original.BearishFactors
+    };
+
+    private static DateOnly CurrentTradingDate()
+    {
+        var et = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, EasternTimeZone);
+        // Anything before 4 AM ET still belongs to the previous trading session.
+        if (et.Hour < 4) et = et.AddDays(-1);
+        return DateOnly.FromDateTime(et);
+    }
+
+    private static TimeZoneInfo ResolveEasternTimeZone()
+    {
+        try { return TimeZoneInfo.FindSystemTimeZoneById("America/New_York"); }
+        catch (TimeZoneNotFoundException) { }
+        try { return TimeZoneInfo.FindSystemTimeZoneById("Eastern Standard Time"); }
+        catch (TimeZoneNotFoundException) { }
+        return TimeZoneInfo.Utc;
     }
 }
 
@@ -324,12 +332,12 @@ public sealed class RiskGuardian
 /// </summary>
 public sealed class RiskGuardianStatus
 {
-    public double MaxLossPerTrade { get; init; }
-    public double MaxLossPerDay { get; init; }
-    public double DailyLossSoFar { get; init; }
-    public double RemainingDailyRisk { get; init; }
-    public double AccountBalance { get; init; }
+    public decimal MaxLossPerTrade { get; init; }
+    public decimal MaxLossPerDay { get; init; }
+    public decimal DailyLossSoFar { get; init; }
+    public decimal RemainingDailyRisk { get; init; }
+    public decimal AccountBalance { get; init; }
     public bool IsCircuitBreakerTripped { get; init; }
-    
-    public double DailyLossPercent => MaxLossPerDay > 0 ? (DailyLossSoFar / MaxLossPerDay) * 100 : 0;
+
+    public decimal DailyLossPercent => MaxLossPerDay > 0m ? (DailyLossSoFar / MaxLossPerDay) * 100m : 0m;
 }

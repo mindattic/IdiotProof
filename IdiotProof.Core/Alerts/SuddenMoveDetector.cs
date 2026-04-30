@@ -16,6 +16,7 @@
 // ============================================================================
 
 using System.Collections.Concurrent;
+using IdiotProof.Models;
 using IdiotProof.Services;
 
 namespace IdiotProof.Alerts;
@@ -193,7 +194,7 @@ public sealed class SuddenMoveDetector
     
     public SuddenMoveDetector(MoveDetectorConfig? config = null)
     {
-        config = config ?? new MoveDetectorConfig();
+        this.config = config ?? new MoveDetectorConfig();
     }
     
     /// <summary>
@@ -371,23 +372,23 @@ public sealed class SuddenMoveDetector
         
         var riskDollars = quantity * riskPerShare;
         var rewardDollars = quantity * (takeProfit - entry);
-        var rr = riskDollars > 0 ? rewardDollars / riskDollars : 0;
-        
+
         return new TradeSetup
         {
             Symbol = tracker.Symbol,
-            IsLong = true,
-            EntryPrice = Math.Round(entry, 2),
-            StopLoss = Math.Round(stopLoss, 2),
-            TakeProfit = Math.Round(takeProfit, 2),
-            TrailingStopPercent = trailingPercent,
+            Direction = TradeDirection.Long,
+            EntryPrice = Math.Round((decimal)entry, 2),
+            StopLoss = Math.Round((decimal)stopLoss, 2),
+            TakeProfit = Math.Round((decimal)takeProfit, 2),
+            TrailingStopPercent = (decimal)trailingPercent,
             Quantity = quantity,
-            RiskDollars = Math.Round(riskDollars, 2),
-            RewardDollars = Math.Round(rewardDollars, 2),
-            RiskRewardRatio = Math.Round(rr, 2)
+            RiskDollars = Math.Round((decimal)riskDollars, 2),
+            RewardDollars = Math.Round((decimal)rewardDollars, 2),
+            // RiskRewardRatio is computed from RiskDollars/RewardDollars on Models.TradeSetup;
+            // no need to pre-round it here.
         };
     }
-    
+
     private TradeSetup GenerateShortSetup(PriceTracker tracker)
     {
         var entry = tracker.CurrentPrice;
@@ -416,20 +417,19 @@ public sealed class SuddenMoveDetector
         
         var riskDollars = quantity * riskPerShare;
         var rewardDollars = quantity * (entry - takeProfit);
-        var rr = riskDollars > 0 ? rewardDollars / riskDollars : 0;
-        
+
         return new TradeSetup
         {
             Symbol = tracker.Symbol,
-            IsLong = false,
-            EntryPrice = Math.Round(entry, 2),
-            StopLoss = Math.Round(stopLoss, 2),
-            TakeProfit = Math.Round(takeProfit, 2),
-            TrailingStopPercent = trailingPercent,
+            Direction = TradeDirection.Short,
+            EntryPrice = Math.Round((decimal)entry, 2),
+            StopLoss = Math.Round((decimal)stopLoss, 2),
+            TakeProfit = Math.Round((decimal)takeProfit, 2),
+            TrailingStopPercent = (decimal)trailingPercent,
             Quantity = quantity,
-            RiskDollars = Math.Round(riskDollars, 2),
-            RewardDollars = Math.Round(rewardDollars, 2),
-            RiskRewardRatio = Math.Round(rr, 2)
+            RiskDollars = Math.Round((decimal)riskDollars, 2),
+            RewardDollars = Math.Round((decimal)rewardDollars, 2),
+            // RiskRewardRatio is computed from RiskDollars/RewardDollars on Models.TradeSetup.
         };
     }
     

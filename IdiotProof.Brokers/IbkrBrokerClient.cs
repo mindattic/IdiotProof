@@ -1,5 +1,7 @@
 using System.Collections.Concurrent;
 using IdiotProof.Models;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace IdiotProof.Brokers;
 
@@ -11,19 +13,22 @@ public sealed class IbkrBrokerClient : IBrokerClient, IDisposable
     private readonly string host;
     private readonly int port;
     private readonly int clientId;
+    private readonly ILogger<IbkrBrokerClient> logger;
     private IBApi.EClientSocket? socket;
     private IBApi.EReaderMonitorSignal? signal;
     private IbkrWrapper? wrapper;
+    private Task? readerTask;
     private bool connected;
 
     public BrokerType BrokerType => BrokerType.Ibkr;
     public bool IsConnected => connected && (socket?.IsConnected() ?? false);
 
-    public IbkrBrokerClient(string host = "127.0.0.1", int port = 4002, int clientId = 99)
+    public IbkrBrokerClient(string host = "127.0.0.1", int port = 4002, int clientId = 99, ILogger<IbkrBrokerClient>? logger = null)
     {
         this.host = host;
         this.port = port;
         this.clientId = clientId;
+        this.logger = logger ?? NullLogger<IbkrBrokerClient>.Instance;
     }
 
     public Task<bool> ConnectAsync(CancellationToken ct = default)
@@ -31,19 +36,30 @@ public sealed class IbkrBrokerClient : IBrokerClient, IDisposable
         try
         {
             signal = new IBApi.EReaderMonitorSignal();
-            wrapper = new IbkrWrapper();
+            wrapper = new IbkrWrapper(logger);
             socket = new IBApi.EClientSocket(wrapper, signal);
             socket.eConnect(host, port, clientId);
 
             var reader = new IBApi.EReader(socket, signal);
             reader.Start();
-            Task.Factory.StartNew(() =>
+
+            var localSocket = socket;
+            var localSignal = signal;
+            readerTask = Task.Factory.StartNew(() =>
             {
-                while (socket.IsConnected())
+                while (localSocket.IsConnected())
                 {
-                    signal.waitForSignal();
-                    reader.processMsgs();
+                    try
+                    {
+                        localSignal.waitForSignal();
+                        reader.processMsgs();
+                    }
+                    catch (Exception ex)
+                    {
+                        logger.LogError(ex, "IBKR reader loop threw; continuing.");
+                    }
                 }
+                logger.LogInformation("IBKR reader loop exited.");
             }, TaskCreationOptions.LongRunning);
 
             connected = socket.IsConnected();
@@ -52,16 +68,33 @@ public sealed class IbkrBrokerClient : IBrokerClient, IDisposable
         catch (Exception ex)
         {
             connected = false;
-            System.Diagnostics.Debug.WriteLine($"IBKR connect failed: {ex.Message}");
+            logger.LogError(ex, "IBKR connect failed.");
             return Task.FromResult(false);
         }
     }
 
-    public Task DisconnectAsync()
+    public async Task DisconnectAsync()
     {
         socket?.eDisconnect();
         connected = false;
-        return Task.CompletedTask;
+
+        var task = readerTask;
+        if (task != null)
+        {
+            try
+            {
+                await task.WaitAsync(TimeSpan.FromSeconds(5)).ConfigureAwait(false);
+            }
+            catch (TimeoutException)
+            {
+                logger.LogWarning("IBKR reader task did not exit within 5s of disconnect.");
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "IBKR reader task ended with exception.");
+            }
+            readerTask = null;
+        }
     }
 
     public async Task<OrderResult> PlaceOrderAsync(OrderRequest request, CancellationToken ct = default)
@@ -115,16 +148,34 @@ public sealed class IbkrBrokerClient : IBrokerClient, IDisposable
 
     public async Task<OrderResult> CancelOrderAsync(string orderId, CancellationToken ct = default)
     {
-        if (!IsConnected || socket == null)
+        if (!IsConnected || socket == null || wrapper == null)
             return new OrderResult { BrokerOrderId = orderId, IsSuccess = false, Message = "IBKR not connected." };
 
         if (!int.TryParse(orderId, out var id))
             return new OrderResult { BrokerOrderId = orderId, IsSuccess = false, Message = "Invalid IBKR order ID format." };
 
-        socket.cancelOrder(id, new IBApi.OrderCancel());
-        await Task.Delay(500, ct).ConfigureAwait(false);
+        var tcs = new TaskCompletionSource<OrderResult>(TaskCreationOptions.RunContinuationsAsynchronously);
+        wrapper.RegisterPendingCancel(id, tcs);
 
-        return new OrderResult { BrokerOrderId = orderId, IsSuccess = true, Message = "Cancel request sent to IBKR." };
+        socket.cancelOrder(id, new IBApi.OrderCancel());
+
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        timeout.CancelAfter(TimeSpan.FromSeconds(10));
+
+        try
+        {
+            return await tcs.Task.WaitAsync(timeout.Token).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            wrapper.UnregisterPendingCancel(id);
+            return new OrderResult
+            {
+                BrokerOrderId = orderId,
+                IsSuccess = false,
+                Message = ct.IsCancellationRequested ? "Cancelled." : "Cancel request timed out waiting for IBKR confirmation."
+            };
+        }
     }
 
     public async Task<IReadOnlyList<Position>> GetPositionsAsync(CancellationToken ct = default)
@@ -157,14 +208,21 @@ public sealed class IbkrBrokerClient : IBrokerClient, IDisposable
 /// </summary>
 internal sealed class IbkrWrapper : IBApi.EWrapper
 {
+    private readonly ILogger logger;
     private int nextOrderId = -1;
     private readonly object orderIdLock = new();
     private readonly ManualResetEventSlim nextValidIdReady = new(false);
     private readonly ConcurrentDictionary<int, TaskCompletionSource<OrderResult>> pendingOrders = new();
+    private readonly ConcurrentDictionary<int, TaskCompletionSource<OrderResult>> pendingCancels = new();
 
     private readonly List<Position> positionBuffer = [];
     private Action<IReadOnlyList<Position>>? positionCallback;
     private readonly object positionLock = new();
+
+    public IbkrWrapper(ILogger logger)
+    {
+        this.logger = logger;
+    }
 
     public bool WaitForNextValidId(TimeSpan timeout) => nextValidIdReady.Wait(timeout);
 
@@ -183,6 +241,12 @@ internal sealed class IbkrWrapper : IBApi.EWrapper
 
     public void UnregisterPendingOrder(int orderId)
         => pendingOrders.TryRemove(orderId, out _);
+
+    public void RegisterPendingCancel(int orderId, TaskCompletionSource<OrderResult> tcs)
+        => pendingCancels[orderId] = tcs;
+
+    public void UnregisterPendingCancel(int orderId)
+        => pendingCancels.TryRemove(orderId, out _);
 
     public void RegisterPositionCallback(Action<IReadOnlyList<Position>> callback)
     {
@@ -213,18 +277,29 @@ internal sealed class IbkrWrapper : IBApi.EWrapper
 
     private void HandleOrderStatus(int orderId, string status, decimal fillPrice)
     {
-        if (!pendingOrders.TryGetValue(orderId, out var tcs)) return;
-
         bool terminal = status is "Filled" or "Cancelled" or "ApiCancelled" or "Inactive";
         if (!terminal) return;
 
-        if (pendingOrders.TryRemove(orderId, out _))
+        if (pendingOrders.TryRemove(orderId, out var orderTcs))
         {
-            tcs.TrySetResult(new OrderResult
+            orderTcs.TrySetResult(new OrderResult
             {
                 BrokerOrderId = orderId.ToString(),
                 IsSuccess = status == "Filled",
                 Message = status == "Filled" ? $"Filled @ {fillPrice:F2}" : $"Order {status}."
+            });
+        }
+
+        if (pendingCancels.TryRemove(orderId, out var cancelTcs))
+        {
+            bool cancelled = status is "Cancelled" or "ApiCancelled" or "Inactive";
+            cancelTcs.TrySetResult(new OrderResult
+            {
+                BrokerOrderId = orderId.ToString(),
+                IsSuccess = cancelled,
+                Message = cancelled
+                    ? $"Cancel confirmed by IBKR ({status})."
+                    : $"Cancel rejected — order reached terminal state {status} before cancel arrived."
             });
         }
     }
@@ -258,22 +333,28 @@ internal sealed class IbkrWrapper : IBApi.EWrapper
         cb?.Invoke(snapshot);
     }
 
-    public void error(Exception e) => System.Diagnostics.Debug.WriteLine($"IBKR Error: {e.Message}");
-    public void error(string str) => System.Diagnostics.Debug.WriteLine($"IBKR Error: {str}");
+    public void error(Exception e) => logger.LogError(e, "IBKR error.");
+    public void error(string str) => logger.LogError("IBKR error: {Message}", str);
     public void error(int id, int errorCode, string errorMsg, string advancedOrderRejectJson)
     {
-        System.Diagnostics.Debug.WriteLine($"IBKR Error [{id}] {errorCode}: {errorMsg}");
+        logger.LogWarning("IBKR error [id={Id}] code={Code}: {Message}", id, errorCode, errorMsg);
         // Reject pending order on known error codes
         if (errorCode is 103 or 110 or 201 or 399 or 4108 or 4110)
         {
             if (pendingOrders.TryRemove(id, out var tcs))
                 tcs.TrySetResult(new OrderResult { BrokerOrderId = id.ToString(), IsSuccess = false, Message = $"IBKR rejected: {errorMsg}" });
         }
+        // Code 202 = order cancelled; code 10148 = order not active to cancel.
+        if (errorCode is 202 or 10148)
+        {
+            if (pendingCancels.TryRemove(id, out var ctcs))
+                ctcs.TrySetResult(new OrderResult { BrokerOrderId = id.ToString(), IsSuccess = errorCode == 202, Message = errorMsg });
+        }
     }
     public void error(int id, long time, int errorCode, string errorMsg, string advancedOrderRejectJson) =>
         error(id, errorCode, errorMsg, advancedOrderRejectJson);
 
-    public void connectionClosed() => System.Diagnostics.Debug.WriteLine("IBKR connection closed.");
+    public void connectionClosed() => logger.LogInformation("IBKR connection closed.");
     public void connectAck() { }
     public void currentTime(long time) { }
     public void currentTimeInMillis(long time) { }

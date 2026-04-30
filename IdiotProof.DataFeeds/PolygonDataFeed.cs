@@ -16,8 +16,12 @@ public sealed class PolygonDataFeed : IMarketDataFeed, IAsyncDisposable
 
     public PolygonDataFeed(string apiKey)
     {
-        apiKey = apiKey ?? string.Empty;
-        httpClient = new HttpClient { BaseAddress = new Uri("https://api.polygon.io/") };
+        this.apiKey = apiKey ?? string.Empty;
+        httpClient = new HttpClient
+        {
+            BaseAddress = new Uri("https://api.polygon.io/"),
+            Timeout = TimeSpan.FromSeconds(30)
+        };
     }
 
     public async Task<LatestPrice?> GetLatestPriceAsync(string symbol, CancellationToken ct = default)
