@@ -1,10 +1,13 @@
 @page "/settings"
 @rendermode InteractiveServer
+@using IdiotProof.Blazor.Services
 @inject AppSettings AppSettings
 @inject IStorageProvider StorageProvider
 @inject TradingStateService TradingState
 @inject UserManager<AppUser> UserMgr
 @inject AuthenticationStateProvider AuthStateProvider
+@inject SettingsRepository SettingsRepo
+@inject AuditLogRepository AuditLogRepo
 
 <PageTitle>Settings — IdiotProof</PageTitle>
 
@@ -277,15 +280,22 @@
         new() { ModelId = "claude-haiku-4-5-20251001", Weight = 1 },
     ];
 
-    protected override void OnInitialized()
+    protected override async Task OnInitializedAsync()
     {
-        defaultBroker = AppSettings.DefaultBroker;
-        defaultDataFeed = AppSettings.DefaultDataFeed;
-        timezone = AppSettings.Timezone;
-        showConnectionMessages = AppSettings.ShowConnectionMessages;
-        llmEnabled = AppSettings.LlmVotingEnabled;
-        evalInterval = AppSettings.StrategyEvaluationIntervalSeconds;
-        maxConcurrent = AppSettings.MaxConcurrentEvaluations;
+        // Read order: SQL KV store wins (canonical) → AppSettings snapshot (boot
+        // values) → defaults baked into the typed class. The KV store is empty
+        // on first run so AppSettings provides the seed values.
+        defaultBroker          = await SettingsRepo.GetAsync("ui.defaultBroker")    ?? AppSettings.DefaultBroker;
+        defaultDataFeed        = await SettingsRepo.GetAsync("ui.defaultDataFeed")  ?? AppSettings.DefaultDataFeed;
+        timezone               = await SettingsRepo.GetAsync("ui.timezone")         ?? AppSettings.Timezone;
+        showConnectionMessages = (await SettingsRepo.GetBoolAsync("ui.showConnectionMessages")) ?? AppSettings.ShowConnectionMessages;
+        llmEnabled             = (await SettingsRepo.GetBoolAsync("llm.votingEnabled")) ?? AppSettings.LlmVotingEnabled;
+        evalInterval           = (await SettingsRepo.GetIntAsync("engine.evaluationIntervalSeconds")) ?? AppSettings.StrategyEvaluationIntervalSeconds;
+        maxConcurrent          = (await SettingsRepo.GetIntAsync("engine.maxConcurrentEvaluations")) ?? AppSettings.MaxConcurrentEvaluations;
+
+        var thresholdRaw       = await SettingsRepo.GetDecimalAsync("llm.consensusThreshold");
+        if (thresholdRaw is { } t) consensusThreshold = (int)Math.Round(t * 100);
+        else                       consensusThreshold = (int)Math.Round(AppSettings.LlmConsensusThreshold * 100);
 
         LoadLogEntries();
     }
@@ -309,18 +319,46 @@
         catch { logEntries = ["(Could not read log files)"]; }
     }
 
-    private void SaveSettings()
+    private async Task SaveSettings()
     {
-        AppSettings.DefaultBroker = defaultBroker;
-        AppSettings.DefaultDataFeed = defaultDataFeed;
-        AppSettings.Timezone = timezone;
-        AppSettings.ShowConnectionMessages = showConnectionMessages;
-        AppSettings.LlmVotingEnabled = llmEnabled;
-        AppSettings.StrategyEvaluationIntervalSeconds = Math.Clamp(evalInterval, 5, 300);
-        AppSettings.MaxConcurrentEvaluations = Math.Clamp(maxConcurrent, 1, 20);
+        // Clamp before persisting so out-of-range values from a tampered DOM
+        // never reach the database.
+        evalInterval  = Math.Clamp(evalInterval, 5, 300);
+        maxConcurrent = Math.Clamp(maxConcurrent, 1, 20);
+        consensusThreshold = Math.Clamp(consensusThreshold, 50, 100);
+
+        // Live-update the in-memory AppSettings snapshot so any code that
+        // injected it (StrategyExecutionService, etc.) sees the new values
+        // before the next process restart.
+        AppSettings.DefaultBroker                       = defaultBroker;
+        AppSettings.DefaultDataFeed                     = defaultDataFeed;
+        AppSettings.Timezone                            = timezone;
+        AppSettings.ShowConnectionMessages              = showConnectionMessages;
+        AppSettings.LlmVotingEnabled                    = llmEnabled;
+        AppSettings.StrategyEvaluationIntervalSeconds   = evalInterval;
+        AppSettings.MaxConcurrentEvaluations            = maxConcurrent;
+        AppSettings.LlmConsensusThreshold               = consensusThreshold / 100m;
+
+        // Canonical persist path: SQL KV. The disk app-settings.json file
+        // remains as a startup-overlay seed so older process forks (CLI,
+        // existing engine) keep reading what they always read.
+        await SettingsRepo.SetAsync("ui.defaultBroker", defaultBroker);
+        await SettingsRepo.SetAsync("ui.defaultDataFeed", defaultDataFeed);
+        await SettingsRepo.SetAsync("ui.timezone", timezone);
+        await SettingsRepo.SetAsync("ui.showConnectionMessages", showConnectionMessages ? "true" : "false");
+        await SettingsRepo.SetAsync("llm.votingEnabled", llmEnabled ? "true" : "false");
+        await SettingsRepo.SetAsync("llm.consensusThreshold", (consensusThreshold / 100m).ToString(System.Globalization.CultureInfo.InvariantCulture));
+        await SettingsRepo.SetAsync("engine.evaluationIntervalSeconds", evalInterval.ToString(System.Globalization.CultureInfo.InvariantCulture));
+        await SettingsRepo.SetAsync("engine.maxConcurrentEvaluations", maxConcurrent.ToString(System.Globalization.CultureInfo.InvariantCulture));
 
         AppSettings.Save(StorageProvider);
-        saveMessage = "Settings saved.";
+
+        // Record who changed what so the audit trail captures config drift.
+        var auth   = await AuthStateProvider.GetAuthenticationStateAsync();
+        var userId = auth.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+        await AuditLogRepo.LogAsync("settings", "Settings updated", userId);
+
+        saveMessage = "Settings saved (DB + disk).";
     }
 
     private async Task ChangePassword()

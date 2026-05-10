@@ -48,23 +48,43 @@ public sealed class AlpacaBrokerClient : IBrokerClient, IAsyncDisposable
 
     public async Task<OrderResult> PlaceOrderAsync(OrderRequest request, CancellationToken ct = default)
     {
-        if (string.IsNullOrWhiteSpace(request.Symbol) || request.Quantity <= 0)
+        if (string.IsNullOrWhiteSpace(request.Symbol))
+            return new OrderResult { IsSuccess = false, Message = "Symbol required." };
+
+        // Either qty (shares) or notional (dollars) must be set — Alpaca
+        // accepts exactly one. Quantity wins when both are populated;
+        // empty-both is rejected so we don't accidentally place a $0 order.
+        var hasShares   = request.Quantity > 0;
+        var hasNotional = request.Notional is { } n && n > 0m;
+        if (!hasShares && !hasNotional)
         {
-            return new OrderResult { IsSuccess = false, Message = "Invalid symbol or quantity." };
+            return new OrderResult { IsSuccess = false, Message = "Order requires either Quantity (shares) or Notional (dollars)." };
         }
 
         var side = request.Side == OrderSide.Buy ? "buy" : "sell";
         var type = request.Type == OrderType.Market ? "market" : "limit";
 
-        var payload = new
-        {
-            symbol = request.Symbol.ToUpperInvariant(),
-            qty = request.Quantity,
-            side,
-            type,
-            time_in_force = request.TimeInForce.ToLowerInvariant(),
-            limit_price = request.Type == OrderType.Limit ? request.LimitPrice : null
-        };
+        // Alpaca's /v2/orders accepts qty XOR notional. We send only the field
+        // that's actually set so the API doesn't 422 on the "both" case.
+        object payload = hasShares
+            ? new
+            {
+                symbol        = request.Symbol.ToUpperInvariant(),
+                qty           = request.Quantity,
+                side,
+                type,
+                time_in_force = request.TimeInForce.ToLowerInvariant(),
+                limit_price   = request.Type == OrderType.Limit ? request.LimitPrice : null,
+            }
+            : new
+            {
+                symbol        = request.Symbol.ToUpperInvariant(),
+                notional      = request.Notional!.Value,
+                side,
+                type,
+                time_in_force = request.TimeInForce.ToLowerInvariant(),
+                limit_price   = request.Type == OrderType.Limit ? request.LimitPrice : null,
+            };
 
         using var response = await httpClient.PostAsJsonAsync("/v2/orders", payload, ct).ConfigureAwait(false);
         var content = await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false);

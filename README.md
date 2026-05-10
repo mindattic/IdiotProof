@@ -234,6 +234,7 @@ Every verb has natural-language aliases so Claude-generated scripts compile rega
 
 #### Order / Risk / Exit
 - `.Long()` / `.Short()` / `.Order(TradeDirection)`
+- `.Quantity(int shares)` / `.Quantity(decimal dollars)` — overloaded; share count or notional dollars (Alpaca's `notional` field). Mutually exclusive — setting one clears the other. Aliases: `.QuantityShares(N)` / `.QuantityNotional($)`.
 - `.StopLoss(price)` / `.StopLossPercent(percent)` / `.TrailingStopLoss(percent)`
 - `.TakeProfit(price)` / `.TakeProfit(t1, t2, t3?)` / `.TakeProfitPercent(percent)`
 - `.ExitStrategy(timeOfDay)`
@@ -488,13 +489,14 @@ dotnet run --project IdiotProof.Monitor
 dotnet test tests/IdiotProof.NUnitTests
 ```
 
-47 tests covering:
+52 tests covering:
 
 - **DslConditionTests** — every new condition verb (VWAP/EMA/ADX/RSI/Volume/Support/Resistance) + the `.And/.Or/.Not` algebra + phase tagging
 - **CandlestickPatternsTests** — engulfing/hammer/shooting-star/doji + zero-range edge cases
 - **IndicatorSnapshotBuilderTests** — empty input, ramp data, EMA dictionary, prior fields, ADX/RSI/swing levels
 - **WikilinkParserTests** — text passthrough, single/multi wikilinks, unparseable fallback, full chain parse
 - **DslStrategyTests** — symbol mismatch, no candles, all-pass signal emission, stop/target propagation, type tagging
+- **QuantityTests** — share/notional overload mutual exclusion, alias parity, default behavior
 
 ### Cypress (frontend)
 
@@ -552,7 +554,6 @@ IdiotProof/
 ### Pending (deferred from prior sessions)
 
 - **Engine adoption of SQL workspaces** — the schema (`Workspaces`, `SettingsKv`, `AuditLogs` tables + `WorkspaceRepository` / `SettingsRepository` / `AuditLogRepository`) landed in the migration `AddSettingsWorkspacesAuditLog`. The Engine's legacy JSON-on-disk `WorkspaceManager` still works; switching it to read/write through `WorkspaceRepository` is a follow-on refactor (plus a one-shot disk → SQL importer for any existing workspaces).
-- **Notional sizing** — `Quantity.Notional($1000)` alongside `Quantity.Shares(100)`. Type wrapper exists in spec; needs the Alpaca order-placement plumbing.
 - **Multi-tab strategy editor** — the Strategies-page → /builder navigation is single-tab today. Multi-tab with localStorage tab restoration is on the roadmap.
 - **Visual drag-and-drop** — the Strategy Builder's visual flow-chart is currently read-only. Drag-and-drop reorder + add/remove condition cards is a pending UX upgrade.
 - **Roslyn-based parser** — the current `WikilinkParser.ParseScript` is regex-driven and tolerant. A proper Roslyn parser would surface syntax errors at exact line/col.

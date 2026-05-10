@@ -55,11 +55,43 @@ public sealed class StrategyBuilder
         return this;
     }
     
-    public StrategyBuilder Quantity(int quantity)
+    /// <summary>
+    /// Sizes the position by share count. Mutually exclusive with the decimal
+    /// overload (notional). Calling this clears any prior notional setting.
+    /// Example: <c>.Quantity(100)</c> = 100 shares.
+    /// </summary>
+    public StrategyBuilder Quantity(int shares)
     {
-        strategy.Quantity = quantity;
+        strategy.Quantity = shares;
+        strategy.NotionalAmount = null;
         return this;
     }
+
+    /// <summary>
+    /// Sizes the position by dollar amount (Alpaca's <c>notional</c> field).
+    /// Mutually exclusive with the int overload. Useful for risk-budgeted
+    /// strategies — "$1000 of TSLA" works regardless of share price.
+    /// Example: <c>.Quantity(1000m)</c> = $1000 worth.
+    /// </summary>
+    public StrategyBuilder Quantity(decimal notionalDollars)
+    {
+        strategy.Quantity = 0;
+        strategy.NotionalAmount = notionalDollars;
+        return this;
+    }
+
+    /// <summary>
+    /// Explicit shares-only setter. Same as <see cref="Quantity(int)"/> but
+    /// reads more naturally inside Conditions/Branch builders that use
+    /// <c>Quantity.Shares(N)</c> idiom.
+    /// </summary>
+    public StrategyBuilder QuantityShares(int shares) => Quantity(shares);
+
+    /// <summary>
+    /// Explicit notional-only setter. Same as the <c>decimal</c> overload but
+    /// disambiguates at the call site.
+    /// </summary>
+    public StrategyBuilder QuantityNotional(decimal dollars) => Quantity(dollars);
     
     // ========================================
     // ENTRY CONDITIONS
@@ -584,7 +616,25 @@ public sealed class StrategyDefinition
     public string Symbol { get; set; } = "";
     public string? Name { get; set; }
     public TradingSession Session { get; set; } = TradingSession.RTH;
+
+    /// <summary>
+    /// Position size as a count of shares. <c>0</c> means "use the workspace's
+    /// default size at fire time." Mutually exclusive with
+    /// <see cref="NotionalAmount"/> — set via <c>Quantity(int)</c> for shares
+    /// or <c>Quantity(decimal)</c> for notional dollars.
+    /// </summary>
     public int Quantity { get; set; }
+
+    /// <summary>
+    /// Position size as a dollar amount (Alpaca <c>notional</c>). Null when
+    /// the strategy sizes by shares. The broker layer routes whichever field
+    /// is set. Notional sizing is the cleanest way to express
+    /// "5% of portfolio per trade" without recomputing share counts.
+    /// </summary>
+    public decimal? NotionalAmount { get; set; }
+
+    /// <summary>True when the strategy sizes by dollars rather than shares.</summary>
+    public bool IsNotional => NotionalAmount.HasValue;
     
     public List<ICondition> EntryConditions { get; } = [];
     public TradeDirection Direction { get; set; } = TradeDirection.Long;

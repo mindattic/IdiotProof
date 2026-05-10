@@ -38,12 +38,26 @@ public sealed class TradeExecution
 }
 
 /// <summary>
-/// Request to place an order with a broker.
+/// Request to place an order with a broker. Either <see cref="Quantity"/>
+/// (share count) or <see cref="Notional"/> (dollar amount) sizes the order;
+/// brokers that support both (Alpaca) route whichever is set, with Quantity
+/// winning when both are populated. The DSL prevents the "both" case at
+/// authoring time but the broker layer is defensive anyway.
 /// </summary>
 public sealed class OrderRequest
 {
     public string Symbol { get; init; } = string.Empty;
+
+    /// <summary>Share count. <c>0</c> when the order is notionally sized.</summary>
     public int Quantity { get; init; }
+
+    /// <summary>
+    /// Dollar amount (Alpaca <c>notional</c> field). Null when the order is
+    /// share-sized. Brokers that don't support notional should reject with a
+    /// helpful message rather than silently fall back to a guess.
+    /// </summary>
+    public decimal? Notional { get; init; }
+
     public OrderSide Side { get; init; }
     public OrderType Type { get; init; }
     public decimal? LimitPrice { get; init; }
