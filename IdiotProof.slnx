@@ -1,16 +1,16 @@
 <Solution>
   <Folder Name="/src/">
-    <Project Path="src/IdiotProof.Brokers/IdiotProof.Brokers.csproj" />
-    <Project Path="src/IdiotProof.DataFeeds/IdiotProof.DataFeeds.csproj" />
-    <Project Path="src/IdiotProof.Engine/IdiotProof.Engine.csproj" />
-    <Project Path="src/IdiotProof.Indicators/IdiotProof.Indicators.csproj" />
-    <Project Path="src/IdiotProof.Models/IdiotProof.Models.csproj" />
-    <Project Path="src/IdiotProof.Strategies/IdiotProof.Strategies.csproj" />
+    <Project Path="IdiotProof.Brokers/IdiotProof.Brokers.csproj" />
+    <Project Path="IdiotProof.DataFeeds/IdiotProof.DataFeeds.csproj" />
+    <Project Path="IdiotProof.Engine/IdiotProof.Engine.csproj" />
+    <Project Path="IdiotProof.Indicators/IdiotProof.Indicators.csproj" />
+    <Project Path="IdiotProof.Models/IdiotProof.Models.csproj" />
+    <Project Path="IdiotProof.Strategies/IdiotProof.Strategies.csproj" />
   </Folder>
   <Folder Name="/tests/">
-    <Project Path="tests/IdiotProof.Engine.Tests/IdiotProof.Engine.Tests.csproj" />
-    <Project Path="tests/IdiotProof.Indicators.Tests/IdiotProof.Indicators.Tests.csproj" />
-    <Project Path="tests/IdiotProof.Strategies.Tests/IdiotProof.Strategies.Tests.csproj" />
+    <Project Path="IdiotProof.Engine.Tests/IdiotProof.Engine.Tests.csproj" />
+    <Project Path="IdiotProof.Indicators.Tests/IdiotProof.Indicators.Tests.csproj" />
+    <Project Path="IdiotProof.Strategies.Tests/IdiotProof.Strategies.Tests.csproj" />
   </Folder>
   <Project Path="IdiotProof.Scripting/IdiotProof.Scripting.csproj" />
   <Project Path="IdiotProof.Shared/IdiotProof.Shared.csproj" />
