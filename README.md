@@ -136,7 +136,8 @@ SQL Server (LocalDB by default)                ← canonical runtime state
     ├── LearningArticles                        (Slug, Category, Title, BodyMarkdown, Order)
     ├── SettingsKv                               (generic KV store for runtime-editable settings)
     ├── Workspaces                               (per-user containers — Watchlist + Strategies + risk params, schema-tolerant BodyJson)
-    └── AuditLogs                                (append-only trail: signal fires, orders, broker switches, risk vetoes)
+    ├── AuditLogs                                (append-only trail: signal fires, orders, broker switches, risk vetoes)
+    └── ConditionProgress                        (one row per Strategy — Monitor's most recent N/M evaluation snapshot)
 ```
 
 **Connection string priority chain** (matches StreetSamurai's pattern):
@@ -309,8 +310,9 @@ The Describe flow:
 
 - **Title + ticker chip + last-fired-at + created date**
 - **Active toggle** — flips `IsActive` in SQL. The Monitor picks active strategies on its next tick.
-- **Edit** → `/builder?strategyId={guid}`
+- **Edit** → `/builder?strategyId={guid}` — preloads the row into the Describe tab so you see the visual + script + prose ready to tweak. Save updates in place.
 - **Delete** (with confirmation modal)
+- **Live progress badge** on active rows: `3/5 · IsOnReclaim(9)` — the Monitor writes per-tick to `ConditionProgress`; the page polls every 5 s. Full-pass shows a green check.
 - **Expand** (chevron) → renders `<StrategyBuilderRenderer>` inline, plus a `<details>` of the raw IdiotScript
 
 The expand state is **persisted to localStorage** under `idiotproof.strategies.openRows` so re-opening the page restores the same expanded rows. Filter input narrows by title / ticker / description.
@@ -419,7 +421,8 @@ Every `IDIOTPROOF_MONITOR_INTERVAL` (default 30s):
 14:31:01 info: [9/30 Pullback] NVDA ✓ ALL 5/5 conditions met → SIGNAL (Long @ 472.18)
 ```
 
-5. On full-pass, call `StrategyRepository.RecordFiredAsync` to bump `LastFiredUtc` + `FireCount`.
+5. **Upsert `ConditionProgress`** with `(PassedCount, TotalCount, FirstFailingVerb)` — the Strategies page reads this every 5 s for live badges.
+6. On full-pass, call `StrategyRepository.RecordFiredAsync` to bump `LastFiredUtc` + `FireCount`.
 
 ### Run
 
@@ -530,8 +533,8 @@ IdiotProof/
 ├── IdiotProof.Engine/                       ← DI root, AppSettings, BrokerCredentialStore
 ├── IdiotProof.Blazor/                       ← Web app (the front door)
 │   ├── Data/                                ← AppDbContext, Strategy, UserPreferences, LearningArticle
-│   ├── Migrations/                          ← EF migrations: InitialSqlServer, AddUserPreferences, AddLearningArticles, AddSettingsWorkspacesAuditLog
-│   ├── Services/                            ← StrategyScriptGenerator, WikilinkParser, repositories (Strategy / Workspace / Settings / AuditLog / UserPreferences)
+│   ├── Migrations/                          ← EF migrations: InitialSqlServer, AddUserPreferences, AddLearningArticles, AddSettingsWorkspacesAuditLog, AddConditionProgress
+│   ├── Services/                            ← StrategyScriptGenerator, WikilinkParser, repositories (Strategy / Workspace / Settings / AuditLog / UserPreferences / ConditionProgress)
 │   ├── Components/Pages/                    ← Strategies.razor, StrategyBuilder.razor, Learn.razor, ...
 │   ├── Components/Shared/                   ← AccountPill.razor, StrategyBuilderRenderer.razor, WikiContent.razor
 │   └── wwwroot/css/_theme-alpaca.css
@@ -553,7 +556,6 @@ IdiotProof/
 - **Multi-tab strategy editor** — the Strategies-page → /builder navigation is single-tab today. Multi-tab with localStorage tab restoration is on the roadmap.
 - **Visual drag-and-drop** — the Strategy Builder's visual flow-chart is currently read-only. Drag-and-drop reorder + add/remove condition cards is a pending UX upgrade.
 - **Roslyn-based parser** — the current `WikilinkParser.ParseScript` is regex-driven and tolerant. A proper Roslyn parser would surface syntax errors at exact line/col.
-- **Per-condition progress in SQL** — Monitor logs to stdout today. A `ConditionProgress` table would let the Strategies page show "currently 3/5" status badges live.
 - **Risk Guardian + LLM voting on DslStrategy signals** — the Blazor host's existing `LlmVotingService` already votes on signals; wiring it into the Monitor's per-tick evaluation closes the loop end-to-end.
 
 ### Long-term

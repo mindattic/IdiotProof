@@ -27,6 +27,7 @@ namespace IdiotProof.Monitor;
 /// </summary>
 public sealed class MonitorWorker(
     StrategyRepository strategyRepo,
+    ConditionProgressRepository progressRepo,
     ILogger<MonitorWorker> logger) : BackgroundService
 {
     /// <summary>Interval between full evaluation passes. Override via env var.</summary>
@@ -145,6 +146,7 @@ public sealed class MonitorWorker(
             // No entry conditions — pure setup-only strategy. Treat as fired.
             logger.LogInformation("[{Title}] no entry conditions — auto-fire.", stored.Title);
             await strategyRepo.RecordFiredAsync(stored.Id, ct);
+            await progressRepo.UpsertAsync(stored.Id, 0, 0, null, ct);
             return;
         }
 
@@ -164,6 +166,11 @@ public sealed class MonitorWorker(
         }
 
         var total = conditions.Count;
+
+        // Persist progress so the Strategies page can render a live badge
+        // ("3/5 — waiting on OnReclaim(9)") without tailing stdout.
+        await progressRepo.UpsertAsync(stored.Id, passed, total, firstFailure, ct);
+
         if (passed == total)
         {
             logger.LogInformation("[{Title}] {Symbol} ✓ ALL {Passed}/{Total} conditions met → SIGNAL ({Direction} @ {Price:F2})",

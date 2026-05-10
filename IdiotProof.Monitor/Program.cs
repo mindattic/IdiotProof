@@ -41,6 +41,7 @@ var connStr =
 builder.Services.AddDbContextFactory<AppDbContext>(o => o.UseSqlServer(connStr));
 
 builder.Services.AddSingleton<StrategyRepository>();
+builder.Services.AddSingleton<ConditionProgressRepository>();
 builder.Services.AddHostedService<MonitorWorker>();
 
 builder.Logging.ClearProviders();

@@ -2,11 +2,13 @@
 @rendermode InteractiveServer
 @using IdiotProof.Blazor.Services
 @using IdiotProof.Scripting
+@using Microsoft.AspNetCore.WebUtilities
 @inject StrategyRegistry StrategyRegistry
 @inject WorkspaceManager WorkspaceManager
 @inject AuthenticationStateProvider AuthStateProvider
 @inject StrategyScriptGenerator ScriptGenerator
 @inject StrategyRepository StrategyRepo
+@inject NavigationManager Nav
 
 <PageTitle>Strategy Builder — IdiotProof</PageTitle>
 
@@ -453,6 +455,13 @@
     private bool isGenerating;
     private StrategyDefinition? parsedDescribePreview;
 
+    /// <summary>
+    /// When set, the page is editing an existing strategy instead of creating a
+    /// new one. Save updates the row in place; the Describe tab is preselected.
+    /// Populated from the ?strategyId= query string by OnInitializedAsync.
+    /// </summary>
+    private Guid? editingStrategyId;
+
     private Dictionary<string, bool> entryConditions = new()
     {
         ["VWAP Above"] = false,
@@ -473,6 +482,26 @@
         var auth = await AuthStateProvider.GetAuthenticationStateAsync();
         userId = auth.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? "";
         userTabs = WorkspaceManager.GetTabsForUser(userId);
+
+        // Edit-flow: /builder?strategyId={guid} preloads the row + drops the user
+        // into Describe mode so they see the visual + script + prose, ready to
+        // tweak. Save updates in place (see SaveDescribed).
+        var uri = Nav.ToAbsoluteUri(Nav.Uri);
+        if (QueryHelpers.ParseQuery(uri.Query).TryGetValue("strategyId", out var raw)
+            && Guid.TryParse(raw, out var id))
+        {
+            var existing = await StrategyRepo.GetByIdAsync(id);
+            if (existing is not null && existing.OwnerUserId == userId)
+            {
+                editingStrategyId = existing.Id;
+                describeTicker    = existing.Symbol;
+                describeTitle     = existing.Title;
+                describeProse     = existing.Description ?? "";
+                generatedScript   = existing.ScriptText;
+                ParseGenerated();
+                mode = "describe";
+            }
+        }
     }
 
     private string StepName(int step) => step switch
@@ -531,7 +560,12 @@
         parsedDescribePreview = TryParseScript(generatedScript);
     }
 
-    /// <summary>Persists the generated strategy to the SQL Strategies table.</summary>
+    /// <summary>
+    /// Persists the strategy. New = INSERT into Strategies; editing = UPDATE
+    /// the existing row's title/symbol/script/description while preserving id +
+    /// IsActive + LastFiredUtc + FireCount + CreatedUtc. The pivot is whether
+    /// editingStrategyId was populated by OnInitializedAsync.
+    /// </summary>
     private async Task SaveDescribed()
     {
         describeSaveMessage = "";
@@ -550,6 +584,28 @@
             ? parsedDescribePreview.Symbol
             : describeTicker;
 
+        if (editingStrategyId is { } existingId)
+        {
+            // Update path — fetch, mutate the user-editable fields, write back.
+            var row = await StrategyRepo.GetByIdAsync(existingId);
+            if (row is null)
+            {
+                // Row vanished between page load and save — fall through to create.
+                editingStrategyId = null;
+            }
+            else
+            {
+                row.Title       = describeTitle;
+                row.Symbol      = ticker.ToUpperInvariant();
+                row.ScriptText  = generatedScript;
+                row.Description = describeProse;
+                await StrategyRepo.UpdateAsync(row);
+                describeSaveMessage = $"Updated \"{describeTitle}\".";
+                return;
+            }
+        }
+
+        // Create path
         await StrategyRepo.CreateAsync(
             ownerUserId: userId,
             title: describeTitle,

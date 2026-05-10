@@ -7,9 +7,11 @@
 @using Microsoft.AspNetCore.Components.Authorization
 @attribute [Authorize]
 @inject StrategyRepository StrategyRepo
+@inject ConditionProgressRepository ProgressRepo
 @inject NavigationManager Nav
 @inject AuthenticationStateProvider AuthState
 @inject IJSRuntime JS
+@implements IDisposable
 
 @*
     Strategies — the front door of IdiotProof. List of every saved strategy for the
@@ -84,9 +86,28 @@
                             <i class="bi @(isOpen ? "bi-chevron-down" : "bi-chevron-right")" aria-hidden="true"></i>
                         </button>
                         <div class="flex-grow-1 min-w-0">
-                            <div class="d-flex align-items-center gap-2">
+                            <div class="d-flex align-items-center gap-2 flex-wrap">
                                 <span class="fw-semibold">@s.Title</span>
                                 <span class="strategy-chip ticker-chip">@s.Symbol</span>
+                                @if (s.IsActive && progress.TryGetValue(s.Id, out var p))
+                                {
+                                    var fullPass = p.IsFullPass;
+                                    <span class="strategy-chip @(fullPass ? "long-chip" : "filter-chip")"
+                                          title="Last evaluated @p.EvaluatedUtc.ToString("HH:mm:ss 'UTC'")">
+                                        <i class="bi @(fullPass ? "bi-check-circle-fill" : "bi-hourglass-split")" aria-hidden="true"></i>
+                                        @p.PassedCount/@p.TotalCount
+                                        @if (!fullPass && !string.IsNullOrEmpty(p.FirstFailingVerb))
+                                        {
+                                            <span class="text-muted ms-1">· @p.FirstFailingVerb</span>
+                                        }
+                                    </span>
+                                }
+                                else if (s.IsActive)
+                                {
+                                    <span class="strategy-chip text-muted">
+                                        <i class="bi bi-hourglass" aria-hidden="true"></i> awaiting first evaluation
+                                    </span>
+                                }
                                 @if (s.LastFiredUtc is { } lf)
                                 {
                                     <span class="text-muted small">last fired @lf.ToString("MMM d HH:mm 'UTC'")</span>
@@ -168,8 +189,10 @@
 
     private List<Strategy> all = new();
     private readonly Dictionary<Guid, StrategyDefinition?> previews = new();
+    private readonly Dictionary<Guid, ConditionProgress> progress = new();
     private readonly HashSet<Guid> openRows = new();
     private Strategy? deleteCandidate;
+    private System.Threading.Timer? progressPoll;
 
     private List<Strategy> filtered => string.IsNullOrWhiteSpace(filterText)
         ? all
@@ -191,12 +214,40 @@
             {
                 previews[s.Id] = TryParse(s.ScriptText);
             }
+            await RefreshProgressAsync();
         }
         catch (Exception ex)
         {
             loadError = ex.Message;
         }
         finally { loading = false; }
+
+        // Poll progress every 5 seconds while the page is open. Cheap query
+        // (one bulk read keyed on the visible strategy ids); writes happen on
+        // the Monitor's tick (default 30s) so this rate is comfortably below
+        // the producer.
+        progressPoll = new System.Threading.Timer(async _ =>
+        {
+            try { await InvokeAsync(async () => { await RefreshProgressAsync(); StateHasChanged(); }); }
+            catch { /* circuit may be tearing down */ }
+        }, null, TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(5));
+    }
+
+    /// <summary>Pulls live ConditionProgress for the currently-visible strategy ids.</summary>
+    private async Task RefreshProgressAsync()
+    {
+        var ids = all.Where(s => s.IsActive).Select(s => s.Id).ToList();
+        if (ids.Count == 0) { progress.Clear(); return; }
+
+        var rows = await ProgressRepo.GetForStrategyIdsAsync(ids);
+        progress.Clear();
+        foreach (var (k, v) in rows) progress[k] = v;
+    }
+
+    public void Dispose()
+    {
+        progressPoll?.Dispose();
+        progressPoll = null;
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)

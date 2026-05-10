@@ -13,6 +13,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options)
     public DbSet<SettingsKv>      SettingsKv       => Set<SettingsKv>();
     public DbSet<Workspace>       Workspaces       => Set<Workspace>();
     public DbSet<AuditLog>        AuditLogs        => Set<AuditLog>();
+    public DbSet<ConditionProgress> ConditionProgress => Set<ConditionProgress>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -66,6 +67,16 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options)
             e.HasIndex(a => new { a.UserId, a.TimestampUtc });
             e.HasIndex(a => a.TimestampUtc);
             e.HasIndex(a => a.Category);
+        });
+
+        builder.Entity<ConditionProgress>(e =>
+        {
+            // Index EvaluatedUtc for "stale row" cleanup queries.
+            e.HasIndex(p => p.EvaluatedUtc);
+            e.HasOne<Strategy>()
+                .WithOne()
+                .HasForeignKey<ConditionProgress>(p => p.StrategyId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
 
     }

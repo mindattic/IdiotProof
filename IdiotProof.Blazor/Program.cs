@@ -88,6 +88,7 @@ builder.Services.AddSingleton<StrategyScriptGenerator>();
 builder.Services.AddSingleton<SettingsRepository>();
 builder.Services.AddSingleton<WorkspaceRepository>();
 builder.Services.AddSingleton<AuditLogRepository>();
+builder.Services.AddSingleton<ConditionProgressRepository>();
 builder.Services.AddHttpClient();
 builder.Services.AddAntiforgery();
 
