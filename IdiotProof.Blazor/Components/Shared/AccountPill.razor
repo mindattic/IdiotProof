@@ -1,0 +1,271 @@
+@rendermode InteractiveServer
+@using IdiotProof.Blazor.Data
+@using IdiotProof.Blazor.Services
+@using Microsoft.AspNetCore.Components.Authorization
+@inject UserPreferencesService Prefs
+@inject UserKeyService UserKeys
+@inject AuthenticationStateProvider AuthState
+@inject IHttpClientFactory HttpClientFactory
+@inject IJSRuntime JS
+@implements IDisposable
+
+@*
+   AccountPill — top-left selector mirroring Alpaca's UI. Shows the active account's
+   label + masked id + balance; clicking opens a dropdown with Live and Paper sections.
+   Selecting a row writes UserPreferences (SQL) AND localStorage so SSR pre-paint
+   matches what the user last picked.
+
+   Visual cues from the theme:
+     • Live active   → red outline (driven by [data-account-type="live"] selector)
+     • Paper active  → brand-yellow outline + soft-yellow background
+
+   Accounts come from Alpaca's GET /v2/account on each side. Currently we render
+   only the active side's account; future iteration adds account-management entries.
+*@
+
+<div class="account-pill-wrap position-relative" @onclick:stopPropagation="true">
+    <button type="button"
+            class="account-pill btn d-flex align-items-center gap-2"
+            data-account-type="@activeType"
+            aria-haspopup="menu"
+            aria-expanded="@isOpen"
+            aria-label="@($"Active {activeType} account: {activeLabel}. Click to change.")"
+            @onclick="ToggleOpen">
+        <span class="account-pill-avatar" aria-hidden="true">
+            <i class="bi bi-circle-fill" style="color:var(--brand);font-size:0.65rem"></i>
+        </span>
+        <span class="d-flex flex-column align-items-start">
+            <span class="fw-semibold small">@activeLabel</span>
+            <span class="text-muted" style="font-size:0.7rem">
+                @(activeType == "live" ? "Live" : "Paper") · @MaskAccount(activeAccountId)
+            </span>
+        </span>
+        <i class="bi @(isOpen ? "bi-chevron-up" : "bi-chevron-down") small" aria-hidden="true"></i>
+    </button>
+
+    @if (isOpen)
+    {
+        <div class="account-pill-menu position-absolute"
+             role="menu"
+             aria-label="Account selector">
+            @if (errorMessage is not null)
+            {
+                <div class="alert alert-warning small py-2 mb-2">@errorMessage</div>
+            }
+
+            <div class="account-pill-section">
+                <div class="text-muted small fw-semibold px-2 pt-2">LIVE ACCOUNT</div>
+                @if (liveAccount is { } live)
+                {
+                    <button type="button"
+                            class="account-row @(activeType == "live" ? "selected" : "")"
+                            role="menuitem"
+                            @onclick='() => SelectAccount(live, "live")'>
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span class="fw-semibold">@live.Label</span>
+                            <span class="fw-semibold">@FormatMoney(live.Cash)</span>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span class="text-muted small">Brokerage Account @live.AccountId</span>
+                            <span class="@(live.DayChangePercent >= 0 ? "text-success" : "text-danger") small">
+                                @FormatPercent(live.DayChangePercent)
+                            </span>
+                        </div>
+                    </button>
+                }
+                else
+                {
+                    <div class="text-muted small px-2 py-2">No live keys configured</div>
+                }
+            </div>
+
+            <div class="account-pill-section">
+                <div class="text-muted small fw-semibold px-2 pt-2">PAPER ACCOUNT</div>
+                @if (paperAccount is { } paper)
+                {
+                    <button type="button"
+                            class="account-row @(activeType == "paper" ? "selected" : "")"
+                            role="menuitem"
+                            @onclick='() => SelectAccount(paper, "paper")'>
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span class="fw-semibold">@paper.Label</span>
+                            <span class="fw-semibold">@FormatMoney(paper.Cash)</span>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span class="text-muted small">Paper Account @paper.AccountId</span>
+                            <span class="@(paper.DayChangePercent >= 0 ? "text-success" : "text-danger") small">
+                                @FormatPercent(paper.DayChangePercent)
+                            </span>
+                        </div>
+                    </button>
+                }
+                else
+                {
+                    <div class="text-muted small px-2 py-2">No paper keys configured</div>
+                }
+            </div>
+
+            <hr class="my-1" />
+            <button type="button" class="account-row danger-text" role="menuitem" @onclick="SignOut">
+                <i class="bi bi-box-arrow-right me-1" aria-hidden="true"></i>Sign Out
+            </button>
+        </div>
+    }
+</div>
+
+@code {
+    private bool isOpen;
+    private string? errorMessage;
+
+    private AlpacaAccountSummary? liveAccount;
+    private AlpacaAccountSummary? paperAccount;
+
+    private string activeType    = "paper";
+    private string activeLabel   = "—";
+    private string activeAccountId = "";
+
+    private string? userId;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var auth = await AuthState.GetAuthenticationStateAsync();
+        userId = auth.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+        if (userId is null) return;
+
+        var prefs = await Prefs.GetOrCreateAsync(userId);
+        activeType      = prefs.ActiveAccountType;
+        activeAccountId = prefs.ActiveAccountId;
+
+        await RefreshAccountsAsync();
+        ApplyActive();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            // Mirror the active theme to localStorage so the next pre-paint reads it.
+            try
+            {
+                if (userId is not null)
+                {
+                    var prefs = await Prefs.GetOrCreateAsync(userId);
+                    await JS.InvokeVoidAsync("localStorage.setItem", "idiotproof.theme", prefs.Theme);
+                }
+            }
+            catch { /* JS not available during prerender */ }
+        }
+    }
+
+    private async Task RefreshAccountsAsync()
+    {
+        if (userId is null) return;
+        try
+        {
+            var keys = await UserKeys.GetOrCreateAsync(userId);
+            if (string.IsNullOrWhiteSpace(keys.AlpacaApiKeyId))
+            {
+                errorMessage = "No Alpaca keys configured. Add them in API Keys.";
+                return;
+            }
+
+            // Fetch both sides if the keys can authenticate them. Currently
+            // UserApiKeys holds only one Alpaca pair — we surface it on whichever
+            // side AlpacaIsPaper says it is. Phase B will split this into paired
+            // paper+live entries pulled from %APPDATA%\MindAttic\Brokers\providers.json.
+            var summary = await FetchAccountSummaryAsync(keys.AlpacaApiKeyId, keys.AlpacaApiSecretKey ?? "", keys.AlpacaIsPaper);
+            if (keys.AlpacaIsPaper) paperAccount = summary;
+            else                    liveAccount  = summary;
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Could not load accounts: {ex.Message}";
+        }
+    }
+
+    private async Task<AlpacaAccountSummary?> FetchAccountSummaryAsync(string keyId, string secret, bool isPaper)
+    {
+        try
+        {
+            using var http = HttpClientFactory.CreateClient();
+            http.Timeout = TimeSpan.FromSeconds(10);
+            http.DefaultRequestHeaders.Add("APCA-API-KEY-ID", keyId);
+            http.DefaultRequestHeaders.Add("APCA-API-SECRET-KEY", secret);
+            var baseUrl = isPaper
+                ? "https://paper-api.alpaca.markets"
+                : "https://api.alpaca.markets";
+            using var resp = await http.GetAsync($"{baseUrl}/v2/account");
+            if (!resp.IsSuccessStatusCode) return null;
+            using var doc = System.Text.Json.JsonDocument.Parse(await resp.Content.ReadAsStringAsync());
+            var root = doc.RootElement;
+            return new AlpacaAccountSummary(
+                Label: GetString(root, "account_number") is { } an ? $"{(isPaper ? "P" : "")}{an[..Math.Min(an.Length, 4)]}" : (isPaper ? "Paper" : "Live"),
+                AccountId: GetString(root, "account_number") ?? "",
+                Cash: ParseDecimal(GetString(root, "cash")),
+                DayChangePercent: 0m
+            );
+        }
+        catch { return null; }
+    }
+
+    private static string? GetString(System.Text.Json.JsonElement el, string prop) =>
+        el.TryGetProperty(prop, out var v) && v.ValueKind == System.Text.Json.JsonValueKind.String ? v.GetString() : null;
+
+    private static decimal ParseDecimal(string? s) =>
+        decimal.TryParse(s, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var d) ? d : 0m;
+
+    private void ApplyActive()
+    {
+        var summary = activeType == "live" ? liveAccount : paperAccount;
+        if (summary is not null)
+        {
+            activeLabel     = summary.Label;
+            activeAccountId = summary.AccountId;
+        }
+        else
+        {
+            activeLabel     = activeType == "live" ? "Live" : "Paper";
+            activeAccountId = "";
+        }
+    }
+
+    private void ToggleOpen() => isOpen = !isOpen;
+
+    private async Task SelectAccount(AlpacaAccountSummary summary, string type)
+    {
+        if (userId is null) return;
+        activeType      = type;
+        activeAccountId = summary.AccountId;
+        activeLabel     = summary.Label;
+        isOpen          = false;
+
+        await Prefs.SetActiveAccountAsync(userId, summary.AccountId, type);
+
+        try
+        {
+            await JS.InvokeVoidAsync("localStorage.setItem", "idiotproof.activeAccount", $"{type}:{summary.AccountId}");
+        }
+        catch { /* JS unavailable */ }
+    }
+
+    private async Task SignOut()
+    {
+        await JS.InvokeVoidAsync("eval", "document.querySelector('form[action=\"/logout\"]')?.submit()");
+    }
+
+    private static string MaskAccount(string id)
+    {
+        if (string.IsNullOrEmpty(id)) return "—";
+        return id.Length <= 4 ? id : "…" + id[^4..];
+    }
+
+    private static string FormatMoney(decimal value) =>
+        value.ToString("C0", System.Globalization.CultureInfo.GetCultureInfo("en-US"));
+
+    private static string FormatPercent(decimal value) =>
+        (value >= 0 ? "+" : "") + value.ToString("F2") + "%";
+
+    public void Dispose() { /* no managed resources to release yet */ }
+
+    private sealed record AlpacaAccountSummary(string Label, string AccountId, decimal Cash, decimal DayChangePercent);
+}

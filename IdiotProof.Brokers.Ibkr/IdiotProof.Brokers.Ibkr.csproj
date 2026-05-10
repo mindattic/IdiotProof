@@ -1,0 +1,35 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Dormant IBKR broker adapter.
+
+    NOT included in IdiotProof.sln / IdiotProof.slnx — the project does not build
+    by default. To re-enable IBKR support, add this csproj back to the solution
+    and have IdiotProof.Engine reference it from ServiceRegistration.
+
+    The active platform targets Alpaca via IdiotProof.Brokers.AlpacaBrokerClient.
+  -->
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\IdiotProof.Models\IdiotProof.Models.csproj" />
+    <ProjectReference Include="..\IdiotProof.Brokers\IdiotProof.Brokers.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="CSharpAPI">
+      <HintPath>..\deps\CSharpAPI.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Google.Protobuf" Version="*" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.0" />
+  </ItemGroup>
+
+</Project>

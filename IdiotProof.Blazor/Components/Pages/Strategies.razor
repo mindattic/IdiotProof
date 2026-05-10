@@ -1,0 +1,263 @@
+@page "/strategies"
+@rendermode InteractiveServer
+@using IdiotProof.Blazor.Data
+@using IdiotProof.Blazor.Services
+@using IdiotProof.Scripting
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+@attribute [Authorize]
+@inject StrategyRepository StrategyRepo
+@inject NavigationManager Nav
+@inject AuthenticationStateProvider AuthState
+@inject IJSRuntime JS
+
+@*
+    Strategies — the front door of IdiotProof. List of every saved strategy for the
+    signed-in user. Each row collapses to title/ticker/active toggle/edit; expanding
+    a row reveals the full visual via StrategyBuilderRenderer. The Active toggle
+    flips IsActive in SQL — when true, the Monitor (StrategyExecutionService and the
+    IdiotProof.Monitor console app) picks the strategy up on its next tick.
+
+    UI state (open expand-rows, last filter) is mirrored to localStorage under the
+    "idiotproof.strategies.*" namespace so the user's place is preserved across
+    page reloads and browser tabs.
+
+    "Create New Strategy" → /builder (no preload)
+    "Edit"               → /builder?strategyId={guid} (preloads existing script)
+*@
+
+<PageTitle>Strategies — IdiotProof</PageTitle>
+
+<section aria-labelledby="strategies-heading">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h1 id="strategies-heading" class="h4 mb-0">
+            <i class="bi bi-collection me-2" style="color:var(--brand)" aria-hidden="true"></i>Strategies
+        </h1>
+        <div class="d-flex gap-2">
+            <input class="form-control form-control-sm"
+                   style="max-width:240px"
+                   placeholder="Filter by title or ticker..."
+                   @bind="filterText"
+                   @bind:event="oninput"
+                   aria-label="Filter strategies" />
+            <button class="btn btn-success btn-sm" type="button" @onclick="CreateNew">
+                <i class="bi bi-plus-circle me-1" aria-hidden="true"></i>Create New Strategy
+            </button>
+        </div>
+    </div>
+
+    @if (loadError is not null)
+    {
+        <div class="alert alert-danger small">@loadError</div>
+    }
+
+    @if (loading)
+    {
+        <div class="text-muted small">
+            <span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>Loading...
+        </div>
+    }
+    else if (filtered.Count == 0)
+    {
+        <div class="trading-card p-4 text-center">
+            <i class="bi bi-inbox fs-1 text-muted d-block mb-2" aria-hidden="true"></i>
+            <div class="text-muted">No strategies yet.</div>
+            <button class="btn btn-success btn-sm mt-3" type="button" @onclick="CreateNew">
+                <i class="bi bi-plus-circle me-1" aria-hidden="true"></i>Create your first strategy
+            </button>
+        </div>
+    }
+    else
+    {
+        <ul class="list-unstyled mb-0" role="list">
+            @foreach (var s in filtered)
+            {
+                var isOpen  = openRows.Contains(s.Id);
+                var preview = previews.GetValueOrDefault(s.Id);
+                <li class="trading-card mb-2" data-strategy-id="@s.Id">
+                    <div class="d-flex align-items-center gap-3 p-3">
+                        <button class="btn btn-sm btn-link p-0"
+                                type="button"
+                                aria-expanded="@isOpen"
+                                aria-label="@(isOpen ? "Collapse" : "Expand") @s.Title"
+                                @onclick="() => ToggleRow(s.Id)">
+                            <i class="bi @(isOpen ? "bi-chevron-down" : "bi-chevron-right")" aria-hidden="true"></i>
+                        </button>
+                        <div class="flex-grow-1 min-w-0">
+                            <div class="d-flex align-items-center gap-2">
+                                <span class="fw-semibold">@s.Title</span>
+                                <span class="strategy-chip ticker-chip">@s.Symbol</span>
+                                @if (s.LastFiredUtc is { } lf)
+                                {
+                                    <span class="text-muted small">last fired @lf.ToString("MMM d HH:mm 'UTC'")</span>
+                                }
+                                <span class="text-muted small">created @s.CreatedUtc.ToString("MMM d, yyyy")</span>
+                            </div>
+                            @if (!string.IsNullOrEmpty(s.Description))
+                            {
+                                <div class="text-muted small text-truncate" style="max-width:60ch">@s.Description</div>
+                            }
+                        </div>
+                        <div class="d-flex gap-2 align-items-center flex-shrink-0">
+                            <div class="form-check form-switch m-0">
+                                <input class="form-check-input"
+                                       type="checkbox"
+                                       id="@($"toggle-{s.Id}")"
+                                       checked="@s.IsActive"
+                                       aria-label="@(s.IsActive ? "Deactivate" : "Activate") @s.Title"
+                                       @onchange="(e) => ToggleActive(s, (bool)(e.Value ?? false))" />
+                                <label class="form-check-label small text-muted" for="@($"toggle-{s.Id}")">
+                                    @(s.IsActive ? "Active" : "Paused")
+                                </label>
+                            </div>
+                            <button class="btn btn-sm btn-outline-secondary" type="button"
+                                    aria-label="Edit @s.Title"
+                                    @onclick="() => EditStrategy(s.Id)">
+                                <i class="bi bi-pencil" aria-hidden="true"></i> Edit
+                            </button>
+                            <button class="btn btn-sm btn-outline-danger" type="button"
+                                    aria-label="Delete @s.Title"
+                                    @onclick="() => ConfirmDelete(s)">
+                                <i class="bi bi-trash" aria-hidden="true"></i>
+                            </button>
+                        </div>
+                    </div>
+                    @if (isOpen)
+                    {
+                        <div class="border-top px-3 py-3" style="background:var(--bg-row-alt)">
+                            <StrategyBuilderRenderer Strategy="preview"
+                                                     EmptyMessage="Could not parse this script for preview." />
+                            <details class="mt-2">
+                                <summary class="text-muted small" style="cursor:pointer">Show raw IdiotScript</summary>
+                                <pre class="small mt-2 p-2" style="background:var(--bg-card);border:1px solid var(--border);border-radius:6px;max-height:240px;overflow:auto">@s.ScriptText</pre>
+                            </details>
+                        </div>
+                    }
+                </li>
+            }
+        </ul>
+    }
+
+    @if (deleteCandidate is not null)
+    {
+        <div class="modal-backdrop fade show" @onclick="() => deleteCandidate = null"></div>
+        <div class="modal fade show d-block" role="dialog" aria-modal="true" aria-labelledby="del-title" tabindex="-1">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h2 id="del-title" class="h5 modal-title">Delete strategy?</h2>
+                    </div>
+                    <div class="modal-body">
+                        <p>Permanently delete <strong>@deleteCandidate.Title</strong>? This cannot be undone.</p>
+                    </div>
+                    <div class="modal-footer">
+                        <button class="btn btn-secondary btn-sm" type="button" @onclick="() => deleteCandidate = null">Cancel</button>
+                        <button class="btn btn-danger btn-sm" type="button" @onclick="DeleteConfirmed">Delete</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+</section>
+
+@code {
+    private bool loading = true;
+    private string? loadError;
+    private string? userId;
+    private string filterText = "";
+
+    private List<Strategy> all = new();
+    private readonly Dictionary<Guid, StrategyDefinition?> previews = new();
+    private readonly HashSet<Guid> openRows = new();
+    private Strategy? deleteCandidate;
+
+    private List<Strategy> filtered => string.IsNullOrWhiteSpace(filterText)
+        ? all
+        : all.Where(s =>
+            s.Title.Contains(filterText, StringComparison.OrdinalIgnoreCase)
+         || s.Symbol.Contains(filterText, StringComparison.OrdinalIgnoreCase)
+         || (s.Description?.Contains(filterText, StringComparison.OrdinalIgnoreCase) ?? false)).ToList();
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var auth = await AuthState.GetAuthenticationStateAsync();
+            userId = auth.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            if (userId is null) { loadError = "Sign in to view your strategies."; return; }
+
+            all = await StrategyRepo.GetAllForUserAsync(userId);
+            foreach (var s in all)
+            {
+                previews[s.Id] = TryParse(s.ScriptText);
+            }
+        }
+        catch (Exception ex)
+        {
+            loadError = ex.Message;
+        }
+        finally { loading = false; }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            try
+            {
+                var saved = await JS.InvokeAsync<string?>("localStorage.getItem", "idiotproof.strategies.openRows");
+                if (!string.IsNullOrWhiteSpace(saved))
+                {
+                    foreach (var part in saved.Split(','))
+                    {
+                        if (Guid.TryParse(part, out var id)) openRows.Add(id);
+                    }
+                    StateHasChanged();
+                }
+            }
+            catch { /* JS unavailable */ }
+        }
+    }
+
+    private async Task ToggleRow(Guid id)
+    {
+        if (!openRows.Add(id)) openRows.Remove(id);
+        try { await JS.InvokeVoidAsync("localStorage.setItem", "idiotproof.strategies.openRows", string.Join(",", openRows)); }
+        catch { }
+    }
+
+    private async Task ToggleActive(Strategy s, bool isActive)
+    {
+        await StrategyRepo.SetActiveAsync(s.Id, isActive);
+        s.IsActive = isActive;
+    }
+
+    private void EditStrategy(Guid id) => Nav.NavigateTo($"/builder?strategyId={id}");
+    private void CreateNew() => Nav.NavigateTo("/builder");
+
+    private void ConfirmDelete(Strategy s) => deleteCandidate = s;
+
+    private async Task DeleteConfirmed()
+    {
+        if (deleteCandidate is null) return;
+        await StrategyRepo.DeleteAsync(deleteCandidate.Id);
+        all.RemoveAll(x => x.Id == deleteCandidate.Id);
+        previews.Remove(deleteCandidate.Id);
+        openRows.Remove(deleteCandidate.Id);
+        deleteCandidate = null;
+    }
+
+    private static StrategyDefinition? TryParse(string text)
+    {
+        if (string.IsNullOrWhiteSpace(text)) return null;
+        try
+        {
+            var tickerMatch = System.Text.RegularExpressions.Regex.Match(text, "Ticker\\(\\s*\\\"([^\\\"]+)\\\"");
+            if (!tickerMatch.Success) return null;
+            // Use a no-op build of just the ticker — the renderer's job is visual
+            // not semantic. Real parser is on the roadmap (Roslyn-based).
+            return Stock.Ticker(tickerMatch.Groups[1].Value).Build();
+        }
+        catch { return null; }
+    }
+}

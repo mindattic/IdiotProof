@@ -1,18 +1,7 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
     <ProjectReference Include="..\IdiotProof.Models\IdiotProof.Models.csproj" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <Reference Include="CSharpAPI">
-      <HintPath>..\deps\CSharpAPI.dll</HintPath>
-    </Reference>
-  </ItemGroup>
-
-  <ItemGroup>
-    <PackageReference Include="Google.Protobuf" Version="*" />
-    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.0" />
   </ItemGroup>
 
   <PropertyGroup>

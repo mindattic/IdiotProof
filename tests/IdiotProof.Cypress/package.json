@@ -1,0 +1,14 @@
+{
+  "name": "idiotproof-cypress",
+  "version": "1.0.0",
+  "private": true,
+  "description": "End-to-end UI tests for IdiotProof's Blazor Server app. Run after `dotnet run --project IdiotProof.Blazor` so the dev server is up at https://localhost:5001 (or override CYPRESS_BASE_URL).",
+  "scripts": {
+    "open": "cypress open",
+    "run":  "cypress run",
+    "ci":   "cypress run --browser chrome --headless"
+  },
+  "devDependencies": {
+    "cypress": "^13.15.0"
+  }
+}

@@ -1,8 +1,12 @@
 @page "/builder"
 @rendermode InteractiveServer
+@using IdiotProof.Blazor.Services
+@using IdiotProof.Scripting
 @inject StrategyRegistry StrategyRegistry
 @inject WorkspaceManager WorkspaceManager
 @inject AuthenticationStateProvider AuthStateProvider
+@inject StrategyScriptGenerator ScriptGenerator
+@inject StrategyRepository StrategyRepo
 
 <PageTitle>Strategy Builder — IdiotProof</PageTitle>
 
@@ -22,6 +26,12 @@
                 aria-pressed="@(mode == "script")"
                 @onclick='() => mode = "script"'>
             <i class="bi bi-terminal me-1" aria-hidden="true"></i>Script
+        </button>
+        <button type="button"
+                class="btn @(mode == "describe" ? "btn-primary" : "btn-outline-secondary")"
+                aria-pressed="@(mode == "describe")"
+                @onclick='() => mode = "describe"'>
+            <i class="bi bi-chat-square-text me-1" aria-hidden="true"></i>Describe
         </button>
     </div>
 </div>
@@ -242,7 +252,7 @@
                 </div>
             </div>
         }
-        else
+        else if (mode == "script")
         {
             <!-- Script Editor -->
             <section class="trading-card p-3" aria-labelledby="script-editor-heading">
@@ -288,6 +298,95 @@
                     <div class="text-muted small mt-1">@addMessage</div>
                 }
                 </div>
+            </section>
+        }
+        else if (mode == "describe")
+        {
+            <!-- Describe (Claude-driven) -->
+            <section class="trading-card p-3" aria-labelledby="describe-heading">
+                <h2 id="describe-heading" class="h6 mb-3">
+                    <i class="bi bi-stars me-1" style="color:var(--brand)" aria-hidden="true"></i>Describe in plain English
+                </h2>
+                <p class="text-muted small">
+                    Tell Claude what you want and it'll generate the IdiotScript chain for you. Review, edit if needed, then save.
+                    Generation goes through MindAttic.Legion's high-tier voter panel (see legion.json).
+                </p>
+                <div class="row g-2 mb-3">
+                    <div class="col-md-3">
+                        <label class="form-label text-muted small" for="describe-ticker">Ticker</label>
+                        <input id="describe-ticker"
+                               class="form-control form-control-sm"
+                               placeholder="TSLA"
+                               @bind="describeTicker" />
+                    </div>
+                    <div class="col-md-9">
+                        <label class="form-label text-muted small" for="describe-title">Title (saved)</label>
+                        <input id="describe-title"
+                               class="form-control form-control-sm"
+                               placeholder="9/30 Pullback Continuation"
+                               @bind="describeTitle" />
+                    </div>
+                </div>
+                <label class="form-label text-muted small" for="describe-prose">Strategy description</label>
+                <textarea id="describe-prose"
+                          class="form-control mb-2"
+                          rows="6"
+                          placeholder="When the trend is up (ADX > 20, 9 EMA above 31 EMA) and price pulls back into the zone between the 9 and 31 EMA, wait for a candle to close back above the 9 with volume above 1.2x average — then go long. Stop below the 31 EMA, target 2x risk."
+                          @bind="describeProse"></textarea>
+
+                <div class="d-flex gap-2 align-items-center mb-3">
+                    <button class="btn btn-sm btn-success" type="button"
+                            disabled="@isGenerating"
+                            @onclick="GenerateFromProse">
+                        @if (isGenerating)
+                        {
+                            <span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span>
+                            <span>Generating...</span>
+                        }
+                        else
+                        {
+                            <i class="bi bi-magic me-1" aria-hidden="true"></i>
+                            <span>Generate with Claude</span>
+                        }
+                    </button>
+                    @if (!string.IsNullOrEmpty(describeError))
+                    {
+                        <div class="alert alert-danger small py-1 mb-0 flex-grow-1">@describeError</div>
+                    }
+                </div>
+
+                @if (!string.IsNullOrEmpty(generatedScript))
+                {
+                    <div class="row g-2">
+                        <div class="col-md-6">
+                            <label class="form-label text-muted small" for="describe-generated">Generated IdiotScript</label>
+                            <textarea id="describe-generated"
+                                      class="form-control"
+                                      style="font-family:ui-monospace,monospace;font-size:0.8rem;min-height:200px"
+                                      spellcheck="false"
+                                      @bind="generatedScript"
+                                      @bind:after="ParseGenerated"></textarea>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label text-muted small">Visual preview</label>
+                            <div class="border rounded p-2" style="background:var(--bg-row-alt);min-height:200px">
+                                <StrategyBuilderRenderer Strategy="parsedDescribePreview"
+                                                         EmptyMessage="Generated script could not be parsed yet — edit and re-parse." />
+                            </div>
+                        </div>
+                    </div>
+                    <div class="d-flex gap-2 mt-3">
+                        <button class="btn btn-success btn-sm" type="button"
+                                disabled="@(parsedDescribePreview is null || string.IsNullOrWhiteSpace(describeTitle))"
+                                @onclick="SaveDescribed">
+                            <i class="bi bi-floppy me-1" aria-hidden="true"></i>Save Strategy
+                        </button>
+                        @if (!string.IsNullOrEmpty(describeSaveMessage))
+                        {
+                            <span class="alert alert-success small py-1 mb-0">@describeSaveMessage</span>
+                        }
+                    </div>
+                }
             </section>
         }
     </div>
@@ -344,6 +443,16 @@
     private bool scriptValid;
     private List<TradingSession> allowedSessions = [TradingSession.RTH];
 
+    // Describe-mode state
+    private string describeTicker = "";
+    private string describeTitle = "";
+    private string describeProse = "";
+    private string generatedScript = "";
+    private string describeError = "";
+    private string describeSaveMessage = "";
+    private bool isGenerating;
+    private StrategyDefinition? parsedDescribePreview;
+
     private Dictionary<string, bool> entryConditions = new()
     {
         ["VWAP Above"] = false,
@@ -379,6 +488,182 @@
     private void GoToStep(int step) => currentStep = step;
     private void NextStep() { if (currentStep < 5) currentStep++; }
     private void PrevStep() { if (currentStep > 1) currentStep--; }
+
+    // ── Describe-mode handlers ──────────────────────────────────────────────
+
+    /// <summary>Calls Claude (via Legion) to translate prose into IdiotScript.</summary>
+    private async Task GenerateFromProse()
+    {
+        describeError = "";
+        describeSaveMessage = "";
+        if (string.IsNullOrWhiteSpace(describeProse))
+        {
+            describeError = "Describe what the strategy should do first.";
+            return;
+        }
+
+        isGenerating = true;
+        try
+        {
+            var result = await ScriptGenerator.GenerateAsync(describeProse, describeTicker);
+            if (!result.Success)
+            {
+                describeError = result.Error ?? "Generation failed.";
+                generatedScript = "";
+                parsedDescribePreview = null;
+            }
+            else
+            {
+                generatedScript = result.Script;
+                ParseGenerated();
+            }
+        }
+        finally { isGenerating = false; }
+    }
+
+    /// <summary>
+    /// Parses generated/edited IdiotScript text into a StrategyDefinition for the
+    /// renderer. Best-effort — failures clear the preview but don't surface as an
+    /// error so the user can keep typing.
+    /// </summary>
+    private void ParseGenerated()
+    {
+        parsedDescribePreview = TryParseScript(generatedScript);
+    }
+
+    /// <summary>Persists the generated strategy to the SQL Strategies table.</summary>
+    private async Task SaveDescribed()
+    {
+        describeSaveMessage = "";
+        if (string.IsNullOrWhiteSpace(userId))
+        {
+            describeError = "Sign in to save strategies.";
+            return;
+        }
+        if (parsedDescribePreview is null)
+        {
+            describeError = "Cannot save — script does not parse.";
+            return;
+        }
+
+        var ticker = string.IsNullOrWhiteSpace(describeTicker)
+            ? parsedDescribePreview.Symbol
+            : describeTicker;
+
+        await StrategyRepo.CreateAsync(
+            ownerUserId: userId,
+            title: describeTitle,
+            symbol: ticker,
+            scriptText: generatedScript,
+            description: describeProse);
+        describeSaveMessage = $"Saved \"{describeTitle}\" — find it on the Strategies page.";
+    }
+
+    /// <summary>
+    /// Best-effort IdiotScript parser. Builds a StrategyDefinition by walking the
+    /// fluent-text tokens. This is a stub for v1 — it understands the most common
+    /// verb shapes (Stock.Ticker(...), Long/Short, StopLoss, TakeProfit, the new
+    /// EMA/VWAP/ADX/RSI verbs, candle patterns) and silently skips anything else.
+    /// A proper Roslyn-based parser is on the roadmap.
+    /// </summary>
+    private static StrategyDefinition? TryParseScript(string text)
+    {
+        if (string.IsNullOrWhiteSpace(text)) return null;
+        try
+        {
+            // Very forgiving regex-driven walk. Extract the ticker first.
+            var tickerMatch = System.Text.RegularExpressions.Regex.Match(
+                text, "Ticker\\(\\s*\\\"([^\\\"]+)\\\"", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+            if (!tickerMatch.Success) return null;
+
+            var builder = Stock.Ticker(tickerMatch.Groups[1].Value);
+
+            // Each verb is matched as `.Name(args)` or `.Name`. We pattern-match
+            // a hand-picked set of common verbs; everything else is dropped.
+            var verbs = System.Text.RegularExpressions.Regex.Matches(
+                text, "\\.(\\w+)\\s*(?:\\(([^)]*)\\))?",
+                System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+
+            foreach (System.Text.RegularExpressions.Match v in verbs)
+            {
+                var name = v.Groups[1].Value;
+                var args = v.Groups[2].Success ? v.Groups[2].Value : "";
+                ApplyVerb(builder, name, args);
+            }
+
+            return builder.Build();
+        }
+        catch { return null; }
+    }
+
+    private static void ApplyVerb(IdiotProof.Scripting.StrategyBuilder b, string name, string args)
+    {
+        var nums = ParseNumericArgs(args);
+        switch (name.ToLowerInvariant())
+        {
+            case "isabovevwap": case "abovevwap":   b.IsAboveVwap(); break;
+            case "isbelowvwap": case "belowvwap":   b.IsBelowVwap(); break;
+            case "onvwapreclaim":                    b.OnVwapReclaim(); break;
+            case "onvwaploss":                       b.OnVwapLoss(); break;
+            case "isaboveema":   if (nums.Count >= 1) b.IsAboveEma((int)nums[0]); break;
+            case "isbelowema":   if (nums.Count >= 1) b.IsBelowEma((int)nums[0]); break;
+            case "isemaabove":   if (nums.Count >= 1) b.IsEmaAbove((int)nums[0]); break;
+            case "isemabelow":   if (nums.Count >= 1) b.IsEmaBelow((int)nums[0]); break;
+            case "isbetweenema": if (nums.Count >= 2) b.IsBetweenEma((int)nums[0], (int)nums[1]); break;
+            case "requireemastack": if (nums.Count >= 2) b.RequireEmaStack((int)nums[0], (int)nums[1]); break;
+            case "onreclaim":    if (nums.Count >= 1) b.OnReclaim((int)nums[0]); break;
+            case "requireadxabove": b.RequireAdxAbove(nums.Count >= 1 ? (double)nums[0] : 20); break;
+            case "isadxabove":   if (nums.Count >= 1) b.IsAdxAbove((double)nums[0]); break;
+            case "isrsioversold":   b.IsRsiOversold(nums.Count >= 1 ? (double)nums[0] : 30); break;
+            case "isrsioverbought": b.IsRsiOverbought(nums.Count >= 1 ? (double)nums[0] : 70); break;
+            case "oversold":     b.Oversold(nums.Count >= 1 ? (double)nums[0] : 30); break;
+            case "overbought":   b.Overbought(nums.Count >= 1 ? (double)nums[0] : 70); break;
+            case "isrsibullishdivergence": b.IsRsiBullishDivergence(); break;
+            case "isrsibearishdivergence": b.IsRsiBearishDivergence(); break;
+            case "ismacdbullish": case "bullishmacd": b.IsMacdBullish(); break;
+            case "ismacdbearish": case "bearishmacd": b.IsMacdBearish(); break;
+            case "withvolumeconfirm": b.WithVolumeConfirm(nums.Count >= 1 ? (double)nums[0] : 1.2); break;
+            case "isvolumeabove": if (nums.Count >= 1) b.IsVolumeAbove((double)nums[0]); break;
+            case "volumespike":  b.VolumeSpike(nums.Count >= 1 ? (double)nums[0] : 2.0); break;
+            case "isgapup":      b.IsGapUp(nums.Count >= 1 ? (double)nums[0] : 3); break;
+            case "isgapdown":    b.IsGapDown(nums.Count >= 1 ? (double)nums[0] : 3); break;
+            case "isatsupport":  b.IsAtSupport(nums.Count >= 1 ? (double)nums[0] : 0.5); break;
+            case "isatresistance": b.IsAtResistance(nums.Count >= 1 ? (double)nums[0] : 0.5); break;
+            case "isbullishengulfing": b.IsBullishEngulfing(); break;
+            case "isbearishengulfing": b.IsBearishEngulfing(); break;
+            case "ishammer":     b.IsHammer(); break;
+            case "isshootingstar": b.IsShootingStar(); break;
+            case "isdoji":       b.IsDoji(); break;
+            case "long":         b.Long(); break;
+            case "short":        b.Short(); break;
+            case "quantity":     if (nums.Count >= 1) b.Quantity((int)nums[0]); break;
+            case "stoploss":     if (nums.Count >= 1) b.StopLoss((double)nums[0]); break;
+            case "stoplosspercent": if (nums.Count >= 1) b.StopLossPercent((double)nums[0]); break;
+            case "takeprofit":   if (nums.Count >= 1) b.TakeProfit((double)nums[0]); break;
+            case "takeprofitpercent": if (nums.Count >= 1) b.TakeProfitPercent((double)nums[0]); break;
+            case "trailingstoploss": if (nums.Count >= 1) b.TrailingStopLoss((double)nums[0]); break;
+            case "autonomoustrading": b.AutonomousTrading(); break;
+            case "adaptiveorder": b.AdaptiveOrder(); break;
+            case "repeat":       b.Repeat(); break;
+            // Build/Ticker handled at outer level; ignore here
+        }
+    }
+
+    private static List<decimal> ParseNumericArgs(string args)
+    {
+        var result = new List<decimal>();
+        if (string.IsNullOrWhiteSpace(args)) return result;
+        foreach (var raw in args.Split(','))
+        {
+            var s = raw.Trim().TrimEnd('m', 'M', 'd', 'D', 'f', 'F');
+            if (decimal.TryParse(s, System.Globalization.NumberStyles.Any,
+                System.Globalization.CultureInfo.InvariantCulture, out var d))
+            {
+                result.Add(d);
+            }
+        }
+        return result;
+    }
 
     private void ToggleSession(TradingSession session, bool add)
     {

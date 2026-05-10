@@ -10,13 +10,6 @@ namespace IdiotProof.Engine.Settings;
 /// </summary>
 public sealed class AppSettings
 {
-    // Connection
-    public string IbkrHost { get; set; } = "127.0.0.1";
-    public int IbkrLivePort { get; set; } = 4001;
-    public int IbkrPaperPort { get; set; } = 4002;
-    public int IbkrClientId { get; set; } = 99;
-    public bool IbkrUsePaper { get; set; } = true;
-
     // Alpaca
     public string AlpacaApiKeyId { get; set; } = "";
     public string AlpacaApiSecretKey { get; set; } = "";
@@ -91,9 +84,6 @@ public sealed class AppSettings
 
         var claudeKey = Environment.GetEnvironmentVariable("ClaudeApiKey");
         if (!string.IsNullOrWhiteSpace(claudeKey)) ClaudeApiKey = claudeKey;
-
-        var ibkrHost = Environment.GetEnvironmentVariable("IbkrHost");
-        if (!string.IsNullOrWhiteSpace(ibkrHost)) IbkrHost = ibkrHost;
     }
 
     /// <summary>
@@ -106,5 +96,21 @@ public sealed class AppSettings
     {
         var claudeKey = MindAtticCredentialStore.GetKey("claude");
         if (!string.IsNullOrWhiteSpace(claudeKey)) ClaudeApiKey = claudeKey;
+    }
+
+    /// <summary>
+    /// Overlays Alpaca credentials from the shared MindAttic broker keyring at
+    /// <c>%APPDATA%/MindAttic/Brokers/providers.json</c>. Picks <c>alpaca-paper</c>
+    /// or <c>alpaca-live</c> based on <see cref="AlpacaIsPaper"/>. Mirrors how
+    /// <see cref="OverlayFromMindAtticCredentials"/> resolves LLM keys.
+    /// </summary>
+    public void OverlayFromBrokerCredentials()
+    {
+        var providerId = AlpacaIsPaper ? "alpaca-paper" : "alpaca-live";
+        var creds = BrokerCredentialStore.Get(providerId);
+        if (creds is null) return;
+
+        AlpacaApiKeyId = creds.ApiKey;
+        AlpacaApiSecretKey = creds.Secret;
     }
 }

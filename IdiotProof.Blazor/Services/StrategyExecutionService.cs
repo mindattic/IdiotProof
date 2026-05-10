@@ -338,9 +338,6 @@ public sealed class StrategyExecutionService : BackgroundService
         // otherwise fall back to whichever broker has credentials, then sandbox.
         var preference = keys.DefaultBroker?.Trim();
 
-        if (string.Equals(preference, "Ibkr", StringComparison.OrdinalIgnoreCase))
-            return BuildIbkr(keys);
-
         if (string.Equals(preference, "Alpaca", StringComparison.OrdinalIgnoreCase) &&
             !string.IsNullOrWhiteSpace(keys.AlpacaApiKeyId))
         {
@@ -351,12 +348,6 @@ public sealed class StrategyExecutionService : BackgroundService
             return new AlpacaBrokerClient(keys.AlpacaApiKeyId, keys.AlpacaApiSecretKey ?? "", keys.AlpacaIsPaper);
 
         return new SandboxBrokerClient();
-    }
-
-    private static IBrokerClient BuildIbkr(UserApiKeys keys)
-    {
-        var port = keys.IbkrUsePaper ? keys.IbkrPaperPort : keys.IbkrLivePort;
-        return new IbkrBrokerClient(keys.IbkrHost, port, keys.IbkrClientId);
     }
 
     private AppSettings CloneSettingsWithUserKeys(UserApiKeys keys)

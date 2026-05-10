@@ -16,11 +16,14 @@ public static class ServiceRegistration
 
         // Load settings from disk, then overlay any secrets from environment variables
         // (Azure App Service injects Key Vault references as env vars with the same names).
-        // Finally overlay from the shared MindAttic LLM credential store — it is the
-        // canonical first stop for LLM keys and wins over both disk config and env vars.
+        // Then overlay from the shared MindAttic family keyrings — these are the
+        // canonical first stop and win over both disk config and env vars:
+        //   • LLM keys      → %APPDATA%\MindAttic\LLM\providers.json
+        //   • Broker keys   → %APPDATA%\MindAttic\Brokers\providers.json
         var settings = AppSettings.Load(storageProvider);
         settings.OverlayFromEnvironment();
         settings.OverlayFromMindAtticCredentials();
+        settings.OverlayFromBrokerCredentials();
         services.AddSingleton(settings);
 
         // Strategies
@@ -39,9 +42,7 @@ public static class ServiceRegistration
                 router.Register(alpaca);
             }
 
-            var ibkrPort = settings.IbkrUsePaper ? settings.IbkrPaperPort : settings.IbkrLivePort;
-            var ibkr = new IbkrBrokerClient(settings.IbkrHost, ibkrPort, settings.IbkrClientId);
-            router.Register(ibkr);
+            // IBKR support is dormant — see IdiotProof.Brokers.Ibkr/README.md to re-enable.
 
             // Set the configured default broker as active
             router.SetActive(settings.DefaultBroker);

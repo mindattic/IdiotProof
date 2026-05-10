@@ -1,11 +1,24 @@
 @using Microsoft.AspNetCore.Components.Web
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="alpaca">
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>IdiotProof — Trading Strategy Platform</title>
     <base href="/" />
+    <link rel="stylesheet" href="css/_theme-alpaca.css" />
+    <link rel="stylesheet" href="app.css" />
+    <script>
+        // Pre-paint theme application: read the user's saved theme from localStorage
+        // BEFORE the body renders so we don't flash the default theme. Falls back to
+        // the data-theme already on <html>.
+        (function () {
+            try {
+                var t = localStorage.getItem("idiotproof.theme");
+                if (t) document.documentElement.setAttribute("data-theme", t);
+            } catch (e) { /* localStorage may be disabled */ }
+        })();
+    </script>
     <HeadOutlet @rendermode="@RenderMode.InteractiveServer" />
 </head>
 <body>

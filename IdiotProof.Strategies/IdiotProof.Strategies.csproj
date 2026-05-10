@@ -3,6 +3,8 @@
   <ItemGroup>
     <ProjectReference Include="..\IdiotProof.Models\IdiotProof.Models.csproj" />
     <ProjectReference Include="..\IdiotProof.Indicators\IdiotProof.Indicators.csproj" />
+    <ProjectReference Include="..\IdiotProof.Shared\IdiotProof.Shared.csproj" />
+    <ProjectReference Include="..\IdiotProof.Scripting\IdiotProof.Scripting.csproj" />
   </ItemGroup>
 
   <PropertyGroup>

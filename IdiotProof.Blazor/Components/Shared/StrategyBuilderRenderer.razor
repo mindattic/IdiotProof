@@ -1,0 +1,207 @@
+@using IdiotProof.Models
+@using IdiotProof.Scripting
+
+@*
+    StrategyBuilderRenderer — standalone visual flow-chart for an IdiotScript
+    strategy. Reusable in three places:
+      1. Strategy Builder tab (preview pane while authoring)
+      2. Strategies-as-home page (expand-row inline preview)
+      3. Learning Center wikilinks ([[Stock.Ticker(...)]] inlines)
+
+    Renders one card per phase (Setup / Filters / Entry / Order / Risk / Exit)
+    with chips for each item in that phase. Branching blocks render nested
+    inside Entry as If/ElseIf/Else columns.
+
+    Read-only — editing is the StrategyBuilder.razor page's job. This component
+    is intentionally pure render so it can be embedded anywhere prose lives.
+*@
+
+@if (Strategy is null)
+{
+    @if (!string.IsNullOrEmpty(EmptyMessage))
+    {
+        <div class="text-muted small">@EmptyMessage</div>
+    }
+}
+else
+{
+    <div class="strategy-renderer @CssClass">
+        <!-- SETUP -->
+        <section class="strategy-phase" aria-label="Setup phase">
+            <div class="phase-header">
+                <span class="phase-number">1</span>
+                <h3 class="phase-title">Setup</h3>
+            </div>
+            <div class="phase-body">
+                <span class="strategy-chip ticker-chip">
+                    <i class="bi bi-tag-fill" aria-hidden="true"></i>
+                    @(string.IsNullOrEmpty(Strategy.Symbol) ? "<symbol>" : Strategy.Symbol)
+                </span>
+                <span class="strategy-chip">Session: @Strategy.Session</span>
+                @if (Strategy.Quantity > 0)
+                {
+                    <span class="strategy-chip">Qty: @Strategy.Quantity</span>
+                }
+            </div>
+        </section>
+
+        @{ var filterConds = Strategy.EntryConditions.Where(c => c.Phase == StrategyPhase.Filters).ToList(); }
+        @if (filterConds.Count > 0)
+        {
+            <!-- FILTERS -->
+            <section class="strategy-phase" aria-label="Filters phase">
+                <div class="phase-header">
+                    <span class="phase-number">2</span>
+                    <h3 class="phase-title">Filters</h3>
+                    <span class="phase-hint">always-on regime gates</span>
+                </div>
+                <div class="phase-body">
+                    @foreach (var c in filterConds)
+                    {
+                        <span class="strategy-chip filter-chip">@c.ToScript()</span>
+                    }
+                </div>
+            </section>
+        }
+
+        @{ var entryConds = Strategy.EntryConditions.Where(c => c.Phase == StrategyPhase.Entry).ToList(); }
+        @if (entryConds.Count > 0 || Strategy.ConditionalBlocks.Count > 0)
+        {
+            <!-- ENTRY -->
+            <section class="strategy-phase" aria-label="Entry phase">
+                <div class="phase-header">
+                    <span class="phase-number">3</span>
+                    <h3 class="phase-title">Entry</h3>
+                    <span class="phase-hint">trigger conditions (AND)</span>
+                </div>
+                <div class="phase-body">
+                    @foreach (var c in entryConds)
+                    {
+                        <span class="strategy-chip entry-chip">@c.ToScript()</span>
+                    }
+                    @if (Strategy.ConditionalBlocks.Count > 0)
+                    {
+                        <div class="branching-block">
+                            @foreach (var block in Strategy.ConditionalBlocks)
+                            {
+                                <div class="branch-tree">
+                                    @foreach (var (branch, idx) in block.Branches.Select((b, i) => (b, i)))
+                                    {
+                                        var label = idx == 0 ? "If" : (branch.Condition is null ? "Else" : "ElseIf");
+                                        <div class="branch-node">
+                                            <div class="branch-label">@label</div>
+                                            @if (branch.Condition is not null)
+                                            {
+                                                <div class="branch-condition">@branch.Condition.ToScript()</div>
+                                            }
+                                            <div class="branch-actions">
+                                                @if (branch.Overrides.Direction.HasValue)
+                                                {
+                                                    <span class="strategy-chip @(branch.Overrides.Direction == TradeDirection.Long ? "long-chip" : "short-chip")">
+                                                        @(branch.Overrides.Direction == TradeDirection.Long ? "Long" : "Short")
+                                                    </span>
+                                                }
+                                                @if (branch.Overrides.TakeProfitPrice.HasValue)
+                                                {
+                                                    <span class="strategy-chip target-chip">TP @branch.Overrides.TakeProfitPrice</span>
+                                                }
+                                                @if (branch.Overrides.StopLossPrice.HasValue)
+                                                {
+                                                    <span class="strategy-chip stop-chip">Stop @branch.Overrides.StopLossPrice</span>
+                                                }
+                                            </div>
+                                        </div>
+                                    }
+                                </div>
+                            }
+                        </div>
+                    }
+                </div>
+            </section>
+        }
+
+        <!-- ORDER -->
+        <section class="strategy-phase" aria-label="Order phase">
+            <div class="phase-header">
+                <span class="phase-number">4</span>
+                <h3 class="phase-title">Order</h3>
+            </div>
+            <div class="phase-body">
+                <span class="strategy-chip @(Strategy.Direction == TradeDirection.Long ? "long-chip" : "short-chip")">
+                    <i class="bi @(Strategy.Direction == TradeDirection.Long ? "bi-arrow-up-circle-fill" : "bi-arrow-down-circle-fill")" aria-hidden="true"></i>
+                    @(Strategy.Direction == TradeDirection.Long ? "Long" : "Short")
+                </span>
+                @if (Strategy.Quantity > 0)
+                {
+                    <span class="strategy-chip">@Strategy.Quantity shares</span>
+                }
+            </div>
+        </section>
+
+        @if (Strategy.StopLossPrice.HasValue || Strategy.StopLossPercent.HasValue || Strategy.TrailingStopPercent.HasValue)
+        {
+            <!-- RISK -->
+            <section class="strategy-phase" aria-label="Risk phase">
+                <div class="phase-header">
+                    <span class="phase-number">5</span>
+                    <h3 class="phase-title">Risk</h3>
+                </div>
+                <div class="phase-body">
+                    @if (Strategy.StopLossPrice.HasValue)
+                    {
+                        <span class="strategy-chip stop-chip">Stop @Strategy.StopLossPrice</span>
+                    }
+                    @if (Strategy.StopLossPercent.HasValue)
+                    {
+                        <span class="strategy-chip stop-chip">Stop @Strategy.StopLossPercent%</span>
+                    }
+                    @if (Strategy.TrailingStopPercent.HasValue)
+                    {
+                        <span class="strategy-chip">Trail @Strategy.TrailingStopPercent%</span>
+                    }
+                </div>
+            </section>
+        }
+
+        @if (Strategy.TakeProfitPrice.HasValue || Strategy.TakeProfitTargets.Count > 0 || Strategy.ExitTime.HasValue)
+        {
+            <!-- EXIT -->
+            <section class="strategy-phase" aria-label="Exit phase">
+                <div class="phase-header">
+                    <span class="phase-number">6</span>
+                    <h3 class="phase-title">Exit</h3>
+                </div>
+                <div class="phase-body">
+                    @if (Strategy.TakeProfitTargets.Count > 0)
+                    {
+                        @foreach (var t in Strategy.TakeProfitTargets)
+                        {
+                            <span class="strategy-chip target-chip">@t.Label: @t.Price (@t.PercentToSell%)</span>
+                        }
+                    }
+                    else if (Strategy.TakeProfitPrice.HasValue)
+                    {
+                        <span class="strategy-chip target-chip">Target @Strategy.TakeProfitPrice</span>
+                    }
+                    @if (Strategy.ExitTime.HasValue)
+                    {
+                        <span class="strategy-chip">Time exit @Strategy.ExitTime</span>
+                    }
+                </div>
+            </section>
+        }
+    </div>
+}
+
+@code {
+    /// <summary>
+    /// The strategy to render. When null, renders nothing (or EmptyMessage if set).
+    /// </summary>
+    [Parameter] public StrategyDefinition? Strategy { get; set; }
+
+    /// <summary>Optional message shown when Strategy is null.</summary>
+    [Parameter] public string? EmptyMessage { get; set; }
+
+    /// <summary>Extra CSS classes applied to the root .strategy-renderer element.</summary>
+    [Parameter] public string CssClass { get; set; } = "";
+}

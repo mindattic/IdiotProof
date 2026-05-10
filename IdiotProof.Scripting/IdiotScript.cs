@@ -198,6 +198,187 @@ public sealed class StrategyBuilder
     }
 
     // ========================================
+    // EMA FAMILY — generic period
+    // ========================================
+
+    /// <summary>Price is above the N-period EMA. Example: IsAboveEma(9).</summary>
+    public StrategyBuilder IsAboveEma(int period)
+    {
+        strategy.EntryConditions.Add(new IndicatorCondition(IndicatorType.EmaAbove, period));
+        return this;
+    }
+
+    /// <summary>Price is below the N-period EMA. Example: IsBelowEma(21).</summary>
+    public StrategyBuilder IsBelowEma(int period)
+    {
+        strategy.EntryConditions.Add(new IndicatorCondition(IndicatorType.EmaBelow, period));
+        return this;
+    }
+
+    /// <summary>
+    /// Price sits between the fast and slow EMA — the "pullback zone" in the
+    /// classic 9/30 pullback continuation setup. Pair with RequireEmaStack to
+    /// confirm the stack direction (otherwise this fires inside downtrends too).
+    /// Example: IsBetweenEma(9, 31).
+    /// </summary>
+    public StrategyBuilder IsBetweenEma(int fastPeriod, int slowPeriod)
+    {
+        strategy.EntryConditions.Add(new IndicatorCondition(IndicatorType.BetweenEma, fastPeriod, slowPeriod));
+        return this;
+    }
+
+    /// <summary>
+    /// Confirms the EMA stack direction: fast EMA above slow EMA = uptrend.
+    /// Lives in the FILTERS phase — always-on regime gate, not a trigger.
+    /// Example: RequireEmaStack(9, 31).
+    /// </summary>
+    public StrategyBuilder RequireEmaStack(int fastPeriod, int slowPeriod)
+    {
+        strategy.EntryConditions.Add(new IndicatorCondition(IndicatorType.EmaStack, fastPeriod, slowPeriod, StrategyPhase.Filters));
+        return this;
+    }
+
+    /// <summary>
+    /// Trigger: prior bar closed at-or-below the N-period EMA AND current bar
+    /// closed back above it. This is the classic reclaim trigger for pullback
+    /// continuation entries. Example: OnReclaim(9).
+    /// </summary>
+    public StrategyBuilder OnReclaim(int emaPeriod)
+    {
+        strategy.EntryConditions.Add(new IndicatorCondition(IndicatorType.ReclaimEma, emaPeriod));
+        return this;
+    }
+
+    // ========================================
+    // VWAP RECLAIM / LOSS
+    // ========================================
+
+    /// <summary>Trigger: prior bar at-or-below VWAP, current bar above VWAP.</summary>
+    public StrategyBuilder OnVwapReclaim()
+    {
+        strategy.EntryConditions.Add(new IndicatorCondition(IndicatorType.VwapReclaim));
+        return this;
+    }
+
+    /// <summary>Trigger: prior bar at-or-above VWAP, current bar below VWAP.</summary>
+    public StrategyBuilder OnVwapLoss()
+    {
+        strategy.EntryConditions.Add(new IndicatorCondition(IndicatorType.VwapLoss));
+        return this;
+    }
+
+    // ========================================
+    // REGIME FILTERS (Phase = Filters)
+    // ========================================
+
+    /// <summary>Filter: ADX must be above threshold (trending market). Default 20.</summary>
+    public StrategyBuilder RequireAdxAbove(double threshold = 20)
+    {
+        strategy.EntryConditions.Add(new IndicatorCondition(IndicatorType.AdxAbove, threshold, null, StrategyPhase.Filters));
+        return this;
+    }
+
+    // ========================================
+    // VOLUME CONFIRM
+    // ========================================
+
+    /// <summary>
+    /// Trigger-bar volume must be at least <paramref name="multiplier"/>× the
+    /// rolling average (default 1.2). Common pairing with OnReclaim to filter
+    /// low-conviction triggers. Example: WithVolumeConfirm(1.2).
+    /// </summary>
+    public StrategyBuilder WithVolumeConfirm(double multiplier = 1.2)
+    {
+        strategy.EntryConditions.Add(new IndicatorCondition(IndicatorType.VolumeAbove, multiplier));
+        return this;
+    }
+
+    // ========================================
+    // RSI DIVERGENCE
+    // ========================================
+
+    public StrategyBuilder IsRsiBullishDivergence()
+    {
+        strategy.EntryConditions.Add(new IndicatorCondition(IndicatorType.RsiBullishDivergence));
+        return this;
+    }
+
+    public StrategyBuilder IsRsiBearishDivergence()
+    {
+        strategy.EntryConditions.Add(new IndicatorCondition(IndicatorType.RsiBearishDivergence));
+        return this;
+    }
+
+    // ========================================
+    // SUPPORT / RESISTANCE
+    // ========================================
+
+    /// <summary>Price within tolerancePercent of the recent swing low. Default tolerance 0.5%.</summary>
+    public StrategyBuilder IsAtSupport(double tolerancePercent = 0.5)
+    {
+        strategy.EntryConditions.Add(new IndicatorCondition(IndicatorType.AtSupport, tolerancePercent));
+        return this;
+    }
+
+    /// <summary>Price within tolerancePercent of the recent swing high. Default tolerance 0.5%.</summary>
+    public StrategyBuilder IsAtResistance(double tolerancePercent = 0.5)
+    {
+        strategy.EntryConditions.Add(new IndicatorCondition(IndicatorType.AtResistance, tolerancePercent));
+        return this;
+    }
+
+    // ========================================
+    // CANDLESTICK PATTERNS
+    // ========================================
+
+    public StrategyBuilder IsBullishEngulfing()
+    {
+        strategy.EntryConditions.Add(new PatternCondition(PatternType.BullishEngulfing));
+        return this;
+    }
+
+    public StrategyBuilder IsBearishEngulfing()
+    {
+        strategy.EntryConditions.Add(new PatternCondition(PatternType.BearishEngulfing));
+        return this;
+    }
+
+    public StrategyBuilder IsHammer()
+    {
+        strategy.EntryConditions.Add(new PatternCondition(PatternType.Hammer));
+        return this;
+    }
+
+    public StrategyBuilder IsShootingStar()
+    {
+        strategy.EntryConditions.Add(new PatternCondition(PatternType.ShootingStar));
+        return this;
+    }
+
+    public StrategyBuilder IsDoji()
+    {
+        strategy.EntryConditions.Add(new PatternCondition(PatternType.Doji));
+        return this;
+    }
+
+    // ========================================
+    // ALIASES — natural-language phrasings
+    // Each forwards to the canonical verb so Claude-generated scripts compile
+    // regardless of which phrasing the LLM picked.
+    // ========================================
+
+    public StrategyBuilder AboveVwap() => IsAboveVwap();
+    public StrategyBuilder BelowVwap() => IsBelowVwap();
+    public StrategyBuilder Oversold(double threshold = 30) => IsRsiOversold(threshold);
+    public StrategyBuilder Overbought(double threshold = 70) => IsRsiOverbought(threshold);
+    public StrategyBuilder BullishMacd() => IsMacdBullish();
+    public StrategyBuilder BearishMacd() => IsMacdBearish();
+    public StrategyBuilder Trending(double minAdx = 20) => RequireAdxAbove(minAdx);
+    public StrategyBuilder GapUp(double minPercent = 3) => IsGapUp(minPercent);
+    public StrategyBuilder GapDown(double minPercent = 3) => IsGapDown(minPercent);
+    public StrategyBuilder VolumeSpike(double multiplier = 2.0) => IsVolumeAbove(multiplier);
+
+    // ========================================
     // ORDER DIRECTION
     // ========================================
     
@@ -447,24 +628,91 @@ public sealed class StrategyDefinition
 // CONDITION TYPES
 // ========================================
 
+/// <summary>
+/// The lifecycle phase a condition or action belongs to. The visual builder
+/// renders one card per phase; the parser rejects verbs used outside their phase.
+/// Order matches the DSL spec in CLAUDE.md.
+/// </summary>
+public enum StrategyPhase
+{
+    Setup,    // ticker, session, account, window
+    Filters,  // regime preconditions (always-on gates)
+    Entry,    // trigger conditions ("the fire")
+    Order,    // direction, quantity, type, price
+    Risk,     // stop, trailing
+    Exit      // targets, time exits, condition exits
+}
+
 public interface ICondition
 {
     string ToScript();
     bool Evaluate(IndicatorSnapshot indicators);
+
+    /// <summary>
+    /// The phase this condition belongs to. Default Entry; filter conditions
+    /// override to Filters; exit conditions override to Exit.
+    /// </summary>
+    StrategyPhase Phase => StrategyPhase.Entry;
+}
+
+/// <summary>
+/// Condition algebra — boolean composition operators that let the DSL build
+/// expressions like <c>IsAboveVwap.And(IsEmaAbove(9))</c>. Returns wrapping
+/// conditions that delegate to their operands at evaluation time.
+/// </summary>
+public static class ConditionExtensions
+{
+    public static ICondition And(this ICondition a, ICondition b) => new AndCondition(a, b);
+    public static ICondition Or(this ICondition a, ICondition b) => new OrCondition(a, b);
+    public static ICondition Not(this ICondition a) => new NotCondition(a);
+}
+
+public sealed class AndCondition(ICondition left, ICondition right) : ICondition
+{
+    public ICondition Left { get; } = left;
+    public ICondition Right { get; } = right;
+    public string ToScript() => $"{Left.ToScript()}.And({Right.ToScript()})";
+    public bool Evaluate(IndicatorSnapshot s) => Left.Evaluate(s) && Right.Evaluate(s);
+    public StrategyPhase Phase => Left.Phase; // left wins; mixed-phase composition is parser-rejected
+}
+
+public sealed class OrCondition(ICondition left, ICondition right) : ICondition
+{
+    public ICondition Left { get; } = left;
+    public ICondition Right { get; } = right;
+    public string ToScript() => $"{Left.ToScript()}.Or({Right.ToScript()})";
+    public bool Evaluate(IndicatorSnapshot s) => Left.Evaluate(s) || Right.Evaluate(s);
+    public StrategyPhase Phase => Left.Phase;
+}
+
+public sealed class NotCondition(ICondition inner) : ICondition
+{
+    public ICondition Inner { get; } = inner;
+    public string ToScript() => $"{Inner.ToScript()}.Not()";
+    public bool Evaluate(IndicatorSnapshot s) => !Inner.Evaluate(s);
+    public StrategyPhase Phase => Inner.Phase;
 }
 
 public enum ConditionType { Entry, Breakout, Pullback }
-public enum PatternType { Breakout, Pullback }
+
+public enum PatternType
+{
+    Breakout, Pullback,
+    BullishEngulfing, BearishEngulfing,
+    Hammer, ShootingStar, Doji
+}
+
 public enum IndicatorType
 {
-    VwapAbove, VwapBelow,
-    EmaAbove, EmaBelow,
+    VwapAbove, VwapBelow, VwapReclaim, VwapLoss,
+    EmaAbove, EmaBelow, BetweenEma, EmaStack, ReclaimEma,
     DiPositive, DiNegative,
     AdxAbove,
-    RsiOversold, RsiOverbought,
+    RsiOversold, RsiOverbought, RsiBullishDivergence, RsiBearishDivergence,
     MacdBullish, MacdBearish,
     GapUp, GapDown,
-    VolumeAbove
+    VolumeAbove,
+    AtSupport, AtResistance
 }
 
 /// <summary>
@@ -496,35 +744,78 @@ public sealed class PatternCondition(PatternType type, double? level = null) : I
 {
     public PatternType Type { get; } = type;
     public double? Level { get; } = level;
-    
+
     public string ToScript() => Level.HasValue ? $"{Type}({Level})" : $"{Type}()";
-    public bool Evaluate(IndicatorSnapshot indicators) => true; // Evaluated by pattern engine
+
+    public bool Evaluate(IndicatorSnapshot s) => Type switch
+    {
+        PatternType.BullishEngulfing => s.IsBullishEngulfing,
+        PatternType.BearishEngulfing => s.IsBearishEngulfing,
+        PatternType.Hammer           => s.IsHammer,
+        PatternType.ShootingStar     => s.IsShootingStar,
+        PatternType.Doji             => s.IsDoji,
+        _                            => true // Breakout / Pullback evaluated by pattern engine elsewhere
+    };
 }
 
-public sealed class IndicatorCondition(IndicatorType type, double? parameter = null) : ICondition
+public sealed class IndicatorCondition(IndicatorType type, double? parameter = null, double? parameter2 = null, StrategyPhase phase = StrategyPhase.Entry) : ICondition
 {
     public IndicatorType Type { get; } = type;
+
+    /// <summary>Primary parameter — period for EMA verbs, threshold for ADX/RSI, multiplier for Volume.</summary>
     public double? Parameter { get; } = parameter;
 
-    public string ToScript() => Parameter.HasValue 
-        ? $"Is{Type}({Parameter})" 
-        : $"Is{Type}()";
+    /// <summary>Secondary parameter — slow EMA period for IsBetweenEma(fast, slow) and EmaStack(fast, slow).</summary>
+    public double? Parameter2 { get; } = parameter2;
 
-    public bool Evaluate(IndicatorSnapshot indicators) => Type switch
+    public StrategyPhase Phase { get; } = phase;
+
+    public string ToScript() => (Parameter.HasValue, Parameter2.HasValue) switch
     {
-        IndicatorType.VwapAbove => indicators.VwapDistance > 0,
-        IndicatorType.VwapBelow => indicators.VwapDistance < 0,
-        IndicatorType.EmaAbove => indicators.Price > (indicators.Ema9 ?? 0),
-        IndicatorType.EmaBelow => indicators.Price < (indicators.Ema9 ?? 0),
-        IndicatorType.DiPositive => indicators.IsBullishTrend,
-        IndicatorType.DiNegative => !indicators.IsBullishTrend,
-        IndicatorType.AdxAbove => indicators.Adx >= (Parameter ?? 25),
-        IndicatorType.RsiOversold => indicators.Rsi <= (Parameter ?? 30),
-        IndicatorType.RsiOverbought => indicators.Rsi >= (Parameter ?? 70),
-        IndicatorType.MacdBullish => indicators.IsMacdBullish,
-        IndicatorType.MacdBearish => !indicators.IsMacdBullish,
-        IndicatorType.VolumeAbove => indicators.VolumeRatio >= (Parameter ?? 1.5),
-        _ => true
+        (true, true)  => $"Is{Type}({Parameter}, {Parameter2})",
+        (true, false) => $"Is{Type}({Parameter})",
+        _             => $"Is{Type}()"
+    };
+
+    public bool Evaluate(IndicatorSnapshot s) => Type switch
+    {
+        IndicatorType.VwapAbove          => s.VwapDistance > 0,
+        IndicatorType.VwapBelow          => s.VwapDistance < 0,
+        IndicatorType.VwapReclaim        => s.PriorPrice is { } pp && s.PriorVwap is { } pv
+                                              && pp <= pv && s.Price > (s.Vwap ?? 0),
+        IndicatorType.VwapLoss           => s.PriorPrice is { } pp2 && s.PriorVwap is { } pv2
+                                              && pp2 >= pv2 && s.Price < (s.Vwap ?? 0),
+        IndicatorType.EmaAbove           => Parameter is { } p && s.GetEma((int)p) is { } e && s.Price > e,
+        IndicatorType.EmaBelow           => Parameter is { } p2 && s.GetEma((int)p2) is { } e2 && s.Price < e2,
+        IndicatorType.BetweenEma         => Parameter is { } fast && Parameter2 is { } slow
+                                              && s.GetEma((int)fast) is { } emaFast
+                                              && s.GetEma((int)slow) is { } emaSlow
+                                              && Math.Min(emaFast, emaSlow) <= s.Price
+                                              && s.Price <= Math.Max(emaFast, emaSlow),
+        IndicatorType.EmaStack           => Parameter is { } sf && Parameter2 is { } ss
+                                              && s.GetEma((int)sf) is { } stackFast
+                                              && s.GetEma((int)ss) is { } stackSlow
+                                              && stackFast > stackSlow,
+        IndicatorType.ReclaimEma         => Parameter is { } rp
+                                              && s.GetPriorEma((int)rp) is { } priorEma
+                                              && s.GetEma((int)rp) is { } currentEma
+                                              && s.PriorPrice is { } priorPrice
+                                              && priorPrice <= priorEma && s.Price > currentEma,
+        IndicatorType.DiPositive         => s.IsBullishTrend,
+        IndicatorType.DiNegative         => !s.IsBullishTrend,
+        IndicatorType.AdxAbove           => s.Adx >= (Parameter ?? 25),
+        IndicatorType.RsiOversold        => s.Rsi <= (Parameter ?? 30),
+        IndicatorType.RsiOverbought      => s.Rsi >= (Parameter ?? 70),
+        IndicatorType.RsiBullishDivergence => s.HasBullishDivergence == true,
+        IndicatorType.RsiBearishDivergence => s.HasBearishDivergence == true,
+        IndicatorType.MacdBullish        => s.IsMacdBullish,
+        IndicatorType.MacdBearish        => !s.IsMacdBullish,
+        IndicatorType.VolumeAbove        => s.VolumeRatio >= (Parameter ?? 1.5),
+        IndicatorType.AtSupport          => s.RecentSwingLow is { } sl
+                                              && Math.Abs((s.Price - sl) / sl) * 100.0 <= (Parameter ?? 0.5),
+        IndicatorType.AtResistance       => s.RecentSwingHigh is { } sh
+                                              && Math.Abs((s.Price - sh) / sh) * 100.0 <= (Parameter ?? 0.5),
+        _                                => true
     };
 }
 
@@ -838,18 +1129,36 @@ public sealed class ConditionFactory
 {
     public ICondition IsAboveVwap() => new IndicatorCondition(IndicatorType.VwapAbove);
     public ICondition IsBelowVwap() => new IndicatorCondition(IndicatorType.VwapBelow);
+    public ICondition OnVwapReclaim() => new IndicatorCondition(IndicatorType.VwapReclaim);
+    public ICondition OnVwapLoss() => new IndicatorCondition(IndicatorType.VwapLoss);
     public ICondition IsEmaAbove(int period) => new IndicatorCondition(IndicatorType.EmaAbove, period);
     public ICondition IsEmaBelow(int period) => new IndicatorCondition(IndicatorType.EmaBelow, period);
+    public ICondition IsAboveEma(int period) => new IndicatorCondition(IndicatorType.EmaAbove, period);
+    public ICondition IsBelowEma(int period) => new IndicatorCondition(IndicatorType.EmaBelow, period);
+    public ICondition IsBetweenEma(int fast, int slow) => new IndicatorCondition(IndicatorType.BetweenEma, fast, slow);
+    public ICondition RequireEmaStack(int fast, int slow) => new IndicatorCondition(IndicatorType.EmaStack, fast, slow, StrategyPhase.Filters);
+    public ICondition OnReclaim(int period) => new IndicatorCondition(IndicatorType.ReclaimEma, period);
     public ICondition IsDiPositive() => new IndicatorCondition(IndicatorType.DiPositive);
     public ICondition IsDiNegative() => new IndicatorCondition(IndicatorType.DiNegative);
     public ICondition IsAdxAbove(double threshold) => new IndicatorCondition(IndicatorType.AdxAbove, threshold);
+    public ICondition RequireAdxAbove(double threshold = 20) => new IndicatorCondition(IndicatorType.AdxAbove, threshold, null, StrategyPhase.Filters);
     public ICondition IsRsiOversold(double threshold = 30) => new IndicatorCondition(IndicatorType.RsiOversold, threshold);
     public ICondition IsRsiOverbought(double threshold = 70) => new IndicatorCondition(IndicatorType.RsiOverbought, threshold);
+    public ICondition IsRsiBullishDivergence() => new IndicatorCondition(IndicatorType.RsiBullishDivergence);
+    public ICondition IsRsiBearishDivergence() => new IndicatorCondition(IndicatorType.RsiBearishDivergence);
     public ICondition IsMacdBullish() => new IndicatorCondition(IndicatorType.MacdBullish);
     public ICondition IsMacdBearish() => new IndicatorCondition(IndicatorType.MacdBearish);
     public ICondition IsGapUp(double minPercent = 3) => new IndicatorCondition(IndicatorType.GapUp, minPercent);
     public ICondition IsGapDown(double minPercent = 3) => new IndicatorCondition(IndicatorType.GapDown, minPercent);
     public ICondition IsVolumeAbove(double multiplier) => new IndicatorCondition(IndicatorType.VolumeAbove, multiplier);
+    public ICondition WithVolumeConfirm(double multiplier = 1.2) => new IndicatorCondition(IndicatorType.VolumeAbove, multiplier);
+    public ICondition IsAtSupport(double tolerancePercent = 0.5) => new IndicatorCondition(IndicatorType.AtSupport, tolerancePercent);
+    public ICondition IsAtResistance(double tolerancePercent = 0.5) => new IndicatorCondition(IndicatorType.AtResistance, tolerancePercent);
+    public ICondition IsBullishEngulfing() => new PatternCondition(PatternType.BullishEngulfing);
+    public ICondition IsBearishEngulfing() => new PatternCondition(PatternType.BearishEngulfing);
+    public ICondition IsHammer() => new PatternCondition(PatternType.Hammer);
+    public ICondition IsShootingStar() => new PatternCondition(PatternType.ShootingStar);
+    public ICondition IsDoji() => new PatternCondition(PatternType.Doji);
     public ICondition HoldsAbove(double price) => new PriceLevelCondition(PriceLevelType.HoldsAbove, price);
     public ICondition HoldsBelow(double price) => new PriceLevelCondition(PriceLevelType.HoldsBelow, price);
     public ICondition IsNear(double price, double tolerance = 1.0) => new PriceLevelCondition(PriceLevelType.Near, price, tolerance);
@@ -857,6 +1166,87 @@ public sealed class ConditionFactory
     public ICondition BreaksBelow(double price) => new PriceLevelCondition(PriceLevelType.BreaksBelow, price);
     public ICondition Breakout(double? level = null) => new PatternCondition(PatternType.Breakout, level);
     public ICondition Pullback(double? level = null) => new PatternCondition(PatternType.Pullback, level);
+}
+
+/// <summary>
+/// Static condition catalog for the expression-based branching syntax (Option A
+/// in CLAUDE.md). Lets users compose:
+/// <code>
+/// using static IdiotProof.Scripting.Conditions;
+/// // ...
+/// .If(IsAboveVwap.And(IsEmaAbove(9)).And(OnReclaim(9)))
+///     .Then(...)
+/// </code>
+/// Property-shaped values (no parens) for parameterless conditions; method-shaped
+/// for parameterized ones. Combine with <c>.And()</c>, <c>.Or()</c>, <c>.Not()</c>
+/// from <see cref="ConditionExtensions"/>.
+/// </summary>
+public static class Conditions
+{
+    // ── VWAP ──
+    public static ICondition IsAboveVwap        => new IndicatorCondition(IndicatorType.VwapAbove);
+    public static ICondition IsBelowVwap        => new IndicatorCondition(IndicatorType.VwapBelow);
+    public static ICondition AboveVwap          => IsAboveVwap;
+    public static ICondition BelowVwap          => IsBelowVwap;
+    public static ICondition OnVwapReclaim      => new IndicatorCondition(IndicatorType.VwapReclaim);
+    public static ICondition OnVwapLoss         => new IndicatorCondition(IndicatorType.VwapLoss);
+
+    // ── EMA family ──
+    public static ICondition IsAboveEma(int period)                        => new IndicatorCondition(IndicatorType.EmaAbove, period);
+    public static ICondition IsBelowEma(int period)                        => new IndicatorCondition(IndicatorType.EmaBelow, period);
+    public static ICondition IsEmaAbove(int period)                        => IsAboveEma(period);
+    public static ICondition IsEmaBelow(int period)                        => IsBelowEma(period);
+    public static ICondition IsBetweenEma(int fast, int slow)              => new IndicatorCondition(IndicatorType.BetweenEma, fast, slow);
+    public static ICondition RequireEmaStack(int fast, int slow)           => new IndicatorCondition(IndicatorType.EmaStack, fast, slow, StrategyPhase.Filters);
+    public static ICondition OnReclaim(int emaPeriod)                      => new IndicatorCondition(IndicatorType.ReclaimEma, emaPeriod);
+
+    // ── ADX / DI ──
+    public static ICondition IsDiPositive       => new IndicatorCondition(IndicatorType.DiPositive);
+    public static ICondition IsDiNegative       => new IndicatorCondition(IndicatorType.DiNegative);
+    public static ICondition IsAdxAbove(double threshold)                  => new IndicatorCondition(IndicatorType.AdxAbove, threshold);
+    public static ICondition RequireAdxAbove(double threshold = 20)        => new IndicatorCondition(IndicatorType.AdxAbove, threshold, null, StrategyPhase.Filters);
+    public static ICondition Trending(double minAdx = 20)                  => RequireAdxAbove(minAdx);
+
+    // ── RSI ──
+    public static ICondition IsRsiOversold(double threshold = 30)          => new IndicatorCondition(IndicatorType.RsiOversold, threshold);
+    public static ICondition IsRsiOverbought(double threshold = 70)        => new IndicatorCondition(IndicatorType.RsiOverbought, threshold);
+    public static ICondition Oversold(double threshold = 30)               => IsRsiOversold(threshold);
+    public static ICondition Overbought(double threshold = 70)             => IsRsiOverbought(threshold);
+    public static ICondition IsRsiBullishDivergence => new IndicatorCondition(IndicatorType.RsiBullishDivergence);
+    public static ICondition IsRsiBearishDivergence => new IndicatorCondition(IndicatorType.RsiBearishDivergence);
+
+    // ── MACD ──
+    public static ICondition IsMacdBullish      => new IndicatorCondition(IndicatorType.MacdBullish);
+    public static ICondition IsMacdBearish      => new IndicatorCondition(IndicatorType.MacdBearish);
+    public static ICondition BullishMacd        => IsMacdBullish;
+    public static ICondition BearishMacd        => IsMacdBearish;
+
+    // ── Volume ──
+    public static ICondition IsVolumeAbove(double multiplier)              => new IndicatorCondition(IndicatorType.VolumeAbove, multiplier);
+    public static ICondition WithVolumeConfirm(double multiplier = 1.2)    => new IndicatorCondition(IndicatorType.VolumeAbove, multiplier);
+    public static ICondition VolumeSpike(double multiplier = 2.0)          => new IndicatorCondition(IndicatorType.VolumeAbove, multiplier);
+
+    // ── Gap ──
+    public static ICondition IsGapUp(double minPercent = 3)                => new IndicatorCondition(IndicatorType.GapUp, minPercent);
+    public static ICondition IsGapDown(double minPercent = 3)              => new IndicatorCondition(IndicatorType.GapDown, minPercent);
+
+    // ── Support / Resistance ──
+    public static ICondition IsAtSupport(double tolerancePercent = 0.5)    => new IndicatorCondition(IndicatorType.AtSupport, tolerancePercent);
+    public static ICondition IsAtResistance(double tolerancePercent = 0.5) => new IndicatorCondition(IndicatorType.AtResistance, tolerancePercent);
+
+    // ── Candlestick patterns ──
+    public static ICondition IsBullishEngulfing => new PatternCondition(PatternType.BullishEngulfing);
+    public static ICondition IsBearishEngulfing => new PatternCondition(PatternType.BearishEngulfing);
+    public static ICondition IsHammer           => new PatternCondition(PatternType.Hammer);
+    public static ICondition IsShootingStar     => new PatternCondition(PatternType.ShootingStar);
+    public static ICondition IsDoji             => new PatternCondition(PatternType.Doji);
+
+    // ── Price levels ──
+    public static ICondition HoldsAbove(double price)                      => new PriceLevelCondition(PriceLevelType.HoldsAbove, price);
+    public static ICondition HoldsBelow(double price)                      => new PriceLevelCondition(PriceLevelType.HoldsBelow, price);
+    public static ICondition IsNear(double price, double tolerance = 1.0)  => new PriceLevelCondition(PriceLevelType.Near, price, tolerance);
+    public static ICondition BreaksAbove(double price)                     => new PriceLevelCondition(PriceLevelType.BreaksAbove, price);
+    public static ICondition BreaksBelow(double price)                     => new PriceLevelCondition(PriceLevelType.BreaksBelow, price);
 }
 
 /// <summary>

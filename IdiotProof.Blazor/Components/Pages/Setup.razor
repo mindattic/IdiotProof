@@ -42,7 +42,7 @@
                     Never trade more than you can afford to lose.
                 </div>
                 <ul class="text-muted small">
-                    <li class="mb-1">Connect to IBKR or Alpaca as your broker</li>
+                    <li class="mb-1">Connect Alpaca as your broker</li>
                     <li class="mb-1">Use Polygon.io for market data</li>
                     <li class="mb-1">Let Claude AI vote on trade signals</li>
                     <li class="mb-1">Run proven strategies: ITI, Premarket Breakout, Momentum Decay</li>
@@ -57,7 +57,7 @@
                 <fieldset class="mb-3">
                     <legend class="form-label text-muted small">Choose your primary broker</legend>
                     <div class="row g-2" role="radiogroup" aria-label="Primary broker">
-                        @foreach (var broker in new[] { ("Alpaca", "Recommended for beginners. REST API, easy setup, great paper trading.", "bi-graph-up"), ("Ibkr", "Interactive Brokers. Advanced. Requires TWS or Gateway running locally.", "bi-building"), ("Sandbox", "No real broker. Use for testing and development only.", "bi-cpu") })
+                        @foreach (var broker in new[] { ("Alpaca", "Recommended. REST API, easy setup, great paper trading.", "bi-graph-up"), ("Sandbox", "No real broker. Use for testing and development only.", "bi-cpu") })
                         {
                             var b = broker;
                             var isChecked = primaryBroker == b.Item1;
@@ -94,13 +94,6 @@
                                    autocomplete="off"
                                    @bind="alpacaSecret" placeholder="••••" />
                         </div>
-                    </div>
-                }
-                @if (primaryBroker == "Ibkr")
-                {
-                    <div class="alert alert-info small" role="note">
-                        IBKR requires TWS or IB Gateway running on your machine with API access enabled.
-                        Default connection: 127.0.0.1:4002 (paper).
                     </div>
                 }
             }
@@ -303,7 +296,6 @@
             keys.AlpacaApiKeyId     = alpacaKeyId;
             keys.AlpacaApiSecretKey = alpacaSecret;
             keys.AlpacaIsPaper      = usePaperTrading;
-            keys.IbkrUsePaper       = usePaperTrading;
             keys.PolygonApiKey      = polygonKey;
             keys.ClaudeApiKey       = claudeKey;
             keys.LlmVotingEnabled   = enableLlm;

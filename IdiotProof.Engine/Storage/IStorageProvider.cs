@@ -43,7 +43,7 @@ public sealed class WebStorageProvider : IStorageProvider
 }
 
 /// <summary>
-/// Stores data in %LOCALAPPDATA%\MindAttic (for MAUI Desktop).
+/// Stores data in %LOCALAPPDATA%\MindAttic\IdiotProof (for MAUI Desktop).
 /// </summary>
 public sealed class DesktopStorageProvider : IStorageProvider
 {
@@ -53,7 +53,7 @@ public sealed class DesktopStorageProvider : IStorageProvider
     {
         basePath = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "MindAttic");
+            "MindAttic", "IdiotProof");
     }
 
     public string SettingsPath => Path.Combine(basePath, "Settings");

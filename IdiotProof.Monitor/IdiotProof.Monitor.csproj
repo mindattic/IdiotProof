@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>IdiotProof.Monitor</RootNamespace>
+    <AssemblyName>idiotproof-monitor</AssemblyName>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="9.0.*" />
+    <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.*" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="10.0.*" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\IdiotProof.Models\IdiotProof.Models.csproj" />
+    <ProjectReference Include="..\IdiotProof.Indicators\IdiotProof.Indicators.csproj" />
+    <ProjectReference Include="..\IdiotProof.Scripting\IdiotProof.Scripting.csproj" />
+    <ProjectReference Include="..\IdiotProof.Strategies\IdiotProof.Strategies.csproj" />
+    <ProjectReference Include="..\IdiotProof.DataFeeds\IdiotProof.DataFeeds.csproj" />
+    <ProjectReference Include="..\IdiotProof.Brokers\IdiotProof.Brokers.csproj" />
+    <ProjectReference Include="..\IdiotProof.Engine\IdiotProof.Engine.csproj" />
+    <ProjectReference Include="..\IdiotProof.Blazor\IdiotProof.Blazor.csproj" />
+  </ItemGroup>
+
+</Project>

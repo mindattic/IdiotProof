@@ -33,44 +33,6 @@
 }
 </div>
 
-<!-- IBKR Section -->
-<section class="trading-card p-3 mb-3" aria-labelledby="ibkr-heading">
-    <h2 id="ibkr-heading" class="h6 text-white mb-3">
-        <i class="bi bi-building me-1" aria-hidden="true"></i>Interactive Brokers (TWS / Gateway)
-    </h2>
-    <div class="row g-3">
-        <div class="col-md-4">
-            <label class="form-label text-muted small" for="ibkr-host">Host</label>
-            <input id="ibkr-host" class="form-control bg-dark text-white border-secondary" @bind="ibkrHost" autocomplete="off" />
-        </div>
-        <div class="col-md-2">
-            <label class="form-label text-muted small" for="ibkr-live-port">Live Port</label>
-            <input id="ibkr-live-port" type="number" class="form-control bg-dark text-white border-secondary" @bind="ibkrLivePort" autocomplete="off" />
-        </div>
-        <div class="col-md-2">
-            <label class="form-label text-muted small" for="ibkr-paper-port">Paper Port</label>
-            <input id="ibkr-paper-port" type="number" class="form-control bg-dark text-white border-secondary" @bind="ibkrPaperPort" autocomplete="off" />
-        </div>
-        <div class="col-md-2">
-            <label class="form-label text-muted small" for="ibkr-client-id">Client ID</label>
-            <input id="ibkr-client-id" type="number" class="form-control bg-dark text-white border-secondary" @bind="ibkrClientId" autocomplete="off" />
-        </div>
-        <div class="col-md-2 d-flex align-items-end">
-            <div class="form-check form-switch">
-                <input class="form-check-input" type="checkbox" id="ibkrPaper" @bind="ibkrUsePaper" />
-                <label class="form-check-label text-muted small" for="ibkrPaper">Paper Mode</label>
-            </div>
-        </div>
-    </div>
-    @if (!ibkrUsePaper)
-    {
-        <div class="alert alert-danger small py-1 mt-2" role="alert">
-            <i class="bi bi-exclamation-triangle me-1" aria-hidden="true"></i>
-            <strong>LIVE trading mode.</strong> Real money will be used.
-        </div>
-    }
-</section>
-
 <!-- Alpaca Section -->
 <section class="trading-card p-3 mb-3" aria-labelledby="alpaca-heading">
     <div class="d-flex justify-content-between align-items-center mb-3">
@@ -259,12 +221,6 @@
 }
 
 @code {
-    private string ibkrHost = "127.0.0.1";
-    private int ibkrLivePort = 7496;
-    private int ibkrPaperPort = 7497;
-    private int ibkrClientId = 1;
-    private bool ibkrUsePaper = true;
-
     private string alpacaKeyId = "";
     private string alpacaSecret = "";
     private bool alpacaIsPaper = true;
@@ -294,11 +250,6 @@
         if (userId is null) return;
 
         var keys = await UserKeyService.GetOrCreateAsync(userId);
-        ibkrHost       = keys.IbkrHost;
-        ibkrLivePort   = keys.IbkrLivePort;
-        ibkrPaperPort  = keys.IbkrPaperPort;
-        ibkrClientId   = keys.IbkrClientId;
-        ibkrUsePaper   = keys.IbkrUsePaper;
         alpacaKeyId    = keys.AlpacaApiKeyId ?? "";
         alpacaSecret   = keys.AlpacaApiSecretKey ?? "";
         alpacaIsPaper  = keys.AlpacaIsPaper;
@@ -402,11 +353,6 @@
         var keys = new UserApiKeys
         {
             UserId             = userId,
-            IbkrHost           = ibkrHost,
-            IbkrLivePort       = ibkrLivePort,
-            IbkrPaperPort      = ibkrPaperPort,
-            IbkrClientId       = ibkrClientId,
-            IbkrUsePaper       = ibkrUsePaper,
             AlpacaApiKeyId     = alpacaKeyId,
             AlpacaApiSecretKey = alpacaSecret,
             AlpacaIsPaper      = alpacaIsPaper,

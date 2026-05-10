@@ -1,0 +1,6 @@
+{
+  "voters": ["claude", "openai", "gemini", "deepseek"],
+  "judge": "claude",
+  "tier": "high",
+  "_comment": "IdiotProof generates trading strategies — a high-stakes domain where a single LLM hallucinating a verb or mis-ordering a phase costs real money. High tier = 4-voter panel with Claude as judge, so any DSL output is cross-verified before being shown to the user."
+}

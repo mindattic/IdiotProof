@@ -10,7 +10,7 @@
 
 <div class="app-shell d-flex flex-column" style="min-height:100vh;">
     <!-- Top Navbar -->
-    <header class="navbar navbar-dark top-bar px-3 py-1 flex-shrink-0" role="banner">
+    <header class="navbar top-bar px-3 py-1 flex-shrink-0" role="banner">
         <div class="d-flex align-items-center gap-3">
             <button class="btn btn-sm btn-link text-muted d-md-none p-0"
                     type="button"
@@ -20,7 +20,12 @@
                     @onclick="ToggleSidebar">
                 <i class="bi bi-list fs-4" aria-hidden="true"></i>
             </button>
-            <a class="navbar-brand fw-bold text-white d-flex align-items-center gap-2" href="/" aria-label="IdiotProof home">
+            <AuthorizeView>
+                <Authorized>
+                    <IdiotProof.Blazor.Components.Shared.AccountPill />
+                </Authorized>
+            </AuthorizeView>
+            <a class="navbar-brand fw-bold d-flex align-items-center gap-2" href="/" aria-label="IdiotProof home">
                 <i class="bi bi-graph-up-arrow" style="color:var(--green)" aria-hidden="true"></i>
                 IdiotProof
             </a>

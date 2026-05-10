@@ -22,13 +22,6 @@ public sealed class UserApiKeys
     public bool LlmVotingEnabled { get; set; }
     public string ClaudeModel { get; set; } = "claude-sonnet-4-6";
 
-    // IBKR
-    public string IbkrHost { get; set; } = "127.0.0.1";
-    public int IbkrLivePort { get; set; } = 7496;
-    public int IbkrPaperPort { get; set; } = 7497;
-    public int IbkrClientId { get; set; } = 1;
-    public bool IbkrUsePaper { get; set; } = true;
-
     // Default broker/feed preferences
     public string DefaultBroker { get; set; } = "Sandbox";
     public string DefaultDataFeed { get; set; } = "Mock";

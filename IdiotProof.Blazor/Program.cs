@@ -21,10 +21,18 @@ builder.Services
     .AddRazorComponents()
     .AddInteractiveServerComponents();
 
-// ── Database (SQLite + Identity) ─────────────────────────────────────────────────
-var dbPath = Path.Combine(storageProvider.DataPath, "idiotproof.db");
-builder.Services.AddDbContextFactory<AppDbContext>(o =>
-    o.UseSqlite($"Data Source={dbPath}"));
+// ── Database (SQL Server + Identity) ─────────────────────────────────────────────
+// Connection string priority: env var ConnectionStrings__IdiotProof →
+// appsettings ConnectionStrings:IdiotProof → LocalDB fallback. Same pattern as
+// StreetSamurai. Runtime + design-time (AppDbContextFactory) resolve identically.
+var connStr =
+    Environment.GetEnvironmentVariable("ConnectionStrings__IdiotProof")
+    ?? builder.Configuration.GetConnectionString("IdiotProof")
+    ?? @"Server=(localdb)\MSSQLLocalDB;Database=IdiotProof;Trusted_Connection=True;TrustServerCertificate=True;";
+
+builder.Services.AddDbContextFactory<AppDbContext>(o => o.UseSqlServer(connStr));
+builder.Services.AddScoped<AppDbContext>(sp =>
+    sp.GetRequiredService<IDbContextFactory<AppDbContext>>().CreateDbContext());
 
 builder.Services.AddIdentityCore<AppUser>(options =>
     {
@@ -72,19 +80,27 @@ builder.Services.AddSingleton<TradingStateService>();
 // MindAttic.Legion is the gateway for all LLM communication — register the
 // universal client before any service that talks to an LLM.
 builder.Services.AddLegionClient();
-builder.Services.AddSingleton<LlmVotingService>();
+builder.Services.AddSingleton<IdiotProof.Blazor.Services.LlmVotingService>();
 builder.Services.AddScoped<UserKeyService>();
+builder.Services.AddSingleton<StrategyRepository>();
+builder.Services.AddSingleton<UserPreferencesService>();
+builder.Services.AddSingleton<StrategyScriptGenerator>();
 builder.Services.AddHttpClient();
 builder.Services.AddAntiforgery();
 
 // ── App ──────────────────────────────────────────────────────────────────────────
 var app = builder.Build();
 
-// Ensure Identity tables exist
+// Apply pending EF migrations on startup (creates the IdiotProof database on
+// LocalDB if missing, then keeps schema in sync with the codebase). Seed the
+// Learning Center catalog on the same scope so a fresh install has docs ready.
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-    db.Database.EnsureCreated();
+    db.Database.Migrate();
+
+    var dbFactory = scope.ServiceProvider.GetRequiredService<IDbContextFactory<AppDbContext>>();
+    await IdiotProof.Blazor.Services.LearningContentSeeder.SeedAsync(dbFactory);
 }
 
 if (!app.Environment.IsDevelopment())

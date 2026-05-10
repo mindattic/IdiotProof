@@ -1,0 +1,150 @@
+@page "/learn"
+@page "/learn/{Slug}"
+@rendermode InteractiveServer
+@using IdiotProof.Blazor.Data
+@using Microsoft.EntityFrameworkCore
+@inject IDbContextFactory<AppDbContext> DbFactory
+@inject NavigationManager Nav
+
+@*
+    Learning Center — the encyclopedia / atlas of IdiotScript. Every verb gets
+    its own page with a worked example rendered live via the wikilink syntax
+    [[Stock.Ticker(...)]]. Articles are seeded once on app start by
+    LearningContentSeeder; they live in SQL so admins can edit in-place later.
+
+    Layout: left sidebar groups articles by Category; right column renders the
+    current article via WikiContent, which interprets the Markdown body and
+    inlines a live StrategyBuilderRenderer at every wikilink.
+*@
+
+<PageTitle>@(currentArticle?.Title ?? "Learning Center") — IdiotProof</PageTitle>
+
+<div class="d-flex" style="min-height:calc(100vh - 200px)">
+    <!-- Sidebar: category tree -->
+    <aside class="learn-sidebar p-3" aria-label="Learning Center navigation" style="min-width:260px;border-right:1px solid var(--border)">
+        <h2 class="h6 mb-3">
+            <i class="bi bi-mortarboard me-1" style="color:var(--brand)" aria-hidden="true"></i>Learning Center
+        </h2>
+        @if (loading)
+        {
+            <div class="text-muted small">Loading...</div>
+        }
+        else
+        {
+            @foreach (var group in articles.GroupBy(a => a.Category).OrderBy(g => g.Key))
+            {
+                <div class="mb-3">
+                    <div class="text-muted small fw-semibold text-uppercase mb-1" style="font-size:0.7rem;letter-spacing:0.05em">
+                        @group.Key
+                    </div>
+                    <ul class="list-unstyled mb-0">
+                        @foreach (var a in group.OrderBy(x => x.Order))
+                        {
+                            <li class="mb-1">
+                                <a href="/learn/@a.Slug"
+                                   class="learn-link @(a.Slug == Slug || (Slug == null && a.Slug == articles[0].Slug) ? "active" : "")">
+                                    @a.Title
+                                </a>
+                            </li>
+                        }
+                    </ul>
+                </div>
+            }
+        }
+    </aside>
+
+    <!-- Article body -->
+    <main class="flex-grow-1 p-4" tabindex="-1">
+        @if (loading)
+        {
+            <div class="text-muted">Loading articles...</div>
+        }
+        else if (currentArticle is null)
+        {
+            <div class="trading-card p-4">
+                <h1 class="h4">Article not found</h1>
+                <p class="text-muted">The article <code>@Slug</code> does not exist. Pick one from the sidebar.</p>
+            </div>
+        }
+        else
+        {
+            <article aria-labelledby="article-title">
+                <div class="text-muted small text-uppercase mb-1" style="font-size:0.7rem;letter-spacing:0.05em">
+                    @currentArticle.Category
+                </div>
+                <h1 id="article-title" class="h3 mb-2">@currentArticle.Title</h1>
+                @if (!string.IsNullOrEmpty(currentArticle.Summary))
+                {
+                    <p class="lead text-muted">@currentArticle.Summary</p>
+                }
+                <hr />
+                <div class="learn-body">
+                    <WikiContent Content="currentArticle.BodyMarkdown" />
+                </div>
+
+                <hr class="my-4" />
+                <div class="d-flex justify-content-between text-muted small">
+                    @if (previousArticle is not null)
+                    {
+                        <a href="/learn/@previousArticle.Slug" class="learn-prev">
+                            <i class="bi bi-arrow-left me-1" aria-hidden="true"></i>@previousArticle.Title
+                        </a>
+                    }
+                    else { <span></span> }
+
+                    @if (nextArticle is not null)
+                    {
+                        <a href="/learn/@nextArticle.Slug" class="learn-next">
+                            @nextArticle.Title<i class="bi bi-arrow-right ms-1" aria-hidden="true"></i>
+                        </a>
+                    }
+                </div>
+            </article>
+        }
+    </main>
+</div>
+
+@code {
+    [Parameter] public string? Slug { get; set; }
+
+    private bool loading = true;
+    private List<LearningArticle> articles = new();
+    private LearningArticle? currentArticle;
+    private LearningArticle? previousArticle;
+    private LearningArticle? nextArticle;
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (!loading) ResolveCurrent();
+        else await Task.CompletedTask;
+    }
+
+    private async Task LoadAsync()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        articles = await db.LearningArticles
+            .OrderBy(a => a.Category).ThenBy(a => a.Order)
+            .ToListAsync();
+        loading = false;
+        ResolveCurrent();
+    }
+
+    private void ResolveCurrent()
+    {
+        if (articles.Count == 0)
+        {
+            currentArticle = null;
+            return;
+        }
+        currentArticle = string.IsNullOrEmpty(Slug)
+            ? articles[0]
+            : articles.FirstOrDefault(a => string.Equals(a.Slug, Slug, StringComparison.OrdinalIgnoreCase))
+              ?? articles[0];
+
+        var idx = articles.IndexOf(currentArticle);
+        previousArticle = idx > 0 ? articles[idx - 1] : null;
+        nextArticle     = idx < articles.Count - 1 ? articles[idx + 1] : null;
+    }
+}

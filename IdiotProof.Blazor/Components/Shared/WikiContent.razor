@@ -1,0 +1,57 @@
+@using IdiotProof.Blazor.Services
+
+@*
+    WikiContent — renders prose containing IdiotScript wikilinks. Wraps
+    WikilinkParser + StrategyBuilderRenderer so any documentation page (Learning
+    Center, strategy descriptions, glossary) can embed live strategy examples
+    inline with the surrounding text.
+
+    Syntax (in source content):
+       [[Stock.Ticker("BE").IsAboveVwap().Long().Build()]]
+    becomes a fully rendered visual flow-chart at that exact spot.
+
+    Plain prose passes through verbatim (preserving newlines via white-space:pre-wrap).
+    Unparseable wikilinks render a small fallback badge with the raw script + error.
+*@
+
+@if (string.IsNullOrEmpty(Content))
+{
+    @if (!string.IsNullOrEmpty(EmptyMessage))
+    {
+        <div class="text-muted small">@EmptyMessage</div>
+    }
+}
+else
+{
+    @foreach (var token in WikilinkParser.Parse(Content))
+    {
+        @if (token.TokenKind == WikilinkParser.WikilinkToken.Kind.Text)
+        {
+            <span class="wiki-text">@token.Text</span>
+        }
+        else if (token.TokenKind == WikilinkParser.WikilinkToken.Kind.Strategy)
+        {
+            <div class="wiki-embedded-strategy my-3">
+                <StrategyBuilderRenderer Strategy="token.Strategy" />
+                <details class="mt-2">
+                    <summary class="text-muted small" style="cursor:pointer">Show source</summary>
+                    <pre class="small mt-1 p-2" style="background:var(--bg-row-alt);border:1px solid var(--border);border-radius:6px;overflow:auto">@token.Text</pre>
+                </details>
+            </div>
+        }
+        else
+        {
+            <span class="badge bg-warning text-dark me-1" title="@token.Error">
+                <i class="bi bi-exclamation-triangle me-1" aria-hidden="true"></i>unparseable: @(token.Text.Length > 60 ? token.Text[..60] + "…" : token.Text)
+            </span>
+        }
+    }
+}
+
+@code {
+    /// <summary>The prose to render. Plain text + inline [[script]] wikilinks.</summary>
+    [Parameter] public string? Content { get; set; }
+
+    /// <summary>Optional message shown when Content is null/empty.</summary>
+    [Parameter] public string? EmptyMessage { get; set; }
+}

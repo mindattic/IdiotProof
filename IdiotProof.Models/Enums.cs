@@ -25,9 +25,9 @@ public enum PriceType { Current, Bid, Ask, VWAP, Open, High, Low, Close }
 
 public enum ConfidenceGrade { APlus, A, B, C, D, F }
 
-public enum BrokerType { Ibkr, Alpaca, Sandbox }
+public enum BrokerType { Alpaca, Sandbox }
 
-public enum FeedType { Ibkr, Polygon }
+public enum FeedType { Polygon }
 
 public enum StrategyType { Iti, BreakoutPullback, LowHigh, FluentDsl, Custom }
 

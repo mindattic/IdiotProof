@@ -65,11 +65,6 @@ public sealed class UserKeyService(IDbContextFactory<AppDbContext> dbFactory, ID
         ClaudeApiKey    = Protect(k.ClaudeApiKey),
         LlmVotingEnabled = k.LlmVotingEnabled,
         ClaudeModel     = k.ClaudeModel,
-        IbkrHost        = k.IbkrHost,
-        IbkrLivePort    = k.IbkrLivePort,
-        IbkrPaperPort   = k.IbkrPaperPort,
-        IbkrClientId    = k.IbkrClientId,
-        IbkrUsePaper    = k.IbkrUsePaper,
         DefaultBroker   = k.DefaultBroker,
         DefaultDataFeed = k.DefaultDataFeed
     };
@@ -85,11 +80,6 @@ public sealed class UserKeyService(IDbContextFactory<AppDbContext> dbFactory, ID
         ClaudeApiKey    = Unprotect(k.ClaudeApiKey),
         LlmVotingEnabled = k.LlmVotingEnabled,
         ClaudeModel     = k.ClaudeModel,
-        IbkrHost        = k.IbkrHost,
-        IbkrLivePort    = k.IbkrLivePort,
-        IbkrPaperPort   = k.IbkrPaperPort,
-        IbkrClientId    = k.IbkrClientId,
-        IbkrUsePaper    = k.IbkrUsePaper,
         DefaultBroker   = k.DefaultBroker,
         DefaultDataFeed = k.DefaultDataFeed
     };

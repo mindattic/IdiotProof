@@ -24,11 +24,67 @@ public sealed class IndicatorSnapshot
     public double? VwapDistance => Vwap.HasValue && Vwap.Value > 0
         ? ((Price - Vwap.Value) / Vwap.Value) * 100 : null;
 
-    // EMAs
+    // EMAs — fixed-period helpers + arbitrary-period dictionary for DSL verbs
+    // like IsBetweenEma(7, 65) or RequireEmaStack(13, 89).
     public double? Ema9 { get; set; }
     public double? Ema21 { get; set; }
     public double? Ema50 { get; set; }
     public double? Ema200 { get; set; }
+    public Dictionary<int, double> Emas { get; set; } = new();
+    public Dictionary<int, double> PriorEmas { get; set; } = new();
+
+    /// <summary>
+    /// Resolve an EMA for any period. Falls back through the dedicated 9/21/50/200
+    /// fields when not present in <see cref="Emas"/>.
+    /// </summary>
+    public double? GetEma(int period) =>
+        Emas.TryGetValue(period, out var v) ? v
+        : period switch
+        {
+            9   => Ema9,
+            21  => Ema21,
+            50  => Ema50,
+            200 => Ema200,
+            _   => null
+        };
+
+    public double? GetPriorEma(int period) =>
+        PriorEmas.TryGetValue(period, out var v) ? v : null;
+
+    /// <summary>Prior bar's close (used by reclaim / cross-up / cross-down conditions).</summary>
+    public double? PriorPrice { get; set; }
+
+    /// <summary>Prior bar's VWAP (used by VWAP reclaim / loss conditions).</summary>
+    public double? PriorVwap { get; set; }
+
+    // ATR (used by stop / target / trailing verbs that quote multiples of ATR)
+    public double? Atr { get; set; }
+
+    // Bollinger Bands
+    public double? BollingerUpper { get; set; }
+    public double? BollingerMiddle { get; set; }
+    public double? BollingerLower { get; set; }
+
+    // Stochastic
+    public double? StochasticK { get; set; }
+    public double? StochasticD { get; set; }
+
+    // Candlestick pattern flags (computed by CandlestickPatterns from the latest bar).
+    public bool IsBullishEngulfing { get; set; }
+    public bool IsBearishEngulfing { get; set; }
+    public bool IsHammer { get; set; }
+    public bool IsShootingStar { get; set; }
+    public bool IsDoji { get; set; }
+
+    // Swing structure (used by IsAtSupport / IsAtResistance).
+    public double? RecentSwingHigh { get; set; }
+    public double? RecentSwingLow { get; set; }
+
+    // Bar fields exposed to conditions that need OHLC, not just Price (close).
+    public double? BarOpen { get; set; }
+    public double? BarHigh { get; set; }
+    public double? BarLow { get; set; }
+    public double BarClose => Price;
 
     // RSI
     public double? Rsi { get; set; }

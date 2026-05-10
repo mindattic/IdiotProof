@@ -307,7 +307,7 @@ internal sealed class StatusCommand(WorkspaceManager workspaceManager, BrokerRou
 internal sealed class PositionsSettings : CommandSettings
 {
     [CommandOption("--broker|-b")]
-    [Description("Broker name (Ibkr, Alpaca, Sandbox). Default: uses app setting.")]
+    [Description("Broker name (Alpaca, Sandbox). Default: uses app setting.")]
     public string? Broker { get; set; }
 }
 
