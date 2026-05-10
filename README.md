@@ -133,7 +133,10 @@ SQL Server (LocalDB by default)                ← canonical runtime state
     ├── UserApiKeys                             (per-user encrypted broker/data keys)
     ├── Strategies                              (UUIDv7 id, OwnerUserId, Title, ScriptText, IsActive, ...)
     ├── UserPreferences                         (Theme, ActiveAccountId, OpenStrategyTabs, UiStateJson)
-    └── LearningArticles                        (Slug, Category, Title, BodyMarkdown, Order)
+    ├── LearningArticles                        (Slug, Category, Title, BodyMarkdown, Order)
+    ├── SettingsKv                               (generic KV store for runtime-editable settings)
+    ├── Workspaces                               (per-user containers — Watchlist + Strategies + risk params, schema-tolerant BodyJson)
+    └── AuditLogs                                (append-only trail: signal fires, orders, broker switches, risk vetoes)
 ```
 
 **Connection string priority chain** (matches StreetSamurai's pattern):
@@ -527,8 +530,8 @@ IdiotProof/
 ├── IdiotProof.Engine/                       ← DI root, AppSettings, BrokerCredentialStore
 ├── IdiotProof.Blazor/                       ← Web app (the front door)
 │   ├── Data/                                ← AppDbContext, Strategy, UserPreferences, LearningArticle
-│   ├── Migrations/                          ← EF migrations: InitialSqlServer, AddUserPreferences, AddLearningArticles
-│   ├── Services/                            ← StrategyScriptGenerator, WikilinkParser, repositories
+│   ├── Migrations/                          ← EF migrations: InitialSqlServer, AddUserPreferences, AddLearningArticles, AddSettingsWorkspacesAuditLog
+│   ├── Services/                            ← StrategyScriptGenerator, WikilinkParser, repositories (Strategy / Workspace / Settings / AuditLog / UserPreferences)
 │   ├── Components/Pages/                    ← Strategies.razor, StrategyBuilder.razor, Learn.razor, ...
 │   ├── Components/Shared/                   ← AccountPill.razor, StrategyBuilderRenderer.razor, WikiContent.razor
 │   └── wwwroot/css/_theme-alpaca.css
@@ -545,7 +548,7 @@ IdiotProof/
 
 ### Pending (deferred from prior sessions)
 
-- **AppSettings + Workspaces + AuditLog → SQL** (#35). Currently disk-backed; works fine. Move to SQL when there's UI to edit them in-app.
+- **Engine adoption of SQL workspaces** — the schema (`Workspaces`, `SettingsKv`, `AuditLogs` tables + `WorkspaceRepository` / `SettingsRepository` / `AuditLogRepository`) landed in the migration `AddSettingsWorkspacesAuditLog`. The Engine's legacy JSON-on-disk `WorkspaceManager` still works; switching it to read/write through `WorkspaceRepository` is a follow-on refactor (plus a one-shot disk → SQL importer for any existing workspaces).
 - **Notional sizing** — `Quantity.Notional($1000)` alongside `Quantity.Shares(100)`. Type wrapper exists in spec; needs the Alpaca order-placement plumbing.
 - **Multi-tab strategy editor** — the Strategies-page → /builder navigation is single-tab today. Multi-tab with localStorage tab restoration is on the roadmap.
 - **Visual drag-and-drop** — the Strategy Builder's visual flow-chart is currently read-only. Drag-and-drop reorder + add/remove condition cards is a pending UX upgrade.

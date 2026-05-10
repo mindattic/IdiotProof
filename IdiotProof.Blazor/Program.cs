@@ -85,6 +85,9 @@ builder.Services.AddScoped<UserKeyService>();
 builder.Services.AddSingleton<StrategyRepository>();
 builder.Services.AddSingleton<UserPreferencesService>();
 builder.Services.AddSingleton<StrategyScriptGenerator>();
+builder.Services.AddSingleton<SettingsRepository>();
+builder.Services.AddSingleton<WorkspaceRepository>();
+builder.Services.AddSingleton<AuditLogRepository>();
 builder.Services.AddHttpClient();
 builder.Services.AddAntiforgery();
 

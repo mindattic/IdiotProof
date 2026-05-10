@@ -10,6 +10,9 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options)
     public DbSet<Strategy> Strategies => Set<Strategy>();
     public DbSet<UserPreferences> UserPreferences => Set<UserPreferences>();
     public DbSet<LearningArticle> LearningArticles => Set<LearningArticle>();
+    public DbSet<SettingsKv>      SettingsKv       => Set<SettingsKv>();
+    public DbSet<Workspace>       Workspaces       => Set<Workspace>();
+    public DbSet<AuditLog>        AuditLogs        => Set<AuditLog>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -46,5 +49,24 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options)
             e.HasIndex(a => a.Category);
             e.HasIndex(a => new { a.Category, a.Order });
         });
+
+        builder.Entity<Workspace>(e =>
+        {
+            e.HasIndex(w => w.OwnerUserId);
+            e.HasOne<AppUser>()
+                .WithMany()
+                .HasForeignKey(w => w.OwnerUserId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<AuditLog>(e =>
+        {
+            // (UserId, Timestamp) supports per-user audit views; (Timestamp) supports
+            // the global recent-events view. Descending sort handled by query, not index.
+            e.HasIndex(a => new { a.UserId, a.TimestampUtc });
+            e.HasIndex(a => a.TimestampUtc);
+            e.HasIndex(a => a.Category);
+        });
+
     }
 }
