@@ -10,7 +10,7 @@ public class BranchingLogicTests
     // BUILDER API TESTS
     // ========================================
 
-    [Fact]
+    [Test]
     public void Then_PopsLastCondition_FromEntryConditions()
     {
         var strategy = Stock.Ticker("AAPL")
@@ -21,11 +21,11 @@ public class BranchingLogicTests
             .Build();
 
         // IsAboveVwap was popped into the conditional block
-        Assert.Single(strategy.EntryConditions); // only Breakout remains
-        Assert.IsType<PatternCondition>(strategy.EntryConditions[0]);
+        Assert.That(strategy.EntryConditions, Has.Count.EqualTo(1)); // only Breakout remains
+        Assert.That(strategy.EntryConditions[0], Is.InstanceOf<PatternCondition>());
     }
 
-    [Fact]
+    [Test]
     public void Then_CreatesConditionalBlock_WithOneBranch()
     {
         var strategy = Stock.Ticker("AAPL")
@@ -34,12 +34,12 @@ public class BranchingLogicTests
             .EndIf()
             .Build();
 
-        Assert.Single(strategy.ConditionalBlocks);
-        Assert.Single(strategy.ConditionalBlocks[0].Branches);
-        Assert.True(strategy.HasBranching);
+        Assert.That(strategy.ConditionalBlocks, Has.Count.EqualTo(1));
+        Assert.That(strategy.ConditionalBlocks[0].Branches, Has.Count.EqualTo(1));
+        Assert.That(strategy.HasBranching, Is.True);
     }
 
-    [Fact]
+    [Test]
     public void Then_WithoutPrecedingCondition_Throws()
     {
         Assert.Throws<InvalidOperationException>(() =>
@@ -47,7 +47,7 @@ public class BranchingLogicTests
                 .Then(b => b.Long()));
     }
 
-    [Fact]
+    [Test]
     public void ThenElse_CreatesTwoBranches()
     {
         var strategy = Stock.Ticker("AAPL")
@@ -56,13 +56,14 @@ public class BranchingLogicTests
             .Else(b => b.Short().TakeProfit(140))
             .Build();
 
-        var block = Assert.Single(strategy.ConditionalBlocks);
-        Assert.Equal(2, block.Branches.Count);
-        Assert.NotNull(block.Branches[0].Condition); // Then has condition
-        Assert.Null(block.Branches[1].Condition);     // Else has no condition
+        Assert.That(strategy.ConditionalBlocks, Has.Count.EqualTo(1));
+        var block = strategy.ConditionalBlocks[0];
+        Assert.That(block.Branches.Count, Is.EqualTo(2));
+        Assert.That(block.Branches[0].Condition, Is.Not.Null); // Then has condition
+        Assert.That(block.Branches[1].Condition, Is.Null);     // Else has no condition
     }
 
-    [Fact]
+    [Test]
     public void ThenElseIfElse_CreatesThreeBranches()
     {
         var strategy = Stock.Ticker("AAPL")
@@ -72,14 +73,15 @@ public class BranchingLogicTests
             .Else(b => b.Short().TakeProfit(140))
             .Build();
 
-        var block = Assert.Single(strategy.ConditionalBlocks);
-        Assert.Equal(3, block.Branches.Count);
-        Assert.NotNull(block.Branches[0].Condition);
-        Assert.NotNull(block.Branches[1].Condition);
-        Assert.Null(block.Branches[2].Condition);
+        Assert.That(strategy.ConditionalBlocks, Has.Count.EqualTo(1));
+        var block = strategy.ConditionalBlocks[0];
+        Assert.That(block.Branches.Count, Is.EqualTo(3));
+        Assert.That(block.Branches[0].Condition, Is.Not.Null);
+        Assert.That(block.Branches[1].Condition, Is.Not.Null);
+        Assert.That(block.Branches[2].Condition, Is.Null);
     }
 
-    [Fact]
+    [Test]
     public void MultipleElseIf_ChainsCorrectly()
     {
         var strategy = Stock.Ticker("TSLA")
@@ -90,11 +92,12 @@ public class BranchingLogicTests
             .Else(b => b.Long().StopLossPercent(5))
             .Build();
 
-        var block = Assert.Single(strategy.ConditionalBlocks);
-        Assert.Equal(4, block.Branches.Count);
+        Assert.That(strategy.ConditionalBlocks, Has.Count.EqualTo(1));
+        var block = strategy.ConditionalBlocks[0];
+        Assert.That(block.Branches.Count, Is.EqualTo(4));
     }
 
-    [Fact]
+    [Test]
     public void EndIf_ReturnsToStrategyBuilder_ForContinuedChaining()
     {
         var strategy = Stock.Ticker("AAPL")
@@ -105,12 +108,12 @@ public class BranchingLogicTests
             .Repeat()
             .Build();
 
-        Assert.Equal(145, strategy.StopLossPrice);
-        Assert.True(strategy.ShouldRepeat);
-        Assert.True(strategy.HasBranching);
+        Assert.That(strategy.StopLossPrice, Is.EqualTo(145));
+        Assert.That(strategy.ShouldRepeat, Is.True);
+        Assert.That(strategy.HasBranching, Is.True);
     }
 
-    [Fact]
+    [Test]
     public void ChainingAfterElse_ContinuesOnStrategyBuilder()
     {
         var strategy = Stock.Ticker("AAPL")
@@ -120,14 +123,14 @@ public class BranchingLogicTests
             .StopLoss(145)
             .Build();
 
-        Assert.Equal(145, strategy.StopLossPrice);
+        Assert.That(strategy.StopLossPrice, Is.EqualTo(145));
     }
 
     // ========================================
     // BRANCH OVERRIDES TESTS
     // ========================================
 
-    [Fact]
+    [Test]
     public void BranchBuilder_Long_SetsDirection()
     {
         var strategy = Stock.Ticker("AAPL")
@@ -137,10 +140,10 @@ public class BranchingLogicTests
             .Build();
 
         var overrides = strategy.ConditionalBlocks[0].Branches[0].Overrides;
-        Assert.Equal(TradeDirection.Long, overrides.Direction);
+        Assert.That(overrides.Direction, Is.EqualTo(TradeDirection.Long));
     }
 
-    [Fact]
+    [Test]
     public void BranchBuilder_Short_SetsDirection()
     {
         var strategy = Stock.Ticker("AAPL")
@@ -150,10 +153,10 @@ public class BranchingLogicTests
             .Build();
 
         var overrides = strategy.ConditionalBlocks[0].Branches[0].Overrides;
-        Assert.Equal(TradeDirection.Short, overrides.Direction);
+        Assert.That(overrides.Direction, Is.EqualTo(TradeDirection.Short));
     }
 
-    [Fact]
+    [Test]
     public void BranchBuilder_TakeProfit_SetsSingleTarget()
     {
         var strategy = Stock.Ticker("AAPL")
@@ -163,10 +166,10 @@ public class BranchingLogicTests
             .Build();
 
         var overrides = strategy.ConditionalBlocks[0].Branches[0].Overrides;
-        Assert.Equal(160, overrides.TakeProfitPrice);
+        Assert.That(overrides.TakeProfitPrice, Is.EqualTo(160));
     }
 
-    [Fact]
+    [Test]
     public void BranchBuilder_TakeProfit_MultipleTargets()
     {
         var strategy = Stock.Ticker("AAPL")
@@ -176,13 +179,13 @@ public class BranchingLogicTests
             .Build();
 
         var overrides = strategy.ConditionalBlocks[0].Branches[0].Overrides;
-        Assert.Equal(3, overrides.TakeProfitTargets.Count);
-        Assert.Equal(160, overrides.TakeProfitTargets[0].Price);
-        Assert.Equal(170, overrides.TakeProfitTargets[1].Price);
-        Assert.Equal(180, overrides.TakeProfitTargets[2].Price);
+        Assert.That(overrides.TakeProfitTargets.Count, Is.EqualTo(3));
+        Assert.That(overrides.TakeProfitTargets[0].Price, Is.EqualTo(160));
+        Assert.That(overrides.TakeProfitTargets[1].Price, Is.EqualTo(170));
+        Assert.That(overrides.TakeProfitTargets[2].Price, Is.EqualTo(180));
     }
 
-    [Fact]
+    [Test]
     public void BranchBuilder_StopLoss_SetsPrice()
     {
         var strategy = Stock.Ticker("AAPL")
@@ -192,10 +195,10 @@ public class BranchingLogicTests
             .Build();
 
         var overrides = strategy.ConditionalBlocks[0].Branches[0].Overrides;
-        Assert.Equal(140, overrides.StopLossPrice);
+        Assert.That(overrides.StopLossPrice, Is.EqualTo(140));
     }
 
-    [Fact]
+    [Test]
     public void BranchBuilder_TrailingStopLoss_SetsPercent()
     {
         var strategy = Stock.Ticker("AAPL")
@@ -205,10 +208,10 @@ public class BranchingLogicTests
             .Build();
 
         var overrides = strategy.ConditionalBlocks[0].Branches[0].Overrides;
-        Assert.Equal(2.5, overrides.TrailingStopPercent);
+        Assert.That(overrides.TrailingStopPercent, Is.EqualTo(2.5));
     }
 
-    [Fact]
+    [Test]
     public void BranchBuilder_AddsEntryConditions()
     {
         var strategy = Stock.Ticker("AAPL")
@@ -218,61 +221,61 @@ public class BranchingLogicTests
             .Build();
 
         var overrides = strategy.ConditionalBlocks[0].Branches[0].Overrides;
-        Assert.Single(overrides.EntryConditions);
-        Assert.IsType<PriceLevelCondition>(overrides.EntryConditions[0]);
+        Assert.That(overrides.EntryConditions, Has.Count.EqualTo(1));
+        Assert.That(overrides.EntryConditions[0], Is.InstanceOf<PriceLevelCondition>());
     }
 
     // ========================================
     // CONDITION FACTORY TESTS
     // ========================================
 
-    [Fact]
+    [Test]
     public void ConditionFactory_CreatesIndicatorConditions()
     {
         var factory = new ConditionFactory();
 
-        Assert.IsType<IndicatorCondition>(factory.IsAboveVwap());
-        Assert.IsType<IndicatorCondition>(factory.IsBelowVwap());
-        Assert.IsType<IndicatorCondition>(factory.IsEmaAbove(9));
-        Assert.IsType<IndicatorCondition>(factory.IsEmaBelow(21));
-        Assert.IsType<IndicatorCondition>(factory.IsDiPositive());
-        Assert.IsType<IndicatorCondition>(factory.IsDiNegative());
-        Assert.IsType<IndicatorCondition>(factory.IsAdxAbove(25));
-        Assert.IsType<IndicatorCondition>(factory.IsRsiOversold());
-        Assert.IsType<IndicatorCondition>(factory.IsRsiOverbought());
-        Assert.IsType<IndicatorCondition>(factory.IsMacdBullish());
-        Assert.IsType<IndicatorCondition>(factory.IsMacdBearish());
-        Assert.IsType<IndicatorCondition>(factory.IsGapUp());
-        Assert.IsType<IndicatorCondition>(factory.IsGapDown());
-        Assert.IsType<IndicatorCondition>(factory.IsVolumeAbove(2.0));
+        Assert.That(factory.IsAboveVwap(),     Is.InstanceOf<IndicatorCondition>());
+        Assert.That(factory.IsBelowVwap(),     Is.InstanceOf<IndicatorCondition>());
+        Assert.That(factory.IsEmaAbove(9),     Is.InstanceOf<IndicatorCondition>());
+        Assert.That(factory.IsEmaBelow(21),    Is.InstanceOf<IndicatorCondition>());
+        Assert.That(factory.IsDiPositive(),    Is.InstanceOf<IndicatorCondition>());
+        Assert.That(factory.IsDiNegative(),    Is.InstanceOf<IndicatorCondition>());
+        Assert.That(factory.IsAdxAbove(25),    Is.InstanceOf<IndicatorCondition>());
+        Assert.That(factory.IsRsiOversold(),   Is.InstanceOf<IndicatorCondition>());
+        Assert.That(factory.IsRsiOverbought(), Is.InstanceOf<IndicatorCondition>());
+        Assert.That(factory.IsMacdBullish(),   Is.InstanceOf<IndicatorCondition>());
+        Assert.That(factory.IsMacdBearish(),   Is.InstanceOf<IndicatorCondition>());
+        Assert.That(factory.IsGapUp(),         Is.InstanceOf<IndicatorCondition>());
+        Assert.That(factory.IsGapDown(),       Is.InstanceOf<IndicatorCondition>());
+        Assert.That(factory.IsVolumeAbove(2.0), Is.InstanceOf<IndicatorCondition>());
     }
 
-    [Fact]
+    [Test]
     public void ConditionFactory_CreatesPriceLevelConditions()
     {
         var factory = new ConditionFactory();
 
-        Assert.IsType<PriceLevelCondition>(factory.HoldsAbove(150));
-        Assert.IsType<PriceLevelCondition>(factory.HoldsBelow(150));
-        Assert.IsType<PriceLevelCondition>(factory.IsNear(150));
-        Assert.IsType<PriceLevelCondition>(factory.BreaksAbove(150));
-        Assert.IsType<PriceLevelCondition>(factory.BreaksBelow(150));
+        Assert.That(factory.HoldsAbove(150),  Is.InstanceOf<PriceLevelCondition>());
+        Assert.That(factory.HoldsBelow(150),  Is.InstanceOf<PriceLevelCondition>());
+        Assert.That(factory.IsNear(150),      Is.InstanceOf<PriceLevelCondition>());
+        Assert.That(factory.BreaksAbove(150), Is.InstanceOf<PriceLevelCondition>());
+        Assert.That(factory.BreaksBelow(150), Is.InstanceOf<PriceLevelCondition>());
     }
 
-    [Fact]
+    [Test]
     public void ConditionFactory_CreatesPatternConditions()
     {
         var factory = new ConditionFactory();
 
-        Assert.IsType<PatternCondition>(factory.Breakout(150));
-        Assert.IsType<PatternCondition>(factory.Pullback());
+        Assert.That(factory.Breakout(150), Is.InstanceOf<PatternCondition>());
+        Assert.That(factory.Pullback(),    Is.InstanceOf<PatternCondition>());
     }
 
     // ========================================
     // EVALUATION TESTS
     // ========================================
 
-    [Fact]
+    [Test]
     public void ConditionalBlock_Evaluate_ReturnsFirstMatchingBranch()
     {
         var strategy = Stock.Ticker("AAPL")
@@ -284,12 +287,12 @@ public class BranchingLogicTests
         var aboveVwap = new IndicatorSnapshot { Price = 155, Vwap = 150 };
         var result = strategy.ConditionalBlocks[0].Evaluate(aboveVwap);
 
-        Assert.NotNull(result);
-        Assert.Equal(TradeDirection.Long, result.Overrides.Direction);
-        Assert.Equal(160, result.Overrides.TakeProfitPrice);
+        Assert.That(result, Is.Not.Null);
+        Assert.That(result!.Overrides.Direction, Is.EqualTo(TradeDirection.Long));
+        Assert.That(result.Overrides.TakeProfitPrice, Is.EqualTo(160));
     }
 
-    [Fact]
+    [Test]
     public void ConditionalBlock_Evaluate_FallsToElse_WhenIfFails()
     {
         var strategy = Stock.Ticker("AAPL")
@@ -301,13 +304,13 @@ public class BranchingLogicTests
         var belowVwap = new IndicatorSnapshot { Price = 145, Vwap = 150 };
         var result = strategy.ConditionalBlocks[0].Evaluate(belowVwap);
 
-        Assert.NotNull(result);
-        Assert.Null(result.Condition); // Else branch
-        Assert.Equal(TradeDirection.Short, result.Overrides.Direction);
-        Assert.Equal(140, result.Overrides.TakeProfitPrice);
+        Assert.That(result, Is.Not.Null);
+        Assert.That(result!.Condition, Is.Null); // Else branch
+        Assert.That(result.Overrides.Direction, Is.EqualTo(TradeDirection.Short));
+        Assert.That(result.Overrides.TakeProfitPrice, Is.EqualTo(140));
     }
 
-    [Fact]
+    [Test]
     public void ConditionalBlock_Evaluate_MatchesElseIf_WhenIfFails()
     {
         var strategy = Stock.Ticker("AAPL")
@@ -321,12 +324,12 @@ public class BranchingLogicTests
         var snapshot = new IndicatorSnapshot { Price = 145, Vwap = 150, Rsi = 35 };
         var result = strategy.ConditionalBlocks[0].Evaluate(snapshot);
 
-        Assert.NotNull(result);
-        Assert.NotNull(result.Condition); // ElseIf, not Else
-        Assert.Equal(150, result.Overrides.TakeProfitPrice);
+        Assert.That(result, Is.Not.Null);
+        Assert.That(result!.Condition, Is.Not.Null); // ElseIf, not Else
+        Assert.That(result.Overrides.TakeProfitPrice, Is.EqualTo(150));
     }
 
-    [Fact]
+    [Test]
     public void ConditionalBlock_Evaluate_ReturnsNull_WhenNoBranchMatches()
     {
         var strategy = Stock.Ticker("AAPL")
@@ -340,10 +343,10 @@ public class BranchingLogicTests
         var snapshot = new IndicatorSnapshot { Price = 145, Vwap = 150, Rsi = 50 };
         var result = strategy.ConditionalBlocks[0].Evaluate(snapshot);
 
-        Assert.Null(result);
+        Assert.That(result, Is.Null);
     }
 
-    [Fact]
+    [Test]
     public void ConditionalBlock_Evaluate_FirstMatchWins()
     {
         var strategy = Stock.Ticker("AAPL")
@@ -361,15 +364,15 @@ public class BranchingLogicTests
         };
         var result = strategy.ConditionalBlocks[0].Evaluate(snapshot);
 
-        Assert.NotNull(result);
-        Assert.Equal(160, result.Overrides.TakeProfitPrice); // Then branch, not ElseIf
+        Assert.That(result, Is.Not.Null);
+        Assert.That(result!.Overrides.TakeProfitPrice, Is.EqualTo(160)); // Then branch, not ElseIf
     }
 
     // ========================================
     // APPLY OVERRIDES TESTS
     // ========================================
 
-    [Fact]
+    [Test]
     public void ApplyTo_OverridesDirection()
     {
         var strategy = Stock.Ticker("AAPL")
@@ -379,10 +382,10 @@ public class BranchingLogicTests
         var overrides = new StrategyOverrides { Direction = TradeDirection.Short };
         overrides.ApplyTo(strategy);
 
-        Assert.Equal(TradeDirection.Short, strategy.Direction);
+        Assert.That(strategy.Direction, Is.EqualTo(TradeDirection.Short));
     }
 
-    [Fact]
+    [Test]
     public void ApplyTo_OverridesTakeProfit()
     {
         var strategy = Stock.Ticker("AAPL")
@@ -392,10 +395,10 @@ public class BranchingLogicTests
         var overrides = new StrategyOverrides { TakeProfitPrice = 170 };
         overrides.ApplyTo(strategy);
 
-        Assert.Equal(170, strategy.TakeProfitPrice);
+        Assert.That(strategy.TakeProfitPrice, Is.EqualTo(170));
     }
 
-    [Fact]
+    [Test]
     public void ApplyTo_OverridesStopLoss()
     {
         var strategy = Stock.Ticker("AAPL")
@@ -405,10 +408,10 @@ public class BranchingLogicTests
         var overrides = new StrategyOverrides { StopLossPrice = 135 };
         overrides.ApplyTo(strategy);
 
-        Assert.Equal(135, strategy.StopLossPrice);
+        Assert.That(strategy.StopLossPrice, Is.EqualTo(135));
     }
 
-    [Fact]
+    [Test]
     public void ApplyTo_LeavesUnsetPropertiesAlone()
     {
         var strategy = Stock.Ticker("AAPL")
@@ -421,12 +424,12 @@ public class BranchingLogicTests
         var overrides = new StrategyOverrides { Direction = TradeDirection.Short };
         overrides.ApplyTo(strategy);
 
-        Assert.Equal(TradeDirection.Short, strategy.Direction);
-        Assert.Equal(160, strategy.TakeProfitPrice); // unchanged
-        Assert.Equal(140, strategy.StopLossPrice);   // unchanged
+        Assert.That(strategy.Direction, Is.EqualTo(TradeDirection.Short));
+        Assert.That(strategy.TakeProfitPrice, Is.EqualTo(160)); // unchanged
+        Assert.That(strategy.StopLossPrice, Is.EqualTo(140));   // unchanged
     }
 
-    [Fact]
+    [Test]
     public void ApplyTo_AddsEntryConditions()
     {
         var strategy = Stock.Ticker("AAPL")
@@ -437,14 +440,14 @@ public class BranchingLogicTests
         overrides.EntryConditions.Add(new IndicatorCondition(IndicatorType.VwapAbove));
         overrides.ApplyTo(strategy);
 
-        Assert.Equal(2, strategy.EntryConditions.Count);
+        Assert.That(strategy.EntryConditions.Count, Is.EqualTo(2));
     }
 
     // ========================================
     // TOSCRIPT SERIALIZATION TESTS
     // ========================================
 
-    [Fact]
+    [Test]
     public void ToScript_IncludesBranching()
     {
         var script = Stock.Ticker("AAPL")
@@ -454,12 +457,12 @@ public class BranchingLogicTests
             .StopLoss(145)
             .ToScript();
 
-        Assert.Contains("Then(", script);
-        Assert.Contains("Else(", script);
-        Assert.Contains("StopLoss(145)", script);
+        Assert.That(script, Does.Contain("Then("));
+        Assert.That(script, Does.Contain("Else("));
+        Assert.That(script, Does.Contain("StopLoss(145)"));
     }
 
-    [Fact]
+    [Test]
     public void ToScript_IncludesElseIf()
     {
         var script = Stock.Ticker("AAPL")
@@ -469,16 +472,16 @@ public class BranchingLogicTests
             .Else(b => b.Long().TakeProfit(150))
             .ToScript();
 
-        Assert.Contains("Then(", script);
-        Assert.Contains("ElseIf(", script);
-        Assert.Contains("Else(", script);
+        Assert.That(script, Does.Contain("Then("));
+        Assert.That(script, Does.Contain("ElseIf("));
+        Assert.That(script, Does.Contain("Else("));
     }
 
     // ========================================
     // DELEGATE METHODS ON CONDITIONALBUILDER
     // ========================================
 
-    [Fact]
+    [Test]
     public void ConditionalBuilder_StopLoss_DelegatesToParent()
     {
         var strategy = Stock.Ticker("AAPL")
@@ -487,10 +490,10 @@ public class BranchingLogicTests
             .StopLoss(140)
             .Build();
 
-        Assert.Equal(140, strategy.StopLossPrice);
+        Assert.That(strategy.StopLossPrice, Is.EqualTo(140));
     }
 
-    [Fact]
+    [Test]
     public void ConditionalBuilder_TrailingStopLoss_DelegatesToParent()
     {
         var strategy = Stock.Ticker("AAPL")
@@ -499,10 +502,10 @@ public class BranchingLogicTests
             .TrailingStopLoss(3)
             .Build();
 
-        Assert.Equal(3, strategy.TrailingStopPercent);
+        Assert.That(strategy.TrailingStopPercent, Is.EqualTo(3));
     }
 
-    [Fact]
+    [Test]
     public void ConditionalBuilder_Repeat_DelegatesToParent()
     {
         var strategy = Stock.Ticker("AAPL")
@@ -511,10 +514,10 @@ public class BranchingLogicTests
             .Repeat()
             .Build();
 
-        Assert.True(strategy.ShouldRepeat);
+        Assert.That(strategy.ShouldRepeat, Is.True);
     }
 
-    [Fact]
+    [Test]
     public void ConditionalBuilder_Build_DelegatesToParent()
     {
         var strategy = Stock.Ticker("AAPL")
@@ -522,15 +525,15 @@ public class BranchingLogicTests
             .Then(b => b.Long())
             .Build();
 
-        Assert.Equal("AAPL", strategy.Symbol);
-        Assert.True(strategy.HasBranching);
+        Assert.That(strategy.Symbol, Is.EqualTo("AAPL"));
+        Assert.That(strategy.HasBranching, Is.True);
     }
 
     // ========================================
     // INTEGRATION / REALISTIC SCENARIOS
     // ========================================
 
-    [Fact]
+    [Test]
     public void FullStrategy_VwapDirectionalPlay()
     {
         var strategy = Stock.Ticker("ERNA")
@@ -545,37 +548,38 @@ public class BranchingLogicTests
             .Build();
 
         // Verify structure
-        Assert.Equal("ERNA", strategy.Symbol);
-        Assert.Equal(2, strategy.EntryConditions.Count); // Breakout + Pullback (VWAP was popped)
-        Assert.Equal(0.46, strategy.StopLossPrice);
-        Assert.True(strategy.ShouldRepeat);
+        Assert.That(strategy.Symbol, Is.EqualTo("ERNA"));
+        Assert.That(strategy.EntryConditions.Count, Is.EqualTo(2)); // Breakout + Pullback (VWAP was popped)
+        Assert.That(strategy.StopLossPrice, Is.EqualTo(0.46));
+        Assert.That(strategy.ShouldRepeat, Is.True);
 
-        var block = Assert.Single(strategy.ConditionalBlocks);
-        Assert.Equal(3, block.Branches.Count);
+        Assert.That(strategy.ConditionalBlocks, Has.Count.EqualTo(1));
+        var block = strategy.ConditionalBlocks[0];
+        Assert.That(block.Branches.Count, Is.EqualTo(3));
 
         // Then branch: Long with multi-target
-        Assert.Equal(TradeDirection.Long, block.Branches[0].Overrides.Direction);
-        Assert.Equal(2, block.Branches[0].Overrides.TakeProfitTargets.Count);
+        Assert.That(block.Branches[0].Overrides.Direction, Is.EqualTo(TradeDirection.Long));
+        Assert.That(block.Branches[0].Overrides.TakeProfitTargets.Count, Is.EqualTo(2));
 
         // ElseIf branch: Short
-        Assert.Equal(TradeDirection.Short, block.Branches[1].Overrides.Direction);
+        Assert.That(block.Branches[1].Overrides.Direction, Is.EqualTo(TradeDirection.Short));
 
         // Else branch: Long conservative
-        Assert.Equal(TradeDirection.Long, block.Branches[2].Overrides.Direction);
-        Assert.Equal(0.55, block.Branches[2].Overrides.TakeProfitPrice);
+        Assert.That(block.Branches[2].Overrides.Direction, Is.EqualTo(TradeDirection.Long));
+        Assert.That(block.Branches[2].Overrides.TakeProfitPrice, Is.EqualTo(0.55));
 
         // Evaluate with above VWAP data
         var aboveVwap = new IndicatorSnapshot { Price = 0.54, Vwap = 0.50 };
         var match = block.Evaluate(aboveVwap);
-        Assert.Equal(TradeDirection.Long, match!.Overrides.Direction);
+        Assert.That(match!.Overrides.Direction, Is.EqualTo(TradeDirection.Long));
 
         // Evaluate with below VWAP data
         var belowVwap = new IndicatorSnapshot { Price = 0.48, Vwap = 0.50 };
         match = block.Evaluate(belowVwap);
-        Assert.Equal(TradeDirection.Short, match!.Overrides.Direction);
+        Assert.That(match!.Overrides.Direction, Is.EqualTo(TradeDirection.Short));
     }
 
-    [Fact]
+    [Test]
     public void FullStrategy_MomentumWithAdxFilter()
     {
         var strategy = Stock.Ticker("TSLA")
@@ -586,21 +590,22 @@ public class BranchingLogicTests
             .Else(b => b.Long().StopLossPercent(5))
             .Build();
 
-        Assert.True(strategy.HasBranching);
-        var block = Assert.Single(strategy.ConditionalBlocks);
-        Assert.Equal(4, block.Branches.Count);
+        Assert.That(strategy.HasBranching, Is.True);
+        Assert.That(strategy.ConditionalBlocks, Has.Count.EqualTo(1));
+        var block = strategy.ConditionalBlocks[0];
+        Assert.That(block.Branches.Count, Is.EqualTo(4));
 
         // Strong trend: ADX > 25
         var trending = new IndicatorSnapshot { Price = 235, Adx = 30, PlusDI = 28, MinusDI = 15 };
         var match = block.Evaluate(trending);
-        Assert.Equal(TradeDirection.Long, match!.Overrides.Direction);
-        Assert.Equal(250, match.Overrides.TakeProfitPrice);
+        Assert.That(match!.Overrides.Direction, Is.EqualTo(TradeDirection.Long));
+        Assert.That(match.Overrides.TakeProfitPrice, Is.EqualTo(250));
 
         // Weak trend, oversold RSI
         var oversold = new IndicatorSnapshot { Price = 220, Adx = 15, Rsi = 28 };
         match = block.Evaluate(oversold);
-        Assert.Equal(230, match!.Overrides.TakeProfitPrice);
-        Assert.Equal(210, match.Overrides.StopLossPrice);
+        Assert.That(match!.Overrides.TakeProfitPrice, Is.EqualTo(230));
+        Assert.That(match.Overrides.StopLossPrice, Is.EqualTo(210));
 
         // Weak trend, not oversold, MACD bearish
         var bearish = new IndicatorSnapshot
@@ -609,8 +614,8 @@ public class BranchingLogicTests
             MacdLine = -0.5, SignalLine = 0.5
         };
         match = block.Evaluate(bearish);
-        Assert.Equal(TradeDirection.Short, match!.Overrides.Direction);
-        Assert.Equal(200, match.Overrides.TakeProfitPrice);
+        Assert.That(match!.Overrides.Direction, Is.EqualTo(TradeDirection.Short));
+        Assert.That(match.Overrides.TakeProfitPrice, Is.EqualTo(200));
 
         // Nothing matches first three — falls to Else
         var neutral = new IndicatorSnapshot
@@ -619,7 +624,7 @@ public class BranchingLogicTests
             MacdLine = 1.0, SignalLine = 0.5
         };
         match = block.Evaluate(neutral);
-        Assert.Null(match!.Condition); // Else
-        Assert.Equal(5, match.Overrides.StopLossPercent);
+        Assert.That(match!.Condition, Is.Null); // Else
+        Assert.That(match.Overrides.StopLossPercent, Is.EqualTo(5));
     }
 }

@@ -35,7 +35,7 @@ public class RiskGuardianTests
         ConfidenceScore = 75,
     };
 
-    [Fact]
+    [Test]
     public void ValidateTrade_NoStopLoss_IsBlocked()
     {
         var guardian = new RiskGuardian(DefaultConfig());
@@ -47,11 +47,11 @@ public class RiskGuardianTests
 
         var verdict = guardian.ValidateTrade(setup);
 
-        Assert.False(verdict.IsApproved);
-        Assert.Contains(verdict.BlockReasons, r => r.Contains("NO STOP LOSS", StringComparison.OrdinalIgnoreCase));
+        Assert.That(verdict.IsApproved, Is.False);
+        Assert.That(verdict.BlockReasons, Has.Some.Matches<string>(r => r.Contains("NO STOP LOSS", StringComparison.OrdinalIgnoreCase)));
     }
 
-    [Fact]
+    [Test]
     public void ValidateTrade_LongStopAboveEntry_IsBlocked()
     {
         var guardian = new RiskGuardian(DefaultConfig());
@@ -64,11 +64,11 @@ public class RiskGuardianTests
 
         var verdict = guardian.ValidateTrade(setup);
 
-        Assert.False(verdict.IsApproved);
-        Assert.Contains(verdict.BlockReasons, r => r.Contains("LONG stop loss must be BELOW", StringComparison.OrdinalIgnoreCase));
+        Assert.That(verdict.IsApproved, Is.False);
+        Assert.That(verdict.BlockReasons, Has.Some.Matches<string>(r => r.Contains("LONG stop loss must be BELOW", StringComparison.OrdinalIgnoreCase)));
     }
 
-    [Fact]
+    [Test]
     public void ValidateTrade_ShortStopBelowEntry_IsBlocked()
     {
         var guardian = new RiskGuardian(DefaultConfig());
@@ -81,11 +81,11 @@ public class RiskGuardianTests
 
         var verdict = guardian.ValidateTrade(setup);
 
-        Assert.False(verdict.IsApproved);
-        Assert.Contains(verdict.BlockReasons, r => r.Contains("SHORT stop loss must be ABOVE", StringComparison.OrdinalIgnoreCase));
+        Assert.That(verdict.IsApproved, Is.False);
+        Assert.That(verdict.BlockReasons, Has.Some.Matches<string>(r => r.Contains("SHORT stop loss must be ABOVE", StringComparison.OrdinalIgnoreCase)));
     }
 
-    [Fact]
+    [Test]
     public void ValidateTrade_RiskExceedsMaxLossPerTrade_IsBlocked_AndSuggestsAdjustedQty()
     {
         // $1/share risk × 200 shares = $200 risk; cap is $100 → blocked,
@@ -95,13 +95,13 @@ public class RiskGuardianTests
 
         var verdict = guardian.ValidateTrade(setup);
 
-        Assert.False(verdict.IsApproved);
-        Assert.Contains(verdict.BlockReasons, r => r.Contains("exceeds max", StringComparison.OrdinalIgnoreCase));
-        Assert.NotNull(verdict.AdjustedSetup);
-        Assert.Equal(100, verdict.AdjustedSetup!.Quantity);
+        Assert.That(verdict.IsApproved, Is.False);
+        Assert.That(verdict.BlockReasons, Has.Some.Matches<string>(r => r.Contains("exceeds max", StringComparison.OrdinalIgnoreCase)));
+        Assert.That(verdict.AdjustedSetup, Is.Not.Null);
+        Assert.That(verdict.AdjustedSetup!.Quantity, Is.EqualTo(100));
     }
 
-    [Fact]
+    [Test]
     public void ValidateTrade_StopTooTight_IsBlocked()
     {
         // $0.10 / $100 = 0.10% — below MinStopLossPercent of 0.5%
@@ -110,11 +110,11 @@ public class RiskGuardianTests
 
         var verdict = guardian.ValidateTrade(setup);
 
-        Assert.False(verdict.IsApproved);
-        Assert.Contains(verdict.BlockReasons, r => r.Contains("too tight", StringComparison.OrdinalIgnoreCase));
+        Assert.That(verdict.IsApproved, Is.False);
+        Assert.That(verdict.BlockReasons, Has.Some.Matches<string>(r => r.Contains("too tight", StringComparison.OrdinalIgnoreCase)));
     }
 
-    [Fact]
+    [Test]
     public void ValidateTrade_StopTooWide_IsBlocked()
     {
         // $10 / $100 = 10% — above MaxStopLossPercent of 5%
@@ -123,11 +123,11 @@ public class RiskGuardianTests
 
         var verdict = guardian.ValidateTrade(setup);
 
-        Assert.False(verdict.IsApproved);
-        Assert.Contains(verdict.BlockReasons, r => r.Contains("too wide", StringComparison.OrdinalIgnoreCase));
+        Assert.That(verdict.IsApproved, Is.False);
+        Assert.That(verdict.BlockReasons, Has.Some.Matches<string>(r => r.Contains("too wide", StringComparison.OrdinalIgnoreCase)));
     }
 
-    [Fact]
+    [Test]
     public void ValidateTrade_AccountRiskTooHigh_IsBlocked()
     {
         // Tiny account, normal trade — risk percent of account exceeds cap.
@@ -139,11 +139,11 @@ public class RiskGuardianTests
 
         var verdict = guardian.ValidateTrade(setup);
 
-        Assert.False(verdict.IsApproved);
-        Assert.Contains(verdict.BlockReasons, r => r.Contains("of account", StringComparison.OrdinalIgnoreCase));
+        Assert.That(verdict.IsApproved, Is.False);
+        Assert.That(verdict.BlockReasons, Has.Some.Matches<string>(r => r.Contains("of account", StringComparison.OrdinalIgnoreCase)));
     }
 
-    [Fact]
+    [Test]
     public void ValidateTrade_DailyLossAlreadyExceeded_IsBlocked()
     {
         // Push the in-memory daily-loss tracker over the cap, then try to
@@ -154,11 +154,11 @@ public class RiskGuardianTests
 
         var verdict = guardian.ValidateTrade(setup);
 
-        Assert.False(verdict.IsApproved);
-        Assert.Contains(verdict.BlockReasons, r => r.Contains("daily loss limit", StringComparison.OrdinalIgnoreCase));
+        Assert.That(verdict.IsApproved, Is.False);
+        Assert.That(verdict.BlockReasons, Has.Some.Matches<string>(r => r.Contains("daily loss limit", StringComparison.OrdinalIgnoreCase)));
     }
 
-    [Fact]
+    [Test]
     public void ValidateTrade_WellFormedSetup_IsApproved()
     {
         // $1/share × 10 shares = $10 risk (under $100 cap, under 1% of $10k).
@@ -168,11 +168,11 @@ public class RiskGuardianTests
 
         var verdict = guardian.ValidateTrade(setup);
 
-        Assert.True(verdict.IsApproved);
-        Assert.Empty(verdict.BlockReasons);
+        Assert.That(verdict.IsApproved, Is.True);
+        Assert.That(verdict.BlockReasons, Is.Empty);
     }
 
-    [Fact]
+    [Test]
     public void ValidateTrade_LowRiskRewardRatio_ApprovesWithWarning()
     {
         // R:R below 1.5 is a warning only, not a block.
@@ -181,20 +181,20 @@ public class RiskGuardianTests
 
         var verdict = guardian.ValidateTrade(setup);
 
-        Assert.True(verdict.IsApproved);
-        Assert.Contains(verdict.Warnings, w => w.Contains("R:R", StringComparison.OrdinalIgnoreCase));
+        Assert.That(verdict.IsApproved, Is.True);
+        Assert.That(verdict.Warnings, Has.Some.Matches<string>(w => w.Contains("R:R", StringComparison.OrdinalIgnoreCase)));
     }
 
-    [Fact]
+    [Test]
     public void CalculateMaxQuantity_NoRiskPerShare_ReturnsZero()
     {
         // entry == stop → zero risk per share → caller can't place an order.
         var guardian = new RiskGuardian(DefaultConfig());
         var qty = guardian.CalculateMaxQuantity(entryPrice: 100m, stopLoss: 100m);
-        Assert.Equal(0, qty);
+        Assert.That(qty, Is.EqualTo(0));
     }
 
-    [Fact]
+    [Test]
     public void CalculateMaxQuantity_RespectsPerTradeCap()
     {
         // $1/share risk, $100 cap → max 100 shares.
@@ -202,10 +202,10 @@ public class RiskGuardianTests
         var qty = guardian.CalculateMaxQuantity(entryPrice: 100m, stopLoss: 99m);
         // The most-restrictive cap also includes account-percent: 1% of $10k = $100,
         // same as MaxLossPerTrade, so the answer is 100.
-        Assert.Equal(100, qty);
+        Assert.That(qty, Is.EqualTo(100));
     }
 
-    [Fact]
+    [Test]
     public void CalculateMaxQuantity_RespectsAccountPercent()
     {
         // Tighter account-percent constraint wins: 0.5% of $10k = $50 / $1 = 50 shares.
@@ -213,16 +213,16 @@ public class RiskGuardianTests
         config.MaxAccountRiskPercent = 0.5m;
         var guardian = new RiskGuardian(config);
         var qty = guardian.CalculateMaxQuantity(entryPrice: 100m, stopLoss: 99m);
-        Assert.Equal(50, qty);
+        Assert.That(qty, Is.EqualTo(50));
     }
 
-    [Fact]
+    [Test]
     public void CalculateMaxQuantity_RespectsRemainingDailyRisk()
     {
         // Already used $480 of $500 daily → only $20 remaining → 20 shares at $1/share.
         var guardian = new RiskGuardian(DefaultConfig());
         guardian.RecordTradePnL(-480m);
         var qty = guardian.CalculateMaxQuantity(entryPrice: 100m, stopLoss: 99m);
-        Assert.Equal(20, qty);
+        Assert.That(qty, Is.EqualTo(20));
     }
 }

@@ -4,7 +4,7 @@ namespace IdiotProof.Engine.Tests;
 
 public class SupervisedLoopTests
 {
-    [Fact]
+    [Test]
     public async Task SuccessfulTick_InvokesOnTickSucceeded()
     {
         var successCount = 0;
@@ -25,10 +25,10 @@ public class SupervisedLoopTests
 
         await SupervisedLoop.RunAsync(options, cts.Token);
 
-        Assert.True(successCount >= 2, $"Expected >= 2 successful ticks, got {successCount}");
+        Assert.That(successCount, Is.GreaterThanOrEqualTo(2), $"Expected >= 2 successful ticks, got {successCount}");
     }
 
-    [Fact]
+    [Test]
     public async Task FailingTick_InvokesOnTickFailedWithCount_AndContinues()
     {
         var failures = new List<(string message, int count)>();
@@ -49,14 +49,14 @@ public class SupervisedLoopTests
 
         await SupervisedLoop.RunAsync(options, cts.Token);
 
-        Assert.True(failures.Count >= 3, $"Expected >= 3 failures, got {failures.Count}");
-        Assert.All(failures, f => Assert.Equal("boom", f.message));
-        Assert.Equal(1, failures[0].count);
-        Assert.Equal(2, failures[1].count);
-        Assert.Equal(3, failures[2].count);
+        Assert.That(failures.Count, Is.GreaterThanOrEqualTo(3), $"Expected >= 3 failures, got {failures.Count}");
+        Assert.That(failures, Has.All.Matches<(string message, int count)>(f => f.message == "boom"));
+        Assert.That(failures[0].count, Is.EqualTo(1));
+        Assert.That(failures[1].count, Is.EqualTo(2));
+        Assert.That(failures[2].count, Is.EqualTo(3));
     }
 
-    [Fact]
+    [Test]
     public async Task SuccessAfterFailures_ResetsConsecutiveCounter()
     {
         var ticks = 0;
@@ -84,10 +84,10 @@ public class SupervisedLoopTests
 
         await SupervisedLoop.RunAsync(options, cts.Token);
 
-        Assert.Equal([1, 2, 1], seenFailureCounts);
+        Assert.That(seenFailureCounts, Is.EqualTo(new[] { 1, 2, 1 }));
     }
 
-    [Fact]
+    [Test]
     public async Task Cancellation_ExitsCleanly()
     {
         using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(50));
@@ -103,10 +103,10 @@ public class SupervisedLoopTests
 
         await SupervisedLoop.RunAsync(options, cts.Token);
         // No assertion on ticks count beyond "we exited" — the contract is "cancellation exits cleanly".
-        Assert.True(cts.IsCancellationRequested);
+        Assert.That(cts.IsCancellationRequested, Is.True);
     }
 
-    [Fact]
+    [Test]
     public async Task TickThrowingOperationCanceled_DuringCancellation_ExitsCleanly()
     {
         using var cts = new CancellationTokenSource();
@@ -128,7 +128,7 @@ public class SupervisedLoopTests
         await SupervisedLoop.RunAsync(options, cts.Token);
     }
 
-    [Fact]
+    [Test]
     public async Task HeartbeatFile_IsWrittenAfterSuccessfulTick()
     {
         var heartbeat = Path.Combine(Path.GetTempPath(), $"sup-loop-test-{Guid.NewGuid():N}.heartbeat");
@@ -152,10 +152,10 @@ public class SupervisedLoopTests
 
             await SupervisedLoop.RunAsync(options, cts.Token);
 
-            Assert.True(File.Exists(heartbeat), "Heartbeat file must exist after a tick");
+            Assert.That(File.Exists(heartbeat), Is.True, "Heartbeat file must exist after a tick");
             var content = await File.ReadAllTextAsync(heartbeat);
-            Assert.Contains("status=ok", content);
-            Assert.Contains("consecutiveFailures=0", content);
+            Assert.That(content, Does.Contain("status=ok"));
+            Assert.That(content, Does.Contain("consecutiveFailures=0"));
         }
         finally
         {
@@ -163,7 +163,7 @@ public class SupervisedLoopTests
         }
     }
 
-    [Fact]
+    [Test]
     public async Task HeartbeatFile_RecordsFailure()
     {
         var heartbeat = Path.Combine(Path.GetTempPath(), $"sup-loop-test-{Guid.NewGuid():N}.heartbeat");
@@ -191,10 +191,10 @@ public class SupervisedLoopTests
 
             await SupervisedLoop.RunAsync(options, cts.Token);
 
-            Assert.True(File.Exists(heartbeat));
+            Assert.That(File.Exists(heartbeat), Is.True);
             var content = await File.ReadAllTextAsync(heartbeat);
-            Assert.Contains("status=fail", content);
-            Assert.Contains("error=boom", content);
+            Assert.That(content, Does.Contain("status=fail"));
+            Assert.That(content, Does.Contain("error=boom"));
         }
         finally
         {
@@ -202,11 +202,11 @@ public class SupervisedLoopTests
         }
     }
 
-    [Fact]
-    public async Task NullTick_ThrowsArgumentNullException()
+    [Test]
+    public void NullTick_ThrowsArgumentNullException()
     {
         var options = new SupervisedLoopOptions { Tick = null! };
-        await Assert.ThrowsAsync<ArgumentNullException>(
+        Assert.ThrowsAsync<ArgumentNullException>(
             () => SupervisedLoop.RunAsync(options, CancellationToken.None));
     }
 }

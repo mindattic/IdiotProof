@@ -58,97 +58,92 @@ public class StrategyTests
 
     // ── StrategyRegistry ──────────────────────────────────────────────────────────
 
-    [Fact]
+    [Test]
     public void StrategyRegistry_GetAll_ReturnsAtLeastFourStrategies()
     {
         var registry = new StrategyRegistry();
-        Assert.True(registry.GetAll().Count >= 4, "Expected ITI, LowHigh, PremarketBreakout, MomentumDecay");
+        Assert.That(registry.GetAll().Count, Is.GreaterThanOrEqualTo(4), "Expected ITI, LowHigh, PremarketBreakout, MomentumDecay");
     }
 
-    [Fact]
+    [Test]
     public void StrategyRegistry_Get_KnownName_ReturnsStrategy()
     {
         var registry = new StrategyRegistry();
         var strategy = registry.Get("ITI");
-        Assert.NotNull(strategy);
-        Assert.Equal("ITI", strategy.Name);
+        Assert.That(strategy, Is.Not.Null);
+        Assert.That(strategy!.Name, Is.EqualTo("ITI"));
     }
 
-    [Fact]
+    [Test]
     public void StrategyRegistry_Get_UnknownName_ReturnsNull()
     {
         var registry = new StrategyRegistry();
-        Assert.Null(registry.Get("DoesNotExist"));
+        Assert.That(registry.Get("DoesNotExist"), Is.Null);
     }
 
     // ── All strategies: safety contract ──────────────────────────────────────────
 
-    [Theory]
-    [InlineData("ITI")]
-    [InlineData("LowHigh")]
-    [InlineData("PremarketBreakout")]
-    [InlineData("MomentumDecay")]
+    [TestCase("ITI")]
+    [TestCase("LowHigh")]
+    [TestCase("PremarketBreakout")]
+    [TestCase("MomentumDecay")]
     public void Strategy_EmptyCandles_ReturnsNoSignals(string name)
     {
         var registry = new StrategyRegistry();
         var strategy = registry.Get(name)!;
         var signals = strategy.Evaluate("TEST", [], RthContext());
-        Assert.Empty(signals);
+        Assert.That(signals, Is.Empty);
     }
 
-    [Theory]
-    [InlineData("ITI")]
-    [InlineData("LowHigh")]
-    [InlineData("PremarketBreakout")]
-    [InlineData("MomentumDecay")]
+    [TestCase("ITI")]
+    [TestCase("LowHigh")]
+    [TestCase("PremarketBreakout")]
+    [TestCase("MomentumDecay")]
     public void Strategy_FewCandles_DoesNotThrow(string name)
     {
         var registry = new StrategyRegistry();
         var strategy = registry.Get(name)!;
         var candles = FlatCandles(5);
-        var ex = Record.Exception(() => strategy.Evaluate("TEST", candles, RthContext()));
-        Assert.Null(ex);
+        Assert.DoesNotThrow(() => strategy.Evaluate("TEST", candles, RthContext()));
     }
 
-    [Theory]
-    [InlineData("ITI")]
-    [InlineData("LowHigh")]
-    [InlineData("PremarketBreakout")]
-    [InlineData("MomentumDecay")]
+    [TestCase("ITI")]
+    [TestCase("LowHigh")]
+    [TestCase("PremarketBreakout")]
+    [TestCase("MomentumDecay")]
     public void Strategy_FlatMarket_ConfidenceInRange(string name)
     {
         var registry = new StrategyRegistry();
         var strategy = registry.Get(name)!;
         var candles = FlatCandles(60);
         var signals = strategy.Evaluate("TEST", candles, RthContext());
-        Assert.All(signals, s =>
+        foreach (var s in signals)
         {
-            Assert.InRange(s.ConfidencePercent, 0m, 100m);
-            Assert.False(string.IsNullOrEmpty(s.Symbol));
-            Assert.False(string.IsNullOrEmpty(s.StrategyName));
-        });
+            Assert.That(s.ConfidencePercent, Is.InRange(0m, 100m));
+            Assert.That(string.IsNullOrEmpty(s.Symbol), Is.False);
+            Assert.That(string.IsNullOrEmpty(s.StrategyName), Is.False);
+        }
     }
 
     // ── TradeSignal contract ──────────────────────────────────────────────────────
 
-    [Theory]
-    [InlineData("ITI")]
-    [InlineData("LowHigh")]
-    [InlineData("PremarketBreakout")]
-    [InlineData("MomentumDecay")]
+    [TestCase("ITI")]
+    [TestCase("LowHigh")]
+    [TestCase("PremarketBreakout")]
+    [TestCase("MomentumDecay")]
     public void Strategy_SignalSymbolMatchesInput(string name)
     {
         var registry = new StrategyRegistry();
         var strategy = registry.Get(name)!;
         var candles = TrendingCandles(60, 100, 0.5m);
         var signals = strategy.Evaluate("AAPL", candles, RthContext());
-        Assert.All(signals, s => Assert.Equal("AAPL", s.Symbol));
+        foreach (var s in signals)
+            Assert.That(s.Symbol, Is.EqualTo("AAPL"));
     }
 
-    [Theory]
-    [InlineData("ITI")]
-    [InlineData("LowHigh")]
-    [InlineData("MomentumDecay")]
+    [TestCase("ITI")]
+    [TestCase("LowHigh")]
+    [TestCase("MomentumDecay")]
     public void Strategy_LongSignal_EntryAboveStop(string name)
     {
         var registry = new StrategyRegistry();
@@ -156,13 +151,13 @@ public class StrategyTests
         var candles = TrendingCandles(60, 100, 0.5m);
         var signals = strategy.Evaluate("TEST", candles, RthContext())
             .Where(s => s.Direction == TradeDirection.Long && s.SuggestedStop > 0).ToList();
-        Assert.All(signals, s => Assert.True(s.SuggestedEntry > s.SuggestedStop,
-            $"Long entry ${s.SuggestedEntry} should be above stop ${s.SuggestedStop}"));
+        foreach (var s in signals)
+            Assert.That(s.SuggestedEntry, Is.GreaterThan(s.SuggestedStop),
+                $"Long entry ${s.SuggestedEntry} should be above stop ${s.SuggestedStop}");
     }
 
-    [Theory]
-    [InlineData("ITI")]
-    [InlineData("MomentumDecay")]
+    [TestCase("ITI")]
+    [TestCase("MomentumDecay")]
     public void Strategy_ShortSignal_EntryBelowStop(string name)
     {
         var registry = new StrategyRegistry();
@@ -170,13 +165,14 @@ public class StrategyTests
         var candles = TrendingCandles(60, 200, -0.5m);  // downtrend
         var signals = strategy.Evaluate("TEST", candles, RthContext())
             .Where(s => s.Direction == TradeDirection.Short && s.SuggestedStop > 0).ToList();
-        Assert.All(signals, s => Assert.True(s.SuggestedEntry < s.SuggestedStop,
-            $"Short entry ${s.SuggestedEntry} should be below stop ${s.SuggestedStop}"));
+        foreach (var s in signals)
+            Assert.That(s.SuggestedEntry, Is.LessThan(s.SuggestedStop),
+                $"Short entry ${s.SuggestedEntry} should be below stop ${s.SuggestedStop}");
     }
 
     // ── PremarketBreakout specific ────────────────────────────────────────────────
 
-    [Fact]
+    [Test]
     public void PremarketBreakout_AfterHoursContext_ReturnsEmpty()
     {
         // After hours (10 PM ET) is outside valid session window → no signals
@@ -187,10 +183,10 @@ public class StrategyTests
         var utcNow = TimeZoneInfo.ConvertTimeToUtc(etNow, Et);
         var ctx = new StrategyContext { Timezone = Et, EvaluationTimeUtc = utcNow };
         var signals = strategy.Evaluate("TEST", candles, ctx);
-        Assert.Empty(signals);
+        Assert.That(signals, Is.Empty);
     }
 
-    [Fact]
+    [Test]
     public void PremarketBreakout_NoPremarketCandles_ReturnsEmpty()
     {
         // All candles have RTH timestamps → no premarket candles → no signal
@@ -204,12 +200,12 @@ public class StrategyTests
             Open = 100, High = 100.1m, Low = 99.9m, Close = 100, Volume = 100_000
         }).ToList();
         var signals = strategy.Evaluate("TEST", candles, PremarketContext());
-        Assert.Empty(signals);
+        Assert.That(signals, Is.Empty);
     }
 
     // ── MomentumDecay specific ────────────────────────────────────────────────────
 
-    [Fact]
+    [Test]
     public void MomentumDecay_ReturnsSingleSignalPerDirection()
     {
         // Strategy logic filters to strongest, so at most one signal per call
@@ -220,11 +216,11 @@ public class StrategyTests
         // Strategy docs: return strongest only (or both if both ≥ 60%)
         var longs  = signals.Count(s => s.Direction == TradeDirection.Long);
         var shorts = signals.Count(s => s.Direction == TradeDirection.Short);
-        Assert.True(longs <= 1,  $"Expected at most 1 Long but got {longs}");
-        Assert.True(shorts <= 1, $"Expected at most 1 Short but got {shorts}");
+        Assert.That(longs,  Is.LessThanOrEqualTo(1), $"Expected at most 1 Long but got {longs}");
+        Assert.That(shorts, Is.LessThanOrEqualTo(1), $"Expected at most 1 Short but got {shorts}");
     }
 
-    [Fact]
+    [Test]
     public void MomentumDecay_ConfluenceGating_LowConfluenceNoSignal()
     {
         // Require 4 conditions — flat market satisfies fewer than 4 → no signal
@@ -238,6 +234,6 @@ public class StrategyTests
             Parameters = new() { ["MinConfluence"] = 4 }
         };
         var signals = strategy.Evaluate("TEST", candles, ctx);
-        Assert.Empty(signals);
+        Assert.That(signals, Is.Empty);
     }
 }
