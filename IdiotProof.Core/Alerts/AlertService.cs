@@ -18,6 +18,7 @@
 //
 // ============================================================================
 
+using System.Collections.Concurrent;
 using System.Net;
 using System.Net.Http.Json;
 using System.Net.Mail;
@@ -34,7 +35,7 @@ namespace IdiotProof.Alerts;
 public sealed class TradingAlert
 {
     public string AlertId { get; init; } = Guid.NewGuid().ToString("N")[..8];
-    public DateTime Timestamp { get; init; } = DateTime.Now;
+    public DateTime Timestamp { get; init; } = DateTime.UtcNow;
     public string Symbol { get; init; } = "";
     public AlertType Type { get; init; }
     public AlertSeverity Severity { get; init; }
@@ -238,8 +239,10 @@ public sealed class AlertService : IDisposable
     private readonly Dictionary<string, DateTime> lastAlertTime = new();
     private readonly object lockObj = new();
     
-    // Store pending setups for one-click execution
-    private readonly Dictionary<string, TradeSetup> pendingSetups = new();
+    // Store pending setups for one-click execution. Concurrent because multiple
+    // symbol monitors may add/remove setups simultaneously (and CleanupExpiredSetups
+    // can run on its own timer).
+    private readonly ConcurrentDictionary<string, TradeSetup> pendingSetups = new();
     
     public AlertService(AlertConfig config)
     {
@@ -257,15 +260,16 @@ public sealed class AlertService : IDisposable
     /// </summary>
     public async Task SendAlertAsync(TradingAlert alert)
     {
-        // Check cooldown
+        // Check cooldown — UTC throughout so DST transitions don't shift the
+        // cooldown window twice a year.
         lock (lockObj)
         {
             if (lastAlertTime.TryGetValue(alert.Symbol, out var lastTime))
             {
-                if (DateTime.Now - lastTime < config.CooldownPerSymbol)
+                if (DateTime.UtcNow - lastTime < config.CooldownPerSymbol)
                     return;  // Still in cooldown
             }
-            lastAlertTime[alert.Symbol] = DateTime.Now;
+            lastAlertTime[alert.Symbol] = DateTime.UtcNow;
         }
         
         // Store setups for retrieval
@@ -304,12 +308,12 @@ public sealed class AlertService : IDisposable
         {
             if (!setup.IsExpired)
                 return setup;
-            
-            pendingSetups.Remove(setupId);
+
+            pendingSetups.TryRemove(setupId, out _);
         }
         return null;
     }
-    
+
     /// <summary>
     /// Removes expired setups.
     /// </summary>
@@ -317,7 +321,7 @@ public sealed class AlertService : IDisposable
     {
         var expired = pendingSetups.Where(kvp => kvp.Value.IsExpired).Select(kvp => kvp.Key).ToList();
         foreach (var key in expired)
-            pendingSetups.Remove(key);
+            pendingSetups.TryRemove(key, out _);
     }
     
     // ========================================

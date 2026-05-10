@@ -34,10 +34,11 @@ See global rules in ~/.claude/CLAUDE.md. The rate-limit-monitor skill enforces:
 - **Alpaca-only** for the active build. IBKR adapter lives dormant in `IdiotProof.Brokers.Ibkr/` (not in `.sln`); re-enable steps in that project's README.
 - `IBrokerClient` is the abstraction. New brokers implement it and register via `BrokerRouter`.
 
-### LLM gateway — Legion
-- All LLM communication goes through `MindAttic.Legion` (`LegionClient` / `LLMVotingService` / `MindAtticCredentialStore`). **No direct Anthropic SDK or OpenAI SDK calls in feature code.**
+### LLM gateway — Legion (transport) + Vault (credentials)
+- All LLM **communication** goes through `MindAttic.Legion` (`LegionClient` / `LLMVotingService`). **No direct Anthropic SDK or OpenAI SDK calls in feature code.**
+- All LLM **credential reads** go through `MindAttic.Vault` (`LlmCredentialStore` for the file keyring, `LlmCredentialResolver` for the IConfiguration-aware resolver). The legacy `MindAttic.Legion.MindAtticCredentialStore` is no longer used in IdiotProof — do not reintroduce calls to it.
 - Let Legion decide model selection / voter panel / quorum unless a specific task requires a fixed model. Configure voter panels via `legion.json` at the project root when overriding defaults.
-- Claude API key resolution chain: explicit DI > env var > `%APPDATA%\MindAttic\LLM\providers.json` (canonical for the family).
+- Claude API key resolution chain: explicit DI > env var > `%APPDATA%\MindAttic\LLM\providers.json` via Vault (canonical for the family) > IConfiguration overlay (`MindAttic:Vault:LLM:claude:apiKey` — User Secrets / App Service / Key Vault).
 
 ### Strategy DSL phases
 Every authored strategy walks through fixed phases. The visual builder renders one card per phase; the parser rejects verbs used in the wrong phase.

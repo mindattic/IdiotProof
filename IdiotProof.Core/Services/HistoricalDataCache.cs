@@ -273,7 +273,7 @@ public sealed class HistoricalDataCache
         Log($"[{symbol}] Cache miss - fetching {DaysToFetch} trading days in {chunks.Count} chunks of {chunkSizeDays} days (max {MaxConcurrentFetches} concurrent)...");
 
         // Fetch each 5-day chunk in parallel with limited concurrency
-        var semaphore = new SemaphoreSlim(MaxConcurrentFetches);
+        using var semaphore = new SemaphoreSlim(MaxConcurrentFetches);
         var chunkResults = new System.Collections.Concurrent.ConcurrentBag<List<HistoricalBar>>();
         int completedChunks = 0;
 

@@ -16,13 +16,17 @@
 //
 // CREDENTIAL RESOLUTION (first hit wins):
 //   1. Explicit apiKey passed to the constructor
-//   2. %APPDATA%/MindAttic/LLM/providers.json (provider id "openai") via Legion
+//   2. %APPDATA%/MindAttic/LLM/providers.json (provider id "openai") via
+//      MindAttic.Vault's LlmCredentialStore (drop-in replacement for the
+//      legacy Legion store; honours MINDATTIC_LLM_CREDENTIALS for tests)
 //   3. OPENAI_IDIOTPROOF_API_KEY environment variable
 // ============================================================================
 
 using System.Text;
 using System.Text.Json;
 using MindAttic.Legion;
+using MindAttic.Vault.Credentials;
+using MindAttic.Vault.Paths;
 
 namespace IdiotProof.Services;
 
@@ -68,13 +72,21 @@ public sealed class OpenAIService : IDisposable
     /// Creates a new OpenAI service instance backed by MindAttic.Legion.
     /// </summary>
     /// <param name="model">Model to use (default: gpt-4.1-mini)</param>
-    /// <param name="apiKey">Optional API key override (defaults to Legion shared store, then env var)</param>
+    /// <param name="apiKey">Optional API key override (defaults to the MindAttic Vault LLM keyring, then env var)</param>
     public OpenAIService(string? model = null, string? apiKey = null)
     {
         this.model = model ?? DefaultModel;
 
         if (string.IsNullOrWhiteSpace(apiKey))
-            apiKey = MindAtticCredentialStore.GetKey("openai");
+        {
+            // Construct fresh so MINDATTIC_LLM_CREDENTIALS env-var overrides
+            // (used by the test suite) are re-evaluated each call instead of
+            // captured once via LlmCredentialStore.Default at type-load.
+            var store = new LlmCredentialStore(
+                Environment.GetEnvironmentVariable(LlmCredentialStore.DirectoryEnvVar)
+                ?? VaultPaths.RoamingBucket(LlmCredentialStore.Bucket));
+            apiKey = store.GetKey("openai");
+        }
         if (string.IsNullOrWhiteSpace(apiKey))
             apiKey = Environment.GetEnvironmentVariable("OPENAI_IDIOTPROOF_API_KEY");
 

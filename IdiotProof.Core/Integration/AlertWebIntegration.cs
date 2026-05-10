@@ -36,8 +36,16 @@ public sealed class AlertWebIntegration : IDisposable
     
     private async void OnSuddenMove(TradingAlert alert)
     {
-        // Send alert through all channels (Discord, Email, etc.)
-        await alertService.SendAlertAsync(alert);
+        // async void event handler: must catch everything so an exception here
+        // (Discord/email failure, serialization, etc.) does not tear down the process.
+        try
+        {
+            await alertService.SendAlertAsync(alert);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[AlertWeb] OnSuddenMove failed for {alert.Symbol}: {ex.Message}");
+        }
     }
     
     private async void OnAlertGenerated(TradingAlert alert)

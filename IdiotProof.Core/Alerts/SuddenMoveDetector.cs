@@ -50,7 +50,7 @@ public sealed class PriceTracker
             if (price > SessionHigh) SessionHigh = price;
             if (price < SessionLow) SessionLow = price;
             
-            history.Add((DateTime.Now, price, volume));
+            history.Add((DateTime.UtcNow, price, volume));
             
             // Keep last 100 ticks (roughly 5-10 minutes at normal pace)
             if (history.Count > 100)
@@ -65,7 +65,7 @@ public sealed class PriceTracker
     {
         lock (lockObj)
         {
-            var targetTime = DateTime.Now.AddMinutes(-minutes);
+            var targetTime = DateTime.UtcNow.AddMinutes(-minutes);
             var tick = history.LastOrDefault(h => h.Time <= targetTime);
             return tick.Price > 0 ? tick.Price : null;
         }
@@ -90,7 +90,7 @@ public sealed class PriceTracker
     {
         lock (lockObj)
         {
-            var cutoff = DateTime.Now.AddMinutes(-minutes);
+            var cutoff = DateTime.UtcNow.AddMinutes(-minutes);
             return history.Where(h => h.Time >= cutoff).Sum(h => h.Volume);
         }
     }
@@ -225,7 +225,7 @@ public sealed class SuddenMoveDetector
         if (alert != null)
         {
             // Prevent duplicate alerts
-            var alertKey = $"{symbol}_{DateTime.Now:HHmm}";
+            var alertKey = $"{symbol}_{DateTime.UtcNow:HHmm}";
             lock (alertLock)
             {
                 if (recentAlerts.Contains(alertKey))

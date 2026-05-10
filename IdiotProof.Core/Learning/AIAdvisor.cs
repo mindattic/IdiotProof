@@ -361,13 +361,28 @@ public sealed class AIAdvisor : IDisposable
         MarketScoreResult score,
         int timeoutMs = 10000)
     {
+        // Pass the timeout as a cancellation token so a slow AI call gets cancelled
+        // (and the in-flight request released) when we give up — instead of leaking
+        // the task to keep running off-screen.
+        using var cts = new CancellationTokenSource(timeoutMs);
         try
         {
-            var task = AnalyzeEntryAsync(symbol, snapshot, score, CancellationToken.None);
+            var task = AnalyzeEntryAsync(symbol, snapshot, score, cts.Token);
             if (task.Wait(timeoutMs))
             {
                 return task.Result;
             }
+            cts.Cancel();
+            return new AIAnalysis
+            {
+                IsUsable = false,
+                Error = "AI analysis timed out",
+                Confidence = 0
+            };
+        }
+        catch (Exception ex) when (ex is OperationCanceledException
+                                  || (ex is AggregateException ae && ae.InnerException is OperationCanceledException))
+        {
             return new AIAnalysis
             {
                 IsUsable = false,

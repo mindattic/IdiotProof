@@ -429,7 +429,10 @@ namespace IdiotProof.Strategy {
 
         public void Dispose()
         {
-            DisposeAsync().AsTask().GetAwaiter().GetResult();
+            // Run on a thread-pool thread so any captured SynchronizationContext
+            // (e.g. Blazor circuit) cannot deadlock the awaits inside DisposeAsync.
+            Task.Run(async () => await DisposeAsync().ConfigureAwait(false))
+                .GetAwaiter().GetResult();
         }
 
         public async ValueTask DisposeAsync()
@@ -440,14 +443,14 @@ namespace IdiotProof.Strategy {
             disposed = true;
 
             // Stop all strategies
-            await StopAllAsync();
+            await StopAllAsync().ConfigureAwait(false);
 
             // Cleanup all runners
             foreach (var kvp in runners.ToArray())
             {
                 if (runners.TryRemove(kvp.Key, out var info))
                 {
-                    await CleanupRunnerAsync(info);
+                    await CleanupRunnerAsync(info).ConfigureAwait(false);
                 }
             }
 

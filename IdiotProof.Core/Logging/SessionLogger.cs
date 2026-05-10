@@ -49,7 +49,10 @@ public sealed class SessionLogger : IDisposable
         sessionStart = DateTime.Now;
         currentStateFilePath = GetStateFilePath();
 
-        // Register for unhandled exceptions
+        // Register for unhandled exceptions. Unsubscribe first so a re-init of
+        // the same instance (rare, but possible in test reuse) does not stack handlers.
+        AppDomain.CurrentDomain.UnhandledException -= OnUnhandledException;
+        AppDomain.CurrentDomain.ProcessExit -= OnProcessExit;
         AppDomain.CurrentDomain.UnhandledException += OnUnhandledException;
         AppDomain.CurrentDomain.ProcessExit += OnProcessExit;
 

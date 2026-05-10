@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using IdiotProof.Models;
 
 namespace IdiotProof.Brokers;
@@ -9,7 +10,8 @@ namespace IdiotProof.Brokers;
 /// </summary>
 public sealed class BrokerRouter
 {
-    private readonly Dictionary<BrokerType, IBrokerClient> brokers = new();
+    // ConcurrentDictionary so paper/live hot-swap doesn't race with order routing.
+    private readonly ConcurrentDictionary<BrokerType, IBrokerClient> brokers = new();
     private BrokerType activeBroker = BrokerType.Sandbox;
 
     public BrokerType ActiveBrokerType => activeBroker;

@@ -530,6 +530,8 @@ internal sealed class Program
         webFrontendTimer = null;
     }
 
+    private static int webFrontendConsecutiveFailures = 0;
+
     private static async void OnWebFrontendTimer(object? state)
     {
         if (webFrontendClient == null || wrapper == null) return;
@@ -578,10 +580,19 @@ internal sealed class Program
             {
                 ProcessWebCommand(cmd);
             }
+
+            webFrontendConsecutiveFailures = 0;
         }
-        catch
+        catch (Exception ex)
         {
-            // Silent fail - don't interrupt trading
+            // Silent fail per call (don't interrupt trading), but surface a single
+            // log line each time consecutive-failure count crosses a power-of-two
+            // threshold (1, 2, 4, 8, 16, ...) so the operator notices the feed went dark.
+            var n = ++webFrontendConsecutiveFailures;
+            if ((n & (n - 1)) == 0)
+            {
+                Log($"[WebFrontend] {n} consecutive failure(s): {ex.GetType().Name}: {ex.Message}");
+            }
         }
     }
 

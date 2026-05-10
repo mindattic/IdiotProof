@@ -2,7 +2,6 @@ using System.Text.Json;
 using Microsoft.Extensions.Configuration;
 using IdiotProof.Engine.Storage;
 using IdiotProof.Models;
-using MindAttic.Legion;
 using MindAttic.Vault.Configuration;
 using MindAttic.Vault.Credentials;
 using MindAttic.Vault.Paths;
@@ -91,14 +90,23 @@ public sealed class AppSettings
     }
 
     /// <summary>
-    /// Overlays LLM credentials from the shared MindAttic.Legion credential store at
-    /// <c>%APPDATA%/MindAttic/LLM/providers.json</c>. This is the canonical first stop
-    /// for LLM credentials across all MindAttic applications — call it LAST in the
-    /// overlay chain so it takes precedence over both disk config and env vars.
+    /// Overlays LLM credentials from the shared MindAttic Vault LLM keyring at
+    /// <c>%APPDATA%/MindAttic/LLM/providers.json</c>. This is the canonical
+    /// file-store stop for LLM credentials across all MindAttic applications —
+    /// call it after disk + env so it takes precedence, but BEFORE
+    /// <see cref="OverlayFromConfiguration"/> so production cloud secrets win.
+    /// <para>
+    /// Constructs a fresh <see cref="LlmCredentialStore"/> per call so the
+    /// <c>MINDATTIC_LLM_CREDENTIALS</c> env-var override is re-evaluated each
+    /// time, mirroring <see cref="OverlayFromBrokerCredentials"/>.
+    /// </para>
     /// </summary>
     public void OverlayFromMindAtticCredentials()
     {
-        var claudeKey = MindAtticCredentialStore.GetKey("claude");
+        var store = new LlmCredentialStore(
+            Environment.GetEnvironmentVariable(LlmCredentialStore.DirectoryEnvVar)
+            ?? VaultPaths.RoamingBucket(LlmCredentialStore.Bucket));
+        var claudeKey = store.GetKey("claude");
         if (!string.IsNullOrWhiteSpace(claudeKey)) ClaudeApiKey = claudeKey;
     }
 

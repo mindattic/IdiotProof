@@ -7,10 +7,10 @@
     <ProjectReference Include="..\IdiotProof.Brokers\IdiotProof.Brokers.csproj" />
     <ProjectReference Include="..\IdiotProof.DataFeeds\IdiotProof.DataFeeds.csproj" />
     <ProjectReference Include="..\IdiotProof.Strategies\IdiotProof.Strategies.csproj" />
-    <ProjectReference Include="..\..\MindAttic.Legion\MindAttic.Legion\MindAttic.Legion.csproj" />
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="MindAttic.Legion" Version="2.2.0" />
     <PackageReference Include="MindAttic.Vault" Version="0.2.0" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="*" />
   </ItemGroup>

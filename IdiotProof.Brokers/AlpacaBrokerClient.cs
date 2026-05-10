@@ -106,9 +106,21 @@ public sealed class AlpacaBrokerClient : IBrokerClient, IAsyncDisposable
                 : string.Empty;
             return new OrderResult { BrokerOrderId = id, IsSuccess = true, Message = "Alpaca order placed." };
         }
-        catch
+        catch (Exception ex)
         {
-            return new OrderResult { IsSuccess = false, Message = "Order may have placed but response parse failed." };
+            // The HTTP call returned 2xx — Alpaca accepted the order — but we couldn't
+            // extract the id. Don't claim failure (caller would retry → duplicate); fall
+            // back to the request-id header so reconciliation can find it.
+            var requestId = response.Headers.TryGetValues("Apca-Request-Id", out var ids)
+                ? string.Join(",", ids)
+                : "";
+            Console.Error.WriteLine($"[Alpaca] Order placed but response parse failed. ApcaRequestId={requestId} body={content} error={ex.Message}");
+            return new OrderResult
+            {
+                BrokerOrderId = requestId,
+                IsSuccess = true,
+                Message = $"Order placed but response parse failed (ApcaRequestId={requestId}). Reconcile via /v2/orders before retrying."
+            };
         }
     }
 

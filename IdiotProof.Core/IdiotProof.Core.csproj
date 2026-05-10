@@ -42,12 +42,13 @@
 
   <ItemGroup>
     <PackageReference Include="Google.Protobuf" Version="3.30.0" />
+    <PackageReference Include="MindAttic.Legion" Version="2.2.0" />
+    <PackageReference Include="MindAttic.Vault" Version="0.2.0" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\IdiotProof.Shared\IdiotProof.Shared.csproj" />
     <ProjectReference Include="..\IdiotProof.Scripting\IdiotProof.Scripting.csproj" />
-    <ProjectReference Include="..\..\MindAttic.Legion\MindAttic.Legion\MindAttic.Legion.csproj" />
   </ItemGroup>
 
 </Project>
