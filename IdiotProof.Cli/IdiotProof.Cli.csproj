@@ -6,6 +6,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <RootNamespace>IdiotProof.Cli</RootNamespace>
     <AssemblyName>idiotproof</AssemblyName>
+    <UserSecretsId>mindattic-vault-shared</UserSecretsId>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Spectre.Console" Version="0.49.1" />

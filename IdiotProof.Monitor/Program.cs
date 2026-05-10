@@ -4,10 +4,13 @@ using IdiotProof.Engine.Settings;
 using IdiotProof.Engine.Storage;
 using IdiotProof.Monitor;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using MindAttic.Legion;
+using MindAttic.Vault.Configuration;
+using MindAttic.Vault.DependencyInjection;
 
 // ── IdiotProof.Monitor ───────────────────────────────────────────────────────
 //
@@ -48,14 +51,21 @@ var connStr =
 builder.Services.AddDbContextFactory<AppDbContext>(o => o.UseSqlServer(connStr));
 
 // AppSettings — same overlay chain the Blazor host uses (disk → env vars →
-// MindAttic LLM keyring → MindAttic broker keyring) so the Monitor reads the
-// same configuration without re-implementing the load path.
+// MindAttic LLM keyring → MindAttic broker keyring → IConfiguration via Vault)
+// so the Monitor reads the same configuration without re-implementing the
+// load path.
+builder.Configuration
+    .AddMindAtticVaultFiles()
+    .AddUserSecrets<Program>(optional: true);
+builder.Services.AddMindAtticVault(builder.Configuration);
+
 var storage = new WebStorageProvider();
 storage.EnsureDirectories();
 var settings = AppSettings.Load(storage);
 settings.OverlayFromEnvironment();
 settings.OverlayFromMindAtticCredentials();
 settings.OverlayFromBrokerCredentials();
+settings.OverlayFromConfiguration(builder.Configuration);
 builder.Services.AddSingleton<IStorageProvider>(storage);
 builder.Services.AddSingleton(settings);
 

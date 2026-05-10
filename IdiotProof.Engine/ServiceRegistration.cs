@@ -4,13 +4,32 @@ using IdiotProof.Engine.Settings;
 using IdiotProof.Engine.Storage;
 using IdiotProof.Engine.Workspace;
 using IdiotProof.Strategies;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace IdiotProof.Engine;
 
 public static class ServiceRegistration
 {
-    public static IServiceCollection AddIdiotProofEngine(this IServiceCollection services, IStorageProvider storageProvider)
+    /// <summary>
+    /// Backward-compat overload that loads settings without an IConfiguration
+    /// overlay. New code should pass <see cref="IConfiguration"/> so the
+    /// cloud-native overlay (User Secrets / App Service Application Settings /
+    /// Azure Key Vault) wins over the file-based sources.
+    /// </summary>
+    public static IServiceCollection AddIdiotProofEngine(this IServiceCollection services, IStorageProvider storageProvider) =>
+        AddIdiotProofEngine(services, storageProvider, configuration: null);
+
+    /// <summary>
+    /// Cloud-native registration. Overlays settings in this order (later wins):
+    /// disk → env vars → MindAttic LLM keyring → MindAttic broker keyring →
+    /// IConfiguration. Pass <c>builder.Configuration</c> from the host so
+    /// User Secrets / App Service / Key Vault values are layered on top.
+    /// </summary>
+    public static IServiceCollection AddIdiotProofEngine(
+        this IServiceCollection services,
+        IStorageProvider storageProvider,
+        IConfiguration? configuration)
     {
         services.AddSingleton(storageProvider);
 
@@ -20,10 +39,16 @@ public static class ServiceRegistration
         // canonical first stop and win over both disk config and env vars:
         //   • LLM keys      → %APPDATA%\MindAttic\LLM\providers.json
         //   • Broker keys   → %APPDATA%\MindAttic\Brokers\providers.json
+        // Finally, if an IConfiguration is supplied, layer User Secrets / App
+        // Service Application Settings / Azure Key Vault references on top. The
+        // configuration overlay always wins so production secrets override
+        // anything on disk.
         var settings = AppSettings.Load(storageProvider);
         settings.OverlayFromEnvironment();
         settings.OverlayFromMindAtticCredentials();
         settings.OverlayFromBrokerCredentials();
+        if (configuration is not null)
+            settings.OverlayFromConfiguration(configuration);
         services.AddSingleton(settings);
 
         // Strategies
@@ -71,10 +96,18 @@ public static class ServiceRegistration
             return feed;
         });
 
-        // Workspace manager
+        // Workspace store — JSON-on-disk by default. The Blazor host overrides
+        // this registration with a SQL-backed implementation (SqlWorkspaceStore)
+        // before AddIdiotProofEngine runs; CLI and tests keep the JSON path.
+        // TryAddSingleton so a pre-registered IWorkspaceStore (from the host)
+        // wins; otherwise we install the JSON default.
+        Microsoft.Extensions.DependencyInjection.Extensions.ServiceCollectionDescriptorExtensions
+            .TryAddSingleton<IWorkspaceStore>(services, sp => new JsonFileWorkspaceStore(storageProvider));
+
+        // Workspace manager — caches + seeds defaults on top of IWorkspaceStore.
         services.AddSingleton<WorkspaceManager>(sp =>
         {
-            var manager = new WorkspaceManager(storageProvider);
+            var manager = new WorkspaceManager(sp.GetRequiredService<IWorkspaceStore>());
             manager.LoadAll();
             return manager;
         });

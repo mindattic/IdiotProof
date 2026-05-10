@@ -1,7 +1,11 @@
 using System.Text.Json;
+using Microsoft.Extensions.Configuration;
 using IdiotProof.Engine.Storage;
 using IdiotProof.Models;
 using MindAttic.Legion;
+using MindAttic.Vault.Configuration;
+using MindAttic.Vault.Credentials;
+using MindAttic.Vault.Paths;
 
 namespace IdiotProof.Engine.Settings;
 
@@ -103,14 +107,45 @@ public sealed class AppSettings
     /// <c>%APPDATA%/MindAttic/Brokers/providers.json</c>. Picks <c>alpaca-paper</c>
     /// or <c>alpaca-live</c> based on <see cref="AlpacaIsPaper"/>. Mirrors how
     /// <see cref="OverlayFromMindAtticCredentials"/> resolves LLM keys.
+    /// <para>
+    /// Constructs a fresh <see cref="BrokerCredentialStore"/> per call so the
+    /// <c>MINDATTIC_BROKER_CREDENTIALS</c> env-var override is re-evaluated
+    /// each time (matches the pre-Vault behaviour the test suite depends on).
+    /// </para>
     /// </summary>
     public void OverlayFromBrokerCredentials()
     {
         var providerId = AlpacaIsPaper ? "alpaca-paper" : "alpaca-live";
-        var creds = BrokerCredentialStore.Get(providerId);
+        var store = new BrokerCredentialStore(
+            Environment.GetEnvironmentVariable(BrokerCredentialStore.DirectoryEnvVar)
+            ?? VaultPaths.RoamingBucket(BrokerCredentialStore.Bucket));
+        var creds = store.GetBrokerCreds(providerId);
         if (creds is null) return;
 
         AlpacaApiKeyId = creds.ApiKey;
         AlpacaApiSecretKey = creds.Secret;
+    }
+
+    /// <summary>
+    /// Cloud-native overlay (Phase B.2). Layers IConfiguration values
+    /// (User Secrets, App Service Application Settings, Azure Key Vault
+    /// references) on top of every other credential source. Call AFTER the
+    /// other overlays so IConfiguration always wins. Reads from the standard
+    /// <see cref="VaultConfigurationKeys.LlmSection"/> and
+    /// <see cref="VaultConfigurationKeys.BrokersSection"/> paths.
+    /// </summary>
+    public void OverlayFromConfiguration(IConfiguration config)
+    {
+        if (config is null) return;
+
+        var claude = config[VaultConfigurationKeys.ProviderApiKeyPath(
+            VaultConfigurationKeys.LlmSection, "claude")];
+        if (!string.IsNullOrWhiteSpace(claude)) ClaudeApiKey = claude;
+
+        var providerId = AlpacaIsPaper ? "alpaca-paper" : "alpaca-live";
+        var apiKey = config[$"{VaultConfigurationKeys.BrokersSection}:{providerId}:apiKey"];
+        var secret = config[$"{VaultConfigurationKeys.BrokersSection}:{providerId}:secret"];
+        if (!string.IsNullOrWhiteSpace(apiKey)) AlpacaApiKeyId     = apiKey;
+        if (!string.IsNullOrWhiteSpace(secret)) AlpacaApiSecretKey = secret;
     }
 }

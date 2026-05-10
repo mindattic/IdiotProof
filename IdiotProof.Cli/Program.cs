@@ -6,7 +6,10 @@ using IdiotProof.Engine.Storage;
 using IdiotProof.Engine.Workspace;
 using IdiotProof.Models;
 using IdiotProof.Strategies;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using MindAttic.Vault.Configuration;
+using MindAttic.Vault.DependencyInjection;
 using Spectre.Console;
 using Spectre.Console.Cli;
 using System.ComponentModel;
@@ -16,8 +19,21 @@ using System.Collections.Concurrent;
 
 // Shared with the Blazor server: %LOCALAPPDATA%\IdiotProof (or $IDIOTPROOF_DATA_DIR).
 var storage = new WebStorageProvider();
+
+// Cloud-native configuration chain (matches the Blazor host). Lets the CLI
+// read User Secrets and App Service Application Settings via IConfiguration —
+// useful when running idiotproof.exe from an Azure VM or a CI pipeline.
+var cliConfig = new ConfigurationBuilder()
+    .AddJsonFile("appsettings.json", optional: true)
+    .Add(new MindAtticConfigurationSource())
+    .AddUserSecrets("mindattic-vault-shared")
+    .AddEnvironmentVariables()
+    .Build();
+
 var services = new ServiceCollection();
-services.AddIdiotProofEngine(storage);
+services.AddSingleton<IConfiguration>(cliConfig);
+services.AddMindAtticVault(cliConfig);
+services.AddIdiotProofEngine(storage, cliConfig);
 
 var serviceProvider = services.BuildServiceProvider();
 
