@@ -1,10 +1,13 @@
 using IdiotProof.Blazor.Data;
 using IdiotProof.Blazor.Services;
+using IdiotProof.Engine.Settings;
+using IdiotProof.Engine.Storage;
 using IdiotProof.Monitor;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using MindAttic.Legion;
 
 // ── IdiotProof.Monitor ───────────────────────────────────────────────────────
 //
@@ -20,10 +23,11 @@ using Microsoft.Extensions.Logging;
 //     adapter, and log condition-by-condition pass/fail progress.
 //   • Stamp LastFiredUtc + FireCount when a TradeSignal lands.
 //
-// Risk Guardian, LLM voting, and broker order placement live in the Blazor host
-// — the Monitor only surfaces signals + per-condition progress. A future
-// iteration can wire it to push signals back through SignalR to the running web
-// app.
+// LLM voting (the Legion high-tier voter panel from legion.json) now runs
+// on every full-pass — signals get cross-verified by Claude/OpenAI/Gemini/
+// DeepSeek before LastFiredUtc is stamped. Risk Guardian + actual broker
+// order placement still live in the Blazor host; future work pushes the
+// approved signal back via SignalR for execution.
 //
 // Run:   dotnet run --project IdiotProof.Monitor
 // Stop:  Ctrl+C (graceful shutdown via IHostApplicationLifetime)
@@ -40,8 +44,27 @@ var connStr =
 
 builder.Services.AddDbContextFactory<AppDbContext>(o => o.UseSqlServer(connStr));
 
+// AppSettings — same overlay chain the Blazor host uses (disk → env vars →
+// MindAttic LLM keyring → MindAttic broker keyring) so the Monitor reads the
+// same configuration without re-implementing the load path.
+var storage = new WebStorageProvider();
+storage.EnsureDirectories();
+var settings = AppSettings.Load(storage);
+settings.OverlayFromEnvironment();
+settings.OverlayFromMindAtticCredentials();
+settings.OverlayFromBrokerCredentials();
+builder.Services.AddSingleton<IStorageProvider>(storage);
+builder.Services.AddSingleton(settings);
+
+// MindAttic.Legion — the universal LLM gateway. AddLegionClient registers the
+// HttpClient + the LegionClient itself; LlmVotingService uses it to fan out
+// prompts across the high-tier voter panel declared in legion.json.
+builder.Services.AddLegionClient();
+builder.Services.AddSingleton<IdiotProof.Blazor.Services.LlmVotingService>();
+
 builder.Services.AddSingleton<StrategyRepository>();
 builder.Services.AddSingleton<ConditionProgressRepository>();
+builder.Services.AddSingleton<AuditLogRepository>();
 builder.Services.AddHostedService<MonitorWorker>();
 
 builder.Logging.ClearProviders();

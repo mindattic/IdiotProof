@@ -1,5 +1,6 @@
 using IdiotProof.Blazor.Services;
 using IdiotProof.DataFeeds;
+using IdiotProof.Engine.Settings;
 using IdiotProof.Models;
 using IdiotProof.Scripting;
 using IdiotProof.Strategies;
@@ -28,6 +29,9 @@ namespace IdiotProof.Monitor;
 public sealed class MonitorWorker(
     StrategyRepository strategyRepo,
     ConditionProgressRepository progressRepo,
+    AuditLogRepository auditLogRepo,
+    LlmVotingService llmVoting,
+    AppSettings appSettings,
     ILogger<MonitorWorker> logger) : BackgroundService
 {
     /// <summary>Interval between full evaluation passes. Override via env var.</summary>
@@ -175,13 +179,106 @@ public sealed class MonitorWorker(
         {
             logger.LogInformation("[{Title}] {Symbol} ✓ ALL {Passed}/{Total} conditions met → SIGNAL ({Direction} @ {Price:F2})",
                 stored.Title, stored.Symbol, passed, total, def.Direction, snapshot.Price);
-            await strategyRepo.RecordFiredAsync(stored.Id, ct);
+
+            // Construct the signal the DslStrategy adapter would produce so the
+            // LLM voter panel sees the same shape the Blazor host uses.
+            var signal = new TradeSignal
+            {
+                Symbol            = stored.Symbol,
+                Direction         = def.Direction,
+                ConfidencePercent = 0m,
+                SuggestedEntry    = (decimal)snapshot.Price,
+                SuggestedStop     = (decimal)(def.StopLossPrice ?? snapshot.Price),
+                Targets           = def.TakeProfitPrice.HasValue
+                                     ? new List<decimal> { (decimal)def.TakeProfitPrice.Value }
+                                     : new List<decimal>(),
+                StrategyName      = stored.Title,
+                Reason            = $"All {total} conditions met",
+                GeneratedUtc      = snapshot.Timestamp,
+                UserId            = stored.OwnerUserId,
+            };
+
+            await VoteAndRecordAsync(stored, signal, candles, ct);
         }
         else
         {
             logger.LogInformation("[{Title}] {Symbol} {Passed}/{Total} — waiting on: {Verb}",
                 stored.Title, stored.Symbol, passed, total, firstFailure ?? "(unknown)");
         }
+    }
+
+    /// <summary>
+    /// Routes a candidate signal through the Legion high-tier voter panel
+    /// (LlmVotingService). LLM voting is gated on AppSettings.LlmVotingEnabled
+    /// + a configured Claude key — when disabled the signal records directly,
+    /// keeping the Monitor functional without a Claude account.
+    ///
+    /// Vote outcomes:
+    ///   • Approve  → record fired + audit-log "approved"
+    ///   • Reject   → log veto + audit-log "vetoed", do NOT record fired so
+    ///                LastFiredUtc / FireCount stay accurate to actual fires
+    ///   • Abstain  → treat as approve (no consensus to reject) but log the
+    ///                weaker confidence so the audit trail captures it
+    /// </summary>
+    private async Task VoteAndRecordAsync(IdiotProof.Blazor.Data.Strategy stored, TradeSignal signal, IReadOnlyList<Candle> candles, CancellationToken ct)
+    {
+        // Voting disabled or unconfigured → record directly. The audit trail
+        // still gets a "fired without vote" entry so a config gap is visible.
+        if (!appSettings.LlmVotingEnabled || string.IsNullOrWhiteSpace(appSettings.ClaudeApiKey))
+        {
+            await strategyRepo.RecordFiredAsync(stored.Id, ct);
+            await auditLogRepo.LogAsync(
+                category: "signal",
+                message: $"[{stored.Title}] {stored.Symbol} fired ({signal.Direction}) — LLM voting disabled",
+                userId: stored.OwnerUserId,
+                ct: ct);
+            return;
+        }
+
+        var voteResult = await llmVoting.VoteOnSignalAsync(signal, candles, appSettings, ct);
+
+        // Empty votes → service couldn't reach the providers (network, no
+        // panel returned). Treat as abstain to avoid false vetoes; the audit
+        // entry captures the gap.
+        if (voteResult.Votes.Count == 0)
+        {
+            logger.LogWarning("[{Title}] LLM voting returned no votes — recording fire but flagging in audit log.", stored.Title);
+            await strategyRepo.RecordFiredAsync(stored.Id, ct);
+            await auditLogRepo.LogAsync(
+                category: "signal",
+                message: $"[{stored.Title}] {stored.Symbol} fired ({signal.Direction}) — no LLM votes returned",
+                userId: stored.OwnerUserId,
+                ct: ct);
+            return;
+        }
+
+        var consensusLine = $"{voteResult.Consensus} ({voteResult.Votes.Count} voters, conf {voteResult.ConsensusConfidence:F0})";
+
+        if (voteResult.Consensus == VoteDecision.Reject)
+        {
+            logger.LogInformation("[{Title}] {Symbol} ✗ VETOED by LLM panel — {Consensus}",
+                stored.Title, stored.Symbol, consensusLine);
+            await auditLogRepo.LogAsync(
+                category: "signal-vetoed",
+                message: $"[{stored.Title}] {stored.Symbol} vetoed by LLM panel: {consensusLine}",
+                userId: stored.OwnerUserId,
+                dataJson: voteResult.ConsensusReasoning,
+                ct: ct);
+            // Important: do NOT record fired. The strategy's LastFiredUtc /
+            // FireCount only tick on signals that survived the panel.
+            return;
+        }
+
+        // Approve or abstain → record + log.
+        await strategyRepo.RecordFiredAsync(stored.Id, ct);
+        await auditLogRepo.LogAsync(
+            category: "signal",
+            message: $"[{stored.Title}] {stored.Symbol} fired ({signal.Direction}) — LLM panel {consensusLine}",
+            userId: stored.OwnerUserId,
+            dataJson: voteResult.ConsensusReasoning,
+            ct: ct);
+        logger.LogInformation("[{Title}] {Symbol} ✓ {Consensus} — fire recorded",
+            stored.Title, stored.Symbol, consensusLine);
     }
 
     /// <summary>

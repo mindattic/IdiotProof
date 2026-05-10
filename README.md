@@ -423,7 +423,11 @@ Every `IDIOTPROOF_MONITOR_INTERVAL` (default 30s):
 ```
 
 5. **Upsert `ConditionProgress`** with `(PassedCount, TotalCount, FirstFailingVerb)` — the Strategies page reads this every 5 s for live badges.
-6. On full-pass, call `StrategyRepository.RecordFiredAsync` to bump `LastFiredUtc` + `FireCount`.
+6. On full-pass, route the candidate signal through `LlmVotingService` (the Legion high-tier voter panel from `legion.json`). The panel's consensus decides whether the fire is recorded:
+   - **Approve** → `RecordFiredAsync` bumps `LastFiredUtc` + `FireCount`; AuditLog stamps the consensus reasoning.
+   - **Reject** → fire is **not** recorded; AuditLog stamps the veto + reasoning. `LastFiredUtc` / `FireCount` only ever tick on signals that survived the panel.
+   - **Abstain / no votes returned** → treated as approve so a network blip doesn't silently drop signals; the audit entry flags the gap.
+   - **Voting disabled or no Claude key** → records directly with an audit entry noting the gap.
 
 ### Run
 
@@ -557,7 +561,7 @@ IdiotProof/
 - **Multi-tab strategy editor** — the Strategies-page → /builder navigation is single-tab today. Multi-tab with localStorage tab restoration is on the roadmap.
 - **Visual drag-and-drop** — the Strategy Builder's visual flow-chart is currently read-only. Drag-and-drop reorder + add/remove condition cards is a pending UX upgrade.
 - **Roslyn-based parser** — the current `WikilinkParser.ParseScript` is regex-driven and tolerant. A proper Roslyn parser would surface syntax errors at exact line/col.
-- **Risk Guardian + LLM voting on DslStrategy signals** — the Blazor host's existing `LlmVotingService` already votes on signals; wiring it into the Monitor's per-tick evaluation closes the loop end-to-end.
+- **Risk Guardian veto in the Monitor signal path** — the existing `RiskGuardian` veto lives in the Blazor host. Wiring it alongside the LLM panel (signal → LLM panel → Risk Guardian → record fired) closes the last gate before order placement.
 
 ### Long-term
 
