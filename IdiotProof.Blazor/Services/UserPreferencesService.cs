@@ -60,6 +60,46 @@ public sealed class UserPreferencesService(IDbContextFactory<AppDbContext> dbFac
     }
 
     /// <summary>
+    /// Adds <paramref name="tabKey"/> to the OpenStrategyTabs list if it's not
+    /// already there. Tab keys are either a strategy guid (for an existing
+    /// strategy being edited) or the literal string "new" for a blank draft.
+    /// CSV-encoded; preserves order so the tab bar renders left-to-right in
+    /// open order.
+    /// </summary>
+    public async Task<List<string>> AddOpenTabAsync(string userId, string tabKey, CancellationToken ct = default)
+    {
+        var prefs = await GetOrCreateAsync(userId, ct);
+        var tabs = ParseTabs(prefs.OpenStrategyTabs);
+        if (!tabs.Contains(tabKey)) tabs.Add(tabKey);
+        prefs.OpenStrategyTabs = string.Join(",", tabs);
+        await SaveAsync(prefs, ct);
+        return tabs;
+    }
+
+    /// <summary>Removes a tab from the list. No-op when the key isn't open.</summary>
+    public async Task<List<string>> RemoveOpenTabAsync(string userId, string tabKey, CancellationToken ct = default)
+    {
+        var prefs = await GetOrCreateAsync(userId, ct);
+        var tabs = ParseTabs(prefs.OpenStrategyTabs);
+        tabs.RemoveAll(t => t == tabKey);
+        prefs.OpenStrategyTabs = string.Join(",", tabs);
+        await SaveAsync(prefs, ct);
+        return tabs;
+    }
+
+    /// <summary>Returns the open tabs as a typed list. Empty when none.</summary>
+    public async Task<List<string>> GetOpenTabsAsync(string userId, CancellationToken ct = default)
+    {
+        var prefs = await GetOrCreateAsync(userId, ct);
+        return ParseTabs(prefs.OpenStrategyTabs);
+    }
+
+    private static List<string> ParseTabs(string csv) =>
+        string.IsNullOrWhiteSpace(csv)
+            ? new List<string>()
+            : csv.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToList();
+
+    /// <summary>
     /// Updates the risk-guardian fields. Validates the basic sanity invariants
     /// (positive amounts, max ≥ min stop %, daily ≥ per-trade) so callers can
     /// trust the persisted row without re-checking. Returns the saved row so

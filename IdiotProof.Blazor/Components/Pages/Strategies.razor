@@ -8,6 +8,7 @@
 @attribute [Authorize]
 @inject StrategyRepository StrategyRepo
 @inject ConditionProgressRepository ProgressRepo
+@inject UserPreferencesService PrefsService
 @inject NavigationManager Nav
 @inject AuthenticationStateProvider AuthState
 @inject IJSRuntime JS
@@ -283,8 +284,30 @@
         s.IsActive = isActive;
     }
 
-    private void EditStrategy(Guid id) => Nav.NavigateTo($"/builder?strategyId={id}");
-    private void CreateNew() => Nav.NavigateTo("/builder");
+    /// <summary>
+    /// Registers the strategy as an open tab (no-op if already open) before
+    /// navigating to /builder. The BuilderTabBar reads from the same list, so
+    /// switching back to /strategies and then back to the builder shows the
+    /// same chips. Without this step, every Edit click would re-add a chip
+    /// since the BuilderTabBar registers on first paint of /builder.
+    /// </summary>
+    private async Task EditStrategy(Guid id)
+    {
+        if (!string.IsNullOrEmpty(userId))
+        {
+            await PrefsService.AddOpenTabAsync(userId, id.ToString());
+        }
+        Nav.NavigateTo($"/builder?strategyId={id}");
+    }
+
+    private async Task CreateNew()
+    {
+        if (!string.IsNullOrEmpty(userId))
+        {
+            await PrefsService.AddOpenTabAsync(userId, "new");
+        }
+        Nav.NavigateTo("/builder");
+    }
 
     private void ConfirmDelete(Strategy s) => deleteCandidate = s;
 

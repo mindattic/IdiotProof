@@ -307,7 +307,9 @@ The Describe flow:
 
 ## 7. The Strategies page
 
-`/strategies` is the front door. Every saved strategy for the signed-in user appears as a row. Each row:
+`/strategies` is the front door. Every saved strategy for the signed-in user appears as a row. The Strategy Builder (`/builder`) renders a **multi-tab editor** above its content (`<BuilderTabBar />`): each open strategy gets a Chrome-style chip, with a "+ New" button for blank drafts and an X to close. Open tabs persist to `UserPreferences.OpenStrategyTabs` (CSV) + `localStorage` mirror, so reopening the page restores the same set. Clicking Edit on the Strategies page registers the tab before navigating; closing the active tab navigates to the next remaining tab (or `/strategies` if none are left).
+
+Each Strategies row:
 
 - **Title + ticker chip + last-fired-at + created date**
 - **Active toggle** — flips `IsActive` in SQL. The Monitor picks active strategies on its next tick.
@@ -558,7 +560,6 @@ IdiotProof/
 ### Pending (deferred from prior sessions)
 
 - **Engine adoption of SQL workspaces** — the schema (`Workspaces`, `SettingsKv`, `AuditLogs` tables + `WorkspaceRepository` / `SettingsRepository` / `AuditLogRepository`) landed in the migration `AddSettingsWorkspacesAuditLog`. The Engine's legacy JSON-on-disk `WorkspaceManager` still works; switching it to read/write through `WorkspaceRepository` is a follow-on refactor (plus a one-shot disk → SQL importer for any existing workspaces).
-- **Multi-tab strategy editor** — the Strategies-page → /builder navigation is single-tab today. Multi-tab with localStorage tab restoration is on the roadmap.
 - **Visual drag-and-drop** — the Strategy Builder's visual flow-chart is currently read-only. Drag-and-drop reorder + add/remove condition cards is a pending UX upgrade.
 - **Roslyn-based parser** — the current `WikilinkParser.ParseScript` is regex-driven and tolerant. A proper Roslyn parser would surface syntax errors at exact line/col.
 
