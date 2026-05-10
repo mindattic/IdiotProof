@@ -21,6 +21,7 @@
   <ItemGroup>
     <ProjectReference Include="..\IdiotProof.Models\IdiotProof.Models.csproj" />
     <ProjectReference Include="..\IdiotProof.Engine\IdiotProof.Engine.csproj" />
+    <ProjectReference Include="..\IdiotProof.Shared\IdiotProof.Shared.csproj" />
   </ItemGroup>
 
 </Project>
