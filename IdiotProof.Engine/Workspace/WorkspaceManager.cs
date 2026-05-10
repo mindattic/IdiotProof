@@ -1,31 +1,51 @@
 using System.Collections.Concurrent;
-using System.Text.Json;
-using IdiotProof.Engine.Storage;
 
 namespace IdiotProof.Engine.Workspace;
 
 /// <summary>
-/// Manages workspace tabs per user. Each user's tabs live in Workspaces/{userId}/.
-/// The legacy global API (Tabs, LoadAll, etc.) is retained for the CLI and system defaults.
+/// In-memory cache + default-seeding layer over an <see cref="IWorkspaceStore"/>.
+/// All persistence I/O delegates to the store; this class adds:
+///
+///   • A per-user list cache so repeated reads don't hit disk/SQL.
+///   • A "first read seeds a Default tab" rule so a new user lands on a working
+///     workspace without an empty-state branch in every consumer.
+///   • The legacy global-bucket API (<see cref="Tabs"/>, <see cref="LoadAll"/>)
+///     used by the CLI and any single-user code path that hasn't been
+///     user-scoped yet.
+///
+/// Constructed with the legacy <c>(IStorageProvider)</c> ctor for backward
+/// compatibility — that path wraps the storage provider in a
+/// <see cref="JsonFileWorkspaceStore"/> so existing callers keep their disk-based
+/// behavior. New consumers should inject <see cref="IWorkspaceStore"/> directly
+/// (the Blazor host registers a SQL-backed implementation).
 /// </summary>
 public sealed class WorkspaceManager
 {
-    private readonly IStorageProvider storage;
+    private const string GlobalBucket = "__global__";
+
+    private readonly IWorkspaceStore store;
     private readonly ConcurrentDictionary<string, List<WorkspaceTab>> tabsByUser = new(StringComparer.Ordinal);
 
-    private static readonly JsonSerializerOptions JsonOptions = new()
-    {
-        WriteIndented = true,
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase
-    };
+    /// <summary>Legacy global-bucket accessor — used by the CLI and the standalone Engine path.</summary>
+    public IReadOnlyList<WorkspaceTab> Tabs => GetTabsForUser(GlobalBucket);
 
-    // Legacy global access (used by CLI and StrategyExecutionService when iterating all users)
-    public IReadOnlyList<WorkspaceTab> Tabs => GetTabsForUser("__global__");
-
-    public WorkspaceManager(IStorageProvider storage)
+    /// <summary>
+    /// Preferred constructor. Used by Blazor (SQL-backed) + tests (in-memory store).
+    /// </summary>
+    public WorkspaceManager(IWorkspaceStore store)
     {
-        this.storage = storage;
+        this.store = store;
+    }
+
+    /// <summary>
+    /// Backward-compat constructor for callers that still pass a storage provider
+    /// (CLI, design-time, integration tests). Wraps the provider in a
+    /// JsonFileWorkspaceStore so existing on-disk data continues to work.
+    /// </summary>
+    public WorkspaceManager(Storage.IStorageProvider storage)
+    {
         storage.EnsureDirectories();
+        store = new JsonFileWorkspaceStore(storage);
     }
 
     // ── Per-user API ────────────────────────────────────────────────────────────
@@ -39,30 +59,19 @@ public sealed class WorkspaceManager
 
     public void LoadForUser(string userId)
     {
-        var dir = UserDir(userId);
-        var list = new List<WorkspaceTab>();
-
-        if (Directory.Exists(dir))
-        {
-            foreach (var file in Directory.GetFiles(dir, "*.json"))
-            {
-                try
-                {
-                    var json = File.ReadAllText(file);
-                    var tab = JsonSerializer.Deserialize<WorkspaceTab>(json, JsonOptions);
-                    if (tab != null) list.Add(tab);
-                }
-                catch { /* skip corrupt files */ }
-            }
-        }
-
+        var list = store.Load(userId).ToList();
         list.Sort((a, b) => a.DisplayOrder.CompareTo(b.DisplayOrder));
 
-        if (list.Count == 0 && userId != "__global__")
+        if (list.Count == 0 && userId != GlobalBucket)
         {
-            var def = new WorkspaceTab { Name = "Default", DisplayOrder = 0, Strategies = [new StrategyBinding { StrategyName = "ITI" }] };
+            var def = new WorkspaceTab
+            {
+                Name = "Default",
+                DisplayOrder = 0,
+                Strategies = [new StrategyBinding { StrategyName = "ITI" }]
+            };
             list.Add(def);
-            Save(userId, def);
+            store.Save(userId, def);
         }
 
         tabsByUser[userId] = list;
@@ -70,93 +79,79 @@ public sealed class WorkspaceManager
 
     public void Save(string userId, WorkspaceTab tab)
     {
-        var dir = UserDir(userId);
-        Directory.CreateDirectory(dir);
-        var path = Path.Combine(dir, $"{tab.TabId}.json");
-        File.WriteAllText(path, JsonSerializer.Serialize(tab, JsonOptions));
-
+        store.Save(userId, tab);
         var list = tabsByUser.GetOrAdd(userId, _ => []);
         var existing = list.FindIndex(t => t.TabId == tab.TabId);
-        if (existing >= 0) list[existing] = tab; else list.Add(tab);
+        if (existing >= 0) list[existing] = tab;
+        else               list.Add(tab);
     }
 
     public WorkspaceTab Create(string userId, string name)
     {
-        var tabs = tabsByUser.GetOrAdd(userId, _ => []);
-        var tab = new WorkspaceTab { Name = name, DisplayOrder = tabs.Count, Strategies = [new StrategyBinding { StrategyName = "ITI" }] };
+        var tabs = GetTabsForUser(userId);
+        var tab = new WorkspaceTab
+        {
+            Name = name,
+            DisplayOrder = tabs.Count,
+            Strategies = [new StrategyBinding { StrategyName = "ITI" }]
+        };
         Save(userId, tab);
         return tab;
     }
 
     public bool Delete(string userId, string tabId)
     {
-        var dir = UserDir(userId);
-        var path = Path.Combine(dir, $"{tabId}.json");
-        if (File.Exists(path)) File.Delete(path);
-
-        if (!tabsByUser.TryGetValue(userId, out var list)) return false;
-        var tab = list.FirstOrDefault(t => t.TabId == tabId);
-        if (tab == null) return false;
-        list.Remove(tab);
-        return true;
+        var ok = store.Delete(userId, tabId);
+        if (tabsByUser.TryGetValue(userId, out var list))
+        {
+            var tab = list.FirstOrDefault(t => t.TabId == tabId);
+            if (tab != null) list.Remove(tab);
+        }
+        return ok;
     }
 
     public WorkspaceTab? Get(string userId, string tabId) =>
         GetTabsForUser(userId).FirstOrDefault(t => t.TabId == tabId);
 
-    /// <summary>Returns all (userId, tabs) pairs for the execution service to iterate.</summary>
+    /// <summary>
+    /// Returns every (userId, tabs) pair the underlying store knows about.
+    /// Refreshes the cache for each user as it iterates so consumers never
+    /// see a stale list.
+    /// </summary>
     public IEnumerable<(string UserId, IReadOnlyList<WorkspaceTab> Tabs)> GetAllUsers()
     {
-        // Refresh from disk for any user whose directory exists
-        var workspacesRoot = storage.WorkspacesPath;
-        if (!Directory.Exists(workspacesRoot)) yield break;
-
-        foreach (var dir in Directory.GetDirectories(workspacesRoot))
+        foreach (var userId in store.EnumerateUserIds())
         {
-            var userId = Path.GetFileName(dir);
-            if (userId == "__global__") continue;
             LoadForUser(userId);
             yield return (userId, GetTabsForUser(userId));
         }
     }
 
-    // ── Legacy global API (for CLI / single-user fallback) ─────────────────────
+    // ── Legacy global-bucket API ───────────────────────────────────────────────
 
-    /// <summary>Loads global (non-user-scoped) workspaces from the root Workspaces directory.</summary>
+    /// <summary>Loads the legacy global bucket. Single-user / CLI fallback.</summary>
     public void LoadAll()
     {
-        var dir = storage.WorkspacesPath;
-        var list = new List<WorkspaceTab>();
-        if (Directory.Exists(dir))
-        {
-            foreach (var file in Directory.GetFiles(dir, "*.json"))
-            {
-                try
-                {
-                    var json = File.ReadAllText(file);
-                    var tab = JsonSerializer.Deserialize<WorkspaceTab>(json, JsonOptions);
-                    if (tab != null) list.Add(tab);
-                }
-                catch { }
-            }
-        }
+        var list = store.Load(GlobalBucket).ToList();
         list.Sort((a, b) => a.DisplayOrder.CompareTo(b.DisplayOrder));
+
         if (list.Count == 0)
         {
-            var def = new WorkspaceTab { Name = "Default", DisplayOrder = 0, Strategies = [new StrategyBinding { StrategyName = "ITI" }] };
+            var def = new WorkspaceTab
+            {
+                Name = "Default",
+                DisplayOrder = 0,
+                Strategies = [new StrategyBinding { StrategyName = "ITI" }]
+            };
             list.Add(def);
-            var path = Path.Combine(dir, $"{def.TabId}.json");
-            Directory.CreateDirectory(dir);
-            File.WriteAllText(path, JsonSerializer.Serialize(def, JsonOptions));
+            store.Save(GlobalBucket, def);
         }
-        tabsByUser["__global__"] = list;
+
+        tabsByUser[GlobalBucket] = list;
     }
 
-    public void Save(WorkspaceTab tab) => Save("__global__", tab);
-    public WorkspaceTab Create(string name) => Create("__global__", name);
-    public bool Delete(string tabId) => Delete("__global__", tabId);
-    public WorkspaceTab? Get(string tabId) => Get("__global__", tabId);
-
-    private string UserDir(string userId) =>
-        Path.Combine(storage.WorkspacesPath, userId);
+    public void Save(WorkspaceTab tab) => Save(GlobalBucket, tab);
+    public WorkspaceTab Create(string name) => Create(GlobalBucket, name);
+    public bool Delete(string tabId) => Delete(GlobalBucket, tabId);
+    public WorkspaceTab? Get(string tabId) => Get(GlobalBucket, tabId);
 }

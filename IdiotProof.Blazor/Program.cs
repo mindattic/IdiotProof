@@ -7,8 +7,25 @@ using IdiotProof.Blazor.Services;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using MindAttic.Legion;
+using MindAttic.Vault.Configuration;
+using MindAttic.Vault.DependencyInjection;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Cloud-native configuration chain. Layered (later sources win):
+//   AddJsonFile (already added by WebApplicationBuilder for appsettings.json).
+//   AddMindAtticVaultFiles surfaces %APPDATA%\MindAttic\<bucket>\providers.json on dev.
+//   AddUserSecrets pinned to mindattic-vault-shared so the same secret store is
+//     visible to every MindAttic project that pins the same id.
+//   AddEnvironmentVariables (already present) picks up App Service Application
+//     Settings and Azure Key Vault references in production.
+builder.Configuration
+    .AddMindAtticVaultFiles()
+    .AddUserSecrets<Program>(optional: true);
+
+// Vault: cloud-native credential resolvers (LlmCredentialResolver,
+// BrokerCredentialResolver) registered alongside the legacy file-backed stores.
+builder.Services.AddMindAtticVault(builder.Configuration);
 
 // ── Storage ──────────────────────────────────────────────────────────────────────
 // Resolves to %LOCALAPPDATA%\IdiotProof (or $IDIOTPROOF_DATA_DIR if set) so the CLI
@@ -65,7 +82,13 @@ builder.Services.AddCascadingAuthenticationState();
 builder.Services.AddDataProtection();
 
 // ── Engine ───────────────────────────────────────────────────────────────────────
-builder.Services.AddIdiotProofEngine(storageProvider);
+// Pre-register SqlWorkspaceStore so AddIdiotProofEngine's TryAddSingleton for
+// IWorkspaceStore sees ours and skips the JSON-on-disk default. The store
+// also handles the one-shot import of any legacy on-disk workspaces the
+// first time it sees an empty SQL Workspaces table — users with pre-existing
+// on-disk data migrate transparently on first boot.
+builder.Services.AddSingleton<IdiotProof.Engine.Workspace.IWorkspaceStore, IdiotProof.Blazor.Services.SqlWorkspaceStore>();
+builder.Services.AddIdiotProofEngine(storageProvider, builder.Configuration);
 
 // ── SignalR ───────────────────────────────────────────────────────────────────────
 builder.Services.AddSignalR(o =>
