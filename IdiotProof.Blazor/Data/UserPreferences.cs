@@ -33,5 +33,29 @@ public sealed class UserPreferences
     /// <summary>JSON blob of free-form UI state — sidebar collapse, expanded rows, scroll positions.</summary>
     public string UiStateJson { get; set; } = "{}";
 
+    // ── Risk Guardian config (per-user) ─────────────────────────────────
+    // The Monitor instantiates a RiskGuardian per user from these values
+    // when evaluating that user's strategies. Defaults match the canonical
+    // safe-defaults baked into RiskGuardianConfig — small accounts first,
+    // upgrade explicitly via the Settings page.
+
+    /// <summary>Absolute max loss per single trade. Non-negotiable upper bound.</summary>
+    public decimal RiskMaxLossPerTrade { get; set; } = 100m;
+
+    /// <summary>Absolute max loss per trading day. Daily circuit breaker.</summary>
+    public decimal RiskMaxLossPerDay { get; set; } = 500m;
+
+    /// <summary>Minimum stop distance as % of entry. Prevents micro-stops triggered by noise.</summary>
+    public decimal RiskMinStopLossPercent { get; set; } = 0.5m;
+
+    /// <summary>Maximum stop distance as % of entry. Prevents ridiculously wide stops.</summary>
+    public decimal RiskMaxStopLossPercent { get; set; } = 5m;
+
+    /// <summary>Account balance the position-size math sizes against.</summary>
+    public decimal RiskAccountBalance { get; set; } = 10_000m;
+
+    /// <summary>Maximum % of account to risk per trade.</summary>
+    public decimal RiskMaxAccountRiskPercent { get; set; } = 1m;
+
     public DateTime UpdatedUtc { get; set; } = DateTime.UtcNow;
 }

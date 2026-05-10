@@ -32,7 +32,7 @@ public sealed class MonitorWorker(
     ConditionProgressRepository progressRepo,
     AuditLogRepository auditLogRepo,
     LlmVotingService llmVoting,
-    RiskGuardian riskGuardian,
+    RiskGuardianService riskGuardianService,
     AppSettings appSettings,
     ILogger<MonitorWorker> logger) : BackgroundService
 {
@@ -333,7 +333,10 @@ public sealed class MonitorWorker(
             Rationale       = signal.Reason,
         };
 
-        var verdict = riskGuardian.ValidateTrade(setup);
+        // Resolve the owner's RiskGuardian (cached by RiskGuardianService) so
+        // each user's daily-loss tracker is isolated and uses their own limits.
+        var guardian = await riskGuardianService.GetForUserAsync(stored.OwnerUserId, ct);
+        var verdict = guardian.ValidateTrade(setup);
         if (verdict.IsApproved) return true;
 
         var blockSummary = string.Join("; ", verdict.BlockReasons);

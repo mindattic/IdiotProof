@@ -58,4 +58,33 @@ public sealed class UserPreferencesService(IDbContextFactory<AppDbContext> dbFac
         p.ActiveAccountType = accountType;
         await SaveAsync(p, ct);
     }
+
+    /// <summary>
+    /// Updates the risk-guardian fields. Validates the basic sanity invariants
+    /// (positive amounts, max ≥ min stop %, daily ≥ per-trade) so callers can
+    /// trust the persisted row without re-checking. Returns the saved row so
+    /// the caller can read clamp adjustments back.
+    /// </summary>
+    public async Task<UserPreferences> SetRiskConfigAsync(
+        string userId,
+        decimal maxLossPerTrade,
+        decimal maxLossPerDay,
+        decimal minStopPct,
+        decimal maxStopPct,
+        decimal accountBalance,
+        decimal maxAccountRiskPercent,
+        CancellationToken ct = default)
+    {
+        var p = await GetOrCreateAsync(userId, ct);
+
+        p.RiskMaxLossPerTrade        = Math.Max(0m, maxLossPerTrade);
+        p.RiskMaxLossPerDay          = Math.Max(p.RiskMaxLossPerTrade, maxLossPerDay);
+        p.RiskMinStopLossPercent     = Math.Clamp(minStopPct, 0.01m, 50m);
+        p.RiskMaxStopLossPercent     = Math.Max(p.RiskMinStopLossPercent, maxStopPct);
+        p.RiskAccountBalance         = Math.Max(0m, accountBalance);
+        p.RiskMaxAccountRiskPercent  = Math.Clamp(maxAccountRiskPercent, 0m, 100m);
+
+        await SaveAsync(p, ct);
+        return p;
+    }
 }

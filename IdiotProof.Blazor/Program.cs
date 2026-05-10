@@ -89,6 +89,7 @@ builder.Services.AddSingleton<SettingsRepository>();
 builder.Services.AddSingleton<WorkspaceRepository>();
 builder.Services.AddSingleton<AuditLogRepository>();
 builder.Services.AddSingleton<ConditionProgressRepository>();
+builder.Services.AddSingleton<RiskGuardianService>();
 builder.Services.AddHttpClient();
 builder.Services.AddAntiforgery();
 

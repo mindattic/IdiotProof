@@ -3,7 +3,6 @@ using IdiotProof.Blazor.Services;
 using IdiotProof.Engine.Settings;
 using IdiotProof.Engine.Storage;
 using IdiotProof.Monitor;
-using IdiotProof.Shared.Risk;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -66,12 +65,11 @@ builder.Services.AddSingleton(settings);
 builder.Services.AddLegionClient();
 builder.Services.AddSingleton<IdiotProof.Blazor.Services.LlmVotingService>();
 
-// Risk Guardian — final gate after the LLM panel. Default config matches the
-// canonical safe-default values in RiskGuardianConfig (≤ $100/trade,
-// ≤ $500/day, 0.5–5% stop range, ≤ 1% account risk). Per-user overrides land
-// here in a future iteration; for now a single shared instance protects
-// every strategy the Monitor evaluates.
-builder.Services.AddSingleton(new RiskGuardian(new RiskGuardianConfig()));
+// Risk Guardian — final gate after the LLM panel. Per-user instances are
+// cached by RiskGuardianService and seeded from UserPreferences risk fields
+// (set via the Settings page). Cache preserves the in-memory daily-loss
+// tracker across signals so the daily circuit breaker actually trips.
+builder.Services.AddSingleton<RiskGuardianService>();
 
 builder.Services.AddSingleton<StrategyRepository>();
 builder.Services.AddSingleton<ConditionProgressRepository>();
