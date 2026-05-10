@@ -7,6 +7,8 @@
 @inject StrategyRegistry StrategyRegistry
 @inject AppSettings AppSettings
 @inject AuditLogger AuditLogger
+@inject AuditLogRepository AuditLogRepository
+@inject RiskGuardianService RiskGuardianService
 @inject AuthenticationStateProvider AuthStateProvider
 @implements IDisposable
 
@@ -630,11 +632,95 @@ else
             WorkspaceManager.Save(userId, currentTab);
     }
 
+    /// <summary>
+    /// Manual "Fire Signal" handler. Real money path — every check below is
+    /// load-bearing.
+    ///
+    /// Replaces the legacy hardcoded <c>Quantity = 1, OrderType.Market</c>
+    /// with Guardian-driven sizing + a Limit order at the validated entry:
+    ///   1. <see cref="RiskGuardian.CalculateMaxQuantity"/> derives a safe
+    ///      share count from the signal's stop and the user's global config.
+    ///   2. <see cref="RiskGuardian.ValidateTrade"/> runs the full check
+    ///      (stop side, daily-loss, account %, stop-distance bounds).
+    ///   3. Only if Guardian approves does the broker call happen.
+    ///   4. Limit (not Market) so the entry price the Guardian validated
+    ///      actually holds at fill — a market gap could otherwise blow past
+    ///      the validated risk.
+    ///
+    /// Block path surfaces reasons in <c>orderFeedback</c> AND writes
+    /// "MANUAL_TRADE_BLOCKED" to the audit DB (with structured dataJson).
+    /// </summary>
     private async Task FireSignal(TradeSignal signal)
     {
         orderFeedback = null;
+        if (string.IsNullOrEmpty(userId))
+        {
+            orderFeedback = "Sign in to place trades.";
+            return;
+        }
+
         try
         {
+            var riskPerShare = Math.Abs(signal.SuggestedEntry - signal.SuggestedStop);
+            if (riskPerShare <= 0)
+            {
+                orderFeedback = "Cannot fire — signal has no stop or stop equals entry.";
+                return;
+            }
+
+            var guardian = await RiskGuardianService.GetForUserAsync(userId);
+            var qty = guardian.CalculateMaxQuantity(signal.SuggestedEntry, signal.SuggestedStop);
+            if (qty <= 0)
+            {
+                orderFeedback = "🛑 Risk Guardian blocked: computed quantity ≤ 0 (per-trade or daily cap reached).";
+                AuditLogger.Log("MANUAL_TRADE_BLOCKED", $"Symbol={signal.Symbol} Reason=qty<=0", signal.Symbol);
+                await SafeAuditAsync("MANUAL_TRADE_BLOCKED",
+                    $"[{signal.StrategyName}] {signal.Symbol} blocked: qty<=0 after Guardian sizing",
+                    userId);
+                return;
+            }
+
+            var takeProfit = signal.Targets.Count > 0
+                ? signal.Targets[0]
+                : signal.Direction == TradeDirection.Long
+                    ? signal.SuggestedEntry + (signal.SuggestedEntry - signal.SuggestedStop)
+                    : signal.SuggestedEntry - (signal.SuggestedStop - signal.SuggestedEntry);
+
+            var setup = new TradeSetup
+            {
+                Symbol          = signal.Symbol,
+                Direction       = signal.Direction,
+                EntryPrice      = signal.SuggestedEntry,
+                EntryType       = OrderType.Limit,
+                StopLoss        = signal.SuggestedStop,
+                TakeProfit      = takeProfit,
+                Quantity        = qty,
+                ConfidenceScore = (int)Math.Clamp(signal.ConfidencePercent, 0m, 100m),
+                Rationale       = signal.Reason,
+            };
+
+            var verdict = guardian.ValidateTrade(setup);
+            if (!verdict.IsApproved)
+            {
+                var reasons = string.Join("; ", verdict.BlockReasons);
+                orderFeedback = $"🛑 Risk Guardian BLOCKED this trade: {reasons}";
+                AuditLogger.Log("MANUAL_TRADE_BLOCKED", $"Symbol={signal.Symbol} Reasons={reasons}", signal.Symbol);
+                await SafeAuditAsync("MANUAL_TRADE_BLOCKED",
+                    message: $"[{signal.StrategyName}] {signal.Symbol} ({signal.Direction}) blocked by RiskGuardian: {reasons}",
+                    userId: userId,
+                    dataJson: System.Text.Json.JsonSerializer.Serialize(new
+                    {
+                        blockReasons = verdict.BlockReasons,
+                        warnings     = verdict.Warnings,
+                        expectedLoss = verdict.ExpectedLoss,
+                        worstCase    = verdict.WorstCaseLoss,
+                        quantity     = qty,
+                        entry        = signal.SuggestedEntry,
+                        stop         = signal.SuggestedStop,
+                    }));
+                return;
+            }
+
             var keys = await UserKeyService.GetOrCreateAsync(userId);
             IBrokerClient broker = !string.IsNullOrWhiteSpace(keys.AlpacaApiKeyId)
                 ? new AlpacaBrokerClient(keys.AlpacaApiKeyId, keys.AlpacaApiSecretKey ?? "", keys.AlpacaIsPaper)
@@ -643,22 +729,47 @@ else
             var brokerName = !string.IsNullOrWhiteSpace(keys.AlpacaApiKeyId) ? "Alpaca" : "Sandbox";
             var request = new OrderRequest
             {
-                Symbol = signal.Symbol,
-                Quantity = 1,
-                Side = signal.Direction == TradeDirection.Long ? OrderSide.Buy : OrderSide.Sell,
-                Type = OrderType.Market,
+                Symbol     = signal.Symbol,
+                Quantity   = qty,
+                Side       = signal.Direction == TradeDirection.Long ? OrderSide.Buy : OrderSide.Sell,
+                Type       = OrderType.Limit,
+                LimitPrice = signal.SuggestedEntry,
                 TimeInForce = "DAY"
             };
 
             var result = await broker.PlaceOrderAsync(request);
-            AuditLogger.Log("MANUAL_TRADE", $"BrokerOrderId={result.BrokerOrderId} Symbol={signal.Symbol} Side={request.Side} Qty={request.Quantity} Strategy={signal.StrategyName}", signal.Symbol);
-            orderFeedback = $"Order placed: {request.Side} {request.Quantity} {signal.Symbol} via {brokerName} (ID: {result.BrokerOrderId})";
+            AuditLogger.Log("MANUAL_TRADE",
+                $"BrokerOrderId={result.BrokerOrderId} Symbol={signal.Symbol} Side={request.Side} Qty={qty} Strategy={signal.StrategyName}",
+                signal.Symbol);
+            await SafeAuditAsync("MANUAL_TRADE",
+                $"[{signal.StrategyName}] {signal.Symbol} {request.Side} qty={qty} @ ${signal.SuggestedEntry:F2} via {brokerName} — broker order {result.BrokerOrderId}",
+                userId);
+
+            var warningSuffix = verdict.Warnings.Count > 0
+                ? $" (warnings: {string.Join(", ", verdict.Warnings)})"
+                : "";
+            orderFeedback = $"Order placed: {request.Side} {qty} {signal.Symbol} @ ${signal.SuggestedEntry:F2} via {brokerName} (ID: {result.BrokerOrderId}){warningSuffix}";
         }
         catch (Exception ex)
         {
             AuditLogger.Log("MANUAL_TRADE_FAIL", $"Symbol={signal.Symbol} Error={ex.Message}", signal.Symbol);
+            await SafeAuditAsync("MANUAL_TRADE_FAIL",
+                message: $"[{signal.StrategyName}] {signal.Symbol} threw during placement: {ex.Message}",
+                userId: userId,
+                dataJson: System.Text.Json.JsonSerializer.Serialize(new { exception = ex.ToString() }));
             orderFeedback = $"Order failed: {ex.Message}";
         }
+    }
+
+    /// <summary>
+    /// Wraps the audit-DB write so a failing repository call never bubbles
+    /// out of the trade path. The legacy file-based <see cref="AuditLogger"/>
+    /// has already captured the event by the time we reach here.
+    /// </summary>
+    private async Task SafeAuditAsync(string category, string message, string userId, string? dataJson = null)
+    {
+        try { await AuditLogRepository.LogAsync(category, message, userId, dataJson); }
+        catch { /* audit DB outage must not mask broker-call results */ }
     }
 
     public void Dispose() => refreshTimer?.Dispose();

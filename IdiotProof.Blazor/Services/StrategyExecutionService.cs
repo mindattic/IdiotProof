@@ -7,6 +7,7 @@ using IdiotProof.Engine.Workspace;
 using IdiotProof.Blazor.Data;
 using IdiotProof.Blazor.Hubs;
 using IdiotProof.Models;
+using IdiotProof.Shared.Risk;
 using IdiotProof.Strategies;
 using Microsoft.AspNetCore.SignalR;
 
@@ -25,6 +26,8 @@ public sealed class StrategyExecutionService : BackgroundService
     private readonly StrategyRegistry strategyRegistry;
     private readonly TradingStateService tradingState;
     private readonly LlmVotingService llmVoting;
+    private readonly RiskGuardianService riskGuardianService;
+    private readonly AuditLogRepository auditLogRepo;
     private readonly AppSettings appSettings;
     private readonly AuditLogger auditLogger;
     private readonly IHubContext<TradingHub> hubContext;
@@ -37,22 +40,26 @@ public sealed class StrategyExecutionService : BackgroundService
         StrategyRegistry strategyRegistry,
         TradingStateService tradingState,
         LlmVotingService llmVoting,
+        RiskGuardianService riskGuardianService,
+        AuditLogRepository auditLogRepo,
         AppSettings appSettings,
         AuditLogger auditLogger,
         IHubContext<TradingHub> hubContext,
         IStorageProvider storage,
         ILogger<StrategyExecutionService> logger)
     {
-        this.scopeFactory      = scopeFactory;
-        this.workspaceManager  = workspaceManager;
-        this.strategyRegistry  = strategyRegistry;
-        this.tradingState      = tradingState;
-        this.llmVoting         = llmVoting;
-        this.appSettings       = appSettings;
-        this.auditLogger       = auditLogger;
-        this.hubContext        = hubContext;
-        this.storage           = storage;
-        this.logger            = logger;
+        this.scopeFactory        = scopeFactory;
+        this.workspaceManager    = workspaceManager;
+        this.strategyRegistry    = strategyRegistry;
+        this.tradingState        = tradingState;
+        this.llmVoting           = llmVoting;
+        this.riskGuardianService = riskGuardianService;
+        this.auditLogRepo        = auditLogRepo;
+        this.appSettings         = appSettings;
+        this.auditLogger         = auditLogger;
+        this.hubContext          = hubContext;
+        this.storage             = storage;
+        this.logger              = logger;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -223,7 +230,7 @@ public sealed class StrategyExecutionService : BackgroundService
                 }
 
                 if (tab.Settings.AutoTrade && ShouldAutoTrade(keys, voteResult))
-                    await ExecuteAutoTradeAsync(tab, signal, keys, ct);
+                    await ExecuteAutoTradeAsync(userId, tab, signal, keys, ct);
             }
         }
     }
@@ -240,7 +247,27 @@ public sealed class StrategyExecutionService : BackgroundService
         return voteResult?.Consensus == VoteDecision.Approve;
     }
 
-    private async Task ExecuteAutoTradeAsync(WorkspaceTab tab, TradeSignal signal, UserApiKeys keys, CancellationToken ct)
+    /// <summary>
+    /// Places an auto-trade order for an approved signal. Real money path —
+    /// every check below is load-bearing.
+    ///
+    /// Gating order (matches <c>MonitorWorker.PassesRiskGuardianAsync</c>):
+    ///   1. <see cref="RiskGuardian.CalculateMaxQuantity"/> on the user's
+    ///      global config (<c>UserPreferences</c>) — most-restrictive of
+    ///      per-trade, daily-remaining, account-percent caps.
+    ///   2. Workspace-local cap (<c>tab.Settings.MaxPositionSize</c>) tightens
+    ///      further if the workspace has a smaller notional limit.
+    ///   3. <see cref="RiskGuardian.ValidateTrade"/> performs the full
+    ///      validation (stop-side correctness, daily-loss circuit breaker,
+    ///      stop-distance bounds) on the synthesized <see cref="TradeSetup"/>.
+    ///   4. Only if Guardian approves do we hit the broker.
+    ///
+    /// Block path writes "AUTO_TRADE_BLOCKED" to the audit DB with structured
+    /// dataJson (block reasons, expected/worst-case loss, sized quantity).
+    /// Exception path writes "AUTO_TRADE_FAIL" with the exception detail.
+    /// Both paths skip the broker call — no order placed.
+    /// </summary>
+    private async Task ExecuteAutoTradeAsync(string userId, WorkspaceTab tab, TradeSignal signal, UserApiKeys keys, CancellationToken ct)
     {
         try
         {
@@ -248,23 +275,91 @@ public sealed class StrategyExecutionService : BackgroundService
             if (!broker.IsConnected) return;
 
             var riskPerShare = Math.Abs(signal.SuggestedEntry - signal.SuggestedStop);
-            if (riskPerShare <= 0) return;
+            if (riskPerShare <= 0)
+            {
+                await SafeAuditAsync("AUTO_TRADE_BLOCKED",
+                    $"[{signal.StrategyName}] {signal.Symbol} blocked: signal has no stop or stop equals entry",
+                    userId, ct: ct);
+                return;
+            }
 
-            var qty = (int)Math.Floor(tab.Settings.RiskLimits.MaxLossPerTrade / riskPerShare);
-            if (qty <= 0) return;
+            var guardian = await riskGuardianService.GetForUserAsync(userId, ct);
 
-            var positionValue = qty * signal.SuggestedEntry;
-            if (positionValue > tab.Settings.MaxPositionSize)
-                qty = (int)Math.Floor(tab.Settings.MaxPositionSize / signal.SuggestedEntry);
+            // Guardian sizing first — uses user's UserPreferences-backed config
+            // (per-trade cap, daily remaining, account-percent cap). Workspace
+            // settings can only shrink the order, never grow it past Guardian.
+            var qty = guardian.CalculateMaxQuantity(signal.SuggestedEntry, signal.SuggestedStop);
 
-            if (qty <= 0) return;
+            var workspacePerTradeQty = (int)Math.Floor(tab.Settings.RiskLimits.MaxLossPerTrade / riskPerShare);
+            if (workspacePerTradeQty > 0 && workspacePerTradeQty < qty)
+                qty = workspacePerTradeQty;
+
+            if (signal.SuggestedEntry > 0m)
+            {
+                var notionalCapQty = (int)Math.Floor(tab.Settings.MaxPositionSize / signal.SuggestedEntry);
+                if (notionalCapQty > 0 && notionalCapQty < qty)
+                    qty = notionalCapQty;
+            }
+
+            if (qty <= 0)
+            {
+                await SafeAuditAsync("AUTO_TRADE_BLOCKED",
+                    $"[{signal.StrategyName}] {signal.Symbol} blocked: computed qty<=0 after Guardian + workspace caps",
+                    userId, ct: ct);
+                return;
+            }
+
+            // Synthesize the canonical setup and run the full Guardian
+            // validation. Take-profit defaults to a +1R level when the signal
+            // didn't specify one so the R:R warning has a real number.
+            var takeProfit = signal.Targets.Count > 0
+                ? signal.Targets[0]
+                : signal.Direction == TradeDirection.Long
+                    ? signal.SuggestedEntry + (signal.SuggestedEntry - signal.SuggestedStop)
+                    : signal.SuggestedEntry - (signal.SuggestedStop - signal.SuggestedEntry);
+
+            var setup = new TradeSetup
+            {
+                Symbol          = signal.Symbol,
+                Direction       = signal.Direction,
+                EntryPrice      = signal.SuggestedEntry,
+                EntryType       = OrderType.Limit,
+                StopLoss        = signal.SuggestedStop,
+                TakeProfit      = takeProfit,
+                Quantity        = qty,
+                ConfidenceScore = (int)Math.Clamp(signal.ConfidencePercent, 0m, 100m),
+                Rationale       = signal.Reason,
+            };
+
+            var verdict = guardian.ValidateTrade(setup);
+            if (!verdict.IsApproved)
+            {
+                var reasons = string.Join("; ", verdict.BlockReasons);
+                logger.LogWarning("Auto-trade BLOCKED by RiskGuardian for {Symbol}: {Reasons}", signal.Symbol, reasons);
+                auditLogger.Log("AUTO_TRADE_BLOCKED", $"Reasons={reasons}", signal.Symbol);
+                await SafeAuditAsync("AUTO_TRADE_BLOCKED",
+                    message: $"[{signal.StrategyName}] {signal.Symbol} ({signal.Direction}) blocked by RiskGuardian: {reasons}",
+                    userId: userId,
+                    dataJson: System.Text.Json.JsonSerializer.Serialize(new
+                    {
+                        blockReasons = verdict.BlockReasons,
+                        warnings     = verdict.Warnings,
+                        expectedLoss = verdict.ExpectedLoss,
+                        worstCase    = verdict.WorstCaseLoss,
+                        quantity     = qty,
+                        entry        = signal.SuggestedEntry,
+                        stop         = signal.SuggestedStop,
+                    }),
+                    ct: ct);
+                return;
+            }
 
             var request = new OrderRequest
             {
-                Symbol = signal.Symbol,
-                Quantity = qty,
-                Side = signal.Direction == TradeDirection.Long ? OrderSide.Buy : OrderSide.Sell,
-                Type = OrderType.Limit,
+                Symbol     = signal.Symbol,
+                Quantity   = qty,
+                Side       = signal.Direction == TradeDirection.Long ? OrderSide.Buy : OrderSide.Sell,
+                Type       = OrderType.Limit,
                 LimitPrice = signal.SuggestedEntry,
                 TimeInForce = "DAY"
             };
@@ -273,17 +368,42 @@ public sealed class StrategyExecutionService : BackgroundService
             if (result.IsSuccess)
             {
                 auditLogger.Log("AUTO_TRADE", $"Side={request.Side} Qty={qty} Price={signal.SuggestedEntry:F2} OrderId={result.BrokerOrderId}", signal.Symbol);
+                await SafeAuditAsync("AUTO_TRADE",
+                    message: $"[{signal.StrategyName}] {signal.Symbol} {request.Side} qty={qty} @ ${signal.SuggestedEntry:F2} — broker order {result.BrokerOrderId}",
+                    userId: userId, ct: ct);
             }
             else
             {
                 logger.LogWarning("Auto-trade failed: {Symbol} — {Message}", signal.Symbol, result.Message);
                 auditLogger.Log("AUTO_TRADE_FAIL", $"Reason={result.Message}", signal.Symbol);
+                await SafeAuditAsync("AUTO_TRADE_FAIL",
+                    message: $"[{signal.StrategyName}] {signal.Symbol} broker rejected order: {result.Message}",
+                    userId: userId, ct: ct);
             }
         }
         catch (Exception ex)
         {
             logger.LogError(ex, "Auto-trade error for {Symbol}", signal.Symbol);
+            auditLogger.Log("AUTO_TRADE_FAIL", $"Symbol={signal.Symbol} Exception={ex.Message}", signal.Symbol);
+            await SafeAuditAsync("AUTO_TRADE_FAIL",
+                message: $"[{signal.StrategyName}] {signal.Symbol} threw during placement: {ex.Message}",
+                userId: userId,
+                dataJson: System.Text.Json.JsonSerializer.Serialize(new { exception = ex.ToString() }),
+                ct: ct);
         }
+    }
+
+    /// <summary>
+    /// Wraps <see cref="AuditLogRepository.LogAsync"/> so a failing audit-DB
+    /// write never bubbles out of the trade path. The legacy file-based
+    /// <see cref="AuditLogger"/> already captured the event by the time we
+    /// reach here, so swallowing here is safe and prevents audit-store
+    /// outages from masking broker-call results.
+    /// </summary>
+    private async Task SafeAuditAsync(string category, string message, string userId, string? dataJson = null, CancellationToken ct = default)
+    {
+        try { await auditLogRepo.LogAsync(category, message, userId, dataJson, ct); }
+        catch (Exception ex) { logger.LogWarning(ex, "Audit DB write failed for {Category}", category); }
     }
 
     private async Task RefreshPositionsAsync(CancellationToken ct)
