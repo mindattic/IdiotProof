@@ -3,6 +3,7 @@ using IdiotProof.Blazor.Services;
 using IdiotProof.Engine.Settings;
 using IdiotProof.Engine.Storage;
 using IdiotProof.Monitor;
+using IdiotProof.Shared.Risk;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -23,11 +24,14 @@ using MindAttic.Legion;
 //     adapter, and log condition-by-condition pass/fail progress.
 //   • Stamp LastFiredUtc + FireCount when a TradeSignal lands.
 //
-// LLM voting (the Legion high-tier voter panel from legion.json) now runs
-// on every full-pass — signals get cross-verified by Claude/OpenAI/Gemini/
-// DeepSeek before LastFiredUtc is stamped. Risk Guardian + actual broker
-// order placement still live in the Blazor host; future work pushes the
-// approved signal back via SignalR for execution.
+// On every full-pass the candidate signal walks two gates before fire:
+//   1. Legion high-tier voter panel from legion.json — claude / openai /
+//      gemini / deepseek vote, claude judges. Reject = no fire.
+//   2. RiskGuardian validates the implied trade (stop placement, max loss
+//      per trade / day, account risk %, R:R sanity). Block = no fire.
+// Both gates write AuditLog entries with reasons. Actual broker order
+// placement still lives in the Blazor host; future work pushes approved
+// signals back via SignalR for execution.
 //
 // Run:   dotnet run --project IdiotProof.Monitor
 // Stop:  Ctrl+C (graceful shutdown via IHostApplicationLifetime)
@@ -61,6 +65,13 @@ builder.Services.AddSingleton(settings);
 // prompts across the high-tier voter panel declared in legion.json.
 builder.Services.AddLegionClient();
 builder.Services.AddSingleton<IdiotProof.Blazor.Services.LlmVotingService>();
+
+// Risk Guardian — final gate after the LLM panel. Default config matches the
+// canonical safe-default values in RiskGuardianConfig (≤ $100/trade,
+// ≤ $500/day, 0.5–5% stop range, ≤ 1% account risk). Per-user overrides land
+// here in a future iteration; for now a single shared instance protects
+// every strategy the Monitor evaluates.
+builder.Services.AddSingleton(new RiskGuardian(new RiskGuardianConfig()));
 
 builder.Services.AddSingleton<StrategyRepository>();
 builder.Services.AddSingleton<ConditionProgressRepository>();

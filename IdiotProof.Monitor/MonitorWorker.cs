@@ -3,6 +3,7 @@ using IdiotProof.DataFeeds;
 using IdiotProof.Engine.Settings;
 using IdiotProof.Models;
 using IdiotProof.Scripting;
+using IdiotProof.Shared.Risk;
 using IdiotProof.Strategies;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -31,6 +32,7 @@ public sealed class MonitorWorker(
     ConditionProgressRepository progressRepo,
     AuditLogRepository auditLogRepo,
     LlmVotingService llmVoting,
+    RiskGuardian riskGuardian,
     AppSettings appSettings,
     ILogger<MonitorWorker> logger) : BackgroundService
 {
@@ -269,16 +271,87 @@ public sealed class MonitorWorker(
             return;
         }
 
-        // Approve or abstain → record + log.
+        // Approve or abstain → run Risk Guardian as the final gate.
+        if (!await PassesRiskGuardianAsync(stored, signal, consensusLine, ct))
+            return;
+
         await strategyRepo.RecordFiredAsync(stored.Id, ct);
         await auditLogRepo.LogAsync(
             category: "signal",
-            message: $"[{stored.Title}] {stored.Symbol} fired ({signal.Direction}) — LLM panel {consensusLine}",
+            message: $"[{stored.Title}] {stored.Symbol} fired ({signal.Direction}) — LLM {consensusLine} + RiskGuardian approved",
             userId: stored.OwnerUserId,
             dataJson: voteResult.ConsensusReasoning,
             ct: ct);
-        logger.LogInformation("[{Title}] {Symbol} ✓ {Consensus} — fire recorded",
+        logger.LogInformation("[{Title}] {Symbol} ✓ {Consensus} + risk approved — fire recorded",
             stored.Title, stored.Symbol, consensusLine);
+    }
+
+    /// <summary>
+    /// Runs the candidate signal through <see cref="RiskGuardian"/> as the final
+    /// gate before fire. The Guardian blocks fires that have no stop, stops on
+    /// the wrong side of entry, risk over the per-trade or per-day cap, micro
+    /// or oversized stops, or account-percent overruns.
+    ///
+    /// We synthesize a TradeSetup from the signal: symbol + direction +
+    /// suggested entry / stop / take-profit + the strategy's quantity (or 1
+    /// when notional-sized — the Guardian's share-based math gets a baseline,
+    /// even though the order layer ultimately re-derives notional at fill time).
+    /// Take-profit defaults to a +1R level when the strategy didn't specify one
+    /// so the Guardian's R:R warning has a real number rather than zero.
+    ///
+    /// Returns true on approve; false on block (caller skips the fire and
+    /// writes an audit entry capturing the reasons).
+    /// </summary>
+    private async Task<bool> PassesRiskGuardianAsync(IdiotProof.Blazor.Data.Strategy stored, TradeSignal signal, string consensusLine, CancellationToken ct)
+    {
+        var strategyDef = WikilinkParser.ParseScript(stored.ScriptText);
+        var strategyQty = strategyDef?.Quantity ?? 0;
+        var notional    = strategyDef?.NotionalAmount;
+
+        var quantity = strategyQty > 0
+            ? strategyQty
+            : (notional is { } n && signal.SuggestedEntry > 0m
+                ? Math.Max(1, (int)Math.Floor(n / signal.SuggestedEntry))
+                : 1);
+
+        var takeProfit = signal.Targets.Count > 0
+            ? signal.Targets[0]
+            : signal.Direction == TradeDirection.Long
+                ? signal.SuggestedEntry + (signal.SuggestedEntry - signal.SuggestedStop)
+                : signal.SuggestedEntry - (signal.SuggestedStop - signal.SuggestedEntry);
+
+        var setup = new TradeSetup
+        {
+            Symbol          = signal.Symbol,
+            Direction       = signal.Direction,
+            EntryPrice      = signal.SuggestedEntry,
+            EntryType       = OrderType.Limit,
+            StopLoss        = signal.SuggestedStop,
+            TakeProfit      = takeProfit,
+            Quantity        = quantity,
+            ConfidenceScore = (int)Math.Clamp(signal.ConfidencePercent, 0m, 100m),
+            Rationale       = signal.Reason,
+        };
+
+        var verdict = riskGuardian.ValidateTrade(setup);
+        if (verdict.IsApproved) return true;
+
+        var blockSummary = string.Join("; ", verdict.BlockReasons);
+        logger.LogInformation("[{Title}] {Symbol} ✗ BLOCKED by RiskGuardian — {Reasons}",
+            stored.Title, stored.Symbol, blockSummary);
+        await auditLogRepo.LogAsync(
+            category: "signal-blocked",
+            message: $"[{stored.Title}] {stored.Symbol} blocked by RiskGuardian after LLM {consensusLine}: {blockSummary}",
+            userId: stored.OwnerUserId,
+            dataJson: System.Text.Json.JsonSerializer.Serialize(new
+            {
+                blockReasons = verdict.BlockReasons,
+                warnings     = verdict.Warnings,
+                expectedLoss = verdict.ExpectedLoss,
+                worstCase    = verdict.WorstCaseLoss,
+            }),
+            ct: ct);
+        return false;
     }
 
     /// <summary>

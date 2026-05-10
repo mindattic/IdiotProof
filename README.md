@@ -423,11 +423,11 @@ Every `IDIOTPROOF_MONITOR_INTERVAL` (default 30s):
 ```
 
 5. **Upsert `ConditionProgress`** with `(PassedCount, TotalCount, FirstFailingVerb)` — the Strategies page reads this every 5 s for live badges.
-6. On full-pass, route the candidate signal through `LlmVotingService` (the Legion high-tier voter panel from `legion.json`). The panel's consensus decides whether the fire is recorded:
-   - **Approve** → `RecordFiredAsync` bumps `LastFiredUtc` + `FireCount`; AuditLog stamps the consensus reasoning.
-   - **Reject** → fire is **not** recorded; AuditLog stamps the veto + reasoning. `LastFiredUtc` / `FireCount` only ever tick on signals that survived the panel.
-   - **Abstain / no votes returned** → treated as approve so a network blip doesn't silently drop signals; the audit entry flags the gap.
-   - **Voting disabled or no Claude key** → records directly with an audit entry noting the gap.
+6. On full-pass, route the candidate signal through two gates before fire:
+   - **Gate 1 — `LlmVotingService`** (Legion high-tier voter panel from `legion.json`). Approve / reject / abstain. Reject = no fire; AuditLog stamps the veto reasoning.
+   - **Gate 2 — `RiskGuardian`** (the canonical pre-trade gatekeeper). Validates: stop loss exists, stop is on the correct side of entry, total risk ≤ MaxLossPerTrade, daily loss ≤ MaxLossPerDay, stop distance within MinStop / MaxStop %, account risk ≤ MaxAccountRiskPercent. Block = no fire; AuditLog stamps `signal-blocked` with `blockReasons` + `expectedLoss` + `worstCase` JSON.
+   - When **both** gates pass, `RecordFiredAsync` bumps `LastFiredUtc` + `FireCount`. `LastFiredUtc` / `FireCount` only ever tick on signals that survived BOTH gates.
+   - **LLM voting disabled or no Claude key** → skip Gate 1; Gate 2 still runs.
 
 ### Run
 
@@ -561,7 +561,7 @@ IdiotProof/
 - **Multi-tab strategy editor** — the Strategies-page → /builder navigation is single-tab today. Multi-tab with localStorage tab restoration is on the roadmap.
 - **Visual drag-and-drop** — the Strategy Builder's visual flow-chart is currently read-only. Drag-and-drop reorder + add/remove condition cards is a pending UX upgrade.
 - **Roslyn-based parser** — the current `WikilinkParser.ParseScript` is regex-driven and tolerant. A proper Roslyn parser would surface syntax errors at exact line/col.
-- **Risk Guardian veto in the Monitor signal path** — the existing `RiskGuardian` veto lives in the Blazor host. Wiring it alongside the LLM panel (signal → LLM panel → Risk Guardian → record fired) closes the last gate before order placement.
+- **Per-user RiskGuardianConfig** — the Monitor currently uses a single shared `RiskGuardianConfig` with the canonical safe defaults (≤ $100/trade, ≤ $500/day). Per-user overrides via a Risk Settings page (or `UserPreferences` columns) are the natural next step.
 
 ### Long-term
 
