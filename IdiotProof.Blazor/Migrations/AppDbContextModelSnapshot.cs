@@ -17,7 +17,7 @@ namespace IdiotProof.Blazor.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "9.0.15")
+                .HasAnnotation("ProductVersion", "9.0.16")
                 .HasAnnotation("Relational:MaxIdentifierLength", 128);
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
@@ -154,45 +154,6 @@ namespace IdiotProof.Blazor.Migrations
                     b.ToTable("ConditionProgress");
                 });
 
-            modelBuilder.Entity("IdiotProof.Blazor.Data.LearningArticle", b =>
-                {
-                    b.Property<string>("Slug")
-                        .HasMaxLength(128)
-                        .HasColumnType("nvarchar(128)");
-
-                    b.Property<string>("BodyMarkdown")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("Category")
-                        .IsRequired()
-                        .HasMaxLength(64)
-                        .HasColumnType("nvarchar(64)");
-
-                    b.Property<int>("Order")
-                        .HasColumnType("int");
-
-                    b.Property<string>("Summary")
-                        .HasMaxLength(280)
-                        .HasColumnType("nvarchar(280)");
-
-                    b.Property<string>("Title")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)");
-
-                    b.Property<DateTime>("UpdatedUtc")
-                        .HasColumnType("datetime2");
-
-                    b.HasKey("Slug");
-
-                    b.HasIndex("Category");
-
-                    b.HasIndex("Category", "Order");
-
-                    b.ToTable("LearningArticles");
-                });
-
             modelBuilder.Entity("IdiotProof.Blazor.Data.SettingsKv", b =>
                 {
                     b.Property<string>("Key")
@@ -304,9 +265,6 @@ namespace IdiotProof.Blazor.Migrations
                     b.Property<bool>("LlmVotingEnabled")
                         .HasColumnType("bit");
 
-                    b.Property<string>("PolygonApiKey")
-                        .HasColumnType("nvarchar(max)");
-
                     b.Property<string>("UserId")
                         .IsRequired()
                         .HasColumnType("nvarchar(450)");
@@ -340,21 +298,27 @@ namespace IdiotProof.Blazor.Migrations
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<decimal>("RiskAccountBalance")
+                        .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
                     b.Property<decimal>("RiskMaxAccountRiskPercent")
+                        .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
                     b.Property<decimal>("RiskMaxLossPerDay")
+                        .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
                     b.Property<decimal>("RiskMaxLossPerTrade")
+                        .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
                     b.Property<decimal>("RiskMaxStopLossPercent")
+                        .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
                     b.Property<decimal>("RiskMinStopLossPercent")
+                        .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
                     b.Property<string>("Theme")
@@ -372,39 +336,6 @@ namespace IdiotProof.Blazor.Migrations
                     b.HasKey("UserId");
 
                     b.ToTable("UserPreferences");
-                });
-
-            modelBuilder.Entity("IdiotProof.Blazor.Data.Workspace", b =>
-                {
-                    b.Property<string>("WorkspaceId")
-                        .HasMaxLength(64)
-                        .HasColumnType("nvarchar(64)");
-
-                    b.Property<string>("BodyJson")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<DateTime>("CreatedUtc")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)");
-
-                    b.Property<string>("OwnerUserId")
-                        .IsRequired()
-                        .HasMaxLength(450)
-                        .HasColumnType("nvarchar(450)");
-
-                    b.Property<DateTime>("UpdatedUtc")
-                        .HasColumnType("datetime2");
-
-                    b.HasKey("WorkspaceId");
-
-                    b.HasIndex("OwnerUserId");
-
-                    b.ToTable("Workspaces");
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRole", b =>
@@ -563,15 +494,6 @@ namespace IdiotProof.Blazor.Migrations
                     b.HasOne("IdiotProof.Blazor.Data.AppUser", null)
                         .WithOne()
                         .HasForeignKey("IdiotProof.Blazor.Data.UserPreferences", "UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-                });
-
-            modelBuilder.Entity("IdiotProof.Blazor.Data.Workspace", b =>
-                {
-                    b.HasOne("IdiotProof.Blazor.Data.AppUser", null)
-                        .WithMany()
-                        .HasForeignKey("OwnerUserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });

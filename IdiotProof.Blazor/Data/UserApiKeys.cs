@@ -9,13 +9,11 @@ public sealed class UserApiKeys
     public int Id { get; set; }
     public string UserId { get; set; } = "";
 
-    // Alpaca
+    // Alpaca — provides both trading + real-time market data, so it's the only
+    // broker/feed credential the editor needs.
     public string? AlpacaApiKeyId { get; set; }
     public string? AlpacaApiSecretKey { get; set; }
     public bool AlpacaIsPaper { get; set; } = true;
-
-    // Polygon
-    public string? PolygonApiKey { get; set; }
 
     // Claude / LLM
     public string? ClaudeApiKey { get; set; }

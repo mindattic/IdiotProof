@@ -57,31 +57,29 @@ public sealed class UserKeyService(IDbContextFactory<AppDbContext> dbFactory, ID
 
     private UserApiKeys Encrypt(UserApiKeys k) => new()
     {
-        UserId          = k.UserId,
-        AlpacaApiKeyId  = Protect(k.AlpacaApiKeyId),
+        UserId             = k.UserId,
+        AlpacaApiKeyId     = Protect(k.AlpacaApiKeyId),
         AlpacaApiSecretKey = Protect(k.AlpacaApiSecretKey),
-        AlpacaIsPaper   = k.AlpacaIsPaper,
-        PolygonApiKey   = Protect(k.PolygonApiKey),
-        ClaudeApiKey    = Protect(k.ClaudeApiKey),
-        LlmVotingEnabled = k.LlmVotingEnabled,
-        ClaudeModel     = k.ClaudeModel,
-        DefaultBroker   = k.DefaultBroker,
-        DefaultDataFeed = k.DefaultDataFeed
+        AlpacaIsPaper      = k.AlpacaIsPaper,
+        ClaudeApiKey       = Protect(k.ClaudeApiKey),
+        LlmVotingEnabled   = k.LlmVotingEnabled,
+        ClaudeModel        = k.ClaudeModel,
+        DefaultBroker      = k.DefaultBroker,
+        DefaultDataFeed    = k.DefaultDataFeed
     };
 
     private UserApiKeys Decrypt(UserApiKeys k) => new()
     {
-        Id              = k.Id,
-        UserId          = k.UserId,
-        AlpacaApiKeyId  = Unprotect(k.AlpacaApiKeyId),
+        Id                 = k.Id,
+        UserId             = k.UserId,
+        AlpacaApiKeyId     = Unprotect(k.AlpacaApiKeyId),
         AlpacaApiSecretKey = Unprotect(k.AlpacaApiSecretKey),
-        AlpacaIsPaper   = k.AlpacaIsPaper,
-        PolygonApiKey   = Unprotect(k.PolygonApiKey),
-        ClaudeApiKey    = Unprotect(k.ClaudeApiKey),
-        LlmVotingEnabled = k.LlmVotingEnabled,
-        ClaudeModel     = k.ClaudeModel,
-        DefaultBroker   = k.DefaultBroker,
-        DefaultDataFeed = k.DefaultDataFeed
+        AlpacaIsPaper      = k.AlpacaIsPaper,
+        ClaudeApiKey       = Unprotect(k.ClaudeApiKey),
+        LlmVotingEnabled   = k.LlmVotingEnabled,
+        ClaudeModel        = k.ClaudeModel,
+        DefaultBroker      = k.DefaultBroker,
+        DefaultDataFeed    = k.DefaultDataFeed
     };
 
     private string? Protect(string? value) =>

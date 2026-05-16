@@ -1,135 +1,84 @@
 @inherits LayoutComponentBase
-@inject TradingStateService TradingState
-@implements IDisposable
+@inject AuthenticationStateProvider AuthState
 
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" />
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" />
-<link rel="stylesheet" href="app.css" />
+@* CDN <link>s and <script>s moved to App.razor so they live in the host page
+   and execute exactly once at load time. Blazor does not run <script> tags
+   rendered as part of an interactive component's output, which is why the
+   Bootstrap dropdown previously failed to bind. *@
 
 <a href="#main-content" class="skip-link">Skip to main content</a>
 
 <div class="app-shell d-flex flex-column" style="min-height:100vh;">
-    <!-- Top Navbar -->
-    <header class="navbar top-bar px-3 py-1 flex-shrink-0" role="banner">
-        <div class="d-flex align-items-center gap-3">
-            <button class="btn btn-sm btn-link text-muted d-md-none p-0"
-                    type="button"
-                    aria-label="@(sidebarOpen ? "Hide navigation menu" : "Show navigation menu")"
-                    aria-expanded="@sidebarOpen"
-                    aria-controls="primary-sidebar"
-                    @onclick="ToggleSidebar">
-                <i class="bi bi-list fs-4" aria-hidden="true"></i>
-            </button>
+    <!-- Top Bar: brand · account pill · primary tabs · user menu -->
+    <header class="navbar top-bar px-3 py-1 flex-shrink-0 d-flex align-items-center gap-3" role="banner">
+        <a class="navbar-brand fw-bold d-flex align-items-center gap-2 m-0" href="/" aria-label="IdiotProof home">
+            <i class="bi bi-graph-up-arrow" style="color:var(--green)" aria-hidden="true"></i>
+            IdiotProof
+        </a>
+
+        <AuthorizeView>
+            <Authorized>
+                <IdiotProof.Blazor.Components.Shared.AccountPill />
+            </Authorized>
+        </AuthorizeView>
+
+        <!-- Primary tabs (horizontal) -->
+        <AuthorizeView>
+            <Authorized>
+                <nav class="top-tabs d-flex align-items-center gap-1 ms-2" aria-label="Primary">
+                    <NavLink class="top-tab" href="/" Match="NavLinkMatch.All" aria-label="Strategies">
+                        <i class="bi bi-collection me-1" aria-hidden="true"></i>Strategies
+                    </NavLink>
+                    <NavLink class="top-tab" href="/builder" aria-label="Editor">
+                        <i class="bi bi-code-square me-1" aria-hidden="true"></i>Editor
+                    </NavLink>
+                </nav>
+            </Authorized>
+        </AuthorizeView>
+
+        <!-- User menu (right) -->
+        <div class="ms-auto">
             <AuthorizeView>
                 <Authorized>
-                    <IdiotProof.Blazor.Components.Shared.AccountPill />
+                    <div class="dropdown">
+                        <button class="btn btn-sm user-menu-toggle d-flex align-items-center gap-2"
+                                type="button"
+                                data-bs-toggle="dropdown"
+                                aria-expanded="false"
+                                aria-label="User menu">
+                            <i class="bi bi-person-circle" aria-hidden="true"></i>
+                            <span class="user-menu-name">@(context.User.Identity?.Name ?? "Account")</span>
+                            <i class="bi bi-chevron-down small" aria-hidden="true"></i>
+                        </button>
+                        <ul class="dropdown-menu dropdown-menu-end user-menu-dropdown" role="menu">
+                            <li>
+                                <a class="dropdown-item" href="/api-keys" role="menuitem">
+                                    <i class="bi bi-key me-2" aria-hidden="true"></i>API Keys
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item" href="/settings" role="menuitem">
+                                    <i class="bi bi-gear me-2" aria-hidden="true"></i>Settings
+                                </a>
+                            </li>
+                            <li><hr class="dropdown-divider" /></li>
+                            <li>
+                                <form method="post" action="/logout" style="margin:0">
+                                    <AntiforgeryToken />
+                                    <button type="submit" class="dropdown-item text-danger" role="menuitem">
+                                        <i class="bi bi-box-arrow-right me-2" aria-hidden="true"></i>Logout
+                                    </button>
+                                </form>
+                            </li>
+                        </ul>
+                    </div>
                 </Authorized>
             </AuthorizeView>
-            <a class="navbar-brand fw-bold d-flex align-items-center gap-2" href="/" aria-label="IdiotProof home">
-                <i class="bi bi-graph-up-arrow" style="color:var(--green)" aria-hidden="true"></i>
-                IdiotProof
-            </a>
-        </div>
-        <div class="d-flex align-items-center gap-3">
-            <span class="badge @(TradingState.IsEngineRunning ? "bg-success" : "bg-secondary")"
-                  role="status"
-                  aria-live="polite"
-                  aria-atomic="true">
-                <i class="bi @(TradingState.IsEngineRunning ? "bi-activity" : "bi-pause-circle")" aria-hidden="true"></i>
-                @(TradingState.IsEngineRunning ? "Engine Running" : "Engine Stopped")
-            </span>
-            <span class="text-muted small d-none d-md-inline"
-                  aria-label="Current time @currentUtc.ToString("HH:mm:ss") UTC">
-                <i class="bi bi-clock" aria-hidden="true"></i>
-                <span aria-hidden="true">@currentUtc.ToString("HH:mm:ss") UTC</span>
-            </span>
-            <span class="badge @sessionBadgeClass small" aria-label="Market session: @currentSession">
-                <i class="bi bi-circle-fill" style="font-size:0.5rem" aria-hidden="true"></i>
-                <span aria-hidden="true">@currentSession</span>
-            </span>
-            <form method="post" action="/logout" style="margin:0">
-                <AntiforgeryToken />
-                <button type="submit" class="btn btn-sm btn-outline-secondary" aria-label="Sign out" title="Sign out">
-                    <i class="bi bi-box-arrow-right" aria-hidden="true"></i>
-                </button>
-            </form>
         </div>
     </header>
 
-    <div class="d-flex flex-grow-1 overflow-hidden">
-        <!-- Sidebar -->
-        <nav id="primary-sidebar"
-             class="sidebar @(sidebarOpen ? "" : "sidebar-collapsed") flex-shrink-0 d-flex flex-column"
-             aria-label="Primary navigation">
-            <NavMenu />
-        </nav>
-
-        <!-- Main Content -->
-        <main id="main-content" class="main-content flex-grow-1 overflow-auto p-3" tabindex="-1">
-            @Body
-        </main>
-    </div>
-
-    <!-- Footer -->
-    <footer class="footer-bar px-3 py-1 d-flex justify-content-between align-items-center flex-shrink-0" role="contentinfo">
-        <span class="text-muted small">
-            IdiotProof &copy; @DateTime.UtcNow.Year MindAttic
-        </span>
-        <div class="d-flex gap-3 align-items-center">
-            @if (TradingState.LastEvaluationUtc.HasValue)
-            {
-                <span class="text-muted small"
-                      aria-label="Last evaluation @TradingState.LastEvaluationUtc.Value.ToString("HH:mm:ss") UTC">
-                    <span aria-hidden="true">Last eval: @TradingState.LastEvaluationUtc.Value.ToString("HH:mm:ss") UTC</span>
-                </span>
-            }
-            <span class="small @sessionBadgeClass badge" aria-label="Market session: @currentSession">
-                <span aria-hidden="true">@currentSession</span>
-            </span>
-        </div>
-    </footer>
+    <!-- Main Content -->
+    <main id="main-content" class="main-content flex-grow-1 overflow-auto p-3" tabindex="-1">
+        @Body
+    </main>
 </div>
-
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-
-@code {
-    private bool sidebarOpen = true;
-    private System.Threading.Timer? clockTimer;
-    private DateTime currentUtc = DateTime.UtcNow;
-    private string currentSession = "RTH";
-    private string sessionBadgeClass = "bg-success";
-
-    protected override void OnInitialized()
-    {
-        clockTimer = new System.Threading.Timer(_ =>
-        {
-            currentUtc = DateTime.UtcNow;
-            currentSession = GetCurrentSession();
-            sessionBadgeClass = GetSessionBadgeClass();
-            InvokeAsync(StateHasChanged);
-        }, null, TimeSpan.Zero, TimeSpan.FromSeconds(1));
-    }
-
-    private void ToggleSidebar() => sidebarOpen = !sidebarOpen;
-
-    private string GetCurrentSession()
-    {
-        var et = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow,
-            TimeZoneInfo.FindSystemTimeZoneById("Eastern Standard Time"));
-        var tod = et.TimeOfDay;
-        if (tod >= TimeSpan.FromHours(4) && tod < TimeSpan.FromHours(9.5)) return "Premarket";
-        if (tod >= TimeSpan.FromHours(9.5) && tod < TimeSpan.FromHours(16)) return "RTH";
-        if (tod >= TimeSpan.FromHours(16) && tod < TimeSpan.FromHours(20)) return "After Hours";
-        return "Closed";
-    }
-
-    private string GetSessionBadgeClass() => currentSession switch
-    {
-        "RTH" => "bg-success",
-        "Premarket" => "bg-warning text-dark",
-        "After Hours" => "bg-info text-dark",
-        _ => "bg-secondary"
-    };
-
-    public void Dispose() => clockTimer?.Dispose();
-}

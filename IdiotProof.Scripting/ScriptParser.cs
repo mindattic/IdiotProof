@@ -1,88 +1,20 @@
+using System.Globalization;
 using System.Text.RegularExpressions;
-using IdiotProof.Scripting;
 
-namespace IdiotProof.Blazor.Services;
+namespace IdiotProof.Scripting;
 
 /// <summary>
-/// Parses documentation prose containing inline IdiotScript wikilinks of the form
-/// <c>[[Stock.Ticker("BE").IsAboveVwap().Long().Build()]]</c> into a sequence of
-/// content tokens — either plain text or a parsed <see cref="StrategyDefinition"/>
-/// ready to hand to <see cref="StrategyBuilderRenderer"/>. Used by Learning Center
-/// articles, Strategy descriptions, and any other place where prose embeds live
-/// strategy examples.
+/// Best-effort IdiotScript parser. Walks fluent-style <c>.Verb(args)</c> tokens
+/// in a stored ScriptText and dispatches onto the canonical <see cref="StrategyBuilder"/>.
+/// Unknown verbs are silently skipped — the goal is "render what we can" rather
+/// than "fail on first surprise." A Roslyn-based proper parser is on the roadmap.
 ///
-/// The parser is intentionally tolerant: unparseable scripts are surfaced as
-/// <see cref="WikilinkToken.Kind.UnparseableScript"/> tokens carrying the raw
-/// text + parse error so the renderer can display a fallback "this example
-/// could not be rendered" badge instead of vanishing the content.
+/// Used by the Monitor (autonomous evaluation) and by any UI surface that wants
+/// to visualize a saved strategy. Adding a new builder verb? Add one case here
+/// so both paths recognize it.
 /// </summary>
-public static class WikilinkParser
+public static class ScriptParser
 {
-    /// <summary>
-    /// Regex matches anything wrapped in <c>[[...]]</c>. The lazy quantifier
-    /// `.+?` keeps adjacent wikilinks from merging into a single capture.
-    /// Multiline so a wikilink that spans newlines (yes, Claude does that) still
-    /// resolves to one match.
-    /// </summary>
-    private static readonly Regex WikilinkPattern = new(@"\[\[(.+?)\]\]",
-        RegexOptions.Compiled | RegexOptions.Singleline);
-
-    public sealed record WikilinkToken(WikilinkToken.Kind TokenKind, string Text, StrategyDefinition? Strategy = null, string? Error = null)
-    {
-        public enum Kind { Text, Strategy, UnparseableScript }
-    }
-
-    /// <summary>
-    /// Walks the supplied prose and emits tokens in order — text segments
-    /// interleaved with parsed wikilink strategies. Pure, no allocations beyond
-    /// the result list. Empty input → empty result.
-    /// </summary>
-    public static IReadOnlyList<WikilinkToken> Parse(string content)
-    {
-        var tokens = new List<WikilinkToken>();
-        if (string.IsNullOrEmpty(content)) return tokens;
-
-        int cursor = 0;
-        foreach (Match match in WikilinkPattern.Matches(content))
-        {
-            // Emit the text segment before this match (if any).
-            if (match.Index > cursor)
-            {
-                tokens.Add(new WikilinkToken(WikilinkToken.Kind.Text, content[cursor..match.Index]));
-            }
-
-            var script = match.Groups[1].Value.Trim();
-            try
-            {
-                var def = ParseScript(script);
-                tokens.Add(def is not null
-                    ? new WikilinkToken(WikilinkToken.Kind.Strategy, script, def)
-                    : new WikilinkToken(WikilinkToken.Kind.UnparseableScript, script, Error: "No Stock.Ticker(...) anchor found."));
-            }
-            catch (Exception ex)
-            {
-                tokens.Add(new WikilinkToken(WikilinkToken.Kind.UnparseableScript, script, Error: ex.Message));
-            }
-
-            cursor = match.Index + match.Length;
-        }
-
-        // Trailing text after the final wikilink.
-        if (cursor < content.Length)
-        {
-            tokens.Add(new WikilinkToken(WikilinkToken.Kind.Text, content[cursor..]));
-        }
-
-        return tokens;
-    }
-
-    /// <summary>
-    /// Best-effort IdiotScript parser shared with the Describe-tab preview path.
-    /// Walks fluent-style <c>.Verb(args)</c> tokens and dispatches onto the
-    /// canonical <see cref="StrategyBuilder"/>. Unknown verbs are silently skipped
-    /// — the goal is "render what we can" rather than "fail on first surprise."
-    /// A Roslyn-based proper parser is on the roadmap.
-    /// </summary>
     public static StrategyDefinition? ParseScript(string text)
     {
         if (string.IsNullOrWhiteSpace(text)) return null;
@@ -100,12 +32,6 @@ public static class WikilinkParser
         return builder.Build();
     }
 
-    /// <summary>
-    /// Dispatch table from verb-name → fluent-API call. Mirrors the canonical
-    /// catalog in <see cref="StrategyBuilder"/> + <see cref="Conditions"/>. Adding
-    /// a new builder verb? Add one case here so both Describe and Wikilinks
-    /// recognize it.
-    /// </summary>
     private static void ApplyVerb(StrategyBuilder b, string name, string args)
     {
         var nums = ParseNumericArgs(args);
@@ -193,8 +119,7 @@ public static class WikilinkParser
         foreach (var raw in args.Split(','))
         {
             var s = raw.Trim().TrimEnd('m', 'M', 'd', 'D', 'f', 'F').Trim();
-            if (decimal.TryParse(s, System.Globalization.NumberStyles.Any,
-                System.Globalization.CultureInfo.InvariantCulture, out var d))
+            if (decimal.TryParse(s, NumberStyles.Any, CultureInfo.InvariantCulture, out var d))
             {
                 result.Add(d);
             }

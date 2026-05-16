@@ -1,810 +1,320 @@
 @page "/builder"
+@page "/builder/{StrategyId:guid}"
 @rendermode InteractiveServer
+@using IdiotProof.Blazor.Data
 @using IdiotProof.Blazor.Services
 @using IdiotProof.Scripting
-@using Microsoft.AspNetCore.WebUtilities
-@inject StrategyRegistry StrategyRegistry
-@inject WorkspaceManager WorkspaceManager
-@inject AuthenticationStateProvider AuthStateProvider
-@inject StrategyScriptGenerator ScriptGenerator
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+@using System.Reflection
+@attribute [Authorize]
 @inject StrategyRepository StrategyRepo
+@inject StrategyScriptGenerator ScriptGenerator
+@inject AuthenticationStateProvider AuthState
 @inject NavigationManager Nav
 
-<PageTitle>Strategy Builder — IdiotProof</PageTitle>
+@*
+    IdiotScript Editor — the north star. Three panes:
+        • Left  : verb palette (reflection on StrategyBuilder + Conditions). Click
+                  to append the verb to the script textarea.
+        • Right : the script editor + live visual preview via StrategyBuilderRenderer.
+        • Below : prose-to-script assist powered by Legion (StrategyScriptGenerator).
 
-<IdiotProof.Blazor.Components.Shared.BuilderTabBar ActiveStrategyId="@editingStrategyId" />
+    Save writes a Strategy row. The Monitor (StrategyExecutionService) picks up
+    every IsActive=true row on its next tick and runs the parsed script.
 
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <h1 class="h4 mb-0 text-white">
-        <i class="bi bi-code-square me-2" style="color:var(--blue)" aria-hidden="true"></i>Strategy Builder
-    </h1>
-    <div class="btn-group btn-group-sm" role="group" aria-label="Builder mode">
-        <button type="button"
-                class="btn @(mode == "guided" ? "btn-primary" : "btn-outline-secondary")"
-                aria-pressed="@(mode == "guided")"
-                @onclick='() => mode = "guided"'>
-            <i class="bi bi-list-check me-1" aria-hidden="true"></i>Guided
+    Full drag-and-drop WYSIWYG canvas is the next iteration; this pass keeps
+    the surface area small while still showing the verb catalog and AI assist.
+*@
+
+<PageTitle>@(string.IsNullOrEmpty(title) ? "New Strategy" : title) — Editor</PageTitle>
+
+<section class="d-flex flex-column gap-3" aria-labelledby="builder-heading">
+
+    <!-- Header: title, symbol, active, save -->
+    <div class="trading-card p-3 d-flex flex-wrap gap-2 align-items-end">
+        <div class="flex-grow-1" style="min-width:200px">
+            <label for="b-title" class="form-label text-muted small mb-1">Title</label>
+            <input id="b-title" class="form-control" placeholder="e.g. TSLA reclaim 9 EMA"
+                   @bind="title" />
+        </div>
+        <div style="width:140px">
+            <label for="b-symbol" class="form-label text-muted small mb-1">Symbol</label>
+            <input id="b-symbol" class="form-control" placeholder="TSLA"
+                   @bind="symbol" />
+        </div>
+        <div class="form-check form-switch align-self-end mb-2">
+            <input class="form-check-input" type="checkbox" id="b-active" @bind="isActive" />
+            <label class="form-check-label text-muted small" for="b-active">Active (Monitor will evaluate)</label>
+        </div>
+        <button class="btn btn-success" type="button" @onclick="Save" disabled="@busy">
+            <i class="bi bi-floppy me-1" aria-hidden="true"></i>@(busy ? "Saving…" : "Save")
         </button>
-        <button type="button"
-                class="btn @(mode == "script" ? "btn-primary" : "btn-outline-secondary")"
-                aria-pressed="@(mode == "script")"
-                @onclick='() => mode = "script"'>
-            <i class="bi bi-terminal me-1" aria-hidden="true"></i>Script
-        </button>
-        <button type="button"
-                class="btn @(mode == "describe" ? "btn-primary" : "btn-outline-secondary")"
-                aria-pressed="@(mode == "describe")"
-                @onclick='() => mode = "describe"'>
-            <i class="bi bi-chat-square-text me-1" aria-hidden="true"></i>Describe
+        <button class="btn btn-outline-secondary" type="button" @onclick='() => Nav.NavigateTo("/")'>
+            Cancel
         </button>
     </div>
-</div>
 
-<div class="row g-3">
-    <!-- Main Builder Area -->
-    <div class="col-lg-8">
-        @if (mode == "guided")
-        {
-            <!-- Step Progress -->
-            <nav class="trading-card p-3 mb-3" aria-label="Strategy builder steps">
-                <ol class="d-flex gap-2 align-items-center list-unstyled mb-0" style="padding-left:0">
-                    @for (int i = 1; i <= 5; i++)
-                    {
-                        var stepNum = i;
-                        var isActive = currentStep == stepNum;
-                        var isDone = currentStep > stepNum;
-                        var statusText = isDone ? "completed" : isActive ? "current" : "upcoming";
-                        <li class="d-flex align-items-center gap-1">
-                            <button type="button"
-                                    class="d-flex align-items-center gap-1 bg-transparent border-0 p-1"
-                                    aria-current="@(isActive ? "step" : null)"
-                                    aria-label="Step @stepNum of 5: @StepName(stepNum) (@statusText)"
-                                    @onclick="() => GoToStep(stepNum)">
-                                <span class="rounded-circle d-flex align-items-center justify-content-center"
-                                      aria-hidden="true"
-                                      style="width:28px;height:28px;background:@(isDone ? "var(--green)" : isActive ? "var(--blue)" : "var(--bg-secondary)");font-size:0.75rem;color:white">
-                                    @if (isDone)
-                                    { <i class="bi bi-check"></i> }
-                                    else
-                                    { @stepNum }
-                                </span>
-                                <span class="small @(isActive ? "text-white" : "text-muted") d-none d-md-inline">@StepName(stepNum)</span>
-                            </button>
-                        </li>
-                        @if (stepNum < 5)
-                        {
-                            <li class="flex-grow-1 border-top" aria-hidden="true" style="border-color:var(--border)!important;max-width:40px;list-style:none"></li>
-                        }
-                    }
-                </ol>
-            </nav>
+    @if (!string.IsNullOrEmpty(saveMessage))
+    {
+        <div class="alert @(saveOk ? "alert-success" : "alert-danger") py-2 mb-0" role="status">@saveMessage</div>
+    }
 
-            <div class="trading-card p-3 mb-3">
-                <!-- Step 1: Name & Type -->
-                @if (currentStep == 1)
+    <div class="row g-3">
+
+        <!-- Verb palette -->
+        <aside class="col-lg-3" aria-label="IdiotScript verbs">
+            <div class="trading-card p-3">
+                <h2 class="h6 mb-3">
+                    <i class="bi bi-puzzle me-1" aria-hidden="true"></i>Verbs
+                </h2>
+                <input class="form-control form-control-sm mb-2"
+                       placeholder="filter…"
+                       @bind="verbFilter"
+                       @bind:event="oninput"
+                       aria-label="Filter verbs" />
+                @foreach (var group in VerbGroups)
                 {
-                    <h2 class="h6 text-white mb-3">Step 1: Name &amp; Type</h2>
-                    <div class="mb-3">
-                        <label class="form-label text-muted small" for="strategy-name">Strategy Name</label>
-                        <input id="strategy-name"
-                               class="form-control bg-dark text-white border-secondary"
-                               placeholder="My Custom Strategy"
-                               aria-required="true"
-                               @bind="strategyName" />
-                    </div>
-                    <fieldset class="mb-3">
-                        <legend class="form-label text-muted small">Strategy Type</legend>
-                        <div class="row g-2" role="radiogroup" aria-label="Strategy type">
-                            @foreach (var type in new[] { ("ITI", "Is This It? — looks for reversal setups"), ("PremarketBreakout", "Premarket Breakout — gaps and early momentum"), ("MomentumDecay", "Momentum Decay — fading exhausted moves"), ("LowHigh", "Low/High — range breakouts"), ("Custom", "Custom Fluent — write your own") })
+                    var filtered = group.Verbs
+                        .Where(v => string.IsNullOrWhiteSpace(verbFilter)
+                                    || v.Contains(verbFilter, StringComparison.OrdinalIgnoreCase))
+                        .ToList();
+                    if (filtered.Count == 0) continue;
+                    <div class="mb-2">
+                        <div class="text-muted small text-uppercase" style="font-size:0.7rem;letter-spacing:0.05em">@group.Label</div>
+                        <ul class="list-unstyled mb-0">
+                            @foreach (var v in filtered)
                             {
-                                var t = type;
-                                <div class="col-md-6">
+                                <li>
                                     <button type="button"
-                                            class="border rounded p-2 w-100 text-start bg-transparent @(strategyType == t.Item1 ? "border-primary" : "border-secondary")"
-                                            role="radio"
-                                            aria-checked="@(strategyType == t.Item1)"
-                                            aria-label="@t.Item1 — @t.Item2"
-                                            @onclick="() => strategyType = t.Item1">
-                                        <div class="text-white small fw-semibold">@t.Item1</div>
-                                        <div class="text-muted" style="font-size:0.7rem">@t.Item2</div>
+                                            class="btn btn-sm btn-outline-secondary text-start w-100 mb-1"
+                                            style="font-family:ui-monospace,monospace;font-size:0.75rem"
+                                            @onclick="() => AppendVerb(v)"
+                                            aria-label="Insert @v">
+                                        .@v
                                     </button>
-                                </div>
+                                </li>
                             }
-                        </div>
-                    </fieldset>
-                }
-
-                <!-- Step 2: Entry Conditions -->
-                @if (currentStep == 2)
-                {
-                    <h2 class="h6 text-white mb-3">Step 2: Entry Conditions</h2>
-                    <fieldset class="row g-2">
-                        <legend class="visually-hidden">Entry conditions</legend>
-                        @foreach (var cond in entryConditions)
-                        {
-                            var c = cond;
-                            <div class="col-md-6">
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" id="cond_@c.Key"
-                                           checked="@c.Value"
-                                           @onchange="(e) => entryConditions[c.Key] = (bool)(e.Value ?? false)" />
-                                    <label class="form-check-label text-white small" for="cond_@c.Key">@c.Key</label>
-                                </div>
-                            </div>
-                        }
-                    </fieldset>
-                    <div class="mt-3">
-                        <label class="form-label text-muted small" for="min-volume">Min Volume (relative to average, e.g. 1.5 = 150%)</label>
-                        <input id="min-volume" type="number" step="0.1" class="form-control form-control-sm bg-dark text-white border-secondary"
-                               style="width:120px" @bind="minVolumeMultiplier" />
-                    </div>
-                    <div class="mt-2">
-                        <label class="form-label text-muted small" for="gap-percent">Gap Up/Down % Trigger</label>
-                        <input id="gap-percent" type="number" step="0.1" class="form-control form-control-sm bg-dark text-white border-secondary"
-                               style="width:120px" @bind="gapPercent" />
+                        </ul>
                     </div>
                 }
+            </div>
+        </aside>
 
-                <!-- Step 3: Exit Rules -->
-                @if (currentStep == 3)
-                {
-                    <h2 class="h6 text-white mb-3">Step 3: Exit Rules</h2>
-                    <div class="row g-3">
-                        <div class="col-md-6">
-                            <label class="form-label text-muted small" for="take-profit">Take Profit %</label>
-                            <input id="take-profit" type="number" step="0.1" class="form-control bg-dark text-white border-secondary"
-                                   @bind="takeProfitPct" />
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label text-muted small" for="stop-loss">Stop Loss %</label>
-                            <input id="stop-loss" type="number" step="0.1" class="form-control bg-dark text-white border-secondary"
-                                   @bind="stopLossPct" />
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label text-muted small" for="trailing-stop">Trailing Stop %</label>
-                            <input id="trailing-stop" type="number" step="0.1" class="form-control bg-dark text-white border-secondary"
-                                   @bind="trailingStopPct" />
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label text-muted small" for="time-exit">Time Exit (minutes)</label>
-                            <input id="time-exit" type="number" class="form-control bg-dark text-white border-secondary"
-                                   @bind="timeExitMinutes" />
-                        </div>
-                    </div>
-                }
+        <!-- Editor + preview -->
+        <main class="col-lg-9 d-flex flex-column gap-3">
+            <div class="trading-card p-3">
+                <div class="d-flex justify-content-between mb-2">
+                    <label for="b-script" class="form-label text-muted small mb-0">IdiotScript</label>
+                    <span class="text-muted small">@scriptText.Length chars</span>
+                </div>
+                <textarea id="b-script"
+                          class="form-control"
+                          rows="14"
+                          style="font-family:ui-monospace,monospace;font-size:0.85rem"
+                          @bind="scriptText"
+                          @bind:event="oninput"
+                          spellcheck="false"
+                          placeholder='Stock.Ticker("TSLA").RequireAdxAbove(20).IsAboveVwap().Long().StopLoss(9.50).TakeProfit(12.00).Build();'></textarea>
+            </div>
 
-                <!-- Step 4: Sessions -->
-                @if (currentStep == 4)
-                {
-                    <h2 class="h6 text-white mb-3">Step 4: Allowed Sessions</h2>
-                    <fieldset>
-                        <legend class="visually-hidden">Allowed trading sessions</legend>
-                        @foreach (var session in Enum.GetValues<TradingSession>())
-                        {
-                            var s = session;
-                            <div class="form-check mb-2">
-                                <input class="form-check-input" type="checkbox" id="sess_@s"
-                                       checked="@allowedSessions.Contains(s)"
-                                       @onchange="(e) => ToggleSession(s, (bool)(e.Value ?? false))" />
-                                <label class="form-check-label text-white" for="sess_@s">@s</label>
-                            </div>
-                        }
-                    </fieldset>
-                }
-
-                <!-- Step 5: Risk -->
-                @if (currentStep == 5)
-                {
-                    <h2 class="h6 text-white mb-3">Step 5: Risk Parameters</h2>
-                    <div class="row g-3">
-                        <div class="col-md-6">
-                            <label class="form-label text-muted small" for="max-loss">Max Loss per Trade ($)</label>
-                            <input id="max-loss" type="number" class="form-control bg-dark text-white border-secondary"
-                                   @bind="maxLossPerTrade" />
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label text-muted small" for="min-rr">Min R:R Ratio</label>
-                            <input id="min-rr" type="number" step="0.1" class="form-control bg-dark text-white border-secondary"
-                                   @bind="minRR" />
-                        </div>
-                    </div>
-                    <div class="mt-4">
-                        <h3 class="h6 text-white mb-2" id="script-preview-heading">Generated Script Preview</h3>
-                        <pre class="p-3 rounded text-white"
-                             aria-labelledby="script-preview-heading"
-                             tabindex="0"
-                             style="background:var(--bg-secondary);font-size:0.8rem;overflow-x:auto">@GenerateScript()</pre>
-                    </div>
-                    <div class="mt-3">
-                        <label class="form-label text-muted small" for="target-workspace">Add to Workspace</label>
-                        <div class="d-flex gap-2">
-                            <select id="target-workspace" class="form-select form-select-sm bg-dark text-white border-secondary" @bind="targetWorkspaceId">
-                                <option value="">Select workspace...</option>
-                                @foreach (var tab in userTabs)
-                                {
-                                    <option value="@tab.TabId">@tab.Name</option>
-                                }
-                            </select>
-                            <button class="btn btn-success btn-sm" type="button" @onclick="AddToWorkspace" aria-label="Add strategy to selected workspace">Add</button>
-                        </div>
-                        <div role="status" aria-live="polite" aria-atomic="true">
-                        @if (!string.IsNullOrEmpty(addMessage))
-                        {
-                            <div class="text-muted small mt-1">@addMessage</div>
-                        }
-                        </div>
-                    </div>
-                }
-
-                <div class="d-flex justify-content-between mt-4">
-                    <button class="btn btn-outline-secondary btn-sm"
-                            type="button"
-                            disabled="@(currentStep <= 1)"
-                            aria-label="Previous step"
-                            @onclick="PrevStep">
-                        <i class="bi bi-arrow-left me-1" aria-hidden="true"></i>Back
+            <!-- AI assist -->
+            <div class="trading-card p-3">
+                <h2 class="h6 mb-2">
+                    <i class="bi bi-stars me-1" style="color:var(--brand)" aria-hidden="true"></i>Describe it in English — Legion will write the IdiotScript
+                </h2>
+                <textarea class="form-control mb-2"
+                          rows="3"
+                          placeholder="e.g. Watch XYZ for a breakout over 5, then a pullback to 4.75. Buy when that pattern hits. Sell at 10% profit or stop at 4.50."
+                          @bind="aiProse"
+                          @bind:event="oninput"></textarea>
+                <div class="d-flex gap-2 align-items-center">
+                    <button class="btn btn-primary btn-sm" type="button" @onclick="Generate" disabled="@aiBusy">
+                        <i class="bi bi-magic me-1" aria-hidden="true"></i>@(aiBusy ? "Thinking…" : "Generate")
                     </button>
-                    @if (currentStep < 5)
+                    @if (!string.IsNullOrEmpty(aiError))
                     {
-                        <button class="btn btn-primary btn-sm"
-                                type="button"
-                                aria-label="Next step"
-                                @onclick="NextStep">
-                            Next <i class="bi bi-arrow-right ms-1" aria-hidden="true"></i>
-                        </button>
+                        <span class="text-danger small">@aiError</span>
                     }
                 </div>
             </div>
-        }
-        else if (mode == "script")
-        {
-            <!-- Script Editor -->
-            <section class="trading-card p-3" aria-labelledby="script-editor-heading">
-                <h2 id="script-editor-heading" class="h6 text-white mb-3">IdiotScript Editor</h2>
-                <div class="position-relative">
-                    <label for="script-content" class="visually-hidden">IdiotScript code</label>
-                    <textarea id="script-content"
-                              class="form-control bg-dark text-white border-secondary"
-                              style="font-family:monospace;font-size:0.85rem;min-height:400px;line-height:1.5"
-                              spellcheck="false"
-                              aria-label="IdiotScript code editor"
-                              @bind="scriptContent"
-                              placeholder="// IdiotScript DSL&#10;// Example:&#10;// Strategy(&quot;My Strategy&quot;)&#10;//   .RequiresVwapAbove()&#10;//   .RequiresRsiBelow(30)&#10;//   .TakeProfit(2.0m)&#10;//   .StopLoss(1.0m)&#10;//   .Build()">
-                    </textarea>
-                </div>
-                <div class="d-flex gap-2 mt-2 flex-wrap">
-                    <button class="btn btn-outline-secondary btn-sm" type="button" @onclick="ValidateScript" aria-label="Validate IdiotScript">
-                        <i class="bi bi-check-circle me-1" aria-hidden="true"></i>Validate
-                    </button>
-                    <div class="d-flex gap-2 align-items-center">
-                        <label class="visually-hidden" for="target-workspace-script">Target workspace</label>
-                        <select id="target-workspace-script" class="form-select form-select-sm bg-dark text-white border-secondary" @bind="targetWorkspaceId">
-                            <option value="">Workspace...</option>
-                            @foreach (var tab in userTabs)
-                            {
-                                <option value="@tab.TabId">@tab.Name</option>
-                            }
-                        </select>
-                        <button class="btn btn-success btn-sm" type="button" @onclick="AddToWorkspace" aria-label="Add script to selected workspace">
-                            <i class="bi bi-plus-circle me-1" aria-hidden="true"></i>Add to Workspace
-                        </button>
-                    </div>
-                </div>
-                <div role="status" aria-live="polite" aria-atomic="true">
-                @if (!string.IsNullOrEmpty(scriptValidationMessage))
-                {
-                    <div class="alert @(scriptValid ? "alert-success" : "alert-danger") small mt-2 py-1">
-                        @scriptValidationMessage
-                    </div>
-                }
-                @if (!string.IsNullOrEmpty(addMessage))
-                {
-                    <div class="text-muted small mt-1">@addMessage</div>
-                }
-                </div>
-            </section>
-        }
-        else if (mode == "describe")
-        {
-            <!-- Describe (Claude-driven) -->
-            <section class="trading-card p-3" aria-labelledby="describe-heading">
-                <h2 id="describe-heading" class="h6 mb-3">
-                    <i class="bi bi-stars me-1" style="color:var(--brand)" aria-hidden="true"></i>Describe in plain English
-                </h2>
-                <p class="text-muted small">
-                    Tell Claude what you want and it'll generate the IdiotScript chain for you. Review, edit if needed, then save.
-                    Generation goes through MindAttic.Legion's high-tier voter panel (see legion.json).
-                </p>
-                <div class="row g-2 mb-3">
-                    <div class="col-md-3">
-                        <label class="form-label text-muted small" for="describe-ticker">Ticker</label>
-                        <input id="describe-ticker"
-                               class="form-control form-control-sm"
-                               placeholder="TSLA"
-                               @bind="describeTicker" />
-                    </div>
-                    <div class="col-md-9">
-                        <label class="form-label text-muted small" for="describe-title">Title (saved)</label>
-                        <input id="describe-title"
-                               class="form-control form-control-sm"
-                               placeholder="9/30 Pullback Continuation"
-                               @bind="describeTitle" />
-                    </div>
-                </div>
-                <label class="form-label text-muted small" for="describe-prose">Strategy description</label>
-                <textarea id="describe-prose"
-                          class="form-control mb-2"
-                          rows="6"
-                          placeholder="When the trend is up (ADX > 20, 9 EMA above 31 EMA) and price pulls back into the zone between the 9 and 31 EMA, wait for a candle to close back above the 9 with volume above 1.2x average — then go long. Stop below the 31 EMA, target 2x risk."
-                          @bind="describeProse"></textarea>
-
-                <div class="d-flex gap-2 align-items-center mb-3">
-                    <button class="btn btn-sm btn-success" type="button"
-                            disabled="@isGenerating"
-                            @onclick="GenerateFromProse">
-                        @if (isGenerating)
-                        {
-                            <span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span>
-                            <span>Generating...</span>
-                        }
-                        else
-                        {
-                            <i class="bi bi-magic me-1" aria-hidden="true"></i>
-                            <span>Generate with Claude</span>
-                        }
-                    </button>
-                    @if (!string.IsNullOrEmpty(describeError))
-                    {
-                        <div class="alert alert-danger small py-1 mb-0 flex-grow-1">@describeError</div>
-                    }
-                </div>
-
-                @if (!string.IsNullOrEmpty(generatedScript))
-                {
-                    <div class="row g-2">
-                        <div class="col-md-6">
-                            <label class="form-label text-muted small" for="describe-generated">Generated IdiotScript</label>
-                            <textarea id="describe-generated"
-                                      class="form-control"
-                                      style="font-family:ui-monospace,monospace;font-size:0.8rem;min-height:200px"
-                                      spellcheck="false"
-                                      @bind="generatedScript"
-                                      @bind:after="ParseGenerated"></textarea>
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label text-muted small">Visual preview</label>
-                            <div class="border rounded p-2" style="background:var(--bg-row-alt);min-height:200px">
-                                <StrategyBuilderRenderer Strategy="parsedDescribePreview"
-                                                         EmptyMessage="Generated script could not be parsed yet — edit and re-parse." />
-                            </div>
-                        </div>
-                    </div>
-                    <div class="d-flex gap-2 mt-3">
-                        <button class="btn btn-success btn-sm" type="button"
-                                disabled="@(parsedDescribePreview is null || string.IsNullOrWhiteSpace(describeTitle))"
-                                @onclick="SaveDescribed">
-                            <i class="bi bi-floppy me-1" aria-hidden="true"></i>Save Strategy
-                        </button>
-                        @if (!string.IsNullOrEmpty(describeSaveMessage))
-                        {
-                            <span class="alert alert-success small py-1 mb-0">@describeSaveMessage</span>
-                        }
-                    </div>
-                }
-            </section>
-        }
+        </main>
     </div>
-
-    <!-- Templates Sidebar -->
-    <aside class="col-lg-4" aria-labelledby="builtin-strategies-heading">
-        <div class="trading-card p-3">
-            <h2 id="builtin-strategies-heading" class="h6 text-white mb-3">
-                <i class="bi bi-collection me-1" style="color:var(--yellow)" aria-hidden="true"></i>Built-in Strategies
-            </h2>
-            <ul class="list-unstyled mb-0">
-            @foreach (var strat in StrategyRegistry.GetAll())
-            {
-                <li class="border border-secondary rounded p-2 mb-2">
-                    <div class="d-flex justify-content-between align-items-start">
-                        <div>
-                            <div class="text-white small fw-semibold">@strat.Name</div>
-                            <div class="text-muted" style="font-size:0.7rem">@strat.Description</div>
-                            <span class="badge bg-secondary mt-1" style="font-size:0.65rem">@strat.Type</span>
-                        </div>
-                        <button class="btn btn-sm btn-outline-secondary py-0"
-                                type="button"
-                                aria-label="Load @strat.Name template"
-                                @onclick="() => LoadTemplate(strat.Name)">
-                            Use
-                        </button>
-                    </div>
-                </li>
-            }
-            </ul>
-        </div>
-    </aside>
-</div>
+</section>
 
 @code {
+    [Parameter] public Guid? StrategyId { get; set; }
+
+    private string title       = "";
+    private string symbol      = "";
+    private string scriptText  = "";
+    private bool   isActive    = false;
+    private bool   busy        = false;
+    private bool   saveOk      = false;
+    private string saveMessage = "";
+
+    private string aiProse = "";
+    private bool   aiBusy  = false;
+    private string aiError = "";
+
+    private string verbFilter = "";
     private string userId = "";
-    private IReadOnlyList<WorkspaceTab> userTabs = [];
-    private string mode = "guided";
-    private int currentStep = 1;
-    private string strategyName = "My Strategy";
-    private string strategyType = "ITI";
-    private decimal takeProfitPct = 2.0m;
-    private decimal stopLossPct = 1.0m;
-    private decimal trailingStopPct = 0m;
-    private int timeExitMinutes = 0;
-    private decimal maxLossPerTrade = 100m;
-    private decimal minRR = 1.5m;
-    private decimal minVolumeMultiplier = 1.5m;
-    private decimal gapPercent = 2.0m;
-    private string targetWorkspaceId = "";
-    private string addMessage = "";
-    private string scriptContent = "";
-    private string scriptValidationMessage = "";
-    private bool scriptValid;
-    private List<TradingSession> allowedSessions = [TradingSession.RTH];
 
-    // Describe-mode state
-    private string describeTicker = "";
-    private string describeTitle = "";
-    private string describeProse = "";
-    private string generatedScript = "";
-    private string describeError = "";
-    private string describeSaveMessage = "";
-    private bool isGenerating;
-    private StrategyDefinition? parsedDescribePreview;
-
-    /// <summary>
-    /// When set, the page is editing an existing strategy instead of creating a
-    /// new one. Save updates the row in place; the Describe tab is preselected.
-    /// Populated from the ?strategyId= query string by OnInitializedAsync.
-    /// </summary>
-    private Guid? editingStrategyId;
-
-    private Dictionary<string, bool> entryConditions = new()
-    {
-        ["VWAP Above"] = false,
-        ["VWAP Below"] = false,
-        ["EMA Cross Bullish"] = false,
-        ["EMA Cross Bearish"] = false,
-        ["RSI Oversold (<30)"] = false,
-        ["RSI Overbought (>70)"] = false,
-        ["MACD Bullish"] = false,
-        ["MACD Bearish"] = false,
-        ["Gap Up"] = false,
-        ["Gap Down"] = false,
-        ["Volume Spike"] = false,
-    };
+    // Verb taxonomy — discovered once via reflection so the palette tracks the DSL.
+    // The same reflection feeds StrategyScriptGenerator's system prompt, so the
+    // palette + AI assist always know the same vocabulary.
+    private static readonly (string Label, List<string> Verbs)[] VerbGroups = BuildVerbGroups();
 
     protected override async Task OnInitializedAsync()
     {
-        var auth = await AuthStateProvider.GetAuthenticationStateAsync();
+        var auth = await AuthState.GetAuthenticationStateAsync();
         userId = auth.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? "";
-        userTabs = WorkspaceManager.GetTabsForUser(userId);
 
-        // Edit-flow: /builder?strategyId={guid} preloads the row + drops the user
-        // into Describe mode so they see the visual + script + prose, ready to
-        // tweak. Save updates in place (see SaveDescribed).
-        var uri = Nav.ToAbsoluteUri(Nav.Uri);
-        if (QueryHelpers.ParseQuery(uri.Query).TryGetValue("strategyId", out var raw)
-            && Guid.TryParse(raw, out var id))
+        if (StrategyId is { } id)
         {
             var existing = await StrategyRepo.GetByIdAsync(id);
             if (existing is not null && existing.OwnerUserId == userId)
             {
-                editingStrategyId = existing.Id;
-                describeTicker    = existing.Symbol;
-                describeTitle     = existing.Title;
-                describeProse     = existing.Description ?? "";
-                generatedScript   = existing.ScriptText;
-                ParseGenerated();
-                mode = "describe";
+                title      = existing.Title;
+                symbol     = existing.Symbol;
+                scriptText = existing.ScriptText;
+                isActive   = existing.IsActive;
             }
         }
     }
 
-    private string StepName(int step) => step switch
+    private void AppendVerb(string verb)
     {
-        1 => "Name",
-        2 => "Entry",
-        3 => "Exit",
-        4 => "Sessions",
-        5 => "Risk",
-        _ => ""
-    };
-
-    private void GoToStep(int step) => currentStep = step;
-    private void NextStep() { if (currentStep < 5) currentStep++; }
-    private void PrevStep() { if (currentStep > 1) currentStep--; }
-
-    // ── Describe-mode handlers ──────────────────────────────────────────────
-
-    /// <summary>Calls Claude (via Legion) to translate prose into IdiotScript.</summary>
-    private async Task GenerateFromProse()
-    {
-        describeError = "";
-        describeSaveMessage = "";
-        if (string.IsNullOrWhiteSpace(describeProse))
+        if (!scriptText.EndsWith("."))
         {
-            describeError = "Describe what the strategy should do first.";
-            return;
+            if (!scriptText.EndsWith(")") && !string.IsNullOrWhiteSpace(scriptText))
+                scriptText = scriptText.TrimEnd() + ")";
         }
+        var sep = string.IsNullOrWhiteSpace(scriptText) ? "Stock.Ticker(\"" + (string.IsNullOrWhiteSpace(symbol) ? "SYMBOL" : symbol.ToUpperInvariant()) + "\")\n    ." : "\n    .";
+        scriptText = scriptText.TrimEnd() + sep + verb;
+    }
 
-        isGenerating = true;
+    private async Task Save()
+    {
+        saveMessage = "";
+        if (string.IsNullOrWhiteSpace(title))   { saveMessage = "Title is required."; saveOk = false; return; }
+        if (string.IsNullOrWhiteSpace(symbol))  { saveMessage = "Symbol is required."; saveOk = false; return; }
+        if (string.IsNullOrWhiteSpace(scriptText)) { saveMessage = "Script is empty."; saveOk = false; return; }
+
+        busy = true;
         try
         {
-            var result = await ScriptGenerator.GenerateAsync(describeProse, describeTicker);
-            if (!result.Success)
+            Strategy? existing = StrategyId is { } id
+                ? await StrategyRepo.GetByIdAsync(id)
+                : null;
+
+            if (existing is null)
             {
-                describeError = result.Error ?? "Generation failed.";
-                generatedScript = "";
-                parsedDescribePreview = null;
+                var created = await StrategyRepo.CreateAsync(
+                    ownerUserId: userId,
+                    title:       title.Trim(),
+                    symbol:      symbol.Trim(),
+                    scriptText:  scriptText);
+                if (isActive)
+                    await StrategyRepo.SetActiveAsync(created.Id, true);
+                StrategyId = created.Id;
             }
             else
             {
-                generatedScript = result.Script;
-                ParseGenerated();
+                existing.Title      = title.Trim();
+                existing.Symbol     = symbol.Trim().ToUpperInvariant();
+                existing.ScriptText = scriptText;
+                existing.IsActive   = isActive;
+                await StrategyRepo.UpdateAsync(existing);
             }
+
+            saveOk = true;
+            saveMessage = $"Saved. {(isActive ? "Monitor will evaluate on its next tick." : "Toggle Active to send it to the Monitor.")}";
         }
-        finally { isGenerating = false; }
+        catch (Exception ex)
+        {
+            saveOk = false;
+            saveMessage = "Save failed: " + ex.Message;
+        }
+        finally
+        {
+            busy = false;
+        }
     }
 
-    /// <summary>
-    /// Parses generated/edited IdiotScript text into a StrategyDefinition for the
-    /// renderer. Best-effort — failures clear the preview but don't surface as an
-    /// error so the user can keep typing.
-    /// </summary>
-    private void ParseGenerated()
+    private async Task Generate()
     {
-        parsedDescribePreview = TryParseScript(generatedScript);
-    }
-
-    /// <summary>
-    /// Persists the strategy. New = INSERT into Strategies; editing = UPDATE
-    /// the existing row's title/symbol/script/description while preserving id +
-    /// IsActive + LastFiredUtc + FireCount + CreatedUtc. The pivot is whether
-    /// editingStrategyId was populated by OnInitializedAsync.
-    /// </summary>
-    private async Task SaveDescribed()
-    {
-        describeSaveMessage = "";
-        if (string.IsNullOrWhiteSpace(userId))
+        aiError = "";
+        if (string.IsNullOrWhiteSpace(aiProse))
         {
-            describeError = "Sign in to save strategies.";
-            return;
-        }
-        if (parsedDescribePreview is null)
-        {
-            describeError = "Cannot save — script does not parse.";
+            aiError = "Describe the strategy in plain English first.";
             return;
         }
 
-        var ticker = string.IsNullOrWhiteSpace(describeTicker)
-            ? parsedDescribePreview.Symbol
-            : describeTicker;
-
-        if (editingStrategyId is { } existingId)
+        aiBusy = true;
+        try
         {
-            // Update path — fetch, mutate the user-editable fields, write back.
-            var row = await StrategyRepo.GetByIdAsync(existingId);
-            if (row is null)
+            var result = await ScriptGenerator.GenerateAsync(aiProse, symbol);
+            if (result.Success)
             {
-                // Row vanished between page load and save — fall through to create.
-                editingStrategyId = null;
+                scriptText = result.Script;
             }
             else
             {
-                row.Title       = describeTitle;
-                row.Symbol      = ticker.ToUpperInvariant();
-                row.ScriptText  = generatedScript;
-                row.Description = describeProse;
-                await StrategyRepo.UpdateAsync(row);
-                describeSaveMessage = $"Updated \"{describeTitle}\".";
-                return;
+                aiError = result.Error ?? "Generation failed.";
             }
         }
-
-        // Create path
-        await StrategyRepo.CreateAsync(
-            ownerUserId: userId,
-            title: describeTitle,
-            symbol: ticker,
-            scriptText: generatedScript,
-            description: describeProse);
-        describeSaveMessage = $"Saved \"{describeTitle}\" — find it on the Strategies page.";
-    }
-
-    /// <summary>
-    /// Best-effort IdiotScript parser. Builds a StrategyDefinition by walking the
-    /// fluent-text tokens. This is a stub for v1 — it understands the most common
-    /// verb shapes (Stock.Ticker(...), Long/Short, StopLoss, TakeProfit, the new
-    /// EMA/VWAP/ADX/RSI verbs, candle patterns) and silently skips anything else.
-    /// A proper Roslyn-based parser is on the roadmap.
-    /// </summary>
-    private static StrategyDefinition? TryParseScript(string text)
-    {
-        if (string.IsNullOrWhiteSpace(text)) return null;
-        try
+        catch (Exception ex)
         {
-            // Very forgiving regex-driven walk. Extract the ticker first.
-            var tickerMatch = System.Text.RegularExpressions.Regex.Match(
-                text, "Ticker\\(\\s*\\\"([^\\\"]+)\\\"", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
-            if (!tickerMatch.Success) return null;
-
-            var builder = Stock.Ticker(tickerMatch.Groups[1].Value);
-
-            // Each verb is matched as `.Name(args)` or `.Name`. We pattern-match
-            // a hand-picked set of common verbs; everything else is dropped.
-            var verbs = System.Text.RegularExpressions.Regex.Matches(
-                text, "\\.(\\w+)\\s*(?:\\(([^)]*)\\))?",
-                System.Text.RegularExpressions.RegexOptions.IgnoreCase);
-
-            foreach (System.Text.RegularExpressions.Match v in verbs)
-            {
-                var name = v.Groups[1].Value;
-                var args = v.Groups[2].Success ? v.Groups[2].Value : "";
-                ApplyVerb(builder, name, args);
-            }
-
-            return builder.Build();
+            aiError = ex.Message;
         }
-        catch { return null; }
-    }
-
-    private static void ApplyVerb(IdiotProof.Scripting.StrategyBuilder b, string name, string args)
-    {
-        var nums = ParseNumericArgs(args);
-        switch (name.ToLowerInvariant())
+        finally
         {
-            case "isabovevwap": case "abovevwap":   b.IsAboveVwap(); break;
-            case "isbelowvwap": case "belowvwap":   b.IsBelowVwap(); break;
-            case "onvwapreclaim":                    b.OnVwapReclaim(); break;
-            case "onvwaploss":                       b.OnVwapLoss(); break;
-            case "isaboveema":   if (nums.Count >= 1) b.IsAboveEma((int)nums[0]); break;
-            case "isbelowema":   if (nums.Count >= 1) b.IsBelowEma((int)nums[0]); break;
-            case "isemaabove":   if (nums.Count >= 1) b.IsEmaAbove((int)nums[0]); break;
-            case "isemabelow":   if (nums.Count >= 1) b.IsEmaBelow((int)nums[0]); break;
-            case "isbetweenema": if (nums.Count >= 2) b.IsBetweenEma((int)nums[0], (int)nums[1]); break;
-            case "requireemastack": if (nums.Count >= 2) b.RequireEmaStack((int)nums[0], (int)nums[1]); break;
-            case "onreclaim":    if (nums.Count >= 1) b.OnReclaim((int)nums[0]); break;
-            case "requireadxabove": b.RequireAdxAbove(nums.Count >= 1 ? (double)nums[0] : 20); break;
-            case "isadxabove":   if (nums.Count >= 1) b.IsAdxAbove((double)nums[0]); break;
-            case "isrsioversold":   b.IsRsiOversold(nums.Count >= 1 ? (double)nums[0] : 30); break;
-            case "isrsioverbought": b.IsRsiOverbought(nums.Count >= 1 ? (double)nums[0] : 70); break;
-            case "oversold":     b.Oversold(nums.Count >= 1 ? (double)nums[0] : 30); break;
-            case "overbought":   b.Overbought(nums.Count >= 1 ? (double)nums[0] : 70); break;
-            case "isrsibullishdivergence": b.IsRsiBullishDivergence(); break;
-            case "isrsibearishdivergence": b.IsRsiBearishDivergence(); break;
-            case "ismacdbullish": case "bullishmacd": b.IsMacdBullish(); break;
-            case "ismacdbearish": case "bearishmacd": b.IsMacdBearish(); break;
-            case "withvolumeconfirm": b.WithVolumeConfirm(nums.Count >= 1 ? (double)nums[0] : 1.2); break;
-            case "isvolumeabove": if (nums.Count >= 1) b.IsVolumeAbove((double)nums[0]); break;
-            case "volumespike":  b.VolumeSpike(nums.Count >= 1 ? (double)nums[0] : 2.0); break;
-            case "isgapup":      b.IsGapUp(nums.Count >= 1 ? (double)nums[0] : 3); break;
-            case "isgapdown":    b.IsGapDown(nums.Count >= 1 ? (double)nums[0] : 3); break;
-            case "isatsupport":  b.IsAtSupport(nums.Count >= 1 ? (double)nums[0] : 0.5); break;
-            case "isatresistance": b.IsAtResistance(nums.Count >= 1 ? (double)nums[0] : 0.5); break;
-            case "isbullishengulfing": b.IsBullishEngulfing(); break;
-            case "isbearishengulfing": b.IsBearishEngulfing(); break;
-            case "ishammer":     b.IsHammer(); break;
-            case "isshootingstar": b.IsShootingStar(); break;
-            case "isdoji":       b.IsDoji(); break;
-            case "long":         b.Long(); break;
-            case "short":        b.Short(); break;
-            case "quantity":     if (nums.Count >= 1) b.Quantity((int)nums[0]); break;
-            case "stoploss":     if (nums.Count >= 1) b.StopLoss((double)nums[0]); break;
-            case "stoplosspercent": if (nums.Count >= 1) b.StopLossPercent((double)nums[0]); break;
-            case "takeprofit":   if (nums.Count >= 1) b.TakeProfit((double)nums[0]); break;
-            case "takeprofitpercent": if (nums.Count >= 1) b.TakeProfitPercent((double)nums[0]); break;
-            case "trailingstoploss": if (nums.Count >= 1) b.TrailingStopLoss((double)nums[0]); break;
-            case "autonomoustrading": b.AutonomousTrading(); break;
-            case "adaptiveorder": b.AdaptiveOrder(); break;
-            case "repeat":       b.Repeat(); break;
-            // Build/Ticker handled at outer level; ignore here
+            aiBusy = false;
         }
     }
 
-    private static List<decimal> ParseNumericArgs(string args)
+    private static (string Label, List<string> Verbs)[] BuildVerbGroups()
     {
-        var result = new List<decimal>();
-        if (string.IsNullOrWhiteSpace(args)) return result;
-        foreach (var raw in args.Split(','))
+        // Group verbs by IdiotScript phase based on naming conventions. Falls back
+        // to "Other" so a newly-added verb still surfaces even before it's tagged.
+        var builder = typeof(StrategyBuilder)
+            .GetMethods(BindingFlags.Public | BindingFlags.Instance)
+            .Where(m => !m.IsSpecialName && m.DeclaringType == typeof(StrategyBuilder))
+            .Select(m => SignatureOf(m))
+            .Distinct()
+            .ToList();
+
+        var conditions = typeof(Conditions)
+            .GetMethods(BindingFlags.Public | BindingFlags.Static)
+            .Where(m => !m.IsSpecialName && m.DeclaringType == typeof(Conditions))
+            .Select(m => SignatureOf(m))
+            .Distinct()
+            .ToList();
+
+        bool IsSetup(string s)   => s.StartsWith("Ticker") || s.StartsWith("Session") || s.StartsWith("Quantity");
+        bool IsFilter(string s)  => s.StartsWith("Require");
+        bool IsEntry(string s)   => s.StartsWith("Is") || s.StartsWith("On") || s.StartsWith("With") || s.StartsWith("Has");
+        bool IsOrder(string s)   => s.StartsWith("Long") || s.StartsWith("Short");
+        bool IsRisk(string s)    => s.StartsWith("Stop") || s.StartsWith("Trailing");
+        bool IsExit(string s)    => s.StartsWith("Take") || s.StartsWith("Exit") || s.StartsWith("Profit");
+
+        return new[]
         {
-            var s = raw.Trim().TrimEnd('m', 'M', 'd', 'D', 'f', 'F');
-            if (decimal.TryParse(s, System.Globalization.NumberStyles.Any,
-                System.Globalization.CultureInfo.InvariantCulture, out var d))
-            {
-                result.Add(d);
-            }
-        }
-        return result;
+            ("Setup",      builder.Where(IsSetup).OrderBy(s => s).ToList()),
+            ("Filters",    builder.Where(IsFilter).OrderBy(s => s).ToList()),
+            ("Entry",      builder.Where(IsEntry).OrderBy(s => s).ToList()),
+            ("Order",      builder.Where(IsOrder).OrderBy(s => s).ToList()),
+            ("Risk",       builder.Where(IsRisk).OrderBy(s => s).ToList()),
+            ("Exit",       builder.Where(IsExit).OrderBy(s => s).ToList()),
+            ("Conditions", conditions.OrderBy(s => s).ToList()),
+            ("Other",      builder.Where(s => !IsSetup(s) && !IsFilter(s) && !IsEntry(s) && !IsOrder(s) && !IsRisk(s) && !IsExit(s)).OrderBy(s => s).ToList()),
+        };
     }
 
-    private void ToggleSession(TradingSession session, bool add)
+    private static string SignatureOf(MethodInfo m)
     {
-        if (add && !allowedSessions.Contains(session)) allowedSessions.Add(session);
-        else allowedSessions.Remove(session);
-    }
-
-    private string GenerateScript()
-    {
-        var sb = new System.Text.StringBuilder();
-        sb.AppendLine($"Strategy(\"{strategyName}\")");
-        sb.AppendLine($"  .Type(StrategyType.{strategyType})");
-        foreach (var c in entryConditions.Where(c => c.Value))
-        {
-            sb.AppendLine($"  .Require(\"{c.Key}\")");
-        }
-        if (minVolumeMultiplier > 1)
-            sb.AppendLine($"  .RequiresVolumeAbove({minVolumeMultiplier}m)");
-        if (takeProfitPct > 0)
-            sb.AppendLine($"  .TakeProfit({takeProfitPct}m)");
-        if (stopLossPct > 0)
-            sb.AppendLine($"  .StopLoss({stopLossPct}m)");
-        if (trailingStopPct > 0)
-            sb.AppendLine($"  .TrailingStop({trailingStopPct}m)");
-        if (timeExitMinutes > 0)
-            sb.AppendLine($"  .TimeExit({timeExitMinutes})");
-        if (maxLossPerTrade > 0)
-            sb.AppendLine($"  .MaxLoss({maxLossPerTrade}m)");
-        sb.AppendLine($"  .MinRiskReward({minRR}m)");
-        foreach (var sess in allowedSessions)
-            sb.AppendLine($"  .AllowSession(TradingSession.{sess})");
-        sb.AppendLine("  .Build()");
-        return sb.ToString();
-    }
-
-    private void ValidateScript()
-    {
-        if (string.IsNullOrWhiteSpace(scriptContent))
-        {
-            scriptValidationMessage = "Script is empty.";
-            scriptValid = false;
-            return;
-        }
-        // Basic validation — check for Strategy() call
-        if (scriptContent.Contains("Strategy("))
-        {
-            scriptValidationMessage = "Script looks valid. (Full parse not available in browser.)";
-            scriptValid = true;
-        }
-        else
-        {
-            scriptValidationMessage = "Script must start with Strategy(\"name\").";
-            scriptValid = false;
-        }
-    }
-
-    private void AddToWorkspace()
-    {
-        if (string.IsNullOrEmpty(targetWorkspaceId))
-        {
-            addMessage = "Select a workspace first.";
-            return;
-        }
-        var tab = WorkspaceManager.Get(userId, targetWorkspaceId);
-        if (tab == null) { addMessage = "Workspace not found."; return; }
-
-        var name = mode == "guided" ? strategyName : "CustomScript";
-        if (!tab.Strategies.Any(s => s.StrategyName == name))
-        {
-            tab.Strategies.Add(new StrategyBinding { StrategyName = name, Enabled = true });
-            WorkspaceManager.Save(userId, tab);
-            addMessage = $"Strategy '{name}' added to {tab.Name}.";
-        }
-        else
-        {
-            addMessage = $"'{name}' is already in {tab.Name}.";
-        }
-    }
-
-    private void LoadTemplate(string name)
-    {
-        strategyName = name;
-        mode = "guided";
-        currentStep = 1;
+        var pars = string.Join(", ", m.GetParameters().Select(p => p.Name));
+        return $"{m.Name}({pars})";
     }
 }

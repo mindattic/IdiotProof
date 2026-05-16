@@ -9,11 +9,12 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options)
     public DbSet<UserApiKeys> UserApiKeys => Set<UserApiKeys>();
     public DbSet<Strategy> Strategies => Set<Strategy>();
     public DbSet<UserPreferences> UserPreferences => Set<UserPreferences>();
-    public DbSet<LearningArticle> LearningArticles => Set<LearningArticle>();
     public DbSet<SettingsKv>      SettingsKv       => Set<SettingsKv>();
-    public DbSet<Workspace>       Workspaces       => Set<Workspace>();
     public DbSet<AuditLog>        AuditLogs        => Set<AuditLog>();
     public DbSet<ConditionProgress> ConditionProgress => Set<ConditionProgress>();
+    // LearningArticle + Workspace DbSets removed with the UI cruft sweep. The
+    // tables still exist in the database from prior migrations; rebuild them
+    // via a fresh migration if the concepts ever return.
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -43,21 +44,16 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options)
                 .WithOne()
                 .HasForeignKey<UserPreferences>(p => p.UserId)
                 .OnDelete(DeleteBehavior.Cascade);
-        });
 
-        builder.Entity<LearningArticle>(e =>
-        {
-            e.HasIndex(a => a.Category);
-            e.HasIndex(a => new { a.Category, a.Order });
-        });
-
-        builder.Entity<Workspace>(e =>
-        {
-            e.HasIndex(w => w.OwnerUserId);
-            e.HasOne<AppUser>()
-                .WithMany()
-                .HasForeignKey(w => w.OwnerUserId)
-                .OnDelete(DeleteBehavior.Cascade);
+            // Risk Guardian decimals. Declared explicitly so EF stops warning
+            // about silent default truncation. Matches the existing SQL column
+            // type (decimal(18,2)) so this produces no migration delta.
+            e.Property(p => p.RiskMaxLossPerTrade).HasPrecision(18, 2);
+            e.Property(p => p.RiskMaxLossPerDay).HasPrecision(18, 2);
+            e.Property(p => p.RiskAccountBalance).HasPrecision(18, 2);
+            e.Property(p => p.RiskMinStopLossPercent).HasPrecision(18, 2);
+            e.Property(p => p.RiskMaxStopLossPercent).HasPrecision(18, 2);
+            e.Property(p => p.RiskMaxAccountRiskPercent).HasPrecision(18, 2);
         });
 
         builder.Entity<AuditLog>(e =>

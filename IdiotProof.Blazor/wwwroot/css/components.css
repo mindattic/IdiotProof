@@ -1,81 +1,15 @@
 /* ============================================================
-   Alpaca Theme — primary palette for IdiotProof
-   ============================================================
-   Activated by data-theme="alpaca" on the <html> element.
-   To author another theme, copy this file to _theme-{name}.css,
-   change the selector, and edit the values. Razor components only
-   reference var(--name) so swapping themes is a single attribute flip.
+   Component styling — single dark theme.
+   Token values live in app.css :root. This file is layout +
+   per-component visuals only.
    ============================================================ */
 
-:root[data-theme="alpaca"] {
-    /* ── Brand ─────────────────────────────────────────────── */
-    --brand:                #FFCD00;     /* Alpaca signature yellow */
-    --brand-soft:           #FFF9D6;     /* selected row highlight */
-    --brand-muted:          #F5DA6E;     /* disabled-button bg */
-    --brand-on:             #0E1116;     /* text on brand bg */
-
-    /* ── Surfaces ──────────────────────────────────────────── */
-    --bg-primary:           #FFFFFF;
-    --bg-secondary:         #FFFFFF;
-    --bg-card:              #FFFFFF;
-    --bg-hover:             #F8F9FA;
-    --bg-elevated:          #FFFFFF;
-    --bg-row-alt:           #F8F9FA;
-
-    /* ── Borders / dividers ────────────────────────────────── */
-    --border:               #E5E7EB;
-    --border-strong:        #D1D5DB;
-    --divider:              #F0F2F4;
-
-    /* ── Text ──────────────────────────────────────────────── */
-    --text-primary:         #0E1116;
-    --text-secondary:       #5C6770;
-    --text-muted:           #7A8694;
-    --text-subtle:          #97A0AC;
-
-    /* ── Status colors ─────────────────────────────────────── */
-    --green:                #00C853;     /* buy / positive */
-    --red:                  #EF4444;     /* sell / negative */
-    --blue:                 #1E40AF;
-    --yellow:               #FFCD00;     /* alias of --brand */
-    --info-bg:              #EBF4FF;
-    --info-text:            #1E40AF;
-    --danger-link:          #DC2626;     /* Sign Out etc. */
-
-    /* ── Focus / accessibility ─────────────────────────────── */
-    --focus-ring:           #1E40AF;
-
-    /* ── Layout (preserved from prior theme; not color values) ─ */
-    --sidebar-width:        220px;
-    --topbar-height:        52px;
-    --footer-height:        36px;
-}
-
-/* When the body has the alpaca theme active, give it a clean white background.
-   The trading cards keep a subtle 1px border + soft shadow to separate from the
-   surface (Alpaca's actual UI uses very low elevation). */
-:root[data-theme="alpaca"] body {
-    background: var(--bg-primary);
-    color: var(--text-primary);
-}
-
-:root[data-theme="alpaca"] .trading-card {
+/* ── Trading card surface ────────────────────────────────── */
+.trading-card {
     background: var(--bg-card);
     border: 1px solid var(--border);
     border-radius: 8px;
-    box-shadow: 0 1px 2px rgba(14, 17, 22, 0.04);
-}
-
-/* Live-account flag: red outline on the account pill when live trading is active. */
-:root[data-theme="alpaca"] .account-pill[data-account-type="live"] {
-    border-color: var(--red);
-    box-shadow: 0 0 0 1px var(--red) inset;
-}
-
-/* Paper-account flag: brand-yellow outline. */
-:root[data-theme="alpaca"] .account-pill[data-account-type="paper"] {
-    border-color: var(--brand);
-    background: var(--brand-soft);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
 }
 
 /* ── Account pill component ──────────────────────────────── */
@@ -86,14 +20,26 @@
     border: 1px solid var(--border);
     border-radius: 8px;
     padding: 6px 12px;
-    color: var(--text-primary);
+    color: var(--text-primary) !important;
     font-weight: 500;
     transition: box-shadow 0.15s ease, border-color 0.15s ease;
 }
+.account-pill * { color: inherit; }
+.account-pill .text-muted { color: var(--text-secondary) !important; }
 .account-pill:hover { border-color: var(--border-strong); }
 .account-pill:focus-visible {
     outline: 2px solid var(--focus-ring);
     outline-offset: 2px;
+}
+
+/* Paper-account: brand-yellow outline. Live-account: red outline. */
+.account-pill[data-account-type="paper"] {
+    border-color: var(--brand);
+    background: var(--brand-soft);
+}
+.account-pill[data-account-type="live"] {
+    border-color: var(--red);
+    box-shadow: 0 0 0 1px var(--red) inset;
 }
 
 .account-pill-menu {
@@ -103,7 +49,7 @@
     background: var(--bg-elevated);
     border: 1px solid var(--border);
     border-radius: 10px;
-    box-shadow: 0 8px 24px rgba(14, 17, 22, 0.12);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.55);
     padding: 4px;
     z-index: 1100;
 }
@@ -127,26 +73,18 @@
     border-color: var(--brand);
 }
 .account-row.danger-text { color: var(--danger-link); }
-.account-row.danger-text:hover { background: rgba(220, 38, 38, 0.06); }
+.account-row.danger-text:hover { background: rgba(248, 81, 73, 0.10); }
 
 /* ── StrategyBuilderRenderer ─────────────────────────────── */
-.strategy-renderer {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-}
+.strategy-renderer { display: flex; flex-direction: column; gap: 12px; }
+
 .strategy-phase {
     background: var(--bg-card);
     border: 1px solid var(--border);
     border-radius: 10px;
     padding: 12px 16px;
 }
-.phase-header {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    margin-bottom: 8px;
-}
+.phase-header { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
 .phase-number {
     display: inline-flex;
     align-items: center;
@@ -174,13 +112,13 @@
     color: var(--text-primary);
     line-height: 1.4;
 }
-.ticker-chip   { background: var(--brand-soft); border-color: var(--brand); font-weight: 600; }
-.filter-chip   { background: rgba(30, 64, 175, 0.06); border-color: #C7D2FE; }
-.entry-chip    { background: rgba(0, 200, 83, 0.06); border-color: #BBF7D0; }
-.long-chip     { background: rgba(0, 200, 83, 0.12); border-color: var(--green); color: #166534; font-weight: 600; }
-.short-chip    { background: rgba(239, 68, 68, 0.10); border-color: var(--red); color: #991B1B; font-weight: 600; }
-.target-chip   { background: rgba(255, 205, 0, 0.18); border-color: var(--brand); }
-.stop-chip     { background: rgba(239, 68, 68, 0.06); border-color: #FECACA; }
+.ticker-chip { background: var(--brand-soft); border-color: var(--brand); font-weight: 600; }
+.filter-chip { background: rgba(88, 166, 255, 0.10); border-color: rgba(88, 166, 255, 0.40); }
+.entry-chip  { background: rgba(63, 185, 80, 0.12); border-color: rgba(63, 185, 80, 0.45); }
+.long-chip   { background: rgba(63, 185, 80, 0.18); border-color: var(--green); color: var(--green); font-weight: 600; }
+.short-chip  { background: rgba(248, 81, 73, 0.14); border-color: var(--red); color: var(--red); font-weight: 600; }
+.target-chip { background: rgba(210, 153, 34, 0.18); border-color: var(--brand); }
+.stop-chip   { background: rgba(248, 81, 73, 0.10); border-color: rgba(248, 81, 73, 0.40); }
 
 .branching-block {
     width: 100%;
@@ -190,11 +128,7 @@
     background: var(--bg-row-alt);
     border-radius: 0 6px 6px 0;
 }
-.branch-tree {
-    display: flex;
-    gap: 8px;
-    flex-wrap: wrap;
-}
+.branch-tree { display: flex; gap: 8px; flex-wrap: wrap; }
 .branch-node {
     background: var(--bg-card);
     border: 1px solid var(--border);
@@ -216,17 +150,10 @@
     color: var(--text-primary);
     margin-bottom: 6px;
 }
-.branch-actions {
-    display: flex;
-    gap: 4px;
-    flex-wrap: wrap;
-}
+.branch-actions { display: flex; gap: 4px; flex-wrap: wrap; }
 
 /* ── Learning Center ─────────────────────────────────────── */
-.learn-sidebar {
-    background: var(--bg-card);
-    overflow-y: auto;
-}
+.learn-sidebar { background: var(--bg-card); overflow-y: auto; }
 .learn-link {
     display: block;
     padding: 4px 8px;
@@ -260,11 +187,7 @@
     overflow: auto;
     margin: 12px 0;
 }
-.learn-body table {
-    width: 100%;
-    margin: 12px 0;
-    border-collapse: collapse;
-}
+.learn-body table { width: 100%; margin: 12px 0; border-collapse: collapse; }
 .learn-body th, .learn-body td {
     border: 1px solid var(--border);
     padding: 6px 10px;
@@ -318,7 +241,7 @@
     color: var(--text-muted);
     cursor: pointer;
 }
-.builder-tab-close:hover { background: rgba(239, 68, 68, 0.12); color: var(--red); }
+.builder-tab-close:hover { background: rgba(248, 81, 73, 0.18); color: var(--red); }
 .builder-tab-new {
     display: inline-flex;
     align-items: center;
@@ -332,4 +255,3 @@
     cursor: pointer;
 }
 .builder-tab-new:hover { color: var(--text-primary); border-color: var(--brand); background: var(--brand-soft); }
-

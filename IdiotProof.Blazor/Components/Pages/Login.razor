@@ -1,6 +1,7 @@
 @page "/login"
 @attribute [AllowAnonymous]
 @inject NavigationManager Nav
+@inject IdiotProof.Blazor.Services.DevCredentials DevCreds
 @layout EmptyLayout
 
 <PageTitle>Sign In — IdiotProof</PageTitle>
@@ -31,6 +32,7 @@
                        autocomplete="email"
                        required
                        aria-required="true"
+                       value="@(DevCreds.Username ?? "")"
                        placeholder="you@example.com" />
             </div>
             <div class="form-group">
@@ -42,13 +44,25 @@
                        autocomplete="current-password"
                        required
                        aria-required="true"
+                       value="@(DevCreds.Password ?? "")"
                        placeholder="Your password" />
             </div>
+            @if (!string.IsNullOrEmpty(DevCreds.Username))
+            {
+                <div class="alert-dev" role="note">
+                    Dev autofill from <code>.env</code> — production builds render empty.
+                </div>
+            }
 
             <button type="submit" class="btn-login">Sign In</button>
         </form>
 
         <p class="login-warning" style="margin-top:1rem">
+            <a href="/forgot-password" style="color:#79c0ff">Forgot password?</a>
+            &middot;
+            <a href="/forgot-username" style="color:#79c0ff">Forgot username?</a>
+        </p>
+        <p class="login-warning" style="margin-top:0.25rem">
             No account? <a href="/register" style="color:#79c0ff">Create one free</a> — bring your own API keys.
         </p>
         <p class="login-warning" role="note">
@@ -116,6 +130,17 @@
     color: #f85149;
     margin-bottom: 1.25rem;
 }
+
+.alert-dev {
+    background: rgba(255, 193, 7, 0.10);
+    border: 1px solid rgba(255, 193, 7, 0.35);
+    border-radius: 6px;
+    padding: 0.5rem 0.85rem;
+    font-size: 0.75rem;
+    color: #d29922;
+    margin-bottom: 1rem;
+}
+.alert-dev code { background: transparent; color: inherit; font-size: inherit; }
 
 .form-group {
     margin-bottom: 1.25rem;

@@ -26,9 +26,8 @@ describe("API Keys page (authenticated)", () => {
         cy.contains(/api keys & connections/i, { timeout: 15000 });
     });
 
-    it("renders all three credential sections", () => {
+    it("renders the credential sections", () => {
         cy.contains("h2", /alpaca/i);
-        cy.contains("h2", /polygon/i);
         cy.contains("h2", /ai \(claude\)/i);
     });
 

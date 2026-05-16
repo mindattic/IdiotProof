@@ -2,6 +2,10 @@
 # .NET / Visual Studio .gitignore
 # =============================================================================
 
+# Local dev credentials — never committed. See .env.example for variable names.
+.env
+.env.local
+
 # Build results
 [Bb]in/
 [Oo]bj/

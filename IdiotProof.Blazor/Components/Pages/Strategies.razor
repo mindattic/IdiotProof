@@ -1,3 +1,4 @@
+@page "/"
 @page "/strategies"
 @rendermode InteractiveServer
 @using IdiotProof.Blazor.Data
@@ -36,14 +37,14 @@
         <h1 id="strategies-heading" class="h4 mb-0">
             <i class="bi bi-collection me-2" style="color:var(--brand)" aria-hidden="true"></i>Strategies
         </h1>
-        <div class="d-flex gap-2">
-            <input class="form-control form-control-sm"
+        <div class="d-flex gap-2 align-items-stretch">
+            <input class="form-control"
                    style="max-width:240px"
                    placeholder="Filter by title or ticker..."
                    @bind="filterText"
                    @bind:event="oninput"
                    aria-label="Filter strategies" />
-            <button class="btn btn-success btn-sm" type="button" @onclick="CreateNew">
+            <button class="btn btn-success text-nowrap" type="button" @onclick="CreateNew">
                 <i class="bi bi-plus-circle me-1" aria-hidden="true"></i>Create New Strategy
             </button>
         </div>
@@ -94,7 +95,7 @@
                                 {
                                     var fullPass = p.IsFullPass;
                                     <span class="strategy-chip @(fullPass ? "long-chip" : "filter-chip")"
-                                          title="Last evaluated @p.EvaluatedUtc.ToString("HH:mm:ss 'UTC'")">
+                                          title="Last evaluated @EasternTime.Format(p.EvaluatedUtc, "HH:mm:ss 'ET'")">
                                         <i class="bi @(fullPass ? "bi-check-circle-fill" : "bi-hourglass-split")" aria-hidden="true"></i>
                                         @p.PassedCount/@p.TotalCount
                                         @if (!fullPass && !string.IsNullOrEmpty(p.FirstFailingVerb))
@@ -111,9 +112,9 @@
                                 }
                                 @if (s.LastFiredUtc is { } lf)
                                 {
-                                    <span class="text-muted small">last fired @lf.ToString("MMM d HH:mm 'UTC'")</span>
+                                    <span class="text-muted small">last fired @EasternTime.Format(lf, "MMM d HH:mm 'ET'")</span>
                                 }
-                                <span class="text-muted small">created @s.CreatedUtc.ToString("MMM d, yyyy")</span>
+                                <span class="text-muted small">created @EasternTime.Format(s.CreatedUtc, "MMM d, yyyy")</span>
                             </div>
                             @if (!string.IsNullOrEmpty(s.Description))
                             {
@@ -297,7 +298,7 @@
         {
             await PrefsService.AddOpenTabAsync(userId, id.ToString());
         }
-        Nav.NavigateTo($"/builder?strategyId={id}");
+        Nav.NavigateTo($"/builder/{id}");
     }
 
     private async Task CreateNew()

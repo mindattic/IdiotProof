@@ -104,42 +104,6 @@
     }
 </section>
 
-<!-- Polygon Section -->
-<section class="trading-card p-3 mb-3" aria-labelledby="polygon-heading">
-    <div class="d-flex justify-content-between align-items-center mb-3">
-        <h2 id="polygon-heading" class="h6 text-white mb-0">
-            <i class="bi bi-hexagon me-1" aria-hidden="true"></i>Polygon.io (Market Data)
-        </h2>
-        <button class="btn btn-sm btn-outline-secondary" type="button" @onclick="TestPolygon" aria-label="Test Polygon connection">
-            <i class="bi bi-broadcast me-1" aria-hidden="true"></i>Test Connection
-        </button>
-    </div>
-    <div role="status" aria-live="polite" aria-atomic="true">
-    @if (!string.IsNullOrEmpty(polygonTestResult))
-    {
-        <div class="alert @(polygonTestOk ? "alert-success" : "alert-danger") small py-1 mb-2">@polygonTestResult</div>
-    }
-    </div>
-    <div class="col-md-6">
-        <label class="form-label text-muted small" for="polygon-key">API Key</label>
-        <div class="input-group">
-            <input id="polygon-key"
-                   class="form-control bg-dark text-white border-secondary"
-                   type="@(showPolygonKey ? "text" : "password")"
-                   @bind="polygonKey"
-                   autocomplete="off"
-                   placeholder="••••••••••••" />
-            <button class="btn btn-outline-secondary"
-                    type="button"
-                    @onclick="() => showPolygonKey = !showPolygonKey"
-                    aria-label="@(showPolygonKey ? "Hide Polygon API key" : "Show Polygon API key")"
-                    aria-pressed="@showPolygonKey">
-                <i class="bi @(showPolygonKey ? "bi-eye-slash" : "bi-eye")" aria-hidden="true"></i>
-            </button>
-        </div>
-    </div>
-</section>
-
 <!-- Claude / AI Section -->
 <section class="trading-card p-3 mb-3" aria-labelledby="claude-heading">
     <div class="d-flex justify-content-between align-items-center mb-3">
@@ -228,17 +192,12 @@
     private bool showAlpacaSecret;
     private bool showLiveModeModal;
 
-    private string polygonKey = "";
-    private bool showPolygonKey;
-
     private string claudeKey = "";
     private bool showClaudeKey;
     private bool llmVotingEnabled;
 
     private string alpacaTestResult = "";
     private bool alpacaTestOk;
-    private string polygonTestResult = "";
-    private bool polygonTestOk;
     private string saveMessage = "";
 
     private string? userId;
@@ -253,7 +212,6 @@
         alpacaKeyId    = keys.AlpacaApiKeyId ?? "";
         alpacaSecret   = keys.AlpacaApiSecretKey ?? "";
         alpacaIsPaper  = keys.AlpacaIsPaper;
-        polygonKey     = keys.PolygonApiKey ?? "";
         claudeKey      = keys.ClaudeApiKey ?? "";
         llmVotingEnabled = keys.LlmVotingEnabled;
     }
@@ -313,39 +271,6 @@
         }
     }
 
-    private async Task TestPolygon()
-    {
-        if (string.IsNullOrWhiteSpace(polygonKey))
-        {
-            polygonTestResult = "Enter a Polygon API key first.";
-            polygonTestOk = false;
-            return;
-        }
-        polygonTestResult = "Testing...";
-        polygonTestOk = false;
-        StateHasChanged();
-        try
-        {
-            using var client = HttpClientFactory.CreateClient();
-            var resp = await client.GetAsync($"https://api.polygon.io/v2/aggs/ticker/AAPL/prev?apiKey={polygonKey}");
-            if (resp.IsSuccessStatusCode)
-            {
-                polygonTestResult = "Connected! Market data feed is working.";
-                polygonTestOk = true;
-            }
-            else
-            {
-                polygonTestResult = $"Failed: HTTP {(int)resp.StatusCode} — check your key.";
-                polygonTestOk = false;
-            }
-        }
-        catch (Exception ex)
-        {
-            polygonTestResult = $"Error: {ex.Message}";
-            polygonTestOk = false;
-        }
-    }
-
     private async Task SaveAll()
     {
         if (userId is null) return;
@@ -356,7 +281,6 @@
             AlpacaApiKeyId     = alpacaKeyId,
             AlpacaApiSecretKey = alpacaSecret,
             AlpacaIsPaper      = alpacaIsPaper,
-            PolygonApiKey      = polygonKey,
             ClaudeApiKey       = claudeKey,
             LlmVotingEnabled   = llmVotingEnabled
         };

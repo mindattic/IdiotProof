@@ -34,12 +34,7 @@
         <span class="account-pill-avatar" aria-hidden="true">
             <i class="bi bi-circle-fill" style="color:var(--brand);font-size:0.65rem"></i>
         </span>
-        <span class="d-flex flex-column align-items-start">
-            <span class="fw-semibold small">@activeLabel</span>
-            <span class="text-muted" style="font-size:0.7rem">
-                @(activeType == "live" ? "Live" : "Paper") · @MaskAccount(activeAccountId)
-            </span>
-        </span>
+        <span class="fw-semibold small">@(activeType == "live" ? "Live" : "Paper")</span>
         <i class="bi @(isOpen ? "bi-chevron-up" : "bi-chevron-down") small" aria-hidden="true"></i>
     </button>
 

@@ -440,15 +440,11 @@ public sealed class StrategyExecutionService : BackgroundService
 
     private static SwitchableMarketDataFeed BuildFeed(UserApiKeys keys)
     {
+        // Alpaca provides real-time market data alongside trading, so we no
+        // longer wire a separate Polygon feed. The Mock feed stays as a safe
+        // default for users without Alpaca credentials and for tests.
         var feed = new SwitchableMarketDataFeed("Mock");
         feed.Register(new MockDataFeed());
-
-        if (!string.IsNullOrWhiteSpace(keys.PolygonApiKey))
-        {
-            feed.Register(new PolygonDataFeed(keys.PolygonApiKey));
-            feed.SetActiveFeed("Polygon");
-        }
-
         return feed;
     }
 
@@ -496,9 +492,12 @@ public sealed class StrategyExecutionService : BackgroundService
             ? keys.ClaudeApiKey!
             : appSettings.ClaudeApiKey;
 
-    private TimeZoneInfo GetTimezone()
-    {
-        try { return TimeZoneInfo.FindSystemTimeZoneById(appSettings.Timezone); }
-        catch { return TimeZoneInfo.Utc; }
-    }
+    // US markets run on Eastern Time. Hardcoded — no setting, no fallback to
+    // UTC (a UTC fallback would silently shift session windows by 4-5 hours).
+    // If "Eastern Standard Time" isn't resolvable on the host, that's a deployment
+    // bug we want to surface immediately, not paper over.
+    private static readonly TimeZoneInfo EasternZone =
+        TimeZoneInfo.FindSystemTimeZoneById("Eastern Standard Time");
+
+    private TimeZoneInfo GetTimezone() => EasternZone;
 }

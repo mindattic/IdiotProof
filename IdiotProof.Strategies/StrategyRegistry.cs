@@ -11,11 +11,10 @@ public sealed class StrategyRegistry
 
     public StrategyRegistry()
     {
-        // Register built-in strategies
-        Register(new ItiStrategy());
-        Register(new LowHighStrategy());
-        Register(new PremarketBreakoutStrategy());
-        Register(new MomentumDecayStrategy());
+        // No built-in named strategies. All strategies are user-authored
+        // IdiotScript saved to the Strategies table; DslStrategy executes them
+        // at runtime via the parser. Re-add Register(new XStrategy()) here only
+        // if a hard-coded baseline strategy is ever needed again.
     }
 
     public void Register(IStrategy strategy)

@@ -132,7 +132,7 @@ public sealed class MonitorWorker(
     {
         // Parse the stored ScriptText into a StrategyDefinition. Skip strategies
         // that don't parse — the Strategies-as-home page surfaces parse errors.
-        var def = WikilinkParser.ParseScript(stored.ScriptText);
+        var def = ScriptParser.ParseScript(stored.ScriptText);
         if (def is null)
         {
             logger.LogWarning("Strategy {Title} ({Id}) failed to parse — skipping.", stored.Title, stored.Id);
@@ -304,7 +304,7 @@ public sealed class MonitorWorker(
     /// </summary>
     private async Task<bool> PassesRiskGuardianAsync(IdiotProof.Blazor.Data.Strategy stored, TradeSignal signal, string consensusLine, CancellationToken ct)
     {
-        var strategyDef = WikilinkParser.ParseScript(stored.ScriptText);
+        var strategyDef = ScriptParser.ParseScript(stored.ScriptText);
         var strategyQty = strategyDef?.Quantity ?? 0;
         var notional    = strategyDef?.NotionalAmount;
 

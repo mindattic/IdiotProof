@@ -3,18 +3,42 @@
    ============================================================ */
 
 :root {
-    --bg-primary: #0d1117;
-    --bg-secondary: #161b22;
-    --bg-card: #1c2128;
-    --border: #30363d;
-    --text-primary: #e6edf3;
-    --text-muted: #b1bac4; /* WCAG AA on bg-secondary (was #8b949e ~4.2:1, now ~6.5:1) */
-    --text-subtle: #8b949e; /* legacy soft tone for non-essential captions */
-    --green: #3fb950;
-    --red: #f85149;
-    --blue: #58a6ff;
-    --yellow: #d29922;
-    --focus-ring: #58a6ff;
+    /* Surfaces */
+    --bg-primary:    #0d1117;
+    --bg-secondary:  #161b22;
+    --bg-card:       #1c2128;
+    --bg-elevated:   #161b22;
+    --bg-hover:      #21262d;
+    --bg-row-alt:    #161b22;
+
+    /* Borders */
+    --border:        #30363d;
+    --border-strong: #444c56;
+    --divider:       #21262d;
+
+    /* Text */
+    --text-primary:   #e6edf3;
+    --text-secondary: #b1bac4;
+    --text-muted:     #b1bac4; /* WCAG AA on bg-secondary */
+    --text-subtle:    #8b949e;
+
+    /* Status */
+    --green:        #3fb950;
+    --red:          #f85149;
+    --blue:         #58a6ff;
+    --yellow:       #d29922;
+    --info-bg:      rgba(88, 166, 255, 0.15);
+    --info-text:    #58a6ff;
+    --danger-link:  #f85149;
+
+    /* Accent (formerly "brand") */
+    --brand:        #d29922;
+    --brand-soft:   rgba(210, 153, 34, 0.15);
+    --brand-muted:  #6d4e10;
+    --brand-on:     #0d1117;
+
+    /* Focus + layout */
+    --focus-ring:    #58a6ff;
     --sidebar-width: 220px;
     --topbar-height: 52px;
     --footer-height: 36px;
@@ -90,6 +114,84 @@ html, body {
     height: 100%;
 }
 
+/* ── Bootstrap utility overrides for dark theme ──────────────
+   Bootstrap's defaults assume a light page background. Without
+   these, .text-muted resolves to #6c757d (~3.3:1 on our bg —
+   fails WCAG AA) and .bg-secondary etc. read as near-invisible
+   slate. Force the dark palette through. */
+.text-muted     { color: var(--text-muted) !important; }
+.text-secondary { color: var(--text-secondary) !important; }
+.text-body      { color: var(--text-primary) !important; }
+.text-body-secondary { color: var(--text-secondary) !important; }
+.text-white     { color: var(--text-primary) !important; }
+.lead           { color: var(--text-secondary); }
+hr              { border-color: var(--border); opacity: 1; }
+
+.bg-dark        { background-color: var(--bg-card) !important; }
+.bg-secondary   { background-color: var(--bg-hover) !important; color: var(--text-primary) !important; }
+.bg-light       { background-color: var(--bg-card) !important; color: var(--text-primary) !important; }
+
+.border-secondary { border-color: var(--border) !important; }
+.border-dark      { border-color: var(--border) !important; }
+
+/* Bootstrap form controls — make sure unsuffixed and -dark variants both work */
+.form-control, .form-select {
+    background-color: var(--bg-primary);
+    border-color: var(--border);
+    color: var(--text-primary);
+}
+.form-control:focus, .form-select:focus {
+    background-color: var(--bg-primary);
+    border-color: var(--focus-ring);
+    color: var(--text-primary);
+    box-shadow: 0 0 0 3px rgba(88,166,255,0.20);
+}
+.form-control::placeholder { color: var(--text-subtle); }
+
+.input-group-text {
+    background-color: var(--bg-secondary);
+    border-color: var(--border);
+    color: var(--text-muted);
+}
+
+/* Bootstrap alerts on dark — keep semantic color, swap background */
+.alert-success { background: rgba(63,185,80,0.12);  border-color: rgba(63,185,80,0.40);  color: var(--green); }
+.alert-danger  { background: rgba(248,81,73,0.12);  border-color: rgba(248,81,73,0.40);  color: var(--red); }
+.alert-warning { background: rgba(210,153,34,0.14); border-color: rgba(210,153,34,0.45); color: var(--brand); }
+.alert-info    { background: var(--info-bg);        border-color: rgba(88,166,255,0.40); color: var(--info-text); }
+
+/* Badges: Bootstrap defaults look near-black on dark for the muted variants */
+.badge.bg-secondary { background-color: var(--bg-hover) !important; color: var(--text-primary) !important; }
+.badge.bg-warning   { background-color: var(--brand) !important;    color: var(--brand-on) !important; }
+.badge.bg-info      { background-color: rgba(88,166,255,0.25) !important; color: var(--info-text) !important; }
+
+/* Bootstrap tables on dark */
+.table {
+    color: var(--text-primary);
+    --bs-table-bg: transparent;
+    --bs-table-border-color: var(--border);
+    --bs-table-striped-bg: var(--bg-row-alt);
+    --bs-table-hover-bg: var(--bg-hover);
+}
+
+/* Outline buttons — Bootstrap defaults use dark text on dark hover */
+.btn-outline-secondary {
+    color: var(--text-primary);
+    border-color: var(--border-strong);
+}
+.btn-outline-secondary:hover {
+    background-color: var(--bg-hover);
+    color: var(--text-primary);
+    border-color: var(--border-strong);
+}
+
+/* Anchor color on dark */
+a { color: var(--blue); }
+a:hover { color: #79c0ff; }
+
+/* Code blocks inline */
+code { color: var(--brand); background: transparent; }
+
 /* ── Layout Shell ── */
 .app-shell { background: var(--bg-primary); }
 
@@ -109,46 +211,76 @@ html, body {
     font-size: 0.75rem;
 }
 
-/* ── Sidebar ── */
-.sidebar {
-    width: var(--sidebar-width);
-    background: var(--bg-secondary);
-    border-right: 1px solid var(--border);
-    transition: width 0.2s ease;
-    overflow: hidden;
-}
+/* ── Top tabs (primary nav) ── */
+.top-tabs { gap: 4px; }
 
-.sidebar-collapsed {
-    width: 0;
-}
-
-.sidebar-nav { list-style: none; margin: 0; padding: 0; }
-
-.sidebar-link {
-    display: flex;
+.top-tab {
+    display: inline-flex;
     align-items: center;
-    padding: 8px 12px;
+    padding: 6px 14px;
     border-radius: 6px;
-    color: var(--text-muted) !important;
+    color: var(--text-muted);
     text-decoration: none;
-    font-size: 0.875rem;
+    font-size: 0.9rem;
+    font-weight: 500;
     transition: background 0.15s, color 0.15s;
     white-space: nowrap;
 }
-
-.sidebar-link:hover {
-    background: rgba(255,255,255,0.05);
-    color: var(--text-primary) !important;
+.top-tab:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
 }
-
-.sidebar-link.active {
+.top-tab.active {
     background: rgba(88,166,255,0.12);
-    color: var(--blue) !important;
+    color: var(--blue);
 }
 
-.sidebar-divider {
-    border-color: var(--border);
-    margin: 4px 8px;
+/* ── User menu (top-right) ── */
+.user-menu-toggle {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text-primary);
+    padding: 4px 10px;
+    border-radius: 6px;
+}
+.user-menu-toggle:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+    border-color: var(--border-strong);
+}
+.user-menu-name {
+    max-width: 200px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 0.85rem;
+}
+.user-menu-dropdown {
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.55);
+    min-width: 220px;
+}
+.user-menu-dropdown .dropdown-item {
+    color: var(--text-primary);
+    padding: 8px 14px;
+}
+.user-menu-dropdown .dropdown-item:hover,
+.user-menu-dropdown .dropdown-item:focus {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+}
+.user-menu-dropdown .dropdown-item.text-danger:hover,
+.user-menu-dropdown .dropdown-item.text-danger:focus {
+    background: rgba(248, 81, 73, 0.10);
+    color: var(--red);
+}
+.user-menu-dropdown .dropdown-divider { border-color: var(--border); }
+.user-menu-dropdown form button.dropdown-item {
+    width: 100%;
+    text-align: left;
+    background: transparent;
+    border: 0;
 }
 
 /* ── Main Content ── */
