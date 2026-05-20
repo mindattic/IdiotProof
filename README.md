@@ -1,10 +1,20 @@
 # IdiotProof
 
-A trading strategy platform that turns plain-English ideas into automated, monitored trading. Set conditions; the system watches the market, fires signals when they match, and (with your authorization) places the order. **Set and forget.**
+**Plain-English trading strategies, monitored 24/7, executed only when every safeguard agrees.**
+
+Describe a setup the way you'd say it out loud — _"if NVDA pulls back to the 9 EMA in an uptrend with volume confirmation, go long with a 1% stop"_ — and IdiotProof turns it into a real, runnable strategy. A multi-LLM voter panel (Claude, GPT, Gemini, DeepSeek) cross-checks the translation against the live verb catalog so no model can hallucinate syntax that costs you money. A standalone console Monitor evaluates every active strategy against live market data on a fixed cadence. The Risk Guardian holds the final veto before anything hits Alpaca. **Set and forget.**
 
 > _"I think TSLA will gap up premarket and consolidate near the high. When that happens, go long with a stop at the premarket low and target 1.5 ATR above entry."_
 >
 > Set the strategy at 8 PM. Go to bed. The Monitor catches it at 4:07 AM ET when the conditions match.
+
+### Why IdiotProof
+
+- **No code, no chart-watching.** Describe your edge in prose; Claude writes the IdiotScript; you tweak the visual flowchart if you want.
+- **24/7 unattended evaluation.** A console process polls every active strategy on a fixed interval and reports per-condition progress (`4/5 — waiting on OnReclaim(9)`) live on the Strategies page.
+- **Three gates before money moves.** Strategy conditions must all match → LLM voter quorum must approve → Risk Guardian must clear stop, daily-loss, and per-trade-risk limits. Any one of them blocks the fire and logs the reasoning to the audit trail.
+- **Paper by default, live by explicit opt-in.** Live trading requires a red-outline confirmation modal; paper accounts wear the Alpaca brand yellow. You can't accidentally route real capital.
+- **Your strategies are yours.** SQL-backed, owned per user, encrypted broker keys, full audit log of every signal, veto, and order.
 
 ---
 
