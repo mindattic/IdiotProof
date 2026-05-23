@@ -505,7 +505,7 @@ dotnet run --project IdiotProof.Monitor
 dotnet test tests/IdiotProof.NUnitTests
 ```
 
-52 tests covering:
+Coverage:
 
 - **DslConditionTests** — every new condition verb (VWAP/EMA/ADX/RSI/Volume/Support/Resistance) + the `.And/.Or/.Not` algebra + phase tagging
 - **CandlestickPatternsTests** — engulfing/hammer/shooting-star/doji + zero-range edge cases
@@ -513,6 +513,7 @@ dotnet test tests/IdiotProof.NUnitTests
 - **WikilinkParserTests** — text passthrough, single/multi wikilinks, unparseable fallback, full chain parse
 - **DslStrategyTests** — symbol mismatch, no candles, all-pass signal emission, stop/target propagation, type tagging
 - **QuantityTests** — share/notional overload mutual exclusion, alias parity, default behavior
+- **AppSettingsCredentialOverlayTests** — the `MindAttic.Vault`-fronted overlay chain that resolves API keys for Legion
 
 ### Cypress (frontend)
 
@@ -559,7 +560,10 @@ IdiotProof/
 ├── IdiotProof.Cli/                          ← Spectre CLI
 ├── IdiotProof.Monitor/                      ← 24/7 evaluator console
 └── tests/
-    ├── IdiotProof.NUnitTests/               ← New NUnit suite (47 tests)
+    ├── IdiotProof.NUnitTests/               ← NUnit suite — DSL, candle patterns, wikilink parser, Vault overlay
+    ├── IdiotProof.Engine.Tests/             ← Legacy xUnit (kept; runs alongside the NUnit suite)
+    ├── IdiotProof.Indicators.Tests/         ← Legacy xUnit
+    ├── IdiotProof.Strategies.Tests/         ← Legacy xUnit
     └── IdiotProof.Cypress/                  ← End-to-end UI tests
 ```
 
