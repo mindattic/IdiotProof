@@ -113,6 +113,13 @@ Thumbs.db
 ehthumbs.db
 Desktop.ini
 
+# FTP deploy credentials (template is committed; real file is not)
+scripts/cli/deploy.settings.json
+
+# Node build deps for the README -> index.htm renderer (scripts/cli/build-html.js)
+node_modules/
+package-lock.json
+
 # MAUI specific
 *.apk
 *.aab
