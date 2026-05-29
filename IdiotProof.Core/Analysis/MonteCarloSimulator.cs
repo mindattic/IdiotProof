@@ -72,7 +72,10 @@ public sealed class MonteCarloResult
     {
         Iterations = iterations;
         sortedPnLs = iterations.Select(i => i.FinalPnL).OrderBy(x => x).ToList();
-        sortedDrawdowns = iterations.Select(i => i.MaxDrawdown).OrderByDescending(x => x).ToList();
+        // Ascending — GetPercentile interpolates assuming ascending order, so a
+        // descending sort here made WorstDrawdown(0.95) return a near-minimum
+        // drawdown instead of the 95th-percentile (worst) one.
+        sortedDrawdowns = iterations.Select(i => i.MaxDrawdown).OrderBy(x => x).ToList();
     }
 
     /// <summary>All iteration results.</summary>
@@ -202,7 +205,7 @@ public sealed class MonteCarloSimulator
 
     public MonteCarloSimulator(MonteCarloConfig? config = null)
     {
-        config = config ?? new MonteCarloConfig();
+        this.config = config ?? new MonteCarloConfig();
     }
 
     /// <summary>

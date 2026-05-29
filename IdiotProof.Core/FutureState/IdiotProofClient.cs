@@ -368,7 +368,7 @@ internal class IdiotProofClient : IIdiotProofClient
     
     private void SetStatus(ClientConnectionStatus status)
     {
-        if (status != status)
+        if (this.status != status)
         {
             this.status = status;
             StatusChanged?.Invoke(this, status);

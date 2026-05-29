@@ -182,9 +182,11 @@ public sealed class PerformanceMetrics
             .GroupBy(t => t.ExitReason)
             .ToDictionary(g => g.Key, g => g.Count());
 
-    /// <summary>Most common exit reason.</summary>
+    /// <summary>Most common exit reason, or null when there are no trades.</summary>
     public ExitReason? MostCommonExitReason =>
-        ExitReasonCounts.OrderByDescending(kv => kv.Value).FirstOrDefault().Key;
+        result.Trades.Count == 0
+            ? null
+            : ExitReasonCounts.OrderByDescending(kv => kv.Value).First().Key;
 
     // ========================================================================
     // Display

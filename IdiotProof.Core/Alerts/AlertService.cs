@@ -198,7 +198,7 @@ public enum AlertSeverity
 public sealed class AlertConfig
 {
     // Discord
-    public bool DiscordEnabled { get; set; } = true;
+    public bool DiscordEnabled { get; set; } = false;
     public string? DiscordWebhookUrl { get; set; }
     
     // Email
@@ -411,10 +411,17 @@ public sealed class AlertService : IDisposable
             
             var authToken = Convert.ToBase64String(
                 Encoding.UTF8.GetBytes($"{config.TwilioAccountSid}:{config.TwilioAuthToken}"));
-            httpClient.DefaultRequestHeaders.Authorization = 
+
+            // Set auth on a per-request message, NOT on httpClient.DefaultRequestHeaders.
+            // The HttpClient is shared with the Discord/Telegram senders (all fired
+            // concurrently via Task.WhenAll in SendAlertAsync); mutating the default
+            // headers would leak the Twilio Basic credentials into those requests
+            // and race with them.
+            using var request = new HttpRequestMessage(HttpMethod.Post, url) { Content = content };
+            request.Headers.Authorization =
                 new System.Net.Http.Headers.AuthenticationHeaderValue("Basic", authToken);
-            
-            await httpClient.PostAsync(url, content);
+
+            await httpClient.SendAsync(request);
         }
         catch (Exception ex)
         {

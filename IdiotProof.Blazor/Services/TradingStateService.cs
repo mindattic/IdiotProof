@@ -133,14 +133,14 @@ public sealed class TradingStateService
     /// <summary>Mark the engine as running or stopped.</summary>
     public void SetEngineRunning(bool running)
     {
-        IsEngineRunning = running;
+        lock (sync) IsEngineRunning = running;
         RaiseChanged();
     }
 
     /// <summary>Record that an evaluation cycle completed.</summary>
     public void RecordEvaluation()
     {
-        LastEvaluationUtc = DateTime.UtcNow;
+        lock (sync) LastEvaluationUtc = DateTime.UtcNow;
         RaiseChanged();
     }
 

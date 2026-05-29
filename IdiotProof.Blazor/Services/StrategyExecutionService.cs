@@ -272,7 +272,8 @@ public sealed class StrategyExecutionService : BackgroundService
         try
         {
             var broker = BuildBroker(keys);
-            if (!broker.IsConnected) return;
+            if (!broker.IsConnected)
+                await broker.ConnectAsync(ct);
 
             var riskPerShare = Math.Abs(signal.SuggestedEntry - signal.SuggestedStop);
             if (riskPerShare <= 0)

@@ -243,7 +243,10 @@ public sealed class RiskGuardian
         var fromDailyRemaining = (int)Math.Floor(GetRemainingDailyRisk() / riskPerShare);
         var fromAccountPercent = (int)Math.Floor((config.AccountBalance * config.MaxAccountRiskPercent / 100m) / riskPerShare);
 
-        return Math.Max(1, Math.Min(fromMaxPerTrade, Math.Min(fromDailyRemaining, fromAccountPercent)));
+        // Floor at 0, not 1: when the most restrictive limit allows no shares
+        // (e.g. the daily-loss circuit breaker is exhausted), returning 1 would
+        // place a trade that violates the limit. Callers gate on qty <= 0.
+        return Math.Max(0, Math.Min(fromMaxPerTrade, Math.Min(fromDailyRemaining, fromAccountPercent)));
     }
 
     /// <summary>
