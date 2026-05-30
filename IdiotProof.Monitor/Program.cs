@@ -55,8 +55,7 @@ builder.Services.AddDbContextFactory<AppDbContext>(o => o.UseSqlServer(connStr))
 // so the Monitor reads the same configuration without re-implementing the
 // load path.
 builder.Configuration
-    .AddMindAtticVaultFiles()
-    .AddUserSecrets<Program>(optional: true);
+    .AddMindAtticVaultFiles();
 builder.Services.AddMindAtticVault(builder.Configuration);
 
 var storage = new WebStorageProvider();

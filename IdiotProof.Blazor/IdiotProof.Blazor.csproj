@@ -4,7 +4,6 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <RootNamespace>IdiotProof.Blazor</RootNamespace>
-    <UserSecretsId>mindattic-vault-shared</UserSecretsId>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Anthropic.SDK" Version="4.0.0" />

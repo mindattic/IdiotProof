@@ -21,12 +21,12 @@ using System.Collections.Concurrent;
 var storage = new WebStorageProvider();
 
 // Cloud-native configuration chain (matches the Blazor host). Lets the CLI
-// read User Secrets and App Service Application Settings via IConfiguration —
-// useful when running idiotproof.exe from an Azure VM or a CI pipeline.
+// read MindAttic Vault files and App Service Application Settings via
+// IConfiguration — useful when running idiotproof.exe from an Azure VM or a
+// CI pipeline.
 var cliConfig = new ConfigurationBuilder()
     .AddJsonFile("appsettings.json", optional: true)
     .Add(new MindAtticConfigurationSource())
-    .AddUserSecrets("mindattic-vault-shared")
     .AddEnvironmentVariables()
     .Build();
 
