@@ -9,15 +9,17 @@ using Microsoft.EntityFrameworkCore;
 using MindAttic.Legion;
 using MindAttic.Vault.Configuration;
 using MindAttic.Vault.DependencyInjection;
+using MindAttic.Vault.Paths;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// .env autoload (Development only). Lets the user park DEV_USERNAME / DEV_PASSWORD
-// in a gitignored .env at the repo root so the Login page can prefill credentials
-// during local debug runs. Never loaded in any non-Development build.
+// .env autoload (Development only). DEV_USERNAME / DEV_PASSWORD live in the roaming
+// MindAttic store at %APPDATA%\MindAttic\IdiotProof\.env — outside the repo, so no
+// credential file is ever checked out. The Login page prefills from these during
+// local debug runs. Never loaded in any non-Development build.
 if (builder.Environment.IsDevelopment())
 {
-    var envPath = Path.Combine(builder.Environment.ContentRootPath, "..", ".env");
+    var envPath = Path.Combine(VaultPaths.RoamingBucket("IdiotProof"), ".env");
     if (File.Exists(envPath))
     {
         foreach (var raw in File.ReadAllLines(envPath))
