@@ -62,7 +62,27 @@ public sealed class AlpacaBrokerClient : IBrokerClient, IAsyncDisposable
         }
 
         var side = request.Side == OrderSide.Buy ? "buy" : "sell";
-        var type = request.Type == OrderType.Market ? "market" : "limit";
+
+        // Map every OrderType to its Alpaca string. The previous code collapsed
+        // everything that wasn't Market to "limit", which silently turned a
+        // protective Stop / StopLimit / TrailingStop into a plain limit order with
+        // no stop price — a risk stop the strategy thinks exists but the broker
+        // never placed.
+        var type = request.Type switch
+        {
+            OrderType.Market       => "market",
+            OrderType.Limit        => "limit",
+            OrderType.Stop         => "stop",
+            OrderType.StopLimit    => "stop_limit",
+            OrderType.TrailingStop => "trailing_stop",
+            _                      => "market"
+        };
+
+        // Only the price fields the chosen type actually uses are emitted; the rest
+        // stay null so System.Text.Json omits them (Alpaca 422s on a stray price).
+        var limitPrice = request.Type is OrderType.Limit or OrderType.StopLimit ? request.LimitPrice : null;
+        var stopPrice  = request.Type is OrderType.Stop or OrderType.StopLimit ? request.StopPrice : null;
+        var trailPct   = request.Type == OrderType.TrailingStop ? request.TrailPercent : null;
 
         // Alpaca's /v2/orders accepts qty XOR notional. We send only the field
         // that's actually set so the API doesn't 422 on the "both" case.
@@ -74,7 +94,9 @@ public sealed class AlpacaBrokerClient : IBrokerClient, IAsyncDisposable
                 side,
                 type,
                 time_in_force = request.TimeInForce.ToLowerInvariant(),
-                limit_price   = request.Type == OrderType.Limit ? request.LimitPrice : null,
+                limit_price   = limitPrice,
+                stop_price    = stopPrice,
+                trail_percent = trailPct,
             }
             : new
             {
@@ -83,7 +105,9 @@ public sealed class AlpacaBrokerClient : IBrokerClient, IAsyncDisposable
                 side,
                 type,
                 time_in_force = request.TimeInForce.ToLowerInvariant(),
-                limit_price   = request.Type == OrderType.Limit ? request.LimitPrice : null,
+                limit_price   = limitPrice,
+                stop_price    = stopPrice,
+                trail_percent = trailPct,
             };
 
         using var response = await httpClient.PostAsJsonAsync("/v2/orders", payload, ct).ConfigureAwait(false);
@@ -161,9 +185,14 @@ public sealed class AlpacaBrokerClient : IBrokerClient, IAsyncDisposable
                     ? symProp.GetString() ?? string.Empty
                     : string.Empty;
 
+                // Alpaca returns qty as a string that is fractional for fractional-share
+                // positions ("2.5") and negative for shorts ("-10"). Parsing as int
+                // dropped both — any fractional position became 0 (reported flat) and
+                // short sign was lost. Parse as decimal, invariant culture, to preserve them.
                 var qty = element.TryGetProperty("qty", out var qtyProp)
-                    ? int.TryParse(qtyProp.GetString(), out var parsedQty) ? parsedQty : 0
-                    : 0;
+                    ? decimal.TryParse(qtyProp.GetString(), System.Globalization.NumberStyles.Any,
+                        System.Globalization.CultureInfo.InvariantCulture, out var parsedQty) ? parsedQty : 0m
+                    : 0m;
 
                 var avgPrice = element.TryGetProperty("avg_entry_price", out var avgProp)
                     ? decimal.TryParse(avgProp.GetString(), System.Globalization.NumberStyles.Any,

@@ -61,6 +61,18 @@ public sealed class OrderRequest
     public OrderSide Side { get; init; }
     public OrderType Type { get; init; }
     public decimal? LimitPrice { get; init; }
+
+    /// <summary>
+    /// Stop trigger price for <see cref="OrderType.Stop"/> / <see cref="OrderType.StopLimit"/>.
+    /// Null for other order types.
+    /// </summary>
+    public decimal? StopPrice { get; init; }
+
+    /// <summary>
+    /// Trail amount (percent) for <see cref="OrderType.TrailingStop"/>. Null otherwise.
+    /// </summary>
+    public decimal? TrailPercent { get; init; }
+
     public string TimeInForce { get; init; } = "DAY";
 }
 
@@ -80,7 +92,12 @@ public sealed class OrderResult
 public sealed class Position
 {
     public string Symbol { get; init; } = string.Empty;
-    public int Quantity { get; init; }
+
+    /// <summary>
+    /// Net shares held. <c>decimal</c> (not <c>int</c>) so fractional-share positions
+    /// (Alpaca returns e.g. "2.5") survive and short positions keep their negative sign.
+    /// </summary>
+    public decimal Quantity { get; init; }
     public decimal AveragePrice { get; init; }
     public decimal MarketValue { get; init; }
     public decimal UnrealizedPnl { get; init; }

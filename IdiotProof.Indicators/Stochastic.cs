@@ -35,8 +35,11 @@ public static class Stochastic
             decimal range = highestHigh - lowestLow;
             kValues[i] = range > 0 ? 100m * (candles[i].Close - lowestLow) / range : 50m;
 
-            // %D = SMA of %K over dPeriod
-            int dStart = Math.Max(0, i - dPeriod + 1);
+            // %D = SMA of %K over dPeriod, but only over bars where %K is genuinely
+            // defined. Warm-up bars (i < kPeriod - 1) hold a placeholder 50; starting
+            // the window no earlier than the first valid %K index keeps those
+            // placeholders out of the average for the first dPeriod-1 valid bars.
+            int dStart = Math.Max(kPeriod - 1, i - dPeriod + 1);
             decimal dSum = 0m;
             int dCount = 0;
             for (int j = dStart; j <= i; j++) { dSum += kValues[j]; dCount++; }

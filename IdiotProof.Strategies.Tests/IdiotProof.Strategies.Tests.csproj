@@ -29,6 +29,7 @@
   <ItemGroup>
     <ProjectReference Include="..\IdiotProof.Models\IdiotProof.Models.csproj" />
     <ProjectReference Include="..\IdiotProof.Indicators\IdiotProof.Indicators.csproj" />
+    <ProjectReference Include="..\IdiotProof.Scripting\IdiotProof.Scripting.csproj" />
     <ProjectReference Include="..\IdiotProof.Strategies\IdiotProof.Strategies.csproj" />
   </ItemGroup>
 

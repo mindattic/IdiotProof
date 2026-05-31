@@ -558,7 +558,9 @@ public sealed class StrategyBuilder
     /// </summary>
     public string ToScript()
     {
-        var parts = new List<string> { $"Ticker({strategy.Symbol})" };
+        // Quote the ticker so the output parses back via ScriptParser (its regex expects
+        // Ticker("SYM")). The previous unquoted Ticker(SYM) failed to parse on reload.
+        var parts = new List<string> { $"Ticker(\"{strategy.Symbol}\")" };
         
         if (!string.IsNullOrEmpty(strategy.Name))
             parts.Add($"Name(\"{strategy.Name}\")");
@@ -566,7 +568,12 @@ public sealed class StrategyBuilder
         if (strategy.Session != TradingSession.RTH)
             parts.Add($"Session(IS.{strategy.Session.ToString().ToUpperInvariant()})");
         
-        if (strategy.Quantity > 0)
+        // Notional ("$1000 of TSLA") and share sizing are mutually exclusive. The
+        // old code only emitted Quantity(shares); a notional-sized strategy
+        // serialized with NO size token and round-tripped to "use workspace default".
+        if (strategy.IsNotional)
+            parts.Add($"QuantityNotional({strategy.NotionalAmount!.Value.ToString(System.Globalization.CultureInfo.InvariantCulture)})");
+        else if (strategy.Quantity > 0)
             parts.Add($"Quantity({strategy.Quantity})");
         
         // Entry conditions
@@ -587,11 +594,14 @@ public sealed class StrategyBuilder
         else
             parts.Add("Long()");
 
-        // Exit conditions
-        if (strategy.TakeProfitPrice.HasValue)
-            parts.Add($"TakeProfit({strategy.TakeProfitPrice})");
+        // Exit conditions. Emit the multi-target form when the strategy scales out so
+        // T2/T3 survive a round trip (the single TakeProfitPrice is only T1).
+        if (strategy.TakeProfitTargets.Count > 1)
+            parts.Add($"TakeProfit({string.Join(", ", strategy.TakeProfitTargets.Take(3).Select(t => Inv(t.Price)))})");
+        else if (strategy.TakeProfitPrice.HasValue)
+            parts.Add($"TakeProfit({Inv(strategy.TakeProfitPrice.Value)})");
         if (strategy.StopLossPrice.HasValue)
-            parts.Add($"StopLoss({strategy.StopLossPrice})");
+            parts.Add($"StopLoss({Inv(strategy.StopLossPrice.Value)})");
         if (strategy.TrailingStopPercent.HasValue)
             parts.Add($"TrailingStopLoss({strategy.TrailingStopPercent})");
         
@@ -605,6 +615,10 @@ public sealed class StrategyBuilder
         
         return string.Join("\n    .", parts);
     }
+
+    // Invariant number formatting so a comma-decimal machine locale can't emit "5,00"
+    // (the parser parses numeric args with InvariantCulture).
+    private static string Inv(double v) => v.ToString(System.Globalization.CultureInfo.InvariantCulture);
 }
 
 /// <summary>
@@ -820,12 +834,53 @@ public sealed class IndicatorCondition(IndicatorType type, double? parameter = n
 
     public StrategyPhase Phase { get; } = phase;
 
-    public string ToScript() => (Parameter.HasValue, Parameter2.HasValue) switch
+    public string ToScript()
     {
-        (true, true)  => $"Is{Type}({Parameter}, {Parameter2})",
-        (true, false) => $"Is{Type}({Parameter})",
-        _             => $"Is{Type}()"
-    };
+        // Emit the canonical verb the parser (ScriptParser.ApplyVerb) recognizes.
+        // The naive $"Is{Type}" produced tokens like "IsVwapAbove" / "IsEmaStack" /
+        // "IsReclaimEma" that have no parser case, so those conditions were silently
+        // dropped on a serialize→parse round trip (a strategy lost its VWAP/EMA-stack
+        // gate). Map each IndicatorType to its builder verb explicitly.
+        var verb = Type switch
+        {
+            IndicatorType.VwapAbove            => "IsAboveVwap",
+            IndicatorType.VwapBelow            => "IsBelowVwap",
+            IndicatorType.VwapReclaim          => "OnVwapReclaim",
+            IndicatorType.VwapLoss             => "OnVwapLoss",
+            IndicatorType.EmaAbove             => "IsAboveEma",
+            IndicatorType.EmaBelow             => "IsBelowEma",
+            IndicatorType.BetweenEma           => "IsBetweenEma",
+            IndicatorType.EmaStack             => "RequireEmaStack",
+            IndicatorType.ReclaimEma           => "OnReclaim",
+            IndicatorType.DiPositive           => "IsDiPositive",
+            IndicatorType.DiNegative           => "IsDiNegative",
+            IndicatorType.AdxAbove             => "IsAdxAbove",
+            IndicatorType.RsiOversold          => "IsRsiOversold",
+            IndicatorType.RsiOverbought        => "IsRsiOverbought",
+            IndicatorType.RsiBullishDivergence => "IsRsiBullishDivergence",
+            IndicatorType.RsiBearishDivergence => "IsRsiBearishDivergence",
+            IndicatorType.MacdBullish          => "IsMacdBullish",
+            IndicatorType.MacdBearish          => "IsMacdBearish",
+            IndicatorType.GapUp                => "IsGapUp",
+            IndicatorType.GapDown              => "IsGapDown",
+            IndicatorType.VolumeAbove          => "IsVolumeAbove",
+            IndicatorType.AtSupport            => "IsAtSupport",
+            IndicatorType.AtResistance         => "IsAtResistance",
+            _                                  => $"Is{Type}"
+        };
+
+        return (Parameter.HasValue, Parameter2.HasValue) switch
+        {
+            (true, true)  => $"{verb}({Fmt(Parameter.Value)}, {Fmt(Parameter2.Value)})",
+            (true, false) => $"{verb}({Fmt(Parameter.Value)})",
+            _             => $"{verb}()"
+        };
+    }
+
+    // Invariant formatting so a comma-decimal machine locale can't emit "1,5"
+    // (the parser parses args with InvariantCulture).
+    private static string Fmt(double v) =>
+        v.ToString(System.Globalization.CultureInfo.InvariantCulture);
 
     public bool Evaluate(IndicatorSnapshot s) => Type switch
     {
@@ -853,7 +908,7 @@ public sealed class IndicatorCondition(IndicatorType type, double? parameter = n
                                               && priorPrice <= priorEma && s.Price > currentEma,
         IndicatorType.DiPositive         => s.IsBullishTrend,
         IndicatorType.DiNegative         => !s.IsBullishTrend,
-        IndicatorType.AdxAbove           => s.Adx >= (Parameter ?? 25),
+        IndicatorType.AdxAbove           => s.Adx >= (Parameter ?? 20),
         IndicatorType.RsiOversold        => s.Rsi <= (Parameter ?? 30),
         IndicatorType.RsiOverbought      => s.Rsi >= (Parameter ?? 70),
         IndicatorType.RsiBullishDivergence => s.HasBullishDivergence == true,

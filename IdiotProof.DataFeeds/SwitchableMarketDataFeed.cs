@@ -32,8 +32,13 @@ public sealed class SwitchableMarketDataFeed : IMarketDataFeed
     {
         if (feeds.TryGetValue(activeFeedName, out var feed))
             return feed;
-        return feeds.Values.FirstOrDefault()
-            ?? throw new InvalidOperationException("No market data feeds registered.");
+        // Fail loud rather than substituting an arbitrary feed. Falling back to
+        // "whatever's first" could silently serve synthetic Mock prices into live
+        // strategy evaluation and order sizing when the configured feed name is a
+        // typo or its registration failed — far more dangerous than a hard error.
+        throw new InvalidOperationException(
+            $"Active market data feed '{activeFeedName}' is not registered. " +
+            $"Registered feeds: {(feeds.Count == 0 ? "(none)" : string.Join(", ", feeds.Keys))}.");
     }
 
     public IAsyncEnumerable<Candle> GetHistoricalCandlesAsync(

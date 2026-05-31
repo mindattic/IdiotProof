@@ -53,8 +53,13 @@ public sealed class PolygonDataFeed : IMarketDataFeed, IAsyncDisposable
             throw new InvalidOperationException("Polygon API key not configured.");
         if (string.IsNullOrWhiteSpace(symbol)) yield break;
 
-        var from = startUtc.ToString("yyyy-MM-dd");
-        var to = endUtc.ToString("yyyy-MM-dd");
+        // Use millisecond-epoch bounds, not date-only strings. A date-only `to` is
+        // interpreted by Polygon as the START of that day (midnight), so an intraday
+        // window like 13:00Z–20:00Z on the same day collapsed to from==to==that-date
+        // and dropped the entire session. Epoch-ms preserves the time-of-day for both
+        // daily and intraday requests.
+        var from = ((DateTimeOffset)DateTime.SpecifyKind(startUtc, DateTimeKind.Utc)).ToUnixTimeMilliseconds();
+        var to = ((DateTimeOffset)DateTime.SpecifyKind(endUtc, DateTimeKind.Utc)).ToUnixTimeMilliseconds();
         var (multiplier, timespan) = ToPolygonSpan(candleSize);
 
         var url = $"v2/aggs/ticker/{symbol}/range/{multiplier}/{timespan}/{from}/{to}?adjusted=true&sort=asc&limit=50000&apiKey={apiKey}";

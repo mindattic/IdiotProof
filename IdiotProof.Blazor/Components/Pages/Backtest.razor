@@ -1,0 +1,211 @@
+@page "/backtest"
+@page "/backtest/{StrategyId:guid}"
+@rendermode InteractiveServer
+@using IdiotProof.Blazor.Data
+@using IdiotProof.Blazor.Services
+@using IdiotProof.DataFeeds
+@using IdiotProof.Models
+@using IdiotProof.Scripting
+@using IdiotProof.Strategies.Backtesting
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+@attribute [Authorize]
+@inject StrategyRepository StrategyRepo
+@inject AuthenticationStateProvider AuthState
+
+@*
+    Backtest — replay a saved strategy over a previous day, bar by bar, to confirm the
+    triggers fired as designed and to see the resulting P&L. The replay runs the same
+    DSL conditions the live Monitor evaluates (StrategyBacktester reuses
+    IndicatorSnapshotBuilder + the condition .Evaluate path), so what you see here is
+    what the strategy would have done. Market data is simulated (MockDataFeed) unless a
+    real provider is wired — the banner makes that explicit so numbers aren't misread.
+*@
+
+<PageTitle>Backtest — IdiotProof</PageTitle>
+
+<section aria-labelledby="backtest-heading">
+    <h1 id="backtest-heading" class="h4 mb-3">
+        <i class="bi bi-clock-history me-2" style="color:var(--brand)" aria-hidden="true"></i>Backtest a previous day
+    </h1>
+
+    @if (loadError is not null)
+    {
+        <div class="alert alert-danger small" id="backtest-error">@loadError</div>
+    }
+
+    <div class="trading-card p-3 mb-3">
+        <div class="row g-3 align-items-end">
+            <div class="col-md-5">
+                <label class="form-label small text-muted" for="backtest-strategy">Strategy</label>
+                <select id="backtest-strategy" class="form-select" @bind="selectedStrategyId">
+                    <option value="">— select a strategy —</option>
+                    @foreach (var s in strategies)
+                    {
+                        <option value="@s.Id">@s.Title (@s.Symbol)</option>
+                    }
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label small text-muted" for="backtest-date">Trading day</label>
+                <input id="backtest-date" type="date" class="form-control" @bind="selectedDate" />
+            </div>
+            <div class="col-md-4">
+                <button id="backtest-run" class="btn btn-success w-100" type="button"
+                        @onclick="RunAsync" disabled="@(running || selectedStrategyId == Guid.Empty)">
+                    @if (running)
+                    {
+                        <span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span><span>Replaying…</span>
+                    }
+                    else
+                    {
+                        <i class="bi bi-play-fill me-1" aria-hidden="true"></i><span>Run backtest</span>
+                    }
+                </button>
+            </div>
+        </div>
+        <div class="text-muted small mt-2">
+            <i class="bi bi-info-circle me-1" aria-hidden="true"></i>
+            Market data is <strong>simulated</strong> (no live data provider is wired). Triggers and trade logic are exact;
+            the price series is synthetic, so treat the P&amp;L as a mechanics check, not a historical result.
+        </div>
+    </div>
+
+    @if (report is not null)
+    {
+        <div id="backtest-results">
+            @if (!string.IsNullOrEmpty(report.Note))
+            {
+                <div class="alert alert-warning small" id="backtest-note">@report.Note</div>
+            }
+
+            <div class="trading-card p-3 mb-3" id="backtest-summary">
+                <div class="d-flex flex-wrap gap-4">
+                    <div><div class="text-muted small">Symbol</div><div class="fw-semibold">@report.Symbol</div></div>
+                    <div><div class="text-muted small">Bars</div><div class="fw-semibold">@report.BarsProcessed</div></div>
+                    <div><div class="text-muted small">Triggers fired</div><div class="fw-semibold">@report.Triggers.Count</div></div>
+                    <div><div class="text-muted small">Trades</div><div class="fw-semibold">@report.TradeCount</div></div>
+                    <div><div class="text-muted small">Win rate</div><div class="fw-semibold">@($"{report.WinRate:P0}") (@report.Wins/@report.Losses)</div></div>
+                    <div>
+                        <div class="text-muted small">Total P&amp;L</div>
+                        <div class="fw-semibold @(report.TotalPnL >= 0 ? "text-success" : "text-danger")" id="backtest-pnl">
+                            @($"{report.TotalPnL:+0.00;-0.00;0.00}")
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            @if (report.NoTriggersFired)
+            {
+                <div class="trading-card p-4 text-center text-muted" id="backtest-no-triggers">
+                    <i class="bi bi-moon-stars fs-3 d-block mb-2" aria-hidden="true"></i>
+                    No entry condition fired on this day — the strategy would have stayed flat.
+                </div>
+            }
+
+            <div class="row g-3">
+                <div class="col-lg-6">
+                    <h2 class="h6 text-muted">Trigger timeline</h2>
+                    <ul class="list-unstyled mb-0" id="backtest-triggers">
+                        @foreach (var t in report.Triggers)
+                        {
+                            <li class="backtest-trigger d-flex align-items-center gap-2 py-1 border-bottom">
+                                <span class="text-muted small" style="width:5.5rem">@t.Utc.ToString("HH:mm:ss")</span>
+                                <code class="small flex-grow-1">@t.Condition</code>
+                                <span class="small">@($"{t.Price:0.00}")</span>
+                                @if (t.OpenedPosition)
+                                {
+                                    <span class="strategy-chip long-chip"><i class="bi bi-box-arrow-in-down me-1" aria-hidden="true"></i>entry</span>
+                                }
+                            </li>
+                        }
+                    </ul>
+                </div>
+                <div class="col-lg-6">
+                    <h2 class="h6 text-muted">Trades</h2>
+                    <table class="table table-sm" id="backtest-trades">
+                        <thead>
+                            <tr><th>#</th><th>Entry</th><th>Exit</th><th class="text-end">Qty</th><th class="text-end">P&amp;L</th></tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var tr in report.Trades)
+                            {
+                                <tr class="backtest-trade">
+                                    <td>@tr.Cycle</td>
+                                    <td>@tr.EntryUtc.ToString("HH:mm") @($"{tr.EntryPrice:0.00}")</td>
+                                    <td>@tr.ExitReason @($"{(tr.Exits.Count > 0 ? tr.Exits[^1].Price : 0m):0.00}")</td>
+                                    <td class="text-end">@tr.Quantity</td>
+                                    <td class="text-end @(tr.PnL >= 0 ? "text-success" : "text-danger")">@($"{tr.PnL:+0.00;-0.00;0.00}")</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    }
+</section>
+
+@code {
+    [Parameter] public Guid? StrategyId { get; set; }
+
+    private List<Strategy> strategies = new();
+    private Guid selectedStrategyId;
+    private DateTime selectedDate = DateTime.UtcNow.Date.AddDays(-1);
+    private bool running;
+    private string? loadError;
+    private BacktestReport? report;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var auth = await AuthState.GetAuthenticationStateAsync();
+            var userId = auth.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            if (userId is null) { loadError = "Sign in to run a backtest."; return; }
+
+            strategies = await StrategyRepo.GetAllForUserAsync(userId);
+            if (StrategyId is { } sid && strategies.Any(s => s.Id == sid))
+                selectedStrategyId = sid;
+        }
+        catch (Exception ex)
+        {
+            loadError = ex.Message;
+        }
+    }
+
+    private async Task RunAsync()
+    {
+        loadError = null;
+        report = null;
+        var strategy = strategies.FirstOrDefault(s => s.Id == selectedStrategyId);
+        if (strategy is null) { loadError = "Pick a strategy to backtest."; return; }
+
+        var def = ScriptParser.ParseScript(strategy.ScriptText);
+        if (def is null) { loadError = "Could not parse this strategy's script."; return; }
+
+        running = true;
+        try
+        {
+            var day = DateOnly.FromDateTime(selectedDate);
+            // Regular session window in UTC (≈ 09:30–16:00 ET).
+            var start = new DateTime(day.Year, day.Month, day.Day, 13, 30, 0, DateTimeKind.Utc);
+            var end = new DateTime(day.Year, day.Month, day.Day, 20, 0, 0, DateTimeKind.Utc);
+
+            var feed = new MockDataFeed();
+            var candles = new List<Candle>();
+            await foreach (var c in feed.GetHistoricalCandlesAsync(def.Symbol, start, end, TimeSpan.FromMinutes(1)))
+                candles.Add(c);
+
+            report = StrategyBacktester.Run(def, candles);
+        }
+        catch (Exception ex)
+        {
+            loadError = $"Backtest failed: {ex.Message}";
+        }
+        finally
+        {
+            running = false;
+        }
+    }
+}

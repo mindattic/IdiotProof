@@ -291,15 +291,18 @@ public sealed class StrategyExecutionService : BackgroundService
             // settings can only shrink the order, never grow it past Guardian.
             var qty = guardian.CalculateMaxQuantity(signal.SuggestedEntry, signal.SuggestedStop);
 
+            // Workspace caps can only shrink the order. Take the min unconditionally:
+            // a cap that rounds down to 0 shares means "this workspace forbids the
+            // trade" and must drive qty to 0 (caught by the qty<=0 gate below). The
+            // old `> 0` guard skipped a zero-allowance cap entirely, letting the looser
+            // Guardian-sized order through and breaching the workspace limit.
             var workspacePerTradeQty = (int)Math.Floor(tab.Settings.RiskLimits.MaxLossPerTrade / riskPerShare);
-            if (workspacePerTradeQty > 0 && workspacePerTradeQty < qty)
-                qty = workspacePerTradeQty;
+            qty = Math.Min(qty, workspacePerTradeQty);
 
             if (signal.SuggestedEntry > 0m)
             {
                 var notionalCapQty = (int)Math.Floor(tab.Settings.MaxPositionSize / signal.SuggestedEntry);
-                if (notionalCapQty > 0 && notionalCapQty < qty)
-                    qty = notionalCapQty;
+                qty = Math.Min(qty, notionalCapQty);
             }
 
             if (qty <= 0)

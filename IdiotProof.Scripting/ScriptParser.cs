@@ -19,7 +19,9 @@ public static class ScriptParser
     {
         if (string.IsNullOrWhiteSpace(text)) return null;
 
-        var tickerMatch = Regex.Match(text, "Ticker\\(\\s*\\\"([^\\\"]+)\\\"", RegexOptions.IgnoreCase);
+        // Accept both the quoted canonical form Ticker("NCI") emitted by the serializer
+        // and the unquoted Ticker(NCI) used in hand-authored scripts.
+        var tickerMatch = Regex.Match(text, "Ticker\\(\\s*\\\"?([^\\\"()\\s,]+)\\\"?", RegexOptions.IgnoreCase);
         if (!tickerMatch.Success) return null;
 
         var builder = Stock.Ticker(tickerMatch.Groups[1].Value);
@@ -90,6 +92,10 @@ public static class ScriptParser
             case "isshootingstar":     b.IsShootingStar(); break;
             case "isdoji":             b.IsDoji(); break;
 
+            // Patterns (breakout/pullback state-machine triggers)
+            case "breakout": b.Breakout(nums.Count >= 1 ? (double)nums[0] : null); break;
+            case "pullback": b.Pullback(nums.Count >= 1 ? (double)nums[0] : null); break;
+
             // Price levels
             case "holdsabove":  if (nums.Count >= 1) b.HoldsAbove((double)nums[0]); break;
             case "holdsbelow":  if (nums.Count >= 1) b.HoldsBelow((double)nums[0]); break;
@@ -99,9 +105,15 @@ public static class ScriptParser
             case "long":             b.Long(); break;
             case "short":            b.Short(); break;
             case "quantity":         if (nums.Count >= 1) b.Quantity((int)nums[0]); break;
+            case "quantityshares":   if (nums.Count >= 1) b.QuantityShares((int)nums[0]); break;
+            case "quantitynotional": if (nums.Count >= 1) b.QuantityNotional(nums[0]); break;
             case "stoploss":         if (nums.Count >= 1) b.StopLoss((double)nums[0]); break;
             case "stoplosspercent":  if (nums.Count >= 1) b.StopLossPercent((double)nums[0]); break;
-            case "takeprofit":       if (nums.Count >= 1) b.TakeProfit((double)nums[0]); break;
+            case "takeprofit":
+                if (nums.Count >= 3)      b.TakeProfit((double)nums[0], (double)nums[1], (double)nums[2]);
+                else if (nums.Count == 2) b.TakeProfit((double)nums[0], (double)nums[1]);
+                else if (nums.Count == 1) b.TakeProfit((double)nums[0]);
+                break;
             case "takeprofitpercent":if (nums.Count >= 1) b.TakeProfitPercent((double)nums[0]); break;
             case "trailingstoploss": if (nums.Count >= 1) b.TrailingStopLoss((double)nums[0]); break;
 

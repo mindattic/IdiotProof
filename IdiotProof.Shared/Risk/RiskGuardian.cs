@@ -267,11 +267,15 @@ public sealed class RiskGuardian
         var stopDistance = entryPrice * (stopPercent / 100m);
         var stopLoss = isLong ? entryPrice - stopDistance : entryPrice + stopDistance;
 
-        // Calculate quantity based on max loss
+        // Calculate quantity based on max loss. Floor at 0, not 1 — mirroring
+        // CalculateMaxQuantity. When the budget allows no shares (daily circuit
+        // breaker exhausted, or a single share already exceeds MaxLossPerTrade),
+        // forcing a minimum of 1 would hand back a "safe" size that knowingly
+        // breaches the cap. A zero risk-per-share (entry == stop, no protection)
+        // likewise yields 0, not a tradeable 1. Callers gate on quantity <= 0.
         var riskPerShare = stopDistance;
         var maxLoss = Math.Min(config.MaxLossPerTrade, GetRemainingDailyRisk());
-        var quantity = riskPerShare > 0m ? (int)Math.Floor(maxLoss / riskPerShare) : 1;
-        quantity = Math.Max(1, quantity);
+        var quantity = riskPerShare > 0m ? Math.Max(0, (int)Math.Floor(maxLoss / riskPerShare)) : 0;
 
         return (Math.Round(stopLoss, 2), quantity);
     }
