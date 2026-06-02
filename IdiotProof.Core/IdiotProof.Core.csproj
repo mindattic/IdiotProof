@@ -42,7 +42,7 @@
 
   <ItemGroup>
     <PackageReference Include="Google.Protobuf" Version="3.30.0" />
-    <PackageReference Include="MindAttic.Legion" Version="2.5.0" />
+    <PackageReference Include="MindAttic.Legion" Version="2.6.0" />
     <PackageReference Include="MindAttic.Vault" Version="0.3.0" />
   </ItemGroup>
 
