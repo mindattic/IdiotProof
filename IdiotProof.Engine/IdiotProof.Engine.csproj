@@ -10,8 +10,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="MindAttic.Legion" Version="2.6.0" />
-    <PackageReference Include="MindAttic.Vault" Version="0.3.0" />
+    <PackageReference Include="MindAttic.Legion" Version="3.0.0" />
+    <PackageReference Include="MindAttic.Vault" Version="1.0.0" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="*" />
   </ItemGroup>
 
