@@ -146,7 +146,7 @@ public sealed class LlmVotingService
         return result;
     }
 
-    private void CalculateWeightedConsensus(LlmVotingResult result, decimal consensusThreshold)
+    internal void CalculateWeightedConsensus(LlmVotingResult result, decimal consensusThreshold)
     {
         var personaWeights = TraderPersonas.All.ToDictionary(p => p.Name, p => p.Weight);
 
@@ -264,7 +264,7 @@ public sealed class LlmVotingService
         return sb.ToString();
     }
 
-    private static LlmVote? ParseVoteJson(string content)
+    internal static LlmVote? ParseVoteJson(string content)
     {
         try
         {

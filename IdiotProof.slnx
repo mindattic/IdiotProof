@@ -8,6 +8,8 @@
     <Project Path="IdiotProof.Strategies/IdiotProof.Strategies.csproj" />
   </Folder>
   <Folder Name="/tests/">
+    <Project Path="IdiotProof.Blazor.Tests/IdiotProof.Blazor.Tests.csproj" />
+    <Project Path="IdiotProof.Brokers.Tests/IdiotProof.Brokers.Tests.csproj" />
     <Project Path="IdiotProof.Engine.Tests/IdiotProof.Engine.Tests.csproj" />
     <Project Path="IdiotProof.Indicators.Tests/IdiotProof.Indicators.Tests.csproj" />
     <Project Path="IdiotProof.Strategies.Tests/IdiotProof.Strategies.Tests.csproj" />

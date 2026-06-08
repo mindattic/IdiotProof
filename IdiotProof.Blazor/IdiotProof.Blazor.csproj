@@ -6,7 +6,9 @@
     <RootNamespace>IdiotProof.Blazor</RootNamespace>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="Anthropic.SDK" Version="4.0.0" />
+    <InternalsVisibleTo Include="IdiotProof.Blazor.Tests" />
+  </ItemGroup>
+  <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" Version="9.0.*" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="9.0.*" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="9.0.*">

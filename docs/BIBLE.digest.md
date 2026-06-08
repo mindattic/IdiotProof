@@ -87,10 +87,10 @@ state (strategies, preferences, audit logs, condition progress) is SQL Server. N
 - **Sandbox broker** — the always-registered no-op broker that is the safe default in `BrokerRouter`.
 
 ## Status index (USER_STORIES.md)
-- done: 21
-- partial: 5
-- planned: 4
+- done: 22
+- partial: 4
+- planned: 5
 - cut: 1
 
 ## Latest amendment
-IP-A1 — The README/copilot narrative describes a graph that is not the built solution (supersedes —)
+IP-A2 — Out-of-solution trees deleted; README pruned to match `IdiotProof.slnx` (supersedes IP-A1 open question) {#IP-A2}

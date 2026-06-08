@@ -3,7 +3,7 @@ codex: 1
 project: IdiotProof
 code: IP
 layer: rfc
-status: planned
+status: resolved
 updated: 2026-06-07
 ---
 
@@ -27,9 +27,12 @@ See [IP-A1](../AMENDMENTS.md#IP-A1).
    removes the ambiguity, leaves `IdiotProof.slnx` as the single source of "what ships."
 
 ## Decision
-Deferred — flagged for the maintainer. Default for now (per [IP-A1](../AMENDMENTS.md#IP-A1)):
-treat the out-of-solution trees as legacy/dormant; canon and verified state track only
-`IdiotProof.slnx`.
+**Option 1 selected (2026-06-07).** All out-of-solution trees deleted:
+`IdiotProof.Core/`, `IdiotProof.Cli/`, `IdiotProof.Brokers.Ibkr/`,
+`IdiotProof.Core.UnitTests/`, `tests/IdiotProof.NUnitTests/`, `IdiotProof.Scripting.Tests/`,
+`src/`, and the loose `__rescue_*.cs` / `__rescue_*.idiot` files.
+The README's `Core`/`Web`/IBKR/NUnit narrative was pruned to match `IdiotProof.slnx`.
+See [IP-A2](../AMENDMENTS.md#IP-A2).
 
 ## What NOT to do
 - Do **not** cite out-of-solution code as "done" in [USER_STORIES.md](../USER_STORIES.md).

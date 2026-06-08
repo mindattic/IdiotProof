@@ -5,6 +5,7 @@ code: IP
 layer: stories
 status: living
 updated: 2026-06-07
+counts: {done: 19, partial: 3, planned: 0, cut: 0}
 ---
 
 # IdiotProof — User Stories
@@ -86,31 +87,38 @@ updated: 2026-06-07
 ## Epic E — Authoring & generation (web)
 - **IP-US-E1 🟡** As a trader, I describe a setup in prose and Claude generates valid IdiotScript
   via the Legion high-tier voter panel, with the verb catalog reflected from code so it can't
-  hallucinate syntax. *Built (`StrategyScriptGenerator`, `LlmVotingService`), but no automated
-  test runs in `IdiotProof.slnx`; the Cypress spec is ⬜.* — implements [IP-LAW-4](BIBLE.md#IP-LAW-4).
+  hallucinate syntax. *NUnit tests now cover the verb-catalog reflection law and voting consensus
+  logic (`StrategyScriptGeneratorTests`, `LlmVotingServiceTests` in `IdiotProof.Blazor.Tests`);
+  the Cypress describe→strategies round-trip spec is ⬜.* — implements [IP-LAW-4](BIBLE.md#IP-LAW-4).
 - **IP-US-E2 🟡** As a trader, I see live per-condition progress (`3/5 · IsOnReclaim(9)`) on the
-  Strategies page, polled from `ConditionProgress`. *Built in Blazor + Monitor; not covered by an
-  automated test in the solution.*
+  Strategies page, polled from `ConditionProgress`. *Built in Blazor + Monitor; no automated test
+  in the solution — MonitorWorker integration tests need a mocking harness or in-memory DB;
+  Cypress spec ⬜.*
 - **IP-US-E3 🟡** As a trader, paper is the default and live trading requires an explicit
-  red-outline confirmation. *Enforced by `BrokerRouter` Sandbox default ([IP-LAW-3](BIBLE.md#IP-LAW-3),
-  verified indirectly) + the Blazor confirmation modal (UI, no automated test).*
+  red-outline confirmation. *`BrokerRouter` Sandbox default now directly verified by
+  `BrokerRouterTests` in `IdiotProof.Brokers.Tests` ([IP-LAW-3](BIBLE.md#IP-LAW-3)); the
+  live/paper confirmation modal (UI, Cypress spec ⬜).*
 
 ## Epic F — Doc/graph reconciliation
-- **IP-US-F1 🟡** As a maintainer, the canon docs describe the project graph that actually builds,
-  and the divergent `Core`/`Web`/IBKR narrative is explicitly marked legacy. *Captured by
-  [IP-A1](AMENDMENTS.md#IP-A1) + [RFC 0001](rfc/0001-core-tree-reconciliation.md); the actual
-  disposition of the out-of-solution `IdiotProof.Core` tree is still ⬜.*
+- **IP-US-F1 ✅** As a maintainer, the canon docs describe the project graph that actually builds,
+  and the divergent `Core`/`Web`/IBKR narrative is gone. *[RFC 0001](rfc/0001-core-tree-reconciliation.md)
+  resolved 2026-06-07: all out-of-solution trees deleted, README pruned to match `IdiotProof.slnx`.
+  (verified by: `dotnet build IdiotProof.slnx` → 0 errors; `dotnet test IdiotProof.slnx` → 82/0;
+  confirmed by [IP-A2](AMENDMENTS.md#IP-A2))*
 
 ## Priority backlog
 1. **IP-US-F1** — decide the fate of the out-of-solution `IdiotProof.Core` tree (delete vs adopt
    vs separate solution); unblocks honest "what is the build" answers. (RFC 0001)
-2. **IP-US-E1 / E2 / E3** — add automated coverage (NUnit for the generator/voting path; Cypress
-   for the Describe → Strategies round-trip and the live/paper confirmation) to graduate to ✅.
-3. **Epic G (⬜) — Strategy ghost overlay + branching visualization** (from `TODO.md`): chart
+2. **IP-US-E1 / E2 / E3** — NUnit backend coverage added (2026-06-07). Remaining: Cypress specs
+   for the Describe → Strategies round-trip, the live/paper confirmation modal, and the live
+   condition-progress badge to graduate all three to ✅.
+3. **IP-US-E2** — MonitorWorker integration tests (mocking harness or in-memory EF DB) to cover
+   the condition-progress upsert path independently of Cypress.
+4. **Epic G (⬜) — Strategy ghost overlay + branching visualization** (from `TODO.md`): chart
    integration, simulator evaluation timeline, branch-fork rendering, scrub/playback.
-4. **Engine adoption of SQL workspaces** — switch `WorkspaceManager` from JSON-on-disk to the SQL
+5. **Engine adoption of SQL workspaces** — switch `WorkspaceManager` from JSON-on-disk to the SQL
    `WorkspaceRepository` + one-shot importer.
-5. **Roslyn-based IdiotScript parser** — exact line/col diagnostics replacing the regex parser.
+6. **Roslyn-based IdiotScript parser** — exact line/col diagnostics replacing the regex parser.
 
 ### Audit log
 No prior `user_stories.md` existed in this repo; these stories were authored fresh from the

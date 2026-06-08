@@ -63,7 +63,7 @@ public sealed class StrategyScriptGenerator(LegionClient legion, AppSettings app
     /// <see cref="StrategyBuilder"/> + every public static member on
     /// <see cref="Conditions"/> to keep the catalog in sync with the codebase.
     /// </summary>
-    private static string BuildSystemPrompt()
+    internal static string BuildSystemPrompt()
     {
         var sb = new StringBuilder();
         sb.AppendLine("You translate plain-English trading strategy descriptions into IdiotScript.");
@@ -157,7 +157,7 @@ public sealed class StrategyScriptGenerator(LegionClient legion, AppSettings app
     /// Strip Markdown code fences (```csharp ... ```) that some Claude responses
     /// wrap around the chain even when told not to. Idempotent for clean output.
     /// </summary>
-    private static string StripCodeFence(string content)
+    internal static string StripCodeFence(string content)
     {
         var trimmed = content.Trim();
         if (!trimmed.StartsWith("```")) return trimmed;

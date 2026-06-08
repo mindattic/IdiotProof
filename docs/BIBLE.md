@@ -85,12 +85,10 @@ LLM voter panel approves, and the Risk Guardian clears it.
         └───────────────────────────────┘        └───────────────────────────┘
 ```
 
-> **Scope note.** This canon describes the projects actually in `IdiotProof.slnx`. A large
-> `IdiotProof.Core` tree (Calculators/, Services/, Strategy/, FutureState/, Documentation/*.htm),
-> `IdiotProof.Cli`, `IdiotProof.Brokers.Ibkr`, `tests/IdiotProof.NUnitTests`, and
-> `IdiotProof.Scripting.Tests` exist on disk but are **not** referenced by `IdiotProof.slnx` and
-> do not build/test as part of the solution — treated as legacy/dormant. See
-> [IP-A1](AMENDMENTS.md#IP-A1).
+> **Scope note.** This canon describes the projects in `IdiotProof.slnx`. All formerly dormant
+> out-of-solution trees (`IdiotProof.Core`, `IdiotProof.Cli`, `IdiotProof.Brokers.Ibkr`,
+> `tests/IdiotProof.NUnitTests`, `IdiotProof.Scripting.Tests`, `src/`) were deleted 2026-06-07
+> per [IP-A2](AMENDMENTS.md#IP-A2); recoverable from git history if needed.
 
 ### 4.1 Projects (in `IdiotProof.slnx`)
 | Project | Role |
@@ -176,25 +174,27 @@ state (strategies, preferences, audit logs, condition progress) is SQL Server. N
 ## 6. Verified state {#IP-§6}
 Build/test evidence (recorded 2026-06-07, .NET 10 SDK, `IdiotProof.slnx`):
 
-- **Build:** `dotnet build IdiotProof.slnx -c Debug` → **Build succeeded**, 0 errors, 4 nullability warnings.
-- **Tests:** `dotnet test IdiotProof.slnx -c Debug` → **all green, 53 passed / 0 failed** across the
-  three solution test projects:
+- **Build:** `dotnet build IdiotProof.slnx -c Debug` → **Build succeeded**, 0 errors, 4 nullability warnings (pre-existing CS8629 in `IdiotProof.Scripting/IdiotScript.cs`).
+- **Tests:** `dotnet test IdiotProof.slnx -c Debug` → **all green, 82 passed / 0 failed** across the
+  five solution test projects:
   - `IdiotProof.Engine.Tests` — 22 passed (RiskGuardian gate + SupervisedLoop resilience).
   - `IdiotProof.Indicators.Tests` — 15 passed (RSI/EMA/ATR/MACD/VWAP math).
   - `IdiotProof.Strategies.Tests` — 16 passed (DSL round-trip, backtester, registry).
+  - `IdiotProof.Brokers.Tests` — 8 passed (BrokerRouter Sandbox default + safe fallback).
+  - `IdiotProof.Blazor.Tests` — 21 passed (StrategyScriptGenerator verb-catalog reflection +
+    LlmVotingService consensus logic + JSON vote parsing).
 
 Proven-working subsystems: the Risk Guardian gate, the SupervisedLoop fault-tolerance, the core
-indicator math, IdiotScript build/round-trip, and the DSL backtester. See
-[USER_STORIES.md](USER_STORIES.md) for the per-capability test citations.
+indicator math, IdiotScript build/round-trip, the DSL backtester, BrokerRouter Sandbox-first
+routing ([IP-LAW-3](BIBLE.md#IP-LAW-3)), and the LLM system-prompt verb-catalog reflection law
+([IP-LAW-4](BIBLE.md#IP-LAW-4)). See [USER_STORIES.md](USER_STORIES.md) for per-capability
+test citations.
 
-Not proven by the solution build/test: the Blazor UI flows, the LLM voting gate, the Cypress
-E2E suite, and everything under the out-of-solution `IdiotProof.Core` tree (see
+Not proven by the solution build/test: the Blazor UI flows, the LLM voting round-trip, the
+Cypress E2E suite, and everything under the out-of-solution `IdiotProof.Core` tree (see
 [IP-A1](AMENDMENTS.md#IP-A1)). Those are 🟡/⬜ in the stories.
 
 ## 7. Active frontier {#IP-§7}
-- **Reconcile docs to the real graph** — [IP-A1](AMENDMENTS.md#IP-A1) and
-  [RFC 0001](rfc/0001-core-tree-reconciliation.md): decide the fate of the out-of-solution
-  `IdiotProof.Core` tree and the `Core`/`Web` narrative in the README.
 - **Strategy ghost overlay + branching visualization** — see `TODO.md`: chart integration,
   simulator timeline, branch fork rendering. (Epic D in the stories, all ⬜.)
 - **Engine adoption of SQL workspaces** — migration shipped; switching the JSON-on-disk

@@ -45,7 +45,7 @@ IdiotProof is two things in one repo:
 - **A Blazor Server web app** (`IdiotProof.Blazor`) where traders author strategies — visual flowcharts, raw IdiotScript fluent text, or plain-English descriptions handed to Claude.
 - **A standalone console monitor** (`IdiotProof.Monitor`) that runs unattended, loads every active strategy from SQL, evaluates them per-condition each tick, and emits trade signals — so the trader doesn't have to be at the computer at 4 AM ET when their setup fires.
 
-It is **Alpaca-only** in the active build (the IBKR adapter sits dormant in `IdiotProof.Brokers.Ibkr/`, ready to plug back in via the `IBrokerClient` abstraction).
+It is **Alpaca-only** in the active build. A new broker plugs in by implementing `IBrokerClient` and registering with `BrokerRouter`.
 
 ---
 
@@ -111,17 +111,19 @@ It is **Alpaca-only** in the active build (the IBKR adapter sits dormant in `Idi
 | `IdiotProof.Blazor` | Web UI — Strategies page, Strategy Builder (Guided/Script/Describe), Learning Center, Settings, API Keys. ASP.NET Core Identity + Entity Framework Core for SQL Server. |
 | `IdiotProof.Monitor` | Console host that loads active strategies and evaluates them on a fixed cadence. Logs `N/M conditions met — waiting on Foo` per pass. |
 | `IdiotProof.Engine` | DI registration root. AppSettings load/overlay chain, BrokerCredentialStore, BrokerRouter, MarketDataFeed registration, AuditLogger, WorkspaceManager. |
-| `IdiotProof.Brokers` | `IBrokerClient` abstraction + `AlpacaBrokerClient` + `SandboxBrokerClient` + `BrokerRouter`. Sandbox is always registered as the safe fallback. |
-| `IdiotProof.Brokers.Ibkr` | **Dormant.** Not in `.sln`. Re-add to enable IBKR. |
+| `IdiotProof.Brokers` | `IBrokerClient` abstraction + `AlpacaBrokerClient` + `SandboxBrokerClient` + `BrokerRouter`. Sandbox is always the safe default. |
 | `IdiotProof.DataFeeds` | `IMarketDataFeed`: `PolygonDataFeed`, `MockDataFeed`, `SwitchableMarketDataFeed`. |
 | `IdiotProof.Indicators` | Pure indicator math: ADX, ATR, Bollinger, EMA, MACD, RSI, SMA, Stochastic, VWAP, plus `CandlestickPatterns`. |
 | `IdiotProof.Scripting` | `StrategyDefinition` + `StrategyBuilder` + the `Conditions` static catalog + condition algebra (`.And/.Or/.Not`). The IdiotScript DSL itself. |
-| `IdiotProof.Strategies` | `IStrategy` interface, built-in strategies (ItiStrategy, etc.), `DslStrategy` adapter, `IndicatorSnapshotBuilder`. |
+| `IdiotProof.Strategies` | `IStrategy` interface, `DslStrategy` adapter, `IndicatorSnapshotBuilder`, `StrategyBacktester`. |
 | `IdiotProof.Models` | Domain DTOs: `Candle`, `TradeSignal`, `Position`, etc. |
-| `IdiotProof.Shared` | `IndicatorSnapshot` + cross-cutting helpers. |
-| `IdiotProof.Cli` | Spectre.Console CLI (`idiotproof signal AAPL`, `positions`, `run`). |
-| `tests/IdiotProof.NUnitTests` | NUnit tests for the new DSL surface, indicator pipeline, candlestick patterns, wikilink parser, DslStrategy adapter. |
-| `tests/IdiotProof.Cypress` | End-to-end Cypress tests for the Blazor UI. |
+| `IdiotProof.Shared` | `RiskGuardian`, `IndicatorSnapshot`, cross-cutting helpers. |
+| `IdiotProof.Engine.Tests` | RiskGuardian gate + SupervisedLoop resilience (NUnit). |
+| `IdiotProof.Indicators.Tests` | RSI / EMA / ATR / MACD / VWAP math (NUnit). |
+| `IdiotProof.Strategies.Tests` | DSL round-trip, backtester, registry (NUnit). |
+| `IdiotProof.Brokers.Tests` | BrokerRouter Sandbox default + safe fallback (NUnit). |
+| `IdiotProof.Blazor.Tests` | StrategyScriptGenerator verb-catalog reflection + LlmVotingService consensus logic (NUnit). |
+| `tests/IdiotProof.Cypress` | End-to-end Cypress tests for the Blazor UI (planned). |
 
 ---
 
@@ -473,7 +475,7 @@ git clone <repo>
 cd IdiotProof
 
 # Restore + build
-dotnet build IdiotProof.sln
+dotnet build IdiotProof.slnx
 
 # Apply migrations to LocalDB (creates the IdiotProof database)
 dotnet ef database update --project IdiotProof.Blazor
@@ -499,23 +501,21 @@ dotnet run --project IdiotProof.Monitor
 
 ## 13. Tests
 
-### NUnit (backend)
+### NUnit (backend) — run all five test projects at once
 
 ```bash
-dotnet test tests/IdiotProof.NUnitTests
+dotnet test IdiotProof.slnx
 ```
 
-Coverage:
+| Project | Count | Coverage |
+|---|---|---|
+| `IdiotProof.Engine.Tests` | 22 | RiskGuardian gate, SupervisedLoop fault-tolerance |
+| `IdiotProof.Indicators.Tests` | 15 | RSI / EMA / ATR / MACD / VWAP math |
+| `IdiotProof.Strategies.Tests` | 16 | DSL round-trip, backtester, StrategyRegistry |
+| `IdiotProof.Brokers.Tests` | 8 | BrokerRouter Sandbox default + safe fallback |
+| `IdiotProof.Blazor.Tests` | 21 | StrategyScriptGenerator verb-catalog reflection, LlmVotingService consensus logic + JSON parsing |
 
-- **DslConditionTests** — every new condition verb (VWAP/EMA/ADX/RSI/Volume/Support/Resistance) + the `.And/.Or/.Not` algebra + phase tagging
-- **CandlestickPatternsTests** — engulfing/hammer/shooting-star/doji + zero-range edge cases
-- **IndicatorSnapshotBuilderTests** — empty input, ramp data, EMA dictionary, prior fields, ADX/RSI/swing levels
-- **WikilinkParserTests** — text passthrough, single/multi wikilinks, unparseable fallback, full chain parse
-- **DslStrategyTests** — symbol mismatch, no candles, all-pass signal emission, stop/target propagation, type tagging
-- **QuantityTests** — share/notional overload mutual exclusion, alias parity, default behavior
-- **AppSettingsCredentialOverlayTests** — the `MindAttic.Vault`-fronted overlay chain that resolves API keys for Legion
-
-### Cypress (frontend)
+### Cypress (frontend, planned)
 
 ```bash
 cd tests/IdiotProof.Cypress
@@ -524,11 +524,7 @@ npm run open    # interactive
 npm run ci      # headless
 ```
 
-Specs cover the public Learning Center renders (including wikilink-embedded strategies actually appearing as phase cards) and the authenticated Describe-tab → Strategies-page round-trip with a stubbed Legion call.
-
-### Existing xUnit (preserved)
-
-The legacy `IdiotProof.Scripting.Tests`, `IdiotProof.Strategies.Tests`, `IdiotProof.Indicators.Tests`, `IdiotProof.Engine.Tests` xUnit projects still pass and run via `dotnet test IdiotProof.sln`. The new NUnit project is additive — no test was rewritten.
+Planned specs: describe-tab → strategies round-trip (with stubbed Legion call), live/paper confirmation modal, condition-progress badge polling.
 
 ---
 
@@ -536,35 +532,34 @@ The legacy `IdiotProof.Scripting.Tests`, `IdiotProof.Strategies.Tests`, `IdiotPr
 
 ```
 IdiotProof/
-├── IdiotProof.sln
+├── IdiotProof.slnx                          ← Active solution
 ├── legion.json                              ← Legion voter panel (high tier)
 ├── CLAUDE.md                                ← Project rules for AI tooling
 ├── README.md                                ← You are here
 │
 ├── IdiotProof.Models/                       ← Domain DTOs
-├── IdiotProof.Shared/                       ← IndicatorSnapshot
+├── IdiotProof.Shared/                       ← RiskGuardian, IndicatorSnapshot
 ├── IdiotProof.Indicators/                   ← Pure indicator math + CandlestickPatterns
 ├── IdiotProof.Scripting/                    ← IdiotScript DSL
-├── IdiotProof.Strategies/                   ← IStrategy, DslStrategy adapter, IndicatorSnapshotBuilder
+├── IdiotProof.Strategies/                   ← IStrategy, DslStrategy adapter, IndicatorSnapshotBuilder, Backtester
 ├── IdiotProof.DataFeeds/                    ← IMarketDataFeed (Polygon, Mock)
-├── IdiotProof.Brokers/                      ← Alpaca + Sandbox + IBrokerClient
-├── IdiotProof.Brokers.Ibkr/                 ← Dormant — not in .sln
-├── IdiotProof.Engine/                       ← DI root, AppSettings, BrokerCredentialStore
+├── IdiotProof.Brokers/                      ← Alpaca + Sandbox + IBrokerClient + BrokerRouter
+├── IdiotProof.Engine/                       ← DI root, AppSettings, BrokerCredentialStore, SupervisedLoop
 ├── IdiotProof.Blazor/                       ← Web app (the front door)
 │   ├── Data/                                ← AppDbContext, Strategy, UserPreferences, LearningArticle
-│   ├── Migrations/                          ← EF migrations: InitialSqlServer, AddUserPreferences, AddLearningArticles, AddSettingsWorkspacesAuditLog, AddConditionProgress
-│   ├── Services/                            ← StrategyScriptGenerator, WikilinkParser, repositories (Strategy / Workspace / Settings / AuditLog / UserPreferences / ConditionProgress)
+│   ├── Migrations/                          ← EF migrations
+│   ├── Services/                            ← StrategyScriptGenerator, LlmVotingService, repositories
 │   ├── Components/Pages/                    ← Strategies.razor, StrategyBuilder.razor, Learn.razor, ...
 │   ├── Components/Shared/                   ← AccountPill.razor, StrategyBuilderRenderer.razor, WikiContent.razor
 │   └── wwwroot/css/_theme-alpaca.css
-├── IdiotProof.Cli/                          ← Spectre CLI
 ├── IdiotProof.Monitor/                      ← 24/7 evaluator console
+├── IdiotProof.Engine.Tests/                 ← RiskGuardian + SupervisedLoop (NUnit)
+├── IdiotProof.Indicators.Tests/             ← Indicator math (NUnit)
+├── IdiotProof.Strategies.Tests/             ← DSL round-trip + backtester (NUnit)
+├── IdiotProof.Brokers.Tests/                ← BrokerRouter (NUnit)
+├── IdiotProof.Blazor.Tests/                 ← StrategyScriptGenerator + LlmVotingService (NUnit)
 └── tests/
-    ├── IdiotProof.NUnitTests/               ← NUnit suite — DSL, candle patterns, wikilink parser, Vault overlay
-    ├── IdiotProof.Engine.Tests/             ← Legacy xUnit (kept; runs alongside the NUnit suite)
-    ├── IdiotProof.Indicators.Tests/         ← Legacy xUnit
-    ├── IdiotProof.Strategies.Tests/         ← Legacy xUnit
-    └── IdiotProof.Cypress/                  ← End-to-end UI tests
+    └── IdiotProof.Cypress/                  ← End-to-end UI tests (planned)
 ```
 
 ---
@@ -581,7 +576,7 @@ IdiotProof/
 
 - Backtesting harness with the same DSL strategies.
 - Strategy sharing / template marketplace.
-- IBKR adapter re-enable (re-add `IdiotProof.Brokers.Ibkr` to `.sln`).
+- IBKR adapter (implement `IBrokerClient` + register via `BrokerRouter` if IBKR support is needed).
 - Mobile app shell (MAUI or React Native) reading the same SQL Strategies.
 
 ---
