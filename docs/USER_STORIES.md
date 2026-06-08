@@ -4,7 +4,7 @@ project: IdiotProof
 code: IP
 layer: stories
 status: living
-updated: 2026-06-07
+updated: 2026-06-08
 counts: {done: 19, partial: 3, planned: 0, cut: 0}
 ---
 
@@ -87,17 +87,23 @@ counts: {done: 19, partial: 3, planned: 0, cut: 0}
 ## Epic E — Authoring & generation (web)
 - **IP-US-E1 🟡** As a trader, I describe a setup in prose and Claude generates valid IdiotScript
   via the Legion high-tier voter panel, with the verb catalog reflected from code so it can't
-  hallucinate syntax. *NUnit tests now cover the verb-catalog reflection law and voting consensus
-  logic (`StrategyScriptGeneratorTests`, `LlmVotingServiceTests` in `IdiotProof.Blazor.Tests`);
-  the Cypress describe→strategies round-trip spec is ⬜.* — implements [IP-LAW-4](BIBLE.md#IP-LAW-4).
+  hallucinate syntax. *Backend verified by `StrategyScriptGeneratorTests` (verb-catalog reflection)
+  and `LlmVotingServiceTests` (voting consensus) in `IdiotProof.Blazor.Tests`. E2E:
+  `tests/IdiotProof.Cypress/cypress/e2e/02_strategies_describe.cy.ts` covers the
+  describe-tab → generate → save → `/strategies` round-trip (intercepts the LLM call with
+  a stub). Cypress suite must be run against a live server to mark this story done.* — implements
+  [IP-LAW-4](BIBLE.md#IP-LAW-4).
 - **IP-US-E2 🟡** As a trader, I see live per-condition progress (`3/5 · IsOnReclaim(9)`) on the
   Strategies page, polled from `ConditionProgress`. *Built in Blazor + Monitor; no automated test
-  in the solution — MonitorWorker integration tests need a mocking harness or in-memory DB;
-  Cypress spec ⬜.*
+  in the solution — MonitorWorker integration tests need a mocking harness or in-memory EF DB.
+  Cypress spec for the live badge: `tests/IdiotProof.Cypress/cypress/e2e/01_smoke.cy.ts`
+  verifies the Strategies page renders; a dedicated condition-progress badge spec remains ⬜.*
 - **IP-US-E3 🟡** As a trader, paper is the default and live trading requires an explicit
-  red-outline confirmation. *`BrokerRouter` Sandbox default now directly verified by
-  `BrokerRouterTests` in `IdiotProof.Brokers.Tests` ([IP-LAW-3](BIBLE.md#IP-LAW-3)); the
-  live/paper confirmation modal (UI, Cypress spec ⬜).*
+  red-outline confirmation. *`BrokerRouter` Sandbox default verified by `BrokerRouterTests`
+  in `IdiotProof.Brokers.Tests` ([IP-LAW-3](BIBLE.md#IP-LAW-3)). E2E:
+  `tests/IdiotProof.Cypress/cypress/e2e/03_api_keys.cy.ts` covers the Paper-checked default,
+  the live-trading confirmation modal, Cancel keeps Paper, Confirm flips to Live with danger
+  banner. Cypress suite must be run against a live server to mark this story done.*
 
 ## Epic F — Doc/graph reconciliation
 - **IP-US-F1 ✅** As a maintainer, the canon docs describe the project graph that actually builds,
@@ -107,18 +113,13 @@ counts: {done: 19, partial: 3, planned: 0, cut: 0}
   confirmed by [IP-A2](AMENDMENTS.md#IP-A2))*
 
 ## Priority backlog
-1. **IP-US-F1** — decide the fate of the out-of-solution `IdiotProof.Core` tree (delete vs adopt
-   vs separate solution); unblocks honest "what is the build" answers. (RFC 0001)
-2. **IP-US-E1 / E2 / E3** — NUnit backend coverage added (2026-06-07). Remaining: Cypress specs
-   for the Describe → Strategies round-trip, the live/paper confirmation modal, and the live
-   condition-progress badge to graduate all three to ✅.
-3. **IP-US-E2** — MonitorWorker integration tests (mocking harness or in-memory EF DB) to cover
-   the condition-progress upsert path independently of Cypress.
-4. **Epic G (⬜) — Strategy ghost overlay + branching visualization** (from `TODO.md`): chart
+1. **IP-US-E1 / E3** — Cypress specs exist (`02_strategies_describe.cy.ts`, `03_api_keys.cy.ts`).
+   Run `npm run cypress:run` against a live Blazor server to prove them green and mark done.
+2. **IP-US-E2** — MonitorWorker integration tests (mocking harness or in-memory EF DB) to cover
+   the condition-progress upsert path. A dedicated Cypress condition-progress badge spec remains ⬜.
+3. **Epic G (⬜) — Strategy ghost overlay + branching visualization** (from `TODO.md`): chart
    integration, simulator evaluation timeline, branch-fork rendering, scrub/playback.
-5. **Engine adoption of SQL workspaces** — switch `WorkspaceManager` from JSON-on-disk to the SQL
-   `WorkspaceRepository` + one-shot importer.
-6. **Roslyn-based IdiotScript parser** — exact line/col diagnostics replacing the regex parser.
+4. **Roslyn-based IdiotScript parser** — exact line/col diagnostics replacing the regex parser.
 
 ### Audit log
 No prior `user_stories.md` existed in this repo; these stories were authored fresh from the

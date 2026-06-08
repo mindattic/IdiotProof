@@ -4,7 +4,7 @@ project: IdiotProof
 code: IP
 layer: amendments
 status: living
-updated: 2026-06-07
+updated: 2026-06-08
 ---
 
 # IdiotProof — Amendments (append-only; amendment wins over the bible)
@@ -45,3 +45,19 @@ are no longer any out-of-solution sibling projects at the repo root. The five te
 the solution (Engine, Indicators, Strategies, Brokers, Blazor) are the complete test surface.
 This amendment closes the open question in [IP-A1](#IP-A1) and marks
 [IP-US-F1](USER_STORIES.md) as ✅.
+
+## IP-A3 — SQL-backed workspace store adopted in Blazor host; JSON-on-disk demoted to fallback {#IP-A3}
+**What changed.** `SqlWorkspaceStore` (`IdiotProof.Blazor/Services/SqlWorkspaceStore.cs`) now
+implements `IWorkspaceStore` backed by the `Workspaces` SQL table. It is registered in
+`Program.cs` before `AddIdiotProofEngine` so it wins over the JSON-on-disk `TryAddSingleton`
+default in the engine. The `Workspaces` table was re-created by migration
+`20260608042532_RestoreWorkspaces` (it had been dropped in `TrimUiCruftSchema`). The JSON store
+remains as a one-shot import path: on first load for a user, if SQL has no rows but disk files
+exist, `SqlWorkspaceStore` copies them into SQL so existing workspaces migrate transparently.
+
+**Why.** Workspace tabs are runtime state, not static config — [IP-LAW-7](BIBLE.md#IP-LAW-7)
+requires them in SQL. The JSON-on-disk path was a temporary default; the Blazor host was always
+intended to override it once the SQL store existed.
+
+**Effect on canon.** [BIBLE §7](BIBLE.md#IP-§7) "Engine adoption of SQL workspaces" frontier item
+is resolved. [IP-LAW-7](BIBLE.md#IP-LAW-7) is now fully enforced for workspace state.

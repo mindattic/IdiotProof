@@ -12,9 +12,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options)
     public DbSet<SettingsKv>      SettingsKv       => Set<SettingsKv>();
     public DbSet<AuditLog>        AuditLogs        => Set<AuditLog>();
     public DbSet<ConditionProgress> ConditionProgress => Set<ConditionProgress>();
-    // LearningArticle + Workspace DbSets removed with the UI cruft sweep. The
-    // tables still exist in the database from prior migrations; rebuild them
-    // via a fresh migration if the concepts ever return.
+    public DbSet<WorkspaceRow> Workspaces => Set<WorkspaceRow>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -72,6 +70,15 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options)
             e.HasOne<Strategy>()
                 .WithOne()
                 .HasForeignKey<ConditionProgress>(p => p.StrategyId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<WorkspaceRow>(e =>
+        {
+            e.HasIndex(w => w.OwnerUserId);
+            e.HasOne<AppUser>()
+                .WithMany()
+                .HasForeignKey(w => w.OwnerUserId)
                 .OnDelete(DeleteBehavior.Cascade);
         });
 

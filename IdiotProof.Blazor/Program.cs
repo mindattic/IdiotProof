@@ -103,9 +103,13 @@ builder.Services.AddCascadingAuthenticationState();
 builder.Services.AddDataProtection();
 
 // ── Engine ───────────────────────────────────────────────────────────────────────
-// AddIdiotProofEngine registers WorkspaceManager + a default IWorkspaceStore.
-// We no longer surface workspaces in the UI, but the engine still wires the
-// types — they sit unused until/unless a workspace concept comes back.
+// Register the SQL-backed workspace store before AddIdiotProofEngine so the
+// TryAddSingleton inside the engine picks it up instead of the JSON-on-disk default.
+builder.Services.AddSingleton<IdiotProof.Engine.Workspace.IWorkspaceStore>(sp =>
+    new IdiotProof.Blazor.Services.SqlWorkspaceStore(
+        sp.GetRequiredService<IDbContextFactory<AppDbContext>>(),
+        storageProvider));
+
 builder.Services.AddIdiotProofEngine(storageProvider, builder.Configuration);
 
 // ── SignalR ───────────────────────────────────────────────────────────────────────

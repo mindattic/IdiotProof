@@ -4,7 +4,7 @@ project: IdiotProof
 code: IP
 layer: bible
 status: living
-updated: 2026-06-07
+updated: 2026-06-08
 ---
 
 # IdiotProof — Project Bible
@@ -172,9 +172,11 @@ Static catalogs (watchlists, indicator/strategy config, ticker profiles) are JSO
 state (strategies, preferences, audit logs, condition progress) is SQL Server. No Python, no YAML.
 
 ## 6. Verified state {#IP-§6}
-Build/test evidence (recorded 2026-06-07, .NET 10 SDK, `IdiotProof.slnx`):
+Build/test evidence (recorded 2026-06-08, .NET 10 SDK, `IdiotProof.slnx`):
 
-- **Build:** `dotnet build IdiotProof.slnx -c Debug` → **Build succeeded**, 0 errors, 4 nullability warnings (pre-existing CS8629 in `IdiotProof.Scripting/IdiotScript.cs`).
+- **Build:** `dotnet build IdiotProof.slnx -c Debug` → **Build succeeded**, 0 errors, 4 nullability
+  warnings (pre-existing: CS8619 in `IdiotProof.DataFeeds/MockDataFeed.cs`, CS8629 ×3 in
+  `IdiotProof.Scripting/IdiotScript.cs`).
 - **Tests:** `dotnet test IdiotProof.slnx -c Debug` → **all green, 82 passed / 0 failed** across the
   five solution test projects:
   - `IdiotProof.Engine.Tests` — 22 passed (RiskGuardian gate + SupervisedLoop resilience).
@@ -186,21 +188,22 @@ Build/test evidence (recorded 2026-06-07, .NET 10 SDK, `IdiotProof.slnx`):
 
 Proven-working subsystems: the Risk Guardian gate, the SupervisedLoop fault-tolerance, the core
 indicator math, IdiotScript build/round-trip, the DSL backtester, BrokerRouter Sandbox-first
-routing ([IP-LAW-3](BIBLE.md#IP-LAW-3)), and the LLM system-prompt verb-catalog reflection law
-([IP-LAW-4](BIBLE.md#IP-LAW-4)). See [USER_STORIES.md](USER_STORIES.md) for per-capability
-test citations.
+routing ([IP-LAW-3](BIBLE.md#IP-LAW-3)), the LLM system-prompt verb-catalog reflection law
+([IP-LAW-4](BIBLE.md#IP-LAW-4)), and the SQL-backed `SqlWorkspaceStore` (registered in the Blazor
+host before the engine; one-shot JSON import on first user load). See
+[USER_STORIES.md](USER_STORIES.md) for per-capability test citations.
 
-Not proven by the solution build/test: the Blazor UI flows, the LLM voting round-trip, the
-Cypress E2E suite, and everything under the out-of-solution `IdiotProof.Core` tree (see
-[IP-A1](AMENDMENTS.md#IP-A1)). Those are 🟡/⬜ in the stories.
+Not proven by the solution build/test: the Blazor UI flows, the LLM voting round-trip, and the
+Cypress E2E suite (specs exist in `tests/IdiotProof.Cypress/`; need a live server run). Those
+are 🟡/⬜ in the stories.
 
 ## 7. Active frontier {#IP-§7}
 - **Strategy ghost overlay + branching visualization** — see `TODO.md`: chart integration,
   simulator timeline, branch fork rendering. (Epic D in the stories, all ⬜.)
-- **Engine adoption of SQL workspaces** — migration shipped; switching the JSON-on-disk
-  `WorkspaceManager` to the SQL repository is a follow-on. (Epic C.)
 - **Roslyn-based IdiotScript parser** — replace the tolerant regex parser with exact
   line/col diagnostics.
+- **Cypress CI run** — `02_strategies_describe.cy.ts` and `03_api_keys.cy.ts` exist and
+  cover IP-US-E1 and IP-US-E3; they need a live server run to graduate those stories to ✅.
 
 ## 8. Quality bar {#IP-§8}
 A feature is **done** (`✅`) only when: it builds clean in `IdiotProof.slnx`; it has a green
