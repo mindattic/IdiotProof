@@ -177,21 +177,24 @@ Build/test evidence (recorded 2026-06-08, .NET 10 SDK, `IdiotProof.slnx`):
 - **Build:** `dotnet build IdiotProof.slnx -c Debug` → **Build succeeded**, 0 errors, 4 nullability
   warnings (pre-existing: CS8619 in `IdiotProof.DataFeeds/MockDataFeed.cs`, CS8629 ×3 in
   `IdiotProof.Scripting/IdiotScript.cs`).
-- **Tests:** `dotnet test IdiotProof.slnx -c Debug` → **all green, 82 passed / 0 failed** across the
+- **Tests:** `dotnet test IdiotProof.slnx -c Debug` → **all green, 90 passed / 0 failed** across the
   five solution test projects:
   - `IdiotProof.Engine.Tests` — 22 passed (RiskGuardian gate + SupervisedLoop resilience).
   - `IdiotProof.Indicators.Tests` — 15 passed (RSI/EMA/ATR/MACD/VWAP math).
   - `IdiotProof.Strategies.Tests` — 16 passed (DSL round-trip, backtester, registry).
   - `IdiotProof.Brokers.Tests` — 8 passed (BrokerRouter Sandbox default + safe fallback).
-  - `IdiotProof.Blazor.Tests` — 21 passed (StrategyScriptGenerator verb-catalog reflection +
-    LlmVotingService consensus logic + JSON vote parsing).
+  - `IdiotProof.Blazor.Tests` — 29 passed (StrategyScriptGenerator verb-catalog reflection +
+    LlmVotingService consensus logic + JSON vote parsing + ConditionProgressRepository
+    upsert/read integration tests against SQL Server LocalDB).
 
 Proven-working subsystems: the Risk Guardian gate, the SupervisedLoop fault-tolerance, the core
 indicator math, IdiotScript build/round-trip, the DSL backtester, BrokerRouter Sandbox-first
 routing ([IP-LAW-3](BIBLE.md#IP-LAW-3)), the LLM system-prompt verb-catalog reflection law
-([IP-LAW-4](BIBLE.md#IP-LAW-4)), and the SQL-backed `SqlWorkspaceStore` (registered in the Blazor
-host before the engine; one-shot JSON import on first user load). See
-[USER_STORIES.md](USER_STORIES.md) for per-capability test citations.
+([IP-LAW-4](BIBLE.md#IP-LAW-4)), the SQL-backed `SqlWorkspaceStore` (registered in the Blazor
+host before the engine; one-shot JSON import on first user load), and
+`ConditionProgressRepository` upsert/read (integration tests against SQL Server LocalDB; insert
+on first call, update on second, full-pass clears verb, zero-condition fast path, two strategies
+track independently). See [USER_STORIES.md](USER_STORIES.md) for per-capability test citations.
 
 Not proven by the solution build/test: the Blazor UI flows, the LLM voting round-trip, and the
 Cypress E2E suite (specs exist in `tests/IdiotProof.Cypress/`; need a live server run). Those

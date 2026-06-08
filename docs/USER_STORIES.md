@@ -94,10 +94,15 @@ counts: {done: 19, partial: 3, planned: 0, cut: 0}
   a stub). Cypress suite must be run against a live server to mark this story done.* — implements
   [IP-LAW-4](BIBLE.md#IP-LAW-4).
 - **IP-US-E2 🟡** As a trader, I see live per-condition progress (`3/5 · IsOnReclaim(9)`) on the
-  Strategies page, polled from `ConditionProgress`. *Built in Blazor + Monitor; no automated test
-  in the solution — MonitorWorker integration tests need a mocking harness or in-memory EF DB.
-  Cypress spec for the live badge: `tests/IdiotProof.Cypress/cypress/e2e/01_smoke.cy.ts`
-  verifies the Strategies page renders; a dedicated condition-progress badge spec remains ⬜.*
+  Strategies page, polled from `ConditionProgress`. *`ConditionProgressRepository` upsert path
+  now directly verified by `ConditionProgressRepositoryTests` (SQL Server LocalDB) in
+  `IdiotProof.Blazor.Tests`: insert on first call (`UpsertAsync_FirstCall_InsertsRow`), update
+  on second (`UpsertAsync_SecondCall_UpdatesExistingRow`), full-pass clears verb
+  (`UpsertAsync_FullPass_ClearsFirstFailingVerb`), zero-condition fast path
+  (`UpsertAsync_ZeroConditions_Stores_0_0_Null`), two strategies track independently
+  (`UpsertAsync_TwoStrategies_TrackIndependently`), bulk read
+  (`GetForStrategyIdsAsync_ReturnsDictionary_KeyedById`). The Strategies-page live-badge
+  Cypress spec and the full MonitorWorker tick integration test remain ⬜.*
 - **IP-US-E3 🟡** As a trader, paper is the default and live trading requires an explicit
   red-outline confirmation. *`BrokerRouter` Sandbox default verified by `BrokerRouterTests`
   in `IdiotProof.Brokers.Tests` ([IP-LAW-3](BIBLE.md#IP-LAW-3)). E2E:
@@ -113,13 +118,12 @@ counts: {done: 19, partial: 3, planned: 0, cut: 0}
   confirmed by [IP-A2](AMENDMENTS.md#IP-A2))*
 
 ## Priority backlog
-1. **IP-US-E1 / E3** — Cypress specs exist (`02_strategies_describe.cy.ts`, `03_api_keys.cy.ts`).
-   Run `npm run cypress:run` against a live Blazor server to prove them green and mark done.
-2. **IP-US-E2** — MonitorWorker integration tests (mocking harness or in-memory EF DB) to cover
-   the condition-progress upsert path. A dedicated Cypress condition-progress badge spec remains ⬜.
-3. **Epic G (⬜) — Strategy ghost overlay + branching visualization** (from `TODO.md`): chart
+1. **IP-US-E1 / E2 / E3** — Cypress specs exist for E1 + E3; E2 condition-progress upsert now
+   verified by NUnit SQL Server integration tests. Run `npm run cypress:run` against a live
+   Blazor server to prove E1 + E3 green and mark all done. A Cypress badge spec for E2 remains ⬜.
+2. **Epic G (⬜) — Strategy ghost overlay + branching visualization** (from `TODO.md`): chart
    integration, simulator evaluation timeline, branch-fork rendering, scrub/playback.
-4. **Roslyn-based IdiotScript parser** — exact line/col diagnostics replacing the regex parser.
+3. **Roslyn-based IdiotScript parser** — exact line/col diagnostics replacing the regex parser.
 
 ### Audit log
 No prior `user_stories.md` existed in this repo; these stories were authored fresh from the

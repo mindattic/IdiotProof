@@ -1,6 +1,6 @@
 ﻿AUTHORITATIVE — full detail in docs/BIBLE.md
 
-<!-- generatedFrom: IP-§1,IP-§3,IP-§5,IP-§9 + USER_STORIES status index. Generated 2026-06-07 by tools/codex.ps1. Do not hand-edit. -->
+<!-- generatedFrom: IP-§1,IP-§3,IP-§5,IP-§9 + USER_STORIES status index. Generated 2026-06-08 by tools/codex.ps1. Do not hand-edit. -->
 
 # IdiotProof — Bible Digest (generated)
 
