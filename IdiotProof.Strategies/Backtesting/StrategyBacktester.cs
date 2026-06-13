@@ -91,11 +91,13 @@ public static class StrategyBacktester
 
             // 1) Update every trigger's satisfied state for this bar.
             bool allSatisfied = true;
+            bool hadFireThisBar = false;
             foreach (var t in triggers)
             {
                 bool justFired = t.Update(bar, snapshot, triggers);
                 if (justFired)
                 {
+                    hadFireThisBar = true;
                     report.Triggers.Add(new TriggerFire
                     {
                         Utc       = bar.StartUtc,
@@ -106,6 +108,9 @@ public static class StrategyBacktester
                 }
                 if (!t.Satisfied) allSatisfied = false;
             }
+
+            bool wasInPosition = open is not null;
+            bool openedTradeThisBar = false;
 
             // 2) Manage an open position first (a bar can both manage and, after a
             //    repeat-reset, not re-enter until the next bar).
@@ -128,6 +133,7 @@ public static class StrategyBacktester
                         blockReentry = true;
                     }
                 }
+                AppendConditionRow(report, bar, triggers, allSatisfied, hadFireThisBar, openedTradeThisBar, wasInPosition);
                 continue; // never enter and manage on the same bar
             }
 
@@ -136,12 +142,17 @@ public static class StrategyBacktester
             {
                 var entryPrice = bar.Close;
                 var qty = ResolveQuantity(definition, entryPrice, options);
-                if (qty <= 0) continue;
+                if (qty <= 0)
+                {
+                    AppendConditionRow(report, bar, triggers, allSatisfied, hadFireThisBar, false, false);
+                    continue;
+                }
 
                 stop = ResolveStop(definition, entryPrice, isLong);
                 targets = ResolveTargets(definition, isLong);
                 nextTarget = 0;
                 remaining = qty;
+                openedTradeThisBar = true;
 
                 open = new BacktestTrade
                 {
@@ -164,6 +175,8 @@ public static class StrategyBacktester
                     };
                 }
             }
+
+            AppendConditionRow(report, bar, triggers, allSatisfied, hadFireThisBar, openedTradeThisBar, wasInPosition);
         }
 
         // Close anything still open at the last bar.
@@ -180,6 +193,26 @@ public static class StrategyBacktester
         }
 
         return report;
+    }
+
+    private static void AppendConditionRow(
+        BacktestReport report, Candle bar,
+        List<TrackedTrigger> triggers, bool allSatisfied, bool hadFire, bool openedTrade, bool inPosition)
+    {
+        report.ConditionTable.Add(new CandleConditionRow
+        {
+            Utc            = bar.StartUtc,
+            Open           = bar.Open,
+            High           = bar.High,
+            Low            = bar.Low,
+            Close          = bar.Close,
+            Labels         = triggers.Select(t => t.Label).ToList(),
+            Results        = triggers.Select(t => t.Satisfied).ToList(),
+            AllSatisfied   = allSatisfied,
+            HasTriggerFire = hadFire,
+            OpenedTrade    = openedTrade,
+            InPosition     = inPosition,
+        });
     }
 
     // ---- exit handling for one bar ----

@@ -1,6 +1,6 @@
 ﻿AUTHORITATIVE — full detail in docs/BIBLE.md
 
-<!-- generatedFrom: IP-§1,IP-§3,IP-§5,IP-§9 + USER_STORIES status index. Generated 2026-06-08 by tools/codex.ps1. Do not hand-edit. -->
+<!-- generatedFrom: IP-§1,IP-§3,IP-§5,IP-§9 + USER_STORIES status index. Generated 2026-06-09 by tools/codex.ps1. Do not hand-edit. -->
 
 # IdiotProof — Bible Digest (generated)
 
@@ -88,9 +88,9 @@ state (strategies, preferences, audit logs, condition progress) is SQL Server. N
 
 ## Status index (USER_STORIES.md)
 - done: 21
-- partial: 4
-- planned: 4
+- partial: 7
+- planned: 19
 - cut: 1
 
 ## Latest amendment
-IP-A3 — SQL-backed workspace store adopted in Blazor host; JSON-on-disk demoted to fallback {#IP-A3}
+IP-A6 — Learning Center + Backtest UI enhancement planned {#IP-A6}

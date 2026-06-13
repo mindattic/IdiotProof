@@ -2,9 +2,10 @@
 
 /**
  * Builds each bundled sample strategy (NCI / ERNA / SUNE) through the UI and
- * confirms it saves and shows up on /strategies. Uses the Describe tab with the
- * Claude call stubbed to return the sample's IdiotScript — the same path a user
- * takes, minus the live LLM dependency.
+ * confirms it saves and shows up on /strategies. Uses the AI-assist pane with
+ * the server running under IDIOTPROOF_FAKE_LLM=1 — FakeLlmHandler returns the
+ * sample's IdiotScript from the [[script: ...]] marker in the prose, the same
+ * path a user takes minus the live LLM dependency.
  *
  * These exercise the round-trip the C# fixes targeted: Breakout/Pullback,
  * HoldsAbove, multi-target TakeProfit and the quoted Ticker all have to parse for
@@ -41,23 +42,16 @@ describe("Build sample strategies (authenticated)", () => {
         cy.registerAndLogin(email, testPass);
 
         for (const s of samples) {
-            cy.visit("/builder");
-            cy.contains("button", /describe/i).click();
+            cy.visitInteractive("/builder");
+            cy.typeStable("#b-title", s.title);
+            cy.typeStable("#b-symbol", s.symbol);
+            cy.typeStable("#b-prose", `No break, no trade: ${s.title}. [[script: ${s.script}]]`);
 
-            cy.get("#describe-ticker").clear().type(s.symbol);
-            cy.get("#describe-title").clear().type(s.title);
-            cy.get("#describe-prose").clear().type(`No break, no trade: ${s.title}.`);
+            cy.get("#b-generate").click();
+            cy.get("#b-script", { timeout: 30000 }).should("contain.value", "Stock.Ticker");
 
-            cy.intercept("POST", "**/anthropic/**", {
-                statusCode: 200,
-                body: { content: [{ type: "text", text: s.script }] },
-            }).as("legion");
-
-            cy.contains("button", /generate with claude/i).click();
-            cy.contains("Stock.Ticker", { timeout: 30000 });
-
-            cy.contains("button", /save strategy/i).click();
-            cy.contains(/saved/i, { timeout: 10000 });
+            cy.contains("button", "Save").click();
+            cy.contains(/saved\./i, { timeout: 10000 });
         }
 
         cy.visit("/strategies");

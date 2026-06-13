@@ -1,40 +1,4 @@
-# IdiotProof.Cypress
-
-End-to-end UI tests for IdiotProof's Blazor Server app.
-
-## Run
-
-```bash
-# 1. Start the dev server in another terminal
-dotnet run --project ../../IdiotProof.Blazor
-
-# 2. Install Cypress (first time only)
-npm install
-
-# 3. Run headlessly (CI mode)
-npm run ci
-
-# Or open the Cypress runner for interactive debugging
-npm run open
-```
-
-## Configuration
-
-`cypress.config.ts` defaults `baseUrl` to `https://localhost:5001`. Override
-via env var:
-
-```bash
-CYPRESS_BASE_URL=http://localhost:5294 npm run run
-```
-
-## Specs
-
-- `01_smoke.cy.ts` — public-route renders, Learning Center wikilink rendering
-- `02_strategies_describe.cy.ts` — full authenticated flow: register → Describe
-  tab → generate (mocked) → save → activate → persist
-
-## Adding tests
-
-Drop new `*.cy.ts` files into `cypress/e2e/`. Custom commands live in
-`cypress/support/commands.ts`. The `Cypress.Commands.add(...)` calls extend
-the global `Chainable` interface so TypeScript hints work in your spec.
+node_modules/
+cypress/screenshots/
+cypress/videos/
+cypress/downloads/

@@ -15,7 +15,7 @@ public sealed class UserPreferencesService(IDbContextFactory<AppDbContext> dbFac
     /// Returns the row for <paramref name="userId"/>, creating defaults if absent.
     /// Defaults: theme=alpaca, paper account, no open tabs.
     /// </summary>
-    public async Task<UserPreferences> GetOrCreateAsync(string userId, CancellationToken ct = default)
+    public async Task<UserPreferences> GetOrCreateAsync(Guid userId, CancellationToken ct = default)
     {
         await using var db = await dbFactory.CreateDbContextAsync(ct);
         var row = await db.UserPreferences.FirstOrDefaultAsync(p => p.UserId == userId, ct);
@@ -44,14 +44,14 @@ public sealed class UserPreferencesService(IDbContextFactory<AppDbContext> dbFac
         await db.SaveChangesAsync(ct);
     }
 
-    public async Task SetThemeAsync(string userId, string theme, CancellationToken ct = default)
+    public async Task SetThemeAsync(Guid userId, string theme, CancellationToken ct = default)
     {
         var p = await GetOrCreateAsync(userId, ct);
         p.Theme = theme;
         await SaveAsync(p, ct);
     }
 
-    public async Task SetActiveAccountAsync(string userId, string accountId, string accountType, CancellationToken ct = default)
+    public async Task SetActiveAccountAsync(Guid userId, string accountId, string accountType, CancellationToken ct = default)
     {
         var p = await GetOrCreateAsync(userId, ct);
         p.ActiveAccountId   = accountId;
@@ -66,7 +66,7 @@ public sealed class UserPreferencesService(IDbContextFactory<AppDbContext> dbFac
     /// CSV-encoded; preserves order so the tab bar renders left-to-right in
     /// open order.
     /// </summary>
-    public async Task<List<string>> AddOpenTabAsync(string userId, string tabKey, CancellationToken ct = default)
+    public async Task<List<string>> AddOpenTabAsync(Guid userId, string tabKey, CancellationToken ct = default)
     {
         var prefs = await GetOrCreateAsync(userId, ct);
         var tabs = ParseTabs(prefs.OpenStrategyTabs);
@@ -77,7 +77,7 @@ public sealed class UserPreferencesService(IDbContextFactory<AppDbContext> dbFac
     }
 
     /// <summary>Removes a tab from the list. No-op when the key isn't open.</summary>
-    public async Task<List<string>> RemoveOpenTabAsync(string userId, string tabKey, CancellationToken ct = default)
+    public async Task<List<string>> RemoveOpenTabAsync(Guid userId, string tabKey, CancellationToken ct = default)
     {
         var prefs = await GetOrCreateAsync(userId, ct);
         var tabs = ParseTabs(prefs.OpenStrategyTabs);
@@ -88,7 +88,7 @@ public sealed class UserPreferencesService(IDbContextFactory<AppDbContext> dbFac
     }
 
     /// <summary>Returns the open tabs as a typed list. Empty when none.</summary>
-    public async Task<List<string>> GetOpenTabsAsync(string userId, CancellationToken ct = default)
+    public async Task<List<string>> GetOpenTabsAsync(Guid userId, CancellationToken ct = default)
     {
         var prefs = await GetOrCreateAsync(userId, ct);
         return ParseTabs(prefs.OpenStrategyTabs);
@@ -106,7 +106,7 @@ public sealed class UserPreferencesService(IDbContextFactory<AppDbContext> dbFac
     /// the caller can read clamp adjustments back.
     /// </summary>
     public async Task<UserPreferences> SetRiskConfigAsync(
-        string userId,
+        Guid userId,
         decimal maxLossPerTrade,
         decimal maxLossPerDay,
         decimal minStopPct,

@@ -19,7 +19,7 @@
             <div class="alert-error" role="alert" aria-live="assertive">@errorMessage</div>
         }
 
-        <form method="post" action="/login-submit" aria-label="Sign in to IdiotProof">
+        <form method="post" action="/_ma-auth/login" aria-label="Sign in to IdiotProof">
             <input type="hidden" name="returnUrl" value="@ReturnUrl" />
             <AntiforgeryToken />
 
@@ -27,7 +27,7 @@
                 <label for="login-email">Email</label>
                 <input id="login-email"
                        type="email"
-                       name="email"
+                       name="userName"
                        class="form-control"
                        autocomplete="email"
                        required
@@ -79,8 +79,7 @@
 
     protected override void OnInitialized()
     {
-        if (Error == "invalid") errorMessage = "Incorrect email or password.";
-        if (Error == "locked") errorMessage = "Account locked. Try again later.";
+        if (Error == "1") errorMessage = "Incorrect username or password.";
     }
 }
 

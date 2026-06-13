@@ -20,9 +20,8 @@ public sealed class AuditLog
 
     public DateTime TimestampUtc { get; set; } = DateTime.UtcNow;
 
-    /// <summary>FK to AspNetUsers.Id when applicable; null for system-level events.</summary>
-    [MaxLength(450)]
-    public string? UserId { get; set; }
+    /// <summary>FK to auth.AuthUsers.Id when applicable; null for system-level events.</summary>
+    public Guid? UserId { get; set; }
 
     /// <summary>Coarse classification: "signal", "order", "broker", "risk", "system".</summary>
     [Required, MaxLength(32)]

@@ -1,21 +1,21 @@
 /// <reference types="cypress" />
 
 /**
- * Authenticated user-flow tests covering the Describe-tab → Strategies-page
- * loop:
+ * Authenticated user-flow tests covering the AI-assist → Strategies-page loop:
  *   1. Register a fresh test account.
- *   2. Open /builder, switch to Describe tab.
- *   3. Type a description, generate (mocked Claude response), save.
+ *   2. Open /builder, fill title/symbol, describe the strategy in prose.
+ *   3. Generate (server-side fake LLM), confirm IdiotScript lands in the editor, save.
  *   4. Visit /strategies, confirm the saved row appears.
  *   5. Toggle Active, confirm persistence.
  *
  * Notes:
- *   • Step 3 requires either a live Claude API key in the environment or a
- *     network mock (cy.intercept on the Legion endpoint). In CI we'd prefer
- *     the mock; locally a real key works too.
+ *   • The LLM call happens SERVER-side (StrategyScriptGenerator → LegionClient),
+ *     so cy.intercept can never see it. The server must run with
+ *     IDIOTPROOF_FAKE_LLM=1: FakeLlmHandler answers the Legion call with the
+ *     IdiotScript embedded in the prose's [[script: ...]] marker.
  *   • Each test re-registers a unique email so runs don't collide.
  */
-describe("Describe-tab loop (authenticated)", () => {
+describe("AI-assist loop (authenticated)", () => {
     const testUser = () => `test-${Date.now()}@idiotproof.local`;
     const testPass = "Test1234!";
 
@@ -23,33 +23,24 @@ describe("Describe-tab loop (authenticated)", () => {
         const email = testUser();
         cy.registerAndLogin(email, testPass);
 
-        cy.visit("/builder");
-        cy.contains("button", /describe/i).click();
+        cy.visitInteractive("/builder");
+        cy.typeStable("#b-title", "Smoke pullback");
+        cy.typeStable("#b-symbol", "AAPL");
 
-        cy.get("#describe-ticker").type("AAPL");
-        cy.get("#describe-title").type("Smoke pullback");
-        cy.get("#describe-prose").type(
-            "When ADX above 20 and 9 EMA above 31 EMA, on a 9 EMA reclaim with volume above 1.2x average, go long."
+        // The [[script: ...]] marker tells FakeLlmHandler (IDIOTPROOF_FAKE_LLM=1)
+        // exactly which IdiotScript to return — no live API key needed.
+        cy.typeStable(
+            "#b-prose",
+            "When ADX above 20 and 9 EMA above 31 EMA, on a 9 EMA reclaim with volume above 1.2x average, go long. " +
+                '[[script: Stock.Ticker("AAPL").RequireAdxAbove(20).RequireEmaStack(9, 31).OnReclaim(9).WithVolumeConfirm(1.2).Long().StopLoss(9.50).TakeProfit(12.00).Build()]]'
         );
+        cy.get("#b-generate").click();
 
-        // Stub the LLM call so the test doesn't depend on a live API key.
-        cy.intercept("POST", "**/anthropic/**", {
-            statusCode: 200,
-            body: {
-                content: [
-                    {
-                        type: "text",
-                        text: 'Stock.Ticker("AAPL").RequireAdxAbove(20).RequireEmaStack(9, 31).OnReclaim(9).WithVolumeConfirm(1.2).Long().Build()',
-                    },
-                ],
-            },
-        }).as("legion");
+        // The generated chain lands in the script editor textarea.
+        cy.get("#b-script", { timeout: 30000 }).should("contain.value", "Stock.Ticker");
 
-        cy.contains("button", /generate with claude/i).click();
-        cy.contains("Stock.Ticker", { timeout: 30000 });
-
-        cy.contains("button", /save strategy/i).click();
-        cy.contains(/saved/i, { timeout: 10000 });
+        cy.contains("button", "Save").click();
+        cy.contains(/saved\./i, { timeout: 10000 });
 
         cy.visit("/strategies");
         cy.contains("Smoke pullback");
@@ -59,18 +50,25 @@ describe("Describe-tab loop (authenticated)", () => {
     it("activate toggle persists across reloads", () => {
         const email = testUser();
         cy.registerAndLogin(email, testPass);
-        // Seed a strategy via DB-bypass fast-path would be ideal here; for the
-        // smoke spec we rely on the previous test's user. Real CI would use a
-        // dedicated /api/test-seed endpoint behind a feature flag.
-        cy.visit("/strategies");
 
-        // If the strategy from the prior test exists for this user, toggle Active.
-        cy.get("body").then(($body) => {
-            if ($body.find('input[type="checkbox"][id^="toggle-"]').length > 0) {
-                cy.get('input[type="checkbox"][id^="toggle-"]').first().check();
-                cy.reload();
-                cy.get('input[type="checkbox"][id^="toggle-"]').first().should("be.checked");
-            }
-        });
+        // Seed a strategy through the builder so this user has one to toggle.
+        cy.visitInteractive("/builder");
+        cy.typeStable("#b-title", "Toggle persistence");
+        cy.typeStable("#b-symbol", "MSFT");
+        cy.typeStable(
+            "#b-prose",
+            'Reclaim long. [[script: Stock.Ticker("MSFT").OnReclaim(9).Long().StopLoss(9.50).TakeProfit(12.00).Build()]]'
+        );
+        cy.get("#b-generate").click();
+        cy.get("#b-script", { timeout: 30000 }).should("contain.value", "Stock.Ticker");
+        cy.contains("button", "Save").click();
+        cy.contains(/saved\./i, { timeout: 10000 });
+
+        cy.visitInteractive("/strategies");
+        cy.get('input[type="checkbox"][id^="toggle-"]').first().check();
+        // The toggle writes through to SQL; the reloaded page renders the
+        // persisted state server-side.
+        cy.reload();
+        cy.get('input[type="checkbox"][id^="toggle-"]').first().should("be.checked");
     });
 });

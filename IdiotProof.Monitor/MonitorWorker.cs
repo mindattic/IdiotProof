@@ -197,7 +197,7 @@ public sealed class MonitorWorker(
                 StrategyName      = stored.Title,
                 Reason            = $"All {total} conditions met",
                 GeneratedUtc      = snapshot.Timestamp,
-                UserId            = stored.OwnerUserId,
+                UserId            = stored.OwnerUserId.ToString(),
             };
 
             await VoteAndRecordAsync(stored, signal, candles, ct);

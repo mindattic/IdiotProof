@@ -19,11 +19,8 @@ public sealed class Strategy
     [Key]
     public Guid Id { get; set; } = Guid.CreateVersion7();
 
-    /// <summary>
-    /// Owning user (FK to AspNetUsers.Id). Indexed.
-    /// </summary>
-    [Required, MaxLength(450)]
-    public string OwnerUserId { get; set; } = "";
+    /// <summary>Owning user (FK to auth.AuthUsers.Id). Indexed.</summary>
+    public Guid OwnerUserId { get; set; }
 
     /// <summary>Display name shown on the Strategies list and tab title.</summary>
     [Required, MaxLength(200)]

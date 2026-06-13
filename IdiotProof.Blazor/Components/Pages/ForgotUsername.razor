@@ -50,7 +50,7 @@
 
     protected override async Task OnInitializedAsync()
     {
-        emails = await Db.Users
+        emails = await Db.AuthUsers
             .Where(u => u.Email != null)
             .OrderBy(u => u.Email)
             .Select(u => u.Email!)

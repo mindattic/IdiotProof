@@ -58,6 +58,88 @@ public sealed class StrategyScriptGenerator(LegionClient legion, AppSettings app
         }
     }
 
+    // ---- Learning Center catalog (IP-US-I2 / IP-LAW-4) ----
+
+    /// <summary>
+    /// Returns the StrategyBuilder verb catalog grouped by the six IdiotScript phases.
+    /// Verb names come from reflection (IP-LAW-4); phase assignment uses method-name
+    /// prefixes so new verbs auto-classify. Called by the Learning Center page.
+    /// </summary>
+    internal static IReadOnlyList<PhaseVerbGroup> GetVerbsByPhase()
+    {
+        var all = typeof(StrategyBuilder)
+            .GetMethods(BindingFlags.Public | BindingFlags.Instance)
+            .Where(m => !m.IsSpecialName && m.DeclaringType == typeof(StrategyBuilder))
+            .Select(m =>
+            {
+                var ps = string.Join(", ", m.GetParameters()
+                    .Select(p => $"{FriendlyType(p.ParameterType)} {p.Name}{(p.HasDefaultValue ? $"={FormatDefault(p.DefaultValue)}" : "")}"));
+                return $"{m.Name}({ps})";
+            })
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
+
+        static bool HasPrefix(string v, params string[] prefixes)
+            => prefixes.Any(p => v.StartsWith(p, StringComparison.Ordinal));
+
+        var setup   = all.Where(v => HasPrefix(v, "Name(", "Ticker(", "Session(", "Quantity", "Account(", "Window(")).ToList();
+        var filters = all.Where(v => HasPrefix(v, "Require", "Trending(")).ToList();
+        var order   = all.Where(v => HasPrefix(v, "Long(", "Short(", "Order(", "AutonomousTrading(", "AdaptiveOrder(")).ToList();
+        var risk    = all.Where(v => HasPrefix(v, "StopLoss", "TrailingStop")).ToList();
+        var exit    = all.Where(v => HasPrefix(v, "TakeProfit", "AddTarget(", "ExitStrategy(", "Repeat(")).ToList();
+
+        var usedSet = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var list in new[] { setup, filters, order, risk, exit })
+            foreach (var v in list) usedSet.Add(v);
+
+        var entry = all.Where(v => !usedSet.Contains(v) && !HasPrefix(v, "Build(", "If(")).ToList();
+
+        return
+        [
+            new("Setup",   "Configure what to trade and when",
+                "Ticker, session, quantity, account, and time window.",
+                setup),
+            new("Filters", "Regime pre-conditions (always-on gates)",
+                "Must be true at every tick — ADX trend, EMA stack, volume regime. Block the entry before any trigger is checked.",
+                filters),
+            new("Entry",   "Trigger conditions — \"the fire\"",
+                "The bar-by-bar conditions that must all be true simultaneously to open a position.",
+                entry),
+            new("Order",   "Direction and sizing",
+                "Long or Short, share count or notional $, autonomous/adaptive options.",
+                order),
+            new("Risk",    "Stop management",
+                "Fixed-price stop, percent-based stop, and trailing stop. Required by the Risk Guardian (IP-LAW-2).",
+                risk),
+            new("Exit",    "Take-profit and time exits",
+                "Single target, multi-target scale-out, time-based exit, and cycle repeat.",
+                exit),
+        ];
+    }
+
+    /// <summary>Verb catalog for the static Conditions class (used in .If/.ElseIf branching).</summary>
+    internal static IReadOnlyList<string> GetConditionCatalog()
+    {
+        var bindings = BindingFlags.Public | BindingFlags.Static;
+        var members = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var m in typeof(Conditions).GetMethods(bindings).Where(m => !m.IsSpecialName && m.DeclaringType == typeof(Conditions)))
+        {
+            var ps = string.Join(", ", m.GetParameters().Select(p =>
+                $"{FriendlyType(p.ParameterType)} {p.Name}{(p.HasDefaultValue ? $"={FormatDefault(p.DefaultValue)}" : "")}"));
+            members.Add($"{m.Name}({ps})");
+        }
+        foreach (var p in typeof(Conditions).GetProperties(bindings).Where(p => p.GetMethod is { IsPublic: true }))
+            members.Add(p.Name);
+        return members.OrderBy(s => s, StringComparer.Ordinal).ToList();
+    }
+
+    /// <summary>One phase's worth of reflected verbs for the Learning Center.</summary>
+    internal sealed record PhaseVerbGroup(
+        string Phase,
+        string Role,
+        string Description,
+        IReadOnlyList<string> Verbs);
+
     /// <summary>
     /// Reflection-built verb catalog. Walks every public instance method on
     /// <see cref="StrategyBuilder"/> + every public static member on

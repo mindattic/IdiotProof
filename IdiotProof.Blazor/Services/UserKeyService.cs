@@ -11,7 +11,7 @@ public sealed class UserKeyService(IDbContextFactory<AppDbContext> dbFactory, ID
 {
     private readonly IDataProtector protector = dpProvider.CreateProtector("IdiotProof.UserApiKeys.v1");
 
-    public async Task<UserApiKeys> GetOrCreateAsync(string userId, CancellationToken ct = default)
+    public async Task<UserApiKeys> GetOrCreateAsync(Guid userId, CancellationToken ct = default)
     {
         await using var db = await dbFactory.CreateDbContextAsync(ct);
         var row = await db.UserApiKeys.FirstOrDefaultAsync(k => k.UserId == userId, ct);
@@ -21,7 +21,7 @@ public sealed class UserKeyService(IDbContextFactory<AppDbContext> dbFactory, ID
         return Decrypt(row);
     }
 
-    public async Task SaveAsync(string userId, UserApiKeys keys, CancellationToken ct = default)
+    public async Task SaveAsync(Guid userId, UserApiKeys keys, CancellationToken ct = default)
     {
         await using var db = await dbFactory.CreateDbContextAsync(ct);
         var row = await db.UserApiKeys.FirstOrDefaultAsync(k => k.UserId == userId, ct);
@@ -46,7 +46,7 @@ public sealed class UserKeyService(IDbContextFactory<AppDbContext> dbFactory, ID
     /// Returns all users who have at least one real data feed key configured.
     /// Used by the strategy execution service to find active users.
     /// </summary>
-    public async Task<List<(string UserId, UserApiKeys Keys)>> GetAllActiveUsersAsync(CancellationToken ct = default)
+    public async Task<List<(Guid UserId, UserApiKeys Keys)>> GetAllActiveUsersAsync(CancellationToken ct = default)
     {
         await using var db = await dbFactory.CreateDbContextAsync(ct);
         var rows = await db.UserApiKeys.ToListAsync(ct);

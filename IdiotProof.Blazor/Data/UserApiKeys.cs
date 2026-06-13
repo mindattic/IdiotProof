@@ -7,7 +7,7 @@ namespace IdiotProof.Blazor.Data;
 public sealed class UserApiKeys
 {
     public int Id { get; set; }
-    public string UserId { get; set; } = "";
+    public Guid UserId { get; set; }
 
     // Alpaca — provides both trading + real-time market data, so it's the only
     // broker/feed credential the editor needs.
@@ -19,6 +19,9 @@ public sealed class UserApiKeys
     public string? ClaudeApiKey { get; set; }
     public bool LlmVotingEnabled { get; set; }
     public string ClaudeModel { get; set; } = "claude-sonnet-4-6";
+
+    // Polygon.io — historical market data for backtesting (IP-US-J1)
+    public string? PolygonApiKey { get; set; }
 
     // Default broker/feed preferences
     public string DefaultBroker { get; set; } = "Sandbox";

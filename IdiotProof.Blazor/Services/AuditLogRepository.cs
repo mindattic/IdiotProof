@@ -19,7 +19,7 @@ public sealed class AuditLogRepository(IDbContextFactory<AppDbContext> dbFactory
     /// Append a new audit entry. Lightweight: a single insert with the
     /// indexed columns populated; no read required.
     /// </summary>
-    public async Task LogAsync(string category, string message, string? userId = null, string? dataJson = null, CancellationToken ct = default)
+    public async Task LogAsync(string category, string message, Guid? userId = null, string? dataJson = null, CancellationToken ct = default)
     {
         await using var db = await dbFactory.CreateDbContextAsync(ct);
         db.AuditLogs.Add(new AuditLog
@@ -42,7 +42,7 @@ public sealed class AuditLogRepository(IDbContextFactory<AppDbContext> dbFactory
             .ToListAsync(ct);
     }
 
-    public async Task<List<AuditLog>> GetForUserAsync(string userId, int limit = 100, CancellationToken ct = default)
+    public async Task<List<AuditLog>> GetForUserAsync(Guid userId, int limit = 100, CancellationToken ct = default)
     {
         await using var db = await dbFactory.CreateDbContextAsync(ct);
         return await db.AuditLogs

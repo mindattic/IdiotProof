@@ -10,8 +10,7 @@ public sealed class WorkspaceRow
     [MaxLength(64)]
     public string WorkspaceId { get; set; } = string.Empty;
 
-    [MaxLength(450)]
-    public string OwnerUserId { get; set; } = string.Empty;
+    public Guid OwnerUserId { get; set; }
 
     [MaxLength(200)]
     public string Name { get; set; } = string.Empty;

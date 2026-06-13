@@ -4,7 +4,7 @@ project: IdiotProof
 code: IP
 layer: bible
 status: living
-updated: 2026-06-08
+updated: 2026-06-09
 ---
 
 # IdiotProof — Project Bible
@@ -52,7 +52,7 @@ LLM voter panel approves, and the Risk Guardian clears it.
                           Trader (browser)
                                  │
                   ┌──────────────▼───────────────┐        Cypress E2E
-                  │       IdiotProof.Blazor       │◄──────  (tests/IdiotProof.Cypress, planned-status)
+                  │       IdiotProof.Blazor       │◄──────  Cypress E2E (tests/IdiotProof.Cypress, 7 specs)
                   │  Strategies · StrategyBuilder │
                   │  (Guided/Script/Describe)     │──► StrategyScriptGenerator ──► Legion voter panel
                   │  Learning Center · Settings   │                                (legion.json, high tier)
@@ -93,7 +93,7 @@ LLM voter panel approves, and the Risk Guardian clears it.
 ### 4.1 Projects (in `IdiotProof.slnx`)
 | Project | Role |
 |---|---|
-| `IdiotProof.Blazor` | Blazor Server web app — Strategies page, Strategy Builder (Guided/Script/Describe), Learning Center, Settings, API Keys. ASP.NET Identity + EF Core (SQL Server). |
+| `IdiotProof.Blazor` | Blazor Server web app — Strategies page, Strategy Builder (Guided/Script/Describe), Learning Center, Backtest, Settings, API Keys. **MindAttic.Authentication** (Argon2id, sessions, MFA scaffolding) + EF Core 10 (SQL Server). |
 | `IdiotProof.Monitor` | Console host running `SupervisedLoop` — loads active strategies, evaluates per-condition on a cadence, upserts `ConditionProgress`. |
 | `IdiotProof.Engine` | DI root (`ServiceRegistration`), `AppSettings` overlay chain, `SupervisedLoop`, `AuditLogger`, `WorkspaceManager` (JSON-on-disk). |
 | `IdiotProof.Scripting` | The IdiotScript DSL: `Stock.Ticker(...)`, `StrategyBuilder`, the `Conditions` catalog, `ScriptParser`, branching algebra. |
@@ -196,17 +196,29 @@ host before the engine; one-shot JSON import on first user load), and
 on first call, update on second, full-pass clears verb, zero-condition fast path, two strategies
 track independently). See [USER_STORIES.md](USER_STORIES.md) for per-capability test citations.
 
-Not proven by the solution build/test: the Blazor UI flows, the LLM voting round-trip, and the
-Cypress E2E suite (specs exist in `tests/IdiotProof.Cypress/`; need a live server run). Those
-are 🟡/⬜ in the stories.
+Not proven by the solution build/test: the Blazor UI flows and the LLM voting round-trip. The
+Cypress suite (`tests/IdiotProof.Cypress/`) has 7 specs (02–07, see [IP-A4](AMENDMENTS.md#IP-A4));
+they run deterministically with `IDIOTPROOF_FAKE_LLM=1` (the `FakeLlmHandler` test seam
+registered in `Program.cs` intercepts Legion calls server-side) but need a live server run to
+graduate stories E1–E6 to ✅.
 
 ## 7. Active frontier {#IP-§7}
+- **Learning Center** — `/learn` in-app documentation hub: workflow overview diagram, six-phase
+  walkthrough, live reflected verb catalog, three-gates explanation + diagram, annotated sample
+  strategies. Verb catalog and phase reference rendered from live reflection (same path as
+  `StrategyScriptGenerator`, [IP-LAW-4](BIBLE.md#IP-LAW-4)). (Epic I in the stories, all ⬜.)
+- **Backtest UI enhancement** — full-depth backtest: fetch a day of historical candles from
+  Alpaca/Polygon, evaluate the strategy tick-by-tick via `StrategyBacktester.Run()`, render a
+  per-candle condition table (pass/fail per condition) and hypothetical P&L. Enhances the existing
+  `BacktestReport` pipeline in `IdiotProof.Strategies` and the stub `Backtest.razor` UI. (Epic J
+  in the stories, all ⬜. Stub wired in IP-US-E6.)
 - **Strategy ghost overlay + branching visualization** — see `TODO.md`: chart integration,
-  simulator timeline, branch fork rendering. (Epic D in the stories, all ⬜.)
+  simulator timeline, branch fork rendering. (Epic G in the stories, all ⬜.)
 - **Roslyn-based IdiotScript parser** — replace the tolerant regex parser with exact
-  line/col diagnostics.
-- **Cypress CI run** — `02_strategies_describe.cy.ts` and `03_api_keys.cy.ts` exist and
-  cover IP-US-E1 and IP-US-E3; they need a live server run to graduate those stories to ✅.
+  line/col diagnostics. (IP-US-H1.)
+- **Cypress CI run** — 7 specs (02–07) cover IP-US-E1–E6; all run deterministically with
+  `IDIOTPROOF_FAKE_LLM=1`. Run `npm run cypress:run` (or open the Cypress GUI) against a live
+  server to graduate E1–E6 to ✅. See [IP-A4](AMENDMENTS.md#IP-A4).
 
 ## 8. Quality bar {#IP-§8}
 A feature is **done** (`✅`) only when: it builds clean in `IdiotProof.slnx`; it has a green

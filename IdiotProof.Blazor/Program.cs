@@ -4,8 +4,9 @@ using IdiotProof.Blazor.Components;
 using IdiotProof.Blazor.Data;
 using IdiotProof.Blazor.Hubs;
 using IdiotProof.Blazor.Services;
-using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using MindAttic.Authentication.Services;
+using MindAttic.Authentication.Web;
 using MindAttic.Legion;
 using MindAttic.Vault.Configuration;
 using MindAttic.Vault.DependencyInjection;
@@ -59,7 +60,7 @@ builder.Services
     .AddRazorComponents()
     .AddInteractiveServerComponents();
 
-// ── Database (SQL Server + Identity) ─────────────────────────────────────────────
+// ── Database ─────────────────────────────────────────────────────────────────────
 // Connection string priority: env var ConnectionStrings__IdiotProof →
 // appsettings ConnectionStrings:IdiotProof → LocalDB fallback. Same pattern as
 // StreetSamurai. Runtime + design-time (AppDbContextFactory) resolve identically.
@@ -72,35 +73,22 @@ builder.Services.AddDbContextFactory<AppDbContext>(o => o.UseSqlServer(connStr))
 builder.Services.AddScoped<AppDbContext>(sp =>
     sp.GetRequiredService<IDbContextFactory<AppDbContext>>().CreateDbContext());
 
-builder.Services.AddIdentityCore<AppUser>(options =>
+// ── Authentication (MindAttic.Authentication — replaces ASP.NET Core Identity) ───
+// Registers Argon2id+pepper hashing, session management, MFA, lockout, audit trail,
+// and the MA cookie scheme ("MindAttic.Auth"). The Security vault bucket
+// (%APPDATA%\MindAttic\Security\providers.json) must supply pepper.v1 and
+// bootstrap-token before startup.
+builder.Services.AddMindAtticAuthentication<AppDbContext>(
+    builder.Configuration,
+    opts =>
     {
-        options.Password.RequireDigit = true;
-        options.Password.RequiredLength = 8;
-        options.Password.RequireUppercase = false;
-        options.Password.RequireNonAlphanumeric = false;
-        options.SignIn.RequireConfirmedEmail = false;
-    })
-    .AddRoles<IdentityRole>()
-    .AddEntityFrameworkStores<AppDbContext>()
-    .AddSignInManager()
-    .AddDefaultTokenProviders();
-
-builder.Services.AddAuthentication(IdentityConstants.ApplicationScheme)
-    .AddIdentityCookies();
-
-builder.Services.ConfigureApplicationCookie(o =>
-{
-    o.LoginPath        = "/login";
-    o.LogoutPath       = "/logout";
-    o.ExpireTimeSpan   = TimeSpan.FromDays(30);
-    o.SlidingExpiration = true;
-    o.Cookie.HttpOnly  = true;
-    o.Cookie.SameSite  = Microsoft.AspNetCore.Http.SameSiteMode.Strict;
-});
+        opts.AppName = "IdiotProof";
+        opts.IsProduction = !builder.Environment.IsDevelopment();
+    });
 
 builder.Services.AddAuthorization();
 builder.Services.AddCascadingAuthenticationState();
-builder.Services.AddDataProtection();
+builder.Services.AddAntiforgery();
 
 // ── Engine ───────────────────────────────────────────────────────────────────────
 // Register the SQL-backed workspace store before AddIdiotProofEngine so the
@@ -130,6 +118,16 @@ builder.Services.AddSingleton<TradingStateService>();
 // MindAttic.Legion is the gateway for all LLM communication — register the
 // universal client before any service that talks to an LLM.
 builder.Services.AddLegionClient();
+// E2E test seam: IDIOTPROOF_FAKE_LLM=1 (Development only) re-points the
+// LegionClient transport at FakeLlmHandler so Cypress runs are deterministic
+// and never call a vendor. Cy.intercept can't see server-side HTTP, so the
+// seam has to live here. Pair it with a dummy ClaudeApiKey env var.
+if (builder.Environment.IsDevelopment()
+    && Environment.GetEnvironmentVariable("IDIOTPROOF_FAKE_LLM") == "1")
+{
+    builder.Services.AddTransient<LegionClient>(_ =>
+        new LegionClient(new HttpClient(new FakeLlmHandler()), options: null));
+}
 builder.Services.AddSingleton<IdiotProof.Blazor.Services.LlmVotingService>();
 builder.Services.AddScoped<UserKeyService>();
 builder.Services.AddSingleton<StrategyRepository>();
@@ -140,7 +138,6 @@ builder.Services.AddSingleton<AuditLogRepository>();
 builder.Services.AddSingleton<ConditionProgressRepository>();
 builder.Services.AddSingleton<RiskGuardianService>();
 builder.Services.AddHttpClient();
-builder.Services.AddAntiforgery();
 
 // Dev credential carrier — populated from .env only in Development.
 // In Production this resolves to a singleton with both fields null, so the
@@ -168,46 +165,22 @@ if (!app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 app.UseStaticFiles();
-app.UseAuthentication();
-app.UseAuthorization();
+// UseMindAtticAuthentication wires UseAuthentication + UseAuthorization + forced-step
+// (MFA, must-change-password) middleware. Call after UseStaticFiles, before mapping.
+app.UseMindAtticAuthentication();
 app.UseAntiforgery();
 
-// ── Auth endpoints ────────────────────────────────────────────────────────────────
-app.MapPost("/login-submit", async (HttpContext ctx,
-    SignInManager<AppUser> signInMgr,
-    UserManager<AppUser> userMgr) =>
+// ── Auth routes (/_ma-auth/*) ─────────────────────────────────────────────────────
+// Login, logout, MFA challenge, change-password, and reset flows are owned by the
+// library. Login.razor posts to /_ma-auth/login; no custom /login-submit needed.
+app.MapMindAtticAuthEndpoints();
+
+// ── Register endpoint (no self-registration in MA; use IUserAdminService) ─────────
+// Registration is kept as a custom form endpoint so new users can create their own
+// accounts without needing an admin UI. After creation, the user signs in via the
+// library's /_ma-auth/login flow.
+app.MapPost("/register-submit", async (HttpContext ctx, IUserAdminService adminSvc) =>
 {
-    var form      = await ctx.Request.ReadFormAsync();
-    var email     = form["email"].ToString().Trim();
-    var password  = form["password"].ToString();
-    var returnUrl = form["returnUrl"].ToString();
-
-    var result = await signInMgr.PasswordSignInAsync(email, password,
-        isPersistent: true, lockoutOnFailure: false);
-
-    if (result.Succeeded)
-    {
-        ctx.Response.Redirect(!string.IsNullOrWhiteSpace(returnUrl) ? returnUrl : "/");
-        return;
-    }
-
-    ctx.Response.Redirect("/login?error=invalid");
-});
-
-app.MapPost("/logout", async (HttpContext ctx, SignInManager<AppUser> signInMgr) =>
-{
-    await signInMgr.SignOutAsync();
-    ctx.Response.Redirect("/login");
-});
-
-app.MapPost("/register-submit", async (HttpContext ctx,
-    SignInManager<AppUser> signInMgr,
-    UserManager<AppUser> userMgr) =>
-{
-    // SignInAsync writes a Set-Cookie header, which only works before the response
-    // starts — i.e. from a real HTTP request, not from inside a Blazor interactive
-    // circuit (where the response is already flushed and SignalR is running).
-    // The /register page posts to this endpoint so the cookie can be written cleanly.
     var form     = await ctx.Request.ReadFormAsync();
     var email    = form["email"].ToString().Trim();
     var password = form["password"].ToString();
@@ -219,25 +192,24 @@ app.MapPost("/register-submit", async (HttpContext ctx,
     { ctx.Response.Redirect("/register?error=mismatch"); return; }
     if (password.Length < 8)
     { ctx.Response.Redirect("/register?error=short"); return; }
-    if (!password.Any(char.IsDigit))
-    { ctx.Response.Redirect("/register?error=digit"); return; }
 
-    var user   = new AppUser { UserName = email, Email = email };
-    var result = await userMgr.CreateAsync(user, password);
+    var result = await adminSvc.CreateAsync(
+        userName: email, email: email, role: "User",
+        password: password, mustChangePassword: false);
 
-    if (!result.Succeeded)
+    if (!result.Ok)
     {
-        var code = result.Errors.FirstOrDefault()?.Code ?? "create";
-        ctx.Response.Redirect($"/register?error={Uri.EscapeDataString(code)}");
+        ctx.Response.Redirect($"/register?error={Uri.EscapeDataString(result.Error ?? "create")}");
         return;
     }
 
-    await signInMgr.SignInAsync(user, isPersistent: true);
-    ctx.Response.Redirect("/api-keys");
+    ctx.Response.Redirect("/login");
 });
 
-app.MapPost("/forgot-password-submit", async (HttpContext ctx,
-    UserManager<AppUser> userMgr) =>
+// ── Forgot-password reset (dev-only: local identity match, no email flow) ─────────
+// Production would use the library's token-based /_ma-auth/reset/* flow with an
+// email sender. For now: match by email, reset directly via IUserAdminService.
+app.MapPost("/forgot-password-submit", async (HttpContext ctx, IUserAdminService adminSvc) =>
 {
     var form     = await ctx.Request.ReadFormAsync();
     var email    = form["email"].ToString().Trim();
@@ -250,22 +222,17 @@ app.MapPost("/forgot-password-submit", async (HttpContext ctx,
     { ctx.Response.Redirect("/forgot-password?error=mismatch"); return; }
     if (password.Length < 8)
     { ctx.Response.Redirect("/forgot-password?error=short"); return; }
-    if (!password.Any(char.IsDigit))
-    { ctx.Response.Redirect("/forgot-password?error=digit"); return; }
 
-    var user = await userMgr.FindByEmailAsync(email);
+    var users = await adminSvc.ListAsync();
+    var user  = users.FirstOrDefault(u =>
+        string.Equals(u.Email, email, StringComparison.OrdinalIgnoreCase));
     if (user is null)
     { ctx.Response.Redirect("/forgot-password?error=unknown"); return; }
 
-    // Local dev: no email service, so we trust local possession + email match.
-    // Generate a one-shot token and immediately consume it.
-    var token  = await userMgr.GeneratePasswordResetTokenAsync(user);
-    var result = await userMgr.ResetPasswordAsync(user, token, password);
-
-    if (!result.Succeeded)
+    var result = await adminSvc.ResetPasswordAsync(user.Id, password, requireChange: false);
+    if (!result.Ok)
     {
-        var code = result.Errors.FirstOrDefault()?.Code ?? "reset";
-        ctx.Response.Redirect($"/forgot-password?error={Uri.EscapeDataString(code)}");
+        ctx.Response.Redirect($"/forgot-password?error={Uri.EscapeDataString(result.Error ?? "reset")}");
         return;
     }
 

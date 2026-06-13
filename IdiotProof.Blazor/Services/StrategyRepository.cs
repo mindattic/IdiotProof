@@ -11,7 +11,7 @@ namespace IdiotProof.Blazor.Services;
 /// </summary>
 public sealed class StrategyRepository(IDbContextFactory<AppDbContext> dbFactory)
 {
-    public async Task<List<Strategy>> GetAllForUserAsync(string userId, CancellationToken ct = default)
+    public async Task<List<Strategy>> GetAllForUserAsync(Guid userId, CancellationToken ct = default)
     {
         await using var db = await dbFactory.CreateDbContextAsync(ct);
         return await db.Strategies
@@ -37,7 +37,7 @@ public sealed class StrategyRepository(IDbContextFactory<AppDbContext> dbFactory
             .ToListAsync(ct);
     }
 
-    public async Task<Strategy> CreateAsync(string ownerUserId, string title, string symbol,
+    public async Task<Strategy> CreateAsync(Guid ownerUserId, string title, string symbol,
         string scriptText, string? description = null, string? workspaceId = null,
         CancellationToken ct = default)
     {

@@ -28,14 +28,14 @@ public sealed class RiskGuardianService(IDbContextFactory<AppDbContext> dbFactor
     /// Monitor evaluates strategies in parallel and may hit two strategies
     /// from the same user back-to-back.
     /// </summary>
-    private readonly ConcurrentDictionary<string, RiskGuardian> cache = new();
+    private readonly ConcurrentDictionary<Guid, RiskGuardian> cache = new();
 
     /// <summary>
     /// Resolves the Guardian for the given user. First call hits SQL to load
     /// the user's risk config; subsequent calls return the cached instance
     /// so the in-memory daily-loss counter is preserved.
     /// </summary>
-    public async Task<RiskGuardian> GetForUserAsync(string userId, CancellationToken ct = default)
+    public async Task<RiskGuardian> GetForUserAsync(Guid userId, CancellationToken ct = default)
     {
         if (cache.TryGetValue(userId, out var existing))
             return existing;
@@ -49,13 +49,13 @@ public sealed class RiskGuardianService(IDbContextFactory<AppDbContext> dbFactor
     /// Drops any cached Guardian for the user — the next
     /// <see cref="GetForUserAsync"/> call will re-read the config from SQL.
     /// </summary>
-    public void Invalidate(string userId) => cache.TryRemove(userId, out _);
+    public void Invalidate(Guid userId) => cache.TryRemove(userId, out _);
 
     /// <summary>
     /// Loads the user's <see cref="UserPreferences"/> and projects it onto a
     /// <see cref="RiskGuardianConfig"/>. Missing user → canonical defaults.
     /// </summary>
-    private async Task<RiskGuardianConfig> LoadConfigAsync(string userId, CancellationToken ct)
+    private async Task<RiskGuardianConfig> LoadConfigAsync(Guid userId, CancellationToken ct)
     {
         await using var db = await dbFactory.CreateDbContextAsync(ct);
         var prefs = await db.UserPreferences.FirstOrDefaultAsync(p => p.UserId == userId, ct);

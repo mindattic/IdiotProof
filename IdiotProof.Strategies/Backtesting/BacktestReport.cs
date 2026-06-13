@@ -48,6 +48,12 @@ public sealed class BacktestReport
 
     /// <summary>True if no entry condition ever fired — the "no setup today" case.</summary>
     public bool NoTriggersFired => Triggers.Count == 0;
+
+    /// <summary>
+    /// Per-bar condition pass/fail table. Populated during replay for the UI's
+    /// condition progress view. Empty if the run produced no bars or no conditions.
+    /// </summary>
+    public List<CandleConditionRow> ConditionTable { get; } = [];
 }
 
 /// <summary>One entry condition becoming true during the replay.</summary>
@@ -88,6 +94,37 @@ public sealed class BacktestFill
     public decimal Price { get; init; }
     public int Shares { get; init; }
     public string Reason { get; init; } = "";
+}
+
+/// <summary>
+/// Per-bar snapshot of each entry condition's pass/fail state during a replay.
+/// Used to render the condition progress table in the Backtest UI (IP-US-J2).
+/// </summary>
+public sealed class CandleConditionRow
+{
+    public DateTime Utc { get; init; }
+    public decimal Open { get; init; }
+    public decimal High { get; init; }
+    public decimal Low { get; init; }
+    public decimal Close { get; init; }
+
+    /// <summary>Condition labels in the same order as <see cref="Results"/>.</summary>
+    public IReadOnlyList<string> Labels { get; init; } = [];
+
+    /// <summary>Satisfied state of each entry condition on this bar.</summary>
+    public IReadOnlyList<bool> Results { get; init; } = [];
+
+    /// <summary>True if ALL entry conditions were satisfied on this bar.</summary>
+    public bool AllSatisfied { get; init; }
+
+    /// <summary>True if a new trigger fired (became true for the first time) on this bar.</summary>
+    public bool HasTriggerFire { get; init; }
+
+    /// <summary>True if this bar opened a new position.</summary>
+    public bool OpenedTrade { get; init; }
+
+    /// <summary>True if the strategy was already in a position at the start of this bar.</summary>
+    public bool InPosition { get; init; }
 }
 
 /// <summary>Knobs for the replay. Defaults match the sample strategies.</summary>

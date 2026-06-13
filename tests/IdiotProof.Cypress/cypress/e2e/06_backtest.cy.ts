@@ -16,30 +16,23 @@ describe("Backtest a strategy (authenticated)", () => {
         const title = "Backtest sample";
         cy.registerAndLogin(email, testPass);
 
-        // Seed a strategy via the Describe tab (LLM stubbed).
-        cy.visit("/builder");
-        cy.contains("button", /describe/i).click();
-        cy.get("#describe-ticker").type("AAPL");
-        cy.get("#describe-title").type(title);
-        cy.get("#describe-prose").type("Breakout above 10, pull back, hold VWAP, go long.");
-        cy.intercept("POST", "**/anthropic/**", {
-            statusCode: 200,
-            body: {
-                content: [
-                    {
-                        type: "text",
-                        text: 'Stock.Ticker("AAPL").Breakout(10).Pullback().IsAboveVwap().Long().TakeProfit(12).StopLoss(8).Build()',
-                    },
-                ],
-            },
-        }).as("legion");
-        cy.contains("button", /generate with claude/i).click();
-        cy.contains("Stock.Ticker", { timeout: 30000 });
-        cy.contains("button", /save strategy/i).click();
-        cy.contains(/saved/i, { timeout: 10000 });
+        // Seed a strategy via the AI-assist pane (server-side fake LLM:
+        // IDIOTPROOF_FAKE_LLM=1; the [[script: ...]] marker picks the script).
+        cy.visitInteractive("/builder");
+        cy.typeStable("#b-title", title);
+        cy.typeStable("#b-symbol", "AAPL");
+        cy.typeStable(
+            "#b-prose",
+            "Breakout above 10, pull back, hold VWAP, go long. " +
+                '[[script: Stock.Ticker("AAPL").Breakout(10).Pullback().IsAboveVwap().Long().TakeProfit(12).StopLoss(8).Build()]]'
+        );
+        cy.get("#b-generate").click();
+        cy.get("#b-script", { timeout: 30000 }).should("contain.value", "Stock.Ticker");
+        cy.contains("button", "Save").click();
+        cy.contains(/saved\./i, { timeout: 10000 });
 
         // Run the backtest.
-        cy.visit("/backtest");
+        cy.visitInteractive("/backtest");
         cy.get("#backtest-strategy").select(`${title} (AAPL)`);
         cy.get("#backtest-date").type("2026-05-29");
         cy.get("#backtest-run").click();
@@ -53,7 +46,7 @@ describe("Backtest a strategy (authenticated)", () => {
     it("disables Run until a strategy is selected", () => {
         const email = `backtest2-${Date.now()}@idiotproof.local`;
         cy.registerAndLogin(email, testPass);
-        cy.visit("/backtest");
+        cy.visitInteractive("/backtest");
         cy.get("#backtest-run").should("be.disabled");
     });
 });

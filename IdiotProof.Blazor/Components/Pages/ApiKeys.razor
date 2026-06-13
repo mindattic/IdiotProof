@@ -104,6 +104,36 @@
     }
 </section>
 
+<!-- Polygon.io Section -->
+<section class="trading-card p-3 mb-3" aria-labelledby="polygon-heading">
+    <h2 id="polygon-heading" class="h6 text-white mb-3">
+        <i class="bi bi-bar-chart-line me-1" aria-hidden="true"></i>Polygon.io — Historical Market Data (Backtest)
+    </h2>
+    <div class="row g-3">
+        <div class="col-md-6">
+            <label class="form-label text-muted small" for="polygon-key">API Key</label>
+            <div class="input-group">
+                <input id="polygon-key"
+                       class="form-control bg-dark text-white border-secondary"
+                       type="@(showPolygonKey ? "text" : "password")"
+                       @bind="polygonKey"
+                       autocomplete="off"
+                       placeholder="Optional — enables live historical data in Backtest" />
+                <button class="btn btn-outline-secondary"
+                        type="button"
+                        @onclick="() => showPolygonKey = !showPolygonKey"
+                        aria-label="@(showPolygonKey ? "Hide Polygon API key" : "Show Polygon API key")"
+                        aria-pressed="@showPolygonKey">
+                    <i class="bi @(showPolygonKey ? "bi-eye-slash" : "bi-eye")" aria-hidden="true"></i>
+                </button>
+            </div>
+            <div class="form-text text-muted small">
+                Free tier provides historical OHLCV data. Without a key the backtest uses simulated candles.
+            </div>
+        </div>
+    </div>
+</section>
+
 <!-- Claude / AI Section -->
 <section class="trading-card p-3 mb-3" aria-labelledby="claude-heading">
     <div class="d-flex justify-content-between align-items-center mb-3">
@@ -192,6 +222,9 @@
     private bool showAlpacaSecret;
     private bool showLiveModeModal;
 
+    private string polygonKey = "";
+    private bool showPolygonKey;
+
     private string claudeKey = "";
     private string claudeModel = "claude-sonnet-4-6";
     private bool showClaudeKey;
@@ -201,18 +234,20 @@
     private bool alpacaTestOk;
     private string saveMessage = "";
 
-    private string? userId;
+    private Guid? userId;
 
     protected override async Task OnInitializedAsync()
     {
         var auth = await AuthStateProvider.GetAuthenticationStateAsync();
-        userId = auth.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+        var rawId = auth.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+        userId = Guid.TryParse(rawId, out var uid) ? uid : null;
         if (userId is null) return;
 
-        var keys = await UserKeyService.GetOrCreateAsync(userId);
+        var keys = await UserKeyService.GetOrCreateAsync(userId.Value);
         alpacaKeyId    = keys.AlpacaApiKeyId ?? "";
         alpacaSecret   = keys.AlpacaApiSecretKey ?? "";
         alpacaIsPaper  = keys.AlpacaIsPaper;
+        polygonKey     = keys.PolygonApiKey ?? "";
         claudeKey      = keys.ClaudeApiKey ?? "";
         claudeModel    = string.IsNullOrWhiteSpace(keys.ClaudeModel) ? "claude-sonnet-4-6" : keys.ClaudeModel;
         llmVotingEnabled = keys.LlmVotingEnabled;
@@ -279,16 +314,17 @@
 
         var keys = new UserApiKeys
         {
-            UserId             = userId,
+            UserId             = userId.Value,
             AlpacaApiKeyId     = alpacaKeyId,
             AlpacaApiSecretKey = alpacaSecret,
             AlpacaIsPaper      = alpacaIsPaper,
+            PolygonApiKey      = polygonKey,
             ClaudeApiKey       = claudeKey,
             ClaudeModel        = claudeModel,
             LlmVotingEnabled   = llmVotingEnabled
         };
 
-        await UserKeyService.SaveAsync(userId, keys);
+        await UserKeyService.SaveAsync(userId.Value, keys);
         saveMessage = "Keys saved successfully.";
     }
 }

@@ -11,6 +11,7 @@
 @using Microsoft.AspNetCore.Components.Authorization
 @attribute [Authorize]
 @inject StrategyRepository StrategyRepo
+@inject UserKeyService UserKeyService
 @inject AuthenticationStateProvider AuthState
 
 @*
@@ -66,8 +67,14 @@
         </div>
         <div class="text-muted small mt-2">
             <i class="bi bi-info-circle me-1" aria-hidden="true"></i>
-            Market data is <strong>simulated</strong> (no live data provider is wired). Triggers and trade logic are exact;
-            the price series is synthetic, so treat the P&amp;L as a mechanics check, not a historical result.
+            @if (usingPolygon)
+            {
+                <span>Using <strong>@activeDataSource live historical data</strong>. Triggers, trade logic, and price series reflect the real day.</span>
+            }
+            else
+            {
+                <span>Market data is <strong>simulated</strong> — add Alpaca credentials on <a href="/api-keys" class="text-muted">API Keys</a> to use real historical bars. Triggers and trade logic are exact; prices are synthetic.</span>
+            }
         </div>
     </div>
 
@@ -142,6 +149,81 @@
                     </table>
                 </div>
             </div>
+
+            @* Per-candle condition table — collapsible (IP-US-J2) *@
+            @if (report.ConditionTable.Count > 0)
+            {
+                <details class="mt-3" id="backtest-condition-table">
+                    <summary class="small text-muted mb-2" style="cursor:pointer">
+                        <i class="bi bi-table me-1" aria-hidden="true"></i>
+                        Per-candle condition table — @report.ConditionTable.Count bars
+                        <span class="text-muted ms-1">(expand to see pass/fail per bar)</span>
+                    </summary>
+                    <div class="table-responsive mt-2" style="max-height:420px; overflow-y:auto;">
+                        <table class="table table-sm table-hover" style="font-size:.75rem;">
+                            <thead class="sticky-top" style="z-index:1">
+                                <tr>
+                                    <th>Time</th>
+                                    <th class="text-end">Close</th>
+                                    @if (report.ConditionTable.Count > 0)
+                                    {
+                                        @foreach (var lbl in report.ConditionTable[0].Labels)
+                                        {
+                                            <th class="text-center" style="white-space:nowrap;max-width:120px;overflow:hidden;text-overflow:ellipsis" title="@lbl">
+                                                <code>@(lbl.Length > 18 ? lbl[..15] + "…" : lbl)</code>
+                                            </th>
+                                        }
+                                    }
+                                    <th class="text-center">All?</th>
+                                    <th class="text-center">Signal</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var row in report.ConditionTable)
+                                {
+                                    <tr class="@(row.OpenedTrade ? "table-success" : row.InPosition ? "table-secondary" : "")">
+                                        <td class="text-muted">@row.Utc.ToString("HH:mm")</td>
+                                        <td class="text-end">@($"{row.Close:0.00}")</td>
+                                        @for (int ci = 0; ci < row.Results.Count; ci++)
+                                        {
+                                            <td class="text-center">
+                                                @if (row.Results[ci])
+                                                {
+                                                    <i class="bi bi-check-circle-fill text-success" aria-label="pass" aria-hidden="true"></i>
+                                                }
+                                                else
+                                                {
+                                                    <i class="bi bi-x-circle text-danger" aria-label="fail" aria-hidden="true"></i>
+                                                }
+                                            </td>
+                                        }
+                                        <td class="text-center">
+                                            @if (row.AllSatisfied)
+                                            {
+                                                <i class="bi bi-check-all text-success fw-bold" aria-label="all pass" aria-hidden="true"></i>
+                                            }
+                                            else
+                                            {
+                                                <span class="text-muted">—</span>
+                                            }
+                                        </td>
+                                        <td class="text-center">
+                                            @if (row.OpenedTrade)
+                                            {
+                                                <span class="strategy-chip long-chip"><i class="bi bi-fire me-1" aria-hidden="true"></i>fire</span>
+                                            }
+                                            else if (row.InPosition)
+                                            {
+                                                <span class="text-muted small">in</span>
+                                            }
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </details>
+            }
         </div>
     }
 </section>
@@ -153,20 +235,31 @@
     private Guid selectedStrategyId;
     private DateTime selectedDate = DateTime.UtcNow.Date.AddDays(-1);
     private bool running;
+    private bool usingPolygon;
+    private string activeDataSource = "Mock";
     private string? loadError;
     private BacktestReport? report;
+
+    private string? polygonApiKey;
+    private string? alpacaKeyId;
+    private string? alpacaSecretKey;
 
     protected override async Task OnInitializedAsync()
     {
         try
         {
             var auth = await AuthState.GetAuthenticationStateAsync();
-            var userId = auth.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            Guid? userId = Guid.TryParse(auth.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value, out var uid) ? uid : null;
             if (userId is null) { loadError = "Sign in to run a backtest."; return; }
 
-            strategies = await StrategyRepo.GetAllForUserAsync(userId);
+            strategies = await StrategyRepo.GetAllForUserAsync(userId.Value);
             if (StrategyId is { } sid && strategies.Any(s => s.Id == sid))
                 selectedStrategyId = sid;
+
+            var keys = await UserKeyService.GetOrCreateAsync(userId.Value);
+            polygonApiKey   = string.IsNullOrWhiteSpace(keys.PolygonApiKey)       ? null : keys.PolygonApiKey;
+            alpacaKeyId     = string.IsNullOrWhiteSpace(keys.AlpacaApiKeyId)      ? null : keys.AlpacaApiKeyId;
+            alpacaSecretKey = string.IsNullOrWhiteSpace(keys.AlpacaApiSecretKey)  ? null : keys.AlpacaApiSecretKey;
         }
         catch (Exception ex)
         {
@@ -190,10 +283,33 @@
             var day = DateOnly.FromDateTime(selectedDate);
             // Regular session window in UTC (≈ 09:30–16:00 ET).
             var start = new DateTime(day.Year, day.Month, day.Day, 13, 30, 0, DateTimeKind.Utc);
-            var end = new DateTime(day.Year, day.Month, day.Day, 20, 0, 0, DateTimeKind.Utc);
+            var end   = new DateTime(day.Year, day.Month, day.Day, 20, 0, 0, DateTimeKind.Utc);
 
-            var feed = new MockDataFeed();
+            // Data source priority: Alpaca (existing credentials) → Polygon → Mock
+            IMarketDataFeed feed;
+            string dataSource;
+            if (!string.IsNullOrWhiteSpace(alpacaKeyId) && !string.IsNullOrWhiteSpace(alpacaSecretKey))
+            {
+                feed = new AlpacaDataFeed(alpacaKeyId, alpacaSecretKey);
+                dataSource = "Alpaca";
+                usingPolygon = true;
+            }
+            else if (!string.IsNullOrWhiteSpace(polygonApiKey))
+            {
+                feed = new PolygonDataFeed(polygonApiKey);
+                dataSource = "Polygon";
+                usingPolygon = true;
+            }
+            else
+            {
+                feed = new MockDataFeed();
+                dataSource = "Mock";
+                usingPolygon = false;
+            }
+
+            activeDataSource = dataSource;
             var candles = new List<Candle>();
+            await using var disposable = feed as IAsyncDisposable;
             await foreach (var c in feed.GetHistoricalCandlesAsync(def.Symbol, start, end, TimeSpan.FromMinutes(1)))
                 candles.Add(c);
 

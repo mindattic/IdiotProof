@@ -1,4 +1,5 @@
 import { defineConfig } from "cypress";
+import { execFileSync } from "child_process";
 
 /**
  * Cypress configuration for IdiotProof's Blazor Server app.
@@ -9,7 +10,16 @@ import { defineConfig } from "cypress";
  * Test users: tests register a fresh account on first run via /register
  * (see commands.ts). The cleanup hook truncates the test database between
  * runs — never point CYPRESS_BASE_URL at a production install.
+ *
+ * The seedConditionProgress task writes a ConditionProgress row straight
+ * into the same database the app reads (LocalDB by default; override with
+ * IDIOTPROOF_SQL_SERVER / IDIOTPROOF_SQL_DB). It stands in for a Monitor
+ * tick so the Strategies-page live badge can be asserted without running
+ * the Monitor during the UI suite.
  */
+const SQL_SERVER = process.env.IDIOTPROOF_SQL_SERVER ?? "(localdb)\\MSSQLLocalDB";
+const SQL_DB = process.env.IDIOTPROOF_SQL_DB ?? "IdiotProof";
+
 export default defineConfig({
   e2e: {
     baseUrl: process.env.CYPRESS_BASE_URL ?? "https://localhost:5001",
@@ -21,5 +31,40 @@ export default defineConfig({
     screenshotOnRunFailure: true,
     chromeWebSecurity: false,
     defaultCommandTimeout: 10000,
+    setupNodeEvents(on) {
+      on("task", {
+        /**
+         * Upsert a ConditionProgress row for a strategy, exactly as the
+         * Monitor's ConditionProgressRepository.UpsertAsync does per tick.
+         */
+        seedConditionProgress({
+          strategyId,
+          passed,
+          total,
+          verb,
+        }: {
+          strategyId: string;
+          passed: number;
+          total: number;
+          verb: string | null;
+        }) {
+          if (!/^[0-9a-fA-F-]{36}$/.test(strategyId)) {
+            throw new Error(`seedConditionProgress: '${strategyId}' is not a GUID`);
+          }
+          const verbSql =
+            verb === null ? "NULL" : `N'${String(verb).replace(/'/g, "''")}'`;
+          const sql =
+            `IF EXISTS (SELECT 1 FROM ConditionProgress WHERE StrategyId='${strategyId}') ` +
+            `UPDATE ConditionProgress SET PassedCount=${Number(passed)}, TotalCount=${Number(total)}, ` +
+            `FirstFailingVerb=${verbSql}, EvaluatedUtc=SYSUTCDATETIME() WHERE StrategyId='${strategyId}' ` +
+            `ELSE INSERT INTO ConditionProgress (StrategyId, PassedCount, TotalCount, FirstFailingVerb, EvaluatedUtc) ` +
+            `VALUES ('${strategyId}', ${Number(passed)}, ${Number(total)}, ${verbSql}, SYSUTCDATETIME());`;
+          execFileSync("sqlcmd", ["-S", SQL_SERVER, "-d", SQL_DB, "-E", "-b", "-Q", sql], {
+            stdio: "pipe",
+          });
+          return null;
+        },
+      });
+    },
   },
 });

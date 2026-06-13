@@ -5,10 +5,11 @@
   "description": "End-to-end UI tests for IdiotProof's Blazor Server app. Run after `dotnet run --project IdiotProof.Blazor` so the dev server is up at https://localhost:5001 (or override CYPRESS_BASE_URL).",
   "scripts": {
     "open": "cypress open",
-    "run":  "cypress run",
-    "ci":   "cypress run --browser chrome --headless"
+    "run": "cypress run",
+    "ci": "cypress run --browser chrome --headless"
   },
   "devDependencies": {
-    "cypress": "^13.15.0"
+    "cypress": "^13.15.0",
+    "typescript": "^5.9.3"
   }
 }

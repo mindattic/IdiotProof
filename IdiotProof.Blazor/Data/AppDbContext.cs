@@ -1,51 +1,58 @@
-using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
+using MindAttic.Authentication.Data;
+using MindAttic.Authentication.Entities;
 
 namespace IdiotProof.Blazor.Data;
 
 public sealed class AppDbContext(DbContextOptions<AppDbContext> options)
-    : IdentityDbContext<AppUser>(options)
+    : DbContext(options), IAuthDataContext
 {
-    public DbSet<UserApiKeys> UserApiKeys => Set<UserApiKeys>();
-    public DbSet<Strategy> Strategies => Set<Strategy>();
-    public DbSet<UserPreferences> UserPreferences => Set<UserPreferences>();
-    public DbSet<SettingsKv>      SettingsKv       => Set<SettingsKv>();
-    public DbSet<AuditLog>        AuditLogs        => Set<AuditLog>();
+    // Auth tables (MindAttic.Authentication)
+    public DbSet<AuthUser>               AuthUsers               => Set<AuthUser>();
+    public DbSet<AuthUserMfa>            AuthUserMfa             => Set<AuthUserMfa>();
+    public DbSet<AuthRecoveryCode>       AuthRecoveryCodes       => Set<AuthRecoveryCode>();
+    public DbSet<AuthSession>            AuthSessions            => Set<AuthSession>();
+    public DbSet<AuthLoginThrottle>      AuthLoginThrottles      => Set<AuthLoginThrottle>();
+    public DbSet<AuthAuditLog>           AuthAuditLog            => Set<AuthAuditLog>();
+    public DbSet<AuthPasswordHistory>    AuthPasswordHistory     => Set<AuthPasswordHistory>();
+    public DbSet<AuthPasswordResetToken> AuthPasswordResetTokens => Set<AuthPasswordResetToken>();
+
+    // App tables
+    public DbSet<UserApiKeys>       UserApiKeys       => Set<UserApiKeys>();
+    public DbSet<Strategy>          Strategies        => Set<Strategy>();
+    public DbSet<UserPreferences>   UserPreferences   => Set<UserPreferences>();
+    public DbSet<SettingsKv>        SettingsKv        => Set<SettingsKv>();
+    public DbSet<AuditLog>          AuditLogs         => Set<AuditLog>();
     public DbSet<ConditionProgress> ConditionProgress => Set<ConditionProgress>();
-    public DbSet<WorkspaceRow> Workspaces => Set<WorkspaceRow>();
+    public DbSet<WorkspaceRow>      Workspaces        => Set<WorkspaceRow>();
 
-    protected override void OnModelCreating(ModelBuilder builder)
+    protected override void OnModelCreating(ModelBuilder b)
     {
-        base.OnModelCreating(builder);
+        base.OnModelCreating(b);
+        b.ApplyMindAtticAuthConfiguration();
 
-        builder.Entity<UserApiKeys>(e =>
+        b.Entity<UserApiKeys>(e =>
         {
             e.HasIndex(k => k.UserId).IsUnique();
         });
 
-        builder.Entity<Strategy>(e =>
+        b.Entity<Strategy>(e =>
         {
             e.HasIndex(s => new { s.OwnerUserId, s.IsActive });
             e.HasIndex(s => s.Symbol);
             e.HasIndex(s => s.WorkspaceId);
-            // Cascade-delete a user's strategies when the user is removed.
-            e.HasOne<AppUser>()
+            e.HasOne<AuthUser>()
                 .WithMany()
                 .HasForeignKey(s => s.OwnerUserId)
                 .OnDelete(DeleteBehavior.Cascade);
         });
 
-        builder.Entity<UserPreferences>(e =>
+        b.Entity<UserPreferences>(e =>
         {
-            // UserId is both PK and FK to AspNetUsers — one row per user.
-            e.HasOne<AppUser>()
+            e.HasOne<AuthUser>()
                 .WithOne()
                 .HasForeignKey<UserPreferences>(p => p.UserId)
                 .OnDelete(DeleteBehavior.Cascade);
-
-            // Risk Guardian decimals. Declared explicitly so EF stops warning
-            // about silent default truncation. Matches the existing SQL column
-            // type (decimal(18,2)) so this produces no migration delta.
             e.Property(p => p.RiskMaxLossPerTrade).HasPrecision(18, 2);
             e.Property(p => p.RiskMaxLossPerDay).HasPrecision(18, 2);
             e.Property(p => p.RiskAccountBalance).HasPrecision(18, 2);
@@ -54,18 +61,15 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options)
             e.Property(p => p.RiskMaxAccountRiskPercent).HasPrecision(18, 2);
         });
 
-        builder.Entity<AuditLog>(e =>
+        b.Entity<AuditLog>(e =>
         {
-            // (UserId, Timestamp) supports per-user audit views; (Timestamp) supports
-            // the global recent-events view. Descending sort handled by query, not index.
             e.HasIndex(a => new { a.UserId, a.TimestampUtc });
             e.HasIndex(a => a.TimestampUtc);
             e.HasIndex(a => a.Category);
         });
 
-        builder.Entity<ConditionProgress>(e =>
+        b.Entity<ConditionProgress>(e =>
         {
-            // Index EvaluatedUtc for "stale row" cleanup queries.
             e.HasIndex(p => p.EvaluatedUtc);
             e.HasOne<Strategy>()
                 .WithOne()
@@ -73,14 +77,13 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options)
                 .OnDelete(DeleteBehavior.Cascade);
         });
 
-        builder.Entity<WorkspaceRow>(e =>
+        b.Entity<WorkspaceRow>(e =>
         {
             e.HasIndex(w => w.OwnerUserId);
-            e.HasOne<AppUser>()
+            e.HasOne<AuthUser>()
                 .WithMany()
                 .HasForeignKey(w => w.OwnerUserId)
                 .OnDelete(DeleteBehavior.Cascade);
         });
-
     }
 }

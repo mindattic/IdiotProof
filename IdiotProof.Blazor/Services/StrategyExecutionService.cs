@@ -119,7 +119,7 @@ public sealed class StrategyExecutionService : BackgroundService
         {
             if (ct.IsCancellationRequested) break;
             var feed = BuildFeed(keys);
-            var tabs = workspaceManager.GetTabsForUser(userId);
+            var tabs = workspaceManager.GetTabsForUser(userId.ToString());
 
             foreach (var tab in tabs)
             {
@@ -136,7 +136,7 @@ public sealed class StrategyExecutionService : BackgroundService
     }
 
     private async Task EvaluateSymbolAsync(
-        string userId, UserApiKeys keys, WorkspaceTab tab,
+        Guid userId, UserApiKeys keys, WorkspaceTab tab,
         string symbol, SwitchableMarketDataFeed feed,
         StrategyContext context, CancellationToken ct)
     {
@@ -184,7 +184,7 @@ public sealed class StrategyExecutionService : BackgroundService
 
             foreach (var signal in signals)
             {
-                signal.UserId = userId;
+                signal.UserId = userId.ToString();
                 tradingState.AddSignal(signal);
 
                 var signalKey = $"{signal.Symbol}_{signal.StrategyName}_{signal.GeneratedUtc:yyyyMMddHHmmss}";
@@ -267,7 +267,7 @@ public sealed class StrategyExecutionService : BackgroundService
     /// Exception path writes "AUTO_TRADE_FAIL" with the exception detail.
     /// Both paths skip the broker call — no order placed.
     /// </summary>
-    private async Task ExecuteAutoTradeAsync(string userId, WorkspaceTab tab, TradeSignal signal, UserApiKeys keys, CancellationToken ct)
+    private async Task ExecuteAutoTradeAsync(Guid userId, WorkspaceTab tab, TradeSignal signal, UserApiKeys keys, CancellationToken ct)
     {
         try
         {
@@ -404,7 +404,7 @@ public sealed class StrategyExecutionService : BackgroundService
     /// reach here, so swallowing here is safe and prevents audit-store
     /// outages from masking broker-call results.
     /// </summary>
-    private async Task SafeAuditAsync(string category, string message, string userId, string? dataJson = null, CancellationToken ct = default)
+    private async Task SafeAuditAsync(string category, string message, Guid? userId, string? dataJson = null, CancellationToken ct = default)
     {
         try { await auditLogRepo.LogAsync(category, message, userId, dataJson, ct); }
         catch (Exception ex) { logger.LogWarning(ex, "Audit DB write failed for {Category}", category); }
@@ -426,7 +426,7 @@ public sealed class StrategyExecutionService : BackgroundService
                     await broker.ConnectAsync(ct);
 
                 var positions = await broker.GetPositionsAsync(ct);
-                tradingState.UpdatePositions(userId, broker.BrokerType, positions.ToList());
+                tradingState.UpdatePositions(userId.ToString(), broker.BrokerType, positions.ToList());
             }
             catch (Exception ex)
             {

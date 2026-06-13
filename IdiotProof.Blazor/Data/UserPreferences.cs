@@ -9,8 +9,8 @@ namespace IdiotProof.Blazor.Data;
 /// </summary>
 public sealed class UserPreferences
 {
-    [Key, MaxLength(450)]
-    public string UserId { get; set; } = "";
+    [Key]
+    public Guid UserId { get; set; }
 
     /// <summary>Active theme. Defaults to "alpaca". Future: "dark", "high-contrast".</summary>
     [MaxLength(64)]

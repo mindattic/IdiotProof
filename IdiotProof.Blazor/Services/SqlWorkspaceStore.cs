@@ -35,15 +35,16 @@ internal sealed class SqlWorkspaceStore : IWorkspaceStore
 
     public IReadOnlyList<WorkspaceTab> Load(string userId)
     {
+        if (!Guid.TryParse(userId, out var uid)) return [];
         using var db = dbFactory.CreateDbContext();
         var rows = db.Workspaces
-            .Where(w => w.OwnerUserId == userId)
+            .Where(w => w.OwnerUserId == uid)
             .OrderBy(w => w.UpdatedUtc)
             .ToList();
 
         if (rows.Count == 0)
         {
-            var imported = ImportFromJson(userId, db);
+            var imported = ImportFromJson(userId, uid, db);
             if (imported.Count > 0) return imported;
         }
 
@@ -55,6 +56,7 @@ internal sealed class SqlWorkspaceStore : IWorkspaceStore
 
     public void Save(string userId, WorkspaceTab tab)
     {
+        if (!Guid.TryParse(userId, out var uid)) return;
         using var db = dbFactory.CreateDbContext();
         var existing = db.Workspaces.Find(tab.TabId);
         var json = JsonSerializer.Serialize(tab, jsonOpts);
@@ -65,7 +67,7 @@ internal sealed class SqlWorkspaceStore : IWorkspaceStore
             db.Workspaces.Add(new WorkspaceRow
             {
                 WorkspaceId = tab.TabId,
-                OwnerUserId = userId,
+                OwnerUserId = uid,
                 Name = tab.Name,
                 BodyJson = json,
                 CreatedUtc = now,
@@ -84,8 +86,9 @@ internal sealed class SqlWorkspaceStore : IWorkspaceStore
 
     public bool Delete(string userId, string tabId)
     {
+        if (!Guid.TryParse(userId, out var uid)) return false;
         using var db = dbFactory.CreateDbContext();
-        var row = db.Workspaces.FirstOrDefault(w => w.WorkspaceId == tabId && w.OwnerUserId == userId);
+        var row = db.Workspaces.FirstOrDefault(w => w.WorkspaceId == tabId && w.OwnerUserId == uid);
         if (row is null) return false;
         db.Workspaces.Remove(row);
         db.SaveChanges();
@@ -98,10 +101,11 @@ internal sealed class SqlWorkspaceStore : IWorkspaceStore
         return db.Workspaces
             .Select(w => w.OwnerUserId)
             .Distinct()
-            .ToList();
+            .ToList()
+            .Select(id => id.ToString());
     }
 
-    private List<WorkspaceTab> ImportFromJson(string userId, AppDbContext db)
+    private List<WorkspaceTab> ImportFromJson(string userId, Guid uid, AppDbContext db)
     {
         IReadOnlyList<WorkspaceTab> fromJson;
         try { fromJson = jsonFallback.Load(userId); }
@@ -115,7 +119,7 @@ internal sealed class SqlWorkspaceStore : IWorkspaceStore
             db.Workspaces.Add(new WorkspaceRow
             {
                 WorkspaceId = tab.TabId,
-                OwnerUserId = userId,
+                OwnerUserId = uid,
                 Name = tab.Name,
                 BodyJson = JsonSerializer.Serialize(tab, jsonOpts),
                 CreatedUtc = now,

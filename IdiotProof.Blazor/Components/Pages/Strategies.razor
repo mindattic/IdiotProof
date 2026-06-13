@@ -186,7 +186,7 @@
 @code {
     private bool loading = true;
     private string? loadError;
-    private string? userId;
+    private Guid? userId;
     private string filterText = "";
 
     private List<Strategy> all = new();
@@ -208,10 +208,11 @@
         try
         {
             var auth = await AuthState.GetAuthenticationStateAsync();
-            userId = auth.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            var rawId = auth.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            userId = Guid.TryParse(rawId, out var uid) ? uid : null;
             if (userId is null) { loadError = "Sign in to view your strategies."; return; }
 
-            all = await StrategyRepo.GetAllForUserAsync(userId);
+            all = await StrategyRepo.GetAllForUserAsync(userId.Value);
             foreach (var s in all)
             {
                 previews[s.Id] = TryParse(s.ScriptText);
@@ -294,18 +295,18 @@
     /// </summary>
     private async Task EditStrategy(Guid id)
     {
-        if (!string.IsNullOrEmpty(userId))
+        if (userId.HasValue)
         {
-            await PrefsService.AddOpenTabAsync(userId, id.ToString());
+            await PrefsService.AddOpenTabAsync(userId.Value, id.ToString());
         }
         Nav.NavigateTo($"/builder/{id}");
     }
 
     private async Task CreateNew()
     {
-        if (!string.IsNullOrEmpty(userId))
+        if (userId.HasValue)
         {
-            await PrefsService.AddOpenTabAsync(userId, "new");
+            await PrefsService.AddOpenTabAsync(userId.Value, "new");
         }
         Nav.NavigateTo("/builder");
     }

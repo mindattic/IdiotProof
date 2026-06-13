@@ -22,7 +22,7 @@ describe("API Keys page (authenticated)", () => {
 
     beforeEach(() => {
         cy.registerAndLogin(testUser(), testPass);
-        cy.visit("/api-keys");
+        cy.visitInteractive("/api-keys");
         cy.contains(/api keys & connections/i, { timeout: 15000 });
     });
 
@@ -95,7 +95,7 @@ describe("API Keys page (authenticated)", () => {
         // Reload — the saved values must come back. They reload masked, so we
         // can't assert the contents of <input type="password"> via .should("have.value")
         // reliably; instead we click "show" and read the value back.
-        cy.reload();
+        cy.visitInteractive("/api-keys");
         cy.contains(/api keys & connections/i, { timeout: 15000 });
         cy.get('button[aria-label="Show Claude API key"]').click();
         cy.get("#claude-key").should("have.value", "sk-ant-cypress-test-key");

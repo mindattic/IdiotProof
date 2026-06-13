@@ -119,15 +119,16 @@
     private string activeLabel   = "—";
     private string activeAccountId = "";
 
-    private string? userId;
+    private Guid? userId;
 
     protected override async Task OnInitializedAsync()
     {
         var auth = await AuthState.GetAuthenticationStateAsync();
-        userId = auth.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+        var rawId = auth.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+        userId = Guid.TryParse(rawId, out var uid) ? uid : null;
         if (userId is null) return;
 
-        var prefs = await Prefs.GetOrCreateAsync(userId);
+        var prefs = await Prefs.GetOrCreateAsync(userId.Value);
         activeType      = prefs.ActiveAccountType;
         activeAccountId = prefs.ActiveAccountId;
 
@@ -144,7 +145,7 @@
             {
                 if (userId is not null)
                 {
-                    var prefs = await Prefs.GetOrCreateAsync(userId);
+                    var prefs = await Prefs.GetOrCreateAsync(userId.Value);
                     await JS.InvokeVoidAsync("localStorage.setItem", "idiotproof.theme", prefs.Theme);
                 }
             }
@@ -157,7 +158,7 @@
         if (userId is null) return;
         try
         {
-            var keys = await UserKeys.GetOrCreateAsync(userId);
+            var keys = await UserKeys.GetOrCreateAsync(userId.Value);
             if (string.IsNullOrWhiteSpace(keys.AlpacaApiKeyId))
             {
                 errorMessage = "No Alpaca keys configured. Add them in API Keys.";
@@ -234,7 +235,7 @@
         activeLabel     = summary.Label;
         isOpen          = false;
 
-        await Prefs.SetActiveAccountAsync(userId, summary.AccountId, type);
+        await Prefs.SetActiveAccountAsync(userId.Value, summary.AccountId, type);
 
         try
         {
