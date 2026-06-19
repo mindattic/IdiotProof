@@ -123,7 +123,7 @@ It is **Alpaca-only** in the active build. A new broker plugs in by implementing
 | `IdiotProof.Strategies.Tests` | DSL round-trip, backtester, registry (NUnit). |
 | `IdiotProof.Brokers.Tests` | BrokerRouter Sandbox default + safe fallback (NUnit). |
 | `IdiotProof.Blazor.Tests` | StrategyScriptGenerator verb-catalog reflection + LlmVotingService consensus logic (NUnit). |
-| `tests/IdiotProof.Cypress` | End-to-end Cypress tests for the Blazor UI (planned). |
+| `tests/IdiotProof.Cypress` | End-to-end Cypress 13 tests for the Blazor UI (7 specs). |
 
 ---
 
@@ -515,16 +515,16 @@ dotnet test IdiotProof.slnx
 | `IdiotProof.Brokers.Tests` | 8 | BrokerRouter Sandbox default + safe fallback |
 | `IdiotProof.Blazor.Tests` | 21 | StrategyScriptGenerator verb-catalog reflection, LlmVotingService consensus logic + JSON parsing |
 
-### Cypress (frontend, planned)
+### Cypress (frontend E2E)
 
 ```bash
 cd tests/IdiotProof.Cypress
 npm install
 npm run open    # interactive
-npm run ci      # headless
+npm run ci      # headless (Chrome, uses CYPRESS_BASE_URL or defaults to https://localhost:5001)
 ```
 
-Planned specs: describe-tab → strategies round-trip (with stubbed Legion call), live/paper confirmation modal, condition-progress badge polling.
+Specs: smoke / public-route checks (`01`), full describe-tab → save → activate round-trip with fake-LLM seam (`02`), API key masking + live-mode danger modal (`03`), Vault-backed AI generation (`04`), sample strategy round-trips (`05`), backtest replay (`06`), live condition-progress `N/M · verb` badge on `/strategies` (`07`).
 
 ---
 
@@ -559,7 +559,7 @@ IdiotProof/
 ├── IdiotProof.Brokers.Tests/                ← BrokerRouter (NUnit)
 ├── IdiotProof.Blazor.Tests/                 ← StrategyScriptGenerator + LlmVotingService (NUnit)
 └── tests/
-    └── IdiotProof.Cypress/                  ← End-to-end UI tests (planned)
+    └── IdiotProof.Cypress/                  ← End-to-end UI tests (Cypress 13, 7 specs)
 ```
 
 ---
