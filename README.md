@@ -20,6 +20,7 @@ Describe a setup the way you'd say it out loud — _"if NVDA pulls back to the 9
 
 ## Table of contents
 
+0. [Quick start — trade a gapper](#0-quick-start--trade-a-gapper)
 1. [What it is](#1-what-it-is)
 2. [Architecture](#2-architecture)
 3. [Storage layout](#3-storage-layout)
@@ -35,6 +36,86 @@ Describe a setup the way you'd say it out loud — _"if NVDA pulls back to the 9
 13. [Tests](#13-tests)
 14. [Project layout](#14-project-layout)
 15. [Roadmap](#15-roadmap)
+
+---
+
+## 0. Quick start — trade a gapper
+
+> The condensed runbook. The full walkthrough (field-by-field profile reference, safety
+> model, troubleshooting) lives in **[user-guide.htm](IdiotProof.Blazor/wwwroot/user-guide.htm)** —
+> also served by the running app at `/user-guide.htm` and linked from the Gapper tab.
+
+The system is **two processes sharing one SQL database** — the database *is* the
+communication channel. Anything you change in the UI is picked up by the console within
+~5 seconds; no restart, no extra wiring.
+
+### Step 1 — start both processes (two terminals)
+
+```bash
+# Terminal 1 — the UI
+dotnet run --project IdiotProof.Blazor
+
+# Terminal 2 — the trading console
+dotnet run --project IdiotProof.Monitor
+```
+
+Both default to the same LocalDB database (`IdiotProof`). The console logs
+`Monitor leader lease acquired — this instance evaluates and trades` and ticks every 5s.
+**Register an account** in the UI on first run.
+
+### Step 2 — real market data (the console's eyes)
+
+The console picks its **data feed** from the global settings chain. Put Alpaca keys in the
+MindAttic broker keyring at `%APPDATA%\MindAttic\Brokers\providers.json`:
+
+```json
+{ "alpaca-paper": { "type": "alpaca", "apiKey": "PK...", "secret": "..." } }
+```
+
+(or set `AlpacaApiKeyId` / `AlpacaApiSecretKey` env vars before starting the Monitor).
+With keys present it uses Alpaca REST + the websocket stream automatically; without them
+it falls back to the deterministic mock feed.
+
+### Step 3 — real order routing (your account, your money)
+
+In the UI: **user menu → API Keys** → enter your Alpaca key/secret → leave **Paper**
+checked → enable **"Route my orders to this Alpaca account"** → Save All. The console
+decrypts those keys through the shared Data Protection key ring and places *your* orders
+on *your* account. Without the toggle, orders go to the built-in **Sandbox** broker
+(simulated fills) — the safe default by design. Live trading = uncheck Paper and confirm
+the red modal; the console honors the flag.
+
+### Step 4 — queue gappers
+
+Open the **Gapper** tab → ticker → pick a profile (Classic / Penny Runner / Large-Cap) →
+**Dial in** (gap %, volume, price band, SL/TSL, peak-giveback, arm + sell-by times) →
+**Queue Gapper** (up to 3). From then on it's hands-off: the console screens the ticker
+every tick in the **4:00–9:00 AM ET premarket window**, buys through the three gates when
+the criteria hit (premarket orders are limit + extended-hours automatically), shows
+**HOLDING qty @ price** live, and sells before the 9:30 bell — momentum giveback first,
+hard sell-by as the backstop.
+
+### Step 5 — watch it / dry-run it
+
+The console log narrates every decision; the Gapper and Strategies tabs mirror it every 5s.
+To rehearse without keys or money: start the Monitor with `IDIOTPROOF_FEED=mock`, queue a
+ticker starting with **GAP** (e.g. `GAPT` — the mock feed fabricates a gap day for it), and
+leave routing off (Sandbox). Note the session gate runs on the real ET clock even in mock
+mode — entries only fire during actual premarket hours, Mon–Fri.
+
+### Monitor env knobs
+
+| Env var | Default | Notes |
+|---|---|---|
+| `IDIOTPROOF_MONITOR_INTERVAL` | `5s` | Tick cadence (`30s`, `5m`, bare seconds). |
+| `IDIOTPROOF_FEED` | auto | `alpaca` \| `mock` (auto = Alpaca when keyed). |
+| `IDIOTPROOF_BROKER` | `sandbox` | `alpaca` opts the *global* account into real routing (per-user routing is the API Keys toggle). |
+| `IDIOTPROOF_ALPACA_FEED` | `iex` | Data tier; `sip` auto-downgrades to `iex` on 403. |
+| `IDIOTPROOF_STREAMING` | on | `0` disables the websocket stream. |
+
+Unattended operation: `sc.exe create IdiotProof.Monitor binPath="<path>\idiotproof-monitor.exe"` —
+the console is Windows-Service-ready, and a SQL leader lease guarantees only one instance
+trades per database (a second instance stands by and takes over if the leader dies).
 
 ---
 
@@ -419,15 +500,17 @@ Account credentials come from the shared MindAttic broker keyring at `%APPDATA%\
 
 ## 11. The Monitor console app
 
-`IdiotProof.Monitor` is the unattended evaluator. Run it once and forget about it; it'll loop forever, evaluating every active strategy in SQL.
+`IdiotProof.Monitor` is the unattended evaluator **and executor** (RFC 0002 / IP-A8) — the
+one pipeline. Run it once and forget about it; it loops forever under `SupervisedLoop`,
+holding a SQL leader lease so at most one instance trades per database.
 
 ### Behavior
 
-Every `IDIOTPROOF_MONITOR_INTERVAL` (default 30s):
+Every `IDIOTPROOF_MONITOR_INTERVAL` (default 5s):
 
-1. Load every `Strategy` row where `IsActive = true`.
-2. Group by symbol; fetch a 120-bar window from the configured market data feed once per symbol.
-3. For each strategy: parse `ScriptText`, build an `IndicatorSnapshot` via `IndicatorSnapshotBuilder` (with the EMA periods the strategy needs), walk each entry condition individually.
+1. Re-load every `Strategy` row where `IsActive = true` — UI edits apply live, no restart.
+2. Group by symbol; fetch a 240-minute-bar window per symbol (Alpaca REST + websocket stream when keyed, Mock fallback) plus the previous daily close for gap math.
+3. For each strategy: parse `ScriptText`, build an `IndicatorSnapshot` via `IndicatorSnapshotBuilder` (with the EMA periods the strategy needs), walk each entry condition individually. Session gate (Premarket/RTH/AfterHours/Extended) and a one-trade-per-day guard run first.
 4. Log per-condition progress:
 
 ```
@@ -442,6 +525,8 @@ Every `IDIOTPROOF_MONITOR_INTERVAL` (default 30s):
    - **Gate 2 — `RiskGuardian`** (the canonical pre-trade gatekeeper, **per-user instance** cached by `RiskGuardianService` and seeded from each user's `UserPreferences` risk fields). Validates: stop loss exists, stop is on the correct side of entry, total risk ≤ MaxLossPerTrade, daily loss ≤ MaxLossPerDay, stop distance within MinStop / MaxStop %, account risk ≤ MaxAccountRiskPercent. The cache preserves the in-memory daily-loss tracker across signals so the daily circuit breaker actually trips. Block = no fire; AuditLog stamps `signal-blocked` with `blockReasons` + `expectedLoss` + `worstCase` JSON.
    - When **both** gates pass, `RecordFiredAsync` bumps `LastFiredUtc` + `FireCount`. `LastFiredUtc` / `FireCount` only ever tick on signals that survived BOTH gates.
    - **LLM voting disabled or no Claude key** → skip Gate 1; Gate 2 still runs.
+7. **Place the entry order** through `UserBrokerResolver`: the strategy owner's own Alpaca account when they opted in on the API Keys page (their paper/live flag), otherwise the Sandbox-default router (IP-LAW-3). Premarket/after-hours orders go in as **limit + `extended_hours`** (Alpaca requirement); RTH entries as marketable limits.
+8. **Manage the open position** every tick via `GapperExitEvaluator` — hard sell-by time, hard/trailing stops, take-profit, and the peak-giveback momentum rollover. The exit fill is recorded on the Strategy row (the UI shows HOLDING/sold live) and realized P&L feeds the RiskGuardian daily circuit breaker. Exit orders are risk-reducing: they skip the LLM panel by design but are always audit-logged.
 
 ### Run
 
@@ -449,14 +534,21 @@ Every `IDIOTPROOF_MONITOR_INTERVAL` (default 30s):
 dotnet run --project IdiotProof.Monitor
 ```
 
+Windows-Service-ready: `sc.exe create IdiotProof.Monitor binPath="..."`. A session-owned
+`sp_getapplock` leader lease means a second instance waits in standby and takes over
+automatically if the leader dies — no double-fired orders.
+
 ### Configure
 
 | Env var | Default | Notes |
 |---|---|---|
 | `ConnectionStrings__IdiotProof` | LocalDB | Shared with the Blazor host. |
-| `IDIOTPROOF_MONITOR_INTERVAL` | `30s` | Accepts `30s`, `5m`, `2h`, or bare seconds. |
-
-The Monitor uses the same `IBrokerClient` abstraction as the web app — order placement, Risk Guardian, and LLM voting still go through Alpaca via the Blazor host (the Monitor just emits signals; it doesn't place orders).
+| `IDIOTPROOF_MONITOR_INTERVAL` | `5s` | Accepts `30s`, `5m`, `2h`, or bare seconds. |
+| `IDIOTPROOF_FEED` | auto | `alpaca` \| `mock`. |
+| `IDIOTPROOF_BROKER` | `sandbox` | Global-account routing opt-in (`alpaca`). |
+| `IDIOTPROOF_ALPACA_FEED` | `iex` | `sip` auto-downgrades on 403. |
+| `IDIOTPROOF_STREAMING` | on | `0` disables the websocket stream. |
+| `DataProtection:KeyRingPath` (config) | dev convention | Must match the Blazor host so per-user API keys decrypt. |
 
 ---
 

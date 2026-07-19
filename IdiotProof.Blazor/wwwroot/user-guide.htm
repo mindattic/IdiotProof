@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>IdiotProof — Gapper User Guide</title>
+<style>
+  :root{
+    --bg:#0d1117; --bg-card:#161b22; --bg-row:#1c2129; --border:#30363d;
+    --text:#e6edf3; --muted:#9aa4b2; --brand:#fcd34d; --green:#3fb950; --red:#f85149;
+    --code:#79c0ff;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);
+       font:16px/1.65 -apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+  .wrap{max-width:880px;margin:0 auto;padding:40px 24px 80px}
+  header.hero{border-bottom:1px solid var(--border);padding-bottom:24px;margin-bottom:32px}
+  .hero h1{margin:0 0 4px;font-size:2rem}
+  .hero h1 .accent{color:var(--brand)}
+  .hero p{margin:0;color:var(--muted)}
+  .kb-note{display:inline-block;margin-top:12px;padding:4px 12px;border:1px solid var(--border);
+           border-radius:999px;font-size:.8rem;color:var(--muted)}
+  h2{font-size:1.35rem;margin:48px 0 12px;padding-top:16px;border-top:1px solid var(--border)}
+  h2 .num{color:var(--brand);margin-right:8px}
+  h3{font-size:1.05rem;margin:24px 0 8px;color:var(--brand)}
+  p{margin:10px 0}
+  a{color:var(--code);text-decoration:none}
+  a:hover{text-decoration:underline}
+  code,pre{font-family:ui-monospace,Consolas,"Cascadia Mono",monospace;font-size:.9em}
+  code{background:var(--bg-card);border:1px solid var(--border);border-radius:4px;padding:1px 6px;color:var(--code)}
+  pre{background:var(--bg-card);border:1px solid var(--border);border-radius:8px;
+      padding:14px 16px;overflow-x:auto;line-height:1.5}
+  pre code{background:none;border:none;padding:0}
+  table{width:100%;border-collapse:collapse;margin:14px 0;font-size:.92rem}
+  th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--border);vertical-align:top}
+  th{color:var(--brand);font-weight:600;white-space:nowrap}
+  tr:nth-child(even) td{background:var(--bg-row)}
+  .card{background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:16px 20px;margin:16px 0}
+  .card.warn{border-left:4px solid var(--red)}
+  .card.tip{border-left:4px solid var(--green)}
+  .card.note{border-left:4px solid var(--brand)}
+  .card h4{margin:0 0 6px;font-size:.95rem}
+  .card p{margin:6px 0;font-size:.92rem}
+  .lifecycle{display:flex;flex-wrap:wrap;gap:8px;margin:18px 0}
+  .stage{flex:1 1 150px;background:var(--bg-card);border:1px solid var(--border);border-radius:8px;padding:12px}
+  .stage b{display:block;color:var(--brand);font-size:.85rem;margin-bottom:4px}
+  .stage span{font-size:.82rem;color:var(--muted)}
+  .stage .t{display:block;font-family:ui-monospace,Consolas,monospace;font-size:.78rem;color:var(--green);margin-top:6px}
+  .chip{display:inline-block;padding:2px 10px;border-radius:999px;font-size:.8rem;border:1px solid var(--border)}
+  .chip.hold{color:var(--green);border-color:var(--green)}
+  .chip.wait{color:var(--brand);border-color:var(--brand)}
+  .chip.sold{color:var(--muted)}
+  .toc{background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:16px 24px}
+  .toc ol{margin:6px 0;padding-left:20px;columns:2;column-gap:40px}
+  .toc li{margin:4px 0;break-inside:avoid}
+  footer{margin-top:56px;padding-top:16px;border-top:1px solid var(--border);color:var(--muted);font-size:.85rem}
+  @media (max-width:640px){.toc ol{columns:1}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="hero">
+  <h1>Idiot<span class="accent">Proof</span> — Gapper User Guide</h1>
+  <p>Buy the gap at 4AM. Sell it off before the bell. This guide walks you from a fresh checkout to a queued, running, self-exiting gapper.</p>
+  <span class="kb-note">Knowledge Base · Article 1 — this guide grows into the IdiotProof KB</span>
+</header>
+
+<nav class="toc">
+  <b>Contents</b>
+  <ol>
+    <li><a href="#what">What a gapper trade is</a></li>
+    <li><a href="#quickstart">Quick start — two processes</a></li>
+    <li><a href="#keys">Keys: data vs. orders (and paper vs. live)</a></li>
+    <li><a href="#build">Building a gapper on the Gapper tab</a></li>
+    <li><a href="#profile">Profile reference — every dial</a></li>
+    <li><a href="#run">What happens while it runs</a></li>
+    <li><a href="#exit">The sell-off brain</a></li>
+    <li><a href="#safety">The safety model</a></li>
+    <li><a href="#dryrun">Dry-run mode (no keys, no money)</a></li>
+    <li><a href="#knobs">Console configuration knobs</a></li>
+    <li><a href="#trouble">Troubleshooting</a></li>
+  </ol>
+</nav>
+
+<h2 id="what"><span class="num">1</span>What a gapper trade is</h2>
+<p>A <b>gapper</b> is a stock whose premarket price has gapped up meaningfully versus
+yesterday's official close — usually on news, earnings, or momentum — with real volume
+behind the move. The trade: get in early in the premarket (the session opens at
+4:00&nbsp;AM&nbsp;ET), ride the run, and get out <b>before the 9:30 opening bell</b>, when
+gappers routinely give their gains back to the opening auction.</p>
+
+<div class="lifecycle">
+  <div class="stage"><b>SCREEN</b><span>Gap % vs. previous close, volume burst, price band — all inside your entry window.</span><span class="t">04:00–09:00 ET</span></div>
+  <div class="stage"><b>BUY</b><span>All conditions pass → LLM panel → Risk Guardian → limit order (extended-hours).</span><span class="t">the moment criteria hit</span></div>
+  <div class="stage"><b>HOLD</b><span>Track the high-water mark. Stops protect the whole ride.</span><span class="t">through the run</span></div>
+  <div class="stage"><b>ROLLOVER</b><span>Armed late in premarket: sell once price gives back N% of the run.</span><span class="t">from ~09:15 ET</span></div>
+  <div class="stage"><b>FLAT</b><span>Hard sell-by guarantees you're out before the bell, no matter what.</span><span class="t">by ~09:28 ET</span></div>
+</div>
+
+<p>IdiotProof runs this loop unattended. You dial in <i>what counts as a gapper</i> and
+<i>how it exits</i>; the console does the watching, the buying, and the selling.</p>
+
+<h2 id="quickstart"><span class="num">2</span>Quick start — two processes</h2>
+<p>IdiotProof is two programs sharing one SQL database. <b>The database is the wire</b>:
+everything you do in the browser is picked up by the trading console within ~5 seconds —
+no restarts, nothing to connect.</p>
+
+<pre><code># Terminal 1 — the web UI
+dotnet run --project IdiotProof.Blazor
+
+# Terminal 2 — the trading console (the thing that actually trades)
+dotnet run --project IdiotProof.Monitor</code></pre>
+
+<p>On first run, <b>register an account</b> in the UI. The console will log:</p>
+<pre><code>IdiotProof.Monitor starting — interval 5s, feed Alpaca
+Monitor leader lease acquired — this instance evaluates and trades</code></pre>
+
+<div class="card tip">
+  <h4>Leave the console running</h4>
+  <p>It's built for it: a supervised loop survives bad ticks with backoff, a heartbeat file
+  lets a watchdog detect hangs, and it installs as a Windows service
+  (<code>sc.exe create IdiotProof.Monitor binPath="...\idiotproof-monitor.exe"</code>).
+  If you accidentally start two, the second waits in standby — a database lease guarantees
+  only one instance ever trades.</p>
+</div>
+
+<h2 id="keys"><span class="num">3</span>Keys: data vs. orders (and paper vs. live)</h2>
+<p>Two separate key paths, on purpose:</p>
+
+<h3>Market data (the console's eyes)</h3>
+<p>The console reads its data-feed keys from the machine-level MindAttic keyring. Create
+<code>%APPDATA%\MindAttic\Brokers\providers.json</code>:</p>
+<pre><code>{ "alpaca-paper": { "type": "alpaca", "apiKey": "PK...", "secret": "..." } }</code></pre>
+<p>With keys present, the console uses Alpaca REST plus a <b>websocket stream</b> (live
+trades + minute bars) automatically. Without keys it falls back to a deterministic mock
+feed (see <a href="#dryrun">dry-run mode</a>).</p>
+
+<h3>Order routing (your money)</h3>
+<p>In the UI: <b>user menu → API Keys</b>. Enter your Alpaca key and secret, keep
+<b>Paper</b> checked, and enable <b>“Route my orders to this Alpaca account.”</b> Save All.
+From then on, <i>your</i> strategies place orders on <i>your</i> Alpaca account with your
+paper/live setting. Keys are encrypted at rest; the console decrypts them through a shared
+Data Protection key ring.</p>
+
+<div class="card warn">
+  <h4>Paper first. Live is a deliberate act.</h4>
+  <p>If routing is off, orders go to the built-in <b>Sandbox</b> broker — instant simulated
+  fills, zero risk. That is the default and the fallback whenever anything about your keys
+  is wrong. Going live requires unchecking Paper <i>and</i> confirming the red warning
+  modal. Real money moves after that.</p>
+</div>
+
+<h2 id="build"><span class="num">4</span>Building a gapper on the Gapper tab</h2>
+<ol>
+  <li>Open the <b>Gapper</b> tab in the top navigation.</li>
+  <li>Type the ticker (e.g. <code>NVDA</code>).</li>
+  <li>Pick a profile — <b>Classic Gapper</b> (5%+ gap on 2× volume), <b>Penny Runner</b>
+      (10%+ gap, cheap stock, tighter exits), or <b>Large-Cap Gap</b> (3–12% gap at size).</li>
+  <li>Click <b>Dial in</b> and adjust anything — every value is per-ticker. All gappers are
+      not the same; the profile is just your starting point.</li>
+  <li>Expand <b>Preview generated IdiotScript</b> if you want to see exactly what will run.</li>
+  <li><b>Queue Gapper.</b> Up to 3 can be active at once.</li>
+</ol>
+<p>The queued row shows a live badge from the console. Pause, remove, or re-queue any time
+— changes apply on the console's next tick.</p>
+
+<p>Under the hood the dial-ins become an <b>IdiotScript</b> strategy, the same six-phase DSL
+every IdiotProof strategy uses:</p>
+<pre><code>Ticker("NVDA")
+    .Name("NVDA Gapper — Classic Gapper")
+    .Session(IS.PREMARKET)
+    .RequireEntryWindow("04:00", "09:00")
+    .IsGapUp(5)
+    .IsVolumeAbove(2)
+    .IsPriceBetween(1, 50)
+    .Long()
+    .QuantityNotional(1000)
+    .StopLossPercent(5)
+    .PeakGiveback(25, "09:15")
+    .SellBy("09:28")</code></pre>
+
+<h2 id="profile"><span class="num">5</span>Profile reference — every dial</h2>
+<table>
+  <tr><th>Dial</th><th>What it does</th><th>Guidance</th></tr>
+  <tr><td><b>Min gap %</b></td><td>The stock must be up at least this much vs. yesterday's close.</td><td>5% is the classic floor. Below ~3% the "gap" is noise.</td></tr>
+  <tr><td><b>Max gap %</b></td><td>Optional ceiling — beyond this, the move is "already gone."</td><td>Useful on large caps (a 20% mega-cap gap has usually exhausted itself). Blank = no cap.</td></tr>
+  <tr><td><b>Min volume ratio</b></td><td>The latest bar's volume must be at least this multiple of the rolling average — proof there's real interest.</td><td>2× is standard; 3× for penny stocks where fake gaps are common.</td></tr>
+  <tr><td><b>Min / Max price $</b></td><td>Tradable band. Entries only happen while price is inside it.</td><td>Keeps you out of sub-$1 chaos and caps per-share exposure.</td></tr>
+  <tr><td><b>Entry window (ET)</b></td><td>The console only hunts entries between these times, on the US-market clock.</td><td>Default 04:00–09:00. Ending before 9:00 avoids buying minutes before your own sell-by.</td></tr>
+  <tr><td><b>Stop loss %</b></td><td>Hard stop below your entry price, active the whole hold.</td><td>Required — the Risk Guardian refuses stopless orders. 5% classic, 8% for pennies.</td></tr>
+  <tr><td><b>Trailing stop %</b></td><td>Optional stop that follows the high-water mark down.</td><td>Adds protection during the run, before the rollover exit arms.</td></tr>
+  <tr><td><b>Peak giveback %</b></td><td>The momentum-rollover exit: sell once price gives back this % of the run from entry to peak.</td><td>The heart of the strategy — see <a href="#exit">§7</a>. 25% default; lower = twitchier exit.</td></tr>
+  <tr><td><b>Arm sell-off watch at (ET)</b></td><td>The giveback exit stays dormant until this time — let the runner run.</td><td>Default 09:15 ("the last 15 minutes"). Must be before the sell-by.</td></tr>
+  <tr><td><b>Hard sell-by (ET)</b></td><td>Unconditional flatten time. Whatever else happens, you're out.</td><td>Default 09:28 — never hold a gapper into the opening bell.</td></tr>
+  <tr><td><b>Position size $</b></td><td>Notional dollars per entry; converted to whole shares at the entry price.</td><td>The Risk Guardian will veto a size whose worst case exceeds your per-trade loss cap.</td></tr>
+</table>
+
+<h2 id="run"><span class="num">6</span>What happens while it runs</h2>
+<p>Every ~5 seconds the console re-reads your active strategies and evaluates each one.
+You can watch in two places — the console log narrates every decision, and the Gapper tab
+mirrors it as badges:</p>
+<table>
+  <tr><th>Badge</th><th>Meaning</th></tr>
+  <tr><td><span class="chip wait">⏳ 2/4 · IsGapUp(5)</span></td><td>Two of four conditions pass; it's waiting on the gap. The named verb is the first one failing right now.</td></tr>
+  <tr><td><span class="chip wait">⏳ 0/4 · (outside Premarket session)</span></td><td>Market-clock gate: it only evaluates 4:00–9:30 ET on trading days. Normal at night and on weekends.</td></tr>
+  <tr><td><span class="chip hold">💼 HOLDING 98 @ 10.21</span></td><td>Entry filled. The console now manages the exit instead of hunting entries.</td></tr>
+  <tr><td><span class="chip sold">↗ sold @ 11.48 · PeakGiveback</span></td><td>Exited, with the reason (PeakGiveback, SellByTime, StopLoss, TrailingStop, TargetHit).</td></tr>
+  <tr><td><span class="chip wait">⏳ (done for today)</span></td><td>Already traded today; re-arms tomorrow automatically.</td></tr>
+</table>
+
+<p>When all conditions pass, the candidate walks <b>three gates in order</b> before any
+money moves — condition match → LLM voter panel (if enabled) → Risk Guardian — then the
+entry goes in as a marketable <b>limit</b> order, flagged <b>extended-hours</b> during
+premarket (an Alpaca requirement; a plain market order would silently queue until 9:30 —
+exactly what you don't want).</p>
+
+<h2 id="exit"><span class="num">7</span>The sell-off brain</h2>
+<p>While holding, every tick checks four rules, first match wins:</p>
+<ol>
+  <li><b>Hard sell-by</b> — the ET time hits → flatten. Non-negotiable backstop.</li>
+  <li><b>Hard stop</b> — price breaches your stop % below entry → out.</li>
+  <li><b>Trailing stop</b> (if set) — price falls your trailing % off the high-water mark → out.</li>
+  <li><b>Peak giveback</b> (armed from your arm time) — the momentum-rollover exit.</li>
+</ol>
+<p>The giveback rule scales with the stock's own momentum, which is what makes it fit
+gappers: <b>sell when price surrenders N% of the run from your entry to its peak.</b></p>
+<div class="card note">
+  <h4>Worked example — 25% giveback</h4>
+  <p>Enter at <b>$10.00</b>. It runs to a peak of <b>$12.00</b> → the run is $2.00.
+  25% of the run is $0.50, so the exit floor is <b>$11.50</b>.
+  At 9:15 ET the watch arms; at 9:21 the price prints $11.48 → <b>sold</b>, keeping ~75% of
+  the move. A slower stock that only ran to $10.40 gets a much tighter floor ($10.30) —
+  the exit automatically gives big runners room and small runners none.</p>
+</div>
+<p>Exits are risk-reducing, so they skip the LLM panel by design — but every one is
+audit-logged, and the realized P&amp;L feeds the Risk Guardian's daily circuit breaker.</p>
+
+<h2 id="safety"><span class="num">8</span>The safety model</h2>
+<table>
+  <tr><th>Layer</th><th>Guarantee</th></tr>
+  <tr><td>Sandbox default</td><td>No real order unless you explicitly opted your account in. Anything wrong with keys → falls back to simulation, never to someone else's account.</td></tr>
+  <tr><td>Three gates</td><td>Conditions → LLM voter panel → Risk Guardian, in order. Any gate blocks the fire and records why.</td></tr>
+  <tr><td>Risk Guardian</td><td>Final veto on every entry: a stop must exist and be on the correct side, worst-case loss ≤ your per-trade cap, stop distance sane, account-risk % capped, and a <b>daily-loss circuit breaker</b> that halts trading for the day.</td></tr>
+  <tr><td>One trade per day</td><td>A gapper that traded today stands down until tomorrow (unless the strategy opts into <code>Repeat()</code>).</td></tr>
+  <tr><td>Hard sell-by</td><td>Positions cannot be carried into the open — the flatten rule outranks everything.</td></tr>
+  <tr><td>Single trader</td><td>A database leader lease means two consoles can never double-fire the same strategies.</td></tr>
+  <tr><td>Paper vs. live</td><td>Live requires unchecking Paper <i>and</i> confirming the red modal. Everything defaults to paper.</td></tr>
+</table>
+
+<h2 id="dryrun"><span class="num">9</span>Dry-run mode (no keys, no money)</h2>
+<p>Rehearse the entire lifecycle with zero external dependencies:</p>
+<pre><code># Windows (PowerShell)
+$env:IDIOTPROOF_FEED = "mock"
+dotnet run --project IdiotProof.Monitor</code></pre>
+<ol>
+  <li>Queue a ticker that starts with <b>GAP</b> — e.g. <code>GAPT</code>. The mock feed
+      fabricates a textbook gap day for any <code>GAP*</code> symbol: previous close →
+      gapped 4AM open → momentum run → rollover before the bell, with bursty premarket
+      volume so the volume screen can actually pass.</li>
+  <li>Leave order routing off — fills go to the Sandbox broker's simulated book.</li>
+  <li>Watch it buy, hold, and sell in the console log and on the tab.</li>
+</ol>
+<div class="card note">
+  <h4>The clock is still real</h4>
+  <p>The session gate runs on the actual US-Eastern wall clock even in mock mode. Entries
+  only fire 4:00–9:00&nbsp;AM&nbsp;ET, Monday–Friday. At any other time you'll (correctly)
+  see <code>(outside Premarket session)</code>.</p>
+</div>
+
+<h2 id="knobs"><span class="num">10</span>Console configuration knobs</h2>
+<table>
+  <tr><th>Env var</th><th>Default</th><th>Meaning</th></tr>
+  <tr><td><code>ConnectionStrings__IdiotProof</code></td><td>LocalDB</td><td>The shared database — must match the web app's.</td></tr>
+  <tr><td><code>IDIOTPROOF_MONITOR_INTERVAL</code></td><td><code>5s</code></td><td>Tick cadence (<code>30s</code>, <code>5m</code>, bare seconds).</td></tr>
+  <tr><td><code>IDIOTPROOF_FEED</code></td><td>auto</td><td><code>alpaca</code> | <code>mock</code>. Auto = Alpaca when keyring/env keys exist.</td></tr>
+  <tr><td><code>IDIOTPROOF_BROKER</code></td><td><code>sandbox</code></td><td><code>alpaca</code> opts the <i>global</i> account into real routing. Per-user routing is the API Keys toggle and doesn't need this.</td></tr>
+  <tr><td><code>IDIOTPROOF_ALPACA_FEED</code></td><td><code>iex</code></td><td>Data tier. <code>sip</code> (paid) auto-downgrades to <code>iex</code> on a free key.</td></tr>
+  <tr><td><code>IDIOTPROOF_STREAMING</code></td><td>on</td><td><code>0</code> disables the websocket stream (REST polling only).</td></tr>
+</table>
+
+<h2 id="trouble"><span class="num">11</span>Troubleshooting</h2>
+<table>
+  <tr><th>Symptom</th><th>Cause / fix</th></tr>
+  <tr><td><code>(outside Premarket session)</code></td><td>Not a bug — it's outside 4:00–9:30 ET on a trading day. The gapper wakes up at 4:00 AM ET.</td></tr>
+  <tr><td><code>no previous close available — gap conditions will fail closed</code></td><td>The feed couldn't supply yesterday's close (bad symbol, no daily data, feed error). By design the gap check then <b>blocks</b> rather than passes. Check the ticker and your data keys.</td></tr>
+  <tr><td>Entry order rejected: <i>extended-hours must be Limit + DAY</i></td><td>Only possible with hand-authored strategies — the gapper factory always emits compliant orders. Fix the strategy's order type.</td></tr>
+  <tr><td><code>✗ VETOED by LLM panel</code></td><td>LLM voting is enabled and the panel rejected the setup. The audit log records the panel's reasoning. Disable voting or trust the veto.</td></tr>
+  <tr><td><code>✗ BLOCKED by RiskGuardian — Would exceed daily loss limit…</code></td><td>The circuit breaker or a risk cap tripped. That's the system working; caps live in your user risk preferences.</td></tr>
+  <tr><td><code>(done for today)</code></td><td>This gapper already traded today. It re-arms at the next ET trading day.</td></tr>
+  <tr><td>Another Monitor "stands by" instead of trading</td><td>A second console instance is running; only the leader trades. Stop one, or let the standby take over when the leader dies.</td></tr>
+  <tr><td>Per-user routing ignored (orders hit Sandbox)</td><td>Check all three: keys saved on the API Keys page, the "Route my orders" toggle is ON, and both processes share the same Data Protection key ring (automatic in dev; <code>DataProtection:KeyRingPath</code> in production).</td></tr>
+</table>
+
+<footer>
+  <p><b>IdiotProof Knowledge Base</b> — Article 1: The Gapper. This standalone file lives at
+  <code>IdiotProof.Blazor/wwwroot/user-guide.htm</code>, is served by the running app at
+  <code>/user-guide.htm</code>, and is linked from the Gapper tab. Canonical system
+  documentation lives in <code>docs/BIBLE.md</code>; the condensed runbook is in the README.</p>
+  <p>Last updated 2026-07-19 · Covers RFC 0002 / amendments IP-A8…IP-A11.</p>
+</footer>
+
+</div>
+</body>
+</html>
