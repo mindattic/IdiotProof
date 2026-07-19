@@ -56,6 +56,11 @@ namespace IdiotProof.Blazor.Migrations
                 oldType: "nvarchar(450)",
                 oldMaxLength: 450);
 
+            // UserPreferences/UserApiKeys key ON UserId — SQL Server refuses to
+            // ALTER a PK column's type, so the PK must be dropped and re-added
+            // around the conversion. Without this the whole migration chain has
+            // been un-appliable since 2026-06-10 (error 5074) on every database.
+            migrationBuilder.DropPrimaryKey(name: "PK_UserPreferences", table: "UserPreferences");
             migrationBuilder.AlterColumn<Guid>(
                 name: "UserId",
                 table: "UserPreferences",
@@ -64,7 +69,9 @@ namespace IdiotProof.Blazor.Migrations
                 oldClrType: typeof(string),
                 oldType: "nvarchar(450)",
                 oldMaxLength: 450);
+            migrationBuilder.AddPrimaryKey(name: "PK_UserPreferences", table: "UserPreferences", column: "UserId");
 
+            migrationBuilder.DropPrimaryKey(name: "PK_UserApiKeys", table: "UserApiKeys");
             migrationBuilder.AlterColumn<Guid>(
                 name: "UserId",
                 table: "UserApiKeys",
@@ -72,6 +79,7 @@ namespace IdiotProof.Blazor.Migrations
                 nullable: false,
                 oldClrType: typeof(string),
                 oldType: "nvarchar(450)");
+            migrationBuilder.AddPrimaryKey(name: "PK_UserApiKeys", table: "UserApiKeys", column: "UserId");
 
             migrationBuilder.AlterColumn<Guid>(
                 name: "OwnerUserId",
@@ -439,6 +447,7 @@ namespace IdiotProof.Blazor.Migrations
                 oldClrType: typeof(Guid),
                 oldType: "uniqueidentifier");
 
+            migrationBuilder.DropPrimaryKey(name: "PK_UserPreferences", table: "UserPreferences");
             migrationBuilder.AlterColumn<string>(
                 name: "UserId",
                 table: "UserPreferences",
@@ -447,7 +456,9 @@ namespace IdiotProof.Blazor.Migrations
                 nullable: false,
                 oldClrType: typeof(Guid),
                 oldType: "uniqueidentifier");
+            migrationBuilder.AddPrimaryKey(name: "PK_UserPreferences", table: "UserPreferences", column: "UserId");
 
+            migrationBuilder.DropPrimaryKey(name: "PK_UserApiKeys", table: "UserApiKeys");
             migrationBuilder.AlterColumn<string>(
                 name: "UserId",
                 table: "UserApiKeys",
@@ -455,6 +466,7 @@ namespace IdiotProof.Blazor.Migrations
                 nullable: false,
                 oldClrType: typeof(Guid),
                 oldType: "uniqueidentifier");
+            migrationBuilder.AddPrimaryKey(name: "PK_UserApiKeys", table: "UserApiKeys", column: "UserId");
 
             migrationBuilder.AlterColumn<string>(
                 name: "OwnerUserId",

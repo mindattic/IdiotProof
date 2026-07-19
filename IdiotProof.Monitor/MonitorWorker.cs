@@ -40,7 +40,8 @@ public sealed class MonitorWorker(
     RiskGuardianService riskGuardianService,
     AppSettings appSettings,
     IMarketDataFeed feed,
-    BrokerRouter brokerRouter,
+    UserBrokerResolver brokerResolver,
+    MonitorDatabase database,
     IStorageProvider storage,
     ILogger<MonitorWorker> logger) : BackgroundService
 {
@@ -67,6 +68,11 @@ public sealed class MonitorWorker(
     {
         logger.LogInformation("IdiotProof.Monitor starting — interval {Interval}s, feed {Feed}",
             EvaluationInterval.TotalSeconds, feed.FeedName);
+
+        // Exactly one Monitor instance may evaluate/trade against a database
+        // at a time (double-fire protection). Blocks here until this instance
+        // is the leader; the lease auto-releases if the process dies.
+        await using var lease = await MonitorLeaderLease.AcquireAsync(database.ConnectionString, logger, stoppingToken);
 
         StartStreamingIfConfigured();
 
@@ -401,7 +407,9 @@ public sealed class MonitorWorker(
         var extendedHours = IsExtendedHours(DateTime.UtcNow);
         var limitPrice = Math.Round(entryPrice * 1.002m, 2); // +0.2% marketable buffer
 
-        var broker = brokerRouter.GetActiveBroker();
+        // Per-user routing: the owner's own Alpaca account when configured,
+        // else the global router (Sandbox default, IP-LAW-3).
+        var broker = await brokerResolver.ResolveAsync(stored.OwnerUserId, ct);
         var order = await broker.PlaceOrderAsync(new OrderRequest
         {
             Symbol        = stored.Symbol,
@@ -460,7 +468,8 @@ public sealed class MonitorWorker(
         // Marketable sell limit: -0.5% so the flatten fills through a thin book.
         var limitPrice = Math.Round((decimal)decision.CurrentPrice * 0.995m, 2);
 
-        var broker = brokerRouter.GetActiveBroker();
+        // Exit through the same per-user broker that holds the position.
+        var broker = await brokerResolver.ResolveAsync(stored.OwnerUserId, ct);
         var order = await broker.PlaceOrderAsync(new OrderRequest
         {
             Symbol        = stored.Symbol,

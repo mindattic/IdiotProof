@@ -1,13 +1,16 @@
 ﻿AUTHORITATIVE — full detail in docs/BIBLE.md
 
-<!-- generatedFrom: IP-§1,IP-§3,IP-§5,IP-§9 + USER_STORIES status index. Generated 2026-06-09 by tools/codex.ps1. Do not hand-edit. -->
+<!-- generatedFrom: IP-§1,IP-§3,IP-§5,IP-§9 + USER_STORIES status index. Generated 2026-07-18 by tools/codex.ps1. Do not hand-edit. -->
 
 # IdiotProof — Bible Digest (generated)
 
 ## The one sentence
 IdiotProof turns a plain-English trade idea into a runnable DSL strategy that a 24/7 console
-Monitor evaluates against live market data and fires only when every condition matches, an
-LLM voter panel approves, and the Risk Guardian clears it.
+Monitor evaluates against live market data, fires only when every condition matches, an LLM
+voter panel approves, and the Risk Guardian clears it — then places the order through the
+broker router and manages the position to its exit. The flagship flow is the **Gapper**
+([IP-A8](AMENDMENTS.md#IP-A8)): buy the premarket gap at 4AM, sell it off before the 9:30 bell
+once momentum rolls over.
 
 ## What it is NOT
 - **Not a charting terminal.** It does not stream tick charts for manual discretionary trading;
@@ -16,9 +19,11 @@ LLM voter panel approves, and the Risk Guardian clears it.
   (`IdiotProof.Brokers.Ibkr/`) is dormant and is **not** in `IdiotProof.slnx`.
 - **Not a direct-to-vendor LLM client.** No feature code calls an Anthropic/OpenAI SDK directly;
   all LLM traffic routes through MindAttic.Legion and all keys resolve through MindAttic.Vault.
-- **Not an autotrader that places its own orders.** The Monitor *emits signals*; order
-  placement flows through the `IBrokerClient` abstraction behind the gates — it never bypasses
-  the Risk Guardian.
+- **Not a gate-bypassing autotrader.** The Monitor DOES place orders (since
+  [IP-A8](AMENDMENTS.md#IP-A8)) — but only through `BrokerRouter`/`IBrokerClient` after all
+  three gates clear, never around the Risk Guardian. Exit orders are risk-reducing: they skip
+  the LLM panel by design but are always audit-logged. *(Supersedes the pre-IP-A8 "emits
+  signals only" phrasing.)*
 - **Not a `IdiotProof.Core`/`IdiotProof.Web` monolith.** Earlier docs (README §, the
   `.github/copilot-instructions.md`) describe a `Core`/`Web` split and an IBKR-first engine.
   That is **historical/aspirational** — see [IP-A1](AMENDMENTS.md#IP-A1) for the reconciliation
@@ -84,12 +89,22 @@ state (strategies, preferences, audit logs, condition progress) is SQL Server. N
   or rejects a Claude-generated script / a candidate fire, via MindAttic.Legion.
 - **ConditionProgress** — the SQL row (`N/M`, first failing verb) the Monitor upserts per tick
   and the Strategies page polls for live badges.
-- **Sandbox broker** — the always-registered no-op broker that is the safe default in `BrokerRouter`.
+- **Sandbox broker** — the always-registered simulated broker (instant fills into an in-memory
+  position book) that is the safe default in `BrokerRouter`.
+- **Gapper** — a stock gapping up in premarket vs the previous close; the flagship trade:
+  buy in the 4AM window, sell before the 9:30 bell.
+- **Gapper profile** — the dialable template (gap %, volume ratio, price band, entry window,
+  stops, giveback, arm/sell-by times, notional) in `wwwroot/data/gapper-profiles.json`; cloned
+  and tuned per ticker on the `/gapper` tab.
+- **Peak giveback** — the momentum-rollover exit: sell once price gives back N% of the run
+  from entry to the post-entry peak; armed from a configured ET time ("the last 15 minutes").
+- **Previous close** — the prior trading day's official close; the reference for gap %.
+  Gap conditions fail closed without it.
 
 ## Status index (USER_STORIES.md)
-- done: 21
-- partial: 7
-- planned: 19
+- done: 28
+- partial: 10
+- planned: 21
 - cut: 1
 
 ## Latest amendment

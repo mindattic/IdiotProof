@@ -1,5 +1,6 @@
 using IdiotProof.Blazor.Data;
 using IdiotProof.Blazor.Services;
+using Microsoft.AspNetCore.DataProtection;
 using IdiotProof.Engine.Settings;
 using IdiotProof.Engine.Storage;
 using IdiotProof.Monitor;
@@ -35,6 +36,11 @@ using MindAttic.Vault.DependencyInjection;
 // Stop:  Ctrl+C (graceful shutdown via IHostApplicationLifetime)
 
 var builder = Host.CreateApplicationBuilder(args);
+
+// Windows Service hosting: `sc.exe create IdiotProof.Monitor binPath=...` runs
+// this same binary as a service; interactively it no-ops. Lifetime events
+// (stop/shutdown) map to the host's graceful cancellation.
+builder.Services.AddWindowsService(o => o.ServiceName = "IdiotProof.Monitor");
 
 // SQL Server — same connection-string priority chain as the Blazor host:
 // env var → IConfiguration → LocalDB fallback. Kept identical so the Monitor
@@ -79,6 +85,23 @@ builder.Services.AddSingleton<RiskGuardianService>();
 builder.Services.AddSingleton<StrategyRepository>();
 builder.Services.AddSingleton<ConditionProgressRepository>();
 builder.Services.AddSingleton<AuditLogRepository>();
+
+// Connection string surfaced to the worker for the single-instance leader
+// lease (sp_getapplock — see MonitorLeaderLease).
+builder.Services.AddSingleton(new MonitorDatabase(connStr));
+
+// Data Protection — SAME app name + key ring as the Blazor host so this
+// process can decrypt the per-user API keys the UI wrote (UserApiKeys rows).
+// Dev default mirrors MindAttic.Authentication's DevKeyRingPath convention;
+// production points both hosts at DataProtection:KeyRingPath (durable share).
+var keyRingPath = builder.Configuration["DataProtection:KeyRingPath"]
+    ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+        "MindAttic", "DataProtection", "IdiotProof");
+builder.Services.AddDataProtection()
+    .SetApplicationName("IdiotProof")
+    .PersistKeysToFileSystem(new DirectoryInfo(keyRingPath));
+builder.Services.AddSingleton<UserKeyService>();
+builder.Services.AddSingleton<UserBrokerResolver>();
 
 // Market data — Alpaca whenever keys resolved through the settings chain
 // (env → Vault broker keyring → IConfiguration), Mock otherwise. Force with

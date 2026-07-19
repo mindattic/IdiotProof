@@ -4,6 +4,7 @@ using IdiotProof.Blazor.Components;
 using IdiotProof.Blazor.Data;
 using IdiotProof.Blazor.Hubs;
 using IdiotProof.Blazor.Services;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.EntityFrameworkCore;
 using MindAttic.Authentication.Services;
 using MindAttic.Authentication.Web;
@@ -84,6 +85,22 @@ builder.Services.AddMindAtticAuthentication<AppDbContext>(
     {
         opts.AppName = "IdiotProof";
         opts.IsProduction = !builder.Environment.IsDevelopment();
+
+        // Production key-ring persistence (IP-A9). The library fail-closes in
+        // production without this. DataProtection:KeyRingPath must point at
+        // durable storage shared by every instance AND by the Monitor console
+        // (which reads the same ring to decrypt per-user API keys) — on Azure
+        // App Service, %HOME%\data\dp-keys works (durable, instance-shared).
+        // Upgrade path: swap for Azure Blob + Key Vault when infra lands.
+        var keyRingPath = builder.Configuration["DataProtection:KeyRingPath"];
+        if (!string.IsNullOrWhiteSpace(keyRingPath))
+        {
+            opts.ConfigureDataProtection = dp =>
+                dp.PersistKeysToFileSystem(new DirectoryInfo(keyRingPath));
+        }
+        // else: dev uses the library's DevKeyRingPath convention
+        // (%APPDATA%\MindAttic\DataProtection\IdiotProof); production without
+        // the config key still fail-closes — that's the intended posture.
     });
 
 builder.Services.AddAuthorization();

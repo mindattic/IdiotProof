@@ -9,6 +9,41 @@ updated: 2026-06-09
 
 # IdiotProof — Amendments (append-only; amendment wins over the bible)
 
+## IP-A9 — Production hardening: per-user broker routing, service hosting, leader lease, DP key-ring readiness {#IP-A9}
+**What changed.** (2026-07-18, follow-on to [IP-A8](#IP-A8).)
+
+- **Per-user broker routing.** The Monitor no longer routes every user's orders through one
+  global broker account. `UserBrokerResolver` (`IdiotProof.Blazor/Services/UserBrokerResolver.cs`)
+  resolves each strategy owner's broker: users who opted into Alpaca on the API Keys page
+  (both keys present, `DefaultBroker = "alpaca"`) trade **their own** account with their own
+  paper/live flag; everyone else falls through to the global router whose default is Sandbox
+  (IP-LAW-3) — so a missing/undecryptable key can never route one user's money into another's
+  account. Clients are cached 5 min per user; key rotations in the UI take effect without a
+  console restart. The pure routing rule is `UserBrokerResolver.Choose` (unit-tested).
+- **Shared Data Protection key ring.** The Monitor configures Data Protection with the same
+  app name ("IdiotProof") and key-ring location as the Blazor host (dev:
+  `%APPDATA%\MindAttic\DataProtection\IdiotProof`, matching MindAttic.Authentication's
+  `DevKeyRingPath` convention; prod: `DataProtection:KeyRingPath` config in BOTH hosts) so
+  the console can decrypt the per-user API keys the UI writes.
+- **Production boot unblocked.** `Program.cs` now supplies MindAttic.Authentication's required
+  `ConfigureDataProtection` hook when `DataProtection:KeyRingPath` is configured (durable,
+  instance-shared storage — on Azure App Service, `%HOME%\data\dp-keys`). Without the config
+  key, production still fail-closes — the library's intended posture. Azure Blob + Key Vault
+  key-ring protection remains the upgrade path once infra exists.
+- **Single-active-instance lease.** `MonitorLeaderLease` (session-owned `sp_getapplock` on
+  `IdiotProof.Monitor.Leader`) guarantees at most one Monitor evaluates/trades per database;
+  standby instances wait and take over automatically if the leader dies. Two Monitors can no
+  longer double-fire orders.
+- **Service hosting.** The Monitor registers `AddWindowsService` (service name
+  `IdiotProof.Monitor`) — installable via `sc.exe create`, no-op when run interactively.
+
+**Why.** Session directive 2026-07-18: "console operates as a service … separate; support
+multiple simultaneous users; … production grade even if it never has any users."
+
+**Effect on canon.** [BIBLE §4](BIBLE.md#IP-§4) Monitor row + verbs updated; §7 frontier's
+"per-user keys" debt narrowed to LLM keys only. New story IP-US-K8. No law changes —
+IP-LAW-3's sandbox-default now holds per user, not just per host.
+
 ## IP-A8 — Gapper epic + single-pipeline unification adopted {#IP-A8}
 **What changed.** [RFC 0002](rfc/0002-gapper-and-unification.md) adopted (2026-07-18). The
 premarket **Gapper** flow becomes the product's flagship: pick up to 3 tickers on a dedicated

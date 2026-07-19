@@ -5,7 +5,7 @@ code: IP
 layer: stories
 status: living
 updated: 2026-07-18
-counts: {done: 24, partial: 8, planned: 13, cut: 0}
+counts: {done: 25, partial: 9, planned: 13, cut: 0}
 ---
 
 # IdiotProof — User Stories
@@ -122,11 +122,29 @@ counts: {done: 24, partial: 8, planned: 13, cut: 0}
   last trades, REST backfill, Mock fallback with gap simulation), fires through the three
   gates, places the entry through `BrokerRouter`, tracks the position on the Strategy row,
   and exits it via the rollover brain — feeding realized P&L into the RiskGuardian daily
-  circuit breaker. *Implemented end-to-end in `IdiotProof.Monitor/MonitorWorker.cs` (now on
-  `SupervisedLoop`); an integration test of a full mock-gap day remains ⬜.*
+  circuit breaker. *The full mock-gap-day lifecycle (previous close → gap screen → premarket
+  entry → hold → rollover sell before the bell) is proven by
+  `MockGapDay_EntryFires_InPremarket_ThenGivebackExit_BeforeTheBell` and
+  `MockGapDay_HardSellBy_FlattensEvenIfMomentumNeverRollsOver` in
+  `IdiotProof.Strategies.Tests/GapperLifecycleTests.cs`; the live console was also observed
+  2026-07-18 running `SupervisedLoop` @5s, re-reading SQL per tick and correctly reporting
+  `(outside Premarket session)` on a weekend. Remaining for ✅: a host-level harness test of
+  MonitorWorker itself (wall-clock session gate + broker order path in one run).*
 - **IP-US-K7 🟡** As a trader, the `/gapper` tab shows my queued gappers with live state
   (condition progress, HOLDING qty@price, sold @price · reason) polled from SQL every 5s.
   *Page built (`Components/Pages/Gapper.razor` + nav tab); Cypress spec remains ⬜.*
+- **IP-US-K8 ✅** As one of several simultaneous users, my orders route to MY broker account:
+  Alpaca only when I opted in and supplied both keys (my own paper/live flag), otherwise the
+  global Sandbox-default router — a missing or undecryptable key can never route my order into
+  someone else's account. *(verified by `Choose_AlpacaOptInWithBothKeys_RoutesToUserAccount`,
+  `Choose_MissingEitherKey_FallsThroughToGlobalDefault`,
+  `Choose_NoBrokerPreference_FallsThroughToGlobalDefault` in
+  `IdiotProof.Blazor.Tests/UserBrokerResolverTests.cs`; see [IP-A9](AMENDMENTS.md#IP-A9).)*
+- **IP-US-K9 🟡** As an operator, the console runs as a real service: Windows Service hosting
+  (`IdiotProof.Monitor`), and a SQL `sp_getapplock` leader lease so at most one instance
+  evaluates/trades per database (standbys wait and take over on leader death). *Implemented
+  ([IP-A9](AMENDMENTS.md#IP-A9)); lease observed acquiring in a live run 2026-07-18; an
+  automated two-instance contention test remains ⬜.*
 
 ## Epic E — Authoring & generation (web)
 - **IP-US-E1 🟡** As a trader, I describe a setup in prose and Claude generates valid IdiotScript

@@ -31,6 +31,7 @@
     <ProjectReference Include="..\IdiotProof.Indicators\IdiotProof.Indicators.csproj" />
     <ProjectReference Include="..\IdiotProof.Scripting\IdiotProof.Scripting.csproj" />
     <ProjectReference Include="..\IdiotProof.Strategies\IdiotProof.Strategies.csproj" />
+    <ProjectReference Include="..\IdiotProof.DataFeeds\IdiotProof.DataFeeds.csproj" />
   </ItemGroup>
 
 </Project>

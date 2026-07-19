@@ -105,7 +105,7 @@ once momentum rolls over.
 | Project | Role |
 |---|---|
 | `IdiotProof.Blazor` | Blazor Server web app — Strategies page, Strategy Builder (Guided/Script/Describe), Learning Center, Backtest, Settings, API Keys. **MindAttic.Authentication** (Argon2id, sessions, MFA scaffolding) + EF Core 10 (SQL Server). |
-| `IdiotProof.Monitor` | **The one pipeline** (IP-A8): console host on `SupervisedLoop` — re-reads active strategies every tick, evaluates conditions, upserts `ConditionProgress`, walks the three gates, places entries via `BrokerRouter` (limit + extended-hours premarket), manages open positions to exit via `GapperExitEvaluator`, feeds realized P&L into the RiskGuardian daily breaker. |
+| `IdiotProof.Monitor` | **The one pipeline** (IP-A8/A9): console host on `SupervisedLoop` (Windows-Service-installable, single-instance `sp_getapplock` leader lease) — re-reads active strategies every tick, evaluates conditions, upserts `ConditionProgress`, walks the three gates, places entries per-user via `UserBrokerResolver` (owner's own Alpaca when keyed, Sandbox-default router otherwise; limit + extended-hours premarket), manages open positions to exit via `GapperExitEvaluator`, feeds realized P&L into the RiskGuardian daily breaker. |
 | `IdiotProof.Engine` | DI root (`ServiceRegistration`), `AppSettings` overlay chain, `SupervisedLoop`, `AuditLogger`, `WorkspaceManager` (UI layout state only). |
 | `IdiotProof.Scripting` | The IdiotScript DSL: `Stock.Ticker(...)`, `StrategyBuilder`, the `Conditions` catalog, `ScriptParser`, branching algebra, `GapperProfile` + `GapperScriptFactory`, `MarketTime` (ET clock). |
 | `IdiotProof.Strategies` | `IStrategy` + `DslStrategy` adapter + `IndicatorSnapshotBuilder` + `GapperExitEvaluator` (sell-off brain) + `StrategyBacktester`/`BacktestReport`. |
@@ -189,20 +189,23 @@ Static catalogs (watchlists, indicator/strategy config, ticker profiles) are JSO
 state (strategies, preferences, audit logs, condition progress) is SQL Server. No Python, no YAML.
 
 ## 6. Verified state {#IP-§6}
-Build/test evidence (recorded 2026-06-08, .NET 10 SDK, `IdiotProof.slnx`):
+Build/test evidence (recorded 2026-07-18, .NET 10 SDK, `IdiotProof.slnx`):
 
-- **Build:** `dotnet build IdiotProof.slnx -c Debug` → **Build succeeded**, 0 errors, 4 nullability
-  warnings (pre-existing: CS8619 in `IdiotProof.DataFeeds/MockDataFeed.cs`, CS8629 ×3 in
-  `IdiotProof.Scripting/IdiotScript.cs`).
-- **Tests:** `dotnet test IdiotProof.slnx -c Debug` → **all green, 90 passed / 0 failed** across the
-  five solution test projects:
+- **Build:** `dotnet build IdiotProof.slnx -c Debug` → **Build succeeded**, 0 errors, 3 nullability
+  warnings (pre-existing CS8629 ×3 in `IdiotProof.Scripting/IdiotScript.cs`).
+- **Tests:** **all green, 115 passed / 0 failed** across the five solution test projects:
   - `IdiotProof.Engine.Tests` — 22 passed (RiskGuardian gate + SupervisedLoop resilience).
-  - `IdiotProof.Indicators.Tests` — 15 passed (RSI/EMA/ATR/MACD/VWAP math).
-  - `IdiotProof.Strategies.Tests` — 16 passed (DSL round-trip, backtester, registry).
-  - `IdiotProof.Brokers.Tests` — 8 passed (BrokerRouter Sandbox default + safe fallback).
-  - `IdiotProof.Blazor.Tests` — 29 passed (StrategyScriptGenerator verb-catalog reflection +
+  - `IdiotProof.Indicators.Tests` — 18 passed (RSI/EMA/ATR/MACD/VWAP math + ADX Wilder-seed
+    regression, `AdxTests`).
+  - `IdiotProof.Strategies.Tests` — 30 passed (DSL round-trip, backtester, gapper profile
+    factory + gap conditions + entry window + momentum-rollover exits, `GapperTests`; full
+    mock-gap-day lifecycle, `GapperLifecycleTests`).
+  - `IdiotProof.Brokers.Tests` — 13 passed (BrokerRouter Sandbox default + sandbox fill
+    simulation + Alpaca extended-hours contract).
+  - `IdiotProof.Blazor.Tests` — 32 passed (StrategyScriptGenerator verb-catalog reflection +
     LlmVotingService consensus logic + JSON vote parsing + ConditionProgressRepository
-    upsert/read integration tests against SQL Server LocalDB).
+    upsert/read integration tests against SQL Server LocalDB + per-user broker routing rule,
+    `UserBrokerResolverTests`).
 
 Proven-working subsystems: the Risk Guardian gate, the SupervisedLoop fault-tolerance, the core
 indicator math, IdiotScript build/round-trip, the DSL backtester, BrokerRouter Sandbox-first
@@ -227,10 +230,12 @@ graduate stories E1–E6 to ✅.
 - **Audit debts (2026-07-18 audit, deliberately deferred)** — `LlmVotingService` still
   hand-rolls a 3-persona Claude-only panel instead of Legion's native voter-panel API
   (legion.json declares claude/openai/gemini/deepseek); DSL generation is single-shot;
-  per-user Alpaca/Claude keys are not merged in the Monitor (global AppSettings chain only);
-  the Settings page still doesn't expose RiskGuardian config (`SetRiskConfigAsync` uncalled);
-  the write-only `OpenStrategyTabs` CSV and unused `SettingsKv` table await either a consumer
-  or deletion.
+  per-user **Claude** keys are not merged in the Monitor (broker keys ARE per-user since
+  [IP-A9](AMENDMENTS.md#IP-A9)); the Settings page still doesn't expose RiskGuardian config
+  (`SetRiskConfigAsync` uncalled); the write-only `OpenStrategyTabs` CSV and unused
+  `SettingsKv` table await either a consumer or deletion; Azure Blob + Key Vault key-ring
+  protection is the upgrade from the file-system `DataProtection:KeyRingPath` once the
+  Azure infra (MindAttic.Deploy `idiotproof-web`) is provisioned.
 - **Learning Center** — `/learn` in-app documentation hub: workflow overview diagram, six-phase
   walkthrough, live reflected verb catalog, three-gates explanation + diagram, annotated sample
   strategies. Verb catalog and phase reference rendered from live reflection (same path as
