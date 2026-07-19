@@ -18,7 +18,7 @@ public sealed class UserApiKeys
     // Claude / LLM
     public string? ClaudeApiKey { get; set; }
     public bool LlmVotingEnabled { get; set; }
-    public string ClaudeModel { get; set; } = "claude-sonnet-4-6";
+    public string ClaudeModel { get; set; } = "claude-sonnet-5";
 
     // Polygon.io — historical market data for backtesting (IP-US-J1)
     public string? PolygonApiKey { get; set; }

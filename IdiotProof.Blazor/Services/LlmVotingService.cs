@@ -196,7 +196,7 @@ public sealed class LlmVotingService
         try
         {
             var content = await legion.CallAsync(
-                providerId: "claude",
+                providerId: "claude-api",
                 apiKey: apiKey,
                 model: modelId,
                 systemPrompt: systemPrompt,
