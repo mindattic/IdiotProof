@@ -188,27 +188,51 @@ Private fields use `camelCase` with no leading underscore (project code-style co
 Static catalogs (watchlists, indicator/strategy config, ticker profiles) are JSON; runtime
 state (strategies, preferences, audit logs, condition progress) is SQL Server. No Python, no YAML.
 
-## 6. Verified state {#IP-§6}
-Build/test evidence (recorded 2026-07-18, .NET 10 SDK, `IdiotProof.slnx`):
+### {#IP-LAW-8} The canonical strategy is strict JSON; script text is a view
+The semantic model (`StrategyDefinition`) serialized as versioned, STRICT JSON
+(`Strategy.ScriptJson`, written by `IdiotProof.Scripting/StrategyJson.cs`) is what evaluators
+run. Reads fail closed: unknown schema version, condition type, or property →
+`StrategyJsonException` and the strategy is **quarantined** (visible reason in
+ConditionProgress), never partially evaluated. IdiotScript text is the human view — generated
+from the model for display, and parsed (tolerantly, for now) only for hand-typed input and
+legacy rows with no canon. LLM boundaries emit structured JSON against a schema, never DSL
+text. ("Parse, don't validate"; no shotgun parsing on the money path — see
+[IP-A13](AMENDMENTS.md#IP-A13). Verified by `StrategyJsonTests`.)
 
-- **Build:** `dotnet build IdiotProof.slnx -c Debug` → **Build succeeded**, 0 errors, 3 nullability
-  warnings (pre-existing CS8629 ×3 in `IdiotProof.Scripting/IdiotScript.cs`).
-- **Tests:** **all green, 122 passed / 0 failed** across the five solution test projects
+## 6. Verified state {#IP-§6}
+Build/test evidence (recorded 2026-07-19, .NET 10 SDK, `IdiotProof.slnx`):
+
+- **Build:** `dotnet build IdiotProof.slnx -c Debug` → **Build succeeded**, 0 errors,
+  0 warnings.
+- **Tests:** **all green, 168 passed / 0 failed** across the five solution test projects
   (build is **warning-free** as of IP-A11):
-  - `IdiotProof.Engine.Tests` — 24 passed (RiskGuardian gate + SupervisedLoop resilience +
-    `RecordTradePnL` day-rollover regression, IP-A10).
+  - `IdiotProof.Engine.Tests` — 29 passed (RiskGuardian gate + SupervisedLoop resilience +
+    `RecordTradePnL` day-rollover regression, IP-A10 + `UpdateConfig` limit-swap-preserves-
+    daily-loss regression, IP-A16; WorkspaceManager cache-hydration + seed-once concurrency
+    suite, `WorkspaceManagerTests`, IP-A15).
   - `IdiotProof.Indicators.Tests` — 18 passed (RSI/EMA/ATR/MACD/VWAP math + ADX Wilder-seed
     regression, `AdxTests`).
-  - `IdiotProof.Strategies.Tests` — 33 passed (DSL round-trip incl. Name survival, backtester
+  - `IdiotProof.Strategies.Tests` — 58 passed (DSL round-trip incl. Name survival, backtester
     incl. ET time-exit regression, gapper profile factory + gap conditions + entry window +
     momentum-rollover exits + arm/sell-by cross-validation, `GapperTests`; full mock-gap-day
-    lifecycle + previous-close date-comparison regression, `GapperLifecycleTests`).
+    lifecycle + previous-close date-comparison regression, `GapperLifecycleTests`; canonical
+    JSON round-trip + fail-closed + loader-quarantine suite, `StrategyJsonTests`, IP-LAW-8;
+    day-replay + giveback grid + tuned-profile suite incl. idempotent "(tuned)" suffix,
+    `GapperDayBacktesterTests`, IP-A14/IP-A15; canonical EMA-period walk incl. ConditionalBlock
+    coverage, `EmaPeriodCollectorTests`, and full multi-target scale-out ladder in live
+    signals, `DslStrategySignalTests`, IP-A15; weekend/ET-rollover trading-day gate,
+    `MarketTimeTests`, IP-A16).
   - `IdiotProof.Brokers.Tests` — 13 passed (BrokerRouter Sandbox default + sandbox fill
     simulation + Alpaca extended-hours contract).
-  - `IdiotProof.Blazor.Tests` — 34 passed (StrategyScriptGenerator verb-catalog reflection +
+  - `IdiotProof.Blazor.Tests` — 50 passed (StrategyScriptGenerator verb-catalog reflection +
     LlmVotingService consensus logic + JSON vote parsing incl. fail-closed-to-Abstain
-    regressions (IP-A11) + ConditionProgressRepository upsert/read integration tests against
-    SQL Server LocalDB + per-user broker routing rule, `UserBrokerResolverTests`).
+    regressions (IP-A11) and the Abstain-default consensus pin (IP-A16) +
+    ConditionProgressRepository upsert/read integration tests against SQL Server LocalDB +
+    guarded strategy mutators (ownership + open-position refusal + per-symbol active count),
+    `StrategyRepositoryGuardTests`, IP-A16 + per-user broker routing rule,
+    `UserBrokerResolverTests` + the transcript→gapper extraction contract,
+    `GapperInterpreterTests`, IP-A12 + the Legion provider-id/model-catalog canary,
+    `LegionProviderContractTests`, IP-A15).
 
 Proven-working subsystems: the Risk Guardian gate, the SupervisedLoop fault-tolerance, the core
 indicator math, IdiotScript build/round-trip, the DSL backtester, BrokerRouter Sandbox-first

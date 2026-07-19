@@ -146,6 +146,11 @@
 @code {
     [Parameter] public Guid? StrategyId { get; set; }
 
+    // Learn-page deep links: /builder?seed=<script>&ticker=<symbol> pre-fills
+    // the editor with an example script (IP-US-I2 "Open in Builder").
+    [SupplyParameterFromQuery] public string? Seed { get; set; }
+    [SupplyParameterFromQuery] public string? Ticker { get; set; }
+
     private string title       = "";
     private string symbol      = "";
     private string scriptText  = "";
@@ -166,13 +171,27 @@
     // palette + AI assist always know the same vocabulary.
     private static readonly (string Label, List<string> Verbs)[] VerbGroups = BuildVerbGroups();
 
+    // Which route id / seed the editor currently reflects. Loading lives in
+    // OnParametersSetAsync (NOT OnInitializedAsync): Blazor REUSES this
+    // component instance when navigating /builder/{A} → /builder/{B} (browser
+    // back/forward) or → /builder ("Create New"), so an init-only load left
+    // strategy A's fields on screen under strategy B's route id — and Save
+    // would overwrite B with A's content.
+    private Guid? loadedStrategyId;
+    private string? appliedSeed;
+
     protected override async Task OnInitializedAsync()
     {
         var auth = await AuthState.GetAuthenticationStateAsync();
         Guid.TryParse(auth.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value, out userId);
+    }
 
+    protected override async Task OnParametersSetAsync()
+    {
         if (StrategyId is { } id)
         {
+            if (loadedStrategyId == id) return; // already showing this row
+
             var existing = await StrategyRepo.GetByIdAsync(id);
             if (existing is not null && existing.OwnerUserId == userId)
             {
@@ -180,8 +199,42 @@
                 symbol     = existing.Symbol;
                 scriptText = existing.ScriptText;
                 isActive   = existing.IsActive;
+                loadedStrategyId = id;
+                saveMessage = "";
+            }
+            else
+            {
+                // Not found or not owned by this user: drop the route id so a
+                // Save can never resolve (and overwrite) someone else's row.
+                StrategyId = null;
+                loadedStrategyId = null;
+                ResetEditor();
             }
         }
+        else
+        {
+            // Route carries no id ("Create New" after an edit, or a Learn-page
+            // seed link) — clear any previously loaded row's fields.
+            if (loadedStrategyId is not null)
+            {
+                loadedStrategyId = null;
+                ResetEditor();
+            }
+            if (!string.IsNullOrWhiteSpace(Seed) && Seed != appliedSeed)
+            {
+                // Deep link from the Learn page: seed the editor with the example.
+                scriptText = Seed;
+                appliedSeed = Seed;
+                if (!string.IsNullOrWhiteSpace(Ticker))
+                    symbol = Ticker.ToUpperInvariant();
+            }
+        }
+    }
+
+    private void ResetEditor()
+    {
+        title = ""; symbol = ""; scriptText = "";
+        isActive = false; saveOk = false; saveMessage = "";
     }
 
     private void AppendVerb(string verb)
@@ -209,6 +262,17 @@
                 ? await StrategyRepo.GetByIdAsync(id)
                 : null;
 
+            // Ownership gate (IDOR guard): the route id is user-controlled, so
+            // never let a Save resolve to another user's row. OnInitializedAsync
+            // already clears foreign ids, but re-check here — the update below
+            // writes whatever row `existing` resolves to.
+            if (existing is not null && existing.OwnerUserId != userId)
+            {
+                saveOk = false;
+                saveMessage = "You don't own this strategy.";
+                return;
+            }
+
             if (existing is null)
             {
                 var created = await StrategyRepo.CreateAsync(
@@ -217,16 +281,40 @@
                     symbol:      symbol.Trim(),
                     scriptText:  scriptText);
                 if (isActive)
-                    await StrategyRepo.SetActiveAsync(created.Id, true);
+                    await StrategyRepo.SetActiveAsync(created.Id, true, userId);
                 StrategyId = created.Id;
+                loadedStrategyId = created.Id; // editor already shows this row
             }
             else
             {
+                // Same open-position guard SetActiveAsync enforces (IP-A16):
+                // this direct-Update path must not deactivate a holding row —
+                // the Monitor only manages exits on active strategies.
+                if (existing.PositionQty > 0 && existing.IsActive && !isActive)
+                {
+                    saveOk = false;
+                    saveMessage = $"{existing.Symbol} is holding {existing.PositionQty} shares — the Monitor must stay active to manage the exit. Flatten first, then deactivate.";
+                    return;
+                }
                 existing.Title      = title.Trim();
                 existing.Symbol     = symbol.Trim().ToUpperInvariant();
                 existing.ScriptText = scriptText;
                 existing.IsActive   = isActive;
-                await StrategyRepo.UpdateAsync(existing);
+                var result = await StrategyRepo.UpdateAsync(existing);
+                if (result == StrategyMutation.PositionOpen)
+                {
+                    // Repo-level re-check against the FRESH row (the pre-check
+                    // above used a snapshot that may be seconds stale).
+                    saveOk = false;
+                    saveMessage = $"{existing.Symbol} is holding shares — the Monitor must stay active to manage the exit. Flatten first, then deactivate.";
+                    return;
+                }
+                if (result != StrategyMutation.Ok)
+                {
+                    saveOk = false;
+                    saveMessage = "Save failed — the strategy no longer exists (or isn't yours).";
+                    return;
+                }
             }
 
             saveOk = true;
@@ -259,6 +347,20 @@
             if (result.Success)
             {
                 scriptText = result.Script;
+                // Parse-check what Claude produced: invented verbs are
+                // silently dropped by the tolerant parser (IP-LAW-4 says they
+                // "fail to parse", but nothing TOLD the user), so a
+                // hallucinated condition would quietly vanish from the saved
+                // strategy. Warning only — the script stays in the editor.
+                try
+                {
+                    if (ScriptParser.ParseScript(result.Script) is null)
+                        aiError = "Heads up: the generated script could not be parsed — review it (or regenerate) before saving.";
+                }
+                catch (Exception)
+                {
+                    aiError = "Heads up: the generated script did not fully parse — review the highlighted preview before saving; unrecognized verbs are ignored.";
+                }
             }
             else
             {

@@ -8,6 +8,17 @@ public sealed class LlmVotingServiceTests
 {
     // Weight totals for the three hard-coded personas: Risk Manager(2) + Momentum Trader(2) + Technical Analyst(3) = 7
 
+    // ── Fail-closed defaults (IP-LAW-1) ──
+
+    [Test]
+    public void LlmVotingResult_DefaultConsensus_IsAbstain_NotApprove()
+    {
+        // Approve is enum zero: an uninitialized result (panel unavailable,
+        // zero votes) must never read as an approval on the money path. The
+        // Monitor's gate additionally requires an explicit Approve consensus.
+        Assert.That(new LlmVotingResult().Consensus, Is.EqualTo(VoteDecision.Abstain));
+    }
+
     // ── Weighted consensus logic ──
 
     [Test]

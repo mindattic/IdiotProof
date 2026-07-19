@@ -1,6 +1,20 @@
 @page "/settings"
+@rendermode InteractiveServer
+@using IdiotProof.Blazor.Services
 @using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
 @attribute [Authorize]
+@inject UserPreferencesService Prefs
+@inject RiskGuardianService RiskGuardians
+@inject AuthenticationStateProvider AuthState
+
+@*
+    Settings — currently the Risk Guardian limits (IP-LAW-2). These are the
+    per-user caps the final pre-trade gate enforces; the Monitor re-reads them
+    on a 2-minute TTL, so edits reach live evaluation without a restart.
+    Before this section existed, SetRiskConfigAsync had no caller anywhere —
+    every user was permanently stuck on the class defaults.
+*@
 
 <PageTitle>Settings — IdiotProof</PageTitle>
 
@@ -9,12 +23,138 @@
         <i class="bi bi-gear me-2" style="color:var(--brand)" aria-hidden="true"></i>Settings
     </h1>
 
+    <div class="trading-card p-4 mb-3" aria-labelledby="risk-heading">
+        <h2 id="risk-heading" class="h6 mb-1">
+            <i class="bi bi-shield-check me-1" style="color:var(--brand)" aria-hidden="true"></i>Risk Guardian limits
+        </h2>
+        <p class="text-muted small mb-3">
+            The final gate before any order (IP-LAW-2). No strategy or LLM consensus can override these.
+            The Monitor picks up changes within ~2 minutes.
+        </p>
+
+        @if (loadError is not null)
+        {
+            <div class="alert alert-danger small">@loadError</div>
+        }
+
+        <div class="row g-3" style="max-width:720px">
+            <div class="col-sm-4">
+                <label class="form-label small text-muted" for="risk-per-trade">Max loss per trade ($)</label>
+                <input id="risk-per-trade" type="number" class="form-control" min="0" step="10" @bind="maxLossPerTrade" />
+            </div>
+            <div class="col-sm-4">
+                <label class="form-label small text-muted" for="risk-per-day">Max loss per day ($)</label>
+                <input id="risk-per-day" type="number" class="form-control" min="0" step="50" @bind="maxLossPerDay" />
+            </div>
+            <div class="col-sm-4">
+                <label class="form-label small text-muted" for="risk-balance">Account balance ($)</label>
+                <input id="risk-balance" type="number" class="form-control" min="0" step="500" @bind="accountBalance" />
+            </div>
+            <div class="col-sm-4">
+                <label class="form-label small text-muted" for="risk-min-stop">Min stop distance (%)</label>
+                <input id="risk-min-stop" type="number" class="form-control" min="0.01" step="0.1" @bind="minStopPct" />
+            </div>
+            <div class="col-sm-4">
+                <label class="form-label small text-muted" for="risk-max-stop">Max stop distance (%)</label>
+                <input id="risk-max-stop" type="number" class="form-control" min="0.01" step="0.5" @bind="maxStopPct" />
+            </div>
+            <div class="col-sm-4">
+                <label class="form-label small text-muted" for="risk-account-pct">Max account risk per trade (%)</label>
+                <input id="risk-account-pct" type="number" class="form-control" min="0" max="100" step="0.25" @bind="maxAccountRiskPct" />
+            </div>
+        </div>
+
+        <div class="d-flex align-items-center gap-3 mt-3">
+            <button class="btn btn-success" type="button" disabled="@saving" @onclick="SaveRisk">
+                @if (saving)
+                {
+                    <span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span>
+                }
+                Save limits
+            </button>
+            @if (saveMessage is not null)
+            {
+                <span class="small @(saveOk ? "text-success" : "text-danger")" role="status">@saveMessage</span>
+            }
+        </div>
+    </div>
+
     <div class="trading-card p-4">
-        <p class="text-muted mb-0">
-            Settings will live here as the editor grows. For now this page is a placeholder —
-            theme is fixed to dark, timezone is fixed to Eastern, and per-user API credentials
-            live on the
-            <a href="/api-keys">API Keys</a> page.
+        <p class="text-muted small mb-0">
+            Theme is fixed to dark, timezone is fixed to Eastern, and per-user API credentials
+            live on the <a href="/api-keys">API Keys</a> page.
         </p>
     </div>
 </section>
+
+@code {
+    private Guid? userId;
+    private string? loadError;
+    private bool saving;
+    private bool saveOk;
+    private string? saveMessage;
+
+    private decimal maxLossPerTrade;
+    private decimal maxLossPerDay;
+    private decimal minStopPct;
+    private decimal maxStopPct;
+    private decimal accountBalance;
+    private decimal maxAccountRiskPct;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var auth = await AuthState.GetAuthenticationStateAsync();
+            var rawId = auth.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            userId = Guid.TryParse(rawId, out var uid) ? uid : null;
+            if (userId is null) { loadError = "Sign in to edit your risk limits."; return; }
+
+            var prefs = await Prefs.GetOrCreateAsync(userId.Value);
+            maxLossPerTrade   = prefs.RiskMaxLossPerTrade;
+            maxLossPerDay     = prefs.RiskMaxLossPerDay;
+            minStopPct        = prefs.RiskMinStopLossPercent;
+            maxStopPct        = prefs.RiskMaxStopLossPercent;
+            accountBalance    = prefs.RiskAccountBalance;
+            maxAccountRiskPct = prefs.RiskMaxAccountRiskPercent;
+        }
+        catch (Exception ex) { loadError = ex.Message; }
+    }
+
+    private async Task SaveRisk()
+    {
+        if (userId is null) return;
+        saving = true;
+        saveMessage = null;
+        try
+        {
+            // SetRiskConfigAsync clamps to sane invariants (daily ≥ per-trade,
+            // max stop ≥ min stop, non-negative amounts); read the clamped
+            // values back so the form shows what was actually persisted.
+            var saved = await Prefs.SetRiskConfigAsync(
+                userId.Value, maxLossPerTrade, maxLossPerDay,
+                minStopPct, maxStopPct, accountBalance, maxAccountRiskPct);
+
+            maxLossPerTrade   = saved.RiskMaxLossPerTrade;
+            maxLossPerDay     = saved.RiskMaxLossPerDay;
+            minStopPct        = saved.RiskMinStopLossPercent;
+            maxStopPct        = saved.RiskMaxStopLossPercent;
+            accountBalance    = saved.RiskAccountBalance;
+            maxAccountRiskPct = saved.RiskMaxAccountRiskPercent;
+
+            // Expire this process's cached Guardian config (daily-loss counter
+            // survives — see RiskGuardianService.Invalidate). The Monitor's
+            // own cache refreshes on its 2-minute TTL.
+            RiskGuardians.Invalidate(userId.Value);
+
+            saveOk = true;
+            saveMessage = "Saved. The Monitor applies these within ~2 minutes.";
+        }
+        catch (Exception ex)
+        {
+            saveOk = false;
+            saveMessage = "Save failed: " + ex.Message;
+        }
+        finally { saving = false; }
+    }
+}

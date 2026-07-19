@@ -13,7 +13,13 @@ public sealed class LlmVotingResult
 {
     public string SignalId { get; set; } = Guid.NewGuid().ToString("N")[..8];
     public List<LlmVote> Votes { get; set; } = [];
-    public VoteDecision Consensus { get; set; }
+
+    /// <summary>
+    /// Initialized to Abstain, not the enum default: Approve is enum zero, so
+    /// an uninitialized result (panel unavailable, zero votes) must never read
+    /// as an approval on the money path (same fail-closed rule as LlmVote).
+    /// </summary>
+    public VoteDecision Consensus { get; set; } = VoteDecision.Abstain;
     public decimal ConsensusConfidence { get; set; }
     public string ConsensusReasoning { get; set; } = "";
     public DateTime VotedAtUtc { get; set; } = DateTime.UtcNow;
@@ -77,7 +83,7 @@ file static class TraderPersonas
         ),
         (
             "Technical Analyst",
-            "claude-sonnet-4-6",
+            "claude-sonnet-5",
             3,
             """
             You are an objective technical analyst with 20 years of experience reading price action and indicators.

@@ -97,6 +97,18 @@ public sealed class IndicatorSnapshot
     public double? BarLow { get; set; }
     public double BarClose => Price;
 
+    /// <summary>
+    /// Highest high / lowest low across the ENTIRE candle window this snapshot
+    /// was built from (the session so far in the backtesters; the trailing
+    /// 4-hour window in the Monitor). These give per-tick evaluators —
+    /// which re-materialize conditions every tick and therefore hold no
+    /// instance state — a window-scoped memory: Breakout(level) can see that
+    /// the level traded earlier, and HoldsAbove(level) can see an earlier
+    /// violation, without cross-tick latches.
+    /// </summary>
+    public double? WindowHigh { get; set; }
+    public double? WindowLow { get; set; }
+
     // RSI
     public double? Rsi { get; set; }
     public bool? HasBullishDivergence { get; set; }

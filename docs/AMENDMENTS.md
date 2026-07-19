@@ -9,6 +9,471 @@ updated: 2026-06-09
 
 # IdiotProof — Amendments (append-only; amendment wins over the bible)
 
+## IP-A21 — Bug-hunt round 9: editor lost-updates, under-validated auth inputs, deploy-blind config {#IP-A21}
+**What changed.** (2026-07-19.) Ninth find-10-fix-10 sweep — persistence-layer concurrency, the
+input-validation surface, and configuration that only worked from a dev checkout. Ten fixes,
+four with regression tests (`StrategyRepositoryGuardTests`, `GapperInterpreterTests`):
+
+1. **The editor's Save clobbered the Monitor's live position bookkeeping** — `UpdateAsync` did
+   a full-row write from the caller's detached snapshot, so saving an editor opened minutes
+   earlier stomped `PositionQty`/`LastEntryPrice`/`FireCount` back to stale values: a filled
+   position silently read as flat (orphaned shares, exits never run) AND the one-shot-per-day
+   guard re-armed for a duplicate fire. `UpdateAsync` now writes ONLY the editor-owned columns
+   (title/symbol/description/script/IsActive) onto the FRESH row, returns a `StrategyMutation`,
+   and enforces the same PositionOpen/NotOwner guards as `SetActiveAsync` (tested).
+2. **`legion.json` never shipped with either host** — the voter-panel config lives at the repo
+   root and only walk-up discovery from a dev checkout found it; a deployed Blazor host or
+   Monitor silently reverted the "high tier" 4-voter panel to Legion's defaults. Both csproj
+   files now link and publish it.
+3. **Monitor hammered the daily-bars endpoint during outages** — IP-A18's "don't cache a null
+   previous close" fix retried EVERY tick (12 req/min/symbol), the mirror image of the
+   empty-candle-window problem it sat next to. Nulls now negative-cache for 30 s.
+4. **Gapper dial fields parsed with server culture** — the string-bound Max-gap and Trailing
+   dial-ins used bare `double.TryParse`, so on a comma-decimal host "2.5" read as 25: a
+   silently 10×-loosened trailing stop. Invariant both ways now.
+5. **ConditionProgress rows orphaned forever** — no FK links them to Strategies, and delete
+   never cleaned them; a table the Monitor hammers every tick accumulated rows for strategies
+   that no longer exist. Deleted alongside now (tested).
+6. **The Strategies page froze at load** — only the progress badge polled; the active toggle,
+   "last fired", and position/exit state never refreshed, so the Monitor could fire and exit
+   a strategy while the page claimed it never fired. The existing 5-second poll now refreshes
+   each row's volatile fields in place (matched by id — no re-sort, no scroll jump).
+7. **A truncated interpreter response lost every candidate silently** — a transcript response
+   that hit the token cap started the JSON array but never closed it, and the generic "no
+   JSON array" warning hid the cause. Token headroom doubled (4000) and truncation now warns
+   specifically ("cut off — try a shorter transcript") (tested).
+8. **Login forwarded `?returnUrl` unvalidated** — a crafted login link could bounce a
+   successful sign-in to an attacker's site (open redirect / phishing). Only same-site paths
+   are forwarded now (absolute, protocol-relative, and backslash forms all fall back to "/").
+9. **Password endpoints under-validated** — the register and dev-reset endpoints never
+   enforced the "one digit" rule both pages advertise, and accepted unbounded passwords —
+   an anonymous Argon2id CPU-exhaustion vector. Both rules enforced (8–128 chars, ≥1 digit)
+   with proper per-page error messages.
+10. **AI-generated scripts were never parse-checked** — IP-LAW-4 promises invented verbs
+    "fail to parse", but nothing told the user: a hallucinated condition quietly vanished
+    from the saved strategy. Generation now parse-checks the output and shows an inline
+    heads-up when the script doesn't fully parse.
+
+**Why.** Session directive 2026-07-19: "find 10 fix 10" (round 9).
+
+**Effect on canon.** The repository layer now owns ALL strategy-mutation invariants (update
+included — no page-level path can clobber Monitor state), and the LLM voter-panel config
+survives deployment. 199 tests green. No new laws.
+
+## IP-A20 — Bug-hunt round 8: phantom positions, account-takeover chain, window-scoped latches {#IP-A20}
+**What changed.** (2026-07-19.) Eighth find-10-fix-10 sweep — the order/position boundary, the
+anonymous auth surfaces, and the latch-verb gap left by IP-A18. Ten fixes, six with regression
+tests (`WindowScopedConditionTests`):
+
+1. **Phantom positions from unfilled entries** — the Monitor records the entry fill the moment
+   Alpaca ACCEPTS the order, so an unfilled marketable limit (price ran, halt, expiry) left
+   bookkeeping claiming shares that don't exist; the exit brain would then SELL them —
+   rejected at best, a naked short on a margin account at worst. Exits now reconcile with the
+   broker first: no broker position (from a successful call) → phantom bookkeeping cleared
+   with an audit entry, no order; partial fill → sells the broker quantity.
+   `AlpacaBrokerClient.GetPositionsAsync` now fails LOUD on HTTP/parse errors instead of
+   returning `[]`, so "empty means flat" is actually true; on reconciliation failure the
+   risk-reducing exit proceeds with the recorded quantity. (Full order-state tracking —
+   pending orders as first-class rows — remains future work; this closes the dangerous half.)
+2. **Unauthenticated account takeover via `/forgot-password-submit`** — the "dev-only" direct
+   password reset (email + new password, no token/old password/session) was mapped
+   unconditionally, production included. Now mapped only in Development; the ForgotPassword
+   page tells production users to contact the administrator.
+3. **Anonymous email enumeration via `/forgot-username`** — the page listed EVERY registered
+   user's email to anonymous visitors (chained with #2: a two-click takeover map). The
+   listing (and its query) now renders in Development only.
+4. **`Breakout()`/`Pullback()` were dead on the live path while the Learning Center teaches
+   them** — all three "production-ready" example strategies are built on the latch verbs
+   IP-A18 made fail closed. New window-scoped semantics: `IndicatorSnapshot.WindowHigh/Low`
+   (computed by the snapshot builder over the whole candle window) stand in for the
+   backtester's cross-tick latch — Breakout(level) = the level traded in the window;
+   Pullback = retest of the support (or any retracement off the window high). No window
+   data still fails closed; the backtester's precise `TrackedTrigger` is unchanged.
+5. **`HoldsAbove`/`HoldsBelow` degraded to point-in-time checks live** — fresh instances per
+   tick meant "never violated" only ever saw the current price. The window extremes restore
+   violation memory (an earlier dip through the level now fails the gate).
+6. **A deferred SellBy lost its urgency overnight** — a position that survived past midnight
+   ET (exit rejections, market closed) re-waited for the sell-by TIME next day (04:00 <
+   09:28), holding unwanted overnight exposure for hours with only the stop active. A
+   sell-by position that outlived its entry's ET day now flattens at the first evaluated
+   instant.
+7. **MockDataFeed synthesized weekend minute bars** — the daily branch skipped
+   Saturday/Sunday but the intraday branch happily printed them, so a replay pointed at a
+   weekend date reported phantom trades. No weekend minute bars now.
+8. **Re-selecting the Backtest placeholder crashed the circuit** — the strategy `<select>`
+   bound `""` to a non-nullable `Guid`, and the bind-conversion exception tore down the
+   session. Nullable now.
+9. **TradingHub accepted anonymous connections** — the SignalR hub had no `[Authorize]`, so
+   an unauthenticated client could join the broadcast group and receive whatever
+   signals/prices get published. Authorized now.
+10. **API Keys Save crashed the circuit on failure** — an unhandled Data-Protection/SQL
+    exception in `SaveAll` produced the generic error banner and lost the whole form.
+    Guarded and surfaced inline.
+
+**Why.** Session directive 2026-07-19: "find 10 fix 10" (round 8).
+
+**Effect on canon.** The order boundary now tolerates its own optimism (positions reconcile
+against the broker before any exit order — strengthens [IP-LAW-2](BIBLE.md#IP-LAW-2)'s "the
+worst case cannot exceed the limit" by preventing phantom-driven shorts), and the latch verbs
+the Learning Center teaches are evaluable on the live path (window-scoped, fail-closed without
+data — consistent with [IP-LAW-1](BIBLE.md#IP-LAW-1)). 195 tests green. No new laws.
+
+## IP-A19 — Bug-hunt round 7: replay exit fidelity, missing risk editor, stale-state editor {#IP-A19}
+**What changed.** (2026-07-19.) Seventh find-10-fix-10 sweep — the replay engine's exit
+fidelity, the UI surfaces the earlier rounds never opened, and locale-hostile serialization.
+Ten fixes, six with regression tests (`StrategyBacktesterExitTests`, `ScriptTextRoundTripTests`,
+`UserPreferencesServiceTests`):
+
+1. **The generic replay ignored `TrailingStopLoss` and `PeakGiveback` entirely** —
+   `/backtest` simulated only stop/targets/time exits, so any strategy using the Risk-phase
+   trailing stop or the flagship momentum-rollover exit was reported holding to the time
+   exit/end of session: the exact backtest ≠ live divergence class IP-A15/A18 hunted, on the
+   two exits that define the gapper. Both now replay (trailing intrabar off the peak,
+   giveback close-based like the live evaluator).
+2. **The risk-limit editor did not exist** — `SetRiskConfigAsync` and
+   `RiskGuardianService.Invalidate` had ZERO production callers and the Settings page was a
+   placeholder, so every user was permanently stuck on the RiskGuardian class defaults
+   ($100/trade, $500/day, $10k balance) with no way to change the IP-LAW-2 limits the whole
+   product is named for. The Settings page now edits all six limits (clamped by the service,
+   clamps read back), expiring the UI-process Guardian config in place.
+3. **Editing strategy A could overwrite strategy B** — the builder loaded its fields in
+   `OnInitializedAsync` only, but Blazor reuses the component across /builder/{A} →
+   /builder/{B} → /builder navigations (browser back/forward, "Create New" after an edit),
+   leaving A's fields on screen under B's route id — Save then wrote A's content into B's
+   row. Loading moved to `OnParametersSetAsync` keyed on the route id; Learn-page seed links
+   also re-apply correctly on repeat use.
+4. **A quarantined strategy holding shares lost exit management silently** — the quarantine
+   check ran before the open-position check, so a holding row whose canon went invalid got a
+   quiet "(invalid strategy)" note while its stop/giveback/sell-by brain simply stopped
+   running. Now escalated: error-level log + a progress badge that says the position is
+   unmanaged until the strategy is fixed or flattened.
+5. **Comma-decimal locales corrupted script round trips** — `TrailingStopLoss(2.5)`
+   serialized as `TrailingStopLoss(2,5)` on a de-DE host, which the invariant parser reads
+   as TWO args and applies as a silently tightened 2% trail; `StrategyOverrides.ToScript`
+   had five more default-culture sites corrupting branch overrides the same way. All emit
+   InvariantCulture now (tested under de-DE).
+6. **API Keys pinned users to the retired `claude-sonnet-4-6`** — the page default, the
+   empty-row fallback, and the only full-tier dropdown option all used the pre-rename id
+   (the entity default is `claude-sonnet-5`), so saving keys pushed every user back onto the
+   deprecated model. Dropdown now leads with `claude-sonnet-5`; the legacy id stays
+   selectable so old rows still bind.
+7. **The visual preview misrepresented every gapper** — `StrategyBuilderRenderer` showed no
+   sizing for notional strategies (all gappers) and never rendered the PeakGiveback exit,
+   so the WYSIWYG card omitted both the dollars at risk and the signature exit. Chips added
+   (Setup/Order notional, Exit giveback + arm time).
+8. **One corrupt workspace row broke workspace loading entirely** — `SqlWorkspaceStore.Load`
+   let `JsonException` propagate (its JSON-file sibling explicitly skips corrupt files).
+   Unreadable rows are now skipped.
+9. **The gapper day replay used the host's keys, not the user's** — `/gapper`'s "Backtest a
+   day" read only the global settings chain while `/backtest` prefers the signed-in user's
+   own Alpaca keys, so a keyed user got synthetic Mock bars on one page and real bars on the
+   other. Same priority now (user pair first, global fallback, Mock last).
+10. **Else-only branch blocks crashed view generation** — `ConditionalBlock.ToScript`
+    bang-dereferenced the first branch's condition, which canonical JSON legally allows to
+    be null. Null-safe now (renders as `.Else(...)`).
+
+**Why.** Session directive 2026-07-19: "find 10 fix 10" (round 7).
+
+**Effect on canon.** Restores the backtest-mirrors-live invariant for the Risk/Exit phases
+and makes the [IP-LAW-2](BIBLE.md#IP-LAW-2) limits actually user-settable end-to-end (the
+Settings-page flow other docs already described now exists). 189 tests green. No new laws.
+
+## IP-A18 — Bug-hunt round 6: fail-open entry conditions, dead cross triggers, blind replay surfaces {#IP-A18}
+**What changed.** (2026-07-19.) Sixth find-10-fix-10 sweep — focused on the evaluation pipeline
+(conditions, market data, replay surfaces) rather than the guards rounds 4–5 hardened. Ten
+fixes, eight with regression tests (`ConditionFailClosedTests`):
+
+1. **A transient 4 AM feed blip disabled gap strategies for the whole day** — the Monitor
+   cached the previous close per ET day INCLUDING nulls, so one failed fetch pinned "no
+   previous close" until midnight and every gap condition failed closed all day. Nulls now
+   retry next tick; only real closes are cached.
+2. **`BreaksAbove`/`BreaksBelow` could never fire in the Monitor** — the definition is
+   re-materialized from canonical JSON every tick, so the stateful `PriceLevelCondition` was
+   a fresh instance each evaluation and its prior-price memory was always null: the cross was
+   structurally undetectable. Cross checks now fall back to the snapshot's prior-bar close.
+3. **`IsMacdBearish()` failed OPEN without MACD data** — under ~26 bars (exactly the early
+   premarket a gapper trades) `MacdLine > SignalLine` is null-false, so the bare negation
+   passed the bearish gate on every data-starved bar. Now requires data (IP-LAW-1 doctrine).
+4. **`IsDiNegative()` failed OPEN without ADX data** — same shape, under ~28 bars. Both DI
+   verbs now require PlusDI/MinusDI to exist.
+5. **`Breakout()`/`Pullback()` were always-true on the live path** — the latch state machine
+   exists only in the backtester's `TrackedTrigger`; direct evaluation (Monitor, DslStrategy)
+   returned `true` unconditionally, so a live strategy's core trigger was silently satisfied
+   and it fired on the remaining conditions alone. Direct evaluation now fails closed (the
+   blocked verb is visible in ConditionProgress until the tracker is ported); the unknown-type
+   default arms of Pattern/Indicator/Price conditions fail closed too.
+6. **`/backtest` could never trigger a premarket or gap strategy** — the page fetched
+   09:30–16:00 RTH bars regardless of the strategy's session (a gapper's 4:00–9:00 entry
+   window never had data), and no previous close was plumbed into `StrategyBacktester`, so
+   gap conditions failed closed on every replay. The fetch window now follows `def.Session`
+   and `BacktestOptions.PreviousClose` carries the reference close end-to-end.
+7. **Branching strategies lost their sizing and rollover exit** — `DslStrategy.ResolveBranches`'
+   clone omitted `NotionalAmount`, `PeakGivebackPercent`, and `PeakGivebackArmTime`; any
+   strategy with a ConditionalBlock silently dropped its dollar sizing and momentum exit in
+   the resolved definition (latent — no current consumer reads those fields off the clone).
+8. **The Monitor hammered the bars endpoint all night** — an empty candle window was never
+   cached, so overnight (no bars) every tick re-fetched via REST: 12 requests/min/symbol
+   burning the Alpaca rate limit right before the 4 AM window gappers arm in. Empty windows
+   now cache for 30 s.
+9. **`Entry(price)` silently vanished from scripts** — the serializer emits it and the
+   reflection-built catalog (IP-LAW-4) teaches it to Claude, but `ScriptParser` had no case,
+   so the price gate was dropped on every text round trip and from AI-generated scripts.
+   Parser case added; `PriceCondition`/`PriceLevelCondition`/`PatternCondition.ToScript` also
+   emit InvariantCulture numbers so comma-decimal locales can't produce unparseable verbs.
+10. **Replay pages defaulted to days with no data and lied about them** — both replay date
+    pickers defaulted to a raw "yesterday" (server-local; lands on weekends, and on a UTC
+    host rolls to the in-progress session at 8 PM ET), and a no-data day rendered as "no
+    entry condition fired — the strategy would have stayed flat", a false claim about a day
+    that was never replayed. New `MarketTime.PreviousEquityTradingDayEt` drives both
+    defaults; `StrategyBacktester` now emits an explicit no-data note.
+
+**Why.** Session directive 2026-07-19: "find 10 fix 10" (round 6).
+
+**Effect on canon.** Extends [IP-LAW-1](BIBLE.md#IP-LAW-1)'s fail-closed doctrine from the
+gates to the condition layer itself: every condition whose inputs are absent or whose type is
+unrecognized now blocks instead of passing. 183 tests green. No new laws.
+
+## IP-A17 — Bug-hunt round 5: guard-bypass routes, quarantine-net leaks, daily-loss reset {#IP-A17}
+**What changed.** (2026-07-19.) Fifth find-10-fix-10 sweep — mostly holes in the guards rounds 3
+and 4 installed; ten fixes, seven with regression tests:
+
+1. **`Invalidate()` still reset the daily circuit breaker** — the Settings page's post-edit hook
+   dropped the whole cache entry, discarding the Guardian instance and its in-memory daily-loss
+   counter — the exact hazard IP-A16's `UpdateConfig` was built to avoid, on the most common
+   path (a mid-day risk edit). Invalidate now expires the config TTL in place; the instance and
+   its recorded losses survive (LocalDB test `RiskGuardianServiceTests`).
+2. **StrategyBuilder Save bypassed the PositionOpen guard** — the editor's update branch writes
+   `IsActive` directly through `UpdateAsync`, so unchecking Active on a holding strategy
+   orphaned the position without ever consulting IP-A16's `SetActiveAsync` guard. The Save path
+   now refuses to deactivate a row with `PositionQty > 0`.
+3. **Strategies-page toggle bypassed the one-active-gapper-per-symbol rule** — gapper rows also
+   render on `/strategies`, whose activate toggle had neither the duplicate-symbol check nor
+   the post-write recheck: pause A on the Gapper tab, re-activate it from Strategies = doubled
+   exposure on one gap. Same SQL pre-check + post-write revert as the Gapper page now.
+4. **The exit deferral gate only checked the weekday, not the clock** — a SellBy decision at
+   Friday 20:01 ET (or a weekday 02:00) still placed a regular-hours DAY sell that queues for
+   the next open at a stale limit price — the precise hazard IP-A16's weekend gate described.
+   Deferral now requires a weekday AND the 4:00–20:00 ET window Alpaca accepts orders in.
+5. **The strict-JSON quarantine net leaked exceptions** — `GetDecimal` on an overflowing number
+   (`1e30`) threw a raw `FormatException` that `StrategyLoader` doesn't catch, crashing the
+   Monitor's evaluation loop instead of quarantining the row; `1e400` silently became
+   `double.Infinity`; wrong-kind values (`"session": 5`, string quantities) silently coerced to
+   defaults. All strict readers now fail closed with `StrategyJsonException` (present-but-wrong
+   kind or unrepresentable value → quarantine; absent/null → null), per [IP-LAW-8](BIBLE.md#IP-LAW-8).
+6. **The day replay built snapshots with zero EMA periods** — `GapperDayBacktester` claimed
+   Monitor fidelity but passed an empty EMA set, so any EMA-conditioned strategy could never
+   enter in replay (null EMAs fail every EMA condition). It now uses `EmaPeriodCollector`, the
+   same walk the live paths use.
+7. **The replay's peak window stopped at the exit** — making "the peak came AFTER your exit —
+   this day rewarded more patience" mathematically unreachable dead code and understating MFE.
+   The peak now runs to the hard sell-by (per its own doc); the trough (MAE) stays entry→exit.
+8. **Inverted entry windows validated clean** — `GapperProfile.Validate` never checked window
+   ordering; `TimeWindowCondition` evaluates start≥end as an overnight wrap, so an
+   LLM-interpreted candidate with a swapped window becomes eligible outside the intended
+   premarket slot. Cross-field ordering check added.
+9. **A missing `equity` field rendered as a −100% day** — `AccountPill`'s new intraday P&L
+   parsed absent/unparseable equity to 0 and happily computed (0 − last)/last. Both values must
+   now parse positive or the pill shows 0%.
+10. **`WorkspaceManager.Delete`/`LoadAll` mutated the cache outside the new gate** — the lock
+    IP-A16-era work added covers Load/Save, but Delete removed from the same shared `List`
+    unlocked and LoadAll assigned unlocked — the torn-state race the lock exists to prevent.
+    Both now take the gate.
+
+**Why.** Session directive 2026-07-19: "find 10 fix 10" (round 5).
+
+**Effect on canon.** Hardens [IP-LAW-2](BIBLE.md#IP-LAW-2) (daily-loss counter survives config
+edits end-to-end), [IP-LAW-8](BIBLE.md#IP-LAW-8) (the quarantine net no longer leaks), and the
+IP-A16 mutation guards (no page-level bypass routes). 175 tests green. No new laws.
+
+## IP-A16 — Bug-hunt round 4: fail-open LLM gate, weekend gate, orphaned positions {#IP-A16}
+**What changed.** (2026-07-19.) Fourth find-10-fix-10 sweep; ten fixes with regression tests:
+
+1. **LLM gate failed OPEN** — the Monitor only blocked on an explicit Reject consensus, so a
+   dead voter panel (zero votes), unparseable votes (all Abstain), or a split below threshold
+   all let the trade through, violating [IP-LAW-1](BIBLE.md#IP-LAW-1)'s "quorum approves".
+   When voting is enabled the gate now requires an explicit **Approve** consensus; anything
+   else blocks with an audited reason. `LlmVotingResult.Consensus` is also initialized to
+   Abstain (Approve is enum zero — same fail-closed rule IP-A11 applied to `LlmVote`).
+2. **No weekend gate anywhere** — the session windows are time-of-day only, so Saturday
+   10:00 ET counted as "inside RTH": entries could fire against Friday's stale bars and queue
+   orders for Monday's open, and a held position's SellBy decision tripped every tick all
+   weekend (order spam / stale queued sells). New `MarketTime.IsEquityTradingDay` (ET
+   weekday; tested incl. the UTC-rollover edge) gates both the entry session check and the
+   exit order placement — a weekend exit decision defers, visibly, to the next weekday.
+3. **Risk-config edits never reached the Monitor** — `RiskGuardianService` cached each user's
+   Guardian for the process lifetime and the UI's `Invalidate()` only clears the *UI
+   process's* cache; the Monitor (a separate process) kept trading on stale limits until
+   restart. Config now refreshes on a 2-minute TTL via new `RiskGuardian.UpdateConfig`,
+   which swaps limits WITHOUT resetting the in-memory daily-loss counter (tested).
+4. **Pausing/deleting a holding strategy orphaned the position** — the Monitor only evaluates
+   `IsActive` rows, so deactivating (Strategies page, Gapper toggle) or deleting a row with
+   `PositionQty > 0` silently killed all exit management for shares the broker still holds.
+   `SetActiveAsync`/`DeleteAsync` now return a `StrategyMutation` verdict and refuse
+   `PositionOpen` at the repository; both pages surface the reason.
+5. **Repository-level ownership** — the same mutators now require the caller's user id and
+   refuse `NotOwner`, closing the write-IDOR class at the repo instead of relying on every
+   page to pre-filter (defense-in-depth on top of IP-A15's StrategyBuilder fix). LocalDB
+   integration suite `StrategyRepositoryGuardTests` pins all guards.
+6. **Gapper duplicate-symbol check was poll-stale** — it consulted the in-memory page list
+   (up to 5s old), so two tabs could double-queue the same ticker and double the exposure on
+   one gap. The check now hits SQL (`CountActiveForSymbolAsync`).
+7. **3-gapper cap TOCTOU closed** — queueing and re-activation re-verify the cap AND the
+   duplicate rule AFTER flipping the row active, reverting their own activation on
+   violation (no transaction spans create+activate; the post-write recheck enforces the
+   invariant deterministically).
+8. **Re-activation skipped the one-per-symbol rule** — pause A, queue B same ticker,
+   re-toggle A = two active gappers on one gap. The toggle now applies the same SQL check.
+9. **FireAsync dropped T2/T3 from the voter panel's view** — the Monitor's own signal
+   construction had the same T1-only `Targets` defect fixed in `DslStrategy` (IP-A15); the
+   LLM panel judged risk:reward on a truncated exit plan. Full ladder now.
+10. **Silent key-decryption failures** — `UserKeyService.Unprotect` swallowed all
+    DataProtection failures as `null`, so a key-ring mismatch between Blazor and the Monitor
+    read as "never configured" while broker routing silently fell back to the global default.
+    Failures now log the field, user, and probable cause.
+
+**Why.** Session directive 2026-07-19: "find 10 fix 10" (round 4).
+
+**Effect on canon.** Strengthens the enforcement of [IP-LAW-1](BIBLE.md#IP-LAW-1) (the LLM
+gate is now fail-closed end-to-end) and [IP-LAW-2](BIBLE.md#IP-LAW-2) (live config refresh).
+[BIBLE §6](BIBLE.md#IP-§6) build evidence updated (168 tests green). No new laws.
+
+## IP-A15 — Bug-hunt round 3: Legion provider-id drift, IDOR, backtest/live divergences {#IP-A15}
+**What changed.** (2026-07-19.) Third find-10-fix-10 sweep; ten fixes, each with a regression
+test where one is expressible:
+
+1. **Describe tab was dead** — `StrategyScriptGenerator` still called Legion with
+   `providerId: "claude"`; Legion 20 renamed the Anthropic provider to `"claude-api"` and the
+   old id is gone from `LlmProviderCatalog`. Fixed; `LegionProviderContractTests` now pins the
+   id and the default model against the live catalog so the next rename fails a test instead
+   of a runtime feature.
+2. **legion.json voter panel silently lost Claude** — `voters`/`judge` still said `"claude"`,
+   which the `AllowedProviderIds` filter drops as untrusted. Updated to `"claude-api"`.
+3. **Stale model pins** — `AppSettings.LlmVoterModel` default, the interpreter/generator
+   fallbacks, and the Technical Analyst voter persona moved `claude-sonnet-4-6` →
+   `claude-sonnet-5` (Legion's current catalog default; same list price, current generation).
+   The two haiku personas stay on the catalog-valid cheap tier.
+4. **Write-IDOR on strategies** — `/builder/{id}` checked ownership only when *displaying*;
+   `Save()` re-resolved the route id unchecked, so any logged-in user could overwrite another
+   user's strategy row. Fixed twice over: foreign ids are dropped at page init AND `Save()`
+   re-checks `OwnerUserId` before the update branch.
+5. **Backtest ≠ live on scale-outs** — `DslStrategy` emitted only `TakeProfitPrice` (T1) into
+   the live `TradeSignal.Targets` while the backtester honored the full `TakeProfitTargets`
+   ladder; `.TakeProfit(t1, t2, t3)` strategies silently never scaled out live. The signal now
+   carries the full ladder (`DslStrategySignalTests`).
+6. **EMA collector triplication** — `DslStrategy`, `MonitorWorker`, and `StrategyBacktester`
+   each hand-rolled "which EMA periods does this strategy reference"; the backtester's copy
+   skipped `ConditionalBlocks`, so branch-only EMA references replayed against missing series.
+   Single source of truth now: `IdiotProof.Scripting/EmaPeriodCollector.cs`
+   (`EmaPeriodCollectorTests`).
+7. **Tuned-profile name stacking** — re-backtesting an applied tuned profile produced
+   "X (tuned) (tuned)". Suffix is now idempotent (`GapperDayBacktesterTests`).
+8. **Learn → Builder deep links were dead** — the "Open in Builder" links passed
+   `?seed=&ticker=` that `StrategyBuilder.razor` never read. The builder now honors both via
+   `[SupplyParameterFromQuery]`.
+9. **Account pill always showed "+0.00%"** — `DayChangePercent` was hardcoded `0m`. Now
+   computed from Alpaca's `equity` vs `last_equity`.
+10. **Workspace cache lied under SQL** — the eager `LoadAll()` at startup targeted the legacy
+    `__global__` bucket, which `SqlWorkspaceStore`'s Guid-gate silently no-ops (an ephemeral
+    Default tab was fabricated each boot and nothing persisted); `Save()` for a never-loaded
+    user seeded the cache empty and hid that user's other tabs; concurrent first reads could
+    double-seed. Startup is now lazy per user, `Save()` hydrates from the store first, and
+    seeding is serialized (`WorkspaceManagerTests`).
+
+**Why.** Session directive 2026-07-19: "find 10 fix 10" (round 3) + "document changes and
+update any guides."
+
+**Effect on canon.** No law changes. [BIBLE §6](BIBLE.md#IP-§6) build evidence updated
+(156 tests green). Fix 1/2/3 are the recorded prerequisite for the deferred "Legion native
+voter-panel API migration" debt in [BIBLE §7](BIBLE.md#IP-§7).
+
+## IP-A14 — Gapper day replay: backtest a past day, examine, re-dial, reuse {#IP-A14}
+**What changed.** (2026-07-19.) The Gapper tab gained **"Backtest a day"**: pick a ticker +
+date, and `GapperDayBacktester` (`IdiotProof.Strategies/GapperDayBacktester.cs`) replays the
+current dial-ins over that day's bars — premarket included — answering "what WOULD have
+happened".
+
+- **Fidelity rule:** entries walk the same condition list the Monitor walks (with real
+  previous-close gap math), and exits run the SAME `GapperExitEvaluator` the live console
+  runs, bar by bar. Fill price = decision bar's close (the honest analogue of the live
+  marketable-limit orders). A backtest that runs different code than live is a lie; this one
+  can't drift because it calls the live brain.
+- **Examine:** the report carries entry/exit fills with reasons, P&L, gap-at-entry, max
+  favorable/adverse excursion with timestamps, a **giveback grid** (what every giveback dial
+  from 10–50% would have done on the same day), and plain-English hindsight suggestions
+  ("peak came AFTER your exit — this day rewarded more patience"; "your stop was never
+  close — tighten to ~4%").
+- **Re-dial and reuse:** the report includes a **tuned profile** — hindsight-best giveback, a
+  stop informed by the day's real adverse excursion (never loosened), gap screen set just
+  under the day's actual gap — with an *Apply tuned dials* button that loads it into the
+  manual form, ready to queue for a real trading day. Human applies; nothing auto-tunes.
+- **Data:** Alpaca (global settings chain, premarket bars via time-range requests + daily
+  previous close) when keyed; the deterministic Mock gap day otherwise, so the whole loop is
+  rehearsable keyless. No-entry days report the exact blocking condition; missing previous
+  close fails closed, same as live.
+
+**Why.** Session directive 2026-07-19: "make sure the alpaca API can run backtesting … design
+a strategy for a day in the past and see what WOULD have happened … determine how it could
+have been even better and then take that 'strategy profile' and use it again on a real
+trading day and dial it in for that specific ticker."
+
+**Effect on canon.** New story IP-US-K12 with the replay/grid/tuning test suite. The generic
+`/backtest` page (RTH strategies) is unchanged; gapper replay lives with the gapper.
+
+## IP-A13 — Canonical strict-JSON strategy layer; IdiotScript demoted to a view (new law IP-LAW-8) {#IP-A13}
+**What changed.** (2026-07-19.) The fluent DSL text is no longer the machine format.
+
+- **Canon:** `StrategyJson` (`IdiotProof.Scripting/StrategyJson.cs`) round-trips the full
+  `StrategyDefinition` — every condition type including `.And()/.Or()/.Not()` composition and
+  `.Then()/.Else()` branching, which the text round trip structurally loses — as
+  `schemaVersion: 1` JSON in a new `Strategy.ScriptJson` column (migration
+  `AddStrategyCanonicalJson`). Deserialization is fail-closed must-understand: unknown
+  version/condition-type/property → `StrategyJsonException`.
+- **One materialization path:** `StrategyLoader.Load(scriptJson, scriptText)` — canon first;
+  a present-but-rejected canon **quarantines** the row (Monitor logs it and writes
+  `(invalid strategy: …)` to ConditionProgress; the Backtest page surfaces it) and expressly
+  does NOT fall back to the tolerant text parse. Text parse remains only for legacy rows with
+  no canon; a startup backfill derives canon for those once.
+- **Zero-parse gapper path:** the Gapper tab serializes the factory's semantic model directly
+  to canon; the script text is generated from the same model purely for humans. Editor/Describe
+  flows still originate as text (canon derived via the tolerant parser — no worse than before);
+  migrating the Describe tab's LLM output to model-JSON and the strict Roslyn parser
+  (IP-US-H1) are the recorded tail.
+- **Verified live:** startup backfilled the legacy row; a canon tampered with an unknown
+  property (`hostileField`) was refused by the running console with
+  "refusing to guess at its meaning" and never fell back to text.
+
+**Why.** Session question 2026-07-19: "is the DSL language into a fluent api the best way …
+or should there be a structured JSON layer … the last thing I want is for instructions to get
+misinterpreted because the language is too 'helpful'." Expert consensus applied: Fowler's
+semantic-model pattern (persist the model, not surface syntax), langsec's rejection of
+tolerant machine-boundary parsers, "parse, don't validate", and vendor guidance that LLM
+output be schema-constrained JSON.
+
+**Effect on canon.** New law [IP-LAW-8](BIBLE.md#IP-LAW-8). New story IP-US-K11 with the
+round-trip + fail-closed test suite. `ScriptText` stays as the human view (IP-LAW-4's
+reflected verb catalog is unaffected).
+
+## IP-A12 — Transcript → gapper interpreter {#IP-A12}
+**What changed.** (2026-07-19.) The Gapper tab gained a **"From a transcript"** panel: paste
+any natural language (typically a video transcript) and `GapperInterpreter`
+(`IdiotProof.Blazor/Services/GapperInterpreter.cs`) asks Claude — through MindAttic.Legion,
+HOUSE-LAW-4 — to extract premarket gap plays as a STRICT JSON array of
+`{symbol, rationale, profile{...}}` against the live Classic-Gapper defaults (the system
+prompt is written from the actual catalog profile so it can't drift). The response is
+re-validated fail-closed in a pure, unit-tested parse layer: symbols must match
+`^[A-Z]{1,6}$`, profile overlays change only fields actually present in the JSON,
+`GapperProfile.Validate` rejects impossible dial-ins, and at most 5 candidates survive.
+Candidates render as **review cards** — rationale, dial summary, generated IdiotScript —
+with per-card *Queue* (respects the 3-active cap) and *Load into dials* (hand-tweak first).
+**A transcript can never queue itself**; a human clicks every queue.
+
+**Why.** Session directive 2026-07-19: "I get a transcript from a video and I want you to
+interpret that transcript and build the gapper strategies … a dedicated open text spot where
+I can just enter natural language which you interpret using claude into a strategy."
+
+**Effect on canon.** New story IP-US-K10 (🟡 — parse contract ✅-tested; live round trip +
+Cypress ⬜). No law changes; the three gates still guard every fire downstream.
+
 ## IP-A11 — Second find-10-fix-10 pass: sixteen more defects across the wider codebase {#IP-A11}
 **What changed.** (2026-07-19, second self-review round — this one swept beyond the fresh
 IP-A8/A9 code into the DSL round trip, backtester, UI pages, and long-run resource behavior.)

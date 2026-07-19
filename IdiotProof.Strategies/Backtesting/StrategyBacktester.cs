@@ -65,6 +65,12 @@ public static class StrategyBacktester
         {
             if (definition.EntryConditions.Count == 0)
                 report.Note = "Strategy has no entry conditions to evaluate.";
+            else
+                // Without this note, a weekend/holiday (or feed outage) day
+                // rendered as "no entry condition fired — the strategy would
+                // have stayed flat", which is a false claim about a day that
+                // was never replayed at all.
+                report.Note = "No market data for this day — weekend, market holiday, or the data feed returned nothing. Nothing was replayed.";
             return report;
         }
 
@@ -85,9 +91,10 @@ public static class StrategyBacktester
         {
             var bar = ordered[i];
 
-            // Snapshot "as of" this bar — same builder the live path uses.
+            // Snapshot "as of" this bar — same builder the live path uses,
+            // including the previous close so gap conditions can evaluate.
             var window = ordered.Take(i + 1).ToList();
-            var snapshot = IndicatorSnapshotBuilder.BuildWithEmas(symbol, window, emaPeriods);
+            var snapshot = IndicatorSnapshotBuilder.BuildWithEmas(symbol, window, emaPeriods, options.PreviousClose);
 
             // 1) Update every trigger's satisfied state for this bar.
             bool allSatisfied = true;
@@ -162,6 +169,7 @@ public static class StrategyBacktester
                     EntryPrice = entryPrice,
                     Quantity  = qty,
                     StopPrice = stop,
+                    PeakSinceEntry = entryPrice,
                 };
 
                 // Mark the trigger fires on this bar as the ones that opened the trade.
@@ -223,6 +231,10 @@ public static class StrategyBacktester
         List<(decimal Price, int Pct, string Label)> targets, decimal stop,
         StrategyDefinition def)
     {
+        // High-water mark since entry — feeds the trailing-stop and
+        // peak-giveback exits below. Long-shaped, like the live exit brain.
+        if (isLong && bar.High > trade.PeakSinceEntry) trade.PeakSinceEntry = bar.High;
+
         // Stop first (conservative): assume the adverse extreme traded through the stop.
         bool stopHit = stop > 0m && (isLong ? bar.Low <= stop : bar.High >= stop);
         if (stopHit)
@@ -233,6 +245,23 @@ public static class StrategyBacktester
             });
             remaining = 0;
             return;
+        }
+
+        // Trailing stop off the peak (Risk phase). The replay used to ignore
+        // TrailingStopLoss entirely, silently holding through pullbacks the
+        // live evaluator would have sold — backtest ≠ live divergence.
+        if (isLong && def.TrailingStopPercent is { } tslPct && trade.PeakSinceEntry > trade.EntryPrice)
+        {
+            var trailFloor = trade.PeakSinceEntry * (1m - (decimal)(tslPct / 100.0));
+            if (bar.Low <= trailFloor)
+            {
+                trade.Exits.Add(new BacktestFill
+                {
+                    Utc = bar.StartUtc, Price = trailFloor, Shares = remaining, Reason = "Trailing stop",
+                });
+                remaining = 0;
+                return;
+            }
         }
 
         // Scale-out targets, in order.
@@ -255,6 +284,27 @@ public static class StrategyBacktester
             nextTarget++;
         }
         if (remaining == 0) return;
+
+        // Peak-giveback momentum rollover (the flagship gapper exit) — also
+        // previously ignored by this replay. Close-based, mirroring the live
+        // GapperExitEvaluator: sell once the close gives back N% of the
+        // entry→peak run, armed from the configured ET time (or always).
+        if (isLong && def.PeakGivebackPercent is { } giveback && trade.PeakSinceEntry > trade.EntryPrice)
+        {
+            var armed = def.PeakGivebackArmTime is not { } arm
+                || Scripting.MarketTime.ToEasternTimeOfDay(bar.StartUtc) >= arm;
+            var run = trade.PeakSinceEntry - trade.EntryPrice;
+            var gbFloor = trade.PeakSinceEntry - run * (decimal)(giveback / 100.0);
+            if (armed && bar.Close <= gbFloor)
+            {
+                trade.Exits.Add(new BacktestFill
+                {
+                    Utc = bar.StartUtc, Price = bar.Close, Shares = remaining, Reason = "Peak giveback",
+                });
+                remaining = 0;
+                return;
+            }
+        }
 
         // Optional time exit. ExitTime is an ET (market-clock) time-of-day —
         // SellBy("09:28") means 9:28 Eastern in the DSL, the Monitor, and
@@ -324,32 +374,12 @@ public static class StrategyBacktester
 
     private static int[] CollectEmaPeriods(StrategyDefinition def)
     {
+        // Canonical walk (EmaPeriodCollector) covers ConditionalBlock branches
+        // the old local copy missed; the default set keeps common chart EMAs
+        // available for ad-hoc inspection of backtest snapshots.
         var periods = new HashSet<int>(DefaultEmaPeriods);
-        foreach (var c in def.EntryConditions)
-            foreach (var ic in Flatten(c).OfType<IndicatorCondition>())
-            {
-                if (ic.Type is IndicatorType.EmaAbove or IndicatorType.EmaBelow or IndicatorType.ReclaimEma
-                    && ic.Parameter is { } p)
-                    periods.Add((int)p);
-                else if (ic.Type is IndicatorType.BetweenEma or IndicatorType.EmaStack
-                         && ic.Parameter is { } p2 && ic.Parameter2 is { } p3)
-                {
-                    periods.Add((int)p2);
-                    periods.Add((int)p3);
-                }
-            }
+        periods.UnionWith(EmaPeriodCollector.Collect(def));
         return periods.OrderBy(x => x).ToArray();
-    }
-
-    private static IEnumerable<ICondition> Flatten(ICondition c)
-    {
-        yield return c;
-        switch (c)
-        {
-            case AndCondition a: foreach (var x in Flatten(a.Left)) yield return x; foreach (var x in Flatten(a.Right)) yield return x; break;
-            case OrCondition o:  foreach (var x in Flatten(o.Left)) yield return x; foreach (var x in Flatten(o.Right)) yield return x; break;
-            case NotCondition n: foreach (var x in Flatten(n.Inner)) yield return x; break;
-        }
     }
 
     private static List<TrackedTrigger> BuildTriggers(IReadOnlyList<ICondition> conditions)

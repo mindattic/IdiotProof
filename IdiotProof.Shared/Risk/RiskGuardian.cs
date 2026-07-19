@@ -72,7 +72,7 @@ public sealed class RiskGuardian
 {
     private static readonly TimeZoneInfo EasternTimeZone = ResolveEasternTimeZone();
 
-    private readonly RiskGuardianConfig config;
+    private RiskGuardianConfig config;
     private decimal dailyLoss;
     private DateOnly lastResetDate = CurrentTradingDate();
 
@@ -80,6 +80,16 @@ public sealed class RiskGuardian
     {
         this.config = config ?? new RiskGuardianConfig();
     }
+
+    /// <summary>
+    /// Swaps in fresh limits WITHOUT touching the in-memory daily-loss
+    /// counter. This is how a long-lived Guardian (the Monitor caches one per
+    /// user for the process lifetime, precisely so dailyLoss survives) picks
+    /// up risk-config edits made in the UI — rebuilding the instance instead
+    /// would silently reset the daily circuit breaker.
+    /// </summary>
+    public void UpdateConfig(RiskGuardianConfig newConfig)
+        => config = newConfig ?? throw new ArgumentNullException(nameof(newConfig));
 
     /// <summary>
     /// Validates a trade setup. Returns approval status and any adjustments needed.

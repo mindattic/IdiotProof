@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
 
 namespace IdiotProof.Blazor.Hubs;
@@ -5,7 +6,11 @@ namespace IdiotProof.Blazor.Hubs;
 /// <summary>
 /// SignalR hub for real-time trading updates.
 /// Clients join symbol groups to receive live price and signal updates.
+/// [Authorize]: every page that talks to this hub already requires a signed-in
+/// user — an anonymous connection could otherwise sit in the broadcast group
+/// and receive whatever trade signals/prices get published there.
 /// </summary>
+[Authorize]
 public sealed class TradingHub : Hub
 {
     /// <summary>Subscribe the current connection to updates for a specific ticker symbol.</summary>

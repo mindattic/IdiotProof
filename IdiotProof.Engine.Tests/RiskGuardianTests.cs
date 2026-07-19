@@ -44,6 +44,36 @@ public class RiskGuardianTests
     }
 
 
+    [Test]
+    public void UpdateConfig_SwapsLimits_ButPreservesDailyLoss()
+    {
+        // The Monitor caches one Guardian per user for the process lifetime
+        // precisely so dailyLoss survives; UpdateConfig is how it picks up
+        // risk-config edits made in the UI. Swapping limits must NOT reset
+        // the daily circuit breaker.
+        var guardian = new RiskGuardian(DefaultConfig());
+        guardian.RecordTradePnL(-300m);
+
+        guardian.UpdateConfig(new RiskGuardianConfig
+        {
+            MaxLossPerTrade       = 50m,   // tightened in the UI
+            MaxLossPerDay         = 400m,  // tightened in the UI
+            MinStopLossPercent    = 0.5m,
+            MaxStopLossPercent    = 5m,
+            AccountBalance        = 10_000m,
+            MaxAccountRiskPercent = 1m,
+        });
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(guardian.GetRemainingDailyRisk(), Is.EqualTo(100m),
+                "new $400 daily cap minus the PRESERVED $300 daily loss");
+            Assert.That(guardian.ValidateTrade(LongSetup(qty: 60)).BlockReasons,
+                Has.Some.Contains("exceeds max"),
+                "the tightened $50 per-trade limit must apply immediately ($60 risk setup)");
+        });
+    }
+
     private static RiskGuardianConfig DefaultConfig() => new()
     {
         MaxLossPerTrade       = 100m,

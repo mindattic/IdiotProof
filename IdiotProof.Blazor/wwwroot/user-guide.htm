@@ -76,6 +76,7 @@
     <li><a href="#profile">Profile reference — every dial</a></li>
     <li><a href="#run">What happens while it runs</a></li>
     <li><a href="#exit">The sell-off brain</a></li>
+    <li><a href="#backtest">Backtest a day (replay → tune → reuse)</a></li>
     <li><a href="#safety">The safety model</a></li>
     <li><a href="#dryrun">Dry-run mode (no keys, no money)</a></li>
     <li><a href="#knobs">Console configuration knobs</a></li>
@@ -152,6 +153,23 @@ Data Protection key ring.</p>
 </div>
 
 <h2 id="build"><span class="num">4</span>Building a gapper on the Gapper tab</h2>
+
+<h3>Option A — from a transcript (natural language)</h3>
+<p>The tab's <b>“From a transcript”</b> box takes any free text — a video transcript, chat
+notes, your own words. Click <b>Interpret</b> and Claude extracts the premarket gap plays it
+describes into candidate cards: ticker, a one-line rationale, and the dial-ins it inferred
+("tight stop" → lower stop %, "let it run" → higher giveback, quoted gap sizes → the gap
+screen). Everything the model returns is re-validated against the same rules as the manual
+form; anything malformed is skipped with a warning.</p>
+<div class="card note">
+  <h4>You stay in the loop</h4>
+  <p>Interpretation never queues anything. Each card has <b>Queue</b> (adds it as-is, within
+  the 3-gapper cap) and <b>Load into dials</b> (copies it into the manual form so you can
+  tweak before queueing). A transcript is untrusted input — a human clicks every queue.</p>
+</div>
+<p>Requires a Claude API key (API Keys page or the MindAttic LLM keyring).</p>
+
+<h3>Option B — by hand</h3>
 <ol>
   <li>Open the <b>Gapper</b> tab in the top navigation.</li>
   <li>Type the ticker (e.g. <code>NVDA</code>).</li>
@@ -163,7 +181,9 @@ Data Protection key ring.</p>
   <li><b>Queue Gapper.</b> Up to 3 can be active at once.</li>
 </ol>
 <p>The queued row shows a live badge from the console. Pause, remove, or re-queue any time
-— changes apply on the console's next tick.</p>
+— changes apply on the console's next tick. <b>One exception:</b> while a gapper is HOLDING
+shares, it cannot be paused or deleted — the console must stay on the row to run the
+stop/giveback/sell-by exit. It flattens by the sell-by time at the latest; pause it after.</p>
 
 <p>Under the hood the dial-ins become an <b>IdiotScript</b> strategy, the same six-phase DSL
 every IdiotProof strategy uses:</p>
@@ -235,6 +255,22 @@ gappers: <b>sell when price surrenders N% of the run from your entry to its peak
 </div>
 <p>Exits are risk-reducing, so they skip the LLM panel by design — but every one is
 audit-logged, and the realized P&amp;L feeds the Risk Guardian's daily circuit breaker.</p>
+
+<h2 id="backtest"><span class="num">7b</span>Backtest a day — design on the past, trade the future</h2>
+<p>The Gapper tab's <b>“Backtest a day”</b> section closes the loop: type a ticker, dial the
+profile, pick a past date, and <b>Replay day</b>. The replay fetches that day's bars —
+premarket included — plus the previous close (Alpaca when your keys are configured, the mock
+gap day otherwise) and runs your dials over it. Fidelity guarantee: entries use the same
+condition walk and exits run the <i>same</i> sell-off brain as the live console, so the
+answer to “what would have happened?” is the code that actually trades, not a lookalike.</p>
+<p>The report shows the fills (with reasons and ET times), P&amp;L, the run's peak and worst
+drawdown, a <b>giveback grid</b> (what every giveback dial from 10–50% would have done on
+that same day), and plain-English suggestions — “the peak came after your exit; this day
+rewarded more patience”, “your stop was never close — tighten to ~4%”. If it never entered,
+it names the exact condition that blocked it.</p>
+<p><b>Apply tuned dials</b> loads the hindsight profile (best giveback, a stop informed by
+the day's real drawdown — never loosened, gap screen just under the day's actual gap) into
+the manual form, ready to queue for a real trading day. Nothing tunes itself; you apply it.</p>
 
 <h2 id="safety"><span class="num">8</span>The safety model</h2>
 <table>

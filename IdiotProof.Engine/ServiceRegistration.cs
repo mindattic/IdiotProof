@@ -67,12 +67,14 @@ public static class ServiceRegistration
             .TryAddSingleton<IWorkspaceStore>(services, sp => new JsonFileWorkspaceStore(storageProvider));
 
         // Workspace manager — caches + seeds defaults on top of IWorkspaceStore.
+        // No eager LoadAll() here: that call targets the legacy "__global__"
+        // bucket, which the SQL-backed store cannot represent (its Load/Save
+        // Guid-gate silently no-ops), so the old startup seed was a lie — it
+        // fabricated an ephemeral Default tab and persisted nothing. Loading
+        // is lazy per user via GetTabsForUser; the CLI/JSON path can still
+        // call LoadAll() itself.
         services.AddSingleton<WorkspaceManager>(sp =>
-        {
-            var manager = new WorkspaceManager(sp.GetRequiredService<IWorkspaceStore>());
-            manager.LoadAll();
-            return manager;
-        });
+            new WorkspaceManager(sp.GetRequiredService<IWorkspaceStore>()));
 
         // Audit logger
         services.AddSingleton<AuditLogger>();

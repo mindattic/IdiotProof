@@ -151,6 +151,7 @@ builder.Services.AddSingleton<StrategyRepository>();
 builder.Services.AddSingleton<UserPreferencesService>();
 builder.Services.AddSingleton<StrategyScriptGenerator>();
 builder.Services.AddSingleton<GapperProfileService>();
+builder.Services.AddSingleton<GapperInterpreter>();
 builder.Services.AddSingleton<SettingsRepository>();
 builder.Services.AddSingleton<AuditLogRepository>();
 builder.Services.AddSingleton<ConditionProgressRepository>();
@@ -173,6 +174,13 @@ using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
     db.Database.Migrate();
+
+    // IP-A13 one-shot: legacy strategies get their canonical JSON derived
+    // from ScriptText so the Monitor can run JSON-first everywhere.
+    var backfilled = await scope.ServiceProvider.GetRequiredService<StrategyRepository>()
+        .BackfillCanonicalJsonAsync();
+    if (backfilled > 0)
+        app.Logger.LogInformation("Backfilled canonical ScriptJson for {Count} legacy strategies.", backfilled);
 }
 
 if (!app.Environment.IsDevelopment())
@@ -210,6 +218,13 @@ app.MapPost("/register-submit", async (HttpContext ctx, IUserAdminService adminS
     { ctx.Response.Redirect("/register?error=mismatch"); return; }
     if (password.Length < 8)
     { ctx.Response.Redirect("/register?error=short"); return; }
+    // Upper bound: Argon2id cost scales with input size, so an unbounded
+    // password is a cheap CPU-exhaustion vector on an anonymous endpoint.
+    if (password.Length > 128)
+    { ctx.Response.Redirect("/register?error=long"); return; }
+    // The UI advertises "8+ chars, one digit" — enforce the digit half too.
+    if (!password.Any(char.IsDigit))
+    { ctx.Response.Redirect("/register?error=digit"); return; }
 
     var result = await adminSvc.CreateAsync(
         userName: email, email: email, role: "User",
@@ -224,9 +239,14 @@ app.MapPost("/register-submit", async (HttpContext ctx, IUserAdminService adminS
     ctx.Response.Redirect("/login");
 });
 
-// ── Forgot-password reset (dev-only: local identity match, no email flow) ─────────
-// Production would use the library's token-based /_ma-auth/reset/* flow with an
-// email sender. For now: match by email, reset directly via IUserAdminService.
+// ── Forgot-password reset (DEVELOPMENT ONLY — mapped inside the env gate) ─────────
+// This endpoint resets a password on nothing more than a matching email: no
+// token, no old password, no session. That is an unauthenticated account
+// takeover for ANY user if it is ever reachable in production, so it is only
+// mapped in Development. Production uses the library's token-based
+// /_ma-auth/reset/* flow once an email sender exists; until then the
+// ForgotPassword page tells production users to contact the administrator.
+if (app.Environment.IsDevelopment())
 app.MapPost("/forgot-password-submit", async (HttpContext ctx, IUserAdminService adminSvc) =>
 {
     var form     = await ctx.Request.ReadFormAsync();
@@ -240,6 +260,10 @@ app.MapPost("/forgot-password-submit", async (HttpContext ctx, IUserAdminService
     { ctx.Response.Redirect("/forgot-password?error=mismatch"); return; }
     if (password.Length < 8)
     { ctx.Response.Redirect("/forgot-password?error=short"); return; }
+    if (password.Length > 128)
+    { ctx.Response.Redirect("/forgot-password?error=long"); return; }
+    if (!password.Any(char.IsDigit))
+    { ctx.Response.Redirect("/forgot-password?error=digit"); return; }
 
     var users = await adminSvc.ListAsync();
     var user  = users.FirstOrDefault(u =>

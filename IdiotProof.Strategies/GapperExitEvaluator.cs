@@ -77,10 +77,23 @@ public static class GapperExitEvaluator
 
         var nowEt = MarketTime.ToEasternTimeOfDay(nowUtc);
 
-        // 1. Hard sell-by time — never hold into the bell.
-        if (def.ExitTime is { } sellBy && nowEt >= sellBy)
-            return new GapperExitDecision(GapperExitReason.SellByTime, current, peak,
-                $"Sell-by {sellBy:hh\\:mm} ET reached — flattening before the bell.");
+        // 1. Hard sell-by time — never hold into the bell. Also fires when the
+        //    position has outlived its entry's ET day entirely: an exit that
+        //    kept failing (rejections, market closed) rolls past midnight, and
+        //    the plain time-of-day check would then WAIT until the sell-by
+        //    time next day (nowEt 04:00 < 09:28) — holding an unwanted
+        //    overnight position for hours with only the stop active. A
+        //    sell-by position that survived to another day flattens at the
+        //    first evaluated instant instead.
+        if (def.ExitTime is { } sellBy)
+        {
+            var heldPastItsDay = EasternDate(nowUtc) > EasternDate(entryUtc);
+            if (nowEt >= sellBy || heldPastItsDay)
+                return new GapperExitDecision(GapperExitReason.SellByTime, current, peak,
+                    heldPastItsDay
+                        ? $"Position outlived its {sellBy:hh\\:mm} ET sell-by day — flattening at the first opportunity."
+                        : $"Sell-by {sellBy:hh\\:mm} ET reached — flattening before the bell.");
+        }
 
         // 2. Hard stop below entry — percent or absolute, whichever is set.
         if (def.StopLossPercent is { } slPct && current <= entryPrice * (1 - slPct / 100.0))
@@ -117,4 +130,8 @@ public static class GapperExitEvaluator
 
         return null;
     }
+
+    private static DateOnly EasternDate(DateTime utc) =>
+        DateOnly.FromDateTime(TimeZoneInfo.ConvertTimeFromUtc(
+            DateTime.SpecifyKind(utc, DateTimeKind.Utc), MarketTime.Eastern));
 }

@@ -1,7 +1,15 @@
 using IdiotProof.Blazor.Data;
+using IdiotProof.Scripting;
 using Microsoft.EntityFrameworkCore;
 
 namespace IdiotProof.Blazor.Services;
+
+/// <summary>
+/// Outcome of a guarded strategy mutation (activate/deactivate/delete).
+/// Callers surface PositionOpen and NotOwner to the user; NotFound is a
+/// silent no-op (row already gone).
+/// </summary>
+public enum StrategyMutation { Ok, NotFound, NotOwner, PositionOpen }
 
 /// <summary>
 /// CRUD over the Strategies table on the IdiotProof SQL Server database.
@@ -39,7 +47,7 @@ public sealed class StrategyRepository(IDbContextFactory<AppDbContext> dbFactory
 
     public async Task<Strategy> CreateAsync(Guid ownerUserId, string title, string symbol,
         string scriptText, string? description = null, string? workspaceId = null,
-        CancellationToken ct = default)
+        string? scriptJson = null, CancellationToken ct = default)
     {
         var now = DateTime.UtcNow;
         var strategy = new Strategy
@@ -50,6 +58,11 @@ public sealed class StrategyRepository(IDbContextFactory<AppDbContext> dbFactory
             Description = description,
             Symbol      = symbol.ToUpperInvariant(),
             ScriptText  = scriptText,
+            // Canonical JSON (IP-LAW-8). Callers that hold the real semantic
+            // model (the Gapper factory) pass it in — zero parsing. Text-only
+            // callers get it derived via the tolerant parser, which is no
+            // worse than what the Monitor used to run directly.
+            ScriptJson  = scriptJson ?? DeriveCanonicalJson(scriptText),
             WorkspaceId = workspaceId,
             IsActive    = false,
             CreatedUtc  = now,
@@ -62,31 +75,134 @@ public sealed class StrategyRepository(IDbContextFactory<AppDbContext> dbFactory
         return strategy;
     }
 
-    public async Task UpdateAsync(Strategy strategy, CancellationToken ct = default)
+    /// <summary>Text → model → canonical JSON. Null when the text doesn't parse at all.</summary>
+    internal static string? DeriveCanonicalJson(string scriptText)
     {
-        strategy.UpdatedUtc = DateTime.UtcNow;
-        await using var db = await dbFactory.CreateDbContextAsync(ct);
-        db.Strategies.Update(strategy);
-        await db.SaveChangesAsync(ct);
+        try
+        {
+            var def = ScriptParser.ParseScript(scriptText);
+            return def is null ? null : StrategyJson.Serialize(def);
+        }
+        catch
+        {
+            return null;
+        }
     }
 
-    public async Task SetActiveAsync(Guid id, bool isActive, CancellationToken ct = default)
+    /// <summary>
+    /// Saves the EDITOR-OWNED fields only (title/symbol/description/script/
+    /// IsActive). The old full-row <c>db.Update(strategy)</c> wrote every
+    /// column from the caller's detached snapshot — so a Save from an editor
+    /// opened minutes ago stomped the Monitor's live position bookkeeping
+    /// (PositionQty/LastEntryPrice/FireCount) back to stale values: a filled
+    /// position silently read as flat again, orphaning the shares AND
+    /// re-arming the strategy to fire a duplicate order.
+    /// Keeps the canon in lockstep with the text: unless the caller supplies
+    /// canonical JSON explicitly, it is re-derived from the (edited) text.
+    /// Applies the same guards as SetActiveAsync against the FRESH row.
+    /// </summary>
+    public async Task<StrategyMutation> UpdateAsync(Strategy strategy, string? scriptJson = null, CancellationToken ct = default)
+    {
+        var canon = scriptJson ?? DeriveCanonicalJson(strategy.ScriptText);
+
+        await using var db = await dbFactory.CreateDbContextAsync(ct);
+        var row = await db.Strategies.FirstOrDefaultAsync(s => s.Id == strategy.Id, ct);
+        if (row is null) return StrategyMutation.NotFound;
+        if (row.OwnerUserId != strategy.OwnerUserId) return StrategyMutation.NotOwner;
+        if (row.PositionQty > 0 && row.IsActive && !strategy.IsActive) return StrategyMutation.PositionOpen;
+
+        row.Title       = strategy.Title;
+        row.Symbol      = strategy.Symbol.ToUpperInvariant();
+        row.Description = strategy.Description;
+        row.ScriptText  = strategy.ScriptText;
+        row.ScriptJson  = canon;
+        row.IsActive    = strategy.IsActive;
+        row.UpdatedUtc  = DateTime.UtcNow;
+        await db.SaveChangesAsync(ct);
+
+        strategy.ScriptJson = canon;
+        strategy.UpdatedUtc = row.UpdatedUtc;
+        return StrategyMutation.Ok;
+    }
+
+    /// <summary>
+    /// One-shot legacy backfill (IP-A13): derives canonical JSON for every row
+    /// written before the ScriptJson column existed. Runs at Blazor startup;
+    /// cheap no-op once all rows carry a canon. Returns how many were filled.
+    /// </summary>
+    public async Task<int> BackfillCanonicalJsonAsync(CancellationToken ct = default)
+    {
+        await using var db = await dbFactory.CreateDbContextAsync(ct);
+        var legacy = await db.Strategies.Where(s => s.ScriptJson == null).ToListAsync(ct);
+        var filled = 0;
+        foreach (var s in legacy)
+        {
+            var json = DeriveCanonicalJson(s.ScriptText);
+            if (json is null) continue; // unparseable text stays legacy; Monitor already skips it
+            s.ScriptJson = json;
+            filled++;
+        }
+        if (filled > 0) await db.SaveChangesAsync(ct);
+        return filled;
+    }
+
+    /// <summary>
+    /// Toggles IsActive with the two guards every mutating caller must obey:
+    /// ownership (the row must belong to <paramref name="ownerUserId"/> — no
+    /// caller may flip another user's strategy) and open-position safety
+    /// (deactivating a row with PositionQty &gt; 0 would orphan the position:
+    /// the Monitor only evaluates active rows, so the stop/giveback/sell-by
+    /// brain would never run again while the broker still holds shares).
+    /// </summary>
+    public async Task<StrategyMutation> SetActiveAsync(Guid id, bool isActive, Guid ownerUserId, CancellationToken ct = default)
     {
         await using var db = await dbFactory.CreateDbContextAsync(ct);
         var strategy = await db.Strategies.FirstOrDefaultAsync(s => s.Id == id, ct);
-        if (strategy is null) return;
+        if (strategy is null) return StrategyMutation.NotFound;
+        if (strategy.OwnerUserId != ownerUserId) return StrategyMutation.NotOwner;
+        if (!isActive && strategy.PositionQty > 0) return StrategyMutation.PositionOpen;
         strategy.IsActive = isActive;
         strategy.UpdatedUtc = DateTime.UtcNow;
         await db.SaveChangesAsync(ct);
+        return StrategyMutation.Ok;
     }
 
-    public async Task DeleteAsync(Guid id, CancellationToken ct = default)
+    /// <summary>
+    /// Deletes a strategy row — same ownership + open-position guards as
+    /// <see cref="SetActiveAsync"/>. Deleting a holding row would permanently
+    /// discard the entry price/quantity/exit rules for shares the broker
+    /// still holds; flatten first.
+    /// </summary>
+    public async Task<StrategyMutation> DeleteAsync(Guid id, Guid ownerUserId, CancellationToken ct = default)
     {
         await using var db = await dbFactory.CreateDbContextAsync(ct);
         var strategy = await db.Strategies.FirstOrDefaultAsync(s => s.Id == id, ct);
-        if (strategy is null) return;
+        if (strategy is null) return StrategyMutation.NotFound;
+        if (strategy.OwnerUserId != ownerUserId) return StrategyMutation.NotOwner;
+        if (strategy.PositionQty > 0) return StrategyMutation.PositionOpen;
         db.Strategies.Remove(strategy);
+
+        // Take the strategy's ConditionProgress row with it — there is no FK,
+        // so the per-tick badge rows for deleted strategies used to orphan
+        // and accumulate forever in a table the Monitor hammers.
+        var progress = await db.ConditionProgress.FirstOrDefaultAsync(p => p.StrategyId == id, ct);
+        if (progress is not null) db.ConditionProgress.Remove(progress);
+
         await db.SaveChangesAsync(ct);
+        return StrategyMutation.Ok;
+    }
+
+    /// <summary>
+    /// Counts this user's ACTIVE strategies for a symbol straight from SQL —
+    /// the authoritative duplicate/cap check (an in-memory page list can be a
+    /// poll-interval stale).
+    /// </summary>
+    public async Task<int> CountActiveForSymbolAsync(Guid ownerUserId, string symbol, CancellationToken ct = default)
+    {
+        await using var db = await dbFactory.CreateDbContextAsync(ct);
+        var upper = symbol.ToUpperInvariant();
+        return await db.Strategies.CountAsync(
+            s => s.OwnerUserId == ownerUserId && s.IsActive && s.Symbol == upper, ct);
     }
 
     /// <summary>

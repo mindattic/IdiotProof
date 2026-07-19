@@ -48,10 +48,22 @@ internal sealed class SqlWorkspaceStore : IWorkspaceStore
             if (imported.Count > 0) return imported;
         }
 
-        return rows
-            .Select(r => JsonSerializer.Deserialize<WorkspaceTab>(r.BodyJson, jsonOpts)!)
-            .Where(t => t is not null)
-            .ToList();
+        // Skip unreadable rows instead of throwing — one corrupt BodyJson blob
+        // used to take down workspace loading for the whole user (Deserialize
+        // throws JsonException; the .Where(not null) only caught literal
+        // "null"). Same better-drop-one-tab-than-crash rule as the JSON-file
+        // sibling store.
+        var tabs = new List<WorkspaceTab>();
+        foreach (var r in rows)
+        {
+            try
+            {
+                var tab = JsonSerializer.Deserialize<WorkspaceTab>(r.BodyJson, jsonOpts);
+                if (tab is not null) tabs.Add(tab);
+            }
+            catch (JsonException) { /* corrupt row — skip */ }
+        }
+        return tabs;
     }
 
     public void Save(string userId, WorkspaceTab tab)

@@ -1,6 +1,6 @@
 ﻿AUTHORITATIVE — full detail in docs/BIBLE.md
 
-<!-- generatedFrom: IP-§1,IP-§3,IP-§5,IP-§9 + USER_STORIES status index. Generated 2026-07-18 by tools/codex.ps1. Do not hand-edit. -->
+<!-- generatedFrom: IP-§1,IP-§3,IP-§5,IP-§9 + USER_STORIES status index. Generated 2026-07-19 by tools/codex.ps1. Do not hand-edit. -->
 
 # IdiotProof — Bible Digest (generated)
 
@@ -74,6 +74,17 @@ Private fields use `camelCase` with no leading underscore (project code-style co
 Static catalogs (watchlists, indicator/strategy config, ticker profiles) are JSON; runtime
 state (strategies, preferences, audit logs, condition progress) is SQL Server. No Python, no YAML.
 
+### {#IP-LAW-8} The canonical strategy is strict JSON; script text is a view
+The semantic model (`StrategyDefinition`) serialized as versioned, STRICT JSON
+(`Strategy.ScriptJson`, written by `IdiotProof.Scripting/StrategyJson.cs`) is what evaluators
+run. Reads fail closed: unknown schema version, condition type, or property →
+`StrategyJsonException` and the strategy is **quarantined** (visible reason in
+ConditionProgress), never partially evaluated. IdiotScript text is the human view — generated
+from the model for display, and parsed (tolerantly, for now) only for hand-typed input and
+legacy rows with no canon. LLM boundaries emit structured JSON against a schema, never DSL
+text. ("Parse, don't validate"; no shotgun parsing on the money path — see
+[IP-A13](AMENDMENTS.md#IP-A13). Verified by `StrategyJsonTests`.)
+
 ## Glossary
 - **IdiotScript** — the fluent C# DSL (`Stock.Ticker("NVDA").RequireAdxAbove(20)...Build()`) that
   expresses a strategy as six lifecycle phases.
@@ -102,9 +113,9 @@ state (strategies, preferences, audit logs, condition progress) is SQL Server. N
   Gap conditions fail closed without it.
 
 ## Status index (USER_STORIES.md)
-- done: 28
-- partial: 10
-- planned: 21
+- done: 30
+- partial: 11
+- planned: 22
 - cut: 1
 
 ## Latest amendment

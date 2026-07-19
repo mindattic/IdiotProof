@@ -42,6 +42,12 @@ else
                 {
                     <span class="strategy-chip">Qty: @Strategy.Quantity</span>
                 }
+                else if (Strategy.NotionalAmount is { } setupNotional)
+                {
+                    @* Every gapper sizes by dollars — omitting this rendered
+                       the flagship strategy with NO sizing at all. *@
+                    <span class="strategy-chip">Size: $@setupNotional</span>
+                }
             </div>
         </section>
 
@@ -135,6 +141,10 @@ else
                 {
                     <span class="strategy-chip">@Strategy.Quantity shares</span>
                 }
+                else if (Strategy.NotionalAmount is { } orderNotional)
+                {
+                    <span class="strategy-chip">$@orderNotional notional</span>
+                }
             </div>
         </section>
 
@@ -163,7 +173,7 @@ else
             </section>
         }
 
-        @if (Strategy.TakeProfitPrice.HasValue || Strategy.TakeProfitTargets.Count > 0 || Strategy.ExitTime.HasValue)
+        @if (Strategy.TakeProfitPrice.HasValue || Strategy.TakeProfitTargets.Count > 0 || Strategy.ExitTime.HasValue || Strategy.PeakGivebackPercent.HasValue)
         {
             <!-- EXIT -->
             <section class="strategy-phase" aria-label="Exit phase">
@@ -182,6 +192,14 @@ else
                     else if (Strategy.TakeProfitPrice.HasValue)
                     {
                         <span class="strategy-chip target-chip">Target @Strategy.TakeProfitPrice</span>
+                    }
+                    @if (Strategy.PeakGivebackPercent is { } giveback)
+                    {
+                        @* The gapper's signature momentum-rollover exit — was
+                           invisible in every preview before this chip. *@
+                        <span class="strategy-chip target-chip">
+                            Giveback @giveback%@(Strategy.PeakGivebackArmTime is { } arm ? $" armed {arm:hh\\:mm} ET" : "")
+                        </span>
                     }
                     @if (Strategy.ExitTime.HasValue)
                     {

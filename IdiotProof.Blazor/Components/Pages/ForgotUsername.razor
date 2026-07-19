@@ -1,6 +1,7 @@
 @page "/forgot-username"
 @attribute [AllowAnonymous]
 @inject AppDbContext Db
+@inject IWebHostEnvironment Env
 @layout EmptyLayout
 
 @using IdiotProof.Blazor.Data
@@ -16,25 +17,38 @@
             <p class="logo-sub">Find your username</p>
         </div>
 
-        <p class="login-warning" style="text-align:left;margin-bottom:1rem">
-            Your username is the email address you registered with.
-            Local accounts on this machine:
-        </p>
-
-        @if (emails.Count == 0)
+        @if (!Env.IsDevelopment())
         {
-            <div class="alert-error" role="status">
-                No accounts found yet. <a href="/register" style="color:#79c0ff">Create one</a>.
-            </div>
+            @* Never enumerate accounts to anonymous visitors in production —
+               a public roster of every registered email is a harvesting +
+               credential-attack gift (and chained with any reset flaw, an
+               account-takeover map). The listing is a local-dev convenience. *@
+            <p class="login-warning" style="text-align:left;margin-bottom:1rem">
+                Your username is the email address you registered with.
+            </p>
         }
         else
         {
-            <ul class="email-list" aria-label="Registered usernames on this machine">
-                @foreach (var email in emails)
-                {
-                    <li><code>@email</code></li>
-                }
-            </ul>
+            <p class="login-warning" style="text-align:left;margin-bottom:1rem">
+                Your username is the email address you registered with.
+                Local accounts on this machine:
+            </p>
+
+            @if (emails.Count == 0)
+            {
+                <div class="alert-error" role="status">
+                    No accounts found yet. <a href="/register" style="color:#79c0ff">Create one</a>.
+                </div>
+            }
+            else
+            {
+                <ul class="email-list" aria-label="Registered usernames on this machine">
+                    @foreach (var email in emails)
+                    {
+                        <li><code>@email</code></li>
+                    }
+                </ul>
+            }
         }
 
         <p class="login-warning" style="margin-top:1rem">
@@ -50,6 +64,8 @@
 
     protected override async Task OnInitializedAsync()
     {
+        // Query only when the listing will actually render (Development).
+        if (!Env.IsDevelopment()) return;
         emails = await Db.AuthUsers
             .Where(u => u.Email != null)
             .OrderBy(u => u.Email)

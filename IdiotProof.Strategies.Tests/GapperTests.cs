@@ -156,6 +156,19 @@ public class GapperTests
     }
 
     [Test]
+    public void GapperProfile_Validate_RejectsInvertedEntryWindow()
+    {
+        // An inverted window (start >= end) is evaluated by TimeWindowCondition
+        // as an overnight wrap, opening entries OUTSIDE the intended premarket
+        // slot — reachable via the LLM transcript interpreter, so it must be
+        // caught at validation, not discovered live.
+        var p = Profile();
+        p.EntryWindowStartEt = "09:00";
+        p.EntryWindowEndEt = "04:00";
+        Assert.That(p.Validate(), Has.Some.Contains("Entry window start must be before"));
+    }
+
+    [Test]
     public void GapperProfile_Validate_RejectsArmTimeAtOrAfterSellBy()
     {
         // Arm 09:28 / sell-by 09:28: the rollover exit can never fire before

@@ -146,6 +146,9 @@ namespace IdiotProof.Blazor.Migrations
                     b.Property<int>("PositionQty")
                         .HasColumnType("int");
 
+                    b.Property<string>("ScriptJson")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<string>("ScriptText")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");

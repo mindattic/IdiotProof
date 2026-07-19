@@ -194,11 +194,21 @@
             if (!resp.IsSuccessStatusCode) return null;
             using var doc = System.Text.Json.JsonDocument.Parse(await resp.Content.ReadAsStringAsync());
             var root = doc.RootElement;
+
+            // Intraday P&L from Alpaca's own fields: equity is the account's
+            // current value, last_equity is yesterday's close-of-day value.
+            // BOTH must parse to a positive value — a missing/unparseable
+            // equity falls back to 0 in ParseDecimal, which would render as a
+            // terrifying (and false) -100% day change.
+            var equity     = ParseDecimal(GetString(root, "equity"));
+            var lastEquity = ParseDecimal(GetString(root, "last_equity"));
+            var dayChange  = equity > 0m && lastEquity > 0m ? (equity - lastEquity) / lastEquity * 100m : 0m;
+
             return new AlpacaAccountSummary(
                 Label: GetString(root, "account_number") is { } an ? $"{(isPaper ? "P" : "")}{an[..Math.Min(an.Length, 4)]}" : (isPaper ? "Paper" : "Live"),
                 AccountId: GetString(root, "account_number") ?? "",
                 Cash: ParseDecimal(GetString(root, "cash")),
-                DayChangePercent: 0m
+                DayChangePercent: dayChange
             );
         }
         catch { return null; }

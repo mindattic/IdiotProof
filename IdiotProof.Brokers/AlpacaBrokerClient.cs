@@ -185,8 +185,14 @@ public sealed class AlpacaBrokerClient : IBrokerClient, IAsyncDisposable
         using var response = await httpClient.GetAsync("/v2/positions", ct).ConfigureAwait(false);
         var content = await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
 
+        // Fail LOUD on error — an empty list must mean "genuinely flat".
+        // Returning [] for an HTTP failure made an auth/rate-limit blip
+        // indistinguishable from a flat account, and the Monitor's phantom-
+        // position reconciliation would wrongly clear REAL position
+        // bookkeeping on it.
         if (!response.IsSuccessStatusCode)
-            return [];
+            throw new HttpRequestException(
+                $"Alpaca positions request failed ({(int)response.StatusCode} {response.StatusCode}): {(content.Length <= 300 ? content : content[..300] + "…")}");
 
         try
         {
@@ -235,9 +241,11 @@ public sealed class AlpacaBrokerClient : IBrokerClient, IAsyncDisposable
 
             return positions;
         }
-        catch
+        catch (JsonException ex)
         {
-            return [];
+            // Same fail-loud rule: an unparseable 2xx body is NOT a flat account.
+            throw new HttpRequestException(
+                $"Alpaca positions response could not be parsed: {ex.Message}", ex);
         }
     }
 

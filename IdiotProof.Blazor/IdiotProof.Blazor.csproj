@@ -9,6 +9,13 @@
     <InternalsVisibleTo Include="IdiotProof.Blazor.Tests" />
   </ItemGroup>
   <ItemGroup>
+    <!-- Legion voter-panel config (repo root). Ship it with the app: during
+         dev the walk-up discovery finds the repo-root copy, but a deployed
+         host has no repo — without this the "high tier" 4-voter panel
+         silently reverted to Legion's defaults in production. -->
+    <Content Include="..\legion.json" Link="legion.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+  <ItemGroup>
     <PackageReference Include="MindAttic.Authentication" Version="2.0.0" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="10.0.*" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.*">

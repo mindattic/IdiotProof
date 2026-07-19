@@ -214,7 +214,7 @@
             all = await StrategyRepo.GetAllForUserAsync(userId.Value);
             foreach (var s in all)
             {
-                previews[s.Id] = TryParse(s.ScriptText);
+                previews[s.Id] = TryLoad(s);
             }
             await RefreshProgressAsync();
         }
@@ -235,9 +235,35 @@
         }, null, TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(5));
     }
 
-    /// <summary>Pulls live ConditionProgress for the currently-visible strategy ids.</summary>
+    /// <summary>
+    /// Pulls live ConditionProgress AND refreshes each row's volatile state in
+    /// place (IsActive, fire/position/exit bookkeeping). Without the in-place
+    /// refresh, chips like "last fired" and the toggle state froze at page
+    /// load: the Monitor could fire and exit a strategy while the user
+    /// watched a page still claiming it never fired. In-place (matched by id,
+    /// no re-sort) so open rows and scroll position never jump.
+    /// </summary>
     private async Task RefreshProgressAsync()
     {
+        if (userId is not null)
+        {
+            var fresh = await StrategyRepo.GetAllForUserAsync(userId.Value);
+            var byId = fresh.ToDictionary(s => s.Id);
+            foreach (var s in all)
+            {
+                if (!byId.TryGetValue(s.Id, out var f)) continue;
+                s.IsActive       = f.IsActive;
+                s.LastFiredUtc   = f.LastFiredUtc;
+                s.FireCount      = f.FireCount;
+                s.PositionQty    = f.PositionQty;
+                s.LastEntryPrice = f.LastEntryPrice;
+                s.EntryFilledUtc = f.EntryFilledUtc;
+                s.LastExitPrice  = f.LastExitPrice;
+                s.LastExitReason = f.LastExitReason;
+                s.LastExitedUtc  = f.LastExitedUtc;
+            }
+        }
+
         var ids = all.Where(s => s.IsActive).Select(s => s.Id).ToList();
         if (ids.Count == 0) { progress.Clear(); return; }
 
@@ -281,8 +307,41 @@
 
     private async Task ToggleActive(Strategy s, bool isActive)
     {
-        await StrategyRepo.SetActiveAsync(s.Id, isActive);
-        s.IsActive = isActive;
+        if (userId is null) return;
+
+        // Gapper rows also live on this page — activating one here must obey
+        // the same one-active-gapper-per-symbol rule the Gapper page enforces,
+        // or this toggle is a bypass route to doubled exposure on one gap.
+        var isGapper = s.ScriptText.Contains("PeakGiveback(", StringComparison.OrdinalIgnoreCase);
+        if (isActive && !s.IsActive && isGapper
+            && await StrategyRepo.CountActiveForSymbolAsync(userId.Value, s.Symbol) > 0)
+        {
+            loadError = $"{s.Symbol} already has an active gapper — pause it first (one active gapper per symbol).";
+            return;
+        }
+
+        var result = await StrategyRepo.SetActiveAsync(s.Id, isActive, userId.Value);
+        if (result == StrategyMutation.Ok)
+        {
+            s.IsActive = isActive;
+            loadError = "";
+
+            // Post-write recheck, same as the Gapper page: two tabs activating
+            // rows for one symbol both pass the pre-check; the loser reverts.
+            if (isActive && isGapper
+                && await StrategyRepo.CountActiveForSymbolAsync(userId.Value, s.Symbol) > 1)
+            {
+                await StrategyRepo.SetActiveAsync(s.Id, false, userId.Value);
+                s.IsActive = false;
+                loadError = $"{s.Symbol} lost the race to another activation — left paused.";
+            }
+        }
+        else if (result == StrategyMutation.PositionOpen)
+        {
+            // Pausing a holding strategy would orphan the position — the
+            // Monitor only manages exits on active rows.
+            loadError = $"{s.Symbol} is holding {s.PositionQty} shares — the Monitor must stay active to manage the exit. It re-arms tomorrow; flatten first if you need it off.";
+        }
     }
 
     // Navigation only — the old AddOpenTabAsync bookkeeping wrote to a CSV
@@ -297,24 +356,28 @@
 
     private async Task DeleteConfirmed()
     {
-        if (deleteCandidate is null) return;
-        await StrategyRepo.DeleteAsync(deleteCandidate.Id);
+        if (deleteCandidate is null || userId is null) return;
+        var result = await StrategyRepo.DeleteAsync(deleteCandidate.Id, userId.Value);
+        if (result == StrategyMutation.PositionOpen)
+        {
+            loadError = $"{deleteCandidate.Symbol} is holding {deleteCandidate.PositionQty} shares — deleting would discard the exit rules for a live position. Flatten first.";
+            deleteCandidate = null;
+            return;
+        }
         all.RemoveAll(x => x.Id == deleteCandidate.Id);
         previews.Remove(deleteCandidate.Id);
         openRows.Remove(deleteCandidate.Id);
         deleteCandidate = null;
+        loadError = "";
     }
 
-    private static StrategyDefinition? TryParse(string text)
+    private static StrategyDefinition? TryLoad(Strategy s)
     {
-        if (string.IsNullOrWhiteSpace(text)) return null;
         try
         {
-            // Full best-effort parse so the expanded row actually previews the
-            // strategy's conditions/stops/targets. The old code built a bare
-            // Ticker(...) definition, so every preview rendered as an empty
-            // shell regardless of what the script contained.
-            return ScriptParser.ParseScript(text);
+            // Canonical JSON first (IP-LAW-8) — previews render exactly what
+            // the Monitor will evaluate; text parse only for legacy rows.
+            return StrategyLoader.Load(s.ScriptJson, s.ScriptText).Definition;
         }
         catch { return null; }
     }

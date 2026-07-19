@@ -109,6 +109,9 @@ public sealed class GapperProfile
         problems.AddRange(ValidateTime(SellByEt, "Sell-by time"));
 
         // Cross-field ordering: only meaningful when the individual times parse.
+        if (TryTime(EntryWindowStartEt, out var winStart) && TryTime(EntryWindowEndEt, out var winEnd) && winStart >= winEnd)
+            problems.Add("Entry window start must be before the entry window end — an inverted window is " +
+                         "evaluated as an overnight wrap and would open entries outside the intended premarket slot.");
         if (TryTime(ArmExitAtEt, out var arm) && TryTime(SellByEt, out var sellBy) && arm >= sellBy)
             problems.Add("Arm-exit time must be before the sell-by time — otherwise the momentum-rollover " +
                          "exit can never fire and every exit is the hard flatten.");

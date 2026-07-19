@@ -53,7 +53,7 @@ public sealed class DslStrategy : IStrategy
         // Compute every EMA period this strategy actually references so the
         // snapshot has them populated. A strategy that says IsBetweenEma(7, 65)
         // would otherwise see null EMAs at those periods.
-        var requiredEmas = CollectRequiredEmaPeriods(baseDefinition);
+        var requiredEmas = EmaPeriodCollector.Collect(baseDefinition);
         var snapshot = IndicatorSnapshotBuilder.BuildWithEmas(symbol, candles, requiredEmas, context.PreviousClose);
 
         // Materialize a working copy with branch overrides applied. The branches
@@ -75,9 +75,15 @@ public sealed class DslStrategy : IStrategy
             ConfidencePercent = 0m,                       // unscored at the DSL layer; LLM voting fills this in
             SuggestedEntry    = (decimal)snapshot.Price,
             SuggestedStop     = (decimal)(resolved.StopLossPrice ?? snapshot.Price),
-            Targets           = resolved.TakeProfitPrice.HasValue
-                                 ? [(decimal)resolved.TakeProfitPrice.Value]
-                                 : [],
+            // Full scale-out ladder, not just T1 — TakeProfit(t1, t2, t3) sets
+            // TakeProfitPrice = t1 AND populates TakeProfitTargets; emitting
+            // only TakeProfitPrice silently dropped T2/T3 in the live path
+            // while the backtester honored them (backtest ≠ live divergence).
+            Targets           = resolved.TakeProfitTargets.Count > 0
+                                 ? resolved.TakeProfitTargets.Select(t => (decimal)t.Price).ToList()
+                                 : resolved.TakeProfitPrice.HasValue
+                                     ? [(decimal)resolved.TakeProfitPrice.Value]
+                                     : [],
             StrategyName      = Name,
             Reason            = BuildReason(resolved),
             GeneratedUtc      = snapshot.Timestamp,
@@ -101,6 +107,11 @@ public sealed class DslStrategy : IStrategy
             Name         = baseDef.Name,
             Session      = baseDef.Session,
             Quantity     = baseDef.Quantity,
+            // Notional sizing and the peak-giveback exit fields were missing
+            // from this clone — a branching strategy silently lost its dollar
+            // sizing (fell back to "1 share"/workspace default) and its
+            // momentum-rollover exit the moment it had a ConditionalBlock.
+            NotionalAmount = baseDef.NotionalAmount,
             Direction    = baseDef.Direction,
             TakeProfitPrice    = baseDef.TakeProfitPrice,
             TakeProfitPercent  = baseDef.TakeProfitPercent,
@@ -108,6 +119,8 @@ public sealed class DslStrategy : IStrategy
             StopLossPercent    = baseDef.StopLossPercent,
             TrailingStopPercent = baseDef.TrailingStopPercent,
             ExitTime     = baseDef.ExitTime,
+            PeakGivebackPercent = baseDef.PeakGivebackPercent,
+            PeakGivebackArmTime = baseDef.PeakGivebackArmTime,
             IsAutonomous = baseDef.IsAutonomous,
             IsAdaptive   = baseDef.IsAdaptive,
             ShouldRepeat = baseDef.ShouldRepeat,
@@ -122,52 +135,6 @@ public sealed class DslStrategy : IStrategy
         }
 
         return clone;
-    }
-
-    private static IEnumerable<int> CollectRequiredEmaPeriods(StrategyDefinition def)
-    {
-        var periods = new HashSet<int>();
-        foreach (var c in WalkAllConditions(def))
-        {
-            if (c is IndicatorCondition ic)
-            {
-                if (ic.Type is IndicatorType.EmaAbove
-                            or IndicatorType.EmaBelow
-                            or IndicatorType.ReclaimEma
-                    && ic.Parameter is { } p)
-                {
-                    periods.Add((int)p);
-                }
-                else if (ic.Type is IndicatorType.BetweenEma or IndicatorType.EmaStack
-                         && ic.Parameter is { } p2 && ic.Parameter2 is { } p3)
-                {
-                    periods.Add((int)p2);
-                    periods.Add((int)p3);
-                }
-            }
-        }
-        return periods;
-    }
-
-    private static IEnumerable<ICondition> WalkAllConditions(StrategyDefinition def)
-    {
-        foreach (var c in def.EntryConditions) foreach (var sub in WalkOne(c)) yield return sub;
-        foreach (var block in def.ConditionalBlocks)
-            foreach (var branch in block.Branches)
-            {
-                if (branch.Condition is not null)
-                    foreach (var sub in WalkOne(branch.Condition)) yield return sub;
-                foreach (var c in branch.Overrides.EntryConditions)
-                    foreach (var sub in WalkOne(c)) yield return sub;
-            }
-    }
-
-    private static IEnumerable<ICondition> WalkOne(ICondition c)
-    {
-        yield return c;
-        if (c is AndCondition a) { foreach (var x in WalkOne(a.Left)) yield return x; foreach (var x in WalkOne(a.Right)) yield return x; }
-        else if (c is OrCondition o) { foreach (var x in WalkOne(o.Left)) yield return x; foreach (var x in WalkOne(o.Right)) yield return x; }
-        else if (c is NotCondition n) { foreach (var x in WalkOne(n.Inner)) yield return x; }
     }
 
     private static string BuildReason(StrategyDefinition def)

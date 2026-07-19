@@ -34,9 +34,22 @@ public sealed class Strategy
     [Required, MaxLength(20)]
     public string Symbol { get; set; } = "";
 
-    /// <summary>Generated IdiotScript fluent text (e.g. Stock.Ticker("TSLA").IsAboveVwap()...).</summary>
+    /// <summary>
+    /// IdiotScript fluent text — the HUMAN VIEW of the strategy (previews, the
+    /// raw-script pane, hand editing). Since IP-A13 this is no longer what the
+    /// evaluators run; <see cref="ScriptJson"/> is.
+    /// </summary>
     [Required]
     public string ScriptText { get; set; } = "";
+
+    /// <summary>
+    /// The CANONICAL strategy (IP-LAW-8): versioned strict JSON of the full
+    /// semantic model, written by <c>StrategyJson.Serialize</c>. Evaluators
+    /// load this first and fail closed if they can't fully understand it.
+    /// Null only on legacy rows written before the canon existed (backfilled
+    /// at Blazor startup).
+    /// </summary>
+    public string? ScriptJson { get; set; }
 
     /// <summary>True = monitor + evaluate; False = paused.</summary>
     public bool IsActive { get; set; }

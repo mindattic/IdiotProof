@@ -677,7 +677,7 @@ public sealed class StrategyBuilder
         if (strategy.StopLossPercent.HasValue)
             parts.Add($"StopLossPercent({Inv(strategy.StopLossPercent.Value)})");
         if (strategy.TrailingStopPercent.HasValue)
-            parts.Add($"TrailingStopLoss({strategy.TrailingStopPercent})");
+            parts.Add($"TrailingStopLoss({Inv(strategy.TrailingStopPercent.Value)})");
         if (strategy.ExitTime is { } exitTime)
             parts.Add($"SellBy(\"{exitTime:hh\\:mm}\")");
         if (strategy.PeakGivebackPercent is { } giveback)
@@ -888,11 +888,14 @@ public sealed class PriceCondition(ConditionType type, double price) : IConditio
     public ConditionType Type { get; } = type;
     public double Price { get; } = price;
     
-    public string ToScript() => $"Entry({Price})";
+    // Invariant culture so a comma-decimal host locale can't emit "Entry(12,5)"
+    // — the parser reads args with InvariantCulture and would drop the verb.
+    public string ToScript() => $"Entry({Price.ToString(System.Globalization.CultureInfo.InvariantCulture)})";
     public bool Evaluate(IndicatorSnapshot indicators) => Type switch
     {
         ConditionType.Entry => indicators.Price >= Price,
-        _ => true
+        // Fail closed: an unrecognized price-condition type must block, not pass.
+        _ => false
     };
 }
 
@@ -901,7 +904,9 @@ public sealed class PatternCondition(PatternType type, double? level = null) : I
     public PatternType Type { get; } = type;
     public double? Level { get; } = level;
 
-    public string ToScript() => Level.HasValue ? $"{Type}({Level})" : $"{Type}()";
+    public string ToScript() => Level is { } lvl
+        ? $"{Type}({lvl.ToString(System.Globalization.CultureInfo.InvariantCulture)})"
+        : $"{Type}()";
 
     public bool Evaluate(IndicatorSnapshot s) => Type switch
     {
@@ -910,7 +915,27 @@ public sealed class PatternCondition(PatternType type, double? level = null) : I
         PatternType.Hammer           => s.IsHammer,
         PatternType.ShootingStar     => s.IsShootingStar,
         PatternType.Doji             => s.IsDoji,
-        _                            => true // Breakout / Pullback evaluated by pattern engine elsewhere
+
+        // Breakout/Pullback in DIRECT evaluation (the Monitor, DslStrategy)
+        // use window-scoped semantics: the snapshot's WindowHigh remembers
+        // what price did earlier in the visible window, standing in for the
+        // cross-tick latch the backtester's TrackedTrigger keeps precisely.
+        //   • Breakout(level): the level traded at some point in the window.
+        //     A level is REQUIRED — same as the backtester, a Breakout() with
+        //     no level never latches.
+        //   • Pullback(support): price has retraced to the support (bar low),
+        //     or — with no support given — sits anywhere below the window
+        //     high (any retracement), mirroring the backtester's "first close
+        //     below the breakout bar's high". Pair it with Breakout(level);
+        //     alone it is deliberately weak, exactly like the tracker.
+        // No window data → fail closed (IP-LAW-1).
+        PatternType.Breakout => Level is { } lvl && s.WindowHigh is { } wh && wh >= lvl,
+        PatternType.Pullback => s.WindowHigh is { } windowHigh
+                                && (Level is { } support
+                                    ? (s.BarLow ?? s.Price) <= support
+                                    : s.Price < windowHigh),
+
+        _                    => false
     };
 }
 
@@ -1000,15 +1025,22 @@ public sealed class IndicatorCondition(IndicatorType type, double? parameter = n
                                               && s.GetEma((int)rp) is { } currentEma
                                               && s.PriorPrice is { } priorPrice
                                               && priorPrice <= priorEma && s.Price > currentEma,
-        IndicatorType.DiPositive         => s.IsBullishTrend,
-        IndicatorType.DiNegative         => !s.IsBullishTrend,
+        // Both DI verbs require actual ADX/DI data (needs ~28 bars). With no
+        // data PlusDI/MinusDI are null, IsBullishTrend is false, and the old
+        // bare negation made IsDiNegative pass on EVERY early-premarket bar —
+        // a fail-open entry gate exactly when data is thinnest.
+        IndicatorType.DiPositive         => s.PlusDI is not null && s.MinusDI is not null && s.IsBullishTrend,
+        IndicatorType.DiNegative         => s.PlusDI is not null && s.MinusDI is not null && !s.IsBullishTrend,
         IndicatorType.AdxAbove           => s.Adx >= (Parameter ?? 20),
         IndicatorType.RsiOversold        => s.Rsi <= (Parameter ?? 30),
         IndicatorType.RsiOverbought      => s.Rsi >= (Parameter ?? 70),
         IndicatorType.RsiBullishDivergence => s.HasBullishDivergence == true,
         IndicatorType.RsiBearishDivergence => s.HasBearishDivergence == true,
-        IndicatorType.MacdBullish        => s.IsMacdBullish,
-        IndicatorType.MacdBearish        => !s.IsMacdBullish,
+        // Same fail-closed rule for MACD (needs ~26 bars): null MacdLine/
+        // SignalLine made IsMacdBullish false, so the bare !IsMacdBullish let
+        // IsMacdBearish pass spuriously whenever MACD hadn't converged.
+        IndicatorType.MacdBullish        => s.MacdLine is not null && s.SignalLine is not null && s.IsMacdBullish,
+        IndicatorType.MacdBearish        => s.MacdLine is not null && s.SignalLine is not null && !s.IsMacdBullish,
         // Fail closed when PreviousClose wasn't supplied — a gap condition that
         // can't be computed must block the fire, not wave it through.
         IndicatorType.GapUp              => s.GapPercent is { } gu && gu >= (Parameter ?? 3),
@@ -1018,7 +1050,10 @@ public sealed class IndicatorCondition(IndicatorType type, double? parameter = n
                                               && Math.Abs((s.Price - sl) / sl) * 100.0 <= (Parameter ?? 0.5),
         IndicatorType.AtResistance       => s.RecentSwingHigh is { } sh
                                               && Math.Abs((s.Price - sh) / sh) * 100.0 <= (Parameter ?? 0.5),
-        _                                => true
+        // Fail closed on anything unrecognized: a condition this evaluator
+        // doesn't understand must block the fire, never wave it through
+        // (IP-LAW-1 — same doctrine as the gap conditions above).
+        _                                => false
     };
 }
 
@@ -1050,13 +1085,16 @@ public sealed class PriceLevelCondition : ICondition
 
     public string ToScript() => Type switch
     {
-        PriceLevelType.HoldsAbove => $"HoldsAbove({Level})",
-        PriceLevelType.HoldsBelow => $"HoldsBelow({Level})",
-        PriceLevelType.Near => $"IsNear({Level}, {TolerancePercent})",
-        PriceLevelType.BreaksAbove => $"BreaksAbove({Level})",
-        PriceLevelType.BreaksBelow => $"BreaksBelow({Level})",
-        _ => $"PriceLevel({Level})"
+        PriceLevelType.HoldsAbove => $"HoldsAbove({Inv(Level)})",
+        PriceLevelType.HoldsBelow => $"HoldsBelow({Inv(Level)})",
+        PriceLevelType.Near => $"IsNear({Inv(Level)}, {Inv(TolerancePercent)})",
+        PriceLevelType.BreaksAbove => $"BreaksAbove({Inv(Level)})",
+        PriceLevelType.BreaksBelow => $"BreaksBelow({Inv(Level)})",
+        _ => $"PriceLevel({Inv(Level)})"
     };
+
+    // Invariant so a comma-decimal locale can't emit "HoldsAbove(3,68)".
+    private static string Inv(double v) => v.ToString(System.Globalization.CultureInfo.InvariantCulture);
 
     /// <summary>
     /// Updates tracking and evaluates the condition.
@@ -1075,19 +1113,33 @@ public sealed class PriceLevelCondition : ICondition
         lastSessionDate = sessionDate;
 
         // Capture previous-bar side before updating extremes/previousPrice.
-        var prior = previousPrice;
+        // Fall back to the snapshot's prior-bar close: evaluators that
+        // re-materialize the definition every tick (the Monitor loads from
+        // canonical JSON per tick) get a FRESH instance each time, so the
+        // instance-held previousPrice is always null there and BreaksAbove/
+        // BreaksBelow could never fire — the cross was undetectable. The
+        // snapshot's PriorPrice restores bar-over-bar cross semantics.
+        var prior = previousPrice ?? indicators.PriorPrice;
 
         // Track extremes
         if (price < lowestSeen) lowestSeen = price;
         if (price > highestSeen) highestSeen = price;
 
+        // Fold in the snapshot's window extremes: per-tick evaluators hold no
+        // instance state (fresh condition every tick), so lowestSeen/highest-
+        // Seen alone only ever saw the current price there — HoldsAbove
+        // silently degraded to "currently above". The window extremes restore
+        // "never violated (as far as the data window sees)".
+        var effectiveLow  = Math.Min(lowestSeen,  indicators.WindowLow  ?? price);
+        var effectiveHigh = Math.Max(highestSeen, indicators.WindowHigh ?? price);
+
         var result = Type switch
         {
             // HoldsAbove: True if price is currently above AND has never gone significantly below
-            PriceLevelType.HoldsAbove => price >= Level && lowestSeen >= Level * 0.995, // 0.5% tolerance
+            PriceLevelType.HoldsAbove => price >= Level && effectiveLow >= Level * 0.995, // 0.5% tolerance
 
             // HoldsBelow: True if price is currently below AND has never gone significantly above
-            PriceLevelType.HoldsBelow => price <= Level && highestSeen <= Level * 1.005,
+            PriceLevelType.HoldsBelow => price <= Level && effectiveHigh <= Level * 1.005,
 
             // Near: True if price is within tolerance % of level
             PriceLevelType.Near => Math.Abs((price - Level) / Level * 100) <= TolerancePercent,
@@ -1161,6 +1213,35 @@ public static class MarketTime
     /// <summary>Converts a UTC instant to ET time-of-day.</summary>
     public static TimeSpan ToEasternTimeOfDay(DateTime utc) =>
         TimeZoneInfo.ConvertTimeFromUtc(DateTime.SpecifyKind(utc, DateTimeKind.Utc), Eastern).TimeOfDay;
+
+    /// <summary>
+    /// True when the ET calendar day for this UTC instant is a weekday. US
+    /// equity markets never trade on Saturday/Sunday; without this gate a
+    /// time-of-day-only session check passes on weekends and orders get
+    /// queued against Friday's stale prices. (Exchange holidays are not
+    /// modeled — the broker rejects those orders and the loop retries.)
+    /// </summary>
+    public static bool IsEquityTradingDay(DateTime utc)
+    {
+        var et = TimeZoneInfo.ConvertTimeFromUtc(DateTime.SpecifyKind(utc, DateTimeKind.Utc), Eastern);
+        return et.DayOfWeek is not DayOfWeek.Saturday and not DayOfWeek.Sunday;
+    }
+
+    /// <summary>
+    /// The most recent fully-completed ET equity weekday strictly before the
+    /// current ET date — the honest default for "replay a previous day" UIs.
+    /// Computed on the ET calendar, not server-local: a UTC host's
+    /// <c>DateTime.Today</c> rolls to "tomorrow" at 8 PM ET, and a naive
+    /// yesterday can also land on a weekend (holidays are not modeled; the
+    /// feed simply returns no bars for those and the replay says so).
+    /// </summary>
+    public static DateOnly PreviousEquityTradingDayEt(DateTime utcNow)
+    {
+        var et = TimeZoneInfo.ConvertTimeFromUtc(DateTime.SpecifyKind(utcNow, DateTimeKind.Utc), Eastern);
+        var d = DateOnly.FromDateTime(et).AddDays(-1);
+        while (d.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday) d = d.AddDays(-1);
+        return d;
+    }
 }
 
 /// <summary>
@@ -1219,9 +1300,9 @@ public sealed class ConditionalBlock
         for (int i = 0; i < Branches.Count; i++)
         {
             var branch = Branches[i];
-            if (i == 0)
+            if (i == 0 && branch.Condition is not null)
             {
-                parts.Add($"{branch.Condition!.ToScript()}");
+                parts.Add($"{branch.Condition.ToScript()}");
                 parts.Add($"    .Then({branch.Overrides.ToScript()})");
             }
             else if (branch.Condition is not null)
@@ -1269,21 +1350,26 @@ public sealed class StrategyOverrides
 
     public string ToScript()
     {
+        // Invariant number formatting throughout — a comma-decimal host locale
+        // would otherwise emit "TakeProfit(5,5)" which the parser reads as TWO
+        // arguments (5 and 5), silently corrupting the branch on a round trip.
+        static string Inv(double v) => v.ToString(System.Globalization.CultureInfo.InvariantCulture);
+
         var parts = new List<string>();
         if (Direction.HasValue)
             parts.Add(Direction == TradeDirection.Short ? "Short()" : "Long()");
         foreach (var cond in EntryConditions)
             parts.Add(cond.ToScript());
         if (TakeProfitTargets.Count > 0)
-            parts.Add($"TakeProfit({string.Join(", ", TakeProfitTargets.Select(t => t.Price.ToString()))})");
+            parts.Add($"TakeProfit({string.Join(", ", TakeProfitTargets.Select(t => Inv(t.Price)))})");
         else if (TakeProfitPrice.HasValue)
-            parts.Add($"TakeProfit({TakeProfitPrice})");
+            parts.Add($"TakeProfit({Inv(TakeProfitPrice.Value)})");
         if (StopLossPrice.HasValue)
-            parts.Add($"StopLoss({StopLossPrice})");
+            parts.Add($"StopLoss({Inv(StopLossPrice.Value)})");
         if (StopLossPercent.HasValue)
-            parts.Add($"StopLossPercent({StopLossPercent})");
+            parts.Add($"StopLossPercent({Inv(StopLossPercent.Value)})");
         if (TrailingStopPercent.HasValue)
-            parts.Add($"TrailingStopLoss({TrailingStopPercent})");
+            parts.Add($"TrailingStopLoss({Inv(TrailingStopPercent.Value)})");
         return string.Join(".", parts);
     }
 

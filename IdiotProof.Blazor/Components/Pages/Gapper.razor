@@ -6,9 +6,14 @@
 @using Microsoft.AspNetCore.Authorization
 @using Microsoft.AspNetCore.Components.Authorization
 @attribute [Authorize]
+@using IdiotProof.DataFeeds
+@using IdiotProof.Strategies
 @inject StrategyRepository StrategyRepo
 @inject ConditionProgressRepository ProgressRepo
 @inject GapperProfileService ProfileService
+@inject GapperInterpreter Interpreter
+@inject IdiotProof.Engine.Settings.AppSettings AppSettings
+@inject UserKeyService UserKeys
 @inject AuthenticationStateProvider AuthState
 @implements IDisposable
 
@@ -47,6 +52,86 @@
     {
         <div class="alert alert-danger small">@loadError</div>
     }
+
+    <!-- ── Interpret a transcript (Claude via Legion) ─────────────── -->
+    <div class="trading-card p-3 mb-3">
+        <div class="d-flex align-items-center gap-2 mb-2">
+            <h2 class="h6 mb-0"><i class="bi bi-magic me-1" style="color:var(--brand)" aria-hidden="true"></i>From a transcript</h2>
+            <span class="text-muted small">paste a video transcript or describe the plays — Claude turns them into gapper candidates you review before queueing</span>
+        </div>
+        <textarea class="form-control mb-2"
+                  rows="6"
+                  placeholder="e.g. “...watch ACME tomorrow, it's gapping huge on the FDA news, easily 10%+ premarket on massive volume. I'd keep a tight stop and take profits fast before the open. BETA is the slower play, big cap, gap and go...”"
+                  @bind="transcriptText"
+                  @bind:event="oninput"
+                  aria-label="Transcript or natural-language description"></textarea>
+        <div class="d-flex align-items-center gap-2">
+            <button class="btn btn-sm btn-primary" type="button"
+                    disabled="@(interpreting || string.IsNullOrWhiteSpace(transcriptText))"
+                    @onclick="InterpretTranscript">
+                @if (interpreting)
+                {
+                    <span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span>
+                }
+                else
+                {
+                    <i class="bi bi-stars me-1" aria-hidden="true"></i>
+                }
+                Interpret
+            </button>
+            @if (candidates.Count > 0)
+            {
+                <button class="btn btn-sm btn-outline-secondary" type="button" @onclick="ClearCandidates">Clear results</button>
+            }
+        </div>
+
+        @if (interpretError is not null)
+        {
+            <div class="alert alert-warning small mt-2 mb-0">@interpretError</div>
+        }
+        @if (interpretWarnings.Count > 0)
+        {
+            <div class="text-muted small mt-2">
+                @foreach (var w in interpretWarnings)
+                {
+                    <div><i class="bi bi-info-circle me-1" aria-hidden="true"></i>@w</div>
+                }
+            </div>
+        }
+
+        @foreach (var c in candidates)
+        {
+            <div class="border-top pt-3 mt-3" data-candidate="@c.Symbol">
+                <div class="d-flex align-items-center gap-2 flex-wrap">
+                    <span class="strategy-chip ticker-chip">@c.Symbol</span>
+                    <span class="text-muted small flex-grow-1">@c.Rationale</span>
+                    <button class="btn btn-sm btn-outline-secondary" type="button"
+                            @onclick="() => LoadCandidateIntoDials(c)">
+                        <i class="bi bi-sliders me-1" aria-hidden="true"></i>Load into dials
+                    </button>
+                    <button class="btn btn-sm btn-success" type="button"
+                            disabled="@(ActiveGapperCount >= MaxGappers)"
+                            @onclick="() => QueueCandidate(c)">
+                        <i class="bi bi-plus-circle me-1" aria-hidden="true"></i>Queue
+                    </button>
+                </div>
+                <div class="text-muted small mt-1">
+                    gap ≥@c.Profile.MinGapPercent%@(c.Profile.MaxGapPercent is { } mx ? $" (≤{mx}%)" : "") ·
+                    vol ≥@(c.Profile.MinVolumeRatio)× ·
+                    $@c.Profile.MinPrice–$@c.Profile.MaxPrice ·
+                    entry @c.Profile.EntryWindowStartEt–@c.Profile.EntryWindowEndEt ET ·
+                    SL @c.Profile.StopLossPercent%@(c.Profile.TrailingStopPercent is { } tsl ? $" · TSL {tsl}%" : "") ·
+                    giveback @c.Profile.PeakGivebackPercent% armed @c.Profile.ArmExitAtEt ·
+                    flat by @c.Profile.SellByEt ·
+                    $@c.Profile.DefaultNotional
+                </div>
+                <details class="mt-1">
+                    <summary class="text-muted small" style="cursor:pointer">Show generated IdiotScript</summary>
+                    <pre class="small mt-2 p-2" style="background:var(--bg-row-alt);border:1px solid var(--border);border-radius:6px;overflow:auto">@CandidateScript(c)</pre>
+                </details>
+            </div>
+        }
+    </div>
 
     <!-- ── Queue form ─────────────────────────────────────────────── -->
     <div class="trading-card p-3 mb-3">
@@ -134,6 +219,97 @@
         @if (queueError is not null)
         {
             <div class="alert alert-warning small mt-2 mb-0">@queueError</div>
+        }
+    </div>
+
+    <!-- ── Backtest a day ─────────────────────────────────────────── -->
+    <div class="trading-card p-3 mb-3">
+        <div class="d-flex align-items-center gap-2 flex-wrap mb-2">
+            <h2 class="h6 mb-0"><i class="bi bi-clock-history me-1" style="color:var(--brand)" aria-hidden="true"></i>Backtest a day</h2>
+            <span class="text-muted small">replay the ticker + dials above over a past day — same exit brain the live console runs — then apply the tuned dials</span>
+        </div>
+        <div class="d-flex align-items-center gap-2 flex-wrap">
+            <span class="strategy-chip ticker-chip">@(string.IsNullOrWhiteSpace(symbolInput) ? "TICKER?" : symbolInput.ToUpperInvariant())</span>
+            <input class="form-control form-control-sm" style="max-width:170px" type="date"
+                   @bind="backtestDate" aria-label="Backtest date" />
+            <button class="btn btn-sm btn-primary" type="button"
+                    disabled="@(backtestRunning || string.IsNullOrWhiteSpace(symbolInput))"
+                    @onclick="RunDayBacktest">
+                @if (backtestRunning)
+                {
+                    <span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span>
+                }
+                else
+                {
+                    <i class="bi bi-play-fill me-1" aria-hidden="true"></i>
+                }
+                Replay day
+            </button>
+            @if (backtestReport is not null)
+            {
+                <span class="text-muted small">data: @backtestDataSource</span>
+            }
+        </div>
+
+        @if (backtestError is not null)
+        {
+            <div class="alert alert-warning small mt-2 mb-0">@backtestError</div>
+        }
+
+        @if (backtestReport is { } r)
+        {
+            <div class="border-top pt-3 mt-3">
+                @if (!r.Entered)
+                {
+                    <div class="text-muted"><i class="bi bi-slash-circle me-1" aria-hidden="true"></i>No entry that day. @r.NoEntryReason</div>
+                }
+                else
+                {
+                    <div class="d-flex align-items-center gap-2 flex-wrap">
+                        <span class="strategy-chip @(r.PnL >= 0 ? "long-chip" : "filter-chip")">
+                            P&amp;L @r.PnL.ToString("+0.00;-0.00") (@r.ReturnPercent.ToString("+0.0;-0.0")%)
+                        </span>
+                        <span class="text-muted small">
+                            BUY @r.Quantity @@ @r.Entry!.Price.ToString("F2") (@EasternTime.Format(r.Entry.Utc, "HH:mm 'ET'"), gap @r.GapAtEntryPercent.ToString("+0.0")%)
+                            → SELL @@ @r.Exit!.Price.ToString("F2") (@EasternTime.Format(r.Exit.Utc, "HH:mm 'ET'") · @r.Exit.Reason)
+                            · peak @r.PeakPrice.ToString("F2") (@r.MaxFavorablePercent.ToString("+0.0")% @EasternTime.Format(r.PeakUtc, "HH:mm")) · worst @r.MaxAdversePercent.ToString("0.0")%
+                        </span>
+                    </div>
+
+                    <div class="mt-2">
+                        @foreach (var s in r.Suggestions)
+                        {
+                            <div class="small"><i class="bi bi-lightbulb me-1" style="color:var(--brand)" aria-hidden="true"></i>@s</div>
+                        }
+                    </div>
+
+                    <details class="mt-2">
+                        <summary class="text-muted small" style="cursor:pointer">Giveback grid — what each dial would have done</summary>
+                        <table class="table table-sm mt-2 mb-0" style="max-width:480px">
+                            <thead><tr class="text-muted small"><th>Giveback %</th><th>Exit</th><th>Reason</th><th>P&amp;L</th></tr></thead>
+                            <tbody>
+                            @foreach (var g in r.GivebackGrid.OrderBy(g => g.GivebackPercent))
+                            {
+                                <tr class="small @(g.PnL == r.GivebackGrid.Max(x => x.PnL) ? "fw-semibold" : null)">
+                                    <td>@g.GivebackPercent%</td>
+                                    <td>@g.ExitPrice.ToString("F2")</td>
+                                    <td>@g.ExitReason</td>
+                                    <td>@g.PnL.ToString("+0.00;-0.00")</td>
+                                </tr>
+                            }
+                            </tbody>
+                        </table>
+                    </details>
+
+                    @if (r.TunedProfile is not null)
+                    {
+                        <button class="btn btn-sm btn-outline-success mt-2" type="button" @onclick="ApplyTunedProfile">
+                            <i class="bi bi-sliders me-1" aria-hidden="true"></i>
+                            Apply tuned dials (giveback @r.TunedProfile.PeakGivebackPercent%, SL @r.TunedProfile.StopLossPercent%, gap ≥@r.TunedProfile.MinGapPercent%)
+                        </button>
+                    }
+                }
+            </div>
         }
     </div>
 
@@ -236,20 +412,37 @@
     private string selectedProfileId = "";
     private bool showDials;
     private GapperProfile dial = new();
+
+    private string transcriptText = "";
+    private bool interpreting;
+    private string? interpretError;
+    private List<string> interpretWarnings = new();
+    private List<GapperCandidate> candidates = new();
+
+    private DateTime backtestDate = LastWeekday();
+    private bool backtestRunning;
+    private string? backtestError;
+    private string backtestDataSource = "";
+    private GapperDayBacktestReport? backtestReport;
     private List<Strategy> gappers = new();
     private readonly Dictionary<Guid, ConditionProgress> progress = new();
     private System.Threading.Timer? poll;
 
     // Nullable numeric dial-ins bound through strings so "blank = off" works.
+    // Invariant culture both ways: on a comma-decimal server culture the bare
+    // TryParse read "2.5" as 25 (dot = thousands separator) — a silently
+    // 10×-loosened trailing stop.
     private string maxGapText
     {
-        get => dial.MaxGapPercent?.ToString() ?? "";
-        set => dial.MaxGapPercent = double.TryParse(value, out var v) ? v : null;
+        get => dial.MaxGapPercent?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "";
+        set => dial.MaxGapPercent = double.TryParse(value, System.Globalization.NumberStyles.Float,
+            System.Globalization.CultureInfo.InvariantCulture, out var v) ? v : null;
     }
     private string trailingText
     {
-        get => dial.TrailingStopPercent?.ToString() ?? "";
-        set => dial.TrailingStopPercent = double.TryParse(value, out var v) ? v : null;
+        get => dial.TrailingStopPercent?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "";
+        set => dial.TrailingStopPercent = double.TryParse(value, System.Globalization.NumberStyles.Float,
+            System.Globalization.CultureInfo.InvariantCulture, out var v) ? v : null;
     }
 
     private GapperProfile CurrentProfile => ProfileService.GetById(selectedProfileId) ?? ProfileService.GetProfiles()[0];
@@ -340,11 +533,23 @@
     {
         queueError = null;
         if (userId is null || !CanQueue) return;
+        await QueueFromProfileAsync(symbolInput.Trim().ToUpperInvariant(), dial, CurrentProfile.Name);
+        if (queueError is null) symbolInput = "";
+    }
 
-        var symbol = symbolInput.Trim().ToUpperInvariant();
-        if (gappers.Any(g => g.IsActive && g.Symbol.Equals(symbol, StringComparison.OrdinalIgnoreCase)))
+    /// <summary>Shared queue path for the manual form and interpreted candidates.</summary>
+    private async Task QueueFromProfileAsync(string symbol, GapperProfile profile, string profileName)
+    {
+        if (userId is null) return;
+
+        // Duplicate-symbol check against SQL, not the in-memory page list —
+        // that list is only as fresh as the last 5s poll, so a second tab
+        // could otherwise double-queue the same ticker and double the
+        // capital exposure on one gap.
+        if (await StrategyRepo.CountActiveForSymbolAsync(userId.Value, symbol) > 0)
         {
             queueError = $"{symbol} already has an active gapper. Pause or remove it first.";
+            await RefreshAsync();
             return;
         }
 
@@ -355,40 +560,217 @@
             return;
         }
 
-        string script;
-        try { script = GapperScriptFactory.ToScript(symbol, dial); }
+        // Definition-direct (IP-LAW-8): the factory's semantic model becomes
+        // the canonical JSON with NO parser in the loop; the script text is
+        // generated from the same model purely as the human view.
+        string script, canonicalJson;
+        try
+        {
+            var builder = GapperScriptFactory.Compose(symbol, profile);
+            script = builder.ToScript();
+            canonicalJson = StrategyJson.Serialize(builder.Build());
+        }
         catch (ArgumentException ex) { queueError = ex.Message; return; }
 
         var created = await StrategyRepo.CreateAsync(
             userId.Value,
-            title: $"{symbol} Gapper — {CurrentProfile.Name}",
+            title: $"{symbol} Gapper — {profileName}",
             symbol: symbol,
             scriptText: script,
-            description: $"Gapper profile '{CurrentProfile.Name}': ≥{dial.MinGapPercent}% gap on {dial.MinVolumeRatio}× volume, " +
-                         $"entry {dial.EntryWindowStartEt}–{dial.EntryWindowEndEt} ET, stop {dial.StopLossPercent}%, " +
-                         $"giveback {dial.PeakGivebackPercent}% armed {dial.ArmExitAtEt}, flat by {dial.SellByEt} ET.");
-        await StrategyRepo.SetActiveAsync(created.Id, true);
+            scriptJson: canonicalJson,
+            description: $"Gapper profile '{profileName}': ≥{profile.MinGapPercent}% gap on {profile.MinVolumeRatio}× volume, " +
+                         $"entry {profile.EntryWindowStartEt}–{profile.EntryWindowEndEt} ET, stop {profile.StopLossPercent}%, " +
+                         $"giveback {profile.PeakGivebackPercent}% armed {profile.ArmExitAtEt}, flat by {profile.SellByEt} ET.");
+        await StrategyRepo.SetActiveAsync(created.Id, true, userId.Value);
 
-        symbolInput = "";
+        // Close the check-then-act race: re-verify AFTER activating. Two tabs
+        // racing past the pre-checks both land here; whoever now sees the cap
+        // or duplicate rule violated reverts its own activation. (No SQL
+        // transaction spans the create+activate, so this recheck is what
+        // actually enforces the invariant.)
+        if (await CountActiveGappersFromDbAsync() > MaxGappers
+            || await StrategyRepo.CountActiveForSymbolAsync(userId.Value, symbol) > 1)
+        {
+            await StrategyRepo.SetActiveAsync(created.Id, false, userId.Value);
+            queueError = $"{symbol} lost the race to another queue action (cap or duplicate) — left paused.";
+        }
+
         await RefreshAsync();
+    }
+
+    // ── Transcript interpretation ───────────────────────────────────
+
+    private async Task InterpretTranscript()
+    {
+        interpretError = null;
+        interpretWarnings.Clear();
+        interpreting = true;
+        try
+        {
+            var result = await Interpreter.InterpretAsync(transcriptText);
+            interpretWarnings = result.Warnings.ToList();
+            if (!result.Success)
+            {
+                interpretError = result.Error;
+                return;
+            }
+            candidates = result.Candidates.ToList();
+        }
+        catch (Exception ex) { interpretError = ex.Message; }
+        finally { interpreting = false; }
+    }
+
+    private void ClearCandidates()
+    {
+        candidates.Clear();
+        interpretWarnings.Clear();
+        interpretError = null;
+    }
+
+    private async Task QueueCandidate(GapperCandidate c)
+    {
+        queueError = null;
+        await QueueFromProfileAsync(c.Symbol, c.Profile, c.Profile.Name);
+        if (queueError is null) candidates.RemoveAll(x => x.Symbol == c.Symbol);
+        else interpretError = queueError;
+    }
+
+    /// <summary>Copies a candidate into the manual form for hand-tweaking before queueing.</summary>
+    private void LoadCandidateIntoDials(GapperCandidate c)
+    {
+        symbolInput = c.Symbol;
+        dial = c.Profile.Clone();
+        showDials = true;
+    }
+
+    private static string CandidateScript(GapperCandidate c)
+    {
+        try { return GapperScriptFactory.ToScript(c.Symbol, c.Profile); }
+        catch (ArgumentException ex) { return ex.Message; }
+    }
+
+    // ── Day backtest (design on a past day → examine → re-dial) ──────
+
+    // ET calendar, not server-local: on a UTC host DateTime.Today rolls to
+    // "tomorrow" at 8 PM ET, which made the default replay day the still-in-
+    // progress (or not-yet-started) session.
+    private static DateTime LastWeekday() =>
+        MarketTime.PreviousEquityTradingDayEt(DateTime.UtcNow).ToDateTime(TimeOnly.MinValue);
+
+    private async Task RunDayBacktest()
+    {
+        backtestError = null;
+        backtestReport = null;
+        if (string.IsNullOrWhiteSpace(symbolInput)) return;
+
+        var symbol = symbolInput.Trim().ToUpperInvariant();
+        var problems = dial.Validate();
+        if (problems.Count > 0) { backtestError = string.Join(" ", problems); return; }
+
+        backtestRunning = true;
+        try
+        {
+            // Key priority mirrors /backtest: the signed-in user's OWN Alpaca
+            // keys first, then the host's global settings chain, then Mock.
+            // (This page previously read only the global chain, so a user with
+            // keys configured on API Keys got synthetic Mock data here while
+            // /backtest gave them real bars.)
+            var userApiKeys = userId is null ? null : await UserKeys.GetOrCreateAsync(userId.Value);
+            // Take the user's PAIR only when both halves exist — mixing a
+            // user key id with the global secret would be a broken credential.
+            var useUserKeys = !string.IsNullOrWhiteSpace(userApiKeys?.AlpacaApiKeyId)
+                           && !string.IsNullOrWhiteSpace(userApiKeys?.AlpacaApiSecretKey);
+            var keyId  = useUserKeys ? userApiKeys!.AlpacaApiKeyId!     : AppSettings.AlpacaApiKeyId;
+            var secret = useUserKeys ? userApiKeys!.AlpacaApiSecretKey! : AppSettings.AlpacaApiSecretKey;
+            var hasKeys = !string.IsNullOrWhiteSpace(keyId) && !string.IsNullOrWhiteSpace(secret);
+            IMarketDataFeed feed = hasKeys
+                ? new AlpacaDataFeed(keyId, secret, "iex")
+                : new MockDataFeed();
+            backtestDataSource = hasKeys ? "Alpaca" : "Mock";
+
+            var day = DateOnly.FromDateTime(backtestDate);
+            var eastern = MarketTime.Eastern;
+            var startUtc = TimeZoneInfo.ConvertTimeToUtc(
+                DateTime.SpecifyKind(day.ToDateTime(new TimeOnly(4, 0)), DateTimeKind.Unspecified), eastern);
+            var endUtc = TimeZoneInfo.ConvertTimeToUtc(
+                DateTime.SpecifyKind(day.ToDateTime(new TimeOnly(16, 0)), DateTimeKind.Unspecified), eastern);
+
+            var candles = new List<IdiotProof.Models.Candle>();
+            await using var disposable = feed as IAsyncDisposable;
+            await foreach (var c in feed.GetHistoricalCandlesAsync(symbol, startUtc, endUtc, TimeSpan.FromMinutes(1)))
+                candles.Add(c);
+
+            // Previous close relative to that day's premarket, not "now".
+            var previousClose = await feed.GetPreviousCloseAsync(symbol, startUtc.AddHours(2));
+
+            backtestReport = GapperDayBacktester.Run(symbol, dial, candles, previousClose, day);
+        }
+        catch (Exception ex)
+        {
+            backtestError = $"Replay failed: {ex.Message}";
+        }
+        finally { backtestRunning = false; }
+    }
+
+    /// <summary>The re-dial half of the loop: hindsight profile → the manual dials, ready to queue for a real day.</summary>
+    private void ApplyTunedProfile()
+    {
+        if (backtestReport?.TunedProfile is not { } tuned) return;
+        dial = tuned.Clone();
+        showDials = true;
     }
 
     private async Task ToggleActive(Strategy s, bool isActive)
     {
-        if (isActive && !s.IsActive && await CountActiveGappersFromDbAsync() >= MaxGappers)
+        if (userId is null) return;
+
+        if (isActive && !s.IsActive)
         {
-            queueError = "3 gappers already active — pause one first.";
+            if (await CountActiveGappersFromDbAsync() >= MaxGappers)
+            {
+                queueError = "3 gappers already active — pause one first.";
+                await RefreshAsync();
+                return;
+            }
+            // Re-activation must obey the same one-active-gapper-per-symbol
+            // rule as queueing — pause A, queue B for the same ticker, then
+            // re-toggling A used to double the exposure on one gap.
+            if (await StrategyRepo.CountActiveForSymbolAsync(userId.Value, s.Symbol) > 0)
+            {
+                queueError = $"{s.Symbol} already has an active gapper — pause it before re-activating this one.";
+                await RefreshAsync();
+                return;
+            }
+        }
+
+        var result = await StrategyRepo.SetActiveAsync(s.Id, isActive, userId.Value);
+        if (result == StrategyMutation.PositionOpen)
+        {
+            queueError = $"{s.Symbol} is holding {s.PositionQty} shares — the Monitor must stay active to manage the exit.";
             await RefreshAsync();
             return;
         }
-        await StrategyRepo.SetActiveAsync(s.Id, isActive);
+        if (result != StrategyMutation.Ok) return;
         s.IsActive = isActive;
+
+        // Same post-write recheck as queueing — two tabs re-activating
+        // different rows for the same symbol both pass the pre-check.
+        if (isActive
+            && (await CountActiveGappersFromDbAsync() > MaxGappers
+                || await StrategyRepo.CountActiveForSymbolAsync(userId.Value, s.Symbol) > 1))
+        {
+            await StrategyRepo.SetActiveAsync(s.Id, false, userId.Value);
+            s.IsActive = false;
+            queueError = $"{s.Symbol} lost the race to another activation (cap or duplicate) — left paused.";
+            await RefreshAsync();
+        }
     }
 
     private async Task RemoveGapper(Strategy s)
     {
-        if (s.PositionQty > 0) return; // Monitor owns the open position
-        await StrategyRepo.DeleteAsync(s.Id);
+        if (userId is null) return;
+        if (s.PositionQty > 0) return; // Monitor owns the open position (repo re-checks too)
+        await StrategyRepo.DeleteAsync(s.Id, userId.Value);
         gappers.RemoveAll(x => x.Id == s.Id);
     }
 

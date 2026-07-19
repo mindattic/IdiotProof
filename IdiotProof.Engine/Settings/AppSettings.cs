@@ -38,7 +38,7 @@ public sealed class AppSettings
     public decimal LlmConsensusThreshold { get; set; } = 0.66m; // 66% agreement required
     public int StrategyEvaluationIntervalSeconds { get; set; } = 30;
     public int MaxConcurrentEvaluations { get; set; } = 4;
-    public string LlmVoterModel { get; set; } = "claude-sonnet-4-6";
+    public string LlmVoterModel { get; set; } = "claude-sonnet-5";
 
     private static readonly JsonSerializerOptions JsonOptions = new()
     {

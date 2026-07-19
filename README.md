@@ -87,7 +87,11 @@ the red modal; the console honors the flag.
 
 ### Step 4 — queue gappers
 
-Open the **Gapper** tab → ticker → pick a profile (Classic / Penny Runner / Large-Cap) →
+Two ways. **From a transcript:** paste a video transcript (or any natural language) into the
+Gapper tab's "From a transcript" box → **Interpret** → Claude (via Legion) extracts the gap
+plays as reviewable candidate cards with inferred dial-ins → **Queue** the ones you like, or
+**Load into dials** to tweak first. Nothing queues itself — you click every queue.
+**By hand:** ticker → pick a profile (Classic / Penny Runner / Large-Cap) →
 **Dial in** (gap %, volume, price band, SL/TSL, peak-giveback, arm + sell-by times) →
 **Queue Gapper** (up to 3). From then on it's hands-off: the console screens the ticker
 every tick in the **4:00–9:00 AM ET premarket window**, buys through the three gates when

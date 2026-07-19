@@ -67,6 +67,18 @@ public sealed class MockDataFeed : IMarketDataFeed
         while (current < endUtc && !ct.IsCancellationRequested)
         {
             var candleEnd = current.Add(candleSize);
+
+            // No weekend minute bars — the daily branch above already skips
+            // Saturday/Sunday, but this intraday branch happily synthesized
+            // them, so a replay pointed at a weekend date reported phantom
+            // trades on bars no market ever printed.
+            var barEt = TimeZoneInfo.ConvertTimeFromUtc(DateTime.SpecifyKind(current, DateTimeKind.Utc), Eastern);
+            if (barEt.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday)
+            {
+                current = candleEnd;
+                continue;
+            }
+
             var open  = PriceAt(symbol, current);
             var close = PriceAt(symbol, candleEnd);
             var high  = Math.Round(Math.Max(open, close) * 1.002m, 4);

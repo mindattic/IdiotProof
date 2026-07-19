@@ -127,6 +127,12 @@ public static class ScriptParser
             case "breakout": b.Breakout(nums.Count >= 1 ? (double)nums[0] : null); break;
             case "pullback": b.Pullback(nums.Count >= 1 ? (double)nums[0] : null); break;
 
+            // Entry price gate — Entry(12.50). The serializer emits it and the
+            // reflected verb catalog advertises it to Claude, but there was no
+            // parser case, so the price gate silently vanished on every
+            // text round trip and from AI-generated scripts.
+            case "entry": if (nums.Count >= 1) b.Entry((double)nums[0]); break;
+
             // Price levels
             case "holdsabove":  if (nums.Count >= 1) b.HoldsAbove((double)nums[0]); break;
             case "holdsbelow":  if (nums.Count >= 1) b.HoldsBelow((double)nums[0]); break;

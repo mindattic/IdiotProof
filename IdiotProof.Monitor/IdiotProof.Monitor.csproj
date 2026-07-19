@@ -17,6 +17,14 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- Legion voter-panel config (repo root). Ship it with the binaries:
+         during dev the walk-up discovery finds the repo-root copy, but a
+         deployed host has no repo — without this the "high tier" 4-voter
+         panel silently reverted to Legion's defaults in production. -->
+    <Content Include="..\legion.json" Link="legion.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\IdiotProof.Models\IdiotProof.Models.csproj" />
     <ProjectReference Include="..\IdiotProof.Indicators\IdiotProof.Indicators.csproj" />
     <ProjectReference Include="..\IdiotProof.Scripting\IdiotProof.Scripting.csproj" />

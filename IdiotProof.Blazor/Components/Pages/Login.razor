@@ -20,7 +20,11 @@
         }
 
         <form method="post" action="/_ma-auth/login" aria-label="Sign in to IdiotProof">
-            <input type="hidden" name="returnUrl" value="@ReturnUrl" />
+            @* Local paths only — forwarding a raw ?returnUrl would let a
+               crafted link bounce a successful login to an attacker's site
+               (open redirect / phishing), regardless of what the auth
+               library does with it downstream. *@
+            <input type="hidden" name="returnUrl" value="@SafeReturnUrl" />
             <AntiforgeryToken />
 
             <div class="form-group">
@@ -74,6 +78,11 @@
 @code {
     [SupplyParameterFromQuery] private string? ReturnUrl { get; set; }
     [SupplyParameterFromQuery] private string? Error { get; set; }
+
+    /// <summary>Only a same-site path survives; anything absolute, protocol-relative ("//evil"), or empty falls back to "/".</summary>
+    private string SafeReturnUrl =>
+        ReturnUrl is { Length: > 0 } r && r.StartsWith('/') && !r.StartsWith("//") && !r.Contains('\\')
+            ? r : "/";
 
     private string errorMessage = "";
 

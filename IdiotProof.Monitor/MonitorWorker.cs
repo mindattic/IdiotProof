@@ -59,8 +59,27 @@ public sealed class MonitorWorker(
     /// <summary>REST re-sync cadence; between syncs the stream keeps the cache fresh.</summary>
     private static readonly TimeSpan RestRefresh = TimeSpan.FromMinutes(5);
 
+    /// <summary>
+    /// Refresh cadence when the last fetch returned NO bars (overnight, halted,
+    /// bad symbol). Short enough that the 4:00 ET premarket open is picked up
+    /// within seconds — but without this, an empty window was never cached at
+    /// all and the Monitor hammered the bars endpoint every tick all night
+    /// (12 requests/min/symbol), burning the Alpaca rate limit right before
+    /// the window gappers arm in.
+    /// </summary>
+    private static readonly TimeSpan EmptyWindowRefresh = TimeSpan.FromSeconds(30);
+
     private readonly Dictionary<string, (List<Candle> Candles, DateTime FetchedUtc)> candleCache = new(StringComparer.OrdinalIgnoreCase);
-    private readonly Dictionary<string, (DateOnly DayEt, decimal? Close)> previousCloseCache = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, (DateOnly DayEt, decimal? Close, DateTime FetchedUtc)> previousCloseCache = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Re-check cadence when the previous close came back NULL. IP-A18 made
+    /// nulls retry (a cached null disabled gap strategies all day), but an
+    /// unbounded retry hammered the daily-bars endpoint every tick during an
+    /// outage — the mirror of the empty-candle-window problem. 30 s keeps the
+    /// recovery fast without burning the rate limit.
+    /// </summary>
+    private static readonly TimeSpan MissingCloseRetry = TimeSpan.FromSeconds(30);
     private readonly System.Collections.Concurrent.ConcurrentQueue<Candle> streamedBars = new();
     private AlpacaStreamingClient? streaming;
 
@@ -189,8 +208,7 @@ public sealed class MonitorWorker(
     private async Task<IReadOnlyList<Candle>> GetCandlesAsync(string symbol, CancellationToken ct)
     {
         if (candleCache.TryGetValue(symbol, out var cached)
-            && DateTime.UtcNow - cached.FetchedUtc < RestRefresh
-            && cached.Candles.Count > 0)
+            && DateTime.UtcNow - cached.FetchedUtc < (cached.Candles.Count > 0 ? RestRefresh : EmptyWindowRefresh))
         {
             return AppendLiveTick(symbol, cached.Candles);
         }
@@ -244,13 +262,19 @@ public sealed class MonitorWorker(
     {
         var todayEt = DateOnly.FromDateTime(
             TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, MarketTime.Eastern));
-        if (previousCloseCache.TryGetValue(symbol, out var hit) && hit.DayEt == todayEt)
+        // A real close is good for the whole ET day; a null is only trusted
+        // for MissingCloseRetry so a transient 4AM blip can't disable gap
+        // strategies all day (IP-A18) but an outage can't burn the rate
+        // limit at tick cadence either.
+        if (previousCloseCache.TryGetValue(symbol, out var hit) && hit.DayEt == todayEt
+            && (hit.Close is not null || DateTime.UtcNow - hit.FetchedUtc < MissingCloseRetry))
             return hit.Close;
 
         var close = await feed.GetPreviousCloseAsync(symbol, DateTime.UtcNow, ct);
-        previousCloseCache[symbol] = (todayEt, close);
+        previousCloseCache[symbol] = (todayEt, close, DateTime.UtcNow);
         if (close is null)
-            logger.LogWarning("{Symbol}: no previous close available — gap conditions will fail closed.", symbol);
+            logger.LogWarning("{Symbol}: no previous close available — gap conditions fail closed; retrying in {Retry}s.",
+                symbol, MissingCloseRetry.TotalSeconds);
         return close;
     }
 
@@ -262,10 +286,47 @@ public sealed class MonitorWorker(
         decimal? previousClose,
         CancellationToken ct)
     {
-        var def = ScriptParser.ParseScript(stored.ScriptText);
+        // Canonical JSON first (IP-LAW-8); the tolerant text parse only for
+        // legacy rows that predate the canon. A present-but-rejected canon
+        // QUARANTINES the strategy — no fragment evaluation, visible reason.
+        var loaded = StrategyLoader.Load(stored.ScriptJson, stored.ScriptText);
+        if (loaded.CanonicalError is { } canonError)
+        {
+            // Quarantine with an OPEN POSITION is an emergency, not a skip:
+            // the stop/giveback/sell-by brain lives in the definition we just
+            // refused to evaluate, so the held shares have NO exit management
+            // until the strategy is fixed or the position flattened manually.
+            // Escalate loudly instead of the ordinary quiet quarantine note.
+            if (stored.PositionQty > 0)
+            {
+                logger.LogError(
+                    "Strategy {Title} ({Id}) is QUARANTINED while HOLDING {Qty} shares of {Symbol} — " +
+                    "exit rules cannot run. Fix the strategy or flatten manually. Canon error: {Error}",
+                    stored.Title, stored.Id, stored.PositionQty, stored.Symbol, canonError);
+                await progressRepo.UpsertAsync(stored.Id, 0, 1,
+                    $"(HOLDING {stored.PositionQty} shares but strategy invalid — exits NOT managed: {Truncate(canonError)})", ct);
+                return;
+            }
+            logger.LogWarning("Strategy {Title} ({Id}) quarantined — canonical JSON rejected: {Error}",
+                stored.Title, stored.Id, canonError);
+            await progressRepo.UpsertAsync(stored.Id, 0, 1, $"(invalid strategy: {Truncate(canonError)})", ct);
+            return;
+        }
+        var def = loaded.Definition;
         if (def is null)
         {
+            if (stored.PositionQty > 0)
+            {
+                logger.LogError(
+                    "Strategy {Title} ({Id}) is UNPARSEABLE while HOLDING {Qty} shares of {Symbol} — " +
+                    "exit rules cannot run. Fix the script or flatten manually.",
+                    stored.Title, stored.Id, stored.PositionQty, stored.Symbol);
+                await progressRepo.UpsertAsync(stored.Id, 0, 1,
+                    $"(HOLDING {stored.PositionQty} shares but script unparseable — exits NOT managed)", ct);
+                return;
+            }
             logger.LogWarning("Strategy {Title} ({Id}) failed to parse — skipping.", stored.Title, stored.Id);
+            await progressRepo.UpsertAsync(stored.Id, 0, 1, "(unparseable script)", ct);
             return;
         }
 
@@ -293,7 +354,7 @@ public sealed class MonitorWorker(
             return;
         }
 
-        var emas = CollectEmaPeriods(def);
+        var emas = EmaPeriodCollector.Collect(def);
         var snapshot = IndicatorSnapshotBuilder.BuildWithEmas(stored.Symbol, candles, emas, previousClose);
 
         var conditions = def.EntryConditions;
@@ -366,7 +427,15 @@ public sealed class MonitorWorker(
             ConfidencePercent = 0m,
             SuggestedEntry    = entryPrice,
             SuggestedStop     = stopPrice,
-            Targets           = def.TakeProfitPrice.HasValue ? [(decimal)def.TakeProfitPrice.Value] : [],
+            // Full scale-out ladder — TakeProfit(t1, t2, t3) sets TakeProfitPrice = t1
+            // AND populates TakeProfitTargets; reading only TakeProfitPrice hides
+            // T2/T3 from the LLM panel's risk:reward view (same defect class as
+            // the DslStrategy fix in IP-A15).
+            Targets           = def.TakeProfitTargets.Count > 0
+                                 ? def.TakeProfitTargets.Select(t => (decimal)t.Price).ToList()
+                                 : def.TakeProfitPrice.HasValue
+                                     ? [(decimal)def.TakeProfitPrice.Value]
+                                     : [],
             StrategyName      = stored.Title,
             Reason            = $"All {def.EntryConditions.Count} conditions met",
             GeneratedUtc      = snapshot.Timestamp,
@@ -374,15 +443,23 @@ public sealed class MonitorWorker(
         };
 
         // Gate 2 — LLM voter panel (skipped only when voting is disabled/unkeyed).
+        // IP-LAW-1 requires the quorum to APPROVE — anything short of an
+        // Approve consensus blocks the fire. The old check only blocked on an
+        // explicit Reject, so a dead panel (zero votes), unparseable votes
+        // (all Abstain), or a split below threshold all failed OPEN.
         if (appSettings.LlmVotingEnabled && !string.IsNullOrWhiteSpace(appSettings.ClaudeApiKey))
         {
             var voteResult = await llmVoting.VoteOnSignalAsync(signal, candles, appSettings, ct);
-            if (voteResult.Votes.Count > 0 && voteResult.Consensus == VoteDecision.Reject)
+            if (voteResult.Votes.Count == 0 || voteResult.Consensus != VoteDecision.Approve)
             {
-                logger.LogInformation("[{Title}] {Symbol} ✗ VETOED by LLM panel ({Voters} voters).",
-                    stored.Title, stored.Symbol, voteResult.Votes.Count);
+                var why = voteResult.Votes.Count == 0
+                    ? "LLM panel unavailable (0 votes) — failing closed"
+                    : voteResult.Consensus == VoteDecision.Reject
+                        ? $"vetoed by LLM panel ({voteResult.Votes.Count} voters, conf {voteResult.ConsensusConfidence:F0})"
+                        : $"no approval quorum (consensus {voteResult.Consensus}, {voteResult.Votes.Count} voters)";
+                logger.LogInformation("[{Title}] {Symbol} ✗ BLOCKED at LLM gate — {Why}", stored.Title, stored.Symbol, why);
                 await auditLogRepo.LogAsync("signal-vetoed",
-                    $"[{stored.Title}] {stored.Symbol} vetoed by LLM panel ({voteResult.Votes.Count} voters, conf {voteResult.ConsensusConfidence:F0})",
+                    $"[{stored.Title}] {stored.Symbol} {why}",
                     userId: stored.OwnerUserId, dataJson: voteResult.ConsensusReasoning, ct: ct);
                 return;
             }
@@ -497,16 +574,75 @@ public sealed class MonitorWorker(
 
         if (decision is null) return;
 
+        // Never place the flatten while the market can't take it: a SellBy
+        // decision trips every tick all weekend AND overnight (nowEt >= sellBy
+        // at 22:00 on a Friday too), which would spam rejected orders — or
+        // worse, queue a stale-priced regular-hours DAY sell for the next
+        // open. Deferral requires BOTH a weekday and the 4:00–20:00 ET window
+        // Alpaca accepts orders in; the decision re-fires next tradable tick.
+        var deferNowEt = MarketTime.ToEasternTimeOfDay(DateTime.UtcNow);
+        var marketTakingOrders = MarketTime.IsEquityTradingDay(DateTime.UtcNow)
+            && deferNowEt >= new TimeSpan(4, 0, 0) && deferNowEt < new TimeSpan(20, 0, 0);
+        if (!marketTakingOrders)
+        {
+            await progressRepo.UpsertAsync(stored.Id, 1, 1,
+                $"(holding {stored.PositionQty} @ {entry:F2} — market closed, exit {decision.Reason} deferred)", ct);
+            return;
+        }
+
         var extendedHours = IsExtendedHours(DateTime.UtcNow);
         // Marketable sell limit: -0.5% so the flatten fills through a thin book.
         var limitPrice = Math.Round((decimal)decision.CurrentPrice * 0.995m, 2);
 
         // Exit through the same per-user broker that holds the position.
         var broker = await brokerResolver.ResolveAsync(stored.OwnerUserId, ct);
+
+        // Reconcile with the broker BEFORE selling. Entry bookkeeping records
+        // the fill optimistically when the order is ACCEPTED, so an unfilled
+        // entry (price ran past the limit, halt, expiry at the close) leaves a
+        // PHANTOM position — and selling shares we don't hold is rejected at
+        // best, or opens a naked short on a margin account at worst. An empty
+        // result from a SUCCESSFUL positions call means genuinely flat
+        // (GetPositionsAsync now throws on failure rather than returning []).
+        // On reconciliation failure we proceed with the recorded quantity —
+        // never skip a risk-reducing exit because a status call hiccuped.
+        var sellQty = stored.PositionQty;
+        try
+        {
+            var brokerPositions = await broker.GetPositionsAsync(ct);
+            var held = brokerPositions.FirstOrDefault(p =>
+                p.Symbol.Equals(stored.Symbol, StringComparison.OrdinalIgnoreCase));
+            var heldQty = (int)Math.Floor(held?.Quantity ?? 0m);
+            if (heldQty <= 0)
+            {
+                logger.LogWarning("[{Title}] {Symbol} exit ({Reason}) found NO broker position — " +
+                    "the entry order never filled. Clearing phantom bookkeeping.",
+                    stored.Title, stored.Symbol, decision.Reason);
+                await strategyRepo.RecordExitFillAsync(stored.Id, 0m, "NotFilled", DateTime.UtcNow, ct);
+                await auditLogRepo.LogAsync("position-reconciled",
+                    $"[{stored.Title}] {stored.Symbol} exit ({decision.Reason}) found no position at {broker.BrokerType} — " +
+                    "entry never filled; phantom bookkeeping cleared, no order placed.",
+                    userId: stored.OwnerUserId, ct: ct);
+                return;
+            }
+            if (heldQty < sellQty)
+            {
+                logger.LogWarning("[{Title}] {Symbol} broker holds {Held} of {Recorded} recorded shares " +
+                    "(partial fill) — selling the broker quantity.",
+                    stored.Title, stored.Symbol, heldQty, sellQty);
+                sellQty = heldQty;
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "[{Title}] position reconciliation failed — proceeding with the recorded quantity.",
+                stored.Title);
+        }
+
         var order = await broker.PlaceOrderAsync(new OrderRequest
         {
             Symbol        = stored.Symbol,
-            Quantity      = stored.PositionQty,
+            Quantity      = sellQty,
             Side          = OrderSide.Sell,
             Type          = OrderType.Limit,
             LimitPrice    = limitPrice,
@@ -526,24 +662,29 @@ public sealed class MonitorWorker(
 
         // Feed realized P&L into the daily circuit breaker (IP-LAW-2) — the
         // audit found RecordTradePnL was never called in production, so the
-        // daily-loss guard could never trip.
-        var realized = (limitPrice - entry) * stored.PositionQty;
+        // daily-loss guard could never trip. Uses the reconciled quantity.
+        var realized = (limitPrice - entry) * sellQty;
         var guardian = await riskGuardianService.GetForUserAsync(stored.OwnerUserId, ct);
         guardian.RecordTradePnL(realized);
 
         await strategyRepo.RecordExitFillAsync(stored.Id, limitPrice, decision.Reason.ToString(), DateTime.UtcNow, ct);
         await auditLogRepo.LogAsync("order-placed",
-            $"[{stored.Title}] SELL {stored.PositionQty} {stored.Symbol} @ {limitPrice:F2} — {decision.Reason}: {decision.Detail} " +
+            $"[{stored.Title}] SELL {sellQty} {stored.Symbol} @ {limitPrice:F2} — {decision.Reason}: {decision.Detail} " +
             $"(P&L {realized:+0.00;-0.00}, {broker.BrokerType}, order {order.BrokerOrderId})",
             userId: stored.OwnerUserId, ct: ct);
         logger.LogInformation("[{Title}] ✓ SOLD {Qty} {Symbol} @ {Price:F2} — {Reason} (P&L {Pnl:+0.00;-0.00})",
-            stored.Title, stored.PositionQty, stored.Symbol, limitPrice, decision.Reason, realized);
+            stored.Title, sellQty, stored.Symbol, limitPrice, decision.Reason, realized);
     }
 
     // ── Clock helpers ───────────────────────────────────────────────────
 
     private static bool IsInsideSession(TradingSession session, DateTime utc)
     {
+        // Weekend gate first — the time-of-day windows below would happily
+        // pass on a Saturday, and conditions evaluated against Friday's stale
+        // bars could fire an order that sits queued until Monday's open.
+        if (!MarketTime.IsEquityTradingDay(utc)) return false;
+
         var tod = MarketTime.ToEasternTimeOfDay(utc);
         var premarket  = tod >= new TimeSpan(4, 0, 0) && tod < new TimeSpan(9, 30, 0);
         var rth        = tod >= new TimeSpan(9, 30, 0) && tod < new TimeSpan(16, 0, 0);
@@ -572,42 +713,7 @@ public sealed class MonitorWorker(
             == DateOnly.FromDateTime(TimeZoneInfo.ConvertTimeFromUtc(DateTime.SpecifyKind(bUtc, DateTimeKind.Utc), eastern));
     }
 
-    /// <summary>
-    /// Collect EMA periods referenced by any condition so the snapshot builder
-    /// pre-computes them. Mirrors DslStrategy's logic.
-    /// </summary>
-    private static IEnumerable<int> CollectEmaPeriods(StrategyDefinition def)
-    {
-        var periods = new HashSet<int>();
-        foreach (var c in def.EntryConditions)
-            CollectFrom(c, periods);
-        foreach (var block in def.ConditionalBlocks)
-            foreach (var branch in block.Branches)
-            {
-                if (branch.Condition is not null) CollectFrom(branch.Condition, periods);
-                foreach (var c in branch.Overrides.EntryConditions) CollectFrom(c, periods);
-            }
-        return periods;
-    }
-
-    private static void CollectFrom(ICondition c, HashSet<int> bucket)
-    {
-        if (c is IndicatorCondition ic)
-        {
-            if (ic.Type is IndicatorType.EmaAbove or IndicatorType.EmaBelow or IndicatorType.ReclaimEma
-                && ic.Parameter is { } p)
-                bucket.Add((int)p);
-            else if (ic.Type is IndicatorType.BetweenEma or IndicatorType.EmaStack
-                     && ic.Parameter is { } p1 && ic.Parameter2 is { } p2)
-            {
-                bucket.Add((int)p1);
-                bucket.Add((int)p2);
-            }
-        }
-        else if (c is AndCondition a) { CollectFrom(a.Left, bucket); CollectFrom(a.Right, bucket); }
-        else if (c is OrCondition  o) { CollectFrom(o.Left, bucket); CollectFrom(o.Right, bucket); }
-        else if (c is NotCondition n) { CollectFrom(n.Inner, bucket); }
-    }
+    private static string Truncate(string s) => s.Length <= 200 ? s : s[..200] + "…";
 
     /// <summary>Lenient interval parser — accepts "30s", "5m", "120" (seconds), or null.</summary>
     private static TimeSpan? TryParseInterval(string? raw)

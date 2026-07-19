@@ -85,6 +85,13 @@ public sealed class BacktestTrade
     public decimal ReturnPercent { get; set; }
     public string ExitReason { get; set; } = "";
     public DateTime? ExitUtc => Exits.Count > 0 ? Exits[^1].Utc : null;
+
+    /// <summary>
+    /// High-water mark since entry (long-shaped), maintained bar-by-bar during
+    /// the replay. Feeds the trailing-stop and peak-giveback exits; seeded at
+    /// the entry price (same floor rule as the live GapperExitEvaluator).
+    /// </summary>
+    public decimal PeakSinceEntry { get; set; }
 }
 
 /// <summary>A single exit fill (a scale-out target, a stop, a time/EOD close).</summary>
@@ -132,4 +139,12 @@ public sealed class BacktestOptions
 {
     /// <summary>Share count used when the strategy doesn't pin one (Quantity==0, not notional).</summary>
     public int DefaultQuantity { get; init; } = 100;
+
+    /// <summary>
+    /// Previous trading day's official close — the reference for gap math.
+    /// Without it every IsGapUp/IsGapDown/IsGapBetween condition fails closed
+    /// (same as live), so a gap strategy replayed without this can never
+    /// trigger no matter what the day actually did.
+    /// </summary>
+    public decimal? PreviousClose { get; init; }
 }

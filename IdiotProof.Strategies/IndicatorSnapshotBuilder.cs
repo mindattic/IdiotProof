@@ -58,6 +58,17 @@ public static class IndicatorSnapshotBuilder
         for (int i = n - volWindow; i < n; i++) volSum += candles[i].Volume;
         snapshot.AverageVolume = volWindow > 0 ? (double)(volSum / volWindow) : 0;
 
+        // Window extremes — the per-tick evaluators' only memory of what price
+        // did earlier (Breakout latches, HoldsAbove violations). Whole window.
+        decimal winHi = decimal.MinValue, winLo = decimal.MaxValue;
+        for (int i = 0; i < n; i++)
+        {
+            if (candles[i].High > winHi) winHi = candles[i].High;
+            if (candles[i].Low < winLo) winLo = candles[i].Low;
+        }
+        snapshot.WindowHigh = (double)winHi;
+        snapshot.WindowLow = (double)winLo;
+
         // VWAP
         var vwap = VWAP.Calculate(candles);
         snapshot.Vwap      = (double)vwap[^1];

@@ -26,6 +26,11 @@ public sealed class WorkspaceManager
     private readonly IWorkspaceStore store;
     private readonly ConcurrentDictionary<string, List<WorkspaceTab>> tabsByUser = new(StringComparer.Ordinal);
 
+    // Serializes first-load seeding and cache mutation. Without it, two
+    // concurrent first reads for the same new user both see an empty store
+    // and both persist their own "Default" tab (duplicate seeds).
+    private readonly Lock gate = new();
+
     /// <summary>Legacy global-bucket accessor â€” used by the CLI and the standalone Engine path.</summary>
     public IReadOnlyList<WorkspaceTab> Tabs => GetTabsForUser(GlobalBucket);
 
@@ -59,30 +64,46 @@ public sealed class WorkspaceManager
 
     public void LoadForUser(string userId)
     {
-        var list = store.Load(userId).ToList();
-        list.Sort((a, b) => a.DisplayOrder.CompareTo(b.DisplayOrder));
-
-        if (list.Count == 0 && userId != GlobalBucket)
+        lock (gate)
         {
-            var def = new WorkspaceTab
-            {
-                Name = "Default",
-                DisplayOrder = 0,
-            };
-            list.Add(def);
-            store.Save(userId, def);
-        }
+            // Load under the lock: a concurrent first read that seeded this
+            // user has already persisted its Default tab, so this re-load
+            // sees it and does not seed a duplicate. (LoadForUser is also the
+            // forced-refresh path for GetAllUsers, so no cached early-return.)
+            var list = store.Load(userId).ToList();
+            list.Sort((a, b) => a.DisplayOrder.CompareTo(b.DisplayOrder));
 
-        tabsByUser[userId] = list;
+            if (list.Count == 0 && userId != GlobalBucket)
+            {
+                var def = new WorkspaceTab
+                {
+                    Name = "Default",
+                    DisplayOrder = 0,
+                };
+                list.Add(def);
+                store.Save(userId, def);
+            }
+
+            tabsByUser[userId] = list;
+        }
     }
 
     public void Save(string userId, WorkspaceTab tab)
     {
+        // Hydrate the cache from the store BEFORE mutating it. GetOrAdd with an
+        // empty list would poison the cache for a user whose tabs were never
+        // loaded — subsequent reads would see only the just-saved tab and
+        // silently hide the rest until process restart.
+        GetTabsForUser(userId);
+
         store.Save(userId, tab);
-        var list = tabsByUser.GetOrAdd(userId, _ => []);
-        var existing = list.FindIndex(t => t.TabId == tab.TabId);
-        if (existing >= 0) list[existing] = tab;
-        else               list.Add(tab);
+        lock (gate)
+        {
+            var list = tabsByUser.GetOrAdd(userId, _ => []);
+            var existing = list.FindIndex(t => t.TabId == tab.TabId);
+            if (existing >= 0) list[existing] = tab;
+            else               list.Add(tab);
+        }
     }
 
     public WorkspaceTab Create(string userId, string name)
@@ -100,10 +121,15 @@ public sealed class WorkspaceManager
     public bool Delete(string userId, string tabId)
     {
         var ok = store.Delete(userId, tabId);
-        if (tabsByUser.TryGetValue(userId, out var list))
+        // Same gate as Save/LoadForUser — removing from the shared List while
+        // another thread sorts/mutates it under the lock is a torn-state race.
+        lock (gate)
         {
-            var tab = list.FirstOrDefault(t => t.TabId == tabId);
-            if (tab != null) list.Remove(tab);
+            if (tabsByUser.TryGetValue(userId, out var list))
+            {
+                var tab = list.FirstOrDefault(t => t.TabId == tabId);
+                if (tab != null) list.Remove(tab);
+            }
         }
         return ok;
     }
@@ -130,21 +156,24 @@ public sealed class WorkspaceManager
     /// <summary>Loads the legacy global bucket. Single-user / CLI fallback.</summary>
     public void LoadAll()
     {
-        var list = store.Load(GlobalBucket).ToList();
-        list.Sort((a, b) => a.DisplayOrder.CompareTo(b.DisplayOrder));
-
-        if (list.Count == 0)
+        lock (gate)
         {
-            var def = new WorkspaceTab
-            {
-                Name = "Default",
-                DisplayOrder = 0,
-            };
-            list.Add(def);
-            store.Save(GlobalBucket, def);
-        }
+            var list = store.Load(GlobalBucket).ToList();
+            list.Sort((a, b) => a.DisplayOrder.CompareTo(b.DisplayOrder));
 
-        tabsByUser[GlobalBucket] = list;
+            if (list.Count == 0)
+            {
+                var def = new WorkspaceTab
+                {
+                    Name = "Default",
+                    DisplayOrder = 0,
+                };
+                list.Add(def);
+                store.Save(GlobalBucket, def);
+            }
+
+            tabsByUser[GlobalBucket] = list;
+        }
     }
 
     public void Save(WorkspaceTab tab) => Save(GlobalBucket, tab);

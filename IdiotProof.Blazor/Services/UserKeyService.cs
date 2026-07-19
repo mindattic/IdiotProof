@@ -1,13 +1,17 @@
 using IdiotProof.Blazor.Data;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace IdiotProof.Blazor.Services;
 
 /// <summary>
 /// Loads and saves per-user API keys, encrypting sensitive fields with IDataProtector.
 /// </summary>
-public sealed class UserKeyService(IDbContextFactory<AppDbContext> dbFactory, IDataProtectionProvider dpProvider)
+public sealed class UserKeyService(
+    IDbContextFactory<AppDbContext> dbFactory,
+    IDataProtectionProvider dpProvider,
+    ILogger<UserKeyService> logger)
 {
     private readonly IDataProtector protector = dpProvider.CreateProtector("IdiotProof.UserApiKeys.v1");
 
@@ -72,10 +76,10 @@ public sealed class UserKeyService(IDbContextFactory<AppDbContext> dbFactory, ID
     {
         Id                 = k.Id,
         UserId             = k.UserId,
-        AlpacaApiKeyId     = Unprotect(k.AlpacaApiKeyId),
-        AlpacaApiSecretKey = Unprotect(k.AlpacaApiSecretKey),
+        AlpacaApiKeyId     = Unprotect(k.AlpacaApiKeyId, k.UserId, nameof(k.AlpacaApiKeyId)),
+        AlpacaApiSecretKey = Unprotect(k.AlpacaApiSecretKey, k.UserId, nameof(k.AlpacaApiSecretKey)),
         AlpacaIsPaper      = k.AlpacaIsPaper,
-        ClaudeApiKey       = Unprotect(k.ClaudeApiKey),
+        ClaudeApiKey       = Unprotect(k.ClaudeApiKey, k.UserId, nameof(k.ClaudeApiKey)),
         LlmVotingEnabled   = k.LlmVotingEnabled,
         ClaudeModel        = k.ClaudeModel,
         DefaultBroker      = k.DefaultBroker,
@@ -85,10 +89,25 @@ public sealed class UserKeyService(IDbContextFactory<AppDbContext> dbFactory, ID
     private string? Protect(string? value) =>
         string.IsNullOrEmpty(value) ? value : protector.Protect(value);
 
-    private string? Unprotect(string? value)
+    private string? Unprotect(string? value, Guid userId, string field)
     {
         if (string.IsNullOrEmpty(value)) return value;
         try { return protector.Unprotect(value); }
-        catch { return null; }
+        catch (Exception ex)
+        {
+            // A stored key that no longer decrypts is a routing hazard, not a
+            // cosmetic blank: the UI renders an empty field (looks like
+            // "never configured") while UserBrokerResolver silently falls
+            // back to the global broker — a user who thinks live trading
+            // routes to THEIR Alpaca account is trading a different one. The
+            // usual cause is a DataProtection key-ring mismatch between the
+            // Blazor host and the Monitor (DataProtection:KeyRingPath must
+            // point both processes at the same directory).
+            logger.LogError(ex,
+                "Failed to decrypt {Field} for user {UserId} — DataProtection key-ring mismatch? " +
+                "Broker routing will fall back to the global default until the key is re-entered.",
+                field, userId);
+            return null;
+        }
     }
 }

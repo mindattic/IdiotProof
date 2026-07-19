@@ -5,7 +5,7 @@ code: IP
 layer: stories
 status: living
 updated: 2026-07-19
-counts: {done: 25, partial: 9, planned: 13, cut: 0}
+counts: {done: 27, partial: 10, planned: 13, cut: 0}
 ---
 
 # IdiotProof — User Stories
@@ -154,6 +154,42 @@ counts: {done: 25, partial: 9, planned: 13, cut: 0}
   evaluates/trades per database (standbys wait and take over on leader death). *Implemented
   ([IP-A9](AMENDMENTS.md#IP-A9)); lease observed acquiring in a live run 2026-07-18; an
   automated two-instance contention test remains ⬜.*
+- **IP-US-K10 🟡** As a trader, I paste a video transcript (or any natural language) into the
+  Gapper tab's "From a transcript" box and Claude — via Legion (HOUSE-LAW-4) — extracts gapper
+  candidates with per-ticker dial-ins, which I **review as cards and queue individually**
+  (nothing a transcript says can queue itself). Every model output is re-validated fail-closed:
+  partial overlays keep base-profile defaults, invalid symbols and impossible dial-ins are
+  skipped with warnings. *(Parse/validation contract verified by
+  `Parse_PartialOverlay_ChangesOnlyThoseFields`, `Parse_ProseWrappedJson_ExtractsTheArray`,
+  `Parse_InvalidSymbol_SkippedWithWarning_OthersSurvive`, `Parse_HallucinatedBadDialIns_FailClosed`,
+  `Parse_Garbage_ReturnsEmptyWithWarning`, `Parse_CaseInsensitivePropertyNames_StillApply`,
+  `SystemPrompt_CarriesTheLiveBaseDefaults` in `IdiotProof.Blazor.Tests/GapperInterpreterTests.cs`.
+  Live LLM round trip + Cypress spec remain ⬜.)*
+- **IP-US-K11 ✅** As a trader, what the console evaluates is a versioned, STRICT JSON canon of
+  my strategy — losslessly round-tripping composition and branching the text format drops —
+  and anything it can't FULLY understand is quarantined with a visible reason instead of
+  partially evaluated; a valid canon always beats stale script text, and only canon-less
+  legacy rows ever touch the tolerant text parser — implements [IP-LAW-8](BIBLE.md#IP-LAW-8).
+  *(verified by `RoundTrip_Gapper_PreservesEveryField`,
+  `RoundTrip_ComposedConditionsAndBranching_SurviveWhereTextDoesNot`,
+  `Deserialize_UnknownSchemaVersion_Throws`, `Deserialize_UnknownConditionType_Throws`,
+  `Deserialize_UnknownProperty_Throws`, `Deserialize_Garbage_Throws`,
+  `Loader_PresentButBrokenCanon_QuarantinesInsteadOfTextFallback`,
+  `Loader_LegacyRowWithoutCanon_FallsBackToTextParse`, `Loader_ValidCanon_WinsOverText` in
+  `IdiotProof.Strategies.Tests/StrategyJsonTests.cs`; quarantine also observed live against
+  the running console, [IP-A13](AMENDMENTS.md#IP-A13).)*
+- **IP-US-K12 ✅** As a trader, I replay my gapper dials over a past day (Alpaca bars when
+  keyed, deterministic Mock otherwise) and see exactly what WOULD have happened — entries via
+  the same condition walk and exits via the same `GapperExitEvaluator` the live console runs —
+  then examine the peak/drawdown, a giveback grid, and hindsight suggestions, and apply the
+  **tuned profile** back into my dials for a real trading day. No-entry days name the exact
+  blocking condition; missing previous close fails closed like live. *(verified by
+  `Replay_MockGapDay_EntersHoldsAndExitsBeforeTheBell`,
+  `Replay_GivebackGrid_CoversTheDial_AndBestIsAtLeastActual`,
+  `Replay_TunedProfile_IsValid_AndCarriesTheHindsightDials`,
+  `Replay_ImpossibleGapScreen_ReportsNoEntryWithTheBlocker`,
+  `Replay_NoPreviousClose_FailsClosedLikeLive`, `Replay_NoBars_ReportsCleanly` in
+  `IdiotProof.Strategies.Tests/GapperDayBacktesterTests.cs`; see [IP-A14](AMENDMENTS.md#IP-A14).)*
 
 ## Epic E — Authoring & generation (web)
 - **IP-US-E1 🟡** As a trader, I describe a setup in prose and Claude generates valid IdiotScript
