@@ -256,8 +256,12 @@ public static class StrategyBacktester
         }
         if (remaining == 0) return;
 
-        // Optional time exit (ExitTime is a time-of-day on the bar's UTC timeline).
-        if (def.ExitTime.HasValue && bar.StartUtc.TimeOfDay >= def.ExitTime.Value)
+        // Optional time exit. ExitTime is an ET (market-clock) time-of-day —
+        // SellBy("09:28") means 9:28 Eastern in the DSL, the Monitor, and
+        // GapperExitEvaluator alike. Comparing against the bar's raw UTC
+        // time-of-day fired the exit at 09:28 UTC (= 05:28 ET premarket!),
+        // silently mis-simulating every strategy that uses a time exit.
+        if (def.ExitTime.HasValue && Scripting.MarketTime.ToEasternTimeOfDay(bar.StartUtc) >= def.ExitTime.Value)
         {
             trade.Exits.Add(new BacktestFill
             {

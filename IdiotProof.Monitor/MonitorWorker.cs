@@ -129,6 +129,15 @@ public sealed class MonitorWorker(
             catch (Exception ex) { logger.LogDebug(ex, "Stream re-subscribe failed; reconnect loop will retry."); }
         }
 
+        // Evict cache entries for symbols with no active strategy — over weeks
+        // of queue/remove cycles these otherwise accumulate forever (240 bars
+        // per stale ticker) in a process designed never to restart.
+        var activeSet = new HashSet<string>(symbols, StringComparer.OrdinalIgnoreCase);
+        foreach (var stale in candleCache.Keys.Where(k => !activeSet.Contains(k)).ToList())
+            candleCache.Remove(stale);
+        foreach (var stale in previousCloseCache.Keys.Where(k => !activeSet.Contains(k)).ToList())
+            previousCloseCache.Remove(stale);
+
         foreach (var group in active.GroupBy(s => s.Symbol, StringComparer.OrdinalIgnoreCase))
         {
             var symbol = group.Key.ToUpperInvariant();
@@ -197,9 +206,16 @@ public sealed class MonitorWorker(
     }
 
     /// <summary>
-    /// Appends a synthetic zero-volume candle from the freshest streamed trade
-    /// so exits react to the live price between minute bars. Never mutates the
-    /// cache — the synthetic bar exists only for this evaluation.
+    /// Appends a synthetic candle from the freshest streamed trade so exits
+    /// react to the live price between minute bars. Never mutates the cache —
+    /// the synthetic bar exists only for this evaluation.
+    ///
+    /// Volume is carried forward from the last real bar rather than zeroed:
+    /// IndicatorSnapshotBuilder reads Volume off whichever candle is last in
+    /// the list, and a zero there drove VolumeRatio to 0 the instant this
+    /// synthetic tick became "current" — spuriously failing IsVolumeAbove
+    /// (and every gapper's volume screen) right when live data should make
+    /// evaluation MORE accurate, not less.
     /// </summary>
     private IReadOnlyList<Candle> AppendLiveTick(string symbol, List<Candle> candles)
     {
@@ -217,7 +233,7 @@ public sealed class MonitorWorker(
                 EndUtc = lastTrade.TimestampUtc,
                 Open = lastTrade.Price, High = lastTrade.Price,
                 Low = lastTrade.Price, Close = lastTrade.Price,
-                Volume = 0,
+                Volume = lastBar.Volume,
                 Note = "live-tick",
             }
         };
@@ -322,10 +338,19 @@ public sealed class MonitorWorker(
         CancellationToken ct)
     {
         var entryPrice = (decimal)snapshot.Price;
+        var isShort = def.Direction == TradeDirection.Short;
+
+        // Stop sits on the side that makes it a stop: below entry for a long,
+        // above entry for a short. Using the long-only formula for a short
+        // strategy placed the "stop" below entry — RiskGuardian correctly
+        // rejects that as a wrong-side stop, so every short candidate used to
+        // be silently blocked before it ever reached the "signal-only" path.
         var stopPrice = def.StopLossPrice is { } sl
             ? (decimal)sl
             : def.StopLossPercent is { } slPct
-                ? entryPrice * (1 - (decimal)slPct / 100m)
+                ? isShort
+                    ? entryPrice * (1 + (decimal)slPct / 100m)
+                    : entryPrice * (1 - (decimal)slPct / 100m)
                 : entryPrice; // Guardian rejects stopless setups — surfaced in audit.
 
         var quantity = def.Quantity > 0
@@ -374,7 +399,9 @@ public sealed class MonitorWorker(
             StopLoss        = stopPrice,
             TakeProfit      = signal.Targets.Count > 0
                 ? signal.Targets[0]
-                : entryPrice + (entryPrice - stopPrice),
+                : isShort
+                    ? entryPrice - (stopPrice - entryPrice)
+                    : entryPrice + (entryPrice - stopPrice),
             Quantity        = quantity,
             ConfidenceScore = 0,
             Rationale       = signal.Reason,
@@ -392,9 +419,15 @@ public sealed class MonitorWorker(
 
         // Shorts are signal-only until short position management ships — the
         // exit brain (peak/giveback math) is long-shaped today.
-        if (def.Direction != TradeDirection.Long)
+        if (isShort)
         {
             await strategyRepo.RecordFiredAsync(stored.Id, ct);
+            // Stamp the same day-guard a real fill would (PositionQty stays 0
+            // — no position exists). Without this, a qualifying short
+            // candidate re-fires and re-audit-logs every tick indefinitely
+            // since nothing else marks "already signaled today" for a
+            // no-order path.
+            await strategyRepo.RecordEntryFillAsync(stored.Id, 0, entryPrice, DateTime.UtcNow, ct);
             await auditLogRepo.LogAsync("signal",
                 $"[{stored.Title}] {stored.Symbol} SHORT signal recorded (order placement for shorts not yet enabled)",
                 userId: stored.OwnerUserId, ct: ct);

@@ -114,6 +114,8 @@ public class GapperTests
         Assert.Multiple(() =>
         {
             Assert.That(parsed.Symbol, Is.EqualTo("ABCD"));
+            Assert.That(parsed.Name, Is.EqualTo("ABCD Gapper — Test"),
+                "Name() must survive parsing (was silently dropped — no parser case)");
             Assert.That(parsed.Session, Is.EqualTo(TradingSession.Premarket), "Session() must survive parsing");
             Assert.That(labels, Does.Contain("RequireEntryWindow(\"04:00\", \"09:00\")"));
             Assert.That(labels, Does.Contain("IsGapBetween(5, 20)"));
@@ -151,6 +153,17 @@ public class GapperTests
             Assert.That(problems, Has.Some.Contains("Sell-by"));
         });
         Assert.That(() => GapperScriptFactory.ToScript("XYZ", p), Throws.ArgumentException);
+    }
+
+    [Test]
+    public void GapperProfile_Validate_RejectsArmTimeAtOrAfterSellBy()
+    {
+        // Arm 09:28 / sell-by 09:28: the rollover exit can never fire before
+        // the hard flatten — the user dialed a dead momentum exit.
+        var p = Profile();
+        p.ArmExitAtEt = "09:28";
+        p.SellByEt = "09:28";
+        Assert.That(p.Validate(), Has.Some.Contains("Arm-exit time must be before"));
     }
 
     // ── Momentum-rollover exit ──────────────────────────────────────────

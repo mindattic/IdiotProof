@@ -87,14 +87,7 @@ public sealed class RiskGuardian
     public RiskGuardianResult ValidateTrade(TradeSetup setup)
     {
         var result = new RiskGuardianResult();
-
-        // Reset daily loss when the US equity trading day rolls over (in ET, not server local time).
-        var today = CurrentTradingDate();
-        if (today > lastResetDate)
-        {
-            dailyLoss = 0m;
-            lastResetDate = today;
-        }
+        ResetDailyLossIfNewTradingDay();
 
         // === CRITICAL CHECKS - These BLOCK the trade ===
 
@@ -215,13 +208,30 @@ public sealed class RiskGuardian
     }
 
     /// <summary>
-    /// Records a completed trade for daily tracking.
+    /// Records a completed trade for daily tracking. Rolls the daily-loss
+    /// counter over first — without this, an exit that lands before this
+    /// Guardian instance's first <see cref="ValidateTrade"/> call of the new
+    /// trading day (e.g. a position held overnight and closed before any new
+    /// entry is evaluated) added straight onto yesterday's stale total,
+    /// letting a prior day's losses falsely trip today's circuit breaker.
     /// </summary>
     public void RecordTradePnL(decimal pnl)
     {
+        ResetDailyLossIfNewTradingDay();
         if (pnl < 0m)
         {
             dailyLoss += Math.Abs(pnl);
+        }
+    }
+
+    /// <summary>Resets the daily-loss counter when the US equity trading day rolls over (ET, not server local time).</summary>
+    private void ResetDailyLossIfNewTradingDay()
+    {
+        var today = CurrentTradingDate();
+        if (today > lastResetDate)
+        {
+            dailyLoss = 0m;
+            lastResetDate = today;
         }
     }
 

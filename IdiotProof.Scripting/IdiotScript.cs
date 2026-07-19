@@ -961,11 +961,13 @@ public sealed class IndicatorCondition(IndicatorType type, double? parameter = n
             _                                  => $"Is{Type}"
         };
 
-        return (Parameter.HasValue, Parameter2.HasValue) switch
+        // Pattern-match the values out directly — the tuple-of-HasValue switch
+        // couldn't prove non-null to the compiler (3× CS8629).
+        return (Parameter, Parameter2) switch
         {
-            (true, true)  => $"{verb}({Fmt(Parameter.Value)}, {Fmt(Parameter2.Value)})",
-            (true, false) => $"{verb}({Fmt(Parameter.Value)})",
-            _             => $"{verb}()"
+            ({ } p1, { } p2) => $"{verb}({Fmt(p1)}, {Fmt(p2)})",
+            ({ } p1, null)   => $"{verb}({Fmt(p1)})",
+            _                => $"{verb}()"
         };
     }
 

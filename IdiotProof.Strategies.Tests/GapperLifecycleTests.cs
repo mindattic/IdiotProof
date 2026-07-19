@@ -102,6 +102,59 @@ public class GapperLifecycleTests
         });
     }
 
+    /// <summary>
+    /// Minimal daily-bar-only feed with a DISTINCT close per day, stamped at
+    /// UTC midnight (the convention many bar providers use for "1Day"
+    /// granularity). MockDataFeed's own daily bars are flat-valued, so they
+    /// can't reveal an off-by-one-day bug in the date comparison; this fake
+    /// can, because picking the wrong day returns a visibly wrong value.
+    /// </summary>
+    private sealed class MidnightStampedDailyFeed : IMarketDataFeed
+    {
+        public string FeedName => "FakeDaily";
+
+        public async IAsyncEnumerable<Candle> GetHistoricalCandlesAsync(
+            string symbol, DateTime startUtc, DateTime endUtc, TimeSpan candleSize,
+            [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken ct = default)
+        {
+            await Task.Yield();
+            // 07-15 -> 10.00, 07-16 -> 20.00, 07-17 -> 30.00 (today, must be excluded).
+            var closes = new (DateTime day, decimal close)[]
+            {
+                (new DateTime(2026, 7, 15, 0, 0, 0, DateTimeKind.Utc), 10.00m),
+                (new DateTime(2026, 7, 16, 0, 0, 0, DateTimeKind.Utc), 20.00m),
+                (new DateTime(2026, 7, 17, 0, 0, 0, DateTimeKind.Utc), 30.00m),
+            };
+            foreach (var (day, close) in closes)
+            {
+                if (day < startUtc || day >= endUtc) continue;
+                yield return new Candle { Symbol = symbol, StartUtc = day, EndUtc = day.AddDays(1), Open = close, High = close, Low = close, Close = close, Volume = 1000 };
+            }
+        }
+
+        public Task<LatestPrice?> GetLatestPriceAsync(string symbol, CancellationToken ct = default) =>
+            Task.FromResult<LatestPrice?>(null);
+    }
+
+    [Test]
+    public async Task GetPreviousCloseAsync_UtcMidnightStampedDailyBars_PicksYesterdayNotToday()
+    {
+        // "Now" = 05:00 ET on 07-17 (premarket) — a UTC-midnight-stamped bar
+        // for 07-17 converts to ~19:00-20:00 ET on 07-16 when run through the
+        // Eastern clock, which used to make the interface's date comparison
+        // (incorrectly) treat that bar as belonging to 07-16 and, worse,
+        // could let it overwrite 07-16's real close as "previous" once a
+        // same-shaped 07-17 bar iterated past it. Comparing raw UTC dates
+        // instead must correctly land on 07-16's close (20.00), not 07-17's
+        // still-forming value (30.00) and not 07-15's (10.00).
+        var feed = new MidnightStampedDailyFeed();
+        var nowUtc = new DateTime(2026, 7, 17, 9, 0, 0, DateTimeKind.Utc); // 05:00 ET
+
+        var previousClose = await ((IMarketDataFeed)feed).GetPreviousCloseAsync("TEST", nowUtc);
+
+        Assert.That(previousClose, Is.EqualTo(20.00m));
+    }
+
     [Test]
     public async Task MockGapDay_HardSellBy_FlattensEvenIfMomentumNeverRollsOver()
     {

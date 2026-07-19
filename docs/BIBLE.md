@@ -4,7 +4,7 @@ project: IdiotProof
 code: IP
 layer: bible
 status: living
-updated: 2026-07-18
+updated: 2026-07-19
 ---
 
 # IdiotProof — Project Bible
@@ -193,19 +193,22 @@ Build/test evidence (recorded 2026-07-18, .NET 10 SDK, `IdiotProof.slnx`):
 
 - **Build:** `dotnet build IdiotProof.slnx -c Debug` → **Build succeeded**, 0 errors, 3 nullability
   warnings (pre-existing CS8629 ×3 in `IdiotProof.Scripting/IdiotScript.cs`).
-- **Tests:** **all green, 115 passed / 0 failed** across the five solution test projects:
-  - `IdiotProof.Engine.Tests` — 22 passed (RiskGuardian gate + SupervisedLoop resilience).
+- **Tests:** **all green, 122 passed / 0 failed** across the five solution test projects
+  (build is **warning-free** as of IP-A11):
+  - `IdiotProof.Engine.Tests` — 24 passed (RiskGuardian gate + SupervisedLoop resilience +
+    `RecordTradePnL` day-rollover regression, IP-A10).
   - `IdiotProof.Indicators.Tests` — 18 passed (RSI/EMA/ATR/MACD/VWAP math + ADX Wilder-seed
     regression, `AdxTests`).
-  - `IdiotProof.Strategies.Tests` — 30 passed (DSL round-trip, backtester, gapper profile
-    factory + gap conditions + entry window + momentum-rollover exits, `GapperTests`; full
-    mock-gap-day lifecycle, `GapperLifecycleTests`).
+  - `IdiotProof.Strategies.Tests` — 33 passed (DSL round-trip incl. Name survival, backtester
+    incl. ET time-exit regression, gapper profile factory + gap conditions + entry window +
+    momentum-rollover exits + arm/sell-by cross-validation, `GapperTests`; full mock-gap-day
+    lifecycle + previous-close date-comparison regression, `GapperLifecycleTests`).
   - `IdiotProof.Brokers.Tests` — 13 passed (BrokerRouter Sandbox default + sandbox fill
     simulation + Alpaca extended-hours contract).
-  - `IdiotProof.Blazor.Tests` — 32 passed (StrategyScriptGenerator verb-catalog reflection +
-    LlmVotingService consensus logic + JSON vote parsing + ConditionProgressRepository
-    upsert/read integration tests against SQL Server LocalDB + per-user broker routing rule,
-    `UserBrokerResolverTests`).
+  - `IdiotProof.Blazor.Tests` — 34 passed (StrategyScriptGenerator verb-catalog reflection +
+    LlmVotingService consensus logic + JSON vote parsing incl. fail-closed-to-Abstain
+    regressions (IP-A11) + ConditionProgressRepository upsert/read integration tests against
+    SQL Server LocalDB + per-user broker routing rule, `UserBrokerResolverTests`).
 
 Proven-working subsystems: the Risk Guardian gate, the SupervisedLoop fault-tolerance, the core
 indicator math, IdiotScript build/round-trip, the DSL backtester, BrokerRouter Sandbox-first

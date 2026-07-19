@@ -41,6 +41,14 @@ public static class ScriptParser
         switch (name.ToLowerInvariant())
         {
             // Setup
+            case "name":
+                // Serializer always emits Name("...") but there was no parser
+                // case — the strategy's display name was silently dropped on
+                // every round trip. Use the raw arg (not the comma-split
+                // tokens) so names containing commas survive intact.
+                var displayName = args.Trim().Trim('"').Trim();
+                if (displayName.Length > 0) b.Name(displayName);
+                break;
             case "session":
                 // Accept Session(IS.PREMARKET), Session(Premarket), Session("Premarket").
                 var sessionToken = strs.Count >= 1 ? strs[0] : "";

@@ -281,9 +281,16 @@
         try
         {
             var day = DateOnly.FromDateTime(selectedDate);
-            // Regular session window in UTC (≈ 09:30–16:00 ET).
-            var start = new DateTime(day.Year, day.Month, day.Day, 13, 30, 0, DateTimeKind.Utc);
-            var end   = new DateTime(day.Year, day.Month, day.Day, 20, 0, 0, DateTimeKind.Utc);
+            // Regular session 09:30–16:00 ET, converted through the real
+            // Eastern zone. The old hardcoded 13:30–20:00 UTC was only correct
+            // during EDT — a winter backtest replayed 08:30–15:00 ET, pulling
+            // in an hour of premarket and dropping the entire final hour
+            // (including the close) of the session.
+            var eastern = MarketTime.Eastern;
+            var start = TimeZoneInfo.ConvertTimeToUtc(
+                DateTime.SpecifyKind(day.ToDateTime(new TimeOnly(9, 30)), DateTimeKind.Unspecified), eastern);
+            var end = TimeZoneInfo.ConvertTimeToUtc(
+                DateTime.SpecifyKind(day.ToDateTime(new TimeOnly(16, 0)), DateTimeKind.Unspecified), eastern);
 
             // Data source priority: Alpaca (existing credentials) → Polygon → Mock
             IMarketDataFeed feed;

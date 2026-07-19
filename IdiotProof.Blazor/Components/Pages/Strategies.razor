@@ -9,7 +9,6 @@
 @attribute [Authorize]
 @inject StrategyRepository StrategyRepo
 @inject ConditionProgressRepository ProgressRepo
-@inject UserPreferencesService PrefsService
 @inject NavigationManager Nav
 @inject AuthenticationStateProvider AuthState
 @inject IJSRuntime JS
@@ -286,30 +285,13 @@
         s.IsActive = isActive;
     }
 
-    /// <summary>
-    /// Registers the strategy as an open tab (no-op if already open) before
-    /// navigating to /builder. The BuilderTabBar reads from the same list, so
-    /// switching back to /strategies and then back to the builder shows the
-    /// same chips. Without this step, every Edit click would re-add a chip
-    /// since the BuilderTabBar registers on first paint of /builder.
-    /// </summary>
-    private async Task EditStrategy(Guid id)
-    {
-        if (userId.HasValue)
-        {
-            await PrefsService.AddOpenTabAsync(userId.Value, id.ToString());
-        }
-        Nav.NavigateTo($"/builder/{id}");
-    }
+    // Navigation only — the old AddOpenTabAsync bookkeeping wrote to a CSV
+    // column nothing ever read (the BuilderTabBar it fed was never built);
+    // removed per IP-A10. The /builder page derives its state entirely from
+    // the route parameter.
+    private void EditStrategy(Guid id) => Nav.NavigateTo($"/builder/{id}");
 
-    private async Task CreateNew()
-    {
-        if (userId.HasValue)
-        {
-            await PrefsService.AddOpenTabAsync(userId.Value, "new");
-        }
-        Nav.NavigateTo("/builder");
-    }
+    private void CreateNew() => Nav.NavigateTo("/builder");
 
     private void ConfirmDelete(Strategy s) => deleteCandidate = s;
 
@@ -328,11 +310,11 @@
         if (string.IsNullOrWhiteSpace(text)) return null;
         try
         {
-            var tickerMatch = System.Text.RegularExpressions.Regex.Match(text, "Ticker\\(\\s*\\\"([^\\\"]+)\\\"");
-            if (!tickerMatch.Success) return null;
-            // Use a no-op build of just the ticker — the renderer's job is visual
-            // not semantic. Real parser is on the roadmap (Roslyn-based).
-            return Stock.Ticker(tickerMatch.Groups[1].Value).Build();
+            // Full best-effort parse so the expanded row actually previews the
+            // strategy's conditions/stops/targets. The old code built a bare
+            // Ticker(...) definition, so every preview rendered as an empty
+            // shell regardless of what the script contained.
+            return ScriptParser.ParseScript(text);
         }
         catch { return null; }
     }

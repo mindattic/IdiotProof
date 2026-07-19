@@ -32,8 +32,19 @@ public sealed class UserPreferencesService(IDbContextFactory<AppDbContext> dbFac
             UpdatedUtc        = DateTime.UtcNow,
         };
         db.UserPreferences.Add(row);
-        await db.SaveChangesAsync(ct);
-        return row;
+        try
+        {
+            await db.SaveChangesAsync(ct);
+            return row;
+        }
+        catch (DbUpdateException)
+        {
+            // Two concurrent first requests for a brand-new user can both see
+            // no row and both insert; UserId is the PK so the loser lands
+            // here. Return the winner's row instead of surfacing the crash.
+            db.Entry(row).State = EntityState.Detached;
+            return await db.UserPreferences.FirstAsync(p => p.UserId == userId, ct);
+        }
     }
 
     public async Task SaveAsync(UserPreferences prefs, CancellationToken ct = default)
@@ -59,45 +70,11 @@ public sealed class UserPreferencesService(IDbContextFactory<AppDbContext> dbFac
         await SaveAsync(p, ct);
     }
 
-    /// <summary>
-    /// Adds <paramref name="tabKey"/> to the OpenStrategyTabs list if it's not
-    /// already there. Tab keys are either a strategy guid (for an existing
-    /// strategy being edited) or the literal string "new" for a blank draft.
-    /// CSV-encoded; preserves order so the tab bar renders left-to-right in
-    /// open order.
-    /// </summary>
-    public async Task<List<string>> AddOpenTabAsync(Guid userId, string tabKey, CancellationToken ct = default)
-    {
-        var prefs = await GetOrCreateAsync(userId, ct);
-        var tabs = ParseTabs(prefs.OpenStrategyTabs);
-        if (!tabs.Contains(tabKey)) tabs.Add(tabKey);
-        prefs.OpenStrategyTabs = string.Join(",", tabs);
-        await SaveAsync(prefs, ct);
-        return tabs;
-    }
-
-    /// <summary>Removes a tab from the list. No-op when the key isn't open.</summary>
-    public async Task<List<string>> RemoveOpenTabAsync(Guid userId, string tabKey, CancellationToken ct = default)
-    {
-        var prefs = await GetOrCreateAsync(userId, ct);
-        var tabs = ParseTabs(prefs.OpenStrategyTabs);
-        tabs.RemoveAll(t => t == tabKey);
-        prefs.OpenStrategyTabs = string.Join(",", tabs);
-        await SaveAsync(prefs, ct);
-        return tabs;
-    }
-
-    /// <summary>Returns the open tabs as a typed list. Empty when none.</summary>
-    public async Task<List<string>> GetOpenTabsAsync(Guid userId, CancellationToken ct = default)
-    {
-        var prefs = await GetOrCreateAsync(userId, ct);
-        return ParseTabs(prefs.OpenStrategyTabs);
-    }
-
-    private static List<string> ParseTabs(string csv) =>
-        string.IsNullOrWhiteSpace(csv)
-            ? new List<string>()
-            : csv.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToList();
+    // NOTE (IP-A10): the AddOpenTabAsync/RemoveOpenTabAsync/GetOpenTabsAsync
+    // trio was removed — it fed OpenStrategyTabs for a "BuilderTabBar" that
+    // was never built, so the CSV column grew forever with nothing ever
+    // reading it back (2026-07-18 audit, H6). The column itself is scheduled
+    // for removal with the next schema migration (BIBLE §7).
 
     /// <summary>
     /// Updates the risk-guardian fields. Validates the basic sanity invariants

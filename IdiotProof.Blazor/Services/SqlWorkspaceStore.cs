@@ -58,7 +58,11 @@ internal sealed class SqlWorkspaceStore : IWorkspaceStore
     {
         if (!Guid.TryParse(userId, out var uid)) return;
         using var db = dbFactory.CreateDbContext();
-        var existing = db.Workspaces.Find(tab.TabId);
+        // Scope the lookup to the OWNER, matching Delete. A bare primary-key
+        // Find could match ANOTHER user's row — TabId is only 8 hex chars
+        // (32 bits), so cross-user collisions are plausible, and the update
+        // branch would silently overwrite the other user's workspace body.
+        var existing = db.Workspaces.FirstOrDefault(w => w.WorkspaceId == tab.TabId && w.OwnerUserId == uid);
         var json = JsonSerializer.Serialize(tab, jsonOpts);
         var now = DateTime.UtcNow;
 

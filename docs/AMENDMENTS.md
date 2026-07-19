@@ -9,6 +9,124 @@ updated: 2026-06-09
 
 # IdiotProof — Amendments (append-only; amendment wins over the bible)
 
+## IP-A11 — Second find-10-fix-10 pass: sixteen more defects across the wider codebase {#IP-A11}
+**What changed.** (2026-07-19, second self-review round — this one swept beyond the fresh
+IP-A8/A9 code into the DSL round trip, backtester, UI pages, and long-run resource behavior.)
+
+1. **Backtester time exits fired on the UTC clock.** `StrategyBacktester.ManageOpenBar`
+   compared `ExitTime` against `bar.StartUtc.TimeOfDay`, but `SellBy("09:28")` is Eastern
+   everywhere else (DSL, Monitor, `GapperExitEvaluator`) — a backtested gapper time-exited at
+   09:28 UTC = 05:28 ET, hours early, silently corrupting every backtest using a time exit.
+   Now compares via `MarketTime.ToEasternTimeOfDay`. *(test: `TimeExit_FiresOnEasternClock_NotUtc`.)*
+2. **`ScriptParser` silently dropped `Name(...)`** — the serializer always emits it; there was
+   no parser case, so a strategy's display name was lost on every round trip. *(asserted in
+   `GapperScriptFactory_Script_SurvivesParserRoundTrip`.)*
+3. **`UserBrokerResolver` still leaked the old client on the user→global transition** — the
+   IP-A10 disposal fix only covered key rotation; a user who UN-configured their Alpaca keys
+   left their old client's `HttpClient` undisposed. Disposal now centralized for both paths.
+4. **A malformed websocket frame tore down the Alpaca stream.** `HandleMessage` let JSON/shape
+   exceptions escape into the receive loop → full disconnect/reconnect cycle (seconds of lost
+   coverage) over a frame that would have been ignored anyway. Frames are now individually
+   fault-isolated.
+5. **`GapperProfile.Validate` accepted arm-time ≥ sell-by** — a dial-in whose momentum-rollover
+   exit could never fire (the hard flatten always preempts it). Cross-field check added.
+   *(test: `GapperProfile_Validate_RejectsArmTimeAtOrAfterSellBy`.)*
+6. **The Strategies page preview rendered an empty shell for every strategy** —
+   `TryParse` built a bare `Ticker()` definition instead of parsing the script, so the
+   expand-row "preview" showed no conditions/stops/targets. Now uses `ScriptParser.ParseScript`.
+7. **Monitor caches grew forever** — `candleCache`/`previousCloseCache` never evicted symbols
+   with no active strategy; weeks of queue/remove cycles accumulate 240 bars per stale ticker
+   in a process designed never to restart. Stale entries evicted each tick.
+8. **Write-only `OpenStrategyTabs` state removed** (audit H6 resolved): the
+   `AddOpenTabAsync`/`RemoveOpenTabAsync`/`GetOpenTabsAsync` trio fed a CSV column for a
+   `BuilderTabBar` that was never built — unbounded per-user growth, zero readers. Write path
+   deleted; column removal rides the next schema migration.
+9. **3× CS8629 in `IdiotScript.cs` eliminated** — the tuple-of-`HasValue` switch couldn't prove
+   non-null; rewritten as direct nullable patterns. Solution now builds **warning-free**.
+10. **CS8601 in `UserBrokerResolverTests` eliminated** — same warning-free goal.
+
+A parallel review agent surfaced six more, all verified and fixed in the same pass:
+
+11. **LLM votes failed OPEN to Approve.** `VoteDecision.Approve` is the enum's zero value, so a
+    vote whose `"decision"` key was missing — or cased `"Decision"` (the property lookup was
+    case-sensitive) — silently counted as an **approval** at the LLM gate. Now: `LlmVote.Decision`
+    initializes to Abstain and property lookups are case-insensitive. *(tests:
+    `ParseVoteJson_MissingDecisionKey_FailsClosedToAbstain`,
+    `ParseVoteJson_CapitalizedPropertyNames_StillParse`.)*
+12. **The API Keys page reset broker routing on every save AND the per-user Alpaca routing was
+    unreachable.** `SaveAll` rebuilt the whole `UserApiKeys` row without `DefaultBroker`/
+    `DefaultDataFeed` (stomping them to "Sandbox"/"Mock"), and no UI ever set
+    `DefaultBroker = "alpaca"` — making IP-A9's per-user routing permanently inert. The page now
+    has an explicit "Route my orders to this Alpaca account" toggle and preserves both fields.
+13. **The Backtest page hardcoded the EDT offset** (13:30–20:00 UTC as "09:30–16:00 ET") — a
+    winter backtest replayed 08:30–15:00 ET, pulling in an hour of premarket and dropping the
+    final hour including the close. Session bounds now convert through the real Eastern zone.
+14. **`PolygonDataFeed` swallowed HTTP errors and ignored pagination** — an auth failure or
+    rate-limit rendered as "0 bars / no triggers", and any window over 50,000 rows silently
+    truncated to the first page. Non-2xx now throws with status + body; `next_url` is followed.
+15. **`SqlWorkspaceStore.Save` skipped the ownership check `Delete` enforces** — a bare
+    primary-key lookup on an 8-hex-char TabId (32 bits; cross-user collisions plausible) could
+    silently overwrite another user's workspace body. Lookup now scoped to the owner.
+16. **First-visit race in `UserPreferencesService.GetOrCreateAsync`** — two concurrent first
+    requests both inserted; the loser threw an unhandled `DbUpdateException`. The loser now
+    detaches and returns the winner's row.
+
+**Why.** Session directive: second "find 10 fix 10" round.
+
+**Effect on canon.** No law changes. Indicator math (Stochastic, OBV, Bollinger, CCI,
+Williams %R) was line-checked in this round and found correct — the ADX Wilder-seed defect
+fixed in IP-A8 was the only real math bug. §6 verified-state counts updated.
+
+## IP-A10 — Seven bugs found and fixed in the IP-A8/A9 pipeline {#IP-A10}
+**What changed.** (2026-07-18/19, self-review pass.) Line-by-line re-audit of the Monitor
+pipeline and per-user broker routing shipped in IP-A8/A9 surfaced seven confirmed defects,
+all now fixed:
+
+1. **`UserBrokerResolver` leaked `HttpClient`s on key rotation.** When a user's Alpaca keys
+   changed, the old `AlpacaBrokerClient` was silently dropped from the cache without disposing
+   its `HttpClient` — a slow socket leak over a console process's multi-week lifetime. Now
+   disposed on replacement.
+2. **`MonitorWorker.FireAsync` computed stop/target as always-long**, placing a short
+   strategy's "stop" below entry regardless of direction. `RiskGuardian` correctly rejects a
+   wrong-side stop — meaning every short-direction strategy was silently blocked before it
+   ever reached the "signal recorded" path. Stop/target are now direction-aware.
+3. **The short-signal path had no per-day dedupe.** Once conditions matched, a qualifying
+   short candidate re-fired and re-wrote an audit-log row every tick (every 5s) indefinitely.
+   Fixed by stamping the same `EntryFilledUtc` day-guard a real fill uses (with `PositionQty=0`,
+   since no order is placed for shorts yet).
+4. **The Gapper tab's "max 3 active gappers" cap was client-side only.** `ActiveGapperCount`
+   was computed from a list that's only as fresh as the last 5s poll; two browser tabs (or two
+   rapid clicks) could both pass the check and exceed the cap. `QueueGapper`/`ToggleActive`
+   now re-query SQL for the true active count immediately before activating.
+5. **`RiskGuardian.RecordTradePnL` never rolled the daily-loss counter over.** Only
+   `ValidateTrade` did. An exit landing before any `ValidateTrade` call on a new trading day
+   (a position held overnight, closed before a new entry is evaluated) added its loss onto a
+   stale prior-day total — able to falsely trip today's circuit breaker with yesterday's
+   numbers. `RecordTradePnL` now shares the same rollover check.
+6. **The synthetic "live tick" candle zeroed volume.** `AppendLiveTick` (added in IP-A9 to make
+   exits reactive between minute bars) stamped the synthetic candle's `Volume = 0`; when it was
+   the newest bar, `IndicatorSnapshotBuilder`'s `VolumeRatio` computation went to zero,
+   spuriously failing `IsVolumeAbove` — and therefore every gapper's volume screen — exactly
+   when live data should sharpen evaluation, not break it. Volume is now carried forward from
+   the last real bar.
+7. **`IMarketDataFeed.GetPreviousCloseAsync`'s date comparison ran daily-bar timestamps
+   through an Eastern-time conversion**, which shifts a UTC-midnight-stamped bar back to the
+   *prior* ET calendar date (UTC midnight ≈ 7-8PM ET the day before) — a systematic day-shift
+   in the "which day is this bar" comparison. Bar dates now compare on their raw UTC date (a
+   "1Day" bar already denotes one whole session); only "now" still converts through ET, since
+   that's a genuine instant-in-time question.
+
+**Why.** Session directive: "find 10 fix 10" — a self-audit pass on the money-path code that
+had just shipped, before any of it saw live capital.
+
+**Effect on canon.** No law changes; these are defect fixes within the IP-A8/A9 design, not
+architecture changes. New regression tests: `RecordTradePnL_AsFirstEverCall_...`,
+`RecordTradePnL_ThenValidateTrade_SameDay_...` (`IdiotProof.Engine.Tests/RiskGuardianTests.cs`),
+`GetPreviousCloseAsync_UtcMidnightStampedDailyBars_PicksYesterdayNotToday`
+(`IdiotProof.Strategies.Tests/GapperLifecycleTests.cs`). Items 2/3/6 have no isolated unit test
+(they live in `MonitorWorker`'s private methods, exercised only by live console runs today) —
+recorded as a test-coverage gap, not silently left unverified.
+
 ## IP-A9 — Production hardening: per-user broker routing, service hosting, leader lease, DP key-ring readiness {#IP-A9}
 **What changed.** (2026-07-18, follow-on to [IP-A8](#IP-A8).)
 

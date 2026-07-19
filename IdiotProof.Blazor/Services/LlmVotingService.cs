@@ -23,7 +23,15 @@ public sealed class LlmVote
 {
     public string PersonaName { get; set; } = "";
     public string ModelId { get; set; } = "";
-    public VoteDecision Decision { get; set; }
+
+    /// <summary>
+    /// Defaults to Abstain, NOT the enum's zero value (Approve): a vote whose
+    /// decision was never parsed must never count as an approval on a
+    /// money-movement path (IP-A11 — a response missing/mis-casing the
+    /// "decision" key silently became Approve).
+    /// </summary>
+    public VoteDecision Decision { get; set; } = VoteDecision.Abstain;
+
     public decimal Confidence { get; set; }
     public string Reasoning { get; set; } = "";
     public TradeDirection? SuggestedDirection { get; set; }
@@ -264,6 +272,21 @@ public sealed class LlmVotingService
         return sb.ToString();
     }
 
+    private static bool TryGetPropertyCI(JsonElement root, string name, out JsonElement value)
+    {
+        if (root.TryGetProperty(name, out value)) return true;
+        foreach (var prop in root.EnumerateObject())
+        {
+            if (string.Equals(prop.Name, name, StringComparison.OrdinalIgnoreCase))
+            {
+                value = prop.Value;
+                return true;
+            }
+        }
+        value = default;
+        return false;
+    }
+
     internal static LlmVote? ParseVoteJson(string content)
     {
         try
@@ -274,9 +297,12 @@ public sealed class LlmVotingService
 
             using var doc = JsonDocument.Parse(content[start..(end + 1)]);
             var root = doc.RootElement;
-            var vote = new LlmVote();
+            var vote = new LlmVote(); // Decision starts at Abstain (fail closed)
 
-            if (root.TryGetProperty("decision", out var d))
+            // Case-insensitive lookups: JsonElement.TryGetProperty is
+            // case-SENSITIVE, and an LLM emitting "Decision" instead of
+            // "decision" used to leave the field untouched.
+            if (TryGetPropertyCI(root, "decision", out var d))
                 vote.Decision = d.GetString()?.ToLowerInvariant() switch
                 {
                     "approve" => VoteDecision.Approve,
@@ -284,13 +310,13 @@ public sealed class LlmVotingService
                     _ => VoteDecision.Abstain
                 };
 
-            if (root.TryGetProperty("confidence", out var c))
+            if (TryGetPropertyCI(root, "confidence", out var c))
                 vote.Confidence = c.TryGetDecimal(out var conf) ? conf : 0;
 
-            if (root.TryGetProperty("reasoning", out var r))
+            if (TryGetPropertyCI(root, "reasoning", out var r))
                 vote.Reasoning = r.GetString() ?? "";
 
-            if (root.TryGetProperty("direction", out var dir))
+            if (TryGetPropertyCI(root, "direction", out var dir))
                 vote.SuggestedDirection = dir.GetString()?.ToLowerInvariant() switch
                 {
                     "long" => TradeDirection.Long,

@@ -315,6 +315,21 @@
         }
     }
 
+    /// <summary>
+    /// Re-queries SQL for the caller's true active-gapper count. The in-memory
+    /// <see cref="gappers"/> list is only as fresh as the last poll (up to 5s
+    /// old) — a second browser tab, or two rapid clicks, could otherwise both
+    /// pass the client-side <see cref="ActiveGapperCount"/> check and exceed
+    /// the 3-gapper cap. This is the authoritative check right before the
+    /// write that actually flips a row active.
+    /// </summary>
+    private async Task<int> CountActiveGappersFromDbAsync()
+    {
+        if (userId is null) return 0;
+        var all = await StrategyRepo.GetAllForUserAsync(userId.Value);
+        return all.Count(s => s.IsActive && s.ScriptText.Contains("PeakGiveback(", StringComparison.OrdinalIgnoreCase));
+    }
+
     private async Task QueueGapper()
     {
         queueError = null;
@@ -324,6 +339,13 @@
         if (gappers.Any(g => g.IsActive && g.Symbol.Equals(symbol, StringComparison.OrdinalIgnoreCase)))
         {
             queueError = $"{symbol} already has an active gapper. Pause or remove it first.";
+            return;
+        }
+
+        if (await CountActiveGappersFromDbAsync() >= MaxGappers)
+        {
+            queueError = "3 gappers already active — pause or remove one first.";
+            await RefreshAsync();
             return;
         }
 
@@ -347,9 +369,10 @@
 
     private async Task ToggleActive(Strategy s, bool isActive)
     {
-        if (isActive && !s.IsActive && ActiveGapperCount >= MaxGappers)
+        if (isActive && !s.IsActive && await CountActiveGappersFromDbAsync() >= MaxGappers)
         {
             queueError = "3 gappers already active — pause one first.";
+            await RefreshAsync();
             return;
         }
         await StrategyRepo.SetActiveAsync(s.Id, isActive);

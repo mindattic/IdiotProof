@@ -62,27 +62,48 @@ public sealed class PolygonDataFeed : IMarketDataFeed, IAsyncDisposable
         var to = ((DateTimeOffset)DateTime.SpecifyKind(endUtc, DateTimeKind.Utc)).ToUnixTimeMilliseconds();
         var (multiplier, timespan) = ToPolygonSpan(candleSize);
 
+        // Follow next_url pagination: the aggregates endpoint caps each page
+        // (limit=50000); without following next_url a larger window silently
+        // truncated to the first page. Non-2xx responses now throw with the
+        // status + body — the old silent `yield break` made an auth failure or
+        // rate-limit indistinguishable from "no data that day".
         var url = $"v2/aggs/ticker/{symbol}/range/{multiplier}/{timespan}/{from}/{to}?adjusted=true&sort=asc&limit=50000&apiKey={apiKey}";
-        using var response = await httpClient.GetAsync(url, ct).ConfigureAwait(false);
-        if (!response.IsSuccessStatusCode) yield break;
-
-        var json = await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
-        var data = JsonSerializer.Deserialize<PolygonAggsResponse>(json, JsonOptions);
-        if (data?.Results == null) yield break;
-
-        foreach (var r in data.Results)
+        while (url is not null)
         {
-            ct.ThrowIfCancellationRequested();
-            var start = DateTimeOffset.FromUnixTimeMilliseconds(r.T).UtcDateTime;
-            yield return new Candle
+            var (results, nextUrl) = await FetchPageAsync(url, symbol, ct).ConfigureAwait(false);
+            foreach (var r in results)
             {
-                Symbol = symbol,
-                StartUtc = start,
-                EndUtc = start + candleSize,
-                Open = r.O, High = r.H, Low = r.L, Close = r.C, Volume = r.V,
-                Note = "Polygon.io"
-            };
+                ct.ThrowIfCancellationRequested();
+                var start = DateTimeOffset.FromUnixTimeMilliseconds(r.T).UtcDateTime;
+                yield return new Candle
+                {
+                    Symbol = symbol,
+                    StartUtc = start,
+                    EndUtc = start + candleSize,
+                    Open = r.O, High = r.H, Low = r.L, Close = r.C, Volume = r.V,
+                    Note = "Polygon.io"
+                };
+            }
+            url = nextUrl;
         }
+    }
+
+    private async Task<(PolygonAgg[] Results, string? NextUrl)> FetchPageAsync(string url, string symbol, CancellationToken ct)
+    {
+        using var response = await httpClient.GetAsync(url, ct).ConfigureAwait(false);
+        var json = await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+        if (!response.IsSuccessStatusCode)
+            throw new HttpRequestException(
+                $"Polygon aggregates request failed for {symbol} ({(int)response.StatusCode} {response.StatusCode}): {(json.Length <= 300 ? json : json[..300] + "…")}");
+
+        var data = JsonSerializer.Deserialize<PolygonAggsResponse>(json, JsonOptions);
+
+        // next_url comes back without the apiKey; re-append it.
+        var next = data?.NextUrl;
+        if (!string.IsNullOrWhiteSpace(next) && !next.Contains("apiKey=", StringComparison.OrdinalIgnoreCase))
+            next += (next.Contains('?') ? "&" : "?") + "apiKey=" + apiKey;
+
+        return (data?.Results ?? [], string.IsNullOrWhiteSpace(next) ? null : next);
     }
 
     private static (int multiplier, string timespan) ToPolygonSpan(TimeSpan candleSize)
@@ -121,6 +142,9 @@ internal sealed class PolygonLastTradeResult
 internal sealed class PolygonAggsResponse
 {
     public PolygonAgg[]? Results { get; init; }
+
+    [System.Text.Json.Serialization.JsonPropertyName("next_url")]
+    public string? NextUrl { get; init; }
 }
 
 internal sealed class PolygonAgg

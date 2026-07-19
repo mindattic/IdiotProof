@@ -15,7 +15,7 @@ public sealed class UserBrokerResolverTests
     private static UserApiKeys Keys(string? broker, string? keyId, string? secret) => new()
     {
         UserId = Guid.NewGuid(),
-        DefaultBroker = broker,
+        DefaultBroker = broker!,
         AlpacaApiKeyId = keyId,
         AlpacaApiSecretKey = secret,
     };

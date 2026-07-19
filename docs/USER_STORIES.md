@@ -4,7 +4,7 @@ project: IdiotProof
 code: IP
 layer: stories
 status: living
-updated: 2026-07-18
+updated: 2026-07-19
 counts: {done: 25, partial: 9, planned: 13, cut: 0}
 ---
 
@@ -28,8 +28,13 @@ counts: {done: 25, partial: 9, planned: 13, cut: 0}
 - **IP-US-A5 ✅** As a trader, a trade risking too much of my account is blocked, so a single
   trade can't endanger the account. *(verified by `ValidateTrade_AccountRiskTooHigh_IsBlocked`.)*
 - **IP-US-A6 ✅** As a trader, once my daily loss limit is hit, further trades are blocked
-  (circuit breaker), so a bad day can't compound. *(verified by
-  `ValidateTrade_DailyLossAlreadyExceeded_IsBlocked`.)*
+  (circuit breaker), so a bad day can't compound — and a completed trade's loss counts toward
+  today's total even if it's the Guardian's very first interaction of the day (an exit with no
+  prior entry check that day). *(verified by `ValidateTrade_DailyLossAlreadyExceeded_IsBlocked`,
+  `RecordTradePnL_AsFirstEverCall_InitializesDailyLossWithoutValidateTrade`,
+  `RecordTradePnL_ThenValidateTrade_SameDay_ReflectsAccumulatedLoss` — the latter two added
+  [IP-A10](AMENDMENTS.md#IP-A10) after finding the loss-recording method skipped the
+  day-rollover check that only the trade-validation method ran.)*
 - **IP-US-A7 ✅** As a trader, a well-formed setup is approved (with a warning on poor R:R), so
   the guardian doesn't block good trades. *(verified by `ValidateTrade_WellFormedSetup_IsApproved`,
   `ValidateTrade_LowRiskRewardRatio_ApprovesWithWarning`.)*
@@ -98,9 +103,13 @@ counts: {done: 25, partial: 9, planned: 13, cut: 0}
   `GapperScriptFactory_Script_SurvivesParserRoundTrip`, `GapperScriptFactory_OpenEndedGap_EmitsIsGapUp`,
   `GapperProfile_Validate_CatchesBadDialIns` in `IdiotProof.Strategies.Tests/GapperTests.cs`.)*
 - **IP-US-K2 ✅** As a trader, gap conditions evaluate against the real previous close and fail
-  closed when it is unknown, so an uncomputable gap can never wave a trade through. *(verified by
-  `IsGapUp_FailsClosed_WithoutPreviousClose`, `IsGapUp_Passes_WhenGapMeetsThreshold`,
-  `IsGapBetween_EnforcesBandAndFailsClosed`.)*
+  closed when it is unknown, so an uncomputable gap can never wave a trade through — and the
+  previous-close lookup itself picks the right calendar day regardless of what instant a
+  daily bar is timestamped at. *(verified by `IsGapUp_FailsClosed_WithoutPreviousClose`,
+  `IsGapUp_Passes_WhenGapMeetsThreshold`, `IsGapBetween_EnforcesBandAndFailsClosed`,
+  `GetPreviousCloseAsync_UtcMidnightStampedDailyBars_PicksYesterdayNotToday` — the latter added
+  [IP-A10](AMENDMENTS.md#IP-A10) after finding the date comparison ran bar timestamps through
+  an ET conversion that could shift a UTC-midnight-stamped bar back a calendar day.)*
 - **IP-US-K3 ✅** As a trader, my gapper only hunts entries inside its ET entry window
   (default 04:00–09:00), on the US-market clock regardless of host timezone. *(verified by
   `TimeWindowCondition_GatesOnEasternClock`, `TimeWindowCondition_WrapsOvernightWindows`.)*

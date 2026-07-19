@@ -13,6 +13,37 @@ namespace IdiotProof.Engine.Tests;
 /// </summary>
 public class RiskGuardianTests
 {
+    [Test]
+    public void RecordTradePnL_AsFirstEverCall_InitializesDailyLossWithoutValidateTrade()
+    {
+        // RecordTradePnL used to skip the day-rollover check entirely — only
+        // ValidateTrade ran it. A Guardian instance whose FIRST interaction
+        // of the day is an exit (position held overnight, closed before any
+        // new entry is evaluated) must still track the loss correctly rather
+        // than silently no-op or crash for lack of prior ValidateTrade setup.
+        var guardian = new RiskGuardian(DefaultConfig());
+
+        guardian.RecordTradePnL(-40m);
+
+        Assert.That(guardian.GetRemainingDailyRisk(), Is.EqualTo(460m),
+            "a $40 loss recorded with no prior ValidateTrade call must still reduce remaining daily risk from the $500 cap");
+    }
+
+    [Test]
+    public void RecordTradePnL_ThenValidateTrade_SameDay_ReflectsAccumulatedLoss()
+    {
+        var guardian = new RiskGuardian(DefaultConfig());
+
+        // LongSetup()'s default risk is $10 (entry 100, stop 99, qty 10);
+        // push dailyLoss to $495 so the next $10 of risk crosses the $500 cap.
+        guardian.RecordTradePnL(-495m);
+        var verdict = guardian.ValidateTrade(LongSetup());
+
+        Assert.That(verdict.BlockReasons, Has.Some.Contains("daily loss limit"),
+            "a loss recorded via RecordTradePnL must be visible to the next ValidateTrade call the same day");
+    }
+
+
     private static RiskGuardianConfig DefaultConfig() => new()
     {
         MaxLossPerTrade       = 100m,

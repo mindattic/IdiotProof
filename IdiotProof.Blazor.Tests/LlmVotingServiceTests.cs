@@ -136,6 +136,35 @@ public sealed class LlmVotingServiceTests
         Assert.That(vote, Is.Null);
     }
 
+    [Test]
+    public void ParseVoteJson_MissingDecisionKey_FailsClosedToAbstain()
+    {
+        // IP-A11: a response without a "decision" key used to leave the enum
+        // at its zero value — Approve — silently counting a malformed vote as
+        // an approval on a money-movement path. Must fail closed to Abstain.
+        var vote = LlmVotingService.ParseVoteJson(
+            """{"confidence":85,"reasoning":"forgot the decision key"}""");
+
+        Assert.That(vote, Is.Not.Null);
+        Assert.That(vote!.Decision, Is.EqualTo(VoteDecision.Abstain));
+    }
+
+    [Test]
+    public void ParseVoteJson_CapitalizedPropertyNames_StillParse()
+    {
+        // JsonElement.TryGetProperty is case-sensitive; an LLM emitting
+        // "Decision" used to be treated as if the key were absent.
+        var vote = LlmVotingService.ParseVoteJson(
+            """{"Decision":"Reject","Confidence":40,"Reasoning":"caps"}""");
+
+        Assert.That(vote, Is.Not.Null);
+        Assert.Multiple(() =>
+        {
+            Assert.That(vote!.Decision, Is.EqualTo(VoteDecision.Reject));
+            Assert.That(vote.Confidence, Is.EqualTo(40m));
+        });
+    }
+
     // ── Helpers ──
 
     static LlmVotingResult ResultWith(params (string name, VoteDecision decision, decimal confidence)[] votes)

@@ -21,6 +21,41 @@ public class StrategyBacktesterTests
     }
 
     [Test]
+    public void TimeExit_FiresOnEasternClock_NotUtc()
+    {
+        // SellBy("10:00") means 10:00 ET (market clock), matching the DSL,
+        // Monitor, and GapperExitEvaluator. Bars start 09:30 ET = 13:30 UTC —
+        // the old UTC comparison saw 13:30 >= 10:00 immediately and time-exited
+        // on the very first managed bar instead of holding until 10:00 ET.
+        var def = Stock.Ticker("TST")
+            .Breakout(10).Pullback(9).Long()
+            .StopLoss(5)          // far away — never hit
+            .Build();
+        def.ExitTime = new TimeSpan(10, 0, 0);
+
+        var candles = new List<Candle>
+        {
+            Bar(0, 9.3m, 10.5m, 9.2m, 10.2m),   // breakout latches
+            Bar(1, 10.2m, 10.3m, 8.9m, 9.2m),   // pullback latches -> ENTER
+        };
+        // Drift sideways until 10:05 ET (minute 35); no stop, no target.
+        for (var m = 2; m <= 35; m++)
+            candles.Add(Bar(m, 9.2m, 9.3m, 9.1m, 9.2m));
+
+        var report = StrategyBacktester.Run(def, candles);
+
+        Assert.That(report.Trades, Has.Count.EqualTo(1));
+        var trade = report.Trades[0];
+        Assert.Multiple(() =>
+        {
+            Assert.That(trade.ExitReason, Is.EqualTo("Time exit"));
+            // First bar at/after 10:00 ET is minute 30 (13:30 UTC + 30m = 14:00 UTC).
+            Assert.That(trade.Exits[^1].Utc, Is.EqualTo(new DateTime(2026, 5, 29, 14, 0, 0, DateTimeKind.Utc)),
+                "time exit must trigger at 10:00 EASTERN, not on the first bar after 10:00 UTC");
+        });
+    }
+
+    [Test]
     public void Breakout_Then_Pullback_FiresBothTriggers_AndHitsTarget()
     {
         var def = BreakoutPullbackLong();

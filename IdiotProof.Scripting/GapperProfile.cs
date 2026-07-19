@@ -107,7 +107,19 @@ public sealed class GapperProfile
         problems.AddRange(ValidateTime(EntryWindowEndEt, "Entry window end"));
         problems.AddRange(ValidateTime(ArmExitAtEt, "Arm-exit time"));
         problems.AddRange(ValidateTime(SellByEt, "Sell-by time"));
+
+        // Cross-field ordering: only meaningful when the individual times parse.
+        if (TryTime(ArmExitAtEt, out var arm) && TryTime(SellByEt, out var sellBy) && arm >= sellBy)
+            problems.Add("Arm-exit time must be before the sell-by time — otherwise the momentum-rollover " +
+                         "exit can never fire and every exit is the hard flatten.");
+
         return problems;
+    }
+
+    private static bool TryTime(string value, out TimeSpan time)
+    {
+        try { time = StrategyBuilder.ParseTimeOfDay(value); return true; }
+        catch (FormatException) { time = default; return false; }
     }
 
     private static IEnumerable<string> ValidateTime(string value, string label)

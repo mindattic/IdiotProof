@@ -95,6 +95,15 @@
             </div>
         </div>
     </div>
+    <div class="form-check form-switch mt-3">
+        <input class="form-check-input" type="checkbox" id="routeToAlpaca"
+               checked="@routeToMyAlpaca"
+               @onchange="e => routeToMyAlpaca = (bool)(e.Value ?? false)" />
+        <label class="form-check-label text-muted small" for="routeToAlpaca">
+            Route my orders to this Alpaca account — the console Monitor trades with these keys
+            (@(alpacaIsPaper ? "paper" : "LIVE")). Off = orders go to the safe Sandbox default.
+        </label>
+    </div>
     @if (!alpacaIsPaper)
     {
         <div class="alert alert-danger small py-1 mt-2" role="alert">
@@ -233,6 +242,8 @@
     private string alpacaTestResult = "";
     private bool alpacaTestOk;
     private string saveMessage = "";
+    private bool routeToMyAlpaca;
+    private string? loadedDataFeed;
 
     private Guid? userId;
 
@@ -251,6 +262,8 @@
         claudeKey      = keys.ClaudeApiKey ?? "";
         claudeModel    = string.IsNullOrWhiteSpace(keys.ClaudeModel) ? "claude-sonnet-4-6" : keys.ClaudeModel;
         llmVotingEnabled = keys.LlmVotingEnabled;
+        routeToMyAlpaca  = string.Equals(keys.DefaultBroker, "alpaca", StringComparison.OrdinalIgnoreCase);
+        loadedDataFeed   = keys.DefaultDataFeed;
     }
 
     private void OnAlpacaPaperChange(ChangeEventArgs e)
@@ -321,7 +334,13 @@
             PolygonApiKey      = polygonKey,
             ClaudeApiKey       = claudeKey,
             ClaudeModel        = claudeModel,
-            LlmVotingEnabled   = llmVotingEnabled
+            LlmVotingEnabled   = llmVotingEnabled,
+            // SaveAsync overwrites the WHOLE row — omitting these silently
+            // reset the user's broker routing to the class defaults on every
+            // unrelated key edit (IP-A11), which also made the per-user
+            // Alpaca routing (IP-A9) unreachable: nothing ever set "alpaca".
+            DefaultBroker      = routeToMyAlpaca ? "alpaca" : "Sandbox",
+            DefaultDataFeed    = string.IsNullOrWhiteSpace(loadedDataFeed) ? "Mock" : loadedDataFeed,
         };
 
         await UserKeyService.SaveAsync(userId.Value, keys);

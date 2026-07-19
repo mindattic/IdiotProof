@@ -64,6 +64,9 @@ public sealed class UserBrokerResolver(
                     userId, globalRouter.GetActiveBroker().BrokerType);
             var global = globalRouter.GetActiveBroker();
             cache[userId] = new CacheEntry(global, "global", DateTime.UtcNow);
+            // A user who UN-configures Alpaca transitions user-client → global:
+            // their old client must be disposed here too, same as on rotation.
+            DisposeReplacedClient(hit, userId);
             return global;
         }
 
@@ -79,6 +82,27 @@ public sealed class UserBrokerResolver(
         cache[userId] = new CacheEntry(client, fingerprint, DateTime.UtcNow);
         logger.LogInformation("User {UserId} orders route to their own Alpaca ({Mode}).",
             userId, keys.AlpacaIsPaper ? "paper" : "LIVE");
+
+        // The replaced client (key rotation, or a global->user-Alpaca switch)
+        // owns an HttpClient that must be disposed or its sockets leak for
+        // the life of the process — this console runs for weeks at a time.
+        DisposeReplacedClient(hit, userId);
+
         return client;
+    }
+
+    /// <summary>
+    /// Disposes a cache entry's client when it is being replaced. The global
+    /// router's brokers are never disposed here (they're shared, and not
+    /// entered into the cache as disposable-owned entries in the first place
+    /// — only per-user Alpaca clients carry a non-"global" fingerprint).
+    /// </summary>
+    private void DisposeReplacedClient(CacheEntry? replaced, Guid userId)
+    {
+        if (replaced is null || replaced.Fingerprint == "global") return;
+        if (replaced.Client is IAsyncDisposable disposable)
+            _ = disposable.DisposeAsync().AsTask().ContinueWith(
+                t => logger.LogWarning(t.Exception, "Failed disposing replaced broker client for user {UserId}.", userId),
+                TaskContinuationOptions.OnlyOnFaulted);
     }
 }

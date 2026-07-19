@@ -148,6 +148,19 @@ public sealed class AlpacaStreamingClient : IAsyncDisposable
 
     private void HandleMessage(string json)
     {
+        // One malformed/unexpected frame must not tear the socket down — an
+        // exception thrown here would bubble out of the receive loop and
+        // trigger a full disconnect/reconnect cycle (dropping live coverage
+        // for seconds) over a frame we were going to ignore anyway.
+        try { HandleMessageCore(json); }
+        catch (Exception ex)
+        {
+            Status = $"frame skipped ({ex.GetType().Name}: {ex.Message})";
+        }
+    }
+
+    private void HandleMessageCore(string json)
+    {
         // Alpaca sends a JSON array of typed events: {"T":"t"|"b"|"q"|"success"|"error"|"subscription", ...}
         using var doc = JsonDocument.Parse(json);
         if (doc.RootElement.ValueKind != JsonValueKind.Array) return;
