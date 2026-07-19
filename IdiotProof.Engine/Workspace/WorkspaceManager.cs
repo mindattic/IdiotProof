@@ -1,4 +1,4 @@
-using System.Collections.Concurrent;
+﻿using System.Collections.Concurrent;
 
 namespace IdiotProof.Engine.Workspace;
 
@@ -6,15 +6,15 @@ namespace IdiotProof.Engine.Workspace;
 /// In-memory cache + default-seeding layer over an <see cref="IWorkspaceStore"/>.
 /// All persistence I/O delegates to the store; this class adds:
 ///
-///   • A per-user list cache so repeated reads don't hit disk/SQL.
-///   • A "first read seeds a Default tab" rule so a new user lands on a working
+///   â€¢ A per-user list cache so repeated reads don't hit disk/SQL.
+///   â€¢ A "first read seeds a Default tab" rule so a new user lands on a working
 ///     workspace without an empty-state branch in every consumer.
-///   • The legacy global-bucket API (<see cref="Tabs"/>, <see cref="LoadAll"/>)
+///   â€¢ The legacy global-bucket API (<see cref="Tabs"/>, <see cref="LoadAll"/>)
 ///     used by the CLI and any single-user code path that hasn't been
 ///     user-scoped yet.
 ///
 /// Constructed with the legacy <c>(IStorageProvider)</c> ctor for backward
-/// compatibility — that path wraps the storage provider in a
+/// compatibility â€” that path wraps the storage provider in a
 /// <see cref="JsonFileWorkspaceStore"/> so existing callers keep their disk-based
 /// behavior. New consumers should inject <see cref="IWorkspaceStore"/> directly
 /// (the Blazor host registers a SQL-backed implementation).
@@ -26,7 +26,7 @@ public sealed class WorkspaceManager
     private readonly IWorkspaceStore store;
     private readonly ConcurrentDictionary<string, List<WorkspaceTab>> tabsByUser = new(StringComparer.Ordinal);
 
-    /// <summary>Legacy global-bucket accessor — used by the CLI and the standalone Engine path.</summary>
+    /// <summary>Legacy global-bucket accessor â€” used by the CLI and the standalone Engine path.</summary>
     public IReadOnlyList<WorkspaceTab> Tabs => GetTabsForUser(GlobalBucket);
 
     /// <summary>
@@ -48,7 +48,7 @@ public sealed class WorkspaceManager
         store = new JsonFileWorkspaceStore(storage);
     }
 
-    // ── Per-user API ────────────────────────────────────────────────────────────
+    // â”€â”€ Per-user API â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     public IReadOnlyList<WorkspaceTab> GetTabsForUser(string userId)
     {
@@ -68,7 +68,6 @@ public sealed class WorkspaceManager
             {
                 Name = "Default",
                 DisplayOrder = 0,
-                Strategies = [new StrategyBinding { StrategyName = "ITI" }]
             };
             list.Add(def);
             store.Save(userId, def);
@@ -93,7 +92,6 @@ public sealed class WorkspaceManager
         {
             Name = name,
             DisplayOrder = tabs.Count,
-            Strategies = [new StrategyBinding { StrategyName = "ITI" }]
         };
         Save(userId, tab);
         return tab;
@@ -127,7 +125,7 @@ public sealed class WorkspaceManager
         }
     }
 
-    // ── Legacy global-bucket API ───────────────────────────────────────────────
+    // â”€â”€ Legacy global-bucket API â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     /// <summary>Loads the legacy global bucket. Single-user / CLI fallback.</summary>
     public void LoadAll()
@@ -141,7 +139,6 @@ public sealed class WorkspaceManager
             {
                 Name = "Default",
                 DisplayOrder = 0,
-                Strategies = [new StrategyBinding { StrategyName = "ITI" }]
             };
             list.Add(def);
             store.Save(GlobalBucket, def);

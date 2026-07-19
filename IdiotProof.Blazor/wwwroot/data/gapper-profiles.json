@@ -1,0 +1,59 @@
+{
+  "$comment": "Gapper profile catalog — static templates per IP-LAW-7 (RFC 0002 / IP-A8). Selecting a profile pre-fills the Gapper tab's queue form; every value stays editable per ticker. Times are US Eastern (market clock).",
+  "profiles": [
+    {
+      "id": "classic-gapper",
+      "name": "Classic Gapper",
+      "description": "The bread-and-butter premarket gap-and-go: 5%+ gap on 2x volume, in at 4AM, rollover watch from 9:15, flat by 9:28.",
+      "minGapPercent": 5,
+      "maxGapPercent": null,
+      "minVolumeRatio": 2,
+      "minPrice": 1,
+      "maxPrice": 50,
+      "entryWindowStartEt": "04:00",
+      "entryWindowEndEt": "09:00",
+      "stopLossPercent": 5,
+      "trailingStopPercent": null,
+      "peakGivebackPercent": 25,
+      "armExitAtEt": "09:15",
+      "sellByEt": "09:28",
+      "defaultNotional": 1000
+    },
+    {
+      "id": "penny-runner",
+      "name": "Penny Runner",
+      "description": "Low-float cheap stock with an outsized gap: 10%+ gap on 3x volume, wider stop, tighter giveback because pennies collapse fast.",
+      "minGapPercent": 10,
+      "maxGapPercent": 60,
+      "minVolumeRatio": 3,
+      "minPrice": 0.3,
+      "maxPrice": 5,
+      "entryWindowStartEt": "04:00",
+      "entryWindowEndEt": "09:00",
+      "stopLossPercent": 8,
+      "trailingStopPercent": 10,
+      "peakGivebackPercent": 20,
+      "armExitAtEt": "09:10",
+      "sellByEt": "09:27",
+      "defaultNotional": 500
+    },
+    {
+      "id": "large-cap-gap",
+      "name": "Large-Cap Gap",
+      "description": "Liquid name gapping on news: 3-12% gap is meaningful at size, tighter stop, more patience into the bell.",
+      "minGapPercent": 3,
+      "maxGapPercent": 12,
+      "minVolumeRatio": 1.5,
+      "minPrice": 20,
+      "maxPrice": 1000,
+      "entryWindowStartEt": "04:00",
+      "entryWindowEndEt": "09:15",
+      "stopLossPercent": 3,
+      "trailingStopPercent": null,
+      "peakGivebackPercent": 35,
+      "armExitAtEt": "09:15",
+      "sellByEt": "09:29",
+      "defaultNotional": 2000
+    }
+  ]
+}

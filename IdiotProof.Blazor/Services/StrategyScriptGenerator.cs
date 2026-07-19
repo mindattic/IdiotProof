@@ -83,10 +83,10 @@ public sealed class StrategyScriptGenerator(LegionClient legion, AppSettings app
             => prefixes.Any(p => v.StartsWith(p, StringComparison.Ordinal));
 
         var setup   = all.Where(v => HasPrefix(v, "Name(", "Ticker(", "Session(", "Quantity", "Account(", "Window(")).ToList();
-        var filters = all.Where(v => HasPrefix(v, "Require", "Trending(")).ToList();
+        var filters = all.Where(v => HasPrefix(v, "Require", "Trending(", "EntryWindow(")).ToList();
         var order   = all.Where(v => HasPrefix(v, "Long(", "Short(", "Order(", "AutonomousTrading(", "AdaptiveOrder(")).ToList();
         var risk    = all.Where(v => HasPrefix(v, "StopLoss", "TrailingStop")).ToList();
-        var exit    = all.Where(v => HasPrefix(v, "TakeProfit", "AddTarget(", "ExitStrategy(", "Repeat(")).ToList();
+        var exit    = all.Where(v => HasPrefix(v, "TakeProfit", "AddTarget(", "ExitStrategy(", "Repeat(", "SellBy(", "PeakGiveback(")).ToList();
 
         var usedSet = new HashSet<string>(StringComparer.Ordinal);
         foreach (var list in new[] { setup, filters, order, risk, exit })

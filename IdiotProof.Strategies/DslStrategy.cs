@@ -5,9 +5,8 @@ namespace IdiotProof.Strategies;
 
 /// <summary>
 /// Adapter that wraps a fluent-DSL <see cref="StrategyDefinition"/> as an
-/// <see cref="IStrategy"/> so the Monitor (StrategyExecutionService and
-/// the future IdiotProof.Monitor console app) can evaluate user-authored
-/// strategies the same way it evaluates the built-in ones.
+/// <see cref="IStrategy"/> so any evaluator (the IdiotProof.Monitor console,
+/// the backtester) can evaluate user-authored strategies uniformly.
 ///
 /// Evaluation semantics:
 ///   1. Build an IndicatorSnapshot from the supplied candles.
@@ -55,7 +54,7 @@ public sealed class DslStrategy : IStrategy
         // snapshot has them populated. A strategy that says IsBetweenEma(7, 65)
         // would otherwise see null EMAs at those periods.
         var requiredEmas = CollectRequiredEmaPeriods(baseDefinition);
-        var snapshot = IndicatorSnapshotBuilder.BuildWithEmas(symbol, candles, requiredEmas);
+        var snapshot = IndicatorSnapshotBuilder.BuildWithEmas(symbol, candles, requiredEmas, context.PreviousClose);
 
         // Materialize a working copy with branch overrides applied. The branches
         // can flip Direction, change Stop/Target, and add EntryConditions.

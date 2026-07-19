@@ -102,4 +102,40 @@ public sealed class StrategyRepository(IDbContextFactory<AppDbContext> dbFactory
         strategy.FireCount++;
         await db.SaveChangesAsync(ct);
     }
+
+    /// <summary>
+    /// Records an entry fill: the Monitor now manages an open position for
+    /// this strategy and will evaluate exit rules instead of entry conditions.
+    /// </summary>
+    public async Task RecordEntryFillAsync(Guid id, int quantity, decimal fillPrice, DateTime filledUtc, CancellationToken ct = default)
+    {
+        await using var db = await dbFactory.CreateDbContextAsync(ct);
+        var strategy = await db.Strategies.FirstOrDefaultAsync(s => s.Id == id, ct);
+        if (strategy is null) return;
+        strategy.PositionQty    = quantity;
+        strategy.LastEntryPrice = fillPrice;
+        strategy.EntryFilledUtc = filledUtc;
+        strategy.LastExitedUtc  = null;
+        strategy.LastExitPrice  = null;
+        strategy.LastExitReason = null;
+        strategy.UpdatedUtc     = DateTime.UtcNow;
+        await db.SaveChangesAsync(ct);
+    }
+
+    /// <summary>
+    /// Records an exit fill: flattens the tracked position and stamps the
+    /// exit bookkeeping the UI renders ("sold 09:22 — PeakGiveback @ 11.48").
+    /// </summary>
+    public async Task RecordExitFillAsync(Guid id, decimal exitPrice, string reason, DateTime exitedUtc, CancellationToken ct = default)
+    {
+        await using var db = await dbFactory.CreateDbContextAsync(ct);
+        var strategy = await db.Strategies.FirstOrDefaultAsync(s => s.Id == id, ct);
+        if (strategy is null) return;
+        strategy.PositionQty    = 0;
+        strategy.LastExitPrice  = exitPrice;
+        strategy.LastExitReason = reason;
+        strategy.LastExitedUtc  = exitedUtc;
+        strategy.UpdatedUtc     = DateTime.UtcNow;
+        await db.SaveChangesAsync(ct);
+    }
 }

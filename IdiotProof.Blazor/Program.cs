@@ -108,12 +108,12 @@ builder.Services.AddSignalR(o =>
 });
 
 // ── Web services ─────────────────────────────────────────────────────────────────
-// Strategy evaluation is owned by IdiotProof.Monitor (the second startup
-// project). The Blazor host writes user edits to SQL; the Monitor reads them on
-// its 30s cadence and runs them autonomously, surviving Blazor restarts. Do not
-// re-register StrategyExecutionService as a HostedService here — running both
-// would double-fire signals and double-write audit rows against the same DB.
-// The class itself stays on disk in case we ever need its in-process variant.
+// Strategy evaluation AND order execution are owned by IdiotProof.Monitor (the
+// second startup project) — the single pipeline per RFC 0002 / IP-A8. The
+// Blazor host writes user edits to SQL; the Monitor re-reads them every tick
+// (default 5s), so UI changes apply to the running console automatically. The
+// old in-process StrategyExecutionService (WorkspaceTab-binding evaluation)
+// was deleted 2026-07-18 — do not resurrect a second evaluation loop here.
 builder.Services.AddSingleton<TradingStateService>();
 // MindAttic.Legion is the gateway for all LLM communication — register the
 // universal client before any service that talks to an LLM.
@@ -133,6 +133,7 @@ builder.Services.AddScoped<UserKeyService>();
 builder.Services.AddSingleton<StrategyRepository>();
 builder.Services.AddSingleton<UserPreferencesService>();
 builder.Services.AddSingleton<StrategyScriptGenerator>();
+builder.Services.AddSingleton<GapperProfileService>();
 builder.Services.AddSingleton<SettingsRepository>();
 builder.Services.AddSingleton<AuditLogRepository>();
 builder.Services.AddSingleton<ConditionProgressRepository>();

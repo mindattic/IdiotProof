@@ -19,8 +19,8 @@
     Strategies — the front door of IdiotProof. List of every saved strategy for the
     signed-in user. Each row collapses to title/ticker/active toggle/edit; expanding
     a row reveals the full visual via StrategyBuilderRenderer. The Active toggle
-    flips IsActive in SQL — when true, the Monitor (StrategyExecutionService and the
-    IdiotProof.Monitor console app) picks the strategy up on its next tick.
+    flips IsActive in SQL — when true, the IdiotProof.Monitor console picks the
+    strategy up on its next tick (default 5s), evaluates it, and trades it.
 
     UI state (open expand-rows, last filter) is mirrored to localStorage under the
     "idiotproof.strategies.*" namespace so the user's place is preserved across

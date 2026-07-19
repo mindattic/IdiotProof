@@ -4,8 +4,8 @@ project: IdiotProof
 code: IP
 layer: stories
 status: living
-updated: 2026-06-09
-counts: {done: 19, partial: 6, planned: 13, cut: 0}
+updated: 2026-07-18
+counts: {done: 24, partial: 8, planned: 13, cut: 0}
 ---
 
 # IdiotProof — User Stories
@@ -68,10 +68,11 @@ counts: {done: 19, partial: 6, planned: 13, cut: 0}
   `Breakout_Then_Pullback_FiresBothTriggers_AndHitsTarget`, `StopLoss_ProducesLosingTrade`,
   `MultiTarget_ScalesOut_AcrossTwoFills`, `Repeat_AllowsASecondCycle`,
   `OpenPosition_ClosesAtEndOfSession_WhenNeitherStopNorTargetHit`.)*
-- **IP-US-C5 ✅** As a developer, the strategy registry returns null for unknown names and
-  defaults to empty, and a backtest over no candles returns an empty report without throwing.
-  *(verified by `StrategyRegistry_DefaultsToEmpty`, `StrategyRegistry_Get_UnknownName_ReturnsNull`,
-  `Run_OnEmptyCandles_ReturnsEmptyReport_NoThrow`.)*
+- **IP-US-C5 ✅** As a developer, a backtest over no candles returns an empty report without
+  throwing. *(verified by `Run_OnEmptyCandles_ReturnsEmptyReport_NoThrow`.)*
+  *Re-scoped 2026-07-18 ([IP-A8](AMENDMENTS.md#IP-A8)): the `StrategyRegistry` half of this
+  story was retired — the registry (permanently empty by design) and its two tests were deleted
+  with the rest of the dead WorkspaceTab-binding evaluation path.*
 
 ## Epic D — Indicator math
 - **IP-US-D1 ✅** As a strategy author, RSI is bounded 0–100 (100 on all gains, 0 on all losses),
@@ -83,6 +84,49 @@ counts: {done: 19, partial: 6, planned: 13, cut: 0}
   `EMA_IsSmoothedVsRawPrice`, `ATR_FlatMarket_IsSmall`, `ATR_HighVolatility_IsLarger`,
   `MACD_Histogram_IsMacdMinusSignal`, `VWAP_EqualVolume_IsAverageTypicalPrice`,
   `VWAP_ResetsAtDayBoundary`, and the `*_ReturnsSameLengthAsInput` family.)*
+
+## Epic K — Gapper: buy the gap at 4AM, sell before the bell {#Epic-K}
+> The flagship flow ([RFC 0002](rfc/0002-gapper-and-unification.md), [IP-A8](AMENDMENTS.md#IP-A8)).
+> Pick up to 3 tickers on the `/gapper` tab, dial in a profile per ticker, queue; the console
+> Monitor buys the gap through the three gates in the premarket window and sells it off before
+> the 9:30 bell once momentum rolls over.
+
+- **IP-US-K1 ✅** As a trader, I select a gapper profile, dial it in, and the generated
+  IdiotScript survives a full parser round trip — every dialed value (session, entry window,
+  gap band, volume, price band, notional, stop %, trailing %, giveback + arm time, sell-by)
+  reaches the Monitor exactly as I set it. *(verified by
+  `GapperScriptFactory_Script_SurvivesParserRoundTrip`, `GapperScriptFactory_OpenEndedGap_EmitsIsGapUp`,
+  `GapperProfile_Validate_CatchesBadDialIns` in `IdiotProof.Strategies.Tests/GapperTests.cs`.)*
+- **IP-US-K2 ✅** As a trader, gap conditions evaluate against the real previous close and fail
+  closed when it is unknown, so an uncomputable gap can never wave a trade through. *(verified by
+  `IsGapUp_FailsClosed_WithoutPreviousClose`, `IsGapUp_Passes_WhenGapMeetsThreshold`,
+  `IsGapBetween_EnforcesBandAndFailsClosed`.)*
+- **IP-US-K3 ✅** As a trader, my gapper only hunts entries inside its ET entry window
+  (default 04:00–09:00), on the US-market clock regardless of host timezone. *(verified by
+  `TimeWindowCondition_GatesOnEasternClock`, `TimeWindowCondition_WrapsOvernightWindows`.)*
+- **IP-US-K4 ✅** As a trader, my held gapper is sold off before the bell: hard sell-by time
+  always flattens; the momentum-rollover exit (giving back N% of the entry→peak run) arms in
+  the final premarket minutes; hard/trailing stops protect the whole hold. *(verified by
+  `Exit_PeakGiveback_SellsAfterMomentumRollsOver`, `Exit_PeakGiveback_NotArmedBeforeArmTime`,
+  `Exit_SellBy_AlwaysFlatBeforeTheBell`, `Exit_HardStop_TripsOnEntryDrawdown`,
+  `Exit_TrailingStop_TripsOffPeakBeforeArmTime`, `Exit_HoldsWhileMomentumIntact`.)*
+- **IP-US-K5 ✅** As a trader, premarket orders are limit + DAY + `extended_hours` (Alpaca's
+  hard requirement) — anything else is rejected locally instead of silently queueing to 9:30 —
+  and the sandbox broker simulates fills into a real position book so the whole loop runs
+  keyless. *(verified by `ExtendedHours_MarketOrder_IsRejectedLocally`,
+  `ExtendedHours_LimitGtc_IsRejectedLocally`, `Buy_ThenGetPositions_ShowsTheFill`,
+  `Sell_FullQuantity_FlattensThePosition`, `NotionalBuy_ConvertsToShares_AtTheLimitPrice`
+  in `IdiotProof.Brokers.Tests`.)*
+- **IP-US-K6 🟡** As a trader, the console Monitor is the one pipeline: it re-reads my queued
+  gappers from SQL every tick (UI edits apply live), streams Alpaca data (websocket bars +
+  last trades, REST backfill, Mock fallback with gap simulation), fires through the three
+  gates, places the entry through `BrokerRouter`, tracks the position on the Strategy row,
+  and exits it via the rollover brain — feeding realized P&L into the RiskGuardian daily
+  circuit breaker. *Implemented end-to-end in `IdiotProof.Monitor/MonitorWorker.cs` (now on
+  `SupervisedLoop`); an integration test of a full mock-gap day remains ⬜.*
+- **IP-US-K7 🟡** As a trader, the `/gapper` tab shows my queued gappers with live state
+  (condition progress, HOLDING qty@price, sold @price · reason) polled from SQL every 5s.
+  *Page built (`Components/Pages/Gapper.razor` + nav tab); Cypress spec remains ⬜.*
 
 ## Epic E — Authoring & generation (web)
 - **IP-US-E1 🟡** As a trader, I describe a setup in prose and Claude generates valid IdiotScript
@@ -199,6 +243,9 @@ counts: {done: 19, partial: 6, planned: 13, cut: 0}
   whether the strategy behaves as expected before enabling it on the live Monitor.
 
 ## Priority backlog
+0. **IP-US-K6/K7** — Gapper integration test (full mock-gap day through the Monitor:
+   queue → 4AM fire → hold → rollover sell before 9:30) + `/gapper` Cypress spec. See
+   [IP-A8](AMENDMENTS.md#IP-A8).
 1. **IP-US-E1–E6** — Full Cypress suite (7 specs: 02–07) covers describe→generate→save,
    condition-progress badge, API keys, vault-backed AI wiring, sample builds, and backtest UI.
    Start the server with `IDIOTPROOF_FAKE_LLM=1`, then run `npm run cypress:run` (or open

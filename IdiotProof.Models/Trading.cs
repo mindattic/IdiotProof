@@ -74,6 +74,14 @@ public sealed class OrderRequest
     public decimal? TrailPercent { get; init; }
 
     public string TimeInForce { get; init; } = "DAY";
+
+    /// <summary>
+    /// Route the order to the extended-hours session (premarket 4:00–9:30 /
+    /// after-hours 16:00–20:00 ET). Alpaca requires <c>extended_hours=true</c>
+    /// AND a limit order with DAY time-in-force — otherwise a premarket order
+    /// silently queues until the 9:30 bell, which defeats a gapper entry.
+    /// </summary>
+    public bool ExtendedHours { get; init; }
 }
 
 /// <summary>

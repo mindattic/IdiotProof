@@ -277,45 +277,15 @@
 
     private static (string Label, List<string> Verbs)[] BuildVerbGroups()
     {
-        // Group verbs by IdiotScript phase based on naming conventions. Falls back
-        // to "Other" so a newly-added verb still surfaces even before it's tagged.
-        var builder = typeof(StrategyBuilder)
-            .GetMethods(BindingFlags.Public | BindingFlags.Instance)
-            .Where(m => !m.IsSpecialName && m.DeclaringType == typeof(StrategyBuilder))
-            .Select(m => SignatureOf(m))
-            .Distinct()
+        // Single source of truth (IP-LAW-4): the same reflected, phase-bucketed
+        // catalog the LLM system prompt and Learning Center use. The palette
+        // previously re-implemented the bucketing with drifted prefix rules
+        // and lost verbs into an "Other" bucket (audit 2026-07-18, H3).
+        var groups = StrategyScriptGenerator.GetVerbsByPhase()
+            .Select(g => (g.Phase, g.Verbs.OrderBy(s => s, StringComparer.Ordinal).ToList()))
             .ToList();
-
-        var conditions = typeof(Conditions)
-            .GetMethods(BindingFlags.Public | BindingFlags.Static)
-            .Where(m => !m.IsSpecialName && m.DeclaringType == typeof(Conditions))
-            .Select(m => SignatureOf(m))
-            .Distinct()
-            .ToList();
-
-        bool IsSetup(string s)   => s.StartsWith("Ticker") || s.StartsWith("Session") || s.StartsWith("Quantity");
-        bool IsFilter(string s)  => s.StartsWith("Require");
-        bool IsEntry(string s)   => s.StartsWith("Is") || s.StartsWith("On") || s.StartsWith("With") || s.StartsWith("Has");
-        bool IsOrder(string s)   => s.StartsWith("Long") || s.StartsWith("Short");
-        bool IsRisk(string s)    => s.StartsWith("Stop") || s.StartsWith("Trailing");
-        bool IsExit(string s)    => s.StartsWith("Take") || s.StartsWith("Exit") || s.StartsWith("Profit");
-
-        return new[]
-        {
-            ("Setup",      builder.Where(IsSetup).OrderBy(s => s).ToList()),
-            ("Filters",    builder.Where(IsFilter).OrderBy(s => s).ToList()),
-            ("Entry",      builder.Where(IsEntry).OrderBy(s => s).ToList()),
-            ("Order",      builder.Where(IsOrder).OrderBy(s => s).ToList()),
-            ("Risk",       builder.Where(IsRisk).OrderBy(s => s).ToList()),
-            ("Exit",       builder.Where(IsExit).OrderBy(s => s).ToList()),
-            ("Conditions", conditions.OrderBy(s => s).ToList()),
-            ("Other",      builder.Where(s => !IsSetup(s) && !IsFilter(s) && !IsEntry(s) && !IsOrder(s) && !IsRisk(s) && !IsExit(s)).OrderBy(s => s).ToList()),
-        };
-    }
-
-    private static string SignatureOf(MethodInfo m)
-    {
-        var pars = string.Join(", ", m.GetParameters().Select(p => p.Name));
-        return $"{m.Name}({pars})";
+        groups.Add(("Conditions", StrategyScriptGenerator.GetConditionCatalog()
+            .OrderBy(s => s, StringComparer.Ordinal).ToList()));
+        return groups.ToArray();
     }
 }

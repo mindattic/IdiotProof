@@ -62,17 +62,22 @@ public static class ADX
     {
         var n = values.Length;
         var res = new decimal[n];
-        if (n == 0) return res;
+        if (n <= 1) return res;
 
-        int seed = Math.Min(period, n);
+        // values[0] is structurally empty — TR/DM need a prior bar, so the
+        // series really starts at index 1. Seeding over [0, period) averaged
+        // in that phantom zero and divided by the full window, understating
+        // the seed (same defect ATR.Calculate was previously patched for).
+        // Seed over the first `seedCount` REAL values instead.
+        int seedCount = Math.Min(period, n - 1);
         decimal sum = 0m;
-        for (int i = 0; i < seed; i++) sum += values[i];
-        res[seed - 1] = sum / seed;
+        for (int i = 1; i <= seedCount; i++) sum += values[i];
+        res[seedCount] = sum / seedCount;
 
-        for (int i = seed; i < n; i++)
+        for (int i = seedCount + 1; i < n; i++)
             res[i] = (res[i - 1] * (period - 1) + values[i]) / period;
 
-        for (int i = 0; i < seed - 1; i++) res[i] = res[seed - 1];
+        for (int i = 0; i < seedCount; i++) res[i] = res[seedCount];
         return res;
     }
 }

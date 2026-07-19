@@ -10,6 +10,13 @@ public sealed class StrategyContext
     public TimeZoneInfo Timezone { get; init; } = TimeZoneInfo.FindSystemTimeZoneById("Central Standard Time");
     public DateTime EvaluationTimeUtc { get; init; } = DateTime.UtcNow;
     public Dictionary<string, object> Parameters { get; init; } = new();
+
+    /// <summary>
+    /// Previous trading day's official close for the evaluated symbol. Feeds
+    /// gap conditions (IsGapUp / IsGapDown); when null those conditions fail
+    /// closed. Populated by the evaluator from daily bars.
+    /// </summary>
+    public decimal? PreviousClose { get; init; }
 }
 
 /// <summary>

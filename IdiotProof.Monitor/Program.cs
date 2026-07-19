@@ -14,26 +14,22 @@ using MindAttic.Vault.DependencyInjection;
 
 // ── IdiotProof.Monitor ───────────────────────────────────────────────────────
 //
-// Barebones .NET console host that runs 24/7 and evaluates every IsActive=true
-// strategy stored in the IdiotProof SQL database. Speaks the same DslStrategy
-// adapter the Blazor app uses — anything authored in the Describe / Script /
-// Guided tabs is automatically picked up here.
+// The unified always-on evaluator + executor (RFC 0002 / IP-A8). Runs 24/7,
+// re-reads every IsActive=true SQL strategy each tick (UI edits apply live),
+// pulls real market data (Alpaca REST + websocket streaming when keyed; Mock
+// fallback), walks the three gates (conditions → LLM voter panel →
+// RiskGuardian), places entry orders through BrokerRouter (Sandbox is the
+// always-safe default, IP-LAW-3; premarket = limit + extended_hours), then
+// manages open positions to their exit (sell-by / stops / take-profit /
+// peak-giveback momentum rollover) and feeds realized P&L back into the
+// RiskGuardian daily circuit breaker.
 //
-// Responsibilities:
-//   • Load all active strategies from SQL on a fixed cadence (default 30s).
-//   • Pull recent candles per ticker from a shared market-data feed.
-//   • For each strategy: build an IndicatorSnapshot, run the DslStrategy
-//     adapter, and log condition-by-condition pass/fail progress.
-//   • Stamp LastFiredUtc + FireCount when a TradeSignal lands.
-//
-// On every full-pass the candidate signal walks two gates before fire:
-//   1. Legion high-tier voter panel from legion.json — claude / openai /
-//      gemini / deepseek vote, claude judges. Reject = no fire.
-//   2. RiskGuardian validates the implied trade (stop placement, max loss
-//      per trade / day, account risk %, R:R sanity). Block = no fire.
-// Both gates write AuditLog entries with reasons. Actual broker order
-// placement still lives in the Blazor host; future work pushes approved
-// signals back via SignalR for execution.
+// Env knobs:
+//   IDIOTPROOF_MONITOR_INTERVAL  tick cadence (default 5s)
+//   IDIOTPROOF_FEED              alpaca | mock   (default: alpaca when keyed)
+//   IDIOTPROOF_BROKER            alpaca | sandbox (default sandbox — IP-LAW-3)
+//   IDIOTPROOF_ALPACA_FEED       sip | iex data tier (default iex; sip auto-downgrades)
+//   IDIOTPROOF_STREAMING         0 disables the websocket stream
 //
 // Run:   dotnet run --project IdiotProof.Monitor
 // Stop:  Ctrl+C (graceful shutdown via IHostApplicationLifetime)
@@ -83,6 +79,37 @@ builder.Services.AddSingleton<RiskGuardianService>();
 builder.Services.AddSingleton<StrategyRepository>();
 builder.Services.AddSingleton<ConditionProgressRepository>();
 builder.Services.AddSingleton<AuditLogRepository>();
+
+// Market data — Alpaca whenever keys resolved through the settings chain
+// (env → Vault broker keyring → IConfiguration), Mock otherwise. Force with
+// IDIOTPROOF_FEED=mock|alpaca.
+builder.Services.AddSingleton<IdiotProof.DataFeeds.IMarketDataFeed>(_ =>
+{
+    var choice = Environment.GetEnvironmentVariable("IDIOTPROOF_FEED")?.ToLowerInvariant();
+    var hasKeys = !string.IsNullOrWhiteSpace(settings.AlpacaApiKeyId)
+               && !string.IsNullOrWhiteSpace(settings.AlpacaApiSecretKey);
+    if (choice == "mock" || (!hasKeys && choice != "alpaca"))
+        return new IdiotProof.DataFeeds.MockDataFeed();
+    var tier = Environment.GetEnvironmentVariable("IDIOTPROOF_ALPACA_FEED") ?? "iex";
+    return new IdiotProof.DataFeeds.AlpacaDataFeed(settings.AlpacaApiKeyId, settings.AlpacaApiSecretKey, tier);
+});
+
+// Broker — Sandbox always registered and active by default (IP-LAW-3).
+// Alpaca joins the router when keys exist; IDIOTPROOF_BROKER=alpaca opts in
+// to routing real orders (paper vs live follows AlpacaIsPaper from settings).
+builder.Services.AddSingleton(_ =>
+{
+    var router = new IdiotProof.Brokers.BrokerRouter();
+    router.Register(new IdiotProof.Brokers.SandboxBrokerClient());
+    var hasKeys = !string.IsNullOrWhiteSpace(settings.AlpacaApiKeyId)
+               && !string.IsNullOrWhiteSpace(settings.AlpacaApiSecretKey);
+    if (hasKeys)
+        router.Register(new IdiotProof.Brokers.AlpacaBrokerClient(
+            settings.AlpacaApiKeyId, settings.AlpacaApiSecretKey, settings.AlpacaIsPaper));
+    router.SetActive(Environment.GetEnvironmentVariable("IDIOTPROOF_BROKER")); // null/garbage → stays Sandbox
+    return router;
+});
+
 builder.Services.AddHostedService<MonitorWorker>();
 
 builder.Logging.ClearProviders();

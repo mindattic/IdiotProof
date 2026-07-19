@@ -1,6 +1,9 @@
 using IdiotProof.Blazor.Services;
+using IdiotProof.Brokers;
 using IdiotProof.DataFeeds;
+using IdiotProof.Engine;
 using IdiotProof.Engine.Settings;
+using IdiotProof.Engine.Storage;
 using IdiotProof.Models;
 using IdiotProof.Scripting;
 using IdiotProof.Shared.Risk;
@@ -11,21 +14,23 @@ using Microsoft.Extensions.Logging;
 namespace IdiotProof.Monitor;
 
 /// <summary>
-/// Long-running evaluation loop. Wakes on a fixed cadence (default 30s),
-/// loads every active strategy, evaluates each, and logs per-condition
-/// progress. Replaces the Blazor-hosted StrategyExecutionService when the
-/// Monitor runs standalone — useful for after-hours / overnight evaluation
-/// when you don't want a web server up.
+/// The unified always-on evaluator (RFC 0002 / IP-A8). One pipeline:
 ///
-/// Per-condition progress (the user's "each condition that passes pushes it
-/// to the next condition" requirement) is logged at Info level: every
-/// evaluation pass emits one line per strategy showing N-of-M conditions
-/// passing, with a summary tail of the first failing condition's script form.
+///   SQL Strategy rows (edited live in the Blazor UI)
+///     → per-tick re-read (UI changes apply without restart)
+///     → candles from the configured feed (Alpaca REST + websocket stream, Mock fallback)
+///     → entry conditions walked one-by-one → ConditionProgress rows (UI badges)
+///     → three gates: conditions → LLM voter panel → RiskGuardian (IP-LAW-1)
+///     → entry order through BrokerRouter (Sandbox default, IP-LAW-3;
+///       premarket = limit + extended_hours on Alpaca)
+///     → open positions tracked on the Strategy row; exits evaluated every
+///       tick by GapperExitEvaluator (sell-by / stops / target / peak-giveback)
+///     → realized P&amp;L fed back into RiskGuardian's daily circuit breaker.
 ///
-/// Future iteration: push progress to a TradeSignals / ConditionProgress SQL
-/// table so the Strategies page can render "currently 3/5 conditions met"
-/// status badges. For now, stdout is the source of truth — pipe to a log file
-/// for inspection.
+/// The loop body runs under SupervisedLoop (IP-LAW-5): per-tick failures are
+/// caught, backed off, and heart-beaten; the evaluator never dies on one bad tick.
+/// Exit orders are risk-reducing: they skip the LLM panel by design but are
+/// always audit-logged.
 /// </summary>
 public sealed class MonitorWorker(
     StrategyRepository strategyRepo,
@@ -34,104 +39,207 @@ public sealed class MonitorWorker(
     LlmVotingService llmVoting,
     RiskGuardianService riskGuardianService,
     AppSettings appSettings,
+    IMarketDataFeed feed,
+    BrokerRouter brokerRouter,
+    IStorageProvider storage,
     ILogger<MonitorWorker> logger) : BackgroundService
 {
-    /// <summary>Interval between full evaluation passes. Override via env var.</summary>
+    /// <summary>Interval between evaluation passes. Override via IDIOTPROOF_MONITOR_INTERVAL ("5s", "1m").</summary>
     private static readonly TimeSpan EvaluationInterval =
         TryParseInterval(Environment.GetEnvironmentVariable("IDIOTPROOF_MONITOR_INTERVAL"))
-        ?? TimeSpan.FromSeconds(30);
+        ?? TimeSpan.FromSeconds(5);
 
-    /// <summary>How many candles to fetch per ticker per tick.</summary>
-    private const int CandleWindow = 120;
+    /// <summary>Minute bars — matches the Alpaca stream's "b" messages.</summary>
+    private static readonly TimeSpan BarSize = TimeSpan.FromMinutes(1);
 
-    /// <summary>Mock candles cadence — 5-minute bars.</summary>
-    private static readonly TimeSpan BarSize = TimeSpan.FromMinutes(5);
+    /// <summary>How many minute bars to keep per symbol (4 hours — enough for EMA200 convergence).</summary>
+    private const int CandleWindow = 240;
+
+    /// <summary>REST re-sync cadence; between syncs the stream keeps the cache fresh.</summary>
+    private static readonly TimeSpan RestRefresh = TimeSpan.FromMinutes(5);
+
+    private readonly Dictionary<string, (List<Candle> Candles, DateTime FetchedUtc)> candleCache = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, (DateOnly DayEt, decimal? Close)> previousCloseCache = new(StringComparer.OrdinalIgnoreCase);
+    private readonly System.Collections.Concurrent.ConcurrentQueue<Candle> streamedBars = new();
+    private AlpacaStreamingClient? streaming;
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        logger.LogInformation("IdiotProof.Monitor starting — evaluation interval {Interval}s", EvaluationInterval.TotalSeconds);
+        logger.LogInformation("IdiotProof.Monitor starting — interval {Interval}s, feed {Feed}",
+            EvaluationInterval.TotalSeconds, feed.FeedName);
 
-        // Mock data feed for now — real installs would inject PolygonDataFeed
-        // (or any IMarketDataFeed) by reading the same AppSettings the Blazor host
-        // does. Swappable: assign a different IMarketDataFeed to `feed`.
-        IMarketDataFeed feed = new MockDataFeed();
+        StartStreamingIfConfigured();
 
-        while (!stoppingToken.IsCancellationRequested)
+        await SupervisedLoop.RunAsync(new SupervisedLoopOptions
         {
-            try
-            {
-                await TickAsync(feed, stoppingToken);
-            }
-            catch (Exception ex)
-            {
-                logger.LogError(ex, "Monitor tick threw — continuing on next interval.");
-            }
+            Tick          = TickAsync,
+            Interval      = EvaluationInterval,
+            MinBackoff    = TimeSpan.FromSeconds(5),
+            MaxBackoff    = TimeSpan.FromMinutes(2),
+            HeartbeatPath = Path.Combine(storage.LogsPath, "monitor.heartbeat"),
+            OnTickFailed  = (ex, n) => logger.LogError(ex, "Monitor tick failed ({Count} consecutive) — backing off.", n),
+        }, stoppingToken);
 
-            try { await Task.Delay(EvaluationInterval, stoppingToken); }
-            catch (TaskCanceledException) { /* graceful shutdown */ }
-        }
-
+        if (streaming is not null) await streaming.DisposeAsync();
         logger.LogInformation("IdiotProof.Monitor stopped.");
     }
 
-    /// <summary>One full evaluation pass — load active strategies, group by symbol, evaluate.</summary>
-    private async Task TickAsync(IMarketDataFeed feed, CancellationToken ct)
+    /// <summary>
+    /// Streaming is on whenever Alpaca keys exist (disable with IDIOTPROOF_STREAMING=0).
+    /// The stream feeds the candle cache and last-trade prices; evaluation still
+    /// runs on the SupervisedLoop cadence, but sees data that is seconds old, not
+    /// interval-old.
+    /// </summary>
+    private void StartStreamingIfConfigured()
     {
-        var active = await strategyRepo.GetActiveAsync(ct);
-        if (active.Count == 0)
+        var disabled = Environment.GetEnvironmentVariable("IDIOTPROOF_STREAMING") == "0";
+        if (disabled || string.IsNullOrWhiteSpace(appSettings.AlpacaApiKeyId) || string.IsNullOrWhiteSpace(appSettings.AlpacaApiSecretKey))
         {
-            logger.LogDebug("No active strategies — sleeping.");
+            logger.LogInformation("Alpaca streaming off ({Reason}).", disabled ? "IDIOTPROOF_STREAMING=0" : "no Alpaca keys");
             return;
         }
 
-        // Group by symbol so we fetch candles once per ticker rather than once per strategy.
-        var bySymbol = active.GroupBy(s => s.Symbol, StringComparer.OrdinalIgnoreCase);
+        var tier = Environment.GetEnvironmentVariable("IDIOTPROOF_ALPACA_FEED") ?? "iex";
+        streaming = new AlpacaStreamingClient(appSettings.AlpacaApiKeyId, appSettings.AlpacaApiSecretKey, tier);
+        streaming.BarReceived += bar => streamedBars.Enqueue(bar);
+        streaming.Start();
+        logger.LogInformation("Alpaca websocket streaming started ({Tier}).", tier);
+    }
 
-        foreach (var group in bySymbol)
+    /// <summary>One full evaluation pass.</summary>
+    private async Task TickAsync(CancellationToken ct)
+    {
+        // Re-read the active set every tick: queue/toggle/dial-in changes made
+        // in the UI land in SQL and apply here automatically — no restart.
+        var active = await strategyRepo.GetActiveAsync(ct);
+        if (active.Count == 0) return;
+
+        DrainStreamedBars();
+
+        var symbols = active.Select(s => s.Symbol.ToUpperInvariant()).Distinct().ToList();
+        if (streaming is not null)
+        {
+            try { await streaming.SetSymbolsAsync(symbols, ct); }
+            catch (Exception ex) { logger.LogDebug(ex, "Stream re-subscribe failed; reconnect loop will retry."); }
+        }
+
+        foreach (var group in active.GroupBy(s => s.Symbol, StringComparer.OrdinalIgnoreCase))
         {
             var symbol = group.Key.ToUpperInvariant();
             IReadOnlyList<Candle> candles;
+            decimal? previousClose;
             try
             {
-                candles = await FetchCandlesAsync(feed, symbol, ct);
+                candles = await GetCandlesAsync(symbol, ct);
+                previousClose = await GetPreviousCloseAsync(symbol, ct);
             }
             catch (Exception ex)
             {
-                logger.LogWarning(ex, "Could not fetch candles for {Symbol}; skipping its strategies this tick.", symbol);
+                logger.LogWarning(ex, "Market data unavailable for {Symbol}; skipping this tick.", symbol);
                 continue;
             }
 
-            if (candles.Count == 0)
-            {
-                logger.LogDebug("Empty candle window for {Symbol}; skipping.", symbol);
-                continue;
-            }
+            if (candles.Count == 0) continue;
 
-            foreach (var s in group)
+            foreach (var stored in group)
             {
-                await EvaluateOneAsync(s, candles, ct);
+                try
+                {
+                    await EvaluateOneAsync(stored, candles, previousClose, ct);
+                }
+                catch (Exception ex)
+                {
+                    logger.LogError(ex, "Evaluation failed for {Title} ({Id}); continuing with next strategy.", stored.Title, stored.Id);
+                }
             }
         }
     }
 
-    /// <summary>Fetch the candle history window for a symbol from the configured feed.</summary>
-    private static async Task<IReadOnlyList<Candle>> FetchCandlesAsync(IMarketDataFeed feed, string symbol, CancellationToken ct)
+    // ── Market data ─────────────────────────────────────────────────────
+
+    private void DrainStreamedBars()
     {
+        while (streamedBars.TryDequeue(out var bar))
+        {
+            if (!candleCache.TryGetValue(bar.Symbol, out var entry)) continue;
+            var list = entry.Candles;
+            // Replace an in-progress duplicate of the same minute, else append.
+            var idx = list.FindLastIndex(c => c.StartUtc == bar.StartUtc);
+            if (idx >= 0) list[idx] = bar;
+            else list.Add(bar);
+            if (list.Count > CandleWindow) list.RemoveRange(0, list.Count - CandleWindow);
+        }
+    }
+
+    private async Task<IReadOnlyList<Candle>> GetCandlesAsync(string symbol, CancellationToken ct)
+    {
+        if (candleCache.TryGetValue(symbol, out var cached)
+            && DateTime.UtcNow - cached.FetchedUtc < RestRefresh
+            && cached.Candles.Count > 0)
+        {
+            return AppendLiveTick(symbol, cached.Candles);
+        }
+
         var endUtc = DateTime.UtcNow;
         var startUtc = endUtc - (CandleWindow * BarSize);
         var list = new List<Candle>();
         await foreach (var c in feed.GetHistoricalCandlesAsync(symbol, startUtc, endUtc, BarSize, ct))
-        {
             list.Add(c);
-        }
-        return list;
+
+        candleCache[symbol] = (list, DateTime.UtcNow);
+        return AppendLiveTick(symbol, list);
     }
 
-    /// <summary>Evaluate a single strategy + log per-condition progress.</summary>
-    private async Task EvaluateOneAsync(IdiotProof.Blazor.Data.Strategy stored, IReadOnlyList<Candle> candles, CancellationToken ct)
+    /// <summary>
+    /// Appends a synthetic zero-volume candle from the freshest streamed trade
+    /// so exits react to the live price between minute bars. Never mutates the
+    /// cache — the synthetic bar exists only for this evaluation.
+    /// </summary>
+    private IReadOnlyList<Candle> AppendLiveTick(string symbol, List<Candle> candles)
     {
-        // Parse the stored ScriptText into a StrategyDefinition. Skip strategies
-        // that don't parse — the Strategies-as-home page surfaces parse errors.
+        var lastTrade = streaming?.GetLastTrade(symbol);
+        if (lastTrade is null || candles.Count == 0) return candles;
+        var lastBar = candles[^1];
+        if (lastTrade.TimestampUtc <= lastBar.EndUtc) return candles;
+
+        var merged = new List<Candle>(candles)
+        {
+            new()
+            {
+                Symbol = symbol,
+                StartUtc = lastTrade.TimestampUtc,
+                EndUtc = lastTrade.TimestampUtc,
+                Open = lastTrade.Price, High = lastTrade.Price,
+                Low = lastTrade.Price, Close = lastTrade.Price,
+                Volume = 0,
+                Note = "live-tick",
+            }
+        };
+        return merged;
+    }
+
+    private async Task<decimal?> GetPreviousCloseAsync(string symbol, CancellationToken ct)
+    {
+        var todayEt = DateOnly.FromDateTime(
+            TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, MarketTime.Eastern));
+        if (previousCloseCache.TryGetValue(symbol, out var hit) && hit.DayEt == todayEt)
+            return hit.Close;
+
+        var close = await feed.GetPreviousCloseAsync(symbol, DateTime.UtcNow, ct);
+        previousCloseCache[symbol] = (todayEt, close);
+        if (close is null)
+            logger.LogWarning("{Symbol}: no previous close available — gap conditions will fail closed.", symbol);
+        return close;
+    }
+
+    // ── Evaluation ──────────────────────────────────────────────────────
+
+    private async Task EvaluateOneAsync(
+        IdiotProof.Blazor.Data.Strategy stored,
+        IReadOnlyList<Candle> candles,
+        decimal? previousClose,
+        CancellationToken ct)
+    {
         var def = ScriptParser.ParseScript(stored.ScriptText);
         if (def is null)
         {
@@ -139,20 +247,39 @@ public sealed class MonitorWorker(
             return;
         }
 
-        // Build the snapshot once + walk each condition individually so we can
-        // log progress. The DslStrategy adapter normally short-circuits on first
-        // failure; here we evaluate each independently for visibility, then
-        // hand-roll a TradeSignal when ALL pass.
+        // Open position → manage the exit instead of hunting a new entry.
+        if (stored.PositionQty > 0)
+        {
+            await EvaluateExitAsync(stored, def, candles, ct);
+            return;
+        }
+
+        // Coarse session gate (Premarket / RTH / AfterHours / Extended).
+        if (!IsInsideSession(def.Session, DateTime.UtcNow))
+        {
+            await progressRepo.UpsertAsync(stored.Id, 0, Math.Max(1, def.EntryConditions.Count),
+                $"(outside {def.Session} session)", ct);
+            return;
+        }
+
+        // One-shot-per-day guard: a strategy that already traded today re-arms
+        // tomorrow unless it opted into Repeat().
+        if (!def.ShouldRepeat && stored.EntryFilledUtc is { } filled && IsSameEasternDay(filled, DateTime.UtcNow))
+        {
+            await progressRepo.UpsertAsync(stored.Id, 0, Math.Max(1, def.EntryConditions.Count),
+                "(done for today)", ct);
+            return;
+        }
+
         var emas = CollectEmaPeriods(def);
-        var snapshot = IndicatorSnapshotBuilder.BuildWithEmas(stored.Symbol, candles, emas);
+        var snapshot = IndicatorSnapshotBuilder.BuildWithEmas(stored.Symbol, candles, emas, previousClose);
 
         var conditions = def.EntryConditions;
         if (conditions.Count == 0)
         {
-            // No entry conditions — pure setup-only strategy. Treat as fired.
-            logger.LogInformation("[{Title}] no entry conditions — auto-fire.", stored.Title);
-            await strategyRepo.RecordFiredAsync(stored.Id, ct);
-            await progressRepo.UpsertAsync(stored.Id, 0, 0, null, ct);
+            // Setup-only strategy: nothing to wait for, but it still walks the
+            // LLM + risk gates and places a real order like any other fire.
+            await FireAsync(stored, def, snapshot, candles, ct);
             return;
         }
 
@@ -160,207 +287,252 @@ public sealed class MonitorWorker(
         string? firstFailure = null;
         foreach (var cond in conditions)
         {
-            if (cond.Evaluate(snapshot))
-            {
-                passed++;
-            }
-            else
-            {
-                firstFailure = cond.ToScript();
-                break; // sequential progress: stop on first fail
-            }
+            if (cond.Evaluate(snapshot)) passed++;
+            else { firstFailure = cond.ToScript(); break; }
         }
 
-        var total = conditions.Count;
+        await progressRepo.UpsertAsync(stored.Id, passed, conditions.Count, firstFailure, ct);
 
-        // Persist progress so the Strategies page can render a live badge
-        // ("3/5 — waiting on OnReclaim(9)") without tailing stdout.
-        await progressRepo.UpsertAsync(stored.Id, passed, total, firstFailure, ct);
-
-        if (passed == total)
+        if (passed == conditions.Count)
         {
-            logger.LogInformation("[{Title}] {Symbol} ✓ ALL {Passed}/{Total} conditions met → SIGNAL ({Direction} @ {Price:F2})",
-                stored.Title, stored.Symbol, passed, total, def.Direction, snapshot.Price);
-
-            // Construct the signal the DslStrategy adapter would produce so the
-            // LLM voter panel sees the same shape the Blazor host uses.
-            var signal = new TradeSignal
-            {
-                Symbol            = stored.Symbol,
-                Direction         = def.Direction,
-                ConfidencePercent = 0m,
-                SuggestedEntry    = (decimal)snapshot.Price,
-                SuggestedStop     = (decimal)(def.StopLossPrice ?? snapshot.Price),
-                Targets           = def.TakeProfitPrice.HasValue
-                                     ? new List<decimal> { (decimal)def.TakeProfitPrice.Value }
-                                     : new List<decimal>(),
-                StrategyName      = stored.Title,
-                Reason            = $"All {total} conditions met",
-                GeneratedUtc      = snapshot.Timestamp,
-                UserId            = stored.OwnerUserId.ToString(),
-            };
-
-            await VoteAndRecordAsync(stored, signal, candles, ct);
+            logger.LogInformation("[{Title}] {Symbol} ✓ ALL {Total} conditions met → candidate fire ({Direction} @ {Price:F2})",
+                stored.Title, stored.Symbol, conditions.Count, def.Direction, snapshot.Price);
+            await FireAsync(stored, def, snapshot, candles, ct);
         }
         else
         {
             logger.LogInformation("[{Title}] {Symbol} {Passed}/{Total} — waiting on: {Verb}",
-                stored.Title, stored.Symbol, passed, total, firstFailure ?? "(unknown)");
+                stored.Title, stored.Symbol, passed, conditions.Count, firstFailure ?? "(unknown)");
         }
     }
 
-    /// <summary>
-    /// Routes a candidate signal through the Legion high-tier voter panel
-    /// (LlmVotingService). LLM voting is gated on AppSettings.LlmVotingEnabled
-    /// + a configured Claude key — when disabled the signal records directly,
-    /// keeping the Monitor functional without a Claude account.
-    ///
-    /// Vote outcomes:
-    ///   • Approve  → record fired + audit-log "approved"
-    ///   • Reject   → log veto + audit-log "vetoed", do NOT record fired so
-    ///                LastFiredUtc / FireCount stay accurate to actual fires
-    ///   • Abstain  → treat as approve (no consensus to reject) but log the
-    ///                weaker confidence so the audit trail captures it
-    /// </summary>
-    private async Task VoteAndRecordAsync(IdiotProof.Blazor.Data.Strategy stored, TradeSignal signal, IReadOnlyList<Candle> candles, CancellationToken ct)
+    // ── Entry: three gates then the order ───────────────────────────────
+
+    private async Task FireAsync(
+        IdiotProof.Blazor.Data.Strategy stored,
+        StrategyDefinition def,
+        Shared.IndicatorSnapshot snapshot,
+        IReadOnlyList<Candle> candles,
+        CancellationToken ct)
     {
-        // Voting disabled or unconfigured → record directly. The audit trail
-        // still gets a "fired without vote" entry so a config gap is visible.
-        if (!appSettings.LlmVotingEnabled || string.IsNullOrWhiteSpace(appSettings.ClaudeApiKey))
+        var entryPrice = (decimal)snapshot.Price;
+        var stopPrice = def.StopLossPrice is { } sl
+            ? (decimal)sl
+            : def.StopLossPercent is { } slPct
+                ? entryPrice * (1 - (decimal)slPct / 100m)
+                : entryPrice; // Guardian rejects stopless setups — surfaced in audit.
+
+        var quantity = def.Quantity > 0
+            ? def.Quantity
+            : def.NotionalAmount is { } notional && entryPrice > 0m
+                ? Math.Max(1, (int)Math.Floor(notional / entryPrice))
+                : 1;
+
+        var signal = new TradeSignal
         {
-            await strategyRepo.RecordFiredAsync(stored.Id, ct);
-            await auditLogRepo.LogAsync(
-                category: "signal",
-                message: $"[{stored.Title}] {stored.Symbol} fired ({signal.Direction}) — LLM voting disabled",
-                userId: stored.OwnerUserId,
-                ct: ct);
-            return;
-        }
-
-        var voteResult = await llmVoting.VoteOnSignalAsync(signal, candles, appSettings, ct);
-
-        // Empty votes → service couldn't reach the providers (network, no
-        // panel returned). Treat as abstain to avoid false vetoes; the audit
-        // entry captures the gap.
-        if (voteResult.Votes.Count == 0)
-        {
-            logger.LogWarning("[{Title}] LLM voting returned no votes — recording fire but flagging in audit log.", stored.Title);
-            await strategyRepo.RecordFiredAsync(stored.Id, ct);
-            await auditLogRepo.LogAsync(
-                category: "signal",
-                message: $"[{stored.Title}] {stored.Symbol} fired ({signal.Direction}) — no LLM votes returned",
-                userId: stored.OwnerUserId,
-                ct: ct);
-            return;
-        }
-
-        var consensusLine = $"{voteResult.Consensus} ({voteResult.Votes.Count} voters, conf {voteResult.ConsensusConfidence:F0})";
-
-        if (voteResult.Consensus == VoteDecision.Reject)
-        {
-            logger.LogInformation("[{Title}] {Symbol} ✗ VETOED by LLM panel — {Consensus}",
-                stored.Title, stored.Symbol, consensusLine);
-            await auditLogRepo.LogAsync(
-                category: "signal-vetoed",
-                message: $"[{stored.Title}] {stored.Symbol} vetoed by LLM panel: {consensusLine}",
-                userId: stored.OwnerUserId,
-                dataJson: voteResult.ConsensusReasoning,
-                ct: ct);
-            // Important: do NOT record fired. The strategy's LastFiredUtc /
-            // FireCount only tick on signals that survived the panel.
-            return;
-        }
-
-        // Approve or abstain → run Risk Guardian as the final gate.
-        if (!await PassesRiskGuardianAsync(stored, signal, consensusLine, ct))
-            return;
-
-        await strategyRepo.RecordFiredAsync(stored.Id, ct);
-        await auditLogRepo.LogAsync(
-            category: "signal",
-            message: $"[{stored.Title}] {stored.Symbol} fired ({signal.Direction}) — LLM {consensusLine} + RiskGuardian approved",
-            userId: stored.OwnerUserId,
-            dataJson: voteResult.ConsensusReasoning,
-            ct: ct);
-        logger.LogInformation("[{Title}] {Symbol} ✓ {Consensus} + risk approved — fire recorded",
-            stored.Title, stored.Symbol, consensusLine);
-    }
-
-    /// <summary>
-    /// Runs the candidate signal through <see cref="RiskGuardian"/> as the final
-    /// gate before fire. The Guardian blocks fires that have no stop, stops on
-    /// the wrong side of entry, risk over the per-trade or per-day cap, micro
-    /// or oversized stops, or account-percent overruns.
-    ///
-    /// We synthesize a TradeSetup from the signal: symbol + direction +
-    /// suggested entry / stop / take-profit + the strategy's quantity (or 1
-    /// when notional-sized — the Guardian's share-based math gets a baseline,
-    /// even though the order layer ultimately re-derives notional at fill time).
-    /// Take-profit defaults to a +1R level when the strategy didn't specify one
-    /// so the Guardian's R:R warning has a real number rather than zero.
-    ///
-    /// Returns true on approve; false on block (caller skips the fire and
-    /// writes an audit entry capturing the reasons).
-    /// </summary>
-    private async Task<bool> PassesRiskGuardianAsync(IdiotProof.Blazor.Data.Strategy stored, TradeSignal signal, string consensusLine, CancellationToken ct)
-    {
-        var strategyDef = ScriptParser.ParseScript(stored.ScriptText);
-        var strategyQty = strategyDef?.Quantity ?? 0;
-        var notional    = strategyDef?.NotionalAmount;
-
-        var quantity = strategyQty > 0
-            ? strategyQty
-            : (notional is { } n && signal.SuggestedEntry > 0m
-                ? Math.Max(1, (int)Math.Floor(n / signal.SuggestedEntry))
-                : 1);
-
-        var takeProfit = signal.Targets.Count > 0
-            ? signal.Targets[0]
-            : signal.Direction == TradeDirection.Long
-                ? signal.SuggestedEntry + (signal.SuggestedEntry - signal.SuggestedStop)
-                : signal.SuggestedEntry - (signal.SuggestedStop - signal.SuggestedEntry);
-
-        var setup = new TradeSetup
-        {
-            Symbol          = signal.Symbol,
-            Direction       = signal.Direction,
-            EntryPrice      = signal.SuggestedEntry,
-            EntryType       = OrderType.Limit,
-            StopLoss        = signal.SuggestedStop,
-            TakeProfit      = takeProfit,
-            Quantity        = quantity,
-            ConfidenceScore = (int)Math.Clamp(signal.ConfidencePercent, 0m, 100m),
-            Rationale       = signal.Reason,
+            Symbol            = stored.Symbol,
+            Direction         = def.Direction,
+            ConfidencePercent = 0m,
+            SuggestedEntry    = entryPrice,
+            SuggestedStop     = stopPrice,
+            Targets           = def.TakeProfitPrice.HasValue ? [(decimal)def.TakeProfitPrice.Value] : [],
+            StrategyName      = stored.Title,
+            Reason            = $"All {def.EntryConditions.Count} conditions met",
+            GeneratedUtc      = snapshot.Timestamp,
+            UserId            = stored.OwnerUserId.ToString(),
         };
 
-        // Resolve the owner's RiskGuardian (cached by RiskGuardianService) so
-        // each user's daily-loss tracker is isolated and uses their own limits.
-        var guardian = await riskGuardianService.GetForUserAsync(stored.OwnerUserId, ct);
-        var verdict = guardian.ValidateTrade(setup);
-        if (verdict.IsApproved) return true;
-
-        var blockSummary = string.Join("; ", verdict.BlockReasons);
-        logger.LogInformation("[{Title}] {Symbol} ✗ BLOCKED by RiskGuardian — {Reasons}",
-            stored.Title, stored.Symbol, blockSummary);
-        await auditLogRepo.LogAsync(
-            category: "signal-blocked",
-            message: $"[{stored.Title}] {stored.Symbol} blocked by RiskGuardian after LLM {consensusLine}: {blockSummary}",
-            userId: stored.OwnerUserId,
-            dataJson: System.Text.Json.JsonSerializer.Serialize(new
+        // Gate 2 — LLM voter panel (skipped only when voting is disabled/unkeyed).
+        if (appSettings.LlmVotingEnabled && !string.IsNullOrWhiteSpace(appSettings.ClaudeApiKey))
+        {
+            var voteResult = await llmVoting.VoteOnSignalAsync(signal, candles, appSettings, ct);
+            if (voteResult.Votes.Count > 0 && voteResult.Consensus == VoteDecision.Reject)
             {
-                blockReasons = verdict.BlockReasons,
-                warnings     = verdict.Warnings,
-                expectedLoss = verdict.ExpectedLoss,
-                worstCase    = verdict.WorstCaseLoss,
-            }),
-            ct: ct);
-        return false;
+                logger.LogInformation("[{Title}] {Symbol} ✗ VETOED by LLM panel ({Voters} voters).",
+                    stored.Title, stored.Symbol, voteResult.Votes.Count);
+                await auditLogRepo.LogAsync("signal-vetoed",
+                    $"[{stored.Title}] {stored.Symbol} vetoed by LLM panel ({voteResult.Votes.Count} voters, conf {voteResult.ConsensusConfidence:F0})",
+                    userId: stored.OwnerUserId, dataJson: voteResult.ConsensusReasoning, ct: ct);
+                return;
+            }
+        }
+
+        // Gate 3 — RiskGuardian holds the final veto (IP-LAW-2).
+        var guardian = await riskGuardianService.GetForUserAsync(stored.OwnerUserId, ct);
+        var setup = new TradeSetup
+        {
+            Symbol          = stored.Symbol,
+            Direction       = def.Direction,
+            EntryPrice      = entryPrice,
+            EntryType       = OrderType.Limit,
+            StopLoss        = stopPrice,
+            TakeProfit      = signal.Targets.Count > 0
+                ? signal.Targets[0]
+                : entryPrice + (entryPrice - stopPrice),
+            Quantity        = quantity,
+            ConfidenceScore = 0,
+            Rationale       = signal.Reason,
+        };
+        var verdict = guardian.ValidateTrade(setup);
+        if (!verdict.IsApproved)
+        {
+            var reasons = string.Join("; ", verdict.BlockReasons);
+            logger.LogInformation("[{Title}] {Symbol} ✗ BLOCKED by RiskGuardian — {Reasons}", stored.Title, stored.Symbol, reasons);
+            await auditLogRepo.LogAsync("signal-blocked",
+                $"[{stored.Title}] {stored.Symbol} blocked by RiskGuardian: {reasons}",
+                userId: stored.OwnerUserId, ct: ct);
+            return;
+        }
+
+        // Shorts are signal-only until short position management ships — the
+        // exit brain (peak/giveback math) is long-shaped today.
+        if (def.Direction != TradeDirection.Long)
+        {
+            await strategyRepo.RecordFiredAsync(stored.Id, ct);
+            await auditLogRepo.LogAsync("signal",
+                $"[{stored.Title}] {stored.Symbol} SHORT signal recorded (order placement for shorts not yet enabled)",
+                userId: stored.OwnerUserId, ct: ct);
+            return;
+        }
+
+        // The order. Premarket/after-hours must be limit + extended_hours
+        // (Alpaca requirement); RTH entries go in as marketable limits too so
+        // a thin book can't fill us far off the evaluated price.
+        var extendedHours = IsExtendedHours(DateTime.UtcNow);
+        var limitPrice = Math.Round(entryPrice * 1.002m, 2); // +0.2% marketable buffer
+
+        var broker = brokerRouter.GetActiveBroker();
+        var order = await broker.PlaceOrderAsync(new OrderRequest
+        {
+            Symbol        = stored.Symbol,
+            Quantity      = quantity,
+            Side          = OrderSide.Buy,
+            Type          = OrderType.Limit,
+            LimitPrice    = limitPrice,
+            TimeInForce   = "DAY",
+            ExtendedHours = extendedHours,
+        }, ct);
+
+        if (!order.IsSuccess)
+        {
+            logger.LogWarning("[{Title}] {Symbol} entry order REJECTED by {Broker}: {Message}",
+                stored.Title, stored.Symbol, broker.BrokerType, order.Message);
+            await auditLogRepo.LogAsync("order-rejected",
+                $"[{stored.Title}] {stored.Symbol} entry rejected by {broker.BrokerType}: {order.Message}",
+                userId: stored.OwnerUserId, ct: ct);
+            return;
+        }
+
+        await strategyRepo.RecordFiredAsync(stored.Id, ct);
+        await strategyRepo.RecordEntryFillAsync(stored.Id, quantity, limitPrice, DateTime.UtcNow, ct);
+        await auditLogRepo.LogAsync("order-placed",
+            $"[{stored.Title}] BUY {quantity} {stored.Symbol} @ {limitPrice:F2} ({broker.BrokerType}, {(extendedHours ? "extended-hours" : "RTH")}, order {order.BrokerOrderId})",
+            userId: stored.OwnerUserId, ct: ct);
+        logger.LogInformation("[{Title}] ✓ BUY {Qty} {Symbol} @ {Price:F2} via {Broker} — position now managed for exit.",
+            stored.Title, quantity, stored.Symbol, limitPrice, broker.BrokerType);
+    }
+
+    // ── Exit: the sell-off brain ────────────────────────────────────────
+
+    private async Task EvaluateExitAsync(
+        IdiotProof.Blazor.Data.Strategy stored,
+        StrategyDefinition def,
+        IReadOnlyList<Candle> candles,
+        CancellationToken ct)
+    {
+        if (stored.LastEntryPrice is not { } entry || stored.EntryFilledUtc is not { } filledUtc)
+        {
+            logger.LogWarning("[{Title}] position without entry bookkeeping — clearing.", stored.Title);
+            await strategyRepo.RecordExitFillAsync(stored.Id, 0m, "Orphaned", DateTime.UtcNow, ct);
+            return;
+        }
+
+        var decision = GapperExitEvaluator.Evaluate(def, (double)entry, filledUtc, candles, DateTime.UtcNow);
+
+        // Surface "holding" in the progress badge so the UI shows live state.
+        var current = (double)candles[^1].Close;
+        await progressRepo.UpsertAsync(stored.Id, 1, 1,
+            decision is null ? $"(holding {stored.PositionQty} @ {entry:F2}, now {current:F2})" : null, ct);
+
+        if (decision is null) return;
+
+        var extendedHours = IsExtendedHours(DateTime.UtcNow);
+        // Marketable sell limit: -0.5% so the flatten fills through a thin book.
+        var limitPrice = Math.Round((decimal)decision.CurrentPrice * 0.995m, 2);
+
+        var broker = brokerRouter.GetActiveBroker();
+        var order = await broker.PlaceOrderAsync(new OrderRequest
+        {
+            Symbol        = stored.Symbol,
+            Quantity      = stored.PositionQty,
+            Side          = OrderSide.Sell,
+            Type          = OrderType.Limit,
+            LimitPrice    = limitPrice,
+            TimeInForce   = "DAY",
+            ExtendedHours = extendedHours,
+        }, ct);
+
+        if (!order.IsSuccess)
+        {
+            logger.LogWarning("[{Title}] {Symbol} EXIT order rejected by {Broker}: {Message} — will retry next tick.",
+                stored.Title, stored.Symbol, broker.BrokerType, order.Message);
+            await auditLogRepo.LogAsync("order-rejected",
+                $"[{stored.Title}] {stored.Symbol} exit ({decision.Reason}) rejected by {broker.BrokerType}: {order.Message}",
+                userId: stored.OwnerUserId, ct: ct);
+            return;
+        }
+
+        // Feed realized P&L into the daily circuit breaker (IP-LAW-2) — the
+        // audit found RecordTradePnL was never called in production, so the
+        // daily-loss guard could never trip.
+        var realized = (limitPrice - entry) * stored.PositionQty;
+        var guardian = await riskGuardianService.GetForUserAsync(stored.OwnerUserId, ct);
+        guardian.RecordTradePnL(realized);
+
+        await strategyRepo.RecordExitFillAsync(stored.Id, limitPrice, decision.Reason.ToString(), DateTime.UtcNow, ct);
+        await auditLogRepo.LogAsync("order-placed",
+            $"[{stored.Title}] SELL {stored.PositionQty} {stored.Symbol} @ {limitPrice:F2} — {decision.Reason}: {decision.Detail} " +
+            $"(P&L {realized:+0.00;-0.00}, {broker.BrokerType}, order {order.BrokerOrderId})",
+            userId: stored.OwnerUserId, ct: ct);
+        logger.LogInformation("[{Title}] ✓ SOLD {Qty} {Symbol} @ {Price:F2} — {Reason} (P&L {Pnl:+0.00;-0.00})",
+            stored.Title, stored.PositionQty, stored.Symbol, limitPrice, decision.Reason, realized);
+    }
+
+    // ── Clock helpers ───────────────────────────────────────────────────
+
+    private static bool IsInsideSession(TradingSession session, DateTime utc)
+    {
+        var tod = MarketTime.ToEasternTimeOfDay(utc);
+        var premarket  = tod >= new TimeSpan(4, 0, 0) && tod < new TimeSpan(9, 30, 0);
+        var rth        = tod >= new TimeSpan(9, 30, 0) && tod < new TimeSpan(16, 0, 0);
+        var afterHours = tod >= new TimeSpan(16, 0, 0) && tod < new TimeSpan(20, 0, 0);
+        return session switch
+        {
+            TradingSession.Premarket  => premarket,
+            TradingSession.RTH        => rth,
+            TradingSession.AfterHours => afterHours,
+            TradingSession.Extended   => premarket || rth || afterHours,
+            _                         => rth,
+        };
+    }
+
+    private static bool IsExtendedHours(DateTime utc)
+    {
+        var tod = MarketTime.ToEasternTimeOfDay(utc);
+        return (tod >= new TimeSpan(4, 0, 0) && tod < new TimeSpan(9, 30, 0))
+            || (tod >= new TimeSpan(16, 0, 0) && tod < new TimeSpan(20, 0, 0));
+    }
+
+    private static bool IsSameEasternDay(DateTime aUtc, DateTime bUtc)
+    {
+        var eastern = MarketTime.Eastern;
+        return DateOnly.FromDateTime(TimeZoneInfo.ConvertTimeFromUtc(DateTime.SpecifyKind(aUtc, DateTimeKind.Utc), eastern))
+            == DateOnly.FromDateTime(TimeZoneInfo.ConvertTimeFromUtc(DateTime.SpecifyKind(bUtc, DateTimeKind.Utc), eastern));
     }
 
     /// <summary>
-    /// Collect EMA periods referenced by any condition (entry or branched) so
-    /// the snapshot builder pre-computes them. Mirrors DslStrategy's logic;
-    /// kept here so the Monitor doesn't need to reach into the adapter's privates.
+    /// Collect EMA periods referenced by any condition so the snapshot builder
+    /// pre-computes them. Mirrors DslStrategy's logic.
     /// </summary>
     private static IEnumerable<int> CollectEmaPeriods(StrategyDefinition def)
     {

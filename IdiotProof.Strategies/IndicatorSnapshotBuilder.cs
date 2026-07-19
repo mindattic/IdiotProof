@@ -25,9 +25,10 @@ public static class IndicatorSnapshotBuilder
     /// Build a snapshot, ensuring the requested EMA periods are populated in
     /// addition to the defaults. Used when a DSL strategy references unusual
     /// periods (e.g. IsBetweenEma(7, 65)) — we union the strategy's required
-    /// periods with the defaults.
+    /// periods with the defaults. <paramref name="previousClose"/> is the prior
+    /// day's official close; without it gap conditions fail closed.
     /// </summary>
-    public static IndicatorSnapshot BuildWithEmas(string symbol, IReadOnlyList<Candle> candles, IEnumerable<int> emaPeriods)
+    public static IndicatorSnapshot BuildWithEmas(string symbol, IReadOnlyList<Candle> candles, IEnumerable<int> emaPeriods, decimal? previousClose = null)
     {
         if (candles.Count == 0)
         {
@@ -47,6 +48,7 @@ public static class IndicatorSnapshotBuilder
             BarHigh    = (double)lastBar.High,
             BarLow     = (double)lastBar.Low,
             PriorPrice = priorBar is not null ? (double)priorBar.Close : null,
+            PreviousClose = previousClose is { } pc ? (double)pc : null,
             Volume     = (long)lastBar.Volume,
         };
 

@@ -84,30 +84,44 @@ public sealed class AlpacaBrokerClient : IBrokerClient, IAsyncDisposable
         var stopPrice  = request.Type is OrderType.Stop or OrderType.StopLimit ? request.StopPrice : null;
         var trailPct   = request.Type == OrderType.TrailingStop ? request.TrailPercent : null;
 
+        // Alpaca hard-requires extended-hours orders to be limit + DAY; reject
+        // locally with a clear message instead of letting the API 422 (or worse,
+        // letting a market order silently queue for the 9:30 bell).
+        if (request.ExtendedHours && (request.Type != OrderType.Limit || !request.TimeInForce.Equals("DAY", StringComparison.OrdinalIgnoreCase)))
+        {
+            return new OrderResult
+            {
+                IsSuccess = false,
+                Message = "Extended-hours orders must be Limit type with DAY time-in-force (Alpaca requirement)."
+            };
+        }
+
         // Alpaca's /v2/orders accepts qty XOR notional. We send only the field
         // that's actually set so the API doesn't 422 on the "both" case.
         object payload = hasShares
             ? new
             {
-                symbol        = request.Symbol.ToUpperInvariant(),
-                qty           = request.Quantity,
+                symbol         = request.Symbol.ToUpperInvariant(),
+                qty            = request.Quantity,
                 side,
                 type,
-                time_in_force = request.TimeInForce.ToLowerInvariant(),
-                limit_price   = limitPrice,
-                stop_price    = stopPrice,
-                trail_percent = trailPct,
+                time_in_force  = request.TimeInForce.ToLowerInvariant(),
+                limit_price    = limitPrice,
+                stop_price     = stopPrice,
+                trail_percent  = trailPct,
+                extended_hours = request.ExtendedHours,
             }
             : new
             {
-                symbol        = request.Symbol.ToUpperInvariant(),
-                notional      = request.Notional!.Value,
+                symbol         = request.Symbol.ToUpperInvariant(),
+                notional       = request.Notional!.Value,
                 side,
                 type,
-                time_in_force = request.TimeInForce.ToLowerInvariant(),
-                limit_price   = limitPrice,
-                stop_price    = stopPrice,
-                trail_percent = trailPct,
+                time_in_force  = request.TimeInForce.ToLowerInvariant(),
+                limit_price    = limitPrice,
+                stop_price     = stopPrice,
+                trail_percent  = trailPct,
+                extended_hours = request.ExtendedHours,
             };
 
         using var response = await httpClient.PostAsJsonAsync("/v2/orders", payload, ct).ConfigureAwait(false);

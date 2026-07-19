@@ -51,50 +51,12 @@ public static class ServiceRegistration
             settings.OverlayFromConfiguration(configuration);
         services.AddSingleton(settings);
 
-        // Strategies
-        services.AddSingleton<StrategyRegistry>();
-
-        // Brokers — Sandbox is always registered as the safe fallback
-        services.AddSingleton<SandboxBrokerClient>();
-        services.AddSingleton<BrokerRouter>(sp =>
-        {
-            var router = new BrokerRouter();
-            router.Register(sp.GetRequiredService<SandboxBrokerClient>());
-
-            if (!string.IsNullOrWhiteSpace(settings.AlpacaApiKeyId))
-            {
-                var alpaca = new AlpacaBrokerClient(settings.AlpacaApiKeyId, settings.AlpacaApiSecretKey, settings.AlpacaIsPaper);
-                router.Register(alpaca);
-            }
-
-            // IBKR support is dormant — see IdiotProof.Brokers.Ibkr/README.md to re-enable.
-
-            // Set the configured default broker as active
-            router.SetActive(settings.DefaultBroker);
-
-            return router;
-        });
-
-        // Data Feeds — Mock is always registered so the engine works without API keys
-        services.AddSingleton<SwitchableMarketDataFeed>(sp =>
-        {
-            var feed = new SwitchableMarketDataFeed("Mock");
-            feed.Register(new MockDataFeed());
-
-            if (!string.IsNullOrWhiteSpace(settings.PolygonApiKey))
-            {
-                feed.Register(new PolygonDataFeed(settings.PolygonApiKey));
-                feed.SetActiveFeed("Polygon");
-            }
-
-            // Override with configured default if registered
-            if (!string.IsNullOrWhiteSpace(settings.DefaultDataFeed) && settings.DefaultDataFeed != "Mock")
-            {
-                try { feed.SetActiveFeed(settings.DefaultDataFeed); } catch { /* fallback to Mock */ }
-            }
-
-            return feed;
-        });
+        // NOTE (IP-A8): the StrategyRegistry / BrokerRouter / SwitchableMarketDataFeed
+        // singletons that used to be registered here were dead DI — nothing in the
+        // Blazor host consumed them (audit 2026-07-18). The one live order-placing
+        // host, IdiotProof.Monitor, constructs its own BrokerRouter + feed from the
+        // same AppSettings chain in its Program.cs. Exactly one construction site
+        // exists now; do not re-add rival registrations here.
 
         // Workspace store — JSON-on-disk by default. The Blazor host overrides
         // this registration with a SQL-backed implementation (SqlWorkspaceStore)

@@ -9,7 +9,6 @@
 // NEW FEATURES USED:
 // - HoldsAbove(): Dual support level confirmation (VWAP + specific price)
 // - TakeProfit(T1, T2, T3): Multi-target scaling out
-// - MultiTargetExitManager: Handles partial exits automatically
 // ============================================================================
 
 using IdiotProof.Models;
@@ -156,25 +155,6 @@ Ticker(SUNE)
         ERNA(),
         SUNE()
     ];
-
-    /// <summary>
-    /// Creates exit managers for all strategies with multi-target support.
-    /// </summary>
-    public static Dictionary<string, MultiTargetExitManager> CreateExitManagers()
-    {
-        var managers = new Dictionary<string, MultiTargetExitManager>();
-
-        foreach (var strategy in GetAllStrategies())
-        {
-            if (strategy.HasMultipleTargets)
-            {
-                var manager = new MultiTargetExitManager(strategy.Symbol);
-                managers[strategy.Symbol] = manager;
-            }
-        }
-
-        return managers;
-    }
 
     /// <summary>
     /// Prints strategy cards in the pro trader format.

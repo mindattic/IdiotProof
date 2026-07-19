@@ -6,9 +6,10 @@ namespace IdiotProof.Blazor.Data;
 
 /// <summary>
 /// A user-authored trading strategy. Persisted to the IdiotProof SQL Server
-/// database. The Monitor (StrategyExecutionService + future IdiotProof.Monitor
-/// console app) loads every IsActive=true row, parses ScriptText into a
-/// StrategyDefinition, and evaluates it on each tick.
+/// database. The console Monitor (IdiotProof.Monitor/MonitorWorker) loads
+/// every IsActive=true row each tick, parses ScriptText into a
+/// StrategyDefinition, and evaluates it — so edits made in the Blazor UI
+/// apply to the running console automatically via SQL (IP-A8).
 /// </summary>
 public sealed class Strategy
 {
@@ -55,4 +56,31 @@ public sealed class Strategy
 
     /// <summary>How many times this strategy has fired a TradeSignal since creation.</summary>
     public int FireCount { get; set; }
+
+    // ── Open-position tracking (IP-A8) ──────────────────────────────────
+    // Runtime state lives in SQL (IP-LAW-7). The Monitor writes these when an
+    // entry order fills and clears them on exit; the UI renders live badges
+    // from them. Qty > 0 means the Monitor is managing an open position and
+    // must evaluate exit rules instead of entry conditions.
+
+    /// <summary>Open position size in shares. 0 = flat.</summary>
+    public int PositionQty { get; set; }
+
+    /// <summary>Fill price of the open (or most recent) entry.</summary>
+    [Column(TypeName = "decimal(18,4)")]
+    public decimal? LastEntryPrice { get; set; }
+
+    /// <summary>When the open (or most recent) entry filled (UTC).</summary>
+    public DateTime? EntryFilledUtc { get; set; }
+
+    /// <summary>When the most recent exit completed (UTC). Null while holding.</summary>
+    public DateTime? LastExitedUtc { get; set; }
+
+    /// <summary>Fill price of the most recent exit.</summary>
+    [Column(TypeName = "decimal(18,4)")]
+    public decimal? LastExitPrice { get; set; }
+
+    /// <summary>Why the most recent exit happened (SellByTime / PeakGiveback / StopLoss / TrailingStop / Manual).</summary>
+    [MaxLength(40)]
+    public string? LastExitReason { get; set; }
 }

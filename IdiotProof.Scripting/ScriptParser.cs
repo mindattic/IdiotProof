@@ -37,8 +37,30 @@ public static class ScriptParser
     private static void ApplyVerb(StrategyBuilder b, string name, string args)
     {
         var nums = ParseNumericArgs(args);
+        var strs = ParseStringArgs(args);
         switch (name.ToLowerInvariant())
         {
+            // Setup
+            case "session":
+                // Accept Session(IS.PREMARKET), Session(Premarket), Session("Premarket").
+                var sessionToken = strs.Count >= 1 ? strs[0] : "";
+                var dot = sessionToken.LastIndexOf('.');
+                if (dot >= 0) sessionToken = sessionToken[(dot + 1)..];
+                if (Enum.TryParse<IdiotProof.Models.TradingSession>(sessionToken, ignoreCase: true, out var session))
+                    b.Session(session);
+                break;
+            case "requireentrywindow": case "entrywindow":
+                if (strs.Count >= 2) b.RequireEntryWindow(strs[0], strs[1]);
+                break;
+
+            // Time exits
+            case "sellby": case "exitstrategy":
+                if (strs.Count >= 1) b.SellBy(strs[0]);
+                break;
+            case "peakgiveback":
+                if (nums.Count >= 1) b.PeakGiveback((double)nums[0], strs.Count >= 2 ? strs[1] : null);
+                break;
+
             // VWAP
             case "isabovevwap": case "abovevwap":     b.IsAboveVwap(); break;
             case "isbelowvwap": case "belowvwap":     b.IsBelowVwap(); break;
@@ -80,6 +102,7 @@ public static class ScriptParser
             // Gap
             case "isgapup":   b.IsGapUp(nums.Count >= 1 ? (double)nums[0] : 3); break;
             case "isgapdown": b.IsGapDown(nums.Count >= 1 ? (double)nums[0] : 3); break;
+            case "isgapbetween": if (nums.Count >= 2) b.IsGapBetween((double)nums[0], (double)nums[1]); break;
 
             // Support / Resistance
             case "isatsupport":    b.IsAtSupport(nums.Count >= 1 ? (double)nums[0] : 0.5); break;
@@ -100,6 +123,7 @@ public static class ScriptParser
             case "holdsabove":  if (nums.Count >= 1) b.HoldsAbove((double)nums[0]); break;
             case "holdsbelow":  if (nums.Count >= 1) b.HoldsBelow((double)nums[0]); break;
             case "isnear":      if (nums.Count >= 1) b.IsNear((double)nums[0], nums.Count >= 2 ? (double)nums[1] : 1.0); break;
+            case "ispricebetween": if (nums.Count >= 2) b.IsPriceBetween((double)nums[0], (double)nums[1]); break;
 
             // Order
             case "long":             b.Long(); break;
@@ -122,6 +146,20 @@ public static class ScriptParser
             case "adaptiveorder":     b.AdaptiveOrder(); break;
             case "repeat":            b.Repeat(); break;
         }
+    }
+
+    /// <summary>
+    /// Raw comma-split args with surrounding quotes/whitespace stripped, in
+    /// call order. Numeric tokens are included too so callers can mix (e.g.
+    /// PeakGiveback(25, "09:15") reads nums[0] and strs[1]).
+    /// </summary>
+    private static List<string> ParseStringArgs(string args)
+    {
+        var result = new List<string>();
+        if (string.IsNullOrWhiteSpace(args)) return result;
+        foreach (var raw in args.Split(','))
+            result.Add(raw.Trim().Trim('"').Trim());
+        return result;
     }
 
     private static List<decimal> ParseNumericArgs(string args)

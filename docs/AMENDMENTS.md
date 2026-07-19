@@ -9,6 +9,44 @@ updated: 2026-06-09
 
 # IdiotProof — Amendments (append-only; amendment wins over the bible)
 
+## IP-A8 — Gapper epic + single-pipeline unification adopted {#IP-A8}
+**What changed.** [RFC 0002](rfc/0002-gapper-and-unification.md) adopted (2026-07-18). The
+premarket **Gapper** flow becomes the product's flagship: pick up to 3 tickers on a dedicated
+`/gapper` tab, screen each against an adjustable **gapper profile** (gap %, volume ratio, price
+band, entry window, stop/trailing-stop, peak-giveback rollover exit, arm time, hard sell-by
+before the 9:30 bell), queue them as ordinary Strategy rows, and let the console Monitor buy
+the gap and sell it off before the bell. Supporting canon changes:
+
+- **Single pipeline:** Strategy SQL rows are the only strategy runtime state; the console is
+  the always-on evaluator; UI changes propagate via SQL each tick (no restart); order
+  execution flows through `BrokerRouter`/`IBrokerClient` behind the three gates. The rival
+  `WorkspaceTab`-binding evaluation path in `StrategyExecutionService` is deprecated as an
+  evaluation input (workspace tabs remain UI layout state).
+- **DSL:** new verbs `RequireEntryWindow`/`EntryWindow`, `SellBy`, `PeakGiveback`; gap
+  conditions now evaluate against a real `PreviousClose` (fail closed without it); parser
+  round-trip fixes (`Session` was silently dropped; `ExitTime`/`StopLossPercent` never
+  serialized).
+- **Profiles:** first static JSON catalog under IP-LAW-7:
+  `IdiotProof.Blazor/wwwroot/data/gapper-profiles.json` (templates; every value dialable per
+  queued ticker; tuned result denormalized into `ScriptText`).
+- **Exits:** momentum-rollover exit = give back N% of the entry→peak run, armed in the last
+  premarket minutes; hard `SellBy` fallback so gappers are always flat before the bell.
+  Exit orders are risk-reducing: audit-logged, no LLM panel, RiskGuardian kill-switch still
+  honored.
+- **Data:** config-driven feed selection (Alpaca when keyed, Mock fallback), Alpaca websocket
+  streaming for subscribed symbols, daily-bar previous-close fetch for gap math. Premarket
+  orders are limit + `extended_hours` on Alpaca.
+
+**Why.** Session directives 2026-07-18: "this application only needs to do one thing well …
+take a stock ticker at 4AM and check to see if it's a gapper … sell off the gapper before the
+bell"; "make sure the console and the UI run asynchronously and communicate"; "need to be able
+to dial in gappers … all gappers are not the same"; "do a full system audit … build it into a
+single unified vision."
+
+**Effect on canon.** [BIBLE §7](BIBLE.md#IP-§7) frontier gains the Gapper epic. New Epic K
+added to [USER_STORIES.md](USER_STORIES.md). Stories flip ✅ only with named green tests
+(HOUSE-LAW-8).
+
 ## IP-A1 — The README/copilot narrative describes a graph that is not the built solution (supersedes —)
 **What changed.** The Codex canon ([BIBLE §4](BIBLE.md#IP-§4)) is anchored to the projects
 actually referenced by `IdiotProof.slnx` (Blazor, Monitor, Engine, Scripting, Strategies,

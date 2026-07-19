@@ -54,6 +54,17 @@ public sealed class IndicatorSnapshot
     /// <summary>Prior bar's close (used by reclaim / cross-up / cross-down conditions).</summary>
     public double? PriorPrice { get; set; }
 
+    /// <summary>
+    /// Previous trading day's official close. Required by gap conditions
+    /// (IsGapUp / IsGapDown); null when the caller didn't supply daily data,
+    /// in which case gap conditions fail closed rather than pass.
+    /// </summary>
+    public double? PreviousClose { get; set; }
+
+    /// <summary>Gap vs the previous day's close, in percent. Null without PreviousClose.</summary>
+    public double? GapPercent => PreviousClose is > 0
+        ? (Price - PreviousClose.Value) / PreviousClose.Value * 100 : null;
+
     /// <summary>Prior bar's VWAP (used by VWAP reclaim / loss conditions).</summary>
     public double? PriorVwap { get; set; }
 

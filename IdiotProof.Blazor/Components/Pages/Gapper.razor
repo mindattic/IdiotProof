@@ -1,0 +1,371 @@
+@page "/gapper"
+@rendermode InteractiveServer
+@using IdiotProof.Blazor.Data
+@using IdiotProof.Blazor.Services
+@using IdiotProof.Scripting
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+@attribute [Authorize]
+@inject StrategyRepository StrategyRepo
+@inject ConditionProgressRepository ProgressRepo
+@inject GapperProfileService ProfileService
+@inject AuthenticationStateProvider AuthState
+@implements IDisposable
+
+@*
+    Gapper — the one thing done well (RFC 0002 / IP-A8). Pick up to three
+    tickers, select an adjustable gapper profile per ticker, dial it in (all
+    gappers are not the same), and queue. Queued gappers become ordinary
+    Strategy rows: the console Monitor re-reads them every tick, buys the gap
+    through the three gates in the 4AM premarket window, and sells off before
+    the 9:30 bell once momentum rolls over (peak-giveback) — hard sell-by as
+    the fallback. This page polls SQL every 5s, so the console's doings
+    (condition progress, holding, sold) render here live.
+*@
+
+<PageTitle>Gapper — IdiotProof</PageTitle>
+
+<section aria-labelledby="gapper-heading">
+    <div class="d-flex justify-content-between align-items-center mb-1">
+        <h1 id="gapper-heading" class="h4 mb-0">
+            <i class="bi bi-sunrise me-2" style="color:var(--brand)" aria-hidden="true"></i>Gapper
+        </h1>
+        <span class="text-muted small">Buy the gap at 4AM · sell it off before the bell</span>
+    </div>
+    <p class="text-muted small mb-3">
+        Queue up to <strong>3 tickers</strong>. Each runs its own dial-in profile: gap screen → premarket entry →
+        stop rails → momentum-rollover sell-off armed in the final minutes before 9:30 ET.
+    </p>
+
+    @if (loadError is not null)
+    {
+        <div class="alert alert-danger small">@loadError</div>
+    }
+
+    <!-- ── Queue form ─────────────────────────────────────────────── -->
+    <div class="trading-card p-3 mb-3">
+        <div class="d-flex align-items-center gap-2 flex-wrap mb-2">
+            <input class="form-control text-uppercase fw-semibold"
+                   style="max-width:140px"
+                   placeholder="TICKER"
+                   maxlength="10"
+                   @bind="symbolInput"
+                   @bind:event="oninput"
+                   aria-label="Ticker symbol" />
+            <select class="form-select" style="max-width:220px" aria-label="Gapper profile"
+                    value="@selectedProfileId" @onchange="OnProfileSelected">
+                @foreach (var p in ProfileService.GetProfiles())
+                {
+                    <option value="@p.Id">@p.Name</option>
+                }
+            </select>
+            <button class="btn btn-sm btn-outline-secondary" type="button" @onclick="() => showDials = !showDials"
+                    aria-expanded="@showDials">
+                <i class="bi bi-sliders me-1" aria-hidden="true"></i>Dial in
+            </button>
+            <button class="btn btn-success ms-auto" type="button"
+                    disabled="@(!CanQueue)"
+                    title="@(ActiveGapperCount >= MaxGappers ? "3 gappers already queued — remove one first" : null)"
+                    @onclick="QueueGapper">
+                <i class="bi bi-plus-circle me-1" aria-hidden="true"></i>Queue Gapper
+            </button>
+        </div>
+        <div class="text-muted small mb-2">@CurrentProfile.Description</div>
+
+        @if (showDials)
+        {
+            <div class="border-top pt-3 mt-1">
+                <div class="row g-3">
+                    <div class="col-12 col-md-4">
+                        <div class="fw-semibold small mb-2"><i class="bi bi-funnel me-1" aria-hidden="true"></i>Gap screen</div>
+                        <label class="form-label small mb-0">Min gap %</label>
+                        <input class="form-control form-control-sm" type="number" step="0.5" @bind="dial.MinGapPercent" />
+                        <label class="form-label small mb-0 mt-2">Max gap % (blank = no cap)</label>
+                        <input class="form-control form-control-sm" type="number" step="0.5" @bind="maxGapText" />
+                        <label class="form-label small mb-0 mt-2">Min volume ratio (× average)</label>
+                        <input class="form-control form-control-sm" type="number" step="0.1" @bind="dial.MinVolumeRatio" />
+                        <div class="d-flex gap-2 mt-2">
+                            <div>
+                                <label class="form-label small mb-0">Min price $</label>
+                                <input class="form-control form-control-sm" type="number" step="0.1" @bind="dial.MinPrice" />
+                            </div>
+                            <div>
+                                <label class="form-label small mb-0">Max price $</label>
+                                <input class="form-control form-control-sm" type="number" step="1" @bind="dial.MaxPrice" />
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-12 col-md-4">
+                        <div class="fw-semibold small mb-2"><i class="bi bi-clock me-1" aria-hidden="true"></i>Windows (ET)</div>
+                        <label class="form-label small mb-0">Entry window start</label>
+                        <input class="form-control form-control-sm" @bind="dial.EntryWindowStartEt" placeholder="04:00" />
+                        <label class="form-label small mb-0 mt-2">Entry window end</label>
+                        <input class="form-control form-control-sm" @bind="dial.EntryWindowEndEt" placeholder="09:00" />
+                        <label class="form-label small mb-0 mt-2">Arm sell-off watch at</label>
+                        <input class="form-control form-control-sm" @bind="dial.ArmExitAtEt" placeholder="09:15" />
+                        <label class="form-label small mb-0 mt-2">Hard sell-by (before 9:30 bell)</label>
+                        <input class="form-control form-control-sm" @bind="dial.SellByEt" placeholder="09:28" />
+                    </div>
+                    <div class="col-12 col-md-4">
+                        <div class="fw-semibold small mb-2"><i class="bi bi-shield-exclamation me-1" aria-hidden="true"></i>Risk &amp; exit</div>
+                        <label class="form-label small mb-0">Stop loss % (below entry)</label>
+                        <input class="form-control form-control-sm" type="number" step="0.5" @bind="dial.StopLossPercent" />
+                        <label class="form-label small mb-0 mt-2">Trailing stop % (blank = off)</label>
+                        <input class="form-control form-control-sm" type="number" step="0.5" @bind="trailingText" />
+                        <label class="form-label small mb-0 mt-2">Peak giveback % (of the run)</label>
+                        <input class="form-control form-control-sm" type="number" step="5" @bind="dial.PeakGivebackPercent" />
+                        <label class="form-label small mb-0 mt-2">Position size $ (notional)</label>
+                        <input class="form-control form-control-sm" type="number" step="100" @bind="dial.DefaultNotional" />
+                    </div>
+                </div>
+                <details class="mt-3">
+                    <summary class="text-muted small" style="cursor:pointer">Preview generated IdiotScript</summary>
+                    <pre class="small mt-2 p-2" style="background:var(--bg-row-alt);border:1px solid var(--border);border-radius:6px;overflow:auto">@ScriptPreview</pre>
+                </details>
+            </div>
+        }
+
+        @if (queueError is not null)
+        {
+            <div class="alert alert-warning small mt-2 mb-0">@queueError</div>
+        }
+    </div>
+
+    <!-- ── Queued gappers ─────────────────────────────────────────── -->
+    <h2 class="h6 text-muted">Queued gappers (@ActiveGapperCount/@MaxGappers active)</h2>
+    @if (loading)
+    {
+        <div class="text-muted small"><span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>Loading...</div>
+    }
+    else if (gappers.Count == 0)
+    {
+        <div class="trading-card p-4 text-center">
+            <i class="bi bi-sunrise fs-1 text-muted d-block mb-2" aria-hidden="true"></i>
+            <div class="text-muted">No gappers queued. Pick a ticker, select a profile, dial it in, and queue it.</div>
+        </div>
+    }
+    else
+    {
+        <ul class="list-unstyled mb-0" role="list">
+            @foreach (var s in gappers)
+            {
+                <li class="trading-card mb-2 p-3" data-strategy-id="@s.Id">
+                    <div class="d-flex align-items-center gap-2 flex-wrap">
+                        <span class="strategy-chip ticker-chip">@s.Symbol</span>
+                        <span class="fw-semibold">@s.Title</span>
+
+                        @* Live state chip: holding / sold / waiting-on-condition *@
+                        @if (s.PositionQty > 0)
+                        {
+                            <span class="strategy-chip long-chip">
+                                <i class="bi bi-briefcase-fill" aria-hidden="true"></i>
+                                HOLDING @s.PositionQty @@ @(s.LastEntryPrice?.ToString("F2"))
+                            </span>
+                        }
+                        else if (s.LastExitReason is not null && s.LastExitedUtc is { } exited)
+                        {
+                            <span class="strategy-chip filter-chip"
+                                  title="Exited @EasternTime.Format(exited, "HH:mm:ss 'ET'")">
+                                <i class="bi bi-box-arrow-right" aria-hidden="true"></i>
+                                sold @@ @(s.LastExitPrice?.ToString("F2")) · @s.LastExitReason
+                            </span>
+                        }
+                        else if (s.IsActive && progress.TryGetValue(s.Id, out var p))
+                        {
+                            <span class="strategy-chip @(p.IsFullPass ? "long-chip" : "filter-chip")"
+                                  title="Last evaluated @EasternTime.Format(p.EvaluatedUtc, "HH:mm:ss 'ET'")">
+                                <i class="bi @(p.IsFullPass ? "bi-check-circle-fill" : "bi-hourglass-split")" aria-hidden="true"></i>
+                                @p.PassedCount/@p.TotalCount
+                                @if (!p.IsFullPass && !string.IsNullOrEmpty(p.FirstFailingVerb))
+                                {
+                                    <span class="text-muted ms-1">· @p.FirstFailingVerb</span>
+                                }
+                            </span>
+                        }
+                        else if (s.IsActive)
+                        {
+                            <span class="strategy-chip text-muted">
+                                <i class="bi bi-hourglass" aria-hidden="true"></i> awaiting first evaluation
+                            </span>
+                        }
+
+                        <div class="ms-auto d-flex gap-2 align-items-center">
+                            <div class="form-check form-switch m-0">
+                                <input class="form-check-input" type="checkbox" id="@($"gtoggle-{s.Id}")"
+                                       checked="@s.IsActive"
+                                       aria-label="@(s.IsActive ? "Pause" : "Activate") @s.Title"
+                                       @onchange="(e) => ToggleActive(s, (bool)(e.Value ?? false))" />
+                                <label class="form-check-label small text-muted" for="@($"gtoggle-{s.Id}")">
+                                    @(s.IsActive ? "Active" : "Paused")
+                                </label>
+                            </div>
+                            <button class="btn btn-sm btn-outline-danger" type="button"
+                                    aria-label="Remove @s.Title"
+                                    disabled="@(s.PositionQty > 0)"
+                                    title="@(s.PositionQty > 0 ? "Holding a position — pause instead; the Monitor manages the exit" : "Remove")"
+                                    @onclick="() => RemoveGapper(s)">
+                                <i class="bi bi-trash" aria-hidden="true"></i>
+                            </button>
+                        </div>
+                    </div>
+                    @if (!string.IsNullOrEmpty(s.Description))
+                    {
+                        <div class="text-muted small mt-1">@s.Description</div>
+                    }
+                </li>
+            }
+        </ul>
+    }
+</section>
+
+@code {
+    private const int MaxGappers = 3;
+
+    private bool loading = true;
+    private string? loadError;
+    private string? queueError;
+    private Guid? userId;
+
+    private string symbolInput = "";
+    private string selectedProfileId = "";
+    private bool showDials;
+    private GapperProfile dial = new();
+    private List<Strategy> gappers = new();
+    private readonly Dictionary<Guid, ConditionProgress> progress = new();
+    private System.Threading.Timer? poll;
+
+    // Nullable numeric dial-ins bound through strings so "blank = off" works.
+    private string maxGapText
+    {
+        get => dial.MaxGapPercent?.ToString() ?? "";
+        set => dial.MaxGapPercent = double.TryParse(value, out var v) ? v : null;
+    }
+    private string trailingText
+    {
+        get => dial.TrailingStopPercent?.ToString() ?? "";
+        set => dial.TrailingStopPercent = double.TryParse(value, out var v) ? v : null;
+    }
+
+    private GapperProfile CurrentProfile => ProfileService.GetById(selectedProfileId) ?? ProfileService.GetProfiles()[0];
+
+    private int ActiveGapperCount => gappers.Count(s => s.IsActive);
+
+    private bool CanQueue => !string.IsNullOrWhiteSpace(symbolInput) && ActiveGapperCount < MaxGappers;
+
+    private string ScriptPreview
+    {
+        get
+        {
+            try
+            {
+                return GapperScriptFactory.ToScript(
+                    string.IsNullOrWhiteSpace(symbolInput) ? "TICK" : symbolInput.Trim(), dial);
+            }
+            catch (ArgumentException ex) { return ex.Message; }
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        var profiles = ProfileService.GetProfiles();
+        selectedProfileId = profiles[0].Id;
+        dial = profiles[0].Clone();
+
+        try
+        {
+            var auth = await AuthState.GetAuthenticationStateAsync();
+            var rawId = auth.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            userId = Guid.TryParse(rawId, out var uid) ? uid : null;
+            if (userId is null) { loadError = "Sign in to queue gappers."; return; }
+
+            await RefreshAsync();
+        }
+        catch (Exception ex) { loadError = ex.Message; }
+        finally { loading = false; }
+
+        // The console re-reads strategies every tick; this page re-reads the
+        // console's writes every 5s. SQL is the bus in both directions.
+        poll = new System.Threading.Timer(async _ =>
+        {
+            try { await InvokeAsync(async () => { await RefreshAsync(); StateHasChanged(); }); }
+            catch { /* circuit may be tearing down */ }
+        }, null, TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(5));
+    }
+
+    private void OnProfileSelected(ChangeEventArgs e)
+    {
+        selectedProfileId = e.Value?.ToString() ?? selectedProfileId;
+        dial = CurrentProfile.Clone(); // reselecting resets the dial-ins to the template
+    }
+
+    private async Task RefreshAsync()
+    {
+        if (userId is null) return;
+        var all = await StrategyRepo.GetAllForUserAsync(userId.Value);
+        // Gapper rows are recognized by their exit brain — PeakGiveback is the
+        // semantic marker only the gapper factory emits.
+        gappers = all.Where(s => s.ScriptText.Contains("PeakGiveback(", StringComparison.OrdinalIgnoreCase)).ToList();
+
+        var ids = gappers.Where(s => s.IsActive).Select(s => s.Id).ToList();
+        progress.Clear();
+        if (ids.Count > 0)
+        {
+            var rows = await ProgressRepo.GetForStrategyIdsAsync(ids);
+            foreach (var (k, v) in rows) progress[k] = v;
+        }
+    }
+
+    private async Task QueueGapper()
+    {
+        queueError = null;
+        if (userId is null || !CanQueue) return;
+
+        var symbol = symbolInput.Trim().ToUpperInvariant();
+        if (gappers.Any(g => g.IsActive && g.Symbol.Equals(symbol, StringComparison.OrdinalIgnoreCase)))
+        {
+            queueError = $"{symbol} already has an active gapper. Pause or remove it first.";
+            return;
+        }
+
+        string script;
+        try { script = GapperScriptFactory.ToScript(symbol, dial); }
+        catch (ArgumentException ex) { queueError = ex.Message; return; }
+
+        var created = await StrategyRepo.CreateAsync(
+            userId.Value,
+            title: $"{symbol} Gapper — {CurrentProfile.Name}",
+            symbol: symbol,
+            scriptText: script,
+            description: $"Gapper profile '{CurrentProfile.Name}': ≥{dial.MinGapPercent}% gap on {dial.MinVolumeRatio}× volume, " +
+                         $"entry {dial.EntryWindowStartEt}–{dial.EntryWindowEndEt} ET, stop {dial.StopLossPercent}%, " +
+                         $"giveback {dial.PeakGivebackPercent}% armed {dial.ArmExitAtEt}, flat by {dial.SellByEt} ET.");
+        await StrategyRepo.SetActiveAsync(created.Id, true);
+
+        symbolInput = "";
+        await RefreshAsync();
+    }
+
+    private async Task ToggleActive(Strategy s, bool isActive)
+    {
+        if (isActive && !s.IsActive && ActiveGapperCount >= MaxGappers)
+        {
+            queueError = "3 gappers already active — pause one first.";
+            return;
+        }
+        await StrategyRepo.SetActiveAsync(s.Id, isActive);
+        s.IsActive = isActive;
+    }
+
+    private async Task RemoveGapper(Strategy s)
+    {
+        if (s.PositionQty > 0) return; // Monitor owns the open position
+        await StrategyRepo.DeleteAsync(s.Id);
+        gappers.RemoveAll(x => x.Id == s.Id);
+    }
+
+    public void Dispose()
+    {
+        poll?.Dispose();
+        poll = null;
+    }
+}

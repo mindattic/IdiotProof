@@ -54,6 +54,56 @@ public sealed class StrategyBuilder
         strategy.Session = session;
         return this;
     }
+
+    /// <summary>
+    /// Restricts entry evaluation to a time-of-day window in US Eastern Time
+    /// (market clock). Outside the window the strategy never fires, no matter
+    /// what the conditions say. Lives in the FILTERS phase — an always-on gate.
+    /// Example: <c>.EntryWindow("04:00", "09:00")</c> = evaluate entries from
+    /// 4:00 AM ET until 9:00 AM ET.
+    /// </summary>
+    public StrategyBuilder RequireEntryWindow(string startEt, string endEt)
+    {
+        strategy.EntryConditions.Add(new TimeWindowCondition(ParseTimeOfDay(startEt), ParseTimeOfDay(endEt)));
+        return this;
+    }
+
+    /// <summary>Alias of <see cref="RequireEntryWindow"/> for natural phrasing.</summary>
+    public StrategyBuilder EntryWindow(string startEt, string endEt) => RequireEntryWindow(startEt, endEt);
+
+    /// <summary>
+    /// Hard time exit: flatten the position at this US Eastern time-of-day
+    /// regardless of price. Example: <c>.SellBy("09:28")</c> = out before the
+    /// 9:30 opening bell. Alias-friendly form of <see cref="ExitStrategy"/>.
+    /// </summary>
+    public StrategyBuilder SellBy(string timeEt)
+    {
+        strategy.ExitTime = ParseTimeOfDay(timeEt);
+        return this;
+    }
+
+    /// <summary>
+    /// Momentum-rollover exit: after entry, track the high-water mark; once the
+    /// price gives back <paramref name="percentOfRun"/>% of the run from entry
+    /// to peak, sell the position. Optionally armed only from
+    /// <paramref name="armAtEt"/> (ET) — e.g. "09:15" to let the gapper run all
+    /// premarket and only watch for rollover in the last 15 minutes before the
+    /// bell. Example: <c>.PeakGiveback(25, "09:15")</c>.
+    /// </summary>
+    public StrategyBuilder PeakGiveback(double percentOfRun, string? armAtEt = null)
+    {
+        strategy.PeakGivebackPercent = percentOfRun;
+        strategy.PeakGivebackArmTime = armAtEt is null ? null : ParseTimeOfDay(armAtEt);
+        return this;
+    }
+
+    internal static TimeSpan ParseTimeOfDay(string text)
+    {
+        if (!TimeSpan.TryParseExact(text.Trim().Trim('"'), [@"h\:mm", @"hh\:mm", @"h\:mm\:ss", @"hh\:mm\:ss"],
+                System.Globalization.CultureInfo.InvariantCulture, out var t) || t < TimeSpan.Zero || t >= TimeSpan.FromDays(1))
+            throw new FormatException($"Invalid time-of-day '{text}' — expected ET \"HH:mm\" like \"04:00\" or \"09:28\".");
+        return t;
+    }
     
     /// <summary>
     /// Sizes the position by share count. Mutually exclusive with the decimal
@@ -200,6 +250,17 @@ public sealed class StrategyBuilder
     }
 
     /// <summary>
+    /// Gap over previous close must fall inside [minPercent, maxPercent] —
+    /// the gapper sweet spot ("big enough to matter, not already gone").
+    /// Fails closed when previous close is unknown. Example: IsGapBetween(5, 20).
+    /// </summary>
+    public StrategyBuilder IsGapBetween(double minPercent, double maxPercent)
+    {
+        strategy.EntryConditions.Add(new GapBandCondition(minPercent, maxPercent));
+        return this;
+    }
+
+    /// <summary>
     /// Price must hold above this level (used for support confirmation).
     /// Example: HoldsAbove(0.48) - price must stay above $0.48
     /// </summary>
@@ -226,6 +287,17 @@ public sealed class StrategyBuilder
     public StrategyBuilder IsNear(double price, double tolerancePercent = 1.0)
     {
         strategy.EntryConditions.Add(new PriceLevelCondition(PriceLevelType.Near, price, tolerancePercent));
+        return this;
+    }
+
+    /// <summary>
+    /// Stateless price-band gate: current price must sit inside [min, max].
+    /// Used by gapper profiles to keep entries inside the tradable band.
+    /// Example: IsPriceBetween(0.50, 25).
+    /// </summary>
+    public StrategyBuilder IsPriceBetween(double min, double max)
+    {
+        strategy.EntryConditions.Add(new PriceBandCondition(min, max));
         return this;
     }
 
@@ -602,8 +674,16 @@ public sealed class StrategyBuilder
             parts.Add($"TakeProfit({Inv(strategy.TakeProfitPrice.Value)})");
         if (strategy.StopLossPrice.HasValue)
             parts.Add($"StopLoss({Inv(strategy.StopLossPrice.Value)})");
+        if (strategy.StopLossPercent.HasValue)
+            parts.Add($"StopLossPercent({Inv(strategy.StopLossPercent.Value)})");
         if (strategy.TrailingStopPercent.HasValue)
             parts.Add($"TrailingStopLoss({strategy.TrailingStopPercent})");
+        if (strategy.ExitTime is { } exitTime)
+            parts.Add($"SellBy(\"{exitTime:hh\\:mm}\")");
+        if (strategy.PeakGivebackPercent is { } giveback)
+            parts.Add(strategy.PeakGivebackArmTime is { } arm
+                ? $"PeakGiveback({Inv(giveback)}, \"{arm:hh\\:mm}\")"
+                : $"PeakGiveback({Inv(giveback)})");
         
         // Advanced
         if (strategy.IsAutonomous)
@@ -660,6 +740,18 @@ public sealed class StrategyDefinition
     public double? StopLossPercent { get; set; }
     public double? TrailingStopPercent { get; set; }
     public TimeSpan? ExitTime { get; set; }
+
+    /// <summary>
+    /// Momentum-rollover exit: sell once price gives back this % of the run
+    /// from entry to the post-entry peak. Null = no rollover exit.
+    /// </summary>
+    public double? PeakGivebackPercent { get; set; }
+
+    /// <summary>
+    /// ET time-of-day from which the peak-giveback exit is armed. Null = armed
+    /// immediately on entry.
+    /// </summary>
+    public TimeSpan? PeakGivebackArmTime { get; set; }
 
     public bool IsAutonomous { get; set; }
     public bool IsAdaptive { get; set; }
@@ -915,6 +1007,10 @@ public sealed class IndicatorCondition(IndicatorType type, double? parameter = n
         IndicatorType.RsiBearishDivergence => s.HasBearishDivergence == true,
         IndicatorType.MacdBullish        => s.IsMacdBullish,
         IndicatorType.MacdBearish        => !s.IsMacdBullish,
+        // Fail closed when PreviousClose wasn't supplied — a gap condition that
+        // can't be computed must block the fire, not wave it through.
+        IndicatorType.GapUp              => s.GapPercent is { } gu && gu >= (Parameter ?? 3),
+        IndicatorType.GapDown            => s.GapPercent is { } gd && gd <= -(Parameter ?? 3),
         IndicatorType.VolumeAbove        => s.VolumeRatio >= (Parameter ?? 1.5),
         IndicatorType.AtSupport          => s.RecentSwingLow is { } sl
                                               && Math.Abs((s.Price - sl) / sl) * 100.0 <= (Parameter ?? 0.5),
@@ -1015,6 +1111,77 @@ public sealed class PriceLevelCondition : ICondition
         lowestSeen = double.MaxValue;
         highestSeen = double.MinValue;
         previousPrice = null;
+    }
+}
+
+/// <summary>
+/// Gap-percent band vs the previous day's close: min &lt;= gap% &lt;= max.
+/// Fails closed when the snapshot has no PreviousClose — an uncomputable gap
+/// must block the fire, never wave it through.
+/// </summary>
+public sealed class GapBandCondition(double minPercent, double maxPercent) : ICondition
+{
+    public double MinPercent { get; } = minPercent;
+    public double MaxPercent { get; } = maxPercent;
+    public string ToScript() =>
+        $"IsGapBetween({MinPercent.ToString(System.Globalization.CultureInfo.InvariantCulture)}, {MaxPercent.ToString(System.Globalization.CultureInfo.InvariantCulture)})";
+    public bool Evaluate(IndicatorSnapshot s) => s.GapPercent is { } gap && gap >= MinPercent && gap <= MaxPercent;
+}
+
+/// <summary>
+/// Stateless [min, max] price band. Unlike HoldsAbove/HoldsBelow this carries
+/// no history — it looks only at the current price, so a brief excursion
+/// doesn't poison the rest of the session.
+/// </summary>
+public sealed class PriceBandCondition(double min, double max) : ICondition
+{
+    public double Min { get; } = min;
+    public double Max { get; } = max;
+    public string ToScript() =>
+        $"IsPriceBetween({Min.ToString(System.Globalization.CultureInfo.InvariantCulture)}, {Max.ToString(System.Globalization.CultureInfo.InvariantCulture)})";
+    public bool Evaluate(IndicatorSnapshot s) => s.Price >= Min && s.Price <= Max;
+}
+
+/// <summary>
+/// US Eastern market clock. All DSL time-of-day verbs (EntryWindow, SellBy,
+/// PeakGiveback arm times) speak ET regardless of host or user timezone.
+/// </summary>
+public static class MarketTime
+{
+    public static readonly TimeZoneInfo Eastern = ResolveEastern();
+
+    private static TimeZoneInfo ResolveEastern()
+    {
+        try { return TimeZoneInfo.FindSystemTimeZoneById("Eastern Standard Time"); }
+        catch (TimeZoneNotFoundException) { return TimeZoneInfo.FindSystemTimeZoneById("America/New_York"); }
+    }
+
+    /// <summary>Converts a UTC instant to ET time-of-day.</summary>
+    public static TimeSpan ToEasternTimeOfDay(DateTime utc) =>
+        TimeZoneInfo.ConvertTimeFromUtc(DateTime.SpecifyKind(utc, DateTimeKind.Utc), Eastern).TimeOfDay;
+}
+
+/// <summary>
+/// Filters-phase gate that only passes while the evaluation timestamp falls
+/// inside a [start, end) ET time-of-day window. This is what pins a gapper
+/// strategy to the premarket: <c>EntryWindow("04:00", "09:00")</c>.
+/// </summary>
+public sealed class TimeWindowCondition(TimeSpan startEt, TimeSpan endEt) : ICondition
+{
+    public TimeSpan StartEt { get; } = startEt;
+    public TimeSpan EndEt { get; } = endEt;
+
+    public StrategyPhase Phase => StrategyPhase.Filters;
+
+    public string ToScript() => $"RequireEntryWindow(\"{StartEt:hh\\:mm}\", \"{EndEt:hh\\:mm}\")";
+
+    public bool Evaluate(IndicatorSnapshot s)
+    {
+        var tod = MarketTime.ToEasternTimeOfDay(s.Timestamp);
+        // Support overnight windows (e.g. 20:00 → 04:00) by wrapping.
+        return StartEt <= EndEt
+            ? tod >= StartEt && tod < EndEt
+            : tod >= StartEt || tod < EndEt;
     }
 }
 
