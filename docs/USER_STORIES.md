@@ -4,8 +4,8 @@ project: IdiotProof
 code: IP
 layer: stories
 status: living
-updated: 2026-07-19
-counts: {done: 27, partial: 10, planned: 13, cut: 0}
+updated: 2026-07-20
+counts: {done: 27, partial: 15, planned: 13, cut: 0}
 ---
 
 # IdiotProof — User Stories
@@ -190,6 +190,23 @@ counts: {done: 27, partial: 10, planned: 13, cut: 0}
   `Replay_ImpossibleGapScreen_ReportsNoEntryWithTheBlocker`,
   `Replay_NoPreviousClose_FailsClosedLikeLive`, `Replay_NoBars_ReportsCleanly` in
   `IdiotProof.Strategies.Tests/GapperDayBacktesterTests.cs`; see [IP-A14](AMENDMENTS.md#IP-A14).)*
+
+## Epic R — Strategy replay, scanner & ML dataset {#Epic-R}
+- **IP-US-R1 🟡** As a trader, I can replay any strategy against a past ET session and see the
+  exact entry→exit round-trips (price, time, P&L, exit reason), evaluated by the same code the
+  live Monitor runs, so a chart hunch is checked against what the rules actually do. Shipped
+  (replay command); NUnit coverage pending. See [IP-A25].
+- **IP-US-R2 🟡** As a trader, I can replay a ticker with no saved strategy by applying a gapper
+  profile — or a built-in repeating momentum strategy — on the fly, so any scanner name is
+  analysable immediately. Shipped; tests pending. See [IP-A25].
+- **IP-US-R3 🟡** As the platform, every replay is persisted as a ReplayRun row and the whole
+  published archive regenerates from SQL alone (replay-regen), so the database — not the file
+  tree — is authoritative [IP-LAW-7]. Shipped; tests pending. See [IP-A25].
+- **IP-US-R4 🟡** As a trader, one scan pulls the morning movers from Alpaca and auto-replays
+  each gapper into the archive, so the board populates itself. Shipped; tests pending. See [IP-A25].
+- **IP-US-R5 🟡** As an analyst, I can export the archive to ML-ready CSVs (per-trade features →
+  P&L label, per-bar time series) so the accumulating replays can train models. Shipped
+  (replay-export); tests pending. See [IP-A25].
 
 ## Epic E — Authoring & generation (web)
 - **IP-US-E1 🟡** As a trader, I describe a setup in prose and Claude generates valid IdiotScript

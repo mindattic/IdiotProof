@@ -4,10 +4,44 @@ project: IdiotProof
 code: IP
 layer: amendments
 status: living
-updated: 2026-06-09
+updated: 2026-07-20
 ---
 
 # IdiotProof — Amendments (append-only; amendment wins over the bible)
+
+## IP-A25 — Offline strategy replay harness, SQL-persisted archive, gapper scanner, ML dataset {#IP-A25}
+**What changed.** (2026-07-20.) A replay/analysis surface on the Monitor CLI that reuses the
+*live* evaluator to show — and publish — what a strategy would have done on a past session.
+Five additions:
+
+1. **`replay` command.** Walks a day's Alpaca bars (delayed SIP is free ≥15 min old; the fetch
+   window is clamped to `now−16min` so an intraday replay of *today* works) through the SAME
+   code the Monitor runs — `IndicatorSnapshotBuilder`, the strategy's real `ICondition.Evaluate`,
+   and the shared `MarketTime.IsInsideSession` gate (extracted from `MonitorWorker` so live and
+   replay can never diverge). It reuses `GapperExitEvaluator` to simulate exits, so a repeating
+   strategy yields several entry→exit round-trips ("payoffs"), each with reason and P&L. A ticker
+   with no saved strategy is replayed by composing a gapper profile on the fly
+   (`GapperScriptFactory`, [IP-A8]) or a built-in repeating momentum strategy. Folder ids are ET
+   generation stamps `yyyy-MM-ddTHH.mm.ss` with a bijective `-a…-z,-aa` suffix on collision.
+2. **SQL system of record [IP-LAW-7].** Each run is a `ReplayRun` row (metadata + the full page
+   DATA payload + the strategy card/flow HTML), added by the `AddReplayRuns` migration. The pages
+   under `/idiotproof/replays/<ticker>/<stamp>/` are a VIEW rendered from those rows; the
+   per-ticker and root indexes are built by querying the table; `replay-regen` rebuilds the whole
+   archive from SQL alone. The Monitor CLI migrates on first use so it is self-sufficient.
+3. **`scan` command.** Pulls the day's movers straight from the Market Data API
+   (`/v1beta1/screener/stocks/movers`) — no HTML scraping — filters to the gapper band, and drives
+   a replay for each survivor, so one command populates the morning board.
+4. **`replay-export` command.** Flattens the archive into ML-ready CSVs (`trades.csv` one row per
+   round-trip with entry features → P&L label; `bars.csv` one row per minute) at
+   `/idiotproof/dataset/`.
+5. **Rendering.** `StrategyDefinition.ToHtml()` (phase cards), `.ToMermaid()` (flow as Mermaid),
+   and `.ToSvg()` (flow as inline SVG) render the strategy; pages default to a dark theme with a
+   moon/sun toggle persisted to localStorage. Published via `MindAttic.Deploy` recursive-upload
+   site mode (`--site idiotproof-replays`).
+
+Note: this harness read-only *analyses* — it never places orders (it has no broker call path);
+[IP-LAW-1] and [IP-LAW-2] are unaffected. Tests ship after per the README sequence, so the
+Epic-R stories are 🟡 until cited.
 
 ## IP-A24 — Bug-hunt round 11 on the IP-A23 surface + multi-strategy-per-ticker + order-execution proof {#IP-A24}
 **What changed.** (2026-07-20.) Eleventh find-10-fix-10 sweep, focused on the fresh IP-A23
