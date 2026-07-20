@@ -187,6 +187,17 @@ builder.Logging.AddSimpleConsole(o =>
 
 var host = builder.Build();
 
+// Apply pending EF migrations before touching the DB — same as the Blazor host.
+// Without this, a build whose model is ahead of the database (new columns/tables)
+// silently breaks every UserApiKeys read — including the BYO-key money path
+// (status / test-order / replay). Idempotent; safe for both CLI and worker.
+using (var migScope = host.Services.CreateScope())
+{
+    var dbf = migScope.ServiceProvider.GetRequiredService<Microsoft.EntityFrameworkCore.IDbContextFactory<AppDbContext>>();
+    using var migDb = dbf.CreateDbContext();
+    migDb.Database.Migrate();
+}
+
 // Operator CLI subcommands (status / set-keys / create-strategies) run against
 // the built DI and EXIT — they never start the trading worker (RunAsync). This
 // is the "visualize/configure from the CLI" surface.
