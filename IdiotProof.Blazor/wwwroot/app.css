@@ -42,6 +42,55 @@
     --sidebar-width: 220px;
     --topbar-height: 52px;
     --footer-height: 36px;
+
+    /* Shared typography — Alpaca uses Inter + Roboto Mono (both themes). */
+    --font-sans: "Inter", "Inter var", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --font-mono: "Roboto Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+
+body { font-family: var(--font-sans); }
+
+/* ============================================================
+   Light theme = Alpaca look & feel. Dark and light share ALL
+   structure (font, radius, spacing, layout); only COLORS swap.
+   Palette lifted from Alpaca's own --theme-* light tokens.
+   ============================================================ */
+:root[data-theme="light"] {
+    /* Surfaces */
+    --bg-primary:    #f8f8f8;   /* Alpaca surfaces-primary */
+    --bg-secondary:  #ffffff;
+    --bg-card:       #ffffff;   /* surfaces-secondary */
+    --bg-elevated:   #ffffff;
+    --bg-hover:      #f2f2f2;
+    --bg-row-alt:    #f8f8f8;
+
+    /* Borders */
+    --border:        #e6e6e6;
+    --border-strong: #9c9c9c;   /* borders-default */
+    --divider:       #eeeeee;    /* surfaces-tertiary */
+
+    /* Text */
+    --text-primary:   #202020;  /* typography-primary */
+    --text-secondary: #3b3b3b;  /* typography-secondary */
+    --text-muted:     #565656;  /* typography-tertiary */
+    --text-subtle:    #7a7a7a;  /* typography-placeholder */
+
+    /* Status */
+    --green:      #059669;      /* typography-success */
+    --red:        #d73939;      /* typography-error */
+    --blue:       #4f46e5;      /* typography-action (indigo) */
+    --yellow:     #a26606;      /* readable yellow text on light */
+    --info-bg:    rgba(79, 70, 229, 0.12);
+    --info-text:  #4f46e5;
+    --danger-link:#d73939;
+
+    /* Accent — Alpaca brand yellow, dark text on it */
+    --brand:      #fcd72b;      /* buttons-filled-yellow-active */
+    --brand-soft: rgba(252, 215, 43, 0.20);
+    --brand-muted:#fef0a8;
+    --brand-on:   #202020;
+
+    --focus-ring: #4f46e5;
 }
 
 /* ── Accessibility: visually hidden helper ── */

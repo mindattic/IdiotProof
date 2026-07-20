@@ -7,6 +7,7 @@
 @inject UserPreferencesService Prefs
 @inject RiskGuardianService RiskGuardians
 @inject AuthenticationStateProvider AuthState
+@inject IJSRuntime JS
 
 @*
     Settings — currently the Risk Guardian limits (IP-LAW-2). These are the
@@ -80,9 +81,17 @@
     </div>
 
     <div class="trading-card p-4">
-        <p class="text-muted small mb-0">
-            Theme is fixed to dark, timezone is fixed to Eastern, and per-user API credentials
-            live on the <a href="/api-keys">API Keys</a> page.
+        <label class="form-label small text-muted mb-2">Theme</label>
+        <div class="btn-group" role="group" aria-label="Theme">
+            <button type="button" class="btn btn-sm @(currentTheme == "dark" ? "btn-warning" : "btn-outline-secondary")"
+                    @onclick='() => SetTheme("dark")'>Dark</button>
+            <button type="button" class="btn btn-sm @(currentTheme == "light" ? "btn-warning" : "btn-outline-secondary")"
+                    @onclick='() => SetTheme("light")'>Light — Alpaca</button>
+        </div>
+        <p class="text-muted small mb-0 mt-3">
+            Dark and light share the same layout, font, and spacing — only colors change; the light theme
+            mirrors Alpaca's palette. Timezone is fixed to Eastern; per-user API credentials live on the
+            <a href="/api-keys">API Keys</a> page.
         </p>
     </div>
 </section>
@@ -93,6 +102,19 @@
     private bool saving;
     private bool saveOk;
     private string? saveMessage;
+    private string currentTheme = "dark";
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+        try { currentTheme = await JS.InvokeAsync<string>("ipGetTheme"); StateHasChanged(); }
+        catch { /* JS not available during prerender — leave default */ }
+    }
+
+    private async Task SetTheme(string t)
+    {
+        currentTheme = await JS.InvokeAsync<string>("ipSetTheme", t);
+    }
 
     private decimal maxLossPerTrade;
     private decimal maxLossPerDay;
