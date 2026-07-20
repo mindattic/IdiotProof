@@ -5,7 +5,7 @@ code: IP
 layer: stories
 status: living
 updated: 2026-07-20
-counts: {done: 27, partial: 15, planned: 13, cut: 0}
+counts: {done: 27, partial: 18, planned: 13, cut: 0}
 ---
 
 # IdiotProof — User Stories
@@ -207,6 +207,16 @@ counts: {done: 27, partial: 15, planned: 13, cut: 0}
 - **IP-US-R5 🟡** As an analyst, I can export the archive to ML-ready CSVs (per-trade features →
   P&L label, per-bar time series) so the accumulating replays can train models. Shipped
   (replay-export); tests pending. See [IP-A25].
+- **IP-US-R6 🟡** As a trader, beyond gappers I can replay/scan non-gapper families — a reversal
+  dip-buy (EMA9 reclaim off lows) and an EMA200 trend-break — so range/reversal setups (BE, SPCX,
+  AMD) are analysable too. Shipped (--profile reversal | emabreak); tests pending. See [IP-A26].
+- **IP-US-R7 🟡** As an analyst, replays land in a normalized SQL feature store (ReplayTrade /
+  ReplayBar) I can query directly (features → win/P&L), not just in CSV blobs, so the dataset is a
+  first-class store. Shipped; tests pending. See [IP-A26].
+- **IP-US-R8 🟡** As a user, I could link my Alpaca account by OAuth (authorize on Alpaca, store a
+  scoped revocable token) instead of pasting a raw key/secret. Foundation shipped
+  (AlpacaOAuthClient); endpoints + Bearer broker wiring gated on app registration + paper testing.
+  See [IP-A26].
 
 ## Epic E — Authoring & generation (web)
 - **IP-US-E1 🟡** As a trader, I describe a setup in prose and Claude generates valid IdiotScript

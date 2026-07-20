@@ -9,6 +9,28 @@ updated: 2026-07-20
 
 # IdiotProof — Amendments (append-only; amendment wins over the bible)
 
+## IP-A26 — Reversal/EMA-break strategy families, normalized ML feature store, OAuth foundation {#IP-A26}
+**What changed.** (2026-07-20.) Three additions extending the [IP-A25] replay/scan/dataset surface.
+
+1. **Two non-gapper strategy families** (`--profile reversal | emabreak`), composed with the real
+   DSL and run through the same evaluator/scan/dataset. `reversal` = EMA9 reclaim off a recent low
+   (`OnReclaim(9)` + `IsAtSupport`, a BE-style higher-low bounce); `emabreak` = EMA200 reclaim while
+   above VWAP (SPCX-style trend break). `StrategyReplay.BuiltinStrategy()` dispatches
+   momentum/reversal/emabreak, else falls through to the gapper-profile catalog. (A dedicated
+   swing-structure verb — explicit higher-low/lower-high — remains the follow-up that would sharpen
+   both `reversal` and the AMD-style range logic; today they approximate it with EMA reclaim.)
+2. **Normalized ML feature store [IP-LAW-7].** `ReplayTrade` (one row per round-trip: entry-bar
+   features → `pnlPct`/`won` label) and `ReplayBar` (one row per minute) tables (`AddReplayFeatureStore`
+   migration), FK-linked to `ReplayRun` (cascade). Populated on every replay and back-filled by
+   `replay-export`, which now emits its CSVs straight from these tables — one source of truth,
+   directly queryable for analytics/training.
+3. **OAuth/Connect foundation.** `IdiotProof.Brokers.AlpacaOAuthClient` (authorize-URL builder +
+   code→token exchange) — the account-LINKING alternative to a raw key/secret: the user authorizes on
+   Alpaca's own page and IdiotProof stores a scoped, revocable token instead of the keys. Deliberately
+   OFF the money path; wiring the token into order placement (a Bearer mode on `AlpacaBrokerClient`) is
+   gated on registering an Alpaca OAuth app + paper testing, never shipped blind (activation checklist
+   in the class). [IP-LAW-1]/[IP-LAW-2] unaffected.
+
 ## IP-A25 — Offline strategy replay harness, SQL-persisted archive, gapper scanner, ML dataset {#IP-A25}
 **What changed.** (2026-07-20.) A replay/analysis surface on the Monitor CLI that reuses the
 *live* evaluator to show — and publish — what a strategy would have done on a past session.

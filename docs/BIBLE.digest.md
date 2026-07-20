@@ -114,7 +114,7 @@ text. ("Parse, don't validate"; no shotgun parsing on the money path — see
 
 ## Status index (USER_STORIES.md)
 - done: 30
-- partial: 16
+- partial: 19
 - planned: 22
 - cut: 1
 
