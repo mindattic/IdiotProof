@@ -239,6 +239,7 @@ public static class StrategyReplay
             bestPassed = Math.Max(0, bestPassed),
             bestFail,
             mermaid = def.ToMermaid(),
+            svgFlow = def.ToSvg(),
             bars = rows,
         };
         var dataJson = JsonSerializer.Serialize(data, JsonOpts);

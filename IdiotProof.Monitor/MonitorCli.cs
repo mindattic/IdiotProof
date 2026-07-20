@@ -22,7 +22,7 @@ namespace IdiotProof.Monitor;
 public static class MonitorCli
 {
     public static bool IsCommand(string arg) =>
-        arg is "status" or "set-keys" or "create-strategies" or "create-account" or "test-order" or "replay" or "replay-regen" or "scan";
+        arg is "status" or "set-keys" or "create-strategies" or "create-account" or "test-order" or "replay" or "replay-regen" or "scan" or "replay-export";
 
     public static async Task<int> RunAsync(IServiceProvider sp, string[] args)
     {
@@ -40,6 +40,7 @@ public static class MonitorCli
                 "replay"            => await StrategyReplay.RunAsync(sp, opt),
                 "replay-regen"      => await RunRegenAsync(sp, opt),
                 "scan"              => await StrategyScanner.RunAsync(sp, opt),
+                "replay-export"     => await RunExportAsync(sp, opt),
                 _                   => Fail($"Unknown command '{cmd}'."),
             };
         }
@@ -355,6 +356,12 @@ public static class MonitorCli
     private static async Task<int> RunRegenAsync(IServiceProvider sp, Dictionary<string, string> opt)
     {
         await StrategyReplay.RegenerateAsync(sp, opt);
+        return 0;
+    }
+
+    private static async Task<int> RunExportAsync(IServiceProvider sp, Dictionary<string, string> opt)
+    {
+        await StrategyDataset.ExportAsync(sp, opt);
         return 0;
     }
 

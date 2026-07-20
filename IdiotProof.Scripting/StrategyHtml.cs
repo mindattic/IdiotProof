@@ -144,6 +144,61 @@ public static class StrategyHtml
         return sb.ToString();
     }
 
+    /// <summary>
+    /// Renders the same lifecycle flow as <see cref="ToMermaid"/>, but as inline
+    /// <c>&lt;svg&gt;</c> markup (theme-aware via CSS custom properties) — a
+    /// dependency-free diagram that needs no client library. Setup → each entry
+    /// condition → the all-true decision → the two approval gates → order → exit,
+    /// as a vertical node stack with arrowed edges.
+    /// </summary>
+    public static string ToSvg(this StrategyDefinition def)
+    {
+        var nodes = new List<(string t, char k)> { ($"Setup · {def.Symbol} · {def.Session}", 'p') };
+        foreach (var c in def.EntryConditions) nodes.Add((c.ToScript(), 'c'));
+        nodes.Add(("ALL conditions true?", 'd'));
+        nodes.Add(("Gate 2 · LLM voter quorum", 'g'));
+        nodes.Add(("Gate 3 · Risk Guardian", 'g'));
+        nodes.Add(($"Order · {(def.Direction == TradeDirection.Short ? "SELL short" : "BUY long")}", 'o'));
+
+        var exits = new List<string>();
+        if (def.StopLossPercent is { } sc) exits.Add($"stop {sc:0.#}%");
+        if (def.StopLossPrice is { } sp) exits.Add($"stop ${sp:0.##}");
+        if (def.TrailingStopPercent is { } ts) exits.Add($"trail {ts:0.#}%");
+        if (def.TakeProfitPrice is { } tp) exits.Add($"target ${tp:0.##}");
+        if (def.PeakGivebackPercent is { } pg) exits.Add($"giveback {pg:0.#}%");
+        if (def.ExitTime is { } et) exits.Add($"sell-by {et:hh\\:mm}");
+        nodes.Add(($"Exit · {(exits.Count > 0 ? string.Join(" / ", exits) : "manual only")}", 'x'));
+
+        const int W = 560, rowH = 52, padY = 16, bw = 320;
+        int cx = W / 2, h = padY * 2 + nodes.Count * rowH;
+        const string ink = "var(--ink)", edge = "var(--edge)", panel = "var(--panel-2)",
+                     dim = "var(--dim)", acc = "var(--accent)";
+        var sb = new StringBuilder();
+        sb.Append($"<svg viewBox=\"0 0 {W} {h}\" width=\"100%\" style=\"max-width:{W}px;margin:0 auto;display:block\" font-family=\"var(--mono)\" font-size=\"12\">");
+        sb.Append($"<defs><marker id=\"ar\" markerWidth=\"8\" markerHeight=\"8\" refX=\"4\" refY=\"4\" orient=\"auto\"><path d=\"M0,0 L8,4 L0,8 z\" fill=\"{dim}\"/></marker></defs>");
+        for (int i = 0; i < nodes.Count; i++)
+        {
+            var (t, k) = nodes[i];
+            int y = padY + i * rowH, cyc = y + rowH / 2 - 8;
+            if (i < nodes.Count - 1)
+                sb.Append($"<line x1=\"{cx}\" y1=\"{y + rowH - 16}\" x2=\"{cx}\" y2=\"{y + rowH}\" stroke=\"{dim}\" stroke-width=\"1.5\" marker-end=\"url(#ar)\"/>");
+            var label = Esc(t.Length > 44 ? t[..43] + "…" : t);
+            if (k == 'd')
+            {
+                sb.Append($"<polygon points=\"{cx},{cyc - 6} {cx + bw / 2},{cyc + 16} {cx},{cyc + 38} {cx - bw / 2},{cyc + 16}\" fill=\"none\" stroke=\"{acc}\" stroke-width=\"1.5\"/>");
+                sb.Append($"<text x=\"{cx}\" y=\"{cyc + 20}\" text-anchor=\"middle\" fill=\"{ink}\">{label}</text>");
+            }
+            else
+            {
+                var stroke = k is 'c' or 'o' ? acc : edge;
+                sb.Append($"<rect x=\"{cx - bw / 2}\" y=\"{cyc - 4}\" width=\"{bw}\" height=\"34\" rx=\"8\" fill=\"{panel}\" stroke=\"{stroke}\" stroke-width=\"1.5\"/>");
+                sb.Append($"<text x=\"{cx}\" y=\"{cyc + 17}\" text-anchor=\"middle\" fill=\"{ink}\">{label}</text>");
+            }
+        }
+        sb.Append("</svg>");
+        return sb.ToString();
+    }
+
     // ── helpers ──
     private static void Card(StringBuilder sb, string phase, string sub, List<string> items)
     {

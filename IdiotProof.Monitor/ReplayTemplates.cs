@@ -213,24 +213,8 @@ function redraw(){layout();draw()}addEventListener('resize',redraw);
 new MutationObserver(redraw).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
 redraw();
 
-/* ── inline SVG flow (hand-rolled) ── */
-(function(){var nodes=[{t:'Setup · '+DATA.symbol+' · '+DATA.session,k:'p'}];
-conds.forEach(c=>nodes.push({t:c,k:'c'}));
-nodes.push({t:'ALL conditions true?',k:'d'});
-nodes.push({t:'Gate 2 · LLM voter quorum',k:'g'});
-nodes.push({t:'Gate 3 · Risk Guardian',k:'g'});
-nodes.push({t:'Order · '+DATA.side,k:'o'});
-nodes.push({t:'Exit · stop / trail / target / sell-by',k:'x'});
-var W=560,rowH=52,padY=16,h=padY*2+nodes.length*rowH,cx=W/2,bw=300;
-var acc='var(--accent)',ink='var(--ink)',edge='var(--edge)',panel='var(--panel2)',dim='var(--dim)',good='var(--good)';
-var s=`<svg viewBox="0 0 ${W} ${h}" width="100%" style="max-width:${W}px;margin:0 auto;display:block" font-family="var(--mono)" font-size="12">`;
-nodes.forEach((nd,i)=>{var y=padY+i*rowH,cyc=y+rowH/2-8,fill=nd.k==='d'?'none':panel,stroke=nd.k==='c'?acc:nd.k==='d'?acc:edge;
-if(i<nodes.length-1)s+=`<line x1="${cx}" y1="${y+rowH-16}" x2="${cx}" y2="${y+rowH}" stroke="${dim}" stroke-width="1.5" marker-end="url(#a)"/>`;
-if(nd.k==='d'){s+=`<polygon points="${cx},${cyc-6} ${cx+bw/2},${cyc+16} ${cx},${cyc+38} ${cx-bw/2},${cyc+16}" fill="none" stroke="${acc}" stroke-width="1.5"/><text x="${cx}" y="${cyc+20}" text-anchor="middle" fill="${ink}">${esc(nd.t)}</text>`;}
-else{s+=`<rect x="${cx-bw/2}" y="${cyc-4}" width="${bw}" height="34" rx="8" fill="${fill}" stroke="${stroke}" stroke-width="1.5"/><text x="${cx}" y="${cyc+17}" text-anchor="middle" fill="${ink}">${esc(nd.t.length>40?nd.t.slice(0,39)+'…':nd.t)}</text>`;}});
-s+=`<defs><marker id="a" markerWidth="8" markerHeight="8" refX="4" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="${dim}"/></marker></defs></svg>`;
-document.getElementById('flowsvg').innerHTML=s;
-function esc(t){return (t+'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}})();
+/* ── inline SVG flow — server-rendered by StrategyDefinition.ToSvg() ── */
+document.getElementById('flowsvg').innerHTML = DATA.svgFlow || '<p style="color:var(--faint);font-family:var(--mono)">Flow SVG regenerates on the next replay of this strategy.</p>';
 
 /* ── Mermaid (CDN) ── */
 document.getElementById('mmd').textContent=DATA.mermaid;
