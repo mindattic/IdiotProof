@@ -120,6 +120,7 @@ public static class StrategyReplay
         // day). The saved gappers are one-shot; --repeat forces the simulation
         // to show every leg the day offered, regardless of the saved flag.
         var repeat = def.ShouldRepeat || opt.ContainsKey("repeat");
+        var isShort = def.Direction == TradeDirection.Short;
 
         int n = candles.Count;
         var et = new string[n]; var cnd = new bool[n][];
@@ -167,13 +168,18 @@ public static class StrategyReplay
             int exitAt = -1; GapperExitDecision? dec = null;
             for (int j = i + 1; j < n; j++)
             {
-                dec = GapperExitEvaluator.Evaluate(def, entryPx, entryUtc, candles.GetRange(0, j + 1), candles[j].EndUtc);
+                dec = isShort
+                    ? GapperExitEvaluator.EvaluateShort(def, entryPx, entryUtc, candles.GetRange(0, j + 1), candles[j].EndUtc)
+                    : GapperExitEvaluator.Evaluate(def, entryPx, entryUtc, candles.GetRange(0, j + 1), candles[j].EndUtc);
                 if (dec is not null) { exitAt = j; break; }
             }
             if (exitAt < 0) exitAt = n - 1;            // never exited → flat at EOD
             exitIdx.Add(exitAt);
             var exitPx = dec?.CurrentPrice ?? snapCache[exitAt].c;
-            var pnl = entryPx > 0 ? (exitPx - entryPx) / entryPx * 100.0 : 0;
+            // Short profit is inverted: gain when the cover price is below entry.
+            var pnl = entryPx > 0
+                ? (isShort ? (entryPx - exitPx) : (exitPx - entryPx)) / entryPx * 100.0
+                : 0;
             totalPnl += pnl;
             payoffs.Add(new
             {
@@ -363,6 +369,16 @@ public static class StrategyReplay
             // out as it rolls over.
             .IsAboveVwap().IsAboveEma(9).RequireEmaStack(9, 34).WithVolumeConfirm(1.5).IsPriceBetween(1, 100000)
             .Long().QuantityNotional(1000).StopLossPercent(3).TrailingStopLoss(8).SellBy("15:55").Repeat().Build(),
+        "shortfade" => Stock.Ticker(symbol)
+            .Name($"{symbol} Short-fade (failed high, below VWAP)")
+            // The NVDA-style failed-HOD fade: trading below VWAP and below the
+            // fast EMA on volume = sellers in control. SHORT with a buy-to-cover
+            // stop ABOVE entry and a trailing stop that covers on a bounce off
+            // the lows; flatten before the close. Exits use EvaluateShort (the
+            // mirror of the long exit logic).
+            .Session(TradingSession.RTH).RequireEntryWindow("09:30", "15:30")
+            .IsBelowVwap().IsBelowEma(9).WithVolumeConfirm(1.3).IsPriceBetween(1, 100000)
+            .Short().QuantityNotional(1000).StopLossPercent(3).TrailingStopLoss(6).SellBy("15:55").Repeat().Build(),
         _ => null,
     };
 

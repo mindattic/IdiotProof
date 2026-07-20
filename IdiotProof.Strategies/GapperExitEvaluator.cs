@@ -131,6 +131,84 @@ public static class GapperExitEvaluator
         return null;
     }
 
+    /// <summary>
+    /// Mirror of <see cref="Evaluate"/> for a SHORT position (entered by selling
+    /// at <paramref name="entryPrice"/>; profit when price falls). Everything is
+    /// inverted: the low-water mark (trough) is the run's extreme, the hard/
+    /// trailing stops sit ABOVE entry (a rise is the loss), the take-profit is
+    /// below, and the giveback measures a bounce back UP off the trough. SellBy
+    /// is unchanged (flatten before the bell either way). Kept as a separate
+    /// method so the many long-only callers are untouched.
+    /// </summary>
+    public static GapperExitDecision? EvaluateShort(
+        StrategyDefinition def,
+        double entryPrice,
+        DateTime entryUtc,
+        IReadOnlyList<Candle> candles,
+        DateTime nowUtc)
+    {
+        if (entryPrice <= 0 || candles.Count == 0)
+            return null;
+
+        // Low-water mark since entry; entry is the ceiling of the trough.
+        var trough = entryPrice;
+        double current = entryPrice;
+        foreach (var c in candles)
+        {
+            if (c.EndUtc <= entryUtc) continue;
+            if ((double)c.Low < trough) trough = (double)c.Low;
+            current = (double)c.Close;
+        }
+
+        var nowEt = MarketTime.ToEasternTimeOfDay(nowUtc);
+
+        // 1. Hard cover-by time — never hold into the bell.
+        if (def.ExitTime is { } sellBy)
+        {
+            var heldPastItsDay = EasternDate(nowUtc) > EasternDate(entryUtc);
+            if (nowEt >= sellBy || heldPastItsDay)
+                return new GapperExitDecision(GapperExitReason.SellByTime, current, trough,
+                    heldPastItsDay
+                        ? $"Short outlived its {sellBy:hh\\:mm} ET cover-by day — flattening at the first opportunity."
+                        : $"Cover-by {sellBy:hh\\:mm} ET reached — flattening before the bell.");
+        }
+
+        // 2. Hard stop ABOVE entry — a rise is the short's loss.
+        if (def.StopLossPercent is { } slPct && current >= entryPrice * (1 + slPct / 100.0))
+            return new GapperExitDecision(GapperExitReason.StopLoss, current, trough,
+                $"Price {current:F2} rose past the {slPct:F1}% hard stop above short entry {entryPrice:F2}.");
+        if (def.StopLossPrice is { } slPrice && current >= slPrice)
+            return new GapperExitDecision(GapperExitReason.StopLoss, current, trough,
+                $"Price {current:F2} rose past the hard stop at {slPrice:F2}.");
+
+        // 3. Trailing stop above the trough (bounce off the low-water mark).
+        if (def.TrailingStopPercent is { } tslPct && trough < entryPrice
+            && current >= trough * (1 + tslPct / 100.0))
+            return new GapperExitDecision(GapperExitReason.TrailingStop, current, trough,
+                $"Price {current:F2} bounced {tslPct:F1}% off the {trough:F2} low-water mark.");
+
+        // 4. Primary take-profit target (below entry for a short).
+        if (def.TakeProfitPrice is { } tp && current <= tp)
+            return new GapperExitDecision(GapperExitReason.TargetHit, current, trough,
+                $"Price {current:F2} reached the {tp:F2} take-profit target.");
+
+        // 5. Momentum rollover — gave back N% of the entry→trough down-move.
+        if (def.PeakGivebackPercent is { } giveback)
+        {
+            var armed = def.PeakGivebackArmTime is not { } arm || nowEt >= arm;
+            var run = entryPrice - trough;
+            if (armed && run > 0)
+            {
+                var ceiling = trough + run * (giveback / 100.0);
+                if (current >= ceiling)
+                    return new GapperExitDecision(GapperExitReason.PeakGiveback, current, trough,
+                        $"Bounced back {giveback:F0}% of the {entryPrice:F2}→{trough:F2} drop (ceiling {ceiling:F2}) — cover.");
+            }
+        }
+
+        return null;
+    }
+
     private static DateOnly EasternDate(DateTime utc) =>
         DateOnly.FromDateTime(TimeZoneInfo.ConvertTimeFromUtc(
             DateTime.SpecifyKind(utc, DateTimeKind.Utc), MarketTime.Eastern));
