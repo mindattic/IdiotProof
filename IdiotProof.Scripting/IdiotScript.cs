@@ -1242,6 +1242,30 @@ public static class MarketTime
         while (d.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday) d = d.AddDays(-1);
         return d;
     }
+
+    /// <summary>
+    /// Coarse session gate on the ET market clock — the single source of truth
+    /// shared by the live Monitor (MonitorWorker) and the offline replay harness
+    /// so a replayed fire matches a live one exactly. Weekend-gated first, then
+    /// Premarket 04:00–09:30, RTH 09:30–16:00, AfterHours 16:00–20:00 (Extended
+    /// spans all three). Holidays are not modeled — the feed returns no bars.
+    /// </summary>
+    public static bool IsInsideSession(IdiotProof.Models.TradingSession session, DateTime utc)
+    {
+        if (!IsEquityTradingDay(utc)) return false;
+        var tod = ToEasternTimeOfDay(utc);
+        var premarket  = tod >= new TimeSpan(4, 0, 0)  && tod < new TimeSpan(9, 30, 0);
+        var rth        = tod >= new TimeSpan(9, 30, 0) && tod < new TimeSpan(16, 0, 0);
+        var afterHours = tod >= new TimeSpan(16, 0, 0) && tod < new TimeSpan(20, 0, 0);
+        return session switch
+        {
+            IdiotProof.Models.TradingSession.Premarket  => premarket,
+            IdiotProof.Models.TradingSession.RTH        => rth,
+            IdiotProof.Models.TradingSession.AfterHours => afterHours,
+            IdiotProof.Models.TradingSession.Extended   => premarket || rth || afterHours,
+            _                                           => rth,
+        };
+    }
 }
 
 /// <summary>

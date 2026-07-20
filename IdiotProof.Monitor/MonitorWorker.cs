@@ -807,26 +807,10 @@ public sealed class MonitorWorker(
 
     // ── Clock helpers ───────────────────────────────────────────────────
 
-    private static bool IsInsideSession(TradingSession session, DateTime utc)
-    {
-        // Weekend gate first — the time-of-day windows below would happily
-        // pass on a Saturday, and conditions evaluated against Friday's stale
-        // bars could fire an order that sits queued until Monday's open.
-        if (!MarketTime.IsEquityTradingDay(utc)) return false;
-
-        var tod = MarketTime.ToEasternTimeOfDay(utc);
-        var premarket  = tod >= new TimeSpan(4, 0, 0) && tod < new TimeSpan(9, 30, 0);
-        var rth        = tod >= new TimeSpan(9, 30, 0) && tod < new TimeSpan(16, 0, 0);
-        var afterHours = tod >= new TimeSpan(16, 0, 0) && tod < new TimeSpan(20, 0, 0);
-        return session switch
-        {
-            TradingSession.Premarket  => premarket,
-            TradingSession.RTH        => rth,
-            TradingSession.AfterHours => afterHours,
-            TradingSession.Extended   => premarket || rth || afterHours,
-            _                         => rth,
-        };
-    }
+    // Delegates to the shared ET session gate (MarketTime.IsInsideSession) so
+    // the live evaluator and the offline replay harness can never diverge.
+    private static bool IsInsideSession(TradingSession session, DateTime utc) =>
+        MarketTime.IsInsideSession(session, utc);
 
     private static bool IsExtendedHours(DateTime utc)
     {
