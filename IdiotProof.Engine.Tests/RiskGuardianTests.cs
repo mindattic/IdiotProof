@@ -74,6 +74,41 @@ public class RiskGuardianTests
         });
     }
 
+    [Test]
+    public void DefaultConfig_AcceptsAWideGapperStop_WithinTheDollarCap()
+    {
+        // IP-A22: the shipped "Penny Runner" gapper uses an 8% stop; the old
+        // default MaxStopLossPercent of 5% silently blocked every fire of that
+        // profile out of the box. The default is now 10% — a wide stop is
+        // allowed as long as the DOLLAR cap (the binding constraint) holds.
+        var guardian = new RiskGuardian(new RiskGuardianConfig()); // pure defaults
+        // Entry $2, 8% stop ($1.84), 25 shares → risk 0.16*25 = $4 << $100 cap.
+        var setup = new TradeSetup
+        {
+            Symbol = "PENNY", Direction = TradeDirection.Long,
+            EntryPrice = 2.00m, StopLoss = 1.84m, TakeProfit = 2.40m,
+            Quantity = 25, ConfidenceScore = 75,
+        };
+        var verdict = guardian.ValidateTrade(setup);
+        Assert.That(verdict.IsApproved, Is.True,
+            "an 8% stop within the dollar cap must clear under default limits: " + string.Join("; ", verdict.BlockReasons));
+    }
+
+    [Test]
+    public void DefaultConfig_StillBlocksARidiculouslyWideStop()
+    {
+        // The percent guard still exists — a 15% stop exceeds the 10% default.
+        var guardian = new RiskGuardian(new RiskGuardianConfig());
+        var setup = new TradeSetup
+        {
+            Symbol = "WILD", Direction = TradeDirection.Long,
+            EntryPrice = 10.00m, StopLoss = 8.50m, TakeProfit = 12m, // 15% stop
+            Quantity = 1, ConfidenceScore = 75,
+        };
+        Assert.That(guardian.ValidateTrade(setup).BlockReasons,
+            Has.Some.Contains("too wide"));
+    }
+
     private static RiskGuardianConfig DefaultConfig() => new()
     {
         MaxLossPerTrade       = 100m,

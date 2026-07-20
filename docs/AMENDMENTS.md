@@ -9,6 +9,65 @@ updated: 2026-06-09
 
 # IdiotProof — Amendments (append-only; amendment wins over the bible)
 
+## IP-A22 — Bug-hunt round 10: real-money guards, BYO-key integrity, shipped-config coherence {#IP-A22}
+**What changed.** (2026-07-19.) Tenth find-10-fix-10 sweep, run under the standing directive
+that this is **real money and the money path must be bulletproof** — bring-your-own Alpaca key,
+tight Alpaca integration behind the `IBrokerClient`/`IMarketDataFeed` abstractions so future
+brokers inherit the same guards. Ten fixes, six with regression tests.
+
+1. **Real orders on synthetic prices.** The market-data feed is a single global instance (keyed
+   on the host's Alpaca settings; Mock when unkeyed), but order routing is per-user (IP-A9). A
+   host missing global data keys while a user had their own would evaluate strategies against
+   Mock prices and fire REAL orders on them. The Monitor now refuses any non-Sandbox **entry**
+   when the feed is Mock (exits are risk-reducing and still allowed); Mock data pairs only with
+   the Sandbox broker.
+2. **Polygon key silently wiped.** `UserKeyService.Encrypt` AND `Decrypt` both omitted
+   `PolygonApiKey`, so a saved Polygon key was dropped to null on every save and never read
+   back — the API Keys field and the Backtest real-data feed (both advertised in the README)
+   were dead. Now protected/unprotected like the other secrets (LocalDB round-trip + encrypted-
+   at-rest tests).
+3. **Phantom-fill reconciliation hardened.** IP-A20's exit reconciliation could clear a
+   still-working premarket limit order (which can rest for minutes) as a "non-fill", letting the
+   next tick re-enter and double the position; and it cleared via `RecordExitFillAsync`, leaving
+   `EntryFilledUtc` set so a genuine non-fill was locked out for the day. Now: a 90-second grace
+   window before declaring a non-fill, and a full `ClearUnfilledEntryAsync` reset (clears
+   `EntryFilledUtc`) so a real non-fill re-arms within its window.
+4. **Shipped gapper profile blocked by shipped risk default.** "Penny Runner" uses an 8% stop
+   (pennies collapse fast) but the default `MaxStopLossPercent` was 5%, so RiskGuardian blocked
+   every fire of that profile out of the box. Raised the default to 10% in both
+   `RiskGuardianConfig` and `UserPreferences`; the DOLLAR cap (`MaxLossPerTrade`) remains the
+   binding money constraint, the percent guard a secondary width bound (tests: 8% clears, 15%
+   still blocked).
+5. **AuditLog write could throw on long messages.** `AuditLog.Message` is `nvarchar(500)` but
+   the Monitor builds messages from raw Alpaca error bodies / stacked block reasons that can
+   exceed it → "string or binary data would be truncated" throws, losing the entry (and
+   throwing right after a real order on the order-placed path). `LogAsync` now truncates to the
+   column width and preserves the full text in `DataJson` (unbounded).
+6. **AccountPill under-represented live trading.** The red-outline "Live" cue is driven by a
+   UI preference, but routing is by key mode; a user with LIVE keys who never touched the pill
+   saw the SAFE yellow "Paper" pill while real money traded. The pill now reconciles to the
+   configured key mode (World Rules: the Live pill must show the danger outline).
+7. **Register button lied.** "Create Account & Sign In" redirected to /login without signing
+   in. Honest button text + a "sign in to continue" banner on the login page.
+8. **GapperInterpreter dropped stringified numbers.** LLMs often emit numeric fields as strings
+   ("7"); one threw a JsonException that dropped the whole profile overlay to defaults.
+   `AllowReadingFromString` added (tested).
+9. **Backtest deep-link stale state.** `/backtest/{id}` selected the strategy only in
+   `OnInitializedAsync`; Blazor reuses the component across deep-link changes, so a new id left
+   the old strategy chosen. Selection moved to `OnParametersSet` keyed on the route id (same
+   fix pattern as IP-A19's StrategyBuilder).
+10. **Learn Center taught the wrong phase.** The reflected verb catalog classified `Quantity*`
+    under Setup; the DSL spec (CLAUDE.md) puts quantity in the Order phase. Reclassified.
+
+**Why.** Session directive 2026-07-19: "find 10 fix 10" (round 10), plus the explicit standing
+requirement that the real-money path be bulletproof and Alpaca-tight yet broker-abstractable.
+
+**Effect on canon.** Adds a real-money invariant enforced at the Monitor: **synthetic
+market data can never drive a real (non-Sandbox) order** — reinforcing
+[IP-LAW-3](BIBLE.md#IP-LAW-3) (Sandbox is the safe default) and [IP-LAW-2](BIBLE.md#IP-LAW-2).
+The guards live at the `IBrokerClient`/`IMarketDataFeed` seams, so a future broker inherits
+them. 205 tests green. No new laws.
+
 ## IP-A21 — Bug-hunt round 9: editor lost-updates, under-validated auth inputs, deploy-blind config {#IP-A21}
 **What changed.** (2026-07-19.) Ninth find-10-fix-10 sweep — persistence-layer concurrency, the
 input-validation surface, and configuration that only worked from a dev checkout. Ten fixes,

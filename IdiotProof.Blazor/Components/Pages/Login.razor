@@ -18,6 +18,10 @@
         {
             <div class="alert-error" role="alert" aria-live="assertive">@errorMessage</div>
         }
+        @if (Registered == "1")
+        {
+            <div class="alert-setup" role="status" aria-live="polite">Account created — sign in to continue.</div>
+        }
 
         <form method="post" action="/_ma-auth/login" aria-label="Sign in to IdiotProof">
             @* Local paths only — forwarding a raw ?returnUrl would let a
@@ -78,6 +82,7 @@
 @code {
     [SupplyParameterFromQuery] private string? ReturnUrl { get; set; }
     [SupplyParameterFromQuery] private string? Error { get; set; }
+    [SupplyParameterFromQuery] private string? Registered { get; set; }
 
     /// <summary>Only a same-site path survives; anything absolute, protocol-relative ("//evil"), or empty falls back to "/".</summary>
     private string SafeReturnUrl =>

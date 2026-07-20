@@ -239,6 +239,27 @@ public sealed class StrategyRepository(IDbContextFactory<AppDbContext> dbFactory
     }
 
     /// <summary>
+    /// Fully clears entry bookkeeping for a position that NEVER FILLED (the
+    /// optimistic RecordEntryFillAsync stamped a fill the broker never made).
+    /// Unlike <see cref="RecordExitFillAsync"/>, this also clears
+    /// <c>EntryFilledUtc</c> and <c>LastEntryPrice</c> so the one-shot-per-day
+    /// guard does NOT treat the strategy as "already traded today" — a genuine
+    /// non-fill must be free to re-arm and re-enter within its window, not be
+    /// locked out for the day by a phantom.
+    /// </summary>
+    public async Task ClearUnfilledEntryAsync(Guid id, CancellationToken ct = default)
+    {
+        await using var db = await dbFactory.CreateDbContextAsync(ct);
+        var strategy = await db.Strategies.FirstOrDefaultAsync(s => s.Id == id, ct);
+        if (strategy is null) return;
+        strategy.PositionQty    = 0;
+        strategy.LastEntryPrice = null;
+        strategy.EntryFilledUtc = null;
+        strategy.UpdatedUtc     = DateTime.UtcNow;
+        await db.SaveChangesAsync(ct);
+    }
+
+    /// <summary>
     /// Records an exit fill: flattens the tracked position and stamps the
     /// exit bookkeeping the UI renders ("sold 09:22 — PeakGiveback @ 11.48").
     /// </summary>

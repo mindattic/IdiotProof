@@ -19,16 +19,35 @@ public sealed class AuditLogRepository(IDbContextFactory<AppDbContext> dbFactory
     /// Append a new audit entry. Lightweight: a single insert with the
     /// indexed columns populated; no read required.
     /// </summary>
+    /// <summary>Column limits (see <see cref="AuditLog"/> data annotations).</summary>
+    private const int MessageMaxLength = 500;
+    private const int CategoryMaxLength = 32;
+
     public async Task LogAsync(string category, string message, Guid? userId = null, string? dataJson = null, CancellationToken ct = default)
     {
+        // Truncate to the column widths BEFORE insert. The Monitor builds audit
+        // messages from untrusted-length inputs — a raw Alpaca error body
+        // (order-rejected) or a stack of RiskGuardian block reasons can exceed
+        // 500 chars, and an over-length insert throws "String or binary data
+        // would be truncated", losing the audit entry (and, on the order-placed
+        // path, throwing right after a real order). Overflow is preserved in
+        // DataJson (nvarchar(max), unbounded) so nothing is actually lost.
+        string storedMessage = message ?? "";
+        string? storedData = dataJson;
+        if (storedMessage.Length > MessageMaxLength)
+        {
+            storedData = $"[full message] {storedMessage}" + (storedData is null ? "" : $"\n---\n{storedData}");
+            storedMessage = storedMessage[..(MessageMaxLength - 1)] + "…";
+        }
+
         await using var db = await dbFactory.CreateDbContextAsync(ct);
         db.AuditLogs.Add(new AuditLog
         {
             TimestampUtc = DateTime.UtcNow,
             UserId       = userId,
-            Category     = category,
-            Message      = message,
-            DataJson     = dataJson,
+            Category     = category.Length > CategoryMaxLength ? category[..CategoryMaxLength] : category,
+            Message      = storedMessage,
+            DataJson     = storedData,
         });
         await db.SaveChangesAsync(ct);
     }

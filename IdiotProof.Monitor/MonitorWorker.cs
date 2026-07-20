@@ -80,6 +80,15 @@ public sealed class MonitorWorker(
     /// recovery fast without burning the rate limit.
     /// </summary>
     private static readonly TimeSpan MissingCloseRetry = TimeSpan.FromSeconds(30);
+
+    /// <summary>
+    /// How long a recorded-but-broker-invisible entry is assumed to still be
+    /// working before the reconciler declares it a genuine non-fill. A
+    /// premarket marketable-limit can rest for minutes; clearing too early
+    /// would let the next tick re-enter and double the position when the
+    /// resting order finally fills.
+    /// </summary>
+    private static readonly TimeSpan UnfilledEntryGrace = TimeSpan.FromSeconds(90);
     private readonly System.Collections.Concurrent.ConcurrentQueue<Candle> streamedBars = new();
     private AlpacaStreamingClient? streaming;
 
@@ -520,6 +529,28 @@ public sealed class MonitorWorker(
         // Per-user routing: the owner's own Alpaca account when configured,
         // else the global router (Sandbox default, IP-LAW-3).
         var broker = await brokerResolver.ResolveAsync(stored.OwnerUserId, ct);
+
+        // Never place a REAL order on SYNTHETIC data. The market-data feed is a
+        // single global instance (keyed on the host's global Alpaca settings);
+        // if the host has no data keys it falls back to Mock. Order routing,
+        // however, is per-user (IP-A9) — so a host missing global data keys but
+        // with a user's own Alpaca keys would evaluate strategies against fake
+        // prices and fire REAL orders on them. Mock data implies Sandbox-only
+        // (the intended dev pairing); block any non-Sandbox ENTRY. Exits are
+        // risk-reducing and are NOT gated here — a genuinely-held position must
+        // always be flatten-able.
+        if (string.Equals(feed.FeedName, "Mock", StringComparison.OrdinalIgnoreCase)
+            && broker.BrokerType != BrokerType.Sandbox)
+        {
+            logger.LogError("[{Title}] {Symbol} ✗ ENTRY BLOCKED — market data is synthetic (Mock) but routing is {Broker}. " +
+                "Refusing to place a real order on mock prices. Configure real market-data keys on the host.",
+                stored.Title, stored.Symbol, broker.BrokerType);
+            await auditLogRepo.LogAsync("signal-blocked",
+                $"[{stored.Title}] {stored.Symbol} entry blocked: mock market data cannot drive a real ({broker.BrokerType}) order.",
+                userId: stored.OwnerUserId, ct: ct);
+            return;
+        }
+
         var order = await broker.PlaceOrderAsync(new OrderRequest
         {
             Symbol        = stored.Symbol,
@@ -615,13 +646,28 @@ public sealed class MonitorWorker(
             var heldQty = (int)Math.Floor(held?.Quantity ?? 0m);
             if (heldQty <= 0)
             {
-                logger.LogWarning("[{Title}] {Symbol} exit ({Reason}) found NO broker position — " +
-                    "the entry order never filled. Clearing phantom bookkeeping.",
-                    stored.Title, stored.Symbol, decision.Reason);
-                await strategyRepo.RecordExitFillAsync(stored.Id, 0m, "NotFilled", DateTime.UtcNow, ct);
+                // No broker position. This is EITHER a still-working entry order
+                // (a premarket marketable-limit can rest for minutes before
+                // filling) OR a genuine non-fill. Distinguish by age: within the
+                // grace window, assume the order is still working — do NOTHING
+                // (don't sell, don't clear); clearing here would let the next
+                // tick re-enter and double up when the resting order finally
+                // fills. Past the grace window, treat it as a real non-fill and
+                // FULLY clear (incl. EntryFilledUtc) so the strategy re-arms.
+                var heldFor = DateTime.UtcNow - filledUtc;
+                if (heldFor < UnfilledEntryGrace)
+                {
+                    await progressRepo.UpsertAsync(stored.Id, 1, 1,
+                        $"(entry order working — no fill yet after {heldFor.TotalSeconds:F0}s)", ct);
+                    return;
+                }
+                logger.LogWarning("[{Title}] {Symbol} exit ({Reason}) found NO broker position after {Secs:F0}s — " +
+                    "the entry order never filled. Clearing bookkeeping so it can re-arm.",
+                    stored.Title, stored.Symbol, decision.Reason, heldFor.TotalSeconds);
+                await strategyRepo.ClearUnfilledEntryAsync(stored.Id, ct);
                 await auditLogRepo.LogAsync("position-reconciled",
-                    $"[{stored.Title}] {stored.Symbol} exit ({decision.Reason}) found no position at {broker.BrokerType} — " +
-                    "entry never filled; phantom bookkeeping cleared, no order placed.",
+                    $"[{stored.Title}] {stored.Symbol} entry never filled at {broker.BrokerType} — " +
+                    "bookkeeping cleared, no order placed, strategy re-armed.",
                     userId: stored.OwnerUserId, ct: ct);
                 return;
             }

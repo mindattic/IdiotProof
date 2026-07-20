@@ -258,8 +258,7 @@
             if (userId is null) { loadError = "Sign in to run a backtest."; return; }
 
             strategies = await StrategyRepo.GetAllForUserAsync(userId.Value);
-            if (StrategyId is { } sid && strategies.Any(s => s.Id == sid))
-                selectedStrategyId = sid;
+            ApplyRouteStrategy();
 
             var keys = await UserKeyService.GetOrCreateAsync(userId.Value);
             polygonApiKey   = string.IsNullOrWhiteSpace(keys.PolygonApiKey)       ? null : keys.PolygonApiKey;
@@ -270,6 +269,25 @@
         {
             loadError = ex.Message;
         }
+    }
+
+    // Re-apply the route strategy id on EVERY parameter change, not just first
+    // init: Blazor reuses this component across /backtest/{A} → /backtest/{B}
+    // navigations (OnInitializedAsync runs once), so an init-only selection
+    // left the previous strategy chosen when a deep link changed.
+    private Guid? lastAppliedRouteId;
+
+    protected override void OnParametersSet()
+    {
+        if (StrategyId != lastAppliedRouteId)
+            ApplyRouteStrategy();
+    }
+
+    private void ApplyRouteStrategy()
+    {
+        lastAppliedRouteId = StrategyId;
+        if (StrategyId is { } sid && strategies.Any(s => s.Id == sid))
+            selectedStrategyId = sid;
     }
 
     private async Task RunAsync()

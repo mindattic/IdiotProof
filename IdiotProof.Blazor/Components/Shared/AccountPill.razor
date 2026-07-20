@@ -132,6 +132,22 @@
         activeType      = prefs.ActiveAccountType;
         activeAccountId = prefs.ActiveAccountId;
 
+        // Reconcile the pill with ACTUAL routing. The red-outline "Live" cue is
+        // driven by activeType, but orders route by the user's key mode
+        // (UserBrokerResolver → keys.AlpacaIsPaper), NOT by this UI preference.
+        // A user who configured LIVE Alpaca keys but never touched the pill
+        // would keep the stale "paper" preference — showing the SAFE yellow
+        // pill while real money trades. Force "live" whenever the user's own
+        // Alpaca is the router and the keys are live, so the danger cue can
+        // never under-represent the risk.
+        var keys = await UserKeys.GetOrCreateAsync(userId.Value);
+        if (string.Equals(keys.DefaultBroker, "alpaca", StringComparison.OrdinalIgnoreCase)
+            && !string.IsNullOrWhiteSpace(keys.AlpacaApiKeyId)
+            && !keys.AlpacaIsPaper)
+        {
+            activeType = "live";
+        }
+
         await RefreshAccountsAsync();
         ApplyActive();
     }

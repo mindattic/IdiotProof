@@ -48,8 +48,13 @@ public sealed class UserPreferences
     /// <summary>Minimum stop distance as % of entry. Prevents micro-stops triggered by noise.</summary>
     public decimal RiskMinStopLossPercent { get; set; } = 0.5m;
 
-    /// <summary>Maximum stop distance as % of entry. Prevents ridiculously wide stops.</summary>
-    public decimal RiskMaxStopLossPercent { get; set; } = 5m;
+    /// <summary>
+    /// Maximum stop distance as % of entry. Default 10% to match
+    /// RiskGuardianConfig — the shipped gapper profiles (Penny Runner uses 8%)
+    /// need wide stops; the dollar cap (RiskMaxLossPerTrade) is the binding
+    /// constraint. A 5% ceiling silently blocked those profiles out of the box.
+    /// </summary>
+    public decimal RiskMaxStopLossPercent { get; set; } = 10m;
 
     /// <summary>Account balance the position-size math sizes against.</summary>
     public decimal RiskAccountBalance { get; set; } = 10_000m;

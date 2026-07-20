@@ -236,7 +236,11 @@ app.MapPost("/register-submit", async (HttpContext ctx, IUserAdminService adminS
         return;
     }
 
-    ctx.Response.Redirect("/login");
+    // Account created — the user is NOT signed in yet (no cookie issued here;
+    // sign-in is the library's /_ma-auth/login flow). Send them to login with
+    // a success flag so the page can say "account created, please sign in"
+    // instead of the button implying they're already in.
+    ctx.Response.Redirect("/login?registered=1");
 });
 
 // ── Forgot-password reset (DEVELOPMENT ONLY — mapped inside the env gate) ─────────

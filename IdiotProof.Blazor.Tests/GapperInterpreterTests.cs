@@ -123,6 +123,26 @@ public sealed class GapperInterpreterTests
     }
 
     [Test]
+    public void Parse_StringifiedNumbers_StillApplyTheOverlay()
+    {
+        // IP-A22: LLMs often emit numeric fields as strings ("7"). Without
+        // AllowReadingFromString the whole overlay was dropped to defaults.
+        var (candidates, _) = GapperInterpreter.ParseCandidates(
+            """
+            [ { "symbol": "ACME", "rationale": "tight",
+                "profile": { "minGapPercent": "7", "stopLossPercent": "3" } } ]
+            """,
+            Base());
+
+        Assert.That(candidates, Has.Count.EqualTo(1));
+        Assert.Multiple(() =>
+        {
+            Assert.That(candidates[0].Profile.MinGapPercent, Is.EqualTo(7), "stringified number applied, not dropped to default 5");
+            Assert.That(candidates[0].Profile.StopLossPercent, Is.EqualTo(3));
+        });
+    }
+
+    [Test]
     public void Parse_TruncatedArray_WarnsAboutTruncationSpecifically()
     {
         // IP-A21: a response cut off at the token cap starts an array but

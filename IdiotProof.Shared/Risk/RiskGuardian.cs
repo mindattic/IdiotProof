@@ -30,8 +30,17 @@ public sealed class RiskGuardianConfig
     /// <summary>Minimum stop loss distance (percent). Prevents micro-stops triggered by noise.</summary>
     public decimal MinStopLossPercent { get; set; } = 0.5m;
 
-    /// <summary>Maximum stop loss distance (percent). Prevents ridiculously wide stops.</summary>
-    public decimal MaxStopLossPercent { get; set; } = 5m;
+    /// <summary>
+    /// Maximum stop loss distance (percent). Prevents ridiculously wide stops.
+    /// Default 10% (not 5%): the flagship gapper profiles legitimately need
+    /// wide stops — the shipped "Penny Runner" uses 8% because pennies collapse
+    /// fast — and a 5% ceiling silently blocked every fire of that profile
+    /// under default limits. The BINDING money constraint remains the DOLLAR
+    /// cap (<see cref="MaxLossPerTrade"/>), which sizes the position so a wider
+    /// stop can't exceed the loss limit; this percent guard is a secondary
+    /// sanity bound on stop WIDTH, not the primary protection.
+    /// </summary>
+    public decimal MaxStopLossPercent { get; set; } = 10m;
 
     /// <summary>Require confirmation for trades above this risk amount.</summary>
     public decimal ConfirmationThreshold { get; set; } = 50m;

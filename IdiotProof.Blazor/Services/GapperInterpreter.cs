@@ -208,7 +208,15 @@ public sealed class GapperInterpreter(
         return (candidates, warnings);
     }
 
-    private static readonly JsonSerializerOptions OverlayOpts = new() { PropertyNameCaseInsensitive = true };
+    // AllowReadingFromString: LLMs frequently emit numeric fields as strings
+    // ("minGapPercent": "7"). Without this, a single stringified number threw
+    // a JsonException that dropped the ENTIRE profile overlay for that
+    // candidate back to base defaults (silently losing the model's tuning).
+    private static readonly JsonSerializerOptions OverlayOpts = new()
+    {
+        PropertyNameCaseInsensitive = true,
+        NumberHandling = System.Text.Json.Serialization.JsonNumberHandling.AllowReadingFromString,
+    };
 
     /// <summary>
     /// Copies onto <paramref name="target"/> only the properties actually

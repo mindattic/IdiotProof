@@ -82,9 +82,12 @@ public sealed class StrategyScriptGenerator(LegionClient legion, AppSettings app
         static bool HasPrefix(string v, params string[] prefixes)
             => prefixes.Any(p => v.StartsWith(p, StringComparison.Ordinal));
 
-        var setup   = all.Where(v => HasPrefix(v, "Name(", "Ticker(", "Session(", "Quantity", "Account(", "Window(")).ToList();
+        var setup   = all.Where(v => HasPrefix(v, "Name(", "Ticker(", "Session(", "Account(", "Window(")).ToList();
         var filters = all.Where(v => HasPrefix(v, "Require", "Trending(", "EntryWindow(")).ToList();
-        var order   = all.Where(v => HasPrefix(v, "Long(", "Short(", "Order(", "AutonomousTrading(", "AdaptiveOrder(")).ToList();
+        // Quantity* belongs to the ORDER phase per the DSL spec (CLAUDE.md:
+        // "Order — direction, quantity, type, price"); it was miscategorized
+        // under Setup, so the Learning Center taught the wrong phase.
+        var order   = all.Where(v => HasPrefix(v, "Long(", "Short(", "Order(", "Quantity", "AutonomousTrading(", "AdaptiveOrder(")).ToList();
         var risk    = all.Where(v => HasPrefix(v, "StopLoss", "TrailingStop")).ToList();
         var exit    = all.Where(v => HasPrefix(v, "TakeProfit", "AddTarget(", "ExitStrategy(", "Repeat(", "SellBy(", "PeakGiveback(")).ToList();
 
