@@ -70,7 +70,10 @@ public sealed class UserKeyService(
         ClaudeModel        = k.ClaudeModel,
         PolygonApiKey      = Protect(k.PolygonApiKey),
         DefaultBroker      = k.DefaultBroker,
-        DefaultDataFeed    = k.DefaultDataFeed
+        DefaultDataFeed    = k.DefaultDataFeed,
+        AlpacaOAuthAccessToken  = Protect(k.AlpacaOAuthAccessToken),
+        AlpacaOAuthRefreshToken = Protect(k.AlpacaOAuthRefreshToken),
+        AlpacaOAuthScope        = k.AlpacaOAuthScope
     };
 
     private UserApiKeys Decrypt(UserApiKeys k) => new()
@@ -89,7 +92,10 @@ public sealed class UserKeyService(
         // dead: every Save wiped the key to null.
         PolygonApiKey      = Unprotect(k.PolygonApiKey, k.UserId, nameof(k.PolygonApiKey)),
         DefaultBroker      = k.DefaultBroker,
-        DefaultDataFeed    = k.DefaultDataFeed
+        DefaultDataFeed    = k.DefaultDataFeed,
+        AlpacaOAuthAccessToken  = Unprotect(k.AlpacaOAuthAccessToken, k.UserId, nameof(k.AlpacaOAuthAccessToken)),
+        AlpacaOAuthRefreshToken = Unprotect(k.AlpacaOAuthRefreshToken, k.UserId, nameof(k.AlpacaOAuthRefreshToken)),
+        AlpacaOAuthScope        = k.AlpacaOAuthScope
     };
 
     private string? Protect(string? value) =>

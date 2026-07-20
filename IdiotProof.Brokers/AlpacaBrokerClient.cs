@@ -39,6 +39,27 @@ public sealed class AlpacaBrokerClient : IBrokerClient, IAsyncDisposable
         }
     }
 
+    /// <summary>
+    /// OAuth (Connect API) construction — authenticates with an
+    /// <c>Authorization: Bearer &lt;token&gt;</c> header instead of the key/secret
+    /// pair (IP-A26), for account-linked users. DORMANT by design: nothing in the
+    /// routing path builds a client this way yet — <c>UserBrokerResolver</c> still
+    /// uses the key/secret ctor. Enabling it is a gated step (register an Alpaca
+    /// OAuth app, then paper-test) per <see cref="AlpacaOAuthClient"/>.
+    /// </summary>
+    public static AlpacaBrokerClient FromOAuthToken(string accessToken, bool isPaper = true) =>
+        new(accessToken, isPaper, oauth: true);
+
+    private AlpacaBrokerClient(string accessToken, bool isPaper, bool oauth)
+    {
+        IsPaper = isPaper;
+        var baseUri = isPaper ? "https://paper-api.alpaca.markets" : "https://api.alpaca.markets";
+        httpClient = new HttpClient { BaseAddress = new Uri(baseUri), Timeout = TimeSpan.FromSeconds(30) };
+        if (!string.IsNullOrWhiteSpace(accessToken))
+            httpClient.DefaultRequestHeaders.Authorization =
+                new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", accessToken);
+    }
+
     public Task<bool> ConnectAsync(CancellationToken ct = default)
     {
         connected = true;

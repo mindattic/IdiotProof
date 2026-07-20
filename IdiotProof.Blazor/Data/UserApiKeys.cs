@@ -26,4 +26,13 @@ public sealed class UserApiKeys
     // Default broker/feed preferences
     public string DefaultBroker { get; set; } = "Sandbox";
     public string DefaultDataFeed { get; set; } = "Mock";
+
+    // Alpaca OAuth (Connect API) — account-linking alternative to the raw
+    // key/secret above (IP-A26). Stored encrypted like the other secrets.
+    // DORMANT: obtained by the /connect/alpaca flow and stored, but not yet
+    // routed through (trading still uses the key/secret pair until Bearer mode
+    // is paper-verified).
+    public string? AlpacaOAuthAccessToken { get; set; }
+    public string? AlpacaOAuthRefreshToken { get; set; }
+    public string? AlpacaOAuthScope { get; set; }
 }

@@ -310,6 +310,55 @@ app.MapPost("/forgot-password-submit", async (HttpContext ctx, IUserAdminService
     ctx.Response.Redirect("/forgot-password?status=ok");
 });
 
+// ── Alpaca OAuth / Connect (IP-A26) — account linking instead of raw keys ──
+// DORMANT: obtains + stores a scoped token; trading still routes through the
+// key/secret path until Bearer mode is paper-verified. Wholly inert unless
+// Alpaca:OAuth:ClientId/:ClientSecret/:RedirectUri are configured.
+app.MapGet("/connect/alpaca", (HttpContext ctx, IConfiguration cfg) =>
+{
+    var clientId = cfg["Alpaca:OAuth:ClientId"];
+    var redirect = cfg["Alpaca:OAuth:RedirectUri"];
+    if (string.IsNullOrWhiteSpace(clientId) || string.IsNullOrWhiteSpace(redirect))
+    {
+        ctx.Response.StatusCode = 503;
+        return ctx.Response.WriteAsync("Alpaca OAuth is not configured (set Alpaca:OAuth:ClientId / :ClientSecret / :RedirectUri).");
+    }
+    if (ctx.User.Identity?.IsAuthenticated != true) { ctx.Response.Redirect("/login?returnUrl=/connect/alpaca"); return Task.CompletedTask; }
+    var state = Guid.NewGuid().ToString("N");
+    ctx.Response.Cookies.Append("ip_oauth_state", state,
+        new CookieOptions { HttpOnly = true, Secure = true, SameSite = SameSiteMode.Lax, MaxAge = TimeSpan.FromMinutes(10) });
+    ctx.Response.Redirect(IdiotProof.Brokers.AlpacaOAuthClient.BuildAuthorizeUrl(clientId, redirect, state));
+    return Task.CompletedTask;
+});
+
+app.MapGet("/connect/alpaca/callback", async (HttpContext ctx, IConfiguration cfg, UserKeyService keys) =>
+{
+    var clientId = cfg["Alpaca:OAuth:ClientId"];
+    var clientSecret = cfg["Alpaca:OAuth:ClientSecret"];
+    var redirect = cfg["Alpaca:OAuth:RedirectUri"];
+    if (string.IsNullOrWhiteSpace(clientId) || string.IsNullOrWhiteSpace(clientSecret) || string.IsNullOrWhiteSpace(redirect))
+    { ctx.Response.StatusCode = 503; await ctx.Response.WriteAsync("Alpaca OAuth is not configured."); return; }
+
+    var code  = ctx.Request.Query["code"].ToString();
+    var state = ctx.Request.Query["state"].ToString();
+    if (string.IsNullOrEmpty(code) || string.IsNullOrEmpty(state) || state != ctx.Request.Cookies["ip_oauth_state"])
+    { ctx.Response.Redirect("/?oauth=state_error"); return; }
+
+    var userIdStr = ctx.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+    if (!Guid.TryParse(userIdStr, out var userId)) { ctx.Response.Redirect("/login?returnUrl=/connect/alpaca"); return; }
+
+    var token = await IdiotProof.Brokers.AlpacaOAuthClient.ExchangeCodeAsync(clientId, clientSecret, code, redirect);
+    if (token is null) { ctx.Response.Redirect("/?oauth=exchange_failed"); return; }
+
+    var existing = await keys.GetOrCreateAsync(userId);
+    existing.UserId = userId;
+    existing.AlpacaOAuthAccessToken  = token.AccessToken;
+    existing.AlpacaOAuthRefreshToken = token.RefreshToken;
+    existing.AlpacaOAuthScope        = token.Scope;
+    await keys.SaveAsync(userId, existing);   // encrypted at rest; NOT yet routed (dormant)
+    ctx.Response.Redirect("/?oauth=connected");
+});
+
 app.MapRazorComponents<App>()
    .AddInteractiveServerRenderMode();
 
