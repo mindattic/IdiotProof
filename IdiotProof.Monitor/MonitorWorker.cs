@@ -46,10 +46,16 @@ public sealed class MonitorWorker(
     IStorageProvider storage,
     ILogger<MonitorWorker> logger) : BackgroundService
 {
-    /// <summary>Interval between evaluation passes. Override via IDIOTPROOF_MONITOR_INTERVAL ("5s", "1m").</summary>
+    /// <summary>
+    /// Interval between evaluation passes. Default 1s so a live market is
+    /// reacted to within ~1 second: the Alpaca websocket stream keeps the last
+    /// trade sub-second fresh (AppendLiveTick), and each pass re-checks price-
+    /// based triggers/stops against it — no REST call per pass (candles are
+    /// cached + stream-fed). Override via IDIOTPROOF_MONITOR_INTERVAL ("1s","5s","1m").
+    /// </summary>
     private static readonly TimeSpan EvaluationInterval =
         TryParseInterval(Environment.GetEnvironmentVariable("IDIOTPROOF_MONITOR_INTERVAL"))
-        ?? TimeSpan.FromSeconds(5);
+        ?? TimeSpan.FromSeconds(1);
 
     /// <summary>Minute bars — matches the Alpaca stream's "b" messages.</summary>
     private static readonly TimeSpan BarSize = TimeSpan.FromMinutes(1);
@@ -283,10 +289,25 @@ public sealed class MonitorWorker(
         var close = await feed.GetPreviousCloseAsync(symbol, DateTime.UtcNow, ct);
         previousCloseCache[symbol] = (todayEt, close, DateTime.UtcNow);
         if (close is null)
-            logger.LogWarning("{Symbol}: no previous close available — gap conditions fail closed; retrying in {Retry}s.",
-                symbol, MissingCloseRetry.TotalSeconds);
+        {
+            // Throttle: this retries every MissingCloseRetry (30s), but logging
+            // every retry spams the console all day for a data-less ticker
+            // (e.g. a not-yet-listed post-merger symbol). Warn at most once per
+            // NoCloseWarnEvery per symbol. Wording is accurate: previous close
+            // only gates GAP conditions — a strategy without them is unaffected.
+            if (!lastNoCloseWarnUtc.TryGetValue(symbol, out var last) || DateTime.UtcNow - last > NoCloseWarnEvery)
+            {
+                lastNoCloseWarnUtc[symbol] = DateTime.UtcNow;
+                logger.LogWarning("{Symbol}: no previous close from the feed (new/post-merger ticker or no daily bars). " +
+                    "Any GAP condition fails closed; non-gap strategies are unaffected. Retrying every {Retry}s (this warning is throttled).",
+                    symbol, MissingCloseRetry.TotalSeconds);
+            }
+        }
         return close;
     }
+
+    private readonly Dictionary<string, DateTime> lastNoCloseWarnUtc = new(StringComparer.OrdinalIgnoreCase);
+    private static readonly TimeSpan NoCloseWarnEvery = TimeSpan.FromMinutes(10);
 
     // ── Evaluation ──────────────────────────────────────────────────────
 
@@ -673,6 +694,17 @@ public sealed class MonitorWorker(
         // On reconciliation failure we proceed with the recorded quantity —
         // never skip a risk-reducing exit because a status call hiccuped.
         var sellQty = stored.PositionQty;
+
+        // Multi-strategy-per-ticker (IP-A24): the broker reports ONE position
+        // per symbol, but several of this user's strategies may hold the same
+        // symbol at once (running competing setups to compare). When they do,
+        // the aggregate can't be attributed to one strategy — so skip the
+        // broker reconciliation and trust this strategy's own bookkeeping
+        // (each strategy's diary P&L is computed from its own recorded fills,
+        // so the comparison stays valid). Sole-holder (today's case) → reconcile
+        // exactly as before.
+        var sharedSymbol = await strategyRepo.CountHoldingForSymbolAsync(stored.OwnerUserId, stored.Symbol, ct) > 1;
+        if (!sharedSymbol)
         try
         {
             var brokerPositions = await broker.GetPositionsAsync(ct);
@@ -762,7 +794,7 @@ public sealed class MonitorWorker(
         try
         {
             await tradeDiary.CloseAsync(stored.Id, limitPrice, decision.Reason.ToString(),
-                order.BrokerOrderId, realized, exitUtc, ct);
+                order.BrokerOrderId, realized, sellQty, exitUtc, ct);
         }
         catch (Exception ex)
         {

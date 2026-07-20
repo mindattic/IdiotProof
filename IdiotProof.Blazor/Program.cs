@@ -177,18 +177,28 @@ using (var scope = app.Services.CreateScope())
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
     db.Database.Migrate();
 
-    // IP-A13 one-shot: legacy strategies get their canonical JSON derived
-    // from ScriptText so the Monitor can run JSON-first everywhere.
-    var backfilled = await scope.ServiceProvider.GetRequiredService<StrategyRepository>()
-        .BackfillCanonicalJsonAsync();
-    if (backfilled > 0)
-        app.Logger.LogInformation("Backfilled canonical ScriptJson for {Count} legacy strategies.", backfilled);
+    // Best-effort one-shots — NEVER let a backfill/seed failure abort web
+    // startup (the app must come up even if these hiccup).
+    try
+    {
+        // IP-A13 one-shot: legacy strategies get their canonical JSON derived
+        // from ScriptText so the Monitor can run JSON-first everywhere.
+        var backfilled = await scope.ServiceProvider.GetRequiredService<StrategyRepository>()
+            .BackfillCanonicalJsonAsync();
+        if (backfilled > 0)
+            app.Logger.LogInformation("Backfilled canonical ScriptJson for {Count} legacy strategies.", backfilled);
+    }
+    catch (Exception ex) { app.Logger.LogError(ex, "Canonical-JSON backfill failed at startup (continuing)."); }
 
-    // Seed the disposable-email-domain blocklist (IP-A23). Idempotent.
-    var seededDomains = await scope.ServiceProvider.GetRequiredService<EmailDomainBlocklistService>()
-        .SeedAsync();
-    if (seededDomains > 0)
-        app.Logger.LogInformation("Seeded {Count} disposable email domains into the blacklist.", seededDomains);
+    try
+    {
+        // Seed the disposable-email-domain blocklist (IP-A23). Idempotent.
+        var seededDomains = await scope.ServiceProvider.GetRequiredService<EmailDomainBlocklistService>()
+            .SeedAsync();
+        if (seededDomains > 0)
+            app.Logger.LogInformation("Seeded {Count} disposable email domains into the blacklist.", seededDomains);
+    }
+    catch (Exception ex) { app.Logger.LogError(ex, "Email-domain blocklist seed failed at startup (continuing)."); }
 }
 
 if (!app.Environment.IsDevelopment())
@@ -223,7 +233,10 @@ app.MapPost("/register-submit", async (HttpContext ctx, IUserAdminService adminS
     if (string.IsNullOrWhiteSpace(email))
     { ctx.Response.Redirect("/register?error=email"); return; }
     // Reject malformed and disposable/temporary email domains (IP-A23) — a
-    // real account for a real (paper) trading key needs a real inbox.
+    // real account for a real (paper) trading key needs a real inbox. Give a
+    // distinct message for a malformed address vs a disposable domain.
+    if (EmailDomainBlocklistService.DomainOf(email) is null)
+    { ctx.Response.Redirect("/register?error=email"); return; }
     if (await blocklist.IsBlockedAsync(email))
     { ctx.Response.Redirect("/register?error=domain"); return; }
     if (password != confirm)

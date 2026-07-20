@@ -206,6 +206,21 @@ public sealed class StrategyRepository(IDbContextFactory<AppDbContext> dbFactory
     }
 
     /// <summary>
+    /// Counts this user's strategies that currently HOLD a position in a symbol
+    /// (PositionQty &gt; 0). When &gt;1, the broker's per-symbol position is shared
+    /// across strategies and can't be attributed to one — the exit path must
+    /// then trust per-strategy bookkeeping rather than the broker aggregate
+    /// (multi-strategy-per-ticker support, IP-A24).
+    /// </summary>
+    public async Task<int> CountHoldingForSymbolAsync(Guid ownerUserId, string symbol, CancellationToken ct = default)
+    {
+        await using var db = await dbFactory.CreateDbContextAsync(ct);
+        var upper = symbol.ToUpperInvariant();
+        return await db.Strategies.CountAsync(
+            s => s.OwnerUserId == ownerUserId && s.PositionQty > 0 && s.Symbol == upper, ct);
+    }
+
+    /// <summary>
     /// Bumps FireCount + LastFiredUtc when the Monitor reports a signal fired
     /// for this strategy. Stays minimal — full TradeSignal log is a separate table.
     /// </summary>

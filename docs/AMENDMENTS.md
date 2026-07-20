@@ -9,6 +9,66 @@ updated: 2026-06-09
 
 # IdiotProof — Amendments (append-only; amendment wins over the bible)
 
+## IP-A24 — Bug-hunt round 11 on the IP-A23 surface + multi-strategy-per-ticker + order-execution proof {#IP-A24}
+**What changed.** (2026-07-20.) Eleventh find-10-fix-10 sweep, focused on the fresh IP-A23
+code (diary, operator CLI, blocklist, Monitor wiring), plus two capability additions the
+paper run needed. Ten fixes:
+
+1. **Monitor could crash on boot** — the new Security-bucket surfacing parsed
+   `providers.json` unguarded; a malformed/locked file would take down the *trading* process.
+   Now try/catch (create-account degrades; the eval loop is unaffected).
+2. **CLI `create-account` disposable check was a no-op** — the blocklist only seeds on Blazor
+   startup, so the Monitor standalone saw an empty table. It now seeds before checking, and
+   distinguishes malformed vs disposable.
+3. **`set-keys` stored keys with zero validation** — a typo'd/dead key silently broke routing.
+   Now validates the PK/AK-vs-paper/live prefix AND does a live authenticated Alpaca probe
+   before saving (`--force` overrides).
+4. **`ResolveUserAsync` leaked a DbContext** (no `await using`).
+5. **`ResolveUserAsync` returned null silently** with >1 user — now a clear "pass --user" error.
+6. **Diary return % was wrong on partial fills** — cost used the optimistic entry quantity
+   while realized P&L used the (smaller) reconciled sold quantity. `CloseAsync` now takes the
+   sold quantity and records/returns on it.
+7. **Blazor startup seed/backfill was unguarded** — a hiccup aborted web startup. Now
+   log-and-continue.
+8. **Registration showed "domain not accepted" for MALFORMED emails** — now a distinct
+   "enter a valid email" message.
+9. **A crash between buy and sell orphaned a diary Open row** — the next trade's close could
+   match the wrong (stale) row. `OpenAsync` now marks any pre-existing Open for the strategy
+   `Orphaned`, so there is never more than one Open.
+10. **`create-strategies` didn't dedup within a single watchlist file** — same title+symbol
+    twice created two rows. Now in-batch deduped.
+
+**Capabilities added.**
+- **`test-order` CLI** — places a deliberately-unfillable limit and cancels it through the REAL
+  broker code path, proving the account can place AND cancel orders autonomously (no human
+  step). Verified against Alpaca paper.
+- **Multi-strategy-per-ticker** ([IP-A24]) — the broker reports ONE position per symbol, but a
+  user may run competing strategies on the same ticker to compare. The exit reconciliation
+  (IP-A20) compared each strategy to the broker AGGREGATE, which cross-contaminates when a
+  symbol is shared. `CountHoldingForSymbolAsync` now detects the shared case and skips the
+  aggregate reconciliation there (trusting per-strategy bookkeeping; each strategy's diary P&L
+  is computed from its own fills, so the comparison stays valid). Sole-holder — every case
+  today — reconciles exactly as before. True per-strategy attribution on a shared symbol still
+  wants order-state tracking (deferred).
+
+**Live-run tuning (same session).**
+- **Evaluation interval 5s → 1s** (default; still `IDIOTPROOF_MONITOR_INTERVAL`-overridable) so a
+  live market is reacted to within ~1s off the streamed last trade — no extra REST (candles are
+  cached + stream-fed).
+- **Throttled the "no previous close" warning** to once per 10 min per symbol (it retries every
+  30s but was logging every retry), and corrected the wording — a missing previous close only
+  gates GAP conditions; non-gap strategies are unaffected.
+- **FGMC fallback strategy** — the speaker's #2 pick (FGMC→BXBL post-merger) has NO Alpaca data
+  under `BXBL` yet (the stock still trades as `FGMC`), so an FGMC mirror of the BXBL setup was
+  added active alongside it; whichever ticker the feed serves is covered.
+
+**Why.** Session directive 2026-07-20: "find 10 fix 10, and redeploy"; plus the operator's need
+to prove creds place valid API-honored orders and to run multiple strategies per ticker.
+
+**Effect on canon.** Additive; no laws changed. The new build was published to the on-box
+deploy path and the scheduled task restarted on it (heartbeat green). Build green; backend
+tests pass (Blazor 61, Strategies 82, Brokers 13, Indicators 18).
+
 ## IP-A23 — Trade diary, operator CLI, disposable-email blocklist; first live paper account {#IP-A23}
 **What changed.** (2026-07-20.) Feature work to stand up a real per-user paper-trading run:
 

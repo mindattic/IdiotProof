@@ -22,6 +22,16 @@ public sealed class TradeDiaryRepository(IDbContextFactory<AppDbContext> dbFacto
         entry.CreatedUtc = DateTime.UtcNow;
         entry.UpdatedUtc = entry.CreatedUtc;
         await using var db = await dbFactory.CreateDbContextAsync(ct);
+
+        // A strategy holds at most one position at a time, so there should be no
+        // Open row when we open a new one. If there is (the Monitor stopped
+        // between a buy and its sell), it's an orphan — mark it Orphaned so the
+        // exit path's "most-recent Open" match can never close the wrong trade.
+        var stale = await db.TradeDiary
+            .Where(t => t.StrategyId == entry.StrategyId && t.Status == TradeDiaryStatus.Open)
+            .ToListAsync(ct);
+        foreach (var s in stale) { s.Status = TradeDiaryStatus.Orphaned; s.UpdatedUtc = DateTime.UtcNow; }
+
         db.TradeDiary.Add(entry);
         await db.SaveChangesAsync(ct);
         return entry.Id;
@@ -35,7 +45,7 @@ public sealed class TradeDiaryRepository(IDbContextFactory<AppDbContext> dbFacto
     /// </summary>
     public async Task CloseAsync(
         Guid strategyId, decimal exitPrice, string exitReason, string? exitOrderId,
-        decimal realizedPnL, DateTime exitUtc, CancellationToken ct = default)
+        decimal realizedPnL, int soldQty, DateTime exitUtc, CancellationToken ct = default)
     {
         await using var db = await dbFactory.CreateDbContextAsync(ct);
         var row = await db.TradeDiary
@@ -44,13 +54,17 @@ public sealed class TradeDiaryRepository(IDbContextFactory<AppDbContext> dbFacto
             .FirstOrDefaultAsync(ct);
         if (row is null) return;
 
+        // Record the quantity ACTUALLY traded (reconciliation may have found a
+        // partial fill: soldQty < the optimistically-recorded entry quantity).
+        // Return % must be on that same quantity as the realized P&L, or the two
+        // disagree.
+        if (soldQty > 0 && soldQty != row.Quantity) row.Quantity = soldQty;
+
         row.ExitUtc     = exitUtc;
         row.ExitPrice   = exitPrice;
         row.ExitReason  = exitReason;
         row.ExitOrderId = exitOrderId;
         row.RealizedPnL = realizedPnL;
-        // Return on cost of the shares actually held. Long-shaped; shorts are
-        // signal-only today so never reach the diary.
         var cost = row.EntryPrice * row.Quantity;
         row.ReturnPercent = cost > 0m ? Math.Round(realizedPnL / cost * 100m, 4) : 0m;
         row.Status      = TradeDiaryStatus.Closed;

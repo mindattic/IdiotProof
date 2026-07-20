@@ -22,7 +22,7 @@ namespace IdiotProof.Monitor;
 public static class MonitorCli
 {
     public static bool IsCommand(string arg) =>
-        arg is "status" or "set-keys" or "create-strategies" or "create-account";
+        arg is "status" or "set-keys" or "create-strategies" or "create-account" or "test-order";
 
     public static async Task<int> RunAsync(IServiceProvider sp, string[] args)
     {
@@ -36,6 +36,7 @@ public static class MonitorCli
                 "set-keys"          => await SetKeysAsync(sp, opt),
                 "create-strategies" => await CreateStrategiesAsync(sp, opt),
                 "create-account"    => await CreateAccountAsync(sp, opt),
+                "test-order"        => await TestOrderAsync(sp, opt),
                 _                   => Fail($"Unknown command '{cmd}'."),
             };
         }
@@ -165,10 +166,16 @@ public static class MonitorCli
         if (!opt.TryGetValue("email", out var email) || !opt.TryGetValue("password", out var password))
             return Fail("create-account requires --email and --password.");
 
-        // Same disposable-domain gate as web registration (IP-A23).
+        // Same disposable-domain gate as web registration (IP-A23). Seed the
+        // blocklist first — the Blazor host seeds it at startup, but the Monitor
+        // may run standalone with an empty table, which would make the check a
+        // silent no-op.
         var blocklist = sp.GetRequiredService<EmailDomainBlocklistService>();
+        await blocklist.SeedAsync();
+        if (EmailDomainBlocklistService.DomainOf(email) is null)
+            return Fail($"email is malformed: {email}");
         if (await blocklist.IsBlockedAsync(email))
-            return Fail($"email domain rejected (malformed or disposable): {email}");
+            return Fail($"email domain is disposable/blocked: {email}");
         if (password.Length < 8 || password.Length > 128 || !password.Any(char.IsDigit))
             return Fail("password must be 8–128 chars and contain at least one digit.");
 
@@ -184,6 +191,44 @@ public static class MonitorCli
         return 0;
     }
 
+    // ── test-order ──────────────────────────────────────────────────────
+    // Proves the resolved broker can place AND cancel an order autonomously
+    // (no human step) through the EXACT code path the Monitor uses at fire
+    // time. Places a deliberately-unfillable limit buy (far below market) and
+    // cancels it — zero fill risk, paper account.
+    private static async Task<int> TestOrderAsync(IServiceProvider sp, Dictionary<string, string> opt)
+    {
+        var resolver = sp.GetRequiredService<UserBrokerResolver>();
+        var userId = await ResolveUserAsync(sp, opt);
+        if (userId is null) return Fail("test-order requires --user <guid>.");
+
+        var symbol = opt.GetValueOrDefault("symbol", "AAPL").ToUpperInvariant();
+        var broker = await resolver.ResolveAsync(userId.Value);
+        Line($"Broker: {broker.BrokerType} ({(broker.IsPaper ? "PAPER" : "LIVE")}) — placing an UNFILLABLE test limit then cancelling…");
+        if (!broker.IsPaper && !opt.ContainsKey("force"))
+            return Fail("resolved broker is LIVE — refusing a live test order without --force.");
+
+        // Limit BUY 1 share @ $1: a buy limit that far below market can never fill.
+        var order = await broker.PlaceOrderAsync(new IdiotProof.Models.OrderRequest
+        {
+            Symbol = symbol, Quantity = 1, Side = IdiotProof.Models.OrderSide.Buy,
+            Type = IdiotProof.Models.OrderType.Limit, LimitPrice = 1.00m, TimeInForce = "DAY",
+        });
+        if (!order.IsSuccess)
+            return Fail($"PLACE failed — the key CANNOT place orders: {order.Message}");
+        Line($"   ✓ PLACE ok — order id {order.BrokerOrderId} (accepted by {broker.BrokerType}, no human step)");
+
+        var cancel = await broker.CancelOrderAsync(order.BrokerOrderId);
+        if (!cancel.IsSuccess)
+        {
+            Line($"   ⚠ CANCEL failed: {cancel.Message} — the resting $1 limit will expire at session end (unfillable). Cancel it in the Alpaca dashboard if you prefer.");
+            return Fail("placed but could not cancel — see warning.");
+        }
+        Line($"   ✓ CANCEL ok — order {order.BrokerOrderId} cancelled.");
+        Line("RESULT: the account can place AND cancel orders autonomously via the API. No 4 AM human intervention needed.");
+        return 0;
+    }
+
     // ── set-keys ────────────────────────────────────────────────────────
     private static async Task<int> SetKeysAsync(IServiceProvider sp, Dictionary<string, string> opt)
     {
@@ -194,6 +239,25 @@ public static class MonitorCli
             return Fail("set-keys requires --key and --secret.");
 
         var isPaper = !opt.ContainsKey("live");
+
+        // Validate BEFORE storing — a typo'd/dead key would otherwise be saved
+        // and silently break routing at trade time. --force skips the checks.
+        if (!opt.ContainsKey("force"))
+        {
+            // Alpaca convention: paper key ids start "PK", live "AK".
+            if (isPaper && !apiKey.StartsWith("PK", StringComparison.Ordinal))
+                return Fail("key doesn't look like a PAPER key (expected 'PK…'). Use --live for a live key, or --force to override.");
+            if (!isPaper && !apiKey.StartsWith("AK", StringComparison.Ordinal))
+                return Fail("key doesn't look like a LIVE key (expected 'AK…'). Drop --live for a paper key, or --force to override.");
+
+            // Live authenticated check against the matching endpoint.
+            await using var probe = new IdiotProof.Brokers.AlpacaBrokerClient(apiKey, secret, isPaper);
+            var acct = await probe.GetAccountAsync();
+            if (acct.TryGetValue("error", out var err))
+                return Fail($"key failed live auth against Alpaca {(isPaper ? "paper" : "LIVE")}: {err}. Use --force to store anyway.");
+            Line($"   live auth ✓ — account {acct.GetValueOrDefault("account_number", "?")} status {acct.GetValueOrDefault("status", "?")} cash ${acct.GetValueOrDefault("cash", "?")}");
+        }
+
         var existing = await keys.GetOrCreateAsync(userId.Value);
         existing.UserId             = userId.Value;
         existing.AlpacaApiKeyId     = apiKey;
@@ -221,12 +285,21 @@ public static class MonitorCli
             new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? [];
 
         var existing = await repo.GetAllForUserAsync(userId.Value);
+        var seenInBatch = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         int created = 0, skipped = 0;
         foreach (var item in items)
         {
             if (string.IsNullOrWhiteSpace(item.Symbol) || string.IsNullOrWhiteSpace(item.Script))
             {
                 Line($"   ✗ skipping malformed item (symbol/script missing).");
+                continue;
+            }
+            // In-batch dedup: the same title+symbol twice in one file would
+            // otherwise create two identical strategies.
+            if (!seenInBatch.Add($"{item.Symbol}|{item.Title}"))
+            {
+                Line($"   = {item.Symbol} \"{item.Title}\" duplicated in file — skipped.");
+                skipped++;
                 continue;
             }
             // Idempotent: don't duplicate an existing same-title+symbol row.
@@ -280,10 +353,16 @@ public static class MonitorCli
     private static async Task<Guid?> ResolveUserAsync(IServiceProvider sp, Dictionary<string, string> opt)
     {
         if (opt.TryGetValue("user", out var u) && Guid.TryParse(u, out var g)) return g;
-        // Fall back to the single user if there is exactly one.
-        var db = await sp.GetRequiredService<Microsoft.EntityFrameworkCore.IDbContextFactory<AppDbContext>>().CreateDbContextAsync();
+        // Fall back to the single user if there is exactly one — otherwise the
+        // caller must pass --user. `await using` so the CLI doesn't leak a
+        // DbContext (the old code never disposed it).
+        await using var db = await sp.GetRequiredService<Microsoft.EntityFrameworkCore.IDbContextFactory<AppDbContext>>().CreateDbContextAsync();
         var ids = db.AuthUsers.Select(x => x.Id).Take(2).ToList();
-        return ids.Count == 1 ? ids[0] : null;
+        if (ids.Count == 1) return ids[0];
+        Console.Error.WriteLine(ids.Count == 0
+            ? "No users exist — create one first (create-account)."
+            : "Multiple users exist — pass --user <guid> to pick one.");
+        return null;
     }
 
     private static Dictionary<string, string> ParseOptions(string[] args)

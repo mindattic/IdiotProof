@@ -70,12 +70,22 @@ var securityBucket = Path.Combine(
     "MindAttic", "Security", "providers.json");
 if (File.Exists(securityBucket))
 {
-    using var secDoc = System.Text.Json.JsonDocument.Parse(File.ReadAllText(securityBucket));
-    var secMem = new Dictionary<string, string?>();
-    foreach (var p in secDoc.RootElement.EnumerateObject())
-        if (p.Value.ValueKind == System.Text.Json.JsonValueKind.String)
-            secMem[$"MindAttic:Vault:Security:{p.Name}"] = p.Value.GetString();
-    builder.Configuration.AddInMemoryCollection(secMem);
+    // Guarded: a malformed/locked Security file must NOT crash the trading
+    // process on boot. Auth (create-account) would then fail loudly when used,
+    // but the Monitor's evaluation loop — which needs none of this — keeps running.
+    try
+    {
+        using var secDoc = System.Text.Json.JsonDocument.Parse(File.ReadAllText(securityBucket));
+        var secMem = new Dictionary<string, string?>();
+        foreach (var p in secDoc.RootElement.EnumerateObject())
+            if (p.Value.ValueKind == System.Text.Json.JsonValueKind.String)
+                secMem[$"MindAttic:Vault:Security:{p.Name}"] = p.Value.GetString();
+        builder.Configuration.AddInMemoryCollection(secMem);
+    }
+    catch (Exception ex)
+    {
+        Console.Error.WriteLine($"[startup] Security bucket unreadable ({ex.GetType().Name}: {ex.Message}) — create-account will be unavailable; trading loop unaffected.");
+    }
 }
 
 var storage = new WebStorageProvider();

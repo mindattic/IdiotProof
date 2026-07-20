@@ -126,4 +126,8 @@ public static class TradeDiaryStatus
     public const string Open = "Open";
     public const string Closed = "Closed";
     public const string NotFilled = "NotFilled";
+
+    /// <summary>An Open row superseded by a newer trade on the same strategy
+    /// (the Monitor stopped between a buy and its sell). Kept for the record.</summary>
+    public const string Orphaned = "Orphaned";
 }
