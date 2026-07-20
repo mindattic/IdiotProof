@@ -4,6 +4,7 @@ using IdiotProof.Blazor.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace IdiotProof.Blazor.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260720040717_AddTradeDiary")]
+    partial class AddTradeDiary
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -58,25 +61,6 @@ namespace IdiotProof.Blazor.Migrations
                     b.HasIndex("UserId", "TimestampUtc");
 
                     b.ToTable("AuditLogs");
-                });
-
-            modelBuilder.Entity("IdiotProof.Blazor.Data.BlockedEmailDomain", b =>
-                {
-                    b.Property<string>("Domain")
-                        .HasMaxLength(255)
-                        .HasColumnType("nvarchar(255)");
-
-                    b.Property<DateTime>("AddedUtc")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("Reason")
-                        .IsRequired()
-                        .HasMaxLength(64)
-                        .HasColumnType("nvarchar(64)");
-
-                    b.HasKey("Domain");
-
-                    b.ToTable("DomainNameBlacklist");
                 });
 
             modelBuilder.Entity("IdiotProof.Blazor.Data.ConditionProgress", b =>

@@ -154,6 +154,8 @@ builder.Services.AddSingleton<GapperProfileService>();
 builder.Services.AddSingleton<GapperInterpreter>();
 builder.Services.AddSingleton<SettingsRepository>();
 builder.Services.AddSingleton<AuditLogRepository>();
+builder.Services.AddSingleton<TradeDiaryRepository>();
+builder.Services.AddSingleton<EmailDomainBlocklistService>();
 builder.Services.AddSingleton<ConditionProgressRepository>();
 builder.Services.AddSingleton<RiskGuardianService>();
 builder.Services.AddHttpClient();
@@ -181,6 +183,12 @@ using (var scope = app.Services.CreateScope())
         .BackfillCanonicalJsonAsync();
     if (backfilled > 0)
         app.Logger.LogInformation("Backfilled canonical ScriptJson for {Count} legacy strategies.", backfilled);
+
+    // Seed the disposable-email-domain blocklist (IP-A23). Idempotent.
+    var seededDomains = await scope.ServiceProvider.GetRequiredService<EmailDomainBlocklistService>()
+        .SeedAsync();
+    if (seededDomains > 0)
+        app.Logger.LogInformation("Seeded {Count} disposable email domains into the blacklist.", seededDomains);
 }
 
 if (!app.Environment.IsDevelopment())
@@ -205,7 +213,7 @@ app.MapMindAtticAuthEndpoints();
 // Registration is kept as a custom form endpoint so new users can create their own
 // accounts without needing an admin UI. After creation, the user signs in via the
 // library's /_ma-auth/login flow.
-app.MapPost("/register-submit", async (HttpContext ctx, IUserAdminService adminSvc) =>
+app.MapPost("/register-submit", async (HttpContext ctx, IUserAdminService adminSvc, EmailDomainBlocklistService blocklist) =>
 {
     var form     = await ctx.Request.ReadFormAsync();
     var email    = form["email"].ToString().Trim();
@@ -214,6 +222,10 @@ app.MapPost("/register-submit", async (HttpContext ctx, IUserAdminService adminS
 
     if (string.IsNullOrWhiteSpace(email))
     { ctx.Response.Redirect("/register?error=email"); return; }
+    // Reject malformed and disposable/temporary email domains (IP-A23) — a
+    // real account for a real (paper) trading key needs a real inbox.
+    if (await blocklist.IsBlockedAsync(email))
+    { ctx.Response.Redirect("/register?error=domain"); return; }
     if (password != confirm)
     { ctx.Response.Redirect("/register?error=mismatch"); return; }
     if (password.Length < 8)

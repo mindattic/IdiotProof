@@ -100,6 +100,7 @@ public sealed class BrokerRouterTests
 file sealed class FakeBroker(BrokerType type) : IBrokerClient
 {
     public BrokerType BrokerType => type;
+    public bool IsPaper => true;
     public bool IsConnected => true;
     public Task<bool> ConnectAsync(CancellationToken ct = default) => Task.FromResult(true);
     public Task DisconnectAsync() => Task.CompletedTask;

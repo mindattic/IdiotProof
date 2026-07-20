@@ -9,6 +9,47 @@ updated: 2026-06-09
 
 # IdiotProof — Amendments (append-only; amendment wins over the bible)
 
+## IP-A23 — Trade diary, operator CLI, disposable-email blocklist; first live paper account {#IP-A23}
+**What changed.** (2026-07-20.) Feature work to stand up a real per-user paper-trading run:
+
+1. **Trade diary** — new `TradeDiary` SQL table (one row per trade lifecycle) written by the
+   Monitor on the money path: opened on the buy (side, size, entry price/time, the full risk
+   plan — stop / trailing / take-profit / peak-giveback / sell-by — broker + `IsPaper`),
+   closed on the sell (exit price/time/reason, realized P&L, return %), and marked `NotFilled`
+   when reconciliation proves a phantom entry. Deliberately denormalized and FK-free (no
+   cascade) so it's a permanent record that survives strategy/account deletion. All diary
+   writes are log-and-continue — a diary failure can never break a trade. (`TradeDiaryEntry`,
+   `TradeDiaryRepository`; migration `AddTradeDiary`.)
+2. **`IBrokerClient.IsPaper`** — a broker-abstract paper/live flag (Sandbox always paper;
+   Alpaca reflects its endpoint) so the diary and the ops CLI can never mislabel a live fill
+   as paper. Interface-level on purpose — a future broker must answer it.
+3. **Monitor operator CLI** — `dotnet run --project IdiotProof.Monitor -- <cmd>` subcommands
+   that run against the REAL DI/config and exit without starting the worker:
+   `status` (verifies key / paper / will-fire / will-sell for every active strategy, with a
+   LIVE authenticated Alpaca ping), `set-keys` (per-user Alpaca keys, no UI), `create-strategies`
+   (from a watchlist JSON, canon-first via the repo), and `create-account` (real Argon2id path).
+   The auth stack + Security-vault-bucket surfacing were added to the Monitor host so
+   `create-account` works headless.
+4. **Disposable-email blocklist** — new `DomainNameBlacklist` table (seeded at Blazor startup
+   with ~90 known temp-mail domains, admin-extendable) + `EmailDomainBlocklistService`;
+   `/register-submit` and the CLI `create-account` both reject malformed and disposable domains.
+   (Migration `AddDomainNameBlacklist`.)
+
+**Why.** Session directive 2026-07-19/20: interpret a trader's watchlist transcript into live
+paper strategies, with a diary recording every buy/sell, and a CLI to verify the setup — a
+real-money-shaped run (paper) demanding the money path be verifiable end to end.
+
+**Operational note (not canon).** First live paper account provisioned:
+`ryandebraal@mindattic.com` routing to its own Alpaca **paper** account; two breakout-pullback
+strategies (BXBL, ADVB — VEEE excluded per the transcript's explicit do-not-trade) active for
+the Extended (all-day) session, exit on stop/trailing/target. On-box hosting is a run-as-user
+scheduled task; Azure target (Container Apps / continuous WebJob) recorded for go-live.
+
+**Effect on canon.** Additive — no laws changed. Reinforces [IP-LAW-3](BIBLE.md#IP-LAW-3)
+(the `status` ping and `IsPaper` make paper-vs-live explicit and auditable) and
+[IP-LAW-7](BIBLE.md#IP-LAW-7) (diary + blocklist are runtime state in SQL). Build green; 174
+backend tests pass (Blazor 61, Strategies 82, Brokers 13, Indicators 18, plus Engine).
+
 ## IP-A22 — Bug-hunt round 10: real-money guards, BYO-key integrity, shipped-config coherence {#IP-A22}
 **What changed.** (2026-07-19.) Tenth find-10-fix-10 sweep, run under the standing directive
 that this is **real money and the money path must be bulletproof** — bring-your-own Alpaca key,

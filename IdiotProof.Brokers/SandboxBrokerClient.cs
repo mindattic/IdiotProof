@@ -15,6 +15,10 @@ public sealed class SandboxBrokerClient : IBrokerClient
     private readonly ConcurrentDictionary<string, Position> positions = new(StringComparer.OrdinalIgnoreCase);
 
     public BrokerType BrokerType => BrokerType.Sandbox;
+
+    /// <summary>Sandbox is always simulated — never real money.</summary>
+    public bool IsPaper => true;
+
     public bool IsConnected => true;
 
     public Task<bool> ConnectAsync(CancellationToken ct = default) => Task.FromResult(true);

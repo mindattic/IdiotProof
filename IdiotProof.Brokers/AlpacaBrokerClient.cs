@@ -13,10 +13,15 @@ public sealed class AlpacaBrokerClient : IBrokerClient, IAsyncDisposable
     private bool connected;
 
     public BrokerType BrokerType => BrokerType.Alpaca;
+
+    /// <summary>Paper vs live — fixed at construction by the endpoint chosen.</summary>
+    public bool IsPaper { get; }
+
     public bool IsConnected => connected;
 
     public AlpacaBrokerClient(string apiKeyId, string apiSecretKey, bool isPaper = true)
     {
+        IsPaper = isPaper;
         var baseUri = isPaper
             ? "https://paper-api.alpaca.markets"
             : "https://api.alpaca.markets";

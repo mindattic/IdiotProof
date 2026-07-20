@@ -36,6 +36,7 @@ public sealed class MonitorWorker(
     StrategyRepository strategyRepo,
     ConditionProgressRepository progressRepo,
     AuditLogRepository auditLogRepo,
+    TradeDiaryRepository tradeDiary,
     LlmVotingService llmVoting,
     RiskGuardianService riskGuardianService,
     AppSettings appSettings,
@@ -572,13 +573,47 @@ public sealed class MonitorWorker(
             return;
         }
 
+        var entryUtc = DateTime.UtcNow;
         await strategyRepo.RecordFiredAsync(stored.Id, ct);
-        await strategyRepo.RecordEntryFillAsync(stored.Id, quantity, limitPrice, DateTime.UtcNow, ct);
+        await strategyRepo.RecordEntryFillAsync(stored.Id, quantity, limitPrice, entryUtc, ct);
         await auditLogRepo.LogAsync("order-placed",
             $"[{stored.Title}] BUY {quantity} {stored.Symbol} @ {limitPrice:F2} ({broker.BrokerType}, {(extendedHours ? "extended-hours" : "RTH")}, order {order.BrokerOrderId})",
             userId: stored.OwnerUserId, ct: ct);
-        logger.LogInformation("[{Title}] ✓ BUY {Qty} {Symbol} @ {Price:F2} via {Broker} — position now managed for exit.",
-            stored.Title, quantity, stored.Symbol, limitPrice, broker.BrokerType);
+
+        // Trade diary — open the entry (log-and-continue: a diary write must
+        // NEVER affect the trade that already happened).
+        try
+        {
+            await tradeDiary.OpenAsync(new IdiotProof.Blazor.Data.TradeDiaryEntry
+            {
+                StrategyId          = stored.Id,
+                OwnerUserId         = stored.OwnerUserId,
+                StrategyTitle       = stored.Title,
+                Symbol              = stored.Symbol,
+                Direction           = def.Direction.ToString(),
+                Broker              = broker.BrokerType.ToString(),
+                IsPaper             = broker.IsPaper,
+                EntryUtc            = entryUtc,
+                EntryPrice          = limitPrice,
+                Quantity            = quantity,
+                Notional            = def.NotionalAmount,
+                EntryOrderId        = order.BrokerOrderId,
+                StopLossPrice       = def.StopLossPrice is { } sp ? (decimal)sp : null,
+                StopLossPercent     = def.StopLossPercent is { } sc ? (decimal)sc : null,
+                TrailingStopPercent = def.TrailingStopPercent is { } ts ? (decimal)ts : null,
+                TakeProfitPrice     = def.TakeProfitPrice is { } tp ? (decimal)tp : null,
+                PeakGivebackPercent = def.PeakGivebackPercent is { } pg ? (decimal)pg : null,
+                PeakGivebackArmEt   = def.PeakGivebackArmTime is { } arm ? arm.ToString(@"hh\:mm") : null,
+                SellByEt            = def.ExitTime is { } sb ? sb.ToString(@"hh\:mm") : null,
+            }, ct);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "[{Title}] trade-diary OPEN failed (trade unaffected).", stored.Title);
+        }
+
+        logger.LogInformation("[{Title}] ✓ BUY {Qty} {Symbol} @ {Price:F2} via {Broker} ({Mode}) — position now managed for exit.",
+            stored.Title, quantity, stored.Symbol, limitPrice, broker.BrokerType, broker.IsPaper ? "paper" : "LIVE");
     }
 
     // ── Exit: the sell-off brain ────────────────────────────────────────
@@ -665,6 +700,8 @@ public sealed class MonitorWorker(
                     "the entry order never filled. Clearing bookkeeping so it can re-arm.",
                     stored.Title, stored.Symbol, decision.Reason, heldFor.TotalSeconds);
                 await strategyRepo.ClearUnfilledEntryAsync(stored.Id, ct);
+                try { await tradeDiary.MarkNotFilledAsync(stored.Id, DateTime.UtcNow, ct); }
+                catch (Exception dex) { logger.LogError(dex, "[{Title}] trade-diary NotFilled mark failed.", stored.Title); }
                 await auditLogRepo.LogAsync("position-reconciled",
                     $"[{stored.Title}] {stored.Symbol} entry never filled at {broker.BrokerType} — " +
                     "bookkeeping cleared, no order placed, strategy re-armed.",
@@ -713,11 +750,25 @@ public sealed class MonitorWorker(
         var guardian = await riskGuardianService.GetForUserAsync(stored.OwnerUserId, ct);
         guardian.RecordTradePnL(realized);
 
-        await strategyRepo.RecordExitFillAsync(stored.Id, limitPrice, decision.Reason.ToString(), DateTime.UtcNow, ct);
+        var exitUtc = DateTime.UtcNow;
+        await strategyRepo.RecordExitFillAsync(stored.Id, limitPrice, decision.Reason.ToString(), exitUtc, ct);
         await auditLogRepo.LogAsync("order-placed",
             $"[{stored.Title}] SELL {sellQty} {stored.Symbol} @ {limitPrice:F2} — {decision.Reason}: {decision.Detail} " +
             $"(P&L {realized:+0.00;-0.00}, {broker.BrokerType}, order {order.BrokerOrderId})",
             userId: stored.OwnerUserId, ct: ct);
+
+        // Trade diary — close the entry (log-and-continue: the sell already
+        // happened; a diary write must never throw into the trade path).
+        try
+        {
+            await tradeDiary.CloseAsync(stored.Id, limitPrice, decision.Reason.ToString(),
+                order.BrokerOrderId, realized, exitUtc, ct);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "[{Title}] trade-diary CLOSE failed (trade unaffected).", stored.Title);
+        }
+
         logger.LogInformation("[{Title}] ✓ SOLD {Qty} {Symbol} @ {Price:F2} — {Reason} (P&L {Pnl:+0.00;-0.00})",
             stored.Title, sellQty, stored.Symbol, limitPrice, decision.Reason, realized);
     }

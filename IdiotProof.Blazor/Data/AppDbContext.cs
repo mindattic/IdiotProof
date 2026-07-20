@@ -25,6 +25,8 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options)
     public DbSet<AuditLog>          AuditLogs         => Set<AuditLog>();
     public DbSet<ConditionProgress> ConditionProgress => Set<ConditionProgress>();
     public DbSet<WorkspaceRow>      Workspaces        => Set<WorkspaceRow>();
+    public DbSet<TradeDiaryEntry>   TradeDiary        => Set<TradeDiaryEntry>();
+    public DbSet<BlockedEmailDomain> DomainNameBlacklist => Set<BlockedEmailDomain>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -84,6 +86,17 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options)
                 .WithMany()
                 .HasForeignKey(w => w.OwnerUserId)
                 .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        b.Entity<TradeDiaryEntry>(e =>
+        {
+            // Read patterns: per-user recent-first, per-strategy history, and
+            // "still open" lookups when the Monitor closes a trade on exit.
+            e.HasIndex(t => new { t.OwnerUserId, t.EntryUtc });
+            e.HasIndex(t => new { t.StrategyId, t.Status });
+            // NO FK to Strategy or AuthUser: the diary is a permanent record and
+            // must survive a strategy/account being deleted (unlike
+            // ConditionProgress, which is transient per-tick state that cascades).
         });
     }
 }

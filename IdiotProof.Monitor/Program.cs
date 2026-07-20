@@ -12,6 +12,7 @@ using Microsoft.Extensions.Logging;
 using MindAttic.Legion;
 using MindAttic.Vault.Configuration;
 using MindAttic.Vault.DependencyInjection;
+using MindAttic.Authentication.Web;
 
 // ── IdiotProof.Monitor ───────────────────────────────────────────────────────
 //
@@ -60,6 +61,23 @@ builder.Configuration
     .AddMindAtticVaultFiles();
 builder.Services.AddMindAtticVault(builder.Configuration);
 
+// Surface the Security vault bucket (pepper.v1, bootstrap-token, …) into config
+// for the auth stack used by the create-account CLI path. AddMindAtticVaultFiles
+// surfaces the broker/LLM buckets trading needs; the console also needs Security.
+// The file carries a UTF-8 BOM — File.ReadAllText strips it.
+var securityBucket = Path.Combine(
+    Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+    "MindAttic", "Security", "providers.json");
+if (File.Exists(securityBucket))
+{
+    using var secDoc = System.Text.Json.JsonDocument.Parse(File.ReadAllText(securityBucket));
+    var secMem = new Dictionary<string, string?>();
+    foreach (var p in secDoc.RootElement.EnumerateObject())
+        if (p.Value.ValueKind == System.Text.Json.JsonValueKind.String)
+            secMem[$"MindAttic:Vault:Security:{p.Name}"] = p.Value.GetString();
+    builder.Configuration.AddInMemoryCollection(secMem);
+}
+
 var storage = new WebStorageProvider();
 storage.EnsureDirectories();
 var settings = AppSettings.Load(storage);
@@ -85,6 +103,7 @@ builder.Services.AddSingleton<RiskGuardianService>();
 builder.Services.AddSingleton<StrategyRepository>();
 builder.Services.AddSingleton<ConditionProgressRepository>();
 builder.Services.AddSingleton<AuditLogRepository>();
+builder.Services.AddSingleton<TradeDiaryRepository>();
 
 // Connection string surfaced to the worker for the single-instance leader
 // lease (sp_getapplock — see MonitorLeaderLease).
@@ -102,6 +121,20 @@ builder.Services.AddDataProtection()
     .PersistKeysToFileSystem(new DirectoryInfo(keyRingPath));
 builder.Services.AddSingleton<UserKeyService>();
 builder.Services.AddSingleton<UserBrokerResolver>();
+builder.Services.AddSingleton<EmailDomainBlocklistService>();
+
+// Auth stack (same as the Blazor host) so the operator CLI can create an
+// account through the REAL Argon2id+pepper path (create-account). Service
+// registration only — no web middleware runs in the console.
+builder.Services.AddMindAtticAuthentication<AppDbContext>(
+    builder.Configuration,
+    opts =>
+    {
+        opts.AppName = "IdiotProof";
+        opts.IsProduction = false;
+        opts.ConfigureDataProtection = dp =>
+            dp.PersistKeysToFileSystem(new DirectoryInfo(keyRingPath));
+    });
 
 // Market data — Alpaca whenever keys resolved through the settings chain
 // (env → Vault broker keyring → IConfiguration), Mock otherwise. Force with
@@ -143,4 +176,12 @@ builder.Logging.AddSimpleConsole(o =>
 });
 
 var host = builder.Build();
+
+// Operator CLI subcommands (status / set-keys / create-strategies) run against
+// the built DI and EXIT — they never start the trading worker (RunAsync). This
+// is the "visualize/configure from the CLI" surface.
+if (args.Length > 0 && MonitorCli.IsCommand(args[0]))
+    return await MonitorCli.RunAsync(host.Services, args);
+
 await host.RunAsync();
+return 0;
