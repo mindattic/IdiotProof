@@ -350,6 +350,19 @@ public static class StrategyReplay
             .Session(TradingSession.Extended).RequireEntryWindow("04:00", "15:30")
             .OnReclaim(200).IsAboveVwap().WithVolumeConfirm(1.3).IsPriceBetween(1, 100000)
             .Long().QuantityNotional(1000).StopLossPercent(3).TrailingStopLoss(8).Repeat().Build(),
+        "rthdrive" => Stock.Ticker(symbol)
+            .Name($"{symbol} RTH open-drive (ride then trail out)")
+            // The 9:30 rocket-and-fade (GOOG-style): reclaim the fast EMA while
+            // above VWAP on volume during regular hours, ride with a trailing
+            // stop, flatten before the close. A gap-and-go that fades trail-stops
+            // out — i.e. "sold off after the stop."
+            .Session(TradingSession.RTH).RequireEntryWindow("09:30", "15:30")
+            // Trend-HOLDING entry (not a crossing): above VWAP, above EMA9, with
+            // EMA9 stacked over EMA34 = a live upward drive. Enters at the start
+            // of the ramp, one-shot until exit; trailing stop rides it and stops
+            // out as it rolls over.
+            .IsAboveVwap().IsAboveEma(9).RequireEmaStack(9, 34).WithVolumeConfirm(1.5).IsPriceBetween(1, 100000)
+            .Long().QuantityNotional(1000).StopLossPercent(3).TrailingStopLoss(8).SellBy("15:55").Repeat().Build(),
         _ => null,
     };
 
