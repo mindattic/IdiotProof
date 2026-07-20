@@ -27,6 +27,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options)
     public DbSet<WorkspaceRow>      Workspaces        => Set<WorkspaceRow>();
     public DbSet<TradeDiaryEntry>   TradeDiary        => Set<TradeDiaryEntry>();
     public DbSet<BlockedEmailDomain> DomainNameBlacklist => Set<BlockedEmailDomain>();
+    public DbSet<ReplayRun>         ReplayRuns        => Set<ReplayRun>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -86,6 +87,15 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options)
                 .WithMany()
                 .HasForeignKey(w => w.OwnerUserId)
                 .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        b.Entity<ReplayRun>(e =>
+        {
+            // Read patterns: per-ticker history (newest first) and the root
+            // all-tickers index. No FK — a replay is a permanent archived
+            // artifact that must survive its strategy/profile being changed.
+            e.HasIndex(r => new { r.Symbol, r.GeneratedUtc });
+            e.HasIndex(r => r.GeneratedUtc);
         });
 
         b.Entity<TradeDiaryEntry>(e =>

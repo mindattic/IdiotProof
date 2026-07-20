@@ -197,19 +197,28 @@ public static class StrategyReplay
         var fires = payoffs.Select(p => ((dynamic)p).entryEt).Cast<string>().ToList();
         string? firstFireEt = fires.FirstOrDefault();
         double? entryPrice = payoffs.Count > 0 ? ((dynamic)payoffs[0]).entryPx : null;
-        var genEt = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, MarketTime.Eastern);
+        var genUtc = DateTime.UtcNow;
+        var genEt = TimeZoneInfo.ConvertTimeFromUtc(genUtc, MarketTime.Eastern);
 
         // Folder id: ET generation stamp to the second, plus a bijective
-        // base-26 suffix (-a … -z, -aa …) when that folder already exists — so
+        // base-26 suffix (-a … -z, -aa …) when that stamp is already taken — so
         // several runs the same day (a repeating/multi-execute strategy, or just
         // re-running) never collide or overwrite an earlier graph.
+        var dbf = sp.GetRequiredService<IDbContextFactory<AppDbContext>>();
         var tickerDir = Path.Combine(outRoot, symbol.ToLowerInvariant());
         var baseStamp = genEt.ToString("yyyy-MM-ddTHH.mm.ss", CultureInfo.InvariantCulture);
-        var stamp = baseStamp;
-        for (int sfx = 1; Directory.Exists(Path.Combine(tickerDir, stamp)); sfx++)
-            stamp = $"{baseStamp}-{Base26(sfx)}";
 
-        // ── DATA payload for the page ──
+        // The Blazor host normally applies migrations; migrate here too so the
+        // Monitor CLI is self-sufficient (creates ReplayRuns on first use).
+        await using (var mig = await dbf.CreateDbContextAsync())
+            await mig.Database.MigrateAsync();
+
+        var stamp = baseStamp;
+        await using (var db = await dbf.CreateDbContextAsync())
+            for (int sfx = 1; await db.ReplayRuns.AnyAsync(r => r.Symbol == symbol && r.Stamp == stamp); sfx++)
+                stamp = $"{baseStamp}-{Base26(sfx)}";
+
+        // ── DATA payload the page renders from ──
         var data = new
         {
             symbol,
@@ -234,29 +243,24 @@ public static class StrategyReplay
         };
         var dataJson = JsonSerializer.Serialize(data, JsonOpts);
 
-        // ── Render + write the run page ──
-        var page = Template
-            .Replace("__DATA__", dataJson)
-            .Replace("__STRATEGY_HTML__", def.ToHtml());
-
-        var runDir = Path.Combine(tickerDir, stamp);
-        Directory.CreateDirectory(runDir);
-        await File.WriteAllTextAsync(Path.Combine(runDir, "index.htm"), page, new UTF8Encoding(false));
-
-        // A small sidecar the ticker index reads to summarize each run.
-        var runMeta = new
+        // ── Persist to SQL (IP-LAW-7) — the system of record for the archive ──
+        var run = new ReplayRun
         {
-            stamp, dateEt = data.dateEt, feed = data.feed, strategy = strategyTitle,
-            fired = firstFireEt is not null, fireEt = firstFireEt, entryPrice,
-            payoffCount = payoffs.Count, totalPnl = Math.Round(totalPnl, 2),
-            bars = rows.Count, generatedEt = data.generatedEt,
+            Symbol = symbol, Strategy = strategyTitle, DateEt = data.dateEt, Feed = data.feed,
+            Stamp = stamp, GeneratedUtc = genUtc, GeneratedEt = data.generatedEt,
+            Fired = firstFireEt is not null, PayoffCount = payoffs.Count, TotalPnl = Math.Round(totalPnl, 2),
+            FirstFireEt = firstFireEt, EntryPrice = entryPrice, DataJson = dataJson, StrategyHtml = def.ToHtml(),
         };
-        await File.WriteAllTextAsync(Path.Combine(runDir, "run.json"),
-            JsonSerializer.Serialize(runMeta, JsonOpts), new UTF8Encoding(false));
+        await using (var db = await dbf.CreateDbContextAsync())
+        {
+            db.ReplayRuns.Add(run);
+            await db.SaveChangesAsync();
+        }
 
-        // ── Regenerate the per-ticker index and the root all-tickers index ──
-        await WriteTickerIndexAsync(tickerDir, symbol);
-        await WriteRootIndexAsync(outRoot);
+        // ── Render the file tree FROM the DB (the pages are a view of SQL) ──
+        RenderRunPage(run, outRoot);
+        await WriteTickerIndexAsync(dbf, outRoot, symbol);
+        await WriteRootIndexAsync(dbf, outRoot);
 
         var urlBase = $"https://mindattic.com/idiotproof/replays/{symbol.ToLowerInvariant()}";
         if (payoffs.Count == 0)
@@ -267,7 +271,7 @@ public static class StrategyReplay
             foreach (dynamic p in payoffs)
                 Console.WriteLine($"     {p.entryEt}→{p.exitEt} ET  ${p.entryPx:0.##}→${p.exitPx:0.##}  {p.pnlPct:+0.##;-0.##;0}%  ({p.reason})");
         }
-        Console.WriteLine($"  run:   {Path.Combine(runDir, "index.htm")}");
+        Console.WriteLine($"  run:   {Path.Combine(tickerDir, stamp, "index.htm")}");
         Console.WriteLine($"  index: {Path.Combine(tickerDir, "index.htm")}");
         Console.WriteLine($"  URL:   {urlBase}/{stamp}/   (index: {urlBase}/)");
         Console.WriteLine("  publish: cd MindAttic.Deploy && npm run deploy -- --site idiotproof-replays");
@@ -278,39 +282,36 @@ public static class StrategyReplay
         string et, double o, double h, double l, double c, long v,
         double vwap, double whigh, double volx, bool[] cnd, bool inSession, bool fire, bool exit);
 
-    // ── ticker index ──
-    private static async Task WriteTickerIndexAsync(string tickerDir, string symbol)
+    // ── render one run page from its DB row (SQL is the source of truth) ──
+    private static void RenderRunPage(ReplayRun run, string outRoot)
     {
+        var runDir = Path.Combine(outRoot, run.Symbol.ToLowerInvariant(), run.Stamp);
+        Directory.CreateDirectory(runDir);
+        var page = Template.Replace("__DATA__", run.DataJson).Replace("__STRATEGY_HTML__", run.StrategyHtml);
+        File.WriteAllText(Path.Combine(runDir, "index.htm"), page, new UTF8Encoding(false));
+    }
+
+    // ── per-ticker index, built from the DB (all runs, newest first) ──
+    private static async Task WriteTickerIndexAsync(IDbContextFactory<AppDbContext> dbf, string outRoot, string symbol)
+    {
+        var tickerDir = Path.Combine(outRoot, symbol.ToLowerInvariant());
         Directory.CreateDirectory(tickerDir);
-        var runs = new List<JsonElement>();
-        foreach (var dir in Directory.GetDirectories(tickerDir))
-        {
-            var meta = Path.Combine(dir, "run.json");
-            if (!File.Exists(meta)) continue;
-            try { runs.Add(JsonDocument.Parse(await File.ReadAllTextAsync(meta)).RootElement.Clone()); }
-            catch { /* skip unreadable run */ }
-        }
-        // Newest first — stamps are lexically sortable (ISO-ish).
-        runs.Sort((a, b) => string.CompareOrdinal(b.GetProperty("stamp").GetString(), a.GetProperty("stamp").GetString()));
+        List<ReplayRun> runs;
+        await using (var db = await dbf.CreateDbContextAsync())
+            runs = await db.ReplayRuns.Where(r => r.Symbol == symbol)
+                .OrderByDescending(r => r.GeneratedUtc).ToListAsync();
 
         var sb = new StringBuilder();
         foreach (var r in runs)
         {
-            var st = r.GetProperty("stamp").GetString()!;
-            var fired = r.GetProperty("fired").GetBoolean();
-            var fireEt = r.TryGetProperty("fireEt", out var fe) && fe.ValueKind == JsonValueKind.String ? fe.GetString() : null;
-            var price = r.TryGetProperty("entryPrice", out var pe) && pe.ValueKind == JsonValueKind.Number ? pe.GetDouble() : (double?)null;
-            var day = r.GetProperty("dateEt").GetString();
-            var feed = r.GetProperty("feed").GetString();
-            var gen = r.TryGetProperty("generatedEt", out var g) ? g.GetString() : st;
-            var verdict = fired
-                ? $"<span class=\"fire\">FIRED {System.Net.WebUtility.HtmlEncode(fireEt)} ET @ ${price:0.##}</span>"
+            var verdict = r.Fired
+                ? $"<span class=\"fire\">FIRED {System.Net.WebUtility.HtmlEncode(r.FirstFireEt)} ET @ ${r.EntryPrice:0.##} · {(r.TotalPnl >= 0 ? "+" : "")}{r.TotalPnl:0.##}%</span>"
                 : "<span class=\"nofire\">no fire</span>";
-            sb.Append($"<a class=\"run\" href=\"./{Uri.EscapeDataString(st)}/index.htm\">" +
-                      $"<span class=\"day\">{System.Net.WebUtility.HtmlEncode(day)}</span>" +
+            sb.Append($"<a class=\"run\" href=\"./{Uri.EscapeDataString(r.Stamp)}/index.htm\">" +
+                      $"<span class=\"day\">{System.Net.WebUtility.HtmlEncode(r.DateEt)}</span>" +
                       $"<span class=\"verdict\">{verdict}</span>" +
-                      $"<span class=\"feed\">{System.Net.WebUtility.HtmlEncode(feed)}</span>" +
-                      $"<span class=\"gen\">generated {System.Net.WebUtility.HtmlEncode(gen)}</span></a>");
+                      $"<span class=\"feed\">{System.Net.WebUtility.HtmlEncode(r.Feed)}</span>" +
+                      $"<span class=\"gen\">generated {System.Net.WebUtility.HtmlEncode(r.GeneratedEt)}</span></a>");
         }
         if (runs.Count == 0) sb.Append("<p class=\"empty\">No replays yet.</p>");
 
@@ -345,46 +346,59 @@ public static class StrategyReplay
             .Build();
 
     // ── root index: every ticker ever replayed, newest activity first ──
-    private static async Task WriteRootIndexAsync(string outRoot)
+    private static async Task WriteRootIndexAsync(IDbContextFactory<AppDbContext> dbf, string outRoot)
     {
         Directory.CreateDirectory(outRoot);
-        var tickers = new List<(string sym, int count, string latestStamp, string body)>();
-        foreach (var tdir in Directory.GetDirectories(outRoot))
+        List<ReplayRun> all;
+        await using (var db = await dbf.CreateDbContextAsync())
+            all = await db.ReplayRuns.OrderByDescending(r => r.GeneratedUtc).ToListAsync();
+
+        var sb = new StringBuilder();
+        int tickerCount = 0;
+        // Group by ticker; rows already newest-first so the first per group is latest.
+        foreach (var g in all.GroupBy(r => r.Symbol, StringComparer.OrdinalIgnoreCase)
+                              .OrderByDescending(g => g.Max(r => r.GeneratedUtc)))
         {
-            var sym = Path.GetFileName(tdir).ToUpperInvariant();
-            var runs = new List<JsonElement>();
-            foreach (var rdir in Directory.GetDirectories(tdir))
-            {
-                var meta = Path.Combine(rdir, "run.json");
-                if (!File.Exists(meta)) continue;
-                try { runs.Add(JsonDocument.Parse(await File.ReadAllTextAsync(meta)).RootElement.Clone()); }
-                catch { /* skip */ }
-            }
-            if (runs.Count == 0) continue;
-            runs.Sort((a, b) => string.CompareOrdinal(b.GetProperty("stamp").GetString(), a.GetProperty("stamp").GetString()));
-            var latest = runs[0];
-            var latestStamp = latest.GetProperty("stamp").GetString()!;
-            var fired = runs.Count(r => r.TryGetProperty("fired", out var f) && f.GetBoolean());
-            var latestVerdict = latest.TryGetProperty("fired", out var lf) && lf.GetBoolean()
-                ? (latest.TryGetProperty("totalPnl", out var pnl) && pnl.ValueKind == JsonValueKind.Number
-                    ? $"<span class=\"fire\">last: {(pnl.GetDouble() >= 0 ? "+" : "")}{pnl.GetDouble():0.##}%</span>"
-                    : "<span class=\"fire\">last: fired</span>")
+            tickerCount++;
+            var latest = g.First();
+            var firedCount = g.Count(r => r.Fired);
+            var latestVerdict = latest.Fired
+                ? $"<span class=\"fire\">last: {(latest.TotalPnl >= 0 ? "+" : "")}{latest.TotalPnl:0.##}%</span>"
                 : "<span class=\"nofire\">last: no fire</span>";
-            var latestGen = latest.TryGetProperty("generatedEt", out var g) ? g.GetString() : latestStamp;
-            var body =
-                $"<a class=\"tk\" href=\"./{Uri.EscapeDataString(Path.GetFileName(tdir))}/index.htm\">" +
-                $"<span class=\"sym\">{System.Net.WebUtility.HtmlEncode(sym)}</span>" +
-                $"<span class=\"cnt\">{runs.Count} replay{(runs.Count == 1 ? "" : "s")} · {fired} fired</span>" +
+            sb.Append(
+                $"<a class=\"tk\" href=\"./{Uri.EscapeDataString(latest.Symbol.ToLowerInvariant())}/index.htm\">" +
+                $"<span class=\"sym\">{System.Net.WebUtility.HtmlEncode(latest.Symbol.ToUpperInvariant())}</span>" +
+                $"<span class=\"cnt\">{g.Count()} replay{(g.Count() == 1 ? "" : "s")} · {firedCount} fired</span>" +
                 $"<span class=\"vd\">{latestVerdict}</span>" +
-                $"<span class=\"gen\">latest {System.Net.WebUtility.HtmlEncode(latestGen)} ET-gen</span></a>";
-            tickers.Add((sym, runs.Count, latestStamp, body));
+                $"<span class=\"gen\">latest {System.Net.WebUtility.HtmlEncode(latest.GeneratedEt)}</span></a>");
         }
-        tickers.Sort((a, b) => string.CompareOrdinal(b.latestStamp, a.latestStamp)); // newest activity first
-        var rows = tickers.Count > 0 ? string.Concat(tickers.Select(t => t.body)) : "<p class=\"empty\">No replays yet.</p>";
+        var rows = tickerCount > 0 ? sb.ToString() : "<p class=\"empty\">No replays yet.</p>";
         var html = RootIndexTemplate
             .Replace("__TICKERS__", rows)
-            .Replace("__COUNT__", tickers.Count.ToString());
+            .Replace("__COUNT__", tickerCount.ToString());
         await File.WriteAllTextAsync(Path.Combine(outRoot, "index.htm"), html, new UTF8Encoding(false));
+    }
+
+    /// <summary>
+    /// Regenerates the ENTIRE static archive from SQL — every run page and both
+    /// index levels — proving the DB is authoritative and the file tree is a
+    /// pure view. Wired to the `replay-regen` CLI command.
+    /// </summary>
+    public static async Task RegenerateAsync(IServiceProvider sp, Dictionary<string, string> opt)
+    {
+        var outRoot = opt.GetValueOrDefault("out", @"D:\Projects\MindAttic\mindattic.com\idiotproof\replays");
+        var dbf = sp.GetRequiredService<IDbContextFactory<AppDbContext>>();
+        List<ReplayRun> all;
+        await using (var db = await dbf.CreateDbContextAsync())
+        {
+            await db.Database.MigrateAsync();
+            all = await db.ReplayRuns.ToListAsync();
+        }
+        foreach (var run in all) RenderRunPage(run, outRoot);
+        foreach (var sym in all.Select(r => r.Symbol).Distinct(StringComparer.OrdinalIgnoreCase))
+            await WriteTickerIndexAsync(dbf, outRoot, sym);
+        await WriteRootIndexAsync(dbf, outRoot);
+        Console.WriteLine($"regenerated {all.Count} run(s) across {all.Select(r => r.Symbol).Distinct(StringComparer.OrdinalIgnoreCase).Count()} ticker(s) from SQL → {outRoot}");
     }
 
     // ── helpers ──

@@ -206,7 +206,7 @@ if(hover>=0)ln(g.x(hover),g.pT,g.x(hover),g.condTop+g.condH,C.axis,1,[3,3]);}
 function showTip(i,mx){var b=bars[i];ohlcEl.innerHTML=`<span>O <b>${f(b.o,2)}</b></span><span>H <b>${f(b.h,2)}</b></span><span>L <b>${f(b.l,2)}</b></span><span>C <b>${f(b.c,2)}</b></span><span>Vol <b>${fv(b.v)}</b></span>`;
 var cr=conds.map((lab,j)=>`<div class="tr"><span>${lab}</span><span class="${b.cnd[j]?'yes':'no'}">${b.cnd[j]?'✓':'✗'}</span></div>`).join('');
 tip.innerHTML=`<div class="tt">${b.et} ET${b.inSession?'':' (out of session)'}</div><div class="tr"><span>close</span><span>${f(b.c,2)}</span></div><div class="tr"><span>win hi</span><span>${f(b.whigh,2)}</span></div><div class="tr"><span>vwap</span><span>${f(b.vwap,2)}</span></div><div class="tr"><span>vol×</span><span>${f(b.volx,2)}</span></div><div class="ts"></div>${cr}${b.fire?'<div class="tf">▲ ENTRY</div>':''}${b.exit?'<div class="tf" style="background:var(--down);color:#fff">▼ EXIT</div>':''}`;
-var rc=cv.getBoundingClientRect(),tw=tip.offsetWidth,l=Math.min(Math.max(mx-tw/2,6),rc.width-tw-6);tip.style.left=l+'px';tip.style.top='14px';tip.style.opacity='1';}
+var rc=cv.getBoundingClientRect(),tw=tip.offsetWidth,l=Math.min(Math.max(mx-tw/2,6),rc.width-tw-6);tip.style.left=l+'px';tip.style.top='auto';tip.style.bottom='12px';tip.style.opacity='1';}
 cv.addEventListener('pointermove',e=>{var rc=cv.getBoundingClientRect(),mx=e.clientX-rc.left;if(!geo)return;var i=Math.max(0,Math.min(bars.length-1,Math.round((mx-geo.pL)/geo.slot-.5)));if(i!==hover){hover=i;draw()}showTip(i,mx)});
 cv.addEventListener('pointerleave',()=>{hover=-1;tip.style.opacity='0';ohlcEl.innerHTML='';draw()});
 function redraw(){layout();draw()}addEventListener('resize',redraw);
