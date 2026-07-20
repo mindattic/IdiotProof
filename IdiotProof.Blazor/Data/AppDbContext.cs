@@ -28,6 +28,8 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options)
     public DbSet<TradeDiaryEntry>   TradeDiary        => Set<TradeDiaryEntry>();
     public DbSet<BlockedEmailDomain> DomainNameBlacklist => Set<BlockedEmailDomain>();
     public DbSet<ReplayRun>         ReplayRuns        => Set<ReplayRun>();
+    public DbSet<ReplayTrade>       ReplayTrades      => Set<ReplayTrade>();
+    public DbSet<ReplayBar>         ReplayBars        => Set<ReplayBar>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -96,6 +98,19 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options)
             // artifact that must survive its strategy/profile being changed.
             e.HasIndex(r => new { r.Symbol, r.GeneratedUtc });
             e.HasIndex(r => r.GeneratedUtc);
+        });
+
+        // Normalized ML feature store: trades/bars cascade with their run.
+        b.Entity<ReplayTrade>(e =>
+        {
+            e.HasIndex(t => t.ReplayRunId);
+            e.HasIndex(t => new { t.Symbol, t.Won });
+            e.HasOne<ReplayRun>().WithMany().HasForeignKey(t => t.ReplayRunId).OnDelete(DeleteBehavior.Cascade);
+        });
+        b.Entity<ReplayBar>(e =>
+        {
+            e.HasIndex(x => x.ReplayRunId);
+            e.HasOne<ReplayRun>().WithMany().HasForeignKey(x => x.ReplayRunId).OnDelete(DeleteBehavior.Cascade);
         });
 
         b.Entity<TradeDiaryEntry>(e =>

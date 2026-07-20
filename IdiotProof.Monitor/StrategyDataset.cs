@@ -8,15 +8,16 @@ using Microsoft.Extensions.DependencyInjection;
 namespace IdiotProof.Monitor;
 
 /// <summary>
-/// ML-ready export (CLI: <c>replay-export</c>). Flattens every <see cref="ReplayRun"/>
-/// stored in SQL into two tidy CSV feature/label tables that pandas / scikit-learn
-/// read directly — turning the archive's per-run JSON blobs into a training set:
+/// ML-ready export (CLI: <c>replay-export</c>). The normalized SQL feature store
+/// (<see cref="ReplayTrade"/> / <see cref="ReplayBar"/>) is authoritative; this
+/// (1) backfills any <see cref="ReplayRun"/> not yet flattened into it, then
+/// (2) writes two tidy CSV tables pandas / scikit-learn read directly:
 ///
 ///   trades.csv — one row per round-trip: entry-bar features → realized P&amp;L label.
-///   bars.csv   — one row per minute bar: the time-series feature vector + entry/exit flags.
+///   bars.csv   — one row per minute bar: the time-series feature vector + flags.
 ///
-/// Plus manifest.json (row counts, columns, generated ET). Output defaults to
-/// /idiotproof/dataset/ so it publishes alongside the replay archive.
+/// Plus manifest.json. Output defaults to /idiotproof/dataset/. Because the CSVs
+/// are emitted straight from the tables, the SQL store and the export never drift.
 /// </summary>
 public static class StrategyDataset
 {
@@ -24,121 +25,77 @@ public static class StrategyDataset
     {
         var dir = opt.GetValueOrDefault("out", @"D:\Projects\MindAttic\mindattic.com\idiotproof\dataset");
         Directory.CreateDirectory(dir);
-
         var dbf = sp.GetRequiredService<IDbContextFactory<AppDbContext>>();
-        List<ReplayRun> runs;
+
+        // (1) Backfill: flatten any run that has no bars in the store yet
+        //     (older runs written before the feature store existed).
+        int backfilled = 0;
         await using (var db = await dbf.CreateDbContextAsync())
         {
             await db.Database.MigrateAsync();
-            runs = await db.ReplayRuns.OrderBy(r => r.GeneratedUtc).ToListAsync();
-        }
-
-        var trades = new StringBuilder();
-        trades.AppendLine(string.Join(",", new[]
-        {
-            "runId","symbol","dateEt","strategy","feed","repeat","side",
-            "entryEt","entryMin","entryPx","exitEt","exitMin","holdMin","exitPx",
-            "pnlPct","reason","won",
-            "entryVwap","entryWindowHigh","entryVolx","distVwapPct","distWinHighPct",
-            "generatedEt",
-        }));
-
-        var bars = new StringBuilder();
-        bars.AppendLine(string.Join(",", new[]
-        {
-            "runId","symbol","dateEt","strategy","et","min",
-            "open","high","low","close","volume","vwap","windowHigh","volx",
-            "inSession","condPassed","condTotal","fire","exit",
-        }));
-
-        int tradeRows = 0, barRows = 0;
-        foreach (var run in runs)
-        {
-            JsonElement root;
-            try { root = JsonDocument.Parse(run.DataJson).RootElement; }
-            catch { continue; }
-
-            var rid = run.Id.ToString("N")[..12];
-            var repeatFlag = root.TryGetProperty("repeat", out var rp) && rp.ValueKind == JsonValueKind.True ? 1 : 0;
-            var side = Str(root, "side");
-            var condTotal = root.TryGetProperty("conditions", out var cs) && cs.ValueKind == JsonValueKind.Array ? cs.GetArrayLength() : 0;
-
-            // Index bars by ET time so a payoff can pull its entry-bar features.
-            var barByEt = new Dictionary<string, JsonElement>();
-            if (root.TryGetProperty("bars", out var barr) && barr.ValueKind == JsonValueKind.Array)
+            var withBars = (await db.ReplayBars.Select(b => b.ReplayRunId).Distinct().ToListAsync()).ToHashSet();
+            foreach (var run in await db.ReplayRuns.ToListAsync())
             {
-                foreach (var b in barr.EnumerateArray())
-                {
-                    var et = Str(b, "et");
-                    barByEt[et] = b;
-                    var passed = b.TryGetProperty("cnd", out var cnd) && cnd.ValueKind == JsonValueKind.Array
-                        ? cnd.EnumerateArray().Count(x => x.ValueKind == JsonValueKind.True) : 0;
-                    bars.AppendLine(string.Join(",", new[]
-                    {
-                        rid, Csv(run.Symbol), run.DateEt, Csv(run.Strategy), et, Min(et).ToString(),
-                        Num(b,"o"), Num(b,"h"), Num(b,"l"), Num(b,"c"), Num(b,"v"),
-                        Num(b,"vwap"), Num(b,"whigh"), Num(b,"volx"),
-                        Bit(b,"inSession"), passed.ToString(), condTotal.ToString(), Bit(b,"fire"), Bit(b,"exit"),
-                    }));
-                    barRows++;
-                }
+                if (withBars.Contains(run.Id)) continue;
+                var (tr, br) = ReplayFeatures.Extract(run);
+                db.ReplayTrades.AddRange(tr);
+                db.ReplayBars.AddRange(br);
+                backfilled++;
             }
-
-            if (root.TryGetProperty("payoffs", out var ps) && ps.ValueKind == JsonValueKind.Array)
-                foreach (var p in ps.EnumerateArray())
-                {
-                    var entryEt = Str(p, "entryEt"); var exitEt = Str(p, "exitEt");
-                    var entryPx = Dbl(p, "entryPx"); var exitPx = Dbl(p, "exitPx");
-                    var pnl = Dbl(p, "pnlPct");
-                    barByEt.TryGetValue(entryEt, out var eb);
-                    var vwap = eb.ValueKind == JsonValueKind.Object ? Dbl(eb, "vwap") : 0;
-                    var wh = eb.ValueKind == JsonValueKind.Object ? Dbl(eb, "whigh") : 0;
-                    var volx = eb.ValueKind == JsonValueKind.Object ? Dbl(eb, "volx") : 0;
-                    trades.AppendLine(string.Join(",", new[]
-                    {
-                        rid, Csv(run.Symbol), run.DateEt, Csv(run.Strategy), run.Feed, repeatFlag.ToString(), Csv(side),
-                        entryEt, Min(entryEt).ToString(), F(entryPx), exitEt, Min(exitEt).ToString(),
-                        (Min(exitEt)-Min(entryEt)).ToString(), F(exitPx),
-                        F(pnl), Csv(Str(p,"reason")), pnl > 0 ? "1" : "0",
-                        F(vwap), F(wh), F(volx),
-                        F(vwap > 0 ? (entryPx-vwap)/vwap*100 : 0), F(wh > 0 ? (entryPx-wh)/wh*100 : 0),
-                        run.GeneratedEt,
-                    }));
-                    tradeRows++;
-                }
+            if (backfilled > 0) await db.SaveChangesAsync();
         }
+
+        // (2) Emit CSVs straight from the normalized tables.
+        List<ReplayTrade> trades; List<ReplayBar> bars; int runCount;
+        await using (var db = await dbf.CreateDbContextAsync())
+        {
+            trades = await db.ReplayTrades.OrderBy(t => t.GeneratedUtc).ThenBy(t => t.EntryMin).ToListAsync();
+            bars = await db.ReplayBars.OrderBy(b => b.Symbol).ThenBy(b => b.Min).ToListAsync();
+            runCount = await db.ReplayRuns.CountAsync();
+        }
+
+        var t = new StringBuilder();
+        t.AppendLine("runId,symbol,dateEt,strategy,feed,entryEt,entryMin,entryPx,exitEt,exitMin,holdMin,exitPx,pnlPct,reason,won,entryVwap,entryWindowHigh,entryVolx,distVwapPct,distWinHighPct,generatedUtc");
+        foreach (var r in trades)
+            t.AppendLine(string.Join(",", new[]
+            {
+                r.ReplayRunId.ToString("N")[..12], Csv(r.Symbol), r.DateEt, Csv(r.Strategy), r.Feed,
+                r.EntryEt, r.EntryMin.ToString(), F(r.EntryPx), r.ExitEt, r.ExitMin.ToString(), r.HoldMin.ToString(), F(r.ExitPx),
+                F(r.PnlPct), Csv(r.Reason), r.Won ? "1" : "0",
+                F(r.EntryVwap), F(r.EntryWindowHigh), F(r.EntryVolx), F(r.DistVwapPct), F(r.DistWinHighPct),
+                r.GeneratedUtc.ToString("O"),
+            }));
+
+        var b2 = new StringBuilder();
+        b2.AppendLine("runId,symbol,dateEt,strategy,et,min,open,high,low,close,volume,vwap,windowHigh,volx,inSession,condPassed,condTotal,fire,exit");
+        foreach (var r in bars)
+            b2.AppendLine(string.Join(",", new[]
+            {
+                r.ReplayRunId.ToString("N")[..12], Csv(r.Symbol), r.DateEt, Csv(r.Strategy), r.Et, r.Min.ToString(),
+                F(r.Open), F(r.High), F(r.Low), F(r.Close), r.Volume.ToString(),
+                F(r.Vwap), F(r.WindowHigh), F(r.Volx),
+                r.InSession ? "1" : "0", r.CondPassed.ToString(), r.CondTotal.ToString(), r.Fire ? "1" : "0", r.Exit ? "1" : "0",
+            }));
 
         var enc = new UTF8Encoding(false);
-        await File.WriteAllTextAsync(Path.Combine(dir, "trades.csv"), trades.ToString(), enc);
-        await File.WriteAllTextAsync(Path.Combine(dir, "bars.csv"), bars.ToString(), enc);
+        await File.WriteAllTextAsync(Path.Combine(dir, "trades.csv"), t.ToString(), enc);
+        await File.WriteAllTextAsync(Path.Combine(dir, "bars.csv"), b2.ToString(), enc);
         var manifest = new
         {
             generatedUtc = DateTime.UtcNow.ToString("O"),
-            runs = runs.Count, tradeRows, barRows,
+            runs = runCount, tradeRows = trades.Count, barRows = bars.Count, backfilledRuns = backfilled,
+            source = "SQL ReplayTrades / ReplayBars (normalized feature store)",
             files = new[] { "trades.csv", "bars.csv" },
-            note = "Flattened from SQL ReplayRuns. trades.csv = one row per round-trip (entry features -> pnlPct/won label). bars.csv = one row per minute bar (time-series features + entry/exit flags).",
+            note = "trades.csv = one row per round-trip (entry features -> pnlPct/won label). bars.csv = one row per minute bar (time-series features + entry/exit flags).",
         };
         await File.WriteAllTextAsync(Path.Combine(dir, "manifest.json"),
             JsonSerializer.Serialize(manifest, new JsonSerializerOptions { WriteIndented = true }), enc);
 
-        Console.WriteLine($"exported {runs.Count} run(s) → {tradeRows} trade rows, {barRows} bar rows → {dir}");
+        Console.WriteLine($"exported {runCount} run(s){(backfilled > 0 ? $" (+{backfilled} backfilled)" : "")} → " +
+                          $"{trades.Count} trade rows, {bars.Count} bar rows → {dir}");
     }
 
-    // ── helpers ──
-    private static int Min(string et) // "HH:mm" → minutes since midnight
-    {
-        var parts = (et ?? "").Split(':');
-        return parts.Length == 2 && int.TryParse(parts[0], out var h) && int.TryParse(parts[1], out var m) ? h * 60 + m : 0;
-    }
-    private static string Str(JsonElement e, string k) =>
-        e.TryGetProperty(k, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() ?? "" : "";
-    private static double Dbl(JsonElement e, string k) =>
-        e.TryGetProperty(k, out var v) && v.ValueKind == JsonValueKind.Number ? v.GetDouble() : 0;
-    private static string Num(JsonElement e, string k) => F(Dbl(e, k));
-    private static string Bit(JsonElement e, string k) =>
-        e.TryGetProperty(k, out var v) && v.ValueKind == JsonValueKind.True ? "1" : "0";
     private static string F(double d) => d.ToString("0.####", CultureInfo.InvariantCulture);
-    // CSV-quote a field if it contains comma/quote/newline.
     private static string Csv(string s)
     {
         s ??= "";

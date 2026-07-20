@@ -61,15 +61,16 @@ public static class StrategyReplay
         string strategyTitle;
         if (opt.TryGetValue("profile", out var profileId) && !string.IsNullOrWhiteSpace(profileId))
         {
-            if (profileId.Equals("momentum", StringComparison.OrdinalIgnoreCase))
+            var builtin = BuiltinStrategy(profileId, symbol);
+            if (builtin is not null)
             {
-                def = BuildMomentum(symbol);
+                def = builtin;
                 strategyTitle = def.Name!;
             }
             else
             {
                 var profile = LoadProfile(profileId, opt.GetValueOrDefault("profiles-path"));
-                if (profile is null) return Fail($"gapper profile '{profileId}' not found.");
+                if (profile is null) return Fail($"unknown profile '{profileId}' (built-ins: momentum, reversal, emabreak; or a gapper-profile id).");
                 def = GapperScriptFactory.Compose(symbol, profile).Build();
                 strategyTitle = def.Name ?? $"{symbol} Gapper";
             }
@@ -252,9 +253,12 @@ public static class StrategyReplay
             Fired = firstFireEt is not null, PayoffCount = payoffs.Count, TotalPnl = Math.Round(totalPnl, 2),
             FirstFireEt = firstFireEt, EntryPrice = entryPrice, DataJson = dataJson, StrategyHtml = def.ToHtml(),
         };
+        var (tradeRows, barRows) = ReplayFeatures.Extract(run);
         await using (var db = await dbf.CreateDbContextAsync())
         {
             db.ReplayRuns.Add(run);
+            db.ReplayTrades.AddRange(tradeRows);
+            db.ReplayBars.AddRange(barRows);
             await db.SaveChangesAsync();
         }
 
@@ -322,6 +326,32 @@ public static class StrategyReplay
             .Replace("__RUNS__", sb.ToString());
         await File.WriteAllTextAsync(Path.Combine(tickerDir, "index.htm"), html, new UTF8Encoding(false));
     }
+
+    /// <summary>
+    /// Built-in (non-gapper) strategy families, composed with the real DSL so
+    /// they run through the same evaluator, scan, and dataset. Returns null for
+    /// an unknown id (caller then tries the gapper-profile catalog).
+    ///   momentum — VWAP-reclaim continuation (premarket multi-leg).
+    ///   reversal — dip-buy: reclaim the fast EMA off a recent low (BE-style
+    ///              higher-low bounce; approximated with OnReclaim(9) until a
+    ///              dedicated swing-structure verb lands).
+    ///   emabreak — reclaim EMA200 while above VWAP (SPCX-style trend break).
+    /// </summary>
+    private static StrategyDefinition? BuiltinStrategy(string id, string symbol) => id.ToLowerInvariant() switch
+    {
+        "momentum" => BuildMomentum(symbol),
+        "reversal" => Stock.Ticker(symbol)
+            .Name($"{symbol} Reversal (EMA9 reclaim off lows)")
+            .Session(TradingSession.Extended).RequireEntryWindow("04:00", "15:30")
+            .OnReclaim(9).IsAtSupport(2.0).WithVolumeConfirm(1.3).IsPriceBetween(1, 100000)
+            .Long().QuantityNotional(1000).StopLossPercent(3).TrailingStopLoss(6).Repeat().Build(),
+        "emabreak" => Stock.Ticker(symbol)
+            .Name($"{symbol} EMA200 break (trend reclaim)")
+            .Session(TradingSession.Extended).RequireEntryWindow("04:00", "15:30")
+            .OnReclaim(200).IsAboveVwap().WithVolumeConfirm(1.3).IsPriceBetween(1, 100000)
+            .Long().QuantityNotional(1000).StopLossPercent(3).TrailingStopLoss(8).Repeat().Build(),
+        _ => null,
+    };
 
     /// <summary>
     /// Built-in repeating intraday-momentum strategy (`--profile momentum`).
