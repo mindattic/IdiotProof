@@ -31,6 +31,16 @@ public sealed class ReplayRun
     [MaxLength(8)]
     public string Feed { get; set; } = "";
 
+    /// <summary>
+    /// What this run represents: <c>"sim"</c> (default) — a hypothetical
+    /// re-simulation of the strategy against the day's bars (the `replay`
+    /// command); or <c>"live"</c> — the ACTUAL orders the Monitor executed,
+    /// read from the trade diary and drawn on the same day's bars (the
+    /// `replay-live` command). Both live in one archive, distinguished by badge.
+    /// </summary>
+    [MaxLength(8)]
+    public string Kind { get; set; } = "sim";
+
     /// <summary>Folder id — the ET generation stamp "yyyy-MM-ddTHH.mm.ss[-a]".</summary>
     [MaxLength(40)]
     public string Stamp { get; set; } = "";

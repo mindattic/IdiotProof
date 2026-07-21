@@ -51,6 +51,7 @@ button.tgl{margin-left:6px;font-family:var(--mono);font-size:11px;cursor:pointer
 .verdict{display:flex;flex-wrap:wrap;align-items:center;gap:14px;padding:16px 18px;background:var(--panel);border:1px solid var(--edge);border-top:none}
 .verdict .flag{font-family:var(--mono);font-weight:700;font-size:13px;letter-spacing:1px;padding:6px 12px;border-radius:7px;text-transform:uppercase}
 .verdict .flag.yes{color:#1a1206;background:var(--accent)}.verdict .flag.no{color:var(--dim);background:var(--void);border:1px solid var(--edge)}
+.verdict .flag.live{color:#fff;background:var(--down);letter-spacing:.5px}
 .verdict .hd{font-size:15px}.verdict .hd b{font-family:var(--mono);font-size:16px}.verdict .px{color:var(--accent-ink);font-weight:700}
 .verdict .sub{color:var(--dim);font-size:13px;margin-left:auto;text-align:right;font-family:var(--mono)}
 .card{background:var(--panel);border:1px solid var(--edge);box-shadow:var(--shadow)}
@@ -126,7 +127,7 @@ footer{margin-top:22px;font-size:12px;color:var(--faint);font-family:var(--mono)
   </div>
 
   <div class="notes">
-    <div class="note">
+    <div class="note" id="readnote">
       <h3>How to read this</h3>
       <p>Each minute bar was walked through the Monitor's real evaluator — the same <b class="k">WindowHigh</b>, cumulative <b class="k">VWAP</b>, and 20-bar volume ratio, and the strategy's actual conditions. A <b>fire</b> is the first in-session bar where every condition is true at once (entry is one-shot per day).</p>
       <p>Hover the chart to inspect any minute; the bottom band shows which condition was blocking on every other bar.</p>
@@ -160,25 +161,50 @@ document.getElementById('sym').textContent=DATA.symbol;
 document.getElementById('cname').textContent=`${DATA.strategy} · ${DATA.dateEt} · ${DATA.session}`;
 (function(){var v=document.getElementById('verdict');
 var pc=(DATA.payoffs||[]).length;
-if(pc>0){var pnl=(+DATA.totalPnl),sign=pnl>0?'+':'';
+var kind=DATA.live?`<span class="flag live">● LIVE · actual orders</span>`:'';
+var sub=DATA.live
+ ? `${DATA.broker||'broker'} ${DATA.isPaper?'PAPER':'LIVE'} · bars ${DATA.feed} · generated ${DATA.generatedEt}`
+ : `${DATA.feed} feed · generated ${DATA.generatedEt}`;
+if(DATA.live){var usd=(+DATA.totalPnlUsd),up=(+DATA.totalPnl),us=usd>=0?'+':'',ps=up>=0?'+':'';
+ v.innerHTML=kind+
+ `<div class="hd">${pc} actual trade${pc!==1?'s':''} · first entry <b>${DATA.firstFire} ET</b> ${DATA.side.toLowerCase()} <span class="px">@ $${(+DATA.entryPrice).toFixed(2)}</span> · realized <span class="px">${us}$${usd.toFixed(2)}</span> (${ps}${up.toFixed(2)}%).</div>`+
+ `<div class="sub">${sub}</div>`;}
+else if(pc>0){var pnl=(+DATA.totalPnl),sign=pnl>0?'+':'';
  v.innerHTML=`<span class="flag yes">${pc} payoff${pc>1?'s':''}</span>`+
  `<div class="hd">${DATA.repeat?'Repeating':'One-shot'} · first entry <b>${DATA.firstFire} ET</b> ${DATA.side.toLowerCase()} <span class="px">@ $${(+DATA.entryPrice).toFixed(2)}</span> · total <span class="px">${sign}${pnl.toFixed(2)}%</span> across ${pc} round-trip${pc>1?'s':''}.</div>`+
- `<div class="sub">${DATA.feed} feed · generated ${DATA.generatedEt}</div>`;}
+ `<div class="sub">${sub}</div>`;}
 else{v.innerHTML=`<span class="flag no">No fire</span>`+
  `<div class="hd">No bar met all ${DATA.conditions.length} conditions in-session. Best: <b>${DATA.bestPassed}/${DATA.conditions.length}</b>${DATA.bestFail?` — waiting on <span class="px">${DATA.bestFail}</span>`:''}.</div>`+
- `<div class="sub">${DATA.feed} feed · generated ${DATA.generatedEt}</div>`;}})();
-/* payoffs table */
+ `<div class="sub">${sub}</div>`;}})();
+/* payoffs / trades table — live runs add Qty + $ P&L columns */
 (function(){var el=document.getElementById('payoffs');if(!el)return;var ps=DATA.payoffs||[];
 if(!ps.length){el.style.display='none';return;}
+var live=!!DATA.live;
 var rows=ps.map((p,i)=>{var s=p.pnlPct>0?'pos':(p.pnlPct<0?'neg':'');var sg=p.pnlPct>0?'+':'';
- return `<tr><td>${i+1}</td><td class="mono">${p.entryEt}</td><td class="mono">$${(+p.entryPx).toFixed(2)}</td><td class="mono">${p.exitEt}</td><td class="mono">$${(+p.exitPx).toFixed(2)}</td><td class="mono ${s}">${sg}${(+p.pnlPct).toFixed(2)}%</td><td class="rsn">${p.reason}</td></tr>`}).join('');
-el.innerHTML=`<h2>Payoffs — ${ps.length} round-trip${ps.length>1?'s':''} (times ET)</h2>`+
- `<table class="payoffs"><thead><tr><th>#</th><th>entry</th><th>@</th><th>exit</th><th>@</th><th>P&amp;L</th><th>reason</th></tr></thead><tbody>${rows}</tbody></table>`;
+ var exPx=(p.exitPx==null)?'—':'$'+(+p.exitPx).toFixed(2);
+ if(live){var us=(p.pnlUsd==null)?'—':((p.pnlUsd>0?'+':'')+'$'+(+p.pnlUsd).toFixed(2));
+  return `<tr><td>${i+1}</td><td class="mono">${p.entryEt}</td><td class="mono">$${(+p.entryPx).toFixed(2)}</td><td class="mono">${p.qty!=null?p.qty:'—'}</td><td class="mono">${p.exitEt}</td><td class="mono">${exPx}</td><td class="mono ${s}">${us}</td><td class="mono ${s}">${sg}${(+p.pnlPct).toFixed(2)}%</td><td class="rsn">${p.reason}</td></tr>`;}
+ return `<tr><td>${i+1}</td><td class="mono">${p.entryEt}</td><td class="mono">$${(+p.entryPx).toFixed(2)}</td><td class="mono">${p.exitEt}</td><td class="mono">${exPx}</td><td class="mono ${s}">${sg}${(+p.pnlPct).toFixed(2)}%</td><td class="rsn">${p.reason}</td></tr>`}).join('');
+var head=live
+ ? `<thead><tr><th>#</th><th>entry</th><th>@</th><th>qty</th><th>exit</th><th>@</th><th>P&amp;L $</th><th>%</th><th>reason</th></tr></thead>`
+ : `<thead><tr><th>#</th><th>entry</th><th>@</th><th>exit</th><th>@</th><th>P&amp;L</th><th>reason</th></tr></thead>`;
+var title=live
+ ? `Trades — ${ps.length} actual order${ps.length!==1?'s':''} (times ET)`
+ : `Payoffs — ${ps.length} round-trip${ps.length>1?'s':''} (times ET)`;
+el.innerHTML=`<h2>${title}</h2><table class="payoffs">${head}<tbody>${rows}</tbody></table>`;
 })();
 document.getElementById('feednote').innerHTML = DATA.feed.indexOf('SIP')>=0
- ? `This replay ran on the <b>SIP</b> consolidated tape — the full, real-time feed across every exchange, including the 4:00 AM premarket window. The live Monitor now runs on this same SIP feed (Algo Trader Plus), so a fire here reflects the same bars the live system sees.`
- : `This replay ran on the <b>${DATA.feed}</b> feed.`;
-document.getElementById('foot').textContent = `Faithful replay — IndicatorSnapshotBuilder + the strategy's real conditions + the shared ET session gate. ${DATA.bars.length} bars. Times US Eastern.`;
+ ? `The candles are the <b>SIP</b> consolidated tape — the full feed across every exchange, including the 4:00 AM premarket window — the same bars the live Monitor sees (Algo Trader Plus).`
+ : `Candles are the <b>${DATA.feed}</b> feed.`;
+if(DATA.live){
+ var rn=document.getElementById('readnote');
+ if(rn)rn.innerHTML=`<h3>How to read this</h3>`+
+  `<p>These are the <b>actual orders</b> the Monitor executed on ${DATA.dateEt}, read from the trade diary and drawn on the day's real bars — the <span class="k">▲ entry</span> and <span class="k">▼ exit</span> markers are the true fills (price, time, quantity, exit reason), not a simulation.</p>`+
+  `<p>The bottom band still shows each entry condition's truth per minute, so you can see the setup that led to the fill. Hover any bar to inspect it.</p>`;
+ document.getElementById('foot').textContent=`Actual executed orders from the trade diary, drawn on ${DATA.feed} bars. ${DATA.bars.length} bars. Times US Eastern.`;
+}else{
+ document.getElementById('foot').textContent=`Faithful replay — IndicatorSnapshotBuilder + the strategy's real conditions + the shared ET session gate. ${DATA.bars.length} bars. Times US Eastern.`;
+}
 
 /* ── candlestick chart ── */
 const cv=document.getElementById('cv'),ctx=cv.getContext('2d'),tip=document.getElementById('tip'),ohlcEl=document.getElementById('ohlc');
@@ -269,7 +295,10 @@ h1{font-family:var(--mono);font-size:26px;margin:0 0 2px;letter-spacing:.5px}
 .sub{color:var(--dim);font-size:14px;margin-bottom:24px}
 .run{display:grid;grid-template-columns:110px 1fr auto;gap:14px;align-items:center;text-decoration:none;color:inherit;background:var(--panel);border:1px solid var(--edge);border-radius:11px;padding:14px 16px;margin-bottom:10px;box-shadow:var(--shadow);transition:border-color .12s}
 .run:hover{border-color:var(--accent)}
-.run .day{font-family:var(--mono);font-weight:700;font-size:15px}
+.run .day{font-family:var(--mono);font-weight:700;font-size:15px;display:flex;flex-direction:column;gap:5px;align-items:flex-start}
+.kind{font-family:var(--mono);font-size:9.5px;font-weight:700;letter-spacing:.6px;padding:2px 6px;border-radius:5px;line-height:1}
+.kind.live{color:#fff;background:#e0483d}.kind.sim{color:var(--dim);background:var(--void);border:1px solid var(--edge)}
+@media(prefers-color-scheme:dark){.kind.live{background:#ef5350}}
 .run .verdict{font-family:var(--mono);font-size:13px}
 .run .fire{color:var(--dimfire);font-weight:700}.run .nofire{color:var(--faint)}
 .run .feed{font-family:var(--mono);font-size:11px;color:var(--dim);border:1px solid var(--edge);border-radius:999px;padding:2px 8px;justify-self:end}
@@ -320,7 +349,10 @@ h1{font-family:var(--mono);font-size:26px;margin:0 0 2px;letter-spacing:.5px}
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px}
 .tk{display:flex;flex-direction:column;gap:4px;text-decoration:none;color:inherit;background:var(--panel);border:1px solid var(--edge);border-radius:12px;padding:16px 18px;box-shadow:var(--shadow);transition:border-color .12s,transform .12s}
 .tk:hover{border-color:var(--accent);transform:translateY(-1px)}
-.tk .sym{font-family:var(--mono);font-weight:700;font-size:20px;letter-spacing:.5px}
+.tk .sym{font-family:var(--mono);font-weight:700;font-size:20px;letter-spacing:.5px;display:flex;align-items:center;gap:8px}
+.kind{font-family:var(--mono);font-size:9.5px;font-weight:700;letter-spacing:.6px;padding:2px 6px;border-radius:5px;line-height:1}
+.kind.live{color:#fff;background:#e0483d}
+@media(prefers-color-scheme:dark){.kind.live{background:#ef5350}}
 .tk .cnt{font-family:var(--mono);font-size:11.5px;color:var(--dim)}
 .tk .vd{font-family:var(--mono);font-size:13px;margin-top:2px}
 .tk .fire{color:var(--good);font-weight:700}.tk .nofire{color:var(--faint)}

@@ -28,7 +28,7 @@ namespace IdiotProof.Monitor;
 /// A ticker with no saved strategy can still be replayed by applying a gapper
 /// profile on the fly (<c>--profile &lt;id&gt;</c>) via GapperScriptFactory.
 /// </summary>
-public static class StrategyReplay
+public static partial class StrategyReplay
 {
     private const int CandleWindow = 240; // trailing 4h — matches MonitorWorker
 
@@ -315,11 +315,17 @@ public static class StrategyReplay
         var sb = new StringBuilder();
         foreach (var r in runs)
         {
+            var isLive = string.Equals(r.Kind, "live", StringComparison.OrdinalIgnoreCase);
+            var kindTag = isLive
+                ? "<span class=\"kind live\">LIVE</span>"
+                : "<span class=\"kind sim\">SIM</span>";
             var verdict = r.Fired
-                ? $"<span class=\"fire\">FIRED {System.Net.WebUtility.HtmlEncode(r.FirstFireEt)} ET @ ${r.EntryPrice:0.##} · {(r.TotalPnl >= 0 ? "+" : "")}{r.TotalPnl:0.##}%</span>"
-                : "<span class=\"nofire\">no fire</span>";
+                ? (isLive
+                    ? $"<span class=\"fire\">{r.PayoffCount} trade{(r.PayoffCount == 1 ? "" : "s")} · first {System.Net.WebUtility.HtmlEncode(r.FirstFireEt)} ET · {(r.TotalPnl >= 0 ? "+" : "")}{r.TotalPnl:0.##}%</span>"
+                    : $"<span class=\"fire\">FIRED {System.Net.WebUtility.HtmlEncode(r.FirstFireEt)} ET @ ${r.EntryPrice:0.##} · {(r.TotalPnl >= 0 ? "+" : "")}{r.TotalPnl:0.##}%</span>")
+                : (isLive ? "<span class=\"nofire\">no trades</span>" : "<span class=\"nofire\">no fire</span>");
             sb.Append($"<a class=\"run\" href=\"./{Uri.EscapeDataString(r.Stamp)}/index.htm\">" +
-                      $"<span class=\"day\">{System.Net.WebUtility.HtmlEncode(r.DateEt)}</span>" +
+                      $"<span class=\"day\">{kindTag}{System.Net.WebUtility.HtmlEncode(r.DateEt)}</span>" +
                       $"<span class=\"verdict\">{verdict}</span>" +
                       $"<span class=\"feed\">{System.Net.WebUtility.HtmlEncode(r.Feed)}</span>" +
                       $"<span class=\"gen\">generated {System.Net.WebUtility.HtmlEncode(r.GeneratedEt)}</span></a>");
@@ -448,13 +454,18 @@ public static class StrategyReplay
             {
                 var latest = g.OrderByDescending(r => r.GeneratedUtc).First();
                 var firedCount = g.Count(r => r.Fired);
+                var liveCount = g.Count(r => string.Equals(r.Kind, "live", StringComparison.OrdinalIgnoreCase));
+                var liveTag = liveCount > 0 ? "<span class=\"kind live\">LIVE</span>" : "";
                 var latestVerdict = latest.Fired
                     ? $"<span class=\"fire\">last: {(latest.TotalPnl >= 0 ? "+" : "")}{latest.TotalPnl:0.##}%</span>"
                     : "<span class=\"nofire\">last: no fire</span>";
+                var cnt = liveCount > 0
+                    ? $"{g.Count()} replay{(g.Count() == 1 ? "" : "s")} · {liveCount} live · {firedCount} fired"
+                    : $"{g.Count()} replay{(g.Count() == 1 ? "" : "s")} · {firedCount} fired";
                 sb.Append(
                     $"<a class=\"tk\" href=\"./{Uri.EscapeDataString(latest.Symbol.ToLowerInvariant())}/index.htm\">" +
-                    $"<span class=\"sym\">{System.Net.WebUtility.HtmlEncode(latest.Symbol.ToUpperInvariant())}</span>" +
-                    $"<span class=\"cnt\">{g.Count()} replay{(g.Count() == 1 ? "" : "s")} · {firedCount} fired</span>" +
+                    $"<span class=\"sym\">{liveTag}{System.Net.WebUtility.HtmlEncode(latest.Symbol.ToUpperInvariant())}</span>" +
+                    $"<span class=\"cnt\">{cnt}</span>" +
                     $"<span class=\"vd\">{latestVerdict}</span>" +
                     $"<span class=\"gen\">latest {System.Net.WebUtility.HtmlEncode(latest.GeneratedEt)}</span></a>");
             }
