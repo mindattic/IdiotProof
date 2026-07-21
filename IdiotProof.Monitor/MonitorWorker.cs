@@ -105,6 +105,32 @@ public sealed class MonitorWorker(
     /// </summary>
     private string? lastActiveFingerprint;
 
+    /// <summary>
+    /// Print a loud, framed ENTRY/EXIT block to the console on every fill (in
+    /// addition to the single-line logger). On by default; set
+    /// IDIOTPROOF_PRINT_FILLS=0 to silence and rely on the logger alone.
+    /// </summary>
+    private static readonly bool PrintFillsEnabled =
+        Environment.GetEnvironmentVariable("IDIOTPROOF_PRINT_FILLS") != "0";
+
+    /// <summary>
+    /// Self-ping cadence — the Monitor prints an "ONLINE" liveness line this
+    /// often so an operator can see at a glance it is still evaluating (the
+    /// tick running at all proves the loop, DB, and feed are healthy). Default
+    /// 30 min; set IDIOTPROOF_SELFPING=0 to disable, or e.g. "10m"/"5m" to change.
+    /// </summary>
+    private static readonly bool SelfPingEnabled =
+        Environment.GetEnvironmentVariable("IDIOTPROOF_SELFPING") != "0";
+    private static readonly TimeSpan SelfPingInterval = ParseSelfPingInterval();
+    private DateTime lastPingUtc = DateTime.MinValue;
+
+    private static TimeSpan ParseSelfPingInterval()
+    {
+        var v = Environment.GetEnvironmentVariable("IDIOTPROOF_SELFPING");
+        if (string.IsNullOrWhiteSpace(v) || v is "0" or "1") return TimeSpan.FromMinutes(30);
+        return TryParseInterval(v) ?? TimeSpan.FromMinutes(30);
+    }
+
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         logger.LogInformation("IdiotProof.Monitor starting — interval {Interval}s, feed {Feed}",
@@ -174,6 +200,16 @@ public sealed class MonitorWorker(
         {
             PrintActiveRoster(active, lastActiveFingerprint is null ? "startup" : "change detected");
             lastActiveFingerprint = fingerprint;
+        }
+
+        // Liveness self-ping: reaching this line means the loop ran, the DB read
+        // (GetActiveAsync) succeeded, and the leader lease is held — so the ping
+        // is a genuine health signal, not a bare timer. Prints at most every
+        // SelfPingInterval (default 30 min); the first tick fires one immediately.
+        if (SelfPingEnabled && DateTime.UtcNow - lastPingUtc >= SelfPingInterval)
+        {
+            lastPingUtc = DateTime.UtcNow;
+            PrintSelfPing(active);
         }
 
         if (active.Count == 0) return;
@@ -658,6 +694,9 @@ public sealed class MonitorWorker(
 
         logger.LogInformation("[{Title}] ✓ BUY {Qty} {Symbol} @ {Price:F2} via {Broker} ({Mode}) — position now managed for exit.",
             stored.Title, quantity, stored.Symbol, limitPrice, broker.BrokerType, broker.IsPaper ? "paper" : "LIVE");
+        PrintFill("ENTRY", stored.Title, stored.Symbol, "BUY", quantity, limitPrice,
+            broker.BrokerType.ToString(), broker.IsPaper, order.BrokerOrderId, entryUtc,
+            "position now managed for exit");
     }
 
     // ── Exit: the sell-off brain ────────────────────────────────────────
@@ -826,6 +865,10 @@ public sealed class MonitorWorker(
 
         logger.LogInformation("[{Title}] ✓ SOLD {Qty} {Symbol} @ {Price:F2} — {Reason} (P&L {Pnl:+0.00;-0.00})",
             stored.Title, sellQty, stored.Symbol, limitPrice, decision.Reason, realized);
+        var pnlText = realized >= 0 ? $"+${realized:0.00}" : $"-${Math.Abs(realized):0.00}";
+        PrintFill("EXIT", stored.Title, stored.Symbol, "SELL", sellQty, limitPrice,
+            broker.BrokerType.ToString(), broker.IsPaper, order.BrokerOrderId, exitUtc,
+            $"{decision.Reason}  -  P&L {pnlText}");
     }
 
     // ── Active-strategy roster echo ─────────────────────────────────────
@@ -854,7 +897,7 @@ public sealed class MonitorWorker(
         var sb = new System.Text.StringBuilder();
         sb.AppendLine();
         sb.AppendLine(bar);
-        sb.AppendLine($"  Active strategies: {active.Count}  -  {reason} @ {DateTime.UtcNow:HH:mm:ss} UTC");
+        sb.AppendLine($"  Active strategies: {active.Count}  -  {reason} @ {TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, MarketTime.Eastern):HH:mm:ss} ET");
         sb.AppendLine(bar);
         if (active.Count == 0)
         {
@@ -886,6 +929,47 @@ public sealed class MonitorWorker(
 
     private static string RosterTrunc(string? s, int n) =>
         string.IsNullOrEmpty(s) ? "" : s.Length <= n ? s : s[..(n - 3)] + "...";
+
+    // ── Fill + liveness console prints ──────────────────────────────────
+
+    /// <summary>
+    /// Loud, framed ENTRY/EXIT block on every fill — the operator-facing echo
+    /// the single-line logger is too terse for. ASCII-only framing (the console
+    /// runs under the OEM codepage, where box/arrow glyphs render as '?'), and
+    /// all times ET (the market clock). Toggle with IDIOTPROOF_PRINT_FILLS=0.
+    /// </summary>
+    private void PrintFill(string kind, string title, string symbol, string side, int qty,
+        decimal price, string broker, bool isPaper, string? orderId, DateTime whenUtc, string? extra)
+    {
+        if (!PrintFillsEnabled) return;
+        var et = TimeZoneInfo.ConvertTimeFromUtc(DateTime.SpecifyKind(whenUtc, DateTimeKind.Utc), MarketTime.Eastern);
+        var arrow = side == "BUY" ? ">>" : "<<";
+        var bar = new string('=', 60);
+        var sb = new System.Text.StringBuilder();
+        sb.AppendLine();
+        sb.AppendLine(bar);
+        sb.AppendLine($"  {arrow} {kind} FILLED   {et:HH:mm:ss} ET");
+        sb.AppendLine($"  {symbol}  \"{RosterTrunc(title, 46)}\"");
+        sb.AppendLine($"  {side} {qty} @ ${price:0.00}  -  {broker} {(isPaper ? "PAPER" : "LIVE")}" +
+                      (string.IsNullOrEmpty(orderId) ? "" : $"  -  order {RosterTrunc(orderId, 8)}"));
+        if (!string.IsNullOrEmpty(extra)) sb.AppendLine($"  {extra}");
+        sb.Append(bar);
+        Console.WriteLine(sb.ToString());
+    }
+
+    /// <summary>
+    /// Periodic "still online" liveness line (default every 30 min). Emitted
+    /// from inside the tick, so it can only print when the loop is genuinely
+    /// alive and the DB read for this tick already succeeded. ET clock.
+    /// </summary>
+    private void PrintSelfPing(IReadOnlyList<IdiotProof.Blazor.Data.Strategy> active)
+    {
+        var et = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, MarketTime.Eastern);
+        var holding = active.Count(s => s.PositionQty > 0);
+        Console.WriteLine($"[{et:HH:mm:ss} ET] [ONLINE] Monitor alive — {active.Count} active" +
+                          $"{(holding > 0 ? $", {holding} holding" : "")} · feed {feed.FeedName}" +
+                          $" · next ping in {SelfPingInterval.TotalMinutes:0}m");
+    }
 
     // ── Clock helpers ───────────────────────────────────────────────────
 

@@ -209,6 +209,11 @@ if(DATA.live){
 /* ── candlestick chart ── */
 const cv=document.getElementById('cv'),ctx=cv.getContext('2d'),tip=document.getElementById('tip'),ohlcEl=document.getElementById('ohlc');
 let bars=DATA.bars,conds=DATA.conditions,geo=null,hover=-1;
+/* fill prices keyed by bar ET, so entry/exit arrow TIPS anchor to the actual
+   entry/exit price (not the candle high/low). */
+var fillAt={};(DATA.payoffs||[]).forEach(function(p){var e=p.entryEt,x=p.exitEt;
+ if(e){(fillAt[e]=fillAt[e]||{}).entry=+p.entryPx;}
+ if(x&&x!=='—'&&p.exitPx!=null){(fillAt[x]=fillAt[x]||{}).exit=+p.exitPx;}});
 function css(n){return getComputedStyle(document.documentElement).getPropertyValue(n).trim()}
 function f(n,d){return (+n).toLocaleString('en-US',{minimumFractionDigits:d,maximumFractionDigits:d})}
 function fv(n){return n>=1000?(n/1000).toFixed(1)+'K':''+n}
@@ -227,8 +232,14 @@ ctx.save();ctx.strokeStyle=C.vwap;ctx.lineWidth=1.8;ctx.beginPath();bars.forEach
 bars.forEach((b,i)=>{var x=g.x(i),up=b.c>=b.o,col=up?C.up:C.down;ln(x,g.yP(b.h),x,g.yP(b.l),col,1);var yO=g.yP(b.o),yC=g.yP(b.c),t=Math.min(yO,yC),h=Math.max(1.5,Math.abs(yO-yC));ctx.fillStyle=col;ctx.fillRect(x-g.bw/2,t,g.bw,h)});
 bars.forEach((b,i)=>{var x=g.x(i);ctx.fillStyle=b.c>=b.o?C.up:C.down;ctx.globalAlpha=.5;var y=g.yV(b.v);ctx.fillRect(x-g.bw/2,y,g.bw,g.volTop+g.volH-y)});ctx.globalAlpha=1;
 ctx.fillStyle=C.faint;ctx.textAlign='left';ctx.textBaseline='top';ctx.fillText('VOLUME',g.pL+2,g.volTop-1);
-bars.forEach((b,i)=>{if(!b.fire)return;var x=g.x(i);ctx.save();ctx.globalAlpha=.1;ctx.fillStyle=C.accent;ctx.fillRect(x-g.bw/2-1,g.pT,g.bw+2,g.priceH);ctx.restore();var y=g.yP(b.l)+8;ctx.fillStyle=C.accent;ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x-5,y+8);ctx.lineTo(x+5,y+8);ctx.closePath();ctx.fill()});
-bars.forEach((b,i)=>{if(!b.exit)return;var x=g.x(i);ctx.save();ctx.globalAlpha=.1;ctx.fillStyle=C.down;ctx.fillRect(x-g.bw/2-1,g.pT,g.bw+2,g.priceH);ctx.restore();var y=g.yP(b.h)-8;ctx.fillStyle=C.down;ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x-5,y-8);ctx.lineTo(x+5,y-8);ctx.closePath();ctx.fill()});
+bars.forEach((b,i)=>{if(!b.fire)return;var x=g.x(i);ctx.save();ctx.globalAlpha=.1;ctx.fillStyle=C.accent;ctx.fillRect(x-g.bw/2-1,g.pT,g.bw+2,g.priceH);ctx.restore();
+ /* tip AT the entry fill price, pointing up, body hanging below the tip */
+ var px=(fillAt[b.et]&&fillAt[b.et].entry!=null)?fillAt[b.et].entry:b.c,yp=g.yP(px);
+ ln(x-9,yp,x+9,yp,C.accent,1.6);ctx.fillStyle=C.accent;ctx.beginPath();ctx.moveTo(x,yp);ctx.lineTo(x-5,yp+10);ctx.lineTo(x+5,yp+10);ctx.closePath();ctx.fill()});
+bars.forEach((b,i)=>{if(!b.exit)return;var x=g.x(i);ctx.save();ctx.globalAlpha=.1;ctx.fillStyle=C.down;ctx.fillRect(x-g.bw/2-1,g.pT,g.bw+2,g.priceH);ctx.restore();
+ /* tip AT the exit fill price, pointing down, body rising above the tip */
+ var px=(fillAt[b.et]&&fillAt[b.et].exit!=null)?fillAt[b.et].exit:b.c,yp=g.yP(px);
+ ln(x-9,yp,x+9,yp,C.down,1.6);ctx.fillStyle=C.down;ctx.beginPath();ctx.moveTo(x,yp);ctx.lineTo(x-5,yp-10);ctx.lineTo(x+5,yp-10);ctx.closePath();ctx.fill()});
 var rh=g.condH/Math.max(1,conds.length);ctx.textAlign='right';ctx.textBaseline='middle';ctx.font='9px '+css('--mono');
 conds.forEach((label,ri)=>{var cy=g.condTop+rh*ri;ctx.fillStyle=C.faint;ctx.fillText(label.length>26?label.slice(0,25)+'…':label,g.pL+g.plotW+54,cy+rh/2);
 bars.forEach((b,i)=>{var on=b.cnd[ri],x=g.x(i)-g.bw/2;ctx.fillStyle=on?(b.fire?C.accent:C.good):C.vd;ctx.globalAlpha=on?(b.fire?.95:.5):1;ctx.fillRect(x,cy+1.5,g.bw,rh-3)})});ctx.globalAlpha=1;

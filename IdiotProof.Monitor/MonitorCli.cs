@@ -2,7 +2,9 @@ using System.Text.Json;
 using IdiotProof.Blazor.Data;
 using IdiotProof.Blazor.Services;
 using IdiotProof.Engine.Settings;
+using IdiotProof.Models;
 using IdiotProof.Scripting;
+using IdiotProof.Strategies;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace IdiotProof.Monitor;
@@ -22,7 +24,7 @@ namespace IdiotProof.Monitor;
 public static class MonitorCli
 {
     public static bool IsCommand(string arg) =>
-        arg is "status" or "set-keys" or "create-strategies" or "create-account" or "test-order" or "replay" or "replay-live" or "replay-all" or "replay-regen" or "scan" or "replay-export" or "resync-canon" or "auto-gapper";
+        arg is "status" or "set-keys" or "create-strategies" or "create-account" or "test-order" or "flatten" or "replay" or "replay-live" or "replay-all" or "replay-regen" or "scan" or "replay-export" or "resync-canon" or "auto-gapper";
 
     public static async Task<int> RunAsync(IServiceProvider sp, string[] args)
     {
@@ -37,6 +39,7 @@ public static class MonitorCli
                 "create-strategies" => await CreateStrategiesAsync(sp, opt),
                 "create-account"    => await CreateAccountAsync(sp, opt),
                 "test-order"        => await TestOrderAsync(sp, opt),
+                "flatten"           => await FlattenAsync(sp, opt),
                 "replay"            => await StrategyReplay.RunAsync(sp, opt),
                 "replay-live"       => await StrategyReplay.RunLiveAsync(sp, opt),
                 "replay-all"        => await StrategyReplay.RunAllAsync(sp, opt),
@@ -234,6 +237,97 @@ public static class MonitorCli
         }
         Line($"   ✓ CANCEL ok — order {order.BrokerOrderId} cancelled.");
         Line("RESULT: the account can place AND cancel orders autonomously via the API. No 4 AM human intervention needed.");
+        return 0;
+    }
+
+    // ── flatten ─────────────────────────────────────────────────────────
+    // Manually close held positions (marketable sell) with the SAME bookkeeping
+    // the Monitor's own exit path writes — records the exit fill, feeds realized
+    // P&L into the daily circuit breaker, and closes the trade-diary row. For a
+    // held position that needs to go NOW without waiting for a stop/sell-by.
+    //
+    // SAFETY: run this only with the Monitor STOPPED. The Monitor is the single
+    // leader-lease trader; a manual flatten while it evaluates would race its
+    // exit reconciliation and could oversell. Optional --symbol to flatten one.
+    private static async Task<int> FlattenAsync(IServiceProvider sp, Dictionary<string, string> opt)
+    {
+        var userId = await ResolveUserAsync(sp, opt);
+        if (userId is null) return Fail("flatten requires --user <guid> (or a single user).");
+        var symbolFilter = opt.TryGetValue("symbol", out var sf) && !string.IsNullOrWhiteSpace(sf)
+            ? sf.Trim().ToUpperInvariant() : null;
+
+        var strategyRepo = sp.GetRequiredService<StrategyRepository>();
+        var resolver     = sp.GetRequiredService<UserBrokerResolver>();
+        var tradeDiary   = sp.GetRequiredService<TradeDiaryRepository>();
+        var riskService  = sp.GetRequiredService<RiskGuardianService>();
+
+        var holding = (await strategyRepo.GetActiveAsync())
+            .Where(x => x.OwnerUserId == userId.Value && x.PositionQty > 0
+                     && (symbolFilter is null || x.Symbol.Equals(symbolFilter, StringComparison.OrdinalIgnoreCase)))
+            .ToList();
+        if (holding.Count == 0)
+        {
+            Line($"No held positions to flatten{(symbolFilter is null ? "" : $" for {symbolFilter}")}.");
+            return 0;
+        }
+
+        var broker = await resolver.ResolveAsync(userId.Value);
+        Line($"Flatten via {broker.BrokerType} ({(broker.IsPaper ? "PAPER" : "*** LIVE ***")}) — {holding.Count} position(s):");
+
+        Dictionary<string, Position> positions;
+        try
+        {
+            positions = (await broker.GetPositionsAsync())
+                .ToDictionary(p => p.Symbol, p => p, StringComparer.OrdinalIgnoreCase);
+        }
+        catch (Exception ex) { return Fail($"could not read broker positions: {ex.Message}"); }
+
+        var nowEt = MarketTime.ToEasternTimeOfDay(DateTime.UtcNow);
+        var extended = (nowEt >= new TimeSpan(4, 0, 0) && nowEt < new TimeSpan(9, 30, 0))
+                    || (nowEt >= new TimeSpan(16, 0, 0) && nowEt < new TimeSpan(20, 0, 0));
+
+        int done = 0;
+        foreach (var st in holding)
+        {
+            var sym = st.Symbol.ToUpperInvariant();
+            positions.TryGetValue(sym, out var bp);
+            var qty = st.PositionQty;
+            if (bp is not null) qty = Math.Min(qty, (int)Math.Floor(bp.Quantity));
+
+            if (qty <= 0)
+            {
+                Line($"  = {sym} \"{st.Title}\" — broker shows no shares; clearing bookkeeping only.");
+                await strategyRepo.RecordExitFillAsync(st.Id, st.LastEntryPrice ?? 0m, "ManualFlatten-NoShares", DateTime.UtcNow);
+                try { await tradeDiary.MarkNotFilledAsync(st.Id, DateTime.UtcNow); } catch { /* diary best-effort */ }
+                continue;
+            }
+
+            var refPx = bp is not null && bp.Quantity > 0 ? bp.MarketValue / bp.Quantity : (st.LastEntryPrice ?? 0m);
+            var limit = Math.Round(refPx * 0.995m, 2); // marketable sell limit (−0.5%)
+            var order = await broker.PlaceOrderAsync(new OrderRequest
+            {
+                Symbol = sym, Quantity = qty, Side = OrderSide.Sell, Type = OrderType.Limit,
+                LimitPrice = limit, TimeInForce = "DAY", ExtendedHours = extended,
+            });
+            if (!order.IsSuccess)
+            {
+                Line($"  ✗ {sym} \"{st.Title}\" — SELL rejected by {broker.BrokerType}: {order.Message}");
+                continue;
+            }
+
+            var entry = st.LastEntryPrice ?? limit;
+            var realized = (limit - entry) * qty;
+            var exitUtc = DateTime.UtcNow;
+            await strategyRepo.RecordExitFillAsync(st.Id, limit, "ManualFlatten", exitUtc);
+            try { var g = await riskService.GetForUserAsync(userId.Value); g.RecordTradePnL(realized); } catch { /* breaker best-effort */ }
+            try { await tradeDiary.CloseAsync(st.Id, limit, "ManualFlatten", order.BrokerOrderId, realized, qty, exitUtc); }
+            catch (Exception ex) { Line($"      (diary close failed: {ex.Message})"); }
+
+            var pnlText = realized >= 0 ? $"+${realized:0.00}" : $"-${Math.Abs(realized):0.00}";
+            Line($"  ✓ {sym} \"{st.Title}\" — SOLD {qty} @ ${limit:0.00}  P&L {pnlText}  (order {order.BrokerOrderId})");
+            done++;
+        }
+        Line($"Flattened {done} of {holding.Count} position(s). Positions cleared; strategies remain active (deactivate/delete separately).");
         return 0;
     }
 
