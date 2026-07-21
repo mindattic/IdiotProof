@@ -122,7 +122,10 @@ public static class GapperExitEvaluator
             double priorHigh = 0;
             foreach (var c in candles)
                 if (c.EndUtc <= entryUtc && (double)c.High > priorHigh) priorHigh = (double)c.High;
-            if (priorHigh > entryPrice && current >= priorHigh * 0.997)
+            // Only treat the prior HOD as a target if it's a MEANINGFUL move above
+            // entry (>= 0.6%). A HOD sitting just above entry would insta-fire and
+            // produce scalp churn; below the threshold the trade rides on trail/stop.
+            if (priorHigh >= entryPrice * 1.006 && current >= priorHigh * 0.997)
                 return new GapperExitDecision(GapperExitReason.TargetHit, current, peak,
                     $"Price {current:F2} approached the prior HOD {priorHigh:F2} — taking profit into resistance.");
         }
