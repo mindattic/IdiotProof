@@ -9,6 +9,30 @@ updated: 2026-07-20
 
 # IdiotProof — Amendments (append-only; amendment wins over the bible)
 
+## IP-A27 — Strategy-family expansion: shorts, RTH-drive, RSI/swing reversals {#IP-A27}
+**What changed.** (2026-07-20.) The [IP-A25]/[IP-A26] replay surface grows from long-only
+gappers to a full long+short family library, plus the pivot-based swing-structure primitive the
+bottom-reversal charts (BE, AMD, ORCL, ISRG) required.
+
+1. **Short-side support.** `GapperExitEvaluator.EvaluateShort` — the mirror of the long exit
+   logic (trough low-water mark, stops ABOVE entry, take-profit below, giveback = bounce off the
+   trough); `StrategyReplay` dispatches it by `def.Direction` and inverts P&L. New `shortfade`
+   profile (short a failed high, below VWAP/EMA9). The live money path already handled shorts
+   (`RiskGuardian` requires the stop above entry, [IP-LAW-2]); this closed the replay's long-only
+   exit sim.
+2. **More long families.** `rthdrive` (RTH open-drive: above VWAP + above EMA9 + EMA9-over-34, a
+   trend-HOLDING entry — a crossing trigger can't catch a continuous ramp); `rsireversal`
+   (RSI-oversold-at-support dip-buy).
+3. **Swing-structure primitive.** `IndicatorSnapshotBuilder` now detects the last two pivot
+   lows/highs → `HasHigherLow`/`HasLowerHigh`; DSL verbs `IsHigherLow()`/`IsLowerHigh()`; a
+   prior-HOD take-profit (`StrategyDefinition.ExitAtPriorHigh`) that sells long into the pre-entry
+   high; `swingreversal` profile (buy a confirmed higher low → target the earlier HOD).
+
+Also: `reversal` gained a sell-by; replay pages got the Alpaca-yellow light accent, an SVG
+CSS-variable fix, client-side Mermaid rebuild, and a legend fix. Nine strategy families now run
+through one evaluator → scan → SQL feature store → dataset. (RSI bullish-divergence stays
+declared-but-uncomputed — a further bottom-signal upgrade.)
+
 ## IP-A26 — Reversal/EMA-break strategy families, normalized ML feature store, OAuth foundation {#IP-A26}
 **What changed.** (2026-07-20.) Three additions extending the [IP-A25] replay/scan/dataset surface.
 

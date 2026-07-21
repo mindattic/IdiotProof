@@ -5,7 +5,7 @@ code: IP
 layer: stories
 status: living
 updated: 2026-07-20
-counts: {done: 27, partial: 18, planned: 13, cut: 0}
+counts: {done: 27, partial: 22, planned: 13, cut: 0}
 ---
 
 # IdiotProof — User Stories
@@ -217,6 +217,17 @@ counts: {done: 27, partial: 18, planned: 13, cut: 0}
   scoped revocable token) instead of pasting a raw key/secret. Foundation shipped
   (AlpacaOAuthClient); endpoints + Bearer broker wiring gated on app registration + paper testing.
   See [IP-A26].
+- **IP-US-R9 🟡** As a trader, I can replay/scan SHORT setups (short a failed high below VWAP),
+  with exit logic mirrored for shorts (stops above entry, cover on a bounce) and P&L inverted, so
+  fade days (NVDA/PANW/BX) are analysable. Shipped (shortfade + EvaluateShort); tests pending. See [IP-A27].
+- **IP-US-R10 🟡** As a trader, an RTH open-drive family catches the 9:30 rocket (trend-holding
+  entry: above VWAP + above EMA9 + EMA-stacked), which a crossing trigger misses. Shipped
+  (rthdrive); tests pending. See [IP-A27].
+- **IP-US-R11 🟡** As a trader, an RSI-oversold-at-support dip-buy family exists (rsireversal).
+  Shipped; tests pending. Note: still knife-prone without computed RSI divergence. See [IP-A27].
+- **IP-US-R12 🟡** As a trader, a swing-structure primitive (pivot-based higher-low/lower-high)
+  powers a double-bottom family that buys a confirmed higher low and targets the prior high-of-day
+  (swingreversal + IsHigherLow/IsLowerHigh + ExitAtPriorHigh). Shipped; tests pending. See [IP-A27].
 
 ## Epic E — Authoring & generation (web)
 - **IP-US-E1 🟡** As a trader, I describe a setup in prose and Claude generates valid IdiotScript
