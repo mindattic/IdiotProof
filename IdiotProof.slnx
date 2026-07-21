@@ -17,5 +17,7 @@
   <Project Path="IdiotProof.Scripting/IdiotProof.Scripting.csproj" />
   <Project Path="IdiotProof.Shared/IdiotProof.Shared.csproj" />
   <Project Path="IdiotProof.Blazor/IdiotProof.Blazor.csproj" />
+  <Project Path="IdiotProof.Maui/IdiotProof.Maui.csproj" />
   <Project Path="IdiotProof.Monitor/IdiotProof.Monitor.csproj" />
+  <Project Path="IdiotProof.UI/IdiotProof.UI.csproj" />
 </Solution>

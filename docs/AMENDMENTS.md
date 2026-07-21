@@ -9,6 +9,26 @@ updated: 2026-07-20
 
 # IdiotProof — Amendments (append-only; amendment wins over the bible)
 
+## IP-A28 — Dual-host UI: one shared Razor Class Library for Blazor Server + MAUI desktop {#IP-A28}
+**What changed.** (2026-07-20.) Reverses the earlier web-only / "No MAUI host" stance. IdiotProof's
+UI consolidates into ONE shared Razor Class Library, `IdiotProof.UI`, rendered by two hosts that
+cannot drift — **parity by construction**:
+
+- `IdiotProof.Blazor` — Blazor Server (online / browser), real login.
+- `IdiotProof.Maui` — MAUI Blazor Hybrid (Windows desktop, runs without localhost), **also with
+  login** (full parity — desktop is not single-user).
+
+Both reference the SAME RCL; a page/component is **never** forked per host. Host projects keep only
+their root/shell + host-specific services (auth backend, endpoints/SignalR on Server; `MauiProgram`/
+`MainPage` + a local auth backend on desktop). The `IdiotProof.Monitor` console evaluator is unchanged.
+
+**Status: foundation laid** — `IdiotProof.UI` (RCL) + `IdiotProof.Maui` (Windows-only TFM; only the
+`maui-windows` workload is installed) created and added to `IdiotProof.slnx`; both build; the existing
+app is intact. The remaining migration — extracting the app services/data out of `IdiotProof.Blazor`
+into a shared project (so the RCL *and* the Monitor reference it without a cycle), moving the Razor
+components into the RCL, and wiring both hosts + the desktop auth backend — proceeds **incrementally
+with a green build at each step** (it touches the whole project graph, incl. the Monitor's data usings).
+
 ## IP-A27 — Strategy-family expansion: shorts, RTH-drive, RSI/swing reversals {#IP-A27}
 **What changed.** (2026-07-20.) The [IP-A25]/[IP-A26] replay surface grows from long-only
 gappers to a full long+short family library, plus the pivot-based swing-structure primitive the

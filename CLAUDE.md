@@ -34,7 +34,13 @@ See global rules in ~/.claude/CLAUDE.md. The rate-limit-monitor skill enforces:
 ## Code Style
 - Do NOT use underscore-prefixed variables (e.g. `_myField`). Use `camelCase` for private fields without the underscore prefix.
 - JSON for static data, SQL Server for runtime state. No Python scripts, no YAML.
-- Web-only project (Blazor Server) + Console app for the Monitor. No MAUI host.
+- **Dual-host UI off ONE shared Razor Class Library (`IdiotProof.UI`).** `IdiotProof.Blazor`
+  (Blazor Server — online/browser) and `IdiotProof.Maui` (MAUI Blazor Hybrid — Windows desktop,
+  runs without localhost) BOTH render the SAME RCL components: **parity by construction — never
+  fork a page or component into one host.** Host projects hold only their root/shell + host-specific
+  services (auth backend, endpoints); all shared UI + app services/data live below the hosts. Plus
+  the `IdiotProof.Monitor` console (evaluator). *(Supersedes the earlier web-only / No-MAUI rule — see
+  [IP-A28](docs/AMENDMENTS.md#IP-A28).)*
 
 ## Architecture Rules
 
