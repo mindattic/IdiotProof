@@ -52,11 +52,23 @@ public static class IndicatorSnapshotBuilder
             Volume     = (long)lastBar.Volume,
         };
 
-        // Average volume — last 20 bars (or whatever's available).
-        var volWindow = Math.Min(20, n);
+        // Average volume — the up-to-20 bars BEFORE the current one. The current
+        // bar is excluded on purpose: VolumeRatio = Volume / AverageVolume is a
+        // spike test, and folding the spike bar into its own baseline dilutes the
+        // ratio (a true 10x bar would read ~7x), making WithVolumeConfirm/
+        // IsVolumeAbove harder to satisfy than authored. Falls back to the current
+        // bar only when it's the sole bar available.
+        var volWindow = Math.Min(20, n - 1);
         decimal volSum = 0m;
-        for (int i = n - volWindow; i < n; i++) volSum += candles[i].Volume;
-        snapshot.AverageVolume = volWindow > 0 ? (double)(volSum / volWindow) : 0;
+        if (volWindow > 0)
+        {
+            for (int i = n - 1 - volWindow; i < n - 1; i++) volSum += candles[i].Volume;
+            snapshot.AverageVolume = (double)(volSum / volWindow);
+        }
+        else
+        {
+            snapshot.AverageVolume = (double)lastBar.Volume;
+        }
 
         // Window extremes — the per-tick evaluators' only memory of what price
         // did earlier (Breakout latches, HoldsAbove violations). Whole window.
