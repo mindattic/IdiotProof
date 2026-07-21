@@ -1,0 +1,836 @@
+ so here is the transcript; I want you to interpret this, then create active strategies for paper trades tomorrow morning at 4AM; I think the strategy is for all day; the idea is that these particular steps happen in order it doesnt matter if it before, rth or extended, just so long as the buy in occurs the way he says then you sell off once the stop loss or trailing stop loss gets hit: You are an idiot. If you're not watching these three stocks for Monday's trading day. Now, Friday as always, I give you one of the easiest trades in the market on STAK, which I caught on the live stream for a simple 30% win. And I saved you from these crazy halt downs on VEEE. And of course, I'm going to give you the best stock for tomorrow, too. As always, I'll be saving the most explosive stock for last, so make sure to watch the full video. Let's go ahead and dive right into it. Now, first up on the list is the one that I saved you from back on Friday on VEEE. And I told you this was a massive bag holder creator. And what did it do? It broke over the highs and put in place this massive topping tail, grabbing liquidity, trapping longs. This thing halted down like four times on Friday. It was a disaster. So, leave this thing off your list. And remember, it's important to know what stocks not to trade, too. And that's what I'm here for. Next up at number two is the more than 70% after-hours gapper back on Friday. This one's a little bit complicated because right now it's FGMC, but going into tomorrow it's going to be BXBL after this completed merger. Now, what I've got to see as long as people don't forget that it's changing tickers, is I want to see price break over the past time of $14.75. If price breaks in a strong way to confirm that continuation to the upside, this looks fantastic for pull back opportunities back over VWAP and of course 1375. And now it's really important on this one that you understand, no break, no confirmation, no trade. Next up, number three and last but not least, the most explosive stock for Monday's trading day is this massive after-hours gapper with a ton of room to the upside. But before I give you my entire game plan, I give you the top three stocks in the market every single night for completely free. So, please do me a massive favor and hit that like button to say thank you. And hit that follow button, too, so you're tuned in every single night for my top stock watch list just like this. Now, that stock here is the more than 30% after-hours gapper on ADVB. Now, this thing was an absolute monster going into the weekend and it looks even crazier volume comes back in Monday morning over the break of that previous high over 785. So, if volume comes in, we break over 785 in a strong way, watch for confirmed lows be put in back over VWAP over seven bucks for the range back through new highs off that pullback entry back to 10 and even 13 bucks a share. But again, it's important that we wait for it to break out first. Wait for volume to come back in to make sure buyers still like it this week. And as always, no break, no trade. To get access to my entire watch list every night, every morning, it's watch me trade these stocks and so many others just like Friday morning on STAK. And to get my stock scanner, trading journal, education, chat room access, and everything else, make sure to lock in your seven-day free trial. And as always, comment down below which one of these three stocks is your favorite of four tomorrow. So that being said, I better see you in the live stream in the morning in the seven-day free trial for another amazing trading week in the market ahead.
+
+Transcript received — this changes the plan meaningfully, and there's a critical read in it I want to get right. Let me first note the key interpretation (I'll act on it after the diary infra is in place):
+
+- VEEE → EXCLUDED. The speaker explicitly says "leave this thing off your list… know what stocks not to trade." Creating a VEEE strategy would be the exact idiot move. No strategy for VEEE.
+- FGMC → BXBL. Ticker changes to BXBL tomorrow post-merger. Entry: break over 14.75, pull back over VWAP + 13.75. "No break, no trade."
+- ADVB. Entry: break over 7.85 with volume, pull back over VWAP + 7.00. "No break, no trade."
+
+And per your instruction: all-day (Extended session), breakout-then-pullback entry, exit only on stop-loss / trailing-stop (not the speaker's price targets, not a sell-by) — so the trailing stop rides the winner. This is the breakout-pullback DSL, not the premarket-gapper factory (that flattens by 9:28, which contradicts "all day").
+
+Let me finish wiring the diary first (it must be live before any trade), then create the strategies. Completing the sell and not-filled hooks:
+
+  Read 1 file
+
+❯ onc eyou have it configured, create a cli mcp way for me to visualize these active strategies in the CLI right here so I know 1.) do you have the right alpaca key 2.) is it in paper 3.) will these fire when the criteria is met throughout the day 4.) will these sell once the 'juice' as run out on these?
+
+Understood — after config you want a CLI view right here that verifies (1) correct Alpaca key, (2) paper mode, (3) that these will fire intraday when criteria hit, and (4) that they'll sell when the juice runs out. I'll build that as a Monitor status subcommand that reuses the real resolution code (so it shows what the Monitor will actually do, not a hand-rolled guess).
+
+This has grown into a real multi-part build. Here's my sequence, and I'll work straight through it:
+
+1. Finish + migrate the trade-diary table, wire sell/not-filled, register DI, build ✅ in progress
+2. Create the BXBL + ADVB active strategies (exclude VEEE), Extended session, breakout→pullback entry, stop+trailing exit
+3. Seed your per-user paper Alpaca key (you provide it)
+4. status CLI subcommand answering your 4 questions
+5. /diary page + Markdown/CSV export
+
+Finishing the diary — the sell hook:
+
+  Read 1 file
+
+● Update(IdiotProof.Monitor\MonitorWorker.cs)
+Added 15 lines, removed 1 line
+        var guardian = await riskGuardianService.GetForUserAsync(stored.OwnerUserId, ct);
+        guardian.RecordTradePnL(realized);
+
+        await strategyRepo.RecordExitFillAsync(stored.Id, limitPrice, decision.Reason.ToString(), DateTime.UtcNow, ct);
+        var exitUtc = DateTime.UtcNow;
+        await strategyRepo.RecordExitFillAsync(stored.Id, limitPrice, decision.Reason.ToString(), exitUtc, ct);
+        await auditLogRepo.LogAsync("order-placed",
+            $"[{stored.Title}] SELL {sellQty} {stored.Symbol} @ {limitPrice:F2} — {decision.Reason}: {decision.Detail} " +
+            $"(P&L {realized:+0.00;-0.00}, {broker.BrokerType}, order {order.BrokerOrderId})",
+            userId: stored.OwnerUserId, ct: ct);
+
+        // Trade diary — close the entry (log-and-continue: the sell already
+        // happened; a diary write must never throw into the trade path).
+        try
+        {
+            await tradeDiary.CloseAsync(stored.Id, limitPrice, decision.Reason.ToString(),
+                order.BrokerOrderId, realized, exitUtc, ct);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "[{Title}] trade-diary CLOSE failed (trade unaffected).", stored.Title);
+        }
+
+        logger.LogInformation("[{Title}] ✓ SOLD {Qty} {Symbol} @ {Price:F2} — {Reason} (P&L {Pnl:+0.00;-0.00})",
+            stored.Title, sellQty, stored.Symbol, limitPrice, decision.Reason, realized);
+    }
+
+❯ sorry! wrong: And per your instruction: all-day (Extended session), breakout-then-pullback entry, exit only on stop-loss / trailing-stop (not the speaker's price targets, not a sell-by) — so the trailing stop rides the winner. This is the breakout-pullback DSL, not the premarket-gapper factory (that flattens by 9:28, which contradicts "all day"). -- always take the speakers advice
+
+Got the correction — always take the speaker's advice, so I'll keep the speaker's price targets, not drop them. Revised exit plan (whichever fires first wins, since the Monitor's exit is all-or-nothing):
+
+- ADVB — speaker's target is "10 and even 13." Live exits are single-target, so I'll set take-profit at the 13 ceiling and let a trailing stop capture the run toward it (so if it stalls at ~10 and rolls, the trailing catches it; if it rips, TP hits 13), plus a hard stop.
+- BXBL — the speaker gave no upside target (only the break/hold levels), so exits = hard stop + trailing only. That is his advice for this one.
+
+My earlier summary was wrong to strip the targets — corrected.
+
+Continuing the diary — the not-filled hook, so a phantom entry is marked in the diary too:
+
+● Update(IdiotProof.Monitor\MonitorWorker.cs)
+Added 2 lines
+                    "the entry order never filled. Clearing bookkeeping so it can re-arm.",
+                    stored.Title, stored.Symbol, decision.Reason, heldFor.TotalSeconds);
+                await strategyRepo.ClearUnfilledEntryAsync(stored.Id, ct);
+                try { await tradeDiary.MarkNotFilledAsync(stored.Id, DateTime.UtcNow, ct); }
+                catch (Exception dex) { logger.LogError(dex, "[{Title}] trade-diary NotFilled mark failed.", stored.Title); }
+                await auditLogRepo.LogAsync("position-reconciled",
+                    $"[{stored.Title}] {stored.Symbol} entry never filled at {broker.BrokerType} — " +
+                    "bookkeeping cleared, no order placed, strategy re-armed.",
+
+❯ my mistake, i didnt realize her provided full instructions; follow these instructions: You are an idiot. If you're not watching these three stocks for Monday's trading day. Now, Friday as always, I give you one of the easiest trades in the market on STAK, which I caught on the live stream for a simple 30% win. And I saved you from these crazy halt downs on VEEE. And of course, I'm going to give you the best stock for tomorrow, too. As always, I'll be saving the most explosive stock for last, so make sure to watch the full video. Let's go ahead and dive right into it. Now, first up on the list is the one that I saved you from back on Friday on VEEE. And I told you this was a massive bag holder creator. And what did it do? It broke over the highs and put in place this massive topping tail, grabbing liquidity, trapping longs. This thing halted down like four times on Friday. It was a disaster. So, leave this thing off your list. And remember, it's important to know what stocks not to trade, too. And that's what I'm here for. Next up at number two is the more than 70% after-hours gapper back on Friday. This one's a little bit complicated because right now it's FGMC, but going into tomorrow it's going to be BXBL after this completed merger. Now, what I've got to see as long as people don't forget that it's changing tickers, is I want to see price break over the past time of $14.75. If price breaks in a strong way to confirm that continuation to the upside, this looks fantastic for pull back opportunities back over VWAP and of course 1375. And now it's really important on this one that you understand, no break, no confirmation, no trade. Next up, number three and last but not least, the most explosive stock for Monday's trading day is this massive after-hours gapper with a ton of room to the upside. But before I give you my entire game plan, I give you the top three stocks in the market every single night for completely free. So, please do me a massive favor and hit that like button to say thank you. And hit that follow button, too, so you're tuned in every single night for my top stock watch list just like this. Now, that stock here is the more than 30% after-hours gapper on ADVB. Now, this thing was an absolute monster going into the weekend and it looks even crazier volume comes back in Monday morning over the break of that previous high over 785. So, if volume comes in, we break over 785 in a strong way, watch for confirmed lows be put in back over VWAP over seven bucks for the range back through new highs off that pullback entry back to 10 and even 13 bucks a share. But again, it's important that we wait for it to break out first. Wait for volume to come back in to make sure buyers still like it this week. And as always, no break, no trade. To get access to my entire watch list every night, every morning, it's watch me trade these stocks and so many others just like Friday morning on STAK. And to get my stock scanner, trading journal, education, chat room access, and everything else, make sure to lock in your seven-day free trial. And as always, comment down below which one of these three stocks is your favorite of four tomorrow. So that being said, I better see you in the live stream in the morning in the seven-day free trial for another amazing trading week in the market ahead.
+
+The re-pasted transcript is identical to what I analyzed — my reading holds (BXBL + ADVB active, VEEE excluded). Continuing the build.
+
+Registering the diary repo in both hosts (DI):
+
+● Update(IdiotProof.Blazor\Program.cs)
+Added 1 line
+builder.Services.AddSingleton<GapperInterpreter>();
+builder.Services.AddSingleton<SettingsRepository>();
+builder.Services.AddSingleton<AuditLogRepository>();
+builder.Services.AddSingleton<TradeDiaryRepository>();
+builder.Services.AddSingleton<ConditionProgressRepository>();
+builder.Services.AddSingleton<RiskGuardianService>();
+builder.Services.AddHttpClient();
+
+● Update(IdiotProof.Monitor\Program.cs)
+Added 1 line
+builder.Services.AddSingleton<StrategyRepository>();
+builder.Services.AddSingleton<ConditionProgressRepository>();
+builder.Services.AddSingleton<AuditLogRepository>();
+builder.Services.AddSingleton<TradeDiaryRepository>();
+
+// Connection string surfaced to the worker for the single-instance leader
+// lease (sp_getapplock — see MonitorLeaderLease).
+
+Now the EF migration for the diary table:
+
+  Ran 1 shell command
+
+Migration created. Building the full solution:
+
+  Ran 1 shell command
+
+A test fake needs the new interface member. Let me fix it:
+
+  Ran 1 shell command
+
+● Update(IdiotProof.Brokers.Tests\BrokerRouterTests.cs)
+Added 1 line
+file sealed class FakeBroker(BrokerType type) : IBrokerClient
+{
+    public BrokerType BrokerType => type;
+    public bool IsPaper => true;
+    public bool IsConnected => true;
+    public Task<bool> ConnectAsync(CancellationToken ct = default) => Task.FromResult(true);
+    public Task DisconnectAsync() => Task.CompletedTask;
+
+  Ran 1 shell command
+
+Build is green. Let me apply the migration and check who'll own these strategies (I need a real user account, since Strategy.OwnerUserId FKs to the auth users).
+
+  Ran 2 shell commands
+
+TradeDiary table is live. The auth table has a different name — let me find it.
+
+  Ran 3 shell commands
+
+One user exists: gapper-verify (ED642656-…) — I'll make it the owner and wire its per-user paper key. Now the centerpiece you asked for: a Monitor CLI (status / set-keys / create-strategies) that reuses the real resolution code so what it reports is exactly what the Monitor will do. Writing it:
+
+● Write(IdiotProof.Monitor\MonitorCli.cs)
+Wrote 271 lines to IdiotProof.Monitor\MonitorCli.cs
+using System.Text.Json;
+using IdiotProof.Blazor.Data;
+using IdiotProof.Blazor.Services;
+using IdiotProof.Engine.Settings;
+using IdiotProof.Scripting;
+using Microsoft.Extensions.DependencyInjection;
+
+namespace IdiotProof.Monitor;
+
+/// <summary>
+… +263 lines
+
+❯ so I need a IdiotProof account (username & password) and an alpaca trading api key; I think
+
+❯ so create a new profile based on email: ryandebraal@gmail.com then have that send me a random 6 digit code to my email, which I then give back to you and you ask me for my password, then once the password is confirmed, you ask for alpaca trading api key, once thats confirmed to be valid (regex, other?) then you have everything you need to setup these gapper strategies tomorrow for ryandebraal@gmail.com
+
+Before I go further, I have to be straight with you about one step that isn't real in this environment:
+
+I can't send you an emailed 6-digit code. There's no email/SMTP transport wired into IdiotProof here — the app's own password-reset/verify flows are explicitly dev-only stubs with no email sender (I built/reviewed them). So I can't actually deliver a code to ryandebraal@gmail.com, and I won't fake a "code sent" message. Everything else in your flow I can do for real.
+
+Here's the honest, working version of what you described:
+
+1. Account — the real password hashing (Argon2id) lives in the Blazor auth stack. I'll create ryandebraal@gmail.com through that real path. For the password, you have two options: run the create step yourself with ! <command> so your password never passes through me, or give it to me and I run it (fine for a local paper account). No emailed code — we skip that step since I can't send it.
+2. Alpaca key — you give me the paper trading key + secret. I'll validate it for real, not just regex: I'll call Alpaca's paper-api/v2/account with it and confirm it authenticates before storing it (encrypted, per-user).
+3. Strategies — then I wire BXBL + ADVB (VEEE excluded) to that account, active for tomorrow.
+
+Let me get the CLI mechanism compiling so it's ready the moment you hand me the key. Wiring the dispatcher and building:
+
+  Read 1 file
+
+❯ so a user only needs a valid email (find a list of all those fake email generators that are temporary and used by bots, auto-reject those; keep that list in the database in its own table: DomainNameBlacklist or something
+
+Good call — reject disposable/throwaway domains at registration. I'll add a DomainNameBlacklist table (your naming), seed it with the known temp-mail domains, and gate registration on it. ryandebraal@gmail.com is a real provider so it'll pass.
+
+First, wiring the Monitor CLI dispatcher and getting the build green:
+
+● Update(IdiotProof.Monitor\Program.cs)
+Added 8 lines
+});
+
+var host = builder.Build();
+
+// Operator CLI subcommands (status / set-keys / create-strategies) run against
+// the built DI and EXIT — they never start the trading worker (RunAsync). This
+// is the "visualize/configure from the CLI" surface.
+if (args.Length > 0 && MonitorCli.IsCommand(args[0]))
+    return await MonitorCli.RunAsync(host.Services, args);
+
+await host.RunAsync();
+return 0;
+
+Now the email-domain blocklist. The entity + table:
+
+● Write(IdiotProof.Blazor\Data\BlockedEmailDomain.cs)
+Wrote 25 lines to IdiotProof.Blazor\Data\BlockedEmailDomain.cs
+using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
+
+namespace IdiotProof.Blazor.Data;
+
+/// <summary>
+/// A disposable / temporary email domain that is barred from registration
+/// (IP-A23). Real money rides on real accounts — throwaway inboxes used by bots
+/// and abuse (mailinator, guerrillamail, 10minutemail, …) never get an account.
+/// Runtime-editable blocklist → SQL (IP-LAW-7); seeded from a bundled list at
+… +15 lines
+
+● Update(IdiotProof.Blazor\Data\AppDbContext.cs)
+Added 1 line
+    public DbSet<ConditionProgress> ConditionProgress => Set<ConditionProgress>();
+    public DbSet<WorkspaceRow>      Workspaces        => Set<WorkspaceRow>();
+    public DbSet<TradeDiaryEntry>   TradeDiary        => Set<TradeDiaryEntry>();
+    public DbSet<BlockedEmailDomain> DomainNameBlacklist => Set<BlockedEmailDomain>();
+
+    protected override void OnModelCreating(ModelBuilder b)
+    {
+
+Now the blocklist service with a seed list of known disposable domains + a startup seeder:
+
+● Write(IdiotProof.Blazor\Services\EmailDomainBlocklistService.cs)
+Wrote 79 lines to IdiotProof.Blazor\Services\EmailDomainBlocklistService.cs
+using IdiotProof.Blazor.Data;
+using Microsoft.EntityFrameworkCore;
+
+namespace IdiotProof.Blazor.Services;
+
+/// <summary>
+/// Guards registration against disposable / temporary email domains (IP-A23).
+/// The blocklist lives in SQL (<c>DomainNameBlacklist</c>) so it's editable at
+/// runtime; this service seeds it from a bundled list at startup (idempotent)
+/// and answers <see cref="IsBlockedAsync"/> during registration.
+… +69 lines
+
+Now register the service, seed at startup, and gate /register-submit:
+
+● Update(IdiotProof.Blazor\Program.cs)
+Added 1 line
+builder.Services.AddSingleton<SettingsRepository>();
+builder.Services.AddSingleton<AuditLogRepository>();
+builder.Services.AddSingleton<TradeDiaryRepository>();
+builder.Services.AddSingleton<EmailDomainBlocklistService>();
+builder.Services.AddSingleton<ConditionProgressRepository>();
+builder.Services.AddSingleton<RiskGuardianService>();
+builder.Services.AddHttpClient();
+
+● Update(IdiotProof.Blazor\Program.cs)
+Added 6 lines
+        .BackfillCanonicalJsonAsync();
+    if (backfilled > 0)
+        app.Logger.LogInformation("Backfilled canonical ScriptJson for {Count} legacy strategies.", backfilled);
+
+    // Seed the disposable-email-domain blocklist (IP-A23). Idempotent.
+    var seededDomains = await scope.ServiceProvider.GetRequiredService<EmailDomainBlocklistService>()
+        .SeedAsync();
+    if (seededDomains > 0)
+        app.Logger.LogInformation("Seeded {Count} disposable email domains into the blacklist.", seededDomains);
+}
+
+if (!app.Environment.IsDevelopment())
+
+● Update(IdiotProof.Blazor\Program.cs)
+Added 5 lines, removed 1 line
+// Registration is kept as a custom form endpoint so new users can create their own
+// accounts without needing an admin UI. After creation, the user signs in via the
+// library's /_ma-auth/login flow.
+app.MapPost("/register-submit", async (HttpContext ctx, IUserAdminService adminSvc) =>
+app.MapPost("/register-submit", async (HttpContext ctx, IUserAdminService adminSvc, EmailDomainBlocklistService blocklist) =>
+{
+    var form     = await ctx.Request.ReadFormAsync();
+    var email    = form["email"].ToString().Trim();
+
+
+    if (string.IsNullOrWhiteSpace(email))
+    { ctx.Response.Redirect("/register?error=email"); return; }
+    // Reject malformed and disposable/temporary email domains (IP-A23) — a
+    // real account for a real (paper) trading key needs a real inbox.
+    if (await blocklist.IsBlockedAsync(email))
+    { ctx.Response.Redirect("/register?error=domain"); return; }
+    if (password != confirm)
+    { ctx.Response.Redirect("/register?error=mismatch"); return; }
+    if (password.Length < 8)
+
+● Update(IdiotProof.Blazor\Components\Pages\Register.razor)
+Added 1 line
+            "short"    => "Password must be at least 8 characters.",
+            "long"     => "Password must be at most 128 characters.",
+            "digit"    => "Password must contain at least one digit.",
+            "domain"   => "That email domain isn't accepted — use a real, non-disposable email address.",
+            null or "" => "",
+            _          => "Could not create account: " + Error
+        };
+
+Now the migration for the blacklist table, then build:
+
+  Ran 2 shell commands
+
+Build green. Applying the blacklist migration and checking whether I can wire account creation into the CLI (needs the auth stack's pepper):
+
+  Ran 1 shell command
+
+❯ ok, make the account for email: chicagostonks@gmail.com | password: bloommademerich
+
+Noted — account: chicagostonks@gmail.com / password provided (gmail passes the disposable-domain check). Let me verify the DB state and the auth pepper, then create it through the real auth stack.
+
+  Ran 1 shell command
+Interrupted · What should Claude do instead?
+
+❯ make the user this instead so it matches my alpaca account: USERNAME    ryandebraal@mindattic.com
+  PASSWORD    HoneyWaffle8888!
+
+Account target updated: ryandebraal@mindattic.com / provided password (mindattic.com is a real domain — passes). Both diary + blacklist tables are live (blacklist seeds on Blazor startup).
+
+To create the account through the real auth path (Argon2id + pepper) from the CLI, I'll add a create-account command backed by the auth library's IUserAdminService. Let me confirm its exact API in the package before wiring it, so I get it right:
+
+  Ran 1 shell command
+
+❯ Alpaca Trading Api
+  USERNAME    ryandebraal@mindattic.com
+  PASSWORD    HoneyWaffle8888!
+  MFA CODE    8c0f6933-ca1f-4da4-a8c4-390bdac7a40d
+
+  Paper
+  URL            https://paper-api.alpaca.markets/v2
+  KEY            PK2PLEOBKAS53Q2LULKO5YQJHF
+  SECRET        5SHRQgREFCtgKwZLJnqtiPbujSn8Yuu47WpGjAps1baP
+
+I now have everything. The Alpaca key matches the paper entry (PK… = paper ✓), and the "MFA CODE" GUID isn't used for Alpaca API auth (key+secret only) — I'll ignore it. Let me validate the paper key for real first, as promised (live call to Alpaca paper, not just regex):
+
+  Ran 1 shell command
+
+❯ once its all configured you'll have to ping the paper api with that key and secret in order to make sure that it can indeed communicate with the api and that this is the correct api; I know there is also a broker api but I dont think thats the right thing here
+
+Alpaca paper key validated — live HTTP 200, account PA3PG9SP46WU, status ACTIVE, $1,000 cash/equity. And you're exactly right on the API: this is the Trading API (paper-api.alpaca.markets/v2), which is what IdiotProof's AlpacaBrokerClient uses. The Broker API (broker-api.alpaca.markets) is for building a brokerage that manages many sub-accounts — not this. So we're on the correct one.
+
+One real constraint I'll respect: the account has $1,000 equity, so I'll size each strategy at $450 notional (not $1,000) so BXBL and ADVB can both hold within buying power. Risk per trade at an 8% stop ≈ $36 — well under the $100 guard.
+
+Now the account. I'll wire create-account into the CLI through the real auth service so it uses proper Argon2id hashing. Adding the auth stack + blocklist to the Monitor DI:
+
+  Read 1 file
+
+● Update(IdiotProof.Monitor\Program.cs)
+Added 14 lines
+    .PersistKeysToFileSystem(new DirectoryInfo(keyRingPath));
+builder.Services.AddSingleton<UserKeyService>();
+builder.Services.AddSingleton<UserBrokerResolver>();
+builder.Services.AddSingleton<EmailDomainBlocklistService>();
+
+// Auth stack (same as the Blazor host) so the operator CLI can create an
+// account through the REAL Argon2id+pepper path (create-account). Service
+// registration only — no web middleware runs in the console.
+builder.Services.AddMindAtticAuthentication<AppDbContext>(
+    builder.Configuration,
+    opts =>
+    {
+        opts.AppName = "IdiotProof";
+        opts.IsProduction = false;
+        opts.ConfigureDataProtection = dp =>
+            dp.PersistKeysToFileSystem(new DirectoryInfo(keyRingPath));
+    });
+
+// Market data — Alpaca whenever keys resolved through the settings chain
+// (env → Vault broker keyring → IConfiguration), Mock otherwise. Force with
+// IDIOTPROOF_FEED=mock|alpaca.
+
+● Update(IdiotProof.Monitor\Program.cs)
+Added 1 line
+using MindAttic.Legion;
+using MindAttic.Vault.Configuration;
+using MindAttic.Vault.DependencyInjection;
+using MindAttic.Authentication.Web;
+
+// ── IdiotProof.Monitor ───────────────────────────────────────────────────────
+//
+
+Now the create-account command in the CLI:
+
+● Update(IdiotProof.Monitor\MonitorCli.cs)
+Added 2 lines, removed 1 line
+public static class MonitorCli
+{
+    public static bool IsCommand(string arg) =>
+        arg is "status" or "set-keys" or "create-strategies";
+        arg is "status" or "set-keys" or "create-strategies" or "create-account";
+
+    public static async Task<int> RunAsync(IServiceProvider sp, string[] args)
+    {
+
+                "status"            => await StatusAsync(sp, opt),
+                "set-keys"          => await SetKeysAsync(sp, opt),
+                "create-strategies" => await CreateStrategiesAsync(sp, opt),
+                "create-account"    => await CreateAccountAsync(sp, opt),
+                _                   => Fail($"Unknown command '{cmd}'."),
+            };
+        }
+
+● Update(IdiotProof.Monitor\MonitorCli.cs)
+Added 25 lines
+        return "YES — " + string.Join("; ", parts) + ". Managed every tick by GapperExitEvaluator.";
+    }
+
+    // ── create-account ──────────────────────────────────────────────────
+    private static async Task<int> CreateAccountAsync(IServiceProvider sp, Dictionary<string, string> opt)
+    {
+        if (!opt.TryGetValue("email", out var email) || !opt.TryGetValue("password", out var password))
+            return Fail("create-account requires --email and --password.");
+
+        // Same disposable-domain gate as web registration (IP-A23).
+        var blocklist = sp.GetRequiredService<EmailDomainBlocklistService>();
+        if (await blocklist.IsBlockedAsync(email))
+            return Fail($"email domain rejected (malformed or disposable): {email}");
+        if (password.Length < 8 || password.Length > 128 || !password.Any(char.IsDigit))
+            return Fail("password must be 8–128 chars and contain at least one digit.");
+
+        var admin = sp.GetRequiredService<MindAttic.Authentication.Services.IUserAdminService>();
+        var result = await admin.CreateAsync(
+            userName: email, email: email, role: "User",
+            password: password, mustChangePassword: false);
+
+        if (!result.Ok)
+            return Fail($"account creation failed: {result.Error}");
+
+        Line($"✓ Account created via the real auth path (Argon2id): {email}");
+        return 0;
+    }
+
+    // ── set-keys ────────────────────────────────────────────────────────
+    private static async Task<int> SetKeysAsync(IServiceProvider sp, Dictionary<string, string> opt)
+    {
+
+  Ran 1 shell command
+
+Monitor builds with the real auth stack. Now creating the account through the genuine Argon2id path:
+
+  Ran 1 shell command
+
+The auth stack works in the console (no web coupling) — it got all the way to the hasher. It just can't find pepper.v1. The Blazor host resolves it, so the Security bucket has it; the Monitor's config chain isn't surfacing it the same way. Let me inspect the Security bucket structure (keys only, not values):
+
+  Ran 1 shell command
+
+❯ so for simplitity sake for now once your done print the alpaca account info, the idiotproof account info and the strategies, and their conditions and isActive flag and lets make sure that this is running starting tomorrow at 4am; which you will have to tell me the best way to do that; make the monitor run all night or have a scheduled task fire it off; I want this to be as close to a production run as possible so it makes sense to keep it running maek sure memory leaks dont knock the monitor off line or something
+
+The Security bucket has pepper.v1 — the Monitor's config chain just isn't surfacing it (the file has a BOM and AddMindAtticVaultFiles surfaces the broker/LLM buckets, not Security). The auth stack itself works in the console — only the pepper is missing. Let me surface the Security bucket explicitly for the Monitor:
+
+  Read 1 file
+
+❯ make sure every layer of this thing has logging the same kind of logging as streetsamurai has where it tracks everything nicely and even has a logs page
+
+Noted on the StreetSamurai-style logging + logs page — that's a real, substantial addition. I'll flag it as the next work item; it's not blocking tomorrow's run (you already have per-tick console logging, the AuditLog table, the new trade diary, and the Monitor heartbeat), so I'll get the trades live first and build the logging layer + logs page right after.
+
+Surfacing the Security bucket so account creation works:
+
+● Update(IdiotProof.Monitor\Program.cs)
+Added 17 lines
+    .AddMindAtticVaultFiles();
+builder.Services.AddMindAtticVault(builder.Configuration);
+
+// Surface the Security vault bucket (pepper.v1, bootstrap-token, …) into config
+// for the auth stack used by the create-account CLI path. AddMindAtticVaultFiles
+// surfaces the broker/LLM buckets trading needs; the console also needs Security.
+// The file carries a UTF-8 BOM — File.ReadAllText strips it.
+var securityBucket = Path.Combine(
+    Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+    "MindAttic", "Security", "providers.json");
+if (File.Exists(securityBucket))
+{
+    using var secDoc = System.Text.Json.JsonDocument.Parse(File.ReadAllText(securityBucket));
+    var secMem = new Dictionary<string, string?>();
+    foreach (var p in secDoc.RootElement.EnumerateObject())
+        if (p.Value.ValueKind == System.Text.Json.JsonValueKind.String)
+            secMem[$"MindAttic:Vault:Security:{p.Name}"] = p.Value.GetString();
+    builder.Configuration.AddInMemoryCollection(secMem);
+}
+
+var storage = new WebStorageProvider();
+storage.EnsureDirectories();
+var settings = AppSettings.Load(storage);
+
+  Ran 2 shell commands
+
+Account created through the genuine Argon2id path (it even ran a HaveIBeenPwned breach check on the password — passed). Now let me get its user id, then wire the paper key and strategies:
+
+  Ran 1 shell command
+
+User id: A99504C3-0759-4256-8ABB-A1F5C643808C. Setting the per-user paper Alpaca key (encrypted) and routing:
+
+  Ran 1 shell command
+
+Paper key saved (encrypted, routing=alpaca, PAPER). Now the strategies. Writing the interpreted watchlist (BXBL + ADVB; VEEE deliberately absent), using a stateless price floor (IsPriceBetween) for the "hold over X" so the pre-breakout base in the window doesn't disqualify the pullback entry:
+
+  Made 1 scratchpad edit +17, ran 1 shell command
+
+Both strategies are ACTIVE with 5 entry conditions each. Now let me add a live API ping to the status command (a real authenticated call, as you asked) so it proves connectivity, then run it:
+
+● Update(IdiotProof.Monitor\MonitorCli.cs)
+Added 10 lines
+        Line($"   user Alpaca key     : {Mask(k.AlpacaApiKeyId)}   (paper flag: {k.AlpacaIsPaper})");
+        Line($"   routing decision    : {choice}");
+        Line($"   RESOLVED BROKER     : {broker.BrokerType}   →  {(broker.IsPaper ? "PAPER (simulated / paper-api)" : "*** LIVE — REAL MONEY ***")}");
+        // Live ping — a real authenticated call so we KNOW the key talks to the API.
+        try
+        {
+            var positions = await broker.GetPositionsAsync();
+            Line($"   LIVE API PING       : ✓ authenticated — {broker.BrokerType} reachable, {positions.Count} open position(s)");
+        }
+        catch (Exception ex)
+        {
+            Line($"   LIVE API PING       : ✗ FAILED — {ex.Message}");
+        }
+        Line($"   global data feed    : {feed.FeedName}");
+        if (string.Equals(feed.FeedName, "Mock", StringComparison.OrdinalIgnoreCase) && broker.BrokerType != IdiotProof.Models.BrokerType.Sandbox)
+            Line("   ⚠  feed is Mock but broker is non-Sandbox — the Monitor will BLOCK real entries on synthetic data (IP-A22).");
+
+  Ran 1 shell command
+
+Status confirms all four of your questions: ① correct key (PK2P…HF, routing UserAlpaca), ② paper (Alpaca → PAPER, live ping authenticated), ③ will fire (both active, Extended/all-day, conditions shown), ④ will sell (stop/trailing/target). Let me pull the final numbers for your summary — fresh Alpaca account + the DB isActive flags:
+
+  Ran 1 shell command
+
+Everything's verified. Let me confirm the whole solution still compiles cleanly (I touched the broker interface, both hosts, and the data layer):
+
+  Ran 1 shell command
+
+Everything's live and verified. Here's the full picture you asked for.
+
+✅ Alpaca paper account (Trading API — the correct one)
+
+┌──────────────────────────────┬────────────────────────────────────────────────────────────────────────────────────┐
+│                              │                                                                                    │
+├──────────────────────────────┼────────────────────────────────────────────────────────────────────────────────────┤
+│ Endpoint                     │ https://paper-api.alpaca.markets/v2 (Trading API, not Broker API — you were right) │
+├──────────────────────────────┼────────────────────────────────────────────────────────────────────────────────────┤
+│ Account                      │ PA3PG9SP46WU · status ACTIVE                                                       │
+├──────────────────────────────┼────────────────────────────────────────────────────────────────────────────────────┤
+│ Cash / Equity / Buying power │ $1,000 / $1,000 / $1,000 (cash account)                                            │
+├──────────────────────────────┼────────────────────────────────────────────────────────────────────────────────────┤
+│ Key                          │ PK2P…HF (paper) · live ping authenticated ✓                                        │
+└──────────────────────────────┴────────────────────────────────────────────────────────────────────────────────────┘
+
+✅ IdiotProof account
+
+- Username: ryandebraal@mindattic.com · created through the real Argon2id path (passed a HaveIBeenPwned breach check)
+- Routing: per-user → Alpaca PAPER (key stored encrypted; DefaultBroker=alpaca, AlpacaIsPaper=true)
+- Registration now rejects disposable domains via the seeded DomainNameBlacklist table
+
+✅ Strategies (both IsActive=1, canonical-JSON, Extended/all-day) — sized $450 so both fit the $1,000 account
+
+┌────────┬────────────────────────────────────────────────────────────────────┬─────────────────────────────────┐
+│ Symbol │                          Entry (all AND)                           │       Exit (first to hit)       │
+├────────┼────────────────────────────────────────────────────────────────────┼─────────────────────────────────┤
+│ ADVB   │ Breakout(7.85) · Pullback · Volume≥1.5× · AboveVWAP · Price≥7.00   │ TP $13 · 8% stop · 18% trailing │
+├────────┼────────────────────────────────────────────────────────────────────┼─────────────────────────────────┤
+│ BXBL   │ Breakout(14.75) · Pullback · AboveVWAP · Price≥13.75 · Volume≥1.2× │ 8% stop · 12% trailing          │
+└────────┴────────────────────────────────────────────────────────────────────┴─────────────────────────────────┘
+
+VEEE deliberately excluded — the speaker said "leave this off your list… know what stocks not to trade." Creating it would've been the idiot move.
+
+Trade diary (TradeDiary table) is live and wired to write on every buy, close on every sell, and mark phantom non-fills — log-and-continue so it can never break a trade.
+
+⚠️ Two honest risks: (1) BXBL is a post-merger ticker (FGMC→BXBL) — if Alpaca's feed doesn't carry BXBL yet Monday, that one logs "market data unavailable" and simply won't fire (safe). (2) Both are "no break, no trade" — if the levels don't break, nothing fires. That's correct behavior.
+
+---
+To run it at 4 AM (your call — this is the one decision I need)
+
+The Monitor evaluates only while it's running, so it must be alive at 4:00 AM ET. Given "as close to production as possible + survive memory issues," the right answer is a Windows Service:
+
+- The Monitor already supports it (AddWindowsService), the SupervisedLoop catches per-tick faults with backoff + writes a heartbeat (IP-LAW-5), and caches are bounded (240-bar window + eviction). A service adds OS-level auto-restart on crash — the real protection against anything knocking it offline.
+
+Option A — Windows Service (production, needs an elevated shell):
+dotnet publish IdiotProof.Monitor -c Release -o C:\MindAttic\IdiotProof.Monitor
+sc create IdiotProof.Monitor binPath= "C:\MindAttic\IdiotProof.Monitor\idiotproof-monitor.exe" start= auto
+sc failure IdiotProof.Monitor reset= 86400 actions= restart/5000/restart/5000/restart/5000
+sc start IdiotProof.Monitor
+
+Option B — start it in the background now (immediate; runs tonight, fires at 4 AM when premarket opens; less durable — dies on reboot/logoff).
+
+Which do you want? I can run B right now, or walk you through A (it needs admin, so you'd likely run those four lines via !).
+
+---
+Still on my list (not blocking tomorrow, so I held them): the StreetSamurai-style logging + /diary and logs pages + CSV/Markdown export, and there's a large batch of new code (diary, CLI, blacklist, auth-in-Monitor, 2 migrations) that should get committed once you've confirmed the run approach.
+
+✻ Sautéed for 10m 7s
+
+❯ so Option A will run on Azure when its time to go live?
+
+Short answer: not directly — Option A is a Windows Service, which is right for a Windows box (your machine now, or an Azure Windows VM), but it isn't the native Azure production form. Here's the accurate picture.
+
+IdiotProof is two processes, and they deploy differently on Azure:
+
+┌────────────────────┬─────────────────────────────┬───────────────────────────────────────────────────────────────────────────────────┐
+│      Process       │         What it is          │                                    Azure home                                     │
+├────────────────────┼─────────────────────────────┼───────────────────────────────────────────────────────────────────────────────────┤
+│ IdiotProof.Blazor  │ the web UI                  │ App Service (idiotproof-web, per the codex)                                       │
+├────────────────────┼─────────────────────────────┼───────────────────────────────────────────────────────────────────────────────────┤
+│ IdiotProof.Monitor │ the 24/7 evaluator/executor │ Azure Container Apps (min 1 replica, always-on) or an Always-On continuous WebJob │
+└────────────────────┴─────────────────────────────┴───────────────────────────────────────────────────────────────────────────────────┘
+
+A sc create Windows Service doesn't exist as a concept on App Service or Container Apps — so those exact commands don't carry over. But the Monitor itself is already Azure-shaped, no code changes needed:
+
+- It's a cross-platform generic-host BackgroundService — containerizes and runs on Linux fine. AddWindowsService is a no-op when not launched by the Windows SCM, so the same binary runs as a service on Windows, a container on Azure, or a console locally.
+- The leader lease (sp_getapplock, IP-A9) means you can run 2+ replicas safely for HA — one leads and trades, the rest stand by. That's the container-orchestrator restart story built in.
+- SupervisedLoop (per-tick fault isolation + backoff + heartbeat) is the in-process resilience; the orchestrator (Container Apps / WebJob "Always On") is the process-level auto-restart — same role the Windows Service failure-actions play locally.
+
+The Azure must-haves (these matter for real money):
+1. Shared, durable DataProtection key ring between the web app and the Monitor — otherwise the Monitor cannot decrypt the per-user Alpaca keys the web app wrote. On Azure that's Blob-storage-persisted keys protected by Key Vault (the code already keys off DataProtection:KeyRingPath / config).
+2. Azure SQL via ConnectionStrings__IdiotProof.
+3. Secrets (pepper, broker/LLM keys) in Key Vault — AppSettings.OverlayFromConfiguration already reads them through IConfiguration, so no code change.
+
+Current reality: the Azure infra isn't provisioned yet — the deploy path is explicitly disabled in MindAttic.Deploy pending the App Service + publish-profile secret. So going live is a separate infra task.
+
+So: for tomorrow's paper run, Option A (Windows Service on this box) or B (background now) is the right move. When you go live on Azure, the Monitor migrates to Container Apps (1+ replicas) or a continuous WebJob — same binary, plus the shared key ring + Azure SQL + Key Vault. Want me to start with A or B for tonight?
+
+✻ Crunched for 52s
+
+❯ ok, record that later  Container Apps (1+ replicas) or a continuous WebJob task but create a Windows Service on this box for now
+
+Recording the Azure plan first, then setting up the box.
+
+  Recalled 1 memory, wrote 2 memories
+
+Azure plan recorded to memory. Now the on-box service. There's a critical correctness constraint I have to flag before creating it: a Windows Service defaults to LocalSystem, but this box uses LocalDB ((localdb)\MSSQLLocalDB — a per-user SQL instance) and a user-scoped DataProtection ring. A LocalSystem service would fail to connect to SQL and fail to decrypt your Alpaca key (silently falling back to Sandbox). So the service must run as your Windows user — which needs your Windows account password in sc create … obj= password=, something I shouldn't (and can't) supply.
+
+Let me publish the Monitor and prep everything I can without admin:
+
+  Ran 1 shell command
+
+Published to C:\Users\ryand\MindAttic\IdiotProof.Monitor\idiotproof-monitor.exe (legion.json bundled alongside). The service install itself is genuinely a step only you can run (admin shell + your Windows account password), for the LocalDB/DataProtection reason above.
+
+But your real goal is "running by 4 AM," so let me start the Monitor now (published exe, background) — correct per-user paper routing, and it validates the whole chain end-to-end (SQL, keyring, leader lease, Alpaca stream). This is the reliable bridge; the service is the durable upgrade on top.
+
+  Ran 1 shell command
+
+Let me confirm it started cleanly — reading its startup output:
+
+  Read 1 file
+
+It's running (that BXBL warning is my round-9 negative-cache fix working — post-merger ticker has no daily bar yet, retrying in 30s, not hammering). Let me confirm the leader lease, session gating, and heartbeat:
+
+  Ran 1 shell command
+
+The Monitor is live and healthy right now:
+
+- Heartbeat: status=ok, consecutiveFailures=0 — the SupervisedLoop is ticking, which only happens after the leader lease is acquired, so the lease is held ✓
+- Paper routing confirmed, both strategies active.
+- It's the weekend, so there are no recent bars → nothing evaluates/fires yet (correct). At Monday 4:00 AM ET the Extended session opens and Alpaca starts serving premarket bars — that's when it begins evaluating BXBL/ADVB.
+- The BXBL "no previous close, retrying in 30s" line is the round-9 negative-cache fix working (post-merger ticker has no daily bar yet — it won't hammer the API).
+
+This background process is the bridge to guarantee 4 AM. For the durable Windows Service you asked for, run these in an elevated PowerShell — note it must run as your account (LocalDB + DataProtection are user-scoped; LocalSystem would fail SQL and silently fall back to Sandbox):
+
+# elevated shell; fill in your Windows password
+sc.exe create IdiotProof.Monitor `
+  binPath= "C:\Users\ryand\MindAttic\IdiotProof.Monitor\idiotproof-monitor.exe" `
+  start= auto obj= "SnowCrash\ryand" password= "<YOUR_WINDOWS_PASSWORD>" `
+  DisplayName= "IdiotProof Monitor"
+sc.exe failure IdiotProof.Monitor reset= 86400 actions= restart/5000/restart/5000/restart/5000
+sc.exe start IdiotProof.Monitor
+
+Notes: the account needs the "Log on as a service" right (Windows usually grants it on sc create; if start fails with 1069, add it in secpol.msc). Env vars aren't required — per-user routing already sends orders to your Alpaca paper and the keyring resolves the Alpaca data feed. Once the service is running, stop the background bridge (the leader lease keeps them from double-trading in the meantime, but no need to run both).
+
+Three housekeeping notes:
+1. There's a stray GAPT test strategy in the DB from an earlier verify run — it's quarantined (deliberately broken canon) so it can't fire, but I can delete it to keep the paper run clean. Want me to?
+2. Still queued (not blocking 4 AM): the StreetSamurai-style logging + logs//diary pages + CSV/Markdown export.
+3. There's a large batch of new code (trade diary, Monitor CLI, email blocklist, auth-in-Monitor, 2 migrations) that should get committed — say the word and I'll commit it with a proper IP-A23 amendment.
+
+How do you want to proceed — install the service now, and should I delete the GAPT test row + commit?
+
+✻ Worked for 5m 33s
+
+❯ 1. delete
+
+  Ran 1 shell command
+
+❯ 2. create it
+
+DB is clean otherwise — only your two active strategies (ADVB, BXBL) plus the stray inactive GAPT test row. Deleting GAPT (its ConditionProgress cascades away):
+
+  Ran 1 shell command
+
+❯ 3. wait on commits
+
+❯ install the service now
+
+❯ also my 'windows password' is a Windows Hello pin, is that going to be a problem?
+
+GAPT deleted (cascade cleaned its progress row) — only ADVB + BXBL remain, both active. Commits: holding per your #3.
+
+On the Windows Hello PIN — yes, that's a real blocker for a Windows Service: sc create obj=/password= needs your account password, and a Hello PIN isn't it (it's a TPM-backed device credential, not the account secret). Combined with the LocalDB-is-per-user constraint, a classic service is the wrong tool here.
+
+The correct fit is a Scheduled Task that runs as you, in your logged-on session — it needs no password (uses your interactive token, PIN-compatible), runs as your account so LocalDB + DataProtection work, starts at logon, and restarts on failure with no run-time limit. Let me register it:
+
+  Ran 1 shell command
+
+That settles it: registration needs an elevated shell, and mine isn't — Access is denied. Both a service and a scheduled task require elevation to install, so this last step is genuinely yours to run. But here's the good news on your PIN question:
+
+Your Hello PIN is not a problem — for two reasons:
+1. The PIN elevates UAC fine. You just open PowerShell "as administrator" and approve with your PIN — that's all the elevation this needs.
+2. The task runs as you, Interactive (your logged-on session), so it needs no stored password at all. The PIN-vs-password issue that kills the service approach doesn't touch the scheduled-task approach.
+
+So we drop the Windows Service (it'd demand your account password, which a PIN can't supply, and LocalDB/DataProtection are per-user anyway) and use a run-as-you scheduled task. Open an elevated PowerShell (Start → type PowerShell → Run as administrator → approve with PIN) and paste:
+
+$exe = "C:\Users\ryand\MindAttic\IdiotProof.Monitor\idiotproof-monitor.exe"
+$action    = New-ScheduledTaskAction -Execute $exe
+$trigger   = New-ScheduledTaskTrigger -AtLogOn
+$settings  = New-ScheduledTaskSettingsSet -ExecutionTimeLimit ([TimeSpan]::Zero) -RestartCount 3 -RestartInterval (New-TimeSpan -Minutes 1) -StartWhenAvailable -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -MultipleInstances IgnoreNew
+$principal = New-ScheduledTaskPrincipal -UserId "$env:USERDOMAIN\$env:USERNAME" -LogonType Interactive -RunLevel Limited
+Register-ScheduledTask -TaskName "IdiotProof Monitor" -Action $action -Trigger $trigger -Settings $settings -Principal $principal -Force
+Start-ScheduledTask -TaskName "IdiotProof Monitor"
+
+That gives you: starts at every logon, no run-time limit (won't get killed after 72h like a default task), restarts on failure, single-instance, no password. After you run it, the task is the durable owner — stop my background bridge (or just let it be; the SQL leader lease guarantees only one ever trades).
+
+Right now: the background bridge Monitor is still running (correct paper routing, healthy heartbeat), so 4 AM is already covered as long as this machine stays on and logged in. The scheduled task just makes it survive logoff/login cycles.
+
+Honest limit: because of LocalDB (per-user) + the PIN (no service password), this runs while you're logged on. Fully unattended (logged-off / headless) is the Azure path I recorded — Container Apps / continuous WebJob with Azure SQL + a shared key ring.
+
+Want me to verify the bridge's heartbeat is still ticking, or is there anything else before you run that command?
+
+✻ Churned for 4m 19s
+
+❯ stop your bridge now and let me setup this monitor in powershell
+
+I'll stop the background bridge now so you can set up the scheduled task cleanly (no double instance).
+
+● Stop Task
+cd "C:/Users/ryand/MindAttic/IdiotProof.Monitor" && IDIOTPROOF_FEED=alpaca IDIOTPROOF_BROKER=alpaca ./idiotproof-monitor.exe · stopped
+
+Bridge stopped. Let me confirm the process is fully gone and the leader lease released, so your scheduled-task instance can take over cleanly:
+
+  Ran 1 shell command
+
+Bridge is down and clean — no idiotproof-monitor process running, so the SQL leader lease is released and free for your scheduled-task instance to claim.
+
+Go ahead and run the elevated PowerShell block (Run as administrator → approve with your PIN):
+
+$exe = "C:\Users\ryand\MindAttic\IdiotProof.Monitor\idiotproof-monitor.exe"
+$action    = New-ScheduledTaskAction -Execute $exe
+$trigger   = New-ScheduledTaskTrigger -AtLogOn
+$settings  = New-ScheduledTaskSettingsSet -ExecutionTimeLimit ([TimeSpan]::Zero) -RestartCount 3 -RestartInterval (New-TimeSpan -Minutes 1) -StartWhenAvailable -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -MultipleInstances IgnoreNew
+$principal = New-ScheduledTaskPrincipal -UserId "$env:USERDOMAIN\$env:USERNAME" -LogonType Interactive -RunLevel Limited
+Register-ScheduledTask -TaskName "IdiotProof Monitor" -Action $action -Trigger $trigger -Settings $settings -Principal $principal -Force
+Start-ScheduledTask -TaskName "IdiotProof Monitor"
+
+When you're done, tell me and I'll verify it took — I'll check the task state and confirm the heartbeat is ticking again (proving the task-managed instance acquired the lease and is evaluating), plus a status run so you can see the whole chain green under the scheduled task. If Register-ScheduledTask throws anything, paste the error and I'll adjust.
+
+✻ Churned for 32s
+
+❯ ok verify
+
+I'll verify the task registered, is running, acquired the lease (fresh heartbeat), and that the whole chain is green.
+
+  Ran 1 shell command
+
+Task is Running, Monitor process is up (pid 36836, ~107 MB — healthy .NET footprint), LastTaskResult 267009 = "task currently running" (normal, not an error). Now the deeper chain — heartbeat freshness (proves the loop acquired the lease) and a live status:
+
+  Ran 1 shell command
+
+Heartbeat is 4 seconds old, status=ok — the task-managed Monitor acquired the leader lease and is ticking. Final confirmation with a live status (this also re-pings Alpaca):
+
+  Ran 1 shell command
+
+Verified end-to-end — everything is green under the scheduled task:
+
+Runtime
+- Scheduled task IdiotProof Monitor → Running, as you (Interactive, no password), no run-time limit, restart-on-failure.
+- Process up (pid 36836, ~107 MB), heartbeat 4s old, status=ok, 0 failures → the task-managed instance holds the leader lease and is ticking.
+
+Your 4 questions, confirmed live:
+1. Right key — PK2P…HF, routing UserAlpaca ✓
+2. Paper — resolved broker Alpaca → PAPER, and LIVE API PING ✓ authenticated (0 open positions) — real round-trip to paper-api, so it genuinely communicates.
+3. Will fire — both ADVB and BXBL active, Extended/all-day, entry conditions listed (breakout → pullback → volume → VWAP → price floor), evaluated every tick when the session is open.
+4. Will sell — exits managed every tick: ADVB (TP $13 / 8% stop / 18% trailing), BXBL (8% stop / 12% trailing). The trailing stop is the "juice ran out" exit.
+
+What happens next: it's the weekend, so nothing evaluates yet. At Monday 4:00 AM ET the Extended session opens, Alpaca serves premarket bars, and the Monitor starts checking the breakout-pullback setups — firing only if the levels actually break ("no break, no trade"), then managing to a stop/trailing/target exit. Every buy and sell writes to the trade diary (TradeDiary). VEEE is correctly absent.
+
+Two open loose ends whenever you want them (both non-blocking):
+- Logging + /logs & /diary pages + CSV/Markdown export (your StreetSamurai-style ask).
+- Commit the batch — you said hold, so it's uncommitted but building clean and running.
+
+One caveat to keep in mind: BXBL is the post-merger ticker (ex-FGMC) — if Alpaca's feed doesn't carry BXBL bars Monday morning, that one will log "market data unavailable" and simply sit idle (safe, no bad fills). Want me to keep an eye on that at open, or move on to the logging/pages?
+
+✻ Cogitated for 51s
+
+❯ so record this location so you can deploy here all the time along with the normal output
+
+Recording the deploy location + runtime layout so redeploys are consistent.
+
+  Wrote 1 memory
+
+Recorded. The memory now has the full on-box deploy contract so future redeploys are consistent:
+
+- Deploy target: C:\Users\ryand\MindAttic\IdiotProof.Monitor\idiotproof-monitor.exe — always publish there so the scheduled task keeps finding it.
+- Redeploy sequence (the exe is locked while running): stop the IdiotProof Monitor task → dotnet publish IdiotProof.Monitor -c Release -o C:\Users\ryand\MindAttic\IdiotProof.Monitor → start the task.
+- Run mechanism: scheduled task IdiotProof Monitor (run-as-you, Interactive, AtLogOn, no time limit, restart-on-failure) — registration needs your elevated shell (mine's non-elevated).
+- Owner: ryandebraal@mindattic.com / A99504C3-… with the per-user paper key.
+- Normal output / runtime paths: heartbeat at %LOCALAPPDATA%\MindAttic\IdiotProof\Logs\monitor.heartbeat, storage root %LOCALAPPDATA%\MindAttic\IdiotProof\, DB (localdb)\MSSQLLocalDB\IdiotProof, DataProtection ring + broker/Security keyrings under %APPDATA%\MindAttic\.
+- Operator CLI: dotnet run --project IdiotProof.Monitor -- status|set-keys|create-strategies|create-account.
+
+So next time you say "deploy," I'll: stop the task → publish to that path → restart the task → run status and print the heartbeat as the normal confirmation output.
+
+The Monitor's running under the task right now, both strategies armed for Monday 4 AM. Want me to move on to the logging + /logs & /diary pages + export next, or leave it here for tonight?
+
+✻ Worked for 49s
+
+❯ lets leave it here for tonight, so when will I be able to know when/if this worked?
+
+Nothing happens tonight (weekend). The Monitor sits idle until Monday, July 20, 4:00 AM ET — when premarket opens, the Extended session goes live and it starts checking ADVB/BXBL every ~5 seconds.
+
+Three ways to know, easiest first:
+
+1. Just ask me — anytime tomorrow, say "check the trades" and I'll run status (live Alpaca ping + open positions) and pull the trade diary + audit log, and tell you exactly what fired, at what price, and why it exited.
+
+2. Self-serve (any terminal, no admin):
+# Did anything trade? (the diary — one row per trade, buy→sell)
+sqlcmd -S "(localdb)\MSSQLLocalDB" -d IdiotProof -Q "SELECT Symbol,Status,EntryUtc,EntryPrice,Quantity,ExitReason,ExitPrice,RealizedPnL FROM dbo.TradeDiary ORDER BY EntryUtc DESC;"
+
+# How close is each strategy to firing? (N/M conditions + first blocker)
+sqlcmd -S "(localdb)\MSSQLLocalDB" -d IdiotProof -Q "SELECT s.Symbol,cp.PassedCount,cp.TotalCount,cp.FirstFailingVerb,cp.EvaluatedUtc FROM dbo.ConditionProgress cp JOIN dbo.Strategies s ON s.Id=cp.StrategyId;"
+
+# Is the Monitor alive? (should be seconds-fresh, status=ok)
+type "$env:LOCALAPPDATA\MindAttic\IdiotProof\Logs\monitor.heartbeat"
+
+# Full live view (key/paper/positions/strategies)
+& "C:\Users\ryand\MindAttic\IdiotProof.Monitor\idiotproof-monitor.exe" status --user A99504C3-0759-4256-8ABB-A1F5C643808C
+
+3. Alpaca's own paper dashboard (app.alpaca.markets, paper account PA3PG9SP46WU) — the ground truth for orders, positions, and equity.
+
+What "worked" means — two layers:
+- Infra worked: the Monitor evaluated all day (heartbeat stays green, ConditionProgress shows live N/M counts). This should be true regardless.
+- A trade happened: only if a stock actually breaks its level — these are "no break, no trade" setups. It's entirely possible neither fires (if ADVB doesn't break 7.85 or BXBL doesn't break 14.75), and that's the strategy behaving correctly, not a failure. If one does break and pull back, you'll see a TradeDiary row go from Open → Closed with the exit reason and P&L.
+
+One caveat to remember: BXBL (ex-FGMC) may have no Alpaca bars Monday if the ticker change hasn't propagated — if so it'll log "market data unavailable" and just sit idle (safe). ADVB is the more likely to trigger.
+
+So: check back Monday after ~4 AM ET (or really any time during the day). Ping me and I'll give you the full readout.
+
+✻ Sautéed for 39s
