@@ -93,14 +93,14 @@ public static class StrategyReplay
         // ── Fetch the day's bars (04:00–20:00 ET → UTC) on the chosen tier ──
         var dayStartUtc = EtToUtc(dateEt, new TimeSpan(4, 0, 0));
         var dayEndUtc = EtToUtc(dateEt, new TimeSpan(20, 0, 0));
-        // Free/basic keys serve SIP historical only for data older than ~15 min;
-        // a window whose END is inside that wall makes the WHOLE request 403 and
-        // silently downgrade to IEX. Clamp to now-16min so delayed SIP always
-        // succeeds — this is also what makes an intraday replay of *today* work.
-        var sipWall = DateTime.UtcNow - TimeSpan.FromMinutes(16);
+        // With Algo Trader Plus (real-time SIP, IP-A29) there is no 15-min wall —
+        // request right up to the last fully-closed minute. Keep a 1-min guard so
+        // we never ask for the currently-forming bar (which returns partial/null).
+        // Free keys can still set IDIOTPROOF_ALPACA_FEED=iex; then this is moot.
+        var sipWall = DateTime.UtcNow - TimeSpan.FromMinutes(1);
         if (feedTier == "sip" && dayEndUtc > sipWall) dayEndUtc = sipWall;
         if (dayEndUtc <= dayStartUtc)
-            return Fail($"nothing to replay yet for {dateEt:yyyy-MM-dd} — the session start is still within the ~15-min SIP delay. Try again later or replay a past day.");
+            return Fail($"nothing to replay yet for {dateEt:yyyy-MM-dd} — the session hasn't started. Try again once the window opens, or replay a past day.");
         await using var feed = new AlpacaDataFeed(k.AlpacaApiKeyId, k.AlpacaApiSecretKey, feedTier);
 
         var candles = new List<Candle>();
@@ -432,23 +432,33 @@ public static class StrategyReplay
             all = await db.ReplayRuns.OrderByDescending(r => r.GeneratedUtc).ToListAsync();
 
         var sb = new StringBuilder();
-        int tickerCount = 0;
-        // Group by ticker; rows already newest-first so the first per group is latest.
-        foreach (var g in all.GroupBy(r => r.Symbol, StringComparer.OrdinalIgnoreCase)
-                              .OrderByDescending(g => g.Max(r => r.GeneratedUtc)))
+        var tickerCount = all.Select(r => r.Symbol.ToUpperInvariant())
+                             .Distinct(StringComparer.OrdinalIgnoreCase).Count();
+        // Group by trading day (DateEt), newest day first — one <hr>-separated block per day.
+        // A ticker replayed on several days appears once under each day it was active.
+        foreach (var day in all.GroupBy(r => r.DateEt)
+                               .OrderByDescending(d => d.Key, StringComparer.Ordinal))
         {
-            tickerCount++;
-            var latest = g.First();
-            var firedCount = g.Count(r => r.Fired);
-            var latestVerdict = latest.Fired
-                ? $"<span class=\"fire\">last: {(latest.TotalPnl >= 0 ? "+" : "")}{latest.TotalPnl:0.##}%</span>"
-                : "<span class=\"nofire\">last: no fire</span>";
-            sb.Append(
-                $"<a class=\"tk\" href=\"./{Uri.EscapeDataString(latest.Symbol.ToLowerInvariant())}/index.htm\">" +
-                $"<span class=\"sym\">{System.Net.WebUtility.HtmlEncode(latest.Symbol.ToUpperInvariant())}</span>" +
-                $"<span class=\"cnt\">{g.Count()} replay{(g.Count() == 1 ? "" : "s")} · {firedCount} fired</span>" +
-                $"<span class=\"vd\">{latestVerdict}</span>" +
-                $"<span class=\"gen\">latest {System.Net.WebUtility.HtmlEncode(latest.GeneratedEt)}</span></a>");
+            sb.Append($"<h2 class=\"day\">{System.Net.WebUtility.HtmlEncode(day.Key)}</h2>")
+              .Append("<hr class=\"daybar\">")
+              .Append("<div class=\"grid\">");
+            // Within a day: one card per ticker, newest activity first.
+            foreach (var g in day.GroupBy(r => r.Symbol, StringComparer.OrdinalIgnoreCase)
+                                  .OrderByDescending(g => g.Max(r => r.GeneratedUtc)))
+            {
+                var latest = g.OrderByDescending(r => r.GeneratedUtc).First();
+                var firedCount = g.Count(r => r.Fired);
+                var latestVerdict = latest.Fired
+                    ? $"<span class=\"fire\">last: {(latest.TotalPnl >= 0 ? "+" : "")}{latest.TotalPnl:0.##}%</span>"
+                    : "<span class=\"nofire\">last: no fire</span>";
+                sb.Append(
+                    $"<a class=\"tk\" href=\"./{Uri.EscapeDataString(latest.Symbol.ToLowerInvariant())}/index.htm\">" +
+                    $"<span class=\"sym\">{System.Net.WebUtility.HtmlEncode(latest.Symbol.ToUpperInvariant())}</span>" +
+                    $"<span class=\"cnt\">{g.Count()} replay{(g.Count() == 1 ? "" : "s")} · {firedCount} fired</span>" +
+                    $"<span class=\"vd\">{latestVerdict}</span>" +
+                    $"<span class=\"gen\">latest {System.Net.WebUtility.HtmlEncode(latest.GeneratedEt)}</span></a>");
+            }
+            sb.Append("</div>");
         }
         var rows = tickerCount > 0 ? sb.ToString() : "<p class=\"empty\">No replays yet.</p>";
         var html = RootIndexTemplate

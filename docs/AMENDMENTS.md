@@ -9,6 +9,27 @@ updated: 2026-07-20
 
 # IdiotProof — Amendments (append-only; amendment wins over the bible)
 
+## IP-A29 — Real-time SIP is the default feed (Algo Trader Plus) {#IP-A29}
+**What changed.** (2026-07-20.) The account's Alpaca market-data subscription was upgraded to
+**Algo Trader Plus** — unlimited **real-time SIP** consolidated tape, including the 4:00 AM
+premarket window. Verified live against the account key: `GET /v2/stocks/AAPL/quotes/latest?feed=sip`
+returns `200` with a current, tight quote (the free tier returns `403` on that call), while the IEX
+quote is stale at the 4 PM close with a junk spread. This removes the single biggest constraint on
+the flagship Gapper flow: the live Monitor no longer trades on the thin partial IEX book.
+
+1. **Live feed default flipped `iex` → `sip`** in both the Monitor's streaming client
+   (`MonitorWorker`) and its historical `AlpacaDataFeed` registration (`Program`).
+   `IDIOTPROOF_ALPACA_FEED=iex` still forces the free feed for anyone without the subscription.
+2. **Replay 15-min SIP wall lifted.** `StrategyReplay` clamped requests to `now-16min` because
+   free SIP historical is delayed ≥15 min; with real-time entitlement the clamp drops to a 1-min
+   guard (never request the currently-forming bar), so intraday replays of *today* run right to
+   the last closed minute.
+3. **Replay disclaimer corrected.** The per-run feed note no longer warns that the live IEX system
+   sees different bars — replay and live now share the same real-time SIP tape.
+
+**No new API key required** — a market-data subscription attaches to the Alpaca *account*, not to
+a key; the existing BYO key/secret gains the entitlement immediately. **Status: shipped & verified.**
+
 ## IP-A28 — Dual-host UI: one shared Razor Class Library for Blazor Server + MAUI desktop {#IP-A28}
 **What changed.** (2026-07-20.) Reverses the earlier web-only / "No MAUI host" stance. IdiotProof's
 UI consolidates into ONE shared Razor Class Library, `IdiotProof.UI`, rendered by two hosts that

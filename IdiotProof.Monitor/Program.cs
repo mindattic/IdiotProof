@@ -156,7 +156,8 @@ builder.Services.AddSingleton<IdiotProof.DataFeeds.IMarketDataFeed>(_ =>
                && !string.IsNullOrWhiteSpace(settings.AlpacaApiSecretKey);
     if (choice == "mock" || (!hasKeys && choice != "alpaca"))
         return new IdiotProof.DataFeeds.MockDataFeed();
-    var tier = Environment.GetEnvironmentVariable("IDIOTPROOF_ALPACA_FEED") ?? "iex";
+    // Real-time SIP by default (Algo Trader Plus, IP-A29); IDIOTPROOF_ALPACA_FEED=iex to override.
+    var tier = Environment.GetEnvironmentVariable("IDIOTPROOF_ALPACA_FEED") ?? "sip";
     return new IdiotProof.DataFeeds.AlpacaDataFeed(settings.AlpacaApiKeyId, settings.AlpacaApiSecretKey, tier);
 });
 

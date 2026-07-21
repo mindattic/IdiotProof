@@ -176,7 +176,7 @@ el.innerHTML=`<h2>Payoffs — ${ps.length} round-trip${ps.length>1?'s':''} (time
  `<table class="payoffs"><thead><tr><th>#</th><th>entry</th><th>@</th><th>exit</th><th>@</th><th>P&amp;L</th><th>reason</th></tr></thead><tbody>${rows}</tbody></table>`;
 })();
 document.getElementById('feednote').innerHTML = DATA.feed.indexOf('SIP')>=0
- ? `This replay ran on the <b>SIP</b> consolidated tape (delayed historical, free ≥15 min old). The live Monitor on the free <b>IEX</b> feed sees far less premarket activity for thin names — so a fire here does not mean the live system saw the same bars. Live premarket firing needs Alpaca real-time SIP (~$99/mo).`
+ ? `This replay ran on the <b>SIP</b> consolidated tape — the full, real-time feed across every exchange, including the 4:00 AM premarket window. The live Monitor now runs on this same SIP feed (Algo Trader Plus), so a fire here reflects the same bars the live system sees.`
  : `This replay ran on the <b>${DATA.feed}</b> feed.`;
 document.getElementById('foot').textContent = `Faithful replay — IndicatorSnapshotBuilder + the strategy's real conditions + the shared ET session gate. ${DATA.bars.length} bars. Times US Eastern.`;
 
@@ -314,6 +314,9 @@ b.addEventListener('click',function(){var n=r.getAttribute('data-theme')==='ligh
 .themebtn:hover{border-color:var(--accent)}
 h1{font-family:var(--mono);font-size:26px;margin:0 0 2px;letter-spacing:.5px}
 .sub{color:var(--dim);font-size:14px;margin-bottom:24px}
+.day{font-family:var(--mono);color:var(--accent);font-size:15px;font-weight:700;letter-spacing:.5px;margin:34px 0 8px}
+.day:first-of-type{margin-top:6px}
+.daybar{border:0;height:3px;background:var(--accent);border-radius:2px;margin:0 0 18px;opacity:.92}
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px}
 .tk{display:flex;flex-direction:column;gap:4px;text-decoration:none;color:inherit;background:var(--panel);border:1px solid var(--edge);border-radius:12px;padding:16px 18px;box-shadow:var(--shadow);transition:border-color .12s,transform .12s}
 .tk:hover{border-color:var(--accent);transform:translateY(-1px)}
@@ -330,8 +333,8 @@ footer{margin-top:26px;font-family:var(--mono);font-size:12px;color:var(--faint)
 <button id="themeBtn" class="themebtn" type="button" aria-label="Toggle light or dark theme"></button>
 <div class="wrap">
   <h1>Replay archive</h1>
-  <div class="sub">__COUNT__ ticker(s) replayed · newest activity first · click a ticker for its full history (newest run first)</div>
-  <div class="grid">__TICKERS__</div>
+  <div class="sub">__COUNT__ ticker(s) replayed · grouped by trading day, newest first · click a ticker for its full history (newest run first)</div>
+  __TICKERS__
   <footer>IdiotProof · every strategy replay ever run · /idiotproof/replays/</footer>
 </div>
 <script>(function(){var r=document.documentElement,b=document.getElementById('themeBtn');

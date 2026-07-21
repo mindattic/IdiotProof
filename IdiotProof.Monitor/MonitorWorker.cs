@@ -140,7 +140,9 @@ public sealed class MonitorWorker(
             return;
         }
 
-        var tier = Environment.GetEnvironmentVariable("IDIOTPROOF_ALPACA_FEED") ?? "iex";
+        // Default to the real-time SIP consolidated tape (Algo Trader Plus, IP-A29).
+        // Set IDIOTPROOF_ALPACA_FEED=iex to fall back to the free partial feed.
+        var tier = Environment.GetEnvironmentVariable("IDIOTPROOF_ALPACA_FEED") ?? "sip";
         streaming = new AlpacaStreamingClient(appSettings.AlpacaApiKeyId, appSettings.AlpacaApiSecretKey, tier);
         streaming.BarReceived += bar => streamedBars.Enqueue(bar);
         streaming.Start();
