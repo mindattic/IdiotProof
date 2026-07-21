@@ -22,7 +22,7 @@ namespace IdiotProof.Monitor;
 public static class MonitorCli
 {
     public static bool IsCommand(string arg) =>
-        arg is "status" or "set-keys" or "create-strategies" or "create-account" or "test-order" or "replay" or "replay-regen" or "scan" or "replay-export";
+        arg is "status" or "set-keys" or "create-strategies" or "create-account" or "test-order" or "replay" or "replay-all" or "replay-regen" or "scan" or "replay-export";
 
     public static async Task<int> RunAsync(IServiceProvider sp, string[] args)
     {
@@ -38,6 +38,7 @@ public static class MonitorCli
                 "create-account"    => await CreateAccountAsync(sp, opt),
                 "test-order"        => await TestOrderAsync(sp, opt),
                 "replay"            => await StrategyReplay.RunAsync(sp, opt),
+                "replay-all"        => await StrategyReplay.RunAllAsync(sp, opt),
                 "replay-regen"      => await RunRegenAsync(sp, opt),
                 "scan"              => await StrategyScanner.RunAsync(sp, opt),
                 "replay-export"     => await RunExportAsync(sp, opt),

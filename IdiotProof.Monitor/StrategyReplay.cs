@@ -458,6 +458,49 @@ public static class StrategyReplay
     }
 
     /// <summary>
+    /// Auto-strategy router (CLI: <c>replay-all</c>). Runs EVERY built-in family
+    /// against one ticker/day and ranks them by realized P&amp;L — so a human need
+    /// not pick a strategy per ticker; the system tries the whole library and
+    /// surfaces the best fit. Each family persists as its own ReplayRun, which
+    /// also feeds the dataset: over many tickers/days the (family, conditions →
+    /// outcome) rows are exactly what trains a forward selector.
+    /// </summary>
+    public static async Task<int> RunAllAsync(IServiceProvider sp, Dictionary<string, string> opt)
+    {
+        if (!opt.TryGetValue("symbol", out var symRaw) || string.IsNullOrWhiteSpace(symRaw))
+            return Fail("replay-all requires --symbol <TICKER>.");
+        var symbol = symRaw.Trim().ToUpperInvariant();
+
+        // The whole library: gapper (via profile) + the built-in families.
+        var families = new[] { "classic-gapper", "momentum", "reversal", "rsireversal",
+                               "emabreak", "rthdrive", "shortfade", "swingreversal" };
+        var since = DateTime.UtcNow;
+        foreach (var fam in families)
+        {
+            var one = new Dictionary<string, string>(opt, StringComparer.OrdinalIgnoreCase) { ["profile"] = fam, ["repeat"] = "true" };
+            try { await RunAsync(sp, one); }
+            catch (Exception ex) { Console.Error.WriteLine($"  {fam}: {ex.Message}"); }
+        }
+
+        var dbf = sp.GetRequiredService<IDbContextFactory<AppDbContext>>();
+        List<ReplayRun> rows;
+        await using (var db = await dbf.CreateDbContextAsync())
+            rows = await db.ReplayRuns.Where(r => r.Symbol == symbol && r.GeneratedUtc >= since)
+                .ToListAsync();
+        var ranked = rows.OrderByDescending(r => r.Fired).ThenByDescending(r => r.TotalPnl).ToList();
+
+        Console.WriteLine($"\n════ {symbol}: best-fit across {families.Length} families (by realized P&L) ════");
+        foreach (var r in ranked)
+            Console.WriteLine($"  {(r.Fired ? "●" : "·")} {r.TotalPnl,7:+0.##;-0.##;0}%  {r.Strategy}" +
+                              (r.Fired ? $"  ({r.PayoffCount} round-trip{(r.PayoffCount == 1 ? "" : "s")})" : "  (no fire)"));
+        var best = ranked.FirstOrDefault(r => r.Fired);
+        Console.WriteLine(best is not null
+            ? $"→ BEST FIT: {best.Strategy}  {best.TotalPnl:+0.##;-0.##;0}%"
+            : "→ no family fired for this ticker/day.");
+        return 0;
+    }
+
+    /// <summary>
     /// Regenerates the ENTIRE static archive from SQL — every run page and both
     /// index levels — proving the DB is authoritative and the file tree is a
     /// pure view. Wired to the `replay-regen` CLI command.
