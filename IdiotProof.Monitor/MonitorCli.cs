@@ -107,7 +107,7 @@ public static class MonitorCli
         {
             var loaded = StrategyLoader.Load(s.ScriptJson, s.ScriptText);
             Line("");
-            Line($"   ▸ {s.Symbol}   \"{s.Title}\"");
+            Line($"   ▸ {s.Symbol}   \"{s.Title}\"   —  by {(string.IsNullOrWhiteSpace(s.Author) ? "unknown" : s.Author)}");
             if (loaded.CanonicalError is { } err)
             {
                 Line($"       ✗ QUARANTINED — canonical JSON rejected: {err}");
@@ -319,7 +319,7 @@ public static class MonitorCli
             // CreateAsync derives canonical JSON from the script (parse →
             // StrategyJson.Serialize), so the row is canon-first (IP-LAW-8).
             var s = await repo.CreateAsync(userId.Value, item.Title, item.Symbol, item.Script,
-                description: item.Description);
+                description: item.Description, author: item.Author);
 
             // Verify the canon materializes before activating — fail loud, never
             // arm a strategy the Monitor would quarantine.
@@ -351,6 +351,7 @@ public static class MonitorCli
         public string Symbol { get; set; } = "";
         public string Script { get; set; } = "";
         public string? Description { get; set; }
+        public string? Author { get; set; }
         public bool Active { get; set; }
     }
 

@@ -30,6 +30,12 @@ public sealed class Strategy
     /// <summary>Free-form prose description; the same text the user typed into the Describe tab.</summary>
     public string? Description { get; set; }
 
+    /// <summary>Who invented the strategy recipe — credit/attribution (e.g. "momentum",
+    /// "IdiotProof"). Not the account owner (that's <see cref="OwnerUserId"/>); this is the
+    /// author of the *idea*. Null for legacy rows.</summary>
+    [MaxLength(80)]
+    public string? Author { get; set; }
+
     /// <summary>Primary ticker the strategy monitors (e.g. "TSLA"). Indexed.</summary>
     [Required, MaxLength(20)]
     public string Symbol { get; set; } = "";

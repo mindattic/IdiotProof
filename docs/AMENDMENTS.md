@@ -9,6 +9,24 @@ updated: 2026-07-20
 
 # IdiotProof — Amendments (append-only; amendment wins over the bible)
 
+## IP-A30 — Strategy authorship attribution {#IP-A30}
+**What changed.** (2026-07-20.) Strategies now carry an **author** — credit for who invented the
+*recipe*, distinct from `OwnerUserId` (whose account runs it). New nullable `Strategy.Author`
+column (`AddStrategyAuthor` migration), threaded through `StrategyRepository.CreateAsync`, the
+Monitor's `create-strategies` watchlist schema (`"Author"` field), and shown in `status`
+(`▸ SYM "Title" — by <author>`).
+
+- The gapper/breakout-pullback family carried over from the trader transcripts (ADVB, BXBL, FGMC,
+  HIHO, SHPH, GMM) is credited **`momentum`**.
+- Three **`IdiotProof`**-authored originals were added — deliberately *self-priced* (keyed to
+  VWAP/EMA/structure + volume, not hard-coded price levels), to contrast with momentum's
+  absolute-level breakouts: **VWAP Reclaim Continuation** (NVDA, long — reclaim + higher-low),
+  **Failed-High Fade** (TSLA, short — lower-high + stretched RSI + VWAP loss), **Coiled EMA
+  Squeeze Breakout** (AMD, long — EMA stack + 2× volume expansion).
+
+Attribution is metadata, not part of the canonical strategy JSON ([IP-LAW-8]) — the script still
+defines *what it does*; author records *who made it*. **Status: shipped.**
+
 ## IP-A29 — Real-time SIP is the default feed (Algo Trader Plus) {#IP-A29}
 **What changed.** (2026-07-20.) The account's Alpaca market-data subscription was upgraded to
 **Algo Trader Plus** — unlimited **real-time SIP** consolidated tape, including the 4:00 AM

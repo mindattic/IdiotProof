@@ -47,7 +47,7 @@ public sealed class StrategyRepository(IDbContextFactory<AppDbContext> dbFactory
 
     public async Task<Strategy> CreateAsync(Guid ownerUserId, string title, string symbol,
         string scriptText, string? description = null, string? workspaceId = null,
-        string? scriptJson = null, CancellationToken ct = default)
+        string? scriptJson = null, string? author = null, CancellationToken ct = default)
     {
         var now = DateTime.UtcNow;
         var strategy = new Strategy
@@ -56,6 +56,7 @@ public sealed class StrategyRepository(IDbContextFactory<AppDbContext> dbFactory
             OwnerUserId = ownerUserId,
             Title       = title,
             Description = description,
+            Author      = author,
             Symbol      = symbol.ToUpperInvariant(),
             ScriptText  = scriptText,
             // Canonical JSON (IP-LAW-8). Callers that hold the real semantic
