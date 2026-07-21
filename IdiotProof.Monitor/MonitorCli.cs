@@ -22,7 +22,7 @@ namespace IdiotProof.Monitor;
 public static class MonitorCli
 {
     public static bool IsCommand(string arg) =>
-        arg is "status" or "set-keys" or "create-strategies" or "create-account" or "test-order" or "replay" or "replay-all" or "replay-regen" or "scan" or "replay-export";
+        arg is "status" or "set-keys" or "create-strategies" or "create-account" or "test-order" or "replay" or "replay-all" or "replay-regen" or "scan" or "replay-export" or "resync-canon" or "auto-gapper";
 
     public static async Task<int> RunAsync(IServiceProvider sp, string[] args)
     {
@@ -42,6 +42,8 @@ public static class MonitorCli
                 "replay-regen"      => await RunRegenAsync(sp, opt),
                 "scan"              => await StrategyScanner.RunAsync(sp, opt),
                 "replay-export"     => await RunExportAsync(sp, opt),
+                "resync-canon"      => await ResyncCanonAsync(sp, opt),
+                "auto-gapper"       => await AutoGapperAsync(sp, opt),
                 _                   => Fail($"Unknown command '{cmd}'."),
             };
         }
@@ -355,6 +357,42 @@ public static class MonitorCli
         public string? Author { get; set; }
         public string? OriginTranscript { get; set; }
         public bool Active { get; set; }
+    }
+
+    // ── resync-canon ──────────────────────────────────────────────────────
+    // Re-derives every strategy's canonical JSON from its ScriptText, repairing
+    // rows whose stored canon lost conditions to a since-fixed parser gap (e.g.
+    // IsHigherLow being silently dropped). Dry-run by default; pass --apply to
+    // write. Never regresses a row (see StrategyRepository.ResyncCanonFromTextAsync).
+    private static async Task<int> ResyncCanonAsync(IServiceProvider sp, Dictionary<string, string> opt)
+    {
+        var repo  = sp.GetRequiredService<StrategyRepository>();
+        var apply = opt.ContainsKey("apply");
+        var r = await repo.ResyncCanonFromTextAsync(apply);
+
+        Line($"Canon resync ({(apply ? "APPLY" : "dry-run")}) — scanned {r.Scanned}, " +
+             $"{(apply ? "fixed" : "would fix")} {r.Changed}, skipped-to-avoid-regression {r.SkippedRegression}");
+        foreach (var n in r.Notes) Line("   " + n);
+        if (!apply && r.Changed > 0) Line("→ Re-run with --apply to write the changes.");
+        return 0;
+    }
+
+    // ── auto-gapper ─────────────────────────────────────────────────────
+    // Runs the 3:55 AM gapper discovery+synthesis on demand, bypassing the time
+    // gate. DRY-RUN by default (preview only, arms nothing, writes nothing);
+    // pass --arm to actually create + activate strategies and persist metrics.
+    private static async Task<int> AutoGapperAsync(IServiceProvider sp, Dictionary<string, string> opt)
+    {
+        var scanner = sp.GetRequiredService<AutoGapperScanner>();
+        var userId = await ResolveUserAsync(sp, opt);
+        if (userId is null) return Fail("auto-gapper requires --user <guid> (or a single user).");
+
+        var dryRun = !opt.ContainsKey("arm");
+        Line($"Auto-gapper {(dryRun ? "DRY-RUN (preview — nothing armed)" : "ARM (creating + activating strategies)")} for user {userId}…");
+        var r = await scanner.RunScanAsync(userId.Value, dryRun, phase: "manual", CancellationToken.None);
+        Line($"→ screened {r.Screened}, qualified {r.Qualified}, {(dryRun ? "would-arm" : "armed")} {r.Armed}, skipped {r.Skipped}  ({r.Note})");
+        if (dryRun && r.Armed > 0) Line("   Re-run with --arm to actually arm these (respects the paper-only guard).");
+        return 0;
     }
 
     private static async Task<int> RunRegenAsync(IServiceProvider sp, Dictionary<string, string> opt)

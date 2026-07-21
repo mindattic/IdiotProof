@@ -5,7 +5,7 @@ code: IP
 layer: stories
 status: living
 updated: 2026-07-20
-counts: {done: 27, partial: 22, planned: 13, cut: 0}
+counts: {done: 27, partial: 22, planned: 17, cut: 0}
 ---
 
 # IdiotProof — User Stories
@@ -228,6 +228,26 @@ counts: {done: 27, partial: 22, planned: 13, cut: 0}
 - **IP-US-R12 🟡** As a trader, a swing-structure primitive (pivot-based higher-low/lower-high)
   powers a double-bottom family that buys a confirmed higher low and targets the prior high-of-day
   (swingreversal + IsHigherLow/IsLowerHigh + ExitAtPriorHigh). Shipped; tests pending. See [IP-A27].
+
+## Epic S — Adaptive auto-strategy generation from observed behavior (planned) {#Epic-S}
+> The system watches live price action and AUTO-GENERATES + arms strategies fitted to each
+> ticker's own behavior, instead of a human authoring each one. The on-demand gapper generator
+> (`auto-gapper` CLI + `AutoGapperScanner` adaptive synthesizer + `AutoGapperScan`/`AutoGapperCandidate`
+> feature store) is the working seed. **Design principle: wait for enough information before
+> generating** — the abandoned 3:55 AM premarket trigger fired on thin, not-yet-locked-in data;
+> the standardized version waits until the signal is real. Nothing here is built beyond the seed.
+- **IP-US-S1 ⬜** As a trader, "start-of-period quick strategy generation" is a standardized flow:
+  at the open of a period the system observes each candidate (volume, range, trend, gap) and
+  generates a strategy only once it has *enough* information — never on the first thin minute.
+- **IP-US-S2 ⬜** As a trader, the biggest payoff is intraday (RTH): the system watches a stock
+  plummet and arms a mean-reversion LONG at the low-of-day, and watches a stock soar and arms a
+  fade SHORT at the high-of-day — reversion/exhaustion setups the adaptive engine can template.
+- **IP-US-S3 ⬜** As a trader, each generated strategy's stop/trailing/giveback/size is DETERMINED
+  PER TICKER from its observed behavior (price tier, gap size, premarket/RTH volume, ATR), reusing
+  the adaptive synthesizer prototyped by the on-demand gapper generator.
+- **IP-US-S4 ⬜** As the platform, every observation and generation decision (the full feature
+  vector + chosen parameters + arm/skip outcome) is captured to the auto-gapper feature store, so a
+  model can learn which auto-strategies pay off — joined to the TradeDiary for the realized-P&L label.
 
 ## Epic E — Authoring & generation (web)
 - **IP-US-E1 🟡** As a trader, I describe a setup in prose and Claude generates valid IdiotScript

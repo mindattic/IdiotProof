@@ -99,6 +99,12 @@ public sealed class MonitorWorker(
     private readonly System.Collections.Concurrent.ConcurrentQueue<Candle> streamedBars = new();
     private AlpacaStreamingClient? streaming;
 
+    /// <summary>
+    /// Last-printed active-strategy roster fingerprint. Null until the first
+    /// tick prints the startup roster; thereafter a mismatch reprints it.
+    /// </summary>
+    private string? lastActiveFingerprint;
+
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         logger.LogInformation("IdiotProof.Monitor starting — interval {Interval}s, feed {Feed}",
@@ -155,6 +161,21 @@ public sealed class MonitorWorker(
         // Re-read the active set every tick: queue/toggle/dial-in changes made
         // in the UI land in SQL and apply here automatically — no restart.
         var active = await strategyRepo.GetActiveAsync(ct);
+
+        // Roster echo: print the active-strategy list on startup (first tick,
+        // lastActiveFingerprint == null) and reprint it whenever the AUTHORED
+        // set changes — an add/remove, an enable/disable, or an edit to a
+        // strategy's title/symbol/script. Position bookkeeping (PositionQty,
+        // FireCount, UpdatedUtc) is deliberately NOT in the fingerprint, so the
+        // Monitor's own fills/exits don't spam the roster — those already have
+        // their own loud per-fire log lines.
+        var fingerprint = RosterFingerprint(active);
+        if (fingerprint != lastActiveFingerprint)
+        {
+            PrintActiveRoster(active, lastActiveFingerprint is null ? "startup" : "change detected");
+            lastActiveFingerprint = fingerprint;
+        }
+
         if (active.Count == 0) return;
 
         DrainStreamedBars();
@@ -806,6 +827,65 @@ public sealed class MonitorWorker(
         logger.LogInformation("[{Title}] ✓ SOLD {Qty} {Symbol} @ {Price:F2} — {Reason} (P&L {Pnl:+0.00;-0.00})",
             stored.Title, sellQty, stored.Symbol, limitPrice, decision.Reason, realized);
     }
+
+    // ── Active-strategy roster echo ─────────────────────────────────────
+
+    /// <summary>
+    /// Fingerprint of the AUTHORED active set — the Id, title, symbol, active
+    /// flag, and canonical script of every active strategy. Changes exactly
+    /// when a strategy is added, removed, enabled, disabled, or edited; blind
+    /// to live position bookkeeping so a fill/exit never reprints the roster.
+    /// </summary>
+    private static string RosterFingerprint(IReadOnlyList<IdiotProof.Blazor.Data.Strategy> active) =>
+        string.Join("\n", active
+            .OrderBy(s => s.Id)
+            .Select(s => $"{s.Id}|{s.Title}|{s.Symbol}|{s.IsActive}|{s.ScriptJson ?? s.ScriptText}"));
+
+    /// <summary>
+    /// Prints the active-strategy roster as a compact table. Written straight
+    /// to the console (like the startup wordmark) rather than through the
+    /// single-line logger so the table isn't shredded into timestamped lines.
+    /// </summary>
+    private void PrintActiveRoster(IReadOnlyList<IdiotProof.Blazor.Data.Strategy> active, string reason)
+    {
+        // ASCII-only framing: the Monitor console runs under the OEM codepage
+        // (like the startup wordmark), where box-drawing glyphs render as '?'.
+        var bar = new string('=', 60);
+        var sb = new System.Text.StringBuilder();
+        sb.AppendLine();
+        sb.AppendLine(bar);
+        sb.AppendLine($"  Active strategies: {active.Count}  -  {reason} @ {DateTime.UtcNow:HH:mm:ss} UTC");
+        sb.AppendLine(bar);
+        if (active.Count == 0)
+        {
+            sb.AppendLine("  (none - the Monitor is idle until a strategy is activated)");
+        }
+        else
+        {
+            sb.AppendLine("   #  Symbol   Session      Entry  State       Title");
+            var i = 0;
+            foreach (var s in active.OrderBy(x => x.Symbol, StringComparer.OrdinalIgnoreCase).ThenBy(x => x.Title, StringComparer.OrdinalIgnoreCase))
+            {
+                i++;
+                var loaded = StrategyLoader.Load(s.ScriptJson, s.ScriptText);
+                string session; int entry; string state;
+                if (loaded.CanonicalError is not null) { session = "-"; entry = 0; state = "QUARANTINE"; }
+                else if (loaded.Definition is { } d)
+                {
+                    session = d.Session.ToString();
+                    entry = d.EntryConditions.Count;
+                    state = s.PositionQty > 0 ? $"HOLD {s.PositionQty}" : "armed";
+                }
+                else { session = "-"; entry = 0; state = "UNPARSED"; }
+                sb.AppendLine($"  {i,2}  {s.Symbol,-7}  {session,-11}  {entry,4}   {state,-10}  {RosterTrunc(s.Title, 44)}");
+            }
+        }
+        sb.Append(bar);
+        Console.WriteLine(sb.ToString());
+    }
+
+    private static string RosterTrunc(string? s, int n) =>
+        string.IsNullOrEmpty(s) ? "" : s.Length <= n ? s : s[..(n - 3)] + "...";
 
     // ── Clock helpers ───────────────────────────────────────────────────
 

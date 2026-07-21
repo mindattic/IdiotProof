@@ -149,6 +149,65 @@ public sealed class StrategyRepository(IDbContextFactory<AppDbContext> dbFactory
         return filled;
     }
 
+    /// <summary>Outcome of a canon re-derivation sweep (see <see cref="ResyncCanonFromTextAsync"/>).</summary>
+    public sealed record CanonResyncResult(int Scanned, int Changed, int SkippedRegression, List<string> Notes);
+
+    /// <summary>
+    /// Re-derives each strategy's canonical JSON from its ScriptText and rewrites
+    /// ScriptJson where the text now yields a RICHER canon than what is stored —
+    /// the repair for verbs a since-fixed <see cref="ScriptParser"/> used to drop
+    /// silently (e.g. IsHigherLow), which left the money-path canon (IP-LAW-8)
+    /// missing conditions the script clearly declared.
+    ///
+    /// SAFE BY CONSTRUCTION: a row is rewritten only when the re-derived canon
+    /// parses AND has at least as many entry conditions and conditional blocks as
+    /// the stored canon. Any row where re-derivation would LOSE something (e.g. a
+    /// branching strategy the tolerant parser can't reconstruct) is skipped and
+    /// reported — never regressed. Touches ScriptJson + UpdatedUtc only, so live
+    /// position bookkeeping is preserved. Pass <paramref name="apply"/>=false for
+    /// a dry run.
+    /// </summary>
+    public async Task<CanonResyncResult> ResyncCanonFromTextAsync(bool apply, CancellationToken ct = default)
+    {
+        await using var db = await dbFactory.CreateDbContextAsync(ct);
+        var all = await db.Strategies.ToListAsync(ct);
+        var notes = new List<string>();
+        int changed = 0, skipped = 0;
+
+        foreach (var s in all)
+        {
+            if (string.IsNullOrWhiteSpace(s.ScriptText)) continue;
+            var newJson = DeriveCanonicalJson(s.ScriptText);
+            if (newJson is null) { notes.Add($"skip  {s.Symbol} \"{s.Title}\" — ScriptText does not parse"); continue; }
+            if (newJson == s.ScriptJson) continue; // already in sync
+
+            StrategyDefinition? oldDef = null, newDef = null;
+            try { oldDef = string.IsNullOrWhiteSpace(s.ScriptJson) ? null : StrategyJson.Deserialize(s.ScriptJson); } catch { /* treat unreadable stored canon as empty */ }
+            try { newDef = StrategyJson.Deserialize(newJson); } catch { }
+            if (newDef is null) { notes.Add($"skip  {s.Symbol} \"{s.Title}\" — re-derived canon invalid"); continue; }
+
+            var oldEntry = oldDef?.EntryConditions.Count ?? 0;
+            var oldBranch = oldDef?.ConditionalBlocks.Count ?? 0;
+            if (newDef.EntryConditions.Count < oldEntry || newDef.ConditionalBlocks.Count < oldBranch)
+            {
+                skipped++;
+                notes.Add($"SKIP  {s.Symbol} \"{s.Title}\" — would REGRESS (entry {oldEntry}→{newDef.EntryConditions.Count}, branches {oldBranch}→{newDef.ConditionalBlocks.Count})");
+                continue;
+            }
+
+            notes.Add($"{(apply ? "FIX  " : "WOULD")} {s.Symbol} \"{s.Title}\" — entry {oldEntry}→{newDef.EntryConditions.Count}, branches {oldBranch}→{newDef.ConditionalBlocks.Count}");
+            if (apply)
+            {
+                s.ScriptJson = newJson;
+                s.UpdatedUtc = DateTime.UtcNow;
+            }
+            changed++;
+        }
+
+        if (apply && changed > 0) await db.SaveChangesAsync(ct);
+        return new CanonResyncResult(all.Count, changed, skipped, notes);
+    }
+
     /// <summary>
     /// Toggles IsActive with the two guards every mutating caller must obey:
     /// ownership (the row must belong to <paramref name="ownerUserId"/> — no

@@ -95,7 +95,12 @@ public static class StrategyScanner
         return 0;
     }
 
-    private static async Task<List<(string, double, double)>> FetchMoversAsync(string key, string secret, int top)
+    /// <summary>
+    /// Top gainers from Alpaca's live movers screener. Shared with
+    /// <see cref="AutoGapperScanner"/> so both the CLI scan and the automated
+    /// 3:55 AM job discover gappers through the exact same endpoint.
+    /// </summary>
+    internal static async Task<List<(string Symbol, double Percent, double Price)>> FetchMoversAsync(string key, string secret, int top)
     {
         using var http = new HttpClient { BaseAddress = new Uri(DataBaseUrl), Timeout = TimeSpan.FromSeconds(30) };
         http.DefaultRequestHeaders.Add("APCA-API-KEY-ID", key);

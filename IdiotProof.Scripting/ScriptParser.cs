@@ -86,9 +86,18 @@ public static class ScriptParser
 
             // ADX/DI
             case "requireadxabove": b.RequireAdxAbove(nums.Count >= 1 ? (double)nums[0] : 20); break;
+            case "trending":        b.Trending(nums.Count >= 1 ? (double)nums[0] : 20); break;
             case "isadxabove":      if (nums.Count >= 1) b.IsAdxAbove((double)nums[0]); break;
             case "isdipositive":    b.IsDiPositive(); break;
             case "isdinegative":    b.IsDiNegative(); break;
+
+            // Pivots (swing structure). These were MISSING: a text→canon
+            // derivation silently dropped IsHigherLow()/IsLowerHigh(), so a
+            // "Higher-Low Reclaim" strategy fired without ever checking for a
+            // higher low. The canon is the money path (IP-LAW-8), so the drop
+            // meant the strategy did not do what its name/script said.
+            case "ishigherlow": b.IsHigherLow(); break;
+            case "islowerhigh": b.IsLowerHigh(); break;
 
             // RSI
             case "isrsioversold":          b.IsRsiOversold(nums.Count >= 1 ? (double)nums[0] : 30); break;
@@ -108,8 +117,8 @@ public static class ScriptParser
             case "volumespike":       b.VolumeSpike(nums.Count >= 1 ? (double)nums[0] : 2.0); break;
 
             // Gap
-            case "isgapup":   b.IsGapUp(nums.Count >= 1 ? (double)nums[0] : 3); break;
-            case "isgapdown": b.IsGapDown(nums.Count >= 1 ? (double)nums[0] : 3); break;
+            case "isgapup":   case "gapup":   b.IsGapUp(nums.Count >= 1 ? (double)nums[0] : 3); break;
+            case "isgapdown": case "gapdown": b.IsGapDown(nums.Count >= 1 ? (double)nums[0] : 3); break;
             case "isgapbetween": if (nums.Count >= 2) b.IsGapBetween((double)nums[0], (double)nums[1]); break;
 
             // Support / Resistance
@@ -153,7 +162,9 @@ public static class ScriptParser
                 else if (nums.Count == 1) b.TakeProfit((double)nums[0]);
                 break;
             case "takeprofitpercent":if (nums.Count >= 1) b.TakeProfitPercent((double)nums[0]); break;
+            case "addtarget":        if (nums.Count >= 2) b.AddTarget((double)nums[0], (int)nums[1], strs.Count >= 3 ? strs[2] : null); break;
             case "trailingstoploss": if (nums.Count >= 1) b.TrailingStopLoss((double)nums[0]); break;
+            case "exitatpriorhigh":  b.ExitAtPriorHigh(); break;
 
             // Misc
             case "autonomoustrading": b.AutonomousTrading(); break;

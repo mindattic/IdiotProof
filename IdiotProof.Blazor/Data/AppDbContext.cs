@@ -30,6 +30,8 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options)
     public DbSet<ReplayRun>         ReplayRuns        => Set<ReplayRun>();
     public DbSet<ReplayTrade>       ReplayTrades      => Set<ReplayTrade>();
     public DbSet<ReplayBar>         ReplayBars        => Set<ReplayBar>();
+    public DbSet<AutoGapperScan>       AutoGapperScans      => Set<AutoGapperScan>();
+    public DbSet<AutoGapperCandidate>  AutoGapperCandidates => Set<AutoGapperCandidate>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -111,6 +113,23 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options)
         {
             e.HasIndex(x => x.ReplayRunId);
             e.HasOne<ReplayRun>().WithMany().HasForeignKey(x => x.ReplayRunId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        b.Entity<AutoGapperScan>(e =>
+        {
+            // Idempotency is per (date, phase): the scheduled "auto" pass runs at
+            // most once per ET day, while "manual" pre-arms may repeat — so the
+            // index is NOT unique (the once-per-day guard is a code-side query).
+            e.HasIndex(s => new { s.ScanEtDate, s.Phase });
+        });
+        b.Entity<AutoGapperCandidate>(e =>
+        {
+            e.HasIndex(c => c.ScanId);
+            e.HasIndex(c => new { c.Symbol, c.ScanEtDate });
+            e.Property(c => c.Notional).HasPrecision(18, 2);
+            e.HasOne<AutoGapperScan>().WithMany().HasForeignKey(c => c.ScanId).OnDelete(DeleteBehavior.Cascade);
+            // NO FK to Strategy: the candidate is a permanent research record and
+            // must survive the armed strategy being deleted (like TradeDiary).
         });
 
         b.Entity<TradeDiaryEntry>(e =>

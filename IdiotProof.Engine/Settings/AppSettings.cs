@@ -40,6 +40,21 @@ public sealed class AppSettings
     public int MaxConcurrentEvaluations { get; set; } = 4;
     public string LlmVoterModel { get; set; } = "claude-sonnet-5";
 
+    // ── Auto-gapper generator (on-demand only — operator CLI `auto-gapper`) ──
+    // There is no scheduled trigger; a standardized auto-generation flow is
+    // future work (USER_STORIES Epic S). These tune the on-demand scan.
+    /// <summary>Minimum gap over previous close (percent) to qualify.</summary>
+    public double AutoGapperMinGapPercent { get; set; } = 15;
+    /// <summary>Discovery price floor (skip sub-dollar illiquid junk).</summary>
+    public double AutoGapperMinPrice { get; set; } = 1;
+    /// <summary>Max strategies to arm per run (ranked by conviction).</summary>
+    public int AutoGapperMaxCount { get; set; } = 5;
+    /// <summary>
+    /// Broker routing for armed strategies: "paper" (forced paper, the safe
+    /// default), "route" (respect the user's normal routing), or "live".
+    /// </summary>
+    public string AutoGapperBrokerMode { get; set; } = "paper";
+
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         WriteIndented = true,
@@ -87,6 +102,14 @@ public sealed class AppSettings
 
         var claudeKey = Environment.GetEnvironmentVariable("ClaudeApiKey");
         if (!string.IsNullOrWhiteSpace(claudeKey)) ClaudeApiKey = claudeKey;
+
+        // Auto-gapper on-demand tuning knobs (env overrides for the CLI scan).
+        var agGap = Environment.GetEnvironmentVariable("IDIOTPROOF_AUTOGAPPER_MINGAP");
+        if (double.TryParse(agGap, System.Globalization.CultureInfo.InvariantCulture, out var g)) AutoGapperMinGapPercent = g;
+        var agMax = Environment.GetEnvironmentVariable("IDIOTPROOF_AUTOGAPPER_MAX");
+        if (int.TryParse(agMax, out var mx)) AutoGapperMaxCount = mx;
+        var agBroker = Environment.GetEnvironmentVariable("IDIOTPROOF_AUTOGAPPER_BROKER");
+        if (!string.IsNullOrWhiteSpace(agBroker)) AutoGapperBrokerMode = agBroker.ToLowerInvariant();
     }
 
     /// <summary>

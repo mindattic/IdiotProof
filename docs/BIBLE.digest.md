@@ -1,6 +1,6 @@
 ﻿AUTHORITATIVE — full detail in docs/BIBLE.md
 
-<!-- generatedFrom: IP-§1,IP-§3,IP-§5,IP-§9 + USER_STORIES status index. Generated 2026-07-20 by tools/codex.ps1. Do not hand-edit. -->
+<!-- generatedFrom: IP-§1,IP-§3,IP-§5,IP-§9 + USER_STORIES status index. Generated 2026-07-21 by tools/codex.ps1. Do not hand-edit. -->
 
 # IdiotProof — Bible Digest (generated)
 
@@ -115,7 +115,7 @@ text. ("Parse, don't validate"; no shotgun parsing on the money path — see
 ## Status index (USER_STORIES.md)
 - done: 30
 - partial: 23
-- planned: 22
+- planned: 26
 - cut: 1
 
 ## Latest amendment

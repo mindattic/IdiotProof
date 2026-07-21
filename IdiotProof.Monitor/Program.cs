@@ -182,6 +182,10 @@ builder.Services.AddSingleton(_ =>
     return router;
 });
 
+// On-demand gapper generator — resolved by the `auto-gapper` operator CLI only
+// (no scheduled trigger; standardized auto-generation is future work, Epic S).
+builder.Services.AddSingleton<AutoGapperScanner>();
+
 builder.Services.AddHostedService<MonitorWorker>();
 
 builder.Logging.ClearProviders();

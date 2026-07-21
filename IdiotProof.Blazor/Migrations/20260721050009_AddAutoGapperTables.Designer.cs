@@ -4,6 +4,7 @@ using IdiotProof.Blazor.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace IdiotProof.Blazor.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260721050009_AddAutoGapperTables")]
+    partial class AddAutoGapperTables
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -192,11 +195,6 @@ namespace IdiotProof.Blazor.Migrations
                         .HasMaxLength(400)
                         .HasColumnType("nvarchar(400)");
 
-                    b.Property<string>("Phase")
-                        .IsRequired()
-                        .HasMaxLength(16)
-                        .HasColumnType("nvarchar(16)");
-
                     b.Property<int>("Qualified")
                         .HasColumnType("int");
 
@@ -216,7 +214,8 @@ namespace IdiotProof.Blazor.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("ScanEtDate", "Phase");
+                    b.HasIndex("ScanEtDate")
+                        .IsUnique();
 
                     b.ToTable("AutoGapperScans");
                 });
