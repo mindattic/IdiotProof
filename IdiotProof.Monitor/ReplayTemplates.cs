@@ -24,14 +24,20 @@ internal static class ReplayTemplates
 <style>
 :root{--bg:#f3f4f7;--panel:#fff;--panel2:#f7f8fa;--edge:#e2e5ea;--grid:rgba(20,26,40,.06);--axis:rgba(20,26,40,.1);
 --ink:#1a1f2b;--dim:#5b6472;--faint:#8b94a3;--up:#0f9d78;--down:#e0483d;--vwap:#7b52d6;--whigh:#e08a2c;
---accent:#d9a400;--good:#0f9d78;--bad:#c2544a;--void:rgba(20,26,40,.05);--warn:#c2544a;
+--accent:#FCD72B;--good:#0f9d78;--bad:#c2544a;--void:rgba(20,26,40,.05);--warn:#c2544a;
 --shadow:0 1px 2px rgba(16,22,40,.06),0 8px 30px rgba(16,22,40,.08);
 --mono:ui-monospace,"SF Mono","Cascadia Mono",Menlo,Consolas,monospace;--sans:"Segoe UI",system-ui,-apple-system,Arial,sans-serif;}
 @media(prefers-color-scheme:dark){:root{--bg:#0a0d13;--panel:#10141d;--panel2:#0c1017;--edge:#1e2530;--grid:rgba(255,255,255,.045);--axis:rgba(255,255,255,.09);
 --ink:#d7dbe4;--dim:#8b94a5;--faint:#5c6577;--up:#26a69a;--down:#ef5350;--vwap:#a98bff;--whigh:#ffa64d;--accent:#f5c518;--good:#26a69a;--bad:#ef5350;--void:rgba(255,255,255,.05);--warn:#ef5350;
 --shadow:0 1px 2px rgba(0,0,0,.4),0 10px 40px rgba(0,0,0,.5);}}
-:root[data-theme="light"]{--bg:#f3f4f7;--panel:#fff;--panel2:#f7f8fa;--edge:#e2e5ea;--grid:rgba(20,26,40,.06);--axis:rgba(20,26,40,.1);--ink:#1a1f2b;--dim:#5b6472;--faint:#8b94a3;--up:#0f9d78;--down:#e0483d;--vwap:#7b52d6;--whigh:#e08a2c;--accent:#d9a400;--good:#0f9d78;--bad:#c2544a;--void:rgba(20,26,40,.05);--warn:#c2544a;--shadow:0 1px 2px rgba(16,22,40,.06),0 8px 30px rgba(16,22,40,.08);}
+:root[data-theme="light"]{--bg:#f3f4f7;--panel:#fff;--panel2:#f7f8fa;--edge:#e2e5ea;--grid:rgba(20,26,40,.06);--axis:rgba(20,26,40,.1);--ink:#1a1f2b;--dim:#5b6472;--faint:#8b94a3;--up:#0f9d78;--down:#e0483d;--vwap:#7b52d6;--whigh:#e08a2c;--accent:#FCD72B;--good:#0f9d78;--bad:#c2544a;--void:rgba(20,26,40,.05);--warn:#c2544a;--shadow:0 1px 2px rgba(16,22,40,.06),0 8px 30px rgba(16,22,40,.08);}
 :root[data-theme="dark"]{--bg:#0a0d13;--panel:#10141d;--panel2:#0c1017;--edge:#1e2530;--grid:rgba(255,255,255,.045);--axis:rgba(255,255,255,.09);--ink:#d7dbe4;--dim:#8b94a5;--faint:#5c6577;--up:#26a69a;--down:#ef5350;--vwap:#a98bff;--whigh:#ffa64d;--accent:#f5c518;--good:#26a69a;--bad:#ef5350;--void:rgba(255,255,255,.05);--warn:#ef5350;--shadow:0 1px 2px rgba(0,0,0,.4),0 10px 40px rgba(0,0,0,.5);}
+/* --panel-2 aliases --panel2 (server SVG uses the hyphenated name); --accent-ink
+   is the readable accent for TEXT (dark gold on light, yellow on dark) so accent
+   text never becomes unreadable yellow-on-white. */
+:root{--panel-2:var(--panel2);--accent-ink:#8a6a00}
+:root[data-theme="dark"]{--accent-ink:#f5c518}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]){--accent-ink:#f5c518}}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);line-height:1.5;-webkit-font-smoothing:antialiased}
 .wrap{max-width:1180px;margin:0 auto;padding:24px 20px 64px}
 .themebtn{position:fixed;top:14px;right:16px;z-index:30;width:36px;height:36px;border-radius:999px;border:1px solid var(--edge);background:var(--panel);color:var(--ink);cursor:pointer;font-size:16px;line-height:1;box-shadow:var(--shadow)}
@@ -45,7 +51,7 @@ button.tgl{margin-left:6px;font-family:var(--mono);font-size:11px;cursor:pointer
 .verdict{display:flex;flex-wrap:wrap;align-items:center;gap:14px;padding:16px 18px;background:var(--panel);border:1px solid var(--edge);border-top:none}
 .verdict .flag{font-family:var(--mono);font-weight:700;font-size:13px;letter-spacing:1px;padding:6px 12px;border-radius:7px;text-transform:uppercase}
 .verdict .flag.yes{color:#1a1206;background:var(--accent)}.verdict .flag.no{color:var(--dim);background:var(--void);border:1px solid var(--edge)}
-.verdict .hd{font-size:15px}.verdict .hd b{font-family:var(--mono);font-size:16px}.verdict .px{color:var(--accent);font-weight:700}
+.verdict .hd{font-size:15px}.verdict .hd b{font-family:var(--mono);font-size:16px}.verdict .px{color:var(--accent-ink);font-weight:700}
 .verdict .sub{color:var(--dim);font-size:13px;margin-left:auto;text-align:right;font-family:var(--mono)}
 .card{background:var(--panel);border:1px solid var(--edge);box-shadow:var(--shadow)}
 .chart{position:relative;border-top:none;border-radius:0 0 12px 12px;overflow:hidden}
@@ -99,8 +105,8 @@ footer{margin-top:22px;font-size:12px;color:var(--faint);font-family:var(--mono)
   <div class="legend">
     <span><i class="sw" style="border-color:var(--vwap)"></i>VWAP</span>
     <span><i class="sw" style="border-color:var(--whigh);border-style:dashed"></i>Window high</span>
-    <span><i class="sw" style="border:0;border-left:6px solid transparent;border-right:6px solid transparent;border-bottom:9px solid var(--accent)"></i>Entry / fire (all conditions true)</span>
-    <span><i class="sw" style="border:0;border-left:6px solid transparent;border-right:6px solid transparent;border-top:9px solid var(--down)"></i>Exit (stop / trail / target / sell-by)</span>
+    <span><i class="sw" style="width:0;height:0;border:0;border-left:6px solid transparent;border-right:6px solid transparent;border-bottom:9px solid var(--accent)"></i>Entry / fire (all conditions true)</span>
+    <span><i class="sw" style="width:0;height:0;border:0;border-left:6px solid transparent;border-right:6px solid transparent;border-top:9px solid var(--down)"></i>Exit (stop / trail / target / sell-by)</span>
     <span style="color:var(--faint)">Bottom band = per-condition truth each minute (gold column = fire)</span>
   </div>
 
@@ -217,11 +223,23 @@ redraw();
 document.getElementById('flowsvg').innerHTML = DATA.svgFlow || '<p style="color:var(--faint);font-family:var(--mono)">Flow SVG regenerates on the next replay of this strategy.</p>';
 
 /* ── Mermaid (CDN) ── */
-document.getElementById('mmd').textContent=DATA.mermaid;
+/* Build Mermaid from DATA.conditions at render time (not the baked DATA.mermaid):
+   labels sanitized to [A-Za-z0-9 .-] so colons/slashes/parens can't break the v11
+   parser — the actual cause of "Syntax error in text". */
+function ipMermaid(){
+  function s(x){return (''+x).replace(/[^A-Za-z0-9 .-]/g,' ').replace(/\s+/g,' ').trim();}
+  var L=['flowchart TD','  setup["Setup '+s(DATA.symbol)+' '+s(DATA.session)+'"]'],prev='setup';
+  (DATA.conditions||[]).forEach(function(c,i){L.push('  c'+i+'["'+s(c)+'"]');L.push('  '+prev+' --> c'+i);prev='c'+i;});
+  L.push('  gate{"ALL conditions true"}','  '+prev+' --> gate','  wait["keep waiting"]',
+    '  llm["Gate 2 LLM voter quorum"]','  risk["Gate 3 Risk Guardian"]','  order["Order '+s(DATA.side)+'"]',
+    '  gate -->|no| wait','  gate -->|yes| llm','  llm --> risk','  risk --> order','  exit["Exit rules"]','  order --> exit');
+  return L.join('\n');
+}
+document.getElementById('mmd').textContent=ipMermaid();
 var mmdReady=false;
 function renderMermaid(){if(mmdReady||typeof mermaid==='undefined')return;mmdReady=true;
 var dark=(document.documentElement.getAttribute('data-theme')||(matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'))==='dark';
-try{mermaid.initialize({startOnLoad:false,theme:dark?'dark':'neutral',securityLevel:'strict'});mermaid.run({querySelector:'.mermaid'});}catch(e){document.getElementById('mmd').textContent='Mermaid failed to load (offline?). Flow shown in the Inline SVG tab.\n\n'+DATA.mermaid;}}
+try{mermaid.initialize({startOnLoad:false,theme:dark?'dark':'neutral',securityLevel:'strict'});mermaid.run({querySelector:'.mermaid'});}catch(e){document.getElementById('mmd').textContent='Mermaid unavailable — see the Inline SVG tab.';}}
 document.querySelectorAll('.tab').forEach(t=>t.onclick=function(){document.querySelectorAll('.tab').forEach(x=>x.classList.remove('on'));document.querySelectorAll('.pane').forEach(x=>x.classList.remove('on'));t.classList.add('on');document.getElementById('pane-'+t.dataset.pane).classList.add('on');if(t.dataset.pane==='mmd')renderMermaid();});
 </script>
 </body>
@@ -238,11 +256,11 @@ document.querySelectorAll('.tab').forEach(t=>t.onclick=function(){document.query
 <title>__SYMBOL__ replays · IdiotProof</title>
 <script>(function(){var t;try{t=localStorage.getItem('ip-theme')}catch(e){}document.documentElement.setAttribute('data-theme',t==='light'?'light':'dark');})();</script>
 <style>
-:root{--bg:#f3f4f7;--panel:#fff;--panel2:#f7f8fa;--edge:#e2e5ea;--ink:#1a1f2b;--dim:#5b6472;--faint:#8b94a3;--accent:#d9a400;--good:#0f9d78;--dimfire:#0f9d78;
+:root{--bg:#f3f4f7;--panel:#fff;--panel2:#f7f8fa;--edge:#e2e5ea;--ink:#1a1f2b;--dim:#5b6472;--faint:#8b94a3;--accent:#FCD72B;--good:#0f9d78;--dimfire:#0f9d78;
 --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;--sans:"Segoe UI",system-ui,Arial,sans-serif;--shadow:0 1px 2px rgba(16,22,40,.06),0 8px 30px rgba(16,22,40,.08)}
 @media(prefers-color-scheme:dark){:root{--bg:#0a0d13;--panel:#10141d;--panel2:#0c1017;--edge:#1e2530;--ink:#d7dbe4;--dim:#8b94a5;--faint:#5c6577;--accent:#f5c518;--good:#26a69a;--dimfire:#26a69a;--shadow:0 1px 2px rgba(0,0,0,.4),0 10px 40px rgba(0,0,0,.5)}}
 :root[data-theme="dark"]{--bg:#0a0d13;--panel:#10141d;--panel2:#0c1017;--edge:#1e2530;--ink:#d7dbe4;--dim:#8b94a5;--faint:#5c6577;--accent:#f5c518;--good:#26a69a;--dimfire:#26a69a}
-:root[data-theme="light"]{--bg:#f3f4f7;--panel:#fff;--panel2:#f7f8fa;--edge:#e2e5ea;--ink:#1a1f2b;--dim:#5b6472;--faint:#8b94a3;--accent:#d9a400;--good:#0f9d78;--dimfire:#0f9d78}
+:root[data-theme="light"]{--bg:#f3f4f7;--panel:#fff;--panel2:#f7f8fa;--edge:#e2e5ea;--ink:#1a1f2b;--dim:#5b6472;--faint:#8b94a3;--accent:#FCD72B;--good:#0f9d78;--dimfire:#0f9d78}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans)}
 .wrap{max-width:820px;margin:0 auto;padding:36px 20px 64px}
 .themebtn{position:fixed;top:14px;right:16px;z-index:30;width:36px;height:36px;border-radius:999px;border:1px solid var(--edge);background:var(--panel);color:var(--ink);cursor:pointer;font-size:16px;line-height:1;box-shadow:var(--shadow)}
@@ -285,11 +303,11 @@ b.addEventListener('click',function(){var n=r.getAttribute('data-theme')==='ligh
 <title>Replay archive · IdiotProof</title>
 <script>(function(){var t;try{t=localStorage.getItem('ip-theme')}catch(e){}document.documentElement.setAttribute('data-theme',t==='light'?'light':'dark');})();</script>
 <style>
-:root{--bg:#f3f4f7;--panel:#fff;--panel2:#f7f8fa;--edge:#e2e5ea;--ink:#1a1f2b;--dim:#5b6472;--faint:#8b94a3;--accent:#d9a400;--good:#0f9d78;
+:root{--bg:#f3f4f7;--panel:#fff;--panel2:#f7f8fa;--edge:#e2e5ea;--ink:#1a1f2b;--dim:#5b6472;--faint:#8b94a3;--accent:#FCD72B;--good:#0f9d78;
 --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;--sans:"Segoe UI",system-ui,Arial,sans-serif;--shadow:0 1px 2px rgba(16,22,40,.06),0 8px 30px rgba(16,22,40,.08)}
 @media(prefers-color-scheme:dark){:root{--bg:#0a0d13;--panel:#10141d;--panel2:#0c1017;--edge:#1e2530;--ink:#d7dbe4;--dim:#8b94a5;--faint:#5c6577;--accent:#f5c518;--good:#26a69a;--shadow:0 1px 2px rgba(0,0,0,.4),0 10px 40px rgba(0,0,0,.5)}}
 :root[data-theme="dark"]{--bg:#0a0d13;--panel:#10141d;--panel2:#0c1017;--edge:#1e2530;--ink:#d7dbe4;--dim:#8b94a5;--faint:#5c6577;--accent:#f5c518;--good:#26a69a}
-:root[data-theme="light"]{--bg:#f3f4f7;--panel:#fff;--panel2:#f7f8fa;--edge:#e2e5ea;--ink:#1a1f2b;--dim:#5b6472;--faint:#8b94a3;--accent:#d9a400;--good:#0f9d78}
+:root[data-theme="light"]{--bg:#f3f4f7;--panel:#fff;--panel2:#f7f8fa;--edge:#e2e5ea;--ink:#1a1f2b;--dim:#5b6472;--faint:#8b94a3;--accent:#FCD72B;--good:#0f9d78}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans)}
 .wrap{max-width:900px;margin:0 auto;padding:36px 20px 64px}
 .themebtn{position:fixed;top:14px;right:16px;z-index:30;width:36px;height:36px;border-radius:999px;border:1px solid var(--edge);background:var(--panel);color:var(--ink);cursor:pointer;font-size:16px;line-height:1;box-shadow:var(--shadow)}
