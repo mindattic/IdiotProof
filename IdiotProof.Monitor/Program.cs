@@ -36,6 +36,11 @@ using MindAttic.Authentication.Web;
 // Run:   dotnet run --project IdiotProof.Monitor
 // Stop:  Ctrl+C (graceful shutdown via IHostApplicationLifetime)
 
+// Brand wordmark on startup (shared source of truth — IdiotProof.Shared.Branding).
+Console.WriteLine();
+Console.WriteLine(IdiotProof.Shared.Branding.AsciiBanner);
+Console.WriteLine();
+
 var builder = Host.CreateApplicationBuilder(args);
 
 // Windows Service hosting: `sc.exe create IdiotProof.Monitor binPath=...` runs
