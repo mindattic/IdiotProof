@@ -350,7 +350,15 @@ public static class StrategyReplay
             .Name($"{symbol} Reversal (EMA9 reclaim off lows)")
             .Session(TradingSession.Extended).RequireEntryWindow("04:00", "15:30")
             .OnReclaim(9).IsAtSupport(2.0).WithVolumeConfirm(1.3).IsPriceBetween(1, 100000)
-            .Long().QuantityNotional(1000).StopLossPercent(3).TrailingStopLoss(6).Repeat().Build(),
+            .Long().QuantityNotional(1000).StopLossPercent(3).TrailingStopLoss(6).SellBy("15:55").Repeat().Build(),
+        "rsireversal" => Stock.Ticker(symbol)
+            .Name($"{symbol} RSI reversal (oversold capitulation at LOD)")
+            // The ORCL-style flush: wait for RSI to print oversold WHILE price is
+            // at support (the low of day) on volume — capitulation, not a mid-fall
+            // knife — then buy the bounce. Tight stop, trail, flatten before close.
+            .Session(TradingSession.Extended).RequireEntryWindow("04:00", "15:30")
+            .IsRsiOversold(35).IsAtSupport(2.0).WithVolumeConfirm(1.2).IsPriceBetween(1, 100000)
+            .Long().QuantityNotional(1000).StopLossPercent(2.5).TrailingStopLoss(5).SellBy("15:55").Repeat().Build(),
         "emabreak" => Stock.Ticker(symbol)
             .Name($"{symbol} EMA200 break (trend reclaim)")
             .Session(TradingSession.Extended).RequireEntryWindow("04:00", "15:30")
