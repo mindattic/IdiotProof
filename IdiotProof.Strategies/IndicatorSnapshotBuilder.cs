@@ -149,6 +149,29 @@ public static class IndicatorSnapshotBuilder
             }
             snapshot.RecentSwingHigh = hi == decimal.MinValue ? null : (double)hi;
             snapshot.RecentSwingLow  = lo == decimal.MaxValue ? null : (double)lo;
+
+            // Swing structure: track the two most-recent pivot lows/highs. A pivot
+            // is a local extreme with `piv` bars lower/higher on each side; the last
+            // `piv` bars can't be confirmed yet (they lack right-side bars), which is
+            // correct — a higher low is only real once price has turned back up.
+            const int piv = 3;
+            if (n > 2 * piv + 1)
+            {
+                decimal? oldLo = null, newLo = null, oldHi = null, newHi = null;
+                for (int i = piv; i < n - piv; i++)
+                {
+                    bool isLow = true, isHigh = true;
+                    for (int j = i - piv; j <= i + piv && (isLow || isHigh); j++)
+                    {
+                        if (candles[j].Low  < candles[i].Low)  isLow  = false;
+                        if (candles[j].High > candles[i].High) isHigh = false;
+                    }
+                    if (isLow)  { oldLo = newLo; newLo = candles[i].Low; }
+                    if (isHigh) { oldHi = newHi; newHi = candles[i].High; }
+                }
+                if (oldLo is { } a && newLo is { } b) snapshot.HasHigherLow = b > a;
+                if (oldHi is { } c && newHi is { } d) snapshot.HasLowerHigh = d < c;
+            }
         }
 
         return snapshot;

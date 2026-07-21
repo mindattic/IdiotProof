@@ -109,6 +109,15 @@ public sealed class IndicatorSnapshot
     public double? WindowHigh { get; set; }
     public double? WindowLow { get; set; }
 
+    /// <summary>
+    /// Swing structure from pivot detection over the window: the newest pivot
+    /// low sits ABOVE the prior pivot low (a HIGHER LOW — "the bottom is likely
+    /// in", the double-bottom buy) / the newest pivot high sits BELOW the prior
+    /// (a LOWER HIGH — weakening, the short tell). Null until two pivots exist.
+    /// </summary>
+    public bool? HasHigherLow { get; set; }
+    public bool? HasLowerHigh { get; set; }
+
     // RSI
     public double? Rsi { get; set; }
     public bool? HasBullishDivergence { get; set; }

@@ -413,6 +413,22 @@ public sealed class StrategyBuilder
         return this;
     }
 
+    /// <summary>Newest pivot low above the prior pivot low — a higher low ("the
+    /// bottom is likely in"), the double-bottom buy signal.</summary>
+    public StrategyBuilder IsHigherLow()
+    {
+        strategy.EntryConditions.Add(new IndicatorCondition(IndicatorType.HigherLow));
+        return this;
+    }
+
+    /// <summary>Newest pivot high below the prior pivot high — a lower high
+    /// (weakening rally), the failed-high short tell.</summary>
+    public StrategyBuilder IsLowerHigh()
+    {
+        strategy.EntryConditions.Add(new IndicatorCondition(IndicatorType.LowerHigh));
+        return this;
+    }
+
     // ========================================
     // SUPPORT / RESISTANCE
     // ========================================
@@ -601,6 +617,13 @@ public sealed class StrategyBuilder
     // ADVANCED
     // ========================================
     
+    /// <summary>Exit long into the prior high-of-day (the pre-entry HOD).</summary>
+    public StrategyBuilder ExitAtPriorHigh()
+    {
+        strategy.ExitAtPriorHigh = true;
+        return this;
+    }
+
     public StrategyBuilder AutonomousTrading()
     {
         strategy.IsAutonomous = true;
@@ -758,6 +781,13 @@ public sealed class StrategyDefinition
     public bool ShouldRepeat { get; set; }
 
     /// <summary>
+    /// Exit long as price approaches the prior high-of-day (the high formed
+    /// BEFORE entry) — "sell into the earlier HOD." Evaluated by
+    /// GapperExitEvaluator against the pre-entry candles. Off by default.
+    /// </summary>
+    public bool ExitAtPriorHigh { get; set; }
+
+    /// <summary>
     /// Checks if this strategy has multiple take profit targets.
     /// </summary>
     public bool HasMultipleTargets => TakeProfitTargets.Count > 1;
@@ -865,6 +895,7 @@ public enum IndicatorType
     DiPositive, DiNegative,
     AdxAbove,
     RsiOversold, RsiOverbought, RsiBullishDivergence, RsiBearishDivergence,
+    HigherLow, LowerHigh,
     MacdBullish, MacdBearish,
     GapUp, GapDown,
     VolumeAbove,
@@ -976,6 +1007,8 @@ public sealed class IndicatorCondition(IndicatorType type, double? parameter = n
             IndicatorType.RsiOverbought        => "IsRsiOverbought",
             IndicatorType.RsiBullishDivergence => "IsRsiBullishDivergence",
             IndicatorType.RsiBearishDivergence => "IsRsiBearishDivergence",
+            IndicatorType.HigherLow            => "IsHigherLow",
+            IndicatorType.LowerHigh            => "IsLowerHigh",
             IndicatorType.MacdBullish          => "IsMacdBullish",
             IndicatorType.MacdBearish          => "IsMacdBearish",
             IndicatorType.GapUp                => "IsGapUp",
@@ -1036,6 +1069,8 @@ public sealed class IndicatorCondition(IndicatorType type, double? parameter = n
         IndicatorType.RsiOverbought      => s.Rsi >= (Parameter ?? 70),
         IndicatorType.RsiBullishDivergence => s.HasBullishDivergence == true,
         IndicatorType.RsiBearishDivergence => s.HasBearishDivergence == true,
+        IndicatorType.HigherLow            => s.HasHigherLow == true,
+        IndicatorType.LowerHigh            => s.HasLowerHigh == true,
         // Same fail-closed rule for MACD (needs ~26 bars): null MacdLine/
         // SignalLine made IsMacdBullish false, so the bare !IsMacdBullish let
         // IsMacdBearish pass spuriously whenever MACD hadn't converged.
@@ -1530,6 +1565,8 @@ public sealed class ConditionFactory
     public ICondition IsRsiOverbought(double threshold = 70) => new IndicatorCondition(IndicatorType.RsiOverbought, threshold);
     public ICondition IsRsiBullishDivergence() => new IndicatorCondition(IndicatorType.RsiBullishDivergence);
     public ICondition IsRsiBearishDivergence() => new IndicatorCondition(IndicatorType.RsiBearishDivergence);
+    public ICondition IsHigherLow() => new IndicatorCondition(IndicatorType.HigherLow);
+    public ICondition IsLowerHigh() => new IndicatorCondition(IndicatorType.LowerHigh);
     public ICondition IsMacdBullish() => new IndicatorCondition(IndicatorType.MacdBullish);
     public ICondition IsMacdBearish() => new IndicatorCondition(IndicatorType.MacdBearish);
     public ICondition IsGapUp(double minPercent = 3) => new IndicatorCondition(IndicatorType.GapUp, minPercent);
@@ -1598,6 +1635,8 @@ public static class Conditions
     public static ICondition Overbought(double threshold = 70)             => IsRsiOverbought(threshold);
     public static ICondition IsRsiBullishDivergence => new IndicatorCondition(IndicatorType.RsiBullishDivergence);
     public static ICondition IsRsiBearishDivergence => new IndicatorCondition(IndicatorType.RsiBearishDivergence);
+    public static ICondition IsHigherLow => new IndicatorCondition(IndicatorType.HigherLow);
+    public static ICondition IsLowerHigh => new IndicatorCondition(IndicatorType.LowerHigh);
 
     // ── MACD ──
     public static ICondition IsMacdBullish      => new IndicatorCondition(IndicatorType.MacdBullish);

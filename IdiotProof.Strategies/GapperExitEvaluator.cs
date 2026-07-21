@@ -114,6 +114,19 @@ public static class GapperExitEvaluator
             return new GapperExitDecision(GapperExitReason.TargetHit, current, peak,
                 $"Price {current:F2} reached the {tp:F2} take-profit target.");
 
+        // 4b. Prior-high-of-day target: sell into the high formed BEFORE entry
+        //     (the earlier HOD/resistance) — the double-bottom "sell approaching
+        //     the earlier high" exit. Approaches = within 0.3%.
+        if (def.ExitAtPriorHigh)
+        {
+            double priorHigh = 0;
+            foreach (var c in candles)
+                if (c.EndUtc <= entryUtc && (double)c.High > priorHigh) priorHigh = (double)c.High;
+            if (priorHigh > entryPrice && current >= priorHigh * 0.997)
+                return new GapperExitDecision(GapperExitReason.TargetHit, current, peak,
+                    $"Price {current:F2} approached the prior HOD {priorHigh:F2} — taking profit into resistance.");
+        }
+
         // 5. Momentum rollover — armed from the configured ET time (or always).
         if (def.PeakGivebackPercent is { } giveback)
         {

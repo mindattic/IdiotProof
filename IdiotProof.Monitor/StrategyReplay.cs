@@ -387,6 +387,14 @@ public static class StrategyReplay
             .Session(TradingSession.RTH).RequireEntryWindow("09:30", "15:30")
             .IsBelowVwap().IsBelowEma(9).WithVolumeConfirm(1.3).IsPriceBetween(1, 100000)
             .Short().QuantityNotional(1000).StopLossPercent(3).TrailingStopLoss(6).SellBy("15:55").Repeat().Build(),
+        "swingreversal" => Stock.Ticker(symbol)
+            .Name($"{symbol} Swing reversal (higher low → prior HOD)")
+            // ISRG-style double bottom: buy once a HIGHER LOW confirms the bottom
+            // is in (2nd pivot low above the 1st) near support on volume; take
+            // profit into the earlier high-of-day; stop below, trail, flatten by close.
+            .Session(TradingSession.Extended).RequireEntryWindow("04:00", "15:30")
+            .IsHigherLow().IsAtSupport(3.0).WithVolumeConfirm(1.2).IsPriceBetween(1, 100000)
+            .Long().QuantityNotional(1000).StopLossPercent(3).TrailingStopLoss(6).ExitAtPriorHigh().SellBy("15:55").Repeat().Build(),
         _ => null,
     };
 
