@@ -9,6 +9,20 @@
           }
         ]
       }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "shell": "powershell",
+            "async": true,
+            "statusMessage": "Publishing Monitor to C:\\IdiotProof\\Monitor...",
+            "command": "$j = [Console]::In.ReadToEnd() | ConvertFrom-Json; if ($j.tool_input.file_path -like '*IdiotProof.Monitor*') { Start-Process dotnet -ArgumentList 'publish', 'D:\\Projects\\MindAttic\\IdiotProof\\IdiotProof.Monitor\\IdiotProof.Monitor.csproj', '--configuration', 'Release', '--output', 'C:\\IdiotProof\\Monitor', '--no-self-contained' -NoNewWindow }"
+          }
+        ]
+      }
     ]
   }
 }

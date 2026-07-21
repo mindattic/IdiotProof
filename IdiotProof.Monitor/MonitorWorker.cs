@@ -132,7 +132,7 @@ public sealed class MonitorWorker(
     private static TimeSpan ParseSelfPingInterval()
     {
         var v = Environment.GetEnvironmentVariable("IDIOTPROOF_SELFPING");
-        if (string.IsNullOrWhiteSpace(v) || v is "0" or "1") return TimeSpan.FromMinutes(30);
+        if (string.IsNullOrWhiteSpace(v) || v is "0" or "1") return TimeSpan.FromMinutes(5);
         return TryParseInterval(v) ?? TimeSpan.FromMinutes(30);
     }
 
@@ -508,13 +508,13 @@ public sealed class MonitorWorker(
 
         if (passed == conditions.Count)
         {
-            logger.LogInformation("[{Title}] {Symbol} ✓ ALL {Total} conditions met → candidate fire ({Direction} @ {Price:F2})",
+            logger.LogDebug("[{Title}] {Symbol} ✓ ALL {Total} conditions met → candidate fire ({Direction} @ {Price:F2})",
                 stored.Title, stored.Symbol, conditions.Count, def.Direction, snapshot.Price);
             await FireAsync(stored, def, snapshot, candles, ct);
         }
         else
         {
-            logger.LogInformation("[{Title}] {Symbol} {Passed}/{Total} — waiting on: {Verb}",
+            logger.LogDebug("[{Title}] {Symbol} {Passed}/{Total} — waiting on: {Verb}",
                 stored.Title, stored.Symbol, passed, conditions.Count, firstFailure ?? "(unknown)");
         }
     }
@@ -969,37 +969,47 @@ public sealed class MonitorWorker(
     {
         // ASCII-only framing: the Monitor console runs under the OEM codepage
         // (like the startup wordmark), where box-drawing glyphs render as '?'.
-        var bar = new string('#', 85);
+        var ts = Ts();
+        var bar = new string('-', 85);
         var sb = new System.Text.StringBuilder();
-        sb.AppendLine();
-        sb.AppendLine(bar);
-        sb.AppendLine($"  Active strategies: {active.Count}  -  {reason} @ {TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, MarketTime.Eastern):HH:mm:ss} ET");
-        sb.AppendLine(bar);
+        sb.AppendLine($"{ts}{bar}");
+        sb.AppendLine($"{ts}  Active strategies: {active.Count}  -  {reason}");
+        sb.AppendLine($"{ts}{bar}");
         if (active.Count == 0)
         {
-            sb.AppendLine("  (none - the Monitor is idle until a strategy is activated)");
+            sb.AppendLine($"{ts}  (none - the Monitor is idle until a strategy is activated)");
         }
         else
         {
-            sb.AppendLine("   #  Symbol   Session      Entry  State       Title");
-            var i = 0;
+            sb.AppendLine($"{ts}  {"Symbol",-7}  {"State",12}  {"P&L %",8}  Title");
             foreach (var s in active.OrderBy(x => x.Symbol, StringComparer.OrdinalIgnoreCase).ThenBy(x => x.Title, StringComparer.OrdinalIgnoreCase))
             {
-                i++;
                 var loaded = StrategyLoader.Load(s.ScriptJson, s.ScriptText);
-                string session; int entry; string state;
-                if (loaded.CanonicalError is not null) { session = "-"; entry = 0; state = "QUARANTINE"; }
-                else if (loaded.Definition is { } d)
+                string state = loaded.CanonicalError is not null ? "QUARANTINE"
+                    : loaded.Definition is null ? "UNPARSED"
+                    : s.PositionQty > 0
+                        ? (loaded.Definition.Direction == TradeDirection.Short ? $"SHORT x{s.PositionQty}" : $"LONG  x{s.PositionQty}")
+                    : "armed";
+
+                string pnlPct = "-";
+                if (s.PositionQty > 0 && s.LastEntryPrice is { } entryPrice && entryPrice != 0)
                 {
-                    session = d.Session.ToString();
-                    entry = d.EntryConditions.Count;
-                    state = s.PositionQty > 0 ? $"HOLD {s.PositionQty}" : "armed";
+                    var sym = s.Symbol.ToUpperInvariant();
+                    var currentPrice = entryPrice;
+                    var lastTrade = streaming?.GetLastTrade(sym);
+                    if (lastTrade is not null)
+                        currentPrice = lastTrade.Price;
+                    else if (candleCache.TryGetValue(sym, out var cached) && cached.Candles.Count > 0)
+                        currentPrice = cached.Candles[^1].Close;
+
+                    var pct = (currentPrice - entryPrice) / entryPrice * 100m;
+                    pnlPct = pct >= 0 ? $"+{pct:0.00}%" : $"{pct:0.00}%";
                 }
-                else { session = "-"; entry = 0; state = "UNPARSED"; }
-                sb.AppendLine($"  {i,2}  {s.Symbol,-7}  {session,-11}  {entry,4}   {state,-10}  {RosterTrunc(s.Title, 44)}");
+
+                sb.AppendLine($"{ts}  {s.Symbol,-7}  {state,12}  {pnlPct,8}  {RosterTrunc(s.Title, 44)}");
             }
         }
-        sb.Append(bar);
+        sb.Append($"{ts}{bar}");
         Console.WriteLine(sb.ToString());
     }
 
@@ -1018,18 +1028,18 @@ public sealed class MonitorWorker(
         decimal price, string broker, bool isPaper, string? orderId, DateTime whenUtc, string? extra)
     {
         if (!PrintFillsEnabled) return;
+        var ts = Ts();
         var et = TimeZoneInfo.ConvertTimeFromUtc(DateTime.SpecifyKind(whenUtc, DateTimeKind.Utc), MarketTime.Eastern);
         var arrow = side == "BUY" ? ">>" : "<<";
-        var bar = new string('#', 85);
+        var bar = new string('-', 85);
         var sb = new System.Text.StringBuilder();
-        sb.AppendLine();
-        sb.AppendLine(bar);
-        sb.AppendLine($"  {arrow} {kind} FILLED   {et:HH:mm:ss} ET");
-        sb.AppendLine($"  {symbol}  \"{RosterTrunc(title, 46)}\"");
-        sb.AppendLine($"  {side} {qty} @ ${price:0.00}  -  {broker} {(isPaper ? "PAPER" : "LIVE")}" +
+        sb.AppendLine($"{ts}{bar}");
+        sb.AppendLine($"{ts}  {arrow} {kind} FILLED   [{et.ToString(TimestampFormat)}]");
+        sb.AppendLine($"{ts}  {symbol}  \"{RosterTrunc(title, 46)}\"");
+        sb.AppendLine($"{ts}  {side} {qty} @ ${price:0.00}  -  {broker} {(isPaper ? "PAPER" : "LIVE")}" +
                       (string.IsNullOrEmpty(orderId) ? "" : $"  -  order {RosterTrunc(orderId, 8)}"));
-        if (!string.IsNullOrEmpty(extra)) sb.AppendLine($"  {extra}");
-        sb.Append(bar);
+        if (!string.IsNullOrEmpty(extra)) sb.AppendLine($"{ts}  {extra}");
+        sb.Append($"{ts}{bar}");
         Console.WriteLine(sb.ToString());
     }
 
@@ -1040,11 +1050,18 @@ public sealed class MonitorWorker(
     /// </summary>
     private void PrintSelfPing(IReadOnlyList<IdiotProof.Blazor.Data.Strategy> active)
     {
-        var et = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, MarketTime.Eastern);
         var holding = active.Count(s => s.PositionQty > 0);
-        Console.WriteLine($"[{et:HH:mm:ss} ET] [ONLINE] Monitor alive — {active.Count} active" +
-                          $"{(holding > 0 ? $", {holding} holding" : "")} · feed {feed.FeedName}" +
-                          $" · next ping in {SelfPingInterval.TotalMinutes:0}m");
+        Console.WriteLine($"{Ts()}[ONLINE] feed {feed.FeedName}" +
+                          $"{(holding > 0 ? $" · {holding} holding" : "")} · next ping in {SelfPingInterval.TotalMinutes:0}m");
+        PrintActiveRoster(active, "ping");
+    }
+
+    private const string TimestampFormat = "yyyy-MM-dd hh:mm tt";
+
+    private static string Ts()
+    {
+        var et = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, MarketTime.Eastern);
+        return $"[{et.ToString(TimestampFormat)}]    ";
     }
 
     // ── Clock helpers ───────────────────────────────────────────────────

@@ -193,8 +193,13 @@ builder.Logging.ClearProviders();
 builder.Logging.AddSimpleConsole(o =>
 {
     o.SingleLine = true;
-    o.TimestampFormat = "HH:mm:ss ";
+    o.TimestampFormat = "[yyyy-MM-dd hh:mm tt]    ";
 });
+// Suppress EF Core SQL chatter and all framework noise. Only warnings,
+// errors, and critical events reach the console. Console.WriteLine calls
+// (fill blocks, self-ping) bypass the logger and are always visible.
+builder.Logging.AddFilter("Microsoft", LogLevel.Warning);
+builder.Logging.AddFilter("IdiotProof", LogLevel.Warning);
 
 var host = builder.Build();
 
