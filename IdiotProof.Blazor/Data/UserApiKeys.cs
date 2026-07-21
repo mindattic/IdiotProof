@@ -20,9 +20,6 @@ public sealed class UserApiKeys
     public bool LlmVotingEnabled { get; set; }
     public string ClaudeModel { get; set; } = "claude-sonnet-5";
 
-    // Polygon.io — historical market data for backtesting (IP-US-J1)
-    public string? PolygonApiKey { get; set; }
-
     // Default broker/feed preferences
     public string DefaultBroker { get; set; } = "Sandbox";
     public string DefaultDataFeed { get; set; } = "Mock";

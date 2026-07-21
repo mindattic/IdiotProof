@@ -68,7 +68,6 @@ public sealed class UserKeyService(
         ClaudeApiKey       = Protect(k.ClaudeApiKey),
         LlmVotingEnabled   = k.LlmVotingEnabled,
         ClaudeModel        = k.ClaudeModel,
-        PolygonApiKey      = Protect(k.PolygonApiKey),
         DefaultBroker      = k.DefaultBroker,
         DefaultDataFeed    = k.DefaultDataFeed,
         AlpacaOAuthAccessToken  = Protect(k.AlpacaOAuthAccessToken),
@@ -86,11 +85,6 @@ public sealed class UserKeyService(
         ClaudeApiKey       = Unprotect(k.ClaudeApiKey, k.UserId, nameof(k.ClaudeApiKey)),
         LlmVotingEnabled   = k.LlmVotingEnabled,
         ClaudeModel        = k.ClaudeModel,
-        // PolygonApiKey was omitted from BOTH Encrypt and Decrypt, so it could
-        // never be persisted OR read back — the API Keys page's Polygon field
-        // (and the Backtest page's Polygon feed the README advertises) were
-        // dead: every Save wiped the key to null.
-        PolygonApiKey      = Unprotect(k.PolygonApiKey, k.UserId, nameof(k.PolygonApiKey)),
         DefaultBroker      = k.DefaultBroker,
         DefaultDataFeed    = k.DefaultDataFeed,
         AlpacaOAuthAccessToken  = Unprotect(k.AlpacaOAuthAccessToken, k.UserId, nameof(k.AlpacaOAuthAccessToken)),

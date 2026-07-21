@@ -113,35 +113,6 @@
     }
 </section>
 
-<!-- Polygon.io Section -->
-<section class="trading-card p-3 mb-3" aria-labelledby="polygon-heading">
-    <h2 id="polygon-heading" class="h6 text-white mb-3">
-        <i class="bi bi-bar-chart-line me-1" aria-hidden="true"></i>Polygon.io — Historical Market Data (Backtest)
-    </h2>
-    <div class="row g-3">
-        <div class="col-md-6">
-            <label class="form-label text-muted small" for="polygon-key">API Key</label>
-            <div class="input-group">
-                <input id="polygon-key"
-                       class="form-control bg-dark text-white border-secondary"
-                       type="@(showPolygonKey ? "text" : "password")"
-                       @bind="polygonKey"
-                       autocomplete="off"
-                       placeholder="Optional — enables live historical data in Backtest" />
-                <button class="btn btn-outline-secondary"
-                        type="button"
-                        @onclick="() => showPolygonKey = !showPolygonKey"
-                        aria-label="@(showPolygonKey ? "Hide Polygon API key" : "Show Polygon API key")"
-                        aria-pressed="@showPolygonKey">
-                    <i class="bi @(showPolygonKey ? "bi-eye-slash" : "bi-eye")" aria-hidden="true"></i>
-                </button>
-            </div>
-            <div class="form-text text-muted small">
-                Free tier provides historical OHLCV data. Without a key the backtest uses simulated candles.
-            </div>
-        </div>
-    </div>
-</section>
 
 <!-- Claude / AI Section -->
 <section class="trading-card p-3 mb-3" aria-labelledby="claude-heading">
@@ -233,9 +204,6 @@
     private bool showAlpacaSecret;
     private bool showLiveModeModal;
 
-    private string polygonKey = "";
-    private bool showPolygonKey;
-
     private string claudeKey = "";
     private string claudeModel = "claude-sonnet-5";
     private bool showClaudeKey;
@@ -260,7 +228,6 @@
         alpacaKeyId    = keys.AlpacaApiKeyId ?? "";
         alpacaSecret   = keys.AlpacaApiSecretKey ?? "";
         alpacaIsPaper  = keys.AlpacaIsPaper;
-        polygonKey     = keys.PolygonApiKey ?? "";
         claudeKey      = keys.ClaudeApiKey ?? "";
         claudeModel    = string.IsNullOrWhiteSpace(keys.ClaudeModel) ? "claude-sonnet-5" : keys.ClaudeModel;
         llmVotingEnabled = keys.LlmVotingEnabled;
@@ -333,7 +300,6 @@
             AlpacaApiKeyId     = alpacaKeyId,
             AlpacaApiSecretKey = alpacaSecret,
             AlpacaIsPaper      = alpacaIsPaper,
-            PolygonApiKey      = polygonKey,
             ClaudeApiKey       = claudeKey,
             ClaudeModel        = claudeModel,
             LlmVotingEnabled   = llmVotingEnabled,

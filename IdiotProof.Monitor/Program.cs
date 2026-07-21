@@ -185,6 +185,7 @@ builder.Services.AddSingleton(_ =>
 // On-demand gapper generator — resolved by the `auto-gapper` operator CLI only
 // (no scheduled trigger; standardized auto-generation is future work, Epic S).
 builder.Services.AddSingleton<AutoGapperScanner>();
+builder.Services.AddSingleton<IdiotProof.Blazor.Services.LiveBarRepository>();
 
 builder.Services.AddHostedService<MonitorWorker>();
 

@@ -221,6 +221,79 @@ namespace IdiotProof.Blazor.Migrations
                     b.ToTable("AutoGapperScans");
                 });
 
+            modelBuilder.Entity("IdiotProof.Blazor.Data.LiveBar", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("CondBitsJson")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<string>("DateEt")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)");
+
+                    b.Property<string>("Et")
+                        .IsRequired()
+                        .HasMaxLength(8)
+                        .HasColumnType("nvarchar(8)");
+
+                    b.Property<bool>("Exit")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("Fire")
+                        .HasColumnType("bit");
+
+                    b.Property<double>("High")
+                        .HasColumnType("float");
+
+                    b.Property<bool>("InSession")
+                        .HasColumnType("bit");
+
+                    b.Property<double>("Low")
+                        .HasColumnType("float");
+
+                    b.Property<int>("Min")
+                        .HasColumnType("int");
+
+                    b.Property<double>("Open")
+                        .HasColumnType("float");
+
+                    b.Property<double>("Close")
+                        .HasColumnType("float");
+
+                    b.Property<Guid>("StrategyId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<long>("Volume")
+                        .HasColumnType("bigint");
+
+                    b.Property<double>("Volx")
+                        .HasColumnType("float");
+
+                    b.Property<double>("Vwap")
+                        .HasColumnType("float");
+
+                    b.Property<double>("WindowHigh")
+                        .HasColumnType("float");
+
+                    b.Property<DateTime>("WrittenUtc")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("WrittenUtc");
+
+                    b.HasIndex("StrategyId", "DateEt", "Min")
+                        .IsUnique();
+
+                    b.ToTable("LiveBars");
+                });
+
             modelBuilder.Entity("IdiotProof.Blazor.Data.BlockedEmailDomain", b =>
                 {
                     b.Property<string>("Domain")
@@ -773,9 +846,6 @@ namespace IdiotProof.Blazor.Migrations
                     b.Property<bool>("LlmVotingEnabled")
                         .HasColumnType("bit");
 
-                    b.Property<string>("PolygonApiKey")
-                        .HasColumnType("nvarchar(max)");
-
                     b.Property<Guid>("UserId")
                         .HasColumnType("uniqueidentifier");
 
@@ -1132,6 +1202,10 @@ namespace IdiotProof.Blazor.Migrations
                     b.Property<DateTime>("CreatedUtc")
                         .HasColumnType("datetime2");
 
+                    b.Property<string>("DisplayName")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
                     b.Property<string>("Email")
                         .HasMaxLength(256)
                         .HasColumnType("nvarchar(256)");
@@ -1157,6 +1231,10 @@ namespace IdiotProof.Blazor.Migrations
 
                     b.Property<bool>("MustEnrollMfa")
                         .HasColumnType("bit");
+
+                    b.Property<string>("NormalizedDisplayName")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
 
                     b.Property<string>("NormalizedEmail")
                         .HasMaxLength(256)
@@ -1200,6 +1278,10 @@ namespace IdiotProof.Blazor.Migrations
                         .HasColumnType("nvarchar(256)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("NormalizedDisplayName")
+                        .IsUnique()
+                        .HasFilter("[NormalizedDisplayName] IS NOT NULL");
 
                     b.HasIndex("NormalizedEmail");
 

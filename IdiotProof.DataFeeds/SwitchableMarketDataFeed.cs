@@ -13,7 +13,7 @@ public sealed class SwitchableMarketDataFeed : IMarketDataFeed
 
     public string FeedName => activeFeedName;
 
-    public SwitchableMarketDataFeed(string defaultFeedName = "Polygon")
+    public SwitchableMarketDataFeed(string defaultFeedName = "Alpaca")
     {
         activeFeedName = defaultFeedName;
     }

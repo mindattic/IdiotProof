@@ -44,6 +44,7 @@ public sealed class MonitorWorker(
     UserBrokerResolver brokerResolver,
     MonitorDatabase database,
     IStorageProvider storage,
+    IdiotProof.Blazor.Services.LiveBarRepository liveBarRepo,
     ILogger<MonitorWorker> logger) : BackgroundService
 {
     /// <summary>
@@ -78,6 +79,10 @@ public sealed class MonitorWorker(
 
     private readonly Dictionary<string, (List<Candle> Candles, DateTime FetchedUtc)> candleCache = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, (DateOnly DayEt, decimal? Close, DateTime FetchedUtc)> previousCloseCache = new(StringComparer.OrdinalIgnoreCase);
+
+    // Throttle live-bar writes: write at most once every 10 seconds per strategy
+    // (the Monitor evaluates every 1s; writing every tick would hammer the DB).
+    private readonly Dictionary<Guid, DateTime> lastBarWrite = new();
 
     /// <summary>
     /// Re-check cadence when the previous close came back NULL. IP-A18 made
@@ -456,15 +461,50 @@ public sealed class MonitorWorker(
             return;
         }
 
-        int passed = 0;
-        string? firstFailure = null;
-        foreach (var cond in conditions)
-        {
-            if (cond.Evaluate(snapshot)) passed++;
-            else { firstFailure = cond.ToScript(); break; }
-        }
+        // Evaluate ALL conditions independently so the live chart Gantt gets a
+        // bool[] per condition. Derive passed/firstFailure from the result array
+        // (semantically equivalent to the old short-circuit loop).
+        var condBits = conditions.Select(c => c.Evaluate(snapshot)).ToArray();
+        int firstFalseIdx = System.Array.IndexOf(condBits, false);
+        int passed = firstFalseIdx >= 0 ? firstFalseIdx : condBits.Length;
+        string? firstFailure = firstFalseIdx >= 0 ? conditions[firstFalseIdx].ToScript() : null;
 
         await progressRepo.UpsertAsync(stored.Id, passed, conditions.Count, firstFailure, ct);
+
+        // Write a live bar (throttled to once every 10 seconds per strategy).
+        var now = DateTime.UtcNow;
+        if (!lastBarWrite.TryGetValue(stored.Id, out var lastWrite) || (now - lastWrite).TotalSeconds >= 10)
+        {
+            lastBarWrite[stored.Id] = now;
+            var etNow = TimeZoneInfo.ConvertTimeFromUtc(now, MarketTime.Eastern);
+            try
+            {
+                await liveBarRepo.UpsertBarAsync(new IdiotProof.Blazor.Data.LiveBar
+                {
+                    StrategyId   = stored.Id,
+                    DateEt       = etNow.ToString("yyyy-MM-dd"),
+                    Et           = etNow.ToString("HH:mm"),
+                    Min          = etNow.Hour * 60 + etNow.Minute,
+                    Open         = snapshot.BarOpen ?? snapshot.Price,
+                    High         = snapshot.BarHigh ?? snapshot.Price,
+                    Low          = snapshot.BarLow  ?? snapshot.Price,
+                    Close        = snapshot.Price,
+                    Volume       = snapshot.Volume,
+                    Vwap         = snapshot.Vwap ?? 0,
+                    WindowHigh   = snapshot.WindowHigh ?? 0,
+                    Volx         = snapshot.VolumeRatio,
+                    InSession    = IsInsideSession(def.Session, now),
+                    CondBitsJson = System.Text.Json.JsonSerializer.Serialize(condBits),
+                    Fire         = passed == conditions.Count,
+                    Exit         = false,
+                    WrittenUtc   = now,
+                }, ct);
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "[{Title}] live bar write failed (evaluation unaffected).", stored.Title);
+            }
+        }
 
         if (passed == conditions.Count)
         {
@@ -721,6 +761,42 @@ public sealed class MonitorWorker(
         await progressRepo.UpsertAsync(stored.Id, 1, 1,
             decision is null ? $"(holding {stored.PositionQty} @ {entry:F2}, now {current:F2})" : null, ct);
 
+        // Write live bar during hold phase so the chart keeps updating.
+        var holdNow = DateTime.UtcNow;
+        if (!lastBarWrite.TryGetValue(stored.Id, out var holdLastWrite) || (holdNow - holdLastWrite).TotalSeconds >= 10)
+        {
+            lastBarWrite[stored.Id] = holdNow;
+            var etHold = TimeZoneInfo.ConvertTimeFromUtc(holdNow, MarketTime.Eastern);
+            var lastCandle = candles[^1];
+            try
+            {
+                await liveBarRepo.UpsertBarAsync(new IdiotProof.Blazor.Data.LiveBar
+                {
+                    StrategyId   = stored.Id,
+                    DateEt       = etHold.ToString("yyyy-MM-dd"),
+                    Et           = etHold.ToString("HH:mm"),
+                    Min          = etHold.Hour * 60 + etHold.Minute,
+                    Open         = (double)lastCandle.Open,
+                    High         = (double)lastCandle.High,
+                    Low          = (double)lastCandle.Low,
+                    Close        = (double)lastCandle.Close,
+                    Volume       = (long)lastCandle.Volume,
+                    Vwap         = 0,
+                    WindowHigh   = 0,
+                    Volx         = 0,
+                    InSession    = IsInsideSession(def.Session, holdNow),
+                    CondBitsJson = "[]",
+                    Fire         = false,
+                    Exit         = decision is not null,
+                    WrittenUtc   = holdNow,
+                }, ct);
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "[{Title}] live bar write (hold phase) failed (evaluation unaffected).", stored.Title);
+            }
+        }
+
         if (decision is null) return;
 
         // Never place the flatten while the market can't take it: a SellBy
@@ -893,7 +969,7 @@ public sealed class MonitorWorker(
     {
         // ASCII-only framing: the Monitor console runs under the OEM codepage
         // (like the startup wordmark), where box-drawing glyphs render as '?'.
-        var bar = new string('=', 60);
+        var bar = new string('#', 85);
         var sb = new System.Text.StringBuilder();
         sb.AppendLine();
         sb.AppendLine(bar);
@@ -944,7 +1020,7 @@ public sealed class MonitorWorker(
         if (!PrintFillsEnabled) return;
         var et = TimeZoneInfo.ConvertTimeFromUtc(DateTime.SpecifyKind(whenUtc, DateTimeKind.Utc), MarketTime.Eastern);
         var arrow = side == "BUY" ? ">>" : "<<";
-        var bar = new string('=', 60);
+        var bar = new string('#', 85);
         var sb = new System.Text.StringBuilder();
         sb.AppendLine();
         sb.AppendLine(bar);

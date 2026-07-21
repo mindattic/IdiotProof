@@ -137,6 +137,15 @@
                                     @onclick="() => EditStrategy(s.Id)">
                                 <i class="bi bi-pencil" aria-hidden="true"></i> Edit
                             </button>
+                            @if (s.IsActive)
+                            {
+                                var liveUrl = $"/live/{s.Id}";
+                                <button class="btn btn-sm btn-outline-success" type="button"
+                                        aria-label="Live chart for @s.Title"
+                                        @onclick="@(() => Nav.NavigateTo(liveUrl))">
+                                    <i class="bi bi-broadcast me-1" aria-hidden="true"></i>Live
+                                </button>
+                            }
                             <button class="btn btn-sm btn-outline-danger" type="button"
                                     aria-label="Delete @s.Title"
                                     @onclick="() => ConfirmDelete(s)">

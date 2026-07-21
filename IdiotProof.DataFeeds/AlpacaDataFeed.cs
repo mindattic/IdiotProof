@@ -6,7 +6,7 @@ namespace IdiotProof.DataFeeds;
 
 /// <summary>
 /// Alpaca Market Data API historical bar feed. Uses the same API key + secret the
-/// user already has for the broker — no separate Polygon account required.
+/// user already has for the broker.
 ///
 /// Data tier: requests start on the configured feed (default SIP). If Alpaca
 /// rejects with 403 (free/IEX-only key), the client downgrades itself to IEX

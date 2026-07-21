@@ -1,0 +1,213 @@
+@page "/live/{StrategyId:guid}"
+@rendermode InteractiveServer
+@using IdiotProof.Blazor.Data
+@using IdiotProof.Blazor.Services
+@using IdiotProof.Scripting
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+@attribute [Authorize]
+@implements IAsyncDisposable
+@inject StrategyRepository StrategyRepo
+@inject LiveBarRepository LiveBarRepo
+@inject LiveBarPusher Pusher
+@inject AuthenticationStateProvider AuthState
+@inject IJSRuntime JS
+@inject NavigationManager Nav
+
+@*
+    Live chart — real-time canvas view of a running strategy.
+    The same canvas/JS aesthetic as the static replay page, fed from LiveBars
+    rows written by MonitorWorker every ~10 seconds. LiveBarPusher polls SQL
+    every 3s and fires BarUpdated so this component re-renders over the existing
+    Blazor circuit — no extra WebSocket needed.
+*@
+
+<PageTitle>@(strategy?.Title ?? "Live") — Live · IdiotProof</PageTitle>
+
+<style>
+    /* Chart CSS variables — map the app palette to the names the canvas JS reads. */
+    :root {
+        --up:    #3fb950;  --down:  #f85149;
+        --vwap:  #58a6ff;  --whigh: #d29922;
+        --grid:  #30363d;  --axis:  #8b949e;
+        --void:  #1c2128;  --dim:   #8b949e;
+        --faint: #8b949e;  --mono:  "Roboto Mono", ui-monospace, Consolas, monospace;
+    }
+    :root[data-theme="light"] {
+        --up:    #0f9d78;  --down:  #e0483d;
+        --vwap:  #2970e8;  --whigh: #b07800;
+        --grid:  #e2e5ea;  --axis:  #5b6472;
+        --void:  #f0f1f3;  --dim:   #5b6472;
+        --faint: #8b94a3;
+    }
+
+    .live-chart-wrap { display: flex; flex-direction: column; height: calc(100vh - var(--topbar-height) - var(--footer-height) - 2rem); min-height: 480px; }
+    .live-chart-header { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 8px 0 10px; }
+    .live-chart-meta { font-size: .82rem; color: var(--text-secondary); font-family: var(--font-mono); }
+    .live-pulse { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--green); animation: pulse 1.4s ease-in-out infinite; }
+    @@keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.4;transform:scale(.7)} }
+    .canvas-area { position: relative; flex: 1; min-height: 0; background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+    canvas#cv { display: block; width: 100%; height: 100%; }
+    #tip { position: absolute; pointer-events: none; opacity: 0; background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 6px; padding: 8px 10px; font-size: .78rem; font-family: var(--font-mono); color: var(--text-primary); min-width: 160px; transition: opacity .1s; z-index: 10; }
+    #tip .tt { font-weight: 700; margin-bottom: 4px; color: var(--text-secondary); }
+    #tip .tr { display: flex; justify-content: space-between; gap: 12px; margin: 2px 0; }
+    #tip .ts { border-top: 1px solid var(--border); margin: 4px 0; }
+    #tip .tf { margin-top: 4px; font-weight: 700; background: var(--brand); color: var(--brand-on); border-radius: 4px; padding: 1px 6px; text-align: center; }
+    #tip .yes { color: var(--green); } #tip .no { color: var(--red); }
+    #ohlc { font-size: .76rem; font-family: var(--font-mono); color: var(--text-secondary); display: flex; gap: 10px; padding: 4px 0; }
+    .no-data { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; height: 100%; color: var(--text-muted); }
+</style>
+
+@if (loadError is not null)
+{
+    <div class="alert alert-danger small mt-3">@loadError</div>
+}
+else if (strategy is null)
+{
+    <div class="d-flex justify-content-center mt-5">
+        <div class="spinner-border text-secondary" role="status"><span class="visually-hidden">Loading…</span></div>
+    </div>
+}
+else
+{
+    <div class="live-chart-wrap">
+        <div class="live-chart-header">
+            <a href="/strategies" class="btn btn-sm btn-outline-secondary">
+                <i class="bi bi-arrow-left me-1" aria-hidden="true"></i>Back
+            </a>
+            <div>
+                <span class="fw-semibold">@strategy.Title</span>
+                <span class="strategy-chip ticker-chip ms-1">@strategy.Symbol</span>
+                @if (strategy.IsActive)
+                {
+                    <span class="live-pulse ms-2" title="Monitor is active"></span>
+                }
+            </div>
+            <div class="live-chart-meta">
+                @(todayEt) ET · @(bars.Count) bars · updates every ~10 s
+            </div>
+            <div id="ohlc" class="ms-auto"></div>
+        </div>
+
+        @if (!bars.Any())
+        {
+            <div class="canvas-area">
+                <div class="no-data">
+                    <i class="bi bi-broadcast fs-2" aria-hidden="true"></i>
+                    <div>Waiting for the Monitor to write the first bar…</div>
+                    <div class="text-muted small">Make sure the Monitor is running and the strategy is active.</div>
+                </div>
+            </div>
+        }
+        else
+        {
+            <div class="canvas-area">
+                <canvas id="cv" aria-label="Live strategy chart for @strategy.Title"></canvas>
+                <div id="tip"></div>
+            </div>
+        }
+    </div>
+}
+
+@code {
+    [Parameter] public Guid StrategyId { get; set; }
+
+    private Strategy? strategy;
+    private List<LiveBar> bars = new();
+    private string todayEt = "";
+    private string? loadError;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var auth = await AuthState.GetAuthenticationStateAsync();
+            Guid? userId = Guid.TryParse(
+                auth.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value,
+                out var uid) ? uid : null;
+            if (userId is null) { loadError = "Sign in to view the live chart."; return; }
+
+            var all = await StrategyRepo.GetAllForUserAsync(userId.Value);
+            strategy = all.FirstOrDefault(s => s.Id == StrategyId);
+            if (strategy is null) { loadError = "Strategy not found."; return; }
+
+            todayEt = EasternTime.FromUtc(DateTime.UtcNow).ToString("yyyy-MM-dd");
+            bars = await LiveBarRepo.GetTodayBarsAsync(StrategyId, todayEt);
+        }
+        catch (Exception ex)
+        {
+            loadError = ex.Message;
+        }
+
+        Pusher.BarUpdated += OnBarUpdated;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (loadError is not null || strategy is null || !bars.Any()) return;
+        await DrawChartAsync();
+    }
+
+    private void OnBarUpdated(Guid strategyId)
+    {
+        if (strategyId != StrategyId) return;
+        _ = InvokeAsync(async () =>
+        {
+            bars = await LiveBarRepo.GetTodayBarsAsync(StrategyId, todayEt);
+            StateHasChanged();
+            // After state update, re-draw the chart.
+            if (bars.Any())
+                await DrawChartAsync();
+        });
+    }
+
+    private async Task DrawChartAsync()
+    {
+        if (strategy is null || !bars.Any()) return;
+
+        var loaded = StrategyLoader.Load(strategy.ScriptJson, strategy.ScriptText);
+        var def = loaded.Definition;
+
+        var conditionLabels = def?.EntryConditions.Select(c => c.ToScript()).ToArray()
+            ?? Array.Empty<string>();
+
+        var data = new
+        {
+            symbol = strategy.Symbol,
+            strategy = strategy.Title,
+            conditions = conditionLabels,
+            bars = bars.Select(b =>
+            {
+                bool[] cnd;
+                try { cnd = System.Text.Json.JsonSerializer.Deserialize<bool[]>(b.CondBitsJson) ?? Array.Empty<bool>(); }
+                catch { cnd = Array.Empty<bool>(); }
+                return new
+                {
+                    et     = b.Et,
+                    o      = b.Open,
+                    h      = b.High,
+                    l      = b.Low,
+                    c      = b.Close,
+                    v      = b.Volume,
+                    vwap   = b.Vwap,
+                    whigh  = b.WindowHigh,
+                    volx   = b.Volx,
+                    fire   = b.Fire,
+                    exit   = b.Exit,
+                    inSession = b.InSession,
+                    cnd
+                };
+            }).ToArray()
+        };
+
+        var json = System.Text.Json.JsonSerializer.Serialize(data);
+        try { await JS.InvokeVoidAsync("liveChart.draw", json); }
+        catch { /* circuit disconnected — no-op */ }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        Pusher.BarUpdated -= OnBarUpdated;
+        await ValueTask.CompletedTask;
+    }
+}

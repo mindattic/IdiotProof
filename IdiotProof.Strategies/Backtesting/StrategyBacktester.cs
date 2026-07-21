@@ -10,7 +10,7 @@ namespace IdiotProof.Strategies.Backtesting;
 /// triggers went off as designed and see the P&amp;L.
 ///
 /// PURE: candles in, <see cref="BacktestReport"/> out. No I/O, no data-feed dependency —
-/// the caller fetches the day's candles (Polygon/Mock) and passes them in. That keeps the
+/// the caller fetches the day's candles (Alpaca/Mock) and passes them in. That keeps the
 /// engine deterministic and unit-testable.
 ///
 /// Trigger semantics (documented so the timeline is interpretable):

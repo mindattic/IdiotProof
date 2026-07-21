@@ -44,7 +44,7 @@ if (builder.Environment.IsDevelopment())
 //   AddEnvironmentVariables (already present) picks up App Service Application
 //     Settings and Azure Key Vault references in production.
 builder.Configuration
-    .AddMindAtticVaultFiles();
+    .AddMindAtticVaultFiles(src => src.Buckets = [..src.Buckets, "Security"]);
 
 // Vault: cloud-native credential resolvers (LlmCredentialResolver,
 // BrokerCredentialResolver) registered alongside the legacy file-backed stores.
@@ -157,7 +157,9 @@ builder.Services.AddSingleton<AuditLogRepository>();
 builder.Services.AddSingleton<TradeDiaryRepository>();
 builder.Services.AddSingleton<EmailDomainBlocklistService>();
 builder.Services.AddSingleton<ConditionProgressRepository>();
+builder.Services.AddSingleton<LiveBarRepository>();
 builder.Services.AddSingleton<RiskGuardianService>();
+builder.Services.AddHostedService<LiveBarPusher>();
 builder.Services.AddHttpClient();
 
 // Dev credential carrier — populated from .env only in Development.
@@ -251,9 +253,11 @@ app.MapPost("/register-submit", async (HttpContext ctx, IUserAdminService adminS
     if (!password.Any(char.IsDigit))
     { ctx.Response.Redirect("/register?error=digit"); return; }
 
+    var atIndex = email.IndexOf('@');
+    var defaultDisplayName = atIndex > 0 ? email[..atIndex] : email;
     var result = await adminSvc.CreateAsync(
         userName: email, email: email, role: "User",
-        password: password, mustChangePassword: false);
+        password: password, mustChangePassword: false, displayName: defaultDisplayName);
 
     if (!result.Ok)
     {

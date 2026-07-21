@@ -67,13 +67,13 @@
         </div>
         <div class="text-muted small mt-2">
             <i class="bi bi-info-circle me-1" aria-hidden="true"></i>
-            @if (usingPolygon)
+            @if (usingLiveData)
             {
                 <span>Using <strong>@activeDataSource live historical data</strong>. Triggers, trade logic, and price series reflect the real day.</span>
             }
             else
             {
-                <span>Market data is <strong>simulated</strong> — add Alpaca credentials on <a href="/api-keys" class="text-muted">API Keys</a> to use real historical bars. Triggers and trade logic are exact; prices are synthetic.</span>
+                <span>Market data is <strong>simulated</strong> — add Alpaca credentials on <a href="/api-keys" class="text-muted">API Keys</a> to backtest against real bars.</span>
             }
         </div>
     </div>
@@ -240,12 +240,11 @@
     // every weekend and replays an empty day.
     private DateTime selectedDate = MarketTime.PreviousEquityTradingDayEt(DateTime.UtcNow).ToDateTime(TimeOnly.MinValue);
     private bool running;
-    private bool usingPolygon;
+    private bool usingLiveData;
     private string activeDataSource = "Mock";
     private string? loadError;
     private BacktestReport? report;
 
-    private string? polygonApiKey;
     private string? alpacaKeyId;
     private string? alpacaSecretKey;
 
@@ -261,7 +260,6 @@
             ApplyRouteStrategy();
 
             var keys = await UserKeyService.GetOrCreateAsync(userId.Value);
-            polygonApiKey   = string.IsNullOrWhiteSpace(keys.PolygonApiKey)       ? null : keys.PolygonApiKey;
             alpacaKeyId     = string.IsNullOrWhiteSpace(keys.AlpacaApiKeyId)      ? null : keys.AlpacaApiKeyId;
             alpacaSecretKey = string.IsNullOrWhiteSpace(keys.AlpacaApiSecretKey)  ? null : keys.AlpacaApiSecretKey;
         }
@@ -327,26 +325,19 @@
             var end = TimeZoneInfo.ConvertTimeToUtc(
                 DateTime.SpecifyKind(day.ToDateTime(endEt), DateTimeKind.Unspecified), eastern);
 
-            // Data source priority: Alpaca (existing credentials) → Polygon → Mock
             IMarketDataFeed feed;
             string dataSource;
             if (!string.IsNullOrWhiteSpace(alpacaKeyId) && !string.IsNullOrWhiteSpace(alpacaSecretKey))
             {
                 feed = new AlpacaDataFeed(alpacaKeyId, alpacaSecretKey);
                 dataSource = "Alpaca";
-                usingPolygon = true;
-            }
-            else if (!string.IsNullOrWhiteSpace(polygonApiKey))
-            {
-                feed = new PolygonDataFeed(polygonApiKey);
-                dataSource = "Polygon";
-                usingPolygon = true;
+                usingLiveData = true;
             }
             else
             {
                 feed = new MockDataFeed();
                 dataSource = "Mock";
-                usingPolygon = false;
+                usingLiveData = false;
             }
 
             activeDataSource = dataSource;

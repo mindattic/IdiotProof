@@ -18,12 +18,9 @@ public sealed class AppSettings
     public string AlpacaApiSecretKey { get; set; } = "";
     public bool AlpacaIsPaper { get; set; } = true;
 
-    // Polygon
-    public string PolygonApiKey { get; set; } = "";
-
     // Defaults
     public string DefaultBroker { get; set; } = "Sandbox";
-    public string DefaultDataFeed { get; set; } = "Polygon";
+    public string DefaultDataFeed { get; set; } = "Alpaca";
     public string Timezone { get; set; } = "Central Standard Time";
 
     // Display
@@ -96,9 +93,6 @@ public sealed class AppSettings
 
         var alpacaSecret = Environment.GetEnvironmentVariable("AlpacaApiSecretKey");
         if (!string.IsNullOrWhiteSpace(alpacaSecret)) AlpacaApiSecretKey = alpacaSecret;
-
-        var polygonKey = Environment.GetEnvironmentVariable("PolygonApiKey");
-        if (!string.IsNullOrWhiteSpace(polygonKey)) PolygonApiKey = polygonKey;
 
         var claudeKey = Environment.GetEnvironmentVariable("ClaudeApiKey");
         if (!string.IsNullOrWhiteSpace(claudeKey)) ClaudeApiKey = claudeKey;

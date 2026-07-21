@@ -27,8 +27,6 @@ public enum ConfidenceGrade { APlus, A, B, C, D, F }
 
 public enum BrokerType { Alpaca, Sandbox }
 
-public enum FeedType { Polygon }
-
 public enum StrategyType { Iti, BreakoutPullback, LowHigh, FluentDsl, Custom }
 
 public enum WorkspaceState { Stopped, Running, Paused }

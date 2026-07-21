@@ -32,6 +32,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options)
     public DbSet<ReplayBar>         ReplayBars        => Set<ReplayBar>();
     public DbSet<AutoGapperScan>       AutoGapperScans      => Set<AutoGapperScan>();
     public DbSet<AutoGapperCandidate>  AutoGapperCandidates => Set<AutoGapperCandidate>();
+    public DbSet<LiveBar>              LiveBars             => Set<LiveBar>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -130,6 +131,18 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options)
             e.HasOne<AutoGapperScan>().WithMany().HasForeignKey(c => c.ScanId).OnDelete(DeleteBehavior.Cascade);
             // NO FK to Strategy: the candidate is a permanent research record and
             // must survive the armed strategy being deleted (like TradeDiary).
+        });
+
+        b.Entity<LiveBar>(e =>
+        {
+            // Natural key: one bar per (strategy, day, minute).
+            e.HasIndex(x => new { x.StrategyId, x.DateEt, x.Min }).IsUnique();
+            e.HasIndex(x => x.WrittenUtc);  // fast "written since T" poll for LiveBarPusher
+            e.Property(x => x.Et).HasMaxLength(8).IsRequired();
+            e.Property(x => x.DateEt).HasMaxLength(10).IsRequired();
+            e.Property(x => x.CondBitsJson).HasMaxLength(2000);
+            // No FK to Strategy: bars are observational history and must survive
+            // strategy edits or deletion (same rationale as TradeDiaryEntry).
         });
 
         b.Entity<TradeDiaryEntry>(e =>
