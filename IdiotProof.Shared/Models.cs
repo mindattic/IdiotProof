@@ -139,7 +139,16 @@ public sealed class IndicatorSnapshot
     // Volume
     public long Volume { get; set; }
     public double AverageVolume { get; set; }
-    public double VolumeRatio => AverageVolume > 0 ? Volume / AverageVolume : 0;
+    // Spike ratio = current bar volume vs the recent baseline. When the baseline
+    // is zero (a thin premarket small-cap whose prior bars had no trades at all),
+    // the arrival of ANY real volume IS the spike — returning 0 there would make
+    // IsVolumeAbove/WithVolumeConfirm fail on exactly the gap-and-go breakout the
+    // volume screen exists to catch, silently blocking the fire. Treat a live bar
+    // over a dead baseline as a confirmed spike (large sentinel); only a bar that
+    // itself has zero volume yields 0.
+    public double VolumeRatio => AverageVolume > 0
+        ? Volume / AverageVolume
+        : (Volume > 0 ? 999.0 : 0);
 
     /// <summary>
     /// Calculates an overall market score from -100 to +100.

@@ -9,6 +9,39 @@ updated: 2026-07-20
 
 # IdiotProof — Amendments (append-only; amendment wins over the bible)
 
+## IP-A31 — Origin transcripts, two-path coverage, and volume-gate firing fixes {#IP-A31}
+**What changed.** (2026-07-20.) Three things, all in service of "the watchlist strategies must
+actually fire tomorrow if the setup occurs":
+
+1. **Origin transcripts.** New nullable `Strategy.OriginTranscript` (nvarchar(max),
+   `AddStrategyOriginTranscript` migration), threaded through `StrategyRepository.CreateAsync`
+   and the Monitor watchlist schema (`"OriginTranscript"`). The verbatim source the recipe was
+   distilled from (e.g. the trader's watchlist-video transcript) is stored on every strategy born
+   from it — intentionally denormalized, several strategies share one text — so the origin/intent
+   is recallable and never lost. Attribution only; not part of the canonical strategy JSON
+   ([IP-LAW-8]).
+
+2. **Two-path coverage.** The momentum watchlist plans give *two* independent entries per name
+   ("either way, you've got two ways to watch this"): the over-the-highs **breakout-pullback** and
+   the **higher-low reclaim** (higher lows back over VWAP + a floor, *without* first breaking the
+   high). Only the breakout path had been encoded — requiring `Breakout AND Pullback` made the
+   higher-low play unreachable. Added `IsHigherLow().IsAboveVwap().IsPriceBetween(floor,…)`
+   companions for HIHO and GMM (SHPH is breakout-only per its plan).
+
+3. **Volume-gate firing fixes (money-path).** Two defects on the shared entry path that silently
+   suppressed legitimate fires:
+   - `AverageVolume` folded the current (spike) bar into its own baseline → a true 10× bar read
+     ~7×, making `WithVolumeConfirm`/`IsVolumeAbove` harder to satisfy than authored. Now averages
+     the prior up-to-20 bars (matching the swing-window convention).
+   - `VolumeRatio` returned **0** when the baseline was zero — the thin-premarket small-cap case —
+     so a huge real spike over a dead overnight book *failed* the volume screen and blocked the
+     fire. A live bar over a dead baseline is now treated as a confirmed spike.
+
+   Gate audit for the active watchlist (paper, no UserPreferences row, LLM voting off + no Claude
+   key): LLM gate **skipped** (can't block), RiskGuardian **approves** (~$36 risk/trade < $100
+   cap, 8% stop within 0.5–10%, < $500 daily, < $50 confirm threshold). All eight actives verified
+   `WILL FIRE: YES`, none quarantined. **Status: shipped & verified.**
+
 ## IP-A30 — Strategy authorship attribution {#IP-A30}
 **What changed.** (2026-07-20.) Strategies now carry an **author** — credit for who invented the
 *recipe*, distinct from `OwnerUserId` (whose account runs it). New nullable `Strategy.Author`

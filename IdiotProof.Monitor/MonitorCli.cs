@@ -319,7 +319,8 @@ public static class MonitorCli
             // CreateAsync derives canonical JSON from the script (parse →
             // StrategyJson.Serialize), so the row is canon-first (IP-LAW-8).
             var s = await repo.CreateAsync(userId.Value, item.Title, item.Symbol, item.Script,
-                description: item.Description, author: item.Author);
+                description: item.Description, author: item.Author,
+                originTranscript: item.OriginTranscript);
 
             // Verify the canon materializes before activating — fail loud, never
             // arm a strategy the Monitor would quarantine.
@@ -352,6 +353,7 @@ public static class MonitorCli
         public string Script { get; set; } = "";
         public string? Description { get; set; }
         public string? Author { get; set; }
+        public string? OriginTranscript { get; set; }
         public bool Active { get; set; }
     }
 

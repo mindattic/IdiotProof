@@ -36,6 +36,13 @@ public sealed class Strategy
     [MaxLength(80)]
     public string? Author { get; set; }
 
+    /// <summary>The verbatim source material the strategy was distilled from — e.g. the
+    /// trader's watchlist-video transcript. Recallable later so the origin/intent of the
+    /// recipe is never lost. Intentionally denormalized: several strategies born from one
+    /// transcript each carry the same text. Null when there's no captured source.
+    /// nvarchar(max) — no length cap.</summary>
+    public string? OriginTranscript { get; set; }
+
     /// <summary>Primary ticker the strategy monitors (e.g. "TSLA"). Indexed.</summary>
     [Required, MaxLength(20)]
     public string Symbol { get; set; } = "";
