@@ -53,6 +53,8 @@ namespace IdiotProof.Blazor.Migrations
 
                     b.HasIndex("Category");
 
+                    b.HasIndex("Category", "TimestampUtc");
+
                     b.HasIndex("TimestampUtc");
 
                     b.HasIndex("UserId", "TimestampUtc");
