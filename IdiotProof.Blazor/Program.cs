@@ -159,6 +159,7 @@ builder.Services.AddScoped<ToastService>();
 builder.Services.AddSingleton<GapperInterpreter>();
 builder.Services.AddSingleton<SettingsRepository>();
 builder.Services.AddSingleton<AuditLogRepository>();
+builder.Services.AddSingleton<LogAlertService>();
 builder.Services.AddSingleton<TradeDiaryRepository>();
 builder.Services.AddSingleton<EmailDomainBlocklistService>();
 builder.Services.AddSingleton<ConditionProgressRepository>();

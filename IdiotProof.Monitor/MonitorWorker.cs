@@ -86,6 +86,7 @@ public sealed class MonitorWorker(
     private static readonly TimeSpan HoldingLogInterval    = TimeSpan.FromMinutes(5);
     private static readonly TimeSpan QuarantineLogInterval = TimeSpan.FromMinutes(5);
     private DateTime monitorStartUtc;
+    private DateTime lastPruneUtc = DateTime.MinValue;
 
     // Throttle live-bar writes: write at most once every 10 seconds per strategy
     // (the Monitor evaluates every 1s; writing every tick would hammer the DB).
@@ -259,6 +260,20 @@ public sealed class MonitorWorker(
         {
             lastPingUtc = DateTime.UtcNow;
             PrintSelfPing(active);
+        }
+
+        // Daily audit-log pruning — keep 30 days / minimum 2000 rows.
+        if (DateTime.UtcNow - lastPruneUtc >= TimeSpan.FromHours(24))
+        {
+            lastPruneUtc = DateTime.UtcNow;
+            try
+            {
+                var deleted = await auditLogRepo.PruneAsync(ct: ct);
+                if (deleted > 0)
+                    await auditLogRepo.LogAsync("audit-prune",
+                        $"Pruned {deleted} old audit rows (retention 30d, min 2000 kept)", ct: ct);
+            }
+            catch (Exception ex) { logger.LogWarning(ex, "Audit log prune failed (non-fatal)."); }
         }
 
         if (active.Count == 0) return;

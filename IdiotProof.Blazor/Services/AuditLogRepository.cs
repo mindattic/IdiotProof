@@ -98,4 +98,44 @@ public sealed class AuditLogRepository(IDbContextFactory<AppDbContext> dbFactory
             .Take(Math.Clamp(limit, 1, 1000))
             .ToListAsync(ct);
     }
+
+    public async Task<int> GetErrorCountSinceAsync(DateTime sinceUtc, CancellationToken ct = default)
+    {
+        await using var db = await dbFactory.CreateDbContextAsync(ct);
+        return await db.AuditLogs
+            .CountAsync(a => ErrorCategories.Contains(a.Category) && a.TimestampUtc > sinceUtc, ct);
+    }
+
+    /// <summary>
+    /// Delete rows older than <paramref name="retentionDays"/> days, but never
+    /// reduce total row count below <paramref name="minKeep"/>. Returns deleted count.
+    /// </summary>
+    public async Task<int> PruneAsync(int retentionDays = 30, int minKeep = 2000, CancellationToken ct = default)
+    {
+        await using var db = await dbFactory.CreateDbContextAsync(ct);
+
+        var totalCount = await db.AuditLogs.CountAsync(ct);
+        if (totalCount <= minKeep) return 0;
+
+        var cutoff = DateTime.UtcNow.AddDays(-retentionDays);
+        var keepCount = await db.AuditLogs.CountAsync(a => a.TimestampUtc >= cutoff, ct);
+
+        if (keepCount < minKeep)
+        {
+            // Fewer than minKeep recent rows — walk back to keep exactly minKeep total.
+            var anchor = await db.AuditLogs
+                .OrderByDescending(a => a.TimestampUtc)
+                .Skip(minKeep - 1)
+                .Select(a => (DateTime?)a.TimestampUtc)
+                .FirstOrDefaultAsync(ct);
+            if (anchor is null) return 0;
+            cutoff = anchor.Value;
+        }
+
+        return await db.AuditLogs
+            .Where(a => a.TimestampUtc < cutoff)
+            .ExecuteDeleteAsync(ct);
+    }
+
+    private static readonly string[] ErrorCategories = ["strategy-error", "order-rejected"];
 }

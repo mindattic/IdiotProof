@@ -1,0 +1,19 @@
+@rendermode InteractiveServer
+@inject LogAlertService AlertSvc
+@implements IDisposable
+
+@if (AlertSvc.UnreadErrorCount > 0)
+{
+    <span class="logs-badge" title="@AlertSvc.UnreadErrorCount unread error@(AlertSvc.UnreadErrorCount == 1 ? "" : "s")">@AlertSvc.UnreadErrorCount</span>
+}
+
+@code {
+    protected override void OnInitialized()
+    {
+        AlertSvc.Changed += HandleChanged;
+    }
+
+    void HandleChanged() => InvokeAsync(StateHasChanged);
+
+    public void Dispose() => AlertSvc.Changed -= HandleChanged;
+}

@@ -2,6 +2,7 @@
 @rendermode InteractiveServer
 @attribute [Authorize]
 @inject AuditLogRepository AuditRepo
+@inject LogAlertService AlertSvc
 @inject IJSRuntime JS
 @implements IDisposable
 
@@ -213,6 +214,8 @@
         "holding", "position-reconciled",
         // Errors
         "strategy-error",
+        // Maintenance
+        "audit-prune",
         // Legacy rows (kept for DB compat — old installs used "order-placed" / "signal")
         "order-placed", "signal",
     ];
@@ -234,6 +237,7 @@
         "exit-tsl"             => "WARN",
         "order-rejected"       => "ERROR",
         "strategy-error"       => "ERROR",
+        "audit-prune"          => "INFO",
         "order-placed"         => "INFO",   // legacy
         "signal"               => "INFO",   // legacy
         _                      => "INFO",
@@ -283,6 +287,7 @@
 
     protected override async Task OnInitializedAsync()
     {
+        AlertSvc.MarkRead();
         await LoadAsync();
         timer = new System.Threading.Timer(async _ =>
         {
