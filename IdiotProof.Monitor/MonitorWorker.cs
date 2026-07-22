@@ -80,6 +80,13 @@ public sealed class MonitorWorker(
     private readonly Dictionary<string, (List<Candle> Candles, DateTime FetchedUtc)> candleCache = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, (DateOnly DayEt, decimal? Close, DateTime FetchedUtc)> previousCloseCache = new(StringComparer.OrdinalIgnoreCase);
 
+    // Throttle audit-log writes for events that would otherwise fire every tick.
+    private readonly Dictionary<Guid, DateTime> lastHoldingLogUtc = new();
+    private readonly Dictionary<Guid, DateTime> lastQuarantineLogUtc = new();
+    private static readonly TimeSpan HoldingLogInterval    = TimeSpan.FromMinutes(5);
+    private static readonly TimeSpan QuarantineLogInterval = TimeSpan.FromMinutes(5);
+    private DateTime monitorStartUtc;
+
     // Throttle live-bar writes: write at most once every 10 seconds per strategy
     // (the Monitor evaluates every 1s; writing every tick would hammer the DB).
     private readonly Dictionary<Guid, DateTime> lastBarWrite = new();
@@ -163,6 +170,15 @@ public sealed class MonitorWorker(
         // is the leader; the lease auto-releases if the process dies.
         await using var lease = await MonitorLeaderLease.AcquireAsync(database.ConnectionString, logger, stoppingToken);
 
+        monitorStartUtc = DateTime.UtcNow;
+        try
+        {
+            await auditLogRepo.LogAsync("monitor-start",
+                $"IdiotProof.Monitor started — feed {feed.FeedName}, interval {EvaluationInterval.TotalSeconds:F0}s, build {BuildDateLabel}",
+                ct: stoppingToken);
+        }
+        catch (Exception ex) { logger.LogWarning(ex, "Failed to write monitor-start audit log."); }
+
         StartStreamingIfConfigured();
 
         await SupervisedLoop.RunAsync(new SupervisedLoopOptions
@@ -177,6 +193,15 @@ public sealed class MonitorWorker(
 
         if (streaming is not null) await streaming.DisposeAsync();
         logger.LogInformation("IdiotProof.Monitor stopped.");
+
+        try
+        {
+            var uptime = DateTime.UtcNow - monitorStartUtc;
+            await auditLogRepo.LogAsync("monitor-stop",
+                $"IdiotProof.Monitor stopped — uptime {FormatUptime(uptime)}",
+                ct: CancellationToken.None);
+        }
+        catch { /* best-effort — process is stopping */ }
     }
 
     /// <summary>
@@ -421,6 +446,14 @@ public sealed class MonitorWorker(
                     stored.Title, stored.Id, stored.PositionQty, stored.Symbol, canonError);
                 await progressRepo.UpsertAsync(stored.Id, 0, 1,
                     $"(HOLDING {stored.PositionQty} shares but strategy invalid — exits NOT managed: {Truncate(canonError)})", ct);
+                // Throttled — log at most once per QuarantineLogInterval so this doesn't flood the audit table.
+                if (!lastQuarantineLogUtc.TryGetValue(stored.Id, out var lastQ) || DateTime.UtcNow - lastQ >= QuarantineLogInterval)
+                {
+                    lastQuarantineLogUtc[stored.Id] = DateTime.UtcNow;
+                    await auditLogRepo.LogAsync("strategy-error",
+                        $"[{stored.Title}] QUARANTINED while holding {stored.PositionQty} {stored.Symbol} — exits NOT managed: {Truncate(canonError)}",
+                        userId: stored.OwnerUserId, ct: ct);
+                }
                 return;
             }
             logger.LogWarning("Strategy {Title} ({Id}) quarantined — canonical JSON rejected: {Error}",
@@ -449,6 +482,20 @@ public sealed class MonitorWorker(
         // Open position → manage the exit instead of hunting a new entry.
         if (stored.PositionQty > 0)
         {
+            // Holding heartbeat: log current price + unrealized P&L every HoldingLogInterval.
+            if (!lastHoldingLogUtc.TryGetValue(stored.Id, out var lastHold) || DateTime.UtcNow - lastHold >= HoldingLogInterval)
+            {
+                lastHoldingLogUtc[stored.Id] = DateTime.UtcNow;
+                var currentPx = candles.Count > 0 ? candles[^1].Close : 0m;
+                var entryPx   = stored.LastEntryPrice ?? 0m;
+                var unrealized = entryPx > 0 ? (currentPx - entryPx) * stored.PositionQty : 0m;
+                var held = stored.EntryFilledUtc.HasValue ? FormatUptime(DateTime.UtcNow - stored.EntryFilledUtc.Value) : "?";
+                await auditLogRepo.LogAsync("holding",
+                    $"[{stored.Title}] HOLDING {stored.PositionQty} {stored.Symbol} " +
+                    $"entry {entryPx:F2} → now {currentPx:F2}, unrealized P&L {unrealized:+0.00;-0.00}, held {held}",
+                    userId: stored.OwnerUserId, ct: ct);
+            }
+
             await EvaluateExitAsync(stored, def, candles, ct);
             return;
         }
@@ -593,10 +640,23 @@ public sealed class MonitorWorker(
             UserId            = stored.OwnerUserId.ToString(),
         };
 
-        // Audit: all conditions passed — the signal is now walking the gates.
+        // Audit: all conditions passed — include indicator snapshot in DataJson for diagnostics.
+        var signalFireData = System.Text.Json.JsonSerializer.Serialize(new
+        {
+            price      = Math.Round(snapshot.Price, 4),
+            vwap       = snapshot.Vwap.HasValue     ? (double?)Math.Round(snapshot.Vwap.Value, 4)     : null,
+            gapPct     = snapshot.GapPercent.HasValue ? (double?)Math.Round(snapshot.GapPercent.Value, 2) : null,
+            prevClose  = snapshot.PreviousClose,
+            volx       = Math.Round(snapshot.VolumeRatio, 2),
+            atr        = snapshot.Atr.HasValue       ? (double?)Math.Round(snapshot.Atr.Value, 4)     : null,
+            ema9       = snapshot.Ema9,
+            ema21      = snapshot.Ema21,
+            conditions = def.EntryConditions.Select(c => c.ToScript()).ToList(),
+        }, new System.Text.Json.JsonSerializerOptions
+            { DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull });
         await auditLogRepo.LogAsync("signal-fire",
-            $"[{stored.Title}] {stored.Symbol} all conditions met — entering gate checks",
-            userId: stored.OwnerUserId, ct: ct);
+            $"[{stored.Title}] {stored.Symbol} all {def.EntryConditions.Count} conditions met — entering gate checks",
+            userId: stored.OwnerUserId, dataJson: signalFireData, ct: ct);
 
         // Gate 2 — LLM voter panel (skipped only when voting is disabled/unkeyed).
         // IP-LAW-1 requires the quorum to APPROVE — anything short of an
@@ -1153,6 +1213,11 @@ public sealed class MonitorWorker(
     }
 
     private static string Truncate(string s) => s.Length <= 200 ? s : s[..200] + "…";
+
+    private static string FormatUptime(TimeSpan t) =>
+        t.TotalHours >= 1 ? $"{(int)t.TotalHours}h {t.Minutes}m"
+        : t.TotalMinutes >= 1 ? $"{(int)t.TotalMinutes}m {t.Seconds}s"
+        : $"{t.Seconds}s";
 
     /// <summary>Lenient interval parser — accepts "30s", "5m", "120" (seconds), or null.</summary>
     private static TimeSpan? TryParseInterval(string? raw)

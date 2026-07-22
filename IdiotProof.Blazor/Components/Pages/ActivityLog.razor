@@ -2,6 +2,7 @@
 @rendermode InteractiveServer
 @attribute [Authorize]
 @inject AuditLogRepository AuditRepo
+@inject IJSRuntime JS
 @implements IDisposable
 
 <PageTitle>Logs — IdiotProof</PageTitle>
@@ -35,6 +36,11 @@
                 <span class="text-muted small font-monospace log-refresh-ts">@lastRefreshedEt</span>
             }
             <button class="btn btn-sm btn-outline-secondary" type="button"
+                    title="Export current view as CSV" @onclick="ExportCsvAsync"
+                    aria-label="Export CSV">
+                <i class="bi bi-download me-1" aria-hidden="true"></i>CSV
+            </button>
+            <button class="btn btn-sm btn-outline-secondary" type="button"
                     title="Refresh now" @onclick="RefreshNowAsync"
                     aria-label="Refresh">
                 <i class="bi bi-arrow-clockwise @(refreshing ? "log-spin" : "")" aria-hidden="true"></i>
@@ -48,17 +54,17 @@
     </div>
 
     <!-- ── Filter bar ── -->
-    <div class="d-flex flex-wrap gap-2 mb-3 align-items-end">
+    <div class="d-flex flex-wrap gap-2 mb-3 align-items-center">
         <!-- Date range -->
         <div class="d-flex align-items-center gap-1">
-            <label class="text-muted small mb-0" for="log-from">From</label>
+            <label class="text-muted small mb-0 flex-shrink-0" for="log-from">From</label>
             <input id="log-from" type="date" class="form-control form-control-sm log-date-input"
                    value="@(fromDate?.ToString("yyyy-MM-dd") ?? "")"
                    @onchange="e => SetFromDate(e.Value?.ToString())"
                    aria-label="From date" />
         </div>
         <div class="d-flex align-items-center gap-1">
-            <label class="text-muted small mb-0" for="log-to">To</label>
+            <label class="text-muted small mb-0 flex-shrink-0" for="log-to">To</label>
             <input id="log-to" type="date" class="form-control form-control-sm log-date-input"
                    value="@(toDate?.ToString("yyyy-MM-dd") ?? "")"
                    @onchange="e => SetToDate(e.Value?.ToString())"
@@ -80,8 +86,8 @@
                @bind:event="oninput"
                aria-label="Search log messages" />
 
-        <!-- Event category quick-filter chips -->
-        <div class="d-flex flex-wrap gap-1 ms-auto" role="group" aria-label="Filter by event category">
+        <!-- Category quick-filter chips -->
+        <div class="d-flex flex-wrap gap-1" role="group" aria-label="Filter by event category">
             @foreach (var cat in AllCategories)
             {
                 bool on = activeCategories.Contains(cat);
@@ -132,13 +138,13 @@
                     <table class="table table-sm log-table mb-0" aria-label="Activity log">
                         <thead>
                             <tr>
-                                <th scope="col" class="log-th" style="width:88px">
+                                <th scope="col" class="log-th" style="width:110px">
                                     <button type="button" class="log-sort-btn" @onclick="ToggleSort">
                                         Time (ET)&nbsp;<i class="bi @(sortDesc ? "bi-sort-down" : "bi-sort-up")" aria-hidden="true"></i>
                                     </button>
                                 </th>
                                 <th scope="col" class="log-th" style="width:64px">Level</th>
-                                <th scope="col" class="log-th" style="width:130px">Event</th>
+                                <th scope="col" class="log-th" style="width:148px">Event</th>
                                 <th scope="col" class="log-th">Message</th>
                                 <th scope="col" class="log-th" style="width:32px"><span class="visually-hidden">Details</span></th>
                             </tr>
@@ -149,9 +155,11 @@
                                 var lvl = GetLevel(row.Category);
                                 bool expanded = expandedIds.Contains(row.Id);
                                 <tr @key="row.Id" class="log-row log-row-@lvl.ToLower()">
-                                    <td class="log-time">@EasternTime.Format(row.TimestampUtc, "HH:mm:ss")</td>
+                                    <td class="log-time" title="@EasternTime.Format(row.TimestampUtc, "yyyy-MM-dd HH:mm:ss") ET">
+                                        @SmartTimestamp(row.TimestampUtc)
+                                    </td>
                                     <td><span class="log-badge log-badge-@lvl.ToLower()">@lvl</span></td>
-                                    <td><span class="log-event-chip log-event-@row.Category">@row.Category</span></td>
+                                    <td><span class="log-event-chip log-event-@row.Category.Replace("-","_")">@row.Category</span></td>
                                     <td class="log-msg-cell">
                                         <span class="@(expanded ? "" : "log-msg-clamp")">@row.Message</span>
                                         @if (expanded && row.DataJson is not null)
@@ -174,11 +182,13 @@
                         </tbody>
                     </table>
                 </div>
-                <div class="log-footer px-3 py-2">
-                    Showing @rows.Count of @entries.Count events
-                    @if (fromDate is not null || toDate is not null) { <span> · date-filtered</span> }
-                    @if (!string.IsNullOrWhiteSpace(searchText)) { <span> · text-filtered</span> }
-                    · fetched max @MaxRows
+                <div class="log-footer px-3 py-2 d-flex align-items-center gap-3">
+                    <span>
+                        Showing @rows.Count of @entries.Count events
+                        @if (fromDate is not null || toDate is not null) { <span> · date-filtered</span> }
+                        @if (!string.IsNullOrWhiteSpace(searchText)) { <span> · text-filtered</span> }
+                        · max @MaxRows fetched
+                    </span>
                 </div>
             }
         }
@@ -190,34 +200,54 @@
 
     static readonly string[] AllLevels = ["INFO", "WARN", "ERROR", "FATAL"];
 
-    // All recognised strategy event categories (old + new; old "order-placed" kept for DB compat).
     static readonly string[] AllCategories =
     [
-        "entry", "exit", "exit-sl", "exit-tsl",
+        // Lifecycle
+        "monitor-start", "monitor-stop",
+        // Strategy signals
         "signal-fire", "signal-vetoed", "signal-blocked",
-        "order-rejected", "position-reconciled",
-        "order-placed",   // legacy rows
-        "signal",         // legacy rows
+        // Orders
+        "entry", "exit", "exit-sl", "exit-tsl",
+        "order-rejected",
+        // Position management
+        "holding", "position-reconciled",
+        // Errors
+        "strategy-error",
+        // Legacy rows (kept for DB compat — old installs used "order-placed" / "signal")
+        "order-placed", "signal",
     ];
 
-    // Categories shown by default (all of the above treated as one set).
-    static readonly HashSet<string> DefaultCategorySet = new(AllCategories, StringComparer.OrdinalIgnoreCase);
+    static readonly HashSet<string> AllCategorySet = new(AllCategories, StringComparer.OrdinalIgnoreCase);
 
     static string GetLevel(string cat) => cat switch
     {
+        "monitor-start"        => "INFO",
+        "monitor-stop"         => "INFO",
+        "signal-fire"          => "INFO",
         "entry"                => "INFO",
         "exit"                 => "INFO",
-        "exit-sl"              => "WARN",
-        "exit-tsl"             => "WARN",
-        "signal-fire"          => "INFO",
+        "holding"              => "INFO",
+        "position-reconciled"  => "INFO",
         "signal-vetoed"        => "WARN",
         "signal-blocked"       => "WARN",
+        "exit-sl"              => "WARN",
+        "exit-tsl"             => "WARN",
         "order-rejected"       => "ERROR",
-        "position-reconciled"  => "INFO",
+        "strategy-error"       => "ERROR",
         "order-placed"         => "INFO",   // legacy
         "signal"               => "INFO",   // legacy
         _                      => "INFO",
     };
+
+    // Smart timestamp: today → HH:mm:ss, yesterday → "Yest HH:mm", older → "MMM d HH:mm"
+    static string SmartTimestamp(DateTime utc)
+    {
+        var et = EasternTime.FromUtc(utc);
+        var todayEt = EasternTime.FromUtc(DateTime.UtcNow).Date;
+        if (et.Date == todayEt)           return et.ToString("HH:mm:ss");
+        if (et.Date == todayEt.AddDays(-1)) return "Yest " + et.ToString("HH:mm");
+        return et.ToString("MMM d HH:mm");
+    }
 
     bool loading = true, refreshing, autoRefresh = true, sortDesc = true;
     string? loadError;
@@ -228,7 +258,7 @@
 
     List<AuditLog> entries = [];
     HashSet<string> activeLevels = new(AllLevels);
-    HashSet<string> activeCategories = new(DefaultCategorySet, StringComparer.OrdinalIgnoreCase);
+    HashSet<string> activeCategories = new(AllCategorySet, StringComparer.OrdinalIgnoreCase);
     HashSet<long> expandedIds = [];
     System.Threading.Timer? timer;
 
@@ -267,20 +297,9 @@
         refreshing = true;
         try
         {
-            // toDate filter covers the full selected day.
-            var toUtc = toDate.HasValue
-                ? toDate.Value.AddDays(1).ToUniversalTime()
-                : (DateTime?)null;
-            var fromUtc = fromDate.HasValue
-                ? TimeZoneInfo.ConvertTimeToUtc(fromDate.Value, EtZone)
-                : (DateTime?)null;
-
-            entries = await AuditRepo.GetByCategoriesAsync(
-                DefaultCategorySet,
-                MaxRows,
-                fromUtc: fromUtc,
-                toUtc:   toUtc);
-
+            var toUtc   = toDate.HasValue   ? (DateTime?)toDate.Value.AddDays(1).ToUniversalTime() : null;
+            var fromUtc = fromDate.HasValue ? (DateTime?)TimeZoneInfo.ConvertTimeToUtc(fromDate.Value, EtZone) : null;
+            entries = await AuditRepo.GetByCategoriesAsync(AllCategorySet, MaxRows, fromUtc: fromUtc, toUtc: toUtc);
             lastRefreshedEt = $"Updated {EasternTime.Format(DateTime.UtcNow, "HH:mm:ss")} ET";
             loadError = null;
         }
@@ -312,6 +331,23 @@
         await LoadAsync();
     }
     async Task ClearDates() { fromDate = null; toDate = null; autoRefresh = true; await LoadAsync(); }
+
+    async Task ExportCsvAsync()
+    {
+        var rows = Filtered;
+        var sb = new System.Text.StringBuilder();
+        sb.AppendLine("\"Timestamp (ET)\",\"Level\",\"Event\",\"Message\",\"DataJson\"");
+        foreach (var row in rows)
+        {
+            var ts  = EasternTime.Format(row.TimestampUtc, "yyyy-MM-dd HH:mm:ss");
+            var lvl = GetLevel(row.Category);
+            var msg = (row.Message ?? "").Replace("\"", "\"\"");
+            var dat = (row.DataJson ?? "").Replace("\"", "\"\"");
+            sb.AppendLine($"\"{ts}\",\"{lvl}\",\"{row.Category}\",\"{msg}\",\"{dat}\"");
+        }
+        var filename = $"idiotproof-logs-{EasternTime.Format(DateTime.UtcNow, "yyyyMMdd-HHmmss")}.csv";
+        await JS.InvokeVoidAsync("IdiotProof.downloadFile", filename, "text/csv;charset=utf-8;", sb.ToString());
+    }
 
     public void Dispose() { timer?.Dispose(); timer = null; }
 }
