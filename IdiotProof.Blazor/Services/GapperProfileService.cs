@@ -18,7 +18,8 @@ public sealed class GapperProfileService(IWebHostEnvironment env, ILogger<Gapper
     {
         if (cache is not null) return cache;
 
-        var path = Path.Combine(env.WebRootPath, "data", "gapper-profiles.json");
+        var webRoot = env.WebRootPath ?? Path.Combine(env.ContentRootPath, "wwwroot");
+        var path = Path.Combine(webRoot, "data", "gapper-profiles.json");
         try
         {
             using var doc = JsonDocument.Parse(File.ReadAllText(path));

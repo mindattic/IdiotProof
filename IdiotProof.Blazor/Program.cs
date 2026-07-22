@@ -15,6 +15,10 @@ using MindAttic.Vault.Paths;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// When running as a published exe from a non-source directory (local deploy), the
+// dev-mode static-web-assets manifest is absent so WebRootPath can be null. Pin it.
+builder.Environment.WebRootPath ??= Path.Combine(builder.Environment.ContentRootPath, "wwwroot");
+
 // .env autoload (Development only). DEV_USERNAME / DEV_PASSWORD live in the roaming
 // MindAttic store at %APPDATA%\MindAttic\IdiotProof\.env — outside the repo, so no
 // credential file is ever checked out. The Login page prefills from these during
