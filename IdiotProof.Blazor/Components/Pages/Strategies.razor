@@ -209,14 +209,13 @@
 
             all = await StrategyRepo.GetAllForUserAsync(userId.Value);
             await RefreshProgressAsync();
+            ProgressPusher.ProgressChanged += OnProgressChanged;  // subscribe only on full success
         }
         catch (Exception ex)
         {
             loadError = ex.Message;
         }
         finally { loading = false; }
-
-        ProgressPusher.ProgressChanged += OnProgressChanged;
     }
 
     private async void OnProgressChanged(IReadOnlyList<Guid> changedIds)

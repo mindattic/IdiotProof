@@ -1,5 +1,6 @@
 using IdiotProof.Blazor.Data;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace IdiotProof.Blazor.Services;
 
@@ -15,11 +16,12 @@ namespace IdiotProof.Blazor.Services;
 /// When the Monitor is hibernating no rows have a new EvaluatedUtc, so the
 /// query returns nothing and the event never fires — the UI is truly quiet.
 /// </summary>
-public sealed class ConditionProgressPusher(IDbContextFactory<AppDbContext> dbFactory) : BackgroundService
+public sealed class ConditionProgressPusher(
+    IDbContextFactory<AppDbContext> dbFactory,
+    ILogger<ConditionProgressPusher> logger) : BackgroundService
 {
     private DateTime lastCheck = DateTime.UtcNow;
 
-    // Per-strategy snapshot of what was last pushed to the UI.
     private readonly Dictionary<Guid, SentState> lastSent = new();
 
     private sealed record SentState(int PassedCount, int TotalCount, string? FirstFailingVerb, decimal? PriceCents);
@@ -54,42 +56,52 @@ public sealed class ConditionProgressPusher(IDbContextFactory<AppDbContext> dbFa
                     })
                     .ToListAsync(stoppingToken);
 
-                // Only advance the watermark after a successful query.
-                lastCheck = next;
-
+                // Stage which IDs to notify + what their new SentState should be.
+                // Do NOT touch lastSent or lastCheck yet — if the event dispatch throws,
+                // neither watermark nor cache must advance so the next poll re-detects.
                 var changed = new List<Guid>(rows.Count);
+                var staged  = new Dictionary<Guid, SentState>(rows.Count);
+
                 foreach (var r in rows)
                 {
-                    // Round price to cents so sub-penny noise is ignored.
                     var priceCents = r.LastPrice.HasValue
                         ? Math.Round(r.LastPrice.Value, 2)
                         : (decimal?)null;
 
                     if (!lastSent.TryGetValue(r.StrategyId, out var prev))
                     {
-                        // First time seeing this strategy — always push.
-                        lastSent[r.StrategyId] = new SentState(r.PassedCount, r.TotalCount, r.FirstFailingVerb, priceCents);
                         changed.Add(r.StrategyId);
+                        staged[r.StrategyId] = new SentState(r.PassedCount, r.TotalCount, r.FirstFailingVerb, priceCents);
                         continue;
                     }
 
-                    bool conditionChanged = prev.PassedCount      != r.PassedCount
-                                        || prev.TotalCount        != r.TotalCount
-                                        || prev.FirstFailingVerb  != r.FirstFailingVerb;
-                    bool priceChanged     = priceCents            != prev.PriceCents;
+                    bool conditionChanged = prev.PassedCount     != r.PassedCount
+                                        || prev.TotalCount       != r.TotalCount
+                                        || prev.FirstFailingVerb != r.FirstFailingVerb;
+                    bool priceChanged     = priceCents           != prev.PriceCents;
 
                     if (conditionChanged || priceChanged)
                     {
-                        lastSent[r.StrategyId] = new SentState(r.PassedCount, r.TotalCount, r.FirstFailingVerb, priceCents);
                         changed.Add(r.StrategyId);
+                        staged[r.StrategyId] = new SentState(r.PassedCount, r.TotalCount, r.FirstFailingVerb, priceCents);
                     }
                 }
 
                 if (changed.Count > 0)
                     ProgressChanged?.Invoke(changed);
+
+                // Commit only after successful dispatch: apply staged cache updates
+                // and advance the watermark. A throw above leaves both untouched so
+                // the next iteration re-queries the same window and re-detects.
+                foreach (var (k, v) in staged)
+                    lastSent[k] = v;
+                lastCheck = next;
             }
             catch (OperationCanceledException) { return; }
-            catch { /* never crash the background service */ }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "ConditionProgressPusher poll failed");
+            }
         }
     }
 }

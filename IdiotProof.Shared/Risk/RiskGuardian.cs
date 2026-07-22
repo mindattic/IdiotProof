@@ -126,6 +126,15 @@ public sealed class RiskGuardian
 
         // === CRITICAL CHECKS - These BLOCK the trade ===
 
+        // 0. Quantity must be positive — zero/negative makes totalRisk 0 or negative,
+        //    which would pass every dollar-threshold check below.
+        if (setup.Quantity <= 0)
+        {
+            result.BlockReasons.Add($"INVALID QUANTITY {setup.Quantity} — must be at least 1 share");
+            result.IsApproved = false;
+            return result;
+        }
+
         // 1. MUST have a stop loss
         if (setup.StopLoss <= 0m)
         {
@@ -148,9 +157,16 @@ public sealed class RiskGuardian
             return result;
         }
 
-        // 3. Calculate actual risk
+        // 3. Entry price must be positive before any division
+        if (setup.EntryPrice <= 0m)
+        {
+            result.BlockReasons.Add("INVALID ENTRY PRICE — must be greater than zero");
+            result.IsApproved = false;
+            return result;
+        }
+
         var stopDistance = Math.Abs(setup.EntryPrice - setup.StopLoss);
-        var stopPercent = setup.EntryPrice > 0m ? (stopDistance / setup.EntryPrice) * 100m : 0m;
+        var stopPercent = (stopDistance / setup.EntryPrice) * 100m;
         var riskPerShare = stopDistance;
         var totalRisk = riskPerShare * setup.Quantity;
 
@@ -185,6 +201,10 @@ public sealed class RiskGuardian
             if (remaining > 0m && riskPerShare > 0m)
             {
                 var adjustedQty = (int)Math.Floor(remaining / riskPerShare);
+                // Cap against per-trade suggestion so the final recommendation
+                // never exceeds the most restrictive active constraint.
+                if (result.AdjustedSetup is not null)
+                    adjustedQty = Math.Min(adjustedQty, result.AdjustedSetup.Quantity);
                 if (adjustedQty >= 1)
                 {
                     result.AdjustedSetup = CloneWithQuantity(setup, adjustedQty);

@@ -1,5 +1,6 @@
 using IdiotProof.Blazor.Data;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace IdiotProof.Blazor.Services;
 
@@ -9,7 +10,9 @@ namespace IdiotProof.Blazor.Services;
 /// one new audit row since the last check — the Logs page subscribes instead
 /// of running its own polling timer.
 /// </summary>
-public sealed class AuditLogPusher(IDbContextFactory<AppDbContext> dbFactory) : BackgroundService
+public sealed class AuditLogPusher(
+    IDbContextFactory<AppDbContext> dbFactory,
+    ILogger<AuditLogPusher> logger) : BackgroundService
 {
     private DateTime lastCheck = DateTime.UtcNow;
 
@@ -31,13 +34,20 @@ public sealed class AuditLogPusher(IDbContextFactory<AppDbContext> dbFactory) : 
                 var hasNew = await db.AuditLogs
                     .AnyAsync(a => a.TimestampUtc > since, stoppingToken);
 
-                lastCheck = next;
-
+                // Fire before advancing the watermark. If the event throws, lastCheck
+                // stays at `since` so the next poll retries the same window.
                 if (hasNew)
                     LogChanged?.Invoke();
+
+                // Watermark advances whether new rows existed or not — no-new-data
+                // iterations still need to slide the window forward.
+                lastCheck = next;
             }
             catch (OperationCanceledException) { return; }
-            catch { /* never crash the background service */ }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "AuditLogPusher poll failed");
+            }
         }
     }
 }

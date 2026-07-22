@@ -1272,7 +1272,8 @@ public static class MarketTime
     public static bool IsMarketHoliday(DateOnly date)
     {
         var y = date.Year;
-        return date == ObservedHoliday(y, 1,  1)   // New Year's Day
+        return date == ObservedHoliday(y, 1,  1)   // New Year's Day (this year)
+            || date == ObservedHoliday(y + 1, 1, 1) // New Year's Day next year — observed Dec 31 when Jan 1 falls on Saturday
             || date == MlkDay(y)                    // MLK Day (3rd Mon Jan)
             || date == PresidentsDay(y)             // Presidents' Day (3rd Mon Feb)
             || date == GoodFriday(y)               // Good Friday

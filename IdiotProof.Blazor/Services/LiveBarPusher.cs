@@ -1,5 +1,6 @@
 using IdiotProof.Blazor.Data;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace IdiotProof.Blazor.Services;
 
@@ -9,7 +10,9 @@ namespace IdiotProof.Blazor.Services;
 /// last check — open LiveChart pages subscribe and call StateHasChanged()
 /// over their existing Blazor circuit (no extra WebSocket needed).
 /// </summary>
-public sealed class LiveBarPusher(IDbContextFactory<AppDbContext> dbFactory) : BackgroundService
+public sealed class LiveBarPusher(
+    IDbContextFactory<AppDbContext> dbFactory,
+    ILogger<LiveBarPusher> logger) : BackgroundService
 {
     private DateTime lastCheck = DateTime.UtcNow;
 
@@ -33,16 +36,23 @@ public sealed class LiveBarPusher(IDbContextFactory<AppDbContext> dbFactory) : B
                     .Distinct()
                     .ToListAsync(stoppingToken);
 
-                // Only advance the watermark after a successful query. If the
-                // DB call throws, lastCheck stays at `since` so the next poll
-                // retries the same window instead of silently skipping it.
-                lastCheck = next;
-
+                // Fire all notifications before advancing the watermark. A per-item
+                // try-catch ensures one broken subscriber can't block later strategies.
+                // lastCheck advances only after the full loop so a mid-loop exception
+                // (outer catch) leaves the watermark at `since` for a retry.
                 foreach (var sid in updatedStrategies)
-                    BarUpdated?.Invoke(sid);
+                {
+                    try { BarUpdated?.Invoke(sid); }
+                    catch (Exception ex) { logger.LogWarning(ex, "BarUpdated subscriber fault for strategy {Id}", sid); }
+                }
+
+                lastCheck = next;
             }
             catch (OperationCanceledException) { return; }
-            catch { /* never crash the background service */ }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "LiveBarPusher poll failed");
+            }
         }
     }
 }

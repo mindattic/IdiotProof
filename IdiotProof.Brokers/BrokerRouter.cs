@@ -31,7 +31,12 @@ public sealed class BrokerRouter
     {
         if (brokers.TryGetValue(activeBroker, out var active))
             return active;
-        // Fallback: always return Sandbox rather than throw
+        // Only fall back to Sandbox when Sandbox itself is the active broker.
+        // If Live or Paper is active but not registered, throw loudly — silent
+        // fallback would route live-intended orders to paper with no indication.
+        if (activeBroker != BrokerType.Sandbox)
+            throw new InvalidOperationException(
+                $"Active broker {activeBroker} is not registered. Register it before activating.");
         return brokers.TryGetValue(BrokerType.Sandbox, out var sandbox)
             ? sandbox
             : throw new InvalidOperationException("No broker registered. Sandbox broker must always be registered.");

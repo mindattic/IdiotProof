@@ -284,8 +284,7 @@ public sealed class MonitorWorker(
         var fingerprint = RosterFingerprint(active);
         if (fingerprint != lastActiveFingerprint)
         {
-            if (lastActiveFingerprint is null)
-                PrintActiveRoster(active);
+            PrintActiveRoster(active);
             lastActiveFingerprint = fingerprint;
         }
 
@@ -1221,7 +1220,6 @@ public sealed class MonitorWorker(
                 .ToString("h:mm tt");
         var left  = $"Build: {BuildDateLabel}";
         var right = $"Ping: Success {pingLabel}  ({active.Count} active strateg{(active.Count == 1 ? "y" : "ies")})";
-        Console.Clear();
         Console.WriteLine();
         Console.WriteLine(IdiotProof.Shared.Branding.AsciiBanner);
         Console.WriteLine();

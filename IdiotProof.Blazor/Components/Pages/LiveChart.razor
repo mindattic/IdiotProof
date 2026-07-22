@@ -133,13 +133,12 @@ else
 
             todayEt = EasternTime.FromUtc(DateTime.UtcNow).ToString("yyyy-MM-dd");
             bars = await LiveBarRepo.GetTodayBarsAsync(StrategyId, todayEt);
+            Pusher.BarUpdated += OnBarUpdated;  // subscribe only on full success
         }
         catch (Exception ex)
         {
             loadError = ex.Message;
         }
-
-        Pusher.BarUpdated += OnBarUpdated;
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -153,11 +152,22 @@ else
         if (strategyId != StrategyId) return;
         _ = InvokeAsync(async () =>
         {
-            bars = await LiveBarRepo.GetTodayBarsAsync(StrategyId, todayEt);
-            StateHasChanged();
-            // After state update, re-draw the chart.
-            if (bars.Any())
-                await DrawChartAsync();
+            try
+            {
+                bars = await LiveBarRepo.GetTodayBarsAsync(StrategyId, todayEt);
+                StateHasChanged();
+                if (bars.Any())
+                    await DrawChartAsync();
+            }
+            catch (Exception ex) when (ex is ObjectDisposedException or OperationCanceledException)
+            {
+                // Circuit teardown — component already gone, ignore.
+            }
+            catch (Exception ex)
+            {
+                loadError = ex.Message;
+                StateHasChanged();
+            }
         });
     }
 
@@ -205,9 +215,9 @@ else
         catch { /* circuit disconnected — no-op */ }
     }
 
-    public async ValueTask DisposeAsync()
+    public ValueTask DisposeAsync()
     {
         Pusher.BarUpdated -= OnBarUpdated;
-        await ValueTask.CompletedTask;
+        return ValueTask.CompletedTask;
     }
 }
