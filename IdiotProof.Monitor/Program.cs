@@ -39,6 +39,14 @@ using MindAttic.Authentication.Web;
 // Brand wordmark on startup (shared source of truth — IdiotProof.Shared.Branding).
 Console.WriteLine();
 Console.WriteLine(IdiotProof.Shared.Branding.AsciiBanner);
+try
+{
+    var loc = System.Reflection.Assembly.GetExecutingAssembly().Location;
+    var buildUtc = System.IO.File.GetLastWriteTimeUtc(loc);
+    var buildEt = TimeZoneInfo.ConvertTimeFromUtc(buildUtc, IdiotProof.Scripting.MarketTime.Eastern);
+    Console.WriteLine($"  Build: {buildEt:yyyy-MM-dd h:mm tt} ET");
+}
+catch { /* best-effort */ }
 Console.WriteLine();
 
 var builder = Host.CreateApplicationBuilder(args);
@@ -193,7 +201,7 @@ builder.Logging.ClearProviders();
 builder.Logging.AddSimpleConsole(o =>
 {
     o.SingleLine = true;
-    o.TimestampFormat = "[yyyy-MM-dd hh:mm tt]    ";
+    o.TimestampFormat = null;
 });
 // Suppress EF Core SQL chatter and all framework noise. Only warnings,
 // errors, and critical events reach the console. Console.WriteLine calls

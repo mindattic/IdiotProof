@@ -16,7 +16,8 @@ namespace IdiotProof.Blazor.Services;
 /// </summary>
 public sealed class ConditionProgressRepository(IDbContextFactory<AppDbContext> dbFactory)
 {
-    public async Task UpsertAsync(Guid strategyId, int passedCount, int totalCount, string? firstFailingVerb, CancellationToken ct = default)
+    public async Task UpsertAsync(Guid strategyId, int passedCount, int totalCount, string? firstFailingVerb,
+        CancellationToken ct = default, decimal? lastPrice = null)
     {
         await using var db = await dbFactory.CreateDbContextAsync(ct);
         var row = await db.ConditionProgress.FirstOrDefaultAsync(p => p.StrategyId == strategyId, ct);
@@ -31,6 +32,8 @@ public sealed class ConditionProgressRepository(IDbContextFactory<AppDbContext> 
                 TotalCount       = totalCount,
                 FirstFailingVerb = firstFailingVerb,
                 EvaluatedUtc     = now,
+                LastPrice        = lastPrice,
+                LastPriceUtc     = lastPrice.HasValue ? now : null,
             });
         }
         else
@@ -39,6 +42,11 @@ public sealed class ConditionProgressRepository(IDbContextFactory<AppDbContext> 
             row.TotalCount       = totalCount;
             row.FirstFailingVerb = firstFailingVerb;
             row.EvaluatedUtc     = now;
+            if (lastPrice.HasValue)
+            {
+                row.LastPrice    = lastPrice;
+                row.LastPriceUtc = now;
+            }
         }
 
         await db.SaveChangesAsync(ct);

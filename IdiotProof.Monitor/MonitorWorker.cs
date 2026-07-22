@@ -128,12 +128,26 @@ public sealed class MonitorWorker(
         Environment.GetEnvironmentVariable("IDIOTPROOF_SELFPING") != "0";
     private static readonly TimeSpan SelfPingInterval = ParseSelfPingInterval();
     private DateTime lastPingUtc = DateTime.MinValue;
+    private DateTime lastTickSuccessUtc = DateTime.MinValue;
+
+    private static readonly string BuildDateLabel = ComputeBuildDateLabel();
+    private static string ComputeBuildDateLabel()
+    {
+        try
+        {
+            var loc = System.Reflection.Assembly.GetExecutingAssembly().Location;
+            var utc = System.IO.File.GetLastWriteTimeUtc(loc);
+            var et = TimeZoneInfo.ConvertTimeFromUtc(utc, MarketTime.Eastern);
+            return et.ToString("yyyy-MM-dd h:mm tt") + " ET";
+        }
+        catch { return "unknown"; }
+    }
 
     private static TimeSpan ParseSelfPingInterval()
     {
         var v = Environment.GetEnvironmentVariable("IDIOTPROOF_SELFPING");
         if (string.IsNullOrWhiteSpace(v) || v is "0" or "1") return TimeSpan.FromMinutes(5);
-        return TryParseInterval(v) ?? TimeSpan.FromMinutes(30);
+        return TryParseInterval(v) ?? TimeSpan.FromMinutes(5);
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -192,6 +206,7 @@ public sealed class MonitorWorker(
         // Re-read the active set every tick: queue/toggle/dial-in changes made
         // in the UI land in SQL and apply here automatically — no restart.
         var active = await strategyRepo.GetActiveAsync(ct);
+        lastTickSuccessUtc = DateTime.UtcNow;
 
         // Roster echo: print the active-strategy list on startup (first tick,
         // lastActiveFingerprint == null) and reprint it whenever the AUTHORED
@@ -203,7 +218,8 @@ public sealed class MonitorWorker(
         var fingerprint = RosterFingerprint(active);
         if (fingerprint != lastActiveFingerprint)
         {
-            PrintActiveRoster(active, lastActiveFingerprint is null ? "startup" : "change detected");
+            if (lastActiveFingerprint is not null)
+                PrintActiveRoster(active);
             lastActiveFingerprint = fingerprint;
         }
 
@@ -469,7 +485,7 @@ public sealed class MonitorWorker(
         int passed = firstFalseIdx >= 0 ? firstFalseIdx : condBits.Length;
         string? firstFailure = firstFalseIdx >= 0 ? conditions[firstFalseIdx].ToScript() : null;
 
-        await progressRepo.UpsertAsync(stored.Id, passed, conditions.Count, firstFailure, ct);
+        await progressRepo.UpsertAsync(stored.Id, passed, conditions.Count, firstFailure, ct, lastPrice: (decimal)snapshot.Price);
 
         // Write a live bar (throttled to once every 10 seconds per strategy).
         var now = DateTime.UtcNow;
@@ -759,7 +775,8 @@ public sealed class MonitorWorker(
         // Surface "holding" in the progress badge so the UI shows live state.
         var current = (double)candles[^1].Close;
         await progressRepo.UpsertAsync(stored.Id, 1, 1,
-            decision is null ? $"(holding {stored.PositionQty} @ {entry:F2}, now {current:F2})" : null, ct);
+            decision is null ? $"(holding {stored.PositionQty} @ {entry:F2}, now {current:F2})" : null, ct,
+            lastPrice: (decimal)current);
 
         // Write live bar during hold phase so the chart keeps updating.
         var holdNow = DateTime.UtcNow;
@@ -965,15 +982,13 @@ public sealed class MonitorWorker(
     /// to the console (like the startup wordmark) rather than through the
     /// single-line logger so the table isn't shredded into timestamped lines.
     /// </summary>
-    private void PrintActiveRoster(IReadOnlyList<IdiotProof.Blazor.Data.Strategy> active, string reason)
+    private void PrintActiveRoster(IReadOnlyList<IdiotProof.Blazor.Data.Strategy> active)
     {
         // ASCII-only framing: the Monitor console runs under the OEM codepage
         // (like the startup wordmark), where box-drawing glyphs render as '?'.
         var ts = Ts();
-        var bar = new string('-', 85);
+        var bar = new string('-', 97);
         var sb = new System.Text.StringBuilder();
-        sb.AppendLine($"{ts}{bar}");
-        sb.AppendLine($"{ts}  Active strategies: {active.Count}  -  {reason}");
         sb.AppendLine($"{ts}{bar}");
         if (active.Count == 0)
         {
@@ -981,7 +996,7 @@ public sealed class MonitorWorker(
         }
         else
         {
-            sb.AppendLine($"{ts}  {"Symbol",-7}  {"State",12}  {"P&L %",8}  Title");
+            sb.AppendLine($"{ts}  {"Symbol",-7}  {"State",12}  {"P&L %",8}  {"SL",9}  {"TP",9}  Title");
             foreach (var s in active.OrderBy(x => x.Symbol, StringComparer.OrdinalIgnoreCase).ThenBy(x => x.Title, StringComparer.OrdinalIgnoreCase))
             {
                 var loaded = StrategyLoader.Load(s.ScriptJson, s.ScriptText);
@@ -1006,7 +1021,32 @@ public sealed class MonitorWorker(
                     pnlPct = pct >= 0 ? $"+{pct:0.00}%" : $"{pct:0.00}%";
                 }
 
-                sb.AppendLine($"{ts}  {s.Symbol,-7}  {state,12}  {pnlPct,8}  {RosterTrunc(s.Title, 44)}");
+                string slStr = "-";
+                string tpStr = "-";
+                if (loaded.Definition is { } def)
+                {
+                    var entryForCalc = s.LastEntryPrice;
+                    bool isShort = def.Direction == TradeDirection.Short;
+
+                    if (def.StopLossPrice.HasValue)
+                        slStr = $"${def.StopLossPrice.Value:0.00}";
+                    else if (def.StopLossPercent.HasValue && entryForCalc.HasValue && entryForCalc.Value != 0)
+                        slStr = $"${(double)entryForCalc.Value * (isShort ? 1 + def.StopLossPercent.Value / 100 : 1 - def.StopLossPercent.Value / 100):0.00}";
+                    else if (def.StopLossPercent.HasValue)
+                        slStr = isShort ? $"+{def.StopLossPercent.Value:0.0}%" : $"-{def.StopLossPercent.Value:0.0}%";
+
+                    var tpPrice = def.TakeProfitTargets?.Count > 0
+                        ? (double?)def.TakeProfitTargets[0].Price
+                        : def.TakeProfitPrice;
+                    if (tpPrice.HasValue)
+                        tpStr = $"${tpPrice.Value:0.00}";
+                    else if (def.TakeProfitPercent.HasValue && entryForCalc.HasValue && entryForCalc.Value != 0)
+                        tpStr = $"${(double)entryForCalc.Value * (isShort ? 1 - def.TakeProfitPercent.Value / 100 : 1 + def.TakeProfitPercent.Value / 100):0.00}";
+                    else if (def.TakeProfitPercent.HasValue)
+                        tpStr = isShort ? $"-{def.TakeProfitPercent.Value:0.0}%" : $"+{def.TakeProfitPercent.Value:0.0}%";
+                }
+
+                sb.AppendLine($"{ts}  {s.Symbol,-7}  {state,12}  {pnlPct,8}  {slStr,9}  {tpStr,9}  {RosterTrunc(s.Title, 38)}");
             }
         }
         sb.Append($"{ts}{bar}");
@@ -1050,19 +1090,23 @@ public sealed class MonitorWorker(
     /// </summary>
     private void PrintSelfPing(IReadOnlyList<IdiotProof.Blazor.Data.Strategy> active)
     {
-        var holding = active.Count(s => s.PositionQty > 0);
-        Console.WriteLine($"{Ts()}[ONLINE] feed {feed.FeedName}" +
-                          $"{(holding > 0 ? $" · {holding} holding" : "")} · next ping in {SelfPingInterval.TotalMinutes:0}m");
-        PrintActiveRoster(active, "ping");
+        var age = lastTickSuccessUtc == DateTime.MinValue ? "never"
+            : (DateTime.UtcNow - lastTickSuccessUtc) is var a
+              && a.TotalSeconds < 90 ? $"~{(int)a.TotalSeconds}s ago"
+              : a.TotalMinutes < 60  ? $"~{(int)a.TotalMinutes}m ago"
+              : $"~{(int)a.TotalHours}h ago";
+        Console.Clear();
+        Console.WriteLine();
+        Console.WriteLine(IdiotProof.Shared.Branding.AsciiBanner);
+        Console.WriteLine($"  Build: {BuildDateLabel}");
+        Console.WriteLine();
+        Console.WriteLine($"  Ping: Success {age}  ({active.Count} active strateg{(active.Count == 1 ? "y" : "ies")})");
+        Console.WriteLine();
     }
 
     private const string TimestampFormat = "yyyy-MM-dd hh:mm tt";
 
-    private static string Ts()
-    {
-        var et = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, MarketTime.Eastern);
-        return $"[{et.ToString(TimestampFormat)}]    ";
-    }
+    private static string Ts() => string.Empty;
 
     // ── Clock helpers ───────────────────────────────────────────────────
 

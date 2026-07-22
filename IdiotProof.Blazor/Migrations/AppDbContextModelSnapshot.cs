@@ -325,6 +325,13 @@ namespace IdiotProof.Blazor.Migrations
                         .HasMaxLength(280)
                         .HasColumnType("nvarchar(280)");
 
+                    b.Property<decimal?>("LastPrice")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<DateTime?>("LastPriceUtc")
+                        .HasColumnType("datetime2");
+
                     b.Property<int>("PassedCount")
                         .HasColumnType("int");
 

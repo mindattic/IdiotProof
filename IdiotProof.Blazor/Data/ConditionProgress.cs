@@ -35,6 +35,13 @@ public sealed class ConditionProgress
 
     public DateTime EvaluatedUtc { get; set; } = DateTime.UtcNow;
 
+    /// <summary>Most-recent SIP last-trade price written by the Monitor each tick. Null until first evaluation.</summary>
+    [System.ComponentModel.DataAnnotations.Schema.Column(TypeName = "decimal(18,4)")]
+    public decimal? LastPrice { get; set; }
+
+    /// <summary>UTC timestamp of the last <see cref="LastPrice"/> write.</summary>
+    public DateTime? LastPriceUtc { get; set; }
+
     /// <summary>True when every entry condition passed on the most recent evaluation.</summary>
     public bool IsFullPass => TotalCount > 0 && PassedCount == TotalCount;
 }

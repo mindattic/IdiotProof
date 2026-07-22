@@ -78,6 +78,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options)
 
         b.Entity<ConditionProgress>(e =>
         {
+            e.Property(p => p.LastPrice).HasPrecision(18, 4);
             e.HasIndex(p => p.EvaluatedUtc);
             e.HasOne<Strategy>()
                 .WithOne()
