@@ -1093,12 +1093,12 @@ public sealed class MonitorWorker(
         var pingLabel = lastTickSuccessUtc == DateTime.MinValue ? "never"
             : TimeZoneInfo.ConvertTimeFromUtc(lastTickSuccessUtc, IdiotProof.Scripting.MarketTime.Eastern)
                 .ToString("h:mm tt");
+        var left  = $"  Build: {BuildDateLabel}";
+        var right = $"Ping: Success {pingLabel}  ({active.Count} active strateg{(active.Count == 1 ? "y" : "ies")})";
         Console.Clear();
         Console.WriteLine();
         Console.WriteLine(IdiotProof.Shared.Branding.AsciiBanner);
-        Console.WriteLine($"  Build: {BuildDateLabel}");
-        Console.WriteLine();
-        Console.WriteLine($"  Ping: Success {pingLabel}  ({active.Count} active strateg{(active.Count == 1 ? "y" : "ies")})");
+        Console.WriteLine(left.PadRight(Math.Max(0, 90 - right.Length)) + right);
         Console.WriteLine();
     }
 
