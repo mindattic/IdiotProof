@@ -215,6 +215,15 @@ if (!app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+// UseStaticFiles with an explicit PhysicalFileProvider so published-exe-as-Development
+// serves files from the published wwwroot. MapStaticAssets (below) uses the dev-mode
+// static-web-assets manifest which resolves source paths — those don't exist in the
+// publish output, so MapStaticAssets returns Content-Length:0 for every file.
+app.UseStaticFiles(new StaticFileOptions
+{
+    FileProvider = new Microsoft.Extensions.FileProviders.PhysicalFileProvider(
+        Path.Combine(app.Environment.ContentRootPath, "wwwroot"))
+});
 // UseMindAtticAuthentication wires UseAuthentication + UseAuthorization + forced-step
 // (MFA, must-change-password) middleware. Call after UseStaticFiles, before mapping.
 app.UseMindAtticAuthentication();
