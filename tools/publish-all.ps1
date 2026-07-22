@@ -34,7 +34,7 @@ foreach ($name in @('idiotproof-monitor', 'IdiotProof.Blazor')) {
     $procs = Get-Process $name -ErrorAction SilentlyContinue
     if ($procs) {
         $procs | Stop-Process -Force
-        Write-Host "    Stopped $name ($($procs.Count) process(es))" -ForegroundColor DarkYellow
+        Write-Host "    Stopped $name ($(@($procs).Count) process(es))" -ForegroundColor DarkYellow
     }
 }
 Start-Sleep -Milliseconds 800
