@@ -65,16 +65,15 @@
             <button type="submit" class="btn-login">Sign In</button>
         </form>
 
-        <p class="login-warning" style="margin-top:1rem">
-            <a href="/forgot-password" style="color:#79c0ff">Forgot password?</a>
-            &middot;
-            <a href="/forgot-username" style="color:#79c0ff">Forgot username?</a>
-        </p>
-        <p class="login-warning" style="margin-top:0.25rem">
-            No account? <a href="/register" style="color:#79c0ff">Create one free</a> — bring your own API keys.
-        </p>
-        <p class="login-warning" role="note">
-            This application can place real orders with real brokers. Keep your credentials secure.
+        <div class="login-links">
+            <a href="/forgot-password">Forgot password?</a>
+            <span class="sep">&middot;</span>
+            <a href="/forgot-username">Forgot username?</a>
+            <span class="sep">&middot;</span>
+            <a href="/register">Create account</a>
+        </div>
+        <p class="login-notice" role="note">
+            This application can place real orders with real brokers.<br>Keep your credentials secure.
         </p>
     </section>
 </main>
@@ -98,110 +97,136 @@
 }
 
 <style>
+/* Login page always renders dark — independent of the app theme */
 .login-wrapper {
     min-height: 100vh;
     display: flex;
     align-items: center;
     justify-content: center;
-    background: var(--bg-primary, #0d1117);
+    background: #0d1117;
+    background-image: radial-gradient(ellipse at 60% 20%, rgba(210,153,34,0.06) 0%, transparent 60%),
+                      radial-gradient(ellipse at 20% 80%, rgba(88,166,255,0.04) 0%, transparent 50%);
 }
 
 .login-card {
     width: 100%;
-    max-width: 380px;
-    background: var(--bg-card, #1c2128);
-    border: 1px solid var(--border, #30363d);
-    border-radius: 12px;
-    padding: 2.5rem;
+    max-width: 400px;
+    background: #161b22;
+    border: 1px solid #30363d;
+    border-radius: 14px;
+    padding: 2.75rem 2.5rem 2rem;
+    box-shadow: 0 8px 40px rgba(0,0,0,0.55), 0 1px 0 rgba(255,255,255,0.04) inset;
 }
 
 .login-logo {
     text-align: center;
-    margin-bottom: 2rem;
+    margin-bottom: 2.25rem;
 }
 
-.logo-icon { font-size: 2.5rem; }
-.login-logo h1 { font-size: 1.8rem; font-weight: 700; color: #e6edf3; margin: 0.25rem 0; }
-.logo-sub { color: #8b949e; font-size: 0.85rem; }
+.logo-icon {
+    font-size: 2.75rem;
+    line-height: 1;
+    display: block;
+    margin-bottom: 0.5rem;
+    filter: drop-shadow(0 0 12px rgba(210,153,34,0.5));
+}
+.login-logo h1 {
+    font-size: 1.9rem;
+    font-weight: 700;
+    color: #e6edf3;
+    margin: 0 0 0.3rem;
+    letter-spacing: -0.02em;
+}
+.logo-sub { color: #6e7681; font-size: 0.82rem; letter-spacing: 0.04em; text-transform: uppercase; }
 
 .alert-setup {
-    background: rgba(56, 139, 253, 0.15);
-    border: 1px solid rgba(56, 139, 253, 0.4);
-    border-radius: 6px;
+    background: rgba(56,139,253,0.12);
+    border: 1px solid rgba(56,139,253,0.35);
+    border-radius: 8px;
     padding: 0.75rem 1rem;
     font-size: 0.85rem;
     color: #79c0ff;
     margin-bottom: 1.25rem;
 }
-
 .alert-error {
-    background: rgba(248, 81, 73, 0.15);
-    border: 1px solid rgba(248, 81, 73, 0.4);
-    border-radius: 6px;
+    background: rgba(248,81,73,0.12);
+    border: 1px solid rgba(248,81,73,0.35);
+    border-radius: 8px;
     padding: 0.75rem 1rem;
     font-size: 0.85rem;
     color: #f85149;
     margin-bottom: 1.25rem;
 }
-
 .alert-dev {
-    background: rgba(255, 193, 7, 0.10);
-    border: 1px solid rgba(255, 193, 7, 0.35);
+    background: rgba(210,153,34,0.08);
+    border: 1px solid rgba(210,153,34,0.25);
     border-radius: 6px;
-    padding: 0.5rem 0.85rem;
-    font-size: 0.75rem;
-    color: #d29922;
+    padding: 0.45rem 0.85rem;
+    font-size: 0.74rem;
+    color: #9e7317;
     margin-bottom: 1rem;
 }
-.alert-dev code { background: transparent; color: inherit; font-size: inherit; }
+.alert-dev code { background: transparent; color: inherit; }
 
-.form-group {
-    margin-bottom: 1.25rem;
-}
-
+.form-group { margin-bottom: 1.1rem; }
 .form-group label {
     display: block;
     color: #8b949e;
-    font-size: 0.85rem;
-    margin-bottom: 0.4rem;
+    font-size: 0.8rem;
+    font-weight: 500;
+    margin-bottom: 0.35rem;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
 }
-
 .form-control {
     width: 100%;
-    padding: 0.6rem 0.85rem;
+    padding: 0.65rem 0.9rem;
     background: #0d1117;
     border: 1px solid #30363d;
-    border-radius: 6px;
+    border-radius: 8px;
     color: #e6edf3;
-    font-size: 1rem;
+    font-size: 0.95rem;
     box-sizing: border-box;
+    transition: border-color 0.15s, box-shadow 0.15s;
 }
-
 .form-control:focus {
     outline: none;
-    border-color: #388bfd;
-    box-shadow: 0 0 0 3px rgba(56, 139, 253, 0.15);
+    border-color: #d29922;
+    box-shadow: 0 0 0 3px rgba(210,153,34,0.18);
 }
 
 .btn-login {
     width: 100%;
-    padding: 0.7rem;
-    background: #238636;
-    color: #fff;
+    padding: 0.72rem;
+    background: #d29922;
+    color: #0d1117;
     border: none;
-    border-radius: 6px;
-    font-size: 1rem;
-    font-weight: 600;
+    border-radius: 8px;
+    font-size: 0.95rem;
+    font-weight: 700;
     cursor: pointer;
-    transition: background 0.2s;
+    letter-spacing: 0.02em;
+    transition: background 0.15s, transform 0.1s;
+    margin-top: 0.5rem;
 }
+.btn-login:hover  { background: #e0a820; }
+.btn-login:active { transform: scale(0.98); }
 
-.btn-login:hover { background: #2ea043; }
-
-.login-warning {
-    margin-top: 1.5rem;
-    font-size: 0.75rem;
-    color: #6e7681;
+.login-links {
+    margin-top: 1.75rem;
     text-align: center;
+}
+.login-links a { color: #58a6ff; font-size: 0.82rem; text-decoration: none; }
+.login-links a:hover { text-decoration: underline; }
+.login-links .sep { color: #30363d; margin: 0 0.5rem; }
+
+.login-notice {
+    margin-top: 1.5rem;
+    padding-top: 1.25rem;
+    border-top: 1px solid #21262d;
+    font-size: 0.74rem;
+    color: #484f58;
+    text-align: center;
+    line-height: 1.5;
 }
 </style>

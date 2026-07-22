@@ -7,6 +7,7 @@
 @inject AuthenticationStateProvider AuthState
 @inject IHttpClientFactory HttpClientFactory
 @inject IJSRuntime JS
+@inject IdiotProof.Blazor.Services.ToastService Toast
 @implements IDisposable
 
 @*
@@ -37,6 +38,30 @@
         <span class="fw-semibold small">@(activeType == "live" ? "Live" : "Paper")</span>
         <i class="bi @(isOpen ? "bi-chevron-up" : "bi-chevron-down") small" aria-hidden="true"></i>
     </button>
+
+    @if (showLiveModal)
+    {
+        <div class="modal-backdrop fade show" @onclick="() => showLiveModal = false"></div>
+        <div class="modal fade show d-block" role="dialog" aria-modal="true" aria-labelledby="live-modal-title" tabindex="-1">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h2 id="live-modal-title" class="h5 modal-title">
+                            <i class="bi bi-exclamation-triangle-fill text-warning me-2" aria-hidden="true"></i>Live Trading
+                        </h2>
+                        <button type="button" class="btn-close" @onclick="() => showLiveModal = false" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p>Switching to a live account requires re-authentication to verify identity.</p>
+                        <p class="text-muted small mb-0">This feature is not yet implemented. Paper trading remains active.</p>
+                    </div>
+                    <div class="modal-footer">
+                        <button class="btn btn-secondary btn-sm" type="button" @onclick="() => showLiveModal = false">OK</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
 
     @if (isOpen)
     {
@@ -110,6 +135,7 @@
 
 @code {
     private bool isOpen;
+    private bool showLiveModal;
     private string? errorMessage;
 
     private AlpacaAccountSummary? liveAccount;
@@ -256,10 +282,18 @@
     private async Task SelectAccount(AlpacaAccountSummary summary, string type)
     {
         if (userId is null) return;
+        isOpen = false;
+
+        if (type == "live")
+        {
+            showLiveModal = true;
+            Toast.Show("Live trading requires re-authentication — not yet available.", ToastKind.Warning);
+            return;
+        }
+
         activeType      = type;
         activeAccountId = summary.AccountId;
         activeLabel     = summary.Label;
-        isOpen          = false;
 
         await Prefs.SetActiveAccountAsync(userId.Value, summary.AccountId, type);
 

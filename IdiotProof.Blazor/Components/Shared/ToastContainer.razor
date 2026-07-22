@@ -1,0 +1,22 @@
+@rendermode InteractiveServer
+@inject IdiotProof.Blazor.Services.ToastService Toasts
+@implements IDisposable
+
+@if (Toasts.Toasts.Count > 0)
+{
+    <div class="toast-stack" aria-live="polite" aria-atomic="false" role="region" aria-label="Notifications">
+        @foreach (var t in Toasts.Toasts)
+        {
+            <div class="toast-item toast-@t.Kind.ToString().ToLower()" role="alert">
+                <span class="toast-body">@t.Body</span>
+                <button class="toast-close" type="button" @onclick="() => Toasts.Dismiss(t.Id)" aria-label="Dismiss">&times;</button>
+            </div>
+        }
+    </div>
+}
+
+@code {
+    protected override void OnInitialized() => Toasts.Changed += OnChanged;
+    public void Dispose() => Toasts.Changed -= OnChanged;
+    private void OnChanged() => InvokeAsync(StateHasChanged);
+}

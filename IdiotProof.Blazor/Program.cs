@@ -155,6 +155,7 @@ builder.Services.AddSingleton<StrategyRepository>();
 builder.Services.AddSingleton<UserPreferencesService>();
 builder.Services.AddSingleton<StrategyScriptGenerator>();
 builder.Services.AddSingleton<GapperProfileService>();
+builder.Services.AddScoped<ToastService>();
 builder.Services.AddSingleton<GapperInterpreter>();
 builder.Services.AddSingleton<SettingsRepository>();
 builder.Services.AddSingleton<AuditLogRepository>();
