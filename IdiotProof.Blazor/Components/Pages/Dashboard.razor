@@ -71,7 +71,7 @@ else
             <tbody>
                 @foreach (var r in rows)
                 {
-                    <tr>
+                    <tr @key="r.Strategy.Id">
                         <td><span class="badge symbol-chip">@r.Strategy.Symbol</span></td>
                         @if (visibleCols.Contains("price"))
                         {

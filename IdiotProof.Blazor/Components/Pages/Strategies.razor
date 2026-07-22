@@ -77,7 +77,7 @@
             {
                 var isOpen  = openRows.Contains(s.Id);
                 var preview = previews.GetValueOrDefault(s.Id);
-                <li class="trading-card mb-2" data-strategy-id="@s.Id">
+                <li @key="s.Id" class="trading-card mb-2" data-strategy-id="@s.Id">
                     <div class="d-flex align-items-center gap-3 p-3 strategy-row-header"
                          role="button"
                          tabindex="0"

@@ -135,7 +135,10 @@ public sealed class MonitorWorker(
     {
         try
         {
+            // Assembly.Location is empty in single-file publishes; fall back to the process exe.
             var loc = System.Reflection.Assembly.GetExecutingAssembly().Location;
+            if (string.IsNullOrEmpty(loc))
+                loc = System.Environment.ProcessPath ?? System.Diagnostics.Process.GetCurrentProcess().MainModule?.FileName ?? "";
             var utc = System.IO.File.GetLastWriteTimeUtc(loc);
             var et = TimeZoneInfo.ConvertTimeFromUtc(utc, MarketTime.Eastern);
             return et.ToString("yyyy-MM-dd h:mm tt") + " ET";
@@ -146,7 +149,7 @@ public sealed class MonitorWorker(
     private static TimeSpan ParseSelfPingInterval()
     {
         var v = Environment.GetEnvironmentVariable("IDIOTPROOF_SELFPING");
-        if (string.IsNullOrWhiteSpace(v) || v is "0" or "1") return TimeSpan.FromMinutes(5);
+        if (string.IsNullOrWhiteSpace(v) || v == "0") return TimeSpan.FromMinutes(5);
         return TryParseInterval(v) ?? TimeSpan.FromMinutes(5);
     }
 
@@ -263,6 +266,7 @@ public sealed class MonitorWorker(
                 candles = await GetCandlesAsync(symbol, ct);
                 previousClose = await GetPreviousCloseAsync(symbol, ct);
             }
+            catch (OperationCanceledException) { throw; }
             catch (Exception ex)
             {
                 logger.LogWarning(ex, "Market data unavailable for {Symbol}; skipping this tick.", symbol);
@@ -277,6 +281,7 @@ public sealed class MonitorWorker(
                 {
                     await EvaluateOneAsync(stored, candles, previousClose, ct);
                 }
+                catch (OperationCanceledException) { throw; }
                 catch (Exception ex)
                 {
                     logger.LogError(ex, "Evaluation failed for {Title} ({Id}); continuing with next strategy.", stored.Title, stored.Id);
@@ -613,6 +618,14 @@ public sealed class MonitorWorker(
 
         // Gate 3 — RiskGuardian holds the final veto (IP-LAW-2).
         var guardian = await riskGuardianService.GetForUserAsync(stored.OwnerUserId, ct);
+        if (guardian is null)
+        {
+            logger.LogError("[{Title}] RiskGuardian row missing for user {UserId} — fire blocked.", stored.Title, stored.OwnerUserId);
+            await auditLogRepo.LogAsync("signal-blocked",
+                $"[{stored.Title}] {stored.Symbol} blocked — no RiskGuardian row for user {stored.OwnerUserId}",
+                userId: stored.OwnerUserId, ct: ct);
+            return;
+        }
         var setup = new TradeSetup
         {
             Symbol          = stored.Symbol,
@@ -935,7 +948,7 @@ public sealed class MonitorWorker(
         // daily-loss guard could never trip. Uses the reconciled quantity.
         var realized = (limitPrice - entry) * sellQty;
         var guardian = await riskGuardianService.GetForUserAsync(stored.OwnerUserId, ct);
-        guardian.RecordTradePnL(realized);
+        guardian?.RecordTradePnL(realized);
 
         var exitUtc = DateTime.UtcNow;
         await strategyRepo.RecordExitFillAsync(stored.Id, limitPrice, decision.Reason.ToString(), exitUtc, ct);

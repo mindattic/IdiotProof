@@ -101,7 +101,7 @@
 
         @foreach (var c in candidates)
         {
-            <div class="border-top pt-3 mt-3" data-candidate="@c.Symbol">
+            <div @key="c.Symbol" class="border-top pt-3 mt-3" data-candidate="@c.Symbol">
                 <div class="d-flex align-items-center gap-2 flex-wrap">
                     <span class="strategy-chip ticker-chip">@c.Symbol</span>
                     <span class="text-muted small flex-grow-1">@c.Rationale</span>
@@ -331,7 +331,7 @@
         <ul class="list-unstyled mb-0" role="list">
             @foreach (var s in gappers)
             {
-                <li class="trading-card mb-2 p-3" data-strategy-id="@s.Id">
+                <li @key="s.Id" class="trading-card mb-2 p-3" data-strategy-id="@s.Id">
                     <div class="d-flex align-items-center gap-2 flex-wrap">
                         <span class="strategy-chip ticker-chip">@s.Symbol</span>
                         <span class="fw-semibold">@s.Title</span>

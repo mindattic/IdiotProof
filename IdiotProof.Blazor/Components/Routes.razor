@@ -1,10 +1,24 @@
 <Router AppAssembly="typeof(App).Assembly">
     <Found Context="routeData">
-        <AuthorizeRouteView RouteData="routeData" DefaultLayout="typeof(Layout.MainLayout)">
-            <NotAuthorized>
-                <RedirectToLogin />
-            </NotAuthorized>
-        </AuthorizeRouteView>
+        <ErrorBoundary>
+            <ChildContent>
+                <AuthorizeRouteView RouteData="routeData" DefaultLayout="typeof(Layout.MainLayout)">
+                    <NotAuthorized>
+                        <RedirectToLogin />
+                    </NotAuthorized>
+                </AuthorizeRouteView>
+            </ChildContent>
+            <ErrorContent Context="ex">
+                <LayoutView Layout="typeof(Layout.MainLayout)">
+                    <div class="container mt-5 text-center" role="alert">
+                        <i class="bi bi-exclamation-triangle-fill fs-1 text-warning d-block mb-3" aria-hidden="true"></i>
+                        <h1 class="h4">Something went wrong</h1>
+                        <p class="text-muted small">@ex.Message</p>
+                        <a href="/" class="btn btn-outline-secondary mt-2">Back to Strategies</a>
+                    </div>
+                </LayoutView>
+            </ErrorContent>
+        </ErrorBoundary>
         @* No FocusOnNavigate: pages load with no element focused so users must press Tab to begin keyboard navigation. *@
     </Found>
     <NotFound>
