@@ -23,10 +23,21 @@ public sealed class TradingStateService
     private bool isEngineRunning;
     private DateTime? lastEvaluationUtc;
     private int totalSignalsToday;
+    private DateOnly signalsTodayDate;
 
     public bool IsEngineRunning      { get { lock (sync) return isEngineRunning; } }
     public DateTime? LastEvaluationUtc { get { lock (sync) return lastEvaluationUtc; } }
-    public int TotalSignalsToday     { get { lock (sync) return totalSignalsToday; } }
+    public int TotalSignalsToday
+    {
+        get
+        {
+            lock (sync)
+            {
+                ResetSignalCountIfNewDay();
+                return totalSignalsToday;
+            }
+        }
+    }
 
     /// <summary>Returns a snapshot of the most recent signals (newest first).</summary>
     public IReadOnlyList<TradeSignal> RecentSignals
@@ -64,10 +75,21 @@ public sealed class TradingStateService
             if (recentSignals.Count > MaxSignals)
                 recentSignals.RemoveAt(recentSignals.Count - 1);
 
+            ResetSignalCountIfNewDay();
             if (signal.GeneratedUtc.Date == DateTime.UtcNow.Date)
                 totalSignalsToday++;
         }
         RaiseChanged();
+    }
+
+    private void ResetSignalCountIfNewDay()
+    {
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        if (today > signalsTodayDate)
+        {
+            totalSignalsToday = 0;
+            signalsTodayDate = today;
+        }
     }
 
     /// <summary>Update the live price for a symbol.</summary>

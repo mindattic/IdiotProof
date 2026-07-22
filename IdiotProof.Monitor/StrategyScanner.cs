@@ -129,7 +129,7 @@ public static class StrategyScanner
     {
         if (opt.TryGetValue("user", out var u) && Guid.TryParse(u, out var gid)) return gid;
         await using var db = await sp.GetRequiredService<IDbContextFactory<AppDbContext>>().CreateDbContextAsync();
-        var ids = db.AuthUsers.Select(x => x.Id).Take(2).ToList();
+        var ids = await db.AuthUsers.Select(x => x.Id).Take(2).ToListAsync();
         return ids.Count == 1 ? ids[0] : null;
     }
 

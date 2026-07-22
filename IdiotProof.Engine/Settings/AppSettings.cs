@@ -69,9 +69,12 @@ public sealed class AppSettings
             var json = File.ReadAllText(path);
             return JsonSerializer.Deserialize<AppSettings>(json, JsonOptions) ?? new AppSettings();
         }
-        catch
+        catch (Exception ex) when (ex is JsonException or IOException)
         {
-            return new AppSettings();
+            // Silently returning default AppSettings would reset AdminPasswordHash to ""
+            // (the first-run sentinel) and allow unauthenticated setup on a corrupt file.
+            // Rethrow so the host can abort startup with a visible, actionable error.
+            throw;
         }
     }
 

@@ -237,7 +237,7 @@ public sealed class RiskGuardian
         // === FINAL DECISION ===
 
         result.IsApproved = result.BlockReasons.Count == 0;
-        result.RequiresConfirmation = result.IsApproved && totalRisk > config.ConfirmationThreshold;
+        result.RequiresConfirmation = result.IsApproved && totalRisk > cfg.ConfirmationThreshold;
 
         return result;
     }

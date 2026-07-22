@@ -115,6 +115,9 @@ public sealed class GapperProfile
         if (TryTime(ArmExitAtEt, out var arm) && TryTime(SellByEt, out var sellBy) && arm >= sellBy)
             problems.Add("Arm-exit time must be before the sell-by time — otherwise the momentum-rollover " +
                          "exit can never fire and every exit is the hard flatten.");
+        if (TryTime(EntryWindowEndEt, out var winEnd2) && TryTime(SellByEt, out var sb) && winEnd2 > sb)
+            problems.Add("Entry window end must not exceed the sell-by time — entries accepted after the " +
+                         "hard flatten cannot be closed by any configured exit.");
 
         return problems;
     }

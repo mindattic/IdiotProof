@@ -66,17 +66,37 @@ public sealed class UserPreferencesService(IDbContextFactory<AppDbContext> dbFac
 
     public async Task SetThemeAsync(Guid userId, string theme, CancellationToken ct = default)
     {
-        var p = await GetOrCreateAsync(userId, ct);
-        p.Theme = theme;
-        await SaveAsync(p, ct);
+        // Targeted single-column update avoids the two-load lost-update window:
+        // GetOrCreateAsync + SaveAsync(SetValues) copies ALL stale fields onto the
+        // fresh DB row, silently overwriting concurrent writes to other columns.
+        await using var db = await dbFactory.CreateDbContextAsync(ct);
+        var affected = await db.UserPreferences
+            .Where(p => p.UserId == userId)
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(p => p.Theme, theme)
+                .SetProperty(p => p.UpdatedUtc, DateTime.UtcNow), ct);
+        if (affected == 0)
+        {
+            // No row yet — create defaults then set the theme.
+            await GetOrCreateAsync(userId, ct);
+            await SetThemeAsync(userId, theme, ct);
+        }
     }
 
     public async Task SetActiveAccountAsync(Guid userId, string accountId, string accountType, CancellationToken ct = default)
     {
-        var p = await GetOrCreateAsync(userId, ct);
-        p.ActiveAccountId   = accountId;
-        p.ActiveAccountType = accountType;
-        await SaveAsync(p, ct);
+        await using var db = await dbFactory.CreateDbContextAsync(ct);
+        var affected = await db.UserPreferences
+            .Where(p => p.UserId == userId)
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(p => p.ActiveAccountId, accountId)
+                .SetProperty(p => p.ActiveAccountType, accountType)
+                .SetProperty(p => p.UpdatedUtc, DateTime.UtcNow), ct);
+        if (affected == 0)
+        {
+            await GetOrCreateAsync(userId, ct);
+            await SetActiveAccountAsync(userId, accountId, accountType, ct);
+        }
     }
 
     // NOTE (IP-A10): the AddOpenTabAsync/RemoveOpenTabAsync/GetOpenTabsAsync

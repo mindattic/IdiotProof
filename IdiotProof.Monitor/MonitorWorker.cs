@@ -221,7 +221,7 @@ public sealed class MonitorWorker(
         var fingerprint = RosterFingerprint(active);
         if (fingerprint != lastActiveFingerprint)
         {
-            if (lastActiveFingerprint is not null)
+            if (lastActiveFingerprint is null)
                 PrintActiveRoster(active);
             lastActiveFingerprint = fingerprint;
         }

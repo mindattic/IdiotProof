@@ -62,9 +62,9 @@ public sealed class SandboxBrokerClient : IBrokerClient
                 };
             });
 
-        // Drop flattened rows so GetPositionsAsync mirrors a real broker.
-        if (positions.TryGetValue(request.Symbol.ToUpperInvariant(), out var updated) && updated.Quantity == 0m)
-            positions.TryRemove(request.Symbol.ToUpperInvariant(), out _);
+        // Zero-qty rows are filtered in GetPositionsAsync rather than removed here.
+        // The non-atomic read-then-remove window would let a concurrent AddOrUpdate
+        // delete a just-created non-zero position (TOCTOU race).
 
         var result = new OrderResult
         {
@@ -87,7 +87,7 @@ public sealed class SandboxBrokerClient : IBrokerClient
 
     public Task<IReadOnlyList<Position>> GetPositionsAsync(CancellationToken ct = default)
     {
-        IReadOnlyList<Position> result = this.positions.Values.ToList();
+        IReadOnlyList<Position> result = this.positions.Values.Where(p => p.Quantity != 0m).ToList();
         return Task.FromResult(result);
     }
 }

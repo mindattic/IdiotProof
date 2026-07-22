@@ -127,7 +127,7 @@ public static class GapperDayBacktester
             if (c.EndUtc <= entryUtc) continue;
             if (def.ExitTime is { } sellByEt && MarketTime.ToEasternTimeOfDay(c.EndUtc) > sellByEt) break;
             if ((double)c.High > peak) { peak = (double)c.High; peakUtc = c.EndUtc; }
-            if (c.StartUtc <= exitUtc && (double)c.Low < trough) trough = (double)c.Low;
+            if (c.StartUtc < exitUtc && (double)c.Low < trough) trough = (double)c.Low;
         }
 
         var pnl = (exit.Price - entryPrice) * quantity;

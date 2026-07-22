@@ -74,7 +74,11 @@ public sealed class DslStrategy : IStrategy
             Direction         = resolved.Direction,
             ConfidencePercent = 0m,                       // unscored at the DSL layer; LLM voting fills this in
             SuggestedEntry    = (decimal)snapshot.Price,
-            SuggestedStop     = (decimal)(resolved.StopLossPrice ?? snapshot.Price),
+            SuggestedStop     = resolved.StopLossPrice.HasValue
+                                    ? (decimal)resolved.StopLossPrice.Value
+                                    : resolved.StopLossPercent.HasValue
+                                        ? (decimal)(snapshot.Price * (1.0 - resolved.StopLossPercent.Value / 100.0))
+                                        : 0m,
             // Full scale-out ladder, not just T1 — TakeProfit(t1, t2, t3) sets
             // TakeProfitPrice = t1 AND populates TakeProfitTargets; emitting
             // only TakeProfitPrice silently dropped T2/T3 in the live path

@@ -54,6 +54,16 @@ public static class ADX
         }
 
         var adx = WilderSmooth(dx, period);
+
+        // ADX requires 2*period bars to be meaningful: the first period produces
+        // the DI values, the second smooths those into ADX. The DI backfill makes
+        // dx[0..period-1] all identical, so WilderSmooth seeds ADX from that
+        // same constant — yielding adx[0..period-1] equal to the first real ADX.
+        // Zero out the double-warmup window so strategies using RequireAdxAbove
+        // never fire on these undefined early bars.
+        int adxWarmup = Math.Min(2 * Math.Min(period, n - 1), n);
+        for (int i = 0; i < adxWarmup; i++) adx[i] = 0m;
+
         for (int i = 0; i < n; i++) results[i] = new AdxResult(diPlus[i], diMinus[i], adx[i]);
         return results;
     }

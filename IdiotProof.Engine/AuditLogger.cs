@@ -28,11 +28,11 @@ public sealed class AuditLogger
                     File.AppendAllText(logPath, entry + Environment.NewLine);
                     return;
                 }
-                catch (IOException) when (attempt < 3)
+                catch (Exception ex) when ((ex is IOException or UnauthorizedAccessException) && attempt < 3)
                 {
                     Thread.Sleep(20 * (attempt + 1));
                 }
-                catch (IOException)
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
                 {
                     return;
                 }

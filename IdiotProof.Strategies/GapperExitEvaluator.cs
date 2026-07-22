@@ -103,8 +103,9 @@ public static class GapperExitEvaluator
             return new GapperExitDecision(GapperExitReason.StopLoss, current, peak,
                 $"Price {current:F2} breached the hard stop at {slPrice:F2}.");
 
-        // 3. Trailing stop off the peak.
-        if (def.TrailingStopPercent is { } tslPct && peak > entryPrice
+        // 3. Trailing stop off the peak. Trails from entry price when the
+        //    trade has never moved in favour — no dead-zone at the open.
+        if (def.TrailingStopPercent is { } tslPct
             && current <= peak * (1 - tslPct / 100.0))
             return new GapperExitDecision(GapperExitReason.TrailingStop, current, peak,
                 $"Price {current:F2} fell {tslPct:F1}% off the {peak:F2} high-water mark.");
@@ -198,7 +199,8 @@ public static class GapperExitEvaluator
                 $"Price {current:F2} rose past the hard stop at {slPrice:F2}.");
 
         // 3. Trailing stop above the trough (bounce off the low-water mark).
-        if (def.TrailingStopPercent is { } tslPct && trough < entryPrice
+        //    Trails from entry price when the trade never moved in favour.
+        if (def.TrailingStopPercent is { } tslPct
             && current >= trough * (1 + tslPct / 100.0))
             return new GapperExitDecision(GapperExitReason.TrailingStop, current, trough,
                 $"Price {current:F2} bounced {tslPct:F1}% off the {trough:F2} low-water mark.");

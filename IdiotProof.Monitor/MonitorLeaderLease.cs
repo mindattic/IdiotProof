@@ -36,6 +36,7 @@ public sealed class MonitorLeaderLease : IAsyncDisposable
         {
             ct.ThrowIfCancellationRequested();
             var conn = new SqlConnection(connectionString);
+            bool acquired = false;
             try
             {
                 await conn.OpenAsync(ct);
@@ -47,6 +48,7 @@ public sealed class MonitorLeaderLease : IAsyncDisposable
 
                 if (result >= 0) // 0 = granted, 1 = granted after wait
                 {
+                    acquired = true;
                     logger.LogInformation("Monitor leader lease acquired — this instance evaluates and trades.");
                     return new MonitorLeaderLease(conn);
                 }
@@ -55,8 +57,11 @@ public sealed class MonitorLeaderLease : IAsyncDisposable
             {
                 logger.LogWarning(ex, "Leader-lease attempt failed; retrying in {Delay}s.", delay.TotalSeconds);
             }
-
-            await conn.DisposeAsync();
+            finally
+            {
+                // Dispose the connection unless we're handing it to the lease object.
+                if (!acquired) await conn.DisposeAsync();
+            }
             if (!announced)
             {
                 logger.LogWarning("Another Monitor instance holds the leader lease — standing by (retry every {Delay}s).", delay.TotalSeconds);

@@ -116,15 +116,19 @@ public sealed class WorkspaceManager
 
     public WorkspaceTab Create(string userId, string name)
     {
-        var tabs = GetTabsForUser(userId);
-        var tab = new WorkspaceTab
+        GetTabsForUser(userId); // hydrate the cache before entering the lock
+        WorkspaceTab tab;
+        lock (gate)
         {
-            Name = name,
-            // tabs.Count would assign duplicate orders after any deletion.
-            // Max+1 always produces a unique, monotonically increasing order.
-            DisplayOrder = tabs.Count > 0 ? tabs.Max(t => t.DisplayOrder) + 1 : 0,
-        };
-        Save(userId, tab);
+            // Compute DisplayOrder and register the tab in the cache atomically.
+            // Without the lock, two concurrent Creates can both read the same
+            // snapshot and assign the same DisplayOrder value.
+            var list = tabsByUser.GetOrAdd(userId, _ => []);
+            var order = list.Count > 0 ? list.Max(t => t.DisplayOrder) + 1 : 0;
+            tab = new WorkspaceTab { Name = name, DisplayOrder = order };
+            list.Add(tab);
+        }
+        store.Save(userId, tab); // I/O outside the lock — they are distinct tabs
         return tab;
     }
 

@@ -22,7 +22,7 @@ public sealed class AlpacaDataFeed : IMarketDataFeed, IAsyncDisposable
     private const string DataBaseUrl = "https://data.alpaca.markets/";
 
     private readonly HttpClient httpClient;
-    private string feedTier;
+    private volatile string feedTier;
 
     public string FeedName => "Alpaca";
 
@@ -142,11 +142,15 @@ public sealed class AlpacaDataFeed : IMarketDataFeed, IAsyncDisposable
         }
     }
 
+    private readonly Lock feedTierLock = new();
     private bool TryDowngradeTier()
     {
-        if (feedTier == "iex") return false;
-        feedTier = "iex"; // free key — remember for all subsequent requests
-        return true;
+        lock (feedTierLock)
+        {
+            if (feedTier == "iex") return false;
+            feedTier = "iex";
+            return true;
+        }
     }
 
     private static string Truncate(string s) => s.Length <= 300 ? s : s[..300] + "…";
