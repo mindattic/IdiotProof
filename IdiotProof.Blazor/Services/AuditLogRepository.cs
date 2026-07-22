@@ -72,6 +72,23 @@ public sealed class AuditLogRepository(IDbContextFactory<AppDbContext> dbFactory
             .ToListAsync(ct);
     }
 
+    public async Task<List<AuditLog>> GetByCategoriesAsync(
+        IReadOnlyCollection<string> categories,
+        int limit = 100,
+        DateTime? fromUtc = null,
+        DateTime? toUtc = null,
+        CancellationToken ct = default)
+    {
+        await using var db = await dbFactory.CreateDbContextAsync(ct);
+        var q = db.AuditLogs.Where(a => categories.Contains(a.Category));
+        if (fromUtc is not null) q = q.Where(a => a.TimestampUtc >= fromUtc.Value);
+        if (toUtc   is not null) q = q.Where(a => a.TimestampUtc <= toUtc.Value);
+        return await q
+            .OrderByDescending(a => a.TimestampUtc)
+            .Take(Math.Clamp(limit, 1, 1000))
+            .ToListAsync(ct);
+    }
+
     public async Task<List<AuditLog>> GetByCategoryAsync(string category, int limit = 100, CancellationToken ct = default)
     {
         await using var db = await dbFactory.CreateDbContextAsync(ct);

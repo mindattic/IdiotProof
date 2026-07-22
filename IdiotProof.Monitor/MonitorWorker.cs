@@ -593,6 +593,11 @@ public sealed class MonitorWorker(
             UserId            = stored.OwnerUserId.ToString(),
         };
 
+        // Audit: all conditions passed — the signal is now walking the gates.
+        await auditLogRepo.LogAsync("signal-fire",
+            $"[{stored.Title}] {stored.Symbol} all conditions met — entering gate checks",
+            userId: stored.OwnerUserId, ct: ct);
+
         // Gate 2 — LLM voter panel (skipped only when voting is disabled/unkeyed).
         // IP-LAW-1 requires the quorum to APPROVE — anything short of an
         // Approve consensus blocks the fire. The old check only blocked on an
@@ -725,7 +730,7 @@ public sealed class MonitorWorker(
         var entryUtc = DateTime.UtcNow;
         await strategyRepo.RecordFiredAsync(stored.Id, ct);
         await strategyRepo.RecordEntryFillAsync(stored.Id, quantity, limitPrice, entryUtc, ct);
-        await auditLogRepo.LogAsync("order-placed",
+        await auditLogRepo.LogAsync("entry",
             $"[{stored.Title}] BUY {quantity} {stored.Symbol} @ {limitPrice:F2} ({broker.BrokerType}, {(extendedHours ? "extended-hours" : "RTH")}, order {order.BrokerOrderId})",
             userId: stored.OwnerUserId, ct: ct);
 
@@ -952,7 +957,13 @@ public sealed class MonitorWorker(
 
         var exitUtc = DateTime.UtcNow;
         await strategyRepo.RecordExitFillAsync(stored.Id, limitPrice, decision.Reason.ToString(), exitUtc, ct);
-        await auditLogRepo.LogAsync("order-placed",
+        var exitCategory = decision.Reason switch
+        {
+            GapperExitReason.StopLoss     => "exit-sl",
+            GapperExitReason.TrailingStop => "exit-tsl",
+            _                             => "exit",
+        };
+        await auditLogRepo.LogAsync(exitCategory,
             $"[{stored.Title}] SELL {sellQty} {stored.Symbol} @ {limitPrice:F2} — {decision.Reason}: {decision.Detail} " +
             $"(P&L {realized:+0.00;-0.00}, {broker.BrokerType}, order {order.BrokerOrderId})",
             userId: stored.OwnerUserId, ct: ct);

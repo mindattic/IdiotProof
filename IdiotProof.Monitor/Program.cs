@@ -36,6 +36,19 @@ using MindAttic.Authentication.Web;
 // Run:   dotnet run --project IdiotProof.Monitor
 // Stop:  Ctrl+C (graceful shutdown via IHostApplicationLifetime)
 
+// Crash dump — write unhandled exceptions to crash.log next to the exe so the
+// event survives even if the DB / logger is what caused the crash.
+AppDomain.CurrentDomain.UnhandledException += (_, e) =>
+{
+    try
+    {
+        var crashLog = Path.Combine(AppContext.BaseDirectory, "crash.log");
+        File.AppendAllText(crashLog,
+            $"[{DateTime.UtcNow:u}] CRASH (isTerminating={e.IsTerminating})\n{e.ExceptionObject}\n---\n");
+    }
+    catch { /* best-effort; if the file write fails there is nothing left to do */ }
+};
+
 // Brand wordmark on startup (shared source of truth — IdiotProof.Shared.Branding).
 Console.WriteLine();
 Console.WriteLine(IdiotProof.Shared.Branding.AsciiBanner);

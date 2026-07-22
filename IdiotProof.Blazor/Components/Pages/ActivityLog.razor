@@ -1,0 +1,317 @@
+@page "/logs"
+@rendermode InteractiveServer
+@attribute [Authorize]
+@inject AuditLogRepository AuditRepo
+@implements IDisposable
+
+<PageTitle>Logs — IdiotProof</PageTitle>
+
+<section aria-labelledby="logs-heading">
+
+    <!-- ── Header ── -->
+    <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+        <h1 id="logs-heading" class="h4 mb-0 flex-shrink-0">
+            <i class="bi bi-journal-text me-2" style="color:var(--brand)" aria-hidden="true"></i>Activity Log
+        </h1>
+
+        <!-- Level toggles -->
+        <div class="d-flex gap-1" role="group" aria-label="Filter by level">
+            @foreach (var lvl in AllLevels)
+            {
+                bool on = activeLevels.Contains(lvl);
+                <button type="button"
+                        class="log-lvl-btn log-lvl-@lvl.ToLower() @(on ? "active" : "")"
+                        @onclick="() => ToggleLevel(lvl)"
+                        aria-pressed="@on"
+                        title="Toggle @lvl messages">
+                    @lvl <span class="log-lvl-count">@CountForLevel(lvl)</span>
+                </button>
+            }
+        </div>
+
+        <div class="ms-auto d-flex align-items-center gap-2 flex-shrink-0">
+            @if (!string.IsNullOrEmpty(lastRefreshedEt))
+            {
+                <span class="text-muted small font-monospace log-refresh-ts">@lastRefreshedEt</span>
+            }
+            <button class="btn btn-sm btn-outline-secondary" type="button"
+                    title="Refresh now" @onclick="RefreshNowAsync"
+                    aria-label="Refresh">
+                <i class="bi bi-arrow-clockwise @(refreshing ? "log-spin" : "")" aria-hidden="true"></i>
+            </button>
+            <button class="btn btn-sm @(autoRefresh ? "btn-success" : "btn-outline-secondary")"
+                    type="button" @onclick="ToggleAutoRefresh"
+                    title="@(autoRefresh ? "Pause auto-refresh" : "Resume auto-refresh")">
+                <i class="bi @(autoRefresh ? "bi-pause-fill" : "bi-play-fill") me-1" aria-hidden="true"></i>@(autoRefresh ? "Live" : "Paused")
+            </button>
+        </div>
+    </div>
+
+    <!-- ── Filter bar ── -->
+    <div class="d-flex flex-wrap gap-2 mb-3 align-items-end">
+        <!-- Date range -->
+        <div class="d-flex align-items-center gap-1">
+            <label class="text-muted small mb-0" for="log-from">From</label>
+            <input id="log-from" type="date" class="form-control form-control-sm log-date-input"
+                   value="@(fromDate?.ToString("yyyy-MM-dd") ?? "")"
+                   @onchange="e => SetFromDate(e.Value?.ToString())"
+                   aria-label="From date" />
+        </div>
+        <div class="d-flex align-items-center gap-1">
+            <label class="text-muted small mb-0" for="log-to">To</label>
+            <input id="log-to" type="date" class="form-control form-control-sm log-date-input"
+                   value="@(toDate?.ToString("yyyy-MM-dd") ?? "")"
+                   @onchange="e => SetToDate(e.Value?.ToString())"
+                   aria-label="To date" />
+        </div>
+        @if (fromDate is not null || toDate is not null)
+        {
+            <button class="btn btn-sm btn-outline-secondary" type="button"
+                    @onclick="ClearDates" title="Clear date filter">
+                <i class="bi bi-x-circle me-1" aria-hidden="true"></i>Clear
+            </button>
+        }
+
+        <!-- Text search -->
+        <input type="search"
+               class="form-control form-control-sm log-search-input"
+               placeholder="Search messages, categories…"
+               @bind="searchText"
+               @bind:event="oninput"
+               aria-label="Search log messages" />
+
+        <!-- Event category quick-filter chips -->
+        <div class="d-flex flex-wrap gap-1 ms-auto" role="group" aria-label="Filter by event category">
+            @foreach (var cat in AllCategories)
+            {
+                bool on = activeCategories.Contains(cat);
+                <button type="button"
+                        class="log-cat-filter @(on ? "active" : "")"
+                        @onclick="() => ToggleCategory(cat)"
+                        aria-pressed="@on"
+                        title="Toggle @cat">
+                    @cat
+                </button>
+            }
+        </div>
+    </div>
+
+    @if (loadError is not null)
+    {
+        <div class="alert alert-danger small">@loadError</div>
+    }
+
+    <!-- ── Log table ── -->
+    <div class="trading-card p-0">
+        @if (loading)
+        {
+            <div class="p-4 text-muted small">
+                <span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>Loading…
+            </div>
+        }
+        else
+        {
+            var rows = Filtered;
+            if (rows.Count == 0)
+            {
+                <div class="p-5 text-center text-muted">
+                    <i class="bi bi-inbox fs-1 d-block mb-2" aria-hidden="true"></i>
+                    @if (entries.Count == 0)
+                    {
+                        <span>No strategy events yet. Events appear here once the Monitor fires.</span>
+                    }
+                    else
+                    {
+                        <span>No events match the current filters.</span>
+                    }
+                </div>
+            }
+            else
+            {
+                <div class="table-responsive">
+                    <table class="table table-sm log-table mb-0" aria-label="Activity log">
+                        <thead>
+                            <tr>
+                                <th scope="col" class="log-th" style="width:88px">
+                                    <button type="button" class="log-sort-btn" @onclick="ToggleSort">
+                                        Time (ET)&nbsp;<i class="bi @(sortDesc ? "bi-sort-down" : "bi-sort-up")" aria-hidden="true"></i>
+                                    </button>
+                                </th>
+                                <th scope="col" class="log-th" style="width:64px">Level</th>
+                                <th scope="col" class="log-th" style="width:130px">Event</th>
+                                <th scope="col" class="log-th">Message</th>
+                                <th scope="col" class="log-th" style="width:32px"><span class="visually-hidden">Details</span></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var row in rows)
+                            {
+                                var lvl = GetLevel(row.Category);
+                                bool expanded = expandedIds.Contains(row.Id);
+                                <tr @key="row.Id" class="log-row log-row-@lvl.ToLower()">
+                                    <td class="log-time">@EasternTime.Format(row.TimestampUtc, "HH:mm:ss")</td>
+                                    <td><span class="log-badge log-badge-@lvl.ToLower()">@lvl</span></td>
+                                    <td><span class="log-event-chip log-event-@row.Category">@row.Category</span></td>
+                                    <td class="log-msg-cell">
+                                        <span class="@(expanded ? "" : "log-msg-clamp")">@row.Message</span>
+                                        @if (expanded && row.DataJson is not null)
+                                        {
+                                            <pre class="log-data-pre mt-1 mb-0">@row.DataJson</pre>
+                                        }
+                                    </td>
+                                    <td class="text-end pe-2">
+                                        @if (row.DataJson is not null)
+                                        {
+                                            <button type="button" class="log-expand-btn"
+                                                    @onclick="() => ToggleExpand(row.Id)"
+                                                    title="@(expanded ? "Collapse" : "Show data")">
+                                                <i class="bi @(expanded ? "bi-chevron-up" : "bi-chevron-down")" aria-hidden="true"></i>
+                                            </button>
+                                        }
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+                <div class="log-footer px-3 py-2">
+                    Showing @rows.Count of @entries.Count events
+                    @if (fromDate is not null || toDate is not null) { <span> · date-filtered</span> }
+                    @if (!string.IsNullOrWhiteSpace(searchText)) { <span> · text-filtered</span> }
+                    · fetched max @MaxRows
+                </div>
+            }
+        }
+    </div>
+</section>
+
+@code {
+    const int MaxRows = 200;
+
+    static readonly string[] AllLevels = ["INFO", "WARN", "ERROR", "FATAL"];
+
+    // All recognised strategy event categories (old + new; old "order-placed" kept for DB compat).
+    static readonly string[] AllCategories =
+    [
+        "entry", "exit", "exit-sl", "exit-tsl",
+        "signal-fire", "signal-vetoed", "signal-blocked",
+        "order-rejected", "position-reconciled",
+        "order-placed",   // legacy rows
+        "signal",         // legacy rows
+    ];
+
+    // Categories shown by default (all of the above treated as one set).
+    static readonly HashSet<string> DefaultCategorySet = new(AllCategories, StringComparer.OrdinalIgnoreCase);
+
+    static string GetLevel(string cat) => cat switch
+    {
+        "entry"                => "INFO",
+        "exit"                 => "INFO",
+        "exit-sl"              => "WARN",
+        "exit-tsl"             => "WARN",
+        "signal-fire"          => "INFO",
+        "signal-vetoed"        => "WARN",
+        "signal-blocked"       => "WARN",
+        "order-rejected"       => "ERROR",
+        "position-reconciled"  => "INFO",
+        "order-placed"         => "INFO",   // legacy
+        "signal"               => "INFO",   // legacy
+        _                      => "INFO",
+    };
+
+    bool loading = true, refreshing, autoRefresh = true, sortDesc = true;
+    string? loadError;
+    string searchText = "";
+    string lastRefreshedEt = "";
+    DateTime? fromDate;
+    DateTime? toDate;
+
+    List<AuditLog> entries = [];
+    HashSet<string> activeLevels = new(AllLevels);
+    HashSet<string> activeCategories = new(DefaultCategorySet, StringComparer.OrdinalIgnoreCase);
+    HashSet<long> expandedIds = [];
+    System.Threading.Timer? timer;
+
+    List<AuditLog> Filtered
+    {
+        get
+        {
+            var q = entries
+                .Where(e => activeLevels.Contains(GetLevel(e.Category)))
+                .Where(e => activeCategories.Contains(e.Category));
+            if (!string.IsNullOrWhiteSpace(searchText))
+                q = q.Where(e =>
+                    e.Message.Contains(searchText, StringComparison.OrdinalIgnoreCase) ||
+                    e.Category.Contains(searchText, StringComparison.OrdinalIgnoreCase));
+            return (sortDesc
+                ? q.OrderByDescending(e => e.TimestampUtc)
+                : q.OrderBy(e => e.TimestampUtc)).ToList();
+        }
+    }
+
+    int CountForLevel(string lvl) => entries.Count(e => GetLevel(e.Category) == lvl);
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAsync();
+        timer = new System.Threading.Timer(async _ =>
+        {
+            if (!autoRefresh) return;
+            try { await InvokeAsync(async () => { await LoadAsync(); StateHasChanged(); }); }
+            catch { /* circuit teardown */ }
+        }, null, TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(5));
+    }
+
+    async Task LoadAsync()
+    {
+        refreshing = true;
+        try
+        {
+            // toDate filter covers the full selected day.
+            var toUtc = toDate.HasValue
+                ? toDate.Value.AddDays(1).ToUniversalTime()
+                : (DateTime?)null;
+            var fromUtc = fromDate.HasValue
+                ? TimeZoneInfo.ConvertTimeToUtc(fromDate.Value, EtZone)
+                : (DateTime?)null;
+
+            entries = await AuditRepo.GetByCategoriesAsync(
+                DefaultCategorySet,
+                MaxRows,
+                fromUtc: fromUtc,
+                toUtc:   toUtc);
+
+            lastRefreshedEt = $"Updated {EasternTime.Format(DateTime.UtcNow, "HH:mm:ss")} ET";
+            loadError = null;
+        }
+        catch (Exception ex) { loadError = ex.Message; }
+        finally { loading = false; refreshing = false; }
+    }
+
+    static readonly TimeZoneInfo EtZone =
+        TimeZoneInfo.FindSystemTimeZoneById("Eastern Standard Time");
+
+    async Task RefreshNowAsync() { await LoadAsync(); StateHasChanged(); }
+
+    void ToggleLevel(string lvl)    { if (!activeLevels.Remove(lvl)) activeLevels.Add(lvl); }
+    void ToggleCategory(string cat) { if (!activeCategories.Remove(cat)) activeCategories.Add(cat); }
+    void ToggleAutoRefresh()        => autoRefresh = !autoRefresh;
+    void ToggleSort()               => sortDesc = !sortDesc;
+    void ToggleExpand(long id)      { if (!expandedIds.Remove(id)) expandedIds.Add(id); }
+
+    async Task SetFromDate(string? val)
+    {
+        fromDate = DateTime.TryParse(val, out var d) ? d.Date : null;
+        autoRefresh = false;
+        await LoadAsync();
+    }
+    async Task SetToDate(string? val)
+    {
+        toDate = DateTime.TryParse(val, out var d) ? d.Date : null;
+        autoRefresh = false;
+        await LoadAsync();
+    }
+    async Task ClearDates() { fromDate = null; toDate = null; autoRefresh = true; await LoadAsync(); }
+
+    public void Dispose() { timer?.Dispose(); timer = null; }
+}
