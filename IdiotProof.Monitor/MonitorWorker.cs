@@ -1090,17 +1090,15 @@ public sealed class MonitorWorker(
     /// </summary>
     private void PrintSelfPing(IReadOnlyList<IdiotProof.Blazor.Data.Strategy> active)
     {
-        var age = lastTickSuccessUtc == DateTime.MinValue ? "never"
-            : (DateTime.UtcNow - lastTickSuccessUtc) is var a
-              && a.TotalSeconds < 90 ? $"~{(int)a.TotalSeconds}s ago"
-              : a.TotalMinutes < 60  ? $"~{(int)a.TotalMinutes}m ago"
-              : $"~{(int)a.TotalHours}h ago";
+        var pingLabel = lastTickSuccessUtc == DateTime.MinValue ? "never"
+            : TimeZoneInfo.ConvertTimeFromUtc(lastTickSuccessUtc, IdiotProof.Scripting.MarketTime.Eastern)
+                .ToString("h:mm tt");
         Console.Clear();
         Console.WriteLine();
         Console.WriteLine(IdiotProof.Shared.Branding.AsciiBanner);
         Console.WriteLine($"  Build: {BuildDateLabel}");
         Console.WriteLine();
-        Console.WriteLine($"  Ping: Success {age}  ({active.Count} active strateg{(active.Count == 1 ? "y" : "ies")})");
+        Console.WriteLine($"  Ping: Success {pingLabel}  ({active.Count} active strateg{(active.Count == 1 ? "y" : "ies")})");
         Console.WriteLine();
     }
 
