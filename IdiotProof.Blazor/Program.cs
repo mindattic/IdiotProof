@@ -221,8 +221,10 @@ app.UseHttpsRedirection();
 // publish output, so MapStaticAssets returns Content-Length:0 for every file.
 app.UseStaticFiles(new StaticFileOptions
 {
+    // AppContext.BaseDirectory is the exe's own folder — always correct regardless
+    // of the process working directory, which varies by how the bat is launched.
     FileProvider = new Microsoft.Extensions.FileProviders.PhysicalFileProvider(
-        Path.Combine(app.Environment.ContentRootPath, "wwwroot"))
+        Path.Combine(AppContext.BaseDirectory, "wwwroot"))
 });
 // UseMindAtticAuthentication wires UseAuthentication + UseAuthorization + forced-step
 // (MFA, must-change-password) middleware. Call after UseStaticFiles, before mapping.

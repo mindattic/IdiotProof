@@ -73,6 +73,7 @@ if ($LASTEXITCODE -ne 0) { throw "Blazor publish failed (exit $LASTEXITCODE)" }
 # conflicts with the dev server (65025/65026).
 $runBatPath = "$out\Blazor\run.bat"
 "@echo off" | Set-Content $runBatPath -Encoding ascii
+'cd /d "%~dp0"' | Add-Content $runBatPath -Encoding ascii
 "set ASPNETCORE_URLS=$blazorUrl" | Add-Content $runBatPath -Encoding ascii
 "set ASPNETCORE_ENVIRONMENT=Development" | Add-Content $runBatPath -Encoding ascii
 '"%~dp0IdiotProof.Blazor.exe"' | Add-Content $runBatPath -Encoding ascii
