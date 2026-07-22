@@ -1,7 +1,9 @@
 @page "/api-keys"
 @rendermode InteractiveServer
 @using IdiotProof.Blazor.Data
+@using Microsoft.AspNetCore.Authorization
 @using Microsoft.AspNetCore.Components.Authorization
+@attribute [Authorize]
 @inject UserKeyService UserKeyService
 @inject IHttpClientFactory HttpClientFactory
 @inject AuthenticationStateProvider AuthStateProvider
