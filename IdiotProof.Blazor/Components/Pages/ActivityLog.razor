@@ -3,6 +3,7 @@
 @attribute [Authorize]
 @inject AuditLogRepository AuditRepo
 @inject LogAlertService AlertSvc
+@inject AuditLogPusher LogPusher
 @inject IJSRuntime JS
 @implements IDisposable
 
@@ -267,7 +268,6 @@
     HashSet<string> activeLevels = new(AllLevels);
     HashSet<string> activeCategories = new(AllCategorySet, StringComparer.OrdinalIgnoreCase);
     HashSet<long> expandedIds = [];
-    System.Threading.Timer? timer;
 
     List<AuditLog> Filtered
     {
@@ -292,12 +292,14 @@
     {
         AlertSvc.MarkRead();
         await LoadAsync();
-        timer = new System.Threading.Timer(async _ =>
-        {
-            if (!autoRefresh) return;
-            try { await InvokeAsync(async () => { await LoadAsync(); StateHasChanged(); }); }
-            catch { /* circuit teardown */ }
-        }, null, TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(5));
+        LogPusher.LogChanged += OnLogChanged;
+    }
+
+    private async void OnLogChanged()
+    {
+        if (!autoRefresh) return;
+        try { await InvokeAsync(async () => { await LoadAsync(); StateHasChanged(); }); }
+        catch { /* circuit teardown */ }
     }
 
     async Task LoadAsync()
@@ -357,5 +359,5 @@
         await JS.InvokeVoidAsync("IdiotProof.downloadFile", filename, "text/csv;charset=utf-8;", sb.ToString());
     }
 
-    public void Dispose() { timer?.Dispose(); timer = null; }
+    public void Dispose() { LogPusher.LogChanged -= OnLogChanged; }
 }

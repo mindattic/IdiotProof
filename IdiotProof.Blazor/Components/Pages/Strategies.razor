@@ -8,6 +8,7 @@
 @attribute [Authorize]
 @inject StrategyRepository StrategyRepo
 @inject ConditionProgressRepository ProgressRepo
+@inject ConditionProgressPusher ProgressPusher
 @inject NavigationManager Nav
 @inject AuthenticationStateProvider AuthState
 @implements IDisposable
@@ -184,7 +185,6 @@
     private List<Strategy> all = new();
     private readonly Dictionary<Guid, ConditionProgress> progress = new();
     private Strategy? deleteCandidate;
-    private System.Threading.Timer? progressPoll;
 
     private void OnRowKeyNavigate(KeyboardEventArgs e, Guid id)
     {
@@ -216,15 +216,13 @@
         }
         finally { loading = false; }
 
-        // Poll progress every 5 seconds while the page is open. Cheap query
-        // (one bulk read keyed on the visible strategy ids); writes happen on
-        // the Monitor's tick (default 30s) so this rate is comfortably below
-        // the producer.
-        progressPoll = new System.Threading.Timer(async _ =>
-        {
-            try { await InvokeAsync(async () => { await RefreshProgressAsync(); StateHasChanged(); }); }
-            catch { /* circuit may be tearing down */ }
-        }, null, TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(5));
+        ProgressPusher.ProgressChanged += OnProgressChanged;
+    }
+
+    private async void OnProgressChanged(IReadOnlyList<Guid> changedIds)
+    {
+        try { await InvokeAsync(async () => { await RefreshProgressAsync(); StateHasChanged(); }); }
+        catch { /* circuit may be tearing down */ }
     }
 
     /// <summary>
@@ -266,8 +264,7 @@
 
     public void Dispose()
     {
-        progressPoll?.Dispose();
-        progressPoll = null;
+        ProgressPusher.ProgressChanged -= OnProgressChanged;
     }
 
 

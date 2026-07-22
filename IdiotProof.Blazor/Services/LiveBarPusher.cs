@@ -4,7 +4,7 @@ using Microsoft.EntityFrameworkCore;
 namespace IdiotProof.Blazor.Services;
 
 /// <summary>
-/// Singleton background service that polls LiveBars every 3 seconds.
+/// Singleton background service that polls LiveBars every second.
 /// Fires BarUpdated for any strategy that received a new write since the
 /// last check — open LiveChart pages subscribe and call StateHasChanged()
 /// over their existing Blazor circuit (no extra WebSocket needed).
@@ -19,7 +19,7 @@ public sealed class LiveBarPusher(IDbContextFactory<AppDbContext> dbFactory) : B
     {
         while (!stoppingToken.IsCancellationRequested)
         {
-            await Task.Delay(TimeSpan.FromSeconds(3), stoppingToken).ConfigureAwait(false);
+            await Task.Delay(TimeSpan.FromSeconds(1), stoppingToken).ConfigureAwait(false);
 
             try
             {

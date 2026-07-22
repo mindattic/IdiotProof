@@ -165,7 +165,14 @@ builder.Services.AddSingleton<EmailDomainBlocklistService>();
 builder.Services.AddSingleton<ConditionProgressRepository>();
 builder.Services.AddSingleton<LiveBarRepository>();
 builder.Services.AddSingleton<RiskGuardianService>();
-builder.Services.AddHostedService<LiveBarPusher>();
+// Pusher singletons: registered as both injectable singleton and hosted service so
+// pages can @inject them directly to subscribe to change events.
+builder.Services.AddSingleton<LiveBarPusher>();
+builder.Services.AddHostedService(sp => sp.GetRequiredService<LiveBarPusher>());
+builder.Services.AddSingleton<ConditionProgressPusher>();
+builder.Services.AddHostedService(sp => sp.GetRequiredService<ConditionProgressPusher>());
+builder.Services.AddSingleton<AuditLogPusher>();
+builder.Services.AddHostedService(sp => sp.GetRequiredService<AuditLogPusher>());
 builder.Services.AddHttpClient();
 
 // Dev credential carrier — populated from .env only in Development.
