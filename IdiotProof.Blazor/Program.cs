@@ -215,7 +215,6 @@ if (!app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
-app.UseStaticFiles();
 // UseMindAtticAuthentication wires UseAuthentication + UseAuthorization + forced-step
 // (MFA, must-change-password) middleware. Call after UseStaticFiles, before mapping.
 app.UseMindAtticAuthentication();
@@ -368,8 +367,10 @@ app.MapGet("/connect/alpaca/callback", async (HttpContext ctx, IConfiguration cf
     ctx.Response.Redirect("/?oauth=connected");
 });
 
+app.MapStaticAssets();
 app.MapRazorComponents<App>()
-   .AddInteractiveServerRenderMode();
+   .AddInteractiveServerRenderMode()
+   .WithStaticAssets();
 
 app.MapHub<TradingHub>("/hubs/trading");
 
