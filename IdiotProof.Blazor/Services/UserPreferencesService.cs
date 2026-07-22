@@ -51,7 +51,16 @@ public sealed class UserPreferencesService(IDbContextFactory<AppDbContext> dbFac
     {
         prefs.UpdatedUtc = DateTime.UtcNow;
         await using var db = await dbFactory.CreateDbContextAsync(ct);
-        db.UserPreferences.Update(prefs);
+        // Reload the tracked row and copy changed values onto it. Using Update()
+        // on a detached entity marks ALL columns Modified, so a concurrent
+        // SetThemeAsync and SetRiskConfigAsync would each overwrite the other's
+        // columns. SetValues only generates UPDATE for columns that differ from
+        // what EF loaded, preventing the lost-update.
+        var existing = await db.UserPreferences.FirstOrDefaultAsync(p => p.UserId == prefs.UserId, ct);
+        if (existing is null)
+            db.UserPreferences.Add(prefs);
+        else
+            db.Entry(existing).CurrentValues.SetValues(prefs);
         await db.SaveChangesAsync(ct);
     }
 

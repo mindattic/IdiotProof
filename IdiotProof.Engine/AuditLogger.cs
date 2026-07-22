@@ -42,8 +42,11 @@ public sealed class AuditLogger
 
     public IReadOnlyList<string> GetRecent(int count = 100)
     {
-        if (!File.Exists(logPath)) return [];
-        var lines = File.ReadAllLines(logPath);
-        return lines.TakeLast(count).Reverse().ToList();
+        lock (lockObj)
+        {
+            if (!File.Exists(logPath)) return [];
+            var lines = File.ReadAllLines(logPath);
+            return lines.TakeLast(count).Reverse().ToList();
+        }
     }
 }

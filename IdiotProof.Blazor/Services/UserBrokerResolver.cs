@@ -103,6 +103,8 @@ public sealed class UserBrokerResolver(
         if (replaced.Client is IAsyncDisposable disposable)
             _ = disposable.DisposeAsync().AsTask().ContinueWith(
                 t => logger.LogWarning(t.Exception, "Failed disposing replaced broker client for user {UserId}.", userId),
-                TaskContinuationOptions.OnlyOnFaulted);
+                CancellationToken.None,
+                TaskContinuationOptions.OnlyOnFaulted,
+                TaskScheduler.Default);
     }
 }

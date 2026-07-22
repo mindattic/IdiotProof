@@ -12,7 +12,9 @@ namespace IdiotProof.Blazor.Services;
 public sealed class GapperProfileService(IWebHostEnvironment env, ILogger<GapperProfileService> logger)
 {
     private static readonly JsonSerializerOptions JsonOpts = new() { PropertyNameCaseInsensitive = true, ReadCommentHandling = JsonCommentHandling.Skip };
-    private IReadOnlyList<GapperProfile>? cache;
+    // volatile: ensures the JIT cannot cache a null read in a register so all
+    // threads see the write once the profiles are loaded on any thread.
+    private volatile IReadOnlyList<GapperProfile>? cache;
 
     public IReadOnlyList<GapperProfile> GetProfiles()
     {

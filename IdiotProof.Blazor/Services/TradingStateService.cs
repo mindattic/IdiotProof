@@ -18,10 +18,15 @@ public sealed class TradingStateService
 
     public event Action? OnStateChanged;
 
-    // Engine state
-    public bool IsEngineRunning { get; private set; }
-    public DateTime? LastEvaluationUtc { get; private set; }
-    public int TotalSignalsToday { get; private set; }
+    // Engine state — written under lock(sync); getters also lock so readers
+    // on other threads observe writes without JIT register-caching stale values.
+    private bool isEngineRunning;
+    private DateTime? lastEvaluationUtc;
+    private int totalSignalsToday;
+
+    public bool IsEngineRunning      { get { lock (sync) return isEngineRunning; } }
+    public DateTime? LastEvaluationUtc { get { lock (sync) return lastEvaluationUtc; } }
+    public int TotalSignalsToday     { get { lock (sync) return totalSignalsToday; } }
 
     /// <summary>Returns a snapshot of the most recent signals (newest first).</summary>
     public IReadOnlyList<TradeSignal> RecentSignals
@@ -60,7 +65,7 @@ public sealed class TradingStateService
                 recentSignals.RemoveAt(recentSignals.Count - 1);
 
             if (signal.GeneratedUtc.Date == DateTime.UtcNow.Date)
-                TotalSignalsToday++;
+                totalSignalsToday++;
         }
         RaiseChanged();
     }
@@ -133,14 +138,14 @@ public sealed class TradingStateService
     /// <summary>Mark the engine as running or stopped.</summary>
     public void SetEngineRunning(bool running)
     {
-        lock (sync) IsEngineRunning = running;
+        lock (sync) isEngineRunning = running;
         RaiseChanged();
     }
 
     /// <summary>Record that an evaluation cycle completed.</summary>
     public void RecordEvaluation()
     {
-        lock (sync) LastEvaluationUtc = DateTime.UtcNow;
+        lock (sync) lastEvaluationUtc = DateTime.UtcNow;
         RaiseChanged();
     }
 

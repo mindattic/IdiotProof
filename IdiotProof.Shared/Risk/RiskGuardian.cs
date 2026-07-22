@@ -81,6 +81,12 @@ public sealed class RiskGuardian
 {
     private static readonly TimeZoneInfo EasternTimeZone = ResolveEasternTimeZone();
 
+    // The Monitor can evaluate two strategies for the same user back-to-back
+    // (RiskGuardianService comment: "may hit two strategies from the same user").
+    // decimal is 128-bit and not guaranteed atomic; UpdateConfig can race with
+    // ValidateTrade reads. All mutable state goes through this lock.
+    private readonly Lock sync = new();
+
     private RiskGuardianConfig config;
     private decimal dailyLoss;
     private DateOnly lastResetDate = CurrentTradingDate();
@@ -98,7 +104,10 @@ public sealed class RiskGuardian
     /// would silently reset the daily circuit breaker.
     /// </summary>
     public void UpdateConfig(RiskGuardianConfig newConfig)
-        => config = newConfig ?? throw new ArgumentNullException(nameof(newConfig));
+    {
+        ArgumentNullException.ThrowIfNull(newConfig);
+        lock (sync) config = newConfig;
+    }
 
     /// <summary>
     /// Validates a trade setup. Returns approval status and any adjustments needed.
@@ -106,7 +115,14 @@ public sealed class RiskGuardian
     public RiskGuardianResult ValidateTrade(TradeSetup setup)
     {
         var result = new RiskGuardianResult();
-        ResetDailyLossIfNewTradingDay();
+        decimal dailyLossSnapshot;
+        RiskGuardianConfig cfg;
+        lock (sync)
+        {
+            ResetDailyLossIfNewTradingDay();
+            dailyLossSnapshot = dailyLoss;
+            cfg = config;
+        }
 
         // === CRITICAL CHECKS - These BLOCK the trade ===
 
@@ -144,14 +160,14 @@ public sealed class RiskGuardian
         result.WorstCaseLoss = totalRisk * 1.5m;
 
         // 4. Check if risk exceeds max per trade
-        if (totalRisk > config.MaxLossPerTrade)
+        if (totalRisk > cfg.MaxLossPerTrade)
         {
-            result.BlockReasons.Add($"Risk ${totalRisk:F2} exceeds max ${config.MaxLossPerTrade:F2} per trade");
+            result.BlockReasons.Add($"Risk ${totalRisk:F2} exceeds max ${cfg.MaxLossPerTrade:F2} per trade");
 
             // Suggest adjusted quantity
             if (riskPerShare > 0m)
             {
-                var adjustedQty = (int)Math.Floor(config.MaxLossPerTrade / riskPerShare);
+                var adjustedQty = (int)Math.Floor(cfg.MaxLossPerTrade / riskPerShare);
                 if (adjustedQty >= 1)
                 {
                     result.AdjustedSetup = CloneWithQuantity(setup, adjustedQty);
@@ -161,10 +177,10 @@ public sealed class RiskGuardian
         }
 
         // 5. Check daily loss limit
-        if (dailyLoss + totalRisk > config.MaxLossPerDay)
+        if (dailyLossSnapshot + totalRisk > cfg.MaxLossPerDay)
         {
-            var remaining = config.MaxLossPerDay - dailyLoss;
-            result.BlockReasons.Add($"Would exceed daily loss limit. Already lost ${dailyLoss:F2}, limit is ${config.MaxLossPerDay:F2}");
+            var remaining = cfg.MaxLossPerDay - dailyLossSnapshot;
+            result.BlockReasons.Add($"Would exceed daily loss limit. Already lost ${dailyLossSnapshot:F2}, limit is ${cfg.MaxLossPerDay:F2}");
 
             if (remaining > 0m && riskPerShare > 0m)
             {
@@ -178,23 +194,23 @@ public sealed class RiskGuardian
         }
 
         // 6. Check stop loss distance
-        if (stopPercent < config.MinStopLossPercent)
+        if (stopPercent < cfg.MinStopLossPercent)
         {
-            result.BlockReasons.Add($"Stop loss too tight ({stopPercent:F2}%). Min is {config.MinStopLossPercent}% to avoid noise stops");
+            result.BlockReasons.Add($"Stop loss too tight ({stopPercent:F2}%). Min is {cfg.MinStopLossPercent}% to avoid noise stops");
         }
 
-        if (stopPercent > config.MaxStopLossPercent)
+        if (stopPercent > cfg.MaxStopLossPercent)
         {
-            result.BlockReasons.Add($"Stop loss too wide ({stopPercent:F2}%). Max is {config.MaxStopLossPercent}%");
+            result.BlockReasons.Add($"Stop loss too wide ({stopPercent:F2}%). Max is {cfg.MaxStopLossPercent}%");
         }
 
         // 7. Check account risk percent
-        if (config.AccountBalance > 0m)
+        if (cfg.AccountBalance > 0m)
         {
-            var accountRiskPercent = (totalRisk / config.AccountBalance) * 100m;
-            if (accountRiskPercent > config.MaxAccountRiskPercent)
+            var accountRiskPercent = (totalRisk / cfg.AccountBalance) * 100m;
+            if (accountRiskPercent > cfg.MaxAccountRiskPercent)
             {
-                result.BlockReasons.Add($"Risk is {accountRiskPercent:F2}% of account. Max is {config.MaxAccountRiskPercent}%");
+                result.BlockReasons.Add($"Risk is {accountRiskPercent:F2}% of account. Max is {cfg.MaxAccountRiskPercent}%");
             }
         }
 
@@ -236,10 +252,10 @@ public sealed class RiskGuardian
     /// </summary>
     public void RecordTradePnL(decimal pnl)
     {
-        ResetDailyLossIfNewTradingDay();
-        if (pnl < 0m)
+        lock (sync)
         {
-            dailyLoss += Math.Abs(pnl);
+            ResetDailyLossIfNewTradingDay();
+            if (pnl < 0m) dailyLoss += Math.Abs(pnl);
         }
     }
 
@@ -257,7 +273,10 @@ public sealed class RiskGuardian
     /// <summary>
     /// Gets remaining daily risk allowance.
     /// </summary>
-    public decimal GetRemainingDailyRisk() => Math.Max(0m, config.MaxLossPerDay - dailyLoss);
+    public decimal GetRemainingDailyRisk()
+    {
+        lock (sync) return Math.Max(0m, config.MaxLossPerDay - dailyLoss);
+    }
 
     /// <summary>
     /// Calculates the maximum quantity you can trade given current limits.
@@ -267,14 +286,20 @@ public sealed class RiskGuardian
         var riskPerShare = Math.Abs(entryPrice - stopLoss);
         if (riskPerShare <= 0m) return 0;
 
-        // Take the most restrictive limit
-        var fromMaxPerTrade    = (int)Math.Floor(config.MaxLossPerTrade / riskPerShare);
-        var fromDailyRemaining = (int)Math.Floor(GetRemainingDailyRisk() / riskPerShare);
-        var fromAccountPercent = (int)Math.Floor((config.AccountBalance * config.MaxAccountRiskPercent / 100m) / riskPerShare);
+        decimal maxPerTrade, remaining, balance, accountRiskPct;
+        lock (sync)
+        {
+            ResetDailyLossIfNewTradingDay();
+            maxPerTrade    = config.MaxLossPerTrade;
+            remaining      = Math.Max(0m, config.MaxLossPerDay - dailyLoss);
+            balance        = config.AccountBalance;
+            accountRiskPct = config.MaxAccountRiskPercent;
+        }
 
-        // Floor at 0, not 1: when the most restrictive limit allows no shares
-        // (e.g. the daily-loss circuit breaker is exhausted), returning 1 would
-        // place a trade that violates the limit. Callers gate on qty <= 0.
+        var fromMaxPerTrade    = (int)Math.Floor(maxPerTrade / riskPerShare);
+        var fromDailyRemaining = (int)Math.Floor(remaining / riskPerShare);
+        var fromAccountPercent = (int)Math.Floor((balance * accountRiskPct / 100m) / riskPerShare);
+
         return Math.Max(0, Math.Min(fromMaxPerTrade, Math.Min(fromDailyRemaining, fromAccountPercent)));
     }
 
@@ -286,24 +311,24 @@ public sealed class RiskGuardian
         bool isLong,
         decimal? preferredStopPercent = null)
     {
-        // Default to middle of allowed range
-        var stopPercent = preferredStopPercent ??
-            (config.MinStopLossPercent + config.MaxStopLossPercent) / 2m;
+        decimal minStop, maxStop, maxPerTrade, remaining;
+        lock (sync)
+        {
+            ResetDailyLossIfNewTradingDay();
+            minStop    = config.MinStopLossPercent;
+            maxStop    = config.MaxStopLossPercent;
+            maxPerTrade = config.MaxLossPerTrade;
+            remaining  = Math.Max(0m, config.MaxLossPerDay - dailyLoss);
+        }
 
-        // Clamp to allowed range
-        stopPercent = Math.Clamp(stopPercent, config.MinStopLossPercent, config.MaxStopLossPercent);
+        var stopPercent = preferredStopPercent ?? (minStop + maxStop) / 2m;
+        stopPercent = Math.Clamp(stopPercent, minStop, maxStop);
 
         var stopDistance = entryPrice * (stopPercent / 100m);
         var stopLoss = isLong ? entryPrice - stopDistance : entryPrice + stopDistance;
 
-        // Calculate quantity based on max loss. Floor at 0, not 1 — mirroring
-        // CalculateMaxQuantity. When the budget allows no shares (daily circuit
-        // breaker exhausted, or a single share already exceeds MaxLossPerTrade),
-        // forcing a minimum of 1 would hand back a "safe" size that knowingly
-        // breaches the cap. A zero risk-per-share (entry == stop, no protection)
-        // likewise yields 0, not a tradeable 1. Callers gate on quantity <= 0.
         var riskPerShare = stopDistance;
-        var maxLoss = Math.Min(config.MaxLossPerTrade, GetRemainingDailyRisk());
+        var maxLoss = Math.Min(maxPerTrade, remaining);
         var quantity = riskPerShare > 0m ? Math.Max(0, (int)Math.Floor(maxLoss / riskPerShare)) : 0;
 
         return (Math.Round(stopLoss, 2), quantity);
@@ -312,15 +337,18 @@ public sealed class RiskGuardian
     /// <summary>
     /// Gets current status for display.
     /// </summary>
-    public RiskGuardianStatus GetStatus() => new()
+    public RiskGuardianStatus GetStatus()
     {
-        MaxLossPerTrade = config.MaxLossPerTrade,
-        MaxLossPerDay = config.MaxLossPerDay,
-        DailyLossSoFar = dailyLoss,
-        RemainingDailyRisk = GetRemainingDailyRisk(),
-        AccountBalance = config.AccountBalance,
-        IsCircuitBreakerTripped = dailyLoss >= config.MaxLossPerDay
-    };
+        lock (sync) return new()
+        {
+            MaxLossPerTrade = config.MaxLossPerTrade,
+            MaxLossPerDay = config.MaxLossPerDay,
+            DailyLossSoFar = dailyLoss,
+            RemainingDailyRisk = Math.Max(0m, config.MaxLossPerDay - dailyLoss),
+            AccountBalance = config.AccountBalance,
+            IsCircuitBreakerTripped = dailyLoss >= config.MaxLossPerDay
+        };
+    }
 
     /// <summary>
     /// Creates a copy of the setup with adjusted quantity.

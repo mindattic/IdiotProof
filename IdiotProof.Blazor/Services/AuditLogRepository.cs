@@ -33,6 +33,7 @@ public sealed class AuditLogRepository(IDbContextFactory<AppDbContext> dbFactory
         // path, throwing right after a real order). Overflow is preserved in
         // DataJson (nvarchar(max), unbounded) so nothing is actually lost.
         string storedMessage = message ?? "";
+        string storedCategory = category ?? "";
         string? storedData = dataJson;
         if (storedMessage.Length > MessageMaxLength)
         {
@@ -45,7 +46,7 @@ public sealed class AuditLogRepository(IDbContextFactory<AppDbContext> dbFactory
         {
             TimestampUtc = DateTime.UtcNow,
             UserId       = userId,
-            Category     = category.Length > CategoryMaxLength ? category[..CategoryMaxLength] : category,
+            Category     = storedCategory.Length > CategoryMaxLength ? storedCategory[..CategoryMaxLength] : storedCategory,
             Message      = storedMessage,
             DataJson     = storedData,
         });

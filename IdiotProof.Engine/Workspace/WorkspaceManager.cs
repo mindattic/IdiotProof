@@ -57,9 +57,17 @@ public sealed class WorkspaceManager
 
     public IReadOnlyList<WorkspaceTab> GetTabsForUser(string userId)
     {
-        if (tabsByUser.TryGetValue(userId, out var cached)) return cached;
+        // Return a snapshot so callers can iterate safely while Save/Delete
+        // mutate the underlying list under the gate lock.
+        lock (gate)
+        {
+            if (tabsByUser.TryGetValue(userId, out var cached)) return cached.ToList();
+        }
         LoadForUser(userId);
-        return tabsByUser.TryGetValue(userId, out var loaded) ? loaded : [];
+        lock (gate)
+        {
+            return tabsByUser.TryGetValue(userId, out var loaded) ? loaded.ToList() : [];
+        }
     }
 
     public void LoadForUser(string userId)
@@ -112,7 +120,9 @@ public sealed class WorkspaceManager
         var tab = new WorkspaceTab
         {
             Name = name,
-            DisplayOrder = tabs.Count,
+            // tabs.Count would assign duplicate orders after any deletion.
+            // Max+1 always produces a unique, monotonically increasing order.
+            DisplayOrder = tabs.Count > 0 ? tabs.Max(t => t.DisplayOrder) + 1 : 0,
         };
         Save(userId, tab);
         return tab;

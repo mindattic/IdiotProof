@@ -24,7 +24,7 @@ public sealed class LiveBarPusher(IDbContextFactory<AppDbContext> dbFactory) : B
             try
             {
                 var since = lastCheck;
-                lastCheck = DateTime.UtcNow;
+                var next = DateTime.UtcNow;
 
                 await using var db = await dbFactory.CreateDbContextAsync(stoppingToken);
                 var updatedStrategies = await db.LiveBars
@@ -32,6 +32,11 @@ public sealed class LiveBarPusher(IDbContextFactory<AppDbContext> dbFactory) : B
                     .Select(b => b.StrategyId)
                     .Distinct()
                     .ToListAsync(stoppingToken);
+
+                // Only advance the watermark after a successful query. If the
+                // DB call throws, lastCheck stays at `since` so the next poll
+                // retries the same window instead of silently skipping it.
+                lastCheck = next;
 
                 foreach (var sid in updatedStrategies)
                     BarUpdated?.Invoke(sid);
