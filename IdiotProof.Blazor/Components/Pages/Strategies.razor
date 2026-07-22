@@ -3,7 +3,6 @@
 @rendermode InteractiveServer
 @using IdiotProof.Blazor.Data
 @using IdiotProof.Blazor.Services
-@using IdiotProof.Scripting
 @using Microsoft.AspNetCore.Authorization
 @using Microsoft.AspNetCore.Components.Authorization
 @attribute [Authorize]
@@ -11,7 +10,6 @@
 @inject ConditionProgressRepository ProgressRepo
 @inject NavigationManager Nav
 @inject AuthenticationStateProvider AuthState
-@inject IJSRuntime JS
 @implements IDisposable
 
 @*
@@ -75,16 +73,13 @@
         <ul class="list-unstyled mb-0" role="list">
             @foreach (var s in filtered)
             {
-                var isOpen  = openRows.Contains(s.Id);
-                var preview = previews.GetValueOrDefault(s.Id);
                 <li @key="s.Id" class="trading-card mb-2" data-strategy-id="@s.Id">
                     <div class="d-flex align-items-center gap-3 p-3 strategy-row-header"
                          role="button"
                          tabindex="0"
-                         aria-expanded="@isOpen"
-                         @onclick="() => ToggleRow(s.Id)"
-                         @onkeydown="e => OnRowKey(e, s.Id)">
-                        <i class="bi @(isOpen ? "bi-chevron-down" : "bi-chevron-right") text-muted" aria-hidden="true"></i>
+                         @onclick="() => EditStrategy(s.Id)"
+                         @onkeydown="e => OnRowKeyNavigate(e, s.Id)">
+                        <i class="bi bi-chevron-right text-muted" aria-hidden="true"></i>
                         <div class="flex-grow-1 min-w-0">
                             <div class="d-flex align-items-center gap-2 flex-wrap">
                                 <span class="fw-semibold">@s.Title</span>
@@ -152,17 +147,7 @@
                             </button>
                         </div>
                     </div>
-                    @if (isOpen)
-                    {
-                        <div class="border-top px-3 py-3" style="background:var(--bg-row-alt)">
-                            <StrategyBuilderRenderer Strategy="preview"
-                                                     EmptyMessage="Could not parse this script for preview." />
-                            <details class="mt-2">
-                                <summary class="text-muted small" style="cursor:pointer">Show raw IdiotScript</summary>
-                                <pre class="small mt-2 p-2" style="background:var(--bg-card);border:1px solid var(--border);border-radius:6px;max-height:240px;overflow:auto">@s.ScriptText</pre>
-                            </details>
-                        </div>
-                    }
+
                 </li>
             }
         </ul>
@@ -197,15 +182,13 @@
     private string filterText = "";
 
     private List<Strategy> all = new();
-    private readonly Dictionary<Guid, StrategyDefinition?> previews = new();
     private readonly Dictionary<Guid, ConditionProgress> progress = new();
-    private readonly HashSet<Guid> openRows = new();
     private Strategy? deleteCandidate;
     private System.Threading.Timer? progressPoll;
 
-    private void OnRowKey(KeyboardEventArgs e, Guid id)
+    private void OnRowKeyNavigate(KeyboardEventArgs e, Guid id)
     {
-        if (e.Key is "Enter" or " ") ToggleRow(id);
+        if (e.Key is "Enter" or " ") EditStrategy(id);
     }
 
     private List<Strategy> filtered => string.IsNullOrWhiteSpace(filterText)
@@ -225,10 +208,6 @@
             if (userId is null) { loadError = "Sign in to view your strategies."; return; }
 
             all = await StrategyRepo.GetAllForUserAsync(userId.Value);
-            foreach (var s in all)
-            {
-                previews[s.Id] = TryLoad(s);
-            }
             await RefreshProgressAsync();
         }
         catch (Exception ex)
@@ -291,32 +270,6 @@
         progressPoll = null;
     }
 
-    protected override async Task OnAfterRenderAsync(bool firstRender)
-    {
-        if (firstRender)
-        {
-            try
-            {
-                var saved = await JS.InvokeAsync<string?>("localStorage.getItem", "idiotproof.strategies.openRows");
-                if (!string.IsNullOrWhiteSpace(saved))
-                {
-                    foreach (var part in saved.Split(','))
-                    {
-                        if (Guid.TryParse(part, out var id)) openRows.Add(id);
-                    }
-                    StateHasChanged();
-                }
-            }
-            catch { /* JS unavailable */ }
-        }
-    }
-
-    private async Task ToggleRow(Guid id)
-    {
-        if (!openRows.Add(id)) openRows.Remove(id);
-        try { await JS.InvokeVoidAsync("localStorage.setItem", "idiotproof.strategies.openRows", string.Join(",", openRows)); }
-        catch { }
-    }
 
     private async Task ToggleActive(Strategy s, bool isActive)
     {
@@ -378,20 +331,9 @@
             return;
         }
         all.RemoveAll(x => x.Id == deleteCandidate.Id);
-        previews.Remove(deleteCandidate.Id);
-        openRows.Remove(deleteCandidate.Id);
         deleteCandidate = null;
         loadError = "";
     }
 
-    private static StrategyDefinition? TryLoad(Strategy s)
-    {
-        try
-        {
-            // Canonical JSON first (IP-LAW-8) — previews render exactly what
-            // the Monitor will evaluate; text parse only for legacy rows.
-            return StrategyLoader.Load(s.ScriptJson, s.ScriptText).Definition;
-        }
-        catch { return null; }
-    }
+
 }

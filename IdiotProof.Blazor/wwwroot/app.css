@@ -315,23 +315,25 @@ code { color: var(--brand); background: transparent; }
     align-items: center;
     padding: 0 16px;
     border-radius: 0;
+    border-top: 2px solid transparent;
     border-bottom: 2px solid transparent;
-    color: var(--text-subtle);
+    color: var(--text-muted);
     text-decoration: none;
     font-size: 0.85rem;
     font-weight: 500;
     white-space: nowrap;
-    transition: color 0.15s, border-color 0.15s;
+    transition: color 0.15s, background-color 0.15s;
     letter-spacing: 0.01em;
 }
 .top-tab:hover {
     color: var(--text-primary);
-    border-bottom-color: var(--border-strong);
+    background: var(--bg-hover);
     text-decoration: none;
 }
 .top-tab.active {
-    color: var(--brand);
-    border-bottom-color: var(--brand);
+    color: var(--text-primary);
+    border-top-color: var(--brand);
+    background: rgba(210, 153, 34, 0.06);
     font-weight: 600;
 }
 

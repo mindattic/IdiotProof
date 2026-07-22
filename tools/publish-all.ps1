@@ -1,17 +1,18 @@
 #Requires -Version 5.1
 <#
 .SYNOPSIS
-    Publish Monitor + Blazor to C:\IdiotProof\ and write the launch script.
+    Build Debug + Release, publish Release to C:\Apps\IdiotProof\, write launch scripts.
 
 .DESCRIPTION
     1. Kills any running published instances (Monitor exe, Blazor exe).
-    2. Publishes IdiotProof.Monitor  -> C:\IdiotProof\Monitor\
-    3. Publishes IdiotProof.Blazor   -> C:\IdiotProof\Blazor\
-    4. Writes   C:\IdiotProof\Blazor\run.bat  (sets ASPNETCORE_URLS before exe)
-    5. Writes   C:\IdiotProof\launch.bat       (starts both + opens browser)
+    2. Builds Debug (compile check for both projects).
+    3. Publishes IdiotProof.Monitor  (Release) -> C:\Apps\IdiotProof\Monitor\
+    4. Publishes IdiotProof.Blazor   (Release) -> C:\Apps\IdiotProof\Blazor\
+    5. Writes   C:\Apps\IdiotProof\Blazor\run.bat  (sets ASPNETCORE_URLS before exe)
+    6. Writes   C:\Apps\IdiotProof\launch.bat       (starts both + opens browser)
 
 .PARAMETER Launch
-    After publishing, immediately run C:\IdiotProof\launch.bat.
+    After publishing, immediately run C:\Apps\IdiotProof\launch.bat.
 
 .EXAMPLE
     powershell -ExecutionPolicy Bypass -File tools\publish-all.ps1
@@ -38,9 +39,20 @@ foreach ($name in @('idiotproof-monitor', 'IdiotProof.Blazor')) {
 }
 Start-Sleep -Milliseconds 800
 
-# ── Publish Monitor ────────────────────────────────────────────────────────
+# ── Debug build (compile check) ───────────────────────────────────────────
 Write-Host ''
-Write-Host "  Publishing Monitor -> $out\Monitor" -ForegroundColor Cyan
+Write-Host '  Building Debug...' -ForegroundColor Cyan
+dotnet build "$repo\IdiotProof.Monitor\IdiotProof.Monitor.csproj" `
+    --configuration Debug --nologo -v:q
+if ($LASTEXITCODE -ne 0) { throw "Monitor Debug build failed (exit $LASTEXITCODE)" }
+dotnet build "$repo\IdiotProof.Blazor\IdiotProof.Blazor.csproj" `
+    --configuration Debug --nologo -v:q
+if ($LASTEXITCODE -ne 0) { throw "Blazor Debug build failed (exit $LASTEXITCODE)" }
+Write-Host '  Debug build OK.' -ForegroundColor Green
+
+# ── Publish Monitor (Release) ─────────────────────────────────────────────
+Write-Host ''
+Write-Host "  Publishing Monitor (Release) -> $out\Monitor" -ForegroundColor Cyan
 dotnet publish "$repo\IdiotProof.Monitor\IdiotProof.Monitor.csproj" `
     --configuration Release `
     --output "$out\Monitor" `
@@ -49,7 +61,7 @@ if ($LASTEXITCODE -ne 0) { throw "Monitor publish failed (exit $LASTEXITCODE)" }
 
 # ── Publish Blazor ─────────────────────────────────────────────────────────
 Write-Host ''
-Write-Host "  Publishing Blazor  -> $out\Blazor" -ForegroundColor Cyan
+Write-Host "  Publishing Blazor  (Release) -> $out\Blazor" -ForegroundColor Cyan
 dotnet publish "$repo\IdiotProof.Blazor\IdiotProof.Blazor.csproj" `
     --configuration Release `
     --output "$out\Blazor" `
@@ -71,7 +83,7 @@ $launchBatPath = "$out\launch.bat"
 "title IdiotProof" | Add-Content $launchBatPath -Encoding ascii
 "echo." | Add-Content $launchBatPath -Encoding ascii
 "echo  Starting Monitor..." | Add-Content $launchBatPath -Encoding ascii
-'start "IdiotProof Monitor" powershell -NoExit -Command "& ''C:\IdiotProof\Monitor\idiotproof-monitor.exe''"' | Add-Content $launchBatPath -Encoding ascii
+"start `"IdiotProof Monitor`" powershell -NoExit -Command `"& '$out\Monitor\idiotproof-monitor.exe'`"" | Add-Content $launchBatPath -Encoding ascii
 "echo  Starting Blazor ($blazorUrl)..." | Add-Content $launchBatPath -Encoding ascii
 "start `"IdiotProof Blazor`" `"$out\Blazor\run.bat`"" | Add-Content $launchBatPath -Encoding ascii
 "echo  Waiting for Blazor to start..." | Add-Content $launchBatPath -Encoding ascii
