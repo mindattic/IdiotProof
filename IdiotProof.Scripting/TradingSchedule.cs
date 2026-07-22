@@ -28,19 +28,22 @@ public enum TradingWindow
 /// </summary>
 public static class TradingSchedule
 {
-    // Trading hours: premarket opens 4 AM ET, after-hours closes 8 PM ET.
-    // We spin up at 3:45 AM (15 min early) to warm candle caches before
-    // the first trade can legally fire; strategies' own EntryWindow conditions
-    // gate actual order placement to the correct session.
-    private static readonly TimeSpan ActiveStart      = new(3,  45, 0);  // 3:45 AM
-    private static readonly TimeSpan ActiveEnd        = new(20,  0, 0);  // 8:00 PM
-    private static readonly TimeSpan EarlyCloseActive = new(13,  0, 0);  // 1:00 PM (early-close RTH end)
+    // Active window: 5 min before premarket opens (3:55 AM ET) through
+    // 5 min after after-hours closes (8:05 PM ET). The 5-minute pre-open
+    // buffer gives 5 x 1-minute pings to confirm the process is healthy
+    // before the first trade can legally fire.
+    private static readonly TimeSpan ActiveStart      = new(3,  55, 0);  // 3:55 AM
+    private static readonly TimeSpan ActiveEnd        = new(20,  5, 0);  // 8:05 PM
+    private static readonly TimeSpan EarlyCloseActive = new(13,  5, 0);  // 5 min after 1 PM early-close
 
     /// <summary>Evaluation interval during active trading hours.</summary>
     public static readonly TimeSpan ActiveInterval    = TimeSpan.FromSeconds(1);
 
-    /// <summary>Liveness-ping interval during hibernate.</summary>
-    public static readonly TimeSpan HibernateInterval = TimeSpan.FromMinutes(5);
+    /// <summary>
+    /// Liveness-ping interval during hibernate. One ping per minute so
+    /// 5 pings fire in the 5-minute window before the active session begins.
+    /// </summary>
+    public static readonly TimeSpan HibernateInterval = TimeSpan.FromMinutes(1);
 
     public static TradingWindow Classify(DateTime utcNow)
     {

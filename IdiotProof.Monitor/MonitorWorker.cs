@@ -254,7 +254,7 @@ public sealed class MonitorWorker(
             {
                 lastHibernatePing = DateTime.UtcNow;
                 var etNow = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, MarketTime.Eastern);
-                Console.WriteLine($"  [HIBERNATE] {etNow:HH:mm} ET — next active 3:45 AM ET");
+                Console.WriteLine($"  [HIBERNATE] {etNow:HH:mm} ET — next active 3:55 AM ET");
             }
             return;
         }
@@ -1261,12 +1261,12 @@ public sealed class MonitorWorker(
         if (next == TradingWindow.Hibernate)
         {
             Console.WriteLine();
-            Console.WriteLine("  ── HIBERNATE ── Market closed. Pinging every 5 min until 3:45 AM ET. ──");
+            Console.WriteLine("  ── HIBERNATE ── Market closed. Pinging every 1 min until 3:55 AM ET. ──");
             Console.WriteLine();
             try
             {
                 await auditLogRepo.LogAsync("monitor-hibernate",
-                    "Monitor entering hibernate — market closed (next active 3:45 AM ET)", ct: ct);
+                    "Monitor entering hibernate — market closed (next active 3:55 AM ET)", ct: ct);
             }
             catch { /* best-effort */ }
         }
