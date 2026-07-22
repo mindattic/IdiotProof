@@ -62,7 +62,7 @@ if ($LASTEXITCODE -ne 0) { throw "Blazor publish failed (exit $LASTEXITCODE)" }
 $runBatPath = "$out\Blazor\run.bat"
 "@echo off" | Set-Content $runBatPath -Encoding ascii
 "set ASPNETCORE_URLS=$blazorUrl" | Add-Content $runBatPath -Encoding ascii
-"set ASPNETCORE_ENVIRONMENT=Production" | Add-Content $runBatPath -Encoding ascii
+"set ASPNETCORE_ENVIRONMENT=Development" | Add-Content $runBatPath -Encoding ascii
 '"%~dp0IdiotProof.Blazor.exe"' | Add-Content $runBatPath -Encoding ascii
 
 # ── Write top-level launch.bat ─────────────────────────────────────────────
