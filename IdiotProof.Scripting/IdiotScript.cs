@@ -1250,16 +1250,93 @@ public static class MarketTime
         TimeZoneInfo.ConvertTimeFromUtc(DateTime.SpecifyKind(utc, DateTimeKind.Utc), Eastern).TimeOfDay;
 
     /// <summary>
-    /// True when the ET calendar day for this UTC instant is a weekday. US
-    /// equity markets never trade on Saturday/Sunday; without this gate a
-    /// time-of-day-only session check passes on weekends and orders get
-    /// queued against Friday's stale prices. (Exchange holidays are not
-    /// modeled — the broker rejects those orders and the loop retries.)
+    /// True when US equity markets are open on this ET calendar date — i.e.
+    /// not a weekend, not a NYSE holiday, and not a day already excluded by
+    /// the caller for other reasons. Used by the Monitor's hibernate gate so
+    /// it never evaluates strategies on closed days.
     /// </summary>
     public static bool IsEquityTradingDay(DateTime utc)
     {
         var et = TimeZoneInfo.ConvertTimeFromUtc(DateTime.SpecifyKind(utc, DateTimeKind.Utc), Eastern);
-        return et.DayOfWeek is not DayOfWeek.Saturday and not DayOfWeek.Sunday;
+        if (et.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday) return false;
+        return !IsMarketHoliday(DateOnly.FromDateTime(et));
+    }
+
+    /// <summary>
+    /// True when the NYSE is fully closed on <paramref name="date"/> (ET).
+    /// Covers: New Year's Day, MLK Day, Presidents' Day, Good Friday,
+    /// Memorial Day, Juneteenth, Independence Day, Labor Day, Thanksgiving,
+    /// and Christmas Day, each with the standard Saturday→Friday /
+    /// Sunday→Monday observed-holiday shift.
+    /// </summary>
+    public static bool IsMarketHoliday(DateOnly date)
+    {
+        var y = date.Year;
+        return date == ObservedHoliday(y, 1,  1)   // New Year's Day
+            || date == MlkDay(y)                    // MLK Day (3rd Mon Jan)
+            || date == PresidentsDay(y)             // Presidents' Day (3rd Mon Feb)
+            || date == GoodFriday(y)               // Good Friday
+            || date == MemorialDay(y)              // Memorial Day (last Mon May)
+            || date == ObservedHoliday(y, 6, 19)   // Juneteenth
+            || date == ObservedHoliday(y, 7,  4)   // Independence Day
+            || date == LaborDay(y)                 // Labor Day (1st Mon Sep)
+            || date == Thanksgiving(y)             // Thanksgiving (4th Thu Nov)
+            || date == ObservedHoliday(y, 12, 25); // Christmas Day
+    }
+
+    /// <summary>
+    /// True when the NYSE closes early at 1:00 PM ET: Christmas Eve (Dec 24)
+    /// when it falls on a weekday, and Black Friday (day after Thanksgiving).
+    /// </summary>
+    public static bool IsEarlyCloseDay(DateOnly date)
+    {
+        if (date.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday) return false;
+        if (date.Month == 12 && date.Day == 24) return true;
+        return date == Thanksgiving(date.Year).AddDays(1);
+    }
+
+    private static DateOnly ObservedHoliday(int year, int month, int day)
+    {
+        var d = new DateOnly(year, month, day);
+        return d.DayOfWeek switch
+        {
+            DayOfWeek.Saturday => d.AddDays(-1),
+            DayOfWeek.Sunday   => d.AddDays(1),
+            _                  => d,
+        };
+    }
+
+    private static DateOnly NthWeekdayOfMonth(int year, int month, DayOfWeek weekday, int nth)
+    {
+        var d = new DateOnly(year, month, 1);
+        while (d.DayOfWeek != weekday) d = d.AddDays(1);
+        return d.AddDays(7 * (nth - 1));
+    }
+
+    private static DateOnly MlkDay(int year)        => NthWeekdayOfMonth(year, 1,  DayOfWeek.Monday,   3);
+    private static DateOnly PresidentsDay(int year) => NthWeekdayOfMonth(year, 2,  DayOfWeek.Monday,   3);
+    private static DateOnly LaborDay(int year)      => NthWeekdayOfMonth(year, 9,  DayOfWeek.Monday,   1);
+    private static DateOnly Thanksgiving(int year)  => NthWeekdayOfMonth(year, 11, DayOfWeek.Thursday, 4);
+
+    private static DateOnly MemorialDay(int year)
+    {
+        var d = new DateOnly(year, 5, 31);
+        while (d.DayOfWeek != DayOfWeek.Monday) d = d.AddDays(-1);
+        return d;
+    }
+
+    private static DateOnly GoodFriday(int year)
+    {
+        // Easter via the Anonymous Gregorian algorithm; Good Friday = Easter − 2 days.
+        int a = year % 19, b = year / 100, c = year % 100;
+        int d = b / 4, e = b % 4, f = (b + 8) / 25, g = (b - f + 1) / 3;
+        int h = (19 * a + b - d - g + 15) % 30;
+        int i = c / 4, k = c % 4;
+        int l = (32 + 2 * e + 2 * i - h - k) % 7;
+        int m = (a + 11 * h + 22 * l) / 451;
+        int month = (h + l - 7 * m + 114) / 31;
+        int day   = (h + l - 7 * m + 114) % 31 + 1;
+        return new DateOnly(year, month, day).AddDays(-2);
     }
 
     /// <summary>

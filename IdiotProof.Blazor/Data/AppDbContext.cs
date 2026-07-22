@@ -74,6 +74,9 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options)
             e.HasIndex(a => new { a.UserId, a.TimestampUtc });
             e.HasIndex(a => a.TimestampUtc);
             e.HasIndex(a => a.Category);
+            // Composite for category+time queries: LogAlertService (every 60s),
+            // GetByCategoryAsync, and the Logs page date-range filter.
+            e.HasIndex(a => new { a.Category, a.TimestampUtc });
         });
 
         b.Entity<ConditionProgress>(e =>

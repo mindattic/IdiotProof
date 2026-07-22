@@ -214,7 +214,8 @@
         "holding", "position-reconciled",
         // Errors
         "strategy-error",
-        // Maintenance
+        // Maintenance / lifecycle
+        "monitor-hibernate", "monitor-resume",
         "audit-prune",
         // Legacy rows (kept for DB compat — old installs used "order-placed" / "signal")
         "order-placed", "signal",
@@ -237,6 +238,8 @@
         "exit-tsl"             => "WARN",
         "order-rejected"       => "ERROR",
         "strategy-error"       => "ERROR",
+        "monitor-hibernate"    => "INFO",
+        "monitor-resume"       => "INFO",
         "audit-prune"          => "INFO",
         "order-placed"         => "INFO",   // legacy
         "signal"               => "INFO",   // legacy

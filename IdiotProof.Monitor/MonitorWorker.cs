@@ -88,6 +88,11 @@ public sealed class MonitorWorker(
     private DateTime monitorStartUtc;
     private DateTime lastPruneUtc = DateTime.MinValue;
 
+    // Trading-schedule state
+    private TradingWindow lastWindow   = TradingWindow.Hibernate;
+    private DateTime      lastEvalUtc  = DateTime.MinValue;
+    private List<IdiotProof.Blazor.Data.Strategy> cachedActive = [];
+
     // Throttle live-bar writes: write at most once every 10 seconds per strategy
     // (the Monitor evaluates every 1s; writing every tick would hammer the DB).
     private readonly Dictionary<Guid, DateTime> lastBarWrite = new();
@@ -232,9 +237,36 @@ public sealed class MonitorWorker(
     /// <summary>One full evaluation pass.</summary>
     private async Task TickAsync(CancellationToken ct)
     {
-        // Re-read the active set every tick: queue/toggle/dial-in changes made
+        // ── Trading-schedule gate ─────────────────────────────────────────────
+        var window = TradingSchedule.Classify(DateTime.UtcNow);
+
+        if (window != lastWindow)
+        {
+            await LogWindowTransitionAsync(lastWindow, window, ct);
+            lastWindow = window;
+        }
+
+        if (window == TradingWindow.Hibernate)
+            return; // SupervisedLoop still writes the heartbeat file after return
+
+        // Self-ping uses the cached active list so it runs even in inter-eval gaps.
+        if (SelfPingEnabled && DateTime.UtcNow - lastPingUtc >= SelfPingInterval)
+        {
+            lastPingUtc = DateTime.UtcNow;
+            PrintSelfPing(cachedActive);
+        }
+
+        // Throttle: high-frequency windows evaluate every 1s; normal every 5s.
+        var evalInterval = window == TradingWindow.HighFrequency
+            ? TradingSchedule.HighFreqInterval : TradingSchedule.NormalInterval;
+        if (DateTime.UtcNow - lastEvalUtc < evalInterval) return;
+        lastEvalUtc = DateTime.UtcNow;
+        // ─────────────────────────────────────────────────────────────────────
+
+        // Re-read the active set every eval: queue/toggle/dial-in changes made
         // in the UI land in SQL and apply here automatically — no restart.
         var active = await strategyRepo.GetActiveAsync(ct);
+        cachedActive = active;
         lastTickSuccessUtc = DateTime.UtcNow;
 
         // Roster echo: print the active-strategy list on startup (first tick,
@@ -250,16 +282,6 @@ public sealed class MonitorWorker(
             if (lastActiveFingerprint is null)
                 PrintActiveRoster(active);
             lastActiveFingerprint = fingerprint;
-        }
-
-        // Liveness self-ping: reaching this line means the loop ran, the DB read
-        // (GetActiveAsync) succeeded, and the leader lease is held — so the ping
-        // is a genuine health signal, not a bare timer. Prints at most every
-        // SelfPingInterval (default 30 min); the first tick fires one immediately.
-        if (SelfPingEnabled && DateTime.UtcNow - lastPingUtc >= SelfPingInterval)
-        {
-            lastPingUtc = DateTime.UtcNow;
-            PrintSelfPing(active);
         }
 
         // Daily audit-log pruning — keep 30 days / minimum 2000 rows.
@@ -1228,6 +1250,43 @@ public sealed class MonitorWorker(
     }
 
     private static string Truncate(string s) => s.Length <= 200 ? s : s[..200] + "…";
+
+    private async Task LogWindowTransitionAsync(TradingWindow prev, TradingWindow next, CancellationToken ct)
+    {
+        if (next == TradingWindow.Hibernate)
+        {
+            Console.WriteLine();
+            Console.WriteLine("  ── HIBERNATE ── Market closed. Heartbeat-only until 3:45 AM ET. ──");
+            Console.WriteLine();
+            try
+            {
+                await auditLogRepo.LogAsync("monitor-hibernate",
+                    "Monitor entering hibernate — market closed (next active 3:45 AM ET)", ct: ct);
+            }
+            catch { /* best-effort */ }
+        }
+        else if (prev == TradingWindow.Hibernate)
+        {
+            var label = next == TradingWindow.HighFrequency ? "high-frequency (1s)" : "normal (5s)";
+            Console.WriteLine();
+            Console.WriteLine($"  ── ACTIVE ── Resuming from hibernate — {label} evaluation. ──");
+            Console.WriteLine();
+            try
+            {
+                await auditLogRepo.LogAsync("monitor-resume",
+                    $"Monitor resuming from hibernate — entering {label} window", ct: ct);
+            }
+            catch { /* best-effort */ }
+        }
+        else if (next == TradingWindow.HighFrequency)
+        {
+            Console.WriteLine($"  [high-freq] Entering critical window — 1s evaluation.");
+        }
+        else
+        {
+            Console.WriteLine($"  [normal] Returning to 5s evaluation cadence.");
+        }
+    }
 
     private static string FormatUptime(TimeSpan t) =>
         t.TotalHours >= 1 ? $"{(int)t.TotalHours}h {t.Minutes}m"
