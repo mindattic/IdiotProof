@@ -4,6 +4,7 @@ using IdiotProof.Blazor.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace IdiotProof.Blazor.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260723143820_AddResearchTables")]
+    partial class AddResearchTables
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -694,31 +697,6 @@ namespace IdiotProof.Blazor.Migrations
                     b.HasIndex("Ticker", "Status");
 
                     b.ToTable("ResearchClaims");
-                });
-
-            modelBuilder.Entity("IdiotProof.Blazor.Data.ResearchClaimVector", b =>
-                {
-                    b.Property<Guid>("ClaimId")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<DateTime>("CreatedUtc")
-                        .HasColumnType("datetime2");
-
-                    b.Property<byte[]>("LshSignature")
-                        .IsRequired()
-                        .HasMaxLength(8)
-                        .HasColumnType("binary(8)")
-                        .IsFixedLength();
-
-                    b.Property<string>("VectorJson")
-                        .IsRequired()
-                        .HasMaxLength(2048)
-                        .HasColumnType("nvarchar(2048)");
-
-                    b.HasKey("ClaimId");
-
-                    b.ToTable("ResearchClaimVectors");
                 });
 
             modelBuilder.Entity("IdiotProof.Blazor.Data.SettingsKv", b =>

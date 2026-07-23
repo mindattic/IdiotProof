@@ -33,6 +33,9 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options)
     public DbSet<AutoGapperScan>       AutoGapperScans      => Set<AutoGapperScan>();
     public DbSet<AutoGapperCandidate>  AutoGapperCandidates => Set<AutoGapperCandidate>();
     public DbSet<LiveBar>              LiveBars             => Set<LiveBar>();
+    public DbSet<ResearchClaim>        ResearchClaims       => Set<ResearchClaim>();
+    public DbSet<SourceTrustScore>     SourceTrustScores    => Set<SourceTrustScore>();
+    public DbSet<ResearchClaimVector>  ResearchClaimVectors => Set<ResearchClaimVector>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -147,6 +150,25 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options)
             e.Property(x => x.CondBitsJson).HasMaxLength(2000);
             // No FK to Strategy: bars are observational history and must survive
             // strategy edits or deletion (same rationale as TradeDiaryEntry).
+        });
+
+        b.Entity<ResearchClaim>(e =>
+        {
+            e.HasIndex(r => new { r.Ticker, r.Status });
+            e.HasIndex(r => new { r.Ticker, r.CreatedUtc });
+            e.HasIndex(r => r.ArticleDate);
+            e.Property(r => r.PriceAtClaim).HasPrecision(18, 4);
+            e.Property(r => r.PriceAtOutcome).HasPrecision(18, 4);
+            e.Property(r => r.OutcomePctChange).HasPrecision(8, 4);
+        });
+
+        b.Entity<ResearchClaimVector>(e =>
+        {
+            // PK is the ClaimId — one vector per claim, 1:1 relationship.
+            // No FK cascade: vectors are independent research records and must
+            // survive source claim edits (same rationale as TradeDiary).
+            e.Property(v => v.VectorJson).HasMaxLength(2048);
+            e.Property(v => v.LshSignature).HasMaxLength(8).IsFixedLength();
         });
 
         b.Entity<TradeDiaryEntry>(e =>

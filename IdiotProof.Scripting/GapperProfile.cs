@@ -167,7 +167,7 @@ public static class GapperScriptFactory
             .IsVolumeAbove(p.MinVolumeRatio)
             .IsPriceBetween(p.MinPrice, p.MaxPrice)
             .Long()
-            .QuantityNotional(p.DefaultNotional)
+            .QuantityShares(1)
             .StopLossPercent(p.StopLossPercent);
 
         if (p.TrailingStopPercent is { } tsl)

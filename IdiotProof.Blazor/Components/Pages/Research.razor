@@ -1,0 +1,356 @@
+@page "/research"
+@rendermode InteractiveServer
+@using IdiotProof.Blazor.Data
+@using IdiotProof.Blazor.Services
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize]
+@inject ResearchService ResearchSvc
+@inject ClaimCorrelationService CorrelationSvc
+@inject AppSettings AppSettings
+
+<PageTitle>Research — IdiotProof</PageTitle>
+
+<section aria-labelledby="research-heading">
+    <h1 id="research-heading" class="h4 mb-1">
+        <i class="bi bi-search me-2" style="color:var(--brand)" aria-hidden="true"></i>Intelligence Research
+    </h1>
+    <p class="text-muted small mb-3">
+        Surface catalysts and <strong>portents</strong> — events announced but not yet priced in.
+        Empirically trustworthy sources earn confidence over time.
+    </p>
+
+    @if (error is not null)
+    {
+        <div class="alert alert-danger small">@error</div>
+    }
+
+    <!-- ── Input row ── -->
+    <div class="trading-card p-3 mb-3">
+        <div class="row g-2 align-items-end mb-3">
+            <div class="col-sm-3">
+                <label class="form-label small text-muted mb-1">Ticker</label>
+                <input class="form-control form-control-sm text-uppercase" placeholder="LMT"
+                       @bind="ticker" @bind:event="oninput" maxlength="10" />
+            </div>
+            <div class="col-sm-4">
+                <label class="form-label small text-muted mb-1">Company name <span class="text-muted">(for gov contracts)</span></label>
+                <input class="form-control form-control-sm" placeholder="Lockheed Martin"
+                       @bind="companyName" />
+            </div>
+            <div class="col-sm-2">
+                <label class="form-label small text-muted mb-1">Days back</label>
+                <input class="form-control form-control-sm" type="number" min="1" max="365"
+                       @bind="daysBack" />
+            </div>
+            <div class="col-sm-3">
+                <button class="btn btn-success w-100 btn-sm"
+                        @onclick="FetchPrimaryAsync"
+                        disabled="@(busy || string.IsNullOrWhiteSpace(ticker))">
+                    @if (busy && mode == "primary")
+                    {
+                        <span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span>
+                        <span>Fetching…</span>
+                    }
+                    else
+                    {
+                        <i class="bi bi-shield-check me-1" aria-hidden="true"></i>
+                        <span>Fetch Primary Sources</span>
+                    }
+                </button>
+                <div class="text-muted" style="font-size:.68rem;margin-top:2px;text-align:center">
+                    SEC EDGAR &middot; USASpending.gov
+                </div>
+            </div>
+        </div>
+
+        <!-- Article paste zone -->
+        <div class="border-top pt-3">
+            <div class="row g-2 align-items-end mb-2">
+                <div class="col-sm-5">
+                    <label class="form-label small text-muted mb-1">Source name</label>
+                    <input class="form-control form-control-sm" placeholder="Reuters, Bloomberg, press release…"
+                           @bind="manualSource" />
+                </div>
+                <div class="col-sm-3">
+                    <label class="form-label small text-muted mb-1">Source URL <span class="text-muted">(optional)</span></label>
+                    <input class="form-control form-control-sm" type="url" placeholder="https://…"
+                           @bind="manualUrl" />
+                </div>
+                <div class="col-sm-2">
+                    <label class="form-label small text-muted mb-1">Tier</label>
+                    <select class="form-select form-select-sm" @bind="manualTier">
+                        <option value="1">1 — Primary</option>
+                        <option value="2">2 — Editorial</option>
+                        <option value="3" selected>3 — Unknown</option>
+                    </select>
+                </div>
+                <div class="col-sm-2">
+                    <button class="btn btn-outline-primary w-100 btn-sm"
+                            @onclick="AnalyzeManualAsync"
+                            disabled="@(busy || string.IsNullOrWhiteSpace(ticker) || string.IsNullOrWhiteSpace(articleText))">
+                        @if (busy && mode == "manual")
+                        {
+                            <span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span>
+                            <span>Analysing…</span>
+                        }
+                        else
+                        {
+                            <i class="bi bi-cpu me-1" aria-hidden="true"></i>
+                            <span>Analyse</span>
+                        }
+                    </button>
+                </div>
+            </div>
+            <textarea class="form-control form-control-sm"
+                      rows="5"
+                      placeholder="Paste any article, press release, or filing text here…"
+                      @bind="articleText"
+                      style="font-size:.8rem;resize:vertical"></textarea>
+        </div>
+    </div>
+
+    <!-- ── Results ── -->
+    @if (lastAnswer is not null)
+    {
+        <div class="trading-card p-3 mb-3" style="border-left:3px solid var(--green)">
+            <div class="d-flex align-items-center gap-2 mb-2">
+                <i class="bi bi-chat-square-text" style="color:var(--green)" aria-hidden="true"></i>
+                <span class="small fw-semibold">How does this affect <span class="text-uppercase">@ticker</span>'s stock price?</span>
+            </div>
+            <p class="mb-0 small">@lastAnswer</p>
+        </div>
+    }
+
+    <!-- Portent queue -->
+    @if (portents.Count > 0)
+    {
+        <div class="trading-card p-3 mb-3">
+            <h2 class="h6 mb-3">
+                <i class="bi bi-hourglass-split me-1" style="color:#f59e0b" aria-hidden="true"></i>
+                Portent Queue — <span class="fw-normal text-muted small">@portents.Count pending events not yet fully priced in</span>
+            </h2>
+            <div class="table-responsive">
+                <table class="table table-sm mb-0" style="font-size:.8rem">
+                    <thead>
+                        <tr class="text-muted">
+                            <th>Summary</th>
+                            <th>Type</th>
+                            <th>Impact</th>
+                            <th>Trigger</th>
+                            <th>Timeline</th>
+                            <th>Confidence</th>
+                            <th>Historical</th>
+                            <th>Source</th>
+                            <th>Date</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var p in portents)
+                        {
+                            <tr>
+                                <td>@p.ClaimSummary</td>
+                                <td><span class="badge" style="background:var(--muted);color:var(--text)">@p.ClaimType</span></td>
+                                <td>@SentimentBadge(p.Sentiment, p.Magnitude)</td>
+                                <td class="text-muted">@(p.PendingTrigger ?? "—")</td>
+                                <td class="text-muted">@(p.ExpectedTimeline ?? "—")</td>
+                                <td>@ConfidenceBadge(p.TriggerConfidence)</td>
+                                <td>@CorrelationBadge(p.Id)</td>
+                                <td>@TierBadge(p.SourceTier) @p.SourceName</td>
+                                <td class="text-muted">@p.ArticleDate.ToString("MM/dd")</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+
+    <!-- All claims -->
+    @if (allClaims.Count > 0)
+    {
+        var immediate = allClaims.Where(c => c.HasHappenedAlready).ToList();
+        if (immediate.Count > 0)
+        {
+            <div class="trading-card p-3 mb-3">
+                <h2 class="h6 mb-3">
+                    <i class="bi bi-lightning-fill me-1" style="color:var(--green)" aria-hidden="true"></i>
+                    Immediate Catalysts — <span class="fw-normal text-muted small">already occurred</span>
+                </h2>
+                <div class="table-responsive">
+                    <table class="table table-sm mb-0" style="font-size:.8rem">
+                        <thead>
+                            <tr class="text-muted"><th>Summary</th><th>Type</th><th>Impact</th><th>Source</th><th>Date</th></tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var c in immediate.OrderByDescending(x => x.ArticleDate).Take(20))
+                            {
+                                <tr>
+                                    <td>@c.ClaimSummary</td>
+                                    <td><span class="badge" style="background:var(--muted);color:var(--text)">@c.ClaimType</span></td>
+                                    <td>@SentimentBadge(c.Sentiment, c.Magnitude)</td>
+                                    <td>@TierBadge(c.SourceTier) @c.SourceName</td>
+                                    <td class="text-muted">@c.ArticleDate.ToString("MM/dd")</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        }
+    }
+
+    <!-- Source trust leaderboard -->
+    @if (trustScores.Count > 0)
+    {
+        <div class="trading-card p-3">
+            <h2 class="h6 mb-3">
+                <i class="bi bi-award me-1" style="color:var(--brand)" aria-hidden="true"></i>
+                Source Trust Leaderboard
+                <span class="fw-normal text-muted small ms-2">empirical accuracy accumulates over time</span>
+            </h2>
+            <div class="table-responsive">
+                <table class="table table-sm mb-0" style="font-size:.8rem">
+                    <thead>
+                        <tr class="text-muted"><th>Source</th><th>Tier</th><th>Claims</th><th>Portents</th><th>Realized</th><th>Confidence</th></tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var s in trustScores)
+                        {
+                            <tr>
+                                <td>@s.SourceName</td>
+                                <td>@TierBadge(s.SourceTier)</td>
+                                <td>@s.TotalClaims</td>
+                                <td>@s.PortentsClaimed</td>
+                                <td>@s.PortentsRealized</td>
+                                <td>
+                                    @if (s.ConfidencePct is { } pct)
+                                    {
+                                        <span style="color:@(pct >= 60 ? "var(--green)" : pct >= 40 ? "#f59e0b" : "var(--danger)")">
+                                            @pct.ToString("0")%
+                                        </span>
+                                    }
+                                    else { <span class="text-muted">—</span> }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+</section>
+
+@code {
+    string  ticker      = "";
+    string  companyName = "";
+    int     daysBack    = 30;
+    string  articleText = "";
+    string  manualSource = "";
+    string? manualUrl;
+    int     manualTier  = 3;
+
+    bool    busy;
+    string? mode;
+    string? error;
+    string? lastAnswer;
+
+    List<ResearchClaim>    portents    = [];
+    List<ResearchClaim>    allClaims   = [];
+    List<SourceTrustScore> trustScores = [];
+    Dictionary<Guid, CorrelationResult> correlations = [];
+
+    async Task FetchPrimaryAsync()
+    {
+        if (string.IsNullOrWhiteSpace(ticker)) return;
+        await RunAsync("primary", async ct =>
+        {
+            var claims = await ResearchSvc.FetchPrimarySourcesAsync(ticker, companyName, daysBack, ct);
+            await LoadResultsAsync(ct);
+            lastAnswer = claims.FirstOrDefault(c => c.LlmAnswer is not null)?.LlmAnswer;
+        });
+    }
+
+    async Task AnalyzeManualAsync()
+    {
+        if (string.IsNullOrWhiteSpace(ticker) || string.IsNullOrWhiteSpace(articleText)) return;
+        await RunAsync("manual", async ct =>
+        {
+            var date   = DateOnly.FromDateTime(DateTime.UtcNow);
+            var source = string.IsNullOrWhiteSpace(manualSource) ? "Unknown" : manualSource;
+            var claims = await ResearchSvc.AnalyzeArticleAsync(
+                ticker, articleText, source, manualUrl, manualTier, date, ct);
+            await LoadResultsAsync(ct);
+            lastAnswer = claims.FirstOrDefault(c => c.LlmAnswer is not null)?.LlmAnswer;
+            articleText = "";
+        });
+    }
+
+    async Task LoadResultsAsync(CancellationToken ct)
+    {
+        portents    = await ResearchSvc.GetPortentsAsync(ticker.ToUpperInvariant(), ct);
+        allClaims   = await ResearchSvc.GetClaimsAsync(ticker.ToUpperInvariant(), daysBack, ct);
+        trustScores = await ResearchSvc.GetTopSourcesAsync(ct);
+
+        // Load historical correlations for all portents (batch, single DB round-trip).
+        var portentIds = portents.Select(p => p.Id).ToList();
+        if (portentIds.Count > 0)
+            correlations = await CorrelationSvc.FindSimilarOutcomesBatchAsync(portentIds, ct: ct);
+    }
+
+    async Task RunAsync(string modeName, Func<CancellationToken, Task> work)
+    {
+        busy  = true; mode = modeName; error = null;
+        StateHasChanged();
+        try   { await work(CancellationToken.None); }
+        catch (Exception ex) { error = ex.Message; }
+        finally { busy = false; mode = null; StateHasChanged(); }
+    }
+
+    static MarkupString TierBadge(int tier) => tier switch
+    {
+        1 => new MarkupString("<span class=\"badge\" style=\"background:#065f46;color:#d1fae5;font-size:.65rem\">T1</span>"),
+        2 => new MarkupString("<span class=\"badge\" style=\"background:#1e3a5f;color:#bfdbfe;font-size:.65rem\">T2</span>"),
+        _ => new MarkupString("<span class=\"badge\" style=\"background:#374151;color:#d1d5db;font-size:.65rem\">T3</span>"),
+    };
+
+    static MarkupString SentimentBadge(string sentiment, string magnitude)
+    {
+        var (bg, fg) = sentiment switch
+        {
+            "Bullish" => ("#065f46", "#d1fae5"),
+            "Bearish" => ("#7f1d1d", "#fecaca"),
+            _         => ("#374151", "#d1d5db"),
+        };
+        return new MarkupString(
+            $"<span class=\"badge\" style=\"background:{bg};color:{fg};font-size:.65rem\">" +
+            $"{sentiment} {magnitude}</span>");
+    }
+
+    static MarkupString ConfidenceBadge(string? conf) => conf switch
+    {
+        "High"   => new MarkupString("<span style=\"color:#10b981;font-weight:600\">High</span>"),
+        "Medium" => new MarkupString("<span style=\"color:#f59e0b;font-weight:600\">Medium</span>"),
+        "Low"    => new MarkupString("<span style=\"color:#6b7280\">Low</span>"),
+        _        => new MarkupString("<span class=\"text-muted\">—</span>"),
+    };
+
+    MarkupString CorrelationBadge(Guid claimId)
+    {
+        if (!correlations.TryGetValue(claimId, out var c) || c.SimilarCount == 0)
+            return new MarkupString("<span class=\"text-muted\" style=\"font-size:.7rem\">—</span>");
+
+        if (c.WithOutcomes == 0)
+            return new MarkupString(
+                $"<span class=\"text-muted\" style=\"font-size:.7rem\" title=\"{c.SimilarCount} similar signals, no outcomes recorded yet\">" +
+                $"{c.SimilarCount} similar</span>");
+
+        var bullishPct = c.SimilarCount > 0 ? (double)c.BullishCount / c.WithOutcomes * 100 : 0;
+        var color = bullishPct >= 60 ? "#10b981" : bullishPct >= 40 ? "#f59e0b" : "#ef4444";
+        var avg = c.AvgPctChange.HasValue ? $"{(c.AvgPctChange > 0 ? "+" : "")}{c.AvgPctChange:0.0}%" : "";
+        var tip = $"{c.SimilarCount} similar signals: {c.BullishCount}/{c.WithOutcomes} bullish {avg}";
+
+        return new MarkupString(
+            $"<span style=\"color:{color};font-size:.7rem;font-weight:600\" title=\"{System.Web.HttpUtility.HtmlAttributeEncode(tip)}\">" +
+            $"{bullishPct:0}% bull ({c.SimilarCount})</span>");
+    }
+}

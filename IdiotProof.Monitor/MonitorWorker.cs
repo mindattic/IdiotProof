@@ -1218,13 +1218,9 @@ public sealed class MonitorWorker(
         var pingLabel = lastTickSuccessUtc == DateTime.MinValue ? "never"
             : TimeZoneInfo.ConvertTimeFromUtc(lastTickSuccessUtc, IdiotProof.Scripting.MarketTime.Eastern)
                 .ToString("h:mm tt");
-        var left  = $"Build: {BuildDateLabel}";
-        var right = $"Ping: Success {pingLabel}  ({active.Count} active strateg{(active.Count == 1 ? "y" : "ies")})";
-        Console.WriteLine();
-        Console.WriteLine(IdiotProof.Shared.Branding.AsciiBanner);
-        Console.WriteLine();
-        Console.WriteLine(left.PadRight(Math.Max(0, 90 - right.Length)) + right);
-        Console.WriteLine();
+        var nowEt = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, IdiotProof.Scripting.MarketTime.Eastern).ToString("h:mm tt");
+        var count = active.Count;
+        Console.WriteLine($"{nowEt} ET  PING  {count} active strateg{(count == 1 ? "y" : "ies")} | last tick {pingLabel} ET | build {BuildDateLabel}");
     }
 
     private const string TimestampFormat = "yyyy-MM-dd hh:mm tt";

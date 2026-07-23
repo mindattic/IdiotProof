@@ -174,6 +174,23 @@ builder.Services.AddHostedService(sp => sp.GetRequiredService<ConditionProgressP
 builder.Services.AddSingleton<AuditLogPusher>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<AuditLogPusher>());
 builder.Services.AddHttpClient();
+builder.Services.AddHttpClient("edgar", c =>
+{
+    // SEC EDGAR requires a descriptive User-Agent per their access policy
+    c.DefaultRequestHeaders.UserAgent.ParseAdd("IdiotProof/1 research@idiotproof.app");
+    c.Timeout = TimeSpan.FromSeconds(15);
+});
+builder.Services.AddHttpClient("usspends", c =>
+{
+    c.Timeout = TimeSpan.FromSeconds(15);
+});
+builder.Services.AddScoped<EdgarService>();
+builder.Services.AddScoped<UsSpendsService>();
+builder.Services.AddScoped<AlpacaNewsService>();
+builder.Services.AddScoped<CatalystExtractor>();
+builder.Services.AddSingleton<ClaimVectorService>();
+builder.Services.AddSingleton<ClaimCorrelationService>();
+builder.Services.AddScoped<ResearchService>();
 
 // Dev credential carrier — populated from .env only in Development.
 // In Production this resolves to a singleton with both fields null, so the
