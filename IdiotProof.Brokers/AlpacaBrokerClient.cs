@@ -127,27 +127,29 @@ public sealed class AlpacaBrokerClient : IBrokerClient, IAsyncDisposable
         object payload = hasShares
             ? new
             {
-                symbol         = request.Symbol.ToUpperInvariant(),
-                qty            = request.Quantity,
+                symbol          = request.Symbol.ToUpperInvariant(),
+                qty             = request.Quantity,
                 side,
                 type,
-                time_in_force  = request.TimeInForce.ToLowerInvariant(),
-                limit_price    = limitPrice,
-                stop_price     = stopPrice,
-                trail_percent  = trailPct,
-                extended_hours = request.ExtendedHours,
+                time_in_force   = request.TimeInForce.ToLowerInvariant(),
+                limit_price     = limitPrice,
+                stop_price      = stopPrice,
+                trail_percent   = trailPct,
+                extended_hours  = request.ExtendedHours,
+                position_intent = request.PositionIntent,
             }
             : new
             {
-                symbol         = request.Symbol.ToUpperInvariant(),
-                notional       = request.Notional!.Value,
+                symbol          = request.Symbol.ToUpperInvariant(),
+                notional        = request.Notional!.Value,
                 side,
                 type,
-                time_in_force  = request.TimeInForce.ToLowerInvariant(),
-                limit_price    = limitPrice,
-                stop_price     = stopPrice,
-                trail_percent  = trailPct,
-                extended_hours = request.ExtendedHours,
+                time_in_force   = request.TimeInForce.ToLowerInvariant(),
+                limit_price     = limitPrice,
+                stop_price      = stopPrice,
+                trail_percent   = trailPct,
+                extended_hours  = request.ExtendedHours,
+                position_intent = request.PositionIntent,
             };
 
         using var response = await httpClient.PostAsJsonAsync("/v2/orders", payload, ct).ConfigureAwait(false);

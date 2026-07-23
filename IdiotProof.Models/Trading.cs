@@ -82,6 +82,13 @@ public sealed class OrderRequest
     /// silently queues until the 9:30 bell, which defeats a gapper entry.
     /// </summary>
     public bool ExtendedHours { get; init; }
+
+    /// <summary>
+    /// Alpaca position_intent — set to "close" on exit orders so Alpaca refuses
+    /// to open a short if the held quantity is 0 (e.g. margin account after a
+    /// partial fill). Null on entry orders (omitted from the wire payload).
+    /// </summary>
+    public string? PositionIntent { get; init; }
 }
 
 /// <summary>

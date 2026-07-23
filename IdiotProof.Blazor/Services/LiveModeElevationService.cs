@@ -2,7 +2,6 @@ using System.Collections.Concurrent;
 using IdiotProof.Blazor.Data;
 using Microsoft.EntityFrameworkCore;
 using MindAttic.Authentication.Crypto;
-using MindAttic.Authentication.Secrets;
 
 namespace IdiotProof.Blazor.Services;
 
@@ -15,7 +14,6 @@ namespace IdiotProof.Blazor.Services;
 public sealed class LiveModeElevationService(
     IDbContextFactory<AppDbContext> dbFactory,
     IPasswordHasher passwordHasher,
-    IAuthSecrets authSecrets,
     ILogger<LiveModeElevationService> logger)
 {
     private static readonly TimeSpan WindowDuration = TimeSpan.FromMinutes(5);
@@ -24,8 +22,14 @@ public sealed class LiveModeElevationService(
     public bool IsElevated(Guid userId) =>
         elevatedUntil.TryGetValue(userId, out var expiry) && DateTime.UtcNow < expiry;
 
-    public void Elevate(Guid userId) =>
-        elevatedUntil[userId] = DateTime.UtcNow.Add(WindowDuration);
+    public void Elevate(Guid userId)
+    {
+        var now = DateTime.UtcNow;
+        foreach (var key in elevatedUntil.Keys)
+            if (elevatedUntil.TryGetValue(key, out var exp) && now >= exp)
+                elevatedUntil.TryRemove(key, out _);
+        elevatedUntil[userId] = now.Add(WindowDuration);
+    }
 
     public void Revoke(Guid userId) =>
         elevatedUntil.TryRemove(userId, out _);
@@ -49,15 +53,10 @@ public sealed class LiveModeElevationService(
             var user = await db.AuthUsers.FindAsync([userId], ct);
             if (user?.PasswordHash is null) return false;
 
-            // Pepper key id is embedded in the PHC hash string; try v1 and v2.
-            foreach (var keyId in new[] { "v1", "v2" })
-            {
-                var pepper = authSecrets.GetOptional($"pepper.{keyId}");
-                if (pepper is null) continue;
-                var result = passwordHasher.Verify(user.PasswordHash, pepper, keyId, password);
-                if (result.Succeeded) return true;
-            }
-            return false;
+            // Verify reads the pepper key id from the embedded PHC string and resolves
+            // the pepper via IAuthSecrets internally — no manual pepper lookup needed.
+            var result = passwordHasher.Verify(password, user.PasswordHash, null, null);
+            return result.Succeeded;
         }
         catch (Exception ex)
         {

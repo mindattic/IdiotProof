@@ -372,7 +372,7 @@ public sealed class StrategyRepository(IDbContextFactory<AppDbContext> dbFactory
             r.BrokerMode = mode;
             r.UpdatedUtc = DateTime.UtcNow;
         }
-        await db.SaveChangesAsync(ct);
+        if (rows.Count > 0) await db.SaveChangesAsync(ct);
         return rows.Count;
     }
 

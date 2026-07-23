@@ -1031,13 +1031,14 @@ public sealed class MonitorWorker(
 
         var order = await broker.PlaceOrderAsync(new OrderRequest
         {
-            Symbol        = stored.Symbol,
-            Quantity      = sellQty,
-            Side          = OrderSide.Sell,
-            Type          = OrderType.Limit,
-            LimitPrice    = limitPrice,
-            TimeInForce   = "DAY",
-            ExtendedHours = extendedHours,
+            Symbol         = stored.Symbol,
+            Quantity       = sellQty,
+            Side           = OrderSide.Sell,
+            Type           = OrderType.Limit,
+            LimitPrice     = limitPrice,
+            TimeInForce    = "DAY",
+            ExtendedHours  = extendedHours,
+            PositionIntent = "close",
         }, ct);
 
         if (!order.IsSuccess)
