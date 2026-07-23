@@ -15,7 +15,7 @@ public sealed class ResearchService(
     EdgarService                     edgar,
     UsSpendsService                  usSpends,
     AlpacaNewsService                alpacaNews,
-    ClaimVectorService               vectorService,
+    IServiceScopeFactory             scopeFactory,
     IDbContextFactory<AppDbContext>  dbFactory,
     ILogger<ResearchService>         logger)
 {
@@ -37,8 +37,9 @@ public sealed class ResearchService(
         var extraction = await extractor.ExtractAsync(ticker, articleText, sourceName, ct);
         if (extraction is null || extraction.Catalysts.Count == 0) return [];
 
-        // Trust the LLM's tier judgement when it suggests a lower tier than the caller
-        var effectiveTier = Math.Max(1, Math.Min(sourceTier, extraction.SourceTierSuggestion));
+        // Allow LLM to downgrade (higher number = worse tier) but never upgrade the caller's claim.
+        // e.g. caller says Tier 2, LLM recognises promotional content → Tier 3 wins.
+        var effectiveTier = Math.Clamp(Math.Max(sourceTier, extraction.SourceTierSuggestion), 1, 3);
 
         await using var db = await dbFactory.CreateDbContextAsync(ct);
         var claims = new List<ResearchClaim>();
@@ -68,11 +69,12 @@ public sealed class ResearchService(
             claims.Add(claim);
         }
 
-        await BumpSourceTrustAsync(db, sourceName, effectiveTier, claims.Count);
+        await BumpSourceTrustAsync(db, sourceName, effectiveTier, claims.Count, ct);
         await db.SaveChangesAsync(ct);
 
         // Fire-and-forget: score each claim on 20 dimensions + compute LSH signature.
-        // Non-blocking so the primary ingest flow remains responsive.
+        // Creates its own DI scope so the Scoped ClaimVectorService is independent
+        // of the request scope that's about to be disposed.
         foreach (var c in claims)
         {
             var claimId      = c.Id;
@@ -87,7 +89,9 @@ public sealed class ResearchService(
             {
                 try
                 {
-                    await vectorService.ComputeAndSaveAsync(
+                    await using var scope   = scopeFactory.CreateAsyncScope();
+                    var vecSvc = scope.ServiceProvider.GetRequiredService<ClaimVectorService>();
+                    await vecSvc.ComputeAndSaveAsync(
                         claimId, claimTicker, claimSummary, claimType, sentiment, magnitude, isPortent,
                         CancellationToken.None);
                 }
@@ -207,9 +211,9 @@ public sealed class ResearchService(
         "This is a primary SEC filing representing a material event the company is legally required to disclose.";
 
     private static async Task BumpSourceTrustAsync(
-        AppDbContext db, string sourceName, int tier, int claimCount)
+        AppDbContext db, string sourceName, int tier, int claimCount, CancellationToken ct = default)
     {
-        var score = await db.SourceTrustScores.FindAsync(sourceName);
+        var score = await db.SourceTrustScores.FindAsync([sourceName], ct);
         if (score is null)
         {
             score = new SourceTrustScore { SourceName = sourceName, SourceTier = tier };

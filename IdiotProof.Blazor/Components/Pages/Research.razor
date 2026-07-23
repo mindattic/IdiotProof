@@ -4,6 +4,7 @@
 @using IdiotProof.Blazor.Services
 @using Microsoft.AspNetCore.Authorization
 @attribute [Authorize]
+@implements IDisposable
 @inject ResearchService ResearchSvc
 @inject ClaimCorrelationService CorrelationSvc
 @inject AppSettings AppSettings
@@ -249,10 +250,14 @@
     string? manualUrl;
     int     manualTier  = 3;
 
+    CancellationTokenSource cts = new();
+
     bool    busy;
     string? mode;
     string? error;
     string? lastAnswer;
+
+    public void Dispose() => cts.Cancel();
 
     List<ResearchClaim>    portents    = [];
     List<ResearchClaim>    allClaims   = [];
@@ -301,7 +306,8 @@
     {
         busy  = true; mode = modeName; error = null;
         StateHasChanged();
-        try   { await work(CancellationToken.None); }
+        try   { await work(cts.Token); }
+        catch (OperationCanceledException) { }
         catch (Exception ex) { error = ex.Message; }
         finally { busy = false; mode = null; StateHasChanged(); }
     }

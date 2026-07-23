@@ -79,9 +79,12 @@ public sealed class ClaimCorrelationService(
                 ? withOutcomes.Average(c => (double)c.OutcomePctChange!.Value)
                 : (double?)null;
 
-            var examples = claims
+            // Examples in nearest-first order, not arbitrary DB order
+            var claimsById = claims.ToDictionary(c => c.Id);
+            var examples = nearIds
                 .Take(3)
-                .Select(c => c.ClaimSummary)
+                .Where(x => claimsById.ContainsKey(x.ClaimId))
+                .Select(x => claimsById[x.ClaimId].ClaimSummary)
                 .ToList();
 
             return new CorrelationResult(
@@ -122,26 +125,27 @@ public sealed class ClaimCorrelationService(
 
             if (allVectors.Count == 0) return result;
 
-            var idSet    = claimIds.ToHashSet();
-            var targets  = allVectors.Where(v => idSet.Contains(v.ClaimId)).ToList();
-            var others   = allVectors.Where(v => !idSet.Contains(v.ClaimId)).ToList();
+            var idSet   = claimIds.ToHashSet();
+            var targets = allVectors.Where(v => idSet.Contains(v.ClaimId)).ToList();
 
             if (targets.Count == 0) return result;
 
-            // Find near-neighbours for every target
-            var allNearIds = new HashSet<Guid>();
-            var targetNeighbours = new Dictionary<Guid, List<Guid>>();
+            // For each target, search ALL vectors except self (not just non-targets).
+            // Other portents from the same batch are valid historical neighbours.
+            var allNearIds       = new HashSet<Guid>();
+            var targetNeighbours = new Dictionary<Guid, List<(Guid ClaimId, int Dist)>>();
 
             foreach (var t in targets)
             {
-                var near = others
+                var near = allVectors
+                    .Where(v => v.ClaimId != t.ClaimId)   // exclude only self
                     .Select(v => (v.ClaimId, Dist: ClaimVectorService.HammingDistance(t.LshSignature, v.LshSignature)))
                     .Where(x => x.Dist <= maxHamming)
                     .OrderBy(x => x.Dist)
                     .Take(MaxResultClaims)
                     .ToList();
 
-                targetNeighbours[t.ClaimId] = near.Select(x => x.ClaimId).ToList();
+                targetNeighbours[t.ClaimId] = near;
                 foreach (var n in near) allNearIds.Add(n.ClaimId);
             }
 
@@ -151,36 +155,34 @@ public sealed class ClaimCorrelationService(
                 .Where(c => allNearIds.Contains(c.Id))
                 .ToDictionaryAsync(c => c.Id, ct);
 
-            foreach (var (targetId, nearList) in targetNeighbours)
+            foreach (var (targetId, near) in targetNeighbours)
             {
-                var neighbourClaims = nearList
-                    .Where(id => claims.ContainsKey(id))
-                    .Select(id => claims[id])
+                var neighbourClaims = near
+                    .Where(x => claims.ContainsKey(x.ClaimId))
+                    .Select(x => (x.Dist, Claim: claims[x.ClaimId]))
                     .ToList();
 
-                var withOutcomes = neighbourClaims.Where(c => c.OutcomePctChange.HasValue).ToList();
-                var bullish  = withOutcomes.Count(c => c.OutcomePctChange > 0);
-                var bearish  = withOutcomes.Count(c => c.OutcomePctChange < 0);
+                var withOutcomes = neighbourClaims.Where(x => x.Claim.OutcomePctChange.HasValue).ToList();
+                var bullish  = withOutcomes.Count(x => x.Claim.OutcomePctChange > 0);
+                var bearish  = withOutcomes.Count(x => x.Claim.OutcomePctChange < 0);
                 var avgChange = withOutcomes.Count > 0
-                    ? withOutcomes.Average(c => (double)c.OutcomePctChange!.Value)
+                    ? withOutcomes.Average(x => (double)x.Claim.OutcomePctChange!.Value)
                     : (double?)null;
 
-                // Recompute best Hamming distance for this target
-                var targetSig = allVectors.First(v => v.ClaimId == targetId).LshSignature;
-                var bestDist  = others
-                    .Where(v => nearList.Contains(v.ClaimId))
-                    .Select(v => ClaimVectorService.HammingDistance(targetSig, v.LshSignature))
-                    .DefaultIfEmpty(64)
-                    .Min();
+                // Nearest-first examples (near is already sorted by Dist ascending)
+                var examples = neighbourClaims
+                    .Take(3)
+                    .Select(x => x.Claim.ClaimSummary)
+                    .ToList();
 
                 result[targetId] = new CorrelationResult(
-                    SimilarCount:         nearList.Count,
+                    SimilarCount:         near.Count,
                     WithOutcomes:         withOutcomes.Count,
                     AvgPctChange:         avgChange,
                     BullishCount:         bullish,
                     BearishCount:         bearish,
-                    BestHammingDistance:  bestDist,
-                    ExampleSummaries:     neighbourClaims.Take(3).Select(c => c.ClaimSummary).ToList());
+                    BestHammingDistance:  near.Count > 0 ? near.Min(x => x.Dist) : 64,
+                    ExampleSummaries:     examples);
             }
         }
         catch (Exception ex)

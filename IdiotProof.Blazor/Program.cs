@@ -188,7 +188,7 @@ builder.Services.AddScoped<EdgarService>();
 builder.Services.AddScoped<UsSpendsService>();
 builder.Services.AddScoped<AlpacaNewsService>();
 builder.Services.AddScoped<CatalystExtractor>();
-builder.Services.AddSingleton<ClaimVectorService>();
+builder.Services.AddScoped<ClaimVectorService>();
 builder.Services.AddSingleton<ClaimCorrelationService>();
 builder.Services.AddScoped<ResearchService>();
 
