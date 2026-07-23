@@ -149,6 +149,22 @@ public static class GapperExitEvaluator
                     $"Price {current:F2} reached the {rhDays}-day rolling high {rollingHigh:F2} (within {buffer:F1}% — selling).");
         }
 
+        // 4d. Rolling N-day LOW — exit (cut loss) when price falls within bufferPct%
+        //     above the N-day rolling low. This is "support failure": the stock has
+        //     given up the same low it held for the last N days — take the loss before
+        //     it gets worse. Evaluated against daily bars fetched by the Monitor.
+        if (def.RollingLowDays is { } rlDays && dailyCandles is { Count: > 0 })
+        {
+            var buffer = def.RollingLowBuffer ?? 2.5;
+            var lookback = Math.Min(rlDays, dailyCandles.Count);
+            var rollingLow = double.MaxValue;
+            for (var i = dailyCandles.Count - lookback; i < dailyCandles.Count; i++)
+                if ((double)dailyCandles[i].Low < rollingLow) rollingLow = (double)dailyCandles[i].Low;
+            if (rollingLow < double.MaxValue && current <= rollingLow * (1 + buffer / 100.0))
+                return new GapperExitDecision(GapperExitReason.StopLoss, current, peak,
+                    $"Price {current:F2} fell to the {rlDays}-day rolling low {rollingLow:F2} (within {buffer:F1}% — support failure, cutting loss).");
+        }
+
         // 5. Momentum rollover — armed from the configured ET time (or always).
         if (def.PeakGivebackPercent is { } giveback)
         {

@@ -143,6 +143,41 @@
     </div>
 </section>
 
+@if (showDisambigModal)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background:rgba(0,0,0,.5)">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content bg-dark text-light border border-warning">
+                <div class="modal-header border-warning">
+                    <h5 class="modal-title">You already hold @disambigSymbol</h5>
+                </div>
+                <div class="modal-body">
+                    <p class="mb-3">
+                        You have <strong>@disambigHoldingCount existing @disambigSymbol position(s)</strong> tracked by the Monitor.
+                        How should this new strategy behave?
+                    </p>
+                    <div class="d-grid gap-2">
+                        <button class="btn btn-success" type="button" @onclick="DisambigCloseExisting">
+                            Close my existing position
+                            <small class="d-block text-white-50 fw-normal">Monitor starts managing the exit immediately (Live mode, PositionQty=1).</small>
+                        </button>
+                        <button class="btn btn-outline-danger" type="button" @onclick="DisambigNewShort">
+                            Open a new Short on @disambigSymbol
+                            <small class="d-block text-danger-emphasis fw-normal">Saves normally — strategy direction governs the order side.</small>
+                        </button>
+                        <button class="btn btn-outline-secondary" type="button" @onclick="DisambigIgnore">
+                            Save as-is (I know what I'm doing)
+                        </button>
+                        <button class="btn btn-link text-muted" type="button" @onclick="() => showDisambigModal = false">
+                            Cancel
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
 @code {
     [Parameter] public Guid? StrategyId { get; set; }
 
@@ -165,6 +200,13 @@
 
     private string verbFilter = "";
     private Guid userId;
+
+    // Disambiguation modal — shown when saving a new strategy for a ticker already held.
+    private bool   showDisambigModal   = false;
+    private string disambigSymbol      = "";
+    private int    disambigHoldingCount = 0;
+    private bool   disambigConfirmed   = false;
+    private bool   disambigCloseIntent = false;
 
     // Verb taxonomy — discovered once via reflection so the palette tracks the DSL.
     // The same reflection feeds StrategyScriptGenerator's system prompt, so the
@@ -235,6 +277,7 @@
     {
         title = ""; symbol = ""; scriptText = "";
         isActive = false; saveOk = false; saveMessage = "";
+        showDisambigModal = false; disambigConfirmed = false; disambigCloseIntent = false;
     }
 
     private void AppendVerb(string verb)
@@ -275,6 +318,19 @@
 
             if (existing is null)
             {
+                // Disambiguation: warn if the user already holds this ticker.
+                if (!disambigConfirmed)
+                {
+                    var holdCount = await StrategyRepo.CountHoldingForSymbolAsync(userId, symbol.Trim());
+                    if (holdCount > 0)
+                    {
+                        disambigSymbol       = symbol.Trim().ToUpperInvariant();
+                        disambigHoldingCount = holdCount;
+                        showDisambigModal    = true;
+                        return;
+                    }
+                }
+
                 var created = await StrategyRepo.CreateAsync(
                     ownerUserId: userId,
                     title:       title.Trim(),
@@ -282,6 +338,11 @@
                     scriptText:  scriptText);
                 if (isActive)
                     await StrategyRepo.SetActiveAsync(created.Id, true, userId);
+
+                // "Close existing" intent: mark as already holding so Monitor manages exit.
+                if (disambigCloseIntent)
+                    await StrategyRepo.MarkAsExistingPositionAsync(created.Id, 1, userId);
+
                 StrategyId = created.Id;
                 loadedStrategyId = created.Id; // editor already shows this row
             }
@@ -328,7 +389,33 @@
         finally
         {
             busy = false;
+            disambigConfirmed = false;
+            disambigCloseIntent = false;
         }
+    }
+
+    private async Task DisambigCloseExisting()
+    {
+        showDisambigModal = false;
+        disambigConfirmed = true;
+        disambigCloseIntent = true;
+        await Save();
+    }
+
+    private async Task DisambigNewShort()
+    {
+        showDisambigModal = false;
+        disambigConfirmed = true;
+        disambigCloseIntent = false;
+        await Save();
+    }
+
+    private async Task DisambigIgnore()
+    {
+        showDisambigModal = false;
+        disambigConfirmed = true;
+        disambigCloseIntent = false;
+        await Save();
     }
 
     private async Task Generate()

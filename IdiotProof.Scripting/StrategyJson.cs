@@ -55,9 +55,15 @@ public static class StrategyJson
             ["exitTime"] = def.ExitTime is { } et ? Time(et) : null,
             ["peakGivebackPercent"] = def.PeakGivebackPercent,
             ["peakGivebackArmTime"] = def.PeakGivebackArmTime is { } arm ? Time(arm) : null,
-            ["exitAtPriorHigh"]   = def.ExitAtPriorHigh,
-            ["rollingHighDays"]   = def.RollingHighDays,
-            ["rollingHighBuffer"] = def.RollingHighBuffer,
+            ["exitAtPriorHigh"]       = def.ExitAtPriorHigh,
+            ["rollingHighDays"]       = def.RollingHighDays,
+            ["rollingHighBuffer"]     = def.RollingHighBuffer,
+            ["rollingLowDays"]        = def.RollingLowDays,
+            ["rollingLowBuffer"]      = def.RollingLowBuffer,
+            ["entryRollingLowDays"]   = def.EntryRollingLowDays,
+            ["entryRollingLowBuffer"] = def.EntryRollingLowBuffer,
+            ["entryRollingHighDays"]  = def.EntryRollingHighDays,
+            ["entryRollingHighBuffer"]= def.EntryRollingHighBuffer,
             ["isAutonomous"] = def.IsAutonomous,
             ["isAdaptive"] = def.IsAdaptive,
             ["shouldRepeat"] = def.ShouldRepeat,
@@ -147,6 +153,9 @@ public static class StrategyJson
                 "stopLossPrice", "stopLossPercent", "trailingStopPercent", "exitTime",
                 "peakGivebackPercent", "peakGivebackArmTime", "exitAtPriorHigh",
                 "rollingHighDays", "rollingHighBuffer",
+                "rollingLowDays", "rollingLowBuffer",
+                "entryRollingLowDays", "entryRollingLowBuffer",
+                "entryRollingHighDays", "entryRollingHighBuffer",
                 "isAutonomous", "isAdaptive", "shouldRepeat", "conditionalBlocks");
 
             var symbol = GetString(root, "symbol");
@@ -169,9 +178,15 @@ public static class StrategyJson
             def.ExitTime = GetTime(root, "exitTime");
             def.PeakGivebackPercent = GetDouble(root, "peakGivebackPercent");
             def.PeakGivebackArmTime = GetTime(root, "peakGivebackArmTime");
-            def.ExitAtPriorHigh   = GetBool(root,   "exitAtPriorHigh") ?? false;
-            def.RollingHighDays   = GetInt(root,    "rollingHighDays");
-            def.RollingHighBuffer = GetDouble(root, "rollingHighBuffer");
+            def.ExitAtPriorHigh        = GetBool(root,   "exitAtPriorHigh") ?? false;
+            def.RollingHighDays        = GetInt(root,    "rollingHighDays");
+            def.RollingHighBuffer      = GetDouble(root, "rollingHighBuffer");
+            def.RollingLowDays         = GetInt(root,    "rollingLowDays");
+            def.RollingLowBuffer       = GetDouble(root, "rollingLowBuffer");
+            def.EntryRollingLowDays    = GetInt(root,    "entryRollingLowDays");
+            def.EntryRollingLowBuffer  = GetDouble(root, "entryRollingLowBuffer");
+            def.EntryRollingHighDays   = GetInt(root,    "entryRollingHighDays");
+            def.EntryRollingHighBuffer = GetDouble(root, "entryRollingHighBuffer");
             def.IsAutonomous = GetBool(root, "isAutonomous") ?? false;
             def.IsAdaptive = GetBool(root, "isAdaptive") ?? false;
             def.ShouldRepeat = GetBool(root, "shouldRepeat") ?? false;

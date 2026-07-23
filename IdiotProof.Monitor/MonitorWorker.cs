@@ -548,10 +548,11 @@ public sealed class MonitorWorker(
             }
 
             IReadOnlyList<Candle>? dailyCandles = null;
-            if (def.RollingHighDays is { } rhd && rhd > 0)
+            var exitDailyDays = Math.Max(def.RollingHighDays ?? 0, def.RollingLowDays ?? 0);
+            if (exitDailyDays > 0)
             {
-                try { dailyCandles = await GetDailyCandlesAsync(stored.Symbol, rhd * 2 + 10, ct); }
-                catch (Exception ex) { logger.LogWarning(ex, "[{Title}] daily bar fetch failed — rolling-high exit skipped this tick.", stored.Title); }
+                try { dailyCandles = await GetDailyCandlesAsync(stored.Symbol, exitDailyDays * 2 + 10, ct); }
+                catch (Exception ex) { logger.LogWarning(ex, "[{Title}] daily bar fetch failed — rolling exit skipped this tick.", stored.Title); }
             }
             await EvaluateExitAsync(stored, def, candles, dailyCandles, ct);
             return;
@@ -633,6 +634,51 @@ public sealed class MonitorWorker(
 
         if (passed == conditions.Count)
         {
+            // Rolling-range entry gates (daily bars): evaluated only when all
+            // intraday conditions are met, to avoid a daily bar fetch on every tick.
+            var entryDailyDays = Math.Max(def.EntryRollingLowDays ?? 0, def.EntryRollingHighDays ?? 0);
+            if (entryDailyDays > 0)
+            {
+                IReadOnlyList<Candle>? entryDaily = null;
+                try { entryDaily = await GetDailyCandlesAsync(stored.Symbol, entryDailyDays * 2 + 10, ct); }
+                catch (Exception ex) { logger.LogWarning(ex, "[{Title}] daily bar fetch failed — rolling entry gate skipped this tick.", stored.Title); }
+
+                if (entryDaily is { Count: > 0 })
+                {
+                    var price = (double)snapshot.Price;
+
+                    if (def.EntryRollingLowDays is { } erld && erld > 0)
+                    {
+                        var buffer = def.EntryRollingLowBuffer ?? 2.5;
+                        var lookback = Math.Min(erld, entryDaily.Count);
+                        var low = double.MaxValue;
+                        for (var i = entryDaily.Count - lookback; i < entryDaily.Count; i++)
+                            if ((double)entryDaily[i].Low < low) low = (double)entryDaily[i].Low;
+                        if (low < double.MaxValue && price > low * (1 + buffer / 100.0))
+                        {
+                            await progressRepo.UpsertAsync(stored.Id, passed, conditions.Count + 1,
+                                $"(waiting for price to reach {erld}-day rolling low {low:F2} ±{buffer:F1}%)", ct);
+                            return;
+                        }
+                    }
+
+                    if (def.EntryRollingHighDays is { } erhd && erhd > 0)
+                    {
+                        var buffer = def.EntryRollingHighBuffer ?? 2.5;
+                        var lookback = Math.Min(erhd, entryDaily.Count);
+                        var high = 0.0;
+                        for (var i = entryDaily.Count - lookback; i < entryDaily.Count; i++)
+                            if ((double)entryDaily[i].High > high) high = (double)entryDaily[i].High;
+                        if (high > 0 && price < high * (1 - buffer / 100.0))
+                        {
+                            await progressRepo.UpsertAsync(stored.Id, passed, conditions.Count + 1,
+                                $"(waiting for breakout to {erhd}-day rolling high {high:F2} ±{buffer:F1}%)", ct);
+                            return;
+                        }
+                    }
+                }
+            }
+
             logger.LogDebug("[{Title}] {Symbol} ✓ ALL {Total} conditions met → candidate fire ({Direction} @ {Price:F2})",
                 stored.Title, stored.Symbol, conditions.Count, def.Direction, snapshot.Price);
             await FireAsync(stored, def, snapshot, candles, ct);

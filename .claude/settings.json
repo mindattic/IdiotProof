@@ -1,6 +1,7 @@
 {
   "hooks": {
     "SessionStart": [
+      { "matcher": "clear", "hooks": [ { "type": "command", "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"%CLAUDE_PROJECT_DIR%\\.claude\\hooks\\restore-handoff.ps1\"" } ] },
       {
         "hooks": [
           {

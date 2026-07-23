@@ -417,4 +417,22 @@ public sealed class StrategyRepository(IDbContextFactory<AppDbContext> dbFactory
         if (updated > 0) await db.SaveChangesAsync(ct);
         return (updated, skipped);
     }
+
+    /// <summary>
+    /// Marks a newly created strategy as already holding an open position so the Monitor
+    /// immediately manages its exit (orphan bootstrap path). Sets PositionQty = qty,
+    /// BrokerMode = "Live", and IsActive = true. Used by the builder when the user
+    /// disambiguates "close existing position" for a ticker they already hold.
+    /// </summary>
+    public async Task MarkAsExistingPositionAsync(Guid strategyId, int qty, Guid ownerUserId, CancellationToken ct = default)
+    {
+        await using var db = await dbFactory.CreateDbContextAsync(ct);
+        var row = await db.Strategies.FindAsync([strategyId], ct);
+        if (row is null || row.OwnerUserId != ownerUserId) return;
+        row.PositionQty = qty;
+        row.BrokerMode  = "Live";
+        row.IsActive    = true;
+        row.UpdatedUtc  = DateTime.UtcNow;
+        await db.SaveChangesAsync(ct);
+    }
 }

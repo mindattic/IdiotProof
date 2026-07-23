@@ -638,6 +638,60 @@ public sealed class StrategyBuilder
         return this;
     }
 
+    /// <summary>
+    /// Exit long (cut loss) when price falls within <paramref name="bufferPct"/>%
+    /// above the N-day rolling low — support failure stop.
+    /// Example: <c>.ExitAtRollingLow(20, 2.5)</c> = exit if price collapses to
+    /// within 2.5% of the 20-day low.
+    /// </summary>
+    public StrategyBuilder ExitAtRollingLow(int days, double bufferPct = 2.5)
+    {
+        strategy.RollingLowDays   = days;
+        strategy.RollingLowBuffer = bufferPct;
+        return this;
+    }
+
+    /// <summary>
+    /// Entry gate: only enter when price is within <paramref name="bufferPct"/>%
+    /// above the N-day rolling low (buy near support).
+    /// Example: <c>.EntryAtRollingLow(20, 2.5)</c> = enter only if price is
+    /// within 2.5% above the 20-day low.
+    /// </summary>
+    public StrategyBuilder EntryAtRollingLow(int days, double bufferPct = 2.5)
+    {
+        strategy.EntryRollingLowDays   = days;
+        strategy.EntryRollingLowBuffer = bufferPct;
+        return this;
+    }
+
+    /// <summary>Alias of <see cref="EntryAtRollingLow"/>.</summary>
+    public StrategyBuilder IsNearRollingLow(int days, double bufferPct = 2.5) => EntryAtRollingLow(days, bufferPct);
+
+    /// <summary>Alias: entry near the N-day low = entering at support.</summary>
+    public StrategyBuilder EntryAtSupport(int days, double bufferPct = 2.5) => EntryAtRollingLow(days, bufferPct);
+
+    /// <summary>
+    /// Entry gate: only enter when price is within <paramref name="bufferPct"/>%
+    /// below the N-day rolling high (breakout attempt near resistance).
+    /// Example: <c>.EntryAtRollingHigh(20, 2.5)</c> = enter only if price is
+    /// within 2.5% of the 20-day high.
+    /// </summary>
+    public StrategyBuilder EntryAtRollingHigh(int days, double bufferPct = 2.5)
+    {
+        strategy.EntryRollingHighDays   = days;
+        strategy.EntryRollingHighBuffer = bufferPct;
+        return this;
+    }
+
+    /// <summary>Alias of <see cref="EntryAtRollingHigh"/>.</summary>
+    public StrategyBuilder IsNearRollingHigh(int days, double bufferPct = 2.5) => EntryAtRollingHigh(days, bufferPct);
+
+    /// <summary>Alias: entry near N-day high = entering at resistance/breakout.</summary>
+    public StrategyBuilder EntryAtResistance(int days, double bufferPct = 2.5) => EntryAtRollingHigh(days, bufferPct);
+
+    /// <summary>Alias: breakout entry at the N-day high level.</summary>
+    public StrategyBuilder IsBreakingOut(int days, double bufferPct = 2.5) => EntryAtRollingHigh(days, bufferPct);
+
     public StrategyBuilder AutonomousTrading()
     {
         strategy.IsAutonomous = true;
@@ -808,11 +862,35 @@ public sealed class StrategyDefinition
     /// </summary>
     public int? RollingHighDays { get; set; }
 
-    /// <summary>
-    /// Percent below the N-day high that still counts as "at the high" (wiggle
-    /// room). Defaults to 2.5 when null.
-    /// </summary>
+    /// <summary>Percent below the N-day high that still counts as "at the high". Defaults to 2.5.</summary>
     public double? RollingHighBuffer { get; set; }
+
+    /// <summary>
+    /// Exit long (cut loss) when price falls within <see cref="RollingLowBuffer"/>%
+    /// above the N-day rolling low — support failure. Evaluated against daily candles.
+    /// </summary>
+    public int? RollingLowDays { get; set; }
+
+    /// <summary>Percent above the N-day low that still triggers the support-failure exit. Defaults to 2.5.</summary>
+    public double? RollingLowBuffer { get; set; }
+
+    /// <summary>
+    /// Entry gate: only enter when price is within <see cref="EntryRollingLowBuffer"/>%
+    /// above the N-day rolling low (buy near support). Evaluated against daily candles.
+    /// </summary>
+    public int? EntryRollingLowDays { get; set; }
+
+    /// <summary>Percent above the N-day low that still counts as "near support". Defaults to 2.5.</summary>
+    public double? EntryRollingLowBuffer { get; set; }
+
+    /// <summary>
+    /// Entry gate: only enter when price is within <see cref="EntryRollingHighBuffer"/>%
+    /// below the N-day rolling high (breakout near resistance). Evaluated against daily candles.
+    /// </summary>
+    public int? EntryRollingHighDays { get; set; }
+
+    /// <summary>Percent below the N-day high that still counts as "near resistance/breakout zone". Defaults to 2.5.</summary>
+    public double? EntryRollingHighBuffer { get; set; }
 
     /// <summary>
     /// Checks if this strategy has multiple take profit targets.
