@@ -18,17 +18,15 @@ public enum BrokerChoice
 }
 
 /// <summary>
-/// Per-user broker routing for the Monitor (IP-A9). Every user's orders go to
-/// THEIR broker account: a user who configured Alpaca keys on the API Keys
-/// page (encrypted <see cref="UserApiKeys"/>, shared Data Protection key ring)
-/// trades their own account with their own paper/live flag; everyone else
-/// falls through to the host's global <see cref="BrokerRouter"/> — whose
-/// default is Sandbox (IP-LAW-3), so a missing or undecryptable key can never
-/// silently route one user's order into another user's account.
+/// Per-user, per-strategy broker routing for the Monitor (IP-A9). Each strategy
+/// declares its own BrokerMode ("Paper" | "Live" | "Sandbox") which overrides the
+/// global UserApiKeys.AlpacaIsPaper flag. "Paper" and "Live" use the user's own
+/// Alpaca account with isPaper forced accordingly; "Sandbox" always routes to the
+/// global sandbox fallback (IP-LAW-3).
 ///
-/// Clients are cached per user for <see cref="CacheTtl"/> and rebuilt when the
-/// decrypted key fingerprint changes, so key rotations in the UI take effect
-/// within a few minutes without restarting the console.
+/// Clients are cached per (userId, mode) for <see cref="CacheTtl"/> and rebuilt
+/// when the decrypted key fingerprint changes, so key rotations in the UI take
+/// effect within a few minutes without restarting the console.
 /// </summary>
 public sealed class UserBrokerResolver(
     UserKeyService userKeys,
@@ -37,7 +35,9 @@ public sealed class UserBrokerResolver(
 {
     private static readonly TimeSpan CacheTtl = TimeSpan.FromMinutes(5);
 
-    private readonly ConcurrentDictionary<Guid, CacheEntry> cache = new();
+    // Cache keyed by (userId, mode) so Paper and Live strategies for the same user
+    // each get their own AlpacaBrokerClient with the correct isPaper flag.
+    private readonly ConcurrentDictionary<(Guid, string), CacheEntry> cache = new();
 
     private sealed record CacheEntry(IBrokerClient Client, string Fingerprint, DateTime CachedUtc);
 
@@ -49,10 +49,30 @@ public sealed class UserBrokerResolver(
             ? BrokerChoice.UserAlpaca
             : BrokerChoice.GlobalDefault;
 
-    public async Task<IBrokerClient> ResolveAsync(Guid userId, CancellationToken ct = default)
+    /// <summary>
+    /// Resolves the broker for <paramref name="userId"/> honouring the per-strategy
+    /// <paramref name="strategyBrokerMode"/>: "Paper" forces isPaper=true,
+    /// "Live" forces isPaper=false, "Sandbox" routes to the global default.
+    /// </summary>
+    public async Task<IBrokerClient> ResolveAsync(
+        Guid userId,
+        string strategyBrokerMode = "Paper",
+        CancellationToken ct = default)
     {
-        if (cache.TryGetValue(userId, out var hit) && DateTime.UtcNow - hit.CachedUtc < CacheTtl)
+        var mode = strategyBrokerMode.ToLowerInvariant(); // normalise to "paper"|"live"|"sandbox"
+        var cacheKey = (userId, mode);
+
+        if (cache.TryGetValue(cacheKey, out var hit) && DateTime.UtcNow - hit.CachedUtc < CacheTtl)
             return hit.Client;
+
+        // Sandbox mode: always route to global default (IP-LAW-3).
+        if (mode == "sandbox")
+        {
+            var sandbox = globalRouter.GetActiveBroker();
+            cache[cacheKey] = new CacheEntry(sandbox, "global", DateTime.UtcNow);
+            DisposeReplacedClient(hit, userId);
+            return sandbox;
+        }
 
         var keys = await userKeys.GetOrCreateAsync(userId, ct);
         var choice = Choose(keys);
@@ -60,32 +80,30 @@ public sealed class UserBrokerResolver(
         if (choice == BrokerChoice.GlobalDefault)
         {
             if (string.Equals(keys.DefaultBroker, "alpaca", StringComparison.OrdinalIgnoreCase))
-                logger.LogWarning("User {UserId} prefers Alpaca but has no usable keys — routing to the global default ({Broker}).",
+                logger.LogWarning(
+                    "User {UserId} prefers Alpaca but has no usable keys — routing to the global default ({Broker}).",
                     userId, globalRouter.GetActiveBroker().BrokerType);
             var global = globalRouter.GetActiveBroker();
-            cache[userId] = new CacheEntry(global, "global", DateTime.UtcNow);
-            // A user who UN-configures Alpaca transitions user-client → global:
-            // their old client must be disposed here too, same as on rotation.
+            cache[cacheKey] = new CacheEntry(global, "global", DateTime.UtcNow);
             DisposeReplacedClient(hit, userId);
             return global;
         }
 
-        // Rebuild only when the key material actually changed.
-        var fingerprint = $"{keys.AlpacaApiKeyId}|{keys.AlpacaApiSecretKey!.Length}|{keys.AlpacaIsPaper}";
+        // Strategy-level mode: "live" forces isPaper=false; anything else is paper.
+        var isPaper = mode != "live";
+        var fingerprint = $"{keys.AlpacaApiKeyId}|{keys.AlpacaApiSecretKey!.Length}|{isPaper}";
         if (hit is not null && hit.Fingerprint == fingerprint)
         {
-            cache[userId] = hit with { CachedUtc = DateTime.UtcNow };
+            cache[cacheKey] = hit with { CachedUtc = DateTime.UtcNow };
             return hit.Client;
         }
 
-        var client = new AlpacaBrokerClient(keys.AlpacaApiKeyId!, keys.AlpacaApiSecretKey!, keys.AlpacaIsPaper);
-        cache[userId] = new CacheEntry(client, fingerprint, DateTime.UtcNow);
-        logger.LogInformation("User {UserId} orders route to their own Alpaca ({Mode}).",
-            userId, keys.AlpacaIsPaper ? "paper" : "LIVE");
+        var client = new AlpacaBrokerClient(keys.AlpacaApiKeyId!, keys.AlpacaApiSecretKey!, isPaper);
+        cache[cacheKey] = new CacheEntry(client, fingerprint, DateTime.UtcNow);
+        logger.LogInformation(
+            "User {UserId} orders route to their own Alpaca ({Mode}) via strategy mode {StrategyMode}.",
+            userId, isPaper ? "paper" : "LIVE", strategyBrokerMode);
 
-        // The replaced client (key rotation, or a global->user-Alpaca switch)
-        // owns an HttpClient that must be disposed or its sockets leak for
-        // the life of the process — this console runs for weeks at a time.
         DisposeReplacedClient(hit, userId);
 
         return client;

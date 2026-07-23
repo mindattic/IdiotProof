@@ -58,7 +58,7 @@ public sealed class AutoGapperScanner(
         // live, refuse to arm — never place a real order from an unattended job.
         if (brokerMode == "paper")
         {
-            var broker = await brokerResolver.ResolveAsync(userId, ct);
+            var broker = await brokerResolver.ResolveAsync(userId, "Paper", ct);
             if (!broker.IsPaper)
             {
                 var msg = $"broker mode is 'paper' but {broker.BrokerType} routes LIVE — refusing to arm auto-gappers";

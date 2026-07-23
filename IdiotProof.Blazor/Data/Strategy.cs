@@ -109,4 +109,12 @@ public sealed class Strategy
     /// <summary>Why the most recent exit happened (SellByTime / PeakGiveback / StopLoss / TrailingStop / Manual).</summary>
     [MaxLength(40)]
     public string? LastExitReason { get; set; }
+
+    /// <summary>
+    /// Per-strategy broker routing: "Paper" | "Live" | "Sandbox". Defaults to "Paper".
+    /// Overrides the global UserApiKeys.AlpacaIsPaper for this strategy only.
+    /// Promoting to "Live" requires a 5-minute elevated session (re-authentication).
+    /// </summary>
+    [MaxLength(10)]
+    public string BrokerMode { get; set; } = "Paper";
 }

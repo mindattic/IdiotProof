@@ -191,6 +191,7 @@ builder.Services.AddScoped<CatalystExtractor>();
 builder.Services.AddScoped<ClaimVectorService>();
 builder.Services.AddSingleton<ClaimCorrelationService>();
 builder.Services.AddScoped<ResearchService>();
+builder.Services.AddSingleton<LiveModeElevationService>();
 
 // Dev credential carrier — populated from .env only in Development.
 // In Production this resolves to a singleton with both fields null, so the

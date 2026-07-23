@@ -782,9 +782,10 @@ public sealed class MonitorWorker(
         var extendedHours = IsExtendedHours(DateTime.UtcNow);
         var limitPrice = Math.Round(entryPrice * 1.002m, 2); // +0.2% marketable buffer
 
-        // Per-user routing: the owner's own Alpaca account when configured,
-        // else the global router (Sandbox default, IP-LAW-3).
-        var broker = await brokerResolver.ResolveAsync(stored.OwnerUserId, ct);
+        // Per-user, per-strategy routing: the strategy's BrokerMode ("Paper"|"Live"|"Sandbox")
+        // overrides the global paper flag so each strategy independently controls
+        // whether it trades paper or real money.
+        var broker = await brokerResolver.ResolveAsync(stored.OwnerUserId, stored.BrokerMode, ct);
 
         // Never place a REAL order on SYNTHETIC data. The market-data feed is a
         // single global instance (keyed on the host's global Alpaca settings);
@@ -955,8 +956,8 @@ public sealed class MonitorWorker(
         // Marketable sell limit: -0.5% so the flatten fills through a thin book.
         var limitPrice = Math.Round((decimal)decision.CurrentPrice * 0.995m, 2);
 
-        // Exit through the same per-user broker that holds the position.
-        var broker = await brokerResolver.ResolveAsync(stored.OwnerUserId, ct);
+        // Exit through the same per-user, per-strategy broker that holds the position.
+        var broker = await brokerResolver.ResolveAsync(stored.OwnerUserId, stored.BrokerMode, ct);
 
         // Reconcile with the broker BEFORE selling. Entry bookkeeping records
         // the fill optimistically when the order is ACCEPTED, so an unfilled

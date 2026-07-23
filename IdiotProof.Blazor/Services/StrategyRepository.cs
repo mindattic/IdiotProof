@@ -120,6 +120,7 @@ public sealed class StrategyRepository(IDbContextFactory<AppDbContext> dbFactory
         row.ScriptText  = strategy.ScriptText;
         row.ScriptJson  = canon;
         row.IsActive    = strategy.IsActive;
+        row.BrokerMode  = strategy.BrokerMode;
         row.UpdatedUtc  = DateTime.UtcNow;
         await db.SaveChangesAsync(ct);
 
@@ -351,5 +352,53 @@ public sealed class StrategyRepository(IDbContextFactory<AppDbContext> dbFactory
         strategy.LastExitedUtc  = exitedUtc;
         strategy.UpdatedUtc     = DateTime.UtcNow;
         await db.SaveChangesAsync(ct);
+    }
+
+    /// <summary>
+    /// Sets BrokerMode ("Paper" | "Live" | "Sandbox") for a batch of strategies owned
+    /// by <paramref name="ownerUserId"/>. Skips strategies not owned by that user.
+    /// Returns the count of rows actually updated.
+    /// </summary>
+    public async Task<int> SetBrokerModeAsync(
+        IReadOnlyCollection<Guid> ids, string mode, Guid ownerUserId, CancellationToken ct = default)
+    {
+        if (ids.Count == 0) return 0;
+        await using var db = await dbFactory.CreateDbContextAsync(ct);
+        var rows = await db.Strategies
+            .Where(s => ids.Contains(s.Id) && s.OwnerUserId == ownerUserId)
+            .ToListAsync(ct);
+        foreach (var r in rows)
+        {
+            r.BrokerMode = mode;
+            r.UpdatedUtc = DateTime.UtcNow;
+        }
+        await db.SaveChangesAsync(ct);
+        return rows.Count;
+    }
+
+    /// <summary>
+    /// Bulk-activates or deactivates a set of strategies owned by
+    /// <paramref name="ownerUserId"/>. Applies the same open-position guard as
+    /// <see cref="SetActiveAsync"/>: strategies holding a position cannot be
+    /// deactivated. Returns counts of (updated, skipped-position-open).
+    /// </summary>
+    public async Task<(int Updated, int SkippedPositionOpen)> SetActiveBulkAsync(
+        IReadOnlyCollection<Guid> ids, bool isActive, Guid ownerUserId, CancellationToken ct = default)
+    {
+        if (ids.Count == 0) return (0, 0);
+        await using var db = await dbFactory.CreateDbContextAsync(ct);
+        var rows = await db.Strategies
+            .Where(s => ids.Contains(s.Id) && s.OwnerUserId == ownerUserId)
+            .ToListAsync(ct);
+        int updated = 0, skipped = 0;
+        foreach (var r in rows)
+        {
+            if (!isActive && r.PositionQty > 0) { skipped++; continue; }
+            r.IsActive = isActive;
+            r.UpdatedUtc = DateTime.UtcNow;
+            updated++;
+        }
+        if (updated > 0) await db.SaveChangesAsync(ct);
+        return (updated, skipped);
     }
 }

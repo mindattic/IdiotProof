@@ -70,7 +70,7 @@
                 </button>
             </div>
         </div>
-        <div class="col-md-5">
+        <div class="col-md-6">
             <label class="form-label text-muted small" for="alpaca-secret">Secret Key</label>
             <div class="input-group">
                 <input id="alpaca-secret"
@@ -88,31 +88,16 @@
                 </button>
             </div>
         </div>
-        <div class="col-md-2 d-flex align-items-end">
-            <div class="form-check form-switch">
-                <input class="form-check-input" type="checkbox" id="alpacaPaper"
-                       checked="@alpacaIsPaper"
-                       @onchange="OnAlpacaPaperChange" />
-                <label class="form-check-label text-muted small" for="alpacaPaper">Paper</label>
-            </div>
-        </div>
     </div>
     <div class="form-check form-switch mt-3">
         <input class="form-check-input" type="checkbox" id="routeToAlpaca"
                checked="@routeToMyAlpaca"
                @onchange="e => routeToMyAlpaca = (bool)(e.Value ?? false)" />
         <label class="form-check-label text-muted small" for="routeToAlpaca">
-            Route my orders to this Alpaca account — the console Monitor trades with these keys
-            (@(alpacaIsPaper ? "paper" : "LIVE")). Off = orders go to the safe Sandbox default.
+            Route my orders to this Alpaca account — paper vs. live is set per strategy on the Strategies page.
+            Off = all orders go to the safe Sandbox default.
         </label>
     </div>
-    @if (!alpacaIsPaper)
-    {
-        <div class="alert alert-danger small py-1 mt-2" role="alert">
-            <i class="bi bi-exclamation-triangle me-1" aria-hidden="true"></i>
-            <strong>LIVE Alpaca trading.</strong> Real money will be used.
-        </div>
-    }
 </section>
 
 
@@ -167,44 +152,11 @@
 </section>
 </section>
 
-<!-- Alpaca Live Mode Confirm Modal -->
-@if (showLiveModeModal)
-{
-    <div class="modal-backdrop fade show" @onclick="CancelLiveMode"></div>
-    <div class="modal fade show d-block"
-         role="dialog"
-         aria-modal="true"
-         aria-labelledby="live-mode-title"
-         aria-describedby="live-mode-desc"
-         tabindex="-1"
-         @onkeydown="HandleLiveModeKey">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content bg-dark border-danger">
-                <div class="modal-header border-danger">
-                    <h2 id="live-mode-title" class="h5 modal-title text-danger">
-                        <i class="bi bi-exclamation-triangle me-2" aria-hidden="true"></i>Enable Live Trading?
-                    </h2>
-                </div>
-                <div class="modal-body text-white" id="live-mode-desc">
-                    <p>Disabling paper mode for Alpaca means orders will be placed with <strong>real money</strong>.</p>
-                    <p class="text-warning">Are you absolutely sure you want to continue?</p>
-                </div>
-                <div class="modal-footer border-danger">
-                    <button class="btn btn-secondary" type="button" @onclick="CancelLiveMode">Cancel</button>
-                    <button class="btn btn-danger" type="button" @onclick="ConfirmLiveMode" autofocus>Yes, Use Real Money</button>
-                </div>
-            </div>
-        </div>
-    </div>
-}
-
 @code {
     private string alpacaKeyId = "";
     private string alpacaSecret = "";
-    private bool alpacaIsPaper = true;
     private bool showAlpacaKey;
     private bool showAlpacaSecret;
-    private bool showLiveModeModal;
 
     private string claudeKey = "";
     private string claudeModel = "claude-sonnet-5";
@@ -229,29 +181,11 @@
         var keys = await UserKeyService.GetOrCreateAsync(userId.Value);
         alpacaKeyId    = keys.AlpacaApiKeyId ?? "";
         alpacaSecret   = keys.AlpacaApiSecretKey ?? "";
-        alpacaIsPaper  = keys.AlpacaIsPaper;
         claudeKey      = keys.ClaudeApiKey ?? "";
         claudeModel    = string.IsNullOrWhiteSpace(keys.ClaudeModel) ? "claude-sonnet-5" : keys.ClaudeModel;
         llmVotingEnabled = keys.LlmVotingEnabled;
         routeToMyAlpaca  = string.Equals(keys.DefaultBroker, "alpaca", StringComparison.OrdinalIgnoreCase);
         loadedDataFeed   = keys.DefaultDataFeed;
-    }
-
-    private void OnAlpacaPaperChange(ChangeEventArgs e)
-    {
-        var newVal = (bool)(e.Value ?? true);
-        if (!newVal)
-            showLiveModeModal = true;
-        else
-            alpacaIsPaper = true;
-    }
-
-    private void ConfirmLiveMode() { alpacaIsPaper = false; showLiveModeModal = false; }
-    private void CancelLiveMode() { alpacaIsPaper = true; showLiveModeModal = false; }
-
-    private void HandleLiveModeKey(KeyboardEventArgs e)
-    {
-        if (e.Key == "Escape") CancelLiveMode();
     }
 
     private async Task TestAlpaca()
@@ -268,15 +202,15 @@
         try
         {
             using var client = HttpClientFactory.CreateClient();
-            var baseUrl = alpacaIsPaper
-                ? "https://paper-api.alpaca.markets"
-                : "https://api.alpaca.markets";
+            // Test against paper endpoint; live key detection is per-strategy now
             client.DefaultRequestHeaders.Add("APCA-API-KEY-ID", alpacaKeyId);
             client.DefaultRequestHeaders.Add("APCA-API-SECRET-KEY", alpacaSecret);
-            var resp = await client.GetAsync($"{baseUrl}/v2/account");
+            var resp = await client.GetAsync("https://paper-api.alpaca.markets/v2/account");
+            if (!resp.IsSuccessStatusCode)
+                resp = await client.GetAsync("https://api.alpaca.markets/v2/account");
             if (resp.IsSuccessStatusCode)
             {
-                alpacaTestResult = $"Connected! ({(alpacaIsPaper ? "Paper" : "Live")})";
+                alpacaTestResult = "Connected!";
                 alpacaTestOk = true;
             }
             else
@@ -296,12 +230,13 @@
     {
         if (userId is null) return;
 
+        var existing = await UserKeyService.GetOrCreateAsync(userId.Value);
         var keys = new UserApiKeys
         {
             UserId             = userId.Value,
             AlpacaApiKeyId     = alpacaKeyId,
             AlpacaApiSecretKey = alpacaSecret,
-            AlpacaIsPaper      = alpacaIsPaper,
+            AlpacaIsPaper      = existing.AlpacaIsPaper, // preserved; paper/live is now per-strategy
             ClaudeApiKey       = claudeKey,
             ClaudeModel        = claudeModel,
             LlmVotingEnabled   = llmVotingEnabled,
