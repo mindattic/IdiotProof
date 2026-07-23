@@ -624,6 +624,20 @@ public sealed class StrategyBuilder
         return this;
     }
 
+    /// <summary>
+    /// Exit long when price is within <paramref name="bufferPct"/>% below the
+    /// rolling <paramref name="days"/>-trading-day high — e.g. sell when the
+    /// stock recovers to its 20-day peak (with 2.5% wiggle room).
+    /// The Monitor fetches daily bars each tick so the target updates automatically
+    /// as the N-day window rolls forward.
+    /// </summary>
+    public StrategyBuilder ExitAtRollingHigh(int days, double bufferPct = 2.5)
+    {
+        strategy.RollingHighDays   = days;
+        strategy.RollingHighBuffer = bufferPct;
+        return this;
+    }
+
     public StrategyBuilder AutonomousTrading()
     {
         strategy.IsAutonomous = true;
@@ -786,6 +800,19 @@ public sealed class StrategyDefinition
     /// GapperExitEvaluator against the pre-entry candles. Off by default.
     /// </summary>
     public bool ExitAtPriorHigh { get; set; }
+
+    /// <summary>
+    /// Exit long when price recovers to within <see cref="RollingHighBuffer"/>%
+    /// of the N-trading-day high, where N = <see cref="RollingHighDays"/>.
+    /// Evaluated against daily candles fetched by the Monitor each tick.
+    /// </summary>
+    public int? RollingHighDays { get; set; }
+
+    /// <summary>
+    /// Percent below the N-day high that still counts as "at the high" (wiggle
+    /// room). Defaults to 2.5 when null.
+    /// </summary>
+    public double? RollingHighBuffer { get; set; }
 
     /// <summary>
     /// Checks if this strategy has multiple take profit targets.

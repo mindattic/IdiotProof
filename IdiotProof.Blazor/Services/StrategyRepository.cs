@@ -355,6 +355,22 @@ public sealed class StrategyRepository(IDbContextFactory<AppDbContext> dbFactory
     }
 
     /// <summary>
+    /// Stamps a strategy row with the entry price and fill time without touching any
+    /// other fields. Used by the Monitor to bootstrap cost basis from a live broker
+    /// position when a strategy was created with PositionQty > 0 but no entry price.
+    /// </summary>
+    public async Task SetEntryBookkeepingAsync(Guid strategyId, decimal entryPrice, DateTime filledUtc, CancellationToken ct = default)
+    {
+        await using var db = await dbFactory.CreateDbContextAsync(ct);
+        var row = await db.Strategies.FindAsync([strategyId], ct);
+        if (row is null) return;
+        row.LastEntryPrice = entryPrice;
+        row.EntryFilledUtc = filledUtc;
+        row.UpdatedUtc     = DateTime.UtcNow;
+        await db.SaveChangesAsync(ct);
+    }
+
+    /// <summary>
     /// Sets BrokerMode ("Paper" | "Live" | "Sandbox") for a batch of strategies owned
     /// by <paramref name="ownerUserId"/>. Skips strategies not owned by that user.
     /// Returns the count of rows actually updated.

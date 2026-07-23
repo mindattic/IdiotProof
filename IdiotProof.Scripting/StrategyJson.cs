@@ -55,7 +55,9 @@ public static class StrategyJson
             ["exitTime"] = def.ExitTime is { } et ? Time(et) : null,
             ["peakGivebackPercent"] = def.PeakGivebackPercent,
             ["peakGivebackArmTime"] = def.PeakGivebackArmTime is { } arm ? Time(arm) : null,
-            ["exitAtPriorHigh"] = def.ExitAtPriorHigh,
+            ["exitAtPriorHigh"]   = def.ExitAtPriorHigh,
+            ["rollingHighDays"]   = def.RollingHighDays,
+            ["rollingHighBuffer"] = def.RollingHighBuffer,
             ["isAutonomous"] = def.IsAutonomous,
             ["isAdaptive"] = def.IsAdaptive,
             ["shouldRepeat"] = def.ShouldRepeat,
@@ -143,8 +145,9 @@ public static class StrategyJson
                 "schemaVersion", "symbol", "name", "session", "quantity", "notionalAmount", "direction",
                 "entryConditions", "takeProfitPrice", "takeProfitPercent", "takeProfitTargets",
                 "stopLossPrice", "stopLossPercent", "trailingStopPercent", "exitTime",
-                "peakGivebackPercent", "peakGivebackArmTime", "exitAtPriorHigh", "isAutonomous", "isAdaptive",
-                "shouldRepeat", "conditionalBlocks");
+                "peakGivebackPercent", "peakGivebackArmTime", "exitAtPriorHigh",
+                "rollingHighDays", "rollingHighBuffer",
+                "isAutonomous", "isAdaptive", "shouldRepeat", "conditionalBlocks");
 
             var symbol = GetString(root, "symbol");
             if (string.IsNullOrWhiteSpace(symbol))
@@ -166,7 +169,9 @@ public static class StrategyJson
             def.ExitTime = GetTime(root, "exitTime");
             def.PeakGivebackPercent = GetDouble(root, "peakGivebackPercent");
             def.PeakGivebackArmTime = GetTime(root, "peakGivebackArmTime");
-            def.ExitAtPriorHigh = GetBool(root, "exitAtPriorHigh") ?? false;
+            def.ExitAtPriorHigh   = GetBool(root,   "exitAtPriorHigh") ?? false;
+            def.RollingHighDays   = GetInt(root,    "rollingHighDays");
+            def.RollingHighBuffer = GetDouble(root, "rollingHighBuffer");
             def.IsAutonomous = GetBool(root, "isAutonomous") ?? false;
             def.IsAdaptive = GetBool(root, "isAdaptive") ?? false;
             def.ShouldRepeat = GetBool(root, "shouldRepeat") ?? false;

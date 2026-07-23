@@ -372,6 +372,16 @@ public sealed class MonitorWorker(
         }
     }
 
+    private async Task<IReadOnlyList<Candle>> GetDailyCandlesAsync(string symbol, int calendarDayLookback, CancellationToken ct)
+    {
+        var endUtc   = DateTime.UtcNow;
+        var startUtc = endUtc.AddDays(-calendarDayLookback);
+        var list = new List<Candle>();
+        await foreach (var c in feed.GetHistoricalCandlesAsync(symbol, startUtc, endUtc, TimeSpan.FromDays(1), ct))
+            list.Add(c);
+        return list;
+    }
+
     private async Task<IReadOnlyList<Candle>> GetCandlesAsync(string symbol, CancellationToken ct)
     {
         if (candleCache.TryGetValue(symbol, out var cached)
@@ -537,7 +547,13 @@ public sealed class MonitorWorker(
                     userId: stored.OwnerUserId, ct: ct);
             }
 
-            await EvaluateExitAsync(stored, def, candles, ct);
+            IReadOnlyList<Candle>? dailyCandles = null;
+            if (def.RollingHighDays is { } rhd && rhd > 0)
+            {
+                try { dailyCandles = await GetDailyCandlesAsync(stored.Symbol, rhd * 2 + 10, ct); }
+                catch (Exception ex) { logger.LogWarning(ex, "[{Title}] daily bar fetch failed — rolling-high exit skipped this tick.", stored.Title); }
+            }
+            await EvaluateExitAsync(stored, def, candles, dailyCandles, ct);
             return;
         }
 
@@ -881,16 +897,53 @@ public sealed class MonitorWorker(
         IdiotProof.Blazor.Data.Strategy stored,
         StrategyDefinition def,
         IReadOnlyList<Candle> candles,
+        IReadOnlyList<Candle>? dailyCandles,
         CancellationToken ct)
     {
-        if (stored.LastEntryPrice is not { } entry || stored.EntryFilledUtc is not { } filledUtc)
+        double entry;
+        DateTime filledUtc;
+
+        if (stored.LastEntryPrice is null || stored.EntryFilledUtc is null)
         {
-            logger.LogWarning("[{Title}] position without entry bookkeeping — clearing.", stored.Title);
-            await strategyRepo.RecordExitFillAsync(stored.Id, 0m, "Orphaned", DateTime.UtcNow, ct);
-            return;
+            // No entry bookkeeping — try to bootstrap the cost basis from the live
+            // broker position before treating it as orphaned. This lets strategies
+            // be created with PositionQty > 0 and no entry price (e.g. silver exits
+            // for positions already held in Alpaca) and have the Monitor resolve the
+            // real cost basis on the first evaluation tick.
+            try
+            {
+                var bootstrapBroker = await brokerResolver.ResolveAsync(stored.OwnerUserId, stored.BrokerMode, ct);
+                var brokerPositions = await bootstrapBroker.GetPositionsAsync(ct);
+                var brokerMatch = brokerPositions.FirstOrDefault(p =>
+                    string.Equals(p.Symbol, stored.Symbol, StringComparison.OrdinalIgnoreCase) && p.Quantity > 0);
+                if (brokerMatch is not null)
+                {
+                    logger.LogInformation("[{Title}] bootstrapped entry price {Price:F2} from live broker position.", stored.Title, brokerMatch.AveragePrice);
+                    await strategyRepo.SetEntryBookkeepingAsync(stored.Id, brokerMatch.AveragePrice, DateTime.UtcNow, ct);
+                    entry     = (double)brokerMatch.AveragePrice;
+                    filledUtc = DateTime.UtcNow;
+                }
+                else
+                {
+                    logger.LogWarning("[{Title}] position has no entry bookkeeping and no broker match — clearing.", stored.Title);
+                    await strategyRepo.RecordExitFillAsync(stored.Id, 0m, "Orphaned", DateTime.UtcNow, ct);
+                    return;
+                }
+            }
+            catch (Exception bootstrapEx)
+            {
+                logger.LogWarning(bootstrapEx, "[{Title}] could not bootstrap entry from broker — clearing orphaned position.", stored.Title);
+                await strategyRepo.RecordExitFillAsync(stored.Id, 0m, "Orphaned", DateTime.UtcNow, ct);
+                return;
+            }
+        }
+        else
+        {
+            entry     = (double)stored.LastEntryPrice;
+            filledUtc = stored.EntryFilledUtc.Value;
         }
 
-        var decision = GapperExitEvaluator.Evaluate(def, (double)entry, filledUtc, candles, DateTime.UtcNow);
+        var decision = GapperExitEvaluator.Evaluate(def, entry, filledUtc, candles, DateTime.UtcNow, dailyCandles);
 
         // Surface "holding" in the progress badge so the UI shows live state.
         var current = (double)candles[^1].Close;
@@ -1054,7 +1107,7 @@ public sealed class MonitorWorker(
         // Feed realized P&L into the daily circuit breaker (IP-LAW-2) — the
         // audit found RecordTradePnL was never called in production, so the
         // daily-loss guard could never trip. Uses the reconciled quantity.
-        var realized = (limitPrice - entry) * sellQty;
+        var realized = (limitPrice - (decimal)entry) * sellQty;
         var guardian = await riskGuardianService.GetForUserAsync(stored.OwnerUserId, ct);
         guardian?.RecordTradePnL(realized);
 

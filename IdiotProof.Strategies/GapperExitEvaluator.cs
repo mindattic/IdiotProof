@@ -60,7 +60,8 @@ public static class GapperExitEvaluator
         double entryPrice,
         DateTime entryUtc,
         IReadOnlyList<Candle> candles,
-        DateTime nowUtc)
+        DateTime nowUtc,
+        IReadOnlyList<Candle>? dailyCandles = null)
     {
         if (entryPrice <= 0 || candles.Count == 0)
             return null;
@@ -129,6 +130,23 @@ public static class GapperExitEvaluator
             if (priorHigh >= entryPrice * 1.006 && current >= priorHigh * 0.997)
                 return new GapperExitDecision(GapperExitReason.TargetHit, current, peak,
                     $"Price {current:F2} approached the prior HOD {priorHigh:F2} — taking profit into resistance.");
+        }
+
+        // 4c. Rolling N-day high — exit when price recovers to within bufferPct%
+        //     of the highest daily high over the last N trading days. This is
+        //     the "sell when it reattains its 20-day high" exit; the daily bars
+        //     are fetched fresh by the Monitor each tick so the target rolls forward
+        //     automatically as the window advances.
+        if (def.RollingHighDays is { } rhDays && dailyCandles is { Count: > 0 })
+        {
+            var buffer = def.RollingHighBuffer ?? 2.5;
+            var lookback = Math.Min(rhDays, dailyCandles.Count);
+            var rollingHigh = 0.0;
+            for (var i = dailyCandles.Count - lookback; i < dailyCandles.Count; i++)
+                if ((double)dailyCandles[i].High > rollingHigh) rollingHigh = (double)dailyCandles[i].High;
+            if (rollingHigh > 0 && current >= rollingHigh * (1 - buffer / 100.0))
+                return new GapperExitDecision(GapperExitReason.TargetHit, current, peak,
+                    $"Price {current:F2} reached the {rhDays}-day rolling high {rollingHigh:F2} (within {buffer:F1}% — selling).");
         }
 
         // 5. Momentum rollover — armed from the configured ET time (or always).
