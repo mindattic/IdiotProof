@@ -15,8 +15,8 @@
 
 @*
     Strategies — the front door of IdiotProof. List of every saved strategy for the
-    signed-in user. Each row collapses to title/ticker/active toggle/edit; expanding
-    a row reveals the full visual via StrategyBuilderRenderer. The Active toggle
+    signed-in user. Each row collapses to title/ticker/active toggle/edit; clicking
+    a row expands it to show StrategyBlueprintViz (schematic canvas chart). The Active toggle
     flips IsActive in SQL — when true, the IdiotProof.Monitor console picks the
     strategy up on its next tick (default 5s), evaluates it, and trades it.
 
@@ -78,9 +78,12 @@
                     <div class="d-flex align-items-center gap-3 p-3 strategy-row-header"
                          role="button"
                          tabindex="0"
-                         @onclick="() => EditStrategy(s.Id)"
+                         aria-expanded="@expandedRows.Contains(s.Id).ToString().ToLower()"
+                         @onclick="() => ToggleExpand(s.Id)"
                          @onkeydown="e => OnRowKeyNavigate(e, s.Id)">
-                        <i class="bi bi-chevron-right text-muted" aria-hidden="true"></i>
+                        <i class="bi bi-chevron-right text-muted"
+                           style="transition:transform .18s;transform:@(expandedRows.Contains(s.Id) ? "rotate(90deg)" : "none")"
+                           aria-hidden="true"></i>
                         <div class="flex-grow-1 min-w-0">
                             <div class="d-flex align-items-center gap-2 flex-wrap">
                                 <span class="fw-semibold">@s.Title</span>
@@ -149,6 +152,13 @@
                         </div>
                     </div>
 
+                    @if (expandedRows.Contains(s.Id))
+                    {
+                        <div style="border-top:1px solid rgba(255,255,255,.07)">
+                            <StrategyBlueprintViz S="s" />
+                        </div>
+                    }
+
                 </li>
             }
         </ul>
@@ -186,9 +196,16 @@
     private readonly Dictionary<Guid, ConditionProgress> progress = new();
     private Strategy? deleteCandidate;
 
+    private readonly HashSet<Guid> expandedRows = [];
+
+    private void ToggleExpand(Guid id)
+    {
+        if (!expandedRows.Add(id)) expandedRows.Remove(id);
+    }
+
     private void OnRowKeyNavigate(KeyboardEventArgs e, Guid id)
     {
-        if (e.Key is "Enter" or " ") EditStrategy(id);
+        if (e.Key is "Enter" or " ") ToggleExpand(id);
     }
 
     private List<Strategy> filtered => string.IsNullOrWhiteSpace(filterText)

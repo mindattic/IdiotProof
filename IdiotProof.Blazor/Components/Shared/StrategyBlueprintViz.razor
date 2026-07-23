@@ -1,0 +1,172 @@
+@using IdiotProof.Scripting
+@inject IJSRuntime JS
+
+@*
+    Expand-panel visualization for a strategy row on the Strategies page.
+    Left column: condition list + exit/stop/R:R stats.
+    Right column: canvas schematic chart (strategy-preview.js).
+*@
+
+@if (parseError is not null)
+{
+    <div class="px-3 pb-3 text-muted small">@parseError</div>
+}
+else if (def is not null)
+{
+    <div class="d-flex flex-wrap gap-4 px-3 pb-3 pt-2">
+
+        @* Left: conditions + stats *@
+        <div style="min-width:170px;flex:0 0 auto">
+            <div class="text-muted mb-2"
+                 style="font-size:.68rem;text-transform:uppercase;letter-spacing:.05em;font-weight:600">
+                Conditions
+            </div>
+            @foreach (var c in condLabels)
+            {
+                <div class="d-flex align-items-center gap-2 mb-1 small">
+                    <i class="bi @c.Icon" style="color:@c.Color;width:1rem;flex-shrink:0" aria-hidden="true"></i>
+                    <span>@c.Text</span>
+                </div>
+            }
+            @if (exitTime is not null || stopPct is not null || rrLines.Count > 0)
+            {
+                <div class="mt-2 pt-2" style="border-top:1px solid rgba(255,255,255,.08)">
+                    @if (exitTime is not null)
+                    {
+                        <div class="small text-muted">
+                            <i class="bi bi-flag me-1" aria-hidden="true"></i>Flatten @exitTime ET
+                        </div>
+                    }
+                    @if (stopPct is not null)
+                    {
+                        <div class="small" style="color:var(--red)">
+                            <i class="bi bi-shield-exclamation me-1" aria-hidden="true"></i>Stop @stopPct.Value.ToString("0.##")%
+                        </div>
+                    }
+                    @foreach (var rr in rrLines)
+                    {
+                        <div class="small" style="color:var(--green)">
+                            <i class="bi bi-graph-up me-1" aria-hidden="true"></i>R:R @rr.Label 1:@rr.Ratio.ToString("0.1")
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+
+        @* Right: canvas price chart *@
+        <div class="flex-grow-1" style="min-width:200px;max-width:380px">
+            <canvas id="@canvasId" style="width:100%;height:160px;border-radius:6px;display:block"></canvas>
+        </div>
+
+    </div>
+}
+
+@code {
+    [Parameter] public Strategy? S { get; set; }
+
+    private StrategyDefinition? def;
+    private string? parseError;
+    private string canvasId = "";
+
+    private List<(string Icon, string Color, string Text)> condLabels = [];
+    private List<(string Label, double Ratio)> rrLines = [];
+    private string? exitTime;
+    private double? stopPct;
+    private double? entryRef;
+    private double? stopPrice;
+    private double? holdsLevel;
+    private double? t1;
+    private double? t2;
+    private bool hasVwapAbove;
+    private bool hasVwapReclaim;
+
+    protected override void OnParametersSet()
+    {
+        def = null; parseError = null;
+        condLabels = []; rrLines = [];
+        if (S is null) return;
+
+        canvasId = $"bp-{S.Id:N}";
+        try
+        {
+            var loaded = StrategyLoader.Load(S.ScriptJson, S.ScriptText);
+            if (loaded.Definition is null) { parseError = loaded.CanonicalError ?? "Could not parse strategy."; return; }
+            def = loaded.Definition;
+            BuildState(def);
+        }
+        catch (Exception ex) { parseError = ex.Message; }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && def is not null)
+            await JS.InvokeVoidAsync("strategyPreview.draw", canvasId, new
+            {
+                entry          = entryRef,
+                stop           = stopPrice,
+                holds          = holdsLevel,
+                t1,
+                t2,
+                hasVwapAbove,
+                hasVwapReclaim
+            });
+    }
+
+    private void BuildState(StrategyDefinition d)
+    {
+        var flat = Flatten(d.EntryConditions).ToList();
+
+        var breaksAbove  = flat.OfType<PriceLevelCondition>().FirstOrDefault(c => c.Type == PriceLevelType.BreaksAbove);
+        var holdsAbove   = flat.OfType<PriceLevelCondition>().FirstOrDefault(c => c.Type == PriceLevelType.HoldsAbove);
+        hasVwapAbove     = flat.OfType<IndicatorCondition>().Any(c => c.Type == IndicatorType.VwapAbove);
+        hasVwapReclaim   = flat.OfType<IndicatorCondition>().Any(c => c.Type == IndicatorType.VwapReclaim);
+        bool hasHigherLow = flat.OfType<IndicatorCondition>().Any(c => c.Type == IndicatorType.HigherLow);
+        var tw           = flat.OfType<TimeWindowCondition>().FirstOrDefault();
+
+        entryRef   = breaksAbove?.Level ?? holdsAbove?.Level;
+        holdsLevel = (holdsAbove is not null && breaksAbove is not null) ? holdsAbove.Level : null;
+        stopPct    = d.StopLossPercent;
+        stopPrice  = entryRef.HasValue && d.StopLossPercent.HasValue
+            ? entryRef.Value * (1.0 - d.StopLossPercent.Value / 100.0) : null;
+        t1 = d.TakeProfitTargets.Count > 0 ? d.TakeProfitTargets[0].Price : d.TakeProfitPrice;
+        t2 = d.TakeProfitTargets.Count > 1 ? d.TakeProfitTargets[1].Price : null;
+        exitTime = d.ExitTime.HasValue ? $"{d.ExitTime.Value:hh\\:mm}" : null;
+
+        if (tw is not null)
+            condLabels.Add(("bi-clock", "var(--blue)", $"Entry {tw.StartEt:hh\\:mm}–{tw.EndEt:hh\\:mm} ET"));
+        if (breaksAbove is not null)
+            condLabels.Add(("bi-arrow-up-circle", "var(--brand)", $"Breaks ${breaksAbove.Level:F2}"));
+        if (hasVwapReclaim)
+            condLabels.Add(("bi-arrow-return-right", "#38bdf8", "VWAP Reclaim"));
+        else if (hasVwapAbove)
+            condLabels.Add(("bi-water", "#38bdf8", "Above VWAP"));
+        if (hasHigherLow)
+            condLabels.Add(("bi-graph-up-arrow", "var(--green)", "Higher Low"));
+        if (holdsAbove is not null)
+            condLabels.Add(("bi-shield-check", "var(--brand)", $"Holds ${holdsAbove.Level:F2}"));
+
+        if (entryRef.HasValue && stopPrice.HasValue)
+        {
+            double risk = entryRef.Value - stopPrice.Value;
+            if (risk > 0)
+            {
+                if (t1.HasValue) rrLines.Add(("T1", (t1.Value - entryRef.Value) / risk));
+                if (t2.HasValue) rrLines.Add(("T2", (t2.Value - entryRef.Value) / risk));
+            }
+        }
+    }
+
+    private static IEnumerable<ICondition> Flatten(IEnumerable<ICondition> conditions)
+    {
+        foreach (var c in conditions)
+        {
+            switch (c)
+            {
+                case AndCondition and: foreach (var x in Flatten([and.Left, and.Right])) yield return x; break;
+                case OrCondition  or:  foreach (var x in Flatten([or.Left, or.Right]))   yield return x; break;
+                case NotCondition not: foreach (var x in Flatten([not.Inner]))            yield return x; break;
+                default: yield return c; break;
+            }
+        }
+    }
+}
