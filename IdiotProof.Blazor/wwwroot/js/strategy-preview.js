@@ -37,7 +37,7 @@ window.strategyPreview = (() => {
         const cW  = W - PAD.l - PAD.r;
         const cH  = H - PAD.t - PAD.b;
 
-        const prices = [cfg.stop, cfg.holds, cfg.entry, cfg.t1, cfg.t2, cfg.rollingHigh, cfg.rollingLow, cfg.peakGiveback]
+        const prices = [cfg.stop, cfg.holds, cfg.entry, cfg.baseline, cfg.t1, cfg.t2, cfg.rollingHigh, cfg.rollingLow, cfg.peakGiveback]
             .filter(v => v != null && v > 0);
         if (prices.length < 2) return;
 
@@ -149,7 +149,10 @@ window.strategyPreview = (() => {
     // instead of illustrating a bullish setup for a strategy that profits
     // when price falls.
     function _makeBars(cfg) {
-        const E = cfg.entry;
+        // No real entry trigger (an exit-management-only recipe): fall back to
+        // the synthetic baseline so the schematic still renders instead of a
+        // blank canvas — see StrategyBlueprintViz.razor's chartBaseline.
+        const E = cfg.entry ?? cfg.baseline;
         if (E == null || E <= 0) return [];
         const T2 = cfg.t2 || (cfg.isShort ? E * 0.20 : E * 1.80);
         const T1 = cfg.t1 || (cfg.isShort ? E * 0.45 : E * 1.55);

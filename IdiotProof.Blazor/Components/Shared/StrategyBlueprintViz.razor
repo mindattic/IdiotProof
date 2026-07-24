@@ -122,6 +122,7 @@ else if (def is not null)
 
     private bool isShort;
     private double? entryRef;
+    private double? chartBaseline;
     private double? stopPrice;
     private double? holdsLevel;
     private double? t1;
@@ -159,6 +160,7 @@ else if (def is not null)
             {
                 isShort,
                 entry          = entryRef,
+                baseline       = chartBaseline,
                 stop           = stopPrice,
                 holds          = holdsLevel,
                 t1,
@@ -202,11 +204,23 @@ else if (def is not null)
         entryRef   = breaksAbove?.Level ?? holdsAbove?.Level;
         holdsLevel = (holdsAbove is not null && breaksAbove is not null) ? holdsAbove.Level : null;
         var stopPct = d.StopLossPercent;
-        stopPrice  = entryRef.HasValue && d.StopLossPercent.HasValue
-            ? entryRef.Value * (isShort ? 1.0 + d.StopLossPercent.Value / 100.0 : 1.0 - d.StopLossPercent.Value / 100.0) : null;
         t1 = d.TakeProfitTargets.Count > 0 ? d.TakeProfitTargets[0].Price : d.TakeProfitPrice;
         t2 = d.TakeProfitTargets.Count > 1 ? d.TakeProfitTargets[1].Price : null;
         var exitTime = d.ExitTime.HasValue ? $"{d.ExitTime.Value:hh\\:mm}" : null;
+
+        // Recipes with no entry trigger (e.g. exit-management-only strategies)
+        // have no real entryRef to anchor the schematic off of. Rather than
+        // draw nothing, fall back to a synthetic $100 baseline for the
+        // illustrative bars/percentage-based levels below — same idea as the
+        // rolling-high/low/giveback anchors already being illustrative, not
+        // live prices. Never used for the real entry line or R:R math.
+        var hasExitVisual = d.RollingHighDays.HasValue || d.RollingLowDays.HasValue
+            || d.PeakGivebackPercent.HasValue || d.TrailingStopPercent.HasValue
+            || stopPct.HasValue || t1.HasValue || t2.HasValue;
+        chartBaseline = entryRef ?? (hasExitVisual ? 100.0 : null);
+
+        stopPrice  = chartBaseline.HasValue && d.StopLossPercent.HasValue
+            ? chartBaseline.Value * (isShort ? 1.0 + d.StopLossPercent.Value / 100.0 : 1.0 - d.StopLossPercent.Value / 100.0) : null;
 
         void AddStat(string glossaryKey, string text)
         {
@@ -254,19 +268,19 @@ else if (def is not null)
         // Schematic canvas anchors for dynamic/trailing exits — these levels move
         // day-to-day so, like the rest of this chart's already-synthetic candles,
         // the anchor is illustrative (offset from entry), not a live computed price.
-        if (d.RollingHighDays.HasValue && entryRef.HasValue)
+        if (d.RollingHighDays.HasValue && chartBaseline.HasValue)
         {
-            rollingHigh = entryRef.Value * 1.06;
+            rollingHigh = chartBaseline.Value * 1.06;
             rollingHighLabel = $"{d.RollingHighDays}d Hi ({(d.RollingHighBuffer ?? 2.5):0.#}%)";
         }
-        if (d.RollingLowDays.HasValue && entryRef.HasValue)
+        if (d.RollingLowDays.HasValue && chartBaseline.HasValue)
         {
-            rollingLow = entryRef.Value * 0.85;
+            rollingLow = chartBaseline.Value * 0.85;
             rollingLowLabel = $"{d.RollingLowDays}d Lo ({(d.RollingLowBuffer ?? 2.5):0.#}%)";
         }
-        if (d.PeakGivebackPercent.HasValue && entryRef.HasValue)
+        if (d.PeakGivebackPercent.HasValue && chartBaseline.HasValue)
         {
-            peakGivebackAnchor = entryRef.Value * 1.03;
+            peakGivebackAnchor = chartBaseline.Value * 1.03;
             peakGivebackLabel = $"Giveback {d.PeakGivebackPercent:0.#}%";
         }
     }
