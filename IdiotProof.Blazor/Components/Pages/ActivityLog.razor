@@ -210,7 +210,7 @@
         "signal-fire", "signal-vetoed", "signal-blocked",
         // Orders
         "entry", "exit", "exit-sl", "exit-tsl",
-        "order-rejected",
+        "order-rejected", "order-placement-exception",
         // Position management
         "holding", "position-reconciled",
         // Errors
@@ -218,6 +218,12 @@
         // Maintenance / lifecycle
         "monitor-hibernate", "monitor-resume",
         "audit-prune",
+        // Auto-gapper scanner (was missing entirely — these entries existed
+        // in the DB but were invisible on this page since AllCategorySet
+        // gates GetByCategoriesAsync).
+        "auto-gapper-scan", "auto-gapper-blocked",
+        // Premarket blow-off/fade detector
+        "premarket-fade-alert",
         // Legacy rows (kept for DB compat — old installs used "order-placed" / "signal")
         "order-placed", "signal",
     ];
@@ -238,10 +244,14 @@
         "exit-sl"              => "WARN",
         "exit-tsl"             => "WARN",
         "order-rejected"       => "ERROR",
+        "order-placement-exception" => "ERROR",
         "strategy-error"       => "ERROR",
         "monitor-hibernate"    => "INFO",
         "monitor-resume"       => "INFO",
         "audit-prune"          => "INFO",
+        "auto-gapper-scan"     => "INFO",
+        "auto-gapper-blocked"  => "ERROR",
+        "premarket-fade-alert" => "WARN",
         "order-placed"         => "INFO",   // legacy
         "signal"               => "INFO",   // legacy
         _                      => "INFO",

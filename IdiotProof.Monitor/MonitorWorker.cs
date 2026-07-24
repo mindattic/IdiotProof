@@ -1,3 +1,4 @@
+using IdiotProof.Blazor.Data;
 using IdiotProof.Blazor.Services;
 using IdiotProof.Brokers;
 using IdiotProof.DataFeeds;
@@ -8,6 +9,7 @@ using IdiotProof.Models;
 using IdiotProof.Scripting;
 using IdiotProof.Shared.Risk;
 using IdiotProof.Strategies;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
@@ -45,6 +47,8 @@ public sealed class MonitorWorker(
     MonitorDatabase database,
     IStorageProvider storage,
     IdiotProof.Blazor.Services.LiveBarRepository liveBarRepo,
+    PremarketFadeScanner premarketFadeScanner,
+    IDbContextFactory<AppDbContext> dbFactory,
     ILogger<MonitorWorker> logger) : BackgroundService
 {
     /// <summary>
@@ -87,6 +91,8 @@ public sealed class MonitorWorker(
     private static readonly TimeSpan QuarantineLogInterval = TimeSpan.FromMinutes(5);
     private DateTime monitorStartUtc;
     private DateTime lastPruneUtc = DateTime.MinValue;
+    private DateTime lastFadeScanUtc = DateTime.MinValue;
+    private static readonly TimeSpan FadeScanInterval = TimeSpan.FromMinutes(5);
 
     // Trading-schedule state
     private TradingWindow lastWindow        = TradingWindow.Hibernate;
@@ -300,6 +306,47 @@ public sealed class MonitorWorker(
                         $"Pruned {deleted} old audit rows (retention 30d, min 2000 kept)", ct: ct);
             }
             catch (Exception ex) { logger.LogWarning(ex, "Audit log prune failed (non-fatal)."); }
+        }
+
+        // Premarket blow-off/fade alert — Mon-Fri, 9:00-10:00 AM ET (half an
+        // hour either side of the bell), re-scanning every 5 minutes so it
+        // catches both a stock still building toward its peak AND one that's
+        // already rolled over and is fading through the open. Per-symbol
+        // dedup (don't re-alert the same name at the same-or-lower severity
+        // twice) lives inside PremarketFadeScanner itself, keyed for the day;
+        // the 5-minute cadence here is just "don't hit the movers API every
+        // second" — an in-memory timestamp is enough (same idiom as
+        // lastPruneUtc/lastPingUtc above; a restart mid-window just means a
+        // handful of names might re-alert once, not a correctness problem).
+        var fadeScanEtNow = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, MarketTime.Eastern);
+        var isWeekday = fadeScanEtNow.DayOfWeek is not (DayOfWeek.Saturday or DayOfWeek.Sunday);
+        if (isWeekday
+            && fadeScanEtNow.TimeOfDay >= new TimeSpan(9, 0, 0) && fadeScanEtNow.TimeOfDay < new TimeSpan(10, 0, 0)
+            && DateTime.UtcNow - lastFadeScanUtc >= FadeScanInterval)
+        {
+            lastFadeScanUtc = DateTime.UtcNow;
+            // All registered users, not just owners of currently-active
+            // strategies — this is an alert-only scan unrelated to any
+            // strategy, so a user with valid Alpaca keys but nothing active
+            // should still get premarket alerts. RunScanAsync itself already
+            // no-ops (0/0) for a user with no Alpaca data keys configured.
+            await using var db = await dbFactory.CreateDbContextAsync(ct);
+            var owners = await db.AuthUsers.Select(u => u.Id).ToListAsync(ct);
+            foreach (var owner in owners)
+            {
+                try
+                {
+                    var summary = await premarketFadeScanner.RunScanAsync(owner, ct);
+                    if (summary.Flagged > 0)
+                        logger.LogInformation("PremarketFadeScanner: {Screened} screened, {Flagged} flagged ({Note}) for user {UserId}.",
+                            summary.Screened, summary.Flagged, summary.Note, owner);
+                }
+                catch (OperationCanceledException) { throw; }
+                catch (Exception ex)
+                {
+                    logger.LogWarning(ex, "PremarketFadeScanner failed for user {UserId} — continuing.", owner);
+                }
+            }
         }
 
         if (active.Count == 0) return;

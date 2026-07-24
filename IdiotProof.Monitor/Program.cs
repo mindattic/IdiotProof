@@ -232,6 +232,12 @@ builder.Services.AddSingleton(_ =>
 builder.Services.AddSingleton<AutoGapperScanner>();
 builder.Services.AddSingleton<IdiotProof.Blazor.Services.LiveBarRepository>();
 
+// Premarket blow-off/fade detector — triggered automatically by MonitorWorker's
+// tick loop (Mon-Fri, 9:00-10:00 AM ET, re-scanned every 5 min), detection-only
+// (no strategy created, no order placed).
+builder.Services.AddSingleton<EmailSmsAlertSender>();
+builder.Services.AddSingleton<PremarketFadeScanner>();
+
 builder.Services.AddHostedService<MonitorWorker>();
 
 builder.Logging.ClearProviders();

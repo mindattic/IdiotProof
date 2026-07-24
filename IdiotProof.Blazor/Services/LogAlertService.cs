@@ -31,7 +31,8 @@ public sealed class LogAlertService : IDisposable
     public event Action? Changed;
     public int UnreadErrorCount => unreadErrors;
 
-    private static readonly string[] ErrorCategories = ["strategy-error", "order-rejected"];
+    private static readonly string[] ErrorCategories =
+        ["strategy-error", "order-rejected", "order-placement-exception", "premarket-fade-alert"];
     private const string SettingsKey = "ui.logAlertLastSeen";
 
     public LogAlertService(IDbContextFactory<AppDbContext> dbFactory, SettingsRepository settings)

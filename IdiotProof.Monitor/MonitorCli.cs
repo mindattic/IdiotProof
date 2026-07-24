@@ -24,7 +24,7 @@ namespace IdiotProof.Monitor;
 public static class MonitorCli
 {
     public static bool IsCommand(string arg) =>
-        arg is "status" or "set-keys" or "create-strategies" or "create-account" or "test-order" or "flatten" or "replay" or "replay-live" or "replay-all" or "replay-regen" or "scan" or "replay-export" or "resync-canon" or "auto-gapper";
+        arg is "status" or "set-keys" or "create-strategies" or "create-account" or "test-order" or "flatten" or "replay" or "replay-live" or "replay-all" or "replay-regen" or "scan" or "replay-export" or "resync-canon" or "auto-gapper" or "premarket-fade";
 
     public static async Task<int> RunAsync(IServiceProvider sp, string[] args)
     {
@@ -48,6 +48,7 @@ public static class MonitorCli
                 "replay-export"     => await RunExportAsync(sp, opt),
                 "resync-canon"      => await ResyncCanonAsync(sp, opt),
                 "auto-gapper"       => await AutoGapperAsync(sp, opt),
+                "premarket-fade"    => await PremarketFadeAsync(sp, opt),
                 _                   => Fail($"Unknown command '{cmd}'."),
             };
         }
@@ -491,6 +492,19 @@ public static class MonitorCli
         var r = await scanner.RunScanAsync(userId.Value, dryRun, phase: "manual", CancellationToken.None);
         Line($"→ screened {r.Screened}, qualified {r.Qualified}, {(dryRun ? "would-arm" : "armed")} {r.Armed}, skipped {r.Skipped}  ({r.Note})");
         if (dryRun && r.Armed > 0) Line("   Re-run with --arm to actually arm these (respects the paper-only guard).");
+        return 0;
+    }
+
+    private static async Task<int> PremarketFadeAsync(IServiceProvider sp, Dictionary<string, string> opt)
+    {
+        var scanner = sp.GetRequiredService<PremarketFadeScanner>();
+        var userId = await ResolveUserAsync(sp, opt);
+        if (userId is null) return Fail("premarket-fade requires --user <guid> (or a single user).");
+
+        Line($"Premarket fade scan for user {userId}…");
+        var r = await scanner.RunScanAsync(userId.Value, CancellationToken.None);
+        Line($"→ screened {r.Screened}, flagged {r.Flagged}  ({r.Note})");
+        if (r.Flagged > 0) Line("   Check the Logs page and your phone for the alert(s).");
         return 0;
     }
 
