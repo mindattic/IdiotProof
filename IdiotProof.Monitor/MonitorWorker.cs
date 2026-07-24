@@ -341,11 +341,30 @@ public sealed class MonitorWorker(
 
             if (candles.Count == 0) continue;
 
+            // One-gapper-per-symbol (mirrors the UI's CountActiveForSymbolAsync
+            // guard, StrategyListPageBase.cs) enforced at FIRE time too: the UI
+            // only blocks at activation, so two gapper rows that both end up
+            // IsActive=true (a lost UI race, AutoGapperScanner arming next to a
+            // manual duplicate, a direct SQL edit) previously evaluated fully
+            // independently here — both could open a real position on the same
+            // symbol in the same tick with zero cross-strategy awareness.
+            var gapperAlreadyFiredThisTick = false;
             foreach (var stored in group)
             {
                 try
                 {
+                    var isGapper = stored.ScriptText.Contains("PeakGiveback(", StringComparison.OrdinalIgnoreCase);
+                    if (isGapper && stored.PositionQty == 0 && gapperAlreadyFiredThisTick)
+                    {
+                        logger.LogWarning("[{Title}] {Symbol} skipped — another gapper strategy for this symbol already fired this tick.",
+                            stored.Title, stored.Symbol);
+                        continue;
+                    }
+
+                    var wasFlat = stored.PositionQty == 0;
                     await EvaluateOneAsync(stored, candles, previousClose, ct);
+                    if (isGapper && wasFlat && stored.PositionQty > 0)
+                        gapperAlreadyFiredThisTick = true;
                 }
                 catch (OperationCanceledException) { throw; }
                 catch (Exception ex)
@@ -870,16 +889,63 @@ public sealed class MonitorWorker(
             return;
         }
 
-        var order = await broker.PlaceOrderAsync(new OrderRequest
+        OrderResult order;
+        try
         {
-            Symbol        = stored.Symbol,
-            Quantity      = quantity,
-            Side          = OrderSide.Buy,
-            Type          = OrderType.Limit,
-            LimitPrice    = limitPrice,
-            TimeInForce   = "DAY",
-            ExtendedHours = extendedHours,
-        }, ct);
+            order = await broker.PlaceOrderAsync(new OrderRequest
+            {
+                Symbol        = stored.Symbol,
+                Quantity      = quantity,
+                Side          = OrderSide.Buy,
+                Type          = OrderType.Limit,
+                LimitPrice    = limitPrice,
+                TimeInForce   = "DAY",
+                ExtendedHours = extendedHours,
+            }, ct);
+        }
+        catch (OperationCanceledException) { throw; }
+        catch (Exception ex)
+        {
+            // An exception here (timeout, connection reset) is ambiguous —
+            // Alpaca may have already accepted the order server-side. Letting
+            // it escape uncaught left RecordFiredAsync/RecordEntryFillAsync
+            // unrun, so PositionQty stayed 0 and the still-true entry
+            // conditions fired AGAIN next tick — a real duplicate-buy risk.
+            // Reconcile against the broker's actual positions before
+            // deciding whether it's safe to let this strategy retry.
+            logger.LogError(ex, "[{Title}] {Symbol} entry order threw — reconciling against broker before retrying.",
+                stored.Title, stored.Symbol);
+            try
+            {
+                var positions = await broker.GetPositionsAsync(ct);
+                var match = positions.FirstOrDefault(p =>
+                    string.Equals(p.Symbol, stored.Symbol, StringComparison.OrdinalIgnoreCase) && p.Quantity > 0);
+                if (match is not null)
+                {
+                    var fillUtc = DateTime.UtcNow;
+                    var filledQty = (int)Math.Floor(match.Quantity);
+                    await strategyRepo.RecordFiredAsync(stored.Id, ct);
+                    await strategyRepo.RecordEntryFillAsync(stored.Id, filledQty, match.AveragePrice, fillUtc, ct);
+                    stored.PositionQty    = filledQty;
+                    stored.LastEntryPrice = match.AveragePrice;
+                    stored.EntryFilledUtc = fillUtc;
+                    await auditLogRepo.LogAsync("entry",
+                        $"[{stored.Title}] BUY {stored.Symbol} entry order threw but broker shows a filled position " +
+                        $"({match.Quantity} @ {match.AveragePrice:F2}, {broker.BrokerType}) — bookkeeping reconciled, not re-firing.",
+                        userId: stored.OwnerUserId, ct: ct);
+                    return;
+                }
+            }
+            catch (OperationCanceledException) { throw; }
+            catch (Exception reconcileEx)
+            {
+                logger.LogWarning(reconcileEx, "[{Title}] {Symbol} post-exception reconciliation also failed.", stored.Title, stored.Symbol);
+            }
+            await auditLogRepo.LogAsync("order-placement-exception",
+                $"[{stored.Title}] {stored.Symbol} entry order threw ({ex.Message}) and broker shows no matching position — safe to retry next tick.",
+                userId: stored.OwnerUserId, ct: ct);
+            return;
+        }
 
         if (!order.IsSuccess)
         {
@@ -894,6 +960,14 @@ public sealed class MonitorWorker(
         var entryUtc = DateTime.UtcNow;
         await strategyRepo.RecordFiredAsync(stored.Id, ct);
         await strategyRepo.RecordEntryFillAsync(stored.Id, quantity, limitPrice, entryUtc, ct);
+        // Mirror the SQL write onto the in-memory row: RecordEntryFillAsync
+        // loads its own DbContext instance, so without this the CALLER's
+        // `stored` (shared by reference with the tick's per-symbol group
+        // loop) still shows PositionQty=0 — the exact gap that let a second
+        // same-symbol strategy fire in the same tick undetected.
+        stored.PositionQty    = quantity;
+        stored.LastEntryPrice = limitPrice;
+        stored.EntryFilledUtc = entryUtc;
         await auditLogRepo.LogAsync("entry",
             $"[{stored.Title}] BUY {quantity} {stored.Symbol} @ {limitPrice:F2} ({broker.BrokerType}, {(extendedHours ? "extended-hours" : "RTH")}, order {order.BrokerOrderId})",
             userId: stored.OwnerUserId, ct: ct);
@@ -989,7 +1063,16 @@ public sealed class MonitorWorker(
             filledUtc = stored.EntryFilledUtc.Value;
         }
 
-        var decision = GapperExitEvaluator.Evaluate(def, entry, filledUtc, candles, DateTime.UtcNow, dailyCandles);
+        // Short exits (stop/trailing/target/giveback) are mirrored around
+        // entry — evaluating a short with the long formula checks the stop
+        // and target on the wrong side of entry, so it would never trip on
+        // an actual loss and could fire a "take profit" on a losing move.
+        // NOTE: EvaluateShort doesn't yet take dailyCandles, so a short
+        // strategy using ExitAtRollingHigh/Low won't evaluate that exit —
+        // a pre-existing gap in GapperExitEvaluator, not fixed here.
+        var decision = def.Direction == TradeDirection.Short
+            ? GapperExitEvaluator.EvaluateShort(def, entry, filledUtc, candles, DateTime.UtcNow)
+            : GapperExitEvaluator.Evaluate(def, entry, filledUtc, candles, DateTime.UtcNow, dailyCandles);
 
         // Surface "holding" in the progress badge so the UI shows live state.
         var current = (double)candles[^1].Close;
@@ -1137,7 +1220,13 @@ public sealed class MonitorWorker(
             LimitPrice     = limitPrice,
             TimeInForce    = "DAY",
             ExtendedHours  = extendedHours,
-            PositionIntent = "close",
+            // "close" is not a valid Alpaca position_intent value (only
+            // buy_to_open/buy_to_close/sell_to_open/sell_to_close exist) —
+            // this exit always sells to close a long, so sell_to_close is
+            // the correct constant. A bare "close" would likely be rejected
+            // or ignored by Alpaca, defeating the point of setting it at all
+            // (stopping a naked short from opening on a zero-held-qty exit).
+            PositionIntent = "sell_to_close",
         }, ct);
 
         if (!order.IsSuccess)

@@ -84,9 +84,11 @@ public sealed class OrderRequest
     public bool ExtendedHours { get; init; }
 
     /// <summary>
-    /// Alpaca position_intent — set to "close" on exit orders so Alpaca refuses
-    /// to open a short if the held quantity is 0 (e.g. margin account after a
-    /// partial fill). Null on entry orders (omitted from the wire payload).
+    /// Alpaca position_intent — one of "buy_to_open"/"buy_to_close"/
+    /// "sell_to_open"/"sell_to_close" (Alpaca has no bare "close" value). Set
+    /// to "sell_to_close"/"buy_to_close" on exit orders so Alpaca refuses to
+    /// open a new position if the held quantity is 0 (e.g. margin account
+    /// after a partial fill). Null on entry orders (omitted from the wire payload).
     /// </summary>
     public string? PositionIntent { get; init; }
 }

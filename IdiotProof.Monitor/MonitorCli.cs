@@ -308,6 +308,10 @@ public static class MonitorCli
             {
                 Symbol = sym, Quantity = qty, Side = OrderSide.Sell, Type = OrderType.Limit,
                 LimitPrice = limit, TimeInForce = "DAY", ExtendedHours = extended,
+                // Same naked-short protection as the Monitor's own exit path
+                // (MonitorWorker.cs) — without this, a stale/wrong PositionQty
+                // could sell into opening a short instead of just closing out.
+                PositionIntent = "sell_to_close",
             });
             if (!order.IsSuccess)
             {

@@ -184,8 +184,10 @@ public class RiskGuardianTests
     [Test]
     public void ValidateTrade_RiskExceedsMaxLossPerTrade_IsBlocked_AndSuggestsAdjustedQty()
     {
-        // $1/share risk × 200 shares = $200 risk; cap is $100 → blocked,
-        // suggested adjusted qty = floor(100 / 1) = 100.
+        // $1/share risk × 200 shares = $200 risk; cap is $100 → blocked. The
+        // suggested quantity is sized off WORST-CASE risk (1.5x slippage
+        // factor), not raw risk: floor(100 / (1 * 1.5)) = 66 — a suggestion
+        // of 100 would itself have a $150 worst case, still over the cap.
         var guardian = new RiskGuardian(DefaultConfig());
         var setup = LongSetup(entry: 100m, stop: 99m, takeProfit: 105m, qty: 200);
 
@@ -194,7 +196,39 @@ public class RiskGuardianTests
         Assert.That(verdict.IsApproved, Is.False);
         Assert.That(verdict.BlockReasons, Has.Some.Matches<string>(r => r.Contains("exceeds max", StringComparison.OrdinalIgnoreCase)));
         Assert.That(verdict.AdjustedSetup, Is.Not.Null);
-        Assert.That(verdict.AdjustedSetup!.Quantity, Is.EqualTo(100));
+        Assert.That(verdict.AdjustedSetup!.Quantity, Is.EqualTo(66));
+    }
+
+    [Test]
+    public void ValidateTrade_WorstCaseExceedsCap_EvenWhenRawRiskDoesNot_IsBlocked()
+    {
+        // $1/share risk x 80 shares = $80 raw risk — UNDER the $100 cap — but
+        // worst-case (1.5x slippage) is $120, OVER the cap. The class's own
+        // contract ("can't exceed max loss even in worst case") requires this
+        // to block; gating on raw risk alone previously let it through.
+        var guardian = new RiskGuardian(DefaultConfig());
+        var setup = LongSetup(entry: 100m, stop: 99m, takeProfit: 105m, qty: 80);
+
+        var verdict = guardian.ValidateTrade(setup);
+
+        Assert.That(verdict.IsApproved, Is.False);
+        Assert.That(verdict.BlockReasons, Has.Some.Matches<string>(r => r.Contains("Worst-case", StringComparison.OrdinalIgnoreCase)));
+    }
+
+    [Test]
+    public void ValidateTrade_AccountBalanceUnset_FailsClosed_NotSkipped()
+    {
+        // AccountBalance = 0 (unset) must BLOCK, not silently skip, the
+        // account-risk-% check — otherwise a user leaving it blank disables
+        // one of the six IP-LAW-2 checks entirely.
+        var config = DefaultConfig();
+        config.AccountBalance = 0m;
+        var guardian = new RiskGuardian(config);
+
+        var verdict = guardian.ValidateTrade(LongSetup());
+
+        Assert.That(verdict.IsApproved, Is.False);
+        Assert.That(verdict.BlockReasons, Has.Some.Matches<string>(r => r.Contains("Account balance", StringComparison.OrdinalIgnoreCase)));
     }
 
     [Test]

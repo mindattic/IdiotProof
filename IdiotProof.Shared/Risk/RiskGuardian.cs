@@ -172,22 +172,28 @@ public sealed class RiskGuardian
 
         result.ExpectedLoss = totalRisk;
 
-        // Worst case: assume 50% slippage through stop (gap scenario)
-        result.WorstCaseLoss = totalRisk * 1.5m;
+        // Worst case: assume 50% slippage through stop (gap scenario). This is
+        // the number the class's own contract promises never to exceed
+        // ("Position size that can't exceed your max loss even in worst
+        // case") — gating on the un-slipped totalRisk instead let a trade
+        // through whose worst case could run up to 1.5x MaxLossPerTrade.
+        const decimal SlippageFactor = 1.5m;
+        result.WorstCaseLoss = totalRisk * SlippageFactor;
 
-        // 4. Check if risk exceeds max per trade
-        if (totalRisk > cfg.MaxLossPerTrade)
+        // 4. Check if worst-case risk exceeds max per trade
+        if (result.WorstCaseLoss > cfg.MaxLossPerTrade)
         {
-            result.BlockReasons.Add($"Risk ${totalRisk:F2} exceeds max ${cfg.MaxLossPerTrade:F2} per trade");
+            result.BlockReasons.Add($"Worst-case risk ${result.WorstCaseLoss:F2} exceeds max ${cfg.MaxLossPerTrade:F2} per trade");
 
-            // Suggest adjusted quantity
+            // Suggest adjusted quantity — sized off the SAME worst-case factor
+            // used to block, so the suggestion is actually safe to take.
             if (riskPerShare > 0m)
             {
-                var adjustedQty = (int)Math.Floor(cfg.MaxLossPerTrade / riskPerShare);
+                var adjustedQty = (int)Math.Floor(cfg.MaxLossPerTrade / (riskPerShare * SlippageFactor));
                 if (adjustedQty >= 1)
                 {
                     result.AdjustedSetup = CloneWithQuantity(setup, adjustedQty);
-                    result.Warnings.Add($"Suggested reduced quantity: {adjustedQty} shares (risk: ${adjustedQty * riskPerShare:F2})");
+                    result.Warnings.Add($"Suggested reduced quantity: {adjustedQty} shares (worst-case risk: ${adjustedQty * riskPerShare * SlippageFactor:F2})");
                 }
             }
         }
@@ -224,8 +230,15 @@ public sealed class RiskGuardian
             result.BlockReasons.Add($"Stop loss too wide ({stopPercent:F2}%). Max is {cfg.MaxStopLossPercent}%");
         }
 
-        // 7. Check account risk percent
-        if (cfg.AccountBalance > 0m)
+        // 7. Check account risk percent. An unset/zero AccountBalance must fail
+        // CLOSED (this check can't be computed, so it can't be satisfied) —
+        // silently skipping it let a user disable the whole account-risk-%
+        // gate just by leaving Account Balance at 0.
+        if (cfg.AccountBalance <= 0m)
+        {
+            result.BlockReasons.Add("Account balance is not set — cannot verify risk is within your account-risk % limit");
+        }
+        else
         {
             var accountRiskPercent = (totalRisk / cfg.AccountBalance) * 100m;
             if (accountRiskPercent > cfg.MaxAccountRiskPercent)
