@@ -1,20 +1,22 @@
 @page "/"
 @page "/strategies"
+@page "/dashboard"
 @rendermode InteractiveServer
 @using IdiotProof.Scripting
 @using IdiotProof.Models
 @using Microsoft.AspNetCore.Authorization
 @attribute [Authorize]
 @inherits StrategyListPageBase
+@inject IJSRuntime JS
 
 @*
-    Strategies — cards view. All strategies for the signed-in user, with live
-    condition progress, position state, P&L, and per-strategy paper/live routing.
-    One card per strategy, checkboxes for bulk actions (Activate/Deactivate/Paper/Live),
-    and Blueprint expand on click. The compact table view lives on the Dashboard tab.
-
-    Promoting a strategy to Live requires re-authentication (5-minute elevation window).
-    Demoting Live → Paper is always immediate.
+    Strategies — one tab, one table. Every strategy for the signed-in user,
+    one row each: Qty/Price/SL/TP/Conditions at a glance for monitoring the
+    money side, click a row to expand it (colspan="999" second <tr>) into
+    the full condition list + StrategyBlueprintViz schematic for deciding
+    whether to tweak it. Column visibility is user-configurable and
+    persisted to localStorage. (Formerly split across Strategies/cards and
+    Dashboard/table — merged back into one view.)
 *@
 
 <PageTitle>Strategies — IdiotProof</PageTitle>
@@ -39,6 +41,9 @@
             </button>
         </div>
     </div>
+
+    <!-- ── Paper/Live account summary ───────────────────────────────────────── -->
+    <AccountSummaryBar UserId="userId" />
 
     <!-- ── Elevation status banner ─────────────────────────────────────────── -->
     @if (userId is not null && ElevationSvc.RemainingWindow(userId.Value) is { } window)
@@ -123,155 +128,187 @@
     }
     else
     {
-        <ul class="list-unstyled mb-0" role="list">
-            @foreach (var s in filtered)
-            {
-                var loaded    = StrategyLoader.Load(s.ScriptJson, s.ScriptText);
-                var hasPos    = s.PositionQty > 0;
-                var posLabel  = loaded.Definition?.Direction == TradeDirection.Short
-                    ? $"SHORT ×{s.PositionQty}"
-                    : $"LONG ×{s.PositionQty}";
-                decimal? pct  = null;
-                if (hasPos && progress.TryGetValue(s.Id, out var cp) && cp.LastPrice.HasValue
-                    && s.LastEntryPrice.HasValue && s.LastEntryPrice.Value != 0)
-                    pct = (cp.LastPrice.Value - s.LastEntryPrice.Value) / s.LastEntryPrice.Value * 100m;
-
-                <li @key="s.Id" class="trading-card mb-2" data-strategy-id="@s.Id">
-                    <div class="d-flex align-items-center gap-2 p-3 strategy-row-header"
-                         role="button"
-                         tabindex="0"
-                         aria-expanded="@expandedRows.Contains(s.Id).ToString().ToLower()"
-                         @onclick="() => ToggleExpand(s.Id)"
-                         @onkeydown="e => OnRowKeyNavigate(e, s.Id)">
-
-                        <!-- Checkbox (does not expand row) -->
-                        <div @onclick:stopPropagation class="d-flex align-items-center" style="flex-shrink:0">
+        <div class="d-flex justify-content-end mb-2">
+            <div class="dropdown">
+                <button class="btn btn-sm btn-outline-secondary" type="button"
+                        data-bs-toggle="dropdown" aria-expanded="false">
+                    <i class="bi bi-layout-three-columns me-1" aria-hidden="true"></i>Columns
+                </button>
+                <ul class="dropdown-menu dropdown-menu-end" style="min-width:160px">
+                    @foreach (var col in AllTableCols)
+                    {
+                        <li>
+                            <label class="dropdown-item d-flex align-items-center gap-2" style="cursor:pointer;user-select:none">
+                                <input type="checkbox" checked="@visibleCols.Contains(col.Key)"
+                                       @onchange="async () => await ToggleColumnAsync(col.Key)" />
+                                @col.Label
+                            </label>
+                        </li>
+                    }
+                </ul>
+            </div>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-sm table-hover align-middle mb-0" style="font-size:0.88rem">
+                <thead>
+                    <tr>
+                        <th style="width:30px">
                             <input type="checkbox" class="form-check-input m-0"
-                                   checked="@selectedIds.Contains(s.Id)"
-                                   @onchange="() => ToggleSelect(s.Id)"
-                                   aria-label="Select @s.Title" />
-                        </div>
-
-                        <i class="bi bi-chevron-right text-muted"
-                           style="transition:transform .18s;transform:@(expandedRows.Contains(s.Id) ? "rotate(90deg)" : "none")"
-                           aria-hidden="true"></i>
-
-                        <!-- Info area -->
-                        <div class="flex-grow-1 min-w-0">
-                            <div class="d-flex align-items-center gap-2 flex-wrap">
-                                <span class="fw-semibold">@s.Title</span>
-                                <span class="strategy-chip ticker-chip">@s.Symbol</span>
-
-                                <!-- Broker mode badge -->
+                                   @onchange="ToggleSelectAll"
+                                   aria-label="Select all" />
+                        </th>
+                        <th style="width:24px"></th>
+                        <th style="white-space:nowrap">Symbol</th>
+                        <th style="white-space:nowrap">Mode</th>
+                        @if (visibleCols.Contains("qty"))   { <th class="text-end" style="white-space:nowrap">Qty</th> }
+                        @if (visibleCols.Contains("price")) { <th class="text-end" style="white-space:nowrap">Price</th> }
+                        @if (visibleCols.Contains("state")) { <th style="white-space:nowrap">State</th> }
+                        @if (visibleCols.Contains("pnl"))   { <th class="text-end" style="white-space:nowrap">P&amp;L %</th> }
+                        @if (visibleCols.Contains("sl"))    { <th class="text-end" style="white-space:nowrap">SL</th> }
+                        @if (visibleCols.Contains("tp"))    { <th class="text-end" style="white-space:nowrap">TP</th> }
+                        @if (visibleCols.Contains("cond"))  { <th class="text-center" style="white-space:nowrap">Conditions</th> }
+                        @if (visibleCols.Contains("age"))   { <th style="white-space:nowrap">Updated</th> }
+                        <th>Title</th>
+                        <th style="white-space:nowrap">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var s in filtered)
+                    {
+                        var row = BuildTableRow(s);
+                        var isExpanded = expandedRows.Contains(s.Id);
+                        <tr @key="s.Id" role="button" tabindex="0" data-strategy-id="@s.Id"
+                            aria-expanded="@isExpanded.ToString().ToLower()"
+                            @onclick="() => ToggleExpand(s.Id)"
+                            @onkeydown="e => OnRowKeyNavigate(e, s.Id)"
+                            style="cursor:pointer">
+                            <td @onclick:stopPropagation @onkeydown:stopPropagation>
+                                <input type="checkbox" class="form-check-input m-0"
+                                       checked="@selectedIds.Contains(s.Id)"
+                                       @onchange="() => ToggleSelect(s.Id)"
+                                       aria-label="Select @s.Title" />
+                            </td>
+                            <td>
+                                <i class="bi bi-chevron-right text-muted"
+                                   style="transition:transform .18s;transform:@(isExpanded ? "rotate(90deg)" : "none");display:inline-block"
+                                   aria-hidden="true"></i>
+                            </td>
+                            <td><span class="badge symbol-chip">@s.Symbol</span></td>
+                            <td @onclick:stopPropagation @onkeydown:stopPropagation>
                                 <button type="button"
                                         class="btn btn-sm py-0 @BrokerModeClass(s.BrokerMode)"
-                                        style="font-size:.68rem;min-width:50px;line-height:1.3"
+                                        style="font-size:.65rem;min-width:46px;line-height:1.3"
                                         title="@BrokerModeTitle(s.BrokerMode)"
-                                        @onclick="() => ToggleBrokerModeAsync(s)"
-                                        @onclick:stopPropagation>
-                                    @if (s.BrokerMode == "Live")
-                                    {
-                                        <i class="bi bi-broadcast me-1" aria-hidden="true"></i>
-                                    }
+                                        @onclick="() => ToggleBrokerModeAsync(s)">
                                     @s.BrokerMode
                                 </button>
-
-                                <!-- Open position badge -->
-                                @if (hasPos)
-                                {
-                                    <span class="strategy-chip long-chip">
-                                        <i class="bi bi-currency-dollar" aria-hidden="true"></i>
-                                        @posLabel @("@ $")@(s.LastEntryPrice?.ToString("0.00") ?? "—")
-                                    </span>
-                                    @if (pct.HasValue)
+                            </td>
+                            @if (visibleCols.Contains("qty"))
+                            {
+                                <td class="text-end text-muted" style="font-family:var(--font-mono)">@row.QtyStr</td>
+                            }
+                            @if (visibleCols.Contains("price"))
+                            {
+                                <td class="text-end" style="font-family:var(--font-mono);font-weight:600">
+                                    @(row.LastPrice.HasValue ? $"${row.LastPrice.Value:0.00}" : "—")
+                                </td>
+                            }
+                            @if (visibleCols.Contains("state"))
+                            {
+                                <td><span class="@TableStateClass(row.State) text-nowrap">@row.State</span></td>
+                            }
+                            @if (visibleCols.Contains("pnl"))
+                            {
+                                <td class="text-end @TablePnlClass(row.PnlPct)" style="font-family:var(--font-mono)">@row.PnlPct</td>
+                            }
+                            @if (visibleCols.Contains("sl"))
+                            {
+                                <td class="text-end text-muted" style="font-family:var(--font-mono)">@row.SlStr</td>
+                            }
+                            @if (visibleCols.Contains("tp"))
+                            {
+                                <td class="text-end text-muted" style="font-family:var(--font-mono)">@row.TpStr</td>
+                            }
+                            @if (visibleCols.Contains("cond"))
+                            {
+                                <td class="text-center">
+                                    @if (s.IsActive && progress.TryGetValue(s.Id, out var p))
                                     {
-                                        <span class="small fw-semibold @(pct > 0 ? "text-success" : "text-danger")">
-                                            @(pct > 0 ? "+" : "")@pct.Value.ToString("0.0")%
+                                        var fullPass = p.IsFullPass;
+                                        <span class="@(fullPass ? "badge bg-success" : "badge bg-secondary")"
+                                              title="Last evaluated @EasternTime.Format(p.EvaluatedUtc, "HH:mm:ss 'ET'")">
+                                            @p.PassedCount/@p.TotalCount
+                                            @if (!fullPass && !string.IsNullOrEmpty(p.FirstFailingVerb))
+                                            {
+                                                <span> · @p.FirstFailingVerb</span>
+                                            }
                                         </span>
                                     }
-                                }
-
-                                <!-- Condition progress -->
-                                @if (s.IsActive && progress.TryGetValue(s.Id, out var p))
-                                {
-                                    var fullPass = p.IsFullPass;
-                                    <span class="strategy-chip @(fullPass ? "long-chip" : "filter-chip")"
-                                          title="Last evaluated @EasternTime.Format(p.EvaluatedUtc, "HH:mm:ss 'ET'")">
-                                        <i class="bi @(fullPass ? "bi-check-circle-fill" : "bi-hourglass-split")" aria-hidden="true"></i>
-                                        @p.PassedCount/@p.TotalCount
-                                        @if (!fullPass && !string.IsNullOrEmpty(p.FirstFailingVerb))
-                                        {
-                                            <span class="text-muted ms-1">· @p.FirstFailingVerb</span>
-                                        }
-                                    </span>
-                                }
-                                else if (s.IsActive && !hasPos)
-                                {
-                                    <span class="strategy-chip text-muted">
-                                        <i class="bi bi-hourglass" aria-hidden="true"></i> awaiting
-                                    </span>
-                                }
-
-                                @if (loaded.CanonicalError is not null)
-                                {
-                                    <span class="badge bg-danger" title="@loaded.CanonicalError">QUARANTINE</span>
-                                }
-
-                                @if (s.LastFiredUtc is { } lf)
-                                {
-                                    <span class="text-muted small">fired @EasternTime.Format(lf, "MMM d HH:mm 'ET'")</span>
-                                }
-                                <span class="text-muted small">created @EasternTime.Format(s.CreatedUtc, "MMM d, yyyy")</span>
-                            </div>
-                            @if (!string.IsNullOrEmpty(s.Description))
-                            {
-                                <div class="text-muted small text-truncate" style="max-width:60ch">@s.Description</div>
+                                    else if (s.IsActive && s.PositionQty == 0)
+                                    {
+                                        <span class="text-muted small text-nowrap">
+                                            <i class="bi bi-hourglass" aria-hidden="true"></i> awaiting first evaluation
+                                        </span>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-muted">—</span>
+                                    }
+                                </td>
                             }
-                        </div>
-
-                        <!-- Actions -->
-                        <div class="d-flex gap-2 align-items-center flex-shrink-0" @onclick:stopPropagation>
-                            <div class="form-check form-switch m-0">
-                                <input class="form-check-input"
-                                       type="checkbox"
-                                       id="@($"toggle-{s.Id}")"
-                                       checked="@s.IsActive"
-                                       aria-label="@(s.IsActive ? "Deactivate" : "Activate") @s.Title"
-                                       @onchange="(e) => ToggleActive(s, (bool)(e.Value ?? false))" />
-                                <label class="form-check-label small text-muted" for="@($"toggle-{s.Id}")">
-                                    @(s.IsActive ? "Active" : "Paused")
-                                </label>
-                            </div>
-                            <button class="btn btn-sm btn-outline-secondary" type="button"
-                                    aria-label="Edit @s.Title"
-                                    @onclick="() => EditStrategy(s.Id)">
-                                <i class="bi bi-pencil" aria-hidden="true"></i> Edit
-                            </button>
-                            @if (s.IsActive)
+                            @if (visibleCols.Contains("age"))
                             {
-                                <button class="btn btn-sm btn-outline-success" type="button"
-                                        aria-label="Live chart for @s.Title"
-                                        @onclick="@(() => Nav.NavigateTo($"/live/{s.Id}"))">
-                                    <i class="bi bi-broadcast me-1" aria-hidden="true"></i>Live
-                                </button>
+                                <td class="text-muted" style="font-size:0.8rem">@TableAgeStr(row.LastPriceUtc)</td>
                             }
-                            <button class="btn btn-sm btn-outline-danger" type="button"
-                                    aria-label="Delete @s.Title"
-                                    @onclick="() => ConfirmDelete(s)">
-                                <i class="bi bi-trash" aria-hidden="true"></i>
-                            </button>
-                        </div>
-                    </div>
-
-                    @if (expandedRows.Contains(s.Id))
-                    {
-                        <div style="border-top:1px solid rgba(255,255,255,.07)">
-                            <StrategyBlueprintViz S="s" />
-                        </div>
+                            <td style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"
+                                title="@s.Title" class="text-muted">@s.Title</td>
+                            <td @onclick:stopPropagation @onkeydown:stopPropagation>
+                                <div class="d-flex gap-1 align-items-center">
+                                    <div class="form-check form-switch m-0" style="min-width:60px">
+                                        <input class="form-check-input"
+                                               type="checkbox"
+                                               id="@($"toggle-{s.Id}")"
+                                               checked="@s.IsActive"
+                                               aria-label="@(s.IsActive ? "Deactivate" : "Activate") @s.Title"
+                                               @onchange="(e) => ToggleActive(s, (bool)(e.Value ?? false))" />
+                                        <label class="form-check-label small text-muted" for="@($"toggle-{s.Id}")">
+                                            @(s.IsActive ? "Active" : "Paused")
+                                        </label>
+                                    </div>
+                                    <button class="btn btn-sm btn-outline-secondary py-0" type="button"
+                                            aria-label="Edit @s.Title"
+                                            @onclick="() => EditStrategy(s.Id)">
+                                        <i class="bi bi-pencil" aria-hidden="true"></i>
+                                    </button>
+                                    @if (s.IsActive)
+                                    {
+                                        <button class="btn btn-sm btn-outline-success py-0" type="button"
+                                                aria-label="Chart for @s.Title"
+                                                title="Real-time price chart (not the broker mode — see the Paper/Live badge)"
+                                                @onclick="@(() => Nav.NavigateTo($"/live/{s.Id}"))">
+                                            <i class="bi bi-graph-up-arrow" aria-hidden="true"></i>
+                                        </button>
+                                    }
+                                    <button class="btn btn-sm btn-outline-danger py-0" type="button"
+                                            aria-label="Delete @s.Title"
+                                            @onclick="() => ConfirmDelete(s)">
+                                        <i class="bi bi-trash" aria-hidden="true"></i>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                        @if (isExpanded)
+                        {
+                            <tr @key="@($"{s.Id}-expand")">
+                                <td colspan="999" style="padding:0;border-top:none">
+                                    <StrategyBlueprintViz S="s" />
+                                </td>
+                            </tr>
+                        }
                     }
-                </li>
-            }
-        </ul>
+                </tbody>
+            </table>
+        </div>
     }
 
     <!-- ── Delete modal ────────────────────────────────────────────────────── -->
@@ -348,12 +385,146 @@
 </section>
 
 @code {
+    private sealed record ColDef(string Key, string Label);
+    private static readonly ColDef[] AllTableCols =
+    [
+        new("qty",   "Qty"),
+        new("price", "Price"),
+        new("state", "State"),
+        new("pnl",   "P&L %"),
+        new("sl",    "SL"),
+        new("tp",    "TP"),
+        new("cond",  "Conditions"),
+        new("age",   "Last Update"),
+    ];
+    private static readonly HashSet<string> DefaultTableCols = ["qty", "state", "pnl", "cond", "price"];
+    private const string ColsKey = "idiotproof.strategies.table.cols";
+    private HashSet<string> visibleCols = new(DefaultTableCols);
+    private bool colsLoaded;
+
     private readonly HashSet<Guid> expandedRows = [];
+
+    // StrategyLoader.Load parses ScriptJson into a full StrategyDefinition
+    // tree — real work, not free. BuildTableRow ran it inline on every row on
+    // every render, including page-wide re-renders triggered by a live
+    // condition-progress push for just ONE strategy — every other row's
+    // script was re-parsed for no reason. Cache the parse per strategy,
+    // invalidated only when its ScriptJson actually changes (an edit/save).
+    private readonly Dictionary<Guid, (string? ScriptJson, StrategyLoadResult Loaded)> loadCache = new();
+
+    private StrategyLoadResult GetLoaded(Strategy s)
+    {
+        if (loadCache.TryGetValue(s.Id, out var cached) && cached.ScriptJson == s.ScriptJson)
+            return cached.Loaded;
+        var loaded = StrategyLoader.Load(s.ScriptJson, s.ScriptText);
+        loadCache[s.Id] = (s.ScriptJson, loaded);
+        return loaded;
+    }
+
+    private sealed record TableRow(
+        Strategy Strategy, string State, string PnlPct, string SlStr, string TpStr, string QtyStr,
+        decimal? LastPrice, DateTime? LastPriceUtc);
 
     private void ToggleExpand(Guid id) { if (!expandedRows.Add(id)) expandedRows.Remove(id); }
 
     private void OnRowKeyNavigate(KeyboardEventArgs e, Guid id)
     {
         if (e.Key is "Enter" or " ") ToggleExpand(id);
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender || colsLoaded) return;
+        try
+        {
+            colsLoaded = true;
+            var saved = await JS.InvokeAsync<string?>("localStorage.getItem", ColsKey);
+            if (!string.IsNullOrWhiteSpace(saved))
+                visibleCols = saved.Split(',', StringSplitOptions.RemoveEmptyEntries).ToHashSet();
+            StateHasChanged();
+        }
+        catch { }
+    }
+
+    private async Task ToggleColumnAsync(string key)
+    {
+        if (!visibleCols.Remove(key)) visibleCols.Add(key);
+        try { await JS.InvokeVoidAsync("localStorage.setItem", ColsKey, string.Join(",", visibleCols)); } catch { }
+    }
+
+    private TableRow BuildTableRow(Strategy s)
+    {
+        var loaded = GetLoaded(s);
+        var def = loaded.Definition;
+        var cp  = progress.GetValueOrDefault(s.Id);
+
+        string state = loaded.CanonicalError is not null ? "QUARANTINE"
+            : def is null ? "UNPARSED"
+            : s.PositionQty > 0
+                ? (def.Direction == TradeDirection.Short ? $"SHORT ×{s.PositionQty}" : $"LONG ×{s.PositionQty}")
+            : s.IsActive ? "Active" : "Paused";
+
+        var lastPrice = cp?.LastPrice;
+        string pnlPct = "—";
+        if (s.PositionQty > 0 && s.LastEntryPrice is { } entry && entry != 0 && lastPrice.HasValue)
+        {
+            var pct = (lastPrice.Value - entry) / entry * 100m;
+            pnlPct = pct >= 0 ? $"+{pct:0.00}%" : $"{pct:0.00}%";
+        }
+
+        string qtyStr = "—";
+        if (def is not null)
+        {
+            qtyStr = def.IsNotional
+                ? $"${def.NotionalAmount:0.##}"
+                : def.Quantity > 0 ? $"{def.Quantity}" : "default";
+        }
+
+        string slStr = "—", tpStr = "—";
+        if (def is not null)
+        {
+            var refPrice = s.LastEntryPrice;
+            bool isShort = def.Direction == TradeDirection.Short;
+            if (def.StopLossPrice.HasValue)
+                slStr = $"${def.StopLossPrice.Value:0.00}";
+            else if (def.StopLossPercent.HasValue && refPrice.HasValue && refPrice.Value != 0)
+                slStr = $"${(double)refPrice.Value * (isShort ? 1 + def.StopLossPercent.Value / 100 : 1 - def.StopLossPercent.Value / 100):0.00}";
+            else if (def.StopLossPercent.HasValue)
+                slStr = isShort ? $"+{def.StopLossPercent.Value:0.0}%" : $"-{def.StopLossPercent.Value:0.0}%";
+
+            var tpPrice = def.TakeProfitTargets?.Count > 0 ? (double?)def.TakeProfitTargets[0].Price : def.TakeProfitPrice;
+            if (tpPrice.HasValue)
+                tpStr = $"${tpPrice.Value:0.00}";
+            else if (def.TakeProfitPercent.HasValue && refPrice.HasValue && refPrice.Value != 0)
+                tpStr = $"${(double)refPrice.Value * (isShort ? 1 - def.TakeProfitPercent.Value / 100 : 1 + def.TakeProfitPercent.Value / 100):0.00}";
+            else if (def.TakeProfitPercent.HasValue)
+                tpStr = isShort ? $"-{def.TakeProfitPercent.Value:0.0}%" : $"+{def.TakeProfitPercent.Value:0.0}%";
+        }
+
+        return new TableRow(s, state, pnlPct, slStr, tpStr, qtyStr,
+            lastPrice, cp?.LastPriceUtc);
+    }
+
+    private static string TableStateClass(string state) => state switch
+    {
+        "QUARANTINE"                      => "badge bg-danger",
+        "UNPARSED"                        => "badge bg-warning text-dark",
+        "Paused"                          => "badge bg-secondary",
+        "Active"                          => "badge" ,
+        _ when state.StartsWith("LONG")  => "badge bg-success",
+        _ when state.StartsWith("SHORT") => "badge bg-primary",
+        _                                => "badge bg-secondary",
+    };
+
+    private static string TablePnlClass(string p) =>
+        p.StartsWith('+') ? "text-success fw-semibold" : p.StartsWith('-') ? "text-danger fw-semibold" : "";
+
+    private static string TableAgeStr(DateTime? utc)
+    {
+        if (utc is null) return "—";
+        var age = DateTime.UtcNow - utc.Value;
+        if (age.TotalSeconds < 90) return $"{(int)age.TotalSeconds}s ago";
+        if (age.TotalMinutes < 60) return $"{(int)age.TotalMinutes}m ago";
+        return $"{(int)age.TotalHours}h ago";
     }
 }

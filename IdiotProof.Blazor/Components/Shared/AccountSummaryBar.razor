@@ -1,0 +1,114 @@
+@using IdiotProof.Blazor.Services
+@inject AccountSummaryService AccountSummary
+
+@*
+    Compact Paper/Live account summary — cash, shares held, and dollar value,
+    fetched straight from Alpaca so it reflects the whole account (not just
+    positions IdiotProof itself opened). Labeled "Paper account" / "Live
+    account (real money)" rather than a bare "Live" chip, since "Live" already
+    means something different elsewhere on this page (a strategy's broker
+    mode) — spelling it out here keeps the two unambiguous.
+*@
+
+@if (paper is not null && live is not null)
+{
+    <div class="d-flex flex-wrap align-items-start gap-2 mb-3">
+        <div class="trading-card px-3 py-2 d-flex align-items-center gap-3"
+             style="border-left:3px solid var(--yellow);flex:1 1 260px;min-width:240px">
+            <i class="bi bi-shield-check fs-5" style="color:var(--yellow)" aria-hidden="true"></i>
+            <div class="flex-grow-1">
+                <div class="small fw-semibold">Paper account</div>
+                @RenderBody(paper)
+            </div>
+        </div>
+
+        <div class="trading-card px-3 py-2 d-flex align-items-center gap-3"
+             style="border-left:3px solid var(--red);flex:1 1 260px;min-width:240px">
+            <i class="bi bi-broadcast fs-5" style="color:var(--red)" aria-hidden="true"></i>
+            <div class="flex-grow-1">
+                <div class="small fw-semibold text-danger">Live account (real money)</div>
+                @RenderBody(live)
+            </div>
+        </div>
+
+        <button class="btn btn-sm btn-outline-secondary" type="button"
+                title="Refresh account balances" aria-label="Refresh account balances"
+                disabled="@refreshing" @onclick="RefreshAsync">
+            <i class="bi bi-arrow-clockwise @(refreshing ? "spin" : "")" aria-hidden="true"></i>
+        </button>
+    </div>
+}
+
+@code {
+    [Parameter] public Guid? UserId { get; set; }
+
+    private AccountSnapshot? paper;
+    private AccountSnapshot? live;
+    private Guid? loadedForUserId;
+    private bool refreshing;
+
+    // Alpaca account/positions are fetched once per page load, not on every
+    // OnParametersSetAsync — this component's parent re-renders on every
+    // Monitor progress push (real-time SignalR updates, as often as every
+    // tick), and refetching from Alpaca that often would hammer the API for
+    // data that only needs a manual refresh.
+    protected override async Task OnParametersSetAsync()
+    {
+        if (UserId is null || loadedForUserId == UserId) return;
+        loadedForUserId = UserId;
+        (paper, live) = await AccountSummary.GetSummaryAsync(UserId.Value);
+    }
+
+    private async Task RefreshAsync()
+    {
+        if (UserId is null || refreshing) return;
+        refreshing = true;
+        try { (paper, live) = await AccountSummary.GetSummaryAsync(UserId.Value); }
+        finally { refreshing = false; }
+    }
+
+    private RenderFragment RenderBody(AccountSnapshot snap) => builder =>
+    {
+        if (!snap.Configured)
+        {
+            builder.OpenElement(0, "div");
+            builder.AddAttribute(1, "class", "text-muted small");
+            builder.AddContent(2, $"Not configured — no {(snap.IsPaper ? "paper" : "live")} keys, or Alpaca routing isn't enabled on the API Keys page.");
+            builder.CloseElement();
+            return;
+        }
+        if (snap.Error is not null)
+        {
+            builder.OpenElement(0, "div");
+            builder.AddAttribute(1, "class", "text-danger small");
+            builder.AddAttribute(2, "title", snap.Error);
+            builder.AddContent(3, "Connection error — see API Keys page.");
+            builder.CloseElement();
+            return;
+        }
+
+        builder.OpenElement(0, "div");
+        builder.AddAttribute(1, "class", "d-flex gap-3 flex-wrap");
+        builder.AddAttribute(2, "style", "font-family:var(--font-mono)");
+
+        void Item(string label, string value, string title)
+        {
+            builder.OpenElement(10, "span");
+            builder.AddAttribute(11, "class", "small");
+            builder.AddAttribute(12, "title", title);
+            builder.OpenElement(13, "span");
+            builder.AddAttribute(14, "class", "text-muted");
+            builder.AddContent(15, label);
+            builder.CloseElement();
+            builder.AddContent(16, $" {value}");
+            builder.CloseElement();
+        }
+
+        Item("Cash", snap.Cash.HasValue ? $"${snap.Cash:N2}" : "—", "Cash on hand");
+        Item("Value", snap.PortfolioValue.HasValue ? $"${snap.PortfolioValue:N2}" : "—", "Total account value (cash + positions)");
+        Item("Shares", snap.TotalShares.ToString("0.####"), "Shares held across all open positions");
+        Item("Positions", $"${snap.TotalMarketValue:N2} ({snap.PositionCount})", "Dollar value of open positions");
+
+        builder.CloseElement();
+    };
+}

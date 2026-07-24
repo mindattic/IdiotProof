@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using IdiotProof.Blazor.Data;
 using IdiotProof.Brokers;
+using Microsoft.Extensions.Configuration;
 
 namespace IdiotProof.Blazor.Services;
 
@@ -31,6 +32,7 @@ public enum BrokerChoice
 public sealed class UserBrokerResolver(
     UserKeyService userKeys,
     BrokerRouter globalRouter,
+    IConfiguration configuration,
     ILogger<UserBrokerResolver> logger)
 {
     private static readonly TimeSpan CacheTtl = TimeSpan.FromMinutes(5);
@@ -83,9 +85,29 @@ public sealed class UserBrokerResolver(
         // Strategy-level mode: "live" forces isPaper=false; anything else is paper.
         // Paper and Live are separate Alpaca accounts with separate key pairs.
         var isPaper = mode != "live";
-        var choice = Choose(keys, isPaper);
 
-        if (choice == BrokerChoice.GlobalDefault)
+        // MindAttic.Vault's Brokers bucket (alpaca-paper/alpaca-live in
+        // %APPDATA%\MindAttic\Brokers\providers.json) overrides DB-stored
+        // UserApiKeys when present — the documented architecture rule, wired
+        // in here for the first time. Falls back to the DB-decrypted pair
+        // when Vault doesn't have this mode's keys.
+        var (vaultKeyId, vaultSecret) = AlpacaVaultKeys.Resolve(configuration, isPaper);
+        var usingVault = !string.IsNullOrWhiteSpace(vaultKeyId) && !string.IsNullOrWhiteSpace(vaultSecret);
+        var (keyId, secret) = usingVault
+            ? (vaultKeyId!, vaultSecret!)
+            : isPaper
+                ? (keys.AlpacaApiKeyId, keys.AlpacaApiSecretKey)
+                : (keys.AlpacaLiveApiKeyId, keys.AlpacaLiveApiSecretKey);
+
+        // Vault supplies the CREDENTIAL PAIR, not the opt-in — a user who has
+        // never flipped "Route my orders to this Alpaca account" (DefaultBroker
+        // stays "Sandbox") must not be silently upgraded to a real account just
+        // because a Brokers/providers.json happens to exist on the machine
+        // (IP-LAW-3: Sandbox is the always-safe default).
+        var hasUsableKeys = string.Equals(keys.DefaultBroker, "alpaca", StringComparison.OrdinalIgnoreCase)
+            && !string.IsNullOrWhiteSpace(keyId) && !string.IsNullOrWhiteSpace(secret);
+
+        if (!hasUsableKeys)
         {
             if (string.Equals(keys.DefaultBroker, "alpaca", StringComparison.OrdinalIgnoreCase))
                 logger.LogWarning(
@@ -96,18 +118,14 @@ public sealed class UserBrokerResolver(
             return global;
         }
 
-        var (keyId, secret) = isPaper
-            ? (keys.AlpacaApiKeyId!, keys.AlpacaApiSecretKey!)
-            : (keys.AlpacaLiveApiKeyId!, keys.AlpacaLiveApiSecretKey!);
-
-        var fingerprint = $"{keyId}|{secret.Length}|{isPaper}";
+        var fingerprint = $"{keyId}|{secret!.Length}|{isPaper}";
         if (hit is not null && hit.Fingerprint == fingerprint)
         {
             cache[cacheKey] = hit with { CachedUtc = DateTime.UtcNow };
             return hit.Client;
         }
 
-        var client = new AlpacaBrokerClient(keyId, secret, isPaper);
+        var client = new AlpacaBrokerClient(keyId!, secret!, isPaper);
         SetCache(cacheKey, new CacheEntry(client, fingerprint, DateTime.UtcNow), userId);
         logger.LogInformation(
             "User {UserId} orders route to their own Alpaca ({Mode}) via strategy mode {StrategyMode}.",

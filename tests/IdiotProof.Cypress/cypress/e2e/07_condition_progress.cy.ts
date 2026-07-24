@@ -45,7 +45,7 @@ describe("Condition-progress live badge (authenticated)", () => {
         cy.contains(/awaiting first evaluation/i, { timeout: 10000 }).should("be.visible");
 
         // Seed a Monitor-style partial pass and wait out one poll cycle (5s).
-        cy.get("li[data-strategy-id]")
+        cy.get("tr[data-strategy-id]")
             .first()
             .invoke("attr", "data-strategy-id")
             .then((strategyId) => {

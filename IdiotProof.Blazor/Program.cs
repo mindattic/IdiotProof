@@ -167,6 +167,7 @@ if (builder.Environment.IsDevelopment()
 }
 builder.Services.AddSingleton<IdiotProof.Blazor.Services.LlmVotingService>();
 builder.Services.AddScoped<UserKeyService>();
+builder.Services.AddScoped<AccountSummaryService>();
 builder.Services.AddSingleton<StrategyRepository>();
 builder.Services.AddSingleton<UserPreferencesService>();
 builder.Services.AddSingleton<StrategyScriptGenerator>();

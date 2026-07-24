@@ -7,10 +7,11 @@ using Microsoft.AspNetCore.Components.Web;
 namespace IdiotProof.Blazor.Components.Pages;
 
 /// <summary>
-/// Shared state/behavior for the Strategies (cards) and Dashboard (table) pages —
+/// Shared state/behavior for the Strategies page (table with expandable rows) —
 /// loading, live-mode elevation, broker-mode toggling, bulk actions, and delete.
-/// Both pages need the full set (not just markup), so this is a base class rather
-/// than duplicated code.
+/// (Strategies and Dashboard were previously separate cards/table pages; merged
+/// back into one table with expand-to-detail rows — this base class predates
+/// the merge and still separates state from markup.)
 /// </summary>
 public abstract class StrategyListPageBase : ComponentBase, IDisposable
 {

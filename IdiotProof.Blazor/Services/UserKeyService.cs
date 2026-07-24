@@ -25,6 +25,23 @@ public sealed class UserKeyService(
         return Decrypt(row);
     }
 
+    /// <summary>
+    /// Whether a (still-encrypted) Paper/Live Alpaca key pair is actually stored
+    /// for this user, independent of whether it currently decrypts. Lets a
+    /// caller tell "never configured" apart from "stored but decrypt is
+    /// failing" (see the DataProtection key-ring mismatch note in
+    /// <see cref="Unprotect"/>) instead of both looking identical.
+    /// </summary>
+    public async Task<(bool PaperKeyStored, bool LiveKeyStored)> GetKeyPresenceAsync(Guid userId, CancellationToken ct = default)
+    {
+        await using var db = await dbFactory.CreateDbContextAsync(ct);
+        var row = await db.UserApiKeys.FirstOrDefaultAsync(k => k.UserId == userId, ct);
+        if (row is null) return (false, false);
+        return (
+            !string.IsNullOrWhiteSpace(row.AlpacaApiKeyId) && !string.IsNullOrWhiteSpace(row.AlpacaApiSecretKey),
+            !string.IsNullOrWhiteSpace(row.AlpacaLiveApiKeyId) && !string.IsNullOrWhiteSpace(row.AlpacaLiveApiSecretKey));
+    }
+
     public async Task SaveAsync(Guid userId, UserApiKeys keys, CancellationToken ct = default)
     {
         await using var db = await dbFactory.CreateDbContextAsync(ct);
