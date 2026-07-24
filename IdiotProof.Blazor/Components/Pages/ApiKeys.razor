@@ -328,6 +328,12 @@
             // Alpaca routing (IP-A9) unreachable: nothing ever set "alpaca".
             DefaultBroker      = routeToMyAlpaca ? "alpaca" : "Sandbox",
             DefaultDataFeed    = string.IsNullOrWhiteSpace(loadedDataFeed) ? "Mock" : loadedDataFeed,
+            // Same whole-row-overwrite hazard as DefaultBroker above: this page
+            // has no OAuth UI, so omitting these silently erased whatever the
+            // /connect/alpaca flow had stored the next time a user hit Save All.
+            AlpacaOAuthAccessToken  = existing.AlpacaOAuthAccessToken,
+            AlpacaOAuthRefreshToken = existing.AlpacaOAuthRefreshToken,
+            AlpacaOAuthScope        = existing.AlpacaOAuthScope,
         };
 
         // Guarded: an unhandled exception here (Data Protection key-ring

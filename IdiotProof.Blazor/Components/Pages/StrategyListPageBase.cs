@@ -130,7 +130,7 @@ public abstract class StrategyListPageBase : ComponentBase, IDisposable
         if (result == StrategyMutation.Ok)
         {
             s.IsActive = isActive;
-            loadError = "";
+            loadError = null;
             if (isActive && isGapper
                 && await StrategyRepo.CountActiveForSymbolAsync(userId.Value, s.Symbol) > 1)
             {
@@ -292,7 +292,7 @@ public abstract class StrategyListPageBase : ComponentBase, IDisposable
         }
         all.RemoveAll(x => x.Id == deleteCandidate.Id);
         deleteCandidate = null;
-        loadError = "";
+        loadError = null;
     }
 
     // ── Badge helpers ─────────────────────────────────────────────────────────

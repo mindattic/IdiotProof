@@ -74,8 +74,7 @@ public sealed class UserBrokerResolver(
         if (mode == "sandbox")
         {
             var sandbox = globalRouter.GetActiveBroker();
-            cache[cacheKey] = new CacheEntry(sandbox, "global", DateTime.UtcNow);
-            DisposeReplacedClient(hit, userId);
+            SetCache(cacheKey, new CacheEntry(sandbox, "global", DateTime.UtcNow), userId);
             return sandbox;
         }
 
@@ -93,8 +92,7 @@ public sealed class UserBrokerResolver(
                     "User {UserId} prefers Alpaca but has no usable {Mode} keys — routing to the global default ({Broker}).",
                     userId, isPaper ? "paper" : "live", globalRouter.GetActiveBroker().BrokerType);
             var global = globalRouter.GetActiveBroker();
-            cache[cacheKey] = new CacheEntry(global, "global", DateTime.UtcNow);
-            DisposeReplacedClient(hit, userId);
+            SetCache(cacheKey, new CacheEntry(global, "global", DateTime.UtcNow), userId);
             return global;
         }
 
@@ -110,15 +108,28 @@ public sealed class UserBrokerResolver(
         }
 
         var client = new AlpacaBrokerClient(keyId, secret, isPaper);
-        cache[cacheKey] = new CacheEntry(client, fingerprint, DateTime.UtcNow);
+        SetCache(cacheKey, new CacheEntry(client, fingerprint, DateTime.UtcNow), userId);
         logger.LogInformation(
             "User {UserId} orders route to their own Alpaca ({Mode}) via strategy mode {StrategyMode}.",
             userId, isPaper ? "paper" : "LIVE", strategyBrokerMode);
 
-        DisposeReplacedClient(hit, userId);
-
         return client;
     }
+
+    /// <summary>
+    /// Atomically swaps in <paramref name="newEntry"/> and disposes whatever it
+    /// actually replaced. Using the dictionary's own update-value-factory (rather
+    /// than a `hit` snapshot read before an earlier `await`) means two concurrent
+    /// resolves for the same key can never both "win" without the loser's client
+    /// being disposed — a plain read-then-write here previously let a
+    /// freshly-constructed client be silently orphaned under a race.
+    /// </summary>
+    private void SetCache((Guid, string) key, CacheEntry newEntry, Guid userId) =>
+        cache.AddOrUpdate(key, newEntry, (_, old) =>
+        {
+            DisposeReplacedClient(old, userId);
+            return newEntry;
+        });
 
     /// <summary>
     /// Disposes a cache entry's client when it is being replaced. The global

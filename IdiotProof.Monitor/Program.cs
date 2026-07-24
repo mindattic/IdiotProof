@@ -152,24 +152,22 @@ builder.Services.AddSingleton(new MonitorDatabase(connStr));
 // AzureBlobUri/KeyVaultKeyUri vs. KeyRingPath choice as
 // IdiotProof.Blazor/Program.cs, or the two processes decrypt with different
 // keys and every UserApiKeys row becomes unreadable to one of them.
+// Do NOT also call builder.Services.AddDataProtection() here: ASP.NET Core
+// only keeps ONE effective ApplicationDiscriminator/XmlRepository — whichever
+// Configure<DataProtectionOptions> action runs last wins, silently, based on
+// registration order. AddMindAtticAuthentication below registers its own
+// DataProtection builder (app name "MindAttic.Auth:{AppName}"); a second,
+// differently-named registration here previously only "worked" because it
+// happened to run first and get overridden — reordering either block would
+// have silently flipped the discriminator and made every UserApiKeys row
+// undecryptable to this process. opts.ConfigureDataProtection below is the
+// single source of truth for both the app name AND the key-ring choice.
 var dpBlobUri  = builder.Configuration["DataProtection:AzureBlobUri"];
 var dpKvKeyUri = builder.Configuration["DataProtection:KeyVaultKeyUri"];
 var keyRingPath = builder.Configuration["DataProtection:KeyRingPath"]
     ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
         "MindAttic", "DataProtection", "IdiotProof");
 
-var dataProtectionBuilder = builder.Services.AddDataProtection().SetApplicationName("IdiotProof");
-if (!string.IsNullOrWhiteSpace(dpBlobUri) && !string.IsNullOrWhiteSpace(dpKvKeyUri))
-{
-    var dpCredential = new Azure.Identity.DefaultAzureCredential();
-    dataProtectionBuilder
-        .PersistKeysToAzureBlobStorage(new Uri(dpBlobUri), dpCredential)
-        .ProtectKeysWithAzureKeyVault(new Uri(dpKvKeyUri), dpCredential);
-}
-else
-{
-    dataProtectionBuilder.PersistKeysToFileSystem(new DirectoryInfo(keyRingPath));
-}
 builder.Services.AddSingleton<UserKeyService>();
 builder.Services.AddSingleton<UserBrokerResolver>();
 builder.Services.AddSingleton<EmailDomainBlocklistService>();

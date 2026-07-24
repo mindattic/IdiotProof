@@ -144,12 +144,16 @@ window.strategyPreview = (() => {
     }
 
     // Generate schematic OHLC bars: higher-low consolidation → breakout → run.
+    // For a Short strategy, every price is mirrored around entry so the
+    // schematic shows a breakDOWN (lower-high consolidation → run lower)
+    // instead of illustrating a bullish setup for a strategy that profits
+    // when price falls.
     function _makeBars(cfg) {
         const E = cfg.entry;
         if (E == null || E <= 0) return [];
-        const T2 = cfg.t2 || E * 1.80;
-        const T1 = cfg.t1 || E * 1.55;
-        return [
+        const T2 = cfg.t2 || (cfg.isShort ? E * 0.20 : E * 1.80);
+        const T1 = cfg.t1 || (cfg.isShort ? E * 0.45 : E * 1.55);
+        const bars = [
             { o: E*0.950, h: E*0.970, l: E*0.855, c: E*0.920 },           // red
             { o: E*0.920, h: E*0.962, l: E*0.882, c: E*0.900 },           // red  (higher low)
             { o: E*0.900, h: E*0.985, l: E*0.906, c: E*0.935 },           // red  (higher low)
@@ -157,6 +161,9 @@ window.strategyPreview = (() => {
             { o: E*1.042, h: E+(T1-E)*0.82, l: E*1.008, c: E+(T1-E)*0.78 }, // green run
             { o: E+(T1-E)*0.78, h: T2*1.012,   l: T1*0.940, c: T2*0.968 },  // green targets
         ];
+        if (!cfg.isShort) return bars;
+        const mirror = v => 2 * E - v;
+        return bars.map(b => ({ o: mirror(b.o), h: mirror(b.l), l: mirror(b.h), c: mirror(b.c) }));
     }
 
     return { draw };
