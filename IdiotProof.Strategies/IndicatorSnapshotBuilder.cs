@@ -104,15 +104,23 @@ public static class IndicatorSnapshotBuilder
         if (snapshot.Emas.TryGetValue(50, out var e50))   snapshot.Ema50  = e50;
         if (snapshot.Emas.TryGetValue(200, out var e200)) snapshot.Ema200 = e200;
 
-        // RSI
-        if (n >= 2)
+        // RSI — needs a full `period` (14) of price changes before Wilder's
+        // smoothing has a real seed; n>=2 let a single noisy bar produce a
+        // fabricated RSI of exactly 0 or 100 (whichever direction that one
+        // bar moved) instead of failing closed per IP-LAW-1.
+        if (n >= 15)
         {
             var rsi = RSI.Calculate(candles);
             snapshot.Rsi = (double)rsi[^1];
         }
 
-        // MACD
-        if (n >= 26)
+        // MACD — the signal line is a 9-period EMA of the MACD line itself,
+        // which needs `slow` (26) bars before it exists at all. n>=26 gave
+        // the signal EMA exactly ONE MACD point to seed from, so Signal was
+        // forced equal to Macd (Histogram=0) — IsMacdBullish (Macd>Signal)
+        // was always false, so IsMacdBearish (!IsMacdBullish) spuriously
+        // read TRUE on the very first MACD snapshot regardless of price.
+        if (n >= 34)
         {
             var macd = MACD.Calculate(candles);
             snapshot.MacdLine  = (double)macd[^1].Macd;
@@ -120,8 +128,11 @@ public static class IndicatorSnapshotBuilder
             snapshot.Histogram = (double)macd[^1].Histogram;
         }
 
-        // ADX / DI
-        if (n >= 28)
+        // ADX / DI — ADX.Calculate zeroes indices before its own warmup
+        // window (2*period), so at exactly n=28 the last index (27) still
+        // falls inside that zeroed range: n>=28 served a fabricated Adx=0.0
+        // (not null) for one bar before a real smoothed value existed.
+        if (n >= 29)
         {
             var adxSeries = ADX.Calculate(candles);
             snapshot.PlusDI  = (double)adxSeries[^1].PlusDI;

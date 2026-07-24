@@ -83,14 +83,27 @@ public sealed class AutoGapperScanner(
         logger.LogInformation("Auto-gapper: {Screened} movers → {Qualified} gapping ≥{Gap}% and ≥${Px}.",
             movers.Count, qualified.Count, settings.AutoGapperMinGapPercent, settings.AutoGapperMinPrice);
 
-        // Gather per-ticker signals and synthesize adaptive plans.
+        // Gather per-ticker signals and synthesize adaptive plans. One bad
+        // ticker (a glitched premarket print producing a degenerate price
+        // band, GapperProfile.Validate() rejecting it, GapperScriptFactory.
+        // Compose throwing) must not abort the scan for every OTHER
+        // candidate — the arm loop below already isolates per-symbol
+        // failures the same way; this loop previously didn't.
         var plans = new List<CandidatePlan>();
         foreach (var m in movers.Where(m => qualified.Contains(m.Symbol, StringComparer.OrdinalIgnoreCase))
                                  .GroupBy(m => m.Symbol, StringComparer.OrdinalIgnoreCase).Select(g => g.First()))
         {
             var sym = m.Symbol.ToUpperInvariant();
-            var sig = await GatherSignalsAsync(sym, m.Percent, m.Price, ct);
-            plans.Add(Synthesize(sym, sig));
+            try
+            {
+                var sig = await GatherSignalsAsync(sym, m.Percent, m.Price, ct);
+                plans.Add(Synthesize(sym, sig));
+            }
+            catch (OperationCanceledException) { throw; }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "Auto-gapper: failed to synthesize a plan for {Symbol} — skipping.", sym);
+            }
         }
 
         // Rank by conviction (gap × premarket-liquidity) and keep the top N.
