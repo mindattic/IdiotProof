@@ -89,13 +89,15 @@ public sealed class StrategyScriptGenerator(LegionClient legion, AppSettings app
         // under Setup, so the Learning Center taught the wrong phase.
         var order   = all.Where(v => HasPrefix(v, "Long(", "Short(", "Order(", "Quantity", "AutonomousTrading(", "AdaptiveOrder(")).ToList();
         var risk    = all.Where(v => HasPrefix(v, "StopLoss", "TrailingStop")).ToList();
-        var exit    = all.Where(v => HasPrefix(v, "TakeProfit", "AddTarget(", "ExitStrategy(", "Repeat(", "SellBy(", "PeakGiveback(")).ToList();
+        var exit    = all.Where(v => HasPrefix(v, "TakeProfit", "AddTarget(", "ExitStrategy(", "Repeat(", "SellBy(", "PeakGiveback(",
+            "ExitAtRollingHigh(", "ExitAtRollingLow(", "ExitAtPriorHigh(")).ToList();
 
         var usedSet = new HashSet<string>(StringComparer.Ordinal);
         foreach (var list in new[] { setup, filters, order, risk, exit })
             foreach (var v in list) usedSet.Add(v);
 
-        var entry = all.Where(v => !usedSet.Contains(v) && !HasPrefix(v, "Build(", "If(")).ToList();
+        // ToScript( is a serialization method, not a DSL verb — same footing as Build(/If(.
+        var entry = all.Where(v => !usedSet.Contains(v) && !HasPrefix(v, "Build(", "If(", "ToScript(")).ToList();
 
         return
         [

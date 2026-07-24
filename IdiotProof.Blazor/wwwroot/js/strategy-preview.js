@@ -37,7 +37,7 @@ window.strategyPreview = (() => {
         const cW  = W - PAD.l - PAD.r;
         const cH  = H - PAD.t - PAD.b;
 
-        const prices = [cfg.stop, cfg.holds, cfg.entry, cfg.t1, cfg.t2]
+        const prices = [cfg.stop, cfg.holds, cfg.entry, cfg.t1, cfg.t2, cfg.rollingHigh, cfg.rollingLow, cfg.peakGiveback]
             .filter(v => v != null && v > 0);
         if (prices.length < 2) return;
 
@@ -105,6 +105,42 @@ window.strategyPreview = (() => {
         hline(cfg.entry, vwapBlue, [],     1.8);  // entry / VWAP: sky blue
         hline(cfg.t1,    yellow,   [],     1.5);  // T1: gold
         hline(cfg.t2,    green,    [],     1.8);  // T2: green
+
+        // VWAP tag on the entry line — hasVwapAbove/hasVwapReclaim were previously
+        // accepted but never read, so a strategy gated on VWAP looked identical to
+        // one that wasn't.
+        if ((cfg.hasVwapAbove || cfg.hasVwapReclaim) && cfg.entry != null) {
+            const y = toY(cfg.entry);
+            ctx.fillStyle = vwapBlue;
+            ctx.font = '9px "Roboto Mono","Courier New",monospace';
+            ctx.textAlign = 'left';
+            ctx.textBaseline = 'bottom';
+            ctx.fillText(cfg.hasVwapReclaim ? 'VWAP ↩' : 'VWAP', lx1 + 2, y - 3);
+        }
+
+        // Dynamic/trailing exit levels (rolling high/low, peak giveback) move
+        // day-to-day, unlike a fixed stop/target — a double-dashed line + text
+        // label signals "this follows the market," not a fixed $ price.
+        function hlineDynamic(price, label, color) {
+            if (price == null || !label) return;
+            const y = toY(price);
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 1;
+            ctx.setLineDash([2, 2]);
+            ctx.beginPath(); ctx.moveTo(lx1, y - 1.5); ctx.lineTo(lx2, y - 1.5); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(lx1, y + 1.5); ctx.lineTo(lx2, y + 1.5); ctx.stroke();
+            ctx.setLineDash([]);
+
+            ctx.fillStyle = color;
+            ctx.font = '9px "Roboto Mono","Courier New",monospace';
+            ctx.textAlign = 'left';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(label, lx2 + 4, y);
+        }
+
+        hlineDynamic(cfg.rollingHigh,   cfg.rollingHighLabel,   brand);
+        hlineDynamic(cfg.rollingLow,    cfg.rollingLowLabel,    red);
+        hlineDynamic(cfg.peakGiveback,  cfg.peakGivebackLabel,  yellow);
     }
 
     // Generate schematic OHLC bars: higher-low consolidation → breakout → run.

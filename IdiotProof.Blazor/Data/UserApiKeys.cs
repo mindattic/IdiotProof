@@ -10,10 +10,14 @@ public sealed class UserApiKeys
     public Guid UserId { get; set; }
 
     // Alpaca — provides both trading + real-time market data, so it's the only
-    // broker/feed credential the editor needs.
+    // broker/feed credential the editor needs. Paper and Live are DIFFERENT Alpaca
+    // accounts with their own key pairs (not one pair + a flag) — a strategy's
+    // BrokerMode picks which pair UserBrokerResolver uses.
     public string? AlpacaApiKeyId { get; set; }
     public string? AlpacaApiSecretKey { get; set; }
     public bool AlpacaIsPaper { get; set; } = true;
+    public string? AlpacaLiveApiKeyId { get; set; }
+    public string? AlpacaLiveApiSecretKey { get; set; }
 
     // Claude / LLM
     public string? ClaudeApiKey { get; set; }

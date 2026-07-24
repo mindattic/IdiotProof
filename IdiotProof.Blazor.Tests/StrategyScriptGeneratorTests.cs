@@ -69,6 +69,26 @@ public sealed class StrategyScriptGeneratorTests
         Assert.That(prompt, Does.Contain("OnReclaim("));
     }
 
+    // ── Phase bucketing (GetVerbsByPhase) ──
+
+    [Test]
+    public void GetVerbsByPhase_BucketsRollingAndPriorHighExitsUnderExit_NotEntry()
+    {
+        var groups = StrategyScriptGenerator.GetVerbsByPhase();
+        var exitVerbs = groups.Single(g => g.Phase == "Exit").Verbs;
+        var entryVerbs = groups.Single(g => g.Phase == "Entry").Verbs;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(exitVerbs, Has.Some.StartsWith("ExitAtRollingHigh("));
+            Assert.That(exitVerbs, Has.Some.StartsWith("ExitAtRollingLow("));
+            Assert.That(exitVerbs, Has.Some.StartsWith("ExitAtPriorHigh("));
+            Assert.That(entryVerbs, Has.None.StartsWith("ExitAtRollingHigh("));
+            Assert.That(entryVerbs, Has.None.StartsWith("ExitAtRollingLow("));
+            Assert.That(entryVerbs, Has.None.StartsWith("ExitAtPriorHigh("));
+        });
+    }
+
     // ── Code-fence stripping ──
 
     [Test]

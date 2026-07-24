@@ -1,10 +1,15 @@
 @using IdiotProof.Scripting
+@using IdiotProof.Blazor.Services
 @inject IJSRuntime JS
 
 @*
     Expand-panel visualization for a strategy row on the Strategies page.
-    Left column: condition list + exit/stop/R:R stats.
+    Left column: Filters / Entry condition lists, stat rows, branches.
     Right column: canvas schematic chart (strategy-preview.js).
+
+    Every row is driven by DslGlossary — the same registry the Learning Center
+    reads — so no DSL verb renders as a blank line, and clicking any row opens
+    the same glossary explanation shown there.
 *@
 
 @if (parseError is not null)
@@ -16,37 +21,75 @@ else if (def is not null)
     <div class="d-flex flex-wrap gap-4 px-3 pb-3 pt-2">
 
         @* Left: conditions + stats *@
-        <div style="min-width:170px;flex:0 0 auto">
-            <div class="text-muted mb-2"
-                 style="font-size:.68rem;text-transform:uppercase;letter-spacing:.05em;font-weight:600">
-                Conditions
-            </div>
-            @foreach (var c in condLabels)
+        <div style="min-width:190px;flex:0 0 auto">
+            @if (filterLabels.Count > 0)
             {
-                <div class="d-flex align-items-center gap-2 mb-1 small">
-                    <i class="bi @c.Icon" style="color:@c.Color;width:1rem;flex-shrink:0" aria-hidden="true"></i>
-                    <span>@c.Text</span>
+                <div class="text-muted mb-1"
+                     style="font-size:.68rem;text-transform:uppercase;letter-spacing:.05em;font-weight:600">
+                    Filters
+                </div>
+                @foreach (var row in filterLabels)
+                {
+                    <div class="d-flex align-items-center gap-2 mb-1 small" style="cursor:pointer" @onclick="() => selectedGlossaryKey = row.GlossaryKey">
+                        <i class="bi @row.Icon" style="color:@row.Color;width:1rem;flex-shrink:0" aria-hidden="true"></i>
+                        <span>@row.Text</span>
+                    </div>
+                }
+                <div class="mb-2"></div>
+            }
+
+            <div class="text-muted mb-1"
+                 style="font-size:.68rem;text-transform:uppercase;letter-spacing:.05em;font-weight:600">
+                Entry
+            </div>
+            @if (entryLabels.Count == 0)
+            {
+                <div class="small text-muted mb-1">No entry trigger set.</div>
+            }
+            @foreach (var row in entryLabels)
+            {
+                <div class="d-flex align-items-center gap-2 mb-1 small" style="cursor:pointer" @onclick="() => selectedGlossaryKey = row.GlossaryKey">
+                    <i class="bi @row.Icon" style="color:@row.Color;width:1rem;flex-shrink:0" aria-hidden="true"></i>
+                    <span>@row.Text</span>
                 </div>
             }
-            @if (exitTime is not null || stopPct is not null || rrLines.Count > 0)
+
+            @if (statRows.Count > 0 || rrLines.Count > 0)
             {
                 <div class="mt-2 pt-2" style="border-top:1px solid rgba(255,255,255,.08)">
-                    @if (exitTime is not null)
+                    @foreach (var row in statRows)
                     {
-                        <div class="small text-muted">
-                            <i class="bi bi-flag me-1" aria-hidden="true"></i>Flatten @exitTime ET
-                        </div>
-                    }
-                    @if (stopPct is not null)
-                    {
-                        <div class="small" style="color:var(--red)">
-                            <i class="bi bi-shield-exclamation me-1" aria-hidden="true"></i>Stop @stopPct.Value.ToString("0.##")%
+                        <div class="small mb-1" style="color:@row.Color;cursor:pointer" @onclick="() => selectedGlossaryKey = row.GlossaryKey">
+                            <i class="bi @row.Icon me-1" aria-hidden="true"></i>@row.Text
                         </div>
                     }
                     @foreach (var rr in rrLines)
                     {
                         <div class="small" style="color:var(--green)">
                             <i class="bi bi-graph-up me-1" aria-hidden="true"></i>R:R @rr.Label 1:@rr.Ratio.ToString("0.1")
+                        </div>
+                    }
+                </div>
+            }
+
+            @if (branchLines.Count > 0)
+            {
+                <div class="mt-2 pt-2" style="border-top:1px solid rgba(255,255,255,.08)">
+                    <div class="text-muted mb-1"
+                         style="font-size:.68rem;text-transform:uppercase;letter-spacing:.05em;font-weight:600">
+                        Branches
+                    </div>
+                    @foreach (var b in branchLines)
+                    {
+                        <div class="small mb-1">
+                            <span class="fw-semibold" style="color:var(--brand)">@b.Label</span>
+                            @if (!string.IsNullOrEmpty(b.Condition))
+                            {
+                                <code class="ms-1" style="font-size:.75rem">@b.Condition</code>
+                            }
+                            <div class="text-muted ms-3" style="font-size:.75rem">
+                                <code>@b.Overrides</code>
+                            </div>
                         </div>
                     }
                 </div>
@@ -59,6 +102,8 @@ else if (def is not null)
         </div>
 
     </div>
+
+    <GlossaryModal Key="selectedGlossaryKey" OnClose="() => selectedGlossaryKey = null" />
 }
 
 @code {
@@ -67,11 +112,14 @@ else if (def is not null)
     private StrategyDefinition? def;
     private string? parseError;
     private string canvasId = "";
+    private string? selectedGlossaryKey;
 
-    private List<(string Icon, string Color, string Text)> condLabels = [];
+    private List<(string Icon, string Color, string Text, string? GlossaryKey)> filterLabels = [];
+    private List<(string Icon, string Color, string Text, string? GlossaryKey)> entryLabels = [];
+    private List<(string Icon, string Color, string Text, string? GlossaryKey)> statRows = [];
+    private List<(string Label, string Condition, string Overrides)> branchLines = [];
     private List<(string Label, double Ratio)> rrLines = [];
-    private string? exitTime;
-    private double? stopPct;
+
     private double? entryRef;
     private double? stopPrice;
     private double? holdsLevel;
@@ -79,11 +127,17 @@ else if (def is not null)
     private double? t2;
     private bool hasVwapAbove;
     private bool hasVwapReclaim;
+    private double? rollingHigh;
+    private string? rollingHighLabel;
+    private double? rollingLow;
+    private string? rollingLowLabel;
+    private double? peakGivebackAnchor;
+    private string? peakGivebackLabel;
 
     protected override void OnParametersSet()
     {
         def = null; parseError = null;
-        condLabels = []; rrLines = [];
+        filterLabels = []; entryLabels = []; statRows = []; branchLines = []; rrLines = [];
         if (S is null) return;
 
         canvasId = $"bp-{S.Id:N}";
@@ -108,7 +162,13 @@ else if (def is not null)
                 t1,
                 t2,
                 hasVwapAbove,
-                hasVwapReclaim
+                hasVwapReclaim,
+                rollingHigh,
+                rollingHighLabel,
+                rollingLow,
+                rollingLowLabel,
+                peakGiveback      = peakGivebackAnchor,
+                peakGivebackLabel
             });
     }
 
@@ -116,34 +176,54 @@ else if (def is not null)
     {
         var flat = Flatten(d.EntryConditions).ToList();
 
+        // Every leaf condition gets a row — driven by the glossary, not a
+        // hand-picked subset. Filters (always-on regime gates) and Entry
+        // (the trigger) render as separate labeled sections.
+        foreach (var c in flat)
+        {
+            var glossary = DslGlossary.Find(c);
+            var row = (
+                glossary?.Icon ?? "bi-question-circle",
+                glossary?.Color ?? "var(--text-muted)",
+                FormatConditionText(c, glossary),
+                glossary?.Key);
+            if (c.Phase == StrategyPhase.Filters) filterLabels.Add(row);
+            else entryLabels.Add(row);
+        }
+
         var breaksAbove  = flat.OfType<PriceLevelCondition>().FirstOrDefault(c => c.Type == PriceLevelType.BreaksAbove);
         var holdsAbove   = flat.OfType<PriceLevelCondition>().FirstOrDefault(c => c.Type == PriceLevelType.HoldsAbove);
         hasVwapAbove     = flat.OfType<IndicatorCondition>().Any(c => c.Type == IndicatorType.VwapAbove);
         hasVwapReclaim   = flat.OfType<IndicatorCondition>().Any(c => c.Type == IndicatorType.VwapReclaim);
-        bool hasHigherLow = flat.OfType<IndicatorCondition>().Any(c => c.Type == IndicatorType.HigherLow);
-        var tw           = flat.OfType<TimeWindowCondition>().FirstOrDefault();
 
         entryRef   = breaksAbove?.Level ?? holdsAbove?.Level;
         holdsLevel = (holdsAbove is not null && breaksAbove is not null) ? holdsAbove.Level : null;
-        stopPct    = d.StopLossPercent;
+        var stopPct = d.StopLossPercent;
         stopPrice  = entryRef.HasValue && d.StopLossPercent.HasValue
             ? entryRef.Value * (1.0 - d.StopLossPercent.Value / 100.0) : null;
         t1 = d.TakeProfitTargets.Count > 0 ? d.TakeProfitTargets[0].Price : d.TakeProfitPrice;
         t2 = d.TakeProfitTargets.Count > 1 ? d.TakeProfitTargets[1].Price : null;
-        exitTime = d.ExitTime.HasValue ? $"{d.ExitTime.Value:hh\\:mm}" : null;
+        var exitTime = d.ExitTime.HasValue ? $"{d.ExitTime.Value:hh\\:mm}" : null;
 
-        if (tw is not null)
-            condLabels.Add(("bi-clock", "var(--blue)", $"Entry {tw.StartEt:hh\\:mm}–{tw.EndEt:hh\\:mm} ET"));
-        if (breaksAbove is not null)
-            condLabels.Add(("bi-arrow-up-circle", "var(--brand)", $"Breaks ${breaksAbove.Level:F2}"));
-        if (hasVwapReclaim)
-            condLabels.Add(("bi-arrow-return-right", "#38bdf8", "VWAP Reclaim"));
-        else if (hasVwapAbove)
-            condLabels.Add(("bi-water", "#38bdf8", "Above VWAP"));
-        if (hasHigherLow)
-            condLabels.Add(("bi-graph-up-arrow", "var(--green)", "Higher Low"));
-        if (holdsAbove is not null)
-            condLabels.Add(("bi-shield-check", "var(--brand)", $"Holds ${holdsAbove.Level:F2}"));
+        void AddStat(string glossaryKey, string text)
+        {
+            var e = DslGlossary.Find(glossaryKey);
+            statRows.Add((e?.Icon ?? "bi-info-circle", e?.Color ?? "var(--text-muted)", text, e?.Key ?? glossaryKey));
+        }
+
+        if (exitTime is not null) AddStat("ExitStrategy", $"Flatten {exitTime} ET");
+        if (stopPct is not null) AddStat("StopLossPercent", $"Stop {stopPct.Value:0.##}%");
+        if (d.TrailingStopPercent is { } tsp) AddStat("TrailingStopLoss", $"Trailing stop {tsp:0.##}%");
+        if (d.PeakGivebackPercent is { } pg)
+            AddStat("PeakGiveback", $"Giveback {pg:0.##}%" + (d.PeakGivebackArmTime is { } arm ? $" armed {arm:hh\\:mm} ET" : ""));
+        if (d.ExitAtPriorHigh) AddStat("ExitAtPriorHigh", "Exit at prior high");
+        if (d.RollingHighDays is { } rhd) AddStat("ExitAtRollingHigh", $"Exit at {rhd}d high ({(d.RollingHighBuffer ?? 2.5):0.#}% buffer)");
+        if (d.RollingLowDays is { } rld) AddStat("ExitAtRollingLow", $"Cut at {rld}d low ({(d.RollingLowBuffer ?? 2.5):0.#}% buffer)");
+        if (d.EntryRollingLowDays is { } erld) AddStat("EntryAtRollingLow", $"Enter near {erld}d low ({(d.EntryRollingLowBuffer ?? 2.5):0.#}%)");
+        if (d.EntryRollingHighDays is { } erhd) AddStat("EntryAtRollingHigh", $"Enter near {erhd}d high ({(d.EntryRollingHighBuffer ?? 2.5):0.#}%)");
+        AddStat("Quantity", d.IsNotional
+            ? $"Size ${d.NotionalAmount:0.##} notional"
+            : d.Quantity > 0 ? $"Qty {d.Quantity} shares" : "Qty: workspace default");
 
         if (entryRef.HasValue && stopPrice.HasValue)
         {
@@ -154,6 +234,53 @@ else if (def is not null)
                 if (t2.HasValue) rrLines.Add(("T2", (t2.Value - entryRef.Value) / risk));
             }
         }
+
+        // Branches — label + the branch's own condition/override script text.
+        // No new formatting logic: ToScript() already produces readable text.
+        foreach (var block in d.ConditionalBlocks)
+        {
+            for (var i = 0; i < block.Branches.Count; i++)
+            {
+                var branch = block.Branches[i];
+                var label = i == 0 ? "If" : branch.Condition is null ? "Else" : "ElseIf";
+                branchLines.Add((label, branch.Condition?.ToScript() ?? "", branch.Overrides.ToScript()));
+            }
+        }
+
+        // Schematic canvas anchors for dynamic/trailing exits — these levels move
+        // day-to-day so, like the rest of this chart's already-synthetic candles,
+        // the anchor is illustrative (offset from entry), not a live computed price.
+        if (d.RollingHighDays.HasValue && entryRef.HasValue)
+        {
+            rollingHigh = entryRef.Value * 1.06;
+            rollingHighLabel = $"{d.RollingHighDays}d Hi ({(d.RollingHighBuffer ?? 2.5):0.#}%)";
+        }
+        if (d.RollingLowDays.HasValue && entryRef.HasValue)
+        {
+            rollingLow = entryRef.Value * 0.85;
+            rollingLowLabel = $"{d.RollingLowDays}d Lo ({(d.RollingLowBuffer ?? 2.5):0.#}%)";
+        }
+        if (d.PeakGivebackPercent.HasValue && entryRef.HasValue)
+        {
+            peakGivebackAnchor = entryRef.Value * 1.03;
+            peakGivebackLabel = $"Giveback {d.PeakGivebackPercent:0.#}%";
+        }
+    }
+
+    private static string FormatConditionText(ICondition c, DslGlossary.Entry? glossary)
+    {
+        var title = glossary?.Title ?? c.ToScript();
+        return c switch
+        {
+            PriceLevelCondition p => $"{title} ${p.Level:F2}",
+            IndicatorCondition { Parameter: { } p1, Parameter2: { } p2 } => $"{title} ({p1:0.#}, {p2:0.#})",
+            IndicatorCondition { Parameter: { } p1 } => $"{title} ({p1:0.#})",
+            PatternCondition { Level: { } lvl } => $"{title} ${lvl:F2}",
+            GapBandCondition g => $"{title} {g.MinPercent:0.#}–{g.MaxPercent:0.#}%",
+            PriceBandCondition b => $"{title} ${b.Min:F2}–${b.Max:F2}",
+            TimeWindowCondition tw => $"{title} {tw.StartEt:hh\\:mm}–{tw.EndEt:hh\\:mm} ET",
+            _ => title
+        };
     }
 
     private static IEnumerable<ICondition> Flatten(IEnumerable<ICondition> conditions)

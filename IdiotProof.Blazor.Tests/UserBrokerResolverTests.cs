@@ -12,12 +12,15 @@ namespace IdiotProof.Blazor.Tests;
 [TestFixture]
 public sealed class UserBrokerResolverTests
 {
-    private static UserApiKeys Keys(string? broker, string? keyId, string? secret) => new()
+    private static UserApiKeys Keys(string? broker, string? keyId, string? secret,
+        string? liveKeyId = null, string? liveSecret = null) => new()
     {
         UserId = Guid.NewGuid(),
         DefaultBroker = broker!,
         AlpacaApiKeyId = keyId,
         AlpacaApiSecretKey = secret,
+        AlpacaLiveApiKeyId = liveKeyId,
+        AlpacaLiveApiSecretKey = liveSecret,
     };
 
     [Test]
@@ -48,5 +51,21 @@ public sealed class UserBrokerResolverTests
             Assert.That(UserBrokerResolver.Choose(Keys(null, "PKTEST", "secret")), Is.EqualTo(BrokerChoice.GlobalDefault));
             Assert.That(UserBrokerResolver.Choose(Keys("sandbox", "PKTEST", "secret")), Is.EqualTo(BrokerChoice.GlobalDefault));
         });
+    }
+
+    // Paper and Live are separate Alpaca accounts with separate key pairs — a user
+    // can have one configured without the other, and the wrong pair must never be
+    // reused across the boundary (Alpaca rejects a paper key against the live API).
+
+    [Test]
+    public void Choose_LiveMode_RequiresTheLiveKeyPair()
+    {
+        var paperOnly = Keys("alpaca", "PKTEST", "papersecret");
+        Assert.That(UserBrokerResolver.Choose(paperOnly, isPaper: true), Is.EqualTo(BrokerChoice.UserAlpaca));
+        Assert.That(UserBrokerResolver.Choose(paperOnly, isPaper: false), Is.EqualTo(BrokerChoice.GlobalDefault),
+            "a paper-only account must not route Live to the paper keys");
+
+        var both = Keys("alpaca", "PKTEST", "papersecret", "AKLIVE", "livesecret");
+        Assert.That(UserBrokerResolver.Choose(both, isPaper: false), Is.EqualTo(BrokerChoice.UserAlpaca));
     }
 }

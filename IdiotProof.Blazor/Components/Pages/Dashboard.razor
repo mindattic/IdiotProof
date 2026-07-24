@@ -1,5 +1,427 @@
-@page "/dashboard-legacy"
-@inject NavigationManager Nav
+@page "/dashboard"
+@rendermode InteractiveServer
+@using IdiotProof.Scripting
+@using IdiotProof.Models
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize]
+@inherits StrategyListPageBase
+@inject IJSRuntime JS
+
+@*
+    Dashboard — compact table view. All strategies for the signed-in user, one row
+    each, all visible at once. Same data/actions as the Strategies (cards) page —
+    condition progress, position state, P&L, per-strategy paper/live routing — just
+    denser. Column visibility is user-configurable and persisted to localStorage.
+*@
+
+<PageTitle>Dashboard — IdiotProof</PageTitle>
+
+<section aria-labelledby="dashboard-heading">
+
+    <!-- ── Page header ─────────────────────────────────────────────────────── -->
+    <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+        <h1 id="dashboard-heading" class="h4 mb-0">
+            <i class="bi bi-table me-2" style="color:var(--brand)" aria-hidden="true"></i>Dashboard
+        </h1>
+
+        <div class="d-flex gap-2 align-items-stretch">
+            <input class="form-control"
+                   style="max-width:220px"
+                   placeholder="Filter by title or ticker…"
+                   @bind="filterText"
+                   @bind:event="oninput"
+                   aria-label="Filter strategies" />
+            <button class="btn btn-success text-nowrap" type="button" @onclick="CreateNew">
+                <i class="bi bi-plus-circle me-1" aria-hidden="true"></i>Create New Strategy
+            </button>
+        </div>
+    </div>
+
+    <!-- ── Elevation status banner ─────────────────────────────────────────── -->
+    @if (userId is not null && ElevationSvc.RemainingWindow(userId.Value) is { } window)
+    {
+        <div class="alert alert-warning py-2 small mb-2" role="status">
+            <i class="bi bi-shield-lock me-1" aria-hidden="true"></i>
+            Live trading elevation active — @($"{(int)window.TotalMinutes}:{window.Seconds:D2}") remaining.
+            <button class="btn btn-sm btn-outline-warning ms-2 py-0" @onclick="RevokeElevation">Revoke</button>
+        </div>
+    }
+
+    <!-- ── Error ───────────────────────────────────────────────────────────── -->
+    @if (loadError is not null)
+    {
+        <div class="alert alert-danger small">@loadError</div>
+    }
+
+    <!-- ── Bulk action bar (when selections exist) ─────────────────────────── -->
+    @if (selectedIds.Count > 0)
+    {
+        <div class="d-flex align-items-center gap-2 mb-2 p-2 trading-card flex-wrap"
+             style="border-left:3px solid var(--brand)">
+            <span class="text-muted small fw-semibold">@selectedIds.Count selected</span>
+            <div class="dropdown">
+                <button class="btn btn-sm btn-secondary dropdown-toggle" type="button"
+                        data-bs-toggle="dropdown" aria-expanded="false">
+                    Bulk Actions
+                </button>
+                <ul class="dropdown-menu">
+                    <li>
+                        <button class="dropdown-item" @onclick="() => ApplyBulkActiveAsync(true)">
+                            <i class="bi bi-play-fill me-2 text-success"></i>Activate Selected
+                        </button>
+                    </li>
+                    <li>
+                        <button class="dropdown-item" @onclick="() => ApplyBulkActiveAsync(false)">
+                            <i class="bi bi-pause-fill me-2 text-muted"></i>Deactivate Selected
+                        </button>
+                    </li>
+                    <li><hr class="dropdown-divider"></li>
+                    <li>
+                        <button class="dropdown-item" @onclick='() => ApplyBulkBrokerModeAsync("Paper")'>
+                            <i class="bi bi-shield-check me-2" style="color:var(--yellow)"></i>Toggle → Paper
+                        </button>
+                    </li>
+                    <li>
+                        <button class="dropdown-item text-danger" @onclick='() => ApplyBulkBrokerModeAsync("Live")'>
+                            <i class="bi bi-broadcast me-2 text-danger"></i>Toggle → Live (requires auth)
+                        </button>
+                    </li>
+                    <li><hr class="dropdown-divider"></li>
+                    <li>
+                        <button class="dropdown-item" @onclick="() => selectedIds.Clear()">
+                            <i class="bi bi-x-circle me-2"></i>Clear Selection
+                        </button>
+                    </li>
+                </ul>
+            </div>
+            @if (!string.IsNullOrEmpty(bulkMessage))
+            {
+                <span class="small @(bulkMessage.StartsWith("⚠") ? "text-warning" : "text-success")">@bulkMessage</span>
+            }
+        </div>
+    }
+
+    <!-- ── Loading ────────────────────────────────────────────────────────── -->
+    @if (loading)
+    {
+        <div class="text-muted small">
+            <span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>Loading…
+        </div>
+    }
+    else if (filtered.Count == 0)
+    {
+        <div class="trading-card p-4 text-center">
+            <i class="bi bi-inbox fs-1 text-muted d-block mb-2" aria-hidden="true"></i>
+            <div class="text-muted">No strategies yet.</div>
+            <button class="btn btn-success btn-sm mt-3" type="button" @onclick="CreateNew">
+                <i class="bi bi-plus-circle me-1" aria-hidden="true"></i>Create your first strategy
+            </button>
+        </div>
+    }
+    else
+    {
+        <div class="d-flex justify-content-end mb-2">
+            <div class="dropdown">
+                <button class="btn btn-sm btn-outline-secondary" type="button"
+                        data-bs-toggle="dropdown" aria-expanded="false">
+                    <i class="bi bi-layout-three-columns me-1" aria-hidden="true"></i>Columns
+                </button>
+                <ul class="dropdown-menu dropdown-menu-end" style="min-width:160px">
+                    @foreach (var col in AllTableCols)
+                    {
+                        <li>
+                            <label class="dropdown-item d-flex align-items-center gap-2" style="cursor:pointer;user-select:none">
+                                <input type="checkbox" checked="@visibleCols.Contains(col.Key)"
+                                       @onchange="async () => await ToggleColumnAsync(col.Key)" />
+                                @col.Label
+                            </label>
+                        </li>
+                    }
+                </ul>
+            </div>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-sm table-hover align-middle mb-0" style="font-size:0.88rem">
+                <thead>
+                    <tr>
+                        <th style="width:30px">
+                            <input type="checkbox" class="form-check-input m-0"
+                                   @onchange="ToggleSelectAll"
+                                   aria-label="Select all" />
+                        </th>
+                        <th style="white-space:nowrap">Symbol</th>
+                        <th style="white-space:nowrap">Mode</th>
+                        @if (visibleCols.Contains("price")) { <th class="text-end" style="white-space:nowrap">Price</th> }
+                        @if (visibleCols.Contains("state")) { <th style="white-space:nowrap">State</th> }
+                        @if (visibleCols.Contains("pnl"))   { <th class="text-end" style="white-space:nowrap">P&amp;L %</th> }
+                        @if (visibleCols.Contains("sl"))    { <th class="text-end" style="white-space:nowrap">SL</th> }
+                        @if (visibleCols.Contains("tp"))    { <th class="text-end" style="white-space:nowrap">TP</th> }
+                        @if (visibleCols.Contains("cond"))  { <th class="text-center" style="white-space:nowrap">Conditions</th> }
+                        @if (visibleCols.Contains("age"))   { <th style="white-space:nowrap">Updated</th> }
+                        <th>Title</th>
+                        <th style="white-space:nowrap">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var s in filtered)
+                    {
+                        var row = BuildTableRow(s);
+                        <tr @key="s.Id" @onclick="() => EditStrategy(s.Id)" style="cursor:pointer">
+                            <td @onclick:stopPropagation>
+                                <input type="checkbox" class="form-check-input m-0"
+                                       checked="@selectedIds.Contains(s.Id)"
+                                       @onchange="() => ToggleSelect(s.Id)"
+                                       aria-label="Select @s.Title" />
+                            </td>
+                            <td><span class="badge symbol-chip">@s.Symbol</span></td>
+                            <td @onclick:stopPropagation>
+                                <button type="button"
+                                        class="btn btn-sm py-0 @BrokerModeClass(s.BrokerMode)"
+                                        style="font-size:.65rem;min-width:46px;line-height:1.3"
+                                        title="@BrokerModeTitle(s.BrokerMode)"
+                                        @onclick="() => ToggleBrokerModeAsync(s)">
+                                    @s.BrokerMode
+                                </button>
+                            </td>
+                            @if (visibleCols.Contains("price"))
+                            {
+                                <td class="text-end" style="font-family:var(--font-mono);font-weight:600">
+                                    @(row.LastPrice.HasValue ? $"${row.LastPrice.Value:0.00}" : "—")
+                                </td>
+                            }
+                            @if (visibleCols.Contains("state"))
+                            {
+                                <td><span class="@TableStateClass(row.State) text-nowrap">@row.State</span></td>
+                            }
+                            @if (visibleCols.Contains("pnl"))
+                            {
+                                <td class="text-end @TablePnlClass(row.PnlPct)" style="font-family:var(--font-mono)">@row.PnlPct</td>
+                            }
+                            @if (visibleCols.Contains("sl"))
+                            {
+                                <td class="text-end text-muted" style="font-family:var(--font-mono)">@row.SlStr</td>
+                            }
+                            @if (visibleCols.Contains("tp"))
+                            {
+                                <td class="text-end text-muted" style="font-family:var(--font-mono)">@row.TpStr</td>
+                            }
+                            @if (visibleCols.Contains("cond"))
+                            {
+                                <td class="text-center">
+                                    <span class="@TableCondClass(row)">@row.PassedCount/@row.TotalCount</span>
+                                </td>
+                            }
+                            @if (visibleCols.Contains("age"))
+                            {
+                                <td class="text-muted" style="font-size:0.8rem">@TableAgeStr(row.LastPriceUtc)</td>
+                            }
+                            <td style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"
+                                title="@s.Title" class="text-muted">@s.Title</td>
+                            <td @onclick:stopPropagation>
+                                <div class="d-flex gap-1">
+                                    <div class="form-check form-switch m-0" style="min-width:60px">
+                                        <input class="form-check-input"
+                                               type="checkbox"
+                                               checked="@s.IsActive"
+                                               @onchange="(e) => ToggleActive(s, (bool)(e.Value ?? false))" />
+                                        <label class="form-check-label small text-muted">
+                                            @(s.IsActive ? "Active" : "Paused")
+                                        </label>
+                                    </div>
+                                    <button class="btn btn-sm btn-outline-danger py-0" @onclick="() => ConfirmDelete(s)">
+                                        <i class="bi bi-trash" aria-hidden="true"></i>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+
+    <!-- ── Delete modal ────────────────────────────────────────────────────── -->
+    @if (deleteCandidate is not null)
+    {
+        <div class="modal-backdrop fade show" @onclick="() => deleteCandidate = null"></div>
+        <div class="modal fade show d-block" role="dialog" aria-modal="true" aria-labelledby="del-title" tabindex="-1">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h2 id="del-title" class="h5 modal-title">Delete strategy?</h2>
+                    </div>
+                    <div class="modal-body">
+                        <p>Permanently delete <strong>@deleteCandidate.Title</strong>? This cannot be undone.</p>
+                    </div>
+                    <div class="modal-footer">
+                        <button class="btn btn-secondary btn-sm" type="button" @onclick="() => deleteCandidate = null">Cancel</button>
+                        <button class="btn btn-danger btn-sm" type="button" @onclick="DeleteConfirmed">Delete</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+
+    <!-- ── Password / elevation modal ─────────────────────────────────────── -->
+    @if (showPasswordModal)
+    {
+        <div class="modal-backdrop fade show" @onclick="CancelPasswordModal"></div>
+        <div class="modal fade show d-block" role="dialog" aria-modal="true"
+             aria-labelledby="pw-modal-title" tabindex="-1"
+             @onkeydown="OnPasswordModalKeyDown">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content bg-dark border-danger">
+                    <div class="modal-header border-danger">
+                        <h2 id="pw-modal-title" class="h5 modal-title text-danger">
+                            <i class="bi bi-shield-lock me-2" aria-hidden="true"></i>Enable Live Trading
+                        </h2>
+                    </div>
+                    <div class="modal-body text-white">
+                        <p class="text-warning small mb-2">
+                            You are enabling <strong>live trading with real money</strong>.
+                            Re-enter your password to open a 5-minute elevation window.
+                        </p>
+                        <input type="password" class="form-control bg-dark text-white border-secondary"
+                               placeholder="Your password"
+                               @bind="passwordInput"
+                               @bind:event="oninput"
+                               autocomplete="current-password" />
+                        @if (!string.IsNullOrEmpty(passwordModalError))
+                        {
+                            <div class="alert alert-danger small py-1 mt-2">@passwordModalError</div>
+                        }
+                        @if (isVerifyingPassword)
+                        {
+                            <div class="text-muted small mt-2">
+                                <span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span>Verifying…
+                            </div>
+                        }
+                    </div>
+                    <div class="modal-footer border-danger">
+                        <button class="btn btn-secondary" type="button" @onclick="CancelPasswordModal">Cancel</button>
+                        <button class="btn btn-danger" type="button"
+                                @onclick="ConfirmPasswordModalAsync"
+                                disabled="@(isVerifyingPassword || string.IsNullOrEmpty(passwordInput))"
+                                autofocus>
+                            Confirm — Enable Live Trading
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+
+</section>
+
 @code {
-    protected override void OnInitialized() => Nav.NavigateTo("/", replace: true);
+    private sealed record ColDef(string Key, string Label);
+    private static readonly ColDef[] AllTableCols =
+    [
+        new("price", "Price"),
+        new("state", "State"),
+        new("pnl",   "P&L %"),
+        new("sl",    "SL"),
+        new("tp",    "TP"),
+        new("cond",  "Conditions"),
+        new("age",   "Last Update"),
+    ];
+    private static readonly HashSet<string> DefaultTableCols = ["state", "pnl", "cond", "price"];
+    private const string ColsKey = "idiotproof.dashboard.cols";
+    private HashSet<string> visibleCols = new(DefaultTableCols);
+    private bool colsLoaded;
+
+    private sealed record TableRow(
+        Strategy Strategy, string State, string PnlPct, string SlStr, string TpStr,
+        decimal? LastPrice, DateTime? LastPriceUtc, int PassedCount, int TotalCount);
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender || colsLoaded) return;
+        try
+        {
+            colsLoaded = true;
+            var saved = await JS.InvokeAsync<string?>("localStorage.getItem", ColsKey);
+            if (!string.IsNullOrWhiteSpace(saved))
+                visibleCols = saved.Split(',', StringSplitOptions.RemoveEmptyEntries).ToHashSet();
+            StateHasChanged();
+        }
+        catch { }
+    }
+
+    private async Task ToggleColumnAsync(string key)
+    {
+        if (!visibleCols.Remove(key)) visibleCols.Add(key);
+        try { await JS.InvokeVoidAsync("localStorage.setItem", ColsKey, string.Join(",", visibleCols)); } catch { }
+    }
+
+    private TableRow BuildTableRow(Strategy s)
+    {
+        var loaded = StrategyLoader.Load(s.ScriptJson, s.ScriptText);
+        var def = loaded.Definition;
+        var cp  = progress.GetValueOrDefault(s.Id);
+
+        string state = loaded.CanonicalError is not null ? "QUARANTINE"
+            : def is null ? "UNPARSED"
+            : s.PositionQty > 0
+                ? (def.Direction == TradeDirection.Short ? $"SHORT ×{s.PositionQty}" : $"LONG ×{s.PositionQty}")
+            : s.IsActive ? "armed" : "paused";
+
+        var lastPrice = cp?.LastPrice;
+        string pnlPct = "—";
+        if (s.PositionQty > 0 && s.LastEntryPrice is { } entry && entry != 0 && lastPrice.HasValue)
+        {
+            var pct = (lastPrice.Value - entry) / entry * 100m;
+            pnlPct = pct >= 0 ? $"+{pct:0.00}%" : $"{pct:0.00}%";
+        }
+
+        string slStr = "—", tpStr = "—";
+        if (def is not null)
+        {
+            var refPrice = s.LastEntryPrice;
+            bool isShort = def.Direction == TradeDirection.Short;
+            if (def.StopLossPrice.HasValue)
+                slStr = $"${def.StopLossPrice.Value:0.00}";
+            else if (def.StopLossPercent.HasValue && refPrice.HasValue && refPrice.Value != 0)
+                slStr = $"${(double)refPrice.Value * (isShort ? 1 + def.StopLossPercent.Value / 100 : 1 - def.StopLossPercent.Value / 100):0.00}";
+            else if (def.StopLossPercent.HasValue)
+                slStr = isShort ? $"+{def.StopLossPercent.Value:0.0}%" : $"-{def.StopLossPercent.Value:0.0}%";
+
+            var tpPrice = def.TakeProfitTargets?.Count > 0 ? (double?)def.TakeProfitTargets[0].Price : def.TakeProfitPrice;
+            if (tpPrice.HasValue)
+                tpStr = $"${tpPrice.Value:0.00}";
+            else if (def.TakeProfitPercent.HasValue && refPrice.HasValue && refPrice.Value != 0)
+                tpStr = $"${(double)refPrice.Value * (isShort ? 1 - def.TakeProfitPercent.Value / 100 : 1 + def.TakeProfitPercent.Value / 100):0.00}";
+            else if (def.TakeProfitPercent.HasValue)
+                tpStr = isShort ? $"-{def.TakeProfitPercent.Value:0.0}%" : $"+{def.TakeProfitPercent.Value:0.0}%";
+        }
+
+        return new TableRow(s, state, pnlPct, slStr, tpStr,
+            lastPrice, cp?.LastPriceUtc, cp?.PassedCount ?? 0, cp?.TotalCount ?? 0);
+    }
+
+    private static string TableStateClass(string state) => state switch
+    {
+        "QUARANTINE"                      => "badge bg-danger",
+        "UNPARSED"                        => "badge bg-warning text-dark",
+        "paused"                          => "badge bg-secondary",
+        "armed"                           => "badge" ,
+        _ when state.StartsWith("LONG")  => "badge bg-success",
+        _ when state.StartsWith("SHORT") => "badge bg-primary",
+        _                                => "badge bg-secondary",
+    };
+
+    private static string TablePnlClass(string p) =>
+        p.StartsWith('+') ? "text-success fw-semibold" : p.StartsWith('-') ? "text-danger fw-semibold" : "";
+
+    private static string TableCondClass(TableRow r) =>
+        r.TotalCount > 0 && r.PassedCount == r.TotalCount ? "badge bg-success" : "badge bg-secondary";
+
+    private static string TableAgeStr(DateTime? utc)
+    {
+        if (utc is null) return "—";
+        var age = DateTime.UtcNow - utc.Value;
+        if (age.TotalSeconds < 90) return $"{(int)age.TotalSeconds}s ago";
+        if (age.TotalMinutes < 60) return $"{(int)age.TotalMinutes}m ago";
+        return $"{(int)age.TotalHours}h ago";
+    }
 }

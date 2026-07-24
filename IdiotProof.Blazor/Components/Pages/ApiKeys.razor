@@ -41,55 +41,8 @@
         <h2 id="alpaca-heading" class="h6 text-white mb-0">
             <i class="bi bi-graph-up me-1" aria-hidden="true"></i>Alpaca
         </h2>
-        <button class="btn btn-sm btn-outline-secondary" type="button" @onclick="TestAlpaca" aria-label="Test Alpaca connection">
-            <i class="bi bi-broadcast me-1" aria-hidden="true"></i>Test Connection
-        </button>
     </div>
-    <div role="status" aria-live="polite" aria-atomic="true">
-    @if (!string.IsNullOrEmpty(alpacaTestResult))
-    {
-        <div class="alert @(alpacaTestOk ? "alert-success" : "alert-danger") small py-1 mb-2">@alpacaTestResult</div>
-    }
-    </div>
-    <div class="row g-3">
-        <div class="col-md-5">
-            <label class="form-label text-muted small" for="alpaca-key-id">API Key ID</label>
-            <div class="input-group">
-                <input id="alpaca-key-id"
-                       class="form-control bg-dark text-white border-secondary"
-                       type="@(showAlpacaKey ? "text" : "password")"
-                       @bind="alpacaKeyId"
-                       autocomplete="off"
-                       placeholder="PK..." />
-                <button class="btn btn-outline-secondary"
-                        type="button"
-                        @onclick="() => showAlpacaKey = !showAlpacaKey"
-                        aria-label="@(showAlpacaKey ? "Hide Alpaca API key ID" : "Show Alpaca API key ID")"
-                        aria-pressed="@showAlpacaKey">
-                    <i class="bi @(showAlpacaKey ? "bi-eye-slash" : "bi-eye")" aria-hidden="true"></i>
-                </button>
-            </div>
-        </div>
-        <div class="col-md-6">
-            <label class="form-label text-muted small" for="alpaca-secret">Secret Key</label>
-            <div class="input-group">
-                <input id="alpaca-secret"
-                       class="form-control bg-dark text-white border-secondary"
-                       type="@(showAlpacaSecret ? "text" : "password")"
-                       @bind="alpacaSecret"
-                       autocomplete="off"
-                       placeholder="••••••••••••" />
-                <button class="btn btn-outline-secondary"
-                        type="button"
-                        @onclick="() => showAlpacaSecret = !showAlpacaSecret"
-                        aria-label="@(showAlpacaSecret ? "Hide Alpaca secret key" : "Show Alpaca secret key")"
-                        aria-pressed="@showAlpacaSecret">
-                    <i class="bi @(showAlpacaSecret ? "bi-eye-slash" : "bi-eye")" aria-hidden="true"></i>
-                </button>
-            </div>
-        </div>
-    </div>
-    <div class="form-check form-switch mt-3">
+    <div class="form-check form-switch mb-3">
         <input class="form-check-input" type="checkbox" id="routeToAlpaca"
                checked="@routeToMyAlpaca"
                @onchange="e => routeToMyAlpaca = (bool)(e.Value ?? false)" />
@@ -97,6 +50,122 @@
             Route my orders to this Alpaca account — paper vs. live is set per strategy on the Strategies page.
             Off = all orders go to the safe Sandbox default.
         </label>
+    </div>
+
+    <!-- Paper keys -->
+    <div class="mb-3 pb-3" style="border-bottom:1px solid rgba(255,255,255,.08)">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+            <h3 class="h6 small fw-semibold mb-0" style="color:var(--yellow)">
+                <i class="bi bi-shield-check me-1" aria-hidden="true"></i>Paper Trading Keys
+            </h3>
+            <button class="btn btn-sm btn-outline-secondary" type="button" @onclick="() => TestAlpaca(isPaper: true)" aria-label="Test Alpaca paper connection">
+                <i class="bi bi-broadcast me-1" aria-hidden="true"></i>Test Connection
+            </button>
+        </div>
+        <div role="status" aria-live="polite" aria-atomic="true">
+        @if (!string.IsNullOrEmpty(alpacaPaperTestResult))
+        {
+            <div class="alert @(alpacaPaperTestOk ? "alert-success" : "alert-danger") small py-1 mb-2">@alpacaPaperTestResult</div>
+        }
+        </div>
+        <div class="row g-3">
+            <div class="col-md-5">
+                <label class="form-label text-muted small" for="alpaca-paper-key-id">API Key ID</label>
+                <div class="input-group">
+                    <input id="alpaca-paper-key-id"
+                           class="form-control bg-dark text-white border-secondary"
+                           type="@(showAlpacaPaperKey ? "text" : "password")"
+                           @bind="alpacaPaperKeyId"
+                           autocomplete="off"
+                           placeholder="PK..." />
+                    <button class="btn btn-outline-secondary"
+                            type="button"
+                            @onclick="() => showAlpacaPaperKey = !showAlpacaPaperKey"
+                            aria-label="@(showAlpacaPaperKey ? "Hide paper API key ID" : "Show paper API key ID")"
+                            aria-pressed="@showAlpacaPaperKey">
+                        <i class="bi @(showAlpacaPaperKey ? "bi-eye-slash" : "bi-eye")" aria-hidden="true"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <label class="form-label text-muted small" for="alpaca-paper-secret">Secret Key</label>
+                <div class="input-group">
+                    <input id="alpaca-paper-secret"
+                           class="form-control bg-dark text-white border-secondary"
+                           type="@(showAlpacaPaperSecret ? "text" : "password")"
+                           @bind="alpacaPaperSecret"
+                           autocomplete="off"
+                           placeholder="••••••••••••" />
+                    <button class="btn btn-outline-secondary"
+                            type="button"
+                            @onclick="() => showAlpacaPaperSecret = !showAlpacaPaperSecret"
+                            aria-label="@(showAlpacaPaperSecret ? "Hide paper secret key" : "Show paper secret key")"
+                            aria-pressed="@showAlpacaPaperSecret">
+                        <i class="bi @(showAlpacaPaperSecret ? "bi-eye-slash" : "bi-eye")" aria-hidden="true"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Live keys -->
+    <div>
+        <div class="d-flex justify-content-between align-items-center mb-2">
+            <h3 class="h6 small fw-semibold mb-0 text-danger">
+                <i class="bi bi-broadcast me-1" aria-hidden="true"></i>Live Trading Keys
+            </h3>
+            <button class="btn btn-sm btn-outline-secondary" type="button" @onclick="() => TestAlpaca(isPaper: false)" aria-label="Test Alpaca live connection">
+                <i class="bi bi-broadcast me-1" aria-hidden="true"></i>Test Connection
+            </button>
+        </div>
+        <div class="alert alert-danger small py-2 mb-2" role="alert">
+            These authorize <strong>real-money</strong> trades on your live Alpaca account. Only strategies
+            explicitly switched to Live mode (with re-authentication) will ever use them.
+        </div>
+        <div role="status" aria-live="polite" aria-atomic="true">
+        @if (!string.IsNullOrEmpty(alpacaLiveTestResult))
+        {
+            <div class="alert @(alpacaLiveTestOk ? "alert-success" : "alert-danger") small py-1 mb-2">@alpacaLiveTestResult</div>
+        }
+        </div>
+        <div class="row g-3">
+            <div class="col-md-5">
+                <label class="form-label text-muted small" for="alpaca-live-key-id">API Key ID</label>
+                <div class="input-group">
+                    <input id="alpaca-live-key-id"
+                           class="form-control bg-dark text-white border-secondary"
+                           type="@(showAlpacaLiveKey ? "text" : "password")"
+                           @bind="alpacaLiveKeyId"
+                           autocomplete="off"
+                           placeholder="AK..." />
+                    <button class="btn btn-outline-secondary"
+                            type="button"
+                            @onclick="() => showAlpacaLiveKey = !showAlpacaLiveKey"
+                            aria-label="@(showAlpacaLiveKey ? "Hide live API key ID" : "Show live API key ID")"
+                            aria-pressed="@showAlpacaLiveKey">
+                        <i class="bi @(showAlpacaLiveKey ? "bi-eye-slash" : "bi-eye")" aria-hidden="true"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <label class="form-label text-muted small" for="alpaca-live-secret">Secret Key</label>
+                <div class="input-group">
+                    <input id="alpaca-live-secret"
+                           class="form-control bg-dark text-white border-secondary"
+                           type="@(showAlpacaLiveSecret ? "text" : "password")"
+                           @bind="alpacaLiveSecret"
+                           autocomplete="off"
+                           placeholder="••••••••••••" />
+                    <button class="btn btn-outline-secondary"
+                            type="button"
+                            @onclick="() => showAlpacaLiveSecret = !showAlpacaLiveSecret"
+                            aria-label="@(showAlpacaLiveSecret ? "Hide live secret key" : "Show live secret key")"
+                            aria-pressed="@showAlpacaLiveSecret">
+                        <i class="bi @(showAlpacaLiveSecret ? "bi-eye-slash" : "bi-eye")" aria-hidden="true"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
     </div>
 </section>
 
@@ -153,18 +222,25 @@
 </section>
 
 @code {
-    private string alpacaKeyId = "";
-    private string alpacaSecret = "";
-    private bool showAlpacaKey;
-    private bool showAlpacaSecret;
+    private string alpacaPaperKeyId = "";
+    private string alpacaPaperSecret = "";
+    private bool showAlpacaPaperKey;
+    private bool showAlpacaPaperSecret;
+
+    private string alpacaLiveKeyId = "";
+    private string alpacaLiveSecret = "";
+    private bool showAlpacaLiveKey;
+    private bool showAlpacaLiveSecret;
 
     private string claudeKey = "";
     private string claudeModel = "claude-sonnet-5";
     private bool showClaudeKey;
     private bool llmVotingEnabled;
 
-    private string alpacaTestResult = "";
-    private bool alpacaTestOk;
+    private string alpacaPaperTestResult = "";
+    private bool alpacaPaperTestOk;
+    private string alpacaLiveTestResult = "";
+    private bool alpacaLiveTestOk;
     private string saveMessage = "";
     private bool routeToMyAlpaca;
     private string? loadedDataFeed;
@@ -179,8 +255,10 @@
         if (userId is null) return;
 
         var keys = await UserKeyService.GetOrCreateAsync(userId.Value);
-        alpacaKeyId    = keys.AlpacaApiKeyId ?? "";
-        alpacaSecret   = keys.AlpacaApiSecretKey ?? "";
+        alpacaPaperKeyId  = keys.AlpacaApiKeyId ?? "";
+        alpacaPaperSecret = keys.AlpacaApiSecretKey ?? "";
+        alpacaLiveKeyId   = keys.AlpacaLiveApiKeyId ?? "";
+        alpacaLiveSecret  = keys.AlpacaLiveApiSecretKey ?? "";
         claudeKey      = keys.ClaudeApiKey ?? "";
         claudeModel    = string.IsNullOrWhiteSpace(keys.ClaudeModel) ? "claude-sonnet-5" : keys.ClaudeModel;
         llmVotingEnabled = keys.LlmVotingEnabled;
@@ -188,41 +266,43 @@
         loadedDataFeed   = keys.DefaultDataFeed;
     }
 
-    private async Task TestAlpaca()
+    private async Task TestAlpaca(bool isPaper)
     {
-        if (string.IsNullOrWhiteSpace(alpacaKeyId) || string.IsNullOrWhiteSpace(alpacaSecret))
+        var keyId  = isPaper ? alpacaPaperKeyId  : alpacaLiveKeyId;
+        var secret = isPaper ? alpacaPaperSecret : alpacaLiveSecret;
+
+        void SetResult(string msg, bool ok)
         {
-            alpacaTestResult = "Enter API Key ID and Secret Key first.";
-            alpacaTestOk = false;
+            if (isPaper) { alpacaPaperTestResult = msg; alpacaPaperTestOk = ok; }
+            else         { alpacaLiveTestResult  = msg; alpacaLiveTestOk  = ok; }
+        }
+
+        if (string.IsNullOrWhiteSpace(keyId) || string.IsNullOrWhiteSpace(secret))
+        {
+            SetResult("Enter API Key ID and Secret Key first.", false);
             return;
         }
-        alpacaTestResult = "Testing...";
-        alpacaTestOk = false;
+        SetResult("Testing...", false);
         StateHasChanged();
         try
         {
             using var client = HttpClientFactory.CreateClient();
-            // Test against paper endpoint; live key detection is per-strategy now
-            client.DefaultRequestHeaders.Add("APCA-API-KEY-ID", alpacaKeyId);
-            client.DefaultRequestHeaders.Add("APCA-API-SECRET-KEY", alpacaSecret);
-            var resp = await client.GetAsync("https://paper-api.alpaca.markets/v2/account");
-            if (!resp.IsSuccessStatusCode)
-                resp = await client.GetAsync("https://api.alpaca.markets/v2/account");
+            client.DefaultRequestHeaders.Add("APCA-API-KEY-ID", keyId);
+            client.DefaultRequestHeaders.Add("APCA-API-SECRET-KEY", secret);
+            var baseUrl = isPaper ? "https://paper-api.alpaca.markets" : "https://api.alpaca.markets";
+            var resp = await client.GetAsync($"{baseUrl}/v2/account");
             if (resp.IsSuccessStatusCode)
             {
-                alpacaTestResult = "Connected!";
-                alpacaTestOk = true;
+                SetResult("Connected!", true);
             }
             else
             {
-                alpacaTestResult = $"Failed: HTTP {(int)resp.StatusCode} — check your keys.";
-                alpacaTestOk = false;
+                SetResult($"Failed: HTTP {(int)resp.StatusCode} — check your keys.", false);
             }
         }
         catch (Exception ex)
         {
-            alpacaTestResult = $"Error: {ex.Message}";
-            alpacaTestOk = false;
+            SetResult($"Error: {ex.Message}", false);
         }
     }
 
@@ -233,9 +313,11 @@
         var existing = await UserKeyService.GetOrCreateAsync(userId.Value);
         var keys = new UserApiKeys
         {
-            UserId             = userId.Value,
-            AlpacaApiKeyId     = alpacaKeyId,
-            AlpacaApiSecretKey = alpacaSecret,
+            UserId                 = userId.Value,
+            AlpacaApiKeyId         = alpacaPaperKeyId,
+            AlpacaApiSecretKey     = alpacaPaperSecret,
+            AlpacaLiveApiKeyId     = alpacaLiveKeyId,
+            AlpacaLiveApiSecretKey = alpacaLiveSecret,
             AlpacaIsPaper      = existing.AlpacaIsPaper, // preserved; paper/live is now per-strategy
             ClaudeApiKey       = claudeKey,
             ClaudeModel        = claudeModel,

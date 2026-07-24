@@ -102,7 +102,7 @@
                             <div class="verb-list">
                                 @foreach (var verb in group.Verbs)
                                 {
-                                    <code class="verb-chip small">@verb</code>
+                                    <button type="button" class="verb-chip small" @onclick="() => selectedGlossaryKey = VerbKey(verb)">@verb</button>
                                 }
                             </div>
                         </div>
@@ -125,7 +125,7 @@
                 <div class="verb-list mt-2">
                     @foreach (var v in conditionCatalog)
                     {
-                        <code class="verb-chip small">@v</code>
+                        <button type="button" class="verb-chip small" @onclick="() => selectedGlossaryKey = VerbKey(v)">@v</button>
                     }
                 </div>
             </details>
@@ -279,6 +279,8 @@
 
 </section>
 
+<GlossaryModal Key="selectedGlossaryKey" OnClose="() => selectedGlossaryKey = null" />
+
 <style>
     .learn-center { max-width: 1100px; }
 
@@ -307,7 +309,10 @@
         border: 1px solid var(--border-color, rgba(255,255,255,.1));
         border-radius: 4px; padding: .1rem .35rem;
         font-size: .7rem; white-space: nowrap;
+        font-family: var(--font-mono, "Roboto Mono", "Courier New", monospace);
+        color: inherit; cursor: pointer;
     }
+    .verb-chip:hover { border-color: var(--brand); background: var(--card-bg-hover, rgba(255,255,255,.12)); }
 
     /* Gates */
     .gate-card {
@@ -354,6 +359,10 @@
 @code {
     private IReadOnlyList<StrategyScriptGenerator.PhaseVerbGroup>? phaseGroups;
     private IReadOnlyList<string>? conditionCatalog;
+    private string? selectedGlossaryKey;
+
+    /// <summary>The bare verb name (before "(") a reflected chip like "IsAdxAbove(double threshold=20)" resolves to.</summary>
+    private static string VerbKey(string reflectedVerb) => reflectedVerb.Split('(')[0].Trim();
 
     private static readonly ExampleEntry[] examples =
     [

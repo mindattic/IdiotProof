@@ -1,0 +1,39 @@
+@using IdiotProof.Blazor.Services
+
+@*
+    Shared "what does this verb mean" modal — opened from Learn.razor's verb chips
+    and from StrategyBlueprintViz's condition/stat rows, both reading the same
+    DslGlossary entry so the description is identical wherever it's shown.
+    Reuses the existing modal-backdrop/modal-fade pattern already used elsewhere
+    in the app (Strategies.razor's delete/password modals) — no new JS interop.
+*@
+
+@if (Key is not null && DslGlossary.Find(Key) is { } entry)
+{
+    <div class="modal-backdrop fade show" @onclick="Close"></div>
+    <div class="modal fade show d-block" role="dialog" aria-modal="true" aria-labelledby="glossary-modal-title" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2 id="glossary-modal-title" class="h5 modal-title">
+                        <i class="bi @entry.Icon me-2" style="color:@entry.Color" aria-hidden="true"></i>@entry.Title
+                    </h2>
+                </div>
+                <div class="modal-body">
+                    <code class="small d-block mb-2 text-muted">@entry.Key</code>
+                    <p class="mb-0">@entry.Description</p>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary btn-sm" type="button" @onclick="Close">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public string? Key { get; set; }
+    [Parameter] public EventCallback OnClose { get; set; }
+
+    private Task Close() => OnClose.InvokeAsync();
+}

@@ -42,12 +42,17 @@ public sealed class UserBrokerResolver(
     private sealed record CacheEntry(IBrokerClient Client, string Fingerprint, DateTime CachedUtc);
 
     /// <summary>The pure routing rule. Testable with a plain <see cref="UserApiKeys"/>.</summary>
-    public static BrokerChoice Choose(UserApiKeys keys) =>
+    /// <param name="isPaper">Which key pair must be present — Paper and Live are separate
+    /// Alpaca accounts, so a user can have one configured without the other.</param>
+    public static BrokerChoice Choose(UserApiKeys keys, bool isPaper = true) =>
         string.Equals(keys.DefaultBroker, "alpaca", StringComparison.OrdinalIgnoreCase)
-        && !string.IsNullOrWhiteSpace(keys.AlpacaApiKeyId)
-        && !string.IsNullOrWhiteSpace(keys.AlpacaApiSecretKey)
+        && HasPair(keys, isPaper)
             ? BrokerChoice.UserAlpaca
             : BrokerChoice.GlobalDefault;
+
+    private static bool HasPair(UserApiKeys keys, bool isPaper) => isPaper
+        ? !string.IsNullOrWhiteSpace(keys.AlpacaApiKeyId) && !string.IsNullOrWhiteSpace(keys.AlpacaApiSecretKey)
+        : !string.IsNullOrWhiteSpace(keys.AlpacaLiveApiKeyId) && !string.IsNullOrWhiteSpace(keys.AlpacaLiveApiSecretKey);
 
     /// <summary>
     /// Resolves the broker for <paramref name="userId"/> honouring the per-strategy
@@ -75,30 +80,36 @@ public sealed class UserBrokerResolver(
         }
 
         var keys = await userKeys.GetOrCreateAsync(userId, ct);
-        var choice = Choose(keys);
+
+        // Strategy-level mode: "live" forces isPaper=false; anything else is paper.
+        // Paper and Live are separate Alpaca accounts with separate key pairs.
+        var isPaper = mode != "live";
+        var choice = Choose(keys, isPaper);
 
         if (choice == BrokerChoice.GlobalDefault)
         {
             if (string.Equals(keys.DefaultBroker, "alpaca", StringComparison.OrdinalIgnoreCase))
                 logger.LogWarning(
-                    "User {UserId} prefers Alpaca but has no usable keys — routing to the global default ({Broker}).",
-                    userId, globalRouter.GetActiveBroker().BrokerType);
+                    "User {UserId} prefers Alpaca but has no usable {Mode} keys — routing to the global default ({Broker}).",
+                    userId, isPaper ? "paper" : "live", globalRouter.GetActiveBroker().BrokerType);
             var global = globalRouter.GetActiveBroker();
             cache[cacheKey] = new CacheEntry(global, "global", DateTime.UtcNow);
             DisposeReplacedClient(hit, userId);
             return global;
         }
 
-        // Strategy-level mode: "live" forces isPaper=false; anything else is paper.
-        var isPaper = mode != "live";
-        var fingerprint = $"{keys.AlpacaApiKeyId}|{keys.AlpacaApiSecretKey!.Length}|{isPaper}";
+        var (keyId, secret) = isPaper
+            ? (keys.AlpacaApiKeyId!, keys.AlpacaApiSecretKey!)
+            : (keys.AlpacaLiveApiKeyId!, keys.AlpacaLiveApiSecretKey!);
+
+        var fingerprint = $"{keyId}|{secret.Length}|{isPaper}";
         if (hit is not null && hit.Fingerprint == fingerprint)
         {
             cache[cacheKey] = hit with { CachedUtc = DateTime.UtcNow };
             return hit.Client;
         }
 
-        var client = new AlpacaBrokerClient(keys.AlpacaApiKeyId!, keys.AlpacaApiSecretKey!, isPaper);
+        var client = new AlpacaBrokerClient(keyId, secret, isPaper);
         cache[cacheKey] = new CacheEntry(client, fingerprint, DateTime.UtcNow);
         logger.LogInformation(
             "User {UserId} orders route to their own Alpaca ({Mode}) via strategy mode {StrategyMode}.",

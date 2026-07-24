@@ -147,14 +147,29 @@ builder.Services.AddSingleton(new MonitorDatabase(connStr));
 
 // Data Protection — SAME app name + key ring as the Blazor host so this
 // process can decrypt the per-user API keys the UI wrote (UserApiKeys rows).
-// Dev default mirrors MindAttic.Authentication's DevKeyRingPath convention;
-// production points both hosts at DataProtection:KeyRingPath (durable share).
+// Monitor stays on-box while Blazor moves to Azure (per user decision), so
+// this MUST follow whichever ring Blazor is actually using — same
+// AzureBlobUri/KeyVaultKeyUri vs. KeyRingPath choice as
+// IdiotProof.Blazor/Program.cs, or the two processes decrypt with different
+// keys and every UserApiKeys row becomes unreadable to one of them.
+var dpBlobUri  = builder.Configuration["DataProtection:AzureBlobUri"];
+var dpKvKeyUri = builder.Configuration["DataProtection:KeyVaultKeyUri"];
 var keyRingPath = builder.Configuration["DataProtection:KeyRingPath"]
     ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
         "MindAttic", "DataProtection", "IdiotProof");
-builder.Services.AddDataProtection()
-    .SetApplicationName("IdiotProof")
-    .PersistKeysToFileSystem(new DirectoryInfo(keyRingPath));
+
+var dataProtectionBuilder = builder.Services.AddDataProtection().SetApplicationName("IdiotProof");
+if (!string.IsNullOrWhiteSpace(dpBlobUri) && !string.IsNullOrWhiteSpace(dpKvKeyUri))
+{
+    var dpCredential = new Azure.Identity.DefaultAzureCredential();
+    dataProtectionBuilder
+        .PersistKeysToAzureBlobStorage(new Uri(dpBlobUri), dpCredential)
+        .ProtectKeysWithAzureKeyVault(new Uri(dpKvKeyUri), dpCredential);
+}
+else
+{
+    dataProtectionBuilder.PersistKeysToFileSystem(new DirectoryInfo(keyRingPath));
+}
 builder.Services.AddSingleton<UserKeyService>();
 builder.Services.AddSingleton<UserBrokerResolver>();
 builder.Services.AddSingleton<EmailDomainBlocklistService>();
@@ -169,7 +184,18 @@ builder.Services.AddMindAtticAuthentication<AppDbContext>(
         opts.AppName = "IdiotProof";
         opts.IsProduction = false;
         opts.ConfigureDataProtection = dp =>
-            dp.PersistKeysToFileSystem(new DirectoryInfo(keyRingPath));
+        {
+            if (!string.IsNullOrWhiteSpace(dpBlobUri) && !string.IsNullOrWhiteSpace(dpKvKeyUri))
+            {
+                var dpCredential = new Azure.Identity.DefaultAzureCredential();
+                dp.PersistKeysToAzureBlobStorage(new Uri(dpBlobUri), dpCredential)
+                  .ProtectKeysWithAzureKeyVault(new Uri(dpKvKeyUri), dpCredential);
+            }
+            else
+            {
+                dp.PersistKeysToFileSystem(new DirectoryInfo(keyRingPath));
+            }
+        };
     });
 
 // Market data — Alpaca whenever keys resolved through the settings chain
