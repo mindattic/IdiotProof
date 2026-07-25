@@ -400,7 +400,11 @@ public sealed class MonitorWorker(
             {
                 try
                 {
-                    var isGapper = stored.ScriptText.Contains("PeakGiveback(", StringComparison.OrdinalIgnoreCase);
+                    // ScriptJson-only strategies (canonical path) have an empty ScriptText, so
+                    // the text-only check was a false negative: two canonical-JSON gappers for
+                    // the same symbol could both fire the same tick and open duplicate positions.
+                    var isGapper = (stored.ScriptText?.Contains("PeakGiveback(", StringComparison.OrdinalIgnoreCase) == true)
+                        || (stored.ScriptJson?.Contains("peakGivebackPercent", StringComparison.OrdinalIgnoreCase) == true);
                     if (isGapper && stored.PositionQty == 0 && gapperAlreadyFiredThisTick)
                     {
                         logger.LogWarning("[{Title}] {Symbol} skipped — another gapper strategy for this symbol already fired this tick.",
