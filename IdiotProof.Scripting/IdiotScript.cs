@@ -1077,9 +1077,24 @@ public sealed class PatternCondition(PatternType type, double? level = null) : I
     public PatternType Type { get; } = type;
     public double? Level { get; } = level;
 
-    public string ToScript() => Level is { } lvl
-        ? $"{Type}({lvl.ToString(System.Globalization.CultureInfo.InvariantCulture)})"
-        : $"{Type}()";
+    public string ToScript()
+    {
+        // Candlestick patterns need the "Is" prefix so the parser's switch cases
+        // ("ishammer", "isbullishengulfing", etc.) can recognise them on re-parse.
+        // Breakout/Pullback have no prefix in the parser (case "breakout" / "pullback").
+        var verb = Type switch
+        {
+            PatternType.Hammer           => "IsHammer",
+            PatternType.ShootingStar     => "IsShootingStar",
+            PatternType.Doji             => "IsDoji",
+            PatternType.BullishEngulfing => "IsBullishEngulfing",
+            PatternType.BearishEngulfing => "IsBearishEngulfing",
+            _                            => Type.ToString(),
+        };
+        return Level is { } lvl
+            ? $"{verb}({lvl.ToString(System.Globalization.CultureInfo.InvariantCulture)})"
+            : $"{verb}()";
+    }
 
     public bool Evaluate(IndicatorSnapshot s) => Type switch
     {
@@ -1181,9 +1196,9 @@ public sealed class IndicatorCondition(IndicatorType type, double? parameter = n
         IndicatorType.VwapAbove          => s.VwapDistance > 0,
         IndicatorType.VwapBelow          => s.VwapDistance < 0,
         IndicatorType.VwapReclaim        => s.PriorPrice is { } pp && s.PriorVwap is { } pv
-                                              && pp <= pv && s.Price > (s.Vwap ?? 0),
+                                              && s.Vwap is { } vw && pp <= pv && s.Price > vw,
         IndicatorType.VwapLoss           => s.PriorPrice is { } pp2 && s.PriorVwap is { } pv2
-                                              && pp2 >= pv2 && s.Price < (s.Vwap ?? 0),
+                                              && s.Vwap is { } vw2 && pp2 >= pv2 && s.Price < vw2,
         IndicatorType.EmaAbove           => Parameter is { } p && s.GetEma((int)p) is { } e && s.Price > e,
         IndicatorType.EmaBelow           => Parameter is { } p2 && s.GetEma((int)p2) is { } e2 && s.Price < e2,
         IndicatorType.BetweenEma         => Parameter is { } fast && Parameter2 is { } slow

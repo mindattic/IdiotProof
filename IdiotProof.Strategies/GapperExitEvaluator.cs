@@ -251,22 +251,8 @@ public static class GapperExitEvaluator
             return new GapperExitDecision(GapperExitReason.TargetHit, current, trough,
                 $"Short: price {current:F2} hit the {tpPct:F1}% take-profit target.");
 
-        // 5. Momentum rollover — gave back N% of the entry→trough down-move.
-        if (def.PeakGivebackPercent is { } giveback)
-        {
-            var armed = def.PeakGivebackArmTime is not { } arm || nowEt >= arm;
-            var run = entryPrice - trough;
-            if (armed && run > 0)
-            {
-                var ceiling = trough + run * (giveback / 100.0);
-                if (current >= ceiling)
-                    return new GapperExitDecision(GapperExitReason.PeakGiveback, current, trough,
-                        $"Bounced back {giveback:F0}% of the {entryPrice:F2}→{trough:F2} drop (ceiling {ceiling:F2}) — cover.");
-            }
-        }
-
-        // 6. Rolling N-day HIGH — for a short, recovering toward the N-day high is
-        //    the stop-loss: price is moving against the short position.
+        // 5. Rolling N-day HIGH — for a short, recovery toward the N-day high is
+        //    the stop-loss; checked before PeakGiveback so explicit stops win.
         if (def.RollingHighDays is { } rhDays && dailyCandles is { Count: > 0 })
         {
             var buffer = def.RollingHighBuffer ?? 2.5;
@@ -279,8 +265,8 @@ public static class GapperExitEvaluator
                     $"Short: price {current:F2} recovered to the {rhDays}-day rolling high {rollingHigh:F2} (within {buffer:F1}% — covering loss).");
         }
 
-        // 7. Rolling N-day LOW — for a short, falling toward the N-day low is the
-        //    profit target: the short is winning as price approaches multi-day lows.
+        // 6. Rolling N-day LOW — for a short, falling toward the N-day low is the
+        //    profit target; checked before PeakGiveback so explicit targets win.
         if (def.RollingLowDays is { } rlDays && dailyCandles is { Count: > 0 })
         {
             var buffer = def.RollingLowBuffer ?? 2.5;
@@ -291,6 +277,20 @@ public static class GapperExitEvaluator
             if (rollingLow < double.MaxValue && current <= rollingLow * (1 + buffer / 100.0))
                 return new GapperExitDecision(GapperExitReason.TargetHit, current, trough,
                     $"Short: price {current:F2} reached the {rlDays}-day rolling low {rollingLow:F2} (within {buffer:F1}% — taking profit).");
+        }
+
+        // 7. Momentum rollover — gave back N% of the entry→trough down-move.
+        if (def.PeakGivebackPercent is { } giveback)
+        {
+            var armed = def.PeakGivebackArmTime is not { } arm || nowEt >= arm;
+            var run = entryPrice - trough;
+            if (armed && run > 0)
+            {
+                var ceiling = trough + run * (giveback / 100.0);
+                if (current >= ceiling)
+                    return new GapperExitDecision(GapperExitReason.PeakGiveback, current, trough,
+                        $"Bounced back {giveback:F0}% of the {entryPrice:F2}→{trough:F2} drop (ceiling {ceiling:F2}) — cover.");
+            }
         }
 
         return null;

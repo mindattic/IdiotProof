@@ -77,7 +77,7 @@ public class SampleStrategyBuildTests
             Assert.That(labels, Does.Contain("IsAboveVwap()"));
             Assert.That(labels, Does.Contain("RequireEmaStack(9, 31)"));
             Assert.That(labels, Does.Contain("OnReclaim(9)"));
-            Assert.That(labels, Does.Contain("IsAdxAbove(20)"));
+            Assert.That(labels, Does.Contain("RequireAdxAbove(20)"));
             Assert.That(labels, Does.Contain("IsVolumeAbove(1.2)"));
         });
     }
