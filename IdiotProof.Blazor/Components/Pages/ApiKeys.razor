@@ -3,10 +3,12 @@
 @using IdiotProof.Blazor.Data
 @using Microsoft.AspNetCore.Authorization
 @using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.Extensions.Configuration
 @attribute [Authorize]
 @inject UserKeyService UserKeyService
 @inject IHttpClientFactory HttpClientFactory
 @inject AuthenticationStateProvider AuthStateProvider
+@inject IConfiguration Configuration
 
 <PageTitle>API Keys — IdiotProof</PageTitle>
 
@@ -62,6 +64,15 @@
                 <i class="bi bi-broadcast me-1" aria-hidden="true"></i>Test Connection
             </button>
         </div>
+        @if (paperVaultActive)
+        {
+            <div class="alert alert-warning small py-2 mb-2" role="alert">
+                <i class="bi bi-exclamation-triangle me-1" aria-hidden="true"></i>
+                A key from <code>%APPDATA%\MindAttic\Brokers\providers.json</code> is overriding the field below for
+                actual order routing — editing/testing here won't change what Paper strategies actually trade against
+                until that Vault entry is also updated.
+            </div>
+        }
         <div role="status" aria-live="polite" aria-atomic="true">
         @if (!string.IsNullOrEmpty(alpacaPaperTestResult))
         {
@@ -122,6 +133,15 @@
             These authorize <strong>real-money</strong> trades on your live Alpaca account. Only strategies
             explicitly switched to Live mode (with re-authentication) will ever use them.
         </div>
+        @if (liveVaultActive)
+        {
+            <div class="alert alert-warning small py-2 mb-2" role="alert">
+                <i class="bi bi-exclamation-triangle me-1" aria-hidden="true"></i>
+                A key from <code>%APPDATA%\MindAttic\Brokers\providers.json</code> is overriding the field below for
+                actual order routing — editing/testing here won't change what Live strategies actually trade against
+                until that Vault entry is also updated.
+            </div>
+        }
         <div role="status" aria-live="polite" aria-atomic="true">
         @if (!string.IsNullOrEmpty(alpacaLiveTestResult))
         {
@@ -244,6 +264,8 @@
     private string saveMessage = "";
     private bool routeToMyAlpaca;
     private string? loadedDataFeed;
+    private bool paperVaultActive;
+    private bool liveVaultActive;
 
     private Guid? userId;
 
@@ -264,6 +286,15 @@
         llmVotingEnabled = keys.LlmVotingEnabled;
         routeToMyAlpaca  = string.Equals(keys.DefaultBroker, "alpaca", StringComparison.OrdinalIgnoreCase);
         loadedDataFeed   = keys.DefaultDataFeed;
+
+        // UserBrokerResolver/AccountSummaryService both prefer a Vault-stored
+        // pair (MindAttic.Vault's Brokers bucket) over whatever's saved here —
+        // surface that so editing/testing a key on this page doesn't give
+        // false confidence about what actually routes real orders.
+        var (paperVaultKeyId, paperVaultSecret) = AlpacaVaultKeys.Resolve(Configuration, isPaper: true);
+        var (liveVaultKeyId, liveVaultSecret) = AlpacaVaultKeys.Resolve(Configuration, isPaper: false);
+        paperVaultActive = !string.IsNullOrWhiteSpace(paperVaultKeyId) && !string.IsNullOrWhiteSpace(paperVaultSecret);
+        liveVaultActive = !string.IsNullOrWhiteSpace(liveVaultKeyId) && !string.IsNullOrWhiteSpace(liveVaultSecret);
     }
 
     private async Task TestAlpaca(bool isPaper)

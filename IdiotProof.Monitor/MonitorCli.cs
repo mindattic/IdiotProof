@@ -1,6 +1,7 @@
 using System.Text.Json;
 using IdiotProof.Blazor.Data;
 using IdiotProof.Blazor.Services;
+using IdiotProof.Brokers;
 using IdiotProof.Engine.Settings;
 using IdiotProof.Models;
 using IdiotProof.Scripting;
@@ -76,13 +77,16 @@ public static class MonitorCli
 
         // (1) Right Alpaca key?  (2) Paper?
         var k = await keys.GetOrCreateAsync(userId.Value);
-        var choice = UserBrokerResolver.Choose(k);
         var broker = await resolver.ResolveAsync(userId.Value);
         Line("");
         Line("① / ②  BROKER KEY & MODE");
         Line($"   default broker pref : {k.DefaultBroker}");
         Line($"   user Alpaca key     : {Mask(k.AlpacaApiKeyId)}   (paper flag: {k.AlpacaIsPaper})");
-        Line($"   routing decision    : {choice}");
+        // RESOLVED BROKER below is the real, live decision straight from
+        // ResolveAsync (Vault-first, DB-fallback, gated on DefaultBroker=="alpaca")
+        // -- the static Choose(k) helper used to be printed here too, but it
+        // only ever looks at DB-stored keys, so once Vault-aware routing
+        // shipped it could silently disagree with the actual decision below.
         Line($"   RESOLVED BROKER     : {broker.BrokerType}   →  {(broker.IsPaper ? "PAPER (simulated / paper-api)" : "*** LIVE — REAL MONEY ***")}");
         // Live ping — a real authenticated call so we KNOW the key talks to the API.
         try
@@ -272,16 +276,29 @@ public static class MonitorCli
             return 0;
         }
 
-        var broker = await resolver.ResolveAsync(userId.Value);
-        Line($"Flatten via {broker.BrokerType} ({(broker.IsPaper ? "PAPER" : "*** LIVE ***")}) — {holding.Count} position(s):");
+        // Each strategy routes through ITS OWN BrokerMode (Paper/Live/Sandbox)
+        // — a single global broker resolved once (the old behavior) meant a
+        // Live-mode holding got queried/sold against the Paper account:
+        // GetPositionsAsync wouldn't even see the real Live position, and a
+        // sell for that symbol could silently hit an unrelated Paper position
+        // instead while the real Live holding stayed open, with the tool
+        // reporting success. Group by mode so each gets the RIGHT broker and
+        // the RIGHT positions snapshot.
+        var byMode = new Dictionary<string, (IBrokerClient Broker, Dictionary<string, Position> Positions)>(
+            StringComparer.OrdinalIgnoreCase);
 
-        Dictionary<string, Position> positions;
-        try
+        async Task<(IBrokerClient Broker, Dictionary<string, Position> Positions)> GetForModeAsync(string mode)
         {
-            positions = (await broker.GetPositionsAsync())
-                .ToDictionary(p => p.Symbol, p => p, StringComparer.OrdinalIgnoreCase);
+            if (byMode.TryGetValue(mode, out var cached)) return cached;
+            var b = await resolver.ResolveAsync(userId.Value, mode);
+            var pos = (await b.GetPositionsAsync()).ToDictionary(p => p.Symbol, p => p, StringComparer.OrdinalIgnoreCase);
+            var entry = (b, pos);
+            byMode[mode] = entry;
+            Line($"  [{mode}] via {b.BrokerType} ({(b.IsPaper ? "PAPER" : "*** LIVE ***")})");
+            return entry;
         }
-        catch (Exception ex) { return Fail($"could not read broker positions: {ex.Message}"); }
+
+        Line($"Flatten — {holding.Count} position(s) across {holding.Select(h => h.BrokerMode).Distinct(StringComparer.OrdinalIgnoreCase).Count()} broker mode(s):");
 
         var nowEt = MarketTime.ToEasternTimeOfDay(DateTime.UtcNow);
         var extended = (nowEt >= new TimeSpan(4, 0, 0) && nowEt < new TimeSpan(9, 30, 0))
@@ -291,13 +308,18 @@ public static class MonitorCli
         foreach (var st in holding)
         {
             var sym = st.Symbol.ToUpperInvariant();
+            (IBrokerClient broker, Dictionary<string, Position> positions) group;
+            try { group = await GetForModeAsync(st.BrokerMode); }
+            catch (Exception ex) { Line($"  ✗ {sym} \"{st.Title}\" — could not resolve/read {st.BrokerMode} broker: {ex.Message}"); continue; }
+            var (broker, positions) = group;
+
             positions.TryGetValue(sym, out var bp);
             var qty = st.PositionQty;
             if (bp is not null) qty = Math.Min(qty, (int)Math.Floor(bp.Quantity));
 
             if (qty <= 0)
             {
-                Line($"  = {sym} \"{st.Title}\" — broker shows no shares; clearing bookkeeping only.");
+                Line($"  = {sym} \"{st.Title}\" [{st.BrokerMode}] — broker shows no shares; clearing bookkeeping only.");
                 await strategyRepo.RecordExitFillAsync(st.Id, st.LastEntryPrice ?? 0m, "ManualFlatten-NoShares", DateTime.UtcNow);
                 try { await tradeDiary.MarkNotFilledAsync(st.Id, DateTime.UtcNow); } catch { /* diary best-effort */ }
                 continue;
@@ -316,7 +338,7 @@ public static class MonitorCli
             });
             if (!order.IsSuccess)
             {
-                Line($"  ✗ {sym} \"{st.Title}\" — SELL rejected by {broker.BrokerType}: {order.Message}");
+                Line($"  ✗ {sym} \"{st.Title}\" [{st.BrokerMode}] — SELL rejected by {broker.BrokerType}: {order.Message}");
                 continue;
             }
 
@@ -329,7 +351,7 @@ public static class MonitorCli
             catch (Exception ex) { Line($"      (diary close failed: {ex.Message})"); }
 
             var pnlText = realized >= 0 ? $"+${realized:0.00}" : $"-${Math.Abs(realized):0.00}";
-            Line($"  ✓ {sym} \"{st.Title}\" — SOLD {qty} @ ${limit:0.00}  P&L {pnlText}  (order {order.BrokerOrderId})");
+            Line($"  ✓ {sym} \"{st.Title}\" [{st.BrokerMode}] — SOLD {qty} @ ${limit:0.00}  P&L {pnlText}  (order {order.BrokerOrderId})");
             done++;
         }
         Line($"Flattened {done} of {holding.Count} position(s). Positions cleared; strategies remain active (deactivate/delete separately).");
