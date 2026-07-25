@@ -281,6 +281,28 @@ public sealed class StrategyBuilder
     }
 
     /// <summary>
+    /// Price must break above this level this bar (prior bar at-or-below, current bar above).
+    /// One-tick trigger — pairs well with volume confirm.
+    /// Example: BreaksAbove(5.00) - price crossed above $5 on the current bar
+    /// </summary>
+    public StrategyBuilder BreaksAbove(double price)
+    {
+        strategy.EntryConditions.Add(new PriceLevelCondition(PriceLevelType.BreaksAbove, price));
+        return this;
+    }
+
+    /// <summary>
+    /// Price must break below this level this bar (prior bar at-or-above, current bar below).
+    /// One-tick trigger — the short entry tell.
+    /// Example: BreaksBelow(5.00) - price crossed below $5 on the current bar
+    /// </summary>
+    public StrategyBuilder BreaksBelow(double price)
+    {
+        strategy.EntryConditions.Add(new PriceLevelCondition(PriceLevelType.BreaksBelow, price));
+        return this;
+    }
+
+    /// <summary>
     /// Price must be near a specific level (within tolerance %).
     /// Example: IsNear(3.68, 1.0) - price within 1% of $3.68
     /// </summary>
@@ -757,12 +779,21 @@ public sealed class StrategyBuilder
         else
             parts.Add("Long()");
 
+        // Entry rolling gates (after conditions, before direction so the parser
+        // sees them in the entry section and calls the right builder methods).
+        if (strategy.EntryRollingLowDays.HasValue)
+            parts.Add($"EntryAtRollingLow({strategy.EntryRollingLowDays.Value}, {Inv(strategy.EntryRollingLowBuffer ?? 2.5)})");
+        if (strategy.EntryRollingHighDays.HasValue)
+            parts.Add($"EntryAtRollingHigh({strategy.EntryRollingHighDays.Value}, {Inv(strategy.EntryRollingHighBuffer ?? 2.5)})");
+
         // Exit conditions. Emit the multi-target form when the strategy scales out so
         // T2/T3 survive a round trip (the single TakeProfitPrice is only T1).
         if (strategy.TakeProfitTargets.Count > 1)
             parts.Add($"TakeProfit({string.Join(", ", strategy.TakeProfitTargets.Take(3).Select(t => Inv(t.Price)))})");
         else if (strategy.TakeProfitPrice.HasValue)
             parts.Add($"TakeProfit({Inv(strategy.TakeProfitPrice.Value)})");
+        if (strategy.TakeProfitPercent.HasValue)
+            parts.Add($"TakeProfitPercent({Inv(strategy.TakeProfitPercent.Value)})");
         if (strategy.StopLossPrice.HasValue)
             parts.Add($"StopLoss({Inv(strategy.StopLossPrice.Value)})");
         if (strategy.StopLossPercent.HasValue)
@@ -775,7 +806,13 @@ public sealed class StrategyBuilder
             parts.Add(strategy.PeakGivebackArmTime is { } arm
                 ? $"PeakGiveback({Inv(giveback)}, \"{arm:hh\\:mm}\")"
                 : $"PeakGiveback({Inv(giveback)})");
-        
+        if (strategy.ExitAtPriorHigh)
+            parts.Add("ExitAtPriorHigh()");
+        if (strategy.RollingHighDays.HasValue)
+            parts.Add($"ExitAtRollingHigh({strategy.RollingHighDays.Value}, {Inv(strategy.RollingHighBuffer ?? 2.5)})");
+        if (strategy.RollingLowDays.HasValue)
+            parts.Add($"ExitAtRollingLow({strategy.RollingLowDays.Value}, {Inv(strategy.RollingLowBuffer ?? 2.5)})");
+
         // Advanced
         if (strategy.IsAutonomous)
             parts.Add("AutonomousTrading()");

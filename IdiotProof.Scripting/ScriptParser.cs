@@ -143,10 +143,12 @@ public static class ScriptParser
             case "entry": if (nums.Count >= 1) b.Entry((double)nums[0]); break;
 
             // Price levels
-            case "holdsabove":  if (nums.Count >= 1) b.HoldsAbove((double)nums[0]); break;
-            case "holdsbelow":  if (nums.Count >= 1) b.HoldsBelow((double)nums[0]); break;
-            case "isnear":      if (nums.Count >= 1) b.IsNear((double)nums[0], nums.Count >= 2 ? (double)nums[1] : 1.0); break;
-            case "ispricebetween": if (nums.Count >= 2) b.IsPriceBetween((double)nums[0], (double)nums[1]); break;
+            case "holdsabove":    if (nums.Count >= 1) b.HoldsAbove((double)nums[0]); break;
+            case "holdsbelow":    if (nums.Count >= 1) b.HoldsBelow((double)nums[0]); break;
+            case "isnear":        if (nums.Count >= 1) b.IsNear((double)nums[0], nums.Count >= 2 ? (double)nums[1] : 1.0); break;
+            case "ispricebetween":if (nums.Count >= 2) b.IsPriceBetween((double)nums[0], (double)nums[1]); break;
+            case "breaksabove":   if (nums.Count >= 1) b.BreaksAbove((double)nums[0]); break;
+            case "breaksbelow":   if (nums.Count >= 1) b.BreaksBelow((double)nums[0]); break;
 
             // Order
             case "long":             b.Long(); break;
@@ -165,6 +167,18 @@ public static class ScriptParser
             case "addtarget":        if (nums.Count >= 2) b.AddTarget((double)nums[0], (int)nums[1], strs.Count >= 3 ? strs[2] : null); break;
             case "trailingstoploss": if (nums.Count >= 1) b.TrailingStopLoss((double)nums[0]); break;
             case "exitatpriorhigh":  b.ExitAtPriorHigh(); break;
+            case "exitatrollinghigh":
+                if (nums.Count >= 1) b.ExitAtRollingHigh((int)nums[0], nums.Count >= 2 ? (double)nums[1] : 2.5);
+                break;
+            case "exitatrollinglow":
+                if (nums.Count >= 1) b.ExitAtRollingLow((int)nums[0], nums.Count >= 2 ? (double)nums[1] : 2.5);
+                break;
+            case "entryatrollinglow": case "isnearrollinglow": case "entryatsupport":
+                if (nums.Count >= 1) b.EntryAtRollingLow((int)nums[0], nums.Count >= 2 ? (double)nums[1] : 2.5);
+                break;
+            case "entryatrollinghigh": case "isnearrollinghigh": case "entryatresistance": case "isbreakingout":
+                if (nums.Count >= 1) b.EntryAtRollingHigh((int)nums[0], nums.Count >= 2 ? (double)nums[1] : 2.5);
+                break;
 
             // Misc
             case "autonomoustrading": b.AutonomousTrading(); break;

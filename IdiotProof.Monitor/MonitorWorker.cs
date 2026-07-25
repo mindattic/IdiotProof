@@ -1110,15 +1110,12 @@ public sealed class MonitorWorker(
             filledUtc = stored.EntryFilledUtc.Value;
         }
 
-        // Short exits (stop/trailing/target/giveback) are mirrored around
-        // entry — evaluating a short with the long formula checks the stop
-        // and target on the wrong side of entry, so it would never trip on
-        // an actual loss and could fire a "take profit" on a losing move.
-        // NOTE: EvaluateShort doesn't yet take dailyCandles, so a short
-        // strategy using ExitAtRollingHigh/Low won't evaluate that exit —
-        // a pre-existing gap in GapperExitEvaluator, not fixed here.
+        // Short exits are mirrored around entry — evaluating a short with the
+        // long formula checks stop/target on the wrong side, so EvaluateShort
+        // inverts the semantics. Both paths receive dailyCandles so rolling
+        // N-day high/low exits work for both directions.
         var decision = def.Direction == TradeDirection.Short
-            ? GapperExitEvaluator.EvaluateShort(def, entry, filledUtc, candles, DateTime.UtcNow)
+            ? GapperExitEvaluator.EvaluateShort(def, entry, filledUtc, candles, DateTime.UtcNow, dailyCandles)
             : GapperExitEvaluator.Evaluate(def, entry, filledUtc, candles, DateTime.UtcNow, dailyCandles);
 
         // Surface "holding" in the progress badge so the UI shows live state.

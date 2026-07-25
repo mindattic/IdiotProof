@@ -196,7 +196,8 @@ public static class GapperExitEvaluator
         double entryPrice,
         DateTime entryUtc,
         IReadOnlyList<Candle> candles,
-        DateTime nowUtc)
+        DateTime nowUtc,
+        IReadOnlyList<Candle>? dailyCandles = null)
     {
         if (entryPrice <= 0 || candles.Count == 0)
             return null;
@@ -256,6 +257,34 @@ public static class GapperExitEvaluator
                     return new GapperExitDecision(GapperExitReason.PeakGiveback, current, trough,
                         $"Bounced back {giveback:F0}% of the {entryPrice:F2}→{trough:F2} drop (ceiling {ceiling:F2}) — cover.");
             }
+        }
+
+        // 6. Rolling N-day HIGH — for a short, recovering toward the N-day high is
+        //    the stop-loss: price is moving against the short position.
+        if (def.RollingHighDays is { } rhDays && dailyCandles is { Count: > 0 })
+        {
+            var buffer = def.RollingHighBuffer ?? 2.5;
+            var lookback = Math.Min(rhDays, dailyCandles.Count);
+            var rollingHigh = 0.0;
+            for (var i = dailyCandles.Count - lookback; i < dailyCandles.Count; i++)
+                if ((double)dailyCandles[i].High > rollingHigh) rollingHigh = (double)dailyCandles[i].High;
+            if (rollingHigh > 0 && current >= rollingHigh * (1 - buffer / 100.0))
+                return new GapperExitDecision(GapperExitReason.StopLoss, current, trough,
+                    $"Short: price {current:F2} recovered to the {rhDays}-day rolling high {rollingHigh:F2} (within {buffer:F1}% — covering loss).");
+        }
+
+        // 7. Rolling N-day LOW — for a short, falling toward the N-day low is the
+        //    profit target: the short is winning as price approaches multi-day lows.
+        if (def.RollingLowDays is { } rlDays && dailyCandles is { Count: > 0 })
+        {
+            var buffer = def.RollingLowBuffer ?? 2.5;
+            var lookback = Math.Min(rlDays, dailyCandles.Count);
+            var rollingLow = double.MaxValue;
+            for (var i = dailyCandles.Count - lookback; i < dailyCandles.Count; i++)
+                if ((double)dailyCandles[i].Low < rollingLow) rollingLow = (double)dailyCandles[i].Low;
+            if (rollingLow < double.MaxValue && current <= rollingLow * (1 + buffer / 100.0))
+                return new GapperExitDecision(GapperExitReason.TargetHit, current, trough,
+                    $"Short: price {current:F2} reached the {rlDays}-day rolling low {rollingLow:F2} (within {buffer:F1}% — taking profit).");
         }
 
         return null;
