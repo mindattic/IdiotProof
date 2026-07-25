@@ -1119,13 +1119,22 @@ public sealed class MonitorWorker(
             filledUtc = stored.EntryFilledUtc.Value;
         }
 
+        // Compute the original position size so GapperExitEvaluator can calculate
+        // per-rung quantities for multi-target scale-out ladders (Bug 3 fix).
+        // Uses the same formula as FireAsync: configured shares → else notional ÷ price.
+        var initialQty = def.Quantity > 0
+            ? def.Quantity
+            : def.NotionalAmount is { } notional && stored.LastEntryPrice is { } ep && ep > 0m
+                ? Math.Max(1, (int)Math.Floor(notional / ep))
+                : 0; // unknown — evaluator falls back to full-exit behavior
+
         // Short exits are mirrored around entry — evaluating a short with the
         // long formula checks stop/target on the wrong side, so EvaluateShort
         // inverts the semantics. Both paths receive dailyCandles so rolling
         // N-day high/low exits work for both directions.
         var decision = def.Direction == TradeDirection.Short
-            ? GapperExitEvaluator.EvaluateShort(def, entry, filledUtc, candles, DateTime.UtcNow, dailyCandles)
-            : GapperExitEvaluator.Evaluate(def, entry, filledUtc, candles, DateTime.UtcNow, dailyCandles);
+            ? GapperExitEvaluator.EvaluateShort(def, entry, filledUtc, candles, DateTime.UtcNow, dailyCandles, initialQty, stored.PositionQty)
+            : GapperExitEvaluator.Evaluate(def, entry, filledUtc, candles, DateTime.UtcNow, dailyCandles, initialQty, stored.PositionQty);
 
         // Surface "holding" in the progress badge so the UI shows live state.
         var current = (double)candles[^1].Close;
@@ -1203,7 +1212,10 @@ public sealed class MonitorWorker(
         // (GetPositionsAsync now throws on failure rather than returning []).
         // On reconciliation failure we proceed with the recorded quantity —
         // never skip a risk-reducing exit because a status call hiccuped.
-        var sellQty = stored.PositionQty;
+        // For partial scale-out: limit sell to the rung's quantity; null = full exit.
+        var sellQty = decision.QuantityToSell.HasValue
+            ? Math.Min(decision.QuantityToSell.Value, stored.PositionQty)
+            : stored.PositionQty;
 
         // Multi-strategy-per-ticker (IP-A24): the broker reports ONE position
         // per symbol, but several of this user's strategies may hold the same
@@ -1300,36 +1312,54 @@ public sealed class MonitorWorker(
         guardian?.RecordTradePnL(realized);
 
         var exitUtc = DateTime.UtcNow;
-        await strategyRepo.RecordExitFillAsync(stored.Id, limitPrice, decision.Reason.ToString(), exitUtc, ct);
-        var exitCategory = decision.Reason switch
-        {
-            GapperExitReason.StopLoss     => "exit-sl",
-            GapperExitReason.TrailingStop => "exit-tsl",
-            _                             => "exit",
-        };
-        await auditLogRepo.LogAsync(exitCategory,
-            $"[{stored.Title}] SELL {sellQty} {stored.Symbol} @ {limitPrice:F2} — {decision.Reason}: {decision.Detail} " +
-            $"(P&L {realized:+0.00;-0.00}, {broker.BrokerType}, order {order.BrokerOrderId})",
-            userId: stored.OwnerUserId, ct: ct);
+        var remainingQty = stored.PositionQty - sellQty;
+        var isPartialExit = decision.QuantityToSell.HasValue && remainingQty > 0;
 
-        // Trade diary — close the entry (log-and-continue: the sell already
-        // happened; a diary write must never throw into the trade path).
-        try
+        if (isPartialExit)
         {
-            await tradeDiary.CloseAsync(stored.Id, limitPrice, decision.Reason.ToString(),
-                order.BrokerOrderId, realized, sellQty, exitUtc, ct);
+            // Partial scale-out: reduce PositionQty without closing the position.
+            // EntryFilledUtc is preserved so subsequent ticks continue exit management.
+            await strategyRepo.RecordPartialExitAsync(stored.Id, sellQty, ct);
+            await auditLogRepo.LogAsync("exit-partial",
+                $"[{stored.Title}] SELL {sellQty} {stored.Symbol} @ {limitPrice:F2} — {decision.Reason} (partial, {remainingQty} shares remain): {decision.Detail} " +
+                $"(P&L {realized:+0.00;-0.00}, {broker.BrokerType}, order {order.BrokerOrderId})",
+                userId: stored.OwnerUserId, ct: ct);
         }
-        catch (Exception ex)
+        else
         {
-            logger.LogError(ex, "[{Title}] trade-diary CLOSE failed (trade unaffected).", stored.Title);
+            await strategyRepo.RecordExitFillAsync(stored.Id, limitPrice, decision.Reason.ToString(), exitUtc, ct);
+            var exitCategory = decision.Reason switch
+            {
+                GapperExitReason.StopLoss     => "exit-sl",
+                GapperExitReason.TrailingStop => "exit-tsl",
+                _                             => "exit",
+            };
+            await auditLogRepo.LogAsync(exitCategory,
+                $"[{stored.Title}] SELL {sellQty} {stored.Symbol} @ {limitPrice:F2} — {decision.Reason}: {decision.Detail} " +
+                $"(P&L {realized:+0.00;-0.00}, {broker.BrokerType}, order {order.BrokerOrderId})",
+                userId: stored.OwnerUserId, ct: ct);
+
+            // Trade diary — close the entry (log-and-continue: the sell already
+            // happened; a diary write must never throw into the trade path).
+            try
+            {
+                await tradeDiary.CloseAsync(stored.Id, limitPrice, decision.Reason.ToString(),
+                    order.BrokerOrderId, realized, sellQty, exitUtc, ct);
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "[{Title}] trade-diary CLOSE failed (trade unaffected).", stored.Title);
+            }
         }
 
-        logger.LogInformation("[{Title}] ✓ SOLD {Qty} {Symbol} @ {Price:F2} — {Reason} (P&L {Pnl:+0.00;-0.00})",
-            stored.Title, sellQty, stored.Symbol, limitPrice, decision.Reason, realized);
+        logger.LogInformation("[{Title}] ✓ SOLD {Qty} {Symbol} @ {Price:F2} — {Reason} ({Mode}, P&L {Pnl:+0.00;-0.00})",
+            stored.Title, sellQty, stored.Symbol, limitPrice, decision.Reason,
+            isPartialExit ? $"{remainingQty} remaining" : "full exit", realized);
         var pnlText = realized >= 0 ? $"+${realized:0.00}" : $"-${Math.Abs(realized):0.00}";
         PrintFill("EXIT", stored.Title, stored.Symbol, "SELL", sellQty, limitPrice,
             broker.BrokerType.ToString(), broker.IsPaper, order.BrokerOrderId, exitUtc,
-            $"{decision.Reason}  -  P&L {pnlText}");
+            isPartialExit ? $"{decision.Reason} (partial, {remainingQty} left)  -  P&L {pnlText}"
+                          : $"{decision.Reason}  -  P&L {pnlText}");
     }
 
     // ── Active-strategy roster echo ─────────────────────────────────────

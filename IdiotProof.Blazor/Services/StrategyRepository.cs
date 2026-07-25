@@ -355,6 +355,22 @@ public sealed class StrategyRepository(IDbContextFactory<AppDbContext> dbFactory
     }
 
     /// <summary>
+    /// Records a partial scale-out fill: reduces PositionQty by the sold quantity
+    /// without closing the position.  EntryFilledUtc and LastEntryPrice are preserved
+    /// so the exit evaluator can continue managing the remaining shares.
+    /// Used when a multi-target TakeProfit ladder sells one rung at a time.
+    /// </summary>
+    public async Task RecordPartialExitAsync(Guid id, int quantitySold, CancellationToken ct = default)
+    {
+        await using var db = await dbFactory.CreateDbContextAsync(ct);
+        var strategy = await db.Strategies.FirstOrDefaultAsync(s => s.Id == id, ct);
+        if (strategy is null) return;
+        strategy.PositionQty = Math.Max(0, strategy.PositionQty - quantitySold);
+        strategy.UpdatedUtc  = DateTime.UtcNow;
+        await db.SaveChangesAsync(ct);
+    }
+
+    /// <summary>
     /// Stamps a strategy row with the entry price and fill time without touching any
     /// other fields. Used by the Monitor to bootstrap cost basis from a live broker
     /// position when a strategy was created with PositionQty > 0 but no entry price.

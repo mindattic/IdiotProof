@@ -27,7 +27,15 @@ public enum GapperExitReason
 }
 
 /// <summary>The evaluator's verdict for one tick.</summary>
-public sealed record GapperExitDecision(GapperExitReason Reason, double CurrentPrice, double PeakPrice, string Detail);
+public sealed record GapperExitDecision(GapperExitReason Reason, double CurrentPrice, double PeakPrice, string Detail)
+{
+    /// <summary>
+    /// Shares to sell on this signal. Null means sell the full held position (normal exit).
+    /// A positive value means partial scale-out at one rung of a multi-target ladder:
+    /// only this many shares are sold; the remainder stays open and is managed by later ticks.
+    /// </summary>
+    public int? QuantityToSell { get; init; }
+}
 
 /// <summary>
 /// Pure exit logic for a held gapper position (RFC 0002 §D3). Given the
@@ -55,13 +63,17 @@ public static class GapperExitEvaluator
     /// <param name="entryUtc">Fill time (UTC). Bars at or before this instant are ignored.</param>
     /// <param name="candles">Bars covering the period since entry (extra history is fine).</param>
     /// <param name="nowUtc">Evaluation instant (UTC).</param>
+    /// <param name="initialQty">Shares held at entry (needed for multi-target partial scale-out). 0 = unknown, falls back to full exit.</param>
+    /// <param name="currentQty">Shares currently held (may be less than initialQty after prior partial sells).</param>
     public static GapperExitDecision? Evaluate(
         StrategyDefinition def,
         double entryPrice,
         DateTime entryUtc,
         IReadOnlyList<Candle> candles,
         DateTime nowUtc,
-        IReadOnlyList<Candle>? dailyCandles = null)
+        IReadOnlyList<Candle>? dailyCandles = null,
+        int initialQty = 0,
+        int currentQty = 0)
     {
         if (entryPrice <= 0 || candles.Count == 0)
             return null;
@@ -111,7 +123,44 @@ public static class GapperExitEvaluator
             return new GapperExitDecision(GapperExitReason.TrailingStop, current, peak,
                 $"Price {current:F2} fell {tslPct:F1}% off the {peak:F2} high-water mark.");
 
-        // 4. Primary take-profit target (non-gapper strategies mostly).
+        // 4. Multi-target scale-out ladder (TakeProfit(t1, t2, t3)).
+        //    When a target price has been reached, the ladder logic owns the exit
+        //    decision for this tick — it must NOT fall through to TakeProfitPrice,
+        //    otherwise a rung that was already sold triggers a spurious full exit.
+        if (def.TakeProfitTargets.Count > 0 && initialQty > 0)
+        {
+            var targetsHit = def.TakeProfitTargets.Where(t => current >= t.Price).ToList();
+            if (targetsHit.Count > 0)
+            {
+                // Price has reached at least one rung — ladder logic handles this tick entirely.
+                var cumulativePercent = targetsHit.Sum(t => t.PercentToSell);
+                var allHit = targetsHit.Count == def.TakeProfitTargets.Count || cumulativePercent >= 100;
+
+                var shouldHaveSold = allHit
+                    ? initialQty
+                    : (int)Math.Round(initialQty * cumulativePercent / 100.0);
+
+                var alreadySold = initialQty - currentQty;
+                var toSellNow   = shouldHaveSold - alreadySold;
+                if (toSellNow > 0)
+                {
+                    var sellQty   = Math.Min(toSellNow, currentQty);
+                    var topTarget = targetsHit[^1];
+                    var isFullExit = allHit || (currentQty - sellQty) <= 0;
+                    return new GapperExitDecision(GapperExitReason.TargetHit, current, peak,
+                        $"Price {current:F2} reached {topTarget.Label} target {topTarget.Price:F2} — selling {sellQty} shares ({(isFullExit ? "final exit" : $"partial, {cumulativePercent}% of ladder sold")}).")
+                    {
+                        QuantityToSell = isFullExit ? null : sellQty,
+                    };
+                }
+                // This rung was already sold (alreadySold >= shouldHaveSold).
+                // Hold until price reaches the next rung. Do NOT fall through to
+                // TakeProfitPrice — it would fire a spurious full exit here.
+                return null;
+            }
+            // No rung reached yet — fall through: single TakeProfitPrice may apply.
+        }
+        // 4a. Single take-profit price (no ladder, or ladder with unknown qty).
         if (def.TakeProfitPrice is { } tp && current >= tp)
             return new GapperExitDecision(GapperExitReason.TargetHit, current, peak,
                 $"Price {current:F2} reached the {tp:F2} take-profit target.");
@@ -200,7 +249,9 @@ public static class GapperExitEvaluator
         DateTime entryUtc,
         IReadOnlyList<Candle> candles,
         DateTime nowUtc,
-        IReadOnlyList<Candle>? dailyCandles = null)
+        IReadOnlyList<Candle>? dailyCandles = null,
+        int initialQty = 0,
+        int currentQty = 0)
     {
         if (entryPrice <= 0 || candles.Count == 0)
             return null;
@@ -243,7 +294,35 @@ public static class GapperExitEvaluator
             return new GapperExitDecision(GapperExitReason.TrailingStop, current, trough,
                 $"Price {current:F2} bounced {tslPct:F1}% off the {trough:F2} low-water mark.");
 
-        // 4. Primary take-profit target (below entry for a short).
+        // 4. Multi-target scale-out ladder for shorts (price falls to each target).
+        if (def.TakeProfitTargets.Count > 0 && initialQty > 0)
+        {
+            var targetsHit = def.TakeProfitTargets.Where(t => current <= t.Price).ToList();
+            if (targetsHit.Count > 0)
+            {
+                var cumulativePercent = targetsHit.Sum(t => t.PercentToSell);
+                var allHit = targetsHit.Count == def.TakeProfitTargets.Count || cumulativePercent >= 100;
+                var shouldHaveSold = allHit
+                    ? initialQty
+                    : (int)Math.Round(initialQty * cumulativePercent / 100.0);
+                var alreadySold = initialQty - currentQty;
+                var toSellNow   = shouldHaveSold - alreadySold;
+                if (toSellNow > 0)
+                {
+                    var sellQty   = Math.Min(toSellNow, currentQty);
+                    var topTarget = targetsHit[^1];
+                    var isFullExit = allHit || (currentQty - sellQty) <= 0;
+                    return new GapperExitDecision(GapperExitReason.TargetHit, current, trough,
+                        $"Short: price {current:F2} reached {topTarget.Label} target {topTarget.Price:F2} — covering {sellQty} shares ({(isFullExit ? "final cover" : $"partial, {cumulativePercent}% of ladder covered")}).")
+                    {
+                        QuantityToSell = isFullExit ? null : sellQty,
+                    };
+                }
+                // This rung already covered — hold until next rung. Don't fall through.
+                return null;
+            }
+        }
+        // 4a. Single take-profit price (no ladder, or ladder with unknown qty).
         if (def.TakeProfitPrice is { } tp && current <= tp)
             return new GapperExitDecision(GapperExitReason.TargetHit, current, trough,
                 $"Price {current:F2} reached the {tp:F2} take-profit target.");
