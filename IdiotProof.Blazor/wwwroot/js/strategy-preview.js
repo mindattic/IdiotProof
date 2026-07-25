@@ -79,8 +79,12 @@ window.strategyPreview = (() => {
             ctx.globalAlpha = 1;
         }
 
-        // ── horizontal level lines + right-side price labels ─────────────
+        // ── horizontal level lines + deferred label queue ─────────────────
+        // Labels are queued here and drawn after all lines so we can
+        // resolve vertical collisions before painting (prevents tightly
+        // spaced price levels — e.g. $3 and $4 vs $100 — from overlapping).
         const lx1 = PAD.l, lx2 = W - PAD.r;
+        const labelQueue = [];
 
         function hline(price, color, dash, lw) {
             if (price == null) return;
@@ -92,12 +96,7 @@ window.strategyPreview = (() => {
             ctx.moveTo(lx1, y); ctx.lineTo(lx2, y);
             ctx.stroke();
             ctx.setLineDash([]);
-
-            ctx.fillStyle    = color;
-            ctx.font         = '10px "Roboto Mono","Courier New",monospace';
-            ctx.textAlign    = 'left';
-            ctx.textBaseline = 'middle';
-            ctx.fillText('$' + price.toFixed(2), lx2 + 4, y);
+            labelQueue.push({ y, color, text: '$' + price.toFixed(2), fontSize: 10 });
         }
 
         hline(cfg.stop,  red,      [],     1.2);  // stop: solid red
@@ -130,17 +129,43 @@ window.strategyPreview = (() => {
             ctx.beginPath(); ctx.moveTo(lx1, y - 1.5); ctx.lineTo(lx2, y - 1.5); ctx.stroke();
             ctx.beginPath(); ctx.moveTo(lx1, y + 1.5); ctx.lineTo(lx2, y + 1.5); ctx.stroke();
             ctx.setLineDash([]);
-
-            ctx.fillStyle = color;
-            ctx.font = '9px "Roboto Mono","Courier New",monospace';
-            ctx.textAlign = 'left';
-            ctx.textBaseline = 'middle';
-            ctx.fillText(label, lx2 + 4, y);
+            labelQueue.push({ y, color, text: label, fontSize: 9 });
         }
 
         hlineDynamic(cfg.rollingHigh,   cfg.rollingHighLabel,   brand);
         hlineDynamic(cfg.rollingLow,    cfg.rollingLowLabel,    red);
         hlineDynamic(cfg.peakGiveback,  cfg.peakGivebackLabel,  yellow);
+
+        // ── collision-aware label rendering ──────────────────────────────
+        // Sort top-to-bottom (ascending Y = toward top of canvas).
+        labelQueue.sort((a, b) => a.y - b.y);
+        labelQueue.forEach(e => { e.placed = e.y; });
+
+        const TOP = PAD.t + 6, BOT = H - 6;
+        const minGap = 13;  // px between adjacent label centres
+        // Top-down pass: push each label down until it clears the one above.
+        for (let i = 1; i < labelQueue.length; i++) {
+            if (labelQueue[i].placed < labelQueue[i - 1].placed + minGap)
+                labelQueue[i].placed = labelQueue[i - 1].placed + minGap;
+        }
+        // If the whole stack overflowed the bottom boundary, lift every label up
+        // by the exact overflow amount. This prevents the naive per-label clamp
+        // from reintroducing overlaps (e.g. three labels at Y=150,151,152 on a
+        // 160px canvas would all collapse to 155 without this).
+        const overflow = labelQueue.length
+            ? Math.max(0, labelQueue[labelQueue.length - 1].placed - BOT) : 0;
+        if (overflow > 0) labelQueue.forEach(e => { e.placed -= overflow; });
+        // Final top clamp only — bottom was already handled by the lift above.
+        labelQueue.forEach(e => { e.placed = Math.max(TOP, e.placed); });
+
+        // Draw all labels right-aligned so they can never overflow the canvas edge.
+        ctx.textAlign    = 'right';
+        ctx.textBaseline = 'middle';
+        for (const e of labelQueue) {
+            ctx.fillStyle = e.color;
+            ctx.font = `${e.fontSize}px "Roboto Mono","Courier New",monospace`;
+            ctx.fillText(e.text, W - 2, e.placed);
+        }
     }
 
     // Generate schematic OHLC bars: higher-low consolidation → breakout → run.

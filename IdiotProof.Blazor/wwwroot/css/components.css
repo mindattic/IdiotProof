@@ -76,7 +76,14 @@
 .account-row.danger-text:hover { background: rgba(248, 81, 73, 0.10); }
 
 /* ── StrategyBuilderRenderer ─────────────────────────────── */
-.strategy-renderer { display: flex; flex-direction: column; gap: 12px; }
+.strategy-renderer {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 12px;
+}
 
 .strategy-phase {
     background: var(--bg-card);
@@ -149,6 +156,8 @@
     font-size: 0.75rem;
     color: var(--text-primary);
     margin-bottom: 6px;
+    overflow-wrap: break-word;
+    word-break: break-word;
 }
 .branch-actions { display: flex; gap: 4px; flex-wrap: wrap; }
 

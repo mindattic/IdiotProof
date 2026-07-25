@@ -174,7 +174,7 @@ public static class StrategyHtml
         const string ink = "var(--ink)", edge = "var(--edge)", panel = "var(--panel-2)",
                      dim = "var(--dim)", acc = "var(--accent)";
         var sb = new StringBuilder();
-        sb.Append($"<svg viewBox=\"0 0 {W} {h}\" width=\"100%\" style=\"max-width:{W}px;margin:0 auto;display:block\" font-family=\"var(--mono)\" font-size=\"12\">");
+        sb.Append($"<svg viewBox=\"0 0 {W} {h}\" width=\"100%\" style=\"max-width:{W}px;margin:0 auto;display:block;font-family:var(--mono);font-size:12px\">");
         sb.Append($"<defs><marker id=\"ar\" markerWidth=\"8\" markerHeight=\"8\" refX=\"4\" refY=\"4\" orient=\"auto\"><path d=\"M0,0 L8,4 L0,8 z\" fill=\"{dim}\"/></marker></defs>");
         for (int i = 0; i < nodes.Count; i++)
         {

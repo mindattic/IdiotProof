@@ -18,6 +18,11 @@
 }
 else if (def is not null)
 {
+    @* Phase boxes — the Setup/Filters/Entry/Order/Risk/Exit card stack *@
+    <div class="px-3 pt-3 pb-1">
+        <StrategyBuilderRenderer Strategy="def" />
+    </div>
+
     <div class="d-flex flex-wrap gap-4 px-3 pb-3 pt-2">
 
         @* Left: conditions + stats *@
@@ -96,9 +101,12 @@ else if (def is not null)
             }
         </div>
 
-        @* Right: canvas price chart *@
+        @* Right: canvas price chart + SVG flow diagram *@
         <div class="flex-grow-1" style="min-width:200px;max-width:380px">
             <canvas id="@canvasId" style="width:100%;height:160px;border-radius:6px;display:block"></canvas>
+            <div class="mt-2" style="--ink:var(--text-primary);--edge:var(--border);--panel-2:var(--bg-card);--dim:var(--text-muted);--accent:var(--brand);--mono:ui-monospace,monospace">
+                @((MarkupString)def.ToSvg())
+            </div>
         </div>
 
     </div>
@@ -113,6 +121,7 @@ else if (def is not null)
     private string? parseError;
     private string canvasId = "";
     private string? selectedGlossaryKey;
+    private bool needsDraw;
 
     private List<(string Icon, string Color, string Text, string? GlossaryKey)> filterLabels = [];
     private List<(string Icon, string Color, string Text, string? GlossaryKey)> entryLabels = [];
@@ -138,7 +147,7 @@ else if (def is not null)
 
     protected override void OnParametersSet()
     {
-        def = null; parseError = null;
+        def = null; parseError = null; needsDraw = false;
         filterLabels = []; entryLabels = []; statRows = []; branchLines = []; rrLines = [];
         if (S is null) return;
 
@@ -149,13 +158,16 @@ else if (def is not null)
             if (loaded.Definition is null) { parseError = loaded.CanonicalError ?? "Could not parse strategy."; return; }
             def = loaded.Definition;
             BuildState(def);
+            needsDraw = true;
         }
         catch (Exception ex) { parseError = ex.Message; }
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (firstRender && def is not null)
+        if (needsDraw && def is not null)
+        {
+            needsDraw = false;
             await JS.InvokeVoidAsync("strategyPreview.draw", canvasId, new
             {
                 isShort,
@@ -174,6 +186,7 @@ else if (def is not null)
                 peakGiveback      = peakGivebackAnchor,
                 peakGivebackLabel
             });
+        }
     }
 
     private void BuildState(StrategyDefinition d)
@@ -221,6 +234,7 @@ else if (def is not null)
 
         stopPrice  = chartBaseline.HasValue && d.StopLossPercent.HasValue
             ? chartBaseline.Value * (isShort ? 1.0 + d.StopLossPercent.Value / 100.0 : 1.0 - d.StopLossPercent.Value / 100.0) : null;
+        stopPrice ??= d.StopLossPrice;
 
         void AddStat(string glossaryKey, string text)
         {
@@ -230,6 +244,7 @@ else if (def is not null)
 
         if (exitTime is not null) AddStat("ExitStrategy", $"Flatten {exitTime} ET");
         if (stopPct is not null) AddStat("StopLossPercent", $"Stop {stopPct.Value:0.##}%");
+        if (d.StopLossPrice is { } slp) AddStat("StopLossPercent", $"Stop ${slp:0.##}");
         if (d.TrailingStopPercent is { } tsp) AddStat("TrailingStopLoss", $"Trailing stop {tsp:0.##}%");
         if (d.PeakGivebackPercent is { } pg)
             AddStat("PeakGiveback", $"Giveback {pg:0.##}%" + (d.PeakGivebackArmTime is { } arm ? $" armed {arm:hh\\:mm} ET" : ""));
