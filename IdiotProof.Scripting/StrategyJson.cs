@@ -191,17 +191,29 @@ public static class StrategyJson
             def.IsAdaptive = GetBool(root, "isAdaptive") ?? false;
             def.ShouldRepeat = GetBool(root, "shouldRepeat") ?? false;
 
-            if (root.TryGetProperty("entryConditions", out var conds) && conds.ValueKind == JsonValueKind.Array)
+            if (root.TryGetProperty("entryConditions", out var conds))
+            {
+                if (conds.ValueKind != JsonValueKind.Array)
+                    throw new StrategyJsonException("'entryConditions' must be a JSON array.");
                 foreach (var el in conds.EnumerateArray())
                     def.EntryConditions.Add(ReadCondition(el));
+            }
 
-            if (root.TryGetProperty("takeProfitTargets", out var targets) && targets.ValueKind == JsonValueKind.Array)
+            if (root.TryGetProperty("takeProfitTargets", out var targets))
+            {
+                if (targets.ValueKind != JsonValueKind.Array)
+                    throw new StrategyJsonException("'takeProfitTargets' must be a JSON array.");
                 foreach (var el in targets.EnumerateArray())
                     def.TakeProfitTargets.Add(ReadTarget(el));
+            }
 
-            if (root.TryGetProperty("conditionalBlocks", out var blocks) && blocks.ValueKind == JsonValueKind.Array)
+            if (root.TryGetProperty("conditionalBlocks", out var blocks))
+            {
+                if (blocks.ValueKind != JsonValueKind.Array)
+                    throw new StrategyJsonException("'conditionalBlocks' must be a JSON array.");
                 foreach (var el in blocks.EnumerateArray())
                     def.ConditionalBlocks.Add(ReadBlock(el));
+            }
 
             return def;
         }

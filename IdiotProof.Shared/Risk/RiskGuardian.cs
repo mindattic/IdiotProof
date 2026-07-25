@@ -86,6 +86,7 @@ public sealed class RiskGuardian
     // decimal is 128-bit and not guaranteed atomic; UpdateConfig can race with
     // ValidateTrade reads. All mutable state goes through this lock.
     private readonly Lock sync = new();
+    private const decimal SlippageFactor = 1.5m;
 
     private RiskGuardianConfig config;
     private decimal dailyLoss;
@@ -177,7 +178,6 @@ public sealed class RiskGuardian
         // ("Position size that can't exceed your max loss even in worst
         // case") — gating on the un-slipped totalRisk instead let a trade
         // through whose worst case could run up to 1.5x MaxLossPerTrade.
-        const decimal SlippageFactor = 1.5m;
         result.WorstCaseLoss = totalRisk * SlippageFactor;
 
         // 4. Check if worst-case risk exceeds max per trade
@@ -199,14 +199,14 @@ public sealed class RiskGuardian
         }
 
         // 5. Check daily loss limit
-        if (dailyLossSnapshot + totalRisk > cfg.MaxLossPerDay)
+        if (dailyLossSnapshot + result.WorstCaseLoss > cfg.MaxLossPerDay)
         {
             var remaining = cfg.MaxLossPerDay - dailyLossSnapshot;
             result.BlockReasons.Add($"Would exceed daily loss limit. Already lost ${dailyLossSnapshot:F2}, limit is ${cfg.MaxLossPerDay:F2}");
 
             if (remaining > 0m && riskPerShare > 0m)
             {
-                var adjustedQty = (int)Math.Floor(remaining / riskPerShare);
+                var adjustedQty = (int)Math.Floor(remaining / (riskPerShare * SlippageFactor));
                 // Cap against per-trade suggestion so the final recommendation
                 // never exceeds the most restrictive active constraint.
                 if (result.AdjustedSetup is not null)
@@ -329,9 +329,9 @@ public sealed class RiskGuardian
             accountRiskPct = config.MaxAccountRiskPercent;
         }
 
-        var fromMaxPerTrade    = (int)Math.Floor(maxPerTrade / riskPerShare);
-        var fromDailyRemaining = (int)Math.Floor(remaining / riskPerShare);
-        var fromAccountPercent = (int)Math.Floor((balance * accountRiskPct / 100m) / riskPerShare);
+        var fromMaxPerTrade    = (int)Math.Floor(maxPerTrade / (riskPerShare * SlippageFactor));
+        var fromDailyRemaining = (int)Math.Floor(remaining / (riskPerShare * SlippageFactor));
+        var fromAccountPercent = (int)Math.Floor((balance * accountRiskPct / 100m) / (riskPerShare * SlippageFactor));
 
         return Math.Max(0, Math.Min(fromMaxPerTrade, Math.Min(fromDailyRemaining, fromAccountPercent)));
     }
@@ -362,7 +362,7 @@ public sealed class RiskGuardian
 
         var riskPerShare = stopDistance;
         var maxLoss = Math.Min(maxPerTrade, remaining);
-        var quantity = riskPerShare > 0m ? Math.Max(0, (int)Math.Floor(maxLoss / riskPerShare)) : 0;
+        var quantity = riskPerShare > 0m ? Math.Max(0, (int)Math.Floor(maxLoss / (riskPerShare * SlippageFactor))) : 0;
 
         return (Math.Round(stopLoss, 2), quantity);
     }

@@ -23,7 +23,7 @@ public sealed class BrokerRouter
     public void SetActive(string? typeName)
     {
         if (string.IsNullOrWhiteSpace(typeName)) return;
-        if (Enum.TryParse<BrokerType>(typeName, ignoreCase: true, out var type))
+        if (Enum.TryParse<BrokerType>(typeName.Trim(), ignoreCase: true, out var type))
             activeBroker = type;
     }
 

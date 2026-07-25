@@ -168,24 +168,31 @@ else if (def is not null)
         if (needsDraw && def is not null)
         {
             needsDraw = false;
-            await JS.InvokeVoidAsync("strategyPreview.draw", canvasId, new
+            try
             {
-                isShort,
-                entry          = entryRef,
-                baseline       = chartBaseline,
-                stop           = stopPrice,
-                holds          = holdsLevel,
-                t1,
-                t2,
-                hasVwapAbove,
-                hasVwapReclaim,
-                rollingHigh,
-                rollingHighLabel,
-                rollingLow,
-                rollingLowLabel,
-                peakGiveback      = peakGivebackAnchor,
-                peakGivebackLabel
-            });
+                await JS.InvokeVoidAsync("strategyPreview.draw", canvasId, new
+                {
+                    isShort,
+                    entry          = entryRef,
+                    baseline       = chartBaseline,
+                    stop           = stopPrice,
+                    holds          = holdsLevel,
+                    t1,
+                    t2,
+                    hasVwapAbove,
+                    hasVwapReclaim,
+                    rollingHigh,
+                    rollingHighLabel,
+                    rollingLow,
+                    rollingLowLabel,
+                    peakGiveback      = peakGivebackAnchor,
+                    peakGivebackLabel
+                });
+            }
+            catch
+            {
+                needsDraw = true;
+            }
         }
     }
 
@@ -244,7 +251,7 @@ else if (def is not null)
 
         if (exitTime is not null) AddStat("ExitStrategy", $"Flatten {exitTime} ET");
         if (stopPct is not null) AddStat("StopLossPercent", $"Stop {stopPct.Value:0.##}%");
-        if (d.StopLossPrice is { } slp) AddStat("StopLossPercent", $"Stop ${slp:0.##}");
+        if (d.StopLossPrice is { } slp) AddStat("StopLossPrice", $"Stop ${slp:0.##}");
         if (d.TrailingStopPercent is { } tsp) AddStat("TrailingStopLoss", $"Trailing stop {tsp:0.##}%");
         if (d.PeakGivebackPercent is { } pg)
             AddStat("PeakGiveback", $"Giveback {pg:0.##}%" + (d.PeakGivebackArmTime is { } arm ? $" armed {arm:hh\\:mm} ET" : ""));

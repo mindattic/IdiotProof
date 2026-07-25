@@ -65,7 +65,7 @@ public static class StrategyHtml
         // Risk
         var risk = new List<string>();
         if (def.StopLossPrice is { } sp) risk.Add(Kv("Hard stop", $"${sp:0.##}"));
-        if (def.StopLossPercent is { } sc) risk.Add(Kv("Hard stop", $"{sc:0.#}%"));
+        if (def.StopLossPercent is { } sc) risk.Add(Kv("Stop %", $"{sc:0.#}%"));
         if (def.TrailingStopPercent is { } ts) risk.Add(Kv("Trailing", $"{ts:0.#}% off peak"));
         if (risk.Count == 0) risk.Add(Li("<span class=\"warn\">⚠ no stop — RiskGuardian would veto</span>"));
         Card(sb, "Risk", "the Guardian's rails", risk);
@@ -173,15 +173,16 @@ public static class StrategyHtml
         int cx = W / 2, h = padY * 2 + nodes.Count * rowH;
         const string ink = "var(--ink)", edge = "var(--edge)", panel = "var(--panel-2)",
                      dim = "var(--dim)", acc = "var(--accent)";
+        var markerId = $"ar{Guid.NewGuid():N}"[..12];
         var sb = new StringBuilder();
         sb.Append($"<svg viewBox=\"0 0 {W} {h}\" width=\"100%\" style=\"max-width:{W}px;margin:0 auto;display:block;font-family:var(--mono);font-size:12px\">");
-        sb.Append($"<defs><marker id=\"ar\" markerWidth=\"8\" markerHeight=\"8\" refX=\"4\" refY=\"4\" orient=\"auto\"><path d=\"M0,0 L8,4 L0,8 z\" fill=\"{dim}\"/></marker></defs>");
+        sb.Append($"<defs><marker id=\"{markerId}\" markerWidth=\"8\" markerHeight=\"8\" refX=\"4\" refY=\"4\" orient=\"auto\"><path d=\"M0,0 L8,4 L0,8 z\" fill=\"{dim}\"/></marker></defs>");
         for (int i = 0; i < nodes.Count; i++)
         {
             var (t, k) = nodes[i];
             int y = padY + i * rowH, cyc = y + rowH / 2 - 8;
             if (i < nodes.Count - 1)
-                sb.Append($"<line x1=\"{cx}\" y1=\"{y + rowH - 16}\" x2=\"{cx}\" y2=\"{y + rowH}\" stroke=\"{dim}\" stroke-width=\"1.5\" marker-end=\"url(#ar)\"/>");
+                sb.Append($"<line x1=\"{cx}\" y1=\"{y + rowH - 16}\" x2=\"{cx}\" y2=\"{y + rowH}\" stroke=\"{dim}\" stroke-width=\"1.5\" marker-end=\"url(#{markerId})\"/>");
             var label = Esc(t.Length > 44 ? t[..43] + "…" : t);
             if (k == 'd')
             {
