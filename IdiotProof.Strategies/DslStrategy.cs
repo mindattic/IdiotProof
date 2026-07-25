@@ -1,5 +1,6 @@
 using IdiotProof.Models;
 using IdiotProof.Scripting;
+using IdiotProof.Shared;
 
 namespace IdiotProof.Strategies;
 
@@ -58,7 +59,7 @@ public sealed class DslStrategy : IStrategy
 
         // Materialize a working copy with branch overrides applied. The branches
         // can flip Direction, change Stop/Target, and add EntryConditions.
-        var resolved = ResolveBranches(baseDefinition, snapshot);
+        var resolved = StrategyBranchResolver.Resolve(baseDefinition, snapshot);
 
         // Evaluate every entry condition with AND semantics.
         foreach (var cond in resolved.EntryConditions)
@@ -92,62 +93,6 @@ public sealed class DslStrategy : IStrategy
             Reason            = BuildReason(resolved),
             GeneratedUtc      = snapshot.Timestamp,
         }];
-    }
-
-    /// <summary>
-    /// Walks the strategy's ConditionalBlocks, picks the first matching branch
-    /// per block, and clones the base definition with overrides applied.
-    /// Leaves the original immutable.
-    /// </summary>
-    private static StrategyDefinition ResolveBranches(StrategyDefinition baseDef, Shared.IndicatorSnapshot snapshot)
-    {
-        if (baseDef.ConditionalBlocks.Count == 0)
-            return baseDef;
-
-        var clone = new StrategyDefinition
-        {
-            Id           = baseDef.Id,
-            Symbol       = baseDef.Symbol,
-            Name         = baseDef.Name,
-            Session      = baseDef.Session,
-            Quantity     = baseDef.Quantity,
-            // Notional sizing and the peak-giveback exit fields were missing
-            // from this clone — a branching strategy silently lost its dollar
-            // sizing (fell back to "1 share"/workspace default) and its
-            // momentum-rollover exit the moment it had a ConditionalBlock.
-            NotionalAmount = baseDef.NotionalAmount,
-            Direction    = baseDef.Direction,
-            TakeProfitPrice    = baseDef.TakeProfitPrice,
-            TakeProfitPercent  = baseDef.TakeProfitPercent,
-            StopLossPrice      = baseDef.StopLossPrice,
-            StopLossPercent    = baseDef.StopLossPercent,
-            TrailingStopPercent = baseDef.TrailingStopPercent,
-            ExitTime     = baseDef.ExitTime,
-            PeakGivebackPercent = baseDef.PeakGivebackPercent,
-            PeakGivebackArmTime = baseDef.PeakGivebackArmTime,
-            ExitAtPriorHigh        = baseDef.ExitAtPriorHigh,
-            RollingHighDays        = baseDef.RollingHighDays,
-            RollingHighBuffer      = baseDef.RollingHighBuffer,
-            RollingLowDays         = baseDef.RollingLowDays,
-            RollingLowBuffer       = baseDef.RollingLowBuffer,
-            EntryRollingLowDays    = baseDef.EntryRollingLowDays,
-            EntryRollingLowBuffer  = baseDef.EntryRollingLowBuffer,
-            EntryRollingHighDays   = baseDef.EntryRollingHighDays,
-            EntryRollingHighBuffer = baseDef.EntryRollingHighBuffer,
-            IsAutonomous = baseDef.IsAutonomous,
-            IsAdaptive   = baseDef.IsAdaptive,
-            ShouldRepeat = baseDef.ShouldRepeat,
-        };
-        foreach (var c in baseDef.EntryConditions) clone.EntryConditions.Add(c);
-        foreach (var t in baseDef.TakeProfitTargets) clone.TakeProfitTargets.Add(t);
-
-        foreach (var block in baseDef.ConditionalBlocks)
-        {
-            var matched = block.Evaluate(snapshot);
-            matched?.Overrides.ApplyTo(clone);
-        }
-
-        return clone;
     }
 
     private static string BuildReason(StrategyDefinition def)

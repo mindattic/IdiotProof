@@ -648,12 +648,17 @@ public sealed class MonitorWorker(
         var emas = EmaPeriodCollector.Collect(def);
         var snapshot = IndicatorSnapshotBuilder.BuildWithEmas(stored.Symbol, candles, emas, previousClose);
 
-        var conditions = def.EntryConditions;
+        // Apply ConditionalBlock branch overrides (If/Then/ElseIf/Else authored in the UI).
+        // Bug 4 fix: the Monitor previously evaluated def.EntryConditions directly and silently
+        // ignored all ConditionalBlocks — branches only worked in the backtester.
+        var resolved = StrategyBranchResolver.Resolve(def, snapshot);
+
+        var conditions = resolved.EntryConditions;
         if (conditions.Count == 0)
         {
             // Setup-only strategy: nothing to wait for, but it still walks the
             // LLM + risk gates and places a real order like any other fire.
-            await FireAsync(stored, def, snapshot, candles, ct);
+            await FireAsync(stored, resolved, snapshot, candles, ct);
             return;
         }
 
@@ -706,7 +711,7 @@ public sealed class MonitorWorker(
         {
             // Rolling-range entry gates (daily bars): evaluated only when all
             // intraday conditions are met, to avoid a daily bar fetch on every tick.
-            var entryDailyDays = Math.Max(def.EntryRollingLowDays ?? 0, def.EntryRollingHighDays ?? 0);
+            var entryDailyDays = Math.Max(resolved.EntryRollingLowDays ?? 0, resolved.EntryRollingHighDays ?? 0);
             if (entryDailyDays > 0)
             {
                 IReadOnlyList<Candle>? entryDaily = null;
@@ -717,9 +722,9 @@ public sealed class MonitorWorker(
                 {
                     var price = (double)snapshot.Price;
 
-                    if (def.EntryRollingLowDays is { } erld && erld > 0)
+                    if (resolved.EntryRollingLowDays is { } erld && erld > 0)
                     {
-                        var buffer = def.EntryRollingLowBuffer ?? 2.5;
+                        var buffer = resolved.EntryRollingLowBuffer ?? 2.5;
                         var lookback = Math.Min(erld, entryDaily.Count);
                         var low = double.MaxValue;
                         for (var i = entryDaily.Count - lookback; i < entryDaily.Count; i++)
@@ -732,9 +737,9 @@ public sealed class MonitorWorker(
                         }
                     }
 
-                    if (def.EntryRollingHighDays is { } erhd && erhd > 0)
+                    if (resolved.EntryRollingHighDays is { } erhd && erhd > 0)
                     {
-                        var buffer = def.EntryRollingHighBuffer ?? 2.5;
+                        var buffer = resolved.EntryRollingHighBuffer ?? 2.5;
                         var lookback = Math.Min(erhd, entryDaily.Count);
                         var high = 0.0;
                         for (var i = entryDaily.Count - lookback; i < entryDaily.Count; i++)
@@ -750,8 +755,8 @@ public sealed class MonitorWorker(
             }
 
             logger.LogDebug("[{Title}] {Symbol} ✓ ALL {Total} conditions met → candidate fire ({Direction} @ {Price:F2})",
-                stored.Title, stored.Symbol, conditions.Count, def.Direction, snapshot.Price);
-            await FireAsync(stored, def, snapshot, candles, ct);
+                stored.Title, stored.Symbol, conditions.Count, resolved.Direction, snapshot.Price);
+            await FireAsync(stored, resolved, snapshot, candles, ct);
         }
         else
         {

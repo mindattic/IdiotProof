@@ -1,4 +1,3 @@
-using System.Reflection;
 using IdiotProof.Models;
 using IdiotProof.Scripting;
 using IdiotProof.Shared;
@@ -6,36 +5,19 @@ using IdiotProof.Shared;
 namespace IdiotProof.Strategies.Tests;
 
 /// <summary>
-/// Proves that <c>DslStrategy.ResolveBranches</c> copies every field of the
+/// Proves that <see cref="StrategyBranchResolver.Resolve"/> copies every field of the
 /// base <see cref="StrategyDefinition"/> into the cloned result, including the
 /// nine fields that were missing before Bug 1 was fixed.  A ConditionalBlock
 /// with a non-matching condition is added so the clone path is exercised; the
 /// base values must survive unchanged when no branch fires.
 ///
-/// Regression guard: any future refactor of ResolveBranches that drops even
+/// Regression guard: any future refactor of StrategyBranchResolver that drops even
 /// one field will fail here long before it reaches real money.
 /// </summary>
 public class ResolveBranchesAllFieldsTests
 {
-    // Invoke the private static method via reflection.
-    private static readonly MethodInfo ResolveBranchesMethod =
-        typeof(DslStrategy).GetMethod(
-            "ResolveBranches",
-            BindingFlags.NonPublic | BindingFlags.Static)
-        ?? throw new InvalidOperationException(
-            "ResolveBranches not found — has the method been renamed or made public?");
-
     private static StrategyDefinition CallResolveBranches(StrategyDefinition def, IndicatorSnapshot snap)
-    {
-        try
-        {
-            return (StrategyDefinition)ResolveBranchesMethod.Invoke(null, [def, snap])!;
-        }
-        catch (TargetInvocationException ex)
-        {
-            throw ex.InnerException ?? ex;
-        }
-    }
+        => StrategyBranchResolver.Resolve(def, snap);
 
     private static IndicatorSnapshot EmptySnap() => new()
     {
