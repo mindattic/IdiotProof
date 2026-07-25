@@ -194,6 +194,63 @@ public static class IndicatorSnapshotBuilder
                 }
                 if (oldLo is { } a && newLo is { } b) snapshot.HasHigherLow = b > a;
                 if (oldHi is { } c && newHi is { } d) snapshot.HasLowerHigh = d < c;
+
+                // RSI divergence — reuse the same pivot scan but also track RSI
+                // at each pivot. Classic divergence: price and RSI disagree at
+                // matching swing extremes, signalling exhaustion.
+                //
+                //   Bullish: price makes a lower low  + RSI makes a higher low
+                //            → downside momentum is waning; reversal likely up.
+                //   Bearish: price makes a higher high + RSI makes a lower high
+                //            → upside momentum is waning; reversal likely down.
+                //
+                // Indices < rsiPeriod carry the seed RSI value (fabricated), so
+                // we skip them — a pivot at bar 2 with RSI=72 is noise, not signal.
+                if (n >= 15)
+                {
+                    const int rsiPeriod = 14;
+                    var rsiSeries = RSI.Calculate(candles);
+
+                    // Rolling window of the two most-recent pivot lows / highs
+                    // (price and RSI value at each). Older = 2, newer = 1.
+                    decimal? pivLo1 = null, pivLo2 = null;
+                    decimal? rsiLo1 = null, rsiLo2 = null;
+                    decimal? pivHi1 = null, pivHi2 = null;
+                    decimal? rsiHi1 = null, rsiHi2 = null;
+
+                    for (int i = piv; i < n - piv; i++)
+                    {
+                        if (i < rsiPeriod) continue;
+                        bool isLow = true, isHigh = true;
+                        for (int j = i - piv; j <= i + piv && (isLow || isHigh); j++)
+                        {
+                            if (candles[j].Low  < candles[i].Low)  isLow  = false;
+                            if (candles[j].High > candles[i].High) isHigh = false;
+                        }
+                        if (isLow)
+                        {
+                            pivLo2 = pivLo1; rsiLo2 = rsiLo1;
+                            pivLo1 = candles[i].Low; rsiLo1 = rsiSeries[i];
+                        }
+                        if (isHigh)
+                        {
+                            pivHi2 = pivHi1; rsiHi2 = rsiHi1;
+                            pivHi1 = candles[i].High; rsiHi1 = rsiSeries[i];
+                        }
+                    }
+
+                    // Bullish: newer pivot low below older (lower low in price),
+                    // but RSI at the newer pivot is above RSI at the older one.
+                    if (pivLo1 is { } lo1 && pivLo2 is { } lo2
+                        && rsiLo1 is { } rlo1 && rsiLo2 is { } rlo2)
+                        snapshot.HasBullishDivergence = lo1 < lo2 && rlo1 > rlo2;
+
+                    // Bearish: newer pivot high above older (higher high in price),
+                    // but RSI at the newer pivot is below RSI at the older one.
+                    if (pivHi1 is { } hi1 && pivHi2 is { } hi2
+                        && rsiHi1 is { } rhi1 && rsiHi2 is { } rhi2)
+                        snapshot.HasBearishDivergence = hi1 > hi2 && rhi1 < rhi2;
+                }
             }
         }
 
