@@ -403,8 +403,16 @@ public sealed class MonitorWorker(
                     // ScriptJson-only strategies (canonical path) have an empty ScriptText, so
                     // the text-only check was a false negative: two canonical-JSON gappers for
                     // the same symbol could both fire the same tick and open duplicate positions.
+                    //
+                    // NOTE: StrategyJson.Serialize always emits "peakGivebackPercent": null for
+                    // non-gapper strategies, so Contains("peakGivebackPercent") alone would flag
+                    // every canonical strategy as a gapper.  We must exclude the null case.
+                    var sj = stored.ScriptJson;
+                    var isGapperViaJson = sj is not null
+                        && sj.Contains("peakGivebackPercent", StringComparison.OrdinalIgnoreCase)
+                        && !sj.Contains("\"peakGivebackPercent\": null", StringComparison.OrdinalIgnoreCase);
                     var isGapper = (stored.ScriptText?.Contains("PeakGiveback(", StringComparison.OrdinalIgnoreCase) == true)
-                        || (stored.ScriptJson?.Contains("peakGivebackPercent", StringComparison.OrdinalIgnoreCase) == true);
+                        || isGapperViaJson;
                     if (isGapper && stored.PositionQty == 0 && gapperAlreadyFiredThisTick)
                     {
                         logger.LogWarning("[{Title}] {Symbol} skipped — another gapper strategy for this symbol already fired this tick.",
