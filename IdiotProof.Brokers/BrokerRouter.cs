@@ -54,7 +54,7 @@ public sealed class BrokerRouter
     public IBrokerClient GetBroker(string? typeName)
     {
         if (string.IsNullOrWhiteSpace(typeName)) return GetActiveBroker();
-        return Enum.TryParse<BrokerType>(typeName, ignoreCase: true, out var type)
+        return Enum.TryParse<BrokerType>(typeName.Trim(), ignoreCase: true, out var type)
             ? GetBroker(type)
             : GetActiveBroker();
     }

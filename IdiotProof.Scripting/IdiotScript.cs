@@ -1144,7 +1144,7 @@ public sealed class IndicatorCondition(IndicatorType type, double? parameter = n
             IndicatorType.ReclaimEma           => "OnReclaim",
             IndicatorType.DiPositive           => "IsDiPositive",
             IndicatorType.DiNegative           => "IsDiNegative",
-            IndicatorType.AdxAbove             => "IsAdxAbove",
+            IndicatorType.AdxAbove             => Phase == StrategyPhase.Filters ? "RequireAdxAbove" : "IsAdxAbove",
             IndicatorType.RsiOversold          => "IsRsiOversold",
             IndicatorType.RsiOverbought        => "IsRsiOverbought",
             IndicatorType.RsiBullishDivergence => "IsRsiBullishDivergence",
@@ -1327,7 +1327,7 @@ public sealed class PriceLevelCondition : ICondition
             // BreaksBelow: only fires on the cross (prior bar at-or-above, current bar below).
             PriceLevelType.BreaksBelow => prior is { } p2 && p2 >= Level && price < Level,
 
-            _ => true
+            _ => false
         };
 
         previousPrice = price;

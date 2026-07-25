@@ -115,6 +115,9 @@ public static class GapperExitEvaluator
         if (def.TakeProfitPrice is { } tp && current >= tp)
             return new GapperExitDecision(GapperExitReason.TargetHit, current, peak,
                 $"Price {current:F2} reached the {tp:F2} take-profit target.");
+        if (def.TakeProfitPercent is { } tpPct && current >= entryPrice * (1 + tpPct / 100.0))
+            return new GapperExitDecision(GapperExitReason.TargetHit, current, peak,
+                $"Price {current:F2} hit the {tpPct:F1}% take-profit target.");
 
         // 4b. Prior-high-of-day target: sell into the high formed BEFORE entry
         //     (the earlier HOD/resistance) — the double-bottom "sell approaching
@@ -244,6 +247,9 @@ public static class GapperExitEvaluator
         if (def.TakeProfitPrice is { } tp && current <= tp)
             return new GapperExitDecision(GapperExitReason.TargetHit, current, trough,
                 $"Price {current:F2} reached the {tp:F2} take-profit target.");
+        if (def.TakeProfitPercent is { } tpPct && current <= entryPrice * (1 - tpPct / 100.0))
+            return new GapperExitDecision(GapperExitReason.TargetHit, current, trough,
+                $"Short: price {current:F2} hit the {tpPct:F1}% take-profit target.");
 
         // 5. Momentum rollover — gave back N% of the entry→trough down-move.
         if (def.PeakGivebackPercent is { } giveback)
