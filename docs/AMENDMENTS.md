@@ -4,10 +4,113 @@ project: IdiotProof
 code: IP
 layer: amendments
 status: living
-updated: 2026-07-20
+updated: 2026-07-26
 ---
 
 # IdiotProof — Amendments (append-only; amendment wins over the bible)
+
+## IP-A32 — Research tab: search box → autonomous ranked results-review {#IP-A32}
+**What changed.** (2026-07-26.) The `/research` tab required a human to type a ticker or paste
+an article before anything happened — "the whole point was for the system to go out and find
+this stuff itself." New `IdiotProof.ResearchScanner` console project (RFC 0003) fixes that:
+
+1. **New scanner project, not a daemon.** `IdiotProof.ResearchScanner` runs one scan pass and
+   exits — meant for a Windows Scheduled Task (`tools/register-research-scan-task.ps1`, written
+   but not registered), decoupled from `IdiotProof.Monitor`'s real-time trading loop and from
+   Blazor's request lifecycle. Sweeps watchlist tickers every pass plus a rotating batch of the
+   tracked universe (`TickerUniverseService` + new `TrackedTicker` table, cached from Alpaca's
+   asset list, refreshed every 24h), runs the regulatory scanner on its own slower cadence, then
+   scores everything new.
+
+2. **Real filing content, not boilerplate.** `Form4Parser` parses the actual Form 4 XML
+   (share counts, transaction code, price, resulting holdings) into a new `InsiderTransaction`
+   table — "when a CEO sells a million shares" is now a real, sized fact instead of "ownership
+   changed." `CorporateActionDetector` classifies 8-K item codes already present in EDGAR's
+   search response (no extra fetch to classify) and fetches real document text only for the
+   split/M&A-adjacent codes (1.01, 2.01, 3.02, 3.03, 5.03). Along the way, `EdgarService` was
+   found reading JSON fields that don't exist in the real API (`form_type`/`entity_name` instead
+   of the actual `form`/`display_names`) — entity names had silently been empty this whole time;
+   fixed, and `BrowseUrl` now points at the real per-filing archive page instead of a shared
+   per-ticker search URL.
+
+3. **Regulatory/macro events.** `RegulatoryScanner` polls the Federal Register's public API for
+   SEC "Self-Regulatory Organizations" notices (exchange rule changes — e.g. the real Nasdaq $5M
+   Market Value of Listed Securities continued-listing rule, SEC-approved 2026-07-22), has the
+   LLM triage out routine fee-schedule noise, and persists substantive ones as macro
+   `ResearchClaim` rows (`IsMacro = true`, `Ticker = ""`, tickers affected in
+   `AffectedTickersJson` when a market-value screen can resolve them — an honest gap message
+   otherwise, never a fabricated ticker list).
+
+4. **Sober tone by construction.** `CatalystExtractor` gained a `Mechanism` field; the claim's
+   display sentence is now composed deterministically (`"{Summary}. Affects {Ticker} because
+   {Mechanism}. Expected impact: {ExpectedTimeline}."`) instead of trusting one LLM-authored
+   paragraph — the tone guarantee survives prompt drift.
+
+5. **Significance ranking + feed redesign.** New `SignificanceScorer` combines LLM magnitude/
+   confidence, historical correlation strength, source trust, recency, and watchlist membership
+   into one 0-100 `ResearchClaim.SignificanceScore`. `Research.razor`'s primary view is now
+   "Today's High-Impact Events" ordered by that score, with a last-scan banner and a
+   "my watchlist only" toggle; the old manual ticker-fetch/paste-article flow moved into a
+   collapsed Advanced panel.
+
+6. **Dedup fix.** `ResearchService.AnalyzeArticleAsync` had no dedup — a scheduler re-pulling the
+   same tickers on every pass would have re-extracted (and re-billed the LLM for) the same
+   article repeatedly. Now dedupes by (ticker, source URL) before calling the extractor.
+
+7. **Outcome backfill — proving the news actually correlates with price.** A gap found only
+   after the fact: `ClaimCorrelationService`'s historical matching and `SignificanceScorer`'s
+   history/source bonuses both read `ResearchClaim.OutcomePctChange` — but nothing ever wrote it,
+   so those bonuses silently sat at zero forever, and `SourceTrustScore`'s sub-counters
+   (`PortentsClaimed`/`ImmediateClaims`) were never incremented either (only `TotalClaims` was).
+   New `OutcomeBackfillService`: for every non-macro claim old enough that its predicted impact
+   has had time to play out (default 5+ days), fetches the real Alpaca daily close at the claim
+   date and at the outcome date (default +7 days), computes `OutcomePctChange`, and — comparing
+   the actual direction against the claim's Bullish/Bearish call — marks a pending portent
+   Realized or Disproven and bumps the source's `PortentsRealized`/`ImmediateCorrect` count
+   (Neutral calls are never scored either way). Runs every scan pass, before significance
+   scoring, so the score always reads freshly-backfilled history. Verified against real news and
+   real Alpaca price history (not synthetic fixtures): a 2023-09-30 MSFT government-contract
+   claim backfilled to $321.82 → $329.91 (+2.51%, Realized); an 2025-08-29 MSFT claim to
+   $506.74 → $494.96 (-2.32%); a 2026-07-17 AAPL portent ("early settlement talks with DOJ")
+   backfilled to a -0.21% move and correctly marked Disproven against its Bullish call; claims
+   inside the 5-day window were correctly left for a later pass rather than guessed at.
+
+Verified end-to-end against the real dev database and live APIs (not just the 200 new/updated
+unit and integration tests): one full default scan pass covered 300/8,445 tracked tickers in
+~4 minutes with 0 errors, and the Nasdaq MVLS rule was captured, scored 99.998/100 (top of the
+feed), and read as sober equity research — "Nasdaq adopts new continued listing requirement
+affecting listed companies' ability to maintain exchange quotation. Affects Nasdaq-listed
+companies subject to the new continued listing requirement because New continued [listing
+requirements force delisting of non-compliant issuers]." **Status: shipped & verified.**
+
+8. **Found and fixed after the fact: EDGAR's User-Agent header was silently invalid on every
+   call.** `AddHttpClient("edgar", ...)` in both `IdiotProof.Blazor/Program.cs` and
+   `IdiotProof.ResearchScanner/Program.cs` registered `"IdiotProof/1 research@idiotproof.app"` —
+   a bare email as a second token, which RFC 7231's product-token grammar rejects (no `@`
+   allowed outside a parenthesized comment). .NET's strict header parser threw
+   `FormatException` on every call, and `EdgarService.GetRecentFilingsAsync`'s own fail-closed
+   try/catch silently swallowed it (logged at Warning, returned an empty list) — so the 300/8,445
+   run above never actually got a single real 8-K or Form 4 filing; every claim in it came from
+   Alpaca News, USASpending.gov, and the Federal Register regulatory pipeline, none of which use
+   this HttpClient. `EdgarServiceTests`/`Form4ParserTests`/`CorporateActionDetectorTests` didn't
+   catch it either — they inject a stub `IHttpClientFactory` that never runs the real header
+   registration. Fixed (`"IdiotProof/1 (research@idiotproof.app)"`, the contact email wrapped as
+   a comment) and re-verified live: AAPL now returns real Form 4 filings (6 in a 90-day window)
+   and real 8-K filings (17 in a 180-day window, item codes intact — `[2.02,9.01]` for an
+   earnings 8-K), plus a real fetched Form 4 XML document (3,141 chars). Added
+   `EdgarUserAgentString_MatchingProgramCsRegistration_ParsesWithoutThrowing` — a test that
+   directly parses the literal string Program.cs registers, since a mocked HttpClientFactory
+   can never catch this class of bug.
+
+**Why.** Session directive 2026-07-26: the Research tab should be "a results review, not a
+search engine" — the system should surface high-probability market-moving events (insider
+sales, splits, M&A, earnings surprises, regulatory decisions) on its own, ranked, in sober
+equity-research tone, via a silent scheduled process rather than a manual search box.
+
+**Effect on canon.** New subsystem — see [RFC 0003](rfc/0003-autonomous-research-scanner.md).
+[BIBLE §4](BIBLE.md#IP-§4) architecture table gains `IdiotProof.ResearchScanner`;
+[BIBLE §9](BIBLE.md#IP-§9) glossary gains Significance score, Macro claim, Tracked ticker.
+New USER_STORIES Epic (Research). No law changes.
 
 ## IP-A31 — Origin transcripts, two-path coverage, and volume-gate firing fixes {#IP-A31}
 **What changed.** (2026-07-20.) Three things, all in service of "the watchlist strategies must

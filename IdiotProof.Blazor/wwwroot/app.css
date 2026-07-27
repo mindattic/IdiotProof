@@ -653,6 +653,9 @@ code { color: var(--brand); background: transparent; }
     text-transform: uppercase;
 }
 .login-card .form-control {
+    display: block;
+    width: 100%;
+    box-sizing: border-box;
     padding: 0.65rem 0.9rem;
     background: #0d1117;
     border: 1px solid #30363d;
@@ -667,6 +670,23 @@ code { color: var(--brand); background: transparent; }
     box-shadow: 0 0 0 3px rgba(210,153,34,0.18);
     background: #0d1117;
 }
+.password-field { position: relative; }
+.password-field .form-control { padding-right: 2.75rem; }
+.password-toggle {
+    position: absolute;
+    top: 0;
+    right: 0;
+    height: 100%;
+    width: 2.75rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    border: none;
+    color: #6e7681;
+    cursor: pointer;
+}
+.password-toggle:hover { color: #e6edf3; }
 .btn-login {
     width: 100%;
     padding: 0.72rem;

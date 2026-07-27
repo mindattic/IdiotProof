@@ -12,13 +12,30 @@ public record ExtractedCatalyst(
     bool    HasHappenedAlready,
     string? PendingTrigger,
     string? ExpectedTimeline,
-    string? TriggerConfidence
-);
+    string? TriggerConfidence,
+    string  Mechanism
+)
+{
+    /// <summary>
+    /// Deterministically composes the claim's display sentence from structured
+    /// fields instead of trusting one LLM-authored paragraph — the tone
+    /// guarantee lives in this composition, not in a prompt instruction that
+    /// can drift. Sober equity-research register: what happened, which
+    /// ticker(s) it affects and why (the mechanism), and when.
+    /// </summary>
+    public static string ComposeSentence(string summary, string ticker, string mechanism, string? expectedTimeline)
+    {
+        var timing = string.IsNullOrWhiteSpace(expectedTimeline) ? "already priced in" : expectedTimeline;
+        var affects = string.IsNullOrWhiteSpace(ticker) ? "the affected tickers" : ticker.ToUpperInvariant();
+        return string.IsNullOrWhiteSpace(mechanism)
+            ? summary
+            : $"{summary}. Affects {affects} because {mechanism}. Expected impact: {timing}.";
+    }
+}
 
 public record CatalystExtraction(
     string                  Ticker,
     List<ExtractedCatalyst> Catalysts,
-    string                  SimpleAnswer,
     string                  SourceAssessment,
     int                     SourceTierSuggestion
 );
@@ -47,21 +64,30 @@ public sealed class CatalystExtractor(
         - A CATALYST is an event that has already occurred (earnings reported, contract
           signed, merger closed). These move the stock immediately.
 
-        Also answer: "How does this affect the stock price?" — include timing.
+        TONE — this is a sober equity-research desk, not a financial news headline:
+        - State facts plainly. No hype, no clickbait, no exclamation points, no adjectives
+          like "shocking", "huge", "massive", "explosive". A reader should not be able to
+          tell this system is trying to grab attention.
+        - Every catalyst's "mechanism" field must state the CAUSAL LINK plainly: why this
+          fact moves (or doesn't move) the price. "Reduces near-term dilution risk" is
+          good; "This is huge for shareholders!" is not.
+        - "summary" states what happened/was announced. "mechanism" states why it matters
+          to the price. Keep both factual and unembellished.
 
         Respond ONLY with valid JSON matching this schema exactly:
         {
           "ticker": "LMT",
           "catalysts": [
             {
-              "summary": "concise description under 120 chars",
+              "summary": "concise description under 120 chars, factual",
               "type": "Earnings|Contract|Insider|MA|Guidance|Regulatory|News",
               "sentiment": "Bullish|Bearish|Neutral",
               "magnitude": "High|Medium|Low",
               "has_happened_already": true,
               "pending_trigger": null,
               "expected_timeline": null,
-              "trigger_confidence": null
+              "trigger_confidence": null,
+              "mechanism": "plain statement of why this affects the price"
             },
             {
               "summary": "Preliminary $35B THAAD contract pending Pentagon finalization",
@@ -71,10 +97,10 @@ public sealed class CatalystExtractor(
               "has_happened_already": false,
               "pending_trigger": "Contract signature / Pentagon finalization",
               "expected_timeline": "weeks",
-              "trigger_confidence": "High"
+              "trigger_confidence": "High",
+              "mechanism": "Adds a large, multi-year revenue stream once finalized; not yet reflected in guidance"
             }
           ],
-          "simple_answer": "One paragraph: How does this affect the stock price? Include when.",
           "source_assessment": "Primary|Editorial|Promotional",
           "source_tier": 1
         }
@@ -127,7 +153,8 @@ public sealed class CatalystExtractor(
                         HasHappenedAlready: Bool(c, "has_happened_already"),
                         PendingTrigger:     NullStr(c, "pending_trigger"),
                         ExpectedTimeline:   NullStr(c, "expected_timeline"),
-                        TriggerConfidence:  NullStr(c, "trigger_confidence")
+                        TriggerConfidence:  NullStr(c, "trigger_confidence"),
+                        Mechanism:          Str(c, "mechanism")
                     ));
                 }
             }
@@ -135,7 +162,6 @@ public sealed class CatalystExtractor(
             return new CatalystExtraction(
                 Ticker:              root.TryGetProperty("ticker",            out var t)   ? t.GetString() ?? ticker : ticker,
                 Catalysts:           catalysts,
-                SimpleAnswer:        Str(root, "simple_answer"),
                 SourceAssessment:    Str(root, "source_assessment", "Unknown"),
                 SourceTierSuggestion: root.TryGetProperty("source_tier", out var st) ? st.GetInt32() : 3
             );

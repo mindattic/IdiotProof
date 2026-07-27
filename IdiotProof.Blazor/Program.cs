@@ -193,8 +193,11 @@ builder.Services.AddHostedService(sp => sp.GetRequiredService<AuditLogPusher>())
 builder.Services.AddHttpClient();
 builder.Services.AddHttpClient("edgar", c =>
 {
-    // SEC EDGAR requires a descriptive User-Agent per their access policy
-    c.DefaultRequestHeaders.UserAgent.ParseAdd("IdiotProof/1 research@idiotproof.app");
+    // SEC EDGAR requires a descriptive User-Agent per their access policy. The contact
+    // email MUST be a parenthesized comment, not a bare token — .NET's strict header
+    // parser rejects "@" in a bare product token (FormatException), and EdgarService's
+    // own fail-closed try/catch was silently swallowing that on every single call.
+    c.DefaultRequestHeaders.UserAgent.ParseAdd("IdiotProof/1 (research@idiotproof.app)");
     c.Timeout = TimeSpan.FromSeconds(15);
 });
 builder.Services.AddHttpClient("usspends", c =>
@@ -208,6 +211,11 @@ builder.Services.AddScoped<CatalystExtractor>();
 builder.Services.AddScoped<ClaimVectorService>();
 builder.Services.AddSingleton<ClaimCorrelationService>();
 builder.Services.AddScoped<ResearchService>();
+builder.Services.AddScoped<TickerUniverseService>();
+builder.Services.AddScoped<CorporateActionDetector>();
+builder.Services.AddScoped<RegulatoryScanner>();
+builder.Services.AddScoped<SignificanceScorer>();
+builder.Services.AddScoped<OutcomeBackfillService>();
 builder.Services.AddSingleton<LiveModeElevationService>();
 
 // Dev credential carrier — populated from .env only in Development.

@@ -36,6 +36,9 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options)
     public DbSet<ResearchClaim>        ResearchClaims       => Set<ResearchClaim>();
     public DbSet<SourceTrustScore>     SourceTrustScores    => Set<SourceTrustScore>();
     public DbSet<ResearchClaimVector>  ResearchClaimVectors => Set<ResearchClaimVector>();
+    public DbSet<InsiderTransaction>   InsiderTransactions  => Set<InsiderTransaction>();
+    public DbSet<TrackedTicker>        TrackedTickers       => Set<TrackedTicker>();
+    public DbSet<ScanRun>              ScanRuns             => Set<ScanRun>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -157,9 +160,35 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options)
             e.HasIndex(r => new { r.Ticker, r.Status });
             e.HasIndex(r => new { r.Ticker, r.CreatedUtc });
             e.HasIndex(r => r.ArticleDate);
+            e.HasIndex(r => r.SignificanceScore);
+            e.HasIndex(r => r.IsMacro);
             e.Property(r => r.PriceAtClaim).HasPrecision(18, 4);
             e.Property(r => r.PriceAtOutcome).HasPrecision(18, 4);
             e.Property(r => r.OutcomePctChange).HasPrecision(8, 4);
+        });
+
+        b.Entity<InsiderTransaction>(e =>
+        {
+            e.HasIndex(t => t.ClaimId);
+            e.Property(t => t.SharesTransacted).HasPrecision(18, 4);
+            e.Property(t => t.PricePerShare).HasPrecision(18, 4);
+            e.Property(t => t.DollarValue).HasPrecision(18, 2);
+            e.Property(t => t.SharesOwnedAfter).HasPrecision(18, 4);
+            e.Property(t => t.PctOfHoldingsChanged).HasPrecision(8, 4);
+            // No FK to ResearchClaim: same rationale as ResearchClaimVector —
+            // an independent research record that must survive claim edits.
+        });
+
+        b.Entity<TrackedTicker>(e =>
+        {
+            e.HasIndex(t => t.Exchange);
+            e.HasIndex(t => t.LastRefreshedUtc);
+            e.Property(t => t.LastPrice).HasPrecision(18, 4);
+        });
+
+        b.Entity<ScanRun>(e =>
+        {
+            e.HasIndex(s => s.StartedUtc);
         });
 
         b.Entity<ResearchClaimVector>(e =>

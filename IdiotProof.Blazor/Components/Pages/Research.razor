@@ -8,6 +8,8 @@
 @inject ResearchService ResearchSvc
 @inject ClaimCorrelationService CorrelationSvc
 @inject AppSettings AppSettings
+@inject AuthenticationStateProvider AuthState
+@inject IdiotProof.Engine.Workspace.IWorkspaceStore WorkspaceStore
 
 <PageTitle>Research — IdiotProof</PageTitle>
 
@@ -16,8 +18,9 @@
         <i class="bi bi-search me-2" style="color:var(--brand)" aria-hidden="true"></i>Intelligence Research
     </h1>
     <p class="text-muted small mb-3">
-        Surface catalysts and <strong>portents</strong> — events announced but not yet priced in.
-        Empirically trustworthy sources earn confidence over time.
+        A results review, not a search box — <code>IdiotProof.ResearchScanner</code> sweeps EDGAR,
+        Alpaca news, and exchange rule filings on its own schedule and ranks what it finds by how
+        likely it is to move a price. Nothing here needs a ticker typed in first.
     </p>
 
     @if (error is not null)
@@ -25,180 +28,214 @@
         <div class="alert alert-danger small">@error</div>
     }
 
-    <!-- ── Input row ── -->
-    <div class="trading-card p-3 mb-3">
-        <div class="row g-2 align-items-end mb-3">
-            <div class="col-sm-3">
-                <label class="form-label small text-muted mb-1">Ticker</label>
-                <input class="form-control form-control-sm text-uppercase" placeholder="LMT"
-                       @bind="ticker" @bind:event="oninput" maxlength="10" />
-            </div>
-            <div class="col-sm-4">
-                <label class="form-label small text-muted mb-1">Company name <span class="text-muted">(for gov contracts)</span></label>
-                <input class="form-control form-control-sm" placeholder="Lockheed Martin"
-                       @bind="companyName" />
-            </div>
-            <div class="col-sm-2">
-                <label class="form-label small text-muted mb-1">Days back</label>
-                <input class="form-control form-control-sm" type="number" min="1" max="365"
-                       @bind="daysBack" />
-            </div>
-            <div class="col-sm-3">
-                <button class="btn btn-success w-100 btn-sm"
-                        @onclick="FetchPrimaryAsync"
-                        disabled="@(busy || string.IsNullOrWhiteSpace(ticker))">
-                    @if (busy && mode == "primary")
-                    {
-                        <span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span>
-                        <span>Fetching…</span>
-                    }
-                    else
-                    {
-                        <i class="bi bi-shield-check me-1" aria-hidden="true"></i>
-                        <span>Fetch Primary Sources</span>
-                    }
-                </button>
-                <div class="text-muted" style="font-size:.68rem;margin-top:2px;text-align:center">
-                    SEC EDGAR &middot; USASpending.gov
-                </div>
-            </div>
-        </div>
+    <!-- ── Last-scan banner ── -->
+    <div class="trading-card p-2 px-3 mb-3 d-flex align-items-center justify-content-between small">
+        @if (lastScan is null)
+        {
+            <span class="text-muted">
+                <i class="bi bi-exclamation-circle me-1" aria-hidden="true"></i>
+                No scan has run yet — start <code>IdiotProof.ResearchScanner</code> once to populate this feed.
+            </span>
+        }
+        else
+        {
+            var ago = DateTime.UtcNow - lastScan.StartedUtc;
+            <span>
+                <i class="bi bi-clock-history me-1" style="color:var(--brand)" aria-hidden="true"></i>
+                Last scanned <strong>@FormatAgo(ago)</strong> ago —
+                covered @lastScan.TickersScanned/@lastScan.UniverseSize tracked tickers,
+                @lastScan.ClaimsFound claims found
+                @if (lastScan.ErrorCount > 0)
+                {
+                    <span class="text-warning">(@lastScan.ErrorCount source errors)</span>
+                }
+            </span>
+        }
+        <button class="btn btn-outline-secondary btn-sm" @onclick="RefreshFeedAsync" disabled="@feedLoading">
+            <i class="bi bi-arrow-clockwise me-1" aria-hidden="true"></i>Refresh
+        </button>
+    </div>
 
-        <!-- Article paste zone -->
-        <div class="border-top pt-3">
-            <div class="row g-2 align-items-end mb-2">
-                <div class="col-sm-5">
-                    <label class="form-label small text-muted mb-1">Source name</label>
-                    <input class="form-control form-control-sm" placeholder="Reuters, Bloomberg, press release…"
-                           @bind="manualSource" />
-                </div>
-                <div class="col-sm-3">
-                    <label class="form-label small text-muted mb-1">Source URL <span class="text-muted">(optional)</span></label>
-                    <input class="form-control form-control-sm" type="url" placeholder="https://…"
-                           @bind="manualUrl" />
-                </div>
-                <div class="col-sm-2">
-                    <label class="form-label small text-muted mb-1">Tier</label>
-                    <select class="form-select form-select-sm" @bind="manualTier">
-                        <option value="1">1 — Primary</option>
-                        <option value="2">2 — Editorial</option>
-                        <option value="3" selected>3 — Unknown</option>
-                    </select>
-                </div>
-                <div class="col-sm-2">
-                    <button class="btn btn-outline-primary w-100 btn-sm"
-                            @onclick="AnalyzeManualAsync"
-                            disabled="@(busy || string.IsNullOrWhiteSpace(ticker) || string.IsNullOrWhiteSpace(articleText))">
-                        @if (busy && mode == "manual")
-                        {
-                            <span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span>
-                            <span>Analysing…</span>
-                        }
-                        else
-                        {
-                            <i class="bi bi-cpu me-1" aria-hidden="true"></i>
-                            <span>Analyse</span>
-                        }
-                    </button>
+    <!-- ── Filters ── -->
+    <div class="trading-card p-3 mb-3">
+        <div class="row g-2 align-items-end">
+            <div class="col-sm-3">
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="watchlistOnly"
+                           @bind="watchlistOnly" @bind:after="RefreshFeedAsync" />
+                    <label class="form-check-label small" for="watchlistOnly">
+                        My watchlist only (@watchlistSymbols.Count tickers)
+                    </label>
                 </div>
             </div>
-            <textarea class="form-control form-control-sm"
-                      rows="5"
-                      placeholder="Paste any article, press release, or filing text here…"
-                      @bind="articleText"
-                      style="font-size:.8rem;resize:vertical"></textarea>
+            <div class="col-sm-3">
+                <label class="form-label small text-muted mb-1">Ticker <span class="text-muted">(optional)</span></label>
+                <input class="form-control form-control-sm text-uppercase" placeholder="Any ticker"
+                       @bind="tickerFilter" @bind:event="oninput" @bind:after="RefreshFeedAsync" maxlength="10" />
+            </div>
+            <div class="col-sm-3">
+                <label class="form-label small text-muted mb-1">Days back</label>
+                <input class="form-control form-control-sm" type="number" min="1" max="90"
+                       @bind="feedDaysBack" @bind:after="RefreshFeedAsync" />
+            </div>
         </div>
     </div>
 
-    <!-- ── Results ── -->
-    @if (lastAnswer is not null)
-    {
-        <div class="trading-card p-3 mb-3" style="border-left:3px solid var(--green)">
-            <div class="d-flex align-items-center gap-2 mb-2">
-                <i class="bi bi-chat-square-text" style="color:var(--green)" aria-hidden="true"></i>
-                <span class="small fw-semibold">How does this affect <span class="text-uppercase">@ticker</span>'s stock price?</span>
-            </div>
-            <p class="mb-0 small">@lastAnswer</p>
-        </div>
-    }
-
-    <!-- Portent queue -->
-    @if (portents.Count > 0)
-    {
-        <div class="trading-card p-3 mb-3">
-            <h2 class="h6 mb-3">
-                <i class="bi bi-hourglass-split me-1" style="color:#f59e0b" aria-hidden="true"></i>
-                Portent Queue — <span class="fw-normal text-muted small">@portents.Count pending events not yet fully priced in</span>
-            </h2>
+    <!-- ── Ranked feed ── -->
+    <div class="trading-card p-3 mb-3">
+        <h2 class="h6 mb-3">
+            <i class="bi bi-graph-up-arrow me-1" style="color:var(--green)" aria-hidden="true"></i>
+            Today's High-Impact Events
+            <span class="fw-normal text-muted small">— ranked by significance</span>
+        </h2>
+        @if (feedLoading)
+        {
+            <div class="text-muted small"><span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>Loading…</div>
+        }
+        else if (rankedFeed.Count == 0)
+        {
+            <p class="text-muted small mb-0">No claims match these filters yet.</p>
+        }
+        else
+        {
             <div class="table-responsive">
                 <table class="table table-sm mb-0" style="font-size:.8rem">
                     <thead>
                         <tr class="text-muted">
-                            <th>Summary</th>
+                            <th style="width:3rem">Score</th>
+                            <th>Event</th>
                             <th>Type</th>
                             <th>Impact</th>
-                            <th>Trigger</th>
-                            <th>Timeline</th>
-                            <th>Confidence</th>
+                            <th>Affects</th>
                             <th>Historical</th>
                             <th>Source</th>
                             <th>Date</th>
                         </tr>
                     </thead>
                     <tbody>
-                        @foreach (var p in portents)
+                        @foreach (var c in rankedFeed)
                         {
                             <tr>
-                                <td>@p.ClaimSummary</td>
-                                <td><span class="badge" style="background:var(--muted);color:var(--text)">@p.ClaimType</span></td>
-                                <td>@SentimentBadge(p.Sentiment, p.Magnitude)</td>
-                                <td class="text-muted">@(p.PendingTrigger ?? "—")</td>
-                                <td class="text-muted">@(p.ExpectedTimeline ?? "—")</td>
-                                <td>@ConfidenceBadge(p.TriggerConfidence)</td>
-                                <td>@CorrelationBadge(p.Id)</td>
-                                <td>@TierBadge(p.SourceTier) @p.SourceName</td>
-                                <td class="text-muted">@p.ArticleDate.ToString("MM/dd")</td>
+                                <td>@ScoreBadge(c.SignificanceScore)</td>
+                                <td>@(c.LlmAnswer ?? c.ClaimSummary)</td>
+                                <td><span class="badge" style="background:var(--muted);color:var(--text)">@c.ClaimType</span></td>
+                                <td>@SentimentBadge(c.Sentiment, c.Magnitude)</td>
+                                <td>@AffectsCell(c)</td>
+                                <td>@CorrelationBadge(c.Id)</td>
+                                <td>@TierBadge(c.SourceTier) @c.SourceName</td>
+                                <td class="text-muted">@c.ArticleDate.ToString("MM/dd")</td>
                             </tr>
                         }
                     </tbody>
                 </table>
             </div>
-        </div>
-    }
+        }
+    </div>
 
-    <!-- All claims -->
-    @if (allClaims.Count > 0)
-    {
-        var immediate = allClaims.Where(c => c.HasHappenedAlready).ToList();
-        if (immediate.Count > 0)
+    <!-- ── Advanced: manual one-off research ── -->
+    <div class="trading-card p-3 mb-3">
+        <button class="btn btn-link btn-sm text-decoration-none p-0" @onclick="() => advancedOpen = !advancedOpen">
+            <i class="bi bi-chevron-@(advancedOpen ? "down" : "right") me-1" aria-hidden="true"></i>
+            Advanced: analyze one ticker or paste an article
+        </button>
+
+        @if (advancedOpen)
         {
-            <div class="trading-card p-3 mb-3">
-                <h2 class="h6 mb-3">
-                    <i class="bi bi-lightning-fill me-1" style="color:var(--green)" aria-hidden="true"></i>
-                    Immediate Catalysts — <span class="fw-normal text-muted small">already occurred</span>
-                </h2>
-                <div class="table-responsive">
-                    <table class="table table-sm mb-0" style="font-size:.8rem">
-                        <thead>
-                            <tr class="text-muted"><th>Summary</th><th>Type</th><th>Impact</th><th>Source</th><th>Date</th></tr>
-                        </thead>
-                        <tbody>
-                            @foreach (var c in immediate.OrderByDescending(x => x.ArticleDate).Take(20))
+            <div class="mt-3">
+                <div class="row g-2 align-items-end mb-3">
+                    <div class="col-sm-3">
+                        <label class="form-label small text-muted mb-1">Ticker</label>
+                        <input class="form-control form-control-sm text-uppercase" placeholder="LMT"
+                               @bind="ticker" @bind:event="oninput" maxlength="10" />
+                    </div>
+                    <div class="col-sm-4">
+                        <label class="form-label small text-muted mb-1">Company name <span class="text-muted">(for gov contracts)</span></label>
+                        <input class="form-control form-control-sm" placeholder="Lockheed Martin"
+                               @bind="companyName" />
+                    </div>
+                    <div class="col-sm-2">
+                        <label class="form-label small text-muted mb-1">Days back</label>
+                        <input class="form-control form-control-sm" type="number" min="1" max="365"
+                               @bind="daysBack" />
+                    </div>
+                    <div class="col-sm-3">
+                        <button class="btn btn-success w-100 btn-sm"
+                                @onclick="FetchPrimaryAsync"
+                                disabled="@(busy || string.IsNullOrWhiteSpace(ticker))">
+                            @if (busy && mode == "primary")
                             {
-                                <tr>
-                                    <td>@c.ClaimSummary</td>
-                                    <td><span class="badge" style="background:var(--muted);color:var(--text)">@c.ClaimType</span></td>
-                                    <td>@SentimentBadge(c.Sentiment, c.Magnitude)</td>
-                                    <td>@TierBadge(c.SourceTier) @c.SourceName</td>
-                                    <td class="text-muted">@c.ArticleDate.ToString("MM/dd")</td>
-                                </tr>
+                                <span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span>
+                                <span>Fetching…</span>
                             }
-                        </tbody>
-                    </table>
+                            else
+                            {
+                                <i class="bi bi-shield-check me-1" aria-hidden="true"></i>
+                                <span>Force re-scan this ticker</span>
+                            }
+                        </button>
+                        <div class="text-muted" style="font-size:.68rem;margin-top:2px;text-align:center">
+                            SEC EDGAR &middot; USASpending.gov
+                        </div>
+                    </div>
                 </div>
+
+                <div class="border-top pt-3">
+                    <div class="row g-2 align-items-end mb-2">
+                        <div class="col-sm-5">
+                            <label class="form-label small text-muted mb-1">Source name</label>
+                            <input class="form-control form-control-sm" placeholder="Reuters, Bloomberg, press release…"
+                                   @bind="manualSource" />
+                        </div>
+                        <div class="col-sm-3">
+                            <label class="form-label small text-muted mb-1">Source URL <span class="text-muted">(optional)</span></label>
+                            <input class="form-control form-control-sm" type="url" placeholder="https://…"
+                                   @bind="manualUrl" />
+                        </div>
+                        <div class="col-sm-2">
+                            <label class="form-label small text-muted mb-1">Tier</label>
+                            <select class="form-select form-select-sm" @bind="manualTier">
+                                <option value="1">1 — Primary</option>
+                                <option value="2">2 — Editorial</option>
+                                <option value="3" selected>3 — Unknown</option>
+                            </select>
+                        </div>
+                        <div class="col-sm-2">
+                            <button class="btn btn-outline-primary w-100 btn-sm"
+                                    @onclick="AnalyzeManualAsync"
+                                    disabled="@(busy || string.IsNullOrWhiteSpace(ticker) || string.IsNullOrWhiteSpace(articleText))">
+                                @if (busy && mode == "manual")
+                                {
+                                    <span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span>
+                                    <span>Analysing…</span>
+                                }
+                                else
+                                {
+                                    <i class="bi bi-cpu me-1" aria-hidden="true"></i>
+                                    <span>Analyse</span>
+                                }
+                            </button>
+                        </div>
+                    </div>
+                    <textarea class="form-control form-control-sm"
+                              rows="5"
+                              placeholder="Paste any article, press release, or filing text here…"
+                              @bind="articleText"
+                              style="font-size:.8rem;resize:vertical"></textarea>
+                </div>
+
+                @if (lastAnswer is not null)
+                {
+                    <div class="mt-3 pt-3 border-top">
+                        <div class="d-flex align-items-center gap-2 mb-2">
+                            <i class="bi bi-chat-square-text" style="color:var(--green)" aria-hidden="true"></i>
+                            <span class="small fw-semibold">How does this affect <span class="text-uppercase">@ticker</span>'s stock price?</span>
+                        </div>
+                        <p class="mb-0 small">@lastAnswer</p>
+                    </div>
+                }
             </div>
         }
-    }
+    </div>
 
     <!-- Source trust leaderboard -->
     @if (trustScores.Count > 0)
@@ -242,6 +279,17 @@
 </section>
 
 @code {
+    // Ranked feed state
+    List<ResearchClaim> rankedFeed = [];
+    List<string>         watchlistSymbols = [];
+    bool   watchlistOnly;
+    string tickerFilter = "";
+    int    feedDaysBack = 14;
+    bool   feedLoading = true;
+    ScanRun? lastScan;
+
+    // Advanced/manual panel state (unchanged behaviour from the original page)
+    bool    advancedOpen;
     string  ticker      = "";
     string  companyName = "";
     int     daysBack    = 30;
@@ -257,12 +305,55 @@
     string? error;
     string? lastAnswer;
 
-    public void Dispose() => cts.Cancel();
-
-    List<ResearchClaim>    portents    = [];
-    List<ResearchClaim>    allClaims   = [];
     List<SourceTrustScore> trustScores = [];
     Dictionary<Guid, CorrelationResult> correlations = [];
+
+    public void Dispose() => cts.Cancel();
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var auth = await AuthState.GetAuthenticationStateAsync();
+            var rawId = auth.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            if (rawId is not null)
+            {
+                watchlistSymbols = WorkspaceStore.Load(rawId)
+                    .SelectMany(t => t.Watchlist)
+                    .Where(s => !string.IsNullOrWhiteSpace(s))
+                    .Select(s => s.Trim().ToUpperInvariant())
+                    .Distinct()
+                    .ToList();
+            }
+
+            trustScores = await ResearchSvc.GetTopSourcesAsync(cts.Token);
+            await RefreshFeedAsync();
+        }
+        catch (Exception ex) { error = ex.Message; }
+    }
+
+    async Task RefreshFeedAsync()
+    {
+        feedLoading = true;
+        StateHasChanged();
+        try
+        {
+            lastScan = await ResearchSvc.GetLastScanRunAsync(cts.Token);
+            rankedFeed = await ResearchSvc.GetRankedFeedAsync(
+                daysBack: feedDaysBack,
+                watchlistOnly: watchlistOnly,
+                watchlistSymbols: watchlistSymbols,
+                tickerFilter: string.IsNullOrWhiteSpace(tickerFilter) ? null : tickerFilter,
+                ct: cts.Token);
+
+            var ids = rankedFeed.Select(c => c.Id).ToList();
+            correlations = ids.Count > 0
+                ? await CorrelationSvc.FindSimilarOutcomesBatchAsync(ids, ct: cts.Token)
+                : [];
+        }
+        catch (Exception ex) { error = ex.Message; }
+        finally { feedLoading = false; StateHasChanged(); }
+    }
 
     async Task FetchPrimaryAsync()
     {
@@ -270,8 +361,8 @@
         await RunAsync("primary", async ct =>
         {
             var claims = await ResearchSvc.FetchPrimarySourcesAsync(ticker, companyName, daysBack, ct);
-            await LoadResultsAsync(ct);
             lastAnswer = claims.FirstOrDefault(c => c.LlmAnswer is not null)?.LlmAnswer;
+            await RefreshFeedAsync();
         });
     }
 
@@ -284,22 +375,10 @@
             var source = string.IsNullOrWhiteSpace(manualSource) ? "Unknown" : manualSource;
             var claims = await ResearchSvc.AnalyzeArticleAsync(
                 ticker, articleText, source, manualUrl, manualTier, date, ct);
-            await LoadResultsAsync(ct);
             lastAnswer = claims.FirstOrDefault(c => c.LlmAnswer is not null)?.LlmAnswer;
             articleText = "";
+            await RefreshFeedAsync();
         });
-    }
-
-    async Task LoadResultsAsync(CancellationToken ct)
-    {
-        portents    = await ResearchSvc.GetPortentsAsync(ticker.ToUpperInvariant(), ct);
-        allClaims   = await ResearchSvc.GetClaimsAsync(ticker.ToUpperInvariant(), daysBack, ct);
-        trustScores = await ResearchSvc.GetTopSourcesAsync(ct);
-
-        // Load historical correlations for all portents (batch, single DB round-trip).
-        var portentIds = portents.Select(p => p.Id).ToList();
-        if (portentIds.Count > 0)
-            correlations = await CorrelationSvc.FindSimilarOutcomesBatchAsync(portentIds, ct: ct);
     }
 
     async Task RunAsync(string modeName, Func<CancellationToken, Task> work)
@@ -310,6 +389,36 @@
         catch (OperationCanceledException) { }
         catch (Exception ex) { error = ex.Message; }
         finally { busy = false; mode = null; StateHasChanged(); }
+    }
+
+    static string FormatAgo(TimeSpan ago) => ago switch
+    {
+        { TotalMinutes: < 1 }  => "just now",
+        { TotalMinutes: < 60 } => $"{(int)ago.TotalMinutes}m",
+        { TotalHours: < 24 }   => $"{(int)ago.TotalHours}h",
+        _                      => $"{(int)ago.TotalDays}d",
+    };
+
+    static MarkupString ScoreBadge(double? score)
+    {
+        if (score is not { } s) return new MarkupString("<span class=\"text-muted\" style=\"font-size:.7rem\">—</span>");
+        var color = s >= 70 ? "#10b981" : s >= 40 ? "#f59e0b" : "#6b7280";
+        return new MarkupString($"<span style=\"color:{color};font-weight:700\">{s:0}</span>");
+    }
+
+    MarkupString AffectsCell(ResearchClaim c)
+    {
+        if (!c.IsMacro) return new MarkupString($"<span class=\"text-uppercase\">{c.Ticker}</span>");
+
+        var affected = SignificanceScorer.ParseAffectedTickers(c.AffectedTickersJson);
+        if (affected.Count == 0)
+        {
+            var desc = string.IsNullOrWhiteSpace(c.AffectedTickersJson) ? "market-wide" : c.AffectedTickersJson;
+            return new MarkupString($"<span class=\"text-muted\" title=\"macro/regulatory event\">{System.Web.HttpUtility.HtmlEncode(desc)}</span>");
+        }
+        var shown = string.Join(", ", affected.Take(6));
+        var more  = affected.Count > 6 ? $" +{affected.Count - 6} more" : "";
+        return new MarkupString($"<span title=\"{affected.Count} tickers\">{System.Web.HttpUtility.HtmlEncode(shown)}{more}</span>");
     }
 
     static MarkupString TierBadge(int tier) => tier switch
@@ -331,14 +440,6 @@
             $"<span class=\"badge\" style=\"background:{bg};color:{fg};font-size:.65rem\">" +
             $"{sentiment} {magnitude}</span>");
     }
-
-    static MarkupString ConfidenceBadge(string? conf) => conf switch
-    {
-        "High"   => new MarkupString("<span style=\"color:#10b981;font-weight:600\">High</span>"),
-        "Medium" => new MarkupString("<span style=\"color:#f59e0b;font-weight:600\">Medium</span>"),
-        "Low"    => new MarkupString("<span style=\"color:#6b7280\">Low</span>"),
-        _        => new MarkupString("<span class=\"text-muted\">—</span>"),
-    };
 
     MarkupString CorrelationBadge(Guid claimId)
     {

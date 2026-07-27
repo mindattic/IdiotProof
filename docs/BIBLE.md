@@ -114,6 +114,7 @@ once momentum rolls over.
 | `IdiotProof.Brokers` | `IBrokerClient` + `AlpacaBrokerClient` + `SandboxBrokerClient` + `BrokerRouter`. |
 | `IdiotProof.Models` | Domain DTOs/enums (the nouns, see 4.2). |
 | `IdiotProof.Shared` | `RiskGuardian` + `RiskGuardianConfig`/`Result`, `IndicatorSnapshot`, `LogMessage`, `SettingsMetadata`. |
+| `IdiotProof.ResearchScanner` | One-shot, Scheduled-Task-fired console app (IP-A32 / RFC 0003) — sweeps EDGAR/Alpaca/Federal-Register for market-moving events across the tracked ticker universe, scores significance, writes to the shared DB. Not a daemon; not part of the Monitor's trading loop. |
 
 ### 4.2 Domain model — the NOUNS (`IdiotProof.Models`, `IdiotProof.Shared`)
 - `Candle` — one OHLCV bar.
@@ -142,6 +143,15 @@ once momentum rolls over.
   take-profit / peak-giveback verdict for a held position (pure, clock-free, unit-tested).
 - `IMarketDataFeed.*` — Alpaca (REST + websocket stream), Polygon, Mock (deterministic gap
   simulation), Switchable; `GetPreviousCloseAsync` supplies gap math's reference close.
+- **Research subsystem** (IP-A32 / RFC 0003, `IdiotProof.Blazor/Services`): `TickerUniverseService`
+  (cached NASDAQ/NYSE universe), `EdgarService` (SEC filings + real document fetch),
+  `Form4Parser` (real insider-transaction magnitude), `CorporateActionDetector` (8-K item-code
+  triage), `RegulatoryScanner` (Federal Register SRO notices → macro claims), `CatalystExtractor`
+  (LLM extraction, sober-tone sentence composition), `OutcomeBackfillService` (fetches real
+  price history to mark claims Realized/Disproven — what actually calibrates the score against
+  reality), `SignificanceScorer` (0-100 ranking), `ResearchService` (orchestration + queries).
+  `IdiotProof.ResearchScanner` is the scheduled driver; `/research` (`Research.razor`) is the
+  read-mostly ranked-feed view.
 
 ## 5. The Laws {#IP-§5}
 This bible **inherits** the org-wide laws in
@@ -313,3 +323,13 @@ underscore fields). Anything not proven by a test is `🟡`/`⬜`. (Inherits [HO
   from entry to the post-entry peak; armed from a configured ET time ("the last 15 minutes").
 - **Previous close** — the prior trading day's official close; the reference for gap %.
   Gap conditions fail closed without it.
+- **Research claim** — one `ResearchClaim` row: a catalyst or portent extracted from a filing,
+  news article, or regulatory notice, with sentiment/magnitude/timing and a significance score.
+- **Macro claim** — a `ResearchClaim` with `IsMacro = true`: a regulatory/exchange-rule event
+  that isn't about one company (`Ticker` blank; affected tickers, when resolvable, live in
+  `AffectedTickersJson`).
+- **Significance score** — the 0-100 value `SignificanceScorer` computes per claim (magnitude ×
+  confidence, historical correlation strength, source trust, recency, watchlist boost); the
+  Research tab's ranked feed sorts by it.
+- **Tracked ticker** — a cached row in `TrackedTicker` (symbol, exchange, latest price) forming
+  the research scanner's ticker universe; refreshed daily from Alpaca's asset list.

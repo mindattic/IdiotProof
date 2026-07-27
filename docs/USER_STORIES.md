@@ -249,6 +249,44 @@ counts: {done: 27, partial: 22, planned: 17, cut: 0}
   vector + chosen parameters + arm/skip outcome) is captured to the auto-gapper feature store, so a
   model can learn which auto-strategies pay off — joined to the TradeDiary for the realized-P&L label.
 
+## Epic T — Autonomous market-event research scanner {#Epic-T}
+> The `/research` tab was a search box: type a ticker, paste an article. `IdiotProof.ResearchScanner`
+> (RFC 0003 / [IP-A32](AMENDMENTS.md#IP-A32)) makes it a results review instead — a scheduled,
+> silent console app sweeps EDGAR/Alpaca/Federal-Register on its own and ranks what it finds.
+- **IP-US-T1 ✅** As a trader, I don't have to type a ticker for the system to find market-moving
+  events — a scheduled scan sweeps my watchlist plus a rotating batch of the tracked universe on
+  its own. Proven by a real end-to-end run against the dev database (300/8,445 tickers, 0 errors,
+  36 claims — see [IP-A32](AMENDMENTS.md#IP-A32)) plus `TickerUniverseServiceTests`.
+- **IP-US-T2 ✅** As a trader, an insider transaction claim reports the actual share count,
+  price, and % of holdings changed — not "ownership changed." See `Form4ParserTests`.
+- **IP-US-T3 ✅** As a trader, high-value 8-K filings (splits, M&A, material agreements) get their
+  real document text fetched automatically instead of generic filing boilerplate, while routine
+  8-Ks (director departures, exhibit-only filings) don't cost an extra fetch. See
+  `CorporateActionDetectorTests`.
+- **IP-US-T4 ✅** As a trader, an exchange rule change that affects many companies (not one
+  ticker) shows up as its own macro event, with routine SRO fee-schedule paperwork filtered out
+  by an LLM substantiveness check. Proven against the real Nasdaq $5M MVLS continued-listing rule
+  in both `RegulatoryScannerTests` and the live end-to-end run (scored 99.998/100, top of the
+  feed — see [IP-A32](AMENDMENTS.md#IP-A32)).
+- **IP-US-T5 ✅** As a trader, every claim gets a computed 0-100 significance score (magnitude,
+  historical correlation, source trust, recency, watchlist membership) so the feed can rank
+  itself instead of me filtering. See `SignificanceScorerTests`.
+- **IP-US-T6 ✅** As a trader, claim summaries read like sober equity research — what happened,
+  which tickers it affects and why, and when — never clickbait, because the display sentence is
+  composed from structured fields rather than trusted as free LLM prose. See the composed-sentence
+  assertions in `RegulatoryScannerTests` and the real Nasdaq-rule example in
+  [IP-A32](AMENDMENTS.md#IP-A32).
+- **IP-US-T7 ⬜** As a trader, the Research tab's primary view is a significance-ranked feed with
+  a last-scan banner and a "my watchlist only" toggle, not a search box — built in
+  `Research.razor` but not yet proven by a Cypress spec (no research-tab spec exists yet;
+  see [IP-A4](AMENDMENTS.md#IP-A4) for the Cypress-proof convention this repo follows).
+- **IP-US-T8 ✅** As a trader, I can trust the significance score means something — the system
+  actually checks whether past news correlated with what the stock did next, not just assumes
+  it. `OutcomeBackfillService` fetches real price history and marks each old-enough claim
+  Realized/Disproven against its Bullish/Bearish call. Proven by `OutcomeBackfillServiceTests`
+  and a real backfill run against live Alpaca price data (MSFT/AAPL examples in
+  [IP-A32](AMENDMENTS.md#IP-A32)).
+
 ## Epic E — Authoring & generation (web)
 - **IP-US-E1 🟡** As a trader, I describe a setup in prose and Claude generates valid IdiotScript
   via the Legion high-tier voter panel, with the verb catalog reflected from code so it can't

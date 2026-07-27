@@ -45,15 +45,21 @@
             </div>
             <div class="form-group">
                 <label for="login-password">Password</label>
-                <input id="login-password"
-                       type="password"
-                       name="password"
-                       class="form-control"
-                       autocomplete="current-password"
-                       required
-                       aria-required="true"
-                       value="@(DevCreds.Password ?? "")"
-                       placeholder="Your password" />
+                <div class="password-field">
+                    <input id="login-password"
+                           type="text"
+                           name="password"
+                           class="form-control"
+                           autocomplete="current-password"
+                           required
+                           aria-required="true"
+                           value="@(DevCreds.Password ?? "")"
+                           placeholder="Your password" />
+                    <button type="button" class="password-toggle" aria-label="Hide password"
+                            onclick="var i=document.getElementById('login-password'); var hidden = i.type==='password'; i.type = hidden ? 'text' : 'password'; this.querySelector('i').className = hidden ? 'bi bi-eye' : 'bi bi-eye-slash'; this.setAttribute('aria-label', hidden ? 'Hide password' : 'Show password');">
+                        <i class="bi bi-eye" aria-hidden="true"></i>
+                    </button>
+                </div>
             </div>
             @if (!string.IsNullOrEmpty(DevCreds.Username))
             {

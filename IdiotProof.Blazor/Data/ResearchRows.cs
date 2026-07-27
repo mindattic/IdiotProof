@@ -59,6 +59,115 @@ public sealed class ResearchClaim
     public string? RawArticleSnippet { get; set; }
 
     public DateTime CreatedUtc { get; set; } = DateTime.UtcNow;
+
+    /// <summary>
+    /// True for a macro/regulatory event (e.g. an exchange listing-rule change)
+    /// that isn't about one company — <see cref="Ticker"/> is blank and the
+    /// tickers it plausibly affects live in <see cref="AffectedTickersJson"/>.
+    /// </summary>
+    public bool IsMacro { get; set; }
+
+    /// <summary>
+    /// JSON string[] of tickers affected by a macro claim, or a descriptive
+    /// count string (e.g. "~340 Nasdaq Capital Market issuers") when the
+    /// affected set is too large/uncertain to enumerate.
+    /// </summary>
+    public string? AffectedTickersJson { get; set; }
+
+    /// <summary>
+    /// 0-100 computed by <c>SignificanceScorer</c> — combines LLM magnitude/
+    /// confidence, historical correlation strength, source trust, recency, and
+    /// watchlist membership. Null until the scanner has scored the claim.
+    /// Drives the ranked-feed sort order on the Research tab.
+    /// </summary>
+    public double? SignificanceScore { get; set; }
+}
+
+/// <summary>
+/// Structured Form 4 non-derivative transaction data parsed from the actual
+/// filing XML — real share counts and dollar values, not filing-metadata
+/// boilerplate. One row per transaction line (a single Form 4 can report
+/// several); each links back to the <see cref="ResearchClaim"/> it fed.
+/// </summary>
+public sealed class InsiderTransaction
+{
+    [Key] public Guid Id { get; set; } = Guid.NewGuid();
+
+    public Guid ClaimId { get; set; }
+
+    [MaxLength(200)] public string FilerName { get; set; } = "";
+
+    /// <summary>Officer | Director | TenPercentOwner | Other</summary>
+    [MaxLength(20)] public string FilerRole { get; set; } = "Other";
+
+    /// <summary>SEC transaction code: S=sale, P=purchase, A=grant/award, M=option exercise, F=tax withholding, G=gift, etc.</summary>
+    [MaxLength(5)] public string TransactionCode { get; set; } = "";
+
+    public DateOnly TransactionDate { get; set; }
+
+    public decimal SharesTransacted { get; set; }
+
+    /// <summary>Null when the filing reports no cash price (e.g. a gift or certain option exercises).</summary>
+    public decimal? PricePerShare { get; set; }
+
+    public decimal? DollarValue { get; set; }
+
+    public decimal SharesOwnedAfter { get; set; }
+
+    /// <summary>Positive = shares owned increased (acquired); negative = decreased (disposed).</summary>
+    public decimal? PctOfHoldingsChanged { get; set; }
+
+    [MaxLength(500)] public string? FilingUrl { get; set; }
+
+    public DateTime CreatedUtc { get; set; } = DateTime.UtcNow;
+}
+
+/// <summary>
+/// Cached snapshot of one tradable US equity, refreshed daily from Alpaca's
+/// asset list. The market-sweep's ticker universe, and the best-effort
+/// price × shares-outstanding screen the regulatory scanner uses to guess
+/// which issuers a rule change (e.g. a market-value listing threshold)
+/// plausibly affects.
+/// </summary>
+public sealed class TrackedTicker
+{
+    [Key, MaxLength(20)] public string Symbol { get; set; } = "";
+
+    [MaxLength(20)] public string Exchange { get; set; } = "";
+
+    public bool IsTradable { get; set; }
+
+    public decimal? LastPrice { get; set; }
+
+    /// <summary>Best-effort, from EDGAR company facts XBRL; null when unavailable.</summary>
+    public long? SharesOutstanding { get; set; }
+
+    public DateTime LastRefreshedUtc { get; set; } = DateTime.UtcNow;
+}
+
+/// <summary>
+/// One row per <c>IdiotProof.ResearchScanner</c> execution — observability for
+/// the unattended scheduled-task scan, so the Research tab can show "last
+/// scanned Xm ago, covered N/M tracked tickers" instead of silently capping
+/// coverage with no visibility.
+/// </summary>
+public sealed class ScanRun
+{
+    [Key] public Guid Id { get; set; } = Guid.NewGuid();
+
+    public DateTime StartedUtc { get; set; } = DateTime.UtcNow;
+
+    public DateTime? CompletedUtc { get; set; }
+
+    public int TickersScanned { get; set; }
+
+    public int UniverseSize { get; set; }
+
+    public int ClaimsFound { get; set; }
+
+    public int ErrorCount { get; set; }
+
+    [MaxLength(2000)] public string? Notes { get; set; }
 }
 
 /// <summary>

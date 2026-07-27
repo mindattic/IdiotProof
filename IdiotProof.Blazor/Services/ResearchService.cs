@@ -34,6 +34,20 @@ public sealed class ResearchService(
         DateOnly articleDate,
         CancellationToken ct = default)
     {
+        await using var db = await dbFactory.CreateDbContextAsync(ct);
+
+        // Dedup by (ticker, source URL): the scheduled scanner re-pulls each
+        // ticker's recent news/filings on every pass, and without this guard
+        // every pass would re-extract (and re-bill the LLM for) the same
+        // article and duplicate its claims into the table.
+        var normalizedTicker = ticker.ToUpperInvariant();
+        if (!string.IsNullOrWhiteSpace(sourceUrl))
+        {
+            var alreadySeen = await db.ResearchClaims
+                .AnyAsync(c => c.Ticker == normalizedTicker && c.SourceUrl == sourceUrl, ct);
+            if (alreadySeen) return [];
+        }
+
         var extraction = await extractor.ExtractAsync(ticker, articleText, sourceName, ct);
         if (extraction is null || extraction.Catalysts.Count == 0) return [];
 
@@ -41,7 +55,6 @@ public sealed class ResearchService(
         // e.g. caller says Tier 2, LLM recognises promotional content → Tier 3 wins.
         var effectiveTier = Math.Clamp(Math.Max(sourceTier, extraction.SourceTierSuggestion), 1, 3);
 
-        await using var db = await dbFactory.CreateDbContextAsync(ct);
         var claims = new List<ResearchClaim>();
 
         foreach (var c in extraction.Catalysts)
@@ -62,14 +75,17 @@ public sealed class ResearchService(
                 ExpectedTimeline   = c.ExpectedTimeline,
                 TriggerConfidence  = c.TriggerConfidence,
                 Status             = c.HasHappenedAlready ? "Realized" : "Pending",
-                LlmAnswer          = extraction.SimpleAnswer,
+                // Deterministically composed from structured fields (not a free
+                // LLM-authored paragraph) so the sober tone is guaranteed by
+                // construction rather than by prompt instruction alone.
+                LlmAnswer          = ExtractedCatalyst.ComposeSentence(c.Summary, ticker, c.Mechanism, c.ExpectedTimeline),
                 RawArticleSnippet  = articleText.Length > 500 ? articleText[..500] : articleText,
             };
             db.ResearchClaims.Add(claim);
             claims.Add(claim);
         }
 
-        await BumpSourceTrustAsync(db, sourceName, effectiveTier, claims.Count, ct);
+        await BumpSourceTrustAsync(db, sourceName, effectiveTier, claims, ct);
         await db.SaveChangesAsync(ct);
 
         // Fire-and-forget: score each claim on 20 dimensions + compute LSH signature.
@@ -193,6 +209,60 @@ public sealed class ResearchService(
             .ToListAsync(ct);
     }
 
+    /// <summary>
+    /// The primary Research-tab view: claims ordered by <see cref="ResearchClaim.SignificanceScore"/>
+    /// (scored by <c>IdiotProof.ResearchScanner</c>'s significance pass) rather than
+    /// requiring the user to name a ticker first. Unscored claims (score still null —
+    /// scoring lags ingestion by one pass) sort last rather than being hidden.
+    /// </summary>
+    public async Task<List<ResearchClaim>> GetRankedFeedAsync(
+        int daysBack = 14,
+        bool watchlistOnly = false,
+        IReadOnlyCollection<string>? watchlistSymbols = null,
+        string? tickerFilter = null,
+        int take = 100,
+        CancellationToken ct = default)
+    {
+        await using var db = await dbFactory.CreateDbContextAsync(ct);
+        var since = DateTime.UtcNow.AddDays(-daysBack);
+
+        var query = db.ResearchClaims.Where(c => c.CreatedUtc >= since);
+
+        if (!string.IsNullOrWhiteSpace(tickerFilter))
+        {
+            var t = tickerFilter.Trim().ToUpperInvariant();
+            query = query.Where(c => c.Ticker == t);
+        }
+
+        // Macro claims store affected tickers as JSON, so the watchlist filter for
+        // those is applied client-side after loading (EF Core can't push a JSON
+        // array "contains" query, and the candidate set here is already small).
+        var claims = await query
+            .OrderByDescending(c => c.SignificanceScore ?? -1)
+            .ThenByDescending(c => c.CreatedUtc)
+            .Take(watchlistOnly ? take * 5 : take) // over-fetch when filtering so Take() below isn't starved
+            .ToListAsync(ct);
+
+        if (watchlistOnly && watchlistSymbols is { Count: > 0 })
+        {
+            var set = new HashSet<string>(watchlistSymbols, StringComparer.OrdinalIgnoreCase);
+            claims = claims.Where(c => c.IsMacro
+                ? SignificanceScorer.ParseAffectedTickers(c.AffectedTickersJson).Any(set.Contains)
+                : set.Contains(c.Ticker)).ToList();
+        }
+
+        return claims.Take(take).ToList();
+    }
+
+    public async Task<ScanRun?> GetLastScanRunAsync(CancellationToken ct = default)
+    {
+        await using var db = await dbFactory.CreateDbContextAsync(ct);
+        return await db.ScanRuns
+            .Where(s => s.CompletedUtc != null)
+            .OrderByDescending(s => s.StartedUtc)
+            .FirstOrDefaultAsync(ct);
+    }
+
     public async Task<List<SourceTrustScore>> GetTopSourcesAsync(CancellationToken ct = default)
     {
         await using var db = await dbFactory.CreateDbContextAsync(ct);
@@ -211,7 +281,7 @@ public sealed class ResearchService(
         "This is a primary SEC filing representing a material event the company is legally required to disclose.";
 
     private static async Task BumpSourceTrustAsync(
-        AppDbContext db, string sourceName, int tier, int claimCount, CancellationToken ct = default)
+        AppDbContext db, string sourceName, int tier, List<ResearchClaim> newClaims, CancellationToken ct = default)
     {
         var score = await db.SourceTrustScores.FindAsync([sourceName], ct);
         if (score is null)
@@ -219,7 +289,11 @@ public sealed class ResearchService(
             score = new SourceTrustScore { SourceName = sourceName, SourceTier = tier };
             db.SourceTrustScores.Add(score);
         }
-        score.TotalClaims += claimCount;
-        score.LastUpdated  = DateTime.UtcNow;
+        score.TotalClaims += newClaims.Count;
+        // Split at ingestion time so OutcomeBackfillService has the right denominator
+        // to later increment PortentsRealized / ImmediateCorrect against.
+        score.PortentsClaimed += newClaims.Count(c => !c.HasHappenedAlready);
+        score.ImmediateClaims += newClaims.Count(c => c.HasHappenedAlready);
+        score.LastUpdated      = DateTime.UtcNow;
     }
 }

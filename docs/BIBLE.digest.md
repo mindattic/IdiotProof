@@ -1,6 +1,6 @@
 ﻿AUTHORITATIVE — full detail in docs/BIBLE.md
 
-<!-- generatedFrom: IP-§1,IP-§3,IP-§5,IP-§9 + USER_STORIES status index. Generated 2026-07-21 by tools/codex.ps1. Do not hand-edit. -->
+<!-- generatedFrom: IP-§1,IP-§3,IP-§5,IP-§9 + USER_STORIES status index. Generated 2026-07-26 by tools/codex.ps1. Do not hand-edit. -->
 
 # IdiotProof — Bible Digest (generated)
 
@@ -111,11 +111,21 @@ text. ("Parse, don't validate"; no shotgun parsing on the money path — see
   from entry to the post-entry peak; armed from a configured ET time ("the last 15 minutes").
 - **Previous close** — the prior trading day's official close; the reference for gap %.
   Gap conditions fail closed without it.
+- **Research claim** — one `ResearchClaim` row: a catalyst or portent extracted from a filing,
+  news article, or regulatory notice, with sentiment/magnitude/timing and a significance score.
+- **Macro claim** — a `ResearchClaim` with `IsMacro = true`: a regulatory/exchange-rule event
+  that isn't about one company (`Ticker` blank; affected tickers, when resolvable, live in
+  `AffectedTickersJson`).
+- **Significance score** — the 0-100 value `SignificanceScorer` computes per claim (magnitude ×
+  confidence, historical correlation strength, source trust, recency, watchlist boost); the
+  Research tab's ranked feed sorts by it.
+- **Tracked ticker** — a cached row in `TrackedTicker` (symbol, exchange, latest price) forming
+  the research scanner's ticker universe; refreshed daily from Alpaca's asset list.
 
 ## Status index (USER_STORIES.md)
-- done: 30
+- done: 37
 - partial: 23
-- planned: 26
+- planned: 27
 - cut: 1
 
 ## Latest amendment
