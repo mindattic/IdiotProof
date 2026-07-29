@@ -240,7 +240,11 @@ public sealed class RiskGuardian
         }
         else
         {
-            var accountRiskPercent = (totalRisk / cfg.AccountBalance) * 100m;
+            // WorstCaseLoss (slippage-adjusted), not raw totalRisk — the other
+            // two dollar-based gates above (per-trade, daily) both gate on the
+            // worst case; this one silently didn't, letting a trade through
+            // whose worst-case account-risk-% could run up to 1.5x the cap.
+            var accountRiskPercent = (result.WorstCaseLoss / cfg.AccountBalance) * 100m;
             if (accountRiskPercent > cfg.MaxAccountRiskPercent)
             {
                 result.BlockReasons.Add($"Risk is {accountRiskPercent:F2}% of account. Max is {cfg.MaxAccountRiskPercent}%");

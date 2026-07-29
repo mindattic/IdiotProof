@@ -327,32 +327,34 @@ public class RiskGuardianTests
     [Test]
     public void CalculateMaxQuantity_RespectsPerTradeCap()
     {
-        // $1/share risk, $100 cap → max 100 shares.
+        // $1/share risk, $100 cap, ÷1.5x SlippageFactor → floor(100/1.5) = 66 shares.
+        // The most-restrictive cap also includes account-percent: 1% of $10k = $100,
+        // same as MaxLossPerTrade, so this is also the binding constraint.
         var guardian = new RiskGuardian(DefaultConfig());
         var qty = guardian.CalculateMaxQuantity(entryPrice: 100m, stopLoss: 99m);
-        // The most-restrictive cap also includes account-percent: 1% of $10k = $100,
-        // same as MaxLossPerTrade, so the answer is 100.
-        Assert.That(qty, Is.EqualTo(100));
+        Assert.That(qty, Is.EqualTo(66));
     }
 
     [Test]
     public void CalculateMaxQuantity_RespectsAccountPercent()
     {
-        // Tighter account-percent constraint wins: 0.5% of $10k = $50 / $1 = 50 shares.
+        // Tighter account-percent constraint wins: 0.5% of $10k = $50 / $1 = 50 shares
+        // before slippage; ÷1.5x SlippageFactor → floor(50/1.5) = 33 shares.
         var config = DefaultConfig();
         config.MaxAccountRiskPercent = 0.5m;
         var guardian = new RiskGuardian(config);
         var qty = guardian.CalculateMaxQuantity(entryPrice: 100m, stopLoss: 99m);
-        Assert.That(qty, Is.EqualTo(50));
+        Assert.That(qty, Is.EqualTo(33));
     }
 
     [Test]
     public void CalculateMaxQuantity_RespectsRemainingDailyRisk()
     {
-        // Already used $480 of $500 daily → only $20 remaining → 20 shares at $1/share.
+        // Already used $480 of $500 daily → only $20 remaining at $1/share, ÷1.5x
+        // SlippageFactor → floor(20/1.5) = 13 shares.
         var guardian = new RiskGuardian(DefaultConfig());
         guardian.RecordTradePnL(-480m);
         var qty = guardian.CalculateMaxQuantity(entryPrice: 100m, stopLoss: 99m);
-        Assert.That(qty, Is.EqualTo(20));
+        Assert.That(qty, Is.EqualTo(13));
     }
 }

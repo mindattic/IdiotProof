@@ -67,18 +67,19 @@ public sealed class UserBrokerResolver(
         CancellationToken ct = default)
     {
         var mode = strategyBrokerMode.ToLowerInvariant(); // normalise to "paper"|"live"|"sandbox"
+
+        // Sandbox mode: always route to whatever is CURRENTLY the global default
+        // (IP-LAW-3) — never cached. GetActiveBroker() is a cheap dictionary
+        // lookup, so there's no performance reason to cache it, and caching it
+        // would let a strategy keep trading against a stale global broker for up
+        // to CacheTtl after an operator changes the active broker.
+        if (mode == "sandbox")
+            return globalRouter.GetActiveBroker();
+
         var cacheKey = (userId, mode);
 
         if (cache.TryGetValue(cacheKey, out var hit) && DateTime.UtcNow - hit.CachedUtc < CacheTtl)
             return hit.Client;
-
-        // Sandbox mode: always route to global default (IP-LAW-3).
-        if (mode == "sandbox")
-        {
-            var sandbox = globalRouter.GetActiveBroker();
-            SetCache(cacheKey, new CacheEntry(sandbox, "global", DateTime.UtcNow), userId);
-            return sandbox;
-        }
 
         var keys = await userKeys.GetOrCreateAsync(userId, ct);
 
@@ -118,7 +119,11 @@ public sealed class UserBrokerResolver(
             return global;
         }
 
-        var fingerprint = $"{keyId}|{secret!.Length}|{isPaper}";
+        // Full secret value, not just its length — Alpaca secrets are fixed-length,
+        // so a length-only fingerprint never changes when a secret is rotated to
+        // another value of the same length, and the cache would keep serving the
+        // stale, possibly-revoked credential for up to CacheTtl.
+        var fingerprint = $"{keyId}|{secret}|{isPaper}";
         if (hit is not null && hit.Fingerprint == fingerprint)
         {
             cache[cacheKey] = hit with { CachedUtc = DateTime.UtcNow };

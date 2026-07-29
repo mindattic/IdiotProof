@@ -981,21 +981,43 @@ public sealed class MonitorWorker(
                 stored.Title, stored.Symbol);
             try
             {
+                // Multi-strategy-per-ticker (IP-A24): if another of this user's
+                // strategies already holds this symbol, the broker's ONE aggregate
+                // position can't be safely attributed to THIS strategy's just-thrown
+                // order — doing so previously recorded the other strategy's shares
+                // as this one's own fill (double-counting the same shares across two
+                // strategies' bookkeeping). `stored.PositionQty` is still 0 here (the
+                // exception happened before any fill was recorded), so any OTHER
+                // holder found means the position is genuinely shared/ambiguous.
+                var sharedSymbol = await strategyRepo.CountHoldingForSymbolAsync(stored.OwnerUserId, stored.Symbol, ct) > 0;
                 var positions = await broker.GetPositionsAsync(ct);
                 var match = positions.FirstOrDefault(p =>
                     string.Equals(p.Symbol, stored.Symbol, StringComparison.OrdinalIgnoreCase) && p.Quantity > 0);
-                if (match is not null)
+                if (match is not null && !sharedSymbol)
                 {
                     var fillUtc = DateTime.UtcNow;
                     var filledQty = (int)Math.Floor(match.Quantity);
                     await strategyRepo.RecordFiredAsync(stored.Id, ct);
-                    await strategyRepo.RecordEntryFillAsync(stored.Id, filledQty, match.AveragePrice, fillUtc, ct);
+                    await strategyRepo.RecordEntryFillAsync(stored.Id, filledQty, match.AveragePrice, fillUtc, ct,
+                        resolvedScriptJson: StrategyJson.Serialize(def));
                     stored.PositionQty    = filledQty;
                     stored.LastEntryPrice = match.AveragePrice;
                     stored.EntryFilledUtc = fillUtc;
                     await auditLogRepo.LogAsync("entry",
                         $"[{stored.Title}] BUY {stored.Symbol} entry order threw but broker shows a filled position " +
                         $"({match.Quantity} @ {match.AveragePrice:F2}, {broker.BrokerType}) — bookkeeping reconciled, not re-firing.",
+                        userId: stored.OwnerUserId, ct: ct);
+                    return;
+                }
+                if (match is not null && sharedSymbol)
+                {
+                    logger.LogWarning(
+                        "[{Title}] {Symbol} entry order threw and another strategy already holds this symbol — " +
+                        "cannot safely attribute the broker's aggregate position to this strategy. Flag for manual review.",
+                        stored.Title, stored.Symbol);
+                    await auditLogRepo.LogAsync("order-placement-exception",
+                        $"[{stored.Title}] {stored.Symbol} entry order threw ({ex.Message}); broker shows a position but it's " +
+                        "shared with another strategy on this symbol — bookkeeping NOT auto-reconciled, needs manual review.",
                         userId: stored.OwnerUserId, ct: ct);
                     return;
                 }
@@ -1023,7 +1045,12 @@ public sealed class MonitorWorker(
 
         var entryUtc = DateTime.UtcNow;
         await strategyRepo.RecordFiredAsync(stored.Id, ct);
-        await strategyRepo.RecordEntryFillAsync(stored.Id, quantity, limitPrice, entryUtc, ct);
+        // Persist the ConditionalBlock-RESOLVED definition (not the raw one) so
+        // EvaluateExitAsync can manage this position's stop/target using whatever
+        // branch actually fired the entry, instead of silently losing a
+        // branch-only stop the moment the raw definition is re-read on exit ticks.
+        await strategyRepo.RecordEntryFillAsync(stored.Id, quantity, limitPrice, entryUtc, ct,
+            resolvedScriptJson: StrategyJson.Serialize(def));
         // Mirror the SQL write onto the in-memory row: RecordEntryFillAsync
         // loads its own DbContext instance, so without this the CALLER's
         // `stored` (shared by reference with the tick's per-symbol group
@@ -1084,6 +1111,29 @@ public sealed class MonitorWorker(
         IReadOnlyList<Candle>? dailyCandles,
         CancellationToken ct)
     {
+        // Prefer the ConditionalBlock-RESOLVED definition captured at entry-fill
+        // time over the raw one passed in — the raw definition never reflects a
+        // StopLoss/TrailingStop/TakeProfit that only exists inside an If/Then
+        // branch, which previously vanished silently for the whole life of the
+        // trade. Fail OPEN to the raw def on any parse problem: an exit must
+        // always be able to run (a genuinely-held position must stay flatten-able).
+        if (!string.IsNullOrWhiteSpace(stored.ResolvedEntryScriptJson))
+        {
+            try
+            {
+                var resolvedLoad = StrategyLoader.Load(stored.ResolvedEntryScriptJson, "");
+                if (resolvedLoad.Definition is not null)
+                    def = resolvedLoad.Definition;
+                else
+                    logger.LogWarning("[{Title}] ResolvedEntryScriptJson failed to parse ({Error}) — using raw definition for this exit tick.",
+                        stored.Title, resolvedLoad.CanonicalError);
+            }
+            catch (Exception resolvedEx)
+            {
+                logger.LogWarning(resolvedEx, "[{Title}] ResolvedEntryScriptJson load threw — using raw definition for this exit tick.", stored.Title);
+            }
+        }
+
         double entry;
         DateTime filledUtc;
 
@@ -1127,14 +1177,22 @@ public sealed class MonitorWorker(
             filledUtc = stored.EntryFilledUtc.Value;
         }
 
-        // Compute the original position size so GapperExitEvaluator can calculate
+        // The true original position size, so GapperExitEvaluator can calculate
         // per-rung quantities for multi-target scale-out ladders (Bug 3 fix).
-        // Uses the same formula as FireAsync: configured shares → else notional ÷ price.
-        var initialQty = def.Quantity > 0
-            ? def.Quantity
-            : def.NotionalAmount is { } notional && stored.LastEntryPrice is { } ep && ep > 0m
-                ? Math.Max(1, (int)Math.Floor(notional / ep))
-                : 0; // unknown — evaluator falls back to full-exit behavior
+        // Prefer the PERSISTED true fill/adoption size (stored.InitialPositionQty)
+        // over recomputing from the strategy's configured quantity — the
+        // recompute is only correct when config and actual fill size happen to
+        // match, which fails for an orphan-adopted position (MarkAsExistingPositionAsync
+        // sets PositionQty directly with no relationship to configured Quantity).
+        // Legacy rows (opened before this field existed) fall back to the old
+        // config-derived estimate.
+        var initialQty = stored.InitialPositionQty is { } persistedInitialQty && persistedInitialQty > 0
+            ? persistedInitialQty
+            : def.Quantity > 0
+                ? def.Quantity
+                : def.NotionalAmount is { } notional && stored.LastEntryPrice is { } ep && ep > 0m
+                    ? Math.Max(1, (int)Math.Floor(notional / ep))
+                    : 0; // unknown — evaluator falls back to full-exit behavior
 
         // Short exits are mirrored around entry — evaluating a short with the
         // long formula checks stop/target on the wrong side, so EvaluateShort

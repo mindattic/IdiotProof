@@ -16,16 +16,18 @@ public sealed class BrokerRouterTests
     }
 
     [Test]
-    public void BrokerRouter_GetActiveBroker_FallsBackToSandbox_WhenActiveNotRegistered()
+    public void BrokerRouter_GetActiveBroker_Throws_WhenActiveNotRegistered()
     {
+        // A silent fallback here would route live-intended orders to Sandbox
+        // with no indication — GetActiveBroker() deliberately throws instead
+        // for any non-Sandbox active broker that isn't registered.
         var router = new BrokerRouter();
         var sandbox = new FakeBroker(BrokerType.Sandbox);
         router.Register(sandbox);
 
         router.SetActive(BrokerType.Alpaca);
 
-        var active = router.GetActiveBroker();
-        Assert.That(active.BrokerType, Is.EqualTo(BrokerType.Sandbox));
+        Assert.Throws<InvalidOperationException>(() => router.GetActiveBroker());
     }
 
     [Test]

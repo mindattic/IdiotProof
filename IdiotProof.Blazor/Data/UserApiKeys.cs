@@ -15,7 +15,6 @@ public sealed class UserApiKeys
     // BrokerMode picks which pair UserBrokerResolver uses.
     public string? AlpacaApiKeyId { get; set; }
     public string? AlpacaApiSecretKey { get; set; }
-    public bool AlpacaIsPaper { get; set; } = true;
     public string? AlpacaLiveApiKeyId { get; set; }
     public string? AlpacaLiveApiSecretKey { get; set; }
 

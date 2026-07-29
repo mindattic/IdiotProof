@@ -47,7 +47,6 @@ public sealed class UserKeyServiceTests
             UserId             = userId,
             AlpacaApiKeyId     = "PK-ALPACA-ID",
             AlpacaApiSecretKey = "alpaca-secret-xyz",
-            AlpacaIsPaper      = false,
             ClaudeApiKey       = "sk-ant-abc",
             ClaudeModel        = "claude-sonnet-5",
             LlmVotingEnabled   = true,
@@ -61,7 +60,6 @@ public sealed class UserKeyServiceTests
         {
             Assert.That(reloaded.AlpacaApiKeyId, Is.EqualTo("PK-ALPACA-ID"));
             Assert.That(reloaded.AlpacaApiSecretKey, Is.EqualTo("alpaca-secret-xyz"));
-            Assert.That(reloaded.AlpacaIsPaper, Is.False);
             Assert.That(reloaded.ClaudeApiKey, Is.EqualTo("sk-ant-abc"));
             Assert.That(reloaded.DefaultBroker, Is.EqualTo("alpaca"));
             Assert.That(reloaded.DefaultDataFeed, Is.EqualTo("Alpaca"));

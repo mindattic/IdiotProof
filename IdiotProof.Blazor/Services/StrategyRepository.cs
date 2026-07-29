@@ -301,7 +301,9 @@ public sealed class StrategyRepository(IDbContextFactory<AppDbContext> dbFactory
     /// Records an entry fill: the Monitor now manages an open position for
     /// this strategy and will evaluate exit rules instead of entry conditions.
     /// </summary>
-    public async Task RecordEntryFillAsync(Guid id, int quantity, decimal fillPrice, DateTime filledUtc, CancellationToken ct = default)
+    public async Task RecordEntryFillAsync(
+        Guid id, int quantity, decimal fillPrice, DateTime filledUtc, CancellationToken ct = default,
+        string? resolvedScriptJson = null)
     {
         await using var db = await dbFactory.CreateDbContextAsync(ct);
         var strategy = await db.Strategies.FirstOrDefaultAsync(s => s.Id == id, ct);
@@ -312,6 +314,8 @@ public sealed class StrategyRepository(IDbContextFactory<AppDbContext> dbFactory
         strategy.LastExitedUtc  = null;
         strategy.LastExitPrice  = null;
         strategy.LastExitReason = null;
+        strategy.ResolvedEntryScriptJson = resolvedScriptJson;
+        strategy.InitialPositionQty      = quantity;
         strategy.UpdatedUtc     = DateTime.UtcNow;
         await db.SaveChangesAsync(ct);
     }
@@ -333,6 +337,8 @@ public sealed class StrategyRepository(IDbContextFactory<AppDbContext> dbFactory
         strategy.PositionQty    = 0;
         strategy.LastEntryPrice = null;
         strategy.EntryFilledUtc = null;
+        strategy.ResolvedEntryScriptJson = null;
+        strategy.InitialPositionQty      = null;
         strategy.UpdatedUtc     = DateTime.UtcNow;
         await db.SaveChangesAsync(ct);
     }
@@ -350,6 +356,8 @@ public sealed class StrategyRepository(IDbContextFactory<AppDbContext> dbFactory
         strategy.LastExitPrice  = exitPrice;
         strategy.LastExitReason = reason;
         strategy.LastExitedUtc  = exitedUtc;
+        strategy.ResolvedEntryScriptJson = null;
+        strategy.InitialPositionQty      = null;
         strategy.UpdatedUtc     = DateTime.UtcNow;
         await db.SaveChangesAsync(ct);
     }
@@ -446,6 +454,11 @@ public sealed class StrategyRepository(IDbContextFactory<AppDbContext> dbFactory
         var row = await db.Strategies.FindAsync([strategyId], ct);
         if (row is null || row.OwnerUserId != ownerUserId) return;
         row.PositionQty = qty;
+        // The adopted quantity IS the "initial" size for scale-out ladder math
+        // going forward — no branch resolution ran for an orphan adoption, so
+        // ResolvedEntryScriptJson stays null (exit falls back to the raw
+        // definition, which is all there is to go on here anyway).
+        row.InitialPositionQty = qty;
         row.BrokerMode  = "Live";
         row.IsActive    = true;
         row.UpdatedUtc  = DateTime.UtcNow;

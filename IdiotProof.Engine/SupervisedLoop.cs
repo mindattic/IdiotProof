@@ -46,10 +46,19 @@ public static class SupervisedLoop
                 consecutiveFailures++;
             }
 
-            if (success)
-                options.OnTickSucceeded?.Invoke();
-            else if (failure is not null)
-                options.OnTickFailed?.Invoke(failure, consecutiveFailures);
+            // A throwing callback must never take down the loop it's reporting
+            // to — that would defeat the entire purpose of this class.
+            try
+            {
+                if (success)
+                    options.OnTickSucceeded?.Invoke();
+                else if (failure is not null)
+                    options.OnTickFailed?.Invoke(failure, consecutiveFailures);
+            }
+            catch (Exception callbackEx)
+            {
+                Console.Error.WriteLine($"[SupervisedLoop] tick callback threw: {callbackEx}");
+            }
 
             WriteHeartbeat(options.HeartbeatPath, tickStartUtc, success, failure, consecutiveFailures);
 

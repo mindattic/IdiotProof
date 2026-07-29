@@ -81,7 +81,7 @@ public static class MonitorCli
         Line("");
         Line("① / ②  BROKER KEY & MODE");
         Line($"   default broker pref : {k.DefaultBroker}");
-        Line($"   user Alpaca key     : {Mask(k.AlpacaApiKeyId)}   (paper flag: {k.AlpacaIsPaper})");
+        Line($"   user Alpaca key     : {Mask(k.AlpacaApiKeyId)}");
         // RESOLVED BROKER below is the real, live decision straight from
         // ResolveAsync (Vault-first, DB-fallback, gated on DefaultBroker=="alpaca")
         // -- the static Choose(k) helper used to be printed here too, but it
@@ -388,10 +388,20 @@ public static class MonitorCli
         }
 
         var existing = await keys.GetOrCreateAsync(userId.Value);
-        existing.UserId             = userId.Value;
-        existing.AlpacaApiKeyId     = apiKey;
-        existing.AlpacaApiSecretKey = secret;
-        existing.AlpacaIsPaper      = isPaper;
+        existing.UserId = userId.Value;
+        // Paper and Live are separate Alpaca accounts with separate stored key
+        // pairs (see UserBrokerResolver.ResolveAsync) — write into whichever
+        // pair matches --live, never clobber the other one.
+        if (isPaper)
+        {
+            existing.AlpacaApiKeyId     = apiKey;
+            existing.AlpacaApiSecretKey = secret;
+        }
+        else
+        {
+            existing.AlpacaLiveApiKeyId     = apiKey;
+            existing.AlpacaLiveApiSecretKey = secret;
+        }
         existing.DefaultBroker      = "alpaca"; // route to the user's own Alpaca
         existing.DefaultDataFeed    = string.IsNullOrWhiteSpace(existing.DefaultDataFeed) ? "Alpaca" : existing.DefaultDataFeed;
         await keys.SaveAsync(userId.Value, existing);

@@ -4,6 +4,7 @@ using IdiotProof.Blazor.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace IdiotProof.Blazor.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260729150329_DropUserApiKeysAlpacaIsPaper")]
+    partial class DropUserApiKeysAlpacaIsPaper
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -907,9 +910,6 @@ namespace IdiotProof.Blazor.Migrations
                     b.Property<int>("FireCount")
                         .HasColumnType("int");
 
-                    b.Property<int?>("InitialPositionQty")
-                        .HasColumnType("int");
-
                     b.Property<bool>("IsActive")
                         .HasColumnType("bit");
 
@@ -937,9 +937,6 @@ namespace IdiotProof.Blazor.Migrations
 
                     b.Property<int>("PositionQty")
                         .HasColumnType("int");
-
-                    b.Property<string>("ResolvedEntryScriptJson")
-                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("ScriptJson")
                         .HasColumnType("nvarchar(max)");

@@ -111,6 +111,32 @@ public sealed class Strategy
     public string? LastExitReason { get; set; }
 
     /// <summary>
+    /// Canonical JSON of the ConditionalBlock-RESOLVED StrategyDefinition captured
+    /// at the moment this position's entry filled. Exit evaluation used to read
+    /// the raw, un-branched definition, so a StopLoss/TrailingStop/TakeProfit that
+    /// only existed inside an If/Then branch silently vanished the instant the
+    /// position opened — the position was held with no working stop at all. Null
+    /// for legacy rows, orphan-adopted positions (no branch resolution ran), and
+    /// whenever the position is flat; EvaluateExitAsync prefers this over the raw
+    /// definition when present and parseable so exit config is locked to whatever
+    /// branch actually fired the entry, not re-evaluated against a later snapshot.
+    /// Cleared on exit / unfilled-entry-clear so the next entry resolves fresh.
+    /// </summary>
+    public string? ResolvedEntryScriptJson { get; set; }
+
+    /// <summary>
+    /// The true original position size at entry (or at orphan-adoption), used by
+    /// GapperExitEvaluator's scale-out ladder math (<c>alreadySold = initial -
+    /// current</c>). Previously the Monitor recomputed this from the strategy's
+    /// CONFIGURED quantity every tick instead of the actual fill size — correct
+    /// for a normal fill, but wrong the moment configured quantity and true
+    /// position size diverge (e.g. an orphan-adopted position). Null for legacy
+    /// rows still holding (falls back to the old config-derived estimate); reset
+    /// to null on exit so the next entry captures its own true size.
+    /// </summary>
+    public int? InitialPositionQty { get; set; }
+
+    /// <summary>
     /// Per-strategy broker routing: "Paper" | "Live" | "Sandbox". Defaults to "Paper".
     /// Overrides the global UserApiKeys.AlpacaIsPaper for this strategy only.
     /// Promoting to "Live" requires a 5-minute elevated session (re-authentication).
