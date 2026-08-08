@@ -340,7 +340,7 @@ html, body {
 /* ====================================================================
  * MindAttic.UiUx - cyberspace/frontpage.css
  * Cyberpunk console-background (CYBERSPACE) effects system.
- * Lifted from StreetSamurai/wwwroot/app.css (lines 1079-1803).
+ * Lifted from Prose/wwwroot/app.css (lines 1079-1803).
  * Canonical source. DO NOT EDIT downstream copies - edit here and re-sync.
  * ==================================================================== */
 
@@ -4952,7 +4952,7 @@ window.consoleBg = (function () {
     // Baked-in selectors (any host gets these for free):
     //   .cyberspace-keepout     — opt-in marker; add to any container you want protected
     //   main             — top-level page content (mindattic.com #content lives here)
-    //   .home-content    — StreetSamurai Home page wrapper
+    //   .home-content    — Prose Home page wrapper
     //   .board-grid      — any tab/tile board
     //
     // Hosts can extend the list via window.__cyberspaceKeepoutSelectors (CSS selector
@@ -6277,7 +6277,7 @@ window.consoleBg = (function () {
 
     // Hosts can override these by defining window.__cyberspaceCircuitboardSrcs = [a, b, c]
     // before this script loads. mindattic.com inlines them as base64 data URIs;
-    // StreetSamurai leaves the default (/api/media/... served by MediaController).
+    // Prose leaves the default (/api/media/... served by MediaController).
     var TEX_SRCS = (typeof window !== 'undefined' && window.__cyberspaceCircuitboardSrcs) || [
         '/api/media/circuitboard.00.png',
         '/api/media/circuitboard.01.png',
@@ -9845,7 +9845,7 @@ SQL Server (LocalDB by default)                ← canonical runtime state
     ├── AuditLogs                                (append-only trail: signal fires, orders, broker switches, risk vetoes)
     └── ConditionProgress                        (one row per Strategy — Monitor&#x27;s most recent N/M evaluation snapshot)
 </code></pre>
-<p><strong>Connection string priority chain</strong> (matches StreetSamurai&#39;s pattern):</p>
+<p><strong>Connection string priority chain</strong> (matches Prose&#39;s pattern):</p>
 <ol>
 <li><code>ConnectionStrings__IdiotProof</code> env var</li>
 <li><code>ConnectionStrings:IdiotProof</code> from IConfiguration (<code>appsettings.json</code>)</li>
@@ -9855,7 +9855,7 @@ SQL Server (LocalDB by default)                ← canonical runtime state
 <p><strong><code>IDIOTPROOF_DATA_DIR</code> env var</strong> overrides the per-app state root (useful for parallel test runs).</p>
 <hr>
 <h2 id="4-the-mindattic-family">4. The MindAttic family <a class="heading-anchor" href="#4-the-mindattic-family" aria-label="link to this section">#</a></h2>
-<p>IdiotProof is one of several MindAttic projects (StreetSamurai, ThinkTank, etc.). Two conventions are shared:</p>
+<p>IdiotProof is one of several MindAttic projects (Prose, ThinkTank, etc.). Two conventions are shared:</p>
 <ul>
 <li><strong>Shared keyrings live in Roaming</strong> (<code>%APPDATA%\MindAttic\&lt;Subsystem&gt;\providers.json</code>). Examples:<ul>
 <li><code>LLM</code> — owned by <code>MindAttic.Legion</code>, holds Claude/OpenAI/Gemini/etc. keys.</li>

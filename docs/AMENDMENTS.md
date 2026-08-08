@@ -1186,7 +1186,7 @@ the seam is Development-only and never bypasses real credential resolution in Pr
 
 ## IP-A5 — Adopt MindAttic.Authentication; migrate UserId columns to Guid {#IP-A5}
 **What changed.** Replaced `Microsoft.AspNetCore.Identity.EntityFrameworkCore` with
-`MindAttic.Authentication v2.0.0` (org-standard, used by StreetSamurai, MindAttic.Ideas, Tutor).
+`MindAttic.Authentication v2.0.0` (org-standard, used by Prose, MindAttic.Ideas, Tutor).
 
 - **Data model:** `AppUser.cs` deleted. `AppDbContext` changed from `IdentityDbContext<AppUser>`
   to `DbContext, IAuthDataContext`; 8 `auth`-schema tables configured via

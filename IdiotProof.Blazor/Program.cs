@@ -68,7 +68,7 @@ builder.Services
 // ── Database ─────────────────────────────────────────────────────────────────────
 // Connection string priority: env var ConnectionStrings__IdiotProof →
 // appsettings ConnectionStrings:IdiotProof → LocalDB fallback. Same pattern as
-// StreetSamurai. Runtime + design-time (AppDbContextFactory) resolve identically.
+// Prose. Runtime + design-time (AppDbContextFactory) resolve identically.
 var connStr =
     Environment.GetEnvironmentVariable("ConnectionStrings__IdiotProof")
     ?? builder.Configuration.GetConnectionString("IdiotProof")
@@ -98,7 +98,7 @@ builder.Services.AddMindAtticAuthentication<AppDbContext>(
         // Two supported prod shapes, picked by which config keys are present:
         //   - DataProtection:AzureBlobUri + DataProtection:KeyVaultKeyUri — Azure
         //     Blob Storage + Key Vault (the multi-instance/Container-Apps shape;
-        //     matches the pattern already used by StreetSamurai/Tutor). Auth via
+        //     matches the pattern already used by Prose/Tutor). Auth via
         //     DefaultAzureCredential (managed identity in Azure, az/VS login in dev).
         //   - DataProtection:KeyRingPath — a single durable file path (e.g. Azure
         //     App Service's %HOME%\data\dp-keys, which is instance-shared but not

@@ -32,12 +32,12 @@ rather than pasting the whole file into a shell.
 `az group list` / `az sql server list` / `az webapp list` at the time this was written showed:
 - Resource groups: `MyApps` (centralus), `DefaultResourceGroup-CUS`, `DefaultResourceGroup-EUS`.
 - `MyApps` already has an App Service plan (`ASP-MyApps-99fe`) hosting `cursory` and
-  `streetsamurai`, and a SQL server `streetsamurai-sql`.
+  `prose`, and a SQL server `prose-sql`.
 
-**Decision needed:** reuse `MyApps` (one more DB on `streetsamurai-sql`, one more app on the
+**Decision needed:** reuse `MyApps` (one more DB on `prose-sql`, one more app on the
 existing plan — cheaper) vs. a fresh resource group/plan/server for IdiotProof (cleaner
 isolation, easier to tear down independently, its own cost line). The commands below assume a
-**fresh** RG named `idiotproof-rg` — swap in `MyApps` + `streetsamurai-sql` if you'd rather share.
+**fresh** RG named `idiotproof-rg` — swap in `MyApps` + `prose-sql` if you'd rather share.
 
 ## 1. Resource group
 

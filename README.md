@@ -237,7 +237,7 @@ SQL Server (LocalDB by default)                ← canonical runtime state
     └── ConditionProgress                        (one row per Strategy — Monitor's most recent N/M evaluation snapshot)
 ```
 
-**Connection string priority chain** (matches StreetSamurai's pattern):
+**Connection string priority chain** (matches Prose's pattern):
 
 1. `ConnectionStrings__IdiotProof` env var
 2. `ConnectionStrings:IdiotProof` from IConfiguration (`appsettings.json`)
@@ -251,7 +251,7 @@ The same chain is used by both the Blazor host and the Monitor console — they 
 
 ## 4. The MindAttic family
 
-IdiotProof is one of several MindAttic projects (StreetSamurai, ThinkTank, etc.). Two conventions are shared:
+IdiotProof is one of several MindAttic projects (Prose, ThinkTank, etc.). Two conventions are shared:
 
 - **Shared keyrings live in Roaming** (`%APPDATA%\MindAttic\<Subsystem>\providers.json`). Examples:
   - `LLM` — owned by `MindAttic.Legion`, holds Claude/OpenAI/Gemini/etc. keys.
