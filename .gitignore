@@ -135,4 +135,4 @@ package-lock.json
 
 # Project specific
 ExportedScripts.txt
-.claude/checkpoint.md
+.claude/quicksave.md

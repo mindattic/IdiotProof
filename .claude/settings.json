@@ -1,30 +1,42 @@
-{
-  "statusLine": { "type": "command", "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"%CLAUDE_PROJECT_DIR%\\.claude\\statusline.ps1\"" },
-  "hooks": {
-    "SessionStart": [
-      { "matcher": "clear", "hooks": [ { "type": "command", "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"%CLAUDE_PROJECT_DIR%\\.claude\\hooks\\restore-handoff.ps1\"" } ] },
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"$CLAUDE_PROJECT_DIR/.claude/hooks/inject-digest.ps1\""
-          }
-        ]
-      }
-    ],
-    "PostToolUse": [
-      {
-        "matcher": "Edit|Write",
-        "hooks": [
-          {
-            "type": "command",
-            "shell": "powershell",
-            "async": true,
-            "statusMessage": "Publishing Monitor to C:\\Apps\\IdiotProof\\Monitor...",
-            "command": "$j = [Console]::In.ReadToEnd() | ConvertFrom-Json; if ($j.tool_input.file_path -like '*IdiotProof.Monitor*') { Start-Process dotnet -ArgumentList 'publish', 'D:\\Projects\\MindAttic\\IdiotProof\\IdiotProof.Monitor\\IdiotProof.Monitor.csproj', '--configuration', 'Release', '--output', 'C:\\Apps\\IdiotProof\\Monitor', '--no-self-contained' -NoNewWindow }"
-          }
-        ]
-      }
-    ]
-  }
+﻿{
+    "statusLine":  {
+                       "type":  "command",
+                       "command":  "powershell -NoProfile -ExecutionPolicy Bypass -File \"%CLAUDE_PROJECT_DIR%\\.claude\\statusline.ps1\""
+                   },
+    "hooks":  {
+                  "SessionStart":  [
+                                       {
+                                           "hooks":  [
+                                                         {
+                                                             "type":  "command",
+                                                             "command":  "powershell -NoProfile -ExecutionPolicy Bypass -File \"$CLAUDE_PROJECT_DIR/.claude/hooks/inject-digest.ps1\""
+                                                         }
+                                                     ]
+                                       }
+                                   ],
+                  "PostToolUse":  [
+                                      {
+                                          "matcher":  "Edit|Write",
+                                          "hooks":  [
+                                                        {
+                                                            "type":  "command",
+                                                            "shell":  "powershell",
+                                                            "async":  true,
+                                                            "statusMessage":  "Publishing Monitor to C:\\Apps\\IdiotProof\\Monitor...",
+                                                            "command":  "$j = [Console]::In.ReadToEnd() | ConvertFrom-Json; if ($j.tool_input.file_path -like \u0027*IdiotProof.Monitor*\u0027) { Start-Process dotnet -ArgumentList \u0027publish\u0027, \u0027D:\\Projects\\MindAttic\\IdiotProof\\IdiotProof.Monitor\\IdiotProof.Monitor.csproj\u0027, \u0027--configuration\u0027, \u0027Release\u0027, \u0027--output\u0027, \u0027C:\\Apps\\IdiotProof\\Monitor\u0027, \u0027--no-self-contained\u0027 -NoNewWindow }"
+                                                        }
+                                                    ]
+                                      }
+                                  ],
+                  "UserPromptSubmit":  [
+                                           {
+                                               "hooks":  [
+                                                             {
+                                                                 "type":  "command",
+                                                                 "command":  "powershell -NoProfile -ExecutionPolicy Bypass -File \"%CLAUDE_PROJECT_DIR%\\.claude\\hooks\\quickload-on-do.ps1\""
+                                                             }
+                                                         ]
+                                           }
+                                       ]
+              }
 }
