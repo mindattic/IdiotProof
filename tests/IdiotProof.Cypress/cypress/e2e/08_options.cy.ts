@@ -25,6 +25,7 @@ describe("Options section (authenticated, Sandbox)", () => {
         // The page renders this marker only from the interactive (circuit) render — typing
         // before it exists would hit the prerendered DOM that is about to be replaced.
         cy.get("[data-cy=opt-interactive]", { timeout: 20000 }).should("exist");
+        cy.checkPageA11y();
     });
 
     function loadChain() {

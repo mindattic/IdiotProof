@@ -72,8 +72,9 @@ Every authored strategy walks through fixed phases. The visual builder renders o
 Branching uses **expression syntax**: `If(IsAboveVwap.And(IsEmaAbove(9))).Then(Long.Quantity(...)).ElseIf(...).Else(...)`. Conditions compose with `.And() / .Or() / .Not()`.
 
 ## Theme
-- **Alpaca palette only** for now. Themeable via CSS custom properties under `:root[data-theme="alpaca"]`. New themes drop in as additional `_theme-{name}.css` files; Razor components reference variables, not raw colors.
+- **Alpaca palette only** for now. Themeable via CSS custom properties under `:root[data-theme="light"]` (the dark theme is `:root`'s default) — "Alpaca palette" describes where the light-theme colors were lifted from, not the attribute value. New themes drop in as additional `_theme-{name}.css` files; Razor components reference variables, not raw colors.
 - Theme stored in `UserPreferences.Theme` (SQL); mirrored to `localStorage` for pre-paint flash protection.
+- `--brand` is for backgrounds/borders only (paired with `--brand-on` for text on top of it). Use `--brand-text` for brand-colored **text** — `--brand`'s light-theme value (`#fcd72b`) is ~1.4:1 on white and fails WCAG AA as a foreground color.
 
 ## Tests
 - **Backend**: NUnit (one Tests project per source project).
@@ -81,6 +82,6 @@ Branching uses **expression syntax**: `If(IsAboveVwap.And(IsEmaAbove(9))).Then(L
 - Tests are written **after** features ship — see the README for the canonical sequence.
 
 ## World Rules (trading-domain invariants)
-- Sandbox broker is always registered as the safe fallback in `BrokerRouter`. Live trades require explicit user opt-in (`AlpacaIsPaper = false`) plus a confirmation modal.
-- LIVE trading mode requires the user to acknowledge the danger banner. The Live account pill in the top-left renders with a red outline; Paper renders with the Alpaca brand-yellow outline.
+- Sandbox broker is always registered as the safe fallback in `BrokerRouter`. Live trades require explicit user opt-in (per-strategy `BrokerMode = "Live"`) plus a password-confirmation modal (5-minute elevation window).
+- LIVE trading mode requires the user to acknowledge the danger banner. `AccountSummaryBar` on the Strategies page renders paper/live account summary cards side by side (icon + label + border-color: Alpaca brand-yellow outline for Paper, red outline for Live).
 - Risk Guardian is the final gate before any order placement. It can veto regardless of strategy/LLM-voting consensus.

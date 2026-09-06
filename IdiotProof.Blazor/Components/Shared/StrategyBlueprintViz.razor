@@ -87,7 +87,7 @@ else if (def is not null)
                     @foreach (var b in branchLines)
                     {
                         <div class="small mb-1">
-                            <span class="fw-semibold" style="color:var(--brand)">@b.Label</span>
+                            <span class="fw-semibold" style="color:var(--brand-text)">@b.Label</span>
                             @if (!string.IsNullOrEmpty(b.Condition))
                             {
                                 <code class="ms-1" style="font-size:.75rem">@b.Condition</code>

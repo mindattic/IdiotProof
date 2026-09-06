@@ -16,7 +16,7 @@
 .opt-calls-head { color: var(--green); }
 .opt-puts-head  { color: var(--red); }
 .opt-strike { font-weight: 600; background: var(--bg-elevated); white-space: nowrap; }
-.opt-atm .opt-strike { color: var(--brand); }
+.opt-atm .opt-strike { color: var(--brand-text); }
 .opt-cell { cursor: pointer; white-space: nowrap; }
 .opt-cell:hover { background: var(--bg-hover) !important; }
 .opt-cell:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: -2px; }
@@ -59,11 +59,16 @@
 .opt-jargon-wrap { display: inline; position: relative; }
 .opt-jargon {
     background: none; border: 0; padding: 0; margin: 0; color: inherit; font: inherit;
-    text-decoration: underline dotted; text-decoration-color: var(--brand); text-decoration-thickness: 1px;
+    text-decoration: underline dotted; text-decoration-color: var(--brand-text); text-decoration-thickness: 1px;
     text-underline-offset: 3px; cursor: help; white-space: inherit;
 }
-.opt-jargon:hover, .opt-jargon:focus-visible { color: var(--brand); outline: none; }
-.opt-jargon[aria-expanded="true"] { color: var(--brand); text-decoration-style: solid; }
+.opt-jargon:hover { color: var(--brand-text); }
+.opt-jargon:focus-visible {
+    color: var(--brand-text);
+    outline: 2px solid var(--focus-ring); outline-offset: 2px;
+    box-shadow: 0 0 0 4px rgba(88,166,255,0.25);
+}
+.opt-jargon[aria-expanded="true"] { color: var(--brand-text); text-decoration-style: solid; }
 .opt-jargon-pop {
     position: fixed; left: 50%; bottom: 1.25rem; transform: translateX(-50%); z-index: 1080;
     display: block; width: min(520px, 92vw); padding: 0.65rem 0.9rem 0.6rem 0.9rem;
@@ -71,7 +76,7 @@
     box-shadow: 0 10px 28px rgba(0, 0, 0, 0.5); font-size: 0.9rem; font-weight: 400; line-height: 1.4;
     text-align: left; white-space: normal; text-transform: none; letter-spacing: normal;
 }
-.opt-jargon-pop-title { display: block; font-weight: 600; color: var(--brand); margin-bottom: 0.2rem; }
+.opt-jargon-pop-title { display: block; font-weight: 600; color: var(--brand-text); margin-bottom: 0.2rem; }
 .opt-jargon-pop-body { display: block; }
 .opt-jargon-hint { display: block; margin-top: 0.35rem; font-size: 0.72rem; color: var(--text-secondary); }
 

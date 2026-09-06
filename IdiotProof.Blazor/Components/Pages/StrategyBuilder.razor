@@ -13,6 +13,7 @@
 @inject AuthenticationStateProvider AuthState
 @inject NavigationManager Nav
 @inject GapperProfileService ProfileService
+@inject IJSRuntime JS
 @using System.Globalization
 
 @*
@@ -67,12 +68,14 @@
         <ul class="nav nav-tabs" role="tablist">
             <li class="nav-item" role="presentation">
                 <button type="button" class="nav-link @(builderMode == "manual" ? "active" : "")"
+                        role="tab" aria-selected="@(builderMode == "manual")"
                         @onclick='() => builderMode = "manual"'>
                     <i class="bi bi-code-slash me-1" aria-hidden="true"></i>Manual
                 </button>
             </li>
             <li class="nav-item" role="presentation">
                 <button type="button" class="nav-link @(builderMode == "preset" ? "active" : "")"
+                        role="tab" aria-selected="@(builderMode == "preset")"
                         @onclick='() => { builderMode = "preset"; InitPresetTab(); }'>
                     <i class="bi bi-sliders me-1" aria-hidden="true"></i>From Profile
                 </button>
@@ -301,11 +304,14 @@
 
 @if (showDisambigModal)
 {
-    <div class="modal fade show d-block" tabindex="-1" style="background:rgba(0,0,0,.5)">
+    <div class="modal-backdrop fade show" @onclick="() => showDisambigModal = false"></div>
+    <div class="modal fade show d-block" role="dialog" aria-modal="true"
+         aria-labelledby="disambig-title" tabindex="-1"
+         @ref="disambigModalRef" @onkeydown="OnDisambigKeyDown">
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content bg-dark text-light border border-warning">
                 <div class="modal-header border-warning">
-                    <h5 class="modal-title">You already hold @disambigSymbol</h5>
+                    <h5 id="disambig-title" class="modal-title">You already hold @disambigSymbol</h5>
                 </div>
                 <div class="modal-body">
                     <p class="mb-3">
@@ -363,6 +369,17 @@
     private int    disambigHoldingCount = 0;
     private bool   disambigConfirmed   = false;
     private bool   disambigCloseIntent = false;
+    private ElementReference disambigModalRef;
+    private bool   disambigModalWasOpen;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (showDisambigModal && !disambigModalWasOpen)
+            await JS.InvokeVoidAsync("focusTrap.activate", disambigModalRef);
+        else if (!showDisambigModal && disambigModalWasOpen)
+            await JS.InvokeVoidAsync("focusTrap.deactivate");
+        disambigModalWasOpen = showDisambigModal;
+    }
 
     // Verb taxonomy — discovered once via reflection so the palette tracks the DSL.
     // The same reflection feeds StrategyScriptGenerator's system prompt, so the
@@ -548,6 +565,11 @@
             disambigConfirmed = false;
             disambigCloseIntent = false;
         }
+    }
+
+    private void OnDisambigKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Escape") showDisambigModal = false;
     }
 
     private async Task DisambigCloseExisting()

@@ -287,15 +287,15 @@
     /* Workflow diagram */
     .workflow-diagram { flex-wrap: wrap; }
     .wf-step { min-width: 90px; }
-    .wf-icon { font-size: 1.5rem; color: var(--brand); }
+    .wf-icon { font-size: 1.5rem; color: var(--brand-text); }
     .wf-arrow { color: var(--text-muted); font-size: 1.1rem; }
     .gates-step .wf-icon { color: var(--yellow, #f0c000); }
 
     /* Phase cards */
     .phase-card {
-        border: 1px solid var(--border-color, rgba(255,255,255,.1));
+        border: 1px solid var(--border);
         border-radius: 8px;
-        background: var(--card-bg, rgba(255,255,255,.03));
+        background: var(--bg-card);
     }
     .phase-badge {
         display: inline-flex; align-items: center; justify-content: center;
@@ -305,38 +305,38 @@
     }
     .verb-list { display: flex; flex-wrap: wrap; gap: .25rem; }
     .verb-chip {
-        background: var(--code-bg, rgba(255,255,255,.07));
-        border: 1px solid var(--border-color, rgba(255,255,255,.1));
+        background: var(--bg-elevated);
+        border: 1px solid var(--border);
         border-radius: 4px; padding: .1rem .35rem;
         font-size: .7rem; white-space: nowrap;
         font-family: var(--font-mono, "Roboto Mono", "Courier New", monospace);
         color: inherit; cursor: pointer;
     }
-    .verb-chip:hover { border-color: var(--brand); background: var(--card-bg-hover, rgba(255,255,255,.12)); }
+    .verb-chip:hover { border-color: var(--brand); background: var(--bg-hover); }
 
     /* Gates */
     .gate-card {
-        border: 1px solid var(--border-color, rgba(255,255,255,.1));
+        border: 1px solid var(--border);
         border-radius: 8px;
-        background: var(--card-bg, rgba(255,255,255,.03));
+        background: var(--bg-card);
         min-width: 160px;
     }
     .gate-number {
         display: inline-flex; align-items: center; justify-content: center;
         width: 1.6rem; height: 1.6rem; border-radius: 50%;
-        border: 2px solid var(--brand); color: var(--brand);
+        border: 2px solid var(--brand); color: var(--brand-text);
         font-weight: 700; font-size: .8rem; margin: 0 auto;
     }
     .gate-arrow { color: var(--text-muted); }
 
     /* Examples */
     .example-card {
-        border: 1px solid var(--border-color, rgba(255,255,255,.1));
+        border: 1px solid var(--border);
         border-radius: 8px;
-        background: var(--card-bg, rgba(255,255,255,.03));
+        background: var(--bg-card);
     }
     .script-preview {
-        background: var(--code-bg, rgba(0,0,0,.25));
+        background: var(--bg-elevated);
         border-radius: 6px; padding: .6rem; font-size: .7rem;
         overflow-x: auto; white-space: pre-wrap; word-break: break-all;
         margin: 0;
@@ -344,15 +344,15 @@
 
     /* Try-it cards */
     .try-it-card {
-        border: 1px solid var(--border-color, rgba(255,255,255,.1));
+        border: 1px solid var(--border);
         border-radius: 8px;
-        background: var(--card-bg, rgba(255,255,255,.03));
+        background: var(--bg-card);
         color: inherit;
         transition: border-color .15s ease, background .15s ease;
     }
     .try-it-card:hover {
         border-color: var(--brand);
-        background: var(--card-bg-hover, rgba(255,255,255,.06));
+        background: var(--bg-hover);
     }
 </style>
 

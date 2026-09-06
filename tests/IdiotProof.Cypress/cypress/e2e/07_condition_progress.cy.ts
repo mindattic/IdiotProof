@@ -24,7 +24,7 @@ describe("Condition-progress live badge (authenticated)", () => {
         // Seed a strategy through the AI-assist pane — the same entry path the
         // other authenticated specs use. Server runs with IDIOTPROOF_FAKE_LLM=1;
         // the [[script: ...]] marker picks the script.
-        cy.visit("/builder");
+        cy.visitInteractive("/builder");
         cy.get("#b-title").type("Progress badge");
         cy.get("#b-symbol").type("AAPL");
         cy.get("#b-prose").type(
@@ -38,7 +38,7 @@ describe("Condition-progress live badge (authenticated)", () => {
         cy.contains(/saved\./i, { timeout: 10000 });
 
         // Activate it — the badge only renders on active rows.
-        cy.visit("/strategies");
+        cy.visitInteractive("/strategies");
         cy.get('input[type="checkbox"][id^="toggle-"]').first().check();
 
         // No progress row yet → awaiting chip.

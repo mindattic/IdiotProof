@@ -16,6 +16,11 @@ import { execFileSync } from "child_process";
  * IDIOTPROOF_SQL_SERVER / IDIOTPROOF_SQL_DB). It stands in for a Monitor
  * tick so the Strategies-page live badge can be asserted without running
  * the Monitor during the UI suite.
+ *
+ * The a11yLog task backs cy.checkPageA11y() (see support/commands.ts) — it
+ * logs cypress-axe violations to the terminal without failing the run. This
+ * is the report-only baseline period; once a full suite run is clean, swap
+ * checkA11y's violation callback for the default throwing behavior.
  */
 const SQL_SERVER = process.env.IDIOTPROOF_SQL_SERVER ?? "(localdb)\\MSSQLLocalDB";
 const SQL_DB = process.env.IDIOTPROOF_SQL_DB ?? "IdiotProof";
@@ -61,6 +66,18 @@ export default defineConfig({
             `VALUES ('${strategyId}', ${Number(passed)}, ${Number(total)}, ${verbSql}, SYSUTCDATETIME());`;
           execFileSync("sqlcmd", ["-S", SQL_SERVER, "-d", SQL_DB, "-E", "-b", "-Q", sql], {
             stdio: "pipe",
+          });
+          return null;
+        },
+
+        a11yLog(violations: Array<{ id: string; impact?: string; help: string; nodes: Array<{ target: string[] }> }>) {
+          violations.forEach((v) => {
+            // eslint-disable-next-line no-console
+            console.log(
+              `[a11y] ${v.impact ?? "?"} ${v.id}: ${v.help} (${v.nodes.length} node(s): ${v.nodes
+                .map((n) => n.target.join(" "))
+                .join(", ")})`
+            );
           });
           return null;
         },

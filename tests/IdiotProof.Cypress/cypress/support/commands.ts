@@ -27,6 +27,12 @@ declare global {
             registerAndLogin(email: string, password: string): Chainable<void>;
             /** Submit the login form for an existing account. */
             login(email: string, password: string): Chainable<void>;
+            /**
+             * Inject axe-core and scan the current DOM. Logs violations via the
+             * `a11yLog` task (report-only) rather than failing the test — flip
+             * to a throwing assertion once a full baseline run is green.
+             */
+            checkPageA11y(context?: string): Chainable<void>;
         }
     }
 }
@@ -84,6 +90,21 @@ Cypress.Commands.add("login", (email: string, password: string) => {
             expect(String(res.headers["location"]), "login redirect target").to.not.contain("error=1");
         });
     });
+});
+
+Cypress.Commands.add("checkPageA11y", (context?: string) => {
+    cy.injectAxe();
+    // skipFailures=true: report-only for now (see cypress.config.ts) — logs
+    // violations via the a11yLog task instead of failing the test. Flip to
+    // false once a full suite run is clean.
+    cy.checkA11y(
+        context,
+        undefined,
+        (violations) => {
+            cy.task("a11yLog", violations, { log: false });
+        },
+        true
+    );
 });
 
 export {};

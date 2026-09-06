@@ -1,3 +1,6 @@
+@using Microsoft.JSInterop
+@inject IJSRuntime JS
+
 @*
     Live-money gate for options orders. Deliberately a copy of the Strategies page's
     password-elevation modal (same look, same 5-minute window semantics) rather than a
@@ -9,7 +12,7 @@
 {
     <div class="modal-backdrop fade show" @onclick="() => OnCancel.InvokeAsync()"></div>
     <div class="modal fade show d-block" role="dialog" aria-modal="true" aria-labelledby="opt-pw-modal-title" tabindex="-1"
-         @onkeydown="OnKeyDown">
+         @ref="dialogRef" @onkeydown="OnKeyDown">
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content bg-dark border-danger">
                 <div class="modal-header border-danger">
@@ -68,4 +71,16 @@
         "Enter" when !Verifying && !string.IsNullOrEmpty(Password) => OnConfirm.InvokeAsync(),
         _ => Task.CompletedTask,
     };
+
+    private ElementReference dialogRef;
+    private bool wasVisible;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (Visible && !wasVisible)
+            await JS.InvokeVoidAsync("focusTrap.activate", dialogRef);
+        else if (!Visible && wasVisible)
+            await JS.InvokeVoidAsync("focusTrap.deactivate");
+        wasVisible = Visible;
+    }
 }

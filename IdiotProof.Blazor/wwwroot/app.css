@@ -36,6 +36,7 @@
     --brand-soft:   rgba(210, 153, 34, 0.15);
     --brand-muted:  #6d4e10;
     --brand-on:     #0d1117;
+    --brand-text:   #d29922; /* readable brand-colored TEXT — use for color:, never --brand (background/border only) */
 
     /* Focus + layout */
     --focus-ring:    #58a6ff;
@@ -89,6 +90,7 @@ body { font-family: var(--font-sans); }
     --brand-soft: rgba(252, 215, 43, 0.20);
     --brand-muted:#fef0a8;
     --brand-on:   #202020;
+    --brand-text: #a26606;      /* --brand (#fcd72b) is ~1.4:1 on white — unreadable as text. Reuses --yellow's readable value. */
 
     --focus-ring: #4f46e5;
 }
@@ -206,7 +208,7 @@ hr              { border-color: var(--border); opacity: 1; }
 /* Bootstrap alerts on dark — keep semantic color, swap background */
 .alert-success { background: rgba(63,185,80,0.12);  border-color: rgba(63,185,80,0.40);  color: var(--green); }
 .alert-danger  { background: rgba(248,81,73,0.12);  border-color: rgba(248,81,73,0.40);  color: var(--red); }
-.alert-warning { background: rgba(210,153,34,0.14); border-color: rgba(210,153,34,0.45); color: var(--brand); }
+.alert-warning { background: rgba(210,153,34,0.14); border-color: rgba(210,153,34,0.45); color: var(--brand-text); }
 .alert-info    { background: var(--info-bg);        border-color: rgba(88,166,255,0.40); color: var(--info-text); }
 
 /* Badges: Bootstrap defaults look near-black on dark for the muted variants */
@@ -239,7 +241,7 @@ a { color: var(--blue); }
 a:hover { color: #79c0ff; }
 
 /* Code blocks inline */
-code { color: var(--brand); background: transparent; }
+code { color: var(--brand-text); background: transparent; }
 
 /* ── Toast notifications ── */
 .toast-stack {
@@ -909,7 +911,7 @@ code { color: var(--brand); background: transparent; }
     white-space: nowrap;
 }
 .log-cat-filter:hover  { border-color: var(--border-strong); color: var(--text-primary); }
-.log-cat-filter.active { border-color: var(--brand); color: var(--brand); background: var(--brand-soft); }
+.log-cat-filter.active { border-color: var(--brand); color: var(--brand-text); background: var(--brand-soft); }
 
 /* Date inputs */
 .log-date-input {

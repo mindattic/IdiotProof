@@ -10,6 +10,7 @@
 @inject LiveModeElevationService ElevationSvc
 @inject AuthenticationStateProvider AuthState
 @inject ToastService Toasts
+@inject IJSRuntime JS
 
 @*
     Options — the manual options section (RFC 0004). Separate from the Stock Strategy
@@ -200,7 +201,8 @@
     {
         var confirmLive = IsLiveAlpaca;
         <div class="modal-backdrop fade show" @onclick="CancelConfirm"></div>
-        <div class="modal fade show d-block @(confirmLive ? "opt-confirm-live" : "")" role="dialog" aria-modal="true" aria-labelledby="opt-confirm-title" tabindex="-1" data-cy="opt-confirm">
+        <div class="modal fade show d-block @(confirmLive ? "opt-confirm-live" : "")" role="dialog" aria-modal="true" aria-labelledby="opt-confirm-title" tabindex="-1" data-cy="opt-confirm"
+             @ref="confirmModalRef" @onkeydown="OnConfirmModalKeyDown">
             <div class="modal-dialog modal-dialog-centered">
                 <div class="modal-content" style="background:var(--bg-card);border:1px solid var(--border-strong)">
                     <div class="modal-header">
@@ -416,6 +418,23 @@
     }
 
     private void CancelConfirm() { showConfirm = false; pendingIntent = null; }
+
+    private void OnConfirmModalKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Escape") CancelConfirm();
+    }
+
+    private ElementReference confirmModalRef;
+    private bool confirmModalWasOpen;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (showConfirm && !confirmModalWasOpen)
+            await JS.InvokeVoidAsync("focusTrap.activate", confirmModalRef);
+        else if (!showConfirm && confirmModalWasOpen)
+            await JS.InvokeVoidAsync("focusTrap.deactivate");
+        confirmModalWasOpen = showConfirm;
+    }
 
     private async Task PlaceAsync(OptionOrderIntent intent)
     {

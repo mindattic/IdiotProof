@@ -53,9 +53,11 @@ public sealed class LiveModeElevationService(
             var user = await db.AuthUsers.FindAsync([userId], ct);
             if (user?.PasswordHash is null) return false;
 
-            // Verify reads the pepper key id from the embedded PHC string and resolves
-            // the pepper via IAuthSecrets internally — no manual pepper lookup needed.
-            var result = passwordHasher.Verify(password, user.PasswordHash, null, null);
+            // PasswordPepperKeyId is a separate column, not embedded in the PHC string —
+            // Hash() returns { Phc, PepperKeyId } as two distinct values, so both must be
+            // stored and both must round-trip back into Verify (passing null here made
+            // every verification fail, since it resolves to the wrong/no pepper).
+            var result = passwordHasher.Verify(password, user.PasswordHash, user.PasswordPepperKeyId, user.LegacyHashScheme);
             return result.Succeeded;
         }
         catch (Exception ex)

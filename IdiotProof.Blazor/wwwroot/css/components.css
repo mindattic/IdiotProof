@@ -12,69 +12,6 @@
     box-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
 }
 
-/* ── Account pill component ──────────────────────────────── */
-.account-pill-wrap { display: inline-block; }
-
-.account-pill {
-    background: var(--bg-card);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 6px 12px;
-    color: var(--text-primary) !important;
-    font-weight: 500;
-    transition: box-shadow 0.15s ease, border-color 0.15s ease;
-}
-.account-pill * { color: inherit; }
-.account-pill .text-muted { color: var(--text-secondary) !important; }
-.account-pill:hover { border-color: var(--border-strong); }
-.account-pill:focus-visible {
-    outline: 2px solid var(--focus-ring);
-    outline-offset: 2px;
-}
-
-/* Paper-account: brand-yellow outline. Live-account: red outline. */
-.account-pill[data-account-type="paper"] {
-    border-color: var(--brand);
-    background: var(--brand-soft);
-}
-.account-pill[data-account-type="live"] {
-    border-color: var(--red);
-    box-shadow: 0 0 0 1px var(--red) inset;
-}
-
-.account-pill-menu {
-    top: calc(100% + 6px);
-    left: 0;
-    min-width: 320px;
-    background: var(--bg-elevated);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.55);
-    padding: 4px;
-    z-index: 1100;
-}
-
-.account-pill-section { padding: 4px; }
-
-.account-row {
-    display: block;
-    width: 100%;
-    text-align: left;
-    background: transparent;
-    border: 1px solid transparent;
-    border-radius: 8px;
-    padding: 8px 12px;
-    color: var(--text-primary);
-    cursor: pointer;
-}
-.account-row:hover { background: var(--bg-row-alt); }
-.account-row.selected {
-    background: var(--brand-soft);
-    border-color: var(--brand);
-}
-.account-row.danger-text { color: var(--danger-link); }
-.account-row.danger-text:hover { background: rgba(248, 81, 73, 0.10); }
-
 /* ── StrategyBuilderRenderer ─────────────────────────────── */
 .strategy-renderer {
     display: flex;
