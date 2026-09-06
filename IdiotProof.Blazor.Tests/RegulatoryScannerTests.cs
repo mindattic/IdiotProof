@@ -19,6 +19,11 @@ public sealed class RegulatoryScannerTests
 
     private IDbContextFactory<AppDbContext> factory = null!;
 
+    // Fixed "since" cutoff just before the canned notices' 2026-07-27 publication date.
+    // Was DateTime.UtcNow.AddDays(-1), which silently filtered every fixture out (and
+    // failed the tests) from 2026-07-29 onward — a date bomb, not a scanner regression.
+    private static readonly DateTime Since = new(2026, 7, 1, 0, 0, 0, DateTimeKind.Utc);
+
     // Modeled on the real 2026-07-27 Nasdaq MVLS Federal Register notice.
     private const string OneSroNotice = """
         {"results":[{
@@ -102,7 +107,7 @@ public sealed class RegulatoryScannerTests
     public async Task ScanAsync_SubstantiveNotice_PersistsMacroClaim()
     {
         var scanner = BuildScanner(OneSroNotice, SubstantiveAssessment);
-        var count = await scanner.ScanAsync(DateTime.UtcNow.AddDays(-1));
+        var count = await scanner.ScanAsync(Since);
 
         Assert.That(count, Is.EqualTo(1));
 
@@ -123,7 +128,7 @@ public sealed class RegulatoryScannerTests
     public async Task ScanAsync_NonSubstantiveNotice_PersistsNothing()
     {
         var scanner = BuildScanner(OneSroNotice, NonSubstantiveAssessment);
-        var count = await scanner.ScanAsync(DateTime.UtcNow.AddDays(-1));
+        var count = await scanner.ScanAsync(Since);
 
         Assert.That(count, Is.EqualTo(0));
         await using var db = factory.CreateDbContext();
@@ -134,7 +139,7 @@ public sealed class RegulatoryScannerTests
     public async Task ScanAsync_NonSroTitledNotice_IsFilteredOutBeforeLlmCall()
     {
         var scanner = BuildScanner(NonSroNotice, SubstantiveAssessment);
-        var count = await scanner.ScanAsync(DateTime.UtcNow.AddDays(-1));
+        var count = await scanner.ScanAsync(Since);
         Assert.That(count, Is.EqualTo(0));
     }
 
@@ -142,7 +147,7 @@ public sealed class RegulatoryScannerTests
     public async Task ScanAsync_NoticeOlderThanSince_IsFilteredOut()
     {
         var scanner = BuildScanner(OldSroNotice, SubstantiveAssessment);
-        var count = await scanner.ScanAsync(DateTime.UtcNow.AddDays(-1));
+        var count = await scanner.ScanAsync(Since);
         Assert.That(count, Is.EqualTo(0));
     }
 
@@ -151,8 +156,8 @@ public sealed class RegulatoryScannerTests
     {
         var scanner = BuildScanner(OneSroNotice, SubstantiveAssessment);
 
-        var first = await scanner.ScanAsync(DateTime.UtcNow.AddDays(-1));
-        var second = await scanner.ScanAsync(DateTime.UtcNow.AddDays(-1));
+        var first = await scanner.ScanAsync(Since);
+        var second = await scanner.ScanAsync(Since);
 
         Assert.That(first, Is.EqualTo(1));
         Assert.That(second, Is.EqualTo(0)); // same html_url already persisted — dedup, not a duplicate claim

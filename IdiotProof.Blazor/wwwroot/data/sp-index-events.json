@@ -5,44 +5,23 @@
     "IndexEventScanner turns every entry into a ResearchClaim (ClaimType = IndexEvent) on its next pass",
     "and flips it from Pending to Realized once effectiveDate passes. Entries are idempotent: edit freely.",
     "Fields: ticker, index (SP500|SP100), action (Add|Remove), announcedDate (yyyy-MM-dd),",
-    "effectiveDate (yyyy-MM-dd or null when TBA), sourceUrl (press release; null lowers source trust), note."
+    "effectiveDate (yyyy-MM-dd or null when TBA), sourceUrl (press release; null lowers source trust), note.",
+    "2026-09-04 batch verified 2026-09-05 against the S&P DJI press release (quarterly rebalance, effective prior to the open Mon 2026-09-21)."
   ],
   "events": [
-    {
-      "ticker": "BE",
-      "index": "SP500",
-      "action": "Add",
-      "announcedDate": "2026-09-05",
-      "effectiveDate": null,
-      "sourceUrl": null,
-      "note": "Bloom Energy joining the S&P 500 (from trading-desk chat 2026-09-05 — verify against the S&P DJI press release and fill in effectiveDate/sourceUrl)."
-    },
-    {
-      "ticker": "ILMN",
-      "index": "SP500",
-      "action": "Add",
-      "announcedDate": "2026-09-05",
-      "effectiveDate": null,
-      "sourceUrl": null,
-      "note": "Illumina joining the S&P 500 (from trading-desk chat 2026-09-05 — verify and fill in effectiveDate/sourceUrl)."
-    },
-    {
-      "ticker": "SPG",
-      "index": "SP100",
-      "action": "Add",
-      "announcedDate": "2026-09-05",
-      "effectiveDate": null,
-      "sourceUrl": null,
-      "note": "Simon Property Group joining the S&P 100 (from trading-desk chat 2026-09-05 — verify)."
-    },
-    {
-      "ticker": "SNDK",
-      "index": "SP100",
-      "action": "Add",
-      "announcedDate": "2026-09-05",
-      "effectiveDate": null,
-      "sourceUrl": null,
-      "note": "Sandisk joining the S&P 100 (from trading-desk chat 2026-09-05 — verify)."
-    }
+    { "ticker": "BE",   "index": "SP500", "action": "Add",    "announcedDate": "2026-09-04", "effectiveDate": "2026-09-21", "sourceUrl": "https://press.spglobal.com/2026-09-04-Bloom-Energy,-Illumina,-and-Everpure-Set-to-Join-S-P-500-Others-to-Join-S-P-100,-S-P-MidCap-400,-and-S-P-SmallCap-600", "note": "Bloom Energy joins the S&P 500 (from S&P MidCap 400); replaces Molson Coors." },
+    { "ticker": "ILMN", "index": "SP500", "action": "Add",    "announcedDate": "2026-09-04", "effectiveDate": "2026-09-21", "sourceUrl": "https://press.spglobal.com/2026-09-04-Bloom-Energy,-Illumina,-and-Everpure-Set-to-Join-S-P-500-Others-to-Join-S-P-100,-S-P-MidCap-400,-and-S-P-SmallCap-600", "note": "Illumina joins the S&P 500 (from S&P MidCap 400); replaces Builders FirstSource." },
+    { "ticker": "P",    "index": "SP500", "action": "Add",    "announcedDate": "2026-09-04", "effectiveDate": "2026-09-21", "sourceUrl": "https://press.spglobal.com/2026-09-04-Bloom-Energy,-Illumina,-and-Everpure-Set-to-Join-S-P-500-Others-to-Join-S-P-100,-S-P-MidCap-400,-and-S-P-SmallCap-600", "note": "Everpure joins the S&P 500 (from S&P MidCap 400); replaces The Trade Desk." },
+    { "ticker": "TAP",  "index": "SP500", "action": "Remove", "announcedDate": "2026-09-04", "effectiveDate": "2026-09-21", "sourceUrl": "https://press.spglobal.com/2026-09-04-Bloom-Energy,-Illumina,-and-Everpure-Set-to-Join-S-P-500-Others-to-Join-S-P-100,-S-P-MidCap-400,-and-S-P-SmallCap-600", "note": "Molson Coors Beverage drops to the S&P SmallCap 600." },
+    { "ticker": "TTD",  "index": "SP500", "action": "Remove", "announcedDate": "2026-09-04", "effectiveDate": "2026-09-21", "sourceUrl": "https://press.spglobal.com/2026-09-04-Bloom-Energy,-Illumina,-and-Everpure-Set-to-Join-S-P-500-Others-to-Join-S-P-100,-S-P-MidCap-400,-and-S-P-SmallCap-600", "note": "The Trade Desk drops to the S&P SmallCap 600." },
+    { "ticker": "BLDR", "index": "SP500", "action": "Remove", "announcedDate": "2026-09-04", "effectiveDate": "2026-09-21", "sourceUrl": "https://press.spglobal.com/2026-09-04-Bloom-Energy,-Illumina,-and-Everpure-Set-to-Join-S-P-500-Others-to-Join-S-P-100,-S-P-MidCap-400,-and-S-P-SmallCap-600", "note": "Builders FirstSource drops to the S&P SmallCap 600." },
+    { "ticker": "DELL", "index": "SP100", "action": "Add",    "announcedDate": "2026-09-04", "effectiveDate": "2026-09-21", "sourceUrl": "https://press.spglobal.com/2026-09-04-Bloom-Energy,-Illumina,-and-Everpure-Set-to-Join-S-P-500-Others-to-Join-S-P-100,-S-P-MidCap-400,-and-S-P-SmallCap-600", "note": "Dell Technologies joins the S&P 100 (Information Technology)." },
+    { "ticker": "PANW", "index": "SP100", "action": "Add",    "announcedDate": "2026-09-04", "effectiveDate": "2026-09-21", "sourceUrl": "https://press.spglobal.com/2026-09-04-Bloom-Energy,-Illumina,-and-Everpure-Set-to-Join-S-P-500-Others-to-Join-S-P-100,-S-P-MidCap-400,-and-S-P-SmallCap-600", "note": "Palo Alto Networks joins the S&P 100 (Information Technology)." },
+    { "ticker": "ANET", "index": "SP100", "action": "Add",    "announcedDate": "2026-09-04", "effectiveDate": "2026-09-21", "sourceUrl": "https://press.spglobal.com/2026-09-04-Bloom-Energy,-Illumina,-and-Everpure-Set-to-Join-S-P-500-Others-to-Join-S-P-100,-S-P-MidCap-400,-and-S-P-SmallCap-600", "note": "Arista Networks joins the S&P 100 (Information Technology)." },
+    { "ticker": "SNDK", "index": "SP100", "action": "Add",    "announcedDate": "2026-09-04", "effectiveDate": "2026-09-21", "sourceUrl": "https://press.spglobal.com/2026-09-04-Bloom-Energy,-Illumina,-and-Everpure-Set-to-Join-S-P-500-Others-to-Join-S-P-100,-S-P-MidCap-400,-and-S-P-SmallCap-600", "note": "Sandisk joins the S&P 100 (Information Technology)." },
+    { "ticker": "HONA", "index": "SP100", "action": "Remove", "announcedDate": "2026-09-04", "effectiveDate": "2026-09-21", "sourceUrl": "https://press.spglobal.com/2026-09-04-Bloom-Energy,-Illumina,-and-Everpure-Set-to-Join-S-P-500-Others-to-Join-S-P-100,-S-P-MidCap-400,-and-S-P-SmallCap-600", "note": "Honeywell Aerospace leaves the S&P 100 (Industrials); stays in the S&P 500." },
+    { "ticker": "NKE",  "index": "SP100", "action": "Remove", "announcedDate": "2026-09-04", "effectiveDate": "2026-09-21", "sourceUrl": "https://press.spglobal.com/2026-09-04-Bloom-Energy,-Illumina,-and-Everpure-Set-to-Join-S-P-500-Others-to-Join-S-P-100,-S-P-MidCap-400,-and-S-P-SmallCap-600", "note": "NIKE leaves the S&P 100 (Consumer Discretionary); stays in the S&P 500." },
+    { "ticker": "SPG",  "index": "SP100", "action": "Remove", "announcedDate": "2026-09-04", "effectiveDate": "2026-09-21", "sourceUrl": "https://press.spglobal.com/2026-09-04-Bloom-Energy,-Illumina,-and-Everpure-Set-to-Join-S-P-500-Others-to-Join-S-P-100,-S-P-MidCap-400,-and-S-P-SmallCap-600", "note": "Simon Property Group leaves the S&P 100 (Real Estate); stays in the S&P 500. (The desk chat had this as a joiner — the press release says deletion.)" },
+    { "ticker": "CL",   "index": "SP100", "action": "Remove", "announcedDate": "2026-09-04", "effectiveDate": "2026-09-21", "sourceUrl": "https://press.spglobal.com/2026-09-04-Bloom-Energy,-Illumina,-and-Everpure-Set-to-Join-S-P-500-Others-to-Join-S-P-100,-S-P-MidCap-400,-and-S-P-SmallCap-600", "note": "Colgate-Palmolive leaves the S&P 100 (Consumer Staples); stays in the S&P 500." }
   ]
 }

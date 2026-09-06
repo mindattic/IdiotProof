@@ -974,10 +974,11 @@ Verified, in-code or in-canon items worth knowing about before you build on top 
   see [§9](#9-the-maui-desktop-shell-and-the-shared-ui-library).
 - **Options are manual-only (Phase 1, [IP-A33](docs/AMENDMENTS.md#IP-A33)).** No option legs in
   the strategy schema, no IV/Greeks conditions, no options-aware `RiskGuardian` math, no
-  multi-leg spreads — the Monitor never fires an options order. The Alpaca account's
-  `option_trading_level` was unconfirmed when the section shipped, so a real paper round-trip
-  (IP-US-U10) is still open; the ticket locks itself on Alpaca modes until approval and Sandbox
-  serves a synthetic chain in the meantime. `sp-index-events.json` is hand-maintained.
+  multi-leg spreads — the Monitor never fires an options order. As of 2026-09-05 neither the paper
+  nor the live Alpaca account reports an `option_trading_level` (options not enabled), so a real
+  paper round-trip (IP-US-U10) is still open; the ticket locks itself on Alpaca modes until
+  approval and Sandbox serves a synthetic chain in the meantime. `sp-index-events.json` is
+  hand-maintained (the 2026-09-21 rebalance batch is verified against the S&P DJI press release).
 - **`dotnet run` on `IdiotProof.Blazor` needs a `wwwroot` folder next to the built exe.**
   `Program.cs` mounts a `PhysicalFileProvider` on `AppContext.BaseDirectory/wwwroot` (so a
   published exe serves its own static files), which throws `DirectoryNotFoundException` on a plain
@@ -986,10 +987,6 @@ Verified, in-code or in-canon items worth knowing about before you build on top 
 - **Shorts are signal-only.** A short candidate can clear both gates and gets recorded
   (`RecordFiredAsync`/`RecordEntryFillAsync`), but no order is placed — the exit-management brain
   (`GapperExitEvaluator`) is long-shaped. Order placement for shorts is future work.
-- **Two pre-existing Blazor.Tests failures** as of this writing: `RegulatoryScannerTests`'s
-  `ScanAsync_AlreadySeenSourceUrl_IsSkippedOnSecondScan` and
-  `ScanAsync_SubstantiveNotice_PersistsMacroClaim` (both `Assert.That(count, Is.EqualTo(1))`
-  expecting `1` but getting `0`). Not touched by this documentation pass; worth triaging.
 - **`docs/BIBLE.md` §4.1/§4.2 references `PolygonDataFeed` and a `FeedType {Polygon}` enum that do
   not exist in the current `IdiotProof.DataFeeds`/`IdiotProof.Models` source** (verified: only
   `AlpacaDataFeed`, `AlpacaStreamingClient`, `MockDataFeed`, `SwitchableMarketDataFeed` exist; the

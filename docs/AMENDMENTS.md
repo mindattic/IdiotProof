@@ -51,9 +51,13 @@ pre-announced mechanical catalysts.
   updated; new Epic U in [USER_STORIES.md](USER_STORIES.md#Epic-U).
 - **Prerequisite, not yet met:** the Alpaca account's `option_trading_level` is unconfirmed
   (likely 0). The ticket locks itself on Alpaca modes until approval; Sandbox works today.
-- Known pre-existing test debt noted during this work: two `RegulatoryScannerTests` hardcode a
-  2026-07-27 notice but filter with `since = now − 1 day`, so they fail on any day after
-  2026-07-28. Not touched here.
+- Pre-existing test debt found and fixed during this work: two `RegulatoryScannerTests` hardcoded a
+  2026-07-27 notice but filtered with `since = now − 1 day`, so they failed on any day after
+  2026-07-28. Now use a fixed `Since` cutoff (2026-07-01).
+- Alpaca entitlement checked 2026-09-05 against `/v2/account` on both the paper and live accounts:
+  neither returns `option_approved_level` / `option_trading_level` at all — options are not yet
+  enabled. The 2026-09-04 S&P rebalance batch in `sp-index-events.json` was verified against the
+  S&P DJI press release the same day (effective prior to the open, Mon 2026-09-21).
 
 ## IP-A32 — Research tab: search box → autonomous ranked results-review {#IP-A32}
 **What changed.** (2026-07-26.) The `/research` tab required a human to type a ticker or paste
