@@ -142,8 +142,8 @@ text. ("Parse, don't validate"; no shotgun parsing on the money path — see
 
 ## Status index (USER_STORIES.md)
 - done: 47
-- partial: 25
-- planned: 28
+- partial: 27
+- planned: 27
 - cut: 1
 
 ## Latest amendment

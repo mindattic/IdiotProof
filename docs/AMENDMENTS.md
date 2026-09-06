@@ -9,6 +9,40 @@ updated: 2026-09-05
 
 # IdiotProof — Amendments (append-only; amendment wins over the bible)
 
+## IP-A35 — Full options chain (Alpaca's one-week default) + real-paper U10 harness {#IP-A35}
+**What changed.** (2026-09-05, same day as [IP-A34](#IP-A34).) The first contact between the
+Options code and the *real* Alpaca paper account, made through the app's own `AlpacaBrokerClient`.
+
+1. **The chain was one week deep.** `GET /v2/options/contracts` silently defaults
+   `expiration_date_lte` to one week after `expiration_date_gte` (today). Our unbounded call
+   returned **162** BE contracts in a single expiration while the snapshot feed for the same
+   underlying had **1,918** — so the chain view on a real account would only ever have shown next
+   Friday. `GetOptionChainAsync` now sends `expiration_date_gte = today` and
+   `expiration_date_lte = today + AlpacaBrokerClient.ChainHorizon` (3 years — LEAPS) whenever no
+   single expiration is requested; the same call now returns 1,914 contracts across six-plus
+   expirations. Wire test: `Chain_WithoutExpiration_SpansTodayToHorizon_NotAlpacasOneWeekDefault`.
+2. **An opt-in real-paper fixture.** `IdiotProof.Brokers.Tests/AlpacaPaperOptionsIntegrationTests`
+   is `[Explicit]` — a plain `dotnet test` skips it — and runs by name. It reads the `alpaca-paper`
+   entry of the MindAttic broker keyring, **refuses** any host but `paper-api.alpaca.markets`, then:
+   reads the plural level fields (level 3, buying power > 0); pulls the BE chain and snapshots and
+   joins them by OCC symbol; places **one** buy-to-open limit at $0.01 (unfillable by construction),
+   confirms the account stays flat, and cancels it. First run 2026-09-05 (market closed for the
+   Labor Day weekend): all three green; Alpaca shows the order `canceled`, `filled_qty 0`, no
+   positions, no open orders.
+
+**Why.** The Sandbox and canned-fixture tests could not catch a server-side default; only the real
+endpoint could. The fixture is the repeatable half of IP-US-U10 and the smoke test to run before
+any future options change ships.
+
+**Effect on canon.**
+- No law changes. Still Phase 1 — manual, Sandbox-default, single-leg, no Monitor/RiskGuardian
+  path for options ([IP-A33](#IP-A33)).
+- [USER_STORIES](USER_STORIES.md#Epic-U): U10 → 🟡 — place + cancel proven against the real paper
+  account by `AlpacaPaperOptionsIntegrationTests`; the *fill and close* half still waits on a
+  deliberate user-initiated order during market hours (next open 2026-09-08 09:30 ET).
+- [BIBLE §7](BIBLE.md#IP-§7) frontier bullet rewritten: approval and the Cypress spec are done;
+  what remains is the market-hours fill/close, the shared Live modal, then automation.
+
 ## IP-A34 — Options hardening: real Alpaca field names, level-aware lock, jargon glossary, Cypress {#IP-A34}
 **What changed.** (2026-09-05, follow-up to [IP-A33](#IP-A33) / RFC 0004.) A bug-and-clarity pass
 over the manual Options section, prompted by "look for ways to improve them, fix bugs, clearer

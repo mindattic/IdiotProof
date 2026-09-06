@@ -412,8 +412,18 @@ public sealed class AlpacaBrokerClient : IBrokerClient, IAsyncDisposable
     }
 
     /// <summary>
+    /// How far out the full chain reaches when no expiration is requested. Alpaca's
+    /// <c>/v2/options/contracts</c> silently defaults <c>expiration_date_lte</c> to ONE WEEK after
+    /// <c>expiration_date_gte</c> (today), so an unbounded call returned a single expiration and
+    /// the chain view looked like the underlying only had weeklies. LEAPS list out to ~3 years.
+    /// </summary>
+    public static readonly TimeSpan ChainHorizon = TimeSpan.FromDays(3 * 366);
+
+    /// <summary>
     /// <c>GET /v2/options/contracts</c> (trading host). Catalog only — strikes, expirations,
     /// rights, open interest. Follows <c>next_page_token</c> so a full chain comes back in one call.
+    /// Without an <paramref name="expiration"/> the request spans today → <see cref="ChainHorizon"/>
+    /// explicitly, because Alpaca's default window is only one week.
     /// </summary>
     public async Task<IReadOnlyList<OptionContract>> GetOptionChainAsync(string underlyingSymbol, DateOnly? expiration = null, CancellationToken ct = default)
     {
@@ -425,7 +435,15 @@ public sealed class AlpacaBrokerClient : IBrokerClient, IAsyncDisposable
         for (var page = 0; page < 20; page++) // hard stop — a chain is never 20k contracts
         {
             var url = $"/v2/options/contracts?underlying_symbols={Uri.EscapeDataString(underlying)}&status=active&limit=1000";
-            if (expiration is { } exp) url += $"&expiration_date={exp:yyyy-MM-dd}";
+            if (expiration is { } exp)
+            {
+                url += $"&expiration_date={exp:yyyy-MM-dd}";
+            }
+            else
+            {
+                var today = DateOnly.FromDateTime(DateTime.UtcNow.Date);
+                url += $"&expiration_date_gte={today:yyyy-MM-dd}&expiration_date_lte={today.AddDays((int)ChainHorizon.TotalDays):yyyy-MM-dd}";
+            }
             if (pageToken is not null) url += $"&page_token={Uri.EscapeDataString(pageToken)}";
 
             using var response = await httpClient.GetAsync(url, ct).ConfigureAwait(false);

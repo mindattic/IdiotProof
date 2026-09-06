@@ -267,10 +267,10 @@ registered in `Program.cs` intercepts Legion calls server-side) but need a live 
 graduate stories E1–E6 to ✅.
 
 ## 7. Active frontier {#IP-§7}
-- **Options, Phase 2 (after [IP-A33](AMENDMENTS.md#IP-A33))** — a real paper round-trip once the
-  Alpaca account's `option_trading_level` is approved (IP-US-U10); a `/options` Cypress spec to
-  graduate IP-US-U6/U8; extract the duplicated Live elevation modal into one shared RCL
-  component; then the automation questions the manual phase deliberately skipped — option legs
+- **Options, Phase 2 (after [IP-A33](AMENDMENTS.md#IP-A33)–[IP-A35](AMENDMENTS.md#IP-A35))** —
+  the fill-and-close half of the real paper round-trip during market hours (IP-US-U10; place +
+  cancel already proven by the opt-in `AlpacaPaperOptionsIntegrationTests`); extract the
+  duplicated Live elevation modal into one shared RCL component; then the automation questions the manual phase deliberately skipped — option legs
   in the strict-JSON strategy schema (v2), IV/Greeks conditions in the `Conditions` catalog, and
   a non-linear `RiskGuardian` model (max loss = premium for long options) before the Monitor is
   ever allowed to fire an options order. Multi-leg spreads (`order_class: "mleg"`) after that.

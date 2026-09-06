@@ -333,6 +333,32 @@ public class AlpacaOptionsWireTests
         });
     }
 
+    /// <summary>
+    /// Verified against the real paper account 2026-09-05: with no expiration filters Alpaca
+    /// returned ONE expiration (162 BE contracts) while the snapshot feed had 1,918 — the catalog
+    /// endpoint defaults <c>expiration_date_lte</c> to a week out. The full-chain call must bound
+    /// the window itself.
+    /// </summary>
+    [Test]
+    public async Task Chain_WithoutExpiration_SpansTodayToHorizon_NotAlpacasOneWeekDefault()
+    {
+        var handler = new RecordingHandler(_ => Json("""{"option_contracts":[],"next_page_token":null}"""));
+        var broker = new AlpacaBrokerClient(handler);
+        var today = DateOnly.FromDateTime(DateTime.UtcNow.Date);
+        var horizon = today.AddDays((int)AlpacaBrokerClient.ChainHorizon.TotalDays);
+
+        await broker.GetOptionChainAsync("BE");
+
+        var query = handler.Requests[0].RequestUri!.Query;
+        Assert.Multiple(() =>
+        {
+            Assert.That(query, Does.Contain($"expiration_date_gte={today:yyyy-MM-dd}"));
+            Assert.That(query, Does.Contain($"expiration_date_lte={horizon:yyyy-MM-dd}"));
+            Assert.That(query, Does.Not.Contain("expiration_date="), "single-expiration filter must not be sent alongside the window");
+            Assert.That(horizon.Year - today.Year, Is.GreaterThanOrEqualTo(2), "LEAPS list years out");
+        });
+    }
+
     [Test]
     public async Task Snapshots_HitDataHost_AndParseGreeksWhenPresent()
     {

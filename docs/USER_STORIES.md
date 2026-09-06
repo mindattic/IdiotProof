@@ -326,9 +326,11 @@ counts: {done: 27, partial: 22, planned: 17, cut: 0}
   `sp-index-events.json` shows up in the Research feed as an `IndexEvent` claim (Bullish for a
   joiner, Bearish for a leaver), Pending until the effective date and then Realized, without
   duplicates on later passes. See `IndexEventScannerTests`.
-- **IP-US-U10 ⬜** As a trader, a small paper options order round-trips against my real Alpaca
-  paper account. Unblocked 2026-09-05 — both accounts report `options_trading_level = 3`
-  ([IP-A34](AMENDMENTS.md#IP-A34)); waits on a deliberate, user-initiated paper order.
+- **IP-US-U10 🟡** As a trader, a small paper options order round-trips against my real Alpaca
+  paper account. Place + cancel proven 2026-09-05 by the opt-in `AlpacaPaperOptionsIntegrationTests`
+  (`[Explicit]`, `IdiotProof.Brokers.Tests`): level 3 read, full BE chain + snapshots, one
+  buy-to-open limit at $0.01 accepted then cancelled, account flat ([IP-A35](AMENDMENTS.md#IP-A35)).
+  The fill-and-close half needs market hours and a deliberate user-initiated order — 🟡.
 - **IP-US-U11 ✅** As a trader who doesn't speak options, every piece of jargon on the page (call,
   put, strike, hype, breakeven, IV, bid/ask, buy-to-open…) is a dotted word I can hover for a
   one-line hint or click for a plain-English card, and no Alpaca code (`buy_to_open`) ever reaches
