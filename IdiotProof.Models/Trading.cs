@@ -91,6 +91,17 @@ public sealed class OrderRequest
     /// after a partial fill). Null on entry orders (omitted from the wire payload).
     /// </summary>
     public string? PositionIntent { get; init; }
+
+    /// <summary>
+    /// Equity (default) or Option. When <see cref="AssetClass.Option"/>, <see cref="Option"/>
+    /// must be set, <see cref="Symbol"/> is the OCC symbol, and <see cref="Quantity"/> is a
+    /// CONTRACT count (×<see cref="OptionContract.Multiplier"/> shares). Notional sizing and
+    /// extended hours are not available for options.
+    /// </summary>
+    public AssetClass AssetClass { get; init; } = AssetClass.Equity;
+
+    /// <summary>The contract being traded. Null for equities.</summary>
+    public OptionContract? Option { get; init; }
 }
 
 /// <summary>
@@ -118,6 +129,16 @@ public sealed class Position
     public decimal AveragePrice { get; init; }
     public decimal MarketValue { get; init; }
     public decimal UnrealizedPnl { get; init; }
+
+    /// <summary>
+    /// Equity (default) or Option. For options, <see cref="Quantity"/> is a CONTRACT count
+    /// (Alpaca's native unit) and <see cref="AveragePrice"/> is the per-share premium paid;
+    /// dollar exposure is <c>Quantity × AveragePrice × Option.Multiplier</c>.
+    /// </summary>
+    public AssetClass AssetClass { get; init; } = AssetClass.Equity;
+
+    /// <summary>Decoded contract (from the OCC symbol). Null for equities.</summary>
+    public OptionContract? Option { get; init; }
 }
 
 /// <summary>

@@ -27,6 +27,15 @@ public enum ConfidenceGrade { APlus, A, B, C, D, F }
 
 public enum BrokerType { Alpaca, Sandbox }
 
+/// <summary>
+/// What kind of instrument an <see cref="OrderRequest"/> / <see cref="Position"/> refers to.
+/// Defaults to <see cref="Equity"/> everywhere so the pre-options code paths are unchanged.
+/// </summary>
+public enum AssetClass { Equity, Option }
+
+/// <summary>Call = right to buy the underlying at the strike; Put = right to sell.</summary>
+public enum OptionRight { Call, Put }
+
 public enum StrategyType { Iti, BreakoutPullback, LowHigh, FluentDsl, Custom }
 
 public enum WorkspaceState { Stopped, Running, Paused }
