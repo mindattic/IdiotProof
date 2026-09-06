@@ -1,0 +1,71 @@
+@*
+    Live-money gate for options orders. Deliberately a copy of the Strategies page's
+    password-elevation modal (same look, same 5-minute window semantics) rather than a
+    refactor of that live page — extraction into one shared component is a follow-up once
+    both call sites are proven. Password verification + Elevate() happen in the host.
+*@
+
+@if (Visible)
+{
+    <div class="modal-backdrop fade show" @onclick="() => OnCancel.InvokeAsync()"></div>
+    <div class="modal fade show d-block" role="dialog" aria-modal="true" aria-labelledby="opt-pw-modal-title" tabindex="-1"
+         @onkeydown="OnKeyDown">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content bg-dark border-danger">
+                <div class="modal-header border-danger">
+                    <h2 id="opt-pw-modal-title" class="h5 modal-title text-danger">
+                        <i class="bi bi-shield-lock me-2" aria-hidden="true"></i>Enable Live Trading
+                    </h2>
+                </div>
+                <div class="modal-body text-white">
+                    <p class="text-warning small mb-2">
+                        You are about to place an options order with <strong>live, real money</strong>@(string.IsNullOrEmpty(ActionSummary) ? "" : $": {ActionSummary}").
+                        Re-enter your password to open a 5-minute elevation window.
+                    </p>
+                    <input type="password" class="form-control bg-dark text-white border-secondary"
+                           placeholder="Your password"
+                           value="@Password"
+                           @oninput="e => PasswordChanged.InvokeAsync(e.Value?.ToString() ?? string.Empty)"
+                           autocomplete="current-password" />
+                    @if (!string.IsNullOrEmpty(Error))
+                    {
+                        <div class="alert alert-danger small py-1 mt-2">@Error</div>
+                    }
+                    @if (Verifying)
+                    {
+                        <div class="text-muted small mt-2">
+                            <span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span>Verifying…
+                        </div>
+                    }
+                </div>
+                <div class="modal-footer border-danger">
+                    <button class="btn btn-secondary" type="button" @onclick="() => OnCancel.InvokeAsync()">Cancel</button>
+                    <button class="btn btn-danger" type="button"
+                            @onclick="() => OnConfirm.InvokeAsync()"
+                            disabled="@(Verifying || string.IsNullOrEmpty(Password))"
+                            autofocus>
+                        Confirm — Enable Live Trading
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public bool Visible { get; set; }
+    [Parameter] public string Password { get; set; } = "";
+    [Parameter] public EventCallback<string> PasswordChanged { get; set; }
+    [Parameter] public string? Error { get; set; }
+    [Parameter] public bool Verifying { get; set; }
+    [Parameter] public string? ActionSummary { get; set; }
+    [Parameter] public EventCallback OnConfirm { get; set; }
+    [Parameter] public EventCallback OnCancel { get; set; }
+
+    private Task OnKeyDown(KeyboardEventArgs e) => e.Key switch
+    {
+        "Escape" => OnCancel.InvokeAsync(),
+        "Enter" when !Verifying && !string.IsNullOrEmpty(Password) => OnConfirm.InvokeAsync(),
+        _ => Task.CompletedTask,
+    };
+}

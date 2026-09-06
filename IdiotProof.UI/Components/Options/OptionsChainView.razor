@@ -1,0 +1,174 @@
+@*
+    Options chain — CALLS on the left, PUTS on the right, one strike per row. Every cell
+    carries the numbers a person normally has to compute in their head: breakeven at
+    expiration, and how much of the premium is HYPE (extrinsic / time value) vs REAL
+    (intrinsic). The hype meter colour is the whole point of this page: that's the value
+    you cash in by selling early, and the value that evaporates if you wait for reality.
+    Presentational only — data arrives via parameters, selections leave via callbacks.
+*@
+
+<div class="opt-chain trading-card p-3">
+    <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-2">
+        <div class="d-flex align-items-center gap-3">
+            <h2 class="h6 mb-0">
+                <i class="bi bi-diagram-3 me-1" style="color:var(--brand)" aria-hidden="true"></i>
+                @(string.IsNullOrWhiteSpace(Underlying) ? "Chain" : $"{Underlying} chain")
+            </h2>
+            @if (UnderlyingPrice is { } spot)
+            {
+                <span class="small opt-mono">
+                    <span class="text-muted">Underlying</span> @OptionsPresenter.Money(spot)
+                    @if (!string.IsNullOrEmpty(PriceSource))
+                    {
+                        <span class="badge opt-badge ms-1" title="Where the underlying price came from">@PriceSource</span>
+                    }
+                </span>
+            }
+        </div>
+        <div class="d-flex align-items-center gap-2 small text-muted">
+            <span>Hype meter:</span>
+            <span class="opt-hype-legend">
+                <span class="hype-0">real</span><span class="hype-1"></span><span class="hype-2"></span><span class="hype-3"></span><span class="hype-4">all hype</span>
+            </span>
+        </div>
+    </div>
+
+    @if (Expirations.Count > 0)
+    {
+        <div class="d-flex flex-wrap gap-1 mb-2" role="tablist" aria-label="Expirations">
+            @foreach (var exp in Expirations)
+            {
+                var dte = IntrinsicValueCalculator.DaysToExpiration(exp, Today);
+                <button type="button" role="tab"
+                        class="btn btn-sm @(exp == SelectedExpiration ? "btn-warning" : "btn-outline-secondary") opt-exp-pill"
+                        aria-selected="@(exp == SelectedExpiration)"
+                        @onclick="() => OnExpirationSelected.InvokeAsync(exp)">
+                    @exp.ToString("MMM d") <span class="opt-dte">@dte d</span>
+                </button>
+            }
+        </div>
+    }
+
+    @if (Loading)
+    {
+        <div class="text-muted small py-3"><span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>Loading chain…</div>
+    }
+    else if (Rows.Count == 0)
+    {
+        <div class="text-muted small py-3">@EmptyMessage</div>
+    }
+    else
+    {
+        var byStrike = Rows.GroupBy(r => r.Contract.Strike).OrderBy(g => g.Key).ToList();
+        <div class="table-responsive">
+            <table class="table table-dark table-sm table-hover align-middle opt-chain-table mb-0">
+                <thead>
+                    <tr class="opt-side-head">
+                        <th colspan="5" class="text-center opt-calls-head">CALLS <span class="text-muted fw-normal">bet it goes UP</span></th>
+                        <th class="text-center">Strike</th>
+                        <th colspan="5" class="text-center opt-puts-head">PUTS <span class="text-muted fw-normal">bet it goes DOWN</span></th>
+                    </tr>
+                    <tr class="small">
+                        <th title="Implied volatility — how much movement the market is pricing in">IV</th>
+                        <th title="Time value / hype: premium minus real (intrinsic) value">Hype $ / %</th>
+                        <th title="Underlying price where the trade nets zero IF held to expiration">Breakeven</th>
+                        <th title="Bid × Ask">Bid / Ask</th>
+                        <th title="Mid-point premium per share; × 100 per contract">Mid</th>
+                        <th class="text-center"></th>
+                        <th title="Mid-point premium per share; × 100 per contract">Mid</th>
+                        <th title="Bid × Ask">Bid / Ask</th>
+                        <th title="Underlying price where the trade nets zero IF held to expiration">Breakeven</th>
+                        <th title="Time value / hype: premium minus real (intrinsic) value">Hype $ / %</th>
+                        <th title="Implied volatility — how much movement the market is pricing in">IV</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var g in byStrike)
+                    {
+                        var call = g.FirstOrDefault(r => r.Contract.Right == OptionRight.Call);
+                        var put = g.FirstOrDefault(r => r.Contract.Right == OptionRight.Put);
+                        var isAtm = UnderlyingPrice is { } sp && Math.Abs(g.Key - sp) <= AtmBand(sp);
+                        var callItm = UnderlyingPrice is { } sp2 && g.Key < sp2;
+                        <tr class="@(isAtm ? "opt-atm" : "")">
+                            @RenderSide(call, callItm, mirror: false)
+                            <td class="text-center opt-strike opt-mono">@g.Key.ToString("0.##")@(isAtm ? " ●" : "")</td>
+                            @RenderSide(put, !callItm && !isAtm, mirror: true)
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+        <p class="text-muted small mt-2 mb-0">
+            Click a call or put to open the order ticket. <strong>Hype</strong> = premium you're paying for the
+            <em>idea</em> of a move; it decays to zero by expiration and inflates when the stock runs. IV badge
+            <span class="badge opt-badge">Alpaca</span> = broker-supplied, <span class="badge opt-badge">Model</span> = solved locally (Black-Scholes).
+        </p>
+    }
+</div>
+
+@code {
+    [Parameter] public string Underlying { get; set; } = "";
+    [Parameter] public decimal? UnderlyingPrice { get; set; }
+    [Parameter] public string? PriceSource { get; set; }
+    [Parameter] public IReadOnlyList<ChainRow> Rows { get; set; } = [];
+    [Parameter] public IReadOnlyList<DateOnly> Expirations { get; set; } = [];
+    [Parameter] public DateOnly? SelectedExpiration { get; set; }
+    [Parameter] public DateOnly Today { get; set; } = DateOnly.FromDateTime(DateTime.UtcNow);
+    [Parameter] public bool Loading { get; set; }
+    [Parameter] public string EmptyMessage { get; set; } = "Type a ticker above and load its chain.";
+    [Parameter] public ChainRow? Selected { get; set; }
+    [Parameter] public EventCallback<DateOnly> OnExpirationSelected { get; set; }
+    [Parameter] public EventCallback<ChainRow> OnRowSelected { get; set; }
+
+    private static decimal AtmBand(decimal spot) => Math.Max(0.25m, spot * 0.005m);
+
+    private RenderFragment RenderSide(ChainRow? row, bool inTheMoney, bool mirror) => builder =>
+    {
+        var seq = 0;
+        if (row is null)
+        {
+            for (var i = 0; i < 5; i++) { builder.OpenElement(seq++, "td"); builder.AddContent(seq++, "—"); builder.CloseElement(); }
+            return;
+        }
+
+        var b = row.Breakdown;
+        var selected = Selected is { } s && s.Contract.OccSymbol == row.Contract.OccSymbol;
+        var cls = $"opt-cell {(inTheMoney ? "opt-itm" : "")} {(selected ? "opt-selected" : "")}".Trim();
+        var hype = b is { } ? OptionsPresenter.HypeBucket(b.ExtrinsicPercent) : 0;
+
+        void Cell(string content, string extraClass = "", string? title = null)
+        {
+            builder.OpenElement(seq++, "td");
+            builder.AddAttribute(seq++, "class", $"{cls} {extraClass}".Trim());
+            builder.AddAttribute(seq++, "role", "button");
+            builder.AddAttribute(seq++, "tabindex", "0");
+            if (title is not null) builder.AddAttribute(seq++, "title", title);
+            builder.AddAttribute(seq++, "onclick", EventCallback.Factory.Create(this, () => OnRowSelected.InvokeAsync(row)));
+            builder.AddAttribute(seq++, "onkeydown", EventCallback.Factory.Create<KeyboardEventArgs>(this, e => e.Key is "Enter" or " " ? OnRowSelected.InvokeAsync(row) : Task.CompletedTask));
+            builder.AddMarkupContent(seq++, content);
+            builder.CloseElement();
+        }
+
+        var iv = $"<span class=\"opt-mono\">{OptionsPresenter.Iv(row.ImpliedVolatility)}</span>" +
+                 (row.ImpliedVolatility is { } ? $" <span class=\"badge opt-badge opt-badge-xs\">{row.IvSource}</span>" : "");
+        var hypeCell = b is { }
+            ? $"<span class=\"opt-hype hype-{hype}\"><span class=\"opt-mono\">{OptionsPresenter.Money(b.Extrinsic)}</span> <span class=\"opt-hype-pct\">{OptionsPresenter.Pct(b.ExtrinsicPercent, 0)}</span></span>"
+            : "—";
+        var breakeven = b is { } ? $"<span class=\"opt-mono\">{OptionsPresenter.Money(b.Breakeven)}</span>" : "—";
+        var bidAsk = row.Quote is { } q ? $"<span class=\"opt-mono\">{q.Bid:0.00} × {q.Ask:0.00}</span>" : "—";
+        var mid = row.Mid is { } m ? $"<span class=\"opt-mono fw-semibold\">{m:0.00}</span>" : "—";
+
+        var hypeTitle = b is { } ? $"Real (intrinsic) {OptionsPresenter.Money(b.Intrinsic)} + hype (time value) {OptionsPresenter.Money(b.Extrinsic)} = {OptionsPresenter.Money(b.Premium)} per share" : null;
+        var beTitle = b is { } ? $"Only matters if you HOLD to expiration ({b.DaysToExpiration} days). Selling early cashes in the hype instead." : null;
+        var midTitle = b is { } ? $"{OptionsPresenter.Money(b.CostPerContract)} per contract ({row.Contract.Multiplier} shares)" : null;
+
+        if (!mirror)
+        {
+            Cell(iv); Cell(hypeCell, "", hypeTitle); Cell(breakeven, "", beTitle); Cell(bidAsk); Cell(mid, "", midTitle);
+        }
+        else
+        {
+            Cell(mid, "", midTitle); Cell(bidAsk); Cell(breakeven, "", beTitle); Cell(hypeCell, "", hypeTitle); Cell(iv);
+        }
+    };
+}

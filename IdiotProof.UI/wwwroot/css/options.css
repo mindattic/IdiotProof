@@ -1,0 +1,61 @@
+/* Options section (IdiotProof.UI). Theme via the host's CSS custom properties only —
+   no raw colours here except the hype-meter ramp, which is intentionally its own scale. */
+
+.opt-mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+
+.opt-badge { background: var(--bg-hover); color: var(--text-secondary); border: 1px solid var(--border); font-weight: 500; }
+.opt-badge-xs { font-size: 0.65em; padding: 0.15em 0.4em; vertical-align: middle; }
+.opt-badge-call { background: var(--green); color: #0d1117; }
+.opt-badge-put  { background: var(--red);   color: #0d1117; }
+.opt-badge-paper { background: var(--yellow); color: #0d1117; }
+
+/* ── Chain ───────────────────────────────────────────────────────────── */
+.opt-chain-table { font-size: 0.85rem; }
+.opt-chain-table thead th { white-space: nowrap; }
+.opt-side-head th { border-bottom: 2px solid var(--border-strong); }
+.opt-calls-head { color: var(--green); }
+.opt-puts-head  { color: var(--red); }
+.opt-strike { font-weight: 600; background: var(--bg-elevated); white-space: nowrap; }
+.opt-atm .opt-strike { color: var(--brand); }
+.opt-cell { cursor: pointer; white-space: nowrap; }
+.opt-cell:hover { background: var(--bg-hover) !important; }
+.opt-cell:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: -2px; }
+.opt-itm { background: var(--brand-soft); }
+.opt-selected { box-shadow: inset 0 0 0 2px var(--brand); }
+.opt-exp-pill .opt-dte { opacity: 0.7; font-size: 0.8em; margin-left: 0.25rem; }
+
+/* ── Hype meter — extrinsic % of premium. Cool = real value, hot = all hype. ── */
+.opt-hype { padding: 0.05rem 0.35rem; border-radius: 4px; display: inline-block; }
+.opt-hype-pct { opacity: 0.85; font-size: 0.9em; }
+.hype-0 { background: rgba(63, 185, 80, 0.20);  color: var(--green); }
+.hype-1 { background: rgba(163, 190, 60, 0.22); color: #b5c94a; }
+.hype-2 { background: rgba(210, 153, 34, 0.25); color: var(--yellow); }
+.hype-3 { background: rgba(245, 120, 40, 0.28); color: #f5844a; }
+.hype-4 { background: rgba(248, 81, 73, 0.30);  color: var(--red); }
+
+.opt-hype-legend { display: inline-flex; gap: 2px; align-items: center; }
+.opt-hype-legend span { display: inline-block; min-width: 14px; height: 14px; border-radius: 3px; font-size: 0.7rem; line-height: 14px; padding: 0 4px; }
+
+/* ── Ticket ───────────────────────────────────────────────────────────── */
+.opt-ticket-live { border: 1px solid var(--red) !important; box-shadow: 0 0 0 1px rgba(248, 81, 73, 0.35); }
+.opt-summary { background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 6px; font-size: 0.9rem; }
+.opt-summary li + li { margin-top: 0.25rem; }
+
+/* ── Positions ───────────────────────────────────────────────────────── */
+.opt-positions { font-size: 0.85rem; }
+.opt-split-bar { display: flex; height: 8px; border-radius: 4px; overflow: hidden; background: var(--bg-hover); margin-bottom: 2px; }
+.opt-split-real { background: var(--green); }
+.opt-split-hype { opacity: 0.9; }
+.opt-split-hype.hype-0 { background: var(--green); }
+.opt-split-hype.hype-1 { background: #b5c94a; }
+.opt-split-hype.hype-2 { background: var(--yellow); }
+.opt-split-hype.hype-3 { background: #f5844a; }
+.opt-split-hype.hype-4 { background: var(--red); }
+.opt-signal-row td { border-top: none !important; padding-top: 0 !important; }
+.opt-signal { background: var(--brand-soft); border-left: 3px solid var(--brand); color: var(--text-primary); padding: 0.4rem 0.75rem; border-radius: 4px; font-size: 0.85rem; }
+.opt-signal .bi { color: var(--brand); }
+
+/* ── Mode switch ─────────────────────────────────────────────────────── */
+.opt-mode .btn.active-sandbox { background: var(--bg-hover); border-color: var(--border-strong); color: var(--text-primary); }
+.opt-mode .btn.active-paper   { background: var(--yellow); border-color: var(--yellow); color: #0d1117; }
+.opt-mode .btn.active-live    { background: var(--red);    border-color: var(--red);    color: #0d1117; }

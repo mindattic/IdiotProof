@@ -1,0 +1,481 @@
+@page "/options"
+@rendermode InteractiveServer
+@using IdiotProof.Blazor.Services
+@using IdiotProof.Scripting
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+@attribute [Authorize]
+@implements IDisposable
+@inject OptionsTradingService OptionsSvc
+@inject LiveModeElevationService ElevationSvc
+@inject AuthenticationStateProvider AuthState
+@inject ToastService Toasts
+
+@*
+    Options — the manual options section (RFC 0004). Separate from the Stock Strategy
+    pages on purpose: nothing here goes through the DSL, the Monitor, or the three gates.
+    YOU drive it. The page's job is to make a call/put un-confusing: every contract shows
+    its breakeven and how much of the premium is hype (extrinsic) vs real (intrinsic), and
+    open positions get an informational "consider taking profit" nudge when extrinsic value
+    is at a high and the research tape is bullish. Components live in IdiotProof.UI (RCL);
+    this host page owns data access, confirmation, and the Live-money elevation gate.
+*@
+
+<PageTitle>Options — IdiotProof</PageTitle>
+
+<section aria-labelledby="options-heading">
+    <div class="d-flex justify-content-between align-items-center mb-1 flex-wrap gap-2">
+        <h1 id="options-heading" class="h4 mb-0">
+            <i class="bi bi-diagram-3 me-2" style="color:var(--brand)" aria-hidden="true"></i>Options
+        </h1>
+        <span class="text-muted small">Buy the idea · sell the hype · don't wait for reality</span>
+    </div>
+    <p class="text-muted small mb-3">
+        Manual calls and puts on your Alpaca account. Every contract shows its <strong>breakeven</strong> and its
+        <strong>real vs hype</strong> split so you never do the math in your head. Nothing on this page trades on its own.
+    </p>
+
+    @if (loadError is not null)
+    {
+        <div class="alert alert-danger small">@loadError</div>
+    }
+
+    <AccountSummaryBar UserId="userId" />
+
+    <!-- ── Mode + ticker ─────────────────────────────────────────────────── -->
+    <div class="trading-card p-3 mb-3">
+        <div class="row g-2 align-items-end">
+            <div class="col-md-4">
+                <label class="form-label small mb-1">Account</label>
+                <div class="btn-group w-100 opt-mode" role="group" aria-label="Which account to trade">
+                    <button type="button" class="btn btn-sm btn-outline-secondary @(mode == OptionsBrokerMode.Sandbox ? "active-sandbox" : "")" @onclick="() => SwitchModeAsync(OptionsBrokerMode.Sandbox)">Sandbox</button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary @(mode == OptionsBrokerMode.Paper ? "active-paper" : "")" @onclick="() => SwitchModeAsync(OptionsBrokerMode.Paper)">Paper</button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary @(mode == OptionsBrokerMode.Live ? "active-live" : "")" @onclick="() => SwitchModeAsync(OptionsBrokerMode.Live)">Live</button>
+                </div>
+                @if (resolution?.FallbackReason is { } why)
+                {
+                    <div class="small text-warning mt-1"><i class="bi bi-info-circle me-1" aria-hidden="true"></i>Using Sandbox — @why.</div>
+                }
+                else if (resolution is { IsAlpaca: true })
+                {
+                    <div class="small text-muted mt-1">Alpaca @(mode == OptionsBrokerMode.Live ? "LIVE" : "paper") · options level <span class="opt-mono">@tradingLevel</span></div>
+                }
+            </div>
+            <div class="col-md-5">
+                <label class="form-label small mb-1" for="opt-ticker">Underlying ticker</label>
+                <div class="input-group input-group-sm">
+                    <input id="opt-ticker" class="form-control opt-mono text-uppercase" placeholder="e.g. BE, NVDA"
+                           @bind="underlyingInput" @bind:event="oninput" @onkeydown="OnTickerKeyDown" aria-label="Underlying ticker" />
+                    <button class="btn btn-warning" type="button" disabled="@(chainLoading || string.IsNullOrWhiteSpace(underlyingInput))" @onclick="LoadChainAsync">
+                        <i class="bi bi-search me-1" aria-hidden="true"></i>Load chain
+                    </button>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label small mb-1" for="opt-rfr" title="Risk-free rate used by the local Black-Scholes model (T-bill proxy)">Risk-free rate</label>
+                <div class="input-group input-group-sm">
+                    <input id="opt-rfr" type="number" step="0.001" min="0" max="0.2" class="form-control opt-mono" @bind="riskFreeRate" @bind:after="SaveRiskFreeRateAsync" />
+                    <span class="input-group-text">(@((riskFreeRate * 100m).ToString("0.0"))%)</span>
+                </div>
+            </div>
+        </div>
+
+        @if (mode == OptionsBrokerMode.Live && resolution is { IsAlpaca: true })
+        {
+            <div class="alert alert-danger small py-2 mt-3 mb-0">
+                <i class="bi bi-broadcast me-1" aria-hidden="true"></i>
+                <strong>LIVE account — real money.</strong> Every order here requires the 5-minute password elevation.
+                @if (ElevationRemaining is { } rem)
+                {
+                    <span class="ms-2">Elevation active — @($"{(int)rem.TotalMinutes}:{rem.Seconds:D2}") remaining.</span>
+                    <button type="button" class="btn btn-sm btn-outline-light ms-2 py-0" @onclick="RevokeElevation">Revoke</button>
+                }
+            </div>
+        }
+        @if (resolution is { IsAlpaca: true } && tradingLevel == 0)
+        {
+            <div class="alert alert-warning small py-2 mt-3 mb-0">
+                <i class="bi bi-lock me-1" aria-hidden="true"></i>
+                <strong>This Alpaca account isn't approved for options yet</strong> (<code>option_trading_level = 0</code>).
+                You can browse the chain and the numbers, but the ticket stays locked until Alpaca approves options trading
+                for the account (request it in the Alpaca dashboard — paper accounts can usually self-enable). Sandbox works now.
+            </div>
+        }
+    </div>
+
+    <!-- ── Chain + ticket ─────────────────────────────────────────────────── -->
+    <div class="row g-3 mb-3">
+        <div class="col-lg-8">
+            <OptionsChainView Underlying="@underlying"
+                              UnderlyingPrice="underlyingPrice"
+                              PriceSource="@priceSource"
+                              Rows="chainRows"
+                              Expirations="expirations"
+                              SelectedExpiration="selectedExpiration"
+                              Today="TodayEt"
+                              Loading="chainLoading"
+                              Selected="selectedRow"
+                              EmptyMessage="@(string.IsNullOrEmpty(underlying) ? "Type a ticker above and load its chain." : $"No listed contracts for {underlying}.")"
+                              OnExpirationSelected="SelectExpirationAsync"
+                              OnRowSelected="SelectRow" />
+        </div>
+        <div class="col-lg-4">
+            <OptionOrderTicket Row="selectedRow"
+                               UnderlyingPrice="underlyingPrice"
+                               Today="TodayEt"
+                               BrokerLabel="@BrokerLabel"
+                               IsLive="@(mode == OptionsBrokerMode.Live && resolution is { IsAlpaca: true })"
+                               Enabled="@TicketEnabled"
+                               DisabledReason="@TicketDisabledReason"
+                               Busy="placing"
+                               ExistingContracts="ExistingContractsFor(selectedRow)"
+                               InitialSide="ticketInitialSide"
+                               OnSubmit="OnTicketSubmitAsync"
+                               OnClear="ClearTicket" />
+        </div>
+    </div>
+
+    <!-- ── Positions ──────────────────────────────────────────────────────── -->
+    <OptionPositionTracker Positions="positionViews"
+                           Loading="positionsLoading"
+                           LastRefreshLabel="@LastRefreshLabel"
+                           Today="TodayEt"
+                           OnClose="PrefillCloseAsync"
+                           OnRefresh="RefreshPositionsAsync" />
+
+    <!-- ── Confirm (Sandbox / Paper) ──────────────────────────────────────── -->
+    @if (pendingIntent is { } pi && showConfirm)
+    {
+        <div class="modal-backdrop fade show" @onclick="CancelConfirm"></div>
+        <div class="modal fade show d-block" role="dialog" aria-modal="true" aria-labelledby="opt-confirm-title" tabindex="-1">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content" style="background:var(--bg-card);border:1px solid var(--border-strong)">
+                    <div class="modal-header">
+                        <h2 id="opt-confirm-title" class="h6 modal-title">Confirm @BrokerLabel order</h2>
+                    </div>
+                    <div class="modal-body small">
+                        <div class="mb-1">@IntentSentence(pi)</div>
+                        <div class="text-muted">Estimated @(pi.Side == OrderSide.Buy ? "cost" : "proceeds"): <span class="opt-mono">@OptionsPresenter.Money(pi.EstimatedTotal)</span> · intent <code>@pi.PositionIntent</code> · @(pi.Type == OrderType.Limit ? $"limit {OptionsPresenter.Money(pi.LimitPrice)}/sh" : "market")</div>
+                    </div>
+                    <div class="modal-footer">
+                        <button class="btn btn-secondary btn-sm" type="button" @onclick="CancelConfirm">Cancel</button>
+                        <button class="btn btn-sm @(pi.Side == OrderSide.Buy ? "btn-success" : "btn-warning")" type="button" disabled="@placing" @onclick="() => PlaceAsync(pi)" autofocus>
+                            Place order
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+
+    <OptionsLiveElevationModal Visible="showElevation"
+                               Password="@passwordInput"
+                               PasswordChanged="v => passwordInput = v"
+                               Error="@passwordError"
+                               Verifying="verifyingPassword"
+                               ActionSummary="@(pendingIntent is { } p2 ? IntentSentence(p2) : null)"
+                               OnConfirm="ConfirmElevationAsync"
+                               OnCancel="CancelElevation" />
+</section>
+
+@code {
+    private Guid? userId;
+    private string? loadError;
+
+    private OptionsBrokerMode mode = OptionsBrokerMode.Sandbox;
+    private OptionsBrokerResolution? resolution;
+    private int tradingLevel = 3;
+
+    private string underlyingInput = "";
+    private string underlying = "";
+    private decimal? underlyingPrice;
+    private string? priceSource;
+    private decimal riskFreeRate = OptionsTradingService.DefaultRiskFreeRate;
+
+    private bool chainLoading;
+    private List<OptionContract> fullChain = [];
+    private List<DateOnly> expirations = [];
+    private DateOnly? selectedExpiration;
+    private List<ChainRow> chainRows = [];
+    private ChainRow? selectedRow;
+    private OrderSide? ticketInitialSide;
+
+    private bool positionsLoading;
+    private List<OptionPositionView> positionViews = [];
+    private DateTime? lastPositionsRefreshUtc;
+    private readonly Dictionary<string, List<decimal>> extrinsicHistory = new(StringComparer.OrdinalIgnoreCase);
+    private System.Threading.Timer? refreshTimer;
+
+    private bool placing;
+    private OptionOrderIntent? pendingIntent;
+    private bool showConfirm;
+    private bool showElevation;
+    private string passwordInput = "";
+    private string? passwordError;
+    private bool verifyingPassword;
+
+    private static DateOnly TodayEt => DateOnly.FromDateTime(TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, MarketTime.Eastern));
+    private TimeSpan? ElevationRemaining => userId is { } u ? ElevationSvc.RemainingWindow(u) : null;
+    private string BrokerLabel => resolution is { IsAlpaca: true } ? (mode == OptionsBrokerMode.Live ? "Live" : "Paper") : "Sandbox";
+    private bool TicketEnabled => resolution is { } r && (!r.IsAlpaca || tradingLevel > 0);
+    private string TicketDisabledReason => resolution is { IsAlpaca: true } && tradingLevel == 0
+        ? "This Alpaca account isn't approved for options trading yet (level 0). Switch to Sandbox to practise, or request approval in the Alpaca dashboard."
+        : "";
+    private string? LastRefreshLabel => lastPositionsRefreshUtc is { } t
+        ? TimeZoneInfo.ConvertTimeFromUtc(t, MarketTime.Eastern).ToString("h:mm:ss tt") + " ET"
+        : null;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var auth = await AuthState.GetAuthenticationStateAsync();
+            var rawId = auth.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            userId = Guid.TryParse(rawId, out var uid) ? uid : null;
+            if (userId is null) { loadError = "Sign in to trade options."; return; }
+
+            riskFreeRate = await OptionsSvc.GetRiskFreeRateAsync();
+
+            // Default to Paper when it's actually configured; otherwise stay on Sandbox (IP-LAW-3).
+            var paper = await OptionsSvc.ResolveBrokerAsync(userId.Value, OptionsBrokerMode.Paper);
+            mode = paper.IsAlpaca ? OptionsBrokerMode.Paper : OptionsBrokerMode.Sandbox;
+            await ApplyModeAsync();
+
+            refreshTimer = new System.Threading.Timer(_ => _ = InvokeAsync(async () =>
+            {
+                try { await RefreshPositionsAsync(); StateHasChanged(); } catch { /* circuit tearing down */ }
+            }), null, TimeSpan.FromSeconds(20), TimeSpan.FromSeconds(20));
+        }
+        catch (Exception ex) { loadError = ex.Message; }
+    }
+
+    private async Task SwitchModeAsync(OptionsBrokerMode next)
+    {
+        if (next == mode) return;
+        mode = next;
+        selectedRow = null;
+        await ApplyModeAsync();
+        if (!string.IsNullOrEmpty(underlying)) await LoadChainAsync();
+    }
+
+    private async Task ApplyModeAsync()
+    {
+        if (userId is null) return;
+        resolution = await OptionsSvc.ResolveBrokerAsync(userId.Value, mode);
+        if (!resolution.IsAlpaca) mode = OptionsBrokerMode.Sandbox;
+        try { tradingLevel = await resolution.Client.GetOptionTradingLevelAsync(); }
+        catch (Exception ex) { tradingLevel = 0; Toasts.Show($"Couldn't read options approval level: {ex.Message}", ToastKind.Warning); }
+        extrinsicHistory.Clear();
+        await RefreshPositionsAsync();
+    }
+
+    private Task OnTickerKeyDown(KeyboardEventArgs e) => e.Key == "Enter" ? LoadChainAsync() : Task.CompletedTask;
+
+    private async Task LoadChainAsync()
+    {
+        if (userId is null || resolution is null || string.IsNullOrWhiteSpace(underlyingInput)) return;
+        underlying = underlyingInput.Trim().ToUpperInvariant();
+        chainLoading = true;
+        selectedRow = null;
+        loadError = null;
+        try
+        {
+            (underlyingPrice, priceSource) = await OptionsSvc.GetUnderlyingPriceAsync(userId.Value, underlying);
+            fullChain = [.. await resolution.Client.GetOptionChainAsync(underlying)];
+            expirations = fullChain.Select(c => c.Expiration).Distinct().Where(e => e >= TodayEt).OrderBy(e => e).ToList();
+            selectedExpiration = expirations.Count == 0 ? null
+                : selectedExpiration is { } prev && expirations.Contains(prev) ? prev
+                : expirations.FirstOrDefault(e => IntrinsicValueCalculator.DaysToExpiration(e, TodayEt) >= 7, expirations[0]);
+            await BuildRowsAsync();
+        }
+        catch (Exception ex)
+        {
+            loadError = $"Couldn't load the {underlying} chain: {ex.Message}";
+            fullChain = []; expirations = []; chainRows = [];
+        }
+        finally { chainLoading = false; }
+    }
+
+    private async Task SelectExpirationAsync(DateOnly exp)
+    {
+        selectedExpiration = exp;
+        selectedRow = null;
+        chainLoading = true;
+        try { await BuildRowsAsync(); }
+        finally { chainLoading = false; }
+    }
+
+    private async Task BuildRowsAsync()
+    {
+        if (resolution is null || selectedExpiration is not { } exp) { chainRows = []; return; }
+        var quotes = (await resolution.Client.GetOptionQuotesAsync(underlying, exp)).ToDictionary(q => q.OccSymbol, StringComparer.OrdinalIgnoreCase);
+        var now = DateTime.UtcNow;
+        chainRows = fullChain
+            .Where(c => c.Expiration == exp)
+            .Select(c => OptionsPresenter.BuildRow(c, quotes.GetValueOrDefault(c.OccSymbol), underlyingPrice, (double)riskFreeRate, TodayEt, now))
+            .OrderBy(r => r.Contract.Strike)
+            .ToList();
+    }
+
+    private void SelectRow(ChainRow row)
+    {
+        ticketInitialSide = null;
+        selectedRow = row;
+    }
+
+    private void ClearTicket() { selectedRow = null; ticketInitialSide = null; }
+
+    private decimal ExistingContractsFor(ChainRow? row) => row is null ? 0m
+        : positionViews.FirstOrDefault(p => p.Contract.OccSymbol.Equals(row.Contract.OccSymbol, StringComparison.OrdinalIgnoreCase))?.Position.Quantity ?? 0m;
+
+    private async Task SaveRiskFreeRateAsync()
+    {
+        riskFreeRate = Math.Clamp(riskFreeRate, 0m, 0.2m);
+        try { await OptionsSvc.SetRiskFreeRateAsync(riskFreeRate); }
+        catch (Exception ex) { Toasts.Show($"Couldn't save the risk-free rate: {ex.Message}", ToastKind.Warning); }
+        if (chainRows.Count > 0) await BuildRowsAsync();
+    }
+
+    // ── Order flow ──────────────────────────────────────────────────────────────
+
+    private Task OnTicketSubmitAsync(OptionOrderIntent intent)
+    {
+        pendingIntent = intent;
+        var isLive = mode == OptionsBrokerMode.Live && resolution is { IsAlpaca: true };
+        if (isLive && userId is { } u && !ElevationSvc.IsElevated(u))
+        {
+            passwordInput = ""; passwordError = null; showElevation = true;
+            return Task.CompletedTask;
+        }
+        showConfirm = true;
+        return Task.CompletedTask;
+    }
+
+    private void CancelConfirm() { showConfirm = false; pendingIntent = null; }
+
+    private async Task PlaceAsync(OptionOrderIntent intent)
+    {
+        if (resolution is null || placing) return;
+        placing = true;
+        showConfirm = false;
+        try
+        {
+            var result = await resolution.Client.PlaceOrderAsync(new OrderRequest
+            {
+                Symbol = intent.Contract.OccSymbol,
+                AssetClass = AssetClass.Option,
+                Option = intent.Contract,
+                Quantity = intent.Contracts,
+                Side = intent.Side,
+                Type = intent.Type,
+                LimitPrice = intent.LimitPrice,
+                TimeInForce = "DAY",
+                PositionIntent = intent.PositionIntent,
+            });
+
+            Toasts.Show(result.IsSuccess ? $"{BrokerLabel}: {result.Message}" : $"Order rejected: {result.Message}",
+                result.IsSuccess ? ToastKind.Success : ToastKind.Error);
+            if (result.IsSuccess)
+            {
+                pendingIntent = null;
+                ticketInitialSide = null;
+                await RefreshPositionsAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            Toasts.Show($"Order failed: {ex.Message}", ToastKind.Error);
+        }
+        finally { placing = false; }
+    }
+
+    private static string IntentSentence(OptionOrderIntent i) =>
+        $"{(i.Side == OrderSide.Buy ? "Buy" : "Sell")} {i.Contracts} × {i.Contract.UnderlyingSymbol} ${i.Contract.Strike:0.##} {i.Contract.Right} exp {i.Contract.Expiration:MMM d, yyyy} at ~{OptionsPresenter.Money(i.EstimatedPremiumPerShare)}/sh";
+
+    // ── Live elevation (duplicate of the Strategies gate — see OptionsLiveElevationModal) ──
+
+    private void CancelElevation() { showElevation = false; pendingIntent = null; passwordInput = ""; passwordError = null; }
+
+    private async Task ConfirmElevationAsync()
+    {
+        if (userId is null || string.IsNullOrEmpty(passwordInput)) return;
+        verifyingPassword = true; passwordError = null;
+        try
+        {
+            var ok = await ElevationSvc.VerifyPasswordAsync(userId.Value, passwordInput);
+            if (!ok) { passwordError = "Incorrect password. Try again."; return; }
+            ElevationSvc.Elevate(userId.Value);
+            showElevation = false;
+            showConfirm = true; // still show the plain confirm so the exact order is read back once more
+        }
+        finally { verifyingPassword = false; passwordInput = ""; }
+    }
+
+    private void RevokeElevation() { if (userId is { } u) ElevationSvc.Revoke(u); }
+
+    // ── Positions + sell signal ─────────────────────────────────────────────────
+
+    private async Task RefreshPositionsAsync()
+    {
+        if (userId is null || resolution is null || positionsLoading) return;
+        positionsLoading = true;
+        try
+        {
+            var all = await resolution.Client.GetPositionsAsync();
+            var options = all.Where(p => p.AssetClass == AssetClass.Option && p.Option is not null).ToList();
+            var now = DateTime.UtcNow;
+            var views = new List<OptionPositionView>();
+
+            foreach (var group in options.GroupBy(p => p.Option!.UnderlyingSymbol, StringComparer.OrdinalIgnoreCase))
+            {
+                var (spot, _) = await OptionsSvc.GetUnderlyingPriceAsync(userId.Value, group.Key);
+                var claims = await OptionsSvc.GetRecentBullishClaimsAsync(group.Key, now - SellSignalEvaluator.NewsWindow);
+
+                foreach (var byExp in group.GroupBy(p => p.Option!.Expiration))
+                {
+                    Dictionary<string, OptionQuote> quotes;
+                    try { quotes = (await resolution.Client.GetOptionQuotesAsync(group.Key, byExp.Key)).ToDictionary(q => q.OccSymbol, StringComparer.OrdinalIgnoreCase); }
+                    catch { quotes = new(StringComparer.OrdinalIgnoreCase); }
+
+                    foreach (var pos in byExp)
+                    {
+                        var quote = quotes.GetValueOrDefault(pos.Option!.OccSymbol);
+                        SellSignal? signal = null;
+                        var view = OptionsPresenter.BuildPosition(pos, quote, spot, (double)riskFreeRate, TodayEt, now, null);
+                        if (view.Breakdown is { } b && pos.Quantity > 0m)
+                        {
+                            var history = extrinsicHistory.TryGetValue(pos.Option.OccSymbol, out var h) ? h : extrinsicHistory[pos.Option.OccSymbol] = [];
+                            signal = SellSignalEvaluator.Evaluate(group.Key, b.Extrinsic, b.ExtrinsicPercent, history, claims, now);
+                            history.Add(b.Extrinsic);
+                            if (history.Count > 500) history.RemoveAt(0);
+                            view = view with { Signal = signal };
+                        }
+                        views.Add(view);
+                    }
+                }
+            }
+
+            positionViews = views.OrderBy(v => v.Contract.UnderlyingSymbol).ThenBy(v => v.Contract.Expiration).ThenBy(v => v.Contract.Strike).ToList();
+            lastPositionsRefreshUtc = now;
+        }
+        catch (Exception ex)
+        {
+            Toasts.Show($"Couldn't refresh positions: {ex.Message}", ToastKind.Warning);
+        }
+        finally { positionsLoading = false; }
+    }
+
+    private async Task PrefillCloseAsync(OptionPositionView view)
+    {
+        // Load that underlying/expiration into the chain so the ticket has a live row, then select it.
+        underlyingInput = view.Contract.UnderlyingSymbol;
+        selectedExpiration = view.Contract.Expiration;
+        await LoadChainAsync();
+        var row = chainRows.FirstOrDefault(r => r.Contract.OccSymbol.Equals(view.Contract.OccSymbol, StringComparison.OrdinalIgnoreCase))
+                  ?? OptionsPresenter.BuildRow(view.Contract, view.Quote, view.UnderlyingPrice, (double)riskFreeRate, TodayEt, DateTime.UtcNow);
+        ticketInitialSide = view.Position.Quantity > 0m ? OrderSide.Sell : OrderSide.Buy;
+        selectedRow = row;
+    }
+
+    public void Dispose() => refreshTimer?.Dispose();
+}

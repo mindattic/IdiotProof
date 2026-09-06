@@ -217,6 +217,7 @@ builder.Services.AddScoped<RegulatoryScanner>();
 builder.Services.AddScoped<SignificanceScorer>();
 builder.Services.AddScoped<OutcomeBackfillService>();
 builder.Services.AddSingleton<LiveModeElevationService>();
+builder.Services.AddScoped<OptionsTradingService>();
 
 // Dev credential carrier — populated from .env only in Development.
 // In Production this resolves to a singleton with both fields null, so the
