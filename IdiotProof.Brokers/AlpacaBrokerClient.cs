@@ -385,16 +385,30 @@ public sealed class AlpacaBrokerClient : IBrokerClient, IAsyncDisposable
     // ---------------------------------------------------------------- Options
 
     /// <summary>
-    /// Alpaca <c>/v2/account</c> carries <c>option_trading_level</c> (0–3). 0 = the account
-    /// has not been approved for options; the UI disables the order ticket on 0.
+    /// Alpaca <c>/v2/account</c> carries <c>options_trading_level</c> (effective, 0–3),
+    /// <c>options_approved_level</c> and <c>options_buying_power</c> — note the plural
+    /// <c>options_</c> prefix. The first cut of this read the singular <c>option_trading_level</c>,
+    /// a key Alpaca never sends, so every real account looked unapproved (level 0) and the ticket
+    /// locked itself. The singular spelling is kept only as a fallback for canned fixtures.
+    /// 0 = not approved; the UI locks the ticket on 0 and explains level 1 vs 2.
     /// </summary>
-    public async Task<int> GetOptionTradingLevelAsync(CancellationToken ct = default)
+    public async Task<int> GetOptionTradingLevelAsync(CancellationToken ct = default) =>
+        (await GetOptionsAccountAsync(ct).ConfigureAwait(false)).TradingLevel;
+
+    public async Task<OptionsAccountInfo> GetOptionsAccountAsync(CancellationToken ct = default)
     {
         var account = await GetAccountAsync(ct).ConfigureAwait(false);
-        return account.TryGetValue("option_trading_level", out var raw)
-            && int.TryParse(raw, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out var level)
-            ? level
-            : 0;
+        var trading = Int(account, "options_trading_level") ?? Int(account, "option_trading_level") ?? 0;
+        var approved = Int(account, "options_approved_level") ?? Int(account, "option_approved_level") ?? trading;
+        var buyingPower = account.TryGetValue("options_buying_power", out var bp)
+            && decimal.TryParse(bp, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var bpd)
+            ? bpd : (decimal?)null;
+        return new OptionsAccountInfo(trading, approved, buyingPower);
+
+        static int? Int(Dictionary<string, string> d, string key) =>
+            d.TryGetValue(key, out var raw)
+            && int.TryParse(raw, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out var v)
+                ? v : null;
     }
 
     /// <summary>

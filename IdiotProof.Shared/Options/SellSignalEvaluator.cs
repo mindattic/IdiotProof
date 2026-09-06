@@ -23,11 +23,19 @@ public sealed record BullishClaimSummary(string Ticker, DateTime ClaimDateUtc, i
 /// it's at a local peak and the news tape is hot, that's the moment the market is paying most
 /// for the idea rather than the reality.
 /// </para>
+/// <para>
+/// A "high" needs something to be high against: with fewer than <see cref="MinObservations"/>
+/// earlier samples the evaluator stays silent, otherwise the very first refresh after opening a
+/// position (or reloading the page) would trivially count as the high and nag immediately.
+/// </para>
 /// </summary>
 public static class SellSignalEvaluator
 {
     /// <summary>Within 5% of the observed extrinsic high counts as "near the high".</summary>
     public const decimal NearHighTolerance = 0.05m;
+
+    /// <summary>Earlier samples required before "near its high" means anything (3 × 20 s refresh ≈ 1 minute).</summary>
+    public const int MinObservations = 3;
 
     public static readonly TimeSpan NewsWindow = TimeSpan.FromDays(7);
 
@@ -40,10 +48,9 @@ public static class SellSignalEvaluator
         DateTime nowUtc)
     {
         if (currentExtrinsicPerShare <= 0m) return null;
+        if (extrinsicHistoryPerShare.Count < MinObservations) return null;
 
-        var high = extrinsicHistoryPerShare.Count > 0
-            ? Math.Max(extrinsicHistoryPerShare.Max(), currentExtrinsicPerShare)
-            : currentExtrinsicPerShare;
+        var high = Math.Max(extrinsicHistoryPerShare.Max(), currentExtrinsicPerShare);
         var nearHigh = high > 0m && currentExtrinsicPerShare >= high * (1m - NearHighTolerance);
         if (!nearHigh) return null;
 

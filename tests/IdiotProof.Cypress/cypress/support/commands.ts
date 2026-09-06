@@ -20,7 +20,10 @@ declare global {
             visitInteractive(path: string): Chainable<void>;
             /** Type into an input and assert the value stuck (post-circuit). */
             typeStable(selector: string, value: string): Chainable<void>;
-            /** Sign up a brand-new user (lands on /api-keys, the first-run page). */
+            /**
+             * Sign up a brand-new user, then sign in (registration alone issues no cookie).
+             * Password must satisfy the auth library: 12+ characters with a digit.
+             */
             registerAndLogin(email: string, password: string): Chainable<void>;
             /** Submit the login form for an existing account. */
             login(email: string, password: string): Chainable<void>;
@@ -48,17 +51,39 @@ Cypress.Commands.add("registerAndLogin", (email: string, password: string) => {
     cy.typeStable('input[name="password"]', password);
     cy.typeStable('input[name="confirm"]', password);
     cy.get('button[type="submit"]').click();
-    // /register-submit signs the new user in and lands on /api-keys (the
-    // first-run flow). Anywhere outside the anonymous pages means success.
-    cy.location("pathname", { timeout: 10000 }).should("not.match", /register|login/);
+    // /register-submit creates the account and redirects to /login?registered=1 —
+    // it does NOT issue a cookie (sign-in is the auth library's own flow). A
+    // redirect back to /register carries ?error=… (e.g. the library's 12-character
+    // password minimum); surface that instead of a bare timeout.
+    cy.location("pathname", { timeout: 10000 }).should("eq", "/login");
+    cy.location("search").should("contain", "registered=1");
+    cy.login(email, password);
 });
 
 Cypress.Commands.add("login", (email: string, password: string) => {
-    cy.visitInteractive("/login");
-    cy.typeStable('input[name="email"]', email);
-    cy.typeStable('input[name="password"]', password);
-    cy.get('button[type="submit"]').click();
-    cy.location("pathname", { timeout: 10000 }).should("eq", "/");
+    // Programmatic sign-in through the auth library's own endpoint. The /login page
+    // (prerendered HTML) carries the antiforgery token; cy.request shares the browser's
+    // cookie jar, so the antiforgery cookie from the GET and the auth cookie from the
+    // 302 both land in the browser. Driving the real form from the Electron runner
+    // fails antiforgery validation (blank 400) even though the same POST succeeds from
+    // a normal browser, so the UI path is deliberately not used here.
+    cy.request("/login").then((page) => {
+        const html = String(page.body);
+        const match =
+            /__RequestVerificationToken"[^>]*value="([^"]+)"/.exec(html) ??
+            /value="([^"]+)"[^>]*name="__RequestVerificationToken"/.exec(html);
+        expect(match, "antiforgery token on /login").to.not.equal(null);
+        cy.request({
+            method: "POST",
+            url: "/_ma-auth/login",
+            form: true,
+            followRedirect: false,
+            body: { userName: email, password, returnUrl: "/", __RequestVerificationToken: match![1] },
+        }).then((res) => {
+            expect(res.status, "login POST redirects on success").to.equal(302);
+            expect(String(res.headers["location"]), "login redirect target").to.not.contain("error=1");
+        });
+    });
 });
 
 export {};

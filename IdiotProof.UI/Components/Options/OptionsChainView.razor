@@ -4,10 +4,12 @@
     expiration, and how much of the premium is HYPE (extrinsic / time value) vs REAL
     (intrinsic). The hype meter colour is the whole point of this page: that's the value
     you cash in by selling early, and the value that evaporates if you wait for reality.
+    Every header word is a <Jargon> (hover = hint, click = full explanation) and every
+    per-cell title comes from OptionsGlossary, so the jargon is explained exactly once.
     Presentational only — data arrives via parameters, selections leave via callbacks.
 *@
 
-<div class="opt-chain trading-card p-3">
+<div class="opt-chain trading-card p-3" data-cy="opt-chain">
     <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-2">
         <div class="d-flex align-items-center gap-3">
             <h2 class="h6 mb-0">
@@ -16,18 +18,18 @@
             </h2>
             @if (UnderlyingPrice is { } spot)
             {
-                <span class="small opt-mono">
-                    <span class="text-muted">Underlying</span> @OptionsPresenter.Money(spot)
+                <span class="small opt-mono" data-cy="opt-underlying-price">
+                    <span class="text-muted">@Underlying is at</span> @OptionsPresenter.Money(spot)
                     @if (!string.IsNullOrEmpty(PriceSource))
                     {
-                        <span class="badge opt-badge ms-1" title="Where the underlying price came from">@PriceSource</span>
+                        <span class="badge opt-badge ms-1" title="@(PriceSource == "Sandbox" ? "Sandbox reference price — no live quote was available for this ticker" : "Live price from Alpaca market data")">@PriceSource</span>
                     }
                 </span>
             }
         </div>
         <div class="d-flex align-items-center gap-2 small text-muted">
-            <span>Hype meter:</span>
-            <span class="opt-hype-legend">
+            <Jargon Term="hype-meter">Hype meter</Jargon><span>:</span>
+            <span class="opt-hype-legend" title="@OptionsGlossary.Hint("hype-meter")">
                 <span class="hype-0">real</span><span class="hype-1"></span><span class="hype-2"></span><span class="hype-3"></span><span class="hype-4">all hype</span>
             </span>
         </div>
@@ -35,13 +37,15 @@
 
     @if (Expirations.Count > 0)
     {
-        <div class="d-flex flex-wrap gap-1 mb-2" role="tablist" aria-label="Expirations">
+        <div class="d-flex flex-wrap align-items-center gap-1 mb-2" role="tablist" aria-label="Expirations">
+            <span class="small text-muted me-1"><Jargon Term="expiration">Expires</Jargon>:</span>
             @foreach (var exp in Expirations)
             {
                 var dte = IntrinsicValueCalculator.DaysToExpiration(exp, Today);
-                <button type="button" role="tab"
+                <button type="button" role="tab" data-cy="opt-exp"
                         class="btn btn-sm @(exp == SelectedExpiration ? "btn-warning" : "btn-outline-secondary") opt-exp-pill"
                         aria-selected="@(exp == SelectedExpiration)"
+                        title="@($"{exp:dddd, MMMM d yyyy} — {dte} days to expiration")"
                         @onclick="() => OnExpirationSelected.InvokeAsync(exp)">
                     @exp.ToString("MMM d") <span class="opt-dte">@dte d</span>
                 </button>
@@ -51,35 +55,35 @@
 
     @if (Loading)
     {
-        <div class="text-muted small py-3"><span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>Loading chain…</div>
+        <div class="text-muted small py-3" data-cy="opt-chain-loading"><span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>Loading chain…</div>
     }
     else if (Rows.Count == 0)
     {
-        <div class="text-muted small py-3">@EmptyMessage</div>
+        <div class="text-muted small py-3" data-cy="opt-chain-empty">@EmptyMessage</div>
     }
     else
     {
         var byStrike = Rows.GroupBy(r => r.Contract.Strike).OrderBy(g => g.Key).ToList();
         <div class="table-responsive">
-            <table class="table table-dark table-sm table-hover align-middle opt-chain-table mb-0">
+            <table class="table table-dark table-sm table-hover align-middle opt-chain-table mb-0" data-cy="opt-chain-table">
                 <thead>
                     <tr class="opt-side-head">
-                        <th colspan="5" class="text-center opt-calls-head">CALLS <span class="text-muted fw-normal">bet it goes UP</span></th>
-                        <th class="text-center">Strike</th>
-                        <th colspan="5" class="text-center opt-puts-head">PUTS <span class="text-muted fw-normal">bet it goes DOWN</span></th>
+                        <th colspan="5" class="text-center opt-calls-head"><Jargon Term="call">CALLS</Jargon> <span class="text-muted fw-normal">bet it goes UP</span></th>
+                        <th class="text-center"><Jargon Term="strike">Strike</Jargon></th>
+                        <th colspan="5" class="text-center opt-puts-head"><Jargon Term="put">PUTS</Jargon> <span class="text-muted fw-normal">bet it goes DOWN</span></th>
                     </tr>
                     <tr class="small">
-                        <th title="Implied volatility — how much movement the market is pricing in">IV</th>
-                        <th title="Time value / hype: premium minus real (intrinsic) value">Hype $ / %</th>
-                        <th title="Underlying price where the trade nets zero IF held to expiration">Breakeven</th>
-                        <th title="Bid × Ask">Bid / Ask</th>
-                        <th title="Mid-point premium per share; × 100 per contract">Mid</th>
-                        <th class="text-center"></th>
-                        <th title="Mid-point premium per share; × 100 per contract">Mid</th>
-                        <th title="Bid × Ask">Bid / Ask</th>
-                        <th title="Underlying price where the trade nets zero IF held to expiration">Breakeven</th>
-                        <th title="Time value / hype: premium minus real (intrinsic) value">Hype $ / %</th>
-                        <th title="Implied volatility — how much movement the market is pricing in">IV</th>
+                        <th><Jargon Term="iv">IV</Jargon></th>
+                        <th><Jargon Term="hype">Hype $ / %</Jargon></th>
+                        <th><Jargon Term="breakeven">Breakeven</Jargon></th>
+                        <th><Jargon Term="bid-ask">Bid / Ask</Jargon></th>
+                        <th><Jargon Term="mid">Mid</Jargon></th>
+                        <th class="text-center"><Jargon Term="moneyness" Class="text-muted fw-normal">ITM shaded</Jargon></th>
+                        <th><Jargon Term="mid">Mid</Jargon></th>
+                        <th><Jargon Term="bid-ask">Bid / Ask</Jargon></th>
+                        <th><Jargon Term="breakeven">Breakeven</Jargon></th>
+                        <th><Jargon Term="hype">Hype $ / %</Jargon></th>
+                        <th><Jargon Term="iv">IV</Jargon></th>
                     </tr>
                 </thead>
                 <tbody>
@@ -88,19 +92,23 @@
                         var call = g.FirstOrDefault(r => r.Contract.Right == OptionRight.Call);
                         var put = g.FirstOrDefault(r => r.Contract.Right == OptionRight.Put);
                         var isAtm = UnderlyingPrice is { } sp && Math.Abs(g.Key - sp) <= AtmBand(sp);
-                        var callItm = UnderlyingPrice is { } sp2 && g.Key < sp2;
-                        <tr class="@(isAtm ? "opt-atm" : "")">
+                        // A call is in the money when the stock is ABOVE the strike, a put when it is
+                        // BELOW. Both need a known underlying price — with none, nothing is shaded.
+                        var callItm = !isAtm && UnderlyingPrice is { } sp2 && g.Key < sp2;
+                        var putItm = !isAtm && UnderlyingPrice is { } sp3 && g.Key > sp3;
+                        <tr class="@(isAtm ? "opt-atm" : "")" data-strike="@g.Key.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture)">
                             @RenderSide(call, callItm, mirror: false)
-                            <td class="text-center opt-strike opt-mono">@g.Key.ToString("0.##")@(isAtm ? " ●" : "")</td>
-                            @RenderSide(put, !callItm && !isAtm, mirror: true)
+                            <td class="text-center opt-strike opt-mono" title="@(isAtm ? "At the money — strike is about where the stock trades now" : OptionsGlossary.Hint("strike"))">@g.Key.ToString("0.##")@(isAtm ? " ●" : "")</td>
+                            @RenderSide(put, putItm, mirror: true)
                         </tr>
                     }
                 </tbody>
             </table>
         </div>
         <p class="text-muted small mt-2 mb-0">
-            Click a call or put to open the order ticket. <strong>Hype</strong> = premium you're paying for the
-            <em>idea</em> of a move; it decays to zero by expiration and inflates when the stock runs. IV badge
+            Click any call or put to open the order ticket. <Jargon Term="hype">Hype</Jargon> is the premium you're paying for the
+            <em>idea</em> of a move; it decays to zero by expiration and inflates when the stock runs. The
+            <Jargon Term="iv-source">IV badge</Jargon> says where the volatility number came from:
             <span class="badge opt-badge">Alpaca</span> = broker-supplied, <span class="badge opt-badge">Model</span> = solved locally (Black-Scholes).
         </p>
     }
@@ -135,6 +143,8 @@
         var selected = Selected is { } s && s.Contract.OccSymbol == row.Contract.OccSymbol;
         var cls = $"opt-cell {(inTheMoney ? "opt-itm" : "")} {(selected ? "opt-selected" : "")}".Trim();
         var hype = b is { } ? OptionsPresenter.HypeBucket(b.ExtrinsicPercent) : 0;
+        var sideCy = row.Contract.Right == OptionRight.Call ? "opt-cell-call" : "opt-cell-put";
+        var rightWord = row.Contract.Right == OptionRight.Call ? "call" : "put";
 
         void Cell(string content, string extraClass = "", string? title = null)
         {
@@ -142,6 +152,9 @@
             builder.AddAttribute(seq++, "class", $"{cls} {extraClass}".Trim());
             builder.AddAttribute(seq++, "role", "button");
             builder.AddAttribute(seq++, "tabindex", "0");
+            builder.AddAttribute(seq++, "data-cy", sideCy);
+            builder.AddAttribute(seq++, "data-occ", row.Contract.OccSymbol);
+            builder.AddAttribute(seq++, "aria-label", $"Select the {row.Contract.UnderlyingSymbol} ${row.Contract.Strike:0.##} {rightWord}");
             if (title is not null) builder.AddAttribute(seq++, "title", title);
             builder.AddAttribute(seq++, "onclick", EventCallback.Factory.Create(this, () => OnRowSelected.InvokeAsync(row)));
             builder.AddAttribute(seq++, "onkeydown", EventCallback.Factory.Create<KeyboardEventArgs>(this, e => e.Key is "Enter" or " " ? OnRowSelected.InvokeAsync(row) : Task.CompletedTask));
@@ -158,17 +171,21 @@
         var bidAsk = row.Quote is { } q ? $"<span class=\"opt-mono\">{q.Bid:0.00} × {q.Ask:0.00}</span>" : "—";
         var mid = row.Mid is { } m ? $"<span class=\"opt-mono fw-semibold\">{m:0.00}</span>" : "—";
 
-        var hypeTitle = b is { } ? $"Real (intrinsic) {OptionsPresenter.Money(b.Intrinsic)} + hype (time value) {OptionsPresenter.Money(b.Extrinsic)} = {OptionsPresenter.Money(b.Premium)} per share" : null;
-        var beTitle = b is { } ? $"Only matters if you HOLD to expiration ({b.DaysToExpiration} days). Selling early cashes in the hype instead." : null;
-        var midTitle = b is { } ? $"{OptionsPresenter.Money(b.CostPerContract)} per contract ({row.Contract.Multiplier} shares)" : null;
+        var ivTitle = row.ImpliedVolatility is { }
+            ? $"{OptionsGlossary.Hint("iv")} Source: {row.IvSource}{(row.ModelPrice is { } mp ? $" · model fair value {OptionsPresenter.Money(mp)}/sh" : "")}"
+            : OptionsGlossary.Hint("iv");
+        var hypeTitle = b is { } ? $"Real (intrinsic) {OptionsPresenter.Money(b.Intrinsic)} + hype (time value) {OptionsPresenter.Money(b.Extrinsic)} = {OptionsPresenter.Money(b.Premium)} per share. {OptionsGlossary.Hint("hype")}" : OptionsGlossary.Hint("hype");
+        var beTitle = b is { } ? $"Only matters if you HOLD to expiration ({b.DaysToExpiration} days). Selling early cashes in the hype instead." : OptionsGlossary.Hint("breakeven");
+        var midTitle = b is { } ? $"{OptionsPresenter.Money(b.CostPerContract)} per contract ({row.Contract.Multiplier} shares). {OptionsGlossary.Hint("mid")}" : OptionsGlossary.Hint("mid");
+        var bidAskTitle = OptionsGlossary.Hint("bid-ask");
 
         if (!mirror)
         {
-            Cell(iv); Cell(hypeCell, "", hypeTitle); Cell(breakeven, "", beTitle); Cell(bidAsk); Cell(mid, "", midTitle);
+            Cell(iv, "", ivTitle); Cell(hypeCell, "", hypeTitle); Cell(breakeven, "", beTitle); Cell(bidAsk, "", bidAskTitle); Cell(mid, "", midTitle);
         }
         else
         {
-            Cell(mid, "", midTitle); Cell(bidAsk); Cell(breakeven, "", beTitle); Cell(hypeCell, "", hypeTitle); Cell(iv);
+            Cell(mid, "", midTitle); Cell(bidAsk, "", bidAskTitle); Cell(breakeven, "", beTitle); Cell(hypeCell, "", hypeTitle); Cell(iv, "", ivTitle);
         }
     };
 }

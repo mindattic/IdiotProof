@@ -3,18 +3,21 @@
     it costs, then hands an OptionOrderIntent to the host. The host owns confirmation, the
     Live-money elevation gate, and the actual PlaceOrderAsync — this component never places
     anything itself.
+
+    Locks: the host passes Enabled=false when no broker is resolved; TradingLevel drives the
+    per-action lock (level 0 = nothing, level 1 = can't buy to open) via OptionsTradingLevel so
+    the reason is spelled out before Alpaca gets a chance to 422.
 *@
 
-<div class="opt-ticket trading-card p-3 @(IsLive ? "opt-ticket-live" : "")">
+<div class="opt-ticket trading-card p-3 @(IsLive ? "opt-ticket-live" : "")" data-cy="opt-ticket">
     @if (Row is null)
     {
         <h2 class="h6 mb-1"><i class="bi bi-receipt me-1" style="color:var(--brand)" aria-hidden="true"></i>Order ticket</h2>
-        <p class="text-muted small mb-0">Pick a call or put in the chain and this fills in — cost, breakeven, and how much of it is hype — before you decide anything.</p>
+        <p class="text-muted small mb-0" data-cy="opt-ticket-empty">Pick a call or put in the chain and this fills in — cost, breakeven, and how much of it is hype — before you decide anything.</p>
     }
     else
     {
         var c = Row.Contract;
-        var b = Row.Breakdown;
         var premium = EffectivePremium();
         var contracts = Math.Max(1, Contracts);
         var total = premium * contracts * c.Multiplier;
@@ -26,80 +29,115 @@
         var extrinsicPct = intrinsicNow is { } i2 ? IntrinsicValueCalculator.ExtrinsicPercent(premium, i2) : (decimal?)null;
         var breakeven = IntrinsicValueCalculator.Breakeven(c.Right, c.Strike, premium);
         var moveNeeded = UnderlyingPrice is { } sp3 && sp3 > 0m ? (breakeven - sp3) / sp3 * 100m : (decimal?)null;
+        var levelBlocker = Enabled ? OptionsTradingLevel.Blocker(TradingLevel, intent) : null;
+        var lockReason = !Enabled ? DisabledReason : levelBlocker;
+        var offTick = Type == OrderType.Limit && LimitPrice is { } lp && lp >= 3m && decimal.Round(lp * 100m) % 5m != 0m;
+        var overFunds = Side == OrderSide.Buy && AvailableFunds is { } funds && total > funds;
+        var rightWord = c.Right == OptionRight.Call ? "call" : "put";
 
         <div class="d-flex justify-content-between align-items-start mb-2">
             <div>
-                <h2 class="h6 mb-0">
+                <h2 class="h6 mb-0" data-cy="opt-ticket-title">
                     <i class="bi bi-receipt me-1" style="color:var(--brand)" aria-hidden="true"></i>
                     @c.UnderlyingSymbol <span class="opt-mono">$@c.Strike.ToString("0.##")</span>
-                    <span class="badge @(c.Right == OptionRight.Call ? "opt-badge-call" : "opt-badge-put")">@c.Right.ToString().ToUpperInvariant()</span>
+                    <span class="badge @(c.Right == OptionRight.Call ? "opt-badge-call" : "opt-badge-put")" title="@OptionsGlossary.Hint(rightWord)">@c.Right.ToString().ToUpperInvariant()</span>
                 </h2>
-                <div class="small text-muted">Expires @c.Expiration.ToString("ddd MMM d, yyyy") · @dte days · 1 contract = @c.Multiplier shares</div>
+                <div class="small text-muted">
+                    <Jargon Term="expiration">Expires</Jargon> @c.Expiration.ToString("ddd MMM d, yyyy") · <Jargon Term="dte">@dte days</Jargon> · <Jargon Term="contract">1 contract = @c.Multiplier shares</Jargon>
+                </div>
             </div>
             <div class="text-end">
-                <span class="badge @BrokerBadgeClass">@BrokerLabel</span>
-                <button type="button" class="btn btn-sm btn-link text-muted p-0 ms-2" @onclick="() => OnClear.InvokeAsync()" aria-label="Clear ticket">
+                <span class="badge @BrokerBadgeClass" title="@OptionsGlossary.Hint(BrokerLabel.ToLowerInvariant())" data-cy="opt-ticket-broker">@BrokerLabel</span>
+                <button type="button" class="btn btn-sm btn-link text-muted p-0 ms-2" @onclick="() => OnClear.InvokeAsync()" aria-label="Clear ticket" data-cy="opt-ticket-clear">
                     <i class="bi bi-x-lg" aria-hidden="true"></i>
                 </button>
             </div>
         </div>
 
-        @if (!Enabled)
+        @if (lockReason is { } why)
         {
-            <div class="alert alert-warning small py-2 mb-2">
-                <i class="bi bi-lock me-1" aria-hidden="true"></i>@DisabledReason
+            <div class="alert alert-warning small py-2 mb-2" data-cy="opt-ticket-locked">
+                <i class="bi bi-lock me-1" aria-hidden="true"></i>@why
             </div>
         }
 
         <div class="row g-2 mb-2">
             <div class="col-6">
-                <label class="form-label small mb-1">Action</label>
+                <label class="form-label small mb-1">Buy or sell?</label>
                 <div class="btn-group w-100" role="group" aria-label="Buy or sell">
-                    <button type="button" class="btn btn-sm @(Side == OrderSide.Buy ? "btn-success" : "btn-outline-secondary")" @onclick="() => Side = OrderSide.Buy">Buy</button>
-                    <button type="button" class="btn btn-sm @(Side == OrderSide.Sell ? "btn-danger" : "btn-outline-secondary")" @onclick="() => Side = OrderSide.Sell">Sell</button>
+                    <button type="button" data-cy="opt-side-buy" class="btn btn-sm @(Side == OrderSide.Buy ? "btn-success" : "btn-outline-secondary")" @onclick="() => Side = OrderSide.Buy"
+                            title="@(ExistingContracts < 0m ? OptionsGlossary.Hint("buy-to-close") : OptionsGlossary.Hint("buy-to-open"))">Buy</button>
+                    <button type="button" data-cy="opt-side-sell" class="btn btn-sm @(Side == OrderSide.Sell ? "btn-danger" : "btn-outline-secondary")" @onclick="() => Side = OrderSide.Sell"
+                            title="@(ExistingContracts > 0m ? OptionsGlossary.Hint("sell-to-close") : OptionsGlossary.Hint("sell-to-open"))">Sell</button>
+                </div>
+                <div class="opt-intent" data-cy="opt-intent">
+                    <Jargon Term="@OptionsGlossary.IntentKey(intent)">@OptionsGlossary.IntentLabel(intent, ExistingContracts)</Jargon>
                 </div>
             </div>
             <div class="col-6">
-                <label class="form-label small mb-1" for="opt-qty">Contracts</label>
-                <input id="opt-qty" type="number" min="1" step="1" class="form-control form-control-sm opt-mono" @bind="Contracts" />
+                <label class="form-label small mb-1" for="opt-qty"><Jargon Term="contract">Contracts</Jargon></label>
+                <input id="opt-qty" data-cy="opt-qty" type="number" min="1" step="1" class="form-control form-control-sm opt-mono" @bind="Contracts" />
+                <div class="opt-hint">1 contract = @c.Multiplier shares</div>
             </div>
             <div class="col-6">
                 <label class="form-label small mb-1">Order type</label>
                 <div class="btn-group w-100" role="group" aria-label="Order type">
-                    <button type="button" class="btn btn-sm @(Type == OrderType.Limit ? "btn-secondary" : "btn-outline-secondary")" @onclick="() => Type = OrderType.Limit">Limit</button>
-                    <button type="button" class="btn btn-sm @(Type == OrderType.Market ? "btn-secondary" : "btn-outline-secondary")" @onclick="() => Type = OrderType.Market">Market</button>
+                    <button type="button" data-cy="opt-type-limit" class="btn btn-sm @(Type == OrderType.Limit ? "btn-secondary" : "btn-outline-secondary")" @onclick="() => Type = OrderType.Limit" title="@OptionsGlossary.Hint("limit")">Limit</button>
+                    <button type="button" data-cy="opt-type-market" class="btn btn-sm @(Type == OrderType.Market ? "btn-secondary" : "btn-outline-secondary")" @onclick="() => Type = OrderType.Market" title="@OptionsGlossary.Hint("market")">Market</button>
                 </div>
+                <div class="opt-hint"><Jargon Term="@(Type == OrderType.Limit ? "limit" : "market")">@(Type == OrderType.Limit ? "Fills only at your price or better" : "Fills now at the going price")</Jargon></div>
             </div>
             <div class="col-6">
-                <label class="form-label small mb-1" for="opt-limit">@(Type == OrderType.Limit ? "Limit price /sh" : "Est. fill /sh (mid)")</label>
-                <input id="opt-limit" type="number" min="0.01" step="0.01" class="form-control form-control-sm opt-mono"
-                       @bind="LimitPrice" disabled="@(Type != OrderType.Limit)" />
+                <label class="form-label small mb-1" for="opt-limit">@(Type == OrderType.Limit ? "Your price /share" : "Est. fill /share")</label>
+                @if (Type == OrderType.Limit)
+                {
+                    <input id="opt-limit" data-cy="opt-limit" type="number" min="0.01" step="0.01" class="form-control form-control-sm opt-mono" @bind="LimitPrice" />
+                }
+                else
+                {
+                    @* Market: show the LIVE mid the summary is using, not the limit captured at selection. *@
+                    <input id="opt-limit" data-cy="opt-limit" type="text" class="form-control form-control-sm opt-mono" value="@(Row.Mid is { } lm ? lm.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture) : "—")" disabled readonly />
+                }
+                <div class="opt-hint">
+                    @if (Type == OrderType.Limit)
+                    {
+                        <text>Pre-filled with the <Jargon Term="mid">mid</Jargon>@(Row.Mid is { } rm ? $" ({rm:0.00})" : "").</text>
+                        @if (offTick)
+                        {
+                            <span class="text-warning d-block" data-cy="opt-tick-hint"><i class="bi bi-exclamation-circle me-1" aria-hidden="true"></i>Options over $3 usually trade in 5¢ steps — Alpaca may reject this price.</span>
+                        }
+                    }
+                    else
+                    {
+                        <text>Current <Jargon Term="mid">mid</Jargon>; the real fill lands nearer the <Jargon Term="bid-ask">@(Side == OrderSide.Buy ? "ask" : "bid")</Jargon>.</text>
+                    }
+                </div>
             </div>
         </div>
 
         <!-- Plain-language summary: the part that makes options not confusing -->
-        <div class="opt-summary p-2 mb-2">
-            <div class="fw-semibold mb-1">
+        <div class="opt-summary p-2 mb-2" data-cy="opt-summary">
+            <div class="fw-semibold mb-1" data-cy="opt-summary-headline">
                 @(Side == OrderSide.Buy ? "You're buying" : "You're selling") <span class="opt-mono">@contracts</span>
-                @c.UnderlyingSymbol $@c.Strike.ToString("0.##") @(c.Right == OptionRight.Call ? "call" : "put")@(contracts == 1 ? "" : "s")
+                @c.UnderlyingSymbol $@c.Strike.ToString("0.##") @rightWord@(contracts == 1 ? "" : "s")
                 @(isClose ? " to CLOSE your position" : Side == OrderSide.Sell ? " to OPEN a short (writing)" : "")
-                for about <span class="opt-mono">@OptionsPresenter.Money(total)</span>.
+                for about <span class="opt-mono" data-cy="opt-total">@OptionsPresenter.Money(total)</span>.
             </div>
             <ul class="small mb-0 ps-3">
-                <li><span class="opt-mono">@OptionsPresenter.Money(premium)</span>/share × @c.Multiplier × @contracts = <span class="opt-mono">@OptionsPresenter.Money(total)</span> @(Side == OrderSide.Buy ? "out of your pocket" : "into your pocket").</li>
+                <li><span class="opt-mono">@OptionsPresenter.Money(premium)</span>/share × @c.Multiplier shares × @contracts contract@(contracts == 1 ? "" : "s") = <span class="opt-mono">@OptionsPresenter.Money(total)</span> @(Side == OrderSide.Buy ? "out of your pocket" : "into your pocket").</li>
                 @if (intrinsicNow is { } intr && extrinsicNow is { } extr && extrinsicPct is { } pct)
                 {
-                    <li>
-                        Of each share's premium, <span class="opt-mono">@OptionsPresenter.Money(intr)</span> is <strong>real</strong> (in-the-money right now) and
-                        <span class="opt-hype hype-@OptionsPresenter.HypeBucket(pct)"><span class="opt-mono">@OptionsPresenter.Money(extr)</span> (@OptionsPresenter.Pct(pct, 0))</span> is <strong>hype</strong> — time value that
+                    <li data-cy="opt-real-hype">
+                        Of each share's premium, <span class="opt-mono">@OptionsPresenter.Money(intr)</span> is <Jargon Term="real"><strong>real</strong></Jargon> (in the money right now) and
+                        <span class="opt-hype hype-@OptionsPresenter.HypeBucket(pct)"><span class="opt-mono">@OptionsPresenter.Money(extr)</span> (@OptionsPresenter.Pct(pct, 0))</span> is <Jargon Term="hype"><strong>hype</strong></Jargon> — time value that
                         @(Side == OrderSide.Buy ? "you're paying for and can sell back later while it's high." : "you're collecting now.")
                     </li>
                 }
-                <li>
-                    Breakeven if held to expiration: <span class="opt-mono">@OptionsPresenter.Money(breakeven)</span>
+                <li data-cy="opt-breakeven">
+                    <Jargon Term="breakeven">Breakeven</Jargon> if held to expiration: <span class="opt-mono">@OptionsPresenter.Money(breakeven)</span>
                     @if (UnderlyingPrice is { } spot && moveNeeded is { } mv)
                     {
-                        <text>(@c.UnderlyingSymbol is at @OptionsPresenter.Money(spot) — needs @(mv >= 0 ? "+" : "")@mv.ToString("0.0")%).</text>
+                        <text>(@c.UnderlyingSymbol is at @OptionsPresenter.Money(spot) — needs to @(mv >= 0 ? "rise" : "fall") @Math.Abs(mv).ToString("0.0")%).</text>
                     }
                     @if (Side == OrderSide.Buy && !isClose)
                     {
@@ -108,21 +146,25 @@
                 </li>
                 @if (Row.ImpliedVolatility is { } iv)
                 {
-                    <li>Implied volatility <span class="opt-mono">@OptionsPresenter.Iv(iv)</span> <span class="badge opt-badge opt-badge-xs">@Row.IvSource</span>@(Row.ModelPrice is { } mp ? $" · model fair value {OptionsPresenter.Money(mp)}/sh" : "").</li>
+                    <li><Jargon Term="iv">Implied volatility</Jargon> <span class="opt-mono">@OptionsPresenter.Iv(iv)</span> <span class="badge opt-badge opt-badge-xs" title="@OptionsGlossary.Hint("iv-source")">@Row.IvSource</span>@if (Row.ModelPrice is { } mp) { <text> · <Jargon Term="model">model fair value</Jargon> @OptionsPresenter.Money(mp)/sh</text> }.</li>
                 }
                 @if (Side == OrderSide.Sell && !isClose)
                 {
-                    <li class="text-warning"><i class="bi bi-exclamation-triangle me-1" aria-hidden="true"></i>Writing an option you don't own means assignment risk and a higher approval level. Double-check this is what you want.</li>
+                    <li class="text-warning" data-cy="opt-writing-warning"><i class="bi bi-exclamation-triangle me-1" aria-hidden="true"></i>Writing an option you don't own means <Jargon Term="assignment">assignment risk</Jargon> and needs a higher <Jargon Term="level">approval level</Jargon>. Double-check this is what you want.</li>
                 }
                 @if (ExistingContracts != 0m)
                 {
-                    <li class="text-muted">You currently hold <span class="opt-mono">@ExistingContracts.ToString("+0;-0")</span> of this contract → Alpaca intent <code>@intent</code>.</li>
+                    <li class="text-muted" data-cy="opt-existing">You currently hold <span class="opt-mono">@ExistingContracts.ToString("+0;-0")</span> of this contract, so this order <span class="text-lowercase">@OptionsGlossary.IntentLabel(intent, ExistingContracts)</span>.</li>
+                }
+                @if (overFunds && AvailableFunds is { } af)
+                {
+                    <li class="text-warning" data-cy="opt-over-funds"><i class="bi bi-exclamation-triangle me-1" aria-hidden="true"></i>This costs more than your @FundsLabel (<span class="opt-mono">@OptionsPresenter.Money(af)</span>). Alpaca will reject it unless you reduce the contracts.</li>
                 }
             </ul>
         </div>
 
-        <button type="button" class="btn w-100 @(IsLive ? "btn-danger" : Side == OrderSide.Buy ? "btn-success" : "btn-warning")"
-                disabled="@(!Enabled || Busy || contracts < 1 || (Type == OrderType.Limit && (LimitPrice is null || LimitPrice <= 0m)))"
+        <button type="button" id="opt-submit" data-cy="opt-submit" class="btn w-100 @(IsLive ? "btn-danger" : Side == OrderSide.Buy ? "btn-success" : "btn-warning")"
+                disabled="@(lockReason is not null || Busy || contracts < 1 || (Type == OrderType.Limit && (LimitPrice is null || LimitPrice <= 0m)))"
                 @onclick="SubmitAsync">
             @if (Busy)
             {
@@ -134,6 +176,7 @@
             }
             @(Side == OrderSide.Buy ? "Buy" : "Sell") @contracts contract@(contracts == 1 ? "" : "s") — @OptionsPresenter.Money(total)@(IsLive ? " (REAL MONEY)" : "")
         </button>
+        <div class="opt-hint mt-1 text-center">Nothing is placed yet — you'll confirm on the next screen.</div>
     }
 </div>
 
@@ -143,8 +186,14 @@
     [Parameter] public DateOnly Today { get; set; } = DateOnly.FromDateTime(DateTime.UtcNow);
     [Parameter] public string BrokerLabel { get; set; } = "Sandbox";
     [Parameter] public bool IsLive { get; set; }
+    /// <summary>False when the host has no broker resolved at all; the per-action lock is <see cref="TradingLevel"/>.</summary>
     [Parameter] public bool Enabled { get; set; } = true;
     [Parameter] public string DisabledReason { get; set; } = "";
+    /// <summary>Alpaca options approval level (0–3). Sandbox passes 3. Drives the buy-to-open / level-0 lock.</summary>
+    [Parameter] public int TradingLevel { get; set; } = 3;
+    /// <summary>Options buying power (Alpaca) to warn against; null = unknown, no warning.</summary>
+    [Parameter] public decimal? AvailableFunds { get; set; }
+    [Parameter] public string FundsLabel { get; set; } = "options buying power";
     [Parameter] public bool Busy { get; set; }
     /// <summary>Signed contract count already held for this exact contract (0 when flat).</summary>
     [Parameter] public decimal ExistingContracts { get; set; }
@@ -158,15 +207,21 @@
     private OrderType Type { get; set; } = OrderType.Limit;
     private decimal? LimitPrice { get; set; }
     private string? lastOcc;
+    private OrderSide? lastInitialSide;
 
     private string BrokerBadgeClass => IsLive ? "bg-danger" : BrokerLabel.Equals("Paper", StringComparison.OrdinalIgnoreCase) ? "opt-badge-paper" : "bg-secondary";
 
     protected override void OnParametersSet()
     {
-        if (Row is null) { lastOcc = null; return; }
-        if (Row.Contract.OccSymbol != lastOcc)
+        if (Row is null) { lastOcc = null; lastInitialSide = null; return; }
+
+        // Reset the editable fields when the host hands us a different contract OR a different
+        // prefill instruction (Close on the contract that's already selected). Keying on both
+        // makes the Close prefill deliberate instead of relying on an intermediate null render.
+        if (Row.Contract.OccSymbol != lastOcc || InitialSide != lastInitialSide)
         {
             lastOcc = Row.Contract.OccSymbol;
+            lastInitialSide = InitialSide;
             LimitPrice = Row.Mid;
             Side = InitialSide ?? OrderSide.Buy;
             Contracts = ExistingContracts != 0m && InitialSide is { } ? (int)Math.Abs(ExistingContracts) : 1;

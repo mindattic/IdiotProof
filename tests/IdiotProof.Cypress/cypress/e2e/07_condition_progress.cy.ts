@@ -15,7 +15,7 @@
  *   3. Seed a full pass (5/5, verb cleared) → badge flips to "5/5", no verb.
  */
 describe("Condition-progress live badge (authenticated)", () => {
-    const testPass = "Test1234!";
+    const testPass = "Cy-IdiotProof-2026-Kx9!";
 
     it("shows awaiting state, then live N/M badge, then full pass", () => {
         const email = `progress-${Date.now()}@idiotproof.local`;

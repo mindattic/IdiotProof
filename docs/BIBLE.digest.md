@@ -141,7 +141,7 @@ text. ("Parse, don't validate"; no shotgun parsing on the money path — see
   addition or deletion logged in `wwwroot/data/sp-index-events.json`, Pending until effective.
 
 ## Status index (USER_STORIES.md)
-- done: 44
+- done: 47
 - partial: 25
 - planned: 28
 - cut: 1

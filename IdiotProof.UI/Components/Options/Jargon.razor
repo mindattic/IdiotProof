@@ -1,0 +1,56 @@
+@*
+    A piece of options jargon the reader can hover (short hint via title) or click (full
+    plain-English card). The card is position:fixed at the bottom of the viewport so it escapes
+    any overflow container (the chain table scrolls horizontally) without JS interop. It closes
+    on Escape and whenever focus leaves the term (click-away, Tab, or opening another term), so
+    only one card is ever open. Text comes from OptionsGlossary — never inline a definition here.
+*@
+
+<span class="opt-jargon-wrap" @onkeydown="OnKeyDown" @onfocusout="Close">
+    <button type="button"
+            class="opt-jargon @Class"
+            data-cy="jargon"
+            data-term="@Term"
+            title="@entry.Short"
+            aria-expanded="@(open ? "true" : "false")"
+            aria-haspopup="dialog"
+            @onclick="Toggle">
+        @if (ChildContent is null)
+        {
+            @entry.Title
+        }
+        else
+        {
+            @ChildContent
+        }
+    </button>
+    @if (open)
+    {
+        <span class="opt-jargon-pop" role="dialog" aria-label="@($"What {entry.Title} means")" data-cy="jargon-pop" data-term="@Term">
+            <span class="opt-jargon-pop-title"><i class="bi bi-info-circle me-1" aria-hidden="true"></i>@entry.Title</span>
+            <span class="opt-jargon-pop-body">@entry.Long</span>
+            <span class="opt-jargon-hint">Esc or click anywhere to close</span>
+        </span>
+    }
+</span>
+
+@code {
+    /// <summary>Glossary key (see OptionsGlossary), e.g. "hype", "breakeven".</summary>
+    [Parameter, EditorRequired] public string Term { get; set; } = "";
+    /// <summary>Optional visible text; defaults to the glossary title.</summary>
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+    [Parameter] public string Class { get; set; } = "";
+
+    private bool open;
+    private JargonEntry entry = OptionsGlossary.Get("");
+
+    protected override void OnParametersSet() => entry = OptionsGlossary.Get(Term);
+
+    private void Toggle() => open = !open;
+    private void Close() => open = false;
+
+    private void OnKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Escape") open = false;
+    }
+}

@@ -30,7 +30,11 @@ public sealed record OptionOrderIntent(
     public bool IsOpening => PositionIntent.EndsWith("_to_open", StringComparison.Ordinal);
 }
 
-/// <summary>An open option position with its live valuation and the informational sell-the-hype signal.</summary>
+/// <summary>
+/// An open option position with its live valuation and the informational sell-the-hype signal.
+/// <paramref name="Observations"/> = how many extrinsic samples the host has banked for this
+/// contract this session; the signal can't fire before <see cref="SellSignalEvaluator.MinObservations"/>.
+/// </summary>
 public sealed record OptionPositionView(
     Position Position,
     OptionQuote? Quote,
@@ -38,8 +42,10 @@ public sealed record OptionPositionView(
     OptionValueBreakdown? Breakdown,
     decimal? ImpliedVolatility,
     string IvSource,
-    SellSignal? Signal)
+    SellSignal? Signal,
+    int Observations = 0)
 {
+    public bool IsWarmingUp => Position.Quantity > 0m && Signal is null && Observations < SellSignalEvaluator.MinObservations;
     public OptionContract Contract => Position.Option!;
     public decimal? Mid => Quote is { } q && q.Mid > 0m ? q.Mid : null;
     public decimal CostBasis => Position.AveragePrice * Math.Abs(Position.Quantity) * Contract.Multiplier;

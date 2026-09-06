@@ -102,6 +102,64 @@ public class SandboxOptionsTests
         Assert.That(await broker.GetPositionsAsync(), Is.Empty);
     }
 
+    private static OrderRequest Order(OptionContract c, OrderSide side, int qty, decimal price) => new()
+    {
+        Symbol = c.OccSymbol, AssetClass = AssetClass.Option, Option = c, Quantity = qty, Side = side, Type = OrderType.Limit, LimitPrice = price,
+    };
+
+    [Test]
+    public async Task AddingToAShort_BlendsTheBasis()
+    {
+        var broker = new SandboxBrokerClient();
+        var c = Contract();
+        await broker.PlaceOrderAsync(Order(c, OrderSide.Sell, 5, 10m));
+        await broker.PlaceOrderAsync(Order(c, OrderSide.Sell, 3, 14m));
+
+        var p = (await broker.GetPositionsAsync()).Single();
+        Assert.That(p.Quantity, Is.EqualTo(-8m));
+        Assert.That(p.AveragePrice, Is.EqualTo(11.5m), "(10×5 + 14×3) / 8 — blended by |size|, not stuck at the first fill");
+    }
+
+    [Test]
+    public async Task PartialClose_KeepsTheOriginalBasis()
+    {
+        var broker = new SandboxBrokerClient();
+        var c = Contract();
+        await broker.PlaceOrderAsync(Order(c, OrderSide.Buy, 5, 10m));
+        await broker.PlaceOrderAsync(Order(c, OrderSide.Sell, 2, 13m));
+
+        var p = (await broker.GetPositionsAsync()).Single();
+        Assert.That(p.Quantity, Is.EqualTo(3m));
+        Assert.That(p.AveragePrice, Is.EqualTo(10m));
+    }
+
+    [Test]
+    public async Task FlippingThroughZero_StartsAFreshBasisAtTheFill()
+    {
+        var broker = new SandboxBrokerClient();
+        var c = Contract();
+        await broker.PlaceOrderAsync(Order(c, OrderSide.Buy, 5, 10m));
+        await broker.PlaceOrderAsync(Order(c, OrderSide.Sell, 8, 12m)); // closes 5, opens a 3-contract short at 12
+
+        var p = (await broker.GetPositionsAsync()).Single();
+        Assert.That(p.Quantity, Is.EqualTo(-3m));
+        Assert.That(p.AveragePrice, Is.EqualTo(12m), "the old long's basis has nothing to do with the new short");
+    }
+
+    [Test]
+    public async Task ReopeningAFlatRow_StartsAFreshBasis()
+    {
+        var broker = new SandboxBrokerClient();
+        var c = Contract();
+        await broker.PlaceOrderAsync(Order(c, OrderSide.Buy, 2, 10m));
+        await broker.PlaceOrderAsync(Order(c, OrderSide.Sell, 2, 15m)); // flat (row retained at qty 0)
+        await broker.PlaceOrderAsync(Order(c, OrderSide.Buy, 1, 7m));
+
+        var p = (await broker.GetPositionsAsync()).Single();
+        Assert.That(p.Quantity, Is.EqualTo(1m));
+        Assert.That(p.AveragePrice, Is.EqualTo(7m));
+    }
+
     [Test]
     public async Task OptionOrder_WithoutContract_IsRejected()
     {
@@ -318,13 +376,37 @@ public class AlpacaOptionsWireTests
     }
 
     [Test]
-    public async Task TradingLevel_ReadFromAccount_ZeroWhenAbsent()
+    public async Task TradingLevel_ReadsAlpacasPluralFieldNames()
     {
-        var approved = new AlpacaBrokerClient(new RecordingHandler(_ => Json("""{"id":"x","option_approved_level":3,"option_trading_level":2}""")));
+        // Real /v2/account shape: options_trading_level (effective), options_approved_level,
+        // options_buying_power — plural "options_". The first cut read the singular spelling,
+        // which Alpaca never sends, so every account looked unapproved.
+        var real = new AlpacaBrokerClient(new RecordingHandler(_ => Json("""{"id":"x","options_approved_level":3,"options_trading_level":2,"options_buying_power":"12345.67"}""")));
+
+        var info = await real.GetOptionsAccountAsync();
+        Assert.Multiple(() =>
+        {
+            Assert.That(info.TradingLevel, Is.EqualTo(2));
+            Assert.That(info.ApprovedLevel, Is.EqualTo(3));
+            Assert.That(info.OptionsBuyingPower, Is.EqualTo(12345.67m));
+        });
+        Assert.That(await real.GetOptionTradingLevelAsync(), Is.EqualTo(2));
+    }
+
+    [Test]
+    public async Task TradingLevel_FallsBackToSingularSpelling_AndZeroWhenAbsent()
+    {
+        var singular = new AlpacaBrokerClient(new RecordingHandler(_ => Json("""{"id":"x","option_approved_level":3,"option_trading_level":2}""")));
         var legacy = new AlpacaBrokerClient(new RecordingHandler(_ => Json("""{"id":"x","status":"ACTIVE"}""")));
 
-        Assert.That(await approved.GetOptionTradingLevelAsync(), Is.EqualTo(2));
-        Assert.That(await legacy.GetOptionTradingLevelAsync(), Is.EqualTo(0));
+        Assert.That(await singular.GetOptionTradingLevelAsync(), Is.EqualTo(2));
+        var none = await legacy.GetOptionsAccountAsync();
+        Assert.Multiple(() =>
+        {
+            Assert.That(none.TradingLevel, Is.EqualTo(0));
+            Assert.That(none.ApprovedLevel, Is.EqualTo(0));
+            Assert.That(none.OptionsBuyingPower, Is.Null);
+        });
     }
 
     [Test]

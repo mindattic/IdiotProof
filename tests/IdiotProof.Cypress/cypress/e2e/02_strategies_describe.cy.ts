@@ -17,7 +17,7 @@
  */
 describe("AI-assist loop (authenticated)", () => {
     const testUser = () => `test-${Date.now()}@idiotproof.local`;
-    const testPass = "Test1234!";
+    const testPass = "Cy-IdiotProof-2026-Kx9!";
 
     it("registers, describes a strategy, saves, and finds it on /strategies", () => {
         const email = testUser();

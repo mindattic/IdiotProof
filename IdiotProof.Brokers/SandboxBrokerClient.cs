@@ -30,8 +30,11 @@ public sealed class SandboxBrokerClient : IBrokerClient
 
     public bool SupportsOptions => true;
 
-    /// <summary>Sandbox pretends to be fully approved so the ticket is never disabled here.</summary>
+    /// <summary>Sandbox pretends to be fully approved so the ticket is never disabled here. No buying-power notion.</summary>
     public Task<int> GetOptionTradingLevelAsync(CancellationToken ct = default) => Task.FromResult(3);
+
+    public Task<OptionsAccountInfo> GetOptionsAccountAsync(CancellationToken ct = default) =>
+        Task.FromResult(new OptionsAccountInfo(3, 3, null));
 
     public Task<bool> ConnectAsync(CancellationToken ct = default) => Task.FromResult(true);
     public Task DisconnectAsync() => Task.CompletedTask;
@@ -115,14 +118,19 @@ public sealed class SandboxBrokerClient : IBrokerClient
             (_, existing) =>
             {
                 var newQty = existing.Quantity + signedQty;
+                var sameDirection = existing.Quantity != 0m && Math.Sign(existing.Quantity) == Math.Sign(signedQty);
+                var flipped = existing.Quantity != 0m && newQty != 0m && Math.Sign(existing.Quantity) != Math.Sign(newQty);
                 return new Position
                 {
                     Symbol = existing.Symbol,
                     Quantity = newQty,
-                    // Weighted average only when adding in the same direction;
-                    // reductions keep the original basis.
-                    AveragePrice = signedQty > 0 && existing.Quantity > 0 && newQty != 0
-                        ? (existing.AveragePrice * existing.Quantity + fillPrice * signedQty) / newQty
+                    // Adding in the SAME direction (long+buy or short+sell) blends the basis by
+                    // absolute size. A partial reduction keeps the original basis. Crossing
+                    // through zero (or building on a flat row) starts a fresh basis at this fill —
+                    // the old basis belongs to a position that no longer exists.
+                    AveragePrice = sameDirection
+                        ? (existing.AveragePrice * Math.Abs(existing.Quantity) + fillPrice * Math.Abs(signedQty)) / Math.Abs(newQty)
+                        : flipped || existing.Quantity == 0m ? fillPrice
                         : existing.AveragePrice,
                     MarketValue = newQty * fillPrice * multiplier,
                     AssetClass = existing.AssetClass,

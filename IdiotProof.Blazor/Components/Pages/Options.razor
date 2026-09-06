@@ -24,16 +24,34 @@
 <PageTitle>Options — IdiotProof</PageTitle>
 
 <section aria-labelledby="options-heading">
+    @if (RendererInfo.IsInteractive)
+    {
+        @* Test hook: present only once the circuit has attached, so Cypress never types into
+           the prerendered DOM that the interactive render is about to replace. *@
+        <span data-cy="opt-interactive" hidden></span>
+    }
     <div class="d-flex justify-content-between align-items-center mb-1 flex-wrap gap-2">
         <h1 id="options-heading" class="h4 mb-0">
             <i class="bi bi-diagram-3 me-2" style="color:var(--brand)" aria-hidden="true"></i>Options
         </h1>
         <span class="text-muted small">Buy the idea · sell the hype · don't wait for reality</span>
     </div>
-    <p class="text-muted small mb-3">
-        Manual calls and puts on your Alpaca account. Every contract shows its <strong>breakeven</strong> and its
-        <strong>real vs hype</strong> split so you never do the math in your head. Nothing on this page trades on its own.
+    <p class="text-muted small mb-2">
+        Manual <Jargon Term="call">calls</Jargon> and <Jargon Term="put">puts</Jargon> on your Alpaca account. Every contract shows its
+        <Jargon Term="breakeven"><strong>breakeven</strong></Jargon> and its <Jargon Term="real"><strong>real</strong></Jargon> vs
+        <Jargon Term="hype"><strong>hype</strong></Jargon> split so you never do the math in your head. Nothing on this page trades on its own.
+        <span class="ms-1">Dotted words explain themselves — hover for the short version, click for the long one.</span>
     </p>
+
+    <details class="opt-howto trading-card px-3 py-2 mb-3" open="@(chainRows.Count == 0 && positionViews.Count == 0)" data-cy="opt-howto">
+        <summary><i class="bi bi-signpost-2 me-1" aria-hidden="true"></i>How this page works (three steps)</summary>
+        <ol>
+            <li><strong>Load a chain and pick a contract.</strong> Type a ticker, press Enter, then click a call (bet it goes up) or a put (bet it goes down). Green cells are mostly real value; red cells are almost all hype.</li>
+            <li><strong>Read the ticket before you decide.</strong> It spells out the cost in dollars, how much of the premium is real vs hype, and the breakeven — in plain words, no mental math.</li>
+            <li><strong>Sell the contract while the hype is high.</strong> You never have to reach breakeven; that only matters if you hold to the last day. Open positions get an informational nudge when their hype is near a high and the news is bullish. Nothing is ever placed for you.</li>
+        </ol>
+        <div class="opt-hint mt-2">Start in <Jargon Term="sandbox">Sandbox</Jargon> — a practice account with instant fills and no money — then move to <Jargon Term="paper">Paper</Jargon> or <Jargon Term="live">Live</Jargon> when you're ready.</div>
+    </details>
 
     @if (loadError is not null)
     {
@@ -48,17 +66,28 @@
             <div class="col-md-4">
                 <label class="form-label small mb-1">Account</label>
                 <div class="btn-group w-100 opt-mode" role="group" aria-label="Which account to trade">
-                    <button type="button" class="btn btn-sm btn-outline-secondary @(mode == OptionsBrokerMode.Sandbox ? "active-sandbox" : "")" @onclick="() => SwitchModeAsync(OptionsBrokerMode.Sandbox)">Sandbox</button>
-                    <button type="button" class="btn btn-sm btn-outline-secondary @(mode == OptionsBrokerMode.Paper ? "active-paper" : "")" @onclick="() => SwitchModeAsync(OptionsBrokerMode.Paper)">Paper</button>
-                    <button type="button" class="btn btn-sm btn-outline-secondary @(mode == OptionsBrokerMode.Live ? "active-live" : "")" @onclick="() => SwitchModeAsync(OptionsBrokerMode.Live)">Live</button>
+                    <button type="button" data-cy="opt-mode-sandbox" class="btn btn-sm btn-outline-secondary @(mode == OptionsBrokerMode.Sandbox ? "active-sandbox" : "")" disabled="@placing" title="@OptionsGlossary.Hint("sandbox")" @onclick="() => SwitchModeAsync(OptionsBrokerMode.Sandbox)">Sandbox</button>
+                    <button type="button" data-cy="opt-mode-paper" class="btn btn-sm btn-outline-secondary @(mode == OptionsBrokerMode.Paper ? "active-paper" : "")" disabled="@placing" title="@OptionsGlossary.Hint("paper")" @onclick="() => SwitchModeAsync(OptionsBrokerMode.Paper)">Paper</button>
+                    <button type="button" data-cy="opt-mode-live" class="btn btn-sm btn-outline-secondary @(mode == OptionsBrokerMode.Live ? "active-live" : "")" disabled="@placing" title="@OptionsGlossary.Hint("live")" @onclick="() => SwitchModeAsync(OptionsBrokerMode.Live)">Live</button>
                 </div>
                 @if (resolution?.FallbackReason is { } why)
                 {
-                    <div class="small text-warning mt-1"><i class="bi bi-info-circle me-1" aria-hidden="true"></i>Using Sandbox — @why.</div>
+                    <div class="small text-warning mt-1" data-cy="opt-mode-fallback"><i class="bi bi-info-circle me-1" aria-hidden="true"></i>Using Sandbox — @why.</div>
                 }
                 else if (resolution is { IsAlpaca: true })
                 {
-                    <div class="small text-muted mt-1">Alpaca @(mode == OptionsBrokerMode.Live ? "LIVE" : "paper") · options level <span class="opt-mono">@tradingLevel</span></div>
+                    <div class="small text-muted mt-1" data-cy="opt-mode-alpaca">
+                        Alpaca @(mode == OptionsBrokerMode.Live ? "LIVE" : "paper") ·
+                        <Jargon Term="level">@OptionsGlossary.LevelChip(tradingLevel)</Jargon>
+                        @if (optionsAccount.OptionsBuyingPower is { } obp)
+                        {
+                            <span class="ms-1" title="Options buying power — what Alpaca will let you spend on options right now">· can spend <span class="opt-mono">@OptionsPresenter.Money(obp)</span></span>
+                        }
+                    </div>
+                }
+                else
+                {
+                    <div class="small text-muted mt-1" data-cy="opt-mode-alpaca"><Jargon Term="sandbox">Practice account</Jargon> — synthetic chain, instant fills, no money.</div>
                 }
             </div>
             <div class="col-md-5">
@@ -72,7 +101,7 @@
                 </div>
             </div>
             <div class="col-md-3">
-                <label class="form-label small mb-1" for="opt-rfr" title="Risk-free rate used by the local Black-Scholes model (T-bill proxy)">Risk-free rate</label>
+                <label class="form-label small mb-1" for="opt-rfr"><Jargon Term="risk-free">Risk-free rate</Jargon></label>
                 <div class="input-group input-group-sm">
                     <input id="opt-rfr" type="number" step="0.001" min="0" max="0.2" class="form-control opt-mono" @bind="riskFreeRate" @bind:after="SaveRiskFreeRateAsync" />
                     <span class="input-group-text">(@((riskFreeRate * 100m).ToString("0.0"))%)</span>
@@ -92,13 +121,34 @@
                 }
             </div>
         }
-        @if (resolution is { IsAlpaca: true } && tradingLevel == 0)
+        @if (resolution is { IsAlpaca: true } && tradingLevel < OptionsTradingLevel.LongOptions)
         {
-            <div class="alert alert-warning small py-2 mt-3 mb-0">
+            <div class="alert alert-warning small py-2 mt-3 mb-0" data-cy="opt-level-banner">
                 <i class="bi bi-lock me-1" aria-hidden="true"></i>
-                <strong>This Alpaca account isn't approved for options yet</strong> (<code>option_trading_level = 0</code>).
-                You can browse the chain and the numbers, but the ticket stays locked until Alpaca approves options trading
-                for the account (request it in the Alpaca dashboard — paper accounts can usually self-enable). Sandbox works now.
+                @if (tradingLevel == 0)
+                {
+                    <strong>This Alpaca account isn't approved for options yet.</strong>
+                    <text> You can browse the chain and every number, but the ticket stays locked until Alpaca approves options
+                    for the account (request it in the Alpaca dashboard — paper accounts can usually self-enable). Sandbox works now.</text>
+                }
+                else
+                {
+                    <strong>This Alpaca account is approved at level 1 only.</strong>
+                    <text> That covers writing covered calls and cash-secured puts — it does <em>not</em> let you buy a call or put outright,
+                    which is what the buy-the-idea trade needs. Ask Alpaca for level 2, or practise in Sandbox.</text>
+                }
+                <table class="opt-level-table">
+                    <tbody>
+                        <tr class="@(tradingLevel <= 0 ? "current" : "")"><td>Level 0</td><td>Options off</td></tr>
+                        <tr class="@(tradingLevel == 1 ? "current" : "")"><td>Level 1</td><td>Write covered calls / cash-secured puts only</td></tr>
+                        <tr class="@(tradingLevel == 2 ? "current" : "")"><td>Level 2</td><td>Buy calls and puts (needed here)</td></tr>
+                        <tr class="@(tradingLevel >= 3 ? "current" : "")"><td>Level 3</td><td>Spreads and straddles</td></tr>
+                    </tbody>
+                </table>
+                @if (optionsAccount.ApprovedLevel > tradingLevel)
+                {
+                    <div class="mt-1">Alpaca approved level @optionsAccount.ApprovedLevel, but the account's own setting caps it at @tradingLevel — raise the cap in Alpaca's account configuration.</div>
+                }
             </div>
         }
     </div>
@@ -125,8 +175,10 @@
                                Today="TodayEt"
                                BrokerLabel="@BrokerLabel"
                                IsLive="@(mode == OptionsBrokerMode.Live && resolution is { IsAlpaca: true })"
-                               Enabled="@TicketEnabled"
-                               DisabledReason="@TicketDisabledReason"
+                               Enabled="@(resolution is not null)"
+                               DisabledReason="No broker is connected yet."
+                               TradingLevel="tradingLevel"
+                               AvailableFunds="optionsAccount.OptionsBuyingPower"
                                Busy="placing"
                                ExistingContracts="ExistingContractsFor(selectedRow)"
                                InitialSide="ticketInitialSide"
@@ -146,21 +198,36 @@
     <!-- ── Confirm (Sandbox / Paper) ──────────────────────────────────────── -->
     @if (pendingIntent is { } pi && showConfirm)
     {
+        var confirmLive = IsLiveAlpaca;
         <div class="modal-backdrop fade show" @onclick="CancelConfirm"></div>
-        <div class="modal fade show d-block" role="dialog" aria-modal="true" aria-labelledby="opt-confirm-title" tabindex="-1">
+        <div class="modal fade show d-block @(confirmLive ? "opt-confirm-live" : "")" role="dialog" aria-modal="true" aria-labelledby="opt-confirm-title" tabindex="-1" data-cy="opt-confirm">
             <div class="modal-dialog modal-dialog-centered">
                 <div class="modal-content" style="background:var(--bg-card);border:1px solid var(--border-strong)">
                     <div class="modal-header">
-                        <h2 id="opt-confirm-title" class="h6 modal-title">Confirm @BrokerLabel order</h2>
+                        <h2 id="opt-confirm-title" class="h6 modal-title @(confirmLive ? "text-danger" : "")">
+                            @if (confirmLive)
+                            {
+                                <i class="bi bi-broadcast me-1" aria-hidden="true"></i>
+                            }
+                            Confirm @BrokerLabel order@(confirmLive ? " — REAL MONEY" : "")
+                        </h2>
                     </div>
                     <div class="modal-body small">
-                        <div class="mb-1">@IntentSentence(pi)</div>
-                        <div class="text-muted">Estimated @(pi.Side == OrderSide.Buy ? "cost" : "proceeds"): <span class="opt-mono">@OptionsPresenter.Money(pi.EstimatedTotal)</span> · intent <code>@pi.PositionIntent</code> · @(pi.Type == OrderType.Limit ? $"limit {OptionsPresenter.Money(pi.LimitPrice)}/sh" : "market")</div>
+                        <div class="mb-1 fw-semibold" data-cy="opt-confirm-sentence">@IntentSentence(pi)</div>
+                        <div class="text-muted">
+                            This order <span class="text-lowercase">@OptionsGlossary.IntentLabel(pi.PositionIntent, ExistingContractsFor(selectedRow))</span>.
+                            Estimated @(pi.Side == OrderSide.Buy ? "cost" : "proceeds") <span class="opt-mono">@OptionsPresenter.Money(pi.EstimatedTotal)</span>
+                            · @(pi.Type == OrderType.Limit ? $"limit {OptionsPresenter.Money(pi.LimitPrice)}/share or better" : "market — fills at the going price") · good for today only.
+                        </div>
+                        @if (confirmLive)
+                        {
+                            <div class="text-danger mt-2"><i class="bi bi-exclamation-triangle me-1" aria-hidden="true"></i>This goes to your live Alpaca account. Real dollars move when it fills.</div>
+                        }
                     </div>
                     <div class="modal-footer">
-                        <button class="btn btn-secondary btn-sm" type="button" @onclick="CancelConfirm">Cancel</button>
-                        <button class="btn btn-sm @(pi.Side == OrderSide.Buy ? "btn-success" : "btn-warning")" type="button" disabled="@placing" @onclick="() => PlaceAsync(pi)" autofocus>
-                            Place order
+                        <button class="btn btn-secondary btn-sm" type="button" @onclick="CancelConfirm" data-cy="opt-confirm-cancel">Cancel</button>
+                        <button id="opt-confirm-place" data-cy="opt-confirm-place" class="btn btn-sm @(confirmLive ? "btn-danger" : pi.Side == OrderSide.Buy ? "btn-success" : "btn-warning")" type="button" disabled="@placing" @onclick="() => PlaceAsync(pi)" autofocus>
+                            @(confirmLive ? "Place REAL-MONEY order" : "Place order")
                         </button>
                     </div>
                 </div>
@@ -184,7 +251,8 @@
 
     private OptionsBrokerMode mode = OptionsBrokerMode.Sandbox;
     private OptionsBrokerResolution? resolution;
-    private int tradingLevel = 3;
+    private OptionsAccountInfo optionsAccount = new(3, 3, null);
+    private int tradingLevel => optionsAccount.TradingLevel;
 
     private string underlyingInput = "";
     private string underlying = "";
@@ -217,10 +285,7 @@
     private static DateOnly TodayEt => DateOnly.FromDateTime(TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, MarketTime.Eastern));
     private TimeSpan? ElevationRemaining => userId is { } u ? ElevationSvc.RemainingWindow(u) : null;
     private string BrokerLabel => resolution is { IsAlpaca: true } ? (mode == OptionsBrokerMode.Live ? "Live" : "Paper") : "Sandbox";
-    private bool TicketEnabled => resolution is { } r && (!r.IsAlpaca || tradingLevel > 0);
-    private string TicketDisabledReason => resolution is { IsAlpaca: true } && tradingLevel == 0
-        ? "This Alpaca account isn't approved for options trading yet (level 0). Switch to Sandbox to practise, or request approval in the Alpaca dashboard."
-        : "";
+    private bool IsLiveAlpaca => mode == OptionsBrokerMode.Live && resolution is { IsAlpaca: true };
     private string? LastRefreshLabel => lastPositionsRefreshUtc is { } t
         ? TimeZoneInfo.ConvertTimeFromUtc(t, MarketTime.Eastern).ToString("h:mm:ss tt") + " ET"
         : null;
@@ -263,8 +328,8 @@
         if (userId is null) return;
         resolution = await OptionsSvc.ResolveBrokerAsync(userId.Value, mode);
         if (!resolution.IsAlpaca) mode = OptionsBrokerMode.Sandbox;
-        try { tradingLevel = await resolution.Client.GetOptionTradingLevelAsync(); }
-        catch (Exception ex) { tradingLevel = 0; Toasts.Show($"Couldn't read options approval level: {ex.Message}", ToastKind.Warning); }
+        try { optionsAccount = await resolution.Client.GetOptionsAccountAsync(); }
+        catch (Exception ex) { optionsAccount = OptionsAccountInfo.None; Toasts.Show($"Couldn't read options approval level: {ex.Message}", ToastKind.Warning); }
         extrinsicHistory.Clear();
         await RefreshPositionsAsync();
     }
@@ -341,8 +406,7 @@
     private Task OnTicketSubmitAsync(OptionOrderIntent intent)
     {
         pendingIntent = intent;
-        var isLive = mode == OptionsBrokerMode.Live && resolution is { IsAlpaca: true };
-        if (isLive && userId is { } u && !ElevationSvc.IsElevated(u))
+        if (IsLiveAlpaca && userId is { } u && !ElevationSvc.IsElevated(u))
         {
             passwordInput = ""; passwordError = null; showElevation = true;
             return Task.CompletedTask;
@@ -358,9 +422,14 @@
         if (resolution is null || placing) return;
         placing = true;
         showConfirm = false;
+        // Pin the broker AND its label before the network call: the mode buttons are disabled
+        // while placing, but the toast must describe the account the order actually went to,
+        // never whatever the page happens to point at when the response arrives.
+        var client = resolution.Client;
+        var label = BrokerLabel;
         try
         {
-            var result = await resolution.Client.PlaceOrderAsync(new OrderRequest
+            var result = await client.PlaceOrderAsync(new OrderRequest
             {
                 Symbol = intent.Contract.OccSymbol,
                 AssetClass = AssetClass.Option,
@@ -373,7 +442,7 @@
                 PositionIntent = intent.PositionIntent,
             });
 
-            Toasts.Show(result.IsSuccess ? $"{BrokerLabel}: {result.Message}" : $"Order rejected: {result.Message}",
+            Toasts.Show(result.IsSuccess ? $"{label}: {result.Message}" : $"{label} order rejected: {result.Message}",
                 result.IsSuccess ? ToastKind.Success : ToastKind.Error);
             if (result.IsSuccess)
             {
@@ -390,7 +459,7 @@
     }
 
     private static string IntentSentence(OptionOrderIntent i) =>
-        $"{(i.Side == OrderSide.Buy ? "Buy" : "Sell")} {i.Contracts} × {i.Contract.UnderlyingSymbol} ${i.Contract.Strike:0.##} {i.Contract.Right} exp {i.Contract.Expiration:MMM d, yyyy} at ~{OptionsPresenter.Money(i.EstimatedPremiumPerShare)}/sh";
+        $"{(i.Side == OrderSide.Buy ? "Buy" : "Sell")} {i.Contracts} {i.Contract.UnderlyingSymbol} ${i.Contract.Strike:0.##} {i.Contract.Right.ToString().ToLowerInvariant()}{(i.Contracts == 1 ? "" : "s")} expiring {i.Contract.Expiration:MMM d, yyyy} at about {OptionsPresenter.Money(i.EstimatedPremiumPerShare)}/share ({OptionsPresenter.Money(i.EstimatedTotal)} total)";
 
     // ── Live elevation (duplicate of the Strategies gate — see OptionsLiveElevationModal) ──
 
@@ -440,15 +509,17 @@
                     foreach (var pos in byExp)
                     {
                         var quote = quotes.GetValueOrDefault(pos.Option!.OccSymbol);
-                        SellSignal? signal = null;
                         var view = OptionsPresenter.BuildPosition(pos, quote, spot, (double)riskFreeRate, TodayEt, now, null);
                         if (view.Breakdown is { } b && pos.Quantity > 0m)
                         {
+                            // Evaluate against the samples banked BEFORE this one, then bank it. The
+                            // evaluator stays silent until MinObservations exist, so a fresh page
+                            // can't nag on its very first refresh; the tracker shows the count.
                             var history = extrinsicHistory.TryGetValue(pos.Option.OccSymbol, out var h) ? h : extrinsicHistory[pos.Option.OccSymbol] = [];
-                            signal = SellSignalEvaluator.Evaluate(group.Key, b.Extrinsic, b.ExtrinsicPercent, history, claims, now);
+                            var signal = SellSignalEvaluator.Evaluate(group.Key, b.Extrinsic, b.ExtrinsicPercent, history, claims, now);
                             history.Add(b.Extrinsic);
                             if (history.Count > 500) history.RemoveAt(0);
-                            view = view with { Signal = signal };
+                            view = view with { Signal = signal, Observations = history.Count };
                         }
                         views.Add(view);
                     }

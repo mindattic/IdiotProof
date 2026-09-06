@@ -145,4 +145,7 @@ signal through the ordinary bullish-claim join — no special casing.
 ## Out of scope (Phase 2+)
 Multi-leg spreads (`order_class: "mleg"`), options in the DSL / Monitor, non-linear
 `RiskGuardian` math for options, persisted extrinsic history / charting, dividend yield in
-Black-Scholes, MAUI host wiring, extracting the shared elevation modal, a Cypress spec for `/options`.
+Black-Scholes, MAUI host wiring, extracting the shared elevation modal.
+
+*(The Cypress spec for `/options` and the entitlement prerequisite were closed by
+[IP-A34](../AMENDMENTS.md#IP-A34): `08_options.cy.ts`; both accounts at options level 3.)*

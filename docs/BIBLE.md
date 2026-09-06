@@ -234,7 +234,13 @@ Build/test evidence (recorded 2026-07-19, .NET 10 SDK, `IdiotProof.slnx`):
     signals, `DslStrategySignalTests`, IP-A15; weekend/ET-rollover trading-day gate,
     `MarketTimeTests`, IP-A16).
   - `IdiotProof.Brokers.Tests` — 13 passed (BrokerRouter Sandbox default + sandbox fill
-    simulation + Alpaca extended-hours contract).
+    simulation + Alpaca extended-hours contract). Options wire format + Sandbox synthetic chain
+    and position-book basis rules added by [IP-A33](AMENDMENTS.md#IP-A33)/[IP-A34](AMENDMENTS.md#IP-A34)
+    (`OptionsBrokerTests`, 32 passing 2026-09-05).
+  - `IdiotProof.UI.Tests` — added by [IP-A34](AMENDMENTS.md#IP-A34): the shared RCL's pure
+    presenter / view-model / glossary logic (`OptionsPresenterTests`, `OptionPositionViewTests`,
+    `OptionsGlossaryTests`; 62 passing 2026-09-05). Component rendering is proven by the Cypress
+    spec `08_options.cy.ts`, not by bUnit.
   - `IdiotProof.Blazor.Tests` — 50 passed (StrategyScriptGenerator verb-catalog reflection +
     LlmVotingService consensus logic + JSON vote parsing incl. fail-closed-to-Abstain
     regressions (IP-A11) and the Abstain-default consensus pin (IP-A16) +

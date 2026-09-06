@@ -9,6 +9,66 @@ updated: 2026-09-05
 
 # IdiotProof — Amendments (append-only; amendment wins over the bible)
 
+## IP-A34 — Options hardening: real Alpaca field names, level-aware lock, jargon glossary, Cypress {#IP-A34}
+**What changed.** (2026-09-05, follow-up to [IP-A33](#IP-A33) / RFC 0004.) A bug-and-clarity pass
+over the manual Options section, prompted by "look for ways to improve them, fix bugs, clearer
+instructions, tooltips to explain the jargon, Cypress tests".
+
+1. **Alpaca's options account fields are plural.** `/v2/account` carries `options_trading_level`,
+   `options_approved_level` and `options_buying_power`. `AlpacaBrokerClient` read the singular
+   `option_trading_level`, a key Alpaca never sends, so **every** real account reported level 0 and
+   the ticket locked itself. `GetOptionsAccountAsync` now returns an `OptionsAccountInfo`
+   (effective level, approved level, options buying power); the singular spelling survives only as
+   a fixture fallback. Both accounts re-checked the same day: `options_trading_level = 3` on paper
+   and live (the IP-A33 "not approved" note was an artefact of the wrong key).
+2. **Level semantics are a rule, in one place.** `IdiotProof.Shared/Options/OptionsTradingLevel`:
+   0 = disabled; 1 = covered calls / cash-secured puts only (**no** buying calls or puts outright);
+   2 = long calls/puts; 3 = spreads. The ticket locks per *action* (`Blocker(level, positionIntent)`)
+   with a plain-English reason before Alpaca can 422; the level banner shows the four-row table
+   and flags an approved-vs-effective cap mismatch.
+3. **Jargon has one source of truth.** `IdiotProof.UI/Components/Options/OptionsGlossary` (RCL;
+   cannot depend on the host's `DslGlossary`) holds every term's title, hover hint and full
+   explanation; the `<Jargon>` component renders a dotted word (hover = hint, click = fixed-position
+   card, Escape/click-away closes, one at a time, no JS interop). Every `title="…"` in the chain,
+   ticket and tracker pulls from it. Wording mirrors [BIBLE §9](BIBLE.md#IP-§9).
+4. **Plain words, not codes.** Alpaca `position_intent` values never reach the screen — the ticket
+   and confirm modal say "Opens a new position" / "Closes 2 you already hold" / "Opens a SHORT —
+   you'd be writing the option". Put breakevens read "needs to fall X%". A three-step how-to
+   (`<details>`, open until a chain or position exists) heads the page. Live confirm is red and
+   says REAL MONEY; a buying-power warning appears when the ticket costs more than
+   `options_buying_power`; off-tick limits ≥ $3 get a 5¢-step hint.
+5. **Sell-the-hype nudge needs history.** `SellSignalEvaluator.MinObservations = 3`: with fewer
+   earlier samples the current value is trivially "the high" and the nudge fired on the very first
+   refresh. The tracker shows "Watching the hype level — n/3 samples" until then.
+6. **Smaller fixes.** Put-side ITM shading no longer paints every put when the underlying price is
+   unknown; the Market ticket shows the live mid it actually prices with (not the limit captured at
+   selection); the Close prefill keys on `(OccSymbol, InitialSide)` instead of relying on an
+   intermediate null render; the order toast pins the broker label before the network call and the
+   mode buttons are disabled while placing (a Live fill can no longer be announced as "Paper");
+   `SandboxBrokerClient.Book` blends the basis when adding to a short and starts a fresh basis when
+   a fill flips the position through zero.
+7. **Tests.** New `IdiotProof.UI.Tests` (NUnit) for `OptionsPresenter`, `OptionPositionView`,
+   `OptionsGlossary`; Brokers/Engine tests for the plural fields, level rules, Sandbox basis and the
+   minimum-sample guard; new Cypress spec `tests/IdiotProof.Cypress/cypress/e2e/08_options.cy.ts`
+   (Sandbox-only, deterministic `IPTEST` ticker) covering empty state → chain → ticket → confirm →
+   position → close, the Paper/Live fallback, the writing warning and the jargon cards.
+
+**Why.** The section shipped as "built, not proven" (U6/U8 🟡) with a hidden defect that would
+have kept the ticket locked on the day Alpaca approved the account for Level 3 — which happened
+during this pass. The rest is the promise in RFC 0004's problem statement: options presented so
+nobody has to infer anything.
+
+**Effect on canon.**
+- Same interpretation of [IP-LAW-1](BIBLE.md#IP-LAW-1) / [IP-LAW-3](BIBLE.md#IP-LAW-3) as IP-A33;
+  still manual, still Sandbox-default, still single-leg. **New rule:** an Alpaca options order is
+  offered only when `OptionsTradingLevel` permits its `position_intent` (level 1 cannot buy to open).
+- [USER_STORIES](USER_STORIES.md#Epic-U): U6 → ✅ (`08_options.cy.ts` + `OptionsPresenterTests`);
+  U8 lock text proven by `OptionsTradingLevelTests` (Live path still not Cypress-provable — 🟡);
+  U10 unblocked (level 3 on both accounts) but still ⬜ until a deliberate small paper order; new
+  U11 (jargon) and U12 (level-aware lock).
+- [BIBLE §4.1](BIBLE.md#IP-§4) project table gains `IdiotProof.UI.Tests`; RFC 0004's
+  "no Cypress spec" follow-up is closed.
+
 ## IP-A33 — Manual Options section (buy the idea, sell the hype) + IndexEvent claims {#IP-A33}
 **What changed.** (2026-09-05, RFC 0004.) IdiotProof gains a manual **Options** section — a new
 top-level nav tab (`/options`), deliberately separate from the Stock Strategy pages — for

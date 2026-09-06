@@ -195,25 +195,93 @@ public class SellSignalEvaluatorTests
 
     [Test]
     public void Fires_WhenWithinToleranceOfHigh() =>
-        Assert.That(SellSignalEvaluator.Evaluate("BE", 2.4m, 25m, [2.5m], [Claim("BE", 1)], Now), Is.Not.Null);
+        Assert.That(SellSignalEvaluator.Evaluate("BE", 2.4m, 25m, [2.2m, 2.5m, 2.3m], [Claim("BE", 1)], Now), Is.Not.Null);
 
     [Test]
     public void Silent_WhenExtrinsicWellBelowHigh() =>
-        Assert.That(SellSignalEvaluator.Evaluate("BE", 1.0m, 12m, [2.5m], [Claim("BE", 1)], Now), Is.Null);
+        Assert.That(SellSignalEvaluator.Evaluate("BE", 1.0m, 12m, [2.5m, 2.4m, 2.5m], [Claim("BE", 1)], Now), Is.Null);
 
     [Test]
     public void Silent_WhenNoRecentNews() =>
-        Assert.That(SellSignalEvaluator.Evaluate("BE", 2.5m, 26m, [2.0m], [Claim("BE", 30)], Now), Is.Null);
+        Assert.That(SellSignalEvaluator.Evaluate("BE", 2.5m, 26m, [2.0m, 2.1m, 2.2m], [Claim("BE", 30)], Now), Is.Null);
 
     [Test]
     public void Silent_WhenNewsIsForAnotherTicker() =>
-        Assert.That(SellSignalEvaluator.Evaluate("BE", 2.5m, 26m, [2.0m], [Claim("NVDA", 1)], Now), Is.Null);
+        Assert.That(SellSignalEvaluator.Evaluate("BE", 2.5m, 26m, [2.0m, 2.1m, 2.2m], [Claim("NVDA", 1)], Now), Is.Null);
 
     [Test]
     public void Silent_WhenNoExtrinsicLeft() =>
-        Assert.That(SellSignalEvaluator.Evaluate("BE", 0m, 0m, [2.0m], [Claim("BE", 1)], Now), Is.Null);
+        Assert.That(SellSignalEvaluator.Evaluate("BE", 0m, 0m, [2.0m, 2.0m, 2.0m], [Claim("BE", 1)], Now), Is.Null);
 
     [Test]
-    public void FirstObservation_CountsAsHigh() =>
-        Assert.That(SellSignalEvaluator.Evaluate("be", 2.5m, 26m, [], [Claim("BE", 1)], Now), Is.Not.Null);
+    public void Silent_UntilMinObservations_ThenFires()
+    {
+        // With no history the current value is trivially "the high" — that used to nag on the
+        // very first refresh after opening a position. Now it needs MinObservations samples first.
+        var claims = new[] { Claim("BE", 1) };
+        Assert.Multiple(() =>
+        {
+            Assert.That(SellSignalEvaluator.Evaluate("be", 2.5m, 26m, [], claims, Now), Is.Null, "0 samples");
+            Assert.That(SellSignalEvaluator.Evaluate("be", 2.5m, 26m, [2.4m], claims, Now), Is.Null, "1 sample");
+            Assert.That(SellSignalEvaluator.Evaluate("be", 2.5m, 26m, [2.4m, 2.45m], claims, Now), Is.Null, "2 samples");
+            Assert.That(SellSignalEvaluator.Evaluate("be", 2.5m, 26m, [2.4m, 2.45m, 2.48m], claims, Now), Is.Not.Null, "3 samples = MinObservations");
+        });
+        Assert.That(SellSignalEvaluator.MinObservations, Is.EqualTo(3));
+    }
+
+    [Test]
+    public void CaseInsensitiveTicker_StillMatches() =>
+        Assert.That(SellSignalEvaluator.Evaluate("be", 2.5m, 26m, [2.4m, 2.45m, 2.48m], [Claim("BE", 1)], Now), Is.Not.Null);
+}
+
+[TestFixture]
+public class OptionsTradingLevelTests
+{
+    [TestCase(0, false, false)]
+    [TestCase(1, false, true)]
+    [TestCase(2, true, true)]
+    [TestCase(3, true, true)]
+    public void Permissions_FollowAlpacaSemantics(int level, bool buyToOpen, bool sellToOpen)
+    {
+        Assert.That(OptionsTradingLevel.AllowsBuyToOpen(level), Is.EqualTo(buyToOpen), "level 1 is covered-only: no long calls/puts");
+        Assert.That(OptionsTradingLevel.AllowsSellToOpen(level), Is.EqualTo(sellToOpen));
+        Assert.That(OptionsTradingLevel.AllowsClosing(level), Is.EqualTo(level >= 1));
+    }
+
+    [Test]
+    public void Blocker_Level0_BlocksEverything_WithPlainReason()
+    {
+        foreach (var intent in new[] { "buy_to_open", "sell_to_close", "sell_to_open", "buy_to_close" })
+            Assert.That(OptionsTradingLevel.Blocker(0, intent), Does.Contain("isn't approved").And.Contain("Sandbox"), intent);
+    }
+
+    [Test]
+    public void Blocker_Level1_BlocksOnlyBuyToOpen()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(OptionsTradingLevel.Blocker(1, "buy_to_open"), Does.Contain("level 1").And.Contain("level 2"));
+            Assert.That(OptionsTradingLevel.Blocker(1, "sell_to_open"), Is.Null);
+            Assert.That(OptionsTradingLevel.Blocker(1, "sell_to_close"), Is.Null);
+            Assert.That(OptionsTradingLevel.Blocker(1, "buy_to_close"), Is.Null);
+        });
+    }
+
+    [Test]
+    public void Blocker_Level2AndUp_AllowsEverySingleLegIntent()
+    {
+        foreach (var level in new[] { 2, 3 })
+            foreach (var intent in new[] { "buy_to_open", "sell_to_close", "sell_to_open", "buy_to_close" })
+                Assert.That(OptionsTradingLevel.Blocker(level, intent), Is.Null, $"{level}/{intent}");
+    }
+
+    [Test]
+    public void Describe_NeverEmpty_AndNamesTheLevel()
+    {
+        for (var level = 0; level <= 3; level++)
+        {
+            Assert.That(OptionsTradingLevel.Describe(level), Does.StartWith($"Level {level}"));
+            Assert.That(OptionsTradingLevel.Short(level), Does.StartWith($"Level {level}"));
+        }
+    }
 }

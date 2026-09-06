@@ -9,7 +9,7 @@
  * Requires the app running at CYPRESS_BASE_URL with a reachable database.
  */
 describe("Backtest a strategy (authenticated)", () => {
-    const testPass = "Test1234!";
+    const testPass = "Cy-IdiotProof-2026-Kx9!";
 
     it("runs a backtest for a saved strategy and shows results", () => {
         const email = `backtest-${Date.now()}@idiotproof.local`;

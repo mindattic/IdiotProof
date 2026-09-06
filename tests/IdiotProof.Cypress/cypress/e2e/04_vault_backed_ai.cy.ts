@@ -24,7 +24,7 @@
 describe("Vault-backed AI happy-path (live LLM)", () => {
     const live = Cypress.env("LIVE_LLM") === true || Cypress.env("LIVE_LLM") === "1";
     const testUser = () => `vault-ai-${Date.now()}@idiotproof.local`;
-    const testPass = "Test1234!";
+    const testPass = "Cy-IdiotProof-2026-Kx9!";
 
     before(function () {
         if (!live) {
@@ -68,7 +68,7 @@ describe("Vault-backed AI happy-path (live LLM)", () => {
  */
 describe("Vault-backed AI page wiring (no live call)", () => {
     const testUser = () => `vault-ai-spy-${Date.now()}@idiotproof.local`;
-    const testPass = "Test1234!";
+    const testPass = "Cy-IdiotProof-2026-Kx9!";
 
     it("clicking Generate renders the generated IdiotScript chain", () => {
         cy.registerAndLogin(testUser(), testPass);

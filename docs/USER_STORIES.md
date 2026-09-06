@@ -308,24 +308,35 @@ counts: {done: 27, partial: 22, planned: 17, cut: 0}
 - **IP-US-U5 ✅** As a trader without options approval yet, the Sandbox account serves a realistic
   synthetic chain and fills contracts (× 100) into the position book so I can practise the whole
   flow today. See `SandboxOptionsTests`.
-- **IP-US-U6 🟡** As a trader, the `/options` page shows CALLS | strike | PUTS with a colour-ramped
+- **IP-US-U6 ✅** As a trader, the `/options` page shows CALLS | strike | PUTS with a colour-ramped
   hype meter per cell, a ticket that spells out "you're buying 2 BE $38 calls for about $1,900; $500
   of that is hype; breakeven $47.50 — you don't have to get there", and my open option positions
-  with a real/hype split bar. Built (`OptionsChainView`, `OptionOrderTicket`,
-  `OptionPositionTracker`, `Options.razor`); no Cypress spec yet.
+  with a real/hype split bar. E2E: `tests/IdiotProof.Cypress/cypress/e2e/08_options.cy.ts`
+  (Sandbox: empty state → chain → ticket → confirm → position → close). Presenter math:
+  `OptionsPresenterTests`, `OptionPositionViewTests` in `IdiotProof.UI.Tests`.
 - **IP-US-U7 ✅** As a trader holding a long option, I'm told when extrinsic value is near its
   recent high AND the research tape is bullish on the underlying — "consider taking profit" —
   informationally, never as an auto-sell. See `SellSignalEvaluatorTests`.
 - **IP-US-U8 🟡** As a trader, a Live options order requires the same 5-minute password elevation
   as promoting a strategy to Live, and the ticket locks itself with an explanation while Alpaca
-  reports `option_trading_level = 0`. Built (`OptionsLiveElevationModal`, `Options.razor`); not
-  yet proven by a test.
+  reports `options_trading_level = 0`. Lock rule proven by `OptionsTradingLevelTests`; field parsing
+  by `TradingLevel_ReadsAlpacasPluralFieldNames`. The Live elevation path itself
+  (`OptionsLiveElevationModal`) needs a live Alpaca account and is not Cypress-provable — 🟡.
 - **IP-US-U9 ✅** As a trader, an announced S&P 500/100 addition or deletion I log in
   `sp-index-events.json` shows up in the Research feed as an `IndexEvent` claim (Bullish for a
   joiner, Bearish for a leaver), Pending until the effective date and then Realized, without
   duplicates on later passes. See `IndexEventScannerTests`.
 - **IP-US-U10 ⬜** As a trader, a small paper options order round-trips against my real Alpaca
-  paper account. Blocked on options approval for the account (`option_trading_level > 0`).
+  paper account. Unblocked 2026-09-05 — both accounts report `options_trading_level = 3`
+  ([IP-A34](AMENDMENTS.md#IP-A34)); waits on a deliberate, user-initiated paper order.
+- **IP-US-U11 ✅** As a trader who doesn't speak options, every piece of jargon on the page (call,
+  put, strike, hype, breakeven, IV, bid/ask, buy-to-open…) is a dotted word I can hover for a
+  one-line hint or click for a plain-English card, and no Alpaca code (`buy_to_open`) ever reaches
+  the screen. One source of truth: `OptionsGlossary` (`OptionsGlossaryTests`); rendering:
+  `08_options.cy.ts` "explains its jargon".
+- **IP-US-U12 ✅** As a trader on a level-1 Alpaca account, the ticket tells me I can't buy a call
+  or put outright (covered-only) instead of letting Alpaca reject the order, and the level banner
+  shows what each level allows. `OptionsTradingLevelTests`; Sandbox (level 3) path in `08_options.cy.ts`.
 
 ## Epic E — Authoring & generation (web)
 - **IP-US-E1 🟡** As a trader, I describe a setup in prose and Claude generates valid IdiotScript

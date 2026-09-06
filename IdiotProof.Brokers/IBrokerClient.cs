@@ -36,7 +36,14 @@ public interface IBrokerClient
     bool SupportsOptions => false;
 
     /// <summary>Account's options approval level (Alpaca 0–3). 0 when unsupported/unapproved.</summary>
-    Task<int> GetOptionTradingLevelAsync(CancellationToken ct = default) => Task.FromResult(0);
+    async Task<int> GetOptionTradingLevelAsync(CancellationToken ct = default) =>
+        (await GetOptionsAccountAsync(ct).ConfigureAwait(false)).TradingLevel;
+
+    /// <summary>
+    /// Effective/approved options level plus options buying power in one call.
+    /// Default = "no options" (<see cref="OptionsAccountInfo.None"/>).
+    /// </summary>
+    Task<OptionsAccountInfo> GetOptionsAccountAsync(CancellationToken ct = default) => Task.FromResult(OptionsAccountInfo.None);
 
     /// <summary>
     /// Listed contracts for an underlying, optionally narrowed to one expiration.

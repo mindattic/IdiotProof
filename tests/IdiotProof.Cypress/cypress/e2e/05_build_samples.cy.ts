@@ -14,7 +14,7 @@
  * Requires the app running at CYPRESS_BASE_URL with a reachable database.
  */
 describe("Build sample strategies (authenticated)", () => {
-    const testPass = "Test1234!";
+    const testPass = "Cy-IdiotProof-2026-Kx9!";
 
     const samples = [
         {

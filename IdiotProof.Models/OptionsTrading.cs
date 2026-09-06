@@ -91,3 +91,16 @@ public sealed record OptionQuote(
 
 /// <summary>First-order option sensitivities as reported by the broker.</summary>
 public sealed record OptionGreeks(decimal Delta, decimal Gamma, decimal Theta, decimal Vega, decimal Rho);
+
+/// <summary>
+/// The options-relevant slice of the broker account. Alpaca <c>/v2/account</c>:
+/// <c>options_trading_level</c> (effective; the one that gates orders), <c>options_approved_level</c>
+/// (what was granted — can be higher than effective when the user capped it in account
+/// configuration), and <c>options_buying_power</c>. Levels: 0 disabled, 1 covered call /
+/// cash-secured put, 2 long calls/puts, 3 spreads. Buying power is null when the broker has no
+/// such notion (Sandbox).
+/// </summary>
+public sealed record OptionsAccountInfo(int TradingLevel, int ApprovedLevel, decimal? OptionsBuyingPower)
+{
+    public static readonly OptionsAccountInfo None = new(0, 0, null);
+}

@@ -18,7 +18,7 @@
  */
 describe("API Keys page (authenticated)", () => {
     const testUser = () => `apikeys-${Date.now()}@idiotproof.local`;
-    const testPass = "Test1234!";
+    const testPass = "Cy-IdiotProof-2026-Kx9!";
 
     beforeEach(() => {
         cy.registerAndLogin(testUser(), testPass);

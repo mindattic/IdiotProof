@@ -14,6 +14,7 @@
     <Project Path="IdiotProof.Indicators.Tests/IdiotProof.Indicators.Tests.csproj" />
     <Project Path="IdiotProof.Monitor.Tests/IdiotProof.Monitor.Tests.csproj" />
     <Project Path="IdiotProof.Strategies.Tests/IdiotProof.Strategies.Tests.csproj" />
+    <Project Path="IdiotProof.UI.Tests/IdiotProof.UI.Tests.csproj" />
   </Folder>
   <Project Path="IdiotProof.Scripting/IdiotProof.Scripting.csproj" />
   <Project Path="IdiotProof.Shared/IdiotProof.Shared.csproj" />
