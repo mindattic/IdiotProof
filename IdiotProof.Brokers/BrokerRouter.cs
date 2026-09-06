@@ -67,4 +67,15 @@ public sealed class BrokerRouter
 
     public Task<IReadOnlyList<Position>> GetPositionsAsync(CancellationToken ct = default)
         => GetActiveBroker().GetPositionsAsync(ct);
+
+    public bool SupportsOptions => GetActiveBroker().SupportsOptions;
+
+    public Task<int> GetOptionTradingLevelAsync(CancellationToken ct = default)
+        => GetActiveBroker().GetOptionTradingLevelAsync(ct);
+
+    public Task<IReadOnlyList<OptionContract>> GetOptionChainAsync(string underlyingSymbol, DateOnly? expiration = null, CancellationToken ct = default)
+        => GetActiveBroker().GetOptionChainAsync(underlyingSymbol, expiration, ct);
+
+    public Task<IReadOnlyList<OptionQuote>> GetOptionQuotesAsync(string underlyingSymbol, DateOnly? expiration = null, CancellationToken ct = default)
+        => GetActiveBroker().GetOptionQuotesAsync(underlyingSymbol, expiration, ct);
 }

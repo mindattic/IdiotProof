@@ -9,7 +9,17 @@ namespace IdiotProof.Brokers;
 /// </summary>
 public sealed class AlpacaBrokerClient : IBrokerClient, IAsyncDisposable
 {
+    private const string DataBaseUri = "https://data.alpaca.markets";
+
+    /// <summary>Trading API (paper-api / api host): orders, positions, account, contract catalog.</summary>
     private readonly HttpClient httpClient;
+
+    /// <summary>
+    /// Market-data API (data host) — a DIFFERENT host from trading. Used only for option
+    /// snapshots (quotes + server-side Greeks/IV). Same credentials.
+    /// </summary>
+    private readonly HttpClient dataClient;
+
     private bool connected;
 
     public BrokerType BrokerType => BrokerType.Alpaca;
@@ -19,25 +29,45 @@ public sealed class AlpacaBrokerClient : IBrokerClient, IAsyncDisposable
 
     public bool IsConnected => connected;
 
+    /// <summary>This client implements the options endpoints; account approval is a separate question.</summary>
+    public bool SupportsOptions => true;
+
+    /// <summary>
+    /// Options snapshot feed: <c>indicative</c> (free, delayed-ish indicative quotes) or
+    /// <c>opra</c> (requires the paid options data subscription). Defaults to indicative
+    /// so a fresh account gets numbers; flip to opra once entitled.
+    /// </summary>
+    public string OptionsDataFeed { get; set; } = "indicative";
+
     public AlpacaBrokerClient(string apiKeyId, string apiSecretKey, bool isPaper = true)
     {
         IsPaper = isPaper;
-        var baseUri = isPaper
-            ? "https://paper-api.alpaca.markets"
-            : "https://api.alpaca.markets";
-
-        httpClient = new HttpClient
-        {
-            BaseAddress = new Uri(baseUri),
-            Timeout = TimeSpan.FromSeconds(30)
-        };
+        httpClient = new HttpClient { BaseAddress = new Uri(TradingBaseUri(isPaper)), Timeout = TimeSpan.FromSeconds(30) };
+        dataClient = new HttpClient { BaseAddress = new Uri(DataBaseUri), Timeout = TimeSpan.FromSeconds(30) };
 
         if (!string.IsNullOrWhiteSpace(apiKeyId) && !string.IsNullOrWhiteSpace(apiSecretKey))
         {
-            httpClient.DefaultRequestHeaders.Add("APCA-API-KEY-ID", apiKeyId);
-            httpClient.DefaultRequestHeaders.Add("APCA-API-SECRET-KEY", apiSecretKey);
+            foreach (var client in new[] { httpClient, dataClient })
+            {
+                client.DefaultRequestHeaders.Add("APCA-API-KEY-ID", apiKeyId);
+                client.DefaultRequestHeaders.Add("APCA-API-SECRET-KEY", apiSecretKey);
+            }
         }
     }
+
+    /// <summary>
+    /// Test seam: route both the trading and data clients through a caller-supplied handler
+    /// so request payloads and response parsing can be asserted without the network.
+    /// </summary>
+    internal AlpacaBrokerClient(HttpMessageHandler handler, bool isPaper = true)
+    {
+        IsPaper = isPaper;
+        httpClient = new HttpClient(handler, disposeHandler: false) { BaseAddress = new Uri(TradingBaseUri(isPaper)) };
+        dataClient = new HttpClient(handler, disposeHandler: false) { BaseAddress = new Uri(DataBaseUri) };
+    }
+
+    private static string TradingBaseUri(bool isPaper) =>
+        isPaper ? "https://paper-api.alpaca.markets" : "https://api.alpaca.markets";
 
     /// <summary>
     /// OAuth (Connect API) construction — authenticates with an
@@ -53,11 +83,14 @@ public sealed class AlpacaBrokerClient : IBrokerClient, IAsyncDisposable
     private AlpacaBrokerClient(string accessToken, bool isPaper, bool oauth)
     {
         IsPaper = isPaper;
-        var baseUri = isPaper ? "https://paper-api.alpaca.markets" : "https://api.alpaca.markets";
-        httpClient = new HttpClient { BaseAddress = new Uri(baseUri), Timeout = TimeSpan.FromSeconds(30) };
+        httpClient = new HttpClient { BaseAddress = new Uri(TradingBaseUri(isPaper)), Timeout = TimeSpan.FromSeconds(30) };
+        dataClient = new HttpClient { BaseAddress = new Uri(DataBaseUri), Timeout = TimeSpan.FromSeconds(30) };
         if (!string.IsNullOrWhiteSpace(accessToken))
-            httpClient.DefaultRequestHeaders.Authorization =
-                new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", accessToken);
+        {
+            foreach (var client in new[] { httpClient, dataClient })
+                client.DefaultRequestHeaders.Authorization =
+                    new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", accessToken);
+        }
     }
 
     public Task<bool> ConnectAsync(CancellationToken ct = default)
@@ -76,6 +109,38 @@ public sealed class AlpacaBrokerClient : IBrokerClient, IAsyncDisposable
     {
         if (string.IsNullOrWhiteSpace(request.Symbol))
             return new OrderResult { IsSuccess = false, Message = "Symbol required." };
+
+        if (request.AssetClass == AssetClass.Option)
+        {
+            // Options orders ride the same /v2/orders endpoint but with stricter rules:
+            // OCC symbol, whole contracts only (no notional), DAY time-in-force, and no
+            // extended-hours session. Reject locally with a plain message rather than
+            // letting Alpaca 422.
+            if (request.Option is null)
+                return new OrderResult { IsSuccess = false, Message = "Option order requires the contract (OrderRequest.Option)." };
+            if (request.Notional is { } && request.Quantity <= 0)
+                return new OrderResult { IsSuccess = false, Message = "Options are sized in whole contracts — notional (dollar) sizing is not available." };
+            if (request.Quantity <= 0)
+                return new OrderResult { IsSuccess = false, Message = "Option order requires a contract count of at least 1." };
+            if (request.ExtendedHours)
+                return new OrderResult { IsSuccess = false, Message = "Options do not trade in extended hours." };
+            if (!request.TimeInForce.Equals("DAY", StringComparison.OrdinalIgnoreCase))
+                return new OrderResult { IsSuccess = false, Message = "Options orders must use DAY time-in-force." };
+            if (request.Type is not (OrderType.Market or OrderType.Limit))
+                return new OrderResult { IsSuccess = false, Message = "Options orders support Market or Limit only." };
+
+            var optionPayload = new
+            {
+                symbol          = request.Option.OccSymbol,
+                qty             = request.Quantity,
+                side            = request.Side == OrderSide.Buy ? "buy" : "sell",
+                type            = request.Type == OrderType.Limit ? "limit" : "market",
+                time_in_force   = "day",
+                limit_price     = request.Type == OrderType.Limit ? request.LimitPrice : null,
+                position_intent = request.PositionIntent,
+            };
+            return await PostOrderAsync(optionPayload, ct).ConfigureAwait(false);
+        }
 
         // Either qty (shares) or notional (dollars) must be set — Alpaca
         // accepts exactly one. Quantity wins when both are populated;
@@ -152,6 +217,11 @@ public sealed class AlpacaBrokerClient : IBrokerClient, IAsyncDisposable
                 position_intent = request.PositionIntent,
             };
 
+        return await PostOrderAsync(payload, ct).ConfigureAwait(false);
+    }
+
+    private async Task<OrderResult> PostOrderAsync(object payload, CancellationToken ct)
+    {
         using var response = await httpClient.PostAsJsonAsync("/v2/orders", payload, ct).ConfigureAwait(false);
         var content = await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
 
@@ -257,13 +327,22 @@ public sealed class AlpacaBrokerClient : IBrokerClient, IAsyncDisposable
                         System.Globalization.CultureInfo.InvariantCulture, out var parsedPl) ? parsedPl : 0m
                     : 0m;
 
+                // Options positions come back with asset_class "us_option" and the OCC
+                // symbol; qty is a contract count. Decode the contract from the symbol so
+                // downstream never has to parse OCC strings.
+                var isOption = element.TryGetProperty("asset_class", out var acProp)
+                    && string.Equals(acProp.GetString(), "us_option", StringComparison.OrdinalIgnoreCase);
+                var contract = isOption ? OptionContract.ParseOcc(symbol) : null;
+
                 positions.Add(new Position
                 {
                     Symbol = symbol,
                     Quantity = qty,
                     AveragePrice = avgPrice,
                     MarketValue = marketValue,
-                    UnrealizedPnl = unrealizedPnl
+                    UnrealizedPnl = unrealizedPnl,
+                    AssetClass = contract is null ? AssetClass.Equity : AssetClass.Option,
+                    Option = contract,
                 });
             }
 
@@ -303,9 +382,177 @@ public sealed class AlpacaBrokerClient : IBrokerClient, IAsyncDisposable
         }
     }
 
+    // ---------------------------------------------------------------- Options
+
+    /// <summary>
+    /// Alpaca <c>/v2/account</c> carries <c>option_trading_level</c> (0–3). 0 = the account
+    /// has not been approved for options; the UI disables the order ticket on 0.
+    /// </summary>
+    public async Task<int> GetOptionTradingLevelAsync(CancellationToken ct = default)
+    {
+        var account = await GetAccountAsync(ct).ConfigureAwait(false);
+        return account.TryGetValue("option_trading_level", out var raw)
+            && int.TryParse(raw, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out var level)
+            ? level
+            : 0;
+    }
+
+    /// <summary>
+    /// <c>GET /v2/options/contracts</c> (trading host). Catalog only — strikes, expirations,
+    /// rights, open interest. Follows <c>next_page_token</c> so a full chain comes back in one call.
+    /// </summary>
+    public async Task<IReadOnlyList<OptionContract>> GetOptionChainAsync(string underlyingSymbol, DateOnly? expiration = null, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(underlyingSymbol)) return [];
+        var underlying = underlyingSymbol.Trim().ToUpperInvariant();
+        var contracts = new List<OptionContract>();
+        string? pageToken = null;
+
+        for (var page = 0; page < 20; page++) // hard stop — a chain is never 20k contracts
+        {
+            var url = $"/v2/options/contracts?underlying_symbols={Uri.EscapeDataString(underlying)}&status=active&limit=1000";
+            if (expiration is { } exp) url += $"&expiration_date={exp:yyyy-MM-dd}";
+            if (pageToken is not null) url += $"&page_token={Uri.EscapeDataString(pageToken)}";
+
+            using var response = await httpClient.GetAsync(url, ct).ConfigureAwait(false);
+            var content = await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+            if (!response.IsSuccessStatusCode)
+                throw new HttpRequestException($"Alpaca option contracts request failed ({(int)response.StatusCode} {response.StatusCode}): {Clip(content)}");
+
+            using var doc = JsonDocument.Parse(content);
+            if (doc.RootElement.TryGetProperty("option_contracts", out var arr) && arr.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var el in arr.EnumerateArray())
+                {
+                    var parsed = ParseContract(el, underlying);
+                    if (parsed is not null) contracts.Add(parsed);
+                }
+            }
+
+            pageToken = doc.RootElement.TryGetProperty("next_page_token", out var tok) && tok.ValueKind == JsonValueKind.String
+                ? tok.GetString()
+                : null;
+            if (string.IsNullOrEmpty(pageToken)) break;
+        }
+
+        return contracts;
+    }
+
+    /// <summary>
+    /// <c>GET {data}/v1beta1/options/snapshots/{underlying}</c>. Per-contract latest quote/trade
+    /// plus Alpaca's server-side Greeks and implied volatility, which are OMITTED (null here)
+    /// for 0DTE contracts or when inputs are missing — callers fall back to the local model.
+    /// </summary>
+    public async Task<IReadOnlyList<OptionQuote>> GetOptionQuotesAsync(string underlyingSymbol, DateOnly? expiration = null, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(underlyingSymbol)) return [];
+        var underlying = underlyingSymbol.Trim().ToUpperInvariant();
+        var quotes = new List<OptionQuote>();
+        string? pageToken = null;
+
+        for (var page = 0; page < 20; page++)
+        {
+            var url = $"/v1beta1/options/snapshots/{Uri.EscapeDataString(underlying)}?feed={OptionsDataFeed}&limit=1000";
+            if (expiration is { } exp) url += $"&expiration_date={exp:yyyy-MM-dd}";
+            if (pageToken is not null) url += $"&page_token={Uri.EscapeDataString(pageToken)}";
+
+            using var response = await dataClient.GetAsync(url, ct).ConfigureAwait(false);
+            var content = await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+            if (!response.IsSuccessStatusCode)
+                throw new HttpRequestException($"Alpaca option snapshots request failed ({(int)response.StatusCode} {response.StatusCode}): {Clip(content)}");
+
+            using var doc = JsonDocument.Parse(content);
+            if (doc.RootElement.TryGetProperty("snapshots", out var snaps) && snaps.ValueKind == JsonValueKind.Object)
+            {
+                foreach (var prop in snaps.EnumerateObject())
+                    quotes.Add(ParseSnapshot(prop.Name, prop.Value));
+            }
+
+            pageToken = doc.RootElement.TryGetProperty("next_page_token", out var tok) && tok.ValueKind == JsonValueKind.String
+                ? tok.GetString()
+                : null;
+            if (string.IsNullOrEmpty(pageToken)) break;
+        }
+
+        return quotes;
+    }
+
+    private static OptionContract? ParseContract(JsonElement el, string fallbackUnderlying)
+    {
+        var occ = Str(el, "symbol");
+        if (string.IsNullOrEmpty(occ)) return null;
+
+        // Prefer Alpaca's structured fields; fall back to decoding the OCC symbol.
+        var decoded = OptionContract.ParseOcc(occ);
+        var typeStr = Str(el, "type");
+        var right = typeStr is null
+            ? decoded?.Right ?? OptionRight.Call
+            : typeStr.Equals("put", StringComparison.OrdinalIgnoreCase) ? OptionRight.Put : OptionRight.Call;
+
+        return new OptionContract
+        {
+            OccSymbol = occ,
+            UnderlyingSymbol = Str(el, "underlying_symbol") ?? decoded?.UnderlyingSymbol ?? fallbackUnderlying,
+            Expiration = DateOnly.TryParse(Str(el, "expiration_date"), System.Globalization.CultureInfo.InvariantCulture, out var exp)
+                ? exp : decoded?.Expiration ?? default,
+            Strike = Dec(el, "strike_price") ?? decoded?.Strike ?? 0m,
+            Right = right,
+            Multiplier = (int)(Dec(el, "size") ?? 100m),
+            Tradable = el.TryGetProperty("tradable", out var tr) && tr.ValueKind is JsonValueKind.True or JsonValueKind.False ? tr.GetBoolean() : true,
+            OpenInterest = Dec(el, "open_interest") is { } oi ? (long)oi : null,
+        };
+    }
+
+    private static OptionQuote ParseSnapshot(string occ, JsonElement snap)
+    {
+        decimal bid = 0m, ask = 0m;
+        decimal? last = null;
+        var ts = DateTime.UtcNow;
+
+        if (snap.TryGetProperty("latestQuote", out var q) && q.ValueKind == JsonValueKind.Object)
+        {
+            bid = Num(q, "bp") ?? 0m;
+            ask = Num(q, "ap") ?? 0m;
+            if (q.TryGetProperty("t", out var t) && t.ValueKind == JsonValueKind.String && DateTime.TryParse(t.GetString(), System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.AdjustToUniversal | System.Globalization.DateTimeStyles.AssumeUniversal, out var parsedTs))
+                ts = parsedTs;
+        }
+        if (snap.TryGetProperty("latestTrade", out var tr) && tr.ValueKind == JsonValueKind.Object)
+            last = Num(tr, "p");
+
+        var iv = Num(snap, "impliedVolatility");
+        OptionGreeks? greeks = null;
+        if (snap.TryGetProperty("greeks", out var g) && g.ValueKind == JsonValueKind.Object)
+        {
+            greeks = new OptionGreeks(
+                Num(g, "delta") ?? 0m, Num(g, "gamma") ?? 0m, Num(g, "theta") ?? 0m, Num(g, "vega") ?? 0m, Num(g, "rho") ?? 0m);
+        }
+
+        return new OptionQuote(occ, bid, ask, last, iv, greeks, ts);
+    }
+
+    private static string? Str(JsonElement el, string name) =>
+        el.TryGetProperty(name, out var p) && p.ValueKind == JsonValueKind.String ? p.GetString() : null;
+
+    /// <summary>Alpaca's trading API sends numbers as strings ("38.5"); the data API sends real numbers. Accept both.</summary>
+    private static decimal? Dec(JsonElement el, string name)
+    {
+        if (!el.TryGetProperty(name, out var p)) return null;
+        return p.ValueKind switch
+        {
+            JsonValueKind.Number => p.TryGetDecimal(out var d) ? d : (decimal)p.GetDouble(),
+            JsonValueKind.String => decimal.TryParse(p.GetString(), System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var s) ? s : null,
+            _ => null,
+        };
+    }
+
+    private static decimal? Num(JsonElement el, string name) => Dec(el, name);
+
+    private static string Clip(string s) => s.Length <= 300 ? s : s[..300] + "…";
+
     public ValueTask DisposeAsync()
     {
         httpClient.Dispose();
+        dataClient.Dispose();
         return ValueTask.CompletedTask;
     }
 }

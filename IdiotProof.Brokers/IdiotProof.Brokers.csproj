@@ -4,6 +4,10 @@
     <ProjectReference Include="..\IdiotProof.Models\IdiotProof.Models.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <InternalsVisibleTo Include="IdiotProof.Brokers.Tests" />
+  </ItemGroup>
+
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
