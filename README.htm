@@ -6,7 +6,7 @@
 <title>IdiotProof</title>
 <meta name="description" content="Plain-English trading strategies, evaluated 24/7, executed only when every safeguard agrees.">
 <meta name="generator" content="MindAttic Codex build-readme.ps1">
-<meta name="generated" content="2026-08-14">
+<meta name="generated" content="2026-09-05">
 <style>:root{
   --bg:#0d1117;--bg2:#161b22;--bg3:#21262d;
   --border:#30363d;
@@ -315,13 +315,13 @@ dotnet run --project IdiotProof.Monitor</code></pre>
 <td><code>IdiotProof.Models</code></td>
 <td>Class library</td>
 <td>Domain DTOs and enums — the nouns everything else shares.</td>
-<td><code>Candle</code>, <code>TradeSignal</code>, <code>TradeSetup</code>, <code>OrderRequest</code>/<code>OrderResult</code>, <code>Position</code>, <code>TradeDirection</code>, <code>TradingSession</code>, <code>BrokerType {Alpaca, Sandbox}</code>, <code>StrategyType</code></td>
+<td><code>Candle</code>, <code>TradeSignal</code>, <code>TradeSetup</code>, <code>OrderRequest</code>/<code>OrderResult</code>, <code>Position</code>, <code>TradeDirection</code>, <code>TradingSession</code>, <code>BrokerType {Alpaca, Sandbox}</code>, <code>StrategyType</code>; options (<a href="docs/AMENDMENTS.md#IP-A33">IP-A33</a>): <code>AssetClass {Equity, Option}</code>, <code>OptionRight</code>, <code>OptionContract</code> (OCC parse/build), <code>OptionQuote</code>, <code>OptionGreeks</code></td>
 </tr>
 <tr>
 <td><code>IdiotProof.Shared</code></td>
 <td>Class library</td>
 <td>Cross-cutting primitives used by almost every other project.</td>
-<td><code>RiskGuardian</code> (+ <code>RiskGuardianConfig</code>/<code>Result</code>) — the final pre-trade veto; <code>IndicatorSnapshot</code>; <code>LogMessage</code>; <code>SettingsMetadata</code>; <code>Branding</code> (console ASCII banner)</td>
+<td><code>RiskGuardian</code> (+ <code>RiskGuardianConfig</code>/<code>Result</code>) — the final pre-trade veto; <code>IndicatorSnapshot</code>; <code>LogMessage</code>; <code>SettingsMetadata</code>; <code>Branding</code> (console ASCII banner); <code>Options/</code> — <code>IntrinsicValueCalculator</code> (real vs hype split, breakeven, DTE), <code>BlackScholesCalculator</code> (theoretical price + implied-vol solver), <code>SellSignalEvaluator</code> (informational "consider taking profit")</td>
 </tr>
 <tr>
 <td><code>IdiotProof.Indicators</code></td>
@@ -351,7 +351,7 @@ dotnet run --project IdiotProof.Monitor</code></pre>
 <td><code>IdiotProof.Brokers</code></td>
 <td>Class library</td>
 <td>Order routing abstraction and providers.</td>
-<td><code>IBrokerClient</code>, <code>AlpacaBrokerClient</code>, <code>AlpacaOAuthClient</code>, <code>SandboxBrokerClient</code>, <code>BrokerRouter</code> (Sandbox always registered as the safe fallback)</td>
+<td><code>IBrokerClient</code> (equity members + default-implemented options members: <code>SupportsOptions</code>, <code>GetOptionTradingLevelAsync</code>, <code>GetOptionChainAsync</code>, <code>GetOptionQuotesAsync</code>), <code>AlpacaBrokerClient</code> (orders/positions/account + <code>/v2/options/contracts</code>, data-host <code>/v1beta1/options/snapshots</code>, single-leg option orders), <code>AlpacaOAuthClient</code>, <code>SandboxBrokerClient</code> (in-memory fills + a synthetic options chain), <code>BrokerRouter</code> (Sandbox always registered as the safe fallback)</td>
 </tr>
 <tr>
 <td><code>IdiotProof.Engine</code></td>
@@ -374,8 +374,8 @@ dotnet run --project IdiotProof.Monitor</code></pre>
 <tr>
 <td><code>IdiotProof.UI</code></td>
 <td>Razor Class Library</td>
-<td>Declared home for UI shared between <code>Blazor</code> and <code>Maui</code> hosts (parity by construction, <a href="docs/AMENDMENTS.md#IP-A28">IP-A28</a>).</td>
-<td>Currently only the default RCL template (<code>Component1.razor</code>) — see <a href="#9-the-maui-desktop-shell-and-the-shared-ui-library">§9</a></td>
+<td>Home for UI shared between <code>Blazor</code> and <code>Maui</code> hosts (parity by construction, <a href="docs/AMENDMENTS.md#IP-A28">IP-A28</a>). Referenced by <code>IdiotProof.Blazor</code> since <a href="docs/AMENDMENTS.md#IP-A33">IP-A33</a>.</td>
+<td><code>Components/Options/</code>: <code>OptionsChainView</code>, <code>OptionOrderTicket</code>, <code>OptionPositionTracker</code>, <code>OptionsLiveElevationModal</code>, <code>OptionsPresenter</code> + view models; <code>wwwroot/css/options.css</code>. Presentational only — see <a href="#9-the-maui-desktop-shell-and-the-shared-ui-library">§9</a></td>
 </tr>
 <tr>
 <td><code>IdiotProof.Monitor</code></td>
@@ -392,7 +392,7 @@ dotnet run --project IdiotProof.Monitor</code></pre>
 <tr>
 <td><code>IdiotProof.Engine.Tests</code></td>
 <td>NUnit</td>
-<td>RiskGuardian gate, SupervisedLoop resilience, WorkspaceManager.</td>
+<td>RiskGuardian gate, SupervisedLoop resilience, WorkspaceManager, options pricing math (<code>OptionsPricingTests</code>: OCC, intrinsic/extrinsic, Black-Scholes, IV round-trips, sell signal).</td>
 <td>—</td>
 </tr>
 <tr>
@@ -410,13 +410,13 @@ dotnet run --project IdiotProof.Monitor</code></pre>
 <tr>
 <td><code>IdiotProof.Brokers.Tests</code></td>
 <td>NUnit</td>
-<td>BrokerRouter Sandbox-default + safe fallback, Sandbox fill simulation.</td>
+<td>BrokerRouter Sandbox-default + safe fallback, Sandbox fill simulation, Sandbox synthetic options chain, Alpaca options wire format against canned responses (<code>OptionsBrokerTests</code>).</td>
 <td>—</td>
 </tr>
 <tr>
 <td><code>IdiotProof.Blazor.Tests</code></td>
 <td>NUnit</td>
-<td><code>StrategyScriptGenerator</code> verb-catalog reflection, <code>LlmVotingService</code> consensus logic, research-pipeline services, repository guard rails.</td>
+<td><code>StrategyScriptGenerator</code> verb-catalog reflection, <code>LlmVotingService</code> consensus logic, research-pipeline services (incl. <code>IndexEventScannerTests</code>), repository guard rails.</td>
 <td>—</td>
 </tr>
 <tr>
@@ -671,6 +671,12 @@ Stock.Ticker("SPY")
 <td>Ranked "Today's High-Impact Events" feed over <code>ResearchScanner</code> output; collapsed Advanced panel for the older manual ticker/paste flow.</td>
 </tr>
 <tr>
+<td><code>Options.razor</code></td>
+<td><strong>Manual options section</strong> (<code>/options</code>, <a href="docs/AMENDMENTS.md#IP-A33">IP-A33</a> / RFC 0004) — deliberately separate from the strategy pipeline. Sandbox / Paper / Live account switch, options chain (CALLS \</td>
+<td>strike \</td>
+<td>PUTS) with a per-cell <strong>breakeven</strong> and <strong>real-vs-hype</strong> (intrinsic vs extrinsic) meter, a plain-English order ticket, open option positions with a real/hype split bar and an informational "extrinsic near its high + bullish news → consider taking profit" callout. Live orders reuse the 5-minute password elevation; the ticket locks itself while Alpaca reports <code>option_trading_level = 0</code>. Composes RCL components from <code>IdiotProof.UI</code>; host logic in <code>Services/OptionsTradingService.cs</code>.</td>
+</tr>
+<tr>
 <td><code>Backtest.razor</code></td>
 <td>Backtest UI (stub-level per the bible's active frontier — see <a href="#17-known-gaps-and-roadmap">§17</a>).</td>
 </tr>
@@ -710,12 +716,12 @@ Stock.Ticker("SPY")
 <hr>
 <h2 id="9-the-maui-desktop-shell-and-the-shared-ui-library">9. The MAUI desktop shell and the shared UI library</h2>
 <p><code>CLAUDE.md</code>'s rule (<a href="docs/AMENDMENTS.md#IP-A28">IP-A28</a>) is "dual-host UI off ONE shared Razor Class Library" — <code>IdiotProof.Blazor</code> and <code>IdiotProof.Maui</code> are meant to render the <em>same</em> <code>IdiotProof.UI</code> components, never a forked copy of a page per host.</p>
-<p><strong>Verified current state (read directly from both projects' source trees):</strong> both <code>IdiotProof.Maui</code> and <code>IdiotProof.UI</code> are, today, the unmodified default templates scaffolded by <code>dotnet new maui-blazor</code> / <code>dotnet new razorclasslib</code>:</p>
+<p><strong>Verified current state (read directly from both projects' source trees):</strong></p>
 <ul>
-<li><code>IdiotProof.Maui/Components/Pages/</code> contains only <code>Home.razor</code>, <code>Counter.razor</code>, <code>Weather.razor</code>, <code>NotFound.razor</code> — the stock MAUI Blazor Hybrid sample pages. <code>NavMenu.razor</code> links only to   Home/Counter/Weather.</li>
-<li><code>IdiotProof.UI/</code> contains only <code>Component1.razor</code> + <code>ExampleJsInterop.cs</code> — the stock RCL template output.</li>
+<li><code>IdiotProof.UI</code> has its first real occupants (<a href="docs/AMENDMENTS.md#IP-A33">IP-A33</a>, 2026-09-05): the Options section's components under <code>Components/Options/</code> (<code>OptionsChainView</code>,   <code>OptionOrderTicket</code>, <code>OptionPositionTracker</code>, <code>OptionsLiveElevationModal</code>, plus   <code>OptionsPresenter</code> and the view-model records) and <code>wwwroot/css/options.css</code>. The RCL references   only <code>IdiotProof.Models</code>, <code>IdiotProof.Brokers</code>, and <code>IdiotProof.Shared</code> — never a host — and its   components are presentational (data in via parameters, actions out via <code>EventCallback</code>s).   <code>IdiotProof.Blazor</code> now has a <code>ProjectReference</code> to it and composes those components from the   thin host page <code>Components/Pages/Options.razor</code>. The RCL template files (<code>Component1.razor</code>,   <code>ExampleJsInterop.cs</code>) were removed.</li>
+<li><code>IdiotProof.Maui/Components/Pages/</code> still contains only <code>Home.razor</code>, <code>Counter.razor</code>, <code>Weather.razor</code>, <code>NotFound.razor</code> — the stock MAUI Blazor Hybrid sample pages. <code>NavMenu.razor</code>   links only to Home/Counter/Weather. The MAUI host has <strong>not</strong> been wired to the Options   components (MAUI is deferred; the auth story there is unsolved).</li>
 </ul>
-<p>Both projects build and are registered in <code>IdiotProof.slnx</code>, so the solution-level plumbing for the dual-host architecture is in place, but <strong>no real IdiotProof page (Strategies, Gapper, Learn, ...) has been moved into <code>IdiotProof.UI</code> or is reachable from the MAUI shell yet.</strong> Treat <code>IdiotProof.Maui</code> as a scaffold proving the hosting model compiles, not as a usable desktop client today. This is the natural next step for anyone picking up IP-A28's follow-through.</p>
+<p>Both projects build and are registered in <code>IdiotProof.slnx</code>. The dual-host plumbing now carries one real feature on the Blazor side; the Strategies/Gapper/Learn pages have not been moved into the RCL, and nothing is reachable from the MAUI shell yet. Treat <code>IdiotProof.Maui</code> as a scaffold proving the hosting model compiles, not as a usable desktop client today.</p>
 <hr>
 <h2 id="10-the-research-scanner">10. The Research Scanner</h2>
 <p><code>IdiotProof.ResearchScanner</code> (<code>Program.cs</code> + <code>ScanPassRunner</code>) runs <strong>one scan pass and exits</strong> — designed to be fired by a Windows Scheduled Task (<code>tools/register-research-scan-task.ps1</code>, written but not registered by default), decoupled from both the Monitor's real-time trading loop and the Blazor host's request lifecycle. Per the narrative in <a href="docs/AMENDMENTS.md#IP-A32">IP-A32</a>:</p>
@@ -940,7 +946,9 @@ powershell -NoProfile -ExecutionPolicy Bypass -File Export.ps1</code></pre>
 <h2 id="17-known-gaps-and-roadmap">17. Known gaps and roadmap</h2>
 <p>Verified, in-code or in-canon items worth knowing about before you build on top of this system:</p>
 <ul>
-<li><strong>The MAUI dual-host story is scaffolding only.</strong> <code>IdiotProof.Maui</code> and <code>IdiotProof.UI</code> are both still the default project templates — see <a href="#9-the-maui-desktop-shell-and-the-shared-ui-library">§9</a>.   The rule in <code>CLAUDE.md</code> (never fork a page between hosts) has nothing shared to enforce yet.</li>
+<li><strong>The MAUI half of the dual-host story is scaffolding only.</strong> <code>IdiotProof.UI</code> now holds the Options components, but <code>IdiotProof.Maui</code> is still the default template and doesn't render them —   see <a href="#9-the-maui-desktop-shell-and-the-shared-ui-library">§9</a>.</li>
+<li><strong>Options are manual-only (Phase 1, <a href="docs/AMENDMENTS.md#IP-A33">IP-A33</a>).</strong> No option legs in the strategy schema, no IV/Greeks conditions, no options-aware <code>RiskGuardian</code> math, no   multi-leg spreads — the Monitor never fires an options order. The Alpaca account's   <code>option_trading_level</code> was unconfirmed when the section shipped, so a real paper round-trip   (IP-US-U10) is still open; the ticket locks itself on Alpaca modes until approval and Sandbox   serves a synthetic chain in the meantime. <code>sp-index-events.json</code> is hand-maintained.</li>
+<li><strong><code>dotnet run</code> on <code>IdiotProof.Blazor</code> needs a <code>wwwroot</code> folder next to the built exe.</strong> <code>Program.cs</code> mounts a <code>PhysicalFileProvider</code> on <code>AppContext.BaseDirectory/wwwroot</code> (so a   published exe serves its own static files), which throws <code>DirectoryNotFoundException</code> on a plain   Debug build where that folder doesn't exist. Run from a publish output, or create the folder   (<code>bin/Debug/net10.0/wwwroot</code>) before <code>dotnet run</code>.</li>
 <li><strong>Shorts are signal-only.</strong> A short candidate can clear both gates and gets recorded (<code>RecordFiredAsync</code>/<code>RecordEntryFillAsync</code>), but no order is placed — the exit-management brain   (<code>GapperExitEvaluator</code>) is long-shaped. Order placement for shorts is future work.</li>
 <li><strong>Two pre-existing Blazor.Tests failures</strong> as of this writing: <code>RegulatoryScannerTests</code>'s <code>ScanAsync_AlreadySeenSourceUrl_IsSkippedOnSecondScan</code> and   <code>ScanAsync_SubstantiveNotice_PersistsMacroClaim</code> (both <code>Assert.That(count, Is.EqualTo(1))</code>   expecting <code>1</code> but getting <code>0</code>). Not touched by this documentation pass; worth triaging.</li>
 <li>**<code>docs/BIBLE.md</code> §4.1/§4.2 references <code>PolygonDataFeed</code> and a <code>FeedType {Polygon}</code> enum that do not exist in the current <code>IdiotProof.DataFeeds</code>/<code>IdiotProof.Models</code> source** (verified: only   <code>AlpacaDataFeed</code>, <code>AlpacaStreamingClient</code>, <code>MockDataFeed</code>, <code>SwitchableMarketDataFeed</code> exist; the   <code>BrokerType</code>/enum set in <code>Enums.cs</code> has no <code>FeedType</code> at all). Blazor migrations show a   <code>PolygonApiKey</code> column was added and later removed (<code>AddPolygonApiKey</code> →   <code>RemovePolygonApiKey</code>), so Polygon support appears to have existed at some point and been pulled;   this README describes only what's in the tree today. <code>docker-compose.yml</code>/<code>infra/</code> still   reference a <code>PolygonApiKey</code> env var and a <code>src/IdiotProof.Blazor/Dockerfile</code> path that doesn't   exist in the current layout — that infra scaffolding predates the present project structure and   should be verified/updated before relying on it for a real deploy.</li>
@@ -955,7 +963,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File Export.ps1</code></pre>
 <h2 id="license">License</h2>
 <p>Internal MindAttic project.</p>
 
-    <p class="codex-footer">Generated 2026-08-14 by the shared MindAttic Codex engine (<code>codex-standard/build-readme.ps1</code>) from <code>README.md</code>. Edit the Markdown source, not this file.</p>
+    <p class="codex-footer">Generated 2026-09-05 by the shared MindAttic Codex engine (<code>codex-standard/build-readme.ps1</code>) from <code>README.md</code>. Edit the Markdown source, not this file.</p>
   </main>
 </div>
 <script>(function(){

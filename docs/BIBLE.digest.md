@@ -1,6 +1,6 @@
 ﻿AUTHORITATIVE — full detail in docs/BIBLE.md
 
-<!-- generatedFrom: IP-§1,IP-§3,IP-§5,IP-§9 + USER_STORIES status index. Generated 2026-07-26 by tools/codex.ps1. Do not hand-edit. -->
+<!-- generatedFrom: IP-§1,IP-§3,IP-§5,IP-§9 + USER_STORIES status index. Generated 2026-09-05 by tools/codex.ps1. Do not hand-edit. -->
 
 # IdiotProof — Bible Digest (generated)
 
@@ -121,11 +121,29 @@ text. ("Parse, don't validate"; no shotgun parsing on the money path — see
   Research tab's ranked feed sorts by it.
 - **Tracked ticker** — a cached row in `TrackedTicker` (symbol, exchange, latest price) forming
   the research scanner's ticker universe; refreshed daily from Alpaca's asset list.
+- **OCC symbol** — the exchange-standard option identifier (`BE251219C00038000` = BE, 2025-12-19,
+  Call, $38.00): root + `YYMMDD` + `C|P` + strike×1000 zero-padded to 8. Self-describing; decoded
+  by `OptionContract.ParseOcc`.
+- **Intrinsic value** — what an option is worth if exercised right now: `max(0, S−K)` for a call,
+  `max(0, K−S)` for a put. The "real" part of the premium.
+- **Extrinsic value (hype / time value)** — premium minus intrinsic: what the market pays for the
+  *possibility* of a move. Inflates when the stock runs, decays to zero by expiration. Selling the
+  contract while it is high is the trade; it is what evaporates if you wait for reality.
+- **Breakeven** — the underlying price at expiration where the trade nets zero (`K + premium` for
+  a call, `K − premium` for a put). Only matters if you hold to expiration.
+- **DTE** — calendar days to expiration.
+- **IV (implied volatility)** — the volatility that makes the Black-Scholes price equal the live
+  premium; supplied by Alpaca's snapshots when available, otherwise solved locally and badged `Model`.
+- **Sell signal** — `SellSignalEvaluator`'s informational nudge on an open long option: extrinsic
+  value within 5% of its observed high **and** a Bullish research claim on the underlying in the
+  last 7 days → "consider taking profit". Never places anything.
+- **Index event** — a `ResearchClaim` with `ClaimType = "IndexEvent"`: an announced S&P 500/100
+  addition or deletion logged in `wwwroot/data/sp-index-events.json`, Pending until effective.
 
 ## Status index (USER_STORIES.md)
-- done: 37
-- partial: 23
-- planned: 27
+- done: 44
+- partial: 25
+- planned: 28
 - cut: 1
 
 ## Latest amendment

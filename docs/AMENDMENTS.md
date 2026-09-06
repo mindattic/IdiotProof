@@ -4,10 +4,56 @@ project: IdiotProof
 code: IP
 layer: amendments
 status: living
-updated: 2026-07-26
+updated: 2026-09-05
 ---
 
 # IdiotProof — Amendments (append-only; amendment wins over the bible)
+
+## IP-A33 — Manual Options section (buy the idea, sell the hype) + IndexEvent claims {#IP-A33}
+**What changed.** (2026-09-05, RFC 0004.) IdiotProof gains a manual **Options** section — a new
+top-level nav tab (`/options`), deliberately separate from the Stock Strategy pages — for
+single-leg calls and puts on the user's Alpaca account, presented so nobody has to infer premium
+cost, breakeven, or the **intrinsic ("real") vs extrinsic ("hype")** split in their head.
+
+1. **Models/brokers are options-aware, additively.** `AssetClass`, `OptionRight`,
+   `OptionContract` (OCC parse/build), `OptionQuote`/`OptionGreeks`; `OrderRequest`/`Position`
+   carry `AssetClass` + `Option?` (equity defaults, nothing else changed). `IBrokerClient` gets
+   default-implemented options members; `AlpacaBrokerClient` speaks `/v2/options/contracts`,
+   the data-host `/v1beta1/options/snapshots`, options orders on `/v2/orders` (OCC symbol, whole
+   contracts, DAY, no extended hours), `us_option` positions, and `option_trading_level`.
+   `SandboxBrokerClient` serves a synthetic chain so the page works with zero entitlement.
+2. **Pure pricing math in `IdiotProof.Shared/Options`.** Intrinsic/extrinsic/breakeven/DTE, a
+   Black-Scholes theoretical value + implied-vol solver (cross-check and fallback for Alpaca's
+   server-side Greeks; European-exercise/no-dividend simplifications documented), and the
+   informational `SellSignalEvaluator` (extrinsic near its high + recent bullish research → "consider taking profit").
+3. **`IdiotProof.UI` is occupied.** The RCL from [IP-A28](#IP-A28) had no host reference; it now
+   holds `OptionsChainView`, `OptionOrderTicket`, `OptionPositionTracker`,
+   `OptionsLiveElevationModal`, and `IdiotProof.Blazor` references it. The host page
+   `Options.razor` + `OptionsTradingService` own data access, confirmation, and the Live gate.
+4. **`ClaimType = "IndexEvent"`.** `IndexEventScanner` turns the hand-maintained
+   `wwwroot/data/sp-index-events.json` (announced S&P 500/100 adds/removes) into research
+   claims — Pending until the effective date, then Realized. Runs each ResearchScanner pass.
+
+**Why.** Session directive 2026-09-05: the BE-December-calls example — bought in August, sold
+weeks later for +30% at peak hype, never near the $248 breakeven. "It's about cashing in when
+the HYPE is highest… don't wait for REALITY to come crashing down." Plus the S&P joiners as
+pre-announced mechanical catalysts.
+
+**Effect on canon.**
+- [IP-LAW-1](BIBLE.md#IP-LAW-1) (three gates) governs *automated* fires. A user-initiated options
+  order is outside the Monitor and is governed instead by the existing Paper/Live consent rule
+  (Alpaca opt-in + key pair, Vault first) and the 5-minute password elevation for Live. This is
+  an interpretation, not a law change. [IP-LAW-3](BIBLE.md#IP-LAW-3) holds: Sandbox is the
+  default account on the page unless Paper is actually configured.
+- Still Alpaca-only ([BIBLE §3](BIBLE.md#IP-§3)). Still not an autotrader for options: the DSL,
+  Monitor, `RiskGuardian`, and `Conditions` catalog are untouched (Phase 2 frontier).
+- [BIBLE §4.1](BIBLE.md#IP-§4) project table gains `IdiotProof.UI`; §7 frontier and §9 glossary
+  updated; new Epic U in [USER_STORIES.md](USER_STORIES.md#Epic-U).
+- **Prerequisite, not yet met:** the Alpaca account's `option_trading_level` is unconfirmed
+  (likely 0). The ticket locks itself on Alpaca modes until approval; Sandbox works today.
+- Known pre-existing test debt noted during this work: two `RegulatoryScannerTests` hardcode a
+  2026-07-27 notice but filter with `since = now − 1 day`, so they fail on any day after
+  2026-07-28. Not touched here.
 
 ## IP-A32 — Research tab: search box → autonomous ranked results-review {#IP-A32}
 **What changed.** (2026-07-26.) The `/research` tab required a human to type a ticker or paste

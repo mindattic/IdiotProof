@@ -281,24 +281,24 @@ each project's actual source tree — nothing here is inferred from documentatio
 
 | Project | Type | Responsibility | Key types |
 |---|---|---|---|
-| `IdiotProof.Models` | Class library | Domain DTOs and enums — the nouns everything else shares. | `Candle`, `TradeSignal`, `TradeSetup`, `OrderRequest`/`OrderResult`, `Position`, `TradeDirection`, `TradingSession`, `BrokerType {Alpaca, Sandbox}`, `StrategyType` |
-| `IdiotProof.Shared` | Class library | Cross-cutting primitives used by almost every other project. | `RiskGuardian` (+ `RiskGuardianConfig`/`Result`) — the final pre-trade veto; `IndicatorSnapshot`; `LogMessage`; `SettingsMetadata`; `Branding` (console ASCII banner) |
+| `IdiotProof.Models` | Class library | Domain DTOs and enums — the nouns everything else shares. | `Candle`, `TradeSignal`, `TradeSetup`, `OrderRequest`/`OrderResult`, `Position`, `TradeDirection`, `TradingSession`, `BrokerType {Alpaca, Sandbox}`, `StrategyType`; options ([IP-A33](docs/AMENDMENTS.md#IP-A33)): `AssetClass {Equity, Option}`, `OptionRight`, `OptionContract` (OCC parse/build), `OptionQuote`, `OptionGreeks` |
+| `IdiotProof.Shared` | Class library | Cross-cutting primitives used by almost every other project. | `RiskGuardian` (+ `RiskGuardianConfig`/`Result`) — the final pre-trade veto; `IndicatorSnapshot`; `LogMessage`; `SettingsMetadata`; `Branding` (console ASCII banner); `Options/` — `IntrinsicValueCalculator` (real vs hype split, breakeven, DTE), `BlackScholesCalculator` (theoretical price + implied-vol solver), `SellSignalEvaluator` (informational "consider taking profit") |
 | `IdiotProof.Indicators` | Class library | Pure indicator math, no I/O. | `ADX`, `ATR`, `BollingerBands`, `CCI`, `EMA`, `MACD`, `Momentum`, `OBV`, `RSI`, `SMA`, `Stochastic`, `VWAP`, `WilliamsR`, `CandlestickPatterns` |
 | `IdiotProof.Scripting` | Class library | The IdiotScript DSL itself: authoring, parsing, serializing, scheduling. | `IdiotScript`/`StrategyBuilder`/`Conditions` (fluent authoring), `ScriptParser` (tolerant text → model), `StrategyJson` (canonical strict-JSON codec), `StrategyLoader` (fail-closed load), `StrategyHtml` (render), `GapperProfile` (dialable template), `EmaPeriodCollector`, `TradingSchedule`/`MarketTime` (ET session clock) |
 | `IdiotProof.Strategies` | Class library | Turns a parsed definition into something evaluatable and testable. | `IStrategy`, `DslStrategy` (adapter), `IndicatorSnapshotBuilder`, `StrategyBranchResolver` (If/ElseIf/Else), `GapperExitEvaluator` (sell-by/stop/target/peak-giveback), `GapperDayBacktester`, `Backtesting/StrategyBacktester` + `BacktestReport` |
 | `IdiotProof.DataFeeds` | Class library | Market data abstraction and providers. | `IMarketDataFeed` (+ default `GetPreviousCloseAsync`), `AlpacaDataFeed` (REST, sip/iex), `AlpacaStreamingClient` (websocket trades + minute bars), `MockDataFeed` (deterministic gap simulation), `SwitchableMarketDataFeed` |
-| `IdiotProof.Brokers` | Class library | Order routing abstraction and providers. | `IBrokerClient`, `AlpacaBrokerClient`, `AlpacaOAuthClient`, `SandboxBrokerClient`, `BrokerRouter` (Sandbox always registered as the safe fallback) |
+| `IdiotProof.Brokers` | Class library | Order routing abstraction and providers. | `IBrokerClient` (equity members + default-implemented options members: `SupportsOptions`, `GetOptionTradingLevelAsync`, `GetOptionChainAsync`, `GetOptionQuotesAsync`), `AlpacaBrokerClient` (orders/positions/account + `/v2/options/contracts`, data-host `/v1beta1/options/snapshots`, single-leg option orders), `AlpacaOAuthClient`, `SandboxBrokerClient` (in-memory fills + a synthetic options chain), `BrokerRouter` (Sandbox always registered as the safe fallback) |
 | `IdiotProof.Engine` | Class library | The DI root shared by every host. | `ServiceRegistration.AddIdiotProofEngine(...)`, `Settings/AppSettings` (disk → env → MindAttic keyrings → `IConfiguration` overlay chain), `Storage/IStorageProvider`/`StorageLocation`, `SupervisedLoop` (fault-tolerant tick loop with backoff + heartbeat), `AuditLogger`, `Workspace/WorkspaceManager` + `JsonFileWorkspaceStore` (legacy JSON path; the Blazor host swaps in a SQL-backed store) |
 | `IdiotProof.Blazor` | ASP.NET Core Blazor Server app | The primary web front door: strategy authoring/monitoring, accounts, keys, research, learning. | See [§8](#8-the-blazor-web-app) |
 | `IdiotProof.Maui` | .NET MAUI Blazor Hybrid app | Desktop shell intended to reuse `IdiotProof.UI` for the same pages, offline of a browser. | See [§9](#9-the-maui-desktop-shell-and-the-shared-ui-library) |
-| `IdiotProof.UI` | Razor Class Library | Declared home for UI shared between `Blazor` and `Maui` hosts (parity by construction, [IP-A28](docs/AMENDMENTS.md#IP-A28)). | Currently only the default RCL template (`Component1.razor`) — see [§9](#9-the-maui-desktop-shell-and-the-shared-ui-library) |
+| `IdiotProof.UI` | Razor Class Library | Home for UI shared between `Blazor` and `Maui` hosts (parity by construction, [IP-A28](docs/AMENDMENTS.md#IP-A28)). Referenced by `IdiotProof.Blazor` since [IP-A33](docs/AMENDMENTS.md#IP-A33). | `Components/Options/`: `OptionsChainView`, `OptionOrderTicket`, `OptionPositionTracker`, `OptionsLiveElevationModal`, `OptionsPresenter` + view models; `wwwroot/css/options.css`. Presentational only — see [§9](#9-the-maui-desktop-shell-and-the-shared-ui-library) |
 | `IdiotProof.Monitor` | .NET generic host / console, Windows-Service-ready | The 24/7 evaluator and executor — "the one pipeline." | `Program.cs` (composition root), `MonitorWorker` (the tick loop), `MonitorLeaderLease` (`sp_getapplock` single-instance lease), `MonitorCli` (operator subcommands), `AutoGapperScanner`, `PremarketFadeScanner`, `EmailSmsAlertSender`, `StrategyScanner`/`StrategyReplay`/`StrategyReplayLive`/`ReplayFeatures`/`ReplayTemplates`/`StrategyDataset` (offline replay/ML-dataset tooling) |
 | `IdiotProof.ResearchScanner` | Console (one-shot) | Autonomous market-event research sweep; not a daemon, not part of the trading loop. | `Program.cs`, `ScanPassRunner` |
-| `IdiotProof.Engine.Tests` | NUnit | RiskGuardian gate, SupervisedLoop resilience, WorkspaceManager. | — |
+| `IdiotProof.Engine.Tests` | NUnit | RiskGuardian gate, SupervisedLoop resilience, WorkspaceManager, options pricing math (`OptionsPricingTests`: OCC, intrinsic/extrinsic, Black-Scholes, IV round-trips, sell signal). | — |
 | `IdiotProof.Indicators.Tests` | NUnit | RSI/EMA/ATR/MACD/VWAP math + ADX Wilder-seed regression. | — |
 | `IdiotProof.Strategies.Tests` | NUnit | DSL round-trip, backtester, gapper lifecycle, canonical-JSON contract, and a large family of exhaustive combinatorial matrix tests (phase/condition/branch permutations). | — |
-| `IdiotProof.Brokers.Tests` | NUnit | BrokerRouter Sandbox-default + safe fallback, Sandbox fill simulation. | — |
-| `IdiotProof.Blazor.Tests` | NUnit | `StrategyScriptGenerator` verb-catalog reflection, `LlmVotingService` consensus logic, research-pipeline services, repository guard rails. | — |
+| `IdiotProof.Brokers.Tests` | NUnit | BrokerRouter Sandbox-default + safe fallback, Sandbox fill simulation, Sandbox synthetic options chain, Alpaca options wire format against canned responses (`OptionsBrokerTests`). | — |
+| `IdiotProof.Blazor.Tests` | NUnit | `StrategyScriptGenerator` verb-catalog reflection, `LlmVotingService` consensus logic, research-pipeline services (incl. `IndexEventScannerTests`), repository guard rails. | — |
 | `IdiotProof.Monitor.Tests` | NUnit | `PremarketFadeScanner`. | — |
 | `tests/IdiotProof.Cypress` | Cypress 13 | End-to-end Blazor UI tests (7 specs). | — |
 
@@ -599,6 +599,7 @@ Identity) and EF Core 10 against SQL Server. Verified pages under `Components/Pa
 | `Gapper.razor` | Queue/dial-in gapper strategies; "From a transcript" free-text extraction via `GapperInterpreter`. |
 | `Learn.razor` | The Learning Center — seeded articles with inline live-rendered strategy examples via `[[...]]` wikilinks (`WikilinkParser`, `<WikiContent>`). |
 | `Research.razor` | Ranked "Today's High-Impact Events" feed over `ResearchScanner` output; collapsed Advanced panel for the older manual ticker/paste flow. |
+| `Options.razor` | **Manual options section** (`/options`, [IP-A33](docs/AMENDMENTS.md#IP-A33) / RFC 0004) — deliberately separate from the strategy pipeline. Sandbox / Paper / Live account switch, options chain (CALLS \| strike \| PUTS) with a per-cell **breakeven** and **real-vs-hype** (intrinsic vs extrinsic) meter, a plain-English order ticket, open option positions with a real/hype split bar and an informational "extrinsic near its high + bullish news → consider taking profit" callout. Live orders reuse the 5-minute password elevation; the ticket locks itself while Alpaca reports `option_trading_level = 0`. Composes RCL components from `IdiotProof.UI`; host logic in `Services/OptionsTradingService.cs`. |
 | `Backtest.razor` | Backtest UI (stub-level per the bible's active frontier — see [§17](#17-known-gaps-and-roadmap)). |
 | `ActivityLog.razor` | Audit trail viewer. |
 | `ApiKeys.razor` | Per-user broker/data key entry, live-mode danger modal. |
@@ -642,21 +643,26 @@ from the shared MindAttic broker keyring, overlaid onto `AppSettings` at startup
 Class Library" — `IdiotProof.Blazor` and `IdiotProof.Maui` are meant to render the *same*
 `IdiotProof.UI` components, never a forked copy of a page per host.
 
-**Verified current state (read directly from both projects' source trees):** both
-`IdiotProof.Maui` and `IdiotProof.UI` are, today, the unmodified default templates scaffolded by
-`dotnet new maui-blazor` / `dotnet new razorclasslib`:
+**Verified current state (read directly from both projects' source trees):**
 
-- `IdiotProof.Maui/Components/Pages/` contains only `Home.razor`, `Counter.razor`, `Weather.razor`,
-  `NotFound.razor` — the stock MAUI Blazor Hybrid sample pages. `NavMenu.razor` links only to
-  Home/Counter/Weather.
-- `IdiotProof.UI/` contains only `Component1.razor` + `ExampleJsInterop.cs` — the stock RCL
-  template output.
+- `IdiotProof.UI` has its first real occupants ([IP-A33](docs/AMENDMENTS.md#IP-A33), 2026-09-05):
+  the Options section's components under `Components/Options/` (`OptionsChainView`,
+  `OptionOrderTicket`, `OptionPositionTracker`, `OptionsLiveElevationModal`, plus
+  `OptionsPresenter` and the view-model records) and `wwwroot/css/options.css`. The RCL references
+  only `IdiotProof.Models`, `IdiotProof.Brokers`, and `IdiotProof.Shared` — never a host — and its
+  components are presentational (data in via parameters, actions out via `EventCallback`s).
+  `IdiotProof.Blazor` now has a `ProjectReference` to it and composes those components from the
+  thin host page `Components/Pages/Options.razor`. The RCL template files (`Component1.razor`,
+  `ExampleJsInterop.cs`) were removed.
+- `IdiotProof.Maui/Components/Pages/` still contains only `Home.razor`, `Counter.razor`,
+  `Weather.razor`, `NotFound.razor` — the stock MAUI Blazor Hybrid sample pages. `NavMenu.razor`
+  links only to Home/Counter/Weather. The MAUI host has **not** been wired to the Options
+  components (MAUI is deferred; the auth story there is unsolved).
 
-Both projects build and are registered in `IdiotProof.slnx`, so the solution-level plumbing for
-the dual-host architecture is in place, but **no real IdiotProof page (Strategies, Gapper,
-Learn, ...) has been moved into `IdiotProof.UI` or is reachable from the MAUI shell yet.** Treat
-`IdiotProof.Maui` as a scaffold proving the hosting model compiles, not as a usable desktop client
-today. This is the natural next step for anyone picking up IP-A28's follow-through.
+Both projects build and are registered in `IdiotProof.slnx`. The dual-host plumbing now carries
+one real feature on the Blazor side; the Strategies/Gapper/Learn pages have not been moved into
+the RCL, and nothing is reachable from the MAUI shell yet. Treat `IdiotProof.Maui` as a scaffold
+proving the hosting model compiles, not as a usable desktop client today.
 
 ---
 
@@ -963,9 +969,20 @@ than by line number; after editing canon, run `powershell -File tools/codex.ps1 
 
 Verified, in-code or in-canon items worth knowing about before you build on top of this system:
 
-- **The MAUI dual-host story is scaffolding only.** `IdiotProof.Maui` and `IdiotProof.UI` are both
-  still the default project templates — see [§9](#9-the-maui-desktop-shell-and-the-shared-ui-library).
-  The rule in `CLAUDE.md` (never fork a page between hosts) has nothing shared to enforce yet.
+- **The MAUI half of the dual-host story is scaffolding only.** `IdiotProof.UI` now holds the
+  Options components, but `IdiotProof.Maui` is still the default template and doesn't render them —
+  see [§9](#9-the-maui-desktop-shell-and-the-shared-ui-library).
+- **Options are manual-only (Phase 1, [IP-A33](docs/AMENDMENTS.md#IP-A33)).** No option legs in
+  the strategy schema, no IV/Greeks conditions, no options-aware `RiskGuardian` math, no
+  multi-leg spreads — the Monitor never fires an options order. The Alpaca account's
+  `option_trading_level` was unconfirmed when the section shipped, so a real paper round-trip
+  (IP-US-U10) is still open; the ticket locks itself on Alpaca modes until approval and Sandbox
+  serves a synthetic chain in the meantime. `sp-index-events.json` is hand-maintained.
+- **`dotnet run` on `IdiotProof.Blazor` needs a `wwwroot` folder next to the built exe.**
+  `Program.cs` mounts a `PhysicalFileProvider` on `AppContext.BaseDirectory/wwwroot` (so a
+  published exe serves its own static files), which throws `DirectoryNotFoundException` on a plain
+  Debug build where that folder doesn't exist. Run from a publish output, or create the folder
+  (`bin/Debug/net10.0/wwwroot`) before `dotnet run`.
 - **Shorts are signal-only.** A short candidate can clear both gates and gets recorded
   (`RecordFiredAsync`/`RecordEntryFillAsync`), but no order is placed — the exit-management brain
   (`GapperExitEvaluator`) is long-shaped. Order placement for shorts is future work.

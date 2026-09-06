@@ -4,7 +4,7 @@ project: IdiotProof
 code: IP
 layer: stories
 status: living
-updated: 2026-07-20
+updated: 2026-09-05
 counts: {done: 27, partial: 22, planned: 17, cut: 0}
 ---
 
@@ -286,6 +286,46 @@ counts: {done: 27, partial: 22, planned: 17, cut: 0}
   Realized/Disproven against its Bullish/Bearish call. Proven by `OutcomeBackfillServiceTests`
   and a real backfill run against live Alpaca price data (MSFT/AAPL examples in
   [IP-A32](AMENDMENTS.md#IP-A32)).
+
+## Epic U — Options: buy the idea, sell the hype {#Epic-U}
+> Manual single-leg calls and puts on the user's Alpaca account, presented so the premium cost,
+> breakeven, and the intrinsic ("real") vs extrinsic ("hype") split are never mental math.
+> Separate `/options` section, not the Stock Strategy pipeline (RFC 0004 /
+> [IP-A33](AMENDMENTS.md#IP-A33)). Phase 1 is manual: no DSL, Monitor, or RiskGuardian involvement.
+- **IP-US-U1 ✅** As a trader, any OCC option symbol (`BE251219C00038000`) is decoded into
+  underlying / expiration / right / strike for me — and built back — so I never read one by hand.
+  See `OptionContractOccTests`.
+- **IP-US-U2 ✅** As a trader, every contract shows its real (intrinsic) value, its hype (extrinsic)
+  value in $ and % of premium, its breakeven if held to expiration, days to expiration, and
+  moneyness, computed from the live premium. See `IntrinsicValueCalculatorTests`.
+- **IP-US-U3 ✅** As a trader, I get a Black-Scholes fair value and an implied volatility even when
+  the broker doesn't supply Greeks — solved locally, badged `Model`, textbook-verified, with the
+  European-exercise/no-dividend simplifications documented. See `BlackScholesCalculatorTests`.
+- **IP-US-U4 ✅** As a trader, the Alpaca options wire format is right before it's ever sent:
+  OCC symbol, whole contracts (notional rejected), DAY, no extended hours, Market/Limit only;
+  chains page through `next_page_token`; snapshots come from the data host with Greeks/IV left
+  null when Alpaca omits them; `us_option` positions decode into contracts. See `AlpacaOptionsWireTests`.
+- **IP-US-U5 ✅** As a trader without options approval yet, the Sandbox account serves a realistic
+  synthetic chain and fills contracts (× 100) into the position book so I can practise the whole
+  flow today. See `SandboxOptionsTests`.
+- **IP-US-U6 🟡** As a trader, the `/options` page shows CALLS | strike | PUTS with a colour-ramped
+  hype meter per cell, a ticket that spells out "you're buying 2 BE $38 calls for about $1,900; $500
+  of that is hype; breakeven $47.50 — you don't have to get there", and my open option positions
+  with a real/hype split bar. Built (`OptionsChainView`, `OptionOrderTicket`,
+  `OptionPositionTracker`, `Options.razor`); no Cypress spec yet.
+- **IP-US-U7 ✅** As a trader holding a long option, I'm told when extrinsic value is near its
+  recent high AND the research tape is bullish on the underlying — "consider taking profit" —
+  informationally, never as an auto-sell. See `SellSignalEvaluatorTests`.
+- **IP-US-U8 🟡** As a trader, a Live options order requires the same 5-minute password elevation
+  as promoting a strategy to Live, and the ticket locks itself with an explanation while Alpaca
+  reports `option_trading_level = 0`. Built (`OptionsLiveElevationModal`, `Options.razor`); not
+  yet proven by a test.
+- **IP-US-U9 ✅** As a trader, an announced S&P 500/100 addition or deletion I log in
+  `sp-index-events.json` shows up in the Research feed as an `IndexEvent` claim (Bullish for a
+  joiner, Bearish for a leaver), Pending until the effective date and then Realized, without
+  duplicates on later passes. See `IndexEventScannerTests`.
+- **IP-US-U10 ⬜** As a trader, a small paper options order round-trips against my real Alpaca
+  paper account. Blocked on options approval for the account (`option_trading_level > 0`).
 
 ## Epic E — Authoring & generation (web)
 - **IP-US-E1 🟡** As a trader, I describe a setup in prose and Claude generates valid IdiotScript

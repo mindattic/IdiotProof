@@ -4,7 +4,7 @@ project: IdiotProof
 code: IP
 layer: bible
 status: living
-updated: 2026-07-19
+updated: 2026-09-05
 ---
 
 # IdiotProof — Project Bible
@@ -111,9 +111,10 @@ once momentum rolls over.
 | `IdiotProof.Strategies` | `IStrategy` + `DslStrategy` adapter + `IndicatorSnapshotBuilder` + `GapperExitEvaluator` (sell-off brain) + `StrategyBacktester`/`BacktestReport`. |
 | `IdiotProof.Indicators` | Pure indicator math: ADX, ATR, Bollinger, CCI, EMA, MACD, OBV, RSI, SMA, Stochastic, VWAP, WilliamsR, `CandlestickPatterns`. |
 | `IdiotProof.DataFeeds` | `IMarketDataFeed` (+ `GetPreviousCloseAsync` for gap math): `AlpacaDataFeed` (REST, sip→iex auto-downgrade), `AlpacaStreamingClient` (websocket trades + minute bars), `PolygonDataFeed`, `MockDataFeed` (deterministic premarket-gap simulation), `SwitchableMarketDataFeed`. |
-| `IdiotProof.Brokers` | `IBrokerClient` + `AlpacaBrokerClient` + `SandboxBrokerClient` + `BrokerRouter`. |
-| `IdiotProof.Models` | Domain DTOs/enums (the nouns, see 4.2). |
-| `IdiotProof.Shared` | `RiskGuardian` + `RiskGuardianConfig`/`Result`, `IndicatorSnapshot`, `LogMessage`, `SettingsMetadata`. |
+| `IdiotProof.Brokers` | `IBrokerClient` + `AlpacaBrokerClient` + `SandboxBrokerClient` + `BrokerRouter`. Options-aware since [IP-A33](AMENDMENTS.md#IP-A33): contract catalog, data-host snapshots (Greeks/IV), single-leg option orders, `us_option` positions; Sandbox serves a synthetic chain. |
+| `IdiotProof.Models` | Domain DTOs/enums (the nouns, see 4.2) — incl. `AssetClass`, `OptionContract` (OCC), `OptionQuote`. |
+| `IdiotProof.Shared` | `RiskGuardian` + `RiskGuardianConfig`/`Result`, `IndicatorSnapshot`, `LogMessage`, `SettingsMetadata`, and `Options/` (pure math: `IntrinsicValueCalculator`, `BlackScholesCalculator`, `SellSignalEvaluator`). |
+| `IdiotProof.UI` | Shared Razor Class Library ([IP-A28](AMENDMENTS.md#IP-A28)) rendered identically by every host. First occupants ([IP-A33](AMENDMENTS.md#IP-A33)): the Options section's `OptionsChainView`, `OptionOrderTicket`, `OptionPositionTracker`, `OptionsLiveElevationModal`. Presentational only — depends on Models/Brokers/Shared, never on a host. |
 | `IdiotProof.ResearchScanner` | One-shot, Scheduled-Task-fired console app (IP-A32 / RFC 0003) — sweeps EDGAR/Alpaca/Federal-Register for market-moving events across the tracked ticker universe, scores significance, writes to the shared DB. Not a daemon; not part of the Monitor's trading loop. |
 
 ### 4.2 Domain model — the NOUNS (`IdiotProof.Models`, `IdiotProof.Shared`)
@@ -260,6 +261,13 @@ registered in `Program.cs` intercepts Legion calls server-side) but need a live 
 graduate stories E1–E6 to ✅.
 
 ## 7. Active frontier {#IP-§7}
+- **Options, Phase 2 (after [IP-A33](AMENDMENTS.md#IP-A33))** — a real paper round-trip once the
+  Alpaca account's `option_trading_level` is approved (IP-US-U10); a `/options` Cypress spec to
+  graduate IP-US-U6/U8; extract the duplicated Live elevation modal into one shared RCL
+  component; then the automation questions the manual phase deliberately skipped — option legs
+  in the strict-JSON strategy schema (v2), IV/Greeks conditions in the `Conditions` catalog, and
+  a non-linear `RiskGuardian` model (max loss = premium for long options) before the Monitor is
+  ever allowed to fire an options order. Multi-leg spreads (`order_class: "mleg"`) after that.
 - **Gapper hardening (Epic K tail)** — full-day integration test through the Monitor
   (mock gap day: queue → 4AM fire → hold → rollover sell), `/gapper` Cypress spec, short-side
   position management, fill-price reconciliation against the broker's actual fill (entry is
@@ -333,3 +341,21 @@ underscore fields). Anything not proven by a test is `🟡`/`⬜`. (Inherits [HO
   Research tab's ranked feed sorts by it.
 - **Tracked ticker** — a cached row in `TrackedTicker` (symbol, exchange, latest price) forming
   the research scanner's ticker universe; refreshed daily from Alpaca's asset list.
+- **OCC symbol** — the exchange-standard option identifier (`BE251219C00038000` = BE, 2025-12-19,
+  Call, $38.00): root + `YYMMDD` + `C|P` + strike×1000 zero-padded to 8. Self-describing; decoded
+  by `OptionContract.ParseOcc`.
+- **Intrinsic value** — what an option is worth if exercised right now: `max(0, S−K)` for a call,
+  `max(0, K−S)` for a put. The "real" part of the premium.
+- **Extrinsic value (hype / time value)** — premium minus intrinsic: what the market pays for the
+  *possibility* of a move. Inflates when the stock runs, decays to zero by expiration. Selling the
+  contract while it is high is the trade; it is what evaporates if you wait for reality.
+- **Breakeven** — the underlying price at expiration where the trade nets zero (`K + premium` for
+  a call, `K − premium` for a put). Only matters if you hold to expiration.
+- **DTE** — calendar days to expiration.
+- **IV (implied volatility)** — the volatility that makes the Black-Scholes price equal the live
+  premium; supplied by Alpaca's snapshots when available, otherwise solved locally and badged `Model`.
+- **Sell signal** — `SellSignalEvaluator`'s informational nudge on an open long option: extrinsic
+  value within 5% of its observed high **and** a Bullish research claim on the underlying in the
+  last 7 days → "consider taking profit". Never places anything.
+- **Index event** — a `ResearchClaim` with `ClaimType = "IndexEvent"`: an announced S&P 500/100
+  addition or deletion logged in `wwwroot/data/sp-index-events.json`, Pending until effective.
