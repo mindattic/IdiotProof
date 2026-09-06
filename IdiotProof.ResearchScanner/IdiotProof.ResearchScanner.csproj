@@ -21,6 +21,8 @@
     <!-- Legion voter-panel config (repo root) — same reasoning as IdiotProof.Monitor.csproj:
          a deployed host has no repo checkout, so ship the file with the binaries. -->
     <Content Include="..\legion.json" Link="legion.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <!-- Hand-maintained S&P index add/delete log read by IndexEventScanner (single source: the web host's wwwroot copy). -->
+    <Content Include="..\IdiotProof.Blazor\wwwroot\data\sp-index-events.json" Link="data\sp-index-events.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>
 
   <ItemGroup>

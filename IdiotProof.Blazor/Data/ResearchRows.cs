@@ -24,7 +24,11 @@ public sealed class ResearchClaim
 
     [MaxLength(500)] public string ClaimSummary { get; set; } = "";
 
-    /// <summary>Earnings | Contract | Insider | MA | Guidance | Regulatory | News</summary>
+    /// <summary>
+    /// Earnings | Contract | Insider | MA | Guidance | Regulatory | News | IndexEvent
+    /// (IndexEvent = an announced S&amp;P 500 / S&amp;P 100 addition or deletion, written by
+    /// <c>IndexEventScanner</c> from <c>data/sp-index-events.json</c>.)
+    /// </summary>
     [MaxLength(50)] public string ClaimType { get; set; } = "News";
 
     /// <summary>Bullish | Bearish | Neutral</summary>

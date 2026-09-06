@@ -1,0 +1,48 @@
+{
+  "_readme": [
+    "Announced S&P 500 / S&P 100 constituent changes, hand-maintained (IP-LAW-7: static data is JSON).",
+    "S&P Dow Jones Indices publishes no free API, so YOU log each change here when it is announced —",
+    "IndexEventScanner turns every entry into a ResearchClaim (ClaimType = IndexEvent) on its next pass",
+    "and flips it from Pending to Realized once effectiveDate passes. Entries are idempotent: edit freely.",
+    "Fields: ticker, index (SP500|SP100), action (Add|Remove), announcedDate (yyyy-MM-dd),",
+    "effectiveDate (yyyy-MM-dd or null when TBA), sourceUrl (press release; null lowers source trust), note."
+  ],
+  "events": [
+    {
+      "ticker": "BE",
+      "index": "SP500",
+      "action": "Add",
+      "announcedDate": "2026-09-05",
+      "effectiveDate": null,
+      "sourceUrl": null,
+      "note": "Bloom Energy joining the S&P 500 (from trading-desk chat 2026-09-05 — verify against the S&P DJI press release and fill in effectiveDate/sourceUrl)."
+    },
+    {
+      "ticker": "ILMN",
+      "index": "SP500",
+      "action": "Add",
+      "announcedDate": "2026-09-05",
+      "effectiveDate": null,
+      "sourceUrl": null,
+      "note": "Illumina joining the S&P 500 (from trading-desk chat 2026-09-05 — verify and fill in effectiveDate/sourceUrl)."
+    },
+    {
+      "ticker": "SPG",
+      "index": "SP100",
+      "action": "Add",
+      "announcedDate": "2026-09-05",
+      "effectiveDate": null,
+      "sourceUrl": null,
+      "note": "Simon Property Group joining the S&P 100 (from trading-desk chat 2026-09-05 — verify)."
+    },
+    {
+      "ticker": "SNDK",
+      "index": "SP100",
+      "action": "Add",
+      "announcedDate": "2026-09-05",
+      "effectiveDate": null,
+      "sourceUrl": null,
+      "note": "Sandisk joining the S&P 100 (from trading-desk chat 2026-09-05 — verify)."
+    }
+  ]
+}

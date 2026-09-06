@@ -214,6 +214,7 @@ builder.Services.AddScoped<ResearchService>();
 builder.Services.AddScoped<TickerUniverseService>();
 builder.Services.AddScoped<CorporateActionDetector>();
 builder.Services.AddScoped<RegulatoryScanner>();
+builder.Services.AddScoped<IndexEventScanner>();
 builder.Services.AddScoped<SignificanceScorer>();
 builder.Services.AddScoped<OutcomeBackfillService>();
 builder.Services.AddSingleton<LiveModeElevationService>();

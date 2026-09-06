@@ -76,6 +76,7 @@ builder.Services.AddScoped<TickerUniverseService>();
 builder.Services.AddScoped<Form4Parser>();
 builder.Services.AddScoped<CorporateActionDetector>();
 builder.Services.AddScoped<RegulatoryScanner>();
+builder.Services.AddScoped<IndexEventScanner>();
 builder.Services.AddScoped<SignificanceScorer>();
 
 using var host = builder.Build();

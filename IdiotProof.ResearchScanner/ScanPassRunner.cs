@@ -122,6 +122,23 @@ public sealed class ScanPassRunner(IServiceProvider services, ILogger logger)
             scanRun.ErrorCount++;
         }
 
+        // Index add/delete log (data/sp-index-events.json) → IndexEvent claims. Cheap file
+        // read, so every pass; the scanner itself is idempotent.
+        try
+        {
+            var indexCount = await sp.GetRequiredService<IndexEventScanner>().ScanAsync(ct);
+            if (indexCount > 0)
+            {
+                scanRun.ClaimsFound += indexCount;
+                scanRun.Notes = (scanRun.Notes ?? "") + $" index-events (+{indexCount})";
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Index-event scan failed — continuing");
+            scanRun.ErrorCount++;
+        }
+
         // Backfill realized price outcomes BEFORE scoring — this is what gives
         // SignificanceScorer's historical-correlation and source-trust bonuses
         // real data to read instead of sitting at zero forever.
