@@ -13,7 +13,7 @@
             {
                 <span data-cy="opt-positions-updated">Updated @LastRefreshLabel</span>
             }
-            <button type="button" class="btn btn-sm btn-outline-secondary" disabled="@Loading" @onclick="() => OnRefresh.InvokeAsync()" aria-label="Refresh positions" title="Refresh positions (they also refresh every 20 seconds)" data-cy="opt-positions-refresh">
+            <button type="button" class="btn btn-sm btn-outline-secondary" disabled="@Loading" @onclick="() => OnRefresh.InvokeAsync()" aria-label="Refresh positions" data-tooltip="Refresh positions (they also refresh every 20 seconds)" data-cy="opt-positions-refresh">
                 <i class="bi bi-arrow-clockwise @(Loading ? "spin" : "")" aria-hidden="true"></i>
             </button>
         </div>
@@ -56,24 +56,24 @@
                             <td>
                                 <div class="fw-semibold">
                                     @c.UnderlyingSymbol <span class="opt-mono">$@c.Strike.ToString("0.##")</span>
-                                    <span class="badge @(c.Right == OptionRight.Call ? "opt-badge-call" : "opt-badge-put")" title="@OptionsGlossary.Hint(c.Right == OptionRight.Call ? "call" : "put")">@c.Right.ToString().ToUpperInvariant()</span>
+                                    <span class="badge @(c.Right == OptionRight.Call ? "opt-badge-call" : "opt-badge-put")" data-tooltip="@OptionsGlossary.Hint(c.Right == OptionRight.Call ? "call" : "put")">@c.Right.ToString().ToUpperInvariant()</span>
                                     @if (!isLong)
                                     {
-                                        <span class="badge bg-danger ms-1" title="@OptionsGlossary.Hint("sell-to-open")">SHORT</span>
+                                        <span class="badge bg-danger ms-1" data-tooltip="@OptionsGlossary.Hint("sell-to-open")">SHORT</span>
                                     }
                                 </div>
                                 <div class="small text-muted">@c.Expiration.ToString("MMM d, yyyy")@(p.UnderlyingPrice is { } u ? $" · {c.UnderlyingSymbol} at {OptionsPresenter.Money(u)}" : "")</div>
                                 @if (p.IsWarmingUp)
                                 {
-                                    <div class="opt-watching" data-cy="opt-watching" title="@OptionsGlossary.Hint("sell-signal")">
+                                    <div class="opt-watching" data-cy="opt-watching" data-tooltip="@OptionsGlossary.Hint("sell-signal")">
                                         <i class="bi bi-eye me-1" aria-hidden="true"></i>Watching the hype level — @p.Observations/@SellSignalEvaluator.MinObservations samples before the sell nudge can fire.
                                     </div>
                                 }
                             </td>
                             <td class="text-end opt-mono" data-cy="opt-position-qty">@p.Position.Quantity.ToString("+0;-0")</td>
-                            <td class="text-end opt-mono" title="@($"{OptionsPresenter.Money(p.Position.AveragePrice * c.Multiplier)} per contract")">@OptionsPresenter.Money(p.Position.AveragePrice)</td>
-                            <td class="text-end opt-mono" title="@(p.Mid is { } nm ? $"{OptionsPresenter.Money(nm * c.Multiplier)} per contract" : OptionsGlossary.Hint("now"))">@OptionsPresenter.Money(p.Mid)</td>
-                            <td class="text-end opt-mono @pnlClass" title="@($"Cost {OptionsPresenter.Money(p.CostBasis)} → now {OptionsPresenter.Money(p.MarketValueNow)}. Unrealised until you close.")">
+                            <td class="text-end opt-mono" data-tooltip="@($"{OptionsPresenter.Money(p.Position.AveragePrice * c.Multiplier)} per contract")">@OptionsPresenter.Money(p.Position.AveragePrice)</td>
+                            <td class="text-end opt-mono" data-tooltip="@(p.Mid is { } nm ? $"{OptionsPresenter.Money(nm * c.Multiplier)} per contract" : OptionsGlossary.Hint("now"))">@OptionsPresenter.Money(p.Mid)</td>
+                            <td class="text-end opt-mono @pnlClass" data-tooltip="@($"Cost {OptionsPresenter.Money(p.CostBasis)} → now {OptionsPresenter.Money(p.MarketValueNow)}. Unrealised until you close.")">
                                 @OptionsPresenter.Money(pnl)
                                 @if (p.UnrealizedPnlPercent is { } pct)
                                 {
@@ -84,7 +84,7 @@
                                 @if (b is { } && b.Premium > 0m)
                                 {
                                     var realPct = 100m - b.ExtrinsicPercent;
-                                    <div class="opt-split-bar" title="@($"Real {OptionsPresenter.Money(b.Intrinsic)} / hype {OptionsPresenter.Money(b.Extrinsic)} per share. {OptionsGlossary.Hint("hype")}")">
+                                    <div class="opt-split-bar" data-tooltip="@($"Real {OptionsPresenter.Money(b.Intrinsic)} / hype {OptionsPresenter.Money(b.Extrinsic)} per share. {OptionsGlossary.Hint("hype")}")">
                                         <span class="opt-split-real" style="width:@(realPct.ToString("0", System.Globalization.CultureInfo.InvariantCulture))%"></span>
                                         <span class="opt-split-hype hype-@OptionsPresenter.HypeBucket(b.ExtrinsicPercent)" style="width:@(b.ExtrinsicPercent.ToString("0", System.Globalization.CultureInfo.InvariantCulture))%"></span>
                                     </div>
@@ -95,11 +95,11 @@
                                     <span class="text-muted">—</span>
                                 }
                             </td>
-                            <td class="text-end opt-mono" title="@OptionsGlossary.Hint("dte")">@(b?.DaysToExpiration.ToString() ?? IntrinsicValueCalculator.DaysToExpiration(c.Expiration, Today).ToString())</td>
-                            <td class="text-end opt-mono" title="@OptionsGlossary.Hint("iv-source")">@OptionsPresenter.Iv(p.ImpliedVolatility)@if (p.ImpliedVolatility is { }) { <text> </text><span class="badge opt-badge opt-badge-xs">@p.IvSource</span> }</td>
+                            <td class="text-end opt-mono" data-tooltip="@OptionsGlossary.Hint("dte")">@(b?.DaysToExpiration.ToString() ?? IntrinsicValueCalculator.DaysToExpiration(c.Expiration, Today).ToString())</td>
+                            <td class="text-end opt-mono" data-tooltip="@OptionsGlossary.Hint("iv-source")">@OptionsPresenter.Iv(p.ImpliedVolatility)@if (p.ImpliedVolatility is { }) { <text> </text><span class="badge opt-badge opt-badge-xs">@p.IvSource</span> }</td>
                             <td class="text-end">
                                 <button type="button" class="btn btn-sm btn-outline-warning" data-cy="opt-close" @onclick="() => OnClose.InvokeAsync(p)"
-                                        title="@(isLong ? "Pre-fill the ticket to SELL these contracts and cash in" : "Pre-fill the ticket to BUY BACK the contracts you wrote")">
+                                        data-tooltip="@(isLong ? "Pre-fill the ticket to SELL these contracts and cash in" : "Pre-fill the ticket to BUY BACK the contracts you wrote")">
                                     Close
                                 </button>
                             </td>

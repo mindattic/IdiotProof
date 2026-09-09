@@ -4,7 +4,7 @@
 
 @if (AlertSvc.UnreadErrorCount > 0)
 {
-    <span class="logs-badge" title="@AlertSvc.UnreadErrorCount unread error@(AlertSvc.UnreadErrorCount == 1 ? "" : "s")">@AlertSvc.UnreadErrorCount</span>
+    <span class="logs-badge" tabindex="0" data-tooltip="@AlertSvc.UnreadErrorCount unread error@(AlertSvc.UnreadErrorCount == 1 ? "" : "s")">@AlertSvc.UnreadErrorCount</span>
 }
 
 @code {

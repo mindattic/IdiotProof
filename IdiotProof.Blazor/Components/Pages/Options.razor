@@ -67,9 +67,9 @@
             <div class="col-md-4">
                 <label class="form-label small mb-1">Account</label>
                 <div class="btn-group w-100 opt-mode" role="group" aria-label="Which account to trade">
-                    <button type="button" data-cy="opt-mode-sandbox" class="btn btn-sm btn-outline-secondary @(mode == OptionsBrokerMode.Sandbox ? "active-sandbox" : "")" disabled="@placing" title="@OptionsGlossary.Hint("sandbox")" @onclick="() => SwitchModeAsync(OptionsBrokerMode.Sandbox)">Sandbox</button>
-                    <button type="button" data-cy="opt-mode-paper" class="btn btn-sm btn-outline-secondary @(mode == OptionsBrokerMode.Paper ? "active-paper" : "")" disabled="@placing" title="@OptionsGlossary.Hint("paper")" @onclick="() => SwitchModeAsync(OptionsBrokerMode.Paper)">Paper</button>
-                    <button type="button" data-cy="opt-mode-live" class="btn btn-sm btn-outline-secondary @(mode == OptionsBrokerMode.Live ? "active-live" : "")" disabled="@placing" title="@OptionsGlossary.Hint("live")" @onclick="() => SwitchModeAsync(OptionsBrokerMode.Live)">Live</button>
+                    <button type="button" data-cy="opt-mode-sandbox" class="btn btn-sm btn-outline-secondary @(mode == OptionsBrokerMode.Sandbox ? "active-sandbox" : "")" disabled="@placing" data-tooltip="@OptionsGlossary.Hint("sandbox")" @onclick="() => SwitchModeAsync(OptionsBrokerMode.Sandbox)">Sandbox</button>
+                    <button type="button" data-cy="opt-mode-paper" class="btn btn-sm btn-outline-secondary @(mode == OptionsBrokerMode.Paper ? "active-paper" : "")" disabled="@placing" data-tooltip="@OptionsGlossary.Hint("paper")" @onclick="() => SwitchModeAsync(OptionsBrokerMode.Paper)">Paper</button>
+                    <button type="button" data-cy="opt-mode-live" class="btn btn-sm btn-outline-secondary @(mode == OptionsBrokerMode.Live ? "active-live" : "")" disabled="@placing" data-tooltip="@OptionsGlossary.Hint("live")" @onclick="() => SwitchModeAsync(OptionsBrokerMode.Live)">Live</button>
                 </div>
                 @if (resolution?.FallbackReason is { } why)
                 {
@@ -82,7 +82,7 @@
                         <Jargon Term="level">@OptionsGlossary.LevelChip(tradingLevel)</Jargon>
                         @if (optionsAccount.OptionsBuyingPower is { } obp)
                         {
-                            <span class="ms-1" title="Options buying power — what Alpaca will let you spend on options right now">· can spend <span class="opt-mono">@OptionsPresenter.Money(obp)</span></span>
+                            <span class="ms-1" data-tooltip="Options buying power — what Alpaca will let you spend on options right now">· can spend <span class="opt-mono">@OptionsPresenter.Money(obp)</span></span>
                         }
                     </div>
                 }

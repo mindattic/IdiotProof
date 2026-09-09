@@ -164,8 +164,8 @@
                         @if (visibleCols.Contains("price")) { <th class="text-end" style="white-space:nowrap">Price</th> }
                         @if (visibleCols.Contains("state")) { <th style="white-space:nowrap">State</th> }
                         @if (visibleCols.Contains("pnl"))   { <th class="text-end" style="white-space:nowrap">P&amp;L %</th> }
-                        @if (visibleCols.Contains("sl"))    { <th class="text-end" style="white-space:nowrap">SL</th> }
-                        @if (visibleCols.Contains("tp"))    { <th class="text-end" style="white-space:nowrap">TP</th> }
+                        @if (visibleCols.Contains("sl"))    { <th class="text-end" style="white-space:nowrap"><Term Hint="Stop loss — the price or % move against the trade that closes the position to cut a loss.">SL</Term></th> }
+                        @if (visibleCols.Contains("tp"))    { <th class="text-end" style="white-space:nowrap"><Term Hint="Take profit — the price target(s) where the position scales out.">TP</Term></th> }
                         @if (visibleCols.Contains("cond"))  { <th class="text-center" style="white-space:nowrap">Conditions</th> }
                         @if (visibleCols.Contains("age"))   { <th style="white-space:nowrap">Updated</th> }
                         <th>Title</th>
@@ -198,7 +198,7 @@
                                 <button type="button"
                                         class="btn btn-sm py-0 @BrokerModeClass(s.BrokerMode)"
                                         style="font-size:.65rem;min-width:46px;line-height:1.3"
-                                        title="@BrokerModeTitle(s.BrokerMode)"
+                                        data-tooltip="@BrokerModeTitle(s.BrokerMode)"
                                         data-cy="broker-mode-btn"
                                         @onclick="() => ToggleBrokerModeAsync(s)">
                                     @s.BrokerMode
@@ -237,7 +237,7 @@
                                     {
                                         var fullPass = p.IsFullPass;
                                         <span class="@(fullPass ? "badge bg-success" : "badge bg-secondary")"
-                                              title="Last evaluated @EasternTime.Format(p.EvaluatedUtc, "HH:mm:ss 'ET'")">
+                                              data-tooltip="Last evaluated @EasternTime.Format(p.EvaluatedUtc, "HH:mm:ss 'ET'")">
                                             @p.PassedCount/@p.TotalCount
                                             @if (!fullPass && !string.IsNullOrEmpty(p.FirstFailingVerb))
                                             {
@@ -262,7 +262,7 @@
                                 <td class="text-muted" style="font-size:0.8rem">@TableAgeStr(row.LastPriceUtc)</td>
                             }
                             <td style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"
-                                title="@s.Title" class="text-muted">@s.Title</td>
+                                data-tooltip="@s.Title" class="text-muted">@s.Title</td>
                             <td @onclick:stopPropagation @onkeydown:stopPropagation>
                                 <div class="d-flex gap-1 align-items-center">
                                     <div class="form-check form-switch m-0" style="min-width:60px">
@@ -285,7 +285,7 @@
                                     {
                                         <button class="btn btn-sm btn-outline-success py-0" type="button"
                                                 aria-label="Chart for @s.Title"
-                                                title="Real-time price chart (not the broker mode — see the Paper/Live badge)"
+                                                data-tooltip="Real-time price chart (not the broker mode — see the Paper/Live badge)"
                                                 @onclick="@(() => Nav.NavigateTo($"/live/{s.Id}"))">
                                             <i class="bi bi-graph-up-arrow" aria-hidden="true"></i>
                                         </button>

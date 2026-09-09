@@ -156,7 +156,7 @@
             </button>
             <button class="btn btn-success ms-auto" type="button"
                     disabled="@(!CanQueue)"
-                    title="@(ActiveGapperCount >= MaxGappers ? "3 gappers already queued — remove one first" : null)"
+                    data-tooltip="@(ActiveGapperCount >= MaxGappers ? "3 gappers already queued — remove one first" : null)"
                     @onclick="QueueGapper">
                 <i class="bi bi-plus-circle me-1" aria-hidden="true"></i>Queue Gapper
             </button>
@@ -173,7 +173,7 @@
                         <input class="form-control form-control-sm" type="number" step="0.5" @bind="dial.MinGapPercent" />
                         <label class="form-label small mb-0 mt-2">Max gap % (blank = no cap)</label>
                         <input class="form-control form-control-sm" type="number" step="0.5" @bind="maxGapText" />
-                        <label class="form-label small mb-0 mt-2">Min volume ratio (× average)</label>
+                        <label class="form-label small mb-0 mt-2"><Term Hint="The bar's volume must be at least this many times the recent average — filters out low-conviction gaps.">Min volume ratio</Term> (× average)</label>
                         <input class="form-control form-control-sm" type="number" step="0.1" @bind="dial.MinVolumeRatio" />
                         <div class="d-flex gap-2 mt-2">
                             <div>
@@ -192,18 +192,18 @@
                         <input class="form-control form-control-sm" @bind="dial.EntryWindowStartEt" placeholder="04:00" />
                         <label class="form-label small mb-0 mt-2">Entry window end</label>
                         <input class="form-control form-control-sm" @bind="dial.EntryWindowEndEt" placeholder="09:00" />
-                        <label class="form-label small mb-0 mt-2">Arm sell-off watch at</label>
+                        <label class="form-label small mb-0 mt-2"><Term Hint="The ET clock time the Monitor starts watching for the sell-the-gap momentum-rollover signal.">Arm sell-off watch at</Term></label>
                         <input class="form-control form-control-sm" @bind="dial.ArmExitAtEt" placeholder="09:15" />
-                        <label class="form-label small mb-0 mt-2">Hard sell-by (before 9:30 bell)</label>
+                        <label class="form-label small mb-0 mt-2"><DslTerm Verb="ExitStrategy">Hard sell-by</DslTerm> (before 9:30 bell)</label>
                         <input class="form-control form-control-sm" @bind="dial.SellByEt" placeholder="09:28" />
                     </div>
                     <div class="col-12 col-md-4">
                         <div class="fw-semibold small mb-2"><i class="bi bi-shield-exclamation me-1" aria-hidden="true"></i>Risk &amp; exit</div>
-                        <label class="form-label small mb-0">Stop loss % (below entry)</label>
+                        <label class="form-label small mb-0"><DslTerm Verb="StopLossPercent">Stop loss %</DslTerm> (below entry)</label>
                         <input class="form-control form-control-sm" type="number" step="0.5" @bind="dial.StopLossPercent" />
-                        <label class="form-label small mb-0 mt-2">Trailing stop % (blank = off)</label>
+                        <label class="form-label small mb-0 mt-2"><DslTerm Verb="TrailingStopLoss">Trailing stop %</DslTerm> (blank = off)</label>
                         <input class="form-control form-control-sm" type="number" step="0.5" @bind="trailingText" />
-                        <label class="form-label small mb-0 mt-2">Peak giveback % (of the run)</label>
+                        <label class="form-label small mb-0 mt-2"><DslTerm Verb="PeakGiveback">Peak giveback %</DslTerm> (of the run)</label>
                         <input class="form-control form-control-sm" type="number" step="5" @bind="dial.PeakGivebackPercent" />
                         <label class="form-label small mb-0 mt-2">Position size $ (notional)</label>
                         <input class="form-control form-control-sm" type="number" step="100" @bind="dial.DefaultNotional" />
@@ -347,7 +347,7 @@
                         else if (s.LastExitReason is not null && s.LastExitedUtc is { } exited)
                         {
                             <span class="strategy-chip filter-chip"
-                                  title="Exited @EasternTime.Format(exited, "HH:mm:ss 'ET'")">
+                                  data-tooltip="Exited @EasternTime.Format(exited, "HH:mm:ss 'ET'")">
                                 <i class="bi bi-box-arrow-right" aria-hidden="true"></i>
                                 sold @@ @(s.LastExitPrice?.ToString("F2")) · @s.LastExitReason
                             </span>
@@ -355,7 +355,7 @@
                         else if (s.IsActive && progress.TryGetValue(s.Id, out var p))
                         {
                             <span class="strategy-chip @(p.IsFullPass ? "long-chip" : "filter-chip")"
-                                  title="Last evaluated @EasternTime.Format(p.EvaluatedUtc, "HH:mm:ss 'ET'")">
+                                  data-tooltip="Last evaluated @EasternTime.Format(p.EvaluatedUtc, "HH:mm:ss 'ET'")">
                                 <i class="bi @(p.IsFullPass ? "bi-check-circle-fill" : "bi-hourglass-split")" aria-hidden="true"></i>
                                 @p.PassedCount/@p.TotalCount
                                 @if (!p.IsFullPass && !string.IsNullOrEmpty(p.FirstFailingVerb))
@@ -384,7 +384,7 @@
                             <button class="btn btn-sm btn-outline-danger" type="button"
                                     aria-label="Remove @s.Title"
                                     disabled="@(s.PositionQty > 0)"
-                                    title="@(s.PositionQty > 0 ? "Holding a position — pause instead; the Monitor manages the exit" : "Remove")"
+                                    data-tooltip="@(s.PositionQty > 0 ? "Holding a position — pause instead; the Monitor manages the exit" : "Remove")"
                                     @onclick="() => RemoveGapper(s)">
                                 <i class="bi bi-trash" aria-hidden="true"></i>
                             </button>

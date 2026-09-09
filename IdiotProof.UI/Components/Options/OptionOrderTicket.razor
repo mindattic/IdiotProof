@@ -40,14 +40,14 @@
                 <h2 class="h6 mb-0" data-cy="opt-ticket-title">
                     <i class="bi bi-receipt me-1" style="color:var(--brand)" aria-hidden="true"></i>
                     @c.UnderlyingSymbol <span class="opt-mono">$@c.Strike.ToString("0.##")</span>
-                    <span class="badge @(c.Right == OptionRight.Call ? "opt-badge-call" : "opt-badge-put")" title="@OptionsGlossary.Hint(rightWord)">@c.Right.ToString().ToUpperInvariant()</span>
+                    <span class="badge @(c.Right == OptionRight.Call ? "opt-badge-call" : "opt-badge-put")" data-tooltip="@OptionsGlossary.Hint(rightWord)">@c.Right.ToString().ToUpperInvariant()</span>
                 </h2>
                 <div class="small text-muted">
                     <Jargon Term="expiration">Expires</Jargon> @c.Expiration.ToString("ddd MMM d, yyyy") · <Jargon Term="dte">@dte days</Jargon> · <Jargon Term="contract">1 contract = @c.Multiplier shares</Jargon>
                 </div>
             </div>
             <div class="text-end">
-                <span class="badge @BrokerBadgeClass" title="@OptionsGlossary.Hint(BrokerLabel.ToLowerInvariant())" data-cy="opt-ticket-broker">@BrokerLabel</span>
+                <span class="badge @BrokerBadgeClass" data-tooltip="@OptionsGlossary.Hint(BrokerLabel.ToLowerInvariant())" data-cy="opt-ticket-broker">@BrokerLabel</span>
                 <button type="button" class="btn btn-sm btn-link text-muted p-0 ms-2" @onclick="() => OnClear.InvokeAsync()" aria-label="Clear ticket" data-cy="opt-ticket-clear">
                     <i class="bi bi-x-lg" aria-hidden="true"></i>
                 </button>
@@ -66,9 +66,9 @@
                 <label class="form-label small mb-1">Buy or sell?</label>
                 <div class="btn-group w-100" role="group" aria-label="Buy or sell">
                     <button type="button" data-cy="opt-side-buy" class="btn btn-sm @(Side == OrderSide.Buy ? "btn-success" : "btn-outline-secondary")" @onclick="() => Side = OrderSide.Buy"
-                            title="@(ExistingContracts < 0m ? OptionsGlossary.Hint("buy-to-close") : OptionsGlossary.Hint("buy-to-open"))">Buy</button>
+                            data-tooltip="@(ExistingContracts < 0m ? OptionsGlossary.Hint("buy-to-close") : OptionsGlossary.Hint("buy-to-open"))">Buy</button>
                     <button type="button" data-cy="opt-side-sell" class="btn btn-sm @(Side == OrderSide.Sell ? "btn-danger" : "btn-outline-secondary")" @onclick="() => Side = OrderSide.Sell"
-                            title="@(ExistingContracts > 0m ? OptionsGlossary.Hint("sell-to-close") : OptionsGlossary.Hint("sell-to-open"))">Sell</button>
+                            data-tooltip="@(ExistingContracts > 0m ? OptionsGlossary.Hint("sell-to-close") : OptionsGlossary.Hint("sell-to-open"))">Sell</button>
                 </div>
                 <div class="opt-intent" data-cy="opt-intent">
                     <Jargon Term="@OptionsGlossary.IntentKey(intent)">@OptionsGlossary.IntentLabel(intent, ExistingContracts)</Jargon>
@@ -82,8 +82,8 @@
             <div class="col-6">
                 <label class="form-label small mb-1">Order type</label>
                 <div class="btn-group w-100" role="group" aria-label="Order type">
-                    <button type="button" data-cy="opt-type-limit" class="btn btn-sm @(Type == OrderType.Limit ? "btn-secondary" : "btn-outline-secondary")" @onclick="() => Type = OrderType.Limit" title="@OptionsGlossary.Hint("limit")">Limit</button>
-                    <button type="button" data-cy="opt-type-market" class="btn btn-sm @(Type == OrderType.Market ? "btn-secondary" : "btn-outline-secondary")" @onclick="() => Type = OrderType.Market" title="@OptionsGlossary.Hint("market")">Market</button>
+                    <button type="button" data-cy="opt-type-limit" class="btn btn-sm @(Type == OrderType.Limit ? "btn-secondary" : "btn-outline-secondary")" @onclick="() => Type = OrderType.Limit" data-tooltip="@OptionsGlossary.Hint("limit")">Limit</button>
+                    <button type="button" data-cy="opt-type-market" class="btn btn-sm @(Type == OrderType.Market ? "btn-secondary" : "btn-outline-secondary")" @onclick="() => Type = OrderType.Market" data-tooltip="@OptionsGlossary.Hint("market")">Market</button>
                 </div>
                 <div class="opt-hint"><Jargon Term="@(Type == OrderType.Limit ? "limit" : "market")">@(Type == OrderType.Limit ? "Fills only at your price or better" : "Fills now at the going price")</Jargon></div>
             </div>
@@ -146,7 +146,7 @@
                 </li>
                 @if (Row.ImpliedVolatility is { } iv)
                 {
-                    <li><Jargon Term="iv">Implied volatility</Jargon> <span class="opt-mono">@OptionsPresenter.Iv(iv)</span> <span class="badge opt-badge opt-badge-xs" title="@OptionsGlossary.Hint("iv-source")">@Row.IvSource</span>@if (Row.ModelPrice is { } mp) { <text> · <Jargon Term="model">model fair value</Jargon> @OptionsPresenter.Money(mp)/sh</text> }.</li>
+                    <li><Jargon Term="iv">Implied volatility</Jargon> <span class="opt-mono">@OptionsPresenter.Iv(iv)</span> <span class="badge opt-badge opt-badge-xs" data-tooltip="@OptionsGlossary.Hint("iv-source")">@Row.IvSource</span>@if (Row.ModelPrice is { } mp) { <text> · <Jargon Term="model">model fair value</Jargon> @OptionsPresenter.Money(mp)/sh</text> }.</li>
                 }
                 @if (Side == OrderSide.Sell && !isClose)
                 {

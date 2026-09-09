@@ -22,14 +22,14 @@
                     <span class="text-muted">@Underlying is at</span> @OptionsPresenter.Money(spot)
                     @if (!string.IsNullOrEmpty(PriceSource))
                     {
-                        <span class="badge opt-badge ms-1" title="@(PriceSource == "Sandbox" ? "Sandbox reference price — no live quote was available for this ticker" : "Live price from Alpaca market data")">@PriceSource</span>
+                        <span class="badge opt-badge ms-1" data-tooltip="@(PriceSource == "Sandbox" ? "Sandbox reference price — no live quote was available for this ticker" : "Live price from Alpaca market data")">@PriceSource</span>
                     }
                 </span>
             }
         </div>
         <div class="d-flex align-items-center gap-2 small text-muted">
             <Jargon Term="hype-meter">Hype meter</Jargon><span>:</span>
-            <span class="opt-hype-legend" title="@OptionsGlossary.Hint("hype-meter")">
+            <span class="opt-hype-legend" data-tooltip="@OptionsGlossary.Hint("hype-meter")">
                 <span class="hype-0">real</span><span class="hype-1"></span><span class="hype-2"></span><span class="hype-3"></span><span class="hype-4">all hype</span>
             </span>
         </div>
@@ -45,7 +45,7 @@
                 <button type="button" role="tab" data-cy="opt-exp"
                         class="btn btn-sm @(exp == SelectedExpiration ? "btn-warning" : "btn-outline-secondary") opt-exp-pill"
                         aria-selected="@(exp == SelectedExpiration)"
-                        title="@($"{exp:dddd, MMMM d yyyy} — {dte} days to expiration")"
+                        data-tooltip="@($"{exp:dddd, MMMM d yyyy} — {dte} days to expiration")"
                         @onclick="() => OnExpirationSelected.InvokeAsync(exp)">
                     @exp.ToString("MMM d") <span class="opt-dte">@dte d</span>
                 </button>
@@ -98,7 +98,7 @@
                         var putItm = !isAtm && UnderlyingPrice is { } sp3 && g.Key > sp3;
                         <tr class="@(isAtm ? "opt-atm" : "")" data-strike="@g.Key.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture)">
                             @RenderSide(call, callItm, mirror: false)
-                            <td class="text-center opt-strike opt-mono" title="@(isAtm ? "At the money — strike is about where the stock trades now" : OptionsGlossary.Hint("strike"))">@g.Key.ToString("0.##")@(isAtm ? " ●" : "")</td>
+                            <td class="text-center opt-strike opt-mono" data-tooltip="@(isAtm ? "At the money — strike is about where the stock trades now" : OptionsGlossary.Hint("strike"))">@g.Key.ToString("0.##")@(isAtm ? " ●" : "")</td>
                             @RenderSide(put, putItm, mirror: true)
                         </tr>
                     }

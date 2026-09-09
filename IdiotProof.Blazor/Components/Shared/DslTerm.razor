@@ -1,0 +1,20 @@
+@using IdiotProof.Blazor.Services
+@using IdiotProof.UI.Components.Shared
+
+@*
+    A DslTerm shows the DslGlossary description (the same wording GlossaryModal and the
+    Learning Center chips use) as a dotted-underline hover hint — for jargon labels outside
+    the verb-chip UI, e.g. a Gapper config field or a Strategies table header. One glossary,
+    not two: never inline a competing description here.
+*@
+
+<Term Hint="@(DslGlossary.Find(Verb)?.Description ?? Verb)" Position="@Position" Class="@Class">@ChildContent</Term>
+
+@code {
+    /// <summary>Canonical DslGlossary key, e.g. "PeakGiveback", "TrailingStopLoss".</summary>
+    [Parameter, EditorRequired] public string Verb { get; set; } = "";
+
+    [Parameter] public string Position { get; set; } = "top";
+    [Parameter] public string Class { get; set; } = "";
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+}

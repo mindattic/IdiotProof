@@ -4,10 +4,33 @@ project: IdiotProof
 code: IP
 layer: amendments
 status: living
-updated: 2026-09-05
+updated: 2026-09-06
 ---
 
 # IdiotProof — Amendments (append-only; amendment wins over the bible)
+
+## IP-A36 — MAUI desktop host removed; Blazor-only again {#IP-A36}
+**What changed.** (2026-09-06.) Reverses [IP-A28](#IP-A28). `IdiotProof.Maui` is deleted:
+removed from `IdiotProof.slnx`, its project directory gone. `IdiotProof.Blazor` is once again the
+only UI host.
+
+**Why.** IP-A28's foundation was laid 2026-07-20 but never progressed past scaffolding: the MAUI
+project carried **zero project references** (not even to `IdiotProof.UI` or `IdiotProof.Shared`),
+`Components/Pages/` still held the stock MAUI Blazor Hybrid template (`Home`, `Counter`,
+`Weather`), and the desktop auth story was never solved. Every week of `IdiotProof.Blazor` and
+`IdiotProof.UI` work widened the gap instead of closing it. Session directive 2026-09-06: cut the
+losses rather than keep carrying a host that falls further behind with every feature.
+
+**Effect on canon.**
+- The "Dual-host UI off ONE shared Razor Class Library" architecture rule in `CLAUDE.md` is
+  replaced: `IdiotProof.UI` remains the shared component library, but it now has exactly one
+  consumer, `IdiotProof.Blazor`. Nothing stops a future host from being added the same way IP-A28
+  intended — but that is a fresh decision, not a resumption of this one.
+- `docs/BIBLE.md` never named MAUI directly, so L0 canon is unaffected. `README.md` §9 (the MAUI
+  desktop shell writeup) is replaced with a short pointer to this amendment instead of being
+  renumbered away.
+- No effect on the Monitor, brokers, DSL, or Options section — this was UI-host plumbing only,
+  and per IP-A28 itself nothing user-facing had ever shipped to MAUI.
 
 ## IP-A35 — Full options chain (Alpaca's one-week default) + real-paper U10 harness {#IP-A35}
 **What changed.** (2026-09-05, same day as [IP-A34](#IP-A34).) The first contact between the

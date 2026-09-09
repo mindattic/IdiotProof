@@ -32,7 +32,7 @@
         </div>
 
         <button class="btn btn-sm btn-outline-secondary" type="button"
-                title="Refresh account balances" aria-label="Refresh account balances"
+                data-tooltip="Refresh account balances" aria-label="Refresh account balances"
                 disabled="@refreshing" @onclick="RefreshAsync">
             <i class="bi bi-arrow-clockwise @(refreshing ? "spin" : "")" aria-hidden="true"></i>
         </button>

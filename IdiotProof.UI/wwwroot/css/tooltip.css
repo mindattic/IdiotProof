@@ -1,0 +1,81 @@
+/* Tooltip — ported from MindAttic.UiUx Components/Tooltip (canonical: see that repo's
+ * Tooltip.md), themed to the IdiotProof Alpaca palette. Namespaced under .ma-tooltip* so it
+ * can't collide with app styles. Colors reference the app's own theme variables, so the
+ * tooltip re-themes for free when data-theme flips between dark and light. */
+
+:root {
+  --ma-tooltip-bg: var(--bg-card);
+  --ma-tooltip-fg: var(--text-primary);
+  --ma-tooltip-border: var(--brand);
+  --ma-tooltip-radius: 6px;
+  --ma-tooltip-shadow: 0 10px 28px rgba(0, 0, 0, 0.5), 0 2px 6px rgba(0, 0, 0, 0.35);
+  --ma-tooltip-maxw: 280px;
+  --ma-tooltip-font: var(--font-sans);
+}
+
+.ma-tooltip {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 2147483000;
+  max-width: var(--ma-tooltip-maxw);
+  padding: 6px 10px;
+  background: var(--ma-tooltip-bg);
+  color: var(--ma-tooltip-fg);
+  border: 1px solid var(--ma-tooltip-border);
+  border-radius: var(--ma-tooltip-radius);
+  box-shadow: var(--ma-tooltip-shadow);
+  font-family: var(--ma-tooltip-font);
+  font-size: 12px;
+  line-height: 1.4;
+  white-space: normal;
+  word-break: break-word;
+  pointer-events: none;
+  opacity: 0;
+  /* visibility, not opacity alone: an opacity-0 node stays in the accessibility tree, so a
+     screen reader could read a tooltip that is not on screen (and axe flags it as unreadable
+     contrast). Transitioning visibility keeps the fade-out intact - it flips at the end. */
+  visibility: hidden;
+  transform: translateY(-2px) scale(0.98);
+  transition: opacity 0.14s ease, transform 0.14s ease, visibility 0.14s ease;
+}
+
+.ma-tooltip.is-visible {
+  opacity: 1;
+  visibility: visible;
+  transform: none;
+}
+
+.ma-tooltip__body { display: block; }
+
+.ma-tooltip__arrow {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  background: var(--ma-tooltip-bg);
+  border: 1px solid var(--ma-tooltip-border);
+  transform: rotate(45deg);
+}
+
+/* Arrow sits on the edge facing the trigger; cross-axis offset set by JS. */
+.ma-tooltip[data-pos="top"]    .ma-tooltip__arrow { bottom: -5px; border-top: 0;    border-left: 0;  }
+.ma-tooltip[data-pos="bottom"] .ma-tooltip__arrow { top: -5px;    border-bottom: 0; border-right: 0; }
+.ma-tooltip[data-pos="left"]   .ma-tooltip__arrow { right: -5px;  border-bottom: 0; border-left: 0;  }
+.ma-tooltip[data-pos="right"]  .ma-tooltip__arrow { left: -5px;   border-top: 0;    border-right: 0; }
+
+@media (prefers-reduced-motion: reduce) {
+  .ma-tooltip { transition: none; transform: none; }
+}
+
+/* ── Dotted-underline hint trigger: the generic "term with a definition" look, used by
+   Jargon (Options) and Term (everywhere else). Same visual language, one definition. ───── */
+.ma-hint {
+  background: none; border: 0; padding: 0; margin: 0; color: inherit; font: inherit;
+  text-decoration: underline dotted; text-decoration-color: var(--brand-text); text-decoration-thickness: 1px;
+  text-underline-offset: 3px; cursor: help; white-space: inherit;
+}
+.ma-hint:hover { color: var(--brand-text); }
+.ma-hint:focus-visible {
+  color: var(--brand-text);
+  outline: 2px solid var(--focus-ring); outline-offset: 2px;
+}

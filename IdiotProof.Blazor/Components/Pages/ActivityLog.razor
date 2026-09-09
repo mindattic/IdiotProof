@@ -26,7 +26,7 @@
                         class="log-lvl-btn log-lvl-@lvl.ToLower() @(on ? "active" : "")"
                         @onclick="() => ToggleLevel(lvl)"
                         aria-pressed="@on"
-                        title="Toggle @lvl messages">
+                        data-tooltip="Toggle @lvl messages">
                     @lvl <span class="log-lvl-count">@CountForLevel(lvl)</span>
                 </button>
             }
@@ -38,18 +38,18 @@
                 <span class="text-muted small font-monospace log-refresh-ts">@lastRefreshedEt</span>
             }
             <button class="btn btn-sm btn-outline-secondary" type="button"
-                    title="Export current view as CSV" @onclick="ExportCsvAsync"
+                    data-tooltip="Export current view as CSV" @onclick="ExportCsvAsync"
                     aria-label="Export CSV">
                 <i class="bi bi-download me-1" aria-hidden="true"></i>CSV
             </button>
             <button class="btn btn-sm btn-outline-secondary" type="button"
-                    title="Refresh now" @onclick="RefreshNowAsync"
+                    data-tooltip="Refresh now" @onclick="RefreshNowAsync"
                     aria-label="Refresh">
                 <i class="bi bi-arrow-clockwise @(refreshing ? "log-spin" : "")" aria-hidden="true"></i>
             </button>
             <button class="btn btn-sm @(autoRefresh ? "btn-success" : "btn-outline-secondary")"
                     type="button" @onclick="ToggleAutoRefresh"
-                    title="@(autoRefresh ? "Pause auto-refresh" : "Resume auto-refresh")">
+                    data-tooltip="@(autoRefresh ? "Pause auto-refresh" : "Resume auto-refresh")">
                 <i class="bi @(autoRefresh ? "bi-pause-fill" : "bi-play-fill") me-1" aria-hidden="true"></i>@(autoRefresh ? "Live" : "Paused")
             </button>
         </div>
@@ -75,7 +75,7 @@
         @if (fromDate is not null || toDate is not null)
         {
             <button class="btn btn-sm btn-outline-secondary" type="button"
-                    @onclick="ClearDates" title="Clear date filter">
+                    @onclick="ClearDates" data-tooltip="Clear date filter">
                 <i class="bi bi-x-circle me-1" aria-hidden="true"></i>Clear
             </button>
         }
@@ -97,7 +97,7 @@
                         class="log-cat-filter @(on ? "active" : "")"
                         @onclick="() => ToggleCategory(cat)"
                         aria-pressed="@on"
-                        title="Toggle @cat">
+                        data-tooltip="Toggle @cat">
                     @cat
                 </button>
             }
@@ -157,7 +157,7 @@
                                 var lvl = GetLevel(row.Category);
                                 bool expanded = expandedIds.Contains(row.Id);
                                 <tr @key="row.Id" class="log-row log-row-@lvl.ToLower()">
-                                    <td class="log-time" title="@EasternTime.Format(row.TimestampUtc, "yyyy-MM-dd HH:mm:ss") ET">
+                                    <td class="log-time" data-tooltip="@EasternTime.Format(row.TimestampUtc, "yyyy-MM-dd HH:mm:ss") ET">
                                         @SmartTimestamp(row.TimestampUtc)
                                     </td>
                                     <td><span class="log-badge log-badge-@lvl.ToLower()">@lvl</span></td>
@@ -174,7 +174,8 @@
                                         {
                                             <button type="button" class="log-expand-btn"
                                                     @onclick="() => ToggleExpand(row.Id)"
-                                                    title="@(expanded ? "Collapse" : "Show data")">
+                                                    aria-label="@(expanded ? "Collapse" : "Show data")"
+                                                    data-tooltip="@(expanded ? "Collapse" : "Show data")">
                                                 <i class="bi @(expanded ? "bi-chevron-up" : "bi-chevron-down")" aria-hidden="true"></i>
                                             </button>
                                         }

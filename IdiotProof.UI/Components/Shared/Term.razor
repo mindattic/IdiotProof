@@ -1,0 +1,18 @@
+@*
+    A one-line piece of jargon anywhere outside Options: a dotted-underline word that shows
+    the high-quality Tooltip (tooltip.css/tooltip.js) on hover or keyboard focus. Hover-only —
+    no click-to-open card. For the fuller hover-hint + click-for-a-whole-card treatment, see
+    Options/Jargon.razor, which this shares its dotted-underline look (.ma-hint) with.
+*@
+
+<span class="ma-hint @Class" tabindex="0" data-tooltip="@Hint" data-tooltip-pos="@Position" data-cy="@(DataCy)">@ChildContent</span>
+
+@code {
+    /// <summary>The tooltip text.</summary>
+    [Parameter, EditorRequired] public string Hint { get; set; } = "";
+
+    [Parameter] public string Position { get; set; } = "top";
+    [Parameter] public string Class { get; set; } = "";
+    [Parameter] public string? DataCy { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+}

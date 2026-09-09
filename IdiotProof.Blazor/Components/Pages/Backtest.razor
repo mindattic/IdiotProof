@@ -169,7 +169,7 @@
                                     {
                                         @foreach (var lbl in report.ConditionTable[0].Labels)
                                         {
-                                            <th class="text-center" style="white-space:nowrap;max-width:120px;overflow:hidden;text-overflow:ellipsis" title="@lbl">
+                                            <th class="text-center" style="white-space:nowrap;max-width:120px;overflow:hidden;text-overflow:ellipsis" data-tooltip="@lbl">
                                                 <code>@(lbl.Length > 18 ? lbl[..15] + "…" : lbl)</code>
                                             </th>
                                         }

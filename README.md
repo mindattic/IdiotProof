@@ -44,7 +44,7 @@ agree, places the order, and manages the exit. **Set and forget.**
 6. [IdiotScript — the DSL](#6-idiotscript--the-dsl)
 7. [The Monitor console — the one pipeline](#7-the-monitor-console--the-one-pipeline)
 8. [The Blazor web app](#8-the-blazor-web-app)
-9. [The MAUI desktop shell and the shared UI library](#9-the-maui-desktop-shell-and-the-shared-ui-library)
+9. [The MAUI desktop shell (removed)](#9-the-maui-desktop-shell-removed)
 10. [The Research Scanner](#10-the-research-scanner)
 11. [The MindAttic family](#11-the-mindattic-family)
 12. [Building, running, and testing](#12-building-running-and-testing)
@@ -153,9 +153,6 @@ platform, not a single app:
 - **`IdiotProof.Blazor`** — a Blazor Server web app where a trader authors strategies (visual
   flowchart, raw IdiotScript text, or a plain-English description handed to Claude), watches them
   live, and manages accounts/keys/research.
-- **`IdiotProof.Maui`** — a .NET MAUI Blazor Hybrid desktop shell intended to present the *same*
-  pages as the Blazor host without a browser (see [§9](#9-the-maui-desktop-shell-and-the-shared-ui-library)
-  for its actual current state — it is a scaffold today, not yet wired to real IdiotProof pages).
 - **`IdiotProof.Monitor`** — a standalone console that runs unattended, loads every active
   strategy from SQL, evaluates it continuously, walks the three gates, places orders, and manages
   open positions to their exit — so the trader doesn't have to be at the computer at 4 AM ET when
@@ -257,7 +254,7 @@ through SQL to every UI that's watching:
 
 ### Reading the diagram
 
-1. A trader authors a strategy in `IdiotProof.Blazor` (or, in principle, `IdiotProof.Maui`); it's
+1. A trader authors a strategy in `IdiotProof.Blazor`; it's
    saved to the `Strategies` table as canonical strict JSON (`ScriptJson`) with IdiotScript text
    (`ScriptText`) kept only as a human-readable view — see [IP-LAW-8](docs/BIBLE.md#IP-LAW-8).
 2. `IdiotProof.Monitor` re-reads every `IsActive = true` row on every evaluation pass, builds an
@@ -290,8 +287,7 @@ each project's actual source tree — nothing here is inferred from documentatio
 | `IdiotProof.Brokers` | Class library | Order routing abstraction and providers. | `IBrokerClient` (equity members + default-implemented options members: `SupportsOptions`, `GetOptionTradingLevelAsync`, `GetOptionChainAsync`, `GetOptionQuotesAsync`), `AlpacaBrokerClient` (orders/positions/account + `/v2/options/contracts`, data-host `/v1beta1/options/snapshots`, single-leg option orders), `AlpacaOAuthClient`, `SandboxBrokerClient` (in-memory fills + a synthetic options chain), `BrokerRouter` (Sandbox always registered as the safe fallback) |
 | `IdiotProof.Engine` | Class library | The DI root shared by every host. | `ServiceRegistration.AddIdiotProofEngine(...)`, `Settings/AppSettings` (disk → env → MindAttic keyrings → `IConfiguration` overlay chain), `Storage/IStorageProvider`/`StorageLocation`, `SupervisedLoop` (fault-tolerant tick loop with backoff + heartbeat), `AuditLogger`, `Workspace/WorkspaceManager` + `JsonFileWorkspaceStore` (legacy JSON path; the Blazor host swaps in a SQL-backed store) |
 | `IdiotProof.Blazor` | ASP.NET Core Blazor Server app | The primary web front door: strategy authoring/monitoring, accounts, keys, research, learning. | See [§8](#8-the-blazor-web-app) |
-| `IdiotProof.Maui` | .NET MAUI Blazor Hybrid app | Desktop shell intended to reuse `IdiotProof.UI` for the same pages, offline of a browser. | See [§9](#9-the-maui-desktop-shell-and-the-shared-ui-library) |
-| `IdiotProof.UI` | Razor Class Library | Home for UI shared between `Blazor` and `Maui` hosts (parity by construction, [IP-A28](docs/AMENDMENTS.md#IP-A28)). Referenced by `IdiotProof.Blazor` since [IP-A33](docs/AMENDMENTS.md#IP-A33). | `Components/Options/`: `OptionsChainView`, `OptionOrderTicket`, `OptionPositionTracker`, `OptionsLiveElevationModal`, `OptionsPresenter` + view models; `wwwroot/css/options.css`. Presentational only — see [§9](#9-the-maui-desktop-shell-and-the-shared-ui-library) |
+| `IdiotProof.UI` | Razor Class Library | Shared component library, referenced by `IdiotProof.Blazor` since [IP-A33](docs/AMENDMENTS.md#IP-A33) (the MAUI host it also served under [IP-A28](docs/AMENDMENTS.md#IP-A28) was removed — [IP-A36](docs/AMENDMENTS.md#IP-A36)). | `Components/Options/`: `OptionsChainView`, `OptionOrderTicket`, `OptionPositionTracker`, `OptionsLiveElevationModal`, `OptionsPresenter` + view models; `Components/Shared/`: `Tooltip`, `Term`; `wwwroot/css/options.css`, `wwwroot/{css,js}/tooltip.css|js`. Presentational only — see [§8](#8-the-blazor-web-app) |
 | `IdiotProof.Monitor` | .NET generic host / console, Windows-Service-ready | The 24/7 evaluator and executor — "the one pipeline." | `Program.cs` (composition root), `MonitorWorker` (the tick loop), `MonitorLeaderLease` (`sp_getapplock` single-instance lease), `MonitorCli` (operator subcommands), `AutoGapperScanner`, `PremarketFadeScanner`, `EmailSmsAlertSender`, `StrategyScanner`/`StrategyReplay`/`StrategyReplayLive`/`ReplayFeatures`/`ReplayTemplates`/`StrategyDataset` (offline replay/ML-dataset tooling) |
 | `IdiotProof.ResearchScanner` | Console (one-shot) | Autonomous market-event research sweep; not a daemon, not part of the trading loop. | `Program.cs`, `ScanPassRunner` |
 | `IdiotProof.Engine.Tests` | NUnit | RiskGuardian gate, SupervisedLoop resilience, WorkspaceManager, options pricing math (`OptionsPricingTests`: OCC, intrinsic/extrinsic, Black-Scholes, IV round-trips, sell signal). | — |
@@ -637,32 +633,17 @@ from the shared MindAttic broker keyring, overlaid onto `AppSettings` at startup
 
 ---
 
-## 9. The MAUI desktop shell and the shared UI library
+## 9. The MAUI desktop shell (removed)
 
-`CLAUDE.md`'s rule ([IP-A28](docs/AMENDMENTS.md#IP-A28)) is "dual-host UI off ONE shared Razor
-Class Library" — `IdiotProof.Blazor` and `IdiotProof.Maui` are meant to render the *same*
-`IdiotProof.UI` components, never a forked copy of a page per host.
-
-**Verified current state (read directly from both projects' source trees):**
-
-- `IdiotProof.UI` has its first real occupants ([IP-A33](docs/AMENDMENTS.md#IP-A33), 2026-09-05):
-  the Options section's components under `Components/Options/` (`OptionsChainView`,
-  `OptionOrderTicket`, `OptionPositionTracker`, `OptionsLiveElevationModal`, plus
-  `OptionsPresenter` and the view-model records) and `wwwroot/css/options.css`. The RCL references
-  only `IdiotProof.Models`, `IdiotProof.Brokers`, and `IdiotProof.Shared` — never a host — and its
-  components are presentational (data in via parameters, actions out via `EventCallback`s).
-  `IdiotProof.Blazor` now has a `ProjectReference` to it and composes those components from the
-  thin host page `Components/Pages/Options.razor`. The RCL template files (`Component1.razor`,
-  `ExampleJsInterop.cs`) were removed.
-- `IdiotProof.Maui/Components/Pages/` still contains only `Home.razor`, `Counter.razor`,
-  `Weather.razor`, `NotFound.razor` — the stock MAUI Blazor Hybrid sample pages. `NavMenu.razor`
-  links only to Home/Counter/Weather. The MAUI host has **not** been wired to the Options
-  components (MAUI is deferred; the auth story there is unsolved).
-
-Both projects build and are registered in `IdiotProof.slnx`. The dual-host plumbing now carries
-one real feature on the Blazor side; the Strategies/Gapper/Learn pages have not been moved into
-the RCL, and nothing is reachable from the MAUI shell yet. Treat `IdiotProof.Maui` as a scaffold
-proving the hosting model compiles, not as a usable desktop client today.
+[IP-A28](docs/AMENDMENTS.md#IP-A28) (2026-07-20) laid the foundation for a dual-host UI — a
+`IdiotProof.Maui` MAUI Blazor Hybrid desktop shell rendering the same `IdiotProof.UI` components
+as `IdiotProof.Blazor`. It never progressed past scaffolding: `IdiotProof.Maui` carried zero
+project references (not even to `IdiotProof.UI`), `Components/Pages/` still held the stock MAUI
+Blazor Hybrid template (`Home`, `Counter`, `Weather`), and the desktop auth story was never
+solved. [IP-A36](docs/AMENDMENTS.md#IP-A36) (2026-09-06) removed the project rather than let it
+keep falling further behind every Blazor/`IdiotProof.UI` release. `IdiotProof.UI` remains a
+shared Razor Class Library — see [§8](#8-the-blazor-web-app) — with `IdiotProof.Blazor` as its
+only consumer today.
 
 ---
 
@@ -755,12 +736,6 @@ In another terminal, optionally run the Monitor and/or the Research Scanner:
 ```bash
 dotnet run --project IdiotProof.Monitor
 dotnet run --project IdiotProof.ResearchScanner
-```
-
-To try the desktop shell (scaffold only today — see [§9](#9-the-maui-desktop-shell-and-the-shared-ui-library)):
-
-```bash
-dotnet run --project IdiotProof.Maui
 ```
 
 ### Configuration
@@ -877,8 +852,7 @@ IdiotProof/
 │   ├── Components/Pages/                     ← Strategies.razor, StrategyBuilder.razor, Gapper.razor, Learn.razor, Research.razor, ...
 │   ├── Components/Shared/                    ← AccountSummaryBar.razor, StrategyBuilderRenderer.razor, WikiContent-equivalent, ...
 │   └── wwwroot/css/_theme-alpaca.css, wwwroot/data/gapper-profiles.json
-├── IdiotProof.Maui/                          ← Desktop shell (currently the default MAUI Blazor Hybrid template — see §9)
-├── IdiotProof.UI/                            ← Shared Razor Class Library (currently the default RCL template — see §9)
+├── IdiotProof.UI/                            ← Shared Razor Class Library (Options components, Tooltip/Term)
 ├── IdiotProof.Monitor/                       ← 24/7 evaluator + executor console
 ├── IdiotProof.ResearchScanner/               ← One-shot research sweep console
 ├── IdiotProof.Engine.Tests/                  ← RiskGuardian + SupervisedLoop + Workspace (NUnit)
@@ -969,9 +943,6 @@ than by line number; after editing canon, run `powershell -File tools/codex.ps1 
 
 Verified, in-code or in-canon items worth knowing about before you build on top of this system:
 
-- **The MAUI half of the dual-host story is scaffolding only.** `IdiotProof.UI` now holds the
-  Options components, but `IdiotProof.Maui` is still the default template and doesn't render them —
-  see [§9](#9-the-maui-desktop-shell-and-the-shared-ui-library).
 - **Options are manual-only (Phase 1, [IP-A33](docs/AMENDMENTS.md#IP-A33)).** No option legs in
   the strategy schema, no IV/Greeks conditions, no options-aware `RiskGuardian` math, no
   multi-leg spreads — the Monitor never fires an options order. As of 2026-09-05 neither the paper

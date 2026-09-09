@@ -1,0 +1,29 @@
+@* MindAttic.UiUx — Tooltip (Blazor wrapper), synced in from the canonical component and
+   themed to the IdiotProof palette via tooltip.css (loaded once at the app root).
+
+   Driven entirely by data-* attributes — no JS interop, no service registration — so it
+   works under Interactive Server, WebAssembly, and static SSR alike. For a plain element you
+   can skip this wrapper and put data-tooltip="..." directly on the element instead. *@
+
+<span class="ma-tooltip-host"
+      data-tooltip="@Text"
+      data-tooltip-pos="@Position"
+      data-tooltip-delay="@(Delay > 0 ? Delay.ToString() : null)"
+      @attributes="Extra">
+    @ChildContent
+</span>
+
+@code {
+    [Parameter, EditorRequired] public string Text { get; set; } = "";
+
+    /// <summary>Preferred side: top | bottom | left | right. Auto-flips to stay on screen.</summary>
+    [Parameter] public string Position { get; set; } = "top";
+
+    /// <summary>Show delay in milliseconds (0 = immediate).</summary>
+    [Parameter] public int Delay { get; set; }
+
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public Dictionary<string, object>? Extra { get; set; }
+}
