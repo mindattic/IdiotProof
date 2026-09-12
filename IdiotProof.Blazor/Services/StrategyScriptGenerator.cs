@@ -13,7 +13,7 @@ namespace IdiotProof.Blazor.Services;
 /// — adding a new builder method automatically teaches Claude about it.
 ///
 /// Tier policy comes from <c>legion.json</c> at the project root. IdiotProof ships
-/// with the "high" tier: 4 voters (claude-api/openai/gemini/deepseek) with claude-api
+/// with the "high" tier: 4 voters (claude/openai/gemini/deepseek) with claude
 /// as judge — see CLAUDE.md and the legion.json comment for rationale.
 /// </summary>
 public sealed class StrategyScriptGenerator(LegionClient legion, AppSettings appSettings, ILogger<StrategyScriptGenerator> logger)
@@ -37,7 +37,7 @@ public sealed class StrategyScriptGenerator(LegionClient legion, AppSettings app
         try
         {
             var content = await legion.CallAsync(
-                providerId: "claude-api",
+                providerId: "claude",
                 apiKey: appSettings.ClaudeApiKey,
                 model: appSettings.LlmVoterModel ?? "claude-sonnet-5",
                 systemPrompt: systemPrompt,

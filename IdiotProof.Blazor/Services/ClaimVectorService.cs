@@ -123,7 +123,7 @@ public sealed class ClaimVectorService
         try
         {
             var raw = await legion.CallAsync(
-                providerId:   "claude-api",
+                providerId: "claude",
                 apiKey:       appSettings.ClaudeApiKey,
                 model:        "claude-haiku-4-5-20251001",
                 systemPrompt: ScorePrompt,

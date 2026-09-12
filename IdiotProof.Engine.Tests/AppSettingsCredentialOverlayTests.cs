@@ -60,30 +60,4 @@ public class AppSettingsCredentialOverlayTests
         Assert.That(settings.ClaudeApiKey, Is.Empty);
     }
 
-    [Test]
-    public void OverlayFromMindAtticCredentials_Falls_Back_To_ClaudeApi_Alias_When_No_Claude_Key()
-    {
-        // "claude-api" is Automata's (and MindAttic.Legion's) id for the same shared key —
-        // a shared key set via either app's convention must be recognized here too.
-        var store = new LlmCredentialStore(tmp!.FullName);
-        store.SetKey("claude-api", "shared-under-claude-api");
-
-        var settings = new AppSettings();
-        settings.OverlayFromMindAtticCredentials();
-
-        Assert.That(settings.ClaudeApiKey, Is.EqualTo("shared-under-claude-api"));
-    }
-
-    [Test]
-    public void OverlayFromMindAtticCredentials_Prefers_Shared_Claude_Key_Over_ClaudeApi_Alias()
-    {
-        var store = new LlmCredentialStore(tmp!.FullName);
-        store.SetKey("claude", "shared-under-claude");
-        store.SetKey("claude-api", "shared-under-claude-api");
-
-        var settings = new AppSettings();
-        settings.OverlayFromMindAtticCredentials();
-
-        Assert.That(settings.ClaudeApiKey, Is.EqualTo("shared-under-claude"));
-    }
 }

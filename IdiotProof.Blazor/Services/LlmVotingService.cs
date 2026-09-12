@@ -210,7 +210,7 @@ public sealed class LlmVotingService
         try
         {
             var content = await legion.CallAsync(
-                providerId: "claude-api",
+                providerId: "claude",
                 apiKey: apiKey,
                 model: modelId,
                 systemPrompt: systemPrompt,

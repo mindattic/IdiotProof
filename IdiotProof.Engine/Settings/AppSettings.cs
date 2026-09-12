@@ -129,12 +129,7 @@ public sealed class AppSettings
     /// Tries this app's own scoped entry (<c>"idiotproof-claude"</c>, via
     /// <see cref="AppScopedCredentialStore"/>) first, falling back to the shared
     /// <c>"claude"</c> id — so a key set specifically for IdiotProof never changes
-    /// what another MindAttic app resolves, matching Automata/Tutor/ThinkTank.
-    /// </para>
-    /// <para>
-    /// Falls back one step further to the shared <c>"claude-api"</c> id — the
-    /// convention Automata (and MindAttic.Legion) use for the same shared key —
-    /// so a key set via either app's convention is recognized here too.
+    /// what another MindAttic app resolves, matching every other MindAttic app.
     /// </para>
     /// <para>
     /// Constructs a fresh <see cref="LlmCredentialStore"/> per call so the
@@ -148,7 +143,7 @@ public sealed class AppSettings
             Environment.GetEnvironmentVariable(LlmCredentialStore.DirectoryEnvVar)
             ?? VaultPaths.RoamingBucket(LlmCredentialStore.Bucket));
         var keys = new CompositeCredentialStore(new AppScopedCredentialStore(AppId, store), store);
-        var claudeKey = keys.GetKey("claude") ?? store.GetKey("claude-api");
+        var claudeKey = keys.GetKey("claude");
         if (!string.IsNullOrWhiteSpace(claudeKey)) ClaudeApiKey = claudeKey;
     }
 

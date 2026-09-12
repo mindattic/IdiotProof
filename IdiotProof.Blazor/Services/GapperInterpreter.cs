@@ -48,7 +48,7 @@ public sealed class GapperInterpreter(
         try
         {
             var content = await legion.CallAsync(
-                providerId: "claude-api",
+                providerId: "claude",
                 apiKey: appSettings.ClaudeApiKey,
                 model: appSettings.LlmVoterModel ?? "claude-sonnet-5",
                 systemPrompt: BuildSystemPrompt(BaseProfile()),
