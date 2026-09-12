@@ -132,6 +132,11 @@ public sealed class AppSettings
     /// what another MindAttic app resolves, matching Automata/Tutor/ThinkTank.
     /// </para>
     /// <para>
+    /// Falls back one step further to the shared <c>"claude-api"</c> id — the
+    /// convention Automata (and MindAttic.Legion) use for the same shared key —
+    /// so a key set via either app's convention is recognized here too.
+    /// </para>
+    /// <para>
     /// Constructs a fresh <see cref="LlmCredentialStore"/> per call so the
     /// <c>MINDATTIC_LLM_CREDENTIALS</c> env-var override is re-evaluated each
     /// time, mirroring <see cref="OverlayFromBrokerCredentials"/>.
@@ -143,7 +148,7 @@ public sealed class AppSettings
             Environment.GetEnvironmentVariable(LlmCredentialStore.DirectoryEnvVar)
             ?? VaultPaths.RoamingBucket(LlmCredentialStore.Bucket));
         var keys = new CompositeCredentialStore(new AppScopedCredentialStore(AppId, store), store);
-        var claudeKey = keys.GetKey("claude");
+        var claudeKey = keys.GetKey("claude") ?? store.GetKey("claude-api");
         if (!string.IsNullOrWhiteSpace(claudeKey)) ClaudeApiKey = claudeKey;
     }
 
