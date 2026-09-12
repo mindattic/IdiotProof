@@ -13,6 +13,16 @@ namespace IdiotProof.Engine.Settings;
 /// </summary>
 public sealed class AppSettings
 {
+    /// <summary>
+    /// This app's own Vault provider-id prefix (<see cref="AppScopedCredentialStore"/>),
+    /// distinct from the shared cross-app <c>%APPDATA%\MindAttic\LLM\</c> ids every other
+    /// MindAttic app resolves. Mirrors Automata's <c>AutomataProviderId</c>, Tutor's
+    /// <c>TutorProviderId</c>, and ThinkTank's <c>ThinkTankProviderId</c>. Public so the
+    /// Blazor Settings/API Keys write path (<c>ApiKeys.razor</c>) can write to the same
+    /// scoped id this class reads from — see <see cref="OverlayFromMindAtticCredentials"/>.
+    /// </summary>
+    public const string AppId = "idiotproof";
+
     // Alpaca
     public string AlpacaApiKeyId { get; set; } = "";
     public string AlpacaApiSecretKey { get; set; } = "";
@@ -116,6 +126,12 @@ public sealed class AppSettings
     /// call it after disk + env so it takes precedence, but BEFORE
     /// <see cref="OverlayFromConfiguration"/> so production cloud secrets win.
     /// <para>
+    /// Tries this app's own scoped entry (<c>"idiotproof-claude"</c>, via
+    /// <see cref="AppScopedCredentialStore"/>) first, falling back to the shared
+    /// <c>"claude"</c> id — so a key set specifically for IdiotProof never changes
+    /// what another MindAttic app resolves, matching Automata/Tutor/ThinkTank.
+    /// </para>
+    /// <para>
     /// Constructs a fresh <see cref="LlmCredentialStore"/> per call so the
     /// <c>MINDATTIC_LLM_CREDENTIALS</c> env-var override is re-evaluated each
     /// time, mirroring <see cref="OverlayFromBrokerCredentials"/>.
@@ -126,7 +142,8 @@ public sealed class AppSettings
         var store = new LlmCredentialStore(
             Environment.GetEnvironmentVariable(LlmCredentialStore.DirectoryEnvVar)
             ?? VaultPaths.RoamingBucket(LlmCredentialStore.Bucket));
-        var claudeKey = store.GetKey("claude");
+        var keys = new CompositeCredentialStore(new AppScopedCredentialStore(AppId, store), store);
+        var claudeKey = keys.GetKey("claude");
         if (!string.IsNullOrWhiteSpace(claudeKey)) ClaudeApiKey = claudeKey;
     }
 
