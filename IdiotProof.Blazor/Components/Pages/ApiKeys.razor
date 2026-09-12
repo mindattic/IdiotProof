@@ -1,9 +1,12 @@
 @page "/api-keys"
 @rendermode InteractiveServer
 @using IdiotProof.Blazor.Data
+@using IdiotProof.Engine.Settings
 @using Microsoft.AspNetCore.Authorization
 @using Microsoft.AspNetCore.Components.Authorization
 @using Microsoft.Extensions.Configuration
+@using MindAttic.Vault.Credentials
+@using MindAttic.Vault.Paths
 @attribute [Authorize]
 @inject UserKeyService UserKeyService
 @inject IHttpClientFactory HttpClientFactory
@@ -378,5 +381,36 @@
         {
             saveMessage = $"Save failed: {ex.Message}";
         }
+
+        // Write-through to this app's own Vault-scoped entry, mirroring the
+        // BYOK pattern already shipped in Automata/Tutor/ThinkTank: entering
+        // a Claude key here also makes it durable/visible across app restarts
+        // for AppSettings.OverlayFromMindAtticCredentials (used by the
+        // Monitor's global voting panel), independent of this per-user DB row.
+        // Only on save, not per-keystroke; only when non-empty (an emptied
+        // field just falls back to the shared default next resolve, matching
+        // how Automata handles a blank BYO-key field).
+        if (!string.IsNullOrWhiteSpace(claudeKey))
+        {
+            try
+            {
+                PersistClaudeKeyToVault(claudeKey);
+            }
+            catch (Exception ex)
+            {
+                // Best-effort: the per-user DB row above is the source of truth
+                // for this page; a Vault write hiccup shouldn't block Save All.
+                // User-facing text avoids naming Vault/MindAttic internals.
+                saveMessage += $" (key sync failed: {ex.Message})";
+            }
+        }
+    }
+
+    private static void PersistClaudeKeyToVault(string apiKey)
+    {
+        var store = new LlmCredentialStore(
+            Environment.GetEnvironmentVariable(LlmCredentialStore.DirectoryEnvVar)
+            ?? VaultPaths.RoamingBucket(LlmCredentialStore.Bucket));
+        new AppScopedCredentialStore(AppSettings.AppId, store).SetKey("claude", apiKey);
     }
 }
