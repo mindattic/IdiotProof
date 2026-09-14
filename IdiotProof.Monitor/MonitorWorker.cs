@@ -48,6 +48,7 @@ public sealed class MonitorWorker(
     IStorageProvider storage,
     IdiotProof.Blazor.Services.LiveBarRepository liveBarRepo,
     PremarketFadeScanner premarketFadeScanner,
+    BeBexDecayScanner beBexDecayScanner,
     IDbContextFactory<AppDbContext> dbFactory,
     ILogger<MonitorWorker> logger) : BackgroundService
 {
@@ -93,6 +94,10 @@ public sealed class MonitorWorker(
     private DateTime lastPruneUtc = DateTime.MinValue;
     private DateTime lastFadeScanUtc = DateTime.MinValue;
     private static readonly TimeSpan FadeScanInterval = TimeSpan.FromMinutes(5);
+    private DateTime lastDecayScanAttemptUtc = DateTime.MinValue;
+    private DateTime lastDecayScanSuccessUtc = DateTime.MinValue;
+    private static readonly TimeSpan DecayScanInterval = TimeSpan.FromHours(24);
+    private static readonly TimeSpan DecayScanRetryInterval = TimeSpan.FromMinutes(5);
 
     // Trading-schedule state
     private TradingWindow lastWindow        = TradingWindow.Hibernate;
@@ -246,10 +251,52 @@ public sealed class MonitorWorker(
         // ── Trading-schedule gate ─────────────────────────────────────────────
         var window = TradingSchedule.Classify(DateTime.UtcNow);
 
+        // Computed once per tick and reused below (hibernate ping, decay-scan
+        // window, fade-scan window) instead of every call site doing its own
+        // TimeZoneInfo.ConvertTimeFromUtc — that conversion walks the Eastern
+        // tz's DST adjustment-rule table, and this method runs once a second.
+        var etNow = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, MarketTime.Eastern);
+
         if (window != lastWindow)
         {
             await LogWindowTransitionAsync(lastWindow, window, ct);
             lastWindow = window;
+        }
+
+        // BE/BEX decay-signal scan — once daily after the close, arms/disarms
+        // the BE pullback strategy per BeBexDecayScanner's decay reading (no
+        // strategy can read a second ticker's price live from inside the DSL,
+        // so this cross-ticker signal is applied one level up, here).
+        //
+        // Deliberately evaluated BEFORE the Hibernate early-return below: on an
+        // early-close day (day after Thanksgiving, Christmas Eve, etc.),
+        // TradingSchedule.Classify already flips to Hibernate at 1:05 PM ET
+        // (EarlyCloseActive), which is well before this scan's 16:30-17:00 ET
+        // window — placing this check after the Hibernate return meant the
+        // scan (and that day's arm/disarm decision) was silently skipped
+        // every early-close day. Holidays are excluded explicitly here because
+        // this block no longer inherits the Hibernate branch's holiday exclusion.
+        //
+        // Two separate cooldowns, not one: DecayScanInterval (24h) gates "already
+        // ran today, don't run again until tomorrow" but only advances on a
+        // SUCCESSFUL run; DecayScanRetryInterval (5min, same cadence as the
+        // fade-scan below) gates "don't hammer the feed every tick" and advances
+        // on every ATTEMPT regardless of outcome. Without this split, a single
+        // transient failure (feed timeout, DB hiccup) inside RunScanAsync would
+        // cost the ENTIRE day with zero retry margin, unlike the fade-scan's
+        // ~12 retries across its window.
+        if (IsInDailyScanWindow(etNow, new TimeSpan(16, 30, 0), new TimeSpan(17, 0, 0), excludeHolidays: true)
+            && DateTime.UtcNow - lastDecayScanSuccessUtc >= DecayScanInterval
+            && DateTime.UtcNow - lastDecayScanAttemptUtc >= DecayScanRetryInterval)
+        {
+            lastDecayScanAttemptUtc = DateTime.UtcNow;
+            try
+            {
+                await beBexDecayScanner.RunScanAsync(ct);
+                lastDecayScanSuccessUtc = DateTime.UtcNow;
+            }
+            catch (OperationCanceledException) { throw; }
+            catch (Exception ex) { logger.LogWarning(ex, "BeBexDecayScanner failed — will retry within today's scan window."); }
         }
 
         if (window == TradingWindow.Hibernate)
@@ -259,7 +306,6 @@ public sealed class MonitorWorker(
             if (DateTime.UtcNow - lastHibernatePing >= TradingSchedule.HibernateInterval)
             {
                 lastHibernatePing = DateTime.UtcNow;
-                var etNow = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, MarketTime.Eastern);
                 Console.WriteLine($"  [HIBERNATE] {etNow:HH:mm} ET — next active 3:55 AM ET");
             }
             return;
@@ -318,10 +364,7 @@ public sealed class MonitorWorker(
         // second" — an in-memory timestamp is enough (same idiom as
         // lastPruneUtc/lastPingUtc above; a restart mid-window just means a
         // handful of names might re-alert once, not a correctness problem).
-        var fadeScanEtNow = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, MarketTime.Eastern);
-        var isWeekday = fadeScanEtNow.DayOfWeek is not (DayOfWeek.Saturday or DayOfWeek.Sunday);
-        if (isWeekday
-            && fadeScanEtNow.TimeOfDay >= new TimeSpan(9, 0, 0) && fadeScanEtNow.TimeOfDay < new TimeSpan(10, 0, 0)
+        if (IsInDailyScanWindow(etNow, new TimeSpan(9, 0, 0), new TimeSpan(10, 0, 0), excludeHolidays: false)
             && DateTime.UtcNow - lastFadeScanUtc >= FadeScanInterval)
         {
             lastFadeScanUtc = DateTime.UtcNow;
@@ -579,7 +622,7 @@ public sealed class MonitorWorker(
                 if (!lastQuarantineLogUtc.TryGetValue(stored.Id, out var lastQ) || DateTime.UtcNow - lastQ >= QuarantineLogInterval)
                 {
                     lastQuarantineLogUtc[stored.Id] = DateTime.UtcNow;
-                    await auditLogRepo.LogAsync("strategy-error",
+                    await LogAuditAsync("strategy-error",
                         $"[{stored.Title}] QUARANTINED while holding {stored.PositionQty} {stored.Symbol} — exits NOT managed: {Truncate(canonError)}",
                         userId: stored.OwnerUserId, ct: ct);
                 }
@@ -619,7 +662,7 @@ public sealed class MonitorWorker(
                 var entryPx   = stored.LastEntryPrice ?? 0m;
                 var unrealized = entryPx > 0 ? (currentPx - entryPx) * stored.PositionQty : 0m;
                 var held = stored.EntryFilledUtc.HasValue ? FormatUptime(DateTime.UtcNow - stored.EntryFilledUtc.Value) : "?";
-                await auditLogRepo.LogAsync("holding",
+                await LogAuditAsync("holding",
                     $"[{stored.Title}] HOLDING {stored.PositionQty} {stored.Symbol} " +
                     $"entry {entryPx:F2} → now {currentPx:F2}, unrealized P&L {unrealized:+0.00;-0.00}, held {held}",
                     userId: stored.OwnerUserId, ct: ct);
@@ -840,7 +883,7 @@ public sealed class MonitorWorker(
             conditions = def.EntryConditions.Select(c => c.ToScript()).ToList(),
         }, new System.Text.Json.JsonSerializerOptions
             { DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull });
-        await auditLogRepo.LogAsync("signal-fire",
+        await LogAuditAsync("signal-fire",
             $"[{stored.Title}] {stored.Symbol} all {def.EntryConditions.Count} conditions met — entering gate checks",
             userId: stored.OwnerUserId, dataJson: signalFireData, ct: ct);
 
@@ -860,7 +903,7 @@ public sealed class MonitorWorker(
                         ? $"vetoed by LLM panel ({voteResult.Votes.Count} voters, conf {voteResult.ConsensusConfidence:F0})"
                         : $"no approval quorum (consensus {voteResult.Consensus}, {voteResult.Votes.Count} voters)";
                 logger.LogInformation("[{Title}] {Symbol} ✗ BLOCKED at LLM gate — {Why}", stored.Title, stored.Symbol, why);
-                await auditLogRepo.LogAsync("signal-vetoed",
+                await LogAuditAsync("signal-vetoed",
                     $"[{stored.Title}] {stored.Symbol} {why}",
                     userId: stored.OwnerUserId, dataJson: voteResult.ConsensusReasoning, ct: ct);
                 return;
@@ -872,7 +915,7 @@ public sealed class MonitorWorker(
         if (guardian is null)
         {
             logger.LogError("[{Title}] RiskGuardian row missing for user {UserId} — fire blocked.", stored.Title, stored.OwnerUserId);
-            await auditLogRepo.LogAsync("signal-blocked",
+            await LogAuditAsync("signal-blocked",
                 $"[{stored.Title}] {stored.Symbol} blocked — no RiskGuardian row for user {stored.OwnerUserId}",
                 userId: stored.OwnerUserId, ct: ct);
             return;
@@ -898,7 +941,7 @@ public sealed class MonitorWorker(
         {
             var reasons = string.Join("; ", verdict.BlockReasons);
             logger.LogInformation("[{Title}] {Symbol} ✗ BLOCKED by RiskGuardian — {Reasons}", stored.Title, stored.Symbol, reasons);
-            await auditLogRepo.LogAsync("signal-blocked",
+            await LogAuditAsync("signal-blocked",
                 $"[{stored.Title}] {stored.Symbol} blocked by RiskGuardian: {reasons}",
                 userId: stored.OwnerUserId, ct: ct);
             return;
@@ -915,7 +958,7 @@ public sealed class MonitorWorker(
             // since nothing else marks "already signaled today" for a
             // no-order path.
             await strategyRepo.RecordEntryFillAsync(stored.Id, 0, entryPrice, DateTime.UtcNow, ct);
-            await auditLogRepo.LogAsync("signal",
+            await LogAuditAsync("signal",
                 $"[{stored.Title}] {stored.Symbol} SHORT signal recorded (order placement for shorts not yet enabled)",
                 userId: stored.OwnerUserId, ct: ct);
             return;
@@ -947,7 +990,7 @@ public sealed class MonitorWorker(
             logger.LogError("[{Title}] {Symbol} ✗ ENTRY BLOCKED — market data is synthetic (Mock) but routing is {Broker}. " +
                 "Refusing to place a real order on mock prices. Configure real market-data keys on the host.",
                 stored.Title, stored.Symbol, broker.BrokerType);
-            await auditLogRepo.LogAsync("signal-blocked",
+            await LogAuditAsync("signal-blocked",
                 $"[{stored.Title}] {stored.Symbol} entry blocked: mock market data cannot drive a real ({broker.BrokerType}) order.",
                 userId: stored.OwnerUserId, ct: ct);
             return;
@@ -1003,7 +1046,7 @@ public sealed class MonitorWorker(
                     stored.PositionQty    = filledQty;
                     stored.LastEntryPrice = match.AveragePrice;
                     stored.EntryFilledUtc = fillUtc;
-                    await auditLogRepo.LogAsync("entry",
+                    await LogAuditAsync("entry",
                         $"[{stored.Title}] BUY {stored.Symbol} entry order threw but broker shows a filled position " +
                         $"({match.Quantity} @ {match.AveragePrice:F2}, {broker.BrokerType}) — bookkeeping reconciled, not re-firing.",
                         userId: stored.OwnerUserId, ct: ct);
@@ -1015,7 +1058,7 @@ public sealed class MonitorWorker(
                         "[{Title}] {Symbol} entry order threw and another strategy already holds this symbol — " +
                         "cannot safely attribute the broker's aggregate position to this strategy. Flag for manual review.",
                         stored.Title, stored.Symbol);
-                    await auditLogRepo.LogAsync("order-placement-exception",
+                    await LogAuditAsync("order-placement-exception",
                         $"[{stored.Title}] {stored.Symbol} entry order threw ({ex.Message}); broker shows a position but it's " +
                         "shared with another strategy on this symbol — bookkeeping NOT auto-reconciled, needs manual review.",
                         userId: stored.OwnerUserId, ct: ct);
@@ -1027,7 +1070,7 @@ public sealed class MonitorWorker(
             {
                 logger.LogWarning(reconcileEx, "[{Title}] {Symbol} post-exception reconciliation also failed.", stored.Title, stored.Symbol);
             }
-            await auditLogRepo.LogAsync("order-placement-exception",
+            await LogAuditAsync("order-placement-exception",
                 $"[{stored.Title}] {stored.Symbol} entry order threw ({ex.Message}) and broker shows no matching position — safe to retry next tick.",
                 userId: stored.OwnerUserId, ct: ct);
             return;
@@ -1037,7 +1080,7 @@ public sealed class MonitorWorker(
         {
             logger.LogWarning("[{Title}] {Symbol} entry order REJECTED by {Broker}: {Message}",
                 stored.Title, stored.Symbol, broker.BrokerType, order.Message);
-            await auditLogRepo.LogAsync("order-rejected",
+            await LogAuditAsync("order-rejected",
                 $"[{stored.Title}] {stored.Symbol} entry rejected by {broker.BrokerType}: {order.Message}",
                 userId: stored.OwnerUserId, ct: ct);
             return;
@@ -1059,7 +1102,7 @@ public sealed class MonitorWorker(
         stored.PositionQty    = quantity;
         stored.LastEntryPrice = limitPrice;
         stored.EntryFilledUtc = entryUtc;
-        await auditLogRepo.LogAsync("entry",
+        await LogAuditAsync("entry",
             $"[{stored.Title}] BUY {quantity} {stored.Symbol} @ {limitPrice:F2} ({broker.BrokerType}, {(extendedHours ? "extended-hours" : "RTH")}, order {order.BrokerOrderId})",
             userId: stored.OwnerUserId, ct: ct);
 
@@ -1322,7 +1365,7 @@ public sealed class MonitorWorker(
                 await strategyRepo.ClearUnfilledEntryAsync(stored.Id, ct);
                 try { await tradeDiary.MarkNotFilledAsync(stored.Id, DateTime.UtcNow, ct); }
                 catch (Exception dex) { logger.LogError(dex, "[{Title}] trade-diary NotFilled mark failed.", stored.Title); }
-                await auditLogRepo.LogAsync("position-reconciled",
+                await LogAuditAsync("position-reconciled",
                     $"[{stored.Title}] {stored.Symbol} entry never filled at {broker.BrokerType} — " +
                     "bookkeeping cleared, no order placed, strategy re-armed.",
                     userId: stored.OwnerUserId, ct: ct);
@@ -1364,7 +1407,7 @@ public sealed class MonitorWorker(
         {
             logger.LogWarning("[{Title}] {Symbol} EXIT order rejected by {Broker}: {Message} — will retry next tick.",
                 stored.Title, stored.Symbol, broker.BrokerType, order.Message);
-            await auditLogRepo.LogAsync("order-rejected",
+            await LogAuditAsync("order-rejected",
                 $"[{stored.Title}] {stored.Symbol} exit ({decision.Reason}) rejected by {broker.BrokerType}: {order.Message}",
                 userId: stored.OwnerUserId, ct: ct);
             return;
@@ -1386,7 +1429,7 @@ public sealed class MonitorWorker(
             // Partial scale-out: reduce PositionQty without closing the position.
             // EntryFilledUtc is preserved so subsequent ticks continue exit management.
             await strategyRepo.RecordPartialExitAsync(stored.Id, sellQty, ct);
-            await auditLogRepo.LogAsync("exit-partial",
+            await LogAuditAsync("exit-partial",
                 $"[{stored.Title}] SELL {sellQty} {stored.Symbol} @ {limitPrice:F2} — {decision.Reason} (partial, {remainingQty} shares remain): {decision.Detail} " +
                 $"(P&L {realized:+0.00;-0.00}, {broker.BrokerType}, order {order.BrokerOrderId})",
                 userId: stored.OwnerUserId, ct: ct);
@@ -1400,7 +1443,7 @@ public sealed class MonitorWorker(
                 GapperExitReason.TrailingStop => "exit-tsl",
                 _                             => "exit",
             };
-            await auditLogRepo.LogAsync(exitCategory,
+            await LogAuditAsync(exitCategory,
                 $"[{stored.Title}] SELL {sellQty} {stored.Symbol} @ {limitPrice:F2} — {decision.Reason}: {decision.Detail} " +
                 $"(P&L {realized:+0.00;-0.00}, {broker.BrokerType}, order {order.BrokerOrderId})",
                 userId: stored.OwnerUserId, ct: ct);
@@ -1588,6 +1631,43 @@ public sealed class MonitorWorker(
     }
 
     private static string Truncate(string s) => s.Length <= 200 ? s : s[..200] + "…";
+
+    /// <summary>
+    /// True when <paramref name="etNow"/> falls on an eligible day (weekdays
+    /// only, optionally excluding market holidays) and within
+    /// [<paramref name="windowStart"/>, <paramref name="windowEnd"/>) ET.
+    /// Shared by the once-daily scan gates in TickAsync (premarket fade-scan,
+    /// BE/BEX decay-scan) so "which days, which window" isn't answered twice
+    /// with copy-pasted, independently-drifting logic.
+    /// </summary>
+    private static bool IsInDailyScanWindow(DateTime etNow, TimeSpan windowStart, TimeSpan windowEnd, bool excludeHolidays)
+    {
+        if (etNow.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday) return false;
+        if (excludeHolidays && MarketTime.IsMarketHoliday(DateOnly.FromDateTime(etNow))) return false;
+        return etNow.TimeOfDay >= windowStart && etNow.TimeOfDay < windowEnd;
+    }
+
+    /// <summary>
+    /// Audit-log write that never aborts the caller. A DB hiccup (lock
+    /// contention, a transient timeout) writing an audit row must never
+    /// silently eat a real entry/exit decision — the per-strategy catch in
+    /// TickAsync treats any unhandled exception as "evaluation failed,
+    /// continuing with next strategy," which previously meant a failed
+    /// signal-fire audit write could drop the whole tick's fire (including
+    /// exits) for that strategy.
+    /// </summary>
+    private async Task LogAuditAsync(string category, string message, Guid? userId = null, string? dataJson = null, CancellationToken ct = default)
+    {
+        try
+        {
+            await auditLogRepo.LogAsync(category, message, userId, dataJson, ct);
+        }
+        catch (OperationCanceledException) { throw; }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Audit log write failed (non-fatal): [{Category}] {Message}", category, message);
+        }
+    }
 
     private async Task LogWindowTransitionAsync(TradingWindow prev, TradingWindow next, CancellationToken ct)
     {

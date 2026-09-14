@@ -140,6 +140,7 @@ builder.Services.AddSingleton<StrategyRepository>();
 builder.Services.AddSingleton<ConditionProgressRepository>();
 builder.Services.AddSingleton<AuditLogRepository>();
 builder.Services.AddSingleton<TradeDiaryRepository>();
+builder.Services.AddSingleton<SettingsRepository>();
 
 // Connection string surfaced to the worker for the single-instance leader
 // lease (sp_getapplock — see MonitorLeaderLease).
@@ -237,6 +238,12 @@ builder.Services.AddSingleton<IdiotProof.Blazor.Services.LiveBarRepository>();
 // (no strategy created, no order placed).
 builder.Services.AddSingleton<EmailSmsAlertSender>();
 builder.Services.AddSingleton<PremarketFadeScanner>();
+
+// BE/BEX decay-signal scanner — triggered automatically by MonitorWorker's
+// tick loop (Mon-Fri, once daily 16:30-17:00 ET). Arms/disarms the BE
+// pullback strategy via StrategyRepository.SetActiveAsync; never touches
+// order placement directly.
+builder.Services.AddSingleton<BeBexDecayScanner>();
 
 builder.Services.AddHostedService<MonitorWorker>();
 

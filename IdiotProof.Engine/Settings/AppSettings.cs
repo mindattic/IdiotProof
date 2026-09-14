@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using Microsoft.Extensions.Configuration;
 using IdiotProof.Engine.Storage;
 using IdiotProof.Models;
@@ -40,7 +41,34 @@ public sealed class AppSettings
     public string AdminPasswordHash { get; set; } = "";
 
     // AI / LLM Voting
-    public string ClaudeApiKey { get; set; } = "";
+    //
+    // ClaudeApiKey is a live pass-through, not a cached value: every read
+    // re-resolves against the same MindAttic Vault LLM keyring that
+    // OverlayFromMindAtticCredentials() consults (own-scoped "idiotproof-claude"
+    // first, falling back to the shared "claude" id), so a key written via the
+    // Blazor Settings/API Keys page (ApiKeys.razor -> PersistClaudeKeyToVault)
+    // is visible on the very next read — no restart, no re-Load() of AppSettings
+    // needed. This fixes the bug where the Blazor host and the separate Monitor
+    // process each kept their own stale in-memory copy until both were restarted.
+    // ClaudeApiKeyFallback is the settable backing field the env/config overlays
+    // (OverlayFromEnvironment, OverlayFromConfiguration) still write into; it is
+    // only used when Vault has no key for either id. The JSON property name is
+    // kept as "claudeApiKey" so existing on-disk app-settings.json files still
+    // round-trip through Load()/Save().
+    [JsonPropertyName("claudeApiKey")]
+    public string ClaudeApiKeyFallback { get; set; } = "";
+
+    [JsonIgnore]
+    public string ClaudeApiKey
+    {
+        get
+        {
+            var fromVault = ResolveClaudeKeyFromVault();
+            return !string.IsNullOrWhiteSpace(fromVault) ? fromVault : ClaudeApiKeyFallback;
+        }
+        set => ClaudeApiKeyFallback = value;
+    }
+
     public bool LlmVotingEnabled { get; set; } = false;
     public decimal LlmConsensusThreshold { get; set; } = 0.66m; // 66% agreement required
     public int StrategyEvaluationIntervalSeconds { get; set; } = 30;
@@ -139,12 +167,27 @@ public sealed class AppSettings
     /// </summary>
     public void OverlayFromMindAtticCredentials()
     {
+        var claudeKey = ResolveClaudeKeyFromVault();
+        if (!string.IsNullOrWhiteSpace(claudeKey)) ClaudeApiKey = claudeKey;
+    }
+
+    /// <summary>
+    /// Resolves the Claude key from the shared MindAttic Vault LLM keyring,
+    /// live, on every call — no caching. Mirrors the resolution logic
+    /// <see cref="OverlayFromMindAtticCredentials"/> used to snapshot once at
+    /// startup: own-scoped <c>"idiotproof-claude"</c> (via
+    /// <see cref="AppScopedCredentialStore"/>) first, falling back to the
+    /// shared <c>"claude"</c> id. Constructs a fresh <see cref="LlmCredentialStore"/>
+    /// per call so the <c>MINDATTIC_LLM_CREDENTIALS</c> env-var override and any
+    /// key written to disk since the last read are both picked up immediately.
+    /// Returns null/empty when neither id has a key.
+    /// </summary>
+    private static string? ResolveClaudeKeyFromVault()
+    {
         var store = new LlmCredentialStore(
             Environment.GetEnvironmentVariable(LlmCredentialStore.DirectoryEnvVar)
             ?? VaultPaths.RoamingBucket(LlmCredentialStore.Bucket));
-        var keys = new CompositeCredentialStore(new AppScopedCredentialStore(AppId, store), store);
-        var claudeKey = keys.GetKey("claude");
-        if (!string.IsNullOrWhiteSpace(claudeKey)) ClaudeApiKey = claudeKey;
+        return new CompositeCredentialStore(new AppScopedCredentialStore(AppId, store), store).GetKey("claude");
     }
 
     /// <summary>

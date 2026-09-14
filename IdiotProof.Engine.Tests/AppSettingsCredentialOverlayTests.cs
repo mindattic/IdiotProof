@@ -60,4 +60,38 @@ public class AppSettingsCredentialOverlayTests
         Assert.That(settings.ClaudeApiKey, Is.Empty);
     }
 
+    // Regression test for the bug this class was refactored to fix: ClaudeApiKey
+    // used to be populated exactly once (via OverlayFromMindAtticCredentials at
+    // startup) and cached, so a key written to Vault afterwards — e.g. from the
+    // Blazor Settings/API Keys page — was invisible until the whole process
+    // restarted. ClaudeApiKey is now a live pass-through that re-resolves from
+    // the Vault-backed LlmCredentialStore on every read, with no caching and no
+    // need to reload/reconstruct the AppSettings instance.
+    [Test]
+    public void ClaudeApiKey_Reflects_Vault_Write_On_Next_Read_Without_Reloading_AppSettings()
+    {
+        var settings = new AppSettings();
+        Assert.That(settings.ClaudeApiKey, Is.Empty, "no key written yet");
+
+        // Simulate the Blazor Settings/API Keys page's write-through path
+        // (ApiKeys.razor -> PersistClaudeKeyToVault) firing *after* `settings`
+        // was already constructed (e.g. the long-lived DI singleton) — without
+        // touching `settings` at all, and without calling
+        // OverlayFromMindAtticCredentials() again.
+        var store = new LlmCredentialStore(tmp!.FullName);
+        new AppScopedCredentialStore(AppSettings.AppId, store).SetKey("claude", "own-key-written-later");
+
+        // Same AppSettings instance, no reconstruction, no re-overlay — the
+        // very next read must already see the newly written key. This is the
+        // regression this fix addresses: ClaudeApiKey used to be cached once
+        // at startup, so this write would previously be invisible until the
+        // whole process restarted.
+        Assert.That(settings.ClaudeApiKey, Is.EqualTo("own-key-written-later"));
+
+        // A second write, still on the same instance, is picked up just as
+        // live — this isn't a one-time refresh, every read re-resolves.
+        new AppScopedCredentialStore(AppSettings.AppId, store).SetKey("claude", "own-key-rotated-again");
+        Assert.That(settings.ClaudeApiKey, Is.EqualTo("own-key-rotated-again"));
+    }
+
 }

@@ -1,5 +1,6 @@
 using IdiotProof.Blazor.Data;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace IdiotProof.Blazor.Services;
 
@@ -13,7 +14,7 @@ namespace IdiotProof.Blazor.Services;
 /// repository never returns the full table. Pruning / archival is a separate
 /// maintenance job; this repo only writes new rows.
 /// </summary>
-public sealed class AuditLogRepository(IDbContextFactory<AppDbContext> dbFactory)
+public sealed class AuditLogRepository(IDbContextFactory<AppDbContext> dbFactory, ILogger<AuditLogRepository> logger)
 {
     /// <summary>
     /// Append a new audit entry. Lightweight: a single insert with the
@@ -23,34 +24,52 @@ public sealed class AuditLogRepository(IDbContextFactory<AppDbContext> dbFactory
     private const int MessageMaxLength = 500;
     private const int CategoryMaxLength = 32;
 
+    /// <summary>
+    /// A DB hiccup writing an audit row (lock contention, a transient timeout)
+    /// must never abort the caller — every one of this repository's callers
+    /// (MonitorWorker's signal/entry/exit pipeline, PremarketFadeScanner,
+    /// AutoGapperScanner, BeBexDecayScanner, and any future automation) treats
+    /// an unhandled exception here as "the real action failed," when in fact
+    /// only the audit trail did. Guaranteeing non-throw HERE — once, for every
+    /// caller — is deliberate: a caller-side try/catch wrapper would have to be
+    /// duplicated at every call site and re-added for every new caller.
+    /// </summary>
     public async Task LogAsync(string category, string message, Guid? userId = null, string? dataJson = null, CancellationToken ct = default)
     {
-        // Truncate to the column widths BEFORE insert. The Monitor builds audit
-        // messages from untrusted-length inputs — a raw Alpaca error body
-        // (order-rejected) or a stack of RiskGuardian block reasons can exceed
-        // 500 chars, and an over-length insert throws "String or binary data
-        // would be truncated", losing the audit entry (and, on the order-placed
-        // path, throwing right after a real order). Overflow is preserved in
-        // DataJson (nvarchar(max), unbounded) so nothing is actually lost.
-        string storedMessage = message ?? "";
-        string storedCategory = category ?? "";
-        string? storedData = dataJson;
-        if (storedMessage.Length > MessageMaxLength)
+        try
         {
-            storedData = $"[full message] {storedMessage}" + (storedData is null ? "" : $"\n---\n{storedData}");
-            storedMessage = storedMessage[..(MessageMaxLength - 1)] + "…";
-        }
+            // Truncate to the column widths BEFORE insert. The Monitor builds audit
+            // messages from untrusted-length inputs — a raw Alpaca error body
+            // (order-rejected) or a stack of RiskGuardian block reasons can exceed
+            // 500 chars, and an over-length insert throws "String or binary data
+            // would be truncated", losing the audit entry (and, on the order-placed
+            // path, throwing right after a real order). Overflow is preserved in
+            // DataJson (nvarchar(max), unbounded) so nothing is actually lost.
+            string storedMessage = message ?? "";
+            string storedCategory = category ?? "";
+            string? storedData = dataJson;
+            if (storedMessage.Length > MessageMaxLength)
+            {
+                storedData = $"[full message] {storedMessage}" + (storedData is null ? "" : $"\n---\n{storedData}");
+                storedMessage = storedMessage[..(MessageMaxLength - 1)] + "…";
+            }
 
-        await using var db = await dbFactory.CreateDbContextAsync(ct);
-        db.AuditLogs.Add(new AuditLog
+            await using var db = await dbFactory.CreateDbContextAsync(ct);
+            db.AuditLogs.Add(new AuditLog
+            {
+                TimestampUtc = DateTime.UtcNow,
+                UserId       = userId,
+                Category     = storedCategory.Length > CategoryMaxLength ? storedCategory[..CategoryMaxLength] : storedCategory,
+                Message      = storedMessage,
+                DataJson     = storedData,
+            });
+            await db.SaveChangesAsync(ct);
+        }
+        catch (OperationCanceledException) { throw; }
+        catch (Exception ex)
         {
-            TimestampUtc = DateTime.UtcNow,
-            UserId       = userId,
-            Category     = storedCategory.Length > CategoryMaxLength ? storedCategory[..CategoryMaxLength] : storedCategory,
-            Message      = storedMessage,
-            DataJson     = storedData,
-        });
-        await db.SaveChangesAsync(ct);
+            logger.LogWarning(ex, "Audit log write failed (non-fatal): [{Category}] {Message}", category, message);
+        }
     }
 
     public async Task<List<AuditLog>> GetRecentAsync(int limit = 100, CancellationToken ct = default)
@@ -132,9 +151,24 @@ public sealed class AuditLogRepository(IDbContextFactory<AppDbContext> dbFactory
             cutoff = anchor.Value;
         }
 
-        return await db.AuditLogs
-            .Where(a => a.TimestampUtc < cutoff)
-            .ExecuteDeleteAsync(ct);
+        // Delete in small batches rather than one unbounded DELETE. A single
+        // statement deleting many thousands of rows crosses SQL Server's
+        // lock-escalation threshold and escalates to a table lock for the
+        // whole statement's duration — observed taking 35s+ against a large
+        // table, which blocked every concurrent audit INSERT on the live
+        // trading path (including a signal-fire write in MonitorWorker's
+        // exit-evaluation flow) until it timed out. Small batches keep each
+        // transaction short so writers can interleave between batches.
+        const int batchSize = 1000;
+        var totalDeleted = 0;
+        while (true)
+        {
+            var deleted = await db.Database.ExecuteSqlInterpolatedAsync(
+                $"DELETE TOP ({batchSize}) FROM AuditLogs WHERE TimestampUtc < {cutoff}", ct);
+            totalDeleted += deleted;
+            if (deleted < batchSize) break;
+        }
+        return totalDeleted;
     }
 
     private static readonly string[] ErrorCategories = ["strategy-error", "order-rejected"];
