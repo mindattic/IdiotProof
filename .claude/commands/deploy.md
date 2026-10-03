@@ -1,21 +1,12 @@
-Deploy the IdiotProof landing page (`mindattic.com/idiotproof.htm`) via **MindAttic.Deploy** (sibling repo at `D:\Projects\MindAttic\MindAttic.Deploy`).
-
-Renders this repo's `README.md` through the catalog template (`template/index.template.htm`, Cyberspace theme, MindAttic.UiUx components loaded via jsDelivr) and FTPS-uploads the single-file result. One repo owns the whole FTP pipeline — there is no per-project deploy state in this folder.
+Deploy the IdiotProof Blazor app via **MindAttic.Deploy** (sibling repo at `D:\Projects\MindAttic\MindAttic.Deploy`).
 
 Run this command and report the result:
 
 ```
-powershell -NoProfile -ExecutionPolicy Bypass -Command "cd D:\Projects\MindAttic\MindAttic.Deploy; npm run deploy -- --only idiotproof"
+powershell -NoProfile -ExecutionPolicy Bypass -Command "cd D:\Projects\MindAttic\MindAttic.Deploy; npm run deploy -- --app idiotproof"
 ```
 
-It will:
-
-1. Render `D:\Projects\MindAttic\IdiotProof\README.md` through the catalog template.
-2. FTPS-upload `out/idiotproof.htm` to `/mindattic.com/idiotproof.htm`.
-
-After running, summarize the result and flag any failures.
+The app entry (`MindAttic.Deploy/projects.json` -> `apps[]` slug `idiotproof`) is currently **disabled** pending Azure infra (App Service + `AZURE_WEBAPP_PUBLISH_PROFILE`), so today this prints the "disabled" note and exits 0. See `.claude/skills/deploy/SKILL.md` for the steps to enable it.
 
 Notes:
-- Catalog entry: `MindAttic.Deploy/projects.json` -> `projects[]` slug `idiotproof` (theme: Cyberspace).
-- Credentials: MindAttic.Vault at `%APPDATA%\MindAttic\Deploy\ftp.json` (transitional fallback: `MindAttic.Deploy/secrets/ftp.json`, gitignored).
-- A Blazor app deploy also exists in `apps[]` (`--app idiotproof`) but is **disabled** pending Azure infra (App Service + `AZURE_WEBAPP_PUBLISH_PROFILE`). Until that's provisioned, `/deploy` ships the landing page only.
+- There is no landing page to deploy. The README-driven `mindattic.com/idiotproof.htm` page was retired together with MindAttic.Deploy's catalog mode (amendment DEP-A6, 2026-10-03; `--only idiotproof` is now rejected). This repo's README on GitHub -- https://github.com/mindattic/IdiotProof -- is the project page; edit `README.md` and push to `main` to update it.

@@ -4,9 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>IdiotProof</title>
-<meta name="description" content="Plain-English trading strategies, evaluated 24/7, executed only when every safeguard agrees.">
+<meta name="description" content="Describe a trade in plain English and IdiotProof turns it into a strategy that a 24/7 Monitor evaluates against live market data, firing only when its conditions, an LLM panel and a risk guard all agree.">
 <meta name="generator" content="MindAttic Codex build-readme.ps1">
-<meta name="generated" content="2026-09-05">
+<meta name="generated" content="2026-10-03">
 <style>:root{
   --bg:#0d1117;--bg2:#161b22;--bg3:#21262d;
   --border:#30363d;
@@ -111,128 +111,88 @@ pre:hover .cpbtn{opacity:1}
   </nav>
   <main id="content">
 <h1 id="idiotproof">IdiotProof</h1>
-<p><strong>Plain-English trading strategies, evaluated 24/7, executed only when every safeguard agrees.</strong></p>
-<p>Describe a setup the way you'd say it out loud — <em>"if NVDA pulls back to the 9 EMA in an uptrend with volume confirmation, go long with a 1% stop"</em> — and IdiotProof turns it into a real, runnable strategy. A multi-LLM voter panel (Claude, GPT, Gemini, DeepSeek, via <code>MindAttic.Legion</code>) cross-checks the translation against the live verb catalog so no model can hallucinate syntax that costs you money. A standalone console <strong>Monitor</strong> evaluates every active strategy against live market data roughly once a second, fires only when three independent gates agree, places the order, and manages the exit. <strong>Set and forget.</strong></p>
-<blockquote><p><em>"I think TSLA will gap up premarket and consolidate near the high. When that happens, go long with a stop at the premarket low and target 1.5 ATR above entry."</em>  Queue it at 8 PM. Go to bed. The Monitor catches it at 4:07 AM ET when the conditions match.</p></blockquote>
-<h3 id="why-idiotproof">Why IdiotProof</h3>
+<p>Describe a trade in plain English and IdiotProof turns it into a strategy that a 24/7 Monitor evaluates against live market data, firing only when its conditions, an LLM panel and a risk guard all agree.</p>
+<p><a href="https://dotnet.microsoft.com/"><img src="https://img.shields.io/badge/.NET-10-512BD4" alt=".NET 10"></a> <a href="https://learn.microsoft.com/aspnet/core/blazor/"><img src="https://img.shields.io/badge/Blazor-Server-512BD4" alt="Blazor Server"></a> <a href="https://learn.microsoft.com/sql/database-engine/configure-windows/sql-server-express-localdb"><img src="https://img.shields.io/badge/SQL%20Server-LocalDB-CC2927" alt="SQL Server"></a> <a href="https://alpaca.markets/"><img src="https://img.shields.io/badge/broker-Alpaca-FFCD00" alt="Broker"></a> <a href="docs/BIBLE.md"><img src="https://img.shields.io/badge/status-active%20development-yellow" alt="Status"></a></p>
+<p><img src="docs/images/replay-run.png" alt="A published strategy replay: ADVB minute candles with VWAP, entry and exit markers, a volume strip and a per-condition truth band underneath"></p>
+<p>Try it: browse the public replay archive at <a href="https://mindattic.com/idiotproof/replays/">mindattic.com/idiotproof/replays</a>, where every published run shows the chart, the condition truth bands and each round-trip's P&amp;L.</p>
+<h2 id="why">Why</h2>
 <ul>
-<li><strong>No code, no chart-watching.</strong> Describe your edge in prose; Claude writes the IdiotScript strategy; you can tweak the visual flowchart or the raw script if you want.</li>
-<li><strong>Near-real-time unattended evaluation.</strong> A console process re-reads every active strategy from SQL on every pass (default ~1s), evaluates it against a live Alpaca websocket + REST feed, and   reports per-condition progress (<code>4/5 — waiting on OnReclaim(9)</code>) live on the Strategies page.</li>
-<li><strong>Three gates before money moves.</strong> Strategy conditions must all match → LLM voter quorum must approve → Risk Guardian must clear stop / daily-loss / per-trade-risk limits. Any one of them   blocks the fire and logs the reasoning to the audit trail.</li>
-<li><strong>Paper by default, live by explicit opt-in.</strong> The Sandbox broker is always the safe fallback; live trading requires a red-outline confirmation modal and per-strategy broker-mode selection.   You can't accidentally route real capital.</li>
-<li><strong>Your strategies are yours.</strong> SQL-backed, owned per user, encrypted broker keys, full audit log of every signal, veto, and order.</li>
+<li>Describe your edge the way you would say it out loud, for example "if NVDA pulls back to the 9 EMA in an uptrend with volume confirmation, go long with a 1% stop", and get a real, runnable strategy back.</li>
+<li>Stop watching charts at 4 AM. A standalone console re-reads every active strategy from SQL about once a second and acts on it while you sleep.</li>
+<li>No single point of failure on the money path: the strategy conditions, a multi-LLM voter quorum and the Risk Guardian must all agree before an order is placed.</li>
+<li>You cannot route real capital by accident. The Sandbox broker is the default, paper is the next step, and live trading needs an explicit per-strategy choice and a red confirmation modal.</li>
+<li>See exactly why something fired or did not: per-condition progress (<code>4/5 — waiting on OnReclaim(9)</code>) is live in the UI, and every signal, veto and order lands in the audit log.</li>
+<li>Your strategies stay yours: SQL-backed, owned per user, broker keys encrypted, full audit trail.</li>
 </ul>
-<hr>
-<h2 id="table-of-contents">Table of contents</h2>
+<h2 id="features">Features</h2>
+<h3 id="three-ways-to-author-a-strategy">Three ways to author a strategy</h3>
+<ul>
+<li>Guided: a visual flowchart editor with one card per lifecycle phase.</li>
+<li>Script: write IdiotScript, the project's fluent C# DSL, directly.</li>
+<li>Describe: type plain English; <code>StrategyScriptGenerator</code> sends it through the <code>MindAttic.Legion</code> voter panel (Claude, OpenAI, Gemini, DeepSeek), with a verb catalog built by reflecting on the real DSL types so a model cannot invent syntax that does not compile.</li>
+</ul>
+<p>Strategies are stored as canonical strict JSON. If a stored strategy cannot be read exactly, it is quarantined with a visible reason instead of being partially evaluated.</p>
+<h3 id="the-gapper">The Gapper</h3>
+<p>The flagship flow: buy a premarket gap at 4 AM ET, sell it before the 9:30 bell once momentum rolls over. Queue a ticker on the Gapper tab, pick a profile, dial in gap %, volume, price band, stops, peak-giveback and arm/sell-by times, and the Monitor handles the rest. You can also paste a video transcript and let <code>GapperInterpreter</code> extract candidate plays as review cards; nothing queues until you click.</p>
+<p><img src="docs/images/gapper-user-guide.png" alt="The Gapper user guide served by the app, showing its contents and the screen, buy, hold, rollover and flat stages of a gapper trade"></p>
+<h3 id="three-gates-before-money-moves">Three gates before money moves</h3>
 <ol>
-<li><a href="#0-quick-start--trade-a-gapper">Quick start — trade a gapper</a></li>
-<li><a href="#1-what-this-system-is">What this system is</a></li>
-<li><a href="#2-architecture">Architecture</a></li>
-<li><a href="#3-project-reference">Project reference</a></li>
-<li><a href="#4-domain-model--the-nouns-and-verbs">Domain model — the nouns and verbs</a></li>
-<li><a href="#5-storage-layout">Storage layout</a></li>
-<li><a href="#6-idiotscript--the-dsl">IdiotScript — the DSL</a></li>
-<li><a href="#7-the-monitor-console--the-one-pipeline">The Monitor console — the one pipeline</a></li>
-<li><a href="#8-the-blazor-web-app">The Blazor web app</a></li>
-<li><a href="#9-the-maui-desktop-shell-and-the-shared-ui-library">The MAUI desktop shell and the shared UI library</a></li>
-<li><a href="#10-the-research-scanner">The Research Scanner</a></li>
-<li><a href="#11-the-mindattic-family">The MindAttic family</a></li>
-<li><a href="#12-building-running-and-testing">Building, running, and testing</a></li>
-<li><a href="#13-exportps1-and-the-other-root-scripts">Export.ps1 and the other root scripts</a></li>
-<li><a href="#14-directory-layout">Directory layout</a></li>
-<li><a href="#15-glossary">Glossary</a></li>
-<li><a href="#16-documentation-canon-and-further-reading">Documentation canon and further reading</a></li>
-<li><a href="#17-known-gaps-and-roadmap">Known gaps and roadmap</a></li>
+<li>All strategy conditions match.</li>
+<li>The LLM voter quorum explicitly approves.</li>
+<li>The Risk Guardian clears stop presence, per-trade and daily loss limits, stop distance and account-risk percent.</li>
 </ol>
-<hr>
-<h2 id="0-quick-start-trade-a-gapper">0. Quick start — trade a gapper</h2>
-<blockquote><p>The condensed runbook. The full field-by-field walkthrough lives in <strong><a href="IdiotProof.Blazor/wwwroot/user-guide.htm">user-guide.htm</a></strong> — also served by the running app at <code>/user-guide.htm</code> and linked from the Gapper tab.</p></blockquote>
-<p>The system is <strong>two .NET processes sharing one SQL database</strong> — the database <em>is</em> the communication channel. Anything you change in the UI is picked up by the console on its next pass (roughly a second later); no restart, no extra wiring.</p>
-<h3 id="step-1-start-both-processes-two-terminals">Step 1 — start both processes (two terminals)</h3>
-<pre><code class="language-bash"># Terminal 1 — the web UI
+<p>Any gate can block the fire, and the reason goes to the audit log.</p>
+<h3 id="replay-archive">Replay archive</h3>
+<p>The Monitor can replay a strategy over a past day (<code>replay</code>, <code>replay-all</code>, <code>scan</code>) and render each run as a static HTML page: minute candles, VWAP, entry and exit markers, a per-condition truth band and a payoffs table. <code>replay-regen</code> rebuilds the archive from the <code>ReplayRun</code> rows in SQL, and it is published by hand to <a href="https://mindattic.com/idiotproof/replays/">mindattic.com/idiotproof/replays</a>.</p>
+<p><img src="docs/images/replay-archive.png" alt="The public replay archive index: replayed tickers grouped by trading day, each card showing replay count, fires and last result"></p>
+<h3 id="research-options-and-learning">Research, options and learning</h3>
+<ul>
+<li>Research tab: a ranked feed of high-impact events from SEC filings, Alpaca news and Federal Register notices, scored 0 to 100 by the separate Research Scanner.</li>
+<li>Options tab: a manual options section with a full chain, per-strike breakeven, an intrinsic versus extrinsic ("real vs hype") meter and a plain-English order ticket. It is deliberately separate from the automated strategy pipeline.</li>
+<li>Learning Center: seeded articles with live-rendered strategy examples embedded through <code>[[...]]</code> wikilinks.</li>
+<li>Backtesting: <code>StrategyBacktester</code> and the gapper day replay run the same evaluation code as the live Monitor.</li>
+</ul>
+<h2 id="quick-start">Quick start</h2>
+<p>The system is two .NET processes sharing one SQL database; the database is the communication channel. Anything you change in the UI is picked up by the console on its next pass, roughly a second later, with no restart. The full field-by-field walkthrough is in <a href="IdiotProof.Blazor/wwwroot/user-guide.htm">user-guide.htm</a>, which the running app also serves at <code>/user-guide.htm</code>.</p>
+<p>Prerequisites: .NET 10 SDK, SQL Server LocalDB (ships with Visual Studio or the SQL Server Express LocalDB package), and Node 18+ only if you want to run Cypress.</p>
+<h3 id="step-1-build-and-create-the-database">Step 1 build and create the database</h3>
+<pre><code class="language-bash">git clone https://github.com/mindattic/IdiotProof.git
+cd IdiotProof
+dotnet build IdiotProof.slnx
+dotnet ef database update --project IdiotProof.Blazor</code></pre>
+<h3 id="step-2-start-both-processes">Step 2 start both processes</h3>
+<pre><code class="language-bash"># Terminal 1 — the web UI (https://localhost:5001)
 dotnet run --project IdiotProof.Blazor
 
 # Terminal 2 — the trading console
 dotnet run --project IdiotProof.Monitor</code></pre>
-<p>Both default to the same LocalDB database (<code>IdiotProof</code>). The console logs a startup banner, acquires the SQL leader lease, and starts ticking. <strong>Register an account</strong> in the UI on first run.</p>
-<h3 id="step-2-real-market-data-the-consoles-eyes">Step 2 — real market data (the console's eyes)</h3>
-<p>The console picks its <strong>data feed</strong> from the global settings chain. Put Alpaca keys in the MindAttic broker keyring at <code>%APPDATA%\MindAttic\Brokers\providers.json</code>:</p>
+<p>Both default to the same LocalDB database (<code>IdiotProof</code>). The console prints a startup banner, acquires the SQL leader lease and starts ticking. Register an account in the UI on first run. On a plain Debug build the web app needs a <code>wwwroot</code> folder next to the built exe; see <a href="#limitations-and-roadmap">Limitations and roadmap</a>.</p>
+<h3 id="step-3-real-market-data">Step 3 real market data</h3>
+<p>The console picks its data feed from the settings chain. Put Alpaca keys in the MindAttic broker keyring at <code>%APPDATA%\MindAttic\Brokers\providers.json</code>:</p>
 <pre><code class="language-json">{ "alpaca-paper": { "type": "alpaca", "apiKey": "PK...", "secret": "..." } }</code></pre>
-<p>(or set <code>AlpacaApiKeyId</code> / <code>AlpacaApiSecretKey</code> env vars before starting the Monitor). With keys present the Monitor uses Alpaca's REST API plus a live websocket stream automatically (real-time SIP consolidated tape by default — see <a href="docs/AMENDMENTS.md#IP-A29">IP-A29</a>); without keys it falls back to a deterministic mock feed.</p>
-<h3 id="step-3-real-order-routing-your-account-your-money">Step 3 — real order routing (your account, your money)</h3>
-<p>In the UI: <strong>user menu → API Keys</strong> → enter your Alpaca key/secret → leave <strong>Paper</strong> checked → enable <strong>"Route my orders to this Alpaca account"</strong> → Save All. The console decrypts those keys through the shared ASP.NET Core Data Protection key ring and places <em>your</em> orders on <em>your</em> account. Without the toggle, orders go to the built-in <strong>Sandbox</strong> broker (simulated fills) — the safe default by design. Live trading = uncheck Paper and confirm the red modal; the strategy's own <code>BrokerMode</code> (Paper / Live / Sandbox) then overrides the global flag per strategy.</p>
-<h3 id="step-4-queue-gappers">Step 4 — queue gappers</h3>
-<p>Two ways. <strong>From a transcript:</strong> paste a video transcript (or any natural language) into the Gapper tab's "From a transcript" box → <strong>Interpret</strong> → Claude (via Legion, through <code>GapperInterpreter</code>) extracts the gap plays as reviewable candidate cards with inferred dial-ins → <strong>Queue</strong> the ones you like, or <strong>Load into dials</strong> to tweak first. Nothing queues itself — you click every queue. <strong>By hand:</strong> ticker → pick a profile (from <code>IdiotProof.Blazor/wwwroot/data/gapper-profiles.json</code>) → <strong>Dial in</strong> (gap %, volume, price band, SL/TSL, peak-giveback, arm + sell-by times) → <strong>Queue Gapper</strong>. From then on it's hands-off: the Monitor screens the ticker every pass in the <strong>4:00–9:00 AM ET premarket window</strong>, buys through the three gates when the criteria hit (premarket orders are limit + extended-hours automatically), shows <strong>HOLDING qty @ price</strong> live, and sells before the 9:30 bell — momentum giveback first, hard sell-by as the backstop.</p>
-<h3 id="step-5-watch-it-dry-run-it">Step 5 — watch it / dry-run it</h3>
-<p>The console log narrates every decision; the Gapper and Strategies tabs mirror it live. To rehearse without keys or money: start the Monitor with <code>IDIOTPROOF_FEED=mock</code>, queue a ticker starting with <strong>GAP</strong> (e.g. <code>GAPT</code> — the mock feed fabricates a gap day for it), and leave routing off (Sandbox). The session gate still runs on the real ET clock even in mock mode — entries only fire during actual premarket hours, Monday–Friday. The Monitor also refuses to place a <strong>real</strong> order against <strong>mock</strong> market data even if a broker is configured — see <a href="#7-the-monitor-console--the-one-pipeline">§7</a>.</p>
-<h3 id="monitor-env-knobs">Monitor env knobs</h3>
-<table><thead><tr>
-<th>Env var</th>
-<th>Default</th>
-<th>Notes</th>
-</tr></thead><tbody>
-<tr>
-<td><code>IDIOTPROOF_MONITOR_INTERVAL</code></td>
-<td><code>1s</code></td>
-<td>Evaluation cadence (<code>30s</code>, <code>5m</code>, bare seconds). The websocket stream keeps prices fresh between REST refreshes regardless of this value.</td>
-</tr>
-<tr>
-<td><code>IDIOTPROOF_FEED</code></td>
-<td>auto</td>
-<td><code>alpaca</code> \</td>
-<td><code>mock</code> (auto = Alpaca when keys resolve).</td>
-</tr>
-<tr>
-<td><code>IDIOTPROOF_BROKER</code></td>
-<td><code>sandbox</code></td>
-<td><code>alpaca</code> opts the <em>global</em> account into real routing (per-strategy routing is <code>BrokerMode</code> / the API Keys toggle).</td>
-</tr>
-<tr>
-<td><code>IDIOTPROOF_ALPACA_FEED</code></td>
-<td><code>sip</code></td>
-<td>Data tier for both REST and streaming; <code>sip</code> requires an Algo Trader Plus subscription and falls back on rejection — set <code>iex</code> explicitly for the free tier.</td>
-</tr>
-<tr>
-<td><code>IDIOTPROOF_STREAMING</code></td>
-<td>on</td>
-<td><code>0</code> disables the websocket stream (REST-only).</td>
-</tr>
-<tr>
-<td><code>IDIOTPROOF_SELFPING</code></td>
-<td><code>30m</code></td>
-<td>Liveness line cadence; <code>0</code> disables it.</td>
-</tr>
-<tr>
-<td><code>IDIOTPROOF_PRINT_FILLS</code></td>
-<td>on</td>
-<td><code>0</code> silences the framed ENTRY/EXIT console blocks (the structured logger line still fires).</td>
-</tr>
-</tbody></table>
-<p>Unattended operation: <code>sc.exe create IdiotProof.Monitor binPath="&lt;path&gt;\idiotproof-monitor.exe"</code> — the console is Windows-Service-ready (<code>AddWindowsService</code>), and a SQL <code>sp_getapplock</code> leader lease guarantees only one instance trades per database (a second instance waits in standby and takes over automatically if the leader dies).</p>
-<hr>
-<h2 id="1-what-this-system-is">1. What this system is</h2>
-<p>IdiotProof is <strong>one solution, several front doors, one shared engine</strong> — a trading-strategy platform, not a single app:</p>
+<p>Or set <code>AlpacaApiKeyId</code> and <code>AlpacaApiSecretKey</code> before starting the Monitor. With keys present the Monitor uses Alpaca REST plus a live websocket stream (real-time SIP tape by default, see <a href="docs/AMENDMENTS.md#IP-A29">IP-A29</a>); without keys it falls back to a deterministic mock feed.</p>
+<h3 id="step-4-real-order-routing">Step 4 real order routing</h3>
+<p>In the UI open the user menu, then API Keys. Enter your Alpaca key and secret, leave Paper checked, enable "Route my orders to this Alpaca account" and Save All. The console decrypts those keys through the shared ASP.NET Core Data Protection key ring and places your orders on your account. Without the toggle, orders go to the built-in Sandbox broker (simulated fills), the safe default by design. Live trading means unchecking Paper and confirming the red modal; each strategy's own <code>BrokerMode</code> (Paper, Live or Sandbox) then overrides the global flag for that strategy.</p>
+<h3 id="step-5-queue-a-gapper">Step 5 queue a gapper</h3>
 <ul>
-<li><strong><code>IdiotProof.Blazor</code></strong> — a Blazor Server web app where a trader authors strategies (visual flowchart, raw IdiotScript text, or a plain-English description handed to Claude), watches them   live, and manages accounts/keys/research.</li>
-<li><strong><code>IdiotProof.Maui</code></strong> — a .NET MAUI Blazor Hybrid desktop shell intended to present the <em>same</em> pages as the Blazor host without a browser (see <a href="#9-the-maui-desktop-shell-and-the-shared-ui-library">§9</a>   for its actual current state — it is a scaffold today, not yet wired to real IdiotProof pages).</li>
-<li><strong><code>IdiotProof.Monitor</code></strong> — a standalone console that runs unattended, loads every active strategy from SQL, evaluates it continuously, walks the three gates, places orders, and manages   open positions to their exit — so the trader doesn't have to be at the computer at 4 AM ET when   their setup fires.</li>
-<li><strong><code>IdiotProof.ResearchScanner</code></strong> — a one-shot console (meant for a Scheduled Task, not a daemon) that sweeps EDGAR filings, Alpaca news, and Federal Register regulatory notices for   market-moving events, scores their significance, and writes them to the same database for the   <code>/research</code> tab to read.</li>
+<li>From a transcript: paste a video transcript or any natural language into the Gapper tab's "From a transcript" box and press Interpret. Claude, through Legion and <code>GapperInterpreter</code>, extracts the gap plays as reviewable candidate cards with inferred dial-ins. Queue the ones you like, or Load into dials to tweak first.</li>
+<li>By hand: enter a ticker, pick a profile from <code>IdiotProof.Blazor/wwwroot/data/gapper-profiles.json</code>, dial in gap %, volume, price band, SL/TSL, peak-giveback and arm/sell-by times, then Queue Gapper.</li>
 </ul>
-<p>Everything shares one SQL database as the single source of truth, one settings/credential overlay chain (<code>IdiotProof.Engine.Settings.AppSettings</code>), and the same domain libraries (<code>IdiotProof.Models</code>, <code>IdiotProof.Shared</code>, <code>IdiotProof.Indicators</code>, <code>IdiotProof.Scripting</code>, <code>IdiotProof.Strategies</code>) for evaluating a strategy identically everywhere it's evaluated.</p>
-<p>It is <strong>Alpaca-only</strong> in the active build. A new broker plugs in by implementing <code>IBrokerClient</code> and registering it with <code>BrokerRouter</code>; a dormant IBKR adapter tree exists outside the solution (<code>IdiotProof.Brokers.Ibkr/</code>, not referenced by <code>IdiotProof.slnx</code>).</p>
-<hr>
-<h2 id="2-architecture">2. Architecture</h2>
-<p>Data flows in one direction from market data down to an order, and audit/state flows back up through SQL to every UI that's watching:</p>
-<pre><code>                                ┌───────────────────────────────┐
+<p>From then on it is hands-off. The Monitor screens the ticker every pass in the 4:00 to 9:00 AM ET premarket window, buys through the three gates when the criteria hit (premarket orders are limit plus extended-hours automatically), shows HOLDING qty @ price live, and sells before the 9:30 bell: momentum giveback first, hard sell-by as the backstop.</p>
+<h3 id="step-6-watch-it-or-dry-run-it">Step 6 watch it or dry-run it</h3>
+<p>The console log narrates every decision; the Gapper and Strategies tabs mirror it live. To rehearse without keys or money, start the Monitor with <code>IDIOTPROOF_FEED=mock</code>, queue a ticker starting with GAP (for example <code>GAPT</code>, for which the mock feed fabricates a gap day) and leave routing off. The session gate still runs on the real ET clock, so entries only fire during actual premarket hours, Monday to Friday. The Monitor also refuses to place a real order against mock market data even if a broker is configured.</p>
+<h2 id="how-it-works">How it works</h2>
+<p>Data flows one way from market data down to an order; audit and state flow back up through SQL to every UI that is watching.</p>
+<pre><code class="language-text">                                ┌───────────────────────────────┐
                                 │        Trader (browser)        │
                                 └───────────────┬─────────────────┘
                                                 │
                               ┌─────────────────▼──────────────────┐      ┌─────────────────────┐
                               │          IdiotProof.Blazor          │◄─────┤   Cypress E2E       │
-                              │  Strategies · Strategy Builder      │      │ (7 specs, tests/)   │
+                              │  Strategies · Strategy Builder      │      │ (9 specs, tests/)   │
                               │  (Guided / Script / Describe)       │      └─────────────────────┘
                               │  Gapper · Learn · Research          │
-                              │  Backtest · Settings · API Keys     │
+                              │  Options · Backtest · API Keys      │
                               └─┬──────────┬─────────────┬──────────┘
                                 │          │             │
                        ┌────────▼──┐ ┌─────▼─────┐ ┌─────▼───────────┐
@@ -294,17 +254,24 @@ dotnet run --project IdiotProof.Monitor</code></pre>
         │  evaluates → 3 gates   │            │  Scheduled-Task-fired)  │
         │  → order → exit mgmt   │            └─────────────────────────┘
         └────────────────────────┘</code></pre>
-<h3 id="reading-the-diagram">Reading the diagram</h3>
+<p>IdiotProof is one solution with several front doors and one shared engine:</p>
+<ul>
+<li><code>IdiotProof.Blazor</code> is a Blazor Server web app where a trader authors strategies, watches them live, and manages accounts, keys and research.</li>
+<li><code>IdiotProof.Monitor</code> is a standalone console that runs unattended, loads every active strategy from SQL, evaluates it continuously, walks the three gates, places orders and manages open positions to their exit.</li>
+<li><code>IdiotProof.ResearchScanner</code> is a one-shot console, meant for a Scheduled Task rather than a daemon, that sweeps EDGAR filings, Alpaca news and Federal Register notices and writes scored events to the same database for the <code>/research</code> tab.</li>
+</ul>
+<p>Everything shares one SQL database as the single source of truth, one settings and credential overlay chain (<code>IdiotProof.Engine.Settings.AppSettings</code>), and the same domain libraries, so a strategy is evaluated identically everywhere.</p>
+<p>Reading the diagram:</p>
 <ol>
-<li>A trader authors a strategy in <code>IdiotProof.Blazor</code> (or, in principle, <code>IdiotProof.Maui</code>); it's saved to the <code>Strategies</code> table as canonical strict JSON (<code>ScriptJson</code>) with IdiotScript text    (<code>ScriptText</code>) kept only as a human-readable view — see <a href="docs/BIBLE.md#IP-LAW-8">IP-LAW-8</a>.</li>
-<li><code>IdiotProof.Monitor</code> re-reads every <code>IsActive = true</code> row on every evaluation pass, builds an <code>IndicatorSnapshot</code> per symbol from live candles (<code>IdiotProof.Indicators</code> math over    <code>IdiotProof.DataFeeds</code> data), and walks each strategy's entry conditions.</li>
-<li>A full pass on all conditions is a <strong>candidate signal</strong>, not an order — it must still clear the LLM voter panel and the <code>RiskGuardian</code> (<code>IdiotProof.Shared.Risk</code>) before <code>IdiotProof.Brokers</code>    places anything.</li>
-<li>Every step — condition progress, votes, vetoes, fills, exits — is written back to SQL (<code>ConditionProgress</code>, <code>AuditLogs</code>, <code>LiveBar</code>), which is what the Blazor UI polls to show live    badges without any direct connection to the Monitor process.</li>
-<li><code>IdiotProof.ResearchScanner</code> is architecturally separate: it doesn't touch strategies or orders at all, it only populates <code>ResearchClaim</code>/<code>TrackedTicker</code> rows that the <code>/research</code> page reads.</li>
+<li>A trader authors a strategy in <code>IdiotProof.Blazor</code>. It is saved to the <code>Strategies</code> table as canonical strict JSON (<code>ScriptJson</code>), with IdiotScript text (<code>ScriptText</code>) kept only as a human-readable view; see <a href="docs/BIBLE.md#IP-LAW-8">IP-LAW-8</a>.</li>
+<li><code>IdiotProof.Monitor</code> re-reads every <code>IsActive = true</code> row on every pass, builds an <code>IndicatorSnapshot</code> per symbol from live candles (<code>IdiotProof.Indicators</code> math over <code>IdiotProof.DataFeeds</code> data), and walks each strategy's entry conditions.</li>
+<li>A full pass on all conditions is a candidate signal, not an order. It must still clear the LLM voter panel and the <code>RiskGuardian</code> (<code>IdiotProof.Shared.Risk</code>) before <code>IdiotProof.Brokers</code> places anything.</li>
+<li>Every step (condition progress, votes, vetoes, fills, exits) is written back to SQL (<code>ConditionProgress</code>, <code>AuditLogs</code>, <code>LiveBar</code>), which the Blazor UI polls for live badges without any direct connection to the Monitor.</li>
+<li><code>IdiotProof.ResearchScanner</code> is architecturally separate: it never touches strategies or orders, it only populates <code>ResearchClaim</code> and <code>TrackedTicker</code> rows that the <code>/research</code> page reads.</li>
 </ol>
-<hr>
-<h2 id="3-project-reference">3. Project reference</h2>
-<p>Every project below is registered in <code>IdiotProof.slnx</code> (verified by reading the solution file and each project's actual source tree — nothing here is inferred from documentation alone).</p>
+<p>It is Alpaca-only in the active build. A new broker plugs in by implementing <code>IBrokerClient</code> and registering it with <code>BrokerRouter</code>.</p>
+<h2 id="projects">Projects</h2>
+<p>Every project below is registered in <code>IdiotProof.slnx</code>.</p>
 <table><thead><tr>
 <th>Project</th>
 <th>Type</th>
@@ -314,14 +281,14 @@ dotnet run --project IdiotProof.Monitor</code></pre>
 <tr>
 <td><code>IdiotProof.Models</code></td>
 <td>Class library</td>
-<td>Domain DTOs and enums — the nouns everything else shares.</td>
+<td>Domain DTOs and enums, the nouns everything else shares.</td>
 <td><code>Candle</code>, <code>TradeSignal</code>, <code>TradeSetup</code>, <code>OrderRequest</code>/<code>OrderResult</code>, <code>Position</code>, <code>TradeDirection</code>, <code>TradingSession</code>, <code>BrokerType {Alpaca, Sandbox}</code>, <code>StrategyType</code>; options (<a href="docs/AMENDMENTS.md#IP-A33">IP-A33</a>): <code>AssetClass {Equity, Option}</code>, <code>OptionRight</code>, <code>OptionContract</code> (OCC parse/build), <code>OptionQuote</code>, <code>OptionGreeks</code></td>
 </tr>
 <tr>
 <td><code>IdiotProof.Shared</code></td>
 <td>Class library</td>
 <td>Cross-cutting primitives used by almost every other project.</td>
-<td><code>RiskGuardian</code> (+ <code>RiskGuardianConfig</code>/<code>Result</code>) — the final pre-trade veto; <code>IndicatorSnapshot</code>; <code>LogMessage</code>; <code>SettingsMetadata</code>; <code>Branding</code> (console ASCII banner); <code>Options/</code> — <code>IntrinsicValueCalculator</code> (real vs hype split, breakeven, DTE), <code>BlackScholesCalculator</code> (theoretical price + implied-vol solver), <code>SellSignalEvaluator</code> (informational "consider taking profit")</td>
+<td><code>RiskGuardian</code> (+ <code>RiskGuardianConfig</code>/<code>Result</code>), the final pre-trade veto; <code>IndicatorSnapshot</code>; <code>LogMessage</code>; <code>SettingsMetadata</code>; <code>Branding</code> (console banner); <code>Options/</code>: <code>IntrinsicValueCalculator</code> (real vs hype split, breakeven, DTE), <code>BlackScholesCalculator</code> (theoretical price + implied-vol solver), <code>SellSignalEvaluator</code> (informational "consider taking profit")</td>
 </tr>
 <tr>
 <td><code>IdiotProof.Indicators</code></td>
@@ -332,8 +299,8 @@ dotnet run --project IdiotProof.Monitor</code></pre>
 <tr>
 <td><code>IdiotProof.Scripting</code></td>
 <td>Class library</td>
-<td>The IdiotScript DSL itself: authoring, parsing, serializing, scheduling.</td>
-<td><code>IdiotScript</code>/<code>StrategyBuilder</code>/<code>Conditions</code> (fluent authoring), <code>ScriptParser</code> (tolerant text → model), <code>StrategyJson</code> (canonical strict-JSON codec), <code>StrategyLoader</code> (fail-closed load), <code>StrategyHtml</code> (render), <code>GapperProfile</code> (dialable template), <code>EmaPeriodCollector</code>, <code>TradingSchedule</code>/<code>MarketTime</code> (ET session clock)</td>
+<td>The IdiotScript DSL: authoring, parsing, serializing, scheduling.</td>
+<td><code>IdiotScript</code>/<code>StrategyBuilder</code>/<code>Conditions</code> (fluent authoring), <code>ScriptParser</code> (tolerant text to model), <code>StrategyJson</code> (canonical strict-JSON codec), <code>StrategyLoader</code> (fail-closed load), <code>StrategyHtml</code> (render), <code>GapperProfile</code> (dialable template), <code>EmaPeriodCollector</code>, <code>TradingSchedule</code>/<code>MarketTime</code> (ET session clock)</td>
 </tr>
 <tr>
 <td><code>IdiotProof.Strategies</code></td>
@@ -351,48 +318,42 @@ dotnet run --project IdiotProof.Monitor</code></pre>
 <td><code>IdiotProof.Brokers</code></td>
 <td>Class library</td>
 <td>Order routing abstraction and providers.</td>
-<td><code>IBrokerClient</code> (equity members + default-implemented options members: <code>SupportsOptions</code>, <code>GetOptionTradingLevelAsync</code>, <code>GetOptionChainAsync</code>, <code>GetOptionQuotesAsync</code>), <code>AlpacaBrokerClient</code> (orders/positions/account + <code>/v2/options/contracts</code>, data-host <code>/v1beta1/options/snapshots</code>, single-leg option orders), <code>AlpacaOAuthClient</code>, <code>SandboxBrokerClient</code> (in-memory fills + a synthetic options chain), <code>BrokerRouter</code> (Sandbox always registered as the safe fallback)</td>
+<td><code>IBrokerClient</code> (equity members + default-implemented options members: <code>SupportsOptions</code>, <code>GetOptionTradingLevelAsync</code>, <code>GetOptionChainAsync</code>, <code>GetOptionQuotesAsync</code>), <code>AlpacaBrokerClient</code> (orders, positions, account, option contracts, option snapshots, single-leg option orders), <code>AlpacaOAuthClient</code>, <code>SandboxBrokerClient</code> (in-memory fills + a synthetic options chain), <code>BrokerRouter</code> (Sandbox always registered as the safe fallback)</td>
 </tr>
 <tr>
 <td><code>IdiotProof.Engine</code></td>
 <td>Class library</td>
 <td>The DI root shared by every host.</td>
-<td><code>ServiceRegistration.AddIdiotProofEngine(...)</code>, <code>Settings/AppSettings</code> (disk → env → MindAttic keyrings → <code>IConfiguration</code> overlay chain), <code>Storage/IStorageProvider</code>/<code>StorageLocation</code>, <code>SupervisedLoop</code> (fault-tolerant tick loop with backoff + heartbeat), <code>AuditLogger</code>, <code>Workspace/WorkspaceManager</code> + <code>JsonFileWorkspaceStore</code> (legacy JSON path; the Blazor host swaps in a SQL-backed store)</td>
+<td><code>ServiceRegistration.AddIdiotProofEngine(...)</code>, <code>Settings/AppSettings</code> (disk, env, MindAttic keyrings, <code>IConfiguration</code> overlay chain), <code>Storage/IStorageProvider</code>/<code>StorageLocation</code>, <code>SupervisedLoop</code> (fault-tolerant tick loop with backoff + heartbeat), <code>AuditLogger</code>, <code>Workspace/WorkspaceManager</code> + <code>JsonFileWorkspaceStore</code> (legacy JSON path; the Blazor host swaps in a SQL-backed store)</td>
 </tr>
 <tr>
 <td><code>IdiotProof.Blazor</code></td>
 <td>ASP.NET Core Blazor Server app</td>
-<td>The primary web front door: strategy authoring/monitoring, accounts, keys, research, learning.</td>
-<td>See <a href="#8-the-blazor-web-app">§8</a></td>
-</tr>
-<tr>
-<td><code>IdiotProof.Maui</code></td>
-<td>.NET MAUI Blazor Hybrid app</td>
-<td>Desktop shell intended to reuse <code>IdiotProof.UI</code> for the same pages, offline of a browser.</td>
-<td>See <a href="#9-the-maui-desktop-shell-and-the-shared-ui-library">§9</a></td>
+<td>The primary web front door: strategy authoring and monitoring, accounts, keys, research, learning.</td>
+<td>See <a href="#the-web-app">The web app</a></td>
 </tr>
 <tr>
 <td><code>IdiotProof.UI</code></td>
 <td>Razor Class Library</td>
-<td>Home for UI shared between <code>Blazor</code> and <code>Maui</code> hosts (parity by construction, <a href="docs/AMENDMENTS.md#IP-A28">IP-A28</a>). Referenced by <code>IdiotProof.Blazor</code> since <a href="docs/AMENDMENTS.md#IP-A33">IP-A33</a>.</td>
-<td><code>Components/Options/</code>: <code>OptionsChainView</code>, <code>OptionOrderTicket</code>, <code>OptionPositionTracker</code>, <code>OptionsLiveElevationModal</code>, <code>OptionsPresenter</code> + view models; <code>wwwroot/css/options.css</code>. Presentational only — see <a href="#9-the-maui-desktop-shell-and-the-shared-ui-library">§9</a></td>
+<td>Shared component library referenced by <code>IdiotProof.Blazor</code> since <a href="docs/AMENDMENTS.md#IP-A33">IP-A33</a>. Presentational only.</td>
+<td><code>Components/Options/</code>: <code>OptionsChainView</code>, <code>OptionOrderTicket</code>, <code>OptionPositionTracker</code>, <code>OptionsLiveElevationModal</code>, <code>OptionsPresenter</code> + view models; <code>Components/Shared/</code>: <code>Tooltip</code>, <code>Term</code>; <code>wwwroot/css/options.css</code>, tooltip CSS and JS</td>
 </tr>
 <tr>
 <td><code>IdiotProof.Monitor</code></td>
-<td>.NET generic host / console, Windows-Service-ready</td>
-<td>The 24/7 evaluator and executor — "the one pipeline."</td>
-<td><code>Program.cs</code> (composition root), <code>MonitorWorker</code> (the tick loop), <code>MonitorLeaderLease</code> (<code>sp_getapplock</code> single-instance lease), <code>MonitorCli</code> (operator subcommands), <code>AutoGapperScanner</code>, <code>PremarketFadeScanner</code>, <code>EmailSmsAlertSender</code>, <code>StrategyScanner</code>/<code>StrategyReplay</code>/<code>StrategyReplayLive</code>/<code>ReplayFeatures</code>/<code>ReplayTemplates</code>/<code>StrategyDataset</code> (offline replay/ML-dataset tooling)</td>
+<td>.NET generic host console, Windows-Service-ready</td>
+<td>The 24/7 evaluator and executor, "the one pipeline".</td>
+<td><code>Program.cs</code> (composition root), <code>MonitorWorker</code> (the tick loop), <code>MonitorLeaderLease</code> (<code>sp_getapplock</code> single-instance lease), <code>MonitorCli</code> (operator subcommands), <code>AutoGapperScanner</code>, <code>PremarketFadeScanner</code>, <code>EmailSmsAlertSender</code>, <code>StrategyScanner</code>/<code>StrategyReplay</code>/<code>StrategyReplayLive</code>/<code>ReplayFeatures</code>/<code>ReplayTemplates</code>/<code>StrategyDataset</code> (offline replay and ML-dataset tooling)</td>
 </tr>
 <tr>
 <td><code>IdiotProof.ResearchScanner</code></td>
-<td>Console (one-shot)</td>
+<td>One-shot console</td>
 <td>Autonomous market-event research sweep; not a daemon, not part of the trading loop.</td>
 <td><code>Program.cs</code>, <code>ScanPassRunner</code></td>
 </tr>
 <tr>
 <td><code>IdiotProof.Engine.Tests</code></td>
 <td>NUnit</td>
-<td>RiskGuardian gate, SupervisedLoop resilience, WorkspaceManager, options pricing math (<code>OptionsPricingTests</code>: OCC, intrinsic/extrinsic, Black-Scholes, IV round-trips, sell signal).</td>
+<td>RiskGuardian gate, SupervisedLoop resilience, WorkspaceManager, options pricing math (OCC, intrinsic/extrinsic, Black-Scholes, IV round-trips, sell signal).</td>
 <td>—</td>
 </tr>
 <tr>
@@ -404,19 +365,19 @@ dotnet run --project IdiotProof.Monitor</code></pre>
 <tr>
 <td><code>IdiotProof.Strategies.Tests</code></td>
 <td>NUnit</td>
-<td>DSL round-trip, backtester, gapper lifecycle, canonical-JSON contract, and a large family of exhaustive combinatorial matrix tests (phase/condition/branch permutations).</td>
+<td>DSL round-trip, backtester, gapper lifecycle, canonical-JSON contract, and a large family of exhaustive combinatorial matrix tests.</td>
 <td>—</td>
 </tr>
 <tr>
 <td><code>IdiotProof.Brokers.Tests</code></td>
 <td>NUnit</td>
-<td>BrokerRouter Sandbox-default + safe fallback, Sandbox fill simulation, Sandbox synthetic options chain, Alpaca options wire format against canned responses (<code>OptionsBrokerTests</code>).</td>
+<td>BrokerRouter Sandbox default and safe fallback, Sandbox fill simulation, Sandbox synthetic options chain, Alpaca options wire format against canned responses.</td>
 <td>—</td>
 </tr>
 <tr>
 <td><code>IdiotProof.Blazor.Tests</code></td>
 <td>NUnit</td>
-<td><code>StrategyScriptGenerator</code> verb-catalog reflection, <code>LlmVotingService</code> consensus logic, research-pipeline services (incl. <code>IndexEventScannerTests</code>), repository guard rails.</td>
+<td><code>StrategyScriptGenerator</code> verb-catalog reflection, <code>LlmVotingService</code> consensus logic, research-pipeline services, repository guard rails.</td>
 <td>—</td>
 </tr>
 <tr>
@@ -426,43 +387,47 @@ dotnet run --project IdiotProof.Monitor</code></pre>
 <td>—</td>
 </tr>
 <tr>
+<td><code>IdiotProof.UI.Tests</code></td>
+<td>NUnit</td>
+<td>Options presenter, option position view and options glossary.</td>
+<td>—</td>
+</tr>
+<tr>
 <td><code>tests/IdiotProof.Cypress</code></td>
 <td>Cypress 13</td>
-<td>End-to-end Blazor UI tests (7 specs).</td>
+<td>End-to-end Blazor UI tests (9 specs).</td>
 <td>—</td>
 </tr>
 </tbody></table>
-<p>Not in the solution and not part of the active build (verified absent from <code>IdiotProof.slnx</code>): <code>IdiotProof.Brokers.Ibkr</code> (dormant IBKR adapter). <code>docs/BIBLE.md §3</code> records other historical trees (<code>IdiotProof.Core</code>, <code>IdiotProof.Cli</code>, <code>src/</code>) as deleted 2026-06-07.</p>
-<hr>
-<h2 id="4-domain-model-the-nouns-and-verbs">4. Domain model — the nouns and verbs</h2>
-<p><strong>Nouns</strong> (<code>IdiotProof.Models</code>, <code>IdiotProof.Shared</code>):</p>
+<p><code>docs/BIBLE.md</code> section 3 records older trees (<code>IdiotProof.Core</code>, <code>IdiotProof.Cli</code>, <code>src/</code>) as deleted on 2026-06-07.</p>
+<h2 id="domain-model">Domain model</h2>
+<p>Nouns (<code>IdiotProof.Models</code>, <code>IdiotProof.Shared</code>):</p>
 <ul>
-<li><code>Candle</code> — one OHLCV bar.</li>
-<li><code>TradeSignal</code> — the output of <code>IStrategy.Evaluate</code>; a candidate to fire.</li>
-<li><code>TradeSetup</code> / <code>RiskLimits</code> — decimal-priced inputs <code>RiskGuardian</code> validates.</li>
-<li><code>OrderRequest</code> / <code>OrderResult</code> / <code>Position</code> — broker-facing order lifecycle.</li>
-<li><code>StrategyDefinition</code> (<code>IdiotProof.Scripting</code>) — a parsed strategy: phases + conditions + branches.</li>
-<li>Enums verified in <code>IdiotProof.Models/Enums.cs</code>: <code>TradeDirection {Long, Short}</code>, <code>TradingSession {Premarket, RTH, AfterHours, Extended}</code>, <code>OrderType</code>, <code>OrderSide</code>, <code>PriceType</code>,   <code>ConfidenceGrade</code>, <code>BrokerType {Alpaca, Sandbox}</code>, <code>StrategyType {Iti, BreakoutPullback, LowHigh,   FluentDsl, Custom}</code>, <code>WorkspaceState</code>.</li>
+<li><code>Candle</code>: one OHLCV bar.</li>
+<li><code>TradeSignal</code>: the output of <code>IStrategy.Evaluate</code>, a candidate to fire.</li>
+<li><code>TradeSetup</code> and <code>RiskLimits</code>: decimal-priced inputs that <code>RiskGuardian</code> validates.</li>
+<li><code>OrderRequest</code>, <code>OrderResult</code>, <code>Position</code>: the broker-facing order lifecycle.</li>
+<li><code>StrategyDefinition</code> (<code>IdiotProof.Scripting</code>): a parsed strategy of phases, conditions and branches.</li>
+<li>Enums in <code>IdiotProof.Models/Enums.cs</code>: <code>TradeDirection {Long, Short}</code>, <code>TradingSession {Premarket, RTH, AfterHours, Extended}</code>, <code>OrderType</code>, <code>OrderSide</code>, <code>PriceType</code>, <code>ConfidenceGrade</code>, <code>BrokerType {Alpaca, Sandbox}</code>, <code>StrategyType {Iti, BreakoutPullback, LowHigh, FluentDsl, Custom}</code>, <code>WorkspaceState</code>.</li>
 </ul>
-<p><strong>Verbs</strong> (the key services, by call site):</p>
+<p>Verbs (the key services, by call site):</p>
 <ul>
-<li><code>Stock.Ticker(symbol)</code> → <code>StrategyBuilder</code> (<code>IdiotProof.Scripting</code>) — the entry point to author IdiotScript.</li>
-<li><code>ScriptParser.Parse(...)</code> / <code>StrategyJson.Serialize</code>/<code>Deserialize</code> — text/JSON ↔ object model.</li>
-<li><code>IStrategy.Evaluate(symbol, candles, context)</code> → <code>IReadOnlyList&lt;TradeSignal&gt;</code>.</li>
-<li><code>DslStrategy</code> — adapts a parsed <code>StrategyDefinition</code> into an <code>IStrategy</code>.</li>
-<li><code>IndicatorSnapshotBuilder.Build(...)</code> / <code>.BuildWithEmas(...)</code> → <code>IndicatorSnapshot</code> — what every condition evaluates against.</li>
-<li><code>StrategyBranchResolver.Resolve(def, snapshot)</code> — applies <code>If/Then/ElseIf/Else</code> overrides before the entry conditions are read.</li>
-<li><code>StrategyBacktester.Run(...)</code> → <code>BacktestReport</code>; <code>GapperDayBacktester</code> — the gapper-specific day-replay variant.</li>
-<li><code>RiskGuardian.ValidateTrade(setup)</code> → a verdict with <code>IsApproved</code> + <code>BlockReasons</code>; <code>RecordTradePnL(realized)</code> feeds the daily circuit breaker.</li>
-<li><code>SupervisedLoop.RunAsync(options, ct)</code> — the fault-tolerant tick loop every long-running host (currently just the Monitor) runs its work under.</li>
-<li><code>IBrokerClient.PlaceOrderAsync(...)</code> via <code>BrokerRouter.PlaceOrderAsync(...)</code> — Sandbox is the always-registered fallback.</li>
-<li><code>GapperExitEvaluator.Evaluate(...)</code> / <code>.EvaluateShort(...)</code> — pure, clock-parameterized sell-by / stop / take-profit / peak-giveback verdict for a held position.</li>
-<li><code>IMarketDataFeed.GetHistoricalCandlesAsync(...)</code>, <code>.GetLatestPriceAsync(...)</code>, <code>.GetPreviousCloseAsync(...)</code> — Alpaca (REST + websocket) or Mock, selected by   <code>SwitchableMarketDataFeed</code>.</li>
-<li>Research subsystem (<code>IdiotProof.Blazor/Services</code>, driven by <code>IdiotProof.ResearchScanner</code>): <code>TickerUniverseService</code>, <code>EdgarService</code>, <code>Form4Parser</code>, <code>CorporateActionDetector</code>,   <code>RegulatoryScanner</code>, <code>CatalystExtractor</code>, <code>OutcomeBackfillService</code>, <code>SignificanceScorer</code>,   <code>ResearchService</code> — see <a href="docs/AMENDMENTS.md#IP-A32">IP-A32</a> for the full narrative.</li>
+<li><code>Stock.Ticker(symbol)</code> returns a <code>StrategyBuilder</code> (<code>IdiotProof.Scripting</code>), the entry point for authoring IdiotScript.</li>
+<li><code>ScriptParser.Parse(...)</code>, <code>StrategyJson.Serialize</code> and <code>Deserialize</code> convert between text, JSON and the object model.</li>
+<li><code>IStrategy.Evaluate(symbol, candles, context)</code> returns <code>IReadOnlyList&lt;TradeSignal&gt;</code>.</li>
+<li><code>DslStrategy</code> adapts a parsed <code>StrategyDefinition</code> into an <code>IStrategy</code>.</li>
+<li><code>IndicatorSnapshotBuilder.Build(...)</code> and <code>.BuildWithEmas(...)</code> produce the <code>IndicatorSnapshot</code> every condition evaluates against.</li>
+<li><code>StrategyBranchResolver.Resolve(def, snapshot)</code> applies <code>If/Then/ElseIf/Else</code> overrides before the entry conditions are read.</li>
+<li><code>StrategyBacktester.Run(...)</code> returns a <code>BacktestReport</code>; <code>GapperDayBacktester</code> is the gapper-specific day-replay variant.</li>
+<li><code>RiskGuardian.ValidateTrade(setup)</code> returns a verdict with <code>IsApproved</code> and <code>BlockReasons</code>; <code>RecordTradePnL(realized)</code> feeds the daily circuit breaker.</li>
+<li><code>SupervisedLoop.RunAsync(options, ct)</code> is the fault-tolerant tick loop every long-running host (currently just the Monitor) runs under.</li>
+<li><code>IBrokerClient.PlaceOrderAsync(...)</code> is called via <code>BrokerRouter.PlaceOrderAsync(...)</code>; Sandbox is the always-registered fallback.</li>
+<li><code>GapperExitEvaluator.Evaluate(...)</code> and <code>.EvaluateShort(...)</code> give a pure, clock-parameterized sell-by, stop, take-profit or peak-giveback verdict for a held position.</li>
+<li><code>IMarketDataFeed.GetHistoricalCandlesAsync(...)</code>, <code>.GetLatestPriceAsync(...)</code> and <code>.GetPreviousCloseAsync(...)</code> are served by Alpaca (REST + websocket) or Mock, selected by <code>SwitchableMarketDataFeed</code>.</li>
+<li>Research subsystem (<code>IdiotProof.Blazor/Services</code>, driven by <code>IdiotProof.ResearchScanner</code>): <code>TickerUniverseService</code>, <code>EdgarService</code>, <code>Form4Parser</code>, <code>CorporateActionDetector</code>, <code>RegulatoryScanner</code>, <code>CatalystExtractor</code>, <code>OutcomeBackfillService</code>, <code>SignificanceScorer</code>, <code>ResearchService</code>; see <a href="docs/AMENDMENTS.md#IP-A32">IP-A32</a>.</li>
 </ul>
-<hr>
-<h2 id="5-storage-layout">5. Storage layout</h2>
-<pre><code>%LOCALAPPDATA%\MindAttic\IdiotProof\           ← per-app state
+<h2 id="storage-and-configuration">Storage and configuration</h2>
+<pre><code class="language-text">%LOCALAPPDATA%\MindAttic\IdiotProof\           ← per-app state
 └── Settings\app-settings.json                 (legacy disk overlay; SQL is canonical for runtime state)
 
 %APPDATA%\MindAttic\                            ← shared keyrings (shared across the MindAttic family)
@@ -477,7 +442,7 @@ SQL Server (LocalDB by default)                ← canonical runtime state, shar
     ├── Strategies                              (UUIDv7 id, OwnerUserId, Title, ScriptJson canonical, ScriptText view, IsActive, BrokerMode, PositionQty, ...)
     ├── UserPreferences                         (Theme, ActiveAccountId, OpenStrategyTabs, RiskGuardian config, UiStateJson)
     ├── LearningArticles                        (Slug, Category, Title, BodyMarkdown, Order — seeded by LearningContentSeeder)
-    ├── SettingsKv                               (generic KV store — currently unconsumed; see §17)
+    ├── SettingsKv                               (generic KV store — currently unconsumed)
     ├── Workspaces                               (per-user containers — Watchlist + Strategies + risk params, schema-tolerant BodyJson)
     ├── AuditLogs                                (append-only: signal fires, orders, broker switches, risk vetoes, monitor start/stop)
     ├── ConditionProgress                        (one row per Strategy — Monitor's most recent N/M evaluation snapshot)
@@ -486,18 +451,23 @@ SQL Server (LocalDB by default)                ← canonical runtime state, shar
     ├── ResearchClaim, TrackedTicker,
     │   InsiderTransaction, ...                  (ResearchScanner output tables)
     └── ReplayRun, ReplayFeatureRows, ...         (offline strategy replay + ML feature store)</code></pre>
-<p><strong>Connection string priority chain</strong> (identical for the Blazor host, the Monitor, and the ResearchScanner — verified in all three <code>Program.cs</code> files):</p>
+<p>Connection string priority, identical for the Blazor host, the Monitor and the ResearchScanner:</p>
 <ol>
-<li><code>ConnectionStrings__IdiotProof</code> env var</li>
-<li><code>ConnectionStrings:IdiotProof</code> from <code>IConfiguration</code> (<code>appsettings.json</code>)</li>
-<li>LocalDB fallback: <code>Server=(localdb)\MSSQLLocalDB;Database=IdiotProof;Trusted_Connection=True;TrustServerCertificate=True;</code></li>
+<li>The <code>ConnectionStrings__IdiotProof</code> environment variable.</li>
+<li><code>ConnectionStrings:IdiotProof</code> from <code>IConfiguration</code> (<code>appsettings.json</code>).</li>
+<li>The LocalDB fallback: <code>Server=(localdb)\MSSQLLocalDB;Database=IdiotProof;Trusted_Connection=True;TrustServerCertificate=True;</code>.</li>
 </ol>
-<p><strong><code>IDIOTPROOF_DATA_DIR</code></strong> overrides the per-app state root (useful for parallel test/dev runs).</p>
-<p><strong>Settings overlay chain</strong> (<code>IdiotProof.Engine.Settings.AppSettings</code>, applied by every host in the same order — later wins): disk → environment variables → MindAttic LLM keyring → MindAttic broker keyring → <code>IConfiguration</code> (User Secrets / App Service Application Settings / Azure Key Vault).</p>
-<hr>
-<h2 id="6-idiotscript-the-dsl">6. IdiotScript — the DSL</h2>
+<p><code>IDIOTPROOF_DATA_DIR</code> overrides the per-app state root, which is useful for parallel test and dev runs.</p>
+<p>Settings overlay chain (<code>IdiotProof.Engine.Settings.AppSettings</code>, applied by every host in the same order, later wins): disk, environment variables, MindAttic LLM keyring, MindAttic broker keyring, then <code>IConfiguration</code> (User Secrets, App Service application settings or Azure Key Vault).</p>
+<p>Credentials:</p>
+<ul>
+<li>Claude and other LLM keys: <code>%APPDATA%\MindAttic\LLM\providers.json</code> (the canonical MindAttic keyring), or paste them into the API Keys page in the app.</li>
+<li>Alpaca keys: <code>%APPDATA%\MindAttic\Brokers\providers.json</code> with <code>alpaca-paper</code> and <code>alpaca-live</code> entries.</li>
+<li>A Development-only <code>.env</code> at <code>%APPDATA%\MindAttic\IdiotProof\.env</code> prefills <code>DEV_USERNAME</code> and <code>DEV_PASSWORD</code> on the Login page; it is never loaded outside <code>Development</code>. See <code>.env.example</code>.</li>
+</ul>
+<h2 id="idiotscript">IdiotScript</h2>
 <h3 id="six-lifecycle-phases">Six lifecycle phases</h3>
-<p>Every strategy walks through fixed phases. The visual builder renders one card per phase; the parser rejects verbs used in the wrong phase.</p>
+<p>Every strategy walks through fixed phases. The visual builder renders one card per phase, and the parser rejects verbs used in the wrong phase.</p>
 <table><thead><tr>
 <th>#</th>
 <th>Phase</th>
@@ -507,13 +477,13 @@ SQL Server (LocalDB by default)                ← canonical runtime state, shar
 <tr>
 <td>1</td>
 <td>Setup</td>
-<td>Ticker / session / window</td>
+<td>Ticker, session, window</td>
 <td><code>Stock.Ticker</code>, <code>Session</code>, <code>Quantity</code></td>
 </tr>
 <tr>
 <td>2</td>
 <td>Filters</td>
-<td>Regime gates (always-on)</td>
+<td>Regime gates (always on)</td>
 <td><code>RequireAdxAbove</code>, <code>RequireEmaStack</code></td>
 </tr>
 <tr>
@@ -525,7 +495,7 @@ SQL Server (LocalDB by default)                ← canonical runtime state, shar
 <tr>
 <td>4</td>
 <td>Order</td>
-<td>Direction + size</td>
+<td>Direction and size</td>
 <td><code>Long</code>, <code>Short</code>, <code>Quantity</code></td>
 </tr>
 <tr>
@@ -542,58 +512,58 @@ SQL Server (LocalDB by default)                ← canonical runtime state, shar
 </tr>
 </tbody></table>
 <h3 id="verb-catalog">Verb catalog</h3>
-<p>The verb catalog below is illustrative, drawn from the fluent builder and the Learning Center seed content. <code>IP-LAW-4</code> requires <code>StrategyScriptGenerator</code> to build its LLM system prompt by <em>reflecting</em> on the real <code>StrategyBuilder</code>/<code>Conditions</code> types rather than a hand-maintained list — so the live, ground-truth catalog is whatever compiles in <code>IdiotProof.Scripting</code> today, not this table. Treat this as a tour, not a spec.</p>
-<h4 id="setup">Setup</h4>
+<p>This catalog is illustrative, drawn from the fluent builder and the Learning Center seed content. <a href="docs/BIBLE.md#IP-LAW-4">IP-LAW-4</a> requires <code>StrategyScriptGenerator</code> to build its LLM prompt by reflecting on the real <code>StrategyBuilder</code> and <code>Conditions</code> types, so the ground-truth catalog is whatever compiles in <code>IdiotProof.Scripting</code> today. Treat this as a tour, not a spec.</p>
+<p>Setup:</p>
 <ul>
-<li><code>Stock.Ticker(symbol)</code> — required first call</li>
-<li><code>.Session(TradingSession)</code> — <code>Premarket / RTH / AfterHours / Extended</code></li>
-<li><code>.Quantity(int)</code> — share count</li>
+<li><code>Stock.Ticker(symbol)</code>: required first call.</li>
+<li><code>.Session(TradingSession)</code>: <code>Premarket</code>, <code>RTH</code>, <code>AfterHours</code> or <code>Extended</code>.</li>
+<li><code>.Quantity(int)</code>: share count.</li>
 </ul>
-<h4 id="filters-regime-gates">Filters (regime gates)</h4>
+<p>Filters (regime gates):</p>
 <ul>
-<li><code>.RequireAdxAbove(threshold = 20)</code> — trending market only</li>
-<li><code>.RequireEmaStack(fast, slow)</code> — fast EMA above slow = uptrend confirmation</li>
+<li><code>.RequireAdxAbove(threshold = 20)</code>: trending market only.</li>
+<li><code>.RequireEmaStack(fast, slow)</code>: fast EMA above slow confirms an uptrend.</li>
 </ul>
-<h4 id="entry-vwap">Entry — VWAP</h4>
+<p>Entry, VWAP:</p>
 <ul>
-<li><code>.IsAboveVwap()</code> / <code>.IsBelowVwap()</code> (alias: <code>AboveVwap</code>, <code>BelowVwap</code>)</li>
-<li><code>.OnVwapReclaim()</code> / <code>.OnVwapLoss()</code></li>
+<li><code>.IsAboveVwap()</code> and <code>.IsBelowVwap()</code> (aliases <code>AboveVwap</code>, <code>BelowVwap</code>).</li>
+<li><code>.OnVwapReclaim()</code> and <code>.OnVwapLoss()</code>.</li>
 </ul>
-<h4 id="entry-ema-family">Entry — EMA family</h4>
+<p>Entry, EMA family:</p>
 <ul>
-<li><code>.IsAboveEma(period)</code> / <code>.IsBelowEma(period)</code></li>
-<li><code>.IsBetweenEma(fast, slow)</code> — pullback zone</li>
-<li><code>.OnReclaim(period)</code> — prior bar at-or-below N-EMA, current bar back above</li>
+<li><code>.IsAboveEma(period)</code> and <code>.IsBelowEma(period)</code>.</li>
+<li><code>.IsBetweenEma(fast, slow)</code>: the pullback zone.</li>
+<li><code>.OnReclaim(period)</code>: prior bar at or below the N-EMA, current bar back above.</li>
 </ul>
-<h4 id="entry-rsi-macd-adx-di">Entry — RSI / MACD / ADX / DI</h4>
+<p>Entry, RSI, MACD, ADX and DI:</p>
 <ul>
-<li><code>.IsRsiOversold(threshold = 30)</code> / <code>.IsRsiOverbought(threshold = 70)</code></li>
-<li><code>.IsRsiBullishDivergence()</code> / <code>.IsRsiBearishDivergence()</code></li>
-<li><code>.IsMacdBullish()</code> / <code>.IsMacdBearish()</code></li>
-<li><code>.IsAdxAbove(threshold)</code> / <code>.IsDiPositive()</code> / <code>.IsDiNegative()</code></li>
+<li><code>.IsRsiOversold(threshold = 30)</code> and <code>.IsRsiOverbought(threshold = 70)</code>.</li>
+<li><code>.IsRsiBullishDivergence()</code> and <code>.IsRsiBearishDivergence()</code>.</li>
+<li><code>.IsMacdBullish()</code> and <code>.IsMacdBearish()</code>.</li>
+<li><code>.IsAdxAbove(threshold)</code>, <code>.IsDiPositive()</code>, <code>.IsDiNegative()</code>.</li>
 </ul>
-<h4 id="entry-volume-gap-levels">Entry — Volume / Gap / Levels</h4>
+<p>Entry, volume, gap and levels:</p>
 <ul>
-<li><code>.WithVolumeConfirm(multiplier = 1.2)</code> / <code>.IsVolumeAbove(multiplier)</code> / <code>.VolumeSpike(multiplier = 2.0)</code></li>
-<li><code>.IsGapUp(minPercent = 3)</code> / <code>.IsGapDown(minPercent = 3)</code></li>
-<li><code>.IsAtSupport(tolerancePercent = 0.5)</code> / <code>.IsAtResistance(tolerancePercent = 0.5)</code></li>
-<li><code>.HoldsAbove(price)</code> / <code>.HoldsBelow(price)</code> / <code>.IsNear(price, tolerance)</code> / <code>.BreaksAbove(price)</code> / <code>.BreaksBelow(price)</code></li>
+<li><code>.WithVolumeConfirm(multiplier = 1.2)</code>, <code>.IsVolumeAbove(multiplier)</code>, <code>.VolumeSpike(multiplier = 2.0)</code>.</li>
+<li><code>.IsGapUp(minPercent = 3)</code> and <code>.IsGapDown(minPercent = 3)</code>.</li>
+<li><code>.IsAtSupport(tolerancePercent = 0.5)</code> and <code>.IsAtResistance(tolerancePercent = 0.5)</code>.</li>
+<li><code>.HoldsAbove(price)</code>, <code>.HoldsBelow(price)</code>, <code>.IsNear(price, tolerance)</code>, <code>.BreaksAbove(price)</code>, <code>.BreaksBelow(price)</code>.</li>
 </ul>
-<h4 id="entry-candlestick-patterns">Entry — Candlestick patterns</h4>
+<p>Entry, candlestick patterns:</p>
 <ul>
-<li><code>.IsBullishEngulfing()</code> / <code>.IsBearishEngulfing()</code></li>
-<li><code>.IsHammer()</code> / <code>.IsShootingStar()</code></li>
-<li><code>.IsDoji()</code></li>
+<li><code>.IsBullishEngulfing()</code> and <code>.IsBearishEngulfing()</code>.</li>
+<li><code>.IsHammer()</code> and <code>.IsShootingStar()</code>.</li>
+<li><code>.IsDoji()</code>.</li>
 </ul>
-<h4 id="order-risk-exit">Order / Risk / Exit</h4>
+<p>Order, risk and exit:</p>
 <ul>
-<li><code>.Long()</code> / <code>.Short()</code> / <code>.Order(TradeDirection)</code></li>
-<li><code>.Quantity(int shares)</code> / <code>.Quantity(decimal dollars)</code> — overloaded; share count or notional dollars (Alpaca's <code>notional</code> field). Mutually exclusive — setting one clears the other.</li>
-<li><code>.StopLoss(price)</code> / <code>.StopLossPercent(percent)</code> / <code>.TrailingStopLoss(percent)</code></li>
-<li><code>.TakeProfit(price)</code> / <code>.TakeProfit(t1, t2, t3?)</code> / <code>.TakeProfitPercent(percent)</code></li>
-<li><code>.ExitStrategy(timeOfDay)</code></li>
+<li><code>.Long()</code>, <code>.Short()</code>, <code>.Order(TradeDirection)</code>.</li>
+<li><code>.Quantity(int shares)</code> or <code>.Quantity(decimal dollars)</code>: share count or notional dollars (Alpaca's <code>notional</code> field). Setting one clears the other.</li>
+<li><code>.StopLoss(price)</code>, <code>.StopLossPercent(percent)</code>, <code>.TrailingStopLoss(percent)</code>.</li>
+<li><code>.TakeProfit(price)</code>, <code>.TakeProfit(t1, t2, t3?)</code>, <code>.TakeProfitPercent(percent)</code>.</li>
+<li><code>.ExitStrategy(timeOfDay)</code>.</li>
 </ul>
-<h3 id="branching-expression-syntax">Branching — expression syntax</h3>
+<h3 id="branching">Branching</h3>
 <pre><code class="language-csharp">using static IdiotProof.Scripting.Conditions;
 
 Stock.Ticker("SPY")
@@ -604,8 +574,8 @@ Stock.Ticker("SPY")
             b =&gt; b.Short().StopLossPercent(1).TakeProfitPercent(2))
     .Else(b =&gt; b.Long().TakeProfitPercent(0.5))
     .Build();</code></pre>
-<p>Conditions compose with <code>.And()</code> / <code>.Or()</code> / <code>.Not()</code>. Branching blocks evaluate top-down; the first match's overrides apply on top of the base strategy — resolved at evaluation time by <code>StrategyBranchResolver.Resolve(def, snapshot)</code>, which the Monitor calls on every pass so branches work identically live and in the backtester.</p>
-<h3 id="worked-example-930-pullback-continuation">Worked example — 9/30 pullback continuation</h3>
+<p>Conditions compose with <code>.And()</code>, <code>.Or()</code> and <code>.Not()</code>. Branch blocks evaluate top-down, and the first match's overrides apply on top of the base strategy. They are resolved at evaluation time by <code>StrategyBranchResolver.Resolve(def, snapshot)</code>, which the Monitor calls on every pass, so branches work identically live and in the backtester.</p>
+<h3 id="worked-example-9-30-pullback-continuation">Worked example 9 30 pullback continuation</h3>
 <pre><code class="language-csharp">Stock.Ticker("NVDA")
     .RequireAdxAbove(20)               // regime gate: trending market
     .RequireEmaStack(9, 31)            // confirm uptrend (9 above 31)
@@ -617,68 +587,113 @@ Stock.Ticker("SPY")
     .StopLoss(450)                     // below the 31 EMA at signal time
     .TakeProfit(485)                   // ~2x risk
     .Build();</code></pre>
-<h3 id="the-canonical-layer-json-not-text-ip-law-8">The canonical layer — JSON, not text (IP-LAW-8)</h3>
-<p>The semantic model (<code>StrategyDefinition</code>), serialized as versioned strict JSON (<code>Strategy.ScriptJson</code>, via <code>IdiotProof.Scripting/StrategyJson.cs</code>), is what every evaluator actually runs. Reads fail closed: an unknown schema version, condition type, or property throws <code>StrategyJsonException</code> and the strategy is <strong>quarantined</strong> (a visible reason surfaces in <code>ConditionProgress</code> — see the <code>EvaluateOneAsync</code> handling in <code>MonitorWorker.cs</code>), never partially evaluated. IdiotScript text (<code>ScriptText</code>) is a generated human view plus the tolerant input path for hand-typed/legacy rows — never the money-path source of truth. <code>StrategyLoader.Load(json, text)</code> implements the "canonical-first, tolerant-text-fallback" contract.</p>
-<hr>
-<h2 id="7-the-monitor-console-the-one-pipeline">7. The Monitor console — the one pipeline</h2>
-<p><code>IdiotProof.Monitor</code> is the unattended evaluator <strong>and executor</strong> (<a href="docs/rfc/0002-gapper-and-unification.md">RFC 0002</a> / <a href="docs/AMENDMENTS.md#IP-A8">IP-A8</a>). It is a <code>BackgroundService</code> (<code>MonitorWorker</code>) hosted by the generic host in <code>Program.cs</code>, running under <code>SupervisedLoop</code> so a single bad tick backs off and retries rather than crashing the process (<a href="docs/BIBLE.md#IP-LAW-5">IP-LAW-5</a>).</p>
-<h3 id="what-one-pass-does-verified-against-monitorworkertickasyncevaluateoneasyncfireasync">What one pass does (verified against <code>MonitorWorker.TickAsync</code>/<code>EvaluateOneAsync</code>/<code>FireAsync</code>)</h3>
-<ol>
-<li><strong>Trading-schedule gate</strong> — <code>TradingSchedule.Classify(nowUtc)</code> classifies the moment into <code>Hibernate</code> / an active window. Outside active hours the loop just emits a liveness ping every    5 minutes; nothing else runs.</li>
-<li><strong>Re-read active strategies</strong> — every <code>IsActive = true</code> row, grouped by symbol. UI edits (queue, toggle, dial-in change) apply on the very next pass — no restart.</li>
-<li><strong>Fetch candles</strong> — a rolling 240-minute-bar cache per symbol (Alpaca REST, refreshed every 5 minutes, or every 30 seconds if the last fetch came back empty), continuously topped up between    REST refreshes by the Alpaca websocket stream (<code>AlpacaStreamingClient</code>) when keys are present.    Plus the previous daily close, cached per ET day, for gap math.</li>
-<li><strong>Per strategy:</strong> load the canonical <code>ScriptJson</code> (fail-closed quarantine on rejection — escalated loudly if the strategy is currently holding a position, since quarantine means its    exit rules stop running too), resolve <code>If/ElseIf/Else</code> branches against the indicator snapshot,    then either manage an existing open position's exit or walk entry conditions one by one.</li>
-<li><strong>Per-condition progress</strong> is upserted to <code>ConditionProgress</code> every pass (`(PassedCount, TotalCount, FirstFailingVerb)<code>) — what the Strategies page polls for its live badges — and a    throttled </code>LiveBar` row is written for chart consumers.</li>
-<li><strong>On a full pass, three gates before any order</strong> (<a href="docs/BIBLE.md#IP-LAW-1">IP-LAW-1</a>):<ul><li><strong>Gate 1 — <code>LlmVotingService</code></strong> (the Legion voter panel from <code>legion.json</code>). The quorum must</li><li><strong>Gate 2 — <code>RiskGuardian</code></strong> (<code>IdiotProof.Shared.Risk</code>, the final pre-trade veto,</li><li>Both gates must pass before <code>RecordFiredAsync</code> bumps <code>LastFiredUtc</code>/<code>FireCount</code>.</li></ul></li>
-<li><strong>Placing the order</strong> — <code>UserBrokerResolver</code> resolves the <em>strategy's own</em> <code>BrokerMode</code> (Paper/Live/Sandbox), independent of any other strategy's routing. Premarket/after-hours orders    go in as limit + <code>extended_hours</code> (an Alpaca requirement); regular-hours entries go in as a    marketable limit (entry price + 0.2%) so a thin book can't fill far off the evaluated price. As    a hard safety interlock, the Monitor refuses to place a <strong>non-Sandbox</strong> order while the    configured market-data feed is <strong>Mock</strong> — evaluating against synthetic prices can never drive a    real fill.</li>
-<li><strong>Managing the open position</strong> every pass via <code>GapperExitEvaluator.Evaluate</code>/<code>.EvaluateShort</code> — hard sell-by time, hard/trailing stops, take-profit, and the peak-giveback momentum rollover.    Realized P&amp;L feeds back into <code>RiskGuardian</code>'s daily circuit breaker. Exit orders are    risk-reducing: they skip the LLM panel by design but are always audit-logged. <strong>Shorts are    currently signal-only</strong> — the exit-management brain is long-shaped; a qualifying short candidate    clears both gates and is recorded, but no order is placed (verified in <code>FireAsync</code>).</li>
-</ol>
-<h3 id="auxiliary-jobs-riding-the-same-loop">Auxiliary jobs riding the same loop</h3>
-<ul>
-<li><strong><code>PremarketFadeScanner</code></strong> — a detection-only blow-off/fade alert, scanned every 5 minutes between 9:00–10:00 AM ET for every registered user (not just owners of active strategies); it   never creates a strategy or places an order.</li>
-<li><strong><code>AutoGapperScanner</code></strong> — resolved on demand by the <code>auto-gapper</code> operator CLI subcommand; no scheduled trigger of its own today.</li>
-<li><strong>Daily audit-log pruning</strong> — every 24 hours, keeps 30 days of history with a 2,000-row floor.</li>
-<li><strong>Duplicate-fire guard</strong> — at most one gapper-type strategy per symbol may fire per pass, even if two active rows for the same symbol both pass their conditions in the same tick.</li>
-</ul>
-<h3 id="run">Run</h3>
+<h3 id="the-canonical-layer-is-json-not-text">The canonical layer is JSON not text</h3>
+<p>The semantic model (<code>StrategyDefinition</code>), serialized as versioned strict JSON (<code>Strategy.ScriptJson</code>, via <code>IdiotProof.Scripting/StrategyJson.cs</code>), is what every evaluator runs. Reads fail closed: an unknown schema version, condition type or property throws <code>StrategyJsonException</code> and the strategy is quarantined with a visible reason in <code>ConditionProgress</code> (see the <code>EvaluateOneAsync</code> handling in <code>MonitorWorker.cs</code>), never partially evaluated. IdiotScript text (<code>ScriptText</code>) is a generated human view plus the tolerant input path for hand-typed and legacy rows, never the money-path source of truth. <code>StrategyLoader.Load(json, text)</code> implements the canonical-first, tolerant-text-fallback contract (<a href="docs/BIBLE.md#IP-LAW-8">IP-LAW-8</a>).</p>
+<h2 id="the-monitor-console">The Monitor console</h2>
+<p><code>IdiotProof.Monitor</code> is the unattended evaluator and executor (<a href="docs/rfc/0002-gapper-and-unification.md">RFC 0002</a>, <a href="docs/AMENDMENTS.md#IP-A8">IP-A8</a>). It is a <code>BackgroundService</code> (<code>MonitorWorker</code>) hosted by the generic host in <code>Program.cs</code>, running under <code>SupervisedLoop</code> so a bad tick backs off and retries instead of crashing the process (<a href="docs/BIBLE.md#IP-LAW-5">IP-LAW-5</a>).</p>
 <pre><code class="language-bash">dotnet run --project IdiotProof.Monitor</code></pre>
-<p>Operator CLI subcommands (status / set-keys / create-strategies / auto-gapper / ...) run against the same built DI container and exit without starting the trading loop — see <code>MonitorCli.cs</code>. Windows-Service-ready via <code>sc.exe create</code>; graceful shutdown via <code>IHostApplicationLifetime</code>.</p>
-<hr>
-<h2 id="8-the-blazor-web-app">8. The Blazor web app</h2>
-<p><code>IdiotProof.Blazor</code> is a Blazor Server (interactive server components) app on ASP.NET Core, using <code>MindAttic.Authentication</code> (Argon2id + pepper, sessions, MFA scaffolding — not ASP.NET Core Identity) and EF Core 10 against SQL Server. Verified pages under <code>Components/Pages/</code>:</p>
+<h3 id="what-one-pass-does">What one pass does</h3>
+<p>Verified against <code>MonitorWorker.TickAsync</code>, <code>EvaluateOneAsync</code> and <code>FireAsync</code>:</p>
+<ol>
+<li>Trading-schedule gate: <code>TradingSchedule.Classify(nowUtc)</code> classifies the moment as <code>Hibernate</code> or an active window. Outside active hours the loop only emits a liveness ping every 5 minutes.</li>
+<li>Re-read active strategies: every <code>IsActive = true</code> row, grouped by symbol. UI edits (queue, toggle, dial-in change) apply on the next pass with no restart.</li>
+<li>Fetch candles: a rolling 240-minute-bar cache per symbol (Alpaca REST, refreshed every 5 minutes, or every 30 seconds if the last fetch came back empty), topped up between REST refreshes by the Alpaca websocket stream (<code>AlpacaStreamingClient</code>) when keys are present, plus the previous daily close, cached per ET day, for gap math.</li>
+<li>Per strategy: load the canonical <code>ScriptJson</code> (fail-closed quarantine on rejection, escalated loudly if the strategy is holding a position, because quarantine also stops its exit rules), resolve <code>If/ElseIf/Else</code> branches against the indicator snapshot, then either manage an open position's exit or walk entry conditions one by one.</li>
+<li>Per-condition progress is upserted to <code>ConditionProgress</code> every pass (<code>PassedCount</code>, <code>TotalCount</code>, <code>FirstFailingVerb</code>), which the Strategies page polls for its live badges, and a throttled <code>LiveBar</code> row is written for chart consumers.</li>
+<li>On a full pass, two more gates run before any order (<a href="docs/BIBLE.md#IP-LAW-1">IP-LAW-1</a>). Both must pass before <code>RecordFiredAsync</code> bumps <code>LastFiredUtc</code> and <code>FireCount</code>:<ul><li><code>LlmVotingService</code>, the Legion voter panel from <code>legion.json</code>. The quorum must explicitly approve; zero votes, a reject, an abstain-only result or a below-threshold split all fail closed. It is skipped only when voting is disabled or no Claude key is configured.</li><li><code>RiskGuardian</code> (<code>IdiotProof.Shared.Risk</code>, the final pre-trade veto, <a href="docs/BIBLE.md#IP-LAW-2">IP-LAW-2</a>), a per-user instance cached by <code>RiskGuardianService</code> so the in-memory daily-loss circuit breaker survives across signals. It validates stop-loss presence and side, per-trade and daily loss limits, stop-distance bounds and account-risk percent.</li></ul></li>
+<li>Placing the order: <code>UserBrokerResolver</code> resolves the strategy's own <code>BrokerMode</code> (Paper, Live or Sandbox), independent of any other strategy. Premarket and after-hours orders go in as limit plus <code>extended_hours</code> (an Alpaca requirement); regular-hours entries go in as a marketable limit (entry price + 0.2%) so a thin book cannot fill far off the evaluated price. As a hard interlock, the Monitor refuses to place a non-Sandbox order while the market-data feed is Mock.</li>
+<li>Managing the open position every pass via <code>GapperExitEvaluator.Evaluate</code> and <code>.EvaluateShort</code>: hard sell-by time, hard and trailing stops, take-profit, and the peak-giveback momentum rollover. Realized P&amp;L feeds back into the daily circuit breaker. Exit orders reduce risk, so they skip the LLM panel by design but are always audit-logged. Shorts are currently signal-only: a qualifying short candidate clears both gates and is recorded, but no order is placed.</li>
+</ol>
+<h3 id="auxiliary-jobs-on-the-same-loop">Auxiliary jobs on the same loop</h3>
+<ul>
+<li><code>PremarketFadeScanner</code>: a detection-only blow-off and fade alert, scanned every 5 minutes between 9:00 and 10:00 AM ET for every registered user. It never creates a strategy or places an order.</li>
+<li><code>AutoGapperScanner</code>: resolved on demand by the <code>auto-gapper</code> operator subcommand; it has no scheduled trigger of its own.</li>
+<li>Daily audit-log pruning: every 24 hours, keeping 30 days of history with a 2,000-row floor.</li>
+<li>Duplicate-fire guard: at most one gapper-type strategy per symbol may fire per pass, even if two active rows for the same symbol pass in the same tick.</li>
+</ul>
+<h3 id="environment-variables">Environment variables</h3>
 <table><thead><tr>
-<th>Route (by component name)</th>
+<th>Env var</th>
+<th>Default</th>
+<th>Notes</th>
+</tr></thead><tbody>
+<tr>
+<td><code>IDIOTPROOF_MONITOR_INTERVAL</code></td>
+<td><code>1s</code></td>
+<td>Evaluation cadence (<code>30s</code>, <code>5m</code>, bare seconds). The websocket stream keeps prices fresh between REST refreshes regardless of this value.</td>
+</tr>
+<tr>
+<td><code>IDIOTPROOF_FEED</code></td>
+<td>auto</td>
+<td><code>alpaca</code> or <code>mock</code>; auto means Alpaca when keys resolve.</td>
+</tr>
+<tr>
+<td><code>IDIOTPROOF_BROKER</code></td>
+<td><code>sandbox</code></td>
+<td><code>alpaca</code> opts the global account into real routing; per-strategy routing is <code>BrokerMode</code> and the API Keys toggle.</td>
+</tr>
+<tr>
+<td><code>IDIOTPROOF_ALPACA_FEED</code></td>
+<td><code>sip</code></td>
+<td>Data tier for REST and streaming. <code>sip</code> needs an Algo Trader Plus subscription and falls back on rejection; set <code>iex</code> explicitly for the free tier.</td>
+</tr>
+<tr>
+<td><code>IDIOTPROOF_STREAMING</code></td>
+<td>on</td>
+<td><code>0</code> disables the websocket stream (REST only).</td>
+</tr>
+<tr>
+<td><code>IDIOTPROOF_SELFPING</code></td>
+<td><code>30m</code></td>
+<td>Liveness line cadence; <code>0</code> disables it.</td>
+</tr>
+<tr>
+<td><code>IDIOTPROOF_PRINT_FILLS</code></td>
+<td>on</td>
+<td><code>0</code> silences the framed ENTRY and EXIT console blocks; the structured log line still fires.</td>
+</tr>
+</tbody></table>
+<h3 id="operator-commands">Operator commands</h3>
+<p>Subcommands run against the same DI container as the worker, do their job and exit without starting the trading loop (see <code>IdiotProof.Monitor/MonitorCli.cs</code>):</p>
+<pre><code class="language-text">status  set-keys  create-strategies  create-account  test-order  flatten
+replay  replay-live  replay-all  replay-regen  scan  replay-export
+resync-canon  auto-gapper  premarket-fade</code></pre>
+<p>For example, <code>dotnet run --project IdiotProof.Monitor -- replay-regen</code> re-renders the replay archive HTML from the <code>ReplayRun</code> rows already in SQL; it does not fetch new market data. Publishing that archive is a separate manual step.</p>
+<h3 id="unattended-operation">Unattended operation</h3>
+<p>The console is Windows-Service-ready (<code>AddWindowsService</code>): <code>sc.exe create IdiotProof.Monitor binPath="&lt;path&gt;\idiotproof-monitor.exe"</code>. A SQL <code>sp_getapplock</code> leader lease guarantees only one instance trades per database; a second instance waits in standby and takes over automatically if the leader dies. Shutdown is graceful via <code>IHostApplicationLifetime</code>.</p>
+<h2 id="the-web-app">The web app</h2>
+<p><code>IdiotProof.Blazor</code> is a Blazor Server app (interactive server components) on ASP.NET Core, using <code>MindAttic.Authentication</code> (Argon2id + pepper, sessions, MFA scaffolding, not ASP.NET Core Identity) and EF Core 10 against SQL Server. Pages under <code>Components/Pages/</code>:</p>
+<table><thead><tr>
+<th>Component</th>
 <th>Purpose</th>
 </tr></thead><tbody>
 <tr>
 <td><code>Strategies.razor</code></td>
-<td>Front door — every saved strategy for the signed-in user, active toggle, live <code>N/M</code> progress badge, edit/delete, expand to see the rendered flowchart + raw script.</td>
+<td>Front door: every saved strategy for the signed-in user, active toggle, live <code>N/M</code> progress badge, edit and delete, expand to see the rendered flowchart and raw script.</td>
 </tr>
 <tr>
 <td><code>StrategyBuilder.razor</code></td>
-<td>Multi-tab editor (Guided / Script / Describe) over open-strategy tabs (<code>BuilderTabBar</code>), persisted to <code>UserPreferences.OpenStrategyTabs</code> + <code>localStorage</code>.</td>
+<td>Multi-tab editor (Guided, Script, Describe) over open-strategy tabs (<code>BuilderTabBar</code>), persisted to <code>UserPreferences.OpenStrategyTabs</code> and <code>localStorage</code>.</td>
 </tr>
 <tr>
 <td><code>Gapper.razor</code></td>
-<td>Queue/dial-in gapper strategies; "From a transcript" free-text extraction via <code>GapperInterpreter</code>.</td>
+<td>Queue and dial in gapper strategies; "From a transcript" free-text extraction via <code>GapperInterpreter</code>.</td>
 </tr>
 <tr>
 <td><code>Learn.razor</code></td>
-<td>The Learning Center — seeded articles with inline live-rendered strategy examples via <code>[[...]]</code> wikilinks (<code>WikilinkParser</code>, <code>&lt;WikiContent&gt;</code>).</td>
+<td>The Learning Center: seeded articles with inline live-rendered strategy examples via <code>[[...]]</code> wikilinks (<code>WikilinkParser</code>, <code>WikiContent</code>).</td>
 </tr>
 <tr>
 <td><code>Research.razor</code></td>
-<td>Ranked "Today's High-Impact Events" feed over <code>ResearchScanner</code> output; collapsed Advanced panel for the older manual ticker/paste flow.</td>
+<td>Ranked "Today's High-Impact Events" feed over ResearchScanner output; a collapsed Advanced panel keeps the older manual ticker and paste flow.</td>
 </tr>
 <tr>
 <td><code>Options.razor</code></td>
-<td><strong>Manual options section</strong> (<code>/options</code>, <a href="docs/AMENDMENTS.md#IP-A33">IP-A33</a> / RFC 0004) — deliberately separate from the strategy pipeline. Sandbox / Paper / Live account switch, options chain (CALLS \</td>
-<td>strike \</td>
-<td>PUTS) with a per-cell <strong>breakeven</strong> and <strong>real-vs-hype</strong> (intrinsic vs extrinsic) meter, a plain-English order ticket, open option positions with a real/hype split bar and an informational "extrinsic near its high + bullish news → consider taking profit" callout. Live orders reuse the 5-minute password elevation; the ticket locks itself while Alpaca reports <code>option_trading_level = 0</code>. Composes RCL components from <code>IdiotProof.UI</code>; host logic in <code>Services/OptionsTradingService.cs</code>.</td>
+<td>The manual options section (<code>/options</code>, <a href="docs/AMENDMENTS.md#IP-A33">IP-A33</a>, RFC 0004), deliberately separate from the strategy pipeline. Sandbox, Paper and Live account switch; options chain (calls, strike, puts) with per-cell breakeven and a real-vs-hype (intrinsic vs extrinsic) meter; a plain-English order ticket; open option positions with a real/hype split bar and an informational take-profit callout. Live orders reuse the 5-minute password elevation, and the ticket locks itself while Alpaca reports <code>option_trading_level = 0</code>. Host logic in <code>Services/OptionsTradingService.cs</code>.</td>
 </tr>
 <tr>
 <td><code>Backtest.razor</code></td>
-<td>Backtest UI (stub-level per the bible's active frontier — see <a href="#17-known-gaps-and-roadmap">§17</a>).</td>
+<td>Backtest UI (stub-level, see <a href="#limitations-and-roadmap">Limitations and roadmap</a>).</td>
 </tr>
 <tr>
 <td><code>ActivityLog.razor</code></td>
@@ -686,14 +701,14 @@ Stock.Ticker("SPY")
 </tr>
 <tr>
 <td><code>ApiKeys.razor</code></td>
-<td>Per-user broker/data key entry, live-mode danger modal.</td>
+<td>Per-user broker and data key entry, live-mode danger modal.</td>
 </tr>
 <tr>
 <td><code>Settings.razor</code></td>
-<td>Preferences, theme, RiskGuardian config surface (partially wired — see §17).</td>
+<td>Preferences, theme, RiskGuardian config surface (partially wired).</td>
 </tr>
 <tr>
-<td><code>Login.razor</code> / <code>Register.razor</code> / <code>ForgotPassword.razor</code> / <code>ForgotUsername.razor</code></td>
+<td><code>Login.razor</code>, <code>Register.razor</code>, <code>ForgotPassword.razor</code>, <code>ForgotUsername.razor</code></td>
 <td>Auth flows against <code>MindAttic.Authentication</code>.</td>
 </tr>
 <tr>
@@ -701,37 +716,29 @@ Stock.Ticker("SPY")
 <td>Live chart surface.</td>
 </tr>
 </tbody></table>
-<p>Shared components (<code>Components/Shared/</code>): <code>AccountSummaryBar</code>, <code>GlossaryModal</code>, <code>LogsBadge</code>, <code>StrategyBlueprintViz</code>, <code>StrategyBuilderRenderer</code>, <code>ToastContainer</code>. <code>Hubs/TradingHub.cs</code> is a SignalR hub. <code>Auth/AuthService.cs</code> wraps the auth stack for the UI.</p>
-<h3 id="the-describe-tab-claude-driven-generation">The Describe tab — Claude-driven generation</h3>
+<p>Shared components (<code>Components/Shared/</code>): <code>AccountSummaryBar</code>, <code>GlossaryModal</code>, <code>LogsBadge</code>, <code>StrategyBlueprintViz</code>, <code>StrategyBuilderRenderer</code>, <code>ToastContainer</code>. <code>Hubs/TradingHub.cs</code> is a SignalR hub, and <code>Auth/AuthService.cs</code> wraps the auth stack for the UI.</p>
+<h3 id="the-describe-tab">The Describe tab</h3>
 <ol>
-<li>User types ticker + title + plain-English description.</li>
-<li><code>StrategyScriptGenerator</code> builds a system prompt by <strong>reflecting</strong> on <code>StrategyBuilder</code> + <code>Conditions</code> (so the prompted verb catalog can never drift from what actually compiles —    <a href="docs/BIBLE.md#IP-LAW-4">IP-LAW-4</a>), sends it through <code>LegionClient</code> to the voter panel declared    in <code>legion.json</code>.</li>
-<li>The generated IdiotScript is parsed by <code>WikilinkParser.ParseScript</code> into a <code>StrategyDefinition</code> and rendered live via <code>&lt;StrategyBuilderRenderer&gt;</code>.</li>
-<li>Save writes the row to SQL with a UUIDv7 id, paper-by-default.</li>
+<li>The user types a ticker, a title and a plain-English description.</li>
+<li><code>StrategyScriptGenerator</code> builds a system prompt by reflecting on <code>StrategyBuilder</code> and <code>Conditions</code>, so the prompted verb catalog cannot drift from what compiles (<a href="docs/BIBLE.md#IP-LAW-4">IP-LAW-4</a>), and sends it through <code>LegionClient</code> to the voter panel declared in <code>legion.json</code>.</li>
+<li>The generated IdiotScript is parsed by <code>WikilinkParser.ParseScript</code> into a <code>StrategyDefinition</code> and rendered live by <code>StrategyBuilderRenderer</code>.</li>
+<li>Save writes the row to SQL with a UUIDv7 id, paper by default.</li>
 </ol>
 <h3 id="theme">Theme</h3>
-<p>Alpaca palette only today (<code>--brand #FFCD00</code>, <code>--green #00C853</code>, <code>--red #EF4444</code>, ...), scoped under <code>:root[data-theme="alpaca"]</code> in <code>wwwroot/css/_theme-alpaca.css</code>. New themes drop in as additional <code>_theme-{name}.css</code> files plus a <code>&lt;link&gt;</code> in <code>Components/App.razor</code>; components reference CSS custom properties, never raw colors, so switching is a single attribute flip.</p>
+<p>The Alpaca palette is the only theme today (<code>--brand #FFCD00</code>, <code>--green #00C853</code>, <code>--red #EF4444</code>, ...), scoped under <code>:root[data-theme="alpaca"]</code> in <code>wwwroot/css/_theme-alpaca.css</code>. New themes drop in as additional <code>_theme-{name}.css</code> files plus a stylesheet link in <code>Components/App.razor</code>; components reference CSS custom properties, never raw colors, so switching is a single attribute flip.</p>
 <h3 id="account-selector">Account selector</h3>
-<p>The <strong>AccountPill</strong> mirrors Alpaca's UI: label + type ("Paper"/"Live") + masked account ID. Live accounts render with a red outline; paper accounts with the brand-yellow outline. Credentials come from the shared MindAttic broker keyring, overlaid onto <code>AppSettings</code> at startup.</p>
-<hr>
-<h2 id="9-the-maui-desktop-shell-and-the-shared-ui-library">9. The MAUI desktop shell and the shared UI library</h2>
-<p><code>CLAUDE.md</code>'s rule (<a href="docs/AMENDMENTS.md#IP-A28">IP-A28</a>) is "dual-host UI off ONE shared Razor Class Library" — <code>IdiotProof.Blazor</code> and <code>IdiotProof.Maui</code> are meant to render the <em>same</em> <code>IdiotProof.UI</code> components, never a forked copy of a page per host.</p>
-<p><strong>Verified current state (read directly from both projects' source trees):</strong></p>
+<p>The AccountPill mirrors Alpaca's UI: label, type (Paper or Live) and masked account ID. Live accounts render with a red outline, paper accounts with the brand-yellow outline. Credentials come from the shared MindAttic broker keyring, overlaid onto <code>AppSettings</code> at startup.</p>
+<h3 id="removed-maui-desktop-shell">Removed MAUI desktop shell</h3>
+<p><a href="docs/AMENDMENTS.md#IP-A28">IP-A28</a> (2026-07-20) started a dual-host UI: an <code>IdiotProof.Maui</code> MAUI Blazor Hybrid desktop shell rendering the same <code>IdiotProof.UI</code> components. It never got past scaffolding (no project references, stock template pages, no desktop auth story), and <a href="docs/AMENDMENTS.md#IP-A36">IP-A36</a> (2026-09-06) removed it. <code>IdiotProof.UI</code> remains a shared Razor Class Library with <code>IdiotProof.Blazor</code> as its only consumer.</p>
+<h2 id="the-research-scanner">The research scanner</h2>
+<p><code>IdiotProof.ResearchScanner</code> (<code>Program.cs</code> + <code>ScanPassRunner</code>) runs one scan pass and exits. It is designed to be fired by a Windows Scheduled Task (<code>tools/register-research-scan-task.ps1</code>, written but not registered by default) and is decoupled from both the Monitor's trading loop and the Blazor request lifecycle. Per <a href="docs/AMENDMENTS.md#IP-A32">IP-A32</a>:</p>
 <ul>
-<li><code>IdiotProof.UI</code> has its first real occupants (<a href="docs/AMENDMENTS.md#IP-A33">IP-A33</a>, 2026-09-05): the Options section's components under <code>Components/Options/</code> (<code>OptionsChainView</code>,   <code>OptionOrderTicket</code>, <code>OptionPositionTracker</code>, <code>OptionsLiveElevationModal</code>, plus   <code>OptionsPresenter</code> and the view-model records) and <code>wwwroot/css/options.css</code>. The RCL references   only <code>IdiotProof.Models</code>, <code>IdiotProof.Brokers</code>, and <code>IdiotProof.Shared</code> — never a host — and its   components are presentational (data in via parameters, actions out via <code>EventCallback</code>s).   <code>IdiotProof.Blazor</code> now has a <code>ProjectReference</code> to it and composes those components from the   thin host page <code>Components/Pages/Options.razor</code>. The RCL template files (<code>Component1.razor</code>,   <code>ExampleJsInterop.cs</code>) were removed.</li>
-<li><code>IdiotProof.Maui/Components/Pages/</code> still contains only <code>Home.razor</code>, <code>Counter.razor</code>, <code>Weather.razor</code>, <code>NotFound.razor</code> — the stock MAUI Blazor Hybrid sample pages. <code>NavMenu.razor</code>   links only to Home/Counter/Weather. The MAUI host has <strong>not</strong> been wired to the Options   components (MAUI is deferred; the auth story there is unsolved).</li>
-</ul>
-<p>Both projects build and are registered in <code>IdiotProof.slnx</code>. The dual-host plumbing now carries one real feature on the Blazor side; the Strategies/Gapper/Learn pages have not been moved into the RCL, and nothing is reachable from the MAUI shell yet. Treat <code>IdiotProof.Maui</code> as a scaffold proving the hosting model compiles, not as a usable desktop client today.</p>
-<hr>
-<h2 id="10-the-research-scanner">10. The Research Scanner</h2>
-<p><code>IdiotProof.ResearchScanner</code> (<code>Program.cs</code> + <code>ScanPassRunner</code>) runs <strong>one scan pass and exits</strong> — designed to be fired by a Windows Scheduled Task (<code>tools/register-research-scan-task.ps1</code>, written but not registered by default), decoupled from both the Monitor's real-time trading loop and the Blazor host's request lifecycle. Per the narrative in <a href="docs/AMENDMENTS.md#IP-A32">IP-A32</a>:</p>
-<ul>
-<li>Sweeps watchlist tickers plus a rotating batch of the tracked universe (<code>TickerUniverseService</code>/<code>TrackedTicker</code>, refreshed daily from Alpaca's asset list).</li>
-<li><code>EdgarService</code>/<code>Form4Parser</code>/<code>CorporateActionDetector</code> pull real SEC filing content (Form 4 insider transactions, 8-K item-code triage) rather than boilerplate summaries.</li>
-<li><code>RegulatoryScanner</code> polls the Federal Register for SEC/SRO notices and has an LLM triage out routine noise, persisting substantive ones as macro <code>ResearchClaim</code> rows.</li>
-<li><code>CatalystExtractor</code> composes a deterministic, sober-toned sentence per claim instead of trusting a single LLM-authored paragraph.</li>
-<li><code>SignificanceScorer</code> combines magnitude/confidence/history/source-trust/recency/watchlist membership into a 0–100 score that <code>Research.razor</code>'s primary feed sorts by.</li>
-<li><code>OutcomeBackfillService</code> fetches real historical prices to mark older claims Realized/Disproven, closing the loop between a claim and what the market actually did.</li>
+<li>It sweeps watchlist tickers plus a rotating batch of the tracked universe (<code>TickerUniverseService</code> and <code>TrackedTicker</code>, refreshed daily from Alpaca's asset list).</li>
+<li><code>EdgarService</code>, <code>Form4Parser</code> and <code>CorporateActionDetector</code> pull real SEC filing content (Form 4 insider transactions, 8-K item-code triage) rather than boilerplate summaries.</li>
+<li><code>RegulatoryScanner</code> polls the Federal Register for SEC and SRO notices, has an LLM triage out routine noise, and persists substantive ones as macro <code>ResearchClaim</code> rows.</li>
+<li><code>CatalystExtractor</code> composes a deterministic, sober sentence per claim instead of trusting a single LLM-written paragraph.</li>
+<li><code>SignificanceScorer</code> combines magnitude, confidence, history, source trust, recency and watchlist membership into a 0 to 100 score that the Research feed sorts by.</li>
+<li><code>OutcomeBackfillService</code> fetches real historical prices to mark older claims Realized or Disproven, closing the loop between a claim and what the market did.</li>
 </ul>
 <pre><code class="language-bash">dotnet run --project IdiotProof.ResearchScanner</code></pre>
 <table><thead><tr>
@@ -755,56 +762,23 @@ Stock.Ticker("SPY")
 <td>Minimum hours between regulatory-scan cadences.</td>
 </tr>
 </tbody></table>
-<hr>
-<h2 id="11-the-mindattic-family">11. The MindAttic family</h2>
-<p>IdiotProof is one of several MindAttic projects and follows two shared conventions:</p>
+<h2 id="shared-mindattic-conventions">Shared MindAttic conventions</h2>
+<p>IdiotProof follows two conventions shared across MindAttic projects:</p>
 <ul>
-<li><strong>Shared keyrings live in Roaming</strong> (<code>%APPDATA%\MindAttic\&lt;Subsystem&gt;\providers.json</code>): <code>LLM</code> (owned by <code>MindAttic.Legion</code>), <code>Brokers</code> (owned by IdiotProof: <code>alpaca-paper</code>/<code>alpaca-live</code>),   <code>Security</code> (owned by <code>MindAttic.Authentication</code>: pepper, bootstrap token).</li>
-<li><strong>Per-app state lives in Local</strong> (<code>%LOCALAPPDATA%\MindAttic\&lt;AppName&gt;\</code>).</li>
+<li>Shared keyrings live in Roaming (<code>%APPDATA%\MindAttic\&lt;Subsystem&gt;\providers.json</code>): <code>LLM</code> (owned by <code>MindAttic.Legion</code>), <code>Brokers</code> (owned by IdiotProof: <code>alpaca-paper</code> and <code>alpaca-live</code>) and <code>Security</code> (owned by <code>MindAttic.Authentication</code>: pepper, bootstrap token).</li>
+<li>Per-app state lives in Local (<code>%LOCALAPPDATA%\MindAttic\&lt;AppName&gt;\</code>).</li>
 </ul>
-<p><code>legion.json</code> at the repo root configures the LLM voter panel and judge:</p>
+<p><code>legion.json</code> at the repo root configures the LLM voter panel and judge, and is copied next to the Blazor, Monitor and ResearchScanner binaries:</p>
 <pre><code class="language-json">{
-  "voters": ["claude-api", "openai", "gemini", "deepseek"],
-  "judge": "claude-api",
+  "voters": ["claude", "openai", "gemini", "deepseek"],
+  "judge": "claude",
   "tier": "high"
 }</code></pre>
-<p>Strategy generation is high-stakes (a single LLM hallucinating a verb costs real money), so the panel cross-verifies before a script is ever shown to the user. All LLM traffic routes through <code>MindAttic.Legion</code>; all LLM credential reads route through <code>MindAttic.Vault</code> — no feature code calls an Anthropic/OpenAI SDK directly.</p>
-<hr>
-<h2 id="12-building-running-and-testing">12. Building, running, and testing</h2>
-<h3 id="prerequisites">Prerequisites</h3>
-<ul>
-<li>.NET 10 SDK</li>
-<li>SQL Server LocalDB (ships with Visual Studio, or install the SQL Server Express LocalDB package)</li>
-<li>Node 18+ (for Cypress only)</li>
-</ul>
-<h3 id="first-run">First run</h3>
-<pre><code class="language-bash">git clone &lt;repo&gt;
-cd IdiotProof
-
-# Restore + build the whole solution
-dotnet build IdiotProof.slnx
-
-# Apply migrations to LocalDB (creates the IdiotProof database)
-dotnet ef database update --project IdiotProof.Blazor
-
-# Run the Blazor host
-dotnet run --project IdiotProof.Blazor
-# → https://localhost:5001</code></pre>
-<p>In another terminal, optionally run the Monitor and/or the Research Scanner:</p>
-<pre><code class="language-bash">dotnet run --project IdiotProof.Monitor
-dotnet run --project IdiotProof.ResearchScanner</code></pre>
-<p>To try the desktop shell (scaffold only today — see <a href="#9-the-maui-desktop-shell-and-the-shared-ui-library">§9</a>):</p>
-<pre><code class="language-bash">dotnet run --project IdiotProof.Maui</code></pre>
-<h3 id="configuration">Configuration</h3>
-<ul>
-<li><strong>Claude API key</strong> — <code>%APPDATA%\MindAttic\LLM\providers.json</code> (the canonical MindAttic keyring), or paste into the API Keys page in-app.</li>
-<li><strong>Alpaca keys</strong> — <code>%APPDATA%\MindAttic\Brokers\providers.json</code> with <code>alpaca-paper</code> and <code>alpaca-live</code> entries (see <a href="#8-the-blazor-web-app">§8</a>).</li>
-<li><strong><code>.env</code> (Development only)</strong> — <code>%APPDATA%\MindAttic\IdiotProof\.env</code> prefills <code>DEV_USERNAME</code> / <code>DEV_PASSWORD</code> on the Login page; never loaded outside <code>Development</code>.</li>
-</ul>
-<h3 id="tests">Tests</h3>
-<p>Run the whole solution's NUnit suite:</p>
-<pre><code class="language-bash">dotnet test IdiotProof.slnx</code></pre>
-<p>Actual counts from a fresh Release run of this repo (see <a href="#17-known-gaps-and-roadmap">§17</a> for the two known-failing tests):</p>
+<p>Strategy generation is high-stakes (one hallucinated verb can cost real money), so the panel cross-verifies before a script is shown to the user. All LLM traffic routes through <code>MindAttic.Legion</code> and all LLM credential reads through <code>MindAttic.Vault</code>; no feature code calls a provider SDK directly.</p>
+<h2 id="building-and-testing">Building and testing</h2>
+<pre><code class="language-bash">dotnet build IdiotProof.slnx
+dotnet test IdiotProof.slnx</code></pre>
+<p>Counts recorded at the last full Release run (not re-run for this README; <code>IdiotProof.UI.Tests</code> was added later):</p>
 <table><thead><tr>
 <th>Project</th>
 <th>Passed</th>
@@ -827,19 +801,19 @@ dotnet run --project IdiotProof.ResearchScanner</code></pre>
 <td><code>IdiotProof.Strategies.Tests</code></td>
 <td>34,679</td>
 <td>0</td>
-<td>DSL round-trip, backtester, gapper lifecycle, canonical-JSON contract — plus a large family of exhaustive combinatorial matrix test classes (<code>StrategyPermutationMatrixTests</code>, <code>StrategyThreeWayAndMatrixTests</code>, <code>ConditionalBlockOverridePermutationTests</code>, ...) that expand to tens of thousands of generated cases from a compact set of source files</td>
+<td>DSL round-trip, backtester, gapper lifecycle, canonical-JSON contract, plus exhaustive combinatorial matrix classes (<code>StrategyPermutationMatrixTests</code>, <code>StrategyThreeWayAndMatrixTests</code>, <code>ConditionalBlockOverridePermutationTests</code>, ...) that expand to tens of thousands of generated cases</td>
 </tr>
 <tr>
 <td><code>IdiotProof.Brokers.Tests</code></td>
 <td>13</td>
 <td>0</td>
-<td>BrokerRouter Sandbox-default + safe fallback, Sandbox fill simulation</td>
+<td>BrokerRouter Sandbox default and safe fallback, Sandbox fill simulation</td>
 </tr>
 <tr>
 <td><code>IdiotProof.Blazor.Tests</code></td>
 <td>194</td>
 <td>2</td>
-<td>Two pre-existing failures in <code>RegulatoryScannerTests</code> (<code>ScanAsync_AlreadySeenSourceUrl_IsSkippedOnSecondScan</code>, <code>ScanAsync_SubstantiveNotice_PersistsMacroClaim</code>) — not introduced or fixed by this README pass; everything else in the project is green</td>
+<td>Two pre-existing failures in <code>RegulatoryScannerTests</code> (<code>ScanAsync_AlreadySeenSourceUrl_IsSkippedOnSecondScan</code>, <code>ScanAsync_SubstantiveNotice_PersistsMacroClaim</code>)</td>
 </tr>
 <tr>
 <td><code>IdiotProof.Monitor.Tests</code></td>
@@ -848,121 +822,114 @@ dotnet run --project IdiotProof.ResearchScanner</code></pre>
 <td><code>PremarketFadeScanner</code></td>
 </tr>
 </tbody></table>
-<p>The large <code>IdiotProof.Strategies.Tests</code> count is a real, verified property of this codebase, not a typo: the project deliberately generates exhaustive matrices over phase/condition/branch combinations rather than hand-writing each case.</p>
-<h3 id="cypress-frontend-e2e">Cypress (frontend E2E)</h3>
+<p>The large <code>IdiotProof.Strategies.Tests</code> count is deliberate: the project generates exhaustive matrices over phase, condition and branch combinations rather than hand-writing each case.</p>
+<h3 id="cypress-end-to-end-tests">Cypress end to end tests</h3>
 <pre><code class="language-bash">cd tests/IdiotProof.Cypress
 npm install
 npm run open    # interactive
-npm run ci      # headless (Chrome, uses CYPRESS_BASE_URL or defaults to https://localhost:5001)</code></pre>
-<p>Seven specs (02–07 cover the strategy-authoring/save/activate round-trip, API-key masking + live danger modal, Vault-backed AI generation, sample-strategy round-trips, backtest replay, and the live <code>N/M</code> condition-progress badge). They run deterministically against <code>IDIOTPROOF_FAKE_LLM=1</code> (the <code>FakeLlmHandler</code> test seam intercepts Legion calls server-side) but need a live server run to count as fully proven end to end.</p>
-<hr>
-<h2 id="13-exportps1-and-the-other-root-scripts">13. Export.ps1 and the other root scripts</h2>
-<p><code>Export.ps1</code> (repo root) is a <strong>generic source-export utility</strong>, not IdiotProof-specific logic — its comment header still calls itself a "Unity project" exporter, a leftover from the template it was copied from. It walks the repo, hashes every matching file, and writes one flat text bundle (<code>ExportedScripts.txt</code> in the current directory) containing a JSON manifest (path, SHA-256, byte count, line count) followed by fenced <code>&lt;&lt;&lt;FILE START&gt;&gt;&gt; ... &lt;&lt;&lt;FILE END&gt;&gt;&gt;</code> blocks per file — handy for pasting an entire codebase (or a slice of it) into an LLM context window.</p>
-<pre><code class="language-powershell"># From the repo root — exports every .cs file by default
-powershell -NoProfile -ExecutionPolicy Bypass -File Export.ps1</code></pre>
-<p>Configuration lives at the top of the script itself:</p>
+npm run ci      # headless Chrome; uses CYPRESS_BASE_URL or defaults to https://localhost:5001</code></pre>
+<p>Nine specs in <code>cypress/e2e/</code> cover a smoke test, strategy authoring and the save/activate round-trip, API-key masking and the live danger modal, Vault-backed AI generation, sample-strategy round-trips, backtest replay, the live <code>N/M</code> condition-progress badge, the options section and live-mode strategies. They run deterministically against <code>IDIOTPROOF_FAKE_LLM=1</code> (the <code>FakeLlmHandler</code> test seam intercepts Legion calls server-side) but need a live server to count as proven end to end.</p>
+<h2 id="root-scripts">Root scripts</h2>
 <ul>
-<li><code>$includeExtensions</code> — defaults to <code>.cs</code> only; <code>.prefab</code> / <code>.meta</code> / <code>.unity</code> / <code>.scene</code> lines are present but commented out (Unity-era leftovers, irrelevant to this .NET solution).</li>
-<li><code>$excludeDirs</code> — skips <code>Library</code>, <code>Temp</code>, <code>Logs</code>, <code>Obj</code>/<code>obj</code>, <code>.git</code>, <code>.vs</code>, <code>Build(s)</code>, <code>Packages</code> (again, mostly Unity-shaped noise; <code>bin</code>/<code>obj</code> under each project are still walked   unless they happen to match one of these literal segment names, so a fresh export can be large —   point it at a narrower <code>$searchPath</code> or clean build output first if you want a lean bundle).</li>
-<li><code>$assetsOnly</code> — <code>$false</code> by default (scans the whole repo, not just an <code>Assets/</code> folder).</li>
+<li><code>deploy-idiotproof.bat</code>: desktop entry point that runs <code>tools/publish-all.ps1 -Launch</code>, republishing the Monitor and the web app to <code>C:\Apps\IdiotProof\</code> and then starting both.</li>
+<li><code>publish-all.bat</code>, <code>zzz_Export.bat</code>, <code>zzz_Backup.bat</code>: local convenience wrappers.</li>
+<li><code>tools/azure-provision.md</code> and <code>tools/register-research-scan-task.ps1</code>: document and automate one-time infrastructure steps; <code>tools/seed-*.sql</code> seed example strategies.</li>
+<li><code>tools/codex.ps1</code>: the documentation-canon tool (see <a href="#documentation">Documentation</a>); <code>tools/build-readme.ps1</code> renders this README to <code>README.htm</code>.</li>
+<li><code>index.htm</code> and <code>package.json</code>: the retired README-driven landing page for mindattic.com (<code>marked</code> + <code>highlight.js</code>). The landing page was retired on 2026-10-03; this README on GitHub is the project page now.</li>
 </ul>
-<p>Other root-level helper scripts (<code>zzz_Export.bat</code>, <code>zzz_Backup.bat</code>, <code>publish-all.bat</code>, <code>tools/publish-all.ps1</code>) are local convenience wrappers; <code>tools/azure-provision.md</code> and <code>tools/register-research-scan-task.ps1</code> document/automate one-time infra setup steps. <code>tools/codex.ps1</code> is the documentation-canon tool described in <a href="#16-documentation-canon-and-further-reading">§16</a>.</p>
-<p><code>index.htm</code> + <code>package.json</code> at the repo root are an unrelated static-site pipeline: a <code>README.md</code>(-flavored) marketing landing page renderer for <code>mindattic.com</code> (<code>marked</code> + <code>highlight.js</code>, built via <code>node scripts/cli/build-html.js</code>) — <strong>not</strong> the codex-standard <code>README.md → README.htm</code> doc-canon renderer this task's <code>tools/build-readme.ps1</code> wraps. The two "HTML from Markdown" pipelines are separate systems that happen to share a repo.</p>
-<hr>
-<h2 id="14-directory-layout">14. Directory layout</h2>
-<pre><code>IdiotProof/
+<p><code>Export.ps1</code> is a generic source-export utility, not IdiotProof logic; its header still calls itself a "Unity project" exporter, a leftover from the template it was copied from. It walks the repo, hashes every matching file and writes one flat text bundle (<code>ExportedScripts.txt</code> in the current directory): a JSON manifest (path, SHA-256, byte count, line count) followed by a delimited block per file, handy for pasting a codebase into an LLM context window.</p>
+<pre><code class="language-powershell"># From the repo root; exports every .cs file by default
+powershell -NoProfile -ExecutionPolicy Bypass -File Export.ps1</code></pre>
+<p>Configuration lives at the top of the script:</p>
+<ul>
+<li><code>$includeExtensions</code> defaults to <code>.cs</code> only; Unity-era extensions are present but commented out.</li>
+<li><code>$excludeDirs</code> skips <code>Library</code>, <code>Temp</code>, <code>Logs</code>, <code>Obj</code>/<code>obj</code>, <code>.git</code>, <code>.vs</code>, <code>Build(s)</code> and <code>Packages</code>. Build output under each project is still walked unless it matches one of those literal names, so point it at a narrower <code>$searchPath</code> or clean first if you want a lean bundle.</li>
+<li><code>$assetsOnly</code> is <code>$false</code> by default (the whole repo is scanned, not just an <code>Assets/</code> folder).</li>
+</ul>
+<h2 id="project-layout">Project layout</h2>
+<pre><code class="language-text">IdiotProof/
 ├── IdiotProof.slnx / .sln                    ← Active solution (slnx is canonical; .sln kept for older tooling)
 ├── legion.json                               ← Legion voter panel (high tier)
-├── Export.ps1                                ← Generic repo → text-bundle exporter (see §13)
-├── CLAUDE.md                                 ← Project rules for AI tooling
+├── Export.ps1                                ← Generic repo → text-bundle exporter
+├── AGENTS.md, CLAUDE.md                      ← Project rules for AI tooling
 ├── README.md                                 ← You are here
-├── TODO.md                                   ← Aspirational ghost-overlay/branching-viz plan (references the deleted IdiotProof.Core tree — historical, not current architecture)
-├── docker-compose.yml / infra/                ← Azure deployment scaffolding (references paths/keys — e.g. src/, PolygonApiKey — that predate the current tree; verify before relying on it)
+├── TODO.md                                   ← Ghost-overlay/branching-viz plan (references the deleted IdiotProof.Core tree)
+├── docker-compose.yml / infra/               ← Azure deployment scaffolding (predates the current tree; verify before relying on it)
 │
 ├── IdiotProof.Models/                        ← Domain DTOs
-├── IdiotProof.Shared/                        ← RiskGuardian, IndicatorSnapshot
+├── IdiotProof.Shared/                        ← RiskGuardian, IndicatorSnapshot, options math
 ├── IdiotProof.Indicators/                    ← Pure indicator math + CandlestickPatterns
 ├── IdiotProof.Scripting/                     ← IdiotScript DSL
-├── IdiotProof.Strategies/                    ← IStrategy, DslStrategy adapter, IndicatorSnapshotBuilder, GapperExitEvaluator, Backtester
+├── IdiotProof.Strategies/                    ← IStrategy, DslStrategy, IndicatorSnapshotBuilder, GapperExitEvaluator, backtester
 ├── IdiotProof.DataFeeds/                     ← IMarketDataFeed (Alpaca REST + streaming, Mock)
 ├── IdiotProof.Brokers/                       ← Alpaca + Sandbox + IBrokerClient + BrokerRouter
-├── IdiotProof.Engine/                        ← DI root, AppSettings, BrokerCredentialStore-equivalent overlay, SupervisedLoop
+├── IdiotProof.Engine/                        ← DI root, AppSettings overlay chain, SupervisedLoop
 ├── IdiotProof.Blazor/                        ← Web app (the primary front door)
 │   ├── Data/                                 ← AppDbContext, Strategy, UserPreferences, LearningArticle, ...
 │   ├── Migrations/                           ← EF migrations
 │   ├── Services/                             ← StrategyScriptGenerator, LlmVotingService, repositories, research pipeline
-│   ├── Components/Pages/                     ← Strategies.razor, StrategyBuilder.razor, Gapper.razor, Learn.razor, Research.razor, ...
-│   ├── Components/Shared/                    ← AccountSummaryBar.razor, StrategyBuilderRenderer.razor, WikiContent-equivalent, ...
-│   └── wwwroot/css/_theme-alpaca.css, wwwroot/data/gapper-profiles.json
-├── IdiotProof.Maui/                          ← Desktop shell (currently the default MAUI Blazor Hybrid template — see §9)
-├── IdiotProof.UI/                            ← Shared Razor Class Library (currently the default RCL template — see §9)
-├── IdiotProof.Monitor/                       ← 24/7 evaluator + executor console
+│   ├── Components/Pages/                     ← Strategies, StrategyBuilder, Gapper, Learn, Research, Options, ...
+│   ├── Components/Shared/                    ← AccountSummaryBar, StrategyBuilderRenderer, ...
+│   └── wwwroot/                              ← css/_theme-alpaca.css, data/gapper-profiles.json, user-guide.htm
+├── IdiotProof.UI/                            ← Shared Razor Class Library (Options components, Tooltip/Term)
+├── IdiotProof.Monitor/                       ← 24/7 evaluator + executor console, operator CLI, replay tooling
 ├── IdiotProof.ResearchScanner/               ← One-shot research sweep console
-├── IdiotProof.Engine.Tests/                  ← RiskGuardian + SupervisedLoop + Workspace (NUnit)
-├── IdiotProof.Indicators.Tests/              ← Indicator math (NUnit)
-├── IdiotProof.Strategies.Tests/              ← DSL round-trip + backtester + combinatorial matrices (NUnit)
-├── IdiotProof.Brokers.Tests/                 ← BrokerRouter (NUnit)
-├── IdiotProof.Blazor.Tests/                  ← StrategyScriptGenerator, LlmVotingService, research pipeline (NUnit)
-├── IdiotProof.Monitor.Tests/                 ← PremarketFadeScanner (NUnit)
-├── docs/                                     ← Codex canon (BIBLE.md, AMENDMENTS.md, USER_STORIES.md, rfc/) — see §16
-├── tools/                                    ← codex.ps1, publish-all.ps1, azure-provision.md, build-readme.ps1, seed-*.sql
+├── IdiotProof.*.Tests/                       ← NUnit projects (Engine, Indicators, Strategies, Brokers, Blazor, Monitor, UI)
+├── docs/                                     ← Codex canon (BIBLE.md, AMENDMENTS.md, USER_STORIES.md, rfc/), images/
+├── tools/                                    ← codex.ps1, build-readme.ps1, publish-all.ps1, azure-provision.md, seed-*.sql
 └── tests/
-    └── IdiotProof.Cypress/                   ← End-to-end UI tests (Cypress 13, 7 specs)</code></pre>
-<hr>
-<h2 id="15-glossary">15. Glossary</h2>
+    └── IdiotProof.Cypress/                   ← End-to-end UI tests (Cypress 13, 9 specs)</code></pre>
+<h2 id="glossary">Glossary</h2>
 <ul>
-<li><strong>IdiotScript</strong> — the fluent DSL (<code>Stock.Ticker("NVDA").RequireAdxAbove(20)...Build()</code>) that expresses a strategy as six lifecycle phases.</li>
-<li><strong>Phase</strong> — one of the six fixed stages every strategy walks: Setup, Filters, Entry, Order, Risk, Exit. The parser rejects verbs used in the wrong phase.</li>
-<li><strong>Condition</strong> — a single boolean check (<code>IsAboveVwap()</code>, <code>OnReclaim(9)</code>) composed with <code>.And()</code>/<code>.Or()</code>/<code>.Not()</code>.</li>
-<li><strong>Gate</strong> — one of the three pre-fire checks: condition match → LLM voter quorum → Risk Guardian.</li>
-<li><strong>Risk Guardian</strong> — <code>IdiotProof.Shared.Risk.RiskGuardian</code>, the final pre-trade veto; can block regardless of strategy or LLM consensus.</li>
-<li><strong>Monitor</strong> — <code>IdiotProof.Monitor</code>, the unattended 24/7 console evaluator and executor.</li>
-<li><strong>SupervisedLoop</strong> — the fault-tolerant tick loop the Monitor runs its per-pass work under.</li>
-<li><strong>Voter panel / Legion</strong> — the multi-LLM quorum (<code>legion.json</code>) that approves or rejects a Claude-generated script or a candidate fire, via <code>MindAttic.Legion</code>.</li>
-<li><strong>ConditionProgress</strong> — the SQL row (<code>N/M</code>, first failing verb) the Monitor upserts every pass and the Strategies page polls for live badges.</li>
-<li><strong>Sandbox broker</strong> — the always-registered simulated broker (instant fills, in-memory position book) that is the safe default in <code>BrokerRouter</code>.</li>
-<li><strong>Gapper</strong> — a stock gapping up in premarket vs. the previous close; the flagship trade: buy in the 4 AM window, sell before the 9:30 bell.</li>
-<li><strong>Gapper profile</strong> — a dialable template (gap %, volume ratio, price band, entry window, stops, giveback, arm/sell-by times, notional), stored in <code>wwwroot/data/gapper-profiles.json</code>, cloned and   tuned per ticker on the Gapper tab.</li>
-<li><strong>Peak giveback</strong> — the momentum-rollover exit: sell once price gives back N% of the run from entry to the post-entry peak; armed from a configured ET time.</li>
-<li><strong>Previous close</strong> — the prior trading day's official close; the reference for gap %. Gap conditions fail closed without it.</li>
-<li><strong>Research claim</strong> — one <code>ResearchClaim</code> row: a catalyst or portent extracted from a filing, news article, or regulatory notice, with sentiment/magnitude/timing and a significance score.</li>
-<li><strong>Macro claim</strong> — a <code>ResearchClaim</code> with <code>IsMacro = true</code>: a regulatory/exchange-rule event that isn't about one company.</li>
-<li><strong>Significance score</strong> — the 0–100 value <code>SignificanceScorer</code> computes per claim; the Research tab's ranked feed sorts by it.</li>
-<li><strong>Tracked ticker</strong> — a cached row in <code>TrackedTicker</code> (symbol, exchange, latest price) forming the research scanner's ticker universe, refreshed daily from Alpaca's asset list.</li>
-<li><strong>BrokerMode</strong> — the per-strategy routing choice (Paper / Live / Sandbox) that overrides the global account's paper/live flag for that one strategy.</li>
+<li>IdiotScript: the fluent DSL (<code>Stock.Ticker("NVDA").RequireAdxAbove(20)...Build()</code>) that expresses a strategy as six lifecycle phases.</li>
+<li>Phase: one of the six fixed stages every strategy walks: Setup, Filters, Entry, Order, Risk, Exit.</li>
+<li>Condition: a single boolean check (<code>IsAboveVwap()</code>, <code>OnReclaim(9)</code>) composed with <code>.And()</code>, <code>.Or()</code> and <code>.Not()</code>.</li>
+<li>Gate: one of the three pre-fire checks: condition match, LLM voter quorum, Risk Guardian.</li>
+<li>Risk Guardian: <code>IdiotProof.Shared.Risk.RiskGuardian</code>, the final pre-trade veto; it can block regardless of strategy or LLM consensus.</li>
+<li>Monitor: <code>IdiotProof.Monitor</code>, the unattended 24/7 console evaluator and executor.</li>
+<li>SupervisedLoop: the fault-tolerant tick loop the Monitor runs its per-pass work under.</li>
+<li>Voter panel or Legion: the multi-LLM quorum (<code>legion.json</code>) that approves or rejects a generated script or a candidate fire, via <code>MindAttic.Legion</code>.</li>
+<li>ConditionProgress: the SQL row (<code>N/M</code>, first failing verb) the Monitor upserts every pass and the Strategies page polls for live badges.</li>
+<li>Sandbox broker: the always-registered simulated broker (instant fills, in-memory position book), the safe default in <code>BrokerRouter</code>.</li>
+<li>Gapper: a stock gapping up in premarket versus the previous close; the flagship trade is to buy in the 4 AM window and sell before the 9:30 bell.</li>
+<li>Gapper profile: a dialable template (gap %, volume ratio, price band, entry window, stops, giveback, arm and sell-by times, notional) stored in <code>wwwroot/data/gapper-profiles.json</code>, cloned and tuned per ticker on the Gapper tab.</li>
+<li>Peak giveback: the momentum-rollover exit: sell once price gives back N% of the run from entry to the post-entry peak; armed from a configured ET time.</li>
+<li>Previous close: the prior trading day's official close, the reference for gap %. Gap conditions fail closed without it.</li>
+<li>Research claim: one <code>ResearchClaim</code> row, a catalyst or portent extracted from a filing, news article or regulatory notice, with sentiment, magnitude, timing and a significance score.</li>
+<li>Macro claim: a <code>ResearchClaim</code> with <code>IsMacro = true</code>, a regulatory or exchange-rule event that is not about one company.</li>
+<li>Significance score: the 0 to 100 value <code>SignificanceScorer</code> computes per claim; the Research feed sorts by it.</li>
+<li>Tracked ticker: a cached <code>TrackedTicker</code> row (symbol, exchange, latest price) in the research scanner's universe, refreshed daily from Alpaca's asset list.</li>
+<li>BrokerMode: the per-strategy routing choice (Paper, Live or Sandbox) that overrides the global account's paper/live flag for that strategy.</li>
 </ul>
-<hr>
-<h2 id="16-documentation-canon-and-further-reading">16. Documentation canon and further reading</h2>
-<p>This README is the practical "how to build/run/tour the system" layer. <code>docs/</code> carries the authoritative, versioned canon under the MindAttic Codex convention:</p>
+<h2 id="limitations-and-roadmap">Limitations and roadmap</h2>
+<p>These are verified in code or canon; the living version is <code>docs/BIBLE.md</code> section 7 ("Active frontier") plus the latest entries in <code>docs/AMENDMENTS.md</code>, and the canon wins if they disagree.</p>
 <ul>
-<li><strong><a href="docs/BIBLE.md">docs/BIBLE.md</a></strong> (L0) — what IdiotProof IS / is NOT, the architecture canon, the project laws (<code>IP-LAW-n</code>), verified build/test state, and the full glossary. Stable section   IDs (<code>{#IP-§N}</code>), stable law IDs (<code>{#IP-LAW-n}</code>).</li>
-<li><strong><a href="docs/AMENDMENTS.md">docs/AMENDMENTS.md</a></strong> (L1) — the append-only change log (<code>IP-A&lt;n&gt;</code>); an amendment <strong>wins</strong> over the bible where they disagree. 32 amendments as of this writing, from   the initial README/graph reconciliation (<a href="docs/AMENDMENTS.md#IP-A1">IP-A1</a>/<a href="docs/AMENDMENTS.md#IP-A2">IP-A2</a>)   through the autonomous research scanner (<a href="docs/AMENDMENTS.md#IP-A32">IP-A32</a>).</li>
-<li><strong><a href="docs/USER<em>STORIES.md">docs/USER</em>STORIES.md</a></strong> (L2) — stories <code>IP-US-&lt;Epic&gt;&lt;n&gt;</code>; every <code>✅</code> cites its verifying NUnit/Cypress test. Epics observed: A (Risk Guardian), B (Monitor loop), C   (DSL &amp; backtesting), D (indicator math), E (web authoring/generation), F (doc/graph   reconciliation), G (ghost overlay — planned), H (tooling hardening — planned), I (Learning   Center — planned), J (Backtest UI — planned), K (Gapper), R (replay/scanner/ML dataset), S   (adaptive auto-strategy generation — planned), T (autonomous research scanner).</li>
-<li><strong><a href="docs/rfc/">docs/rfc/</a></strong> — design notes: core tree reconciliation (0001), the Gapper + pipeline unification (0002), the autonomous research scanner (0003).</li>
-<li><strong><a href="docs/BIBLE.digest.md">docs/BIBLE.digest.md</a></strong> — GENERATED by <code>tools/codex.ps1 digest</code>. Never hand-edit.</li>
+<li>Options are manual-only (Phase 1, <a href="docs/AMENDMENTS.md#IP-A33">IP-A33</a>). No option legs in the strategy schema, no IV or Greeks conditions, no options-aware <code>RiskGuardian</code> math, no multi-leg spreads; the Monitor never fires an options order. As of 2026-09-05 neither the paper nor the live Alpaca account reports an <code>option_trading_level</code>, so a real paper round-trip (IP-US-U10) is still open; the ticket locks itself on Alpaca modes until approval, and Sandbox serves a synthetic chain meanwhile. <code>sp-index-events.json</code> is hand-maintained.</li>
+<li><code>dotnet run</code> on <code>IdiotProof.Blazor</code> needs a <code>wwwroot</code> folder next to the built exe. <code>Program.cs</code> mounts a <code>PhysicalFileProvider</code> on <code>AppContext.BaseDirectory/wwwroot</code> so a published exe serves its own static files, which throws <code>DirectoryNotFoundException</code> on a plain Debug build. Run from a publish output, or create <code>bin/Debug/net10.0/wwwroot</code> before <code>dotnet run</code>.</li>
+<li>Shorts are signal-only. A short candidate can clear both gates and gets recorded, but no order is placed, because the exit-management brain (<code>GapperExitEvaluator</code>) is long-shaped.</li>
+<li><code>docs/BIBLE.md</code> sections 4.1 and 4.2 reference a <code>PolygonDataFeed</code> and a <code>FeedType {Polygon}</code> enum that do not exist in the current source; only <code>AlpacaDataFeed</code>, <code>AlpacaStreamingClient</code>, <code>MockDataFeed</code> and <code>SwitchableMarketDataFeed</code> exist. Blazor migrations show a <code>PolygonApiKey</code> column added and later removed. <code>docker-compose.yml</code> and <code>infra/</code> still reference a <code>PolygonApiKey</code> variable and a <code>src/IdiotProof.Blazor/Dockerfile</code> path that does not exist; verify that scaffolding before relying on it for a real deploy.</li>
+<li><code>TODO.md</code>'s ghost-overlay plan references <code>IdiotProof.Core</code>, a tree deleted on 2026-06-07 (<a href="docs/AMENDMENTS.md#IP-A2">IP-A2</a>). The feature intent (chart playback with branch forking) is still live in <code>docs/USER_STORIES.md</code> Epic G; the file paths in <code>TODO.md</code> are stale.</li>
+<li><code>SettingsKv</code> and <code>UserPreferences.OpenStrategyTabs</code> are in the schema but not fully consumed yet.</li>
+<li>RiskGuardian config is not exposed on the Settings page yet: <code>SetRiskConfigAsync</code> exists but is uncalled from the UI.</li>
+<li>The Backtest UI is stub-level: <code>Backtest.razor</code> exists and the <code>StrategyBacktester</code> and <code>BacktestReport</code> pipeline is real and tested, but the per-candle condition-table UI described in Epic J is not built.</li>
+<li><code>ScriptParser</code> is intentionally a tolerant, regex-driven parser; a Roslyn-based parser with exact line and column diagnostics is planned (<code>IP-US-H1</code>).</li>
 </ul>
-<p>Rules of engagement (from <code>CLAUDE.md</code>): a fact lives in exactly one layer, referenced by ID rather than by line number; after editing canon, run <code>powershell -File tools/codex.ps1 doctor</code> (must exit 0); mark <code>✅</code> only when a test or build actually proves it.</p>
-<hr>
-<h2 id="17-known-gaps-and-roadmap">17. Known gaps and roadmap</h2>
-<p>Verified, in-code or in-canon items worth knowing about before you build on top of this system:</p>
+<h2 id="documentation">Documentation</h2>
+<p><code>docs/</code> carries the authoritative, versioned canon under the MindAttic Codex convention; this README is the build, run and tour layer.</p>
 <ul>
-<li><strong>The MAUI half of the dual-host story is scaffolding only.</strong> <code>IdiotProof.UI</code> now holds the Options components, but <code>IdiotProof.Maui</code> is still the default template and doesn't render them —   see <a href="#9-the-maui-desktop-shell-and-the-shared-ui-library">§9</a>.</li>
-<li><strong>Options are manual-only (Phase 1, <a href="docs/AMENDMENTS.md#IP-A33">IP-A33</a>).</strong> No option legs in the strategy schema, no IV/Greeks conditions, no options-aware <code>RiskGuardian</code> math, no   multi-leg spreads — the Monitor never fires an options order. As of 2026-09-05 neither the paper   nor the live Alpaca account reports an <code>option_trading_level</code> (options not enabled), so a real   paper round-trip (IP-US-U10) is still open; the ticket locks itself on Alpaca modes until   approval and Sandbox serves a synthetic chain in the meantime. <code>sp-index-events.json</code> is   hand-maintained (the 2026-09-21 rebalance batch is verified against the S&amp;P DJI press release).</li>
-<li><strong><code>dotnet run</code> on <code>IdiotProof.Blazor</code> needs a <code>wwwroot</code> folder next to the built exe.</strong> <code>Program.cs</code> mounts a <code>PhysicalFileProvider</code> on <code>AppContext.BaseDirectory/wwwroot</code> (so a   published exe serves its own static files), which throws <code>DirectoryNotFoundException</code> on a plain   Debug build where that folder doesn't exist. Run from a publish output, or create the folder   (<code>bin/Debug/net10.0/wwwroot</code>) before <code>dotnet run</code>.</li>
-<li><strong>Shorts are signal-only.</strong> A short candidate can clear both gates and gets recorded (<code>RecordFiredAsync</code>/<code>RecordEntryFillAsync</code>), but no order is placed — the exit-management brain   (<code>GapperExitEvaluator</code>) is long-shaped. Order placement for shorts is future work.</li>
-<li>**<code>docs/BIBLE.md</code> §4.1/§4.2 references <code>PolygonDataFeed</code> and a <code>FeedType {Polygon}</code> enum that do not exist in the current <code>IdiotProof.DataFeeds</code>/<code>IdiotProof.Models</code> source** (verified: only   <code>AlpacaDataFeed</code>, <code>AlpacaStreamingClient</code>, <code>MockDataFeed</code>, <code>SwitchableMarketDataFeed</code> exist; the   <code>BrokerType</code>/enum set in <code>Enums.cs</code> has no <code>FeedType</code> at all). Blazor migrations show a   <code>PolygonApiKey</code> column was added and later removed (<code>AddPolygonApiKey</code> →   <code>RemovePolygonApiKey</code>), so Polygon support appears to have existed at some point and been pulled;   this README describes only what's in the tree today. <code>docker-compose.yml</code>/<code>infra/</code> still   reference a <code>PolygonApiKey</code> env var and a <code>src/IdiotProof.Blazor/Dockerfile</code> path that doesn't   exist in the current layout — that infra scaffolding predates the present project structure and   should be verified/updated before relying on it for a real deploy.</li>
-<li><strong><code>TODO.md</code>'s ghost-overlay plan references <code>IdiotProof.Core</code></strong> — a project tree the bible records as deleted 2026-06-07 (<a href="docs/AMENDMENTS.md#IP-A2">IP-A2</a>). The feature intent (chart   playback with branch forking) is still live in <code>docs/USER_STORIES.md</code> Epic G; the concrete file   paths in <code>TODO.md</code> are stale.</li>
-<li><strong><code>SettingsKv</code> and <code>UserPreferences.OpenStrategyTabs</code></strong> — present in the schema, not fully consumed yet (per the bible's active-frontier notes); either wire up a consumer or remove them.</li>
-<li><strong>RiskGuardian config isn't exposed on the Settings page yet</strong> — <code>SetRiskConfigAsync</code> exists but is uncalled from the UI as of the bible's last audit.</li>
-<li><strong>Backtest UI is stub-level</strong> — <code>Backtest.razor</code> exists and the <code>StrategyBacktester</code>/ <code>BacktestReport</code> pipeline is real and tested, but the per-candle condition-table UI enhancement   described in Epic J is not built.</li>
-<li><strong>Roslyn-based parser</strong> — <code>ScriptParser</code> is intentionally a tolerant, regex-driven parser today; a proper Roslyn-based parser with exact line/column diagnostics is future work (<code>IP-US-H1</code>).</li>
+<li><a href="docs/BIBLE.md">docs/BIBLE.md</a> (L0): what IdiotProof is and is not, the architecture canon, the project laws (<code>IP-LAW-n</code>), verified build and test state, and the full glossary.</li>
+<li><a href="docs/AMENDMENTS.md">docs/AMENDMENTS.md</a> (L1): the append-only change log (<code>IP-A&lt;n&gt;</code>, 36 amendments as of IP-A36); an amendment wins over the bible where they disagree.</li>
+<li><a href="docs/USER_STORIES.md">User stories</a> (L2): stories <code>IP-US-&lt;Epic&gt;&lt;n&gt;</code>, each marked done only with a citing NUnit or Cypress test. Epics include Risk Guardian, the Monitor loop, DSL and backtesting, indicator math, web authoring, Gapper, replay and ML dataset, the research scanner and options.</li>
+<li><a href="docs/rfc/">docs/rfc</a>: design notes for core tree reconciliation (0001), the Gapper and pipeline unification (0002), the autonomous research scanner (0003) and manual options trading (0004).</li>
+<li><a href="docs/BIBLE.digest.md">docs/BIBLE.digest.md</a>: generated by <code>tools/codex.ps1 digest</code>; never hand-edit.</li>
+<li><a href="AGENTS.md">AGENTS.md</a>: instructions for AI agents working in this repo.</li>
 </ul>
-<p>For the living, authoritative version of this list, read <code>docs/BIBLE.md §7</code> ("Active frontier") and the most recent entries in <code>docs/AMENDMENTS.md</code> — this README summarizes them but the canon wins if they ever disagree.</p>
-<hr>
+<p>Rules of engagement: a fact lives in exactly one layer and is referenced by ID, not by line number; after editing canon, run <code>powershell -File tools/codex.ps1 doctor</code> (it must exit 0); mark a story done only when a test or build proves it.</p>
 <h2 id="license">License</h2>
-<p>Internal MindAttic project.</p>
+<p>This repository has no license file. All rights reserved.</p>
+<p>Part of <a href="https://mindattic.com">MindAttic</a> — see more projects at <a href="https://github.com/mindattic">github.com/mindattic</a>. Related: <a href="https://github.com/mindattic/MindAttic.Legion">MindAttic.Legion</a> (LLM voter panel), <a href="https://github.com/mindattic/MindAttic.Vault">MindAttic.Vault</a> (credential keyrings), <a href="https://github.com/mindattic/MindAttic.Authentication">MindAttic.Authentication</a> (sign-in stack).</p>
 
-    <p class="codex-footer">Generated 2026-09-05 by the shared MindAttic Codex engine (<code>codex-standard/build-readme.ps1</code>) from <code>README.md</code>. Edit the Markdown source, not this file.</p>
+    <p class="codex-footer">Generated 2026-10-03 by the shared MindAttic Codex engine (<code>codex-standard/build-readme.ps1</code>) from <code>README.md</code>. Edit the Markdown source, not this file.</p>
   </main>
 </div>
 <script>(function(){
