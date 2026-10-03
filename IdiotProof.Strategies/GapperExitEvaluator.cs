@@ -38,7 +38,7 @@ public sealed record GapperExitDecision(GapperExitReason Reason, double CurrentP
 }
 
 /// <summary>
-/// Pure exit logic for a held gapper position (RFC 0002 §D3). Given the
+/// Pure exit logic for a held gapper position (docs/BIBLE.md §4.4). Given the
 /// strategy definition, the entry fill, and the bars seen since entry, decides
 /// whether the position must be sold this tick. No I/O, no clocks — the caller
 /// supplies "now" — so the whole sell-off brain is unit-testable.

@@ -1,5 +1,5 @@
 // ============================================================================
-// StrategyJson - the CANONICAL strategy format (IP-A13 / IP-LAW-8)
+// StrategyJson - the CANONICAL strategy format (IP-LAW-8)
 // ============================================================================
 //
 // The semantic model (StrategyDefinition) is the source of truth; IdiotScript

@@ -125,7 +125,7 @@ public sealed class GapperInterpreterTests
     [Test]
     public void Parse_StringifiedNumbers_StillApplyTheOverlay()
     {
-        // IP-A22: LLMs often emit numeric fields as strings ("7"). Without
+        // LLMs often emit numeric fields as strings ("7"). Without
         // AllowReadingFromString the whole overlay was dropped to defaults.
         var (candidates, _) = GapperInterpreter.ParseCandidates(
             """
@@ -145,7 +145,7 @@ public sealed class GapperInterpreterTests
     [Test]
     public void Parse_TruncatedArray_WarnsAboutTruncationSpecifically()
     {
-        // IP-A21: a response cut off at the token cap starts an array but
+        // A response cut off at the token cap starts an array but
         // never closes it — losing EVERY candidate. The warning must say the
         // response was cut off (actionable: shorten the transcript), not the
         // misleading generic "contained no JSON array".

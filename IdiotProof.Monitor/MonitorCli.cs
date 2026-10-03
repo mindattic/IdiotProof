@@ -100,7 +100,7 @@ public static class MonitorCli
         }
         Line($"   global data feed    : {feed.FeedName}");
         if (string.Equals(feed.FeedName, "Mock", StringComparison.OrdinalIgnoreCase) && broker.BrokerType != IdiotProof.Models.BrokerType.Sandbox)
-            Line("   ⚠  feed is Mock but broker is non-Sandbox — the Monitor will BLOCK real entries on synthetic data (IP-A22).");
+            Line("   ⚠  feed is Mock but broker is non-Sandbox — the Monitor will BLOCK real entries on synthetic data (IP-LAW-9).");
         if (!broker.IsPaper)
             Line("   ⚠  RESOLVED BROKER IS LIVE. Real orders will use real money.");
 
@@ -182,7 +182,7 @@ public static class MonitorCli
         if (!opt.TryGetValue("email", out var email) || !opt.TryGetValue("password", out var password))
             return Fail("create-account requires --email and --password.");
 
-        // Same disposable-domain gate as web registration (IP-A23). Seed the
+        // Same disposable-domain gate as web registration. Seed the
         // blocklist first — the Blazor host seeds it at startup, but the Monitor
         // may run standalone with an empty table, which would make the check a
         // silent no-op.

@@ -7,7 +7,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 namespace IdiotProof.Blazor.Tests;
 
 /// <summary>
-/// Proves the claim outlined in RFC 0003 / IP-A32: that the pipeline actually checks whether
+/// Proves (docs/BIBLE.md §4.4) that the pipeline actually checks whether
 /// "the news and the price are inter-related" instead of assuming it. A Bullish claim followed
 /// by a real price rise should backfill as Realized with a positive OutcomePctChange and bump
 /// the source's ImmediateCorrect/PortentsRealized count; a Bullish claim followed by a price

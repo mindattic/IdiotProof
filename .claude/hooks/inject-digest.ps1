@@ -16,11 +16,10 @@ $digest = Get-Content -LiteralPath $digestPath -Raw -Encoding UTF8
 if ([string]::IsNullOrWhiteSpace($digest)) { Write-Output '{}'; return }
 
 $preamble = @"
-[IdiotProof Codex — AUTHORITATIVE PROJECT CONTEXT]
+[IdiotProof Codex - AUTHORITATIVE PROJECT CONTEXT]
 The following is the generated digest of docs/BIBLE.md (the single source of truth for what
 IdiotProof IS, is NOT, and the laws that govern it). Treat it as authoritative. When it conflicts
-with assumptions, the bible wins; the latest amendment wins over the bible. Full detail lives in
-docs/BIBLE.md, docs/USER_STORIES.md, and docs/AMENDMENTS.md.
+with assumptions, the bible wins. Full detail lives in docs/BIBLE.md and docs/USER_STORIES.md.
 
 "@
 

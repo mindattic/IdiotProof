@@ -19,7 +19,7 @@ public enum BrokerChoice
 }
 
 /// <summary>
-/// Per-user, per-strategy broker routing for the Monitor (IP-A9). Each strategy
+/// Per-user, per-strategy broker routing for the Monitor (docs/BIBLE.md §4.4). Each strategy
 /// declares its own BrokerMode ("Paper" | "Live" | "Sandbox") which overrides the
 /// global UserApiKeys.AlpacaIsPaper flag. "Paper" and "Live" use the user's own
 /// Alpaca account with isPaper forced accordingly; "Sandbox" always routes to the

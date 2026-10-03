@@ -4,7 +4,7 @@ using Microsoft.EntityFrameworkCore;
 namespace IdiotProof.Blazor.Services;
 
 /// <summary>
-/// Guards registration against disposable / temporary email domains (IP-A23).
+/// Guards registration against disposable / temporary email domains.
 /// The blocklist lives in SQL (<c>DomainNameBlacklist</c>) so it's editable at
 /// runtime; this service seeds it from a bundled list at startup (idempotent)
 /// and answers <see cref="IsBlockedAsync"/> during registration.

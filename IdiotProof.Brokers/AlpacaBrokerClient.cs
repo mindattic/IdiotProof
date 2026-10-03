@@ -72,7 +72,7 @@ public sealed class AlpacaBrokerClient : IBrokerClient, IAsyncDisposable
     /// <summary>
     /// OAuth (Connect API) construction — authenticates with an
     /// <c>Authorization: Bearer &lt;token&gt;</c> header instead of the key/secret
-    /// pair (IP-A26), for account-linked users. DORMANT by design: nothing in the
+    /// pair, for account-linked users. DORMANT by design: nothing in the
     /// routing path builds a client this way yet — <c>UserBrokerResolver</c> still
     /// uses the key/secret ctor. Enabling it is a gated step (register an Alpaca
     /// OAuth app, then paper-test) per <see cref="AlpacaOAuthClient"/>.

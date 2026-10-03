@@ -4,7 +4,7 @@ using IdiotProof.Scripting;
 namespace IdiotProof.Strategies.Tests;
 
 /// <summary>
-/// The canonical strategy format (IP-A13 / IP-LAW-8): a versioned, STRICT
+/// The canonical strategy format (IP-LAW-8): a versioned, STRICT
 /// JSON round trip of the semantic model. Two guarantees under test:
 /// (1) lossless round trip — including composed conditions and branching,
 /// which the text round trip historically dropped; (2) fail-closed reads —

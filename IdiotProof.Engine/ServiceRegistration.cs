@@ -51,7 +51,7 @@ public static class ServiceRegistration
             settings.OverlayFromConfiguration(configuration);
         services.AddSingleton(settings);
 
-        // NOTE (IP-A8): the StrategyRegistry / BrokerRouter / SwitchableMarketDataFeed
+        // NOTE: the StrategyRegistry / BrokerRouter / SwitchableMarketDataFeed
         // singletons that used to be registered here were dead DI — nothing in the
         // Blazor host consumed them (audit 2026-07-18). The one live order-placing
         // host, IdiotProof.Monitor, constructs its own BrokerRouter + feed from the

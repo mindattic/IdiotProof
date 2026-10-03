@@ -4,12 +4,11 @@ project: IdiotProof
 code: IP
 layer: stories
 status: living
-updated: 2026-09-05
-counts: {done: 27, partial: 22, planned: 17, cut: 0}
+updated: 2026-10-03
 ---
 
 # IdiotProof — User Stories
-> ✅ done (shipped & tested) · 🟡 partial · ⬜ planned · 🗑️ cut. Every ✅ cites the test.
+> ✅ done (shipped & tested) · 🟡 partial · ⬜ planned. Every ✅ cites the test.
 > "Done" = proven by a test that runs in `IdiotProof.slnx` (see [BIBLE §6](BIBLE.md#IP-§6)).
 
 ## Epic A — Risk Guardian (the final gate)
@@ -32,9 +31,7 @@ counts: {done: 27, partial: 22, planned: 17, cut: 0}
   today's total even if it's the Guardian's very first interaction of the day (an exit with no
   prior entry check that day). *(verified by `ValidateTrade_DailyLossAlreadyExceeded_IsBlocked`,
   `RecordTradePnL_AsFirstEverCall_InitializesDailyLossWithoutValidateTrade`,
-  `RecordTradePnL_ThenValidateTrade_SameDay_ReflectsAccumulatedLoss` — the latter two added
-  [IP-A10](AMENDMENTS.md#IP-A10) after finding the loss-recording method skipped the
-  day-rollover check that only the trade-validation method ran.)*
+  `RecordTradePnL_ThenValidateTrade_SameDay_ReflectsAccumulatedLoss`.)*
 - **IP-US-A7 ✅** As a trader, a well-formed setup is approved (with a warning on poor R:R), so
   the guardian doesn't block good trades. *(verified by `ValidateTrade_WellFormedSetup_IsApproved`,
   `ValidateTrade_LowRiskRewardRatio_ApprovesWithWarning`.)*
@@ -75,9 +72,6 @@ counts: {done: 27, partial: 22, planned: 17, cut: 0}
   `OpenPosition_ClosesAtEndOfSession_WhenNeitherStopNorTargetHit`.)*
 - **IP-US-C5 ✅** As a developer, a backtest over no candles returns an empty report without
   throwing. *(verified by `Run_OnEmptyCandles_ReturnsEmptyReport_NoThrow`.)*
-  *Re-scoped 2026-07-18 ([IP-A8](AMENDMENTS.md#IP-A8)): the `StrategyRegistry` half of this
-  story was retired — the registry (permanently empty by design) and its two tests were deleted
-  with the rest of the dead WorkspaceTab-binding evaluation path.*
 
 ## Epic D — Indicator math
 - **IP-US-D1 ✅** As a strategy author, RSI is bounded 0–100 (100 on all gains, 0 on all losses),
@@ -91,7 +85,7 @@ counts: {done: 27, partial: 22, planned: 17, cut: 0}
   `VWAP_ResetsAtDayBoundary`, and the `*_ReturnsSameLengthAsInput` family.)*
 
 ## Epic K — Gapper: buy the gap at 4AM, sell before the bell {#Epic-K}
-> The flagship flow ([RFC 0002](rfc/0002-gapper-and-unification.md), [IP-A8](AMENDMENTS.md#IP-A8)).
+> The flagship flow ([BIBLE §4.4](BIBLE.md#IP-§4)).
 > Pick up to 3 tickers on the `/gapper` tab, dial in a profile per ticker, queue; the console
 > Monitor buys the gap through the three gates in the premarket window and sells it off before
 > the 9:30 bell once momentum rolls over.
@@ -107,9 +101,7 @@ counts: {done: 27, partial: 22, planned: 17, cut: 0}
   previous-close lookup itself picks the right calendar day regardless of what instant a
   daily bar is timestamped at. *(verified by `IsGapUp_FailsClosed_WithoutPreviousClose`,
   `IsGapUp_Passes_WhenGapMeetsThreshold`, `IsGapBetween_EnforcesBandAndFailsClosed`,
-  `GetPreviousCloseAsync_UtcMidnightStampedDailyBars_PicksYesterdayNotToday` — the latter added
-  [IP-A10](AMENDMENTS.md#IP-A10) after finding the date comparison ran bar timestamps through
-  an ET conversion that could shift a UTC-midnight-stamped bar back a calendar day.)*
+  `GetPreviousCloseAsync_UtcMidnightStampedDailyBars_PicksYesterdayNotToday`.)*
 - **IP-US-K3 ✅** As a trader, my gapper only hunts entries inside its ET entry window
   (default 04:00–09:00), on the US-market clock regardless of host timezone. *(verified by
   `TimeWindowCondition_GatesOnEasternClock`, `TimeWindowCondition_WrapsOvernightWindows`.)*
@@ -135,10 +127,8 @@ counts: {done: 27, partial: 22, planned: 17, cut: 0}
   entry → hold → rollover sell before the bell) is proven by
   `MockGapDay_EntryFires_InPremarket_ThenGivebackExit_BeforeTheBell` and
   `MockGapDay_HardSellBy_FlattensEvenIfMomentumNeverRollsOver` in
-  `IdiotProof.Strategies.Tests/GapperLifecycleTests.cs`; the live console was also observed
-  2026-07-18 running `SupervisedLoop` @5s, re-reading SQL per tick and correctly reporting
-  `(outside Premarket session)` on a weekend. Remaining for ✅: a host-level harness test of
-  MonitorWorker itself (wall-clock session gate + broker order path in one run).*
+  `IdiotProof.Strategies.Tests/GapperLifecycleTests.cs`. Remaining for ✅: a host-level harness
+  test of MonitorWorker itself (wall-clock session gate + broker order path in one run).*
 - **IP-US-K7 🟡** As a trader, the `/gapper` tab shows my queued gappers with live state
   (condition progress, HOLDING qty@price, sold @price · reason) polled from SQL every 5s.
   *Page built (`Components/Pages/Gapper.razor` + nav tab); Cypress spec remains ⬜.*
@@ -148,12 +138,12 @@ counts: {done: 27, partial: 22, planned: 17, cut: 0}
   someone else's account. *(verified by `Choose_AlpacaOptInWithBothKeys_RoutesToUserAccount`,
   `Choose_MissingEitherKey_FallsThroughToGlobalDefault`,
   `Choose_NoBrokerPreference_FallsThroughToGlobalDefault` in
-  `IdiotProof.Blazor.Tests/UserBrokerResolverTests.cs`; see [IP-A9](AMENDMENTS.md#IP-A9).)*
+  `IdiotProof.Blazor.Tests/UserBrokerResolverTests.cs`; see [BIBLE §4.4](BIBLE.md#IP-§4).)*
 - **IP-US-K9 🟡** As an operator, the console runs as a real service: Windows Service hosting
   (`IdiotProof.Monitor`), and a SQL `sp_getapplock` leader lease so at most one instance
   evaluates/trades per database (standbys wait and take over on leader death). *Implemented
-  ([IP-A9](AMENDMENTS.md#IP-A9)); lease observed acquiring in a live run 2026-07-18; an
-  automated two-instance contention test remains ⬜.*
+  (`MonitorLeaderLease`, `AddWindowsService`); an automated two-instance contention test
+  remains ⬜.*
 - **IP-US-K10 🟡** As a trader, I paste a video transcript (or any natural language) into the
   Gapper tab's "From a transcript" box and Claude — via Legion (HOUSE-LAW-4) — extracts gapper
   candidates with per-ticker dial-ins, which I **review as cards and queue individually**
@@ -176,8 +166,7 @@ counts: {done: 27, partial: 22, planned: 17, cut: 0}
   `Deserialize_UnknownProperty_Throws`, `Deserialize_Garbage_Throws`,
   `Loader_PresentButBrokenCanon_QuarantinesInsteadOfTextFallback`,
   `Loader_LegacyRowWithoutCanon_FallsBackToTextParse`, `Loader_ValidCanon_WinsOverText` in
-  `IdiotProof.Strategies.Tests/StrategyJsonTests.cs`; quarantine also observed live against
-  the running console, [IP-A13](AMENDMENTS.md#IP-A13).)*
+  `IdiotProof.Strategies.Tests/StrategyJsonTests.cs`.)*
 - **IP-US-K12 ✅** As a trader, I replay my gapper dials over a past day (Alpaca bars when
   keyed, deterministic Mock otherwise) and see exactly what WOULD have happened — entries via
   the same condition walk and exits via the same `GapperExitEvaluator` the live console runs —
@@ -189,53 +178,53 @@ counts: {done: 27, partial: 22, planned: 17, cut: 0}
   `Replay_TunedProfile_IsValid_AndCarriesTheHindsightDials`,
   `Replay_ImpossibleGapScreen_ReportsNoEntryWithTheBlocker`,
   `Replay_NoPreviousClose_FailsClosedLikeLive`, `Replay_NoBars_ReportsCleanly` in
-  `IdiotProof.Strategies.Tests/GapperDayBacktesterTests.cs`; see [IP-A14](AMENDMENTS.md#IP-A14).)*
+  `IdiotProof.Strategies.Tests/GapperDayBacktesterTests.cs`.)*
 
 ## Epic R — Strategy replay, scanner & ML dataset {#Epic-R}
 - **IP-US-R1 🟡** As a trader, I can replay any strategy against a past ET session and see the
   exact entry→exit round-trips (price, time, P&L, exit reason), evaluated by the same code the
   live Monitor runs, so a chart hunch is checked against what the rules actually do. Shipped
-  (replay command); NUnit coverage pending. See [IP-A25].
+  (replay command); NUnit coverage pending.
 - **IP-US-R2 🟡** As a trader, I can replay a ticker with no saved strategy by applying a gapper
   profile — or a built-in repeating momentum strategy — on the fly, so any scanner name is
-  analysable immediately. Shipped; tests pending. See [IP-A25].
+  analysable immediately. Shipped; tests pending.
 - **IP-US-R3 🟡** As the platform, every replay is persisted as a ReplayRun row and the whole
   published archive regenerates from SQL alone (replay-regen), so the database — not the file
-  tree — is authoritative [IP-LAW-7]. Shipped; tests pending. See [IP-A25].
+  tree — is authoritative [IP-LAW-7]. Shipped; tests pending.
 - **IP-US-R4 🟡** As a trader, one scan pulls the morning movers from Alpaca and auto-replays
-  each gapper into the archive, so the board populates itself. Shipped; tests pending. See [IP-A25].
+  each gapper into the archive, so the board populates itself. Shipped; tests pending.
 - **IP-US-R5 🟡** As an analyst, I can export the archive to ML-ready CSVs (per-trade features →
   P&L label, per-bar time series) so the accumulating replays can train models. Shipped
-  (replay-export); tests pending. See [IP-A25].
+  (replay-export); tests pending.
 - **IP-US-R6 🟡** As a trader, beyond gappers I can replay/scan non-gapper families — a reversal
   dip-buy (EMA9 reclaim off lows) and an EMA200 trend-break — so range/reversal setups (BE, SPCX,
-  AMD) are analysable too. Shipped (--profile reversal | emabreak); tests pending. See [IP-A26].
+  AMD) are analysable too. Shipped (--profile reversal | emabreak); tests pending.
 - **IP-US-R7 🟡** As an analyst, replays land in a normalized SQL feature store (ReplayTrade /
   ReplayBar) I can query directly (features → win/P&L), not just in CSV blobs, so the dataset is a
-  first-class store. Shipped; tests pending. See [IP-A26].
+  first-class store. Shipped; tests pending.
 - **IP-US-R8 🟡** As a user, I could link my Alpaca account by OAuth (authorize on Alpaca, store a
   scoped revocable token) instead of pasting a raw key/secret. Foundation shipped
   (AlpacaOAuthClient); endpoints + Bearer broker wiring gated on app registration + paper testing.
-  See [IP-A26].
+ 
 - **IP-US-R9 🟡** As a trader, I can replay/scan SHORT setups (short a failed high below VWAP),
   with exit logic mirrored for shorts (stops above entry, cover on a bounce) and P&L inverted, so
-  fade days (NVDA/PANW/BX) are analysable. Shipped (shortfade + EvaluateShort); tests pending. See [IP-A27].
+  fade days (NVDA/PANW/BX) are analysable. Shipped (shortfade + EvaluateShort); tests pending.
 - **IP-US-R10 🟡** As a trader, an RTH open-drive family catches the 9:30 rocket (trend-holding
   entry: above VWAP + above EMA9 + EMA-stacked), which a crossing trigger misses. Shipped
-  (rthdrive); tests pending. See [IP-A27].
+  (rthdrive); tests pending.
 - **IP-US-R11 🟡** As a trader, an RSI-oversold-at-support dip-buy family exists (rsireversal).
-  Shipped; tests pending. Note: still knife-prone without computed RSI divergence. See [IP-A27].
+  Shipped; tests pending. Still knife-prone: RSI divergence is declared but not computed.
 - **IP-US-R12 🟡** As a trader, a swing-structure primitive (pivot-based higher-low/lower-high)
   powers a double-bottom family that buys a confirmed higher low and targets the prior high-of-day
-  (swingreversal + IsHigherLow/IsLowerHigh + ExitAtPriorHigh). Shipped; tests pending. See [IP-A27].
+  (swingreversal + IsHigherLow/IsLowerHigh + ExitAtPriorHigh). Shipped; tests pending.
 
 ## Epic S — Adaptive auto-strategy generation from observed behavior (planned) {#Epic-S}
 > The system watches live price action and AUTO-GENERATES + arms strategies fitted to each
 > ticker's own behavior, instead of a human authoring each one. The on-demand gapper generator
 > (`auto-gapper` CLI + `AutoGapperScanner` adaptive synthesizer + `AutoGapperScan`/`AutoGapperCandidate`
 > feature store) is the working seed. **Design principle: wait for enough information before
-> generating** — the abandoned 3:55 AM premarket trigger fired on thin, not-yet-locked-in data;
-> the standardized version waits until the signal is real. Nothing here is built beyond the seed.
+> generating** — a trigger in the first thin premarket minutes acts on data that has not locked
+> in yet. Nothing here is built beyond the seed.
 - **IP-US-S1 ⬜** As a trader, "start-of-period quick strategy generation" is a standardized flow:
   at the open of a period the system observes each candidate (volume, range, trend, gap) and
   generates a strategy only once it has *enough* information — never on the first thin minute.
@@ -250,13 +239,12 @@ counts: {done: 27, partial: 22, planned: 17, cut: 0}
   model can learn which auto-strategies pay off — joined to the TradeDiary for the realized-P&L label.
 
 ## Epic T — Autonomous market-event research scanner {#Epic-T}
-> The `/research` tab was a search box: type a ticker, paste an article. `IdiotProof.ResearchScanner`
-> (RFC 0003 / [IP-A32](AMENDMENTS.md#IP-A32)) makes it a results review instead — a scheduled,
-> silent console app sweeps EDGAR/Alpaca/Federal-Register on its own and ranks what it finds.
+> The `/research` tab is a results review, not a search box: `IdiotProof.ResearchScanner`
+> ([BIBLE §4.4](BIBLE.md#IP-§4)), a scheduled, silent console app, sweeps EDGAR/Alpaca/Federal
+> Register on its own and ranks what it finds.
 - **IP-US-T1 ✅** As a trader, I don't have to type a ticker for the system to find market-moving
   events — a scheduled scan sweeps my watchlist plus a rotating batch of the tracked universe on
-  its own. Proven by a real end-to-end run against the dev database (300/8,445 tickers, 0 errors,
-  36 claims — see [IP-A32](AMENDMENTS.md#IP-A32)) plus `TickerUniverseServiceTests`.
+  its own. See `TickerUniverseServiceTests`.
 - **IP-US-T2 ✅** As a trader, an insider transaction claim reports the actual share count,
   price, and % of holdings changed — not "ownership changed." See `Form4ParserTests`.
 - **IP-US-T3 ✅** As a trader, high-value 8-K filings (splits, M&A, material agreements) get their
@@ -266,32 +254,27 @@ counts: {done: 27, partial: 22, planned: 17, cut: 0}
 - **IP-US-T4 ✅** As a trader, an exchange rule change that affects many companies (not one
   ticker) shows up as its own macro event, with routine SRO fee-schedule paperwork filtered out
   by an LLM substantiveness check. Proven against the real Nasdaq $5M MVLS continued-listing rule
-  in both `RegulatoryScannerTests` and the live end-to-end run (scored 99.998/100, top of the
-  feed — see [IP-A32](AMENDMENTS.md#IP-A32)).
+  in `RegulatoryScannerTests`.
 - **IP-US-T5 ✅** As a trader, every claim gets a computed 0-100 significance score (magnitude,
   historical correlation, source trust, recency, watchlist membership) so the feed can rank
   itself instead of me filtering. See `SignificanceScorerTests`.
 - **IP-US-T6 ✅** As a trader, claim summaries read like sober equity research — what happened,
   which tickers it affects and why, and when — never clickbait, because the display sentence is
   composed from structured fields rather than trusted as free LLM prose. See the composed-sentence
-  assertions in `RegulatoryScannerTests` and the real Nasdaq-rule example in
-  [IP-A32](AMENDMENTS.md#IP-A32).
-- **IP-US-T7 ⬜** As a trader, the Research tab's primary view is a significance-ranked feed with
+  assertions in `RegulatoryScannerTests`.
+- **IP-US-T7 🟡** As a trader, the Research tab's primary view is a significance-ranked feed with
   a last-scan banner and a "my watchlist only" toggle, not a search box — built in
-  `Research.razor` but not yet proven by a Cypress spec (no research-tab spec exists yet;
-  see [IP-A4](AMENDMENTS.md#IP-A4) for the Cypress-proof convention this repo follows).
+  `Research.razor`; no Cypress spec covers it yet.
 - **IP-US-T8 ✅** As a trader, I can trust the significance score means something — the system
   actually checks whether past news correlated with what the stock did next, not just assumes
   it. `OutcomeBackfillService` fetches real price history and marks each old-enough claim
-  Realized/Disproven against its Bullish/Bearish call. Proven by `OutcomeBackfillServiceTests`
-  and a real backfill run against live Alpaca price data (MSFT/AAPL examples in
-  [IP-A32](AMENDMENTS.md#IP-A32)).
+  Realized/Disproven against its Bullish/Bearish call. Proven by `OutcomeBackfillServiceTests`.
 
 ## Epic U — Options: buy the idea, sell the hype {#Epic-U}
 > Manual single-leg calls and puts on the user's Alpaca account, presented so the premium cost,
 > breakeven, and the intrinsic ("real") vs extrinsic ("hype") split are never mental math.
-> Separate `/options` section, not the Stock Strategy pipeline (RFC 0004 /
-> [IP-A33](AMENDMENTS.md#IP-A33)). Phase 1 is manual: no DSL, Monitor, or RiskGuardian involvement.
+> Separate `/options` section, not the Stock Strategy pipeline ([BIBLE §4.4](BIBLE.md#IP-§4)).
+> Manual only: no DSL, Monitor, or RiskGuardian involvement.
 - **IP-US-U1 ✅** As a trader, any OCC option symbol (`BE251219C00038000`) is decoded into
   underlying / expiration / right / strike for me — and built back — so I never read one by hand.
   See `OptionContractOccTests`.
@@ -329,7 +312,7 @@ counts: {done: 27, partial: 22, planned: 17, cut: 0}
 - **IP-US-U10 🟡** As a trader, a small paper options order round-trips against my real Alpaca
   paper account. Place + cancel proven 2026-09-05 by the opt-in `AlpacaPaperOptionsIntegrationTests`
   (`[Explicit]`, `IdiotProof.Brokers.Tests`): level 3 read, full BE chain + snapshots, one
-  buy-to-open limit at $0.01 accepted then cancelled, account flat ([IP-A35](AMENDMENTS.md#IP-A35)).
+  buy-to-open limit at $0.01 accepted then cancelled, account flat.
   The fill-and-close half needs market hours and a deliberate user-initiated order — 🟡.
 - **IP-US-U11 ✅** As a trader who doesn't speak options, every piece of jargon on the page (call,
   put, strike, hype, breakeven, IV, bid/ask, buy-to-open…) is a dotted word I can hover for a
@@ -348,7 +331,7 @@ counts: {done: 27, partial: 22, planned: 17, cut: 0}
   E2E: `tests/IdiotProof.Cypress/cypress/e2e/02_strategies_describe.cy.ts` covers the
   describe-tab → generate → save → `/strategies` round-trip and activate-toggle persistence;
   the server runs with `IDIOTPROOF_FAKE_LLM=1` so `FakeLlmHandler` answers the Legion call
-  deterministically (see [IP-A4](AMENDMENTS.md#IP-A4)). Cypress suite must be run against a
+  deterministically. Cypress suite must be run against a
   live server to mark this story done.* — implements [IP-LAW-4](BIBLE.md#IP-LAW-4).
 - **IP-US-E2 🟡** As a trader, I see live per-condition progress (`3/5 · IsOnReclaim(9)`) on the
   Strategies page, polled from `ConditionProgress`. *`ConditionProgressRepository` upsert path
@@ -386,13 +369,6 @@ counts: {done: 27, partial: 22, planned: 17, cut: 0}
   also verifies Run is disabled until a strategy is chosen. Cypress suite must be run against
   a live server to mark this story done.*
 
-## Epic F — Doc/graph reconciliation
-- **IP-US-F1 ✅** As a maintainer, the canon docs describe the project graph that actually builds,
-  and the divergent `Core`/`Web`/IBKR narrative is gone. *[RFC 0001](rfc/0001-core-tree-reconciliation.md)
-  resolved 2026-06-07: all out-of-solution trees deleted, README pruned to match `IdiotProof.slnx`.
-  (verified by: `dotnet build IdiotProof.slnx` → 0 errors; `dotnet test IdiotProof.slnx` → 82/0;
-  confirmed by [IP-A2](AMENDMENTS.md#IP-A2))*
-
 ## Epic G — Strategy ghost overlay + branching visualization (planned)
 > From `TODO.md`. Author a strategy, press play, and watch it unfold on the chart as a
 > translucent "ghost" trade path, forking at each branch point. Nothing here is built;
@@ -416,65 +392,57 @@ counts: {done: 27, partial: 22, planned: 17, cut: 0}
   diagnostics from a Roslyn-based parser (replacing the tolerant regex parser), so I can fix
   a broken script without guessing.
 
-## Epic I — Learning Center (planned) {#Epic-I}
+## Epic I — Learning Center {#Epic-I}
 > In-app documentation hub at `/learn`. Every verb and phase is rendered from live reflection
 > so the docs can never drift from the DSL ([IP-LAW-4](BIBLE.md#IP-LAW-4)). Covers the full
-> workflow: Strategy Builder → Monitor → ConditionProgress → three gates → fire.
+> workflow: Strategy Builder → Monitor → ConditionProgress → three gates → fire. Every section
+> below is built in `Learn.razor`; 🟡 until a Cypress spec proves the page.
 
-- **IP-US-I1 ⬜** As a new trader, I visit `/learn` and see a visual overview diagram of the
+- **IP-US-I1 🟡** As a new trader, I visit `/learn` and see a visual overview diagram of the
   full IdiotProof workflow (Builder → Monitor → ConditionProgress → three gates → fire), so I
   understand the system end-to-end before writing my first strategy.
-- **IP-US-I2 ⬜** As a trader, the Learning Center shows the six IdiotScript phases (Setup,
+- **IP-US-I2 🟡** As a trader, the Learning Center shows the six IdiotScript phases (Setup,
   Filters, Entry, Order, Risk, Exit) with their reflected verb catalog, so the documentation
   always matches what the DSL parser actually accepts — implements [IP-LAW-4](BIBLE.md#IP-LAW-4).
-- **IP-US-I3 ⬜** As a trader, I see the three gates (Condition Match → LLM Voter Quorum →
+- **IP-US-I3 🟡** As a trader, I see the three gates (Condition Match → LLM Voter Quorum →
   Risk Guardian) explained with a visual diagram and plain-English description of what each gate
   checks and why it can block a fire — implements [IP-LAW-1](BIBLE.md#IP-LAW-1).
-- **IP-US-I4 ⬜** As a trader, the Learning Center shows at least three annotated example
+- **IP-US-I4 🟡** As a trader, the Learning Center shows at least three annotated example
   strategies (NCI Breakout-Pullback, ERNA AH Momentum, SUNE Wedge Breakout) with each phase
   highlighted and an "Open in Builder" link that seeds the describe pane, so I can study and
   remix a known-good script.
-- **IP-US-I5 ⬜** As a trader, every Learning Center section has a contextual "try it" link
+- **IP-US-I5 🟡** As a trader, every Learning Center section has a contextual "try it" link
   (e.g. "Try the Builder", "View Strategies", "Run a Backtest") so I can move directly from
   reading to doing without navigating manually.
 
-## Epic J — Backtest UI enhancement (planned) {#Epic-J}
+## Epic J — Backtest UI {#Epic-J}
 > Enhances the existing `/backtest` page and `StrategyBacktester.Run()` /
 > `BacktestReport` pipeline in `IdiotProof.Strategies`. Adds historical candle fetch,
-> per-candle condition pass/fail table, and hypothetical P&L summary.
+> per-candle condition pass/fail table, and hypothetical P&L summary. Built in `Backtest.razor`
+> + `BacktestReport.ConditionTable`; 🟡 until the Cypress run proves it end to end.
 
-- **IP-US-J1 ⬜** As a trader, when I run a backtest for a chosen date, the engine fetches
-  that day's minute-resolution historical candles from Alpaca (falling back to Polygon) and
+- **IP-US-J1 🟡** As a trader, when I run a backtest for a chosen date, the engine fetches
+  that day's minute-resolution historical candles from Alpaca (Mock when unkeyed) and
   evaluates the strategy tick-by-tick via `StrategyBacktester.Run()`, so the result reflects
   real market data and not synthetic candles.
-- **IP-US-J2 ⬜** As a trader, the backtest results show a per-candle condition table
+- **IP-US-J2 🟡** As a trader, the backtest results show a per-candle condition table
   (timestamp, price, each condition pass/fail column, and whether the signal fired at that
   candle), so I can see exactly where in the day the strategy triggered or stalled.
-- **IP-US-J3 ⬜** As a trader, the backtest summary shows total signal count, hypothetical
+- **IP-US-J3 🟡** As a trader, the backtest summary shows total signal count, hypothetical
   entry/exit prices for each fired trade, and cumulative P&L for the day, so I can judge
   whether the strategy behaves as expected before enabling it on the live Monitor.
 
 ## Priority backlog
-0. **IP-US-K6/K7** — Gapper integration test (full mock-gap day through the Monitor:
-   queue → 4AM fire → hold → rollover sell before 9:30) + `/gapper` Cypress spec. See
-   [IP-A8](AMENDMENTS.md#IP-A8).
-1. **IP-US-E1–E6** — Full Cypress suite (7 specs: 02–07) covers describe→generate→save,
-   condition-progress badge, API keys, vault-backed AI wiring, sample builds, and backtest UI.
-   Start the server with `IDIOTPROOF_FAKE_LLM=1`, then run `npm run cypress:run` (or open
-   Cypress interactively) to prove all six E-stories green and mark them done. See [IP-A4](AMENDMENTS.md#IP-A4).
-2. **Epic I (IP-US-I1…I5, all ⬜)** — Learning Center at `/learn`: workflow overview diagram,
-   reflected six-phase verb catalog, three-gates diagram, annotated example strategies with
-   "Open in Builder", contextual "try it" links. See [IP-A6](AMENDMENTS.md#IP-A6).
-3. **Epic J (IP-US-J1…J3, all ⬜)** — Backtest UI enhancement: historical candle fetch from
-   Alpaca/Polygon, per-candle condition pass/fail table, hypothetical P&L summary.
-   See [IP-A6](AMENDMENTS.md#IP-A6).
-4. **Epic G (IP-US-G1…G4, all ⬜)** — Strategy ghost overlay + branching visualization (from
+0. **IP-US-K6/K7/K9** — host-level MonitorWorker test (mock gap day: queue → 4AM fire → hold →
+   rollover sell before 9:30), `/gapper` Cypress spec, two-instance leader-lease test.
+1. **Cypress run (IP-US-E1–E6, Epic I, Epic J, IP-US-T7)** — start the server with
+   `IDIOTPROOF_FAKE_LLM=1`, run `npm run cypress:run`, and graduate the stories the specs prove;
+   add specs for `/learn`, `/research` and `/gapper`.
+2. **Epic R tests** — NUnit coverage for replay, scan, export and the strategy families.
+3. **IP-US-U10** — fill-and-close half of the real paper options round-trip, in market hours.
+4. **Epic G (IP-US-G1…G4)** — Strategy ghost overlay + branching visualization (from
    `TODO.md`): chart integration, simulator evaluation timeline, branch-fork rendering,
    scrub/playback.
-5. **IP-US-H1 (⬜)** — Roslyn-based IdiotScript parser: exact line/col diagnostics replacing
+5. **IP-US-H1** — Roslyn-based IdiotScript parser: exact line/col diagnostics replacing
    the regex parser.
-
-### Audit log
-No prior `user_stories.md` existed in this repo; these stories were authored fresh from the
-README, `CLAUDE.md`, `TODO.md`, and the test tree on 2026-06-07. No story has been re-scoped
-yet, so there is nothing to preserve as an original spec.
+6. **Epic S** — adaptive auto-strategy generation.

@@ -6,7 +6,7 @@ using IdiotProof.Strategies.Backtesting;
 namespace IdiotProof.Strategies.Tests;
 
 /// <summary>
-/// IP-A18 regressions: entry conditions must FAIL CLOSED when the data they
+/// Regressions: entry conditions must FAIL CLOSED when the data they
 /// need is absent (IP-LAW-1 — an uncomputable gate blocks the fire, never
 /// waves it through), and cross/round-trip semantics must survive the
 /// Monitor's per-tick re-materialization of the definition.

@@ -89,7 +89,7 @@ The console picks its data feed from the settings chain. Put Alpaca keys in the 
 { "alpaca-paper": { "type": "alpaca", "apiKey": "PK...", "secret": "..." } }
 ```
 
-Or set `AlpacaApiKeyId` and `AlpacaApiSecretKey` before starting the Monitor. With keys present the Monitor uses Alpaca REST plus a live websocket stream (real-time SIP tape by default, see [IP-A29](docs/AMENDMENTS.md#IP-A29)); without keys it falls back to a deterministic mock feed.
+Or set `AlpacaApiKeyId` and `AlpacaApiSecretKey` before starting the Monitor. With keys present the Monitor uses Alpaca REST plus a live websocket stream (real-time SIP tape by default); without keys it falls back to a deterministic mock feed.
 
 ### Step 4 real order routing
 
@@ -208,7 +208,7 @@ Every project below is registered in `IdiotProof.slnx`.
 
 | Project | Type | Responsibility | Key types |
 |---|---|---|---|
-| `IdiotProof.Models` | Class library | Domain DTOs and enums, the nouns everything else shares. | `Candle`, `TradeSignal`, `TradeSetup`, `OrderRequest`/`OrderResult`, `Position`, `TradeDirection`, `TradingSession`, `BrokerType {Alpaca, Sandbox}`, `StrategyType`; options ([IP-A33](docs/AMENDMENTS.md#IP-A33)): `AssetClass {Equity, Option}`, `OptionRight`, `OptionContract` (OCC parse/build), `OptionQuote`, `OptionGreeks` |
+| `IdiotProof.Models` | Class library | Domain DTOs and enums, the nouns everything else shares. | `Candle`, `TradeSignal`, `TradeSetup`, `OrderRequest`/`OrderResult`, `Position`, `TradeDirection`, `TradingSession`, `BrokerType {Alpaca, Sandbox}`, `StrategyType`; options: `AssetClass {Equity, Option}`, `OptionRight`, `OptionContract` (OCC parse/build), `OptionQuote`, `OptionGreeks` |
 | `IdiotProof.Shared` | Class library | Cross-cutting primitives used by almost every other project. | `RiskGuardian` (+ `RiskGuardianConfig`/`Result`), the final pre-trade veto; `IndicatorSnapshot`; `LogMessage`; `SettingsMetadata`; `Branding` (console banner); `Options/`: `IntrinsicValueCalculator` (real vs hype split, breakeven, DTE), `BlackScholesCalculator` (theoretical price + implied-vol solver), `SellSignalEvaluator` (informational "consider taking profit") |
 | `IdiotProof.Indicators` | Class library | Pure indicator math, no I/O. | `ADX`, `ATR`, `BollingerBands`, `CCI`, `EMA`, `MACD`, `Momentum`, `OBV`, `RSI`, `SMA`, `Stochastic`, `VWAP`, `WilliamsR`, `CandlestickPatterns` |
 | `IdiotProof.Scripting` | Class library | The IdiotScript DSL: authoring, parsing, serializing, scheduling. | `IdiotScript`/`StrategyBuilder`/`Conditions` (fluent authoring), `ScriptParser` (tolerant text to model), `StrategyJson` (canonical strict-JSON codec), `StrategyLoader` (fail-closed load), `StrategyHtml` (render), `GapperProfile` (dialable template), `EmaPeriodCollector`, `TradingSchedule`/`MarketTime` (ET session clock) |
@@ -217,7 +217,7 @@ Every project below is registered in `IdiotProof.slnx`.
 | `IdiotProof.Brokers` | Class library | Order routing abstraction and providers. | `IBrokerClient` (equity members + default-implemented options members: `SupportsOptions`, `GetOptionTradingLevelAsync`, `GetOptionChainAsync`, `GetOptionQuotesAsync`), `AlpacaBrokerClient` (orders, positions, account, option contracts, option snapshots, single-leg option orders), `AlpacaOAuthClient`, `SandboxBrokerClient` (in-memory fills + a synthetic options chain), `BrokerRouter` (Sandbox always registered as the safe fallback) |
 | `IdiotProof.Engine` | Class library | The DI root shared by every host. | `ServiceRegistration.AddIdiotProofEngine(...)`, `Settings/AppSettings` (disk, env, MindAttic keyrings, `IConfiguration` overlay chain), `Storage/IStorageProvider`/`StorageLocation`, `SupervisedLoop` (fault-tolerant tick loop with backoff + heartbeat), `AuditLogger`, `Workspace/WorkspaceManager` + `JsonFileWorkspaceStore` (legacy JSON path; the Blazor host swaps in a SQL-backed store) |
 | `IdiotProof.Blazor` | ASP.NET Core Blazor Server app | The primary web front door: strategy authoring and monitoring, accounts, keys, research, learning. | See [The web app](#the-web-app) |
-| `IdiotProof.UI` | Razor Class Library | Shared component library referenced by `IdiotProof.Blazor` since [IP-A33](docs/AMENDMENTS.md#IP-A33). Presentational only. | `Components/Options/`: `OptionsChainView`, `OptionOrderTicket`, `OptionPositionTracker`, `OptionsLiveElevationModal`, `OptionsPresenter` + view models; `Components/Shared/`: `Tooltip`, `Term`; `wwwroot/css/options.css`, tooltip CSS and JS |
+| `IdiotProof.UI` | Razor Class Library | Shared component library referenced by `IdiotProof.Blazor`. Presentational only. | `Components/Options/`: `OptionsChainView`, `OptionOrderTicket`, `OptionPositionTracker`, `OptionsLiveElevationModal`, `OptionsPresenter` + view models; `Components/Shared/`: `Tooltip`, `Term`; `wwwroot/css/options.css`, tooltip CSS and JS |
 | `IdiotProof.Monitor` | .NET generic host console, Windows-Service-ready | The 24/7 evaluator and executor, "the one pipeline". | `Program.cs` (composition root), `MonitorWorker` (the tick loop), `MonitorLeaderLease` (`sp_getapplock` single-instance lease), `MonitorCli` (operator subcommands), `AutoGapperScanner`, `PremarketFadeScanner`, `EmailSmsAlertSender`, `StrategyScanner`/`StrategyReplay`/`StrategyReplayLive`/`ReplayFeatures`/`ReplayTemplates`/`StrategyDataset` (offline replay and ML-dataset tooling) |
 | `IdiotProof.ResearchScanner` | One-shot console | Autonomous market-event research sweep; not a daemon, not part of the trading loop. | `Program.cs`, `ScanPassRunner` |
 | `IdiotProof.Engine.Tests` | NUnit | RiskGuardian gate, SupervisedLoop resilience, WorkspaceManager, options pricing math (OCC, intrinsic/extrinsic, Black-Scholes, IV round-trips, sell signal). | — |
@@ -256,7 +256,7 @@ Verbs (the key services, by call site):
 - `IBrokerClient.PlaceOrderAsync(...)` is called via `BrokerRouter.PlaceOrderAsync(...)`; Sandbox is the always-registered fallback.
 - `GapperExitEvaluator.Evaluate(...)` and `.EvaluateShort(...)` give a pure, clock-parameterized sell-by, stop, take-profit or peak-giveback verdict for a held position.
 - `IMarketDataFeed.GetHistoricalCandlesAsync(...)`, `.GetLatestPriceAsync(...)` and `.GetPreviousCloseAsync(...)` are served by Alpaca (REST + websocket) or Mock, selected by `SwitchableMarketDataFeed`.
-- Research subsystem (`IdiotProof.Blazor/Services`, driven by `IdiotProof.ResearchScanner`): `TickerUniverseService`, `EdgarService`, `Form4Parser`, `CorporateActionDetector`, `RegulatoryScanner`, `CatalystExtractor`, `OutcomeBackfillService`, `SignificanceScorer`, `ResearchService`; see [IP-A32](docs/AMENDMENTS.md#IP-A32).
+- Research subsystem (`IdiotProof.Blazor/Services`, driven by `IdiotProof.ResearchScanner`): `TickerUniverseService`, `EdgarService`, `Form4Parser`, `CorporateActionDetector`, `RegulatoryScanner`, `CatalystExtractor`, `OutcomeBackfillService`, `SignificanceScorer`, `ResearchService`; see [BIBLE §4.4](docs/BIBLE.md#IP-§4).
 
 ## Storage and configuration
 
@@ -411,7 +411,7 @@ The semantic model (`StrategyDefinition`), serialized as versioned strict JSON (
 
 ## The Monitor console
 
-`IdiotProof.Monitor` is the unattended evaluator and executor ([RFC 0002](docs/rfc/0002-gapper-and-unification.md), [IP-A8](docs/AMENDMENTS.md#IP-A8)). It is a `BackgroundService` (`MonitorWorker`) hosted by the generic host in `Program.cs`, running under `SupervisedLoop` so a bad tick backs off and retries instead of crashing the process ([IP-LAW-5](docs/BIBLE.md#IP-LAW-5)).
+`IdiotProof.Monitor` is the unattended evaluator and executor ([IP-LAW-10](docs/BIBLE.md#IP-LAW-10)). It is a `BackgroundService` (`MonitorWorker`) hosted by the generic host in `Program.cs`, running under `SupervisedLoop` so a bad tick backs off and retries instead of crashing the process ([IP-LAW-5](docs/BIBLE.md#IP-LAW-5)).
 
 ```bash
 dotnet run --project IdiotProof.Monitor
@@ -474,15 +474,15 @@ The console is Windows-Service-ready (`AddWindowsService`): `sc.exe create Idiot
 | Component | Purpose |
 |---|---|
 | `Strategies.razor` | Front door: every saved strategy for the signed-in user, active toggle, live `N/M` progress badge, edit and delete, expand to see the rendered flowchart and raw script. |
-| `StrategyBuilder.razor` | Multi-tab editor (Guided, Script, Describe) over open-strategy tabs (`BuilderTabBar`), persisted to `UserPreferences.OpenStrategyTabs` and `localStorage`. |
+| `StrategyBuilder.razor` | Strategy editor with Guided, Script and Describe tabs and a live `StrategyBuilderRenderer` preview. |
 | `Gapper.razor` | Queue and dial in gapper strategies; "From a transcript" free-text extraction via `GapperInterpreter`. |
 | `Learn.razor` | The Learning Center: seeded articles with inline live-rendered strategy examples via `[[...]]` wikilinks (`WikilinkParser`, `WikiContent`). |
 | `Research.razor` | Ranked "Today's High-Impact Events" feed over ResearchScanner output; a collapsed Advanced panel keeps the older manual ticker and paste flow. |
-| `Options.razor` | The manual options section (`/options`, [IP-A33](docs/AMENDMENTS.md#IP-A33), RFC 0004), deliberately separate from the strategy pipeline. Sandbox, Paper and Live account switch; options chain (calls, strike, puts) with per-cell breakeven and a real-vs-hype (intrinsic vs extrinsic) meter; a plain-English order ticket; open option positions with a real/hype split bar and an informational take-profit callout. Live orders reuse the 5-minute password elevation, and the ticket locks itself while Alpaca reports `option_trading_level = 0`. Host logic in `Services/OptionsTradingService.cs`. |
-| `Backtest.razor` | Backtest UI (stub-level, see [Limitations and roadmap](#limitations-and-roadmap)). |
+| `Options.razor` | The manual options section (`/options`, see [BIBLE §4.4](docs/BIBLE.md#IP-§4)), deliberately separate from the strategy pipeline. Sandbox, Paper and Live account switch; options chain (calls, strike, puts) with per-cell breakeven and a real-vs-hype (intrinsic vs extrinsic) meter; a plain-English order ticket; open option positions with a real/hype split bar and an informational take-profit callout. Live orders reuse the 5-minute password elevation, and the ticket locks itself per action when the account's `options_trading_level` does not allow it. Host logic in `Services/OptionsTradingService.cs`. |
+| `Backtest.razor` | Backtest a saved strategy over one day (Alpaca bars when keyed, Mock otherwise): summary, P&L and a per-candle condition table. |
 | `ActivityLog.razor` | Audit trail viewer. |
 | `ApiKeys.razor` | Per-user broker and data key entry, live-mode danger modal. |
-| `Settings.razor` | Preferences, theme, RiskGuardian config surface (partially wired). |
+| `Settings.razor` | Preferences, theme and the six RiskGuardian limits. |
 | `Login.razor`, `Register.razor`, `ForgotPassword.razor`, `ForgotUsername.razor` | Auth flows against `MindAttic.Authentication`. |
 | `LiveChart.razor` | Live chart surface. |
 
@@ -503,13 +503,9 @@ The Alpaca palette is the only theme today (`--brand #FFCD00`, `--green #00C853`
 
 The AccountPill mirrors Alpaca's UI: label, type (Paper or Live) and masked account ID. Live accounts render with a red outline, paper accounts with the brand-yellow outline. Credentials come from the shared MindAttic broker keyring, overlaid onto `AppSettings` at startup.
 
-### Removed MAUI desktop shell
-
-[IP-A28](docs/AMENDMENTS.md#IP-A28) (2026-07-20) started a dual-host UI: an `IdiotProof.Maui` MAUI Blazor Hybrid desktop shell rendering the same `IdiotProof.UI` components. It never got past scaffolding (no project references, stock template pages, no desktop auth story), and [IP-A36](docs/AMENDMENTS.md#IP-A36) (2026-09-06) removed it. `IdiotProof.UI` remains a shared Razor Class Library with `IdiotProof.Blazor` as its only consumer.
-
 ## The research scanner
 
-`IdiotProof.ResearchScanner` (`Program.cs` + `ScanPassRunner`) runs one scan pass and exits. It is designed to be fired by a Windows Scheduled Task (`tools/register-research-scan-task.ps1`, written but not registered by default) and is decoupled from both the Monitor's trading loop and the Blazor request lifecycle. Per [IP-A32](docs/AMENDMENTS.md#IP-A32):
+`IdiotProof.ResearchScanner` (`Program.cs` + `ScanPassRunner`) runs one scan pass and exits. It is designed to be fired by a Windows Scheduled Task (`tools/register-research-scan-task.ps1`, written but not registered by default) and is decoupled from both the Monitor's trading loop and the Blazor request lifecycle ([BIBLE §4.4](docs/BIBLE.md#IP-§4)):
 
 - It sweeps watchlist tickers plus a rotating batch of the tracked universe (`TickerUniverseService` and `TrackedTicker`, refreshed daily from Alpaca's asset list).
 - `EdgarService`, `Form4Parser` and `CorporateActionDetector` pull real SEC filing content (Form 4 insider transactions, 8-K item-code triage) rather than boilerplate summaries.
@@ -584,7 +580,7 @@ Nine specs in `cypress/e2e/` cover a smoke test, strategy authoring and the save
 - `publish-all.bat`, `zzz_Export.bat`, `zzz_Backup.bat`: local convenience wrappers.
 - `tools/azure-provision.md` and `tools/register-research-scan-task.ps1`: document and automate one-time infrastructure steps; `tools/seed-*.sql` seed example strategies.
 - `tools/codex.ps1`: the documentation-canon tool (see [Documentation](#documentation)); `tools/build-readme.ps1` renders this README to `README.htm`.
-- `index.htm` and `package.json`: the retired README-driven landing page for mindattic.com (`marked` + `highlight.js`). The landing page was retired on 2026-10-03; this README on GitHub is the project page now.
+- `index.htm` and `package.json`: a stale README-to-HTML landing-page renderer (`marked` + `highlight.js`) that nothing deploys; this README on GitHub is the project page.
 
 `Export.ps1` is a generic source-export utility, not IdiotProof logic; its header still calls itself a "Unity project" exporter, a leftover from the template it was copied from. It walks the repo, hashes every matching file and writes one flat text bundle (`ExportedScripts.txt` in the current directory): a JSON manifest (path, SHA-256, byte count, line count) followed by a delimited block per file, handy for pasting a codebase into an LLM context window.
 
@@ -608,7 +604,7 @@ IdiotProof/
 ├── Export.ps1                                ← Generic repo → text-bundle exporter
 ├── AGENTS.md, CLAUDE.md                      ← Project rules for AI tooling
 ├── README.md                                 ← You are here
-├── TODO.md                                   ← Ghost-overlay/branching-viz plan (references the deleted IdiotProof.Core tree)
+├── TODO.md                                   ← Ghost-overlay/branching-viz plan (its file paths are stale)
 ├── docker-compose.yml / infra/               ← Azure deployment scaffolding (predates the current tree; verify before relying on it)
 │
 ├── IdiotProof.Models/                        ← Domain DTOs
@@ -630,7 +626,7 @@ IdiotProof/
 ├── IdiotProof.Monitor/                       ← 24/7 evaluator + executor console, operator CLI, replay tooling
 ├── IdiotProof.ResearchScanner/               ← One-shot research sweep console
 ├── IdiotProof.*.Tests/                       ← NUnit projects (Engine, Indicators, Strategies, Brokers, Blazor, Monitor, UI)
-├── docs/                                     ← Codex canon (BIBLE.md, AMENDMENTS.md, USER_STORIES.md, rfc/), images/
+├── docs/                                     ← Codex canon (BIBLE.md, AMENDMENTS.md, USER_STORIES.md), images/
 ├── tools/                                    ← codex.ps1, build-readme.ps1, publish-all.ps1, azure-provision.md, seed-*.sql
 └── tests/
     └── IdiotProof.Cypress/                   ← End-to-end UI tests (Cypress 13, 9 specs)
@@ -660,16 +656,15 @@ IdiotProof/
 
 ## Limitations and roadmap
 
-These are verified in code or canon; the living version is `docs/BIBLE.md` section 7 ("Active frontier") plus the latest entries in `docs/AMENDMENTS.md`, and the canon wins if they disagree.
+These are verified in code or canon; the living version is `docs/BIBLE.md` section 7 ("Active frontier"), and the canon wins if they disagree.
 
-- Options are manual-only (Phase 1, [IP-A33](docs/AMENDMENTS.md#IP-A33)). No option legs in the strategy schema, no IV or Greeks conditions, no options-aware `RiskGuardian` math, no multi-leg spreads; the Monitor never fires an options order. As of 2026-09-05 neither the paper nor the live Alpaca account reports an `option_trading_level`, so a real paper round-trip (IP-US-U10) is still open; the ticket locks itself on Alpaca modes until approval, and Sandbox serves a synthetic chain meanwhile. `sp-index-events.json` is hand-maintained.
+- Options are manual-only. No option legs in the strategy schema, no IV or Greeks conditions, no options-aware `RiskGuardian` math, no multi-leg spreads; the Monitor never fires an options order. Both Alpaca accounts are at options level 3; place + cancel is proven against the real paper account, but the fill-and-close half of a real paper round-trip (IP-US-U10) is still open. `sp-index-events.json` is hand-maintained.
 - `dotnet run` on `IdiotProof.Blazor` needs a `wwwroot` folder next to the built exe. `Program.cs` mounts a `PhysicalFileProvider` on `AppContext.BaseDirectory/wwwroot` so a published exe serves its own static files, which throws `DirectoryNotFoundException` on a plain Debug build. Run from a publish output, or create `bin/Debug/net10.0/wwwroot` before `dotnet run`.
 - Shorts are signal-only. A short candidate can clear both gates and gets recorded, but no order is placed, because the exit-management brain (`GapperExitEvaluator`) is long-shaped.
-- `docs/BIBLE.md` sections 4.1 and 4.2 reference a `PolygonDataFeed` and a `FeedType {Polygon}` enum that do not exist in the current source; only `AlpacaDataFeed`, `AlpacaStreamingClient`, `MockDataFeed` and `SwitchableMarketDataFeed` exist. Blazor migrations show a `PolygonApiKey` column added and later removed. `docker-compose.yml` and `infra/` still reference a `PolygonApiKey` variable and a `src/IdiotProof.Blazor/Dockerfile` path that does not exist; verify that scaffolding before relying on it for a real deploy.
-- `TODO.md`'s ghost-overlay plan references `IdiotProof.Core`, a tree deleted on 2026-06-07 ([IP-A2](docs/AMENDMENTS.md#IP-A2)). The feature intent (chart playback with branch forking) is still live in `docs/USER_STORIES.md` Epic G; the file paths in `TODO.md` are stale.
-- `SettingsKv` and `UserPreferences.OpenStrategyTabs` are in the schema but not fully consumed yet.
-- RiskGuardian config is not exposed on the Settings page yet: `SetRiskConfigAsync` exists but is uncalled from the UI.
-- The Backtest UI is stub-level: `Backtest.razor` exists and the `StrategyBacktester` and `BacktestReport` pipeline is real and tested, but the per-candle condition-table UI described in Epic J is not built.
+- There is no Polygon feed: only `AlpacaDataFeed`, `AlpacaStreamingClient`, `MockDataFeed` and `SwitchableMarketDataFeed` exist. `docker-compose.yml` and `infra/` still reference a `PolygonApiKey` variable and a `src/IdiotProof.Blazor/Dockerfile` path that does not exist; verify that scaffolding before relying on it for a real deploy.
+- `TODO.md`'s ghost-overlay plan cites `IdiotProof.Core` paths that do not exist. The feature intent (chart playback with branch forking) is live in `docs/USER_STORIES.md` Epic G.
+- `UserPreferences.OpenStrategyTabs` is an unused column awaiting removal in a migration.
+- The Learning Center and Backtest pages are built but not yet proven by a Cypress run (Epics I and J are partial).
 - `ScriptParser` is intentionally a tolerant, regex-driven parser; a Roslyn-based parser with exact line and column diagnostics is planned (`IP-US-H1`).
 
 ## Documentation
@@ -677,9 +672,8 @@ These are verified in code or canon; the living version is `docs/BIBLE.md` secti
 `docs/` carries the authoritative, versioned canon under the MindAttic Codex convention; this README is the build, run and tour layer.
 
 - [docs/BIBLE.md](docs/BIBLE.md) (L0): what IdiotProof is and is not, the architecture canon, the project laws (`IP-LAW-n`), verified build and test state, and the full glossary.
-- [docs/AMENDMENTS.md](docs/AMENDMENTS.md) (L1): the append-only change log (`IP-A<n>`, 36 amendments as of IP-A36); an amendment wins over the bible where they disagree.
+- [docs/AMENDMENTS.md](docs/AMENDMENTS.md) (L1): pending decisions not yet folded into the bible; normally empty.
 - [User stories](docs/USER_STORIES.md) (L2): stories `IP-US-<Epic><n>`, each marked done only with a citing NUnit or Cypress test. Epics include Risk Guardian, the Monitor loop, DSL and backtesting, indicator math, web authoring, Gapper, replay and ML dataset, the research scanner and options.
-- [docs/rfc](docs/rfc/): design notes for core tree reconciliation (0001), the Gapper and pipeline unification (0002), the autonomous research scanner (0003) and manual options trading (0004).
 - [docs/BIBLE.digest.md](docs/BIBLE.digest.md): generated by `tools/codex.ps1 digest`; never hand-edit.
 - [AGENTS.md](AGENTS.md): instructions for AI agents working in this repo.
 

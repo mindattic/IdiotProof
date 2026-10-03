@@ -6,7 +6,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 namespace IdiotProof.Blazor.Tests;
 
 /// <summary>
-/// IndexEventScanner (RFC 0004): the hand-maintained sp-index-events.json becomes
+/// IndexEventScanner (docs/BIBLE.md §4.4): the hand-maintained sp-index-events.json becomes
 /// ClaimType=IndexEvent research claims — idempotently, with the Pending→Realized flip
 /// once the effective date passes.
 /// </summary>

@@ -77,7 +77,7 @@ public class RiskGuardianTests
     [Test]
     public void DefaultConfig_AcceptsAWideGapperStop_WithinTheDollarCap()
     {
-        // IP-A22: the shipped "Penny Runner" gapper uses an 8% stop; the old
+        // The shipped "Penny Runner" gapper uses an 8% stop; the old
         // default MaxStopLossPercent of 5% silently blocked every fire of that
         // profile out of the box. The default is now 10% — a wide stop is
         // allowed as long as the DOLLAR cap (the binding constraint) holds.

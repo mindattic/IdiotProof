@@ -9,7 +9,7 @@ namespace IdiotProof.Blazor.Data;
 /// database. The console Monitor (IdiotProof.Monitor/MonitorWorker) loads
 /// every IsActive=true row each tick, parses ScriptText into a
 /// StrategyDefinition, and evaluates it — so edits made in the Blazor UI
-/// apply to the running console automatically via SQL (IP-A8).
+/// apply to the running console automatically via SQL (IP-LAW-10).
 /// </summary>
 public sealed class Strategy
 {
@@ -49,8 +49,8 @@ public sealed class Strategy
 
     /// <summary>
     /// IdiotScript fluent text — the HUMAN VIEW of the strategy (previews, the
-    /// raw-script pane, hand editing). Since IP-A13 this is no longer what the
-    /// evaluators run; <see cref="ScriptJson"/> is.
+    /// raw-script pane, hand editing). This is not what the
+    /// evaluators run (IP-LAW-8); <see cref="ScriptJson"/> is.
     /// </summary>
     [Required]
     public string ScriptText { get; set; } = "";
@@ -83,7 +83,7 @@ public sealed class Strategy
     /// <summary>How many times this strategy has fired a TradeSignal since creation.</summary>
     public int FireCount { get; set; }
 
-    // ── Open-position tracking (IP-A8) ──────────────────────────────────
+    // ── Open-position tracking ──────────────────────────────────────────
     // Runtime state lives in SQL (IP-LAW-7). The Monitor writes these when an
     // entry order fills and clears them on exit; the UI renders live badges
     // from them. Qty > 0 means the Monitor is managing an open position and

@@ -4,7 +4,7 @@ using IdiotProof.Blazor.Services;
 namespace IdiotProof.Blazor.Tests;
 
 /// <summary>
-/// Per-user broker routing rule (IP-A9): a user's orders go to THEIR Alpaca
+/// Per-user broker routing rule (docs/BIBLE.md §4.4): a user's orders go to THEIR Alpaca
 /// account only when they opted in AND supplied both keys; anything less falls
 /// through to the global router, whose default is Sandbox (IP-LAW-3) — a
 /// missing or undecryptable key can never route money into the wrong account.

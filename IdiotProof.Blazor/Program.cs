@@ -90,7 +90,7 @@ builder.Services.AddMindAtticAuthentication<AppDbContext>(
         opts.AppName = "IdiotProof";
         opts.IsProduction = !builder.Environment.IsDevelopment();
 
-        // Production key-ring persistence (IP-A9). The library fail-closes in
+        // Production key-ring persistence (docs/BIBLE.md §4.4). The library fail-closes in
         // production without this. The ring must be durable storage shared by
         // every instance AND by the Monitor console (which reads the same ring
         // to decrypt per-user API keys).
@@ -146,9 +146,9 @@ builder.Services.AddSignalR(o =>
 
 // ── Web services ─────────────────────────────────────────────────────────────────
 // Strategy evaluation AND order execution are owned by IdiotProof.Monitor (the
-// second startup project) — the single pipeline per RFC 0002 / IP-A8. The
+// second startup project) — the single pipeline per IP-LAW-10. The
 // Blazor host writes user edits to SQL; the Monitor re-reads them every tick
-// (default 5s), so UI changes apply to the running console automatically. The
+// (default 1s), so UI changes apply to the running console automatically. The
 // old in-process StrategyExecutionService (WorkspaceTab-binding evaluation)
 // was deleted 2026-07-18 — do not resurrect a second evaluation loop here.
 builder.Services.AddSingleton<TradingStateService>();
@@ -241,7 +241,7 @@ using (var scope = app.Services.CreateScope())
     // startup (the app must come up even if these hiccup).
     try
     {
-        // IP-A13 one-shot: legacy strategies get their canonical JSON derived
+        // One-shot (IP-LAW-8): legacy strategies get their canonical JSON derived
         // from ScriptText so the Monitor can run JSON-first everywhere.
         var backfilled = await scope.ServiceProvider.GetRequiredService<StrategyRepository>()
             .BackfillCanonicalJsonAsync();
@@ -252,7 +252,7 @@ using (var scope = app.Services.CreateScope())
 
     try
     {
-        // Seed the disposable-email-domain blocklist (IP-A23). Idempotent.
+        // Seed the disposable-email-domain blocklist. Idempotent.
         var seededDomains = await scope.ServiceProvider.GetRequiredService<EmailDomainBlocklistService>()
             .SeedAsync();
         if (seededDomains > 0)
@@ -302,7 +302,7 @@ app.MapPost("/register-submit", async (HttpContext ctx, IUserAdminService adminS
 
     if (string.IsNullOrWhiteSpace(email))
     { ctx.Response.Redirect("/register?error=email"); return; }
-    // Reject malformed and disposable/temporary email domains (IP-A23) — a
+    // Reject malformed and disposable/temporary email domains — a
     // real account for a real (paper) trading key needs a real inbox. Give a
     // distinct message for a malformed address vs a disposable domain.
     if (EmailDomainBlocklistService.DomainOf(email) is null)
@@ -382,7 +382,7 @@ app.MapPost("/forgot-password-submit", async (HttpContext ctx, IUserAdminService
     ctx.Response.Redirect("/forgot-password?status=ok");
 });
 
-// ── Alpaca OAuth / Connect (IP-A26) — account linking instead of raw keys ──
+// ── Alpaca OAuth / Connect — account linking instead of raw keys ──
 // DORMANT: obtains + stores a scoped token; trading still routes through the
 // key/secret path until Bearer mode is paper-verified. Wholly inert unless
 // Alpaca:OAuth:ClientId/:ClientSecret/:RedirectUri are configured.

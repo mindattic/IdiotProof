@@ -1,5 +1,5 @@
 {
-  "$comment": "Gapper profile catalog — static templates per IP-LAW-7 (RFC 0002 / IP-A8). Selecting a profile pre-fills the Gapper tab's queue form; every value stays editable per ticker. Times are US Eastern (market clock).",
+  "$comment": "Gapper profile catalog — static templates per IP-LAW-7 (docs/BIBLE.md §4.4). Selecting a profile pre-fills the Gapper tab's queue form; every value stays editable per ticker. Times are US Eastern (market clock).",
   "profiles": [
     {
       "id": "classic-gapper",

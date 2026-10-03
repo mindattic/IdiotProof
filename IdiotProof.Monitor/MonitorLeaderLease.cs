@@ -4,7 +4,7 @@ using Microsoft.Extensions.Logging;
 namespace IdiotProof.Monitor;
 
 /// <summary>
-/// Single-active-instance lease (IP-A9). Two Monitors evaluating the same
+/// Single-active-instance lease (IP-LAW-10). Two Monitors evaluating the same
 /// Strategies table would double-fire orders and double-write positions, so
 /// before the loop starts the worker must hold an exclusive SQL application
 /// lock (<c>sp_getapplock</c>, session-owned) on the shared database. The

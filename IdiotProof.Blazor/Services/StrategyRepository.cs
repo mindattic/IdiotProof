@@ -130,7 +130,7 @@ public sealed class StrategyRepository(IDbContextFactory<AppDbContext> dbFactory
     }
 
     /// <summary>
-    /// One-shot legacy backfill (IP-A13): derives canonical JSON for every row
+    /// One-shot legacy backfill (IP-LAW-8): derives canonical JSON for every row
     /// written before the ScriptJson column existed. Runs at Blazor startup;
     /// cheap no-op once all rows carry a canon. Returns how many were filled.
     /// </summary>
@@ -273,7 +273,7 @@ public sealed class StrategyRepository(IDbContextFactory<AppDbContext> dbFactory
     /// (PositionQty &gt; 0). When &gt;1, the broker's per-symbol position is shared
     /// across strategies and can't be attributed to one — the exit path must
     /// then trust per-strategy bookkeeping rather than the broker aggregate
-    /// (multi-strategy-per-ticker support, IP-A24).
+    /// (multi-strategy-per-ticker support).
     /// </summary>
     public async Task<int> CountHoldingForSymbolAsync(Guid ownerUserId, string symbol, CancellationToken ct = default)
     {

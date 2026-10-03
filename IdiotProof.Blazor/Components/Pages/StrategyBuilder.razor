@@ -521,7 +521,7 @@
             }
             else
             {
-                // Same open-position guard SetActiveAsync enforces (IP-A16):
+                // Same open-position guard SetActiveAsync enforces (IP-LAW-11):
                 // this direct-Update path must not deactivate a holding row —
                 // the Monitor only manages exits on active strategies.
                 if (existing.PositionQty > 0 && existing.IsActive && !isActive)

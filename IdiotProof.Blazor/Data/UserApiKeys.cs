@@ -28,7 +28,7 @@ public sealed class UserApiKeys
     public string DefaultDataFeed { get; set; } = "Mock";
 
     // Alpaca OAuth (Connect API) — account-linking alternative to the raw
-    // key/secret above (IP-A26). Stored encrypted like the other secrets.
+    // key/secret above. Stored encrypted like the other secrets.
     // DORMANT: obtained by the /connect/alpaca flow and stored, but not yet
     // routed through (trading still uses the key/secret pair until Bearer mode
     // is paper-verified).

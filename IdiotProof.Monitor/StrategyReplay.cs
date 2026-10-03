@@ -93,7 +93,7 @@ public static partial class StrategyReplay
         // ── Fetch the day's bars (04:00–20:00 ET → UTC) on the chosen tier ──
         var dayStartUtc = EtToUtc(dateEt, new TimeSpan(4, 0, 0));
         var dayEndUtc = EtToUtc(dateEt, new TimeSpan(20, 0, 0));
-        // With Algo Trader Plus (real-time SIP, IP-A29) there is no 15-min wall —
+        // With Algo Trader Plus (real-time SIP) there is no 15-min wall —
         // request right up to the last fully-closed minute. Keep a 1-min guard so
         // we never ask for the currently-forming bar (which returns partial/null).
         // Free keys can still set IDIOTPROOF_ALPACA_FEED=iex; then this is moot.

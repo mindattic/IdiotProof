@@ -14,8 +14,8 @@ rather than pasting the whole file into a shell.
   LocalDB, and shares the same Key Vault-backed DataProtection key ring as the Azure-hosted
   Blazor so it can decrypt `UserApiKeys` rows the web app writes.
 - **Database** → Azure SQL (replaces LocalDB). Both Blazor and Monitor connect directly — no new
-  HTTP API between them; this matches the existing "shared SQL" design (see `docs/BIBLE.md`,
-  `docs/AMENDMENTS.md` IP-A9) and is far less work than building an authenticated API surface
+  HTTP API between them; this matches the existing "shared SQL" design (see `docs/BIBLE.md`
+  §4.4 and IP-LAW-10) and is far less work than building an authenticated API surface
   from scratch.
 - **Secrets** → Azure Key Vault. `IdiotProof.Blazor/Program.cs` and `IdiotProof.Monitor/Program.cs`
   already read `DataProtection:AzureBlobUri` / `DataProtection:KeyVaultKeyUri` from

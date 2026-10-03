@@ -8,7 +8,7 @@
               story test citations, bible file-path citations, generated-digest freshness).
               Exits non-zero on any hard error.
     digest  - regenerate docs/BIBLE.digest.md from BIBLE.md section 1/3/5/9 + a status index
-              + the latest amendment head.
+              + any pending decision heads from AMENDMENTS.md.
 
   No build step. Authored ASCII-only so Windows PowerShell 5.1 (Win-1252 default) parses it
   regardless of file encoding. Non-ASCII tokens (status emoji, section sign) are built from
@@ -39,7 +39,6 @@ $EMO_DONE  = [string][char]0x2705                                 # check mark b
 $EMO_PLAN  = [string][char]0x2B1C                                 # white large square
 # Emoji above U+FFFF must be built from UTF-32 code points (surrogate pairs).
 $EMO_PART  = [System.Char]::ConvertFromUtf32(0x1F7E1)             # yellow circle
-$EMO_CUT   = [System.Char]::ConvertFromUtf32(0x1F5D1)             # wastebasket
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -92,21 +91,19 @@ function Invoke-Digest {
     $gloss = Get-Section $bible ('IP-' + $SECT + '9')
 
     # Status index from USER_STORIES.md
-    $done = 0; $partial = 0; $planned = 0; $cut = 0
+    $done = 0; $partial = 0; $planned = 0
     if (Test-Path $StoriesPath) {
         $stories = Read-Text $StoriesPath
         $done    = ([regex]::Matches($stories, [regex]::Escape($EMO_DONE))).Count
         $partial = ([regex]::Matches($stories, [regex]::Escape($EMO_PART))).Count
         $planned = ([regex]::Matches($stories, [regex]::Escape($EMO_PLAN))).Count
-        $cut     = ([regex]::Matches($stories, [regex]::Escape($EMO_CUT))).Count
     }
 
-    # Latest amendment head
-    $amendHead = ''
+    # Pending decisions (AMENDMENTS.md entries); normally none
+    $pending = @()
     if (Test-Path $AmendPath) {
         $am = Read-Text $AmendPath
-        $m = [regex]::Matches($am, '(?m)^##\s+(.+)$')
-        if ($m.Count -gt 0) { $amendHead = $m[$m.Count - 1].Groups[1].Value.Trim() }
+        foreach ($m in [regex]::Matches($am, '(?m)^##\s+(.+)$')) { $pending += $m.Groups[1].Value.Trim() }
     }
 
     $today = (Get-Date).ToString('yyyy-MM-dd')
@@ -134,10 +131,11 @@ function Invoke-Digest {
     [void]$sb.AppendLine("- done: $done")
     [void]$sb.AppendLine("- partial: $partial")
     [void]$sb.AppendLine("- planned: $planned")
-    [void]$sb.AppendLine("- cut: $cut")
-    [void]$sb.AppendLine('')
-    [void]$sb.AppendLine('## Latest amendment')
-    [void]$sb.AppendLine($amendHead)
+    if ($pending.Count -gt 0) {
+        [void]$sb.AppendLine('')
+        [void]$sb.AppendLine('## Pending decisions (docs/AMENDMENTS.md)')
+        foreach ($p in $pending) { [void]$sb.AppendLine("- $p") }
+    }
 
     Set-Content -LiteralPath $DigestPath -Value $sb.ToString() -Encoding UTF8 -NoNewline
     Write-Host "digest -> $DigestPath" -ForegroundColor Green

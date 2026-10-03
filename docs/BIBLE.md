@@ -4,7 +4,7 @@ project: IdiotProof
 code: IP
 layer: bible
 status: living
-updated: 2026-09-05
+updated: 2026-10-03
 ---
 
 # IdiotProof — Project Bible
@@ -16,143 +16,250 @@ IdiotProof turns a plain-English trade idea into a runnable DSL strategy that a 
 Monitor evaluates against live market data, fires only when every condition matches, an LLM
 voter panel approves, and the Risk Guardian clears it — then places the order through the
 broker router and manages the position to its exit. The flagship flow is the **Gapper**
-([IP-A8](AMENDMENTS.md#IP-A8)): buy the premarket gap at 4AM, sell it off before the 9:30 bell
-once momentum rolls over.
+([§4.4](#IP-§4)): buy the premarket gap at 4AM, sell it off before the 9:30 bell once momentum
+rolls over.
 
 ## 2. The product promise {#IP-§2}
 - **Describe, don't code.** A trader writes prose ("if NVDA pulls back to the 9 EMA in an
-  uptrend with volume confirmation, go long with a 1% stop"); Claude (via the Legion voter
-  panel) translates it into **IdiotScript**, the project's fluent DSL. The verb catalog is
-  produced by *reflecting* on the real `StrategyBuilder` + `Conditions` types, so a model can
-  never invent syntax that does not compile.
+  uptrend with volume confirmation, go long with a 1% stop"); Claude (via MindAttic.Legion)
+  translates it into **IdiotScript**, the project's fluent DSL. The verb catalog is produced by
+  *reflecting* on the real `StrategyBuilder` + `Conditions` types, so a model can never invent
+  syntax that does not compile; generated scripts are parse-checked and the user is told when
+  a verb did not parse.
 - **Set and forget.** `IdiotProof.Monitor` is an unattended console host that re-reads every
-  active strategy from SQL each tick (default 5s — UI edits apply to the running console
-  automatically), evaluates against live Alpaca data (websocket stream + REST, Mock fallback),
-  reports per-condition progress (`4/5 — waiting on OnReclaim(9)`), places gated entries, and
-  manages open positions to their exit.
+  active strategy from SQL each tick (default **1s**, `IDIOTPROOF_MONITOR_INTERVAL` overrides —
+  UI edits apply to the running console automatically), evaluates against live Alpaca data
+  (real-time SIP websocket stream + REST, Mock fallback), reports per-condition progress
+  (`4/5 — waiting on OnReclaim(9)`), places gated entries, and manages open positions to their
+  exit.
 - **The Gapper, done well.** Queue up to 3 tickers on the `/gapper` tab, each with a dialable
   profile (gap %, volume, price band, entry window, stops, peak-giveback, sell-by). All gappers
-  are not the same — every value is per-ticker adjustable; the tuned result is denormalized
-  into the strategy's script so what you dialed is exactly what runs.
+  are not the same — every value is per-ticker adjustable; the tuned result is written into the
+  strategy's canonical JSON so what you dialed is exactly what runs. A past day can be replayed
+  with the same brain and its hindsight-tuned dials applied back.
 - **Three gates before money moves.** All strategy conditions match → LLM voter quorum
   approves → Risk Guardian clears stop/daily-loss/per-trade-risk. Any gate blocks the fire and
   records the reasoning.
 - **Paper by default, live by explicit opt-in.** The Sandbox broker is always the safe
   fallback; live trading requires explicit configuration plus a confirmation modal.
+- **Research finds the news for you.** A scheduled scanner sweeps SEC filings, Alpaca news and
+  Federal Register notices across the tracked ticker universe and ranks what it finds by
+  significance on the `/research` tab — no search box required.
+- **Options without mental math.** The manual `/options` section shows premium, breakeven and
+  the intrinsic ("real") vs extrinsic ("hype") split for every contract, so the trade is "buy
+  the idea, sell the hype".
 
 ## 3. What it is NOT {#IP-§3}
 - **Not a charting terminal.** It does not stream tick charts for manual discretionary trading;
   the chart/ghost-overlay work is [planned, not built](#IP-§7).
-- **Not multi-broker today.** The active build is **Alpaca-only**. The IBKR adapter
-  (`IdiotProof.Brokers.Ibkr/`) is dormant and is **not** in `IdiotProof.slnx`.
+- **Not multi-broker today.** The build is **Alpaca-only** (plus the simulated Sandbox).
+  `IBrokerClient` is the seam a future broker would implement; no other adapter exists.
 - **Not a direct-to-vendor LLM client.** No feature code calls an Anthropic/OpenAI SDK directly;
   all LLM traffic routes through MindAttic.Legion and all keys resolve through MindAttic.Vault.
-- **Not a gate-bypassing autotrader.** The Monitor DOES place orders (since
-  [IP-A8](AMENDMENTS.md#IP-A8)) — but only through `BrokerRouter`/`IBrokerClient` after all
-  three gates clear, never around the Risk Guardian. Exit orders are risk-reducing: they skip
-  the LLM panel by design but are always audit-logged. *(Supersedes the pre-IP-A8 "emits
-  signals only" phrasing.)*
-- **Not a `IdiotProof.Core`/`IdiotProof.Web` monolith.** Earlier docs (README §, the
-  `.github/copilot-instructions.md`) describe a `Core`/`Web` split and an IBKR-first engine.
-  That is **historical/aspirational** — see [IP-A1](AMENDMENTS.md#IP-A1) for the reconciliation
-  to the real, shipped project graph below.
+- **Not a gate-bypassing autotrader.** The Monitor places orders only through
+  `BrokerRouter`/`IBrokerClient` after all three gates clear, never around the Risk Guardian.
+  Exit orders are risk-reducing: they skip the LLM panel by design but are always audit-logged.
+  Short candidates are signal-only: they clear the gates and are recorded, but no short order is
+  placed.
+- **Not an options autotrader.** Options orders are manual and user-initiated on `/options`;
+  the DSL, Monitor, `RiskGuardian` and `Conditions` catalog know nothing about options.
+- **Not a desktop app.** `IdiotProof.Blazor` (Blazor Server) is the only UI host.
+- **Not a research daemon.** `IdiotProof.ResearchScanner` runs one pass and exits; it is fired
+  by a Windows Scheduled Task and never shares the Monitor's trading loop.
 
 ## 4. Architecture canon {#IP-§4}
 
 ```
                           Trader (browser)
                                  │
-                  ┌──────────────▼───────────────┐        Cypress E2E
-                  │       IdiotProof.Blazor       │◄──────  Cypress E2E (tests/IdiotProof.Cypress, 7 specs)
-                  │  Strategies · StrategyBuilder │
-                  │  (Guided/Script/Describe)     │──► StrategyScriptGenerator ──► Legion voter panel
-                  │  Learning Center · Settings   │                                (legion.json, high tier)
+                  ┌──────────────▼───────────────┐
+                  │       IdiotProof.Blazor       │◄──────  Cypress E2E (tests/IdiotProof.Cypress)
+                  │ Strategies · Builder · Gapper │
+                  │ Research · Options · Backtest │──► StrategyScriptGenerator ──► Legion
+                  │ Learn · Settings · API Keys   │                                (legion.json)
+                  │  + IdiotProof.UI (RCL)        │
                   └──────────────┬────────────────┘
-                                 │
-                  ┌──────────────▼────────────────┐
-                  │        IdiotProof.Engine       │  DI root · AppSettings overlay ·
-                  │  SupervisedLoop · AuditLogger  │  WorkspaceManager · ServiceRegistration
-                  └──┬───────────┬──────────┬──────┘
-                     │           │          │
-        ┌────────────▼─┐  ┌──────▼─────┐ ┌──▼───────────────┐
-        │ IdiotProof.  │  │ IdiotProof.│ │ IdiotProof.      │
-        │ Scripting    │  │ Strategies │ │ DataFeeds        │
-        │ (IdiotScript │  │ IStrategy· │ │ Polygon / Mock / │
-        │  DSL: Stock. │  │ DslStrategy│ │ Switchable       │
-        │  Ticker(…))  │  │ Backtester │ └──────────────────┘
-        └──────┬───────┘  └──────┬─────┘
-               │                 │
-        ┌──────▼─────┐    ┌───────▼────────┐    ┌────────────────────────┐
-        │ IdiotProof.│    │ IdiotProof.    │    │ IdiotProof.Brokers     │
-        │ Indicators │    │ Shared         │    │ IBrokerClient ·        │
-        │ RSI EMA ATR│    │ RiskGuardian · │    │ Alpaca · Sandbox       │
-        │ MACD VWAP …│    │ IndicatorSnap. │    │ (BrokerRouter)         │
-        └────────────┘    └────────────────┘    └────────────────────────┘
-               │                 │
-        ┌──────▼─────────────────▼──────┐        ┌───────────────────────────┐
-        │       IdiotProof.Models       │        │   IdiotProof.Monitor      │
-        │  Candle TradeSignal Position  │◄───────┤   24/7 SupervisedLoop     │
-        │  TradeSetup RiskLimits …      │        │   (console host)          │
-        └───────────────────────────────┘        └───────────────────────────┘
+                                 │  SQL Server (Strategies, ConditionProgress, TradeDiary, …)
+          ┌──────────────────────┼──────────────────────────┐
+          │                      │                          │
+┌─────────▼─────────┐  ┌─────────▼──────────────┐  ┌────────▼──────────────────┐
+│ IdiotProof.Monitor│  │ IdiotProof.Engine      │  │ IdiotProof.ResearchScanner│
+│ 24/7 SupervisedLoop│ │ DI root · AppSettings  │  │ one-shot scheduled pass   │
+│ three gates →      │ │ SupervisedLoop ·       │  └───────────────────────────┘
+│ BrokerRouter →     │ │ AuditLogger            │
+│ exit management    │ └────────────────────────┘
+└──┬───────────┬─────┘
+   │           │
+┌──▼─────────┐ ┌▼───────────┐ ┌──────────────────┐ ┌────────────────────────┐
+│ IdiotProof.│ │ IdiotProof.│ │ IdiotProof.      │ │ IdiotProof.Brokers     │
+│ Scripting  │ │ Strategies │ │ DataFeeds        │ │ IBrokerClient ·        │
+│ IdiotScript│ │ DslStrategy│ │ Alpaca (REST+ws) │ │ Alpaca · Sandbox ·     │
+│ StrategyJson│ │ Backtester│ │ Mock · Switchable│ │ BrokerRouter · options │
+└──────┬─────┘ └──────┬─────┘ └──────────────────┘ └────────────────────────┘
+       │              │
+┌──────▼─────┐ ┌──────▼─────────┐ ┌───────────────────────────────┐
+│ IdiotProof.│ │ IdiotProof.    │ │       IdiotProof.Models       │
+│ Indicators │ │ Shared         │ │  Candle TradeSignal Position  │
+│ RSI EMA ATR│ │ RiskGuardian · │ │  OrderRequest OptionContract …│
+│ MACD VWAP …│ │ Options math   │ └───────────────────────────────┘
+└────────────┘ └────────────────┘
 ```
-
-> **Scope note.** This canon describes the projects in `IdiotProof.slnx`. All formerly dormant
-> out-of-solution trees (`IdiotProof.Core`, `IdiotProof.Cli`, `IdiotProof.Brokers.Ibkr`,
-> `tests/IdiotProof.NUnitTests`, `IdiotProof.Scripting.Tests`, `src/`) were deleted 2026-06-07
-> per [IP-A2](AMENDMENTS.md#IP-A2); recoverable from git history if needed.
 
 ### 4.1 Projects (in `IdiotProof.slnx`)
 | Project | Role |
 |---|---|
-| `IdiotProof.Blazor` | Blazor Server web app — Strategies page, Strategy Builder (Guided/Script/Describe), Learning Center, Backtest, Settings, API Keys. **MindAttic.Authentication** (Argon2id, sessions, MFA scaffolding) + EF Core 10 (SQL Server). |
-| `IdiotProof.Monitor` | **The one pipeline** (IP-A8/A9): console host on `SupervisedLoop` (Windows-Service-installable, single-instance `sp_getapplock` leader lease) — re-reads active strategies every tick, evaluates conditions, upserts `ConditionProgress`, walks the three gates, places entries per-user via `UserBrokerResolver` (owner's own Alpaca when keyed, Sandbox-default router otherwise; limit + extended-hours premarket), manages open positions to exit via `GapperExitEvaluator`, feeds realized P&L into the RiskGuardian daily breaker. |
+| `IdiotProof.Blazor` | Blazor Server web app — Strategies, Strategy Builder (Guided/Script/Describe), Gapper, Research, Options, Learning Center, Backtest, Activity Log, Settings (incl. the six RiskGuardian limits), API Keys, Live chart. **MindAttic.Authentication** (Argon2id + pepper, sessions, MFA scaffolding) + EF Core 10 (SQL Server). Also hosts the shared services the Monitor and ResearchScanner reference (`AppDbContext`, repositories, `UserBrokerResolver`, `LlmVotingService`, research services). |
+| `IdiotProof.Monitor` | **The one pipeline**: console host on `SupervisedLoop` (Windows-Service-installable, single-instance `sp_getapplock` leader lease) — re-reads active strategies every tick, evaluates conditions, upserts `ConditionProgress`, walks the three gates, places entries via `UserBrokerResolver`, manages open positions to exit via `GapperExitEvaluator`, feeds realized P&L into the RiskGuardian daily breaker, writes the trade diary. Also the operator CLI (`MonitorCli`) and the replay/scan/dataset commands ([§4.4](#IP-§4)). |
 | `IdiotProof.Engine` | DI root (`ServiceRegistration`), `AppSettings` overlay chain, `SupervisedLoop`, `AuditLogger`, `WorkspaceManager` (UI layout state only). |
-| `IdiotProof.Scripting` | The IdiotScript DSL: `Stock.Ticker(...)`, `StrategyBuilder`, the `Conditions` catalog, `ScriptParser`, branching algebra, `GapperProfile` + `GapperScriptFactory`, `MarketTime` (ET clock). |
-| `IdiotProof.Strategies` | `IStrategy` + `DslStrategy` adapter + `IndicatorSnapshotBuilder` + `GapperExitEvaluator` (sell-off brain) + `StrategyBacktester`/`BacktestReport`. |
+| `IdiotProof.Scripting` | The IdiotScript DSL: `Stock.Ticker(...)`, `StrategyBuilder`, the `Conditions` catalog, `ScriptParser`, `StrategyJson` + `StrategyLoader` (canonical JSON), branching algebra, `EmaPeriodCollector`, `GapperProfile` + `GapperScriptFactory`, `MarketTime` (ET clock, trading-day gate). |
+| `IdiotProof.Strategies` | `IStrategy` + `DslStrategy` adapter + `IndicatorSnapshotBuilder` + `GapperExitEvaluator` (sell-off brain, long and short) + `StrategyBacktester`/`BacktestReport` + `GapperDayBacktester`. |
 | `IdiotProof.Indicators` | Pure indicator math: ADX, ATR, Bollinger, CCI, EMA, MACD, OBV, RSI, SMA, Stochastic, VWAP, WilliamsR, `CandlestickPatterns`. |
-| `IdiotProof.DataFeeds` | `IMarketDataFeed` (+ `GetPreviousCloseAsync` for gap math): `AlpacaDataFeed` (REST, sip→iex auto-downgrade), `AlpacaStreamingClient` (websocket trades + minute bars), `PolygonDataFeed`, `MockDataFeed` (deterministic premarket-gap simulation), `SwitchableMarketDataFeed`. |
-| `IdiotProof.Brokers` | `IBrokerClient` + `AlpacaBrokerClient` + `SandboxBrokerClient` + `BrokerRouter`. Options-aware since [IP-A33](AMENDMENTS.md#IP-A33): contract catalog, data-host snapshots (Greeks/IV), single-leg option orders, `us_option` positions; Sandbox serves a synthetic chain. |
+| `IdiotProof.DataFeeds` | `IMarketDataFeed` (+ `GetPreviousCloseAsync` for gap math): `AlpacaDataFeed` (REST, sip default with iex fallback), `AlpacaStreamingClient` (websocket trades + minute bars), `MockDataFeed` (deterministic premarket-gap simulation, no weekend bars), `SwitchableMarketDataFeed`. |
+| `IdiotProof.Brokers` | `IBrokerClient` (incl. `IsPaper`) + `AlpacaBrokerClient` + `SandboxBrokerClient` + `BrokerRouter` + `AlpacaOAuthClient`. Options-aware: contract catalog, data-host snapshots (Greeks/IV), single-leg option orders, `us_option` positions, options account level; Sandbox serves a synthetic chain. |
 | `IdiotProof.Models` | Domain DTOs/enums (the nouns, see 4.2) — incl. `AssetClass`, `OptionContract` (OCC), `OptionQuote`. |
-| `IdiotProof.Shared` | `RiskGuardian` + `RiskGuardianConfig`/`Result`, `IndicatorSnapshot`, `LogMessage`, `SettingsMetadata`, and `Options/` (pure math: `IntrinsicValueCalculator`, `BlackScholesCalculator`, `SellSignalEvaluator`). |
-| `IdiotProof.UI` | Shared Razor Class Library ([IP-A28](AMENDMENTS.md#IP-A28)) rendered identically by every host. First occupants ([IP-A33](AMENDMENTS.md#IP-A33)): the Options section's `OptionsChainView`, `OptionOrderTicket`, `OptionPositionTracker`, `OptionsLiveElevationModal`. Presentational only — depends on Models/Brokers/Shared, never on a host. |
-| `IdiotProof.ResearchScanner` | One-shot, Scheduled-Task-fired console app (IP-A32 / RFC 0003) — sweeps EDGAR/Alpaca/Federal-Register for market-moving events across the tracked ticker universe, scores significance, writes to the shared DB. Not a daemon; not part of the Monitor's trading loop. |
+| `IdiotProof.Shared` | `RiskGuardian` + `RiskGuardianConfig`/`Result`, `IndicatorSnapshot`, `LogMessage`, `SettingsMetadata`, and `Options/` (pure math: `IntrinsicValueCalculator`, `BlackScholesCalculator`, `SellSignalEvaluator`, `OptionsTradingLevel`). |
+| `IdiotProof.UI` | Shared Razor Class Library consumed by `IdiotProof.Blazor`: the Options components (`OptionsChainView`, `OptionOrderTicket`, `OptionPositionTracker`, `OptionsLiveElevationModal`, `OptionsGlossary`/`<Jargon>`). Presentational only — depends on Models/Brokers/Shared, never on a host. |
+| `IdiotProof.ResearchScanner` | One-shot, Scheduled-Task-fired console app — sweeps EDGAR/Alpaca/Federal Register for market-moving events across the tracked ticker universe, scores significance, writes to the shared DB, exits. |
 
-### 4.2 Domain model — the NOUNS (`IdiotProof.Models`, `IdiotProof.Shared`)
+Test projects: `IdiotProof.Engine.Tests`, `IdiotProof.Indicators.Tests`, `IdiotProof.Strategies.Tests`,
+`IdiotProof.Brokers.Tests`, `IdiotProof.Blazor.Tests`, `IdiotProof.UI.Tests`, `IdiotProof.Monitor.Tests`
+(see [§6](#IP-§6)); Cypress E2E lives in `tests/IdiotProof.Cypress/`.
+
+### 4.2 Domain model — the NOUNS (`IdiotProof.Models`, `IdiotProof.Shared`, `IdiotProof.Blazor/Data`)
 - `Candle` — one OHLCV bar.
-- `TradeSignal` — output of `IStrategy.Evaluate`; a candidate to fire.
+- `TradeSignal` — output of `IStrategy.Evaluate`; a candidate to fire, carrying the full
+  take-profit ladder.
 - `TradeSetup` / `RiskLimits` — decimal-priced inputs the `RiskGuardian` validates.
-- `OrderRequest` / `OrderResult` / `Position` — broker-facing order lifecycle.
-- `StrategyDefinition` (in `IdiotProof.Scripting`) — parsed IdiotScript: phases + conditions + branches.
+- `OrderRequest` / `OrderResult` / `Position` — broker-facing order lifecycle; carry
+  `AssetClass` + `Option?` (equity by default).
+- `OptionContract` (OCC symbol, underlying, expiration, strike, right, multiplier 100),
+  `OptionQuote`/`OptionGreeks` (IV/Greeks null when the broker omits them).
+- `StrategyDefinition` (in `IdiotProof.Scripting`) — the semantic model: phases + conditions +
+  branches; persisted as canonical JSON ([IP-LAW-8](#IP-LAW-8)).
+- SQL entities (`IdiotProof.Blazor/Data`): `Strategy` (owner, author, `BrokerMode`,
+  `ScriptJson` canon + `ScriptText` view, `OriginTranscript`, open-position bookkeeping),
+  `ConditionProgress`, `TradeDiaryEntry`, `AuditLog`, `UserApiKeys` (encrypted at rest),
+  `UserPreferences`, `ReplayRun`/`ReplayTrade`/`ReplayBar`, `ResearchClaim`,
+  `InsiderTransaction`, `TrackedTicker`, `BlockedEmailDomain`, `SettingsKv`, `Workspaces`.
 - Enums: `TradeDirection`, `TradingSession`, `OrderType`, `OrderSide`, `PriceType`,
-  `ConfidenceGrade`, `BrokerType {Alpaca, Sandbox}`, `FeedType {Polygon}`,
-  `StrategyType {Iti, BreakoutPullback, LowHigh, FluentDsl, Custom}`, `WorkspaceState`.
+  `ConfidenceGrade`, `BrokerType {Alpaca, Sandbox}`,
+  `StrategyType {Iti, BreakoutPullback, LowHigh, FluentDsl, Custom}`, `AssetClass {Equity, Option}`,
+  `OptionRight {Call, Put}`, `WorkspaceState`.
 
 ### 4.3 Key services — the VERBS
 - `Stock.Ticker(symbol)` → `StrategyBuilder` (`IdiotProof.Scripting`) — entry point to author IdiotScript.
-- `ScriptParser` / `StrategyDefinition` — text ↔ object model.
+- `StrategyLoader.Load(scriptJson, scriptText)` — the one materialization path: canon first;
+  present-but-rejected canon quarantines; only canon-less legacy rows touch `ScriptParser`.
 - `IStrategy.Evaluate(symbol, candles, context)` → `IReadOnlyList<TradeSignal>` (`IdiotProof.Strategies`).
 - `DslStrategy` — adapts a parsed `StrategyDefinition` into an `IStrategy`.
-- `IndicatorSnapshotBuilder.Build(...)` → `IndicatorSnapshot` consumed by condition evaluation.
-- `StrategyBacktester.Run(...)` → `BacktestReport` (`IdiotProof.Strategies/Backtesting`).
+- `IndicatorSnapshotBuilder.Build(...)` → `IndicatorSnapshot` (indicators, previous close/gap,
+  window high/low, pivot higher-low/lower-high) consumed by condition evaluation.
+- `StrategyBacktester.Run(...)` → `BacktestReport` incl. the per-candle `ConditionTable`
+  (`IdiotProof.Strategies/Backtesting`); `GapperDayBacktester` replays a gapper day.
 - `RiskGuardian.ValidateTrade(setup, ...)` → `RiskGuardianResult` (the final gate, `IdiotProof.Shared/Risk`);
-  `RecordTradePnL(realized)` — the Monitor feeds every exit into the daily circuit breaker.
+  `RecordTradePnL(realized)` feeds every exit into the daily circuit breaker;
+  `UpdateConfig` swaps limits without resetting the daily-loss counter.
 - `SupervisedLoop.RunAsync(options, ct)` — fault-tolerant tick loop with backoff + heartbeat file.
+- `UserBrokerResolver.ResolveAsync(userId, brokerMode)` — per-strategy broker routing ([§4.4](#IP-§4)).
 - `IBrokerClient.PlaceOrderAsync(...)` via `BrokerRouter` (Sandbox is the always-registered fallback;
-  the Monitor's `Program.cs` is the ONE construction site — IP-A8).
+  the Monitor's `Program.cs` is the one construction site).
 - `GapperScriptFactory.ToScript(symbol, profile)` — tuned profile → round-trip-safe IdiotScript.
-- `GapperExitEvaluator.Evaluate(def, entry, entryUtc, candles, now)` — sell-by / stops /
-  take-profit / peak-giveback verdict for a held position (pure, clock-free, unit-tested).
-- `IMarketDataFeed.*` — Alpaca (REST + websocket stream), Polygon, Mock (deterministic gap
-  simulation), Switchable; `GetPreviousCloseAsync` supplies gap math's reference close.
-- **Research subsystem** (IP-A32 / RFC 0003, `IdiotProof.Blazor/Services`): `TickerUniverseService`
-  (cached NASDAQ/NYSE universe), `EdgarService` (SEC filings + real document fetch),
-  `Form4Parser` (real insider-transaction magnitude), `CorporateActionDetector` (8-K item-code
-  triage), `RegulatoryScanner` (Federal Register SRO notices → macro claims), `CatalystExtractor`
-  (LLM extraction, sober-tone sentence composition), `OutcomeBackfillService` (fetches real
-  price history to mark claims Realized/Disproven — what actually calibrates the score against
-  reality), `SignificanceScorer` (0-100 ranking), `ResearchService` (orchestration + queries).
-  `IdiotProof.ResearchScanner` is the scheduled driver; `/research` (`Research.razor`) is the
-  read-mostly ranked-feed view.
+- `GapperExitEvaluator.Evaluate` / `.EvaluateShort` — sell-by / stops / take-profit /
+  peak-giveback verdict for a held position (pure, clock-free, unit-tested).
+- `IMarketDataFeed.*` — Alpaca (REST + websocket stream), Mock, Switchable;
+  `GetPreviousCloseAsync` supplies gap math's reference close.
+- `StrategyRepository` — the only writer of strategy rows; owns the mutation guards
+  ([IP-LAW-11](#IP-LAW-11)).
+- **Research subsystem** (`IdiotProof.Blazor/Services`): `TickerUniverseService`, `EdgarService`,
+  `Form4Parser`, `CorporateActionDetector`, `RegulatoryScanner`, `IndexEventScanner`,
+  `CatalystExtractor`, `OutcomeBackfillService`, `SignificanceScorer`, `ResearchService`
+  ([§4.4](#IP-§4)).
+
+### 4.4 Subsystems
+**The Monitor tick (one pipeline, SQL as the bus).** `Strategy` rows are the only strategy
+runtime state; the Gapper and Strategies pages write them, the Monitor reads them each tick.
+Per tick: trading-schedule gate (`TradingSchedule.Classify`; weekends and outside-session
+moments never enter) → re-read active rows → candles from a rolling per-symbol cache (REST,
+topped up by the websocket stream; empty windows and missing previous closes negative-cached
+for 30s) → load canon → resolve branches → manage an open position or walk entry conditions →
+upsert `ConditionProgress` → on a full pass, LLM gate then Risk gate → place the entry. Premarket
+and after-hours entries are limit + DAY + `extended_hours`; regular-hours entries are a
+marketable limit. Before any exit order the Monitor reconciles its bookkeeping with the broker's
+positions (no broker position → phantom bookkeeping cleared, no order; after a 90s grace for a
+still-working entry); when several of a user's strategies share a symbol, aggregate
+reconciliation is skipped and per-strategy bookkeeping is trusted. A sell-by position that
+outlived its entry's ET day flattens at the first evaluated instant; exit orders outside a
+weekday 04:00–20:00 ET window defer visibly. Every buy/sell writes a `TradeDiary` row
+(denormalized, FK-free, log-and-continue).
+
+**Broker routing.** Each strategy declares `BrokerMode` (Paper | Live | Sandbox).
+`UserBrokerResolver` sends Paper/Live to the owner's own Alpaca account only when the owner has
+opted in on the API Keys page (`DefaultBroker = "alpaca"`) and a key pair for that mode exists
+(MindAttic.Vault Brokers bucket first, then the DB-encrypted pair); otherwise, and always for
+Sandbox, it returns the global router's active broker (Sandbox by default). Clients are cached
+per (user, mode) for 5 minutes and rebuilt when the key fingerprint changes. The Monitor and the
+Blazor host share one Data Protection key ring (app name "IdiotProof"; dev
+`%APPDATA%\MindAttic\DataProtection\IdiotProof`; prod either Azure Blob + Key Vault via
+`DataProtection:AzureBlobUri` + `DataProtection:KeyVaultKeyUri`, or a durable
+`DataProtection:KeyRingPath`; production with neither fails closed) so the console can decrypt
+the keys the UI writes. Market data is one global feed (sip by default,
+`IDIOTPROOF_ALPACA_FEED=iex` for the free tier).
+
+**The Gapper.** Profiles are a static JSON catalog
+(`IdiotProof.Blazor/wwwroot/data/gapper-profiles.json`, [IP-LAW-7](#IP-LAW-7)) of templates:
+screen (gap %, volume ratio, price band), ET entry window (default 04:00–09:00), stop and
+trailing stop, peak giveback + arm time (default 09:15), hard sell-by (default 09:28), notional.
+DSL verbs: `RequireEntryWindow`/`EntryWindow`, `IsGapUp`/`IsGapBetween` (fail closed without a
+previous close), `PeakGiveback(pct, arm)`, `SellBy(time)`. Momentum-rollover exit: track the
+post-entry peak; once armed, sell when price gives back N% of the entry→peak run; `SellBy`
+always flattens before the bell. At most 3 active gappers per user and one active gapper per
+symbol, enforced in SQL. The "From a transcript" panel (`GapperInterpreter`, via Legion) turns
+natural language into candidate cards that are re-validated fail-closed and queued only by a
+human click. "Backtest a day" (`GapperDayBacktester`) walks the same condition list and the same
+`GapperExitEvaluator` as live, reports MFE/MAE, a giveback grid and hindsight suggestions, and
+offers a tuned profile the user applies manually.
+
+**Replay, scan and dataset (Monitor CLI).** `replay` walks a past ET session's Alpaca bars
+through the live evaluator and exit brain (shared `MarketTime.IsInsideSession` gate) and reports
+each round-trip; tickers without a saved strategy use a gapper profile or a built-in family
+(`momentum`, `reversal`, `emabreak`, `rthdrive`, `rsireversal`, `swingreversal`, `shortfade`).
+Each run is a `ReplayRun` row with normalized `ReplayTrade`/`ReplayBar` feature rows; the HTML
+archive is a view regenerated from SQL (`replay-regen`); `scan` pulls Alpaca's movers and replays
+each gapper; `replay-export` writes ML-ready CSVs from the feature tables. Replay never places
+orders. Other operator commands: `status`, `set-keys` (validates prefix + live probe),
+`create-strategies`, `create-account`, `test-order`, `flatten`, `resync-canon`, `auto-gapper`,
+`premarket-fade`.
+
+**Research.** `IdiotProof.ResearchScanner` runs one pass: watchlist tickers plus a rotating
+batch of the tracked universe (`TrackedTicker`, refreshed daily from Alpaca's asset list); real
+Form 4 transactions (`InsiderTransaction`); 8-K item-code triage with real document fetch only
+for 1.01/2.01/3.02/3.03/5.03; Federal Register SRO notices triaged by an LLM into macro claims
+(`IsMacro = true`, affected tickers only when resolvable — never fabricated); S&P index
+add/remove events from the hand-maintained `wwwroot/data/sp-index-events.json`
+(`ClaimType = "IndexEvent"`, Pending until effective). Claims are deduped by (ticker, source
+URL); display sentences are composed deterministically from structured fields
+(`"{Summary}. Affects {Ticker} because {Mechanism}. Expected impact: {ExpectedTimeline}."`);
+`OutcomeBackfillService` marks old-enough claims Realized/Disproven from real price history
+before `SignificanceScorer` ranks. `tools/register-research-scan-task.ps1` registers the
+Scheduled Task by hand; nothing registers it automatically.
+
+**Options (manual).** `/options` (`Options.razor` + `OptionsTradingService`) offers single-leg
+calls and puts on Sandbox, Paper or Live, defaulting to Sandbox unless Alpaca routing is opted
+in and keyed. The chain spans today to `AlpacaBrokerClient.ChainHorizon` (3 years). Pricing math
+is pure (`IdiotProof.Shared/Options`): intrinsic/extrinsic/breakeven/DTE, Black-Scholes value +
+implied-vol solver (European exercise, no dividends), and the informational
+`SellSignalEvaluator` (extrinsic within 5% of its observed high after ≥3 samples **and** a
+Bullish claim on the underlying in the last 7 days). Orders are whole contracts, DAY, no
+extended hours, Market/Limit; the ticket locks per action by `OptionsTradingLevel`
+(0 none · 1 covered only · 2 long calls/puts · 3 spreads) and Live needs the 5-minute password
+elevation. Jargon has one source, `OptionsGlossary`. A user-initiated options order is outside
+the Monitor, so the three gates do not apply to it ([IP-LAW-1](#IP-LAW-1)).
+
+**Accounts.** Registration and the CLI `create-account` reject malformed and disposable email
+domains (`BlockedEmailDomain`, seeded at startup). The password-reset and username-listing
+endpoints exist in Development only. `/login` forwards only same-site return URLs. The SignalR
+`TradingHub` requires authentication. `AlpacaOAuthClient` + `/connect/alpaca` store a scoped
+token, which is not yet used for order routing.
 
 ## 5. The Laws {#IP-§5}
 This bible **inherits** the org-wide laws in
@@ -165,27 +272,39 @@ request [see HOUSE-LAW-9].
 
 Project-specific laws below.
 
-### {#IP-LAW-1} Three gates, in order, before any fire
+### {#IP-LAW-1} Three gates, in order, before any automated fire
 A candidate signal fires only if: (1) every strategy condition matches, (2) the LLM voter
-quorum approves, (3) the `RiskGuardian` clears it. Any gate blocks the fire and the reason is
-recorded to the audit trail. (Verified at the Risk gate by the `RiskGuardian*` tests; the LLM
-gate lives in `IdiotProof.Blazor/Services/LlmVotingService.cs`.)
+quorum explicitly approves, (3) the `RiskGuardian` clears it. Any gate blocks the fire and the
+reason is recorded to the audit trail. Every gate fails closed: a condition whose inputs are
+absent or whose type is unrecognized blocks; zero votes, abstain-only, unparseable votes or a
+below-threshold split block (a vote defaults to Abstain). The LLM gate is skipped only when
+voting is disabled or no Claude key is configured. Exits are risk-reducing and skip the LLM
+panel but are audit-logged and honor the Risk Guardian kill-switch. User-initiated manual orders
+(the Options section) are not automated fires; they are governed by the Paper/Live consent rule
+and Live password elevation instead. (Risk gate: `RiskGuardian*` tests; LLM gate:
+`IdiotProof.Blazor/Services/LlmVotingService.cs`; condition layer: `ConditionFailClosedTests`.)
 
 ### {#IP-LAW-2} Risk Guardian holds the final veto
-No order is placed without a stop loss, with risk within `MaxLossPerTrade`, sized so the
-worst case cannot exceed the limit, within `MinStopLossPercent`/`MaxStopLossPercent`, within
-`MaxAccountRiskPercent`, and under the daily-loss circuit breaker. It can veto regardless of
-strategy or LLM consensus. (`IdiotProof.Shared/Risk/RiskGuardian.cs`.)
+No order is placed without a stop loss on the correct side, with risk within `MaxLossPerTrade`,
+sized so the worst case cannot exceed the limit, within `MinStopLossPercent`/`MaxStopLossPercent`
+(default max 10%), within `MaxAccountRiskPercent`, and under the daily-loss circuit breaker. It
+can veto regardless of strategy or LLM consensus. Limits are user-editable on the Settings page;
+config refreshes on a 2-minute TTL without resetting the daily-loss counter.
+(`IdiotProof.Shared/Risk/RiskGuardian.cs`.)
 
 ### {#IP-LAW-3} Sandbox is the always-safe default broker
 `BrokerRouter` is seeded with `BrokerType.Sandbox` as the active broker and falls back to
-Sandbox rather than throwing or silently routing to a live broker. Live trading is an explicit
-opt-in. (`IdiotProof.Brokers/BrokerRouter.cs`.)
+Sandbox rather than throwing or silently routing to a live broker. Routing to a real account
+needs the owner's explicit opt-in plus a key pair; a missing or undecryptable key falls through
+to Sandbox, never into another user's account. Live trading is an explicit opt-in with a
+red-outline confirmation. (`IdiotProof.Brokers/BrokerRouter.cs`,
+`IdiotProof.Blazor/Services/UserBrokerResolver.cs`.)
 
 ### {#IP-LAW-4} The verb catalog is reflected, never hand-listed
-`StrategyScriptGenerator` builds the LLM system prompt by reflecting on the real
-`StrategyBuilder` + `Conditions` types so the documented/prompted DSL can never drift from the
-code that actually compiles. (`IdiotProof.Blazor/Services/StrategyScriptGenerator.cs`.)
+`StrategyScriptGenerator` builds the LLM system prompt — and the Learning Center renders its
+phase/verb reference — by reflecting on the real `StrategyBuilder` + `Conditions` types so the
+documented/prompted DSL can never drift from the code that actually compiles.
+(`IdiotProof.Blazor/Services/StrategyScriptGenerator.cs`.)
 
 ### {#IP-LAW-5} The Monitor loop survives its own failures
 `SupervisedLoop` catches per-tick exceptions, applies capped exponential backoff, resets on the
@@ -196,138 +315,134 @@ unattended evaluator never dies on a single bad evaluation. (`IdiotProof.Engine/
 Private fields use `camelCase` with no leading underscore (project code-style convention).
 
 ### {#IP-LAW-7} JSON for static data, SQL Server for runtime state
-Static catalogs (watchlists, indicator/strategy config, ticker profiles) are JSON; runtime
-state (strategies, preferences, audit logs, condition progress) is SQL Server. No Python, no YAML.
+Static catalogs (gapper profiles, index events, indicator/strategy config) are JSON; runtime
+state (strategies, preferences, audit logs, condition progress, trade diary, replays, research
+claims, workspaces) is SQL Server. No Python, no YAML.
 
 ### {#IP-LAW-8} The canonical strategy is strict JSON; script text is a view
 The semantic model (`StrategyDefinition`) serialized as versioned, STRICT JSON
 (`Strategy.ScriptJson`, written by `IdiotProof.Scripting/StrategyJson.cs`) is what evaluators
-run. Reads fail closed: unknown schema version, condition type, or property →
-`StrategyJsonException` and the strategy is **quarantined** (visible reason in
-ConditionProgress), never partially evaluated. IdiotScript text is the human view — generated
-from the model for display, and parsed (tolerantly, for now) only for hand-typed input and
-legacy rows with no canon. LLM boundaries emit structured JSON against a schema, never DSL
-text. ("Parse, don't validate"; no shotgun parsing on the money path — see
-[IP-A13](AMENDMENTS.md#IP-A13). Verified by `StrategyJsonTests`.)
+run. Reads fail closed: unknown schema version, condition type, property, wrong-kind or
+unrepresentable value → `StrategyJsonException` and the strategy is **quarantined** (visible
+reason in ConditionProgress; escalated loudly when it holds a position), never partially
+evaluated. IdiotScript text is the human view — generated from the model for display (always
+InvariantCulture), and parsed (tolerantly, for now) only for hand-typed input and legacy rows
+with no canon. LLM boundaries emit structured JSON against a schema, never DSL text.
+Attribution metadata (`Author`, `OriginTranscript`) is not part of the canon. ("Parse, don't
+validate"; no shotgun parsing on the money path. Verified by `StrategyJsonTests`.)
+
+### {#IP-LAW-9} Synthetic data never drives a real order
+When the market-data feed is Mock, the Monitor refuses every non-Sandbox entry; Mock data pairs
+only with the Sandbox broker. Exits (risk-reducing) are still allowed. The guard sits at the
+`IBrokerClient`/`IMarketDataFeed` seams so a future broker inherits it.
+(`IdiotProof.Monitor/MonitorWorker.cs`.)
+
+### {#IP-LAW-10} One evaluator; SQL is the bus
+The Monitor is the only live evaluator and order placer for strategies. UI changes reach it only
+through SQL rows, read each tick — no restart, no second evaluation path. Backtest and replay
+surfaces call the same evaluator and exit brain (`IndicatorSnapshotBuilder`, conditions,
+`GapperExitEvaluator`, `EmaPeriodCollector`) so a backtest cannot run different code than live.
+A SQL leader lease keeps at most one Monitor trading per database.
+
+### {#IP-LAW-11} The repository owns strategy-mutation invariants
+`StrategyRepository` enforces ownership (`NotOwner`), refuses to deactivate or delete a strategy
+holding a position (`PositionOpen`), writes only editor-owned columns on update (never the
+Monitor's position bookkeeping), enforces one active gapper per symbol and the 3-gapper cap
+against SQL (with a post-write recheck), and deletes a strategy's `ConditionProgress` with it.
+No page writes strategy rows around it. (`StrategyRepositoryGuardTests`.)
 
 ## 6. Verified state {#IP-§6}
-Build/test evidence (recorded 2026-07-19, .NET 10 SDK, `IdiotProof.slnx`):
+Build/test evidence (recorded 2026-10-03, .NET 10 SDK): `dotnet test IdiotProof.slnx -c Debug`
+→ build succeeded, **all green, 0 failed**: Engine 85 · Indicators 18 · Strategies 34,681
+(dominated by generated parameter cases) · Brokers 33 (+3 `[Explicit]` real-paper tests not run)
+· Blazor 201 · UI 62 · Monitor 10.
 
-- **Build:** `dotnet build IdiotProof.slnx -c Debug` → **Build succeeded**, 0 errors,
-  0 warnings.
-- **Tests:** **all green, 168 passed / 0 failed** across the five solution test projects
-  (build is **warning-free** as of IP-A11):
-  - `IdiotProof.Engine.Tests` — 29 passed (RiskGuardian gate + SupervisedLoop resilience +
-    `RecordTradePnL` day-rollover regression, IP-A10 + `UpdateConfig` limit-swap-preserves-
-    daily-loss regression, IP-A16; WorkspaceManager cache-hydration + seed-once concurrency
-    suite, `WorkspaceManagerTests`, IP-A15).
-  - `IdiotProof.Indicators.Tests` — 18 passed (RSI/EMA/ATR/MACD/VWAP math + ADX Wilder-seed
-    regression, `AdxTests`).
-  - `IdiotProof.Strategies.Tests` — 58 passed (DSL round-trip incl. Name survival, backtester
-    incl. ET time-exit regression, gapper profile factory + gap conditions + entry window +
-    momentum-rollover exits + arm/sell-by cross-validation, `GapperTests`; full mock-gap-day
-    lifecycle + previous-close date-comparison regression, `GapperLifecycleTests`; canonical
-    JSON round-trip + fail-closed + loader-quarantine suite, `StrategyJsonTests`, IP-LAW-8;
-    day-replay + giveback grid + tuned-profile suite incl. idempotent "(tuned)" suffix,
-    `GapperDayBacktesterTests`, IP-A14/IP-A15; canonical EMA-period walk incl. ConditionalBlock
-    coverage, `EmaPeriodCollectorTests`, and full multi-target scale-out ladder in live
-    signals, `DslStrategySignalTests`, IP-A15; weekend/ET-rollover trading-day gate,
-    `MarketTimeTests`, IP-A16).
-  - `IdiotProof.Brokers.Tests` — 13 passed (BrokerRouter Sandbox default + sandbox fill
-    simulation + Alpaca extended-hours contract). Options wire format + Sandbox synthetic chain
-    and position-book basis rules added by [IP-A33](AMENDMENTS.md#IP-A33)/[IP-A34](AMENDMENTS.md#IP-A34)
-    (`OptionsBrokerTests`, 32 passing 2026-09-05).
-  - `IdiotProof.UI.Tests` — added by [IP-A34](AMENDMENTS.md#IP-A34): the shared RCL's pure
-    presenter / view-model / glossary logic (`OptionsPresenterTests`, `OptionPositionViewTests`,
-    `OptionsGlossaryTests`; 62 passing 2026-09-05). Component rendering is proven by the Cypress
-    spec `08_options.cy.ts`, not by bUnit.
-  - `IdiotProof.Blazor.Tests` — 50 passed (StrategyScriptGenerator verb-catalog reflection +
-    LlmVotingService consensus logic + JSON vote parsing incl. fail-closed-to-Abstain
-    regressions (IP-A11) and the Abstain-default consensus pin (IP-A16) +
-    ConditionProgressRepository upsert/read integration tests against SQL Server LocalDB +
-    guarded strategy mutators (ownership + open-position refusal + per-symbol active count),
-    `StrategyRepositoryGuardTests`, IP-A16 + per-user broker routing rule,
-    `UserBrokerResolverTests` + the transcript→gapper extraction contract,
-    `GapperInterpreterTests`, IP-A12 + the Legion provider-id/model-catalog canary,
-    `LegionProviderContractTests`, IP-A15).
+Test projects and what they pin:
+- `IdiotProof.Engine.Tests` — RiskGuardian gate incl. `RecordTradePnL` day rollover and
+  `UpdateConfig` preserving the daily loss; SupervisedLoop resilience; WorkspaceManager cache
+  hydration; options pricing (`OptionsPricingTests`); AppSettings credential overlay.
+- `IdiotProof.Indicators.Tests` — RSI/EMA/ATR/MACD/VWAP math + ADX Wilder-seed regression.
+- `IdiotProof.Strategies.Tests` — DSL round-trip, backtester (ET time exits, trailing/giveback
+  replay), gapper factory/conditions/exits (`GapperTests`), mock-gap-day lifecycle
+  (`GapperLifecycleTests`), canonical JSON (`StrategyJsonTests`), day replay
+  (`GapperDayBacktesterTests`), EMA collector, scale-out ladder (`DslStrategySignalTests`),
+  trading-day gate (`MarketTimeTests`), fail-closed conditions (`ConditionFailClosedTests`),
+  window-scoped latches (`WindowScopedConditionTests`), culture-safe text (`ScriptTextRoundTripTests`).
+- `IdiotProof.Brokers.Tests` — BrokerRouter Sandbox default, sandbox fills, Alpaca extended-hours
+  contract, options wire format + Sandbox chain/basis (`OptionsBrokerTests`); the opt-in
+  `[Explicit]` `AlpacaPaperOptionsIntegrationTests` runs only by name against the real paper account.
+- `IdiotProof.Blazor.Tests` — verb-catalog reflection, LLM voting consensus + fail-closed vote
+  parsing, `ConditionProgressRepository` (SQL Server LocalDB), `StrategyRepositoryGuardTests`,
+  `UserBrokerResolverTests`, `GapperInterpreterTests`, `LegionProviderContractTests`, research
+  (`EdgarServiceTests`, `Form4ParserTests`, `CorporateActionDetectorTests`,
+  `RegulatoryScannerTests`, `SignificanceScorerTests`, `OutcomeBackfillServiceTests`,
+  `IndexEventScannerTests`, `TickerUniverseServiceTests`), `RiskGuardianServiceTests`,
+  `UserPreferencesServiceTests`.
+- `IdiotProof.UI.Tests` — Options presenter / position view / glossary logic.
+- `IdiotProof.Monitor.Tests` — `PremarketFadeScanner` and `BeBexDecayScanner` math.
 
-Proven-working subsystems: the Risk Guardian gate, the SupervisedLoop fault-tolerance, the core
-indicator math, IdiotScript build/round-trip, the DSL backtester, BrokerRouter Sandbox-first
-routing ([IP-LAW-3](BIBLE.md#IP-LAW-3)), the LLM system-prompt verb-catalog reflection law
-([IP-LAW-4](BIBLE.md#IP-LAW-4)), the SQL-backed `SqlWorkspaceStore` (registered in the Blazor
-host before the engine; one-shot JSON import on first user load), and
-`ConditionProgressRepository` upsert/read (integration tests against SQL Server LocalDB; insert
-on first call, update on second, full-pass clears verb, zero-condition fast path, two strategies
-track independently). See [USER_STORIES.md](USER_STORIES.md) for per-capability test citations.
-
-Not proven by the solution build/test: the Blazor UI flows and the LLM voting round-trip. The
-Cypress suite (`tests/IdiotProof.Cypress/`) has 7 specs (02–07, see [IP-A4](AMENDMENTS.md#IP-A4));
-they run deterministically with `IDIOTPROOF_FAKE_LLM=1` (the `FakeLlmHandler` test seam
-registered in `Program.cs` intercepts Legion calls server-side) but need a live server run to
-graduate stories E1–E6 to ✅.
+Not proven by the solution test run: the Blazor UI flows and the live LLM voting round-trip.
+The Cypress suite (`tests/IdiotProof.Cypress/cypress/e2e/`, specs 01–09) runs deterministically
+with `IDIOTPROOF_FAKE_LLM=1` (the Development-only `FakeLlmHandler` intercepts Legion calls
+server-side) but needs a live server run to graduate the E-stories to ✅; `08_options.cy.ts` has
+been run green. MonitorWorker itself has no host-level harness test.
 
 ## 7. Active frontier {#IP-§7}
-- **Options, Phase 2 (after [IP-A33](AMENDMENTS.md#IP-A33)–[IP-A35](AMENDMENTS.md#IP-A35))** —
-  the fill-and-close half of the real paper round-trip during market hours (IP-US-U10; place +
-  cancel already proven by the opt-in `AlpacaPaperOptionsIntegrationTests`); extract the
-  duplicated Live elevation modal into one shared RCL component; then the automation questions the manual phase deliberately skipped — option legs
-  in the strict-JSON strategy schema (v2), IV/Greeks conditions in the `Conditions` catalog, and
-  a non-linear `RiskGuardian` model (max loss = premium for long options) before the Monitor is
-  ever allowed to fire an options order. Multi-leg spreads (`order_class: "mleg"`) after that.
-- **Gapper hardening (Epic K tail)** — full-day integration test through the Monitor
-  (mock gap day: queue → 4AM fire → hold → rollover sell), `/gapper` Cypress spec, short-side
-  position management, fill-price reconciliation against the broker's actual fill (entry is
-  recorded at the limit price today).
-- **Audit debts (2026-07-18 audit, deliberately deferred)** — `LlmVotingService` still
-  hand-rolls a 3-persona Claude-only panel instead of Legion's native voter-panel API
-  (legion.json declares claude/openai/gemini/deepseek); DSL generation is single-shot;
-  per-user **Claude** keys are not merged in the Monitor (broker keys ARE per-user since
-  [IP-A9](AMENDMENTS.md#IP-A9)); the Settings page still doesn't expose RiskGuardian config
-  (`SetRiskConfigAsync` uncalled); the write-only `OpenStrategyTabs` CSV and unused
-  `SettingsKv` table await either a consumer or deletion; Azure Blob + Key Vault key-ring
-  protection is the upgrade from the file-system `DataProtection:KeyRingPath` once the
-  Azure infra (MindAttic.Deploy `idiotproof-web`) is provisioned.
-- **Learning Center** — `/learn` in-app documentation hub: workflow overview diagram, six-phase
-  walkthrough, live reflected verb catalog, three-gates explanation + diagram, annotated sample
-  strategies. Verb catalog and phase reference rendered from live reflection (same path as
-  `StrategyScriptGenerator`, [IP-LAW-4](BIBLE.md#IP-LAW-4)). (Epic I in the stories, all ⬜.)
-- **Backtest UI enhancement** — full-depth backtest: fetch a day of historical candles from
-  Alpaca/Polygon, evaluate the strategy tick-by-tick via `StrategyBacktester.Run()`, render a
-  per-candle condition table (pass/fail per condition) and hypothetical P&L. Enhances the existing
-  `BacktestReport` pipeline in `IdiotProof.Strategies` and the stub `Backtest.razor` UI. (Epic J
-  in the stories, all ⬜. Stub wired in IP-US-E6.)
+- **Options, phase 2** — the fill-and-close half of a real paper round-trip during market hours
+  (IP-US-U10); extract the duplicated Live elevation modal into one shared component; then option
+  legs in the strict-JSON strategy schema (v2), IV/Greeks conditions in the `Conditions` catalog,
+  and a non-linear `RiskGuardian` model (max loss = premium for long options) before the Monitor
+  may ever fire an options order. Multi-leg spreads (`order_class: "mleg"`) after that.
+- **Gapper hardening (Epic K tail)** — host-level MonitorWorker test (queue → 4AM fire → hold →
+  rollover sell), `/gapper` Cypress spec, short-side order placement and position management,
+  fill-price reconciliation against the broker's actual fill (entry is recorded at the limit
+  price), full order-state tracking (pending orders as first-class rows).
+- **Known debts** — `LlmVotingService` hand-rolls a 3-persona Claude-only panel instead of
+  Legion's native voter-panel API (legion.json declares claude-api/openai/gemini/deepseek); DSL
+  generation is single-shot and the Describe tab still emits text, not model JSON; per-user
+  **Claude** keys are not merged in the Monitor; the unused `UserPreferences.OpenStrategyTabs`
+  column awaits removal in a migration; the Azure infra (`tools/azure-provision.md`) is not
+  provisioned; the OAuth token is not
+  yet wired into order placement (needs a registered Alpaca OAuth app + paper testing).
+- **Replay tests (Epic R)** — the replay/scan/export/family commands ship without NUnit coverage.
+- **Adaptive auto-strategy generation (Epic S)** — standardize the `auto-gapper` seed into a
+  wait-for-enough-information generator across sessions.
 - **Strategy ghost overlay + branching visualization** — see `TODO.md`: chart integration,
-  simulator timeline, branch fork rendering. (Epic G in the stories, all ⬜.)
+  simulator timeline, branch fork rendering. (Epic G.)
 - **Roslyn-based IdiotScript parser** — replace the tolerant regex parser with exact
   line/col diagnostics. (IP-US-H1.)
-- **Cypress CI run** — 7 specs (02–07) cover IP-US-E1–E6; all run deterministically with
-  `IDIOTPROOF_FAKE_LLM=1`. Run `npm run cypress:run` (or open the Cypress GUI) against a live
-  server to graduate E1–E6 to ✅. See [IP-A4](AMENDMENTS.md#IP-A4).
+- **Cypress CI run** — run the suite against a live server with `IDIOTPROOF_FAKE_LLM=1` to
+  graduate IP-US-E1–E6, the Learning Center (Epic I) and Backtest (Epic J) stories.
 
 ## 8. Quality bar {#IP-§8}
 A feature is **done** (`✅`) only when: it builds clean in `IdiotProof.slnx`; it has a green
-automated test (NUnit/xUnit for backend, Cypress for UI) that is named in
+automated test (NUnit for backend, Cypress for UI) that is named in
 [USER_STORIES.md](USER_STORIES.md); user-facing changes have an e2e or lifecycle assertion;
 and it respects the laws in §5 (gates in order, Sandbox default, Vault/Legion routing, no
 underscore fields). Anything not proven by a test is `🟡`/`⬜`. (Inherits [HOUSE-LAW-8].)
 
 ## 9. Glossary {#IP-§9}
 - **IdiotScript** — the fluent C# DSL (`Stock.Ticker("NVDA").RequireAdxAbove(20)...Build()`) that
-  expresses a strategy as six lifecycle phases.
+  expresses a strategy as six lifecycle phases; the human view of the canonical JSON.
 - **Phase** — one of the six fixed stages every strategy walks: Setup, Filters, Entry, Order,
   Risk, Exit. The parser rejects verbs used in the wrong phase.
 - **Condition** — a single boolean check (`IsAboveVwap()`, `OnReclaim(9)`) composed with
-  `.And()/.Or()/.Not()`.
+  `.And()/.Or()/.Not()`. Latch verbs (`Breakout`, `Pullback`, `HoldsAbove`) evaluate live
+  against the snapshot's window high/low.
 - **Gate** — one of the three pre-fire checks: condition match → LLM voter quorum → Risk Guardian.
 - **Risk Guardian** — `IdiotProof.Shared.Risk.RiskGuardian`, the final pre-trade veto.
-- **Monitor** — `IdiotProof.Monitor`, the unattended 24/7 console evaluator.
+- **Monitor** — `IdiotProof.Monitor`, the unattended 24/7 console evaluator and executor.
 - **SupervisedLoop** — the fault-tolerant tick loop the Monitor runs.
-- **Voter panel / Legion** — the multi-LLM quorum (configured in `legion.json`) that approves
-  or rejects a Claude-generated script / a candidate fire, via MindAttic.Legion.
+- **Voter panel / Legion** — the multi-LLM quorum (configured in `legion.json`, shipped with both
+  hosts) that approves or rejects a Claude-generated script / a candidate fire, via MindAttic.Legion.
 - **ConditionProgress** — the SQL row (`N/M`, first failing verb) the Monitor upserts per tick
   and the Strategies page polls for live badges.
+- **Quarantine** — a strategy whose canon cannot be fully understood; never evaluated, reason shown.
 - **Sandbox broker** — the always-registered simulated broker (instant fills into an in-memory
   position book) that is the safe default in `BrokerRouter`.
+- **BrokerMode** — a strategy's own routing choice: Paper, Live or Sandbox.
+- **Trade diary** — the `TradeDiary` table: one row per trade lifecycle (entry, risk plan, exit,
+  realized P&L, paper/live), a permanent record that survives strategy deletion.
 - **Gapper** — a stock gapping up in premarket vs the previous close; the flagship trade:
   buy in the 4AM window, sell before the 9:30 bell.
 - **Gapper profile** — the dialable template (gap %, volume ratio, price band, entry window,
@@ -337,6 +452,10 @@ underscore fields). Anything not proven by a test is `🟡`/`⬜`. (Inherits [HO
   from entry to the post-entry peak; armed from a configured ET time ("the last 15 minutes").
 - **Previous close** — the prior trading day's official close; the reference for gap %.
   Gap conditions fail closed without it.
+- **Replay** — re-running a strategy over a past session's bars with the live evaluator; stored
+  as a `ReplayRun` with `ReplayTrade`/`ReplayBar` feature rows.
+- **Strategy family** — a built-in replay template (`momentum`, `reversal`, `emabreak`,
+  `rthdrive`, `rsireversal`, `swingreversal`, `shortfade`) used when a ticker has no saved strategy.
 - **Research claim** — one `ResearchClaim` row: a catalyst or portent extracted from a filing,
   news article, or regulatory notice, with sentiment/magnitude/timing and a significance score.
 - **Macro claim** — a `ResearchClaim` with `IsMacro = true`: a regulatory/exchange-rule event
@@ -360,8 +479,10 @@ underscore fields). Anything not proven by a test is `🟡`/`⬜`. (Inherits [HO
 - **DTE** — calendar days to expiration.
 - **IV (implied volatility)** — the volatility that makes the Black-Scholes price equal the live
   premium; supplied by Alpaca's snapshots when available, otherwise solved locally and badged `Model`.
+- **Options trading level** — Alpaca's per-account permission (`options_trading_level`): 0 none,
+  1 covered calls / cash-secured puts, 2 long calls/puts, 3 spreads.
 - **Sell signal** — `SellSignalEvaluator`'s informational nudge on an open long option: extrinsic
-  value within 5% of its observed high **and** a Bullish research claim on the underlying in the
-  last 7 days → "consider taking profit". Never places anything.
+  value within 5% of its observed high (after at least 3 samples) **and** a Bullish research
+  claim on the underlying in the last 7 days → "consider taking profit". Never places anything.
 - **Index event** — a `ResearchClaim` with `ClaimType = "IndexEvent"`: an announced S&P 500/100
   addition or deletion logged in `wwwroot/data/sp-index-events.json`, Pending until effective.

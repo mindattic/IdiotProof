@@ -357,8 +357,8 @@
             LlmVotingEnabled   = llmVotingEnabled,
             // SaveAsync overwrites the WHOLE row — omitting these silently
             // reset the user's broker routing to the class defaults on every
-            // unrelated key edit (IP-A11), which also made the per-user
-            // Alpaca routing (IP-A9) unreachable: nothing ever set "alpaca".
+            // unrelated key edit, which also made the per-user
+            // Alpaca routing (docs/BIBLE.md §4.4) unreachable: nothing ever set "alpaca".
             DefaultBroker      = routeToMyAlpaca ? "alpaca" : "Sandbox",
             DefaultDataFeed    = string.IsNullOrWhiteSpace(loadedDataFeed) ? "Mock" : loadedDataFeed,
             // Same whole-row-overwrite hazard as DefaultBroker above: this page

@@ -43,7 +43,7 @@ public sealed class WebStorageProvider : IStorageProvider
 }
 
 /// <summary>
-/// Stores data in %LOCALAPPDATA%\MindAttic\IdiotProof (for MAUI Desktop).
+/// Stores data in %LOCALAPPDATA%\MindAttic\IdiotProof (local desktop storage).
 /// </summary>
 public sealed class DesktopStorageProvider : IStorageProvider
 {

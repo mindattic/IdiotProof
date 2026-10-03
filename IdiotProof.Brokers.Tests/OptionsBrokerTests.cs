@@ -193,7 +193,7 @@ public class SandboxOptionsTests
 /// <summary>
 /// Alpaca options wire format — asserted against canned request/response shapes from Alpaca's
 /// docs. Field casing/nullability should be re-checked against a real paper response once the
-/// account is options-approved (see docs/rfc/0004).
+/// account is options-approved.
 /// </summary>
 public class AlpacaOptionsWireTests
 {

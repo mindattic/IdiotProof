@@ -8,7 +8,7 @@
 // ticker — all gappers are not the same. The tuned result is denormalized
 // into the queued strategy's ScriptText via GapperScriptFactory, so the
 // Strategy SQL row remains the single runtime source of truth the Monitor
-// evaluates (RFC 0002 / IP-A8).
+// evaluates (docs/BIBLE.md §4.4).
 // ============================================================================
 
 using System.Text.Json.Serialization;

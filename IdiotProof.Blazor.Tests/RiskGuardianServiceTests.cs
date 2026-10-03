@@ -7,7 +7,7 @@ namespace IdiotProof.Blazor.Tests;
 /// <summary>
 /// The per-user Guardian cache must NEVER discard a Guardian instance while
 /// the process lives — its in-memory daily-loss counter is the daily circuit
-/// breaker (IP-LAW-2). IP-A16 added config refresh via UpdateConfig precisely
+/// breaker (IP-LAW-2). Config refreshes via UpdateConfig precisely
 /// to avoid rebuilding the instance; these tests pin that Invalidate (the
 /// Settings page's post-edit hook) also preserves the instance instead of
 /// dropping it and silently resetting the day's losses.

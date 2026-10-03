@@ -5,7 +5,7 @@ using Microsoft.EntityFrameworkCore;
 namespace IdiotProof.Blazor.Tests;
 
 /// <summary>
-/// IP-A19: the Settings page's risk editor persists through
+/// The Settings page's risk editor persists through
 /// <see cref="UserPreferencesService.SetRiskConfigAsync"/>, which promises the
 /// basic sanity invariants (daily ≥ per-trade, max stop ≥ min stop,
 /// non-negative amounts) so RiskGuardian config loads never see nonsense.

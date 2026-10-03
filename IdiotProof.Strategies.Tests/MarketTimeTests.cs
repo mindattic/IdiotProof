@@ -3,7 +3,7 @@ using IdiotProof.Scripting;
 namespace IdiotProof.Strategies.Tests;
 
 /// <summary>
-/// The weekend gate (IP-A16): US equity markets never trade Saturday/Sunday,
+/// The weekend gate: US equity markets never trade Saturday/Sunday,
 /// and the Monitor's session windows are time-of-day only — without this
 /// helper a Saturday 10:00 ET tick counted as "inside RTH" and could queue
 /// an order against Friday's stale prices.

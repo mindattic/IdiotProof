@@ -5,7 +5,7 @@ using Microsoft.EntityFrameworkCore;
 namespace IdiotProof.Blazor.Tests;
 
 /// <summary>
-/// The guarded strategy mutators (IP-A16): SetActive/Delete enforce ownership
+/// The guarded strategy mutators (IP-LAW-11): SetActive/Delete enforce ownership
 /// (no caller may flip another user's row) and open-position safety (a row
 /// holding shares must stay active so the Monitor keeps managing the exit;
 /// deleting it would discard the exit rules for a live position).
@@ -135,7 +135,7 @@ public sealed class StrategyRepositoryGuardTests
     [Test]
     public async Task UpdateAsync_NeverClobbersTheMonitorsPositionBookkeeping()
     {
-        // IP-A21: the editor's Save used to write the WHOLE detached row —
+        // The editor's Save used to write the WHOLE detached row —
         // a snapshot loaded before the Monitor filled the position stomped
         // PositionQty back to 0: orphaned shares AND a re-armed duplicate fire.
         var s = await CreateAsync("BOOK");
@@ -181,7 +181,7 @@ public sealed class StrategyRepositoryGuardTests
     [Test]
     public async Task DeleteAsync_TakesTheConditionProgressRowWithIt()
     {
-        // IP-A21: no FK links ConditionProgress to Strategies, so deleted
+        // No FK links ConditionProgress to Strategies, so deleted
         // strategies used to leave badge rows orphaned forever.
         var s = await CreateAsync("PROG");
         var progressRepo = new ConditionProgressRepository(factory);

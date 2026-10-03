@@ -16,7 +16,7 @@ public sealed class WorkspaceTab
     /// <summary>Symbols to watch/trade in this workspace.</summary>
     public List<string> Watchlist { get; set; } = [];
 
-    // NOTE (IP-A8): the old StrategyBinding list ("ITI" name-bound strategies
+    // NOTE: the old StrategyBinding list ("ITI" name-bound strategies
     // resolved via a registry) was removed — strategies are SQL Strategy rows
     // evaluated by the Monitor; workspace tabs are UI layout state only.
 

@@ -5,7 +5,7 @@ using IdiotProof.Models;
 namespace IdiotProof.Blazor.Data;
 
 /// <summary>
-/// One row per executed trade lifecycle — the trade diary (IP-A23). Opened when
+/// One row per executed trade lifecycle — the trade diary. Opened when
 /// an entry order is placed, closed when the position exits, so every paper (or
 /// sandbox / live) trade the Monitor makes is recorded end to end: side, size,
 /// entry price/time, the full risk plan (stop, trailing stop, take-profit,

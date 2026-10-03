@@ -6,11 +6,11 @@ using IdiotProof.Shared;
 namespace IdiotProof.Strategies.Tests;
 
 /// <summary>
-/// IP-A20 regressions: window-scoped memory for per-tick evaluators.
+/// Regressions: window-scoped memory for per-tick evaluators.
 /// The Monitor re-materializes conditions every tick, so latch-style verbs
 /// (Breakout/Pullback, HoldsAbove/HoldsBelow) need the snapshot's
 /// WindowHigh/WindowLow to remember what price did earlier in the window —
-/// without it Breakout could never pass live (IP-A18 made it fail closed)
+/// without it Breakout could never pass live (it fails closed without window data)
 /// while the Learning Center's example strategies are all built on it.
 /// </summary>
 public class WindowScopedConditionTests

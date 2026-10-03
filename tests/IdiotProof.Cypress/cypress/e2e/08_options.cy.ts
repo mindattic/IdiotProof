@@ -1,7 +1,7 @@
 /// <reference types="cypress" />
 
 /**
- * /options — the manual Options section (IP-US-U6, U8 lock text, U11 jargon, RFC 0004).
+ * /options — the manual Options section (IP-US-U6, U8 lock text, U11 jargon).
  *
  * Runs entirely on the Sandbox broker: a freshly registered user has no Alpaca keys and no
  * routing consent, so the page resolves to Sandbox deterministically. The ticker IPTEST is

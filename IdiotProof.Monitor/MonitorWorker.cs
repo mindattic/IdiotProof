@@ -16,7 +16,7 @@ using Microsoft.Extensions.Logging;
 namespace IdiotProof.Monitor;
 
 /// <summary>
-/// The unified always-on evaluator (RFC 0002 / IP-A8). One pipeline:
+/// The unified always-on evaluator (IP-LAW-10). One pipeline:
 ///
 ///   SQL Strategy rows (edited live in the Blazor UI)
 ///     → per-tick re-read (UI changes apply without restart)
@@ -109,8 +109,8 @@ public sealed class MonitorWorker(
     private readonly Dictionary<Guid, DateTime> lastBarWrite = new();
 
     /// <summary>
-    /// Re-check cadence when the previous close came back NULL. IP-A18 made
-    /// nulls retry (a cached null disabled gap strategies all day), but an
+    /// Re-check cadence when the previous close came back NULL. Nulls
+    /// retry (a cached null disabled gap strategies all day), but an
     /// unbounded retry hammered the daily-bars endpoint every tick during an
     /// outage — the mirror of the empty-candle-window problem. 30 s keeps the
     /// recovery fast without burning the rate limit.
@@ -236,7 +236,7 @@ public sealed class MonitorWorker(
             return;
         }
 
-        // Default to the real-time SIP consolidated tape (Algo Trader Plus, IP-A29).
+        // Default to the real-time SIP consolidated tape (Algo Trader Plus).
         // Set IDIOTPROOF_ALPACA_FEED=iex to fall back to the free partial feed.
         var tier = Environment.GetEnvironmentVariable("IDIOTPROOF_ALPACA_FEED") ?? "sip";
         streaming = new AlpacaStreamingClient(appSettings.AlpacaApiKeyId, appSettings.AlpacaApiSecretKey, tier);
@@ -562,7 +562,7 @@ public sealed class MonitorWorker(
             TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, MarketTime.Eastern));
         // A real close is good for the whole ET day; a null is only trusted
         // for MissingCloseRetry so a transient 4AM blip can't disable gap
-        // strategies all day (IP-A18) but an outage can't burn the rate
+        // strategies all day but an outage can't burn the rate
         // limit at tick cadence either.
         if (previousCloseCache.TryGetValue(symbol, out var hit) && hit.DayEt == todayEt
             && (hit.Close is not null || DateTime.UtcNow - hit.FetchedUtc < MissingCloseRetry))
@@ -857,7 +857,7 @@ public sealed class MonitorWorker(
             // Full scale-out ladder — TakeProfit(t1, t2, t3) sets TakeProfitPrice = t1
             // AND populates TakeProfitTargets; reading only TakeProfitPrice hides
             // T2/T3 from the LLM panel's risk:reward view (same defect class as
-            // the DslStrategy fix in IP-A15).
+            // the DslStrategy ladder).
             Targets           = def.TakeProfitTargets.Count > 0
                                  ? def.TakeProfitTargets.Select(t => (decimal)t.Price).ToList()
                                  : def.TakeProfitPrice.HasValue
@@ -978,7 +978,7 @@ public sealed class MonitorWorker(
         // Never place a REAL order on SYNTHETIC data. The market-data feed is a
         // single global instance (keyed on the host's global Alpaca settings);
         // if the host has no data keys it falls back to Mock. Order routing,
-        // however, is per-user (IP-A9) — so a host missing global data keys but
+        // however, is per-user (docs/BIBLE.md §4.4) — so a host missing global data keys but
         // with a user's own Alpaca keys would evaluate strategies against fake
         // prices and fire REAL orders on them. Mock data implies Sandbox-only
         // (the intended dev pairing); block any non-Sandbox ENTRY. Exits are
@@ -1024,7 +1024,7 @@ public sealed class MonitorWorker(
                 stored.Title, stored.Symbol);
             try
             {
-                // Multi-strategy-per-ticker (IP-A24): if another of this user's
+                // Multi-strategy-per-ticker: if another of this user's
                 // strategies already holds this symbol, the broker's ONE aggregate
                 // position can't be safely attributed to THIS strategy's just-thrown
                 // order — doing so previously recorded the other strategy's shares
@@ -1326,7 +1326,7 @@ public sealed class MonitorWorker(
             ? Math.Min(decision.QuantityToSell.Value, stored.PositionQty)
             : stored.PositionQty;
 
-        // Multi-strategy-per-ticker (IP-A24): the broker reports ONE position
+        // Multi-strategy-per-ticker: the broker reports ONE position
         // per symbol, but several of this user's strategies may hold the same
         // symbol at once (running competing setups to compare). When they do,
         // the aggregate can't be attributed to one strategy — so skip the

@@ -104,7 +104,7 @@ gappers routinely give their gains back to the opening auction.</p>
 
 <h2 id="quickstart"><span class="num">2</span>Quick start — two processes</h2>
 <p>IdiotProof is two programs sharing one SQL database. <b>The database is the wire</b>:
-everything you do in the browser is picked up by the trading console within ~5 seconds —
+everything you do in the browser is picked up by the trading console within about a second —
 no restarts, nothing to connect.</p>
 
 <pre><code># Terminal 1 — the web UI
@@ -114,7 +114,7 @@ dotnet run --project IdiotProof.Blazor
 dotnet run --project IdiotProof.Monitor</code></pre>
 
 <p>On first run, <b>register an account</b> in the UI. The console will log:</p>
-<pre><code>IdiotProof.Monitor starting — interval 5s, feed Alpaca
+<pre><code>IdiotProof.Monitor starting — interval 1s, feed Alpaca
 Monitor leader lease acquired — this instance evaluates and trades</code></pre>
 
 <div class="card tip">
@@ -217,7 +217,7 @@ every IdiotProof strategy uses:</p>
 </table>
 
 <h2 id="run"><span class="num">6</span>What happens while it runs</h2>
-<p>Every ~5 seconds the console re-reads your active strategies and evaluates each one.
+<p>Every second the console re-reads your active strategies and evaluates each one.
 You can watch in two places — the console log narrates every decision, and the Gapper tab
 mirrors it as badges:</p>
 <table>
@@ -308,7 +308,7 @@ dotnet run --project IdiotProof.Monitor</code></pre>
 <table>
   <tr><th>Env var</th><th>Default</th><th>Meaning</th></tr>
   <tr><td><code>ConnectionStrings__IdiotProof</code></td><td>LocalDB</td><td>The shared database — must match the web app's.</td></tr>
-  <tr><td><code>IDIOTPROOF_MONITOR_INTERVAL</code></td><td><code>5s</code></td><td>Tick cadence (<code>30s</code>, <code>5m</code>, bare seconds).</td></tr>
+  <tr><td><code>IDIOTPROOF_MONITOR_INTERVAL</code></td><td><code>1s</code></td><td>Tick cadence (<code>30s</code>, <code>5m</code>, bare seconds).</td></tr>
   <tr><td><code>IDIOTPROOF_FEED</code></td><td>auto</td><td><code>alpaca</code> | <code>mock</code>. Auto = Alpaca when keyring/env keys exist.</td></tr>
   <tr><td><code>IDIOTPROOF_BROKER</code></td><td><code>sandbox</code></td><td><code>alpaca</code> opts the <i>global</i> account into real routing. Per-user routing is the API Keys toggle and doesn't need this.</td></tr>
   <tr><td><code>IDIOTPROOF_ALPACA_FEED</code></td><td><code>iex</code></td><td>Data tier. <code>sip</code> (paid) auto-downgrades to <code>iex</code> on a free key.</td></tr>
@@ -333,7 +333,6 @@ dotnet run --project IdiotProof.Monitor</code></pre>
   <code>IdiotProof.Blazor/wwwroot/user-guide.htm</code>, is served by the running app at
   <code>/user-guide.htm</code>, and is linked from the Gapper tab. Canonical system
   documentation lives in <code>docs/BIBLE.md</code>; the condensed runbook is in the README.</p>
-  <p>Last updated 2026-07-19 · Covers RFC 0002 / amendments IP-A8…IP-A11.</p>
 </footer>
 
 </div>

@@ -33,7 +33,7 @@ public sealed class LlmVote
     /// <summary>
     /// Defaults to Abstain, NOT the enum's zero value (Approve): a vote whose
     /// decision was never parsed must never count as an approval on a
-    /// money-movement path (IP-A11 — a response missing/mis-casing the
+    /// money-movement path (IP-LAW-1 — a response missing/mis-casing the
     /// "decision" key silently became Approve).
     /// </summary>
     public VoteDecision Decision { get; set; } = VoteDecision.Abstain;

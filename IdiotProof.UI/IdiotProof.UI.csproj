@@ -15,8 +15,8 @@
     <PackageReference Include="Microsoft.AspNetCore.Components.Web" Version="10.0.9" />
   </ItemGroup>
 
-  <!-- Shared UI depends only on the layers BELOW the hosts (IP-A28): models, broker
-       abstractions, and pure math. Never on IdiotProof.Blazor / IdiotProof.Maui. -->
+  <!-- Shared UI depends only on the layers BELOW the host: models, broker
+       abstractions, and pure math. Never on IdiotProof.Blazor. -->
   <ItemGroup>
     <ProjectReference Include="..\IdiotProof.Models\IdiotProof.Models.csproj" />
     <ProjectReference Include="..\IdiotProof.Brokers\IdiotProof.Brokers.csproj" />

@@ -5,7 +5,7 @@ namespace IdiotProof.Blazor.Data;
 
 /// <summary>
 /// A disposable / temporary email domain that is barred from registration
-/// (IP-A23). Real money rides on real accounts — throwaway inboxes used by bots
+/// (docs/BIBLE.md §4.4). Real money rides on real accounts — throwaway inboxes used by bots
 /// and abuse (mailinator, guerrillamail, 10minutemail, …) never get an account.
 /// Runtime-editable blocklist → SQL (IP-LAW-7); seeded from a bundled list at
 /// startup and extendable by an admin later.

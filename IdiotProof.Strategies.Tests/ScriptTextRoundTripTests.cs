@@ -5,7 +5,7 @@ using IdiotProof.Scripting;
 namespace IdiotProof.Strategies.Tests;
 
 /// <summary>
-/// IP-A19 regressions: the human-view script text must serialize losslessly
+/// Regressions: the human-view script text must serialize losslessly
 /// regardless of host locale, and view generation must not crash on
 /// canon-legal shapes.
 /// </summary>

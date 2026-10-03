@@ -5,7 +5,7 @@ using IdiotProof.Strategies.Backtesting;
 namespace IdiotProof.Strategies.Tests;
 
 /// <summary>
-/// IP-A19 regressions: the generic replay must honor the SAME Risk/Exit verbs
+/// Regressions: the generic replay must honor the SAME Risk/Exit verbs
 /// the live evaluator runs. TrailingStopLoss and PeakGiveback were silently
 /// ignored — a strategy that would have sold on the rollover was reported
 /// holding to the time exit / end of session (backtest ≠ live divergence on

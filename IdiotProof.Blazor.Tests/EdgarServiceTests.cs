@@ -7,7 +7,7 @@ namespace IdiotProof.Blazor.Tests;
 
 /// <summary>
 /// Locks in the real EDGAR full-text-search JSON schema (confirmed against a live
-/// fetch during RFC 0003) — the field names here (<c>form</c>, <c>display_names</c>,
+/// fetch) — the field names here (<c>form</c>, <c>display_names</c>,
 /// <c>ciks</c>, <c>items</c>) previously did NOT match what <see cref="EdgarService"/>
 /// parsed (it read the nonexistent <c>form_type</c>/<c>entity_name</c>), so every
 /// filing's <c>FormType</c>/<c>EntityName</c> silently came back empty.

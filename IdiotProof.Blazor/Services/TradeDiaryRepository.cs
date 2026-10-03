@@ -4,7 +4,7 @@ using Microsoft.EntityFrameworkCore;
 namespace IdiotProof.Blazor.Services;
 
 /// <summary>
-/// The trade diary (IP-A23): one row per executed trade, opened on the buy and
+/// The trade diary: one row per executed trade, opened on the buy and
 /// closed on the sell. Written by the Monitor on the money path — so every
 /// method is defensive (a diary failure must NEVER break a trade; callers wrap
 /// these in log-and-continue). Read by the /diary page and the CLI export.

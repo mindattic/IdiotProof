@@ -5,7 +5,7 @@ using IdiotProof.Shared;
 namespace IdiotProof.Strategies.Tests;
 
 /// <summary>
-/// Gapper epic (RFC 0002 / IP-A8) — DSL lifecycle verbs, gap evaluation, the
+/// Gapper (docs/BIBLE.md §4.4) — DSL lifecycle verbs, gap evaluation, the
 /// profile→script factory round trip, and the momentum-rollover exit brain.
 /// Times: 09:00 ET == 13:00 UTC in July (EDT, UTC-4); these tests pin UTC
 /// instants on 2026-07-17 (a Friday) so the ET conversion is deterministic.

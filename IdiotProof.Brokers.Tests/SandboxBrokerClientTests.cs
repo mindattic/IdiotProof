@@ -4,7 +4,7 @@ using IdiotProof.Models;
 namespace IdiotProof.Brokers.Tests;
 
 /// <summary>
-/// Sandbox fill simulation (IP-A8): orders update the in-memory position book
+/// Sandbox fill simulation: orders update the in-memory position book
 /// so a keyless dev session behaves like a real buy → hold → sell loop. The
 /// old client accepted orders but never recorded a position.
 /// </summary>
@@ -61,7 +61,7 @@ public class SandboxBrokerClientTests
 }
 
 /// <summary>
-/// Alpaca extended-hours contract (IP-A8): a premarket gapper order MUST be
+/// Alpaca extended-hours contract: a premarket gapper order MUST be
 /// limit + DAY + extended_hours — anything else silently queues until the
 /// 9:30 bell on Alpaca, defeating the 4AM entry. The client rejects locally.
 /// </summary>

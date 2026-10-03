@@ -5,7 +5,7 @@ using IdiotProof.Scripting;
 namespace IdiotProof.Strategies.Tests;
 
 /// <summary>
-/// Full mock-gap-day lifecycle (IP-US-K6, RFC 0002): drives the exact brain
+/// Full mock-gap-day lifecycle (IP-US-K6): drives the exact brain
 /// the Monitor runs — MockDataFeed's deterministic premarket gap arc →
 /// previous close → snapshot → entry conditions → simulated fill →
 /// GapperExitEvaluator — across a premarket morning. The Monitor's wall-clock

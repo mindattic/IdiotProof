@@ -150,7 +150,7 @@ public sealed class LlmVotingServiceTests
     [Test]
     public void ParseVoteJson_MissingDecisionKey_FailsClosedToAbstain()
     {
-        // IP-A11: a response without a "decision" key used to leave the enum
+        // IP-LAW-1: a response without a "decision" key used to leave the enum
         // at its zero value — Approve — silently counting a malformed vote as
         // an approval on a money-movement path. Must fail closed to Abstain.
         var vote = LlmVotingService.ParseVoteJson(

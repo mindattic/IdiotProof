@@ -16,7 +16,7 @@ using MindAttic.Authentication.Web;
 
 // ── IdiotProof.Monitor ───────────────────────────────────────────────────────
 //
-// The unified always-on evaluator + executor (RFC 0002 / IP-A8). Runs 24/7,
+// The unified always-on evaluator + executor (IP-LAW-10). Runs 24/7,
 // re-reads every IsActive=true SQL strategy each tick (UI edits apply live),
 // pulls real market data (Alpaca REST + websocket streaming when keyed; Mock
 // fallback), walks the three gates (conditions → LLM voter panel →
@@ -27,10 +27,10 @@ using MindAttic.Authentication.Web;
 // RiskGuardian daily circuit breaker.
 //
 // Env knobs:
-//   IDIOTPROOF_MONITOR_INTERVAL  tick cadence (default 5s)
+//   IDIOTPROOF_MONITOR_INTERVAL  tick cadence (default 1s)
 //   IDIOTPROOF_FEED              alpaca | mock   (default: alpaca when keyed)
 //   IDIOTPROOF_BROKER            alpaca | sandbox (default sandbox — IP-LAW-3)
-//   IDIOTPROOF_ALPACA_FEED       sip | iex data tier (default iex; sip auto-downgrades)
+//   IDIOTPROOF_ALPACA_FEED       sip | iex data tier (default sip; iex for the free tier)
 //   IDIOTPROOF_STREAMING         0 disables the websocket stream
 //
 // Run:   dotnet run --project IdiotProof.Monitor
@@ -207,7 +207,7 @@ builder.Services.AddSingleton<IdiotProof.DataFeeds.IMarketDataFeed>(_ =>
                && !string.IsNullOrWhiteSpace(settings.AlpacaApiSecretKey);
     if (choice == "mock" || (!hasKeys && choice != "alpaca"))
         return new IdiotProof.DataFeeds.MockDataFeed();
-    // Real-time SIP by default (Algo Trader Plus, IP-A29); IDIOTPROOF_ALPACA_FEED=iex to override.
+    // Real-time SIP by default (Algo Trader Plus); IDIOTPROOF_ALPACA_FEED=iex to override.
     var tier = Environment.GetEnvironmentVariable("IDIOTPROOF_ALPACA_FEED") ?? "sip";
     return new IdiotProof.DataFeeds.AlpacaDataFeed(settings.AlpacaApiKeyId, settings.AlpacaApiSecretKey, tier);
 });

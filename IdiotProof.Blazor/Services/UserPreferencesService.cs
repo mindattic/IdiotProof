@@ -99,7 +99,7 @@ public sealed class UserPreferencesService(IDbContextFactory<AppDbContext> dbFac
         }
     }
 
-    // NOTE (IP-A10): the AddOpenTabAsync/RemoveOpenTabAsync/GetOpenTabsAsync
+    // NOTE: the AddOpenTabAsync/RemoveOpenTabAsync/GetOpenTabsAsync
     // trio was removed — it fed OpenStrategyTabs for a "BuilderTabBar" that
     // was never built, so the CSV column grew forever with nothing ever
     // reading it back (2026-07-18 audit, H6). The column itself is scheduled
