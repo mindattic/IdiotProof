@@ -662,7 +662,7 @@ resync-canon  auto-gapper  premarket-fade</code></pre>
 <h3 id="unattended-operation">Unattended operation</h3>
 <p>The console is Windows-Service-ready (<code>AddWindowsService</code>): <code>sc.exe create IdiotProof.Monitor binPath="&lt;path&gt;\idiotproof-monitor.exe"</code>. A SQL <code>sp_getapplock</code> leader lease guarantees only one instance trades per database; a second instance waits in standby and takes over automatically if the leader dies. Shutdown is graceful via <code>IHostApplicationLifetime</code>.</p>
 <h2 id="the-web-app">The web app</h2>
-<p><code>IdiotProof.Blazor</code> is a Blazor Server app (interactive server components) on ASP.NET Core, using <code>MindAttic.Authentication</code> (Argon2id + pepper, sessions, MFA scaffolding, not ASP.NET Core Identity) and EF Core 10 against SQL Server. Pages under <code>Components/Pages/</code>:</p>
+<p><code>IdiotProof.Blazor</code> is a Blazor Server app (interactive server components) on ASP.NET Core, using <code>MindAttic.Authentication</code> 5.0.0 (Argon2id + pepper, sessions, MFA scaffolding, not ASP.NET Core Identity; it sends auth email over SMTP from the Vault <code>Notifications</code> bucket when that is complete and logs a startup warning otherwise; production self-service reset stays off, see <code>ForgotPassword.razor</code>) and EF Core 10 against SQL Server. Pages under <code>Components/Pages/</code>:</p>
 <table><thead><tr>
 <th>Component</th>
 <th>Purpose</th>
