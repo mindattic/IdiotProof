@@ -165,7 +165,7 @@ if (builder.Environment.IsDevelopment()
     builder.Services.AddTransient<LegionClient>(_ =>
         new LegionClient(new HttpClient(new FakeLlmHandler()), options: null));
 }
-builder.Services.AddSingleton<IdiotProof.Blazor.Services.LlmVotingService>();
+builder.Services.AddSignalVotingPanel();
 builder.Services.AddScoped<UserKeyService>();
 builder.Services.AddScoped<AccountSummaryService>();
 builder.Services.AddSingleton<StrategyRepository>();
@@ -340,47 +340,12 @@ app.MapPost("/register-submit", async (HttpContext ctx, IUserAdminService adminS
     ctx.Response.Redirect("/login?registered=1");
 });
 
-// ── Forgot-password reset (DEVELOPMENT ONLY — mapped inside the env gate) ─────────
-// This endpoint resets a password on nothing more than a matching email: no
-// token, no old password, no session. That is an unauthenticated account
-// takeover for ANY user if it is ever reachable in production, so it is only
-// mapped in Development. Production uses the library's token-based
-// /_ma-auth/reset/* flow once an email sender exists; until then the
-// ForgotPassword page tells production users to contact the administrator.
-if (app.Environment.IsDevelopment())
-app.MapPost("/forgot-password-submit", async (HttpContext ctx, IUserAdminService adminSvc) =>
-{
-    var form     = await ctx.Request.ReadFormAsync();
-    var email    = form["email"].ToString().Trim();
-    var password = form["password"].ToString();
-    var confirm  = form["confirm"].ToString();
-
-    if (string.IsNullOrWhiteSpace(email))
-    { ctx.Response.Redirect("/forgot-password?error=email"); return; }
-    if (password != confirm)
-    { ctx.Response.Redirect("/forgot-password?error=mismatch"); return; }
-    if (password.Length < 8)
-    { ctx.Response.Redirect("/forgot-password?error=short"); return; }
-    if (password.Length > 128)
-    { ctx.Response.Redirect("/forgot-password?error=long"); return; }
-    if (!password.Any(char.IsDigit))
-    { ctx.Response.Redirect("/forgot-password?error=digit"); return; }
-
-    var users = await adminSvc.ListAsync();
-    var user  = users.FirstOrDefault(u =>
-        string.Equals(u.Email, email, StringComparison.OrdinalIgnoreCase));
-    if (user is null)
-    { ctx.Response.Redirect("/forgot-password?error=unknown"); return; }
-
-    var result = await adminSvc.ResetPasswordAsync(user.Id, password, requireChange: false);
-    if (!result.Ok)
-    {
-        ctx.Response.Redirect($"/forgot-password?error={Uri.EscapeDataString(result.Error ?? "reset")}");
-        return;
-    }
-
-    ctx.Response.Redirect("/forgot-password?status=ok");
-});
+// ── Password reset ────────────────────────────────────────────────────────────────
+// Self-service reset is the library's token flow: /forgot-password (MaForgotPassword)
+// posts to /_ma-auth/reset/request, which emails a single-use link to
+// MindAttic:Auth:Reset:PublicBaseUrl + /account/reset (ResetPassword.razor,
+// MaResetPassword → /_ma-auth/reset/confirm). Mail goes over SMTP from the Vault
+// Notifications bucket; without it the library logs a startup warning and sends nothing.
 
 // ── Alpaca OAuth / Connect — account linking instead of raw keys ──
 // DORMANT: obtains + stores a scoped token; trading still routes through the

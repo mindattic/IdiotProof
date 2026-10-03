@@ -129,7 +129,7 @@ pre:hover .cpbtn{opacity:1}
 <ul>
 <li>Guided: a visual flowchart editor with one card per lifecycle phase.</li>
 <li>Script: write IdiotScript, the project's fluent C# DSL, directly.</li>
-<li>Describe: type plain English; <code>StrategyScriptGenerator</code> sends it through the <code>MindAttic.Legion</code> voter panel (Claude, OpenAI, Gemini, DeepSeek), with a verb catalog built by reflecting on the real DSL types so a model cannot invent syntax that does not compile.</li>
+<li>Describe: type plain English; <code>StrategyScriptGenerator</code> sends it to Claude through <code>MindAttic.Legion</code> (a single call), with a verb catalog built by reflecting on the real DSL types so a model cannot invent syntax that does not compile, and the result is parse-checked.</li>
 </ul>
 <p>Strategies are stored as canonical strict JSON. If a stored strategy cannot be read exactly, it is quarantined with a visible reason instead of being partially evaluated.</p>
 <h3 id="the-gapper">The Gapper</h3>
@@ -377,13 +377,13 @@ dotnet run --project IdiotProof.Monitor</code></pre>
 <tr>
 <td><code>IdiotProof.Blazor.Tests</code></td>
 <td>NUnit</td>
-<td><code>StrategyScriptGenerator</code> verb-catalog reflection, <code>LlmVotingService</code> consensus logic, research-pipeline services, repository guard rails.</td>
+<td><code>StrategyScriptGenerator</code> verb-catalog reflection, the LLM gate on Legion's voter panel (<code>LlmVotingServiceTests</code>) and per-owner Claude keys (<code>UserClaudeKeyResolverTests</code>), the password-reset flow (<code>PasswordResetFlowTests</code>), research-pipeline services, repository guard rails.</td>
 <td>—</td>
 </tr>
 <tr>
 <td><code>IdiotProof.Monitor.Tests</code></td>
 <td>NUnit</td>
-<td><code>PremarketFadeScanner</code>.</td>
+<td>Long and short order shapes on the Sandbox broker (<code>DirectionalOrdersTests</code>), <code>PremarketFadeScanner</code> and <code>BeBexDecayScanner</code> math.</td>
 <td>—</td>
 </tr>
 <tr>
@@ -600,9 +600,9 @@ Stock.Ticker("SPY")
 <li>Fetch candles: a rolling 240-minute-bar cache per symbol (Alpaca REST, refreshed every 5 minutes, or every 30 seconds if the last fetch came back empty), topped up between REST refreshes by the Alpaca websocket stream (<code>AlpacaStreamingClient</code>) when keys are present, plus the previous daily close, cached per ET day, for gap math.</li>
 <li>Per strategy: load the canonical <code>ScriptJson</code> (fail-closed quarantine on rejection, escalated loudly if the strategy is holding a position, because quarantine also stops its exit rules), resolve <code>If/ElseIf/Else</code> branches against the indicator snapshot, then either manage an open position's exit or walk entry conditions one by one.</li>
 <li>Per-condition progress is upserted to <code>ConditionProgress</code> every pass (<code>PassedCount</code>, <code>TotalCount</code>, <code>FirstFailingVerb</code>), which the Strategies page polls for its live badges, and a throttled <code>LiveBar</code> row is written for chart consumers.</li>
-<li>On a full pass, two more gates run before any order (<a href="docs/BIBLE.md#IP-LAW-1">IP-LAW-1</a>). Both must pass before <code>RecordFiredAsync</code> bumps <code>LastFiredUtc</code> and <code>FireCount</code>:<ul><li><code>LlmVotingService</code>, the Legion voter panel from <code>legion.json</code>. The quorum must explicitly approve; zero votes, a reject, an abstain-only result or a below-threshold split all fail closed. It is skipped only when voting is disabled or no Claude key is configured.</li><li><code>RiskGuardian</code> (<code>IdiotProof.Shared.Risk</code>, the final pre-trade veto, <a href="docs/BIBLE.md#IP-LAW-2">IP-LAW-2</a>), a per-user instance cached by <code>RiskGuardianService</code> so the in-memory daily-loss circuit breaker survives across signals. It validates stop-loss presence and side, per-trade and daily loss limits, stop-distance bounds and account-risk percent.</li></ul></li>
-<li>Placing the order: <code>UserBrokerResolver</code> resolves the strategy's own <code>BrokerMode</code> (Paper, Live or Sandbox), independent of any other strategy. Premarket and after-hours orders go in as limit plus <code>extended_hours</code> (an Alpaca requirement); regular-hours entries go in as a marketable limit (entry price + 0.2%) so a thin book cannot fill far off the evaluated price. As a hard interlock, the Monitor refuses to place a non-Sandbox order while the market-data feed is Mock.</li>
-<li>Managing the open position every pass via <code>GapperExitEvaluator.Evaluate</code> and <code>.EvaluateShort</code>: hard sell-by time, hard and trailing stops, take-profit, and the peak-giveback momentum rollover. Realized P&amp;L feeds back into the daily circuit breaker. Exit orders reduce risk, so they skip the LLM panel by design but are always audit-logged. Shorts are currently signal-only: a qualifying short candidate clears both gates and is recorded, but no order is placed.</li>
+<li>On a full pass, two more gates run before any order (<a href="docs/BIBLE.md#IP-LAW-1">IP-LAW-1</a>). Both must pass before <code>RecordFiredAsync</code> bumps <code>LastFiredUtc</code> and <code>FireCount</code>:<ul><li><code>LlmVotingService</code>, on MindAttic.Legion's own voter panel: every <code>legion.json</code> voter (claude, openai, gemini, deepseek) that has a key casts an Approve, Reject or Abstain ballot through a rotating trading lens (Risk Manager, Momentum Trader, Technical Analyst). The Claude voter runs on the strategy owner's own key from the API Keys page, falling back to the host key (<code>UserClaudeKeyResolver</code>); the other voters use the shared MindAttic LLM keyring. Approve needs <code>LlmConsensusThreshold</code> (default 66%) of the counted votes; zero votes, unparseable ballots, a reject or a below-threshold split all fail closed. The gate is skipped only when voting is off for both the host and the owner, or no Claude key resolves.</li><li><code>RiskGuardian</code> (<code>IdiotProof.Shared.Risk</code>, the final pre-trade veto, <a href="docs/BIBLE.md#IP-LAW-2">IP-LAW-2</a>), a per-user instance cached by <code>RiskGuardianService</code> so the in-memory daily-loss circuit breaker survives across signals. It validates stop-loss presence and side, per-trade and daily loss limits, stop-distance bounds and account-risk percent.</li></ul></li>
+<li>Placing the order: <code>UserBrokerResolver</code> resolves the strategy's own <code>BrokerMode</code> (Paper, Live or Sandbox), independent of any other strategy. Premarket and after-hours orders go in as limit plus <code>extended_hours</code> (an Alpaca requirement); regular-hours entries go in as a marketable limit (entry price + 0.2%) so a thin book cannot fill far off the evaluated price. A short entry is a <code>sell_to_open</code> limit at entry price - 0.2% (<code>DirectionalOrders</code>). As a hard interlock, the Monitor refuses to place a non-Sandbox order while the market-data feed is Mock.</li>
+<li>Managing the open position every pass via <code>GapperExitEvaluator.Evaluate</code> and <code>.EvaluateShort</code>: hard sell-by time, hard and trailing stops, take-profit, and the peak-giveback momentum rollover. Realized P&amp;L feeds back into the daily circuit breaker. A long exits with a <code>sell_to_close</code> limit at -0.5%, a short covers with a <code>buy_to_close</code> limit at +0.5%; before either, the Monitor reconciles against the broker position on the strategy's own side (a short is a negative broker quantity), and realized P&amp;L is inverted for a short. Exit orders reduce risk, so they skip the LLM panel by design but are always audit-logged.</li>
 </ol>
 <h3 id="auxiliary-jobs-on-the-same-loop">Auxiliary jobs on the same loop</h3>
 <ul>
@@ -662,7 +662,7 @@ resync-canon  auto-gapper  premarket-fade</code></pre>
 <h3 id="unattended-operation">Unattended operation</h3>
 <p>The console is Windows-Service-ready (<code>AddWindowsService</code>): <code>sc.exe create IdiotProof.Monitor binPath="&lt;path&gt;\idiotproof-monitor.exe"</code>. A SQL <code>sp_getapplock</code> leader lease guarantees only one instance trades per database; a second instance waits in standby and takes over automatically if the leader dies. Shutdown is graceful via <code>IHostApplicationLifetime</code>.</p>
 <h2 id="the-web-app">The web app</h2>
-<p><code>IdiotProof.Blazor</code> is a Blazor Server app (interactive server components) on ASP.NET Core, using <code>MindAttic.Authentication</code> 6.0.0 (Argon2id + pepper, sessions, MFA scaffolding, not ASP.NET Core Identity; it sends security alerts such as password changed, repeated failed sign-ins and new-device sign-in over SMTP from the Vault <code>Notifications</code> bucket when that is complete, and logs a startup warning otherwise; production self-service reset stays off, see <code>ForgotPassword.razor</code>) and EF Core 10 against SQL Server. Pages under <code>Components/Pages/</code>:</p>
+<p><code>IdiotProof.Blazor</code> is a Blazor Server app (interactive server components) on ASP.NET Core, using <code>MindAttic.Authentication</code> 6.0.0 (Argon2id + pepper, sessions, MFA scaffolding, not ASP.NET Core Identity; it sends security alerts such as password changed, repeated failed sign-ins and new-device sign-in over SMTP from the Vault <code>Notifications</code> bucket when that is complete, and logs a startup warning otherwise; self-service password reset is the library's token flow: <code>/forgot-password</code> emails a single-use link to <code>MindAttic:Auth:Reset:PublicBaseUrl</code> + <code>/account/reset</code>, which is <code>https://localhost:65025</code> in <code>appsettings.Development.json</code> and the web app's own <code>azurewebsites.net</code> origin in <code>infra/main.bicep</code>) and EF Core 10 against SQL Server. Pages under <code>Components/Pages/</code>:</p>
 <table><thead><tr>
 <th>Component</th>
 <th>Purpose</th>
@@ -708,8 +708,8 @@ resync-canon  auto-gapper  premarket-fade</code></pre>
 <td>Preferences, theme and the six RiskGuardian limits.</td>
 </tr>
 <tr>
-<td><code>Login.razor</code>, <code>Register.razor</code>, <code>ForgotPassword.razor</code>, <code>ForgotUsername.razor</code></td>
-<td>Auth flows against <code>MindAttic.Authentication</code>.</td>
+<td><code>Login.razor</code>, <code>Register.razor</code>, <code>ForgotPassword.razor</code>, <code>ResetPassword.razor</code>, <code>ForgotUsername.razor</code></td>
+<td>Auth flows against <code>MindAttic.Authentication</code>; <code>ForgotPassword</code> (<code>MaForgotPassword</code>) and <code>ResetPassword</code> (<code>MaResetPassword</code>, at <code>/account/reset</code>) are the self-service reset.</td>
 </tr>
 <tr>
 <td><code>LiveChart.razor</code></td>
@@ -720,7 +720,7 @@ resync-canon  auto-gapper  premarket-fade</code></pre>
 <h3 id="the-describe-tab">The Describe tab</h3>
 <ol>
 <li>The user types a ticker, a title and a plain-English description.</li>
-<li><code>StrategyScriptGenerator</code> builds a system prompt by reflecting on <code>StrategyBuilder</code> and <code>Conditions</code>, so the prompted verb catalog cannot drift from what compiles (<a href="docs/BIBLE.md#IP-LAW-4">IP-LAW-4</a>), and sends it through <code>LegionClient</code> to the voter panel declared in <code>legion.json</code>.</li>
+<li><code>StrategyScriptGenerator</code> builds a system prompt by reflecting on <code>StrategyBuilder</code> and <code>Conditions</code>, so the prompted verb catalog cannot drift from what compiles (<a href="docs/BIBLE.md#IP-LAW-4">IP-LAW-4</a>), and sends it to Claude through <code>LegionClient</code> in a single call.</li>
 <li>The generated IdiotScript is parsed by <code>WikilinkParser.ParseScript</code> into a <code>StrategyDefinition</code> and rendered live by <code>StrategyBuilderRenderer</code>.</li>
 <li>Save writes the row to SQL with a UUIDv7 id, paper by default.</li>
 </ol>
@@ -766,17 +766,17 @@ resync-canon  auto-gapper  premarket-fade</code></pre>
 <li>Shared keyrings live in Roaming (<code>%APPDATA%\MindAttic\&lt;Subsystem&gt;\providers.json</code>): <code>LLM</code> (owned by <code>MindAttic.Legion</code>), <code>Brokers</code> (owned by IdiotProof: <code>alpaca-paper</code> and <code>alpaca-live</code>) and <code>Security</code> (owned by <code>MindAttic.Authentication</code>: pepper, bootstrap token).</li>
 <li>Per-app state lives in Local (<code>%LOCALAPPDATA%\MindAttic\&lt;AppName&gt;\</code>).</li>
 </ul>
-<p><code>legion.json</code> at the repo root configures the LLM voter panel and judge, and is copied next to the Blazor, Monitor and ResearchScanner binaries:</p>
+<p><code>legion.json</code> at the repo root configures the LLM voter panel and judge (the Monitor's LLM gate runs on it, see <a href="#what-one-pass-does">What one pass does</a>), and is copied next to the Blazor, Monitor and ResearchScanner binaries:</p>
 <pre><code class="language-json">{
   "voters": ["claude", "openai", "gemini", "deepseek"],
   "judge": "claude",
   "tier": "high"
 }</code></pre>
-<p>Strategy generation is high-stakes (one hallucinated verb can cost real money), so the panel cross-verifies before a script is shown to the user. All LLM traffic routes through <code>MindAttic.Legion</code> and all LLM credential reads through <code>MindAttic.Vault</code>; no feature code calls a provider SDK directly.</p>
+<p>A candidate fire is high-stakes, so every keyed provider on the panel votes before the Risk Guardian sees it. All LLM traffic routes through <code>MindAttic.Legion</code> and all LLM credential reads through <code>MindAttic.Vault</code>; no feature code calls a provider SDK directly.</p>
 <h2 id="building-and-testing">Building and testing</h2>
 <pre><code class="language-bash">dotnet build IdiotProof.slnx
 dotnet test IdiotProof.slnx</code></pre>
-<p>Counts recorded at the last full Release run (not re-run for this README; <code>IdiotProof.UI.Tests</code> was added later):</p>
+<p>Counts from the last full Debug run (2026-10-03, .NET 10 SDK); all green:</p>
 <table><thead><tr>
 <th>Project</th>
 <th>Passed</th>
@@ -785,9 +785,9 @@ dotnet test IdiotProof.slnx</code></pre>
 </tr></thead><tbody>
 <tr>
 <td><code>IdiotProof.Engine.Tests</code></td>
-<td>33</td>
+<td>85</td>
 <td>0</td>
-<td>RiskGuardian gate, SupervisedLoop resilience, WorkspaceManager</td>
+<td>RiskGuardian gate, SupervisedLoop resilience, WorkspaceManager, options pricing, AppSettings overlay</td>
 </tr>
 <tr>
 <td><code>IdiotProof.Indicators.Tests</code></td>
@@ -797,27 +797,33 @@ dotnet test IdiotProof.slnx</code></pre>
 </tr>
 <tr>
 <td><code>IdiotProof.Strategies.Tests</code></td>
-<td>34,679</td>
+<td>34,681</td>
 <td>0</td>
 <td>DSL round-trip, backtester, gapper lifecycle, canonical-JSON contract, plus exhaustive combinatorial matrix classes (<code>StrategyPermutationMatrixTests</code>, <code>StrategyThreeWayAndMatrixTests</code>, <code>ConditionalBlockOverridePermutationTests</code>, ...) that expand to tens of thousands of generated cases</td>
 </tr>
 <tr>
 <td><code>IdiotProof.Brokers.Tests</code></td>
-<td>13</td>
+<td>33</td>
 <td>0</td>
-<td>BrokerRouter Sandbox default and safe fallback, Sandbox fill simulation</td>
+<td>BrokerRouter Sandbox default and safe fallback, Sandbox fill simulation, options wire format (+3 <code>[Explicit]</code> real-paper tests not run)</td>
 </tr>
 <tr>
 <td><code>IdiotProof.Blazor.Tests</code></td>
-<td>194</td>
-<td>2</td>
-<td>Two pre-existing failures in <code>RegulatoryScannerTests</code> (<code>ScanAsync_AlreadySeenSourceUrl_IsSkippedOnSecondScan</code>, <code>ScanAsync_SubstantiveNotice_PersistsMacroClaim</code>)</td>
+<td>210</td>
+<td>0</td>
+<td>Verb catalog, LLM gate on Legion's panel, per-owner Claude keys, password reset, research pipeline, repositories (SQL Server LocalDB)</td>
 </tr>
 <tr>
 <td><code>IdiotProof.Monitor.Tests</code></td>
-<td>4</td>
+<td>16</td>
 <td>0</td>
-<td><code>PremarketFadeScanner</code></td>
+<td>Long/short order shapes on the Sandbox broker, <code>PremarketFadeScanner</code>, <code>BeBexDecayScanner</code></td>
+</tr>
+<tr>
+<td><code>IdiotProof.UI.Tests</code></td>
+<td>62</td>
+<td>0</td>
+<td>Options presenter, option position view, options glossary</td>
 </tr>
 </tbody></table>
 <p>The large <code>IdiotProof.Strategies.Tests</code> count is deliberate: the project generates exhaustive matrices over phase, condition and branch combinations rather than hand-writing each case.</p>
@@ -833,7 +839,6 @@ npm run ci      # headless Chrome; uses CYPRESS_BASE_URL or defaults to https://
 <li><code>publish-all.bat</code>, <code>zzz_Export.bat</code>, <code>zzz_Backup.bat</code>: local convenience wrappers.</li>
 <li><code>tools/azure-provision.md</code> and <code>tools/register-research-scan-task.ps1</code>: document and automate one-time infrastructure steps; <code>tools/seed-*.sql</code> seed example strategies.</li>
 <li><code>tools/codex.ps1</code>: the documentation-canon tool (see <a href="#documentation">Documentation</a>); <code>tools/build-readme.ps1</code> renders this README to <code>README.htm</code>.</li>
-<li><code>index.htm</code> and <code>package.json</code>: a stale README-to-HTML landing-page renderer (<code>marked</code> + <code>highlight.js</code>) that nothing deploys; this README on GitHub is the project page.</li>
 </ul>
 <p><code>Export.ps1</code> is a generic source-export utility, not IdiotProof logic; its header still calls itself a "Unity project" exporter, a leftover from the template it was copied from. It walks the repo, hashes every matching file and writes one flat text bundle (<code>ExportedScripts.txt</code> in the current directory): a JSON manifest (path, SHA-256, byte count, line count) followed by a delimited block per file, handy for pasting a codebase into an LLM context window.</p>
 <pre><code class="language-powershell"># From the repo root; exports every .cs file by default
@@ -851,7 +856,6 @@ powershell -NoProfile -ExecutionPolicy Bypass -File Export.ps1</code></pre>
 ├── Export.ps1                                ← Generic repo → text-bundle exporter
 ├── AGENTS.md, CLAUDE.md                      ← Project rules for AI tooling
 ├── README.md                                 ← You are here
-├── TODO.md                                   ← Ghost-overlay/branching-viz plan (its file paths are stale)
 ├── docker-compose.yml / infra/               ← Azure deployment scaffolding (predates the current tree; verify before relying on it)
 │
 ├── IdiotProof.Models/                        ← Domain DTOs
@@ -865,7 +869,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File Export.ps1</code></pre>
 ├── IdiotProof.Blazor/                        ← Web app (the primary front door)
 │   ├── Data/                                 ← AppDbContext, Strategy, UserPreferences, LearningArticle, ...
 │   ├── Migrations/                           ← EF migrations
-│   ├── Services/                             ← StrategyScriptGenerator, LlmVotingService, repositories, research pipeline
+│   ├── Services/                             ← StrategyScriptGenerator, LlmVotingService, UserClaudeKeyResolver, repositories, research pipeline
 │   ├── Components/Pages/                     ← Strategies, StrategyBuilder, Gapper, Learn, Research, Options, ...
 │   ├── Components/Shared/                    ← AccountSummaryBar, StrategyBuilderRenderer, ...
 │   └── wwwroot/                              ← css/_theme-alpaca.css, data/gapper-profiles.json, user-guide.htm
@@ -904,9 +908,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File Export.ps1</code></pre>
 <ul>
 <li>Options are manual-only. No option legs in the strategy schema, no IV or Greeks conditions, no options-aware <code>RiskGuardian</code> math, no multi-leg spreads; the Monitor never fires an options order. Both Alpaca accounts are at options level 3; place + cancel is proven against the real paper account, but the fill-and-close half of a real paper round-trip (IP-US-U10) is still open. <code>sp-index-events.json</code> is hand-maintained.</li>
 <li><code>dotnet run</code> on <code>IdiotProof.Blazor</code> needs a <code>wwwroot</code> folder next to the built exe. <code>Program.cs</code> mounts a <code>PhysicalFileProvider</code> on <code>AppContext.BaseDirectory/wwwroot</code> so a published exe serves its own static files, which throws <code>DirectoryNotFoundException</code> on a plain Debug build. Run from a publish output, or create <code>bin/Debug/net10.0/wwwroot</code> before <code>dotnet run</code>.</li>
-<li>Shorts are signal-only. A short candidate can clear both gates and gets recorded, but no order is placed, because the exit-management brain (<code>GapperExitEvaluator</code>) is long-shaped.</li>
 <li>There is no Polygon feed: only <code>AlpacaDataFeed</code>, <code>AlpacaStreamingClient</code>, <code>MockDataFeed</code> and <code>SwitchableMarketDataFeed</code> exist. <code>docker-compose.yml</code> and <code>infra/</code> still reference a <code>PolygonApiKey</code> variable and a <code>src/IdiotProof.Blazor/Dockerfile</code> path that does not exist; verify that scaffolding before relying on it for a real deploy.</li>
-<li><code>TODO.md</code>'s ghost-overlay plan cites <code>IdiotProof.Core</code> paths that do not exist. The feature intent (chart playback with branch forking) is live in <code>docs/USER_STORIES.md</code> Epic G.</li>
 <li><code>UserPreferences.OpenStrategyTabs</code> is an unused column awaiting removal in a migration.</li>
 <li>The Learning Center and Backtest pages are built but not yet proven by a Cypress run (Epics I and J are partial).</li>
 <li><code>ScriptParser</code> is intentionally a tolerant, regex-driven parser; a Roslyn-based parser with exact line and column diagnostics is planned (<code>IP-US-H1</code>).</li>

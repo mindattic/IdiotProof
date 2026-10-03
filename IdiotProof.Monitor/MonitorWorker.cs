@@ -40,6 +40,7 @@ public sealed class MonitorWorker(
     AuditLogRepository auditLogRepo,
     TradeDiaryRepository tradeDiary,
     LlmVotingService llmVoting,
+    UserClaudeKeyResolver claudeKeys,
     RiskGuardianService riskGuardianService,
     AppSettings appSettings,
     IMarketDataFeed feed,
@@ -887,14 +888,18 @@ public sealed class MonitorWorker(
             $"[{stored.Title}] {stored.Symbol} all {def.EntryConditions.Count} conditions met — entering gate checks",
             userId: stored.OwnerUserId, dataJson: signalFireData, ct: ct);
 
-        // Gate 2 — LLM voter panel (skipped only when voting is disabled/unkeyed).
+        // Gate 2 — LLM voter panel (Legion's panel from legion.json), skipped
+        // only when voting is disabled or no Claude key resolves. The Claude
+        // voter runs on the strategy OWNER's key (API Keys page), falling back
+        // to the host key; voting is on when the owner or the host enabled it.
         // IP-LAW-1 requires the quorum to APPROVE — anything short of an
-        // Approve consensus blocks the fire. The old check only blocked on an
-        // explicit Reject, so a dead panel (zero votes), unparseable votes
-        // (all Abstain), or a split below threshold all failed OPEN.
-        if (appSettings.LlmVotingEnabled && !string.IsNullOrWhiteSpace(appSettings.ClaudeApiKey))
+        // Approve consensus blocks the fire: a dead panel (zero votes),
+        // unparseable votes, or a split below threshold all fail closed.
+        var votingCredentials = await claudeKeys.ResolveAsync(stored.OwnerUserId, ct);
+        if (votingCredentials.VotingEnabled && !string.IsNullOrWhiteSpace(votingCredentials.ClaudeApiKey))
         {
-            var voteResult = await llmVoting.VoteOnSignalAsync(signal, candles, appSettings, ct);
+            var voteResult = await llmVoting.VoteOnSignalAsync(signal, candles, votingCredentials,
+                appSettings.LlmConsensusThreshold, ct);
             if (voteResult.Votes.Count == 0 || voteResult.Consensus != VoteDecision.Approve)
             {
                 var why = voteResult.Votes.Count == 0
@@ -947,28 +952,14 @@ public sealed class MonitorWorker(
             return;
         }
 
-        // Shorts are signal-only until short position management ships — the
-        // exit brain (peak/giveback math) is long-shaped today.
-        if (isShort)
-        {
-            await strategyRepo.RecordFiredAsync(stored.Id, ct);
-            // Stamp the same day-guard a real fill would (PositionQty stays 0
-            // — no position exists). Without this, a qualifying short
-            // candidate re-fires and re-audit-logs every tick indefinitely
-            // since nothing else marks "already signaled today" for a
-            // no-order path.
-            await strategyRepo.RecordEntryFillAsync(stored.Id, 0, entryPrice, DateTime.UtcNow, ct);
-            await LogAuditAsync("signal",
-                $"[{stored.Title}] {stored.Symbol} SHORT signal recorded (order placement for shorts not yet enabled)",
-                userId: stored.OwnerUserId, ct: ct);
-            return;
-        }
-
         // The order. Premarket/after-hours must be limit + extended_hours
         // (Alpaca requirement); RTH entries go in as marketable limits too so
-        // a thin book can't fill us far off the evaluated price.
+        // a thin book can't fill us far off the evaluated price. A short opens
+        // with a sell_to_open at -0.2%; a long buys at +0.2% (DirectionalOrders).
         var extendedHours = IsExtendedHours(DateTime.UtcNow);
-        var limitPrice = Math.Round(entryPrice * 1.002m, 2); // +0.2% marketable buffer
+        var entryOrder = DirectionalOrders.Entry(stored.Symbol, def.Direction, quantity, entryPrice, extendedHours);
+        var limitPrice = entryOrder.LimitPrice!.Value;
+        var entrySide = DirectionalOrders.SideLabel(entryOrder.Side);
 
         // Per-user, per-strategy routing: the strategy's BrokerMode ("Paper"|"Live"|"Sandbox")
         // overrides the global paper flag so each strategy independently controls
@@ -999,16 +990,7 @@ public sealed class MonitorWorker(
         OrderResult order;
         try
         {
-            order = await broker.PlaceOrderAsync(new OrderRequest
-            {
-                Symbol        = stored.Symbol,
-                Quantity      = quantity,
-                Side          = OrderSide.Buy,
-                Type          = OrderType.Limit,
-                LimitPrice    = limitPrice,
-                TimeInForce   = "DAY",
-                ExtendedHours = extendedHours,
-            }, ct);
+            order = await broker.PlaceOrderAsync(entryOrder, ct);
         }
         catch (OperationCanceledException) { throw; }
         catch (Exception ex)
@@ -1035,11 +1017,12 @@ public sealed class MonitorWorker(
                 var sharedSymbol = await strategyRepo.CountHoldingForSymbolAsync(stored.OwnerUserId, stored.Symbol, ct) > 0;
                 var positions = await broker.GetPositionsAsync(ct);
                 var match = positions.FirstOrDefault(p =>
-                    string.Equals(p.Symbol, stored.Symbol, StringComparison.OrdinalIgnoreCase) && p.Quantity > 0);
+                    string.Equals(p.Symbol, stored.Symbol, StringComparison.OrdinalIgnoreCase)
+                    && DirectionalOrders.HeldShares(p, def.Direction) > 0);
                 if (match is not null && !sharedSymbol)
                 {
                     var fillUtc = DateTime.UtcNow;
-                    var filledQty = (int)Math.Floor(match.Quantity);
+                    var filledQty = DirectionalOrders.HeldShares(match, def.Direction);
                     await strategyRepo.RecordFiredAsync(stored.Id, ct);
                     await strategyRepo.RecordEntryFillAsync(stored.Id, filledQty, match.AveragePrice, fillUtc, ct,
                         resolvedScriptJson: StrategyJson.Serialize(def));
@@ -1047,7 +1030,7 @@ public sealed class MonitorWorker(
                     stored.LastEntryPrice = match.AveragePrice;
                     stored.EntryFilledUtc = fillUtc;
                     await LogAuditAsync("entry",
-                        $"[{stored.Title}] BUY {stored.Symbol} entry order threw but broker shows a filled position " +
+                        $"[{stored.Title}] {entrySide} {stored.Symbol} entry order threw but broker shows a filled position " +
                         $"({match.Quantity} @ {match.AveragePrice:F2}, {broker.BrokerType}) — bookkeeping reconciled, not re-firing.",
                         userId: stored.OwnerUserId, ct: ct);
                     return;
@@ -1103,7 +1086,7 @@ public sealed class MonitorWorker(
         stored.LastEntryPrice = limitPrice;
         stored.EntryFilledUtc = entryUtc;
         await LogAuditAsync("entry",
-            $"[{stored.Title}] BUY {quantity} {stored.Symbol} @ {limitPrice:F2} ({broker.BrokerType}, {(extendedHours ? "extended-hours" : "RTH")}, order {order.BrokerOrderId})",
+            $"[{stored.Title}] {entrySide} {quantity} {stored.Symbol} @ {limitPrice:F2} ({broker.BrokerType}, {(extendedHours ? "extended-hours" : "RTH")}, order {order.BrokerOrderId})",
             userId: stored.OwnerUserId, ct: ct);
 
         // Trade diary — open the entry (log-and-continue: a diary write must
@@ -1138,9 +1121,9 @@ public sealed class MonitorWorker(
             logger.LogError(ex, "[{Title}] trade-diary OPEN failed (trade unaffected).", stored.Title);
         }
 
-        logger.LogInformation("[{Title}] ✓ BUY {Qty} {Symbol} @ {Price:F2} via {Broker} ({Mode}) — position now managed for exit.",
-            stored.Title, quantity, stored.Symbol, limitPrice, broker.BrokerType, broker.IsPaper ? "paper" : "LIVE");
-        PrintFill("ENTRY", stored.Title, stored.Symbol, "BUY", quantity, limitPrice,
+        logger.LogInformation("[{Title}] ✓ {Side} {Qty} {Symbol} @ {Price:F2} via {Broker} ({Mode}) — position now managed for exit.",
+            stored.Title, entrySide, quantity, stored.Symbol, limitPrice, broker.BrokerType, broker.IsPaper ? "paper" : "LIVE");
+        PrintFill("ENTRY", stored.Title, stored.Symbol, entrySide, quantity, limitPrice,
             broker.BrokerType.ToString(), broker.IsPaper, order.BrokerOrderId, entryUtc,
             "position now managed for exit");
     }
@@ -1192,7 +1175,8 @@ public sealed class MonitorWorker(
                 var bootstrapBroker = await brokerResolver.ResolveAsync(stored.OwnerUserId, stored.BrokerMode, ct);
                 var brokerPositions = await bootstrapBroker.GetPositionsAsync(ct);
                 var brokerMatch = brokerPositions.FirstOrDefault(p =>
-                    string.Equals(p.Symbol, stored.Symbol, StringComparison.OrdinalIgnoreCase) && p.Quantity > 0);
+                    string.Equals(p.Symbol, stored.Symbol, StringComparison.OrdinalIgnoreCase)
+                    && DirectionalOrders.HeldShares(p, def.Direction) > 0);
                 if (brokerMatch is not null)
                 {
                     logger.LogInformation("[{Title}] bootstrapped entry price {Price:F2} from live broker position.", stored.Title, brokerMatch.AveragePrice);
@@ -1306,8 +1290,11 @@ public sealed class MonitorWorker(
         }
 
         var extendedHours = IsExtendedHours(DateTime.UtcNow);
-        // Marketable sell limit: -0.5% so the flatten fills through a thin book.
-        var limitPrice = Math.Round((decimal)decision.CurrentPrice * 0.995m, 2);
+        // Marketable exit limit so the flatten fills through a thin book: sell a
+        // long at -0.5%, buy back a short at +0.5% (DirectionalOrders).
+        var direction = def.Direction;
+        var limitPrice = DirectionalOrders.ExitLimit(direction, (decimal)decision.CurrentPrice);
+        var exitSide = DirectionalOrders.SideLabel(DirectionalOrders.ExitSide(direction));
 
         // Exit through the same per-user, per-strategy broker that holds the position.
         var broker = await brokerResolver.ResolveAsync(stored.OwnerUserId, stored.BrokerMode, ct);
@@ -1341,7 +1328,8 @@ public sealed class MonitorWorker(
             var brokerPositions = await broker.GetPositionsAsync(ct);
             var held = brokerPositions.FirstOrDefault(p =>
                 p.Symbol.Equals(stored.Symbol, StringComparison.OrdinalIgnoreCase));
-            var heldQty = (int)Math.Floor(held?.Quantity ?? 0m);
+            // Shares held on THIS strategy's side (a short is a negative broker quantity).
+            var heldQty = DirectionalOrders.HeldShares(held, direction);
             if (heldQty <= 0)
             {
                 // No broker position. This is EITHER a still-working entry order
@@ -1385,23 +1373,11 @@ public sealed class MonitorWorker(
                 stored.Title);
         }
 
-        var order = await broker.PlaceOrderAsync(new OrderRequest
-        {
-            Symbol         = stored.Symbol,
-            Quantity       = sellQty,
-            Side           = OrderSide.Sell,
-            Type           = OrderType.Limit,
-            LimitPrice     = limitPrice,
-            TimeInForce    = "DAY",
-            ExtendedHours  = extendedHours,
-            // "close" is not a valid Alpaca position_intent value (only
-            // buy_to_open/buy_to_close/sell_to_open/sell_to_close exist) —
-            // this exit always sells to close a long, so sell_to_close is
-            // the correct constant. A bare "close" would likely be rejected
-            // or ignored by Alpaca, defeating the point of setting it at all
-            // (stopping a naked short from opening on a zero-held-qty exit).
-            PositionIntent = "sell_to_close",
-        }, ct);
+        // The exit always carries a *_to_close intent (sell_to_close for a long,
+        // buy_to_close for a short) so a stale quantity can only close the
+        // position, never open the opposite one.
+        var order = await broker.PlaceOrderAsync(
+            DirectionalOrders.Exit(stored.Symbol, direction, sellQty, (decimal)decision.CurrentPrice, extendedHours), ct);
 
         if (!order.IsSuccess)
         {
@@ -1416,7 +1392,7 @@ public sealed class MonitorWorker(
         // Feed realized P&L into the daily circuit breaker (IP-LAW-2) — the
         // audit found RecordTradePnL was never called in production, so the
         // daily-loss guard could never trip. Uses the reconciled quantity.
-        var realized = (limitPrice - (decimal)entry) * sellQty;
+        var realized = DirectionalOrders.RealizedPnl(direction, (decimal)entry, limitPrice, sellQty);
         var guardian = await riskGuardianService.GetForUserAsync(stored.OwnerUserId, ct);
         guardian?.RecordTradePnL(realized);
 
@@ -1430,7 +1406,7 @@ public sealed class MonitorWorker(
             // EntryFilledUtc is preserved so subsequent ticks continue exit management.
             await strategyRepo.RecordPartialExitAsync(stored.Id, sellQty, ct);
             await LogAuditAsync("exit-partial",
-                $"[{stored.Title}] SELL {sellQty} {stored.Symbol} @ {limitPrice:F2} — {decision.Reason} (partial, {remainingQty} shares remain): {decision.Detail} " +
+                $"[{stored.Title}] {exitSide} {sellQty} {stored.Symbol} @ {limitPrice:F2} — {decision.Reason} (partial, {remainingQty} shares remain): {decision.Detail} " +
                 $"(P&L {realized:+0.00;-0.00}, {broker.BrokerType}, order {order.BrokerOrderId})",
                 userId: stored.OwnerUserId, ct: ct);
         }
@@ -1444,7 +1420,7 @@ public sealed class MonitorWorker(
                 _                             => "exit",
             };
             await LogAuditAsync(exitCategory,
-                $"[{stored.Title}] SELL {sellQty} {stored.Symbol} @ {limitPrice:F2} — {decision.Reason}: {decision.Detail} " +
+                $"[{stored.Title}] {exitSide} {sellQty} {stored.Symbol} @ {limitPrice:F2} — {decision.Reason}: {decision.Detail} " +
                 $"(P&L {realized:+0.00;-0.00}, {broker.BrokerType}, order {order.BrokerOrderId})",
                 userId: stored.OwnerUserId, ct: ct);
 
@@ -1461,11 +1437,11 @@ public sealed class MonitorWorker(
             }
         }
 
-        logger.LogInformation("[{Title}] ✓ SOLD {Qty} {Symbol} @ {Price:F2} — {Reason} ({Mode}, P&L {Pnl:+0.00;-0.00})",
-            stored.Title, sellQty, stored.Symbol, limitPrice, decision.Reason,
+        logger.LogInformation("[{Title}] ✓ {Side} {Qty} {Symbol} @ {Price:F2} — {Reason} ({Mode}, P&L {Pnl:+0.00;-0.00})",
+            stored.Title, exitSide, sellQty, stored.Symbol, limitPrice, decision.Reason,
             isPartialExit ? $"{remainingQty} remaining" : "full exit", realized);
         var pnlText = realized >= 0 ? $"+${realized:0.00}" : $"-${Math.Abs(realized):0.00}";
-        PrintFill("EXIT", stored.Title, stored.Symbol, "SELL", sellQty, limitPrice,
+        PrintFill("EXIT", stored.Title, stored.Symbol, exitSide, sellQty, limitPrice,
             broker.BrokerType.ToString(), broker.IsPaper, order.BrokerOrderId, exitUtc,
             isPartialExit ? $"{decision.Reason} (partial, {remainingQty} left)  -  P&L {pnlText}"
                           : $"{decision.Reason}  -  P&L {pnlText}");

@@ -22,6 +22,14 @@
         {
             <div class="alert-setup" role="status" aria-live="polite">Account created — sign in to continue.</div>
         }
+        @if (Reset == "sent")
+        {
+            <div class="alert-setup" role="status" aria-live="polite">If an account matches, we've emailed a password-reset link.</div>
+        }
+        else if (Reset == "ok")
+        {
+            <div class="alert-setup" role="status" aria-live="polite">Your password was reset. Sign in with the new password.</div>
+        }
 
         <form method="post" action="/_ma-auth/login" aria-label="Sign in to IdiotProof">
             @* Local paths only — forwarding a raw ?returnUrl would let a
@@ -88,6 +96,8 @@
     [SupplyParameterFromQuery] private string? ReturnUrl { get; set; }
     [SupplyParameterFromQuery] private string? Error { get; set; }
     [SupplyParameterFromQuery] private string? Registered { get; set; }
+    /// <summary>Set by the library's reset endpoints: "sent" after a request, "ok" after a successful reset.</summary>
+    [SupplyParameterFromQuery] private string? Reset { get; set; }
 
     /// <summary>Only a same-site path survives; anything absolute, protocol-relative ("//evil"), or empty falls back to "/".</summary>
     private string SafeReturnUrl =>

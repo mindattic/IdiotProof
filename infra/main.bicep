@@ -129,6 +129,11 @@ resource webApp 'Microsoft.Web/sites@2023-01-01' = {
           name: 'ClaudeApiKey'
           value: '@Microsoft.KeyVault(VaultName=${kvName};SecretName=ClaudeApiKey)'
         }
+        {
+          // Absolute origin of emailed password-reset links (never derived from Request.Host).
+          name: 'MindAttic__Auth__Reset__PublicBaseUrl'
+          value: 'https://${webAppName}.azurewebsites.net'
+        }
       ]
     }
   }

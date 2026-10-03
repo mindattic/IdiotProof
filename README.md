@@ -23,7 +23,7 @@ Try it: browse the public replay archive at [mindattic.com/idiotproof/replays](h
 
 - Guided: a visual flowchart editor with one card per lifecycle phase.
 - Script: write IdiotScript, the project's fluent C# DSL, directly.
-- Describe: type plain English; `StrategyScriptGenerator` sends it through the `MindAttic.Legion` voter panel (Claude, OpenAI, Gemini, DeepSeek), with a verb catalog built by reflecting on the real DSL types so a model cannot invent syntax that does not compile.
+- Describe: type plain English; `StrategyScriptGenerator` sends it to Claude through `MindAttic.Legion` (a single call), with a verb catalog built by reflecting on the real DSL types so a model cannot invent syntax that does not compile, and the result is parse-checked.
 
 Strategies are stored as canonical strict JSON. If a stored strategy cannot be read exactly, it is quarantined with a visible reason instead of being partially evaluated.
 
@@ -224,8 +224,8 @@ Every project below is registered in `IdiotProof.slnx`.
 | `IdiotProof.Indicators.Tests` | NUnit | RSI/EMA/ATR/MACD/VWAP math + ADX Wilder-seed regression. | — |
 | `IdiotProof.Strategies.Tests` | NUnit | DSL round-trip, backtester, gapper lifecycle, canonical-JSON contract, and a large family of exhaustive combinatorial matrix tests. | — |
 | `IdiotProof.Brokers.Tests` | NUnit | BrokerRouter Sandbox default and safe fallback, Sandbox fill simulation, Sandbox synthetic options chain, Alpaca options wire format against canned responses. | — |
-| `IdiotProof.Blazor.Tests` | NUnit | `StrategyScriptGenerator` verb-catalog reflection, `LlmVotingService` consensus logic, research-pipeline services, repository guard rails. | — |
-| `IdiotProof.Monitor.Tests` | NUnit | `PremarketFadeScanner`. | — |
+| `IdiotProof.Blazor.Tests` | NUnit | `StrategyScriptGenerator` verb-catalog reflection, the LLM gate on Legion's voter panel (`LlmVotingServiceTests`) and per-owner Claude keys (`UserClaudeKeyResolverTests`), the password-reset flow (`PasswordResetFlowTests`), research-pipeline services, repository guard rails. | — |
+| `IdiotProof.Monitor.Tests` | NUnit | Long and short order shapes on the Sandbox broker (`DirectionalOrdersTests`), `PremarketFadeScanner` and `BeBexDecayScanner` math. | — |
 | `IdiotProof.UI.Tests` | NUnit | Options presenter, option position view and options glossary. | — |
 | `tests/IdiotProof.Cypress` | Cypress 13 | End-to-end Blazor UI tests (9 specs). | — |
 
@@ -427,10 +427,10 @@ Verified against `MonitorWorker.TickAsync`, `EvaluateOneAsync` and `FireAsync`:
 4. Per strategy: load the canonical `ScriptJson` (fail-closed quarantine on rejection, escalated loudly if the strategy is holding a position, because quarantine also stops its exit rules), resolve `If/ElseIf/Else` branches against the indicator snapshot, then either manage an open position's exit or walk entry conditions one by one.
 5. Per-condition progress is upserted to `ConditionProgress` every pass (`PassedCount`, `TotalCount`, `FirstFailingVerb`), which the Strategies page polls for its live badges, and a throttled `LiveBar` row is written for chart consumers.
 6. On a full pass, two more gates run before any order ([IP-LAW-1](docs/BIBLE.md#IP-LAW-1)). Both must pass before `RecordFiredAsync` bumps `LastFiredUtc` and `FireCount`:
-   - `LlmVotingService`, the Legion voter panel from `legion.json`. The quorum must explicitly approve; zero votes, a reject, an abstain-only result or a below-threshold split all fail closed. It is skipped only when voting is disabled or no Claude key is configured.
+   - `LlmVotingService`, on MindAttic.Legion's own voter panel: every `legion.json` voter (claude, openai, gemini, deepseek) that has a key casts an Approve, Reject or Abstain ballot through a rotating trading lens (Risk Manager, Momentum Trader, Technical Analyst). The Claude voter runs on the strategy owner's own key from the API Keys page, falling back to the host key (`UserClaudeKeyResolver`); the other voters use the shared MindAttic LLM keyring. Approve needs `LlmConsensusThreshold` (default 66%) of the counted votes; zero votes, unparseable ballots, a reject or a below-threshold split all fail closed. The gate is skipped only when voting is off for both the host and the owner, or no Claude key resolves.
    - `RiskGuardian` (`IdiotProof.Shared.Risk`, the final pre-trade veto, [IP-LAW-2](docs/BIBLE.md#IP-LAW-2)), a per-user instance cached by `RiskGuardianService` so the in-memory daily-loss circuit breaker survives across signals. It validates stop-loss presence and side, per-trade and daily loss limits, stop-distance bounds and account-risk percent.
-7. Placing the order: `UserBrokerResolver` resolves the strategy's own `BrokerMode` (Paper, Live or Sandbox), independent of any other strategy. Premarket and after-hours orders go in as limit plus `extended_hours` (an Alpaca requirement); regular-hours entries go in as a marketable limit (entry price + 0.2%) so a thin book cannot fill far off the evaluated price. As a hard interlock, the Monitor refuses to place a non-Sandbox order while the market-data feed is Mock.
-8. Managing the open position every pass via `GapperExitEvaluator.Evaluate` and `.EvaluateShort`: hard sell-by time, hard and trailing stops, take-profit, and the peak-giveback momentum rollover. Realized P&L feeds back into the daily circuit breaker. Exit orders reduce risk, so they skip the LLM panel by design but are always audit-logged. Shorts are currently signal-only: a qualifying short candidate clears both gates and is recorded, but no order is placed.
+7. Placing the order: `UserBrokerResolver` resolves the strategy's own `BrokerMode` (Paper, Live or Sandbox), independent of any other strategy. Premarket and after-hours orders go in as limit plus `extended_hours` (an Alpaca requirement); regular-hours entries go in as a marketable limit (entry price + 0.2%) so a thin book cannot fill far off the evaluated price. A short entry is a `sell_to_open` limit at entry price - 0.2% (`DirectionalOrders`). As a hard interlock, the Monitor refuses to place a non-Sandbox order while the market-data feed is Mock.
+8. Managing the open position every pass via `GapperExitEvaluator.Evaluate` and `.EvaluateShort`: hard sell-by time, hard and trailing stops, take-profit, and the peak-giveback momentum rollover. Realized P&L feeds back into the daily circuit breaker. A long exits with a `sell_to_close` limit at -0.5%, a short covers with a `buy_to_close` limit at +0.5%; before either, the Monitor reconciles against the broker position on the strategy's own side (a short is a negative broker quantity), and realized P&L is inverted for a short. Exit orders reduce risk, so they skip the LLM panel by design but are always audit-logged.
 
 ### Auxiliary jobs on the same loop
 
@@ -469,7 +469,7 @@ The console is Windows-Service-ready (`AddWindowsService`): `sc.exe create Idiot
 
 ## The web app
 
-`IdiotProof.Blazor` is a Blazor Server app (interactive server components) on ASP.NET Core, using `MindAttic.Authentication` 6.0.0 (Argon2id + pepper, sessions, MFA scaffolding, not ASP.NET Core Identity; it sends security alerts such as password changed, repeated failed sign-ins and new-device sign-in over SMTP from the Vault `Notifications` bucket when that is complete, and logs a startup warning otherwise; production self-service reset stays off, see `ForgotPassword.razor`) and EF Core 10 against SQL Server. Pages under `Components/Pages/`:
+`IdiotProof.Blazor` is a Blazor Server app (interactive server components) on ASP.NET Core, using `MindAttic.Authentication` 6.0.0 (Argon2id + pepper, sessions, MFA scaffolding, not ASP.NET Core Identity; it sends security alerts such as password changed, repeated failed sign-ins and new-device sign-in over SMTP from the Vault `Notifications` bucket when that is complete, and logs a startup warning otherwise; self-service password reset is the library's token flow: `/forgot-password` emails a single-use link to `MindAttic:Auth:Reset:PublicBaseUrl` + `/account/reset`, which is `https://localhost:65025` in `appsettings.Development.json` and the web app's own `azurewebsites.net` origin in `infra/main.bicep`) and EF Core 10 against SQL Server. Pages under `Components/Pages/`:
 
 | Component | Purpose |
 |---|---|
@@ -483,7 +483,7 @@ The console is Windows-Service-ready (`AddWindowsService`): `sc.exe create Idiot
 | `ActivityLog.razor` | Audit trail viewer. |
 | `ApiKeys.razor` | Per-user broker and data key entry, live-mode danger modal. |
 | `Settings.razor` | Preferences, theme and the six RiskGuardian limits. |
-| `Login.razor`, `Register.razor`, `ForgotPassword.razor`, `ForgotUsername.razor` | Auth flows against `MindAttic.Authentication`. |
+| `Login.razor`, `Register.razor`, `ForgotPassword.razor`, `ResetPassword.razor`, `ForgotUsername.razor` | Auth flows against `MindAttic.Authentication`; `ForgotPassword` (`MaForgotPassword`) and `ResetPassword` (`MaResetPassword`, at `/account/reset`) are the self-service reset. |
 | `LiveChart.razor` | Live chart surface. |
 
 Shared components (`Components/Shared/`): `AccountSummaryBar`, `GlossaryModal`, `LogsBadge`, `StrategyBlueprintViz`, `StrategyBuilderRenderer`, `ToastContainer`. `Hubs/TradingHub.cs` is a SignalR hub, and `Auth/AuthService.cs` wraps the auth stack for the UI.
@@ -491,7 +491,7 @@ Shared components (`Components/Shared/`): `AccountSummaryBar`, `GlossaryModal`, 
 ### The Describe tab
 
 1. The user types a ticker, a title and a plain-English description.
-2. `StrategyScriptGenerator` builds a system prompt by reflecting on `StrategyBuilder` and `Conditions`, so the prompted verb catalog cannot drift from what compiles ([IP-LAW-4](docs/BIBLE.md#IP-LAW-4)), and sends it through `LegionClient` to the voter panel declared in `legion.json`.
+2. `StrategyScriptGenerator` builds a system prompt by reflecting on `StrategyBuilder` and `Conditions`, so the prompted verb catalog cannot drift from what compiles ([IP-LAW-4](docs/BIBLE.md#IP-LAW-4)), and sends it to Claude through `LegionClient` in a single call.
 3. The generated IdiotScript is parsed by `WikilinkParser.ParseScript` into a `StrategyDefinition` and rendered live by `StrategyBuilderRenderer`.
 4. Save writes the row to SQL with a UUIDv7 id, paper by default.
 
@@ -531,7 +531,7 @@ IdiotProof follows two conventions shared across MindAttic projects:
 - Shared keyrings live in Roaming (`%APPDATA%\MindAttic\<Subsystem>\providers.json`): `LLM` (owned by `MindAttic.Legion`), `Brokers` (owned by IdiotProof: `alpaca-paper` and `alpaca-live`) and `Security` (owned by `MindAttic.Authentication`: pepper, bootstrap token).
 - Per-app state lives in Local (`%LOCALAPPDATA%\MindAttic\<AppName>\`).
 
-`legion.json` at the repo root configures the LLM voter panel and judge, and is copied next to the Blazor, Monitor and ResearchScanner binaries:
+`legion.json` at the repo root configures the LLM voter panel and judge (the Monitor's LLM gate runs on it, see [What one pass does](#what-one-pass-does)), and is copied next to the Blazor, Monitor and ResearchScanner binaries:
 
 ```json
 {
@@ -541,7 +541,7 @@ IdiotProof follows two conventions shared across MindAttic projects:
 }
 ```
 
-Strategy generation is high-stakes (one hallucinated verb can cost real money), so the panel cross-verifies before a script is shown to the user. All LLM traffic routes through `MindAttic.Legion` and all LLM credential reads through `MindAttic.Vault`; no feature code calls a provider SDK directly.
+A candidate fire is high-stakes, so every keyed provider on the panel votes before the Risk Guardian sees it. All LLM traffic routes through `MindAttic.Legion` and all LLM credential reads through `MindAttic.Vault`; no feature code calls a provider SDK directly.
 
 ## Building and testing
 
@@ -550,16 +550,17 @@ dotnet build IdiotProof.slnx
 dotnet test IdiotProof.slnx
 ```
 
-Counts recorded at the last full Release run (not re-run for this README; `IdiotProof.UI.Tests` was added later):
+Counts from the last full Debug run (2026-10-03, .NET 10 SDK); all green:
 
 | Project | Passed | Failed | Notes |
 |---|---:|---:|---|
-| `IdiotProof.Engine.Tests` | 33 | 0 | RiskGuardian gate, SupervisedLoop resilience, WorkspaceManager |
+| `IdiotProof.Engine.Tests` | 85 | 0 | RiskGuardian gate, SupervisedLoop resilience, WorkspaceManager, options pricing, AppSettings overlay |
 | `IdiotProof.Indicators.Tests` | 18 | 0 | RSI/EMA/ATR/MACD/VWAP math, ADX Wilder-seed regression |
-| `IdiotProof.Strategies.Tests` | 34,679 | 0 | DSL round-trip, backtester, gapper lifecycle, canonical-JSON contract, plus exhaustive combinatorial matrix classes (`StrategyPermutationMatrixTests`, `StrategyThreeWayAndMatrixTests`, `ConditionalBlockOverridePermutationTests`, ...) that expand to tens of thousands of generated cases |
-| `IdiotProof.Brokers.Tests` | 13 | 0 | BrokerRouter Sandbox default and safe fallback, Sandbox fill simulation |
-| `IdiotProof.Blazor.Tests` | 194 | 2 | Two pre-existing failures in `RegulatoryScannerTests` (`ScanAsync_AlreadySeenSourceUrl_IsSkippedOnSecondScan`, `ScanAsync_SubstantiveNotice_PersistsMacroClaim`) |
-| `IdiotProof.Monitor.Tests` | 4 | 0 | `PremarketFadeScanner` |
+| `IdiotProof.Strategies.Tests` | 34,681 | 0 | DSL round-trip, backtester, gapper lifecycle, canonical-JSON contract, plus exhaustive combinatorial matrix classes (`StrategyPermutationMatrixTests`, `StrategyThreeWayAndMatrixTests`, `ConditionalBlockOverridePermutationTests`, ...) that expand to tens of thousands of generated cases |
+| `IdiotProof.Brokers.Tests` | 33 | 0 | BrokerRouter Sandbox default and safe fallback, Sandbox fill simulation, options wire format (+3 `[Explicit]` real-paper tests not run) |
+| `IdiotProof.Blazor.Tests` | 210 | 0 | Verb catalog, LLM gate on Legion's panel, per-owner Claude keys, password reset, research pipeline, repositories (SQL Server LocalDB) |
+| `IdiotProof.Monitor.Tests` | 16 | 0 | Long/short order shapes on the Sandbox broker, `PremarketFadeScanner`, `BeBexDecayScanner` |
+| `IdiotProof.UI.Tests` | 62 | 0 | Options presenter, option position view, options glossary |
 
 The large `IdiotProof.Strategies.Tests` count is deliberate: the project generates exhaustive matrices over phase, condition and branch combinations rather than hand-writing each case.
 
@@ -580,7 +581,6 @@ Nine specs in `cypress/e2e/` cover a smoke test, strategy authoring and the save
 - `publish-all.bat`, `zzz_Export.bat`, `zzz_Backup.bat`: local convenience wrappers.
 - `tools/azure-provision.md` and `tools/register-research-scan-task.ps1`: document and automate one-time infrastructure steps; `tools/seed-*.sql` seed example strategies.
 - `tools/codex.ps1`: the documentation-canon tool (see [Documentation](#documentation)); `tools/build-readme.ps1` renders this README to `README.htm`.
-- `index.htm` and `package.json`: a stale README-to-HTML landing-page renderer (`marked` + `highlight.js`) that nothing deploys; this README on GitHub is the project page.
 
 `Export.ps1` is a generic source-export utility, not IdiotProof logic; its header still calls itself a "Unity project" exporter, a leftover from the template it was copied from. It walks the repo, hashes every matching file and writes one flat text bundle (`ExportedScripts.txt` in the current directory): a JSON manifest (path, SHA-256, byte count, line count) followed by a delimited block per file, handy for pasting a codebase into an LLM context window.
 
@@ -604,7 +604,6 @@ IdiotProof/
 ├── Export.ps1                                ← Generic repo → text-bundle exporter
 ├── AGENTS.md, CLAUDE.md                      ← Project rules for AI tooling
 ├── README.md                                 ← You are here
-├── TODO.md                                   ← Ghost-overlay/branching-viz plan (its file paths are stale)
 ├── docker-compose.yml / infra/               ← Azure deployment scaffolding (predates the current tree; verify before relying on it)
 │
 ├── IdiotProof.Models/                        ← Domain DTOs
@@ -618,7 +617,7 @@ IdiotProof/
 ├── IdiotProof.Blazor/                        ← Web app (the primary front door)
 │   ├── Data/                                 ← AppDbContext, Strategy, UserPreferences, LearningArticle, ...
 │   ├── Migrations/                           ← EF migrations
-│   ├── Services/                             ← StrategyScriptGenerator, LlmVotingService, repositories, research pipeline
+│   ├── Services/                             ← StrategyScriptGenerator, LlmVotingService, UserClaudeKeyResolver, repositories, research pipeline
 │   ├── Components/Pages/                     ← Strategies, StrategyBuilder, Gapper, Learn, Research, Options, ...
 │   ├── Components/Shared/                    ← AccountSummaryBar, StrategyBuilderRenderer, ...
 │   └── wwwroot/                              ← css/_theme-alpaca.css, data/gapper-profiles.json, user-guide.htm
@@ -660,9 +659,7 @@ These are verified in code or canon; the living version is `docs/BIBLE.md` secti
 
 - Options are manual-only. No option legs in the strategy schema, no IV or Greeks conditions, no options-aware `RiskGuardian` math, no multi-leg spreads; the Monitor never fires an options order. Both Alpaca accounts are at options level 3; place + cancel is proven against the real paper account, but the fill-and-close half of a real paper round-trip (IP-US-U10) is still open. `sp-index-events.json` is hand-maintained.
 - `dotnet run` on `IdiotProof.Blazor` needs a `wwwroot` folder next to the built exe. `Program.cs` mounts a `PhysicalFileProvider` on `AppContext.BaseDirectory/wwwroot` so a published exe serves its own static files, which throws `DirectoryNotFoundException` on a plain Debug build. Run from a publish output, or create `bin/Debug/net10.0/wwwroot` before `dotnet run`.
-- Shorts are signal-only. A short candidate can clear both gates and gets recorded, but no order is placed, because the exit-management brain (`GapperExitEvaluator`) is long-shaped.
 - There is no Polygon feed: only `AlpacaDataFeed`, `AlpacaStreamingClient`, `MockDataFeed` and `SwitchableMarketDataFeed` exist. `docker-compose.yml` and `infra/` still reference a `PolygonApiKey` variable and a `src/IdiotProof.Blazor/Dockerfile` path that does not exist; verify that scaffolding before relying on it for a real deploy.
-- `TODO.md`'s ghost-overlay plan cites `IdiotProof.Core` paths that do not exist. The feature intent (chart playback with branch forking) is live in `docs/USER_STORIES.md` Epic G.
 - `UserPreferences.OpenStrategyTabs` is an unused column awaiting removal in a migration.
 - The Learning Center and Backtest pages are built but not yet proven by a Cypress run (Epics I and J are partial).
 - `ScriptParser` is intentionally a tolerant, regex-driven parser; a Roslyn-based parser with exact line and column diagnostics is planned (`IP-US-H1`).

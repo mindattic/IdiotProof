@@ -314,8 +314,12 @@ public static class MonitorCli
             var (broker, positions) = group;
 
             positions.TryGetValue(sym, out var bp);
+            // Long or short: the strategy's own definition decides; a row whose
+            // canon no longer loads falls back to the broker position's sign.
+            var direction = StrategyLoader.Load(st.ScriptJson, st.ScriptText).Definition?.Direction
+                ?? (bp is { Quantity: < 0m } ? TradeDirection.Short : TradeDirection.Long);
             var qty = st.PositionQty;
-            if (bp is not null) qty = Math.Min(qty, (int)Math.Floor(bp.Quantity));
+            if (bp is not null) qty = Math.Min(qty, DirectionalOrders.HeldShares(bp, direction));
 
             if (qty <= 0)
             {
@@ -325,25 +329,22 @@ public static class MonitorCli
                 continue;
             }
 
-            var refPx = bp is not null && bp.Quantity > 0 ? bp.MarketValue / bp.Quantity : (st.LastEntryPrice ?? 0m);
-            var limit = Math.Round(refPx * 0.995m, 2); // marketable sell limit (−0.5%)
-            var order = await broker.PlaceOrderAsync(new OrderRequest
-            {
-                Symbol = sym, Quantity = qty, Side = OrderSide.Sell, Type = OrderType.Limit,
-                LimitPrice = limit, TimeInForce = "DAY", ExtendedHours = extended,
-                // Same naked-short protection as the Monitor's own exit path
-                // (MonitorWorker.cs) — without this, a stale/wrong PositionQty
-                // could sell into opening a short instead of just closing out.
-                PositionIntent = "sell_to_close",
-            });
+            var refPx = bp is not null && bp.Quantity != 0m ? bp.MarketValue / bp.Quantity : (st.LastEntryPrice ?? 0m);
+            // Same order shape as the Monitor's own exit path: marketable limit
+            // (sell -0.5% / buy back +0.5%) with a *_to_close intent, so a
+            // stale PositionQty can only close, never open the opposite side.
+            var exitOrder = DirectionalOrders.Exit(sym, direction, qty, refPx, extended);
+            var limit = exitOrder.LimitPrice!.Value;
+            var sideLabel = DirectionalOrders.SideLabel(exitOrder.Side);
+            var order = await broker.PlaceOrderAsync(exitOrder);
             if (!order.IsSuccess)
             {
-                Line($"  ✗ {sym} \"{st.Title}\" [{st.BrokerMode}] — SELL rejected by {broker.BrokerType}: {order.Message}");
+                Line($"  ✗ {sym} \"{st.Title}\" [{st.BrokerMode}] — {sideLabel} rejected by {broker.BrokerType}: {order.Message}");
                 continue;
             }
 
             var entry = st.LastEntryPrice ?? limit;
-            var realized = (limit - entry) * qty;
+            var realized = DirectionalOrders.RealizedPnl(direction, entry, limit, qty);
             var exitUtc = DateTime.UtcNow;
             await strategyRepo.RecordExitFillAsync(st.Id, limit, "ManualFlatten", exitUtc);
             try { var g = await riskService.GetForUserAsync(userId.Value); g.RecordTradePnL(realized); } catch { /* breaker best-effort */ }
@@ -351,7 +352,7 @@ public static class MonitorCli
             catch (Exception ex) { Line($"      (diary close failed: {ex.Message})"); }
 
             var pnlText = realized >= 0 ? $"+${realized:0.00}" : $"-${Math.Abs(realized):0.00}";
-            Line($"  ✓ {sym} \"{st.Title}\" [{st.BrokerMode}] — SOLD {qty} @ ${limit:0.00}  P&L {pnlText}  (order {order.BrokerOrderId})");
+            Line($"  ✓ {sym} \"{st.Title}\" [{st.BrokerMode}] — {(direction == TradeDirection.Short ? "BOUGHT BACK" : "SOLD")} {qty} @ ${limit:0.00}  P&L {pnlText}  (order {order.BrokerOrderId})");
             done++;
         }
         Line($"Flattened {done} of {holding.Count} position(s). Positions cleared; strategies remain active (deactivate/delete separately).");

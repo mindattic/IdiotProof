@@ -88,7 +88,8 @@ public sealed class OrderRequest
     /// "sell_to_open"/"sell_to_close" (Alpaca has no bare "close" value). Set
     /// to "sell_to_close"/"buy_to_close" on exit orders so Alpaca refuses to
     /// open a new position if the held quantity is 0 (e.g. margin account
-    /// after a partial fill). Null on entry orders (omitted from the wire payload).
+    /// after a partial fill), and to "sell_to_open" on a short entry. Null on long
+    /// entry orders (omitted from the wire payload).
     /// </summary>
     public string? PositionIntent { get; init; }
 

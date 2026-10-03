@@ -22,8 +22,6 @@ rolls over.
 - **Not a gate-bypassing autotrader.** The Monitor places orders only through
   `BrokerRouter`/`IBrokerClient` after all three gates clear, never around the Risk Guardian.
   Exit orders are risk-reducing: they skip the LLM panel by design but are always audit-logged.
-  Short candidates are signal-only: they clear the gates and are recorded, but no short order is
-  placed.
 - **Not an options autotrader.** Options orders are manual and user-initiated on `/options`;
   the DSL, Monitor, `RiskGuardian` and `Conditions` catalog know nothing about options.
 - **Not a desktop app.** `IdiotProof.Blazor` (Blazor Server) is the only UI host.
@@ -47,11 +45,12 @@ quorum explicitly approves, (3) the `RiskGuardian` clears it. Any gate blocks th
 reason is recorded to the audit trail. Every gate fails closed: a condition whose inputs are
 absent or whose type is unrecognized blocks; zero votes, abstain-only, unparseable votes or a
 below-threshold split block (a vote defaults to Abstain). The LLM gate is skipped only when
-voting is disabled or no Claude key is configured. Exits are risk-reducing and skip the LLM
+voting is off for both the host and the strategy owner, or no Claude key resolves (the owner's,
+then the host's). Exits are risk-reducing and skip the LLM
 panel but are audit-logged and honor the Risk Guardian kill-switch. User-initiated manual orders
 (the Options section) are not automated fires; they are governed by the Paper/Live consent rule
 and Live password elevation instead. (Risk gate: `RiskGuardian*` tests; LLM gate:
-`IdiotProof.Blazor/Services/LlmVotingService.cs`; condition layer: `ConditionFailClosedTests`.)
+`LlmVotingServiceTests`, `UserClaudeKeyResolverTests`; condition layer: `ConditionFailClosedTests`.)
 
 ### {#IP-LAW-2} Risk Guardian holds the final veto
 No order is placed without a stop loss on the correct side, with risk within `MaxLossPerTrade`,
@@ -187,6 +186,6 @@ No page writes strategy rows around it. (`StrategyRepositoryGuardTests`.)
   addition or deletion logged in `wwwroot/data/sp-index-events.json`, Pending until effective.
 
 ## Status index (USER_STORIES.md)
-- done: 46
+- done: 50
 - partial: 38
 - planned: 14

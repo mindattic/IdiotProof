@@ -179,6 +179,33 @@ updated: 2026-10-03
   `Replay_ImpossibleGapScreen_ReportsNoEntryWithTheBlocker`,
   `Replay_NoPreviousClose_FailsClosedLikeLive`, `Replay_NoBars_ReportsCleanly` in
   `IdiotProof.Strategies.Tests/GapperDayBacktesterTests.cs`.)*
+- **IP-US-K13 ✅** As a trader, a SHORT strategy that clears the conditions, the LLM panel and
+  the Risk Guardian opens a real short on the strategy's own Paper/Live/Sandbox account
+  (`sell_to_open` limit), is managed by the mirrored exit brain, and covers with a
+  `buy_to_close`, with realized P&L inverted into the daily circuit breaker — the same three
+  gates as a long. *(Order shapes and a short round trip on the Sandbox broker verified by
+  `ShortEntry_IsASellToOpen_BelowThePrice`, `LongEntry_IsUnchanged_BuyAbovePrice_NoIntent`,
+  `Exits_AlwaysClose_OnTheOppositeSide`, `HeldShares_CountsOnlyThePositionsOwnSide`,
+  `RealizedPnl_IsInvertedForAShort`, `ShortRoundTrip_OnTheSandboxBroker_OpensThenFlattens` in
+  `IdiotProof.Monitor.Tests/DirectionalOrdersTests.cs`.)*
+- **IP-US-K14 ✅** As one of several users, the Monitor's LLM gate votes on MY Claude key from
+  the API Keys page (falling back to the host key when I have none, never to another user's),
+  and my "Enabled" toggle turns the gate on for my strategies. *(verified by
+  `EachOwner_GetsTheirOwnKey_NeverAnotherUsers`, `OwnerWithoutKey_FallsBackToTheHostKey`,
+  `NoOwnerKey_NoHostKey_ResolvesNone`, `OwnerToggle_AddsTheGate_ButCannotRemoveAHostWideOne`,
+  `UnreadableOwnerRow_FallsBackToTheHostKey` in
+  `IdiotProof.Blazor.Tests/UserClaudeKeyResolverTests.cs`, and
+  `Vote_PanelApproves_ConsensusApprove_AndClaudeVotesOnTheOwnersKey`.)*
+- **IP-US-K15 ✅** As a trader, a candidate fire is voted on by MindAttic.Legion's own panel —
+  every keyed `legion.json` voter (claude, openai, gemini, deepseek) — and only an explicit
+  approval quorum lets it through; a split, a malformed ballot or a dead panel blocks it —
+  implements [IP-LAW-1](BIBLE.md#IP-LAW-1). *(verified over a fake vendor transport by
+  `ShippedLegionJson_DeclaresTheFourVoterPanel_WithClaudeAsJudge`,
+  `BuildPanel_SeatsClaudeOnTheOwnersKey_PlusEveryKeyedLegionVoter`,
+  `Vote_PanelApproves_ConsensusApprove_AndClaudeVotesOnTheOwnersKey`,
+  `Vote_SplitPanel_FailsClosedToAbstain`, `Vote_UnparseableBallot_NeverApproves`,
+  `Vote_DisabledOrUnkeyed_SkipsThePanel` in `IdiotProof.Blazor.Tests/LlmVotingServiceTests.cs`.
+  The live vendor round trip is not run.)*
 
 ## Epic R — Strategy replay, scanner & ML dataset {#Epic-R}
 - **IP-US-R1 🟡** As a trader, I can replay any strategy against a past ET session and see the
@@ -325,9 +352,9 @@ updated: 2026-10-03
 
 ## Epic E — Authoring & generation (web)
 - **IP-US-E1 🟡** As a trader, I describe a setup in prose and Claude generates valid IdiotScript
-  via the Legion high-tier voter panel, with the verb catalog reflected from code so it can't
-  hallucinate syntax. *Backend verified by `StrategyScriptGeneratorTests` (verb-catalog
-  reflection) and `LlmVotingServiceTests` (voting consensus) in `IdiotProof.Blazor.Tests`.
+  through Legion (one Claude call, parse-checked), with the verb catalog reflected from code so
+  it can't hallucinate syntax. *Backend verified by `StrategyScriptGeneratorTests` (verb-catalog
+  reflection) in `IdiotProof.Blazor.Tests`.
   E2E: `tests/IdiotProof.Cypress/cypress/e2e/02_strategies_describe.cy.ts` covers the
   describe-tab → generate → save → `/strategies` round-trip and activate-toggle persistence;
   the server runs with `IDIOTPROOF_FAKE_LLM=1` so `FakeLlmHandler` answers the Legion call
@@ -368,9 +395,18 @@ updated: 2026-10-03
   `#backtest-results`, `#backtest-summary` (contains "AAPL"), and `#backtest-pnl` render;
   also verifies Run is disabled until a strategy is chosen. Cypress suite must be run against
   a live server to mark this story done.*
+- **IP-US-E7 ✅** As a user who forgot my password, I follow "Forgot password?" on `/login`, get
+  an emailed single-use link to this app's `/account/reset` page (absolute, from
+  `MindAttic:Auth:Reset:PublicBaseUrl`: `https://localhost:65025` in Development, the web app's
+  own origin in `infra/main.bicep`), and setting a new password there replaces the old one. Mail
+  is sent only when the Vault `Notifications` SMTP settings are configured. *(verified by
+  `RequestReset_EmailsAnAbsoluteLinkToTheResetPage_WhichResetsThePassword`,
+  `ForgotPasswordPage_PostsToTheLibraryRequestEndpoint`, `TheResetAndForgotPages_AreAnonymous`,
+  `DevelopmentPublicBaseUrl_IsTheLaunchProfileOrigin`, `AzureWebApp_SetsItsOwnPublicBaseUrl` in
+  `IdiotProof.Blazor.Tests/PasswordResetFlowTests.cs`.)*
 
 ## Epic G — Strategy ghost overlay + branching visualization (planned)
-> From `TODO.md`. Author a strategy, press play, and watch it unfold on the chart as a
+> Author a strategy, press play, and watch it unfold on the chart as a
 > translucent "ghost" trade path, forking at each branch point. Nothing here is built;
 > prerequisites (chart component, candle feed into the UI) are not wired.
 
@@ -440,9 +476,8 @@ updated: 2026-10-03
    add specs for `/learn`, `/research` and `/gapper`.
 2. **Epic R tests** — NUnit coverage for replay, scan, export and the strategy families.
 3. **IP-US-U10** — fill-and-close half of the real paper options round-trip, in market hours.
-4. **Epic G (IP-US-G1…G4)** — Strategy ghost overlay + branching visualization (from
-   `TODO.md`): chart integration, simulator evaluation timeline, branch-fork rendering,
-   scrub/playback.
+4. **Epic G (IP-US-G1…G4)** — Strategy ghost overlay + branching visualization: chart
+   integration, simulator evaluation timeline, branch-fork rendering, scrub/playback.
 5. **IP-US-H1** — Roslyn-based IdiotScript parser: exact line/col diagnostics replacing
    the regex parser.
 6. **Epic S** — adaptive auto-strategy generation.

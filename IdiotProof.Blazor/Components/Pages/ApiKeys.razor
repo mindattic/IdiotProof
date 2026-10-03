@@ -238,7 +238,7 @@
     @if (llmVotingEnabled && string.IsNullOrWhiteSpace(claudeKey))
     {
         <div class="alert alert-warning small py-1 mt-2" role="alert">
-            LLM voting is enabled but no API key is set. Voting will be skipped.
+            LLM voting is enabled but no API key is set here. The Monitor will vote on the host's shared Claude key if one is configured; otherwise voting is skipped.
         </div>
     }
 </section>
@@ -385,8 +385,9 @@
         // Write-through to this app's own Vault-scoped entry, mirroring the
         // BYOK pattern already shipped in Automata/Tutor/ThinkTank: entering
         // a Claude key here also makes it durable/visible across app restarts
-        // for AppSettings.OverlayFromMindAtticCredentials (used by the
-        // Monitor's global voting panel), independent of this per-user DB row.
+        // for AppSettings.ClaudeApiKey (the host key the Monitor's LLM gate
+        // falls back to when a strategy owner has no key of their own),
+        // independent of this per-user DB row, which the gate reads first.
         // Only on save, not per-keystroke; only when non-empty (an emptied
         // field just falls back to the shared default next resolve, matching
         // how Automata handles a blank BYO-key field).

@@ -125,10 +125,11 @@ builder.Services.AddSingleton<IStorageProvider>(storage);
 builder.Services.AddSingleton(settings);
 
 // MindAttic.Legion — the universal LLM gateway. AddLegionClient registers the
-// HttpClient + the LegionClient itself; LlmVotingService uses it to fan out
-// prompts across the high-tier voter panel declared in legion.json.
+// HttpClient + the LegionClient itself; AddSignalVotingPanel puts the LLM gate
+// on Legion's own voter panel, configured from the legion.json shipped next to
+// this binary (claude/openai/gemini/deepseek, whichever have keys).
 builder.Services.AddLegionClient();
-builder.Services.AddSingleton<IdiotProof.Blazor.Services.LlmVotingService>();
+builder.Services.AddSignalVotingPanel();
 
 // Risk Guardian — final gate after the LLM panel. Per-user instances are
 // cached by RiskGuardianService and seeded from UserPreferences risk fields
@@ -171,6 +172,8 @@ var keyRingPath = builder.Configuration["DataProtection:KeyRingPath"]
 
 builder.Services.AddSingleton<UserKeyService>();
 builder.Services.AddSingleton<UserBrokerResolver>();
+// Per-owner Claude key for the LLM gate (owner's API Keys row, then the host key).
+builder.Services.AddSingleton<UserClaudeKeyResolver>();
 builder.Services.AddSingleton<EmailDomainBlocklistService>();
 
 // Auth stack (same as the Blazor host) so the operator CLI can create an

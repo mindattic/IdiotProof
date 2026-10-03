@@ -1,9 +1,8 @@
 using System.Text;
-using System.Text.Json;
-using System.Text.Json.Serialization;
-using IdiotProof.Engine.Settings;
 using IdiotProof.Models;
 using MindAttic.Legion;
+using MindAttic.Legion.Providers;
+using LegionPanel = MindAttic.Legion.LlmVotingService;
 
 namespace IdiotProof.Blazor.Services;
 
@@ -27,226 +26,233 @@ public sealed class LlmVotingResult
 
 public sealed class LlmVote
 {
+    /// <summary>Voter display name: the provider plus the trading lens it voted through, e.g. "claude (Risk Manager)".</summary>
     public string PersonaName { get; set; } = "";
+
+    /// <summary>The Legion provider id that cast the vote ("claude", "openai", ...).</summary>
     public string ModelId { get; set; } = "";
 
     /// <summary>
     /// Defaults to Abstain, NOT the enum's zero value (Approve): a vote whose
     /// decision was never parsed must never count as an approval on a
-    /// money-movement path (IP-LAW-1 — a response missing/mis-casing the
-    /// "decision" key silently became Approve).
+    /// money-movement path (IP-LAW-1).
     /// </summary>
     public VoteDecision Decision { get; set; } = VoteDecision.Abstain;
 
+    /// <summary>0-100 (Legion reports 1-10; scaled ×10).</summary>
     public decimal Confidence { get; set; }
     public string Reasoning { get; set; } = "";
-    public TradeDirection? SuggestedDirection { get; set; }
 }
 
 /// <summary>
-/// Voting persona — different trading mindsets that evaluate the same signal.
-/// Inspired by LLMVoting's VoterProfile pattern.
+/// The LLM gate of IP-LAW-1, run on MindAttic.Legion's own voter panel. The panel is the providers
+/// <c>legion.json</c> declares (claude, openai, gemini, deepseek) that have a key; Claude always sits
+/// on it with the strategy owner's resolved key (<see cref="UserClaudeKeyResolver"/>), the others use
+/// the shared MindAttic LLM keyring. Each voter takes one trading lens (Risk Manager, Momentum Trader,
+/// Technical Analyst, rotating) and casts a choice vote — Approve, Reject or Abstain — through
+/// <see cref="LegionPanel.VoteWithProfilesAsync"/>, which runs the calls in parallel, snaps each answer
+/// to the ballot and refills failed seats from the providers that answered.
+/// <para>
+/// The consensus is IdiotProof's and fails closed: only successful votes count, each equally;
+/// Approve needs at least <c>LlmConsensusThreshold</c> of them; zero votes, unparseable or off-ballot
+/// answers (Legion marks those as errors) and a below-threshold split all leave the result at Abstain,
+/// which the Monitor treats as a block.
+/// </para>
 /// </summary>
-file static class TraderPersonas
-{
-    public static readonly (string Name, string ModelId, int Weight, string SystemPrompt)[] All =
-    [
-        (
-            "Risk Manager",
-            "claude-haiku-4-5-20251001",
-            2,
-            """
-            You are a strict risk manager at a proprietary trading firm. Your primary concern is capital preservation.
-            You approve trades only when:
-            - Risk:Reward ratio is at least 1.5:1
-            - Stop loss is clearly defined and not too wide (< 3% from entry)
-            - The signal does not go against the dominant trend
-            - Confidence is high enough to justify the position size
-            You are skeptical by nature. When in doubt, Reject.
-            Respond ONLY with JSON: {"decision":"Approve"|"Reject"|"Abstain","confidence":0-100,"reasoning":"1-2 sentences","direction":"Long"|"Short"|null}
-            """
-        ),
-        (
-            "Momentum Trader",
-            "claude-haiku-4-5-20251001",
-            2,
-            """
-            You are an aggressive momentum trader who capitalizes on strong directional moves.
-            You approve trades when:
-            - Price action shows clear momentum (strong candle closes, volume surge)
-            - The signal aligns with the current intraday trend
-            - Entry is near a key level (VWAP, premarket high/low, prior day close)
-            - Potential reward is at least 2x the risk
-            You look for conviction in the signal. If the setup is weak or choppy, Reject.
-            Respond ONLY with JSON: {"decision":"Approve"|"Reject"|"Abstain","confidence":0-100,"reasoning":"1-2 sentences","direction":"Long"|"Short"|null}
-            """
-        ),
-        (
-            "Technical Analyst",
-            "claude-sonnet-5",
-            3,
-            """
-            You are an objective technical analyst with 20 years of experience reading price action and indicators.
-            You evaluate signals based on:
-            - Indicator alignment (RSI, MACD, ADX, VWAP, EMA trend)
-            - Chart structure (higher highs/lows for uptrend, lower highs/lows for downtrend)
-            - Volume confirmation (breakouts need volume)
-            - Time of day context (premarket moves vs RTH)
-            - Divergences (RSI/price divergence as reversal signal)
-            You are analytical, not emotional. Base your vote purely on technical merit.
-            Respond ONLY with JSON: {"decision":"Approve"|"Reject"|"Abstain","confidence":0-100,"reasoning":"1-2 sentences","direction":"Long"|"Short"|null}
-            """
-        ),
-    ];
-}
-
 public sealed class LlmVotingService
 {
-    private readonly LegionClient legion;
+    public const string ApproveOption = "Approve";
+    public const string RejectOption  = "Reject";
+    public const string AbstainOption = "Abstain";
+
+    private readonly LegionPanel panel;
+    private readonly VotingConfiguration config;
     private readonly ILogger<LlmVotingService> logger;
 
-    // Bound concurrent LLM calls process-wide. Without this, a burst of N concurrent signals
-    // would fan out to N * personas.Count requests at once and trip rate limits.
-    private static readonly SemaphoreSlim ConcurrencyGate = new(initialCount: 6, maxCount: 6);
-
-    private static readonly JsonSerializerOptions JsonOpts = new()
+    public LlmVotingService(LegionPanel panel, VotingConfiguration config, ILogger<LlmVotingService> logger)
     {
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-        PropertyNameCaseInsensitive = true,
-        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
-    };
-
-    public LlmVotingService(LegionClient legion, ILogger<LlmVotingService> logger)
-    {
-        this.legion = legion;
+        this.panel  = panel;
+        this.config = config;
         this.logger = logger;
     }
 
+    /// <summary>
+    /// The voting configuration for the shipped <c>legion.json</c>: its voters become the provider
+    /// whitelist, its judge and model overrides apply. Keys resolve per voter (Claude's is passed in
+    /// per vote) and otherwise from the shared MindAttic LLM keyring.
+    /// </summary>
+    public static VotingConfiguration BuildConfiguration(LegionConfig? legion)
+    {
+        var cfg = new VotingConfiguration();
+        legion?.ApplyTo(cfg);
+        return cfg;
+    }
+
+    /// <summary>
+    /// Wires the panel against a transport. Production passes an <see cref="IHttpClientFactory"/>
+    /// client; tests pass an <see cref="HttpClient"/> over a fake handler so nothing leaves the process.
+    /// </summary>
+    public static LlmVotingService Create(HttpClient http, VotingConfiguration config, ILoggerFactory loggers) =>
+        new(new LegionPanel(new LlmVotingProvider(http, config), config, loggers.CreateLogger<LegionPanel>()),
+            config, loggers.CreateLogger<LlmVotingService>());
+
+    /// <summary>Trading lenses, assigned to voters in rotation.</summary>
+    internal static readonly (string Name, string Markdown)[] Lenses =
+    [
+        ("Risk Manager",
+            """
+            You are a strict risk manager at a proprietary trading firm. Your primary concern is capital preservation.
+            Approve only when the risk:reward is at least 1.5:1, the stop is clearly defined and not too wide,
+            the signal does not fight the dominant trend, and the setup justifies the position size.
+            You are skeptical by nature. When in doubt, Reject.
+            """),
+        ("Momentum Trader",
+            """
+            You are a momentum trader who capitalizes on strong directional moves. Approve when price action shows
+            clear momentum (strong closes, volume surge), the signal aligns with the intraday trend, entry is near
+            a key level (VWAP, premarket high/low, prior close), and the reward is at least twice the risk.
+            If the setup is weak or choppy, Reject.
+            """),
+        ("Technical Analyst",
+            """
+            You are an objective technical analyst. Judge indicator alignment (RSI, MACD, ADX, VWAP, EMA trend),
+            chart structure (higher highs/lows or lower highs/lows), volume confirmation, time of day (premarket
+            vs regular hours) and divergences. Vote purely on technical merit.
+            """),
+    ];
+
+    /// <summary>
+    /// The voters for one signal: every legion.json provider with a key (Claude always, on
+    /// <paramref name="claudeApiKey"/>), Claude first, each with a rotating trading lens.
+    /// </summary>
+    internal IReadOnlyList<VoterProfile> BuildPanel(string claudeApiKey, string? claudeModel)
+    {
+        var claudeAllowed = config.AllowedProviderIds.Count == 0 || config.AllowedProviderIds.Contains("claude");
+        var others = config.ActiveProviderIds
+            .Where(id => !id.Equals("claude", StringComparison.OrdinalIgnoreCase))
+            .OrderBy(id => id, StringComparer.OrdinalIgnoreCase);
+        var ids = new List<string>();
+        if (claudeAllowed) ids.Add("claude");
+        ids.AddRange(others);
+
+        return ids.Select((id, i) =>
+        {
+            var lens = Lenses[i % Lenses.Length];
+            var isClaude = id.Equals("claude", StringComparison.OrdinalIgnoreCase);
+            return new VoterProfile
+            {
+                ProviderId          = id,
+                Name                = $"{id} ({lens.Name})",
+                PersonalityMarkdown = lens.Markdown.Trim(),
+                ApiKeyOverride      = isClaude ? claudeApiKey : null,
+                ModelOverride       = isClaude && !string.IsNullOrWhiteSpace(claudeModel) ? claudeModel : null,
+            };
+        }).ToList();
+    }
+
+    /// <summary>
+    /// Puts <paramref name="signal"/> to the panel. Returns an empty Abstain result (no votes) when
+    /// voting is off or no Claude key resolved; the Monitor skips the gate only in those two cases.
+    /// </summary>
     public async Task<LlmVotingResult> VoteOnSignalAsync(
         TradeSignal signal,
         IReadOnlyList<Candle> recentCandles,
-        AppSettings settings,
+        SignalVotingCredentials credentials,
+        decimal consensusThreshold,
         CancellationToken ct = default)
     {
         var result = new LlmVotingResult();
-
-        if (!settings.LlmVotingEnabled || string.IsNullOrWhiteSpace(settings.ClaudeApiKey))
+        if (!credentials.VotingEnabled || string.IsNullOrWhiteSpace(credentials.ClaudeApiKey))
             return result;
 
-        var signalContext = BuildSignalContext(signal, recentCandles);
+        var request = new VoteRequest
+        {
+            Question            = $"Should this {signal.Direction} trade on {signal.Symbol} be executed now?",
+            Context             = BuildSignalContext(signal, recentCandles),
+            Options             = [ApproveOption, RejectOption, AbstainOption],
+            MaxTokens           = 512,
+            Temperature         = 0.3,
+            SynthesizeNarrative = false,
+        };
 
-        var tasks = TraderPersonas.All.Select(persona =>
-            CallPersonaAsync(persona.Name, persona.ModelId, persona.Weight, persona.SystemPrompt,
-                signalContext, settings.ClaudeApiKey, ct)).ToArray();
-
-        LlmVote[] votes;
+        VotingResult vote;
         try
         {
-            votes = await Task.WhenAll(tasks);
+            vote = await panel.VoteWithProfilesAsync(
+                request, Quorum.Plurality, BuildPanel(credentials.ClaudeApiKey, credentials.ClaudeModel), ct);
         }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
         catch (Exception ex)
         {
-            logger.LogError(ex, "LLM voting encountered an error for signal {Symbol}", signal.Symbol);
+            logger.LogError(ex, "LLM voter panel failed for signal {Symbol} — failing closed.", signal.Symbol);
             return result;
         }
 
-        result.Votes = [.. votes.Where(v => v != null)];
+        foreach (var failed in vote.IndividualVotes.Where(v => v.IsError))
+            logger.LogWarning("LLM voter {Voter} failed: {Error}", failed.VoterName, failed.ErrorMessage);
+
+        result.Votes = vote.IndividualVotes
+            .Where(v => !v.IsError)
+            .Select(v => new LlmVote
+            {
+                PersonaName = v.VoterName,
+                ModelId     = v.ProviderId,
+                Decision    = MapDecision(v.Decision),
+                Confidence  = Math.Clamp(v.Confidence, 0, 10) * 10m,
+                Reasoning   = v.Reasoning,
+            })
+            .ToList();
+
         if (result.Votes.Count == 0)
             return result;
 
-        CalculateWeightedConsensus(result, settings.LlmConsensusThreshold);
+        CalculateConsensus(result, consensusThreshold);
         result.VotedAtUtc = DateTime.UtcNow;
-
         return result;
     }
 
-    internal void CalculateWeightedConsensus(LlmVotingResult result, decimal consensusThreshold)
+    /// <summary>Ballot text → decision. Anything but an exact Approve/Reject is Abstain (fail closed).</summary>
+    internal static VoteDecision MapDecision(string? decision) => decision?.Trim().ToLowerInvariant() switch
     {
-        var personaWeights = TraderPersonas.All.ToDictionary(p => p.Name, p => p.Weight);
+        "approve" => VoteDecision.Approve,
+        "reject"  => VoteDecision.Reject,
+        _         => VoteDecision.Abstain,
+    };
 
-        decimal totalWeight = 0, approveWeight = 0, rejectWeight = 0, totalConfidence = 0;
-        var reasonings = new List<string>();
-
-        foreach (var vote in result.Votes)
+    /// <summary>
+    /// Equal-weight consensus over the counted votes: Approve when the approve share reaches
+    /// <paramref name="consensusThreshold"/>, Reject when the reject share does, else Abstain.
+    /// </summary>
+    internal static void CalculateConsensus(LlmVotingResult result, decimal consensusThreshold)
+    {
+        var votes = result.Votes;
+        if (votes.Count == 0)
         {
-            var weight = personaWeights.GetValueOrDefault(vote.PersonaName, 1);
-            totalWeight += weight;
-            totalConfidence += vote.Confidence * weight;
-
-            if (vote.Decision == VoteDecision.Approve) approveWeight += weight;
-            else if (vote.Decision == VoteDecision.Reject) rejectWeight += weight;
-
-            if (!string.IsNullOrEmpty(vote.Reasoning))
-                reasonings.Add($"{vote.PersonaName}: {vote.Reasoning}");
+            result.Consensus = VoteDecision.Abstain;
+            result.ConsensusConfidence = 0;
+            result.ConsensusReasoning = "";
+            return;
         }
 
-        if (totalWeight > 0)
-        {
-            var approveRatio = approveWeight / totalWeight;
-            var rejectRatio = rejectWeight / totalWeight;
+        decimal total = votes.Count;
+        var approveRatio = votes.Count(v => v.Decision == VoteDecision.Approve) / total;
+        var rejectRatio  = votes.Count(v => v.Decision == VoteDecision.Reject) / total;
 
-            result.Consensus = approveRatio >= consensusThreshold ? VoteDecision.Approve
-                : rejectRatio >= consensusThreshold ? VoteDecision.Reject
-                : VoteDecision.Abstain;
-
-            result.ConsensusConfidence = totalConfidence / totalWeight;
-        }
-
-        result.ConsensusReasoning = string.Join(" | ", reasonings);
+        result.Consensus = approveRatio >= consensusThreshold ? VoteDecision.Approve
+            : rejectRatio >= consensusThreshold ? VoteDecision.Reject
+            : VoteDecision.Abstain;
+        result.ConsensusConfidence = votes.Average(v => v.Confidence);
+        result.ConsensusReasoning = string.Join(" | ", votes
+            .Where(v => !string.IsNullOrEmpty(v.Reasoning))
+            .Select(v => $"{v.PersonaName}: {v.Reasoning}"));
     }
 
-    private async Task<LlmVote> CallPersonaAsync(
-        string personaName,
-        string modelId,
-        int weight,
-        string systemPrompt,
-        string signalContext,
-        string apiKey,
-        CancellationToken ct)
-    {
-        var vote = new LlmVote { PersonaName = personaName, ModelId = modelId, Decision = VoteDecision.Abstain };
-
-        await ConcurrencyGate.WaitAsync(ct).ConfigureAwait(false);
-        try
-        {
-            var content = await legion.CallAsync(
-                providerId: "claude",
-                apiKey: apiKey,
-                model: modelId,
-                systemPrompt: systemPrompt,
-                userMessage: signalContext,
-                maxTokens: 256,
-                temperature: 0.7,
-                ct: ct);
-
-            var parsed = ParseVoteJson(content);
-            if (parsed != null)
-            {
-                vote.Decision = parsed.Decision;
-                vote.Confidence = parsed.Confidence;
-                vote.Reasoning = parsed.Reasoning;
-                vote.SuggestedDirection = parsed.SuggestedDirection;
-            }
-        }
-        catch (Exception ex)
-        {
-            logger.LogWarning(ex, "Error calling LLM persona {Persona}", personaName);
-        }
-        finally
-        {
-            ConcurrencyGate.Release();
-        }
-
-        return vote;
-    }
-
-    private static string BuildSignalContext(TradeSignal signal, IReadOnlyList<Candle> candles)
+    internal static string BuildSignalContext(TradeSignal signal, IReadOnlyList<Candle> candles)
     {
         var sb = new StringBuilder();
         sb.AppendLine($"TRADE SIGNAL — {signal.Symbol}");
         sb.AppendLine($"Direction: {signal.Direction}");
         sb.AppendLine($"Strategy: {signal.StrategyName}");
-        sb.AppendLine($"Confidence: {signal.ConfidencePercent:F1}%");
         sb.AppendLine($"Entry: ${signal.SuggestedEntry:F2}");
         sb.AppendLine($"Stop: ${signal.SuggestedStop:F2}");
 
@@ -261,10 +267,10 @@ public sealed class LlmVotingService
 
         sb.AppendLine($"Reason: {signal.Reason}");
         sb.AppendLine($"Generated: {signal.GeneratedUtc:yyyy-MM-dd HH:mm} UTC");
-        sb.AppendLine();
 
         if (candles.Count > 0)
         {
+            sb.AppendLine();
             sb.AppendLine("Recent Price Action (last 15 candles, newest last):");
             foreach (var c in candles.TakeLast(15))
             {
@@ -273,68 +279,25 @@ public sealed class LlmVotingService
             }
         }
 
-        sb.AppendLine();
-        sb.AppendLine("Should this trade be executed? Vote now.");
-        return sb.ToString();
+        return sb.ToString().TrimEnd();
     }
+}
 
-    private static bool TryGetPropertyCI(JsonElement root, string name, out JsonElement value)
+/// <summary>Registration shared by the Blazor host and the Monitor.</summary>
+public static class SignalVotingRegistration
+{
+    /// <summary>
+    /// Registers <see cref="LlmVotingService"/> on Legion's voter panel, configured from the
+    /// <c>legion.json</c> shipped next to the binaries.
+    /// </summary>
+    public static IServiceCollection AddSignalVotingPanel(this IServiceCollection services)
     {
-        if (root.TryGetProperty(name, out value)) return true;
-        foreach (var prop in root.EnumerateObject())
-        {
-            if (string.Equals(prop.Name, name, StringComparison.OrdinalIgnoreCase))
-            {
-                value = prop.Value;
-                return true;
-            }
-        }
-        value = default;
-        return false;
-    }
-
-    internal static LlmVote? ParseVoteJson(string content)
-    {
-        try
-        {
-            var start = content.IndexOf('{');
-            var end = content.LastIndexOf('}');
-            if (start < 0 || end < 0) return null;
-
-            using var doc = JsonDocument.Parse(content[start..(end + 1)]);
-            var root = doc.RootElement;
-            var vote = new LlmVote(); // Decision starts at Abstain (fail closed)
-
-            // Case-insensitive lookups: JsonElement.TryGetProperty is
-            // case-SENSITIVE, and an LLM emitting "Decision" instead of
-            // "decision" used to leave the field untouched.
-            if (TryGetPropertyCI(root, "decision", out var d))
-                vote.Decision = d.GetString()?.ToLowerInvariant() switch
-                {
-                    "approve" => VoteDecision.Approve,
-                    "reject" => VoteDecision.Reject,
-                    _ => VoteDecision.Abstain
-                };
-
-            if (TryGetPropertyCI(root, "confidence", out var c))
-                vote.Confidence = c.TryGetDecimal(out var conf) ? conf : 0;
-
-            if (TryGetPropertyCI(root, "reasoning", out var r))
-                vote.Reasoning = r.GetString() ?? "";
-
-            if (TryGetPropertyCI(root, "direction", out var dir))
-                vote.SuggestedDirection = dir.GetString()?.ToLowerInvariant() switch
-                {
-                    "long" => TradeDirection.Long,
-                    "short" => TradeDirection.Short,
-                    _ => null
-                };
-
-            return vote;
-        }
-        catch
-        {
-            return null;
-        }
+        var config = LlmVotingService.BuildConfiguration(LegionConfig.LoadFromDirectory(AppContext.BaseDirectory));
+        services.AddHttpClient(nameof(LlmVotingProvider));
+        services.AddSingleton(sp => LlmVotingService.Create(
+            sp.GetRequiredService<IHttpClientFactory>().CreateClient(nameof(LlmVotingProvider)),
+            config,
+            sp.GetRequiredService<ILoggerFactory>()));
+        return services;
     }
 }
