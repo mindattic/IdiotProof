@@ -23,7 +23,7 @@ public static class StrategyDataset
 {
     public static async Task ExportAsync(IServiceProvider sp, Dictionary<string, string> opt)
     {
-        var dir = opt.GetValueOrDefault("out", @"D:\Projects\MindAttic\mindattic.com\idiotproof\dataset");
+        var dir = opt.GetValueOrDefault("out", @"D:\Projects\MindAttic\MindAttic.Web\mindattic.com\idiotproof\dataset");
         Directory.CreateDirectory(dir);
         var dbf = sp.GetRequiredService<IDbContextFactory<AppDbContext>>();
 

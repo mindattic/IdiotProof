@@ -45,7 +45,7 @@ public static partial class StrategyReplay
 
         var feedTier = (opt.GetValueOrDefault("feed", "sip")).ToLowerInvariant();
         var outRoot = opt.GetValueOrDefault("out",
-            @"D:\Projects\MindAttic\mindattic.com\idiotproof\replays");
+            @"D:\Projects\MindAttic\MindAttic.Web\mindattic.com\idiotproof\replays");
 
         var userId = await ResolveUserAsync(sp, opt);
         if (userId is null) return Fail("No --user given and no single user found.");
@@ -528,7 +528,7 @@ public static partial class StrategyReplay
     /// </summary>
     public static async Task RegenerateAsync(IServiceProvider sp, Dictionary<string, string> opt)
     {
-        var outRoot = opt.GetValueOrDefault("out", @"D:\Projects\MindAttic\mindattic.com\idiotproof\replays");
+        var outRoot = opt.GetValueOrDefault("out", @"D:\Projects\MindAttic\MindAttic.Web\mindattic.com\idiotproof\replays");
         var dbf = sp.GetRequiredService<IDbContextFactory<AppDbContext>>();
         List<ReplayRun> all;
         await using (var db = await dbf.CreateDbContextAsync())

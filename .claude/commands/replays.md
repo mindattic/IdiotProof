@@ -4,7 +4,7 @@ The replay pages under `mindattic.com/idiotproof/replays/` are generated FROM th
 
 Run these two steps and report the result:
 
-**1. Regenerate the archive HTML from SQL** (writes to `D:\Projects\MindAttic\mindattic.com\idiotproof\replays`):
+**1. Regenerate the archive HTML from SQL** (writes to `D:\Projects\MindAttic\MindAttic.Web\mindattic.com\idiotproof\replays`):
 
 ```
 dotnet run --project D:\Projects\MindAttic\IdiotProof\IdiotProof.Monitor --no-build -c Release -- replay-regen

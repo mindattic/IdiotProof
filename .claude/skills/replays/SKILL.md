@@ -5,7 +5,7 @@ description: Regenerate the replay archive from SQL and publish it to mindattic.
 
 When invoked, publish the full replay archive in two steps and report the result.
 
-**1. Regenerate the archive HTML from SQL** (day-grouped root index + per-ticker indexes + every run page; writes to `D:\Projects\MindAttic\mindattic.com\idiotproof\replays`):
+**1. Regenerate the archive HTML from SQL** (day-grouped root index + per-ticker indexes + every run page; writes to `D:\Projects\MindAttic\MindAttic.Web\mindattic.com\idiotproof\replays`):
 
 ```
 dotnet run --project D:\Projects\MindAttic\IdiotProof\IdiotProof.Monitor --no-build -c Release -- replay-regen
