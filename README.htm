@@ -377,7 +377,7 @@ dotnet run --project IdiotProof.Monitor</code></pre>
 <tr>
 <td><code>IdiotProof.Blazor.Tests</code></td>
 <td>NUnit</td>
-<td><code>StrategyScriptGenerator</code> verb-catalog reflection, the LLM gate on Legion's voter panel (<code>LlmVotingServiceTests</code>) and per-owner Claude keys (<code>UserClaudeKeyResolverTests</code>), the password-reset flow (<code>PasswordResetFlowTests</code>), research-pipeline services, repository guard rails.</td>
+<td><code>StrategyScriptGenerator</code> verb-catalog reflection, the LLM gate on Legion's voter panel (<code>LlmVotingServiceTests</code>) and per-owner Claude keys and their isolation (<code>UserClaudeKeyResolverTests</code>, <code>ClaudeKeyIsolationTests</code>), the password-reset flow (<code>PasswordResetFlowTests</code>), research-pipeline services, repository guard rails.</td>
 <td>—</td>
 </tr>
 <tr>
@@ -461,7 +461,7 @@ SQL Server (LocalDB by default)                ← canonical runtime state, shar
 <p>Settings overlay chain (<code>IdiotProof.Engine.Settings.AppSettings</code>, applied by every host in the same order, later wins): disk, environment variables, MindAttic LLM keyring, MindAttic broker keyring, then <code>IConfiguration</code> (User Secrets, App Service application settings or Azure Key Vault).</p>
 <p>Credentials:</p>
 <ul>
-<li>Claude and other LLM keys: <code>%APPDATA%\MindAttic\LLM\providers.json</code> (the canonical MindAttic keyring), or paste them into the API Keys page in the app.</li>
+<li>Claude and other LLM keys for the host: <code>%APPDATA%\MindAttic\LLM\providers.json</code> (the canonical MindAttic keyring) or configuration; that is the only way to change the host key. A Claude key pasted into the API Keys page is stored encrypted for that user only and is used by the Monitor's LLM gate for that user's strategies.</li>
 <li>Alpaca keys: <code>%APPDATA%\MindAttic\Brokers\providers.json</code> with <code>alpaca-paper</code> and <code>alpaca-live</code> entries.</li>
 <li>A Development-only <code>.env</code> at <code>%APPDATA%\MindAttic\IdiotProof\.env</code> prefills <code>DEV_USERNAME</code> and <code>DEV_PASSWORD</code> on the Login page; it is never loaded outside <code>Development</code>. See <code>.env.example</code>.</li>
 </ul>
@@ -701,7 +701,7 @@ resync-canon  auto-gapper  premarket-fade</code></pre>
 </tr>
 <tr>
 <td><code>ApiKeys.razor</code></td>
-<td>Per-user broker and data key entry, live-mode danger modal.</td>
+<td>Per-user broker, data and Claude key entry (each stored only on the signed-in user's encrypted <code>UserApiKeys</code> row, never in the Vault keyring), live-mode danger modal.</td>
 </tr>
 <tr>
 <td><code>Settings.razor</code></td>
@@ -809,7 +809,7 @@ dotnet test IdiotProof.slnx</code></pre>
 </tr>
 <tr>
 <td><code>IdiotProof.Blazor.Tests</code></td>
-<td>210</td>
+<td>212</td>
 <td>0</td>
 <td>Verb catalog, LLM gate on Legion's panel, per-owner Claude keys, password reset, research pipeline, repositories (SQL Server LocalDB)</td>
 </tr>

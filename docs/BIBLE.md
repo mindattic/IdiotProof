@@ -205,7 +205,9 @@ seats from providers that answered. The Claude voter uses the strategy owner's k
 Keys page (`UserApiKeys`, decrypted through `UserKeyService`), falling back to the host key
 (`AppSettings.ClaudeApiKey`: Vault own-scoped `idiotproof-claude`, then shared `claude`, then
 env/config); the other voters use the shared MindAttic LLM keyring. An owner row that cannot be
-read falls back to the host key, never to another user's. Voting is on when the host
+read falls back to the host key, never to another user's. A key saved on the API Keys page is
+stored only on that user's row; no user page writes the host key, which changes only through
+Vault or configuration (the app has no admin path for it). Voting is on when the host
 (`LlmVotingEnabled`) or the owner enabled it. Approve needs `LlmConsensusThreshold` (default
 0.66) of the counted votes, each weighted equally.
 
@@ -377,7 +379,7 @@ No page writes strategy rows around it. (`StrategyRepositoryGuardTests`.)
 Build/test evidence (recorded 2026-10-03, .NET 10 SDK): `dotnet test IdiotProof.slnx -c Debug`
 → build succeeded, **all green, 0 failed**: Engine 85 · Indicators 18 · Strategies 34,681
 (dominated by generated parameter cases) · Brokers 33 (+3 `[Explicit]` real-paper tests not run)
-· Blazor 210 · UI 62 · Monitor 16.
+· Blazor 212 · UI 62 · Monitor 16.
 
 Test projects and what they pin:
 - `IdiotProof.Engine.Tests` — RiskGuardian gate incl. `RecordTradePnL` day rollover and
@@ -394,7 +396,8 @@ Test projects and what they pin:
   contract, options wire format + Sandbox chain/basis (`OptionsBrokerTests`); the opt-in
   `[Explicit]` `AlpacaPaperOptionsIntegrationTests` runs only by name against the real paper account.
 - `IdiotProof.Blazor.Tests` — verb-catalog reflection, the LLM gate on Legion's voter panel over
-  a fake transport (`LlmVotingServiceTests`), per-owner Claude keys (`UserClaudeKeyResolverTests`),
+  a fake transport (`LlmVotingServiceTests`), per-owner Claude keys and their isolation (`UserClaudeKeyResolverTests`,
+  `ClaudeKeyIsolationTests`),
   self-service password reset (`PasswordResetFlowTests`), `ConditionProgressRepository` (SQL Server LocalDB), `StrategyRepositoryGuardTests`,
   `UserBrokerResolverTests`, `GapperInterpreterTests`, `LegionProviderContractTests`, research
   (`EdgarServiceTests`, `Form4ParserTests`, `CorporateActionDetectorTests`,
@@ -421,8 +424,8 @@ been run green. MonitorWorker itself has no host-level harness test.
   rollover sell), `/gapper` Cypress spec, fill-price reconciliation against the broker's actual fill (entry is recorded at the limit
   price), full order-state tracking (pending orders as first-class rows).
 - **Known debts** — DSL generation is single-shot and the Describe tab still emits text, not
-  model JSON; saving a Claude key on the API Keys page also writes it to the app-scoped Vault
-  entry, which makes it the host fallback key for every user; the unused `UserPreferences.OpenStrategyTabs`
+  model JSON; the Describe tab, Gapper transcript interpreter and research LLM calls still use
+  the host Claude key, not the signed-in user's; the unused `UserPreferences.OpenStrategyTabs`
   column awaits removal in a migration; the Azure infra (`tools/azure-provision.md`) is not
   provisioned; the OAuth token is not
   yet wired into order placement (needs a registered Alpaca OAuth app + paper testing).

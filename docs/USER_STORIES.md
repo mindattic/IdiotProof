@@ -194,8 +194,12 @@ updated: 2026-10-03
   `EachOwner_GetsTheirOwnKey_NeverAnotherUsers`, `OwnerWithoutKey_FallsBackToTheHostKey`,
   `NoOwnerKey_NoHostKey_ResolvesNone`, `OwnerToggle_AddsTheGate_ButCannotRemoveAHostWideOne`,
   `UnreadableOwnerRow_FallsBackToTheHostKey` in
-  `IdiotProof.Blazor.Tests/UserClaudeKeyResolverTests.cs`, and
-  `Vote_PanelApproves_ConsensusApprove_AndClaudeVotesOnTheOwnersKey`.)*
+  `IdiotProof.Blazor.Tests/UserClaudeKeyResolverTests.cs`,
+  `Vote_PanelApproves_ConsensusApprove_AndClaudeVotesOnTheOwnersKey`, and — saving a key on the
+  page stores it for me only, never for another user or as the host key —
+  `SavingAClaudeKey_StoresItOnlyForThatUser_NeverForAnotherUserOrTheHost`,
+  `ApiKeysPage_SaysTheKeyIsForThisAccountOnly` in
+  `IdiotProof.Blazor.Tests/ClaudeKeyIsolationTests.cs`.)*
 - **IP-US-K15 ✅** As a trader, a candidate fire is voted on by MindAttic.Legion's own panel —
   every keyed `legion.json` voter (claude, openai, gemini, deepseek) — and only an explicit
   approval quorum lets it through; a split, a malformed ballot or a dead panel blocks it —

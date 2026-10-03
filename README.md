@@ -224,7 +224,7 @@ Every project below is registered in `IdiotProof.slnx`.
 | `IdiotProof.Indicators.Tests` | NUnit | RSI/EMA/ATR/MACD/VWAP math + ADX Wilder-seed regression. | — |
 | `IdiotProof.Strategies.Tests` | NUnit | DSL round-trip, backtester, gapper lifecycle, canonical-JSON contract, and a large family of exhaustive combinatorial matrix tests. | — |
 | `IdiotProof.Brokers.Tests` | NUnit | BrokerRouter Sandbox default and safe fallback, Sandbox fill simulation, Sandbox synthetic options chain, Alpaca options wire format against canned responses. | — |
-| `IdiotProof.Blazor.Tests` | NUnit | `StrategyScriptGenerator` verb-catalog reflection, the LLM gate on Legion's voter panel (`LlmVotingServiceTests`) and per-owner Claude keys (`UserClaudeKeyResolverTests`), the password-reset flow (`PasswordResetFlowTests`), research-pipeline services, repository guard rails. | — |
+| `IdiotProof.Blazor.Tests` | NUnit | `StrategyScriptGenerator` verb-catalog reflection, the LLM gate on Legion's voter panel (`LlmVotingServiceTests`) and per-owner Claude keys and their isolation (`UserClaudeKeyResolverTests`, `ClaudeKeyIsolationTests`), the password-reset flow (`PasswordResetFlowTests`), research-pipeline services, repository guard rails. | — |
 | `IdiotProof.Monitor.Tests` | NUnit | Long and short order shapes on the Sandbox broker (`DirectionalOrdersTests`), `PremarketFadeScanner` and `BeBexDecayScanner` math. | — |
 | `IdiotProof.UI.Tests` | NUnit | Options presenter, option position view and options glossary. | — |
 | `tests/IdiotProof.Cypress` | Cypress 13 | End-to-end Blazor UI tests (9 specs). | — |
@@ -299,7 +299,7 @@ Settings overlay chain (`IdiotProof.Engine.Settings.AppSettings`, applied by eve
 
 Credentials:
 
-- Claude and other LLM keys: `%APPDATA%\MindAttic\LLM\providers.json` (the canonical MindAttic keyring), or paste them into the API Keys page in the app.
+- Claude and other LLM keys for the host: `%APPDATA%\MindAttic\LLM\providers.json` (the canonical MindAttic keyring) or configuration; that is the only way to change the host key. A Claude key pasted into the API Keys page is stored encrypted for that user only and is used by the Monitor's LLM gate for that user's strategies.
 - Alpaca keys: `%APPDATA%\MindAttic\Brokers\providers.json` with `alpaca-paper` and `alpaca-live` entries.
 - A Development-only `.env` at `%APPDATA%\MindAttic\IdiotProof\.env` prefills `DEV_USERNAME` and `DEV_PASSWORD` on the Login page; it is never loaded outside `Development`. See `.env.example`.
 
@@ -481,7 +481,7 @@ The console is Windows-Service-ready (`AddWindowsService`): `sc.exe create Idiot
 | `Options.razor` | The manual options section (`/options`, see [BIBLE §4.4](docs/BIBLE.md#IP-§4)), deliberately separate from the strategy pipeline. Sandbox, Paper and Live account switch; options chain (calls, strike, puts) with per-cell breakeven and a real-vs-hype (intrinsic vs extrinsic) meter; a plain-English order ticket; open option positions with a real/hype split bar and an informational take-profit callout. Live orders reuse the 5-minute password elevation, and the ticket locks itself per action when the account's `options_trading_level` does not allow it. Host logic in `Services/OptionsTradingService.cs`. |
 | `Backtest.razor` | Backtest a saved strategy over one day (Alpaca bars when keyed, Mock otherwise): summary, P&L and a per-candle condition table. |
 | `ActivityLog.razor` | Audit trail viewer. |
-| `ApiKeys.razor` | Per-user broker and data key entry, live-mode danger modal. |
+| `ApiKeys.razor` | Per-user broker, data and Claude key entry (each stored only on the signed-in user's encrypted `UserApiKeys` row, never in the Vault keyring), live-mode danger modal. |
 | `Settings.razor` | Preferences, theme and the six RiskGuardian limits. |
 | `Login.razor`, `Register.razor`, `ForgotPassword.razor`, `ResetPassword.razor`, `ForgotUsername.razor` | Auth flows against `MindAttic.Authentication`; `ForgotPassword` (`MaForgotPassword`) and `ResetPassword` (`MaResetPassword`, at `/account/reset`) are the self-service reset. |
 | `LiveChart.razor` | Live chart surface. |
@@ -558,7 +558,7 @@ Counts from the last full Debug run (2026-10-03, .NET 10 SDK); all green:
 | `IdiotProof.Indicators.Tests` | 18 | 0 | RSI/EMA/ATR/MACD/VWAP math, ADX Wilder-seed regression |
 | `IdiotProof.Strategies.Tests` | 34,681 | 0 | DSL round-trip, backtester, gapper lifecycle, canonical-JSON contract, plus exhaustive combinatorial matrix classes (`StrategyPermutationMatrixTests`, `StrategyThreeWayAndMatrixTests`, `ConditionalBlockOverridePermutationTests`, ...) that expand to tens of thousands of generated cases |
 | `IdiotProof.Brokers.Tests` | 33 | 0 | BrokerRouter Sandbox default and safe fallback, Sandbox fill simulation, options wire format (+3 `[Explicit]` real-paper tests not run) |
-| `IdiotProof.Blazor.Tests` | 210 | 0 | Verb catalog, LLM gate on Legion's panel, per-owner Claude keys, password reset, research pipeline, repositories (SQL Server LocalDB) |
+| `IdiotProof.Blazor.Tests` | 212 | 0 | Verb catalog, LLM gate on Legion's panel, per-owner Claude keys, password reset, research pipeline, repositories (SQL Server LocalDB) |
 | `IdiotProof.Monitor.Tests` | 16 | 0 | Long/short order shapes on the Sandbox broker, `PremarketFadeScanner`, `BeBexDecayScanner` |
 | `IdiotProof.UI.Tests` | 62 | 0 | Options presenter, option position view, options glossary |
 
