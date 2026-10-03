@@ -36,21 +36,24 @@ public sealed class GapperInterpreter(
 {
     private const int MaxCandidates = 5;
 
-    public async Task<GapperInterpretation> InterpretAsync(string transcript, CancellationToken ct = default)
+    /// <summary>
+    /// <paramref name="claude"/> is the requesting user's key (<see cref="SignedInClaudeKey"/>: their
+    /// own, then the host's); it is used for this one call and never stored.
+    /// </summary>
+    public async Task<GapperInterpretation> InterpretAsync(string transcript, SignalVotingCredentials claude, CancellationToken ct = default)
     {
         if (string.IsNullOrWhiteSpace(transcript))
             return new GapperInterpretation(false, [], [], "Paste a transcript or describe the plays first.");
 
-        if (string.IsNullOrWhiteSpace(appSettings.ClaudeApiKey))
-            return new GapperInterpretation(false, [], [],
-                "No Claude API key configured. Set it on the API Keys page or in the MindAttic LLM keyring.");
+        if (string.IsNullOrWhiteSpace(claude.ClaudeApiKey))
+            return new GapperInterpretation(false, [], [], UserClaudeKeyResolver.NoKeyMessage);
 
         try
         {
             var content = await legion.CallAsync(
                 providerId: "claude",
-                apiKey: appSettings.ClaudeApiKey,
-                model: appSettings.LlmVoterModel ?? "claude-sonnet-5",
+                apiKey: claude.ClaudeApiKey,
+                model: claude.ClaudeModel ?? appSettings.LlmVoterModel ?? "claude-sonnet-5",
                 systemPrompt: BuildSystemPrompt(BaseProfile()),
                 userMessage: transcript,
                 // Headroom for 5 full candidates with verbose rationales —

@@ -167,6 +167,10 @@ if (builder.Environment.IsDevelopment()
 }
 builder.Services.AddSignalVotingPanel();
 builder.Services.AddScoped<UserKeyService>();
+// The requesting user's Claude key (their own, then the host's) for Describe, the Gapper
+// transcript reader and Research; resolved per call, never cached across users.
+builder.Services.AddScoped<UserClaudeKeyResolver>();
+builder.Services.AddScoped<SignedInClaudeKey>();
 builder.Services.AddScoped<AccountSummaryService>();
 builder.Services.AddSingleton<StrategyRepository>();
 builder.Services.AddSingleton<UserPreferencesService>();

@@ -23,7 +23,7 @@ Try it: browse the public replay archive at [mindattic.com/idiotproof/replays](h
 
 - Guided: a visual flowchart editor with one card per lifecycle phase.
 - Script: write IdiotScript, the project's fluent C# DSL, directly.
-- Describe: type plain English; `StrategyScriptGenerator` sends it to Claude through `MindAttic.Legion` (a single call), with a verb catalog built by reflecting on the real DSL types so a model cannot invent syntax that does not compile, and the result is parse-checked.
+- Describe: type plain English; `StrategyScriptGenerator` sends it to Claude through `MindAttic.Legion` (a single call, on your own Claude key when you have saved one), with a verb catalog built by reflecting on the real DSL types so a model cannot invent syntax that does not compile, and the result is parse-checked.
 
 Strategies are stored as canonical strict JSON. If a stored strategy cannot be read exactly, it is quarantined with a visible reason instead of being partially evaluated.
 
@@ -224,7 +224,7 @@ Every project below is registered in `IdiotProof.slnx`.
 | `IdiotProof.Indicators.Tests` | NUnit | RSI/EMA/ATR/MACD/VWAP math + ADX Wilder-seed regression. | — |
 | `IdiotProof.Strategies.Tests` | NUnit | DSL round-trip, backtester, gapper lifecycle, canonical-JSON contract, and a large family of exhaustive combinatorial matrix tests. | — |
 | `IdiotProof.Brokers.Tests` | NUnit | BrokerRouter Sandbox default and safe fallback, Sandbox fill simulation, Sandbox synthetic options chain, Alpaca options wire format against canned responses. | — |
-| `IdiotProof.Blazor.Tests` | NUnit | `StrategyScriptGenerator` verb-catalog reflection, the LLM gate on Legion's voter panel (`LlmVotingServiceTests`) and per-owner Claude keys and their isolation (`UserClaudeKeyResolverTests`, `ClaudeKeyIsolationTests`), the password-reset flow (`PasswordResetFlowTests`), research-pipeline services, repository guard rails. | — |
+| `IdiotProof.Blazor.Tests` | NUnit | `StrategyScriptGenerator` verb-catalog reflection, the LLM gate on Legion's voter panel (`LlmVotingServiceTests`) and per-owner Claude keys and their isolation (`UserClaudeKeyResolverTests`, `ClaudeKeyIsolationTests`, `UserClaudeKeyRoutingTests`), the password-reset flow (`PasswordResetFlowTests`), research-pipeline services, repository guard rails. | — |
 | `IdiotProof.Monitor.Tests` | NUnit | Long and short order shapes on the Sandbox broker (`DirectionalOrdersTests`), `PremarketFadeScanner` and `BeBexDecayScanner` math. | — |
 | `IdiotProof.UI.Tests` | NUnit | Options presenter, option position view and options glossary. | — |
 | `tests/IdiotProof.Cypress` | Cypress 13 | End-to-end Blazor UI tests (9 specs). | — |
@@ -299,7 +299,7 @@ Settings overlay chain (`IdiotProof.Engine.Settings.AppSettings`, applied by eve
 
 Credentials:
 
-- Claude and other LLM keys for the host: `%APPDATA%\MindAttic\LLM\providers.json` (the canonical MindAttic keyring) or configuration; that is the only way to change the host key. A Claude key pasted into the API Keys page is stored encrypted for that user only and is used by the Monitor's LLM gate for that user's strategies.
+- Claude and other LLM keys for the host: `%APPDATA%\MindAttic\LLM\providers.json` (the canonical MindAttic keyring) or configuration; that is the only way to change the host key. A Claude key pasted into the API Keys page is stored encrypted for that user only and is used for that user's own requests: the Monitor's LLM gate on their strategies, the Describe tab, the Gapper transcript reader and Research analysis (`SignedInClaudeKey`: their key, then the host key, else a "no key configured" message). The scheduled research scan uses the host key.
 - Alpaca keys: `%APPDATA%\MindAttic\Brokers\providers.json` with `alpaca-paper` and `alpaca-live` entries.
 - A Development-only `.env` at `%APPDATA%\MindAttic\IdiotProof\.env` prefills `DEV_USERNAME` and `DEV_PASSWORD` on the Login page; it is never loaded outside `Development`. See `.env.example`.
 
@@ -558,7 +558,7 @@ Counts from the last full Debug run (2026-10-03, .NET 10 SDK); all green:
 | `IdiotProof.Indicators.Tests` | 18 | 0 | RSI/EMA/ATR/MACD/VWAP math, ADX Wilder-seed regression |
 | `IdiotProof.Strategies.Tests` | 34,681 | 0 | DSL round-trip, backtester, gapper lifecycle, canonical-JSON contract, plus exhaustive combinatorial matrix classes (`StrategyPermutationMatrixTests`, `StrategyThreeWayAndMatrixTests`, `ConditionalBlockOverridePermutationTests`, ...) that expand to tens of thousands of generated cases |
 | `IdiotProof.Brokers.Tests` | 33 | 0 | BrokerRouter Sandbox default and safe fallback, Sandbox fill simulation, options wire format (+3 `[Explicit]` real-paper tests not run) |
-| `IdiotProof.Blazor.Tests` | 212 | 0 | Verb catalog, LLM gate on Legion's panel, per-owner Claude keys, password reset, research pipeline, repositories (SQL Server LocalDB) |
+| `IdiotProof.Blazor.Tests` | 217 | 0 | Verb catalog, LLM gate on Legion's panel, per-owner Claude keys, password reset, research pipeline, repositories (SQL Server LocalDB) |
 | `IdiotProof.Monitor.Tests` | 16 | 0 | Long/short order shapes on the Sandbox broker, `PremarketFadeScanner`, `BeBexDecayScanner` |
 | `IdiotProof.UI.Tests` | 62 | 0 | Options presenter, option position view, options glossary |
 

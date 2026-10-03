@@ -10,6 +10,7 @@
 @attribute [Authorize]
 @inject StrategyRepository StrategyRepo
 @inject StrategyScriptGenerator ScriptGenerator
+@inject SignedInClaudeKey ClaudeKey
 @inject AuthenticationStateProvider AuthState
 @inject NavigationManager Nav
 @inject GapperProfileService ProfileService
@@ -608,7 +609,8 @@
         aiBusy = true;
         try
         {
-            var result = await ScriptGenerator.GenerateAsync(aiProse, symbol);
+            // The signed-in user's own Claude key first, then the host key.
+            var result = await ScriptGenerator.GenerateAsync(aiProse, symbol, await ClaudeKey.ResolveAsync());
             if (result.Success)
             {
                 scriptText = result.Script;

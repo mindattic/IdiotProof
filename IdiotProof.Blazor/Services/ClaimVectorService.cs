@@ -107,6 +107,20 @@ public sealed class ClaimVectorService
 
     // ── LLM scoring ───────────────────────────────────────────────────────
 
+    public Task<float[]?> ScoreAsync(
+        string ticker,
+        string claimSummary,
+        string claimType,
+        string sentiment,
+        string magnitude,
+        bool   isPortent,
+        CancellationToken ct = default) =>
+        ScoreAsync(ticker, claimSummary, claimType, sentiment, magnitude, isPortent, claudeApiKey: null, ct);
+
+    /// <summary>
+    /// <paramref name="claudeApiKey"/> is the requesting user's key; null means no signed-in user
+    /// (the scheduled scan), which uses the host key.
+    /// </summary>
     public async Task<float[]?> ScoreAsync(
         string ticker,
         string claimSummary,
@@ -114,9 +128,11 @@ public sealed class ClaimVectorService
         string sentiment,
         string magnitude,
         bool   isPortent,
+        string? claudeApiKey,
         CancellationToken ct = default)
     {
-        if (string.IsNullOrWhiteSpace(appSettings.ClaudeApiKey)) return null;
+        var key = string.IsNullOrWhiteSpace(claudeApiKey) ? appSettings.ClaudeApiKey : claudeApiKey;
+        if (string.IsNullOrWhiteSpace(key)) return null;
 
         var userMsg = $"Ticker: {ticker}\nType: {claimType}\nSentiment: {sentiment}\nMagnitude: {magnitude}\nPortent: {isPortent}\n\nClaim: {claimSummary}";
 
@@ -124,7 +140,7 @@ public sealed class ClaimVectorService
         {
             var raw = await legion.CallAsync(
                 providerId: "claude",
-                apiKey:       appSettings.ClaudeApiKey,
+                apiKey:       key,
                 model:        "claude-haiku-4-5-20251001",
                 systemPrompt: ScorePrompt,
                 userMessage:  userMsg,
@@ -168,9 +184,10 @@ public sealed class ClaimVectorService
         string sentiment,
         string magnitude,
         bool   isPortent,
-        CancellationToken ct = default)
+        CancellationToken ct = default,
+        string? claudeApiKey = null)
     {
-        var features = await ScoreAsync(ticker, claimSummary, claimType, sentiment, magnitude, isPortent, ct);
+        var features = await ScoreAsync(ticker, claimSummary, claimType, sentiment, magnitude, isPortent, claudeApiKey, ct);
         if (features is null) return;
 
         var sig = GetSignature(features);

@@ -110,12 +110,26 @@ public sealed class CatalystExtractor(
         Return ONLY the JSON object. No markdown, no commentary.
         """;
 
+    public Task<CatalystExtraction?> ExtractAsync(
+        string ticker,
+        string articleText,
+        string sourceName,
+        CancellationToken ct = default) => ExtractAsync(ticker, articleText, sourceName, claudeApiKey: null, ct);
+
+    /// <summary>
+    /// <paramref name="claudeApiKey"/> is the requesting user's key; null means no signed-in user
+    /// (the scheduled scan), which uses the host key. Returns null when no key resolves.
+    /// </summary>
     public async Task<CatalystExtraction?> ExtractAsync(
         string ticker,
         string articleText,
         string sourceName,
+        string? claudeApiKey,
         CancellationToken ct = default)
     {
+        var key = string.IsNullOrWhiteSpace(claudeApiKey) ? appSettings.ClaudeApiKey : claudeApiKey;
+        if (string.IsNullOrWhiteSpace(key)) return null;
+
         var snippet = articleText.Length > 8000 ? articleText[..8000] : articleText;
         var userMsg = $"Ticker: {ticker}\nSource: {sourceName}\n\nContent:\n{snippet}";
 
@@ -123,7 +137,7 @@ public sealed class CatalystExtractor(
         {
             var raw = await legion.CallAsync(
                 providerId: "claude",
-                apiKey:       appSettings.ClaudeApiKey,
+                apiKey:       key,
                 model:        "claude-haiku-4-5-20251001",
                 systemPrompt: SystemPrompt,
                 userMessage:  userMsg,

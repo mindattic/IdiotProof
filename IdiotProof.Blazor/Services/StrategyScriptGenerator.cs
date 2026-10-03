@@ -22,14 +22,16 @@ public sealed class StrategyScriptGenerator(LegionClient legion, AppSettings app
     /// Single-shot generation. Returns the raw IdiotScript text Claude produced,
     /// stripped of any explanatory prose / fence markers. Caller is responsible
     /// for parse-time validation; Claude is told to emit ONLY a fluent chain.
+    /// <paramref name="claude"/> is the requesting user's key (<see cref="SignedInClaudeKey"/>:
+    /// their own, then the host's); it is used for this one call and never stored.
     /// </summary>
-    public async Task<GenerationResult> GenerateAsync(string prose, string ticker, CancellationToken ct = default)
+    public async Task<GenerationResult> GenerateAsync(string prose, string ticker, SignalVotingCredentials claude, CancellationToken ct = default)
     {
         if (string.IsNullOrWhiteSpace(prose))
             return new GenerationResult(false, "", "Provide a description of the strategy you want.");
 
-        if (string.IsNullOrWhiteSpace(appSettings.ClaudeApiKey))
-            return new GenerationResult(false, "", "No Claude API key configured. Set it in API Keys or in MindAttic\\LLM\\providers.json.");
+        if (string.IsNullOrWhiteSpace(claude.ClaudeApiKey))
+            return new GenerationResult(false, "", UserClaudeKeyResolver.NoKeyMessage);
 
         var systemPrompt = BuildSystemPrompt();
         var userMessage  = BuildUserMessage(prose, ticker);
@@ -38,8 +40,8 @@ public sealed class StrategyScriptGenerator(LegionClient legion, AppSettings app
         {
             var content = await legion.CallAsync(
                 providerId: "claude",
-                apiKey: appSettings.ClaudeApiKey,
-                model: appSettings.LlmVoterModel ?? "claude-sonnet-5",
+                apiKey: claude.ClaudeApiKey,
+                model: claude.ClaudeModel ?? appSettings.LlmVoterModel ?? "claude-sonnet-5",
                 systemPrompt: systemPrompt,
                 userMessage: userMessage,
                 maxTokens: 1024,

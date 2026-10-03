@@ -43,6 +43,13 @@ public sealed class UserClaudeKeyResolver
         this.logger            = logger;
     }
 
+    /// <summary>What every LLM feature shows when neither the user nor the host has a Claude key.</summary>
+    public const string NoKeyMessage =
+        "No Claude API key configured. Add yours on the API Keys page, or have the host set one in the MindAttic LLM keyring.";
+
+    /// <summary>The host key alone, for work with no signed-in user (the scheduled research scan).</summary>
+    public SignalVotingCredentials ResolveHost() => Choose(null, hostClaudeKey(), hostVotingEnabled());
+
     /// <summary>The pure rule: owner key, then host key, then none.</summary>
     public static SignalVotingCredentials Choose(UserApiKeys? owner, string? hostKey, bool hostVotingEnabled)
     {

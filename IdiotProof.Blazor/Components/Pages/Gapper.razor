@@ -12,6 +12,7 @@
 @inject ConditionProgressRepository ProgressRepo
 @inject GapperProfileService ProfileService
 @inject GapperInterpreter Interpreter
+@inject SignedInClaudeKey ClaudeKey
 @inject IdiotProof.Engine.Settings.AppSettings AppSettings
 @inject UserKeyService UserKeys
 @inject AuthenticationStateProvider AuthState
@@ -607,7 +608,8 @@
         interpreting = true;
         try
         {
-            var result = await Interpreter.InterpretAsync(transcriptText);
+            // The signed-in user's own Claude key first, then the host key.
+            var result = await Interpreter.InterpretAsync(transcriptText, await ClaudeKey.ResolveAsync());
             interpretWarnings = result.Warnings.ToList();
             if (!result.Success)
             {

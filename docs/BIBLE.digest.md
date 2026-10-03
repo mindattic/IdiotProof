@@ -186,6 +186,6 @@ No page writes strategy rows around it. (`StrategyRepositoryGuardTests`.)
   addition or deletion logged in `wwwroot/data/sp-index-events.json`, Pending until effective.
 
 ## Status index (USER_STORIES.md)
-- done: 50
+- done: 51
 - partial: 38
 - planned: 14

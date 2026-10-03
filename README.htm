@@ -129,7 +129,7 @@ pre:hover .cpbtn{opacity:1}
 <ul>
 <li>Guided: a visual flowchart editor with one card per lifecycle phase.</li>
 <li>Script: write IdiotScript, the project's fluent C# DSL, directly.</li>
-<li>Describe: type plain English; <code>StrategyScriptGenerator</code> sends it to Claude through <code>MindAttic.Legion</code> (a single call), with a verb catalog built by reflecting on the real DSL types so a model cannot invent syntax that does not compile, and the result is parse-checked.</li>
+<li>Describe: type plain English; <code>StrategyScriptGenerator</code> sends it to Claude through <code>MindAttic.Legion</code> (a single call, on your own Claude key when you have saved one), with a verb catalog built by reflecting on the real DSL types so a model cannot invent syntax that does not compile, and the result is parse-checked.</li>
 </ul>
 <p>Strategies are stored as canonical strict JSON. If a stored strategy cannot be read exactly, it is quarantined with a visible reason instead of being partially evaluated.</p>
 <h3 id="the-gapper">The Gapper</h3>
@@ -377,7 +377,7 @@ dotnet run --project IdiotProof.Monitor</code></pre>
 <tr>
 <td><code>IdiotProof.Blazor.Tests</code></td>
 <td>NUnit</td>
-<td><code>StrategyScriptGenerator</code> verb-catalog reflection, the LLM gate on Legion's voter panel (<code>LlmVotingServiceTests</code>) and per-owner Claude keys and their isolation (<code>UserClaudeKeyResolverTests</code>, <code>ClaudeKeyIsolationTests</code>), the password-reset flow (<code>PasswordResetFlowTests</code>), research-pipeline services, repository guard rails.</td>
+<td><code>StrategyScriptGenerator</code> verb-catalog reflection, the LLM gate on Legion's voter panel (<code>LlmVotingServiceTests</code>) and per-owner Claude keys and their isolation (<code>UserClaudeKeyResolverTests</code>, <code>ClaudeKeyIsolationTests</code>, <code>UserClaudeKeyRoutingTests</code>), the password-reset flow (<code>PasswordResetFlowTests</code>), research-pipeline services, repository guard rails.</td>
 <td>—</td>
 </tr>
 <tr>
@@ -461,7 +461,7 @@ SQL Server (LocalDB by default)                ← canonical runtime state, shar
 <p>Settings overlay chain (<code>IdiotProof.Engine.Settings.AppSettings</code>, applied by every host in the same order, later wins): disk, environment variables, MindAttic LLM keyring, MindAttic broker keyring, then <code>IConfiguration</code> (User Secrets, App Service application settings or Azure Key Vault).</p>
 <p>Credentials:</p>
 <ul>
-<li>Claude and other LLM keys for the host: <code>%APPDATA%\MindAttic\LLM\providers.json</code> (the canonical MindAttic keyring) or configuration; that is the only way to change the host key. A Claude key pasted into the API Keys page is stored encrypted for that user only and is used by the Monitor's LLM gate for that user's strategies.</li>
+<li>Claude and other LLM keys for the host: <code>%APPDATA%\MindAttic\LLM\providers.json</code> (the canonical MindAttic keyring) or configuration; that is the only way to change the host key. A Claude key pasted into the API Keys page is stored encrypted for that user only and is used for that user's own requests: the Monitor's LLM gate on their strategies, the Describe tab, the Gapper transcript reader and Research analysis (<code>SignedInClaudeKey</code>: their key, then the host key, else a "no key configured" message). The scheduled research scan uses the host key.</li>
 <li>Alpaca keys: <code>%APPDATA%\MindAttic\Brokers\providers.json</code> with <code>alpaca-paper</code> and <code>alpaca-live</code> entries.</li>
 <li>A Development-only <code>.env</code> at <code>%APPDATA%\MindAttic\IdiotProof\.env</code> prefills <code>DEV_USERNAME</code> and <code>DEV_PASSWORD</code> on the Login page; it is never loaded outside <code>Development</code>. See <code>.env.example</code>.</li>
 </ul>
@@ -809,7 +809,7 @@ dotnet test IdiotProof.slnx</code></pre>
 </tr>
 <tr>
 <td><code>IdiotProof.Blazor.Tests</code></td>
-<td>212</td>
+<td>217</td>
 <td>0</td>
 <td>Verb catalog, LLM gate on Legion's panel, per-owner Claude keys, password reset, research pipeline, repositories (SQL Server LocalDB)</td>
 </tr>

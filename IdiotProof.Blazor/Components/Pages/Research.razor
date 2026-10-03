@@ -6,6 +6,7 @@
 @attribute [Authorize]
 @implements IDisposable
 @inject ResearchService ResearchSvc
+@inject SignedInClaudeKey ClaudeKey
 @inject ClaimCorrelationService CorrelationSvc
 @inject AppSettings AppSettings
 @inject AuthenticationStateProvider AuthState
@@ -360,7 +361,9 @@
         if (string.IsNullOrWhiteSpace(ticker)) return;
         await RunAsync("primary", async ct =>
         {
-            var claims = await ResearchSvc.FetchPrimarySourcesAsync(ticker, companyName, daysBack, ct);
+            var claudeKey = await UserClaudeKeyAsync(ct);
+            if (claudeKey is null) return;
+            var claims = await ResearchSvc.FetchPrimarySourcesAsync(ticker, companyName, daysBack, ct, claudeKey);
             lastAnswer = claims.FirstOrDefault(c => c.LlmAnswer is not null)?.LlmAnswer;
             await RefreshFeedAsync();
         });
@@ -373,12 +376,22 @@
         {
             var date   = DateOnly.FromDateTime(DateTime.UtcNow);
             var source = string.IsNullOrWhiteSpace(manualSource) ? "Unknown" : manualSource;
+            var claudeKey = await UserClaudeKeyAsync(ct);
+            if (claudeKey is null) return;
             var claims = await ResearchSvc.AnalyzeArticleAsync(
-                ticker, articleText, source, manualUrl, manualTier, date, ct);
+                ticker, articleText, source, manualUrl, manualTier, date, ct, claudeKey);
             lastAnswer = claims.FirstOrDefault(c => c.LlmAnswer is not null)?.LlmAnswer;
             articleText = "";
             await RefreshFeedAsync();
         });
+    }
+
+    /// <summary>The signed-in user's own Claude key, then the host key; null (with the message shown) when neither exists.</summary>
+    async Task<string?> UserClaudeKeyAsync(CancellationToken ct)
+    {
+        var creds = await ClaudeKey.ResolveAsync(ct);
+        if (creds.ClaudeApiKey is null) error = UserClaudeKeyResolver.NoKeyMessage;
+        return creds.ClaudeApiKey;
     }
 
     async Task RunAsync(string modeName, Func<CancellationToken, Task> work)

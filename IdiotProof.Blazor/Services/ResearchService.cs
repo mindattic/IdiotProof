@@ -23,7 +23,9 @@ public sealed class ResearchService(
 
     /// <summary>
     /// Analyse a single article or filing. Extracts catalysts + portents via LLM,
-    /// persists them, and returns the saved claims.
+    /// persists them, and returns the saved claims. <paramref name="claudeApiKey"/> is the
+    /// signed-in user's key (<see cref="SignedInClaudeKey"/>); null means no signed-in user (the
+    /// scheduled scan), which uses the host key. It is passed per call, never stored.
     /// </summary>
     public async Task<List<ResearchClaim>> AnalyzeArticleAsync(
         string  ticker,
@@ -32,7 +34,8 @@ public sealed class ResearchService(
         string? sourceUrl,
         int     sourceTier,
         DateOnly articleDate,
-        CancellationToken ct = default)
+        CancellationToken ct = default,
+        string? claudeApiKey = null)
     {
         await using var db = await dbFactory.CreateDbContextAsync(ct);
 
@@ -48,7 +51,7 @@ public sealed class ResearchService(
             if (alreadySeen) return [];
         }
 
-        var extraction = await extractor.ExtractAsync(ticker, articleText, sourceName, ct);
+        var extraction = await extractor.ExtractAsync(ticker, articleText, sourceName, claudeApiKey, ct);
         if (extraction is null || extraction.Catalysts.Count == 0) return [];
 
         // Allow LLM to downgrade (higher number = worse tier) but never upgrade the caller's claim.
@@ -109,7 +112,7 @@ public sealed class ResearchService(
                     var vecSvc = scope.ServiceProvider.GetRequiredService<ClaimVectorService>();
                     await vecSvc.ComputeAndSaveAsync(
                         claimId, claimTicker, claimSummary, claimType, sentiment, magnitude, isPortent,
-                        CancellationToken.None);
+                        CancellationToken.None, claudeApiKey);
                 }
                 catch (Exception ex)
                 {
@@ -124,13 +127,15 @@ public sealed class ResearchService(
 
     /// <summary>
     /// Auto-ingest from Tier 1 primary sources (EDGAR 8-K, Form 4, USASpending).
-    /// Returns all claims extracted. Pass companyName for USASpending contract search.
+    /// Returns all claims extracted. Pass companyName for USASpending contract search, and the
+    /// signed-in user's <paramref name="claudeApiKey"/> as for <see cref="AnalyzeArticleAsync"/>.
     /// </summary>
     public async Task<List<ResearchClaim>> FetchPrimarySourcesAsync(
         string  ticker,
         string? companyName,
         int     daysBack = 30,
-        CancellationToken ct = default)
+        CancellationToken ct = default,
+        string? claudeApiKey = null)
     {
         var all = new List<ResearchClaim>();
         var today = DateOnly.FromDateTime(DateTime.UtcNow);
@@ -141,7 +146,7 @@ public sealed class ResearchService(
             var text = BuildEdgarText(filing);
             all.AddRange(await AnalyzeArticleAsync(
                 ticker, text, "SEC EDGAR 8-K", filing.BrowseUrl, sourceTier: 1,
-                DateOnly.TryParse(filing.FilingDate, out var d) ? d : today, ct));
+                DateOnly.TryParse(filing.FilingDate, out var d) ? d : today, ct, claudeApiKey));
         }
 
         // Form 4 insider transactions
@@ -151,7 +156,7 @@ public sealed class ResearchService(
                        "A director, officer, or 10%+ shareholder changed their beneficial ownership.";
             all.AddRange(await AnalyzeArticleAsync(
                 ticker, text, "SEC EDGAR Form 4", filing.BrowseUrl, sourceTier: 1,
-                DateOnly.TryParse(filing.FilingDate, out var d) ? d : today, ct));
+                DateOnly.TryParse(filing.FilingDate, out var d) ? d : today, ct, claudeApiKey));
         }
 
         // USASpending.gov government contracts
@@ -167,7 +172,7 @@ public sealed class ResearchService(
                     : $"https://www.usaspending.gov/award/{award.AwardId}/";
                 all.AddRange(await AnalyzeArticleAsync(
                     ticker, text, "USASpending.gov", awardUrl, sourceTier: 1,
-                    DateOnly.TryParse(award.Date, out var d) ? d : today, ct));
+                    DateOnly.TryParse(award.Date, out var d) ? d : today, ct, claudeApiKey));
             }
         }
 
@@ -180,7 +185,7 @@ public sealed class ResearchService(
                 : $"{article.Headline}\n\n{article.Summary}";
             var articleDate = DateOnly.FromDateTime(article.PublishedAt);
             all.AddRange(await AnalyzeArticleAsync(
-                ticker, text, article.Source, article.Url, sourceTier: 2, articleDate, ct));
+                ticker, text, article.Source, article.Url, sourceTier: 2, articleDate, ct, claudeApiKey));
         }
 
         return all;

@@ -409,6 +409,16 @@ updated: 2026-10-03
   `DevelopmentPublicBaseUrl_IsTheLaunchProfileOrigin`, `AzureWebApp_SetsItsOwnPublicBaseUrl` in
   `IdiotProof.Blazor.Tests/PasswordResetFlowTests.cs`.)*
 
+- **IP-US-E8 ✅** As a signed-in user, the Describe tab, the Gapper transcript reader and the
+  Research page's analysis call Claude with MY key from the API Keys page, then the host key,
+  and otherwise tell me no key is configured; another user's key is never used for my request.
+  *(verified by `SignedInKey_IsResolvedPerCall_ForWhoeverIsSignedIn`,
+  `Describe_CallsClaudeWithTheUsersOwnKey`,
+  `Describe_WithNoUserOrHostKey_SaysNoKeyConfigured_AndCallsNothing`,
+  `GapperTranscript_CallsClaudeWithTheUsersOwnKey_ThenTheHostKey`,
+  `ResearchAnalysis_ExtractsWithTheUsersOwnKey` in
+  `IdiotProof.Blazor.Tests/UserClaudeKeyRoutingTests.cs`.)*
+
 ## Epic G — Strategy ghost overlay + branching visualization (planned)
 > Author a strategy, press play, and watch it unfold on the chart as a
 > translucent "ghost" trade path, forking at each branch point. Nothing here is built;
