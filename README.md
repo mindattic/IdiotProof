@@ -469,7 +469,7 @@ The console is Windows-Service-ready (`AddWindowsService`): `sc.exe create Idiot
 
 ## The web app
 
-`IdiotProof.Blazor` is a Blazor Server app (interactive server components) on ASP.NET Core, using `MindAttic.Authentication` 5.0.0 (Argon2id + pepper, sessions, MFA scaffolding, not ASP.NET Core Identity; it sends auth email over SMTP from the Vault `Notifications` bucket when that is complete and logs a startup warning otherwise; production self-service reset stays off, see `ForgotPassword.razor`) and EF Core 10 against SQL Server. Pages under `Components/Pages/`:
+`IdiotProof.Blazor` is a Blazor Server app (interactive server components) on ASP.NET Core, using `MindAttic.Authentication` 6.0.0 (Argon2id + pepper, sessions, MFA scaffolding, not ASP.NET Core Identity; it sends security alerts such as password changed, repeated failed sign-ins and new-device sign-in over SMTP from the Vault `Notifications` bucket when that is complete, and logs a startup warning otherwise; production self-service reset stays off, see `ForgotPassword.razor`) and EF Core 10 against SQL Server. Pages under `Components/Pages/`:
 
 | Component | Purpose |
 |---|---|
