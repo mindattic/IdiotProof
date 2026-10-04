@@ -223,9 +223,9 @@ Every project below is registered in `IdiotProof.slnx`.
 | `IdiotProof.Engine.Tests` | NUnit | RiskGuardian gate, SupervisedLoop resilience, WorkspaceManager, options pricing math (OCC, intrinsic/extrinsic, Black-Scholes, IV round-trips, sell signal). | — |
 | `IdiotProof.Indicators.Tests` | NUnit | RSI/EMA/ATR/MACD/VWAP math + ADX Wilder-seed regression. | — |
 | `IdiotProof.Strategies.Tests` | NUnit | DSL round-trip, backtester, gapper lifecycle, canonical-JSON contract, and a large family of exhaustive combinatorial matrix tests. | — |
-| `IdiotProof.Brokers.Tests` | NUnit | BrokerRouter Sandbox default and safe fallback, Sandbox fill simulation, Sandbox synthetic options chain, Alpaca options wire format against canned responses. | — |
+| `IdiotProof.Brokers.Tests` | NUnit | BrokerRouter Sandbox default and safe fallback, Sandbox fill simulation, Sandbox synthetic options chain, Alpaca options and equity-short wire format against canned responses; opt-in real-paper options tests. | — |
 | `IdiotProof.Blazor.Tests` | NUnit | `StrategyScriptGenerator` verb-catalog reflection, the LLM gate on Legion's voter panel (`LlmVotingServiceTests`) and per-owner Claude keys and their isolation (`UserClaudeKeyResolverTests`, `ClaudeKeyIsolationTests`, `UserClaudeKeyRoutingTests`), the password-reset flow (`PasswordResetFlowTests`), research-pipeline services, repository guard rails. | — |
-| `IdiotProof.Monitor.Tests` | NUnit | Long and short order shapes on the Sandbox broker (`DirectionalOrdersTests`), `PremarketFadeScanner` and `BeBexDecayScanner` math. | — |
+| `IdiotProof.Monitor.Tests` | NUnit | Long and short order shapes on the Sandbox broker (`DirectionalOrdersTests`), `PremarketFadeScanner` and `BeBexDecayScanner` math; opt-in real-paper short and `sell_to_close` probes (`AlpacaPaperShortIntegrationTests`). | — |
 | `IdiotProof.UI.Tests` | NUnit | Options presenter, option position view and options glossary. | — |
 | `tests/IdiotProof.Cypress` | Cypress 13 | End-to-end Blazor UI tests (9 specs). | — |
 
@@ -557,12 +557,21 @@ Counts from the last full Debug run (2026-10-03, .NET 10 SDK); all green:
 | `IdiotProof.Engine.Tests` | 85 | 0 | RiskGuardian gate, SupervisedLoop resilience, WorkspaceManager, options pricing, AppSettings overlay |
 | `IdiotProof.Indicators.Tests` | 18 | 0 | RSI/EMA/ATR/MACD/VWAP math, ADX Wilder-seed regression |
 | `IdiotProof.Strategies.Tests` | 34,681 | 0 | DSL round-trip, backtester, gapper lifecycle, canonical-JSON contract, plus exhaustive combinatorial matrix classes (`StrategyPermutationMatrixTests`, `StrategyThreeWayAndMatrixTests`, `ConditionalBlockOverridePermutationTests`, ...) that expand to tens of thousands of generated cases |
-| `IdiotProof.Brokers.Tests` | 33 | 0 | BrokerRouter Sandbox default and safe fallback, Sandbox fill simulation, options wire format (+3 `[Explicit]` real-paper tests not run) |
+| `IdiotProof.Brokers.Tests` | 38 | 0 | BrokerRouter Sandbox default and safe fallback, Sandbox fill simulation, options wire format, equity short wire format (+3 `[Explicit]` real-paper options tests, passed against the paper account 2026-10-03) |
 | `IdiotProof.Blazor.Tests` | 217 | 0 | Verb catalog, LLM gate on Legion's panel, per-owner Claude keys, password reset, research pipeline, repositories (SQL Server LocalDB) |
-| `IdiotProof.Monitor.Tests` | 16 | 0 | Long/short order shapes on the Sandbox broker, `PremarketFadeScanner`, `BeBexDecayScanner` |
+| `IdiotProof.Monitor.Tests` | 16 | 0 | Long/short order shapes on the Sandbox broker, `PremarketFadeScanner`, `BeBexDecayScanner` (+2 `[Explicit]` real-paper order tests, see below) |
 | `IdiotProof.UI.Tests` | 62 | 0 | Options presenter, option position view, options glossary |
 
 The large `IdiotProof.Strategies.Tests` count is deliberate: the project generates exhaustive matrices over phase, condition and branch combinations rather than hand-writing each case.
+
+The `[Explicit]` tests talk to the real Alpaca paper account and never run in a plain `dotnet test`. Run them by name. They read keys from the `alpaca-paper` entry in `%APPDATA%\MindAttic\Brokers\providers.json`, are skipped when that entry is missing, and refuse to run against any host other than `paper-api.alpaca.markets`. Every order they place is priced so it cannot fill and is cancelled right away.
+
+```bash
+dotnet test IdiotProof.Brokers.Tests --filter FullyQualifiedName~AlpacaPaperOptionsIntegrationTests
+dotnet test IdiotProof.Monitor.Tests --filter FullyQualifiedName~AlpacaPaperShortIntegrationTests
+```
+
+What the 2026-10-03 run against the paper account showed: Alpaca accepts an equity order that carries both `side` and `position_intent` (the Monitor's `sell_to_close` exit was accepted, then cancelled). The 1-share `sell_to_open` short was rejected with `403 "account is not allowed to short"`, because the paper account has shorting disabled and under $2,000 of equity. That test reports Inconclusive until shorting is enabled on the account.
 
 ### Cypress end to end tests
 
@@ -658,6 +667,7 @@ IdiotProof/
 These are verified in code or canon; the living version is `docs/BIBLE.md` section 7 ("Active frontier"), and the canon wins if they disagree.
 
 - Options are manual-only. No option legs in the strategy schema, no IV or Greeks conditions, no options-aware `RiskGuardian` math, no multi-leg spreads; the Monitor never fires an options order. Both Alpaca accounts are at options level 3; place + cancel is proven against the real paper account, but the fill-and-close half of a real paper round-trip (IP-US-U10) is still open. `sp-index-events.json` is hand-maintained.
+- Shorts are verified on the Sandbox broker and in the wire format. Against the real Alpaca paper account, the short entry has not yet been accepted: the account cannot short (shorting disabled, equity under $2,000). An accepted `sell_to_open` and a filled short covered by `buy_to_close` are still open (`IP-US-K16`).
 - `dotnet run` on `IdiotProof.Blazor` needs a `wwwroot` folder next to the built exe. `Program.cs` mounts a `PhysicalFileProvider` on `AppContext.BaseDirectory/wwwroot` so a published exe serves its own static files, which throws `DirectoryNotFoundException` on a plain Debug build. Run from a publish output, or create `bin/Debug/net10.0/wwwroot` before `dotnet run`.
 - There is no Polygon feed: only `AlpacaDataFeed`, `AlpacaStreamingClient`, `MockDataFeed` and `SwitchableMarketDataFeed` exist. `docker-compose.yml` and `infra/` still reference a `PolygonApiKey` variable and a `src/IdiotProof.Blazor/Dockerfile` path that does not exist; verify that scaffolding before relying on it for a real deploy.
 - `UserPreferences.OpenStrategyTabs` is an unused column awaiting removal in a migration.

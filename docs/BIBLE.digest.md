@@ -187,5 +187,5 @@ No page writes strategy rows around it. (`StrategyRepositoryGuardTests`.)
 
 ## Status index (USER_STORIES.md)
 - done: 51
-- partial: 38
+- partial: 39
 - planned: 14

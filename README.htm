@@ -371,7 +371,7 @@ dotnet run --project IdiotProof.Monitor</code></pre>
 <tr>
 <td><code>IdiotProof.Brokers.Tests</code></td>
 <td>NUnit</td>
-<td>BrokerRouter Sandbox default and safe fallback, Sandbox fill simulation, Sandbox synthetic options chain, Alpaca options wire format against canned responses.</td>
+<td>BrokerRouter Sandbox default and safe fallback, Sandbox fill simulation, Sandbox synthetic options chain, Alpaca options and equity-short wire format against canned responses; opt-in real-paper options tests.</td>
 <td>—</td>
 </tr>
 <tr>
@@ -383,7 +383,7 @@ dotnet run --project IdiotProof.Monitor</code></pre>
 <tr>
 <td><code>IdiotProof.Monitor.Tests</code></td>
 <td>NUnit</td>
-<td>Long and short order shapes on the Sandbox broker (<code>DirectionalOrdersTests</code>), <code>PremarketFadeScanner</code> and <code>BeBexDecayScanner</code> math.</td>
+<td>Long and short order shapes on the Sandbox broker (<code>DirectionalOrdersTests</code>), <code>PremarketFadeScanner</code> and <code>BeBexDecayScanner</code> math; opt-in real-paper short and <code>sell_to_close</code> probes (<code>AlpacaPaperShortIntegrationTests</code>).</td>
 <td>—</td>
 </tr>
 <tr>
@@ -803,9 +803,9 @@ dotnet test IdiotProof.slnx</code></pre>
 </tr>
 <tr>
 <td><code>IdiotProof.Brokers.Tests</code></td>
-<td>33</td>
+<td>38</td>
 <td>0</td>
-<td>BrokerRouter Sandbox default and safe fallback, Sandbox fill simulation, options wire format (+3 <code>[Explicit]</code> real-paper tests not run)</td>
+<td>BrokerRouter Sandbox default and safe fallback, Sandbox fill simulation, options wire format, equity short wire format (+3 <code>[Explicit]</code> real-paper options tests, passed against the paper account 2026-10-03)</td>
 </tr>
 <tr>
 <td><code>IdiotProof.Blazor.Tests</code></td>
@@ -817,7 +817,7 @@ dotnet test IdiotProof.slnx</code></pre>
 <td><code>IdiotProof.Monitor.Tests</code></td>
 <td>16</td>
 <td>0</td>
-<td>Long/short order shapes on the Sandbox broker, <code>PremarketFadeScanner</code>, <code>BeBexDecayScanner</code></td>
+<td>Long/short order shapes on the Sandbox broker, <code>PremarketFadeScanner</code>, <code>BeBexDecayScanner</code> (+2 <code>[Explicit]</code> real-paper order tests, see below)</td>
 </tr>
 <tr>
 <td><code>IdiotProof.UI.Tests</code></td>
@@ -827,6 +827,10 @@ dotnet test IdiotProof.slnx</code></pre>
 </tr>
 </tbody></table>
 <p>The large <code>IdiotProof.Strategies.Tests</code> count is deliberate: the project generates exhaustive matrices over phase, condition and branch combinations rather than hand-writing each case.</p>
+<p>The <code>[Explicit]</code> tests talk to the real Alpaca paper account and never run in a plain <code>dotnet test</code>. Run them by name. They read keys from the <code>alpaca-paper</code> entry in <code>%APPDATA%\MindAttic\Brokers\providers.json</code>, are skipped when that entry is missing, and refuse to run against any host other than <code>paper-api.alpaca.markets</code>. Every order they place is priced so it cannot fill and is cancelled right away.</p>
+<pre><code class="language-bash">dotnet test IdiotProof.Brokers.Tests --filter FullyQualifiedName~AlpacaPaperOptionsIntegrationTests
+dotnet test IdiotProof.Monitor.Tests --filter FullyQualifiedName~AlpacaPaperShortIntegrationTests</code></pre>
+<p>What the 2026-10-03 run against the paper account showed: Alpaca accepts an equity order that carries both <code>side</code> and <code>position_intent</code> (the Monitor's <code>sell_to_close</code> exit was accepted, then cancelled). The 1-share <code>sell_to_open</code> short was rejected with <code>403 "account is not allowed to short"</code>, because the paper account has shorting disabled and under $2,000 of equity. That test reports Inconclusive until shorting is enabled on the account.</p>
 <h3 id="cypress-end-to-end-tests">Cypress end to end tests</h3>
 <pre><code class="language-bash">cd tests/IdiotProof.Cypress
 npm install
@@ -907,6 +911,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File Export.ps1</code></pre>
 <p>These are verified in code or canon; the living version is <code>docs/BIBLE.md</code> section 7 ("Active frontier"), and the canon wins if they disagree.</p>
 <ul>
 <li>Options are manual-only. No option legs in the strategy schema, no IV or Greeks conditions, no options-aware <code>RiskGuardian</code> math, no multi-leg spreads; the Monitor never fires an options order. Both Alpaca accounts are at options level 3; place + cancel is proven against the real paper account, but the fill-and-close half of a real paper round-trip (IP-US-U10) is still open. <code>sp-index-events.json</code> is hand-maintained.</li>
+<li>Shorts are verified on the Sandbox broker and in the wire format. Against the real Alpaca paper account, the short entry has not yet been accepted: the account cannot short (shorting disabled, equity under $2,000). An accepted <code>sell_to_open</code> and a filled short covered by <code>buy_to_close</code> are still open (<code>IP-US-K16</code>).</li>
 <li><code>dotnet run</code> on <code>IdiotProof.Blazor</code> needs a <code>wwwroot</code> folder next to the built exe. <code>Program.cs</code> mounts a <code>PhysicalFileProvider</code> on <code>AppContext.BaseDirectory/wwwroot</code> so a published exe serves its own static files, which throws <code>DirectoryNotFoundException</code> on a plain Debug build. Run from a publish output, or create <code>bin/Debug/net10.0/wwwroot</code> before <code>dotnet run</code>.</li>
 <li>There is no Polygon feed: only <code>AlpacaDataFeed</code>, <code>AlpacaStreamingClient</code>, <code>MockDataFeed</code> and <code>SwitchableMarketDataFeed</code> exist. <code>docker-compose.yml</code> and <code>infra/</code> still reference a <code>PolygonApiKey</code> variable and a <code>src/IdiotProof.Blazor/Dockerfile</code> path that does not exist; verify that scaffolding before relying on it for a real deploy.</li>
 <li><code>UserPreferences.OpenStrategyTabs</code> is an unused column awaiting removal in a migration.</li>

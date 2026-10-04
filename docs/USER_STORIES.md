@@ -210,6 +210,20 @@ updated: 2026-10-03
   `Vote_SplitPanel_FailsClosedToAbstain`, `Vote_UnparseableBallot_NeverApproves`,
   `Vote_DisabledOrUnkeyed_SkipsThePanel` in `IdiotProof.Blazor.Tests/LlmVotingServiceTests.cs`.
   The live vendor round trip is not run.)*
+- **IP-US-K16 🟡** As a trader, the short entry and cover that IP-US-K13 builds are orders the real
+  Alpaca account accepts: `side: sell` + `position_intent: sell_to_open` to open and `side: buy` +
+  `position_intent: buy_to_close` to cover, with a positive `qty`, and an account that cannot short
+  gets Alpaca's reason as a failed entry. *(Wire shape, the 403 can't-short answer and negative short
+  positions verified by `ShortOrders_SendSideAndIntent_WithPositiveQty`, `LongEntry_SendsNoIntent`,
+  `AccountThatCannotShort_IsAFailedOrder_WithAlpacasReason`, `ShortPosition_ParsesAsNegativeQuantity`
+  in `IdiotProof.Brokers.Tests/AlpacaEquityShortWireTests.cs`. Against the real paper account on
+  2026-10-03, by the opt-in `[Explicit]` `AlpacaPaperShortIntegrationTests` in
+  `IdiotProof.Monitor.Tests`: `LongExit_SellToClose_UnfillableLimit_IsAcceptedThenCancelled` passed,
+  so Alpaca accepts `side` + `position_intent` on an equity and echoes the intent back.
+  `ShortEntry_SellToOpen_UnfillableLimit_IsAcceptedThenCancelled` was Inconclusive: Alpaca returned
+  `403 40310000 "account is not allowed to short"` because the paper account has shorting disabled
+  and equity under $2,000. Open: an accepted `sell_to_open` and a filled short covered by
+  `buy_to_close` on a short-enabled paper account.)*
 
 ## Epic R — Strategy replay, scanner & ML dataset {#Epic-R}
 - **IP-US-R1 🟡** As a trader, I can replay any strategy against a past ET session and see the

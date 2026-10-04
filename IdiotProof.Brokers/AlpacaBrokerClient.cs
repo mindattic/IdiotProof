@@ -220,9 +220,18 @@ public sealed class AlpacaBrokerClient : IBrokerClient, IAsyncDisposable
         return await PostOrderAsync(payload, ct).ConfigureAwait(false);
     }
 
+    /// <summary>
+    /// Order bodies leave out null fields instead of sending <c>"field": null</c>, so an order only
+    /// carries the price fields its type uses and a long entry carries no <c>position_intent</c>.
+    /// </summary>
+    private static readonly JsonSerializerOptions OrderJson = new(JsonSerializerDefaults.Web)
+    {
+        DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull,
+    };
+
     private async Task<OrderResult> PostOrderAsync(object payload, CancellationToken ct)
     {
-        using var response = await httpClient.PostAsJsonAsync("/v2/orders", payload, ct).ConfigureAwait(false);
+        using var response = await httpClient.PostAsJsonAsync("/v2/orders", payload, OrderJson, ct).ConfigureAwait(false);
         var content = await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
 
         if (!response.IsSuccessStatusCode)

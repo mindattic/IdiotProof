@@ -189,7 +189,12 @@ and after-hours entries are limit + DAY + `extended_hours`; regular-hours entrie
 marketable limit. Longs and shorts both trade: a long buys at +0.2% and exits with a
 `sell_to_close` at -0.5%; a short opens with a `sell_to_open` at -0.2%, is managed by
 `GapperExitEvaluator.EvaluateShort`, covers with a `buy_to_close` at +0.5%, and its realized P&L
-is inverted. Before any exit order the Monitor reconciles its bookkeeping with the broker's
+is inverted. On the wire (`AlpacaBrokerClient`) a short entry is `side: sell` +
+`position_intent: sell_to_open` and a cover is `side: buy` + `position_intent: buy_to_close`, with a
+positive `qty` (the side carries the direction); null fields are left out of the body, so a long
+entry sends no intent. Alpaca opens shorts only in shortable, easy-to-borrow names on a margin
+account with shorting enabled (equity of at least $2,000); any other account gets
+`403 40310000 "account is not allowed to short"`, which the Monitor sees as a failed entry. Before any exit order the Monitor reconciles its bookkeeping with the broker's
 position on the strategy's own side (a short is a negative broker quantity; no broker position → phantom bookkeeping cleared, no order; after a 90s grace for a
 still-working entry); when several of a user's strategies share a symbol, aggregate
 reconciliation is skipped and per-strategy bookkeeping is trusted. A sell-by position that
@@ -384,8 +389,19 @@ No page writes strategy rows around it. (`StrategyRepositoryGuardTests`.)
 ## 6. Verified state {#IP-§6}
 Build/test evidence (recorded 2026-10-03, .NET 10 SDK): `dotnet test IdiotProof.slnx -c Debug`
 → build succeeded, **all green, 0 failed**: Engine 85 · Indicators 18 · Strategies 34,681
-(dominated by generated parameter cases) · Brokers 33 (+3 `[Explicit]` real-paper tests not run)
-· Blazor 217 · UI 62 · Monitor 16.
+(dominated by generated parameter cases) · Brokers 38 (+3 `[Explicit]` real-paper tests) · Blazor
+217 · UI 62 · Monitor 16 (+2 `[Explicit]` real-paper tests).
+
+Real Alpaca paper account, 2026-10-03 (market closed, run by name): the 3 options tests pass
+(level 3, BE chain + snapshots, a $0.01 buy-to-open placed and cancelled). The short probe
+(`AlpacaPaperShortIntegrationTests`) sent the Monitor's `DirectionalOrders.Entry` short (1 AAPL,
+shortable + ETB, sell limit at about 2× the market) through `AlpacaBrokerClient`. Alpaca answered `403 40310000 "account
+is not allowed to short"` because the paper account has `shorting_enabled=false` and equity
+under $2,000, so the test reported Inconclusive. The same `side` + `position_intent` shape on an
+equity is proven by the `sell_to_close` probe: the Monitor's long exit for 1 held share was
+`accepted` with `position_intent=sell_to_close`, `qty=1`, then `canceled`. **Not yet proven:** an
+accepted `sell_to_open`, a filled short and a `buy_to_close` cover against Alpaca; those need a
+short-enabled paper account.
 
 Test projects and what they pin:
 - `IdiotProof.Engine.Tests` — RiskGuardian gate incl. `RecordTradePnL` day rollover and
@@ -399,7 +415,8 @@ Test projects and what they pin:
   trading-day gate (`MarketTimeTests`), fail-closed conditions (`ConditionFailClosedTests`),
   window-scoped latches (`WindowScopedConditionTests`), culture-safe text (`ScriptTextRoundTripTests`).
 - `IdiotProof.Brokers.Tests` — BrokerRouter Sandbox default, sandbox fills, Alpaca extended-hours
-  contract, options wire format + Sandbox chain/basis (`OptionsBrokerTests`); the opt-in
+  contract, options wire format + Sandbox chain/basis (`OptionsBrokerTests`), equity short wire
+  format, the can't-short 403 and negative short positions (`AlpacaEquityShortWireTests`); the opt-in
   `[Explicit]` `AlpacaPaperOptionsIntegrationTests` runs only by name against the real paper account.
 - `IdiotProof.Blazor.Tests` — verb-catalog reflection, the LLM gate on Legion's voter panel over
   a fake transport (`LlmVotingServiceTests`), per-owner Claude keys and their isolation (`UserClaudeKeyResolverTests`,
@@ -412,7 +429,10 @@ Test projects and what they pin:
   `UserPreferencesServiceTests`.
 - `IdiotProof.UI.Tests` — Options presenter / position view / glossary logic.
 - `IdiotProof.Monitor.Tests` — long/short order shapes and a short round trip on the Sandbox
-  broker (`DirectionalOrdersTests`); `PremarketFadeScanner` and `BeBexDecayScanner` math.
+  broker (`DirectionalOrdersTests`); `PremarketFadeScanner` and `BeBexDecayScanner` math; the
+  opt-in `[Explicit]` `AlpacaPaperShortIntegrationTests` (keys from the `alpaca-paper` keyring
+  entry, skipped without it, refuses any host but `paper-api.alpaca.markets`) sends a never-fillable
+  1-share short and a never-fillable `sell_to_close`, reads each back and cancels it.
 
 Not proven by the solution test run: the Blazor UI flows and the live LLM voting round-trip.
 The Cypress suite (`tests/IdiotProof.Cypress/cypress/e2e/`, specs 01–09) runs deterministically
@@ -426,6 +446,9 @@ been run green. MonitorWorker itself has no host-level harness test.
   legs in the strict-JSON strategy schema (v2), IV/Greeks conditions in the `Conditions` catalog,
   and a non-linear `RiskGuardian` model (max loss = premium for long options) before the Monitor
   may ever fire an options order. Multi-leg spreads (`order_class: "mleg"`) after that.
+- **Shorts on a real account** — enable shorting on the paper account (margin, equity ≥ $2,000),
+  then re-run `AlpacaPaperShortIntegrationTests` to prove an accepted `sell_to_open`, and during
+  market hours a filled short covered by `buy_to_close` (IP-US-K16).
 - **Gapper hardening (Epic K tail)** — host-level MonitorWorker test (queue → 4AM fire → hold →
   rollover sell), `/gapper` Cypress spec, fill-price reconciliation against the broker's actual fill (entry is recorded at the limit
   price), full order-state tracking (pending orders as first-class rows).
