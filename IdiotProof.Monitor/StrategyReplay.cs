@@ -7,6 +7,7 @@ using IdiotProof.DataFeeds;
 using IdiotProof.Models;
 using IdiotProof.Scripting;
 using IdiotProof.Strategies;
+using MindAttic.Export.Artifacts;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -269,7 +270,7 @@ public static partial class StrategyReplay
         }
 
         // ── Render the file tree FROM the DB (the pages are a view of SQL) ──
-        RenderRunPage(run, outRoot);
+        await RenderRunPageAsync(run, outRoot);
         await WriteTickerIndexAsync(dbf, outRoot, symbol);
         await WriteRootIndexAsync(dbf, outRoot);
 
@@ -293,13 +294,21 @@ public static partial class StrategyReplay
         string et, double o, double h, double l, double c, long v,
         double vwap, double whigh, double volx, bool[] cnd, bool inSession, bool fire, bool exit);
 
+    // Replay pages are regenerated views of SQL: overwrite in place, exact
+    // file name, UTF-8 without BOM (the ArtifactWriter default encoding).
+    private static readonly ArtifactOptions PageArtifact = new()
+    {
+        Existing = ExistingArtifact.Overwrite,
+        SanitizeName = false,
+    };
+
     // ── render one run page from its DB row (SQL is the source of truth) ──
-    private static void RenderRunPage(ReplayRun run, string outRoot)
+    private static async Task RenderRunPageAsync(ReplayRun run, string outRoot)
     {
         var runDir = Path.Combine(outRoot, run.Symbol.ToLowerInvariant(), run.Stamp);
         Directory.CreateDirectory(runDir);
         var page = Template.Replace("__DATA__", run.DataJson).Replace("__STRATEGY_HTML__", run.StrategyHtml);
-        File.WriteAllText(Path.Combine(runDir, "index.htm"), page, new UTF8Encoding(false));
+        await ArtifactWriter.WriteTextAsync(runDir, "index.htm", page, PageArtifact);
     }
 
     // ── per-ticker index, built from the DB (all runs, newest first) ──
@@ -336,7 +345,7 @@ public static partial class StrategyReplay
             .Replace("__SYMBOL__", System.Net.WebUtility.HtmlEncode(symbol))
             .Replace("__COUNT__", runs.Count.ToString())
             .Replace("__RUNS__", sb.ToString());
-        await File.WriteAllTextAsync(Path.Combine(tickerDir, "index.htm"), html, new UTF8Encoding(false));
+        await ArtifactWriter.WriteTextAsync(tickerDir, "index.htm", html, PageArtifact);
     }
 
     /// <summary>
@@ -475,7 +484,7 @@ public static partial class StrategyReplay
         var html = RootIndexTemplate
             .Replace("__TICKERS__", rows)
             .Replace("__COUNT__", tickerCount.ToString());
-        await File.WriteAllTextAsync(Path.Combine(outRoot, "index.htm"), html, new UTF8Encoding(false));
+        await ArtifactWriter.WriteTextAsync(outRoot, "index.htm", html, PageArtifact);
     }
 
     /// <summary>
@@ -536,7 +545,7 @@ public static partial class StrategyReplay
             await db.Database.MigrateAsync();
             all = await db.ReplayRuns.ToListAsync();
         }
-        foreach (var run in all) RenderRunPage(run, outRoot);
+        foreach (var run in all) await RenderRunPageAsync(run, outRoot);
         foreach (var sym in all.Select(r => r.Symbol).Distinct(StringComparer.OrdinalIgnoreCase))
             await WriteTickerIndexAsync(dbf, outRoot, sym);
         await WriteRootIndexAsync(dbf, outRoot);

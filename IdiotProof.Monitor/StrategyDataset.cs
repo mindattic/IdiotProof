@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Text;
 using System.Text.Json;
 using IdiotProof.Blazor.Data;
+using MindAttic.Export.Artifacts;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -77,9 +78,15 @@ public static class StrategyDataset
                 r.InSession ? "1" : "0", r.CondPassed.ToString(), r.CondTotal.ToString(), r.Fire ? "1" : "0", r.Exit ? "1" : "0",
             }));
 
-        var enc = new UTF8Encoding(false);
-        await File.WriteAllTextAsync(Path.Combine(dir, "trades.csv"), t.ToString(), enc);
-        await File.WriteAllTextAsync(Path.Combine(dir, "bars.csv"), b2.ToString(), enc);
+        // Regenerated dataset: overwrite in place, exact names, UTF-8 without BOM.
+        var artifact = new ArtifactOptions
+        {
+            Existing = ExistingArtifact.Overwrite,
+            SanitizeName = false,
+            Encoding = new UTF8Encoding(false),
+        };
+        await ArtifactWriter.WriteTextAsync(dir, "trades.csv", t.ToString(), artifact);
+        await ArtifactWriter.WriteTextAsync(dir, "bars.csv", b2.ToString(), artifact);
         var manifest = new
         {
             generatedUtc = DateTime.UtcNow.ToString("O"),
@@ -88,8 +95,8 @@ public static class StrategyDataset
             files = new[] { "trades.csv", "bars.csv" },
             note = "trades.csv = one row per round-trip (entry features -> pnlPct/won label). bars.csv = one row per minute bar (time-series features + entry/exit flags).",
         };
-        await File.WriteAllTextAsync(Path.Combine(dir, "manifest.json"),
-            JsonSerializer.Serialize(manifest, new JsonSerializerOptions { WriteIndented = true }), enc);
+        await ArtifactWriter.WriteTextAsync(dir, "manifest.json",
+            JsonSerializer.Serialize(manifest, new JsonSerializerOptions { WriteIndented = true }), artifact);
 
         Console.WriteLine($"exported {runCount} run(s){(backfilled > 0 ? $" (+{backfilled} backfilled)" : "")} → " +
                           $"{trades.Count} trade rows, {bars.Count} bar rows → {dir}");

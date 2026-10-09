@@ -302,7 +302,7 @@ public static partial class StrategyReplay
             await db.SaveChangesAsync();
         }
 
-        RenderRunPage(run, outRoot);
+        await RenderRunPageAsync(run, outRoot);
 
         var sign = totalPnlUsd >= 0 ? "+" : "";
         Console.WriteLine($"  ● {symbol} \"{strategyTitle}\" — {trades.Count} trade(s), {sign}${totalPnlUsd:0.##} ({totalPnlPct:+0.##;-0.##;0}%)  → {run.Stamp}/");

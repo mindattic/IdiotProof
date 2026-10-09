@@ -23,6 +23,8 @@
          gateway approach as MindAttic.Psst, without pulling in that assembly's
          net10.0-windows + WindowsDesktop sound-effect dependency. -->
     <PackageReference Include="MailKit" Version="4.16.0" />
+    <!-- User-facing files (replay pages, ML dataset) go through ArtifactWriter. -->
+    <PackageReference Include="MindAttic.Export" Version="3.0.0" />
   </ItemGroup>
 
   <ItemGroup>
