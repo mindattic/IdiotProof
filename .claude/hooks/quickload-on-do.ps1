@@ -1,7 +1,7 @@
 <#
-  UserPromptSubmit hook - restore the /quicksave transcript when the user types a bare "do".
+  UserPromptSubmit hook - restore the /quicksave transcript when the user types a bare "do" or "recover".
 
-  After /quicksave + /clear, the next session restores by typing "do" (this hook) or running
+  After /quicksave + /clear, the next session restores by typing "do" or "recover" (this hook) or running
   /quickload (the command). Any other prompt passes through untouched. Reads
   <repo>\.claude\quicksave.md, injects it as authoritative resume context, then ARCHIVES it
   (renamed to .001, shifting older archives up by one) so the refill is one-shot but nothing is
@@ -16,8 +16,8 @@ $raw = [Console]::In.ReadToEnd()
 try { $j = $raw | ConvertFrom-Json } catch { $j = $null }
 $prompt = if ($j -and $j.prompt) { [string]$j.prompt } else { '' }
 
-# Only a bare "do" / "do it" triggers the restore - everything else passes through.
-if ($prompt -notmatch '^\s*(do|do it)\s*[.!]*\s*$') { Write-Output '{}'; exit 0 }
+# Only a bare "do" / "do it" / "recover" triggers the restore - everything else passes through.
+if ($prompt -notmatch '^\s*(do|do it|recover)\s*[.!]*\s*$') { Write-Output '{}'; exit 0 }
 
 # repo root = two levels up from this script (<repo>\.claude\hooks\quickload-on-do.ps1)
 $repoRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
@@ -27,7 +27,7 @@ if (-not (Test-Path $save)) { Write-Output '{}'; exit 0 }
 $body = Get-Content -LiteralPath $save -Raw -Encoding UTF8
 
 # Archive instead of delete: shift any existing .NNN archives up by one, then file this save as
-# .001. Nothing /quicksave ever wrote is destroyed by /quickload or the "do" hook.
+# .001. Nothing /quicksave ever wrote is destroyed by /quickload or the "do"/"recover" hook.
 function Move-ToArchive([string]$path) {
   $n = 1
   while (Test-Path -LiteralPath ('{0}.{1:D3}' -f $path, $n)) { $n++ }
@@ -43,7 +43,7 @@ if ([string]::IsNullOrWhiteSpace($body)) {
 }
 
 $preamble = @'
-RESUME CONTEXT (quicksave transcript, restored because the user typed "do"). The context window
+RESUME CONTEXT (quicksave transcript, restored because the user typed "do" or "recover"). The context window
 was wiped since this was printed. The block below is the quicksave describing exactly what you
 were doing. Treat it as your working memory for this session: pick up the Current task, honor
 the Decisions locked, and continue from Next concrete steps without re-asking what was already
@@ -78,7 +78,7 @@ foreach ($ch in $text.ToCharArray()) {
 $escaped = $sb.ToString()
 
 # Archive the transcript (one-shot for resume) BEFORE emitting, so a crash mid-emit can't leave
-# it to ambush a later "do". Nothing is ever deleted - it becomes quicksave.md.001.
+# it to ambush a later "do" or "recover". Nothing is ever deleted - it becomes quicksave.md.001.
 Move-ToArchive $save
 
 $json = '{"hookSpecificOutput":{"hookEventName":"UserPromptSubmit","additionalContext":"' + $escaped + '"}}'

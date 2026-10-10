@@ -1,5 +1,5 @@
 ---
-description: Print the current discussion to a paper transcript, so it survives /clear and restores on 'do' or /quickload.
+description: Print the current discussion to a paper transcript, so it survives /clear and restores on 'do' or 'recover' or /quickload.
 argument-hint: "[optional note to emphasize what matters most]"
 allowed-tools: Write, Read, PowerShell, Bash
 ---
@@ -8,7 +8,7 @@ allowed-tools: Write, Read, PowerShell, Bash
 
 Person-of-Interest protocol: the context window is about to be wiped by `/clear`. Before it is,
 print the live discussion to a "paper transcript" on disk. On the other side of the wipe, the
-next session restores it when the user types a bare `do` (a prompt-submit hook injects the
+next session restores it when the user types a bare `do` or `recover` (a prompt-submit hook injects the
 transcript) or runs `/quickload`. The transcript is archived on read, never deleted — nothing
 printed by `/quicksave` is ever thrown away.
 
@@ -67,4 +67,4 @@ thread is unmistakable after the wipe.
 ## After writing
 
 Tell the user, in one line, that the quicksave is written and armed: run `/clear`, then type
-`do` (or `/quickload`) on the other side to restore. Do not do anything else.
+`do` or `recover` (or `/quickload`) on the other side to restore. Do not do anything else.
