@@ -586,8 +586,8 @@ Nine specs in `cypress/e2e/` cover a smoke test, strategy authoring and the save
 
 ## Root scripts
 
-- `deploy-idiotproof.bat`: desktop entry point that runs `tools/publish-all.ps1 -Launch`, republishing the Monitor and the web app to `C:\Apps\IdiotProof\` and then starting both.
-- `publish-all.bat`, `zzz_Export.bat`, `zzz_Backup.bat`: local convenience wrappers.
+- `deploy.ps1`: publishes the Monitor (`C:\Apps\IdiotProof\Monitor\`) and the web app (`C:\Apps\IdiotProof\Blazor\`, with a `run.bat` that serves on `http://localhost:5100`), and writes `C:\Apps\IdiotProof\deploy.bat`, which the desktop shortcut points at. Each component is republished only when its source (its project plus every referenced project) is newer than its deployed exe, so an unchanged run is a sub-second no-op. `-Force` does a clean bin/obj rebuild; `-Launch` starts both afterwards. `deploy.bat` runs `deploy.ps1` (falling back to the existing build if the redeploy fails or the repo is missing), then starts the Monitor and the web app and opens the browser.
+- `zzz_Export.bat`, `zzz_Backup.bat`: local convenience wrappers.
 - `tools/azure-provision.md` and `tools/register-research-scan-task.ps1`: document and automate one-time infrastructure steps; `tools/seed-*.sql` seed example strategies.
 - `tools/codex.ps1`: the documentation-canon tool (see [Documentation](#documentation)); `tools/build-readme.ps1` renders this README to `README.htm`.
 
@@ -635,7 +635,8 @@ IdiotProof/
 ├── IdiotProof.ResearchScanner/               ← One-shot research sweep console
 ├── IdiotProof.*.Tests/                       ← NUnit projects (Engine, Indicators, Strategies, Brokers, Blazor, Monitor, UI)
 ├── docs/                                     ← Codex canon (BIBLE.md, AMENDMENTS.md, USER_STORIES.md), images/
-├── tools/                                    ← codex.ps1, build-readme.ps1, publish-all.ps1, azure-provision.md, seed-*.sql
+├── deploy.ps1                                ← Publish to C:\Apps\IdiotProof\ (writes deploy.bat)
+├── tools/                                    ← codex.ps1, build-readme.ps1, azure-provision.md, seed-*.sql
 └── tests/
     └── IdiotProof.Cypress/                   ← End-to-end UI tests (Cypress 13, 9 specs)
 ```

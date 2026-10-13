@@ -509,3 +509,14 @@ updated: 2026-10-03
 5. **IP-US-H1** — Roslyn-based IdiotScript parser: exact line/col diagnostics replacing
    the regex parser.
 6. **Epic S** — adaptive auto-strategy generation.
+
+## Tickets
+> Permanent log of every change and fix — this repo's ticket system. Rows are append-only: never
+> delete or reword one; only move its Status (open → closed / wont-do) and fill in Ref. Status is
+> a word, not a glyph, so tickets don't count toward the story index. Keep this section last.
+
+| ID | Date | Type | Status | Summary | Ref |
+|---|---|---|---|---|---|
+| IP-T1 | 2026-10-12 | docs | closed | Start the permanent ticket log in USER_STORIES.md | — |
+| IP-T2 | 2026-10-12 | chore | closed | /commit now logs every commit as a ticket in this table | `.claude/skills/commit/SKILL.md` |
+| IP-T3 | 2026-10-13 | chore | closed | Standard deploy convention: root deploy.ps1 (change-gated, -Force/-Launch) writes C:\Apps\IdiotProof\deploy.bat; removed deploy-idiotproof.bat, publish-all.bat, launch.bat and Start* leftovers | deploy.ps1 |

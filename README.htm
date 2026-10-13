@@ -6,7 +6,7 @@
 <title>IdiotProof</title>
 <meta name="description" content="Describe a trade in plain English and IdiotProof turns it into a strategy that a 24/7 Monitor evaluates against live market data, firing only when its conditions, an LLM panel and a risk guard all agree.">
 <meta name="generator" content="MindAttic Codex build-readme.ps1">
-<meta name="generated" content="2026-10-03">
+<meta name="generated" content="2026-10-13">
 <style>:root{
   --bg:#0d1117;--bg2:#161b22;--bg3:#21262d;
   --border:#30363d;
@@ -839,8 +839,8 @@ npm run ci      # headless Chrome; uses CYPRESS_BASE_URL or defaults to https://
 <p>Nine specs in <code>cypress/e2e/</code> cover a smoke test, strategy authoring and the save/activate round-trip, API-key masking and the live danger modal, Vault-backed AI generation, sample-strategy round-trips, backtest replay, the live <code>N/M</code> condition-progress badge, the options section and live-mode strategies. They run deterministically against <code>IDIOTPROOF_FAKE_LLM=1</code> (the <code>FakeLlmHandler</code> test seam intercepts Legion calls server-side) but need a live server to count as proven end to end.</p>
 <h2 id="root-scripts">Root scripts</h2>
 <ul>
-<li><code>deploy-idiotproof.bat</code>: desktop entry point that runs <code>tools/publish-all.ps1 -Launch</code>, republishing the Monitor and the web app to <code>C:\Apps\IdiotProof\</code> and then starting both.</li>
-<li><code>publish-all.bat</code>, <code>zzz_Export.bat</code>, <code>zzz_Backup.bat</code>: local convenience wrappers.</li>
+<li><code>deploy.ps1</code>: publishes the Monitor (<code>C:\Apps\IdiotProof\Monitor\</code>) and the web app (<code>C:\Apps\IdiotProof\Blazor\</code>, with a <code>run.bat</code> that serves on <code>http://localhost:5100</code>), and writes <code>C:\Apps\IdiotProof\deploy.bat</code>, which the desktop shortcut points at. Each component is republished only when its source (its project plus every referenced project) is newer than its deployed exe, so an unchanged run is a sub-second no-op. <code>-Force</code> does a clean bin/obj rebuild; <code>-Launch</code> starts both afterwards. <code>deploy.bat</code> runs <code>deploy.ps1</code> (falling back to the existing build if the redeploy fails or the repo is missing), then starts the Monitor and the web app and opens the browser.</li>
+<li><code>zzz_Export.bat</code>, <code>zzz_Backup.bat</code>: local convenience wrappers.</li>
 <li><code>tools/azure-provision.md</code> and <code>tools/register-research-scan-task.ps1</code>: document and automate one-time infrastructure steps; <code>tools/seed-*.sql</code> seed example strategies.</li>
 <li><code>tools/codex.ps1</code>: the documentation-canon tool (see <a href="#documentation">Documentation</a>); <code>tools/build-readme.ps1</code> renders this README to <code>README.htm</code>.</li>
 </ul>
@@ -882,7 +882,8 @@ powershell -NoProfile -ExecutionPolicy Bypass -File Export.ps1</code></pre>
 ├── IdiotProof.ResearchScanner/               ← One-shot research sweep console
 ├── IdiotProof.*.Tests/                       ← NUnit projects (Engine, Indicators, Strategies, Brokers, Blazor, Monitor, UI)
 ├── docs/                                     ← Codex canon (BIBLE.md, AMENDMENTS.md, USER_STORIES.md), images/
-├── tools/                                    ← codex.ps1, build-readme.ps1, publish-all.ps1, azure-provision.md, seed-*.sql
+├── deploy.ps1                                ← Publish to C:\Apps\IdiotProof\ (writes deploy.bat)
+├── tools/                                    ← codex.ps1, build-readme.ps1, azure-provision.md, seed-*.sql
 └── tests/
     └── IdiotProof.Cypress/                   ← End-to-end UI tests (Cypress 13, 9 specs)</code></pre>
 <h2 id="glossary">Glossary</h2>
@@ -932,7 +933,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File Export.ps1</code></pre>
 <p>This repository has no license file. All rights reserved.</p>
 <p>Part of <a href="https://mindattic.com">MindAttic</a> — see more projects at <a href="https://github.com/mindattic">github.com/mindattic</a>. Related: <a href="https://github.com/mindattic/MindAttic.Legion">MindAttic.Legion</a> (LLM voter panel), <a href="https://github.com/mindattic/MindAttic.Vault">MindAttic.Vault</a> (credential keyrings), <a href="https://github.com/mindattic/MindAttic.Authentication">MindAttic.Authentication</a> (sign-in stack).</p>
 
-    <p class="codex-footer">Generated 2026-10-03 by the shared MindAttic Codex engine (<code>codex-standard/build-readme.ps1</code>) from <code>README.md</code>. Edit the Markdown source, not this file.</p>
+    <p class="codex-footer">Generated 2026-10-13 by the shared MindAttic Codex engine (<code>codex-standard/build-readme.ps1</code>) from <code>README.md</code>. Edit the Markdown source, not this file.</p>
   </main>
 </div>
 <script>(function(){
