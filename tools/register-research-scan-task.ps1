@@ -30,7 +30,8 @@
 #>
 param(
     [int]$IntervalMinutes = 60,
-    [string]$TaskName = 'IdiotProof Research Scan'
+    [string]$TaskName = 'IdiotProof Research Scan',
+    [string]$TaskPath = '\MindAttic\IdiotProof\'
 )
 
 $ErrorActionPreference = 'Stop'
@@ -76,16 +77,24 @@ $settings = New-ScheduledTaskSettingsSet `
 # USER" hosting note.
 $principal = New-ScheduledTaskPrincipal -UserId "$env:USERDOMAIN\$env:USERNAME" -LogonType S4U -RunLevel Limited
 
-Register-ScheduledTask -TaskName $TaskName `
+Register-ScheduledTask -TaskName $TaskName -TaskPath $TaskPath `
     -Action $action -Trigger $trigger -Settings $settings -Principal $principal `
     -Force | Out-Null
+
+# A stale copy at the old root-level path (pre-dating the \MindAttic\IdiotProof\ folder
+# convention) would otherwise run alongside this one and double up scan passes.
+$stale = Get-ScheduledTask -TaskName $TaskName -TaskPath '\' -ErrorAction SilentlyContinue
+if ($stale) {
+    Unregister-ScheduledTask -TaskName $TaskName -TaskPath '\' -Confirm:$false
+    Write-Host "  Removed stale root-level copy of '$TaskName'." -ForegroundColor Yellow
+}
 
 Write-Host ''
 Write-Host '  Registered.' -ForegroundColor Green
 Write-Host "    Exe      : $exePath" -ForegroundColor Gray
 Write-Host "    Interval : every $IntervalMinutes minutes" -ForegroundColor Gray
-Write-Host "    Task     : Task Scheduler Library \ $TaskName" -ForegroundColor Gray
+Write-Host "    Task     : $TaskPath$TaskName" -ForegroundColor Gray
 Write-Host ''
 Write-Host "  Run it once by hand to verify before waiting for the schedule:" -ForegroundColor Yellow
-Write-Host "    Start-ScheduledTask -TaskName '$TaskName'" -ForegroundColor Gray
+Write-Host "    Start-ScheduledTask -TaskName '$TaskName' -TaskPath '$TaskPath'" -ForegroundColor Gray
 Write-Host ''
