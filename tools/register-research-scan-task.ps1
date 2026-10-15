@@ -1,4 +1,4 @@
-#Requires -Version 5.1
+﻿#Requires -Version 5.1
 <#
 .SYNOPSIS
     Publish IdiotProof.ResearchScanner and register it as a Windows Scheduled Task.
