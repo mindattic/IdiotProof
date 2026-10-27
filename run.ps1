@@ -78,6 +78,14 @@ $components = @(
 )
 
 # The project's directory plus the directories of every project it references, transitively.
+# cmd reads a running .bat by byte offset, and run.bat runs this script, so only rewrite a launcher
+# whose text actually changed, and always with CRLF so its goto labels resolve.
+function Write-BatIfChanged([string]$Path, [string]$Text) {
+    $Text = ($Text -replace "`r?`n", "`r`n").TrimEnd() + "`r`n"
+    if ((Test-Path -LiteralPath $Path) -and ([IO.File]::ReadAllText($Path) -ceq $Text)) { return }
+    [IO.File]::WriteAllText($Path, $Text, [Text.Encoding]::ASCII)
+}
+
 function Get-ProjectDirs([string]$proj) {
     $seen  = @{}
     $queue = New-Object System.Collections.Queue
@@ -168,7 +176,7 @@ set ASPNETCORE_URLS=$blazorUrl
 set ASPNETCORE_ENVIRONMENT=Development
 "%~dp0IdiotProof.Blazor.exe"
 "@
-        Set-Content -LiteralPath (Join-Path $c.OutDir 'run.bat') -Value $runBat -Encoding ASCII
+        Write-BatIfChanged (Join-Path $c.OutDir 'run.bat') $runBat
     }
     Write-Host "Deployed $exe" -ForegroundColor Green
     return $true
@@ -214,7 +222,7 @@ start "" "$blazorUrl"
 echo.
 echo  Done. Monitor is in its own window; Blazor is at $blazorUrl
 "@
-    Set-Content -LiteralPath $launcherBat -Value $bat -Encoding ASCII
+    Write-BatIfChanged $launcherBat $bat
     # run.bat replaces the old generated deploy.bat.
     $oldBat = Join-Path $deployDir 'deploy.bat'
     if (Test-Path $oldBat) { Remove-Item $oldBat -Force -ErrorAction SilentlyContinue }
