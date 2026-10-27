@@ -586,7 +586,7 @@ Nine specs in `cypress/e2e/` cover a smoke test, strategy authoring and the save
 
 ## Root scripts
 
-- `deploy.ps1`: publishes the Monitor (`C:\Apps\IdiotProof\Monitor\`) and the web app (`C:\Apps\IdiotProof\Blazor\`, with a `run.bat` that serves on `http://localhost:5100`), and writes `C:\Apps\IdiotProof\deploy.bat`, which the desktop shortcut points at. Each component is republished only when its source (its project plus every referenced project) is newer than its deployed exe, so an unchanged run is a sub-second no-op. `-Force` does a clean bin/obj rebuild; `-Launch` starts both afterwards. `deploy.bat` runs `deploy.ps1` (falling back to the existing build if the redeploy fails or the repo is missing), then starts the Monitor and the web app and opens the browser.
+- `run.ps1`: publishes the Monitor (`C:\Apps\IdiotProof\Monitor\`) and the web app (`C:\Apps\IdiotProof\Blazor\`, with a `run.bat` that serves on `http://localhost:5100`), and writes `C:\Apps\IdiotProof\run.bat`, which the desktop shortcut points at. Each component is republished only when its source (its project plus every referenced project) is newer than its deployed exe, so an unchanged run is a sub-second no-op. `-LauncherOnly` only rewrites the launcher. `-Force` does a clean bin/obj rebuild; `-Launch` starts both afterwards. `run.bat` opens a menu: 1) Deploy & Run runs `run.ps1 -Force` (falling back to the existing build if the redeploy fails or the repo is missing), 2) Run skips the redeploy; either way it then starts the Monitor and the web app and opens the browser.
 - `zzz_Export.bat`, `zzz_Backup.bat`: local convenience wrappers.
 - `tools/azure-provision.md` and `tools/register-research-scan-task.ps1`: document and automate one-time infrastructure steps; `tools/seed-*.sql` seed example strategies.
 - `tools/codex.ps1`: the documentation-canon tool (see [Documentation](#documentation)); `tools/build-readme.ps1` renders this README to `README.htm`.
@@ -635,7 +635,7 @@ IdiotProof/
 ├── IdiotProof.ResearchScanner/               ← One-shot research sweep console
 ├── IdiotProof.*.Tests/                       ← NUnit projects (Engine, Indicators, Strategies, Brokers, Blazor, Monitor, UI)
 ├── docs/                                     ← Codex canon (BIBLE.md, AMENDMENTS.md, USER_STORIES.md), images/
-├── deploy.ps1                                ← Publish to C:\Apps\IdiotProof\ (writes deploy.bat)
+├── run.ps1                                   ← Publish to C:\Apps\IdiotProof\ (writes run.bat)
 ├── tools/                                    ← codex.ps1, build-readme.ps1, azure-provision.md, seed-*.sql
 └── tests/
     └── IdiotProof.Cypress/                   ← End-to-end UI tests (Cypress 13, 9 specs)
