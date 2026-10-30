@@ -6,6 +6,7 @@
     <Project Path="IdiotProof.Engine/IdiotProof.Engine.csproj" />
     <Project Path="IdiotProof.Indicators/IdiotProof.Indicators.csproj" />
     <Project Path="IdiotProof.Models/IdiotProof.Models.csproj" />
+    <Project Path="IdiotProof.Operations/IdiotProof.Operations.csproj" />
     <Project Path="IdiotProof.Strategies/IdiotProof.Strategies.csproj" />
   </Folder>
   <Folder Name="/tests/">
@@ -15,6 +16,7 @@
     <Project Path="IdiotProof.Engine.Tests/IdiotProof.Engine.Tests.csproj" />
     <Project Path="IdiotProof.Indicators.Tests/IdiotProof.Indicators.Tests.csproj" />
     <Project Path="IdiotProof.Monitor.Tests/IdiotProof.Monitor.Tests.csproj" />
+    <Project Path="IdiotProof.Operations.Tests/IdiotProof.Operations.Tests.csproj" />
     <Project Path="IdiotProof.Strategies.Tests/IdiotProof.Strategies.Tests.csproj" />
     <Project Path="IdiotProof.UI.Tests/IdiotProof.UI.Tests.csproj" />
   </Folder>
