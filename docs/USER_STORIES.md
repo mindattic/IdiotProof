@@ -617,7 +617,7 @@ updated: 2026-10-03
 | IP-T94 | 2026-10-30 | feature | open | Reroute MonitorWorker entries and exits through the gateway with behavior-parity tests | — |
 | IP-T95 | 2026-10-30 | feature | open | Reroute DirectionalOrders flatten / test-order through the gateway | — |
 | IP-T96 | 2026-10-30 | feature | open | Reroute OptionsTradingService orders through the gateway (Blazor keeps password elevation; CLI/MCP use confirm codes) | — |
-| IP-T97 | 2026-10-30 | feature | open | Activating a strategy in Live mode (or switching it to Live) requires a confirm code | — |
+| IP-T97 | 2026-10-30 | feature | closed | Activating a strategy in Live mode (or switching it to Live) requires a confirm code | 2ec16b9 |
 | IP-T98 | 2026-10-30 | feature | open | Gateway law tests: one test per law/step, including expired/edited-intent confirm refusal | — |
 | IP-T99 | 2026-10-30 | feature | open | BIBLE: add laws 'Every order goes through TransactionGateway' and 'Live from CLI/MCP needs a confirm code' | — |
 | IP-T100 | 2026-10-30 | feature | open | `account summary [--mode]` (equity, cash, buying power, day P&L) for sandbox/paper/live | — |
@@ -657,18 +657,18 @@ updated: 2026-10-03
 | IP-T134 | 2026-10-30 | feature | closed | Terminal QR of the payload (QRCoder, Unicode half-blocks) behind --qr | 090e38f |
 | IP-T135 | 2026-10-30 | feature | closed | Stamp box-drawing variant behind --unicode (ASCII is the default) | 463a343 |
 | IP-T136 | 2026-10-30 | feature | closed | Golden-file tests for every sample strategy + stamp -> import round trip yields an identical canon hash | a744d8b |
-| IP-T137 | 2026-10-30 | feature | open | `strategy list [--active] [--mode] [--symbol]` with live ConditionProgress badges | — |
+| IP-T137 | 2026-10-30 | feature | closed | `strategy list [--active] [--mode] [--symbol]` with live ConditionProgress badges | 2ec16b9 |
 | IP-T138 | 2026-10-30 | feature | open | MonitorCli commands forward to the equivalent operations (status, set-keys, flatten, replay, scan, …) | — |
-| IP-T139 | 2026-10-30 | feature | open | `strategy show <id\|symbol>` (fields, canon summary, position, progress) | — |
-| IP-T140 | 2026-10-30 | feature | open | `strategy stamp <id> [--qr] [--unicode]` | — |
-| IP-T141 | 2026-10-30 | feature | open | `strategy export <id> --format json\|script\|stamp` | — |
-| IP-T142 | 2026-10-30 | feature | open | `strategy import --stamp\|--json\|--script <file\|->` through StrategyRepository (fail-closed canon) | — |
+| IP-T139 | 2026-10-30 | feature | closed | `strategy show <id\|symbol>` (fields, canon summary, position, progress) | 2ec16b9 |
+| IP-T140 | 2026-10-30 | feature | closed | `strategy stamp <id> [--qr] [--unicode]` | 2ec16b9 |
+| IP-T141 | 2026-10-30 | feature | closed | `strategy export <id> --format json\|script\|stamp` | 2ec16b9 |
+| IP-T142 | 2026-10-30 | feature | closed | `strategy import --stamp\|--json\|--script <file\|->` through StrategyRepository (fail-closed canon) | 2ec16b9 |
 | IP-T143 | 2026-10-30 | feature | open | `strategy create --script\|--json` with validation and Sandbox default | — |
 | IP-T144 | 2026-10-30 | feature | open | `strategy from-text "<plain English>" [--ticker] [--mode]` via StrategyScriptGenerator + Legion; shows stamp before saving | — |
 | IP-T145 | 2026-10-30 | feature | open | `strategy set <id> --field value` field-level edits (stop, target, qty, notional, times) re-canonicalized | — |
 | IP-T146 | 2026-10-30 | feature | open | `strategy validate <id\|--script>` (parse, canon, phase rules, risk preview) | — |
-| IP-T147 | 2026-10-30 | feature | open | `strategy activate\|deactivate <id>` respecting PositionOpen and gapper caps (IP-LAW-11) | — |
-| IP-T148 | 2026-10-30 | feature | open | `strategy mode <id> sandbox\|paper\|live` (live requires confirm code) | — |
+| IP-T147 | 2026-10-30 | feature | closed | `strategy activate\|deactivate <id>` respecting PositionOpen and gapper caps (IP-LAW-11) | 2ec16b9 |
+| IP-T148 | 2026-10-30 | feature | closed | `strategy mode <id> sandbox\|paper\|live` (live requires confirm code) | 2ec16b9 |
 | IP-T149 | 2026-10-30 | feature | open | `strategy delete <id>` (soft-disable per house law, refuses open positions) | — |
 | IP-T150 | 2026-10-30 | feature | open | `strategy progress <id> [--watch]` live condition N/M + first failing verb | — |
 | IP-T151 | 2026-10-30 | feature | open | `strategy quarantine` lists quarantined strategies with reasons | — |
@@ -813,3 +813,5 @@ updated: 2026-10-03
 | IP-T290 | 2026-10-30 | feature | open | README: CLI quick start, MCP registration, Live confirm flow | — |
 | IP-T291 | 2026-10-30 | fix | closed | Five EF migrations (20260721140000_AddDisplayName … 20260722000000_AddAuditLogCategoryTimeIndex) lack [Migration]/[DbContext] attributes and Designer files, so EF has never discovered or applied them | 0780271 |
 | IP-T292 | 2026-10-30 | fix | closed | Plain `dotnet run` of IdiotProof.Blazor crashes: UseStaticFiles roots at {exe}/wwwroot, which only exists in publish output | ba0c563 |
+| IP-T293 | 2026-10-30 | chore | open | Deactivate the active Live 'Silver Exit' strategies that have no entry conditions, stop or target (user request) | — |
+| IP-T294 | 2026-10-30 | chore | open | Remove the PostToolUse hook that auto-publishes the Monitor to C:\Apps\IdiotProof\Monitor on Edit/Write (violates never-auto-publish) | — |
