@@ -1,5 +1,6 @@
 using IdiotProof.Blazor.Data;
 using IdiotProof.Blazor.Services;
+using IdiotProof.Core.Hosting;
 using Microsoft.AspNetCore.DataProtection;
 using IdiotProof.Engine.Settings;
 using IdiotProof.Engine.Storage;
@@ -171,7 +172,6 @@ var keyRingPath = builder.Configuration["DataProtection:KeyRingPath"]
         "MindAttic", "DataProtection", "IdiotProof");
 
 builder.Services.AddSingleton<UserKeyService>();
-builder.Services.AddSingleton<UserBrokerResolver>();
 // Per-owner Claude key for the LLM gate (owner's API Keys row, then the host key).
 builder.Services.AddSingleton<UserClaudeKeyResolver>();
 builder.Services.AddSingleton<EmailDomainBlocklistService>();
@@ -200,36 +200,10 @@ builder.Services.AddMindAtticAuthentication<AppDbContext>(
         };
     });
 
-// Market data — Alpaca whenever keys resolved through the settings chain
-// (env → Vault broker keyring → IConfiguration), Mock otherwise. Force with
-// IDIOTPROOF_FEED=mock|alpaca.
-builder.Services.AddSingleton<IdiotProof.DataFeeds.IMarketDataFeed>(_ =>
-{
-    var choice = Environment.GetEnvironmentVariable("IDIOTPROOF_FEED")?.ToLowerInvariant();
-    var hasKeys = !string.IsNullOrWhiteSpace(settings.AlpacaApiKeyId)
-               && !string.IsNullOrWhiteSpace(settings.AlpacaApiSecretKey);
-    if (choice == "mock" || (!hasKeys && choice != "alpaca"))
-        return new IdiotProof.DataFeeds.MockDataFeed();
-    // Real-time SIP by default (Algo Trader Plus); IDIOTPROOF_ALPACA_FEED=iex to override.
-    var tier = Environment.GetEnvironmentVariable("IDIOTPROOF_ALPACA_FEED") ?? "sip";
-    return new IdiotProof.DataFeeds.AlpacaDataFeed(settings.AlpacaApiKeyId, settings.AlpacaApiSecretKey, tier);
-});
-
-// Broker — Sandbox always registered and active by default (IP-LAW-3).
-// Alpaca joins the router when keys exist; IDIOTPROOF_BROKER=alpaca opts in
-// to routing real orders (paper vs live follows AlpacaIsPaper from settings).
-builder.Services.AddSingleton(_ =>
-{
-    var router = new IdiotProof.Brokers.BrokerRouter();
-    router.Register(new IdiotProof.Brokers.SandboxBrokerClient());
-    var hasKeys = !string.IsNullOrWhiteSpace(settings.AlpacaApiKeyId)
-               && !string.IsNullOrWhiteSpace(settings.AlpacaApiSecretKey);
-    if (hasKeys)
-        router.Register(new IdiotProof.Brokers.AlpacaBrokerClient(
-            settings.AlpacaApiKeyId, settings.AlpacaApiSecretKey, settings.AlpacaIsPaper));
-    router.SetActive(Environment.GetEnvironmentVariable("IDIOTPROOF_BROKER")); // null/garbage → stays Sandbox
-    return router;
-});
+// Market data + the one BrokerRouter (Sandbox always registered and the default, IP-LAW-3;
+// Alpaca joins when keyed) + per-strategy routing — IdiotProof.Core/Hosting/TradingServiceRegistration.
+// Knobs: IDIOTPROOF_FEED=mock|alpaca, IDIOTPROOF_BROKER=alpaca|sandbox, IDIOTPROOF_ALPACA_FEED=sip|iex.
+builder.Services.AddIdiotProofTrading();
 
 // On-demand gapper generator — resolved by the `auto-gapper` operator CLI only
 // (no scheduled trigger; standardized auto-generation is future work, Epic S).

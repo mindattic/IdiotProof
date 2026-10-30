@@ -1,5 +1,8 @@
 using IdiotProof.Blazor.Data;
 using IdiotProof.Blazor.Services;
+using IdiotProof.Brokers;
+using IdiotProof.DataFeeds;
+using IdiotProof.Models;
 using IdiotProof.Core.Catalogs;
 using IdiotProof.Core.Hosting;
 using IdiotProof.Engine.Settings;
@@ -78,6 +81,48 @@ public sealed class CoreServiceRegistrationTests
             Assert.That(scope.ServiceProvider.GetService<ResearchService>(), Is.Not.Null);
             Assert.That(sp.GetService<IdiotProofDatabase>()?.ConnectionString, Is.Not.Empty);
         });
+    }
+
+    [Test]
+    public void AddIdiotProofTrading_ValidatesOnBuild_AndRoutesBrokersPerStrategy()
+    {
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?> { ["DataProtection:KeyRingPath"] = Path.Combine(root, "keys") })
+            .Build();
+        using var sp = new ServiceCollection()
+            .AddSingleton<IConfiguration>(configuration)
+            .AddLogging()
+            .AddRouting()
+            .AddIdiotProofCore(configuration, new WebStorageProvider(root), new CoreHostOptions { PinDevKeyRing = true })
+            .AddIdiotProofTrading()
+            .BuildServiceProvider(new ServiceProviderOptions { ValidateOnBuild = true, ValidateScopes = true });
+
+        Assert.That(sp.GetService<UserBrokerResolver>(), Is.Not.Null);
+    }
+
+    [Test]
+    public void CreateRouter_WithoutKeysOrOptIn_IsSandbox_AndFeedIsMock()
+    {
+        // IP-LAW-3 / IP-LAW-9: no keys → Sandbox broker and Mock data, never a live account.
+        var savedBroker = Environment.GetEnvironmentVariable(TradingServiceRegistration.BrokerEnvVar);
+        var savedFeed = Environment.GetEnvironmentVariable(TradingServiceRegistration.FeedEnvVar);
+        try
+        {
+            Environment.SetEnvironmentVariable(TradingServiceRegistration.BrokerEnvVar, "alpaca");
+            Environment.SetEnvironmentVariable(TradingServiceRegistration.FeedEnvVar, null);
+            var bare = new AppSettings();
+
+            var router = TradingServiceRegistration.CreateRouter(bare);
+
+            Assert.That(router.GetActiveBroker().BrokerType, Is.EqualTo(BrokerType.Sandbox),
+                "asking for alpaca without registered keys falls back to Sandbox");
+            Assert.That(TradingServiceRegistration.CreateFeed(bare), Is.InstanceOf<MockDataFeed>());
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable(TradingServiceRegistration.BrokerEnvVar, savedBroker);
+            Environment.SetEnvironmentVariable(TradingServiceRegistration.FeedEnvVar, savedFeed);
+        }
     }
 
     [Test]
