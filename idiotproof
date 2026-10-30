@@ -1,0 +1,11 @@
+#!/usr/bin/env sh
+# idiotproof - Git Bash shim for the `idiotproof` command line (IP-T62).
+# Same lookup as idiotproof.cmd (published exe, then the local Debug build, then `dotnet run`),
+# done here rather than by calling the .cmd so arguments with spaces, quotes, & or | reach the
+# CLI exactly as typed (cmd.exe re-parses them otherwise).
+here="$(cd "$(dirname "$0")" && pwd)"
+published="/c/Apps/IdiotProof/Cli/idiotproof.exe"
+local_build="$here/IdiotProof.Cli/bin/Debug/net10.0/idiotproof.exe"
+if [ -x "$published" ]; then exec "$published" "$@"; fi
+if [ -x "$local_build" ]; then exec "$local_build" "$@"; fi
+exec dotnet run --project "$here/IdiotProof.Cli" --no-launch-profile -v q -- "$@"
