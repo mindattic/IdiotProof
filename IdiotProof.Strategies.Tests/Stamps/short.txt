@@ -1,0 +1,63 @@
++=[ IDIOTPROOF :: STRATEGY STAMP ]===================== IP-L3TX-HUY6 ==+
+|  SYMBOL   TSLA                 SIDE     v SHORT  (sell to open)      |
+|  SIZE     $2,500 notional      SESSION  RTH 09:30-16:00 ET           |
+|  NAME     Overbought VWAP fade                                       |
+|  FLAGS    repeats after exit                                         |
++======================================================================+
+
++-[ 1 SETUP ]------------------------------------------ where & when --+
+|  * ticker   TSLA                                                     |
+|  * session  Regular hours (09:30-16:00 ET)                           |
++----------------------------------------------------------------------+
+                                   |
+                                   v
++-[ 2 FILTERS ]---------------------- always-on gates, all must hold --+
+|  * entry window 09:45-11:30 ET                                       |
++----------------------------------------------------------------------+
+                                   |   gates hold
+                                   v
++-[ 3 ENTRY ]------------------------- the trigger, all true to fire --+
+|  * price below VWAP                                                  |
+|  * RSI at or above 75 (overbought)                                   |
+|  * shooting star candle                                              |
++----------------------------------------------------------------------+
+                                   |   fires
+                                   v
++-[ 4 ORDER ]-------------------------------------- what gets placed --+
+|  * SELL SHORT to open . $2,500 notional                              |
+|  * after Gate 2 (LLM voter quorum) and Gate 3 (Risk Guardian)        |
+|  * re-arms after each exit (repeat)                                  |
++----------------------------------------------------------------------+
+                                   |   filled
+                                   v
++-[ 5 RISK ]----------------------------------- the Guardian's rails --+
+|  * stop 2% above entry                                               |
++----------------------------------------------------------------------+
+                                   |   held
+                                   v
++-[ 6 EXIT ]-------------------------------------- first to hit wins --+
+|  * take profit at $236.40                                            |
+|  * sell-by 15:55 ET (flatten)                                        |
++----------------------------------------------------------------------+
+
++-[ EXIT LADDER ]------------------- short: profit below, risk above --+
+|  price                                                               |
+|    ^  STOP ....... +2% from entry ...... cover all                   |
+|  ==+== ENTRY  sell short . $2,500 notional ========================  |
+|    v  TARGET ..... $236.40 ............. cover all                   |
++----------------------------------------------------------------------+
+|  moving & timed exits                                                |
+|    @  SELL-BY .... 15:55 ET ............ flatten                     |
++----------------------------------------------------------------------+
+
++-[IP-L3TX-HUY6]--+    FINGERPRINT  IP-L3TX-HUY6
+| .oo..o++o... .  |
+|  .o+ o+..o  + + |    sha256  5ee7 73d3 1e05 b805
+|  .o * +B.. o = E|            c006 50ac 401a d4f2
+|    + o* . . o B |            991d 23f5 466e be34
+|      o S . o . o|            133a d557 cf8e 9167
+|       + = o   ..|
+|        o   o o..|    canon   StrategyJson v1 . 961 bytes
+|             o o.|    Same strategy, same picture: change any field
+|                .|    and the art changes. Paste this whole stamp
++----[SHA256]-----+    back into IdiotProof to recreate the strategy.

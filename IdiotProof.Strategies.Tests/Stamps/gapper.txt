@@ -1,0 +1,64 @@
++=[ IDIOTPROOF :: STRATEGY STAMP ]===================== IP-P4AY-UXZU ==+
+|  SYMBOL   GAPT                 SIDE     ^ LONG  (buy to open)        |
+|  SIZE     $1,000 notional      SESSION  Premarket 04:00-09:30 ET     |
+|  NAME     GAPT Gapper - Classic                                      |
++======================================================================+
+
++-[ 1 SETUP ]------------------------------------------ where & when --+
+|  * ticker   GAPT                                                     |
+|  * session  Premarket (04:00-09:30 ET)                               |
++----------------------------------------------------------------------+
+                                   |
+                                   v
++-[ 2 FILTERS ]---------------------- always-on gates, all must hold --+
+|  * entry window 04:00-09:00 ET                                       |
++----------------------------------------------------------------------+
+                                   |   gates hold
+                                   v
++-[ 3 ENTRY ]------------------------- the trigger, all true to fire --+
+|  * gap between 5% and 20%                                            |
+|  * volume at least 2x average                                        |
+|  * price between $1.00 and $50.00                                    |
++----------------------------------------------------------------------+
+                                   |   fires
+                                   v
++-[ 4 ORDER ]-------------------------------------- what gets placed --+
+|  * BUY to open . $1,000 notional                                     |
+|  * after Gate 2 (LLM voter quorum) and Gate 3 (Risk Guardian)        |
++----------------------------------------------------------------------+
+                                   |   filled
+                                   v
++-[ 5 RISK ]----------------------------------- the Guardian's rails --+
+|  * stop 5% below entry                                               |
+|  * trailing stop 8% off the peak                                     |
++----------------------------------------------------------------------+
+                                   |   held
+                                   v
++-[ 6 EXIT ]-------------------------------------- first to hit wins --+
+|  * peak giveback 25% of the run, armed 09:15 ET                      |
+|  * sell-by 09:28 ET (flatten)                                        |
++----------------------------------------------------------------------+
+
++-[ EXIT LADDER ]-------------------- long: profit above, risk below --+
+|  price                                                               |
+|    ^  (no target)                                                    |
+|  ==+== ENTRY  buy . $1,000 notional ===============================  |
+|    v  STOP ....... -5% from entry ...... sell all                    |
++----------------------------------------------------------------------+
+|  moving & timed exits                                                |
+|    ~  TRAIL ...... 8% off peak ......... sell all                    |
+|    ~  GIVEBACK ... 25% of run .......... armed 09:15 ET              |
+|    @  SELL-BY .... 09:28 ET ............ flatten                     |
++----------------------------------------------------------------------+
+
++-[IP-P4AY-UXZU]--+    FINGERPRINT  IP-P4AY-UXZU
+|        .+o.     |
+|       o.+o .    |    sha256  7f01 8a5f 3423 89fd
+|      . *o*.     |            0fcb f035 e731 93a9
+|       .EB @ . o |            8481 9f69 79a3 7694
+|      . S % X B  |            b8b0 c911 51d4 c2b2
+|       o % @ B + |
+|        = O = .  |    canon   StrategyJson v1 . 917 bytes
+|         . o     |    Same strategy, same picture: change any field
+|                 |    and the art changes. Paste this whole stamp
++----[SHA256]-----+    back into IdiotProof to recreate the strategy.

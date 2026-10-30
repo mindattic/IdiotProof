@@ -1,0 +1,66 @@
++=[ IDIOTPROOF :: STRATEGY STAMP ]===================== IP-4B43-PWHM ==+
+|  SYMBOL   SOUN                 SIDE     ^ LONG  (buy to open)        |
+|  SIZE     300 shares           SESSION  RTH 09:30-16:00 ET           |
+|  NAME     Breakout scale-out                                         |
+|  FLAGS    adaptive order                                             |
++======================================================================+
+
++-[ 1 SETUP ]------------------------------------------ where & when --+
+|  * ticker   SOUN                                                     |
+|  * session  Regular hours (09:30-16:00 ET)                           |
++----------------------------------------------------------------------+
+                                   |
+                                   v
++-[ 2 FILTERS ]---------------------- always-on gates, all must hold --+
+|  * ADX at least 20 (trending)                                        |
++----------------------------------------------------------------------+
+                                   |   gates hold
+                                   v
++-[ 3 ENTRY ]------------------------- the trigger, all true to fire --+
+|  * breaks above $4.20                                                |
+|  * volume at least 2x average                                        |
++----------------------------------------------------------------------+
+                                   |   fires
+                                   v
++-[ 4 ORDER ]-------------------------------------- what gets placed --+
+|  * BUY to open . 300 shares                                          |
+|  * adaptive order (price walks toward the market)                    |
+|  * after Gate 2 (LLM voter quorum) and Gate 3 (Risk Guardian)        |
++----------------------------------------------------------------------+
+                                   |   filled
+                                   v
++-[ 5 RISK ]----------------------------------- the Guardian's rails --+
+|  * hard stop at $3.90                                                |
+|  * trailing stop 6% off the peak                                     |
++----------------------------------------------------------------------+
+                                   |   held
+                                   v
++-[ 6 EXIT ]-------------------------------------- first to hit wins --+
+|  * target T1 at $5.00, sell 33%                                      |
+|  * target T2 at $6.50, sell 33%                                      |
+|  * target T3 at $8.00, sell 34%                                      |
++----------------------------------------------------------------------+
+
++-[ EXIT LADDER ]-------------------- long: profit above, risk below --+
+|  price                                                               |
+|    ^  T3 ......... $8.00 ............... sell 34%                    |
+|    |  T2 ......... $6.50 ............... sell 33%                    |
+|    |  T1 ......... $5.00 ............... sell 33%                    |
+|  ==+== ENTRY  buy . 300 shares ====================================  |
+|    v  STOP ....... $3.90 ............... sell all                    |
++----------------------------------------------------------------------+
+|  moving & timed exits                                                |
+|    ~  TRAIL ...... 6% off peak ......... sell all                    |
++----------------------------------------------------------------------+
+
++-[IP-4B43-PWHM]--+    FINGERPRINT  IP-4B43-PWHM
+|==*.o            |
+|**.Ooo           |    sha256  e079 b7d8 eca7 6cdf
+|++=.ooo o        |            bba2 312a 6132 252d
+|....o.o* E       |            3488 e183 173b 34e0
+|     ++ S .      |            5227 4acc 37c7 6fd9
+|    o o. = .     |
+|     + .. *      |    canon   StrategyJson v1 . 1,044 bytes
+|      .  +.oo.   |    Same strategy, same picture: change any field
+|       ...==..+o |    and the art changes. Paste this whole stamp
++----[SHA256]-----+    back into IdiotProof to recreate the strategy.

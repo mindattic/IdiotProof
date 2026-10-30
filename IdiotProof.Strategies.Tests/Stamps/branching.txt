@@ -1,0 +1,68 @@
++=[ IDIOTPROOF :: STRATEGY STAMP ]===================== IP-3IXK-BDKG ==+
+|  SYMBOL   NVDA                 SIDE     ^ LONG  (buy to open)        |
+|  SIZE     25 shares            SESSION  RTH 09:30-16:00 ET           |
+|  NAME     VWAP fork                                                  |
++======================================================================+
+
++-[ 1 SETUP ]------------------------------------------ where & when --+
+|  * ticker   NVDA                                                     |
+|  * session  Regular hours (09:30-16:00 ET)                           |
++----------------------------------------------------------------------+
+                                   |
+                                   v
++-[ 2 FILTERS ]---------------------- always-on gates, all must hold --+
+|  * EMA 9 stacked above EMA 21                                        |
++----------------------------------------------------------------------+
+                                   |   gates hold
+                                   v
++-[ 3 ENTRY ]------------------------- the trigger, all true to fire --+
+|  * MACD above its signal line OR NOT RSI at or below 30 (oversold)   |
++----------------------------------------------------------------------+
+                                   |   fires
+                                   v
++-[ FORK ]------------------------------- first matching branch wins --+
+|  +-- IF price above VWAP                                             |
+|  |     => LONG, targets T1 $152.00 / T2 $158.00, stop 2%             |
+|  +-- ELSE IF price below VWAP                                        |
+|  |     => SHORT, target $141.00, stop $149.50                        |
+|  '-- ELSE                                                            |
+|        => LONG, target $150.00                                       |
++----------------------------------------------------------------------+
+                                   |
+                                   v
++-[ 4 ORDER ]-------------------------------------- what gets placed --+
+|  * BUY to open . 25 shares                                           |
+|  * after Gate 2 (LLM voter quorum) and Gate 3 (Risk Guardian)        |
++----------------------------------------------------------------------+
+                                   |   filled
+                                   v
++-[ 5 RISK ]----------------------------------- the Guardian's rails --+
+|  * stop 3% below entry                                               |
++----------------------------------------------------------------------+
+                                   |   held
+                                   v
++-[ 6 EXIT ]-------------------------------------- first to hit wins --+
+|  * sell-by 15:45 ET (flatten)                                        |
++----------------------------------------------------------------------+
+
++-[ EXIT LADDER ]-------------------- long: profit above, risk below --+
+|  price   (base plan; a FORK branch may override it)                  |
+|    ^  (no target)                                                    |
+|  ==+== ENTRY  buy . 25 shares =====================================  |
+|    v  STOP ....... -3% from entry ...... sell all                    |
++----------------------------------------------------------------------+
+|  moving & timed exits                                                |
+|    @  SELL-BY .... 15:45 ET ............ flatten                     |
++----------------------------------------------------------------------+
+
++-[IP-3IXK-BDKG]--+    FINGERPRINT  IP-3IXK-BDKG
+|          ++     |
+|         E  .    |    sha256  da2e a08d 4698 bb9c
+|        o        |            db90 a535 393e cda5
+|    .  . o .     |            d6a0 e1ce 9f8c 3653
+| o B....S o      |            5a0f d2d5 5e42 3584
+|o O.O==o .       |
+| * O=*+..        |    canon   StrategyJson v1 . 1,789 bytes
+|o X=* oo         |    Same strategy, same picture: change any field
+|.*o=++ ..        |    and the art changes. Paste this whole stamp
++----[SHA256]-----+    back into IdiotProof to recreate the strategy.

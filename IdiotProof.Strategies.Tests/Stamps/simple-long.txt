@@ -1,0 +1,59 @@
++=[ IDIOTPROOF :: STRATEGY STAMP ]===================== IP-2XIV-Z4SF ==+
+|  SYMBOL   AAPL                 SIDE     ^ LONG  (buy to open)        |
+|  SIZE     1 share              SESSION  RTH 09:30-16:00 ET           |
+|  NAME     VWAP + EMA trend long                                      |
++======================================================================+
+
++-[ 1 SETUP ]------------------------------------------ where & when --+
+|  * ticker   AAPL                                                     |
+|  * session  Regular hours (09:30-16:00 ET)                           |
++----------------------------------------------------------------------+
+                                   |
+                                   v
++-[ 2 FILTERS ]---------------------- always-on gates, all must hold --+
+|  (none - no regime gate)                                             |
++----------------------------------------------------------------------+
+                                   |   gates hold
+                                   v
++-[ 3 ENTRY ]------------------------- the trigger, all true to fire --+
+|  * price above VWAP                                                  |
+|  * price above EMA 9                                                 |
++----------------------------------------------------------------------+
+                                   |   fires
+                                   v
++-[ 4 ORDER ]-------------------------------------- what gets placed --+
+|  * BUY to open . 1 share                                             |
+|  * after Gate 2 (LLM voter quorum) and Gate 3 (Risk Guardian)        |
++----------------------------------------------------------------------+
+                                   |   filled
+                                   v
++-[ 5 RISK ]----------------------------------- the Guardian's rails --+
+|  * hard stop at $188.25                                              |
++----------------------------------------------------------------------+
+                                   |   held
+                                   v
++-[ 6 EXIT ]-------------------------------------- first to hit wins --+
+|  * take profit at $195.50                                            |
++----------------------------------------------------------------------+
+
++-[ EXIT LADDER ]-------------------- long: profit above, risk below --+
+|  price                                                               |
+|    ^  TARGET ..... $195.50 ............. sell all                    |
+|  ==+== ENTRY  buy . 1 share =======================================  |
+|    v  STOP ....... $188.25 ............. sell all                    |
++----------------------------------------------------------------------+
+|  moving & timed exits                                                |
+|     (none)                                                           |
++----------------------------------------------------------------------+
+
++-[IP-2XIV-Z4SF]--+    FINGERPRINT  IP-2XIV-Z4SF
+|            .+*@%|
+|           . o*BB|    sha256  d5d1 5cf2 45b1 9c66
+|      o   . .  X*|            1f4d 641f 01fd 0d45
+|     + . .    + =|            62b9 cfb3 ab3d a7ea
+|    . E S      o.|            ffda e0ea 0a40 1e7a
+|     . .       .o|
+|        .     . o|    canon   StrategyJson v1 . 850 bytes
+|         .   ..=.|    Same strategy, same picture: change any field
+|          .+==***|    and the art changes. Paste this whole stamp
++----[SHA256]-----+    back into IdiotProof to recreate the strategy.
