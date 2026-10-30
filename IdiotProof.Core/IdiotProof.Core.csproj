@@ -27,6 +27,10 @@
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="MindAttic.Authentication" Version="6.0.0" />
+    <!-- The shared Data Protection key ring's production shape (Blob + Key Vault). -->
+    <PackageReference Include="Azure.Extensions.AspNetCore.DataProtection.Blobs" Version="1.5.3" />
+    <PackageReference Include="Azure.Extensions.AspNetCore.DataProtection.Keys" Version="1.6.3" />
+    <PackageReference Include="Azure.Identity" Version="1.21.0" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="10.0.*" />
     <!-- Microsoft.Data.SqlClient (via EFCore.SqlServer) pins this transitively at 10.0.7, inside
          the vulnerable range for CVE-2026-50527 (NU1903); first patched in 10.0.10. -->
