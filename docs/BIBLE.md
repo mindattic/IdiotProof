@@ -236,7 +236,7 @@ the keys the UI writes. Market data is one global feed (sip by default,
 `IDIOTPROOF_ALPACA_FEED=iex` for the free tier).
 
 **The Gapper.** Profiles are a static JSON catalog
-(`IdiotProof.Blazor/wwwroot/data/gapper-profiles.json`, [IP-LAW-7](#IP-LAW-7)) of templates:
+(`IdiotProof.Core/Catalogs/gapper-profiles.json`, [IP-LAW-7](#IP-LAW-7)) of templates:
 screen (gap %, volume ratio, price band), ET entry window (default 04:00–09:00), stop and
 trailing stop, peak giveback + arm time (default 09:15), hard sell-by (default 09:28), notional.
 DSL verbs: `RequireEntryWindow`/`EntryWindow`, `IsGapUp`/`IsGapBetween` (fail closed without a
@@ -265,7 +265,7 @@ batch of the tracked universe (`TrackedTicker`, refreshed daily from Alpaca's as
 Form 4 transactions (`InsiderTransaction`); 8-K item-code triage with real document fetch only
 for 1.01/2.01/3.02/3.03/5.03; Federal Register SRO notices triaged by an LLM into macro claims
 (`IsMacro = true`, affected tickers only when resolvable — never fabricated); S&P index
-add/remove events from the hand-maintained `wwwroot/data/sp-index-events.json`
+add/remove events from the hand-maintained `IdiotProof.Core/Catalogs/sp-index-events.json`
 (`ClaimType = "IndexEvent"`, Pending until effective). Claims are deduped by (ticker, source
 URL); display sentences are composed deterministically from structured fields
 (`"{Summary}. Affects {Ticker} because {Mechanism}. Expected impact: {ExpectedTimeline}."`);
@@ -499,7 +499,7 @@ underscore fields). Anything not proven by a test is `🟡`/`⬜`. (Inherits [HO
 - **Gapper** — a stock gapping up in premarket vs the previous close; the flagship trade:
   buy in the 4AM window, sell before the 9:30 bell.
 - **Gapper profile** — the dialable template (gap %, volume ratio, price band, entry window,
-  stops, giveback, arm/sell-by times, notional) in `wwwroot/data/gapper-profiles.json`; cloned
+  stops, giveback, arm/sell-by times, notional) in `IdiotProof.Core/Catalogs/gapper-profiles.json`; cloned
   and tuned per ticker on the `/gapper` tab.
 - **Peak giveback** — the momentum-rollover exit: sell once price gives back N% of the run
   from entry to the post-entry peak; armed from a configured ET time ("the last 15 minutes").
@@ -538,4 +538,4 @@ underscore fields). Anything not proven by a test is `🟡`/`⬜`. (Inherits [HO
   value within 5% of its observed high (after at least 3 samples) **and** a Bullish research
   claim on the underlying in the last 7 days → "consider taking profit". Never places anything.
 - **Index event** — a `ResearchClaim` with `ClaimType = "IndexEvent"`: an announced S&P 500/100
-  addition or deletion logged in `wwwroot/data/sp-index-events.json`, Pending until effective.
+  addition or deletion logged in `IdiotProof.Core/Catalogs/sp-index-events.json`, Pending until effective.

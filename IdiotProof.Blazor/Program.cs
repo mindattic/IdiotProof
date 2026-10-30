@@ -175,6 +175,7 @@ builder.Services.AddScoped<AccountSummaryService>();
 builder.Services.AddSingleton<StrategyRepository>();
 builder.Services.AddSingleton<UserPreferencesService>();
 builder.Services.AddSingleton<StrategyScriptGenerator>();
+builder.Services.AddSingleton<IdiotProof.Core.Catalogs.IStaticCatalogSource>(IdiotProof.Core.Catalogs.StaticCatalogSource.Default);
 builder.Services.AddSingleton<GapperProfileService>();
 builder.Services.AddScoped<ToastService>();
 builder.Services.AddSingleton<GapperInterpreter>();

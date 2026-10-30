@@ -3,7 +3,7 @@
 // ============================================================================
 //
 // A profile is a TEMPLATE (static JSON catalog per IP-LAW-7, shipped at
-// IdiotProof.Blazor/wwwroot/data/gapper-profiles.json). Selecting one
+// IdiotProof.Core/Catalogs/gapper-profiles.json). Selecting one
 // pre-fills the Gapper tab's queue form; every value stays editable per
 // ticker — all gappers are not the same. The tuned result is denormalized
 // into the queued strategy's ScriptText via GapperScriptFactory, so the

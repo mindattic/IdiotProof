@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using IdiotProof.Blazor.Data;
+using IdiotProof.Core.Catalogs;
 using Microsoft.EntityFrameworkCore;
 
 namespace IdiotProof.Blazor.Services;
@@ -31,9 +32,8 @@ public sealed class IndexEventScanner(IDbContextFactory<AppDbContext> dbFactory,
     };
 
     /// <summary>
-    /// Path to the events file. Resolution order: explicit assignment, <see cref="EnvVar"/>,
-    /// <c>{app}/data/sp-index-events.json</c> (console host, linked Content), then
-    /// <c>{app}/wwwroot/data/sp-index-events.json</c> (web host).
+    /// Path to the events file. Resolution order: explicit assignment, <see cref="EnvVar"/>, then
+    /// <see cref="StaticCatalogSource"/> (<c>{app}/data/sp-index-events.json</c>, shipped by IdiotProof.Core).
     /// </summary>
     public string? FilePath { get; set; }
 
@@ -75,10 +75,7 @@ public sealed class IndexEventScanner(IDbContextFactory<AppDbContext> dbFactory,
     {
         var env = Environment.GetEnvironmentVariable(EnvVar);
         if (!string.IsNullOrWhiteSpace(env)) return env;
-        var baseDir = AppContext.BaseDirectory;
-        var console = Path.Combine(baseDir, "data", "sp-index-events.json");
-        if (File.Exists(console)) return console;
-        return Path.Combine(baseDir, "wwwroot", "data", "sp-index-events.json");
+        return StaticCatalogSource.Default.Resolve("sp-index-events.json");
     }
 
     /// <summary>Parses the file; malformed entries are logged and skipped, never fatal.</summary>

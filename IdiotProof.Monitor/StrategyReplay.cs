@@ -555,8 +555,7 @@ public static partial class StrategyReplay
     // ── helpers ──
     private static GapperProfile? LoadProfile(string id, string? overridePath)
     {
-        var path = overridePath ?? Path.Combine(
-            @"D:\Projects\MindAttic\IdiotProof\IdiotProof.Blazor\wwwroot\data\gapper-profiles.json");
+        var path = overridePath ?? IdiotProof.Core.Catalogs.StaticCatalogSource.Default.Resolve("gapper-profiles.json");
         if (!File.Exists(path)) return null;
         using var doc = JsonDocument.Parse(File.ReadAllText(path));
         // File is either an array of profiles or { "profiles": [...] }.

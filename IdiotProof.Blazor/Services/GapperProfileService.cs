@@ -1,4 +1,5 @@
 using System.Text.Json;
+using IdiotProof.Core.Catalogs;
 using IdiotProof.Scripting;
 
 namespace IdiotProof.Blazor.Services;
@@ -9,7 +10,7 @@ namespace IdiotProof.Blazor.Services;
 /// clones one per ticker and the user dials the copy in; nothing writes back
 /// to the catalog file.
 /// </summary>
-public sealed class GapperProfileService(IWebHostEnvironment env, ILogger<GapperProfileService> logger)
+public sealed class GapperProfileService(IStaticCatalogSource catalogs, ILogger<GapperProfileService> logger)
 {
     private static readonly JsonSerializerOptions JsonOpts = new() { PropertyNameCaseInsensitive = true, ReadCommentHandling = JsonCommentHandling.Skip };
     // volatile: ensures the JIT cannot cache a null read in a register so all
@@ -20,8 +21,7 @@ public sealed class GapperProfileService(IWebHostEnvironment env, ILogger<Gapper
     {
         if (cache is not null) return cache;
 
-        var webRoot = env.WebRootPath ?? Path.Combine(env.ContentRootPath, "wwwroot");
-        var path = Path.Combine(webRoot, "data", "gapper-profiles.json");
+        var path = catalogs.Resolve("gapper-profiles.json");
         try
         {
             using var doc = JsonDocument.Parse(File.ReadAllText(path));

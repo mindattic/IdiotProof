@@ -98,7 +98,7 @@ In the UI open the user menu, then API Keys. Enter your Alpaca key and secret, l
 ### Step 5 queue a gapper
 
 - From a transcript: paste a video transcript or any natural language into the Gapper tab's "From a transcript" box and press Interpret. Claude, through Legion and `GapperInterpreter`, extracts the gap plays as reviewable candidate cards with inferred dial-ins. Queue the ones you like, or Load into dials to tweak first.
-- By hand: enter a ticker, pick a profile from `IdiotProof.Blazor/wwwroot/data/gapper-profiles.json`, dial in gap %, volume, price band, SL/TSL, peak-giveback and arm/sell-by times, then Queue Gapper.
+- By hand: enter a ticker, pick a profile from `IdiotProof.Core/Catalogs/gapper-profiles.json`, dial in gap %, volume, price band, SL/TSL, peak-giveback and arm/sell-by times, then Queue Gapper.
 
 From then on it is hands-off. The Monitor screens the ticker every pass in the 4:00 to 9:00 AM ET premarket window, buys through the three gates when the criteria hit (premarket orders are limit plus extended-hours automatically), shows HOLDING qty @ price live, and sells before the 9:30 bell: momentum giveback first, hard sell-by as the backstop.
 
@@ -654,7 +654,7 @@ IdiotProof/
 - ConditionProgress: the SQL row (`N/M`, first failing verb) the Monitor upserts every pass and the Strategies page polls for live badges.
 - Sandbox broker: the always-registered simulated broker (instant fills, in-memory position book), the safe default in `BrokerRouter`.
 - Gapper: a stock gapping up in premarket versus the previous close; the flagship trade is to buy in the 4 AM window and sell before the 9:30 bell.
-- Gapper profile: a dialable template (gap %, volume ratio, price band, entry window, stops, giveback, arm and sell-by times, notional) stored in `wwwroot/data/gapper-profiles.json`, cloned and tuned per ticker on the Gapper tab.
+- Gapper profile: a dialable template (gap %, volume ratio, price band, entry window, stops, giveback, arm and sell-by times, notional) stored in `IdiotProof.Core/Catalogs/gapper-profiles.json`, cloned and tuned per ticker on the Gapper tab.
 - Peak giveback: the momentum-rollover exit: sell once price gives back N% of the run from entry to the post-entry peak; armed from a configured ET time.
 - Previous close: the prior trading day's official close, the reference for gap %. Gap conditions fail closed without it.
 - Research claim: one `ResearchClaim` row, a catalyst or portent extracted from a filing, news article or regulatory notice, with sentiment, magnitude, timing and a significance score.

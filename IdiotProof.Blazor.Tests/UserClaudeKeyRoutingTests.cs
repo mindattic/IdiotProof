@@ -4,11 +4,10 @@ using System.Text;
 using System.Text.Json;
 using IdiotProof.Blazor.Data;
 using IdiotProof.Blazor.Services;
+using IdiotProof.Core.Catalogs;
 using IdiotProof.Engine.Settings;
-using Microsoft.AspNetCore.Hosting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Logging.Abstractions;
 using MindAttic.Legion;
 
@@ -104,7 +103,7 @@ public sealed class UserClaudeKeyRoutingTests
     {
         var vendor = new FakeAnthropic("[]");
         var interpreter = new GapperInterpreter(Legion(vendor), new AppSettings(),
-            new GapperProfileService(new NoWebRoot(), NullLogger<GapperProfileService>.Instance),
+            new GapperProfileService(new StaticCatalogSource(Path.Combine(Path.GetTempPath(), $"no-catalogs-{Guid.NewGuid():N}")), NullLogger<GapperProfileService>.Instance),
             NullLogger<GapperInterpreter>.Instance);
 
         await interpreter.InterpretAsync("ADVB gapping 30% premarket", await KeyFor(Bob));
@@ -145,16 +144,6 @@ public sealed class UserClaudeKeyRoutingTests
         new SignedInClaudeKey(() => Task.FromResult(SignedIn(user)), Resolver(hostKey)).ResolveAsync();
 
     private static LegionClient Legion(FakeAnthropic vendor) => new(new HttpClient(vendor), options: null);
-
-    private sealed class NoWebRoot : IWebHostEnvironment
-    {
-        public string WebRootPath { get; set; } = Path.Combine(Path.GetTempPath(), $"no-webroot-{Guid.NewGuid():N}");
-        public IFileProvider WebRootFileProvider { get; set; } = new NullFileProvider();
-        public string ApplicationName { get; set; } = "IdiotProof.Blazor";
-        public IFileProvider ContentRootFileProvider { get; set; } = new NullFileProvider();
-        public string ContentRootPath { get; set; } = Path.GetTempPath();
-        public string EnvironmentName { get; set; } = "Test";
-    }
 
     /// <summary>Anthropic-shaped responder that records the x-api-key of every call.</summary>
     private sealed class FakeAnthropic(string reply) : HttpMessageHandler
