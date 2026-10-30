@@ -574,10 +574,9 @@ public static partial class StrategyReplay
 
     private static async Task<Guid?> ResolveUserAsync(IServiceProvider sp, Dictionary<string, string> opt)
     {
-        if (opt.TryGetValue("user", out var u) && Guid.TryParse(u, out var g)) return g;
-        await using var db = await sp.GetRequiredService<IDbContextFactory<AppDbContext>>().CreateDbContextAsync();
-        var ids = db.AuthUsers.Select(x => x.Id).Take(2).ToList();
-        return ids.Count == 1 ? ids[0] : null;
+        Guid? explicitId = opt.TryGetValue("user", out var u) && Guid.TryParse(u, out var g) ? g : null;
+        return (await IdiotProof.Core.Identity.OwnerResolver.ResolveAsync(
+            sp.GetRequiredService<IDbContextFactory<AppDbContext>>(), explicitId)).OwnerId;
     }
 
     private static DateTime EtToUtc(DateOnly dateEt, TimeSpan tod)

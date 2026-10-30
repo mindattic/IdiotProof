@@ -550,13 +550,13 @@ updated: 2026-10-03
 | IP-T27 | 2026-10-20 | docs | open | Publish IdiotProof docs to GitHub Pages via the shared Agency DocFX pipeline: run adopt-docs-site.ps1 (README.md as home page, docs/*.md as articles, API reference only where the code builds in CI), enable Pages with build_type=workflow, set the repo homepage URL, retire tools/build-readme.ps1 and README.htm, confirm the docs Actions run is green and https://mindattic.github.io/IdiotProof/ returns 200. Depends on MAT-T8. | — |
 | IP-T28 | 2026-10-22 | docs | closed | Update USER_STORIES.md | — |
 | IP-T29 | 2026-10-24 | docs | closed | Update USER_STORIES.md | — |
-| IP-T30 | 2026-10-30 | feature | open | Create IdiotProof.Core class library (net10.0) in IdiotProof.slnx, referencing Models/Shared/Scripting/Strategies/Brokers/DataFeeds/Engine/Indicators | — |
+| IP-T30 | 2026-10-30 | feature | closed | Create IdiotProof.Core class library (net10.0) in IdiotProof.slnx, referencing Models/Shared/Scripting/Strategies/Brokers/DataFeeds/Engine/Indicators | 03bd8f5 |
 | IP-T31 | 2026-10-30 | feature | open | Enable GenerateDocumentationFile for every library via Directory.Build.props (CS1591 suppressed) so XML doc comments ship for the knowledge index | — |
-| IP-T32 | 2026-10-30 | feature | open | Move AppDbContext and every Data/* entity from IdiotProof.Blazor to IdiotProof.Core (namespaces unchanged in this move) | — |
-| IP-T33 | 2026-10-30 | feature | open | Move EF Migrations + AppDbContextFactory to IdiotProof.Core with MigrationsAssembly set; migration IDs and snapshot unchanged | — |
+| IP-T32 | 2026-10-30 | feature | closed | Move AppDbContext and every Data/* entity from IdiotProof.Blazor to IdiotProof.Core (namespaces unchanged in this move) | 2193f54 |
+| IP-T33 | 2026-10-30 | feature | closed | Move EF Migrations + AppDbContextFactory to IdiotProof.Core with MigrationsAssembly set; migration IDs and snapshot unchanged | 2193f54 |
 | IP-T34 | 2026-10-30 | feature | open | Introduce IOwnerContext (current owner GUID) — web resolves from the NameIdentifier claim, Hub/CLI from --user, persisted default, or the single AuthUsers row | — |
 | IP-T35 | 2026-10-30 | feature | open | Introduce IClaudeKeyContext replacing SignedInClaudeKey's AuthenticationStateProvider dependency for StrategyScriptGenerator, GapperInterpreter, ResearchService | — |
-| IP-T36 | 2026-10-30 | feature | open | Introduce IStaticCatalogSource replacing IWebHostEnvironment in GapperProfileService; gapper-profiles.json and sp-index-events.json resolve from a shared content path | — |
+| IP-T36 | 2026-10-30 | feature | closed | Introduce IStaticCatalogSource replacing IWebHostEnvironment in GapperProfileService; gapper-profiles.json and sp-index-events.json resolve from a shared content path | f50836a |
 | IP-T37 | 2026-10-30 | feature | open | Move strategy services to Core: StrategyRepository, ConditionProgressRepository, StrategyScriptGenerator, DslGlossary, SqlWorkspaceStore | — |
 | IP-T38 | 2026-10-30 | feature | open | Move broker/account services to Core: UserBrokerResolver, AlpacaVaultKeys, AccountSummaryService, LiveModeElevationService, TradingStateService | — |
 | IP-T39 | 2026-10-30 | feature | open | Move risk + LLM services to Core: RiskGuardianService, LlmVotingService (+AddSignalVotingPanel), UserClaudeKeyResolver, FakeLlmHandler | — |
@@ -695,3 +695,119 @@ updated: 2026-10-03
 | IP-T172 | 2026-10-30 | feature | open | `gapper premarket-fade [run\|status]` (port of MonitorCli premarket-fade) | — |
 | IP-T173 | 2026-10-30 | feature | open | `gapper be-bex status` (BeBexDecayScanner arm/disarm state) | — |
 | IP-T174 | 2026-10-30 | feature | open | `gapper apply-tuned <backtest-id>` applies a backtest's tuned profile on explicit command | — |
+| IP-T175 | 2026-10-30 | feature | open | `gapper caps` shows active-gapper counts vs caps | — |
+| IP-T176 | 2026-10-30 | feature | open | `replay run <symbol> <date> [--strategy\|--profile\|--family]` (port of replay) | — |
+| IP-T177 | 2026-10-30 | feature | open | `replay live <symbol>` (port of replay-live) | — |
+| IP-T178 | 2026-10-30 | feature | open | `replay all <date>` (port of replay-all) | — |
+| IP-T179 | 2026-10-30 | feature | open | `replay list [--symbol] [--since]` | — |
+| IP-T180 | 2026-10-30 | feature | open | `replay show <run-id>` trades and per-bar features | — |
+| IP-T181 | 2026-10-30 | feature | open | `replay regen` regenerates the HTML archive (no FTP) | — |
+| IP-T182 | 2026-10-30 | feature | open | `replay families` lists built-in families with descriptions | — |
+| IP-T183 | 2026-10-30 | feature | open | `replay compare <run-a> <run-b>` | — |
+| IP-T184 | 2026-10-30 | feature | open | `backtest run <strategy\|--script> --from --to` via StrategyBacktester | — |
+| IP-T185 | 2026-10-30 | feature | open | `backtest conditions <run>` per-candle ConditionTable | — |
+| IP-T186 | 2026-10-30 | feature | open | `scan movers [--date] [--replay]` (port of scan) | — |
+| IP-T187 | 2026-10-30 | feature | open | `dataset export [--out]` ML-ready CSVs (port of replay-export) | — |
+| IP-T188 | 2026-10-30 | feature | open | `options level [--mode]` Alpaca options trading level | — |
+| IP-T189 | 2026-10-30 | feature | open | `options chain <symbol> [--expiry] [--horizon] [--strikes]` | — |
+| IP-T190 | 2026-10-30 | feature | open | `options quote <occ>` | — |
+| IP-T191 | 2026-10-30 | feature | open | `options greeks <occ>` (badge Model when IV solved locally) | — |
+| IP-T192 | 2026-10-30 | feature | open | `options value <occ> [--spot]` intrinsic/extrinsic/breakeven/DTE/Black-Scholes | — |
+| IP-T193 | 2026-10-30 | feature | open | `options iv <occ>` implied-vol solve | — |
+| IP-T194 | 2026-10-30 | feature | open | `options buy <occ> <contracts> [--limit] [--mode]` through the gateway (level-gated) | — |
+| IP-T195 | 2026-10-30 | feature | open | `options sell <occ> <contracts>` through the gateway (level-gated) | — |
+| IP-T196 | 2026-10-30 | feature | open | `options close <occ>` | — |
+| IP-T197 | 2026-10-30 | feature | open | `options positions [--mode]` | — |
+| IP-T198 | 2026-10-30 | feature | open | `options signals` SellSignalEvaluator nudges on open long options | — |
+| IP-T199 | 2026-10-30 | feature | open | `options glossary [term]` from OptionsGlossary | — |
+| IP-T200 | 2026-10-30 | feature | open | `market quote <symbol...>` latest trade/quote | — |
+| IP-T201 | 2026-10-30 | feature | open | `market bars <symbol> [--tf] [--from --to]` | — |
+| IP-T202 | 2026-10-30 | feature | open | `market prev-close <symbol>` | — |
+| IP-T203 | 2026-10-30 | feature | open | `market movers [--top]` | — |
+| IP-T204 | 2026-10-30 | feature | open | `market news <symbol> [--limit]` via AlpacaNewsService | — |
+| IP-T205 | 2026-10-30 | feature | open | `market feed status\|switch <sip\|iex\|mock>` (switch refuses mock while non-Sandbox strategies are active) | — |
+| IP-T206 | 2026-10-30 | feature | open | `market stream status` websocket health | — |
+| IP-T207 | 2026-10-30 | feature | open | `indicators compute <symbol> <rsi\|ema\|atr\|macd\|vwap\|adx\|…> [--period]` | — |
+| IP-T208 | 2026-10-30 | feature | open | `indicators snapshot <symbol>` full IndicatorSnapshot (gap, window high/low, pivots) | — |
+| IP-T209 | 2026-10-30 | feature | open | `dsl verbs [--phase]` reflected verb catalog (IP-LAW-4) | — |
+| IP-T210 | 2026-10-30 | feature | open | `dsl glossary [verb]` from DslGlossary | — |
+| IP-T211 | 2026-10-30 | feature | open | `dsl parse <script\|->` -> canon JSON | — |
+| IP-T212 | 2026-10-30 | feature | open | `dsl format <json\|->` -> IdiotScript text | — |
+| IP-T213 | 2026-10-30 | feature | open | `dsl validate <script\|->` phase rules, fail-closed reasons | — |
+| IP-T214 | 2026-10-30 | feature | open | `market scan-universe [--filter]` TrackedTicker price/volume screen | — |
+| IP-T215 | 2026-10-30 | feature | open | `market candlesticks <symbol>` CandlestickPatterns detected on recent bars | — |
+| IP-T216 | 2026-10-30 | feature | open | `risk show` the six RiskGuardian limits | — |
+| IP-T217 | 2026-10-30 | feature | open | `risk set --max-loss-per-trade … ` edits limits (2-minute TTL refresh, daily counter preserved) | — |
+| IP-T218 | 2026-10-30 | feature | open | `risk status` daily realized P&L, breaker state, remaining room | — |
+| IP-T219 | 2026-10-30 | feature | open | `risk kill-switch on\|off` (off requires confirm code) | — |
+| IP-T220 | 2026-10-30 | feature | open | `risk check <symbol> --entry --stop --qty` dry-run ValidateTrade | — |
+| IP-T221 | 2026-10-30 | feature | open | `llm panel` voters, lenses, which have keys, threshold | — |
+| IP-T222 | 2026-10-30 | feature | open | `llm vote <strategy-id>` dry-run vote on the current candidate (no order) | — |
+| IP-T223 | 2026-10-30 | feature | open | `llm keys` owner/host Claude key resolution status (never prints secrets) | — |
+| IP-T224 | 2026-10-30 | feature | open | `llm voting enable\|disable` owner-level toggle | — |
+| IP-T225 | 2026-10-30 | feature | open | `llm threshold <0..1>` consensus threshold setting | — |
+| IP-T226 | 2026-10-30 | feature | open | `research scan [--tickers] [--batch]` runs one ResearchScanner pass in the Hub (not on the Monitor loop) | — |
+| IP-T227 | 2026-10-30 | feature | open | `research claims [--ticker] [--since] [--min-score] [--macro]` ranked feed | — |
+| IP-T228 | 2026-10-30 | feature | open | `research claim <id>` full claim with sources and score breakdown | — |
+| IP-T229 | 2026-10-30 | feature | open | `research ticker <symbol>` everything known about one ticker | — |
+| IP-T230 | 2026-10-30 | feature | open | `research macro` macro/regulatory claims | — |
+| IP-T231 | 2026-10-30 | feature | open | `research index-events` S&P add/remove events | — |
+| IP-T232 | 2026-10-30 | feature | open | `research insiders <symbol>` Form 4 transactions | — |
+| IP-T233 | 2026-10-30 | feature | open | `research universe list\|refresh` | — |
+| IP-T234 | 2026-10-30 | feature | open | `research backfill` runs OutcomeBackfillService | — |
+| IP-T235 | 2026-10-30 | feature | open | `research score <claim-id>` explains the SignificanceScorer components | — |
+| IP-T236 | 2026-10-30 | feature | open | `research analyze <symbol\|url>` on-demand CatalystExtractor via Legion | — |
+| IP-T237 | 2026-10-30 | feature | open | `research similar <claim-id>` ClaimCorrelationService neighbors | — |
+| IP-T238 | 2026-10-30 | feature | open | `diary list [--since] [--mode] [--symbol]` | — |
+| IP-T239 | 2026-10-30 | feature | open | `diary show <id>` | — |
+| IP-T240 | 2026-10-30 | feature | open | `diary pnl --day\|--week\|--month [--by strategy\|symbol]` | — |
+| IP-T241 | 2026-10-30 | feature | open | `diary stats` win rate, expectancy, avg R, MFE/MAE | — |
+| IP-T242 | 2026-10-30 | feature | open | `diary export --csv <file>` | — |
+| IP-T243 | 2026-10-30 | feature | open | `audit list [--since] [--kind]` and `audit search <text>` | — |
+| IP-T244 | 2026-10-30 | feature | open | `audit tail [--follow]` | — |
+| IP-T245 | 2026-10-30 | feature | open | `ledger list [--op] [--since]` CommandLedger browser | — |
+| IP-T246 | 2026-10-30 | feature | open | `keys status` which broker/LLM keys resolve (Vault vs DB), never printing secrets | — |
+| IP-T247 | 2026-10-30 | feature | open | `keys set alpaca-paper\|alpaca-live` writes the Vault Brokers bucket, validates prefix + live probe (port of set-keys) | — |
+| IP-T248 | 2026-10-30 | feature | open | `keys opt-in alpaca\|off` DefaultBroker opt-in (IP-LAW-3) | — |
+| IP-T249 | 2026-10-30 | feature | open | `keys probe [--mode]` account round-trip test | — |
+| IP-T250 | 2026-10-30 | feature | open | `settings list\|get\|set` SettingsKv with SettingsMetadata validation | — |
+| IP-T251 | 2026-10-30 | feature | open | `prefs get\|set` UserPreferences | — |
+| IP-T252 | 2026-10-30 | feature | open | `watchlist list\|add\|remove` | — |
+| IP-T253 | 2026-10-30 | feature | open | `users list` | — |
+| IP-T254 | 2026-10-30 | feature | open | `users create <email>` (blocklist + MindAttic.Authentication; port of create-account) | — |
+| IP-T255 | 2026-10-30 | feature | open | `users whoami` and `users use <email\|guid>` | — |
+| IP-T256 | 2026-10-30 | feature | open | `monitor status\|heartbeat\|lease` | — |
+| IP-T257 | 2026-10-30 | feature | open | `monitor pause\|resume\|tick-once [--dry]` (tick-once never places orders) | — |
+| IP-T258 | 2026-10-30 | feature | open | `monitor tail` progress + gate verdict stream | — |
+| IP-T259 | 2026-10-30 | feature | open | KnowledgeIndex core: markdown section/anchor parser ({#IP-§n}, {#IP-LAW-n}, IP-US-*) | — |
+| IP-T260 | 2026-10-30 | feature | open | Index docs/BIBLE.md, BIBLE.digest.md, AMENDMENTS.md, README.md | — |
+| IP-T261 | 2026-10-30 | feature | open | Index docs/USER_STORIES.md stories and the ticket table | — |
+| IP-T262 | 2026-10-30 | feature | open | Index XML doc comments from every library (type/member -> summary, remarks) | — |
+| IP-T263 | 2026-10-30 | feature | open | Symbol -> source path:line map built at Hub start from the repo checkout | — |
+| IP-T264 | 2026-10-30 | feature | open | Ticket history via `tickets ticket list/show --json` (read-only) | — |
+| IP-T265 | 2026-10-30 | feature | open | Index static catalogs: gapper profiles, index events, legion.json voters, settings metadata | — |
+| IP-T266 | 2026-10-30 | feature | open | `docs search <text>` ranked across every index | — |
+| IP-T267 | 2026-10-30 | feature | open | `docs law <n>`, `docs section <§n>`, `docs story <id>` | — |
+| IP-T268 | 2026-10-30 | feature | open | `docs explain <Type\|Member>` XML docs + path:line + callers | — |
+| IP-T269 | 2026-10-30 | feature | open | `docs ticket <IP-Tn>` | — |
+| IP-T270 | 2026-10-30 | feature | open | `docs dsl <verb>` verb docs + example from the reflected catalog | — |
+| IP-T271 | 2026-10-30 | feature | open | docs/agent/IDIOTPROOF_PROTOCOL.md: how an assistant drives IdiotProof (bootstrap, intent -> op mapping, Live confirm etiquette, ET times) | — |
+| IP-T272 | 2026-10-30 | feature | open | `agent export` writes docs/CLI_COMMANDS.md, docs/MCP_TOOLS.md, docs/agent/operation-catalog.json | — |
+| IP-T273 | 2026-10-30 | feature | open | AGENTS.md project context points at the protocol doc and bootstrap command | — |
+| IP-T274 | 2026-10-30 | feature | open | BIBLE §4 rewrite: Hub architecture, front doors (CLI/MCP/Blazor), transaction gateway, stamp | — |
+| IP-T275 | 2026-10-30 | feature | open | BIBLE §3/§6/§7 updates (no longer 'Monitor console' only; verified state cites new tests) | — |
+| IP-T276 | 2026-10-30 | feature | open | Epic W user stories filed via `tickets story` and USER_STORIES regenerated | — |
+| IP-T277 | 2026-10-30 | feature | open | BIBLE digest regenerated via tools/codex.ps1 and doctor passes | — |
+| IP-T278 | 2026-10-30 | feature | open | docs/agent/cli-hub-backlog.json: the filed backlog with ticket IDs and dependencies | — |
+| IP-T279 | 2026-10-30 | feature | open | Blazor IOwnerContext adapter from the auth claim | — |
+| IP-T280 | 2026-10-30 | feature | open | Blazor IClaudeKeyContext adapter (replaces SignedInClaudeKey wiring) | — |
+| IP-T281 | 2026-10-30 | feature | open | Blazor manual order paths go through TransactionGateway | — |
+| IP-T282 | 2026-10-30 | feature | open | Blazor Options page orders through the gateway (password elevation kept) | — |
+| IP-T283 | 2026-10-30 | feature | open | Blazor Activity page shows CommandLedger rows from CLI/MCP | — |
+| IP-T284 | 2026-10-30 | feature | open | Blazor strategy detail renders the ASCII stamp | — |
+| IP-T285 | 2026-10-30 | feature | open | run.ps1 publishes Hub, Cli and Mcp to C:\Apps\IdiotProof\ (never invoked without the user) | — |
+| IP-T286 | 2026-10-30 | feature | open | tools/publish-all.ps1 includes the new projects | — |
+| IP-T287 | 2026-10-30 | feature | open | start.bat starts the Hub (which hosts the Monitor) instead of the Monitor exe | — |
+| IP-T288 | 2026-10-30 | feature | open | tools/install-hub-service.ps1 registers the Hub Windows Service as the current user | — |
+| IP-T289 | 2026-10-30 | feature | open | idiotproof.exe on PATH from C:\Apps\IdiotProof\ (installer step, idempotent) | — |
+| IP-T290 | 2026-10-30 | feature | open | README: CLI quick start, MCP registration, Live confirm flow | — |

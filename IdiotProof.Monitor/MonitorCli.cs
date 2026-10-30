@@ -556,17 +556,12 @@ public static class MonitorCli
     // ── helpers ─────────────────────────────────────────────────────────
     private static async Task<Guid?> ResolveUserAsync(IServiceProvider sp, Dictionary<string, string> opt)
     {
-        if (opt.TryGetValue("user", out var u) && Guid.TryParse(u, out var g)) return g;
-        // Fall back to the single user if there is exactly one — otherwise the
-        // caller must pass --user. `await using` so the CLI doesn't leak a
-        // DbContext (the old code never disposed it).
-        await using var db = await sp.GetRequiredService<Microsoft.EntityFrameworkCore.IDbContextFactory<AppDbContext>>().CreateDbContextAsync();
-        var ids = db.AuthUsers.Select(x => x.Id).Take(2).ToList();
-        if (ids.Count == 1) return ids[0];
-        Console.Error.WriteLine(ids.Count == 0
-            ? "No users exist — create one first (create-account)."
-            : "Multiple users exist — pass --user <guid> to pick one.");
-        return null;
+        // --user wins; otherwise the single user, else the caller must pass --user.
+        Guid? explicitId = opt.TryGetValue("user", out var u) && Guid.TryParse(u, out var g) ? g : null;
+        var owner = await IdiotProof.Core.Identity.OwnerResolver.ResolveAsync(
+            sp.GetRequiredService<Microsoft.EntityFrameworkCore.IDbContextFactory<AppDbContext>>(), explicitId);
+        if (owner.Error is not null) Console.Error.WriteLine(owner.Error);
+        return owner.OwnerId;
     }
 
     private static Dictionary<string, string> ParseOptions(string[] args)
