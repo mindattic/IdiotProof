@@ -571,12 +571,12 @@ updated: 2026-10-03
 | IP-T48 | 2026-10-30 | feature | closed | Re-point Blazor.Tests and Monitor.Tests at IdiotProof.Core; add IdiotProof.Core.Tests project (NUnit) | 4769b94 |
 | IP-T49 | 2026-10-30 | feature | open | Rename moved namespaces IdiotProof.Blazor.Data/Services -> IdiotProof.Core.Data/Services across the solution | — |
 | IP-T50 | 2026-10-30 | feature | closed | Delete stale IdiotProof.sln (slnx is canonical) and fix any script that names it | 7a09e4e |
-| IP-T51 | 2026-10-30 | feature | open | Create IdiotProof.Operations library: [Operation("noun verb")], [Option], [Argument], IOperation<TArgs> contract, risk class (Read/Write/Money/Destructive) | — |
-| IP-T52 | 2026-10-30 | feature | open | OperationContext: owner, IServiceProvider scope, caller (cli/mcp/blazor), output mode, cancellation, ET clock | — |
-| IP-T53 | 2026-10-30 | feature | open | OperationResult: status, data payload, human render, exit code, ConfirmationRequired variant | — |
-| IP-T54 | 2026-10-30 | feature | open | OperationCatalog: reflect all operations, validate unique names + descriptions + arg docs, emit catalog JSON schema per op | — |
-| IP-T55 | 2026-10-30 | feature | open | Args binder: JSON -> typed args record with validation errors mapped to exit 2 | — |
-| IP-T56 | 2026-10-30 | feature | open | Text render kit: tables, key/value blocks, money/percent formatting, ET-only time display, color only on a TTY | — |
+| IP-T51 | 2026-10-30 | feature | closed | Create IdiotProof.Operations library: [Operation("noun verb")], [Option], [Argument], IOperation<TArgs> contract, risk class (Read/Write/Money/Destructive) | cb745b8 |
+| IP-T52 | 2026-10-30 | feature | closed | OperationContext: owner, IServiceProvider scope, caller (cli/mcp/blazor), output mode, cancellation, ET clock | cb745b8 |
+| IP-T53 | 2026-10-30 | feature | closed | OperationResult: status, data payload, human render, exit code, ConfirmationRequired variant | cb745b8 |
+| IP-T54 | 2026-10-30 | feature | closed | OperationCatalog: reflect all operations, validate unique names + descriptions + arg docs, emit catalog JSON schema per op | cb745b8 |
+| IP-T55 | 2026-10-30 | feature | closed | Args binder: JSON -> typed args record with validation errors mapped to exit 2 | a71e952 |
+| IP-T56 | 2026-10-30 | feature | closed | Text render kit: tables, key/value blocks, money/percent formatting, ET-only time display, color only on a TTY | 79eda16 |
 | IP-T57 | 2026-10-30 | feature | open | Create IdiotProof.Cli (idiotproof.exe): argv `noun verb --flags` parser bound to the catalog | — |
 | IP-T58 | 2026-10-30 | feature | open | Global flags --json --user --mode --quiet --yes(no-op for Live) and stdin '-' for any text argument | — |
 | IP-T59 | 2026-10-30 | feature | open | Generated help: `idiotproof help`, `idiotproof <noun> --help`, `idiotproof <noun> <verb> --help` from the catalog | — |
@@ -591,8 +591,8 @@ updated: 2026-10-03
 | IP-T68 | 2026-10-30 | feature | open | Hub API key: generated once, stored in Vault Tokens bucket 'idiotproof-hub'; HubKeyFilter guards every mutating endpoint | — |
 | IP-T69 | 2026-10-30 | feature | open | CLI HubClient: fail-closed health gate, X-IdiotProof-Key header, slow-op notice after 8s, 2h timeout, structured error output | — |
 | IP-T70 | 2026-10-30 | feature | open | /api/op dispatch endpoint (operation name + JSON args) and /api/catalog | — |
-| IP-T71 | 2026-10-30 | feature | open | CommandLedger entity + migration: op, redacted args, owner, caller, exit code, duration, UTC timestamp | — |
-| IP-T72 | 2026-10-30 | feature | open | SecretRedactor for ledger args (keys, secrets, passwords, tokens) | — |
+| IP-T71 | 2026-10-30 | feature | closed | CommandLedger entity + migration: op, redacted args, owner, caller, exit code, duration, UTC timestamp | c49a127 |
+| IP-T72 | 2026-10-30 | feature | closed | SecretRedactor for ledger args (keys, secrets, passwords, tokens) | 9531ab4 SecretRedactorTests |
 | IP-T73 | 2026-10-30 | feature | open | Ledger write on every /api/op call | — |
 | IP-T74 | 2026-10-30 | feature | open | Host MonitorWorker in the Hub as an IHostedService with the SQL leader lease and SupervisedLoop unchanged | — |
 | IP-T75 | 2026-10-30 | feature | open | Host AutoGapperScanner, PremarketFadeScanner and BeBexDecayScanner in the Hub with their existing enable flags | — |
@@ -647,7 +647,7 @@ updated: 2026-10-03
 | IP-T124 | 2026-10-30 | feature | open | .claude/settings.json allow-list for read-only idiotproof tools; trade_confirm and destructive tools stay prompt-only | — |
 | IP-T125 | 2026-10-30 | feature | open | SessionStart hook keeps IdiotProof.Mcp Release build current so the schema is never stale | — |
 | IP-T126 | 2026-10-30 | feature | open | MCP schema test: every operation round-trips catalog -> tool schema -> binder | — |
-| IP-T127 | 2026-10-30 | feature | open | StrategyStamp short id IP-XXXX-XXXX (base32 of SHA-256 of the canonical JSON) | — |
+| IP-T127 | 2026-10-30 | feature | closed | StrategyStamp short id IP-XXXX-XXXX (base32 of SHA-256 of the canonical JSON) | 463a343 |
 | IP-T128 | 2026-10-30 | feature | open | Stamp header block: symbol, direction, session, BrokerMode, qty/notional, id | — |
 | IP-T129 | 2026-10-30 | feature | open | Stamp phase flow: Setup -> Filters -> Entry -> Order -> Risk -> Exit boxes with every condition line | — |
 | IP-T130 | 2026-10-30 | feature | open | Stamp branch forks for If/ElseIf/Else conditional blocks | — |
