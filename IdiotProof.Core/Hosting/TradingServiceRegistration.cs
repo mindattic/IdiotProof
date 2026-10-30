@@ -27,6 +27,9 @@ public static class TradingServiceRegistration
         services.AddSingleton<IMarketDataFeed>(sp => CreateFeed(sp.GetRequiredService<AppSettings>()));
         services.AddSingleton(sp => CreateRouter(sp.GetRequiredService<AppSettings>()));
         services.AddSingleton<UserBrokerResolver>();
+        // Every order — Monitor, manual, options, flatten — goes through the gateway.
+        services.AddSingleton<IdiotProof.Core.Trading.IOrderRouting, IdiotProof.Core.Trading.OrderRouting>();
+        services.AddSingleton<IdiotProof.Core.Trading.TransactionGateway>();
         return services;
     }
 

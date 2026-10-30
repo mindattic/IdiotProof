@@ -643,9 +643,9 @@ updated: 2026-10-03
 | IP-T120 | 2026-10-30 | feature | closed | Tool annotations from operation risk class (readOnlyHint / destructiveHint / idempotentHint) | f941586 McpToolTests |
 | IP-T121 | 2026-10-30 | feature | closed | ConfirmationRequired tool result tells the assistant to show the preview and ask the user before calling trade_confirm | f941586 McpToolTests |
 | IP-T122 | 2026-10-30 | feature | open | MCP resources: BIBLE, user stories, operation catalog, protocol doc | — |
-| IP-T123 | 2026-10-30 | feature | open | tools/register-mcp.ps1 (`claude mcp add idiotproof …` against the Release build) + README | — |
-| IP-T124 | 2026-10-30 | feature | open | .claude/settings.json allow-list for read-only idiotproof tools; trade_confirm and destructive tools stay prompt-only | — |
-| IP-T125 | 2026-10-30 | feature | open | SessionStart hook keeps IdiotProof.Mcp Release build current so the schema is never stale | — |
+| IP-T123 | 2026-10-30 | feature | closed | tools/register-mcp.ps1 (`claude mcp add idiotproof …` against the Release build) + README | dbd2a97 |
+| IP-T124 | 2026-10-30 | feature | closed | .claude/settings.json allow-list for read-only idiotproof tools; trade_confirm and destructive tools stay prompt-only | dbd2a97 |
+| IP-T125 | 2026-10-30 | feature | closed | SessionStart hook keeps IdiotProof.Mcp Release build current so the schema is never stale | dbd2a97 |
 | IP-T126 | 2026-10-30 | feature | closed | MCP schema test: every operation round-trips catalog -> tool schema -> binder | f941586 McpToolTests |
 | IP-T127 | 2026-10-30 | feature | closed | StrategyStamp short id IP-XXXX-XXXX (base32 of SHA-256 of the canonical JSON) | 463a343 |
 | IP-T128 | 2026-10-30 | feature | closed | Stamp header block: symbol, direction, session, BrokerMode, qty/notional, id | 463a343 |
