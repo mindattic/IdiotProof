@@ -1,6 +1,5 @@
 using IdiotProof.Blazor.Data;
-using IdiotProof.Blazor.Services;
-using IdiotProof.Engine.Settings;
+using IdiotProof.Core.Hosting;
 using IdiotProof.Engine.Storage;
 using IdiotProof.ResearchScanner;
 using Microsoft.EntityFrameworkCore;
@@ -8,9 +7,6 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using MindAttic.Legion;
-using MindAttic.Vault.Configuration;
-using MindAttic.Vault.DependencyInjection;
 
 // ── IdiotProof.ResearchScanner ──────────────────────────────────────────────
 //
@@ -35,49 +31,12 @@ using MindAttic.Vault.DependencyInjection;
 // Run once by hand:  dotnet run --project IdiotProof.ResearchScanner
 var builder = Host.CreateApplicationBuilder(args);
 
-var connStr =
-    Environment.GetEnvironmentVariable("ConnectionStrings__IdiotProof")
-    ?? builder.Configuration["ConnectionStrings:IdiotProof"]
-    ?? @"Server=(localdb)\MSSQLLocalDB;Database=IdiotProof;Trusted_Connection=True;TrustServerCertificate=True;";
-builder.Services.AddDbContextFactory<AppDbContext>(o => o.UseSqlServer(connStr));
-
-builder.Configuration.AddMindAtticVaultFiles();
-builder.Services.AddMindAtticVault(builder.Configuration);
-
+// The shared IdiotProof graph (HOUSE-LAW-6): the same SQL database, Vault buckets, AppSettings
+// overlay chain, Legion client and research services as the web app and the Monitor.
+builder.Configuration.AddIdiotProofVault();
 var storage = new WebStorageProvider();
 storage.EnsureDirectories();
-var settings = AppSettings.Load(storage);
-settings.OverlayFromEnvironment();
-settings.OverlayFromMindAtticCredentials();
-settings.OverlayFromBrokerCredentials();
-settings.OverlayFromConfiguration(builder.Configuration);
-builder.Services.AddSingleton(settings);
-
-builder.Services.AddLegionClient();
-
-builder.Services.AddHttpClient();
-builder.Services.AddHttpClient("edgar", c =>
-{
-    // Contact email must be a parenthesized comment — see IdiotProof.Blazor/Program.cs's
-    // matching registration for why the bare-token form silently failed every call.
-    c.DefaultRequestHeaders.UserAgent.ParseAdd("IdiotProof/1 (research@idiotproof.app)");
-    c.Timeout = TimeSpan.FromSeconds(15);
-});
-builder.Services.AddHttpClient("usspends", c => c.Timeout = TimeSpan.FromSeconds(15));
-
-builder.Services.AddScoped<EdgarService>();
-builder.Services.AddScoped<UsSpendsService>();
-builder.Services.AddScoped<AlpacaNewsService>();
-builder.Services.AddScoped<CatalystExtractor>();
-builder.Services.AddScoped<ClaimVectorService>();
-builder.Services.AddSingleton<ClaimCorrelationService>();
-builder.Services.AddScoped<ResearchService>();
-builder.Services.AddScoped<TickerUniverseService>();
-builder.Services.AddScoped<Form4Parser>();
-builder.Services.AddScoped<CorporateActionDetector>();
-builder.Services.AddScoped<RegulatoryScanner>();
-builder.Services.AddScoped<IndexEventScanner>();
-builder.Services.AddScoped<SignificanceScorer>();
+builder.Services.AddIdiotProofCore(builder.Configuration, storage, new CoreHostOptions { PinDevKeyRing = true });
 
 using var host = builder.Build();
 var logger = host.Services.GetRequiredService<ILogger<Program>>();

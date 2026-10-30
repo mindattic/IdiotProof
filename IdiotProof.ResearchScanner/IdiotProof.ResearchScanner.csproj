@@ -10,9 +10,6 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="10.0.*" />
-    <!-- Same CVE-2026-50527 pin as IdiotProof.Monitor.csproj — see that file's comment. -->
-    <PackageReference Include="System.Security.Cryptography.Xml" Version="10.0.10" />
     <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.*" />
     <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="10.0.*" />
   </ItemGroup>
@@ -24,8 +21,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\IdiotProof.Engine\IdiotProof.Engine.csproj" />
-    <ProjectReference Include="..\IdiotProof.Blazor\IdiotProof.Blazor.csproj" />
+    <!-- The shared service graph (research services, SQL model); never the web project. -->
+    <ProjectReference Include="..\IdiotProof.Core\IdiotProof.Core.csproj" />
   </ItemGroup>
 
 </Project>
