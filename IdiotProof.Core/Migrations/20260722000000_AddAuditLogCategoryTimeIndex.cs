@@ -1,9 +1,15 @@
+using IdiotProof.Blazor.Data;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
 namespace IdiotProof.Blazor.Migrations
 {
+    // Hand-written without a Designer file; these attributes are what make EF discover it.
+    [DbContext(typeof(AppDbContext))]
+    [Migration("20260722000000_AddAuditLogCategoryTimeIndex")]
     public partial class AddAuditLogCategoryTimeIndex : Migration
     {
         protected override void Up(MigrationBuilder migrationBuilder)
