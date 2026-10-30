@@ -577,19 +577,19 @@ updated: 2026-10-03
 | IP-T54 | 2026-10-30 | feature | closed | OperationCatalog: reflect all operations, validate unique names + descriptions + arg docs, emit catalog JSON schema per op | cb745b8 |
 | IP-T55 | 2026-10-30 | feature | closed | Args binder: JSON -> typed args record with validation errors mapped to exit 2 | a71e952 |
 | IP-T56 | 2026-10-30 | feature | closed | Text render kit: tables, key/value blocks, money/percent formatting, ET-only time display, color only on a TTY | 79eda16 |
-| IP-T57 | 2026-10-30 | feature | open | Create IdiotProof.Cli (idiotproof.exe): argv `noun verb --flags` parser bound to the catalog | — |
-| IP-T58 | 2026-10-30 | feature | open | Global flags --json --user --mode --quiet --yes(no-op for Live) and stdin '-' for any text argument | — |
-| IP-T59 | 2026-10-30 | feature | open | Generated help: `idiotproof help`, `idiotproof <noun> --help`, `idiotproof <noun> <verb> --help` from the catalog | — |
-| IP-T60 | 2026-10-30 | feature | open | Offline catalog: CLI references IdiotProof.Operations so help, agent bootstrap and docs export work with the Hub down | — |
-| IP-T61 | 2026-10-30 | feature | open | Exit-code contract 0 ok / 1 fail / 2 usage / 3 blocked by a gate / 4 confirmation required — documented and tested | — |
-| IP-T62 | 2026-10-30 | feature | open | idiotproof.cmd shim at repo root (dotnet run fallback, published exe preferred) | — |
-| IP-T63 | 2026-10-30 | feature | open | Owner resolution in CLI: --user, `users use` persisted default in %APPDATA%\MindAttic\IdiotProof\cli.json, single-user fallback | — |
-| IP-T64 | 2026-10-30 | feature | open | `agent bootstrap [--json]`: Hub health, owner, catalog paths, protocol doc, laws summary — runs without the Hub | — |
+| IP-T57 | 2026-10-30 | feature | closed | Create IdiotProof.Cli (idiotproof.exe): argv `noun verb --flags` parser bound to the catalog | 4df2591 |
+| IP-T58 | 2026-10-30 | feature | closed | Global flags --json --user --mode --quiet --yes(no-op for Live) and stdin '-' for any text argument | 4df2591 |
+| IP-T59 | 2026-10-30 | feature | closed | Generated help: `idiotproof help`, `idiotproof <noun> --help`, `idiotproof <noun> <verb> --help` from the catalog | 4df2591 |
+| IP-T60 | 2026-10-30 | feature | closed | Offline catalog: CLI references IdiotProof.Operations so help, agent bootstrap and docs export work with the Hub down | 4df2591 |
+| IP-T61 | 2026-10-30 | feature | closed | Exit-code contract 0 ok / 1 fail / 2 usage / 3 blocked by a gate / 4 confirmation required — documented and tested | 4df2591 |
+| IP-T62 | 2026-10-30 | feature | closed | idiotproof.cmd shim at repo root (dotnet run fallback, published exe preferred) | 71a95af |
+| IP-T63 | 2026-10-30 | feature | closed | Owner resolution in CLI: --user, `users use` persisted default in %APPDATA%\MindAttic\IdiotProof\cli.json, single-user fallback | 4df2591 |
+| IP-T64 | 2026-10-30 | feature | closed | `agent bootstrap [--json]`: Hub health, owner, catalog paths, protocol doc, laws summary — runs without the Hub | 4df2591 |
 | IP-T65 | 2026-10-30 | feature | closed | Catalog completeness test: every operation has description, arg docs, JSON render; no name collisions | 3444682 |
 | IP-T66 | 2026-10-30 | feature | closed | Create IdiotProof.Hub (ASP.NET Core minimal API, Kestrel bound to 127.0.0.1:5910) using AddIdiotProofCore | c4193c3 |
 | IP-T67 | 2026-10-30 | feature | closed | /api/health and /api/version endpoints (build, commit, uptime, db, feed, broker) | c4193c3 |
 | IP-T68 | 2026-10-30 | feature | closed | Hub API key: generated once, stored in Vault Tokens bucket 'idiotproof-hub'; HubKeyFilter guards every mutating endpoint | c4193c3 |
-| IP-T69 | 2026-10-30 | feature | open | CLI HubClient: fail-closed health gate, X-IdiotProof-Key header, slow-op notice after 8s, 2h timeout, structured error output | — |
+| IP-T69 | 2026-10-30 | feature | closed | CLI HubClient: fail-closed health gate, X-IdiotProof-Key header, slow-op notice after 8s, 2h timeout, structured error output | 4df2591 |
 | IP-T70 | 2026-10-30 | feature | closed | /api/op dispatch endpoint (operation name + JSON args) and /api/catalog | c4193c3 |
 | IP-T71 | 2026-10-30 | feature | closed | CommandLedger entity + migration: op, redacted args, owner, caller, exit code, duration, UTC timestamp | c49a127 |
 | IP-T72 | 2026-10-30 | feature | closed | SecretRedactor for ledger args (keys, secrets, passwords, tokens) | 9531ab4 SecretRedactorTests |
@@ -603,7 +603,7 @@ updated: 2026-10-03
 | IP-T80 | 2026-10-30 | feature | open | Monitor pause/resume flag (SettingsKv) honored at the top of each tick | — |
 | IP-T81 | 2026-10-30 | feature | open | IdiotProof.Monitor exe becomes a shim that runs the Hub host (backward-compatible start.bat) | — |
 | IP-T82 | 2026-10-30 | feature | open | SessionStart hook (.claude/settings.json) that starts the Hub when it is not running | — |
-| IP-T83 | 2026-10-30 | feature | open | `hub status\|start\|stop\|logs\|version` operations + CLI-side start/stop of the local process | — |
+| IP-T83 | 2026-10-30 | feature | closed | `hub status\|start\|stop\|logs\|version` operations + CLI-side start/stop of the local process | 4df2591 |
 | IP-T84 | 2026-10-30 | feature | open | `hub install-service\|uninstall-service` operations | — |
 | IP-T85 | 2026-10-30 | feature | closed | OrderIntent model: asset (equity/option), side, qty/notional, type, limit, TIF, extended hours, BrokerMode, origin (monitor/manual/options/flatten), strategyId | df5f2f2 ConfirmationStoreTests.Hash_ChangesWithAnyOrderField_ButNotWithTheNote |
 | IP-T86 | 2026-10-30 | feature | closed | TransactionGateway.SubmitAsync skeleton with ordered, individually-tested gate steps and a GateVerdict trail | bec0b42 TransactionGatewayTests |
@@ -630,12 +630,12 @@ updated: 2026-10-03
 | IP-T107 | 2026-10-30 | feature | open | `orders list [--status]` and `orders show <id>` | — |
 | IP-T108 | 2026-10-30 | feature | open | `orders cancel <id>` and `orders cancel-all [--symbol]` through the gateway | — |
 | IP-T109 | 2026-10-30 | feature | open | `orders history [--days]` | — |
-| IP-T110 | 2026-10-30 | feature | open | `trade buy\|sell <symbol> <qty> [--limit] [--stop] [--target] [--mode]` through the gateway | — |
-| IP-T111 | 2026-10-30 | feature | open | `trade short\|cover <symbol> <qty>` through the gateway | — |
+| IP-T110 | 2026-10-30 | feature | closed | `trade buy\|sell <symbol> <qty> [--limit] [--stop] [--target] [--mode]` through the gateway | c976341 |
+| IP-T111 | 2026-10-30 | feature | closed | `trade short\|cover <symbol> <qty>` through the gateway | c976341 |
 | IP-T112 | 2026-10-30 | feature | open | `trade flatten --symbol\|--strategy\|--all [--mode]` | — |
-| IP-T113 | 2026-10-30 | feature | open | `trade preview …` (dry run: every gate verdict, no order) | — |
-| IP-T114 | 2026-10-30 | feature | open | `trade confirm <code>` executes a pending Live intent | — |
-| IP-T115 | 2026-10-30 | feature | open | `trade pending` lists unexpired Live confirmations | — |
+| IP-T113 | 2026-10-30 | feature | closed | `trade preview …` (dry run: every gate verdict, no order) | c976341 |
+| IP-T114 | 2026-10-30 | feature | closed | `trade confirm <code>` executes a pending Live intent | c976341 |
+| IP-T115 | 2026-10-30 | feature | closed | `trade pending` lists unexpired Live confirmations | c976341 |
 | IP-T116 | 2026-10-30 | feature | open | `trade notional <symbol> <$>` (fractional/notional buy) through the gateway | — |
 | IP-T117 | 2026-10-30 | feature | closed | Create IdiotProof.Mcp (stdio, ModelContextProtocol SDK, logs to file — stdout is the wire) | f941586 McpToolTests |
 | IP-T118 | 2026-10-30 | feature | closed | Generate one MCP tool per operation from the catalog (snake_case noun_verb, JSON schema from the args record) | f941586 McpToolTests |
