@@ -606,13 +606,13 @@ updated: 2026-10-03
 | IP-T83 | 2026-10-30 | feature | open | `hub status\|start\|stop\|logs\|version` operations + CLI-side start/stop of the local process | — |
 | IP-T84 | 2026-10-30 | feature | open | `hub install-service\|uninstall-service` operations | — |
 | IP-T85 | 2026-10-30 | feature | closed | OrderIntent model: asset (equity/option), side, qty/notional, type, limit, TIF, extended hours, BrokerMode, origin (monitor/manual/options/flatten), strategyId | df5f2f2 ConfirmationStoreTests.Hash_ChangesWithAnyOrderField_ButNotWithTheNote |
-| IP-T86 | 2026-10-30 | feature | open | TransactionGateway.SubmitAsync skeleton with ordered, individually-tested gate steps and a GateVerdict trail | — |
-| IP-T87 | 2026-10-30 | feature | open | Gate step: owner + BrokerMode resolution via UserBrokerResolver (IP-LAW-3, Sandbox default, never another user's keys) | — |
-| IP-T88 | 2026-10-30 | feature | open | Gate step: Mock-feed guard refuses non-Sandbox entries (IP-LAW-9) | — |
-| IP-T89 | 2026-10-30 | feature | open | Gate step: RiskGuardian (stop required on entries, size/limits, daily breaker; exits honor kill-switch) (IP-LAW-2) | — |
-| IP-T90 | 2026-10-30 | feature | open | Gate step: LLM voter panel for automated entries only (IP-LAW-1) | — |
+| IP-T86 | 2026-10-30 | feature | closed | TransactionGateway.SubmitAsync skeleton with ordered, individually-tested gate steps and a GateVerdict trail | bec0b42 TransactionGatewayTests |
+| IP-T87 | 2026-10-30 | feature | closed | Gate step: owner + BrokerMode resolution via UserBrokerResolver (IP-LAW-3, Sandbox default, never another user's keys) | bec0b42 TransactionGatewayTests |
+| IP-T88 | 2026-10-30 | feature | closed | Gate step: Mock-feed guard refuses non-Sandbox entries (IP-LAW-9) | bec0b42 TransactionGatewayTests |
+| IP-T89 | 2026-10-30 | feature | closed | Gate step: RiskGuardian (stop required on entries, size/limits, daily breaker; exits honor kill-switch) (IP-LAW-2) | bec0b42 TransactionGatewayTests |
+| IP-T90 | 2026-10-30 | feature | closed | Gate step: LLM voter panel for automated entries only (IP-LAW-1) | bec0b42 TransactionGatewayTests |
 | IP-T91 | 2026-10-30 | feature | closed | ConfirmationStore: 6-char single-use code, 120s TTL, bound to SHA-256 of the exact intent, persisted PendingConfirmation table | fe72a2a ConfirmationStoreTests |
-| IP-T92 | 2026-10-30 | feature | open | Live preview: cost, worst-case loss, account, buying power after, gate verdicts — returned with exit 4 | — |
+| IP-T92 | 2026-10-30 | feature | closed | Live preview: cost, worst-case loss, account, buying power after, gate verdicts — returned with exit 4 | bec0b42 TransactionGatewayTests |
 | IP-T93 | 2026-10-30 | feature | open | Every gateway outcome writes TradeDiary (fills), AuditLog (all) and CommandLedger linkage | — |
 | IP-T94 | 2026-10-30 | feature | open | Reroute MonitorWorker entries and exits through the gateway with behavior-parity tests | — |
 | IP-T95 | 2026-10-30 | feature | open | Reroute DirectionalOrders flatten / test-order through the gateway | — |

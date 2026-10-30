@@ -173,6 +173,21 @@ public sealed class TransactionGatewayTests
     }
 
     [Test]
+    public async Task Confirm_WithADifferentOrderThanPreviewed_IsTampered_AndKeepsTheCode()
+    {
+        var gateway = Gateway();
+        var pending = await gateway.SubmitAsync(Buy(BrokerMode.Live));
+
+        var swapped = Assert.ThrowsAsync<ConfirmationRefusedException>(() =>
+            gateway.ConfirmAsync(pending.ConfirmationCode!, Owner, "mcp", Buy(BrokerMode.Live, qty: 500).Hash()));
+        var original = await gateway.ConfirmAsync(pending.ConfirmationCode!, Owner, "mcp", Buy(BrokerMode.Live).Hash());
+
+        Assert.That(swapped!.Failure, Is.EqualTo(ConfirmationFailure.Tampered));
+        Assert.That(original!.Status, Is.EqualTo(GatewayStatus.Placed));
+        Assert.That(live.Placed.Single().Quantity, Is.EqualTo(10));
+    }
+
+    [Test]
     public async Task ManualLive_ExpiredCode_PlacesNothing()
     {
         var gateway = Gateway();

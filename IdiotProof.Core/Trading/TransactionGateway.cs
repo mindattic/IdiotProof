@@ -220,11 +220,22 @@ public sealed class TransactionGateway(
         return await AuditAsync(outcome, options, ct);
     }
 
-    /// <summary>Redeems a Live code and runs the exact stored intent through every gate again.</summary>
-    public async Task<GatewayOutcome?> ConfirmAsync(string code, Guid ownerUserId, string caller, CancellationToken ct = default)
+    /// <summary>
+    /// Redeems a Live code and runs the exact stored intent through every gate again. When the
+    /// caller re-sent the order (the MCP "same arguments plus the code" flow), pass its hash as
+    /// <paramref name="expectedHash"/>: a different order is refused as tampered and the code is
+    /// not used up.
+    /// </summary>
+    public async Task<GatewayOutcome?> ConfirmAsync(
+        string code, Guid ownerUserId, string caller, string? expectedHash = null, CancellationToken ct = default)
     {
-        var redemption = await confirmations.RedeemAsync(code, ownerUserId, caller,
-            p => p.Kind == ConfirmationStore.KindOrder ? OrderIntent.FromJson(p.PayloadJson).Hash() : "", ct);
+        var redemption = await confirmations.RedeemAsync(code, ownerUserId, caller, p =>
+        {
+            var stored = p.Kind == ConfirmationStore.KindOrder ? OrderIntent.FromJson(p.PayloadJson).Hash() : "";
+            return expectedHash is not null && !string.Equals(expectedHash, stored, StringComparison.OrdinalIgnoreCase)
+                ? expectedHash
+                : stored;
+        }, ct);
         if (!redemption.Succeeded)
             throw new ConfirmationRefusedException(redemption.Message, redemption.Failure!.Value);
         if (redemption.Confirmation!.Kind != ConfirmationStore.KindOrder)
