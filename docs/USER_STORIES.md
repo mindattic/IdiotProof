@@ -637,16 +637,16 @@ updated: 2026-10-03
 | IP-T114 | 2026-10-30 | feature | open | `trade confirm <code>` executes a pending Live intent | — |
 | IP-T115 | 2026-10-30 | feature | open | `trade pending` lists unexpired Live confirmations | — |
 | IP-T116 | 2026-10-30 | feature | open | `trade notional <symbol> <$>` (fractional/notional buy) through the gateway | — |
-| IP-T117 | 2026-10-30 | feature | open | Create IdiotProof.Mcp (stdio, ModelContextProtocol SDK, logs to file — stdout is the wire) | — |
-| IP-T118 | 2026-10-30 | feature | open | Generate one MCP tool per operation from the catalog (snake_case noun_verb, JSON schema from the args record) | — |
-| IP-T119 | 2026-10-30 | feature | open | HubInvoker forwarding with structured errors: hub_unreachable, hub_timeout, hub_http_error, usage_error | — |
-| IP-T120 | 2026-10-30 | feature | open | Tool annotations from operation risk class (readOnlyHint / destructiveHint / idempotentHint) | — |
-| IP-T121 | 2026-10-30 | feature | open | ConfirmationRequired tool result tells the assistant to show the preview and ask the user before calling trade_confirm | — |
+| IP-T117 | 2026-10-30 | feature | closed | Create IdiotProof.Mcp (stdio, ModelContextProtocol SDK, logs to file — stdout is the wire) | f941586 McpToolTests |
+| IP-T118 | 2026-10-30 | feature | closed | Generate one MCP tool per operation from the catalog (snake_case noun_verb, JSON schema from the args record) | f941586 McpToolTests |
+| IP-T119 | 2026-10-30 | feature | closed | HubInvoker forwarding with structured errors: hub_unreachable, hub_timeout, hub_http_error, usage_error | f941586 McpToolTests |
+| IP-T120 | 2026-10-30 | feature | closed | Tool annotations from operation risk class (readOnlyHint / destructiveHint / idempotentHint) | f941586 McpToolTests |
+| IP-T121 | 2026-10-30 | feature | closed | ConfirmationRequired tool result tells the assistant to show the preview and ask the user before calling trade_confirm | f941586 McpToolTests |
 | IP-T122 | 2026-10-30 | feature | open | MCP resources: BIBLE, user stories, operation catalog, protocol doc | — |
 | IP-T123 | 2026-10-30 | feature | open | tools/register-mcp.ps1 (`claude mcp add idiotproof …` against the Release build) + README | — |
 | IP-T124 | 2026-10-30 | feature | open | .claude/settings.json allow-list for read-only idiotproof tools; trade_confirm and destructive tools stay prompt-only | — |
 | IP-T125 | 2026-10-30 | feature | open | SessionStart hook keeps IdiotProof.Mcp Release build current so the schema is never stale | — |
-| IP-T126 | 2026-10-30 | feature | open | MCP schema test: every operation round-trips catalog -> tool schema -> binder | — |
+| IP-T126 | 2026-10-30 | feature | closed | MCP schema test: every operation round-trips catalog -> tool schema -> binder | f941586 McpToolTests |
 | IP-T127 | 2026-10-30 | feature | closed | StrategyStamp short id IP-XXXX-XXXX (base32 of SHA-256 of the canonical JSON) | 463a343 |
 | IP-T128 | 2026-10-30 | feature | closed | Stamp header block: symbol, direction, session, BrokerMode, qty/notional, id | 463a343 |
 | IP-T129 | 2026-10-30 | feature | closed | Stamp phase flow: Setup -> Filters -> Entry -> Order -> Risk -> Exit boxes with every condition line | 463a343 |

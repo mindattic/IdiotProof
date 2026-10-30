@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "idiotproof": {
+      "command": "dotnet",
+      "args": ["run", "--project", "IdiotProof.Mcp", "--no-build", "--configuration", "Release", "--no-launch-profile"]
+    }
+  }
+}
