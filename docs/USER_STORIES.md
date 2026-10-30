@@ -554,7 +554,7 @@ updated: 2026-10-03
 | IP-T31 | 2026-10-30 | feature | open | Enable GenerateDocumentationFile for every library via Directory.Build.props (CS1591 suppressed) so XML doc comments ship for the knowledge index | — |
 | IP-T32 | 2026-10-30 | feature | closed | Move AppDbContext and every Data/* entity from IdiotProof.Blazor to IdiotProof.Core (namespaces unchanged in this move) | 2193f54 |
 | IP-T33 | 2026-10-30 | feature | closed | Move EF Migrations + AppDbContextFactory to IdiotProof.Core with MigrationsAssembly set; migration IDs and snapshot unchanged | 2193f54 |
-| IP-T34 | 2026-10-30 | feature | open | Introduce IOwnerContext (current owner GUID) — web resolves from the NameIdentifier claim, Hub/CLI from --user, persisted default, or the single AuthUsers row | — |
+| IP-T34 | 2026-10-30 | feature | closed | Introduce IOwnerContext (current owner GUID) — web resolves from the NameIdentifier claim, Hub/CLI from --user, persisted default, or the single AuthUsers row | 4f8bd99 OwnerResolverTests |
 | IP-T35 | 2026-10-30 | feature | open | Introduce IClaudeKeyContext replacing SignedInClaudeKey's AuthenticationStateProvider dependency for StrategyScriptGenerator, GapperInterpreter, ResearchService | — |
 | IP-T36 | 2026-10-30 | feature | closed | Introduce IStaticCatalogSource replacing IWebHostEnvironment in GapperProfileService; gapper-profiles.json and sp-index-events.json resolve from a shared content path | f50836a |
 | IP-T37 | 2026-10-30 | feature | open | Move strategy services to Core: StrategyRepository, ConditionProgressRepository, StrategyScriptGenerator, DslGlossary, SqlWorkspaceStore | — |

@@ -15,6 +15,13 @@
     <InternalsVisibleTo Include="IdiotProof.Core.Tests" />
   </ItemGroup>
   <ItemGroup>
+    <!-- The implicit usings the services had under the Web SDK, so they move without edits. -->
+    <Using Include="Microsoft.Extensions.Configuration" />
+    <Using Include="Microsoft.Extensions.DependencyInjection" />
+    <Using Include="Microsoft.Extensions.Hosting" />
+    <Using Include="Microsoft.Extensions.Logging" />
+  </ItemGroup>
+  <ItemGroup>
     <!-- DataProtection, hosting and the authentication entities come from the shared framework. -->
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
   </ItemGroup>
