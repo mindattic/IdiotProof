@@ -811,5 +811,5 @@ updated: 2026-10-03
 | IP-T288 | 2026-10-30 | feature | open | tools/install-hub-service.ps1 registers the Hub Windows Service as the current user | — |
 | IP-T289 | 2026-10-30 | feature | open | idiotproof.exe on PATH from C:\Apps\IdiotProof\ (installer step, idempotent) | — |
 | IP-T290 | 2026-10-30 | feature | open | README: CLI quick start, MCP registration, Live confirm flow | — |
-| IP-T291 | 2026-10-30 | fix | open | Five EF migrations (20260721140000_AddDisplayName … 20260722000000_AddAuditLogCategoryTimeIndex) lack [Migration]/[DbContext] attributes and Designer files, so EF has never discovered or applied them | — |
+| IP-T291 | 2026-10-30 | fix | closed | Five EF migrations (20260721140000_AddDisplayName … 20260722000000_AddAuditLogCategoryTimeIndex) lack [Migration]/[DbContext] attributes and Designer files, so EF has never discovered or applied them | 0780271 |
 | IP-T292 | 2026-10-30 | fix | closed | Plain `dotnet run` of IdiotProof.Blazor crashes: UseStaticFiles roots at {exe}/wwwroot, which only exists in publish output | ba0c563 |

@@ -1,6 +1,7 @@
 using IdiotProof.Blazor.Data;
 using IdiotProof.Blazor.Services;
 using IdiotProof.Core.Catalogs;
+using IdiotProof.Core.Ledger;
 using IdiotProof.Engine;
 using IdiotProof.Engine.Storage;
 using IdiotProof.Engine.Workspace;
@@ -118,6 +119,7 @@ public static class CoreServiceRegistration
         services.AddSingleton<GapperInterpreter>();
         services.AddSingleton<TradeDiaryRepository>();
         services.AddSingleton<AuditLogRepository>();
+        services.AddSingleton<CommandLedgerRepository>();
         services.AddSingleton<SettingsRepository>();
         services.AddSingleton<UserPreferencesService>();
         services.AddSingleton<EmailDomainBlocklistService>();

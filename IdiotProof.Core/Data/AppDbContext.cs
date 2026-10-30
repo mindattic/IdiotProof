@@ -23,6 +23,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options)
     public DbSet<UserPreferences>   UserPreferences   => Set<UserPreferences>();
     public DbSet<SettingsKv>        SettingsKv        => Set<SettingsKv>();
     public DbSet<AuditLog>          AuditLogs         => Set<AuditLog>();
+    public DbSet<CommandLedgerEntry> CommandLedger    => Set<CommandLedgerEntry>();
     public DbSet<ConditionProgress> ConditionProgress => Set<ConditionProgress>();
     public DbSet<WorkspaceRow>      Workspaces        => Set<WorkspaceRow>();
     public DbSet<TradeDiaryEntry>   TradeDiary        => Set<TradeDiaryEntry>();
@@ -73,6 +74,14 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options)
             e.Property(p => p.RiskMinStopLossPercent).HasPrecision(18, 2);
             e.Property(p => p.RiskMaxStopLossPercent).HasPrecision(18, 2);
             e.Property(p => p.RiskMaxAccountRiskPercent).HasPrecision(18, 2);
+        });
+
+        b.Entity<CommandLedgerEntry>(e =>
+        {
+            e.ToTable("CommandLedger");
+            e.HasIndex(x => x.TimestampUtc);
+            e.HasIndex(x => new { x.OwnerUserId, x.TimestampUtc });
+            e.HasIndex(x => new { x.Operation, x.TimestampUtc });
         });
 
         b.Entity<AuditLog>(e =>
