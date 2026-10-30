@@ -4,6 +4,11 @@
     <ProjectReference Include="..\IdiotProof.Shared\IdiotProof.Shared.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- Terminal QR for the strategy stamp (StampOptions.Qr, IP-T134). -->
+    <PackageReference Include="QRCoder" Version="1.6.0" />
+  </ItemGroup>
+
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>

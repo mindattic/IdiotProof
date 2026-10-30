@@ -36,8 +36,15 @@ public sealed record StampOptions
     public bool IncludePayload { get; init; } = true;
 
     /// <summary>
+    /// Append a terminal QR (Unicode half-blocks) of the compact <c>IPS1:</c>
+    /// payload (<c>--qr</c>). A strategy too large for a 72-column QR gets a
+    /// one-line note instead; rendering never throws for size.
+    /// </summary>
+    public bool Qr { get; init; }
+
+    /// <summary>
     /// Builds options from CLI-style switches: <c>--unicode</c>, <c>--ascii</c>,
-    /// <c>--no-payload</c>. Unknown arguments are ignored (the caller owns them).
+    /// <c>--qr</c>, <c>--no-payload</c>. Unknown arguments are ignored (the caller owns them).
     /// </summary>
     public static StampOptions FromArgs(IEnumerable<string> args)
     {
@@ -48,6 +55,7 @@ public sealed record StampOptions
             {
                 case "--unicode": o = o with { Unicode = true }; break;
                 case "--ascii": o = o with { Unicode = false }; break;
+                case "--qr": o = o with { Qr = true }; break;
                 case "--no-payload": o = o with { IncludePayload = false }; break;
             }
         }
@@ -153,6 +161,11 @@ public static class StrategyStamp
         {
             w.Blank();
             foreach (var line in StampArmor.Encode(canonical)) w.Raw(line);
+        }
+        if (options.Qr)
+        {
+            w.Blank();
+            foreach (var line in StampQr.Render(StampArmor.EncodeCompact(canonical), Width)) w.Raw(line);
         }
         return w.ToString();
     }
