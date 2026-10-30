@@ -42,5 +42,7 @@
     <ProjectReference Include="..\IdiotProof.DataFeeds\IdiotProof.DataFeeds.csproj" />
     <!-- Shared Razor Class Library; today it holds the Options components. -->
     <ProjectReference Include="..\IdiotProof.UI\IdiotProof.UI.csproj" />
+    <!-- SQL model, migrations and the non-UI services (shared with the Hub/Monitor/ResearchScanner). -->
+    <ProjectReference Include="..\IdiotProof.Core\IdiotProof.Core.csproj" />
   </ItemGroup>
 </Project>

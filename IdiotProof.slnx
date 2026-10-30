@@ -1,6 +1,7 @@
 <Solution>
   <Folder Name="/src/">
     <Project Path="IdiotProof.Brokers/IdiotProof.Brokers.csproj" />
+    <Project Path="IdiotProof.Core/IdiotProof.Core.csproj" />
     <Project Path="IdiotProof.DataFeeds/IdiotProof.DataFeeds.csproj" />
     <Project Path="IdiotProof.Engine/IdiotProof.Engine.csproj" />
     <Project Path="IdiotProof.Indicators/IdiotProof.Indicators.csproj" />

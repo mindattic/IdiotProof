@@ -1,0 +1,38 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- The one service graph every front door shares (HOUSE-LAW-6): the SQL model, migrations and
+       every non-UI service. Blazor, the Hub, the Monitor and the ResearchScanner reference this;
+       nothing references IdiotProof.Blazor. -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>IdiotProof.Core</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="IdiotProof.Blazor" />
+    <InternalsVisibleTo Include="IdiotProof.Blazor.Tests" />
+    <InternalsVisibleTo Include="IdiotProof.Monitor.Tests" />
+    <InternalsVisibleTo Include="IdiotProof.Core.Tests" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- DataProtection, hosting and the authentication entities come from the shared framework. -->
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="MindAttic.Authentication" Version="6.0.0" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="10.0.*" />
+    <!-- Microsoft.Data.SqlClient (via EFCore.SqlServer) pins this transitively at 10.0.7, inside
+         the vulnerable range for CVE-2026-50527 (NU1903); first patched in 10.0.10. -->
+    <PackageReference Include="System.Security.Cryptography.Xml" Version="10.0.10" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\IdiotProof.Shared\IdiotProof.Shared.csproj" />
+    <ProjectReference Include="..\IdiotProof.Scripting\IdiotProof.Scripting.csproj" />
+    <ProjectReference Include="..\IdiotProof.Models\IdiotProof.Models.csproj" />
+    <ProjectReference Include="..\IdiotProof.Engine\IdiotProof.Engine.csproj" />
+    <ProjectReference Include="..\IdiotProof.Strategies\IdiotProof.Strategies.csproj" />
+    <ProjectReference Include="..\IdiotProof.Indicators\IdiotProof.Indicators.csproj" />
+    <ProjectReference Include="..\IdiotProof.Brokers\IdiotProof.Brokers.csproj" />
+    <ProjectReference Include="..\IdiotProof.DataFeeds\IdiotProof.DataFeeds.csproj" />
+  </ItemGroup>
+</Project>

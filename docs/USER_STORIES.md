@@ -511,6 +511,9 @@ updated: 2026-10-03
    the regex parser.
 6. **Epic S** — adaptive auto-strategy generation.
 
+
+## Epic W — Command line & Hub — drive every IdiotProof service from the CLI and MCP through one Hub
+
 ## Tickets
 > Permanent log of every change and fix — this repo's ticket system. Rows are append-only: never
 > delete or reword one; only move its Status (open → closed / wont-do) and fill in Ref. Status is
@@ -547,3 +550,148 @@ updated: 2026-10-03
 | IP-T27 | 2026-10-20 | docs | open | Publish IdiotProof docs to GitHub Pages via the shared Agency DocFX pipeline: run adopt-docs-site.ps1 (README.md as home page, docs/*.md as articles, API reference only where the code builds in CI), enable Pages with build_type=workflow, set the repo homepage URL, retire tools/build-readme.ps1 and README.htm, confirm the docs Actions run is green and https://mindattic.github.io/IdiotProof/ returns 200. Depends on MAT-T8. | — |
 | IP-T28 | 2026-10-22 | docs | closed | Update USER_STORIES.md | — |
 | IP-T29 | 2026-10-24 | docs | closed | Update USER_STORIES.md | — |
+| IP-T30 | 2026-10-30 | feature | open | Create IdiotProof.Core class library (net10.0) in IdiotProof.slnx, referencing Models/Shared/Scripting/Strategies/Brokers/DataFeeds/Engine/Indicators | — |
+| IP-T31 | 2026-10-30 | feature | open | Enable GenerateDocumentationFile for every library via Directory.Build.props (CS1591 suppressed) so XML doc comments ship for the knowledge index | — |
+| IP-T32 | 2026-10-30 | feature | open | Move AppDbContext and every Data/* entity from IdiotProof.Blazor to IdiotProof.Core (namespaces unchanged in this move) | — |
+| IP-T33 | 2026-10-30 | feature | open | Move EF Migrations + AppDbContextFactory to IdiotProof.Core with MigrationsAssembly set; migration IDs and snapshot unchanged | — |
+| IP-T34 | 2026-10-30 | feature | open | Introduce IOwnerContext (current owner GUID) — web resolves from the NameIdentifier claim, Hub/CLI from --user, persisted default, or the single AuthUsers row | — |
+| IP-T35 | 2026-10-30 | feature | open | Introduce IClaudeKeyContext replacing SignedInClaudeKey's AuthenticationStateProvider dependency for StrategyScriptGenerator, GapperInterpreter, ResearchService | — |
+| IP-T36 | 2026-10-30 | feature | open | Introduce IStaticCatalogSource replacing IWebHostEnvironment in GapperProfileService; gapper-profiles.json and sp-index-events.json resolve from a shared content path | — |
+| IP-T37 | 2026-10-30 | feature | open | Move strategy services to Core: StrategyRepository, ConditionProgressRepository, StrategyScriptGenerator, DslGlossary, SqlWorkspaceStore | — |
+| IP-T38 | 2026-10-30 | feature | open | Move broker/account services to Core: UserBrokerResolver, AlpacaVaultKeys, AccountSummaryService, LiveModeElevationService, TradingStateService | — |
+| IP-T39 | 2026-10-30 | feature | open | Move risk + LLM services to Core: RiskGuardianService, LlmVotingService (+AddSignalVotingPanel), UserClaudeKeyResolver, FakeLlmHandler | — |
+| IP-T40 | 2026-10-30 | feature | open | Move research services to Core: ResearchService, EdgarService, Form4Parser, CorporateActionDetector, RegulatoryScanner, IndexEventScanner, UsSpendsService, AlpacaNewsService, CatalystExtractor, ClaimVectorService, ClaimCorrelationService, SignificanceScorer, OutcomeBackfillService, TickerUniverseService, AsyncThrottle | — |
+| IP-T41 | 2026-10-30 | feature | open | Move remaining non-UI services to Core: OptionsTradingService, TradeDiaryRepository, AuditLogRepository, SettingsRepository, UserPreferencesService, UserKeyService, EmailDomainBlocklistService, LiveBarRepository, GapperProfileService, GapperInterpreter, EasternTime, DevCredentials | — |
+| IP-T42 | 2026-10-30 | feature | open | AddIdiotProofCore(config): one DI graph — connection-string chain, Vault buckets, AppSettings overlay, shared DataProtection key ring, MindAttic.Authentication, every Core service | — |
+| IP-T43 | 2026-10-30 | feature | open | Lift BrokerRouter + IMarketDataFeed construction (IDIOTPROOF_BROKER/FEED/ALPACA_FEED/STREAMING knobs) from Monitor/Program.cs into AddIdiotProofTrading() | — |
+| IP-T44 | 2026-10-30 | feature | open | Move MonitorWorker, MonitorLeaderLease, DirectionalOrders, scanners (AutoGapper, PremarketFade, BeBexDecay), StrategyReplay*, ReplayFeatures/Templates, StrategyDataset, StrategyScanner, EmailSmsAlertSender into Core (Monitoring namespace) so any host can run them | — |
+| IP-T45 | 2026-10-30 | feature | open | Re-point IdiotProof.Blazor Program.cs to AddIdiotProofCore; pushers, ToastService, LogAlertService stay in Blazor | — |
+| IP-T46 | 2026-10-30 | feature | open | Re-point IdiotProof.Monitor to AddIdiotProofCore/AddIdiotProofTrading and drop its IdiotProof.Blazor project reference | — |
+| IP-T47 | 2026-10-30 | feature | open | Re-point IdiotProof.ResearchScanner to AddIdiotProofCore and drop its IdiotProof.Blazor project reference | — |
+| IP-T48 | 2026-10-30 | feature | open | Re-point Blazor.Tests and Monitor.Tests at IdiotProof.Core; add IdiotProof.Core.Tests project (NUnit) | — |
+| IP-T49 | 2026-10-30 | feature | open | Rename moved namespaces IdiotProof.Blazor.Data/Services -> IdiotProof.Core.Data/Services across the solution | — |
+| IP-T50 | 2026-10-30 | feature | open | Delete stale IdiotProof.sln (slnx is canonical) and fix any script that names it | — |
+| IP-T51 | 2026-10-30 | feature | open | Create IdiotProof.Operations library: [Operation("noun verb")], [Option], [Argument], IOperation<TArgs> contract, risk class (Read/Write/Money/Destructive) | — |
+| IP-T52 | 2026-10-30 | feature | open | OperationContext: owner, IServiceProvider scope, caller (cli/mcp/blazor), output mode, cancellation, ET clock | — |
+| IP-T53 | 2026-10-30 | feature | open | OperationResult: status, data payload, human render, exit code, ConfirmationRequired variant | — |
+| IP-T54 | 2026-10-30 | feature | open | OperationCatalog: reflect all operations, validate unique names + descriptions + arg docs, emit catalog JSON schema per op | — |
+| IP-T55 | 2026-10-30 | feature | open | Args binder: JSON -> typed args record with validation errors mapped to exit 2 | — |
+| IP-T56 | 2026-10-30 | feature | open | Text render kit: tables, key/value blocks, money/percent formatting, ET-only time display, color only on a TTY | — |
+| IP-T57 | 2026-10-30 | feature | open | Create IdiotProof.Cli (idiotproof.exe): argv `noun verb --flags` parser bound to the catalog | — |
+| IP-T58 | 2026-10-30 | feature | open | Global flags --json --user --mode --quiet --yes(no-op for Live) and stdin '-' for any text argument | — |
+| IP-T59 | 2026-10-30 | feature | open | Generated help: `idiotproof help`, `idiotproof <noun> --help`, `idiotproof <noun> <verb> --help` from the catalog | — |
+| IP-T60 | 2026-10-30 | feature | open | Offline catalog: CLI references IdiotProof.Operations so help, agent bootstrap and docs export work with the Hub down | — |
+| IP-T61 | 2026-10-30 | feature | open | Exit-code contract 0 ok / 1 fail / 2 usage / 3 blocked by a gate / 4 confirmation required — documented and tested | — |
+| IP-T62 | 2026-10-30 | feature | open | idiotproof.cmd shim at repo root (dotnet run fallback, published exe preferred) | — |
+| IP-T63 | 2026-10-30 | feature | open | Owner resolution in CLI: --user, `users use` persisted default in %APPDATA%\MindAttic\IdiotProof\cli.json, single-user fallback | — |
+| IP-T64 | 2026-10-30 | feature | open | `agent bootstrap [--json]`: Hub health, owner, catalog paths, protocol doc, laws summary — runs without the Hub | — |
+| IP-T65 | 2026-10-30 | feature | open | Catalog completeness test: every operation has description, arg docs, JSON render; no name collisions | — |
+| IP-T66 | 2026-10-30 | feature | open | Create IdiotProof.Hub (ASP.NET Core minimal API, Kestrel bound to 127.0.0.1:5910) using AddIdiotProofCore | — |
+| IP-T67 | 2026-10-30 | feature | open | /api/health and /api/version endpoints (build, commit, uptime, db, feed, broker) | — |
+| IP-T68 | 2026-10-30 | feature | open | Hub API key: generated once, stored in Vault Tokens bucket 'idiotproof-hub'; HubKeyFilter guards every mutating endpoint | — |
+| IP-T69 | 2026-10-30 | feature | open | CLI HubClient: fail-closed health gate, X-IdiotProof-Key header, slow-op notice after 8s, 2h timeout, structured error output | — |
+| IP-T70 | 2026-10-30 | feature | open | /api/op dispatch endpoint (operation name + JSON args) and /api/catalog | — |
+| IP-T71 | 2026-10-30 | feature | open | CommandLedger entity + migration: op, redacted args, owner, caller, exit code, duration, UTC timestamp | — |
+| IP-T72 | 2026-10-30 | feature | open | SecretRedactor for ledger args (keys, secrets, passwords, tokens) | — |
+| IP-T73 | 2026-10-30 | feature | open | Ledger write on every /api/op call | — |
+| IP-T74 | 2026-10-30 | feature | open | Host MonitorWorker in the Hub as an IHostedService with the SQL leader lease and SupervisedLoop unchanged | — |
+| IP-T75 | 2026-10-30 | feature | open | Host AutoGapperScanner, PremarketFadeScanner and BeBexDecayScanner in the Hub with their existing enable flags | — |
+| IP-T76 | 2026-10-30 | feature | open | Windows Service hosting (UseWindowsService) that runs as the USER (LocalDB + DataProtection are user-scoped) | — |
+| IP-T77 | 2026-10-30 | feature | open | Single-instance guard + clear error when port 5910 is taken | — |
+| IP-T78 | 2026-10-30 | feature | open | Hub logging to MindAttic.Log file + /api/logs tail endpoint | — |
+| IP-T79 | 2026-10-30 | feature | open | Graceful shutdown: drain in-flight ops, stop the Monitor loop cleanly, release the lease | — |
+| IP-T80 | 2026-10-30 | feature | open | Monitor pause/resume flag (SettingsKv) honored at the top of each tick | — |
+| IP-T81 | 2026-10-30 | feature | open | IdiotProof.Monitor exe becomes a shim that runs the Hub host (backward-compatible start.bat) | — |
+| IP-T82 | 2026-10-30 | feature | open | SessionStart hook (.claude/settings.json) that starts the Hub when it is not running | — |
+| IP-T83 | 2026-10-30 | feature | open | `hub status\|start\|stop\|logs\|version` operations + CLI-side start/stop of the local process | — |
+| IP-T84 | 2026-10-30 | feature | open | `hub install-service\|uninstall-service` operations | — |
+| IP-T85 | 2026-10-30 | feature | open | OrderIntent model: asset (equity/option), side, qty/notional, type, limit, TIF, extended hours, BrokerMode, origin (monitor/manual/options/flatten), strategyId | — |
+| IP-T86 | 2026-10-30 | feature | open | TransactionGateway.SubmitAsync skeleton with ordered, individually-tested gate steps and a GateVerdict trail | — |
+| IP-T87 | 2026-10-30 | feature | open | Gate step: owner + BrokerMode resolution via UserBrokerResolver (IP-LAW-3, Sandbox default, never another user's keys) | — |
+| IP-T88 | 2026-10-30 | feature | open | Gate step: Mock-feed guard refuses non-Sandbox entries (IP-LAW-9) | — |
+| IP-T89 | 2026-10-30 | feature | open | Gate step: RiskGuardian (stop required on entries, size/limits, daily breaker; exits honor kill-switch) (IP-LAW-2) | — |
+| IP-T90 | 2026-10-30 | feature | open | Gate step: LLM voter panel for automated entries only (IP-LAW-1) | — |
+| IP-T91 | 2026-10-30 | feature | open | ConfirmationStore: 6-char single-use code, 120s TTL, bound to SHA-256 of the exact intent, persisted PendingConfirmation table | — |
+| IP-T92 | 2026-10-30 | feature | open | Live preview: cost, worst-case loss, account, buying power after, gate verdicts — returned with exit 4 | — |
+| IP-T93 | 2026-10-30 | feature | open | Every gateway outcome writes TradeDiary (fills), AuditLog (all) and CommandLedger linkage | — |
+| IP-T94 | 2026-10-30 | feature | open | Reroute MonitorWorker entries and exits through the gateway with behavior-parity tests | — |
+| IP-T95 | 2026-10-30 | feature | open | Reroute DirectionalOrders flatten / test-order through the gateway | — |
+| IP-T96 | 2026-10-30 | feature | open | Reroute OptionsTradingService orders through the gateway (Blazor keeps password elevation; CLI/MCP use confirm codes) | — |
+| IP-T97 | 2026-10-30 | feature | open | Activating a strategy in Live mode (or switching it to Live) requires a confirm code | — |
+| IP-T98 | 2026-10-30 | feature | open | Gateway law tests: one test per law/step, including expired/edited-intent confirm refusal | — |
+| IP-T99 | 2026-10-30 | feature | open | BIBLE: add laws 'Every order goes through TransactionGateway' and 'Live from CLI/MCP needs a confirm code' | — |
+| IP-T100 | 2026-10-30 | feature | open | `account summary [--mode]` (equity, cash, buying power, day P&L) for sandbox/paper/live | — |
+| IP-T101 | 2026-10-30 | feature | open | `account buying-power` and `account pdt` (day-trade count, PDT flag) | — |
+| IP-T102 | 2026-10-30 | feature | open | `account activities [--since]` (fills, dividends, fees) | — |
+| IP-T103 | 2026-10-30 | feature | open | `account clock` and `account calendar` (market session in ET) | — |
+| IP-T104 | 2026-10-30 | feature | open | `positions list [--mode]` with unrealized P&L | — |
+| IP-T105 | 2026-10-30 | feature | open | `positions show <symbol>` incl. owning strategy and diary row | — |
+| IP-T106 | 2026-10-30 | feature | open | `positions reconcile` (broker vs strategy bookkeeping, read-only report) | — |
+| IP-T107 | 2026-10-30 | feature | open | `orders list [--status]` and `orders show <id>` | — |
+| IP-T108 | 2026-10-30 | feature | open | `orders cancel <id>` and `orders cancel-all [--symbol]` through the gateway | — |
+| IP-T109 | 2026-10-30 | feature | open | `orders history [--days]` | — |
+| IP-T110 | 2026-10-30 | feature | open | `trade buy\|sell <symbol> <qty> [--limit] [--stop] [--target] [--mode]` through the gateway | — |
+| IP-T111 | 2026-10-30 | feature | open | `trade short\|cover <symbol> <qty>` through the gateway | — |
+| IP-T112 | 2026-10-30 | feature | open | `trade flatten --symbol\|--strategy\|--all [--mode]` | — |
+| IP-T113 | 2026-10-30 | feature | open | `trade preview …` (dry run: every gate verdict, no order) | — |
+| IP-T114 | 2026-10-30 | feature | open | `trade confirm <code>` executes a pending Live intent | — |
+| IP-T115 | 2026-10-30 | feature | open | `trade pending` lists unexpired Live confirmations | — |
+| IP-T116 | 2026-10-30 | feature | open | `trade notional <symbol> <$>` (fractional/notional buy) through the gateway | — |
+| IP-T117 | 2026-10-30 | feature | open | Create IdiotProof.Mcp (stdio, ModelContextProtocol SDK, logs to file — stdout is the wire) | — |
+| IP-T118 | 2026-10-30 | feature | open | Generate one MCP tool per operation from the catalog (snake_case noun_verb, JSON schema from the args record) | — |
+| IP-T119 | 2026-10-30 | feature | open | HubInvoker forwarding with structured errors: hub_unreachable, hub_timeout, hub_http_error, usage_error | — |
+| IP-T120 | 2026-10-30 | feature | open | Tool annotations from operation risk class (readOnlyHint / destructiveHint / idempotentHint) | — |
+| IP-T121 | 2026-10-30 | feature | open | ConfirmationRequired tool result tells the assistant to show the preview and ask the user before calling trade_confirm | — |
+| IP-T122 | 2026-10-30 | feature | open | MCP resources: BIBLE, user stories, operation catalog, protocol doc | — |
+| IP-T123 | 2026-10-30 | feature | open | tools/register-mcp.ps1 (`claude mcp add idiotproof …` against the Release build) + README | — |
+| IP-T124 | 2026-10-30 | feature | open | .claude/settings.json allow-list for read-only idiotproof tools; trade_confirm and destructive tools stay prompt-only | — |
+| IP-T125 | 2026-10-30 | feature | open | SessionStart hook keeps IdiotProof.Mcp Release build current so the schema is never stale | — |
+| IP-T126 | 2026-10-30 | feature | open | MCP schema test: every operation round-trips catalog -> tool schema -> binder | — |
+| IP-T127 | 2026-10-30 | feature | open | StrategyStamp short id IP-XXXX-XXXX (base32 of SHA-256 of the canonical JSON) | — |
+| IP-T128 | 2026-10-30 | feature | open | Stamp header block: symbol, direction, session, BrokerMode, qty/notional, id | — |
+| IP-T129 | 2026-10-30 | feature | open | Stamp phase flow: Setup -> Filters -> Entry -> Order -> Risk -> Exit boxes with every condition line | — |
+| IP-T130 | 2026-10-30 | feature | open | Stamp branch forks for If/ElseIf/Else conditional blocks | — |
+| IP-T131 | 2026-10-30 | feature | open | Stamp exit ladder: stop, TP targets, trailing, peak giveback@arm, sell-by | — |
+| IP-T132 | 2026-10-30 | feature | open | Stamp fingerprint: 17x9 drunken-bishop randomart over the canon hash | — |
+| IP-T133 | 2026-10-30 | feature | open | Stamp armored payload: BEGIN/END IDIOTPROOF STRATEGY, deflate + base64url + CRC32, fail-closed decode | — |
+| IP-T134 | 2026-10-30 | feature | open | Terminal QR of the payload (QRCoder, Unicode half-blocks) behind --qr | — |
+| IP-T135 | 2026-10-30 | feature | open | Stamp box-drawing variant behind --unicode (ASCII is the default) | — |
+| IP-T136 | 2026-10-30 | feature | open | Golden-file tests for every sample strategy + stamp -> import round trip yields an identical canon hash | — |
+| IP-T137 | 2026-10-30 | feature | open | `strategy list [--active] [--mode] [--symbol]` with live ConditionProgress badges | — |
+| IP-T138 | 2026-10-30 | feature | open | MonitorCli commands forward to the equivalent operations (status, set-keys, flatten, replay, scan, …) | — |
+| IP-T139 | 2026-10-30 | feature | open | `strategy show <id\|symbol>` (fields, canon summary, position, progress) | — |
+| IP-T140 | 2026-10-30 | feature | open | `strategy stamp <id> [--qr] [--unicode]` | — |
+| IP-T141 | 2026-10-30 | feature | open | `strategy export <id> --format json\|script\|stamp` | — |
+| IP-T142 | 2026-10-30 | feature | open | `strategy import --stamp\|--json\|--script <file\|->` through StrategyRepository (fail-closed canon) | — |
+| IP-T143 | 2026-10-30 | feature | open | `strategy create --script\|--json` with validation and Sandbox default | — |
+| IP-T144 | 2026-10-30 | feature | open | `strategy from-text "<plain English>" [--ticker] [--mode]` via StrategyScriptGenerator + Legion; shows stamp before saving | — |
+| IP-T145 | 2026-10-30 | feature | open | `strategy set <id> --field value` field-level edits (stop, target, qty, notional, times) re-canonicalized | — |
+| IP-T146 | 2026-10-30 | feature | open | `strategy validate <id\|--script>` (parse, canon, phase rules, risk preview) | — |
+| IP-T147 | 2026-10-30 | feature | open | `strategy activate\|deactivate <id>` respecting PositionOpen and gapper caps (IP-LAW-11) | — |
+| IP-T148 | 2026-10-30 | feature | open | `strategy mode <id> sandbox\|paper\|live` (live requires confirm code) | — |
+| IP-T149 | 2026-10-30 | feature | open | `strategy delete <id>` (soft-disable per house law, refuses open positions) | — |
+| IP-T150 | 2026-10-30 | feature | open | `strategy progress <id> [--watch]` live condition N/M + first failing verb | — |
+| IP-T151 | 2026-10-30 | feature | open | `strategy quarantine` lists quarantined strategies with reasons | — |
+| IP-T152 | 2026-10-30 | feature | open | `strategy resync-canon` (port of MonitorCli resync-canon) | — |
+| IP-T153 | 2026-10-30 | feature | open | `strategy clone <id> [--symbol]` | — |
+| IP-T154 | 2026-10-30 | feature | open | `strategy diff <a> <b>` (canon-level diff) | — |
+| IP-T155 | 2026-10-30 | feature | open | `strategy history <id>` (audit + diary trail) | — |
+| IP-T156 | 2026-10-30 | feature | open | `strategy from-watchlist <file>` (port of create-strategies) | — |
+| IP-T157 | 2026-10-30 | feature | open | `strategy rename <id> <name>` | — |
+| IP-T158 | 2026-10-30 | feature | open | `strategy samples` lists and shows built-in sample strategies | — |
+| IP-T159 | 2026-10-30 | feature | open | `strategy explain <id>` plain-English narrative generated deterministically from the canon | — |
+| IP-T160 | 2026-10-30 | feature | open | `strategy fires <id>` recent gate verdicts (why it did/didn't fire) | — |
+| IP-T161 | 2026-10-30 | feature | open | `strategy bulk activate\|deactivate --all\|--symbol` (quick actions) | — |
+| IP-T162 | 2026-10-30 | feature | open | `gapper profiles` lists the static profile catalog | — |
+| IP-T163 | 2026-10-30 | feature | open | `gapper profile show <name>` | — |
+| IP-T164 | 2026-10-30 | feature | open | `gapper tune <symbol> --profile <name> [--gap --stop --giveback --sell-by …]` generates the gapper strategy via GapperScriptFactory | — |
+| IP-T165 | 2026-10-30 | feature | open | `gapper arm\|disarm <symbol\|id>` honoring one-per-symbol and the 3-gapper cap | — |
+| IP-T166 | 2026-10-30 | feature | open | `gapper list` queued gappers with live state | — |
+| IP-T167 | 2026-10-30 | feature | open | `gapper from-transcript <file\|->` -> candidate cards (re-validated, not queued until `gapper arm`) | — |
+| IP-T168 | 2026-10-30 | feature | open | `gapper backtest-day <symbol> <date> [--profile]` with MFE/MAE, giveback grid, hindsight suggestion | — |
+| IP-T169 | 2026-10-30 | feature | open | `gapper auto status` (scan metrics from AutoGapperScan/Candidate) | — |
+| IP-T170 | 2026-10-30 | feature | open | `gapper auto enable\|disable` (paper-only, owner-scoped) | — |
+| IP-T171 | 2026-10-30 | feature | open | `gapper auto candidates [--date]` | — |
+| IP-T172 | 2026-10-30 | feature | open | `gapper premarket-fade [run\|status]` (port of MonitorCli premarket-fade) | — |
+| IP-T173 | 2026-10-30 | feature | open | `gapper be-bex status` (BeBexDecayScanner arm/disarm state) | — |
+| IP-T174 | 2026-10-30 | feature | open | `gapper apply-tuned <backtest-id>` applies a backtest's tuned profile on explicit command | — |
