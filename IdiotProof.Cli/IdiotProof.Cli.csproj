@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- `idiotproof` — the command-line front door (Epic W2). A thin client: everything except
+       help, version, owner defaults and Hub lifecycle runs on the Hub (POST /api/op). It references
+       IdiotProof.Operations so help and `agent bootstrap` work with the Hub down (IP-T60). -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>IdiotProof.Cli</RootNamespace>
+    <AssemblyName>idiotproof</AssemblyName>
+  </PropertyGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="IdiotProof.Cli.Tests" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\IdiotProof.Operations\IdiotProof.Operations.csproj" />
+  </ItemGroup>
+</Project>
