@@ -1,4 +1,4 @@
-﻿// ============================================================================
+// ============================================================================
 // IdiotProof.Scripting - IdiotScript DSL for Trading Strategies
 // ============================================================================
 // This library provides the IdiotScript domain-specific language for
@@ -37,6 +37,12 @@ public sealed class StrategyBuilder
     internal StrategyBuilder(string symbol)
     {
         strategy.Symbol = symbol.ToUpperInvariant();
+    }
+
+    /// <summary>Wraps an existing definition so it can be rendered as IdiotScript (see <see cref="StrategyDefinitionScript.ToScript"/>).</summary>
+    internal StrategyBuilder(StrategyDefinition existing)
+    {
+        strategy = existing;
     }
     
     // ========================================
@@ -1963,4 +1969,14 @@ public sealed class ConditionalBuilder
     public StrategyBuilder AdaptiveOrder() => parent.AdaptiveOrder();
     public StrategyDefinition Build() => parent.Build();
     public string ToScript() => parent.ToScript();
+}
+
+/// <summary>
+/// The human view of a canonical strategy (IP-LAW-8): any <see cref="StrategyDefinition"/> — loaded
+/// from JSON, decoded from a stamp — rendered as IdiotScript text with the same serializer the
+/// fluent builder uses, so it parses back through <see cref="ScriptParser"/>.
+/// </summary>
+public static class StrategyDefinitionScript
+{
+    public static string ToScript(this StrategyDefinition definition) => new StrategyBuilder(definition).ToScript();
 }

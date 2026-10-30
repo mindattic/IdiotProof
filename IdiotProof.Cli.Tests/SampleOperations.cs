@@ -43,7 +43,7 @@ public sealed class SampleStrategyOperation : IOperation<SampleArgs>
     public Task<OperationResult> ExecuteAsync(SampleArgs args, OperationContext ctx) => Task.FromResult(OperationResult.Ok());
 }
 
-[Operation("strategy list", Summary = "List strategies.")]
+[Operation("strategy roster", Summary = "List strategies.")]
 public sealed class SampleListOperation : IOperation<NoArgs>
 {
     public Task<OperationResult> ExecuteAsync(NoArgs args, OperationContext ctx) => Task.FromResult(OperationResult.Ok());

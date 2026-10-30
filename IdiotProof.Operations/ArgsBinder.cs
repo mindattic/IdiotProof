@@ -85,7 +85,7 @@ public static class ArgsBinder
         for (var i = 0; i < argv.Count; i++)
         {
             var token = argv[i];
-            if (optionsEnded || token == "-" || ArgvParser.IsNegativeNumber(token) || !token.StartsWith('-'))
+            if (optionsEnded || !ArgvParser.IsOptionToken(token))
             {
                 positionals.Add(token);
                 continue;
@@ -133,7 +133,7 @@ public static class ArgsBinder
             string value;
             if (option.IsFlag) value = negated ? "false" : inline ?? "true";
             else if (inline is not null) value = inline;
-            else if (i + 1 < argv.Count && !argv[i + 1].StartsWith("--", StringComparison.Ordinal)) value = argv[++i];
+            else if (i + 1 < argv.Count && !ArgvParser.IsLongOptionToken(argv[i + 1])) value = argv[++i];
             else
             {
                 errors.Add($"Option --{option.Name} needs a value ({option.TypeLabel}).");

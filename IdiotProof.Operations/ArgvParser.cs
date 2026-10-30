@@ -134,6 +134,19 @@ public static class ArgvParser
     }
 
     /// <summary>A token that reads as a negative number (<c>-5</c>, <c>-0.25</c>) is a value, not an option.</summary>
+    /// <summary>
+    /// Option-shaped: <c>-x</c> (a dash then a letter), <c>--name</c>, <c>--name=value</c> or the <c>--</c> end marker. Anything
+    /// else that merely starts with a dash — a negative number, <c>-</c> (stdin), a pasted
+    /// <c>-----BEGIN IDIOTPROOF STRATEGY-----</c> block — is a value.
+    /// </summary>
+    public static bool IsOptionToken(string token) =>
+        token == "--" || IsLongOptionToken(token) ||
+        (token.Length >= 2 && token[0] == '-' && char.IsLetter(token[1]));
+
+    /// <summary><c>--name</c> or <c>--name=value</c> with a letter first.</summary>
+    public static bool IsLongOptionToken(string token) =>
+        token.Length > 2 && token.StartsWith("--", StringComparison.Ordinal) && char.IsLetter(token[2]);
+
     internal static bool IsNegativeNumber(string token) =>
         token.Length > 1 && token[0] == '-' && (char.IsDigit(token[1]) || token[1] == '.' && token.Length > 2 && char.IsDigit(token[2]));
 }
