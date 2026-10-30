@@ -156,12 +156,14 @@ app.UseHttpsRedirection();
 // serves files from the published wwwroot. MapStaticAssets (below) uses the dev-mode
 // static-web-assets manifest which resolves source paths — those don't exist in the
 // publish output, so MapStaticAssets returns Content-Length:0 for every file.
+// AppContext.BaseDirectory is the exe's own folder — always correct for a published exe
+// regardless of the process working directory, which varies by how the bat is launched. A plain
+// `dotnet run` has no wwwroot under bin/, so fall back to the project's web root there.
+var staticRoot = Path.Combine(AppContext.BaseDirectory, "wwwroot");
+if (!Directory.Exists(staticRoot)) staticRoot = app.Environment.WebRootPath;
 app.UseStaticFiles(new StaticFileOptions
 {
-    // AppContext.BaseDirectory is the exe's own folder — always correct regardless
-    // of the process working directory, which varies by how the bat is launched.
-    FileProvider = new Microsoft.Extensions.FileProviders.PhysicalFileProvider(
-        Path.Combine(AppContext.BaseDirectory, "wwwroot"))
+    FileProvider = new Microsoft.Extensions.FileProviders.PhysicalFileProvider(staticRoot)
 });
 // UseMindAtticAuthentication wires UseAuthentication + UseAuthorization + forced-step
 // (MFA, must-change-password) middleware. Call after UseStaticFiles, before mapping.

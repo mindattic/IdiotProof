@@ -551,7 +551,7 @@ updated: 2026-10-03
 | IP-T28 | 2026-10-22 | docs | closed | Update USER_STORIES.md | — |
 | IP-T29 | 2026-10-24 | docs | closed | Update USER_STORIES.md | — |
 | IP-T30 | 2026-10-30 | feature | closed | Create IdiotProof.Core class library (net10.0) in IdiotProof.slnx, referencing Models/Shared/Scripting/Strategies/Brokers/DataFeeds/Engine/Indicators | 03bd8f5 |
-| IP-T31 | 2026-10-30 | feature | open | Enable GenerateDocumentationFile for every library via Directory.Build.props (CS1591 suppressed) so XML doc comments ship for the knowledge index | — |
+| IP-T31 | 2026-10-30 | feature | closed | Enable GenerateDocumentationFile for every library via Directory.Build.props (CS1591 suppressed) so XML doc comments ship for the knowledge index | c4bea77 |
 | IP-T32 | 2026-10-30 | feature | closed | Move AppDbContext and every Data/* entity from IdiotProof.Blazor to IdiotProof.Core (namespaces unchanged in this move) | 2193f54 |
 | IP-T33 | 2026-10-30 | feature | closed | Move EF Migrations + AppDbContextFactory to IdiotProof.Core with MigrationsAssembly set; migration IDs and snapshot unchanged | 2193f54 |
 | IP-T34 | 2026-10-30 | feature | closed | Introduce IOwnerContext (current owner GUID) — web resolves from the NameIdentifier claim, Hub/CLI from --user, persisted default, or the single AuthUsers row | 4f8bd99 OwnerResolverTests |
@@ -566,11 +566,11 @@ updated: 2026-10-03
 | IP-T43 | 2026-10-30 | feature | closed | Lift BrokerRouter + IMarketDataFeed construction (IDIOTPROOF_BROKER/FEED/ALPACA_FEED/STREAMING knobs) from Monitor/Program.cs into AddIdiotProofTrading() | d121531 CoreServiceRegistrationTests.CreateRouter_WithoutKeysOrOptIn_IsSandbox_AndFeedIsMock |
 | IP-T44 | 2026-10-30 | feature | closed | Move MonitorWorker, MonitorLeaderLease, DirectionalOrders, scanners (AutoGapper, PremarketFade, BeBexDecay), StrategyReplay*, ReplayFeatures/Templates, StrategyDataset, StrategyScanner, EmailSmsAlertSender into Core (Monitoring namespace) so any host can run them | 58a1e76 |
 | IP-T45 | 2026-10-30 | feature | closed | Re-point IdiotProof.Blazor Program.cs to AddIdiotProofCore; pushers, ToastService, LogAlertService stay in Blazor | c12dc63 |
-| IP-T46 | 2026-10-30 | feature | open | Re-point IdiotProof.Monitor to AddIdiotProofCore/AddIdiotProofTrading and drop its IdiotProof.Blazor project reference | — |
-| IP-T47 | 2026-10-30 | feature | open | Re-point IdiotProof.ResearchScanner to AddIdiotProofCore and drop its IdiotProof.Blazor project reference | — |
-| IP-T48 | 2026-10-30 | feature | open | Re-point Blazor.Tests and Monitor.Tests at IdiotProof.Core; add IdiotProof.Core.Tests project (NUnit) | — |
+| IP-T46 | 2026-10-30 | feature | closed | Re-point IdiotProof.Monitor to AddIdiotProofCore/AddIdiotProofTrading and drop its IdiotProof.Blazor project reference | c400572 |
+| IP-T47 | 2026-10-30 | feature | closed | Re-point IdiotProof.ResearchScanner to AddIdiotProofCore and drop its IdiotProof.Blazor project reference | d10b93d |
+| IP-T48 | 2026-10-30 | feature | closed | Re-point Blazor.Tests and Monitor.Tests at IdiotProof.Core; add IdiotProof.Core.Tests project (NUnit) | 4769b94 |
 | IP-T49 | 2026-10-30 | feature | open | Rename moved namespaces IdiotProof.Blazor.Data/Services -> IdiotProof.Core.Data/Services across the solution | — |
-| IP-T50 | 2026-10-30 | feature | open | Delete stale IdiotProof.sln (slnx is canonical) and fix any script that names it | — |
+| IP-T50 | 2026-10-30 | feature | closed | Delete stale IdiotProof.sln (slnx is canonical) and fix any script that names it | 7a09e4e |
 | IP-T51 | 2026-10-30 | feature | open | Create IdiotProof.Operations library: [Operation("noun verb")], [Option], [Argument], IOperation<TArgs> contract, risk class (Read/Write/Money/Destructive) | — |
 | IP-T52 | 2026-10-30 | feature | open | OperationContext: owner, IServiceProvider scope, caller (cli/mcp/blazor), output mode, cancellation, ET clock | — |
 | IP-T53 | 2026-10-30 | feature | open | OperationResult: status, data payload, human render, exit code, ConfirmationRequired variant | — |
@@ -811,3 +811,5 @@ updated: 2026-10-03
 | IP-T288 | 2026-10-30 | feature | open | tools/install-hub-service.ps1 registers the Hub Windows Service as the current user | — |
 | IP-T289 | 2026-10-30 | feature | open | idiotproof.exe on PATH from C:\Apps\IdiotProof\ (installer step, idempotent) | — |
 | IP-T290 | 2026-10-30 | feature | open | README: CLI quick start, MCP registration, Live confirm flow | — |
+| IP-T291 | 2026-10-30 | fix | open | Five EF migrations (20260721140000_AddDisplayName … 20260722000000_AddAuditLogCategoryTimeIndex) lack [Migration]/[DbContext] attributes and Designer files, so EF has never discovered or applied them | — |
+| IP-T292 | 2026-10-30 | fix | open | Plain `dotnet run` of IdiotProof.Blazor crashes: UseStaticFiles roots at {exe}/wwwroot, which only exists in publish output | — |
