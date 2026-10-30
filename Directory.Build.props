@@ -1,0 +1,10 @@
+<Project>
+  <!-- Every project ships its XML doc comments next to the assembly so the Hub's knowledge index
+       (`idiotproof docs explain <Type>`) can answer from the code's own documentation. Missing or
+       imperfect comments are not build noise: CS1591 (undocumented public member), CS1573/CS1572
+       (param tag mismatches) and CS1574/CS1734 (unresolved cref/paramref) stay silent. -->
+  <PropertyGroup>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);CS1591;CS1573;CS1572;CS1574;CS1734;CS1587;CS1570;CS1580;CS1584;CS1658;CS1712;CS1723</NoWarn>
+  </PropertyGroup>
+</Project>
