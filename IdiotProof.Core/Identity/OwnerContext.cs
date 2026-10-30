@@ -43,7 +43,7 @@ public static class OwnerResolver
         if (explicitOwnerId is { } id) return new OwnerResolution(id, null);
 
         await using var db = await dbFactory.CreateDbContextAsync(ct);
-        var ids = await db.AuthUsers.Select(x => x.Id).Take(2).ToListAsync(ct);
+        var ids = await db.AuthUsers.OrderBy(x => x.Id).Select(x => x.Id).Take(2).ToListAsync(ct);
         return ids.Count switch
         {
             1 => new OwnerResolution(ids[0], null),

@@ -1,8 +1,5 @@
 using IdiotProof.Blazor.Data;
-using IdiotProof.Blazor.Services;
 using IdiotProof.Core.Hosting;
-using Microsoft.AspNetCore.DataProtection;
-using IdiotProof.Engine.Settings;
 using IdiotProof.Engine.Storage;
 using IdiotProof.Monitor;
 using Microsoft.EntityFrameworkCore;
@@ -10,10 +7,6 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using MindAttic.Legion;
-using MindAttic.Vault.Configuration;
-using MindAttic.Vault.DependencyInjection;
-using MindAttic.Authentication.Web;
 
 // ── IdiotProof.Monitor ───────────────────────────────────────────────────────
 //
@@ -70,159 +63,25 @@ var builder = Host.CreateApplicationBuilder(args);
 // (stop/shutdown) map to the host's graceful cancellation.
 builder.Services.AddWindowsService(o => o.ServiceName = "IdiotProof.Monitor");
 
-// SQL Server — same connection-string priority chain as the Blazor host:
-// env var → IConfiguration → LocalDB fallback. Kept identical so the Monitor
-// always reads the same database the user is editing.
-var connStr =
-    Environment.GetEnvironmentVariable("ConnectionStrings__IdiotProof")
-    ?? builder.Configuration["ConnectionStrings:IdiotProof"]
-    ?? @"Server=(localdb)\MSSQLLocalDB;Database=IdiotProof;Trusted_Connection=True;TrustServerCertificate=True;";
-
-builder.Services.AddDbContextFactory<AppDbContext>(o => o.UseSqlServer(connStr));
-
-// AppSettings — same overlay chain the Blazor host uses (disk → env vars →
-// MindAttic LLM keyring → MindAttic broker keyring → IConfiguration via Vault)
-// so the Monitor reads the same configuration without re-implementing the
-// load path.
-builder.Configuration
-    .AddMindAtticVaultFiles();
-builder.Services.AddMindAtticVault(builder.Configuration);
-
-// Surface the Security vault bucket (pepper.v1, bootstrap-token, …) into config
-// for the auth stack used by the create-account CLI path. AddMindAtticVaultFiles
-// surfaces the broker/LLM buckets trading needs; the console also needs Security.
-// The file carries a UTF-8 BOM — File.ReadAllText strips it.
-var securityBucket = Path.Combine(
-    Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-    "MindAttic", "Security", "providers.json");
-if (File.Exists(securityBucket))
-{
-    // Guarded: a malformed/locked Security file must NOT crash the trading
-    // process on boot. Auth (create-account) would then fail loudly when used,
-    // but the Monitor's evaluation loop — which needs none of this — keeps running.
-    try
-    {
-        using var secDoc = System.Text.Json.JsonDocument.Parse(File.ReadAllText(securityBucket));
-        var secMem = new Dictionary<string, string?>();
-        foreach (var p in secDoc.RootElement.EnumerateObject())
-            if (p.Value.ValueKind == System.Text.Json.JsonValueKind.String)
-                secMem[$"MindAttic:Vault:Security:{p.Name}"] = p.Value.GetString();
-        builder.Configuration.AddInMemoryCollection(secMem);
-    }
-    catch (Exception ex)
-    {
-        Console.Error.WriteLine($"[startup] Security bucket unreadable ({ex.GetType().Name}: {ex.Message}) — create-account will be unavailable; trading loop unaffected.");
-    }
-}
-
+// The shared IdiotProof graph (HOUSE-LAW-6) — the same SQL database (env
+// ConnectionStrings__IdiotProof → configuration → LocalDB), Vault buckets (incl. Security for
+// the create-account auth path), AppSettings overlay chain, Legion voter panel and services the
+// web app registers. The Data Protection ring is the web app's ring (Blob + Key Vault, else
+// DataProtection:KeyRingPath, else the pinned %APPDATA% dev ring) so this process can decrypt the
+// per-user API keys the UI wrote. Monitor stays on-box while the web app may move to Azure, so
+// it MUST follow the same ring choice — see CoreServiceRegistration.SharedKeyRing.
+builder.Configuration.AddIdiotProofVault();
 var storage = new WebStorageProvider();
 storage.EnsureDirectories();
-var settings = AppSettings.Load(storage);
-settings.OverlayFromEnvironment();
-settings.OverlayFromMindAtticCredentials();
-settings.OverlayFromBrokerCredentials();
-settings.OverlayFromConfiguration(builder.Configuration);
-builder.Services.AddSingleton<IStorageProvider>(storage);
-builder.Services.AddSingleton(settings);
-
-// MindAttic.Legion — the universal LLM gateway. AddLegionClient registers the
-// HttpClient + the LegionClient itself; AddSignalVotingPanel puts the LLM gate
-// on Legion's own voter panel, configured from the legion.json shipped next to
-// this binary (claude/openai/gemini/deepseek, whichever have keys).
-builder.Services.AddLegionClient();
-builder.Services.AddSignalVotingPanel();
-
-// Risk Guardian — final gate after the LLM panel. Per-user instances are
-// cached by RiskGuardianService and seeded from UserPreferences risk fields
-// (set via the Settings page). Cache preserves the in-memory daily-loss
-// tracker across signals so the daily circuit breaker actually trips.
-builder.Services.AddSingleton<RiskGuardianService>();
-
-builder.Services.AddSingleton<StrategyRepository>();
-builder.Services.AddSingleton<ConditionProgressRepository>();
-builder.Services.AddSingleton<AuditLogRepository>();
-builder.Services.AddSingleton<TradeDiaryRepository>();
-builder.Services.AddSingleton<SettingsRepository>();
-
-// Connection string surfaced to the worker for the single-instance leader
-// lease (sp_getapplock — see MonitorLeaderLease).
-builder.Services.AddSingleton(new MonitorDatabase(connStr));
-
-// Data Protection — SAME app name + key ring as the Blazor host so this
-// process can decrypt the per-user API keys the UI wrote (UserApiKeys rows).
-// Monitor stays on-box while Blazor moves to Azure (per user decision), so
-// this MUST follow whichever ring Blazor is actually using — same
-// AzureBlobUri/KeyVaultKeyUri vs. KeyRingPath choice as
-// IdiotProof.Blazor/Program.cs, or the two processes decrypt with different
-// keys and every UserApiKeys row becomes unreadable to one of them.
-// Do NOT also call builder.Services.AddDataProtection() here: ASP.NET Core
-// only keeps ONE effective ApplicationDiscriminator/XmlRepository — whichever
-// Configure<DataProtectionOptions> action runs last wins, silently, based on
-// registration order. AddMindAtticAuthentication below registers its own
-// DataProtection builder (app name "MindAttic.Auth:{AppName}"); a second,
-// differently-named registration here previously only "worked" because it
-// happened to run first and get overridden — reordering either block would
-// have silently flipped the discriminator and made every UserApiKeys row
-// undecryptable to this process. opts.ConfigureDataProtection below is the
-// single source of truth for both the app name AND the key-ring choice.
-var dpBlobUri  = builder.Configuration["DataProtection:AzureBlobUri"];
-var dpKvKeyUri = builder.Configuration["DataProtection:KeyVaultKeyUri"];
-var keyRingPath = builder.Configuration["DataProtection:KeyRingPath"]
-    ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-        "MindAttic", "DataProtection", "IdiotProof");
-
-builder.Services.AddSingleton<UserKeyService>();
-// Per-owner Claude key for the LLM gate (owner's API Keys row, then the host key).
-builder.Services.AddSingleton<UserClaudeKeyResolver>();
-builder.Services.AddSingleton<EmailDomainBlocklistService>();
-
-// Auth stack (same as the Blazor host) so the operator CLI can create an
-// account through the REAL Argon2id+pepper path (create-account). Service
-// registration only — no web middleware runs in the console.
-builder.Services.AddMindAtticAuthentication<AppDbContext>(
-    builder.Configuration,
-    opts =>
-    {
-        opts.AppName = "IdiotProof";
-        opts.IsProduction = false;
-        opts.ConfigureDataProtection = dp =>
-        {
-            if (!string.IsNullOrWhiteSpace(dpBlobUri) && !string.IsNullOrWhiteSpace(dpKvKeyUri))
-            {
-                var dpCredential = new Azure.Identity.DefaultAzureCredential();
-                dp.PersistKeysToAzureBlobStorage(new Uri(dpBlobUri), dpCredential)
-                  .ProtectKeysWithAzureKeyVault(new Uri(dpKvKeyUri), dpCredential);
-            }
-            else
-            {
-                dp.PersistKeysToFileSystem(new DirectoryInfo(keyRingPath));
-            }
-        };
-    });
+builder.Services.AddIdiotProofCore(builder.Configuration, storage, new CoreHostOptions { PinDevKeyRing = true });
 
 // Market data + the one BrokerRouter (Sandbox always registered and the default, IP-LAW-3;
-// Alpaca joins when keyed) + per-strategy routing — IdiotProof.Core/Hosting/TradingServiceRegistration.
+// Alpaca joins when keyed) + per-strategy routing.
 // Knobs: IDIOTPROOF_FEED=mock|alpaca, IDIOTPROOF_BROKER=alpaca|sandbox, IDIOTPROOF_ALPACA_FEED=sip|iex.
 builder.Services.AddIdiotProofTrading();
 
-// On-demand gapper generator — resolved by the `auto-gapper` operator CLI only
-// (no scheduled trigger; standardized auto-generation is future work, Epic S).
-builder.Services.AddSingleton<AutoGapperScanner>();
-builder.Services.AddSingleton<IdiotProof.Blazor.Services.LiveBarRepository>();
-
-// Premarket blow-off/fade detector — triggered automatically by MonitorWorker's
-// tick loop (Mon-Fri, 9:00-10:00 AM ET, re-scanned every 5 min), detection-only
-// (no strategy created, no order placed).
-builder.Services.AddSingleton<EmailSmsAlertSender>();
-builder.Services.AddSingleton<PremarketFadeScanner>();
-
-// BE/BEX decay-signal scanner — triggered automatically by MonitorWorker's
-// tick loop (Mon-Fri, once daily 16:30-17:00 ET). Arms/disarms the BE
-// pullback strategy via StrategyRepository.SetActiveAsync; never touches
-// order placement directly.
-builder.Services.AddSingleton<BeBexDecayScanner>();
-
-builder.Services.AddHostedService<MonitorWorker>();
+// The tick loop, its scanners and the SQL leader lease (one trading Monitor per database).
+builder.Services.AddIdiotProofMonitor();
 
 builder.Logging.ClearProviders();
 builder.Logging.AddSimpleConsole(o =>

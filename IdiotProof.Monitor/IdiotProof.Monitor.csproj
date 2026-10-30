@@ -10,21 +10,9 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="10.0.*" />
-    <!-- Microsoft.Data.SqlClient (via EFCore.SqlServer) pins this transitively
-         at 10.0.7, which is inside the vulnerable range for CVE-2026-50527
-         (NU1903, GHSA-mmjf-rqrv-855v and siblings); first patched in 10.0.10.
-         A direct reference wins over the transitive pin. -->
-    <PackageReference Include="System.Security.Cryptography.Xml" Version="10.0.10" />
     <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.*" />
     <PackageReference Include="Microsoft.Extensions.Hosting.WindowsServices" Version="10.0.*" />
     <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="10.0.*" />
-    <!-- Premarket-fade alert emailing (EmailSmsAlertSender) — same email-to-SMS
-         gateway approach as MindAttic.Psst, without pulling in that assembly's
-         net10.0-windows + WindowsDesktop sound-effect dependency. -->
-    <PackageReference Include="MailKit" Version="4.16.0" />
-    <!-- User-facing files (replay pages, ML dataset) go through ArtifactWriter. -->
-    <PackageReference Include="MindAttic.Export" Version="3.0.0" />
   </ItemGroup>
 
   <ItemGroup>
@@ -43,7 +31,8 @@
     <ProjectReference Include="..\IdiotProof.DataFeeds\IdiotProof.DataFeeds.csproj" />
     <ProjectReference Include="..\IdiotProof.Brokers\IdiotProof.Brokers.csproj" />
     <ProjectReference Include="..\IdiotProof.Engine\IdiotProof.Engine.csproj" />
-    <ProjectReference Include="..\IdiotProof.Blazor\IdiotProof.Blazor.csproj" />
+    <!-- The shared service graph, the Monitor worker and the operator commands' services. -->
+    <ProjectReference Include="..\IdiotProof.Core\IdiotProof.Core.csproj" />
   </ItemGroup>
 
 </Project>

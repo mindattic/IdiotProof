@@ -74,5 +74,3 @@ public sealed class MonitorLeaderLease : IAsyncDisposable
     public ValueTask DisposeAsync() => connection.DisposeAsync();
 }
 
-/// <summary>The Monitor's database connection string, surfaced through DI for the lease.</summary>
-public sealed record MonitorDatabase(string ConnectionString);

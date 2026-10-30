@@ -45,7 +45,7 @@ public sealed class MonitorWorker(
     AppSettings appSettings,
     IMarketDataFeed feed,
     UserBrokerResolver brokerResolver,
-    MonitorDatabase database,
+    IdiotProof.Core.Hosting.IdiotProofDatabase database,
     IStorageProvider storage,
     IdiotProof.Blazor.Services.LiveBarRepository liveBarRepo,
     PremarketFadeScanner premarketFadeScanner,
