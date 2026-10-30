@@ -1,16 +1,13 @@
-using IdiotProof.Engine;
 using IdiotProof.Engine.Storage;
 using IdiotProof.Blazor.Components;
 using IdiotProof.Blazor.Data;
 using IdiotProof.Blazor.Hubs;
 using IdiotProof.Blazor.Services;
-using Microsoft.AspNetCore.DataProtection;
+using IdiotProof.Core.Hosting;
+using IdiotProof.Core.Identity;
 using Microsoft.EntityFrameworkCore;
 using MindAttic.Authentication.Services;
 using MindAttic.Authentication.Web;
-using MindAttic.Legion;
-using MindAttic.Vault.Configuration;
-using MindAttic.Vault.DependencyInjection;
 using MindAttic.Vault.Paths;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -44,15 +41,10 @@ if (builder.Environment.IsDevelopment())
 
 // Cloud-native configuration chain. Layered (later sources win):
 //   AddJsonFile (already added by WebApplicationBuilder for appsettings.json).
-//   AddMindAtticVaultFiles surfaces %APPDATA%\MindAttic\<bucket>\providers.json on dev.
+//   AddIdiotProofVault surfaces %APPDATA%\MindAttic\<bucket>\providers.json on dev (incl. Security).
 //   AddEnvironmentVariables (already present) picks up App Service Application
 //     Settings and Azure Key Vault references in production.
-builder.Configuration
-    .AddMindAtticVaultFiles(src => src.Buckets = [..src.Buckets, "Security"]);
-
-// Vault: cloud-native credential resolvers (LlmCredentialResolver,
-// BrokerCredentialResolver) registered alongside the legacy file-backed stores.
-builder.Services.AddMindAtticVault(builder.Configuration);
+builder.Configuration.AddIdiotProofVault();
 
 // ── Storage ──────────────────────────────────────────────────────────────────────
 // Resolves to %LOCALAPPDATA%\IdiotProof (or $IDIOTPROOF_DATA_DIR if set) so the CLI
@@ -65,77 +57,29 @@ builder.Services
     .AddRazorComponents()
     .AddInteractiveServerComponents();
 
-// ── Database ─────────────────────────────────────────────────────────────────────
-// Connection string priority: env var ConnectionStrings__IdiotProof →
-// appsettings ConnectionStrings:IdiotProof → LocalDB fallback. Same pattern as
-// Prose. Runtime + design-time (AppDbContextFactory) resolve identically.
-var connStr =
-    Environment.GetEnvironmentVariable("ConnectionStrings__IdiotProof")
-    ?? builder.Configuration.GetConnectionString("IdiotProof")
-    ?? @"Server=(localdb)\MSSQLLocalDB;Database=IdiotProof;Trusted_Connection=True;TrustServerCertificate=True;";
-
-builder.Services.AddDbContextFactory<AppDbContext>(o => o.UseSqlServer(connStr));
-builder.Services.AddScoped<AppDbContext>(sp =>
-    sp.GetRequiredService<IDbContextFactory<AppDbContext>>().CreateDbContext());
-
-// ── Authentication (MindAttic.Authentication — replaces ASP.NET Core Identity) ───
-// Registers Argon2id+pepper hashing, session management, MFA, lockout, audit trail,
-// and the MA cookie scheme ("MindAttic.Auth"). The Security vault bucket
-// (%APPDATA%\MindAttic\Security\providers.json) must supply pepper.v1 and
-// bootstrap-token before startup.
-builder.Services.AddMindAtticAuthentication<AppDbContext>(
-    builder.Configuration,
-    opts =>
-    {
-        opts.AppName = "IdiotProof";
-        opts.IsProduction = !builder.Environment.IsDevelopment();
-
-        // Production key-ring persistence (docs/BIBLE.md §4.4). The library fail-closes in
-        // production without this. The ring must be durable storage shared by
-        // every instance AND by the Monitor console (which reads the same ring
-        // to decrypt per-user API keys).
-        //
-        // Two supported prod shapes, picked by which config keys are present:
-        //   - DataProtection:AzureBlobUri + DataProtection:KeyVaultKeyUri — Azure
-        //     Blob Storage + Key Vault (the multi-instance/Container-Apps shape;
-        //     matches the pattern already used by Prose/Tutor). Auth via
-        //     DefaultAzureCredential (managed identity in Azure, az/VS login in dev).
-        //   - DataProtection:KeyRingPath — a single durable file path (e.g. Azure
-        //     App Service's %HOME%\data\dp-keys, which is instance-shared but not
-        //     multi-region). Kept for the current on-box/single-instance setup.
-        // Neither key set → dev uses the library's DevKeyRingPath convention
-        // (%APPDATA%\MindAttic\DataProtection\IdiotProof); production without
-        // either still fail-closes — that's the intended posture.
-        var blobUri  = builder.Configuration["DataProtection:AzureBlobUri"];
-        var kvKeyUri = builder.Configuration["DataProtection:KeyVaultKeyUri"];
-        var keyRingPath = builder.Configuration["DataProtection:KeyRingPath"];
-        if (!string.IsNullOrWhiteSpace(blobUri) && !string.IsNullOrWhiteSpace(kvKeyUri))
-        {
-            var credential = new Azure.Identity.DefaultAzureCredential();
-            opts.ConfigureDataProtection = dp =>
-                dp.PersistKeysToAzureBlobStorage(new Uri(blobUri), credential)
-                  .ProtectKeysWithAzureKeyVault(new Uri(kvKeyUri), credential);
-        }
-        else if (!string.IsNullOrWhiteSpace(keyRingPath))
-        {
-            opts.ConfigureDataProtection = dp =>
-                dp.PersistKeysToFileSystem(new DirectoryInfo(keyRingPath));
-        }
-    });
+// ── The shared IdiotProof graph (HOUSE-LAW-6) ────────────────────────────────────
+// SQL (env ConnectionStrings__IdiotProof → appsettings → LocalDB), Vault, the AppSettings
+// overlay chain, the SQL workspace store, MindAttic.Authentication on the shared Data
+// Protection key ring (Blob + Key Vault, else DataProtection:KeyRingPath, else the library's
+// dev ring; production with neither fails closed), MindAttic.Legion + the voter panel, and
+// every strategy/broker/risk/research service. The Hub and the Monitor register the same graph.
+//
+// Strategy evaluation AND order execution are owned by the Monitor (IP-LAW-10). This host
+// writes user edits to SQL; the Monitor re-reads them every tick. Do not resurrect a second
+// evaluation loop here.
+builder.Services.AddIdiotProofCore(builder.Configuration, storageProvider, new CoreHostOptions
+{
+    IsProduction = !builder.Environment.IsDevelopment(),
+    // E2E seam: IDIOTPROOF_FAKE_LLM=1 (Development only) re-points the LegionClient transport at
+    // FakeLlmHandler so Cypress runs are deterministic and never call a vendor (cy.intercept can't
+    // see server-side HTTP). Pair it with a dummy ClaudeApiKey env var.
+    UseFakeLlm = builder.Environment.IsDevelopment()
+        && Environment.GetEnvironmentVariable("IDIOTPROOF_FAKE_LLM") == "1",
+});
 
 builder.Services.AddAuthorization();
 builder.Services.AddCascadingAuthenticationState();
 builder.Services.AddAntiforgery();
-
-// ── Engine ───────────────────────────────────────────────────────────────────────
-// Register the SQL-backed workspace store before AddIdiotProofEngine so the
-// TryAddSingleton inside the engine picks it up instead of the JSON-on-disk default.
-builder.Services.AddSingleton<IdiotProof.Engine.Workspace.IWorkspaceStore>(sp =>
-    new IdiotProof.Blazor.Services.SqlWorkspaceStore(
-        sp.GetRequiredService<IDbContextFactory<AppDbContext>>(),
-        storageProvider));
-
-builder.Services.AddIdiotProofEngine(storageProvider, builder.Configuration);
 
 // ── SignalR ───────────────────────────────────────────────────────────────────────
 builder.Services.AddSignalR(o =>
@@ -144,50 +88,13 @@ builder.Services.AddSignalR(o =>
     o.EnableDetailedErrors = builder.Environment.IsDevelopment();
 });
 
-// ── Web services ─────────────────────────────────────────────────────────────────
-// Strategy evaluation AND order execution are owned by IdiotProof.Monitor (the
-// second startup project) — the single pipeline per IP-LAW-10. The
-// Blazor host writes user edits to SQL; the Monitor re-reads them every tick
-// (default 1s), so UI changes apply to the running console automatically. The
-// old in-process StrategyExecutionService (WorkspaceTab-binding evaluation)
-// was deleted 2026-07-18 — do not resurrect a second evaluation loop here.
-builder.Services.AddSingleton<TradingStateService>();
-// MindAttic.Legion is the gateway for all LLM communication — register the
-// universal client before any service that talks to an LLM.
-builder.Services.AddLegionClient();
-// E2E test seam: IDIOTPROOF_FAKE_LLM=1 (Development only) re-points the
-// LegionClient transport at FakeLlmHandler so Cypress runs are deterministic
-// and never call a vendor. Cy.intercept can't see server-side HTTP, so the
-// seam has to live here. Pair it with a dummy ClaudeApiKey env var.
-if (builder.Environment.IsDevelopment()
-    && Environment.GetEnvironmentVariable("IDIOTPROOF_FAKE_LLM") == "1")
-{
-    builder.Services.AddTransient<LegionClient>(_ =>
-        new LegionClient(new HttpClient(new FakeLlmHandler()), options: null));
-}
-builder.Services.AddSignalVotingPanel();
-builder.Services.AddScoped<UserKeyService>();
+// ── Web-only services ────────────────────────────────────────────────────────────
 // The requesting user's Claude key (their own, then the host's) for Describe, the Gapper
 // transcript reader and Research; resolved per call, never cached across users.
-builder.Services.AddScoped<UserClaudeKeyResolver>();
 builder.Services.AddScoped<SignedInClaudeKey>();
-builder.Services.AddScoped<IdiotProof.Core.Identity.IClaudeKeyContext>(sp => sp.GetRequiredService<SignedInClaudeKey>());
-builder.Services.AddScoped<AccountSummaryService>();
-builder.Services.AddSingleton<StrategyRepository>();
-builder.Services.AddSingleton<UserPreferencesService>();
-builder.Services.AddSingleton<StrategyScriptGenerator>();
-builder.Services.AddSingleton<IdiotProof.Core.Catalogs.IStaticCatalogSource>(IdiotProof.Core.Catalogs.StaticCatalogSource.Default);
-builder.Services.AddSingleton<GapperProfileService>();
+builder.Services.AddScoped<IClaudeKeyContext>(sp => sp.GetRequiredService<SignedInClaudeKey>());
 builder.Services.AddScoped<ToastService>();
-builder.Services.AddSingleton<GapperInterpreter>();
-builder.Services.AddSingleton<SettingsRepository>();
-builder.Services.AddSingleton<AuditLogRepository>();
 builder.Services.AddSingleton<LogAlertService>();
-builder.Services.AddSingleton<TradeDiaryRepository>();
-builder.Services.AddSingleton<EmailDomainBlocklistService>();
-builder.Services.AddSingleton<ConditionProgressRepository>();
-builder.Services.AddSingleton<LiveBarRepository>();
-builder.Services.AddSingleton<RiskGuardianService>();
 // Pusher singletons: registered as both injectable singleton and hosted service so
 // pages can @inject them directly to subscribe to change events.
 builder.Services.AddSingleton<LiveBarPusher>();
@@ -196,35 +103,6 @@ builder.Services.AddSingleton<ConditionProgressPusher>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<ConditionProgressPusher>());
 builder.Services.AddSingleton<AuditLogPusher>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<AuditLogPusher>());
-builder.Services.AddHttpClient();
-builder.Services.AddHttpClient("edgar", c =>
-{
-    // SEC EDGAR requires a descriptive User-Agent per their access policy. The contact
-    // email MUST be a parenthesized comment, not a bare token — .NET's strict header
-    // parser rejects "@" in a bare product token (FormatException), and EdgarService's
-    // own fail-closed try/catch was silently swallowing that on every single call.
-    c.DefaultRequestHeaders.UserAgent.ParseAdd("IdiotProof/1 (research@idiotproof.app)");
-    c.Timeout = TimeSpan.FromSeconds(15);
-});
-builder.Services.AddHttpClient("usspends", c =>
-{
-    c.Timeout = TimeSpan.FromSeconds(15);
-});
-builder.Services.AddScoped<EdgarService>();
-builder.Services.AddScoped<UsSpendsService>();
-builder.Services.AddScoped<AlpacaNewsService>();
-builder.Services.AddScoped<CatalystExtractor>();
-builder.Services.AddScoped<ClaimVectorService>();
-builder.Services.AddSingleton<ClaimCorrelationService>();
-builder.Services.AddScoped<ResearchService>();
-builder.Services.AddScoped<TickerUniverseService>();
-builder.Services.AddScoped<CorporateActionDetector>();
-builder.Services.AddScoped<RegulatoryScanner>();
-builder.Services.AddScoped<IndexEventScanner>();
-builder.Services.AddScoped<SignificanceScorer>();
-builder.Services.AddScoped<OutcomeBackfillService>();
-builder.Services.AddSingleton<LiveModeElevationService>();
-builder.Services.AddScoped<OptionsTradingService>();
 
 // Dev credential carrier — populated from .env only in Development.
 // In Production this resolves to a singleton with both fields null, so the
