@@ -13,6 +13,10 @@
     <InternalsVisibleTo Include="IdiotProof.Blazor.Tests" />
     <InternalsVisibleTo Include="IdiotProof.Monitor.Tests" />
     <InternalsVisibleTo Include="IdiotProof.Core.Tests" />
+    <!-- The Monitor exe (assembly idiotproof-monitor) and the Hub host the worker and the operator commands. -->
+    <InternalsVisibleTo Include="idiotproof-monitor" />
+    <InternalsVisibleTo Include="IdiotProof.Hub" />
+    <InternalsVisibleTo Include="IdiotProof.Operations" />
   </ItemGroup>
   <ItemGroup>
     <!-- The implicit usings the services had under the Web SDK, so they move without edits. -->
@@ -35,6 +39,11 @@
     <!-- Microsoft.Data.SqlClient (via EFCore.SqlServer) pins this transitively at 10.0.7, inside
          the vulnerable range for CVE-2026-50527 (NU1903); first patched in 10.0.10. -->
     <PackageReference Include="System.Security.Cryptography.Xml" Version="10.0.10" />
+    <!-- Premarket-fade alert emailing (EmailSmsAlertSender) — same email-to-SMS gateway approach as
+         MindAttic.Psst, without that assembly's net10.0-windows sound-effect dependency. -->
+    <PackageReference Include="MailKit" Version="4.16.0" />
+    <!-- User-facing files (replay pages, ML dataset) go through ArtifactWriter. -->
+    <PackageReference Include="MindAttic.Export" Version="3.0.0" />
   </ItemGroup>
   <ItemGroup>
     <!-- Static JSON catalogs (IP-LAW-7) ship to {app}/data/ of every host that references Core. -->
