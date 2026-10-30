@@ -611,7 +611,7 @@ updated: 2026-10-03
 | IP-T88 | 2026-10-30 | feature | open | Gate step: Mock-feed guard refuses non-Sandbox entries (IP-LAW-9) | — |
 | IP-T89 | 2026-10-30 | feature | open | Gate step: RiskGuardian (stop required on entries, size/limits, daily breaker; exits honor kill-switch) (IP-LAW-2) | — |
 | IP-T90 | 2026-10-30 | feature | open | Gate step: LLM voter panel for automated entries only (IP-LAW-1) | — |
-| IP-T91 | 2026-10-30 | feature | open | ConfirmationStore: 6-char single-use code, 120s TTL, bound to SHA-256 of the exact intent, persisted PendingConfirmation table | — |
+| IP-T91 | 2026-10-30 | feature | closed | ConfirmationStore: 6-char single-use code, 120s TTL, bound to SHA-256 of the exact intent, persisted PendingConfirmation table | fe72a2a ConfirmationStoreTests |
 | IP-T92 | 2026-10-30 | feature | open | Live preview: cost, worst-case loss, account, buying power after, gate verdicts — returned with exit 4 | — |
 | IP-T93 | 2026-10-30 | feature | open | Every gateway outcome writes TradeDiary (fills), AuditLog (all) and CommandLedger linkage | — |
 | IP-T94 | 2026-10-30 | feature | open | Reroute MonitorWorker entries and exits through the gateway with behavior-parity tests | — |

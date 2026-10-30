@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <!-- The one long-running IdiotProof process: hosts the Monitor (the only evaluator and order
+       placer, IP-LAW-10) and serves every operation to the CLI, the MCP server and the web app
+       over loopback HTTP. -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>IdiotProof.Hub</RootNamespace>
+    <AssemblyName>idiotproof-hub</AssemblyName>
+  </PropertyGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="IdiotProof.Hub.Tests" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Hosting.WindowsServices" Version="10.0.*" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- Legion voter-panel config (repo root): a deployed host has no repo checkout. -->
+    <Content Include="..\legion.json" Link="legion.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\IdiotProof.Core\IdiotProof.Core.csproj" />
+    <ProjectReference Include="..\IdiotProof.Operations\IdiotProof.Operations.csproj" />
+  </ItemGroup>
+</Project>
