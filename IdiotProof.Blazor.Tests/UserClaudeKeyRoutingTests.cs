@@ -5,6 +5,7 @@ using System.Text.Json;
 using IdiotProof.Blazor.Data;
 using IdiotProof.Blazor.Services;
 using IdiotProof.Core.Catalogs;
+using IdiotProof.Core.Identity;
 using IdiotProof.Engine.Settings;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -65,6 +66,23 @@ public sealed class UserClaudeKeyRoutingTests
             Assert.That(asCarol.ClaudeApiKey, Is.EqualTo(HostKey));
             Assert.That(asCarol.KeySource, Is.EqualTo("host"));
             Assert.That(anonymous.ClaudeApiKey, Is.EqualTo(HostKey));
+        });
+    }
+
+    [Test]
+    public async Task OwnerKey_HeadlessFrontDoors_UseTheOperationOwnersKey_ElseTheHostKey()
+    {
+        var asBob   = await new OwnerClaudeKeyContext(new FixedOwnerContext(Bob), Resolver(HostKey)).ResolveAsync();
+        var asCarol = await new OwnerClaudeKeyContext(new FixedOwnerContext(Carol), Resolver(HostKey)).ResolveAsync();
+        var nobody  = await new OwnerClaudeKeyContext(new FixedOwnerContext(null), Resolver(HostKey)).ResolveAsync();
+        var bare    = await new OwnerClaudeKeyContext(new FixedOwnerContext(null), Resolver(null)).ResolveAsync();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(asBob.ClaudeApiKey, Is.EqualTo(BobKey));
+            Assert.That(asCarol.ClaudeApiKey, Is.EqualTo(HostKey));
+            Assert.That(nobody.ClaudeApiKey, Is.EqualTo(HostKey));
+            Assert.That(bare.ClaudeApiKey, Is.Null);
         });
     }
 

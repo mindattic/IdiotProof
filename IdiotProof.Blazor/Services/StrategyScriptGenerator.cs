@@ -22,7 +22,7 @@ public sealed class StrategyScriptGenerator(LegionClient legion, AppSettings app
     /// Single-shot generation. Returns the raw IdiotScript text Claude produced,
     /// stripped of any explanatory prose / fence markers. Caller is responsible
     /// for parse-time validation; Claude is told to emit ONLY a fluent chain.
-    /// <paramref name="claude"/> is the requesting user's key (<see cref="SignedInClaudeKey"/>:
+    /// <paramref name="claude"/> is the requesting user's key (<see cref="IdiotProof.Core.Identity.IClaudeKeyContext"/>:
     /// their own, then the host's); it is used for this one call and never stored.
     /// </summary>
     public async Task<GenerationResult> GenerateAsync(string prose, string ticker, SignalVotingCredentials claude, CancellationToken ct = default)

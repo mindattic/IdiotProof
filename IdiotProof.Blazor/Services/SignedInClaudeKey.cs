@@ -1,16 +1,17 @@
 using System.Security.Claims;
+using IdiotProof.Core.Identity;
 using Microsoft.AspNetCore.Components.Authorization;
 
 namespace IdiotProof.Blazor.Services;
 
 /// <summary>
-/// The Claude key for the person making this request: the signed-in user's own key from the API
+/// The web front door's <see cref="IClaudeKeyContext"/>: the Claude key for the person making this request: the signed-in user's own key from the API
 /// Keys page, then the host key, then none (<see cref="UserClaudeKeyResolver"/>, the same rule the
 /// Monitor uses for a strategy owner). Scoped per circuit and resolved on every call, never cached,
 /// so one user's key can never serve another user's request. The Describe tab, the Gapper transcript
 /// reader and the Research page resolve through here and pass the result to the LLM service.
 /// </summary>
-public sealed class SignedInClaudeKey
+public sealed class SignedInClaudeKey : IClaudeKeyContext
 {
     private readonly Func<Task<ClaimsPrincipal>> currentUser;
     private readonly UserClaudeKeyResolver resolver;

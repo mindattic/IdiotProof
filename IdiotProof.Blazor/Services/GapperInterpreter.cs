@@ -37,7 +37,7 @@ public sealed class GapperInterpreter(
     private const int MaxCandidates = 5;
 
     /// <summary>
-    /// <paramref name="claude"/> is the requesting user's key (<see cref="SignedInClaudeKey"/>: their
+    /// <paramref name="claude"/> is the requesting user's key (<see cref="IdiotProof.Core.Identity.IClaudeKeyContext"/>: their
     /// own, then the host's); it is used for this one call and never stored.
     /// </summary>
     public async Task<GapperInterpretation> InterpretAsync(string transcript, SignalVotingCredentials claude, CancellationToken ct = default)

@@ -171,6 +171,7 @@ builder.Services.AddScoped<UserKeyService>();
 // transcript reader and Research; resolved per call, never cached across users.
 builder.Services.AddScoped<UserClaudeKeyResolver>();
 builder.Services.AddScoped<SignedInClaudeKey>();
+builder.Services.AddScoped<IdiotProof.Core.Identity.IClaudeKeyContext>(sp => sp.GetRequiredService<SignedInClaudeKey>());
 builder.Services.AddScoped<AccountSummaryService>();
 builder.Services.AddSingleton<StrategyRepository>();
 builder.Services.AddSingleton<UserPreferencesService>();

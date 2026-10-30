@@ -24,7 +24,7 @@ public sealed class ResearchService(
     /// <summary>
     /// Analyse a single article or filing. Extracts catalysts + portents via LLM,
     /// persists them, and returns the saved claims. <paramref name="claudeApiKey"/> is the
-    /// signed-in user's key (<see cref="SignedInClaudeKey"/>); null means no signed-in user (the
+    /// signed-in user's key (<see cref="IdiotProof.Core.Identity.IClaudeKeyContext"/>); null means no signed-in user (the
     /// scheduled scan), which uses the host key. It is passed per call, never stored.
     /// </summary>
     public async Task<List<ResearchClaim>> AnalyzeArticleAsync(
