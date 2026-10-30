@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- stdio MCP server: one tool per Hub operation, generated from the operation catalog and
+       forwarded to the Hub. stdout is the protocol wire — nothing else may write to it. -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>IdiotProof.Mcp</RootNamespace>
+    <AssemblyName>idiotproof-mcp</AssemblyName>
+  </PropertyGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="IdiotProof.Mcp.Tests" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="ModelContextProtocol" Version="2.3.0" />
+    <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.*" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\IdiotProof.Operations\IdiotProof.Operations.csproj" />
+  </ItemGroup>
+</Project>

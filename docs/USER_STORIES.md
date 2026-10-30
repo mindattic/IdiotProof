@@ -586,14 +586,14 @@ updated: 2026-10-03
 | IP-T63 | 2026-10-30 | feature | open | Owner resolution in CLI: --user, `users use` persisted default in %APPDATA%\MindAttic\IdiotProof\cli.json, single-user fallback | — |
 | IP-T64 | 2026-10-30 | feature | open | `agent bootstrap [--json]`: Hub health, owner, catalog paths, protocol doc, laws summary — runs without the Hub | — |
 | IP-T65 | 2026-10-30 | feature | closed | Catalog completeness test: every operation has description, arg docs, JSON render; no name collisions | 3444682 |
-| IP-T66 | 2026-10-30 | feature | open | Create IdiotProof.Hub (ASP.NET Core minimal API, Kestrel bound to 127.0.0.1:5910) using AddIdiotProofCore | — |
-| IP-T67 | 2026-10-30 | feature | open | /api/health and /api/version endpoints (build, commit, uptime, db, feed, broker) | — |
-| IP-T68 | 2026-10-30 | feature | open | Hub API key: generated once, stored in Vault Tokens bucket 'idiotproof-hub'; HubKeyFilter guards every mutating endpoint | — |
+| IP-T66 | 2026-10-30 | feature | closed | Create IdiotProof.Hub (ASP.NET Core minimal API, Kestrel bound to 127.0.0.1:5910) using AddIdiotProofCore | c4193c3 |
+| IP-T67 | 2026-10-30 | feature | closed | /api/health and /api/version endpoints (build, commit, uptime, db, feed, broker) | c4193c3 |
+| IP-T68 | 2026-10-30 | feature | closed | Hub API key: generated once, stored in Vault Tokens bucket 'idiotproof-hub'; HubKeyFilter guards every mutating endpoint | c4193c3 |
 | IP-T69 | 2026-10-30 | feature | open | CLI HubClient: fail-closed health gate, X-IdiotProof-Key header, slow-op notice after 8s, 2h timeout, structured error output | — |
-| IP-T70 | 2026-10-30 | feature | open | /api/op dispatch endpoint (operation name + JSON args) and /api/catalog | — |
+| IP-T70 | 2026-10-30 | feature | closed | /api/op dispatch endpoint (operation name + JSON args) and /api/catalog | c4193c3 |
 | IP-T71 | 2026-10-30 | feature | closed | CommandLedger entity + migration: op, redacted args, owner, caller, exit code, duration, UTC timestamp | c49a127 |
 | IP-T72 | 2026-10-30 | feature | closed | SecretRedactor for ledger args (keys, secrets, passwords, tokens) | 9531ab4 SecretRedactorTests |
-| IP-T73 | 2026-10-30 | feature | open | Ledger write on every /api/op call | — |
+| IP-T73 | 2026-10-30 | feature | closed | Ledger write on every /api/op call | c4193c3 |
 | IP-T74 | 2026-10-30 | feature | open | Host MonitorWorker in the Hub as an IHostedService with the SQL leader lease and SupervisedLoop unchanged | — |
 | IP-T75 | 2026-10-30 | feature | open | Host AutoGapperScanner, PremarketFadeScanner and BeBexDecayScanner in the Hub with their existing enable flags | — |
 | IP-T76 | 2026-10-30 | feature | open | Windows Service hosting (UseWindowsService) that runs as the USER (LocalDB + DataProtection are user-scoped) | — |

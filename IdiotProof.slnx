@@ -15,6 +15,7 @@
     <Project Path="IdiotProof.Core.Tests/IdiotProof.Core.Tests.csproj" />
     <Project Path="IdiotProof.Engine.Tests/IdiotProof.Engine.Tests.csproj" />
     <Project Path="IdiotProof.Indicators.Tests/IdiotProof.Indicators.Tests.csproj" />
+    <Project Path="IdiotProof.Mcp.Tests/IdiotProof.Mcp.Tests.csproj" />
     <Project Path="IdiotProof.Monitor.Tests/IdiotProof.Monitor.Tests.csproj" />
     <Project Path="IdiotProof.Operations.Tests/IdiotProof.Operations.Tests.csproj" />
     <Project Path="IdiotProof.Strategies.Tests/IdiotProof.Strategies.Tests.csproj" />
@@ -24,6 +25,7 @@
   <Project Path="IdiotProof.Shared/IdiotProof.Shared.csproj" />
   <Project Path="IdiotProof.Blazor/IdiotProof.Blazor.csproj" />
   <Project Path="IdiotProof.Hub/IdiotProof.Hub.csproj" />
+  <Project Path="IdiotProof.Mcp/IdiotProof.Mcp.csproj" />
   <Project Path="IdiotProof.Monitor/IdiotProof.Monitor.csproj" />
   <Project Path="IdiotProof.ResearchScanner/IdiotProof.ResearchScanner.csproj" />
   <Project Path="IdiotProof.UI/IdiotProof.UI.csproj" />
