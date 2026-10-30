@@ -28,6 +28,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\IdiotProof.Models\IdiotProof.Models.csproj" />
+    <ProjectReference Include="..\IdiotProof.Core\IdiotProof.Core.csproj" />
     <ProjectReference Include="..\IdiotProof.Monitor\IdiotProof.Monitor.csproj" />
   </ItemGroup>
 

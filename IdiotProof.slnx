@@ -11,6 +11,7 @@
   <Folder Name="/tests/">
     <Project Path="IdiotProof.Blazor.Tests/IdiotProof.Blazor.Tests.csproj" />
     <Project Path="IdiotProof.Brokers.Tests/IdiotProof.Brokers.Tests.csproj" />
+    <Project Path="IdiotProof.Core.Tests/IdiotProof.Core.Tests.csproj" />
     <Project Path="IdiotProof.Engine.Tests/IdiotProof.Engine.Tests.csproj" />
     <Project Path="IdiotProof.Indicators.Tests/IdiotProof.Indicators.Tests.csproj" />
     <Project Path="IdiotProof.Monitor.Tests/IdiotProof.Monitor.Tests.csproj" />
