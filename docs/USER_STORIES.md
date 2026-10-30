@@ -585,7 +585,7 @@ updated: 2026-10-03
 | IP-T62 | 2026-10-30 | feature | open | idiotproof.cmd shim at repo root (dotnet run fallback, published exe preferred) | — |
 | IP-T63 | 2026-10-30 | feature | open | Owner resolution in CLI: --user, `users use` persisted default in %APPDATA%\MindAttic\IdiotProof\cli.json, single-user fallback | — |
 | IP-T64 | 2026-10-30 | feature | open | `agent bootstrap [--json]`: Hub health, owner, catalog paths, protocol doc, laws summary — runs without the Hub | — |
-| IP-T65 | 2026-10-30 | feature | open | Catalog completeness test: every operation has description, arg docs, JSON render; no name collisions | — |
+| IP-T65 | 2026-10-30 | feature | closed | Catalog completeness test: every operation has description, arg docs, JSON render; no name collisions | 3444682 |
 | IP-T66 | 2026-10-30 | feature | open | Create IdiotProof.Hub (ASP.NET Core minimal API, Kestrel bound to 127.0.0.1:5910) using AddIdiotProofCore | — |
 | IP-T67 | 2026-10-30 | feature | open | /api/health and /api/version endpoints (build, commit, uptime, db, feed, broker) | — |
 | IP-T68 | 2026-10-30 | feature | open | Hub API key: generated once, stored in Vault Tokens bucket 'idiotproof-hub'; HubKeyFilter guards every mutating endpoint | — |
@@ -605,7 +605,7 @@ updated: 2026-10-03
 | IP-T82 | 2026-10-30 | feature | open | SessionStart hook (.claude/settings.json) that starts the Hub when it is not running | — |
 | IP-T83 | 2026-10-30 | feature | open | `hub status\|start\|stop\|logs\|version` operations + CLI-side start/stop of the local process | — |
 | IP-T84 | 2026-10-30 | feature | open | `hub install-service\|uninstall-service` operations | — |
-| IP-T85 | 2026-10-30 | feature | open | OrderIntent model: asset (equity/option), side, qty/notional, type, limit, TIF, extended hours, BrokerMode, origin (monitor/manual/options/flatten), strategyId | — |
+| IP-T85 | 2026-10-30 | feature | closed | OrderIntent model: asset (equity/option), side, qty/notional, type, limit, TIF, extended hours, BrokerMode, origin (monitor/manual/options/flatten), strategyId | df5f2f2 ConfirmationStoreTests.Hash_ChangesWithAnyOrderField_ButNotWithTheNote |
 | IP-T86 | 2026-10-30 | feature | open | TransactionGateway.SubmitAsync skeleton with ordered, individually-tested gate steps and a GateVerdict trail | — |
 | IP-T87 | 2026-10-30 | feature | open | Gate step: owner + BrokerMode resolution via UserBrokerResolver (IP-LAW-3, Sandbox default, never another user's keys) | — |
 | IP-T88 | 2026-10-30 | feature | open | Gate step: Mock-feed guard refuses non-Sandbox entries (IP-LAW-9) | — |
@@ -648,15 +648,15 @@ updated: 2026-10-03
 | IP-T125 | 2026-10-30 | feature | open | SessionStart hook keeps IdiotProof.Mcp Release build current so the schema is never stale | — |
 | IP-T126 | 2026-10-30 | feature | open | MCP schema test: every operation round-trips catalog -> tool schema -> binder | — |
 | IP-T127 | 2026-10-30 | feature | closed | StrategyStamp short id IP-XXXX-XXXX (base32 of SHA-256 of the canonical JSON) | 463a343 |
-| IP-T128 | 2026-10-30 | feature | open | Stamp header block: symbol, direction, session, BrokerMode, qty/notional, id | — |
-| IP-T129 | 2026-10-30 | feature | open | Stamp phase flow: Setup -> Filters -> Entry -> Order -> Risk -> Exit boxes with every condition line | — |
-| IP-T130 | 2026-10-30 | feature | open | Stamp branch forks for If/ElseIf/Else conditional blocks | — |
-| IP-T131 | 2026-10-30 | feature | open | Stamp exit ladder: stop, TP targets, trailing, peak giveback@arm, sell-by | — |
-| IP-T132 | 2026-10-30 | feature | open | Stamp fingerprint: 17x9 drunken-bishop randomart over the canon hash | — |
-| IP-T133 | 2026-10-30 | feature | open | Stamp armored payload: BEGIN/END IDIOTPROOF STRATEGY, deflate + base64url + CRC32, fail-closed decode | — |
-| IP-T134 | 2026-10-30 | feature | open | Terminal QR of the payload (QRCoder, Unicode half-blocks) behind --qr | — |
-| IP-T135 | 2026-10-30 | feature | open | Stamp box-drawing variant behind --unicode (ASCII is the default) | — |
-| IP-T136 | 2026-10-30 | feature | open | Golden-file tests for every sample strategy + stamp -> import round trip yields an identical canon hash | — |
+| IP-T128 | 2026-10-30 | feature | closed | Stamp header block: symbol, direction, session, BrokerMode, qty/notional, id | 463a343 |
+| IP-T129 | 2026-10-30 | feature | closed | Stamp phase flow: Setup -> Filters -> Entry -> Order -> Risk -> Exit boxes with every condition line | 463a343 |
+| IP-T130 | 2026-10-30 | feature | closed | Stamp branch forks for If/ElseIf/Else conditional blocks | 463a343 |
+| IP-T131 | 2026-10-30 | feature | closed | Stamp exit ladder: stop, TP targets, trailing, peak giveback@arm, sell-by | 463a343 |
+| IP-T132 | 2026-10-30 | feature | closed | Stamp fingerprint: 17x9 drunken-bishop randomart over the canon hash | 463a343 |
+| IP-T133 | 2026-10-30 | feature | closed | Stamp armored payload: BEGIN/END IDIOTPROOF STRATEGY, deflate + base64url + CRC32, fail-closed decode | 463a343 |
+| IP-T134 | 2026-10-30 | feature | closed | Terminal QR of the payload (QRCoder, Unicode half-blocks) behind --qr | 090e38f |
+| IP-T135 | 2026-10-30 | feature | closed | Stamp box-drawing variant behind --unicode (ASCII is the default) | 463a343 |
+| IP-T136 | 2026-10-30 | feature | closed | Golden-file tests for every sample strategy + stamp -> import round trip yields an identical canon hash | a744d8b |
 | IP-T137 | 2026-10-30 | feature | open | `strategy list [--active] [--mode] [--symbol]` with live ConditionProgress badges | — |
 | IP-T138 | 2026-10-30 | feature | open | MonitorCli commands forward to the equivalent operations (status, set-keys, flatten, replay, scan, …) | — |
 | IP-T139 | 2026-10-30 | feature | open | `strategy show <id\|symbol>` (fields, canon summary, position, progress) | — |

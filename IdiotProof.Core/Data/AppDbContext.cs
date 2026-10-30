@@ -24,6 +24,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options)
     public DbSet<SettingsKv>        SettingsKv        => Set<SettingsKv>();
     public DbSet<AuditLog>          AuditLogs         => Set<AuditLog>();
     public DbSet<CommandLedgerEntry> CommandLedger    => Set<CommandLedgerEntry>();
+    public DbSet<PendingConfirmation> PendingConfirmations => Set<PendingConfirmation>();
     public DbSet<ConditionProgress> ConditionProgress => Set<ConditionProgress>();
     public DbSet<WorkspaceRow>      Workspaces        => Set<WorkspaceRow>();
     public DbSet<TradeDiaryEntry>   TradeDiary        => Set<TradeDiaryEntry>();
@@ -74,6 +75,12 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options)
             e.Property(p => p.RiskMinStopLossPercent).HasPrecision(18, 2);
             e.Property(p => p.RiskMaxStopLossPercent).HasPrecision(18, 2);
             e.Property(p => p.RiskMaxAccountRiskPercent).HasPrecision(18, 2);
+        });
+
+        b.Entity<PendingConfirmation>(e =>
+        {
+            e.HasIndex(x => new { x.Code, x.ExpiresUtc });
+            e.HasIndex(x => new { x.OwnerUserId, x.CreatedUtc });
         });
 
         b.Entity<CommandLedgerEntry>(e =>
