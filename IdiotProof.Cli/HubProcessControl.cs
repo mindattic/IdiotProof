@@ -65,16 +65,19 @@ public sealed class HubProcessControl : IHubProcessControl
     public StartedHub Start(HubLaunch launch, string logFile)
     {
         Directory.CreateDirectory(Path.GetDirectoryName(logFile)!);
-        // cmd does the redirection, so the log keeps filling after this CLI exits; no window, and
-        // a console of its own, so Ctrl+C here never reaches the Hub.
-        var command = $"\"\"{launch.FileName}\" {launch.Arguments} > \"{logFile}\" 2>&1\"";
+        // cmd does the redirection, so the log keeps filling after this CLI exits; a hidden console
+        // of its own, so Ctrl+C here never reaches the Hub. ShellExecute, not CreateProcess with
+        // inherited handles: otherwise the Hub holds this CLI's stdout open and a piped caller
+        // (`idiotproof hub start | tail`, an agent's shell) never sees end-of-output. ShellExecute
+        // can't take an environment block, so cmd sets the variables itself.
+        var sets = string.Concat(launch.Environment.Select(kv => $"set \"{kv.Key}={kv.Value}\"&& "));
+        var command = $"\"{sets}\"{launch.FileName}\" {launch.Arguments} > \"{logFile}\" 2>&1\"";
         var psi = new ProcessStartInfo("cmd.exe", $"/d /s /c {command}")
         {
-            UseShellExecute = false,
-            CreateNoWindow = true,
+            UseShellExecute = true,
+            WindowStyle = ProcessWindowStyle.Hidden,
             WorkingDirectory = launch.WorkingDirectory,
         };
-        foreach (var (name, value) in launch.Environment) psi.Environment[name] = value;
         var process = Process.Start(psi) ?? throw new InvalidOperationException("cmd.exe did not start.");
         return new StartedHub(process.Id, () => process.HasExited);
     }
