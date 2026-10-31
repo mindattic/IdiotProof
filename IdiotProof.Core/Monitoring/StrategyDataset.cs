@@ -22,18 +22,34 @@ namespace IdiotProof.Monitor;
 /// </summary>
 public static class StrategyDataset
 {
+    /// <summary>Where the dataset is written unless a caller names another folder.</summary>
+    public const string DefaultDatasetDir = @"D:\Projects\MindAttic\MindAttic.Web\mindattic.com\idiotproof\dataset";
+
+    /// <summary>The legacy `replay-export` command: migrate, then <see cref="ExportToAsync"/>.</summary>
     public static async Task ExportAsync(IServiceProvider sp, Dictionary<string, string> opt)
     {
-        var dir = opt.GetValueOrDefault("out", @"D:\Projects\MindAttic\MindAttic.Web\mindattic.com\idiotproof\dataset");
-        Directory.CreateDirectory(dir);
+        var dir = opt.GetValueOrDefault("out", DefaultDatasetDir);
         var dbf = sp.GetRequiredService<IDbContextFactory<AppDbContext>>();
+        await using (var db = await dbf.CreateDbContextAsync())
+            await db.Database.MigrateAsync();
+        var r = await ExportToAsync(dbf, dir, DateTime.UtcNow);
+        Console.WriteLine($"exported {r.Runs} run(s){(r.Backfilled > 0 ? $" (+{r.Backfilled} backfilled)" : "")} → " +
+                          $"{r.TradeRows} trade rows, {r.BarRows} bar rows → {dir}");
+    }
+
+    /// <summary>
+    /// Backfills any run missing from the feature store, then writes trades.csv, bars.csv and
+    /// manifest.json into <paramref name="dir"/> straight from the normalized tables.
+    /// </summary>
+    public static async Task<DatasetExportResult> ExportToAsync(IDbContextFactory<AppDbContext> dbf, string dir, DateTime nowUtc, CancellationToken ct = default)
+    {
+        Directory.CreateDirectory(dir);
 
         // (1) Backfill: flatten any run that has no bars in the store yet
         //     (older runs written before the feature store existed).
         int backfilled = 0;
-        await using (var db = await dbf.CreateDbContextAsync())
+        await using (var db = await dbf.CreateDbContextAsync(ct))
         {
-            await db.Database.MigrateAsync();
             var withBars = (await db.ReplayBars.Select(b => b.ReplayRunId).Distinct().ToListAsync()).ToHashSet();
             foreach (var run in await db.ReplayRuns.ToListAsync())
             {
@@ -89,7 +105,7 @@ public static class StrategyDataset
         await ArtifactWriter.WriteTextAsync(dir, "bars.csv", b2.ToString(), artifact);
         var manifest = new
         {
-            generatedUtc = DateTime.UtcNow.ToString("O"),
+            generatedUtc = DateTime.SpecifyKind(nowUtc, DateTimeKind.Utc).ToString("O"),
             runs = runCount, tradeRows = trades.Count, barRows = bars.Count, backfilledRuns = backfilled,
             source = "SQL ReplayTrades / ReplayBars (normalized feature store)",
             files = new[] { "trades.csv", "bars.csv" },
@@ -98,8 +114,8 @@ public static class StrategyDataset
         await ArtifactWriter.WriteTextAsync(dir, "manifest.json",
             JsonSerializer.Serialize(manifest, new JsonSerializerOptions { WriteIndented = true }), artifact);
 
-        Console.WriteLine($"exported {runCount} run(s){(backfilled > 0 ? $" (+{backfilled} backfilled)" : "")} → " +
-                          $"{trades.Count} trade rows, {bars.Count} bar rows → {dir}");
+        return new DatasetExportResult(runCount, trades.Count, bars.Count, backfilled, dir,
+            [Path.Combine(dir, "trades.csv"), Path.Combine(dir, "bars.csv"), Path.Combine(dir, "manifest.json")]);
     }
 
     private static string F(double d) => d.ToString("0.####", CultureInfo.InvariantCulture);
@@ -109,3 +125,6 @@ public static class StrategyDataset
         return s.IndexOfAny(new[] { ',', '"', '\n', '\r' }) >= 0 ? "\"" + s.Replace("\"", "\"\"") + "\"" : s;
     }
 }
+
+/// <summary>What a dataset export wrote: row counts, runs backfilled into the feature store, and the files.</summary>
+public sealed record DatasetExportResult(int Runs, int TradeRows, int BarRows, int Backfilled, string Directory, IReadOnlyList<string> Files);
