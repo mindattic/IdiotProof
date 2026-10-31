@@ -1,0 +1,4149 @@
+{
+  "$comment": "Epic W (Command line & Hub) and the Alpaca coverage backlog as filed in the ticket database (MindAttic.Tickets). Generated from `tickets ticket show --json`; the database is the source of truth. Plan: plans/ticklish-shimmying-bunny.md.",
+  "epic": "W",
+  "title": "Command line & Hub",
+  "repo": "IdiotProof",
+  "counts": {
+    "tickets": 276,
+    "closed": 267,
+    "open": 9,
+    "wont_do": 0
+  },
+  "groups": [
+    {
+      "group": "W0 Foundation: extract IdiotProof.Core",
+      "tickets": 21
+    },
+    {
+      "group": "W1 Hub host + Monitor absorption",
+      "tickets": 19
+    },
+    {
+      "group": "W2 Operation framework + CLI client",
+      "tickets": 16
+    },
+    {
+      "group": "W3 MCP server",
+      "tickets": 10
+    },
+    {
+      "group": "W4 Transaction gateway",
+      "tickets": 15
+    },
+    {
+      "group": "W5 ASCII strategy stamp",
+      "tickets": 10
+    },
+    {
+      "group": "W6 Strategy operations",
+      "tickets": 24
+    },
+    {
+      "group": "W7 Gapper operations",
+      "tickets": 14
+    },
+    {
+      "group": "W8 Replay / backtest / scan operations",
+      "tickets": 12
+    },
+    {
+      "group": "W9 Options operations",
+      "tickets": 12
+    },
+    {
+      "group": "W10 Market, indicators, DSL operations",
+      "tickets": 16
+    },
+    {
+      "group": "W11 Risk & LLM operations",
+      "tickets": 10
+    },
+    {
+      "group": "W12 Research operations",
+      "tickets": 12
+    },
+    {
+      "group": "W13 Diary, audit, ledger operations",
+      "tickets": 8
+    },
+    {
+      "group": "W14 Keys, settings, users, watchlist, monitor operations",
+      "tickets": 13
+    },
+    {
+      "group": "W15 Knowledge index + docs operations",
+      "tickets": 12
+    },
+    {
+      "group": "W16 Agent docs",
+      "tickets": 8
+    },
+    {
+      "group": "W17 Blazor re-pointing",
+      "tickets": 6
+    },
+    {
+      "group": "W18 Publish / run",
+      "tickets": 6
+    },
+    {
+      "group": "W19 Account & trading operations",
+      "tickets": 17
+    },
+    {
+      "group": "Alpaca API coverage",
+      "tickets": 15
+    }
+  ],
+  "tickets": [
+    {
+      "id": "IP-T30",
+      "wbs": "W0.01",
+      "group": "W0 Foundation: extract IdiotProof.Core",
+      "type": "feature",
+      "status": "closed",
+      "approval": "proposed",
+      "summary": "Create IdiotProof.Core class library (net10.0) in IdiotProof.slnx, referencing Models/Shared/Scripting/Strategies/Brokers/DataFeeds/Engine/Indicators",
+      "requires": [],
+      "commits": [
+        "03bd8f5"
+      ]
+    },
+    {
+      "id": "IP-T31",
+      "wbs": "W0.02",
+      "group": "W0 Foundation: extract IdiotProof.Core",
+      "type": "feature",
+      "status": "closed",
+      "approval": "proposed",
+      "summary": "Enable GenerateDocumentationFile for every library via Directory.Build.props (CS1591 suppressed) so XML doc comments ship for the knowledge index",
+      "requires": [],
+      "commits": [
+        "c4bea77"
+      ]
+    },
+    {
+      "id": "IP-T32",
+      "wbs": "W0.03",
+      "group": "W0 Foundation: extract IdiotProof.Core",
+      "type": "feature",
+      "status": "closed",
+      "approval": "proposed",
+      "summary": "Move AppDbContext and every Data/* entity from IdiotProof.Blazor to IdiotProof.Core (namespaces unchanged in this move)",
+      "requires": [
+        "IP-T30"
+      ],
+      "commits": [
+        "2193f54"
+      ]
+    },
+    {
+      "id": "IP-T33",
+      "wbs": "W0.04",
+      "group": "W0 Foundation: extract IdiotProof.Core",
+      "type": "feature",
+      "status": "closed",
+      "approval": "proposed",
+      "summary": "Move EF Migrations + AppDbContextFactory to IdiotProof.Core with MigrationsAssembly set; migration IDs and snapshot unchanged",
+      "requires": [
+        "IP-T32"
+      ],
+      "commits": []
+    },
+    {
+      "id": "IP-T34",
+      "wbs": "W0.05",
+      "group": "W0 Foundation: extract IdiotProof.Core",
+      "type": "feature",
+      "status": "closed",
+      "approval": "proposed",
+      "summary": "Introduce IOwnerContext (current owner GUID) — web resolves from the NameIdentifier claim, Hub/CLI from --user, persisted default, or the single AuthUsers row",
+      "requires": [
+        "IP-T30"
+      ],
+      "commits": [
+        "4f8bd99"
+      ]
+    },
+    {
+      "id": "IP-T35",
+      "wbs": "W0.06",
+      "group": "W0 Foundation: extract IdiotProof.Core",
+      "type": "feature",
+      "status": "closed",
+      "approval": "proposed",
+      "summary": "Introduce IClaudeKeyContext replacing SignedInClaudeKey's AuthenticationStateProvider dependency for StrategyScriptGenerator, GapperInterpreter, ResearchService",
+      "requires": [
+        "IP-T34"
+      ],
+      "commits": [
+        "67a067f"
+      ]
+    },
+    {
+      "id": "IP-T36",
+      "wbs": "W0.07",
+      "group": "W0 Foundation: extract IdiotProof.Core",
+      "type": "feature",
+      "status": "closed",
+      "approval": "proposed",
+      "summary": "Introduce IStaticCatalogSource replacing IWebHostEnvironment in GapperProfileService; gapper-profiles.json and sp-index-events.json resolve from a shared content path",
+      "requires": [
+        "IP-T30"
+      ],
+      "commits": [
+        "f50836a"
+      ]
+    },
+    {
+      "id": "IP-T37",
+      "wbs": "W0.08",
+      "group": "W0 Foundation: extract IdiotProof.Core",
+      "type": "feature",
+      "status": "closed",
+      "approval": "proposed",
+      "summary": "Move strategy services to Core: StrategyRepository, ConditionProgressRepository, StrategyScriptGenerator, DslGlossary, SqlWorkspaceStore",
+      "requires": [
+        "IP-T32",
+        "IP-T35"
+      ],
+      "commits": [
+        "f60278f"
+      ]
+    },
+    {
+      "id": "IP-T38",
+      "wbs": "W0.09",
+      "group": "W0 Foundation: extract IdiotProof.Core",
+      "type": "feature",
+      "status": "closed",
+      "approval": "proposed",
+      "summary": "Move broker/account services to Core: UserBrokerResolver, AlpacaVaultKeys, AccountSummaryService, LiveModeElevationService, TradingStateService",
+      "requires": [
+        "IP-T32"
+      ],
+      "commits": [
+        "8e75754"
+      ]
+    },
+    {
+      "id": "IP-T39",
+      "wbs": "W0.10",
+      "group": "W0 Foundation: extract IdiotProof.Core",
+      "type": "feature",
+      "status": "closed",
+      "approval": "proposed",
+      "summary": "Move risk + LLM services to Core: RiskGuardianService, LlmVotingService (+AddSignalVotingPanel), UserClaudeKeyResolver, FakeLlmHandler",
+      "requires": [
+        "IP-T32",
+        "IP-T35"
+      ],
+      "commits": [
+        "4406f04"
+      ]
+    },
+    {
+      "id": "IP-T40",
+      "wbs": "W0.11",
+      "group": "W0 Foundation: extract IdiotProof.Core",
+      "type": "feature",
+      "status": "closed",
+      "approval": "proposed",
+      "summary": "Move research services to Core: ResearchService, EdgarService, Form4Parser, CorporateActionDetector, RegulatoryScanner, IndexEventScanner, UsSpendsService, AlpacaNewsService, CatalystExtractor, ClaimVectorService, ClaimCorrelationService, SignificanceScorer, OutcomeBackfillService, TickerUniverseService, AsyncThrottle",
+      "requires": [
+        "IP-T32",
+        "IP-T35",
+        "IP-T36"
+      ],
+      "commits": [
+        "3df84d0"
+      ]
+    },
+    {
+      "id": "IP-T41",
+      "wbs": "W0.12",
+      "group": "W0 Foundation: extract IdiotProof.Core",
+      "type": "feature",
+      "status": "closed",
+      "approval": "proposed",
+      "summary": "Move remaining non-UI services to Core: OptionsTradingService, TradeDiaryRepository, AuditLogRepository, SettingsRepository, UserPreferencesService, UserKeyService, EmailDomainBlocklistService, LiveBarRepository, GapperProfileService, GapperInterpreter, EasternTime, DevCredentials",
+      "requires": [
+        "IP-T32",
+        "IP-T36"
+      ],
+      "commits": [
+        "78294ec"
+      ]
+    },
+    {
+      "id": "IP-T42",
+      "wbs": "W0.13",
+      "group": "W0 Foundation: extract IdiotProof.Core",
+      "type": "feature",
+      "status": "closed",
+      "approval": "proposed",
+      "summary": "AddIdiotProofCore(config): one DI graph — connection-string chain, Vault buckets, AppSettings overlay, shared DataProtection key ring, MindAttic.Authentication, every Core service",
+      "requires": [
+        "IP-T37",
+        "IP-T38",
+        "IP-T39",
+        "IP-T40",
+        "IP-T41"
+      ],
+      "commits": [
+        "a9adc39"
+      ]
+    },
+    {
+      "id": "IP-T43",
+      "wbs": "W0.14",
+      "group": "W0 Foundation: extract IdiotProof.Core",
+      "type": "feature",
+      "status": "closed",
+      "approval": "proposed",
+      "summary": "Lift BrokerRouter + IMarketDataFeed construction (IDIOTPROOF_BROKER/FEED/ALPACA_FEED/STREAMING knobs) from Monitor/Program.cs into AddIdiotProofTrading()",
+      "requires": [
+        "IP-T42"
+      ],
+      "commits": [
+        "d121531"
+      ]
+    },
+    {
+      "id": "IP-T44",
+      "wbs": "W0.15",
+      "group": "W0 Foundation: extract IdiotProof.Core",
+      "type": "feature",
+      "status": "closed",
+      "approval": "proposed",
+      "summary": "Move MonitorWorker, MonitorLeaderLease, DirectionalOrders, scanners (AutoGapper, PremarketFade, BeBexDecay), StrategyReplay*, ReplayFeatures/Templates, StrategyDataset, StrategyScanner, EmailSmsAlertSender into Core (Monitoring namespace) so any host can run them",
+      "requires": [
+        "IP-T43"
+      ],
+      "commits": [
+        "58a1e76"
+      ]
+    },
+    {
+      "id": "IP-T45",
+      "wbs": "W0.16",
+      "group": "W0 Foundation: extract IdiotProof.Core",
+      "type": "feature",
+      "status": "closed",
+      "approval": "proposed",
+      "summary": "Re-point IdiotProof.Blazor Program.cs to AddIdiotProofCore; pushers, ToastService, LogAlertService stay in Blazor",
+      "requires": [
+        "IP-T42"
+      ],
+      "commits": [
+        "c12dc63"
+      ]
+    },
+    {
+      "id": "IP-T46",
+      "wbs": "W0.17",
+      "group": "W0 Foundation: extract IdiotProof.Core",
+      "type": "feature",
+      "status": "closed",
+      "approval": "proposed",
+      "summary": "Re-point IdiotProof.Monitor to AddIdiotProofCore/AddIdiotProofTrading and drop its IdiotProof.Blazor project reference",
+      "requires": [
+        "IP-T44"
+      ],
+      "commits": [
+        "c400572"
+      ]
+    },
+    {
+      "id": "IP-T47",
+      "wbs": "W0.18",
+      "group": "W0 Foundation: extract IdiotProof.Core",
+      "type": "feature",
+      "status": "closed",
+      "approval": "proposed",
+      "summary": "Re-point IdiotProof.ResearchScanner to AddIdiotProofCore and drop its IdiotProof.Blazor project reference",
+      "requires": [
+        "IP-T42"
+      ],
+      "commits": [
+        "d10b93d"
+      ]
+    },
+    {
+      "id": "IP-T48",
+      "wbs": "W0.19",
+      "group": "W0 Foundation: extract IdiotProof.Core",
+      "type": "feature",
+      "status": "closed",
+      "approval": "proposed",
+      "summary": "Re-point Blazor.Tests and Monitor.Tests at IdiotProof.Core; add IdiotProof.Core.Tests project (NUnit)",
+      "requires": [
+        "IP-T45",
+        "IP-T46"
+      ],
+      "commits": [
+        "4769b94"
+      ]
+    },
+    {
+      "id": "IP-T49",
+      "wbs": "W0.20",
+      "group": "W0 Foundation: extract IdiotProof.Core",
+      "type": "feature",
+      "status": "open",
+      "approval": "approved",
+      "summary": "Rename moved namespaces IdiotProof.Blazor.Data/Services -> IdiotProof.Core.Data/Services across the solution",
+      "requires": [
+        "IP-T48"
+      ],
+      "commits": []
+    },
+    {
+      "id": "IP-T50",
+      "wbs": "W0.21",
+      "group": "W0 Foundation: extract IdiotProof.Core",
+      "type": "feature",
+      "status": "closed",
+      "approval": "proposed",
+      "summary": "Delete stale IdiotProof.sln (slnx is canonical) and fix any script that names it",
+      "requires": [
+        "IP-T30"
+      ],
+      "commits": [
+        "7a09e4e"
+      ]
+    },
+    {
+      "id": "IP-T66",
+      "wbs": "W1.01",
+      "group": "W1 Hub host + Monitor absorption",
+      "type": "feature",
+      "status": "closed",
+      "approval": "proposed",
+      "summary": "Create IdiotProof.Hub (ASP.NET Core minimal API, Kestrel bound to 127.0.0.1:5910) using AddIdiotProofCore",
+      "requires": [
+        "IP-T42"
+      ],
+      "commits": [
+        "c4193c3"
+      ]
+    },
+    {
+      "id": "IP-T67",
+      "wbs": "W1.02",
+      "group": "W1 Hub host + Monitor absorption",
+      "type": "feature",
+      "status": "closed",
+      "approval": "proposed",
+      "summary": "/api/health and /api/version endpoints (build, commit, uptime, db, feed, broker)",
+      "requires": [
+        "IP-T66"
+      ],
+      "commits": []
+    },
+    {
+      "id": "IP-T68",
+      "wbs": "W1.03",
+      "group": "W1 Hub host + Monitor absorption",
+      "type": "feature",
+      "status": "closed",
+      "approval": "proposed",
+      "summary": "Hub API key: generated once, stored in Vault Tokens bucket 'idiotproof-hub'; HubKeyFilter guards every mutating endpoint",
+      "requires": [
+        "IP-T66"
+      ],
+      "commits": []
+    },
+    {
+      "id": "IP-T70",
+      "wbs": "W1.04",
+      "group": "W1 Hub host + Monitor absorption",
+      "type": "feature",
+      "status": "closed",
+      "approval": "proposed",
+      "summary": "/api/op dispatch endpoint (operation name + JSON args) and /api/catalog",
+      "requires": [
+        "IP-T55",
+        "IP-T68"
+      ],
+      "commits": []
+    },
+    {
+      "id": "IP-T71",
+      "wbs": "W1.05",
+      "group": "W1 Hub host + Monitor absorption",
+      "type": "feature",
+      "status": "closed",
+      "approval": "proposed",
+      "summary": "CommandLedger entity + migration: op, redacted args, owner, caller, exit code, duration, UTC timestamp",
+      "requires": [
+        "IP-T33"
+      ],
+      "commits": [
+        "c49a127"
+      ]
+    },
+    {
+      "id": "IP-T72",
+      "wbs": "W1.06",
+      "group": "W1 Hub host + Monitor absorption",
+      "type": "feature",
+      "status": "closed",
+      "approval": "proposed",
+      "summary": "SecretRedactor for ledger args (keys, secrets, passwords, tokens)",
+      "requires": [
+        "IP-T71"
+      ],
+      "commits": [
+        "9531ab4"
+      ]
+    },
+    {
+      "id": "IP-T73",
+      "wbs": "W1.07",
+      "group": "W1 Hub host + Monitor absorption",
+      "type": "feature",
+      "status": "closed",
+      "approval": "proposed",
+      "summary": "Ledger write on every /api/op call",
+      "requires": [
+        "IP-T70",
+        "IP-T72"
+      ],
+      "commits": []
+    },
+    {
+      "id": "IP-T74",
+      "wbs": "W1.08",
+      "group": "W1 Hub host + Monitor absorption",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "Host MonitorWorker in the Hub as an IHostedService with the SQL leader lease and SupervisedLoop unchanged",
+      "requires": [
+        "IP-T44",
+        "IP-T66"
+      ],
+      "commits": [
+        "335efbd"
+      ]
+    },
+    {
+      "id": "IP-T75",
+      "wbs": "W1.09",
+      "group": "W1 Hub host + Monitor absorption",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "Host AutoGapperScanner, PremarketFadeScanner and BeBexDecayScanner in the Hub with their existing enable flags",
+      "requires": [
+        "IP-T74"
+      ],
+      "commits": [
+        "a433ae8"
+      ]
+    },
+    {
+      "id": "IP-T76",
+      "wbs": "W1.10",
+      "group": "W1 Hub host + Monitor absorption",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "Windows Service hosting (UseWindowsService) that runs as the USER (LocalDB + DataProtection are user-scoped)",
+      "requires": [
+        "IP-T74"
+      ],
+      "commits": [
+        "f509018"
+      ]
+    },
+    {
+      "id": "IP-T77",
+      "wbs": "W1.11",
+      "group": "W1 Hub host + Monitor absorption",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "Single-instance guard + clear error when port 5910 is taken",
+      "requires": [
+        "IP-T66"
+      ],
+      "commits": [
+        "708ee77"
+      ]
+    },
+    {
+      "id": "IP-T78",
+      "wbs": "W1.12",
+      "group": "W1 Hub host + Monitor absorption",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "Hub logging to MindAttic.Log file + /api/logs tail endpoint",
+      "requires": [
+        "IP-T66"
+      ],
+      "commits": [
+        "97ca9b0"
+      ]
+    },
+    {
+      "id": "IP-T79",
+      "wbs": "W1.13",
+      "group": "W1 Hub host + Monitor absorption",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "Graceful shutdown: drain in-flight ops, stop the Monitor loop cleanly, release the lease",
+      "requires": [
+        "IP-T74"
+      ],
+      "commits": [
+        "538df17"
+      ]
+    },
+    {
+      "id": "IP-T80",
+      "wbs": "W1.14",
+      "group": "W1 Hub host + Monitor absorption",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "Monitor pause/resume flag (SettingsKv) honored at the top of each tick",
+      "requires": [
+        "IP-T74"
+      ],
+      "commits": [
+        "273a1e6"
+      ]
+    },
+    {
+      "id": "IP-T81",
+      "wbs": "W1.15",
+      "group": "W1 Hub host + Monitor absorption",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "IdiotProof.Monitor exe becomes a shim that runs the Hub host (backward-compatible start.bat)",
+      "requires": [
+        "IP-T74"
+      ],
+      "commits": [
+        "aa33e63"
+      ]
+    },
+    {
+      "id": "IP-T138",
+      "wbs": "W1.16",
+      "group": "W1 Hub host + Monitor absorption",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "MonitorCli commands forward to the equivalent operations (status, set-keys, flatten, replay, scan, …)",
+      "requires": [
+        "IP-T137",
+        "IP-T70"
+      ],
+      "commits": [
+        "81b1434"
+      ]
+    },
+    {
+      "id": "IP-T82",
+      "wbs": "W1.17",
+      "group": "W1 Hub host + Monitor absorption",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "SessionStart hook (.claude/settings.json) that starts the Hub when it is not running",
+      "requires": [
+        "IP-T67"
+      ],
+      "commits": [
+        "55ae3d4"
+      ]
+    },
+    {
+      "id": "IP-T83",
+      "wbs": "W1.18",
+      "group": "W1 Hub host + Monitor absorption",
+      "type": "feature",
+      "status": "closed",
+      "approval": "proposed",
+      "summary": "`hub status|start|stop|logs|version` operations + CLI-side start/stop of the local process",
+      "requires": [
+        "IP-T57",
+        "IP-T67"
+      ],
+      "commits": []
+    },
+    {
+      "id": "IP-T84",
+      "wbs": "W1.19",
+      "group": "W1 Hub host + Monitor absorption",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "`hub install-service|uninstall-service` operations",
+      "requires": [
+        "IP-T76",
+        "IP-T83"
+      ],
+      "commits": [
+        "6e4836e"
+      ]
+    },
+    {
+      "id": "IP-T51",
+      "wbs": "W2.01",
+      "group": "W2 Operation framework + CLI client",
+      "type": "feature",
+      "status": "closed",
+      "approval": "proposed",
+      "summary": "Create IdiotProof.Operations library: [Operation(\"noun verb\")], [Option], [Argument], IOperation<TArgs> contract, risk class (Read/Write/Money/Destructive)",
+      "requires": [
+        "IP-T42"
+      ],
+      "commits": [
+        "cb745b8"
+      ]
+    },
+    {
+      "id": "IP-T52",
+      "wbs": "W2.02",
+      "group": "W2 Operation framework + CLI client",
+      "type": "feature",
+      "status": "closed",
+      "approval": "proposed",
+      "summary": "OperationContext: owner, IServiceProvider scope, caller (cli/mcp/blazor), output mode, cancellation, ET clock",
+      "requires": [
+        "IP-T34",
+        "IP-T51"
+      ],
+      "commits": []
+    },
+    {
+      "id": "IP-T53",
+      "wbs": "W2.03",
+      "group": "W2 Operation framework + CLI client",
+      "type": "feature",
+      "status": "closed",
+      "approval": "proposed",
+      "summary": "OperationResult: status, data payload, human render, exit code, ConfirmationRequired variant",
+      "requires": [
+        "IP-T51"
+      ],
+      "commits": []
+    },
+    {
+      "id": "IP-T54",
+      "wbs": "W2.04",
+      "group": "W2 Operation framework + CLI client",
+      "type": "feature",
+      "status": "closed",
+      "approval": "proposed",
+      "summary": "OperationCatalog: reflect all operations, validate unique names + descriptions + arg docs, emit catalog JSON schema per op",
+      "requires": [
+        "IP-T51"
+      ],
+      "commits": []
+    },
+    {
+      "id": "IP-T55",
+      "wbs": "W2.05",
+      "group": "W2 Operation framework + CLI client",
+      "type": "feature",
+      "status": "closed",
+      "approval": "proposed",
+      "summary": "Args binder: JSON -> typed args record with validation errors mapped to exit 2",
+      "requires": [
+        "IP-T54"
+      ],
+      "commits": [
+        "a71e952"
+      ]
+    },
+    {
+      "id": "IP-T56",
+      "wbs": "W2.06",
+      "group": "W2 Operation framework + CLI client",
+      "type": "feature",
+      "status": "closed",
+      "approval": "proposed",
+      "summary": "Text render kit: tables, key/value blocks, money/percent formatting, ET-only time display, color only on a TTY",
+      "requires": [
+        "IP-T53"
+      ],
+      "commits": [
+        "79eda16"
+      ]
+    },
+    {
+      "id": "IP-T57",
+      "wbs": "W2.07",
+      "group": "W2 Operation framework + CLI client",
+      "type": "feature",
+      "status": "closed",
+      "approval": "proposed",
+      "summary": "Create IdiotProof.Cli (idiotproof.exe): argv `noun verb --flags` parser bound to the catalog",
+      "requires": [
+        "IP-T54"
+      ],
+      "commits": [
+        "12d644b",
+        "4df2591"
+      ]
+    },
+    {
+      "id": "IP-T69",
+      "wbs": "W2.08",
+      "group": "W2 Operation framework + CLI client",
+      "type": "feature",
+      "status": "closed",
+      "approval": "proposed",
+      "summary": "CLI HubClient: fail-closed health gate, X-IdiotProof-Key header, slow-op notice after 8s, 2h timeout, structured error output",
+      "requires": [
+        "IP-T57",
+        "IP-T68"
+      ],
+      "commits": []
+    },
+    {
+      "id": "IP-T58",
+      "wbs": "W2.09",
+      "group": "W2 Operation framework + CLI client",
+      "type": "feature",
+      "status": "closed",
+      "approval": "proposed",
+      "summary": "Global flags --json --user --mode --quiet --yes(no-op for Live) and stdin '-' for any text argument",
+      "requires": [
+        "IP-T57"
+      ],
+      "commits": []
+    },
+    {
+      "id": "IP-T59",
+      "wbs": "W2.10",
+      "group": "W2 Operation framework + CLI client",
+      "type": "feature",
+      "status": "closed",
+      "approval": "proposed",
+      "summary": "Generated help: `idiotproof help`, `idiotproof <noun> --help`, `idiotproof <noun> <verb> --help` from the catalog",
+      "requires": [
+        "IP-T57"
+      ],
+      "commits": []
+    },
+    {
+      "id": "IP-T60",
+      "wbs": "W2.11",
+      "group": "W2 Operation framework + CLI client",
+      "type": "feature",
+      "status": "closed",
+      "approval": "proposed",
+      "summary": "Offline catalog: CLI references IdiotProof.Operations so help, agent bootstrap and docs export work with the Hub down",
+      "requires": [
+        "IP-T59"
+      ],
+      "commits": []
+    },
+    {
+      "id": "IP-T61",
+      "wbs": "W2.12",
+      "group": "W2 Operation framework + CLI client",
+      "type": "feature",
+      "status": "closed",
+      "approval": "proposed",
+      "summary": "Exit-code contract 0 ok / 1 fail / 2 usage / 3 blocked by a gate / 4 confirmation required — documented and tested",
+      "requires": [
+        "IP-T53",
+        "IP-T57"
+      ],
+      "commits": []
+    },
+    {
+      "id": "IP-T62",
+      "wbs": "W2.13",
+      "group": "W2 Operation framework + CLI client",
+      "type": "feature",
+      "status": "closed",
+      "approval": "proposed",
+      "summary": "idiotproof.cmd shim at repo root (dotnet run fallback, published exe preferred)",
+      "requires": [
+        "IP-T57"
+      ],
+      "commits": [
+        "71a95af"
+      ]
+    },
+    {
+      "id": "IP-T63",
+      "wbs": "W2.14",
+      "group": "W2 Operation framework + CLI client",
+      "type": "feature",
+      "status": "closed",
+      "approval": "proposed",
+      "summary": "Owner resolution in CLI: --user, `users use` persisted default in %APPDATA%\\MindAttic\\IdiotProof\\cli.json, single-user fallback",
+      "requires": [
+        "IP-T58"
+      ],
+      "commits": []
+    },
+    {
+      "id": "IP-T64",
+      "wbs": "W2.15",
+      "group": "W2 Operation framework + CLI client",
+      "type": "feature",
+      "status": "closed",
+      "approval": "proposed",
+      "summary": "`agent bootstrap [--json]`: Hub health, owner, catalog paths, protocol doc, laws summary — runs without the Hub",
+      "requires": [
+        "IP-T60"
+      ],
+      "commits": []
+    },
+    {
+      "id": "IP-T65",
+      "wbs": "W2.16",
+      "group": "W2 Operation framework + CLI client",
+      "type": "feature",
+      "status": "closed",
+      "approval": "proposed",
+      "summary": "Catalog completeness test: every operation has description, arg docs, JSON render; no name collisions",
+      "requires": [
+        "IP-T54"
+      ],
+      "commits": [
+        "3444682"
+      ]
+    },
+    {
+      "id": "IP-T117",
+      "wbs": "W3.01",
+      "group": "W3 MCP server",
+      "type": "feature",
+      "status": "closed",
+      "approval": "proposed",
+      "summary": "Create IdiotProof.Mcp (stdio, ModelContextProtocol SDK, logs to file — stdout is the wire)",
+      "requires": [
+        "IP-T54"
+      ],
+      "commits": [
+        "f941586"
+      ]
+    },
+    {
+      "id": "IP-T118",
+      "wbs": "W3.02",
+      "group": "W3 MCP server",
+      "type": "feature",
+      "status": "closed",
+      "approval": "proposed",
+      "summary": "Generate one MCP tool per operation from the catalog (snake_case noun_verb, JSON schema from the args record)",
+      "requires": [
+        "IP-T117"
+      ],
+      "commits": []
+    },
+    {
+      "id": "IP-T119",
+      "wbs": "W3.03",
+      "group": "W3 MCP server",
+      "type": "feature",
+      "status": "closed",
+      "approval": "proposed",
+      "summary": "HubInvoker forwarding with structured errors: hub_unreachable, hub_timeout, hub_http_error, usage_error",
+      "requires": [
+        "IP-T118",
+        "IP-T70"
+      ],
+      "commits": []
+    },
+    {
+      "id": "IP-T120",
+      "wbs": "W3.04",
+      "group": "W3 MCP server",
+      "type": "feature",
+      "status": "closed",
+      "approval": "proposed",
+      "summary": "Tool annotations from operation risk class (readOnlyHint / destructiveHint / idempotentHint)",
+      "requires": [
+        "IP-T118"
+      ],
+      "commits": []
+    },
+    {
+      "id": "IP-T121",
+      "wbs": "W3.05",
+      "group": "W3 MCP server",
+      "type": "feature",
+      "status": "closed",
+      "approval": "proposed",
+      "summary": "ConfirmationRequired tool result tells the assistant to show the preview and ask the user before calling trade_confirm",
+      "requires": [
+        "IP-T119",
+        "IP-T92"
+      ],
+      "commits": []
+    },
+    {
+      "id": "IP-T122",
+      "wbs": "W3.06",
+      "group": "W3 MCP server",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "MCP resources: BIBLE, user stories, operation catalog, protocol doc",
+      "requires": [
+        "IP-T117"
+      ],
+      "commits": [
+        "531b470"
+      ]
+    },
+    {
+      "id": "IP-T123",
+      "wbs": "W3.07",
+      "group": "W3 MCP server",
+      "type": "feature",
+      "status": "closed",
+      "approval": "proposed",
+      "summary": "tools/register-mcp.ps1 (`claude mcp add idiotproof …` against the Release build) + README",
+      "requires": [
+        "IP-T119"
+      ],
+      "commits": [
+        "dbd2a97"
+      ]
+    },
+    {
+      "id": "IP-T124",
+      "wbs": "W3.08",
+      "group": "W3 MCP server",
+      "type": "feature",
+      "status": "closed",
+      "approval": "proposed",
+      "summary": ".claude/settings.json allow-list for read-only idiotproof tools; trade_confirm and destructive tools stay prompt-only",
+      "requires": [
+        "IP-T123"
+      ],
+      "commits": []
+    },
+    {
+      "id": "IP-T125",
+      "wbs": "W3.09",
+      "group": "W3 MCP server",
+      "type": "feature",
+      "status": "closed",
+      "approval": "proposed",
+      "summary": "SessionStart hook keeps IdiotProof.Mcp Release build current so the schema is never stale",
+      "requires": [
+        "IP-T123"
+      ],
+      "commits": []
+    },
+    {
+      "id": "IP-T126",
+      "wbs": "W3.10",
+      "group": "W3 MCP server",
+      "type": "feature",
+      "status": "closed",
+      "approval": "proposed",
+      "summary": "MCP schema test: every operation round-trips catalog -> tool schema -> binder",
+      "requires": [
+        "IP-T118"
+      ],
+      "commits": []
+    },
+    {
+      "id": "IP-T85",
+      "wbs": "W4.01",
+      "group": "W4 Transaction gateway",
+      "type": "feature",
+      "status": "closed",
+      "approval": "proposed",
+      "summary": "OrderIntent model: asset (equity/option), side, qty/notional, type, limit, TIF, extended hours, BrokerMode, origin (monitor/manual/options/flatten), strategyId",
+      "requires": [
+        "IP-T42"
+      ],
+      "commits": [
+        "df5f2f2"
+      ]
+    },
+    {
+      "id": "IP-T86",
+      "wbs": "W4.02",
+      "group": "W4 Transaction gateway",
+      "type": "feature",
+      "status": "closed",
+      "approval": "proposed",
+      "summary": "TransactionGateway.SubmitAsync skeleton with ordered, individually-tested gate steps and a GateVerdict trail",
+      "requires": [
+        "IP-T85"
+      ],
+      "commits": [
+        "bec0b42"
+      ]
+    },
+    {
+      "id": "IP-T87",
+      "wbs": "W4.03",
+      "group": "W4 Transaction gateway",
+      "type": "feature",
+      "status": "closed",
+      "approval": "proposed",
+      "summary": "Gate step: owner + BrokerMode resolution via UserBrokerResolver (IP-LAW-3, Sandbox default, never another user's keys)",
+      "requires": [
+        "IP-T86"
+      ],
+      "commits": []
+    },
+    {
+      "id": "IP-T88",
+      "wbs": "W4.04",
+      "group": "W4 Transaction gateway",
+      "type": "feature",
+      "status": "closed",
+      "approval": "proposed",
+      "summary": "Gate step: Mock-feed guard refuses non-Sandbox entries (IP-LAW-9)",
+      "requires": [
+        "IP-T86"
+      ],
+      "commits": []
+    },
+    {
+      "id": "IP-T89",
+      "wbs": "W4.05",
+      "group": "W4 Transaction gateway",
+      "type": "feature",
+      "status": "closed",
+      "approval": "proposed",
+      "summary": "Gate step: RiskGuardian (stop required on entries, size/limits, daily breaker; exits honor kill-switch) (IP-LAW-2)",
+      "requires": [
+        "IP-T86"
+      ],
+      "commits": []
+    },
+    {
+      "id": "IP-T90",
+      "wbs": "W4.06",
+      "group": "W4 Transaction gateway",
+      "type": "feature",
+      "status": "closed",
+      "approval": "proposed",
+      "summary": "Gate step: LLM voter panel for automated entries only (IP-LAW-1)",
+      "requires": [
+        "IP-T86"
+      ],
+      "commits": []
+    },
+    {
+      "id": "IP-T91",
+      "wbs": "W4.07",
+      "group": "W4 Transaction gateway",
+      "type": "feature",
+      "status": "closed",
+      "approval": "proposed",
+      "summary": "ConfirmationStore: 6-char single-use code, 120s TTL, bound to SHA-256 of the exact intent, persisted PendingConfirmation table",
+      "requires": [
+        "IP-T33",
+        "IP-T86"
+      ],
+      "commits": [
+        "fe72a2a"
+      ]
+    },
+    {
+      "id": "IP-T92",
+      "wbs": "W4.08",
+      "group": "W4 Transaction gateway",
+      "type": "feature",
+      "status": "closed",
+      "approval": "proposed",
+      "summary": "Live preview: cost, worst-case loss, account, buying power after, gate verdicts — returned with exit 4",
+      "requires": [
+        "IP-T91"
+      ],
+      "commits": []
+    },
+    {
+      "id": "IP-T93",
+      "wbs": "W4.09",
+      "group": "W4 Transaction gateway",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "Every gateway outcome writes TradeDiary (fills), AuditLog (all) and CommandLedger linkage",
+      "requires": [
+        "IP-T71",
+        "IP-T86"
+      ],
+      "commits": [
+        "5e21333"
+      ]
+    },
+    {
+      "id": "IP-T94",
+      "wbs": "W4.10",
+      "group": "W4 Transaction gateway",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "Reroute MonitorWorker entries and exits through the gateway with behavior-parity tests",
+      "requires": [
+        "IP-T74",
+        "IP-T89",
+        "IP-T90"
+      ],
+      "commits": [
+        "e313669"
+      ]
+    },
+    {
+      "id": "IP-T95",
+      "wbs": "W4.11",
+      "group": "W4 Transaction gateway",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "Reroute DirectionalOrders flatten / test-order through the gateway",
+      "requires": [
+        "IP-T94"
+      ],
+      "commits": [
+        "2be6ee6"
+      ]
+    },
+    {
+      "id": "IP-T96",
+      "wbs": "W4.12",
+      "group": "W4 Transaction gateway",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "Reroute OptionsTradingService orders through the gateway (Blazor keeps password elevation; CLI/MCP use confirm codes)",
+      "requires": [
+        "IP-T91"
+      ],
+      "commits": [
+        "b31b87d"
+      ]
+    },
+    {
+      "id": "IP-T97",
+      "wbs": "W4.13",
+      "group": "W4 Transaction gateway",
+      "type": "feature",
+      "status": "closed",
+      "approval": "proposed",
+      "summary": "Activating a strategy in Live mode (or switching it to Live) requires a confirm code",
+      "requires": [
+        "IP-T91"
+      ],
+      "commits": []
+    },
+    {
+      "id": "IP-T98",
+      "wbs": "W4.14",
+      "group": "W4 Transaction gateway",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "Gateway law tests: one test per law/step, including expired/edited-intent confirm refusal",
+      "requires": [
+        "IP-T97"
+      ],
+      "commits": [
+        "83f6ab6"
+      ]
+    },
+    {
+      "id": "IP-T99",
+      "wbs": "W4.15",
+      "group": "W4 Transaction gateway",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "BIBLE: add laws 'Every order goes through TransactionGateway' and 'Live from CLI/MCP needs a confirm code'",
+      "requires": [
+        "IP-T98"
+      ],
+      "commits": [
+        "b2267cd"
+      ]
+    },
+    {
+      "id": "IP-T127",
+      "wbs": "W5.01",
+      "group": "W5 ASCII strategy stamp",
+      "type": "feature",
+      "status": "closed",
+      "approval": "proposed",
+      "summary": "StrategyStamp short id IP-XXXX-XXXX (base32 of SHA-256 of the canonical JSON)",
+      "requires": [],
+      "commits": [
+        "463a343"
+      ]
+    },
+    {
+      "id": "IP-T128",
+      "wbs": "W5.02",
+      "group": "W5 ASCII strategy stamp",
+      "type": "feature",
+      "status": "closed",
+      "approval": "proposed",
+      "summary": "Stamp header block: symbol, direction, session, BrokerMode, qty/notional, id",
+      "requires": [
+        "IP-T127"
+      ],
+      "commits": []
+    },
+    {
+      "id": "IP-T129",
+      "wbs": "W5.03",
+      "group": "W5 ASCII strategy stamp",
+      "type": "feature",
+      "status": "closed",
+      "approval": "proposed",
+      "summary": "Stamp phase flow: Setup -> Filters -> Entry -> Order -> Risk -> Exit boxes with every condition line",
+      "requires": [
+        "IP-T128"
+      ],
+      "commits": []
+    },
+    {
+      "id": "IP-T130",
+      "wbs": "W5.04",
+      "group": "W5 ASCII strategy stamp",
+      "type": "feature",
+      "status": "closed",
+      "approval": "proposed",
+      "summary": "Stamp branch forks for If/ElseIf/Else conditional blocks",
+      "requires": [
+        "IP-T129"
+      ],
+      "commits": []
+    },
+    {
+      "id": "IP-T131",
+      "wbs": "W5.05",
+      "group": "W5 ASCII strategy stamp",
+      "type": "feature",
+      "status": "closed",
+      "approval": "proposed",
+      "summary": "Stamp exit ladder: stop, TP targets, trailing, peak giveback@arm, sell-by",
+      "requires": [
+        "IP-T129"
+      ],
+      "commits": []
+    },
+    {
+      "id": "IP-T132",
+      "wbs": "W5.06",
+      "group": "W5 ASCII strategy stamp",
+      "type": "feature",
+      "status": "closed",
+      "approval": "proposed",
+      "summary": "Stamp fingerprint: 17x9 drunken-bishop randomart over the canon hash",
+      "requires": [
+        "IP-T127"
+      ],
+      "commits": []
+    },
+    {
+      "id": "IP-T133",
+      "wbs": "W5.07",
+      "group": "W5 ASCII strategy stamp",
+      "type": "feature",
+      "status": "closed",
+      "approval": "proposed",
+      "summary": "Stamp armored payload: BEGIN/END IDIOTPROOF STRATEGY, deflate + base64url + CRC32, fail-closed decode",
+      "requires": [
+        "IP-T127"
+      ],
+      "commits": []
+    },
+    {
+      "id": "IP-T134",
+      "wbs": "W5.08",
+      "group": "W5 ASCII strategy stamp",
+      "type": "feature",
+      "status": "closed",
+      "approval": "proposed",
+      "summary": "Terminal QR of the payload (QRCoder, Unicode half-blocks) behind --qr",
+      "requires": [
+        "IP-T133"
+      ],
+      "commits": [
+        "090e38f"
+      ]
+    },
+    {
+      "id": "IP-T135",
+      "wbs": "W5.09",
+      "group": "W5 ASCII strategy stamp",
+      "type": "feature",
+      "status": "closed",
+      "approval": "proposed",
+      "summary": "Stamp box-drawing variant behind --unicode (ASCII is the default)",
+      "requires": [
+        "IP-T131"
+      ],
+      "commits": []
+    },
+    {
+      "id": "IP-T136",
+      "wbs": "W5.10",
+      "group": "W5 ASCII strategy stamp",
+      "type": "feature",
+      "status": "closed",
+      "approval": "proposed",
+      "summary": "Golden-file tests for every sample strategy + stamp -> import round trip yields an identical canon hash",
+      "requires": [
+        "IP-T131",
+        "IP-T133"
+      ],
+      "commits": [
+        "a744d8b"
+      ]
+    },
+    {
+      "id": "IP-T137",
+      "wbs": "W6.01",
+      "group": "W6 Strategy operations",
+      "type": "feature",
+      "status": "closed",
+      "approval": "proposed",
+      "summary": "`strategy list [--active] [--mode] [--symbol]` with live ConditionProgress badges",
+      "requires": [
+        "IP-T56",
+        "IP-T70"
+      ],
+      "commits": [
+        "2ec16b9"
+      ]
+    },
+    {
+      "id": "IP-T139",
+      "wbs": "W6.02",
+      "group": "W6 Strategy operations",
+      "type": "feature",
+      "status": "closed",
+      "approval": "proposed",
+      "summary": "`strategy show <id|symbol>` (fields, canon summary, position, progress)",
+      "requires": [
+        "IP-T137"
+      ],
+      "commits": []
+    },
+    {
+      "id": "IP-T140",
+      "wbs": "W6.03",
+      "group": "W6 Strategy operations",
+      "type": "feature",
+      "status": "closed",
+      "approval": "proposed",
+      "summary": "`strategy stamp <id> [--qr] [--unicode]`",
+      "requires": [
+        "IP-T136",
+        "IP-T139"
+      ],
+      "commits": []
+    },
+    {
+      "id": "IP-T141",
+      "wbs": "W6.04",
+      "group": "W6 Strategy operations",
+      "type": "feature",
+      "status": "closed",
+      "approval": "proposed",
+      "summary": "`strategy export <id> --format json|script|stamp`",
+      "requires": [
+        "IP-T133",
+        "IP-T139"
+      ],
+      "commits": []
+    },
+    {
+      "id": "IP-T142",
+      "wbs": "W6.05",
+      "group": "W6 Strategy operations",
+      "type": "feature",
+      "status": "closed",
+      "approval": "proposed",
+      "summary": "`strategy import --stamp|--json|--script <file|->` through StrategyRepository (fail-closed canon)",
+      "requires": [
+        "IP-T141"
+      ],
+      "commits": []
+    },
+    {
+      "id": "IP-T143",
+      "wbs": "W6.06",
+      "group": "W6 Strategy operations",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "`strategy create --script|--json` with validation and Sandbox default",
+      "requires": [
+        "IP-T137"
+      ],
+      "commits": [
+        "2761549"
+      ]
+    },
+    {
+      "id": "IP-T144",
+      "wbs": "W6.07",
+      "group": "W6 Strategy operations",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "`strategy from-text \"<plain English>\" [--ticker] [--mode]` via StrategyScriptGenerator + Legion; shows stamp before saving",
+      "requires": [
+        "IP-T143",
+        "IP-T35"
+      ],
+      "commits": [
+        "36ee41f"
+      ]
+    },
+    {
+      "id": "IP-T145",
+      "wbs": "W6.08",
+      "group": "W6 Strategy operations",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "`strategy set <id> --field value` field-level edits (stop, target, qty, notional, times) re-canonicalized",
+      "requires": [
+        "IP-T143"
+      ],
+      "commits": [
+        "105998a"
+      ]
+    },
+    {
+      "id": "IP-T146",
+      "wbs": "W6.09",
+      "group": "W6 Strategy operations",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "`strategy validate <id|--script>` (parse, canon, phase rules, risk preview)",
+      "requires": [
+        "IP-T143"
+      ],
+      "commits": [
+        "234f113"
+      ]
+    },
+    {
+      "id": "IP-T147",
+      "wbs": "W6.10",
+      "group": "W6 Strategy operations",
+      "type": "feature",
+      "status": "closed",
+      "approval": "proposed",
+      "summary": "`strategy activate|deactivate <id>` respecting PositionOpen and gapper caps (IP-LAW-11)",
+      "requires": [
+        "IP-T137"
+      ],
+      "commits": []
+    },
+    {
+      "id": "IP-T148",
+      "wbs": "W6.11",
+      "group": "W6 Strategy operations",
+      "type": "feature",
+      "status": "closed",
+      "approval": "proposed",
+      "summary": "`strategy mode <id> sandbox|paper|live` (live requires confirm code)",
+      "requires": [
+        "IP-T147",
+        "IP-T97"
+      ],
+      "commits": []
+    },
+    {
+      "id": "IP-T149",
+      "wbs": "W6.12",
+      "group": "W6 Strategy operations",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "`strategy delete <id>` (soft-disable per house law, refuses open positions)",
+      "requires": [
+        "IP-T147"
+      ],
+      "commits": [
+        "d6bcff2"
+      ]
+    },
+    {
+      "id": "IP-T150",
+      "wbs": "W6.13",
+      "group": "W6 Strategy operations",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "`strategy progress <id> [--watch]` live condition N/M + first failing verb",
+      "requires": [
+        "IP-T137"
+      ],
+      "commits": [
+        "cc26b4d"
+      ]
+    },
+    {
+      "id": "IP-T151",
+      "wbs": "W6.14",
+      "group": "W6 Strategy operations",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "`strategy quarantine` lists quarantined strategies with reasons",
+      "requires": [
+        "IP-T137"
+      ],
+      "commits": [
+        "9d060f3"
+      ]
+    },
+    {
+      "id": "IP-T152",
+      "wbs": "W6.15",
+      "group": "W6 Strategy operations",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "`strategy resync-canon` (port of MonitorCli resync-canon)",
+      "requires": [
+        "IP-T137"
+      ],
+      "commits": [
+        "414d3e6"
+      ]
+    },
+    {
+      "id": "IP-T153",
+      "wbs": "W6.16",
+      "group": "W6 Strategy operations",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "`strategy clone <id> [--symbol]`",
+      "requires": [
+        "IP-T143"
+      ],
+      "commits": [
+        "9a4460b"
+      ]
+    },
+    {
+      "id": "IP-T154",
+      "wbs": "W6.17",
+      "group": "W6 Strategy operations",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "`strategy diff <a> <b>` (canon-level diff)",
+      "requires": [
+        "IP-T139"
+      ],
+      "commits": [
+        "db5c8cb"
+      ]
+    },
+    {
+      "id": "IP-T155",
+      "wbs": "W6.18",
+      "group": "W6 Strategy operations",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "`strategy history <id>` (audit + diary trail)",
+      "requires": [
+        "IP-T139"
+      ],
+      "commits": [
+        "ec3295e"
+      ]
+    },
+    {
+      "id": "IP-T156",
+      "wbs": "W6.19",
+      "group": "W6 Strategy operations",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "`strategy from-watchlist <file>` (port of create-strategies)",
+      "requires": [
+        "IP-T143"
+      ],
+      "commits": [
+        "6c991c2"
+      ]
+    },
+    {
+      "id": "IP-T157",
+      "wbs": "W6.20",
+      "group": "W6 Strategy operations",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "`strategy rename <id> <name>`",
+      "requires": [
+        "IP-T145"
+      ],
+      "commits": [
+        "d3f9e3c"
+      ]
+    },
+    {
+      "id": "IP-T158",
+      "wbs": "W6.21",
+      "group": "W6 Strategy operations",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "`strategy samples` lists and shows built-in sample strategies",
+      "requires": [
+        "IP-T137"
+      ],
+      "commits": [
+        "6c38813"
+      ]
+    },
+    {
+      "id": "IP-T159",
+      "wbs": "W6.22",
+      "group": "W6 Strategy operations",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "`strategy explain <id>` plain-English narrative generated deterministically from the canon",
+      "requires": [
+        "IP-T139"
+      ],
+      "commits": [
+        "81db4fb"
+      ]
+    },
+    {
+      "id": "IP-T160",
+      "wbs": "W6.23",
+      "group": "W6 Strategy operations",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "`strategy fires <id>` recent gate verdicts (why it did/didn't fire)",
+      "requires": [
+        "IP-T155"
+      ],
+      "commits": [
+        "271f73c"
+      ]
+    },
+    {
+      "id": "IP-T161",
+      "wbs": "W6.24",
+      "group": "W6 Strategy operations",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "`strategy bulk activate|deactivate --all|--symbol` (quick actions)",
+      "requires": [
+        "IP-T147"
+      ],
+      "commits": [
+        "e3e84cc"
+      ]
+    },
+    {
+      "id": "IP-T162",
+      "wbs": "W7.01",
+      "group": "W7 Gapper operations",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "`gapper profiles` lists the static profile catalog",
+      "requires": [
+        "IP-T36",
+        "IP-T70"
+      ],
+      "commits": [
+        "b7d44c3"
+      ]
+    },
+    {
+      "id": "IP-T163",
+      "wbs": "W7.02",
+      "group": "W7 Gapper operations",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "`gapper profile show <name>`",
+      "requires": [
+        "IP-T162"
+      ],
+      "commits": [
+        "c063138"
+      ]
+    },
+    {
+      "id": "IP-T164",
+      "wbs": "W7.03",
+      "group": "W7 Gapper operations",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "`gapper tune <symbol> --profile <name> [--gap --stop --giveback --sell-by …]` generates the gapper strategy via GapperScriptFactory",
+      "requires": [
+        "IP-T143",
+        "IP-T163"
+      ],
+      "commits": [
+        "9dcbb2c"
+      ]
+    },
+    {
+      "id": "IP-T165",
+      "wbs": "W7.04",
+      "group": "W7 Gapper operations",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "`gapper arm|disarm <symbol|id>` honoring one-per-symbol and the 3-gapper cap",
+      "requires": [
+        "IP-T147",
+        "IP-T164"
+      ],
+      "commits": [
+        "dee4ffc"
+      ]
+    },
+    {
+      "id": "IP-T166",
+      "wbs": "W7.05",
+      "group": "W7 Gapper operations",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "`gapper list` queued gappers with live state",
+      "requires": [
+        "IP-T165"
+      ],
+      "commits": [
+        "aa30c19"
+      ]
+    },
+    {
+      "id": "IP-T167",
+      "wbs": "W7.06",
+      "group": "W7 Gapper operations",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "`gapper from-transcript <file|->` -> candidate cards (re-validated, not queued until `gapper arm`)",
+      "requires": [
+        "IP-T164",
+        "IP-T35"
+      ],
+      "commits": [
+        "b45e163"
+      ]
+    },
+    {
+      "id": "IP-T168",
+      "wbs": "W7.07",
+      "group": "W7 Gapper operations",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "`gapper backtest-day <symbol> <date> [--profile]` with MFE/MAE, giveback grid, hindsight suggestion",
+      "requires": [
+        "IP-T164"
+      ],
+      "commits": [
+        "88300ae"
+      ]
+    },
+    {
+      "id": "IP-T169",
+      "wbs": "W7.08",
+      "group": "W7 Gapper operations",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "`gapper auto status` (scan metrics from AutoGapperScan/Candidate)",
+      "requires": [
+        "IP-T75"
+      ],
+      "commits": [
+        "fed63f1"
+      ]
+    },
+    {
+      "id": "IP-T170",
+      "wbs": "W7.09",
+      "group": "W7 Gapper operations",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "`gapper auto enable|disable` (paper-only, owner-scoped)",
+      "requires": [
+        "IP-T169"
+      ],
+      "commits": [
+        "d068472"
+      ]
+    },
+    {
+      "id": "IP-T171",
+      "wbs": "W7.10",
+      "group": "W7 Gapper operations",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "`gapper auto candidates [--date]`",
+      "requires": [
+        "IP-T169"
+      ],
+      "commits": [
+        "c7d2e31"
+      ]
+    },
+    {
+      "id": "IP-T172",
+      "wbs": "W7.11",
+      "group": "W7 Gapper operations",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "`gapper premarket-fade [run|status]` (port of MonitorCli premarket-fade)",
+      "requires": [
+        "IP-T75"
+      ],
+      "commits": [
+        "3e7dd6a"
+      ]
+    },
+    {
+      "id": "IP-T173",
+      "wbs": "W7.12",
+      "group": "W7 Gapper operations",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "`gapper be-bex status` (BeBexDecayScanner arm/disarm state)",
+      "requires": [
+        "IP-T75"
+      ],
+      "commits": [
+        "446d0c5"
+      ]
+    },
+    {
+      "id": "IP-T174",
+      "wbs": "W7.13",
+      "group": "W7 Gapper operations",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "`gapper apply-tuned <backtest-id>` applies a backtest's tuned profile on explicit command",
+      "requires": [
+        "IP-T168"
+      ],
+      "commits": [
+        "de3589f"
+      ]
+    },
+    {
+      "id": "IP-T175",
+      "wbs": "W7.14",
+      "group": "W7 Gapper operations",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "`gapper caps` shows active-gapper counts vs caps",
+      "requires": [
+        "IP-T166"
+      ],
+      "commits": [
+        "8aaaeb5"
+      ]
+    },
+    {
+      "id": "IP-T176",
+      "wbs": "W8.01",
+      "group": "W8 Replay / backtest / scan operations",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "`replay run <symbol> <date> [--strategy|--profile|--family]` (port of replay)",
+      "requires": [
+        "IP-T44",
+        "IP-T70"
+      ],
+      "commits": [
+        "79c6acf"
+      ]
+    },
+    {
+      "id": "IP-T177",
+      "wbs": "W8.02",
+      "group": "W8 Replay / backtest / scan operations",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "`replay live <symbol>` (port of replay-live)",
+      "requires": [
+        "IP-T176"
+      ],
+      "commits": [
+        "8b3a40d"
+      ]
+    },
+    {
+      "id": "IP-T178",
+      "wbs": "W8.03",
+      "group": "W8 Replay / backtest / scan operations",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "`replay all <date>` (port of replay-all)",
+      "requires": [
+        "IP-T176"
+      ],
+      "commits": [
+        "3d8d673"
+      ]
+    },
+    {
+      "id": "IP-T179",
+      "wbs": "W8.04",
+      "group": "W8 Replay / backtest / scan operations",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "`replay list [--symbol] [--since]`",
+      "requires": [
+        "IP-T176"
+      ],
+      "commits": [
+        "cc82bf0"
+      ]
+    },
+    {
+      "id": "IP-T180",
+      "wbs": "W8.05",
+      "group": "W8 Replay / backtest / scan operations",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "`replay show <run-id>` trades and per-bar features",
+      "requires": [
+        "IP-T179"
+      ],
+      "commits": [
+        "1ad0731"
+      ]
+    },
+    {
+      "id": "IP-T181",
+      "wbs": "W8.06",
+      "group": "W8 Replay / backtest / scan operations",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "`replay regen` regenerates the HTML archive (no FTP)",
+      "requires": [
+        "IP-T176"
+      ],
+      "commits": [
+        "f837cb1"
+      ]
+    },
+    {
+      "id": "IP-T182",
+      "wbs": "W8.07",
+      "group": "W8 Replay / backtest / scan operations",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "`replay families` lists built-in families with descriptions",
+      "requires": [
+        "IP-T176"
+      ],
+      "commits": [
+        "89aa70c"
+      ]
+    },
+    {
+      "id": "IP-T183",
+      "wbs": "W8.08",
+      "group": "W8 Replay / backtest / scan operations",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "`replay compare <run-a> <run-b>`",
+      "requires": [
+        "IP-T180"
+      ],
+      "commits": [
+        "fece946"
+      ]
+    },
+    {
+      "id": "IP-T184",
+      "wbs": "W8.09",
+      "group": "W8 Replay / backtest / scan operations",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "`backtest run <strategy|--script> --from --to` via StrategyBacktester",
+      "requires": [
+        "IP-T176"
+      ],
+      "commits": [
+        "d442d32"
+      ]
+    },
+    {
+      "id": "IP-T185",
+      "wbs": "W8.10",
+      "group": "W8 Replay / backtest / scan operations",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "`backtest conditions <run>` per-candle ConditionTable",
+      "requires": [
+        "IP-T184"
+      ],
+      "commits": [
+        "cea174a"
+      ]
+    },
+    {
+      "id": "IP-T186",
+      "wbs": "W8.11",
+      "group": "W8 Replay / backtest / scan operations",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "`scan movers [--date] [--replay]` (port of scan)",
+      "requires": [
+        "IP-T176"
+      ],
+      "commits": [
+        "e499b0e"
+      ]
+    },
+    {
+      "id": "IP-T187",
+      "wbs": "W8.12",
+      "group": "W8 Replay / backtest / scan operations",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "`dataset export [--out]` ML-ready CSVs (port of replay-export)",
+      "requires": [
+        "IP-T176"
+      ],
+      "commits": [
+        "97c1e30"
+      ]
+    },
+    {
+      "id": "IP-T188",
+      "wbs": "W9.01",
+      "group": "W9 Options operations",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "`options level [--mode]` Alpaca options trading level",
+      "requires": [
+        "IP-T70"
+      ],
+      "commits": [
+        "7108387"
+      ]
+    },
+    {
+      "id": "IP-T189",
+      "wbs": "W9.02",
+      "group": "W9 Options operations",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "`options chain <symbol> [--expiry] [--horizon] [--strikes]`",
+      "requires": [
+        "IP-T188"
+      ],
+      "commits": [
+        "f52389e"
+      ]
+    },
+    {
+      "id": "IP-T190",
+      "wbs": "W9.03",
+      "group": "W9 Options operations",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "`options quote <occ>`",
+      "requires": [
+        "IP-T189"
+      ],
+      "commits": [
+        "c2bc2cd"
+      ]
+    },
+    {
+      "id": "IP-T191",
+      "wbs": "W9.04",
+      "group": "W9 Options operations",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "`options greeks <occ>` (badge Model when IV solved locally)",
+      "requires": [
+        "IP-T190"
+      ],
+      "commits": [
+        "f99efe2"
+      ]
+    },
+    {
+      "id": "IP-T192",
+      "wbs": "W9.05",
+      "group": "W9 Options operations",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "`options value <occ> [--spot]` intrinsic/extrinsic/breakeven/DTE/Black-Scholes",
+      "requires": [
+        "IP-T190"
+      ],
+      "commits": [
+        "cc1012c"
+      ]
+    },
+    {
+      "id": "IP-T193",
+      "wbs": "W9.06",
+      "group": "W9 Options operations",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "`options iv <occ>` implied-vol solve",
+      "requires": [
+        "IP-T192"
+      ],
+      "commits": [
+        "ea10ee9"
+      ]
+    },
+    {
+      "id": "IP-T194",
+      "wbs": "W9.07",
+      "group": "W9 Options operations",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "`options buy <occ> <contracts> [--limit] [--mode]` through the gateway (level-gated)",
+      "requires": [
+        "IP-T190",
+        "IP-T96"
+      ],
+      "commits": [
+        "ba3aab9"
+      ]
+    },
+    {
+      "id": "IP-T195",
+      "wbs": "W9.08",
+      "group": "W9 Options operations",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "`options sell <occ> <contracts>` through the gateway (level-gated)",
+      "requires": [
+        "IP-T194"
+      ],
+      "commits": [
+        "0baa702"
+      ]
+    },
+    {
+      "id": "IP-T196",
+      "wbs": "W9.09",
+      "group": "W9 Options operations",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "`options close <occ>`",
+      "requires": [
+        "IP-T194"
+      ],
+      "commits": [
+        "fe05278"
+      ]
+    },
+    {
+      "id": "IP-T197",
+      "wbs": "W9.10",
+      "group": "W9 Options operations",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "`options positions [--mode]`",
+      "requires": [
+        "IP-T188"
+      ],
+      "commits": [
+        "f02297e"
+      ]
+    },
+    {
+      "id": "IP-T198",
+      "wbs": "W9.11",
+      "group": "W9 Options operations",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "`options signals` SellSignalEvaluator nudges on open long options",
+      "requires": [
+        "IP-T197"
+      ],
+      "commits": [
+        "3a8152a"
+      ]
+    },
+    {
+      "id": "IP-T199",
+      "wbs": "W9.12",
+      "group": "W9 Options operations",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "`options glossary [term]` from OptionsGlossary",
+      "requires": [
+        "IP-T70"
+      ],
+      "commits": [
+        "50f4cf0"
+      ]
+    },
+    {
+      "id": "IP-T200",
+      "wbs": "W10.01",
+      "group": "W10 Market, indicators, DSL operations",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "`market quote <symbol...>` latest trade/quote",
+      "requires": [
+        "IP-T70"
+      ],
+      "commits": [
+        "e21f328"
+      ]
+    },
+    {
+      "id": "IP-T201",
+      "wbs": "W10.02",
+      "group": "W10 Market, indicators, DSL operations",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "`market bars <symbol> [--tf] [--from --to]`",
+      "requires": [
+        "IP-T200"
+      ],
+      "commits": [
+        "36bf4be"
+      ]
+    },
+    {
+      "id": "IP-T202",
+      "wbs": "W10.03",
+      "group": "W10 Market, indicators, DSL operations",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "`market prev-close <symbol>`",
+      "requires": [
+        "IP-T200"
+      ],
+      "commits": [
+        "e8ddd46"
+      ]
+    },
+    {
+      "id": "IP-T203",
+      "wbs": "W10.04",
+      "group": "W10 Market, indicators, DSL operations",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "`market movers [--top]`",
+      "requires": [
+        "IP-T200"
+      ],
+      "commits": [
+        "1272484"
+      ]
+    },
+    {
+      "id": "IP-T204",
+      "wbs": "W10.05",
+      "group": "W10 Market, indicators, DSL operations",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "`market news <symbol> [--limit]` via AlpacaNewsService",
+      "requires": [
+        "IP-T200"
+      ],
+      "commits": [
+        "511d82a"
+      ]
+    },
+    {
+      "id": "IP-T205",
+      "wbs": "W10.06",
+      "group": "W10 Market, indicators, DSL operations",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "`market feed status|switch <sip|iex|mock>` (switch refuses mock while non-Sandbox strategies are active)",
+      "requires": [
+        "IP-T200"
+      ],
+      "commits": [
+        "cda4120"
+      ]
+    },
+    {
+      "id": "IP-T206",
+      "wbs": "W10.07",
+      "group": "W10 Market, indicators, DSL operations",
+      "type": "feature",
+      "status": "open",
+      "approval": "approved",
+      "summary": "`market stream status` websocket health",
+      "requires": [
+        "IP-T205"
+      ],
+      "commits": []
+    },
+    {
+      "id": "IP-T207",
+      "wbs": "W10.08",
+      "group": "W10 Market, indicators, DSL operations",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "`indicators compute <symbol> <rsi|ema|atr|macd|vwap|adx|…> [--period]`",
+      "requires": [
+        "IP-T201"
+      ],
+      "commits": [
+        "cdccce3"
+      ]
+    },
+    {
+      "id": "IP-T208",
+      "wbs": "W10.09",
+      "group": "W10 Market, indicators, DSL operations",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "`indicators snapshot <symbol>` full IndicatorSnapshot (gap, window high/low, pivots)",
+      "requires": [
+        "IP-T207"
+      ],
+      "commits": [
+        "eabc1d5"
+      ]
+    },
+    {
+      "id": "IP-T209",
+      "wbs": "W10.10",
+      "group": "W10 Market, indicators, DSL operations",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "`dsl verbs [--phase]` reflected verb catalog (IP-LAW-4)",
+      "requires": [
+        "IP-T70"
+      ],
+      "commits": [
+        "10792d8"
+      ]
+    },
+    {
+      "id": "IP-T210",
+      "wbs": "W10.11",
+      "group": "W10 Market, indicators, DSL operations",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "`dsl glossary [verb]` from DslGlossary",
+      "requires": [
+        "IP-T209"
+      ],
+      "commits": [
+        "5852944"
+      ]
+    },
+    {
+      "id": "IP-T211",
+      "wbs": "W10.12",
+      "group": "W10 Market, indicators, DSL operations",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "`dsl parse <script|->` -> canon JSON",
+      "requires": [
+        "IP-T209"
+      ],
+      "commits": [
+        "f2dd67e"
+      ]
+    },
+    {
+      "id": "IP-T212",
+      "wbs": "W10.13",
+      "group": "W10 Market, indicators, DSL operations",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "`dsl format <json|->` -> IdiotScript text",
+      "requires": [
+        "IP-T211"
+      ],
+      "commits": [
+        "ec33be4"
+      ]
+    },
+    {
+      "id": "IP-T213",
+      "wbs": "W10.14",
+      "group": "W10 Market, indicators, DSL operations",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "`dsl validate <script|->` phase rules, fail-closed reasons",
+      "requires": [
+        "IP-T211"
+      ],
+      "commits": [
+        "b8a6a81"
+      ]
+    },
+    {
+      "id": "IP-T214",
+      "wbs": "W10.15",
+      "group": "W10 Market, indicators, DSL operations",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "`market scan-universe [--filter]` TrackedTicker price/volume screen",
+      "requires": [
+        "IP-T200"
+      ],
+      "commits": [
+        "05264be"
+      ]
+    },
+    {
+      "id": "IP-T215",
+      "wbs": "W10.16",
+      "group": "W10 Market, indicators, DSL operations",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "`market candlesticks <symbol>` CandlestickPatterns detected on recent bars",
+      "requires": [
+        "IP-T201"
+      ],
+      "commits": [
+        "adb4ef4"
+      ]
+    },
+    {
+      "id": "IP-T216",
+      "wbs": "W11.01",
+      "group": "W11 Risk & LLM operations",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "`risk show` the six RiskGuardian limits",
+      "requires": [
+        "IP-T70"
+      ],
+      "commits": [
+        "bcd827c"
+      ]
+    },
+    {
+      "id": "IP-T217",
+      "wbs": "W11.02",
+      "group": "W11 Risk & LLM operations",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "`risk set --max-loss-per-trade … ` edits limits (2-minute TTL refresh, daily counter preserved)",
+      "requires": [
+        "IP-T216"
+      ],
+      "commits": [
+        "4d94edc"
+      ]
+    },
+    {
+      "id": "IP-T218",
+      "wbs": "W11.03",
+      "group": "W11 Risk & LLM operations",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "`risk status` daily realized P&L, breaker state, remaining room",
+      "requires": [
+        "IP-T216"
+      ],
+      "commits": [
+        "26e656a"
+      ]
+    },
+    {
+      "id": "IP-T219",
+      "wbs": "W11.04",
+      "group": "W11 Risk & LLM operations",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "`risk kill-switch on|off` (off requires confirm code)",
+      "requires": [
+        "IP-T218",
+        "IP-T91"
+      ],
+      "commits": [
+        "a4e3fec"
+      ]
+    },
+    {
+      "id": "IP-T220",
+      "wbs": "W11.05",
+      "group": "W11 Risk & LLM operations",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "`risk check <symbol> --entry --stop --qty` dry-run ValidateTrade",
+      "requires": [
+        "IP-T216"
+      ],
+      "commits": [
+        "f941136"
+      ]
+    },
+    {
+      "id": "IP-T221",
+      "wbs": "W11.06",
+      "group": "W11 Risk & LLM operations",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "`llm panel` voters, lenses, which have keys, threshold",
+      "requires": [
+        "IP-T70"
+      ],
+      "commits": [
+        "99c9b42"
+      ]
+    },
+    {
+      "id": "IP-T222",
+      "wbs": "W11.07",
+      "group": "W11 Risk & LLM operations",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "`llm vote <strategy-id>` dry-run vote on the current candidate (no order)",
+      "requires": [
+        "IP-T221"
+      ],
+      "commits": [
+        "5836bd1"
+      ]
+    },
+    {
+      "id": "IP-T223",
+      "wbs": "W11.08",
+      "group": "W11 Risk & LLM operations",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "`llm keys` owner/host Claude key resolution status (never prints secrets)",
+      "requires": [
+        "IP-T221"
+      ],
+      "commits": [
+        "c6bb09b"
+      ]
+    },
+    {
+      "id": "IP-T224",
+      "wbs": "W11.09",
+      "group": "W11 Risk & LLM operations",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "`llm voting enable|disable` owner-level toggle",
+      "requires": [
+        "IP-T221"
+      ],
+      "commits": [
+        "b515db7"
+      ]
+    },
+    {
+      "id": "IP-T225",
+      "wbs": "W11.10",
+      "group": "W11 Risk & LLM operations",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "`llm threshold <0..1>` consensus threshold setting",
+      "requires": [
+        "IP-T221"
+      ],
+      "commits": [
+        "a773082"
+      ]
+    },
+    {
+      "id": "IP-T226",
+      "wbs": "W12.01",
+      "group": "W12 Research operations",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "`research scan [--tickers] [--batch]` runs one ResearchScanner pass in the Hub (not on the Monitor loop)",
+      "requires": [
+        "IP-T40",
+        "IP-T70"
+      ],
+      "commits": [
+        "5f4aecc"
+      ]
+    },
+    {
+      "id": "IP-T227",
+      "wbs": "W12.02",
+      "group": "W12 Research operations",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "`research claims [--ticker] [--since] [--min-score] [--macro]` ranked feed",
+      "requires": [
+        "IP-T226"
+      ],
+      "commits": [
+        "4c69d6e"
+      ]
+    },
+    {
+      "id": "IP-T228",
+      "wbs": "W12.03",
+      "group": "W12 Research operations",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "`research claim <id>` full claim with sources and score breakdown",
+      "requires": [
+        "IP-T227"
+      ],
+      "commits": [
+        "6016404"
+      ]
+    },
+    {
+      "id": "IP-T229",
+      "wbs": "W12.04",
+      "group": "W12 Research operations",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "`research ticker <symbol>` everything known about one ticker",
+      "requires": [
+        "IP-T227"
+      ],
+      "commits": [
+        "434a5b3"
+      ]
+    },
+    {
+      "id": "IP-T230",
+      "wbs": "W12.05",
+      "group": "W12 Research operations",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "`research macro` macro/regulatory claims",
+      "requires": [
+        "IP-T227"
+      ],
+      "commits": [
+        "e9647ed"
+      ]
+    },
+    {
+      "id": "IP-T231",
+      "wbs": "W12.06",
+      "group": "W12 Research operations",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "`research index-events` S&P add/remove events",
+      "requires": [
+        "IP-T227"
+      ],
+      "commits": [
+        "eee62e0"
+      ]
+    },
+    {
+      "id": "IP-T232",
+      "wbs": "W12.07",
+      "group": "W12 Research operations",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "`research insiders <symbol>` Form 4 transactions",
+      "requires": [
+        "IP-T227"
+      ],
+      "commits": [
+        "f3b2fbf"
+      ]
+    },
+    {
+      "id": "IP-T233",
+      "wbs": "W12.08",
+      "group": "W12 Research operations",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "`research universe list|refresh`",
+      "requires": [
+        "IP-T226"
+      ],
+      "commits": [
+        "f71e455"
+      ]
+    },
+    {
+      "id": "IP-T234",
+      "wbs": "W12.09",
+      "group": "W12 Research operations",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "`research backfill` runs OutcomeBackfillService",
+      "requires": [
+        "IP-T226"
+      ],
+      "commits": [
+        "3b37776"
+      ]
+    },
+    {
+      "id": "IP-T235",
+      "wbs": "W12.10",
+      "group": "W12 Research operations",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "`research score <claim-id>` explains the SignificanceScorer components",
+      "requires": [
+        "IP-T228"
+      ],
+      "commits": [
+        "d20fb62"
+      ]
+    },
+    {
+      "id": "IP-T236",
+      "wbs": "W12.11",
+      "group": "W12 Research operations",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "`research analyze <symbol|url>` on-demand CatalystExtractor via Legion",
+      "requires": [
+        "IP-T226",
+        "IP-T35"
+      ],
+      "commits": [
+        "eba6c5d"
+      ]
+    },
+    {
+      "id": "IP-T237",
+      "wbs": "W12.12",
+      "group": "W12 Research operations",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "`research similar <claim-id>` ClaimCorrelationService neighbors",
+      "requires": [
+        "IP-T228"
+      ],
+      "commits": [
+        "a8f0fb8"
+      ]
+    },
+    {
+      "id": "IP-T238",
+      "wbs": "W13.01",
+      "group": "W13 Diary, audit, ledger operations",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "`diary list [--since] [--mode] [--symbol]`",
+      "requires": [
+        "IP-T70"
+      ],
+      "commits": [
+        "2c08ab6"
+      ]
+    },
+    {
+      "id": "IP-T239",
+      "wbs": "W13.02",
+      "group": "W13 Diary, audit, ledger operations",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "`diary show <id>`",
+      "requires": [
+        "IP-T238"
+      ],
+      "commits": [
+        "2fe4bd9"
+      ]
+    },
+    {
+      "id": "IP-T240",
+      "wbs": "W13.03",
+      "group": "W13 Diary, audit, ledger operations",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "`diary pnl --day|--week|--month [--by strategy|symbol]`",
+      "requires": [
+        "IP-T238"
+      ],
+      "commits": [
+        "49ac144"
+      ]
+    },
+    {
+      "id": "IP-T241",
+      "wbs": "W13.04",
+      "group": "W13 Diary, audit, ledger operations",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "`diary stats` win rate, expectancy, avg R, MFE/MAE",
+      "requires": [
+        "IP-T240"
+      ],
+      "commits": [
+        "c6bea2f"
+      ]
+    },
+    {
+      "id": "IP-T242",
+      "wbs": "W13.05",
+      "group": "W13 Diary, audit, ledger operations",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "`diary export --csv <file>`",
+      "requires": [
+        "IP-T238"
+      ],
+      "commits": [
+        "1ea2fc5"
+      ]
+    },
+    {
+      "id": "IP-T243",
+      "wbs": "W13.06",
+      "group": "W13 Diary, audit, ledger operations",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "`audit list [--since] [--kind]` and `audit search <text>`",
+      "requires": [
+        "IP-T70"
+      ],
+      "commits": [
+        "e742a7e"
+      ]
+    },
+    {
+      "id": "IP-T244",
+      "wbs": "W13.07",
+      "group": "W13 Diary, audit, ledger operations",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "`audit tail [--follow]`",
+      "requires": [
+        "IP-T243"
+      ],
+      "commits": [
+        "61c308d"
+      ]
+    },
+    {
+      "id": "IP-T245",
+      "wbs": "W13.08",
+      "group": "W13 Diary, audit, ledger operations",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "`ledger list [--op] [--since]` CommandLedger browser",
+      "requires": [
+        "IP-T73"
+      ],
+      "commits": [
+        "d6472d7"
+      ]
+    },
+    {
+      "id": "IP-T246",
+      "wbs": "W14.01",
+      "group": "W14 Keys, settings, users, watchlist, monitor operations",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "`keys status` which broker/LLM keys resolve (Vault vs DB), never printing secrets",
+      "requires": [
+        "IP-T70"
+      ],
+      "commits": [
+        "ed4d664"
+      ]
+    },
+    {
+      "id": "IP-T247",
+      "wbs": "W14.02",
+      "group": "W14 Keys, settings, users, watchlist, monitor operations",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "`keys set alpaca-paper|alpaca-live` writes the Vault Brokers bucket, validates prefix + live probe (port of set-keys)",
+      "requires": [
+        "IP-T246"
+      ],
+      "commits": [
+        "3e2f676"
+      ]
+    },
+    {
+      "id": "IP-T248",
+      "wbs": "W14.03",
+      "group": "W14 Keys, settings, users, watchlist, monitor operations",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "`keys opt-in alpaca|off` DefaultBroker opt-in (IP-LAW-3)",
+      "requires": [
+        "IP-T246"
+      ],
+      "commits": [
+        "69c6214"
+      ]
+    },
+    {
+      "id": "IP-T249",
+      "wbs": "W14.04",
+      "group": "W14 Keys, settings, users, watchlist, monitor operations",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "`keys probe [--mode]` account round-trip test",
+      "requires": [
+        "IP-T246"
+      ],
+      "commits": [
+        "5844838"
+      ]
+    },
+    {
+      "id": "IP-T250",
+      "wbs": "W14.05",
+      "group": "W14 Keys, settings, users, watchlist, monitor operations",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "`settings list|get|set` SettingsKv with SettingsMetadata validation",
+      "requires": [
+        "IP-T70"
+      ],
+      "commits": [
+        "a5a0dee"
+      ]
+    },
+    {
+      "id": "IP-T251",
+      "wbs": "W14.06",
+      "group": "W14 Keys, settings, users, watchlist, monitor operations",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "`prefs get|set` UserPreferences",
+      "requires": [
+        "IP-T250"
+      ],
+      "commits": [
+        "e12c5df"
+      ]
+    },
+    {
+      "id": "IP-T252",
+      "wbs": "W14.07",
+      "group": "W14 Keys, settings, users, watchlist, monitor operations",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "`watchlist list|add|remove`",
+      "requires": [
+        "IP-T251"
+      ],
+      "commits": [
+        "b43443a"
+      ]
+    },
+    {
+      "id": "IP-T253",
+      "wbs": "W14.08",
+      "group": "W14 Keys, settings, users, watchlist, monitor operations",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "`users list`",
+      "requires": [
+        "IP-T70"
+      ],
+      "commits": [
+        "d9d2167"
+      ]
+    },
+    {
+      "id": "IP-T254",
+      "wbs": "W14.09",
+      "group": "W14 Keys, settings, users, watchlist, monitor operations",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "`users create <email>` (blocklist + MindAttic.Authentication; port of create-account)",
+      "requires": [
+        "IP-T253"
+      ],
+      "commits": [
+        "4c3c951"
+      ]
+    },
+    {
+      "id": "IP-T255",
+      "wbs": "W14.10",
+      "group": "W14 Keys, settings, users, watchlist, monitor operations",
+      "type": "feature",
+      "status": "closed",
+      "approval": "proposed",
+      "summary": "`users whoami` and `users use <email|guid>`",
+      "requires": [
+        "IP-T253",
+        "IP-T63"
+      ],
+      "commits": []
+    },
+    {
+      "id": "IP-T256",
+      "wbs": "W14.11",
+      "group": "W14 Keys, settings, users, watchlist, monitor operations",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "`monitor status|heartbeat|lease`",
+      "requires": [
+        "IP-T80"
+      ],
+      "commits": [
+        "53b089f"
+      ]
+    },
+    {
+      "id": "IP-T257",
+      "wbs": "W14.12",
+      "group": "W14 Keys, settings, users, watchlist, monitor operations",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "`monitor pause|resume|tick-once [--dry]` (tick-once never places orders)",
+      "requires": [
+        "IP-T256"
+      ],
+      "commits": [
+        "25e4b54"
+      ]
+    },
+    {
+      "id": "IP-T258",
+      "wbs": "W14.13",
+      "group": "W14 Keys, settings, users, watchlist, monitor operations",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "`monitor tail` progress + gate verdict stream",
+      "requires": [
+        "IP-T256"
+      ],
+      "commits": [
+        "6a5da7d"
+      ]
+    },
+    {
+      "id": "IP-T259",
+      "wbs": "W15.01",
+      "group": "W15 Knowledge index + docs operations",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "KnowledgeIndex core: markdown section/anchor parser ({#IP-§n}, {#IP-LAW-n}, IP-US-*)",
+      "requires": [
+        "IP-T66"
+      ],
+      "commits": [
+        "60e3a3b"
+      ]
+    },
+    {
+      "id": "IP-T260",
+      "wbs": "W15.02",
+      "group": "W15 Knowledge index + docs operations",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "Index docs/BIBLE.md, BIBLE.digest.md, AMENDMENTS.md, README.md",
+      "requires": [
+        "IP-T259"
+      ],
+      "commits": [
+        "edd4ff2"
+      ]
+    },
+    {
+      "id": "IP-T261",
+      "wbs": "W15.03",
+      "group": "W15 Knowledge index + docs operations",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "Index docs/USER_STORIES.md stories and the ticket table",
+      "requires": [
+        "IP-T259"
+      ],
+      "commits": [
+        "a9e93c7"
+      ]
+    },
+    {
+      "id": "IP-T262",
+      "wbs": "W15.04",
+      "group": "W15 Knowledge index + docs operations",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "Index XML doc comments from every library (type/member -> summary, remarks)",
+      "requires": [
+        "IP-T259",
+        "IP-T31"
+      ],
+      "commits": [
+        "d3c5d98"
+      ]
+    },
+    {
+      "id": "IP-T263",
+      "wbs": "W15.05",
+      "group": "W15 Knowledge index + docs operations",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "Symbol -> source path:line map built at Hub start from the repo checkout",
+      "requires": [
+        "IP-T262"
+      ],
+      "commits": [
+        "d1f754d"
+      ]
+    },
+    {
+      "id": "IP-T264",
+      "wbs": "W15.06",
+      "group": "W15 Knowledge index + docs operations",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "Ticket history via `tickets ticket list/show --json` (read-only)",
+      "requires": [
+        "IP-T259"
+      ],
+      "commits": [
+        "601db67"
+      ]
+    },
+    {
+      "id": "IP-T265",
+      "wbs": "W15.07",
+      "group": "W15 Knowledge index + docs operations",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "Index static catalogs: gapper profiles, index events, legion.json voters, settings metadata",
+      "requires": [
+        "IP-T259"
+      ],
+      "commits": [
+        "afe46c4"
+      ]
+    },
+    {
+      "id": "IP-T266",
+      "wbs": "W15.08",
+      "group": "W15 Knowledge index + docs operations",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "`docs search <text>` ranked across every index",
+      "requires": [
+        "IP-T260",
+        "IP-T261",
+        "IP-T262"
+      ],
+      "commits": [
+        "7d1ce03"
+      ]
+    },
+    {
+      "id": "IP-T267",
+      "wbs": "W15.09",
+      "group": "W15 Knowledge index + docs operations",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "`docs law <n>`, `docs section <§n>`, `docs story <id>`",
+      "requires": [
+        "IP-T260",
+        "IP-T261"
+      ],
+      "commits": [
+        "cd34c48"
+      ]
+    },
+    {
+      "id": "IP-T268",
+      "wbs": "W15.10",
+      "group": "W15 Knowledge index + docs operations",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "`docs explain <Type|Member>` XML docs + path:line + callers",
+      "requires": [
+        "IP-T263"
+      ],
+      "commits": [
+        "21dbc4d"
+      ]
+    },
+    {
+      "id": "IP-T269",
+      "wbs": "W15.11",
+      "group": "W15 Knowledge index + docs operations",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "`docs ticket <IP-Tn>`",
+      "requires": [
+        "IP-T264"
+      ],
+      "commits": [
+        "c0a8dca"
+      ]
+    },
+    {
+      "id": "IP-T270",
+      "wbs": "W15.12",
+      "group": "W15 Knowledge index + docs operations",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "`docs dsl <verb>` verb docs + example from the reflected catalog",
+      "requires": [
+        "IP-T209",
+        "IP-T262"
+      ],
+      "commits": [
+        "5ace53a"
+      ]
+    },
+    {
+      "id": "IP-T271",
+      "wbs": "W16.01",
+      "group": "W16 Agent docs",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "docs/agent/IDIOTPROOF_PROTOCOL.md: how an assistant drives IdiotProof (bootstrap, intent -> op mapping, Live confirm etiquette, ET times)",
+      "requires": [
+        "IP-T64"
+      ],
+      "commits": [
+        "0b08eb2"
+      ]
+    },
+    {
+      "id": "IP-T272",
+      "wbs": "W16.02",
+      "group": "W16 Agent docs",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "`agent export` writes docs/CLI_COMMANDS.md, docs/MCP_TOOLS.md, docs/agent/operation-catalog.json",
+      "requires": [
+        "IP-T118",
+        "IP-T65"
+      ],
+      "commits": [
+        "71b7f3b"
+      ]
+    },
+    {
+      "id": "IP-T273",
+      "wbs": "W16.03",
+      "group": "W16 Agent docs",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "AGENTS.md project context points at the protocol doc and bootstrap command",
+      "requires": [
+        "IP-T271"
+      ],
+      "commits": [
+        "8545ecf"
+      ]
+    },
+    {
+      "id": "IP-T274",
+      "wbs": "W16.04",
+      "group": "W16 Agent docs",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "BIBLE §4 rewrite: Hub architecture, front doors (CLI/MCP/Blazor), transaction gateway, stamp",
+      "requires": [
+        "IP-T126",
+        "IP-T99"
+      ],
+      "commits": [
+        "52f10a6"
+      ]
+    },
+    {
+      "id": "IP-T275",
+      "wbs": "W16.05",
+      "group": "W16 Agent docs",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "BIBLE §3/§6/§7 updates (no longer 'Monitor console' only; verified state cites new tests)",
+      "requires": [
+        "IP-T274"
+      ],
+      "commits": [
+        "ef56f60"
+      ]
+    },
+    {
+      "id": "IP-T276",
+      "wbs": "W16.06",
+      "group": "W16 Agent docs",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "Epic W user stories filed via `tickets story` and USER_STORIES regenerated",
+      "requires": [
+        "IP-T274"
+      ],
+      "commits": [
+        "03fd745"
+      ]
+    },
+    {
+      "id": "IP-T277",
+      "wbs": "W16.07",
+      "group": "W16 Agent docs",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "BIBLE digest regenerated via tools/codex.ps1 and doctor passes",
+      "requires": [
+        "IP-T275"
+      ],
+      "commits": [
+        "b38903f"
+      ]
+    },
+    {
+      "id": "IP-T278",
+      "wbs": "W16.08",
+      "group": "W16 Agent docs",
+      "type": "feature",
+      "status": "open",
+      "approval": "approved",
+      "summary": "docs/agent/cli-hub-backlog.json: the filed backlog with ticket IDs and dependencies",
+      "requires": [],
+      "commits": []
+    },
+    {
+      "id": "IP-T279",
+      "wbs": "W17.01",
+      "group": "W17 Blazor re-pointing",
+      "type": "feature",
+      "status": "open",
+      "approval": "approved",
+      "summary": "Blazor IOwnerContext adapter from the auth claim",
+      "requires": [
+        "IP-T34",
+        "IP-T45"
+      ],
+      "commits": []
+    },
+    {
+      "id": "IP-T280",
+      "wbs": "W17.02",
+      "group": "W17 Blazor re-pointing",
+      "type": "feature",
+      "status": "open",
+      "approval": "approved",
+      "summary": "Blazor IClaudeKeyContext adapter (replaces SignedInClaudeKey wiring)",
+      "requires": [
+        "IP-T35",
+        "IP-T45"
+      ],
+      "commits": []
+    },
+    {
+      "id": "IP-T281",
+      "wbs": "W17.03",
+      "group": "W17 Blazor re-pointing",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "Blazor manual order paths go through TransactionGateway",
+      "requires": [
+        "IP-T45",
+        "IP-T93"
+      ],
+      "commits": [
+        "b0a92c1"
+      ]
+    },
+    {
+      "id": "IP-T282",
+      "wbs": "W17.04",
+      "group": "W17 Blazor re-pointing",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "Blazor Options page orders through the gateway (password elevation kept)",
+      "requires": [
+        "IP-T281",
+        "IP-T96"
+      ],
+      "commits": [
+        "60c682c"
+      ]
+    },
+    {
+      "id": "IP-T283",
+      "wbs": "W17.05",
+      "group": "W17 Blazor re-pointing",
+      "type": "feature",
+      "status": "open",
+      "approval": "approved",
+      "summary": "Blazor Activity page shows CommandLedger rows from CLI/MCP",
+      "requires": [
+        "IP-T73"
+      ],
+      "commits": []
+    },
+    {
+      "id": "IP-T284",
+      "wbs": "W17.06",
+      "group": "W17 Blazor re-pointing",
+      "type": "feature",
+      "status": "open",
+      "approval": "approved",
+      "summary": "Blazor strategy detail renders the ASCII stamp",
+      "requires": [
+        "IP-T136"
+      ],
+      "commits": []
+    },
+    {
+      "id": "IP-T285",
+      "wbs": "W18.01",
+      "group": "W18 Publish / run",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "run.ps1 publishes Hub, Cli and Mcp to C:\\Apps\\IdiotProof\\ (never invoked without the user)",
+      "requires": [
+        "IP-T123",
+        "IP-T81"
+      ],
+      "commits": [
+        "21f5551"
+      ]
+    },
+    {
+      "id": "IP-T286",
+      "wbs": "W18.02",
+      "group": "W18 Publish / run",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "tools/publish-all.ps1 includes the new projects",
+      "requires": [
+        "IP-T285"
+      ],
+      "commits": [
+        "c9c9eef"
+      ]
+    },
+    {
+      "id": "IP-T287",
+      "wbs": "W18.03",
+      "group": "W18 Publish / run",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "start.bat starts the Hub (which hosts the Monitor) instead of the Monitor exe",
+      "requires": [
+        "IP-T285"
+      ],
+      "commits": [
+        "5856ad8"
+      ]
+    },
+    {
+      "id": "IP-T288",
+      "wbs": "W18.04",
+      "group": "W18 Publish / run",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "tools/install-hub-service.ps1 registers the Hub Windows Service as the current user",
+      "requires": [
+        "IP-T84"
+      ],
+      "commits": [
+        "47ee180"
+      ]
+    },
+    {
+      "id": "IP-T289",
+      "wbs": "W18.05",
+      "group": "W18 Publish / run",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "idiotproof.exe on PATH from C:\\Apps\\IdiotProof\\ (installer step, idempotent)",
+      "requires": [
+        "IP-T285"
+      ],
+      "commits": [
+        "9bc5d44"
+      ]
+    },
+    {
+      "id": "IP-T290",
+      "wbs": "W18.06",
+      "group": "W18 Publish / run",
+      "type": "feature",
+      "status": "closed",
+      "approval": "proposed",
+      "summary": "README: CLI quick start, MCP registration, Live confirm flow",
+      "requires": [
+        "IP-T272"
+      ],
+      "commits": []
+    },
+    {
+      "id": "IP-T100",
+      "wbs": "W19.01",
+      "group": "W19 Account & trading operations",
+      "type": "feature",
+      "status": "closed",
+      "approval": "proposed",
+      "summary": "`account summary [--mode]` (equity, cash, buying power, day P&L) for sandbox/paper/live",
+      "requires": [
+        "IP-T56",
+        "IP-T70"
+      ],
+      "commits": [
+        "9b9552c"
+      ]
+    },
+    {
+      "id": "IP-T101",
+      "wbs": "W19.02",
+      "group": "W19 Account & trading operations",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "`account buying-power` and `account pdt` (day-trade count, PDT flag)",
+      "requires": [
+        "IP-T100"
+      ],
+      "commits": [
+        "4250364"
+      ]
+    },
+    {
+      "id": "IP-T102",
+      "wbs": "W19.03",
+      "group": "W19 Account & trading operations",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "`account activities [--since]` (fills, dividends, fees)",
+      "requires": [
+        "IP-T100"
+      ],
+      "commits": [
+        "bb439ff"
+      ]
+    },
+    {
+      "id": "IP-T103",
+      "wbs": "W19.04",
+      "group": "W19 Account & trading operations",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "`account clock` and `account calendar` (market session in ET)",
+      "requires": [
+        "IP-T100"
+      ],
+      "commits": [
+        "be8a537"
+      ]
+    },
+    {
+      "id": "IP-T104",
+      "wbs": "W19.05",
+      "group": "W19 Account & trading operations",
+      "type": "feature",
+      "status": "closed",
+      "approval": "proposed",
+      "summary": "`positions list [--mode]` with unrealized P&L",
+      "requires": [
+        "IP-T100"
+      ],
+      "commits": [
+        "9b9552c"
+      ]
+    },
+    {
+      "id": "IP-T105",
+      "wbs": "W19.06",
+      "group": "W19 Account & trading operations",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "`positions show <symbol>` incl. owning strategy and diary row",
+      "requires": [
+        "IP-T104"
+      ],
+      "commits": [
+        "a8c01d2"
+      ]
+    },
+    {
+      "id": "IP-T106",
+      "wbs": "W19.07",
+      "group": "W19 Account & trading operations",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "`positions reconcile` (broker vs strategy bookkeeping, read-only report)",
+      "requires": [
+        "IP-T104"
+      ],
+      "commits": [
+        "5f0df31"
+      ]
+    },
+    {
+      "id": "IP-T107",
+      "wbs": "W19.08",
+      "group": "W19 Account & trading operations",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "`orders list [--status]` and `orders show <id>`",
+      "requires": [
+        "IP-T100"
+      ],
+      "commits": [
+        "b399786"
+      ]
+    },
+    {
+      "id": "IP-T108",
+      "wbs": "W19.09",
+      "group": "W19 Account & trading operations",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "`orders cancel <id>` and `orders cancel-all [--symbol]` through the gateway",
+      "requires": [
+        "IP-T107",
+        "IP-T93"
+      ],
+      "commits": [
+        "0ee5ba3"
+      ]
+    },
+    {
+      "id": "IP-T109",
+      "wbs": "W19.10",
+      "group": "W19 Account & trading operations",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "`orders history [--days]`",
+      "requires": [
+        "IP-T107"
+      ],
+      "commits": [
+        "6ec5039"
+      ]
+    },
+    {
+      "id": "IP-T110",
+      "wbs": "W19.11",
+      "group": "W19 Account & trading operations",
+      "type": "feature",
+      "status": "closed",
+      "approval": "proposed",
+      "summary": "`trade buy|sell <symbol> <qty> [--limit] [--stop] [--target] [--mode]` through the gateway",
+      "requires": [
+        "IP-T100",
+        "IP-T92"
+      ],
+      "commits": [
+        "c976341"
+      ]
+    },
+    {
+      "id": "IP-T111",
+      "wbs": "W19.12",
+      "group": "W19 Account & trading operations",
+      "type": "feature",
+      "status": "closed",
+      "approval": "proposed",
+      "summary": "`trade short|cover <symbol> <qty>` through the gateway",
+      "requires": [
+        "IP-T110"
+      ],
+      "commits": []
+    },
+    {
+      "id": "IP-T112",
+      "wbs": "W19.13",
+      "group": "W19 Account & trading operations",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "`trade flatten --symbol|--strategy|--all [--mode]`",
+      "requires": [
+        "IP-T95"
+      ],
+      "commits": [
+        "1e5a39c"
+      ]
+    },
+    {
+      "id": "IP-T113",
+      "wbs": "W19.14",
+      "group": "W19 Account & trading operations",
+      "type": "feature",
+      "status": "closed",
+      "approval": "proposed",
+      "summary": "`trade preview …` (dry run: every gate verdict, no order)",
+      "requires": [
+        "IP-T110"
+      ],
+      "commits": []
+    },
+    {
+      "id": "IP-T114",
+      "wbs": "W19.15",
+      "group": "W19 Account & trading operations",
+      "type": "feature",
+      "status": "closed",
+      "approval": "proposed",
+      "summary": "`trade confirm <code>` executes a pending Live intent",
+      "requires": [
+        "IP-T110"
+      ],
+      "commits": []
+    },
+    {
+      "id": "IP-T115",
+      "wbs": "W19.16",
+      "group": "W19 Account & trading operations",
+      "type": "feature",
+      "status": "closed",
+      "approval": "proposed",
+      "summary": "`trade pending` lists unexpired Live confirmations",
+      "requires": [
+        "IP-T114"
+      ],
+      "commits": []
+    },
+    {
+      "id": "IP-T116",
+      "wbs": "W19.17",
+      "group": "W19 Account & trading operations",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "`trade notional <symbol> <$>` (fractional/notional buy) through the gateway",
+      "requires": [
+        "IP-T110"
+      ],
+      "commits": [
+        "08985e6"
+      ]
+    },
+    {
+      "id": "IP-T299",
+      "wbs": null,
+      "group": "Alpaca API coverage",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "`account config [--mode]` show and `account config set <key> <value>` (PATCH /v2/account/configurations: dtbp_check, pdt_check, no_shorting, fractional_trading, max_margin_multiplier, max_options_trading_level, trade_confirm_email, suspend_trade, ptp_no_exception_entry); Live set needs a confirmation code",
+      "requires": [],
+      "commits": [
+        "9003fd1"
+      ]
+    },
+    {
+      "id": "IP-T300",
+      "wbs": null,
+      "group": "Alpaca API coverage",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "`account history [--period 1D|1W|1M|3M|1A|all] [--timeframe] [--extended] [--mode]` portfolio history (GET /v2/account/portfolio/history) with a Braille equity chart and true day P&L (profit_loss, excludes deposits)",
+      "requires": [],
+      "commits": [
+        "1d727f7"
+      ]
+    },
+    {
+      "id": "IP-T301",
+      "wbs": null,
+      "group": "Alpaca API coverage",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "`orders place` full Alpaca order surface through TransactionGateway: market/limit/stop/stop_limit/trailing_stop (trail_percent|trail_price), TIF day/gtc/opg/cls/ioc/fok, extended_hours, notional and fractional qty, client_order_id, position_intent",
+      "requires": [],
+      "commits": [
+        "8f966b2",
+        "b3745ac",
+        "a97f70d"
+      ]
+    },
+    {
+      "id": "IP-T302",
+      "wbs": null,
+      "group": "Alpaca API coverage",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "`orders bracket|oco|oto` order classes (take_profit, stop_loss with limit) through TransactionGateway",
+      "requires": [],
+      "commits": [
+        "d1288d2"
+      ]
+    },
+    {
+      "id": "IP-T303",
+      "wbs": null,
+      "group": "Alpaca API coverage",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "`orders replace <id> [--qty] [--limit] [--stop] [--trail] [--tif]` (PATCH /v2/orders/{id}) through TransactionGateway",
+      "requires": [],
+      "commits": [
+        "3f11bab"
+      ]
+    },
+    {
+      "id": "IP-T305",
+      "wbs": null,
+      "group": "Alpaca API coverage",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "`positions close <symbol> [--qty|--percentage] [--mode]` (DELETE /v2/positions/{symbol}) as an exit through TransactionGateway",
+      "requires": [],
+      "commits": [
+        "d29c752"
+      ]
+    },
+    {
+      "id": "IP-T306",
+      "wbs": null,
+      "group": "Alpaca API coverage",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "`positions close-all [--cancel-orders] [--mode]` (DELETE /v2/positions) through TransactionGateway; Live needs a confirmation code",
+      "requires": [],
+      "commits": [
+        "3b33971"
+      ]
+    },
+    {
+      "id": "IP-T308",
+      "wbs": null,
+      "group": "Alpaca API coverage",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "`options spread` multi-leg (order_class mleg, up to 4 legs, ratio_qty, position_intent) through TransactionGateway",
+      "requires": [],
+      "commits": [
+        "b3745ac"
+      ]
+    },
+    {
+      "id": "IP-T311",
+      "wbs": null,
+      "group": "Alpaca API coverage",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "`assets list [--class us_equity|us_option|crypto] [--exchange] [--status] [--attributes]` and `assets show <symbol>` (tradable, shortable, easy_to_borrow, marginable, fractionable, maintenance margin)",
+      "requires": [],
+      "commits": [
+        "ceab70b"
+      ]
+    },
+    {
+      "id": "IP-T314",
+      "wbs": null,
+      "group": "Alpaca API coverage",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "`watchlists list|show|create|rename|add|remove|delete` Alpaca server-side watchlists (/v2/watchlists by id and by name)",
+      "requires": [],
+      "commits": [
+        "6db813c"
+      ]
+    },
+    {
+      "id": "IP-T315",
+      "wbs": null,
+      "group": "Alpaca API coverage",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "`crypto buy|sell <pair> <qty|--notional>` crypto orders (BTC/USD etc, gtc/ioc, fractional) through TransactionGateway; `crypto positions`",
+      "requires": [],
+      "commits": [
+        "7f78185"
+      ]
+    },
+    {
+      "id": "IP-T317",
+      "wbs": null,
+      "group": "Alpaca API coverage",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "`crypto wallets|transfers|whitelist|fee-estimate` crypto funding (/v2/wallets...) read ops; any withdrawal/transfer is a money movement behind a confirmation code even on paper",
+      "requires": [],
+      "commits": [
+        "4685021"
+      ]
+    },
+    {
+      "id": "IP-T324",
+      "wbs": null,
+      "group": "Alpaca API coverage",
+      "type": "feature",
+      "status": "open",
+      "approval": "approved",
+      "summary": "Hub streaming: server-sent events from the Hub (`/api/stream`) so long-running ops can push lines; CLI renders them live, MCP returns a bounded window",
+      "requires": [],
+      "commits": [
+        "6a5da7d"
+      ]
+    },
+    {
+      "id": "IP-T327",
+      "wbs": null,
+      "group": "Alpaca API coverage",
+      "type": "feature",
+      "status": "open",
+      "approval": "approved",
+      "summary": "`alpaca raw <GET|POST|PATCH|PUT|DELETE> <path> [--body json] [--data] [--mode]` escape hatch for any Alpaca endpoint; refuses order/position/exercise/funding mutations (points to the gated ops) and Live mutations need a code",
+      "requires": [],
+      "commits": []
+    },
+    {
+      "id": "IP-T328",
+      "wbs": null,
+      "group": "Alpaca API coverage",
+      "type": "feature",
+      "status": "closed",
+      "approval": "approved",
+      "summary": "docs/ALPACA_COVERAGE.md: every Alpaca Trading + Market Data endpoint mapped to its idiotproof operation (or alpaca raw), with an NUnit test that fails when an inventoried endpoint has no operation",
+      "requires": [],
+      "commits": [
+        "0e98bc6"
+      ]
+    }
+  ]
+}
