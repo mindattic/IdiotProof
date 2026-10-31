@@ -51,6 +51,8 @@ public sealed class MonitorWorker(
     PremarketFadeScanner premarketFadeScanner,
     BeBexDecayScanner beBexDecayScanner,
     IDbContextFactory<AppDbContext> dbFactory,
+    MonitorRuntimeState runtime,
+    MonitorPauseFlag pauseFlag,
     ILogger<MonitorWorker> logger) : BackgroundService
 {
     /// <summary>
@@ -182,45 +184,66 @@ public sealed class MonitorWorker(
     {
         logger.LogInformation("IdiotProof.Monitor starting — interval {Interval}s, feed {Feed}",
             EvaluationInterval.TotalSeconds, feed.FeedName);
-
-        // Exactly one Monitor instance may evaluate/trade against a database
-        // at a time (double-fire protection). Blocks here until this instance
-        // is the leader; the lease auto-releases if the process dies.
-        await using var lease = await MonitorLeaderLease.AcquireAsync(database.ConnectionString, logger, stoppingToken);
-
-        monitorStartUtc = DateTime.UtcNow;
-        try
-        {
-            await auditLogRepo.LogAsync("monitor-start",
-                $"IdiotProof.Monitor started — feed {feed.FeedName}, interval {EvaluationInterval.TotalSeconds:F0}s, build {BuildDateLabel}",
-                ct: stoppingToken);
-        }
-        catch (Exception ex) { logger.LogWarning(ex, "Failed to write monitor-start audit log."); }
-
-        StartStreamingIfConfigured();
-
-        await SupervisedLoop.RunAsync(new SupervisedLoopOptions
-        {
-            Tick          = TickAsync,
-            Interval      = EvaluationInterval,
-            MinBackoff    = TimeSpan.FromSeconds(5),
-            MaxBackoff    = TimeSpan.FromMinutes(2),
-            HeartbeatPath = Path.Combine(storage.LogsPath, "monitor.heartbeat"),
-            OnTickFailed  = (ex, n) => logger.LogError(ex, "Monitor tick failed ({Count} consecutive) — backing off.", n),
-        }, stoppingToken);
-
-        if (streaming is not null) await streaming.DisposeAsync();
-        logger.LogInformation("IdiotProof.Monitor stopped.");
+        runtime.MarkStarting(feed.FeedName, EvaluationInterval);
 
         try
         {
-            var uptime = DateTime.UtcNow - monitorStartUtc;
-            await auditLogRepo.LogAsync("monitor-stop",
-                $"IdiotProof.Monitor stopped — uptime {FormatUptime(uptime)}",
-                ct: CancellationToken.None);
+            // Exactly one Monitor instance may evaluate/trade against a database
+            // at a time (double-fire protection). Blocks here until this instance
+            // is the leader; the lease auto-releases if the process dies, and is
+            // released explicitly when this method returns (IP-T79).
+            await using var lease = await MonitorLeaderLease.AcquireAsync(database.ConnectionString, logger, stoppingToken);
+            runtime.MarkLeaseAcquired();
+
+            monitorStartUtc = DateTime.UtcNow;
+            try
+            {
+                await auditLogRepo.LogAsync("monitor-start",
+                    $"IdiotProof.Monitor started — feed {feed.FeedName}, interval {EvaluationInterval.TotalSeconds:F0}s, build {BuildDateLabel}",
+                    ct: stoppingToken);
+            }
+            catch (Exception ex) { logger.LogWarning(ex, "Failed to write monitor-start audit log."); }
+
+            StartStreamingIfConfigured();
+
+            // Graceful shutdown (IP-T79): the host cancels stoppingToken; SupervisedLoop lets the
+            // tick in progress finish its awaits (they observe the token) and then returns, so no
+            // tick is cut off between "order placed" and "position recorded" by a hard abort.
+            await SupervisedLoop.RunAsync(new SupervisedLoopOptions
+            {
+                Tick            = async ct => { runtime.MarkTickStarted(); await TickAsync(ct); },
+                Interval        = EvaluationInterval,
+                MinBackoff      = TimeSpan.FromSeconds(5),
+                MaxBackoff      = TimeSpan.FromMinutes(2),
+                HeartbeatPath   = HeartbeatPathFor(storage),
+                OnTickSucceeded = () => runtime.MarkTickFinished(null),
+                OnTickFailed    = (ex, n) =>
+                {
+                    runtime.MarkTickFinished(ex.Message);
+                    logger.LogError(ex, "Monitor tick failed ({Count} consecutive) — backing off.", n);
+                },
+            }, stoppingToken);
+
+            if (streaming is not null) await streaming.DisposeAsync();
+            logger.LogInformation("IdiotProof.Monitor stopped.");
+
+            try
+            {
+                var uptime = DateTime.UtcNow - monitorStartUtc;
+                await auditLogRepo.LogAsync("monitor-stop",
+                    $"IdiotProof.Monitor stopped — uptime {FormatUptime(uptime)}",
+                    ct: CancellationToken.None);
+            }
+            catch { /* best-effort — process is stopping */ }
         }
-        catch { /* best-effort — process is stopping */ }
+        finally
+        {
+            runtime.MarkStopped();
+        }
     }
+
+    /// <summary>The SupervisedLoop heartbeat file (<c>monitor heartbeat</c> reads it).</summary>
+    public static string HeartbeatPathFor(IStorageProvider storage) => Path.Combine(storage.LogsPath, "monitor.heartbeat");
 
     /// <summary>
     /// Streaming is on whenever Alpaca keys exist (disable with IDIOTPROOF_STREAMING=0).
@@ -249,8 +272,24 @@ public sealed class MonitorWorker(
     /// <summary>One full evaluation pass.</summary>
     private async Task TickAsync(CancellationToken ct)
     {
+        // ── Pause gate (IP-T80) ─────────────────────────────────────────────
+        // `idiotproof monitor pause` sets a SettingsKv flag; honored here, before anything else, so
+        // a paused Monitor runs no scan, no entry and no exit. The loop, heartbeat and lease stay up.
+        var paused = await pauseFlag.IsPausedAsync(ct);
+        if (paused != runtime.Snapshot().Paused)
+        {
+            runtime.SetPaused(paused);
+            Console.WriteLine(paused
+                ? "  [PAUSED] Monitor paused (`idiotproof monitor resume` to continue) — open positions are NOT managed while paused."
+                : "  [RESUMED] Monitor resumed.");
+            await LogAuditAsync(paused ? "monitor-paused" : "monitor-unpaused",
+                paused ? "Monitor paused by the monitor.paused flag." : "Monitor resumed (monitor.paused cleared).", ct: ct);
+        }
+        if (paused) return;
+
         // ── Trading-schedule gate ─────────────────────────────────────────────
         var window = TradingSchedule.Classify(DateTime.UtcNow);
+        runtime.SetWindow(window.ToString());
 
         // Computed once per tick and reused below (hibernate ping, decay-scan
         // window, fade-scan window) instead of every call site doing its own
@@ -325,6 +364,7 @@ public sealed class MonitorWorker(
         // in the UI land in SQL and apply here automatically — no restart.
         var active = await strategyRepo.GetActiveAsync(ct);
         cachedActive = active;
+        runtime.SetActiveStrategies(active.Count);
         lastTickSuccessUtc = DateTime.UtcNow;
 
         // Roster echo: print the active-strategy list on startup (first tick,

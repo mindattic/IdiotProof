@@ -1,4 +1,5 @@
 using IdiotProof.Monitor;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace IdiotProof.Core.Hosting;
 
@@ -25,6 +26,14 @@ public static class MonitorServiceRegistration
         // BE/BEX decay-signal scanner — driven by the tick loop (Mon-Fri, once 16:30-17:00 ET);
         // arms/disarms the BE pullback strategy via StrategyRepository, never orders directly.
         services.AddSingleton<BeBexDecayScanner>();
+
+        // What the loop is doing (monitor status|heartbeat|lease, IP-T256) and the SettingsKv
+        // pause switch it honors at the top of every tick (IP-T80).
+        services.TryAddSingleton(TimeProvider.System);
+        services.AddSingleton<MonitorRuntimeState>(sp => new MonitorRuntimeState(sp.GetRequiredService<TimeProvider>()));
+        services.TryAddSingleton<MonitorPauseFlag>(sp => new MonitorPauseFlag(
+            sp.GetRequiredService<IdiotProof.Blazor.Services.SettingsRepository>(), sp.GetRequiredService<TimeProvider>()));
+        services.TryAddSingleton<IMonitorLeaseProbe, SqlMonitorLeaseProbe>();
 
         services.AddHostedService<MonitorWorker>();
         return services;
