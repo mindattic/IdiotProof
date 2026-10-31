@@ -587,7 +587,7 @@ The AccountPill mirrors Alpaca's UI: label, type (Paper or Live) and masked acco
 
 ## The research scanner
 
-`IdiotProof.ResearchScanner` (`Program.cs` + `ScanPassRunner`) runs one scan pass and exits. It is designed to be fired by a Windows Scheduled Task (`tools/register-research-scan-task.ps1`, written but not registered by default) and is decoupled from both the Monitor's trading loop and the Blazor request lifecycle ([BIBLE §4.4](docs/BIBLE.md#IP-§4)):
+`IdiotProof.ResearchScanner` (`Program.cs` + `ScanPassRunner`) runs one scan pass and exits. It is fired on a cadence by a MindAttic.Scheduler (WatchDog) job and is decoupled from both the Monitor's trading loop and the Blazor request lifecycle ([BIBLE §4.4](docs/BIBLE.md#IP-§4)):
 
 - It sweeps watchlist tickers plus a rotating batch of the tracked universe (`TickerUniverseService` and `TrackedTicker`, refreshed daily from Alpaca's asset list).
 - `EdgarService`, `Form4Parser` and `CorporateActionDetector` pull real SEC filing content (Form 4 insider transactions, 8-K item-code triage) rather than boilerplate summaries.
@@ -670,7 +670,7 @@ Nine specs in `cypress/e2e/` cover a smoke test, strategy authoring and the save
 
 - `run.ps1`: publishes the Monitor (`C:\Apps\IdiotProof\Monitor\`) and the web app (`C:\Apps\IdiotProof\Blazor\`, with a `run.bat` that serves on `http://localhost:5100`), and writes `C:\Apps\IdiotProof\run.bat`, which the desktop shortcut points at. Each component is republished only when its source (its project plus every referenced project) is newer than its deployed exe, so an unchanged run is a sub-second no-op. `-LauncherOnly` only rewrites the launcher. `-Force` does a clean bin/obj rebuild; `-Launch` starts both afterwards. `run.bat` opens a menu: 1) Deploy & Run runs `run.ps1 -Force` (falling back to the existing build if the redeploy fails or the repo is missing), 2) Run skips the redeploy; either way it then starts the Monitor and the web app and opens the browser.
 - `zzz_Export.bat`, `zzz_Backup.bat`: local convenience wrappers.
-- `tools/azure-provision.md` and `tools/register-research-scan-task.ps1`: document and automate one-time infrastructure steps; `tools/seed-*.sql` seed example strategies.
+- `tools/azure-provision.md` documents one-time infrastructure steps; `tools/seed-*.sql` seed example strategies.
 - `tools/codex.ps1`: the documentation-canon tool (see [Documentation](#documentation)).
 - `idiotproof.cmd` and `idiotproof` (Git Bash): the CLI launchers; add the repo root to PATH to type `idiotproof` anywhere.
 

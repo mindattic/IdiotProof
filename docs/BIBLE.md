@@ -270,8 +270,8 @@ add/remove events from the hand-maintained `IdiotProof.Core/Catalogs/sp-index-ev
 URL); display sentences are composed deterministically from structured fields
 (`"{Summary}. Affects {Ticker} because {Mechanism}. Expected impact: {ExpectedTimeline}."`);
 `OutcomeBackfillService` marks old-enough claims Realized/Disproven from real price history
-before `SignificanceScorer` ranks. `tools/register-research-scan-task.ps1` registers the
-Scheduled Task by hand; nothing registers it automatically.
+before `SignificanceScorer` ranks. The recurring pass runs as a MindAttic.Scheduler (WatchDog)
+job (M.SCHD-T8); IdiotProof itself registers no scheduled task.
 
 **Options (manual).** `/options` (`Options.razor` + `OptionsTradingService`) offers single-leg
 calls and puts on Sandbox, Paper or Live, defaulting to Sandbox unless Alpaca routing is opted
