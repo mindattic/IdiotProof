@@ -247,6 +247,18 @@ echo  Done. The Hub is in its own green window; Blazor is at $blazorUrl
 "@
 }
 
+# Puts the deployed CLI on the user PATH so `idiotproof` resolves in any new shell (IP-T289).
+# Idempotent: adds the folder once, never reorders or removes anything already there.
+function Add-CliToUserPath {
+    $cliDir = Join-Path $deployDir 'Cli'
+    if (-not (Test-Path (Join-Path $cliDir 'idiotproof.exe'))) { return }
+    $userPath = [Environment]::GetEnvironmentVariable('Path', 'User')
+    $parts = @(($userPath -split ';') | Where-Object { $_ -ne '' })
+    if ($parts | Where-Object { $_.TrimEnd('\') -ieq $cliDir }) { return }
+    [Environment]::SetEnvironmentVariable('Path', (($parts + $cliDir) -join ';'), 'User')
+    Write-Host "  Added $cliDir to your user PATH (new shells see it)." -ForegroundColor Green
+}
+
 function Write-Launcher {
     $bat = @"
 @echo off
@@ -318,6 +330,7 @@ foreach ($c in $components) {
     }
 }
 Write-Launcher
+Add-CliToUserPath
 if ($published -eq 0) { Write-Host 'IdiotProof is up to date.' -ForegroundColor DarkGray }
 
 if (-not $ok) {
