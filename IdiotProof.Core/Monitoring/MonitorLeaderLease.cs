@@ -14,7 +14,8 @@ namespace IdiotProof.Monitor;
 /// </summary>
 public sealed class MonitorLeaderLease : IAsyncDisposable
 {
-    private const string Resource = "IdiotProof.Monitor.Leader";
+    /// <summary>The sp_getapplock resource every Monitor competes for.</summary>
+    public const string Resource = "IdiotProof.Monitor.Leader";
     private readonly SqlConnection connection;
 
     private MonitorLeaderLease(SqlConnection connection) => this.connection = connection;
@@ -71,6 +72,33 @@ public sealed class MonitorLeaderLease : IAsyncDisposable
         }
     }
 
-    public ValueTask DisposeAsync() => connection.DisposeAsync();
+    /// <summary>
+    /// Releases the lease explicitly, then closes the connection (IP-T79). Closing alone is not
+    /// enough: a pooled connection goes back to the pool with its session — and the session-owned
+    /// applock — still alive until the pool reuses or prunes it, so a restarted Hub (or a standby)
+    /// could wait minutes for a lease nobody is using.
+    /// </summary>
+    public async ValueTask DisposeAsync()
+    {
+        try
+        {
+            if (connection.State == System.Data.ConnectionState.Open)
+            {
+                await using var cmd = connection.CreateCommand();
+                cmd.CommandText = "EXEC sp_releaseapplock @Resource = @res, @LockOwner = 'Session';";
+                cmd.Parameters.AddWithValue("@res", Resource);
+                await cmd.ExecuteNonQueryAsync(CancellationToken.None);
+            }
+        }
+        catch (Exception)
+        {
+            // Best effort: if the release fails the session still ends below, and SQL Server drops
+            // the lock when the pooled session is finally closed or reset.
+        }
+        finally
+        {
+            await connection.DisposeAsync();
+        }
+    }
 }
 

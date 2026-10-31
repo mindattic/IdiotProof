@@ -5,6 +5,7 @@ using IdiotProof.Core.Hosting;
 using IdiotProof.Core.Identity;
 using IdiotProof.Core.Ledger;
 using IdiotProof.Operations;
+using IdiotProof.Operations.Hosting;
 using Microsoft.EntityFrameworkCore;
 
 namespace IdiotProof.Hub;
@@ -56,7 +57,7 @@ public static class HubEndpoints
         // reach the Hub; this asks it to shut down the same way Ctrl+C in its window would.
         app.MapPost(HubWire.ShutdownPath, (IHostApplicationLifetime lifetime) =>
             {
-                HubConsole.Line($"*** Shutdown requested by `idiotproof hub stop` (PID {Environment.ProcessId}) ***");
+                HubConsole.Line($"*** Shutdown requested by `idiotproof hub stop` (PID {Environment.ProcessId}): draining operations, then stopping the Monitor ***");
                 lifetime.StopApplication();
                 return Results.Accepted();
             })
@@ -66,6 +67,15 @@ public static class HubEndpoints
                     : Results.Json(new { error = "hub_key_required", message = $"Missing or wrong {HubWire.KeyHeader}." }, statusCode: 401));
 
         app.MapPost(HubWire.OperationPath, RunOperationAsync)
+            .AddEndpointFilter(async (ctx, next) =>
+            {
+                // In-flight tracking for graceful shutdown (IP-T79): once draining, refuse new calls.
+                var inFlight = ctx.HttpContext.RequestServices.GetRequiredService<InFlightOperations>();
+                if (!inFlight.TryEnter())
+                    return Results.Json(new { error = "shutting_down", message = "The Hub is shutting down; retry once it is back." }, statusCode: 503);
+                try { return await next(ctx); }
+                finally { inFlight.Exit(); }
+            })
             .AddEndpointFilter(async (ctx, next) =>
                 HubKey.Matches(settings.Key, ctx.HttpContext.Request.Headers[HubWire.KeyHeader].FirstOrDefault())
                     ? await next(ctx)

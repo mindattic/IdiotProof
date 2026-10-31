@@ -5,6 +5,7 @@ using IdiotProof.Core.Identity;
 using IdiotProof.Engine.Storage;
 using IdiotProof.Hub;
 using IdiotProof.Operations;
+using IdiotProof.Operations.Hosting;
 using Microsoft.EntityFrameworkCore;
 
 // ── IdiotProof.Hub ───────────────────────────────────────────────────────────
@@ -31,7 +32,8 @@ using Microsoft.EntityFrameworkCore;
 //   IDIOTPROOF_HUB_KEY      shared key override (default: Vault Tokens bucket "idiotproof-hub")
 //   plus the Monitor's IDIOTPROOF_FEED / _BROKER / _ALPACA_FEED / _MONITOR_INTERVAL / _STREAMING
 //
-// Run:  dotnet run --project IdiotProof.Hub       Stop: Ctrl+C (graceful)
+// Run:  dotnet run --project IdiotProof.Hub       Stop: Ctrl+C or `idiotproof hub stop` (graceful:
+//       drains running operations, stops the Monitor loop, releases the leader lease — IP-T79)
 
 // The visible, money-green window (IP-T331): paint, title and log tee before anything prints.
 HubConsole.Start();
@@ -61,6 +63,13 @@ var settings = HubSettings.Resolve(builder.Configuration);
 builder.Services.AddSingleton(settings);
 if (settings.MonitorHosted)
     builder.Services.AddIdiotProofMonitor();
+
+// Graceful shutdown (IP-T79). Hosted services stop in reverse registration order, so the drain
+// (registered after the Monitor) runs first: new /api/op calls get 503, running ones finish; then
+// the Monitor's loop ends its current tick and releases the SQL leader lease explicitly.
+builder.Services.AddSingleton<InFlightOperations>();
+builder.Services.AddHostedService(sp => new OperationDrainService(sp.GetRequiredService<InFlightOperations>(), HubConsole.Line));
+builder.Services.Configure<HostOptions>(o => o.ShutdownTimeout = TimeSpan.FromSeconds(60));
 
 // ── Operations: every CLI command and MCP tool, reflected from [Operation] types ──
 builder.Services.AddIdiotProofOperations(typeof(Program).Assembly);
