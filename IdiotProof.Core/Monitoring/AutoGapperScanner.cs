@@ -42,6 +42,13 @@ public sealed class AutoGapperScanner(
     public sealed record ScanSummary(int Screened, int Qualified, int Armed, int Skipped, string Note);
 
     /// <summary>
+    /// The movers screen (Alpaca's top movers for the user's data keys). A test seam: defaults to
+    /// <see cref="StrategyScanner.FetchMoversAsync"/>; tests substitute a scripted list.
+    /// </summary>
+    internal Func<string, string, int, Task<List<(string Symbol, double Percent, double Price)>>> FetchMovers { get; init; }
+        = StrategyScanner.FetchMoversAsync;
+
+    /// <summary>
     /// The pipeline. When <paramref name="dryRun"/> is true it computes and
     /// prints the plan but arms nothing and writes no rows (the operator preview,
     /// so it never consumes the day's once-per-day slot).
@@ -70,7 +77,7 @@ public sealed class AutoGapperScanner(
         }
 
         List<(string Symbol, double Percent, double Price)> movers;
-        try { movers = await StrategyScanner.FetchMoversAsync(k.AlpacaApiKeyId!, k.AlpacaApiSecretKey!, 50); }
+        try { movers = await FetchMovers(k.AlpacaApiKeyId!, k.AlpacaApiSecretKey!, 50); }
         catch (Exception ex) { return new ScanSummary(0, 0, 0, 0, $"movers screen failed: {ex.Message}"); }
 
         var qualified = movers
