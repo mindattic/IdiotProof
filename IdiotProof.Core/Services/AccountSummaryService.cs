@@ -1,6 +1,7 @@
 using System.Globalization;
 using IdiotProof.Blazor.Data;
 using IdiotProof.Brokers;
+using IdiotProof.Models;
 using Microsoft.Extensions.Configuration;
 
 namespace IdiotProof.Blazor.Services;
@@ -17,8 +18,75 @@ public sealed record AccountSnapshot(
     decimal? Cash, decimal? PortfolioValue,
     int PositionCount, decimal TotalShares, decimal TotalMarketValue);
 
+/// <summary>
+/// One Alpaca account in full: every <c>/v2/account</c> field as Alpaca sent it (equity,
+/// last_equity, cash, buying_power, daytrade_count, ...) plus each open position. Read-only.
+/// </summary>
+public sealed record AccountDetail(
+    bool IsPaper, bool Configured, string? Error,
+    IReadOnlyDictionary<string, string> Account, IReadOnlyList<Position> Positions)
+{
+    /// <summary>A field parsed as a decimal (invariant culture), or null when absent/unparseable.</summary>
+    public decimal? Number(string field) =>
+        Account.TryGetValue(field, out var s) && decimal.TryParse(s, NumberStyles.Any, CultureInfo.InvariantCulture, out var v) ? v : null;
+}
+
 public sealed class AccountSummaryService(UserKeyService userKeys, IConfiguration configuration)
 {
+    /// <summary>
+    /// The full Paper or Live account (fields + positions), behind the same consent gate and
+    /// Vault-over-DB key rule as <see cref="GetSummaryAsync"/>. Never throws for a broker or key
+    /// problem; the reason comes back in <see cref="AccountDetail.Error"/>.
+    /// </summary>
+    public async Task<AccountDetail> GetDetailAsync(Guid userId, bool isPaper, CancellationToken ct = default)
+    {
+        var empty = new Dictionary<string, string>();
+        UserApiKeys keys;
+        bool paperStored, liveStored;
+        try
+        {
+            keys = await userKeys.GetOrCreateAsync(userId, ct);
+            (paperStored, liveStored) = await userKeys.GetKeyPresenceAsync(userId, ct);
+        }
+        catch (OperationCanceledException) { throw; }
+        catch (Exception ex)
+        {
+            return new AccountDetail(isPaper, false, $"Could not load account keys: {ex.Message}", empty, []);
+        }
+
+        var optedIntoAlpaca = string.Equals(keys.DefaultBroker, "alpaca", StringComparison.OrdinalIgnoreCase);
+        var (keyId, secret, stored) = isPaper
+            ? EffectivePair(AlpacaVaultKeys.Resolve(configuration, isPaper: true), keys.AlpacaApiKeyId, keys.AlpacaApiSecretKey, paperStored, optedIntoAlpaca)
+            : EffectivePair(AlpacaVaultKeys.Resolve(configuration, isPaper: false), keys.AlpacaLiveApiKeyId, keys.AlpacaLiveApiSecretKey, liveStored, optedIntoAlpaca);
+
+        if (string.IsNullOrWhiteSpace(keyId) || string.IsNullOrWhiteSpace(secret))
+        {
+            var error = !optedIntoAlpaca
+                ? "Alpaca routing is off for this user (still on Sandbox) — opt in on the API Keys page."
+                : stored
+                    ? "Key is stored but could not be decrypted (DataProtection key-ring mismatch)."
+                    : $"No {(isPaper ? "paper" : "live")} Alpaca keys configured.";
+            return new AccountDetail(isPaper, stored, error, empty, []);
+        }
+
+        await using var client = new AlpacaBrokerClient(keyId, secret, isPaper);
+        try
+        {
+            var accountTask = client.GetAccountAsync(ct);
+            var positionsTask = client.GetPositionsAsync(ct);
+            await Task.WhenAll(accountTask, positionsTask);
+            var account = accountTask.Result;
+            return account.TryGetValue("error", out var err)
+                ? new AccountDetail(isPaper, true, err, empty, [])
+                : new AccountDetail(isPaper, true, null, account, positionsTask.Result);
+        }
+        catch (OperationCanceledException) { throw; }
+        catch (Exception ex)
+        {
+            return new AccountDetail(isPaper, true, ex.Message, empty, []);
+        }
+    }
+
     public async Task<(AccountSnapshot Paper, AccountSnapshot Live)> GetSummaryAsync(Guid userId, CancellationToken ct = default)
     {
         UserApiKeys keys;

@@ -131,6 +131,15 @@ public sealed class Position
     public decimal MarketValue { get; init; }
     public decimal UnrealizedPnl { get; init; }
 
+    /// <summary>Latest price per share (per-share premium for options); null when the broker didn't say.</summary>
+    public decimal? CurrentPrice { get; init; }
+
+    /// <summary>The prior session's closing price, the base for today's change; null when unknown.</summary>
+    public decimal? LastDayPrice { get; init; }
+
+    /// <summary>Unrealized P&amp;L since the prior close (today's move on the shares held); null when unknown.</summary>
+    public decimal? UnrealizedIntradayPnl { get; init; }
+
     /// <summary>
     /// Equity (default) or Option. For options, <see cref="Quantity"/> is a CONTRACT count
     /// (Alpaca's native unit) and <see cref="AveragePrice"/> is the per-share premium paid;

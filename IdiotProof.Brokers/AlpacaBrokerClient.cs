@@ -336,6 +336,12 @@ public sealed class AlpacaBrokerClient : IBrokerClient, IAsyncDisposable
                         System.Globalization.CultureInfo.InvariantCulture, out var parsedPl) ? parsedPl : 0m
                     : 0m;
 
+                // Optional: absent on older fixtures, so null rather than a misleading 0.
+                decimal? Optional(string name) =>
+                    element.TryGetProperty(name, out var prop) && prop.ValueKind == JsonValueKind.String
+                    && decimal.TryParse(prop.GetString(), System.Globalization.NumberStyles.Any,
+                        System.Globalization.CultureInfo.InvariantCulture, out var parsed) ? parsed : null;
+
                 // Options positions come back with asset_class "us_option" and the OCC
                 // symbol; qty is a contract count. Decode the contract from the symbol so
                 // downstream never has to parse OCC strings.
@@ -350,6 +356,9 @@ public sealed class AlpacaBrokerClient : IBrokerClient, IAsyncDisposable
                     AveragePrice = avgPrice,
                     MarketValue = marketValue,
                     UnrealizedPnl = unrealizedPnl,
+                    CurrentPrice = Optional("current_price"),
+                    LastDayPrice = Optional("lastday_price"),
+                    UnrealizedIntradayPnl = Optional("unrealized_intraday_pl"),
                     AssetClass = contract is null ? AssetClass.Equity : AssetClass.Option,
                     Option = contract,
                 });
