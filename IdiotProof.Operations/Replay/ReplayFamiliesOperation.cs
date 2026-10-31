@@ -1,7 +1,7 @@
 using IdiotProof.Scripting;
-using IdiotProof.Monitor;
 using IdiotProof.Operations.Rendering;
 
+using IdiotProof.Core.Monitoring;
 namespace IdiotProof.Operations.Replay;
 
 [Operation("replay families", Summary = "The built-in strategy families `replay run --family` and `replay all` use, with what each trades.", Risk = OperationRisk.Read)]

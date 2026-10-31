@@ -1,5 +1,5 @@
 using System.Collections.Concurrent;
-using IdiotProof.Blazor.Data;
+using IdiotProof.Core.Data;
 using IdiotProof.Brokers;
 using IdiotProof.Core.Trading;
 using IdiotProof.DataFeeds;
@@ -9,7 +9,7 @@ using IdiotProof.Shared.Options;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 
-namespace IdiotProof.Blazor.Services;
+namespace IdiotProof.Core.Services;
 
 /// <summary>Which account the Options page is pointed at. Sandbox is the always-safe default (IP-LAW-3).</summary>
 public enum OptionsBrokerMode { Sandbox, Paper, Live }

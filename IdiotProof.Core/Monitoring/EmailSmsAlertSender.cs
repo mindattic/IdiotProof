@@ -4,7 +4,9 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using MimeKit;
 
-namespace IdiotProof.Monitor;
+using IdiotProof.Core.Services;
+using IdiotProof.Core.Data;
+namespace IdiotProof.Core.Monitoring;
 
 /// <summary>
 /// Sends a text alert via a carrier email-to-SMS gateway (e.g.

@@ -1,10 +1,10 @@
 using IdiotProof.Core.Hosting;
 using IdiotProof.Engine.Storage;
-using IdiotProof.Monitor;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 
+using IdiotProof.Core.Monitoring;
 namespace IdiotProof.Blazor.Tests;
 
 /// <summary>

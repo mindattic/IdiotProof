@@ -1,9 +1,9 @@
 using System.Text.Json;
-using IdiotProof.Blazor.Services;
 using IdiotProof.Operations.Dsl;
 using IdiotProof.Scripting;
 using Microsoft.Extensions.DependencyInjection;
 
+using IdiotProof.Core.Services;
 namespace IdiotProof.Operations.Tests.Dsl;
 
 /// <summary>dsl verbs|glossary|parse|format|validate (IP-T209..IP-T213).</summary>

@@ -2,7 +2,8 @@ using System.Text.Json;
 using IdiotProof.Engine.Settings;
 using MindAttic.Legion;
 
-namespace IdiotProof.Blazor.Services;
+using IdiotProof.Core.Data;
+namespace IdiotProof.Core.Services;
 
 public record ExtractedCatalyst(
     string  Summary,

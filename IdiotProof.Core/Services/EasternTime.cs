@@ -1,4 +1,5 @@
-namespace IdiotProof.Blazor.Services;
+using IdiotProof.Core.Data;
+namespace IdiotProof.Core.Services;
 
 /// <summary>
 /// All UI clocks/timestamps render in US Eastern Time. Storage stays UTC; this

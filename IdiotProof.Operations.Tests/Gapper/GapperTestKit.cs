@@ -1,8 +1,7 @@
 using System.Net;
 using System.Text;
 using System.Text.Json;
-using IdiotProof.Blazor.Data;
-using IdiotProof.Blazor.Services;
+using IdiotProof.Core.Data;
 using IdiotProof.Core.Catalogs;
 using IdiotProof.Core.Identity;
 using IdiotProof.Core.Trading;
@@ -14,6 +13,7 @@ using MindAttic.Legion;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 
+using IdiotProof.Core.Services;
 namespace IdiotProof.Operations.Tests.Gapper;
 
 /// <summary>

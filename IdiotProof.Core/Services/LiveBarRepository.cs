@@ -1,7 +1,7 @@
-using IdiotProof.Blazor.Data;
+using IdiotProof.Core.Data;
 using Microsoft.EntityFrameworkCore;
 
-namespace IdiotProof.Blazor.Services;
+namespace IdiotProof.Core.Services;
 
 public sealed class LiveBarRepository(IDbContextFactory<AppDbContext> dbFactory)
 {

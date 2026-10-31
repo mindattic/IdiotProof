@@ -1,7 +1,8 @@
 using System.Text.Json;
 using IdiotProof.Engine.Settings;
 
-namespace IdiotProof.Blazor.Services;
+using IdiotProof.Core.Data;
+namespace IdiotProof.Core.Services;
 
 public sealed record AlpacaNewsArticle(
     string   Headline,

@@ -1,8 +1,8 @@
-using IdiotProof.Blazor.Services;
 using IdiotProof.Brokers;
 using IdiotProof.Engine.Settings;
 using Microsoft.Extensions.Configuration;
 
+using IdiotProof.Core.Services;
 namespace IdiotProof.Core.Trading;
 
 /// <summary>Why an owner's Alpaca account can't be reached (no opt-in, no keys, undecryptable keys).</summary>

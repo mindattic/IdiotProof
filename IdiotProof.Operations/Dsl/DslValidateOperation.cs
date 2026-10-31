@@ -1,9 +1,9 @@
-using IdiotProof.Blazor.Services;
 using IdiotProof.Models;
 using IdiotProof.Operations.Rendering;
 using IdiotProof.Operations.Strategies;
 using IdiotProof.Scripting;
 
+using IdiotProof.Core.Services;
 namespace IdiotProof.Operations.Dsl;
 
 /// <summary>One finding from <c>dsl validate</c>: an error blocks (fail closed), a warning informs.</summary>

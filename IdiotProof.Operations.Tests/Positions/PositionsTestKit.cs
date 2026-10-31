@@ -1,8 +1,7 @@
 using System.Net;
 using System.Runtime.CompilerServices;
 using System.Text;
-using IdiotProof.Blazor.Data;
-using IdiotProof.Blazor.Services;
+using IdiotProof.Core.Data;
 using IdiotProof.Brokers;
 using IdiotProof.Core.Trading;
 using IdiotProof.DataFeeds;
@@ -10,6 +9,7 @@ using IdiotProof.Models;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 
+using IdiotProof.Core.Services;
 namespace IdiotProof.Operations.Tests.Positions;
 
 /// <summary>

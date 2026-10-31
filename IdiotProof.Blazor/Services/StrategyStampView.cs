@@ -1,6 +1,7 @@
-using IdiotProof.Blazor.Data;
+using IdiotProof.Core.Data;
 using IdiotProof.Scripting;
 
+using IdiotProof.Core.Services;
 namespace IdiotProof.Blazor.Services;
 
 /// <summary>

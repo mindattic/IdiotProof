@@ -1,9 +1,9 @@
-using IdiotProof.Blazor.Data;
-using IdiotProof.Blazor.Services;
-using IdiotProof.Monitor;
+using IdiotProof.Core.Data;
 using IdiotProof.Operations.Rendering;
 using Microsoft.EntityFrameworkCore;
 
+using IdiotProof.Core.Services;
+using IdiotProof.Core.Monitoring;
 namespace IdiotProof.Operations.Replay;
 
 public sealed record ReplayLiveArgs

@@ -1,7 +1,7 @@
 using IdiotProof.Engine.Storage;
 using IdiotProof.Blazor.Auth;
 using IdiotProof.Blazor.Components;
-using IdiotProof.Blazor.Data;
+using IdiotProof.Core.Data;
 using IdiotProof.Blazor.Hubs;
 using IdiotProof.Blazor.Services;
 using IdiotProof.Core.Hosting;
@@ -11,6 +11,7 @@ using MindAttic.Authentication.Services;
 using MindAttic.Authentication.Web;
 using MindAttic.Vault.Paths;
 
+using IdiotProof.Core.Services;
 var builder = WebApplication.CreateBuilder(args);
 
 // When running as a published exe from a non-source directory (local deploy), the

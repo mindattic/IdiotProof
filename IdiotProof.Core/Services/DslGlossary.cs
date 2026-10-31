@@ -1,6 +1,7 @@
 using IdiotProof.Scripting;
 
-namespace IdiotProof.Blazor.Services;
+using IdiotProof.Core.Data;
+namespace IdiotProof.Core.Services;
 
 /// <summary>
 /// Single source of truth for how every DSL verb is shown to a human — an icon,

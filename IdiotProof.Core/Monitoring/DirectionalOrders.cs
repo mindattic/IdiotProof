@@ -1,6 +1,8 @@
 using IdiotProof.Models;
 
-namespace IdiotProof.Monitor;
+using IdiotProof.Core.Services;
+using IdiotProof.Core.Data;
+namespace IdiotProof.Core.Monitoring;
 
 /// <summary>
 /// The direction-aware order shapes the Monitor places. A long opens with a buy and closes with a

@@ -1,7 +1,7 @@
-using IdiotProof.Blazor.Services;
 using IdiotProof.Core.Identity;
 using IdiotProof.Operations.Rendering;
 
+using IdiotProof.Core.Services;
 namespace IdiotProof.Operations.Gapper;
 
 public sealed record GapperFromTranscriptArgs

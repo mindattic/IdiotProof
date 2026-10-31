@@ -1,7 +1,8 @@
 using System.Text.Json;
-using IdiotProof.Blazor.Data;
+using IdiotProof.Core.Data;
 using IdiotProof.Monitor;
 
+using IdiotProof.Core.Monitoring;
 namespace IdiotProof.Monitor.Tests;
 
 /// <summary>

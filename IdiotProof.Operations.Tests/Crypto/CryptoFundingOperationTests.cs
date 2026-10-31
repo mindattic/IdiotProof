@@ -1,6 +1,5 @@
 using System.Net;
-using IdiotProof.Blazor.Data;
-using IdiotProof.Blazor.Services;
+using IdiotProof.Core.Data;
 using IdiotProof.Core.Trading;
 using IdiotProof.Operations.Account;
 using IdiotProof.Operations.Crypto;
@@ -8,6 +7,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 
+using IdiotProof.Core.Services;
 namespace IdiotProof.Operations.Tests.Crypto;
 
 /// <summary>

@@ -1,8 +1,7 @@
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
-using IdiotProof.Blazor.Data;
-using IdiotProof.Blazor.Services;
+using IdiotProof.Core.Data;
 using IdiotProof.Core.Trading;
 using IdiotProof.DataFeeds;
 using IdiotProof.Models;
@@ -12,6 +11,7 @@ using IdiotProof.Scripting;
 using IdiotProof.Strategies;
 using Microsoft.Extensions.DependencyInjection;
 
+using IdiotProof.Core.Services;
 namespace IdiotProof.Operations.Monitor;
 
 public sealed record MonitorPauseArgs

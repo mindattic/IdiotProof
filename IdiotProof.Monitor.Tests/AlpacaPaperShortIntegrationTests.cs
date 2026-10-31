@@ -3,6 +3,7 @@ using IdiotProof.Brokers;
 using IdiotProof.Models;
 using IdiotProof.Monitor;
 
+using IdiotProof.Core.Monitoring;
 namespace IdiotProof.Monitor.Tests;
 
 /// <summary>

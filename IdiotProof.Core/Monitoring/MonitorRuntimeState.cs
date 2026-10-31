@@ -1,4 +1,6 @@
-namespace IdiotProof.Monitor;
+using IdiotProof.Core.Services;
+using IdiotProof.Core.Data;
+namespace IdiotProof.Core.Monitoring;
 
 /// <summary>
 /// What the hosted Monitor is doing right now, in memory, for <c>monitor status|heartbeat|lease</c>

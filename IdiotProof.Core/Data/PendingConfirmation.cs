@@ -1,6 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 
-namespace IdiotProof.Blazor.Data;
+namespace IdiotProof.Core.Data;
 
 /// <summary>
 /// A Live (real-money) action waiting for its human "yes". The Hub stores the exact

@@ -1,11 +1,11 @@
-using IdiotProof.Blazor.Data;
-using IdiotProof.Blazor.Services;
+using IdiotProof.Core.Data;
 using IdiotProof.Brokers;
 using IdiotProof.Core.Trading;
 using IdiotProof.Operations.Account;
 using IdiotProof.Operations.Rendering;
 using IdiotProof.Operations.Strategies;
 
+using IdiotProof.Core.Services;
 namespace IdiotProof.Operations.Positions;
 
 public sealed record PositionsShowArgs

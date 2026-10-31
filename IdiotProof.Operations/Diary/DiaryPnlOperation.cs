@@ -45,7 +45,7 @@ public sealed class DiaryPnlOperation : IOperation<DiaryPnlArgs>
             return OperationResult.Usage("Pick one of --day, --week or --month.");
         var unit = args.Month ? "month" : args.Week ? "week" : "day";
 
-        var closed = (await DiarySupport.LoadAsync(ctx, args, Blazor.Data.TradeDiaryStatus.Closed))
+        var closed = (await DiarySupport.LoadAsync(ctx, args, Core.Data.TradeDiaryStatus.Closed))
             .Where(t => t.ExitUtc is not null && t.RealizedPnL is not null)
             .ToList();
 

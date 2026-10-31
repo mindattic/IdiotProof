@@ -1,4 +1,4 @@
-using IdiotProof.Blazor.Data;
+using IdiotProof.Core.Data;
 using IdiotProof.Core.Hosting;
 using IdiotProof.Engine.Storage;
 using IdiotProof.Monitor;
@@ -8,6 +8,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
+using IdiotProof.Core.Monitoring;
 // ── IdiotProof.Monitor ───────────────────────────────────────────────────────
 //
 // SHIM (IP-T81): the Monitor now runs inside the IdiotProof Hub (IdiotProof.Hub hosts

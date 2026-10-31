@@ -1,5 +1,6 @@
 using IdiotProof.Monitor;
 
+using IdiotProof.Core.Monitoring;
 namespace IdiotProof.Monitor.Tests;
 
 /// <summary>IP-T81: idiotproof-monitor.exe with no subcommand finds and starts the Hub.</summary>

@@ -1,7 +1,7 @@
-using IdiotProof.Blazor.Services;
 using IdiotProof.Engine.Settings;
 using IdiotProof.Operations.Rendering;
 
+using IdiotProof.Core.Services;
 namespace IdiotProof.Operations.Llm;
 
 /// <summary>How the Claude key resolves for the owner; booleans and sources only, never a key.</summary>

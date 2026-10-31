@@ -1,6 +1,7 @@
 using System.Net.Http.Json;
 using IdiotProof.Operations;
 
+using IdiotProof.Core.Monitoring;
 namespace IdiotProof.Monitor;
 
 /// <summary>

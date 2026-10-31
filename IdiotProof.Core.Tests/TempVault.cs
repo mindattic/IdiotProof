@@ -1,6 +1,6 @@
-using IdiotProof.Blazor.Services;
 using MindAttic.Vault.Credentials;
 
+using IdiotProof.Core.Services;
 namespace IdiotProof.Blazor.Tests;
 
 /// <summary>

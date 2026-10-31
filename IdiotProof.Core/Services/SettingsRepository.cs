@@ -1,8 +1,8 @@
 using System.Globalization;
-using IdiotProof.Blazor.Data;
+using IdiotProof.Core.Data;
 using Microsoft.EntityFrameworkCore;
 
-namespace IdiotProof.Blazor.Services;
+namespace IdiotProof.Core.Services;
 
 /// <summary>
 /// Thin wrapper over the SettingsKv table providing typed get/set helpers for

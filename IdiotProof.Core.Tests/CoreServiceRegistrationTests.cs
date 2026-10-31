@@ -1,5 +1,4 @@
-using IdiotProof.Blazor.Data;
-using IdiotProof.Blazor.Services;
+using IdiotProof.Core.Data;
 using IdiotProof.Brokers;
 using IdiotProof.DataFeeds;
 using IdiotProof.Models;
@@ -11,6 +10,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
+using IdiotProof.Core.Services;
 namespace IdiotProof.Blazor.Tests;
 
 /// <summary>

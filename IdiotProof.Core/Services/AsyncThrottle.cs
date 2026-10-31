@@ -1,4 +1,5 @@
-namespace IdiotProof.Blazor.Services;
+using IdiotProof.Core.Data;
+namespace IdiotProof.Core.Services;
 
 /// <summary>
 /// Caps concurrency and enforces a minimum spacing between calls to one external

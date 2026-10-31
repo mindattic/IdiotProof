@@ -1,7 +1,9 @@
 using IdiotProof.Core.Trading;
 using IdiotProof.Models;
 
-namespace IdiotProof.Monitor;
+using IdiotProof.Core.Services;
+using IdiotProof.Core.Data;
+namespace IdiotProof.Core.Monitoring;
 
 /// <summary>
 /// The Monitor's orders as <see cref="OrderIntent"/>s for the <see cref="TransactionGateway"/>

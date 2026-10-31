@@ -1,8 +1,7 @@
 using System.Globalization;
 using System.Text;
 using System.Text.Json;
-using IdiotProof.Blazor.Data;
-using IdiotProof.Blazor.Services;
+using IdiotProof.Core.Data;
 using IdiotProof.DataFeeds;
 using IdiotProof.Models;
 using IdiotProof.Scripting;
@@ -11,7 +10,8 @@ using MindAttic.Export.Artifacts;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace IdiotProof.Monitor;
+using IdiotProof.Core.Services;
+namespace IdiotProof.Core.Monitoring;
 
 /// <summary>
 /// Offline replay harness (CLI: <c>replay</c>). Pulls a past day's 1-minute bars

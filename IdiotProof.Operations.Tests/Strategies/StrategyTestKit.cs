@@ -1,5 +1,4 @@
-using IdiotProof.Blazor.Data;
-using IdiotProof.Blazor.Services;
+using IdiotProof.Core.Data;
 using IdiotProof.Core.Identity;
 using IdiotProof.Core.Trading;
 using IdiotProof.Engine.Settings;
@@ -9,6 +8,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using MindAttic.Legion;
 
+using IdiotProof.Core.Services;
 namespace IdiotProof.Operations.Tests.Strategies;
 
 /// <summary>

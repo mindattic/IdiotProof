@@ -1,8 +1,8 @@
 using System.Text.Json;
-using IdiotProof.Blazor.Data;
+using IdiotProof.Core.Data;
 using Microsoft.EntityFrameworkCore;
 
-namespace IdiotProof.Blazor.Services;
+namespace IdiotProof.Core.Services;
 
 public sealed record CorrelationResult(
     int          SimilarCount,

@@ -1,4 +1,5 @@
-namespace IdiotProof.Blazor.Services;
+using IdiotProof.Core.Data;
+namespace IdiotProof.Core.Services;
 
 /// <summary>
 /// Classifies 8-K filings by their SEC "items" codes so the research pipeline only

@@ -1,9 +1,9 @@
-using IdiotProof.Blazor.Data;
-using IdiotProof.Blazor.Services;
+using IdiotProof.Core.Data;
 using IdiotProof.Operations.Monitor;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 
+using IdiotProof.Core.Services;
 namespace IdiotProof.Operations.Tests.Monitor;
 
 /// <summary>monitor tail --follow (IP-T324): new events and progress changes after the snapshot.</summary>

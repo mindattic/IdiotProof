@@ -1,11 +1,11 @@
 using System.Numerics;
 using System.Text.Json;
-using IdiotProof.Blazor.Data;
+using IdiotProof.Core.Data;
 using IdiotProof.Engine.Settings;
 using MindAttic.Legion;
 using Microsoft.EntityFrameworkCore;
 
-namespace IdiotProof.Blazor.Services;
+namespace IdiotProof.Core.Services;
 
 /// <summary>
 /// Scores each ResearchClaim on 20 financial dimensions via Claude Haiku,

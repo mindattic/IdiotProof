@@ -3,7 +3,8 @@ using System.Text.Json.Nodes;
 using Microsoft.Extensions.Configuration;
 using MindAttic.Vault.Credentials;
 
-namespace IdiotProof.Blazor.Services;
+using IdiotProof.Core.Data;
+namespace IdiotProof.Core.Services;
 
 /// <summary>A single-value account secret kept in the Vault Tokens bucket.</summary>
 public enum AccountToken

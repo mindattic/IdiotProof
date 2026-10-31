@@ -145,7 +145,7 @@ Test projects: `IdiotProof.Engine.Tests`, `IdiotProof.Indicators.Tests`, `IdiotP
   `OptionQuote`/`OptionGreeks` (IV/Greeks null when the broker omits them).
 - `StrategyDefinition` (in `IdiotProof.Scripting`) — the semantic model: phases + conditions +
   branches; persisted as canonical JSON ([IP-LAW-8](#IP-LAW-8)).
-- SQL entities (`IdiotProof.Core/Data`, namespace `IdiotProof.Blazor.Data`): `CommandLedgerEntry` (one row per CLI/MCP call), `PendingConfirmation` (Live codes), `Strategy` (owner, author, `BrokerMode`,
+- SQL entities (`IdiotProof.Core/Data`, namespace `IdiotProof.Core.Data`): `CommandLedgerEntry` (one row per CLI/MCP call), `PendingConfirmation` (Live codes), `Strategy` (owner, author, `BrokerMode`,
   `ScriptJson` canon + `ScriptText` view, `OriginTranscript`, open-position bookkeeping),
   `ConditionProgress`, `TradeDiaryEntry`, `AuditLog`, `UserApiKeys` (encrypted at rest),
   `UserPreferences`, `ReplayRun`/`ReplayTrade`/`ReplayBar`, `ResearchClaim`,
@@ -564,13 +564,6 @@ server-side) but needs a live server run to graduate the E-stories to ✅; `08_o
 been run green. MonitorWorker itself has no host-level harness test.
 
 ## 7. Active frontier {#IP-§7}
-- **Hub follow-through (Epic W tail)** — the Blazor front door on the Hub's identity adapters
-  (`IOwnerContext` from the auth claim, `IClaudeKeyContext`), CommandLedger rows on the Activity
-  page and the stamp on strategy detail (IP-T279/T280/T283/T284); streaming through the Hub
-  (`/api/stream`, `orders stream` trade updates, `market watch`, `market stream status`;
-  IP-T324/T325/T326/T206); the `alpaca raw` escape hatch (IP-T327); `options exercise` /
-  `do-not-exercise` routed through the gateway (IP-T337); the `IdiotProof.Blazor.*` →
-  `IdiotProof.Core.*` namespace rename (IP-T49).
 - **Options, phase 2** — the fill-and-close half of a real paper round-trip during market hours
   (IP-US-U10); extract the duplicated Live elevation modal into one shared component; then option
   legs in the strict-JSON strategy schema (v2), IV/Greeks conditions in the `Conditions` catalog,

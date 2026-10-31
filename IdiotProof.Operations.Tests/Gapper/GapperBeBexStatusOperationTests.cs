@@ -1,9 +1,9 @@
-using IdiotProof.Blazor.Data;
-using IdiotProof.Blazor.Services;
-using IdiotProof.Monitor;
+using IdiotProof.Core.Data;
 using IdiotProof.Operations.Gapper;
 using Microsoft.Extensions.DependencyInjection;
 
+using IdiotProof.Core.Services;
+using IdiotProof.Core.Monitoring;
 namespace IdiotProof.Operations.Tests.Gapper;
 
 /// <summary>gapper be-bex status (IP-T173): the stored decay reading and the gated BE strategies' arm state.</summary>

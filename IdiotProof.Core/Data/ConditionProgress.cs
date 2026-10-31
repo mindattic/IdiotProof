@@ -1,6 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 
-namespace IdiotProof.Blazor.Data;
+namespace IdiotProof.Core.Data;
 
 /// <summary>
 /// Per-strategy snapshot of how far along the entry-condition chain the

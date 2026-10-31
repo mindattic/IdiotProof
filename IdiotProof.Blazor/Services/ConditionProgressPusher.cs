@@ -1,7 +1,8 @@
-using IdiotProof.Blazor.Data;
+using IdiotProof.Core.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
+using IdiotProof.Core.Services;
 namespace IdiotProof.Blazor.Services;
 
 /// <summary>

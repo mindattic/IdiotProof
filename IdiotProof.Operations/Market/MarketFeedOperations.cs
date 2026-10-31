@@ -1,9 +1,9 @@
-using IdiotProof.Blazor.Services;
 using IdiotProof.Core.Hosting;
 using IdiotProof.Core.Trading;
 using IdiotProof.DataFeeds;
 using IdiotProof.Operations.Rendering;
 
+using IdiotProof.Core.Services;
 namespace IdiotProof.Operations.Market;
 
 /// <summary>The Hub's market data feed as <c>market feed status</c> reports it.</summary>

@@ -1,10 +1,10 @@
-using IdiotProof.Blazor.Data;
-using IdiotProof.Blazor.Services;
+using IdiotProof.Core.Data;
 using IdiotProof.DataFeeds;
 using IdiotProof.Operations.Market;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 
+using IdiotProof.Core.Services;
 namespace IdiotProof.Operations.Tests.Market;
 
 /// <summary>market feed status|switch (IP-T205): runtime feed switching, and never Mock under a real strategy (IP-LAW-9).</summary>

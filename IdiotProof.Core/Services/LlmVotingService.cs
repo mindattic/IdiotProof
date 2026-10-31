@@ -4,7 +4,8 @@ using MindAttic.Legion;
 using MindAttic.Legion.Providers;
 using LegionPanel = MindAttic.Legion.LlmVotingService;
 
-namespace IdiotProof.Blazor.Services;
+using IdiotProof.Core.Data;
+namespace IdiotProof.Core.Services;
 
 public enum VoteDecision { Approve, Reject, Abstain }
 

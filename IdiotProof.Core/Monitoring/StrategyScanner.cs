@@ -1,11 +1,11 @@
 using System.Text.Json;
-using IdiotProof.Blazor.Data;
-using IdiotProof.Blazor.Services;
+using IdiotProof.Core.Data;
 using IdiotProof.Scripting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace IdiotProof.Monitor;
+using IdiotProof.Core.Services;
+namespace IdiotProof.Core.Monitoring;
 
 /// <summary>
 /// Alpaca-native gapper scanner (CLI: <c>scan</c>). Pulls the day's top movers

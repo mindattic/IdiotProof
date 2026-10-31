@@ -1,8 +1,8 @@
-using IdiotProof.Blazor.Data;
+using IdiotProof.Core.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
-namespace IdiotProof.Blazor.Services;
+namespace IdiotProof.Core.Services;
 
 /// <summary>
 /// Append-only audit-trail writer + reader. Used by the Blazor app, the

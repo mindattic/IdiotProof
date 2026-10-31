@@ -27,7 +27,7 @@ public class StrategyFromWatchlistOperationTests
         Assert.That(result.IsOk, Is.True, result.Message);
         var rows = await kit.AllAsync();
         Assert.That(rows.Select(r => r.Symbol), Is.EquivalentTo(new[] { "NVDA", "TSLA" }));
-        Assert.That(rows, Is.All.Matches<IdiotProof.Blazor.Data.Strategy>(r => r.BrokerMode == "Sandbox" && !r.IsActive),
+        Assert.That(rows, Is.All.Matches<IdiotProof.Core.Data.Strategy>(r => r.BrokerMode == "Sandbox" && !r.IsActive),
             "without --activate everything starts inactive");
         Assert.That(rows.Single(r => r.Symbol == "NVDA").OriginTranscript, Is.EqualTo("watch NVDA"));
         Assert.That(StrategyJson.Deserialize(rows.Single(r => r.Symbol == "TSLA").ScriptJson!).Quantity, Is.EqualTo(1));
@@ -54,7 +54,7 @@ public class StrategyFromWatchlistOperationTests
             var result = await new StrategyFromWatchlistOperation().ExecuteAsync(
                 new StrategyFromWatchlistArgs { File = path, Activate = true, Mode = BrokerMode.Paper }, kit.Context());
             Assert.That(result.IsOk, Is.True, result.Message);
-            Assert.That(await kit.AllAsync(), Is.All.Matches<IdiotProof.Blazor.Data.Strategy>(r => r.BrokerMode == "Paper" && r.IsActive));
+            Assert.That(await kit.AllAsync(), Is.All.Matches<IdiotProof.Core.Data.Strategy>(r => r.BrokerMode == "Paper" && r.IsActive));
         }
         finally { File.Delete(path); }
     }

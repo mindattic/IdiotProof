@@ -1,7 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
-namespace IdiotProof.Blazor.Data;
+namespace IdiotProof.Core.Data;
 
 /// <summary>
 /// A disposable / temporary email domain that is barred from registration

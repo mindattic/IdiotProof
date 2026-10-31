@@ -1,5 +1,6 @@
 using System.Diagnostics;
 
+using IdiotProof.Core.Monitoring;
 namespace IdiotProof.Monitor;
 
 /// <summary>How the shim starts the Hub: a command, its arguments and where to run it.</summary>

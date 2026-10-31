@@ -1,10 +1,10 @@
-using IdiotProof.Blazor.Data;
+using IdiotProof.Core.Data;
 using IdiotProof.DataFeeds;
-using IdiotProof.Monitor;
 using IdiotProof.Operations.Market;
 using IdiotProof.Operations.Rendering;
 using Microsoft.EntityFrameworkCore;
 
+using IdiotProof.Core.Monitoring;
 namespace IdiotProof.Operations.Replay;
 
 /// <summary>

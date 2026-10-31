@@ -1,6 +1,5 @@
 using System.Text.Json;
-using IdiotProof.Blazor.Data;
-using IdiotProof.Blazor.Services;
+using IdiotProof.Core.Data;
 using IdiotProof.Brokers;
 using IdiotProof.Engine.Settings;
 using IdiotProof.Models;
@@ -8,6 +7,8 @@ using IdiotProof.Scripting;
 using IdiotProof.Strategies;
 using Microsoft.Extensions.DependencyInjection;
 
+using IdiotProof.Core.Services;
+using IdiotProof.Core.Monitoring;
 namespace IdiotProof.Monitor;
 
 /// <summary>

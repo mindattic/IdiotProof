@@ -1,5 +1,5 @@
 using System.Text.Json;
-using IdiotProof.Blazor.Data;
+using IdiotProof.Core.Data;
 using IdiotProof.Operations.Rendering;
 using Microsoft.EntityFrameworkCore;
 

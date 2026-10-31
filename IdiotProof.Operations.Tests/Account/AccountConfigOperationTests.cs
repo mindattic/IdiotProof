@@ -1,5 +1,5 @@
 using System.Net;
-using IdiotProof.Blazor.Data;
+using IdiotProof.Core.Data;
 using IdiotProof.Core.Trading;
 using IdiotProof.Operations.Account;
 using Microsoft.EntityFrameworkCore;

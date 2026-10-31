@@ -1,9 +1,9 @@
-using IdiotProof.Blazor.Services;
 using IdiotProof.Operations.Tests.Keys;
 using IdiotProof.Operations.Users;
 using Microsoft.Extensions.DependencyInjection;
 using MindAttic.Authentication.Services;
 
+using IdiotProof.Core.Services;
 namespace IdiotProof.Operations.Tests.Users;
 
 /// <summary>`users create` (IP-T254) through a fake admin service and the real blocklist on an in-memory database.</summary>

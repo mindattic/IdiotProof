@@ -1,7 +1,7 @@
-using IdiotProof.Blazor.Services;
 using IdiotProof.Core.Trading;
 using IdiotProof.Engine.Settings;
 
+using IdiotProof.Core.Services;
 namespace IdiotProof.Operations.Streaming;
 
 /// <summary>An Alpaca key pair for a websocket's auth message. Never printed.</summary>

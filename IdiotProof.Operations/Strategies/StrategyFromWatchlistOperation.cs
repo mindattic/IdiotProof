@@ -1,9 +1,9 @@
 using System.Text.Json;
-using IdiotProof.Blazor.Services;
 using IdiotProof.Core.Trading;
 using IdiotProof.Operations.Rendering;
 using IdiotProof.Scripting;
 
+using IdiotProof.Core.Services;
 namespace IdiotProof.Operations.Strategies;
 
 public sealed record StrategyFromWatchlistArgs

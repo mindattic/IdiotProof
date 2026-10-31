@@ -1,9 +1,9 @@
 using System.Collections.Concurrent;
 using IdiotProof.Shared.Risk;
 using Microsoft.EntityFrameworkCore;
-using IdiotProof.Blazor.Data;
+using IdiotProof.Core.Data;
 
-namespace IdiotProof.Blazor.Services;
+namespace IdiotProof.Core.Services;
 
 /// <summary>
 /// Per-user RiskGuardian cache. The Monitor calls

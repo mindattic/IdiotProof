@@ -1,7 +1,8 @@
-using IdiotProof.Blazor.Data;
+using IdiotProof.Core.Data;
 using IdiotProof.Core.Identity;
 using IdiotProof.Core.Ledger;
 
+using IdiotProof.Core.Services;
 namespace IdiotProof.Blazor.Services;
 
 /// <summary>

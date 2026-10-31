@@ -1,12 +1,13 @@
 using System.Globalization;
 using System.Text;
 using System.Text.Json;
-using IdiotProof.Blazor.Data;
+using IdiotProof.Core.Data;
 using MindAttic.Export.Artifacts;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace IdiotProof.Monitor;
+using IdiotProof.Core.Services;
+namespace IdiotProof.Core.Monitoring;
 
 /// <summary>
 /// ML-ready export (CLI: <c>replay-export</c>). The normalized SQL feature store

@@ -1,13 +1,13 @@
 using System.Globalization;
 using System.Text.Json;
 using System.Threading.Channels;
-using IdiotProof.Blazor.Data;
-using IdiotProof.Blazor.Services;
+using IdiotProof.Core.Data;
 using IdiotProof.Core.Trading;
 using IdiotProof.Operations.Rendering;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
+using IdiotProof.Core.Services;
 namespace IdiotProof.Operations.Streaming;
 
 /// <summary>One event from an account's Alpaca <c>trade_updates</c> stream (new, fill, partial_fill, canceled, replaced, rejected...).</summary>

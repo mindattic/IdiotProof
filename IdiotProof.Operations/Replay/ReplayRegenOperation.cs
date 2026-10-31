@@ -1,7 +1,7 @@
-using IdiotProof.Blazor.Data;
-using IdiotProof.Monitor;
+using IdiotProof.Core.Data;
 using Microsoft.EntityFrameworkCore;
 
+using IdiotProof.Core.Monitoring;
 namespace IdiotProof.Operations.Replay;
 
 public sealed record ReplayRegenArgs

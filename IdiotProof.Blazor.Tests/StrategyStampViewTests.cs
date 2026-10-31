@@ -1,10 +1,11 @@
 using Bunit;
-using IdiotProof.Blazor.Data;
+using IdiotProof.Core.Data;
 using IdiotProof.Blazor.Services;
 using IdiotProof.Models;
 using IdiotProof.Scripting;
 using IdiotProof.UI.Components.Shared;
 
+using IdiotProof.Core.Services;
 namespace IdiotProof.Blazor.Tests;
 
 /// <summary>

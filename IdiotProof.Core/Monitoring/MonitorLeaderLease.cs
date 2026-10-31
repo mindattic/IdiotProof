@@ -1,7 +1,9 @@
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
 
-namespace IdiotProof.Monitor;
+using IdiotProof.Core.Services;
+using IdiotProof.Core.Data;
+namespace IdiotProof.Core.Monitoring;
 
 /// <summary>
 /// Single-active-instance lease (IP-LAW-10). Two Monitors evaluating the same

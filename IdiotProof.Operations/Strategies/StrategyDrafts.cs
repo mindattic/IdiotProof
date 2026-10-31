@@ -1,11 +1,11 @@
 using System.Globalization;
 using System.Text.RegularExpressions;
-using IdiotProof.Blazor.Data;
-using IdiotProof.Blazor.Services;
+using IdiotProof.Core.Data;
 using IdiotProof.Core.Trading;
 using IdiotProof.Models;
 using IdiotProof.Scripting;
 
+using IdiotProof.Core.Services;
 namespace IdiotProof.Operations.Strategies;
 
 /// <summary>How serious one validation finding is: an error stops a save, a warning is shown, a note informs.</summary>

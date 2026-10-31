@@ -1,6 +1,6 @@
-using IdiotProof.Blazor.Services;
 using MindAttic.Authentication.Services;
 
+using IdiotProof.Core.Services;
 namespace IdiotProof.Operations.Users;
 
 public sealed record UsersCreateArgs

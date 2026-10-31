@@ -1,6 +1,8 @@
 using Microsoft.Data.SqlClient;
 
-namespace IdiotProof.Monitor;
+using IdiotProof.Core.Services;
+using IdiotProof.Core.Data;
+namespace IdiotProof.Core.Monitoring;
 
 /// <summary>Who holds the Monitor's SQL leader lease, as seen from outside the lease's own session.</summary>
 public sealed record MonitorLeaseInfo

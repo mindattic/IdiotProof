@@ -1,6 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 
-namespace IdiotProof.Blazor.Data;
+namespace IdiotProof.Core.Data;
 
 /// <summary>
 /// One published strategy-replay run — the SQL system of record (IP-LAW-7) for

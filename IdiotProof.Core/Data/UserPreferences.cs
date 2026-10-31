@@ -1,6 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 
-namespace IdiotProof.Blazor.Data;
+namespace IdiotProof.Core.Data;
 
 /// <summary>
 /// Per-user UI state. Canonical source is SQL; mirrored to localStorage for SSR

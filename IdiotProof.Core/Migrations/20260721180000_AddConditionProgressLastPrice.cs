@@ -1,12 +1,12 @@
 using System;
-using IdiotProof.Blazor.Data;
+using IdiotProof.Core.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
-namespace IdiotProof.Blazor.Migrations
+namespace IdiotProof.Core.Migrations
 {
     // Hand-written without a Designer file; these attributes are what make EF discover it.
     [DbContext(typeof(AppDbContext))]

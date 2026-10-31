@@ -2,7 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using MindAttic.Authentication.Data;
 using MindAttic.Authentication.Entities;
 
-namespace IdiotProof.Blazor.Data;
+namespace IdiotProof.Core.Data;
 
 public sealed class AppDbContext(DbContextOptions<AppDbContext> options)
     : DbContext(options), IAuthDataContext

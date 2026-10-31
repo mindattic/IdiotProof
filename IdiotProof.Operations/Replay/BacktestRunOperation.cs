@@ -1,11 +1,11 @@
 using IdiotProof.DataFeeds;
 using IdiotProof.Models;
-using IdiotProof.Monitor;
 using IdiotProof.Operations.Rendering;
 using IdiotProof.Operations.Strategies;
 using IdiotProof.Scripting;
 using IdiotProof.Strategies.Backtesting;
 
+using IdiotProof.Core.Monitoring;
 namespace IdiotProof.Operations.Replay;
 
 /// <summary>A saved <c>backtest run</c> (store kind <c>bt</c>): the per-day results and condition tables.</summary>

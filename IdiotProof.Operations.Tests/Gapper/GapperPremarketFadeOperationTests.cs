@@ -1,10 +1,10 @@
 using System.Runtime.CompilerServices;
-using IdiotProof.Blazor.Services;
 using IdiotProof.DataFeeds;
 using IdiotProof.Models;
 using IdiotProof.Operations.Gapper;
 using Microsoft.Extensions.DependencyInjection;
 
+using IdiotProof.Core.Services;
 namespace IdiotProof.Operations.Tests.Gapper;
 
 /// <summary>gapper premarket-fade (IP-T172): scripted movers + scripted bars through the real fade detector; detection only.</summary>

@@ -1,7 +1,6 @@
 using System.Globalization;
 using System.Text.Json;
-using IdiotProof.Blazor.Data;
-using IdiotProof.Blazor.Services;
+using IdiotProof.Core.Data;
 using IdiotProof.DataFeeds;
 using IdiotProof.Models;
 using IdiotProof.Scripting;
@@ -9,7 +8,8 @@ using IdiotProof.Strategies;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace IdiotProof.Monitor;
+using IdiotProof.Core.Services;
+namespace IdiotProof.Core.Monitoring;
 
 /// <summary>
 /// LIVE replay (CLI: <c>replay-live</c>) — the truthful counterpart to the

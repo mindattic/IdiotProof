@@ -1,6 +1,6 @@
 using System.Globalization;
 using System.Text.Json;
-using IdiotProof.Blazor.Data;
+using IdiotProof.Core.Data;
 using IdiotProof.Brokers;
 using IdiotProof.Models;
 using IdiotProof.Operations.Account;

@@ -1,8 +1,8 @@
-using IdiotProof.Blazor.Services;
 using IdiotProof.Operations.Rendering;
 using IdiotProof.Operations.Strategies;
 using IdiotProof.Operations.Streaming;
 
+using IdiotProof.Core.Services;
 namespace IdiotProof.Operations.Monitor;
 
 public sealed record MonitorTailArgs

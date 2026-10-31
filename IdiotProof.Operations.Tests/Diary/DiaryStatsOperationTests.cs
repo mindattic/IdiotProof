@@ -1,4 +1,4 @@
-using IdiotProof.Blazor.Data;
+using IdiotProof.Core.Data;
 using IdiotProof.Operations.Diary;
 
 namespace IdiotProof.Operations.Tests.Diary;

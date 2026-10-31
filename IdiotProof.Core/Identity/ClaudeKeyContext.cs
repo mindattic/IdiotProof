@@ -1,5 +1,5 @@
-using IdiotProof.Blazor.Services;
 
+using IdiotProof.Core.Services;
 namespace IdiotProof.Core.Identity;
 
 /// <summary>

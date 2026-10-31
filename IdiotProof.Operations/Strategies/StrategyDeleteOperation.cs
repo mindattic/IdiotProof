@@ -1,7 +1,7 @@
-using IdiotProof.Blazor.Data;
-using IdiotProof.Blazor.Services;
+using IdiotProof.Core.Data;
 using IdiotProof.Core.Trading;
 
+using IdiotProof.Core.Services;
 namespace IdiotProof.Operations.Strategies;
 
 /// <summary>

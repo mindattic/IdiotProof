@@ -1,12 +1,12 @@
 using System.Text;
 using System.Threading.Channels;
-using IdiotProof.Blazor.Data;
-using IdiotProof.Blazor.Services;
+using IdiotProof.Core.Data;
 using IdiotProof.Core.Trading;
 using IdiotProof.Operations.Streaming;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 
+using IdiotProof.Core.Services;
 namespace IdiotProof.Operations.Tests.Streaming;
 
 /// <summary>

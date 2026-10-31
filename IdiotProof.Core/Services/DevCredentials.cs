@@ -1,4 +1,5 @@
-namespace IdiotProof.Blazor.Services;
+using IdiotProof.Core.Data;
+namespace IdiotProof.Core.Services;
 
 /// <summary>
 /// Carries dev autofill credentials read from <c>.env</c> at startup. Both fields

@@ -1,6 +1,7 @@
 using System.Text.Json;
 
-namespace IdiotProof.Blazor.Services;
+using IdiotProof.Core.Data;
+namespace IdiotProof.Core.Services;
 
 public record EdgarFiling(
     string   FormType,

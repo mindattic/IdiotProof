@@ -1,6 +1,6 @@
-using IdiotProof.Blazor.Services;
 using IdiotProof.Scripting;
 
+using IdiotProof.Core.Services;
 namespace IdiotProof.Blazor.Tests;
 
 /// <summary>

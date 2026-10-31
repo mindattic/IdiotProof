@@ -1,8 +1,8 @@
-using IdiotProof.Blazor.Services;
 using IdiotProof.Operations.Settings;
 using IdiotProof.Operations.Tests.Keys;
 using Microsoft.Extensions.DependencyInjection;
 
+using IdiotProof.Core.Services;
 namespace IdiotProof.Operations.Tests.Settings;
 
 /// <summary>`prefs get|set` (IP-T251) over in-memory UserPreferences.</summary>

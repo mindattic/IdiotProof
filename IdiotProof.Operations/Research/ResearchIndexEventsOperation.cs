@@ -1,7 +1,7 @@
-using IdiotProof.Blazor.Services;
 using IdiotProof.Operations.Rendering;
 using Microsoft.EntityFrameworkCore;
 
+using IdiotProof.Core.Services;
 namespace IdiotProof.Operations.Research;
 
 public sealed record ResearchIndexEventsArgs

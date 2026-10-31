@@ -1,5 +1,4 @@
-using IdiotProof.Blazor.Data;
-using IdiotProof.Blazor.Services;
+using IdiotProof.Core.Data;
 using IdiotProof.Brokers;
 using IdiotProof.Core.Trading;
 using IdiotProof.DataFeeds;
@@ -9,6 +8,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Time.Testing;
 
+using IdiotProof.Core.Services;
 namespace IdiotProof.Blazor.Tests;
 
 /// <summary>

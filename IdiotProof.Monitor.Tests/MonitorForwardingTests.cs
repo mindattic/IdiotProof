@@ -4,6 +4,7 @@ using System.Text.Json;
 using IdiotProof.Monitor;
 using IdiotProof.Operations;
 
+using IdiotProof.Core.Monitoring;
 namespace IdiotProof.Monitor.Tests;
 
 /// <summary>IP-T138: the Monitor's old subcommands forward to the equivalent operations through the Hub.</summary>

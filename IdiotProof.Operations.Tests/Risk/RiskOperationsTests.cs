@@ -1,11 +1,11 @@
 using System.Text.Json;
-using IdiotProof.Blazor.Data;
-using IdiotProof.Blazor.Services;
+using IdiotProof.Core.Data;
 using IdiotProof.Core.Trading;
 using IdiotProof.Operations.Risk;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 
+using IdiotProof.Core.Services;
 namespace IdiotProof.Operations.Tests.Risk;
 
 /// <summary>risk show|set|status|kill-switch|check (IP-T216..IP-T220) against EF InMemory and the real Risk Guardian.</summary>

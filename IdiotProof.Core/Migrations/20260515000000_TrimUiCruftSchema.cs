@@ -1,11 +1,11 @@
-using IdiotProof.Blazor.Data;
+using IdiotProof.Core.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
-namespace IdiotProof.Blazor.Migrations
+namespace IdiotProof.Core.Migrations
 {
     // Hand-written: drops every table + column that became orphan after the UI
     // reset. Re-creating them is intentionally a no-op in Down() — the historical

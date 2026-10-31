@@ -1,3 +1,4 @@
+using IdiotProof.Core.Services;
 namespace IdiotProof.Blazor.Services;
 
 public enum ToastKind { Info, Success, Warning, Error }

@@ -3,7 +3,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
-namespace IdiotProof.Blazor.Migrations
+namespace IdiotProof.Core.Migrations
 {
     /// <inheritdoc />
     public partial class AddDomainNameBlacklist : Migration

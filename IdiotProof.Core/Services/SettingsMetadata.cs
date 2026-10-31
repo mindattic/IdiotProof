@@ -1,6 +1,7 @@
 using System.Globalization;
 
-namespace IdiotProof.Blazor.Services;
+using IdiotProof.Core.Data;
+namespace IdiotProof.Core.Services;
 
 /// <summary>The value type a <see cref="SettingsKv"/> key holds.</summary>
 public enum SettingKind

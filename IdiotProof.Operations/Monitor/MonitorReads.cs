@@ -1,10 +1,10 @@
 using System.Globalization;
-using IdiotProof.Blazor.Services;
 using IdiotProof.Core.Hosting;
 using IdiotProof.Engine.Storage;
-using IdiotProof.Monitor;
 using Microsoft.Extensions.DependencyInjection;
 
+using IdiotProof.Core.Services;
+using IdiotProof.Core.Monitoring;
 namespace IdiotProof.Operations.Monitor;
 
 /// <summary>One parsed line of the SupervisedLoop heartbeat file (<c>Logs\monitor.heartbeat</c>).</summary>

@@ -1,6 +1,7 @@
-using IdiotProof.Blazor.Services;
 
-namespace IdiotProof.Monitor;
+using IdiotProof.Core.Services;
+using IdiotProof.Core.Data;
+namespace IdiotProof.Core.Monitoring;
 
 /// <summary>
 /// The Monitor's pause switch (IP-T80): one SettingsKv row, <see cref="PausedKey"/> = "true" or

@@ -1,9 +1,9 @@
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
-using IdiotProof.Blazor.Services;
 using IdiotProof.Core.Trading;
 
+using IdiotProof.Core.Services;
 namespace IdiotProof.Operations.Risk;
 
 public sealed record RiskKillSwitchArgs

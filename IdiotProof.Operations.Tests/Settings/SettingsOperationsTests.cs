@@ -1,8 +1,8 @@
-using IdiotProof.Blazor.Services;
 using IdiotProof.Operations.Settings;
 using IdiotProof.Operations.Tests.Keys;
 using Microsoft.Extensions.DependencyInjection;
 
+using IdiotProof.Core.Services;
 namespace IdiotProof.Operations.Tests.Settings;
 
 /// <summary>`settings list|get|set` (IP-T250) over an in-memory SettingsKv, validated by SettingsMetadata.</summary>

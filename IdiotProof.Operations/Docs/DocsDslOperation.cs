@@ -1,10 +1,10 @@
 using System.Globalization;
 using System.Reflection;
 using System.Text;
-using IdiotProof.Blazor.Services;
 using IdiotProof.Operations.Dsl;
 using IdiotProof.Scripting;
 
+using IdiotProof.Core.Services;
 namespace IdiotProof.Operations.Docs;
 
 public sealed record DocsDslArgs

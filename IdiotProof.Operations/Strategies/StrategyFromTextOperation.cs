@@ -2,11 +2,11 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
-using IdiotProof.Blazor.Services;
 using IdiotProof.Core.Identity;
 using IdiotProof.Core.Trading;
 using IdiotProof.Scripting;
 
+using IdiotProof.Core.Services;
 namespace IdiotProof.Operations.Strategies;
 
 public sealed record StrategyFromTextArgs

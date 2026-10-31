@@ -1,4 +1,4 @@
-using IdiotProof.Blazor.Data;
+using IdiotProof.Core.Data;
 using IdiotProof.Operations.Tests.Keys;
 using IdiotProof.Operations.Users;
 using MindAttic.Authentication.Entities;

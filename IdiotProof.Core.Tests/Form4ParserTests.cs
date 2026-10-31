@@ -1,6 +1,6 @@
-using IdiotProof.Blazor.Services;
 using Microsoft.Extensions.Logging.Abstractions;
 
+using IdiotProof.Core.Services;
 namespace IdiotProof.Blazor.Tests;
 
 [TestFixture]

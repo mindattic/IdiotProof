@@ -1,6 +1,6 @@
-using IdiotProof.Blazor.Services;
 using IdiotProof.Operations.Rendering;
 
+using IdiotProof.Core.Services;
 namespace IdiotProof.Operations.Strategies;
 
 public sealed record StrategyFiresArgs
@@ -70,7 +70,7 @@ public sealed class StrategyFiresOperation : IOperation<StrategyFiresArgs>
     };
 
     /// <summary>Drops the "[Title] SYM " prefix the Monitor writes; the header already names the strategy.</summary>
-    private static string Strip(string message, Blazor.Data.Strategy s)
+    private static string Strip(string message, Core.Data.Strategy s)
     {
         var m = message;
         foreach (var t in new[] { s.Title, StrategyArchive.Unmark(s.Title) })

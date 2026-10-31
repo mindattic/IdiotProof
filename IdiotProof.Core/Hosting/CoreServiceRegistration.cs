@@ -1,5 +1,4 @@
-using IdiotProof.Blazor.Data;
-using IdiotProof.Blazor.Services;
+using IdiotProof.Core.Data;
 using IdiotProof.Core.Catalogs;
 using IdiotProof.Core.Ledger;
 using IdiotProof.Core.Trading;
@@ -14,6 +13,7 @@ using MindAttic.Legion;
 using MindAttic.Vault.Configuration;
 using MindAttic.Vault.DependencyInjection;
 
+using IdiotProof.Core.Services;
 namespace IdiotProof.Core.Hosting;
 
 /// <summary>How a host differs when it registers the shared graph.</summary>

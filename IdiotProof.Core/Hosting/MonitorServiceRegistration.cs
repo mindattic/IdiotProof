@@ -1,6 +1,6 @@
-using IdiotProof.Monitor;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 
+using IdiotProof.Core.Monitoring;
 namespace IdiotProof.Core.Hosting;
 
 /// <summary>
@@ -32,7 +32,7 @@ public static class MonitorServiceRegistration
         services.TryAddSingleton(TimeProvider.System);
         services.AddSingleton<MonitorRuntimeState>(sp => new MonitorRuntimeState(sp.GetRequiredService<TimeProvider>()));
         services.TryAddSingleton<MonitorPauseFlag>(sp => new MonitorPauseFlag(
-            sp.GetRequiredService<IdiotProof.Blazor.Services.SettingsRepository>(), sp.GetRequiredService<TimeProvider>()));
+            sp.GetRequiredService<IdiotProof.Core.Services.SettingsRepository>(), sp.GetRequiredService<TimeProvider>()));
         services.TryAddSingleton<IMonitorLeaseProbe, SqlMonitorLeaseProbe>();
 
         services.AddHostedService<MonitorWorker>();

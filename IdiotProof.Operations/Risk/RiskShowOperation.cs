@@ -1,7 +1,7 @@
-using IdiotProof.Blazor.Services;
 using IdiotProof.Operations.Rendering;
 using IdiotProof.Shared.Risk;
 
+using IdiotProof.Core.Services;
 namespace IdiotProof.Operations.Risk;
 
 /// <summary>The owner's Risk Guardian limits as <c>risk show</c> and <c>risk set</c> report them.</summary>

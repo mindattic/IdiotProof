@@ -1,6 +1,6 @@
 using System.Diagnostics;
 using System.Text.Json;
-using IdiotProof.Blazor.Data;
+using IdiotProof.Core.Data;
 using IdiotProof.Core.Hosting;
 using IdiotProof.Core.Identity;
 using IdiotProof.Core.Ledger;

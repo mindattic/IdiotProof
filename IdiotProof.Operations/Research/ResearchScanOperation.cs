@@ -1,8 +1,8 @@
-using IdiotProof.Blazor.Services;
 using IdiotProof.Core.Identity;
 using IdiotProof.Operations.Rendering;
 using Microsoft.Extensions.DependencyInjection;
 
+using IdiotProof.Core.Services;
 namespace IdiotProof.Operations.Research;
 
 public sealed record ResearchScanArgs

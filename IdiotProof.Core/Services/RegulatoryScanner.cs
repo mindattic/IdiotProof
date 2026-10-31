@@ -1,10 +1,10 @@
 using System.Text.Json;
-using IdiotProof.Blazor.Data;
+using IdiotProof.Core.Data;
 using IdiotProof.Engine.Settings;
 using Microsoft.EntityFrameworkCore;
 using MindAttic.Legion;
 
-namespace IdiotProof.Blazor.Services;
+namespace IdiotProof.Core.Services;
 
 /// <summary>
 /// Polls the Federal Register's public API for SEC "Self-Regulatory Organizations"

@@ -1,7 +1,7 @@
 using System.Security.Claims;
 using Bunit;
 using IdiotProof.Blazor.Components.Pages;
-using IdiotProof.Blazor.Data;
+using IdiotProof.Core.Data;
 using IdiotProof.Blazor.Services;
 using IdiotProof.Engine.Settings;
 using Microsoft.AspNetCore.Components.Authorization;
@@ -12,6 +12,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using MindAttic.Vault.Credentials;
 
+using IdiotProof.Core.Services;
 namespace IdiotProof.Blazor.Tests;
 
 /// <summary>

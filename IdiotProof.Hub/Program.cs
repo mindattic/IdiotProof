@@ -1,5 +1,5 @@
 using System.Net;
-using IdiotProof.Blazor.Data;
+using IdiotProof.Core.Data;
 using IdiotProof.Core.Hosting;
 using IdiotProof.Core.Identity;
 using IdiotProof.Engine.Storage;

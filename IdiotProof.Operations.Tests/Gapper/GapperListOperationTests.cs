@@ -1,7 +1,7 @@
-using IdiotProof.Blazor.Services;
 using IdiotProof.Operations.Gapper;
 using Microsoft.Extensions.DependencyInjection;
 
+using IdiotProof.Core.Services;
 namespace IdiotProof.Operations.Tests.Gapper;
 
 /// <summary>gapper list (IP-T166): only gapper rows, armed first, with position and live condition progress.</summary>

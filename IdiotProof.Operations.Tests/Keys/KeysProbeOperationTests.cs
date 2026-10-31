@@ -1,6 +1,6 @@
 using System.Net;
 using System.Text.Json;
-using IdiotProof.Blazor.Data;
+using IdiotProof.Core.Data;
 using IdiotProof.Operations.Account;
 using IdiotProof.Operations.Keys;
 

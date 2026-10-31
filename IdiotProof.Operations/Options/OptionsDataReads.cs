@@ -1,6 +1,5 @@
 using System.Globalization;
 using System.Text.Json;
-using IdiotProof.Blazor.Services;
 using IdiotProof.Brokers;
 using IdiotProof.Core.Trading;
 using IdiotProof.Models;
@@ -9,6 +8,7 @@ using IdiotProof.Operations.Rendering;
 using IdiotProof.Shared.Options;
 using Microsoft.Extensions.DependencyInjection;
 
+using IdiotProof.Core.Services;
 namespace IdiotProof.Operations.Options;
 
 /// <summary>

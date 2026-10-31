@@ -1,11 +1,11 @@
-using IdiotProof.Blazor.Data;
-using IdiotProof.Blazor.Services;
-using IdiotProof.Monitor;
+using IdiotProof.Core.Data;
 using IdiotProof.Operations.Rendering;
 using IdiotProof.Operations.Strategies;
 using IdiotProof.Scripting;
 using Microsoft.EntityFrameworkCore;
 
+using IdiotProof.Core.Services;
+using IdiotProof.Core.Monitoring;
 namespace IdiotProof.Operations.Replay;
 
 public sealed record ReplayRunArgs

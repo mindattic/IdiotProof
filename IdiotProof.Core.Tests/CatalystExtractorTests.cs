@@ -1,11 +1,11 @@
 using System.Net;
 using System.Text;
 using System.Text.Json;
-using IdiotProof.Blazor.Services;
 using IdiotProof.Engine.Settings;
 using Microsoft.Extensions.Logging.Abstractions;
 using MindAttic.Legion;
 
+using IdiotProof.Core.Services;
 namespace IdiotProof.Blazor.Tests;
 
 /// <summary>

@@ -2,7 +2,7 @@
 
 #nullable disable
 
-namespace IdiotProof.Blazor.Migrations
+namespace IdiotProof.Core.Migrations
 {
     /// <inheritdoc />
     public partial class AddStrategyResolvedEntryState : Migration

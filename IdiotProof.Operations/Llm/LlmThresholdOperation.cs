@@ -1,9 +1,9 @@
-using IdiotProof.Blazor.Data;
-using IdiotProof.Blazor.Services;
+using IdiotProof.Core.Data;
 using IdiotProof.Engine.Settings;
 using IdiotProof.Operations.Rendering;
 using Microsoft.EntityFrameworkCore;
 
+using IdiotProof.Core.Services;
 namespace IdiotProof.Operations.Llm;
 
 public sealed record LlmThresholdArgs

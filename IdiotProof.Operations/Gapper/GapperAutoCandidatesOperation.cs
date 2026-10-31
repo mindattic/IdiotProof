@@ -1,12 +1,12 @@
-using IdiotProof.Blazor.Data;
-using IdiotProof.Blazor.Services;
+using IdiotProof.Core.Data;
 using IdiotProof.Engine.Settings;
-using IdiotProof.Monitor;
 using IdiotProof.Operations.Rendering;
 using IdiotProof.Operations.Strategies;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 
+using IdiotProof.Core.Services;
+using IdiotProof.Core.Monitoring;
 namespace IdiotProof.Operations.Gapper;
 
 public sealed record GapperAutoCandidatesArgs

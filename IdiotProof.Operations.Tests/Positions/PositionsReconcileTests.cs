@@ -11,11 +11,11 @@ public class PositionsReconcileTests
     {
         var strategies = new[]
         {
-            new IdiotProof.Blazor.Data.Strategy { Symbol = "HIHO", BrokerMode = "Paper", PositionQty = 351 },
-            new IdiotProof.Blazor.Data.Strategy { Symbol = "NVDA", BrokerMode = "Paper", PositionQty = 10 },
-            new IdiotProof.Blazor.Data.Strategy { Symbol = "AMD", BrokerMode = "Paper", PositionQty = 5 },
-            new IdiotProof.Blazor.Data.Strategy { Symbol = "TSLA", BrokerMode = "Live", PositionQty = 7 },
-            new IdiotProof.Blazor.Data.Strategy { Symbol = "MSFT", BrokerMode = "Sandbox", PositionQty = 2 },
+            new IdiotProof.Core.Data.Strategy { Symbol = "HIHO", BrokerMode = "Paper", PositionQty = 351 },
+            new IdiotProof.Core.Data.Strategy { Symbol = "NVDA", BrokerMode = "Paper", PositionQty = 10 },
+            new IdiotProof.Core.Data.Strategy { Symbol = "AMD", BrokerMode = "Paper", PositionQty = 5 },
+            new IdiotProof.Core.Data.Strategy { Symbol = "TSLA", BrokerMode = "Live", PositionQty = 7 },
+            new IdiotProof.Core.Data.Strategy { Symbol = "MSFT", BrokerMode = "Sandbox", PositionQty = 2 },
         };
         var held = new[]
         {

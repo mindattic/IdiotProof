@@ -1,8 +1,8 @@
 using System.Globalization;
-using IdiotProof.Blazor.Data;
+using IdiotProof.Core.Data;
 using Microsoft.EntityFrameworkCore;
 
-namespace IdiotProof.Blazor.Services;
+namespace IdiotProof.Core.Services;
 
 /// <summary>
 /// The LLM voter panel's runtime-editable consensus threshold (<c>idiotproof llm threshold</c>),

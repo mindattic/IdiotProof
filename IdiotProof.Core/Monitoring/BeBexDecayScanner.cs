@@ -1,11 +1,11 @@
-using IdiotProof.Blazor.Data;
-using IdiotProof.Blazor.Services;
+using IdiotProof.Core.Data;
 using IdiotProof.DataFeeds;
 using IdiotProof.Models;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
-namespace IdiotProof.Monitor;
+using IdiotProof.Core.Services;
+namespace IdiotProof.Core.Monitoring;
 
 /// <summary>
 /// Daily BE-vs-BEX decay/divergence check (BE = Bloom Energy stock; BEX = a 2x

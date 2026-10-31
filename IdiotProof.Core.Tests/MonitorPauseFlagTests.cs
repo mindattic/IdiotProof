@@ -1,10 +1,10 @@
-using IdiotProof.Blazor.Data;
-using IdiotProof.Blazor.Services;
-using IdiotProof.Monitor;
+using IdiotProof.Core.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Time.Testing;
 
+using IdiotProof.Core.Services;
+using IdiotProof.Core.Monitoring;
 namespace IdiotProof.Blazor.Tests;
 
 /// <summary>

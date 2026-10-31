@@ -1,17 +1,17 @@
 using System.Runtime.CompilerServices;
-using IdiotProof.Blazor.Data;
-using IdiotProof.Blazor.Services;
+using IdiotProof.Core.Data;
 using IdiotProof.Core.Trading;
 using IdiotProof.DataFeeds;
 using IdiotProof.Engine.Storage;
 using IdiotProof.Models;
-using IdiotProof.Monitor;
 using IdiotProof.Operations.Monitor;
 using IdiotProof.Scripting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 
+using IdiotProof.Core.Services;
+using IdiotProof.Core.Monitoring;
 namespace IdiotProof.Operations.Tests.Monitor;
 
 /// <summary>

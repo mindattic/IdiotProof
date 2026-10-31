@@ -1,9 +1,9 @@
 using System.Globalization;
 using System.Text;
 using System.Xml.Linq;
-using IdiotProof.Blazor.Data;
+using IdiotProof.Core.Data;
 
-namespace IdiotProof.Blazor.Services;
+namespace IdiotProof.Core.Services;
 
 /// <summary>
 /// Parses SEC Form 4 (insider transaction) XML into structured, numeric

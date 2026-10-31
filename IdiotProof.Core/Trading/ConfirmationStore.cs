@@ -1,5 +1,5 @@
 using System.Security.Cryptography;
-using IdiotProof.Blazor.Data;
+using IdiotProof.Core.Data;
 using Microsoft.EntityFrameworkCore;
 
 namespace IdiotProof.Core.Trading;

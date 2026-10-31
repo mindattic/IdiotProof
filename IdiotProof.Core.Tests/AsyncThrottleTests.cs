@@ -1,6 +1,6 @@
 using System.Diagnostics;
-using IdiotProof.Blazor.Services;
 
+using IdiotProof.Core.Services;
 namespace IdiotProof.Blazor.Tests;
 
 [TestFixture]

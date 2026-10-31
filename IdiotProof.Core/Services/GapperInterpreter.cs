@@ -4,7 +4,8 @@ using IdiotProof.Engine.Settings;
 using IdiotProof.Scripting;
 using MindAttic.Legion;
 
-namespace IdiotProof.Blazor.Services;
+using IdiotProof.Core.Data;
+namespace IdiotProof.Core.Services;
 
 /// <summary>One interpreted gapper candidate, ready for human review.</summary>
 public sealed record GapperCandidate(string Symbol, GapperProfile Profile, string Rationale);

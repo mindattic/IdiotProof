@@ -1,14 +1,14 @@
 using System.Globalization;
 using System.Text;
 using System.Text.Json;
-using IdiotProof.Blazor.Data;
-using IdiotProof.Blazor.Services;
+using IdiotProof.Core.Data;
 using IdiotProof.Brokers;
 using IdiotProof.Core.Ledger;
 using IdiotProof.DataFeeds;
 using IdiotProof.Models;
 using IdiotProof.Shared.Risk;
 
+using IdiotProof.Core.Services;
 namespace IdiotProof.Core.Trading;
 
 /// <summary>One gate's decision, in the order the gates ran.</summary>

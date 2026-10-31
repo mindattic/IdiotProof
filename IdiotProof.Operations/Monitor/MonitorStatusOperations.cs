@@ -1,7 +1,7 @@
-using IdiotProof.Blazor.Services;
 using IdiotProof.Operations.Rendering;
 using Microsoft.Extensions.DependencyInjection;
 
+using IdiotProof.Core.Services;
 namespace IdiotProof.Operations.Monitor;
 
 [Operation("monitor status", Summary = "Is the Monitor trading? Hosted, lease, last tick, paused, window, active strategies.", Risk = OperationRisk.Read,
@@ -66,7 +66,7 @@ public sealed class MonitorStatusOperation : IOperation<NoArgs>
         return OperationResult.Ok(data, block.Render());
     }
 
-    internal static string DescribeLease(IdiotProof.Monitor.MonitorLeaseInfo lease)
+    internal static string DescribeLease(IdiotProof.Core.Monitoring.MonitorLeaseInfo lease)
     {
         if (!lease.Held) return $"free{(lease.Note is { Length: > 0 } n && n != "no session holds the lease" ? $" ({n})" : "")}";
         var who = lease.HostProcessId is { } pid ? $"PID {pid}" : "another process";

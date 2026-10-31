@@ -1,9 +1,9 @@
 using System.Collections.Concurrent;
-using IdiotProof.Blazor.Data;
+using IdiotProof.Core.Data;
 using Microsoft.EntityFrameworkCore;
 using MindAttic.Authentication.Crypto;
 
-namespace IdiotProof.Blazor.Services;
+namespace IdiotProof.Core.Services;
 
 /// <summary>
 /// Tracks which users have an active "elevated session" — the 5-minute window

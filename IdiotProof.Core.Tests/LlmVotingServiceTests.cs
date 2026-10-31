@@ -1,12 +1,12 @@
 using System.Net;
 using System.Text;
 using System.Text.Json;
-using IdiotProof.Blazor.Services;
 using IdiotProof.Models;
 using Microsoft.Extensions.Logging.Abstractions;
 using MindAttic.Legion;
-using LlmVotingService = IdiotProof.Blazor.Services.LlmVotingService;
+using LlmVotingService = IdiotProof.Core.Services.LlmVotingService;
 
+using IdiotProof.Core.Services;
 namespace IdiotProof.Blazor.Tests;
 
 /// <summary>

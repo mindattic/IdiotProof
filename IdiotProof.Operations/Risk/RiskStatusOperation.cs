@@ -1,8 +1,8 @@
-using IdiotProof.Blazor.Data;
-using IdiotProof.Blazor.Services;
+using IdiotProof.Core.Data;
 using IdiotProof.Operations.Rendering;
 using Microsoft.EntityFrameworkCore;
 
+using IdiotProof.Core.Services;
 namespace IdiotProof.Operations.Risk;
 
 /// <summary>Today's risk picture for <c>risk status</c>.</summary>

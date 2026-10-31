@@ -2,12 +2,12 @@ using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
-using IdiotProof.Blazor.Services;
 using IdiotProof.Brokers;
 using IdiotProof.Core.Trading;
 using IdiotProof.Operations.Account;
 using IdiotProof.Operations.Rendering;
 
+using IdiotProof.Core.Services;
 namespace IdiotProof.Operations.Crypto;
 
 public sealed record CryptoWalletsArgs

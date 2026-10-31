@@ -1,7 +1,7 @@
 using System.Reflection;
 using System.Security.Cryptography;
 using Bunit;
-using IdiotProof.Blazor.Data;
+using IdiotProof.Core.Data;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Components;
 using Microsoft.EntityFrameworkCore;

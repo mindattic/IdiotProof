@@ -1,10 +1,11 @@
-using IdiotProof.Blazor.Services;
 using IdiotProof.DataFeeds;
 using IdiotProof.Models;
 using IdiotProof.Scripting;
 using Microsoft.Extensions.Logging;
 
-namespace IdiotProof.Monitor;
+using IdiotProof.Core.Services;
+using IdiotProof.Core.Data;
+namespace IdiotProof.Core.Monitoring;
 
 /// <summary>
 /// Detects a premarket "blow-off / fade" pattern: a stock surges hard off its

@@ -1,7 +1,7 @@
-using IdiotProof.Blazor.Services;
 using IdiotProof.Operations.Rendering;
 using IdiotProof.Scripting;
 
+using IdiotProof.Core.Services;
 namespace IdiotProof.Operations.Gapper;
 
 [Operation("gapper profiles", Summary = "List the gapper profile catalog: the templates every gapper starts from.", Risk = OperationRisk.Read)]

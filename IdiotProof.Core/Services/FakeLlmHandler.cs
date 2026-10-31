@@ -2,7 +2,8 @@ using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 
-namespace IdiotProof.Blazor.Services;
+using IdiotProof.Core.Data;
+namespace IdiotProof.Core.Services;
 
 /// <summary>
 /// E2E test seam for the LLM gateway. When the host starts with

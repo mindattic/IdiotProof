@@ -116,7 +116,7 @@ public sealed class AuditTailOperation : IOperation<AuditTailArgs>
             while (!ct.IsCancellationRequested)
             {
                 await Task.Delay(PollInterval, ct);
-                await using var db = await ctx.Get<IDbContextFactory<IdiotProof.Blazor.Data.AppDbContext>>().CreateDbContextAsync(ct);
+                await using var db = await ctx.Get<IDbContextFactory<IdiotProof.Core.Data.AppDbContext>>().CreateDbContextAsync(ct);
                 var top = await db.AuditLogs.MaxAsync(a => (long?)a.Id, ct) ?? lastId;
                 if (top <= lastId) continue;
                 var from = lastId;

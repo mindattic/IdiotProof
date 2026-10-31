@@ -2,7 +2,8 @@ using System.Text.Json;
 using IdiotProof.Core.Catalogs;
 using IdiotProof.Scripting;
 
-namespace IdiotProof.Blazor.Services;
+using IdiotProof.Core.Data;
+namespace IdiotProof.Core.Services;
 
 /// <summary>
 /// Loads the gapper profile catalog — the first static JSON catalog under

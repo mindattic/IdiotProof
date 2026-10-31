@@ -1,5 +1,4 @@
-using IdiotProof.Blazor.Data;
-using IdiotProof.Blazor.Services;
+using IdiotProof.Core.Data;
 using IdiotProof.Brokers;
 using IdiotProof.DataFeeds;
 using IdiotProof.Engine;
@@ -13,7 +12,8 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
-namespace IdiotProof.Monitor;
+using IdiotProof.Core.Services;
+namespace IdiotProof.Core.Monitoring;
 
 /// <summary>
 /// The unified always-on evaluator (IP-LAW-10). One pipeline:
@@ -52,7 +52,7 @@ public sealed class MonitorWorker(
     IdiotProof.Core.Trading.IOrderRouting orderRouting,
     IdiotProof.Core.Hosting.IdiotProofDatabase database,
     IStorageProvider storage,
-    IdiotProof.Blazor.Services.LiveBarRepository liveBarRepo,
+    IdiotProof.Core.Services.LiveBarRepository liveBarRepo,
     PremarketFadeScanner premarketFadeScanner,
     BeBexDecayScanner beBexDecayScanner,
     IDbContextFactory<AppDbContext> dbFactory,
@@ -110,7 +110,7 @@ public sealed class MonitorWorker(
     // Trading-schedule state
     private TradingWindow lastWindow        = TradingWindow.Hibernate;
     private DateTime      lastHibernatePing = DateTime.MinValue;
-    private List<IdiotProof.Blazor.Data.Strategy> cachedActive = [];
+    private List<IdiotProof.Core.Data.Strategy> cachedActive = [];
 
     // Throttle live-bar writes: write at most once every 10 seconds per strategy
     // (the Monitor evaluates every 1s; writing every tick would hammer the DB).
@@ -640,7 +640,7 @@ public sealed class MonitorWorker(
     // ── Evaluation ──────────────────────────────────────────────────────
 
     private async Task EvaluateOneAsync(
-        IdiotProof.Blazor.Data.Strategy stored,
+        IdiotProof.Core.Data.Strategy stored,
         IReadOnlyList<Candle> candles,
         decimal? previousClose,
         CancellationToken ct)
@@ -777,7 +777,7 @@ public sealed class MonitorWorker(
             var etNow = TimeZoneInfo.ConvertTimeFromUtc(now, MarketTime.Eastern);
             try
             {
-                await liveBarRepo.UpsertBarAsync(new IdiotProof.Blazor.Data.LiveBar
+                await liveBarRepo.UpsertBarAsync(new IdiotProof.Core.Data.LiveBar
                 {
                     StrategyId   = stored.Id,
                     DateEt       = etNow.ToString("yyyy-MM-dd"),
@@ -865,7 +865,7 @@ public sealed class MonitorWorker(
     // ── Entry: three gates then the order ───────────────────────────────
 
     private async Task FireAsync(
-        IdiotProof.Blazor.Data.Strategy stored,
+        IdiotProof.Core.Data.Strategy stored,
         StrategyDefinition def,
         Shared.IndicatorSnapshot snapshot,
         IReadOnlyList<Candle> candles,
@@ -1109,7 +1109,7 @@ public sealed class MonitorWorker(
         // NEVER affect the trade that already happened).
         try
         {
-            await tradeDiary.OpenAsync(new IdiotProof.Blazor.Data.TradeDiaryEntry
+            await tradeDiary.OpenAsync(new IdiotProof.Core.Data.TradeDiaryEntry
             {
                 StrategyId          = stored.Id,
                 OwnerUserId         = stored.OwnerUserId,
@@ -1147,7 +1147,7 @@ public sealed class MonitorWorker(
     // ── Exit: the sell-off brain ────────────────────────────────────────
 
     private async Task EvaluateExitAsync(
-        IdiotProof.Blazor.Data.Strategy stored,
+        IdiotProof.Core.Data.Strategy stored,
         StrategyDefinition def,
         IReadOnlyList<Candle> candles,
         IReadOnlyList<Candle>? dailyCandles,
@@ -1260,7 +1260,7 @@ public sealed class MonitorWorker(
             var lastCandle = candles[^1];
             try
             {
-                await liveBarRepo.UpsertBarAsync(new IdiotProof.Blazor.Data.LiveBar
+                await liveBarRepo.UpsertBarAsync(new IdiotProof.Core.Data.LiveBar
                 {
                     StrategyId   = stored.Id,
                     DateEt       = etHold.ToString("yyyy-MM-dd"),
@@ -1482,7 +1482,7 @@ public sealed class MonitorWorker(
     /// when a strategy is added, removed, enabled, disabled, or edited; blind
     /// to live position bookkeeping so a fill/exit never reprints the roster.
     /// </summary>
-    private static string RosterFingerprint(IReadOnlyList<IdiotProof.Blazor.Data.Strategy> active) =>
+    private static string RosterFingerprint(IReadOnlyList<IdiotProof.Core.Data.Strategy> active) =>
         string.Join("\n", active
             .OrderBy(s => s.Id)
             .Select(s => $"{s.Id}|{s.Title}|{s.Symbol}|{s.IsActive}|{s.ScriptJson ?? s.ScriptText}"));
@@ -1492,7 +1492,7 @@ public sealed class MonitorWorker(
     /// to the console (like the startup wordmark) rather than through the
     /// single-line logger so the table isn't shredded into timestamped lines.
     /// </summary>
-    private void PrintActiveRoster(IReadOnlyList<IdiotProof.Blazor.Data.Strategy> active)
+    private void PrintActiveRoster(IReadOnlyList<IdiotProof.Core.Data.Strategy> active)
     {
         // ASCII-only framing: the Monitor console runs under the OEM codepage
         // (like the startup wordmark), where box-drawing glyphs render as '?'.
@@ -1598,7 +1598,7 @@ public sealed class MonitorWorker(
     /// from inside the tick, so it can only print when the loop is genuinely
     /// alive and the DB read for this tick already succeeded. ET clock.
     /// </summary>
-    private void PrintSelfPing(IReadOnlyList<IdiotProof.Blazor.Data.Strategy> active)
+    private void PrintSelfPing(IReadOnlyList<IdiotProof.Core.Data.Strategy> active)
     {
         var pingLabel = lastTickSuccessUtc == DateTime.MinValue ? "never"
             : TimeZoneInfo.ConvertTimeFromUtc(lastTickSuccessUtc, IdiotProof.Scripting.MarketTime.Eastern)

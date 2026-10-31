@@ -1,9 +1,9 @@
-using IdiotProof.Blazor.Services;
 using IdiotProof.Brokers;
 using IdiotProof.DataFeeds;
 using IdiotProof.Models;
 using IdiotProof.Engine.Settings;
 
+using IdiotProof.Core.Services;
 namespace IdiotProof.Core.Hosting;
 
 /// <summary>

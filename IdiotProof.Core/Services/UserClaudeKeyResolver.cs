@@ -1,7 +1,7 @@
-using IdiotProof.Blazor.Data;
+using IdiotProof.Core.Data;
 using IdiotProof.Engine.Settings;
 
-namespace IdiotProof.Blazor.Services;
+namespace IdiotProof.Core.Services;
 
 /// <summary>What the LLM gate runs with for one strategy owner.</summary>
 /// <param name="VotingEnabled">The owner turned voting on (API Keys page) or the host did (<c>AppSettings.LlmVotingEnabled</c>).</param>

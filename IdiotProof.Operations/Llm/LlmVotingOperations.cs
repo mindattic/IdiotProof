@@ -1,6 +1,6 @@
-using IdiotProof.Blazor.Services;
 using IdiotProof.Engine.Settings;
 
+using IdiotProof.Core.Services;
 namespace IdiotProof.Operations.Llm;
 
 /// <summary>Shared by <c>llm voting enable</c> and <c>llm voting disable</c>: the owner's own toggle.</summary>

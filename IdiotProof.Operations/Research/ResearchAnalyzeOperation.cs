@@ -1,10 +1,10 @@
 using System.Net;
 using System.Text.RegularExpressions;
-using IdiotProof.Blazor.Data;
-using IdiotProof.Blazor.Services;
+using IdiotProof.Core.Data;
 using IdiotProof.Core.Identity;
 using Microsoft.Extensions.DependencyInjection;
 
+using IdiotProof.Core.Services;
 namespace IdiotProof.Operations.Research;
 
 public sealed record ResearchAnalyzeArgs

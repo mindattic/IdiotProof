@@ -1,15 +1,15 @@
 using System.Globalization;
 using System.Text.Json;
-using IdiotProof.Blazor.Data;
-using IdiotProof.Blazor.Services;
+using IdiotProof.Core.Data;
 using IdiotProof.DataFeeds;
 using IdiotProof.Models;
-using IdiotProof.Monitor;
 using IdiotProof.Operations.Market;
 using IdiotProof.Operations.Rendering;
 using IdiotProof.Operations.Strategies;
 using Microsoft.EntityFrameworkCore;
 
+using IdiotProof.Core.Services;
+using IdiotProof.Core.Monitoring;
 namespace IdiotProof.Operations.Gapper;
 
 /// <summary>

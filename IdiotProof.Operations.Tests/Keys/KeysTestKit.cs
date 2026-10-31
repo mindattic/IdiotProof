@@ -1,5 +1,4 @@
-using IdiotProof.Blazor.Data;
-using IdiotProof.Blazor.Services;
+using IdiotProof.Core.Data;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -9,6 +8,7 @@ using IdiotProof.Core.Trading;
 using IdiotProof.Operations.Tests.Account;
 using MindAttic.Vault.Credentials;
 
+using IdiotProof.Core.Services;
 namespace IdiotProof.Operations.Tests.Keys;
 
 /// <summary>

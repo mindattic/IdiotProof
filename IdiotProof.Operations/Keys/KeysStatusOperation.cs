@@ -1,9 +1,9 @@
-using IdiotProof.Blazor.Data;
-using IdiotProof.Blazor.Services;
+using IdiotProof.Core.Data;
 using IdiotProof.Engine.Settings;
 using IdiotProof.Operations.Rendering;
 using Microsoft.Extensions.DependencyInjection;
 
+using IdiotProof.Core.Services;
 namespace IdiotProof.Operations.Keys;
 
 /// <summary>Shared bits of the keys family: which secret is which, and how a key id is shown.</summary>

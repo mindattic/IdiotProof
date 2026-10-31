@@ -1,5 +1,5 @@
-using IdiotProof.Blazor.Services;
 
+using IdiotProof.Core.Services;
 namespace IdiotProof.Operations.Keys;
 
 public sealed record KeysOptInArgs

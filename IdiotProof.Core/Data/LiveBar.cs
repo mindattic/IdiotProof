@@ -1,4 +1,4 @@
-namespace IdiotProof.Blazor.Data;
+namespace IdiotProof.Core.Data;
 
 public sealed class LiveBar
 {

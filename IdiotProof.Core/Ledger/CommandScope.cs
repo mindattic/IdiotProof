@@ -4,7 +4,7 @@ namespace IdiotProof.Core.Ledger;
 
 /// <summary>
 /// The Hub operation running on this async flow, so what it causes can be tied back to its
-/// <see cref="IdiotProof.Blazor.Data.CommandLedgerEntry"/>. The operation dispatcher opens one
+/// <see cref="IdiotProof.Core.Data.CommandLedgerEntry"/>. The operation dispatcher opens one
 /// (synchronously, so it is visible to the Hub code that later appends the ledger row); the
 /// TransactionGateway records each audit row it writes into it; and
 /// <see cref="CommandLedgerRepository.AppendAsync"/>, once the ledger row has its id, stamps

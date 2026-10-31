@@ -1,10 +1,10 @@
 using System.Globalization;
-using IdiotProof.Blazor.Services;
 using IdiotProof.Core.Trading;
 using IdiotProof.Models;
 using IdiotProof.Operations.Rendering;
 using IdiotProof.Scripting;
 
+using IdiotProof.Core.Services;
 namespace IdiotProof.Operations.Strategies;
 
 public sealed record StrategySetArgs

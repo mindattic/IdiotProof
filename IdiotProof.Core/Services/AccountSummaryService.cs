@@ -1,9 +1,9 @@
 using System.Globalization;
-using IdiotProof.Blazor.Data;
+using IdiotProof.Core.Data;
 using IdiotProof.Brokers;
 using IdiotProof.Models;
 
-namespace IdiotProof.Blazor.Services;
+namespace IdiotProof.Core.Services;
 
 /// <summary>
 /// A snapshot of one Alpaca account (Paper or Live): cash/portfolio value plus

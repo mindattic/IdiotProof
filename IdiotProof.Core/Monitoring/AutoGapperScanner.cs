@@ -1,5 +1,4 @@
-using IdiotProof.Blazor.Data;
-using IdiotProof.Blazor.Services;
+using IdiotProof.Core.Data;
 using IdiotProof.DataFeeds;
 using IdiotProof.Engine.Settings;
 using IdiotProof.Models;
@@ -7,7 +6,8 @@ using IdiotProof.Scripting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
-namespace IdiotProof.Monitor;
+using IdiotProof.Core.Services;
+namespace IdiotProof.Core.Monitoring;
 
 /// <summary>
 /// ON-DEMAND gapper generator (operator CLI: <c>auto-gapper</c>). Pulls the

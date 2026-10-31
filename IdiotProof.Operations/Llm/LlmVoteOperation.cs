@@ -1,9 +1,9 @@
-using IdiotProof.Blazor.Services;
 using IdiotProof.Models;
 using IdiotProof.Operations.Indicators;
 using IdiotProof.Operations.Rendering;
 using IdiotProof.Operations.Strategies;
 
+using IdiotProof.Core.Services;
 namespace IdiotProof.Operations.Llm;
 
 public sealed record LlmVoteArgs

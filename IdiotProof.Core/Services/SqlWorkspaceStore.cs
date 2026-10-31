@@ -1,9 +1,9 @@
 using System.Text.Json;
-using IdiotProof.Blazor.Data;
+using IdiotProof.Core.Data;
 using IdiotProof.Engine.Workspace;
 using Microsoft.EntityFrameworkCore;
 
-namespace IdiotProof.Blazor.Services;
+namespace IdiotProof.Core.Services;
 
 /// <summary>
 /// SQL-backed <see cref="IWorkspaceStore"/> that stores each <see cref="WorkspaceTab"/>

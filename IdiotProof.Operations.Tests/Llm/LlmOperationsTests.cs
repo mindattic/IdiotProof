@@ -1,8 +1,7 @@
 using System.Net;
 using System.Text;
 using System.Text.Json;
-using IdiotProof.Blazor.Data;
-using IdiotProof.Blazor.Services;
+using IdiotProof.Core.Data;
 using IdiotProof.DataFeeds;
 using IdiotProof.Engine.Settings;
 using IdiotProof.Operations.Llm;
@@ -14,8 +13,9 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using MindAttic.Legion;
 using MindAttic.Vault.Credentials;
-using LlmVotingService = IdiotProof.Blazor.Services.LlmVotingService;
+using LlmVotingService = IdiotProof.Core.Services.LlmVotingService;
 
+using IdiotProof.Core.Services;
 namespace IdiotProof.Operations.Tests.Llm;
 
 /// <summary>

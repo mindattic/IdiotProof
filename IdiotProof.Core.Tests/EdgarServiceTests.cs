@@ -1,8 +1,8 @@
 using System.Net;
 using System.Net.Http;
-using IdiotProof.Blazor.Services;
 using Microsoft.Extensions.Logging.Abstractions;
 
+using IdiotProof.Core.Services;
 namespace IdiotProof.Blazor.Tests;
 
 /// <summary>

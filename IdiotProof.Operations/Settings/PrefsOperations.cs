@@ -1,9 +1,9 @@
 using System.Globalization;
-using IdiotProof.Blazor.Data;
-using IdiotProof.Blazor.Services;
+using IdiotProof.Core.Data;
 using IdiotProof.Core.Ledger;
 using IdiotProof.Operations.Rendering;
 
+using IdiotProof.Core.Services;
 namespace IdiotProof.Operations.Settings;
 
 /// <summary>The per-user preferences a person may read and change from the command line.</summary>

@@ -1,5 +1,5 @@
-using IdiotProof.Blazor.Data;
-using IdiotProof.Blazor.Services;
+using IdiotProof.Core.Data;
+using IdiotProof.Core.Services;
 using IdiotProof.Core.Hosting;
 using IdiotProof.Engine.Storage;
 using Microsoft.Extensions.Configuration;

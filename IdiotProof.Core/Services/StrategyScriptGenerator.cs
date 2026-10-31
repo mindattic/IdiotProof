@@ -4,7 +4,8 @@ using IdiotProof.Engine.Settings;
 using IdiotProof.Scripting;
 using MindAttic.Legion;
 
-namespace IdiotProof.Blazor.Services;
+using IdiotProof.Core.Data;
+namespace IdiotProof.Core.Services;
 
 /// <summary>
 /// Translates trader prose into IdiotScript fluent text via the MindAttic.Legion

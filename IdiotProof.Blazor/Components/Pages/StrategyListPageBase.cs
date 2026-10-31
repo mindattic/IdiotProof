@@ -1,9 +1,10 @@
-using IdiotProof.Blazor.Data;
+using IdiotProof.Core.Data;
 using IdiotProof.Blazor.Services;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Components.Web;
 
+using IdiotProof.Core.Services;
 namespace IdiotProof.Blazor.Components.Pages;
 
 /// <summary>

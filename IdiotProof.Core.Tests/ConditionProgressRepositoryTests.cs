@@ -1,7 +1,7 @@
-using IdiotProof.Blazor.Data;
-using IdiotProof.Blazor.Services;
+using IdiotProof.Core.Data;
 using Microsoft.EntityFrameworkCore;
 
+using IdiotProof.Core.Services;
 namespace IdiotProof.Blazor.Tests;
 
 [TestFixture]

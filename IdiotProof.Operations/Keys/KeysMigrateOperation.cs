@@ -1,6 +1,6 @@
-using IdiotProof.Blazor.Services;
 using IdiotProof.Operations.Rendering;
 
+using IdiotProof.Core.Services;
 namespace IdiotProof.Operations.Keys;
 
 public sealed record KeysMigrateArgs

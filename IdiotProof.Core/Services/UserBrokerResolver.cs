@@ -1,8 +1,8 @@
 using System.Collections.Concurrent;
-using IdiotProof.Blazor.Data;
+using IdiotProof.Core.Data;
 using IdiotProof.Brokers;
 
-namespace IdiotProof.Blazor.Services;
+namespace IdiotProof.Core.Services;
 
 /// <summary>
 /// Which broker a user's orders route to. Pure decision, separated from the

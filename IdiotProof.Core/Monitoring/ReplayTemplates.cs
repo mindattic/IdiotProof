@@ -1,4 +1,6 @@
-namespace IdiotProof.Monitor;
+using IdiotProof.Core.Services;
+using IdiotProof.Core.Data;
+namespace IdiotProof.Core.Monitoring;
 
 /// <summary>
 /// Self-contained HTML templates for the replay harness. Tokens are replaced by
