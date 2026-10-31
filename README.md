@@ -90,6 +90,8 @@ idiotproof trade confirm K7Q2XM
 idiotproof help                           # every command; `idiotproof help <noun>` for one family
 ```
 
+**Hub autostart in Claude Code sessions.** `.claude/settings.json` has a SessionStart hook (`.claude/hooks/start-hub.ps1`) that starts the Hub when nothing answers on `127.0.0.1:5910`, so tools work from the first prompt. It never touches a Hub that is already running, and the Hub it starts has the **Monitor off** (`IDIOTPROOF_HUB_MONITOR=0`): opening a session never starts unattended trading. Set `IDIOTPROOF_HUB_AUTOSTART_MONITOR=1` in the environment Claude Code launches from to have it start the trading Monitor too; to switch an already-started Hub, `idiotproof hub stop` then `idiotproof hub start` from a shell with the variable you want.
+
 `idiotproof` resolves to `idiotproof.cmd` (or the Git Bash `idiotproof` script) at the repo root: the published CLI if present, else the Debug build, else `dotnet run`. MCP is registered in `.mcp.json`; a fresh agent session calls `agent_bootstrap` and learns the whole surface. The generated references are [docs/CLI_COMMANDS.md](docs/CLI_COMMANDS.md) (`idiotproof --export-commands`) and [docs/MCP_TOOLS.md](docs/MCP_TOOLS.md) (`dotnet run --project IdiotProof.Mcp -- --export-tools`).
 
 ### Charts in the terminal
