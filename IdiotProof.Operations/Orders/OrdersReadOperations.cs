@@ -76,22 +76,28 @@ public sealed class OrdersListOperation : IOperation<OrdersListArgs>
 
 public sealed record OrdersShowArgs
 {
-    [Argument(0, Name = "id", Description = "The Alpaca order id (from `orders list`).")]
-    public string Id { get; init; } = "";
+    [Argument(0, Name = "id", Description = "The Alpaca order id (from `orders list`). Leave out and pass --client-id to look up by your own id.", Required = false)]
+    public string? Id { get; init; }
+
+    [Option("client-id", Description = "Look the order up by its client order id instead.")]
+    public string? ClientId { get; init; }
 
     [Option("mode", Description = "paper, live or all (default all: whichever account has it).")]
     public AccountScope Mode { get; init; } = AccountScope.All;
 }
 
-[Operation("orders show", Summary = "One Alpaca order in full: prices, fills, timestamps (ET) and its bracket/OCO/OTO legs.", Risk = OperationRisk.Read)]
+[Operation("orders show", Summary = "One Alpaca order in full, by id or client id: prices, fills, timestamps (ET) and its nested bracket/OCO/OTO/multi-leg legs.", Risk = OperationRisk.Read)]
 [Example("idiotproof orders show 61e69015-8549-4bfd-b9c3-01e75843f47d")]
+[Example("idiotproof orders show --client-id exit-nvda-1 --mode paper")]
 public sealed class OrdersShowOperation : IOperation<OrdersShowArgs>
 {
     public async Task<OperationResult> ExecuteAsync(OrdersShowArgs args, OperationContext ctx)
     {
-        if (string.IsNullOrWhiteSpace(args.Id)) return OperationResult.Usage("Name the order id.");
-        var (account, order, why) = await OrderViews.FindAsync(ctx, args.Mode, args.Id.Trim(), null);
-        if (order is null) return OperationResult.Fail($"No order {args.Id.Trim()} ({why}).");
+        var id = string.IsNullOrWhiteSpace(args.Id) ? null : args.Id.Trim();
+        var clientId = string.IsNullOrWhiteSpace(args.ClientId) ? null : args.ClientId.Trim();
+        if ((id is null) == (clientId is null)) return OperationResult.Usage("Name the order id, or pass --client-id (not both).");
+        var (account, order, why) = await OrderViews.FindAsync(ctx, args.Mode, id, clientId);
+        if (order is null) return OperationResult.Fail($"No order {(id ?? "with client id " + clientId)} ({why}).");
         return OperationResult.Ok(order.ToData(account!.ToLowerInvariant()), OrderViews.Detail(account, order, ctx.Width));
     }
 }
