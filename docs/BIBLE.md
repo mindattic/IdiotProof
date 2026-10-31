@@ -283,8 +283,9 @@ stored only on that user's row; no user page writes the host key, which changes 
 Vault or configuration (the app has no admin path for it). The interactive Claude features use
 the same rule for the signed-in user: the Describe tab (`StrategyScriptGenerator`), the Gapper
 transcript reader (`GapperInterpreter`) and the Research page's analysis (`ResearchService` →
-`CatalystExtractor`, `ClaimVectorService`) get the key from `SignedInClaudeKey` (scoped per
-circuit, resolved on every call, never cached) and pass it per call; with neither a user nor a
+`CatalystExtractor`, `ClaimVectorService`) get the key from `IClaudeKeyContext`
+(`OwnerClaudeKeyContext` over the signed-in owner in the web app, over the operation's owner in the
+Hub; resolved on every call, never cached) and pass it per call; with neither a user nor a
 host key they show `UserClaudeKeyResolver.NoKeyMessage`. The scheduled research scan has no
 signed-in user and uses the host key. Voting is on when the host
 (`LlmVotingEnabled`) or the owner enabled it. Approve needs `LlmConsensusThreshold` (default

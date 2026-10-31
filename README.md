@@ -385,7 +385,7 @@ Settings overlay chain (`IdiotProof.Engine.Settings.AppSettings`, applied by eve
 
 Credentials:
 
-- Claude and other LLM keys for the host: `%APPDATA%\MindAttic\LLM\providers.json` (the canonical MindAttic keyring) or configuration; that is the only way to change the host key. A Claude key pasted into the API Keys page is stored in that user's own Vault Tokens entry only and is used for that user's own requests: the Monitor's LLM gate on their strategies, the Describe tab, the Gapper transcript reader and Research analysis (`SignedInClaudeKey`: their key, then the host key, else a "no key configured" message). The scheduled research scan uses the host key.
+- Claude and other LLM keys for the host: `%APPDATA%\MindAttic\LLM\providers.json` (the canonical MindAttic keyring) or configuration; that is the only way to change the host key. A Claude key pasted into the API Keys page is stored in that user's own Vault Tokens entry only and is used for that user's own requests: the Monitor's LLM gate on their strategies, the Describe tab, the Gapper transcript reader and Research analysis (`IClaudeKeyContext`: their key, then the host key, else a "no key configured" message). The scheduled research scan uses the host key.
 - Alpaca keys: `%APPDATA%\MindAttic\Brokers\providers.json` with `alpaca-paper` and `alpaca-live` entries (the owner's), plus `idiotproof-<userId>-alpaca-paper|live` for any other user. Set them with `idiotproof keys set alpaca-paper|alpaca-live` or the API Keys page; never in SQL.
 - A Development-only `.env` at `%APPDATA%\MindAttic\IdiotProof\.env` prefills `DEV_USERNAME` and `DEV_PASSWORD` on the Login page; it is never loaded outside `Development`. See `.env.example`.
 
