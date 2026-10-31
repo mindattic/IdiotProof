@@ -1,4 +1,5 @@
 using IdiotProof.Engine.Storage;
+using IdiotProof.Blazor.Auth;
 using IdiotProof.Blazor.Components;
 using IdiotProof.Blazor.Data;
 using IdiotProof.Blazor.Hubs;
@@ -89,6 +90,9 @@ builder.Services.AddSignalR(o =>
 });
 
 // ── Web-only services ────────────────────────────────────────────────────────────
+// Who this request acts for: the signed-in user's NameIdentifier claim (the Hub/CLI/MCP use
+// OperationOwnerContext). Read per call; anonymous means no owner and callers fail closed.
+builder.Services.AddScoped<IOwnerContext, SignedInOwnerContext>();
 // The requesting user's Claude key (their own, then the host's) for Describe, the Gapper
 // transcript reader and Research; resolved per call, never cached across users.
 builder.Services.AddScoped<SignedInClaudeKey>();
