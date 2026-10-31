@@ -7,7 +7,7 @@ namespace IdiotProof.Operations.Market;
 
 public sealed record MarketChartArgs
 {
-    [Argument(0, Name = "symbol", Description = "Ticker to chart, e.g. INTC.")]
+    [Argument(0, Name = "symbol", Description = "Ticker to chart, e.g. INTC, or a crypto pair such as BTC/USD (charted as 24h days).")]
     public string Symbol { get; init; } = "";
 
     [Option("days", Description = "Trading days to show, oldest first, each as premarket + regular + after-hours (default 2: the prior day and today).")]
@@ -39,10 +39,12 @@ public sealed record ChartSessionSummary(
 /// across each trading day's premarket (4:00-9:30), regular (9:30-4:00) and after-hours
 /// (4:00-8:00) sessions in ET, with every prior regular close as a reference line. The overnight
 /// gap is not drawn. Refuses the Mock feed: a chart of made-up prices is worse than none.
+/// A crypto pair (BTC/USD) is drawn from Alpaca's crypto feed as one 24h session per ET day.
 /// </summary>
-[Operation("market chart", Summary = "ASCII candle chart of a symbol across premarket, regular and after-hours sessions (ET).", Risk = OperationRisk.Read)]
+[Operation("market chart", Summary = "ASCII candle chart of a symbol across premarket, regular and after-hours sessions (ET); crypto pairs as 24h days.", Risk = OperationRisk.Read)]
 [Example("idiotproof market chart INTC")]
 [Example("idiotproof market chart NVDA --days 3 --bucket 30")]
+[Example("idiotproof market chart BTC/USD --days 3", Description = "Crypto pair: one 24h session per ET day.")]
 public sealed class MarketChartOperation : IOperation<MarketChartArgs>
 {
     private static readonly (string Label, TimeSpan Start, TimeSpan End)[] DaySessions =
@@ -59,40 +61,79 @@ public sealed class MarketChartOperation : IOperation<MarketChartArgs>
         if (args.Days is < 1 or > 10) return OperationResult.Usage("--days must be 1-10.");
         if (args.Height is < 5 or > 60) return OperationResult.Usage("--height must be 5-60.");
 
-        var feed = ctx.Get<IMarketDataFeed>();
-        if (feed is MockDataFeed)
-            return OperationResult.Blocked("The Hub is on the Mock data feed (no Alpaca keys resolved), so there are no real prices to chart.");
-
-        // Fetch far enough back to cover weekends and holidays, then keep the last N ET days that traded.
-        var nowUtc = ctx.UtcNow;
-        var fromUtc = nowUtc.AddDays(-(args.Days + 6));
-        var candles = new List<IdiotProof.Models.Candle>();
-        await foreach (var c in feed.GetHistoricalCandlesAsync(symbol, fromUtc, nowUtc, TimeSpan.FromMinutes(1), ctx.CancellationToken))
-            candles.Add(c);
-        if (candles.Count == 0) return OperationResult.Fail($"No bars for {symbol} from {feed.FeedName} in the last {args.Days + 6} days.");
-
-        var bars = candles
-            .Select(c => new OhlcBar(EasternClock.ToEastern(c.StartUtc), (double)c.Open, (double)c.High, (double)c.Low, (double)c.Close, (double)c.Volume))
-            .ToList();
-        var days = bars.Select(b => b.Time.Date).Distinct().OrderBy(d => d).TakeLast(args.Days).ToList();
-
-        var sessions = days
-            .SelectMany(d => DaySessions.Select(s => new ChartSession(s.Label, d + s.Start, d + s.End, d.ToString("ddd M/d", CultureInfo.InvariantCulture))))
-            .ToList();
-
-        // Reference lines: the regular close of every shown day that has a later day after it.
+        List<OhlcBar> bars;
+        List<DateTime> days;
+        List<ChartSession> sessions;
         var references = new List<ChartReferenceLine>();
-        foreach (var d in days.SkipLast(1))
+        string feedName, span;
+        var crypto = Crypto.CryptoData.IsPair(args.Symbol);
+        if (crypto)
         {
-            var close = bars.LastOrDefault(b => b.Time >= d + DaySessions[1].Start && b.Time < d + DaySessions[1].End);
-            if (close != default) references.Add(new ChartReferenceLine($"{d:ddd} close", close.Close));
+            // Crypto trades around the clock: one 24h session per ET day, each prior day's
+            // midnight close as the reference line, bars straight from Alpaca's crypto feed.
+            symbol = Crypto.CryptoData.RequirePair(args.Symbol, "idiotproof market chart BTC/USD");
+            await using var api = await ctx.Get<IdiotProof.Core.Trading.AlpacaApiFactory>().ForDataAsync(ctx.OwnerId, ctx.CancellationToken);
+            var raw = await Crypto.CryptoData.PagedAsync(api, "bars", symbol, new()
+            {
+                ["timeframe"] = "1Min",
+                ["start"] = Crypto.CryptoData.Rfc3339(ctx.UtcNow.AddDays(-(args.Days + 1))),
+                ["end"] = Crypto.CryptoData.Rfc3339(ctx.UtcNow),
+                ["limit"] = "10000",
+            }, 100_000, ctx.CancellationToken);
+            if (raw.Count == 0) return OperationResult.Fail($"No crypto bars for {symbol} in the last {args.Days + 1} days.");
+            bars = raw.Select(b => new OhlcBar(EasternClock.ToEastern(Crypto.CryptoData.Time(b)),
+                    (double)(Crypto.CryptoData.Num(b, "o") ?? 0), (double)(Crypto.CryptoData.Num(b, "h") ?? 0),
+                    (double)(Crypto.CryptoData.Num(b, "l") ?? 0), (double)(Crypto.CryptoData.Num(b, "c") ?? 0),
+                    (double)(Crypto.CryptoData.Num(b, "v") ?? 0)))
+                .ToList();
+            days = bars.Select(b => b.Time.Date).Distinct().OrderBy(d => d).TakeLast(args.Days).ToList();
+            sessions = days.Select(d => new ChartSession("24H", d, d.AddDays(1), d.ToString("ddd M/d", CultureInfo.InvariantCulture))).ToList();
+            foreach (var d in days.SkipLast(1))
+            {
+                var close = bars.LastOrDefault(b => b.Time >= d && b.Time < d.AddDays(1));
+                if (close != default) references.Add(new ChartReferenceLine($"{d:ddd} close", close.Close));
+            }
+            feedName = "Alpaca crypto";
+            span = $"{days[0]:ddd M/d} 12:00 AM -> {days[^1]:ddd M/d} 11:59 PM ET";
+        }
+        else
+        {
+            var feed = ctx.Get<IMarketDataFeed>();
+            if (feed is MockDataFeed)
+                return OperationResult.Blocked("The Hub is on the Mock data feed (no Alpaca keys resolved), so there are no real prices to chart.");
+
+            // Fetch far enough back to cover weekends and holidays, then keep the last N ET days that traded.
+            var nowUtc = ctx.UtcNow;
+            var fromUtc = nowUtc.AddDays(-(args.Days + 6));
+            var candles = new List<IdiotProof.Models.Candle>();
+            await foreach (var c in feed.GetHistoricalCandlesAsync(symbol, fromUtc, nowUtc, TimeSpan.FromMinutes(1), ctx.CancellationToken))
+                candles.Add(c);
+            if (candles.Count == 0) return OperationResult.Fail($"No bars for {symbol} from {feed.FeedName} in the last {args.Days + 6} days.");
+
+            bars = candles
+                .Select(c => new OhlcBar(EasternClock.ToEastern(c.StartUtc), (double)c.Open, (double)c.High, (double)c.Low, (double)c.Close, (double)c.Volume))
+                .ToList();
+            days = bars.Select(b => b.Time.Date).Distinct().OrderBy(d => d).TakeLast(args.Days).ToList();
+
+            sessions = days
+                .SelectMany(d => DaySessions.Select(s => new ChartSession(s.Label, d + s.Start, d + s.End, d.ToString("ddd M/d", CultureInfo.InvariantCulture))))
+                .ToList();
+
+            // Reference lines: the regular close of every shown day that has a later day after it.
+            foreach (var d in days.SkipLast(1))
+            {
+                var close = bars.LastOrDefault(b => b.Time >= d + DaySessions[1].Start && b.Time < d + DaySessions[1].End);
+                if (close != default) references.Add(new ChartReferenceLine($"{d:ddd} close", close.Close));
+            }
+            feedName = feed.FeedName;
+            span = $"{days[0]:ddd M/d} 4:00 AM -> {days[^1]:ddd M/d} 8:00 PM ET";
         }
 
         var shown = bars.Where(b => sessions.Any(s => b.Time >= s.Start && b.Time < s.End)).ToList();
         var first = shown.FirstOrDefault();
         var last = shown.LastOrDefault();
-        var title = $"{symbol}  {days[0]:ddd M/d} 4:00 AM -> {days[^1]:ddd M/d} 8:00 PM ET   " +
-                    $"last {Price(last.Close)}  ({Signed(last.Close - first.Open)} / {Signed((last.Close - first.Open) / first.Open * 100)}% since {first.Time:ddd h:mm tt})   feed {feed.FeedName}";
+        var title = $"{symbol}  {span}   " +
+                    $"last {Price(last.Close)}  ({Signed(last.Close - first.Open)} / {Signed((last.Close - first.Open) / first.Open * 100)}% since {first.Time:ddd h:mm tt})   feed {feedName}";
 
         string chart;
         try
@@ -136,7 +177,7 @@ public sealed class MarketChartOperation : IOperation<MarketChartArgs>
                 Price((double)s.Close!), Signed((double)(s.Close! - s.Open!)), CompactVolume((double)s.Volume));
         }
 
-        var data = new { symbol, feed = feed.FeedName, days = days.Select(d => d.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)), sessions = summaries, chart };
+        var data = new { symbol, feed = feedName, crypto, days = days.Select(d => d.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)), sessions = summaries, chart };
         return OperationResult.Ok(data, chart + "\n\n" + table.Render());
     }
 
