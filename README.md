@@ -163,7 +163,7 @@ idiotproof hub start                       # the Hub: hosts the Monitor loop and
 dotnet run --project IdiotProof.Blazor
 ```
 
-Both default to the same LocalDB database (`IdiotProof`). The Hub acquires the SQL leader lease and starts ticking; `idiotproof hub logs` shows its log. `idiotproof-monitor.exe` (`IdiotProof.Monitor`) is now a shim that starts the Hub, so old shortcuts keep working; the lease guarantees only one process trades. Register an account in the UI on first run. On a plain Debug build the web app needs a `wwwroot` folder next to the built exe; see [Limitations and roadmap](#limitations-and-roadmap).
+Both default to the same LocalDB database (`IdiotProof`). The Hub acquires the SQL leader lease and starts ticking; `idiotproof hub logs` shows its log. `idiotproof-monitor.exe` (`IdiotProof.Monitor`) is now a shim that starts the Hub, so old shortcuts keep working; the lease guarantees only one process trades. Register an account in the UI on first run.
 
 ### Step 3 real market data
 
@@ -778,7 +778,6 @@ These are verified in code or canon; the living version is `docs/BIBLE.md` secti
 
 - Options are manual-only. No option legs in the strategy schema, no IV or Greeks conditions, no options-aware `RiskGuardian` math, no multi-leg spreads; the Monitor never fires an options order. Both Alpaca accounts are at options level 3; place + cancel is proven against the real paper account, but the fill-and-close half of a real paper round-trip (IP-US-U10) is still open. `sp-index-events.json` is hand-maintained.
 - Shorts are verified on the Sandbox broker and in the wire format. Against the real Alpaca paper account, the short entry has not yet been accepted: the account cannot short (shorting disabled, equity under $2,000). An accepted `sell_to_open` and a filled short covered by `buy_to_close` are still open (`IP-US-K16`).
-- `dotnet run` on `IdiotProof.Blazor` needs a `wwwroot` folder next to the built exe. `Program.cs` mounts a `PhysicalFileProvider` on `AppContext.BaseDirectory/wwwroot` so a published exe serves its own static files, which throws `DirectoryNotFoundException` on a plain Debug build. Run from a publish output, or create `bin/Debug/net10.0/wwwroot` before `dotnet run`.
 - There is no Polygon feed: only `AlpacaDataFeed`, `AlpacaStreamingClient`, `MockDataFeed` and `SwitchableMarketDataFeed` exist. `docker-compose.yml` and `infra/` still reference a `PolygonApiKey` variable and a `src/IdiotProof.Blazor/Dockerfile` path that does not exist; verify that scaffolding before relying on it for a real deploy.
 - `UserPreferences.OpenStrategyTabs` is an unused column awaiting removal in a migration.
 - The Learning Center and Backtest pages are built but not yet proven by a Cypress run (Epics I and J are partial).
