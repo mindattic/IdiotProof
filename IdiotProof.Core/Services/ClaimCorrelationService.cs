@@ -13,6 +13,9 @@ public sealed record CorrelationResult(
     int          BestHammingDistance,
     List<string> ExampleSummaries);
 
+/// <summary>One similar claim and its Hamming distance (0-64 bits) from the target claim.</summary>
+public sealed record ClaimNeighbor(ResearchClaim Claim, int Distance);
+
 /// <summary>
 /// Finds ResearchClaims whose LSH signatures are close in Hamming space to a
 /// target claim's signature, then aggregates their recorded outcomes.
@@ -101,6 +104,41 @@ public sealed class ClaimCorrelationService(
             logger.LogWarning(ex, "ClaimCorrelation failed for claim {Id}", claimId);
             return Empty;
         }
+    }
+
+    /// <summary>
+    /// The individual nearest neighbours of <paramref name="claimId"/> in LSH Hamming space,
+    /// nearest first, each with its distance. Empty when the claim has no vector yet.
+    /// </summary>
+    public async Task<IReadOnlyList<ClaimNeighbor>> FindNeighborsAsync(
+        Guid claimId,
+        int  maxHamming = DefaultMaxHamming,
+        int  take = MaxResultClaims,
+        CancellationToken ct = default)
+    {
+        await using var db = await dbFactory.CreateDbContextAsync(ct);
+
+        var target = await db.ResearchClaimVectors.FindAsync([claimId], ct);
+        if (target is null) return [];
+
+        var allVectors = await db.ResearchClaimVectors
+            .Where(v => v.ClaimId != claimId)
+            .Select(v => new { v.ClaimId, v.LshSignature })
+            .ToListAsync(ct);
+
+        var near = allVectors
+            .Select(v => (v.ClaimId, Dist: ClaimVectorService.HammingDistance(target.LshSignature, v.LshSignature)))
+            .Where(x => x.Dist <= maxHamming)
+            .OrderBy(x => x.Dist)
+            .Take(Math.Max(1, take))
+            .ToList();
+        if (near.Count == 0) return [];
+
+        var ids = near.Select(x => x.ClaimId).ToHashSet();
+        var claims = await db.ResearchClaims.AsNoTracking().Where(c => ids.Contains(c.Id)).ToDictionaryAsync(c => c.Id, ct);
+        return near.Where(x => claims.ContainsKey(x.ClaimId))
+            .Select(x => new ClaimNeighbor(claims[x.ClaimId], x.Dist))
+            .ToList();
     }
 
     /// <summary>
