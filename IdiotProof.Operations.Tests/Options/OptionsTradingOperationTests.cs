@@ -151,6 +151,46 @@ public class OptionsTradingOperationTests
         Assert.That(paper.Placed, Has.Count.EqualTo(1));
     }
 
+    // ------------------------------------------------------------------ close (IP-T196)
+
+    [Test]
+    public async Task Close_ALong_SellsEveryContractToClose()
+    {
+        paper.Positions.Add(new Position { Symbol = Call, Quantity = 3m });
+
+        var result = await new OptionsCloseOperation().ExecuteAsync(new OptionsCloseArgs { Occ = Call, Mode = BrokerMode.Paper }, Context());
+
+        Assert.That(result.IsOk, Is.True, result.Message);
+        var order = paper.Placed.Single();
+        Assert.That((order.Side, order.Quantity, order.PositionIntent, order.Type), Is.EqualTo((OrderSide.Sell, 3, "sell_to_close", OrderType.Market)));
+    }
+
+    [Test]
+    public async Task Close_AShort_BuysToClose_AndLiveWaitsForTheCode()
+    {
+        live.Positions.Add(new Position { Symbol = Call, Quantity = -2m });
+        var args = new OptionsCloseArgs { Occ = Call, Limit = 1.25m, Mode = BrokerMode.Live };
+
+        var first = await new OptionsCloseOperation().ExecuteAsync(args, Context());
+        Assert.That(first.Status, Is.EqualTo(OperationStatus.ConfirmationRequired), first.Message);
+        Assert.That(live.Placed, Is.Empty);
+
+        var second = await new OptionsCloseOperation().ExecuteAsync(args, Context(first.Confirmation!.Code));
+        Assert.That(second.IsOk, Is.True, second.Message);
+        var order = live.Placed.Single();
+        Assert.That((order.Side, order.Quantity, order.PositionIntent), Is.EqualTo((OrderSide.Buy, 2, "buy_to_close")));
+    }
+
+    [Test]
+    public async Task Close_WithNoPosition_IsBlocked()
+    {
+        var result = await new OptionsCloseOperation().ExecuteAsync(new OptionsCloseArgs { Occ = Call }, Context());
+
+        Assert.That(result.Status, Is.EqualTo(OperationStatus.Blocked));
+        Assert.That(result.Message, Does.Contain("No open"));
+        Assert.That(sandbox.Placed, Is.Empty);
+    }
+
     // ------------------------------------------------------------------ fakes
 
     private sealed class FakeBroker(BrokerType type, bool isPaper) : IBrokerClient

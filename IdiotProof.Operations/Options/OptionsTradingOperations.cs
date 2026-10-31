@@ -47,6 +47,20 @@ public sealed record OptionsSellArgs
     public string? Note { get; init; }
 }
 
+/// <summary>Arguments for closing a whole options position.</summary>
+public sealed record OptionsCloseArgs
+{
+    [Argument(0, Name = "occ", Description = "OCC contract symbol of the position to close.")]
+    public string Occ { get; init; } = "";
+
+    [Option("limit", Description = "Limit price per share. Without it the close is a market order.", Short = 'l')]
+    public decimal? Limit { get; init; }
+
+    [Option("mode", Description = "Which account holds it: sandbox (default), paper or live (needs confirmation).", Short = 'm')]
+    public BrokerMode Mode { get; init; } = BrokerMode.Sandbox;
+
+    [Option("note", Description = "Why — kept in the audit trail.")]
+    public string? Note { get; init; }
 }
 
 /// <summary>
@@ -150,5 +164,30 @@ public sealed class OptionsSellOperation : IOperation<OptionsSellArgs>
         var intent = OptionsTradeFlow.BuildIntent(ctx, contract, args.Contracts, OrderSide.Sell,
             args.Open ? "sell_to_open" : "sell_to_close", args.Limit, args.Mode, args.Note);
         return await OptionsTradeFlow.SubmitAsync(intent, ctx);
+    }
+}
+
+[Operation("options close", Summary = "Close a whole options position (sells a long, buys back a short) through the gateway.", Risk = OperationRisk.Money)]
+[Example("idiotproof options close AAPL261219C00150000 --mode paper")]
+[Example("idiotproof options close SPY261120P00560000 --limit 2.40 --mode live", Description = "Live close; prints a confirmation code first.")]
+public sealed class OptionsCloseOperation : IOperation<OptionsCloseArgs>
+{
+    public async Task<OperationResult> ExecuteAsync(OptionsCloseArgs args, OperationContext ctx)
+    {
+        ctx.RequireOwner();
+        var contract = OptionsTradeFlow.ParseContract(args.Occ);
+        var client = await OptionsTradeFlow.ResolveAsync(ctx, args.Mode);
+        if (client is null) return OperationResult.Blocked($"No {args.Mode} broker resolves for this user, so there is no position to close.");
+
+        var held = (await client.GetPositionsAsync(ctx.CancellationToken))
+            .FirstOrDefault(p => p.Quantity != 0 && string.Equals(p.Symbol, contract.OccSymbol, StringComparison.OrdinalIgnoreCase));
+        if (held is null)
+            return OperationResult.Blocked($"No open {contract.OccSymbol} ({contract.DisplayName}) position on {args.Mode}.");
+
+        var contracts = (int)Math.Abs(decimal.Truncate(held.Quantity));
+        var isLong = held.Quantity > 0;
+        var intent = OptionsTradeFlow.BuildIntent(ctx, contract, contracts, isLong ? OrderSide.Sell : OrderSide.Buy,
+            isLong ? "sell_to_close" : "buy_to_close", args.Limit, args.Mode, args.Note ?? $"close {contract.DisplayName}");
+        return await OptionsTradeFlow.SubmitAsync(intent, ctx, client);
     }
 }
