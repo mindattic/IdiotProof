@@ -224,7 +224,166 @@ public sealed class TransactionGatewayTests
         Assert.That(ctx.AuditLogs.Any(a => a.Category == "order" && a.Message.Contains("Rejected")), Is.True);
     }
 
-    private sealed class FakeRouting : Dictionary<BrokerMode, IBrokerClient>, IOrderRouting
+    [Test]
+    public void Hash_ChangesWithEveryOrderField_ButNotTheNoteOrTrailingZeros()
+    {
+        var baseIntent = Buy(BrokerMode.Live);
+        var o = baseIntent.Order;
+        var variants = new[]
+        {
+            new OrderRequest { Symbol = o.Symbol, FractionalQuantity = 10.5m, Side = o.Side, Type = o.Type, LimitPrice = o.LimitPrice },
+            new OrderRequest { Symbol = o.Symbol, Quantity = o.Quantity, Side = o.Side, Type = o.Type, LimitPrice = o.LimitPrice, ClientOrderId = "mine-1" },
+            new OrderRequest { Symbol = o.Symbol, Quantity = o.Quantity, Side = o.Side, Type = o.Type, LimitPrice = o.LimitPrice, TimeInForce = "GTC" },
+            new OrderRequest { Symbol = o.Symbol, Quantity = o.Quantity, Side = o.Side, Type = o.Type, LimitPrice = o.LimitPrice, OrderClass = OrderClass.Oto, StopLoss = new StopLossLeg { StopPrice = 95m } },
+            new OrderRequest { Symbol = o.Symbol, Quantity = o.Quantity, Side = o.Side, Type = o.Type, LimitPrice = o.LimitPrice, OrderClass = OrderClass.Oto, StopLoss = new StopLossLeg { StopPrice = 95m, LimitPrice = 94m } },
+            new OrderRequest { Symbol = o.Symbol, Quantity = o.Quantity, Side = o.Side, Type = o.Type, LimitPrice = o.LimitPrice, OrderClass = OrderClass.Bracket, StopLoss = new StopLossLeg { StopPrice = 95m }, TakeProfit = new TakeProfitLeg { LimitPrice = 110m } },
+            new OrderRequest { Symbol = o.Symbol, Quantity = o.Quantity, Side = o.Side, Type = OrderType.TrailingStop, TrailPrice = 1m },
+            new OrderRequest { Symbol = o.Symbol, Quantity = o.Quantity, Side = o.Side, Type = OrderType.TrailingStop, TrailPercent = 1m },
+            new OrderRequest { Symbol = o.Symbol, Quantity = o.Quantity, Side = o.Side, Type = o.Type, LimitPrice = o.LimitPrice, PositionIntent = "buy_to_open" },
+            new OrderRequest { Symbol = o.Symbol, Quantity = o.Quantity, Side = o.Side, Type = o.Type, LimitPrice = o.LimitPrice, OrderClass = OrderClass.Mleg, Legs = [new OrderLeg { Symbol = "A", Side = OrderSide.Buy }] },
+            new OrderRequest { Symbol = o.Symbol, Quantity = o.Quantity, Side = o.Side, Type = o.Type, LimitPrice = o.LimitPrice, OrderClass = OrderClass.Mleg, Legs = [new OrderLeg { Symbol = "A", Side = OrderSide.Buy, RatioQuantity = 2 }] },
+        };
+        var hashes = variants.Select(v => (baseIntent with { Order = v }).Hash())
+            .Append((baseIntent with { Action = OrderAction.Cancel, TargetOrderId = "a" }).Hash())
+            .Append((baseIntent with { Action = OrderAction.Cancel, TargetOrderId = "b" }).Hash())
+            .Append(baseIntent.Hash()).ToList();
+
+        Assert.That(hashes.Distinct().Count(), Is.EqualTo(hashes.Count), "every field change is a different intent");
+        Assert.That((baseIntent with { Note = "why" }).Hash(), Is.EqualTo(baseIntent.Hash()));
+        var sameOrder = baseIntent with { Order = new OrderRequest { Symbol = "nvda", Quantity = 10, Side = OrderSide.Buy, Type = OrderType.Limit, LimitPrice = 100.00m, TimeInForce = "day" } };
+        Assert.That(sameOrder.Hash(), Is.EqualTo(baseIntent.Hash()), "case and trailing zeros don't make a different order");
+    }
+
+    [Test]
+    public void Intent_RoundTripsEveryNewField()
+    {
+        var intent = Buy(BrokerMode.Live) with
+        {
+            Action = OrderAction.Replace, TargetOrderId = "ord-9",
+            Order = new OrderRequest
+            {
+                Symbol = "NVDA", FractionalQuantity = 1.25m, Side = OrderSide.Buy, Type = OrderType.Limit, LimitPrice = 100m,
+                OrderClass = OrderClass.Mleg, ClientOrderId = "c-1", TrailPrice = 2m,
+                Legs = [new OrderLeg { Symbol = "NVDA261120C00100000", Side = OrderSide.Buy, RatioQuantity = 1, PositionIntent = "buy_to_open" }],
+                TakeProfit = new TakeProfitLeg { LimitPrice = 110m }, StopLoss = new StopLossLeg { StopPrice = 95m, LimitPrice = 94m },
+            },
+        };
+
+        var back = OrderIntent.FromJson(intent.ToJson());
+
+        Assert.That(back.Hash(), Is.EqualTo(intent.Hash()));
+        Assert.That(back.Order.Legs!.Single().Symbol, Is.EqualTo("NVDA261120C00100000"));
+    }
+
+    [TestCase(OrderClass.Bracket, true, false, "both a take-profit and a stop-loss")]
+    [TestCase(OrderClass.Oto, true, true, "exactly one child")]
+    [TestCase(OrderClass.Simple, true, false, "no take-profit or stop-loss")]
+    public async Task OrderClass_WithTheWrongChildren_IsBlocked(OrderClass cls, bool withTp, bool withSl, string reason)
+    {
+        var intent = Buy(BrokerMode.Sandbox) with
+        {
+            Order = new OrderRequest
+            {
+                Symbol = "NVDA", Quantity = 1, Side = OrderSide.Buy, Type = OrderType.Limit, LimitPrice = 100m, OrderClass = cls,
+                TakeProfit = withTp ? new TakeProfitLeg { LimitPrice = 110m } : null,
+                StopLoss = withSl ? new StopLossLeg { StopPrice = 98m } : null,
+            },
+        };
+
+        var outcome = await Gateway().SubmitAsync(intent);
+
+        Assert.That(outcome.Status, Is.EqualTo(GatewayStatus.Blocked));
+        Assert.That(outcome.Message, Does.Contain(reason));
+        Assert.That(sandbox.Placed, Is.Empty);
+    }
+
+    [Test]
+    public async Task Bracket_ItsStopLossChild_IsTheProtectiveStopTheGuardianChecks()
+    {
+        var bracket = Buy(BrokerMode.Sandbox, stop: null) with
+        {
+            Order = new OrderRequest
+            {
+                Symbol = "NVDA", Quantity = 10, Side = OrderSide.Buy, Type = OrderType.Limit, LimitPrice = 100m, TimeInForce = "GTC",
+                OrderClass = OrderClass.Bracket, TakeProfit = new TakeProfitLeg { LimitPrice = 110m }, StopLoss = new StopLossLeg { StopPrice = 98m },
+            },
+        };
+
+        var outcome = await Gateway().SubmitAsync(bracket);
+
+        Assert.That(outcome.Status, Is.EqualTo(GatewayStatus.Placed), outcome.Message);
+        Assert.That(sandbox.Placed.Single().OrderClass, Is.EqualTo(OrderClass.Bracket));
+    }
+
+    [Test]
+    public async Task FractionalGtc_IsBlocked_FractionalDay_IsPlaced()
+    {
+        OrderIntent Frac(string tif) => Buy(BrokerMode.Sandbox, purpose: OrderPurpose.Exit) with
+        {
+            Order = new OrderRequest { Symbol = "NVDA", FractionalQuantity = 0.5m, Side = OrderSide.Sell, Type = OrderType.Market, TimeInForce = tif },
+        };
+
+        var gtc = await Gateway().SubmitAsync(Frac("GTC"));
+        var day = await Gateway().SubmitAsync(Frac("DAY"));
+
+        Assert.That(gtc.Status, Is.EqualTo(GatewayStatus.Blocked));
+        Assert.That(day.Status, Is.EqualTo(GatewayStatus.Placed));
+        Assert.That(sandbox.Placed.Single().SizeQuantity, Is.EqualTo(0.5m));
+    }
+
+    [Test]
+    public async Task LiveCancelAndReplace_NeedACode_ThenRunAtTheBroker()
+    {
+        var gateway = Gateway();
+        var cancel = new OrderIntent
+        {
+            OwnerUserId = Owner, Mode = BrokerMode.Live, Purpose = OrderPurpose.Exit, Origin = OrderOrigin.Manual,
+            Action = OrderAction.Cancel, TargetOrderId = "ord-7", Order = new OrderRequest { Symbol = "NVDA" },
+        };
+        var replace = cancel with
+        {
+            Action = OrderAction.Replace,
+            Order = new OrderRequest { Symbol = "NVDA", Quantity = 5, LimitPrice = 101m, TimeInForce = "" },
+        };
+
+        var pendingCancel = await gateway.SubmitAsync(cancel);
+        var pendingReplace = await gateway.SubmitAsync(replace);
+        Assert.That(pendingCancel.Status, Is.EqualTo(GatewayStatus.ConfirmationRequired), pendingCancel.Message);
+        Assert.That(pendingReplace.Status, Is.EqualTo(GatewayStatus.ConfirmationRequired), pendingReplace.Message);
+        Assert.That(live.Cancelled, Is.Empty);
+        Assert.That(live.Replaced, Is.Empty);
+
+        var tampered = Assert.ThrowsAsync<ConfirmationRefusedException>(() =>
+            gateway.ConfirmAsync(pendingCancel.ConfirmationCode!, Owner, "mcp", (cancel with { TargetOrderId = "ord-8" }).Hash()));
+        Assert.That(tampered!.Failure, Is.EqualTo(ConfirmationFailure.Tampered));
+
+        var cancelled = await gateway.ConfirmAsync(pendingCancel.ConfirmationCode!, Owner, "cli");
+        var replaced = await gateway.ConfirmAsync(pendingReplace.ConfirmationCode!, Owner, "cli");
+
+        Assert.That(cancelled!.Status, Is.EqualTo(GatewayStatus.Placed));
+        Assert.That(live.Cancelled, Is.EqualTo(new[] { "ord-7" }));
+        Assert.That(replaced!.Status, Is.EqualTo(GatewayStatus.Placed));
+        Assert.That(live.Replaced.Single().Id, Is.EqualTo("ord-7"));
+        Assert.That(live.Replaced.Single().Changes.LimitPrice, Is.EqualTo(101m));
+        Assert.That(live.Placed, Is.Empty, "a cancel or replace never places a new order");
+    }
+
+    [Test]
+    public async Task CancelAll_ForOneSymbol_PassesTheSymbol_EvenOnMockData()
+    {
+        var all = new OrderIntent
+        {
+            OwnerUserId = Owner, Mode = BrokerMode.Paper, Purpose = OrderPurpose.Exit, Origin = OrderOrigin.Manual,
+            Action = OrderAction.CancelAll, Order = new OrderRequest { Symbol = "tsla" },
+        };
+
+        var outcome = await Gateway(new MockDataFeed()).SubmitAsync(all);
+
+        Assert.That(outcome.Status, Is.EqualTo(GatewayStatus.Placed), outcome.Message);
+        Assert.That(paper.CancelAllFor, Is.EqualTo(new string?[] { "TSLA" }));
+    }
+
+    private sealed class FakeRouting :Dictionary<BrokerMode, IBrokerClient>, IOrderRouting
     {
         public Task<IBrokerClient> ResolveAsync(Guid ownerUserId, BrokerMode mode, CancellationToken ct) => Task.FromResult(this[mode]);
     }
@@ -244,8 +403,24 @@ public sealed class TransactionGatewayTests
             Placed.Add(request);
             return Task.FromResult(new OrderResult { IsSuccess = true, BrokerOrderId = $"ord-{Placed.Count}" });
         }
-        public Task<OrderResult> CancelOrderAsync(string orderId, CancellationToken ct = default) =>
-            Task.FromResult(new OrderResult { IsSuccess = true, BrokerOrderId = orderId });
+        public List<string> Cancelled { get; } = [];
+        public List<(string Id, OrderRequest Changes)> Replaced { get; } = [];
+        public List<string?> CancelAllFor { get; } = [];
+        public Task<OrderResult> CancelOrderAsync(string orderId, CancellationToken ct = default)
+        {
+            Cancelled.Add(orderId);
+            return Task.FromResult(new OrderResult { IsSuccess = true, BrokerOrderId = orderId });
+        }
+        public Task<OrderResult> ReplaceOrderAsync(string orderId, OrderRequest changes, CancellationToken ct = default)
+        {
+            Replaced.Add((orderId, changes));
+            return Task.FromResult(new OrderResult { IsSuccess = true, BrokerOrderId = orderId + "-r" });
+        }
+        public Task<OrderResult> CancelAllOrdersAsync(string? symbol = null, CancellationToken ct = default)
+        {
+            CancelAllFor.Add(symbol);
+            return Task.FromResult(new OrderResult { IsSuccess = true, Message = "1 order(s) cancelled." });
+        }
         public Task<IReadOnlyList<Position>> GetPositionsAsync(CancellationToken ct = default) =>
             Task.FromResult<IReadOnlyList<Position>>([]);
     }

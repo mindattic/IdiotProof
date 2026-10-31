@@ -48,8 +48,21 @@ public sealed class OrderRequest
 {
     public string Symbol { get; init; } = string.Empty;
 
-    /// <summary>Share count. <c>0</c> when the order is notionally sized.</summary>
+    /// <summary>
+    /// Whole share (or contract) count. <c>0</c> when the order is notionally sized or sized by
+    /// <see cref="FractionalQuantity"/>. Kept <c>int</c> so every existing caller compiles unchanged.
+    /// </summary>
     public int Quantity { get; init; }
+
+    /// <summary>
+    /// Fractional share count (e.g. <c>0.25</c>), Alpaca's fractional <c>qty</c>. When set it is the
+    /// size and <see cref="Quantity"/> stays 0. Fractional equity orders are DAY only.
+    /// </summary>
+    public decimal? FractionalQuantity { get; init; }
+
+    /// <summary>The share count whichever way it was given: <see cref="FractionalQuantity"/> when set, else <see cref="Quantity"/>.</summary>
+    [System.Text.Json.Serialization.JsonIgnore]
+    public decimal SizeQuantity => FractionalQuantity ?? Quantity;
 
     /// <summary>
     /// Dollar amount (Alpaca <c>notional</c> field). Null when the order is
@@ -73,7 +86,36 @@ public sealed class OrderRequest
     /// </summary>
     public decimal? TrailPercent { get; init; }
 
+    /// <summary>
+    /// Trail amount (dollars) for <see cref="OrderType.TrailingStop"/>; exclusive with
+    /// <see cref="TrailPercent"/>. Null otherwise.
+    /// </summary>
+    public decimal? TrailPrice { get; init; }
+
+    /// <summary>Time in force: DAY, GTC, OPG, CLS, IOC or FOK (Alpaca <c>time_in_force</c>, sent lower-case).</summary>
     public string TimeInForce { get; init; } = "DAY";
+
+    /// <summary>Caller-chosen id (Alpaca <c>client_order_id</c>, at most 128 chars); null lets the broker pick one.</summary>
+    public string? ClientOrderId { get; init; }
+
+    /// <summary>
+    /// Simple (default), Bracket, Oco, Oto or Mleg. Bracket needs both <see cref="TakeProfit"/> and
+    /// <see cref="StopLoss"/>; OTO exactly one; OCO is an exit pair (limit + stop) on a held position;
+    /// Mleg carries its contracts in <see cref="Legs"/>.
+    /// </summary>
+    public OrderClass OrderClass { get; init; } = OrderClass.Simple;
+
+    /// <summary>The take-profit child of a bracket / OCO / OTO order; null otherwise.</summary>
+    public TakeProfitLeg? TakeProfit { get; init; }
+
+    /// <summary>The stop-loss child of a bracket / OCO / OTO order; null otherwise.</summary>
+    public StopLossLeg? StopLoss { get; init; }
+
+    /// <summary>
+    /// The legs of a multi-leg (<see cref="OrderClass.Mleg"/>) order, e.g. an options spread. Null
+    /// for every other class. <see cref="Quantity"/> is then the spread count each leg's ratio scales.
+    /// </summary>
+    public IReadOnlyList<OrderLeg>? Legs { get; init; }
 
     /// <summary>
     /// Route the order to the extended-hours session (premarket 4:00–9:30 /
@@ -103,6 +145,49 @@ public sealed class OrderRequest
 
     /// <summary>The contract being traded. Null for equities.</summary>
     public OptionContract? Option { get; init; }
+}
+
+/// <summary>Alpaca <c>order_class</c>: how the order relates to its children.</summary>
+public enum OrderClass
+{
+    /// <summary>One plain order (Alpaca omits <c>order_class</c> or sends <c>simple</c>).</summary>
+    Simple,
+    /// <summary>An entry with a take-profit and a stop-loss child; one child cancels the other.</summary>
+    Bracket,
+    /// <summary>One-cancels-other: a take-profit limit and a stop-loss, exiting a held position.</summary>
+    Oco,
+    /// <summary>One-triggers-other: an entry plus ONE child (take-profit or stop-loss).</summary>
+    Oto,
+    /// <summary>Multi-leg: several contracts filled together (options spreads); see <see cref="OrderRequest.Legs"/>.</summary>
+    Mleg,
+}
+
+/// <summary>The take-profit child of an advanced order (Alpaca <c>take_profit.limit_price</c>).</summary>
+public sealed record TakeProfitLeg
+{
+    public decimal LimitPrice { get; init; }
+}
+
+/// <summary>
+/// The stop-loss child of an advanced order (Alpaca <c>stop_loss.stop_price</c>, plus
+/// <c>stop_loss.limit_price</c> when the stop becomes a stop-limit).
+/// </summary>
+public sealed record StopLossLeg
+{
+    public decimal StopPrice { get; init; }
+    public decimal? LimitPrice { get; init; }
+}
+
+/// <summary>One leg of a multi-leg order (Alpaca <c>legs[]</c>): which contract, which way, in what ratio.</summary>
+public sealed record OrderLeg
+{
+    /// <summary>The leg's symbol (an OCC symbol for options).</summary>
+    public string Symbol { get; init; } = string.Empty;
+    public OrderSide Side { get; init; }
+    /// <summary>Contracts of this leg per unit of the parent's quantity (Alpaca <c>ratio_qty</c>).</summary>
+    public int RatioQuantity { get; init; } = 1;
+    /// <summary>buy_to_open / buy_to_close / sell_to_open / sell_to_close, or null.</summary>
+    public string? PositionIntent { get; init; }
 }
 
 /// <summary>

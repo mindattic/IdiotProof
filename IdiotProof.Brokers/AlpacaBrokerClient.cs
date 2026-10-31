@@ -107,6 +107,14 @@ public sealed class AlpacaBrokerClient : IBrokerClient, IAsyncDisposable
 
     public async Task<OrderResult> PlaceOrderAsync(OrderRequest request, CancellationToken ct = default)
     {
+        if (request.OrderClass == OrderClass.Mleg)
+        {
+            // A multi-leg order names its contracts per leg; the top-level symbol is optional.
+            if (request.Legs is not { Count: >= 2 })
+                return new OrderResult { IsSuccess = false, Message = "A multi-leg order needs at least two legs." };
+            return await PostOrderAsync(BuildOrderPayload(request), ct).ConfigureAwait(false);
+        }
+
         if (string.IsNullOrWhiteSpace(request.Symbol))
             return new OrderResult { IsSuccess = false, Message = "Symbol required." };
 
@@ -142,18 +150,40 @@ public sealed class AlpacaBrokerClient : IBrokerClient, IAsyncDisposable
             return await PostOrderAsync(optionPayload, ct).ConfigureAwait(false);
         }
 
-        // Either qty (shares) or notional (dollars) must be set — Alpaca
-        // accepts exactly one. Quantity wins when both are populated;
-        // empty-both is rejected so we don't accidentally place a $0 order.
-        var hasShares   = request.Quantity > 0;
+        // Either qty (shares, whole or fractional) or notional (dollars) must be set — Alpaca
+        // accepts exactly one. Quantity wins when both are populated; empty-both is rejected so
+        // we don't accidentally place a $0 order.
+        var hasShares   = request.SizeQuantity > 0;
         var hasNotional = request.Notional is { } n && n > 0m;
         if (!hasShares && !hasNotional)
         {
             return new OrderResult { IsSuccess = false, Message = "Order requires either Quantity (shares) or Notional (dollars)." };
         }
 
-        var side = request.Side == OrderSide.Buy ? "buy" : "sell";
+        // Alpaca hard-requires extended-hours orders to be limit + DAY; reject
+        // locally with a clear message instead of letting the API 422 (or worse,
+        // letting a market order silently queue for the 9:30 bell).
+        if (request.ExtendedHours && (request.Type != OrderType.Limit || !request.TimeInForce.Equals("DAY", StringComparison.OrdinalIgnoreCase)))
+        {
+            return new OrderResult
+            {
+                IsSuccess = false,
+                Message = "Extended-hours orders must be Limit type with DAY time-in-force (Alpaca requirement)."
+            };
+        }
 
+        return await PostOrderAsync(BuildOrderPayload(request), ct).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// The <c>POST /v2/orders</c> body for an equity (or multi-leg) order. Only the fields the order
+    /// uses are present: price fields per type (Alpaca 422s on a stray price), qty XOR notional,
+    /// <c>order_class</c> only when not simple, the take-profit / stop-loss children of a
+    /// bracket/OCO/OTO, and <c>legs</c> for a multi-leg order. A whole share count goes out as an
+    /// integer, a fractional one as a decimal.
+    /// </summary>
+    internal static Dictionary<string, object?> BuildOrderPayload(OrderRequest request)
+    {
         // Map every OrderType to its Alpaca string. The previous code collapsed
         // everything that wasn't Market to "limit", which silently turned a
         // protective Stop / StopLimit / TrailingStop into a plain limit order with
@@ -169,55 +199,151 @@ public sealed class AlpacaBrokerClient : IBrokerClient, IAsyncDisposable
             _                      => "market"
         };
 
-        // Only the price fields the chosen type actually uses are emitted; the rest
-        // stay null so System.Text.Json omits them (Alpaca 422s on a stray price).
-        var limitPrice = request.Type is OrderType.Limit or OrderType.StopLimit ? request.LimitPrice : null;
-        var stopPrice  = request.Type is OrderType.Stop or OrderType.StopLimit ? request.StopPrice : null;
-        var trailPct   = request.Type == OrderType.TrailingStop ? request.TrailPercent : null;
-
-        // Alpaca hard-requires extended-hours orders to be limit + DAY; reject
-        // locally with a clear message instead of letting the API 422 (or worse,
-        // letting a market order silently queue for the 9:30 bell).
-        if (request.ExtendedHours && (request.Type != OrderType.Limit || !request.TimeInForce.Equals("DAY", StringComparison.OrdinalIgnoreCase)))
+        var multiLeg = request.OrderClass == OrderClass.Mleg;
+        var body = new Dictionary<string, object?>();
+        if (!multiLeg) body["symbol"] = request.Symbol.ToUpperInvariant();
+        else if (!string.IsNullOrWhiteSpace(request.Symbol)) body["symbol"] = request.Symbol.ToUpperInvariant();
+        if (request.FractionalQuantity is { } fq) body["qty"] = fq;
+        else if (request.Quantity > 0) body["qty"] = request.Quantity;
+        else body["notional"] = request.Notional;
+        if (!multiLeg) body["side"] = request.Side == OrderSide.Buy ? "buy" : "sell";
+        body["type"] = type;
+        body["time_in_force"] = request.TimeInForce.ToLowerInvariant();
+        if (request.Type is OrderType.Limit or OrderType.StopLimit && request.LimitPrice is { } limit) body["limit_price"] = limit;
+        if (request.Type is OrderType.Stop or OrderType.StopLimit && request.StopPrice is { } stop) body["stop_price"] = stop;
+        if (request.Type == OrderType.TrailingStop)
         {
-            return new OrderResult
+            if (request.TrailPrice is { } trailPrice) body["trail_price"] = trailPrice;
+            else if (request.TrailPercent is { } trailPct) body["trail_percent"] = trailPct;
+        }
+        if (!multiLeg) body["extended_hours"] = request.ExtendedHours;
+        if (request.PositionIntent is { } intent) body["position_intent"] = intent;
+        if (request.ClientOrderId is { } clientId) body["client_order_id"] = clientId;
+        if (request.OrderClass != OrderClass.Simple) body["order_class"] = request.OrderClass.ToString().ToLowerInvariant();
+        if (request.TakeProfit is { } tp) body["take_profit"] = new Dictionary<string, object?> { ["limit_price"] = tp.LimitPrice };
+        if (request.StopLoss is { } sl)
+        {
+            var leg = new Dictionary<string, object?> { ["stop_price"] = sl.StopPrice };
+            if (sl.LimitPrice is { } slLimit) leg["limit_price"] = slLimit;
+            body["stop_loss"] = leg;
+        }
+        if (multiLeg && request.Legs is { } legs)
+        {
+            body["legs"] = legs.Select(l =>
             {
-                IsSuccess = false,
-                Message = "Extended-hours orders must be Limit type with DAY time-in-force (Alpaca requirement)."
-            };
+                var wire = new Dictionary<string, object?>
+                {
+                    ["symbol"] = l.Symbol.ToUpperInvariant(),
+                    ["ratio_qty"] = l.RatioQuantity,
+                    ["side"] = l.Side == OrderSide.Buy ? "buy" : "sell",
+                };
+                if (l.PositionIntent is { } legIntent) wire["position_intent"] = legIntent;
+                return wire;
+            }).ToList();
+        }
+        return body;
+    }
+
+    /// <summary>
+    /// The <c>PATCH /v2/orders/{id}</c> body: only the fields being changed (qty, limit/stop price,
+    /// trail as Alpaca's single <c>trail</c> field, time in force, client order id).
+    /// </summary>
+    internal static Dictionary<string, object?> BuildReplacePayload(OrderRequest changes)
+    {
+        var body = new Dictionary<string, object?>();
+        if (changes.FractionalQuantity is { } fq) body["qty"] = fq;
+        else if (changes.Quantity > 0) body["qty"] = changes.Quantity;
+        if (!string.IsNullOrWhiteSpace(changes.TimeInForce)) body["time_in_force"] = changes.TimeInForce.Trim().ToLowerInvariant();
+        if (changes.LimitPrice is { } limit) body["limit_price"] = limit;
+        if (changes.StopPrice is { } stop) body["stop_price"] = stop;
+        if ((changes.TrailPrice ?? changes.TrailPercent) is { } trail) body["trail"] = trail;
+        if (changes.ClientOrderId is { } clientId) body["client_order_id"] = clientId;
+        return body;
+    }
+
+    /// <summary>Replaces a working order (<c>PATCH /v2/orders/{id}</c>); the result carries the NEW order's id.</summary>
+    public async Task<OrderResult> ReplaceOrderAsync(string orderId, OrderRequest changes, CancellationToken ct = default)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Patch, $"/v2/orders/{Uri.EscapeDataString(orderId)}")
+        {
+            Content = JsonContent.Create(BuildReplacePayload(changes), options: OrderJson),
+        };
+        using var response = await httpClient.SendAsync(request, ct).ConfigureAwait(false);
+        var content = await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+        if (!response.IsSuccessStatusCode)
+            return new OrderResult { BrokerOrderId = orderId, IsSuccess = false, Message = $"Replace failed. HTTP {(int)response.StatusCode}: {Clip(content)}" };
+        try
+        {
+            using var doc = JsonDocument.Parse(content);
+            var id = doc.RootElement.TryGetProperty("id", out var idProp) ? idProp.GetString() ?? "" : "";
+            return new OrderResult { BrokerOrderId = id, IsSuccess = true, Message = $"Order {orderId} replaced by {id}." };
+        }
+        catch (JsonException)
+        {
+            return new OrderResult { BrokerOrderId = "", IsSuccess = true, Message = $"Order {orderId} replaced (response unreadable; reconcile with the order list)." };
+        }
+    }
+
+    /// <summary>
+    /// Cancels every open order (<c>DELETE /v2/orders</c>), or, given a symbol, lists that symbol's
+    /// open orders and cancels each (Alpaca has no per-symbol cancel-all).
+    /// </summary>
+    public async Task<OrderResult> CancelAllOrdersAsync(string? symbol = null, CancellationToken ct = default)
+    {
+        if (symbol is null)
+        {
+            // DELETE /v2/orders answers 207 with one {id, status} per order it tried to cancel.
+            using var response = await httpClient.DeleteAsync("/v2/orders", ct).ConfigureAwait(false);
+            var content = await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+            if (!response.IsSuccessStatusCode)
+                return new OrderResult { IsSuccess = false, Message = $"Cancel-all failed. HTTP {(int)response.StatusCode}: {Clip(content)}" };
+            var (ok, failed) = CountCancelStatuses(content);
+            return new OrderResult { IsSuccess = true, Message = $"{ok} order(s) cancelled" + (failed > 0 ? $", {failed} could not be" : "") + "." };
         }
 
-        // Alpaca's /v2/orders accepts qty XOR notional. We send only the field
-        // that's actually set so the API doesn't 422 on the "both" case.
-        object payload = hasShares
-            ? new
-            {
-                symbol          = request.Symbol.ToUpperInvariant(),
-                qty             = request.Quantity,
-                side,
-                type,
-                time_in_force   = request.TimeInForce.ToLowerInvariant(),
-                limit_price     = limitPrice,
-                stop_price      = stopPrice,
-                trail_percent   = trailPct,
-                extended_hours  = request.ExtendedHours,
-                position_intent = request.PositionIntent,
-            }
-            : new
-            {
-                symbol          = request.Symbol.ToUpperInvariant(),
-                notional        = request.Notional!.Value,
-                side,
-                type,
-                time_in_force   = request.TimeInForce.ToLowerInvariant(),
-                limit_price     = limitPrice,
-                stop_price      = stopPrice,
-                trail_percent   = trailPct,
-                extended_hours  = request.ExtendedHours,
-                position_intent = request.PositionIntent,
-            };
+        var upper = symbol.ToUpperInvariant();
+        using var list = await httpClient.GetAsync($"/v2/orders?status=open&limit=500&symbols={Uri.EscapeDataString(upper)}", ct).ConfigureAwait(false);
+        var listed = await list.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+        if (!list.IsSuccessStatusCode)
+            return new OrderResult { IsSuccess = false, Message = $"Listing {upper} orders failed. HTTP {(int)list.StatusCode}: {Clip(listed)}" };
+        var ids = new List<string>();
+        using (var doc = JsonDocument.Parse(listed))
+        {
+            foreach (var o in doc.RootElement.EnumerateArray())
+                if (o.TryGetProperty("id", out var id) && id.GetString() is { Length: > 0 } s) ids.Add(s);
+        }
+        var cancelled = 0;
+        var errors = new List<string>();
+        foreach (var id in ids)
+        {
+            var r = await CancelOrderAsync(id, ct).ConfigureAwait(false);
+            if (r.IsSuccess) cancelled++; else errors.Add(r.Message ?? id);
+        }
+        return new OrderResult
+        {
+            IsSuccess = errors.Count == 0,
+            Message = $"{cancelled} of {ids.Count} open {upper} order(s) cancelled" + (errors.Count > 0 ? ": " + string.Join("; ", errors) : "."),
+        };
+    }
 
-        return await PostOrderAsync(payload, ct).ConfigureAwait(false);
+    private static (int Ok, int Failed) CountCancelStatuses(string content)
+    {
+        try
+        {
+            using var doc = JsonDocument.Parse(content);
+            if (doc.RootElement.ValueKind != JsonValueKind.Array) return (0, 0);
+            int ok = 0, failed = 0;
+            foreach (var e in doc.RootElement.EnumerateArray())
+            {
+                var status = e.TryGetProperty("status", out var st) && st.ValueKind == JsonValueKind.Number ? st.GetInt32() : 200;
+                if (status is >= 200 and < 300) ok++; else failed++;
+            }
+            return (ok, failed);
+        }
+        catch (JsonException)
+        {
+            return (0, 0);
+        }
     }
 
     /// <summary>

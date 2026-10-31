@@ -23,6 +23,21 @@ public interface IBrokerClient
     Task DisconnectAsync();
     Task<OrderResult> PlaceOrderAsync(OrderRequest request, CancellationToken ct = default);
     Task<OrderResult> CancelOrderAsync(string orderId, CancellationToken ct = default);
+
+    /// <summary>
+    /// Replaces a working order (Alpaca <c>PATCH /v2/orders/{id}</c>) with the non-empty size/price/
+    /// trail/TIF/client-id fields of <paramref name="changes"/>; the broker answers with the NEW
+    /// order's id. Default = "this broker can't replace orders".
+    /// </summary>
+    Task<OrderResult> ReplaceOrderAsync(string orderId, OrderRequest changes, CancellationToken ct = default) =>
+        Task.FromResult(new OrderResult { BrokerOrderId = orderId, IsSuccess = false, Message = $"{BrokerType} does not support replacing orders." });
+
+    /// <summary>
+    /// Cancels every open order, or only those for <paramref name="symbol"/> when given. Default =
+    /// "this broker can't". The message says how many were cancelled.
+    /// </summary>
+    Task<OrderResult> CancelAllOrdersAsync(string? symbol = null, CancellationToken ct = default) =>
+        Task.FromResult(new OrderResult { IsSuccess = false, Message = $"{BrokerType} does not support cancelling all orders." });
     Task<IReadOnlyList<Position>> GetPositionsAsync(CancellationToken ct = default);
 
     // ---- Options (single-leg). Default implementations = "this broker has no options

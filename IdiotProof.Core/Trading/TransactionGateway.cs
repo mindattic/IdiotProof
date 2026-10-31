@@ -132,6 +132,19 @@ public sealed class TransactionGateway(
             ? "Paper requested; no paper keys/opt-in, so it runs in the Sandbox simulator"
             : routedTo));
 
+        // 3-5 for a replace / cancel: no new order is opened, so the data, risk and LLM gates
+        //      have nothing to size; the route, the audit trail and the Live code still apply.
+        if (intent.Action != OrderAction.Place)
+        {
+            verdicts.Add(new("risk", true, intent.Action switch
+            {
+                OrderAction.Replace => "replace — changes a working order's size/price/TIF; Live still needs a code",
+                OrderAction.Cancel => "cancel — withdraws a working order",
+                _ => "cancel all — withdraws working orders",
+            }));
+            return await FinishAsync(intent, options, verdicts, routedTo, routedLive, client, null, ct);
+        }
+
         // 3 ── synthetic data never drives a real entry (IP-LAW-9)
         if (feed is MockDataFeed && client.BrokerType != BrokerType.Sandbox && intent.Purpose == OrderPurpose.Entry)
         {
@@ -181,8 +194,19 @@ public sealed class TransactionGateway(
             verdicts.Add(new("llm", true, llm.Detail));
         }
 
-        var estimate = EstimatedCost(intent);
-        var cleared = Stop(GatewayStatus.Previewed, "Every gate passed.") with { WorstCaseLoss = worstCase, EstimatedCost = estimate };
+        return await FinishAsync(intent, options, verdicts, routedTo, routedLive, client, worstCase, ct);
+    }
+
+    /// <summary>Every gate passed: preview, or issue the Live code, or execute the action at the broker; then audit.</summary>
+    private async Task<GatewayOutcome> FinishAsync(OrderIntent intent, GatewayOptions options, List<GateVerdict> verdicts,
+        string routedTo, bool routedLive, IBrokerClient client, decimal? worstCase, CancellationToken ct)
+    {
+        var estimate = intent.Action == OrderAction.Place ? EstimatedCost(intent) : null;
+        var cleared = new GatewayOutcome(GatewayStatus.Previewed, intent, verdicts, routedTo, "Every gate passed.")
+        {
+            WorstCaseLoss = worstCase,
+            EstimatedCost = estimate,
+        };
 
         if (options.DryRun) return cleared;
 
@@ -194,31 +218,55 @@ public sealed class TransactionGateway(
             return await AuditAsync(cleared with
             {
                 Status = GatewayStatus.ConfirmationRequired,
-                Message = $"Live order needs confirmation: code {pending.Code} (valid {ConfirmationStore.Lifetime.TotalSeconds:0}s).",
+                Message = $"Live {ActionNoun(intent.Action)} needs confirmation: code {pending.Code} (valid {ConfirmationStore.Lifetime.TotalSeconds:0}s).",
                 ConfirmationCode = pending.Code,
                 ConfirmationExpiresUtc = pending.ExpiresUtc,
             }, options, ct);
         }
 
-        // 7 ── place
+        // 7 ── place / replace / cancel
         OrderResult placed;
         try
         {
-            placed = await client.PlaceOrderAsync(intent.Order, ct);
+            var symbol = string.IsNullOrWhiteSpace(intent.Order.Symbol) || intent.Order.Symbol == "*" ? null : intent.Order.Symbol.Trim().ToUpperInvariant();
+            placed = intent.Action switch
+            {
+                OrderAction.Replace => await client.ReplaceOrderAsync(intent.TargetOrderId!, intent.Order, ct),
+                OrderAction.Cancel => await client.CancelOrderAsync(intent.TargetOrderId!, ct),
+                OrderAction.CancelAll => await client.CancelAllOrdersAsync(symbol, ct),
+                _ => await client.PlaceOrderAsync(intent.Order, ct),
+            };
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            logger.LogError(ex, "Broker threw placing {Order}", intent.Describe());
+            logger.LogError(ex, "Broker threw on {Order}", intent.Describe());
             placed = new OrderResult { IsSuccess = false, Message = ex.Message };
         }
+        var done = intent.Action switch
+        {
+            OrderAction.Replace => $"Replaced on {routedTo}: new order {placed.BrokerOrderId} (was {intent.TargetOrderId}).",
+            OrderAction.Cancel => $"Cancel accepted on {routedTo}: order {intent.TargetOrderId}.",
+            OrderAction.CancelAll => $"Cancel-all accepted on {routedTo}: {placed.Message}",
+            _ => $"Placed on {routedTo}: order {placed.BrokerOrderId}.",
+        };
         var outcome = cleared with
         {
             Status = placed.IsSuccess ? GatewayStatus.Placed : GatewayStatus.Rejected,
-            Message = placed.IsSuccess ? $"Placed on {routedTo}: order {placed.BrokerOrderId}." : $"{routedTo} refused the order: {placed.Message}",
+            Message = placed.IsSuccess ? done : $"{routedTo} refused the {ActionNoun(intent.Action)}: {placed.Message}",
             Order = placed,
         };
         return await AuditAsync(outcome, options, ct);
     }
+
+    private static string ActionNoun(OrderAction action) => action switch
+    {
+        OrderAction.Replace => "replace",
+        OrderAction.Cancel => "cancel",
+        OrderAction.CancelAll => "cancel-all",
+        _ => "order",
+    };
+
+    private static readonly HashSet<string> TimesInForce = new(StringComparer.OrdinalIgnoreCase) { "DAY", "GTC", "OPG", "CLS", "IOC", "FOK" };
 
     /// <summary>
     /// Redeems a Live code and runs the exact stored intent through every gate again. When the
@@ -249,18 +297,96 @@ public sealed class TransactionGateway(
     {
         var o = intent.Order;
         if (intent.OwnerUserId == Guid.Empty) return "No owner for this order.";
-        if (string.IsNullOrWhiteSpace(o.Symbol)) return "No symbol.";
+        if (o.ClientOrderId is { Length: > 128 }) return "A client order id is at most 128 characters.";
+        switch (intent.Action)
+        {
+            case OrderAction.CancelAll:
+                return null;
+            case OrderAction.Cancel:
+                return string.IsNullOrWhiteSpace(intent.TargetOrderId) ? "Name the order to cancel." : null;
+            case OrderAction.Replace:
+                if (string.IsNullOrWhiteSpace(intent.TargetOrderId)) return "Name the order to replace.";
+                if (o.Quantity < 0 || o.FractionalQuantity is <= 0) return "The new quantity must be positive.";
+                if (o.LimitPrice is <= 0 || o.StopPrice is <= 0 || o.TrailPercent is <= 0 || o.TrailPrice is <= 0) return "Prices must be positive.";
+                if (o.TrailPercent is not null && o.TrailPrice is not null) return "Trail by percent or by dollars, not both.";
+                if (!string.IsNullOrWhiteSpace(o.TimeInForce) && !TimesInForce.Contains(o.TimeInForce.Trim())) return "Time in force is one of day, gtc, opg, cls, ioc, fok.";
+                if (o.SizeQuantity <= 0 && o.LimitPrice is null && o.StopPrice is null && o.TrailPercent is null && o.TrailPrice is null
+                    && string.IsNullOrWhiteSpace(o.TimeInForce) && o.ClientOrderId is null)
+                    return "Say what to change: quantity, limit, stop, trail, time in force or client id.";
+                return null;
+        }
+
+        var multiLeg = o.OrderClass == OrderClass.Mleg;
+        if (string.IsNullOrWhiteSpace(o.Symbol) && !multiLeg) return "No symbol.";
         if (o.Quantity < 0) return "Quantity can't be negative.";
-        if (o.Quantity == 0 && o.Notional is not > 0) return "Size the order with a share count or a positive dollar amount.";
-        if (o.Quantity > 0 && o.Notional is not null) return "Size by shares or by dollars, not both.";
-        if (o.Type is OrderType.Limit or OrderType.StopLimit && o.LimitPrice is not > 0) return "A limit order needs a positive limit price.";
+        if (o.FractionalQuantity is { } fq && (fq <= 0 || o.Quantity != 0)) return "Give a whole quantity or a positive fractional one, not both.";
+        if (o.SizeQuantity == 0 && o.Notional is not > 0) return "Size the order with a share count or a positive dollar amount.";
+        if (o.SizeQuantity > 0 && o.Notional is not null) return "Size by shares or by dollars, not both.";
+        if (!TimesInForce.Contains(o.TimeInForce.Trim())) return "Time in force is one of day, gtc, opg, cls, ioc, fok.";
+        var fractional = o.Notional is not null || (o.FractionalQuantity is { } f && f != decimal.Truncate(f));
+        if (fractional && !o.TimeInForce.Trim().Equals("DAY", StringComparison.OrdinalIgnoreCase))
+            return "Fractional and dollar-sized orders are DAY only (Alpaca's rule).";
+        if (fractional && o.Type == OrderType.TrailingStop) return "Fractional and dollar-sized orders can't be trailing stops.";
+        if (o.Type is OrderType.Limit or OrderType.StopLimit && o.LimitPrice is not > 0 && o.OrderClass != OrderClass.Oco)
+            return "A limit order needs a positive limit price.";
         if (o.Type is OrderType.Stop or OrderType.StopLimit && o.StopPrice is not > 0) return "A stop order needs a positive stop price.";
-        if (o.Type == OrderType.TrailingStop && o.TrailPercent is not > 0) return "A trailing stop needs a trail percent.";
+        if (o.Type == OrderType.TrailingStop)
+        {
+            if (o.TrailPercent is not > 0 && o.TrailPrice is not > 0) return "A trailing stop needs a trail percent or a trail amount.";
+            if (o.TrailPercent is not null && o.TrailPrice is not null) return "Trail by percent or by dollars, not both.";
+        }
         if (o.ExtendedHours && (o.Type != OrderType.Limit || !o.TimeInForce.Equals("DAY", StringComparison.OrdinalIgnoreCase)))
             return "Extended-hours orders must be DAY limit orders (Alpaca's rule).";
-        if (o.AssetClass == AssetClass.Option && (o.Notional is not null || o.ExtendedHours || o.Option is null))
+        if (o.AssetClass == AssetClass.Option && !multiLeg && (o.Notional is not null || o.FractionalQuantity is not null || o.ExtendedHours || o.Option is null))
             return "Options trade whole contracts, regular hours, with the contract attached.";
-        return null;
+        return ValidateClass(o, fractional);
+    }
+
+    /// <summary>The order-class rules: which children each class needs and what its parent may be.</summary>
+    private static string? ValidateClass(OrderRequest o, bool fractional)
+    {
+        var tp = o.TakeProfit;
+        var sl = o.StopLoss;
+        if (tp is { LimitPrice: <= 0 }) return "The take-profit needs a positive limit price.";
+        if (sl is not null && (sl.StopPrice <= 0 || sl.LimitPrice is <= 0)) return "The stop-loss needs a positive stop (and limit) price.";
+        if (o.OrderClass != OrderClass.Mleg && o.Legs is { Count: > 0 }) return "Only a multi-leg order carries legs.";
+        if (o.OrderClass is not (OrderClass.Simple or OrderClass.Mleg))
+        {
+            if (fractional) return "Bracket, OCO and OTO orders take whole shares.";
+            if (o.ExtendedHours) return "Bracket, OCO and OTO orders are regular-hours only.";
+            if (!(o.TimeInForce.Trim().Equals("DAY", StringComparison.OrdinalIgnoreCase) || o.TimeInForce.Trim().Equals("GTC", StringComparison.OrdinalIgnoreCase)))
+                return "Bracket, OCO and OTO orders are DAY or GTC.";
+            // The take-profit sits on the profitable side of the stop: above it on a buy entry
+            // (a long), below it on a sell entry (a short). OCO exits a held position, so a sell
+            // OCO exits a long (take-profit above the stop) and a buy OCO covers a short.
+            if (tp is not null && sl is not null)
+            {
+                var exitsLong = o.OrderClass == OrderClass.Oco ? o.Side == OrderSide.Sell : o.Side == OrderSide.Buy;
+                if (exitsLong ? tp.LimitPrice <= sl.StopPrice : tp.LimitPrice >= sl.StopPrice)
+                    return exitsLong ? "The take-profit must be above the stop-loss on a long." : "The take-profit must be below the stop-loss on a short.";
+            }
+        }
+        switch (o.OrderClass)
+        {
+            case OrderClass.Simple:
+                return tp is not null || sl is not null ? "A simple order has no take-profit or stop-loss children; use bracket, oco or oto." : null;
+            case OrderClass.Bracket:
+                if (tp is null || sl is null) return "A bracket needs both a take-profit and a stop-loss.";
+                return o.Type is OrderType.Market or OrderType.Limit ? null : "A bracket's entry is a market or limit order.";
+            case OrderClass.Oco:
+                if (tp is null || sl is null) return "An OCO needs both a take-profit and a stop-loss.";
+                return o.Type == OrderType.Limit ? null : "An OCO is a limit order (its take-profit) paired with a stop.";
+            case OrderClass.Oto:
+                if ((tp is null) == (sl is null)) return "An OTO takes exactly one child: a take-profit or a stop-loss.";
+                return o.Type is OrderType.Market or OrderType.Limit ? null : "An OTO's entry is a market or limit order.";
+            case OrderClass.Mleg:
+                if (o.Legs is not { Count: >= 2 }) return "A multi-leg order needs at least two legs.";
+                if (o.Legs.Any(l => string.IsNullOrWhiteSpace(l.Symbol) || l.RatioQuantity <= 0)) return "Every leg needs a symbol and a positive ratio.";
+                if (o.Notional is not null || o.FractionalQuantity is not null) return "A multi-leg order is sized in whole units.";
+                return tp is not null || sl is not null ? "A multi-leg order has no take-profit or stop-loss children." : null;
+            default:
+                return null;
+        }
     }
 
     /// <summary>The Risk Guardian's view of an entry; null when it has no stop or no price to size against.</summary>
@@ -268,8 +394,11 @@ public sealed class TransactionGateway(
     {
         var o = intent.Order;
         var price = o.LimitPrice ?? intent.ReferencePrice;
-        if (intent.StopLossPrice is not { } stop || price is not > 0) return null;
-        var qty = o.Quantity > 0 ? o.Quantity : (int)Math.Floor((o.Notional ?? 0) / price.Value);
+        // A bracket / OTO carries its own stop-loss child: that is the protective stop.
+        var plannedStop = intent.StopLossPrice ?? o.StopLoss?.StopPrice;
+        var plannedTarget = intent.TakeProfitPrice ?? o.TakeProfit?.LimitPrice;
+        if (plannedStop is not { } stop || price is not > 0) return null;
+        var qty = o.SizeQuantity > 0 ? (int)Math.Ceiling(o.SizeQuantity) : (int)Math.Floor((o.Notional ?? 0) / price.Value);
         var isLong = o.Side == OrderSide.Buy;
         return new TradeSetup
         {
@@ -278,10 +407,10 @@ public sealed class TransactionGateway(
             EntryPrice = price.Value,
             EntryType = o.Type,
             StopLoss = stop,
-            TakeProfit = intent.TakeProfitPrice ?? 0m,
+            TakeProfit = plannedTarget ?? 0m,
             Quantity = Math.Max(qty, 1),
             RiskDollars = Math.Abs(price.Value - stop) * Math.Max(qty, 1),
-            RewardDollars = intent.TakeProfitPrice is { } tp ? Math.Abs(tp - price.Value) * Math.Max(qty, 1) : 0m,
+            RewardDollars = plannedTarget is { } tp ? Math.Abs(tp - price.Value) * Math.Max(qty, 1) : 0m,
             Rationale = intent.Note ?? "",
         };
     }
@@ -293,7 +422,7 @@ public sealed class TransactionGateway(
         var price = o.LimitPrice ?? intent.ReferencePrice;
         if (price is null) return null;
         var multiplier = o.AssetClass == AssetClass.Option ? (o.Option?.Multiplier ?? 100) : 1;
-        return price.Value * o.Quantity * multiplier;
+        return price.Value * o.SizeQuantity * multiplier;
     }
 
     private static string Describe(IBrokerClient client) => client.BrokerType switch
