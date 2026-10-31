@@ -55,6 +55,13 @@ public sealed record OrderIntent
     /// <summary>The broker order id a Replace or Cancel acts on; null for Place and CancelAll.</summary>
     public string? TargetOrderId { get; init; }
 
+    /// <summary>
+    /// For a Replace: the working order's quantity before the change. A replace that raises the
+    /// size of an entry is new risk, so the gateway runs the Risk Guardian on it; when this is
+    /// unknown (null) any new quantity counts as a raise (fail closed).
+    /// </summary>
+    public decimal? ReplacedQuantity { get; init; }
+
     /// <summary>The strategy that produced it, when one did.</summary>
     public Guid? StrategyId { get; init; }
 

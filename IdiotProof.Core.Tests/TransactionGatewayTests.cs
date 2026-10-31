@@ -383,6 +383,224 @@ public sealed class TransactionGatewayTests
         Assert.That(paper.CancelAllFor, Is.EqualTo(new string?[] { "TSLA" }));
     }
 
+    // ── IP-T98: one test per remaining law / step ─────────────────────────────
+
+    private static OrderIntent ReplaceTo(BrokerMode mode, decimal qty, decimal? was, decimal? stop = null,
+        OrderPurpose purpose = OrderPurpose.Entry) => new()
+    {
+        OwnerUserId = Owner, Mode = mode, Purpose = purpose, Origin = OrderOrigin.Manual,
+        Action = OrderAction.Replace, TargetOrderId = "ord-1", ReplacedQuantity = was,
+        ReferencePrice = 100m, StopLossPrice = stop,
+        Order = new OrderRequest { Symbol = "NVDA", Quantity = (int)qty, Side = purpose == OrderPurpose.Entry ? OrderSide.Buy : OrderSide.Sell, TimeInForce = "" },
+    };
+
+    [Test]
+    public async Task Replace_ThatRaisesAnEntry_IsRiskChecked_LikeANewEntry()
+    {
+        var gateway = Gateway();
+
+        var noStop = await gateway.SubmitAsync(ReplaceTo(BrokerMode.Sandbox, 20, was: 10));
+        var tooBig = await gateway.SubmitAsync(ReplaceTo(BrokerMode.Sandbox, 500, was: 10, stop: 98m));
+        var fine = await gateway.SubmitAsync(ReplaceTo(BrokerMode.Sandbox, 20, was: 10, stop: 98m));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(noStop.Status, Is.EqualTo(GatewayStatus.Blocked));
+            Assert.That(tooBig.Status, Is.EqualTo(GatewayStatus.Blocked));
+            Assert.That(tooBig.Message, Does.StartWith("Risk Guardian veto"));
+            Assert.That(fine.Status, Is.EqualTo(GatewayStatus.Placed), fine.Message);
+            Assert.That(fine.Verdicts.Single(v => v.Gate == "risk").Detail, Does.Contain("raises the size 10 → 20"));
+            Assert.That(sandbox.Replaced, Has.Count.EqualTo(1), "only the checked raise reached the broker");
+        });
+    }
+
+    [Test]
+    public async Task Replace_WithAnUnknownOriginalSize_CountsAsARaise_FailClosed()
+    {
+        var outcome = await Gateway().SubmitAsync(ReplaceTo(BrokerMode.Sandbox, 5, was: null));
+
+        Assert.That(outcome.Status, Is.EqualTo(GatewayStatus.Blocked));
+        Assert.That(sandbox.Replaced, Is.Empty);
+    }
+
+    [Test]
+    public async Task Replace_ThatShrinksAnEntry_OrResizesAnExit_SkipsTheGuardian()
+    {
+        var gateway = Gateway();
+
+        var smaller = await gateway.SubmitAsync(ReplaceTo(BrokerMode.Sandbox, 5, was: 10));
+        var exit = await gateway.SubmitAsync(ReplaceTo(BrokerMode.Sandbox, 50, was: 10, purpose: OrderPurpose.Exit));
+
+        Assert.That(smaller.Status, Is.EqualTo(GatewayStatus.Placed), smaller.Message);
+        Assert.That(exit.Status, Is.EqualTo(GatewayStatus.Placed), exit.Message);
+    }
+
+    [Test]
+    public async Task Replace_ThatRaisesARealEntry_OnMockData_IsRefused()
+    {
+        var outcome = await Gateway(new MockDataFeed()).SubmitAsync(ReplaceTo(BrokerMode.Paper, 20, was: 10, stop: 98m));
+
+        Assert.That(outcome.Status, Is.EqualTo(GatewayStatus.Blocked));
+        Assert.That(outcome.Verdicts.Single(v => v.Gate == "data").Passed, Is.False);
+        Assert.That(paper.Replaced, Is.Empty);
+    }
+
+    [Test]
+    public async Task MockFeed_IsRecognisedByName_ThroughAWrapper()
+    {
+        var wrapped = new SwitchableMarketDataFeed("Mock");
+        wrapped.Register(new MockDataFeed());
+
+        var outcome = await Gateway(wrapped).SubmitAsync(Buy(BrokerMode.Paper));
+
+        Assert.That(outcome.Status, Is.EqualTo(GatewayStatus.Blocked));
+        Assert.That(paper.Placed, Is.Empty);
+    }
+
+    [Test]
+    public async Task AutomatedExit_SkipsTheVoterPanel_AndPassesOnMockData()
+    {
+        var exit = Buy(BrokerMode.Paper, stop: null, origin: OrderOrigin.Monitor, purpose: OrderPurpose.Exit);
+
+        var outcome = await Gateway(new MockDataFeed()).SubmitAsync(exit);
+
+        Assert.That(outcome.Status, Is.EqualTo(GatewayStatus.Placed), outcome.Message);
+        Assert.That(outcome.Verdicts.Any(v => v.Gate == "llm"), Is.False, "exits never wait on the LLM panel (IP-LAW-1)");
+    }
+
+    [Test]
+    public async Task AutomatedLive_PlacesWithoutACode_TheStrategyActivationWasTheYes()
+    {
+        var outcome = await Gateway().SubmitAsync(Buy(BrokerMode.Live, origin: OrderOrigin.Monitor),
+            new GatewayOptions { Caller = "monitor", LlmVerdict = (true, "3 of 3 approved") });
+
+        Assert.That(outcome.Status, Is.EqualTo(GatewayStatus.Placed), outcome.Message);
+        Assert.That(outcome.ConfirmationCode, Is.Null);
+        Assert.That(live.Placed, Has.Count.EqualTo(1));
+    }
+
+    [Test]
+    public async Task Confirm_AfterTheStoredIntentWasEdited_IsTampered_AndPlacesNothing()
+    {
+        var gateway = Gateway();
+        var pending = await gateway.SubmitAsync(Buy(BrokerMode.Live));
+        await using (var ctx = await db.CreateDbContextAsync())
+        {
+            var row = ctx.PendingConfirmations.Single(p => p.Code == pending.ConfirmationCode);
+            row.PayloadJson = Buy(BrokerMode.Live, qty: 500).ToJson(); // edited behind the code's back
+            await ctx.SaveChangesAsync();
+        }
+
+        var refused = Assert.ThrowsAsync<ConfirmationRefusedException>(() => gateway.ConfirmAsync(pending.ConfirmationCode!, Owner, "cli"));
+
+        Assert.That(refused!.Failure, Is.EqualTo(ConfirmationFailure.Tampered));
+        Assert.That(live.Placed, Is.Empty);
+    }
+
+    [Test]
+    public async Task Confirm_ByAnotherUser_IsRefused()
+    {
+        var gateway = Gateway();
+        var pending = await gateway.SubmitAsync(Buy(BrokerMode.Live));
+
+        var refused = Assert.ThrowsAsync<ConfirmationRefusedException>(() => gateway.ConfirmAsync(pending.ConfirmationCode!, Guid.NewGuid(), "cli"));
+
+        Assert.That(refused!.Failure, Is.EqualTo(ConfirmationFailure.WrongOwner));
+        Assert.That(live.Placed, Is.Empty);
+    }
+
+    [Test]
+    public async Task EveryOutcome_LeavesAnAuditRow_ButAPreviewDoesNot()
+    {
+        var gateway = Gateway();
+        await gateway.PreviewAsync(Buy(BrokerMode.Sandbox));
+        await using (var before = await db.CreateDbContextAsync())
+            Assert.That(before.AuditLogs.Count(), Is.Zero, "a dry run is not an outcome");
+
+        await gateway.SubmitAsync(Buy(BrokerMode.Sandbox));                 // Placed
+        await gateway.SubmitAsync(Buy(BrokerMode.Sandbox, stop: null));     // Blocked
+        await gateway.SubmitAsync(Buy(BrokerMode.Live));                    // ConfirmationRequired
+        sandbox.Refuse = "no";
+        await gateway.SubmitAsync(Buy(BrokerMode.Sandbox));                 // Rejected
+
+        await using var ctx = await db.CreateDbContextAsync();
+        var messages = ctx.AuditLogs.Select(a => a.Message).ToList();
+        foreach (var status in new[] { "Placed", "Blocked", "ConfirmationRequired", "Rejected" })
+            Assert.That(messages.Any(m => m.StartsWith(status + ":")), Is.True, status);
+        Assert.That(ctx.AuditLogs.All(a => a.UserId == Owner && a.DataJson!.Contains("\"verdicts\"")), Is.True);
+    }
+
+    private static OrderIntent ExitOf(string symbol, BrokerMode mode = BrokerMode.Live) => new()
+    {
+        OwnerUserId = Owner, Mode = mode, Purpose = OrderPurpose.Exit, Origin = OrderOrigin.Flatten,
+        Order = new OrderRequest { Symbol = symbol, Quantity = 5, Side = OrderSide.Sell, Type = OrderType.Market, TimeInForce = "DAY" },
+    };
+
+    [Test]
+    public async Task Batch_OneCodeForTheExactSet_EachStillGated_ThenUsedUp()
+    {
+        var gateway = Gateway();
+        var set = new[] { ExitOf("NVDA"), ExitOf("TSLA") };
+
+        var (dry, pending) = await gateway.RequestBatchConfirmationAsync(set, "close all · Live", "preview", "cli");
+        Assert.That(pending, Is.Not.Null);
+        Assert.That(dry.All(o => o.Status == GatewayStatus.Previewed), Is.True);
+        Assert.That(live.Placed, Is.Empty, "nothing moves before the yes");
+
+        var other = Assert.ThrowsAsync<ConfirmationRefusedException>(() =>
+            gateway.ConfirmBatchAsync(pending!.Code, [ExitOf("NVDA"), ExitOf("AAPL")], "close all · Live", "cli"));
+        Assert.That(other!.Failure, Is.EqualTo(ConfirmationFailure.Tampered), "a different set is refused and the code survives");
+
+        var placed = await gateway.ConfirmBatchAsync(pending!.Code, set, "close all · Live", "cli");
+        Assert.That(placed.Select(o => o.Status), Is.All.EqualTo(GatewayStatus.Placed));
+        Assert.That(live.Placed.Select(p => p.Symbol), Is.EqualTo(new[] { "NVDA", "TSLA" }));
+
+        var again = Assert.ThrowsAsync<ConfirmationRefusedException>(() => gateway.ConfirmBatchAsync(pending.Code, set, "close all · Live", "cli"));
+        Assert.That(again!.Failure, Is.EqualTo(ConfirmationFailure.AlreadyUsed));
+        Assert.That(live.Placed, Has.Count.EqualTo(2));
+    }
+
+    [Test]
+    public async Task Batch_WithARefusedMember_IssuesNoCode()
+    {
+        var bad = ExitOf("NVDA") with { Order = new OrderRequest { Symbol = "NVDA", Side = OrderSide.Sell, Type = OrderType.Market, TimeInForce = "DAY" } };
+
+        var (dry, pending) = await Gateway().RequestBatchConfirmationAsync([ExitOf("TSLA"), bad], "close all · Live", "preview", "cli");
+
+        Assert.That(pending, Is.Null);
+        Assert.That(dry.Count(o => o.Status == GatewayStatus.Blocked), Is.EqualTo(1));
+    }
+
+    [Test]
+    public async Task Batch_ExpiredCode_PlacesNothing()
+    {
+        var gateway = Gateway();
+        var set = new[] { ExitOf("NVDA"), ExitOf("TSLA") };
+        var (_, pending) = await gateway.RequestBatchConfirmationAsync(set, "close all · Live", "preview", "cli");
+        clock.Advance(ConfirmationStore.Lifetime + TimeSpan.FromSeconds(1));
+
+        var refused = Assert.ThrowsAsync<ConfirmationRefusedException>(() => gateway.ConfirmBatchAsync(pending!.Code, set, "close all · Live", "cli"));
+
+        Assert.That(refused!.Failure, Is.EqualTo(ConfirmationFailure.Expired));
+        Assert.That(live.Placed, Is.Empty);
+    }
+
+    [Test]
+    public async Task OrderCode_CannotUnlockABatch_NorABatchCodeAnOrder()
+    {
+        var gateway = Gateway();
+        var single = await gateway.SubmitAsync(Buy(BrokerMode.Live));
+        var (_, batch) = await gateway.RequestBatchConfirmationAsync([ExitOf("NVDA"), ExitOf("TSLA")], "close all · Live", "preview", "cli");
+
+        var wrongWay = Assert.ThrowsAsync<ConfirmationRefusedException>(() =>
+            gateway.ConfirmBatchAsync(single.ConfirmationCode!, [ExitOf("NVDA"), ExitOf("TSLA")], "close all · Live", "cli"));
+        var otherWay = Assert.ThrowsAsync<ConfirmationRefusedException>(() => gateway.ConfirmAsync(batch!.Code, Owner, "cli"));
+
+        Assert.That(wrongWay!.Failure, Is.EqualTo(ConfirmationFailure.Tampered));
+        Assert.That(otherWay!.Failure, Is.EqualTo(ConfirmationFailure.Tampered));
+        Assert.That(live.Placed, Is.Empty);
+    }
+
     private sealed class FakeRouting :Dictionary<BrokerMode, IBrokerClient>, IOrderRouting
     {
         public Task<IBrokerClient> ResolveAsync(Guid ownerUserId, BrokerMode mode, CancellationToken ct) => Task.FromResult(this[mode]);

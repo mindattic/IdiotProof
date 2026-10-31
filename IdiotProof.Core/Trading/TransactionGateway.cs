@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Text;
 using System.Text.Json;
+using IdiotProof.Blazor.Data;
 using IdiotProof.Blazor.Services;
 using IdiotProof.Brokers;
 using IdiotProof.DataFeeds;
@@ -134,11 +135,20 @@ public sealed class TransactionGateway(
 
         // 3-5 for a replace / cancel: no new order is opened, so the data, risk and LLM gates
         //      have nothing to size; the route, the audit trail and the Live code still apply.
+        //      The exception is a replace that RAISES an entry's size: that is new risk, so it
+        //      goes through the data guard and the Risk Guardian like a fresh entry, sized on the
+        //      whole replacement order.
         if (intent.Action != OrderAction.Place)
         {
+            if (RaisesEntrySize(intent))
+            {
+                var raised = await GateEntryRiskAsync(intent, client, verdicts, ct);
+                if (raised.Blocked is { } veto) return await AuditAsync(Stop(GatewayStatus.Blocked, veto) with { WorstCaseLoss = raised.WorstCase }, options, ct);
+                return await FinishAsync(intent, options, verdicts, routedTo, routedLive, client, raised.WorstCase, ct);
+            }
             verdicts.Add(new("risk", true, intent.Action switch
             {
-                OrderAction.Replace => "replace — changes a working order's size/price/TIF; Live still needs a code",
+                OrderAction.Replace => "replace — does not raise the order's size; Live still needs a code",
                 OrderAction.Cancel => "cancel — withdraws a working order",
                 _ => "cancel all — withdraws working orders",
             }));
@@ -146,12 +156,6 @@ public sealed class TransactionGateway(
         }
 
         // 3 ── synthetic data never drives a real entry (IP-LAW-9)
-        if (feed is MockDataFeed && client.BrokerType != BrokerType.Sandbox && intent.Purpose == OrderPurpose.Entry)
-        {
-            verdicts.Add(new("data", false, "Market data is the Mock feed; real accounts only take exits while it is."));
-            return await AuditAsync(Stop(GatewayStatus.Blocked, "Mock market data can't drive a real entry (IP-LAW-9)."), options, ct);
-        }
-
         // 4 ── Risk Guardian: entries need a stop on the right side and risk inside the limits.
         //      Exits reduce risk and always pass. Manual options tickets are outside the automated
         //      gates (IP-LAW-1); they are governed by the options level and the Live confirmation.
@@ -160,27 +164,11 @@ public sealed class TransactionGateway(
         {
             verdicts.Add(new("risk", true, "exit — risk-reducing, always allowed"));
         }
-        else if (intent.Origin == OrderOrigin.Options)
-        {
-            verdicts.Add(new("risk", true, "manual options ticket — outside the automated gates (IP-LAW-1)"));
-        }
         else
         {
-            var guardian = await riskGuardians.GetForUserAsync(intent.OwnerUserId, ct);
-            var setup = ToSetup(intent);
-            if (setup is null)
-            {
-                verdicts.Add(new("risk", false, "An entry needs a protective stop (--stop) and a price to size against (--limit, or a quote)."));
-                return await AuditAsync(Stop(GatewayStatus.Blocked, "No stop loss — the Risk Guardian refuses entries without one."), options, ct);
-            }
-            var risk = guardian.ValidateTrade(setup);
-            worstCase = risk.WorstCaseLoss;
-            if (!risk.IsApproved)
-            {
-                verdicts.Add(new("risk", false, string.Join("; ", risk.BlockReasons)));
-                return await AuditAsync(Stop(GatewayStatus.Blocked, "Risk Guardian veto: " + string.Join("; ", risk.BlockReasons)) with { WorstCaseLoss = worstCase }, options, ct);
-            }
-            verdicts.Add(new("risk", true, risk.Warnings.Count == 0 ? "within limits" : "within limits; " + string.Join("; ", risk.Warnings)));
+            var gated = await GateEntryRiskAsync(intent, client, verdicts, ct);
+            worstCase = gated.WorstCase;
+            if (gated.Blocked is { } veto) return await AuditAsync(Stop(GatewayStatus.Blocked, veto) with { WorstCaseLoss = worstCase }, options, ct);
         }
 
         // 5 ── the LLM voter panel decides automated entries only; a person decided a manual one
@@ -258,6 +246,66 @@ public sealed class TransactionGateway(
         return await AuditAsync(outcome, options, ct);
     }
 
+    /// <summary>
+    /// The data guard (IP-LAW-9) and the Risk Guardian (IP-LAW-2) for anything that adds risk: a
+    /// new entry, or a replace that raises an entry's size. Adds its verdicts; returns the veto
+    /// message when one gate refused (null when both passed) and the worst-case loss when sized.
+    /// </summary>
+    private async Task<(string? Blocked, decimal? WorstCase)> GateEntryRiskAsync(
+        OrderIntent intent, IBrokerClient client, List<GateVerdict> verdicts, CancellationToken ct)
+    {
+        if (IsSyntheticFeed(feed) && client.BrokerType != BrokerType.Sandbox)
+        {
+            verdicts.Add(new("data", false, "Market data is the Mock feed; real accounts only take exits while it is."));
+            return ("Mock market data can't drive a real entry (IP-LAW-9).", null);
+        }
+
+        if (intent.Origin == OrderOrigin.Options && intent.Action == OrderAction.Place)
+        {
+            verdicts.Add(new("risk", true, "manual options ticket — outside the automated gates (IP-LAW-1)"));
+            return (null, null);
+        }
+
+        var guardian = await riskGuardians.GetForUserAsync(intent.OwnerUserId, ct);
+        var setup = ToSetup(intent);
+        if (setup is null)
+        {
+            if (intent.Action == OrderAction.Replace)
+            {
+                verdicts.Add(new("risk", false, "Raising a working entry's size is new risk: give its protective stop (--stop) and a price to size against."));
+                return ("No stop loss — the Risk Guardian refuses to raise an entry's size without one.", null);
+            }
+            verdicts.Add(new("risk", false, "An entry needs a protective stop (--stop) and a price to size against (--limit, or a quote)."));
+            return ("No stop loss — the Risk Guardian refuses entries without one.", null);
+        }
+        var risk = guardian.ValidateTrade(setup);
+        if (!risk.IsApproved)
+        {
+            verdicts.Add(new("risk", false, string.Join("; ", risk.BlockReasons)));
+            return ("Risk Guardian veto: " + string.Join("; ", risk.BlockReasons), risk.WorstCaseLoss);
+        }
+        var what = intent.Action == OrderAction.Replace
+            ? $"replace raises the size {(intent.ReplacedQuantity is { } was ? was.ToString("0.########", CultureInfo.InvariantCulture) : "?")} → {intent.Order.SizeQuantity.ToString("0.########", CultureInfo.InvariantCulture)}; "
+            : "";
+        verdicts.Add(new("risk", true, what + (risk.Warnings.Count == 0 ? "within limits" : "within limits; " + string.Join("; ", risk.Warnings))));
+        return (null, risk.WorstCaseLoss);
+    }
+
+    /// <summary>
+    /// True when a replace makes an ENTRY bigger: a new quantity above the working order's
+    /// (<see cref="OrderIntent.ReplacedQuantity"/>), or any new quantity when that is unknown.
+    /// Exits only reduce risk; price/TIF-only replaces leave the size alone.
+    /// </summary>
+    internal static bool RaisesEntrySize(OrderIntent intent) =>
+        intent.Action == OrderAction.Replace
+        && intent.Purpose == OrderPurpose.Entry
+        && intent.Order.SizeQuantity > 0
+        && (intent.ReplacedQuantity is not { } was || intent.Order.SizeQuantity > was);
+
+    /// <summary>The Mock feed, by type or by name (a wrapper reports the feed it serves).</summary>
+    internal static bool IsSyntheticFeed(IMarketDataFeed feed) =>
+        feed is MockDataFeed || string.Equals(feed.FeedName, "Mock", StringComparison.OrdinalIgnoreCase);
+
     private static string ActionNoun(OrderAction action) => action switch
     {
         OrderAction.Replace => "replace",
@@ -291,6 +339,72 @@ public sealed class TransactionGateway(
 
         var intent = OrderIntent.FromJson(redemption.Confirmation.PayloadJson);
         return await SubmitAsync(intent, new GatewayOptions { Caller = caller, LiveConfirmed = true }, ct);
+    }
+
+    /// <summary>
+    /// Several Live actions behind ONE code (close-all: cancel every open order, then exit every
+    /// position). Every intent is dry-run through the gates first; only when all of them pass is a
+    /// code issued, bound to <paramref name="what"/> and the exact set of intent hashes. Returns
+    /// the dry-run outcomes and the pending code (null when a gate refused one of them).
+    /// </summary>
+    public async Task<(IReadOnlyList<GatewayOutcome> Outcomes, PendingConfirmation? Pending)> RequestBatchConfirmationAsync(
+        IReadOnlyList<OrderIntent> intents, string what, string preview, string caller, CancellationToken ct = default)
+    {
+        var owner = BatchOwner(intents);
+        var dry = new List<GatewayOutcome>();
+        foreach (var i in intents) dry.Add(await PreviewAsync(i, new GatewayOptions { Caller = caller }, ct));
+        if (dry.Any(o => o.Status != GatewayStatus.Previewed)) return (dry, null);
+
+        var (payload, hash) = BatchPayload(what, intents);
+        var pending = await confirmations.IssueAsync(owner, ConfirmationStore.KindOrderBatch, payload, hash, preview, ct);
+        try
+        {
+            await audit.LogAsync("risk", $"ConfirmationRequired: {what} — {intents.Count} actions behind code {pending.Code}", owner,
+                JsonSerializer.Serialize(new { status = "ConfirmationRequired", caller, what, intents = intents.Select(i => i.Describe()) }), ct);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            logger.LogWarning(ex, "Audit write failed for batch {What} (continuing).", what);
+        }
+        return (dry, pending);
+    }
+
+    /// <summary>
+    /// Redeems a batch code issued by <see cref="RequestBatchConfirmationAsync"/> and runs each
+    /// intent through every gate again, in order. The set presented must be exactly the set the
+    /// code was issued for (same <paramref name="what"/>, same intent hashes); anything else is
+    /// refused as tampered and the code is not used up. Throws <see cref="ConfirmationRefusedException"/>.
+    /// </summary>
+    public async Task<IReadOnlyList<GatewayOutcome>> ConfirmBatchAsync(
+        string code, IReadOnlyList<OrderIntent> intents, string what, string caller, CancellationToken ct = default)
+    {
+        var owner = BatchOwner(intents);
+        var (payload, hash) = BatchPayload(what, intents);
+        var redemption = await confirmations.RedeemAsync(code, owner, caller,
+            p => p.Kind == ConfirmationStore.KindOrderBatch && p.PayloadJson == payload ? hash : "mismatch", ct);
+        if (!redemption.Succeeded)
+            throw new ConfirmationRefusedException(redemption.Message, redemption.Failure!.Value);
+
+        var placed = new List<GatewayOutcome>();
+        foreach (var i in intents)
+            placed.Add(await SubmitAsync(i, new GatewayOptions { Caller = caller, LiveConfirmed = true }, ct));
+        return placed;
+    }
+
+    private static Guid BatchOwner(IReadOnlyList<OrderIntent> intents)
+    {
+        if (intents.Count == 0) throw new ArgumentException("A batch needs at least one action.", nameof(intents));
+        var owner = intents[0].OwnerUserId;
+        if (intents.Any(i => i.OwnerUserId != owner))
+            throw new ArgumentException("Every action in a batch belongs to the same owner.", nameof(intents));
+        return owner;
+    }
+
+    /// <summary>The stored payload and its hash: the action name plus the sorted intent hashes.</summary>
+    internal static (string Payload, string Hash) BatchPayload(string what, IReadOnlyList<OrderIntent> intents)
+    {
+        var payload = JsonSerializer.Serialize(new { what, intents = intents.Select(i => i.Hash()).Order(StringComparer.Ordinal) });
+        return (payload, Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(Encoding.UTF8.GetBytes(payload))));
     }
 
     internal static string? Validate(OrderIntent intent)

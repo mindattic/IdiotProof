@@ -41,6 +41,9 @@ public sealed class ConfirmationStore(IDbContextFactory<AppDbContext> dbFactory,
     public const string KindOrder = "order";
     public const string KindActivateLive = "activate-live";
 
+    /// <summary>Several gateway actions behind one code (close-all); see <see cref="TransactionGateway.ConfirmBatchAsync"/>.</summary>
+    public const string KindOrderBatch = "order-batch";
+
     public async Task<PendingConfirmation> IssueAsync(
         Guid ownerUserId, string kind, string payloadJson, string payloadHash, string? preview, CancellationToken ct = default)
     {

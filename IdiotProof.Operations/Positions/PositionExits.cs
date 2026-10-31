@@ -1,6 +1,3 @@
-using System.Security.Cryptography;
-using System.Text;
-using System.Text.Json;
 using IdiotProof.Core.Trading;
 using IdiotProof.Models;
 using IdiotProof.Operations.Rendering;
@@ -24,9 +21,6 @@ public sealed record ExitPlan(BrokerPosition Position, OrderIntent? Intent, stri
 /// </summary>
 public static class PositionExits
 {
-    /// <summary>The <see cref="ConfirmationStore"/> kind for a batch of Live exits.</summary>
-    public const string KindCloseBatch = "positions-close";
-
     /// <summary>
     /// The exit for <paramref name="p"/>: <paramref name="quantity"/> (null = all of it), capped at
     /// what is held. Partial closes and shorts are whole shares/contracts; closing ALL of a
@@ -118,36 +112,29 @@ public static class PositionExits
 
         if (mode == BrokerMode.Live)
         {
-            var payload = JsonSerializer.Serialize(new { what, intents = intents.Select(i => i.Hash()).Order(StringComparer.Ordinal) });
-            var hash = Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(payload)));
-            var store = ctx.Get<ConfirmationStore>();
-            var owner = intents[0].OwnerUserId;
-
+            // One code for the whole set; the gateway issues it, binds it to exactly these
+            // intents, and re-gates each one when the code comes back.
             if (string.IsNullOrWhiteSpace(ctx.ConfirmationCode))
             {
-                // Every exit must clear the gates before a code is worth issuing.
-                var dry = new List<GatewayOutcome>();
-                foreach (var i in intents) dry.Add(await gateway.PreviewAsync(i, new GatewayOptions { Caller = caller }, ctx.CancellationToken));
-                if (dry.Any(o => o.Status != GatewayStatus.Previewed))
-                    return Summarize(dry, plans, "A gate refused at least one exit; no code was issued.", skippedData, footer, ctx) with { Status = OperationStatus.Blocked };
-
                 var text = $"{what.ToUpperInvariant()} — {intents.Count} Live exits:\n" + string.Join("\n", intents.Select(i => "  " + i.Describe())) + footer;
-                var pending = await store.IssueAsync(owner, KindCloseBatch, payload, hash, text, ctx.CancellationToken);
+                var (dry, pending) = await gateway.RequestBatchConfirmationAsync(intents, what, text, caller, ctx.CancellationToken);
+                if (pending is null)
+                    return Summarize(dry.ToList(), plans, "A gate refused at least one exit; no code was issued.", skippedData, footer, ctx) with { Status = OperationStatus.Blocked };
                 return OperationResult.NeedsConfirmation(pending.Code, text, pending.ExpiresUtc,
                     new { what, exits = intents.Select(i => i.Describe()), skipped = skippedData });
             }
 
-            var redemption = await store.RedeemAsync(ctx.ConfirmationCode, owner, caller,
-                p => p.Kind == KindCloseBatch && p.PayloadJson == payload ? hash : "mismatch", ctx.CancellationToken);
-            if (!redemption.Succeeded)
-                return OperationResult.Blocked(redemption.Message
-                    + (redemption.Failure == ConfirmationFailure.Tampered ? " The positions changed since the code was issued (or it was for something else); run it again without --confirm for a fresh code." : ""),
-                    new { failure = redemption.Failure.ToString() });
-
-            var placed = new List<GatewayOutcome>();
-            foreach (var i in intents)
-                placed.Add(await gateway.SubmitAsync(i, new GatewayOptions { Caller = caller, LiveConfirmed = true }, ctx.CancellationToken));
-            return Summarize(placed, plans, null, skippedData, footer, ctx);
+            try
+            {
+                var placed = await gateway.ConfirmBatchAsync(ctx.ConfirmationCode, intents, what, caller, ctx.CancellationToken);
+                return Summarize(placed.ToList(), plans, null, skippedData, footer, ctx);
+            }
+            catch (ConfirmationRefusedException ex)
+            {
+                return OperationResult.Blocked(ex.Message
+                    + (ex.Failure == ConfirmationFailure.Tampered ? " The positions changed since the code was issued (or it was for something else); run it again without --confirm for a fresh code." : ""),
+                    new { failure = ex.Failure.ToString() });
+            }
         }
 
         var outcomes = new List<GatewayOutcome>();

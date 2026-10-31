@@ -59,4 +59,41 @@ public class OrdersReplaceOperationTests
         Assert.That(same.IsOk, Is.True, same.Message);
         Assert.That(kit.Live.Replaced.Single().Changes.LimitPrice, Is.EqualTo(101m));
     }
+    [Test]
+    public async Task Replace_RaisingAnEntrysSize_WithoutAStop_IsVetoedByTheRiskGuardian()
+    {
+        kit.Alpaca.Paper.Routes["GET /v2/orders/b-1"] = (HttpStatusCode.OK, OrdersTestKit.OrderJson("b-1", qty: "10"));
+
+        var result = await new OrdersReplaceOperation().ExecuteAsync(new OrdersReplaceArgs { Id = "b-1", Quantity = 20m }, kit.Context());
+
+        Assert.That(result.Status, Is.EqualTo(OperationStatus.Blocked), result.Message);
+        Assert.That(kit.Paper.Replaced, Is.Empty, "a bigger entry never reached the broker unchecked");
+    }
+
+    [Test]
+    public async Task Replace_RaisingAnEntrysSize_PastTheRiskCap_IsVetoed_ButWithinItIsReplaced()
+    {
+        kit.Alpaca.Paper.Routes["GET /v2/orders/b-2"] = (HttpStatusCode.OK, OrdersTestKit.OrderJson("b-2", qty: "1"));
+
+        // $1 of risk a share: 500 shares is $750 worst case, past the default $100 cap; 20 is $30.
+        var tooBig = await new OrdersReplaceOperation().ExecuteAsync(new OrdersReplaceArgs { Id = "b-2", Quantity = 500m, Stop = 99m }, kit.Context());
+        var fine = await new OrdersReplaceOperation().ExecuteAsync(new OrdersReplaceArgs { Id = "b-2", Quantity = 20m, Stop = 99m }, kit.Context());
+
+        Assert.That(tooBig.Status, Is.EqualTo(OperationStatus.Blocked), tooBig.Message);
+        Assert.That(fine.IsOk, Is.True, fine.Message);
+        Assert.That(kit.Paper.Replaced.Single().Changes.Quantity, Is.EqualTo(20));
+    }
+
+    [Test]
+    public async Task Replace_ShrinkingAnEntry_OrResizingAnExit_NeedsNoStop()
+    {
+        kit.Alpaca.Paper.Routes["GET /v2/orders/b-3"] = (HttpStatusCode.OK, OrdersTestKit.OrderJson("b-3", qty: "10"));
+        kit.Alpaca.Paper.Routes["GET /v2/orders/s-3"] = (HttpStatusCode.OK, OrdersTestKit.OrderJson("s-3", side: "sell", qty: "10"));
+
+        var smaller = await new OrdersReplaceOperation().ExecuteAsync(new OrdersReplaceArgs { Id = "b-3", Quantity = 5m }, kit.Context());
+        var exit = await new OrdersReplaceOperation().ExecuteAsync(new OrdersReplaceArgs { Id = "s-3", Quantity = 15m }, kit.Context());
+
+        Assert.That(smaller.IsOk, Is.True, smaller.Message);
+        Assert.That(exit.IsOk, Is.True, exit.Message);
+    }
 }

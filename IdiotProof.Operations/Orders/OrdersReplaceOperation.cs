@@ -28,6 +28,9 @@ public sealed record OrdersReplaceArgs
     [Option("client-id", Description = "New client order id for the replacement order.")]
     public string? ClientId { get; init; }
 
+    [Option("stop", Description = "Protective stop for the position, needed when --qty raises an entry's size (the Risk Guardian checks the whole new size).")]
+    public decimal? Stop { get; init; }
+
     [Option("mode", Description = "The account the order is in: paper (default) or live (needs confirmation).", Short = 'm')]
     public BrokerMode Mode { get; init; } = BrokerMode.Paper;
 
@@ -64,7 +67,10 @@ public sealed class OrdersReplaceOperation : IOperation<OrdersReplaceArgs>
         {
             OwnerUserId = owner,
             Mode = args.Mode,
-            Purpose = order.Side == "buy" ? OrderPurpose.Entry : OrderPurpose.Exit,
+            Purpose = PurposeOf(order),
+            ReplacedQuantity = order.Qty,
+            ReferencePrice = args.Limit ?? order.LimitPrice ?? args.StopPrice ?? order.StopPrice,
+            StopLossPrice = args.Stop,
             Origin = OrderOrigin.Manual,
             Action = OrderAction.Replace,
             TargetOrderId = id,
@@ -85,4 +91,16 @@ public sealed class OrdersReplaceOperation : IOperation<OrdersReplaceArgs>
         };
         return await TradeFlow.SubmitOrConfirmAsync(intent, ctx);
     }
+
+    /// <summary>
+    /// Whether the working order opens risk (an entry) or reduces it (an exit): its position
+    /// intent when Alpaca reports one (<c>sell_to_open</c> is a short entry, <c>buy_to_close</c> a
+    /// cover), else its side — a buy opens, a sell closes.
+    /// </summary>
+    internal static OrderPurpose PurposeOf(OrderView order) => order.PositionIntent switch
+    {
+        { } pi when pi.EndsWith("_to_open", StringComparison.OrdinalIgnoreCase) => OrderPurpose.Entry,
+        { } pi when pi.EndsWith("_to_close", StringComparison.OrdinalIgnoreCase) => OrderPurpose.Exit,
+        _ => order.Side == "buy" ? OrderPurpose.Entry : OrderPurpose.Exit,
+    };
 }
