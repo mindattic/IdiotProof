@@ -641,17 +641,21 @@ dotnet build IdiotProof.slnx
 dotnet test IdiotProof.slnx
 ```
 
-Counts from the last full Debug run (2026-10-03, .NET 10 SDK); all green:
+Counts from the last full Debug run (2026-10-31, .NET 10 SDK, each project run on its own); 37,319 tests, all green:
 
 | Project | Passed | Failed | Notes |
 |---|---:|---:|---|
-| `IdiotProof.Engine.Tests` | 85 | 0 | RiskGuardian gate, SupervisedLoop resilience, WorkspaceManager, options pricing, AppSettings overlay |
-| `IdiotProof.Indicators.Tests` | 18 | 0 | RSI/EMA/ATR/MACD/VWAP math, ADX Wilder-seed regression |
-| `IdiotProof.Strategies.Tests` | 34,681 | 0 | DSL round-trip, backtester, gapper lifecycle, canonical-JSON contract, plus exhaustive combinatorial matrix classes (`StrategyPermutationMatrixTests`, `StrategyThreeWayAndMatrixTests`, `ConditionalBlockOverridePermutationTests`, ...) that expand to tens of thousands of generated cases |
-| `IdiotProof.Brokers.Tests` | 38 | 0 | BrokerRouter Sandbox default and safe fallback, Sandbox fill simulation, options wire format, equity short wire format (+3 `[Explicit]` real-paper options tests, passed against the paper account 2026-10-03) |
-| `IdiotProof.Blazor.Tests` | 217 | 0 | Verb catalog, LLM gate on Legion's panel, per-owner Claude keys, password reset, research pipeline, repositories (SQL Server LocalDB) |
-| `IdiotProof.Monitor.Tests` | 16 | 0 | Long/short order shapes on the Sandbox broker, `PremarketFadeScanner`, `BeBexDecayScanner` (+2 `[Explicit]` real-paper order tests, see below) |
+| `IdiotProof.Strategies.Tests` | 34,823 | 0 | DSL round-trip, backtester, gapper lifecycle, canonical-JSON contract, plus exhaustive combinatorial matrix classes (`StrategyPermutationMatrixTests`, `StrategyThreeWayAndMatrixTests`, `ConditionalBlockOverridePermutationTests`, ...) that expand to tens of thousands of generated cases |
+| `IdiotProof.Operations.Tests` | 1,603 | 0 | Every `[Operation]` (account, positions, orders, options, market, crypto, reference, strategy, gapper, replay, research, diary, keys, monitor, docs, streaming) against scripted Alpaca handlers and in-memory databases; catalog completeness; Alpaca coverage map |
+| `IdiotProof.Core.Tests` | 460 | 0 | TransactionGateway and the money-path laws (IP-LAW-12/13), Monitor gateway parity, Vault-only keys, research services, repositories |
+| `IdiotProof.Cli.Tests` | 104 | 0 | argv/flags, Hub client, help, exit codes, `hub start/stop`, public-docs privacy scan |
+| `IdiotProof.Engine.Tests` | 94 | 0 | RiskGuardian gate, SupervisedLoop resilience, WorkspaceManager, options pricing, AppSettings overlay |
 | `IdiotProof.UI.Tests` | 62 | 0 | Options presenter, option position view, options glossary |
+| `IdiotProof.Brokers.Tests` | 52 | 0 | AlpacaApi, BrokerRouter Sandbox default, Sandbox fills, options/equity-short/crypto wire formats (+3 `[Explicit]` real-paper options tests) |
+| `IdiotProof.Monitor.Tests` | 47 | 0 | Long/short order shapes, `PremarketFadeScanner`, `BeBexDecayScanner`, `AutoGapperScanner`, `ReplayFeatures` (+2 `[Explicit]` real-paper order tests, see below) |
+| `IdiotProof.Indicators.Tests` | 36 | 0 | Indicator math, candlestick detectors, ADX Wilder-seed regression |
+| `IdiotProof.Blazor.Tests` | 26 | 0 | Web-only seams: order-path guard, owner/Claude-key adapters, API Keys page |
+| `IdiotProof.Mcp.Tests` | 12 | 0 | Tool generation from the catalog, Hub forwarding, MCP resources |
 
 The large `IdiotProof.Strategies.Tests` count is deliberate: the project generates exhaustive matrices over phase, condition and branch combinations rather than hand-writing each case.
 
