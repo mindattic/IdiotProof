@@ -41,6 +41,13 @@ public sealed record GatewayOutcome(
     public decimal? WorstCaseLoss { get; init; }
     public decimal? EstimatedCost { get; init; }
 
+    /// <summary>
+    /// The broker call threw (timeout, reset) instead of answering: the order may or may not
+    /// exist at the broker. Callers that keep their own books (the Monitor) reconcile against the
+    /// broker's positions before retrying rather than treating it as a clean refusal.
+    /// </summary>
+    public bool BrokerThrew { get; init; }
+
     /// <summary>The block the user sees before saying yes (and that a confirmation stores).</summary>
     public string Preview()
     {
@@ -214,6 +221,7 @@ public sealed class TransactionGateway(
 
         // 7 ── place / replace / cancel
         OrderResult placed;
+        var threw = false;
         try
         {
             var symbol = string.IsNullOrWhiteSpace(intent.Order.Symbol) || intent.Order.Symbol == "*" ? null : intent.Order.Symbol.Trim().ToUpperInvariant();
@@ -229,6 +237,7 @@ public sealed class TransactionGateway(
         {
             logger.LogError(ex, "Broker threw on {Order}", intent.Describe());
             placed = new OrderResult { IsSuccess = false, Message = ex.Message };
+            threw = true;
         }
         var done = intent.Action switch
         {
@@ -242,6 +251,7 @@ public sealed class TransactionGateway(
             Status = placed.IsSuccess ? GatewayStatus.Placed : GatewayStatus.Rejected,
             Message = placed.IsSuccess ? done : $"{routedTo} refused the {ActionNoun(intent.Action)}: {placed.Message}",
             Order = placed,
+            BrokerThrew = threw,
         };
         return await AuditAsync(outcome, options, ct);
     }
@@ -532,7 +542,12 @@ public sealed class TransactionGateway(
     internal static TradeSetup? ToSetup(OrderIntent intent)
     {
         var o = intent.Order;
-        var price = o.LimitPrice ?? intent.ReferencePrice;
+        // The Monitor judges the setup its strategy defined: the signal price it evaluated and the
+        // stop placed off it. Its limit is that price nudged marketable (DirectionalOrders), which
+        // would shift the stop distance the guardian measures. Everyone else is sized on the limit.
+        var price = intent.Origin == OrderOrigin.Monitor
+            ? intent.ReferencePrice ?? o.LimitPrice
+            : o.LimitPrice ?? intent.ReferencePrice;
         // A bracket / OTO carries its own stop-loss child: that is the protective stop.
         var plannedStop = intent.StopLossPrice ?? o.StopLoss?.StopPrice;
         var plannedTarget = intent.TakeProfitPrice ?? o.TakeProfit?.LimitPrice;

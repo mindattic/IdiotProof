@@ -23,8 +23,11 @@ namespace IdiotProof.Monitor;
 ///     → candles from the configured feed (Alpaca REST + websocket stream, Mock fallback)
 ///     → entry conditions walked one-by-one → ConditionProgress rows (UI badges)
 ///     → three gates: conditions → LLM voter panel → RiskGuardian (IP-LAW-1)
-///     → entry order through BrokerRouter (Sandbox default, IP-LAW-3;
-///       premarket = limit + extended_hours on Alpaca)
+///     → entry order through the TransactionGateway (IP-T94): it re-checks the
+///       Risk Guardian, the Mock-data interlock and the route (Sandbox default,
+///       IP-LAW-3; premarket = limit + extended_hours on Alpaca), audits, and
+///       places. A Live strategy needs no confirm code — activating it in Live
+///       was the confirmed act.
 ///     → open positions tracked on the Strategy row; exits evaluated every
 ///       tick by GapperExitEvaluator (sell-by / stops / target / peak-giveback)
 ///     → realized P&amp;L fed back into RiskGuardian's daily circuit breaker.
@@ -45,6 +48,8 @@ public sealed class MonitorWorker(
     AppSettings appSettings,
     IMarketDataFeed feed,
     UserBrokerResolver brokerResolver,
+    IdiotProof.Core.Trading.TransactionGateway gateway,
+    IdiotProof.Core.Trading.IOrderRouting orderRouting,
     IdiotProof.Core.Hosting.IdiotProofDatabase database,
     IStorageProvider storage,
     IdiotProof.Blazor.Services.LiveBarRepository liveBarRepo,
@@ -936,6 +941,7 @@ public sealed class MonitorWorker(
         // Approve consensus blocks the fire: a dead panel (zero votes),
         // unparseable votes, or a split below threshold all fail closed.
         var votingCredentials = await claudeKeys.ResolveAsync(stored.OwnerUserId, ct);
+        (bool Approved, string Detail) panel = (true, MonitorOrders.PanelOffDetail);
         if (votingCredentials.VotingEnabled && !string.IsNullOrWhiteSpace(votingCredentials.ClaudeApiKey))
         {
             var voteResult = await llmVoting.VoteOnSignalAsync(signal, candles, votingCredentials,
@@ -953,97 +959,66 @@ public sealed class MonitorWorker(
                     userId: stored.OwnerUserId, dataJson: voteResult.ConsensusReasoning, ct: ct);
                 return;
             }
+            panel = (true, $"approved by the LLM panel ({voteResult.Votes.Count} voters, conf {voteResult.ConsensusConfidence:F0})");
         }
 
-        // Gate 3 — RiskGuardian holds the final veto (IP-LAW-2).
-        var guardian = await riskGuardianService.GetForUserAsync(stored.OwnerUserId, ct);
-        if (guardian is null)
-        {
-            logger.LogError("[{Title}] RiskGuardian row missing for user {UserId} — fire blocked.", stored.Title, stored.OwnerUserId);
-            await LogAuditAsync("signal-blocked",
-                $"[{stored.Title}] {stored.Symbol} blocked — no RiskGuardian row for user {stored.OwnerUserId}",
-                userId: stored.OwnerUserId, ct: ct);
-            return;
-        }
-        var setup = new TradeSetup
-        {
-            Symbol          = stored.Symbol,
-            Direction       = def.Direction,
-            EntryPrice      = entryPrice,
-            EntryType       = OrderType.Limit,
-            StopLoss        = stopPrice,
-            TakeProfit      = signal.Targets.Count > 0
-                ? signal.Targets[0]
-                : isShort
-                    ? entryPrice - (stopPrice - entryPrice)
-                    : entryPrice + (entryPrice - stopPrice),
-            Quantity        = quantity,
-            ConfidenceScore = 0,
-            Rationale       = signal.Reason,
-        };
-        var verdict = guardian.ValidateTrade(setup);
-        if (!verdict.IsApproved)
-        {
-            var reasons = string.Join("; ", verdict.BlockReasons);
-            logger.LogInformation("[{Title}] {Symbol} ✗ BLOCKED by RiskGuardian — {Reasons}", stored.Title, stored.Symbol, reasons);
-            await LogAuditAsync("signal-blocked",
-                $"[{stored.Title}] {stored.Symbol} blocked by RiskGuardian: {reasons}",
-                userId: stored.OwnerUserId, ct: ct);
-            return;
-        }
+        // Gate 3 — RiskGuardian holds the final veto (IP-LAW-2). It, the Mock-data interlock
+        // (IP-LAW-9), the per-strategy route (IP-LAW-3), the audit row and the order itself all
+        // live in the TransactionGateway — the one road to a broker. The guardian judges the
+        // setup at the signal price with the strategy's stop; the take-profit (first target, else
+        // 1R) only feeds its reward:risk warning.
+        var takeProfit = signal.Targets.Count > 0
+            ? signal.Targets[0]
+            : isShort
+                ? entryPrice - (stopPrice - entryPrice)
+                : entryPrice + (entryPrice - stopPrice);
 
         // The order. Premarket/after-hours must be limit + extended_hours
         // (Alpaca requirement); RTH entries go in as marketable limits too so
         // a thin book can't fill us far off the evaluated price. A short opens
         // with a sell_to_open at -0.2%; a long buys at +0.2% (DirectionalOrders).
         var extendedHours = IsExtendedHours(DateTime.UtcNow);
-        var entryOrder = DirectionalOrders.Entry(stored.Symbol, def.Direction, quantity, entryPrice, extendedHours);
-        var limitPrice = entryOrder.LimitPrice!.Value;
-        var entrySide = DirectionalOrders.SideLabel(entryOrder.Side);
+        var intent = MonitorOrders.Entry(stored.OwnerUserId, stored.Id, stored.BrokerMode, stored.Symbol, def.Direction,
+            quantity, entryPrice, stopPrice, takeProfit, extendedHours, $"[{stored.Title}] {signal.Reason}");
+        var limitPrice = intent.Order.LimitPrice!.Value;
+        var entrySide = DirectionalOrders.SideLabel(intent.Order.Side);
 
-        // Per-user, per-strategy routing: the strategy's BrokerMode ("Paper"|"Live"|"Sandbox")
-        // overrides the global paper flag so each strategy independently controls
-        // whether it trades paper or real money.
-        var broker = await brokerResolver.ResolveAsync(stored.OwnerUserId, stored.BrokerMode, ct);
-
-        // Never place a REAL order on SYNTHETIC data. The market-data feed is a
-        // single global instance (keyed on the host's global Alpaca settings);
-        // if the host has no data keys it falls back to Mock. Order routing,
-        // however, is per-user (docs/BIBLE.md §4.4) — so a host missing global data keys but
-        // with a user's own Alpaca keys would evaluate strategies against fake
-        // prices and fire REAL orders on them. Mock data implies Sandbox-only
-        // (the intended dev pairing); block any non-Sandbox ENTRY. Exits are
-        // risk-reducing and are NOT gated here — a genuinely-held position must
+        // Never place a REAL order on SYNTHETIC data: the market-data feed is one global
+        // instance (Mock when the host has no data keys) while routing is per-user
+        // (docs/BIBLE.md §4.4) — the gateway refuses any non-Sandbox ENTRY on the Mock feed.
+        // Exits are risk-reducing and are NOT gated there — a genuinely-held position must
         // always be flatten-able.
-        if (string.Equals(feed.FeedName, "Mock", StringComparison.OrdinalIgnoreCase)
-            && broker.BrokerType != BrokerType.Sandbox)
+        var outcome = await gateway.SubmitAsync(intent,
+            new IdiotProof.Core.Trading.GatewayOptions { Caller = "monitor", LlmVerdict = panel }, ct);
+
+        if (outcome.Status is IdiotProof.Core.Trading.GatewayStatus.Blocked or IdiotProof.Core.Trading.GatewayStatus.ConfirmationRequired)
         {
-            logger.LogError("[{Title}] {Symbol} ✗ ENTRY BLOCKED — market data is synthetic (Mock) but routing is {Broker}. " +
-                "Refusing to place a real order on mock prices. Configure real market-data keys on the host.",
-                stored.Title, stored.Symbol, broker.BrokerType);
+            // ConfirmationRequired can't happen for a Monitor intent; if it ever did, nothing was
+            // placed and the fire is treated as blocked (fail closed).
+            var why = MonitorOrders.WhyNot(outcome);
+            logger.LogInformation("[{Title}] {Symbol} ✗ BLOCKED at the gateway — {Why}", stored.Title, stored.Symbol, why);
             await LogAuditAsync("signal-blocked",
-                $"[{stored.Title}] {stored.Symbol} entry blocked: mock market data cannot drive a real ({broker.BrokerType}) order.",
+                $"[{stored.Title}] {stored.Symbol} blocked — {outcome.Message} ({why})",
                 userId: stored.OwnerUserId, ct: ct);
             return;
         }
 
-        OrderResult order;
-        try
-        {
-            order = await broker.PlaceOrderAsync(entryOrder, ct);
-        }
-        catch (OperationCanceledException) { throw; }
-        catch (Exception ex)
+        // The same client the gateway routed to (OrderRouting caches it): its type and paper
+        // flag label the fill, and it is what the ambiguous-throw path reconciles against.
+        var broker = await orderRouting.ResolveAsync(stored.OwnerUserId, intent.Mode, ct);
+
+        if (outcome.BrokerThrew)
         {
             // An exception here (timeout, connection reset) is ambiguous —
-            // Alpaca may have already accepted the order server-side. Letting
-            // it escape uncaught left RecordFiredAsync/RecordEntryFillAsync
+            // Alpaca may have already accepted the order server-side. Treating
+            // it as a clean refusal left RecordFiredAsync/RecordEntryFillAsync
             // unrun, so PositionQty stayed 0 and the still-true entry
             // conditions fired AGAIN next tick — a real duplicate-buy risk.
             // Reconcile against the broker's actual positions before
             // deciding whether it's safe to let this strategy retry.
-            logger.LogError(ex, "[{Title}] {Symbol} entry order threw — reconciling against broker before retrying.",
-                stored.Title, stored.Symbol);
+            var thrown = outcome.Order?.Message ?? outcome.Message;
+            logger.LogError("[{Title}] {Symbol} entry order threw ({Error}) — reconciling against broker before retrying.",
+                stored.Title, stored.Symbol, thrown);
             try
             {
                 // Multi-strategy-per-ticker: if another of this user's
@@ -1082,7 +1057,7 @@ public sealed class MonitorWorker(
                         "cannot safely attribute the broker's aggregate position to this strategy. Flag for manual review.",
                         stored.Title, stored.Symbol);
                     await LogAuditAsync("order-placement-exception",
-                        $"[{stored.Title}] {stored.Symbol} entry order threw ({ex.Message}); broker shows a position but it's " +
+                        $"[{stored.Title}] {stored.Symbol} entry order threw ({thrown}); broker shows a position but it's " +
                         "shared with another strategy on this symbol — bookkeeping NOT auto-reconciled, needs manual review.",
                         userId: stored.OwnerUserId, ct: ct);
                     return;
@@ -1094,17 +1069,18 @@ public sealed class MonitorWorker(
                 logger.LogWarning(reconcileEx, "[{Title}] {Symbol} post-exception reconciliation also failed.", stored.Title, stored.Symbol);
             }
             await LogAuditAsync("order-placement-exception",
-                $"[{stored.Title}] {stored.Symbol} entry order threw ({ex.Message}) and broker shows no matching position — safe to retry next tick.",
+                $"[{stored.Title}] {stored.Symbol} entry order threw ({thrown}) and broker shows no matching position — safe to retry next tick.",
                 userId: stored.OwnerUserId, ct: ct);
             return;
         }
 
-        if (!order.IsSuccess)
+        if (outcome.Status != IdiotProof.Core.Trading.GatewayStatus.Placed || outcome.Order is not { IsSuccess: true } order)
         {
+            var refusal = outcome.Order?.Message ?? outcome.Message;
             logger.LogWarning("[{Title}] {Symbol} entry order REJECTED by {Broker}: {Message}",
-                stored.Title, stored.Symbol, broker.BrokerType, order.Message);
+                stored.Title, stored.Symbol, broker.BrokerType, refusal);
             await LogAuditAsync("order-rejected",
-                $"[{stored.Title}] {stored.Symbol} entry rejected by {broker.BrokerType}: {order.Message}",
+                $"[{stored.Title}] {stored.Symbol} entry rejected by {broker.BrokerType}: {refusal}",
                 userId: stored.OwnerUserId, ct: ct);
             return;
         }
@@ -1336,8 +1312,11 @@ public sealed class MonitorWorker(
         var limitPrice = DirectionalOrders.ExitLimit(direction, (decimal)decision.CurrentPrice);
         var exitSide = DirectionalOrders.SideLabel(DirectionalOrders.ExitSide(direction));
 
-        // Exit through the same per-user, per-strategy broker that holds the position.
-        var broker = await brokerResolver.ResolveAsync(stored.OwnerUserId, stored.BrokerMode, ct);
+        // Exit through the same per-user, per-strategy broker that holds the position — the
+        // route the gateway takes (IOrderRouting), so the reconciliation below reads the very
+        // account the exit order goes to.
+        var exitMode = IdiotProof.Core.Trading.OrderIntent.ParseMode(stored.BrokerMode);
+        var broker = await orderRouting.ResolveAsync(stored.OwnerUserId, exitMode, ct);
 
         // Reconcile with the broker BEFORE selling. Entry bookkeeping records
         // the fill optimistically when the order is ACCEPTED, so an unfilled
@@ -1416,15 +1395,23 @@ public sealed class MonitorWorker(
         // The exit always carries a *_to_close intent (sell_to_close for a long,
         // buy_to_close for a short) so a stale quantity can only close the
         // position, never open the opposite one.
-        var order = await broker.PlaceOrderAsync(
-            DirectionalOrders.Exit(stored.Symbol, direction, sellQty, (decimal)decision.CurrentPrice, extendedHours), ct);
+        // Through the gateway: exits skip the LLM panel and the Risk Guardian (risk-reducing,
+        // IP-LAW-1) and pass on Mock data, but are routed, audited and refused if Live can't
+        // actually reach the live account.
+        var exitOutcome = await gateway.SubmitAsync(
+            MonitorOrders.Exit(stored.OwnerUserId, stored.Id, stored.BrokerMode, stored.Symbol, direction, sellQty,
+                (decimal)decision.CurrentPrice, extendedHours, $"[{stored.Title}] exit {decision.Reason}"),
+            new IdiotProof.Core.Trading.GatewayOptions { Caller = "monitor" }, ct);
 
-        if (!order.IsSuccess)
+        if (exitOutcome.Status != IdiotProof.Core.Trading.GatewayStatus.Placed || exitOutcome.Order is not { IsSuccess: true } order)
         {
+            var refusal = exitOutcome.Status == IdiotProof.Core.Trading.GatewayStatus.Rejected
+                ? exitOutcome.Order?.Message ?? exitOutcome.Message
+                : MonitorOrders.WhyNot(exitOutcome);
             logger.LogWarning("[{Title}] {Symbol} EXIT order rejected by {Broker}: {Message} — will retry next tick.",
-                stored.Title, stored.Symbol, broker.BrokerType, order.Message);
+                stored.Title, stored.Symbol, broker.BrokerType, refusal);
             await LogAuditAsync("order-rejected",
-                $"[{stored.Title}] {stored.Symbol} exit ({decision.Reason}) rejected by {broker.BrokerType}: {order.Message}",
+                $"[{stored.Title}] {stored.Symbol} exit ({decision.Reason}) rejected by {broker.BrokerType}: {refusal}",
                 userId: stored.OwnerUserId, ct: ct);
             return;
         }
