@@ -58,6 +58,7 @@ public sealed partial class KnowledgeIndexBuilder(string repoRoot)
         ct.ThrowIfCancellationRequested();
         index.Sources = ScanSources(index, ct);
         IndexXmlDocs(index);
+        IndexCatalogs(index);
         ct.ThrowIfCancellationRequested();
         if (Tickets is not null) new TicketHistory(Tickets).IndexIntoAsync(index, ct).GetAwaiter().GetResult();
         return index;
