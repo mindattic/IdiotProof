@@ -17,6 +17,13 @@ using Microsoft.EntityFrameworkCore;
 //   mcp__idiotproof__<noun>_<verb>     (IdiotProof.Mcp)  ─┼─► POST /api/op ─► OperationDispatcher
 //   web pages                          (IdiotProof.Blazor)┘
 //
+// The Monitor brings its scanners with it (IP-T75): PremarketFadeScanner (alert-only, 9-10 AM ET)
+// and BeBexDecayScanner (arms/disarms the BE strategy, 4:30-5 PM ET) run inside the Monitor's tick,
+// so they run exactly when the Monitor does — IDIOTPROOF_HUB_MONITOR=0 turns all three off, and the
+// pause flag (`idiotproof monitor pause`) stops them with the tick. AutoGapperScanner has no
+// schedule (its AutoGapperEnabled auto-arm was removed); it stays on demand, tuned by
+// IDIOTPROOF_AUTOGAPPER_MINGAP / _MAX / _BROKER (paper by default).
+//
 // Env knobs:
 //   IDIOTPROOF_HUB_PORT     loopback port (default 5910)
 //   IDIOTPROOF_HUB_MONITOR  0 = serve operations without running the trading loop
