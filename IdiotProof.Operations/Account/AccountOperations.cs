@@ -56,12 +56,12 @@ public sealed class AccountSummaryOperation : IOperation<AccountScopeArgs>
     public async Task<OperationResult> ExecuteAsync(AccountScopeArgs args, OperationContext ctx)
     {
         var details = await AccountReads.LoadAsync(ctx, args.Mode);
-        var days = await Task.WhenAll(details.Select(d => d.Error is null ? TodayAsync(ctx, d.IsPaper) : Task.FromResult<PortfolioHistory?>(null)));
+        var flows = await Task.WhenAll(details.Select(d => d.Error is null ? TodayCashFlowAsync(ctx, d.IsPaper) : Task.FromResult<decimal?>(null)));
         var table = new TextTable { MaxWidth = ctx.Width }
             .Column("Account").Column("Equity", Align.Right).Column("Today", Align.Right).Column("Today %", Align.Right)
             .Column("Cash", Align.Right).Column("Buying power", Align.Right).Column("Positions", Align.Right).Column("Status");
         var data = new List<object>();
-        foreach (var (d, day) in details.Zip(days))
+        foreach (var (d, flow) in details.Zip(flows))
         {
             if (d.Error is not null)
             {
@@ -70,11 +70,11 @@ public sealed class AccountSummaryOperation : IOperation<AccountScopeArgs>
                 continue;
             }
             decimal? equity = d.Number("equity"), lastEquity = d.Number("last_equity");
-            // True day P&L from portfolio history (deposits/withdrawals excluded); equity minus
-            // last_equity only when that read fails, since it counts a deposit as a gain.
-            var trueDay = day?.ProfitLoss is not null;
-            decimal? today = trueDay ? day!.ProfitLoss : equity - lastEquity;
-            decimal? todayBase = trueDay && day!.BaseValue is { } b && b != 0 ? b : lastEquity;
+            // True day P&L: the equity change minus cash moved in or out today. Alpaca's own
+            // profit_loss counts an instant ACH deposit as a gain, so it isn't used here.
+            var trueDay = flow is not null;
+            decimal? today = equity - lastEquity - (flow ?? 0);
+            decimal? todayBase = lastEquity + (flow ?? 0); // money deposited today is capital at work, not a gain
             var status = d.Account.TryGetValue("status", out var s) ? s : "";
             if (d.Account.TryGetValue("pattern_day_trader", out var pdt) && pdt == "True") status += ", PDT";
             if (d.Account.TryGetValue("trading_blocked", out var tb) && tb == "True") status += ", TRADING BLOCKED";
@@ -86,8 +86,8 @@ public sealed class AccountSummaryOperation : IOperation<AccountScopeArgs>
                 account = AccountReads.Name(d).ToLowerInvariant(),
                 accountNumber = d.Account.GetValueOrDefault("account_number"),
                 status = d.Account.GetValueOrDefault("status"),
-                equity, lastEquity, today,
-                todaySource = trueDay ? "portfolio_history.profit_loss" : "equity-last_equity",
+                equity, lastEquity, today, todayCashFlow = flow,
+                todaySource = trueDay ? "equity-last_equity-cash_flows" : "equity-last_equity",
                 cash = d.Number("cash"),
                 buyingPower = d.Number("buying_power"),
                 dayTradingBuyingPower = d.Number("daytrading_buying_power"),
@@ -101,14 +101,15 @@ public sealed class AccountSummaryOperation : IOperation<AccountScopeArgs>
         return OperationResult.Ok(data, table.Render());
     }
 
-    /// <summary>The account's 1-day portfolio history, or null when it can't be read (the caller falls back).</summary>
-    private static async Task<PortfolioHistory?> TodayAsync(OperationContext ctx, bool isPaper)
+    /// <summary>Net deposits minus withdrawals today (ET), or null when it can't be read (the caller falls back).</summary>
+    private static async Task<decimal?> TodayCashFlowAsync(OperationContext ctx, bool isPaper)
     {
         if (ctx.Services.GetService(typeof(AlpacaApiFactory)) is not AlpacaApiFactory factory) return null;
         try
         {
             await using var api = await factory.ForOwnerAsync(ctx.RequireOwner(), isPaper ? BrokerMode.Paper : BrokerMode.Live, ctx.CancellationToken);
-            return await PortfolioHistory.TodayAsync(api, ctx.CancellationToken);
+            var today = AccountApis.EtDate(ctx.UtcNow);
+            return await AccountApis.NetCashFlowAsync(api, today, today, ctx.CancellationToken);
         }
         catch (Exception ex) when (ex is AlpacaAccessException or AlpacaApiException or HttpRequestException or TaskCanceledException && !ctx.CancellationToken.IsCancellationRequested)
         {

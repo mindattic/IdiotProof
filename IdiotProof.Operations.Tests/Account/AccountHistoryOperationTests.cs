@@ -3,7 +3,7 @@ using IdiotProof.Operations.Account;
 
 namespace IdiotProof.Operations.Tests.Account;
 
-/// <summary>account history (IP-T300): portfolio history as a Braille equity line, with P&amp;L from profit_loss (deposits excluded).</summary>
+/// <summary>account history (IP-T300): portfolio history as a Braille equity line, with P&amp;L = equity change minus deposits/withdrawals from account activities.</summary>
 public class AccountHistoryOperationTests
 {
     /// <summary>Fri 10/30 9:30 AM to 4:00 PM ET every 15 minutes (EDT), a $5,000 deposit at noon that profit_loss ignores.</summary>
@@ -38,17 +38,18 @@ public class AccountHistoryOperationTests
     public async Task Intraday_ChartsALine_AndPnlExcludesTheDeposit()
     {
         var f = new ScriptedAlpacaFactory();
-        f.Paper.On("GET /v2/account/portfolio/history", Intraday());
+        f.Paper.On("GET /v2/account/portfolio/history", Intraday())
+            .On("GET /v2/account/activities", """[{"id":"a1","activity_type":"CSD","date":"2026-10-30","net_amount":"5000"}]""");
 
         var result = await new AccountHistoryOperation().ExecuteAsync(
             new AccountHistoryArgs { Period = "1d", Timeframe = "15min", Width = 100 }, AccountTestKit.Context(f));
 
         Assert.That(result.IsOk, Is.True, result.Message);
-        var query = f.Paper.Requests.Single().Uri.Query;
+        var query = f.Paper.Requests.Single(r => r.Uri.AbsolutePath.EndsWith("history")).Uri.Query;
         Assert.That(query, Does.Contain("period=1D").And.Contain("timeframe=15Min").And.Contain("intraday_reporting=market_hours"));
         var chart = result.Human!.Split("\n\n")[0];
         Assert.That(chart.Split('\n').Select(l => l.Length).Distinct(), Is.EqualTo(new[] { 100 }));
-        Assert.That(chart, Does.StartWith("Paper equity  1D  2026-10-30 -> 2026-10-30 ET   P&L +$260.00 (+0.26%) excl. deposits"));
+        Assert.That(chart, Does.StartWith("Paper equity  1D  2026-10-30 -> 2026-10-30 ET   P&L +$260.00 (+0.25%) excl. deposits"));
         Assert.That(chart, Does.Contain("Fri 10/30").And.Contain("<- "));
         Assert.That(result.Human, Does.Contain("Deposits/withdrawals:").And.Contain("+$5,000.00"));
     }
@@ -57,7 +58,7 @@ public class AccountHistoryOperationTests
     public async Task Daily_OneSessionWithDateTicks()
     {
         var f = new ScriptedAlpacaFactory();
-        f.Live.On("GET /v2/account/portfolio/history", Daily);
+        f.Live.On("GET /v2/account/portfolio/history", Daily).On("GET /v2/account/activities", "[]");
 
         var result = await new AccountHistoryOperation().ExecuteAsync(
             new AccountHistoryArgs { Mode = BrokerMode.Live, Width = 90 }, AccountTestKit.Context(f));
@@ -73,12 +74,13 @@ public class AccountHistoryOperationTests
     public async Task All_StartsAtTheAccountsCreation()
     {
         var f = new ScriptedAlpacaFactory();
-        f.Paper.On("GET /v2/account", """{"created_at":"2025-01-15T14:00:00Z"}""").On("GET /v2/account/portfolio/history", Daily);
+        f.Paper.On("GET /v2/account", """{"created_at":"2025-01-15T14:00:00Z"}""").On("GET /v2/account/portfolio/history", Daily)
+            .On("GET /v2/account/activities", "[]");
 
         var result = await new AccountHistoryOperation().ExecuteAsync(new AccountHistoryArgs { Period = "all" }, AccountTestKit.Context(f));
 
         Assert.That(result.IsOk, Is.True, result.Message);
-        var query = f.Paper.Requests.Last().Uri.Query;
+        var query = f.Paper.Requests.Last(r => r.Uri.AbsolutePath.EndsWith("history")).Uri.Query;
         Assert.That(query, Does.Contain("start=2025-01-15T14%3A00%3A00Z").And.Contain("timeframe=1D").And.Not.Contain("period="));
     }
 

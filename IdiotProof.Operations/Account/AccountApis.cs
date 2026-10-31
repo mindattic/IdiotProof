@@ -90,6 +90,22 @@ internal static class AccountApis
     /// <summary>The ET calendar date of <paramref name="utc"/>.</summary>
     public static DateOnly EtDate(DateTime utc) => DateOnly.FromDateTime(EasternClock.ToEastern(utc));
 
+    /// <summary>Activity types that move cash in or out without trading: deposits, withdrawals, cash journals and cash ACATS.</summary>
+    public const string CashFlowTypes = "CSD,CSW,JNLC,ACATC";
+
+    /// <summary>
+    /// Net cash moved into the account (deposits minus withdrawals) on ET dates
+    /// [<paramref name="from"/>, <paramref name="to"/>], from <c>/v2/account/activities</c>.
+    /// Alpaca's portfolio-history <c>profit_loss</c> counts an instant ACH deposit as profit, so
+    /// true P&amp;L is the equity change minus this.
+    /// </summary>
+    public static async Task<decimal> NetCashFlowAsync(AlpacaApi api, DateOnly from, DateOnly to, CancellationToken ct)
+    {
+        var rows = await AccountActivitiesOperation.FetchAsync(api, "/v2/account/activities", CashFlowTypes.Split(','),
+            EtMidnightUtc(from), EtMidnightUtc(to.AddDays(1)), limit: 1000, ct);
+        return rows.Sum(a => Dec(a, "net_amount") ?? 0);
+    }
+
     /// <summary>Midnight ET at the start of <paramref name="date"/>, as UTC.</summary>
     public static DateTime EtMidnightUtc(DateOnly date) =>
         TimeZoneInfo.ConvertTimeToUtc(date.ToDateTime(TimeOnly.MinValue), IdiotProof.Scripting.MarketTime.Eastern);

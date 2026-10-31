@@ -51,6 +51,8 @@ public sealed record PortfolioHistory(IReadOnlyList<PortfolioPoint> Points, deci
             ["timeframe"] = "15Min",
             ["intraday_reporting"] = "extended_hours",
             ["pnl_reset"] = "per_day",
+            // Without this Alpaca counts deposits and withdrawals as profit_loss.
+            ["cashflow_types"] = "ALL",
         }, ct));
 }
 
@@ -113,6 +115,7 @@ public sealed partial class AccountHistoryOperation : IOperation<AccountHistoryA
             ["timeframe"] = timeframe,
             ["intraday_reporting"] = args.Extended ? "extended_hours" : "market_hours",
             ["extended_hours"] = args.Extended ? "true" : null,
+            ["cashflow_types"] = "ALL", // deposits/withdrawals are cash flow, not profit_loss
         };
         if (all)
         {
@@ -130,12 +133,17 @@ public sealed partial class AccountHistoryOperation : IOperation<AccountHistoryA
         var points = history.Points;
         var first = points[0];
         var last = points[^1];
-        var pnl = history.ProfitLoss;
-        decimal? cashFlow = pnl is { } p ? last.Equity - (history.BaseValue ?? first.Equity) - p : null;
+        // P&L = equity change minus deposits/withdrawals in the window (from account activities):
+        // Alpaca's profit_loss counts an instant ACH deposit as a gain.
+        var startEquity = history.BaseValue ?? first.Equity;
+        decimal? cashFlow = await AccountApis.NetCashFlowAsync(api, AccountApis.EtDate(first.Utc), AccountApis.EtDate(last.Utc), ctx.CancellationToken);
+        decimal? pnl = last.Equity - startEquity - cashFlow;
+        var capital = startEquity + (cashFlow ?? 0); // deposits are capital at work, not a gain
+        decimal? pnlPct = capital != 0 ? pnl / capital : null;
         var used = timeframe ?? history.Timeframe;
         var daily = used is "1D" || (used is null && points.Count > 1 && points[1].Utc - points[0].Utc >= TimeSpan.FromDays(1));
         var title = $"{name} equity  {period}  {EasternClock.FormatDate(first.Utc)} -> {EasternClock.FormatDate(last.Utc)} ET   " +
-                    $"P&L {AccountApis.Signed(pnl)}" + (history.ProfitLossPct is { } pct ? $" ({Fmt.Percent(pct, 2, signed: true)})" : "") + " excl. deposits";
+                    $"P&L {AccountApis.Signed(pnl)}" + (pnlPct is { } pct ? $" ({Fmt.Percent(pct, 2, signed: true)})" : "") + " excl. deposits";
 
         string chart;
         try
@@ -151,7 +159,7 @@ public sealed partial class AccountHistoryOperation : IOperation<AccountHistoryA
         var block = new KeyValueBlock()
             .Add("Start equity", Fmt.Money(history.BaseValue ?? first.Equity))
             .Add("End equity", Fmt.Money(last.Equity) + $"  ({(daily ? EasternClock.FormatDate(last.Utc) : Fmt.Et(last.Utc))})")
-            .Add("P&L", AccountApis.Signed(pnl) + (history.ProfitLossPct is { } pp ? $"  ({Fmt.Percent(pp, 2, signed: true)})" : "") + "  from trading, deposits excluded")
+            .Add("P&L", AccountApis.Signed(pnl) + (pnlPct is { } pp ? $"  ({Fmt.Percent(pp, 2, signed: true)})" : "") + "  from trading, deposits excluded")
             .Add("Deposits/withdrawals", cashFlow is { } c && Math.Abs(c) >= 0.01m ? Fmt.SignedMoney(c) : null)
             .Add("High", Fmt.Money(points.Max(x => x.Equity)))
             .Add("Low", Fmt.Money(points.Min(x => x.Equity)));
@@ -160,7 +168,7 @@ public sealed partial class AccountHistoryOperation : IOperation<AccountHistoryA
         {
             account = name.ToLowerInvariant(), period, timeframe = timeframe ?? history.Timeframe, extended = args.Extended,
             baseValue = history.BaseValue, startEquity = history.BaseValue ?? first.Equity, endEquity = last.Equity,
-            profitLoss = pnl, profitLossPct = history.ProfitLossPct, netDeposits = cashFlow,
+            profitLoss = pnl, profitLossPct = pnlPct, netDeposits = cashFlow,
             points = points.Select(x => new { timeEt = Fmt.Et(x.Utc), utc = x.Utc, equity = x.Equity, profitLoss = x.ProfitLoss }),
             chart,
         };
