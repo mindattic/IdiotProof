@@ -28,6 +28,12 @@ public sealed class SwitchableMarketDataFeed : IMarketDataFeed
         activeFeedName = feedName;
     }
 
+    /// <summary>The feed requests go to right now, or null when the active name isn't registered.</summary>
+    public IMarketDataFeed? Active => feeds.GetValueOrDefault(activeFeedName);
+
+    /// <summary>Every registered feed by name ("Alpaca", "Mock").</summary>
+    public IReadOnlyDictionary<string, IMarketDataFeed> Feeds => feeds;
+
     private IMarketDataFeed GetActive()
     {
         if (feeds.TryGetValue(activeFeedName, out var feed))

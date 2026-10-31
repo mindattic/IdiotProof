@@ -99,7 +99,7 @@ public sealed class MarketChartOperation : IOperation<MarketChartArgs>
         else
         {
             var feed = ctx.Get<IMarketDataFeed>();
-            if (feed is MockDataFeed)
+            if (feed.IsSynthetic())
                 return OperationResult.Blocked("The Hub is on the Mock data feed (no Alpaca keys resolved), so there are no real prices to chart.");
 
             // Fetch far enough back to cover weekends and holidays, then keep the last N ET days that traded.

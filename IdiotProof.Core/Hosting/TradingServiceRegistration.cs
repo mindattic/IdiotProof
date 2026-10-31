@@ -37,14 +37,20 @@ public static class TradingServiceRegistration
     /// Market data: Alpaca whenever keys resolved through the settings chain (env → Vault broker
     /// keyring → configuration), Mock otherwise. Forced with <see cref="FeedEnvVar"/>. Mock data
     /// never drives a real order (IP-LAW-9); the Monitor enforces that at the order seam.
+    /// With keys the feed is a <see cref="SwitchableMarketDataFeed"/> holding both Alpaca and Mock,
+    /// so <c>idiotproof market feed switch</c> can change it without a restart; every synthetic-data
+    /// guard asks <see cref="MarketDataFeedExtensions.IsSynthetic"/>, which sees through the switch.
     /// </summary>
     public static IMarketDataFeed CreateFeed(AppSettings settings)
     {
         var choice = Environment.GetEnvironmentVariable(FeedEnvVar)?.ToLowerInvariant();
-        if (choice == "mock" || (!HasAlpacaKeys(settings) && choice != "alpaca"))
+        if (!HasAlpacaKeys(settings) && choice != "alpaca")
             return new MockDataFeed();
         var tier = Environment.GetEnvironmentVariable(AlpacaFeedEnvVar) ?? "sip";
-        return new AlpacaDataFeed(settings.AlpacaApiKeyId, settings.AlpacaApiSecretKey, tier);
+        var feed = new SwitchableMarketDataFeed(choice == "mock" ? "Mock" : "Alpaca");
+        feed.Register(new AlpacaDataFeed(settings.AlpacaApiKeyId, settings.AlpacaApiSecretKey, tier));
+        feed.Register(new MockDataFeed());
+        return feed;
     }
 
     /// <summary>

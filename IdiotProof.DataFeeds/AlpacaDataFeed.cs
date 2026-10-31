@@ -143,6 +143,19 @@ public sealed class AlpacaDataFeed : IMarketDataFeed, IAsyncDisposable
     }
 
     private readonly Lock feedTierLock = new();
+
+    /// <summary>
+    /// Switches the data tier for every later request (<c>idiotproof market feed switch sip|iex</c>).
+    /// Only <c>sip</c> and <c>iex</c> exist; anything else throws. A SIP request that Alpaca refuses
+    /// still downgrades to IEX once, exactly as at startup.
+    /// </summary>
+    public void SetTier(string tier)
+    {
+        var t = (tier ?? "").Trim().ToLowerInvariant();
+        if (t is not ("sip" or "iex")) throw new ArgumentException($"Alpaca's stock data tiers are sip and iex, not '{tier}'.", nameof(tier));
+        lock (feedTierLock) feedTier = t;
+    }
+
     private bool TryDowngradeTier()
     {
         lock (feedTierLock)
