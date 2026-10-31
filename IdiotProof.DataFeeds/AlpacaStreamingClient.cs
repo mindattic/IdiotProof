@@ -132,10 +132,16 @@ public sealed class AlpacaStreamingClient : IAsyncDisposable
                     await SendAsync(new { action = "subscribe", trades = current.ToArray(), bars = current.ToArray() }, ct).ConfigureAwait(false);
 
                 Status = "connected";
-                ConnectedSinceUtc = DateTime.UtcNow;
-                backoff = TimeSpan.FromSeconds(1); // reset after a good connect
+                var connectedAt = DateTime.UtcNow;
+                ConnectedSinceUtc = connectedAt;
 
                 await ReceiveUntilClosedAsync(socket, ct).ConfigureAwait(false);
+
+                // Reset the backoff only after a connection that actually held. An auth refusal or a
+                // "connection limit exceeded" closes within seconds; resetting on connect made those
+                // retry every second forever.
+                if (DateTime.UtcNow - connectedAt >= TimeSpan.FromSeconds(30))
+                    backoff = TimeSpan.FromSeconds(1);
             }
             catch (OperationCanceledException) when (ct.IsCancellationRequested)
             {

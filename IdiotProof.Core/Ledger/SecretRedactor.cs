@@ -97,7 +97,8 @@ public static partial class SecretRedactor
                 foreach (var (name, child) in obj.ToList())
                     obj[name] = IsAccountNumberName(name) && child is JsonValue v
                         ? JsonValue.Create(MaskAccountNumber(v.ToJsonString().Trim('"')))
-                        : Redact(child?.DeepClone(), IsSecretName(name));
+                        // Secret-ness is inherited: everything under {"credentials": {...}} is secret.
+                        : Redact(child?.DeepClone(), parentIsSecret || IsSecretName(name));
                 return obj;
             case JsonArray arr:
                 for (var i = 0; i < arr.Count; i++)

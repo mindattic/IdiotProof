@@ -108,7 +108,7 @@ public sealed partial class MarketWatchOperation : IOperation<MarketWatchArgs>
         {
             var name = p.Name;
             var watch = registry.OpenWatch($"market watch · {name}", new Uri(AlpacaStreamSession.DataStreamBase + p.Path), keys,
-                () => p.Subscribe, p.MsgPack, () => $"{(counts.TryGetValue(name, out var n) ? n : 0)} line(s) shown");
+                () => p.Subscribe, p.MsgPack, () => { lock (counts) return $"{(counts.TryGetValue(name, out var n) ? n : 0)} line(s) shown"; }, ctx.OwnerId);
             return (Plan: p, watch.Session, watch.Handle);
         }).ToList();
         var refused = new List<string>();

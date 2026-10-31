@@ -32,9 +32,9 @@ public sealed class MarketStreamStatusOperation : IOperation<NoArgs>
             rows.Add(Row($"monitor market data · {c.Feed}", "hub", c.Status, c.ConnectedSinceUtc, c.LastMessageUtc, c.Messages, c.Reconnects, 0,
                 $"{c.SubscribedCount} symbol(s): trades + minute bars", connected ? null : c.Status, connected, now));
         }
-        if (ctx.Services.GetService(typeof(StreamRegistry)) is StreamRegistry registry)
+        if (ctx.OwnerId is { } owner && ctx.Services.GetService(typeof(StreamRegistry)) is StreamRegistry registry)
         {
-            foreach (var h in registry.Health())
+            foreach (var h in registry.Health(owner))
                 rows.Add(Row(h.Name, ctx.OwnerId is null ? "-" : "you", h.State, h.ConnectedSinceUtc, h.LastMessageUtc, h.Messages, h.Reconnects,
                     h.Watchers, h.Detail, h.LastError, h.State == "live", now));
         }
