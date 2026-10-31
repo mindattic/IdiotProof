@@ -87,6 +87,17 @@ public sealed partial class TransactionGateway
                 BrokerMessage = ex.AlpacaMessage,
             }, caller, confirmedBy, ct);
         }
+        catch (JsonException ex)
+        {
+            return await AuditInstructionAsync(Stop(GatewayStatus.Rejected, "The instruction body is not valid JSON: " + ex.Message), caller, confirmedBy, ct);
+        }
+        catch (Exception ex) when (ex is HttpRequestException || ex is OperationCanceledException && !ct.IsCancellationRequested)
+        {
+            // The request may or may not have reached Alpaca (connection reset, timeout): the
+            // confirm code is spent either way, so the attempt must be on the audit trail.
+            return await AuditInstructionAsync(Stop(GatewayStatus.Rejected,
+                $"No answer from Alpaca ({ex.GetType().Name}: {ex.Message}); check the account before retrying."), caller, confirmedBy, ct);
+        }
     }
 
     /// <summary>Every instruction outcome leaves an audit row ("Placed: EXERCISE 2 … — message"), linked to the ledger.</summary>

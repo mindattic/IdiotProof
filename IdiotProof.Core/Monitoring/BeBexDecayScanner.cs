@@ -179,6 +179,12 @@ public sealed class BeBexDecayScanner(
         await settingsRepo.SetAsync(disarmedByUsKey, "true", ct);
 
         var mutation = await strategyRepo.SetActiveAsync(s.Id, false, s.OwnerUserId, ct);
+        if (mutation != StrategyMutation.Ok)
+        {
+            // Nothing was disarmed, so the flag must not claim it was: otherwise a later manual
+            // pause would look like our disarm and RearmAsync would override it.
+            await settingsRepo.SetAsync(disarmedByUsKey, "false", ct);
+        }
         if (mutation == StrategyMutation.PositionOpen)
         {
             await auditLogRepo.LogAsync("bebex-decay-gate",

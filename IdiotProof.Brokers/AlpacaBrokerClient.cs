@@ -398,7 +398,7 @@ public sealed class AlpacaBrokerClient : IBrokerClient, IAsyncDisposable
 
     public async Task<OrderResult> CancelOrderAsync(string orderId, CancellationToken ct = default)
     {
-        using var response = await httpClient.DeleteAsync($"/v2/orders/{orderId}", ct).ConfigureAwait(false);
+        using var response = await httpClient.DeleteAsync($"/v2/orders/{Uri.EscapeDataString(orderId)}", ct).ConfigureAwait(false);
 
         if ((int)response.StatusCode == 204)
         {

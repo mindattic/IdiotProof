@@ -1188,7 +1188,9 @@ public sealed class MonitorWorker(
             // real cost basis on the first evaluation tick.
             try
             {
-                var bootstrapBroker = await brokerResolver.ResolveAsync(stored.OwnerUserId, stored.BrokerMode, ct);
+                // The same route the exit orders will take (IOrderRouting), so the cost basis comes
+                // from the account the position will actually be sold in.
+                var bootstrapBroker = await orderRouting.ResolveAsync(stored.OwnerUserId, IdiotProof.Core.Trading.OrderIntent.ParseMode(stored.BrokerMode), ct);
                 var brokerPositions = await bootstrapBroker.GetPositionsAsync(ct);
                 var brokerMatch = brokerPositions.FirstOrDefault(p =>
                     string.Equals(p.Symbol, stored.Symbol, StringComparison.OrdinalIgnoreCase)
@@ -1207,10 +1209,12 @@ public sealed class MonitorWorker(
                     return;
                 }
             }
-            catch (Exception bootstrapEx)
+            catch (Exception bootstrapEx) when (bootstrapEx is not OperationCanceledException || !ct.IsCancellationRequested)
             {
-                logger.LogWarning(bootstrapEx, "[{Title}] could not bootstrap entry from broker — clearing orphaned position.", stored.Title);
-                await strategyRepo.RecordExitFillAsync(stored.Id, 0m, "Orphaned", DateTime.UtcNow, ct);
+                // A transient broker error (429, 5xx, DNS, timeout) says nothing about whether the
+                // position exists: keep the bookkeeping and retry next tick. Only a definitive
+                // "no such position" above clears it.
+                logger.LogWarning(bootstrapEx, "[{Title}] could not bootstrap entry from broker; will retry next tick.", stored.Title);
                 return;
             }
         }

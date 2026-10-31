@@ -165,7 +165,7 @@ public sealed partial class TransactionGateway(
         {
             client = await routing.ResolveAsync(intent.OwnerUserId, intent.Mode, ct);
         }
-        catch (Exception ex) when (ex is not OperationCanceledException)
+        catch (Exception ex) when (ex is not OperationCanceledException || !ct.IsCancellationRequested)
         {
             verdicts.Add(new("route", false, "No broker could be resolved: " + ex.Message));
             return await AuditAsync(Stop(GatewayStatus.Blocked, "No broker available."), options, ct);
@@ -176,6 +176,13 @@ public sealed partial class TransactionGateway(
         {
             verdicts.Add(new("route", false, $"Live requested but it resolves to {routedTo}: opt in to Alpaca and add live keys (`idiotproof keys`)."));
             return await AuditAsync(Stop(GatewayStatus.Blocked, "Live trading is not set up for this user."), options, ct);
+        }
+        if (intent.Mode == BrokerMode.Paper && routedLive)
+        {
+            // A Paper intent must never reach real money, e.g. an owner without paper keys falling
+            // back to a global broker that is a live Alpaca account.
+            verdicts.Add(new("route", false, $"Paper requested but it resolves to a LIVE account ({routedTo})."));
+            return await AuditAsync(Stop(GatewayStatus.Blocked, "Paper order would route to a live account."), options, ct);
         }
         verdicts.Add(new("route", true, intent.Mode == BrokerMode.Paper && client.BrokerType == BrokerType.Sandbox
             ? "Paper requested; no paper keys/opt-in, so it runs in the Sandbox simulator"
@@ -283,7 +290,10 @@ public sealed partial class TransactionGateway(
                 _ => await client.PlaceOrderAsync(intent.Order, ct),
             };
         }
-        catch (Exception ex) when (ex is not OperationCanceledException)
+        // An HttpClient timeout surfaces as TaskCanceledException without our token being cancelled:
+        // the order may have reached the broker, so it is audited as BrokerThrew (callers reconcile
+        // on that) instead of escaping the gateway.
+        catch (Exception ex) when (ex is not OperationCanceledException || !ct.IsCancellationRequested)
         {
             logger.LogError(ex, "Broker threw on {Order}", intent.Describe());
             placed = new OrderResult { IsSuccess = false, Message = ex.Message };
@@ -518,6 +528,10 @@ public sealed partial class TransactionGateway(
             return "Extended-hours orders must be DAY limit orders (Alpaca's rule).";
         if (o.AssetClass == AssetClass.Option && !multiLeg && (o.Notional is not null || o.FractionalQuantity is not null || o.ExtendedHours || o.Option is null))
             return "Options trade whole contracts, regular hours, with the contract attached.";
+        // The single-leg options payload carries no take-profit/stop-loss children, so a bracket,
+        // OCO or OTO option order would silently lose its protective leg at the broker.
+        if (o.AssetClass == AssetClass.Option && !multiLeg && o.OrderClass != OrderClass.Simple)
+            return "Single-leg options support simple orders only; bracket, OCO and OTO are not available for options.";
         return ValidateClass(o, fractional);
     }
 
@@ -625,7 +639,7 @@ public sealed partial class TransactionGateway(
                 Rationale = intent.Note ?? "",
             };
         }
-        var qty =o.SizeQuantity > 0 ? (int)Math.Ceiling(o.SizeQuantity) : (int)Math.Floor((o.Notional ?? 0) / price.Value);
+        var qty = o.SizeQuantity > 0 ? (int)Math.Min(int.MaxValue, Math.Ceiling(o.SizeQuantity)) : (int)Math.Min(int.MaxValue, Math.Floor((o.Notional ?? 0) / price.Value));
         var isLong = o.Side == OrderSide.Buy;
         return new TradeSetup
         {
