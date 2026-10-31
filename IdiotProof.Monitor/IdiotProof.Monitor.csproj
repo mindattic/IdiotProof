@@ -33,6 +33,8 @@
     <ProjectReference Include="..\IdiotProof.Engine\IdiotProof.Engine.csproj" />
     <!-- The shared service graph, the Monitor worker and the operator commands' services. -->
     <ProjectReference Include="..\IdiotProof.Core\IdiotProof.Core.csproj" />
+    <!-- HubWire/HubKey: subcommands with an operation forward to the Hub (IP-T138). -->
+    <ProjectReference Include="..\IdiotProof.Operations\IdiotProof.Operations.csproj" />
   </ItemGroup>
 
 </Project>

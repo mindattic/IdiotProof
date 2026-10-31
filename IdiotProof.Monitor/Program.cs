@@ -53,6 +53,15 @@ AppDomain.CurrentDomain.UnhandledException += (_, e) =>
 if (args.Length == 0 || !MonitorCli.IsCommand(args[0]))
     return await HubShim.RunAsync(args);
 
+// Subcommands that now have an operation run it in the Hub (IP-T138); --local keeps the old path.
+if (MonitorForwarding.Translate(args, out var forwardUsage) is { } forward)
+    return await MonitorForwarding.RunAsync(forward, Console.Out, Console.Error);
+if (forwardUsage is not null)
+{
+    Console.Error.WriteLine(forwardUsage);
+    return 2;
+}
+
 // Brand wordmark on startup (shared source of truth — IdiotProof.Shared.Branding).
 Console.WriteLine();
 Console.WriteLine(IdiotProof.Shared.Branding.AsciiBanner);
