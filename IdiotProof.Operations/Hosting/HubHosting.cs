@@ -32,5 +32,5 @@ public static class HubHosting
 
     /// <summary>The Hub's MindAttic.Log database (<c>%APPDATA%\MindAttic\Logging\IdiotProof.Hub\MindAttic.Log.db</c>).</summary>
     public static string LogDatabasePath(string roamingAppData) =>
-        Path.Combine(roamingAppData, "MindAttic", "Logging", LogApplication, "MindAttic.Log.db");
+        IdiotProof.Core.Hosting.IdiotProofLog.DatabasePath(LogApplication, roamingAppData);
 }

@@ -12,7 +12,13 @@ using MindAttic.Authentication.Web;
 using MindAttic.Vault.Paths;
 
 using IdiotProof.Core.Services;
+// Durable diagnostics (IP-T16/IP-T23): warnings and up from the framework, Information and up
+// from IdiotProof, and every unhandled exception go to MindAttic.Log at
+// %APPDATA%\MindAttic\Logging\IdiotProof.Blazor\MindAttic.Log.db (beside the console).
+IdiotProofLog.Start(IdiotProofLog.Blazor);
+
 var builder = WebApplication.CreateBuilder(args);
+builder.Logging.AddIdiotProofLog();
 
 // When running as a published exe from a non-source directory (local deploy), the
 // dev-mode static-web-assets manifest is absent so WebRootPath can be null. Pin it.
@@ -121,6 +127,7 @@ builder.Services.AddSingleton(new DevCredentials(
 
 // ── App ──────────────────────────────────────────────────────────────────────────
 var app = builder.Build();
+app.Logger.LogInformation("IdiotProof.Blazor starting ({Environment}).", app.Environment.EnvironmentName);
 
 // Apply pending EF migrations on startup. Creates the IdiotProof database on
 // LocalDB if missing, then keeps schema in sync with the codebase.

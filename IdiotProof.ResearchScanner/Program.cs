@@ -5,6 +5,7 @@ using IdiotProof.Engine.Storage;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 
 // ── IdiotProof.ResearchScanner ──────────────────────────────────────────────
 //
@@ -27,7 +28,14 @@ using Microsoft.Extensions.Hosting;
 //                                       filings are infrequent)
 //
 // Run once by hand:  dotnet run --project IdiotProof.ResearchScanner
+
+// Diagnostics (IP-T16/IP-T23): the host's ILogger output and unhandled exceptions also go to
+// MindAttic.Log (%APPDATA%\MindAttic\Logging\IdiotProof.ResearchScanner\MindAttic.Log.db); the
+// per-day research-scan\<yyyyMMdd>.log summary below stays as the deliberate run record.
+IdiotProofLog.Start(IdiotProofLog.ResearchScanner);
+
 var builder = Host.CreateApplicationBuilder(args);
+builder.Logging.AddIdiotProofLog();
 
 // The shared IdiotProof graph (HOUSE-LAW-6): the same SQL database, Vault buckets, AppSettings
 // overlay chain, Legion client and research services as the web app and the Monitor.
@@ -55,3 +63,5 @@ var summary = $"[{DateTime.UtcNow:u}] scan run {scanRun.Id}: " +
               $"{(scanRun.CompletedUtc!.Value - scanRun.StartedUtc).TotalSeconds:0.0}s";
 File.AppendAllText(logFile, summary + Environment.NewLine);
 Console.WriteLine(summary);
+IdiotProofLog.Information("ScanRun", "{Summary:l}", summary);
+IdiotProofLog.Stop();

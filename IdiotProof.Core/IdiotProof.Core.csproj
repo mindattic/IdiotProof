@@ -44,6 +44,9 @@
     <PackageReference Include="MailKit" Version="4.16.0" />
     <!-- User-facing files (replay pages, ML dataset) go through ArtifactWriter. -->
     <PackageReference Include="MindAttic.Export" Version="3.0.0" />
+    <!-- Every entry point's durable log (IdiotProofLog, IP-T16/IP-T23): one standalone
+         MindAttic.Log.db per application under %APPDATA%\MindAttic\Logging. -->
+    <PackageReference Include="MindAttic.Log" Version="3.0.0" />
   </ItemGroup>
   <ItemGroup>
     <!-- Static JSON catalogs (IP-LAW-7) ship to {app}/data/ of every host that references Core. -->

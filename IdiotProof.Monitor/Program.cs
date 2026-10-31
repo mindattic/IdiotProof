@@ -37,18 +37,10 @@ using IdiotProof.Core.Monitoring;
 // Run:   dotnet run --project IdiotProof.Monitor     (= starts the Hub)
 // Stop:  Ctrl+C (the Hub shuts down gracefully: drain, stop the loop, release the lease)
 
-// Crash dump — write unhandled exceptions to crash.log next to the exe so the
-// event survives even if the DB / logger is what caused the crash.
-AppDomain.CurrentDomain.UnhandledException += (_, e) =>
-{
-    try
-    {
-        var crashLog = Path.Combine(AppContext.BaseDirectory, "crash.log");
-        File.AppendAllText(crashLog,
-            $"[{DateTime.UtcNow:u}] CRASH (isTerminating={e.IsTerminating})\n{e.ExceptionObject}\n---\n");
-    }
-    catch { /* best-effort; if the file write fails there is nothing left to do */ }
-};
+// Durable log (IP-T16/IP-T23): unhandled exceptions and the local subcommands' diagnostics go to
+// MindAttic.Log (%APPDATA%\MindAttic\Logging\IdiotProof.Monitor\MindAttic.Log.db) — a SQLite
+// file of its own, so the event survives even when the SQL database is what crashed.
+IdiotProofLog.Start(IdiotProofLog.Monitor);
 
 // No subcommand: be the shim. Nothing below (host, migrations) is needed to start the Hub.
 if (args.Length == 0 || !MonitorCli.IsCommand(args[0]))
@@ -114,6 +106,7 @@ builder.Logging.AddSimpleConsole(o =>
 // (fill blocks, self-ping) bypass the logger and are always visible.
 builder.Logging.AddFilter("Microsoft", LogLevel.Warning);
 builder.Logging.AddFilter("IdiotProof", LogLevel.Warning);
+builder.Logging.AddIdiotProofLog();
 
 var host = builder.Build();
 
@@ -127,6 +120,8 @@ using (var migScope = host.Services.CreateScope())
     using var migDb = dbf.CreateDbContext();
     migDb.Database.Migrate();
 }
+
+IdiotProofLog.Information("Startup", "idiotproof-monitor {Subcommand:l} (local)", args[0]);
 
 // Operator CLI subcommands (status / set-keys / create-strategies) run against
 // the built DI and EXIT — they never start the trading worker (RunAsync). This
