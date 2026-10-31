@@ -209,35 +209,39 @@ public static class MonitorCli
 
     // ── test-order ──────────────────────────────────────────────────────
     // Proves the resolved broker can place AND cancel an order autonomously
-    // (no human step) through the EXACT code path the Monitor uses at fire
-    // time. Places a deliberately-unfillable limit buy (far below market) and
-    // cancels it — zero fill risk, paper account.
+    // (no human step) through the TransactionGateway — the one road every
+    // order takes. Places a deliberately-unfillable limit buy (far below
+    // market) and cancels it — zero fill risk, paper account. --live --force
+    // tries the live account; the gateway then asks for a confirm code for
+    // the place and again for the cancel.
     private static async Task<int> TestOrderAsync(IServiceProvider sp, Dictionary<string, string> opt)
     {
-        var resolver = sp.GetRequiredService<UserBrokerResolver>();
+        var gateway = sp.GetRequiredService<IdiotProof.Core.Trading.TransactionGateway>();
+        var routing = sp.GetRequiredService<IdiotProof.Core.Trading.IOrderRouting>();
         var userId = await ResolveUserAsync(sp, opt);
         if (userId is null) return Fail("test-order requires --user <guid>.");
 
         var symbol = opt.GetValueOrDefault("symbol", "AAPL").ToUpperInvariant();
-        var broker = await resolver.ResolveAsync(userId.Value);
-        Line($"Broker: {broker.BrokerType} ({(broker.IsPaper ? "PAPER" : "LIVE")}) — placing an UNFILLABLE test limit then cancelling…");
-        if (!broker.IsPaper && !opt.ContainsKey("force"))
-            return Fail("resolved broker is LIVE — refusing a live test order without --force.");
+        var mode = opt.ContainsKey("live") ? IdiotProof.Core.Trading.BrokerMode.Live : IdiotProof.Core.Trading.BrokerMode.Paper;
+        if (mode == IdiotProof.Core.Trading.BrokerMode.Live && !opt.ContainsKey("force"))
+            return Fail("--live places on the LIVE account — refusing without --force.");
+        var broker = await routing.ResolveAsync(userId.Value, mode, CancellationToken.None);
+        Line($"Broker: {broker.BrokerType} ({(broker.IsPaper ? "PAPER" : "LIVE")}) — placing an UNFILLABLE test limit through the gateway then cancelling…");
 
         // Limit BUY 1 share @ $1: a buy limit that far below market can never fill.
-        var order = await broker.PlaceOrderAsync(new IdiotProof.Models.OrderRequest
-        {
-            Symbol = symbol, Quantity = 1, Side = IdiotProof.Models.OrderSide.Buy,
-            Type = IdiotProof.Models.OrderType.Limit, LimitPrice = 1.00m, TimeInForce = "DAY",
-        });
-        if (!order.IsSuccess)
-            return Fail($"PLACE failed — the key CANNOT place orders: {order.Message}");
-        Line($"   ✓ PLACE ok — order id {order.BrokerOrderId} (accepted by {broker.BrokerType}, no human step)");
+        var placed = await IdiotProof.Core.Trading.GatewayConsole.SubmitAsync(gateway,
+            MonitorOrders.TestOrder(userId.Value, mode, symbol), "monitor-cli",
+            IdiotProof.Core.Trading.GatewayConsole.ReadLineIfInteractive, Line);
+        if (placed.Status != IdiotProof.Core.Trading.GatewayStatus.Placed || placed.Order is not { IsSuccess: true } order)
+            return Fail($"PLACE did not go through ({placed.Status}): {MonitorOrders.WhyNot(placed)}");
+        Line($"   ✓ PLACE ok — order id {order.BrokerOrderId} (accepted on {placed.RoutedTo}, no human step on paper)");
 
-        var cancel = await broker.CancelOrderAsync(order.BrokerOrderId);
-        if (!cancel.IsSuccess)
+        var cancel = await IdiotProof.Core.Trading.GatewayConsole.SubmitAsync(gateway,
+            MonitorOrders.CancelTestOrder(userId.Value, mode, symbol, order.BrokerOrderId), "monitor-cli",
+            IdiotProof.Core.Trading.GatewayConsole.ReadLineIfInteractive, Line);
+        if (cancel.Status != IdiotProof.Core.Trading.GatewayStatus.Placed)
         {
-            Line($"   ⚠ CANCEL failed: {cancel.Message} — the resting $1 limit will expire at session end (unfillable). Cancel it in the Alpaca dashboard if you prefer.");
+            Line($"   ⚠ CANCEL failed: {MonitorOrders.WhyNot(cancel)} — the resting $1 limit will expire at session end (unfillable). Cancel it in the Alpaca dashboard if you prefer.");
             return Fail("placed but could not cancel — see warning.");
         }
         Line($"   ✓ CANCEL ok — order {order.BrokerOrderId} cancelled.");
@@ -262,7 +266,8 @@ public static class MonitorCli
             ? sf.Trim().ToUpperInvariant() : null;
 
         var strategyRepo = sp.GetRequiredService<StrategyRepository>();
-        var resolver     = sp.GetRequiredService<UserBrokerResolver>();
+        var routing      = sp.GetRequiredService<IdiotProof.Core.Trading.IOrderRouting>();
+        var gateway      = sp.GetRequiredService<IdiotProof.Core.Trading.TransactionGateway>();
         var tradeDiary   = sp.GetRequiredService<TradeDiaryRepository>();
         var riskService  = sp.GetRequiredService<RiskGuardianService>();
 
@@ -290,7 +295,9 @@ public static class MonitorCli
         async Task<(IBrokerClient Broker, Dictionary<string, Position> Positions)> GetForModeAsync(string mode)
         {
             if (byMode.TryGetValue(mode, out var cached)) return cached;
-            var b = await resolver.ResolveAsync(userId.Value, mode);
+            // The gateway's own route for this mode, so the positions read here are the account
+            // the exit order is sent to.
+            var b = await routing.ResolveAsync(userId.Value, IdiotProof.Core.Trading.OrderIntent.ParseMode(mode), CancellationToken.None);
             var pos = (await b.GetPositionsAsync()).ToDictionary(p => p.Symbol, p => p, StringComparer.OrdinalIgnoreCase);
             var entry = (b, pos);
             byMode[mode] = entry;
@@ -333,13 +340,17 @@ public static class MonitorCli
             // Same order shape as the Monitor's own exit path: marketable limit
             // (sell -0.5% / buy back +0.5%) with a *_to_close intent, so a
             // stale PositionQty can only close, never open the opposite side.
-            var exitOrder = DirectionalOrders.Exit(sym, direction, qty, refPx, extended);
-            var limit = exitOrder.LimitPrice!.Value;
-            var sideLabel = DirectionalOrders.SideLabel(exitOrder.Side);
-            var order = await broker.PlaceOrderAsync(exitOrder);
-            if (!order.IsSuccess)
+            // Through the gateway (an exit: no LLM / Risk Guardian, passes on
+            // Mock data); a Live one asks the operator for its confirm code.
+            var intent = MonitorOrders.ManualFlatten(userId.Value, st.Id, st.BrokerMode, sym, direction, qty, refPx, extended);
+            var limit = intent.Order.LimitPrice!.Value;
+            var sideLabel = DirectionalOrders.SideLabel(intent.Order.Side);
+            var outcome = await IdiotProof.Core.Trading.GatewayConsole.SubmitAsync(gateway, intent, "monitor-cli",
+                IdiotProof.Core.Trading.GatewayConsole.ReadLineIfInteractive, Line);
+            if (outcome.Status != IdiotProof.Core.Trading.GatewayStatus.Placed || outcome.Order is not { IsSuccess: true } order)
             {
-                Line($"  ✗ {sym} \"{st.Title}\" [{st.BrokerMode}] — {sideLabel} rejected by {broker.BrokerType}: {order.Message}");
+                var why = outcome.Status == IdiotProof.Core.Trading.GatewayStatus.ConfirmationRequired ? outcome.Message : MonitorOrders.WhyNot(outcome);
+                Line($"  ✗ {sym} \"{st.Title}\" [{st.BrokerMode}] — {sideLabel} not sent ({outcome.Status}, {broker.BrokerType}): {why}");
                 continue;
             }
 
