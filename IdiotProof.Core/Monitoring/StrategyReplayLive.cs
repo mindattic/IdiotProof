@@ -29,6 +29,68 @@ namespace IdiotProof.Monitor;
 /// </summary>
 public static partial class StrategyReplay
 {
+    /// <summary>
+    /// Renders what the Monitor ACTUALLY did on <paramref name="dateEt"/> for <paramref name="ownerId"/>:
+    /// one live <see cref="ReplayRun"/> per (symbol, strategy) built from the trade diary and drawn on
+    /// that day's bars from <paramref name="feed"/>; re-running replaces the prior live run for the
+    /// same key. Pages are rendered only when <paramref name="outRoot"/> is given.
+    /// </summary>
+    public static async Task<LiveReplayResult> ReplayLiveAsync(IDbContextFactory<AppDbContext> dbf, StrategyRepository repo,
+        IMarketDataFeed feed, string feedLabel, Guid ownerId, DateOnly dateEt, string? symbolFilter, string? outRoot,
+        DateTime nowUtc, CancellationToken ct = default)
+    {
+        // ── Pull the day's executed trades from the diary (system of record) ──
+        // Window the query by the ET day's UTC bounds on EntryUtc, so a trade is
+        // grouped under the day it was ENTERED (a hold-through-midnight exit still
+        // belongs to its entry day).
+        var dayStartUtc = EtToUtc(dateEt, new TimeSpan(0, 0, 0));
+        var dayEndUtc = EtToUtc(dateEt.AddDays(1), new TimeSpan(0, 0, 0));
+        List<TradeDiaryEntry> diary;
+        await using (var db = await dbf.CreateDbContextAsync(ct))
+        {
+            var q = db.TradeDiary.Where(t => t.OwnerUserId == ownerId
+                                          && t.EntryUtc >= dayStartUtc && t.EntryUtc < dayEndUtc
+                                          && t.Status != TradeDiaryStatus.Orphaned);
+            if (symbolFilter is not null) q = q.Where(t => t.Symbol == symbolFilter);
+            diary = await q.OrderBy(t => t.EntryUtc).ToListAsync(ct);
+        }
+        var result = new LiveReplayResult(diary.Count, [], []);
+        if (diary.Count == 0) return result;
+
+        // Strategy defs (for the condition band + phase cards + flow), by id.
+        var strategies = (await repo.GetAllForUserAsync(ownerId, ct)).ToDictionary(s => s.Id, s => s);
+
+        // One run per (symbol, strategy) — matches the ReplayRun's single-strategy
+        // shape; a repeating strategy's multiple round-trips become multiple
+        // payoffs in that one run.
+        var groups = diary
+            .GroupBy(t => (t.Symbol.ToUpperInvariant(), t.StrategyId, t.StrategyTitle))
+            .ToList();
+
+        var touchedSymbols = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var g in groups)
+        {
+            var symbol = g.Key.Item1;
+            var trades = g.OrderBy(t => t.EntryUtc).ToList();
+            var strategyTitle = string.IsNullOrWhiteSpace(g.Key.StrategyTitle) ? $"{symbol} (untitled)" : g.Key.StrategyTitle;
+
+            var (run, skip) = await RenderLiveGroupAsync(dbf, feed, feedLabel, outRoot, dateEt,
+                symbol, strategyTitle, trades, strategies.GetValueOrDefault(g.Key.StrategyId), nowUtc, ct);
+            if (run is not null) { result.Runs.Add(run); touchedSymbols.Add(symbol); }
+            else result.Skipped.Add(skip ?? $"{symbol}: skipped");
+        }
+
+        // Rebuild the affected ticker indexes + the root index from SQL.
+        if (outRoot is not null)
+        {
+            foreach (var sym in touchedSymbols)
+                await WriteTickerIndexAsync(dbf, outRoot, sym);
+            await WriteRootIndexAsync(dbf, outRoot);
+        }
+        return result;
+    }
+
+    // ── legacy operator CLI (`replay-live`) — a thin wrapper over ReplayLiveAsync ──
     public static async Task<int> RunLiveAsync(IServiceProvider sp, Dictionary<string, string> opt)
     {
         // Date: the ET calendar day whose live trades to render. Default = today
@@ -40,8 +102,7 @@ public static partial class StrategyReplay
         var symbolFilter = opt.TryGetValue("symbol", out var symRaw) && !string.IsNullOrWhiteSpace(symRaw)
             ? symRaw.Trim().ToUpperInvariant() : null;
         var feedTier = (opt.GetValueOrDefault("feed", "sip")).ToLowerInvariant();
-        var outRoot = opt.GetValueOrDefault("out",
-            @"D:\Projects\MindAttic\MindAttic.Web\mindattic.com\idiotproof\replays");
+        var outRoot = opt.GetValueOrDefault("out", DefaultArchiveRoot);
 
         var userId = await ResolveUserAsync(sp, opt);
         if (userId is null) return Fail("No --user given and no single user found.");
@@ -51,70 +112,30 @@ public static partial class StrategyReplay
         if (string.IsNullOrWhiteSpace(k.AlpacaApiKeyId) || string.IsNullOrWhiteSpace(k.AlpacaApiSecretKey))
             return Fail($"user {userId} has no Alpaca data keys — set them first (set-keys).");
 
-        // ── Pull the day's executed trades from the diary (system of record) ──
-        // Window the query by the ET day's UTC bounds on EntryUtc, so a trade is
-        // grouped under the day it was ENTERED (a hold-through-midnight exit still
-        // belongs to its entry day).
-        var dayStartUtc = EtToUtc(dateEt, new TimeSpan(0, 0, 0));
-        var dayEndUtc = EtToUtc(dateEt.AddDays(1), new TimeSpan(0, 0, 0));
         var dbf = sp.GetRequiredService<IDbContextFactory<AppDbContext>>();
-        List<TradeDiaryEntry> diary;
         await using (var db = await dbf.CreateDbContextAsync())
-        {
             await db.Database.MigrateAsync();
-            var q = db.TradeDiary.Where(t => t.OwnerUserId == userId.Value
-                                          && t.EntryUtc >= dayStartUtc && t.EntryUtc < dayEndUtc
-                                          && t.Status != TradeDiaryStatus.Orphaned);
-            if (symbolFilter is not null) q = q.Where(t => t.Symbol == symbolFilter);
-            diary = await q.OrderBy(t => t.EntryUtc).ToListAsync();
-        }
 
-        if (diary.Count == 0)
+        await using var feed = new AlpacaDataFeed(k.AlpacaApiKeyId!, k.AlpacaApiSecretKey!, feedTier);
+        var r = await ReplayLiveAsync(dbf, sp.GetRequiredService<StrategyRepository>(), feed, feed.FeedTier, userId.Value,
+            dateEt, symbolFilter, outRoot, DateTime.UtcNow);
+        if (r.Trades == 0)
             return Fail($"no live trades in the diary for {dateEt:yyyy-MM-dd}" +
                         (symbolFilter is not null ? $" / {symbolFilter}" : "") +
                         ". Nothing to render (did the Monitor fire that day?).");
 
-        // Strategy defs (for the condition band + phase cards + flow), by id.
-        var repo = sp.GetRequiredService<StrategyRepository>();
-        var strategies = (await repo.GetAllForUserAsync(userId.Value))
-            .ToDictionary(s => s.Id, s => s);
-
-        // One run per (symbol, strategy) — matches the ReplayRun's single-strategy
-        // shape; a repeating strategy's multiple round-trips become multiple
-        // payoffs in that one run.
-        var groups = diary
-            .GroupBy(t => (t.Symbol.ToUpperInvariant(), t.StrategyId, t.StrategyTitle))
-            .ToList();
-
-        Console.WriteLine($"replay-live {dateEt:yyyy-MM-dd} · {diary.Count} trade(s) across {groups.Count} (symbol,strategy) group(s)");
-
-        int rendered = 0;
-        var touchedSymbols = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        foreach (var g in groups)
-        {
-            var symbol = g.Key.Item1;
-            var trades = g.OrderBy(t => t.EntryUtc).ToList();
-            var strategyTitle = string.IsNullOrWhiteSpace(g.Key.StrategyTitle) ? $"{symbol} (untitled)" : g.Key.StrategyTitle;
-
-            var ok = await RenderLiveGroupAsync(sp, dbf, k, feedTier, outRoot, dateEt,
-                symbol, strategyTitle, trades, strategies.GetValueOrDefault(g.Key.StrategyId));
-            if (ok) { rendered++; touchedSymbols.Add(symbol); }
-        }
-
-        // Rebuild the affected ticker indexes + the root index from SQL.
-        foreach (var sym in touchedSymbols)
-            await WriteTickerIndexAsync(dbf, outRoot, sym);
-        await WriteRootIndexAsync(dbf, outRoot);
-
-        Console.WriteLine($"  {rendered} live run(s) written across {touchedSymbols.Count} ticker(s) → {outRoot}");
+        Console.WriteLine($"replay-live {dateEt:yyyy-MM-dd} · {r.Trades} trade(s)");
+        foreach (var run in r.Runs)
+            Console.WriteLine($"  ● {run.Symbol} \"{run.Strategy}\" — {run.PayoffCount} trade(s), {run.TotalPnl:+0.##;-0.##;0}%  → {run.Stamp}/");
+        foreach (var s in r.Skipped) Console.Error.WriteLine("  " + s);
+        Console.WriteLine($"  {r.Runs.Count} live run(s) written across {r.Runs.Select(x => x.Symbol).Distinct(StringComparer.OrdinalIgnoreCase).Count()} ticker(s) → {outRoot}");
         Console.WriteLine("  publish: cd MindAttic.Deploy && node --use-system-ca src/deploy.js --site idiotproof-replays  (or /replays)");
         return 0;
     }
 
-    private static async Task<bool> RenderLiveGroupAsync(
-        IServiceProvider sp, IDbContextFactory<AppDbContext> dbf, UserApiKeys k,
-        string feedTier, string outRoot, DateOnly dateEt,
-        string symbol, string strategyTitle, List<TradeDiaryEntry> trades, Strategy? strategyRow)
+    private static async Task<(ReplayRun? Run, string? Skip)> RenderLiveGroupAsync(
+        IDbContextFactory<AppDbContext> dbf, IMarketDataFeed feed, string feedLabel, string? outRoot, DateOnly dateEt,
+        string symbol, string strategyTitle, List<TradeDiaryEntry> trades, Strategy? strategyRow, DateTime nowUtc, CancellationToken ct)
     {
         // Resolve the strategy definition (best-effort — the diary outlives its
         // strategy, so a deleted/edited row just costs us the condition band).
@@ -129,27 +150,17 @@ public static partial class StrategyReplay
         var isShort = trades[0].Direction.Equals(nameof(TradeDirection.Short), StringComparison.OrdinalIgnoreCase);
 
         // ── Fetch the day's bars (04:00–20:00 ET) on the chosen tier ──
-        var barStartUtc = EtToUtc(dateEt, new TimeSpan(4, 0, 0));
-        var barEndUtc = EtToUtc(dateEt, new TimeSpan(20, 0, 0));
-        var sipWall = DateTime.UtcNow - TimeSpan.FromMinutes(1);
-        if (feedTier == "sip" && barEndUtc > sipWall) barEndUtc = sipWall;
+        var (barStartUtc, barEndUtc) = DayWindowUtc(dateEt, nowUtc);
         if (barEndUtc <= barStartUtc)
-        {
-            Console.Error.WriteLine($"  {symbol}: session for {dateEt:yyyy-MM-dd} hasn't opened yet — skipped.");
-            return false;
-        }
+            return (null, $"{symbol}: session for {dateEt:yyyy-MM-dd} hasn't opened yet — skipped.");
 
-        await using var feed = new AlpacaDataFeed(k.AlpacaApiKeyId!, k.AlpacaApiSecretKey!, feedTier);
         var candles = new List<Candle>();
-        await foreach (var c in feed.GetHistoricalCandlesAsync(symbol, barStartUtc, barEndUtc, TimeSpan.FromMinutes(1)))
+        await foreach (var c in feed.GetHistoricalCandlesAsync(symbol, barStartUtc, barEndUtc, TimeSpan.FromMinutes(1), ct))
             candles.Add(c);
         if (candles.Count == 0)
-        {
-            Console.Error.WriteLine($"  {symbol}: no {feed.FeedTier} bars for {dateEt:yyyy-MM-dd} — skipped.");
-            return false;
-        }
+            return (null, $"{symbol}: no {feedLabel} bars for {dateEt:yyyy-MM-dd} — skipped.");
 
-        var previousClose = await ((IMarketDataFeed)feed).GetPreviousCloseAsync(symbol, barStartUtc);
+        var previousClose = await feed.GetPreviousCloseAsync(symbol, barStartUtc, ct);
         var emas = def is not null ? EmaPeriodCollector.Collect(def) : new HashSet<int>();
 
         int n = candles.Count;
@@ -237,7 +248,7 @@ public static partial class StrategyReplay
         double? entryPrice = payoffs.Count > 0 ? ((dynamic)payoffs[0]).entryPx : null;
         var broker = trades[0].Broker;
         var isPaper = trades[0].IsPaper;
-        var genUtc = DateTime.UtcNow;
+        var genUtc = DateTime.SpecifyKind(nowUtc, DateTimeKind.Utc);
         var genEt = TimeZoneInfo.ConvertTimeFromUtc(genUtc, MarketTime.Eastern);
 
         var data = new
@@ -245,7 +256,7 @@ public static partial class StrategyReplay
             symbol,
             strategy = strategyTitle,
             dateEt = dateEt.ToString("yyyy-MM-dd"),
-            feed = feed.FeedTier.ToUpperInvariant(),
+            feed = feedLabel.ToUpperInvariant(),
             generatedEt = genEt.ToString("yyyy-MM-dd HH:mm:ss 'ET'", CultureInfo.InvariantCulture),
             session = session.ToString(),
             side = isShort ? "SELL short" : "BUY long",
@@ -273,7 +284,7 @@ public static partial class StrategyReplay
 
         var run = new ReplayRun
         {
-            Symbol = symbol, Strategy = strategyTitle, DateEt = data.dateEt, Feed = data.feed, Kind = "live",
+            Symbol = symbol, Strategy = Clip(strategyTitle, 200), DateEt = data.dateEt, Feed = Clip(data.feed, 8), Kind = "live",
             Stamp = "", GeneratedUtc = genUtc, GeneratedEt = data.generatedEt,
             Fired = payoffs.Count > 0, PayoffCount = payoffs.Count, TotalPnl = Math.Round(totalPnlPct, 2),
             FirstFireEt = firstFireEt, EntryPrice = entryPrice, DataJson = dataJson,
@@ -288,25 +299,22 @@ public static partial class StrategyReplay
 
         // Idempotent refresh: drop any prior LIVE run for this exact (symbol,
         // date, strategy) — cascade removes its feature rows — then insert fresh.
-        await using (var db = await dbf.CreateDbContextAsync())
+        await using (var db = await dbf.CreateDbContextAsync(ct))
         {
             var stale = await db.ReplayRuns
-                .Where(r => r.Kind == "live" && r.Symbol == symbol && r.DateEt == data.dateEt && r.Strategy == strategyTitle)
-                .ToListAsync();
+                .Where(r => r.Kind == "live" && r.Symbol == symbol && r.DateEt == data.dateEt && r.Strategy == run.Strategy)
+                .ToListAsync(ct);
             if (stale.Count > 0) db.ReplayRuns.RemoveRange(stale);
 
             var (tradeRows, barRows) = ReplayFeatures.Extract(run);
             db.ReplayRuns.Add(run);
             db.ReplayTrades.AddRange(tradeRows);
             db.ReplayBars.AddRange(barRows);
-            await db.SaveChangesAsync();
+            await db.SaveChangesAsync(ct);
         }
 
-        await RenderRunPageAsync(run, outRoot);
-
-        var sign = totalPnlUsd >= 0 ? "+" : "";
-        Console.WriteLine($"  ● {symbol} \"{strategyTitle}\" — {trades.Count} trade(s), {sign}${totalPnlUsd:0.##} ({totalPnlPct:+0.##;-0.##;0}%)  → {run.Stamp}/");
-        return true;
+        if (outRoot is not null) await RenderRunPageAsync(run, outRoot);
+        return (run, null);
     }
 
     /// <summary>ET "HH:mm" (floored to the minute) of a UTC instant.</summary>
@@ -340,3 +348,6 @@ public static partial class StrategyReplay
         return p.Length == 2 && int.TryParse(p[0], out var h) && int.TryParse(p[1], out var m) ? h * 60 + m : 0;
     }
 }
+
+/// <summary>What a live replay rendered: the diary trades found, one run per (symbol, strategy), and any skipped group.</summary>
+public sealed record LiveReplayResult(int Trades, List<ReplayRun> Runs, List<string> Skipped);
