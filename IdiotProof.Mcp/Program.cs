@@ -44,7 +44,10 @@ builder.Services.AddSingleton(hub);
 builder.Services
     .AddMcpServer(o => o.ServerInfo = new() { Name = "idiotproof", Version = typeof(ToolSpec).Assembly.GetName().Version?.ToString() ?? "1.0.0" })
     .WithStdioServerTransport()
-    .WithTools(specs.Select(s => (ModelContextProtocol.Server.McpServerTool)new HubTool(s, hub)));
+    .WithTools(specs.Select(s => (ModelContextProtocol.Server.McpServerTool)new HubTool(s, hub)))
+    // The BIBLE, user stories, agent protocol and live catalog as resources (IP-T122).
+    .WithResources(DocResources.ToMcp(DocResources.All(
+        DocResources.FindRepoRoot(), AppContext.BaseDirectory, hub.TryGetCatalogAsync, offlineCatalog.ToJsonNode())));
 
 await builder.Build().RunAsync();
 return 0;

@@ -17,6 +17,12 @@
     <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.*" />
   </ItemGroup>
   <ItemGroup>
+    <!-- Shipped copies for the MCP resources when the server runs outside the checkout (IP-T122). -->
+    <None Include="..\docs\BIBLE.md" Link="docs\BIBLE.md" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <None Include="..\docs\USER_STORIES.md" Link="docs\USER_STORIES.md" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <None Include="..\docs\agent\IDIOTPROOF_PROTOCOL.md" Link="docs\agent\IDIOTPROOF_PROTOCOL.md" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+  <ItemGroup>
     <ProjectReference Include="..\IdiotProof.Operations\IdiotProof.Operations.csproj" />
   </ItemGroup>
 </Project>
