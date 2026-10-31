@@ -107,16 +107,19 @@ public sealed record GatewayOptions
 /// LLM panel for automated entries (IP-LAW-1) → Live confirmation → place → audit.
 /// Every outcome but a dry run leaves an AuditLog row (linked to the Hub's CommandLedger row
 /// through <see cref="CommandScope"/>); a manual order the broker accepted also opens or closes
-/// a TradeDiary row (the Monitor keeps its own strategy diary).
+/// a TradeDiary row (the Monitor keeps its own strategy diary). Instructions that are not orders
+/// (option exercise, crypto withdrawals) take <see cref="SubmitInstructionAsync"/> in
+/// TransactionGateway.Instructions.cs, which uses <paramref name="alpaca"/>.
 /// </summary>
-public sealed class TransactionGateway(
+public sealed partial class TransactionGateway(
     IOrderRouting routing,
     IMarketDataFeed feed,
     RiskGuardianService riskGuardians,
     ConfirmationStore confirmations,
     AuditLogRepository audit,
     ILogger<TransactionGateway> logger,
-    TradeDiaryRepository? diary = null)
+    TradeDiaryRepository? diary = null,
+    AlpacaApiFactory? alpaca = null)
 {
     public Task<GatewayOutcome> PreviewAsync(OrderIntent intent, GatewayOptions? options = null, CancellationToken ct = default) =>
         SubmitAsync(intent, (options ?? new GatewayOptions()) with { DryRun = true }, ct);

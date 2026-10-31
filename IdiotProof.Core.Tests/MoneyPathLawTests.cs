@@ -75,6 +75,98 @@ public sealed class MoneyPathLawTests
         Assert.That(offenders, Is.Empty, "Send the order through TransactionGateway (IP-LAW-12).");
     }
 
+    // ── IP-LAW-12 for raw Alpaca REST (IP-T337) ─────────────────────────────
+
+    /// <summary>A string literal naming an order, position, exercise or wallet path.</summary>
+    private static readonly Regex MoneyPathLiteral = new(
+        @"""[^""\r\n]*(/v2/orders|/v2/positions|/v2/wallets|/exercise\b|/do-not-exercise\b)", RegexOptions.IgnoreCase);
+
+    /// <summary>
+    /// An AlpacaApi-style <c>SendAsync(method, path, ...)</c> call (not <c>HttpClient.SendAsync(request)</c>
+    /// on its own line, which the path check below also covers) whose verb is not GET.
+    /// </summary>
+    private static readonly Regex SendCall = new(@"\.\s*SendAsync\s*\((?<args>[^;]*)", RegexOptions.Singleline);
+
+    /// <summary>A read: GetAsync / GetDataAsync / GetDataPagedAsync, or SendAsync(HttpMethod.Get, ...).</summary>
+    private static readonly Regex ReadCall = new(
+        @"\.\s*(GetAsync|GetDataAsync|GetDataPagedAsync)\s*\([^;]*|\.\s*SendAsync\s*\(\s*HttpMethod\.Get\b[^;]*", RegexOptions.Singleline);
+
+    /// <summary>
+    /// The raw Alpaca mutations in <paramref name="source"/> that touch the money path: a non-GET
+    /// <c>SendAsync</c> whose own arguments name an order/position/exercise/wallet path, or any
+    /// non-GET <c>SendAsync</c> in a file that names one (the path handed to a helper).
+    /// </summary>
+    internal static IReadOnlyList<string> MoneyPathMutations(string source)
+    {
+        var code = string.Join("\n", source.Split('\n').Select(l => IsComment(l) ? "" : l));
+        // Reads may name these paths freely (a position read before an exercise preview).
+        var withoutReads = ReadCall.Replace(code, "");
+        var fileNamesAPath = MoneyPathLiteral.IsMatch(withoutReads);
+        var hits = new List<string>();
+        foreach (Match m in SendCall.Matches(code))
+        {
+            var args = m.Groups["args"].Value;
+            if (args.TrimStart().StartsWith("HttpMethod.Get", StringComparison.Ordinal)) continue;
+            if (MoneyPathLiteral.IsMatch(args) || fileNamesAPath)
+            {
+                var line = code[..m.Index].Count(c => c == '\n') + 1;
+                hits.Add($"{line}: {m.Value.Split('\n')[0].Trim()}");
+            }
+        }
+        return hits;
+    }
+
+    [Test]
+    public void Law12_NoProductionCode_SendsARawAlpacaMutation_OnTheMoneyPath_ButTheGateway()
+    {
+        var root = RepoRoot();
+        var trading = Path.Combine(root, "IdiotProof.Core", "Trading");
+        // `alpaca raw` sends arbitrary paths, but its refusal list blocks every money path (asserted below).
+        var raw = Path.Combine(root, "IdiotProof.Operations", "Alpaca", "AlpacaRawOperation.cs");
+        var offenders = ProductionSources(root)
+            .Where(f => !(Path.GetDirectoryName(f)!.Equals(trading, StringComparison.OrdinalIgnoreCase)
+                          && Path.GetFileName(f).StartsWith("TransactionGateway", StringComparison.Ordinal)))
+            .Where(f => !string.Equals(f, raw, StringComparison.OrdinalIgnoreCase))
+            .SelectMany(f => MoneyPathMutations(File.ReadAllText(f)).Select(h => $"{Path.GetRelativePath(root, f)}:{h}"))
+            .ToList();
+
+        Assert.That(offenders, Is.Empty,
+            "Orders, position closes, exercises and wallet moves go through TransactionGateway (SubmitAsync / SubmitInstructionAsync), IP-LAW-12.");
+
+        if (File.Exists(raw))
+        {
+            var refusals = File.ReadAllText(raw);
+            Assert.That(refusals, Does.Contain("\"/v2/orders\"").And.Contain("\"/v2/positions\"").And.Contain("\"/v2/wallets\"")
+                .And.Contain("\"exercise\"").And.Contain("\"do-not-exercise\""),
+                "`alpaca raw` may send any path only while its refusal list covers every money path.");
+        }
+    }
+
+    [Test]
+    public void TheRawMutationScan_CatchesDirectAndHelperRoutedMoneyPathCalls()
+    {
+        const string direct = """
+            await api.GetAsync($"/v2/positions/{symbol}");
+            await api.SendAsync(HttpMethod.Post, $"/v2/positions/{Uri.EscapeDataString(symbol)}/exercise", ct: ct);
+            """;
+        const string viaHelper = """
+            return await Run(ctx, HttpMethod.Post, "/v2/wallets/transfers", body);
+            static Task Run(Ctx ctx, HttpMethod method, string path, object body) => api.SendAsync(method, path, body, null, ct);
+            """;
+        const string harmless = """
+            var w = await api.SendAsync(HttpMethod.Post, "/v2/watchlists", new { name });
+            var p = await api.SendAsync(HttpMethod.Get, "/v2/positions/AAPL");
+            // await api.SendAsync(HttpMethod.Post, "/v2/orders", body);
+            """;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(MoneyPathMutations(direct), Has.Count.EqualTo(1));
+            Assert.That(MoneyPathMutations(viaHelper), Has.Count.EqualTo(1));
+            Assert.That(MoneyPathMutations(harmless), Is.Empty);
+        });
+    }
+
     [Test]
     public void Law12_OnlyTheGateway_CanMarkLiveConfirmed()
     {

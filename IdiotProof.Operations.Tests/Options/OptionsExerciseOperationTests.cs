@@ -3,6 +3,7 @@ using System.Text;
 using IdiotProof.Blazor.Data;
 using IdiotProof.Blazor.Services;
 using IdiotProof.Brokers;
+using IdiotProof.Core.Ledger;
 using IdiotProof.Core.Trading;
 using IdiotProof.Operations.Options;
 using Microsoft.EntityFrameworkCore;
@@ -48,6 +49,9 @@ public class OptionsExerciseOperationTests
             .AddSingleton(confirmations)
             .AddSingleton(new AuditLogRepository(db, NullLogger<AuditLogRepository>.Instance))
             .AddSingleton<AlpacaApiFactory>(alpaca)
+            // Instructions only need the confirmations, the audit log and Alpaca access (IP-T337).
+            .AddSingleton(sp => new TransactionGateway(null!, null!, null!, confirmations,
+                sp.GetRequiredService<AuditLogRepository>(), NullLogger<TransactionGateway>.Instance, null, alpaca))
             .BuildServiceProvider(),
         OwnerId = Owner,
         ConfirmationCode = code,
@@ -126,6 +130,23 @@ public class OptionsExerciseOperationTests
         Assert.That(result.Status, Is.EqualTo(OperationStatus.Failed));
         Assert.That(result.Message, Does.Contain("out of the money"));
         Assert.That(await AuditAsync(), Has.One.StartsWith("Rejected:"));
+    }
+
+    [Test]
+    public async Task TheExercise_GoesThroughTheGateway_AndItsAuditRowIsLinkedToTheCommandLedger()
+    {
+        CommandScope.Begin("options exercise", "cli");
+
+        var result = await new OptionsExerciseOperation().ExecuteAsync(new OptionsExerciseArgs { Occ = Call, Note = "ITM at expiry" }, Context());
+        var ledgerId = await new CommandLedgerRepository(db, NullLogger<CommandLedgerRepository>.Instance)
+            .AppendAsync(new CommandLedgerEntry { OwnerUserId = Owner, Operation = "options exercise", Caller = "cli", Status = "Ok" });
+
+        Assert.That(result.IsOk, Is.True, result.Message);
+        await using var ctx = await db.CreateDbContextAsync();
+        var row = ctx.AuditLogs.Single();
+        Assert.That(row.Category, Is.EqualTo("order"));
+        Assert.That(row.DataJson, Does.StartWith($"{{\"command_ledger_id\":{ledgerId},"));
+        Assert.That(row.DataJson, Does.Contain("\"action\":\"exercise\"").And.Contain("ITM at expiry").And.Contain("\"operation\":\"options exercise\""));
     }
 
     /// <summary>Replies by "METHOD /path"; records every request. Nothing reaches the network.</summary>

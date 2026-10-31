@@ -102,8 +102,6 @@ public sealed record CryptoWhitelistRemoveArgs
 /// </summary>
 internal static class CryptoFunding
 {
-    public const string ConfirmationKind = "crypto-funding";
-
     /// <summary>One account's read: its JSON, or why it could not be read.</summary>
     public sealed record AccountRead(BrokerMode Mode, JsonElement? Json, string? Error)
     {
@@ -136,10 +134,13 @@ internal static class CryptoFunding
     }
 
     /// <summary>Alpaca's message, with the hint that funding is an eligibility feature when it is a 403/404/422.</summary>
-    public static string Unavailable(AlpacaApiException ex) =>
-        (int)ex.Status is 403 or 404 or 422
-            ? $"not available on this account ({(int)ex.Status}: {ex.AlpacaMessage})"
-            : $"Alpaca {(int)ex.Status}: {ex.AlpacaMessage}";
+    public static string Unavailable(AlpacaApiException ex) => Unavailable((int)ex.Status, ex.AlpacaMessage);
+
+    /// <inheritdoc cref="Unavailable(AlpacaApiException)"/>
+    public static string Unavailable(int status, string message) =>
+        status is 403 or 404 or 422
+            ? $"not available on this account ({status}: {message})"
+            : $"Alpaca {status}: {message}";
 
     public static IEnumerable<JsonElement> Items(JsonElement? json) => json switch
     {
@@ -162,54 +163,46 @@ internal static class CryptoFunding
         e.TryGetProperty(property, out var v) && v.ValueKind == JsonValueKind.String ? Fmt.Et(CryptoData.Time(e, property)) : "-";
 
     /// <summary>
-    /// The funding gate: the first call previews and issues a code bound to the exact request; the
-    /// same call with that code proceeds once. Null = proceed; else the result to return.
+    /// Sends a funding move through the TransactionGateway as a <see cref="BrokerInstruction"/>
+    /// (IP-LAW-12) that ALWAYS needs a code, paper too: the first call previews and issues a code
+    /// bound to the exact request; the same call with that code sends it once. The gateway audits
+    /// every outcome (category "funding") and links it to the command ledger; Alpaca's refusal
+    /// becomes a Fail carrying Alpaca's message (nothing retried, nothing guessed).
     /// </summary>
-    public static async Task<OperationResult?> GateAsync(OperationContext ctx, Guid owner, string payload, string preview, object data)
+    public static async Task<OperationResult> SubmitAsync(OperationContext ctx, Guid owner, BrokerMode mode, string action,
+        HttpMethod method, string path, object? body, decimal? quantity, string preview, object data,
+        Func<JsonElement, (object Data, string Done)> render)
     {
-        var hash = Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(payload)));
-        var store = ctx.Get<ConfirmationStore>();
-        if (string.IsNullOrWhiteSpace(ctx.ConfirmationCode))
+        var instruction = new BrokerInstruction
         {
-            var pending = await store.IssueAsync(owner, ConfirmationKind, payload, hash, preview, ctx.CancellationToken);
-            return OperationResult.NeedsConfirmation(pending.Code, preview, pending.ExpiresUtc, data) with { Human = preview };
-        }
-        var redemption = await store.RedeemAsync(ctx.ConfirmationCode, owner, ctx.Caller.ToString().ToLowerInvariant(),
-            p => p.Kind == ConfirmationKind && p.PayloadJson == payload ? hash : "mismatch", ctx.CancellationToken);
-        return redemption.Succeeded ? null : OperationResult.Blocked(redemption.Message, new { failure = redemption.Failure.ToString() });
-    }
-
-    /// <summary>
-    /// Runs a confirmed funding call: audits it, and turns Alpaca's refusal into a Fail carrying
-    /// Alpaca's message (nothing retried, nothing guessed).
-    /// </summary>
-    public static async Task<OperationResult> ExecuteAsync(OperationContext ctx, Guid owner, BrokerMode mode, HttpMethod method, string path,
-        object? body, string preview, string payload, Func<JsonElement, (object Data, string Done)> render)
-    {
-        var audit = ctx.Get<AuditLogRepository>();
-        try
+            OwnerUserId = owner,
+            Mode = mode,
+            Action = "crypto " + action,
+            Method = method.Method,
+            Path = path,
+            BodyJson = body is null ? null : JsonSerializer.Serialize(body),
+            Quantity = quantity,
+            Preview = preview,
+            AlwaysConfirm = true,
+            AuditCategory = "funding",
+        };
+        var outcome = await ctx.Get<TransactionGateway>().SubmitInstructionAsync(instruction,
+            ctx.Caller.ToString().ToLowerInvariant(), ctx.ConfirmationCode, ctx.CancellationToken);
+        switch (outcome.Status)
         {
-            await using var api = await ctx.Get<AlpacaApiFactory>().ForOwnerAsync(owner, mode, ctx.CancellationToken);
-            var json = await api.SendAsync(method, path, body, null, ctx.CancellationToken);
-            var (data, done) = render(json);
-            await audit.LogAsync("funding", $"Done: {preview.Split('\n')[0]} — {done}", owner, Audit(ctx, "Done", payload, done), ctx.CancellationToken);
-            return OperationResult.Ok(data, preview + "\n\n" + done);
-        }
-        catch (AlpacaApiException ex)
-        {
-            var why = Unavailable(ex);
-            await audit.LogAsync("funding", $"Rejected: {preview.Split('\n')[0]} — {why}", owner, Audit(ctx, "Rejected", payload, why), ctx.CancellationToken);
-            return OperationResult.Fail($"Alpaca refused: {why}. Nothing was moved.", new { status = (int)ex.Status, code = ex.AlpacaCode, message = ex.AlpacaMessage });
+            case GatewayStatus.Placed:
+                var (done, text) = render(outcome.Response);
+                return OperationResult.Ok(done, preview + "\n\n" + text);
+            case GatewayStatus.ConfirmationRequired:
+                return OperationResult.NeedsConfirmation(outcome.ConfirmationCode!, preview, outcome.ConfirmationExpiresUtc!.Value, data) with { Human = preview };
+            case GatewayStatus.Rejected:
+                var why = Unavailable(outcome.BrokerStatus ?? 0, outcome.BrokerMessage ?? outcome.Message);
+                return OperationResult.Fail($"Alpaca refused: {why}. Nothing was moved.",
+                    new { status = outcome.BrokerStatus, code = outcome.BrokerCode, message = outcome.BrokerMessage });
+            default:
+                return OperationResult.Blocked(outcome.Message, data);
         }
     }
-
-    private static string Audit(OperationContext ctx, string status, string payload, string message) => JsonSerializer.Serialize(new
-    {
-        status,
-        caller = ctx.Caller.ToString().ToLowerInvariant(),
-        request = JsonDocument.Parse(payload).RootElement,
-        message,
-    });
 }
 
 [Operation("crypto wallets", Summary = "Your Alpaca crypto deposit wallets (address per coin) on paper and live; fails closed when funding is not enabled.", Risk = OperationRisk.Read)]
@@ -389,14 +382,10 @@ public sealed class CryptoWithdrawOperation : IOperation<CryptoWithdrawArgs>
 
         var amount = args.Amount.ToString(CultureInfo.InvariantCulture);
         var body = new Dictionary<string, object?> { ["amount"] = amount, ["address"] = address, ["asset"] = asset };
-        var payload = JsonSerializer.Serialize(new { action = "withdraw", mode = args.Mode.ToString(), body });
         var preview = $"WITHDRAW {CryptoData.Size(args.Amount)} {asset} · {args.Mode}\n  to        {address}\n  effect    coins leave your Alpaca account; a sent transfer cannot be recalled";
         var data = new { action = "withdraw", asset, amount = args.Amount, address, mode = args.Mode.ToString().ToLowerInvariant() };
 
-        var gate = await CryptoFunding.GateAsync(ctx, owner, payload, preview, data);
-        if (gate is not null) return gate;
-
-        return await CryptoFunding.ExecuteAsync(ctx, owner, args.Mode, HttpMethod.Post, "/v2/wallets/transfers", body, preview, payload, json =>
+        return await CryptoFunding.SubmitAsync(ctx, owner, args.Mode, "withdraw", HttpMethod.Post, "/v2/wallets/transfers", body, args.Amount, preview, data, json =>
         {
             var id = CryptoData.Str(json, "id");
             var status = CryptoData.Str(json, "status");
@@ -419,14 +408,10 @@ public sealed class CryptoWhitelistAddOperation : IOperation<CryptoWhitelistAddA
         if (args.Mode == BrokerMode.Sandbox) return OperationResult.Usage("Sandbox is IdiotProof's simulator; use --mode paper or --mode live.");
 
         var body = new Dictionary<string, object?> { ["address"] = address, ["asset"] = asset };
-        var payload = JsonSerializer.Serialize(new { action = "whitelist-add", mode = args.Mode.ToString(), body });
         var preview = $"WHITELIST {asset} address · {args.Mode}\n  address   {address}\n  effect    withdrawals to this address become possible once Alpaca approves it";
         var data = new { action = "whitelist-add", asset, address, mode = args.Mode.ToString().ToLowerInvariant() };
 
-        var gate = await CryptoFunding.GateAsync(ctx, owner, payload, preview, data);
-        if (gate is not null) return gate;
-
-        return await CryptoFunding.ExecuteAsync(ctx, owner, args.Mode, HttpMethod.Post, "/v2/wallets/whitelists", body, preview, payload, json =>
+        return await CryptoFunding.SubmitAsync(ctx, owner, args.Mode, "whitelist-add", HttpMethod.Post, "/v2/wallets/whitelists", body, null, preview, data, json =>
         {
             var id = CryptoData.Str(json, "id");
             var status = CryptoData.Str(json, "status");
@@ -446,14 +431,10 @@ public sealed class CryptoWhitelistRemoveOperation : IOperation<CryptoWhitelistR
         if (id.Length == 0) return OperationResult.Usage("Name the whitelist entry id (see `idiotproof crypto whitelist`).");
         if (args.Mode == BrokerMode.Sandbox) return OperationResult.Usage("Sandbox is IdiotProof's simulator; use --mode paper or --mode live.");
 
-        var payload = JsonSerializer.Serialize(new { action = "whitelist-remove", mode = args.Mode.ToString(), id });
         var preview = $"REMOVE whitelist entry {id} · {args.Mode}\n  effect    withdrawals to that address stop being allowed";
         var data = new { action = "whitelist-remove", id, mode = args.Mode.ToString().ToLowerInvariant() };
 
-        var gate = await CryptoFunding.GateAsync(ctx, owner, payload, preview, data);
-        if (gate is not null) return gate;
-
-        return await CryptoFunding.ExecuteAsync(ctx, owner, args.Mode, HttpMethod.Delete, $"/v2/wallets/whitelists/{Uri.EscapeDataString(id)}", null, preview, payload,
+        return await CryptoFunding.SubmitAsync(ctx, owner, args.Mode, "whitelist-remove", HttpMethod.Delete, $"/v2/wallets/whitelists/{Uri.EscapeDataString(id)}", null, null, preview, data,
             _ => (data, $"Whitelist entry {id} removed on {args.Mode}."));
     }
 }

@@ -34,7 +34,11 @@ public class CryptoFundingOperationTests
     private OperationContext Context(CryptoAlpacaHandler handler, string? code = null) =>
         CryptoAlpacaFactory.Context(handler, s => s
             .AddSingleton(confirmations)
-            .AddSingleton(new AuditLogRepository(db, NullLogger<AuditLogRepository>.Instance)), code);
+            .AddSingleton(new AuditLogRepository(db, NullLogger<AuditLogRepository>.Instance))
+            // Funding moves are gateway instructions (IP-T337): confirmations, audit and Alpaca access.
+            .AddSingleton(sp => new TransactionGateway(null!, null!, null!, confirmations,
+                sp.GetRequiredService<AuditLogRepository>(), NullLogger<TransactionGateway>.Instance, null,
+                sp.GetRequiredService<AlpacaApiFactory>())), code);
 
     private static int Mutations(CryptoAlpacaHandler h) => h.Requests.Count(r => r.Method != HttpMethod.Get);
 
