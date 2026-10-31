@@ -71,6 +71,41 @@ public sealed class AlpacaApi : IAsyncDisposable
         SendAsync(data, HttpMethod.Get, path, query, null, ct);
 
     /// <summary>
+    /// GET on the Market Data API for a binary body (e.g. <c>/v1beta1/logos/AAPL</c>): the bytes and
+    /// the response's media type. Same 429 retry and <see cref="AlpacaApiException"/> on non-2xx.
+    /// </summary>
+    public async Task<(byte[] Body, string? ContentType)> GetDataBytesAsync(string path,
+        IReadOnlyDictionary<string, string?>? query = null, CancellationToken ct = default)
+    {
+        var url = path + Query(query);
+        for (int attempt = 1; ; attempt++)
+        {
+            using var response = await data.GetAsync(url, ct).ConfigureAwait(false);
+            if (response.StatusCode == HttpStatusCode.TooManyRequests && attempt < MaxAttempts)
+            {
+                await Task.Delay(response.Headers.RetryAfter?.Delta ?? TimeSpan.FromSeconds(attempt * 2), ct).ConfigureAwait(false);
+                continue;
+            }
+            var body = await response.Content.ReadAsByteArrayAsync(ct).ConfigureAwait(false);
+            if (!response.IsSuccessStatusCode)
+            {
+                var text = System.Text.Encoding.UTF8.GetString(body);
+                int? code = null;
+                var message = text.Length <= 300 ? text : text[..300] + "...";
+                try
+                {
+                    using var err = JsonDocument.Parse(text);
+                    if (err.RootElement.TryGetProperty("code", out var c) && c.TryGetInt32(out var n)) code = n;
+                    if (err.RootElement.TryGetProperty("message", out var m) && m.ValueKind == JsonValueKind.String) message = m.GetString()!;
+                }
+                catch (JsonException) { }
+                throw new AlpacaApiException(response.StatusCode, code, message, path);
+            }
+            return (body, response.Content.Headers.ContentType?.MediaType);
+        }
+    }
+
+    /// <summary>
     /// Follows <c>next_page_token</c> on a single-symbol Market Data list endpoint and yields every
     /// element of the <paramref name="itemsProperty"/> array (e.g. "bars", "trades", "news").
     /// Multi-symbol endpoints key that property by symbol; page those with <see cref="GetDataAsync"/>.
