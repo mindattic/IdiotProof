@@ -46,11 +46,7 @@ public static class StrategyScanner
         try { gainers = await FetchMoversAsync(k.AlpacaApiKeyId!, k.AlpacaApiSecretKey!, screen); }
         catch (Exception ex) { return Fail($"movers screen failed: {ex.Message}"); }
 
-        var picks = gainers
-            .Where(g => g.Percent >= minGap && g.Price >= minPx && g.Price <= maxPx)
-            .OrderByDescending(g => g.Percent)
-            .Take(top)
-            .ToList();
+        var picks = SelectGappers(gainers, minGap, minPx, maxPx, top);
 
         Console.WriteLine($"scan: {gainers.Count} gainers screened → {picks.Count} in band " +
                           $"(gap≥{minGap}%, ${minPx}-{maxPx}), profile={profile}");
@@ -111,8 +107,14 @@ public static class StrategyScanner
             throw new InvalidOperationException($"HTTP {(int)resp.StatusCode}: {Truncate(body)}");
 
         using var doc = JsonDocument.Parse(body);
+        return ParseGainers(doc.RootElement);
+    }
+
+    /// <summary>The <c>gainers</c> of a movers-screener response as (symbol, percent change, price).</summary>
+    public static List<(string Symbol, double Percent, double Price)> ParseGainers(JsonElement root)
+    {
         var list = new List<(string, double, double)>();
-        if (doc.RootElement.TryGetProperty("gainers", out var g) && g.ValueKind == JsonValueKind.Array)
+        if (root.ValueKind == JsonValueKind.Object && root.TryGetProperty("gainers", out var g) && g.ValueKind == JsonValueKind.Array)
             foreach (var el in g.EnumerateArray())
             {
                 var sym = el.TryGetProperty("symbol", out var s) ? s.GetString() : null;
@@ -123,6 +125,14 @@ public static class StrategyScanner
             }
         return list;
     }
+
+    /// <summary>The gapper band: gainers at or above <paramref name="minGap"/>% inside the price band, biggest first, at most <paramref name="top"/>.</summary>
+    public static List<(string Symbol, double Percent, double Price)> SelectGappers(
+        IEnumerable<(string Symbol, double Percent, double Price)> gainers, double minGap, double minPrice, double maxPrice, int top) =>
+        gainers.Where(g => g.Percent >= minGap && g.Price >= minPrice && g.Price <= maxPrice)
+               .OrderByDescending(g => g.Percent)
+               .Take(top)
+               .ToList();
 
     // ── helpers ──
     private static async Task<Guid?> ResolveUserAsync(IServiceProvider sp, Dictionary<string, string> opt)
