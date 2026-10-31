@@ -92,6 +92,7 @@ builder.Services.Configure<HostOptions>(o => o.ShutdownTimeout = TimeSpan.FromSe
 
 // ── Operations: every CLI command and MCP tool, reflected from [Operation] types ──
 builder.Services.AddIdiotProofOperations(typeof(Program).Assembly);
+builder.Services.AddIdiotProofStreaming();
 // Scoped services that ask "who is this for?" (the owner's Claude key, …) see the operation's owner.
 builder.Services.AddScoped<IOwnerContext, OperationOwnerContext>();
 builder.Services.AddScoped<IClaudeKeyContext, OwnerClaudeKeyContext>();

@@ -28,15 +28,23 @@ public static class OperationServiceRegistration
         services.TryAddScoped<OperationOwner>();
         foreach (var descriptor in catalog.Operations) services.TryAddScoped(descriptor.OperationType);
 
-        // The Hub's Alpaca websockets (IP-T325/T326/T206): trade-updates listeners, market watches, fill recording.
+        // The knowledge index behind `docs *` (IP-T266): one per host, warmed in the background at start.
+        services.TryAddSingleton(_ => Docs.KnowledgeService.Shared);
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<Microsoft.Extensions.Hosting.IHostedService, Docs.KnowledgeWarmup>());
+        return services;
+    }
+
+    /// <summary>
+    /// The Hub's Alpaca websockets (IP-T325/T326/T206): trade-updates listeners, market watches, fill
+    /// recording. Separate from <see cref="AddIdiotProofOperations(IServiceCollection, IEnumerable{Type})"/>
+    /// because they need the Core graph (keys, database), which an operations-only container lacks.
+    /// </summary>
+    public static IServiceCollection AddIdiotProofStreaming(this IServiceCollection services)
+    {
         services.TryAddSingleton<Streaming.IStreamSocketFactory, Streaming.ClientWebSocketFactory>();
         services.TryAddSingleton<Streaming.AlpacaStreamCredentials>();
         services.TryAddSingleton<Streaming.FillRecorder>();
         services.TryAddSingleton<Streaming.StreamRegistry>();
-
-        // The knowledge index behind `docs *` (IP-T266): one per host, warmed in the background at start.
-        services.TryAddSingleton(_ => Docs.KnowledgeService.Shared);
-        services.TryAddEnumerable(ServiceDescriptor.Singleton<Microsoft.Extensions.Hosting.IHostedService, Docs.KnowledgeWarmup>());
         return services;
     }
 }
