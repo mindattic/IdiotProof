@@ -11,15 +11,15 @@ namespace IdiotProof.Operations.Tests.Crypto;
 /// <summary>An Alpaca stand-in: answers each request by the first route whose path prefix matches, and records them.</summary>
 internal sealed class CryptoAlpacaHandler : HttpMessageHandler
 {
-    private readonly List<(string Method, string Prefix, HttpStatusCode Status, string Body)> routes = [];
+    private readonly List<(string Method, string Prefix, HttpStatusCode Status, string Body, string? Host)> routes = [];
 
     public List<HttpRequestMessage> Requests { get; } = [];
 
     public List<string?> Bodies { get; } = [];
 
-    public CryptoAlpacaHandler On(string pathPrefix, string body, HttpStatusCode status = HttpStatusCode.OK, string method = "GET")
+    public CryptoAlpacaHandler On(string pathPrefix, string body, HttpStatusCode status = HttpStatusCode.OK, string method = "GET", string? host = null)
     {
-        routes.Add((method, pathPrefix, status, body));
+        routes.Add((method, pathPrefix, status, body, host));
         return this;
     }
 
@@ -28,7 +28,7 @@ internal sealed class CryptoAlpacaHandler : HttpMessageHandler
         Requests.Add(request);
         Bodies.Add(request.Content is null ? null : await request.Content.ReadAsStringAsync(ct));
         var path = request.RequestUri!.AbsolutePath;
-        var route = routes.FirstOrDefault(r => r.Method == request.Method.Method && path.StartsWith(r.Prefix, StringComparison.Ordinal));
+        var route = routes.FirstOrDefault(r => r.Method == request.Method.Method && (r.Host is null || r.Host == request.RequestUri.Host) && path.StartsWith(r.Prefix, StringComparison.Ordinal));
         if (route.Prefix is null) return new HttpResponseMessage(HttpStatusCode.NotFound) { Content = new StringContent("""{"message":"no route in test"}""") };
         return new HttpResponseMessage(route.Status) { Content = new StringContent(route.Body, Encoding.UTF8, "application/json") };
     }
