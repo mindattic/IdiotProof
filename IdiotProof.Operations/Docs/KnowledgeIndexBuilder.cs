@@ -25,6 +25,9 @@ public sealed partial class KnowledgeIndexBuilder(string repoRoot)
 
     public string RepoRoot { get; } = repoRoot;
 
+    /// <summary>The <c>tickets</c> CLI for ticket history (IP-T264); null indexes the USER_STORIES ticket table only.</summary>
+    public ITicketCli? Tickets { get; init; }
+
     /// <summary>
     /// The checkout to index: <see cref="RepoEnvVar"/> when set, else the nearest folder at or above
     /// each start directory that holds <c>IdiotProof.slnx</c> and <c>docs/BIBLE.md</c>; null when none.
@@ -56,6 +59,7 @@ public sealed partial class KnowledgeIndexBuilder(string repoRoot)
         index.Sources = ScanSources(index, ct);
         IndexXmlDocs(index);
         ct.ThrowIfCancellationRequested();
+        if (Tickets is not null) new TicketHistory(Tickets).IndexIntoAsync(index, ct).GetAwaiter().GetResult();
         return index;
     }
 
