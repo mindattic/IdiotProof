@@ -1,3 +1,4 @@
+using IdiotProof.Shared.Options;
 using IdiotProof.UI.Components.Options;
 
 namespace IdiotProof.UI.Tests;
