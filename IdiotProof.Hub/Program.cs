@@ -6,6 +6,7 @@ using IdiotProof.Engine.Storage;
 using IdiotProof.Hub;
 using IdiotProof.Operations;
 using IdiotProof.Operations.Hosting;
+using Microsoft.Extensions.Hosting.WindowsServices;
 using Microsoft.EntityFrameworkCore;
 
 // ── IdiotProof.Hub ───────────────────────────────────────────────────────────
@@ -35,6 +36,15 @@ using Microsoft.EntityFrameworkCore;
 // Run:  dotnet run --project IdiotProof.Hub       Stop: Ctrl+C or `idiotproof hub stop` (graceful:
 //       drains running operations, stops the Monitor loop, releases the leader lease — IP-T79)
 
+// Windows Service hosting (IP-T76): the same binary runs as a service, installed by
+// `idiotproof hub install-service` / tools\install-hub-service.ps1 to run as the USER (LocalDB and
+// the Data Protection ring are per-user). A service starts in System32 with no visible window, so
+// it roots itself at its exe folder and mirrors its would-be window to Logs\hub-service.log.
+var isService = WindowsServiceHelpers.IsWindowsService();
+if (HubHosting.WindowLogPath(isService, Environment.GetEnvironmentVariable(HubConsole.LogEnvVar),
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData)) is { } windowLog)
+    Environment.SetEnvironmentVariable(HubConsole.LogEnvVar, windowLog);
+
 // One Hub per port (IP-T77): say who already has it and exit before touching the database.
 var port = HubWire.ResolvePort();
 if (HubInstanceGuard.IsPortInUse(port))
@@ -51,11 +61,12 @@ Console.WriteLine();
 Console.WriteLine(IdiotProof.Shared.Branding.AsciiBanner);
 Console.WriteLine();
 
-var builder = WebApplication.CreateBuilder(args);
-
-// Windows Service hosting: the same binary runs as a service (installed to run as the USER —
-// LocalDB and the Data Protection ring are per-user); interactively it no-ops.
-builder.Services.AddWindowsService(o => o.ServiceName = "IdiotProof.Hub");
+var builder = WebApplication.CreateBuilder(new WebApplicationOptions
+{
+    Args = args,
+    ContentRootPath = HubHosting.ContentRoot(isService, AppContext.BaseDirectory),
+});
+builder.Services.AddWindowsService(o => o.ServiceName = HubHosting.ServiceName);
 
 // Loopback only: other machines can never reach the Hub; the shared key covers local processes.
 builder.WebHost.ConfigureKestrel(k => k.Listen(IPAddress.Loopback, port));
