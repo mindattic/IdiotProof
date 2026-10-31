@@ -38,8 +38,8 @@ public static class StrategyHtml
         // condition's own declared phase so the view matches the parser.
         var filters = def.EntryConditions.Where(c => c.Phase == StrategyPhase.Filters).Select(c => c.ToScript()).ToList();
         var entries = def.EntryConditions.Where(c => c.Phase != StrategyPhase.Filters).Select(c => c.ToScript()).ToList();
-        if (filters.Count > 0) Card(sb, "Filters", "always-on regime gates", filters.Select(Li).ToList());
-        if (entries.Count > 0) Card(sb, "Entry", "all must be true to fire (AND)", entries.Select(Li).ToList());
+        if (filters.Count > 0) Card(sb, "Filters", "always-on regime gates", filters.Select(s => Li(Esc(s))).ToList());
+        if (entries.Count > 0) Card(sb, "Entry", "all must be true to fire (AND)", entries.Select(s => Li(Esc(s))).ToList());
 
         // Branching (conditional order blocks), if any.
         foreach (var block in def.ConditionalBlocks)
