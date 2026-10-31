@@ -11,7 +11,7 @@ Try it: browse the public replay archive at [mindattic.com/idiotproof/replays](h
 ## Why
 
 - Describe your edge the way you would say it out loud, for example "if NVDA pulls back to the 9 EMA in an uptrend with volume confirmation, go long with a 1% stop", and get a real, runnable strategy back.
-- Stop watching charts at 4 AM. A standalone console re-reads every active strategy from SQL about once a second and acts on it while you sleep.
+- Stop watching charts at 4 AM. The Monitor inside the Hub re-reads every active strategy from SQL about once a second and acts on it while you sleep.
 - No single point of failure on the money path: the strategy conditions, a multi-LLM voter quorum and the Risk Guardian must all agree before an order is placed.
 - You cannot route real capital by accident. The Sandbox broker is the default, paper is the next step, and live trading needs an explicit per-strategy choice and a red confirmation modal.
 - See exactly why something fired or did not: per-condition progress (`4/5 — waiting on OnReclaim(9)`) is live in the UI, and every signal, veto and order lands in the audit log.
@@ -92,7 +92,9 @@ idiotproof help                           # every command; `idiotproof help <nou
 
 **Hub autostart in Claude Code sessions.** `.claude/settings.json` has a SessionStart hook (`.claude/hooks/start-hub.ps1`) that starts the Hub when nothing answers on `127.0.0.1:5910`, so tools work from the first prompt. It never touches a Hub that is already running, and the Hub it starts has the **Monitor off** (`IDIOTPROOF_HUB_MONITOR=0`): opening a session never starts unattended trading. Set `IDIOTPROOF_HUB_AUTOSTART_MONITOR=1` in the environment Claude Code launches from to have it start the trading Monitor too; to switch an already-started Hub, `idiotproof hub stop` then `idiotproof hub start` from a shell with the variable you want.
 
-`idiotproof` resolves to `idiotproof.cmd` (or the Git Bash `idiotproof` script) at the repo root: the published CLI if present, else the Debug build, else `dotnet run`. MCP is registered in `.mcp.json`; a fresh agent session calls `agent_bootstrap` and learns the whole surface. The generated references are [docs/CLI_COMMANDS.md](docs/CLI_COMMANDS.md) (`idiotproof --export-commands`) and [docs/MCP_TOOLS.md](docs/MCP_TOOLS.md) (`dotnet run --project IdiotProof.Mcp -- --export-tools`).
+`idiotproof` resolves to `idiotproof.cmd` (or the Git Bash `idiotproof` script) at the repo root: the published CLI if present, else the Debug build, else `dotnet run`. MCP is registered in `.mcp.json`; it also serves the BIBLE, the user stories, the agent protocol and the live catalog as resources. A fresh agent session runs `idiotproof agent bootstrap` (it works with the Hub down) and follows [docs/agent/IDIOTPROOF_PROTOCOL.md](docs/agent/IDIOTPROOF_PROTOCOL.md). `idiotproof agent export` regenerates the references from the catalog: [docs/CLI_COMMANDS.md](docs/CLI_COMMANDS.md), [docs/MCP_TOOLS.md](docs/MCP_TOOLS.md) and [docs/agent/operation-catalog.json](docs/agent/operation-catalog.json) (`agent export --check` exits 1 when one is stale).
+
+The project explains itself through the same door: `idiotproof docs search <words>` ranks hits across the BIBLE, stories, tickets, every library's XML doc comments and the static catalogs; `docs law 3`, `docs section 4`, `docs story K1`, `docs ticket IP-T259`, `docs explain TransactionGateway` (doc comment, `path:line`, callers) and `docs dsl StopLoss` open one entry.
 
 ### Charts in the terminal
 
@@ -118,14 +120,13 @@ The goal is that every Alpaca Trading API and Market Data API capability is reac
 |---|---|---|
 | Account | `account summary`, `buying-power`, `pdt`, `activities`, `clock`, `calendar`, `config`, `config set`, `history` | `/v2/account`, `/configurations`, `/activities`, `/portfolio/history`, `/v2/clock`, `/v2/calendar` |
 | Positions | `positions list`, `show`, `reconcile`, `close`, `close-all`, `trade flatten` | `/v2/positions` |
-| Orders | `orders place`, `bracket`/`oco`/`oto`, `replace`, `cancel`, `cancel-all`, `list`, `show`, `history`, `stream`; `trade buy/sell/short/cover/notional` | `/v2/orders`, trade_updates stream |
+| Orders | `orders place`, `bracket`/`oco`/`oto`, `replace`, `cancel`, `cancel-all`, `list`, `show`, `history`; `trade buy/sell/short/cover/notional` | `/v2/orders` |
 | Options | `options level`, `chain`, `contracts`, `contract`, `quote`, `greeks`, `value`, `iv`, `bars`, `trades`, `latest`, `snapshot`, `positions`, `buy`, `sell`, `close`, `spread`, `exercise`, `do-not-exercise` | `/v2/options/contracts`, `/v1beta1/options/*`, exercise, mleg orders |
-| Stocks data | `market chart`, `quote`, `bars`, `trades`, `quotes`, `snapshot`, `latest`, `prev-close`, `auctions`, `conditions`, `exchanges`, `meta`, `movers`, `most-actives`, `news`, `fx`, `logo`, `watch`, `stream status` | `/v2/stocks/*`, `/v1beta1/screener`, `/v1beta1/news`, `/v1beta1/forex`, `/v1beta1/logos`, websockets |
-| Crypto | `crypto bars`, `trades`, `quotes`, `latest`, `orderbook`, `snapshot`, `buy`, `sell`, `positions`, `wallets`, `transfers`, `whitelist`, `fee-estimate` | `/v1beta3/crypto/us/*`, `/v2/wallets` |
+| Stocks data | `market chart`, `quote`, `bars`, `trades`, `quotes`, `snapshot`, `latest`, `prev-close`, `auctions`, `conditions`, `exchanges`, `meta`, `movers`, `most-actives`, `news`, `fx`, `logo`, `scan-universe` | `/v2/stocks/*`, `/v1beta1/screener`, `/v1beta1/news`, `/v1beta1/forex`, `/v1beta1/logos` |
+| Crypto | `crypto bars`, `trades`, `quotes`, `latest`, `orderbook`, `snapshot`, `buy`, `sell`, `positions`, `wallets`, `transfers`, `whitelist`, `whitelist-add`, `whitelist-remove`, `fee-estimate`, `withdraw` | `/v1beta3/crypto/us/*`, `/v2/wallets` |
 | Reference | `assets list`, `assets show`, `assets bonds`, `market bond-prices`, `corporate-actions list/show`, `watchlists ...` | `/v2/assets`, fixed income, `/v2/corporate_actions`, `/v1/corporate-actions`, `/v2/watchlists` |
-| Anything else | `alpaca raw <METHOD> <path>` | any endpoint; order, position, exercise and funding mutations are refused and pointed at the gated commands |
 
-The endpoint-by-endpoint map, with the test that fails when an Alpaca endpoint has no command, is [docs/ALPACA_COVERAGE.md](docs/ALPACA_COVERAGE.md). The Broker API (for broker-dealers running many customer accounts) is out of scope; OAuth Connect is already wired (`AlpacaOAuthClient`). Commands land as their tickets close; `idiotproof help` always shows what the running Hub has.
+The endpoint-by-endpoint map, with the test that fails when an Alpaca endpoint has no command, is [docs/ALPACA_COVERAGE.md](docs/ALPACA_COVERAGE.md). The Broker API (for broker-dealers running many customer accounts) is out of scope; OAuth Connect is already wired (`AlpacaOAuthClient`). Planned, not built yet: the `alpaca raw` escape hatch, `orders stream` (trade updates), `market watch` and `market stream status` (websockets through the Hub). `idiotproof help` always shows what the running Hub has.
 
 ### Security and privacy
 
@@ -136,7 +137,7 @@ The endpoint-by-endpoint map, with the test that fails when an Alpaca endpoint h
 
 ## Quick start
 
-The system is two .NET processes sharing one SQL database; the database is the communication channel. Anything you change in the UI is picked up by the console on its next pass, roughly a second later, with no restart. The full field-by-field walkthrough is in [user-guide.htm](IdiotProof.Blazor/wwwroot/user-guide.htm), which the running app also serves at `/user-guide.htm`.
+The system is one long-running process, the Hub, plus the optional web app, sharing one SQL database; the database is the communication channel. Anything you change from the CLI or the UI is picked up by the Monitor on its next pass, roughly a second later, with no restart. The full field-by-field walkthrough is in [user-guide.htm](IdiotProof.Blazor/wwwroot/user-guide.htm), which the running app also serves at `/user-guide.htm`.
 
 Prerequisites: .NET 10 SDK, SQL Server LocalDB (ships with Visual Studio or the SQL Server Express LocalDB package), and Node 18+ only if you want to run Cypress.
 
@@ -158,21 +159,21 @@ idiotproof hub start                       # the Hub: hosts the Monitor loop and
 dotnet run --project IdiotProof.Blazor
 ```
 
-Both default to the same LocalDB database (`IdiotProof`). The Hub acquires the SQL leader lease and starts ticking; `idiotproof hub logs` shows its log. The standalone `IdiotProof.Monitor` console still runs the same loop if you start it instead, and the lease guarantees only one of them trades. Register an account in the UI on first run. On a plain Debug build the web app needs a `wwwroot` folder next to the built exe; see [Limitations and roadmap](#limitations-and-roadmap).
+Both default to the same LocalDB database (`IdiotProof`). The Hub acquires the SQL leader lease and starts ticking; `idiotproof hub logs` shows its log. `idiotproof-monitor.exe` (`IdiotProof.Monitor`) is now a shim that starts the Hub, so old shortcuts keep working; the lease guarantees only one process trades. Register an account in the UI on first run. On a plain Debug build the web app needs a `wwwroot` folder next to the built exe; see [Limitations and roadmap](#limitations-and-roadmap).
 
 ### Step 3 real market data
 
-The console picks its data feed from the settings chain. Put Alpaca keys in the MindAttic broker keyring at `%APPDATA%\MindAttic\Brokers\providers.json`:
+The Hub picks its data feed from the settings chain. Put Alpaca keys in the MindAttic broker keyring at `%APPDATA%\MindAttic\Brokers\providers.json`:
 
 ```json
 { "alpaca-paper": { "type": "alpaca", "apiKey": "PK...", "secret": "..." } }
 ```
 
-Or set `AlpacaApiKeyId` and `AlpacaApiSecretKey` before starting the Monitor. With keys present the Monitor uses Alpaca REST plus a live websocket stream (real-time SIP tape by default); without keys it falls back to a deterministic mock feed.
+Or set `AlpacaApiKeyId` and `AlpacaApiSecretKey` before starting the Hub. With keys present the Monitor uses Alpaca REST plus a live websocket stream (real-time SIP tape by default); without keys it falls back to a deterministic mock feed.
 
 ### Step 4 real order routing
 
-In the UI open the user menu, then API Keys. Enter your Alpaca key and secret, leave Paper checked, enable "Route my orders to this Alpaca account" and Save All. The console decrypts those keys through the shared ASP.NET Core Data Protection key ring and places your orders on your account. Without the toggle, orders go to the built-in Sandbox broker (simulated fills), the safe default by design. Live trading means unchecking Paper and confirming the red modal; each strategy's own `BrokerMode` (Paper, Live or Sandbox) then overrides the global flag for that strategy.
+In the UI open the user menu, then API Keys. Enter your Alpaca key and secret, leave Paper checked, enable "Route my orders to this Alpaca account" and Save All. The Hub decrypts those keys through the shared ASP.NET Core Data Protection key ring and places your orders on your account. Without the toggle, orders go to the built-in Sandbox broker (simulated fills), the safe default by design. Live trading means unchecking Paper and confirming the red modal; each strategy's own `BrokerMode` (Paper, Live or Sandbox) then overrides the global flag for that strategy.
 
 ### Step 5 queue a gapper
 
@@ -183,7 +184,7 @@ From then on it is hands-off. The Monitor screens the ticker every pass in the 4
 
 ### Step 6 watch it or dry-run it
 
-The console log narrates every decision; the Gapper and Strategies tabs mirror it live. To rehearse without keys or money, start the Monitor with `IDIOTPROOF_FEED=mock`, queue a ticker starting with GAP (for example `GAPT`, for which the mock feed fabricates a gap day) and leave routing off. The session gate still runs on the real ET clock, so entries only fire during actual premarket hours, Monday to Friday. The Monitor also refuses to place a real order against mock market data even if a broker is configured.
+The Hub window narrates every decision (`idiotproof hub logs`, `idiotproof monitor tail`); the Gapper and Strategies tabs mirror it live. To rehearse without keys or money, start the Hub with `IDIOTPROOF_FEED=mock`, queue a ticker starting with GAP (for example `GAPT`, for which the mock feed fabricates a gap day) and leave routing off. The session gate still runs on the real ET clock, so entries only fire during actual premarket hours, Monday to Friday. The Monitor also refuses to place a real order against mock market data even if a broker is configured.
 
 ## How it works
 
@@ -256,8 +257,8 @@ Data flows one way from market data down to an order; audit and state flow back 
           └────────▲───────────────────────────────────┬─────────┘
                    │                                   │
         ┌──────────┴───────────┐             ┌─────────▼──────────────┐
-        │  IdiotProof.Monitor    │            │  IdiotProof.ResearchSc- │
-        │  (console, 24/7)       │            │  anner (one-shot,       │
+        │  Monitor in the Hub    │            │  IdiotProof.ResearchSc- │
+        │  (IdiotProof.Hub, 24/7)│            │  anner (one-shot,       │
         │  evaluates → 3 gates   │            │  Scheduled-Task-fired)  │
         │  → order → exit mgmt   │            └─────────────────────────┘
         └────────────────────────┘
@@ -266,7 +267,7 @@ Data flows one way from market data down to an order; audit and state flow back 
 IdiotProof is one solution with several front doors and one shared engine:
 
 - `IdiotProof.Blazor` is a Blazor Server web app where a trader authors strategies, watches them live, and manages accounts, keys and research.
-- `IdiotProof.Monitor` is a standalone console that runs unattended, loads every active strategy from SQL, evaluates it continuously, walks the three gates, places orders and manages open positions to their exit.
+- `IdiotProof.Hub` is the one long-running process: its Monitor runs unattended, loads every active strategy from SQL, evaluates it continuously, walks the three gates, places orders through the transaction gateway and manages open positions to their exit; it also serves every `idiotproof` command and MCP tool.
 - `IdiotProof.ResearchScanner` is a one-shot console, meant for a Scheduled Task rather than a daemon, that sweeps EDGAR filings, Alpaca news and Federal Register notices and writes scored events to the same database for the `/research` tab.
 
 Everything shares one SQL database as the single source of truth, one settings and credential overlay chain (`IdiotProof.Engine.Settings.AppSettings`), and the same domain libraries, so a strategy is evaluated identically everywhere.
@@ -296,14 +297,14 @@ Every project below is registered in `IdiotProof.slnx`.
 | `IdiotProof.Brokers` | Class library | Order routing abstraction and providers. | `IBrokerClient` (equity members + default-implemented options members: `SupportsOptions`, `GetOptionTradingLevelAsync`, `GetOptionChainAsync`, `GetOptionQuotesAsync`), `AlpacaBrokerClient` (orders, positions, account, option contracts, option snapshots, single-leg option orders), `AlpacaOAuthClient`, `SandboxBrokerClient` (in-memory fills + a synthetic options chain), `BrokerRouter` (Sandbox always registered as the safe fallback) |
 | `IdiotProof.Engine` | Class library | The DI root shared by every host. | `ServiceRegistration.AddIdiotProofEngine(...)`, `Settings/AppSettings` (disk, env, MindAttic keyrings, `IConfiguration` overlay chain), `Storage/IStorageProvider`/`StorageLocation`, `SupervisedLoop` (fault-tolerant tick loop with backoff + heartbeat), `AuditLogger`, `Workspace/WorkspaceManager` + `JsonFileWorkspaceStore` (legacy JSON path; the Blazor host swaps in a SQL-backed store) |
 | `IdiotProof.Core` | Class library | The one DI graph every host shares: `AppDbContext`, entities, EF migrations, the non-UI services, identity seams, the transaction gateway and Alpaca access. | `AddIdiotProofCore`/`AddIdiotProofTrading`/`AddIdiotProofMonitor`, `TransactionGateway`, `OrderIntent`, `ConfirmationStore`, `AlpacaApiFactory`, `CommandLedgerRepository`, `SecretRedactor`, `OwnerResolver`, `Monitoring/MonitorWorker` |
-| `IdiotProof.Operations` | Class library | Every action as an `[Operation("noun verb")]` class; the catalog the CLI, MCP and docs reflect from. | `OperationCatalog`, `OperationDispatcher`, `ArgsBinder`, `OperationResult`; `Account/`, `Positions/`, `Orders/`, `Trading/`, `Options/`, `Market/`, `Crypto/`, `Reference/`, `Strategies/` |
+| `IdiotProof.Operations` | Class library | Every action as an `[Operation("noun verb")]` class; the catalog the CLI, MCP and docs reflect from. | `OperationCatalog`, `OperationDispatcher`, `ArgsBinder`, `OperationResult`; one folder per noun (`Account/`, `Orders/`, `Options/`, `Market/`, `Crypto/`, `Strategies/`, `Gapper/`, `Replay/`, ...) and `Docs/` (`KnowledgeIndex`, `docs *`) |
 | `IdiotProof.Hub` | ASP.NET Core minimal API, loopback | The one long-running process: hosts the Monitor loop, the gateway and `/api/op`, `/api/catalog`, `/api/health`. | `Program.cs`, `HubEndpoints` |
-| `IdiotProof.Cli` | Console (`idiotproof`) | Thin client: parses `noun verb --flags`, POSTs to the Hub, prints tables or `--json`; `hub start/stop/status/logs`, `users use`, `--export-commands`. | `CliApp`, `HubClient`, `HelpRenderer`, `CommandDocs` |
-| `IdiotProof.Mcp` | stdio MCP server (`idiotproof-mcp`) | One MCP tool per operation, forwarded to the Hub. | `ToolSpec`, `HubTool`, `HubInvoker`, `ToolDocs` |
+| `IdiotProof.Cli` | Console (`idiotproof`) | Thin client: parses `noun verb --flags`, POSTs to the Hub, prints tables or `--json`; `hub start/stop/status/logs`, `users use`, `agent bootstrap`, `agent export`. | `CliApp`, `HubClient`, `HelpRenderer`, `CommandDocs`, `AgentExport` |
+| `IdiotProof.Mcp` | stdio MCP server (`idiotproof-mcp`) | One MCP tool per operation, forwarded to the Hub; the BIBLE, stories, protocol and catalog as resources. | `ToolSpec`, `HubTool`, `HubInvoker`, `ToolDocs`, `DocResources` |
 | `IdiotProof.Blazor` | ASP.NET Core Blazor Server app | The web front door: strategy authoring and monitoring, accounts, keys, research, learning. | See [The web app](#the-web-app) |
 | `IdiotProof.UI` | Razor Class Library | Shared component library referenced by `IdiotProof.Blazor`. Presentational only. | `Components/Options/`: `OptionsChainView`, `OptionOrderTicket`, `OptionPositionTracker`, `OptionsLiveElevationModal`, `OptionsPresenter` + view models; `Components/Shared/`: `Tooltip`, `Term`; `wwwroot/css/options.css`, tooltip CSS and JS |
 | `IdiotProof.Settings` | Razor Class Library | IdiotProof's settings tab as a portable component (no route, render mode or auth lookup; the host passes `UserId`), so MindAttic.Vault.Desktop/Web can host it unmodified (IP-T335). `/settings` in `IdiotProof.Blazor` is now a thin host for it. | `IdiotProofSettings.razor` (Risk Guardian limits, theme) |
-| `IdiotProof.Monitor` | .NET generic host console, Windows-Service-ready | The 24/7 evaluator and executor, "the one pipeline". | `Program.cs` (composition root), `MonitorWorker` (the tick loop), `MonitorLeaderLease` (`sp_getapplock` single-instance lease), `MonitorCli` (operator subcommands), `AutoGapperScanner`, `PremarketFadeScanner`, `EmailSmsAlertSender`, `StrategyScanner`/`StrategyReplay`/`StrategyReplayLive`/`ReplayFeatures`/`ReplayTemplates`/`StrategyDataset` (offline replay and ML-dataset tooling) |
+| `IdiotProof.Monitor` | Console (`idiotproof-monitor`) | Backward-compatible shim: starts the Hub, which hosts the Monitor; operator subcommands forward to Hub operations. The loop itself (`MonitorWorker`, `MonitorLeaderLease`, scanners, replay and dataset tooling) lives in `IdiotProof.Core/Monitoring`. | `HubShim`, `MonitorForwarding`, `MonitorCli` |
 | `IdiotProof.ResearchScanner` | One-shot console | Autonomous market-event research sweep; not a daemon, not part of the trading loop. | `Program.cs`, `ScanPassRunner` |
 | `IdiotProof.Engine.Tests` | NUnit | RiskGuardian gate, SupervisedLoop resilience, WorkspaceManager, options pricing math (OCC, intrinsic/extrinsic, Black-Scholes, IV round-trips, sell signal). | — |
 | `IdiotProof.Indicators.Tests` | NUnit | RSI/EMA/ATR/MACD/VWAP math + ADX Wilder-seed regression. | — |
@@ -494,12 +495,13 @@ Stock.Ticker("NVDA")
 
 The semantic model (`StrategyDefinition`), serialized as versioned strict JSON (`Strategy.ScriptJson`, via `IdiotProof.Scripting/StrategyJson.cs`), is what every evaluator runs. Reads fail closed: an unknown schema version, condition type or property throws `StrategyJsonException` and the strategy is quarantined with a visible reason in `ConditionProgress` (see the `EvaluateOneAsync` handling in `MonitorWorker.cs`), never partially evaluated. IdiotScript text (`ScriptText`) is a generated human view plus the tolerant input path for hand-typed and legacy rows, never the money-path source of truth. `StrategyLoader.Load(json, text)` implements the canonical-first, tolerant-text-fallback contract ([IP-LAW-8](docs/BIBLE.md#IP-LAW-8)).
 
-## The Monitor console
+## The Monitor
 
-The Monitor is the unattended evaluator and executor ([IP-LAW-10](docs/BIBLE.md#IP-LAW-10)). Its code lives in `IdiotProof.Core/Monitoring` and it normally runs inside the Hub (`idiotproof hub start`); the `IdiotProof.Monitor` console hosts the same loop standalone. It is a `BackgroundService` (`MonitorWorker`) hosted by the generic host in `Program.cs`, running under `SupervisedLoop` so a bad tick backs off and retries instead of crashing the process ([IP-LAW-5](docs/BIBLE.md#IP-LAW-5)).
+The Monitor is the unattended evaluator and executor ([IP-LAW-10](docs/BIBLE.md#IP-LAW-10)). Its code lives in `IdiotProof.Core/Monitoring` and it runs inside the Hub (`idiotproof hub start`; `IDIOTPROOF_HUB_MONITOR=0` serves operations without it). It is a `BackgroundService` (`MonitorWorker`) running under `SupervisedLoop` so a bad tick backs off and retries instead of crashing the process ([IP-LAW-5](docs/BIBLE.md#IP-LAW-5)). Every order it places goes through the `TransactionGateway` ([IP-LAW-12](docs/BIBLE.md#IP-LAW-12)). `idiotproof monitor status|pause|resume|tick-once|tail` inspects and steers it.
 
 ```bash
-dotnet run --project IdiotProof.Monitor
+idiotproof hub start
+idiotproof monitor status
 ```
 
 ### What one pass does
@@ -538,7 +540,7 @@ Verified against `MonitorWorker.TickAsync`, `EvaluateOneAsync` and `FireAsync`:
 
 ### Operator commands
 
-Subcommands run against the same DI container as the worker, do their job and exit without starting the trading loop (see `IdiotProof.Monitor/MonitorCli.cs`):
+The old Monitor subcommands are Hub operations now; `idiotproof-monitor <subcommand>` forwards to them (see `IdiotProof.Monitor/MonitorForwarding.cs`), and `--local` keeps the in-process path for replay and scan:
 
 ```text
 status  set-keys  create-strategies  create-account  test-order  flatten
@@ -546,11 +548,11 @@ replay  replay-live  replay-all  replay-regen  scan  replay-export
 resync-canon  auto-gapper  premarket-fade
 ```
 
-For example, `dotnet run --project IdiotProof.Monitor -- replay-regen` re-renders the replay archive HTML from the `ReplayRun` rows already in SQL; it does not fetch new market data. Publishing that archive is a separate manual step.
+The operations are `monitor status`, `keys set`, `strategy from-watchlist`, `users create`, `trade flatten`, `strategy resync-canon`, `gapper auto *`, `gapper premarket-fade`, `replay *`, `scan movers` and `dataset export`. For example, `idiotproof replay regen` re-renders the replay archive HTML from the `ReplayRun` rows already in SQL; it does not fetch new market data. Publishing that archive is a separate manual step.
 
 ### Unattended operation
 
-The console is Windows-Service-ready (`AddWindowsService`): `sc.exe create IdiotProof.Monitor binPath="<path>\idiotproof-monitor.exe"`. A SQL `sp_getapplock` leader lease guarantees only one instance trades per database; a second instance waits in standby and takes over automatically if the leader dies. Shutdown is graceful via `IHostApplicationLifetime`.
+The Hub is Windows-Service-ready: `idiotproof hub install-service` (or `tools/install-hub-service.ps1`) registers `IdiotProof.Hub` to run as you, because LocalDB and the Data Protection ring are per-user. A SQL `sp_getapplock` leader lease guarantees only one instance trades per database; a second instance waits in standby and takes over automatically if the leader dies. Shutdown is graceful via `IHostApplicationLifetime`.
 
 ## The web app
 
@@ -725,10 +727,10 @@ IdiotProof/
 │   └── wwwroot/                              ← css/_theme-alpaca.css, data/gapper-profiles.json, user-guide.htm
 ├── IdiotProof.Settings/                      ← Portable settings-tab Razor Class Library (IP-T335)
 ├── IdiotProof.UI/                            ← Shared Razor Class Library (Options components, Tooltip/Term)
-├── IdiotProof.Monitor/                       ← 24/7 evaluator + executor console, operator CLI, replay tooling
+├── IdiotProof.Monitor/                       ← Shim: starts the Hub; operator subcommands forward to Hub operations
 ├── IdiotProof.ResearchScanner/               ← One-shot research sweep console
-├── IdiotProof.*.Tests/                       ← NUnit projects (Engine, Indicators, Strategies, Brokers, Blazor, Monitor, UI)
-├── docs/                                     ← Codex canon (BIBLE.md, AMENDMENTS.md, USER_STORIES.md), images/
+├── IdiotProof.*.Tests/                       ← NUnit projects (Engine, Indicators, Strategies, Brokers, Core, Operations, Cli, Mcp, Blazor, Monitor, UI)
+├── docs/                                     ← Codex canon (BIBLE.md, AMENDMENTS.md, USER_STORIES.md), generated references, agent/, images/
 ├── run.ps1                                   ← Publish to C:\Apps\IdiotProof\ (writes run.bat)
 ├── idiotproof.cmd, idiotproof                ← CLI launchers
 ├── .mcp.json                                 ← Registers the idiotproof MCP server
@@ -744,7 +746,7 @@ IdiotProof/
 - Condition: a single boolean check (`IsAboveVwap()`, `OnReclaim(9)`) composed with `.And()`, `.Or()` and `.Not()`.
 - Gate: one of the three pre-fire checks: condition match, LLM voter quorum, Risk Guardian.
 - Risk Guardian: `IdiotProof.Shared.Risk.RiskGuardian`, the final pre-trade veto; it can block regardless of strategy or LLM consensus.
-- Monitor: the unattended 24/7 evaluator and executor (`MonitorWorker`), hosted by the Hub or the standalone `IdiotProof.Monitor` console.
+- Monitor: the unattended 24/7 evaluator and executor (`MonitorWorker`), hosted by the Hub.
 - Hub: `IdiotProof.Hub`, the one local process every command and transaction goes through.
 - Operation: one `[Operation("noun verb")]` class; it is a CLI command, an MCP tool and a docs entry at once.
 - Confirmation code: the single-use 6-character code a Live action returns; nothing Live happens until it is presented.
@@ -784,8 +786,9 @@ These are verified in code or canon; the living version is `docs/BIBLE.md` secti
 - [docs/BIBLE.digest.md](docs/BIBLE.digest.md): generated by `tools/codex.ps1 digest`; never hand-edit.
 - [docs/CLI_COMMANDS.md](docs/CLI_COMMANDS.md) and [docs/MCP_TOOLS.md](docs/MCP_TOOLS.md): every command and MCP tool, generated from the operation catalog; never hand-edit.
 - [docs/ALPACA_COVERAGE.md](docs/ALPACA_COVERAGE.md): every Alpaca endpoint and the command that reaches it.
+- [docs/agent/IDIOTPROOF_PROTOCOL.md](docs/agent/IDIOTPROOF_PROTOCOL.md): how an assistant drives IdiotProof (bootstrap, exit codes, Live confirmation etiquette, intent to command map); [docs/agent/operation-catalog.json](docs/agent/operation-catalog.json) is the machine-readable catalog and [docs/agent/cli-hub-backlog.json](docs/agent/cli-hub-backlog.json) the Epic W backlog as filed.
 - The docs site, [mindattic.github.io/IdiotProof](https://mindattic.github.io/IdiotProof/), publishes this README and `docs/` on every push to `main` (the shared MindAttic.Agency DocFX workflow).
-- [AGENTS.md](AGENTS.md): instructions for AI agents working in this repo.
+- [AGENTS.md](AGENTS.md): instructions for AI agents working in this repo; agents driving the app start with `idiotproof agent bootstrap`.
 
 Rules of engagement: a fact lives in exactly one layer and is referenced by ID, not by line number; after editing canon, run `powershell -File tools/codex.ps1 doctor` (it must exit 0); mark a story done only when a test or build proves it.
 
