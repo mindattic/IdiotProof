@@ -119,6 +119,38 @@ public class OptionsTradingOperationTests
             new OptionsBuyOperation().ExecuteAsync(new OptionsOrderArgs { Occ = "AAPL", Contracts = 1 }, Context()));
     }
 
+    // ------------------------------------------------------------------ sell (IP-T195)
+
+    [Test]
+    public async Task Sell_DefaultsToSellToClose_AnExitAtAnyLevelAboveZero()
+    {
+        sandbox.Level = 1;
+
+        var result = await new OptionsSellOperation().ExecuteAsync(new OptionsSellArgs { Occ = Call, Contracts = 2, Limit = 4.10m }, Context());
+
+        Assert.That(result.IsOk, Is.True, result.Message);
+        var order = sandbox.Placed.Single();
+        Assert.Multiple(() =>
+        {
+            Assert.That(order.Side, Is.EqualTo(OrderSide.Sell));
+            Assert.That(order.PositionIntent, Is.EqualTo("sell_to_close"));
+            Assert.That(result.Human, Does.Contain("exit"));
+        });
+    }
+
+    [Test]
+    public async Task Sell_Open_WritesSellToOpen_AndLevelZeroBlocksIt()
+    {
+        var written = await new OptionsSellOperation().ExecuteAsync(new OptionsSellArgs { Occ = Call, Contracts = 1, Open = true, Mode = BrokerMode.Paper }, Context());
+        Assert.That(written.IsOk, Is.True, written.Message);
+        Assert.That(paper.Placed.Single().PositionIntent, Is.EqualTo("sell_to_open"));
+
+        paper.Level = 0;
+        var blocked = await new OptionsSellOperation().ExecuteAsync(new OptionsSellArgs { Occ = Call, Contracts = 1, Open = true, Mode = BrokerMode.Paper }, Context());
+        Assert.That(blocked.Status, Is.EqualTo(OperationStatus.Blocked));
+        Assert.That(paper.Placed, Has.Count.EqualTo(1));
+    }
+
     // ------------------------------------------------------------------ fakes
 
     private sealed class FakeBroker(BrokerType type, bool isPaper) : IBrokerClient

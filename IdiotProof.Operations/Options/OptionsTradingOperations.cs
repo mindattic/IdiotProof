@@ -25,6 +25,28 @@ public sealed record OptionsOrderArgs
     public string? Note { get; init; }
 }
 
+/// <summary>Arguments for selling contracts: sell to close by default, or write them with --open.</summary>
+public sealed record OptionsSellArgs
+{
+    [Argument(0, Name = "occ", Description = "OCC contract symbol, e.g. AAPL261219C00150000.")]
+    public string Occ { get; init; } = "";
+
+    [Argument(1, Name = "contracts", Description = "Whole contracts (each is usually 100 shares).")]
+    public int Contracts { get; init; }
+
+    [Option("limit", Description = "Limit price per share (premium). Without it the order is a market order.", Short = 'l')]
+    public decimal? Limit { get; init; }
+
+    [Option("mode", Description = "Where it routes: sandbox (simulator, the default), paper, or live (needs confirmation).", Short = 'm')]
+    public BrokerMode Mode { get; init; } = BrokerMode.Sandbox;
+
+    [Option("open", Description = "Write (sell to open, level 1+: covered call / cash-secured put) instead of selling contracts you hold.")]
+    public bool Open { get; init; }
+
+    [Option("note", Description = "Why — kept in the audit trail.")]
+    public string? Note { get; init; }
+}
+
 }
 
 /// <summary>
@@ -113,6 +135,20 @@ public sealed class OptionsBuyOperation : IOperation<OptionsOrderArgs>
     {
         var contract = OptionsTradeFlow.ParseContract(args.Occ);
         var intent = OptionsTradeFlow.BuildIntent(ctx, contract, args.Contracts, OrderSide.Buy, "buy_to_open", args.Limit, args.Mode, args.Note);
+        return await OptionsTradeFlow.SubmitAsync(intent, ctx);
+    }
+}
+
+[Operation("options sell", Summary = "Sell option contracts you hold (sell to close), or write them with --open (level 1+).", Risk = OperationRisk.Money)]
+[Example("idiotproof options sell AAPL261219C00150000 2 --limit 4.10 --mode paper", Description = "Take profit on 2 calls you hold.")]
+[Example("idiotproof options sell AAPL261219C00170000 1 --open --limit 1.05 --mode paper", Description = "Write a covered call.")]
+public sealed class OptionsSellOperation : IOperation<OptionsSellArgs>
+{
+    public async Task<OperationResult> ExecuteAsync(OptionsSellArgs args, OperationContext ctx)
+    {
+        var contract = OptionsTradeFlow.ParseContract(args.Occ);
+        var intent = OptionsTradeFlow.BuildIntent(ctx, contract, args.Contracts, OrderSide.Sell,
+            args.Open ? "sell_to_open" : "sell_to_close", args.Limit, args.Mode, args.Note);
         return await OptionsTradeFlow.SubmitAsync(intent, ctx);
     }
 }
