@@ -92,4 +92,49 @@ public class DocsOperationsTests
         Assert.That(ex!.Message, Does.Contain(KnowledgeIndexBuilder.RepoEnvVar));
         await Task.CompletedTask;
     }
+    [Test]
+    public async Task Law_ShowsOneInFull_OrListsThem()
+    {
+        var one = await new DocsLawOperation().ExecuteAsync(new DocsLawArgs { Law = "2" }, Context());
+        Assert.That(one.Human, Does.StartWith("IP-LAW-2 — Risk Guardian holds the final veto\nWhere: docs/BIBLE.md:7"));
+        Assert.That(one.Human, Does.Contain("No order without a stop loss."));
+
+        var all = await new DocsLawOperation().ExecuteAsync(new DocsLawArgs(), Context());
+        Assert.That(all.Human, Does.StartWith("2 laws"));
+        Assert.That(all.Human!.IndexOf("IP-LAW-2"), Is.LessThan(all.Human.IndexOf("IP-LAW-3")));
+
+        Assert.ThrowsAsync<OperationException>(() => new DocsLawOperation().ExecuteAsync(new DocsLawArgs { Law = "12" }, Context()));
+    }
+
+    [Test]
+    public async Task Section_ShowsSubsectionsInside_OrTheTableOfContents()
+    {
+        var four = await new DocsSectionOperation().ExecuteAsync(new DocsSectionArgs { Section = "§4" }, Context());
+        Assert.That(four.Human, Does.Contain("IP-§4 — 4. Architecture canon").And.Contain("The Gapper buys the premarket gap."));
+
+        var sub = await new DocsSectionOperation().ExecuteAsync(new DocsSectionArgs { Section = "4.4" }, Context());
+        Assert.That(sub.Human, Does.Contain("In: IP-§4"));
+
+        var toc = await new DocsSectionOperation().ExecuteAsync(new DocsSectionArgs(), Context());
+        Assert.That(toc.Human, Does.Contain("  IP-§4.4"));
+
+        var bad = Assert.ThrowsAsync<OperationException>(() => new DocsSectionOperation().ExecuteAsync(new DocsSectionArgs { Section = "foo" }, Context()));
+        Assert.That(bad!.Status, Is.EqualTo(OperationStatus.UsageError));
+    }
+
+    [Test]
+    public async Task Story_ById_AndByEpicAndStatus()
+    {
+        var one = await new DocsStoryOperation().ExecuteAsync(new DocsStoryArgs { Id = "k1" }, Context());
+        Assert.That(one.Human, Does.StartWith("IP-US-K1").And.Contain("Status: done").And.Contain("In: Epic K — Gapper"));
+
+        var epic = await new DocsStoryOperation().ExecuteAsync(new DocsStoryArgs { Epic = "k" }, Context());
+        Assert.That(epic.Human, Does.StartWith("1 story in Epic K: 1 done"));
+
+        var none = await new DocsStoryOperation().ExecuteAsync(new DocsStoryArgs { Status = "planned" }, Context());
+        Assert.That(none.Human, Is.EqualTo("0 stories (planned)"));
+
+        var usage = await new DocsStoryOperation().ExecuteAsync(new DocsStoryArgs(), Context());
+        Assert.That(usage.Status, Is.EqualTo(OperationStatus.UsageError));
+    }
 }
