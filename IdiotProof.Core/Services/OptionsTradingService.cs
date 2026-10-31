@@ -36,6 +36,7 @@ public sealed class OptionsTradingService(
     RiskGuardianService riskGuardians,
     ConfirmationStore confirmations,
     AuditLogRepository audit,
+    TradeDiaryRepository diary,
     ILogger<TransactionGateway> gatewayLogger,
     ILogger<OptionsTradingService> logger) : IAsyncDisposable
 {
@@ -106,7 +107,7 @@ public sealed class OptionsTradingService(
     internal Task<GatewayOutcome> PlaceThroughGatewayAsync(Guid userId, OptionsBrokerResolution resolution, OrderRequest order,
         IMarketDataFeed dataFeed, LiveModeElevationService elevation, CancellationToken ct)
     {
-        var gateway = new TransactionGateway(new PinnedRouting(resolution.Client), dataFeed, riskGuardians, confirmations, audit, gatewayLogger);
+        var gateway = new TransactionGateway(new PinnedRouting(resolution.Client), dataFeed, riskGuardians, confirmations, audit, gatewayLogger, diary);
         return gateway.SubmitElevatedAsync(ToIntent(userId, resolution.Mode, order), elevation, new GatewayOptions { Caller = "blazor" }, ct);
     }
 

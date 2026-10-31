@@ -4,6 +4,7 @@ using System.Text.Json;
 using IdiotProof.Blazor.Data;
 using IdiotProof.Blazor.Services;
 using IdiotProof.Brokers;
+using IdiotProof.Core.Ledger;
 using IdiotProof.DataFeeds;
 using IdiotProof.Models;
 using IdiotProof.Shared.Risk;
@@ -104,6 +105,9 @@ public sealed record GatewayOptions
 /// MCP and web, options tickets and flattens. Gates run in a fixed order and fail closed:
 /// validate → route (IP-LAW-3) → synthetic-data guard (IP-LAW-9) → Risk Guardian (IP-LAW-2) →
 /// LLM panel for automated entries (IP-LAW-1) → Live confirmation → place → audit.
+/// Every outcome but a dry run leaves an AuditLog row (linked to the Hub's CommandLedger row
+/// through <see cref="CommandScope"/>); a manual order the broker accepted also opens or closes
+/// a TradeDiary row (the Monitor keeps its own strategy diary).
 /// </summary>
 public sealed class TransactionGateway(
     IOrderRouting routing,
@@ -111,7 +115,8 @@ public sealed class TransactionGateway(
     RiskGuardianService riskGuardians,
     ConfirmationStore confirmations,
     AuditLogRepository audit,
-    ILogger<TransactionGateway> logger)
+    ILogger<TransactionGateway> logger,
+    TradeDiaryRepository? diary = null)
 {
     public Task<GatewayOutcome> PreviewAsync(OrderIntent intent, GatewayOptions? options = null, CancellationToken ct = default) =>
         SubmitAsync(intent, (options ?? new GatewayOptions()) with { DryRun = true }, ct);
@@ -295,6 +300,7 @@ public sealed class TransactionGateway(
             Order = placed,
             BrokerThrew = threw,
         };
+        if (outcome.Status == GatewayStatus.Placed) await DiaryAsync(outcome, client, options, ct);
         return await AuditAsync(outcome, options, ct);
     }
 
@@ -411,8 +417,9 @@ public sealed class TransactionGateway(
         var pending = await confirmations.IssueAsync(owner, ConfirmationStore.KindOrderBatch, payload, hash, preview, ct);
         try
         {
-            await audit.LogAsync("risk", $"ConfirmationRequired: {what} — {intents.Count} actions behind code {pending.Code}", owner,
-                JsonSerializer.Serialize(new { status = "ConfirmationRequired", caller, what, intents = intents.Select(i => i.Describe()) }), ct);
+            var id = await audit.LogReturningIdAsync("risk", $"ConfirmationRequired: {what} — {intents.Count} actions behind code {pending.Code}", owner,
+                JsonSerializer.Serialize(new { status = "ConfirmationRequired", caller, what, intents = intents.Select(i => i.Describe()), command = CommandInfo() }), ct);
+            if (id is { } auditId) CommandScope.Current?.LinkAudit(auditId);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
@@ -650,6 +657,63 @@ public sealed class TransactionGateway(
         var other => other.ToString(),
     };
 
+    /// <summary>The Hub operation this runs under, for the audit row (null for the Monitor and the web app).</summary>
+    private static object? CommandInfo() =>
+        CommandScope.Current is { } c ? new { operation = c.Operation, caller = c.Caller } : null;
+
+    /// <summary>
+    /// The trade diary for a person's order the broker accepted: a manual entry opens a row, a
+    /// manual exit closes the newest open manual row for that symbol and account. Strategy and
+    /// Monitor orders are skipped — the Monitor (and the operator flatten) keep the strategy's
+    /// own row. The price is the order's limit or reference (the gateway sees the acceptance,
+    /// not the fill); P&amp;L is only computed when both sides have one. Best effort: a diary
+    /// failure never touches the order that already went out.
+    /// </summary>
+    private async Task DiaryAsync(GatewayOutcome outcome, IBrokerClient client, GatewayOptions options, CancellationToken ct)
+    {
+        var intent = outcome.Intent;
+        if (diary is null || intent.Action != OrderAction.Place || intent.Origin == OrderOrigin.Monitor || intent.StrategyId is not null)
+            return;
+        var o = intent.Order;
+        if (o.OrderClass == OrderClass.Mleg || string.IsNullOrWhiteSpace(o.Symbol)) return;
+        try
+        {
+            var symbol = o.Symbol.Trim().ToUpperInvariant();
+            var price = o.LimitPrice ?? intent.ReferencePrice;
+            var whole = (int)Math.Ceiling(o.SizeQuantity);
+            var now = DateTime.UtcNow;
+            if (intent.Purpose == OrderPurpose.Entry)
+            {
+                await diary.RecordManualEntryAsync(new TradeDiaryEntry
+                {
+                    StrategyId = Guid.Empty,
+                    OwnerUserId = intent.OwnerUserId,
+                    StrategyTitle = $"manual · {intent.Origin.ToString().ToLowerInvariant()} · {options.Caller}",
+                    Symbol = symbol.Length <= 20 ? symbol : symbol[..20],
+                    Direction = o.Side == OrderSide.Buy ? nameof(TradeDirection.Long) : nameof(TradeDirection.Short),
+                    Broker = client.BrokerType.ToString(),
+                    IsPaper = client.IsPaper,
+                    EntryUtc = now,
+                    EntryPrice = price ?? 0m,
+                    Quantity = whole,
+                    Notional = o.Notional,
+                    EntryOrderId = outcome.Order?.BrokerOrderId,
+                    StopLossPrice = intent.StopLossPrice ?? o.StopLoss?.StopPrice,
+                    TakeProfitPrice = intent.TakeProfitPrice ?? o.TakeProfit?.LimitPrice,
+                }, ct);
+            }
+            else
+            {
+                await diary.CloseManualAsync(intent.OwnerUserId, symbol.Length <= 20 ? symbol : symbol[..20], client.IsPaper,
+                    price, outcome.Order?.BrokerOrderId, whole, now, "Manual", ct);
+            }
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            logger.LogWarning(ex, "Trade diary write failed for {Order} (the order is unaffected).", intent.Describe());
+        }
+    }
+
     /// <summary>Every outcome — placed, refused, vetoed, awaiting confirmation — leaves an audit row.</summary>
     private async Task<GatewayOutcome> AuditAsync(GatewayOutcome outcome, GatewayOptions options, CancellationToken ct)
     {
@@ -667,9 +731,11 @@ public sealed class TransactionGateway(
                 broker_message = outcome.Order?.Message,
                 code_issued = outcome.ConfirmationCode is not null,
                 live_confirmed_by = options.ConfirmedBy,
+                command = CommandInfo(),
             });
             var category = outcome.Status is GatewayStatus.Placed or GatewayStatus.Rejected ? "order" : "risk";
-            await audit.LogAsync(category, $"{outcome.Status}: {outcome.Intent.Describe()} — {outcome.Message}", outcome.Intent.OwnerUserId, data, ct);
+            var id = await audit.LogReturningIdAsync(category, $"{outcome.Status}: {outcome.Intent.Describe()} — {outcome.Message}", outcome.Intent.OwnerUserId, data, ct);
+            if (id is { } auditId) CommandScope.Current?.LinkAudit(auditId);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {

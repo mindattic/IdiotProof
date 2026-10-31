@@ -34,7 +34,15 @@ public sealed class AuditLogRepository(IDbContextFactory<AppDbContext> dbFactory
     /// caller — is deliberate: a caller-side try/catch wrapper would have to be
     /// duplicated at every call site and re-added for every new caller.
     /// </summary>
-    public async Task LogAsync(string category, string message, Guid? userId = null, string? dataJson = null, CancellationToken ct = default)
+    public Task LogAsync(string category, string message, Guid? userId = null, string? dataJson = null, CancellationToken ct = default) =>
+        LogReturningIdAsync(category, message, userId, dataJson, ct);
+
+    /// <summary>
+    /// <see cref="LogAsync"/>, returning the new row's id (null when the write failed) so a
+    /// caller can link the row to something written later — the gateway hands it to the
+    /// <c>CommandScope</c> so the Hub's command-ledger row can be stamped onto it.
+    /// </summary>
+    public async Task<long?> LogReturningIdAsync(string category, string message, Guid? userId = null, string? dataJson = null, CancellationToken ct = default)
     {
         try
         {
@@ -55,20 +63,23 @@ public sealed class AuditLogRepository(IDbContextFactory<AppDbContext> dbFactory
             }
 
             await using var db = await dbFactory.CreateDbContextAsync(ct);
-            db.AuditLogs.Add(new AuditLog
+            var row = new AuditLog
             {
                 TimestampUtc = DateTime.UtcNow,
                 UserId       = userId,
                 Category     = storedCategory.Length > CategoryMaxLength ? storedCategory[..CategoryMaxLength] : storedCategory,
                 Message      = storedMessage,
                 DataJson     = storedData,
-            });
+            };
+            db.AuditLogs.Add(row);
             await db.SaveChangesAsync(ct);
+            return row.Id;
         }
         catch (OperationCanceledException) { throw; }
         catch (Exception ex)
         {
             logger.LogWarning(ex, "Audit log write failed (non-fatal): [{Category}] {Message}", category, message);
+            return null;
         }
     }
 

@@ -95,6 +95,60 @@ public sealed class TradeDiaryRepository(IDbContextFactory<AppDbContext> dbFacto
         await db.SaveChangesAsync(ct);
     }
 
+    // ── Manual orders (the TransactionGateway, IP-T93) ──────────────────
+
+    /// <summary>
+    /// Records a person's entry (CLI, MCP, web) the broker accepted. Manual rows carry
+    /// <see cref="Guid.Empty"/> as their strategy, so unlike <see cref="OpenAsync"/> nothing is
+    /// orphaned: a person may hold several manual positions at once.
+    /// </summary>
+    public async Task<Guid> RecordManualEntryAsync(TradeDiaryEntry entry, CancellationToken ct = default)
+    {
+        entry.StrategyId = Guid.Empty;
+        entry.Status     = TradeDiaryStatus.Open;
+        entry.CreatedUtc = DateTime.UtcNow;
+        entry.UpdatedUtc = entry.CreatedUtc;
+        await using var db = await dbFactory.CreateDbContextAsync(ct);
+        db.TradeDiary.Add(entry);
+        await db.SaveChangesAsync(ct);
+        return entry.Id;
+    }
+
+    /// <summary>
+    /// Closes the newest open MANUAL row for <paramref name="symbol"/> in that account (paper or
+    /// not) when a person's exit was accepted. A smaller exit than the row's size leaves it open
+    /// (a partial). P&amp;L and return % are set only when both prices are known; otherwise they
+    /// stay empty rather than guessed. Returns false when there was no manual row to close
+    /// (e.g. the position was opened outside IdiotProof, or by a strategy).
+    /// </summary>
+    public async Task<bool> CloseManualAsync(Guid ownerUserId, string symbol, bool isPaper, decimal? exitPrice,
+        string? exitOrderId, int quantity, DateTime exitUtc, string exitReason, CancellationToken ct = default)
+    {
+        await using var db = await dbFactory.CreateDbContextAsync(ct);
+        var row = await db.TradeDiary
+            .Where(t => t.StrategyId == Guid.Empty && t.OwnerUserId == ownerUserId && t.Symbol == symbol
+                     && t.IsPaper == isPaper && t.Status == TradeDiaryStatus.Open)
+            .OrderByDescending(t => t.EntryUtc)
+            .FirstOrDefaultAsync(ct);
+        if (row is null || quantity < row.Quantity) return false;
+
+        row.ExitUtc     = exitUtc;
+        row.ExitPrice   = exitPrice;
+        row.ExitReason  = exitReason;
+        row.ExitOrderId = exitOrderId;
+        if (exitPrice is { } exit && row.EntryPrice > 0m)
+        {
+            var perShare = row.Direction == nameof(IdiotProof.Models.TradeDirection.Short) ? row.EntryPrice - exit : exit - row.EntryPrice;
+            row.RealizedPnL = Math.Round(perShare * row.Quantity, 2);
+            var cost = row.EntryPrice * row.Quantity;
+            row.ReturnPercent = cost > 0m ? Math.Round(row.RealizedPnL.Value / cost * 100m, 4) : 0m;
+        }
+        row.Status     = TradeDiaryStatus.Closed;
+        row.UpdatedUtc = DateTime.UtcNow;
+        await db.SaveChangesAsync(ct);
+        return true;
+    }
+
     // ── Reads (diary page + CLI export) ─────────────────────────────────
 
     public async Task<List<TradeDiaryEntry>> GetForUserAsync(Guid ownerUserId, int limit = 200, CancellationToken ct = default)

@@ -36,7 +36,7 @@ public sealed class OptionsGatewayTests
         elevation = new LiveModeElevationService(db, null!, NullLogger<LiveModeElevationService>.Instance);
         service = new OptionsTradingService(null!, null!, null!, db, null!,
             new RiskGuardianService(db), new ConfirmationStore(db, TimeProvider.System),
-            new AuditLogRepository(db, NullLogger<AuditLogRepository>.Instance),
+            new AuditLogRepository(db, NullLogger<AuditLogRepository>.Instance), new TradeDiaryRepository(db),
             NullLogger<TransactionGateway>.Instance, NullLogger<OptionsTradingService>.Instance);
         paper = new Broker(isPaper: true);
         live = new Broker(isPaper: false);

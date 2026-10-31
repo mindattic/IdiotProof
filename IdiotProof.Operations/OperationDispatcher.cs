@@ -65,15 +65,29 @@ public sealed class OperationDispatcher(
 {
     public OperationCatalog Catalog => catalog;
 
+    // The public entry points are deliberately NOT async: Begin() sets an AsyncLocal, and only a
+    // synchronous set stays visible to the caller afterwards — the Hub appends the command-ledger
+    // row after the operation returns, and that append links the gateway's audit rows to it.
+
     /// <summary>MCP / Hub path: a named operation with a JSON object of args.</summary>
     public Task<OperationResult> DispatchAsync(
-        string name, JsonElement args, OperationInvocation info, CancellationToken ct = default) =>
-        RunAsync(name, d => ArgsBinder.Bind(d, args), info, ct);
+        string name, JsonElement args, OperationInvocation info, CancellationToken ct = default)
+    {
+        BeginCommand(name, info);
+        return RunAsync(name, d => ArgsBinder.Bind(d, args), info, ct);
+    }
 
     /// <summary>CLI path: a named operation with the argv tokens that followed its name.</summary>
     public Task<OperationResult> DispatchAsync(
-        string name, IReadOnlyList<string> argv, OperationInvocation info, CancellationToken ct = default) =>
-        RunAsync(name, d => ArgsBinder.Bind(d, argv), info, ct);
+        string name, IReadOnlyList<string> argv, OperationInvocation info, CancellationToken ct = default)
+    {
+        BeginCommand(name, info);
+        return RunAsync(name, d => ArgsBinder.Bind(d, argv), info, ct);
+    }
+
+    /// <summary>Opens the <see cref="IdiotProof.Core.Ledger.CommandScope"/> for this call (catalog name when it resolves).</summary>
+    private void BeginCommand(string name, OperationInvocation info) =>
+        IdiotProof.Core.Ledger.CommandScope.Begin(catalog.Find(name)?.Name ?? name, info.Caller.ToString().ToLowerInvariant());
 
     /// <summary>
     /// CLI path when the operation name is still inside argv (<c>["strategy", "list", "--active"]</c>);
@@ -87,7 +101,8 @@ public sealed class OperationDispatcher(
             var typed = string.Join(' ', argv.TakeWhile(t => !t.StartsWith('-')).Take(2));
             return Task.FromResult(UnknownOperation(typed));
         }
-        return RunAsync(descriptor!.Name, d => ArgsBinder.Bind(d, rest), info, ct);
+        BeginCommand(descriptor!.Name, info);
+        return RunAsync(descriptor.Name, d => ArgsBinder.Bind(d, rest), info, ct);
     }
 
     private async Task<OperationResult> RunAsync(
