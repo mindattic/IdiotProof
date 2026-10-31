@@ -237,6 +237,13 @@ public static class DslGlossary
 
     public static Entry? Find(ICondition c) => Find(KeyFor(c));
 
+    /// <summary>Every canonical entry (aliases resolve through <see cref="Find(string?)"/>), for <c>idiotproof dsl glossary</c>.</summary>
+    public static IReadOnlyCollection<Entry> All => entries.Values;
+
+    /// <summary>The other spellings that resolve to <paramref name="key"/>'s entry.</summary>
+    public static IReadOnlyList<string> AliasesOf(string key) =>
+        [.. aliases.Where(kv => kv.Value == key).Select(kv => kv.Key).Order(StringComparer.Ordinal)];
+
     public static Entry? Find(string? key)
     {
         if (string.IsNullOrWhiteSpace(key)) return null;
