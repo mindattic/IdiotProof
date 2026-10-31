@@ -945,7 +945,7 @@ public sealed class MonitorWorker(
         if (votingCredentials.VotingEnabled && !string.IsNullOrWhiteSpace(votingCredentials.ClaudeApiKey))
         {
             var voteResult = await llmVoting.VoteOnSignalAsync(signal, candles, votingCredentials,
-                appSettings.LlmConsensusThreshold, ct);
+                await LlmPanelSettings.ThresholdAsync(dbFactory, appSettings.LlmConsensusThreshold, ct), ct);
             if (voteResult.Votes.Count == 0 || voteResult.Consensus != VoteDecision.Approve)
             {
                 var why = voteResult.Votes.Count == 0
