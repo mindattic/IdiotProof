@@ -1430,13 +1430,15 @@ public static class MarketTime
     /// Covers: New Year's Day, MLK Day, Presidents' Day, Good Friday,
     /// Memorial Day, Juneteenth, Independence Day, Labor Day, Thanksgiving,
     /// and Christmas Day, each with the standard Saturday→Friday /
-    /// Sunday→Monday observed-holiday shift.
+    /// Sunday→Monday observed-holiday shift, except that a Saturday New Year's Day is not
+    /// observed (Dec 31 stays open under NYSE Rule 7.2).
     /// </summary>
     public static bool IsMarketHoliday(DateOnly date)
     {
         var y = date.Year;
-        return date == ObservedHoliday(y, 1,  1)   // New Year's Day (this year)
-            || date == ObservedHoliday(y + 1, 1, 1) // New Year's Day next year — observed Dec 31 when Jan 1 falls on Saturday
+        // New Year's Day: a Sunday Jan 1 is observed Monday Jan 2. A Saturday Jan 1 is NOT observed on
+        // the Friday before: NYSE Rule 7.2 keeps Dec 31 (a year-end accounting day) open, as on 2021-12-31.
+        return date == ObservedHoliday(y, 1,  1)   // a Saturday Jan 1 maps to Dec 31 of y-1, so never matches
             || date == MlkDay(y)                    // MLK Day (3rd Mon Jan)
             || date == PresidentsDay(y)             // Presidents' Day (3rd Mon Feb)
             || date == GoodFriday(y)               // Good Friday

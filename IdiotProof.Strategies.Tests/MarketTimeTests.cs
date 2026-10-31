@@ -38,4 +38,17 @@ public class MarketTimeTests
         Assert.That(fridayLateEt.DayOfWeek, Is.EqualTo(DayOfWeek.Saturday), "sanity: UTC day has rolled over");
         Assert.That(MarketTime.IsEquityTradingDay(fridayLateEt), Is.True);
     }
+
+    [TestCase(2021, 12, 31)] // NYSE was open: New Year's Day 2022 fell on a Saturday
+    [TestCase(2027, 12, 31)] // New Year's Day 2028 is a Saturday
+    public void IsMarketHoliday_SaturdayNewYear_IsNotObservedOnTheFridayBefore(int y, int m, int d)
+    {
+        // IP-T339: NYSE Rule 7.2 keeps the year-end Friday open instead of observing a Saturday New Year.
+        Assert.Multiple(() =>
+        {
+            Assert.That(MarketTime.IsMarketHoliday(new DateOnly(y, m, d)), Is.False);
+            Assert.That(MarketTime.IsEquityTradingDay(EtToUtc(y, m, d, 10, 0)), Is.True);
+            Assert.That(TradingSchedule.Classify(EtToUtc(y, m, d, 10, 0)), Is.EqualTo(TradingWindow.Active));
+        });
+    }
 }
