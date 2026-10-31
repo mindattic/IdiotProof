@@ -35,6 +35,15 @@ using Microsoft.EntityFrameworkCore;
 // Run:  dotnet run --project IdiotProof.Hub       Stop: Ctrl+C or `idiotproof hub stop` (graceful:
 //       drains running operations, stops the Monitor loop, releases the leader lease — IP-T79)
 
+// One Hub per port (IP-T77): say who already has it and exit before touching the database.
+var port = HubWire.ResolvePort();
+if (HubInstanceGuard.IsPortInUse(port))
+{
+    var running = await HubInstanceGuard.ProbeAsync(port, TimeSpan.FromSeconds(3));
+    Console.Error.WriteLine(HubInstanceGuard.PortTakenMessage(port, running));
+    return HubInstanceGuard.PortTakenExitCode;
+}
+
 // The visible, money-green window (IP-T331): paint, title and log tee before anything prints.
 HubConsole.Start();
 
@@ -49,7 +58,6 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddWindowsService(o => o.ServiceName = "IdiotProof.Hub");
 
 // Loopback only: other machines can never reach the Hub; the shared key covers local processes.
-var port = HubWire.ResolvePort();
 builder.WebHost.ConfigureKestrel(k => k.Listen(IPAddress.Loopback, port));
 
 // ── The shared IdiotProof graph (HOUSE-LAW-6) — same as the web app and the Monitor ──
