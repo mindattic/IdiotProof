@@ -33,94 +33,85 @@ public static partial class StrategyReplay
 {
     private const int CandleWindow = 240; // trailing 4h — matches MonitorWorker
 
-    public static async Task<int> RunAsync(IServiceProvider sp, Dictionary<string, string> opt)
+    /// <summary>Where the replay archive pages are written unless a caller names another folder.</summary>
+    public const string DefaultArchiveRoot = @"D:\Projects\MindAttic\MindAttic.Web\mindattic.com\idiotproof\replays";
+
+    /// <summary>
+    /// The whole strategy library a ticker/day can be replayed against: the classic gapper (a
+    /// gapper-profile id) plus every built-in family, with a one-line description each.
+    /// </summary>
+    public static IReadOnlyList<ReplayFamily> Families { get; } =
+    [
+        new("classic-gapper", "Premarket gap-and-go (gapper profile): gap ≥5% on 2× volume, in from 4 AM, giveback exit from 9:15, flat by 9:28."),
+        new("momentum", "Repeating premarket VWAP-reclaim continuation on 1.5× volume; 8% trail, re-arms after each exit, flat by 9:29."),
+        new("reversal", "Dip-buy: reclaim EMA9 off a low near support on volume; 3% stop, 6% trail, repeats, flat by 15:55."),
+        new("rsireversal", "Oversold capitulation at the low of day (RSI ≤35 at support on volume), buy the bounce; flat by 15:55."),
+        new("emabreak", "Trend reclaim: price retakes EMA200 while above VWAP on volume; 3% stop, 8% trail, repeats."),
+        new("rthdrive", "RTH open-drive: above VWAP and EMA9 with EMA9 over EMA34 on 1.5× volume; ride with an 8% trail, flat by 15:55."),
+        new("shortfade", "Failed-high fade: SHORT below VWAP and EMA9 on volume, cover on a bounce (6% trail); flat by 15:55."),
+        new("swingreversal", "Double bottom: a higher low near support on volume, target the prior high of day; flat by 15:55."),
+    ];
+
+    /// <summary>
+    /// The definition for a family id (a built-in family, else a gapper-profile id from the catalog
+    /// at <paramref name="profilesPath"/> or the shipped one), composed for <paramref name="symbol"/>;
+    /// null for an unknown id.
+    /// </summary>
+    public static StrategyDefinition? ResolveFamily(string id, string symbol, string? profilesPath = null)
     {
-        if (!opt.TryGetValue("symbol", out var symRaw) || string.IsNullOrWhiteSpace(symRaw))
-            return Fail("replay requires --symbol <TICKER>.");
-        var symbol = symRaw.Trim().ToUpperInvariant();
+        var builtin = BuiltinStrategy(id, symbol);
+        if (builtin is not null) return builtin;
+        var profile = LoadProfile(id, profilesPath);
+        return profile is null ? null : GapperScriptFactory.Compose(symbol, profile).Build();
+    }
 
-        // Date: ET calendar day to replay. Default = most recent completed ET
-        // trading weekday.
-        var dateEt = opt.TryGetValue("date", out var dRaw) && DateOnly.TryParse(dRaw, out var d)
-            ? d : MarketTime.PreviousEquityTradingDayEt(DateTime.UtcNow);
+    /// <summary>The 04:00–20:00 ET window of <paramref name="dateEt"/> in UTC, never past the last closed minute.</summary>
+    public static (DateTime StartUtc, DateTime EndUtc) DayWindowUtc(DateOnly dateEt, DateTime nowUtc)
+    {
+        var start = EtToUtc(dateEt, new TimeSpan(4, 0, 0));
+        var end = EtToUtc(dateEt, new TimeSpan(20, 0, 0));
+        // Never ask for the currently-forming bar (returns partial/null).
+        var wall = nowUtc - TimeSpan.FromMinutes(1);
+        return (start, end > wall ? wall : end);
+    }
 
-        var feedTier = (opt.GetValueOrDefault("feed", "sip")).ToLowerInvariant();
-        var outRoot = opt.GetValueOrDefault("out",
-            @"D:\Projects\MindAttic\MindAttic.Web\mindattic.com\idiotproof\replays");
-
-        var userId = await ResolveUserAsync(sp, opt);
-        if (userId is null) return Fail("No --user given and no single user found.");
-
-        var keys = sp.GetRequiredService<UserKeyService>();
-        var k = await keys.GetOrCreateAsync(userId.Value);
-        if (string.IsNullOrWhiteSpace(k.AlpacaApiKeyId) || string.IsNullOrWhiteSpace(k.AlpacaApiSecretKey))
-            return Fail($"user {userId} has no Alpaca data keys — set them first (set-keys).");
-
-        // Resolve the strategy: saved row for this symbol, or a gapper profile
-        // applied on the fly (so scanner tickers with no saved strategy work).
-        StrategyDefinition def;
-        string strategyTitle;
-        if (opt.TryGetValue("profile", out var profileId) && !string.IsNullOrWhiteSpace(profileId))
-        {
-            var builtin = BuiltinStrategy(profileId, symbol);
-            if (builtin is not null)
-            {
-                def = builtin;
-                strategyTitle = def.Name!;
-            }
-            else
-            {
-                var profile = LoadProfile(profileId, opt.GetValueOrDefault("profiles-path"));
-                if (profile is null) return Fail($"unknown profile '{profileId}' (built-ins: momentum, reversal, emabreak; or a gapper-profile id).");
-                def = GapperScriptFactory.Compose(symbol, profile).Build();
-                strategyTitle = def.Name ?? $"{symbol} Gapper";
-            }
-        }
-        else
-        {
-            var repo = sp.GetRequiredService<StrategyRepository>();
-            var all = await repo.GetAllForUserAsync(userId.Value);
-            var matches = all.Where(s => s.Symbol.Equals(symbol, StringComparison.OrdinalIgnoreCase)).ToList();
-            var chosen = matches.FirstOrDefault(s => s.IsActive) ?? matches.FirstOrDefault();
-            if (chosen is null)
-                return Fail($"no saved strategy for {symbol}. Pass --profile <id> to replay a gapper profile on the fly.");
-            var loaded = StrategyLoader.Load(chosen.ScriptJson, chosen.ScriptText);
-            if (loaded.Definition is null)
-                return Fail($"{symbol} strategy failed to load: {loaded.CanonicalError ?? "unparseable"}.");
-            def = loaded.Definition;
-            strategyTitle = chosen.Title;
-        }
-
-        // ── Fetch the day's bars (04:00–20:00 ET → UTC) on the chosen tier ──
-        var dayStartUtc = EtToUtc(dateEt, new TimeSpan(4, 0, 0));
-        var dayEndUtc = EtToUtc(dateEt, new TimeSpan(20, 0, 0));
-        // With Algo Trader Plus (real-time SIP) there is no 15-min wall —
-        // request right up to the last fully-closed minute. Keep a 1-min guard so
-        // we never ask for the currently-forming bar (which returns partial/null).
-        // Free keys can still set IDIOTPROOF_ALPACA_FEED=iex; then this is moot.
-        var sipWall = DateTime.UtcNow - TimeSpan.FromMinutes(1);
-        if (feedTier == "sip" && dayEndUtc > sipWall) dayEndUtc = sipWall;
+    /// <summary>
+    /// One day's 1-minute bars (04:00–20:00 ET) plus the previous close, from <paramref name="feed"/>.
+    /// Throws <see cref="ReplayException"/> when the day hasn't started or the feed has no bars.
+    /// </summary>
+    public static async Task<ReplayDay> LoadDayAsync(IMarketDataFeed feed, string feedLabel, string symbol, DateOnly dateEt, DateTime nowUtc, CancellationToken ct = default)
+    {
+        var (dayStartUtc, dayEndUtc) = DayWindowUtc(dateEt, nowUtc);
         if (dayEndUtc <= dayStartUtc)
-            return Fail($"nothing to replay yet for {dateEt:yyyy-MM-dd} — the session hasn't started. Try again once the window opens, or replay a past day.");
-        await using var feed = new AlpacaDataFeed(k.AlpacaApiKeyId, k.AlpacaApiSecretKey, feedTier);
-
+            throw new ReplayException($"nothing to replay yet for {dateEt:yyyy-MM-dd} — the session hasn't started. Try again once the window opens, or replay a past day.");
         var candles = new List<Candle>();
-        await foreach (var c in feed.GetHistoricalCandlesAsync(symbol, dayStartUtc, dayEndUtc, TimeSpan.FromMinutes(1)))
+        await foreach (var c in feed.GetHistoricalCandlesAsync(symbol, dayStartUtc, dayEndUtc, TimeSpan.FromMinutes(1), ct))
             candles.Add(c);
-
-        Console.WriteLine($"replay {symbol} {dateEt:yyyy-MM-dd} · feed={feed.FeedTier} · {candles.Count} bars · \"{strategyTitle}\"");
         if (candles.Count == 0)
-            return Fail($"no {feed.FeedTier} bars for {symbol} on {dateEt:yyyy-MM-dd}. " +
-                        "Thin/absent premarket on this feed — try --feed sip, a liquid RTH day, or a different date.");
+            throw new ReplayException($"no {feedLabel} bars for {symbol} on {dateEt:yyyy-MM-dd}. " +
+                                      "Thin/absent premarket on this feed — try --feed sip, a liquid RTH day, or a different date.");
+        var previousClose = await feed.GetPreviousCloseAsync(symbol, dayStartUtc, ct);
+        return new ReplayDay(symbol, dateEt, feedLabel, candles, previousClose);
+    }
 
-        var previousClose = await ((IMarketDataFeed)feed).GetPreviousCloseAsync(symbol, dayStartUtc);
+    /// <summary>
+    /// Replays <paramref name="def"/> over a loaded day through the SAME evaluator the live
+    /// Monitor runs, persists the <see cref="ReplayRun"/> (plus its feature rows) to SQL and, when
+    /// <paramref name="outRoot"/> is given, renders the run page and both index levels from SQL.
+    /// </summary>
+    public static async Task<ReplayOutcome> ReplayAsync(IDbContextFactory<AppDbContext> dbf, ReplayDay day, StrategyDefinition def,
+        string strategyTitle, bool repeat, string? outRoot, DateTime nowUtc, CancellationToken ct = default)
+    {
+        var symbol = day.Symbol;
+        var candles = day.Candles as List<Candle> ?? day.Candles.ToList();
+        var previousClose = day.PreviousClose;
         var emas = EmaPeriodCollector.Collect(def);
         var condLabels = def.EntryConditions.Select(c => c.ToScript()).ToList();
 
         // Whether the strategy re-arms after an exit (multiple round-trips per
-        // day). The saved gappers are one-shot; --repeat forces the simulation
+        // day). The saved gappers are one-shot; repeat forces the simulation
         // to show every leg the day offered, regardless of the saved flag.
-        var repeat = def.ShouldRepeat || opt.ContainsKey("repeat");
+        repeat = def.ShouldRepeat || repeat;
         var isShort = def.Direction == TradeDirection.Short;
 
         int n = candles.Count;
@@ -160,7 +151,7 @@ public static partial class StrategyReplay
         //    re-arm after the exit if the strategy repeats. Each round-trip is
         //    one payoff (entry → exit, with reason and P&L). ──
         var entryIdx = new HashSet<int>(); var exitIdx = new HashSet<int>();
-        var payoffs = new List<object>(); double totalPnl = 0;
+        var payoffs = new List<ReplayPayoff>(); double totalPnl = 0;
         for (int i = 0; i < n; )
         {
             if (!(inSess[i] && allTrue[i])) { i++; continue; }
@@ -182,13 +173,7 @@ public static partial class StrategyReplay
                 ? (isShort ? (entryPx - exitPx) : (exitPx - entryPx)) / entryPx * 100.0
                 : 0;
             totalPnl += pnl;
-            payoffs.Add(new
-            {
-                entryEt = et[i], entryPx = Round(entryPx),
-                exitEt = et[exitAt], exitPx = Round(exitPx),
-                reason = dec?.Reason.ToString() ?? "EndOfData",
-                pnlPct = Math.Round(pnl, 2),
-            });
+            payoffs.Add(new ReplayPayoff(et[i], Round(entryPx), et[exitAt], Round(exitPx), dec?.Reason.ToString() ?? "EndOfData", Math.Round(pnl, 2)));
             if (!repeat) break;                        // one-shot: first leg only
             i = exitAt + 1;                            // re-arm after the exit
         }
@@ -202,28 +187,20 @@ public static partial class StrategyReplay
                 cnd[i], inSess[i], entryIdx.Contains(i), exitIdx.Contains(i)));
         }
 
-        var fires = payoffs.Select(p => ((dynamic)p).entryEt).Cast<string>().ToList();
+        var fires = payoffs.Select(p => p.EntryEt).ToList();
         string? firstFireEt = fires.FirstOrDefault();
-        double? entryPrice = payoffs.Count > 0 ? ((dynamic)payoffs[0]).entryPx : null;
-        var genUtc = DateTime.UtcNow;
+        double? entryPrice = payoffs.Count > 0 ? payoffs[0].EntryPx : null;
+        var genUtc = DateTime.SpecifyKind(nowUtc, DateTimeKind.Utc);
         var genEt = TimeZoneInfo.ConvertTimeFromUtc(genUtc, MarketTime.Eastern);
 
         // Folder id: ET generation stamp to the second, plus a bijective
         // base-26 suffix (-a … -z, -aa …) when that stamp is already taken — so
         // several runs the same day (a repeating/multi-execute strategy, or just
         // re-running) never collide or overwrite an earlier graph.
-        var dbf = sp.GetRequiredService<IDbContextFactory<AppDbContext>>();
-        var tickerDir = Path.Combine(outRoot, symbol.ToLowerInvariant());
         var baseStamp = genEt.ToString("yyyy-MM-ddTHH.mm.ss", CultureInfo.InvariantCulture);
-
-        // The Blazor host normally applies migrations; migrate here too so the
-        // Monitor CLI is self-sufficient (creates ReplayRuns on first use).
-        await using (var mig = await dbf.CreateDbContextAsync())
-            await mig.Database.MigrateAsync();
-
         var stamp = baseStamp;
-        await using (var db = await dbf.CreateDbContextAsync())
-            for (int sfx = 1; await db.ReplayRuns.AnyAsync(r => r.Symbol == symbol && r.Stamp == stamp); sfx++)
+        await using (var db = await dbf.CreateDbContextAsync(ct))
+            for (int sfx = 1; await db.ReplayRuns.AnyAsync(r => r.Symbol == symbol && r.Stamp == stamp, ct); sfx++)
                 stamp = $"{baseStamp}-{Base26(sfx)}";
 
         // ── DATA payload the page renders from ──
@@ -231,8 +208,8 @@ public static partial class StrategyReplay
         {
             symbol,
             strategy = strategyTitle,
-            dateEt = dateEt.ToString("yyyy-MM-dd"),
-            feed = feed.FeedTier.ToUpperInvariant(),
+            dateEt = day.DateEt.ToString("yyyy-MM-dd"),
+            feed = day.FeedLabel.ToUpperInvariant(),
             generatedEt = genEt.ToString("yyyy-MM-dd HH:mm:ss 'ET'", CultureInfo.InvariantCulture),
             session = def.Session.ToString(),
             side = def.Direction == TradeDirection.Short ? "SELL short" : "BUY long",
@@ -255,37 +232,135 @@ public static partial class StrategyReplay
         // ── Persist to SQL (IP-LAW-7) — the system of record for the archive ──
         var run = new ReplayRun
         {
-            Symbol = symbol, Strategy = strategyTitle, DateEt = data.dateEt, Feed = data.feed,
+            Symbol = symbol, Strategy = Clip(strategyTitle, 200), DateEt = data.dateEt, Feed = Clip(data.feed, 8),
             Stamp = stamp, GeneratedUtc = genUtc, GeneratedEt = data.generatedEt,
             Fired = firstFireEt is not null, PayoffCount = payoffs.Count, TotalPnl = Math.Round(totalPnl, 2),
             FirstFireEt = firstFireEt, EntryPrice = entryPrice, DataJson = dataJson, StrategyHtml = def.ToHtml(),
         };
         var (tradeRows, barRows) = ReplayFeatures.Extract(run);
-        await using (var db = await dbf.CreateDbContextAsync())
+        await using (var db = await dbf.CreateDbContextAsync(ct))
         {
             db.ReplayRuns.Add(run);
             db.ReplayTrades.AddRange(tradeRows);
             db.ReplayBars.AddRange(barRows);
-            await db.SaveChangesAsync();
+            await db.SaveChangesAsync(ct);
         }
 
         // ── Render the file tree FROM the DB (the pages are a view of SQL) ──
-        await RenderRunPageAsync(run, outRoot);
-        await WriteTickerIndexAsync(dbf, outRoot, symbol);
-        await WriteRootIndexAsync(dbf, outRoot);
+        string? pagePath = null;
+        if (outRoot is not null)
+        {
+            await RenderRunPageAsync(run, outRoot);
+            await WriteTickerIndexAsync(dbf, outRoot, symbol);
+            await WriteRootIndexAsync(dbf, outRoot);
+            pagePath = Path.Combine(outRoot, symbol.ToLowerInvariant(), stamp, "index.htm");
+        }
 
-        var urlBase = $"https://mindattic.com/idiotproof/replays/{symbol.ToLowerInvariant()}";
-        if (payoffs.Count == 0)
-            Console.WriteLine($"  no fire — best {Math.Max(0, bestPassed)}/{condLabels.Count} in-session (waiting on {bestFail ?? "n/a"})");
+        return new ReplayOutcome(run, payoffs, n, Math.Max(0, bestPassed), condLabels.Count, bestFail, repeat, pagePath);
+    }
+
+    /// <summary>
+    /// Every family in <see cref="Families"/> against one ticker/day (the day's bars fetched once),
+    /// each persisted as its own run, ranked fired-first then by realized P&amp;L.
+    /// </summary>
+    public static async Task<List<ReplayFamilyOutcome>> ReplayAllFamiliesAsync(IDbContextFactory<AppDbContext> dbf, ReplayDay day,
+        string? outRoot, DateTime nowUtc, string? profilesPath = null, CancellationToken ct = default)
+    {
+        var results = new List<ReplayFamilyOutcome>();
+        foreach (var fam in Families)
+        {
+            try
+            {
+                var def = ResolveFamily(fam.Id, day.Symbol, profilesPath);
+                if (def is null) { results.Add(new ReplayFamilyOutcome(fam.Id, null, $"unknown family '{fam.Id}'")); continue; }
+                var outcome = await ReplayAsync(dbf, day, def, def.Name ?? $"{day.Symbol} {fam.Id}", repeat: true, outRoot, nowUtc, ct);
+                results.Add(new ReplayFamilyOutcome(fam.Id, outcome, null));
+            }
+            catch (OperationCanceledException) { throw; }
+            catch (Exception ex) { results.Add(new ReplayFamilyOutcome(fam.Id, null, ex.Message)); }
+        }
+        return results
+            .OrderByDescending(r => r.Outcome?.Run.Fired ?? false)
+            .ThenByDescending(r => r.Outcome?.Run.TotalPnl ?? double.MinValue)
+            .ToList();
+    }
+
+    // ── legacy operator CLI (`replay`) — a thin wrapper over the reusable core ──
+    public static async Task<int> RunAsync(IServiceProvider sp, Dictionary<string, string> opt)
+    {
+        if (!opt.TryGetValue("symbol", out var symRaw) || string.IsNullOrWhiteSpace(symRaw))
+            return Fail("replay requires --symbol <TICKER>.");
+        var symbol = symRaw.Trim().ToUpperInvariant();
+
+        // Date: ET calendar day to replay. Default = most recent completed ET
+        // trading weekday.
+        var dateEt = opt.TryGetValue("date", out var dRaw) && DateOnly.TryParse(dRaw, out var d)
+            ? d : MarketTime.PreviousEquityTradingDayEt(DateTime.UtcNow);
+
+        var feedTier = (opt.GetValueOrDefault("feed", "sip")).ToLowerInvariant();
+        var outRoot = opt.GetValueOrDefault("out", DefaultArchiveRoot);
+
+        var userId = await ResolveUserAsync(sp, opt);
+        if (userId is null) return Fail("No --user given and no single user found.");
+
+        var keys = sp.GetRequiredService<UserKeyService>();
+        var k = await keys.GetOrCreateAsync(userId.Value);
+        if (string.IsNullOrWhiteSpace(k.AlpacaApiKeyId) || string.IsNullOrWhiteSpace(k.AlpacaApiSecretKey))
+            return Fail($"user {userId} has no Alpaca data keys — set them first (set-keys).");
+
+        // Resolve the strategy: saved row for this symbol, or a gapper profile
+        // applied on the fly (so scanner tickers with no saved strategy work).
+        StrategyDefinition def;
+        string strategyTitle;
+        if (opt.TryGetValue("profile", out var profileId) && !string.IsNullOrWhiteSpace(profileId))
+        {
+            var resolved = ResolveFamily(profileId, symbol, opt.GetValueOrDefault("profiles-path"));
+            if (resolved is null) return Fail($"unknown profile '{profileId}' (built-ins: momentum, reversal, emabreak; or a gapper-profile id).");
+            def = resolved;
+            strategyTitle = def.Name ?? $"{symbol} Gapper";
+        }
         else
         {
-            Console.WriteLine($"  {payoffs.Count} payoff(s){(repeat ? " (repeat)" : " (one-shot)")}, total {totalPnl:+0.##;-0.##;0}%:");
-            foreach (dynamic p in payoffs)
-                Console.WriteLine($"     {p.entryEt}→{p.exitEt} ET  ${p.entryPx:0.##}→${p.exitPx:0.##}  {p.pnlPct:+0.##;-0.##;0}%  ({p.reason})");
+            var repo = sp.GetRequiredService<StrategyRepository>();
+            var all = await repo.GetAllForUserAsync(userId.Value);
+            var matches = all.Where(s => s.Symbol.Equals(symbol, StringComparison.OrdinalIgnoreCase)).ToList();
+            var chosen = matches.FirstOrDefault(s => s.IsActive) ?? matches.FirstOrDefault();
+            if (chosen is null)
+                return Fail($"no saved strategy for {symbol}. Pass --profile <id> to replay a gapper profile on the fly.");
+            var loaded = StrategyLoader.Load(chosen.ScriptJson, chosen.ScriptText);
+            if (loaded.Definition is null)
+                return Fail($"{symbol} strategy failed to load: {loaded.CanonicalError ?? "unparseable"}.");
+            def = loaded.Definition;
+            strategyTitle = chosen.Title;
         }
-        Console.WriteLine($"  run:   {Path.Combine(tickerDir, stamp, "index.htm")}");
+
+        // The Blazor host normally applies migrations; migrate here too so the
+        // Monitor CLI is self-sufficient (creates ReplayRuns on first use).
+        var dbf = sp.GetRequiredService<IDbContextFactory<AppDbContext>>();
+        await using (var mig = await dbf.CreateDbContextAsync())
+            await mig.Database.MigrateAsync();
+
+        await using var feed = new AlpacaDataFeed(k.AlpacaApiKeyId, k.AlpacaApiSecretKey, feedTier);
+        ReplayDay day;
+        try { day = await LoadDayAsync(feed, feed.FeedTier, symbol, dateEt, DateTime.UtcNow); }
+        catch (ReplayException ex) { return Fail(ex.Message); }
+        Console.WriteLine($"replay {symbol} {dateEt:yyyy-MM-dd} · feed={feed.FeedTier} · {day.Candles.Count} bars · \"{strategyTitle}\"");
+
+        var o = await ReplayAsync(dbf, day, def, strategyTitle, opt.ContainsKey("repeat"), outRoot, DateTime.UtcNow);
+
+        var tickerDir = Path.Combine(outRoot, symbol.ToLowerInvariant());
+        var urlBase = $"https://mindattic.com/idiotproof/replays/{symbol.ToLowerInvariant()}";
+        if (o.Payoffs.Count == 0)
+            Console.WriteLine($"  no fire — best {o.BestPassed}/{o.ConditionCount} in-session (waiting on {o.BestFail ?? "n/a"})");
+        else
+        {
+            Console.WriteLine($"  {o.Payoffs.Count} payoff(s){(o.Repeat ? " (repeat)" : " (one-shot)")}, total {o.Run.TotalPnl:+0.##;-0.##;0}%:");
+            foreach (var p in o.Payoffs)
+                Console.WriteLine($"     {p.EntryEt}→{p.ExitEt} ET  ${p.EntryPx:0.##}→${p.ExitPx:0.##}  {p.PnlPct:+0.##;-0.##;0}%  ({p.Reason})");
+        }
+        Console.WriteLine($"  run:   {Path.Combine(tickerDir, o.Run.Stamp, "index.htm")}");
         Console.WriteLine($"  index: {Path.Combine(tickerDir, "index.htm")}");
-        Console.WriteLine($"  URL:   {urlBase}/{stamp}/   (index: {urlBase}/)");
+        Console.WriteLine($"  URL:   {urlBase}/{o.Run.Stamp}/   (index: {urlBase}/)");
         Console.WriteLine("  publish: cd MindAttic.Deploy && npm run deploy -- --site idiotproof-replays");
         return 0;
     }
@@ -500,32 +575,36 @@ public static partial class StrategyReplay
         if (!opt.TryGetValue("symbol", out var symRaw) || string.IsNullOrWhiteSpace(symRaw))
             return Fail("replay-all requires --symbol <TICKER>.");
         var symbol = symRaw.Trim().ToUpperInvariant();
+        var dateEt = opt.TryGetValue("date", out var dRaw) && DateOnly.TryParse(dRaw, out var d)
+            ? d : MarketTime.PreviousEquityTradingDayEt(DateTime.UtcNow);
+        var feedTier = (opt.GetValueOrDefault("feed", "sip")).ToLowerInvariant();
+        var outRoot = opt.GetValueOrDefault("out", DefaultArchiveRoot);
 
-        // The whole library: gapper (via profile) + the built-in families.
-        var families = new[] { "classic-gapper", "momentum", "reversal", "rsireversal",
-                               "emabreak", "rthdrive", "shortfade", "swingreversal" };
-        var since = DateTime.UtcNow;
-        foreach (var fam in families)
-        {
-            var one = new Dictionary<string, string>(opt, StringComparer.OrdinalIgnoreCase) { ["profile"] = fam, ["repeat"] = "true" };
-            try { await RunAsync(sp, one); }
-            catch (Exception ex) { Console.Error.WriteLine($"  {fam}: {ex.Message}"); }
-        }
+        var userId = await ResolveUserAsync(sp, opt);
+        if (userId is null) return Fail("No --user given and no single user found.");
+        var k = await sp.GetRequiredService<UserKeyService>().GetOrCreateAsync(userId.Value);
+        if (string.IsNullOrWhiteSpace(k.AlpacaApiKeyId) || string.IsNullOrWhiteSpace(k.AlpacaApiSecretKey))
+            return Fail($"user {userId} has no Alpaca data keys — set them first (set-keys).");
 
         var dbf = sp.GetRequiredService<IDbContextFactory<AppDbContext>>();
-        List<ReplayRun> rows;
-        await using (var db = await dbf.CreateDbContextAsync())
-            rows = await db.ReplayRuns.Where(r => r.Symbol == symbol && r.GeneratedUtc >= since)
-                .ToListAsync();
-        var ranked = rows.OrderByDescending(r => r.Fired).ThenByDescending(r => r.TotalPnl).ToList();
+        await using (var mig = await dbf.CreateDbContextAsync())
+            await mig.Database.MigrateAsync();
+        await using var feed = new AlpacaDataFeed(k.AlpacaApiKeyId, k.AlpacaApiSecretKey, feedTier);
+        ReplayDay day;
+        try { day = await LoadDayAsync(feed, feed.FeedTier, symbol, dateEt, DateTime.UtcNow); }
+        catch (ReplayException ex) { return Fail(ex.Message); }
 
-        Console.WriteLine($"\n════ {symbol}: best-fit across {families.Length} families (by realized P&L) ════");
+        var ranked = await ReplayAllFamiliesAsync(dbf, day, outRoot, DateTime.UtcNow, opt.GetValueOrDefault("profiles-path"));
+        Console.WriteLine($"\n════ {symbol}: best-fit across {Families.Count} families (by realized P&L) ════");
         foreach (var r in ranked)
-            Console.WriteLine($"  {(r.Fired ? "●" : "·")} {r.TotalPnl,7:+0.##;-0.##;0}%  {r.Strategy}" +
-                              (r.Fired ? $"  ({r.PayoffCount} round-trip{(r.PayoffCount == 1 ? "" : "s")})" : "  (no fire)"));
-        var best = ranked.FirstOrDefault(r => r.Fired);
+        {
+            if (r.Outcome is not { } o) { Console.Error.WriteLine($"  {r.Family}: {r.Error}"); continue; }
+            Console.WriteLine($"  {(o.Run.Fired ? "●" : "·")} {o.Run.TotalPnl,7:+0.##;-0.##;0}%  {o.Run.Strategy}" +
+                              (o.Run.Fired ? $"  ({o.Run.PayoffCount} round-trip{(o.Run.PayoffCount == 1 ? "" : "s")})" : "  (no fire)"));
+        }
+        var best = ranked.FirstOrDefault(r => r.Outcome?.Run.Fired == true)?.Outcome;
         Console.WriteLine(best is not null
-            ? $"→ BEST FIT: {best.Strategy}  {best.TotalPnl:+0.##;-0.##;0}%"
+            ? $"→ BEST FIT: {best.Run.Strategy}  {best.Run.TotalPnl:+0.##;-0.##;0}%"
             : "→ no family fired for this ticker/day.");
         return 0;
     }
@@ -533,23 +612,30 @@ public static partial class StrategyReplay
     /// <summary>
     /// Regenerates the ENTIRE static archive from SQL — every run page and both
     /// index levels — proving the DB is authoritative and the file tree is a
-    /// pure view. Wired to the `replay-regen` CLI command.
+    /// pure view. Writes HTML only; publishing is a separate, manual step.
     /// </summary>
-    public static async Task RegenerateAsync(IServiceProvider sp, Dictionary<string, string> opt)
+    public static async Task<(int Runs, int Tickers)> RegenerateArchiveAsync(IDbContextFactory<AppDbContext> dbf, string outRoot, CancellationToken ct = default)
     {
-        var outRoot = opt.GetValueOrDefault("out", @"D:\Projects\MindAttic\MindAttic.Web\mindattic.com\idiotproof\replays");
-        var dbf = sp.GetRequiredService<IDbContextFactory<AppDbContext>>();
         List<ReplayRun> all;
-        await using (var db = await dbf.CreateDbContextAsync())
-        {
-            await db.Database.MigrateAsync();
-            all = await db.ReplayRuns.ToListAsync();
-        }
+        await using (var db = await dbf.CreateDbContextAsync(ct))
+            all = await db.ReplayRuns.ToListAsync(ct);
         foreach (var run in all) await RenderRunPageAsync(run, outRoot);
-        foreach (var sym in all.Select(r => r.Symbol).Distinct(StringComparer.OrdinalIgnoreCase))
+        var symbols = all.Select(r => r.Symbol).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        foreach (var sym in symbols)
             await WriteTickerIndexAsync(dbf, outRoot, sym);
         await WriteRootIndexAsync(dbf, outRoot);
-        Console.WriteLine($"regenerated {all.Count} run(s) across {all.Select(r => r.Symbol).Distinct(StringComparer.OrdinalIgnoreCase).Count()} ticker(s) from SQL → {outRoot}");
+        return (all.Count, symbols.Count);
+    }
+
+    /// <summary>The legacy `replay-regen` command: migrate, then <see cref="RegenerateArchiveAsync"/>.</summary>
+    public static async Task RegenerateAsync(IServiceProvider sp, Dictionary<string, string> opt)
+    {
+        var outRoot = opt.GetValueOrDefault("out", DefaultArchiveRoot);
+        var dbf = sp.GetRequiredService<IDbContextFactory<AppDbContext>>();
+        await using (var db = await dbf.CreateDbContextAsync())
+            await db.Database.MigrateAsync();
+        var (runs, tickers) = await RegenerateArchiveAsync(dbf, outRoot);
+        Console.WriteLine($"regenerated {runs} run(s) across {tickers} ticker(s) from SQL → {outRoot}");
     }
 
     // ── helpers ──
@@ -594,6 +680,7 @@ public static partial class StrategyReplay
     }
 
     private static double Round(double v) => Math.Round(v, 4);
+    private static string Clip(string s, int max) => s.Length <= max ? s : s[..max];
     private static int Fail(string s) { Console.Error.WriteLine("ERROR: " + s); return 1; }
 
     private static readonly JsonSerializerOptions JsonOpts = new()
@@ -608,3 +695,22 @@ public static partial class StrategyReplay
     private const string IndexTemplate = ReplayTemplates.Index;
     private const string RootIndexTemplate = ReplayTemplates.RootIndex;
 }
+
+/// <summary>One built-in replay family: its id (<c>--family</c>) and what it trades.</summary>
+public sealed record ReplayFamily(string Id, string Description);
+
+/// <summary>A loaded replay day: the symbol's 1-minute bars (04:00–20:00 ET), the feed they came from, the previous close.</summary>
+public sealed record ReplayDay(string Symbol, DateOnly DateEt, string FeedLabel, IReadOnlyList<Candle> Candles, decimal? PreviousClose);
+
+/// <summary>One simulated round-trip (serialized camelCase into the run's DATA payload).</summary>
+public sealed record ReplayPayoff(string EntryEt, double EntryPx, string ExitEt, double ExitPx, string Reason, double PnlPct);
+
+/// <summary>What one replay produced: the persisted run, its payoffs and the best near-miss when it never fired.</summary>
+public sealed record ReplayOutcome(ReplayRun Run, IReadOnlyList<ReplayPayoff> Payoffs, int BarCount, int BestPassed,
+    int ConditionCount, string? BestFail, bool Repeat, string? PagePath);
+
+/// <summary>One family's result inside a replay-all sweep: its outcome, or why it could not run.</summary>
+public sealed record ReplayFamilyOutcome(string Family, ReplayOutcome? Outcome, string? Error);
+
+/// <summary>A replay that cannot run (no session yet, no bars); the message says why.</summary>
+public sealed class ReplayException(string message) : Exception(message);
