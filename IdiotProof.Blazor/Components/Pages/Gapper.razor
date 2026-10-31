@@ -1,8 +1,6 @@
 @page "/gapper"
 @rendermode InteractiveServer
 @using IdiotProof.Core.Data
-@using IdiotProof.Blazor.Services
-@using IdiotProof.Core.Services
 @using IdiotProof.Scripting
 @using Microsoft.AspNetCore.Authorization
 @using Microsoft.AspNetCore.Components.Authorization
@@ -23,7 +21,7 @@
     Gapper — the one thing done well (docs/BIBLE.md §4.4). Pick up to three
     tickers, select an adjustable gapper profile per ticker, dial it in (all
     gappers are not the same), and queue. Queued gappers become ordinary
-    Strategy rows: the console Monitor re-reads them every tick, buys the gap
+    Strategy rows: the Monitor (hosted by the Hub) re-reads them every tick, buys the gap
     through the three gates in the 4AM premarket window, and sells off before
     the 9:30 bell once momentum rolls over (peak-giveback) — hard sell-by as
     the fallback. This page polls SQL every 5s, so the console's doings
