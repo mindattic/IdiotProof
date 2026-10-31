@@ -98,6 +98,8 @@ builder.Services.AddScoped<IOwnerContext, SignedInOwnerContext>();
 // The same OwnerClaudeKeyContext the Hub uses, over the signed-in owner above; the resolver
 // takes the user's own key, then the host key from the MindAttic Vault keyring (IP-T330).
 builder.Services.AddScoped<IClaudeKeyContext, OwnerClaudeKeyContext>();
+// The Activity page's Commands list: the owner's CLI/MCP CommandLedger rows.
+builder.Services.AddScoped<CommandActivityService>();
 builder.Services.AddScoped<ToastService>();
 builder.Services.AddSingleton<LogAlertService>();
 // Pusher singletons: registered as both injectable singleton and hosted service so

@@ -4,6 +4,7 @@
 @inject AuditLogRepository AuditRepo
 @inject LogAlertService AlertSvc
 @inject AuditLogPusher LogPusher
+@inject CommandActivityService CommandActivity
 @inject IJSRuntime JS
 @implements IDisposable
 
@@ -198,6 +199,88 @@
     </div>
 </section>
 
+<!-- ── Commands: what the CLI / MCP told IdiotProof to do (CommandLedger) ── -->
+<section aria-labelledby="commands-heading" class="mt-4">
+    <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+        <h2 id="commands-heading" class="h5 mb-0">
+            <i class="bi bi-terminal me-2" style="color:var(--brand)" aria-hidden="true"></i>Commands
+        </h2>
+        <span class="text-muted small">From the command line and assistants (MCP); arguments are redacted.</span>
+        <div class="ms-auto form-check form-switch mb-0">
+            <input id="cmd-all-callers" class="form-check-input" type="checkbox"
+                   checked="@includeAllCallers" @onchange="ToggleAllCallersAsync" />
+            <label class="form-check-label small" for="cmd-all-callers">Include web</label>
+        </div>
+    </div>
+
+    @if (commandError is not null)
+    {
+        <div class="alert alert-danger small">@commandError</div>
+    }
+
+    <div class="trading-card p-0">
+        @if (commands.Count == 0)
+        {
+            <div class="p-4 text-center text-muted small">
+                No commands yet. Anything run with <code>idiotproof …</code> or through an assistant shows up here.
+            </div>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table table-sm log-table mb-0" aria-label="Commands">
+                    <thead>
+                        <tr>
+                            <th scope="col" class="log-th" style="width:110px">Time (ET)</th>
+                            <th scope="col" class="log-th" style="width:56px">From</th>
+                            <th scope="col" class="log-th" style="width:180px">Command</th>
+                            <th scope="col" class="log-th" style="width:96px">Status</th>
+                            <th scope="col" class="log-th text-end" style="width:72px">Took</th>
+                            <th scope="col" class="log-th">Message</th>
+                            <th scope="col" class="log-th" style="width:32px"><span class="visually-hidden">Arguments</span></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var cmd in commands)
+                        {
+                            var lvl = CommandActivityService.StatusLevel(cmd.Status);
+                            bool open = expandedCommandIds.Contains(cmd.Id);
+                            <tr @key="cmd.Id" class="log-row log-row-@lvl.ToLower()">
+                                <td class="log-time" data-tooltip="@EasternTime.Format(cmd.TimestampUtc, "yyyy-MM-dd HH:mm:ss") ET">
+                                    @SmartTimestamp(cmd.TimestampUtc)
+                                </td>
+                                <td><span class="log-event-chip">@CommandActivityService.CallerLabel(cmd.Caller)</span></td>
+                                <td class="font-monospace small">@cmd.Operation</td>
+                                <td><span class="log-badge log-badge-@lvl.ToLower()">@cmd.Status</span></td>
+                                <td class="text-end font-monospace small">@cmd.DurationMs ms</td>
+                                <td class="log-msg-cell">
+                                    <span class="@(open ? "" : "log-msg-clamp")">@cmd.Message</span>
+                                    @if (open && cmd.ArgsJson is not null)
+                                    {
+                                        <pre class="log-data-pre mt-1 mb-0">@cmd.ArgsJson</pre>
+                                    }
+                                </td>
+                                <td class="text-end pe-2">
+                                    @if (cmd.ArgsJson is not null)
+                                    {
+                                        <button type="button" class="log-expand-btn"
+                                                @onclick="() => ToggleCommandExpand(cmd.Id)"
+                                                aria-label="@(open ? "Hide arguments" : "Show arguments")"
+                                                data-tooltip="@(open ? "Hide arguments" : "Show arguments")">
+                                            <i class="bi @(open ? "bi-chevron-up" : "bi-chevron-down")" aria-hidden="true"></i>
+                                        </button>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+            <div class="log-footer px-3 py-2">Showing the latest @commands.Count commands · max @MaxCommands fetched</div>
+        }
+    </div>
+</section>
+
 @code {
     const int MaxRows = 200;
 
@@ -326,7 +409,33 @@
         }
         catch (Exception ex) { loadError = ex.Message; }
         finally { loading = false; refreshing = false; }
+        await LoadCommandsAsync();
     }
+
+    // ── Commands (CommandLedger) ──
+    const int MaxCommands = 100;
+    List<CommandLedgerEntry> commands = [];
+    HashSet<long> expandedCommandIds = [];
+    bool includeAllCallers;
+    string? commandError;
+
+    async Task LoadCommandsAsync()
+    {
+        try
+        {
+            commands = (await CommandActivity.LoadAsync(includeAllCallers, MaxCommands)).ToList();
+            commandError = null;
+        }
+        catch (Exception ex) { commandError = ex.Message; }
+    }
+
+    async Task ToggleAllCallersAsync()
+    {
+        includeAllCallers = !includeAllCallers;
+        await LoadCommandsAsync();
+    }
+
+    void ToggleCommandExpand(long id) { if (!expandedCommandIds.Remove(id)) expandedCommandIds.Add(id); }
 
     static readonly TimeZoneInfo EtZone =
         TimeZoneInfo.FindSystemTimeZoneById("Eastern Standard Time");
