@@ -1,6 +1,6 @@
 ﻿AUTHORITATIVE — full detail in docs/BIBLE.md
 
-<!-- generatedFrom: IP-§1,IP-§3,IP-§5,IP-§9 + USER_STORIES status index. Generated 2026-10-15 by tools/codex.ps1. Do not hand-edit. -->
+<!-- generatedFrom: IP-§1,IP-§3,IP-§5,IP-§9 + USER_STORIES status index. Generated 2026-10-30 by tools/codex.ps1. Do not hand-edit. -->
 
 # IdiotProof — Bible Digest (generated)
 
@@ -100,10 +100,11 @@ Attribution metadata (`Author`, `OriginTranscript`) is not part of the canon. ("
 validate"; no shotgun parsing on the money path. Verified by `StrategyJsonTests`.)
 
 ### {#IP-LAW-9} Synthetic data never drives a real order
-When the market-data feed is Mock, the Monitor refuses every non-Sandbox entry; Mock data pairs
-only with the Sandbox broker. Exits (risk-reducing) are still allowed. The guard sits at the
-`IBrokerClient`/`IMarketDataFeed` seams so a future broker inherits it.
-(`IdiotProof.Monitor/MonitorWorker.cs`.)
+When the market-data feed is Mock, every non-Sandbox entry is refused — Monitor fires, manual
+orders, web options tickets and replaces that raise an entry's size alike; Mock data pairs only
+with the Sandbox broker. Exits (risk-reducing) are still allowed. The guard is a gate inside the
+`TransactionGateway` ([IP-LAW-12](#IP-LAW-12)), so every order path and any future broker
+inherits it. (`IdiotProof.Core/Trading/TransactionGateway.cs`.)
 
 ### {#IP-LAW-10} One evaluator; SQL is the bus
 The Monitor is the only live evaluator and order placer for strategies. UI changes reach it only
@@ -118,6 +119,31 @@ holding a position (`PositionOpen`), writes only editor-owned columns on update 
 Monitor's position bookkeeping), enforces one active gapper per symbol and the 3-gapper cap
 against SQL (with a post-write recheck), and deletes a strategy's `ConditionProgress` with it.
 No page writes strategy rows around it. (`StrategyRepositoryGuardTests`.)
+
+### {#IP-LAW-12} Every order goes through the TransactionGateway
+Every order-like action — Monitor entries and exits, CLI/MCP orders, replaces, cancels,
+cancel-alls, position closes and flattens, crypto orders, the web Options ticket, the operator
+`flatten`/`test-order` — reaches a broker only through `TransactionGateway`. Its gates run in a
+fixed order and fail closed: well-formed order → route (Live never quietly downgrades, IP-LAW-3)
+→ synthetic-data guard (IP-LAW-9) → Risk Guardian for entries and for a replace that raises an
+entry's size (IP-LAW-2) → LLM panel for automated entries (IP-LAW-1) → Live confirmation
+([IP-LAW-13](#IP-LAW-13)) → place → audit. Every outcome but a dry run writes an AuditLog row
+(linked to the Hub's CommandLedger row); a person's accepted order also opens or closes a
+TradeDiary row. No other production code calls a broker's place / replace / cancel /
+cancel-all, and only the gateway can mark a Live action confirmed.
+(`IdiotProof.Core/Trading/TransactionGateway.cs`; `MoneyPathLawTests`,
+`TransactionGatewayTests`, `MonitorGatewayParityTests`.)
+
+### {#IP-LAW-13} Live from the CLI or MCP needs a confirm code
+A person's Live action from the CLI or MCP is previewed and held: the gateway stores the exact
+intent and returns a 6-character code that works once, for the same owner, within 120 seconds,
+and replays exactly what was previewed — an edited, swapped, expired or reused code places
+nothing. Several Live actions (close-all) share one code bound to exactly that set. The web
+confirms Live with the owner's password elevation (re-checked on the server) instead of a code;
+the Monitor needs none, because activating a strategy in Live was the confirmed act. Non-order
+Live mutations that move money (funding, transfers) use the same `ConfirmationStore` codes.
+(`IdiotProof.Core/Trading/ConfirmationStore.cs`; `MoneyPathLawTests`,
+`TransactionGatewayTests`.)
 
 ## Glossary
 - **IdiotScript** — the fluent C# DSL (`Stock.Ticker("NVDA").RequireAdxAbove(20)...Build()`) that
@@ -144,7 +170,7 @@ No page writes strategy rows around it. (`StrategyRepositoryGuardTests`.)
 - **Gapper** — a stock gapping up in premarket vs the previous close; the flagship trade:
   buy in the 4AM window, sell before the 9:30 bell.
 - **Gapper profile** — the dialable template (gap %, volume ratio, price band, entry window,
-  stops, giveback, arm/sell-by times, notional) in `wwwroot/data/gapper-profiles.json`; cloned
+  stops, giveback, arm/sell-by times, notional) in `IdiotProof.Core/Catalogs/gapper-profiles.json`; cloned
   and tuned per ticker on the `/gapper` tab.
 - **Peak giveback** — the momentum-rollover exit: sell once price gives back N% of the run
   from entry to the post-entry peak; armed from a configured ET time ("the last 15 minutes").
@@ -183,7 +209,7 @@ No page writes strategy rows around it. (`StrategyRepositoryGuardTests`.)
   value within 5% of its observed high (after at least 3 samples) **and** a Bullish research
   claim on the underlying in the last 7 days → "consider taking profit". Never places anything.
 - **Index event** — a `ResearchClaim` with `ClaimType = "IndexEvent"`: an announced S&P 500/100
-  addition or deletion logged in `wwwroot/data/sp-index-events.json`, Pending until effective.
+  addition or deletion logged in `IdiotProof.Core/Catalogs/sp-index-events.json`, Pending until effective.
 
 ## Status index (USER_STORIES.md)
 - done: 51
