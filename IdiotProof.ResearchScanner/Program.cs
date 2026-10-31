@@ -8,8 +8,8 @@ using Microsoft.Extensions.Hosting;
 
 // ── IdiotProof.ResearchScanner ──────────────────────────────────────────────
 //
-// One scan pass, then exit. Meant to be fired by a Windows Scheduled Task
-// (see tools/register-research-scan-task.ps1) on a recurring cadence — NOT a
+// One scan pass, then exit. Fired on a recurring cadence by a MindAttic.Scheduler
+// (WatchDog) job (M.SCHD-T8), or on demand by `idiotproof research scan` — NOT a
 // daemon, and NOT part of IdiotProof.Monitor's real-time trading loop. It
 // sweeps EDGAR/Alpaca/Federal-Register for market-moving events across the
 // tracked ticker universe, scores their significance, and writes everything
