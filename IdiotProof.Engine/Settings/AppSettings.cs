@@ -100,12 +100,12 @@ public sealed class AppSettings
     {
         storage.EnsureDirectories();
         var path = Path.Combine(storage.SettingsPath, "app-settings.json");
-        if (!File.Exists(path)) return new AppSettings();
+        if (!File.Exists(path)) return WithVaultSettings(new AppSettings());
 
         try
         {
             var json = File.ReadAllText(path);
-            return JsonSerializer.Deserialize<AppSettings>(json, JsonOptions) ?? new AppSettings();
+            return WithVaultSettings(JsonSerializer.Deserialize<AppSettings>(json, JsonOptions) ?? new AppSettings());
         }
         catch (Exception ex) when (ex is JsonException or IOException)
         {
@@ -121,6 +121,19 @@ public sealed class AppSettings
         storage.EnsureDirectories();
         var path = Path.Combine(storage.SettingsPath, "app-settings.json");
         File.WriteAllText(path, JsonSerializer.Serialize(this, JsonOptions));
+        IdiotProofSettings.StoreFactory().Save(IdiotProofSettings.From(this));
+    }
+
+    /// <summary>
+    /// App-level settings come from MindAttic Vault (edited in MindAttic.Vault.Desktop). The first load after LAMP
+    /// imports them from app-settings.json; secrets and the admin hash stay in app-settings.json.
+    /// </summary>
+    private static AppSettings WithVaultSettings(AppSettings settings)
+    {
+        var vault = IdiotProofSettings.StoreFactory();
+        if (!vault.Exists()) vault.Save(IdiotProofSettings.From(settings));
+        vault.LoadOrSeed().ApplyTo(settings);
+        return settings;
     }
 
     /// <summary>
@@ -182,12 +195,19 @@ public sealed class AppSettings
     /// key written to disk since the last read are both picked up immediately.
     /// Returns null/empty when neither id has a key.
     /// </summary>
+    private static int importedOwnKeys;
+
     private static string? ResolveClaudeKeyFromVault()
     {
-        var store = new LlmCredentialStore(
-            Environment.GetEnvironmentVariable(LlmCredentialStore.DirectoryEnvVar)
-            ?? VaultPaths.RoamingBucket(LlmCredentialStore.Bucket));
-        return new CompositeCredentialStore(new AppScopedCredentialStore(AppId, store), store).GetKey("claude");
+        // Test hook: a bare key folder keeps the pre-LAMP resolution (own-scoped copy, then shared).
+        if (Environment.GetEnvironmentVariable(LlmCredentialStore.DirectoryEnvVar) is { Length: > 0 } dir)
+        {
+            var store = new LlmCredentialStore(dir);
+            return new CompositeCredentialStore(new AppScopedCredentialStore(AppId, store), store).GetKey("claude");
+        }
+        // IdiotProof's own pre-LAMP copy moves into the shared list once and stays its active key.
+        if (Interlocked.Exchange(ref importedOwnKeys, 1) == 0) KeyImporter.ImportAppScopedFor(IdiotProofSettings.AppId);
+        return KeySelector.ForCurrentUser().GetActiveKey("claude", IdiotProofSettings.AppId)?.Value;
     }
 
     /// <summary>
@@ -226,6 +246,10 @@ public sealed class AppSettings
     {
         if (config is null) return;
 
+        // Deployed (App Service): MindAttic:Settings:IdiotProof:{Setting} wins over the local Vault file.
+        var app = IdiotProofSettings.From(this);
+        if (OverlaySettingsSection(config, app)) app.ApplyTo(this);
+
         var claude = config[VaultConfigurationKeys.ProviderApiKeyPath(
             VaultConfigurationKeys.LlmSection, "claude")];
         if (!string.IsNullOrWhiteSpace(claude)) ClaudeApiKey = claude;
@@ -235,5 +259,29 @@ public sealed class AppSettings
         var secret = config[$"{VaultConfigurationKeys.BrokersSection}:{providerId}:secret"];
         if (!string.IsNullOrWhiteSpace(apiKey)) AlpacaApiKeyId     = apiKey;
         if (!string.IsNullOrWhiteSpace(secret)) AlpacaApiSecretKey = secret;
+    }
+
+    /// <summary>Copies non-empty <c>MindAttic:Settings:IdiotProof:*</c> values onto <paramref name="app"/>; true when any applied.</summary>
+    internal static bool OverlaySettingsSection(IConfiguration config, IdiotProofSettings app)
+    {
+        var prefix = MindAttic.Vault.Settings.Manifest.SettingsManifest.PrefixFor(IdiotProofSettings.AppId);
+        var any = false;
+        foreach (var p in typeof(IdiotProofSettings).GetProperties())
+        {
+            if (!p.CanWrite) continue;
+            var raw = config[$"{prefix}:{p.Name}"];
+            if (string.IsNullOrWhiteSpace(raw)) continue;
+            try
+            {
+                var type = Nullable.GetUnderlyingType(p.PropertyType) ?? p.PropertyType;
+                p.SetValue(app, Convert.ChangeType(raw, type, System.Globalization.CultureInfo.InvariantCulture));
+                any = true;
+            }
+            catch (Exception ex) when (ex is FormatException or InvalidCastException or OverflowException)
+            {
+                // A malformed App Service value keeps the Vault value rather than crashing startup.
+            }
+        }
+        return any;
     }
 }

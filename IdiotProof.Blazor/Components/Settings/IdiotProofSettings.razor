@@ -1,15 +1,15 @@
 @namespace IdiotProof.Settings
+@using IdiotProof.Core.Services
+@using Microsoft.JSInterop
 @inject UserPreferencesService Prefs
 @inject RiskGuardianService RiskGuardians
 @inject IJSRuntime JS
 
 @*
-    IdiotProof's settings tab (IP-T335): the Risk Guardian limits (IP-LAW-2) and the theme.
-    Portable on purpose: no @page, no render mode and no AuthenticationStateProvider. The host
-    (IdiotProof.Blazor's /settings page today; MindAttic.Vault.Desktop/Web once the family's
-    settings-tab contract exists) passes the signed-in user as UserId and registers the IdiotProof
-    core services. The limits are the per-user caps the final pre-trade gate enforces; the Monitor
-    re-reads them on a 2-minute TTL, so edits reach live evaluation without a restart.
+    Each trader's own settings: the Risk Guardian limits (IP-LAW-2) and the theme. These are per-user data
+    and stay in IdiotProof; app-wide settings are edited in MindAttic Vault (see the /settings page). The
+    host passes the signed-in user as UserId. The limits are the per-user caps the final pre-trade gate
+    enforces; the Monitor re-reads them on a 2-minute TTL, so edits reach live evaluation without a restart.
 *@
 
 <section aria-labelledby="settings-heading">

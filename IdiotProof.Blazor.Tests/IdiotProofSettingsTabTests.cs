@@ -9,9 +9,8 @@ using IdiotProof.Core.Services;
 namespace IdiotProof.Blazor.Tests;
 
 /// <summary>
-/// IP-T335: the settings tab is a portable component (IdiotProof.Settings RCL) that works with only
-/// a user id and the core services: no route, no auth provider, no host JS. That is what lets
-/// MindAttic.Vault.Desktop/Web host it unmodified.
+/// IP-T335: each trader's settings tab works with only a user id and the core services (no route,
+/// no auth provider, no host JS). IP-T347 moved it into IdiotProof.Blazor; app-wide settings live in MindAttic Vault.
 /// </summary>
 [TestFixture]
 public sealed class IdiotProofSettingsTabTests

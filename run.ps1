@@ -331,6 +331,11 @@ foreach ($c in $components) {
 }
 Write-Launcher
 Add-CliToUserPath
+
+# LAMP (IP-T347): import app-settings.json into MindAttic Vault once and write the manifest Vault.Desktop reads.
+$blazorExe = Join-Path $deployDir 'Blazor\IdiotProof.Blazor.exe'
+if (Test-Path $blazorExe) { & $blazorExe --write-settings-manifest | Out-Null }
+
 if ($published -eq 0) { Write-Host 'IdiotProof is up to date.' -ForegroundColor DarkGray }
 
 if (-not $ok) {

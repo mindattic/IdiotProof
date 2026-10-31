@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
     <ProjectReference Include="..\IdiotProof.Shared\IdiotProof.Shared.csproj" />
@@ -10,8 +10,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="MindAttic.Legion" Version="25.0.0" />
-    <PackageReference Include="MindAttic.Vault" Version="4.0.0" />
+    <PackageReference Include="MindAttic.Legion" Version="27.0.0" />
+    <PackageReference Include="MindAttic.Vault" Version="7.0.0" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="*" />
   </ItemGroup>
 

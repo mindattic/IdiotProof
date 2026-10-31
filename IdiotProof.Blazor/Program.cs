@@ -15,6 +15,15 @@ using IdiotProof.Core.Services;
 // Durable diagnostics (IP-T16/IP-T23): warnings and up from the framework, Information and up
 // from IdiotProof, and every unhandled exception go to MindAttic.Log at
 // %APPDATA%\MindAttic\Logging\IdiotProof.Blazor\MindAttic.Log.db (beside the console).
+// LAMP (IP-T347): `--write-settings-manifest` imports today's app-settings.json into MindAttic Vault, writes the
+// manifest Vault.Desktop reads, and exits.
+if (args.Contains(MindAttic.Vault.Settings.Manifest.SettingsManifestCommand.Switch, StringComparer.OrdinalIgnoreCase))
+{
+    IdiotProof.Engine.Settings.AppSettings.Load(new WebStorageProvider());
+    Console.WriteLine(IdiotProof.Engine.Settings.IdiotProofSettings.StoreFactory().Directory);
+    return;
+}
+
 IdiotProofLog.Start(IdiotProofLog.Blazor);
 
 var builder = WebApplication.CreateBuilder(args);

@@ -7,17 +7,28 @@
 @inject AuthenticationStateProvider AuthState
 
 @*
-    The web app's host for IdiotProof's settings tab. The tab itself lives in the portable
-    IdiotProof.Settings Razor class library (IP-T335) so MindAttic.Vault.Desktop/Web can host the
-    same component; this page only supplies the route, render mode and the signed-in user.
+    Your settings (risk limits, theme) are per-trader data and stay here. IdiotProof's app-wide settings
+    (default broker, AI voting, auto-gapper) are edited in MindAttic Vault.
 *@
 
 <PageTitle>Settings — IdiotProof</PageTitle>
 
 <IdiotProofSettings UserId="userId" />
 
+<section class="mt-4" aria-labelledby="app-settings-heading">
+    <h2 id="app-settings-heading" class="h6 mb-1">App settings</h2>
+    <p class="small mb-2">Default broker, data feed, AI voting and the auto-gapper apply to everyone and are edited in MindAttic Vault (IdiotProof tab).</p>
+    <button class="btn btn-sm btn-outline-secondary" @onclick="OpenVault">Open in MindAttic Vault</button>
+    @if (vaultMissing)
+    {
+        <span class="small ms-2">MindAttic Vault isn't installed here. <a href="@VaultLink">Open it from this link</a> on the PC that has it.</span>
+    }
+</section>
+
 @code {
     private Guid? userId;
+    private bool vaultMissing;
+    private static string VaultLink => MindAttic.Vault.Launch.VaultSettings.Link(IdiotProof.Engine.Settings.IdiotProofSettings.AppId);
 
     protected override async Task OnInitializedAsync()
     {
@@ -25,4 +36,8 @@
         var rawId = auth.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
         userId = Guid.TryParse(rawId, out var uid) ? uid : null;
     }
+
+    // Runs on the server (the user's PC for a local IdiotProof), so it reaches Vault.Desktop's local pipe.
+    private void OpenVault() =>
+        vaultMissing = !MindAttic.Vault.Launch.VaultSettings.Open(IdiotProof.Engine.Settings.IdiotProofSettings.AppId);
 }
