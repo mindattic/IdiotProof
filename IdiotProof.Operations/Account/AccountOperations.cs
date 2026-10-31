@@ -1,5 +1,7 @@
 using System.Globalization;
 using IdiotProof.Blazor.Services;
+using IdiotProof.Brokers;
+using IdiotProof.Core.Trading;
 using IdiotProof.Models;
 using IdiotProof.Operations.Rendering;
 
@@ -46,7 +48,7 @@ internal static class AccountReads
         part is { } p && whole is { } w && w != 0 ? Fmt.Percent(p / w, 2, signed: true) : "-";
 }
 
-[Operation("account summary", Summary = "Equity, cash, buying power and today's P&L for your Alpaca paper and live accounts.", Risk = OperationRisk.Read)]
+[Operation("account summary", Summary = "Equity, cash, buying power and today's true P&L (deposits excluded) for your Alpaca paper and live accounts.", Risk = OperationRisk.Read)]
 [Example("idiotproof account summary")]
 [Example("idiotproof account summary --mode live")]
 public sealed class AccountSummaryOperation : IOperation<AccountScopeArgs>
@@ -54,11 +56,12 @@ public sealed class AccountSummaryOperation : IOperation<AccountScopeArgs>
     public async Task<OperationResult> ExecuteAsync(AccountScopeArgs args, OperationContext ctx)
     {
         var details = await AccountReads.LoadAsync(ctx, args.Mode);
+        var days = await Task.WhenAll(details.Select(d => d.Error is null ? TodayAsync(ctx, d.IsPaper) : Task.FromResult<PortfolioHistory?>(null)));
         var table = new TextTable { MaxWidth = ctx.Width }
             .Column("Account").Column("Equity", Align.Right).Column("Today", Align.Right).Column("Today %", Align.Right)
             .Column("Cash", Align.Right).Column("Buying power", Align.Right).Column("Positions", Align.Right).Column("Status");
         var data = new List<object>();
-        foreach (var d in details)
+        foreach (var (d, day) in details.Zip(days))
         {
             if (d.Error is not null)
             {
@@ -67,11 +70,15 @@ public sealed class AccountSummaryOperation : IOperation<AccountScopeArgs>
                 continue;
             }
             decimal? equity = d.Number("equity"), lastEquity = d.Number("last_equity");
-            decimal? today = equity - lastEquity;
+            // True day P&L from portfolio history (deposits/withdrawals excluded); equity minus
+            // last_equity only when that read fails, since it counts a deposit as a gain.
+            var trueDay = day?.ProfitLoss is not null;
+            decimal? today = trueDay ? day!.ProfitLoss : equity - lastEquity;
+            decimal? todayBase = trueDay && day!.BaseValue is { } b && b != 0 ? b : lastEquity;
             var status = d.Account.TryGetValue("status", out var s) ? s : "";
             if (d.Account.TryGetValue("pattern_day_trader", out var pdt) && pdt == "True") status += ", PDT";
             if (d.Account.TryGetValue("trading_blocked", out var tb) && tb == "True") status += ", TRADING BLOCKED";
-            table.Row(AccountReads.Name(d), AccountReads.Money(equity), AccountReads.Signed(today), AccountReads.Pct(today, lastEquity),
+            table.Row(AccountReads.Name(d), AccountReads.Money(equity), AccountReads.Signed(today), AccountReads.Pct(today, todayBase),
                 AccountReads.Money(d.Number("cash")), AccountReads.Money(d.Number("buying_power")),
                 d.Positions.Count.ToString(CultureInfo.InvariantCulture), status);
             data.Add(new
@@ -80,6 +87,7 @@ public sealed class AccountSummaryOperation : IOperation<AccountScopeArgs>
                 accountNumber = d.Account.GetValueOrDefault("account_number"),
                 status = d.Account.GetValueOrDefault("status"),
                 equity, lastEquity, today,
+                todaySource = trueDay ? "portfolio_history.profit_loss" : "equity-last_equity",
                 cash = d.Number("cash"),
                 buyingPower = d.Number("buying_power"),
                 dayTradingBuyingPower = d.Number("daytrading_buying_power"),
@@ -91,6 +99,21 @@ public sealed class AccountSummaryOperation : IOperation<AccountScopeArgs>
             });
         }
         return OperationResult.Ok(data, table.Render());
+    }
+
+    /// <summary>The account's 1-day portfolio history, or null when it can't be read (the caller falls back).</summary>
+    private static async Task<PortfolioHistory?> TodayAsync(OperationContext ctx, bool isPaper)
+    {
+        if (ctx.Services.GetService(typeof(AlpacaApiFactory)) is not AlpacaApiFactory factory) return null;
+        try
+        {
+            await using var api = await factory.ForOwnerAsync(ctx.RequireOwner(), isPaper ? BrokerMode.Paper : BrokerMode.Live, ctx.CancellationToken);
+            return await PortfolioHistory.TodayAsync(api, ctx.CancellationToken);
+        }
+        catch (Exception ex) when (ex is AlpacaAccessException or AlpacaApiException or HttpRequestException or TaskCanceledException && !ctx.CancellationToken.IsCancellationRequested)
+        {
+            return null;
+        }
     }
 }
 
