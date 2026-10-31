@@ -119,12 +119,15 @@ public sealed class AlpacaRawOperation : IOperation<AlpacaRawArgs>
     /// </summary>
     internal static string? Normalize(string path)
     {
-        var p = path.Split('?', 2)[0];
+        // Query and fragment are cut before AND after decoding: HttpClient never sends a fragment,
+        // so an orders path with a trailing hash (or an encoded %23) reaches Alpaca as the bare
+        // orders path and must be judged as that.
+        var p = path.Split('?', 2)[0].Split('#', 2)[0];
         for (var i = 0; i < 3; i++)
         {
             var decoded = Uri.UnescapeDataString(p);
             if (decoded == p) break;
-            p = decoded;
+            p = decoded.Split('?', 2)[0].Split('#', 2)[0];
         }
         if (p.Contains('\\') || p.Split('/').Any(s => s == "..")) return null;
         p = p.ToLowerInvariant();
@@ -139,7 +142,9 @@ public sealed class AlpacaRawOperation : IOperation<AlpacaRawArgs>
     {
         foreach (var (prefix, use) in Gated)
         {
-            if (normalized == prefix || normalized.StartsWith(prefix + "/", StringComparison.Ordinal) || normalized.StartsWith(prefix + ":", StringComparison.Ordinal))
+            // The prefix itself, or the prefix followed by any non-word character (/, :, ;, ...).
+            if (normalized == prefix || (normalized.StartsWith(prefix, StringComparison.Ordinal)
+                    && normalized[prefix.Length] is var next && !char.IsLetterOrDigit(next) && next is not ('_' or '-')))
                 return $"`alpaca raw` does not mutate {prefix}: orders, position closes, exercises and wallet transfers go through the TransactionGateway and confirmation codes. Use {use}.";
         }
         if (normalized.Split('/').Any(s => s is "exercise" or "do-not-exercise"))

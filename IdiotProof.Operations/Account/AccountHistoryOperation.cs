@@ -136,7 +136,14 @@ public sealed partial class AccountHistoryOperation : IOperation<AccountHistoryA
         // P&L = equity change minus deposits/withdrawals in the window (from account activities):
         // Alpaca's profit_loss counts an instant ACH deposit as a gain.
         var startEquity = history.BaseValue ?? first.Equity;
-        decimal? cashFlow = await AccountApis.NetCashFlowAsync(api, AccountApis.EtDate(first.Utc), AccountApis.EtDate(last.Utc), ctx.CancellationToken);
+        // Without base_value the start IS the first point, whose equity already includes that
+        // day's deposits on a daily series: count cash flows only after it, or a day-1 deposit is
+        // subtracted twice.
+        var flowsFrom = history.BaseValue is null && points.Count > 1 && points[1].Utc - first.Utc >= TimeSpan.FromDays(1)
+            ? AccountApis.EtDate(first.Utc).AddDays(1)
+            : AccountApis.EtDate(first.Utc);
+        var flowsTo = AccountApis.EtDate(last.Utc);
+        decimal? cashFlow = flowsFrom > flowsTo ? 0m : await AccountApis.NetCashFlowAsync(api, flowsFrom, flowsTo, ctx.CancellationToken);
         decimal? pnl = last.Equity - startEquity - cashFlow;
         var capital = startEquity + (cashFlow ?? 0); // deposits are capital at work, not a gain
         decimal? pnlPct = capital != 0 ? pnl / capital : null;

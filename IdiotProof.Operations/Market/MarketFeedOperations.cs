@@ -105,11 +105,17 @@ public sealed class MarketFeedSwitchOperation : IOperation<MarketFeedSwitchArgs>
                 .Where(s => OrderIntent.ParseMode(s.BrokerMode) != BrokerMode.Sandbox)
                 .ToList();
             if (real.Count > 0)
+            {
+                // The feed is shared, so everyone's strategies block the switch, but only the caller's are named.
+                var mine = real.Where(s => s.OwnerUserId == ctx.OwnerId).ToList();
+                var others = real.Count - mine.Count;
                 return OperationResult.Blocked(
                     $"{real.Count} active strateg{(real.Count == 1 ? "y routes" : "ies route")} to Paper/Live, and Mock prices must never drive a real order (IP-LAW-9). " +
                     "Deactivate them or move them to sandbox first:\n" +
-                    string.Join("\n", real.Select(s => $"  {Strategies.StrategyRefs.ShortGuid(s.Id)}  {s.Symbol,-6} {OrderIntent.ParseMode(s.BrokerMode),-7} {s.Title}")),
-                    new { activeRealStrategies = real.Select(s => new { s.Id, s.Symbol, s.Title, Mode = OrderIntent.ParseMode(s.BrokerMode).ToString() }) });
+                    string.Join("\n", mine.Select(s => $"  {Strategies.StrategyRefs.ShortGuid(s.Id)}  {s.Symbol,-6} {OrderIntent.ParseMode(s.BrokerMode),-7} {s.Title}")) +
+                    (others > 0 ? $"\n  ...and {others} belonging to other users." : ""),
+                    new { activeRealStrategies = mine.Select(s => new { s.Id, s.Symbol, s.Title, Mode = OrderIntent.ParseMode(s.BrokerMode).ToString() }), otherUsers = others });
+            }
             if (switchable is null || !switchable.Feeds.ContainsKey("Mock"))
                 return OperationResult.Fail("This Hub's feed can't be switched at runtime; start it with IDIOTPROOF_FEED=mock instead.");
             switchable.SetActiveFeed("Mock");

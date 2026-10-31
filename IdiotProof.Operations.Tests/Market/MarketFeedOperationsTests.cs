@@ -39,12 +39,14 @@ public class MarketFeedOperationsTests
         await services.DisposeAsync();
     }
 
-    private OperationContext Context() => new() { Services = services };
+    private static readonly Guid Owner = Guid.NewGuid();
+
+    private OperationContext Context() => new() { Services = services, OwnerId = Owner };
 
     private async Task AddActiveAsync(string symbol, string mode)
     {
         await using var db = await services.GetRequiredService<IDbContextFactory<AppDbContext>>().CreateDbContextAsync();
-        db.Strategies.Add(new Strategy { OwnerUserId = Guid.NewGuid(), Title = symbol + " test", Symbol = symbol, IsActive = true, BrokerMode = mode });
+        db.Strategies.Add(new Strategy { OwnerUserId = Owner, Title = symbol + " test", Symbol = symbol, IsActive = true, BrokerMode = mode });
         await db.SaveChangesAsync();
     }
 

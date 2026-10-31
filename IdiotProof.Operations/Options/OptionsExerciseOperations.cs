@@ -57,8 +57,11 @@ public static class OptionsExerciseFlow
         try
         {
             var position = await api.GetAsync($"/v2/positions/{Uri.EscapeDataString(symbol)}", ct: ctx.CancellationToken);
-            qty = decimal.TryParse(position.TryGetProperty("qty", out var q) ? q.GetString() : null,
-                NumberStyles.Number, CultureInfo.InvariantCulture, out var parsed) ? parsed : 0m;
+            // Alpaca sends qty as a string; accept a JSON number too rather than throwing.
+            var qtyText = position.TryGetProperty("qty", out var q)
+                ? (q.ValueKind == System.Text.Json.JsonValueKind.Number ? q.GetRawText() : q.GetString())
+                : null;
+            qty = decimal.TryParse(qtyText, NumberStyles.Float, CultureInfo.InvariantCulture, out var parsed) ? parsed : 0m;
         }
         catch (AlpacaApiException ex) when (ex.Status == HttpStatusCode.NotFound)
         {

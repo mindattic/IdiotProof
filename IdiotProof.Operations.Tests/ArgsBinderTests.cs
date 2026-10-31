@@ -17,6 +17,13 @@ public class ArgsBinderTests
 
     private static IReadOnlyList<string> JsonErrors(string json) => ArgsBinder.BindJson(Fixtures.Everything, json).Errors;
 
+    [TestCase("0,25")]
+    [TestCase("1,5")]
+    [TestCase("12,34.5")]
+    public void Argv_CommaDecimal_IsRefused_NotReadAsThousands(string typed) =>
+        // A comma typed as the decimal point used to bind 0,25 as 25: a 100x order or withdrawal.
+        Assert.That(ArgvErrors("AAPL", "x", "y", "--max-price", typed), Is.Not.Empty);
+
     [Test]
     public void Argv_BindsEveryType()
     {

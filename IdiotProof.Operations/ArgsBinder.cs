@@ -320,11 +320,15 @@ public static class ArgsBinder
                 value = i64;
                 break;
             case ParameterValueKind.Decimal:
-                ok = decimal.TryParse(StripMoney(text), NumberStyles.Number | NumberStyles.AllowExponent, inv, out var dec);
+                // Commas only as real thousands groups ("1,250.50"): "0,25" typed with a comma
+                // decimal must be refused, not silently read as 25 (a 100x order or withdrawal).
+                var dec = 0m;
+                ok = ThousandsOk(StripMoney(text)) && decimal.TryParse(StripMoney(text), NumberStyles.Float | NumberStyles.AllowThousands, inv, out dec);
                 value = dec;
                 break;
             case ParameterValueKind.Double:
-                ok = double.TryParse(StripMoney(text), NumberStyles.Float | NumberStyles.AllowThousands, inv, out var dbl) && double.IsFinite(dbl);
+                var dbl = 0d;
+                ok = ThousandsOk(StripMoney(text)) && double.TryParse(StripMoney(text), NumberStyles.Float | NumberStyles.AllowThousands, inv, out dbl) && double.IsFinite(dbl);
                 value = dbl;
                 break;
             case ParameterValueKind.Guid:
@@ -384,5 +388,9 @@ public static class ArgsBinder
     }
 
     /// <summary>Lets <c>$1,250.50</c> through as a number (people paste prices).</summary>
+    /// <summary>No comma at all, or commas only between groups of exactly three digits before any decimal point.</summary>
+    private static bool ThousandsOk(string text) =>
+        !text.Contains(',') || System.Text.RegularExpressions.Regex.IsMatch(text, @"^[+-]?\d{1,3}(,\d{3})+(\.\d+)?$");
+
     private static string StripMoney(string text) => text.Trim().Replace("$", "", StringComparison.Ordinal);
 }

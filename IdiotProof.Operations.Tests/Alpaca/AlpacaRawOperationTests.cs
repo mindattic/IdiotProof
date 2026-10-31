@@ -71,6 +71,12 @@ public class AlpacaRawOperationTests
     [TestCase("POST", "/v2/positions/AAPL241220C00200000/do-not-exercise")]
     [TestCase("POST", "/v2/wallets/transfers")]
     [TestCase("POST", "/v2/wallets/whitelists")]
+    // A fragment is never sent, so these reach Alpaca as the gated paths themselves.
+    [TestCase("POST", "/v2/orders" + "#")]
+    [TestCase("POST", "/v2/orders" + "%23x")]
+    [TestCase("DELETE", "/v2/positions" + "#")]
+    [TestCase("POST", "/v2/wallets/transfers" + "#")]
+    [TestCase("POST", "/v2/orders;x")]
     public async Task MoneyPathMutations_AreRefused_WithTheGatedOperation(string method, string path)
     {
         var f = new ScriptedAlpacaFactory();

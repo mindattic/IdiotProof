@@ -302,6 +302,8 @@ public sealed class StrategyActivateOperation : IOperation<StrategyRefArgs>
     public async Task<OperationResult> ExecuteAsync(StrategyRefArgs args, OperationContext ctx)
     {
         var s = await StrategyRefs.ResolveAsync(ctx, args.Strategy);
+        if (StrategyArchive.IsDeleted(s))
+            return OperationResult.Usage($"{s.Symbol} '{s.Title}' is deleted. Restore it first: `idiotproof strategy delete {StrategyRefs.ShortGuid(s.Id)} --restore`.");
         StrategyRefs.RequireDefinition(s); // never hand the Monitor a quarantined canon
         if (s.IsActive) return OperationResult.Ok(new { s.Id, s.IsActive }, $"{s.Symbol} '{s.Title}' is already active.");
 

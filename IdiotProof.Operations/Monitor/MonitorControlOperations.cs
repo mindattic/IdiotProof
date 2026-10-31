@@ -35,12 +35,16 @@ public sealed class MonitorPauseOperation : IOperation<MonitorPauseArgs>
             : $"{args.Reason.Trim()} ({ctx.Caller.ToString().ToLowerInvariant()}, {Fmt.Et(ctx.UtcNow)})";
         await flag.SetAsync(true, reason, ctx.CancellationToken);
 
-        var holding = (await ctx.Get<StrategyRepository>().GetActiveAsync(ctx.CancellationToken)).Where(s => s.PositionQty != 0).ToList();
+        // The pause is global, so every unmanaged position is counted, but only the caller's are named.
+        var allHolding = (await ctx.Get<StrategyRepository>().GetActiveAsync(ctx.CancellationToken)).Where(s => s.PositionQty != 0).ToList();
+        var holding = allHolding.Where(s => s.OwnerUserId == ctx.OwnerId).ToList();
+        var othersHolding = allHolding.Count - holding.Count;
         var text = new StringBuilder(already ? "The Monitor was already paused; reason updated." : "Monitor paused - it skips every tick from its next one (within 2 s).");
-        if (holding.Count > 0)
+        if (allHolding.Count > 0)
         {
-            text.Append($"\nWARNING: {holding.Count} open position(s) are NOT managed while paused (no stops, no targets, no sell-by):");
+            text.Append($"\nWARNING: {allHolding.Count} open position(s) are NOT managed while paused (no stops, no targets, no sell-by):");
             foreach (var s in holding) text.Append($"\n  {s.Symbol,-6} {s.PositionQty,6} sh  {s.Title}");
+            if (othersHolding > 0) text.Append($"\n  ...and {othersHolding} belonging to other users.");
             text.Append("\nResume with `idiotproof monitor resume`, or flatten with `idiotproof trade flatten`.");
         }
         else text.Append("\nNo open positions. Resume with `idiotproof monitor resume`.");
