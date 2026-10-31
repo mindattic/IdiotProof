@@ -1,5 +1,3 @@
-using System.Net;
-using System.Text;
 using IdiotProof.Blazor.Data;
 using IdiotProof.Blazor.Services;
 using IdiotProof.Brokers;
@@ -15,8 +13,7 @@ namespace IdiotProof.Operations.Tests.Options;
 
 /// <summary>
 /// options buy / sell / close (IP-T194/T195/T196) through the real TransactionGateway over EF InMemory,
-/// with a fake broker per mode; exercise / do-not-exercise (IP-T307) against a scripted Alpaca handler.
-/// Nothing reaches a real account.
+/// with a fake broker per mode (level, positions, placed orders). Nothing reaches a real account.
 /// </summary>
 public class OptionsTradingOperationTests
 {
@@ -24,7 +21,6 @@ public class OptionsTradingOperationTests
     private static readonly Guid Owner = Guid.NewGuid();
 
     private FakeBroker sandbox = null!, paper = null!, live = null!;
-    private ScriptedFactory alpaca = null!;
     private IDbContextFactory<AppDbContext> db = null!;
     private ConfirmationStore confirmations = null!;
 
@@ -34,7 +30,6 @@ public class OptionsTradingOperationTests
         sandbox = new FakeBroker(BrokerType.Sandbox, isPaper: true);
         paper = new FakeBroker(BrokerType.Alpaca, isPaper: true);
         live = new FakeBroker(BrokerType.Alpaca, isPaper: false);
-        alpaca = new ScriptedFactory();
         db = new ServiceCollection()
             .AddDbContextFactory<AppDbContext>(o => o.UseInMemoryDatabase($"options-ops-{Guid.NewGuid():N}"))
             .BuildServiceProvider().GetRequiredService<IDbContextFactory<AppDbContext>>();
@@ -52,15 +47,8 @@ public class OptionsTradingOperationTests
             .AddSingleton(gateway)
             .AddSingleton(confirmations)
             .AddSingleton(audit)
-            .AddSingleton<AlpacaApiFactory>(alpaca)
             .BuildServiceProvider();
         return new OperationContext { Services = services, OwnerId = Owner, ConfirmationCode = code };
-    }
-
-    private async Task<List<string>> AuditMessagesAsync()
-    {
-        await using var ctx = await db.CreateDbContextAsync();
-        return await ctx.AuditLogs.Select(a => a.Message).ToListAsync();
     }
 
     // ------------------------------------------------------------------ buy (IP-T194)
@@ -220,31 +208,5 @@ public class OptionsTradingOperationTests
     private sealed class FakeRouting : Dictionary<BrokerMode, IBrokerClient>, IOrderRouting
     {
         public Task<IBrokerClient> ResolveAsync(Guid ownerUserId, BrokerMode mode, CancellationToken ct) => Task.FromResult(this[mode]);
-    }
-
-    /// <summary>Replies by "METHOD /path"; records every request. Nothing reaches the network.</summary>
-    private sealed class Scripted : HttpMessageHandler
-    {
-        public Dictionary<string, (HttpStatusCode Status, string Body)> Routes { get; } = [];
-        public List<string> Calls { get; } = [];
-
-        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
-        {
-            var key = $"{request.Method} {request.RequestUri!.AbsolutePath}";
-            Calls.Add(key);
-            var (status, body) = Routes.TryGetValue(key, out var r) ? r : throw new InvalidOperationException("No scripted reply for " + key);
-            return Task.FromResult(new HttpResponseMessage(status) { Content = new StringContent(body, Encoding.UTF8, "application/json") });
-        }
-    }
-
-    private sealed class ScriptedFactory() : AlpacaApiFactory(null!, null!, null!)
-    {
-        public Scripted Paper { get; } = new();
-        public Scripted Live { get; } = new();
-
-        public override Task<AlpacaApi> ForOwnerAsync(Guid ownerUserId, BrokerMode mode, CancellationToken ct = default) =>
-            mode == BrokerMode.Sandbox
-                ? throw new AlpacaAccessException("Sandbox is not Alpaca.")
-                : Task.FromResult(new AlpacaApi("k", "s", mode == BrokerMode.Paper, mode == BrokerMode.Paper ? Paper : Live));
     }
 }
