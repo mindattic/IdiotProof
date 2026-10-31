@@ -301,6 +301,50 @@
     }
     </div>
 
+    @if (StrategyId is not null && stampView is not null)
+    {
+        <!-- Stamp: the strategy as the CLI's `idiotproof strategy stamp` prints it (IP-T284) -->
+        <div class="trading-card p-3" aria-labelledby="stamp-heading">
+            <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+                <h2 id="stamp-heading" class="h6 mb-0">
+                    <i class="bi bi-upc-scan me-1" aria-hidden="true"></i>Stamp
+                    @if (stampView.ShortId is not null)
+                    {
+                        <span class="font-monospace text-muted ms-1">@stampView.ShortId</span>
+                    }
+                </h2>
+                <span class="text-muted small">Saved version; paste it back with <code>idiotproof strategy import</code>.</span>
+                <div class="ms-auto d-flex align-items-center gap-3">
+                    <div class="form-check form-switch mb-0">
+                        <input class="form-check-input" type="checkbox" id="stamp-unicode"
+                               checked="@stampUnicode" @onchange="ToggleStampUnicode" />
+                        <label class="form-check-label small" for="stamp-unicode">Box drawing</label>
+                    </div>
+                    <div class="form-check form-switch mb-0">
+                        <input class="form-check-input" type="checkbox" id="stamp-payload"
+                               checked="@stampPayload" @onchange="ToggleStampPayload" />
+                        <label class="form-check-label small" for="stamp-payload">Payload</label>
+                    </div>
+                    @if (stampView.Stamp is not null)
+                    {
+                        <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="CopyStampAsync"
+                                aria-label="Copy stamp">
+                            <i class="bi @(stampCopied ? "bi-check2" : "bi-clipboard") me-1" aria-hidden="true"></i>@(stampCopied ? "Copied" : "Copy")
+                        </button>
+                    }
+                </div>
+            </div>
+            @if (stampView.Stamp is not null)
+            {
+                <AsciiBlock Text="@stampView.Stamp" AriaLabel="Strategy stamp" DataCy="strategy-stamp" />
+            }
+            else
+            {
+                <div class="text-muted small">@stampView.Error</div>
+            }
+        </div>
+    }
+
 </section>
 
 @if (showDisambigModal)
@@ -416,6 +460,8 @@
                 scriptText = existing.ScriptText;
                 isActive   = existing.IsActive;
                 loadedStrategyId = id;
+                stampSource = (existing.ScriptJson, existing.ScriptText);
+                RebuildStamp();
                 saveMessage = "";
             }
             else
@@ -452,6 +498,48 @@
         title = ""; symbol = ""; scriptText = "";
         isActive = false; saveOk = false; saveMessage = "";
         showDisambigModal = false; disambigConfirmed = false; disambigCloseIntent = false;
+        stampSource = null; stampView = null;
+    }
+
+    // ── Stamp card (IP-T284): the saved canon as `idiotproof strategy stamp` prints it ──
+    private (string? Json, string? Text)? stampSource;
+    private StrategyStampView? stampView;
+    private bool stampUnicode;
+    private bool stampPayload = true;
+    private bool stampCopied;
+
+    private void RebuildStamp()
+    {
+        stampCopied = false;
+        stampView = stampSource is { } src
+            ? StrategyStampView.For(src.Json, src.Text, stampUnicode, stampPayload)
+            : null;
+    }
+
+    /// <summary>Re-reads the saved row (its canon is derived on save) and rebuilds the stamp.</summary>
+    private async Task RefreshStampAsync()
+    {
+        try
+        {
+            var row = StrategyId is { } id ? await StrategyRepo.GetByIdAsync(id) : null;
+            stampSource = row is not null && row.OwnerUserId == userId ? (row.ScriptJson, row.ScriptText) : null;
+        }
+        catch { stampSource = null; }
+        RebuildStamp();
+    }
+
+    private void ToggleStampUnicode() { stampUnicode = !stampUnicode; RebuildStamp(); }
+    private void ToggleStampPayload() { stampPayload = !stampPayload; RebuildStamp(); }
+
+    private async Task CopyStampAsync()
+    {
+        if (stampView?.Stamp is not { } text) return;
+        try
+        {
+            await JS.InvokeVoidAsync("navigator.clipboard.writeText", text);
+            stampCopied = true;
+        }
+        catch (JSException) { /* clipboard blocked: the text is selectable in the block */ }
     }
 
     private void AppendVerb(string verb)
@@ -553,6 +641,7 @@
             }
 
             saveOk = true;
+            await RefreshStampAsync();
             saveMessage = $"Saved. {(isActive ? "Monitor will evaluate on its next tick." : "Toggle Active to send it to the Monitor.")}";
         }
         catch (Exception ex)

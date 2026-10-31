@@ -1,0 +1,38 @@
+@*
+    A fixed-width text picture (the strategy stamp, an ASCII chart) shown exactly as the CLI prints
+    it: one <pre> in a monospace font with ligatures and wrapping off, so every column lines up.
+    Too wide for the screen scrolls sideways instead of wrapping; the text is never reflowed.
+*@
+
+<figure class="ascii-block mb-0 @Class" data-cy="@DataCy">
+    @if (!string.IsNullOrEmpty(Caption))
+    {
+        <figcaption class="text-muted small mb-1">@Caption</figcaption>
+    }
+    <pre class="ascii-block-pre mb-0" tabindex="0" aria-label="@(AriaLabel ?? Caption ?? "Text picture")"
+         style="@PreStyle">@Text</pre>
+</figure>
+
+@code {
+    /// <summary>
+    /// Monospace, no wrapping, no ligatures, no letter-spacing: the things that knock a text
+    /// picture's columns out of line. Inline so it holds wherever the block is used.
+    /// </summary>
+    public const string PreStyle =
+        "font-family:ui-monospace,'Cascadia Mono',Consolas,'Roboto Mono','DejaVu Sans Mono',monospace;" +
+        "font-size:0.78rem;line-height:1.25;white-space:pre;overflow-x:auto;overflow-wrap:normal;word-break:normal;" +
+        "font-variant-ligatures:none;font-feature-settings:'liga' 0,'calt' 0;letter-spacing:0;tab-size:8;" +
+        "background:var(--bg-row-alt);border-radius:6px;padding:0.75rem;";
+
+    /// <summary>The text, rendered verbatim.</summary>
+    [Parameter, EditorRequired] public string Text { get; set; } = "";
+
+    /// <summary>Optional caption above the block.</summary>
+    [Parameter] public string? Caption { get; set; }
+
+    /// <summary>Accessible name for the scrollable block (defaults to the caption).</summary>
+    [Parameter] public string? AriaLabel { get; set; }
+
+    [Parameter] public string Class { get; set; } = "";
+    [Parameter] public string? DataCy { get; set; }
+}
