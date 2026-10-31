@@ -79,6 +79,9 @@ public sealed record StrategyListArgs
 
     [Option("mode", Description = "Only this broker mode (sandbox, paper, live).")]
     public BrokerMode? Mode { get; init; }
+
+    [Option("deleted", Description = "Include soft-deleted strategies (hidden by default).")]
+    public bool Deleted { get; init; }
 }
 
 [Operation("strategy list", Summary = "List your strategies with mode, position and live condition progress.", Risk = OperationRisk.Read)]
@@ -91,6 +94,7 @@ public sealed class StrategyListOperation : IOperation<StrategyListArgs>
         var owner = ctx.RequireOwner();
         var rows = (await ctx.Get<StrategyRepository>().GetAllForUserAsync(owner, ctx.CancellationToken))
             .Where(s => !args.Active || s.IsActive)
+            .Where(s => args.Deleted || !StrategyArchive.IsDeleted(s))
             .Where(s => args.Symbol is null || s.Symbol.Equals(args.Symbol, StringComparison.OrdinalIgnoreCase))
             .Where(s => args.Mode is null || OrderIntent.ParseMode(s.BrokerMode) == args.Mode)
             .OrderByDescending(s => s.IsActive).ThenBy(s => s.Symbol).ThenBy(s => s.Title)
