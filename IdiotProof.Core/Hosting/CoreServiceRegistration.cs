@@ -159,6 +159,8 @@ public static class CoreServiceRegistration
         services.AddScoped<IndexEventScanner>();
         services.AddScoped<SignificanceScorer>();
         services.AddScoped<OutcomeBackfillService>();
+        // One research scan pass: the scheduled ResearchScanner and the Hub's `research scan`.
+        services.AddScoped<IResearchScanPass, ScanPassRunner>();
 
         return services;
     }

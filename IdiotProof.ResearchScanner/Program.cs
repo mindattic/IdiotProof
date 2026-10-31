@@ -1,12 +1,10 @@
 using IdiotProof.Blazor.Data;
+using IdiotProof.Blazor.Services;
 using IdiotProof.Core.Hosting;
 using IdiotProof.Engine.Storage;
-using IdiotProof.ResearchScanner;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging;
 
 // ── IdiotProof.ResearchScanner ──────────────────────────────────────────────
 //
@@ -39,39 +37,21 @@ storage.EnsureDirectories();
 builder.Services.AddIdiotProofCore(builder.Configuration, storage, new CoreHostOptions { PinDevKeyRing = true });
 
 using var host = builder.Build();
-var logger = host.Services.GetRequiredService<ILogger<Program>>();
 
 var logDir = Path.Combine(storage.LogsPath, "research-scan");
 Directory.CreateDirectory(logDir);
 var logFile = Path.Combine(logDir, $"{DateTime.UtcNow:yyyyMMdd}.log");
 
-var dbFactory = host.Services.GetRequiredService<IDbContextFactory<AppDbContext>>();
-var scanRun = new ScanRun { StartedUtc = DateTime.UtcNow };
+// The pass itself (and saving its ScanRun row, even on failure) lives in IdiotProof.Core so the
+// Hub's `research scan` operation runs the very same pass on demand.
+ScanRun scanRun;
+await using (var scope = host.Services.CreateAsyncScope())
+    scanRun = await scope.ServiceProvider.GetRequiredService<IResearchScanPass>()
+        .RunAsync(new ScanPassOptions(), CancellationToken.None);
 
-try
-{
-    var runner = new ScanPassRunner(host.Services, logger);
-    await runner.RunAsync(scanRun, CancellationToken.None);
-}
-catch (Exception ex)
-{
-    logger.LogError(ex, "Research scan pass failed");
-    scanRun.ErrorCount++;
-    scanRun.Notes = (scanRun.Notes ?? "") + $" FATAL: {ex.GetType().Name}: {ex.Message}";
-}
-finally
-{
-    scanRun.CompletedUtc = DateTime.UtcNow;
-    await using (var db = await dbFactory.CreateDbContextAsync())
-    {
-        db.ScanRuns.Add(scanRun);
-        await db.SaveChangesAsync();
-    }
-
-    var summary = $"[{DateTime.UtcNow:u}] scan run {scanRun.Id}: " +
-                  $"{scanRun.TickersScanned}/{scanRun.UniverseSize} tickers, " +
-                  $"{scanRun.ClaimsFound} claims, {scanRun.ErrorCount} errors, " +
-                  $"{(scanRun.CompletedUtc!.Value - scanRun.StartedUtc).TotalSeconds:0.0}s";
-    File.AppendAllText(logFile, summary + Environment.NewLine);
-    Console.WriteLine(summary);
-}
+var summary = $"[{DateTime.UtcNow:u}] scan run {scanRun.Id}: " +
+              $"{scanRun.TickersScanned}/{scanRun.UniverseSize} tickers, " +
+              $"{scanRun.ClaimsFound} claims, {scanRun.ErrorCount} errors, " +
+              $"{(scanRun.CompletedUtc!.Value - scanRun.StartedUtc).TotalSeconds:0.0}s";
+File.AppendAllText(logFile, summary + Environment.NewLine);
+Console.WriteLine(summary);
