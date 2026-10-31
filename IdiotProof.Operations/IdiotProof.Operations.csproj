@@ -13,5 +13,7 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\IdiotProof.Core\IdiotProof.Core.csproj" />
+    <!-- AsciiCandleChart and friends: the shared ASCII renderers every chart is drawn with. -->
+    <ProjectReference Include="..\..\MindAttic.Helpers\MindAttic.Helpers\MindAttic.Helpers.csproj" />
   </ItemGroup>
 </Project>
