@@ -50,6 +50,13 @@ public sealed class RiskGuardianConfig
 
     /// <summary>Maximum percent of account to risk per trade.</summary>
     public decimal MaxAccountRiskPercent { get; set; } = 1m;
+
+    /// <summary>
+    /// The owner's kill switch (<c>idiotproof risk kill-switch on</c>): while on, every NEW entry is
+    /// vetoed, whatever the limits say. Exits never pass through <see cref="RiskGuardian.ValidateTrade"/>,
+    /// so a position can always be closed.
+    /// </summary>
+    public bool KillSwitch { get; set; }
 }
 
 /// <summary>
@@ -126,6 +133,14 @@ public sealed class RiskGuardian
         }
 
         // === CRITICAL CHECKS - These BLOCK the trade ===
+
+        // The kill switch halts every new entry before any arithmetic.
+        if (cfg.KillSwitch)
+        {
+            result.BlockReasons.Add("KILL SWITCH ON — new entries are halted (`idiotproof risk kill-switch off` to resume)");
+            result.IsApproved = false;
+            return result;
+        }
 
         // 0. Quantity must be positive — zero/negative makes totalRisk 0 or negative,
         //    which would pass every dollar-threshold check below.
@@ -383,7 +398,8 @@ public sealed class RiskGuardian
             DailyLossSoFar = dailyLoss,
             RemainingDailyRisk = Math.Max(0m, config.MaxLossPerDay - dailyLoss),
             AccountBalance = config.AccountBalance,
-            IsCircuitBreakerTripped = dailyLoss >= config.MaxLossPerDay
+            IsCircuitBreakerTripped = dailyLoss >= config.MaxLossPerDay,
+            IsKillSwitchOn = config.KillSwitch,
         };
     }
 
@@ -439,6 +455,7 @@ public sealed class RiskGuardianStatus
     public decimal RemainingDailyRisk { get; init; }
     public decimal AccountBalance { get; init; }
     public bool IsCircuitBreakerTripped { get; init; }
+    public bool IsKillSwitchOn { get; init; }
 
     public decimal DailyLossPercent => MaxLossPerDay > 0m ? (DailyLossSoFar / MaxLossPerDay) * 100m : 0m;
 }

@@ -84,15 +84,51 @@ public sealed class RiskGuardianService(IDbContextFactory<AppDbContext> dbFactor
             entry.ConfigLoadedUtc = DateTime.MinValue;
     }
 
+    /// <summary>The SettingsKv key holding a user's kill switch ("true" while new entries are halted).</summary>
+    public static string KillSwitchKey(Guid userId) => $"risk.killSwitch.{userId:N}";
+
+    /// <summary>Whether the user's kill switch is on (SQL, not the cache).</summary>
+    public async Task<bool> IsKillSwitchOnAsync(Guid userId, CancellationToken ct = default)
+    {
+        await using var db = await dbFactory.CreateDbContextAsync(ct);
+        return await ReadKillSwitchAsync(db, userId, ct);
+    }
+
+    /// <summary>
+    /// Turns the user's kill switch on or off and expires the cached config so the very next
+    /// <see cref="GetForUserAsync"/> (the Monitor's next signal, the gateway's next entry) sees it.
+    /// The Guardian instance and its daily-loss counter are kept.
+    /// </summary>
+    public async Task SetKillSwitchAsync(Guid userId, bool on, CancellationToken ct = default)
+    {
+        await using (var db = await dbFactory.CreateDbContextAsync(ct))
+        {
+            var key = KillSwitchKey(userId);
+            var row = await db.SettingsKv.FirstOrDefaultAsync(s => s.Key == key, ct);
+            if (row is null) db.SettingsKv.Add(new SettingsKv { Key = key, Value = on ? "true" : "false", UpdatedUtc = DateTime.UtcNow });
+            else { row.Value = on ? "true" : "false"; row.UpdatedUtc = DateTime.UtcNow; }
+            await db.SaveChangesAsync(ct);
+        }
+        Invalidate(userId);
+    }
+
+    private static async Task<bool> ReadKillSwitchAsync(AppDbContext db, Guid userId, CancellationToken ct)
+    {
+        var key = KillSwitchKey(userId);
+        var value = await db.SettingsKv.Where(s => s.Key == key).Select(s => s.Value).FirstOrDefaultAsync(ct);
+        return string.Equals(value, "true", StringComparison.OrdinalIgnoreCase);
+    }
+
     /// <summary>
     /// Loads the user's <see cref="UserPreferences"/> and projects it onto a
-    /// <see cref="RiskGuardianConfig"/>. Missing user → canonical defaults.
+    /// <see cref="RiskGuardianConfig"/>, plus the kill switch. Missing user → canonical defaults.
     /// </summary>
-    private async Task<RiskGuardianConfig> LoadConfigAsync(Guid userId, CancellationToken ct)
+    internal async Task<RiskGuardianConfig> LoadConfigAsync(Guid userId, CancellationToken ct)
     {
         await using var db = await dbFactory.CreateDbContextAsync(ct);
         var prefs = await db.UserPreferences.FirstOrDefaultAsync(p => p.UserId == userId, ct);
-        if (prefs is null) return new RiskGuardianConfig();
+        var killSwitch = await ReadKillSwitchAsync(db, userId, ct);
+        if (prefs is null) return new RiskGuardianConfig { KillSwitch = killSwitch };
 
         return new RiskGuardianConfig
         {
@@ -102,6 +138,7 @@ public sealed class RiskGuardianService(IDbContextFactory<AppDbContext> dbFactor
             MaxStopLossPercent     = prefs.RiskMaxStopLossPercent,
             AccountBalance         = prefs.RiskAccountBalance,
             MaxAccountRiskPercent  = prefs.RiskMaxAccountRiskPercent,
+            KillSwitch             = killSwitch,
         };
     }
 }
