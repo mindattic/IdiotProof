@@ -10,7 +10,13 @@ using Microsoft.Extensions.Logging;
 
 // ── IdiotProof.Monitor ───────────────────────────────────────────────────────
 //
-// The unified always-on evaluator + executor (IP-LAW-10). Runs 24/7,
+// SHIM (IP-T81): the Monitor now runs inside the IdiotProof Hub (IdiotProof.Hub hosts
+// MonitorWorker with its leader lease and scanners). Started with no subcommand, this exe starts
+// the Hub in this console and exits with its exit code, so start.bat, shortcuts and habits keep
+// working. The operator subcommands below still run here and exit.
+//
+// What the Hub-hosted Monitor does (unchanged): the unified always-on evaluator + executor
+// (IP-LAW-10). Runs 24/7,
 // re-reads every IsActive=true SQL strategy each tick (UI edits apply live),
 // pulls real market data (Alpaca REST + websocket streaming when keyed; Mock
 // fallback), walks the three gates (conditions → LLM voter panel →
@@ -27,8 +33,8 @@ using Microsoft.Extensions.Logging;
 //   IDIOTPROOF_ALPACA_FEED       sip | iex data tier (default sip; iex for the free tier)
 //   IDIOTPROOF_STREAMING         0 disables the websocket stream
 //
-// Run:   dotnet run --project IdiotProof.Monitor
-// Stop:  Ctrl+C (graceful shutdown via IHostApplicationLifetime)
+// Run:   dotnet run --project IdiotProof.Monitor     (= starts the Hub)
+// Stop:  Ctrl+C (the Hub shuts down gracefully: drain, stop the loop, release the lease)
 
 // Crash dump — write unhandled exceptions to crash.log next to the exe so the
 // event survives even if the DB / logger is what caused the crash.
@@ -42,6 +48,10 @@ AppDomain.CurrentDomain.UnhandledException += (_, e) =>
     }
     catch { /* best-effort; if the file write fails there is nothing left to do */ }
 };
+
+// No subcommand: be the shim. Nothing below (host, migrations) is needed to start the Hub.
+if (args.Length == 0 || !MonitorCli.IsCommand(args[0]))
+    return await HubShim.RunAsync(args);
 
 // Brand wordmark on startup (shared source of truth — IdiotProof.Shared.Branding).
 Console.WriteLine();
@@ -111,8 +121,4 @@ using (var migScope = host.Services.CreateScope())
 // Operator CLI subcommands (status / set-keys / create-strategies) run against
 // the built DI and EXIT — they never start the trading worker (RunAsync). This
 // is the "visualize/configure from the CLI" surface.
-if (args.Length > 0 && MonitorCli.IsCommand(args[0]))
-    return await MonitorCli.RunAsync(host.Services, args);
-
-await host.RunAsync();
-return 0;
+return await MonitorCli.RunAsync(host.Services, args);
