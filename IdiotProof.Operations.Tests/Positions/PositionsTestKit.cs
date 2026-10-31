@@ -185,6 +185,15 @@ internal sealed class RecordingBroker(BrokerType type, bool isPaper) : IBrokerCl
     public Task<OrderResult> CancelOrderAsync(string orderId, CancellationToken ct = default) =>
         Task.FromResult(new OrderResult { IsSuccess = true, BrokerOrderId = orderId });
 
+    /// <summary>Every cancel-all the gateway asked for (null = every symbol).</summary>
+    public List<string?> CancelledAll { get; } = [];
+
+    public Task<OrderResult> CancelAllOrdersAsync(string? symbol = null, CancellationToken ct = default)
+    {
+        CancelledAll.Add(symbol);
+        return Task.FromResult(new OrderResult { IsSuccess = true, Message = "2 orders cancelled" });
+    }
+
     public Task<IReadOnlyList<Position>> GetPositionsAsync(CancellationToken ct = default) =>
         Task.FromResult<IReadOnlyList<Position>>([]);
 }

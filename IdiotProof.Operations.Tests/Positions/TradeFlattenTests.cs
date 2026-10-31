@@ -37,7 +37,7 @@ public class TradeFlattenTests
     }
 
     [Test]
-    public async Task Flatten_All_ClosesEveryLongAndShort_SkippingCryptoAndFractions()
+    public async Task Flatten_All_ClosesEveryLongAndShort_AndAFractionalLongExactly_SkippingCrypto()
     {
         var kit = new PositionsKit();
         kit.Held[BrokerMode.Paper] = PositionsKit.Array(
@@ -47,9 +47,10 @@ public class TradeFlattenTests
         var result = await new TradeFlattenOperation().ExecuteAsync(new TradeFlattenArgs { All = true }, kit.Context());
 
         Assert.That(result.IsOk, Is.True, result.Message);
-        Assert.That(kit.Brokers[BrokerMode.Paper].Placed.Select(o => $"{o.Side} {o.Quantity} {o.Symbol}"),
-            Is.EqualTo(new[] { "Sell 3 AAPL", "Buy 2 TSLA" }));
-        Assert.That(result.Human, Does.Contain("skipped BTC/USD").And.Contain("skipped SPY"));
+        Assert.That(kit.Brokers[BrokerMode.Paper].Placed.Select(o => $"{o.Side} {o.SizeQuantity} {o.Symbol}"),
+            Is.EqualTo(new[] { "Sell 3 AAPL", "Sell 0.25 SPY", "Buy 2 TSLA" }));
+        Assert.That(kit.Brokers[BrokerMode.Paper].Placed.Single(o => o.Symbol == "SPY").FractionalQuantity, Is.EqualTo(0.25m));
+        Assert.That(result.Human, Does.Contain("skipped BTC/USD"));
     }
 
     [Test]

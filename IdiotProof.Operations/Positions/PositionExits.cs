@@ -12,7 +12,7 @@ namespace IdiotProof.Operations.Positions;
 public sealed record ExitPlan(BrokerPosition Position, OrderIntent? Intent, string? Skipped)
 {
     /// <summary>Shares/contracts left open after this exit (a fractional remainder, or a partial close).</summary>
-    public decimal Remaining => Math.Abs(Position.Quantity) - (Intent?.Order.Quantity ?? 0);
+    public decimal Remaining => Math.Abs(Position.Quantity) - (Intent?.Order.SizeQuantity ?? 0m);
 }
 
 /// <summary>
@@ -29,20 +29,24 @@ public static class PositionExits
 
     /// <summary>
     /// The exit for <paramref name="p"/>: <paramref name="quantity"/> (null = all of it), capped at
-    /// what is held, in whole shares/contracts. The reference price is left out on purpose so the
-    /// intent's hash — what a Live code is bound to — does not move with the quote.
+    /// what is held. Partial closes and shorts are whole shares/contracts; closing ALL of a
+    /// fractional long sells the exact fraction (the position exists, so the asset is fractionable).
+    /// The reference price is left out on purpose so the intent's hash — what a Live code is bound
+    /// to — does not move with the quote.
     /// </summary>
     public static ExitPlan Plan(Guid owner, BrokerMode mode, BrokerPosition p, decimal? quantity, Guid? strategyId, string note)
     {
         if (p.IsCrypto)
-            return new ExitPlan(p, null, "crypto is closed with the crypto commands (fractional coins)");
+            return new ExitPlan(p, null, "crypto is closed with the crypto commands");
         if (p.Quantity == 0)
             return new ExitPlan(p, null, "flat");
 
         var held = Math.Abs(p.Quantity);
-        var whole = (int)Math.Floor(Math.Min(quantity ?? held, held));
-        if (whole < 1)
-            return new ExitPlan(p, null, $"only {Fmt.Number(held)} held — exits here are whole shares; close the fraction in the Alpaca dashboard");
+        var amount = Math.Min(quantity ?? held, held);
+        var fractional = amount == held && amount != decimal.Floor(amount) && !p.IsShort && !p.IsOption;
+        var whole = (int)decimal.Floor(amount);
+        if (!fractional && whole < 1)
+            return new ExitPlan(p, null, $"less than one whole {(p.IsOption ? "contract" : "share")} ({Fmt.Number(amount)} of {Fmt.Number(held)}); close all of it instead");
 
         var intent = new OrderIntent
         {
@@ -55,7 +59,8 @@ public static class PositionExits
             Order = new OrderRequest
             {
                 Symbol = p.Option?.OccSymbol ?? p.Symbol.ToUpperInvariant(),
-                Quantity = whole,
+                Quantity = fractional ? 0 : whole,
+                FractionalQuantity = fractional ? amount : null,
                 Side = p.IsShort ? OrderSide.Buy : OrderSide.Sell,
                 Type = OrderType.Market,
                 TimeInForce = "DAY",
@@ -67,13 +72,27 @@ public static class PositionExits
         return new ExitPlan(p, intent, null);
     }
 
+    /// <summary>The cancel-every-open-order intent that runs ahead of a close-all's exits.</summary>
+    public static OrderIntent CancelAllOrders(Guid owner, BrokerMode mode, string note) => new()
+    {
+        OwnerUserId = owner,
+        Mode = mode,
+        Purpose = OrderPurpose.Exit,
+        Origin = OrderOrigin.Flatten,
+        Action = OrderAction.CancelAll,
+        Note = note,
+        Order = new OrderRequest { Symbol = "*", TimeInForce = "DAY" },
+    };
+
     /// <summary>
     /// Previews, places, or (Live) gates the exits behind a confirmation code. <paramref name="what"/>
-    /// names the action in the code's preview ("close all · Live").
+    /// names the action in the code's preview ("close all · Live"). <paramref name="before"/> runs
+    /// first and rides on the same code (close-all's cancel-every-open-order).
     /// </summary>
-    public static async Task<OperationResult> RunAsync(IReadOnlyList<ExitPlan> plans, BrokerMode mode, bool preview, string what, OperationContext ctx)
+    public static async Task<OperationResult> RunAsync(IReadOnlyList<ExitPlan> plans, BrokerMode mode, bool preview, string what,
+        OperationContext ctx, IReadOnlyList<OrderIntent>? before = null)
     {
-        var intents = plans.Where(p => p.Intent is not null).Select(p => p.Intent!).ToList();
+        var intents = (before ?? []).Concat(plans.Where(p => p.Intent is not null).Select(p => p.Intent!)).ToList();
         var skipped = plans.Where(p => p.Skipped is not null).Select(p => $"  skipped {p.Position.Symbol}: {p.Skipped}").ToList();
         var footer = skipped.Count == 0 ? "" : "\n" + string.Join("\n", skipped);
         var skippedData = plans.Where(p => p.Skipped is not null).Select(p => new { p.Position.Symbol, Reason = p.Skipped });
@@ -145,13 +164,14 @@ public static class PositionExits
             table.Row(o.Intent.Describe(), o.Status.ToString().ToLowerInvariant(),
                 o.Status is GatewayStatus.Blocked or GatewayStatus.Rejected
                     ? string.Join("; ", o.Verdicts.Where(v => !v.Passed).Select(v => v.Detail).DefaultIfEmpty(o.Message))
+                    : o.Intent.Action == OrderAction.CancelAll && o.Status == GatewayStatus.Placed ? o.Message
                     : o.Order?.BrokerOrderId is { Length: > 0 } id ? "order " + id : o.RoutedTo);
         var ok = outcomes.Count(o => o.Status is GatewayStatus.Placed or GatewayStatus.Previewed);
         var data = new
         {
             exits = outcomes.Select(o => new
             {
-                Order = o.Intent.Describe(), o.Intent.Order.Symbol, o.Intent.Order.Quantity, Side = o.Intent.Order.Side.ToString(),
+                Order = o.Intent.Describe(), Action = o.Intent.Action.ToString(), o.Intent.Order.Symbol, Quantity = o.Intent.Order.SizeQuantity, Side = o.Intent.Order.Side.ToString(),
                 Status = o.Status.ToString(), o.Message, BrokerOrderId = o.Order?.BrokerOrderId, o.RoutedTo,
             }),
             succeeded = ok,
