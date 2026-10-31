@@ -76,13 +76,13 @@ Sandbox rather than throwing or silently routing to a live broker. Routing to a 
 needs the owner's explicit opt-in plus a key pair; a missing or undecryptable key falls through
 to Sandbox, never into another user's account. Live trading is an explicit opt-in with a
 red-outline confirmation. (`IdiotProof.Brokers/BrokerRouter.cs`,
-`IdiotProof.Blazor/Services/UserBrokerResolver.cs`.)
+`IdiotProof.Core/Services/UserBrokerResolver.cs`.)
 
 ### {#IP-LAW-4} The verb catalog is reflected, never hand-listed
 `StrategyScriptGenerator` builds the LLM system prompt — and the Learning Center renders its
 phase/verb reference — by reflecting on the real `StrategyBuilder` + `Conditions` types so the
 documented/prompted DSL can never drift from the code that actually compiles.
-(`IdiotProof.Blazor/Services/StrategyScriptGenerator.cs`.)
+(`IdiotProof.Core/Services/StrategyScriptGenerator.cs`.)
 
 ### {#IP-LAW-5} The Monitor loop survives its own failures
 `SupervisedLoop` catches per-tick exceptions, applies capped exponential backoff, resets on the

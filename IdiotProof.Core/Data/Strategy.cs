@@ -6,10 +6,11 @@ namespace IdiotProof.Core.Data;
 
 /// <summary>
 /// A user-authored trading strategy. Persisted to the IdiotProof SQL Server
-/// database. The console Monitor (IdiotProof.Monitor/MonitorWorker) loads
-/// every IsActive=true row each tick, parses ScriptText into a
-/// StrategyDefinition, and evaluates it — so edits made in the Blazor UI
-/// apply to the running console automatically via SQL (IP-LAW-10).
+/// database. The Monitor (IdiotProof.Core/Monitoring/MonitorWorker, hosted by the
+/// Hub) loads every IsActive=true row each tick, loads its canonical ScriptJson
+/// into a StrategyDefinition (ScriptText is only the human view, IP-LAW-8) and
+/// evaluates it, so edits from the CLI, MCP or web UI apply on the next tick via
+/// SQL (IP-LAW-10).
 /// </summary>
 public sealed class Strategy
 {
