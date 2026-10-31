@@ -785,6 +785,141 @@
       }
     },
     {
+      "name": "alpaca raw",
+      "noun": "alpaca",
+      "verb": "raw",
+      "tool_name": "alpaca_raw",
+      "summary": "Any Alpaca endpoint (escape hatch): GET/POST/PATCH/PUT/DELETE a Trading API path, or GET a Market Data path with --data; order, position and wallet mutations are refused (use the gated operations).",
+      "description": null,
+      "risk": "write",
+      "usage": "idiotproof alpaca raw \u003Cmethod\u003E \u003Cpath\u003E [--body \u003Cstring\u003E] [--data] [--mode \u003Csandbox|paper|live\u003E]",
+      "parameters": [
+        {
+          "name": "method",
+          "json_name": "method",
+          "kind": "argument",
+          "position": 0,
+          "short": null,
+          "type": "string",
+          "required": true,
+          "description": "GET, POST, PATCH, PUT or DELETE.",
+          "default": "",
+          "enum_values": null
+        },
+        {
+          "name": "path",
+          "json_name": "path",
+          "kind": "argument",
+          "position": 1,
+          "short": null,
+          "type": "string",
+          "required": true,
+          "description": "The Alpaca path with any query string, e.g. /v2/account or /v2/assets?status=active.",
+          "default": "",
+          "enum_values": null
+        },
+        {
+          "name": "body",
+          "json_name": "body",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "string",
+          "required": false,
+          "description": "JSON request body for POST/PATCH/PUT (use \u0027-\u0027 to read it from stdin).",
+          "default": null,
+          "enum_values": null
+        },
+        {
+          "name": "data",
+          "json_name": "data",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "bool",
+          "required": false,
+          "description": "Call the Market Data API (data.alpaca.markets, GET only) instead of the Trading API.",
+          "default": false,
+          "enum_values": null
+        },
+        {
+          "name": "mode",
+          "json_name": "mode",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "sandbox|paper|live",
+          "required": false,
+          "description": "Trading API account: paper (default) or live. Live mutations need a confirmation code.",
+          "default": "paper",
+          "enum_values": [
+            "sandbox",
+            "paper",
+            "live"
+          ]
+        }
+      ],
+      "examples": [
+        {
+          "command_line": "idiotproof alpaca raw GET /v2/account",
+          "description": null
+        },
+        {
+          "command_line": "idiotproof alpaca raw GET /v2/assets/AAPL --mode live",
+          "description": null
+        },
+        {
+          "command_line": "idiotproof alpaca raw GET /v2/stocks/AAPL/snapshot --data",
+          "description": null
+        },
+        {
+          "command_line": "idiotproof alpaca raw POST /v2/watchlists --body \u0022{\\\u0022name\\\u0022:\\\u0022gappers\\\u0022,\\\u0022symbols\\\u0022:[\\\u0022AAPL\\\u0022]}\u0022",
+          "description": null
+        }
+      ],
+      "input_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "description": "Any Alpaca endpoint (escape hatch): GET/POST/PATCH/PUT/DELETE a Trading API path, or GET a Market Data path with --data; order, position and wallet mutations are refused (use the gated operations).",
+        "properties": {
+          "method": {
+            "type": "string",
+            "description": "GET, POST, PATCH, PUT or DELETE.",
+            "default": ""
+          },
+          "path": {
+            "type": "string",
+            "description": "The Alpaca path with any query string, e.g. /v2/account or /v2/assets?status=active.",
+            "default": ""
+          },
+          "body": {
+            "type": "string",
+            "description": "JSON request body for POST/PATCH/PUT (use \u0027-\u0027 to read it from stdin)."
+          },
+          "data": {
+            "type": "boolean",
+            "description": "Call the Market Data API (data.alpaca.markets, GET only) instead of the Trading API.",
+            "default": false
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "sandbox",
+              "paper",
+              "live"
+            ],
+            "description": "Trading API account: paper (default) or live. Live mutations need a confirmation code.",
+            "default": "paper"
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "method",
+          "path"
+        ]
+      }
+    },
+    {
       "name": "assets bonds",
       "noun": "assets",
       "verb": "bonds",
@@ -1479,7 +1614,7 @@
       "noun": "audit",
       "verb": "tail",
       "tool_name": "audit_tail",
-      "summary": "The latest audit rows, oldest first; --follow watches for new ones for a bounded time (--seconds, --max).",
+      "summary": "The latest audit rows, oldest first; --follow streams new ones as they land (Ctrl\u002BC stops; MCP/--json get a bounded window: --seconds, --max).",
       "description": null,
       "risk": "read",
       "usage": "idiotproof audit tail [--lines \u003Cint\u003E] [--follow] [--seconds \u003Cint\u003E] [--max \u003Cint\u003E] [--kind \u003Cstring[]\u003E] [--system]",
@@ -1504,7 +1639,7 @@
           "short": "f",
           "type": "bool",
           "required": false,
-          "description": "Keep watching for new rows until --seconds pass or --max new rows arrive.",
+          "description": "Keep watching for new rows: in a terminal until Ctrl\u002BC (or --seconds/--max); for MCP and --json for --seconds (default 30) or --max (default 200) new rows.",
           "default": false,
           "enum_values": null
         },
@@ -1516,8 +1651,8 @@
           "short": null,
           "type": "int",
           "required": false,
-          "description": "With --follow: how long to watch, 1-300 (default 30).",
-          "default": 30,
+          "description": "With --follow: how long to watch, 1-300 (default 30 for MCP/--json; a terminal streams until Ctrl\u002BC).",
+          "default": null,
           "enum_values": null
         },
         {
@@ -1528,8 +1663,8 @@
           "short": null,
           "type": "int",
           "required": false,
-          "description": "With --follow: stop after this many new rows, 1-1000 (default 200).",
-          "default": 200,
+          "description": "With --follow: stop after this many new rows, 1-1000 (default 200 for MCP/--json; none in a terminal).",
+          "default": null,
           "enum_values": null
         },
         {
@@ -1570,7 +1705,7 @@
       "input_schema": {
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "type": "object",
-        "description": "The latest audit rows, oldest first; --follow watches for new ones for a bounded time (--seconds, --max).",
+        "description": "The latest audit rows, oldest first; --follow streams new ones as they land (Ctrl\u002BC stops; MCP/--json get a bounded window: --seconds, --max).",
         "properties": {
           "lines": {
             "type": "integer",
@@ -1579,18 +1714,16 @@
           },
           "follow": {
             "type": "boolean",
-            "description": "Keep watching for new rows until --seconds pass or --max new rows arrive.",
+            "description": "Keep watching for new rows: in a terminal until Ctrl\u002BC (or --seconds/--max); for MCP and --json for --seconds (default 30) or --max (default 200) new rows.",
             "default": false
           },
           "seconds": {
             "type": "integer",
-            "description": "With --follow: how long to watch, 1-300 (default 30).",
-            "default": 30
+            "description": "With --follow: how long to watch, 1-300 (default 30 for MCP/--json; a terminal streams until Ctrl\u002BC)."
           },
           "max": {
             "type": "integer",
-            "description": "With --follow: stop after this many new rows, 1-1000 (default 200).",
-            "default": 200
+            "description": "With --follow: stop after this many new rows, 1-1000 (default 200 for MCP/--json; none in a terminal)."
           },
           "kind": {
             "type": "array",
@@ -9361,6 +9494,30 @@
       }
     },
     {
+      "name": "market stream status",
+      "noun": "market",
+      "verb": "stream status",
+      "tool_name": "market_stream_status",
+      "summary": "Websocket health: the Monitor\u0027s market data stream, the trade-updates listeners and open market watches (state, connected since, last message, reconnects, errors).",
+      "description": null,
+      "risk": "read",
+      "usage": "idiotproof market stream status",
+      "parameters": [],
+      "examples": [
+        {
+          "command_line": "idiotproof market stream status",
+          "description": null
+        }
+      ],
+      "input_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "description": "Websocket health: the Monitor\u0027s market data stream, the trade-updates listeners and open market watches (state, connected since, last message, reconnects, errors).",
+        "properties": {},
+        "additionalProperties": false
+      }
+    },
+    {
       "name": "market trades",
       "noun": "market",
       "verb": "trades",
@@ -9459,6 +9616,168 @@
         "required": [
           "symbol"
         ]
+      }
+    },
+    {
+      "name": "market watch",
+      "noun": "market",
+      "verb": "watch",
+      "tool_name": "market_watch",
+      "summary": "Live market tape over Alpaca\u0027s websockets: stock trades/quotes/bars/statuses/LULD, crypto, options and news, merged into one ET-stamped stream.",
+      "description": "A terminal streams until Ctrl\u002BC; MCP and --json get a bounded window (--seconds, default 15). Alpaca limits stock-feed connections per account: if the Monitor\u0027s stream holds the SIP connection, try --feed iex.",
+      "risk": "read",
+      "usage": "idiotproof market watch [\u003Csymbols\u003E...] [--channels \u003Cstring[]\u003E] [--news] [--feed \u003Cstring\u003E] [--options-feed \u003Cstring\u003E] [--seconds \u003Cint\u003E] [--max \u003Cint\u003E]",
+      "parameters": [
+        {
+          "name": "symbols",
+          "json_name": "symbols",
+          "kind": "argument",
+          "position": 0,
+          "short": null,
+          "type": "string[]",
+          "required": false,
+          "description": "Stocks (AAPL), crypto pairs (BTC/USD) and option contracts (AAPL261120C00200000), mixed freely.",
+          "default": null,
+          "enum_values": null
+        },
+        {
+          "name": "channels",
+          "json_name": "channels",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "string[]",
+          "required": false,
+          "description": "trades, quotes, bars, daily-bars, updated-bars, statuses, lulds (stocks only: statuses, lulds; options: trades, quotes). Default trades,quotes.",
+          "default": null,
+          "enum_values": null
+        },
+        {
+          "name": "news",
+          "json_name": "news",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "bool",
+          "required": false,
+          "description": "Also stream news headlines for these symbols (all news when no symbol is given).",
+          "default": false,
+          "enum_values": null
+        },
+        {
+          "name": "feed",
+          "json_name": "feed",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "string",
+          "required": false,
+          "description": "Stock feed: sip, iex or delayed_sip (default: the Hub\u0027s market data tier).",
+          "default": null,
+          "enum_values": null
+        },
+        {
+          "name": "options-feed",
+          "json_name": "options_feed",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "string",
+          "required": false,
+          "description": "Options feed: opra or indicative (default opra).",
+          "default": "opra",
+          "enum_values": null
+        },
+        {
+          "name": "seconds",
+          "json_name": "seconds",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "int",
+          "required": false,
+          "description": "Stop after this many seconds (a terminal streams until Ctrl\u002BC; MCP/--json default 15, at most 300).",
+          "default": null,
+          "enum_values": null
+        },
+        {
+          "name": "max",
+          "json_name": "max",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "int",
+          "required": false,
+          "description": "Stop after this many lines.",
+          "default": null,
+          "enum_values": null
+        }
+      ],
+      "examples": [
+        {
+          "command_line": "idiotproof market watch AAPL MSFT",
+          "description": null
+        },
+        {
+          "command_line": "idiotproof market watch NVDA --channels trades,quotes,statuses,lulds",
+          "description": null
+        },
+        {
+          "command_line": "idiotproof market watch BTC/USD ETH/USD --channels trades,bars",
+          "description": null
+        },
+        {
+          "command_line": "idiotproof market watch AAPL261120C00200000 --channels quotes",
+          "description": null
+        },
+        {
+          "command_line": "idiotproof market watch --news",
+          "description": null
+        }
+      ],
+      "input_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "description": "Live market tape over Alpaca\u0027s websockets: stock trades/quotes/bars/statuses/LULD, crypto, options and news, merged into one ET-stamped stream.",
+        "properties": {
+          "symbols": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Stocks (AAPL), crypto pairs (BTC/USD) and option contracts (AAPL261120C00200000), mixed freely."
+          },
+          "channels": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "trades, quotes, bars, daily-bars, updated-bars, statuses, lulds (stocks only: statuses, lulds; options: trades, quotes). Default trades,quotes."
+          },
+          "news": {
+            "type": "boolean",
+            "description": "Also stream news headlines for these symbols (all news when no symbol is given).",
+            "default": false
+          },
+          "feed": {
+            "type": "string",
+            "description": "Stock feed: sip, iex or delayed_sip (default: the Hub\u0027s market data tier)."
+          },
+          "options_feed": {
+            "type": "string",
+            "description": "Options feed: opra or indicative (default opra).",
+            "default": "opra"
+          },
+          "seconds": {
+            "type": "integer",
+            "description": "Stop after this many seconds (a terminal streams until Ctrl\u002BC; MCP/--json default 15, at most 300)."
+          },
+          "max": {
+            "type": "integer",
+            "description": "Stop after this many lines."
+          }
+        },
+        "additionalProperties": false
       }
     },
     {
@@ -9616,10 +9935,10 @@
       "noun": "monitor",
       "verb": "tail",
       "tool_name": "monitor_tail",
-      "summary": "Recent Monitor activity: gate verdicts (fire, veto, block, entry, exit, reject) and live condition progress.",
-      "description": "A snapshot of the last --minutes of the Monitor\u0027s audit trail (your strategies\u0027 events plus its start/stop/pause events), newest last, followed by where each of your active strategies stands. Run it again to follow.",
+      "summary": "Recent Monitor activity: gate verdicts (fire, veto, block, entry, exit, reject) and live condition progress; --follow streams new ones.",
+      "description": "A snapshot of the last --minutes of the Monitor\u0027s audit trail (your strategies\u0027 events plus its start/stop/pause events), newest last, followed by where each of your active strategies stands. --follow keeps pushing new events and progress changes: live in a terminal until Ctrl\u002BC, a bounded window (--seconds, default 15) for MCP and --json.",
       "risk": "read",
-      "usage": "idiotproof monitor tail [--lines \u003Cint\u003E] [--minutes \u003Cint\u003E] [--progress]",
+      "usage": "idiotproof monitor tail [--lines \u003Cint\u003E] [--minutes \u003Cint\u003E] [--progress] [--follow] [--seconds \u003Cint\u003E]",
       "parameters": [
         {
           "name": "lines",
@@ -9656,11 +9975,39 @@
           "description": "Also show each active strategy\u0027s live condition progress.",
           "default": true,
           "enum_values": null
+        },
+        {
+          "name": "follow",
+          "json_name": "follow",
+          "kind": "option",
+          "position": null,
+          "short": "f",
+          "type": "bool",
+          "required": false,
+          "description": "After the snapshot, keep pushing new events and progress changes (a terminal streams until Ctrl\u002BC; MCP/--json get a bounded window).",
+          "default": false,
+          "enum_values": null
+        },
+        {
+          "name": "seconds",
+          "json_name": "seconds",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "int",
+          "required": false,
+          "description": "With --follow: stop after this many seconds, 1-3600 (MCP/--json default 15, at most 300).",
+          "default": null,
+          "enum_values": null
         }
       ],
       "examples": [
         {
           "command_line": "idiotproof monitor tail",
+          "description": null
+        },
+        {
+          "command_line": "idiotproof monitor tail --follow",
           "description": null
         },
         {
@@ -9675,7 +10022,7 @@
       "input_schema": {
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "type": "object",
-        "description": "Recent Monitor activity: gate verdicts (fire, veto, block, entry, exit, reject) and live condition progress.",
+        "description": "Recent Monitor activity: gate verdicts (fire, veto, block, entry, exit, reject) and live condition progress; --follow streams new ones.",
         "properties": {
           "lines": {
             "type": "integer",
@@ -9691,6 +10038,15 @@
             "type": "boolean",
             "description": "Also show each active strategy\u0027s live condition progress.",
             "default": true
+          },
+          "follow": {
+            "type": "boolean",
+            "description": "After the snapshot, keep pushing new events and progress changes (a terminal streams until Ctrl\u002BC; MCP/--json get a bounded window).",
+            "default": false
+          },
+          "seconds": {
+            "type": "integer",
+            "description": "With --follow: stop after this many seconds, 1-3600 (MCP/--json default 15, at most 300)."
           }
         },
         "additionalProperties": false
@@ -13644,6 +14000,111 @@
             ],
             "description": "paper, live or all (default all: whichever account has it).",
             "default": "all"
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "orders stream",
+      "noun": "orders",
+      "verb": "stream",
+      "tool_name": "orders_stream",
+      "summary": "Live order events from Alpaca (new, fill, partial fill, canceled, replaced, rejected, expired); the Hub records every fill in the trade diary and audit log.",
+      "description": "Starts (or joins) the Hub\u0027s trade_updates listener for each account; once started it keeps recording fills until the Hub stops. A terminal streams events until Ctrl\u002BC; MCP and --json get the events of a bounded window (--seconds, default 15) plus the last few seen.",
+      "risk": "read",
+      "usage": "idiotproof orders stream [--mode \u003Call|paper|live\u003E] [--fills-only] [--seconds \u003Cint\u003E] [--max \u003Cint\u003E]",
+      "parameters": [
+        {
+          "name": "mode",
+          "json_name": "mode",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "all|paper|live",
+          "required": false,
+          "description": "paper, live or all (default all: every account with keys).",
+          "default": "all",
+          "enum_values": [
+            "all",
+            "paper",
+            "live"
+          ]
+        },
+        {
+          "name": "fills-only",
+          "json_name": "fills_only",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "bool",
+          "required": false,
+          "description": "Show only fills and partial fills.",
+          "default": false,
+          "enum_values": null
+        },
+        {
+          "name": "seconds",
+          "json_name": "seconds",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "int",
+          "required": false,
+          "description": "Stop after this many seconds (a terminal streams until Ctrl\u002BC; MCP/--json default 15, at most 300).",
+          "default": null,
+          "enum_values": null
+        },
+        {
+          "name": "max",
+          "json_name": "max",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "int",
+          "required": false,
+          "description": "Stop after this many events.",
+          "default": null,
+          "enum_values": null
+        }
+      ],
+      "examples": [
+        {
+          "command_line": "idiotproof orders stream",
+          "description": null
+        },
+        {
+          "command_line": "idiotproof orders stream --mode paper --fills-only",
+          "description": null
+        }
+      ],
+      "input_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "description": "Live order events from Alpaca (new, fill, partial fill, canceled, replaced, rejected, expired); the Hub records every fill in the trade diary and audit log.",
+        "properties": {
+          "mode": {
+            "type": "string",
+            "enum": [
+              "all",
+              "paper",
+              "live"
+            ],
+            "description": "paper, live or all (default all: every account with keys).",
+            "default": "all"
+          },
+          "fills_only": {
+            "type": "boolean",
+            "description": "Show only fills and partial fills.",
+            "default": false
+          },
+          "seconds": {
+            "type": "integer",
+            "description": "Stop after this many seconds (a terminal streams until Ctrl\u002BC; MCP/--json default 15, at most 300)."
+          },
+          "max": {
+            "type": "integer",
+            "description": "Stop after this many events."
           }
         },
         "additionalProperties": false
@@ -18113,7 +18574,7 @@
       "verb": "progress",
       "tool_name": "strategy_progress",
       "summary": "How close a strategy is to firing: conditions passing N/M, the first failing verb and the last price, optionally watched.",
-      "description": "Reads the row the Monitor writes every tick. --watch samples it --samples times, --every seconds apart (at most two minutes in all), and reports each change; it stops early when every condition passes.",
+      "description": "Reads the row the Monitor writes every tick. --watch samples it every --every seconds and reports each change, stopping when every condition passes: in a terminal each change streams live until Ctrl\u002BC; for MCP and --json it takes --samples samples (at most two minutes in all).",
       "risk": "read",
       "usage": "idiotproof strategy progress \u003Cstrategy\u003E [--watch] [--every \u003Cint\u003E] [--samples \u003Cint\u003E]",
       "parameters": [
@@ -18137,7 +18598,7 @@
           "short": "w",
           "type": "bool",
           "required": false,
-          "description": "Keep sampling the Monitor\u0027s progress row and report each change (bounded by --samples).",
+          "description": "Keep sampling the Monitor\u0027s progress row and report each change: a terminal streams until Ctrl\u002BC or all conditions pass; MCP/--json are bounded by --samples.",
           "default": false,
           "enum_values": null
         },
@@ -18161,8 +18622,8 @@
           "short": null,
           "type": "int",
           "required": false,
-          "description": "How many samples to take while watching (1-120, default 12).",
-          "default": 12,
+          "description": "How many samples to take while watching (1-120; default 12 for MCP/--json, unlimited in a terminal).",
+          "default": null,
           "enum_values": null
         }
       ],
@@ -18188,7 +18649,7 @@
           },
           "watch": {
             "type": "boolean",
-            "description": "Keep sampling the Monitor\u0027s progress row and report each change (bounded by --samples).",
+            "description": "Keep sampling the Monitor\u0027s progress row and report each change: a terminal streams until Ctrl\u002BC or all conditions pass; MCP/--json are bounded by --samples.",
             "default": false
           },
           "every": {
@@ -18198,8 +18659,7 @@
           },
           "samples": {
             "type": "integer",
-            "description": "How many samples to take while watching (1-120, default 12).",
-            "default": 12
+            "description": "How many samples to take while watching (1-120; default 12 for MCP/--json, unlimited in a terminal)."
           }
         },
         "additionalProperties": false,

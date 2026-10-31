@@ -11,9 +11,13 @@ call must appear here. Add a row when you add an endpoint; add an operation when
 
 Out of scope: the **Broker API** (for broker-dealers running accounts for their own customers; IdiotProof
 trades its owner's own accounts), **OAuth Connect** (already wired in the web app's
-`/connect/alpaca` flow), the **crypto perpetual futures** data API, and the **WebSocket streams**
-(trade updates and real-time data are consumed by the Hub's own streaming services, not exposed as
-request/response operations).
+`/connect/alpaca` flow) and the **crypto perpetual futures** data API. The **WebSocket streams** are
+covered by the streaming operations listed after the inventory.
+
+Any endpoint not yet listed is still reachable with `alpaca raw <METHOD> <path> [--body json] [--data] [--mode]`
+(Trading API, or a Market Data GET with `--data`). It refuses every mutation under `/v2/orders`,
+`/v2/positions` (closes, exercise, do-not-exercise) and `/v2/wallets`, naming the gated operation to use,
+and a Live mutation of anything else needs a confirmation code bound to the exact request.
 
 <!-- inventory:start -->
 
@@ -157,3 +161,16 @@ request/response operations).
 | GET | /v1beta1/fixed_income/latest/prices | `market bond-prices` | |
 
 <!-- inventory:end -->
+
+## WebSocket streams
+
+Hosted in the Hub; the CLI streams them live (Ctrl+C stops), MCP and `--json` get a bounded window.
+
+| Stream | Endpoint | Operation | Notes |
+|---|---|---|---|
+| Trade updates | wss://paper-api.alpaca.markets/stream, wss://api.alpaca.markets/stream (`trade_updates`) | `orders stream` | One listener per account, kept until the Hub stops; every fill and partial fill is written to the audit log (`fill`) and the trade diary. |
+| Stocks | wss://stream.data.alpaca.markets/v2/{sip,iex,delayed_sip} | `market watch` | Trades, quotes, bars, daily and updated bars, trading statuses, LULD. The Monitor holds its own stocks socket for trades and minute bars. |
+| Crypto | wss://stream.data.alpaca.markets/v1beta3/crypto/us | `market watch` | Trades, quotes, bars. |
+| Options | wss://stream.data.alpaca.markets/v1beta1/{opra,indicative} | `market watch` | Trades and quotes; MessagePack frames. |
+| News | wss://stream.data.alpaca.markets/v1beta1/news | `market watch --news` | Headlines for the symbols, or all news. |
+| (health) | every socket above | `market stream status` | State, connected since, last message, reconnects, errors. |
