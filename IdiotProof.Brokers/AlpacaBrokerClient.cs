@@ -216,7 +216,8 @@ public sealed class AlpacaBrokerClient : IBrokerClient, IAsyncDisposable
             if (request.TrailPrice is { } trailPrice) body["trail_price"] = trailPrice;
             else if (request.TrailPercent is { } trailPct) body["trail_percent"] = trailPct;
         }
-        if (!multiLeg) body["extended_hours"] = request.ExtendedHours;
+        // Crypto trades around the clock and has no extended-hours flag to send.
+        if (!multiLeg && request.AssetClass != AssetClass.Crypto) body["extended_hours"] = request.ExtendedHours;
         if (request.PositionIntent is { } intent) body["position_intent"] = intent;
         if (request.ClientOrderId is { } clientId) body["client_order_id"] = clientId;
         if (request.OrderClass != OrderClass.Simple) body["order_class"] = request.OrderClass.ToString().ToLowerInvariant();

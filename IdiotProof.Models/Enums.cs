@@ -30,8 +30,9 @@ public enum BrokerType { Alpaca, Sandbox }
 /// <summary>
 /// What kind of instrument an <see cref="OrderRequest"/> / <see cref="Position"/> refers to.
 /// Defaults to <see cref="Equity"/> everywhere so the pre-options code paths are unchanged.
+/// <see cref="Crypto"/> is a slash pair (BTC/USD): fractional, GTC/IOC, around the clock.
 /// </summary>
-public enum AssetClass { Equity, Option }
+public enum AssetClass { Equity, Option, Crypto }
 
 /// <summary>Call = right to buy the underlying at the strike; Put = right to sell.</summary>
 public enum OptionRight { Call, Put }

@@ -318,6 +318,7 @@ public sealed class TransactionGateway(
 
         var multiLeg = o.OrderClass == OrderClass.Mleg;
         if (string.IsNullOrWhiteSpace(o.Symbol) && !multiLeg) return "No symbol.";
+        if (o.AssetClass == AssetClass.Crypto) return ValidateCrypto(o);
         if (o.Quantity < 0) return "Quantity can't be negative.";
         if (o.FractionalQuantity is { } fq && (fq <= 0 || o.Quantity != 0)) return "Give a whole quantity or a positive fractional one, not both.";
         if (o.SizeQuantity == 0 && o.Notional is not > 0) return "Size the order with a share count or a positive dollar amount.";
@@ -342,6 +343,28 @@ public sealed class TransactionGateway(
         if (o.AssetClass == AssetClass.Option && !multiLeg && (o.Notional is not null || o.FractionalQuantity is not null || o.ExtendedHours || o.Option is null))
             return "Options trade whole contracts, regular hours, with the contract attached.";
         return ValidateClass(o, fractional);
+    }
+
+    /// <summary>
+    /// Alpaca's crypto rules: a slash pair, sized by coin quantity (fractional) or dollars, GTC or
+    /// IOC, market / limit / stop-limit, a plain order (no brackets, no legs), and no
+    /// extended-hours flag because crypto trades around the clock.
+    /// </summary>
+    private static string? ValidateCrypto(OrderRequest o)
+    {
+        if (!o.Symbol.Contains('/')) return "A crypto order names a pair, e.g. BTC/USD.";
+        if (o.Quantity < 0 || o.FractionalQuantity is <= 0) return "The quantity must be positive.";
+        if (o.FractionalQuantity is not null && o.Quantity != 0) return "Give a whole quantity or a fractional one, not both.";
+        if (o.SizeQuantity == 0 && o.Notional is not > 0) return "Size the order with a coin quantity or a positive dollar amount.";
+        if (o.SizeQuantity > 0 && o.Notional is not null) return "Size by quantity or by dollars, not both.";
+        if (o.TimeInForce.Trim().ToUpperInvariant() is not ("GTC" or "IOC")) return "Crypto orders are GTC or IOC (Alpaca's rule).";
+        if (o.Type is not (OrderType.Market or OrderType.Limit or OrderType.StopLimit)) return "Crypto orders are market, limit or stop-limit.";
+        if (o.Type is OrderType.Limit or OrderType.StopLimit && o.LimitPrice is not > 0) return "A limit order needs a positive limit price.";
+        if (o.Type == OrderType.StopLimit && o.StopPrice is not > 0) return "A stop order needs a positive stop price.";
+        if (o.ExtendedHours) return "Crypto trades around the clock; there is no extended-hours session to ask for.";
+        if (o.OrderClass != OrderClass.Simple || o.TakeProfit is not null || o.StopLoss is not null || o.Legs is { Count: > 0 } || o.Option is not null)
+            return "Crypto orders are simple orders: no bracket, OCO, OTO, legs or option contract.";
+        return null;
     }
 
     /// <summary>The order-class rules: which children each class needs and what its parent may be.</summary>
@@ -400,7 +423,28 @@ public sealed class TransactionGateway(
         var plannedStop = intent.StopLossPrice ?? o.StopLoss?.StopPrice;
         var plannedTarget = intent.TakeProfitPrice ?? o.TakeProfit?.LimitPrice;
         if (plannedStop is not { } stop || price is not > 0) return null;
-        var qty = o.SizeQuantity > 0 ? (int)Math.Ceiling(o.SizeQuantity) : (int)Math.Floor((o.Notional ?? 0) / price.Value);
+        if (o.AssetClass == AssetClass.Crypto)
+        {
+            // The guardian sizes in whole units; 0.01 BTC rounded up to 1 would overstate the risk
+            // a hundredfold. Price the whole fractional position as ONE unit instead: dollar risk,
+            // stop % and reward:risk all come out exact.
+            var units = o.SizeQuantity > 0 ? o.SizeQuantity : (o.Notional ?? 0) / price.Value;
+            if (units <= 0) return null;
+            return new TradeSetup
+            {
+                Symbol = o.Symbol.ToUpperInvariant(),
+                Direction = o.Side == OrderSide.Buy ? TradeDirection.Long : TradeDirection.Short,
+                EntryPrice = price.Value * units,
+                EntryType = o.Type,
+                StopLoss = stop * units,
+                TakeProfit = plannedTarget is { } t ? t * units : 0m,
+                Quantity = 1,
+                RiskDollars = Math.Abs(price.Value - stop) * units,
+                RewardDollars = plannedTarget is { } r ? Math.Abs(r - price.Value) * units : 0m,
+                Rationale = intent.Note ?? "",
+            };
+        }
+        var qty =o.SizeQuantity > 0 ? (int)Math.Ceiling(o.SizeQuantity) : (int)Math.Floor((o.Notional ?? 0) / price.Value);
         var isLong = o.Side == OrderSide.Buy;
         return new TradeSetup
         {
