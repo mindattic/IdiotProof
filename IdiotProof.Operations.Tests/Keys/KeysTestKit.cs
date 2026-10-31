@@ -4,6 +4,9 @@ using Microsoft.AspNetCore.DataProtection;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
+using IdiotProof.Brokers;
+using IdiotProof.Core.Trading;
+using IdiotProof.Operations.Tests.Account;
 using MindAttic.Vault.Credentials;
 
 namespace IdiotProof.Operations.Tests.Keys;
@@ -30,12 +33,16 @@ internal sealed class KeysTestKit : IDisposable
         Services.AddSingleton(sp => new UserKeyService(
             sp.GetRequiredService<IDbContextFactory<AppDbContext>>(), sp.GetRequiredService<IDataProtectionProvider>(),
             Vault, NullLogger<UserKeyService>.Instance));
+        Services.AddSingleton<AlpacaApiFactory>(Alpaca);
         Services.AddSingleton(sp => new VaultSecretMigration(
             sp.GetRequiredService<IDbContextFactory<AppDbContext>>(), sp.GetRequiredService<UserKeyService>(),
             NullLogger<VaultSecretMigration>.Instance));
     }
 
     public string VaultRoot { get; }
+
+    /// <summary>Scripted Alpaca hosts for key probes; nothing reaches the network.</summary>
+    public ScriptedKeyFactory Alpaca { get; } = new();
 
     public BrokerCredentialStore Brokers { get; }
 
@@ -71,5 +78,21 @@ internal sealed class KeysTestKit : IDisposable
     public void Dispose()
     {
         try { Directory.Delete(VaultRoot, recursive: true); } catch { /* best effort */ }
+    }
+}
+
+/// <summary>Hands back clients over scripted handlers and records which key ids were probed.</summary>
+internal sealed class ScriptedKeyFactory() : AlpacaApiFactory(null!, null!, null!)
+{
+    public RouteHandler Paper { get; } = new();
+
+    public RouteHandler Live { get; } = new();
+
+    public List<(string KeyId, bool IsPaper)> Probed { get; } = [];
+
+    public override AlpacaApi ForKeys(string keyId, string secret, bool isPaper)
+    {
+        Probed.Add((keyId, isPaper));
+        return new AlpacaApi(keyId, secret, isPaper, isPaper ? Paper : Live);
     }
 }
