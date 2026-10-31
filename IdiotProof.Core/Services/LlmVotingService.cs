@@ -96,6 +96,9 @@ public sealed class LlmVotingService
         new(new LegionPanel(new LlmVotingProvider(http, config), config, loggers.CreateLogger<LegionPanel>()),
             config, loggers.CreateLogger<LlmVotingService>());
 
+    /// <summary>The panel configuration (legion.json voters, model overrides), for <c>idiotproof llm panel</c>.</summary>
+    internal VotingConfiguration Configuration => config;
+
     /// <summary>Trading lenses, assigned to voters in rotation.</summary>
     internal static readonly (string Name, string Markdown)[] Lenses =
     [
