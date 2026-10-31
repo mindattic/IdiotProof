@@ -29,6 +29,34 @@ public sealed class AlpacaStreamingClient : IAsyncDisposable
     private ClientWebSocket? socket;
     private Task? receiveLoop;
     private CancellationTokenSource? cts;
+    private long messages;
+
+    // Every started client, so `market stream status` (IP-T206) can report the Monitor's socket.
+    private static readonly ConcurrentDictionary<AlpacaStreamingClient, byte> started = new();
+
+    /// <summary>The clients started in this process and not yet disposed (the Monitor's, normally one).</summary>
+    public static IReadOnlyList<AlpacaStreamingClient> Started => [.. started.Keys];
+
+    /// <summary>The data feed this client streams (sip or iex).</summary>
+    public string Feed => feed;
+
+    /// <summary>How many symbols are subscribed (trades and minute bars).</summary>
+    public int SubscribedCount
+    {
+        get { lock (subscriptionLock) return subscribedSymbols.Count; }
+    }
+
+    /// <summary>When the current connection authenticated and subscribed (UTC), or null while down.</summary>
+    public DateTime? ConnectedSinceUtc { get; private set; }
+
+    /// <summary>When the last frame arrived (UTC).</summary>
+    public DateTime? LastMessageUtc { get; private set; }
+
+    /// <summary>Frames received since start.</summary>
+    public long Messages => Interlocked.Read(ref messages);
+
+    /// <summary>Connections opened after the first one.</summary>
+    public int Reconnects { get; private set; }
 
     /// <summary>Fired when a completed minute bar arrives for a subscribed symbol.</summary>
     public event Action<Candle>? BarReceived;
@@ -56,6 +84,7 @@ public sealed class AlpacaStreamingClient : IAsyncDisposable
     public void Start()
     {
         if (receiveLoop is not null) return;
+        started.TryAdd(this, 0);
         cts = new CancellationTokenSource();
         receiveLoop = Task.Run(() => RunAsync(cts.Token));
     }
@@ -85,8 +114,11 @@ public sealed class AlpacaStreamingClient : IAsyncDisposable
     private async Task RunAsync(CancellationToken ct)
     {
         var backoff = TimeSpan.FromSeconds(1);
+        var first = true;
         while (!ct.IsCancellationRequested)
         {
+            if (!first) Reconnects++;
+            first = false;
             try
             {
                 socket = new ClientWebSocket();
@@ -100,6 +132,7 @@ public sealed class AlpacaStreamingClient : IAsyncDisposable
                     await SendAsync(new { action = "subscribe", trades = current.ToArray(), bars = current.ToArray() }, ct).ConfigureAwait(false);
 
                 Status = "connected";
+                ConnectedSinceUtc = DateTime.UtcNow;
                 backoff = TimeSpan.FromSeconds(1); // reset after a good connect
 
                 await ReceiveUntilClosedAsync(socket, ct).ConfigureAwait(false);
@@ -114,6 +147,7 @@ public sealed class AlpacaStreamingClient : IAsyncDisposable
             }
             finally
             {
+                ConnectedSinceUtc = null;
                 socket?.Dispose();
                 socket = null;
             }
@@ -142,6 +176,8 @@ public sealed class AlpacaStreamingClient : IAsyncDisposable
             }
             while (!result.EndOfMessage);
 
+            Interlocked.Increment(ref messages);
+            LastMessageUtc = DateTime.UtcNow;
             HandleMessage(Encoding.UTF8.GetString(message.GetBuffer(), 0, (int)message.Length));
         }
     }
@@ -217,6 +253,7 @@ public sealed class AlpacaStreamingClient : IAsyncDisposable
 
     public async ValueTask DisposeAsync()
     {
+        started.TryRemove(this, out _);
         cts?.Cancel();
         if (receiveLoop is not null)
         {
