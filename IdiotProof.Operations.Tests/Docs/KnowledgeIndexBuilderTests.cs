@@ -47,7 +47,8 @@ public class KnowledgeIndexBuilderTests
         Assert.That(index.Get("IP-§4")!.Text, Is.EqualTo("The Hub hosts everything."));
         Assert.That(index.Get("IP-LAW-2")!.Location, Is.EqualTo("docs/BIBLE.md:5"));
         Assert.That(index.Get("README.md#command-line-hub-and-mcp")!.Text, Does.Contain("hub start"));
-        Assert.That(index.Warnings, Is.Empty, "the digest, amendments and agent docs are optional");
+        Assert.That(index.Warnings.Where(w => w.Contains("BIBLE") || w.Contains("README") || w.Contains("AMENDMENTS")), Is.Empty,
+            "the digest, amendments and agent docs are optional");
     }
 
     [Test]
@@ -59,6 +60,38 @@ public class KnowledgeIndexBuilderTests
 
         Assert.That(index.Warnings, Has.Some.Contains("docs/BIBLE.md"));
         Assert.That(index.Get("README.md#idiotproof"), Is.Not.Null);
+    }
+
+    [Test]
+    public void IndexesStoriesWithStatusAndEpic_AndTicketRows()
+    {
+        File.WriteAllText(Path.Combine(root, "docs", "USER_STORIES.md"), """
+            ## Epic W — Command line & Hub
+            - **IP-US-W1 ✅** As an operator, I drive IdiotProof from the CLI. More detail.
+            ## Tickets
+            | ID | Date | Type | Status | Summary | Ref |
+            |---|---|---|---|---|---|
+            | IP-T259 | 2026-10-30 | feature | closed | KnowledgeIndex core | — |
+            """);
+
+        var index = new KnowledgeIndexBuilder(root).Build();
+
+        var story = index.Get("ip-us-w1")!;
+        Assert.That((story.Kind, story.Status, story.Parent, story.Title), Is.EqualTo(
+            (KnowledgeKind.Story, "done", "Epic W — Command line & Hub", "As an operator, I drive IdiotProof from the CLI.")));
+        var ticket = index.Get("IP-T259")!;
+        Assert.That((ticket.Kind, ticket.Status, ticket.Location), Is.EqualTo((KnowledgeKind.Ticket, "closed", "docs/USER_STORIES.md:6")));
+        Assert.That(ticket.Text, Does.Contain("Type: feature"));
+    }
+
+    [Test]
+    public void RealStories_IndexEveryStoryAndTheTicketLog()
+    {
+        var index = new KnowledgeIndexBuilder(RealRepo()).Build();
+
+        Assert.That(index.Get("IP-US-A1")!.Status, Is.EqualTo("done"));
+        Assert.That(index.OfKind(KnowledgeKind.Story).Count(), Is.GreaterThan(50));
+        Assert.That(index.Get("IP-T1")!.Kind, Is.EqualTo(KnowledgeKind.Ticket));
     }
 
     [Test]

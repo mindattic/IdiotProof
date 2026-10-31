@@ -51,6 +51,7 @@ public sealed partial class KnowledgeIndexBuilder(string repoRoot)
     {
         var index = new KnowledgeIndex { RepoRoot = RepoRoot };
         IndexDocs(index);
+        IndexStories(index);
         ct.ThrowIfCancellationRequested();
         return index;
     }
