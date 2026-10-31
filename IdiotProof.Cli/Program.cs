@@ -20,6 +20,17 @@ try
 }
 catch (IOException) { /* no console (a service, a test host) */ }
 
+// Docs: idiotproof --export-commands [docs/CLI_COMMANDS.md] (from the catalog built into this CLI).
+if (args.Length > 0 && args[0] == "--export-commands")
+{
+    var outPath = args.Length > 1 ? args[1] : Path.Combine("docs", "CLI_COMMANDS.md");
+    var catalog = IdiotProof.Operations.OperationCatalog.FromAssemblies(typeof(IdiotProof.Operations.OperationCatalog).Assembly);
+    Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(outPath))!);
+    File.WriteAllText(outPath, CommandDocs.Render(catalog));
+    Console.Error.WriteLine($"[export-commands] wrote {catalog.Operations.Count} commands to {Path.GetFullPath(outPath)}");
+    return 0;
+}
+
 using var cts = new CancellationTokenSource();
 Console.CancelKeyPress += (_, e) =>
 {
