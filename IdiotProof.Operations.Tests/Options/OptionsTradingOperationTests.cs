@@ -179,6 +179,77 @@ public class OptionsTradingOperationTests
         Assert.That(sandbox.Placed, Is.Empty);
     }
 
+    // ------------------------------------------------------------------ spread (IP-T308)
+
+    private const string Call160 = "AAPL261219C00160000";
+
+    [Test]
+    public async Task Spread_BullCallDebit_PlacesOneMlegOrder_WithTheMaxLossAndGain()
+    {
+        var result = await new OptionsSpreadOperation().ExecuteAsync(
+            new OptionsSpreadArgs { Legs = ["buy:" + Call, "sell:" + Call160], Limit = 3.10m }, Context());
+
+        Assert.That(result.IsOk, Is.True, result.Message);
+        var order = paper.Placed.Single();
+        Assert.Multiple(() =>
+        {
+            Assert.That(order.OrderClass, Is.EqualTo(OrderClass.Mleg));
+            Assert.That(order.Quantity, Is.EqualTo(1));
+            Assert.That(order.LimitPrice, Is.EqualTo(3.10m));
+            Assert.That(order.Legs!.Select(l => (l.Symbol, l.Side, l.RatioQuantity, l.PositionIntent)), Is.EqualTo(new[]
+            {
+                (Call, OrderSide.Buy, 1, "buy_to_open"), (Call160, OrderSide.Sell, 1, "sell_to_open"),
+            }));
+            Assert.That(result.Human, Does.Contain("max loss   $310.00").And.Contain("max gain   $690.00"));
+        });
+    }
+
+    [Test]
+    public async Task Spread_LiveCreditSpread_NegativeLimit_NeedsACodeThenPlaces()
+    {
+        var args = new OptionsSpreadArgs
+        {
+            Legs = ["sell:SPY261120P00560000", "buy:SPY261120P00550000"], Limit = -1.25m, Quantity = 2, Mode = BrokerMode.Live,
+        };
+
+        var first = await new OptionsSpreadOperation().ExecuteAsync(args, Context());
+        Assert.That(first.Status, Is.EqualTo(OperationStatus.ConfirmationRequired), first.Message);
+        Assert.That(first.Human, Does.Contain("max loss   $1,750.00").And.Contain("max gain   $250.00"));
+        Assert.That(live.Placed, Is.Empty);
+
+        var second = await new OptionsSpreadOperation().ExecuteAsync(args, Context(first.Confirmation!.Code));
+        Assert.That(second.IsOk, Is.True, second.Message);
+        Assert.That(live.Placed.Single().LimitPrice, Is.EqualTo(-1.25m));
+    }
+
+    [Test]
+    public async Task Spread_ANakedShortCall_ShowsUnlimitedLoss()
+    {
+        var result = await new OptionsSpreadOperation().ExecuteAsync(
+            new OptionsSpreadArgs { Legs = ["sell:" + Call, "buy:AAPL261219P00140000"], Limit = -0.50m }, Context());
+
+        Assert.That(result.IsOk, Is.True, result.Message);
+        Assert.That(result.Human, Does.Contain("max loss   UNLIMITED"));
+    }
+
+    [Test]
+    public async Task Spread_BelowLevelThree_IsBlocked_AndBadShapesAreUsageErrors()
+    {
+        paper.Level = 2;
+        var blocked = await new OptionsSpreadOperation().ExecuteAsync(new OptionsSpreadArgs { Legs = ["buy:" + Call, "sell:" + Call160] }, Context());
+        Assert.That(blocked.Status, Is.EqualTo(OperationStatus.Blocked));
+        Assert.That(blocked.Message, Does.Contain("level 3"));
+
+        paper.Level = 3;
+        var unsimplified = await new OptionsSpreadOperation().ExecuteAsync(new OptionsSpreadArgs { Legs = ["buy:" + Call + ":2", "sell:" + Call160 + ":4"] }, Context());
+        Assert.That(unsimplified.Status, Is.EqualTo(OperationStatus.UsageError));
+        var sandboxed = await new OptionsSpreadOperation().ExecuteAsync(new OptionsSpreadArgs { Legs = ["buy:" + Call, "sell:" + Call160], Mode = BrokerMode.Sandbox }, Context());
+        Assert.That(sandboxed.Status, Is.EqualTo(OperationStatus.UsageError));
+        var oneLeg = await new OptionsSpreadOperation().ExecuteAsync(new OptionsSpreadArgs { Legs = ["buy:" + Call] }, Context());
+        Assert.That(oneLeg.Status, Is.EqualTo(OperationStatus.UsageError));
+        Assert.That(paper.Placed, Is.Empty);
+    }
+
     // ------------------------------------------------------------------ fakes
 
     private sealed class FakeBroker(BrokerType type, bool isPaper) : IBrokerClient

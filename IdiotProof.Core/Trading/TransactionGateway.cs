@@ -327,8 +327,10 @@ public sealed class TransactionGateway(
         if (fractional && !o.TimeInForce.Trim().Equals("DAY", StringComparison.OrdinalIgnoreCase))
             return "Fractional and dollar-sized orders are DAY only (Alpaca's rule).";
         if (fractional && o.Type == OrderType.TrailingStop) return "Fractional and dollar-sized orders can't be trailing stops.";
-        if (o.Type is OrderType.Limit or OrderType.StopLimit && o.LimitPrice is not > 0 && o.OrderClass != OrderClass.Oco)
-            return "A limit order needs a positive limit price.";
+        // A multi-leg limit is the net price of the whole combo: positive = debit, negative = credit.
+        if (o.Type is OrderType.Limit or OrderType.StopLimit && o.OrderClass != OrderClass.Oco
+            && (multiLeg ? o.LimitPrice is null or 0m : o.LimitPrice is not > 0))
+            return multiLeg ? "A multi-leg limit needs a net price (positive = debit, negative = credit)." : "A limit order needs a positive limit price.";
         if (o.Type is OrderType.Stop or OrderType.StopLimit && o.StopPrice is not > 0) return "A stop order needs a positive stop price.";
         if (o.Type == OrderType.TrailingStop)
         {
