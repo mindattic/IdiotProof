@@ -1,7 +1,9 @@
 using System.Collections.Concurrent;
 using IdiotProof.Blazor.Data;
 using IdiotProof.Brokers;
+using IdiotProof.Core.Trading;
 using IdiotProof.DataFeeds;
+using IdiotProof.Models;
 using IdiotProof.Engine.Settings;
 using IdiotProof.Shared.Options;
 using Microsoft.EntityFrameworkCore;
@@ -20,8 +22,10 @@ public sealed record OptionsBrokerResolution(IBrokerClient Client, OptionsBroker
 /// for the chosen mode under the SAME consent rules as <see cref="AccountSummaryService"/> /
 /// <see cref="UserBrokerResolver"/> (opted into Alpaca + a full key pair, Vault first), gets
 /// the live underlying price, reads recent bullish research claims for the sell signal, and
-/// holds the Black-Scholes risk-free rate setting. Scoped: one instance per circuit, clients
-/// cached for the session and disposed with it.
+/// holds the Black-Scholes risk-free rate setting. Orders go through the
+/// <see cref="TransactionGateway"/> (<see cref="PlaceOrderAsync"/>), pinned to the account the
+/// page resolved; Live is confirmed by the user's password elevation. Scoped: one instance per
+/// circuit, clients cached for the session and disposed with it.
 /// </summary>
 public sealed class OptionsTradingService(
     UserKeyService userKeys,
@@ -29,6 +33,10 @@ public sealed class OptionsTradingService(
     AppSettings appSettings,
     IDbContextFactory<AppDbContext> dbFactory,
     SettingsRepository settings,
+    RiskGuardianService riskGuardians,
+    ConfirmationStore confirmations,
+    AuditLogRepository audit,
+    ILogger<TransactionGateway> gatewayLogger,
     ILogger<OptionsTradingService> logger) : IAsyncDisposable
 {
     public const string RiskFreeRateKey = "Options.RiskFreeRate";
@@ -77,6 +85,54 @@ public sealed class OptionsTradingService(
         return string.IsNullOrWhiteSpace(id) || string.IsNullOrWhiteSpace(sec)
             ? (null, null, $"no {(isPaper ? "paper" : "live")} Alpaca key pair is configured")
             : (id, sec, null);
+    }
+
+    /// <summary>
+    /// Places a manual options order from the web ticket through the <see cref="TransactionGateway"/>
+    /// — validated, routed to exactly the account the page resolved (<paramref name="resolution"/>),
+    /// audited, and for Live only while the user's password elevation is open — the gateway asks
+    /// <paramref name="elevation"/> itself, on the server, for the intent's owner; nothing the page
+    /// claims unlocks Live. Opening orders (<c>*_to_open</c>) are entries,
+    /// closing ones exits. The gateway's synthetic-data guard sees the market data the page priced
+    /// on: no Alpaca data keys means Mock, so a real account refuses the entry (IP-LAW-9).
+    /// </summary>
+    public async Task<GatewayOutcome> PlaceOrderAsync(Guid userId, OptionsBrokerResolution resolution, OrderRequest order,
+        LiveModeElevationService elevation, CancellationToken ct = default)
+    {
+        IMarketDataFeed dataFeed = resolution.IsAlpaca ? (IMarketDataFeed?)await GetFeedAsync(userId, ct) ?? new MockDataFeed() : new MockDataFeed();
+        return await PlaceThroughGatewayAsync(userId, resolution, order, dataFeed, elevation, ct);
+    }
+
+    internal Task<GatewayOutcome> PlaceThroughGatewayAsync(Guid userId, OptionsBrokerResolution resolution, OrderRequest order,
+        IMarketDataFeed dataFeed, LiveModeElevationService elevation, CancellationToken ct)
+    {
+        var gateway = new TransactionGateway(new PinnedRouting(resolution.Client), dataFeed, riskGuardians, confirmations, audit, gatewayLogger);
+        return gateway.SubmitElevatedAsync(ToIntent(userId, resolution.Mode, order), elevation, new GatewayOptions { Caller = "blazor" }, ct);
+    }
+
+    /// <summary>The ticket as a gateway intent: an Options-origin order in the page's resolved mode.</summary>
+    public static OrderIntent ToIntent(Guid userId, OptionsBrokerMode mode, OrderRequest order) => new()
+    {
+        OwnerUserId = userId,
+        Mode = mode switch
+        {
+            OptionsBrokerMode.Live => BrokerMode.Live,
+            OptionsBrokerMode.Paper => BrokerMode.Paper,
+            _ => BrokerMode.Sandbox,
+        },
+        Purpose = order.PositionIntent?.EndsWith("_to_close", StringComparison.OrdinalIgnoreCase) == true
+            ? OrderPurpose.Exit
+            : OrderPurpose.Entry,
+        Origin = OrderOrigin.Options,
+        Order = order,
+        ReferencePrice = order.LimitPrice,
+        Note = "web options ticket",
+    };
+
+    /// <summary>Routes every intent to the one client the page already resolved and showed the user.</summary>
+    private sealed class PinnedRouting(IBrokerClient client) : IOrderRouting
+    {
+        public Task<IBrokerClient> ResolveAsync(Guid ownerUserId, BrokerMode mode, CancellationToken ct) => Task.FromResult(client);
     }
 
     /// <summary>

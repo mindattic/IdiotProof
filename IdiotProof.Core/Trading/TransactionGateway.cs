@@ -81,8 +81,22 @@ public sealed record GatewayOptions
     /// <summary>Evaluate every gate and stop before placing (and before issuing a code).</summary>
     public bool DryRun { get; init; }
 
-    /// <summary>Set only by <see cref="TransactionGateway.ConfirmAsync"/> after a code was redeemed.</summary>
+    /// <summary>
+    /// Set only inside the gateway: by <see cref="TransactionGateway.ConfirmAsync"/> /
+    /// <see cref="TransactionGateway.ConfirmBatchAsync"/> after a code was redeemed, and by
+    /// <see cref="TransactionGateway.SubmitElevatedAsync"/> while the web user's password
+    /// elevation is open. Nothing outside the gateway may set it (a law test scans for that).
+    /// </summary>
     internal bool LiveConfirmed { get; init; }
+
+    /// <summary>How Live was confirmed ("code", "batch code", "password elevation"), for the audit row.</summary>
+    internal string? ConfirmedBy { get; init; }
+
+    /// <summary>
+    /// The web's Live path: the confirmation is the password elevation, never a code. Unconfirmed
+    /// Live is refused (Blocked) instead of issuing a code the page has no way to redeem.
+    /// </summary>
+    internal bool ElevationOnly { get; init; }
 }
 
 /// <summary>
@@ -101,6 +115,25 @@ public sealed class TransactionGateway(
 {
     public Task<GatewayOutcome> PreviewAsync(OrderIntent intent, GatewayOptions? options = null, CancellationToken ct = default) =>
         SubmitAsync(intent, (options ?? new GatewayOptions()) with { DryRun = true }, ct);
+
+    /// <summary>
+    /// The web (Blazor) path. Live is confirmed by the user's password elevation
+    /// (<see cref="LiveModeElevationService"/>, the 5-minute window opened by re-entering their
+    /// password), checked here on the server for the intent's owner — not by a code. Without an
+    /// open elevation a Live order is Blocked (audited); Paper and Sandbox are unaffected. Every
+    /// other gate runs exactly as for <see cref="SubmitAsync"/>.
+    /// </summary>
+    public Task<GatewayOutcome> SubmitElevatedAsync(OrderIntent intent, LiveModeElevationService elevation,
+        GatewayOptions? options = null, CancellationToken ct = default)
+    {
+        var elevated = elevation.IsElevated(intent.OwnerUserId);
+        return SubmitAsync(intent, (options ?? new GatewayOptions { Caller = "blazor" }) with
+        {
+            LiveConfirmed = elevated,
+            ConfirmedBy = elevated ? "password elevation" : null,
+            ElevationOnly = true,
+        }, ct);
+    }
 
     public async Task<GatewayOutcome> SubmitAsync(OrderIntent intent, GatewayOptions? options = null, CancellationToken ct = default)
     {
@@ -206,6 +239,15 @@ public sealed class TransactionGateway(
         if (options.DryRun) return cleared;
 
         // 6 ── real money from a person waits for their explicit yes (preview → code → confirm)
+        if (routedLive && intent.Origin != OrderOrigin.Monitor && !options.LiveConfirmed && options.ElevationOnly)
+        {
+            verdicts.Add(new("confirm", false, "Live from the web needs your password: the 5-minute elevation expired or was never granted."));
+            return await AuditAsync(cleared with
+            {
+                Status = GatewayStatus.Blocked,
+                Message = "Re-enter your password to trade Live — nothing was sent.",
+            }, options, ct);
+        }
         if (routedLive && intent.Origin != OrderOrigin.Monitor && !options.LiveConfirmed)
         {
             var pending = await confirmations.IssueAsync(intent.OwnerUserId, ConfirmationStore.KindOrder,
@@ -348,7 +390,7 @@ public sealed class TransactionGateway(
             return null;
 
         var intent = OrderIntent.FromJson(redemption.Confirmation.PayloadJson);
-        return await SubmitAsync(intent, new GatewayOptions { Caller = caller, LiveConfirmed = true }, ct);
+        return await SubmitAsync(intent, new GatewayOptions { Caller = caller, LiveConfirmed = true, ConfirmedBy = "code" }, ct);
     }
 
     /// <summary>
@@ -397,7 +439,7 @@ public sealed class TransactionGateway(
 
         var placed = new List<GatewayOutcome>();
         foreach (var i in intents)
-            placed.Add(await SubmitAsync(i, new GatewayOptions { Caller = caller, LiveConfirmed = true }, ct));
+            placed.Add(await SubmitAsync(i, new GatewayOptions { Caller = caller, LiveConfirmed = true, ConfirmedBy = "batch code" }, ct));
         return placed;
     }
 
@@ -624,6 +666,7 @@ public sealed class TransactionGateway(
                 broker_order_id = outcome.Order?.BrokerOrderId,
                 broker_message = outcome.Order?.Message,
                 code_issued = outcome.ConfirmationCode is not null,
+                live_confirmed_by = options.ConfirmedBy,
             });
             var category = outcome.Status is GatewayStatus.Placed or GatewayStatus.Rejected ? "order" : "risk";
             await audit.LogAsync(category, $"{outcome.Status}: {outcome.Intent.Describe()} — {outcome.Message}", outcome.Intent.OwnerUserId, data, ct);
