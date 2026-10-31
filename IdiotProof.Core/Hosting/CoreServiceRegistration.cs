@@ -113,6 +113,8 @@ public static class CoreServiceRegistration
         services.AddSingleton<ConfirmationStore>();
         services.AddSingleton<TradingStateService>();
         services.AddScoped<AccountSummaryService>();
+        // Raw Alpaca REST per owner/mode: every endpoint the Hub exposes builds on it.
+        services.AddSingleton<IdiotProof.Core.Trading.AlpacaApiFactory>();
         services.AddScoped<OptionsTradingService>();
 
         // ── Strategies, gapper, diary, audit, settings ──

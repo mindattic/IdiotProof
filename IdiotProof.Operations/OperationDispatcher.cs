@@ -129,6 +129,14 @@ public sealed class OperationDispatcher(
         {
             return ex.ToResult();
         }
+        catch (IdiotProof.Core.Trading.AlpacaAccessException ex)
+        {
+            return OperationResult.Blocked(ex.Message);
+        }
+        catch (IdiotProof.Brokers.AlpacaApiException ex)
+        {
+            return OperationResult.Fail($"{descriptor.Name}: {ex.Message}");
+        }
         catch (OperationCanceledException) when (ct.IsCancellationRequested)
         {
             return OperationResult.Fail($"{descriptor.Name} was cancelled.");
