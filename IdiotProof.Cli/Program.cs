@@ -1,5 +1,6 @@
 using System.Text;
-using IdiotProof.Cli;
+using IdiotProof.Cli;
+using IdiotProof.Core.Hosting;
 
 // ── idiotproof ───────────────────────────────────────────────────────────────
 //
@@ -40,4 +41,22 @@ Console.CancelKeyPress += (_, e) =>
     cts.Cancel();
 };
 
-return await new CliApp(CliEnvironment.FromConsole()).RunAsync(args, cts.Token);
+// Errors only (IP-T23): CLI-side failures and crashes go to MindAttic.Log at
+// %APPDATA%\MindAttic\Logging\IdiotProof.Cli\MindAttic.Log.db, opened only when one happens.
+// The Hub already logs every command it runs; arguments are never logged here.
+IdiotProofLog.Start(IdiotProofLog.Cli);
+try
+{
+    return await new CliApp(CliEnvironment.FromConsole()).RunAsync(args, cts.Token);
+}
+catch (Exception ex)
+{
+    // Logged here (with the command's name) rather than by the unhandled-exception hook.
+    IdiotProofLog.Write(Serilog.Events.LogEventLevel.Fatal, ex, "Cli", "idiotproof {Command:l} crashed", CliApp.CommandName(args));
+    Console.Error.WriteLine(ex);
+    return CliExitCodes.Failed;
+}
+finally
+{
+    IdiotProofLog.Stop();
+}

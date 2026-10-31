@@ -103,6 +103,7 @@ internal sealed class CliHarness : IDisposable
             SlowNotice = TimeSpan.FromMilliseconds(100),
             BaseDirectory = Root,
             HubProcesses = Processes,
+            LogError = (message, exception) => Logged.Add((message, exception)),
         };
     }
 
@@ -114,6 +115,9 @@ internal sealed class CliHarness : IDisposable
     public StringWriter Err { get; } = new();
     public CliEnvironment Env { get; }
     public int StdinReads { get; private set; }
+
+    /// <summary>What the CLI sent to its error log (IP-T23).</summary>
+    public List<(string Message, Exception? Exception)> Logged { get; } = [];
 
     public Task<int> RunAsync(params string[] args) => new CliApp(Env).RunAsync(args);
 

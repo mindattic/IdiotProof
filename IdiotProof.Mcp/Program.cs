@@ -1,4 +1,5 @@
 using System.Text.Json.Nodes;
+using IdiotProof.Core.Hosting;
 using IdiotProof.Mcp;
 using IdiotProof.Operations;
 using Microsoft.Extensions.DependencyInjection;
@@ -15,6 +16,11 @@ using Microsoft.Extensions.Logging;
 // Docs:              dotnet run --project IdiotProof.Mcp -- --export-tools [docs/MCP_TOOLS.md]
 //
 // stdout is the protocol wire; every log line goes to stderr.
+
+// Durable log (IP-T23): warnings and up, calls that never reached the Hub and unhandled
+// exceptions go to MindAttic.Log at %APPDATA%\MindAttic\Logging\IdiotProof.Mcp\MindAttic.Log.db.
+// Never stdout: stdout is the protocol wire (the console logger below writes stderr only).
+IdiotProofLog.Start(IdiotProofLog.Mcp);
 
 var offlineCatalog = OperationCatalog.FromAssemblies(typeof(OperationCatalog).Assembly);
 
@@ -39,6 +45,7 @@ var builder = Host.CreateApplicationBuilder(args);
 builder.Logging.ClearProviders();
 builder.Logging.AddConsole(o => o.LogToStandardErrorThreshold = LogLevel.Trace);
 builder.Logging.SetMinimumLevel(LogLevel.Warning);
+builder.Logging.AddIdiotProofLog(LogLevel.Warning);
 
 builder.Services.AddSingleton(hub);
 builder.Services

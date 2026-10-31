@@ -30,6 +30,9 @@ public sealed class CliApp(CliEnvironment env)
 
     private static readonly CatalogView LocalView = CatalogView.Of(LocalCommands.All, "the CLI");
 
+    /// <summary>The command being run (noun and verb only), for the error log.</summary>
+    private string command = "";
+
     public async Task<int> RunAsync(IReadOnlyList<string> args, CancellationToken ct = default)
     {
         var (tokens, forceColor) = StripColorFlag(args);
@@ -41,6 +44,7 @@ public sealed class CliApp(CliEnvironment env)
         }
         var flags = extracted.Flags;
         var rest = extracted.Remaining;
+        command = CommandName(rest);
 
         using var client = new HubClient(ResolveHubUrl(flags), env.HubHandler, env.HubKeySource) { SlowNotice = env.SlowNotice };
 
@@ -188,6 +192,25 @@ public sealed class CliApp(CliEnvironment env)
             ? token
             : "\"" + token.Replace("\\", "\\\\").Replace("\"", "\\\"") + "\"";
 
+    private static readonly Lazy<CatalogView> KnownCommands =
+        new(() => CatalogView.FromCatalog(ReflectedCatalog.Value, "the CLI").With(LocalCommands.All));
+
+    /// <summary>
+    /// The command a line names, for the error log: a known command's name, else a known noun, else
+    /// <c>(unknown command)</c>. Only catalog words are ever returned, so no argument value (a key,
+    /// a secret) can reach the log.
+    /// </summary>
+    internal static string CommandName(IReadOnlyList<string> rest)
+    {
+        var view = KnownCommands.Value;
+        if (view.TryResolve(rest, out var entry, out _)) return entry!.Name;
+        if (rest.Count > 0 && view.ForNoun(rest[0]) is [var first, ..]) return first.Noun;
+        return "(unknown command)";
+    }
+
+    private void LogError(string message, Exception? exception = null) =>
+        env.LogError?.Invoke($"{Program} {command}: {message}", exception);
+
     private static string ErrorCode(HubCallKind kind) => kind switch
     {
         HubCallKind.HubDown => "hub-not-running",
@@ -201,6 +224,7 @@ public sealed class CliApp(CliEnvironment env)
     /// <summary>A failure the CLI itself detected: stderr text, or (with --json) an envelope on stdout.</summary>
     private async Task<int> ClientErrorAsync(GlobalFlags flags, int exitCode, string error, string message)
     {
+        if (exitCode != CliExitCodes.Usage) LogError($"{error}: {message}");
         if (flags.Json)
         {
             var status = exitCode == CliExitCodes.Usage ? OperationStatus.UsageError : OperationStatus.Failed;
@@ -338,6 +362,7 @@ public sealed class CliApp(CliEnvironment env)
         {
             await env.Err.WriteLineAsync(
                 $"Can't find a Hub to start: no published Hub at {env.Paths.PublishedHubExe}, and no IdiotProof.slnx above {env.BaseDirectory}.");
+            LogError("no Hub to start");
             return CliExitCodes.Failed;
         }
         if (client.BaseUrl.IsLoopback)
@@ -358,6 +383,7 @@ public sealed class CliApp(CliEnvironment env)
         catch (Exception ex) when (ex is InvalidOperationException or System.ComponentModel.Win32Exception or IOException)
         {
             await env.Err.WriteLineAsync($"Could not start the Hub: {ex.Message}");
+            LogError("could not start the Hub", ex);
             return CliExitCodes.Failed;
         }
 
@@ -373,6 +399,7 @@ public sealed class CliApp(CliEnvironment env)
             {
                 await env.Err.WriteLineAsync($"The Hub exited during startup. Last lines of {log}:");
                 await env.Err.WriteLineAsync(Tail(log, 20));
+                LogError($"the Hub exited during startup (log {log})");
                 return CliExitCodes.Failed;
             }
             try { await Task.Delay(TimeSpan.FromSeconds(1), ct); } catch (OperationCanceledException) { break; }
@@ -380,6 +407,7 @@ public sealed class CliApp(CliEnvironment env)
         await env.Err.WriteLineAsync(
             $"The Hub did not answer within {StartWait.TotalSeconds:0} s (a first `dotnet run` may still be building). " +
             $"It keeps starting in the background — check `{Program} hub status` and `{Program} hub logs`.");
+        LogError($"the Hub did not answer within {StartWait.TotalSeconds:0} s");
         return CliExitCodes.Failed;
     }
 

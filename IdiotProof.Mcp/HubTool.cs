@@ -1,6 +1,7 @@
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using IdiotProof.Core.Hosting;
 using IdiotProof.Operations;
 using ModelContextProtocol.Protocol;
 using ModelContextProtocol.Server;
@@ -58,6 +59,11 @@ public sealed class HubTool(ToolSpec spec, HubInvoker hub) : McpServerTool
             Output = OutputMode.Human,
             ConfirmationCode = confirmation,
         }, cancellationToken);
+
+        // The Hub logs every operation it runs; what it can't see is a call that never reached it.
+        if (outcome.Response is null)
+            IdiotProofLog.Error("HubTool", null, "{Tool:l} did not reach the Hub: {Code:l}: {Message:l}",
+                spec.ToolName, outcome.ErrorCode, outcome.ErrorMessage);
 
         return ToResult(outcome);
     }

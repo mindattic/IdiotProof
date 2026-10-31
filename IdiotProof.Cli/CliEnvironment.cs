@@ -1,3 +1,4 @@
+using IdiotProof.Core.Hosting;
 using IdiotProof.Operations;
 
 namespace IdiotProof.Cli;
@@ -38,6 +39,12 @@ public sealed class CliEnvironment
     /// <summary>Starts, finds and stops Hub processes (tests substitute a fake).</summary>
     public IHubProcessControl HubProcesses { get; init; } = new HubProcessControl();
 
+    /// <summary>
+    /// Records a CLI-side failure (Hub unreachable, Hub would not start; IP-T23). The message
+    /// names the command's noun and verb only, never its arguments. Null = not logged (tests).
+    /// </summary>
+    public Action<string, Exception?>? LogError { get; init; }
+
     /// <summary>The real console.</summary>
     public static CliEnvironment FromConsole()
     {
@@ -54,6 +61,7 @@ public sealed class CliEnvironment
             IsOutputRedirected = Console.IsOutputRedirected,
             IsInputRedirected = Console.IsInputRedirected,
             Width = width,
+            LogError = (message, exception) => IdiotProofLog.Error("Cli", exception, "{Message:l}", message),
         };
     }
 }
