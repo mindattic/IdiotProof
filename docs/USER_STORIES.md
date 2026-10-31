@@ -813,5 +813,8 @@ updated: 2026-10-03
 | IP-T290 | 2026-10-30 | feature | open | README: CLI quick start, MCP registration, Live confirm flow | — |
 | IP-T291 | 2026-10-30 | fix | closed | Five EF migrations (20260721140000_AddDisplayName … 20260722000000_AddAuditLogCategoryTimeIndex) lack [Migration]/[DbContext] attributes and Designer files, so EF has never discovered or applied them | 0780271 |
 | IP-T292 | 2026-10-30 | fix | closed | Plain `dotnet run` of IdiotProof.Blazor crashes: UseStaticFiles roots at {exe}/wwwroot, which only exists in publish output | ba0c563 |
-| IP-T293 | 2026-10-30 | chore | open | Deactivate the active Live 'Silver Exit' strategies that have no entry conditions, stop or target (user request) | — |
-| IP-T294 | 2026-10-30 | chore | open | Remove the PostToolUse hook that auto-publishes the Monitor to C:\Apps\IdiotProof\Monitor on Edit/Write (violates never-auto-publish) | — |
+| IP-T293 | 2026-10-30 | chore | closed | Deactivate the active Live 'Silver Exit' strategies that have no entry conditions, stop or target (user request) | — |
+| IP-T294 | 2026-10-30 | chore | closed | Remove the PostToolUse hook that auto-publishes the Monitor to C:\Apps\IdiotProof\Monitor on Edit/Write (violates never-auto-publish) | d8dfc04 |
+| IP-T295 | 2026-10-30 | chore | closed | Clear out all strategies (user request): back up every Strategies row, then delete them and their ConditionProgress rows | — |
+| IP-T296 | 2026-10-30 | fix | closed | idiotproof hub start hangs when its output is piped: the detached cmd.exe inherits the CLI's stdout handle | — |
+| IP-T297 | 2026-10-30 | feature | closed | market chart <symbol>: Hub operation that pulls multi-session bars from the market data feed and renders an AsciiCandleChart (premarket/regular/after-hours per day, ET) | — |
