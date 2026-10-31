@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk.Razor">
+
+  <!-- IdiotProof's settings tab as a portable Razor class library (IP-T335): no route, no render
+       mode, no auth lookup, so the same component can be hosted unmodified by IdiotProof.Blazor's
+       /settings page, MindAttic.Vault.Desktop (BlazorWebView) or MindAttic.Vault.Web once the
+       family's settings-tab contract (MindAttic.Components M.COMP-T151) exists. The host supplies
+       the user and registers the IdiotProof core services (AddIdiotProofCore). -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <SupportedPlatform Include="browser" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Components.Web" Version="10.0.9" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\IdiotProof.Core\IdiotProof.Core.csproj" />
+  </ItemGroup>
+
+</Project>

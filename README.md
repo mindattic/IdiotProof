@@ -302,6 +302,7 @@ Every project below is registered in `IdiotProof.slnx`.
 | `IdiotProof.Mcp` | stdio MCP server (`idiotproof-mcp`) | One MCP tool per operation, forwarded to the Hub. | `ToolSpec`, `HubTool`, `HubInvoker`, `ToolDocs` |
 | `IdiotProof.Blazor` | ASP.NET Core Blazor Server app | The web front door: strategy authoring and monitoring, accounts, keys, research, learning. | See [The web app](#the-web-app) |
 | `IdiotProof.UI` | Razor Class Library | Shared component library referenced by `IdiotProof.Blazor`. Presentational only. | `Components/Options/`: `OptionsChainView`, `OptionOrderTicket`, `OptionPositionTracker`, `OptionsLiveElevationModal`, `OptionsPresenter` + view models; `Components/Shared/`: `Tooltip`, `Term`; `wwwroot/css/options.css`, tooltip CSS and JS |
+| `IdiotProof.Settings` | Razor Class Library | IdiotProof's settings tab as a portable component (no route, render mode or auth lookup; the host passes `UserId`), so MindAttic.Vault.Desktop/Web can host it unmodified (IP-T335). `/settings` in `IdiotProof.Blazor` is now a thin host for it. | `IdiotProofSettings.razor` (Risk Guardian limits, theme) |
 | `IdiotProof.Monitor` | .NET generic host console, Windows-Service-ready | The 24/7 evaluator and executor, "the one pipeline". | `Program.cs` (composition root), `MonitorWorker` (the tick loop), `MonitorLeaderLease` (`sp_getapplock` single-instance lease), `MonitorCli` (operator subcommands), `AutoGapperScanner`, `PremarketFadeScanner`, `EmailSmsAlertSender`, `StrategyScanner`/`StrategyReplay`/`StrategyReplayLive`/`ReplayFeatures`/`ReplayTemplates`/`StrategyDataset` (offline replay and ML-dataset tooling) |
 | `IdiotProof.ResearchScanner` | One-shot console | Autonomous market-event research sweep; not a daemon, not part of the trading loop. | `Program.cs`, `ScanPassRunner` |
 | `IdiotProof.Engine.Tests` | NUnit | RiskGuardian gate, SupervisedLoop resilience, WorkspaceManager, options pricing math (OCC, intrinsic/extrinsic, Black-Scholes, IV round-trips, sell signal). | — |
@@ -722,6 +723,7 @@ IdiotProof/
 │   ├── Components/Pages/                     ← Strategies, StrategyBuilder, Gapper, Learn, Research, Options, ...
 │   ├── Components/Shared/                    ← AccountSummaryBar, StrategyBuilderRenderer, ...
 │   └── wwwroot/                              ← css/_theme-alpaca.css, data/gapper-profiles.json, user-guide.htm
+├── IdiotProof.Settings/                      ← Portable settings-tab Razor Class Library (IP-T335)
 ├── IdiotProof.UI/                            ← Shared Razor Class Library (Options components, Tooltip/Term)
 ├── IdiotProof.Monitor/                       ← 24/7 evaluator + executor console, operator CLI, replay tooling
 ├── IdiotProof.ResearchScanner/               ← One-shot research sweep console

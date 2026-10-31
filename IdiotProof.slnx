@@ -30,5 +30,6 @@
   <Project Path="IdiotProof.Mcp/IdiotProof.Mcp.csproj" />
   <Project Path="IdiotProof.Monitor/IdiotProof.Monitor.csproj" />
   <Project Path="IdiotProof.ResearchScanner/IdiotProof.ResearchScanner.csproj" />
+  <Project Path="IdiotProof.Settings/IdiotProof.Settings.csproj" />
   <Project Path="IdiotProof.UI/IdiotProof.UI.csproj" />
 </Solution>

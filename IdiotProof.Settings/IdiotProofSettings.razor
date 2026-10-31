@@ -1,0 +1,182 @@
+@namespace IdiotProof.Settings
+@inject UserPreferencesService Prefs
+@inject RiskGuardianService RiskGuardians
+@inject IJSRuntime JS
+
+@*
+    IdiotProof's settings tab (IP-T335): the Risk Guardian limits (IP-LAW-2) and the theme.
+    Portable on purpose: no @page, no render mode and no AuthenticationStateProvider. The host
+    (IdiotProof.Blazor's /settings page today; MindAttic.Vault.Desktop/Web once the family's
+    settings-tab contract exists) passes the signed-in user as UserId and registers the IdiotProof
+    core services. The limits are the per-user caps the final pre-trade gate enforces; the Monitor
+    re-reads them on a 2-minute TTL, so edits reach live evaluation without a restart.
+*@
+
+<section aria-labelledby="settings-heading">
+    <h1 id="settings-heading" class="h4 mb-3">
+        <i class="bi bi-gear me-2" style="color:var(--brand)" aria-hidden="true"></i>Settings
+    </h1>
+
+    <div class="trading-card p-4 mb-3" aria-labelledby="risk-heading">
+        <h2 id="risk-heading" class="h6 mb-1">
+            <i class="bi bi-shield-check me-1" style="color:var(--brand)" aria-hidden="true"></i>Risk Guardian limits
+        </h2>
+        <p class="text-muted small mb-3">
+            The final gate before any order (IP-LAW-2). No strategy or LLM consensus can override these.
+            The Monitor picks up changes within ~2 minutes.
+        </p>
+
+        @if (loadError is not null)
+        {
+            <div class="alert alert-danger small">@loadError</div>
+        }
+
+        <div class="row g-3" style="max-width:720px">
+            <div class="col-sm-4">
+                <label class="form-label small text-muted" for="risk-per-trade">Max loss per trade ($)</label>
+                <input id="risk-per-trade" type="number" class="form-control" min="0" step="10" @bind="maxLossPerTrade" />
+            </div>
+            <div class="col-sm-4">
+                <label class="form-label small text-muted" for="risk-per-day">Max loss per day ($)</label>
+                <input id="risk-per-day" type="number" class="form-control" min="0" step="50" @bind="maxLossPerDay" />
+            </div>
+            <div class="col-sm-4">
+                <label class="form-label small text-muted" for="risk-balance">Account balance ($)</label>
+                <input id="risk-balance" type="number" class="form-control" min="0" step="500" @bind="accountBalance" />
+            </div>
+            <div class="col-sm-4">
+                <label class="form-label small text-muted" for="risk-min-stop">Min stop distance (%)</label>
+                <input id="risk-min-stop" type="number" class="form-control" min="0.01" step="0.1" @bind="minStopPct" />
+            </div>
+            <div class="col-sm-4">
+                <label class="form-label small text-muted" for="risk-max-stop">Max stop distance (%)</label>
+                <input id="risk-max-stop" type="number" class="form-control" min="0.01" step="0.5" @bind="maxStopPct" />
+            </div>
+            <div class="col-sm-4">
+                <label class="form-label small text-muted" for="risk-account-pct">Max account risk per trade (%)</label>
+                <input id="risk-account-pct" type="number" class="form-control" min="0" max="100" step="0.25" @bind="maxAccountRiskPct" />
+            </div>
+        </div>
+
+        <div class="d-flex align-items-center gap-3 mt-3">
+            <button class="btn btn-success" type="button" disabled="@(saving || UserId is null)" @onclick="SaveRisk">
+                @if (saving)
+                {
+                    <span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span>
+                }
+                Save limits
+            </button>
+            @if (saveMessage is not null)
+            {
+                <span class="small @(saveOk ? "text-success" : "text-danger")" role="status">@saveMessage</span>
+            }
+        </div>
+    </div>
+
+    <div class="trading-card p-4">
+        <label class="form-label small text-muted mb-2">Theme</label>
+        <div class="btn-group" role="group" aria-label="Theme">
+            <button type="button" class="btn btn-sm @(currentTheme == "dark" ? "btn-warning" : "btn-outline-secondary")"
+                    @onclick='() => SetTheme("dark")'>Dark</button>
+            <button type="button" class="btn btn-sm @(currentTheme == "light" ? "btn-warning" : "btn-outline-secondary")"
+                    @onclick='() => SetTheme("light")'>Light — Alpaca</button>
+        </div>
+        <p class="text-muted small mb-0 mt-3">
+            Dark and light share the same layout, font, and spacing — only colors change; the light theme
+            mirrors Alpaca's palette. Timezone is fixed to Eastern; per-user API credentials live on the
+            <a href="@ApiKeysHref">API Keys</a> page and in MindAttic.Vault.
+        </p>
+    </div>
+</section>
+
+@code {
+    /// <summary>The signed-in user whose limits are shown; null shows a sign-in message. Supplied by the host.</summary>
+    [Parameter] public Guid? UserId { get; set; }
+
+    /// <summary>Where the API Keys link points (a host without that route can pass its own).</summary>
+    [Parameter] public string ApiKeysHref { get; set; } = "/api-keys";
+
+    private string? loadError;
+    private bool saving;
+    private bool saveOk;
+    private string? saveMessage;
+    private string currentTheme = "dark";
+    private Guid? loadedFor;
+
+    private decimal maxLossPerTrade;
+    private decimal maxLossPerDay;
+    private decimal minStopPct;
+    private decimal maxStopPct;
+    private decimal accountBalance;
+    private decimal maxAccountRiskPct;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+        // The theme helpers live in the host's app.js; a host without them keeps the default.
+        try { currentTheme = await JS.InvokeAsync<string>("ipGetTheme"); StateHasChanged(); }
+        catch { /* JS not available (prerender, or a host without the helpers) */ }
+    }
+
+    private async Task SetTheme(string t)
+    {
+        try { currentTheme = await JS.InvokeAsync<string>("ipSetTheme", t); }
+        catch (JSException) { currentTheme = t; }
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (UserId == loadedFor && (UserId is not null || loadError is not null)) return;
+        loadedFor = UserId;
+        loadError = null;
+        if (UserId is null) { loadError = "Sign in to edit your risk limits."; return; }
+        try
+        {
+            var prefs = await Prefs.GetOrCreateAsync(UserId.Value);
+            maxLossPerTrade   = prefs.RiskMaxLossPerTrade;
+            maxLossPerDay     = prefs.RiskMaxLossPerDay;
+            minStopPct        = prefs.RiskMinStopLossPercent;
+            maxStopPct        = prefs.RiskMaxStopLossPercent;
+            accountBalance    = prefs.RiskAccountBalance;
+            maxAccountRiskPct = prefs.RiskMaxAccountRiskPercent;
+        }
+        catch (Exception ex) { loadError = ex.Message; }
+    }
+
+    private async Task SaveRisk()
+    {
+        if (UserId is null) return;
+        saving = true;
+        saveMessage = null;
+        try
+        {
+            // SetRiskConfigAsync clamps to sane invariants (daily ≥ per-trade,
+            // max stop ≥ min stop, non-negative amounts); read the clamped
+            // values back so the form shows what was actually persisted.
+            var saved = await Prefs.SetRiskConfigAsync(
+                UserId.Value, maxLossPerTrade, maxLossPerDay,
+                minStopPct, maxStopPct, accountBalance, maxAccountRiskPct);
+
+            maxLossPerTrade   = saved.RiskMaxLossPerTrade;
+            maxLossPerDay     = saved.RiskMaxLossPerDay;
+            minStopPct        = saved.RiskMinStopLossPercent;
+            maxStopPct        = saved.RiskMaxStopLossPercent;
+            accountBalance    = saved.RiskAccountBalance;
+            maxAccountRiskPct = saved.RiskMaxAccountRiskPercent;
+
+            // Expire this process's cached Guardian config (daily-loss counter
+            // survives — see RiskGuardianService.Invalidate). The Monitor's
+            // own cache refreshes on its 2-minute TTL.
+            RiskGuardians.Invalidate(UserId.Value);
+
+            saveOk = true;
+            saveMessage = "Saved. The Monitor applies these within ~2 minutes.";
+        }
+        catch (Exception ex)
+        {
+            saveOk = false;
+            saveMessage = "Save failed: " + ex.Message;
+        }
+        finally { saving = false; }
+    }
+}
