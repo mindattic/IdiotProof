@@ -17,6 +17,37 @@ public sealed class BlazorOrderPathTests
     }
 
     /// <summary>
+    /// IP-T281: no page, component or service in the web app (IdiotProof.Blazor, IdiotProof.UI)
+    /// places, replaces or cancels at a broker itself — every manual order goes through the
+    /// gateway (today: the Options ticket via OptionsTradingService.PlaceOrderAsync).
+    /// </summary>
+    [Test]
+    public void WebApp_NeverCallsABrokerDirectly()
+    {
+        var root = RepoRoot();
+        var direct = new Regex(@"(?<receiver>\w+)\s*\.\s*(PlaceOrderAsync|ReplaceOrderAsync|CancelOrderAsync|CancelAllOrdersAsync)\s*\(");
+        var offenders = new List<string>();
+        foreach (var project in new[] { "IdiotProof.Blazor", "IdiotProof.UI" })
+        foreach (var file in Directory.EnumerateFiles(Path.Combine(root, project), "*.*", SearchOption.AllDirectories)
+                     .Where(f => f.EndsWith(".cs") || f.EndsWith(".razor"))
+                     .Where(f => !f.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}")
+                              && !f.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}")))
+        {
+            var lines = File.ReadAllLines(file);
+            for (var i = 0; i < lines.Length; i++)
+            {
+                var line = lines[i].TrimStart();
+                if (line.StartsWith("//") || line.StartsWith("///") || line.StartsWith("*") || line.StartsWith("@*")) continue;
+                foreach (Match m in direct.Matches(lines[i]))
+                    if (m.Groups["receiver"].Value != "OptionsSvc")
+                        offenders.Add($"{Path.GetRelativePath(root, file)}:{i + 1}: {lines[i].Trim()}");
+            }
+        }
+
+        Assert.That(offenders, Is.Empty, "Route the order through TransactionGateway (OptionsTradingService.PlaceOrderAsync / SubmitElevatedAsync).");
+    }
+
+    /// <summary>
     /// IP-T282: the Options page places through OptionsTradingService.PlaceOrderAsync (the
     /// gateway), handing it the elevation service so the server checks the password window —
     /// and the page keeps its own password prompt before a Live ticket.
